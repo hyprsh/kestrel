@@ -2,8 +2,10 @@ package main
 
 import (
 	"github.com/hyprsh/kestrel/internal/plugin"
+	"github.com/hyprsh/kestrel/internal/plugin/adapters/newznab"
 	"github.com/hyprsh/kestrel/internal/plugin/adapters/sabnzbd"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
+	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
 )
 
 // builtinPlugins is the explicit list of compiled-in plugins (ADR 0008). Adding an
@@ -16,6 +18,7 @@ func builtinPlugins() (*plugin.Registry, error) {
 		plugin   plugin.Plugin
 	}{
 		{downloadclient.Contract, sabnzbd.New(nil)},
+		{indexer.Contract, newznab.New(nil)},
 	} {
 		if err := r.Register(reg.contract, reg.plugin); err != nil {
 			return nil, err

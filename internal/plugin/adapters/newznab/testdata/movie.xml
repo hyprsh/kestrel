@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:newznab="http://www.newznab.com/DTD/2010/feeds/attributes/">
+  <channel>
+    <title>indexer.example</title>
+    <description>API Details</description>
+    <link>https://indexer.example/</link>
+    <language>en-gb</language>
+    <webMaster>admin@indexer.example (indexer)</webMaster>
+    <category></category>
+    <newznab:response offset="0" total="2"/>
+    <newznab:apilimits apicurrent="12" apimax="100" grabcurrent="3" grabmax="50" apioldesttime="Tue, 01 Jul 2025 10:00:00 +0000" graboldesttime="Tue, 01 Jul 2025 11:00:00 +0000"/>
+    <item>
+      <title>The.Matrix.1999.2160p.UHD.BluRay.x265-GRP</title>
+      <guid isPermaLink="true">https://indexer.example/details/aaaa1111</guid>
+      <link>https://indexer.example/getnzb/aaaa1111.nzb&amp;i=1&amp;r=SECRET</link>
+      <comments>https://indexer.example/details/aaaa1111#comments</comments>
+      <pubDate>Wed, 02 Jul 2025 09:00:00 +0000</pubDate>
+      <category>Movies &gt; UHD</category>
+      <description>The.Matrix.1999.2160p.UHD.BluRay.x265-GRP</description>
+      <enclosure url="https://indexer.example/getnzb/aaaa1111.nzb&amp;i=1&amp;r=SECRET" length="58000000000" type="application/x-nzb"/>
+      <newznab:attr name="category" value="2000"/>
+      <newznab:attr name="category" value="2045"/>
+      <newznab:attr name="size" value="58000000000"/>
+      <newznab:attr name="guid" value="aaaa1111"/>
+      <newznab:attr name="imdb" value="0133093"/>
+      <newznab:attr name="tmdbid" value="603"/>
+      <newznab:attr name="grabs" value="42"/>
+      <newznab:attr name="files" value="120"/>
+      <newznab:attr name="poster" value="x@y.z"/>
+      <newznab:attr name="group" value="alt.binaries.movies"/>
+      <newznab:attr name="usenetdate" value="Tue, 01 Jul 2025 22:30:00 +0000"/>
+      <newznab:attr name="password" value="0"/>
+      <newznab:attr name="prematch" value="1"/>
+      <newznab:attr name="language" value="English, German"/>
+      <newznab:attr name="language" value="French"/>
+    </item>
+    <item>
+      <title>The.Matrix.1999.1080p.BluRay.x264-OTHER</title>
+      <guid isPermaLink="true">https://indexer.example/details/bbbb2222</guid>
+      <link>https://indexer.example/getnzb/bbbb2222.nzb&amp;i=1&amp;r=SECRET</link>
+      <pubDate>Mon, 30 Jun 2025 09:00:00 +0000</pubDate>
+      <category>Movies &gt; HD</category>
+      <enclosure url="https://indexer.example/getnzb/bbbb2222.nzb&amp;i=1&amp;r=SECRET" length="9000000000" type="application/x-nzb"/>
+      <newznab:attr name="category" value="2040"/>
+      <newznab:attr name="size" value="9000000000"/>
+      <newznab:attr name="imdb" value="133093"/>
+      <newznab:attr name="password" value="2"/>
+      <newznab:attr name="nuked" value="1"/>
+    </item>
+  </channel>
+</rss>
