@@ -8,9 +8,9 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/indexers"
 	"github.com/hyprsh/kestrel/internal/plugin"
-	"github.com/hyprsh/kestrel/internal/plugin/instances"
 	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
 	"github.com/hyprsh/kestrel/internal/plugin/indexer/v1/fake"
+	"github.com/hyprsh/kestrel/internal/plugin/instances"
 	"github.com/hyprsh/kestrel/internal/store"
 )
 

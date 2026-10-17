@@ -145,7 +145,7 @@ type server struct {
 	rootFolders *rootfolders.Service
 	library     *library.Service
 	acquire     *acquire.Service
-	meta       metadata.Provider
+	meta        metadata.Provider
 	posters     *metadata.Posters
 }
 
