@@ -205,7 +205,7 @@ type server struct {
 	jobs        *jobs.Runner
 	history     *history.Service
 	imports     *imports.Service
-	hub        *hub
+	hub         *hub
 	meta        metadata.Provider
 	tvdb        metadata.TVDBProvider
 	posters     *metadata.Posters

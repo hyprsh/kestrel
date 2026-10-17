@@ -119,7 +119,7 @@ var apiHints = map[string][]hint{
 	"PatchVersion":    {hintOf("title", 0)},
 	"DeleteVersion":   {hintOf("title", 0), hintOf("queue", 0)},
 	"DeleteTitle":     {hintOf("title", 0), hintOf("queue", 0)},
-	"CreateGrab":     {hintOf("grab", 0), hintOf("queue", 0), hintOf("title", 0)},
+	"CreateGrab":      {hintOf("grab", 0), hintOf("queue", 0), hintOf("title", 0)},
 	"CancelGrab":      {hintOf("grab", 0), hintOf("queue", 0), hintOf("title", 0)},
 }
 
