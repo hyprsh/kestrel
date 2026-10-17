@@ -35,7 +35,7 @@ The language a Title was made in, as its metadata states. A Profile can require 
 _Avoid_: O-Ton, VO, English (when the Original Language is meant)
 
 **Version**:
-A Title's wanted copy in one Slot, under that Slot's chosen Profile, kept as its own file. Each Version is filled and upgraded on its own: a Release only ever replaces the file of the Version whose Profile it matches, never another Version's. All Versions of a Title live side by side in its folder.
+A Title's wanted copy in one Slot, under that Slot's chosen Profile, kept as its own file. Each Version is filled and upgraded on its own: a Release only ever replaces the file of the Version whose Profile it matches, never another Version's. All Versions of a Title live side by side in its folder. A Series Version holds one file per episode and is filled episode by episode.
 _Avoid_: Edition, copy, quality (as a noun for the Slot)
 
 **Dual-Language Release**:
