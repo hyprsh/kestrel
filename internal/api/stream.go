@@ -69,6 +69,9 @@ func hintsOf(ev history.Event) []hint {
 	if strings.HasPrefix(string(ev.Kind), "grab") {
 		out = append(out, hintOf("queue", 0))
 	}
+	if strings.HasPrefix(string(ev.Kind), "health") {
+		out = append(out, hintOf("attention", 0))
+	}
 	return append(out, hintOf("log", 0))
 }
 
@@ -111,12 +114,13 @@ func (h *hub) publish(hs ...hint) {
 // apiHints are the hints a successful call of an operation causes. Changes made
 // by background loops reach the stream through the events log instead.
 var apiHints = map[string][]hint{
-	"CreateTitle":     {hintOf("title", 0)},
-	"PatchTitle":      {hintOf("title", 0)},
-	"PatchSeason":     {hintOf("title", 0)},
-	"MonitorEpisodes": {hintOf("title", 0)},
-	"CreateGrab":      {hintOf("grab", 0), hintOf("queue", 0), hintOf("title", 0)},
-	"CancelGrab":      {hintOf("grab", 0), hintOf("queue", 0), hintOf("title", 0)},
+	"CreateTitle":      {hintOf("title", 0)},
+	"PatchTitle":       {hintOf("title", 0)},
+	"PatchSeason":      {hintOf("title", 0)},
+	"MonitorEpisodes":  {hintOf("title", 0)},
+	"CreateGrab":       {hintOf("grab", 0), hintOf("queue", 0), hintOf("title", 0)},
+	"CancelGrab":       {hintOf("grab", 0), hintOf("queue", 0), hintOf("title", 0)},
+	"DismissAttention": {hintOf("attention", 0)},
 }
 
 // emitHints is a strict-server middleware that publishes an operation's hints
@@ -133,12 +137,6 @@ func (s *server) emitHints(next oapi.StrictHandlerFunc, operationID string) oapi
 		}
 		return res, err
 	}
-}
-
-// attention is the Needs attention count and worst severity. Nothing raises a
-// row yet; the attention ticket replaces this with the real read model.
-func (s *server) attention(context.Context) (count int, severity *string, err error) {
-	return 0, nil, nil
 }
 
 // Stream is GET /stream. The response object runs the stream itself: the

@@ -182,8 +182,8 @@ type State struct {
 	Since   time.Time
 }
 
-// States are the indexers that failed their last call, by instance id.
-func (s *Service) States() map[int64]State {
+// IndexerStates are the indexers that failed their last call, by instance id.
+func (s *Service) IndexerStates() map[int64]State {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := make(map[int64]State, len(s.watches.indexers))
@@ -379,6 +379,10 @@ func (s *Service) CheckRootFolder(ctx context.Context, path string) error {
 func (s *Service) checkRootFolders(ctx context.Context) error {
 	if s.deps.RootFolders == nil {
 		return nil
+	}
+	if !s.setupDone(ctx) {
+		// The wizard prefills folders that may not exist yet.
+		return s.ClearExcept(ctx, KindRootFolder)
 	}
 	paths, err := s.deps.RootFolders(ctx)
 	if err != nil {

@@ -155,16 +155,16 @@ func TestNoIndexerRowWaitsForSetupToFinish(t *testing.T) {
 	}
 }
 
-func TestStatesReportWhoIsFailing(t *testing.T) {
+func TestIndexerStatesReportWhoIsFailing(t *testing.T) {
 	ctx := context.Background()
 	e := newEnv(t, enabledIndexers(alpha))
 	e.h.ObserveIndexer(ctx, alpha, &health.Failure{Auth: true, Message: "bad key"})
-	st := e.h.States()
+	st := e.h.IndexerStates()
 	if got := st[alpha.ID]; !got.Failing || !got.Auth || got.Message != "bad key" {
 		t.Errorf("state = %+v", got)
 	}
 	e.h.ObserveIndexer(ctx, alpha, nil)
-	if got := e.h.States()[alpha.ID]; got.Failing {
+	if got := e.h.IndexerStates()[alpha.ID]; got.Failing {
 		t.Errorf("state after recovery = %+v", got)
 	}
 }
@@ -257,6 +257,23 @@ func TestRootFolderUnavailableIsRaisedForMissingNonDirectoryAndUnwritableFolders
 		if r.Key == "root_folder:"+missing {
 			t.Errorf("the created folder should have cleared: %+v", r)
 		}
+	}
+}
+
+func TestRootFoldersTheWizardPrefilledAreNotCheckedBeforeSetupIsDone(t *testing.T) {
+	paths := []string{filepath.Join(t.TempDir(), "not-yet")}
+	setupDone := false
+	e := newEnv(t, rootsOf(&paths), func(d *health.Deps) {
+		d.Checks.SetupDone = func(context.Context) bool { return setupDone }
+	})
+	_ = e.h.RunChecks(context.Background())
+	if len(e.rows(t)) != 0 {
+		t.Fatalf("rows = %+v", e.rows(t))
+	}
+	setupDone = true
+	_ = e.h.RunChecks(context.Background())
+	if len(e.rows(t)) != 1 {
+		t.Errorf("rows = %+v", e.rows(t))
 	}
 }
 

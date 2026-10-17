@@ -620,6 +620,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Needs attention
+         * @description The problems the admin can act on. Blocking rows first, then Warnings newest first. Rows come
+         *     from conditions that clear themselves when the condition goes (Settled 16, 17; #17); `actions`
+         *     are built by the server and drawn generically by the SPA. An action with method `GET` opens
+         *     that SPA path (such as `/settings/download-client`) instead of calling the API. `count`
+         *     counts `rows` only: the Long Missing group has its own `long_missing` and never counts.
+         */
+        get: operations["getAttention"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attention/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A row's `id` from `GET /attention`. */
+                id: components["parameters"]["AttentionRowId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss a one-off health warning
+         * @description Hides the row until its condition recurs. Only rows with a `dismiss` action can be dismissed;
+         *     any other row is `409 conflict`, and one that is already gone `404`.
+         */
+        post: operations["dismissAttention"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The health strip
+         * @description Capacity at a glance: the download client, each indexer and the free space on the data mount
+         *     and every Root folder. Indexer budgets, pauses and the TRaSH snapshot's age fill in with the
+         *     tickets that own them.
+         */
+        get: operations["getSystemStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/stream": {
         parameters: {
             query?: never;
@@ -1404,6 +1474,119 @@ export interface components {
              */
             severity: "blocking" | "warning" | null;
         };
+        Attention: {
+            /** @description How many `rows` there are. Long Missing does not count. */
+            count: number;
+            /**
+             * @description The worst severity among the rows, null when there are none.
+             * @enum {string|null}
+             */
+            severity: "blocking" | "warning" | null;
+            rows: components["schemas"]["AttentionRow"][];
+            long_missing: components["schemas"]["LongMissing"];
+        };
+        AttentionRow: {
+            /** @description Opaque and stable while the condition lasts. */
+            id: string;
+            /** @enum {string} */
+            severity: "blocking" | "warning";
+            /**
+             * @description What sort of condition, such as `download_client_unreachable`, `no_indexer`,
+             *     `root_folder_unavailable`, `metadata_provider_failing`, `indexer_failing`,
+             *     `low_disk_space`, `untrusted_proxy_header` or a one-off health warning (`exdev`,
+             *     `refresh_failed`, `plex_no_section`). The set grows; clients tolerate unknown kinds.
+             */
+            kind: string;
+            subject: components["schemas"]["AttentionSubject"];
+            message: string;
+            /**
+             * Format: date-time
+             * @description When the condition first showed.
+             */
+            since: string;
+            /** @description How often it was raised since it first showed. */
+            count: number;
+            actions: components["schemas"]["AttentionAction"][];
+        };
+        AttentionSubject: {
+            /** Format: int64 */
+            title_id: number | null;
+            /** Format: int64 */
+            version_id: number | null;
+            /** Format: int64 */
+            grab_id: number | null;
+            /** Format: int64 */
+            plugin_instance_id: number | null;
+        };
+        AttentionAction: {
+            /** @description `dismiss`, `test`, `open`, `disable`, `retry` and so on. */
+            key: string;
+            /** @description The JSON body to send with an API call, when it needs one. */
+            body: {
+                [key: string]: unknown;
+            } | null;
+            label: string;
+            /**
+             * @description `GET` opens `path` in the SPA; the others call the API.
+             * @enum {string}
+             */
+            method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+            /**
+             * @description For an API call, relative to the API root (`/plugin-instances/3/test`); for `GET`, an SPA
+             *     path (`/settings/download-client`).
+             */
+            path: string;
+            /** @description Ask this before running the action, when set. */
+            confirm: string | null;
+        };
+        LongMissing: {
+            /** @description How many Versions are Long Missing. */
+            count: number;
+            /** @description The five most recently released. */
+            items: {
+                /** Format: int64 */
+                title_id: number;
+                /** Format: int64 */
+                version_id: number;
+                slot: components["schemas"]["Slot"];
+                /** Format: date-time */
+                wanted_since: string;
+                last_failure: string | null;
+            }[];
+        };
+        SystemStatus: {
+            download_client: components["schemas"]["ClientStatus"];
+            indexers: components["schemas"]["IndexerStatus"][];
+            /** @description The data mount first, then every Root folder. */
+            disks: components["schemas"]["DiskStatus"][];
+        };
+        ClientStatus: {
+            /**
+             * @description `none` when no download client is enabled.
+             * @enum {string}
+             */
+            state: "ok" | "failing" | "none";
+            name: string | null;
+            /** Format: int64 */
+            instance_id: number | null;
+            /** @description What the last failed call said. */
+            message: string | null;
+        };
+        IndexerStatus: {
+            /** Format: int64 */
+            instance_id: number;
+            name: string;
+            /** @enum {string} */
+            state: "ok" | "failing" | "disabled";
+            message: string | null;
+        };
+        DiskStatus: {
+            path: string;
+            /** Format: int64 */
+            free_bytes: number;
+            /** Format: int64 */
+            total_bytes: number;
+        };
         QueueList: {
             items: components["schemas"]["QueueItem"][];
         };
@@ -1599,6 +1782,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description A row's `id` from `GET /attention`. */
+        AttentionRowId: string;
         PluginId: string;
         InstanceId: number;
         TitleId: number;
@@ -2406,6 +2591,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QueueList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getAttention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rows that need attention. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attention"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    dismissAttention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A row's `id` from `GET /attention`. */
+                id: components["parameters"]["AttentionRowId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The row is hidden. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getSystemStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemStatus"];
                 };
             };
             default: components["responses"]["Problem"];

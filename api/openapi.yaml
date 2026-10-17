@@ -781,6 +781,63 @@ paths:
                 $ref: "#/components/schemas/QueueList"
         default:
           $ref: "#/components/responses/Problem"
+  /attention:
+    get:
+      operationId: getAttention
+      summary: Needs attention
+      description: |
+        The problems the admin can act on. Blocking rows first, then Warnings newest first. Rows come
+        from conditions that clear themselves when the condition goes (Settled 16, 17; #17); `actions`
+        are built by the server and drawn generically by the SPA. An action with method `GET` opens
+        that SPA path (such as `/settings/download-client`) instead of calling the API. `count`
+        counts `rows` only: the Long Missing group has its own `long_missing` and never counts.
+      tags: [system]
+      responses:
+        "200":
+          description: The rows that need attention.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Attention"
+        default:
+          $ref: "#/components/responses/Problem"
+  /attention/{id}/dismiss:
+    parameters:
+      - $ref: "#/components/parameters/AttentionRowId"
+    post:
+      operationId: dismissAttention
+      summary: Dismiss a one-off health warning
+      description: |
+        Hides the row until its condition recurs. Only rows with a `dismiss` action can be dismissed;
+        any other row is `409 conflict`, and one that is already gone `404`.
+      tags: [system]
+      responses:
+        "204":
+          description: The row is hidden.
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /system/status:
+    get:
+      operationId: getSystemStatus
+      summary: The health strip
+      description: |
+        Capacity at a glance: the download client, each indexer and the free space on the data mount
+        and every Root folder. Indexer budgets, pauses and the TRaSH snapshot's age fill in with the
+        tickets that own them.
+      tags: [system]
+      responses:
+        "200":
+          description: The current status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemStatus"
+        default:
+          $ref: "#/components/responses/Problem"
   /stream:
     get:
       operationId: stream
@@ -1133,6 +1190,13 @@ paths:
           $ref: "#/components/responses/Problem"
 components:
   parameters:
+    AttentionRowId:
+      name: id
+      in: path
+      required: true
+      description: A row's `id` from `GET /attention`.
+      schema:
+        type: string
     PluginId:
       name: plugin_id
       in: path
@@ -2164,6 +2228,192 @@ components:
           nullable: true
           enum: [blocking, warning]
           description: The worst severity among them, null when there are none.
+    Attention:
+      type: object
+      required: [count, severity, rows, long_missing]
+      properties:
+        count:
+          type: integer
+          description: How many `rows` there are. Long Missing does not count.
+        severity:
+          type: string
+          nullable: true
+          enum: [blocking, warning]
+          description: The worst severity among the rows, null when there are none.
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/AttentionRow"
+        long_missing:
+          $ref: "#/components/schemas/LongMissing"
+    AttentionRow:
+      type: object
+      required: [id, severity, kind, subject, message, since, count, actions]
+      properties:
+        id:
+          type: string
+          description: Opaque and stable while the condition lasts.
+        severity:
+          type: string
+          enum: [blocking, warning]
+        kind:
+          type: string
+          description: |
+            What sort of condition, such as `download_client_unreachable`, `no_indexer`,
+            `root_folder_unavailable`, `metadata_provider_failing`, `indexer_failing`,
+            `low_disk_space`, `untrusted_proxy_header` or a one-off health warning (`exdev`,
+            `refresh_failed`, `plex_no_section`). The set grows; clients tolerate unknown kinds.
+        subject:
+          $ref: "#/components/schemas/AttentionSubject"
+        message:
+          type: string
+        since:
+          type: string
+          format: date-time
+          description: When the condition first showed.
+        count:
+          type: integer
+          description: How often it was raised since it first showed.
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AttentionAction"
+    AttentionSubject:
+      type: object
+      required: [title_id, version_id, grab_id, plugin_instance_id]
+      properties:
+        title_id:
+          type: integer
+          format: int64
+          nullable: true
+        version_id:
+          type: integer
+          format: int64
+          nullable: true
+        grab_id:
+          type: integer
+          format: int64
+          nullable: true
+        plugin_instance_id:
+          type: integer
+          format: int64
+          nullable: true
+    AttentionAction:
+      type: object
+      required: [key, label, method, path, body, confirm]
+      properties:
+        key:
+          type: string
+          description: "`dismiss`, `test`, `open`, `disable`, `retry` and so on."
+        body:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: The JSON body to send with an API call, when it needs one.
+        label:
+          type: string
+        method:
+          type: string
+          enum: [GET, POST, PUT, PATCH, DELETE]
+          description: "`GET` opens `path` in the SPA; the others call the API."
+        path:
+          type: string
+          description: |
+            For an API call, relative to the API root (`/plugin-instances/3/test`); for `GET`, an SPA
+            path (`/settings/download-client`).
+        confirm:
+          type: string
+          nullable: true
+          description: Ask this before running the action, when set.
+    LongMissing:
+      type: object
+      required: [count, items]
+      properties:
+        count:
+          type: integer
+          description: How many Versions are Long Missing.
+        items:
+          type: array
+          description: The five most recently released.
+          items:
+            type: object
+            required: [title_id, version_id, slot, wanted_since, last_failure]
+            properties:
+              title_id:
+                type: integer
+                format: int64
+              version_id:
+                type: integer
+                format: int64
+              slot:
+                $ref: "#/components/schemas/Slot"
+              wanted_since:
+                type: string
+                format: date-time
+              last_failure:
+                type: string
+                nullable: true
+    SystemStatus:
+      type: object
+      required: [download_client, indexers, disks]
+      properties:
+        download_client:
+          $ref: "#/components/schemas/ClientStatus"
+        indexers:
+          type: array
+          items:
+            $ref: "#/components/schemas/IndexerStatus"
+        disks:
+          type: array
+          description: The data mount first, then every Root folder.
+          items:
+            $ref: "#/components/schemas/DiskStatus"
+    ClientStatus:
+      type: object
+      required: [state, name, instance_id, message]
+      properties:
+        state:
+          type: string
+          enum: [ok, failing, none]
+          description: "`none` when no download client is enabled."
+        name:
+          type: string
+          nullable: true
+        instance_id:
+          type: integer
+          format: int64
+          nullable: true
+        message:
+          type: string
+          nullable: true
+          description: What the last failed call said.
+    IndexerStatus:
+      type: object
+      required: [instance_id, name, state, message]
+      properties:
+        instance_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        state:
+          type: string
+          enum: [ok, failing, disabled]
+        message:
+          type: string
+          nullable: true
+    DiskStatus:
+      type: object
+      required: [path, free_bytes, total_bytes]
+      properties:
+        path:
+          type: string
+        free_bytes:
+          type: integer
+          format: int64
+        total_bytes:
+          type: integer
+          format: int64
     QueueList:
       type: object
       required: [items]
