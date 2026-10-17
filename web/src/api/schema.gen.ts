@@ -620,6 +620,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Requests, newest first, or the named ones
+         * @description `id` may repeat (at most 100) to read those Requests in one call, as the Silo plugin does; the
+         *     other filters and the cursor are ignored then.
+         */
+        get: operations["listRequests"];
+        put?: never;
+        /**
+         * Ask Kestrel for a Title in one or more Slots
+         * @description The native, source-neutral Request API (ADR 0004); Silo's router plugin calls it. A Request is
+         *     accepted at once, with no approval step. It adds the Title or only its missing Versions, searches
+         *     them at once, and never changes an existing Version: a Slot that already has a Version is accepted
+         *     unchanged and reports that Version's Profile and status. A Slot named without a `profile` uses
+         *     Profile resolution (with the Kids rule in HD). A Series Request names `seasons`, or `null` for the
+         *     whole Series; it only ever adds monitoring.
+         *
+         *     `201` for a new Request, accepted or rejected (`outcome`, `reject_reason`); a Request Kestrel cannot
+         *     serve (`not_on_tvdb`, `unknown_title`, `no_enabled_profile`) is stored as rejected and changes nothing.
+         *     A retry of the same `(source, source_request_id)` creates nothing and returns the stored Request
+         *     with `200`. `422` only for a malformed body. The requester's email is never stored.
+         */
+        post: operations["createRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/requests/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /** One Request with its current per-Slot status */
+        get: operations["getRequest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/plugins": {
         parameters: {
             query?: never;
@@ -1334,6 +1388,8 @@ export interface components {
         TitleDetail: {
             /** Format: int64 */
             id: number;
+            /** @description The Requests that asked for this Title, oldest first. */
+            requests: components["schemas"]["RequestOrigin"][];
             kind: components["schemas"]["TitleKind"];
             tmdb_id: number | null;
             tvdb_id: number | null;
@@ -1368,6 +1424,91 @@ export interface components {
             seasons: components["schemas"]["Season"][];
             /** @description In Slot order. */
             versions: components["schemas"]["VersionDetail"][];
+        };
+        /** @description The Title asked for. Kestrel needs `tmdb_id`, or a `tvdb_id` of a Series already in the Library. */
+        RequestTitle: {
+            kind: components["schemas"]["TitleKind"];
+            tmdb_id?: number | null;
+            tvdb_id?: number | null;
+            imdb_id?: string | null;
+        };
+        RequestSlotCreate: {
+            slot: components["schemas"]["Slot"];
+            /** @description A Profile key of that Slot; left out, Profile resolution picks one. */
+            profile?: string | null;
+        };
+        Requester: {
+            id: string;
+            name: string;
+        };
+        RequestCreate: {
+            /** @example silo */
+            source: string;
+            /** @description The source's own id; the key that makes a retry idempotent. */
+            source_request_id: string;
+            requester: components["schemas"]["Requester"];
+            title: components["schemas"]["RequestTitle"];
+            slots: components["schemas"]["RequestSlotCreate"][];
+            /** @description Series only; `null` or left out asks for the whole Series. */
+            seasons?: number[] | null;
+        };
+        RequestDownload: {
+            /** @description `queued`, `downloading`, `paused`, `post_processing` or `importing`. */
+            phase: string;
+            /** Format: int64 */
+            bytes_left: number;
+            /** @description Seconds. */
+            eta: number | null;
+        };
+        RequestSlot: {
+            slot: components["schemas"]["Slot"];
+            /** @description The Version's Profile; `null` for a rejected Request that never resolved one. */
+            profile: string | null;
+            /**
+             * Format: int64
+             * @description `null` when there is no Version: the Request was rejected, or the Version was removed since.
+             */
+            version_id: number | null;
+            /**
+             * @description Derived on every read. `failed` only when Kestrel rejected the Request or the Version or Title
+             *     was removed later; a failed download never shows as failed (it is blocklisted and retried).
+             * @enum {string}
+             */
+            status: "queued" | "downloading" | "completed" | "failed";
+            /** @description `Not released yet` or `Searching` while queued. */
+            status_label: string;
+            download: components["schemas"]["RequestDownload"] | null;
+        };
+        Request: {
+            /** Format: int64 */
+            id: number;
+            source: string;
+            source_request_id: string;
+            requester: components["schemas"]["Requester"];
+            /** @enum {string} */
+            outcome: "accepted" | "rejected";
+            /** @enum {string|null} */
+            reject_reason: "not_on_tvdb" | "unknown_title" | "no_enabled_profile" | null;
+            /** Format: int64 */
+            title_id: number | null;
+            /** @description The seasons asked for; empty for a Movie or the whole Series. */
+            seasons: number[];
+            /** Format: date-time */
+            created_at: string;
+            slots: components["schemas"]["RequestSlot"][];
+        };
+        RequestList: {
+            items: components["schemas"]["Request"][];
+            next_cursor: string | null;
+        };
+        /** @description Who asked for a Title and from where, for "Requested by Anna via Silo". */
+        RequestOrigin: {
+            /** Format: int64 */
+            id: number;
+            source: string;
+            requester_name: string;
+            /** Format: date-time */
+            created_at: string;
         };
         /** @description RFC 9457 problem details. */
         Problem: {
@@ -2211,6 +2352,94 @@ export interface operations {
                     "application/json": components["schemas"]["QueueList"];
                 };
             };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listRequests: {
+        parameters: {
+            query?: {
+                source?: string;
+                title_id?: number;
+                id?: number[];
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of Requests with their current status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestList"];
+                };
+            };
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    createRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestCreate"];
+            };
+        };
+        responses: {
+            /** @description A retry, so the Request stored earlier, with its current status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Request"];
+                };
+            };
+            /** @description The new Request. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Request"];
+                };
+            };
+            422: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Request"];
+                };
+            };
+            404: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

@@ -139,6 +139,18 @@ describe('the Library detail pane', () => {
     expect(await screen.findByRole('heading', { name: 'Heat' })).toBeInTheDocument()
   })
 
+  it('says who requested the Title and from where', async () => {
+    fakeLibrary(rows())
+    server.use(
+      http.get('/titles/{id}', ({ response }) =>
+        response(200).json(detail(rows()[0], { requests: [{ id: 5, source: 'silo', requester_name: 'Anna', created_at: '2026-10-01T10:00:00Z' }] })),
+      ),
+    )
+    await openLibrary()
+    const pane = await screen.findByRole('region', { name: /paddington/i })
+    expect(await within(pane).findByText('Requested by Anna via silo')).toBeInTheDocument()
+  })
+
   it('shows the poster when the Title has one', async () => {
     fakeLibrary(rows())
     server.use(http.get('/titles/{id}', ({ response }) => response(200).json(detail(rows()[0], { has_poster: true }))))

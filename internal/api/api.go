@@ -25,6 +25,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/plugin"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
+	"github.com/hyprsh/kestrel/internal/requests"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
@@ -126,6 +127,10 @@ func New(opts Options) *App {
 		panic("api: the embedded TRaSH snapshot is invalid: " + err.Error())
 	}
 	s.acquire = acq
+	s.requests = requests.New(requests.Deps{
+		Store: opts.Store, Clock: opts.Clock, Library: s.library, Profiles: s.profiles, RootFolders: s.rootFolders,
+		Meta: s.meta, TVDB: s.tvdb, Grabs: acq,
+	})
 	s.jobs = jobs.Standard(jobs.Deps{Acquire: acq, Library: s.library, Clock: opts.Clock, Logger: opts.Logger})
 
 	mux := http.NewServeMux()
@@ -170,6 +175,7 @@ type server struct {
 	rootFolders *rootfolders.Service
 	library     *library.Service
 	acquire     *acquire.Service
+	requests    *requests.Service
 	jobs        *jobs.Runner
 	meta        metadata.Provider
 	tvdb        metadata.TVDBProvider

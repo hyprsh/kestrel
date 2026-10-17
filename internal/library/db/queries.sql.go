@@ -10,6 +10,22 @@ import (
 	"database/sql"
 )
 
+const findTitleByKindTVDB = `-- name: FindTitleByKindTVDB :one
+SELECT id FROM titles WHERE kind = ? AND tvdb_id = ?
+`
+
+type FindTitleByKindTVDBParams struct {
+	Kind   string
+	TvdbID sql.NullInt64
+}
+
+func (q *Queries) FindTitleByKindTVDB(ctx context.Context, arg FindTitleByKindTVDBParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, findTitleByKindTVDB, arg.Kind, arg.TvdbID)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const findTitleByTVDB = `-- name: FindTitleByTVDB :one
 SELECT id FROM titles WHERE kind = 'series' AND tvdb_id = ?
 `
@@ -852,6 +868,21 @@ type SetNextMissingParams struct {
 
 func (q *Queries) SetNextMissing(ctx context.Context, arg SetNextMissingParams) error {
 	_, err := q.db.ExecContext(ctx, setNextMissing, arg.NextMissingAt, arg.VersionID)
+	return err
+}
+
+const setNextMissingSeason = `-- name: SetNextMissingSeason :exec
+UPDATE search_state SET next_missing_at = ? WHERE version_id = ? AND season = ?
+`
+
+type SetNextMissingSeasonParams struct {
+	NextMissingAt sql.NullString
+	VersionID     int64
+	Season        sql.NullInt64
+}
+
+func (q *Queries) SetNextMissingSeason(ctx context.Context, arg SetNextMissingSeasonParams) error {
+	_, err := q.db.ExecContext(ctx, setNextMissingSeason, arg.NextMissingAt, arg.VersionID, arg.Season)
 	return err
 }
 

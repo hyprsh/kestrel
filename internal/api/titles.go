@@ -275,7 +275,7 @@ func detailToAPI(d library.Detail, country string) oapi.TitleDetail {
 		OriginalLanguage: d.OriginalLanguage, Overview: d.Overview, Runtime: intPtr(d.Runtime), HasPoster: d.PosterPath != "",
 		Monitored: d.Monitored, MetadataFrozen: d.MetadataFrozen, RootFolder: d.RootFolder, Folder: strPtr(d.Folder),
 		AddedAt: d.AddedAt, RefreshedAt: d.RefreshedAt, Certification: strPtr(cert),
-		ReleaseDates: make([]oapi.ReleaseDateEntry, 0, len(d.ReleaseDates)), Versions: make([]oapi.VersionDetail, 0, len(d.Versions)),
+		ReleaseDates: make([]oapi.ReleaseDateEntry, 0, len(d.ReleaseDates)), Requests: []oapi.RequestOrigin{}, Versions: make([]oapi.VersionDetail, 0, len(d.Versions)),
 		Seasons: make([]oapi.Season, 0, len(d.Seasons)),
 	}
 	if d.Kind == library.Series {
@@ -315,7 +315,11 @@ func (s *server) GetTitle(ctx context.Context, r oapi.GetTitleRequestObject) (oa
 	if err != nil {
 		return nil, err
 	}
-	return oapi.GetTitle200JSONResponse(detailToAPI(d, view.Country)), nil
+	out := detailToAPI(d, view.Country)
+	if err := s.origins(ctx, &out); err != nil {
+		return nil, err
+	}
+	return oapi.GetTitle200JSONResponse(out), nil
 }
 
 func (s *server) CreateTitle(ctx context.Context, r oapi.CreateTitleRequestObject) (oapi.CreateTitleResponseObject, error) {
