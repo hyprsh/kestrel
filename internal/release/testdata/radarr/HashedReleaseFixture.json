@@ -1,0 +1,126 @@
+{
+  "fixture": "HashedReleaseFixture",
+  "cases": [
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\Some.Hashed.Release.2018.720p.WEB-DL.AAC2.0.H.264-Mercury\\0e895c37245186812cb08aab1529cf8ee389dd05.mkv",
+        "Some Hashed Release",
+        {
+          "ident": "Quality.WEBDL720p"
+        },
+        "Mercury"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\0e895c37245186812cb08aab1529cf8ee389dd05\\Some.Hashed.Release.2018.720p.WEB-DL.AAC2.0.H.264-Mercury.mkv",
+        "Some Hashed Release",
+        {
+          "ident": "Quality.WEBDL720p"
+        },
+        "Mercury"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\Movie.2018.DVDRip.XviD-RADARR\\AHFMZXGHEWD660.mkv",
+        "Movie",
+        {
+          "ident": "Quality.DVD"
+        },
+        "RADARR"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\Movie.2018.1080p.BluRay.x264-RADARR\\Backup_72023S02-12.mkv",
+        "Movie",
+        {
+          "ident": "Quality.Bluray1080p"
+        },
+        "RADARR"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\Movie.2018.1080p.BluRay.x264\\Backup_72023S02-12.mkv",
+        "Movie",
+        {
+          "ident": "Quality.Bluray1080p"
+        },
+        null
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\Movie 2018 720p WEB-DL DD5 1 H 264-ECI\\123.mkv",
+        "Movie",
+        {
+          "ident": "Quality.WEBDL720p"
+        },
+        "ECI"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\Movie 2018 720p WEB-DL DD5 1 H 264-ECI\\abc.mkv",
+        "Movie",
+        {
+          "ident": "Quality.WEBDL720p"
+        },
+        "ECI"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\Movie 2018 720p WEB-DL DD5 1 H 264-ECI\\b00bs.mkv",
+        "Movie",
+        {
+          "ident": "Quality.WEBDL720p"
+        },
+        "ECI"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\Movie.Title.2018.720p.HDTV.x264-NZBgeek/cgajsofuejsa501.mkv",
+        "Movie Title",
+        {
+          "ident": "Quality.HDTV720p"
+        },
+        "NZBgeek"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\Movie.2018.1080p.WEB-DL.DD5.1.H264-RARBG\\170424_26.mkv",
+        "Movie",
+        {
+          "ident": "Quality.WEBDL1080p"
+        },
+        "RARBG"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\Movie.Title.2018.720p.HDTV.H.264\\abc.xyz.af6021c37f7852.mkv",
+        "Movie Title",
+        {
+          "ident": "Quality.HDTV720p"
+        },
+        null
+      ]
+    }
+  ]
+}

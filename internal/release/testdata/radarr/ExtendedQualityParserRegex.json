@@ -1,0 +1,215 @@
+{
+  "fixture": "ExtendedQualityParserRegex",
+  "cases": [
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "Movie.Title.HDTV.XviD-LOL",
+        0
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "Movie.Title.Garnets.or.Gold.REAL.REAL.PROPER.HDTV.x264-W4F",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "Movie.Title.REAL.PROPER.720p.HDTV.x264-ORENJI-RP",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "Movie.Title.REAL.PROPER.HDTV.x264-KILLERS",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "Movie.Title.REAL.PROPER.720p.HDTV.x264-KILLERS",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "Movie.Title.New.Black.real.proper.720p.webrip.x264-2hd",
+        0
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "Movie.Title.Super.Duper.Real.Proper.HDTV.x264-FTP",
+        0
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "Movie.Title.PROPER.HDTV.x264-RiVER-RP",
+        0
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "Movie.Title.PROPER.REAL.RERIP.1080p.BluRay.x264-TENEIGHTY",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "[MGS] - Movie.Title - Episode 02v2 - [D8B6C90D]",
+        0
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "[Hatsuyuki] Movie Title - 07 [v2][848x480][23D8F455].avi",
+        0
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "[DeadFish] Movie Title - 01v3 [720p][AAC]",
+        0
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "[DeadFish] Movie Title Sword - 01v4 [720p][AAC]",
+        0
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "The Real Movie.Titlewives of Some Place - S01E01 - Why are we doing this?",
+        0
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "Movie.Title.HDTV.XviD-LOL",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "Movie.Title.Garnets.or.Gold.REAL.REAL.PROPER.HDTV.x264-W4F",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "Movie.Title.REAL.PROPER.720p.HDTV.x264-ORENJI-RP",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "Movie.Title.REAL.PROPER.HDTV.x264-KILLERS",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "Movie.Title.REAL.PROPER.720p.HDTV.x264-KILLERS",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "Movie.Title.New.Black.real.proper.720p.webrip.x264-2hd",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "Movie.Title.Super.Duper.Real.Proper.HDTV.x264-FTP",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "Movie.Title.PROPER.HDTV.x264-RiVER-RP",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "Movie.Title.PROPER.REAL.RERIP.1080p.BluRay.x264-TENEIGHTY",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_ultrahd_from_title",
+      "args": [
+        "Movie 2016 2160p 4K UltraHD BluRay DTS-HD MA 7 1 x264-Whatevs",
+        19
+      ]
+    },
+    {
+      "method": "should_parse_ultrahd_from_title",
+      "args": [
+        "Movie 2016 2160p 4K UltraHD DTS-HD MA 7 1 x264-Whatevs",
+        16
+      ]
+    },
+    {
+      "method": "should_parse_ultrahd_from_title",
+      "args": [
+        "Movie 2016 4K 2160p UltraHD BluRay AAC2 0 HEVC x265",
+        19
+      ]
+    },
+    {
+      "method": "should_parse_ultrahd_from_title",
+      "args": [
+        "The Movie 2015 2160p UHD BluRay DTS x264-Whatevs",
+        19
+      ]
+    },
+    {
+      "method": "should_parse_ultrahd_from_title",
+      "args": [
+        "The Movie 2015 2160p UHD BluRay FLAC 7 1 x264-Whatevs",
+        19
+      ]
+    },
+    {
+      "method": "should_parse_ultrahd_from_title",
+      "args": [
+        "The Movie 2015 2160p Ultra HD BluRay DTS-HD MA 7 1 x264-Whatevs",
+        19
+      ]
+    },
+    {
+      "method": "should_parse_ultrahd_from_title",
+      "args": [
+        "Into the Movie 2016 2160p Netflix WEBRip DD5 1 x264-Whatevs",
+        18
+      ]
+    }
+  ]
+}

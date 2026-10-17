@@ -1,0 +1,256 @@
+{
+  "fixture": "NormalizeTitleFixture",
+  "cases": [
+    {
+      "method": "should_normalize_series_title",
+      "args": [
+        "Conan",
+        "conan"
+      ]
+    },
+    {
+      "method": "should_normalize_series_title",
+      "args": [
+        "Castle (2009)",
+        "castle2009"
+      ]
+    },
+    {
+      "method": "should_normalize_series_title",
+      "args": [
+        "Parenthood.2010",
+        "parenthood2010"
+      ]
+    },
+    {
+      "method": "should_normalize_series_title",
+      "args": [
+        "Law_and_Order_SVU",
+        "lawordersvu"
+      ]
+    },
+    {
+      "method": "should_remove_special_characters_and_casing",
+      "args": [
+        "CaPitAl",
+        "capital"
+      ]
+    },
+    {
+      "method": "should_remove_special_characters_and_casing",
+      "args": [
+        "peri.od",
+        "period"
+      ]
+    },
+    {
+      "method": "should_remove_special_characters_and_casing",
+      "args": [
+        "this.^\u0026%^**$%@#$!That",
+        "thisthat"
+      ]
+    },
+    {
+      "method": "should_remove_special_characters_and_casing",
+      "args": [
+        "test/test",
+        "testtest"
+      ]
+    },
+    {
+      "method": "should_remove_special_characters_and_casing",
+      "args": [
+        "90210",
+        "90210"
+      ]
+    },
+    {
+      "method": "should_remove_special_characters_and_casing",
+      "args": [
+        "24",
+        "24"
+      ]
+    },
+    {
+      "method": "should_remove_special_characters_and_casing",
+      "args": [
+        "I'm a cyborg, but that's OK",
+        "imcyborgbutthatsok"
+      ]
+    },
+    {
+      "method": "should_remove_special_characters_and_casing",
+      "args": [
+        "Im a cyborg, but thats ok",
+        "imcyborgbutthatsok"
+      ]
+    },
+    {
+      "method": "should_remove_special_characters_and_casing",
+      "args": [
+        "Test: Something à Deux",
+        "testsomethingdeux"
+      ]
+    },
+    {
+      "method": "should_remove_special_characters_and_casing",
+      "args": [
+        "Parler à",
+        "parlera"
+      ]
+    },
+    {
+      "method": "should_remove_common_words_from_middle_of_title",
+      "args": [
+        "the"
+      ]
+    },
+    {
+      "method": "should_remove_common_words_from_middle_of_title",
+      "args": [
+        "and"
+      ]
+    },
+    {
+      "method": "should_remove_common_words_from_middle_of_title",
+      "args": [
+        "or"
+      ]
+    },
+    {
+      "method": "should_remove_common_words_from_middle_of_title",
+      "args": [
+        "an"
+      ]
+    },
+    {
+      "method": "should_remove_common_words_from_middle_of_title",
+      "args": [
+        "of"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_from_end_of_title",
+      "args": [
+        "the"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_from_end_of_title",
+      "args": [
+        "and"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_from_end_of_title",
+      "args": [
+        "or"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_from_end_of_title",
+      "args": [
+        "an"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_from_end_of_title",
+      "args": [
+        "of"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_in_the_middle_of_word",
+      "args": [
+        "the"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_in_the_middle_of_word",
+      "args": [
+        "and"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_in_the_middle_of_word",
+      "args": [
+        "or"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_in_the_middle_of_word",
+      "args": [
+        "a"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_in_the_middle_of_word",
+      "args": [
+        "an"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_in_the_middle_of_word",
+      "args": [
+        "of"
+      ]
+    },
+    {
+      "method": "should_not_remove_from_the_beginning_of_the_title",
+      "args": [
+        "The Office",
+        "theoffice"
+      ]
+    },
+    {
+      "method": "should_not_remove_from_the_beginning_of_the_title",
+      "args": [
+        "The Tonight Show With Jay Leno",
+        "thetonightshowwithjayleno"
+      ]
+    },
+    {
+      "method": "should_not_remove_from_the_beginning_of_the_title",
+      "args": [
+        "The.Daily.Show",
+        "thedailyshow"
+      ]
+    },
+    {
+      "method": "should_not_clean_word_from_beginning_of_string",
+      "args": [
+        "the"
+      ]
+    },
+    {
+      "method": "should_not_clean_word_from_beginning_of_string",
+      "args": [
+        "and"
+      ]
+    },
+    {
+      "method": "should_not_clean_word_from_beginning_of_string",
+      "args": [
+        "or"
+      ]
+    },
+    {
+      "method": "should_not_clean_word_from_beginning_of_string",
+      "args": [
+        "a"
+      ]
+    },
+    {
+      "method": "should_not_clean_word_from_beginning_of_string",
+      "args": [
+        "an"
+      ]
+    },
+    {
+      "method": "should_not_clean_word_from_beginning_of_string",
+      "args": [
+        "of"
+      ]
+    }
+  ]
+}
