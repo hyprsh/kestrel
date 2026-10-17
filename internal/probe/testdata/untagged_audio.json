@@ -1,0 +1,36 @@
+{
+    "streams": [
+        {
+            "index": 0,
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 1280,
+            "height": 536,
+            "color_transfer": "bt709",
+            "color_primaries": "bt709",
+            "disposition": {"default": 1},
+            "side_data_list": []
+        },
+        {
+            "index": 1,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "channels": 2,
+            "tags": {"language": "und"},
+            "disposition": {"default": 1}
+        },
+        {
+            "index": 2,
+            "codec_name": "ac3",
+            "codec_type": "audio",
+            "channels": 2,
+            "disposition": {"default": 0}
+        }
+    ],
+    "format": {
+        "filename": "/data/incoming/Old.Film.1998.mkv",
+        "format_name": "matroska,webm",
+        "duration": "6000.000000",
+        "size": "1073741824"
+    }
+}

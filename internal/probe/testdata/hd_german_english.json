@@ -1,0 +1,46 @@
+{
+    "streams": [
+        {
+            "index": 0,
+            "codec_name": "h264",
+            "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+            "codec_type": "video",
+            "width": 1920,
+            "height": 1080,
+            "color_space": "bt709",
+            "color_transfer": "bt709",
+            "color_primaries": "bt709",
+            "disposition": {"default": 1, "dub": 0, "original": 0, "comment": 0},
+            "side_data_list": []
+        },
+        {
+            "index": 1,
+            "codec_name": "eac3",
+            "codec_long_name": "ATSC A/52B (AC-3, E-AC-3)",
+            "codec_type": "audio",
+            "channels": 6,
+            "channel_layout": "5.1(side)",
+            "tags": {"language": "ger", "title": "German 5.1"},
+            "disposition": {"default": 1, "dub": 0, "original": 0, "comment": 0}
+        },
+        {
+            "index": 2,
+            "codec_name": "aac",
+            "codec_long_name": "AAC (Advanced Audio Coding)",
+            "codec_type": "audio",
+            "channels": 2,
+            "channel_layout": "stereo",
+            "tags": {"language": "eng", "title": "English 2.0"},
+            "disposition": {"default": 0, "dub": 0, "original": 1, "comment": 0}
+        }
+    ],
+    "format": {
+        "filename": "/data/incoming/Movie.2019.1080p.GER.DL.mkv",
+        "nb_streams": 3,
+        "format_name": "matroska,webm",
+        "format_long_name": "Matroska / WebM",
+        "duration": "5412.345000",
+        "size": "7340032512",
+        "bit_rate": "10850000"
+    }
+}
