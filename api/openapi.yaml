@@ -368,6 +368,186 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /lookup:
+    get:
+      operationId: lookup
+      summary: Search the metadata provider for Titles to add
+      description: |
+        One TMDB search across both kinds, in English, newest relevance first. Results already in the
+        Library carry their Title id in `in_library`. Only Movies can be added so far, so Series
+        results are left out until Series can be added.
+        `502 upstream_unavailable` means TMDB could not be reached or refused the key.
+      tags: [titles]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: kind
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/TitleKind"
+      responses:
+        "200":
+          description: The matches.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LookupList"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "502":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /lookup/{kind}/{tmdb_id}:
+    parameters:
+      - name: kind
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/TitleKind"
+      - name: tmdb_id
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      operationId: lookupTitle
+      summary: One search result with the add panel's suggested Slots and Profiles
+      description: |
+        The Slots to preselect when adding it: every Slot with a default Profile for the kind, resolved
+        by Profile resolution, with the Kids rule applied to HD when the Title's certification in the
+        release-date country reads as a kids' age. Each Slot says why (`reason`) and carries a display
+        `label`, such as "Kids (FSK 6)". Requests use the same logic.
+      tags: [titles]
+      responses:
+        "200":
+          description: The Title and the suggestion.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LookupDetail"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "502":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /titles:
+    get:
+      operationId: listTitles
+      summary: The Library's Titles as compact rows
+      description: |
+        Newest first. The SPA loads the whole Library once with `limit=10000` and filters locally.
+        `q` matches titles and aliases, ignoring case.
+      tags: [titles]
+      parameters:
+        - name: kind
+          in: query
+          schema:
+            $ref: "#/components/schemas/TitleKind"
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10000
+            default: 100
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A page of rows.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TitleList"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createTitle
+      summary: Add a Title to the Library
+      description: |
+        Fetches the Title from the metadata provider and adds it with the named Versions, each Wanted.
+        `root_folder` must be one of the configured Root folders for the kind; left out, it is the
+        first. `409 conflict` when the Title is already in the Library (the existing id is in
+        `detail`). Only Movies can be added so far.
+      tags: [titles]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TitleCreate"
+      responses:
+        "201":
+          description: The new Title.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TitleDetail"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "502":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /titles/{id}:
+    parameters:
+      - $ref: "#/components/parameters/TitleId"
+    get:
+      operationId: getTitle
+      summary: One Title with its Versions
+      tags: [titles]
+      responses:
+        "200":
+          description: The Title.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TitleDetail"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /titles/{id}/poster:
+    parameters:
+      - $ref: "#/components/parameters/TitleId"
+    get:
+      operationId: getTitlePoster
+      summary: The Title's poster
+      description: Served from the poster cache under the config dir, fetched on first use. `404` when the provider has none.
+      tags: [titles]
+      responses:
+        "200":
+          description: A JPEG.
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        "404":
+          $ref: "#/components/responses/Problem"
+        "502":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /plugins:
     get:
       operationId: listPlugins
@@ -583,6 +763,13 @@ components:
       schema:
         type: string
     InstanceId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    TitleId:
       name: id
       in: path
       required: true
@@ -1057,6 +1244,323 @@ components:
             `invalid` or `not_found`. Clients tolerate new values.
         message:
           type: string
+    TitleKind:
+      type: string
+      enum: [movie, series]
+    SlotState:
+      type: string
+      description: |
+        `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
+        Clients tolerate new values.
+      enum: [wanted, filled, downloading, unmonitored, unreleased]
+    LookupResult:
+      type: object
+      required: [kind, tmdb_id, tvdb_id, title, year, poster, in_library, addable, not_addable_reason]
+      properties:
+        kind:
+          $ref: "#/components/schemas/TitleKind"
+        tmdb_id:
+          type: integer
+        tvdb_id:
+          type: integer
+          nullable: true
+        title:
+          type: string
+        year:
+          type: integer
+          nullable: true
+        poster:
+          type: string
+          nullable: true
+          description: A small TMDB poster URL.
+        in_library:
+          type: integer
+          format: int64
+          nullable: true
+          description: The Title id when it is already in the Library.
+        addable:
+          type: boolean
+        not_addable_reason:
+          type: string
+          nullable: true
+          description: "`not_on_tvdb` for a Series TheTVDB does not have; `null` when addable. Clients tolerate new values."
+    LookupList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LookupResult"
+        next_cursor:
+          type: string
+          nullable: true
+    SuggestedSlot:
+      type: object
+      required: [slot, profile, label, reason]
+      properties:
+        slot:
+          $ref: "#/components/schemas/Slot"
+        profile:
+          type: string
+          description: The Profile key.
+          example: kids-primary
+        label:
+          type: string
+          example: Kids (FSK 6)
+        reason:
+          type: string
+          description: "`default` (the Slot's default Profile) or `kids_rule` (the Kids rule swapped HD for its Kids Profile). Clients tolerate new values."
+          enum: [default, kids_rule]
+    LookupDetail:
+      type: object
+      required: [kind, tmdb_id, title, year, overview, in_library, certification, certification_country, slots]
+      properties:
+        kind:
+          $ref: "#/components/schemas/TitleKind"
+        tmdb_id:
+          type: integer
+        title:
+          type: string
+        year:
+          type: integer
+          nullable: true
+        overview:
+          type: string
+        in_library:
+          type: integer
+          format: int64
+          nullable: true
+        certification:
+          type: string
+          nullable: true
+          description: The rating the Kids rule read, as TMDB writes it ("6", "PG").
+        certification_country:
+          type: string
+          nullable: true
+          description: The country that rating is from; the release-date country unless TMDB had none there.
+        slots:
+          type: array
+          description: Every Slot with a default Profile for the kind, in Slot order.
+          items:
+            $ref: "#/components/schemas/SuggestedSlot"
+    VersionRef:
+      type: object
+      required: [slot, profile]
+      properties:
+        slot:
+          $ref: "#/components/schemas/Slot"
+        profile:
+          type: string
+          description: The Profile key. It must be an enabled Profile of that Slot.
+    TitleCreate:
+      type: object
+      required: [kind, tmdb_id, versions]
+      properties:
+        kind:
+          $ref: "#/components/schemas/TitleKind"
+        tmdb_id:
+          type: integer
+        versions:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/VersionRef"
+        root_folder:
+          type: string
+          nullable: true
+    SlotSummary:
+      type: object
+      required: [version_id, profile, state, long_missing]
+      properties:
+        version_id:
+          type: integer
+          format: int64
+        profile:
+          type: string
+        state:
+          $ref: "#/components/schemas/SlotState"
+        long_missing:
+          type: boolean
+    TitleRow:
+      type: object
+      required: [id, kind, title, primary_title, year, slots, wanted_since, added_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        kind:
+          $ref: "#/components/schemas/TitleKind"
+        title:
+          type: string
+          description: The English title.
+        primary_title:
+          type: string
+          description: The title in the Primary Language; the English title when TMDB has no translation.
+        year:
+          type: integer
+          nullable: true
+        slots:
+          type: object
+          required: [sd, hd, uhd]
+          properties:
+            sd:
+              allOf:
+                - $ref: "#/components/schemas/SlotSummary"
+              nullable: true
+            hd:
+              allOf:
+                - $ref: "#/components/schemas/SlotSummary"
+              nullable: true
+            uhd:
+              allOf:
+                - $ref: "#/components/schemas/SlotSummary"
+              nullable: true
+        wanted_since:
+          type: string
+          format: date-time
+          nullable: true
+        added_at:
+          type: string
+          format: date-time
+    TitleList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TitleRow"
+        next_cursor:
+          type: string
+          nullable: true
+    FileSummary:
+      type: object
+      required: [path, size, release_name, score, imported_at]
+      properties:
+        path:
+          type: string
+        size:
+          type: integer
+          format: int64
+        release_name:
+          type: string
+        score:
+          type: integer
+          nullable: true
+        imported_at:
+          type: string
+          format: date-time
+    VersionDetail:
+      type: object
+      required: [id, slot, profile, state, long_missing, wanted_since, file, added_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        slot:
+          $ref: "#/components/schemas/Slot"
+        profile:
+          type: string
+        state:
+          $ref: "#/components/schemas/SlotState"
+        long_missing:
+          type: boolean
+        wanted_since:
+          type: string
+          format: date-time
+          nullable: true
+        file:
+          allOf:
+            - $ref: "#/components/schemas/FileSummary"
+          nullable: true
+        added_at:
+          type: string
+          format: date-time
+    ReleaseDateEntry:
+      type: object
+      required: [country, type, date, certification]
+      properties:
+        country:
+          type: string
+        type:
+          type: string
+          enum: [premiere, theatrical_limited, theatrical, digital, physical, tv]
+        date:
+          type: string
+          format: date-time
+        certification:
+          type: string
+          nullable: true
+    TitleDetail:
+      type: object
+      required: [id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, has_poster, monitored, metadata_frozen, root_folder, folder, added_at, refreshed_at, certification, release_dates, versions]
+      properties:
+        id:
+          type: integer
+          format: int64
+        kind:
+          $ref: "#/components/schemas/TitleKind"
+        tmdb_id:
+          type: integer
+          nullable: true
+        tvdb_id:
+          type: integer
+          nullable: true
+        imdb_id:
+          type: string
+          nullable: true
+        title:
+          type: string
+        original_title:
+          type: string
+        primary_title:
+          type: string
+        year:
+          type: integer
+          nullable: true
+        original_language:
+          type: string
+          description: ISO 639-1; empty when unknown.
+        overview:
+          type: string
+        runtime:
+          type: integer
+          nullable: true
+          description: Minutes.
+        has_poster:
+          type: boolean
+          description: Whether `GET /titles/{id}/poster` has an image.
+        monitored:
+          type: boolean
+        metadata_frozen:
+          type: boolean
+        root_folder:
+          type: string
+        folder:
+          type: string
+          nullable: true
+          description: The Title's folder name; set by its first Import.
+        added_at:
+          type: string
+          format: date-time
+        refreshed_at:
+          type: string
+          format: date-time
+        certification:
+          type: string
+          nullable: true
+          description: The certification in the release-date country, with the same fallback as the Kids rule.
+        release_dates:
+          type: array
+          description: Every dated release TMDB lists, in any country.
+          items:
+            $ref: "#/components/schemas/ReleaseDateEntry"
+        versions:
+          type: array
+          description: In Slot order.
+          items:
+            $ref: "#/components/schemas/VersionDetail"
     Problem:
       type: object
       description: RFC 9457 problem details.

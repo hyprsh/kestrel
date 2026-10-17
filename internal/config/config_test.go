@@ -40,6 +40,19 @@ func TestOverrides(t *testing.T) {
 	}
 }
 
+func TestProviderKeysComeFromTheEnvironment(t *testing.T) {
+	c, err := config.Load(env("KESTREL_TMDB_API_KEY", "tmdb-secret", "KESTREL_TVDB_API_KEY", "tvdb-secret"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.TMDBAPIKey != "tmdb-secret" || c.TVDBAPIKey != "tvdb-secret" {
+		t.Errorf("keys = %q %q", c.TMDBAPIKey, c.TVDBAPIKey)
+	}
+	if c, _ = config.Load(env()); c.TMDBAPIKey != "" {
+		t.Errorf("unset key = %q", c.TMDBAPIKey)
+	}
+}
+
 func TestBaseURLIsNormalised(t *testing.T) {
 	for in, want := range map[string]string{"": "", "/": "", "kestrel": "/kestrel", "/kestrel/": "/kestrel", "/a/b": "/a/b"} {
 		c, err := config.Load(env("KESTREL_BASE_URL", in))

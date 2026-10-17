@@ -34,6 +34,8 @@ func (e *Error) Error() string { return "metadata: " + string(e.Code) + ": " + e
 type TMDBOptions struct {
 	// BaseURL defaults to https://api.themoviedb.org/3.
 	BaseURL string
+	// ImageBase defaults to https://image.tmdb.org/t/p.
+	ImageBase string
 	// HTTP defaults to a client with a 20 s timeout.
 	HTTP *http.Client
 	Keys KeySource
@@ -41,9 +43,10 @@ type TMDBOptions struct {
 
 // TMDB is the TMDB v3 client. It sends the key as `api_key`.
 type TMDB struct {
-	base string
-	http *http.Client
-	keys KeySource
+	base   string
+	images string
+	http   *http.Client
+	keys   KeySource
 }
 
 // NewTMDB returns a client.
@@ -51,10 +54,31 @@ func NewTMDB(o TMDBOptions) *TMDB {
 	if o.BaseURL == "" {
 		o.BaseURL = "https://api.themoviedb.org/3"
 	}
+	if o.ImageBase == "" {
+		o.ImageBase = "https://image.tmdb.org/t/p"
+	}
 	if o.HTTP == nil {
 		o.HTTP = &http.Client{Timeout: 20 * time.Second}
 	}
-	return &TMDB{base: strings.TrimRight(o.BaseURL, "/"), http: o.HTTP, keys: o.Keys}
+	return &TMDB{base: strings.TrimRight(o.BaseURL, "/"), images: strings.TrimRight(o.ImageBase, "/"), http: o.HTTP, keys: o.Keys}
+}
+
+// Provider is what callers need of TMDB; *TMDB satisfies it and tests can swap it.
+type Provider interface {
+	Search(ctx context.Context, query string) ([]SearchResult, error)
+	Movie(ctx context.Context, id int) (MovieDetails, error)
+	// ImageURL is the URL of a poster at a TMDB size such as "w92".
+	ImageURL(posterPath, size string) string
+}
+
+var _ Provider = (*TMDB)(nil)
+
+// ImageURL is the URL of a TMDB image at a size such as "w92"; "" for no image.
+func (c *TMDB) ImageURL(posterPath, size string) string {
+	if posterPath == "" {
+		return ""
+	}
+	return c.images + "/" + size + "/" + strings.TrimLeft(posterPath, "/")
 }
 
 func (c *TMDB) get(ctx context.Context, path string, q url.Values, into any) error {

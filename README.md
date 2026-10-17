@@ -55,8 +55,10 @@ Bootstrap settings are environment variables. Everything else lives in SQLite an
 | `KESTREL_PORT` | `7676` | Listen port. |
 | `KESTREL_BASE_URL` | empty | Routing prefix such as `/kestrel`. It prefixes every route, including `/ping` and the API. |
 | `KESTREL_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`. Text to stdout. |
-| `KESTREL_CONFIG_DIR` | `/config` | Holds `kestrel.db` and its `backups/`. |
+| `KESTREL_CONFIG_DIR` | `/config` | Holds `kestrel.db`, its `backups/` and the poster cache in `cache/posters/`. |
 | `KESTREL_DATA_DIR` | `/data` | Prefills the root folders and is the mount the disk checks watch. |
+| `KESTREL_TMDB_API_KEY` | empty | Your own [TMDB](https://www.themoviedb.org/settings/api) API key (v3). It outranks the key embedded in the build and is outranked by one saved in the UI. |
+| `KESTREL_TVDB_API_KEY` | empty | Your own TheTVDB key, same precedence. Series arrive in a later release. |
 
 The image has a `HEALTHCHECK` on the unauthenticated `GET {base}/ping`.
 
@@ -96,6 +98,8 @@ make hooks         # install the commitlint commit-msg hook
 
 Run `make dev-api` and `make dev-web` in two terminals, then open the Vite URL.
 
+Without a TMDB key, search and add answer `502 upstream_unavailable`. For development set `KESTREL_TMDB_API_KEY`. A release build embeds the project's key at link time: `make build TMDB_API_KEY=...` (or `--build-arg TMDB_API_KEY=...` for `make docker`'s Dockerfile). The default build embeds none.
+
 ### Layout
 
 | Path | What lives there |
@@ -105,6 +109,8 @@ Run `make dev-api` and `make dev-web` in two terminals, then open the Vite URL.
 | `internal/release` | Release name parsing: a Go port of Radarr's (Movies) and Sonarr's (Series) parsers, with the upstream commit recorded in each ported file. Its tests replay Radarr's and Sonarr's own fixtures and golden `/api/v3/parse` files from `testdata/`, see its README. |
 | `internal/scoring` | `Evaluate`: scores a Release with TRaSH's Custom Formats and applies the Profile's language, resolution and minimum-Score rules. The TRaSH snapshot (MIT, with its licence and commit) is embedded from `trash/`; refresh it with `scripts/update-trash-snapshot.sh`. Its tests replay golden matched-Custom-Format sets recorded from pinned Radarr and Sonarr (`testdata/`, `scripts/regen-cf-golden.sh`). |
 | `internal/resolution` | The SD/HD/UHD resolution classes shared by scoring and probe. |
+| `internal/metadata` | The TMDB client (search, Movie details with release dates, certifications and aliases), provider key precedence and the poster cache. `metadatatest` is a fake TMDB serving hand-written fixtures; no key is needed to run the tests. |
+| `internal/library` | Titles, Versions, files and search state, plus the add panel's preselection (`Suggest`). Movies only so far; the schema already holds seasons and episodes. |
 | `scripts/` | Dev-only tools: fixture extraction, golden-file regeneration for the parser port and the Custom Format parity harness, TRaSH snapshot refresh (Docker, never run in CI). |
 | `api/openapi.yaml` | The hand-written API contract and the source of truth. |
 | `internal/api/oapi` | Generated Go server interface and models (oapi-codegen, strict server). Do not edit. |

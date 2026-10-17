@@ -311,6 +311,124 @@ export interface paths {
         patch: operations["patchProfile"];
         trace?: never;
     };
+    "/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search the metadata provider for Titles to add
+         * @description One TMDB search across both kinds, in English, newest relevance first. Results already in the
+         *     Library carry their Title id in `in_library`. Only Movies can be added so far, so Series
+         *     results are left out until Series can be added.
+         *     `502 upstream_unavailable` means TMDB could not be reached or refused the key.
+         */
+        get: operations["lookup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lookup/{kind}/{tmdb_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["schemas"]["TitleKind"];
+                tmdb_id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * One search result with the add panel's suggested Slots and Profiles
+         * @description The Slots to preselect when adding it: every Slot with a default Profile for the kind, resolved
+         *     by Profile resolution, with the Kids rule applied to HD when the Title's certification in the
+         *     release-date country reads as a kids' age. Each Slot says why (`reason`) and carries a display
+         *     `label`, such as "Kids (FSK 6)". Requests use the same logic.
+         */
+        get: operations["lookupTitle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/titles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Library's Titles as compact rows
+         * @description Newest first. The SPA loads the whole Library once with `limit=10000` and filters locally.
+         *     `q` matches titles and aliases, ignoring case.
+         */
+        get: operations["listTitles"];
+        put?: never;
+        /**
+         * Add a Title to the Library
+         * @description Fetches the Title from the metadata provider and adds it with the named Versions, each Wanted.
+         *     `root_folder` must be one of the configured Root folders for the kind; left out, it is the
+         *     first. `409 conflict` when the Title is already in the Library (the existing id is in
+         *     `detail`). Only Movies can be added so far.
+         */
+        post: operations["createTitle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/titles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        /** One Title with its Versions */
+        get: operations["getTitle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/titles/{id}/poster": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The Title's poster
+         * @description Served from the poster cache under the config dir, fetched on first use. `404` when the provider has none.
+         */
+        get: operations["getTitlePoster"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/plugins": {
         parameters: {
             query?: never;
@@ -724,6 +842,170 @@ export interface components {
             code: string | null;
             message: string;
         };
+        /** @enum {string} */
+        TitleKind: "movie" | "series";
+        /**
+         * @description `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
+         *     Clients tolerate new values.
+         * @enum {string}
+         */
+        SlotState: "wanted" | "filled" | "downloading" | "unmonitored" | "unreleased";
+        LookupResult: {
+            kind: components["schemas"]["TitleKind"];
+            tmdb_id: number;
+            tvdb_id: number | null;
+            title: string;
+            year: number | null;
+            /** @description A small TMDB poster URL. */
+            poster: string | null;
+            /**
+             * Format: int64
+             * @description The Title id when it is already in the Library.
+             */
+            in_library: number | null;
+            addable: boolean;
+            /** @description `not_on_tvdb` for a Series TheTVDB does not have; `null` when addable. Clients tolerate new values. */
+            not_addable_reason: string | null;
+        };
+        LookupList: {
+            items: components["schemas"]["LookupResult"][];
+            next_cursor: string | null;
+        };
+        SuggestedSlot: {
+            slot: components["schemas"]["Slot"];
+            /**
+             * @description The Profile key.
+             * @example kids-primary
+             */
+            profile: string;
+            /** @example Kids (FSK 6) */
+            label: string;
+            /**
+             * @description `default` (the Slot's default Profile) or `kids_rule` (the Kids rule swapped HD for its Kids Profile). Clients tolerate new values.
+             * @enum {string}
+             */
+            reason: "default" | "kids_rule";
+        };
+        LookupDetail: {
+            kind: components["schemas"]["TitleKind"];
+            tmdb_id: number;
+            title: string;
+            year: number | null;
+            overview: string;
+            /** Format: int64 */
+            in_library: number | null;
+            /** @description The rating the Kids rule read, as TMDB writes it ("6", "PG"). */
+            certification: string | null;
+            /** @description The country that rating is from; the release-date country unless TMDB had none there. */
+            certification_country: string | null;
+            /** @description Every Slot with a default Profile for the kind, in Slot order. */
+            slots: components["schemas"]["SuggestedSlot"][];
+        };
+        VersionRef: {
+            slot: components["schemas"]["Slot"];
+            /** @description The Profile key. It must be an enabled Profile of that Slot. */
+            profile: string;
+        };
+        TitleCreate: {
+            kind: components["schemas"]["TitleKind"];
+            tmdb_id: number;
+            versions: components["schemas"]["VersionRef"][];
+            root_folder?: string | null;
+        };
+        SlotSummary: {
+            /** Format: int64 */
+            version_id: number;
+            profile: string;
+            state: components["schemas"]["SlotState"];
+            long_missing: boolean;
+        };
+        TitleRow: {
+            /** Format: int64 */
+            id: number;
+            kind: components["schemas"]["TitleKind"];
+            /** @description The English title. */
+            title: string;
+            /** @description The title in the Primary Language; the English title when TMDB has no translation. */
+            primary_title: string;
+            year: number | null;
+            slots: {
+                sd: components["schemas"]["SlotSummary"] | null;
+                hd: components["schemas"]["SlotSummary"] | null;
+                uhd: components["schemas"]["SlotSummary"] | null;
+            };
+            /** Format: date-time */
+            wanted_since: string | null;
+            /** Format: date-time */
+            added_at: string;
+        };
+        TitleList: {
+            items: components["schemas"]["TitleRow"][];
+            next_cursor: string | null;
+        };
+        FileSummary: {
+            path: string;
+            /** Format: int64 */
+            size: number;
+            release_name: string;
+            score: number | null;
+            /** Format: date-time */
+            imported_at: string;
+        };
+        VersionDetail: {
+            /** Format: int64 */
+            id: number;
+            slot: components["schemas"]["Slot"];
+            profile: string;
+            state: components["schemas"]["SlotState"];
+            long_missing: boolean;
+            /** Format: date-time */
+            wanted_since: string | null;
+            file: components["schemas"]["FileSummary"] | null;
+            /** Format: date-time */
+            added_at: string;
+        };
+        ReleaseDateEntry: {
+            country: string;
+            /** @enum {string} */
+            type: "premiere" | "theatrical_limited" | "theatrical" | "digital" | "physical" | "tv";
+            /** Format: date-time */
+            date: string;
+            certification: string | null;
+        };
+        TitleDetail: {
+            /** Format: int64 */
+            id: number;
+            kind: components["schemas"]["TitleKind"];
+            tmdb_id: number | null;
+            tvdb_id: number | null;
+            imdb_id: string | null;
+            title: string;
+            original_title: string;
+            primary_title: string;
+            year: number | null;
+            /** @description ISO 639-1; empty when unknown. */
+            original_language: string;
+            overview: string;
+            /** @description Minutes. */
+            runtime: number | null;
+            /** @description Whether `GET /titles/{id}/poster` has an image. */
+            has_poster: boolean;
+            monitored: boolean;
+            metadata_frozen: boolean;
+            root_folder: string;
+            /** @description The Title's folder name; set by its first Import. */
+            folder: string | null;
+            /** Format: date-time */
+            added_at: string;
+            /** Format: date-time */
+            refreshed_at: string;
+            /** @description The certification in the release-date country, with the same fallback as the Kids rule. */
+            certification: string | null;
+            /** @description Every dated release TMDB lists, in any country. */
+            release_dates: components["schemas"]["ReleaseDateEntry"][];
+            /** @description In Slot order. */
+            versions: components["schemas"]["VersionDetail"][];
+        };
         /** @description RFC 9457 problem details. */
         Problem: {
             /** @default about:blank */
@@ -759,6 +1041,7 @@ export interface components {
     parameters: {
         PluginId: string;
         InstanceId: number;
+        TitleId: number;
         ProfileKey: "sd-primary" | "sd-original" | "hd-primary" | "hd-original" | "kids-primary" | "kids-original" | "uhd-primary" | "uhd-original";
     };
     requestBodies: never;
@@ -1167,6 +1450,163 @@ export interface operations {
             };
             404: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    lookup: {
+        parameters: {
+            query: {
+                q: string;
+                kind?: components["schemas"]["TitleKind"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The matches. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LookupList"];
+                };
+            };
+            422: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    lookupTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["schemas"]["TitleKind"];
+                tmdb_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Title and the suggestion. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LookupDetail"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listTitles: {
+        parameters: {
+            query?: {
+                kind?: components["schemas"]["TitleKind"];
+                q?: string;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of rows. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleList"];
+                };
+            };
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    createTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TitleCreate"];
+            };
+        };
+        responses: {
+            /** @description The new Title. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleDetail"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Title. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleDetail"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getTitlePoster: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A JPEG. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                };
+            };
+            404: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

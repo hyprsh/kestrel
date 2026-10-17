@@ -2,7 +2,9 @@
 .PHONY: help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet compose-check commitlint hooks docker check
 
 VERSION ?= dev
-LDFLAGS := -s -w -X github.com/hyprsh/kestrel/internal/version.Version=$(VERSION)
+# The project's TMDB key is injected at link time; the default build embeds none.
+TMDB_API_KEY ?=
+LDFLAGS := -s -w -X github.com/hyprsh/kestrel/internal/version.Version=$(VERSION) -X github.com/hyprsh/kestrel/internal/metadata.embeddedTMDBKey=$(TMDB_API_KEY)
 
 help: ## List the dev commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-15s %s\n", $$1, $$2}'
@@ -62,6 +64,6 @@ hooks: ## Install the commit-msg hook (commitlint via lefthook)
 	npx --no-install lefthook install
 
 docker: ## Build the image as kestrel:dev
-	docker build --build-arg VERSION=$(VERSION) -t kestrel:dev .
+	docker build --build-arg VERSION=$(VERSION) --build-arg TMDB_API_KEY=$(TMDB_API_KEY) -t kestrel:dev .
 
 check: fmt-check vet generate-check test compose-check ## Everything CI runs, minus the image build and commitlint

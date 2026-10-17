@@ -17,6 +17,8 @@ import (
 
 	kapi "github.com/hyprsh/kestrel/api"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
+	"github.com/hyprsh/kestrel/internal/library"
+	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/plugin"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
@@ -46,6 +48,16 @@ type Options struct {
 	Plugins *plugin.Registry
 	// DataDir is the media mount (KESTREL_DATA_DIR); it prefills the Root folders.
 	DataDir string
+	// ConfigDir is the config dir (KESTREL_CONFIG_DIR); posters are cached under it.
+	ConfigDir string
+	// TMDBAPIKey is KESTREL_TMDB_API_KEY.
+	TMDBAPIKey string
+	// Metadata is the metadata provider; nil means TMDB, with the key chosen by
+	// precedence: UI override, TMDBAPIKey, embedded. Tests inject a client
+	// pointed at recorded fixtures.
+	Metadata metadata.Provider
+	// Posters is the poster cache; nil means one under ConfigDir.
+	Posters *metadata.Posters
 }
 
 // NewHandler returns the whole HTTP handler, mounted under opts.BaseURL.
@@ -64,8 +76,18 @@ func NewHandler(opts Options) http.Handler {
 		auth:    newAuth(opts.Store, opts.Clock, opts.BaseURL),
 		plugins: instances.NewService(opts.Store, opts.Plugins),
 	}
-	s.profiles = profiles.New(opts.Store, settings.New(opts.Store))
-	s.rootFolders = rootfolders.New(settings.New(opts.Store), opts.DataDir)
+	appSettings := settings.New(opts.Store)
+	s.profiles = profiles.New(opts.Store, appSettings)
+	s.rootFolders = rootfolders.New(appSettings, opts.DataDir)
+	s.library = library.New(opts.Store, opts.Clock)
+	s.meta = opts.Metadata
+	if s.meta == nil {
+		s.meta = metadata.NewTMDB(metadata.TMDBOptions{Keys: metadata.NewKeys(appSettings, opts.TMDBAPIKey)})
+	}
+	s.posters = opts.Posters
+	if s.posters == nil {
+		s.posters = metadata.NewPosters(metadata.PostersOptions{ConfigDir: opts.ConfigDir})
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ping", s.ping)
@@ -107,6 +129,9 @@ type server struct {
 	plugins     *instances.Service
 	profiles    *profiles.Service
 	rootFolders *rootfolders.Service
+	library     *library.Service
+	meta        metadata.Provider
+	posters     *metadata.Posters
 }
 
 var _ oapi.StrictServerInterface = (*server)(nil)

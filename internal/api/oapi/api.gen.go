@@ -108,6 +108,36 @@ func (e ProfileLanguageRule) Valid() bool {
 	}
 }
 
+// Defines values for ReleaseDateEntryType.
+const (
+	Digital           ReleaseDateEntryType = "digital"
+	Physical          ReleaseDateEntryType = "physical"
+	Premiere          ReleaseDateEntryType = "premiere"
+	Theatrical        ReleaseDateEntryType = "theatrical"
+	TheatricalLimited ReleaseDateEntryType = "theatrical_limited"
+	Tv                ReleaseDateEntryType = "tv"
+)
+
+// Valid indicates whether the value is a known member of the ReleaseDateEntryType enum.
+func (e ReleaseDateEntryType) Valid() bool {
+	switch e {
+	case Digital:
+		return true
+	case Physical:
+		return true
+	case Premiere:
+		return true
+	case Theatrical:
+		return true
+	case TheatricalLimited:
+		return true
+	case Tv:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SettingsKidsRuleThreshold.
 const (
 	N0  SettingsKidsRuleThreshold = 0
@@ -168,6 +198,69 @@ func (e Slot) Valid() bool {
 	}
 }
 
+// Defines values for SlotState.
+const (
+	Downloading SlotState = "downloading"
+	Filled      SlotState = "filled"
+	Unmonitored SlotState = "unmonitored"
+	Unreleased  SlotState = "unreleased"
+	Wanted      SlotState = "wanted"
+)
+
+// Valid indicates whether the value is a known member of the SlotState enum.
+func (e SlotState) Valid() bool {
+	switch e {
+	case Downloading:
+		return true
+	case Filled:
+		return true
+	case Unmonitored:
+		return true
+	case Unreleased:
+		return true
+	case Wanted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SuggestedSlotReason.
+const (
+	Default  SuggestedSlotReason = "default"
+	KidsRule SuggestedSlotReason = "kids_rule"
+)
+
+// Valid indicates whether the value is a known member of the SuggestedSlotReason enum.
+func (e SuggestedSlotReason) Valid() bool {
+	switch e {
+	case Default:
+		return true
+	case KidsRule:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TitleKind.
+const (
+	Movie  TitleKind = "movie"
+	Series TitleKind = "series"
+)
+
+// Valid indicates whether the value is a known member of the TitleKind enum.
+func (e TitleKind) Valid() bool {
+	switch e {
+	case Movie:
+		return true
+	case Series:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProfileKey.
 const (
 	HdOriginal   ProfileKey = "hd-original"
@@ -218,6 +311,58 @@ type ApiKeyInfo struct {
 type Credentials struct {
 	Password *string `json:"password,omitempty"`
 	Username string  `json:"username"`
+}
+
+// FileSummary defines model for FileSummary.
+type FileSummary struct {
+	ImportedAt  time.Time `json:"imported_at"`
+	Path        string    `json:"path"`
+	ReleaseName string    `json:"release_name"`
+	Score       *int      `json:"score"`
+	Size        int64     `json:"size"`
+}
+
+// LookupDetail defines model for LookupDetail.
+type LookupDetail struct {
+	// Certification The rating the Kids rule read, as TMDB writes it ("6", "PG").
+	Certification *string `json:"certification"`
+
+	// CertificationCountry The country that rating is from; the release-date country unless TMDB had none there.
+	CertificationCountry *string   `json:"certification_country"`
+	InLibrary            *int64    `json:"in_library"`
+	Kind                 TitleKind `json:"kind"`
+	Overview             string    `json:"overview"`
+
+	// Slots Every Slot with a default Profile for the kind, in Slot order.
+	Slots  []SuggestedSlot `json:"slots"`
+	Title  string          `json:"title"`
+	TmdbId int             `json:"tmdb_id"`
+	Year   *int            `json:"year"`
+}
+
+// LookupList defines model for LookupList.
+type LookupList struct {
+	Items      []LookupResult `json:"items"`
+	NextCursor *string        `json:"next_cursor"`
+}
+
+// LookupResult defines model for LookupResult.
+type LookupResult struct {
+	Addable bool `json:"addable"`
+
+	// InLibrary The Title id when it is already in the Library.
+	InLibrary *int64    `json:"in_library"`
+	Kind      TitleKind `json:"kind"`
+
+	// NotAddableReason `not_on_tvdb` for a Series TheTVDB does not have; `null` when addable. Clients tolerate new values.
+	NotAddableReason *string `json:"not_addable_reason"`
+
+	// Poster A small TMDB poster URL.
+	Poster *string `json:"poster"`
+	Title  string  `json:"title"`
+	TmdbId int     `json:"tmdb_id"`
+	TvdbId *int    `json:"tvdb_id"`
+	Year   *int    `json:"year"`
 }
 
 // Me defines model for Me.
@@ -439,6 +584,17 @@ type ProfilePatch struct {
 	OriginalFallback *bool `json:"original_fallback,omitempty"`
 }
 
+// ReleaseDateEntry defines model for ReleaseDateEntry.
+type ReleaseDateEntry struct {
+	Certification *string              `json:"certification"`
+	Country       string               `json:"country"`
+	Date          time.Time            `json:"date"`
+	Type          ReleaseDateEntryType `json:"type"`
+}
+
+// ReleaseDateEntryType defines model for ReleaseDateEntry.Type.
+type ReleaseDateEntryType string
+
 // ReverseProxy defines model for ReverseProxy.
 type ReverseProxy struct {
 	Enabled bool `json:"enabled"`
@@ -544,6 +700,39 @@ type SetupSectionState string
 // Slot defines model for Slot.
 type Slot string
 
+// SlotState `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
+// Clients tolerate new values.
+type SlotState string
+
+// SlotSummary defines model for SlotSummary.
+type SlotSummary struct {
+	LongMissing bool   `json:"long_missing"`
+	Profile     string `json:"profile"`
+
+	// State `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
+	// Clients tolerate new values.
+	State     SlotState `json:"state"`
+	VersionId int64     `json:"version_id"`
+}
+
+// SuggestedSlot defines model for SuggestedSlot.
+type SuggestedSlot struct {
+	// Label Example: Kids (FSK 6)
+	Label string `json:"label"`
+
+	// Profile The Profile key.
+	//
+	// Example: kids-primary
+	Profile string `json:"profile"`
+
+	// Reason `default` (the Slot's default Profile) or `kids_rule` (the Kids rule swapped HD for its Kids Profile). Clients tolerate new values.
+	Reason SuggestedSlotReason `json:"reason"`
+	Slot   Slot                `json:"slot"`
+}
+
+// SuggestedSlotReason `default` (the Slot's default Profile) or `kids_rule` (the Kids rule swapped HD for its Kids Profile). Clients tolerate new values.
+type SuggestedSlotReason string
+
 // System defines model for System.
 type System struct {
 	// ApiMajor Major version of this API (the `N` in `/api/vN`).
@@ -562,6 +751,83 @@ type System struct {
 	Version string `json:"version"`
 }
 
+// TitleCreate defines model for TitleCreate.
+type TitleCreate struct {
+	Kind       TitleKind    `json:"kind"`
+	RootFolder *string      `json:"root_folder,omitempty"`
+	TmdbId     int          `json:"tmdb_id"`
+	Versions   []VersionRef `json:"versions"`
+}
+
+// TitleDetail defines model for TitleDetail.
+type TitleDetail struct {
+	AddedAt time.Time `json:"added_at"`
+
+	// Certification The certification in the release-date country, with the same fallback as the Kids rule.
+	Certification *string `json:"certification"`
+
+	// Folder The Title's folder name; set by its first Import.
+	Folder *string `json:"folder"`
+
+	// HasPoster Whether `GET /titles/{id}/poster` has an image.
+	HasPoster      bool      `json:"has_poster"`
+	Id             int64     `json:"id"`
+	ImdbId         *string   `json:"imdb_id"`
+	Kind           TitleKind `json:"kind"`
+	MetadataFrozen bool      `json:"metadata_frozen"`
+	Monitored      bool      `json:"monitored"`
+
+	// OriginalLanguage ISO 639-1; empty when unknown.
+	OriginalLanguage string    `json:"original_language"`
+	OriginalTitle    string    `json:"original_title"`
+	Overview         string    `json:"overview"`
+	PrimaryTitle     string    `json:"primary_title"`
+	RefreshedAt      time.Time `json:"refreshed_at"`
+
+	// ReleaseDates Every dated release TMDB lists, in any country.
+	ReleaseDates []ReleaseDateEntry `json:"release_dates"`
+	RootFolder   string             `json:"root_folder"`
+
+	// Runtime Minutes.
+	Runtime *int   `json:"runtime"`
+	Title   string `json:"title"`
+	TmdbId  *int   `json:"tmdb_id"`
+	TvdbId  *int   `json:"tvdb_id"`
+
+	// Versions In Slot order.
+	Versions []VersionDetail `json:"versions"`
+	Year     *int            `json:"year"`
+}
+
+// TitleKind defines model for TitleKind.
+type TitleKind string
+
+// TitleList defines model for TitleList.
+type TitleList struct {
+	Items      []TitleRow `json:"items"`
+	NextCursor *string    `json:"next_cursor"`
+}
+
+// TitleRow defines model for TitleRow.
+type TitleRow struct {
+	AddedAt time.Time `json:"added_at"`
+	Id      int64     `json:"id"`
+	Kind    TitleKind `json:"kind"`
+
+	// PrimaryTitle The title in the Primary Language; the English title when TMDB has no translation.
+	PrimaryTitle string `json:"primary_title"`
+	Slots        struct {
+		Hd  *SlotSummary `json:"hd"`
+		Sd  *SlotSummary `json:"sd"`
+		Uhd *SlotSummary `json:"uhd"`
+	} `json:"slots"`
+
+	// Title The English title.
+	Title       string     `json:"title"`
+	WantedSince *time.Time `json:"wanted_since"`
+	Year        *int       `json:"year"`
+}
+
 // UntrustedProxyHeader defines model for UntrustedProxyHeader.
 type UntrustedProxyHeader struct {
 	Count    int       `json:"count"`
@@ -570,6 +836,28 @@ type UntrustedProxyHeader struct {
 
 	// Value The header value from the latest request.
 	Value string `json:"value"`
+}
+
+// VersionDetail defines model for VersionDetail.
+type VersionDetail struct {
+	AddedAt     time.Time    `json:"added_at"`
+	File        *FileSummary `json:"file"`
+	Id          int64        `json:"id"`
+	LongMissing bool         `json:"long_missing"`
+	Profile     string       `json:"profile"`
+	Slot        Slot         `json:"slot"`
+
+	// State `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
+	// Clients tolerate new values.
+	State       SlotState  `json:"state"`
+	WantedSince *time.Time `json:"wanted_since"`
+}
+
+// VersionRef defines model for VersionRef.
+type VersionRef struct {
+	// Profile The Profile key. It must be an enabled Profile of that Slot.
+	Profile string `json:"profile"`
+	Slot    Slot   `json:"slot"`
 }
 
 // InstanceId defines model for InstanceId.
@@ -581,10 +869,19 @@ type PluginId = string
 // ProfileKey defines model for ProfileKey.
 type ProfileKey string
 
+// TitleId defines model for TitleId.
+type TitleId = int64
+
 // ChangePasswordJSONBody defines parameters for ChangePassword.
 type ChangePasswordJSONBody struct {
 	CurrentPassword *string `json:"current_password,omitempty"`
 	NewPassword     *string `json:"new_password,omitempty"`
+}
+
+// LookupParams defines parameters for Lookup.
+type LookupParams struct {
+	Q    string     `form:"q" json:"q"`
+	Kind *TitleKind `form:"kind,omitempty" json:"kind,omitempty"`
 }
 
 // TestPluginInstanceJSONBody defines parameters for TestPluginInstance.
@@ -592,6 +889,14 @@ type TestPluginInstanceJSONBody struct {
 	// Config Plugin settings by manifest field key. Secret fields are write-only: they are accepted
 	// here and never returned. In a patch, `null` clears a field.
 	Config *PluginConfigPatch `json:"config,omitempty"`
+}
+
+// ListTitlesParams defines parameters for ListTitles.
+type ListTitlesParams struct {
+	Kind   *TitleKind `form:"kind,omitempty" json:"kind,omitempty"`
+	Q      *string    `form:"q,omitempty" json:"q,omitempty"`
+	Limit  *int       `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor *string    `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
 // ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
@@ -627,6 +932,9 @@ type PutReverseProxyJSONRequestBody = ReverseProxySettings
 // CreateAccountJSONRequestBody defines body for CreateAccount for application/json ContentType.
 type CreateAccountJSONRequestBody = Credentials
 
+// CreateTitleJSONRequestBody defines body for CreateTitle for application/json ContentType.
+type CreateTitleJSONRequestBody = TitleCreate
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// ChangePassword Change the admin password
@@ -650,6 +958,12 @@ type ServerInterface interface {
 	// GetMe Who is logged in
 	// (GET /auth/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// Lookup Search the metadata provider for Titles to add
+	// (GET /lookup)
+	Lookup(w http.ResponseWriter, r *http.Request, params LookupParams)
+	// LookupTitle One search result with the add panel's suggested Slots and Profiles
+	// (GET /lookup/{kind}/{tmdb_id})
+	LookupTitle(w http.ResponseWriter, r *http.Request, kind TitleKind, tmdbId int)
 	// ListPluginInstances Configured plugin instances
 	// (GET /plugin-instances)
 	ListPluginInstances(w http.ResponseWriter, r *http.Request)
@@ -707,6 +1021,18 @@ type ServerInterface interface {
 	// GetSystem Version and API major of this instance
 	// (GET /system)
 	GetSystem(w http.ResponseWriter, r *http.Request)
+	// ListTitles The Library's Titles as compact rows
+	// (GET /titles)
+	ListTitles(w http.ResponseWriter, r *http.Request, params ListTitlesParams)
+	// CreateTitle Add a Title to the Library
+	// (POST /titles)
+	CreateTitle(w http.ResponseWriter, r *http.Request)
+	// GetTitle One Title with its Versions
+	// (GET /titles/{id})
+	GetTitle(w http.ResponseWriter, r *http.Request, id TitleId)
+	// GetTitlePoster The Title's poster
+	// (GET /titles/{id}/poster)
+	GetTitlePoster(w http.ResponseWriter, r *http.Request, id TitleId)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -807,6 +1133,87 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Lookup operation middleware
+func (siw *ServerInterfaceWrapper) Lookup(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params LookupParams
+
+	// ------------- Required query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Lookup(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LookupTitle operation middleware
+func (siw *ServerInterfaceWrapper) LookupTitle(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "kind" -------------
+	var kind TitleKind
+
+	err = runtime.BindStyledParameterWithOptions("simple", "kind", r.PathValue("kind"), &kind, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "tmdb_id" -------------
+	var tmdbId int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tmdb_id", r.PathValue("tmdb_id"), &tmdbId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tmdb_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LookupTitle(w, r, kind, tmdbId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1163,6 +1570,144 @@ func (siw *ServerInterfaceWrapper) GetSystem(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// ListTitles operation middleware
+func (siw *ServerInterfaceWrapper) ListTitles(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListTitlesParams
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTitles(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateTitle operation middleware
+func (siw *ServerInterfaceWrapper) CreateTitle(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateTitle(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTitle operation middleware
+func (siw *ServerInterfaceWrapper) GetTitle(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TitleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTitle(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTitlePoster operation middleware
+func (siw *ServerInterfaceWrapper) GetTitlePoster(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TitleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTitlePoster(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -1300,6 +1845,12 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/settings", wrapper.PatchSettings)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/profiles", wrapper.ListProfiles)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/profiles/{key}", wrapper.PatchProfile)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/lookup", wrapper.Lookup)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/lookup/{kind}/{tmdb_id}", wrapper.LookupTitle)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles", wrapper.ListTitles)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles", wrapper.CreateTitle)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/{id}", wrapper.GetTitle)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/{id}/poster", wrapper.GetTitlePoster)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugins", wrapper.ListPlugins)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/plugins/{plugin_id}/options/{field}", wrapper.ListPluginOptions)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugin-instances", wrapper.ListPluginInstances)
@@ -1628,6 +2179,145 @@ type GetMedefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetMedefaultApplicationProblemPlusJSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupRequestObject struct {
+	Params LookupParams
+}
+
+type LookupResponseObject interface {
+	VisitLookupResponse(w http.ResponseWriter) error
+}
+
+type Lookup200JSONResponse LookupList
+
+func (response Lookup200JSONResponse) VisitLookupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Lookup422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response Lookup422ApplicationProblemPlusJSONResponse) VisitLookupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Lookup502ApplicationProblemPlusJSONResponse Problem
+
+func (response Lookup502ApplicationProblemPlusJSONResponse) VisitLookupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LookupdefaultApplicationProblemPlusJSONResponse) VisitLookupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupTitleRequestObject struct {
+	Kind   TitleKind `json:"kind"`
+	TmdbId int       `json:"tmdb_id"`
+}
+
+type LookupTitleResponseObject interface {
+	VisitLookupTitleResponse(w http.ResponseWriter) error
+}
+
+type LookupTitle200JSONResponse LookupDetail
+
+func (response LookupTitle200JSONResponse) VisitLookupTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupTitle404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response LookupTitle404ApplicationProblemPlusJSONResponse) VisitLookupTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupTitle502ApplicationProblemPlusJSONResponse Problem
+
+func (response LookupTitle502ApplicationProblemPlusJSONResponse) VisitLookupTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupTitledefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LookupTitledefaultApplicationProblemPlusJSONResponse) VisitLookupTitleResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -2651,6 +3341,288 @@ func (response GetSystemdefaultApplicationProblemPlusJSONResponse) VisitGetSyste
 	return err
 }
 
+type ListTitlesRequestObject struct {
+	Params ListTitlesParams
+}
+
+type ListTitlesResponseObject interface {
+	VisitListTitlesResponse(w http.ResponseWriter) error
+}
+
+type ListTitles200JSONResponse TitleList
+
+func (response ListTitles200JSONResponse) VisitListTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTitles422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListTitles422ApplicationProblemPlusJSONResponse) VisitListTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTitlesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListTitlesdefaultApplicationProblemPlusJSONResponse) VisitListTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTitleRequestObject struct {
+	Body *CreateTitleJSONRequestBody
+}
+
+type CreateTitleResponseObject interface {
+	VisitCreateTitleResponse(w http.ResponseWriter) error
+}
+
+type CreateTitle201JSONResponse TitleDetail
+
+func (response CreateTitle201JSONResponse) VisitCreateTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTitle404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateTitle404ApplicationProblemPlusJSONResponse) VisitCreateTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTitle409ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateTitle409ApplicationProblemPlusJSONResponse) VisitCreateTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTitle422ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateTitle422ApplicationProblemPlusJSONResponse) VisitCreateTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTitle502ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateTitle502ApplicationProblemPlusJSONResponse) VisitCreateTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTitledefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateTitledefaultApplicationProblemPlusJSONResponse) VisitCreateTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTitleRequestObject struct {
+	Id TitleId `json:"id"`
+}
+
+type GetTitleResponseObject interface {
+	VisitGetTitleResponse(w http.ResponseWriter) error
+}
+
+type GetTitle200JSONResponse TitleDetail
+
+func (response GetTitle200JSONResponse) VisitGetTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTitle404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetTitle404ApplicationProblemPlusJSONResponse) VisitGetTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTitledefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetTitledefaultApplicationProblemPlusJSONResponse) VisitGetTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTitlePosterRequestObject struct {
+	Id TitleId `json:"id"`
+}
+
+type GetTitlePosterResponseObject interface {
+	VisitGetTitlePosterResponse(w http.ResponseWriter) error
+}
+
+type GetTitlePoster200ImagejpegResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response GetTitlePoster200ImagejpegResponse) VisitGetTitlePosterResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "image/jpeg")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetTitlePoster404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetTitlePoster404ApplicationProblemPlusJSONResponse) VisitGetTitlePosterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTitlePoster502ApplicationProblemPlusJSONResponse Problem
+
+func (response GetTitlePoster502ApplicationProblemPlusJSONResponse) VisitGetTitlePosterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTitlePosterdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetTitlePosterdefaultApplicationProblemPlusJSONResponse) VisitGetTitlePosterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// ChangePassword Change the admin password
@@ -2674,6 +3646,12 @@ type StrictServerInterface interface {
 	// GetMe Who is logged in
 	// (GET /auth/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// Lookup Search the metadata provider for Titles to add
+	// (GET /lookup)
+	Lookup(ctx context.Context, request LookupRequestObject) (LookupResponseObject, error)
+	// LookupTitle One search result with the add panel's suggested Slots and Profiles
+	// (GET /lookup/{kind}/{tmdb_id})
+	LookupTitle(ctx context.Context, request LookupTitleRequestObject) (LookupTitleResponseObject, error)
 	// ListPluginInstances Configured plugin instances
 	// (GET /plugin-instances)
 	ListPluginInstances(ctx context.Context, request ListPluginInstancesRequestObject) (ListPluginInstancesResponseObject, error)
@@ -2731,6 +3709,18 @@ type StrictServerInterface interface {
 	// GetSystem Version and API major of this instance
 	// (GET /system)
 	GetSystem(ctx context.Context, request GetSystemRequestObject) (GetSystemResponseObject, error)
+	// ListTitles The Library's Titles as compact rows
+	// (GET /titles)
+	ListTitles(ctx context.Context, request ListTitlesRequestObject) (ListTitlesResponseObject, error)
+	// CreateTitle Add a Title to the Library
+	// (POST /titles)
+	CreateTitle(ctx context.Context, request CreateTitleRequestObject) (CreateTitleResponseObject, error)
+	// GetTitle One Title with its Versions
+	// (GET /titles/{id})
+	GetTitle(ctx context.Context, request GetTitleRequestObject) (GetTitleResponseObject, error)
+	// GetTitlePoster The Title's poster
+	// (GET /titles/{id}/poster)
+	GetTitlePoster(ctx context.Context, request GetTitlePosterRequestObject) (GetTitlePosterResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -2947,6 +3937,59 @@ func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetMeResponseObject); ok {
 		if err := validResponse.VisitGetMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Lookup operation middleware
+func (sh *strictHandler) Lookup(w http.ResponseWriter, r *http.Request, params LookupParams) {
+	var request LookupRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Lookup(ctx, request.(LookupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Lookup")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LookupResponseObject); ok {
+		if err := validResponse.VisitLookupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LookupTitle operation middleware
+func (sh *strictHandler) LookupTitle(w http.ResponseWriter, r *http.Request, kind TitleKind, tmdbId int) {
+	var request LookupTitleRequestObject
+
+	request.Kind = kind
+	request.TmdbId = tmdbId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LookupTitle(ctx, request.(LookupTitleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LookupTitle")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LookupTitleResponseObject); ok {
+		if err := validResponse.VisitLookupTitleResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -3482,6 +4525,115 @@ func (sh *strictHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetSystemResponseObject); ok {
 		if err := validResponse.VisitGetSystemResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListTitles operation middleware
+func (sh *strictHandler) ListTitles(w http.ResponseWriter, r *http.Request, params ListTitlesParams) {
+	var request ListTitlesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListTitles(ctx, request.(ListTitlesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListTitles")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListTitlesResponseObject); ok {
+		if err := validResponse.VisitListTitlesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateTitle operation middleware
+func (sh *strictHandler) CreateTitle(w http.ResponseWriter, r *http.Request) {
+	var request CreateTitleRequestObject
+
+	var body CreateTitleJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateTitle(ctx, request.(CreateTitleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateTitle")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateTitleResponseObject); ok {
+		if err := validResponse.VisitCreateTitleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetTitle operation middleware
+func (sh *strictHandler) GetTitle(w http.ResponseWriter, r *http.Request, id TitleId) {
+	var request GetTitleRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetTitle(ctx, request.(GetTitleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetTitle")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetTitleResponseObject); ok {
+		if err := validResponse.VisitGetTitleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetTitlePoster operation middleware
+func (sh *strictHandler) GetTitlePoster(w http.ResponseWriter, r *http.Request, id TitleId) {
+	var request GetTitlePosterRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetTitlePoster(ctx, request.(GetTitlePosterRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetTitlePoster")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetTitlePosterResponseObject); ok {
+		if err := validResponse.VisitGetTitlePosterResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

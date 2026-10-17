@@ -18,6 +18,9 @@ type Config struct {
 	DataDir   string     // KESTREL_DATA_DIR
 	LogLevel  slog.Level // KESTREL_LOG_LEVEL
 	Umask     int        // UMASK, octal
+	// Provider keys: they rank below the UI override and above the key embedded in the build.
+	TMDBAPIKey string // KESTREL_TMDB_API_KEY
+	TVDBAPIKey string // KESTREL_TVDB_API_KEY
 }
 
 // Load reads the configuration through getenv (os.Getenv in production).
@@ -31,6 +34,9 @@ func Load(getenv func(string) string) (Config, error) {
 	c := Config{
 		ConfigDir: str("KESTREL_CONFIG_DIR", "/config"),
 		DataDir:   str("KESTREL_DATA_DIR", "/data"),
+
+		TMDBAPIKey: strings.TrimSpace(getenv("KESTREL_TMDB_API_KEY")),
+		TVDBAPIKey: strings.TrimSpace(getenv("KESTREL_TVDB_API_KEY")),
 	}
 
 	port, err := strconv.Atoi(str("KESTREL_PORT", "7676"))

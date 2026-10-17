@@ -68,6 +68,9 @@ func run(ctx context.Context) error {
 			Logger:  logger,
 			Plugins: plugins,
 			DataDir: cfg.DataDir,
+
+			ConfigDir:  cfg.ConfigDir,
+			TMDBAPIKey: cfg.TMDBAPIKey,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
