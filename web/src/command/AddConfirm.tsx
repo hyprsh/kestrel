@@ -1,14 +1,14 @@
 import { CornerDownLeft } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { ApiError, useCreateTitle, useLookupDetail, useProfiles, useSettings, type LookupResult, type Profile } from '../api/queries'
+import { ApiError, useCreateTitle, useLookupDetail, useProfiles, useSettings, type LookupResult, type Profile, type SeriesMonitor } from '../api/queries'
 import { Button, ErrorText, Select } from '../forms'
 import { slotKeys, slotLabel, type SlotKey } from '../library/bits'
 import { Kbd } from '../ui'
 
 /** The Profile a Slot gets when ticked without a suggestion: its default, else the first enabled Primary-Language one. */
-function fallbackProfile(profiles: Profile[], slot: SlotKey): string | undefined {
+function fallbackProfile(profiles: Profile[], slot: SlotKey, kind: 'movie' | 'series'): string | undefined {
   const of = profiles.filter((p) => p.slot === slot && p.enabled)
-  return (of.find((p) => p.default_movies) ?? of.find((p) => p.language_rule === 'primary' && !p.name.startsWith('Kids')) ?? of[0])?.key
+  return (of.find((p) => (kind === 'series' ? p.default_series : p.default_movies)) ?? of.find((p) => p.language_rule === 'primary' && !p.name.startsWith('Kids')) ?? of[0])?.key
 }
 
 /**
@@ -25,6 +25,7 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
   const [picked, setPicked] = useState<Partial<Record<SlotKey, string>>>({})
   const [seeded, setSeeded] = useState(false)
   const [root, setRoot] = useState<string | null>(null)
+  const [monitor, setMonitor] = useState<SeriesMonitor>('all')
 
   useEffect(() => panel.current?.focus(), [])
 
@@ -36,7 +37,7 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
   }, [seeded, suggestion.data])
 
   const all = profiles.data ?? []
-  const roots = settings.data?.root_folders.movies ?? []
+  const roots = (result.kind === 'series' ? settings.data?.root_folders.series : settings.data?.root_folders.movies) ?? []
   const chosen = slotKeys.filter((k) => picked[k])
   const ready = seeded && chosen.length > 0 && !create.isPending
 
@@ -47,6 +48,7 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
         kind: result.kind,
         tmdb_id: result.tmdb_id,
         versions: chosen.map((slot) => ({ slot, profile: picked[slot]! })),
+        ...(result.kind === 'series' ? { series_monitor: monitor } : {}),
         ...(root ? { root_folder: root } : {}),
       },
       { onSuccess: (title) => onAdded(title.id) },
@@ -98,7 +100,7 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
                         onChange={(e) =>
                           setPicked((p) => {
                             const next = { ...p }
-                            const fallback = fallbackProfile(all, k)
+                            const fallback = fallbackProfile(all, k, result.kind)
                             if (e.target.checked && fallback) next[k] = fallback
                             else delete next[k]
                             return next
@@ -120,7 +122,17 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
                 )
               })}
             </div>
-            {result.kind === 'movie' && roots.length > 1 && (
+            {result.kind === 'series' && (
+              <label className="mt-3 flex items-center gap-3 text-[13px]">
+                <span className="w-20 font-medium">Monitor</span>
+                <Select aria-label="Monitor" value={monitor} onChange={(e) => setMonitor(e.target.value as SeriesMonitor)} className="max-w-56">
+                  <option value="all">All episodes</option>
+                  <option value="future">Future episodes only</option>
+                  <option value="none">None</option>
+                </Select>
+              </label>
+            )}
+            {roots.length > 1 && (
               <label className="mt-3 flex items-center gap-3 text-[13px]">
                 <span className="w-20 font-medium">Folder</span>
                 <Select aria-label="Root folder" value={root ?? roots[0]} onChange={(e) => setRoot(e.target.value)} className="max-w-72">

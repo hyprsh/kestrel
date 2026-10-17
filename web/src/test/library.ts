@@ -50,6 +50,8 @@ export const detail = (r: TitleRow, over: Partial<TitleDetail> = {}): TitleDetai
   refreshed_at: r.added_at,
   certification: 'PG',
   release_dates: [],
+  series_monitor: null,
+  seasons: [],
   versions: (['sd', 'hd', 'uhd'] as const).flatMap((s) => {
     const sl = r.slots[s]
     return sl

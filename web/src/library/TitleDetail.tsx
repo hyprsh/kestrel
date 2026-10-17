@@ -3,6 +3,7 @@ import { apiBaseUrl } from '../api/client'
 import { useProfiles, useTitle, type TitleDetail as Detail, type TitleRow } from '../api/queries'
 import { cx } from '../ui'
 import { slotKeys, slotLabel, StatusBadge, type SlotKey } from './bits'
+import { SeriesSection } from './SeriesSection'
 
 function size(bytes: number): string {
   const gb = bytes / 1024 ** 3
@@ -71,6 +72,8 @@ function Body({ title }: { title: Detail }) {
           <VersionColumn key={k} slot={k} title={title} profileName={(key) => names.get(key) ?? key} />
         ))}
       </div>
+
+      {title.kind === 'series' && <SeriesSection title={title} />}
     </div>
   )
 }
