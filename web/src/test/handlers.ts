@@ -43,10 +43,18 @@ export const handlers = [
   http.get('/plugin-instances', ({ response }) => response(200).json({ items: [], next_cursor: null })),
   http.get('/auth/me', ({ response }) => response(200).json({ username: 'admin', method: 'session', proxy_user: null })),
   http.get('/api-key', ({ response }) => response(200).json({ prefix: null, created_at: null })),
+  http.get('/setup', ({ response }) =>
+    response(200).json({
+      account_exists: true,
+      completed: true,
+      sections: { account: 'done', language: 'done', download_client: 'done', indexer: 'done', root_folders: 'done', profiles: 'done' },
+    }),
+  ),
   http.get('/settings', ({ response }) =>
     response(200).json({
       language_region: { primary_language: 'en', release_date_country: 'US' },
       kids_rule: { enabled: true, threshold: 6 },
+      root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'] },
     }),
   ),
   http.get('/profiles', ({ response }) => response(200).json({ items: [] })),

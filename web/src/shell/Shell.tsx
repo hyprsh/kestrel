@@ -23,7 +23,7 @@ const themeIcon: Record<Theme, ReactNode> = {
 }
 const mod = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'
 
-export function Shell() {
+export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const [screen, setScreen] = useState('overview')
   const current = [...screens, about].find((s) => s.key === screen)!
 
@@ -34,7 +34,7 @@ export function Shell() {
         <TopBar title={current.label} />
         <main className="flex min-h-0 flex-1 flex-col">
           {screen === 'settings' ? (
-            <SettingsScreen />
+            <SettingsScreen onRunSetup={onRunSetup} />
           ) : (
             <div className="flex flex-1 items-center justify-center text-center">
               <div>

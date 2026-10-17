@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { App } from './App'
 import { http } from './test/handlers'
 import { server } from './test/server'
+import { fakeSetup } from './test/fakeSetup'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -15,6 +16,7 @@ const body = (status: number, code: string) => ({ type: 'about:blank', title: 'x
 /** The server state machine the SPA talks to: fresh, then logged out, then logged in. */
 function fakeServer(initial: 'fresh' | 'logged-out' | 'logged-in') {
   let state = initial
+  if (initial === 'fresh') fakeSetup({ language: 'done', download_client: 'done', indexer: 'done', root_folders: 'done', profiles: 'done' })
   const calls: { path: string; body?: unknown }[] = []
   server.use(
     http.get('/auth/me', ({ response }) =>
@@ -72,7 +74,7 @@ describe('the wizard Account step', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
 
     expect(await screen.findByRole('heading', { name: /download client/i })).toBeInTheDocument() // the wizard's next section
-    await userEvent.click(screen.getByRole('button', { name: 'Continue to Kestrel' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Finish setup' }))
     expect(await screen.findByRole('navigation')).toBeInTheDocument()
     expect(calls).toEqual([{ path: 'setup/account', body: { username: 'admin', password: 'correct horse' } }])
   })

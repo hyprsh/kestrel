@@ -13,6 +13,7 @@ import { Button, ErrorText, Field, TextInput } from '../forms'
 import { DownloadClient } from '../plugins/DownloadClient'
 import { Indexers } from '../plugins/Indexers'
 import { LanguageForm } from '../profiles/Language'
+import { RootFoldersForm } from '../rootfolders/RootFolders'
 import { DefaultsPerSlot, KidsRuleForm, ProfileToggles } from '../profiles/Profiles'
 
 /** Settings sections, in page order. Later tickets add theirs here. */
@@ -21,12 +22,14 @@ const sections = [
   { id: 'profiles', title: 'Profiles' },
   { id: 'download-client', title: 'Download client' },
   { id: 'indexers', title: 'Indexers' },
+  { id: 'root-folders', title: 'Root folders' },
   { id: 'account', title: 'Account' },
   { id: 'security', title: 'Security' },
+  { id: 'setup', title: 'Setup' },
 ]
 
 /** One page with a jump list on the left; each section is a group of rows. */
-export function Settings() {
+export function Settings({ onRunSetup }: { onRunSetup: () => void }) {
   return (
     <div className="flex min-h-0 flex-1 overflow-auto">
       <nav aria-label="Settings sections" className="sticky top-0 w-48 shrink-0 self-start p-4">
@@ -65,6 +68,11 @@ export function Settings() {
         <Group id="indexers" title="Indexers">
           <Indexers />
         </Group>
+        <Group id="root-folders" title="Root folders">
+          <Row label="Folders" help="Where Imports put Movies and Series. The first of each kind is the default when adding a Title.">
+            <RootFoldersForm />
+          </Row>
+        </Group>
         <Group id="account" title="Account">
           <ChangePassword />
           <LogOutEverywhere />
@@ -72,6 +80,13 @@ export function Settings() {
         <Group id="security" title="Security">
           <ApiKeyRow />
           <ReverseProxyRow />
+        </Group>
+        <Group id="setup" title="Setup">
+          <Row label="Setup wizard" help="Walk through the setup sections again. The account stays as it is.">
+            <Button variant="secondary" onClick={onRunSetup}>
+              Run setup again
+            </Button>
+          </Row>
         </Group>
       </div>
     </div>

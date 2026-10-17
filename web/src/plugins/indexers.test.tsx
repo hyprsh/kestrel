@@ -6,6 +6,7 @@ import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http, newznab, sabnzbd } from '../test/handlers'
 import { server } from '../test/server'
+import { fakeSetup } from '../test/fakeSetup'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -31,6 +32,7 @@ const stored = (id: number, name: string, over: Partial<Instance> = {}): Instanc
 function fakeIndexers(opts: { fresh?: boolean; indexers?: Instance[] } = {}) {
   const sent: Sent[] = []
   let signedIn = !opts.fresh
+  if (opts.fresh) fakeSetup()
   let items = opts.indexers ?? []
   let nextId = 100
   const result = (config: Record<string, unknown>) =>
@@ -92,7 +94,7 @@ describe('the wizard Indexer section', () => {
 
     const section = await screen.findByRole('region', { name: /indexer/i })
     const form = within(section)
-    expect(form.getByLabelText('Movie categories')).toHaveValue('2000')
+    expect(await form.findByLabelText('Movie categories')).toHaveValue('2000')
     expect(form.getByLabelText('Series categories')).toHaveValue('5000')
     expect(form.getByLabelText('API key')).toHaveAttribute('type', 'password')
     expect(form.queryByLabelText('Name')).not.toBeInTheDocument() // the wizard adds one indexer, no names to manage

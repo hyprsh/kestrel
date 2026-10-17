@@ -6,6 +6,7 @@ import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { server } from '../test/server'
+import { fakeSetup } from '../test/fakeSetup'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -51,7 +52,9 @@ function fakeProfiles(opts: { fresh?: boolean } = {}) {
   let settings: Settings = {
     language_region: { primary_language: 'en', release_date_country: 'US' },
     kids_rule: { enabled: true, threshold: 6 },
+    root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'] },
   }
+  if (opts.fresh) fakeSetup()
   server.use(
     http.get('/auth/me', ({ response }) =>
       signedIn ? response(200).json(me) : response('default').json({ ...problem(401, 'setup_required', 'x') }, { status: 401 }),
@@ -65,6 +68,7 @@ function fakeProfiles(opts: { fresh?: boolean } = {}) {
       const body = (await request.json()) as { language_region?: Partial<Settings['language_region']>; kids_rule?: Partial<Settings['kids_rule']> }
       sent.push({ path: 'settings', body })
       settings = {
+        ...settings,
         language_region: { ...settings.language_region, ...body.language_region },
         kids_rule: { ...settings.kids_rule, ...body.kids_rule },
       } as Settings
@@ -102,7 +106,7 @@ describe('the wizard Primary Language section', () => {
     await createAccount()
 
     const section = await screen.findByRole('region', { name: 'Primary Language' })
-    expect(within(section).getByText(/required audio/i)).toBeInTheDocument() // the explainer
+    expect(await within(section).findByText(/required audio/i)).toBeInTheDocument() // the explainer
     const language = within(section).getByLabelText('Primary Language')
     expect(language).toHaveValue('en')
     expect(within(section).getByLabelText('Release-date country')).toHaveValue('US')

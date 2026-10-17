@@ -14,17 +14,19 @@ export class ApiError extends Error {
     public status: number,
     message: string,
     public retryAfter?: number,
+    /** Per-field validation errors of a 422. */
+    public fields: { field: string; code: string; message: string }[] = [],
   ) {
     super(message)
   }
 }
 
-type Problem = { code?: string; detail?: string; title?: string } | undefined
+type Problem = { code?: string; detail?: string; title?: string; errors?: { field: string; code: string; message: string }[] } | undefined
 
 function failure(error: unknown, response: Response): ApiError {
   const p = error as Problem
   const retry = Number(response.headers.get('Retry-After'))
-  return new ApiError(p?.code ?? 'internal', response.status, p?.detail ?? p?.title ?? 'Request failed', retry > 0 ? retry : undefined)
+  return new ApiError(p?.code ?? 'internal', response.status, p?.detail ?? p?.title ?? 'Request failed', retry > 0 ? retry : undefined, p?.errors ?? [])
 }
 
 export function useSystem() {
@@ -282,5 +284,34 @@ export function usePatchProfile() {
       return data
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['profiles'] }),
+  })
+}
+
+// ---- setup progress ----
+
+export type Setup = components['schemas']['Setup']
+
+/** Where each wizard section stands. */
+export function useSetup(enabled = true) {
+  return useQuery({
+    queryKey: ['setup'],
+    enabled,
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/setup')
+      if (!data) throw failure(error, response)
+      return data
+    },
+  })
+}
+
+/** Finishes setup; a 422 carries the missing sections as `fields`. */
+export function useCompleteSetup() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const { error, response } = await api.POST('/setup/complete')
+      if (!response.ok) throw failure(error, response)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['setup'] }),
   })
 }

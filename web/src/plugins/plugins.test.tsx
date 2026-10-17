@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
 import { server } from '../test/server'
+import { fakeSetup } from '../test/fakeSetup'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -17,6 +18,7 @@ type Sent = { path: string; body?: unknown }
 function fakePlugins(opts: { fresh?: boolean; saved?: boolean } = {}) {
   const sent: Sent[] = []
   let signedIn = !opts.fresh
+  if (opts.fresh) fakeSetup()
   let saved = !!opts.saved
   const instance = () => ({
     id: 7,
@@ -82,7 +84,7 @@ describe('the wizard SABnzbd section', () => {
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument() // the wizard goes on after the account
 
     // The form comes from the manifest: its fields, defaults and a password-type secret.
-    expect(screen.getByLabelText('URL')).toHaveValue('')
+    expect(await screen.findByLabelText('URL')).toHaveValue('')
     expect(screen.getByLabelText('API key')).toHaveAttribute('type', 'password')
     expect(screen.getByLabelText('Movie category')).toHaveValue('movies')
 
@@ -108,9 +110,6 @@ describe('the wizard SABnzbd section', () => {
       path: 'create',
       body: { plugin_id: 'sabnzbd', name: 'SABnzbd', config: { url: 'http://sab:8080', api_key: 'good-key', movie_category: 'films', tv_category: 'tv' } },
     })
-
-    await userEvent.click(screen.getByRole('button', { name: 'Continue to Kestrel' }))
-    expect(await screen.findByRole('navigation')).toBeInTheDocument()
   })
 
   it('shows the server problem when saving is refused', async () => {
