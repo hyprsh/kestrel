@@ -54,3 +54,6 @@ INSERT INTO grab_episodes (grab_id, episode_id) VALUES (?, ?);
 SELECT g.version_id, ge.episode_id
 FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
 WHERE g.state IN ('sent', 'downloading', 'completed', 'importing') AND g.stalled_since IS NULL;
+
+-- name: ListGrabEpisodes :many
+SELECT episode_id FROM grab_episodes WHERE grab_id = ? ORDER BY episode_id;

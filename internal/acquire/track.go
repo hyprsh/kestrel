@@ -258,6 +258,9 @@ func (s *Service) SearchWanted(ctx context.Context, titleID int64, versionIDs []
 	if err != nil {
 		return Outcome{}, err
 	}
+	if sub.detail.Kind == library.Series {
+		return s.searchSeries(ctx, sub, versionIDs)
+	}
 	active, err := s.Active(ctx)
 	if err != nil {
 		return Outcome{}, err
@@ -277,7 +280,7 @@ func (s *Service) SearchWanted(ctx context.Context, titleID int64, versionIDs []
 	if len(in.Versions) == 0 {
 		return out, nil
 	}
-	entries, failures, err := s.gather(ctx, sub)
+	entries, failures, err := s.gather(ctx, sub, Scope{})
 	if err != nil {
 		return out, err
 	}

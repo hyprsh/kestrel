@@ -578,8 +578,9 @@ export interface paths {
          *     Synchronous, with a server timeout of about 30 s: an indexer that has not answered by then
          *     is reported in `indexer_errors` and the rest still come back. The Releases stay grabbable
          *     for 6 h through their `release_id`. `fits` says whether the Release belongs to this Version's
-         *     Slot; a Release for another Slot carries the `other_slot` rejection. Only Movie Versions can
-         *     be searched so far.
+         *     Slot; a Release for another Slot carries the `other_slot` rejection. A Series Version is
+         *     searched by `season` and `episode_ids` in the body (none searches the whole Series); the
+         *     Releases are single or multi-episode ones and season packs, told apart by `episodes` and `pack`.
          */
         post: operations["searchVersionReleases"];
         delete?: never;
@@ -1364,7 +1365,10 @@ export interface components {
             /** Format: date-time */
             added_at: string;
         };
-        /** @description Series searches will take `season` and `episode_ids`; Movie searches take nothing. */
+        /**
+         * @description Narrows the search of a Series Version to a season and, within it, episodes. Movie searches
+         *     take nothing.
+         */
         ReleaseSearch: {
             season?: number | null;
             episode_ids?: number[];
@@ -1401,6 +1405,12 @@ export interface components {
             /** @enum {string} */
             fits: "this_slot" | "other_slot" | "none";
             rejections: components["schemas"]["Rejection"][];
+            /** @description Series only. The season of the Release (the first of a multi-season pack). */
+            season?: number;
+            /** @description Series only. The episode numbers of a single or multi-episode Release; empty for a pack. */
+            episodes?: number[];
+            /** @description Series only. True for a season pack. */
+            pack?: boolean;
         };
         IndexerError: {
             /** Format: int64 */

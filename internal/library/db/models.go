@@ -61,6 +61,7 @@ type File struct {
 
 type FileEpisode struct {
 	FileID    int64
+	VersionID int64
 	EpisodeID int64
 }
 

@@ -78,6 +78,8 @@ type Result struct {
 	// CrossDevice says the file had to be copied because the download folder
 	// and the library are on different filesystems (a health Warning).
 	CrossDevice bool
+	// Episodes are the per-episode results of a Series Import, in aired order.
+	Episodes []EpisodeResult
 }
 
 // Library is what imports needs of the library module.
@@ -85,6 +87,13 @@ type Library interface {
 	Get(ctx context.Context, id int64, view library.View) (library.Detail, error)
 	ReplaceFile(ctx context.Context, titleID int64, folder string, f library.NewFile) ([]library.File, error)
 	FileOfGrab(ctx context.Context, grabID int64) (library.File, bool, error)
+	// The Series side: episodes with their cells, a file for several episodes
+	// at once, the files an earlier run of this Grab recorded and the paths a
+	// Version holds.
+	Episodes(ctx context.Context, titleID int64, view library.View) ([]library.Episode, error)
+	ReplaceEpisodeFile(ctx context.Context, titleID int64, folder string, f library.NewFile, episodeIDs []int64) ([]library.File, error)
+	FilesOfGrab(ctx context.Context, grabID int64) ([]library.File, error)
+	PathsOfVersion(ctx context.Context, versionID int64) ([]string, error)
 	FilesOfVersion(ctx context.Context, versionID int64) ([]library.File, error)
 	ApplyRescore(ctx context.Context, rs []library.Rescored) error
 }
@@ -182,9 +191,6 @@ func (s *Service) Import(ctx context.Context, g Grab) Result {
 	if ver == nil {
 		return stalled("the Version no longer exists")
 	}
-	if d.Kind != library.Movie {
-		return stalled("only Movies can be imported so far")
-	}
 	all, err := s.prof.List(ctx)
 	if err != nil {
 		return stalledBy(err)
@@ -209,6 +215,9 @@ func (s *Service) Import(ctx context.Context, g Grab) Result {
 
 	original := codeOfLanguage(release.LanguageByISO(d.OriginalLanguage))
 	primary := codeOfLanguage(region.Primary.Release())
+	if d.Kind == library.Series {
+		return s.importSeries(ctx, g, d, ver, profile, parsed, primary, original)
+	}
 	name := d.Title
 	if name == "" {
 		name = d.OriginalTitle

@@ -37,8 +37,6 @@ var (
 	ErrReleaseExpired = errors.New("the release is no longer in the search results")
 	// ErrReleaseGone means the indexer no longer has the Release's NZB.
 	ErrReleaseGone = errors.New("the indexer no longer has the release")
-	// ErrUnsupportedKind is returned for a Series Version until Series can be searched.
-	ErrUnsupportedKind = errors.New("only Movies can be searched so far")
 )
 
 // RejectedError is a Grab refused because of the Release's rejections.
@@ -183,6 +181,12 @@ type Found struct {
 	Score       int
 	Fits        Fit
 	Rejections  []Reason
+	// Season, Episodes and Pack say what a Series Release holds: its season (the
+	// first of a multi-season pack), the episodes of a single or multi-episode
+	// release, and whether it is a season pack. Zero for a Movie.
+	Season   int
+	Episodes []int
+	Pack     bool
 }
 
 // SearchResult is the outcome of a manual search.
@@ -244,17 +248,8 @@ type subject struct {
 	versions map[resolution.Class]*scoring.Profile
 }
 
-// subjectOf is the subject of a search, which only Movies have so far.
+// subjectOf is the subject of a Movie or a Series.
 func (s *Service) subjectOf(ctx context.Context, titleID int64) (subject, error) {
-	sub, err := s.subjectOfAny(ctx, titleID)
-	if err == nil && sub.detail.Kind != library.Movie {
-		return subject{}, ErrUnsupportedKind
-	}
-	return sub, err
-}
-
-// subjectOfAny is the subject of a Movie or a Series.
-func (s *Service) subjectOfAny(ctx context.Context, titleID int64) (subject, error) {
 	region, _, err := s.prof.Region(ctx)
 	if err != nil {
 		return subject{}, err
@@ -289,8 +284,11 @@ func (s *Service) subjectOfAny(ctx context.Context, titleID int64) (subject, err
 // gather searches every indexer for the Title and scores each Release under
 // the Profile of every Version the Title has. The entries go into the
 // candidate cache. Search on add, sweeps and retries reuse it.
-func (s *Service) gather(ctx context.Context, sub subject) ([]*entry, []indexers.Failure, error) {
+func (s *Service) gather(ctx context.Context, sub subject, scope Scope) ([]*entry, []indexers.Failure, error) {
 	d := sub.detail
+	if d.Kind == library.Series {
+		return s.gatherSeries(ctx, sub, scope)
+	}
 	res := s.idx.Search(ctx, indexers.Query{
 		Media: indexer.MediaMovie, IMDBID: d.IMDbID, TMDBID: d.TMDBID, Year: d.Year,
 		Titles: searchTitles(d.Title, d.OriginalTitle, d.PrimaryTitle),
@@ -390,6 +388,12 @@ func (e *entry) fits(slot Slot) Fit {
 // and the lot is cached for CacheTTL. It returns library.ErrNotFound for an
 // unknown Version.
 func (s *Service) Search(ctx context.Context, versionID int64) (SearchResult, error) {
+	return s.SearchScope(ctx, versionID, Scope{})
+}
+
+// SearchScope is Search narrowed, for a Series Version, to a season or to
+// episodes of it. A Movie Version ignores the scope.
+func (s *Service) SearchScope(ctx context.Context, versionID int64, scope Scope) (SearchResult, error) {
 	titleID, err := s.lib.TitleOfVersion(ctx, versionID)
 	if err != nil {
 		return SearchResult{}, err
@@ -402,7 +406,7 @@ func (s *Service) Search(ctx context.Context, versionID int64) (SearchResult, er
 	if !ok {
 		return SearchResult{}, library.ErrNotFound
 	}
-	entries, failures, err := s.gather(ctx, sub)
+	entries, failures, err := s.gather(ctx, sub, scope)
 	if err != nil {
 		return SearchResult{}, err
 	}
@@ -412,6 +416,9 @@ func (s *Service) Search(ctx context.Context, versionID int64) (SearchResult, er
 		f := Found{
 			ID: e.id, GUID: e.raw.GUID, Name: e.raw.Title, Indexer: e.raw.IndexerName, IndexerID: e.raw.IndexerID, Size: e.raw.Size,
 			PublishedAt: e.raw.PublishDate, Quality: e.cand.Parsed.Quality.Quality.Name, Formats: v.Matched, Score: v.Score, Fits: e.fits(slot),
+		}
+		if sr := e.cand.Parsed.Series; sr != nil {
+			f.Season, f.Episodes, f.Pack = sr.Season, slices.Clone(sr.Episodes), sr.FullSeason
 		}
 		for _, l := range v.Languages {
 			f.Languages = append(f.Languages, l.Name)
@@ -527,13 +534,22 @@ func (s *Service) Grab(ctx context.Context, versionID int64, releaseID string, o
 		return Grab{}, rej
 	}
 
-	var held bool
-	for _, v := range sub.detail.Versions {
-		if v.ID == versionID {
-			held = v.File != nil
+	o := outgoing{titleID: titleID, versionID: versionID, e: e, slot: slot, media: downloads.Movie, overridden: len(reasons) > 0}
+	if sub.detail.Kind == library.Series {
+		eps, err := s.lib.Episodes(ctx, titleID, library.View{Now: s.clock()})
+		if err != nil {
+			return Grab{}, err
+		}
+		o.media = downloads.Series
+		o.episodes, o.upgrade = coveredBy(e.cand.Parsed, eps, slot)
+	} else {
+		for _, v := range sub.detail.Versions {
+			if v.ID == versionID {
+				o.upgrade = v.File != nil
+			}
 		}
 	}
-	return s.send(ctx, outgoing{titleID: titleID, versionID: versionID, e: e, slot: slot, media: downloads.Movie, upgrade: held, overridden: len(reasons) > 0})
+	return s.send(ctx, o)
 }
 
 // outgoing is a Release chosen for a Version, ready to send.
@@ -595,4 +611,9 @@ func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
 		Kind: history.GrabSent, TitleID: o.titleID, VersionID: o.versionID, GrabID: g.ID, Message: "Sent " + g.ReleaseName + " to the download client",
 	})
 	return g, nil
+}
+
+// GrabEpisodes are the episodes a Series Grab was sent for, by id; none for a Movie.
+func (s *Service) GrabEpisodes(ctx context.Context, grabID int64) ([]int64, error) {
+	return db.New(s.st.Read()).ListGrabEpisodes(ctx, grabID)
 }

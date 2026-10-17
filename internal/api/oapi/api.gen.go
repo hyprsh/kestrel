@@ -975,11 +975,17 @@ type RejectionCode string
 // Release defines model for Release.
 type Release struct {
 	CustomFormats []CustomFormatMatch `json:"custom_formats"`
-	Fits          ReleaseFits         `json:"fits"`
-	Indexer       string              `json:"indexer"`
-	Languages     []string            `json:"languages"`
-	Name          string              `json:"name"`
-	PublishedAt   time.Time           `json:"published_at"`
+
+	// Episodes Series only. The episode numbers of a single or multi-episode Release; empty for a pack.
+	Episodes  *[]int      `json:"episodes,omitempty"`
+	Fits      ReleaseFits `json:"fits"`
+	Indexer   string      `json:"indexer"`
+	Languages []string    `json:"languages"`
+	Name      string      `json:"name"`
+
+	// Pack Series only. True for a season pack.
+	Pack        *bool     `json:"pack,omitempty"`
+	PublishedAt time.Time `json:"published_at"`
 
 	// Quality Example: Bluray-1080p
 	Quality    string      `json:"quality"`
@@ -988,7 +994,10 @@ type Release struct {
 	// ReleaseId Opaque; names the Release for 6 h.
 	ReleaseId string `json:"release_id"`
 	Score     int    `json:"score"`
-	Size      int64  `json:"size"`
+
+	// Season Series only. The season of the Release (the first of a multi-season pack).
+	Season *int  `json:"season,omitempty"`
+	Size   int64 `json:"size"`
 }
 
 // ReleaseFits defines model for Release.Fits.
@@ -1011,7 +1020,8 @@ type ReleaseList struct {
 	Items         []Release      `json:"items"`
 }
 
-// ReleaseSearch Series searches will take `season` and `episode_ids`; Movie searches take nothing.
+// ReleaseSearch Narrows the search of a Series Version to a season and, within it, episodes. Movie searches
+// take nothing.
 type ReleaseSearch struct {
 	EpisodeIds *[]int64 `json:"episode_ids,omitempty"`
 	Season     *int     `json:"season,omitempty"`

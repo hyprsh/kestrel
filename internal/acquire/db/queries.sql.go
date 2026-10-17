@@ -398,6 +398,33 @@ func (q *Queries) ListDownloadingGrabs(ctx context.Context) ([]Grab, error) {
 	return items, nil
 }
 
+const listGrabEpisodes = `-- name: ListGrabEpisodes :many
+SELECT episode_id FROM grab_episodes WHERE grab_id = ? ORDER BY episode_id
+`
+
+func (q *Queries) ListGrabEpisodes(ctx context.Context, grabID int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listGrabEpisodes, grabID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var episode_id int64
+		if err := rows.Scan(&episode_id); err != nil {
+			return nil, err
+		}
+		items = append(items, episode_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listImportableGrabs = `-- name: ListImportableGrabs :many
 SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at FROM grabs
 WHERE state = 'completed'
