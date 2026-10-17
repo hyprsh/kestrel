@@ -374,8 +374,9 @@ paths:
       summary: Search the metadata provider for Titles to add
       description: |
         One TMDB search across both kinds, in English, newest relevance first. Results already in the
-        Library carry their Title id in `in_library`. Only Movies can be added so far, so Series
-        results are left out until Series can be added.
+        Library carry their Title id in `in_library`. A Series needs a TheTVDB id (from TMDB's external
+        ids, else a TheTVDB remote-id search by IMDb id); one without is `addable: false` with
+        `not_addable_reason: not_on_tvdb`, and `POST /titles` refuses it.
         `502 upstream_unavailable` means TMDB could not be reached or refused the key.
       tags: [titles]
       parameters:
@@ -483,7 +484,8 @@ paths:
         Fetches the Title from the metadata provider and adds it with the named Versions, each Wanted.
         `root_folder` must be one of the configured Root folders for the kind; left out, it is the
         first. `409 conflict` when the Title is already in the Library (the existing id is in
-        `detail`). Only Movies can be added so far.
+        `detail`). A Series takes `series_monitor` (default `all`); one TheTVDB does not have is refused
+        with a `422` whose field error is `tmdb_id` / `not_on_tvdb`.
       tags: [titles]
       requestBody:
         required: true
@@ -523,6 +525,102 @@ paths:
               schema:
                 $ref: "#/components/schemas/TitleDetail"
         "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    patch:
+      operationId: patchTitle
+      summary: Change a Series' monitoring mode
+      description: |
+        Applies the mode to every episode and season now (Specials are never monitored by a mode).
+        `422` for a Movie.
+      tags: [titles]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TitlePatch"
+      responses:
+        "200":
+          description: The Title.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TitleDetail"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /titles/{id}/episodes:
+    parameters:
+      - $ref: "#/components/parameters/TitleId"
+    get:
+      operationId: listEpisodes
+      summary: A Series' episodes with one cell per Version, for the heat map
+      description: In aired order, Specials first. `404` for a Movie.
+      tags: [titles]
+      responses:
+        "200":
+          description: The episodes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EpisodeList"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /titles/{id}/episodes/monitor:
+    parameters:
+      - $ref: "#/components/parameters/TitleId"
+    post:
+      operationId: monitorEpisodes
+      summary: Monitor or unmonitor episodes
+      description: Every id must be an episode of this Series, else `404` and nothing changes. Seasons follow their episodes.
+      tags: [titles]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EpisodesMonitor"
+      responses:
+        "204":
+          description: Done.
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /titles/{id}/seasons/{season}:
+    parameters:
+      - $ref: "#/components/parameters/TitleId"
+      - name: season
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 0
+    patch:
+      operationId: patchSeason
+      summary: Monitor or unmonitor a season and all its episodes
+      tags: [titles]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SeasonPatch"
+      responses:
+        "204":
+          description: Done.
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
@@ -1369,6 +1467,105 @@ components:
         root_folder:
           type: string
           nullable: true
+        series_monitor:
+          allOf:
+            - $ref: "#/components/schemas/SeriesMonitor"
+          nullable: true
+          description: Series only; defaults to `all`.
+    SeriesMonitor:
+      type: string
+      description: |
+        `all` monitors every episode, future ones and new seasons included; `future` the episodes airing
+        today or later or without an air date, and new seasons; `none` nothing. Specials (season 0) are
+        never monitored automatically.
+      enum: [all, future, none]
+    Season:
+      type: object
+      required: [number, monitored]
+      properties:
+        number:
+          type: integer
+          description: 0 is Specials.
+        monitored:
+          type: boolean
+    EpisodeCell:
+      type: object
+      required: [state, score]
+      properties:
+        state:
+          $ref: "#/components/schemas/SlotState"
+        score:
+          type: integer
+          nullable: true
+          description: The Score of the file holding the episode, when there is one.
+    Episode:
+      type: object
+      required: [id, season, number, name, air_date, monitored, cells]
+      properties:
+        id:
+          type: integer
+          format: int64
+        season:
+          type: integer
+        number:
+          type: integer
+        name:
+          type: string
+        air_date:
+          type: string
+          format: date
+          nullable: true
+          description: The TheTVDB air date.
+        monitored:
+          type: boolean
+        cells:
+          type: object
+          description: One cell per Slot, `null` where the Title has no Version.
+          required: [sd, hd, uhd]
+          properties:
+            sd:
+              allOf:
+                - $ref: "#/components/schemas/EpisodeCell"
+              nullable: true
+            hd:
+              allOf:
+                - $ref: "#/components/schemas/EpisodeCell"
+              nullable: true
+            uhd:
+              allOf:
+                - $ref: "#/components/schemas/EpisodeCell"
+              nullable: true
+    EpisodeList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Episode"
+    TitlePatch:
+      type: object
+      description: Merge patch. Only Series have a `series_monitor`.
+      properties:
+        series_monitor:
+          $ref: "#/components/schemas/SeriesMonitor"
+    SeasonPatch:
+      type: object
+      required: [monitored]
+      properties:
+        monitored:
+          type: boolean
+    EpisodesMonitor:
+      type: object
+      required: [episode_ids, monitored]
+      properties:
+        episode_ids:
+          type: array
+          items:
+            type: integer
+            format: int64
+        monitored:
+          type: boolean
     SlotSummary:
       type: object
       required: [version_id, profile, state, long_missing]
@@ -1494,7 +1691,7 @@ components:
           nullable: true
     TitleDetail:
       type: object
-      required: [id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, has_poster, monitored, metadata_frozen, root_folder, folder, added_at, refreshed_at, certification, release_dates, versions]
+      required: [id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, has_poster, monitored, metadata_frozen, root_folder, folder, added_at, refreshed_at, certification, release_dates, series_monitor, seasons, versions]
       properties:
         id:
           type: integer
@@ -1556,6 +1753,16 @@ components:
           description: Every dated release TMDB lists, in any country.
           items:
             $ref: "#/components/schemas/ReleaseDateEntry"
+        series_monitor:
+          allOf:
+            - $ref: "#/components/schemas/SeriesMonitor"
+          nullable: true
+          description: "`null` for a Movie."
+        seasons:
+          type: array
+          description: A Series' seasons in order, Specials (0) first; empty for a Movie.
+          items:
+            $ref: "#/components/schemas/Season"
         versions:
           type: array
           description: In Slot order.

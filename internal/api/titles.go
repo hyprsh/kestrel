@@ -84,34 +84,57 @@ func (s *server) Lookup(ctx context.Context, r oapi.LookupRequestObject) (oapi.L
 	if q == "" {
 		return nil, invalid("q", "required", "Say what to search for")
 	}
-	out := oapi.LookupList{Items: []oapi.LookupResult{}}
-	// Series cannot be added until their ticket lands, so they are not offered.
-	if r.Params.Kind != nil && *r.Params.Kind != oapi.Movie {
-		return oapi.Lookup200JSONResponse(out), nil
-	}
 	found, err := s.meta.Search(ctx, q)
 	if err != nil {
 		return nil, metaProblem(err)
 	}
-	var movies []metadata.SearchResult
-	var ids []int
+	var hits []metadata.SearchResult
+	var movieIDs, seriesIDs []int
 	for _, f := range found {
-		if f.Kind == metadata.Movie {
-			movies = append(movies, f)
-			ids = append(ids, f.TMDBID)
+		switch {
+		case f.Kind == metadata.Movie && (r.Params.Kind == nil || *r.Params.Kind == oapi.Movie):
+			movieIDs = append(movieIDs, f.TMDBID)
+		case f.Kind == metadata.Series && (r.Params.Kind == nil || *r.Params.Kind == oapi.Series):
+			seriesIDs = append(seriesIDs, f.TMDBID)
+		default:
+			continue
 		}
+		hits = append(hits, f)
 	}
-	in, err := s.library.InLibrary(ctx, library.Movie, ids)
+	inMovies, err := s.library.InLibrary(ctx, library.Movie, movieIDs)
 	if err != nil {
 		return nil, err
 	}
-	for _, m := range movies {
+	inSeries, err := s.library.InLibrary(ctx, library.Series, seriesIDs)
+	if err != nil {
+		return nil, err
+	}
+	tvdb, err := s.bridgeAll(ctx, seriesIDs)
+	if err != nil {
+		return nil, err
+	}
+	out := oapi.LookupList{Items: []oapi.LookupResult{}}
+	for _, h := range hits {
 		res := oapi.LookupResult{
-			Kind: oapi.Movie, TmdbId: m.TMDBID, Title: m.Title, Year: intPtr(m.Year),
-			Poster: strPtr(s.meta.ImageURL(m.PosterPath, posterThumb)), Addable: true,
+			TmdbId: h.TMDBID, Title: h.Title, Year: intPtr(h.Year),
+			Poster: strPtr(s.meta.ImageURL(h.PosterPath, posterThumb)), Addable: true,
 		}
-		if id, ok := in[m.TMDBID]; ok {
-			res.InLibrary = &id
+		if h.Kind == metadata.Movie {
+			res.Kind = oapi.Movie
+			if id, ok := inMovies[h.TMDBID]; ok {
+				res.InLibrary = &id
+			}
+		} else {
+			res.Kind = oapi.Series
+			b := tvdb[h.TMDBID]
+			res.TvdbId = intPtr(b.id)
+			if b.id == 0 {
+				res.Addable = false
+				res.NotAddableReason = &b.reason
+			}
+			if id, ok := inSeries[h.TMDBID]; ok {
+				res.InLibrary = &id
+			}
 		}
 		out.Items = append(out.Items, res)
 	}
@@ -119,12 +142,25 @@ func (s *server) Lookup(ctx context.Context, r oapi.LookupRequestObject) (oapi.L
 }
 
 func (s *server) LookupTitle(ctx context.Context, r oapi.LookupTitleRequestObject) (oapi.LookupTitleResponseObject, error) {
-	if r.Kind != oapi.Movie {
-		return nil, problem(http.StatusNotFound, "not_found", "Series cannot be added yet")
-	}
-	details, err := s.meta.Movie(ctx, r.TmdbId)
-	if err != nil {
-		return nil, metaProblem(err)
+	var (
+		name, overview string
+		year           int
+		rel            metadata.ReleaseDates
+		tmdbID         int
+		kind           = library.Movie
+	)
+	if r.Kind == oapi.Series {
+		details, err := s.meta.Series(ctx, r.TmdbId)
+		if err != nil {
+			return nil, metaProblem(err)
+		}
+		name, overview, year, rel, tmdbID, kind = details.Title, details.Overview, details.Year, details.Ratings, details.TMDBID, library.Series
+	} else {
+		details, err := s.meta.Movie(ctx, r.TmdbId)
+		if err != nil {
+			return nil, metaProblem(err)
+		}
+		name, overview, year, rel, tmdbID = details.Title, details.Overview, details.Year, details.ReleaseDates, details.TMDBID
 	}
 	region, _, err := s.profiles.Region(ctx)
 	if err != nil {
@@ -138,13 +174,13 @@ func (s *server) LookupTitle(ctx context.Context, r oapi.LookupTitleRequestObjec
 	if err != nil {
 		return nil, err
 	}
-	in, err := s.library.InLibrary(ctx, library.Movie, []int{r.TmdbId})
+	in, err := s.library.InLibrary(ctx, kind, []int{r.TmdbId})
 	if err != nil {
 		return nil, err
 	}
-	sug := library.Suggest(all, library.Movie, details.ReleaseDates, region.Country, kids)
+	sug := library.Suggest(all, kind, rel, region.Country, kids)
 	out := oapi.LookupDetail{
-		Kind: oapi.Movie, TmdbId: details.TMDBID, Title: details.Title, Year: intPtr(details.Year), Overview: details.Overview,
+		Kind: oapi.TitleKind(kind), TmdbId: tmdbID, Title: name, Year: intPtr(year), Overview: overview,
 		Certification: strPtr(sug.Certification), CertificationCountry: strPtr(sug.CertificationCountry),
 		Slots: make([]oapi.SuggestedSlot, len(sug.Slots)),
 	}
@@ -239,6 +275,14 @@ func detailToAPI(d library.Detail, country string) oapi.TitleDetail {
 		Monitored: d.Monitored, MetadataFrozen: d.MetadataFrozen, RootFolder: d.RootFolder, Folder: strPtr(d.Folder),
 		AddedAt: d.AddedAt, RefreshedAt: d.RefreshedAt, Certification: strPtr(cert),
 		ReleaseDates: make([]oapi.ReleaseDateEntry, 0, len(d.ReleaseDates)), Versions: make([]oapi.VersionDetail, 0, len(d.Versions)),
+		Seasons: make([]oapi.Season, 0, len(d.Seasons)),
+	}
+	if d.Kind == library.Series {
+		mode := oapi.SeriesMonitor(d.SeriesMonitor)
+		out.SeriesMonitor = &mode
+		for _, se := range d.Seasons {
+			out.Seasons = append(out.Seasons, oapi.Season{Number: se.Number, Monitored: se.Monitored})
+		}
 	}
 	for _, r := range d.ReleaseDates {
 		out.ReleaseDates = append(out.ReleaseDates, oapi.ReleaseDateEntry{
@@ -278,9 +322,6 @@ func (s *server) CreateTitle(ctx context.Context, r oapi.CreateTitleRequestObjec
 		return nil, invalid("body", "required", "a body is required")
 	}
 	b := r.Body
-	if b.Kind != oapi.Movie {
-		return nil, invalid("kind", "unsupported", "Only Movies can be added so far")
-	}
 	if len(b.Versions) == 0 {
 		return nil, invalid("versions", "required", "Pick at least one Slot")
 	}
@@ -314,20 +355,27 @@ func (s *server) CreateTitle(ctx context.Context, r oapi.CreateTitleRequestObjec
 	if err != nil {
 		return nil, err
 	}
+	configured, noun := roots.Movies, "Movie"
+	if b.Kind == oapi.Series {
+		configured, noun = roots.Series, "Series"
+	}
 	root := ""
 	if b.RootFolder != nil && *b.RootFolder != "" {
 		root = *b.RootFolder
 		found := false
-		for _, f := range roots.Movies {
+		for _, f := range configured {
 			found = found || f == root
 		}
 		if !found {
-			return nil, invalid("root_folder", "not_found", "That is not one of the Movie Root folders")
+			return nil, invalid("root_folder", "not_found", "That is not one of the "+noun+" Root folders")
 		}
-	} else if len(roots.Movies) > 0 {
-		root = roots.Movies[0]
+	} else if len(configured) > 0 {
+		root = configured[0]
 	} else {
-		return nil, invalid("root_folder", "required", "Set a Movie Root folder in Settings first")
+		return nil, invalid("root_folder", "required", "Set a "+noun+" Root folder in Settings first")
+	}
+	if b.Kind == oapi.Series {
+		return s.createSeries(ctx, b, specs, root)
 	}
 
 	details, err := s.meta.Movie(ctx, b.TmdbId)
