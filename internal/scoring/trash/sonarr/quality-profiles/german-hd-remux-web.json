@@ -1,0 +1,69 @@
+{
+  "trash_id": "0dd5f085ed61a1e01f6d347779dfa1bc",
+  "name": "[German] HD Remux + WEB",
+  "trash_description": "German Quality Profile that covers:<br>- WEBDL: 1080p<br>- Remux: 1080p",
+  "trash_url": "https://trash-guides.info/Sonarr/sonarr-setup-quality-profiles-german-en/#hd-remux-web",
+  "group": 11,
+  "trash_score_set": "german",
+  "upgradeAllowed": true,
+  "cutoff": "Merged QPs",
+  "minFormatScore": 0,
+  "cutoffFormatScore": 35000,
+  "minUpgradeFormatScore": 1,
+  "items": [
+    {
+      "name": "Merged QPs",
+      "allowed": true,
+      "items": ["Bluray-1080p Remux", "WEBRip-1080p", "WEBDL-1080p"]
+    },
+    { "name": "Bluray-2160p Remux", "allowed": false },
+    { "name": "Bluray-2160p", "allowed": false },
+    {
+      "name": "WEB 2160p",
+      "allowed": false,
+      "items": ["WEBRip-2160p", "WEBDL-2160p"]
+    },
+    { "name": "HDTV-2160p", "allowed": false },
+    { "name": "Bluray-1080p", "allowed": false },
+    { "name": "Bluray-720p", "allowed": false },
+    {
+      "name": "WEB 720p",
+      "allowed": false,
+      "items": ["WEBRip-720p", "WEBDL-720p"]
+    },
+    { "name": "Raw-HD", "allowed": false },
+    { "name": "HDTV-1080p", "allowed": false },
+    { "name": "HDTV-720p", "allowed": false },
+    { "name": "Bluray-576p", "allowed": false },
+    { "name": "Bluray-480p", "allowed": false },
+    { "name": "DVD", "allowed": false },
+    {
+      "name": "WEB 480p",
+      "allowed": false,
+      "items": ["WEBRip-480p", "WEBDL-480p"]
+    },
+    { "name": "SDTV", "allowed": false },
+    { "name": "Unknown", "allowed": false }
+  ],
+  "formatItems": {
+    "German 1080p Booster": "9aa0ca0d2d66b6f6ee51fc630f46cf6f",
+    "1080p": "290078c8b266272a5cc8e251b5e2eb0b",
+    "720p": "c99279ee27a154c2f20d1d505cc99e25",
+    "German": "8a9fcdbb445f2add0505926df3bb7b8a",
+    "German DL": "ed51973a811f51985f14e2f6f290e47a",
+    "German DL (undefined)": "c5dd0fd675f85487ad5bdf97159180bd",
+    "Not German or English": "133589380b89f8f8394320901529bac1",
+    "German Remux Tier 01": "da0f005f9c3edf34fc26e18dce8c6573",
+    "German Remux Tier 02": "6bc5ccd80a03e7abb8f556eecd174b73",
+    "German Web Tier 01": "68be37323132b35cf333c81a2ac8fc16",
+    "German Web Tier 02": "f51b96a50b0e6196cb69724b7833d837",
+    "German Web Tier 03": "bda67c2c0aae257308a4723d92475b86",
+    "German Scene": "c2eec878fa1989599c226ce4c287d6a7",
+    "WEB Tier 01": "e6258996055b9fbab7e9cb2f75819294",
+    "WEB Tier 02": "58790d4e2fdcd9733aa7ae68ba2bb503",
+    "WEB Tier 03": "d84935abd3f8556dcd51d4f27e22d0a6",
+    "Repack/Proper": "ec8fa7296b64e8cd390a1600981f3923",
+    "Repack2": "eb3d5cc0a2be0db205fb823640db6a3c",
+    "Repack3": "44e7c4de10ae50265753082e5dc76047"
+  }
+}

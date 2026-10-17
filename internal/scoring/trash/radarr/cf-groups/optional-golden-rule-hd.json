@@ -1,0 +1,34 @@
+{
+  "name": "[Optional] Golden Rule HD",
+  "trash_id": "f8bf8eab4617f12dfdbd16303d8da245",
+  "trash_description": "- x265 (HD): This blocks 720/1080p (HD) releases that are encoded in x265<br>- x265 (no HDR/DV): This blocks 720/1080p (HD) releases that are encoded in x265, But it will allow 720/1080p x265 releases if they have HDR and/or DV.<br><br><b>Please ensure you only score or enable one of them in your Quality Profile!!!</b>",
+  "default": "true",
+  "custom_formats": [
+    {
+      "name": "x265 (HD)",
+      "trash_id": "dc98083864ea246d05a42df0d05f81cc",
+      "required": false,
+      "default": true
+    },
+    {
+      "name": "x265 (no HDR/DV)",
+      "trash_id": "839bea857ed2c0a8e084f3cbdbd65ecb",
+      "required": false
+    }
+  ],
+  "quality_profiles": {
+    "include": {
+      "HD Bluray + WEB": "d1d67249d3890e49bc12e275d989a7e9",
+      "Remux + WEB 1080p": "9ca12ea80aa55ef916e3751f4b874151",
+      "WEB 1080p": "e8c5acb741363a0dbda67d3978f4912f",
+      "[French MULTi.VO] HD Bluray + WEB": "2572ce3ea4eef1c19d59e0e20ed1cea7",
+      "[French MULTi.VO] HD Remux (1080p)": "c6460a102b312200c095a2d0982e0461",
+      "[French MULTi.VF] HD Bluray + WEB": "500ecc23572575511fd81893777d1e06",
+      "[French MULTi.VF] HD Remux (1080p)": "6b93fe45f357e9a94228e5d4658e9bb5",
+      "[French VOSTFR] HD Bluray + WEB": "1addc08c4232bc2617684d517df15f75",
+      "[French VOSTFR] HD Remux (1080p)": "d98f20924b001e9f6b9595d5440abc87",
+      "[German] HD Bluray + WEB": "2b90e905c99490edc7c7a5787443748b",
+      "[German] HD Remux + WEB": "c13c33fdd2c306266b34cb9946de5919"
+    }
+  }
+}

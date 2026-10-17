@@ -1,0 +1,22 @@
+{
+  "name": "[SQP] Disable if one Radarr",
+  "trash_id": "feee39414cb4052dbc55d8752f87e211",
+  "trash_description": "Disable this option if you plan to run only one Radarr instance.<br>Please don't forget to check the guide for extra instructions!",
+  "default": "true",
+  "custom_formats": [
+    {
+      "name": "x264",
+      "trash_id": "2899d84dc9372de3408e6d8cc18e9666",
+      "required": true
+    }
+  ],
+  "quality_profiles": {
+    "include": {
+      "[SQP] SQP-2": "c3933358ba2356bafc41524f81471069",
+      "[SQP] SQP-3": "2cf36c1f0106ffac993be003ade51865",
+      "[SQP] SQP-3 (Audio)": "0ada8e60cc3ddf2733b65de10f4a6c72",
+      "[SQP] SQP-4": "013f89e6da27519fe56cf482702a2db9",
+      "[SQP] SQP-5": "a7bb1539fd147256b21b1098f3dc2016"
+    }
+  }
+}

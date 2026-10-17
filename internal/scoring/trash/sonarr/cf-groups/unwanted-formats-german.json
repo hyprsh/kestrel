@@ -1,0 +1,98 @@
+{
+    "name": "[Unwanted] Unwanted Formats German",
+    "trash_id": "6f0872eebfc95b1f93474b7ac866ced0",
+    "trash_description": "A list of unwanted versions, or sources: make sure to read the individual descriptions in the guide before adding any of them.",
+    "default": "true",
+    "custom_formats": [
+        {
+            "name": "AV1",
+            "trash_id": "15a05bc7c1a36e2b57fd628f8977e2fc",
+            "required": false,
+            "default": true
+        },
+        {
+            "name": "BR-DISK",
+            "trash_id": "85c61753df5da1fb2aab6f2a47426b09",
+            "required": false,
+            "default": true
+        },
+        {
+            "name": "BR-DISK (BTN)",
+            "trash_id": "6f808933a71bd9666531610cb8c059cc",
+            "required": false
+        },
+        {
+            "name": "BW",
+            "trash_id": "21d9d08e39b05523ec36811ab06b8308",
+            "required": false
+        },
+        {
+            "name": "Extras",
+            "trash_id": "fbcb31d8dabd2a319072b84fc0b7249c",
+            "required": false,
+            "default": true
+        },
+        {
+            "name": "German LQ",
+            "trash_id": "a6a6c33d057406aaad978a6902823c35",
+            "required": false,
+            "default": true
+        },
+        {
+            "name": "German LQ (release title)",
+            "trash_id": "d80c9f7cd2aad50271f1bd4e53125778",
+            "required": false,
+            "default": true
+        },
+        {
+            "name": "German Microsized",
+            "trash_id": "237eda4ef550a97da2c9d87b437e500b",
+            "required": false,
+            "default": true
+        },
+        {
+            "name": "LQ",
+            "trash_id": "9c11cd3f07101cdba90a2d81cf0e56b4",
+            "required": false,
+            "default": true
+        },
+        {
+            "name": "LQ (Release Title)",
+            "trash_id": "e2315f990da2e2cbfc9fa5b7a6fcfe48",
+            "required": false,
+            "default": true
+        },
+        {
+            "name": "No-RlsGroup",
+            "trash_id": "82d40da2bc6923f41e14394075dd4b03",
+            "required": false
+        },
+        {
+            "name": "Obfuscated",
+            "trash_id": "e1a997ddb54e3ecbfe06341ad323c458",
+            "required": false
+        },
+        {
+            "name": "Retags",
+            "trash_id": "06d66ab109d4d2eddb2794d21526d140",
+            "required": false
+        },
+        {
+            "name": "Upscaled",
+            "trash_id": "23297a736ca77c0fc8e70f8edd7ee56c",
+            "required": false,
+            "default": true
+        }
+    ],
+    "quality_profiles": {
+        "include": {
+            "[German] Anime HD Bluray + WEB": "6fe5937e1dcc2269e23b49eb46dfe6d6",
+            "[German] HD Bluray + WEB": "dca7e5e9e99c703bcbdaaa471dd40e98",
+            "[German] HD Remux + WEB": "0dd5f085ed61a1e01f6d347779dfa1bc",
+            "[German] UHD Bluray + WEB": "3b0fa37fddaaefc931b75f2889d4b4f5",
+            "[German] UHD Remux + WEB": "08cececf1840290f6fd490b7d79e8642",
+            "[German] UHD Bluray + WEB (Alternative)": "7324309a7d1e10dc0dc2cea6c70ed852",
+            "Base Profile": "e58cf4e090184db3b3d7c79c1a9e9b4a"
+        }
+    }
+}
