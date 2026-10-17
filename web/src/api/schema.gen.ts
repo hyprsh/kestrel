@@ -620,6 +620,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live state as Server-Sent Events
+         * @description One long-lived `text/event-stream`. Frames are `event: <type>` plus one `data:` line of JSON:
+         *
+         *     - `changed`: a hint, `{resource, id}` (see `ChangedHint`). Refetch that resource over REST.
+         *       They come from the events log, so an Import landing in a background loop reaches an open
+         *       tab within about a second, and from handlers for changes made through this API.
+         *     - `queue`: the `QueueList` snapshot (same as `GET /queue`), on connect and whenever it changes.
+         *     - `activity`: the loops running now (`ActivitySnapshot`), on connect and whenever it changes.
+         *     - `attention`: the Needs attention count and worst severity (`AttentionSnapshot`), on connect
+         *       and whenever it changes.
+         *
+         *     A comment line (`: heartbeat`) every 15 s keeps proxies from closing the connection.
+         *     There is no replay: after a reconnect the client refetches whatever it shows, and every
+         *     streamed state also has a snapshot resource. Unauthenticated callers get `401` instead of a
+         *     stream. Clients using an API key read it with streaming `fetch`; `EventSource` cannot set headers.
+         */
+        get: operations["stream"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/plugins": {
         parameters: {
             query?: never;
@@ -1293,6 +1326,29 @@ export interface components {
         GrabCancel: {
             /** @default false */
             blocklist: boolean;
+        };
+        /**
+         * @description Something changed; refetch it. `resource` is `title` (a Title, its Versions and the
+         *     Library list), `grab`, `queue` or `log`; more are added. `id` is null when the hint is about the
+         *     whole resource. Clients ignore resources they do not know.
+         */
+        ChangedHint: {
+            resource: string;
+            /** Format: int64 */
+            id: number | null;
+        };
+        ActivitySnapshot: {
+            /** @description Names of the background loops mid-pass right now. */
+            running: string[];
+        };
+        AttentionSnapshot: {
+            /** @description How many Needs attention rows there are. */
+            count: number;
+            /**
+             * @description The worst severity among them, null when there are none.
+             * @enum {string|null}
+             */
+            severity: "blocking" | "warning" | null;
         };
         QueueList: {
             items: components["schemas"]["QueueItem"][];
@@ -2209,6 +2265,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QueueList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    stream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The event stream. */
+            200: {
+                headers: {
+                    "X-Accel-Buffering"?: "no";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
                 };
             };
             default: components["responses"]["Problem"];

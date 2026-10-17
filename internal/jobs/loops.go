@@ -18,6 +18,8 @@ const (
 	// Search searches what the library says is due: search on add today,
 	// the sweeps (#46) and RSS (#45) later.
 	Search = "search"
+	// Prune deletes routine events older than 30 days, once a day.
+	Prune = "prune"
 )
 
 // Cadences. missingRetry and missingFailed are placeholders until the sweep
@@ -28,6 +30,7 @@ const (
 	searchEvery   = 5 * time.Minute
 	missingRetry  = 6 * time.Hour
 	missingFailed = 15 * time.Minute
+	pruneEvery    = 24 * time.Hour
 )
 
 // Acquirer is what the loops need of the acquire module.
@@ -42,10 +45,16 @@ type Library interface {
 	MarkMissingSearched(ctx context.Context, versionID int64, at, next time.Time) error
 }
 
+// History is what the loops need of the history module.
+type History interface {
+	Prune(ctx context.Context) (int64, error)
+}
+
 // Deps are the modules Standard strings together.
 type Deps struct {
 	Acquire Acquirer
 	Library Library
+	History History
 	Clock   func() time.Time
 	Logger  *slog.Logger
 }
@@ -82,6 +91,13 @@ func Standard(d Deps) *Runner {
 		Run:   func(ctx context.Context) error { return searchDue(ctx, r, d) },
 		Every: func() time.Duration { return searchEvery },
 	})
+	if d.History != nil {
+		r.Add(Loop{
+			Name:  Prune,
+			Run:   func(ctx context.Context) error { _, err := d.History.Prune(ctx); return err },
+			Every: func() time.Duration { return pruneEvery },
+		})
+	}
 	return r
 }
 

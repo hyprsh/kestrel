@@ -21,15 +21,26 @@ const (
 	argonSaltLen = 16
 )
 
-func hashPassword(password string) (string, error) {
+// hashCost is an argon2id parameter set.
+type hashCost struct{ memory, time uint32 }
+
+var (
+	productionCost = hashCost{argonMemory, argonTime}
+	// cheapCost is for tests, where the race detector makes the real cost take seconds a hash.
+	cheapCost = hashCost{8, 1}
+)
+
+func hashPassword(password string) (string, error) { return hashWith(password, productionCost) }
+
+func hashWith(password string, c hashCost) (string, error) {
 	salt := make([]byte, argonSaltLen)
 	if _, err := rand.Read(salt); err != nil {
 		return "", err
 	}
-	key := argon2.IDKey([]byte(password), salt, argonTime, argonMemory, argonThreads, argonKeyLen)
+	key := argon2.IDKey([]byte(password), salt, c.time, c.memory, argonThreads, argonKeyLen)
 	enc := base64.RawStdEncoding
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
-		argon2.Version, argonMemory, argonTime, argonThreads, enc.EncodeToString(salt), enc.EncodeToString(key)), nil
+		argon2.Version, c.memory, c.time, argonThreads, enc.EncodeToString(salt), enc.EncodeToString(key)), nil
 }
 
 func verifyPassword(password, encoded string) bool {

@@ -19,6 +19,24 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AttentionSnapshotSeverity.
+const (
+	Blocking AttentionSnapshotSeverity = "blocking"
+	Warning  AttentionSnapshotSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the AttentionSnapshotSeverity enum.
+func (e AttentionSnapshotSeverity) Valid() bool {
+	switch e {
+	case Blocking:
+		return true
+	case Warning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GrabState.
 const (
 	GrabStateCompleted   GrabState = "completed"
@@ -430,6 +448,12 @@ func (e ProfileKey) Valid() bool {
 	}
 }
 
+// ActivitySnapshot defines model for ActivitySnapshot.
+type ActivitySnapshot struct {
+	// Running Names of the background loops mid-pass right now.
+	Running []string `json:"running"`
+}
+
 // ApiKeyInfo defines model for ApiKeyInfo.
 type ApiKeyInfo struct {
 	CreatedAt *time.Time `json:"created_at"`
@@ -438,6 +462,26 @@ type ApiKeyInfo struct {
 	//
 	// Example: kst_ABCD
 	Prefix *string `json:"prefix"`
+}
+
+// AttentionSnapshot defines model for AttentionSnapshot.
+type AttentionSnapshot struct {
+	// Count How many Needs attention rows there are.
+	Count int `json:"count"`
+
+	// Severity The worst severity among them, null when there are none.
+	Severity *AttentionSnapshotSeverity `json:"severity"`
+}
+
+// AttentionSnapshotSeverity The worst severity among them, null when there are none.
+type AttentionSnapshotSeverity string
+
+// ChangedHint Something changed; refetch it. `resource` is `title` (a Title, its Versions and the
+// Library list), `grab`, `queue` or `log`; more are added. `id` is null when the hint is about the
+// whole resource. Clients ignore resources they do not know.
+type ChangedHint struct {
+	Id       *int64 `json:"id"`
+	Resource string `json:"resource"`
 }
 
 // Credentials defines model for Credentials.
@@ -1395,6 +1439,9 @@ type ServerInterface interface {
 	// CompleteSetup Finish setup
 	// (POST /setup/complete)
 	CompleteSetup(w http.ResponseWriter, r *http.Request)
+	// Stream Live state as Server-Sent Events
+	// (GET /stream)
+	Stream(w http.ResponseWriter, r *http.Request)
 	// GetSystem Version and API major of this instance
 	// (GET /system)
 	GetSystem(w http.ResponseWriter, r *http.Request)
@@ -2028,6 +2075,20 @@ func (siw *ServerInterfaceWrapper) CompleteSetup(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// Stream operation middleware
+func (siw *ServerInterfaceWrapper) Stream(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Stream(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetSystem operation middleware
 func (siw *ServerInterfaceWrapper) GetSystem(w http.ResponseWriter, r *http.Request) {
 
@@ -2471,6 +2532,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grabs/{id}", wrapper.GetGrab)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs/{id}/cancel", wrapper.CancelGrab)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/queue", wrapper.ListQueue)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/stream", wrapper.Stream)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugins", wrapper.ListPlugins)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/plugins/{plugin_id}/options/{field}", wrapper.ListPluginOptions)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugin-instances", wrapper.ListPluginInstances)
@@ -4191,6 +4253,81 @@ func (response CompleteSetupdefaultApplicationProblemPlusJSONResponse) VisitComp
 	return err
 }
 
+type StreamRequestObject struct {
+}
+
+type StreamResponseObject interface {
+	VisitStreamResponse(w http.ResponseWriter) error
+}
+
+type Stream200ResponseHeaders struct {
+	XAccelBuffering *string
+}
+
+type Stream200TexteventStreamResponse struct {
+	Body          io.Reader
+	Headers       Stream200ResponseHeaders
+	ContentLength int64
+}
+
+func (response Stream200TexteventStreamResponse) VisitStreamResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	if response.Headers.XAccelBuffering != nil {
+		w.Header().Set("X-Accel-Buffering", fmt.Sprint(*response.Headers.XAccelBuffering))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		// If w doesn't support flushing, fall back to io.Copy.
+		_, err := io.Copy(w, response.Body)
+		return err
+	}
+	// text/event-stream messages are typically small; use a
+	// modest buffer and flush after each chunk so clients see
+	// events immediately instead of waiting on OS buffering.
+	buf := make([]byte, 4096)
+	for {
+		n, err := response.Body.Read(buf)
+		if n > 0 {
+			if _, writeErr := w.Write(buf[:n]); writeErr != nil {
+				return writeErr
+			}
+			flusher.Flush()
+		}
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+	}
+}
+
+type StreamdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response StreamdefaultApplicationProblemPlusJSONResponse) VisitStreamResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetSystemRequestObject struct {
 }
 
@@ -4930,6 +5067,9 @@ type StrictServerInterface interface {
 	// CompleteSetup Finish setup
 	// (POST /setup/complete)
 	CompleteSetup(ctx context.Context, request CompleteSetupRequestObject) (CompleteSetupResponseObject, error)
+	// Stream Live state as Server-Sent Events
+	// (GET /stream)
+	Stream(ctx context.Context, request StreamRequestObject) (StreamResponseObject, error)
 	// GetSystem Version and API major of this instance
 	// (GET /system)
 	GetSystem(ctx context.Context, request GetSystemRequestObject) (GetSystemResponseObject, error)
@@ -5857,6 +5997,30 @@ func (sh *strictHandler) CompleteSetup(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CompleteSetupResponseObject); ok {
 		if err := validResponse.VisitCompleteSetupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Stream operation middleware
+func (sh *strictHandler) Stream(w http.ResponseWriter, r *http.Request) {
+	var request StreamRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Stream(ctx, request.(StreamRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Stream")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StreamResponseObject); ok {
+		if err := validResponse.VisitStreamResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

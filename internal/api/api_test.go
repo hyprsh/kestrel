@@ -7,11 +7,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"testing/fstest"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
+	"github.com/getkin/kin-openapi/routers"
 	"github.com/getkin/kin-openapi/routers/legacy"
 
 	kapi "github.com/hyprsh/kestrel/api"
@@ -51,18 +53,42 @@ func get(t *testing.T, url string) (*http.Response, string) {
 	return res, string(b)
 }
 
+var (
+	specMu      sync.Mutex
+	specDoc     *openapi3.T
+	specRouters = map[string]routers.Router{}
+)
+
+// specRouter is the spec's router for a test server's host. Parsing the spec
+// takes long under the race detector, so it happens once per test binary;
+// each host only builds its router.
+func specRouter(t *testing.T, host string) routers.Router {
+	t.Helper()
+	specMu.Lock()
+	defer specMu.Unlock()
+	if r, ok := specRouters[host]; ok {
+		return r
+	}
+	if specDoc == nil {
+		doc, err := openapi3.NewLoader().LoadFromData(kapi.Spec)
+		if err != nil {
+			t.Fatal(err)
+		}
+		specDoc = doc
+	}
+	specDoc.Servers = openapi3.Servers{{URL: "http://" + host + "/api/v1"}}
+	r, err := legacy.NewRouter(specDoc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	specRouters[host] = r
+	return r
+}
+
 // validateAgainstSpec checks a live response against openapi.yaml.
 func validateAgainstSpec(t *testing.T, req *http.Request, res *http.Response, body string) {
 	t.Helper()
-	doc, err := openapi3.NewLoader().LoadFromData(kapi.Spec)
-	if err != nil {
-		t.Fatal(err)
-	}
-	doc.Servers = openapi3.Servers{{URL: "http://" + req.URL.Host + "/api/v1"}}
-	router, err := legacy.NewRouter(doc)
-	if err != nil {
-		t.Fatal(err)
-	}
+	router := specRouter(t, req.URL.Host)
 	route, params, err := router.FindRoute(req)
 	if err != nil {
 		t.Fatalf("route not in spec: %v", err)

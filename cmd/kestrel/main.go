@@ -75,6 +75,8 @@ func run(ctx context.Context) error {
 		Addr:              net.JoinHostPort("", strconv.Itoa(cfg.Port)),
 		Handler:           app.Handler,
 		ReadHeaderTimeout: 10 * time.Second,
+		// Open streams end with ctx, so a shutdown does not wait on them.
+		BaseContext: func(net.Listener) context.Context { return ctx },
 	}
 	// Startup reconciliation, then the loops; both stop with ctx.
 	jobsCtx, stopJobs := context.WithCancel(ctx)
