@@ -223,7 +223,7 @@ export interface paths {
         };
         /**
          * App settings
-         * @description The settings sections that exist so far: `language_region` and `kids_rule`. Sections never
+         * @description The settings sections that exist so far: `language_region`, `kids_rule` and `root_folders`. Sections never
          *     saved report their defaults (English, US, Kids rule on at age 6); `GET /setup` says which
          *     were saved. Reverse-proxy login settings have their own endpoint.
          */
@@ -519,6 +519,7 @@ export interface components {
          */
         PrimaryLanguage: "en" | "de" | "fr";
         Settings: {
+            root_folders: components["schemas"]["RootFolders"];
             language_region: {
                 primary_language: components["schemas"]["PrimaryLanguage"];
                 /**
@@ -536,7 +537,20 @@ export interface components {
                 threshold: 0 | 6 | 12;
             };
         };
+        /**
+         * @description Where Imports put Titles, one or more absolute paths per kind. The first is the default when
+         *     adding a Title. Unsaved, they report `<data dir>/media/movies` and `<data dir>/media/tv`.
+         */
+        RootFolders: {
+            movies: string[];
+            series: string[];
+        };
         SettingsPatch: {
+            /** @description Replaces the named lists. Each path must exist, be a directory and be writable (`not_found`, `not_directory`, `not_writable`, `not_absolute`, `required`). */
+            root_folders?: {
+                movies?: string[];
+                series?: string[];
+            };
             language_region?: {
                 primary_language?: components["schemas"]["PrimaryLanguage"];
                 release_date_country?: string;

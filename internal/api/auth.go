@@ -295,7 +295,11 @@ func (s *server) GetSetup(ctx context.Context, _ oapi.GetSetupRequestObject) (oa
 		return nil, err
 	}
 	out.Sections.Indexer = state(len(indexers) > 0)
-	out.Sections.RootFolders = oapi.Todo
+	_, rootsSaved, err := s.rootFolders.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out.Sections.RootFolders = state(rootsSaved)
 	_, kidsSaved, err := s.profiles.Kids(ctx)
 	if err != nil {
 		return nil, err

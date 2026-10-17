@@ -7,6 +7,7 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/resolution"
+	"github.com/hyprsh/kestrel/internal/rootfolders"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 )
@@ -78,7 +79,12 @@ func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {
 	if err != nil {
 		return oapi.Settings{}, err
 	}
+	roots, _, err := s.rootFolders.Get(ctx)
+	if err != nil {
+		return oapi.Settings{}, err
+	}
 	var out oapi.Settings
+	out.RootFolders = oapi.RootFolders{Movies: roots.Movies, Series: roots.Series}
 	out.LanguageRegion.PrimaryLanguage = oapi.PrimaryLanguage(region.Primary)
 	out.LanguageRegion.ReleaseDateCountry = region.Country
 	out.KidsRule.Enabled = kids.Enabled
@@ -104,6 +110,15 @@ func (s *server) PatchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 		case 0, 6, 12:
 		default:
 			return nil, invalid("threshold", "invalid", "The threshold age is 0, 6 or 12")
+		}
+	}
+	if rf := r.Body.RootFolders; rf != nil {
+		if _, err := s.rootFolders.Set(ctx, rootfolders.Patch{Movies: rf.Movies, Series: rf.Series}); err != nil {
+			var ve *rootfolders.ValidationError
+			if errors.As(err, &ve) {
+				return nil, invalid(ve.Field, ve.Code, ve.Message)
+			}
+			return nil, err
 		}
 	}
 	if l := r.Body.LanguageRegion; l != nil {

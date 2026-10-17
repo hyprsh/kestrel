@@ -472,6 +472,13 @@ type ReverseProxySettings struct {
 	TrustedProxies []string `json:"trusted_proxies"`
 }
 
+// RootFolders Where Imports put Titles, one or more absolute paths per kind. The first is the default when
+// adding a Title. Unsaved, they report `<data dir>/media/movies` and `<data dir>/media/tv`.
+type RootFolders struct {
+	Movies []string `json:"movies"`
+	Series []string `json:"series"`
+}
+
 // Settings defines model for Settings.
 type Settings struct {
 	KidsRule struct {
@@ -489,6 +496,10 @@ type Settings struct {
 		// Example: DE
 		ReleaseDateCountry string `json:"release_date_country"`
 	} `json:"language_region"`
+
+	// RootFolders Where Imports put Titles, one or more absolute paths per kind. The first is the default when
+	// adding a Title. Unsaved, they report `<data dir>/media/movies` and `<data dir>/media/tv`.
+	RootFolders RootFolders `json:"root_folders"`
 }
 
 // SettingsKidsRuleThreshold Titles certified at or below this age get the Kids Profile in HD.
@@ -505,6 +516,12 @@ type SettingsPatch struct {
 		PrimaryLanguage    *PrimaryLanguage `json:"primary_language,omitempty"`
 		ReleaseDateCountry *string          `json:"release_date_country,omitempty"`
 	} `json:"language_region,omitempty"`
+
+	// RootFolders Replaces the named lists. Each path must exist, be a directory and be writable (`not_found`, `not_directory`, `not_writable`, `not_absolute`, `required`).
+	RootFolders *struct {
+		Movies *[]string `json:"movies,omitempty"`
+		Series *[]string `json:"series,omitempty"`
+	} `json:"root_folders,omitempty"`
 }
 
 // Setup defines model for Setup.

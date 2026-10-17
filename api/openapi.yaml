@@ -266,7 +266,7 @@ paths:
       operationId: getSettings
       summary: App settings
       description: |
-        The settings sections that exist so far: `language_region` and `kids_rule`. Sections never
+        The settings sections that exist so far: `language_region`, `kids_rule` and `root_folders`. Sections never
         saved report their defaults (English, US, Kids rule on at age 6); `GET /setup` says which
         were saved. Reverse-proxy login settings have their own endpoint.
       tags: [settings]
@@ -726,8 +726,10 @@ components:
       enum: [en, de, fr]
     Settings:
       type: object
-      required: [language_region, kids_rule]
+      required: [language_region, kids_rule, root_folders]
       properties:
+        root_folders:
+          $ref: "#/components/schemas/RootFolders"
         language_region:
           type: object
           required: [primary_language, release_date_country]
@@ -748,9 +750,38 @@ components:
               type: integer
               description: Titles certified at or below this age get the Kids Profile in HD.
               enum: [0, 6, 12]
+    RootFolders:
+      type: object
+      required: [movies, series]
+      description: |
+        Where Imports put Titles, one or more absolute paths per kind. The first is the default when
+        adding a Title. Unsaved, they report `<data dir>/media/movies` and `<data dir>/media/tv`.
+      properties:
+        movies:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        series:
+          type: array
+          minItems: 1
+          items:
+            type: string
     SettingsPatch:
       type: object
       properties:
+        root_folders:
+          type: object
+          description: Replaces the named lists. Each path must exist, be a directory and be writable (`not_found`, `not_directory`, `not_writable`, `not_absolute`, `required`).
+          properties:
+            movies:
+              type: array
+              items:
+                type: string
+            series:
+              type: array
+              items:
+                type: string
         language_region:
           type: object
           properties:

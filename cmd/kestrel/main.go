@@ -67,6 +67,7 @@ func run(ctx context.Context) error {
 			Web:     web.FS(),
 			Logger:  logger,
 			Plugins: plugins,
+			DataDir: cfg.DataDir,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

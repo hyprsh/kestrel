@@ -19,6 +19,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/plugin"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
+	"github.com/hyprsh/kestrel/internal/rootfolders"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
@@ -43,6 +44,8 @@ type Options struct {
 	// Plugins is the explicit list of compiled-in plugins (cmd/kestrel fills it);
 	// nil means none.
 	Plugins *plugin.Registry
+	// DataDir is the media mount (KESTREL_DATA_DIR); it prefills the Root folders.
+	DataDir string
 }
 
 // NewHandler returns the whole HTTP handler, mounted under opts.BaseURL.
@@ -62,6 +65,7 @@ func NewHandler(opts Options) http.Handler {
 		plugins: instances.NewService(opts.Store, opts.Plugins),
 	}
 	s.profiles = profiles.New(opts.Store, settings.New(opts.Store))
+	s.rootFolders = rootfolders.New(settings.New(opts.Store), opts.DataDir)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ping", s.ping)
@@ -98,10 +102,11 @@ func NewHandler(opts Options) http.Handler {
 }
 
 type server struct {
-	opts     Options
-	auth     *auth
-	plugins  *instances.Service
-	profiles *profiles.Service
+	opts        Options
+	auth        *auth
+	plugins     *instances.Service
+	profiles    *profiles.Service
+	rootFolders *rootfolders.Service
 }
 
 var _ oapi.StrictServerInterface = (*server)(nil)
