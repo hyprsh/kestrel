@@ -214,6 +214,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * App settings
+         * @description The settings sections that exist so far: `language_region` and `kids_rule`. Sections never
+         *     saved report their defaults (English, US, Kids rule on at age 6); `GET /setup` says which
+         *     were saved. Reverse-proxy login settings have their own endpoint.
+         */
+        get: operations["getSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change settings
+         * @description A JSON merge patch over the sections: send only what changes. Changing `primary_language`
+         *     re-points the eight Profiles to their backing TRaSH profiles and, unless the same patch
+         *     names `release_date_country`, moves the country to the new language's default. It affects
+         *     scoring and Grabs from then on; files already stored are left alone.
+         */
+        patch: operations["patchSettings"];
+        trace?: never;
+    };
+    "/profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The eight Profiles
+         * @description In display order. Profiles are named by `key`, never by id.
+         */
+        get: operations["listProfiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/profiles/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: components["parameters"]["ProfileKey"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a Profile's settings
+         * @description A Slot has at most one default Profile per kind: making one the default replaces the old.
+         *     HD always keeps exactly one default per kind, so unsetting or disabling it is a `validation`
+         *     error until another HD Profile is the default. Disabling a Profile clears its defaults, and
+         *     a disabled Profile cannot be made a default. `original_fallback` is a `validation` error on
+         *     Original-Language Profiles.
+         */
+        patch: operations["patchProfile"];
+        trace?: never;
+    };
     "/plugins": {
         parameters: {
             query?: never;
@@ -438,6 +513,73 @@ export interface components {
                 profiles: components["schemas"]["SetupSectionState"];
             };
         };
+        /**
+         * @description The household's Primary Language as ISO 639-1.
+         * @enum {string}
+         */
+        PrimaryLanguage: "en" | "de" | "fr";
+        Settings: {
+            language_region: {
+                primary_language: components["schemas"]["PrimaryLanguage"];
+                /**
+                 * @description ISO 3166-1 alpha-2. "Released" and the Kids rule's certifications follow it.
+                 * @example DE
+                 */
+                release_date_country: string;
+            };
+            kids_rule: {
+                enabled: boolean;
+                /**
+                 * @description Titles certified at or below this age get the Kids Profile in HD.
+                 * @enum {integer}
+                 */
+                threshold: 0 | 6 | 12;
+            };
+        };
+        SettingsPatch: {
+            language_region?: {
+                primary_language?: components["schemas"]["PrimaryLanguage"];
+                release_date_country?: string;
+            };
+            kids_rule?: {
+                enabled?: boolean;
+                threshold?: number;
+            };
+        };
+        /** @enum {string} */
+        Slot: "sd" | "hd" | "uhd";
+        Profile: {
+            /** @example hd-primary */
+            key: string;
+            /** @example HD */
+            name: string;
+            slot: components["schemas"]["Slot"];
+            /**
+             * @description Which audio the Profile requires.
+             * @enum {string}
+             */
+            language_rule: "primary" | "original";
+            /** @description Accept a Release with the Title's Original Language but no Primary-Language audio. Always false on Original-Language Profiles. */
+            original_fallback: boolean;
+            enabled: boolean;
+            default_movies: boolean;
+            default_series: boolean;
+            min_height: number;
+            max_height: number;
+            /** @description The TRaSH profile file (without .json) backing the Profile for Movies under the current Primary Language. */
+            trash_profile_movies: string;
+            /** @description The same for Series. */
+            trash_profile_series: string;
+        };
+        ProfileList: {
+            items: components["schemas"]["Profile"][];
+        };
+        ProfilePatch: {
+            enabled?: boolean;
+            original_fallback?: boolean;
+            default_movies?: boolean;
+            default_series?: boolean;
+        };
         /** @enum {string} */
         SetupSectionState: "done" | "todo";
         /**
@@ -581,6 +723,7 @@ export interface components {
     parameters: {
         PluginId: string;
         InstanceId: number;
+        ProfileKey: "sd-primary" | "sd-original" | "hd-primary" | "hd-original" | "kids-primary" | "kids-original" | "uhd-primary" | "uhd-original";
     };
     requestBodies: never;
     headers: {
@@ -870,6 +1013,103 @@ export interface operations {
                     "application/json": components["schemas"]["ReverseProxy"];
                 };
             };
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every section. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Settings"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    patchSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsPatch"];
+            };
+        };
+        responses: {
+            /** @description Every section as saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Settings"];
+                };
+            };
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listProfiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Profiles with their settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    patchProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: components["parameters"]["ProfileKey"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfilePatch"];
+            };
+        };
+        responses: {
+            /** @description The Profile as saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            404: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };

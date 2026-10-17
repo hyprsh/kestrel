@@ -261,6 +261,97 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /settings:
+    get:
+      operationId: getSettings
+      summary: App settings
+      description: |
+        The settings sections that exist so far: `language_region` and `kids_rule`. Sections never
+        saved report their defaults (English, US, Kids rule on at age 6); `GET /setup` says which
+        were saved. Reverse-proxy login settings have their own endpoint.
+      tags: [settings]
+      responses:
+        "200":
+          description: Every section.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+        default:
+          $ref: "#/components/responses/Problem"
+    patch:
+      operationId: patchSettings
+      summary: Change settings
+      description: |
+        A JSON merge patch over the sections: send only what changes. Changing `primary_language`
+        re-points the eight Profiles to their backing TRaSH profiles and, unless the same patch
+        names `release_date_country`, moves the country to the new language's default. It affects
+        scoring and Grabs from then on; files already stored are left alone.
+      tags: [settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsPatch"
+      responses:
+        "200":
+          description: Every section as saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /profiles:
+    get:
+      operationId: listProfiles
+      summary: The eight Profiles
+      description: In display order. Profiles are named by `key`, never by id.
+      tags: [profiles]
+      responses:
+        "200":
+          description: The Profiles with their settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileList"
+        default:
+          $ref: "#/components/responses/Problem"
+  /profiles/{key}:
+    parameters:
+      - $ref: "#/components/parameters/ProfileKey"
+    patch:
+      operationId: patchProfile
+      summary: Change a Profile's settings
+      description: |
+        A Slot has at most one default Profile per kind: making one the default replaces the old.
+        HD always keeps exactly one default per kind, so unsetting or disabling it is a `validation`
+        error until another HD Profile is the default. Disabling a Profile clears its defaults, and
+        a disabled Profile cannot be made a default. `original_fallback` is a `validation` error on
+        Original-Language Profiles.
+      tags: [profiles]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfilePatch"
+      responses:
+        "200":
+          description: The Profile as saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /plugins:
     get:
       operationId: listPlugins
@@ -482,6 +573,13 @@ components:
       schema:
         type: integer
         format: int64
+    ProfileKey:
+      name: key
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [sd-primary, sd-original, hd-primary, hd-original, kids-primary, kids-original, uhd-primary, uhd-original]
   headers:
     SetCookie:
       description: The `kestrel_session` cookie (HttpOnly, SameSite=Lax, Path from KESTREL_BASE_URL).
@@ -622,6 +720,108 @@ components:
               $ref: "#/components/schemas/SetupSectionState"
             profiles:
               $ref: "#/components/schemas/SetupSectionState"
+    PrimaryLanguage:
+      type: string
+      description: The household's Primary Language as ISO 639-1.
+      enum: [en, de, fr]
+    Settings:
+      type: object
+      required: [language_region, kids_rule]
+      properties:
+        language_region:
+          type: object
+          required: [primary_language, release_date_country]
+          properties:
+            primary_language:
+              $ref: "#/components/schemas/PrimaryLanguage"
+            release_date_country:
+              type: string
+              description: ISO 3166-1 alpha-2. "Released" and the Kids rule's certifications follow it.
+              example: DE
+        kids_rule:
+          type: object
+          required: [enabled, threshold]
+          properties:
+            enabled:
+              type: boolean
+            threshold:
+              type: integer
+              description: Titles certified at or below this age get the Kids Profile in HD.
+              enum: [0, 6, 12]
+    SettingsPatch:
+      type: object
+      properties:
+        language_region:
+          type: object
+          properties:
+            primary_language:
+              $ref: "#/components/schemas/PrimaryLanguage"
+            release_date_country:
+              type: string
+        kids_rule:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            threshold:
+              type: integer
+    Slot:
+      type: string
+      enum: [sd, hd, uhd]
+    Profile:
+      type: object
+      required: [key, name, slot, language_rule, original_fallback, enabled, default_movies, default_series, min_height, max_height, trash_profile_movies, trash_profile_series]
+      properties:
+        key:
+          type: string
+          example: hd-primary
+        name:
+          type: string
+          example: HD
+        slot:
+          $ref: "#/components/schemas/Slot"
+        language_rule:
+          type: string
+          description: Which audio the Profile requires.
+          enum: [primary, original]
+        original_fallback:
+          type: boolean
+          description: Accept a Release with the Title's Original Language but no Primary-Language audio. Always false on Original-Language Profiles.
+        enabled:
+          type: boolean
+        default_movies:
+          type: boolean
+        default_series:
+          type: boolean
+        min_height:
+          type: integer
+        max_height:
+          type: integer
+        trash_profile_movies:
+          type: string
+          description: The TRaSH profile file (without .json) backing the Profile for Movies under the current Primary Language.
+        trash_profile_series:
+          type: string
+          description: The same for Series.
+    ProfileList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Profile"
+    ProfilePatch:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        original_fallback:
+          type: boolean
+        default_movies:
+          type: boolean
+        default_series:
+          type: boolean
     SetupSectionState:
       type: string
       enum: [done, todo]

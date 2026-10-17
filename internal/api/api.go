@@ -19,6 +19,8 @@ import (
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/plugin"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
+	"github.com/hyprsh/kestrel/internal/profiles"
+	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
 )
 
@@ -59,6 +61,7 @@ func NewHandler(opts Options) http.Handler {
 		auth:    newAuth(opts.Store, opts.Clock, opts.BaseURL),
 		plugins: instances.NewService(opts.Store, opts.Plugins),
 	}
+	s.profiles = profiles.New(opts.Store, settings.New(opts.Store))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ping", s.ping)
@@ -95,9 +98,10 @@ func NewHandler(opts Options) http.Handler {
 }
 
 type server struct {
-	opts    Options
-	auth    *auth
-	plugins *instances.Service
+	opts     Options
+	auth     *auth
+	plugins  *instances.Service
+	profiles *profiles.Service
 }
 
 var _ oapi.StrictServerInterface = (*server)(nil)

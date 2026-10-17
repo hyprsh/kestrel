@@ -280,7 +280,11 @@ func (s *server) GetSetup(ctx context.Context, _ oapi.GetSetupRequestObject) (oa
 	var out oapi.Setup
 	out.AccountExists = exists
 	out.Sections.Account = state(exists)
-	out.Sections.Language = oapi.Todo
+	_, regionSaved, err := s.profiles.Region(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out.Sections.Language = state(regionSaved)
 	clients, err := s.plugins.Enabled(ctx, downloadclient.Contract.ID)
 	if err != nil {
 		return nil, err
@@ -292,7 +296,11 @@ func (s *server) GetSetup(ctx context.Context, _ oapi.GetSetupRequestObject) (oa
 	}
 	out.Sections.Indexer = state(len(indexers) > 0)
 	out.Sections.RootFolders = oapi.Todo
-	out.Sections.Profiles = oapi.Todo
+	_, kidsSaved, err := s.profiles.Kids(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out.Sections.Profiles = state(kidsSaved)
 	return oapi.GetSetup200JSONResponse(out), nil
 }
 

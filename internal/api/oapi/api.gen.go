@@ -69,6 +69,66 @@ func (e PluginFieldType) Valid() bool {
 	}
 }
 
+// Defines values for PrimaryLanguage.
+const (
+	De PrimaryLanguage = "de"
+	En PrimaryLanguage = "en"
+	Fr PrimaryLanguage = "fr"
+)
+
+// Valid indicates whether the value is a known member of the PrimaryLanguage enum.
+func (e PrimaryLanguage) Valid() bool {
+	switch e {
+	case De:
+		return true
+	case En:
+		return true
+	case Fr:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProfileLanguageRule.
+const (
+	Original ProfileLanguageRule = "original"
+	Primary  ProfileLanguageRule = "primary"
+)
+
+// Valid indicates whether the value is a known member of the ProfileLanguageRule enum.
+func (e ProfileLanguageRule) Valid() bool {
+	switch e {
+	case Original:
+		return true
+	case Primary:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SettingsKidsRuleThreshold.
+const (
+	N0  SettingsKidsRuleThreshold = 0
+	N12 SettingsKidsRuleThreshold = 12
+	N6  SettingsKidsRuleThreshold = 6
+)
+
+// Valid indicates whether the value is a known member of the SettingsKidsRuleThreshold enum.
+func (e SettingsKidsRuleThreshold) Valid() bool {
+	switch e {
+	case N0:
+		return true
+	case N12:
+		return true
+	case N6:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SetupSectionState.
 const (
 	Done SetupSectionState = "done"
@@ -81,6 +141,63 @@ func (e SetupSectionState) Valid() bool {
 	case Done:
 		return true
 	case Todo:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Slot.
+const (
+	Hd  Slot = "hd"
+	Sd  Slot = "sd"
+	Uhd Slot = "uhd"
+)
+
+// Valid indicates whether the value is a known member of the Slot enum.
+func (e Slot) Valid() bool {
+	switch e {
+	case Hd:
+		return true
+	case Sd:
+		return true
+	case Uhd:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProfileKey.
+const (
+	HdOriginal   ProfileKey = "hd-original"
+	HdPrimary    ProfileKey = "hd-primary"
+	KidsOriginal ProfileKey = "kids-original"
+	KidsPrimary  ProfileKey = "kids-primary"
+	SdOriginal   ProfileKey = "sd-original"
+	SdPrimary    ProfileKey = "sd-primary"
+	UhdOriginal  ProfileKey = "uhd-original"
+	UhdPrimary   ProfileKey = "uhd-primary"
+)
+
+// Valid indicates whether the value is a known member of the ProfileKey enum.
+func (e ProfileKey) Valid() bool {
+	switch e {
+	case HdOriginal:
+		return true
+	case HdPrimary:
+		return true
+	case KidsOriginal:
+		return true
+	case KidsPrimary:
+		return true
+	case SdOriginal:
+		return true
+	case SdPrimary:
+		return true
+	case UhdOriginal:
+		return true
+	case UhdPrimary:
 		return true
 	default:
 		return false
@@ -254,6 +371,9 @@ type PluginTestResult struct {
 	Ok      bool    `json:"ok"`
 }
 
+// PrimaryLanguage The household's Primary Language as ISO 639-1.
+type PrimaryLanguage string
+
 // Problem RFC 9457 problem details.
 type Problem struct {
 	// Code Stable machine-readable code from a closed, growable list. Clients branch on this,
@@ -273,6 +393,50 @@ type Problem struct {
 	Status int    `json:"status"`
 	Title  string `json:"title"`
 	Type   string `json:"type"`
+}
+
+// Profile defines model for Profile.
+type Profile struct {
+	DefaultMovies bool `json:"default_movies"`
+	DefaultSeries bool `json:"default_series"`
+	Enabled       bool `json:"enabled"`
+
+	// Key Example: hd-primary
+	Key string `json:"key"`
+
+	// LanguageRule Which audio the Profile requires.
+	LanguageRule ProfileLanguageRule `json:"language_rule"`
+	MaxHeight    int                 `json:"max_height"`
+	MinHeight    int                 `json:"min_height"`
+
+	// Name Example: HD
+	Name string `json:"name"`
+
+	// OriginalFallback Accept a Release with the Title's Original Language but no Primary-Language audio. Always false on Original-Language Profiles.
+	OriginalFallback bool `json:"original_fallback"`
+	Slot             Slot `json:"slot"`
+
+	// TrashProfileMovies The TRaSH profile file (without .json) backing the Profile for Movies under the current Primary Language.
+	TrashProfileMovies string `json:"trash_profile_movies"`
+
+	// TrashProfileSeries The same for Series.
+	TrashProfileSeries string `json:"trash_profile_series"`
+}
+
+// ProfileLanguageRule Which audio the Profile requires.
+type ProfileLanguageRule string
+
+// ProfileList defines model for ProfileList.
+type ProfileList struct {
+	Items []Profile `json:"items"`
+}
+
+// ProfilePatch defines model for ProfilePatch.
+type ProfilePatch struct {
+	DefaultMovies    *bool `json:"default_movies,omitempty"`
+	DefaultSeries    *bool `json:"default_series,omitempty"`
+	Enabled          *bool `json:"enabled,omitempty"`
+	OriginalFallback *bool `json:"original_fallback,omitempty"`
 }
 
 // ReverseProxy defines model for ReverseProxy.
@@ -308,6 +472,41 @@ type ReverseProxySettings struct {
 	TrustedProxies []string `json:"trusted_proxies"`
 }
 
+// Settings defines model for Settings.
+type Settings struct {
+	KidsRule struct {
+		Enabled bool `json:"enabled"`
+
+		// Threshold Titles certified at or below this age get the Kids Profile in HD.
+		Threshold SettingsKidsRuleThreshold `json:"threshold"`
+	} `json:"kids_rule"`
+	LanguageRegion struct {
+		// PrimaryLanguage The household's Primary Language as ISO 639-1.
+		PrimaryLanguage PrimaryLanguage `json:"primary_language"`
+
+		// ReleaseDateCountry ISO 3166-1 alpha-2. "Released" and the Kids rule's certifications follow it.
+		//
+		// Example: DE
+		ReleaseDateCountry string `json:"release_date_country"`
+	} `json:"language_region"`
+}
+
+// SettingsKidsRuleThreshold Titles certified at or below this age get the Kids Profile in HD.
+type SettingsKidsRuleThreshold int
+
+// SettingsPatch defines model for SettingsPatch.
+type SettingsPatch struct {
+	KidsRule *struct {
+		Enabled   *bool `json:"enabled,omitempty"`
+		Threshold *int  `json:"threshold,omitempty"`
+	} `json:"kids_rule,omitempty"`
+	LanguageRegion *struct {
+		// PrimaryLanguage The household's Primary Language as ISO 639-1.
+		PrimaryLanguage    *PrimaryLanguage `json:"primary_language,omitempty"`
+		ReleaseDateCountry *string          `json:"release_date_country,omitempty"`
+	} `json:"language_region,omitempty"`
+}
+
 // Setup defines model for Setup.
 type Setup struct {
 	AccountExists bool `json:"account_exists"`
@@ -324,6 +523,9 @@ type Setup struct {
 
 // SetupSectionState defines model for SetupSectionState.
 type SetupSectionState string
+
+// Slot defines model for Slot.
+type Slot string
 
 // System defines model for System.
 type System struct {
@@ -359,6 +561,9 @@ type InstanceId = int64
 // PluginId defines model for PluginId.
 type PluginId = string
 
+// ProfileKey defines model for ProfileKey.
+type ProfileKey string
+
 // ChangePasswordJSONBody defines parameters for ChangePassword.
 type ChangePasswordJSONBody struct {
 	CurrentPassword *string `json:"current_password,omitempty"`
@@ -392,6 +597,12 @@ type TestPluginInstanceJSONRequestBody TestPluginInstanceJSONBody
 
 // ListPluginOptionsJSONRequestBody defines body for ListPluginOptions for application/json ContentType.
 type ListPluginOptionsJSONRequestBody = PluginForm
+
+// PatchProfileJSONRequestBody defines body for PatchProfile for application/json ContentType.
+type PatchProfileJSONRequestBody = ProfilePatch
+
+// PatchSettingsJSONRequestBody defines body for PatchSettings for application/json ContentType.
+type PatchSettingsJSONRequestBody = SettingsPatch
 
 // PutReverseProxyJSONRequestBody defines body for PutReverseProxy for application/json ContentType.
 type PutReverseProxyJSONRequestBody = ReverseProxySettings
@@ -449,6 +660,18 @@ type ServerInterface interface {
 	// ListPluginOptions Live choices for a config field
 	// (POST /plugins/{plugin_id}/options/{field})
 	ListPluginOptions(w http.ResponseWriter, r *http.Request, pluginId PluginId, field string)
+	// ListProfiles The eight Profiles
+	// (GET /profiles)
+	ListProfiles(w http.ResponseWriter, r *http.Request)
+	// PatchProfile Change a Profile's settings
+	// (PATCH /profiles/{key})
+	PatchProfile(w http.ResponseWriter, r *http.Request, key ProfileKey)
+	// GetSettings App settings
+	// (GET /settings)
+	GetSettings(w http.ResponseWriter, r *http.Request)
+	// PatchSettings Change settings
+	// (PATCH /settings)
+	PatchSettings(w http.ResponseWriter, r *http.Request)
 	// GetReverseProxy Reverse-proxy login settings
 	// (GET /settings/reverse-proxy)
 	GetReverseProxy(w http.ResponseWriter, r *http.Request)
@@ -768,6 +991,74 @@ func (siw *ServerInterfaceWrapper) ListPluginOptions(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// ListProfiles operation middleware
+func (siw *ServerInterfaceWrapper) ListProfiles(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProfiles(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PatchProfile operation middleware
+func (siw *ServerInterfaceWrapper) PatchProfile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key ProfileKey
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", r.PathValue("key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchProfile(w, r, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PatchSettings operation middleware
+func (siw *ServerInterfaceWrapper) PatchSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetReverseProxy operation middleware
 func (siw *ServerInterfaceWrapper) GetReverseProxy(w http.ResponseWriter, r *http.Request) {
 
@@ -970,6 +1261,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api-key", wrapper.CreateApiKey)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/settings/reverse-proxy", wrapper.GetReverseProxy)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/settings/reverse-proxy", wrapper.PutReverseProxy)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/settings", wrapper.GetSettings)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/settings", wrapper.PatchSettings)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/profiles", wrapper.ListProfiles)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/profiles/{key}", wrapper.PatchProfile)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugins", wrapper.ListPlugins)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/plugins/{plugin_id}/options/{field}", wrapper.ListPluginOptions)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugin-instances", wrapper.ListPluginInstances)
@@ -1824,6 +2119,207 @@ func (response ListPluginOptionsdefaultApplicationProblemPlusJSONResponse) Visit
 	return err
 }
 
+type ListProfilesRequestObject struct {
+}
+
+type ListProfilesResponseObject interface {
+	VisitListProfilesResponse(w http.ResponseWriter) error
+}
+
+type ListProfiles200JSONResponse ProfileList
+
+func (response ListProfiles200JSONResponse) VisitListProfilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProfilesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListProfilesdefaultApplicationProblemPlusJSONResponse) VisitListProfilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchProfileRequestObject struct {
+	Key  ProfileKey `json:"key"`
+	Body *PatchProfileJSONRequestBody
+}
+
+type PatchProfileResponseObject interface {
+	VisitPatchProfileResponse(w http.ResponseWriter) error
+}
+
+type PatchProfile200JSONResponse Profile
+
+func (response PatchProfile200JSONResponse) VisitPatchProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchProfile404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PatchProfile404ApplicationProblemPlusJSONResponse) VisitPatchProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchProfile422ApplicationProblemPlusJSONResponse Problem
+
+func (response PatchProfile422ApplicationProblemPlusJSONResponse) VisitPatchProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchProfiledefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response PatchProfiledefaultApplicationProblemPlusJSONResponse) VisitPatchProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSettingsRequestObject struct {
+}
+
+type GetSettingsResponseObject interface {
+	VisitGetSettingsResponse(w http.ResponseWriter) error
+}
+
+type GetSettings200JSONResponse Settings
+
+func (response GetSettings200JSONResponse) VisitGetSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSettingsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetSettingsdefaultApplicationProblemPlusJSONResponse) VisitGetSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchSettingsRequestObject struct {
+	Body *PatchSettingsJSONRequestBody
+}
+
+type PatchSettingsResponseObject interface {
+	VisitPatchSettingsResponse(w http.ResponseWriter) error
+}
+
+type PatchSettings200JSONResponse Settings
+
+func (response PatchSettings200JSONResponse) VisitPatchSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchSettings422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PatchSettings422ApplicationProblemPlusJSONResponse) VisitPatchSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchSettingsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response PatchSettingsdefaultApplicationProblemPlusJSONResponse) VisitPatchSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetReverseProxyRequestObject struct {
 }
 
@@ -2122,6 +2618,18 @@ type StrictServerInterface interface {
 	// ListPluginOptions Live choices for a config field
 	// (POST /plugins/{plugin_id}/options/{field})
 	ListPluginOptions(ctx context.Context, request ListPluginOptionsRequestObject) (ListPluginOptionsResponseObject, error)
+	// ListProfiles The eight Profiles
+	// (GET /profiles)
+	ListProfiles(ctx context.Context, request ListProfilesRequestObject) (ListProfilesResponseObject, error)
+	// PatchProfile Change a Profile's settings
+	// (PATCH /profiles/{key})
+	PatchProfile(ctx context.Context, request PatchProfileRequestObject) (PatchProfileResponseObject, error)
+	// GetSettings App settings
+	// (GET /settings)
+	GetSettings(ctx context.Context, request GetSettingsRequestObject) (GetSettingsResponseObject, error)
+	// PatchSettings Change settings
+	// (PATCH /settings)
+	PatchSettings(ctx context.Context, request PatchSettingsRequestObject) (PatchSettingsResponseObject, error)
 	// GetReverseProxy Reverse-proxy login settings
 	// (GET /settings/reverse-proxy)
 	GetReverseProxy(ctx context.Context, request GetReverseProxyRequestObject) (GetReverseProxyResponseObject, error)
@@ -2618,6 +3126,118 @@ func (sh *strictHandler) ListPluginOptions(w http.ResponseWriter, r *http.Reques
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListPluginOptionsResponseObject); ok {
 		if err := validResponse.VisitListPluginOptionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListProfiles operation middleware
+func (sh *strictHandler) ListProfiles(w http.ResponseWriter, r *http.Request) {
+	var request ListProfilesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListProfiles(ctx, request.(ListProfilesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListProfiles")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListProfilesResponseObject); ok {
+		if err := validResponse.VisitListProfilesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PatchProfile operation middleware
+func (sh *strictHandler) PatchProfile(w http.ResponseWriter, r *http.Request, key ProfileKey) {
+	var request PatchProfileRequestObject
+
+	request.Key = key
+
+	var body PatchProfileJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PatchProfile(ctx, request.(PatchProfileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PatchProfile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PatchProfileResponseObject); ok {
+		if err := validResponse.VisitPatchProfileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSettings operation middleware
+func (sh *strictHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
+	var request GetSettingsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSettings(ctx, request.(GetSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSettingsResponseObject); ok {
+		if err := validResponse.VisitGetSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PatchSettings operation middleware
+func (sh *strictHandler) PatchSettings(w http.ResponseWriter, r *http.Request) {
+	var request PatchSettingsRequestObject
+
+	var body PatchSettingsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PatchSettings(ctx, request.(PatchSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PatchSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PatchSettingsResponseObject); ok {
+		if err := validResponse.VisitPatchSettingsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
