@@ -112,6 +112,33 @@ func TestRootFoldersAreCheckedWhenSaved(t *testing.T) {
 	}
 }
 
+func TestARejectedSettingsPatchSavesNothing(t *testing.T) {
+	for _, c := range []struct{ name, rest string }{
+		{"kids rule", `"kids_rule":{"threshold":7}`},
+		{"language", `"language_region":{"primary_language":"de","release_date_country":"nope"}`},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			b, data := dataDirInstance(t)
+			mkdirs(t, data+"/films")
+			before := decode[settingsJSON](t, b.valid("GET", "/settings", ""))
+			body := fmt.Sprintf(`{"root_folders":{"movies":[%q]},%s}`, data+"/films", c.rest)
+			if r := b.do("PATCH", "/settings", body); r.Status != 422 {
+				t.Fatalf("patch = %d %s", r.Status, r.Body)
+			}
+			again := b.valid("GET", "/settings", "")
+			if after := decode[settingsJSON](t, again); after != before {
+				t.Errorf("settings changed: %+v -> %+v", before, after)
+			}
+			if got := decode[rootFoldersJSON](t, again).RootFolders.Movies; len(got) != 1 || got[0] != data+"/media/movies" {
+				t.Errorf("root folders saved by a rejected patch: %v", got)
+			}
+			if s := decode[setupJSON](t, b.valid("GET", "/setup", "")); s.Sections.RootFolders != "todo" {
+				t.Errorf("root_folders = %q", s.Sections.RootFolders)
+			}
+		})
+	}
+}
+
 func TestFinishSetupNamesEveryMissingSection(t *testing.T) {
 	b, _ := dataDirInstance(t)
 	if s := decode[setupJSON](t, b.valid("GET", "/setup", "")); s.Completed {

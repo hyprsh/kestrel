@@ -2,6 +2,7 @@ package profiles
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -110,6 +111,13 @@ var countryRE = regexp.MustCompile(`^[A-Z]{2}$`)
 type Service struct {
 	st       *store.Store
 	settings *settings.Settings
+	tx       *sql.Tx // set by InTx: writes join the caller's transaction
+}
+
+// InTx returns a Service whose settings and Profile writes run inside tx; the
+// caller commits or rolls back.
+func (s *Service) InTx(tx *sql.Tx) *Service {
+	return &Service{st: s.st, settings: s.settings.InTx(tx), tx: tx}
 }
 
 // New returns a Service over st. settings holds the language and Kids documents.
@@ -156,6 +164,9 @@ func convert(rows []db.Profile) []Profile {
 }
 
 func (s *Service) write(ctx context.Context, f func(*db.Queries) error) error {
+	if s.tx != nil {
+		return f(db.New(s.tx))
+	}
 	// One write connection: check-then-write inside a transaction cannot race.
 	tx, err := s.st.Write().BeginTx(ctx, nil)
 	if err != nil {

@@ -6,6 +6,7 @@ package rootfolders
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -40,6 +41,11 @@ func (e *ValidationError) Error() string { return e.Field + ": " + e.Message }
 type Service struct {
 	settings *settings.Settings
 	dataDir  string
+}
+
+// InTx returns a Service that saves through tx; the caller commits or rolls back.
+func (s *Service) InTx(tx *sql.Tx) *Service {
+	return &Service{settings: s.settings.InTx(tx), dataDir: s.dataDir}
 }
 
 // New returns a Service. dataDir prefills the folders until they are saved.

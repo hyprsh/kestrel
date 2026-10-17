@@ -23,6 +23,13 @@ func New(st *store.Store) *Settings {
 	return &Settings{read: db.New(st.Read()), write: db.New(st.Write())}
 }
 
+// InTx returns Settings that read and write through tx, so several sections
+// can be saved atomically.
+func (s *Settings) InTx(tx *sql.Tx) *Settings {
+	q := db.New(tx)
+	return &Settings{read: q, write: q}
+}
+
 // Get returns the JSON value stored under key.
 func (s *Settings) Get(ctx context.Context, key string) (value []byte, ok bool, err error) {
 	v, err := s.read.Get(ctx, key)

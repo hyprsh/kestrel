@@ -7,9 +7,9 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/resolution"
-	"github.com/hyprsh/kestrel/internal/rootfolders"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
+	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 )
 
 func profilesProblem(err error) error {
@@ -104,7 +104,7 @@ func (s *server) PatchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 	if r.Body == nil {
 		return nil, invalid("body", "required", "a body is required")
 	}
-	// Validate every section before saving any, so a rejected patch changes nothing.
+	// Every section saves in one transaction, so a rejected patch changes nothing.
 	if k := r.Body.KidsRule; k != nil && k.Threshold != nil {
 		switch *k.Threshold {
 		case 0, 6, 12:
@@ -112,8 +112,14 @@ func (s *server) PatchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 			return nil, invalid("threshold", "invalid", "The threshold age is 0, 6 or 12")
 		}
 	}
+	tx, err := s.opts.Store.Write().BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	rootFolders, profs := s.rootFolders.InTx(tx), s.profiles.InTx(tx)
 	if rf := r.Body.RootFolders; rf != nil {
-		if _, err := s.rootFolders.Set(ctx, rootfolders.Patch{Movies: rf.Movies, Series: rf.Series}); err != nil {
+		if _, err := rootFolders.Set(ctx, rootfolders.Patch{Movies: rf.Movies, Series: rf.Series}); err != nil {
 			var ve *rootfolders.ValidationError
 			if errors.As(err, &ve) {
 				return nil, invalid(ve.Field, ve.Code, ve.Message)
@@ -128,14 +134,17 @@ func (s *server) PatchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 			patch.Primary = &lang
 		}
 		patch.Country = l.ReleaseDateCountry
-		if _, err := s.profiles.SetRegion(ctx, patch); err != nil {
+		if _, err := profs.SetRegion(ctx, patch); err != nil {
 			return nil, profilesProblem(err)
 		}
 	}
 	if k := r.Body.KidsRule; k != nil {
-		if _, err := s.profiles.SetKids(ctx, profiles.KidsPatch{Enabled: k.Enabled, Threshold: k.Threshold}); err != nil {
+		if _, err := profs.SetKids(ctx, profiles.KidsPatch{Enabled: k.Enabled, Threshold: k.Threshold}); err != nil {
 			return nil, profilesProblem(err)
 		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
 	}
 	out, err := s.settingsBody(ctx)
 	if err != nil {
