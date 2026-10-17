@@ -15,6 +15,7 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/acquire/db"
 	"github.com/hyprsh/kestrel/internal/downloads"
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/indexers"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/plugin"
@@ -96,6 +97,8 @@ type Deps struct {
 	Profiles  Profiles
 	Indexers  Indexers
 	Downloads Downloads
+	// History records the events the UI must see; nil records nothing.
+	History *history.Service
 	// Snapshot is the TRaSH data to score with; nil means the one embedded in the binary.
 	Snapshot *scoring.Snapshot
 }
@@ -111,6 +114,7 @@ type Service struct {
 	snap  *scoring.Snapshot
 	cache *cache
 	live  *liveSet
+	hist  *history.Service
 }
 
 // New returns a Service.
@@ -127,7 +131,7 @@ func New(d Deps) (*Service, error) {
 	}
 	return &Service{
 		st: d.Store, clock: d.Clock, lib: d.Library, prof: d.Profiles, idx: d.Indexers, dl: d.Downloads,
-		snap: d.Snapshot, cache: &cache{m: map[string]*entry{}}, live: &liveSet{m: map[int64]Live{}},
+		snap: d.Snapshot, cache: &cache{m: map[string]*entry{}}, live: &liveSet{m: map[int64]Live{}}, hist: d.History,
 	}, nil
 }
 
@@ -586,5 +590,9 @@ func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
 	if err := tx.Commit(); err != nil {
 		return Grab{}, err
 	}
-	return grabOf(row), nil
+	g := grabOf(row)
+	s.hist.Record(ctx, history.Event{
+		Kind: history.GrabSent, TitleID: o.titleID, VersionID: o.versionID, GrabID: g.ID, Message: "Sent " + g.ReleaseName + " to the download client",
+	})
+	return g, nil
 }

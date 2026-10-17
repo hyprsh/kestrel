@@ -52,7 +52,7 @@ func newInstance(t *testing.T, base string, with ...func(*api.Options)) *instanc
 	}
 	t.Cleanup(func() { st.Close() })
 	clock := newClock()
-	opts := api.Options{Version: "1.2.3", BaseURL: base, Store: st, Web: webFS, Clock: clock.Now}
+	opts := api.Options{Version: "1.2.3", BaseURL: base, Store: st, Web: webFS, Clock: clock.Now, CheapPasswordHash: true}
 	for _, f := range with {
 		f(&opts)
 	}

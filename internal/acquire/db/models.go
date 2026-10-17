@@ -32,6 +32,20 @@ type Episode struct {
 	Monitored int64
 }
 
+type Event struct {
+	ID        int64
+	At        string
+	Kind      string
+	Routine   int64
+	TitleID   sql.NullInt64
+	VersionID sql.NullInt64
+	EpisodeID sql.NullInt64
+	GrabID    sql.NullInt64
+	RequestID sql.NullInt64
+	Message   string
+	Data      sql.NullString
+}
+
 type File struct {
 	ID            int64
 	VersionID     int64

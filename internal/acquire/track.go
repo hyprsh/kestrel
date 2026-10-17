@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/acquire/db"
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/indexers"
 	"github.com/hyprsh/kestrel/internal/library"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
@@ -157,6 +158,7 @@ func (s *Service) Poll(ctx context.Context) (PollResult, error) {
 				return res, err
 			}
 			res.Changed++
+			s.recordMove(ctx, g, state, failure)
 		}
 		switch state {
 		case "failed":
@@ -169,6 +171,22 @@ func (s *Service) Poll(ctx context.Context) (PollResult, error) {
 		}
 	}
 	return res, nil
+}
+
+// recordMove records a Grab's move to a new state, for the Log and the live UI.
+func (s *Service) recordMove(ctx context.Context, g db.Grab, state, failure string) {
+	ev := history.Event{TitleID: g.TitleID.Int64, VersionID: g.VersionID.Int64, GrabID: g.ID}
+	switch state {
+	case "downloading":
+		ev.Kind, ev.Message = history.GrabDownloading, "Download started: "+g.ReleaseName
+	case "completed":
+		ev.Kind, ev.Message = history.GrabCompleted, "Download finished: "+g.ReleaseName
+	case "failed":
+		ev.Kind, ev.Message = history.GrabFailed, "Download failed ("+failure+"): "+g.ReleaseName
+	default:
+		return
+	}
+	s.hist.Record(ctx, ev)
 }
 
 func phaseOfItem(p downloadclient.Phase) Phase {
@@ -212,6 +230,9 @@ func (s *Service) Cancel(ctx context.Context, id int64, blocklist bool) (Grab, e
 		return Grab{}, err
 	}
 	s.live.drop(id)
+	s.hist.Record(ctx, history.Event{
+		Kind: history.GrabCanceled, TitleID: g.TitleID, VersionID: g.VersionID, Message: "Canceled " + g.ReleaseName,
+	})
 	return g, nil
 }
 

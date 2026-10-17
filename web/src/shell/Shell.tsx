@@ -2,10 +2,12 @@
 // Ported from the prototype's variant C; screens arrive with later tickets.
 import { CalendarClock, Inbox, Info, LibraryBig, LogOut, Monitor, Moon, Plus, ScrollText, Search, Settings, Sun } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth, useLogout, useSystem } from '../api/queries'
 import { CommandMenu, type MenuAction, type MenuMode } from '../command/CommandMenu'
 import { MOD } from '../keys'
 import { Library } from '../library/Library'
+import { startLiveStream } from '../live/stream'
 import { Overview } from '../overview/Overview'
 import { Settings as SettingsScreen } from '../screens/Settings'
 import { useTheme, type Theme } from '../theme'
@@ -34,6 +36,10 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const auth = useAuth()
   const logout = useLogout()
   const current = [...screens, about].find((s) => s.key === screen)!
+
+  // Every open tab stays live through one shared stream; the cache refetches on its hints.
+  const queryClient = useQueryClient()
+  useEffect(() => startLiveStream(queryClient), [queryClient])
 
   // ⌘K / Ctrl+K opens and closes the command menu from anywhere.
   useEffect(() => {

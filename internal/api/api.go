@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -19,6 +20,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/acquire"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/downloads"
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/indexers"
 	"github.com/hyprsh/kestrel/internal/jobs"
@@ -72,6 +74,11 @@ type Options struct {
 	Posters *metadata.Posters
 	// Prober reads downloaded files for Imports; nil means the ffprobe on PATH.
 	Prober probe.Prober
+	// CheapPasswordHash hashes passwords with a tiny argon2 parameter set. Tests
+	// only: the production cost takes seconds under the race detector.
+	CheapPasswordHash bool
+	// Stream tunes GET /stream's polling; zero means the defaults. Tests shorten it.
+	Stream StreamIntervals
 	// SearchTimeout bounds a manual search; zero means 30 s.
 	SearchTimeout time.Duration
 }
@@ -101,11 +108,17 @@ func New(opts Options) *App {
 	if opts.Plugins == nil {
 		opts.Plugins = plugin.NewRegistry()
 	}
+	cost := productionCost
+	if opts.CheapPasswordHash {
+		cost = cheapCost
+	}
 	s := &server{
 		opts:    opts,
-		auth:    newAuth(opts.Store, opts.Clock, opts.BaseURL),
+		auth:    newAuth(opts.Store, opts.Clock, opts.BaseURL, cost),
 		plugins: instances.NewService(opts.Store, opts.Plugins),
 	}
+	s.history = history.New(opts.Store, opts.Clock, opts.Logger)
+	s.hub = newHub()
 	appSettings := settings.New(opts.Store)
 	s.profiles = profiles.New(opts.Store, appSettings)
 	s.rootFolders = rootfolders.New(appSettings, opts.DataDir)
@@ -125,7 +138,7 @@ func New(opts Options) *App {
 
 	acq, err := acquire.New(acquire.Deps{
 		Store: opts.Store, Clock: opts.Clock, Library: s.library, Profiles: s.profiles,
-		Indexers: indexers.New(s.plugins, opts.Clock), Downloads: downloads.New(s.plugins),
+		Indexers: indexers.New(s.plugins, opts.Clock), Downloads: downloads.New(s.plugins), History: s.history,
 	})
 	if err != nil {
 		panic("api: the embedded TRaSH snapshot is invalid: " + err.Error())
@@ -143,12 +156,12 @@ func New(opts Options) *App {
 		Store: opts.Store, Clock: opts.Clock, Library: s.library, Profiles: s.profiles, RootFolders: s.rootFolders,
 		Meta: s.meta, TVDB: s.tvdb, Grabs: acq,
 	})
-	s.jobs = jobs.Standard(jobs.Deps{Acquire: acq, Library: s.library, Importer: imp, ImportSource: acq, Clock: opts.Clock, Logger: opts.Logger})
+	s.jobs = jobs.Standard(jobs.Deps{Acquire: acq, Library: s.library, History: s.history, Importer: imp, ImportSource: acq, Clock: opts.Clock, Logger: opts.Logger})
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ping", s.ping)
 
-	strict := oapi.NewStrictHandlerWithOptions(s, nil, oapi.StrictHTTPServerOptions{
+	strict := oapi.NewStrictHandlerWithOptions(s, []oapi.StrictMiddlewareFunc{s.emitHints}, oapi.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, err error) {
 			writeProblem(w, http.StatusBadRequest, "validation", err.Error())
 		},
@@ -189,6 +202,8 @@ type server struct {
 	acquire     *acquire.Service
 	requests    *requests.Service
 	jobs        *jobs.Runner
+	history     *history.Service
+	hub         *hub
 	meta        metadata.Provider
 	tvdb        metadata.TVDBProvider
 	posters     *metadata.Posters
@@ -215,14 +230,7 @@ func (s *server) ping(w http.ResponseWriter, r *http.Request) {
 // specJSON serves openapi.yaml as JSON, with the server URL set to this
 // instance's prefixed API root so the docs page's "try it" works.
 func (s *server) specJSON() http.HandlerFunc {
-	body, err := func() ([]byte, error) {
-		doc, err := openapi3.NewLoader().LoadFromData(kapi.Spec)
-		if err != nil {
-			return nil, err
-		}
-		doc.Servers = openapi3.Servers{{URL: s.opts.BaseURL + apiRoot}}
-		return doc.MarshalJSON()
-	}()
+	body, err := specBody(s.opts.BaseURL + apiRoot)
 	if err != nil {
 		panic("api: embedded openapi.yaml is invalid: " + err.Error())
 	}
@@ -230,6 +238,26 @@ func (s *server) specJSON() http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write(body)
 	}
+}
+
+var (
+	specMu   sync.Mutex
+	specOnce sync.Once
+	specDoc  *openapi3.T
+	specErr  error
+)
+
+// specBody is openapi.yaml as JSON with the given server URL. The YAML is
+// parsed once per process, however many instances start (tests start many).
+func specBody(server string) ([]byte, error) {
+	specOnce.Do(func() { specDoc, specErr = openapi3.NewLoader().LoadFromData(kapi.Spec) })
+	if specErr != nil {
+		return nil, specErr
+	}
+	specMu.Lock()
+	defer specMu.Unlock()
+	specDoc.Servers = openapi3.Servers{{URL: server}}
+	return specDoc.MarshalJSON()
 }
 
 // docsPage renders Scalar over the published spec. The spec URL is relative,

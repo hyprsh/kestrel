@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/requests"
@@ -81,6 +82,10 @@ func (s *server) CreateRequest(ctx context.Context, r oapi.CreateRequestRequestO
 	if !res.Created {
 		return oapi.CreateRequest200JSONResponse(requestToAPI(res.Request)), nil
 	}
+	s.history.Record(ctx, history.Event{
+		Kind: history.RequestCreated, TitleID: res.Request.TitleID, RequestID: res.Request.ID,
+		Message: "Request from " + res.Request.RequesterName + " via " + res.Request.Source,
+	})
 	return oapi.CreateRequest201JSONResponse(requestToAPI(res.Request)), nil
 }
 

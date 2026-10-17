@@ -6,13 +6,10 @@ import type { components } from './schema.gen'
 
 export type QueueItem = components['schemas']['QueueItem']
 
-/** How often the list refreshes while Overview is open; the live stream replaces this later. */
-const REFRESH_MS = 5000
-
+/** Kept live by the stream's `queue` snapshots (live/stream.ts); this fetch is the first paint and the fallback. */
 export function useQueue() {
   return useQuery({
     queryKey: ['queue'],
-    refetchInterval: REFRESH_MS,
     queryFn: async () => {
       const { data, error } = await api.GET('/queue')
       if (!data) throw error

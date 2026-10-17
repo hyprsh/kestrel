@@ -23,6 +23,8 @@ const (
 	// Import imports finished downloads with two workers; it wakes when a
 	// poll sees a download finish and retries stalled Imports by their backoff.
 	Import = "import"
+	// Prune deletes routine events older than 30 days, once a day.
+	Prune = "prune"
 	// RSS reads every indexer's feed and grabs what the library wants from it.
 	RSS = "rss"
 )
@@ -39,6 +41,7 @@ const (
 	importEvery   = time.Minute
 	// importWorkers is how many Imports run at once.
 	importWorkers = 2
+	pruneEvery    = 24 * time.Hour
 )
 
 // Acquirer is what the loops need of the acquire module.
@@ -66,10 +69,16 @@ type Library interface {
 	MarkMissingSearched(ctx context.Context, versionID int64, at, next time.Time) error
 }
 
+// History is what the loops need of the history module.
+type History interface {
+	Prune(ctx context.Context) (int64, error)
+}
+
 // Deps are the modules Standard strings together.
 type Deps struct {
 	Acquire Acquirer
 	Library Library
+	History History
 	// Importer and ImportSource enable the Import loop; leave both nil for none.
 	Importer     Importer
 	ImportSource ImportSource
@@ -117,6 +126,13 @@ func Standard(d Deps) *Runner {
 			Name:  Import,
 			Run:   func(ctx context.Context) error { return importDue(ctx, r, d) },
 			Every: func() time.Duration { return importEvery },
+		})
+	}
+	if d.History != nil {
+		r.Add(Loop{
+			Name:  Prune,
+			Run:   func(ctx context.Context) error { _, err := d.History.Prune(ctx); return err },
+			Every: func() time.Duration { return pruneEvery },
 		})
 	}
 

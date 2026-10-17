@@ -78,7 +78,7 @@ func newSearch(t *testing.T) search {
 }
 
 // newSearchBare is newSearch before any Title is added.
-func newSearchBare(t *testing.T) search {
+func newSearchBare(t *testing.T, with ...func(*api.Options)) search {
 	t.Helper()
 	tmdb := metadatatest.New(t)
 	data, config := t.TempDir(), t.TempDir()
@@ -90,11 +90,12 @@ func newSearchBare(t *testing.T) search {
 	if err := reg.Register(downloadclient.Contract, sab); err != nil {
 		t.Fatal(err)
 	}
-	in := newInstance(t, "", func(o *api.Options) {
+	with = append([]func(*api.Options){func(o *api.Options) {
 		o.DataDir, o.ConfigDir, o.Plugins, o.Prober = data, config, reg, prober
 		o.Metadata = metadata.NewTMDB(metadata.TMDBOptions{BaseURL: tmdb.APIBase(), ImageBase: tmdb.ImageBase(), Keys: metadata.StaticKey(metadatatest.Key)})
 		o.Posters = metadata.NewPosters(metadata.PostersOptions{ConfigDir: config, ImageBase: tmdb.ImageBase()})
-	})
+	}}, with...)
+	in := newInstance(t, "", with...)
 	b := in.setUp()
 	s := search{library: library{browser: b, tmdb: tmdb, config: config, data: data}, idx: idx, sab: sab, prober: prober}
 

@@ -47,15 +47,16 @@ type auth struct {
 	clock    func() time.Time
 	basePath string
 	throttle *throttle
+	cost     hashCost
 	dummy    string // a hash to verify against when the username is wrong, so timing does not reveal it
 }
 
-func newAuth(st *store.Store, clock func() time.Time, baseURL string) *auth {
+func newAuth(st *store.Store, clock func() time.Time, baseURL string, cost hashCost) *auth {
 	path := baseURL
 	if path == "" {
 		path = "/"
 	}
-	dummy, _ := hashPassword("kestrel")
+	dummy, _ := hashWith("kestrel", cost)
 	return &auth{
 		settings: settings.New(st),
 		read:     db.New(st.Read()),
@@ -63,6 +64,7 @@ func newAuth(st *store.Store, clock func() time.Time, baseURL string) *auth {
 		clock:    clock,
 		basePath: path,
 		throttle: newThrottle(),
+		cost:     cost,
 		dummy:    dummy,
 	}
 }
@@ -371,7 +373,7 @@ func (s *server) CreateAccount(ctx context.Context, req oapi.CreateAccountReques
 	if perr != nil {
 		return nil, perr
 	}
-	hash, err := hashPassword(password)
+	hash, err := hashWith(password, s.auth.cost)
 	if err != nil {
 		return nil, err
 	}
@@ -480,7 +482,7 @@ func (s *server) ChangePassword(ctx context.Context, req oapi.ChangePasswordRequ
 	if utf8.RuneCountInString(next) < minPasswordLn {
 		return nil, invalid("new_password", "too_short", "password must be at least 8 characters")
 	}
-	if acc.PasswordHash, err = hashPassword(next); err != nil {
+	if acc.PasswordHash, err = hashWith(next, s.auth.cost); err != nil {
 		return nil, err
 	}
 	raw, _ := json.Marshal(acc)
