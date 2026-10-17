@@ -85,9 +85,10 @@ type Input struct {
 
 // Download is the live progress of a Slot's active Grab.
 type Download struct {
-	Phase     string
-	BytesLeft int64
-	ETA       time.Duration
+	Phase      string
+	BytesTotal int64
+	BytesLeft  int64
+	ETA        time.Duration
 }
 
 // SlotStatus is one requested Slot.
@@ -811,7 +812,7 @@ func (s *Service) derive(ctx context.Context, r *Request, st *SlotStatus, c *cac
 	for _, a := range c.active {
 		if a.VersionID == st.VersionID {
 			st.Status, st.Label = Downloading, "Downloading"
-			st.Download = &Download{Phase: string(a.Phase), BytesLeft: a.BytesLeft, ETA: a.ETA}
+			st.Download = &Download{Phase: string(a.Phase), BytesTotal: a.BytesTotal, BytesLeft: a.BytesLeft, ETA: a.ETA}
 			return nil
 		}
 	}

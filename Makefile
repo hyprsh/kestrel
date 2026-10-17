@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet compose-check commitlint hooks docker check
+.PHONY: build-silo help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet compose-check commitlint hooks docker check
 
 VERSION ?= dev
 # The project's TMDB key is injected at link time; the default build embeds none.
@@ -35,6 +35,9 @@ web-build: ## Build the SPA into web/dist (embedded by the Go build)
 
 build: web-build ## Build bin/kestrel (CGO_ENABLED=0) with the SPA embedded
 	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o bin/kestrel ./cmd/kestrel
+
+build-silo: ## Build bin/kestrel-silo, the Silo request_router.v1 plugin (same version as Kestrel)
+	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o bin/kestrel-silo ./cmd/kestrel-silo
 
 dev-api: ## Run the Go server on :7676 with a local config dir in .dev/config
 	KESTREL_CONFIG_DIR=$(CURDIR)/.dev/config KESTREL_DATA_DIR=$(CURDIR)/.dev/data go run ./cmd/kestrel

@@ -92,6 +92,7 @@ make test          # Go tests (race detector) and SPA tests
 make generate      # regenerate code from api/openapi.yaml and the SQL
 make check         # everything CI checks except the image build and commitlint
 make build         # bin/kestrel with the SPA embedded
+make build-silo    # bin/kestrel-silo, the Silo request router plugin
 make docker        # build the image as kestrel:dev
 make hooks         # install the commitlint commit-msg hook
 ```

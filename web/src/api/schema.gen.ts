@@ -1581,6 +1581,11 @@ export interface components {
         RequestDownload: {
             /** @description `queued`, `downloading`, `paused`, `post_processing` or `importing`. */
             phase: string;
+            /**
+             * Format: int64
+             * @description 0 when the download client does not know the size.
+             */
+            bytes_total: number;
             /** Format: int64 */
             bytes_left: number;
             /** @description Seconds. */
