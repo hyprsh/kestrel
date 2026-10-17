@@ -91,7 +91,9 @@ Run `make dev-api` and `make dev-web` in two terminals, then open the Vite URL.
 | `cmd/kestrel` | `main`: reads config, opens the store, wires modules, serves HTTP. |
 | `internal/<module>` | One package per module of the architecture (PRD #22). Calls only go downwards. Today: `store`, `settings`, `release`, `api`, `config`, `version`. |
 | `internal/release` | Release name parsing: a Go port of Radarr's (and, later, Sonarr's) parser, with the upstream commit recorded in each ported file. Its tests replay Radarr's own fixtures and golden `/api/v3/parse` files from `testdata/`, see its README. |
-| `scripts/` | Dev-only tools: fixture extraction and golden-file regeneration for the parser port (Docker, never run in CI). |
+| `internal/scoring` | `Evaluate`: scores a Release with TRaSH's Custom Formats and applies the Profile's language, resolution and minimum-Score rules. The TRaSH snapshot (MIT, with its licence and commit) is embedded from `trash/`; refresh it with `scripts/update-trash-snapshot.sh`. Its tests replay golden matched-Custom-Format sets recorded from pinned Radarr and Sonarr (`testdata/`, `scripts/regen-cf-golden.sh`). |
+| `internal/resolution` | The SD/HD/UHD resolution classes shared by scoring and probe. |
+| `scripts/` | Dev-only tools: fixture extraction, golden-file regeneration for the parser port and the Custom Format parity harness, TRaSH snapshot refresh (Docker, never run in CI). |
 | `api/openapi.yaml` | The hand-written API contract and the source of truth. |
 | `internal/api/oapi` | Generated Go server interface and models (oapi-codegen, strict server). Do not edit. |
 | `internal/store/migrations` | goose migrations, embedded in the binary. Also the schema sqlc reads. |

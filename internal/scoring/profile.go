@@ -93,6 +93,20 @@ func (p *Profile) BackingProfile(kind release.Kind) string {
 	return ""
 }
 
+// Formats lists the Custom Formats the Profile scores for a kind, with their
+// scores, in no particular order.
+func (p *Profile) Formats(kind release.Kind) []MatchedFormat {
+	s := p.sets[kind]
+	if s == nil {
+		return nil
+	}
+	out := make([]MatchedFormat, 0, len(s.formats))
+	for _, f := range s.formats {
+		out = append(out, MatchedFormat{TrashID: f.cf.id, Name: f.cf.name, Score: f.score})
+	}
+	return out
+}
+
 // AllowedQualities lists the quality names the Profile allows for a kind. SD
 // and Kids derive theirs from the HD backing profile (Settled 5).
 func (p *Profile) AllowedQualities(kind release.Kind) []string {

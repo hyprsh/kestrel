@@ -117,6 +117,29 @@ func Evaluate(rel Release, title Title, p *Profile) Verdict {
 	return v
 }
 
+// MatchAll returns every Custom Format in the snapshot's data for the
+// Release's kind that the Release matches, whatever the Profile, ordered by
+// name. Scores are the default score set's. It is what Radarr and Sonarr's
+// parse endpoints report, so the parity harness compares against it.
+func (s *Snapshot) MatchAll(rel Release, title Title) []MatchedFormat {
+	if title.OriginalLanguage.ID == 0 {
+		title.OriginalLanguage = release.LangUnknown
+	}
+	d := s.apps[rel.Parsed.Kind]
+	if d == nil {
+		return nil
+	}
+	in := newInput(rel, title, resolveLanguages(rel, title))
+	var out []MatchedFormat
+	for _, cf := range d.cfs {
+		if cf.matches(in) {
+			out = append(out, MatchedFormat{TrashID: cf.id, Name: cf.name, Score: cf.scoreIn("")})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
+}
+
 func rejections(rel Release, title Title, p *Profile, v Verdict) []Rejection {
 	var out []Rejection
 
