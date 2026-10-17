@@ -56,6 +56,10 @@ type Title struct {
 	// OriginalLanguage is the Title's Original Language as its metadata
 	// states it; release.LangUnknown when not known.
 	OriginalLanguage release.Language
+	// EpisodeTitles are the titles of the episodes a Series release covers.
+	// Sonarr discounts a language named in an episode title; the Series' own
+	// name plays no part there.
+	EpisodeTitles []string
 }
 
 // MatchedFormat is a Custom Format a Release matched and its score under the
@@ -200,9 +204,12 @@ func languageGate(spec ProfileSpec, title Title, languages []release.Language) [
 // Language; the Original pseudo-language is replaced by it (or by Unknown when
 // it is already there).
 func resolveLanguages(rel Release, title Title) []release.Language {
-	langs := slices.Clone(rel.Parsed.Languages)
+	var langs []release.Language
 	if len(rel.IndexerLanguages) > 0 {
 		langs = slices.Clone(rel.IndexerLanguages)
+	} else {
+		// A language the Title's own name accounts for is not the Release's.
+		langs = release.WithoutTitleLanguages(rel.Parsed, title.Name, title.EpisodeTitles)
 	}
 	if len(langs) == 0 || (len(langs) == 1 && langs[0] == release.LangUnknown) {
 		langs = []release.Language{title.OriginalLanguage}
