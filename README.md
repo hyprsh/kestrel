@@ -58,7 +58,7 @@ Bootstrap settings are environment variables. Everything else lives in SQLite an
 | `KESTREL_CONFIG_DIR` | `/config` | Holds `kestrel.db`, its `backups/` and the poster cache in `cache/posters/`. |
 | `KESTREL_DATA_DIR` | `/data` | Prefills the root folders and is the mount the disk checks watch. |
 | `KESTREL_TMDB_API_KEY` | empty | Your own [TMDB](https://www.themoviedb.org/settings/api) API key (v3). It outranks the key embedded in the build and is outranked by one saved in the UI. |
-| `KESTREL_TVDB_API_KEY` | empty | Your own TheTVDB key, same precedence. Series arrive in a later release. |
+| `KESTREL_TVDB_API_KEY` | empty | Your own TheTVDB key, same precedence. |
 
 The image has a `HEALTHCHECK` on the unauthenticated `GET {base}/ping`.
 
