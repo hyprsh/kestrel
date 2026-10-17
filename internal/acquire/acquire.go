@@ -523,7 +523,6 @@ func (s *Service) Grab(ctx context.Context, versionID int64, releaseID string, o
 		return Grab{}, rej
 	}
 
-
 	var held bool
 	for _, v := range sub.detail.Versions {
 		if v.ID == versionID {
