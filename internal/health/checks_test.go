@@ -155,16 +155,16 @@ func TestNoIndexerRowWaitsForSetupToFinish(t *testing.T) {
 	}
 }
 
-func TestIndexerStatesReportWhoIsFailing(t *testing.T) {
+func TestStatesReportWhoIsFailing(t *testing.T) {
 	ctx := context.Background()
 	e := newEnv(t, enabledIndexers(alpha))
 	e.h.ObserveIndexer(ctx, alpha, &health.Failure{Auth: true, Message: "bad key"})
-	st := e.h.IndexerStates()
+	st := e.h.States()
 	if got := st[alpha.ID]; !got.Failing || !got.Auth || got.Message != "bad key" {
 		t.Errorf("state = %+v", got)
 	}
 	e.h.ObserveIndexer(ctx, alpha, nil)
-	if got := e.h.IndexerStates()[alpha.ID]; got.Failing {
+	if got := e.h.States()[alpha.ID]; got.Failing {
 		t.Errorf("state after recovery = %+v", got)
 	}
 }

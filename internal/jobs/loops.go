@@ -22,6 +22,8 @@ const (
 	Prune = "prune"
 	// RSS reads every indexer's feed and grabs what the library wants from it.
 	RSS = "rss"
+	// Health runs the health checks (disk, Root folders, indexers, the download client) every 5 min.
+	Health = "health"
 )
 
 // Cadences. missingRetry and missingFailed are placeholders until the sweep
@@ -34,7 +36,13 @@ const (
 	missingRetry  = 6 * time.Hour
 	missingFailed = 15 * time.Minute
 	pruneEvery    = 24 * time.Hour
+	healthEvery   = 5 * time.Minute
 )
+
+// HealthChecker is what the loops need of the health module.
+type HealthChecker interface {
+	RunChecks(ctx context.Context) error
+}
 
 // Acquirer is what the loops need of the acquire module.
 type Acquirer interface {
@@ -59,8 +67,10 @@ type Deps struct {
 	Acquire Acquirer
 	Library Library
 	History History
-	Clock   func() time.Time
-	Logger  *slog.Logger
+	// Health is optional; without it there is no health loop.
+	Health HealthChecker
+	Clock  func() time.Time
+	Logger *slog.Logger
 }
 
 // Standard returns a Runner with Kestrel's loops. Later tickets add theirs
@@ -100,6 +110,14 @@ func Standard(d Deps) *Runner {
 			Name:  Prune,
 			Run:   func(ctx context.Context) error { _, err := d.History.Prune(ctx); return err },
 			Every: func() time.Duration { return pruneEvery },
+		})
+	}
+
+	if d.Health != nil {
+		r.Add(Loop{
+			Name:  Health,
+			Run:   d.Health.RunChecks,
+			Every: func() time.Duration { return healthEvery },
 		})
 	}
 

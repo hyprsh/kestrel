@@ -134,6 +134,7 @@ func (s *Service) ObserveDownloadClient(ctx context.Context, ref Ref, f *Failure
 	if w.since.IsZero() {
 		w.since = s.clock()
 	}
+	w.auth, w.message = f.Auth, f.Message
 	msg := fmt.Sprintf("%s is unreachable: %s", ref.Name, f.Message)
 	if f.Auth {
 		msg = fmt.Sprintf("%s rejected Kestrel's credentials: %s", ref.Name, f.Message)
@@ -160,23 +161,34 @@ func (s *Service) checkDownloadClient(ctx context.Context) error {
 	return nil
 }
 
+// ClientState is how the download client's last call went.
+func (s *Service) ClientState() State {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	w := s.watches.downloadClient
+	if w.since.IsZero() {
+		return State{}
+	}
+	return State{Failing: true, Auth: w.auth, Message: w.message, Since: w.since}
+}
+
 // ---- indexers ----
 
-// IndexerState is what the health strip shows of one indexer.
-type IndexerState struct {
+// State is what the health strip shows of one indexer or of the download client.
+type State struct {
 	Failing bool
 	Auth    bool
 	Message string
 	Since   time.Time
 }
 
-// IndexerStates are the indexers that failed their last call, by instance id.
-func (s *Service) IndexerStates() map[int64]IndexerState {
+// States are the indexers that failed their last call, by instance id.
+func (s *Service) States() map[int64]State {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	out := make(map[int64]IndexerState, len(s.watches.indexers))
+	out := make(map[int64]State, len(s.watches.indexers))
 	for id, w := range s.watches.indexers {
-		out[id] = IndexerState{Failing: true, Auth: w.auth, Message: w.message, Since: w.since}
+		out[id] = State{Failing: true, Auth: w.auth, Message: w.message, Since: w.since}
 	}
 	return out
 }
@@ -454,8 +466,10 @@ func humanBytes(n uint64) string {
 // ---- state ----
 
 type watch struct {
-	since  time.Time
-	raised string // the message of the row raised for this streak, "" if none
+	since   time.Time
+	auth    bool
+	message string
+	raised  string // the message of the row raised for this streak, "" if none
 }
 
 type indexerWatch struct {
