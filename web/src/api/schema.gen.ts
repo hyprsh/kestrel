@@ -25,6 +25,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Setup progress
+         * @description Answers before an account exists (one of the few endpoints that do), and afterwards to
+         *     a logged-in admin. `completed` and the per-section states beyond `account` fill in as the
+         *     wizard's sections arrive.
+         */
+        get: operations["getSetup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create the admin account and log in
+         * @description Only answers while no account exists; whoever reaches a fresh instance sets the credentials.
+         *     Responds with the session cookie, so finishing this step logs the admin in.
+         */
+        post: operations["createAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Log in with username and password
+         * @description Sets a 30-day sliding session cookie. After five failures from one client address within
+         *     15 minutes further attempts are answered `429 rate_limited` with `Retry-After`, backing off
+         *     up to 15 minutes. A success resets the count.
+         */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End the current session */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout-everywhere": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End every session, including this one */
+        post: operations["logoutEverywhere"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who is logged in
+         * @description The SPA's first call. `401 setup_required` means no account exists yet (show the wizard's
+         *     Account section); `401 unauthenticated` means show the login card.
+         */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/account/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the admin password
+         * @description Ends every other session; the current one stays logged in.
+         */
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -46,6 +186,34 @@ export interface components {
              */
             base_url: string;
         };
+        Credentials: {
+            username: string;
+            password: string;
+        };
+        Me: {
+            username: string;
+            /**
+             * @description How this request was authenticated.
+             * @enum {string}
+             */
+            method: "session" | "proxy" | "api_key";
+            /** @description The reverse-proxy header value, when `method` is `proxy`. */
+            proxy_user: string | null;
+        };
+        Setup: {
+            account_exists: boolean;
+            completed: boolean;
+            sections: {
+                account: components["schemas"]["SetupSectionState"];
+                language: components["schemas"]["SetupSectionState"];
+                download_client: components["schemas"]["SetupSectionState"];
+                indexer: components["schemas"]["SetupSectionState"];
+                root_folders: components["schemas"]["SetupSectionState"];
+                profiles: components["schemas"]["SetupSectionState"];
+            };
+        };
+        /** @enum {string} */
+        SetupSectionState: "done" | "todo";
         /** @description RFC 9457 problem details. */
         Problem: {
             /** @default about:blank */
@@ -80,7 +248,10 @@ export interface components {
     };
     parameters: never;
     requestBodies: never;
-    headers: never;
+    headers: {
+        /** @description The `kestrel_session` cookie (HttpOnly, SameSite=Lax, Path from KESTREL_BASE_URL). */
+        SetCookie: string;
+    };
     pathItems: never;
 }
 export type $defs = Record<string, never>;
@@ -103,6 +274,179 @@ export interface operations {
                     "application/json": components["schemas"]["System"];
                 };
             };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Where the setup wizard stands. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Setup"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Credentials"];
+            };
+        };
+        responses: {
+            /** @description The account was created and a session started. */
+            201: {
+                headers: {
+                    "Set-Cookie": components["headers"]["SetCookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Credentials"];
+            };
+        };
+        responses: {
+            /** @description Logged in. */
+            204: {
+                headers: {
+                    "Set-Cookie": components["headers"]["SetCookie"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            /** @description Too many failed attempts. */
+            429: {
+                headers: {
+                    /** @description Seconds until the next attempt is accepted. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Logged out; the cookie is cleared. */
+            204: {
+                headers: {
+                    "Set-Cookie": components["headers"]["SetCookie"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    logoutEverywhere: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All sessions ended; the cookie is cleared. */
+            204: {
+                headers: {
+                    "Set-Cookie": components["headers"]["SetCookie"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current admin. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    current_password: string;
+                    new_password: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Password changed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

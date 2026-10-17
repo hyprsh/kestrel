@@ -8,11 +8,10 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"io/fs"
 	"log/slog"
 	"net/http"
-	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 
@@ -35,6 +34,8 @@ type Options struct {
 	// Web holds the built SPA (index.html at its root). May be empty.
 	Web    fs.FS
 	Logger *slog.Logger
+	// Clock is the instance's time source; nil means time.Now. Tests move it.
+	Clock func() time.Time
 }
 
 // NewHandler returns the whole HTTP handler, mounted under opts.BaseURL.
@@ -42,7 +43,10 @@ func NewHandler(opts Options) http.Handler {
 	if opts.Logger == nil {
 		opts.Logger = slog.Default()
 	}
-	s := &server{opts: opts}
+	if opts.Clock == nil {
+		opts.Clock = time.Now
+	}
+	s := &server{opts: opts, auth: newAuth(opts.Store, opts.Clock, opts.BaseURL)}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ping", s.ping)
@@ -52,6 +56,10 @@ func NewHandler(opts Options) http.Handler {
 			writeProblem(w, http.StatusBadRequest, "validation", err.Error())
 		},
 		ResponseErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, err error) {
+			if p, ok := asProblem(err); ok {
+				p.write(w)
+				return
+			}
 			opts.Logger.Error("api handler failed", "err", err)
 			writeProblem(w, http.StatusInternalServerError, "internal", "internal error")
 		},
@@ -64,16 +72,20 @@ func NewHandler(opts Options) http.Handler {
 	})
 	mux.Handle("/", newSPA(opts.Web, opts.BaseURL))
 
+	guarded := s.auth.guard(mux)
 	if opts.BaseURL == "" {
-		return mux
+		return guarded
 	}
 	outer := http.NewServeMux()
-	outer.Handle(opts.BaseURL+"/", http.StripPrefix(opts.BaseURL, mux))
+	outer.Handle(opts.BaseURL+"/", http.StripPrefix(opts.BaseURL, guarded))
 	outer.Handle(opts.BaseURL, http.RedirectHandler(opts.BaseURL+"/", http.StatusMovedPermanently))
 	return outer
 }
 
-type server struct{ opts Options }
+type server struct {
+	opts Options
+	auth *auth
+}
 
 var _ oapi.StrictServerInterface = (*server)(nil)
 
@@ -130,16 +142,4 @@ func docsPage(w http.ResponseWriter, _ *http.Request) {
   </body>
 </html>
 `))
-}
-
-func writeProblem(w http.ResponseWriter, status int, code, detail string) {
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(oapi.Problem{
-		Type:   "about:blank",
-		Title:  strings.ToLower(http.StatusText(status)),
-		Status: status,
-		Code:   code,
-		Detail: &detail,
-	})
 }

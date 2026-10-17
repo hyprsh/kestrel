@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help generate generate-check test test-go test-web build web-build dev-api dev-web fmt fmt-check vet compose-check commitlint hooks docker check
+.PHONY: help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet compose-check commitlint hooks docker check
 
 VERSION ?= dev
 LDFLAGS := -s -w -X github.com/hyprsh/kestrel/internal/version.Version=$(VERSION)
@@ -21,6 +21,9 @@ test: test-go test-web ## Run all tests
 
 test-go: ## Go tests with the race detector
 	go test -race ./...
+
+test-ffprobe: ## Real-ffprobe suite on ffmpeg-generated MKVs (needs ffmpeg and ffprobe on PATH; CI runs it)
+	go test -race -tags ffprobe ./internal/probe/
 
 test-web: ## SPA tests (Vitest + MSW)
 	npm --prefix web test

@@ -20,6 +20,24 @@ func (q *Queries) Get(ctx context.Context, key string) (string, error) {
 	return value, err
 }
 
+const insert = `-- name: Insert :execrows
+INSERT INTO settings (key, value) VALUES (?, ?)
+ON CONFLICT (key) DO NOTHING
+`
+
+type InsertParams struct {
+	Key   string
+	Value string
+}
+
+func (q *Queries) Insert(ctx context.Context, arg InsertParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, insert, arg.Key, arg.Value)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const put = `-- name: Put :exec
 INSERT INTO settings (key, value) VALUES (?, ?)
 ON CONFLICT (key) DO UPDATE SET value = excluded.value

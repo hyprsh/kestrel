@@ -15,9 +15,9 @@ beforeEach(() => {
 })
 
 describe('the empty shell', () => {
-  it('shows the icon rail with every top-level screen', () => {
+  it('shows the icon rail with every top-level screen', async () => {
     renderApp()
-    const rail = screen.getByRole('navigation')
+    const rail = await screen.findByRole('navigation')
     for (const name of ['Overview', 'Library', 'Upcoming', 'Log', 'Settings', 'About']) {
       expect(rail).toHaveTextContent(name) // tooltip labels are in the DOM
     }
@@ -26,7 +26,7 @@ describe('the empty shell', () => {
 
   it('switches the screen title when a rail item is chosen', async () => {
     renderApp()
-    await userEvent.click(screen.getByRole('button', { name: 'Library' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     expect(screen.getByRole('banner')).toHaveTextContent('Library')
   })
 
@@ -46,7 +46,7 @@ describe('the empty shell', () => {
 describe('light and dark mode', () => {
   it('toggles the dark class and remembers the choice', async () => {
     const { unmount } = renderApp()
-    const toggle = screen.getByRole('button', { name: /theme/i })
+    const toggle = await screen.findByRole('button', { name: /theme/i })
 
     await userEvent.click(toggle) // system -> light
     await userEvent.click(toggle) // light -> dark
@@ -56,6 +56,7 @@ describe('light and dark mode', () => {
     unmount()
     document.documentElement.classList.remove('dark')
     renderApp()
+    await screen.findByRole('navigation')
     expect(document.documentElement).toHaveClass('dark') // restored from storage
   })
 })

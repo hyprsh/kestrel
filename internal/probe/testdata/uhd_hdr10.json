@@ -1,0 +1,35 @@
+{
+    "streams": [
+        {
+            "index": 0,
+            "codec_name": "hevc",
+            "codec_long_name": "H.265 / HEVC (High Efficiency Video Coding)",
+            "codec_type": "video",
+            "width": 3840,
+            "height": 1608,
+            "color_space": "bt2020nc",
+            "color_transfer": "smpte2084",
+            "color_primaries": "bt2020",
+            "disposition": {"default": 1},
+            "side_data_list": [
+                {"side_data_type": "Mastering display metadata", "red_x": "34000/50000"},
+                {"side_data_type": "Content light level metadata", "max_content": 1000, "max_average": 400}
+            ]
+        },
+        {
+            "index": 1,
+            "codec_name": "truehd",
+            "codec_long_name": "TrueHD",
+            "codec_type": "audio",
+            "channels": 8,
+            "tags": {"language": "eng"},
+            "disposition": {"default": 1}
+        }
+    ],
+    "format": {
+        "filename": "/data/incoming/Film.2021.2160p.UHD.mkv",
+        "format_name": "matroska,webm",
+        "duration": "8100.000000",
+        "size": "58720256000"
+    }
+}

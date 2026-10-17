@@ -4,6 +4,12 @@
 
 package db
 
+type Session struct {
+	ID        string
+	CreatedAt int64
+	ExpiresAt int64
+}
+
 type Setting struct {
 	Key   string
 	Value string

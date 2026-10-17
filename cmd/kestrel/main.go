@@ -45,6 +45,7 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer st.Close()
+	go api.RunSessionPruner(ctx, st, 24*time.Hour, logger)
 
 	srv := &http.Server{
 		Addr: net.JoinHostPort("", strconv.Itoa(cfg.Port)),

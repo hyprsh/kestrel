@@ -1,0 +1,33 @@
+{
+    "streams": [
+        {
+            "index": 0,
+            "codec_name": "hevc",
+            "codec_type": "video",
+            "width": 3840,
+            "height": 2160,
+            "color_space": "bt2020nc",
+            "color_transfer": "smpte2084",
+            "color_primaries": "bt2020",
+            "disposition": {"default": 1},
+            "side_data_list": [
+                {"side_data_type": "Mastering display metadata"},
+                {"side_data_type": "DOVI configuration record", "dv_version_major": 1, "dv_profile": 8}
+            ]
+        },
+        {
+            "index": 1,
+            "codec_name": "ac3",
+            "codec_type": "audio",
+            "channels": 6,
+            "tags": {"language": "deu"},
+            "disposition": {"default": 1}
+        }
+    ],
+    "format": {
+        "filename": "/data/incoming/Serie.S01E01.2160p.DV.mkv",
+        "format_name": "matroska,webm",
+        "duration": "2700.000000",
+        "size": "9437184000"
+    }
+}

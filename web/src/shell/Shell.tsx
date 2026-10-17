@@ -1,8 +1,9 @@
 // The Geist shell: a thin icon rail plus a top bar with the command-menu entry.
 // Ported from the prototype's variant C; screens arrive with later tickets.
-import { CalendarClock, Inbox, Info, LibraryBig, Monitor, Moon, Plus, ScrollText, Search, Settings, Sun } from 'lucide-react'
+import { CalendarClock, Inbox, Info, LibraryBig, LogOut, Monitor, Moon, Plus, ScrollText, Search, Settings, Sun } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { useSystem } from '../api/queries'
+import { useLogout, useSystem } from '../api/queries'
+import { Settings as SettingsScreen } from '../screens/Settings'
 import { useTheme, type Theme } from '../theme'
 import { cx, Kbd, KestrelLogo } from '../ui'
 
@@ -31,11 +32,17 @@ export function Shell() {
       <Rail screen={screen} onSelect={setScreen} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar title={current.label} />
-        <main className="flex min-h-0 flex-1 items-center justify-center">
-          <div className="text-center">
-            <div className="text-sm font-medium">Nothing here yet</div>
-            <div className="mt-1 text-gray-900">{current.label} arrives in a later release.</div>
-          </div>
+        <main className="flex min-h-0 flex-1 flex-col">
+          {screen === 'settings' ? (
+            <SettingsScreen />
+          ) : (
+            <div className="flex flex-1 items-center justify-center text-center">
+              <div>
+                <div className="text-sm font-medium">Nothing here yet</div>
+                <div className="mt-1 text-gray-900">{current.label} arrives in a later release.</div>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>
@@ -66,6 +73,7 @@ function RailButton({ label, active, onClick, children }: { label: string; activ
 
 function Rail({ screen, onSelect }: { screen: string; onSelect: (key: string) => void }) {
   const { theme, cycle } = useTheme()
+  const logout = useLogout()
   return (
     <nav className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-gray-alpha-400 bg-background-200 py-3">
       <div className="mb-2 flex size-9 items-center justify-center text-gray-1000">
@@ -86,6 +94,9 @@ function Rail({ screen, onSelect }: { screen: string; onSelect: (key: string) =>
       </RailButton>
       <RailButton label={about.label} active={screen === about.key} onClick={() => onSelect(about.key)}>
         {about.icon}
+      </RailButton>
+      <RailButton label="Log out" onClick={() => logout.mutate(undefined)}>
+        <LogOut className={icon} />
       </RailButton>
     </nav>
   )
