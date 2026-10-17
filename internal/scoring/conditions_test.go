@@ -239,7 +239,7 @@ func TestSeriesCustomFormatsUseSonarrData(t *testing.T) {
 		Titles:       []string{"Show"},
 		ReleaseTitle: "Show.S01.1080p.WEB-DL.DD5.1.H264-GRP",
 		Quality: release.QualityModel{Quality: release.Quality{
-			Name: "WEBDL-1080p", Source: release.SourceWebDL, Resolution: 1080,
+			ID: 3, Name: "WEBDL-1080p", Source: release.SourceWebDL, Resolution: 1080,
 		}},
 		Languages:    []release.Language{release.LangEnglish},
 		ReleaseGroup: "GRP",

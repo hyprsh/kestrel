@@ -19,8 +19,13 @@ import (
 type Rejection string
 
 const (
-	RejectBelowMinScore           Rejection = "below_min_score"
-	RejectResolution              Rejection = "resolution"
+	RejectBelowMinScore Rejection = "below_min_score"
+	RejectResolution    Rejection = "resolution"
+	// RejectQuality is a parsed quality outside the Profile's allowed
+	// qualities; an unknown quality counts as not allowed. It extends the
+	// PRD's code list (orchestrator decision) and is overridable in manual
+	// search like every code except blocklisted.
+	RejectQuality                 Rejection = "quality"
 	RejectLanguage                Rejection = "language"
 	RejectOriginalLanguageUnknown Rejection = "original_language_unknown"
 	RejectBlocklisted             Rejection = "blocklisted"
@@ -137,11 +142,16 @@ func (s *Snapshot) MatchAll(rel Release, title Title) []MatchedFormat {
 }
 
 func rejections(rel Release, title Title, p *Profile, v Verdict) []Rejection {
+	set := p.sets[rel.Parsed.Kind]
 	var out []Rejection
 
 	class, known := resolution.OfHeight(rel.Parsed.Quality.Quality.Resolution)
 	if !known || !class.Within(p.MinHeight, p.MaxHeight) {
 		out = append(out, RejectResolution)
+	}
+
+	if q := rel.Parsed.Quality.Quality; q.ID == 0 || !slices.Contains(set.qualities, q.Name) {
+		out = append(out, RejectQuality)
 	}
 
 	out = append(out, languageGate(p.spec, title, v.Languages)...)
