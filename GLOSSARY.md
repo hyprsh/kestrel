@@ -55,6 +55,14 @@ _Avoid_: Import (reserved for completed downloads)
 One downloadable post found on an indexer, identified by its release name.
 _Avoid_: NZB, result, torrent
 
+**Custom Format**:
+A named trait a Release can have, such as a release group tier, a Dual-Language Release or an unwanted encode, defined by TRaSH and worth a number of points under each Profile.
+_Avoid_: CF (unexpanded), tag, rule
+
+**Score**:
+The sum of the points of every Custom Format a Release matches under one Profile. The higher Score wins a Grab or an Upgrade.
+_Avoid_: Rating, rank
+
 **Grab**:
 Choosing a Release for a Version and handing it to the download client. Every download Kestrel tracks traces back to one Grab.
 _Avoid_: Snatch, download (as a noun)

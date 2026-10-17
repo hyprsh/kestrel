@@ -4,7 +4,6 @@ Kestrel was charted for a German household, so Profiles, Dual-Language Releases,
 
 - the audio a Profile requires,
 - what DL/MULTi means in a release name,
-- the language tokens the release parser looks for,
 - the title variants and transliteration used in text searches and matching,
 - the default release-date country, and through it the age-rating system behind the Kids rule.
 
@@ -18,7 +17,7 @@ v1 offers English (pre-selected), German and French, because those are the langu
 ## Consequences
 
 - The wizard gains a Primary Language step, with an explainer of what the choice changes. It can be changed later in Settings, but a change only affects scoring and Grabs from then on. Existing files are left alone.
-- The release-name parser needs French tokens (`MULTi`, `VFF`/`TRUEFRENCH`, `VFQ`, `VF2`, `VOSTFR` and others) as well as German `DL`/`ML`.
+- The release-name parser does not depend on the Primary Language. It recognises every language the Radarr/Sonarr parser knows, including French tokens (`MULTi`, `VFF`/`TRUEFRENCH`, `VFQ`, `VF2`, `VOSTFR` and others) and German `DL`/`ML` (ADR 0006). The Primary Language only acts after parsing.
 - The naming scheme's language tag follows the Primary Language (`[German DL]`, `[French MULTi]`).
 - When a Title's Original Language is the Primary Language, the two Profiles of a Slot aim for the same audio. We accept that overlap.
 - Adding a language later needs TRaSH data for it. A language without TRaSH data would mean revisiting the Kestrel-generated scoring option.
