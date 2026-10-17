@@ -16,6 +16,9 @@ INSERT INTO versions (title_id, slot, profile_key, added_at) VALUES (?, ?, ?, ?)
 -- name: InsertSearchState :exec
 INSERT INTO search_state (version_id, season, next_missing_at, next_upgrade_at) VALUES (?, ?, ?, ?);
 
+-- name: GetTitleOfVersion :one
+SELECT title_id FROM versions WHERE id = ?;
+
 -- name: GetTitle :one
 SELECT * FROM titles WHERE id = ?;
 

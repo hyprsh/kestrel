@@ -17,6 +17,18 @@ var isoLanguages = map[string]Language{
 	"rm": LangRomansh, "mn": LangMongolian, "ka": LangGeorgian,
 }
 
+// LanguageByName returns the *arr language an indexer names ("German", any
+// case), or LangUnknown when it is not in the table.
+func LanguageByName(name string) Language {
+	name = strings.TrimSpace(name)
+	for _, l := range isoLanguages {
+		if strings.EqualFold(l.Name, name) {
+			return l
+		}
+	}
+	return LangUnknown
+}
+
 // LanguageByISO returns the *arr language for an ISO 639-1 code (any case), or
 // LangUnknown when the code is empty or not in the table.
 func LanguageByISO(code string) Language {

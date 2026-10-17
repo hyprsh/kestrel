@@ -8,6 +8,19 @@ import (
 	"database/sql"
 )
 
+type Blocklist struct {
+	ID          int64
+	ReleaseName string
+	IndexerID   int64
+	Guid        string
+	PublishedAt string
+	Size        int64
+	Reason      string
+	TitleID     sql.NullInt64
+	GrabID      sql.NullInt64
+	CreatedAt   string
+}
+
 type Episode struct {
 	ID        int64
 	TitleID   int64
@@ -34,6 +47,38 @@ type File struct {
 
 type FileEpisode struct {
 	FileID    int64
+	EpisodeID int64
+}
+
+type Grab struct {
+	ID               int64
+	TitleID          sql.NullInt64
+	VersionID        sql.NullInt64
+	ReleaseGuid      string
+	ReleaseName      string
+	IndexerID        int64
+	IndexerName      string
+	Protocol         string
+	Size             int64
+	PublishedAt      string
+	Score            int64
+	Parsed           string
+	Verdict          string
+	Overridden       int64
+	IsUpgrade        int64
+	ClientInstanceID int64
+	ClientID         string
+	State            string
+	Failure          sql.NullString
+	StalledReason    sql.NullString
+	StalledSince     sql.NullString
+	NextImportAt     sql.NullString
+	CreatedAt        string
+	UpdatedAt        string
+}
+
+type GrabEpisode struct {
+	GrabID    int64
 	EpisodeID int64
 }
 

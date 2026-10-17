@@ -409,6 +409,15 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 	return out, nil
 }
 
+// TitleOfVersion returns the id of the Title a Version belongs to, or ErrNotFound.
+func (s *Service) TitleOfVersion(ctx context.Context, versionID int64) (int64, error) {
+	id, err := db.New(s.st.Read()).GetTitleOfVersion(ctx, versionID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrNotFound
+	}
+	return id, err
+}
+
 // Get returns one Title in detail.
 func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) {
 	q := db.New(s.st.Read())

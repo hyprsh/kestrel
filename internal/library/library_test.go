@@ -244,6 +244,24 @@ func TestInLibraryMapsTMDBIDsToTitles(t *testing.T) {
 	}
 }
 
+func TestAVersionNamesItsTitle(t *testing.T) {
+	ctx := context.Background()
+	lib, _ := newLibrary(t)
+	id := addPaddington(t, lib)
+	d, err := lib.Get(ctx, id, library.View{Now: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := lib.TitleOfVersion(ctx, d.Versions[0].ID)
+	if err != nil || got != id {
+		t.Errorf("TitleOfVersion = %d, %v; want %d", got, err, id)
+	}
+	if _, err := lib.TitleOfVersion(ctx, 999); !errors.Is(err, library.ErrNotFound) {
+		t.Errorf("unknown Version: err = %v, want ErrNotFound", err)
+	}
+}
+
 func TestGettingAnUnknownTitleIsNotFound(t *testing.T) {
 	lib, _ := newLibrary(t)
 	if _, err := lib.Get(context.Background(), 99, library.View{Now: now}); !errors.Is(err, library.ErrNotFound) {

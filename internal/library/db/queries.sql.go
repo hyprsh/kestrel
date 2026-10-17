@@ -74,6 +74,17 @@ func (q *Queries) GetTitle(ctx context.Context, id int64) (Title, error) {
 	return i, err
 }
 
+const getTitleOfVersion = `-- name: GetTitleOfVersion :one
+SELECT title_id FROM versions WHERE id = ?
+`
+
+func (q *Queries) GetTitleOfVersion(ctx context.Context, id int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getTitleOfVersion, id)
+	var title_id int64
+	err := row.Scan(&title_id)
+	return title_id, err
+}
+
 const insertAlias = `-- name: InsertAlias :exec
 INSERT INTO title_aliases (title_id, alias, country, language) VALUES (?, ?, ?, ?)
 `
