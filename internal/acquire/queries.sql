@@ -28,3 +28,12 @@ UPDATE grabs SET state = ?, failure = ?, updated_at = ? WHERE id = ?;
 
 -- name: DeleteGrab :exec
 DELETE FROM grabs WHERE id = ?;
+
+-- name: InsertGrabEpisode :exec
+INSERT INTO grab_episodes (grab_id, episode_id) VALUES (?, ?);
+
+-- The episodes the active Grabs are fetching, per Version.
+-- name: ListActiveGrabEpisodes :many
+SELECT g.version_id, ge.episode_id
+FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
+WHERE g.state IN ('sent', 'downloading', 'completed', 'importing') AND g.stalled_since IS NULL;

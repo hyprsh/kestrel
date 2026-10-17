@@ -63,6 +63,9 @@ func Overridable(r scoring.Rejection) bool {
 type Library interface {
 	TitleOfVersion(ctx context.Context, versionID int64) (int64, error)
 	Get(ctx context.Context, id int64, view library.View) (library.Detail, error)
+	// Names and Episodes serve RSS: the Titles to match a feed to and a Series' episodes.
+	Names(ctx context.Context) ([]library.Named, error)
+	Episodes(ctx context.Context, titleID int64, view library.View) ([]library.Episode, error)
 }
 
 // Profiles is what acquire reads from the scoring module's settings.
@@ -74,6 +77,7 @@ type Profiles interface {
 // Indexers is the indexers host.
 type Indexers interface {
 	Search(ctx context.Context, q indexers.Query) indexers.Result
+	RSS(ctx context.Context) indexers.Result
 	Fetch(ctx context.Context, indexerID int64, downloadURL string) ([]byte, error)
 }
 
@@ -236,7 +240,17 @@ type subject struct {
 	versions map[resolution.Class]*scoring.Profile
 }
 
+// subjectOf is the subject of a search, which only Movies have so far.
 func (s *Service) subjectOf(ctx context.Context, titleID int64) (subject, error) {
+	sub, err := s.subjectOfAny(ctx, titleID)
+	if err == nil && sub.detail.Kind != library.Movie {
+		return subject{}, ErrUnsupportedKind
+	}
+	return sub, err
+}
+
+// subjectOfAny is the subject of a Movie or a Series.
+func (s *Service) subjectOfAny(ctx context.Context, titleID int64) (subject, error) {
 	region, _, err := s.prof.Region(ctx)
 	if err != nil {
 		return subject{}, err
@@ -244,9 +258,6 @@ func (s *Service) subjectOf(ctx context.Context, titleID int64) (subject, error)
 	d, err := s.lib.Get(ctx, titleID, library.View{Country: region.Country, Now: s.clock()})
 	if err != nil {
 		return subject{}, err
-	}
-	if d.Kind != library.Movie {
-		return subject{}, ErrUnsupportedKind
 	}
 	all, err := s.prof.List(ctx)
 	if err != nil {
@@ -299,24 +310,33 @@ func (s *Service) gather(ctx context.Context, sub subject) ([]*entry, []indexers
 		if !r.ByID && !titleMatches(parsed, d.Year, names) {
 			continue // a text hit for some other Title
 		}
-		blocked, err := s.blocklisted(ctx, r)
+		e, err := s.entryFor(ctx, sub, r, parsed, title, now)
 		if err != nil {
 			return nil, nil, err
-		}
-		sr := scoring.Release{Parsed: parsed, IndexerLanguages: languagesOf(r.Languages), IndexerFlags: flagsOf(r), Size: r.Size, Blocklisted: blocked}
-		e := &entry{id: newID(), titleID: d.ID, at: now, raw: r}
-		e.cand = Candidate{
-			GUID: r.GUID, IndexerID: strconv.FormatInt(r.IndexerID, 10), Parsed: parsed, Verdicts: map[Slot]scoring.Verdict{},
-			PublishDate: r.PublishDate, Size: r.Size, IndexerPriority: r.IndexerPriority,
-		}
-		_, e.cand.ClassKnown = resolution.OfHeight(parsed.Quality.Quality.Resolution)
-		for slot, p := range sub.versions {
-			e.cand.Verdicts[slot] = scoring.Evaluate(sr, title, p)
 		}
 		out = append(out, e)
 	}
 	s.cache.put(now, out)
 	return out, res.Failures, nil
+}
+
+// entryFor scores a parsed Release under the Profile of every Version of the subject.
+func (s *Service) entryFor(ctx context.Context, sub subject, r indexers.Release, parsed release.ParsedRelease, title scoring.Title, now time.Time) (*entry, error) {
+	blocked, err := s.blocklisted(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	sr := scoring.Release{Parsed: parsed, IndexerLanguages: languagesOf(r.Languages), IndexerFlags: flagsOf(r), Size: r.Size, Blocklisted: blocked}
+	e := &entry{id: newID(), titleID: sub.detail.ID, at: now, raw: r}
+	e.cand = Candidate{
+		GUID: r.GUID, IndexerID: strconv.FormatInt(r.IndexerID, 10), Parsed: parsed, Verdicts: map[Slot]scoring.Verdict{},
+		PublishDate: r.PublishDate, Size: r.Size, IndexerPriority: r.IndexerPriority,
+	}
+	_, e.cand.ClassKnown = resolution.OfHeight(parsed.Quality.Quality.Resolution)
+	for slot, p := range sub.versions {
+		e.cand.Verdicts[slot] = scoring.Evaluate(sr, title, p)
+	}
+	return e, nil
 }
 
 func titleMatches(p release.ParsedRelease, year int, names map[string]bool) bool {
@@ -503,6 +523,31 @@ func (s *Service) Grab(ctx context.Context, versionID int64, releaseID string, o
 		return Grab{}, rej
 	}
 
+
+	var held bool
+	for _, v := range sub.detail.Versions {
+		if v.ID == versionID {
+			held = v.File != nil
+		}
+	}
+	return s.send(ctx, outgoing{titleID: titleID, versionID: versionID, e: e, slot: slot, media: downloads.Movie, upgrade: held, overridden: len(reasons) > 0})
+}
+
+// outgoing is a Release chosen for a Version, ready to send.
+type outgoing struct {
+	titleID, versionID int64
+	e                  *entry
+	slot               Slot
+	media              downloads.Media
+	// episodes are the episodes a Series Grab covers.
+	episodes   []int64
+	upgrade    bool
+	overridden bool
+}
+
+// send fetches the NZB, adds it to the download client and records the Grab.
+func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
+	e := o.e
 	nzb, err := s.idx.Fetch(ctx, e.raw.IndexerID, e.raw.DownloadURL)
 	if err != nil {
 		if errors.Is(err, indexers.ErrNoSuchIndexer) || errors.Is(err, &plugin.Error{Code: plugin.CodeNotFound}) {
@@ -510,28 +555,36 @@ func (s *Service) Grab(ctx context.Context, versionID int64, releaseID string, o
 		}
 		return Grab{}, err
 	}
-	sent, err := s.dl.Add(ctx, downloads.Job{Media: downloads.Movie, Name: e.raw.Title, NZB: nzb})
+	sent, err := s.dl.Add(ctx, downloads.Job{Media: o.media, Name: e.raw.Title, NZB: nzb})
 	if err != nil {
 		return Grab{}, err
 	}
 
-	verdict := e.cand.Verdicts[slot]
+	verdict := e.cand.Verdicts[o.slot]
 	parsed, _ := json.Marshal(e.cand.Parsed)
 	vjson, _ := json.Marshal(verdict)
-	var held bool
-	for _, v := range sub.detail.Versions {
-		if v.ID == versionID {
-			held = v.File != nil
-		}
-	}
 	now := ts(s.clock())
-	row, err := db.New(s.st.Write()).InsertGrab(ctx, db.InsertGrabParams{
-		TitleID: nullID(titleID), VersionID: nullID(versionID), ReleaseGuid: e.raw.GUID, ReleaseName: e.raw.Title,
+	tx, err := s.st.Write().BeginTx(ctx, nil)
+	if err != nil {
+		return Grab{}, err
+	}
+	defer tx.Rollback()
+	q := db.New(tx)
+	row, err := q.InsertGrab(ctx, db.InsertGrabParams{
+		TitleID: nullID(o.titleID), VersionID: nullID(o.versionID), ReleaseGuid: e.raw.GUID, ReleaseName: e.raw.Title,
 		IndexerID: e.raw.IndexerID, IndexerName: e.raw.IndexerName, Size: e.raw.Size, PublishedAt: ts(e.raw.PublishDate),
-		Score: int64(verdict.Score), Parsed: string(parsed), Verdict: string(vjson), Overridden: b2i(len(reasons) > 0), IsUpgrade: b2i(held),
+		Score: int64(verdict.Score), Parsed: string(parsed), Verdict: string(vjson), Overridden: b2i(o.overridden), IsUpgrade: b2i(o.upgrade),
 		ClientInstanceID: sent.InstanceID, ClientID: sent.ClientID, CreatedAt: now, UpdatedAt: now,
 	})
 	if err != nil {
+		return Grab{}, err
+	}
+	for _, ep := range o.episodes {
+		if err := q.InsertGrabEpisode(ctx, db.InsertGrabEpisodeParams{GrabID: row.ID, EpisodeID: ep}); err != nil {
+			return Grab{}, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
 		return Grab{}, err
 	}
 	return grabOf(row), nil
