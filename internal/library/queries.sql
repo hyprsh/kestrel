@@ -123,3 +123,9 @@ RETURNING id;
 
 -- name: GetFileOfGrab :one
 SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE grab_id = ? LIMIT 1;
+
+-- name: SetNextMissingSeason :exec
+UPDATE search_state SET next_missing_at = ? WHERE version_id = ? AND season = ?;
+
+-- name: FindTitleByKindTVDB :one
+SELECT id FROM titles WHERE kind = ? AND tvdb_id = ?;

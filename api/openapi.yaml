@@ -781,6 +781,118 @@ paths:
                 $ref: "#/components/schemas/QueueList"
         default:
           $ref: "#/components/responses/Problem"
+  /requests:
+    post:
+      operationId: createRequest
+      summary: Ask Kestrel for a Title in one or more Slots
+      description: |
+        The native, source-neutral Request API (ADR 0004); Silo's router plugin calls it. A Request is
+        accepted at once, with no approval step. It adds the Title or only its missing Versions, searches
+        them at once, and never changes an existing Version: a Slot that already has a Version is accepted
+        unchanged and reports that Version's Profile and status. A Slot named without a `profile` uses
+        Profile resolution (with the Kids rule in HD). A Series Request names `seasons`, or `null` for the
+        whole Series; it only ever adds monitoring.
+
+        `201` for a new Request, accepted or rejected (`outcome`, `reject_reason`); a Request Kestrel cannot
+        serve (`not_on_tvdb`, `unknown_title`, `no_enabled_profile`) is stored as rejected and changes nothing.
+        A retry of the same `(source, source_request_id)` creates nothing and returns the stored Request
+        with `200`. `422` only for a malformed body. The requester's email is never stored.
+      tags: [requests]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestCreate"
+      responses:
+        "200":
+          description: A retry, so the Request stored earlier, with its current status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Request"
+        "201":
+          description: The new Request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Request"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "502":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    get:
+      operationId: listRequests
+      summary: Requests, newest first, or the named ones
+      description: |
+        `id` may repeat (at most 100) to read those Requests in one call, as the Silo plugin does; the
+        other filters and the cursor are ignored then.
+      tags: [requests]
+      parameters:
+        - name: source
+          in: query
+          schema:
+            type: string
+        - name: title_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: id
+          in: query
+          schema:
+            type: array
+            maxItems: 100
+            items:
+              type: integer
+              format: int64
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A page of Requests with their current status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequestList"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /requests/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      operationId: getRequest
+      summary: One Request with its current per-Slot status
+      tags: [requests]
+      responses:
+        "200":
+          description: The Request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Request"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /plugins:
     get:
       operationId: listPlugins
@@ -2070,11 +2182,16 @@ components:
           nullable: true
     TitleDetail:
       type: object
-      required: [id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, has_poster, monitored, metadata_frozen, root_folder, folder, added_at, refreshed_at, certification, release_dates, series_monitor, seasons, versions]
+      required: [id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, has_poster, monitored, metadata_frozen, root_folder, folder, added_at, refreshed_at, certification, release_dates, series_monitor, seasons, versions, requests]
       properties:
         id:
           type: integer
           format: int64
+        requests:
+          type: array
+          description: The Requests that asked for this Title, oldest first.
+          items:
+            $ref: "#/components/schemas/RequestOrigin"
         kind:
           $ref: "#/components/schemas/TitleKind"
         tmdb_id:
@@ -2147,6 +2264,169 @@ components:
           description: In Slot order.
           items:
             $ref: "#/components/schemas/VersionDetail"
+    RequestTitle:
+      type: object
+      required: [kind]
+      description: The Title asked for. Kestrel needs `tmdb_id`, or a `tvdb_id` of a Series already in the Library.
+      properties:
+        kind:
+          $ref: "#/components/schemas/TitleKind"
+        tmdb_id:
+          type: integer
+          nullable: true
+        tvdb_id:
+          type: integer
+          nullable: true
+        imdb_id:
+          type: string
+          nullable: true
+    RequestSlotCreate:
+      type: object
+      required: [slot]
+      properties:
+        slot:
+          $ref: "#/components/schemas/Slot"
+        profile:
+          type: string
+          nullable: true
+          description: A Profile key of that Slot; left out, Profile resolution picks one.
+    Requester:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    RequestCreate:
+      type: object
+      required: [source, source_request_id, requester, title, slots]
+      properties:
+        source:
+          type: string
+          example: silo
+        source_request_id:
+          type: string
+          description: The source's own id; the key that makes a retry idempotent.
+        requester:
+          $ref: "#/components/schemas/Requester"
+        title:
+          $ref: "#/components/schemas/RequestTitle"
+        slots:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/RequestSlotCreate"
+        seasons:
+          type: array
+          nullable: true
+          description: Series only; `null` or left out asks for the whole Series.
+          items:
+            type: integer
+    RequestDownload:
+      type: object
+      required: [phase, bytes_left, eta]
+      properties:
+        phase:
+          type: string
+          description: "`queued`, `downloading`, `paused`, `post_processing` or `importing`."
+        bytes_left:
+          type: integer
+          format: int64
+        eta:
+          type: integer
+          nullable: true
+          description: Seconds.
+    RequestSlot:
+      type: object
+      required: [slot, profile, version_id, status, status_label, download]
+      properties:
+        slot:
+          $ref: "#/components/schemas/Slot"
+        profile:
+          type: string
+          nullable: true
+          description: The Version's Profile; `null` for a rejected Request that never resolved one.
+        version_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: "`null` when there is no Version: the Request was rejected, or the Version was removed since."
+        status:
+          type: string
+          enum: [queued, downloading, completed, failed]
+          description: |
+            Derived on every read. `failed` only when Kestrel rejected the Request or the Version or Title
+            was removed later; a failed download never shows as failed (it is blocklisted and retried).
+        status_label:
+          type: string
+          description: "`Not released yet` or `Searching` while queued."
+        download:
+          allOf:
+            - $ref: "#/components/schemas/RequestDownload"
+          nullable: true
+    Request:
+      type: object
+      required: [id, source, source_request_id, requester, outcome, reject_reason, title_id, seasons, created_at, slots]
+      properties:
+        id:
+          type: integer
+          format: int64
+        source:
+          type: string
+        source_request_id:
+          type: string
+        requester:
+          $ref: "#/components/schemas/Requester"
+        outcome:
+          type: string
+          enum: [accepted, rejected]
+        reject_reason:
+          type: string
+          nullable: true
+          enum: [not_on_tvdb, unknown_title, no_enabled_profile]
+        title_id:
+          type: integer
+          format: int64
+          nullable: true
+        seasons:
+          type: array
+          description: The seasons asked for; empty for a Movie or the whole Series.
+          items:
+            type: integer
+        created_at:
+          type: string
+          format: date-time
+        slots:
+          type: array
+          items:
+            $ref: "#/components/schemas/RequestSlot"
+    RequestList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Request"
+        next_cursor:
+          type: string
+          nullable: true
+    RequestOrigin:
+      type: object
+      required: [id, source, requester_name, created_at]
+      description: Who asked for a Title and from where, for "Requested by Anna via Silo".
+      properties:
+        id:
+          type: integer
+          format: int64
+        source:
+          type: string
+        requester_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
     Problem:
       type: object
       description: RFC 9457 problem details.

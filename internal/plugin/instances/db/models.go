@@ -109,6 +109,30 @@ type Profile struct {
 	TrashProfileSeries string
 }
 
+type Request struct {
+	ID              int64
+	Source          string
+	SourceRequestID string
+	RequesterID     string
+	RequesterName   string
+	TitleID         sql.NullInt64
+	Outcome         string
+	RejectReason    sql.NullString
+	CreatedAt       string
+}
+
+type RequestSeason struct {
+	RequestID int64
+	Season    int64
+}
+
+type RequestSlot struct {
+	RequestID  int64
+	Slot       string
+	ProfileKey sql.NullString
+	VersionID  sql.NullInt64
+}
+
 type SearchState struct {
 	ID            int64
 	VersionID     int64

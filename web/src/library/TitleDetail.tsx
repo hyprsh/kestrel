@@ -70,6 +70,11 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
           {title.primary_title !== title.title && <div className="text-[15px] text-gray-900">{title.primary_title}</div>}
           <div className="mt-1 text-gray-900">{meta.join(' · ')}</div>
           <div className="mt-0.5 font-mono text-[11px] text-gray-900">{ids.join(' · ')}</div>
+          {title.requests.map((r) => (
+            <div key={r.id} className="mt-1 text-[13px] text-gray-900">
+              Requested by {r.requester_name} via {r.source}
+            </div>
+          ))}
           {title.overview && <p className="mt-3 max-w-prose text-gray-900">{title.overview}</p>}
         </div>
       </div>
