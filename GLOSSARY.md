@@ -45,6 +45,14 @@ _Avoid_: Multi-audio, DL or MULTi (unexpanded)
 **Upgrade**:
 Replacing a Version's file with a better-scoring Release. Versions never stop upgrading; there is no cutoff.
 
+**Wanted**:
+A monitored, released Version, or episode of a Series Version, that has no file or whose file no longer fits its Profile. Unmonitored and unreleased ones are not Wanted, and a filled Version waiting for an Upgrade is not Wanted either.
+_Avoid_: Missing (for the whole set), cutoff unmet
+
+**Long Missing**:
+Wanted for more than 90 days, counted from the later of its release and the moment it became Wanted. A Series Version is Long Missing once any of its episodes is.
+_Avoid_: Stale, abandoned
+
 **Adoption**:
 Scanning files already on disk and matching them to Titles and Versions, so Kestrel manages them without downloading again.
 _Avoid_: Import (reserved for completed downloads)
