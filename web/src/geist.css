@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+/* Geist tokens (approximation of vercel.com/geist/colors), light + dark.
+   Use them as Tailwind classes: bg-background-100, text-gray-900, border-gray-alpha-400, text-blue-700 ... */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+
+  --color-background-100: var(--ds-background-100);
+  --color-background-200: var(--ds-background-200);
+  --color-gray-100: var(--ds-gray-100);
+  --color-gray-200: var(--ds-gray-200);
+  --color-gray-300: var(--ds-gray-300);
+  --color-gray-400: var(--ds-gray-400);
+  --color-gray-500: var(--ds-gray-500);
+  --color-gray-600: var(--ds-gray-600);
+  --color-gray-700: var(--ds-gray-700);
+  --color-gray-800: var(--ds-gray-800);
+  --color-gray-900: var(--ds-gray-900);
+  --color-gray-1000: var(--ds-gray-1000);
+  --color-gray-alpha-100: var(--ds-gray-alpha-100);
+  --color-gray-alpha-200: var(--ds-gray-alpha-200);
+  --color-gray-alpha-400: var(--ds-gray-alpha-400);
+  --color-blue-100: var(--ds-blue-100);
+  --color-blue-200: var(--ds-blue-200);
+  --color-blue-700: var(--ds-blue-700);
+  --color-blue-900: var(--ds-blue-900);
+  --color-green-100: var(--ds-green-100);
+  --color-green-200: var(--ds-green-200);
+  --color-green-700: var(--ds-green-700);
+  --color-green-900: var(--ds-green-900);
+  --color-amber-100: var(--ds-amber-100);
+  --color-amber-200: var(--ds-amber-200);
+  --color-amber-700: var(--ds-amber-700);
+  --color-amber-900: var(--ds-amber-900);
+  --color-red-100: var(--ds-red-100);
+  --color-red-200: var(--ds-red-200);
+  --color-red-700: var(--ds-red-700);
+  --color-red-900: var(--ds-red-900);
+  --color-purple-100: var(--ds-purple-100);
+  --color-purple-700: var(--ds-purple-700);
+  --color-purple-900: var(--ds-purple-900);
+  --color-teal-100: var(--ds-teal-100);
+  --color-teal-700: var(--ds-teal-700);
+  --color-teal-900: var(--ds-teal-900);
+}
+
+:root {
+  --ds-background-100: #ffffff;
+  --ds-background-200: #fafafa;
+  --ds-gray-100: #f2f2f2;
+  --ds-gray-200: #ebebeb;
+  --ds-gray-300: #e6e6e6;
+  --ds-gray-400: #eaeaea;
+  --ds-gray-500: #c9c9c9;
+  --ds-gray-600: #a8a8a8;
+  --ds-gray-700: #8f8f8f;
+  --ds-gray-800: #7d7d7d;
+  --ds-gray-900: #666666;
+  --ds-gray-1000: #171717;
+  --ds-gray-alpha-100: rgb(0 0 0 / 0.05);
+  --ds-gray-alpha-200: rgb(0 0 0 / 0.08);
+  --ds-gray-alpha-400: rgb(0 0 0 / 0.08);
+  --ds-blue-100: #f0f7ff;
+  --ds-blue-200: #e9f4ff;
+  --ds-blue-700: #0070f3;
+  --ds-blue-900: #0067d6;
+  --ds-green-100: #effbef;
+  --ds-green-200: #e6f9e6;
+  --ds-green-700: #45a557;
+  --ds-green-900: #297a3a;
+  --ds-amber-100: #fff6e5;
+  --ds-amber-200: #fff4cf;
+  --ds-amber-700: #ffb224;
+  --ds-amber-900: #aa4d00;
+  --ds-red-100: #fff0f0;
+  --ds-red-200: #ffebeb;
+  --ds-red-700: #e5484d;
+  --ds-red-900: #cb2a2f;
+  --ds-purple-100: #faf0ff;
+  --ds-purple-700: #8e4ec6;
+  --ds-purple-900: #7820bc;
+  --ds-teal-100: #eefbf8;
+  --ds-teal-700: #12a594;
+  --ds-teal-900: #067a6f;
+  color-scheme: light;
+}
+
+.dark {
+  --ds-background-100: #0a0a0a;
+  --ds-background-200: #000000;
+  --ds-gray-100: #1a1a1a;
+  --ds-gray-200: #1f1f1f;
+  --ds-gray-300: #292929;
+  --ds-gray-400: #2e2e2e;
+  --ds-gray-500: #454545;
+  --ds-gray-600: #878787;
+  --ds-gray-700: #8f8f8f;
+  --ds-gray-800: #7c7c7c;
+  --ds-gray-900: #a1a1a1;
+  --ds-gray-1000: #ededed;
+  --ds-gray-alpha-100: rgb(255 255 255 / 0.06);
+  --ds-gray-alpha-200: rgb(255 255 255 / 0.09);
+  --ds-gray-alpha-400: rgb(255 255 255 / 0.14);
+  --ds-blue-100: #06193a;
+  --ds-blue-200: #022248;
+  --ds-blue-700: #0070f3;
+  --ds-blue-900: #52a8ff;
+  --ds-green-100: #0b2211;
+  --ds-green-200: #0f2e18;
+  --ds-green-700: #46a758;
+  --ds-green-900: #62c073;
+  --ds-amber-100: #271700;
+  --ds-amber-200: #341c00;
+  --ds-amber-700: #ffb224;
+  --ds-amber-900: #f1a10d;
+  --ds-red-100: #2a1314;
+  --ds-red-200: #3c1618;
+  --ds-red-700: #e5484d;
+  --ds-red-900: #ff6166;
+  --ds-purple-100: #2b1336;
+  --ds-purple-700: #8e4ec6;
+  --ds-purple-900: #bf7af0;
+  --ds-teal-100: #04231e;
+  --ds-teal-700: #12a594;
+  --ds-teal-900: #0ac5b3;
+  color-scheme: dark;
+}
+
+html, body, #root { height: 100%; }
+body {
+  background: var(--ds-background-100);
+  color: var(--ds-gray-1000);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "liga" 1, "calt" 1;
+}
+.tabular { font-variant-numeric: tabular-nums; }

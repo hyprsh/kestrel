@@ -1,0 +1,94 @@
+openapi: 3.0.3
+info:
+  title: Kestrel API
+  version: "1"
+  description: |
+    The Kestrel REST API, shared by the web UI, the Silo router plugin and outside scripts.
+    This file is the source of truth: Go handlers and the TypeScript client are generated from it.
+
+    Compatibility within `v1` is additive only: new fields, endpoints and enum values.
+    Clients must ignore unknown fields and tolerate unknown enum values.
+    A breaking change means `/api/v2` and a Kestrel major release.
+
+    Conventions: `snake_case` fields, integer ids, RFC 3339 UTC times, lowercase string enums,
+    every field always present (`null` for "none"), errors as RFC 9457 `application/problem+json`
+    with a stable `code`.
+servers:
+  - url: /api/v1
+    description: Relative to the instance's KESTREL_BASE_URL, if any.
+paths:
+  /system:
+    get:
+      operationId: getSystem
+      summary: Version and API major of this instance
+      description: |
+        The Silo plugin's `TestConnection` reads `api_major`.
+        Unauthenticated until an account exists.
+      tags: [system]
+      responses:
+        "200":
+          description: The running instance.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/System"
+        default:
+          $ref: "#/components/responses/Problem"
+components:
+  responses:
+    Problem:
+      description: An error.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+  schemas:
+    System:
+      type: object
+      required: [version, api_major, base_url]
+      properties:
+        version:
+          type: string
+          description: Kestrel release version, or `dev` for local builds.
+          example: 0.1.0
+        api_major:
+          type: integer
+          description: Major version of this API (the `N` in `/api/vN`).
+          example: 1
+        base_url:
+          type: string
+          description: The routing prefix from KESTREL_BASE_URL, empty when unset.
+          example: /kestrel
+    Problem:
+      type: object
+      description: RFC 9457 problem details.
+      required: [type, title, status, code]
+      properties:
+        type:
+          type: string
+          default: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        code:
+          type: string
+          description: |
+            Stable machine-readable code from a closed, growable list. Clients branch on this,
+            never on the message text.
+          example: internal
+        errors:
+          type: array
+          description: Field-level problems for `validation` errors.
+          items:
+            type: object
+            required: [field, code, message]
+            properties:
+              field:
+                type: string
+              code:
+                type: string
+              message:
+                type: string

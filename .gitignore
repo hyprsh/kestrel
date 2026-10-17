@@ -1,0 +1,9 @@
+node_modules/
+
+# Build output. web/dist/.keep stays so go:embed always has a directory.
+/bin/
+/web/dist/*
+!/web/dist/.keep
+
+# Local dev state (config dir with the SQLite database)
+/.dev/

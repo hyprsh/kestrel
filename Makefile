@@ -1,0 +1,64 @@
+.DEFAULT_GOAL := help
+.PHONY: help generate generate-check test test-go test-web build web-build dev-api dev-web fmt fmt-check vet compose-check commitlint hooks docker check
+
+VERSION ?= dev
+LDFLAGS := -s -w -X github.com/hyprsh/kestrel/internal/version.Version=$(VERSION)
+
+help: ## List the dev commands
+	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-15s %s\n", $$1, $$2}'
+
+# Tools are pinned in go.mod (`tool` directives) and web/package.json, so nothing needs a global install.
+generate: ## Regenerate Go (oapi-codegen, sqlc) and TypeScript (openapi-typescript) code from the spec and SQL
+	go tool oapi-codegen -config api/oapi-codegen.yaml api/openapi.yaml
+	go tool sqlc generate
+	npm --prefix web run generate
+
+generate-check: generate ## Fail if generated code differs from what is committed (CI runs this)
+	git diff --exit-code -- . ':!web/dist'
+	@test -z "$$(git ls-files --others --exclude-standard)" || { echo "untracked files after generate:"; git ls-files --others --exclude-standard; exit 1; }
+
+test: test-go test-web ## Run all tests
+
+test-go: ## Go tests with the race detector
+	go test -race ./...
+
+test-web: ## SPA tests (Vitest + MSW)
+	npm --prefix web test
+
+web-build: ## Build the SPA into web/dist (embedded by the Go build)
+	npm --prefix web run build
+
+build: web-build ## Build bin/kestrel (CGO_ENABLED=0) with the SPA embedded
+	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o bin/kestrel ./cmd/kestrel
+
+dev-api: ## Run the Go server on :7676 with a local config dir in .dev/config
+	KESTREL_CONFIG_DIR=$(CURDIR)/.dev/config KESTREL_DATA_DIR=$(CURDIR)/.dev/data go run ./cmd/kestrel
+
+dev-web: ## Run the Vite dev server (proxies /api to :7676, so run `make dev-api` too)
+	npm --prefix web run dev
+
+fmt: ## Format Go code
+	gofmt -w .
+
+fmt-check: ## Fail if Go code is not gofmt-clean
+	@test -z "$$(gofmt -l .)" || { echo "gofmt needed:"; gofmt -l .; exit 1; }
+
+vet: ## go vet
+	go vet ./...
+
+compose-check: ## Validate the README's reference compose.yaml with `docker compose config`
+	@awk '/^```yaml compose.yaml/{f=1;next} /^```/{f=0} f' README.md > $${TMPDIR:-/tmp}/kestrel-compose.yaml
+	@test -s $${TMPDIR:-/tmp}/kestrel-compose.yaml || { echo "no compose.yaml block in README.md"; exit 1; }
+	docker compose -f $${TMPDIR:-/tmp}/kestrel-compose.yaml config --quiet
+
+commitlint: ## Lint a message: echo "feat: x" | make commitlint
+	npx --no-install commitlint
+
+hooks: ## Install the commit-msg hook (commitlint via lefthook)
+	npm ci
+	npx --no-install lefthook install
+
+docker: ## Build the image as kestrel:dev
+	docker build --build-arg VERSION=$(VERSION) -t kestrel:dev .
+
+check: fmt-check vet generate-check test compose-check ## Everything CI runs, minus the image build and commitlint

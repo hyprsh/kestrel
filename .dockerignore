@@ -1,0 +1,8 @@
+.claude
+.dev
+bin
+node_modules
+web/node_modules
+web/dist/*
+!web/dist/.keep
+docs

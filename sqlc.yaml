@@ -1,0 +1,12 @@
+version: "2"
+# One block per module that owns tables. Every block reads the same migrations,
+# which belong to `store` (goose files are understood by sqlc; the Down part is ignored).
+sql:
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/settings/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/settings/db
+        emit_json_tags: false
