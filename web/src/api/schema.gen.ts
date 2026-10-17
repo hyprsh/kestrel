@@ -68,6 +68,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/setup/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish setup
+         * @description Marks setup finished when every section of `GET /setup` is `done`. Otherwise answers 422
+         *     with one error per missing section, `field` being `sections.<name>` and `code` `todo`.
+         *     The optional Adopt existing library step never blocks it.
+         */
+        post: operations["completeSetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -814,6 +836,26 @@ export interface operations {
                 };
             };
             409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    completeSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Setup is finished. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };

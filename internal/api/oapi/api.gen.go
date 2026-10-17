@@ -701,6 +701,9 @@ type ServerInterface interface {
 	// CreateAccount Create the admin account and log in
 	// (POST /setup/account)
 	CreateAccount(w http.ResponseWriter, r *http.Request)
+	// CompleteSetup Finish setup
+	// (POST /setup/complete)
+	CompleteSetup(w http.ResponseWriter, r *http.Request)
 	// GetSystem Version and API major of this instance
 	// (GET /system)
 	GetSystem(w http.ResponseWriter, r *http.Request)
@@ -1132,6 +1135,20 @@ func (siw *ServerInterfaceWrapper) CreateAccount(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// CompleteSetup operation middleware
+func (siw *ServerInterfaceWrapper) CompleteSetup(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CompleteSetup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetSystem operation middleware
 func (siw *ServerInterfaceWrapper) GetSystem(w http.ResponseWriter, r *http.Request) {
 
@@ -1269,6 +1286,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/system", wrapper.GetSystem)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/setup", wrapper.GetSetup)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/setup/account", wrapper.CreateAccount)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/setup/complete", wrapper.CompleteSetup)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/login", wrapper.Login)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout", wrapper.Logout)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout-everywhere", wrapper.LogoutEverywhere)
@@ -2547,6 +2565,54 @@ func (response CreateAccountdefaultApplicationProblemPlusJSONResponse) VisitCrea
 	return err
 }
 
+type CompleteSetupRequestObject struct {
+}
+
+type CompleteSetupResponseObject interface {
+	VisitCompleteSetupResponse(w http.ResponseWriter) error
+}
+
+type CompleteSetup204Response struct {
+}
+
+func (response CompleteSetup204Response) VisitCompleteSetupResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type CompleteSetup422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CompleteSetup422ApplicationProblemPlusJSONResponse) VisitCompleteSetupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CompleteSetupdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CompleteSetupdefaultApplicationProblemPlusJSONResponse) VisitCompleteSetupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetSystemRequestObject struct {
 }
 
@@ -2659,6 +2725,9 @@ type StrictServerInterface interface {
 	// CreateAccount Create the admin account and log in
 	// (POST /setup/account)
 	CreateAccount(ctx context.Context, request CreateAccountRequestObject) (CreateAccountResponseObject, error)
+	// CompleteSetup Finish setup
+	// (POST /setup/complete)
+	CompleteSetup(ctx context.Context, request CompleteSetupRequestObject) (CompleteSetupResponseObject, error)
 	// GetSystem Version and API major of this instance
 	// (GET /system)
 	GetSystem(ctx context.Context, request GetSystemRequestObject) (GetSystemResponseObject, error)
@@ -3365,6 +3434,30 @@ func (sh *strictHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CreateAccountResponseObject); ok {
 		if err := validResponse.VisitCreateAccountResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CompleteSetup operation middleware
+func (sh *strictHandler) CompleteSetup(w http.ResponseWriter, r *http.Request) {
+	var request CompleteSetupRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CompleteSetup(ctx, request.(CompleteSetupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CompleteSetup")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CompleteSetupResponseObject); ok {
+		if err := validResponse.VisitCompleteSetupResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

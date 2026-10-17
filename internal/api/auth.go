@@ -266,10 +266,13 @@ func csrfCheck(r *http.Request) *problemError {
 
 // ---- handlers ----
 
-func (s *server) GetSetup(ctx context.Context, _ oapi.GetSetupRequestObject) (oapi.GetSetupResponseObject, error) {
+const setupCompletedKey = "setup_completed"
+
+// setupState reads where every wizard section stands.
+func (s *server) setupState(ctx context.Context) (oapi.Setup, error) {
 	_, exists, err := s.auth.account(ctx)
 	if err != nil {
-		return nil, err
+		return oapi.Setup{}, err
 	}
 	state := func(done bool) oapi.SetupSectionState {
 		if done {
@@ -282,30 +285,68 @@ func (s *server) GetSetup(ctx context.Context, _ oapi.GetSetupRequestObject) (oa
 	out.Sections.Account = state(exists)
 	_, regionSaved, err := s.profiles.Region(ctx)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 	out.Sections.Language = state(regionSaved)
 	clients, err := s.plugins.Enabled(ctx, downloadclient.Contract.ID)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 	out.Sections.DownloadClient = state(len(clients) > 0)
 	indexers, err := s.plugins.Enabled(ctx, indexer.Contract.ID)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 	out.Sections.Indexer = state(len(indexers) > 0)
 	_, rootsSaved, err := s.rootFolders.Get(ctx)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 	out.Sections.RootFolders = state(rootsSaved)
 	_, kidsSaved, err := s.profiles.Kids(ctx)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 	out.Sections.Profiles = state(kidsSaved)
+	_, out.Completed, err = s.auth.settings.Get(ctx, setupCompletedKey)
+	return out, err
+}
+
+func (s *server) GetSetup(ctx context.Context, _ oapi.GetSetupRequestObject) (oapi.GetSetupResponseObject, error) {
+	out, err := s.setupState(ctx)
+	if err != nil {
+		return nil, err
+	}
 	return oapi.GetSetup200JSONResponse(out), nil
+}
+
+func (s *server) CompleteSetup(ctx context.Context, _ oapi.CompleteSetupRequestObject) (oapi.CompleteSetupResponseObject, error) {
+	st, err := s.setupState(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var missing []fieldError
+	for _, sec := range []struct {
+		name  string
+		state oapi.SetupSectionState
+	}{
+		{"account", st.Sections.Account}, {"language", st.Sections.Language},
+		{"download_client", st.Sections.DownloadClient}, {"indexer", st.Sections.Indexer},
+		{"root_folders", st.Sections.RootFolders}, {"profiles", st.Sections.Profiles},
+	} {
+		if sec.state != oapi.Done {
+			missing = append(missing, fieldError{Field: "sections." + sec.name, Code: "todo", Message: sec.name + " is not set up yet"})
+		}
+	}
+	if len(missing) > 0 {
+		p := problem(http.StatusUnprocessableEntity, "validation", "setup is not finished: some sections are missing")
+		p.fields = missing
+		return nil, p
+	}
+	if err := s.auth.settings.Put(ctx, setupCompletedKey, []byte("true")); err != nil {
+		return nil, err
+	}
+	return oapi.CompleteSetup204Response{}, nil
 }
 
 func validateCredentials(c *oapi.Credentials) (username, password string, err *problemError) {

@@ -111,3 +111,43 @@ func TestRootFoldersAreCheckedWhenSaved(t *testing.T) {
 		t.Errorf("rejected patches marked done: %q", s.Sections.RootFolders)
 	}
 }
+
+func TestFinishSetupNamesEveryMissingSection(t *testing.T) {
+	b, _ := dataDirInstance(t)
+	if s := decode[setupJSON](t, b.valid("GET", "/setup", "")); s.Completed {
+		t.Fatal("fresh instance reports completed")
+	}
+	r := b.do("POST", "/setup/complete", "")
+	if r.Status != 422 {
+		t.Fatalf("complete on a fresh instance = %d %s", r.Status, r.Body)
+	}
+	for _, section := range []string{"language", "download_client", "indexer", "root_folders", "profiles"} {
+		if !strings.Contains(r.Body, `"field":"sections.`+section+`"`) {
+			t.Errorf("missing list lacks %s: %s", section, r.Body)
+		}
+	}
+	if strings.Contains(r.Body, `"field":"sections.account"`) {
+		t.Errorf("account is done but listed: %s", r.Body)
+	}
+	if s := decode[setupJSON](t, b.valid("GET", "/setup", "")); s.Completed {
+		t.Error("a refused finish marked setup completed")
+	}
+}
+
+func TestFinishSetupWhenEverySectionIsDone(t *testing.T) {
+	sab, idx := fakeSAB(t), fakeIndexer(t)
+	data := t.TempDir()
+	b := newInstance(t, "", withSABAndNewznab(t), func(o *api.Options) { o.DataDir = data }).setUp()
+	mkdirs(t, data+"/media/movies", data+"/media/tv")
+
+	b.valid("POST", "/plugin-instances", sabBody(sab.URL, sabKey, ""))
+	b.valid("POST", "/plugin-instances", newznabBody("Geek", idx.URL, nzbKey, ""))
+	b.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"},"kids_rule":{"enabled":true,"threshold":6},"root_folders":{"movies":["`+data+`/media/movies"],"series":["`+data+`/media/tv"]}}`)
+
+	if r := b.valid("POST", "/setup/complete", ""); r.Status != 204 {
+		t.Fatalf("complete = %d %s", r.Status, r.Body)
+	}
+	if s := decode[setupJSON](t, b.valid("GET", "/setup", "")); !s.Completed {
+		t.Error("setup not completed after finishing")
+	}
+}
