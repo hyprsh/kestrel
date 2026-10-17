@@ -14,7 +14,7 @@ var t0 = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 // movieCand is an accepted Movie candidate in the HD Slot unless changed.
 func movieCand(guid string, score int, mod ...func(*Candidate)) Candidate {
 	c := Candidate{
-		GUID: guid, Slot: resolution.HD, PublishDate: t0, Size: 1000,
+		GUID: guid, PublishDate: t0, Size: 1000,
 		Verdicts: map[Slot]scoring.Verdict{resolution.HD: {Accepted: true, Score: score}},
 	}
 	for _, m := range mod {
@@ -134,10 +134,12 @@ func TestUpgradeThresholdAndMisfit(t *testing.T) {
 	}
 }
 
+// rejectsResolution is a verdict for a Profile whose range does not hold the Release's class.
+var rejectsResolution = scoring.Verdict{Score: 9999, Rejections: []scoring.Rejection{scoring.RejectResolution}}
+
 func TestOtherSlotAndUnwantedSlot(t *testing.T) {
 	uhd := func(c *Candidate) {
-		c.Slot = resolution.UHD
-		c.Verdicts = map[Slot]scoring.Verdict{resolution.UHD: {Accepted: true, Score: 9999}, resolution.HD: {Accepted: true, Score: 9999}}
+		c.Verdicts = map[Slot]scoring.Verdict{resolution.UHD: {Accepted: true, Score: 9999}, resolution.HD: rejectsResolution}
 	}
 	t.Run("UHD release never fills the HD Version", func(t *testing.T) {
 		plans := Decide(Input{Versions: []Version{movieVersion(nil)}, Candidates: []Candidate{movieCand("uhd", 0, uhd)}})
@@ -157,6 +159,48 @@ func TestOtherSlotAndUnwantedSlot(t *testing.T) {
 			t.Fatalf("got %v", got)
 		}
 		if got := Rejections(resolution.UHD, c); len(got) != 0 {
+			t.Fatalf("got %v", got)
+		}
+	})
+	t.Run("a release fitting no Version of the Title is a plain resolution rejection, not other_slot", func(t *testing.T) {
+		c := movieCand("uhd", 0, func(c *Candidate) { c.Verdicts = map[Slot]scoring.Verdict{resolution.HD: rejectsResolution} })
+		got := Rejections(resolution.HD, c)
+		if len(got) != 1 || got[0] != scoring.RejectResolution {
+			t.Fatalf("got %v", got)
+		}
+		wantGUIDs(t, Decide(Input{Versions: []Version{movieVersion(nil)}, Candidates: []Candidate{c}}))
+	})
+}
+
+// Kids sits in the HD Slot but its Profile accepts 0-1080, so it takes SD and HD releases.
+func TestFitFollowsTheVersionsProfileRange(t *testing.T) {
+	sd := Slot(resolution.SD)
+	t.Run("an SD release is planned for a Kids Version in the HD Slot", func(t *testing.T) {
+		c := movieCand("sd", 0, func(c *Candidate) {
+			c.Verdicts = map[Slot]scoring.Verdict{resolution.HD: {Accepted: true, Score: 5}}
+		})
+		plans := Decide(Input{Versions: []Version{movieVersion(nil)}, Candidates: []Candidate{c}})
+		wantGUIDs(t, plans, "sd")
+		if got := Rejections(resolution.HD, c); len(got) != 0 {
+			t.Fatalf("rejections = %v", got)
+		}
+	})
+	t.Run("the same SD release is planned for both the SD and the Kids Version", func(t *testing.T) {
+		c := movieCand("sd", 0, func(c *Candidate) {
+			c.Verdicts = map[Slot]scoring.Verdict{sd: {Accepted: true, Score: 5}, resolution.HD: {Accepted: true, Score: 5}}
+		})
+		vs := []Version{{Slot: sd, Units: []Unit{{}}}, movieVersion(nil)}
+		plans := Decide(Input{Versions: vs, Candidates: []Candidate{c}})
+		wantGUIDs(t, plans, "sd", "sd")
+		if plans[0].Slot != sd || plans[1].Slot != resolution.HD {
+			t.Fatalf("slots = %v, %v", plans[0].Slot, plans[1].Slot)
+		}
+	})
+	t.Run("an HD release rejected by an SD Profile is other_slot for it when the Title has an HD Version", func(t *testing.T) {
+		c := movieCand("hd", 0, func(c *Candidate) {
+			c.Verdicts = map[Slot]scoring.Verdict{sd: rejectsResolution, resolution.HD: {Accepted: true, Score: 5}}
+		})
+		if got := Rejections(sd, c); len(got) != 1 || got[0] != RejectOtherSlot {
 			t.Fatalf("got %v", got)
 		}
 	})

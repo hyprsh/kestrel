@@ -62,12 +62,11 @@ type Candidate struct {
 	IndexerID string
 	// Parsed is the parsed name. A nil Series means a Movie release.
 	Parsed release.ParsedRelease
-	// Slot is the Slot the Release's resolution falls in. A Release whose
-	// resolution is unknown carries a rejected Verdict for every Version, so
-	// its Slot does not matter.
-	Slot Slot
 	// Verdicts holds the Evaluate result under the Profile of each Version the
-	// Title has, keyed by that Version's Slot.
+	// Title has, keyed by that Version's Slot. Whether the Release fits a
+	// Version is the Verdict's business: a Profile accepts the resolution
+	// classes whose range lies inside its heights (Settled 2), so an SD
+	// Release fits an SD Version and a Kids Version (0-1080, in the HD Slot).
 	Verdicts map[Slot]scoring.Verdict
 	// PublishDate is when the Release was posted, Size its bytes and
 	// IndexerPriority its indexer's priority (lower wins).
@@ -102,10 +101,30 @@ type GrabPlan struct {
 	Upgrade bool
 }
 
+// Fits reports whether the Release's resolution is one the Profile of the
+// Version in slot accepts. A Version the candidate has no Verdict for is not
+// fitted.
+func Fits(slot Slot, c Candidate) bool {
+	v, ok := c.Verdicts[slot]
+	return ok && !v.Rejected(scoring.RejectResolution)
+}
+
+// FitsOtherVersion reports whether the Release fits a Version of the Title
+// other than the one in slot.
+func FitsOtherVersion(slot Slot, c Candidate) bool {
+	for s := range c.Verdicts {
+		if s != slot && Fits(s, c) {
+			return true
+		}
+	}
+	return false
+}
+
 // Rejections says why the candidate cannot go to the Version in slot: only
-// other_slot when it fits another Slot, else the Verdict's own rejections.
+// other_slot when it does not fit this Version's Profile but fits another
+// Version of the Title, else the Verdict's own rejections.
 func Rejections(slot Slot, c Candidate) []scoring.Rejection {
-	if c.Slot != slot {
+	if !Fits(slot, c) && FitsOtherVersion(slot, c) {
 		return []scoring.Rejection{RejectOtherSlot}
 	}
 	return c.Verdicts[slot].Rejections
@@ -170,7 +189,7 @@ func decideVersion(in Input, v Version) []GrabPlan {
 
 // eligible reports whether c can fill anything for v and what it covers.
 func eligible(c Candidate, v Version, units map[EpisodeRef]*Unit) (option, bool) {
-	if c.IndexerGrabsPaused || c.Slot != v.Slot {
+	if c.IndexerGrabsPaused {
 		return option{}, false
 	}
 	verdict, ok := c.Verdicts[v.Slot]

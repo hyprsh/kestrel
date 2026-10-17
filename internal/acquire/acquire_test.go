@@ -48,7 +48,21 @@ func (secondIndexer) Describe() plugin.Manifest {
 	return m
 }
 
+var defaultProfiles = map[resolution.Class]string{resolution.SD: "sd-primary", resolution.HD: "hd-primary", resolution.UHD: "uhd-primary"}
+
 func newRig(t *testing.T, slots ...resolution.Class) *rig {
+	t.Helper()
+	if len(slots) == 0 {
+		slots = []resolution.Class{resolution.HD}
+	}
+	var specs []library.VersionSpec
+	for _, s := range slots {
+		specs = append(specs, library.VersionSpec{Slot: s, Profile: defaultProfiles[s]})
+	}
+	return newRigWith(t, specs...)
+}
+
+func newRigWith(t *testing.T, specs ...library.VersionSpec) *rig {
 	t.Helper()
 	ctx := context.Background()
 	st, err := store.Open(ctx, store.Options{Dir: t.TempDir()})
@@ -80,13 +94,6 @@ func newRig(t *testing.T, slots ...resolution.Class) *rig {
 	}
 
 	lib := library.New(st, clk.Now)
-	var specs []library.VersionSpec
-	if len(slots) == 0 {
-		slots = []resolution.Class{resolution.HD}
-	}
-	for _, s := range slots {
-		specs = append(specs, library.VersionSpec{Slot: s, Profile: map[resolution.Class]string{resolution.SD: "sd-primary", resolution.HD: "hd-primary", resolution.UHD: "uhd-primary"}[s]})
-	}
 	id, err := lib.AddMovie(ctx, library.AddMovie{Details: paddington(), PrimaryLanguage: "en", Versions: specs, RootFolder: "/data/media/movies"})
 	if err != nil {
 		t.Fatal(err)
@@ -174,9 +181,9 @@ func TestASearchScoresEveryReleaseAgainstTheVersionsProfile(t *testing.T) {
 	if res.Items[0].Name != hd1080 {
 		t.Errorf("first result is %q, want the acceptable one first", res.Items[0].Name)
 	}
-	other := r.found(t, res, uhd)
-	if other.Fits != acquire.FitsOtherSlot || !slices.Equal(codes(other), []scoring.Rejection{acquire.RejectOtherSlot}) || other.Rejections[0].Overridable {
-		t.Errorf("2160p release for the HD Version = %+v, want other_slot, not overridable", other)
+	none := r.found(t, res, uhd)
+	if none.Fits != acquire.FitsNone || !slices.Contains(codes(none), scoring.RejectResolution) || slices.Contains(codes(none), acquire.RejectOtherSlot) {
+		t.Errorf("2160p release for a Title with only an HD Version = %+v, want fits none with a resolution rejection", none)
 	}
 	de := r.found(t, res, german)
 	if de.Fits != acquire.FitsThisSlot || !slices.Contains(codes(de), scoring.RejectLanguage) || !de.Rejections[0].Overridable {
@@ -222,6 +229,34 @@ func TestEachVersionSeesTheSameReleasesFromItsOwnSlot(t *testing.T) {
 	}
 	if r.found(t, u, uhd).Fits != acquire.FitsThisSlot || r.found(t, u, hd1080).Fits != acquire.FitsOtherSlot {
 		t.Errorf("UHD Version results = %+v", u.Items)
+	}
+}
+
+func TestAnSDReleaseFitsBothTheSDAndTheKidsVersion(t *testing.T) {
+	ctx := context.Background()
+	r := newRigWith(t,
+		library.VersionSpec{Slot: resolution.SD, Profile: "sd-primary"},
+		library.VersionSpec{Slot: resolution.HD, Profile: "kids-primary"},
+	)
+	const sdRelease = "Paddington.2014.576p.BluRay.x264-GRP"
+	r.publish(t, sdRelease, time.Hour)
+	r.publish(t, uhd, time.Hour)
+
+	for _, slot := range []resolution.Class{resolution.SD, resolution.HD} {
+		res, err := r.svc.Search(ctx, r.versions[slot])
+		if err != nil {
+			t.Fatal(err)
+		}
+		f := r.found(t, res, sdRelease)
+		if f.Fits != acquire.FitsThisSlot || len(f.Rejections) != 0 {
+			t.Errorf("SD release for the %v Version = %+v, want it to fit", slot, f)
+		}
+		if _, err := r.svc.Grab(ctx, r.versions[slot], f.ID, false); err != nil {
+			t.Errorf("grab for the %v Version: %v", slot, err)
+		}
+		if u := r.found(t, res, uhd); u.Fits != acquire.FitsNone {
+			t.Errorf("2160p release for the %v Version = %+v, want fits none", slot, u)
+		}
 	}
 }
 
@@ -278,7 +313,7 @@ func TestGrabbingARejectedReleaseNeedsTheOverride(t *testing.T) {
 
 func TestAReleaseForAnotherSlotCanNeverBeGrabbed(t *testing.T) {
 	ctx := context.Background()
-	r := newRig(t)
+	r := newRig(t, resolution.HD, resolution.UHD)
 	r.publish(t, uhd, time.Hour)
 	res, _ := r.svc.Search(ctx, r.versions[resolution.HD])
 	f := r.found(t, res, uhd)

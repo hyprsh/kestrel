@@ -146,7 +146,8 @@ type Fit string
 const (
 	FitsThisSlot  Fit = "this_slot"
 	FitsOtherSlot Fit = "other_slot"
-	// FitsNone is a Release whose resolution is unknown, so it fits no Slot.
+	// FitsNone is a Release that fits no Version of the Title (its resolution
+	// is outside every Profile's range, or unknown).
 	FitsNone Fit = "none"
 )
 
@@ -191,8 +192,6 @@ type entry struct {
 	at      time.Time
 	raw     indexers.Release
 	cand    Candidate
-	// classKnown is false when the Release's resolution is not recognised.
-	classKnown bool
 }
 
 type cache struct {
@@ -308,7 +307,6 @@ func (s *Service) gather(ctx context.Context, sub subject) ([]*entry, []indexers
 			GUID: r.GUID, IndexerID: strconv.FormatInt(r.IndexerID, 10), Parsed: parsed, Verdicts: map[Slot]scoring.Verdict{},
 			PublishDate: r.PublishDate, Size: r.Size, IndexerPriority: r.IndexerPriority,
 		}
-		e.cand.Slot, e.classKnown = resolution.OfHeight(parsed.Quality.Quality.Resolution)
 		for slot, p := range sub.versions {
 			e.cand.Verdicts[slot] = scoring.Evaluate(sr, title, p)
 		}
@@ -347,21 +345,17 @@ func flagsOf(r indexers.Release) scoring.Flags {
 }
 
 // reasonsFor says why e cannot go to the Version in slot.
-func reasonsFor(e *entry, slot Slot) []scoring.Rejection {
-	if !e.classKnown {
-		return e.cand.Verdicts[slot].Rejections
-	}
-	return Rejections(slot, e.cand)
-}
+func reasonsFor(e *entry, slot Slot) []scoring.Rejection { return Rejections(slot, e.cand) }
 
+// fits says which Version the Release belongs to, seen from the Version in slot.
 func (e *entry) fits(slot Slot) Fit {
 	switch {
-	case !e.classKnown:
-		return FitsNone
-	case e.cand.Slot != slot:
+	case Fits(slot, e.cand):
+		return FitsThisSlot
+	case FitsOtherVersion(slot, e.cand):
 		return FitsOtherSlot
 	}
-	return FitsThisSlot
+	return FitsNone
 }
 
 // Search is a manual search for a Version: every enabled indexer is asked in
