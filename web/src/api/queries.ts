@@ -226,3 +226,61 @@ export function useTestPlugin() {
     },
   })
 }
+
+// ---- Primary Language, Kids rule and Profiles ----
+
+export type Settings = components['schemas']['Settings']
+export type SettingsPatch = components['schemas']['SettingsPatch']
+export type Profile = components['schemas']['Profile']
+export type ProfilePatch = components['schemas']['ProfilePatch']
+export type Slot = components['schemas']['Slot']
+
+export function useSettings() {
+  return useQuery({
+    queryKey: ['settings'],
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/settings')
+      if (!data) throw failure(error, response)
+      return data
+    },
+  })
+}
+
+/** A merge patch over the settings sections. Changing the Primary Language re-points the Profiles, so they refetch too. */
+export function usePatchSettings() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: SettingsPatch) => {
+      const { data, error, response } = await api.PATCH('/settings', { body })
+      if (!data) throw failure(error, response)
+      return data
+    },
+    onSuccess: () => Promise.all(['settings', 'profiles', 'setup'].map((k) => qc.invalidateQueries({ queryKey: [k] }))),
+  })
+}
+
+export function useProfiles() {
+  return useQuery({
+    queryKey: ['profiles'],
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/profiles')
+      if (!data) throw failure(error, response)
+      return data.items
+    },
+  })
+}
+
+export function usePatchProfile() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { key: string; patch: ProfilePatch }) => {
+      const { data, error, response } = await api.PATCH('/profiles/{key}', {
+        params: { path: { key: v.key as components['parameters']['ProfileKey'] } },
+        body: v.patch,
+      })
+      if (!data) throw failure(error, response)
+      return data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['profiles'] }),
+  })
+}

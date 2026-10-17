@@ -1,9 +1,11 @@
 import { Check } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import { ApiError, useCreateAccount } from '../api/queries'
 import { Button, ErrorText, Field, TextInput } from '../forms'
 import { DownloadClient } from '../plugins/DownloadClient'
 import { Indexer } from '../plugins/Indexer'
+import { LanguageForm } from '../profiles/Language'
+import { DefaultsPerSlot, KidsRuleForm } from '../profiles/Profiles'
 import { KestrelLogo } from '../ui'
 
 const MIN_PASSWORD = 8
@@ -67,31 +69,48 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
           </form>}
         </section>
         {signedIn && (
-          <section aria-labelledby="wizard-download-client" className="mt-4 rounded-lg border border-gray-alpha-400 bg-background-100 p-6">
-            <h2 id="wizard-download-client" className="mb-1 flex items-center gap-2 text-[15px] font-semibold tracking-tight">
-              <span className="flex size-5 items-center justify-center rounded-full bg-gray-1000 text-[11px] text-background-100">2</span>
-              Download client
-            </h2>
-            <p className="mb-4 text-gray-900">Connect SABnzbd. Kestrel hands it NZBs and reads its queue and history.</p>
-            <DownloadClient />
-          </section>
-        )}
-        {signedIn && (
-          <section aria-labelledby="wizard-indexer" className="mt-4 rounded-lg border border-gray-alpha-400 bg-background-100 p-6">
-            <h2 id="wizard-indexer" className="mb-1 flex items-center gap-2 text-[15px] font-semibold tracking-tight">
-              <span className="flex size-5 items-center justify-center rounded-full bg-gray-1000 text-[11px] text-background-100">3</span>
-              Indexer
-            </h2>
-            <p className="mb-4 text-gray-900">Add a Newznab indexer. Kestrel searches it for releases and fetches their NZBs. You can add more in Settings.</p>
-            <Indexer />
-            <div className="mt-6 border-t border-gray-alpha-400 pt-4">
-              <Button variant="secondary" onClick={onLeave}>
-                Continue to Kestrel
-              </Button>
-            </div>
-          </section>
+          <>
+            <Section n={2} id="language" title="Primary Language">
+              <p className="mb-4 text-gray-900">Choose the language your household watches in. You can change it later in Settings.</p>
+              <LanguageForm />
+            </Section>
+            <Section n={3} id="download-client" title="Download client">
+              <p className="mb-4 text-gray-900">Connect SABnzbd. Kestrel hands it NZBs and reads its queue and history.</p>
+              <DownloadClient />
+            </Section>
+            <Section n={4} id="indexer" title="Indexer">
+              <p className="mb-4 text-gray-900">Add a Newznab indexer. Kestrel searches it for releases and fetches their NZBs. You can add more in Settings.</p>
+              <Indexer />
+            </Section>
+            <Section n={5} id="profiles" title="Profiles">
+              <p className="mb-4 text-gray-900">Pick the Profile each new Title gets per Slot. HD is preselected; leave SD and UHD empty to add them per Title.</p>
+              <DefaultsPerSlot />
+              <h3 className="mb-2 mt-6 text-[13px] font-semibold">Kids rule</h3>
+              <KidsRuleForm />
+              <div className="mt-6 border-t border-gray-alpha-400 pt-4">
+                <Button variant="secondary" onClick={onLeave}>
+                  Continue to Kestrel
+                </Button>
+              </div>
+            </Section>
+          </>
         )}
       </div>
     </div>
+  )
+}
+
+/** A numbered wizard section after Account. */
+function Section({ n, id, title, children }: { n: number; id: string; title: string; children: ReactNode }) {
+  return (
+    <section aria-labelledby={`wizard-${id}`} className="mt-4 rounded-lg border border-gray-alpha-400 bg-background-100 p-6">
+      <h2 id={`wizard-${id}`} className="mb-1 flex items-center gap-2 text-[15px] font-semibold tracking-tight">
+        <span aria-hidden className="flex size-5 items-center justify-center rounded-full bg-gray-1000 text-[11px] text-background-100">
+          {n}
+        </span>
+        {title}
+      </h2>
+      {children}
+    </section>
   )
 }

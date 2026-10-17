@@ -1,0 +1,231 @@
+import { QueryClient } from '@tanstack/react-query'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it } from 'vitest'
+import { App } from '../App'
+import type { components } from '../api/schema.gen'
+import { http } from '../test/handlers'
+import { server } from '../test/server'
+
+const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
+
+const me = { username: 'admin', method: 'session', proxy_user: null } as const
+const problem = (status: number, code: string, detail: string) => ({ type: 'about:blank', title: 'x', status, code, detail })
+
+type Profile = components['schemas']['Profile']
+type Settings = components['schemas']['Settings']
+type Sent = { path: string; body: unknown }
+
+const profile = (key: string, name: string, slot: Profile['slot'], rule: Profile['language_rule'], over: Partial<Profile> = {}): Profile => ({
+  key,
+  name,
+  slot,
+  language_rule: rule,
+  original_fallback: false,
+  enabled: true,
+  default_movies: false,
+  default_series: false,
+  min_height: 0,
+  max_height: 1080,
+  trash_profile_movies: 'hd-bluray-web',
+  trash_profile_series: 'web-1080p',
+  ...over,
+})
+
+const seeded = (): Profile[] => [
+  profile('sd-primary', 'SD', 'sd', 'primary'),
+  profile('sd-original', 'SD Original', 'sd', 'original'),
+  profile('hd-primary', 'HD', 'hd', 'primary', { default_movies: true, default_series: true }),
+  profile('hd-original', 'HD Original', 'hd', 'original'),
+  profile('kids-primary', 'Kids', 'hd', 'primary'),
+  profile('kids-original', 'Kids Original', 'hd', 'original'),
+  profile('uhd-primary', 'UHD', 'uhd', 'primary'),
+  profile('uhd-original', 'UHD Original', 'uhd', 'original'),
+]
+
+/** The Profile and settings API with real behaviour for the rules the UI leans on. */
+function fakeProfiles(opts: { fresh?: boolean } = {}) {
+  const sent: Sent[] = []
+  let signedIn = !opts.fresh
+  let profiles = seeded()
+  let settings: Settings = {
+    language_region: { primary_language: 'en', release_date_country: 'US' },
+    kids_rule: { enabled: true, threshold: 6 },
+  }
+  server.use(
+    http.get('/auth/me', ({ response }) =>
+      signedIn ? response(200).json(me) : response('default').json({ ...problem(401, 'setup_required', 'x') }, { status: 401 }),
+    ),
+    http.post('/setup/account', ({ response }) => {
+      signedIn = true
+      return response(201).json(me)
+    }),
+    http.get('/settings', ({ response }) => response(200).json(settings)),
+    http.patch('/settings', async ({ request, response }) => {
+      const body = (await request.json()) as { language_region?: Partial<Settings['language_region']>; kids_rule?: Partial<Settings['kids_rule']> }
+      sent.push({ path: 'settings', body })
+      settings = {
+        language_region: { ...settings.language_region, ...body.language_region },
+        kids_rule: { ...settings.kids_rule, ...body.kids_rule },
+      } as Settings
+      return response(200).json(settings)
+    }),
+    http.get('/profiles', ({ response }) => response(200).json({ items: profiles })),
+    http.patch('/profiles/{key}', async ({ request, params, response }) => {
+      const body = (await request.json()) as Partial<Profile>
+      sent.push({ path: `profile ${params.key}`, body })
+      const cur = profiles.find((p) => p.key === params.key)!
+      if (cur.slot === 'hd' && cur.enabled && (body.enabled === false || body.default_movies === false)) {
+        return response('default').json(problem(422, 'validation', 'HD always has a default: make another HD Profile the default first'), { status: 422 })
+      }
+      profiles = profiles.map((p) => {
+        if (p.slot === cur.slot && body.default_movies) p = { ...p, default_movies: false }
+        if (p.slot === cur.slot && body.default_series) p = { ...p, default_series: false }
+        return p.key === cur.key ? { ...p, ...body } : p
+      })
+      return response(200).json(profiles.find((p) => p.key === cur.key)!)
+    }),
+  )
+  return sent
+}
+
+const createAccount = async () => {
+  await userEvent.type(await screen.findByLabelText('Password'), 'correct horse')
+  await userEvent.type(screen.getByLabelText('Confirm password'), 'correct horse')
+  await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
+}
+
+describe('the wizard Primary Language section', () => {
+  it('explains the choice, prefills the country from the language and saves both', async () => {
+    const sent = fakeProfiles({ fresh: true })
+    renderApp()
+    await createAccount()
+
+    const section = await screen.findByRole('region', { name: 'Primary Language' })
+    expect(within(section).getByText(/required audio/i)).toBeInTheDocument() // the explainer
+    const language = within(section).getByLabelText('Primary Language')
+    expect(language).toHaveValue('en')
+    expect(within(section).getByLabelText('Release-date country')).toHaveValue('US')
+
+    await userEvent.selectOptions(language, 'de')
+    expect(within(section).getByLabelText('Release-date country')).toHaveValue('DE')
+    await userEvent.selectOptions(language, 'fr')
+    expect(within(section).getByLabelText('Release-date country')).toHaveValue('FR')
+
+    // The country stays editable.
+    await userEvent.clear(within(section).getByLabelText('Release-date country'))
+    await userEvent.type(within(section).getByLabelText('Release-date country'), 'be')
+    await userEvent.click(within(section).getByRole('button', { name: 'Save language' }))
+
+    expect(await within(section).findByText('Saved.')).toBeInTheDocument()
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'settings', body: { language_region: { primary_language: 'fr', release_date_country: 'BE' } } }))
+  })
+})
+
+describe('the wizard Profiles section', () => {
+  it('sets a default per Slot for Movies and for Series and saves the Kids rule', async () => {
+    const sent = fakeProfiles({ fresh: true })
+    renderApp()
+    await createAccount()
+
+    const section = await screen.findByRole('region', { name: 'Profiles' })
+    // HD is preselected for both kinds and has no empty choice; SD and UHD start empty.
+    const hdMovies = await within(section).findByLabelText('HD default for Movies')
+    expect(hdMovies).toHaveValue('hd-primary')
+    expect(within(hdMovies).queryByRole('option', { name: 'None' })).not.toBeInTheDocument()
+    expect(within(section).getByLabelText('UHD default for Movies')).toHaveValue('')
+
+    await userEvent.selectOptions(within(section).getByLabelText('UHD default for Movies'), 'uhd-primary')
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile uhd-primary', body: { default_movies: true } }))
+    expect(await within(section).findByLabelText('UHD default for Movies')).toHaveValue('uhd-primary')
+    expect(within(section).getByLabelText('UHD default for Series')).toHaveValue('')
+
+    await userEvent.selectOptions(within(section).getByLabelText('HD default for Series'), 'hd-original')
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile hd-original', body: { default_series: true } }))
+
+    // Unsetting a default is "None" for SD and UHD.
+    await userEvent.selectOptions(within(section).getByLabelText('UHD default for Movies'), '')
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile uhd-primary', body: { default_movies: false } }))
+
+    // The Kids rule: a switch and a threshold of 0, 6 or 12, default 6.
+    expect(within(section).getByText(/young viewers/i)).toBeInTheDocument() // the explainer
+    const threshold = within(section).getByLabelText('Age threshold')
+    expect(threshold).toHaveValue('6')
+    expect(within(threshold).getAllByRole('option').map((o) => o.textContent)).toEqual(['0', '6', '12'])
+    await userEvent.selectOptions(threshold, '12')
+    await userEvent.click(within(section).getByRole('button', { name: 'Save Kids rule' }))
+    expect(await within(section).findByText('Saved.')).toBeInTheDocument()
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'settings', body: { kids_rule: { enabled: true, threshold: 12 } } }))
+
+    await userEvent.click(within(section).getByLabelText('Use the Kids Profile for children’s titles'))
+    expect(within(section).getByLabelText('Age threshold')).toBeDisabled()
+  })
+
+  it('shows why a default cannot be unset', async () => {
+    fakeProfiles({ fresh: true })
+    renderApp()
+    await createAccount()
+    const section = await screen.findByRole('region', { name: 'Profiles' })
+    // The server refuses to leave HD without a default; the message reaches the admin.
+    server.use(
+      http.patch('/profiles/{key}', ({ response }) =>
+        response('default').json(problem(422, 'validation', 'HD always has a default for movies'), { status: 422 }),
+      ),
+    )
+    await userEvent.selectOptions(await within(section).findByLabelText('HD default for Movies'), 'hd-original')
+    expect(await within(section).findByRole('alert')).toHaveTextContent('HD always has a default for movies')
+  })
+})
+
+describe('Settings', () => {
+  const open = async () => {
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+  }
+
+  it('lists the Primary Language and Profiles sections in the jump list', async () => {
+    fakeProfiles()
+    await open()
+    const nav = await screen.findByRole('navigation', { name: 'Settings sections' })
+    expect(within(nav).getByRole('link', { name: 'Primary Language' })).toHaveAttribute('href', '#settings-language')
+    expect(within(nav).getByRole('link', { name: 'Profiles' })).toHaveAttribute('href', '#settings-profiles')
+    expect(await within(await screen.findByRole('region', { name: 'Primary Language' })).findByLabelText('Primary Language')).toHaveValue('en')
+  })
+
+  it('enables, disables and sets the Original-Language fallback per Profile', async () => {
+    const sent = fakeProfiles()
+    await open()
+    const section = await screen.findByRole('region', { name: 'Profiles' })
+
+    await userEvent.click(await within(section).findByLabelText('UHD enabled'))
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile uhd-primary', body: { enabled: false } }))
+    // A disabled Profile cannot be a default, so it leaves the choices.
+    await waitFor(() =>
+      expect(within(within(section).getByLabelText('UHD default for Movies')).queryByRole('option', { name: 'UHD' })).not.toBeInTheDocument(),
+    )
+
+    // Original-Language Profiles have no fallback switch; Primary-Language ones do.
+    expect(within(section).queryByLabelText('HD Original fallback to the Original Language')).not.toBeInTheDocument()
+    await userEvent.click(within(section).getByLabelText('HD fallback to the Original Language'))
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile hd-primary', body: { original_fallback: true } }))
+  })
+
+  it('shows the server problem when the only HD default is disabled', async () => {
+    fakeProfiles()
+    await open()
+    const section = await screen.findByRole('region', { name: 'Profiles' })
+    await userEvent.click(await within(section).findByLabelText('HD enabled'))
+    expect(await within(section).findByRole('alert')).toHaveTextContent('HD always has a default')
+  })
+
+  it('saves a new Primary Language and says what it changes', async () => {
+    const sent = fakeProfiles()
+    await open()
+    const section = await screen.findByRole('region', { name: 'Primary Language' })
+    await userEvent.selectOptions(await within(section).findByLabelText('Primary Language'), 'de')
+    expect(within(section).getByText(/existing files are left alone/i)).toBeInTheDocument()
+    await userEvent.click(within(section).getByRole('button', { name: 'Save language' }))
+    expect(await within(section).findByText('Saved.')).toBeInTheDocument()
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'settings', body: { language_region: { primary_language: 'de', release_date_country: 'DE' } } }))
+  })
+})

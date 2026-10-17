@@ -12,9 +12,13 @@ import {
 import { Button, ErrorText, Field, TextInput } from '../forms'
 import { DownloadClient } from '../plugins/DownloadClient'
 import { Indexers } from '../plugins/Indexers'
+import { LanguageForm } from '../profiles/Language'
+import { DefaultsPerSlot, KidsRuleForm, ProfileToggles } from '../profiles/Profiles'
 
 /** Settings sections, in page order. Later tickets add theirs here. */
 const sections = [
+  { id: 'language', title: 'Primary Language' },
+  { id: 'profiles', title: 'Profiles' },
   { id: 'download-client', title: 'Download client' },
   { id: 'indexers', title: 'Indexers' },
   { id: 'account', title: 'Account' },
@@ -37,6 +41,22 @@ export function Settings() {
         </ul>
       </nav>
       <div className="min-w-0 max-w-3xl flex-1 p-4 pr-8">
+        <Group id="language" title="Primary Language">
+          <Row label="Language and country" help="The household's language and the country whose release dates and age ratings Kestrel reads.">
+            <LanguageForm />
+          </Row>
+        </Group>
+        <Group id="profiles" title="Profiles">
+          <Row label="Defaults per Slot" help="The Profile a new Title gets for each Slot. HD always has one.">
+            <DefaultsPerSlot />
+          </Row>
+          <Row label="Kids rule" help="Children’s titles get the Kids Profile in HD.">
+            <KidsRuleForm />
+          </Row>
+          <Row label="Profiles" help="Turn Profiles off or let Primary-Language ones accept the Original Language. Disabling a Profile clears its defaults.">
+            <ProfileToggles />
+          </Row>
+        </Group>
         <Group id="download-client" title="Download client">
           <Row label="Connection" help="Where Kestrel sends NZBs and reads their progress. Test the connection to pick the categories from SABnzbd's own list.">
             <DownloadClient />

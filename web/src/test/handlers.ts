@@ -43,6 +43,13 @@ export const handlers = [
   http.get('/plugin-instances', ({ response }) => response(200).json({ items: [], next_cursor: null })),
   http.get('/auth/me', ({ response }) => response(200).json({ username: 'admin', method: 'session', proxy_user: null })),
   http.get('/api-key', ({ response }) => response(200).json({ prefix: null, created_at: null })),
+  http.get('/settings', ({ response }) =>
+    response(200).json({
+      language_region: { primary_language: 'en', release_date_country: 'US' },
+      kids_rule: { enabled: true, threshold: 6 },
+    }),
+  ),
+  http.get('/profiles', ({ response }) => response(200).json({ items: [] })),
   http.get('/settings/reverse-proxy', ({ response }) =>
     response(200).json({ enabled: false, trusted_proxies: [], header: 'Remote-User', untrusted: [] }),
   ),
