@@ -548,6 +548,96 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /versions/{id}/releases:
+    parameters:
+      - $ref: "#/components/parameters/VersionId"
+    post:
+      operationId: searchVersionReleases
+      summary: Manual search for a Version
+      description: |
+        Asks every enabled indexer in parallel, parses and evaluates every Release against the
+        Version's Profile and answers with all of them, acceptable ones first, then by `score`.
+        Synchronous, with a server timeout of about 30 s: an indexer that has not answered by then
+        is reported in `indexer_errors` and the rest still come back. The Releases stay grabbable
+        for 6 h through their `release_id`. `fits` says whether the Release belongs to this Version's
+        Slot; a Release for another Slot carries the `other_slot` rejection. Only Movie Versions can
+        be searched so far.
+      tags: [grabs]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReleaseSearch"
+      responses:
+        "200":
+          description: The Releases.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReleaseList"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /grabs:
+    post:
+      operationId: createGrab
+      summary: Grab a Release into the download client
+      description: |
+        Fetches the Release's NZB from its indexer and sends it to the download client's category for
+        the Title's kind. The Grab starts at `sent`, keyed by the client's id. `release_id` comes from
+        a search in the last 6 h, otherwise `409 release_expired` (also when the indexer no longer has
+        the NZB). A Release with rejections needs `override: true` ("Grab anyway"), else `422 rejected`;
+        `blocklisted` and `other_slot` can never be overridden and answer `422 not_overridable`.
+        A spent grab budget is `429 rate_limited`; an unreachable client or indexer is
+        `502 upstream_unavailable`.
+      tags: [grabs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GrabCreate"
+      responses:
+        "201":
+          description: The new Grab.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Grab"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/Problem"
+        "502":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /grabs/{id}:
+    parameters:
+      - $ref: "#/components/parameters/GrabId"
+    get:
+      operationId: getGrab
+      summary: One Grab
+      tags: [grabs]
+      responses:
+        "200":
+          description: The Grab.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Grab"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /plugins:
     get:
       operationId: listPlugins
@@ -770,6 +860,20 @@ components:
         type: integer
         format: int64
     TitleId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    VersionId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    GrabId:
       name: id
       in: path
       required: true
@@ -1475,6 +1579,162 @@ components:
             - $ref: "#/components/schemas/FileSummary"
           nullable: true
         added_at:
+          type: string
+          format: date-time
+    ReleaseSearch:
+      type: object
+      description: Series searches will take `season` and `episode_ids`; Movie searches take nothing.
+      properties:
+        season:
+          type: integer
+          nullable: true
+        episode_ids:
+          type: array
+          items:
+            type: integer
+            format: int64
+    RejectionCode:
+      type: string
+      description: Why a Release cannot go to a Version. Clients tolerate codes they do not know.
+      enum: [below_min_score, resolution, quality, language, original_language_unknown, blocklisted, other_slot]
+    Rejection:
+      type: object
+      required: [code, message, overridable]
+      properties:
+        code:
+          $ref: "#/components/schemas/RejectionCode"
+        message:
+          type: string
+        overridable:
+          type: boolean
+          description: False for `blocklisted` and `other_slot`, which "Grab anyway" never overrides.
+    CustomFormatMatch:
+      type: object
+      required: [name, points]
+      properties:
+        name:
+          type: string
+        points:
+          type: integer
+    Release:
+      type: object
+      required: [release_id, name, indexer, size, published_at, quality, languages, custom_formats, score, fits, rejections]
+      properties:
+        release_id:
+          type: string
+          description: Opaque; names the Release for 6 h.
+        name:
+          type: string
+        indexer:
+          type: string
+        size:
+          type: integer
+          format: int64
+        published_at:
+          type: string
+          format: date-time
+        quality:
+          type: string
+          example: Bluray-1080p
+        languages:
+          type: array
+          items:
+            type: string
+        custom_formats:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomFormatMatch"
+        score:
+          type: integer
+        fits:
+          type: string
+          enum: [this_slot, other_slot, none]
+        rejections:
+          type: array
+          items:
+            $ref: "#/components/schemas/Rejection"
+    IndexerError:
+      type: object
+      required: [indexer_id, indexer, code, message, retry_after]
+      properties:
+        indexer_id:
+          type: integer
+          format: int64
+          nullable: true
+        indexer:
+          type: string
+        code:
+          type: string
+          description: The plugin error code (`auth`, `unavailable`, `rate_limited`, `invalid`, `not_found`).
+        message:
+          type: string
+        retry_after:
+          type: integer
+          nullable: true
+          description: Seconds, when the indexer said how long to wait.
+    ReleaseList:
+      type: object
+      required: [items, indexer_errors]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Release"
+        indexer_errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/IndexerError"
+    GrabCreate:
+      type: object
+      required: [version_id, release_id]
+      properties:
+        version_id:
+          type: integer
+          format: int64
+        release_id:
+          type: string
+        override:
+          type: boolean
+          default: false
+    Grab:
+      type: object
+      required: [id, title_id, version_id, release_name, indexer, size, published_at, score, client_id, state, overridden, is_upgrade, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        title_id:
+          type: integer
+          format: int64
+          nullable: true
+        version_id:
+          type: integer
+          format: int64
+          nullable: true
+        release_name:
+          type: string
+        indexer:
+          type: string
+        size:
+          type: integer
+          format: int64
+        published_at:
+          type: string
+          format: date-time
+        score:
+          type: integer
+        client_id:
+          type: string
+          description: The download client's id for the job (SABnzbd's nzo_id).
+        state:
+          type: string
+          enum: [sent, downloading, completed, importing, imported, failed]
+        overridden:
+          type: boolean
+          description: Grabbed despite rejections.
+        is_upgrade:
+          type: boolean
+        created_at:
           type: string
           format: date-time
     ReleaseDateEntry:

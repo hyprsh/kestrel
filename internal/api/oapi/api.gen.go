@@ -18,6 +18,36 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for GrabState.
+const (
+	GrabStateCompleted   GrabState = "completed"
+	GrabStateDownloading GrabState = "downloading"
+	GrabStateFailed      GrabState = "failed"
+	GrabStateImported    GrabState = "imported"
+	GrabStateImporting   GrabState = "importing"
+	GrabStateSent        GrabState = "sent"
+)
+
+// Valid indicates whether the value is a known member of the GrabState enum.
+func (e GrabState) Valid() bool {
+	switch e {
+	case GrabStateCompleted:
+		return true
+	case GrabStateDownloading:
+		return true
+	case GrabStateFailed:
+		return true
+	case GrabStateImported:
+		return true
+	case GrabStateImporting:
+		return true
+	case GrabStateSent:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MeMethod.
 const (
 	ApiKey  MeMethod = "api_key"
@@ -102,6 +132,60 @@ func (e ProfileLanguageRule) Valid() bool {
 	case Original:
 		return true
 	case Primary:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RejectionCode.
+const (
+	RejectionCodeBelowMinScore           RejectionCode = "below_min_score"
+	RejectionCodeBlocklisted             RejectionCode = "blocklisted"
+	RejectionCodeLanguage                RejectionCode = "language"
+	RejectionCodeOriginalLanguageUnknown RejectionCode = "original_language_unknown"
+	RejectionCodeOtherSlot               RejectionCode = "other_slot"
+	RejectionCodeQuality                 RejectionCode = "quality"
+	RejectionCodeResolution              RejectionCode = "resolution"
+)
+
+// Valid indicates whether the value is a known member of the RejectionCode enum.
+func (e RejectionCode) Valid() bool {
+	switch e {
+	case RejectionCodeBelowMinScore:
+		return true
+	case RejectionCodeBlocklisted:
+		return true
+	case RejectionCodeLanguage:
+		return true
+	case RejectionCodeOriginalLanguageUnknown:
+		return true
+	case RejectionCodeOtherSlot:
+		return true
+	case RejectionCodeQuality:
+		return true
+	case RejectionCodeResolution:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReleaseFits.
+const (
+	ReleaseFitsNone      ReleaseFits = "none"
+	ReleaseFitsOtherSlot ReleaseFits = "other_slot"
+	ReleaseFitsThisSlot  ReleaseFits = "this_slot"
+)
+
+// Valid indicates whether the value is a known member of the ReleaseFits enum.
+func (e ReleaseFits) Valid() bool {
+	switch e {
+	case ReleaseFitsNone:
+		return true
+	case ReleaseFitsOtherSlot:
+		return true
+	case ReleaseFitsThisSlot:
 		return true
 	default:
 		return false
@@ -200,25 +284,25 @@ func (e Slot) Valid() bool {
 
 // Defines values for SlotState.
 const (
-	Downloading SlotState = "downloading"
-	Filled      SlotState = "filled"
-	Unmonitored SlotState = "unmonitored"
-	Unreleased  SlotState = "unreleased"
-	Wanted      SlotState = "wanted"
+	SlotStateDownloading SlotState = "downloading"
+	SlotStateFilled      SlotState = "filled"
+	SlotStateUnmonitored SlotState = "unmonitored"
+	SlotStateUnreleased  SlotState = "unreleased"
+	SlotStateWanted      SlotState = "wanted"
 )
 
 // Valid indicates whether the value is a known member of the SlotState enum.
 func (e SlotState) Valid() bool {
 	switch e {
-	case Downloading:
+	case SlotStateDownloading:
 		return true
-	case Filled:
+	case SlotStateFilled:
 		return true
-	case Unmonitored:
+	case SlotStateUnmonitored:
 		return true
-	case Unreleased:
+	case SlotStateUnreleased:
 		return true
-	case Wanted:
+	case SlotStateWanted:
 		return true
 	default:
 		return false
@@ -313,6 +397,12 @@ type Credentials struct {
 	Username string  `json:"username"`
 }
 
+// CustomFormatMatch defines model for CustomFormatMatch.
+type CustomFormatMatch struct {
+	Name   string `json:"name"`
+	Points int    `json:"points"`
+}
+
 // FileSummary defines model for FileSummary.
 type FileSummary struct {
 	ImportedAt  time.Time `json:"imported_at"`
@@ -320,6 +410,48 @@ type FileSummary struct {
 	ReleaseName string    `json:"release_name"`
 	Score       *int      `json:"score"`
 	Size        int64     `json:"size"`
+}
+
+// Grab defines model for Grab.
+type Grab struct {
+	// ClientId The download client's id for the job (SABnzbd's nzo_id).
+	ClientId  string    `json:"client_id"`
+	CreatedAt time.Time `json:"created_at"`
+	Id        int64     `json:"id"`
+	Indexer   string    `json:"indexer"`
+	IsUpgrade bool      `json:"is_upgrade"`
+
+	// Overridden Grabbed despite rejections.
+	Overridden  bool      `json:"overridden"`
+	PublishedAt time.Time `json:"published_at"`
+	ReleaseName string    `json:"release_name"`
+	Score       int       `json:"score"`
+	Size        int64     `json:"size"`
+	State       GrabState `json:"state"`
+	TitleId     *int64    `json:"title_id"`
+	VersionId   *int64    `json:"version_id"`
+}
+
+// GrabState defines model for Grab.State.
+type GrabState string
+
+// GrabCreate defines model for GrabCreate.
+type GrabCreate struct {
+	Override  *bool  `json:"override,omitempty"`
+	ReleaseId string `json:"release_id"`
+	VersionId int64  `json:"version_id"`
+}
+
+// IndexerError defines model for IndexerError.
+type IndexerError struct {
+	// Code The plugin error code (`auth`, `unavailable`, `rate_limited`, `invalid`, `not_found`).
+	Code      string `json:"code"`
+	Indexer   string `json:"indexer"`
+	IndexerId *int64 `json:"indexer_id"`
+	Message   string `json:"message"`
+
+	// RetryAfter Seconds, when the indexer said how long to wait.
+	RetryAfter *int `json:"retry_after"`
 }
 
 // LookupDetail defines model for LookupDetail.
@@ -584,6 +716,41 @@ type ProfilePatch struct {
 	OriginalFallback *bool `json:"original_fallback,omitempty"`
 }
 
+// Rejection defines model for Rejection.
+type Rejection struct {
+	// Code Why a Release cannot go to a Version. Clients tolerate codes they do not know.
+	Code    RejectionCode `json:"code"`
+	Message string        `json:"message"`
+
+	// Overridable False for `blocklisted` and `other_slot`, which "Grab anyway" never overrides.
+	Overridable bool `json:"overridable"`
+}
+
+// RejectionCode Why a Release cannot go to a Version. Clients tolerate codes they do not know.
+type RejectionCode string
+
+// Release defines model for Release.
+type Release struct {
+	CustomFormats []CustomFormatMatch `json:"custom_formats"`
+	Fits          ReleaseFits         `json:"fits"`
+	Indexer       string              `json:"indexer"`
+	Languages     []string            `json:"languages"`
+	Name          string              `json:"name"`
+	PublishedAt   time.Time           `json:"published_at"`
+
+	// Quality Example: Bluray-1080p
+	Quality    string      `json:"quality"`
+	Rejections []Rejection `json:"rejections"`
+
+	// ReleaseId Opaque; names the Release for 6 h.
+	ReleaseId string `json:"release_id"`
+	Score     int    `json:"score"`
+	Size      int64  `json:"size"`
+}
+
+// ReleaseFits defines model for Release.Fits.
+type ReleaseFits string
+
 // ReleaseDateEntry defines model for ReleaseDateEntry.
 type ReleaseDateEntry struct {
 	Certification *string              `json:"certification"`
@@ -594,6 +761,18 @@ type ReleaseDateEntry struct {
 
 // ReleaseDateEntryType defines model for ReleaseDateEntry.Type.
 type ReleaseDateEntryType string
+
+// ReleaseList defines model for ReleaseList.
+type ReleaseList struct {
+	IndexerErrors []IndexerError `json:"indexer_errors"`
+	Items         []Release      `json:"items"`
+}
+
+// ReleaseSearch Series searches will take `season` and `episode_ids`; Movie searches take nothing.
+type ReleaseSearch struct {
+	EpisodeIds *[]int64 `json:"episode_ids,omitempty"`
+	Season     *int     `json:"season,omitempty"`
+}
 
 // ReverseProxy defines model for ReverseProxy.
 type ReverseProxy struct {
@@ -860,6 +1039,9 @@ type VersionRef struct {
 	Slot    Slot   `json:"slot"`
 }
 
+// GrabId defines model for GrabId.
+type GrabId = int64
+
 // InstanceId defines model for InstanceId.
 type InstanceId = int64
 
@@ -871,6 +1053,9 @@ type ProfileKey string
 
 // TitleId defines model for TitleId.
 type TitleId = int64
+
+// VersionId defines model for VersionId.
+type VersionId = int64
 
 // ChangePasswordJSONBody defines parameters for ChangePassword.
 type ChangePasswordJSONBody struct {
@@ -905,6 +1090,9 @@ type ChangePasswordJSONRequestBody ChangePasswordJSONBody
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = Credentials
 
+// CreateGrabJSONRequestBody defines body for CreateGrab for application/json ContentType.
+type CreateGrabJSONRequestBody = GrabCreate
+
 // CreatePluginInstanceJSONRequestBody defines body for CreatePluginInstance for application/json ContentType.
 type CreatePluginInstanceJSONRequestBody = PluginInstanceCreate
 
@@ -935,6 +1123,9 @@ type CreateAccountJSONRequestBody = Credentials
 // CreateTitleJSONRequestBody defines body for CreateTitle for application/json ContentType.
 type CreateTitleJSONRequestBody = TitleCreate
 
+// SearchVersionReleasesJSONRequestBody defines body for SearchVersionReleases for application/json ContentType.
+type SearchVersionReleasesJSONRequestBody = ReleaseSearch
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// ChangePassword Change the admin password
@@ -958,6 +1149,12 @@ type ServerInterface interface {
 	// GetMe Who is logged in
 	// (GET /auth/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// CreateGrab Grab a Release into the download client
+	// (POST /grabs)
+	CreateGrab(w http.ResponseWriter, r *http.Request)
+	// GetGrab One Grab
+	// (GET /grabs/{id})
+	GetGrab(w http.ResponseWriter, r *http.Request, id GrabId)
 	// Lookup Search the metadata provider for Titles to add
 	// (GET /lookup)
 	Lookup(w http.ResponseWriter, r *http.Request, params LookupParams)
@@ -1033,6 +1230,9 @@ type ServerInterface interface {
 	// GetTitlePoster The Title's poster
 	// (GET /titles/{id}/poster)
 	GetTitlePoster(w http.ResponseWriter, r *http.Request, id TitleId)
+	// SearchVersionReleases Manual search for a Version
+	// (POST /versions/{id}/releases)
+	SearchVersionReleases(w http.ResponseWriter, r *http.Request, id VersionId)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -1133,6 +1333,46 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateGrab operation middleware
+func (siw *ServerInterfaceWrapper) CreateGrab(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateGrab(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetGrab operation middleware
+func (siw *ServerInterfaceWrapper) GetGrab(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id GrabId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetGrab(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1708,6 +1948,32 @@ func (siw *ServerInterfaceWrapper) GetTitlePoster(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// SearchVersionReleases operation middleware
+func (siw *ServerInterfaceWrapper) SearchVersionReleases(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id VersionId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SearchVersionReleases(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -1851,6 +2117,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles", wrapper.CreateTitle)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/{id}", wrapper.GetTitle)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/{id}/poster", wrapper.GetTitlePoster)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/versions/{id}/releases", wrapper.SearchVersionReleases)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs", wrapper.CreateGrab)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grabs/{id}", wrapper.GetGrab)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugins", wrapper.ListPlugins)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/plugins/{plugin_id}/options/{field}", wrapper.ListPluginOptions)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugin-instances", wrapper.ListPluginInstances)
@@ -2179,6 +2448,172 @@ type GetMedefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetMedefaultApplicationProblemPlusJSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateGrabRequestObject struct {
+	Body *CreateGrabJSONRequestBody
+}
+
+type CreateGrabResponseObject interface {
+	VisitCreateGrabResponse(w http.ResponseWriter) error
+}
+
+type CreateGrab201JSONResponse Grab
+
+func (response CreateGrab201JSONResponse) VisitCreateGrabResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateGrab404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateGrab404ApplicationProblemPlusJSONResponse) VisitCreateGrabResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateGrab409ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateGrab409ApplicationProblemPlusJSONResponse) VisitCreateGrabResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateGrab422ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateGrab422ApplicationProblemPlusJSONResponse) VisitCreateGrabResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateGrab429ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateGrab429ApplicationProblemPlusJSONResponse) VisitCreateGrabResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateGrab502ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateGrab502ApplicationProblemPlusJSONResponse) VisitCreateGrabResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateGrabdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateGrabdefaultApplicationProblemPlusJSONResponse) VisitCreateGrabResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetGrabRequestObject struct {
+	Id GrabId `json:"id"`
+}
+
+type GetGrabResponseObject interface {
+	VisitGetGrabResponse(w http.ResponseWriter) error
+}
+
+type GetGrab200JSONResponse Grab
+
+func (response GetGrab200JSONResponse) VisitGetGrabResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetGrab404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetGrab404ApplicationProblemPlusJSONResponse) VisitGetGrabResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetGrabdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetGrabdefaultApplicationProblemPlusJSONResponse) VisitGetGrabResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -3623,6 +4058,76 @@ func (response GetTitlePosterdefaultApplicationProblemPlusJSONResponse) VisitGet
 	return err
 }
 
+type SearchVersionReleasesRequestObject struct {
+	Id   VersionId `json:"id"`
+	Body *SearchVersionReleasesJSONRequestBody
+}
+
+type SearchVersionReleasesResponseObject interface {
+	VisitSearchVersionReleasesResponse(w http.ResponseWriter) error
+}
+
+type SearchVersionReleases200JSONResponse ReleaseList
+
+func (response SearchVersionReleases200JSONResponse) VisitSearchVersionReleasesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchVersionReleases404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SearchVersionReleases404ApplicationProblemPlusJSONResponse) VisitSearchVersionReleasesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchVersionReleases422ApplicationProblemPlusJSONResponse Problem
+
+func (response SearchVersionReleases422ApplicationProblemPlusJSONResponse) VisitSearchVersionReleasesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchVersionReleasesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response SearchVersionReleasesdefaultApplicationProblemPlusJSONResponse) VisitSearchVersionReleasesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// ChangePassword Change the admin password
@@ -3646,6 +4151,12 @@ type StrictServerInterface interface {
 	// GetMe Who is logged in
 	// (GET /auth/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// CreateGrab Grab a Release into the download client
+	// (POST /grabs)
+	CreateGrab(ctx context.Context, request CreateGrabRequestObject) (CreateGrabResponseObject, error)
+	// GetGrab One Grab
+	// (GET /grabs/{id})
+	GetGrab(ctx context.Context, request GetGrabRequestObject) (GetGrabResponseObject, error)
 	// Lookup Search the metadata provider for Titles to add
 	// (GET /lookup)
 	Lookup(ctx context.Context, request LookupRequestObject) (LookupResponseObject, error)
@@ -3721,6 +4232,9 @@ type StrictServerInterface interface {
 	// GetTitlePoster The Title's poster
 	// (GET /titles/{id}/poster)
 	GetTitlePoster(ctx context.Context, request GetTitlePosterRequestObject) (GetTitlePosterResponseObject, error)
+	// SearchVersionReleases Manual search for a Version
+	// (POST /versions/{id}/releases)
+	SearchVersionReleases(ctx context.Context, request SearchVersionReleasesRequestObject) (SearchVersionReleasesResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -3937,6 +4451,63 @@ func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetMeResponseObject); ok {
 		if err := validResponse.VisitGetMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateGrab operation middleware
+func (sh *strictHandler) CreateGrab(w http.ResponseWriter, r *http.Request) {
+	var request CreateGrabRequestObject
+
+	var body CreateGrabJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateGrab(ctx, request.(CreateGrabRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateGrab")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateGrabResponseObject); ok {
+		if err := validResponse.VisitCreateGrabResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetGrab operation middleware
+func (sh *strictHandler) GetGrab(w http.ResponseWriter, r *http.Request, id GrabId) {
+	var request GetGrabRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetGrab(ctx, request.(GetGrabRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetGrab")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetGrabResponseObject); ok {
+		if err := validResponse.VisitGetGrabResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -4634,6 +5205,42 @@ func (sh *strictHandler) GetTitlePoster(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetTitlePosterResponseObject); ok {
 		if err := validResponse.VisitGetTitlePosterResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SearchVersionReleases operation middleware
+func (sh *strictHandler) SearchVersionReleases(w http.ResponseWriter, r *http.Request, id VersionId) {
+	var request SearchVersionReleasesRequestObject
+
+	request.Id = id
+
+	var body SearchVersionReleasesJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SearchVersionReleases(ctx, request.(SearchVersionReleasesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SearchVersionReleases")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SearchVersionReleasesResponseObject); ok {
+		if err := validResponse.VisitSearchVersionReleasesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

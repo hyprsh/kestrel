@@ -429,6 +429,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/versions/{id}/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Manual search for a Version
+         * @description Asks every enabled indexer in parallel, parses and evaluates every Release against the
+         *     Version's Profile and answers with all of them, acceptable ones first, then by `score`.
+         *     Synchronous, with a server timeout of about 30 s: an indexer that has not answered by then
+         *     is reported in `indexer_errors` and the rest still come back. The Releases stay grabbable
+         *     for 6 h through their `release_id`. `fits` says whether the Release belongs to this Version's
+         *     Slot; a Release for another Slot carries the `other_slot` rejection. Only Movie Versions can
+         *     be searched so far.
+         */
+        post: operations["searchVersionReleases"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/grabs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Grab a Release into the download client
+         * @description Fetches the Release's NZB from its indexer and sends it to the download client's category for
+         *     the Title's kind. The Grab starts at `sent`, keyed by the client's id. `release_id` comes from
+         *     a search in the last 6 h, otherwise `409 release_expired` (also when the indexer no longer has
+         *     the NZB). A Release with rejections needs `override: true` ("Grab anyway"), else `422 rejected`;
+         *     `blocklisted` and `other_slot` can never be overridden and answer `422 not_overridable`.
+         *     A spent grab budget is `429 rate_limited`; an unreachable client or indexer is
+         *     `502 upstream_unavailable`.
+         */
+        post: operations["createGrab"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/grabs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        /** One Grab */
+        get: operations["getGrab"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/plugins": {
         parameters: {
             query?: never;
@@ -964,6 +1037,89 @@ export interface components {
             /** Format: date-time */
             added_at: string;
         };
+        /** @description Series searches will take `season` and `episode_ids`; Movie searches take nothing. */
+        ReleaseSearch: {
+            season?: number | null;
+            episode_ids?: number[];
+        };
+        /**
+         * @description Why a Release cannot go to a Version. Clients tolerate codes they do not know.
+         * @enum {string}
+         */
+        RejectionCode: "below_min_score" | "resolution" | "quality" | "language" | "original_language_unknown" | "blocklisted" | "other_slot";
+        Rejection: {
+            code: components["schemas"]["RejectionCode"];
+            message: string;
+            /** @description False for `blocklisted` and `other_slot`, which "Grab anyway" never overrides. */
+            overridable: boolean;
+        };
+        CustomFormatMatch: {
+            name: string;
+            points: number;
+        };
+        Release: {
+            /** @description Opaque; names the Release for 6 h. */
+            release_id: string;
+            name: string;
+            indexer: string;
+            /** Format: int64 */
+            size: number;
+            /** Format: date-time */
+            published_at: string;
+            /** @example Bluray-1080p */
+            quality: string;
+            languages: string[];
+            custom_formats: components["schemas"]["CustomFormatMatch"][];
+            score: number;
+            /** @enum {string} */
+            fits: "this_slot" | "other_slot" | "none";
+            rejections: components["schemas"]["Rejection"][];
+        };
+        IndexerError: {
+            /** Format: int64 */
+            indexer_id: number | null;
+            indexer: string;
+            /** @description The plugin error code (`auth`, `unavailable`, `rate_limited`, `invalid`, `not_found`). */
+            code: string;
+            message: string;
+            /** @description Seconds, when the indexer said how long to wait. */
+            retry_after: number | null;
+        };
+        ReleaseList: {
+            items: components["schemas"]["Release"][];
+            indexer_errors: components["schemas"]["IndexerError"][];
+        };
+        GrabCreate: {
+            /** Format: int64 */
+            version_id: number;
+            release_id: string;
+            /** @default false */
+            override: boolean;
+        };
+        Grab: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            title_id: number | null;
+            /** Format: int64 */
+            version_id: number | null;
+            release_name: string;
+            indexer: string;
+            /** Format: int64 */
+            size: number;
+            /** Format: date-time */
+            published_at: string;
+            score: number;
+            /** @description The download client's id for the job (SABnzbd's nzo_id). */
+            client_id: string;
+            /** @enum {string} */
+            state: "sent" | "downloading" | "completed" | "importing" | "imported" | "failed";
+            /** @description Grabbed despite rejections. */
+            overridden: boolean;
+            is_upgrade: boolean;
+            /** Format: date-time */
+            created_at: string;
+        };
         ReleaseDateEntry: {
             country: string;
             /** @enum {string} */
@@ -1042,6 +1198,8 @@ export interface components {
         PluginId: string;
         InstanceId: number;
         TitleId: number;
+        VersionId: number;
+        GrabId: number;
         ProfileKey: "sd-primary" | "sd-original" | "hd-primary" | "hd-original" | "kids-primary" | "kids-original" | "uhd-primary" | "uhd-original";
     };
     requestBodies: never;
@@ -1607,6 +1765,89 @@ export interface operations {
             };
             404: components["responses"]["Problem"];
             502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    searchVersionReleases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReleaseSearch"];
+            };
+        };
+        responses: {
+            /** @description The Releases. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseList"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    createGrab: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrabCreate"];
+            };
+        };
+        responses: {
+            /** @description The new Grab. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Grab"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getGrab: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Grab. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Grab"];
+                };
+            };
+            404: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

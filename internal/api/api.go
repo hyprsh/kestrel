@@ -16,7 +16,10 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 
 	kapi "github.com/hyprsh/kestrel/api"
+	"github.com/hyprsh/kestrel/internal/acquire"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
+	"github.com/hyprsh/kestrel/internal/downloads"
+	"github.com/hyprsh/kestrel/internal/indexers"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/plugin"
@@ -58,6 +61,8 @@ type Options struct {
 	Metadata metadata.Provider
 	// Posters is the poster cache; nil means one under ConfigDir.
 	Posters *metadata.Posters
+	// SearchTimeout bounds a manual search; zero means 30 s.
+	SearchTimeout time.Duration
 }
 
 // NewHandler returns the whole HTTP handler, mounted under opts.BaseURL.
@@ -88,6 +93,15 @@ func NewHandler(opts Options) http.Handler {
 	if s.posters == nil {
 		s.posters = metadata.NewPosters(metadata.PostersOptions{ConfigDir: opts.ConfigDir})
 	}
+
+	acq, err := acquire.New(acquire.Deps{
+		Store: opts.Store, Clock: opts.Clock, Library: s.library, Profiles: s.profiles,
+		Indexers: indexers.New(s.plugins, opts.Clock), Downloads: downloads.New(s.plugins),
+	})
+	if err != nil {
+		panic("api: the embedded TRaSH snapshot is invalid: " + err.Error())
+	}
+	s.acquire = acq
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ping", s.ping)
@@ -130,7 +144,8 @@ type server struct {
 	profiles    *profiles.Service
 	rootFolders *rootfolders.Service
 	library     *library.Service
-	meta        metadata.Provider
+	acquire     *acquire.Service
+	meta       metadata.Provider
 	posters     *metadata.Posters
 }
 
