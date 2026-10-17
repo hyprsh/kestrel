@@ -215,5 +215,9 @@ func (s *server) PatchTitle(ctx context.Context, r oapi.PatchTitleRequestObject)
 	if err != nil {
 		return nil, seriesProblem(err)
 	}
-	return oapi.PatchTitle200JSONResponse(detailToAPI(d, view.Country)), nil
+	out := detailToAPI(d, view.Country)
+	if err := s.origins(ctx, &out); err != nil {
+		return nil, err
+	}
+	return oapi.PatchTitle200JSONResponse(out), nil
 }

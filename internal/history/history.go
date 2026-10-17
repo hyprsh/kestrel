@@ -36,6 +36,8 @@ const (
 	GrabFailed Kind = "grab_failed"
 	// GrabCanceled: a Grab was canceled by hand.
 	GrabCanceled Kind = "grab_canceled"
+	// RequestCreated: a new Request arrived (a retry of a stored one does not record).
+	RequestCreated Kind = "request"
 )
 
 var routine = map[Kind]bool{GrabDownloading: true, GrabCompleted: true}

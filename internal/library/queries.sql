@@ -106,3 +106,9 @@ UPDATE search_state SET last_missing_at = ?, next_missing_at = ? WHERE version_i
 
 -- name: SetNextMissing :exec
 UPDATE search_state SET next_missing_at = ? WHERE version_id = ? AND season IS NULL;
+
+-- name: SetNextMissingSeason :exec
+UPDATE search_state SET next_missing_at = ? WHERE version_id = ? AND season = ?;
+
+-- name: FindTitleByKindTVDB :one
+SELECT id FROM titles WHERE kind = ? AND tvdb_id = ?;

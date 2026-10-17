@@ -76,6 +76,8 @@ type Release struct {
 	IndexerID       int64
 	IndexerName     string
 	IndexerPriority int
+	// Media is the feed an RSS read took it from; empty for a search.
+	Media indexer.Media
 	// ByID is true when an ID search found it, false for a text search hit
 	// (which the caller should match against the Title's names).
 	ByID bool
@@ -103,6 +105,46 @@ type Result struct {
 // are done or ctx ends, whichever is first; lanes that ended with ctx report
 // an unavailable Failure.
 func (s *Service) Search(ctx context.Context, q Query) Result {
+	return s.fan(ctx, func(inst instances.Instance) ([]Release, *Failure) { return s.lane(ctx, inst, q) })
+}
+
+// RSS reads the newest releases of every enabled indexer: one lane per
+// indexer, one request per kind of media (Movie, then Series) and no paging,
+// so a pass costs next to nothing. Each Release says which feed it came from.
+func (s *Service) RSS(ctx context.Context) Result {
+	return s.fan(ctx, func(inst instances.Instance) ([]Release, *Failure) { return s.rssLane(ctx, inst) })
+}
+
+// rssLane reads one indexer's feed for each media. A feed that fails does not
+// stop the other; the first failure is reported.
+func (s *Service) rssLane(ctx context.Context, inst instances.Instance) (out []Release, failure *Failure) {
+	p, ok := s.plugin(inst)
+	if !ok {
+		return nil, &Failure{IndexerID: inst.ID, IndexerName: inst.Name, Code: plugin.CodeInvalid, Message: "the indexer's plugin is not installed"}
+	}
+	caps := s.capsOf(ctx, p, inst)
+	for _, media := range []indexer.Media{indexer.MediaMovie, indexer.MediaTV} {
+		res, err := p.Search(ctx, inst.Connection(), indexer.SearchQuery{Media: media, Mode: indexer.ModeRSS, Limit: cmpFirst(caps.MaxPageSize, caps.PageSize, defaultPage)})
+		for _, r := range res.Releases {
+			out = append(out, Release{Release: r, IndexerID: inst.ID, IndexerName: inst.Name, IndexerPriority: inst.Priority, Media: media})
+		}
+		if err != nil && failure == nil {
+			failure = failureOf(ctx, inst, err)
+		}
+	}
+	return out, failure
+}
+
+func failureOf(ctx context.Context, inst instances.Instance, err error) *Failure {
+	pe := plugin.AsError(err)
+	if ctx.Err() != nil {
+		pe = plugin.Errorf(plugin.CodeUnavailable, "the search timed out")
+	}
+	return &Failure{IndexerID: inst.ID, IndexerName: inst.Name, Code: pe.Code, Message: pe.Message, RetryAfter: pe.RetryAfter, Limit: pe.Limit}
+}
+
+// fan runs one lane per enabled indexer, in parallel, and gathers the answers.
+func (s *Service) fan(ctx context.Context, lane func(instances.Instance) ([]Release, *Failure)) Result {
 	enabled, err := s.inst.Enabled(ctx, indexer.Contract.ID)
 	if err != nil {
 		return Result{Failures: []Failure{{Code: plugin.CodeUnavailable, Message: err.Error()}}}
@@ -117,7 +159,7 @@ func (s *Service) Search(ctx context.Context, q Query) Result {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			rels, fail := s.lane(ctx, inst, q)
+			rels, fail := lane(inst)
 			lanes[i] = laneResult{rels, fail}
 		}()
 	}
@@ -161,13 +203,7 @@ func (s *Service) lane(ctx context.Context, inst instances.Instance, q Query) (o
 	if !ok {
 		return nil, &Failure{IndexerID: inst.ID, IndexerName: inst.Name, Code: plugin.CodeInvalid, Message: "the indexer's plugin is not installed"}
 	}
-	fail := func(err error) *Failure {
-		pe := plugin.AsError(err)
-		if ctx.Err() != nil {
-			pe = plugin.Errorf(plugin.CodeUnavailable, "the search timed out")
-		}
-		return &Failure{IndexerID: inst.ID, IndexerName: inst.Name, Code: pe.Code, Message: pe.Message, RetryAfter: pe.RetryAfter, Limit: pe.Limit}
-	}
+	fail := func(err error) *Failure { return failureOf(ctx, inst, err) }
 	tag := func(byID bool, rels []indexer.Release) {
 		for _, r := range rels {
 			out = append(out, Release{Release: r, IndexerID: inst.ID, IndexerName: inst.Name, IndexerPriority: inst.Priority, ByID: byID})

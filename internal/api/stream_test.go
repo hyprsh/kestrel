@@ -226,3 +226,25 @@ func TestTheStreamIsClosedWith401WithoutALogin(t *testing.T) {
 		t.Fatalf("anonymous stream = %d, want 401", st.status)
 	}
 }
+
+func TestANewRequestIsLoggedOnceAndHintedButARetryIsNot(t *testing.T) {
+	s := newSearchBare(t, fastStream)
+	st := s.stream(t)
+	st.until("first frame", func(e sseEvent) bool { return e.Name == "queue" })
+	count := func() int {
+		var n int
+		if err := s.in.st.Read().QueryRow(`SELECT COUNT(*) FROM events WHERE kind = 'request' AND request_id IS NOT NULL`).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+
+	st.mark()
+	s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, dualSlots, "null"))
+	st.hint("request")
+	s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, dualSlots, "null"))
+
+	if n := count(); n != 1 {
+		t.Errorf("request events = %d, want 1", n)
+	}
+}

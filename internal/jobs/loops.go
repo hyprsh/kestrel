@@ -20,6 +20,8 @@ const (
 	Search = "search"
 	// Prune deletes routine events older than 30 days, once a day.
 	Prune = "prune"
+	// RSS reads every indexer's feed and grabs what the library wants from it.
+	RSS = "rss"
 )
 
 // Cadences. missingRetry and missingFailed are placeholders until the sweep
@@ -28,6 +30,7 @@ const (
 	pollBusy      = 10 * time.Second
 	pollIdle      = 5 * time.Minute
 	searchEvery   = 5 * time.Minute
+	rssEvery      = 15 * time.Minute
 	missingRetry  = 6 * time.Hour
 	missingFailed = 15 * time.Minute
 	pruneEvery    = 24 * time.Hour
@@ -37,6 +40,7 @@ const (
 type Acquirer interface {
 	Poll(ctx context.Context) (acquire.PollResult, error)
 	SearchWanted(ctx context.Context, titleID int64, versionIDs []int64) (acquire.Outcome, error)
+	SyncRSS(ctx context.Context) (acquire.RSSOutcome, error)
 }
 
 // Library is what the loops need of the library module.
@@ -98,6 +102,21 @@ func Standard(d Deps) *Runner {
 			Every: func() time.Duration { return pruneEvery },
 		})
 	}
+
+	r.Add(Loop{
+		Name: RSS,
+		Run: func(ctx context.Context) error {
+			out, err := d.Acquire.SyncRSS(ctx)
+			for _, f := range out.Failures {
+				r.log.Warn("an indexer's RSS feed could not be read", "indexer", f.IndexerName, "code", f.Code, "err", f.Message)
+			}
+			if len(out.Grabbed) > 0 {
+				r.Kick(Poll)
+			}
+			return err
+		},
+		Every: func() time.Duration { return rssEvery },
+	})
 	return r
 }
 

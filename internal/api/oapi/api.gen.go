@@ -268,6 +268,69 @@ func (e ReleaseDateEntryType) Valid() bool {
 	}
 }
 
+// Defines values for RequestOutcome.
+const (
+	Accepted RequestOutcome = "accepted"
+	Rejected RequestOutcome = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the RequestOutcome enum.
+func (e RequestOutcome) Valid() bool {
+	switch e {
+	case Accepted:
+		return true
+	case Rejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RequestRejectReason.
+const (
+	NoEnabledProfile RequestRejectReason = "no_enabled_profile"
+	NotOnTvdb        RequestRejectReason = "not_on_tvdb"
+	UnknownTitle     RequestRejectReason = "unknown_title"
+)
+
+// Valid indicates whether the value is a known member of the RequestRejectReason enum.
+func (e RequestRejectReason) Valid() bool {
+	switch e {
+	case NoEnabledProfile:
+		return true
+	case NotOnTvdb:
+		return true
+	case UnknownTitle:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RequestSlotStatus.
+const (
+	RequestSlotStatusCompleted   RequestSlotStatus = "completed"
+	RequestSlotStatusDownloading RequestSlotStatus = "downloading"
+	RequestSlotStatusFailed      RequestSlotStatus = "failed"
+	RequestSlotStatusQueued      RequestSlotStatus = "queued"
+)
+
+// Valid indicates whether the value is a known member of the RequestSlotStatus enum.
+func (e RequestSlotStatus) Valid() bool {
+	switch e {
+	case RequestSlotStatusCompleted:
+		return true
+	case RequestSlotStatusDownloading:
+		return true
+	case RequestSlotStatusFailed:
+		return true
+	case RequestSlotStatusQueued:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SeriesMonitor.
 const (
 	SeriesMonitorAll    SeriesMonitor = "all"
@@ -945,6 +1008,115 @@ type ReleaseSearch struct {
 	Season     *int     `json:"season,omitempty"`
 }
 
+// Request defines model for Request.
+type Request struct {
+	CreatedAt    time.Time            `json:"created_at"`
+	Id           int64                `json:"id"`
+	Outcome      RequestOutcome       `json:"outcome"`
+	RejectReason *RequestRejectReason `json:"reject_reason"`
+	Requester    Requester            `json:"requester"`
+
+	// Seasons The seasons asked for; empty for a Movie or the whole Series.
+	Seasons         []int         `json:"seasons"`
+	Slots           []RequestSlot `json:"slots"`
+	Source          string        `json:"source"`
+	SourceRequestId string        `json:"source_request_id"`
+	TitleId         *int64        `json:"title_id"`
+}
+
+// RequestOutcome defines model for Request.Outcome.
+type RequestOutcome string
+
+// RequestRejectReason defines model for Request.RejectReason.
+type RequestRejectReason string
+
+// RequestCreate defines model for RequestCreate.
+type RequestCreate struct {
+	Requester Requester `json:"requester"`
+
+	// Seasons Series only; `null` or left out asks for the whole Series.
+	Seasons *[]int              `json:"seasons,omitempty"`
+	Slots   []RequestSlotCreate `json:"slots"`
+
+	// Source Example: silo
+	Source string `json:"source"`
+
+	// SourceRequestId The source's own id; the key that makes a retry idempotent.
+	SourceRequestId string `json:"source_request_id"`
+
+	// Title The Title asked for. Kestrel needs `tmdb_id`, or a `tvdb_id` of a Series already in the Library.
+	Title RequestTitle `json:"title"`
+}
+
+// RequestDownload defines model for RequestDownload.
+type RequestDownload struct {
+	BytesLeft int64 `json:"bytes_left"`
+
+	// Eta Seconds.
+	Eta *int `json:"eta"`
+
+	// Phase `queued`, `downloading`, `paused`, `post_processing` or `importing`.
+	Phase string `json:"phase"`
+}
+
+// RequestList defines model for RequestList.
+type RequestList struct {
+	Items      []Request `json:"items"`
+	NextCursor *string   `json:"next_cursor"`
+}
+
+// RequestOrigin Who asked for a Title and from where, for "Requested by Anna via Silo".
+type RequestOrigin struct {
+	CreatedAt     time.Time `json:"created_at"`
+	Id            int64     `json:"id"`
+	RequesterName string    `json:"requester_name"`
+	Source        string    `json:"source"`
+}
+
+// RequestSlot defines model for RequestSlot.
+type RequestSlot struct {
+	Download *RequestDownload `json:"download"`
+
+	// Profile The Version's Profile; `null` for a rejected Request that never resolved one.
+	Profile *string `json:"profile"`
+	Slot    Slot    `json:"slot"`
+
+	// Status Derived on every read. `failed` only when Kestrel rejected the Request or the Version or Title
+	// was removed later; a failed download never shows as failed (it is blocklisted and retried).
+	Status RequestSlotStatus `json:"status"`
+
+	// StatusLabel `Not released yet` or `Searching` while queued.
+	StatusLabel string `json:"status_label"`
+
+	// VersionId `null` when there is no Version: the Request was rejected, or the Version was removed since.
+	VersionId *int64 `json:"version_id"`
+}
+
+// RequestSlotStatus Derived on every read. `failed` only when Kestrel rejected the Request or the Version or Title
+// was removed later; a failed download never shows as failed (it is blocklisted and retried).
+type RequestSlotStatus string
+
+// RequestSlotCreate defines model for RequestSlotCreate.
+type RequestSlotCreate struct {
+	// Profile A Profile key of that Slot; left out, Profile resolution picks one.
+	Profile *string `json:"profile,omitempty"`
+	Slot    Slot    `json:"slot"`
+}
+
+// RequestTitle The Title asked for. Kestrel needs `tmdb_id`, or a `tvdb_id` of a Series already in the Library.
+type RequestTitle struct {
+	ImdbId *string   `json:"imdb_id,omitempty"`
+	Kind   TitleKind `json:"kind"`
+	TmdbId *int      `json:"tmdb_id,omitempty"`
+	TvdbId *int      `json:"tvdb_id,omitempty"`
+}
+
+// Requester defines model for Requester.
+type Requester struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
 // ReverseProxy defines model for ReverseProxy.
 type ReverseProxy struct {
 	Enabled bool `json:"enabled"`
@@ -1157,7 +1329,10 @@ type TitleDetail struct {
 
 	// ReleaseDates Every dated release TMDB lists, in any country.
 	ReleaseDates []ReleaseDateEntry `json:"release_dates"`
-	RootFolder   string             `json:"root_folder"`
+
+	// Requests The Requests that asked for this Title, oldest first.
+	Requests   []RequestOrigin `json:"requests"`
+	RootFolder string          `json:"root_folder"`
 
 	// Runtime Minutes.
 	Runtime *int `json:"runtime"`
@@ -1282,6 +1457,15 @@ type TestPluginInstanceJSONBody struct {
 	Config *PluginConfigPatch `json:"config,omitempty"`
 }
 
+// ListRequestsParams defines parameters for ListRequests.
+type ListRequestsParams struct {
+	Source  *string  `form:"source,omitempty" json:"source,omitempty"`
+	TitleId *int64   `form:"title_id,omitempty" json:"title_id,omitempty"`
+	Id      *[]int64 `form:"id,omitempty" json:"id,omitempty"`
+	Limit   *int     `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor  *string  `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // ListTitlesParams defines parameters for ListTitles.
 type ListTitlesParams struct {
 	Kind   *TitleKind `form:"kind,omitempty" json:"kind,omitempty"`
@@ -1319,6 +1503,9 @@ type ListPluginOptionsJSONRequestBody = PluginForm
 
 // PatchProfileJSONRequestBody defines body for PatchProfile for application/json ContentType.
 type PatchProfileJSONRequestBody = ProfilePatch
+
+// CreateRequestJSONRequestBody defines body for CreateRequest for application/json ContentType.
+type CreateRequestJSONRequestBody = RequestCreate
 
 // PatchSettingsJSONRequestBody defines body for PatchSettings for application/json ContentType.
 type PatchSettingsJSONRequestBody = SettingsPatch
@@ -1418,6 +1605,15 @@ type ServerInterface interface {
 	// ListQueue Downloading now
 	// (GET /queue)
 	ListQueue(w http.ResponseWriter, r *http.Request)
+	// ListRequests Requests, newest first, or the named ones
+	// (GET /requests)
+	ListRequests(w http.ResponseWriter, r *http.Request, params ListRequestsParams)
+	// CreateRequest Ask Kestrel for a Title in one or more Slots
+	// (POST /requests)
+	CreateRequest(w http.ResponseWriter, r *http.Request)
+	// GetRequest One Request with its current per-Slot status
+	// (GET /requests/{id})
+	GetRequest(w http.ResponseWriter, r *http.Request, id int64)
 	// GetSettings App settings
 	// (GET /settings)
 	GetSettings(w http.ResponseWriter, r *http.Request)
@@ -1968,6 +2164,131 @@ func (siw *ServerInterfaceWrapper) ListQueue(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListQueue(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRequests operation middleware
+func (siw *ServerInterfaceWrapper) ListRequests(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListRequestsParams
+
+	// ------------- Optional query parameter "source" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "source", r.URL.Query(), &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "source"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "source", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "title_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "title_id", r.URL.Query(), &params.TitleId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "title_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "title_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "id", r.URL.Query(), &params.Id, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRequests(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateRequest operation middleware
+func (siw *ServerInterfaceWrapper) CreateRequest(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateRequest(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRequest operation middleware
+func (siw *ServerInterfaceWrapper) GetRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRequest(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2533,6 +2854,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs/{id}/cancel", wrapper.CancelGrab)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/queue", wrapper.ListQueue)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/stream", wrapper.Stream)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/requests", wrapper.ListRequests)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/requests", wrapper.CreateRequest)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/requests/{id}", wrapper.GetRequest)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugins", wrapper.ListPlugins)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/plugins/{plugin_id}/options/{field}", wrapper.ListPluginOptions)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugin-instances", wrapper.ListPluginInstances)
@@ -3902,6 +4226,199 @@ func (response ListQueuedefaultApplicationProblemPlusJSONResponse) VisitListQueu
 	return err
 }
 
+type ListRequestsRequestObject struct {
+	Params ListRequestsParams
+}
+
+type ListRequestsResponseObject interface {
+	VisitListRequestsResponse(w http.ResponseWriter) error
+}
+
+type ListRequests200JSONResponse RequestList
+
+func (response ListRequests200JSONResponse) VisitListRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRequests422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListRequests422ApplicationProblemPlusJSONResponse) VisitListRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRequestsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListRequestsdefaultApplicationProblemPlusJSONResponse) VisitListRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRequestRequestObject struct {
+	Body *CreateRequestJSONRequestBody
+}
+
+type CreateRequestResponseObject interface {
+	VisitCreateRequestResponse(w http.ResponseWriter) error
+}
+
+type CreateRequest200JSONResponse Request
+
+func (response CreateRequest200JSONResponse) VisitCreateRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRequest201JSONResponse Request
+
+func (response CreateRequest201JSONResponse) VisitCreateRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRequest422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateRequest422ApplicationProblemPlusJSONResponse) VisitCreateRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRequest502ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateRequest502ApplicationProblemPlusJSONResponse) VisitCreateRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRequestdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateRequestdefaultApplicationProblemPlusJSONResponse) VisitCreateRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRequestRequestObject struct {
+	Id int64 `json:"id"`
+}
+
+type GetRequestResponseObject interface {
+	VisitGetRequestResponse(w http.ResponseWriter) error
+}
+
+type GetRequest200JSONResponse Request
+
+func (response GetRequest200JSONResponse) VisitGetRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRequest404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetRequest404ApplicationProblemPlusJSONResponse) VisitGetRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRequestdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetRequestdefaultApplicationProblemPlusJSONResponse) VisitGetRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetSettingsRequestObject struct {
 }
 
@@ -4309,23 +4826,6 @@ func (response Stream200TexteventStreamResponse) VisitStreamResponse(w http.Resp
 			return err
 		}
 	}
-}
-
-type StreamdefaultApplicationProblemPlusJSONResponse struct {
-	Body       Problem
-	StatusCode int
-}
-
-func (response StreamdefaultApplicationProblemPlusJSONResponse) VisitStreamResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(response.StatusCode)
-	_, err := buf.WriteTo(w)
-	return err
 }
 
 type GetSystemRequestObject struct {
@@ -5046,6 +5546,15 @@ type StrictServerInterface interface {
 	// ListQueue Downloading now
 	// (GET /queue)
 	ListQueue(ctx context.Context, request ListQueueRequestObject) (ListQueueResponseObject, error)
+	// ListRequests Requests, newest first, or the named ones
+	// (GET /requests)
+	ListRequests(ctx context.Context, request ListRequestsRequestObject) (ListRequestsResponseObject, error)
+	// CreateRequest Ask Kestrel for a Title in one or more Slots
+	// (POST /requests)
+	CreateRequest(ctx context.Context, request CreateRequestRequestObject) (CreateRequestResponseObject, error)
+	// GetRequest One Request with its current per-Slot status
+	// (GET /requests/{id})
+	GetRequest(ctx context.Context, request GetRequestRequestObject) (GetRequestResponseObject, error)
 	// GetSettings App settings
 	// (GET /settings)
 	GetSettings(ctx context.Context, request GetSettingsRequestObject) (GetSettingsResponseObject, error)
@@ -5808,6 +6317,89 @@ func (sh *strictHandler) ListQueue(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListQueueResponseObject); ok {
 		if err := validResponse.VisitListQueueResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListRequests operation middleware
+func (sh *strictHandler) ListRequests(w http.ResponseWriter, r *http.Request, params ListRequestsParams) {
+	var request ListRequestsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRequests(ctx, request.(ListRequestsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRequests")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListRequestsResponseObject); ok {
+		if err := validResponse.VisitListRequestsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateRequest operation middleware
+func (sh *strictHandler) CreateRequest(w http.ResponseWriter, r *http.Request) {
+	var request CreateRequestRequestObject
+
+	var body CreateRequestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateRequest(ctx, request.(CreateRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateRequestResponseObject); ok {
+		if err := validResponse.VisitCreateRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetRequest operation middleware
+func (sh *strictHandler) GetRequest(w http.ResponseWriter, r *http.Request, id int64) {
+	var request GetRequestRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRequest(ctx, request.(GetRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetRequestResponseObject); ok {
+		if err := validResponse.VisitGetRequestResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
