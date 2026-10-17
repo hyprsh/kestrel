@@ -5,7 +5,9 @@ import { Button } from '../forms'
 import { useKey, useListNav } from '../keys'
 import { cx, Kbd } from '../ui'
 import { KindIcon, SlotDots } from './bits'
-import { TitleDetail } from './TitleDetail'
+import { ManualSearch } from './ManualSearch'
+import { slotLabel } from './bits'
+import { TitleDetail, type ManualSearchTarget } from './TitleDetail'
 
 type Kind = 'all' | 'movie' | 'series'
 const kinds: { key: Kind; label: string }[] = [
@@ -38,14 +40,21 @@ export function Library({ selectedId, onSelect, onAdd }: { selectedId: number | 
   const rows = useMemo(() => all.filter((r) => (kind === 'all' || r.kind === kind) && matches(r, text)), [all, kind, text])
   const index = Math.max(0, rows.findIndex((r) => r.id === selectedId)) // the first row until something is picked
   const current = rows[index] as TitleRow | undefined
+  // A manual search replaces the detail pane; picking another Title in the list closes it.
+  const [search, setSearch] = useState<(ManualSearchTarget & { titleId: number }) | null>(null)
+  const searching = search !== null && search.titleId === current?.id
 
   const focusList = () => listRef.current?.focus()
   useEffect(focusList, [])
-  useListNav('lib', rows.length, index, (i) => onSelect(rows[i].id), () => paneRef.current?.focus())
-  useKey('/', (e) => {
-    e.preventDefault()
-    filterRef.current?.focus()
-  })
+  useListNav('lib', rows.length, index, (i) => onSelect(rows[i].id), () => paneRef.current?.focus(), !searching)
+  useKey(
+    '/',
+    (e) => {
+      e.preventDefault()
+      filterRef.current?.focus()
+    },
+    !searching,
+  )
 
   const empty = titles.isSuccess && all.length === 0
   return (
@@ -146,8 +155,20 @@ export function Library({ selectedId, onSelect, onAdd }: { selectedId: number | 
         </footer>
       </aside>
 
-      {current ? (
-        <TitleDetail key={current.id} ref={paneRef} row={current} onEscape={focusList} />
+      {current && searching ? (
+        <ManualSearch
+          key={search.versionId}
+          titleName={current.title}
+          slotLabel={slotLabel[search.slot]}
+          profileName={search.profileName}
+          versionId={search.versionId}
+          onBack={() => {
+            setSearch(null)
+            requestAnimationFrame(() => paneRef.current?.focus())
+          }}
+        />
+      ) : current ? (
+        <TitleDetail key={current.id} ref={paneRef} row={current} onEscape={focusList} onManualSearch={(s) => setSearch({ ...s, titleId: current.id })} />
       ) : (
         <div className="flex flex-1 items-center justify-center text-center">
           {titles.isError ? (
