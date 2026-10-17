@@ -125,7 +125,7 @@ describe('the Library detail pane', () => {
     const hd = within(pane).getByRole('group', { name: 'HD' })
     const uhd = within(pane).getByRole('group', { name: 'UHD' })
     expect(sd).toHaveTextContent('No Version')
-    expect(hd).toHaveTextContent('Kids')
+    expect(await within(hd).findByText('Kids')).toBeInTheDocument() // the Profile's name arrives with GET /profiles
     expect(hd).toHaveTextContent('Wanted')
     expect(uhd).toHaveTextContent('UHD')
     expect(uhd).toHaveTextContent('Filled')
