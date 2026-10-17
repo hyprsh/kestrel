@@ -10,6 +10,17 @@ import (
 	"database/sql"
 )
 
+const findTitleByTVDB = `-- name: FindTitleByTVDB :one
+SELECT id FROM titles WHERE kind = 'series' AND tvdb_id = ?
+`
+
+func (q *Queries) FindTitleByTVDB(ctx context.Context, tvdbID sql.NullInt64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, findTitleByTVDB, tvdbID)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const findTitlesByTMDB = `-- name: FindTitlesByTMDB :many
 SELECT id, tmdb_id FROM titles WHERE kind = ? AND tmdb_id IS NOT NULL
 `
@@ -95,6 +106,33 @@ func (q *Queries) InsertAlias(ctx context.Context, arg InsertAliasParams) error 
 	return err
 }
 
+const insertEpisode = `-- name: InsertEpisode :exec
+INSERT INTO episodes (title_id, season, number, tvdb_id, name, air_date, monitored) VALUES (?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertEpisodeParams struct {
+	TitleID   int64
+	Season    int64
+	Number    int64
+	TvdbID    sql.NullInt64
+	Name      string
+	AirDate   sql.NullString
+	Monitored int64
+}
+
+func (q *Queries) InsertEpisode(ctx context.Context, arg InsertEpisodeParams) error {
+	_, err := q.db.ExecContext(ctx, insertEpisode,
+		arg.TitleID,
+		arg.Season,
+		arg.Number,
+		arg.TvdbID,
+		arg.Name,
+		arg.AirDate,
+		arg.Monitored,
+	)
+	return err
+}
+
 const insertReleaseDate = `-- name: InsertReleaseDate :exec
 INSERT INTO title_release_dates (title_id, country, type, date, certification) VALUES (?, ?, ?, ?, ?)
 `
@@ -136,6 +174,21 @@ func (q *Queries) InsertSearchState(ctx context.Context, arg InsertSearchStatePa
 		arg.NextMissingAt,
 		arg.NextUpgradeAt,
 	)
+	return err
+}
+
+const insertSeason = `-- name: InsertSeason :exec
+INSERT INTO seasons (title_id, number, monitored) VALUES (?, ?, ?)
+`
+
+type InsertSeasonParams struct {
+	TitleID   int64
+	Number    int64
+	Monitored int64
+}
+
+func (q *Queries) InsertSeason(ctx context.Context, arg InsertSeasonParams) error {
+	_, err := q.db.ExecContext(ctx, insertSeason, arg.TitleID, arg.Number, arg.Monitored)
 	return err
 }
 
@@ -312,6 +365,145 @@ func (q *Queries) ListAllReleaseDates(ctx context.Context) ([]TitleReleaseDate, 
 	return items, nil
 }
 
+const listEpisodes = `-- name: ListEpisodes :many
+SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored FROM episodes ORDER BY title_id, season, number
+`
+
+func (q *Queries) ListEpisodes(ctx context.Context) ([]Episode, error) {
+	rows, err := q.db.QueryContext(ctx, listEpisodes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Episode
+	for rows.Next() {
+		var i Episode
+		if err := rows.Scan(
+			&i.ID,
+			&i.TitleID,
+			&i.Season,
+			&i.Number,
+			&i.TvdbID,
+			&i.Name,
+			&i.AirDate,
+			&i.Monitored,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEpisodesOfTitle = `-- name: ListEpisodesOfTitle :many
+SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored FROM episodes WHERE title_id = ? ORDER BY season, number
+`
+
+func (q *Queries) ListEpisodesOfTitle(ctx context.Context, titleID int64) ([]Episode, error) {
+	rows, err := q.db.QueryContext(ctx, listEpisodesOfTitle, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Episode
+	for rows.Next() {
+		var i Episode
+		if err := rows.Scan(
+			&i.ID,
+			&i.TitleID,
+			&i.Season,
+			&i.Number,
+			&i.TvdbID,
+			&i.Name,
+			&i.AirDate,
+			&i.Monitored,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFileEpisodes = `-- name: ListFileEpisodes :many
+SELECT f.version_id, fe.episode_id, f.score FROM file_episodes fe JOIN files f ON f.id = fe.file_id
+`
+
+type ListFileEpisodesRow struct {
+	VersionID int64
+	EpisodeID int64
+	Score     sql.NullInt64
+}
+
+func (q *Queries) ListFileEpisodes(ctx context.Context) ([]ListFileEpisodesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFileEpisodes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFileEpisodesRow
+	for rows.Next() {
+		var i ListFileEpisodesRow
+		if err := rows.Scan(&i.VersionID, &i.EpisodeID, &i.Score); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFileEpisodesOfTitle = `-- name: ListFileEpisodesOfTitle :many
+SELECT f.version_id, fe.episode_id, f.score
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id WHERE v.title_id = ?
+`
+
+type ListFileEpisodesOfTitleRow struct {
+	VersionID int64
+	EpisodeID int64
+	Score     sql.NullInt64
+}
+
+func (q *Queries) ListFileEpisodesOfTitle(ctx context.Context, titleID int64) ([]ListFileEpisodesOfTitleRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFileEpisodesOfTitle, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFileEpisodesOfTitleRow
+	for rows.Next() {
+		var i ListFileEpisodesOfTitleRow
+		if err := rows.Scan(&i.VersionID, &i.EpisodeID, &i.Score); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFiles = `-- name: ListFiles :many
 SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files
 `
@@ -409,6 +601,33 @@ func (q *Queries) ListReleaseDatesOfTitle(ctx context.Context, titleID int64) ([
 			&i.Date,
 			&i.Certification,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSeasonsOfTitle = `-- name: ListSeasonsOfTitle :many
+SELECT title_id, number, monitored FROM seasons WHERE title_id = ? ORDER BY number
+`
+
+func (q *Queries) ListSeasonsOfTitle(ctx context.Context, titleID int64) ([]Season, error) {
+	rows, err := q.db.QueryContext(ctx, listSeasonsOfTitle, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Season
+	for rows.Next() {
+		var i Season
+		if err := rows.Scan(&i.TitleID, &i.Number, &i.Monitored); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -534,4 +753,73 @@ func (q *Queries) ListVersionsOfTitle(ctx context.Context, titleID int64) ([]Ver
 		return nil, err
 	}
 	return items, nil
+}
+
+const refreshSeasonsMonitored = `-- name: RefreshSeasonsMonitored :exec
+UPDATE seasons SET monitored = EXISTS (
+    SELECT 1 FROM episodes e WHERE e.title_id = seasons.title_id AND e.season = seasons.number AND e.monitored = 1
+) WHERE seasons.title_id = ?
+`
+
+func (q *Queries) RefreshSeasonsMonitored(ctx context.Context, titleID int64) error {
+	_, err := q.db.ExecContext(ctx, refreshSeasonsMonitored, titleID)
+	return err
+}
+
+const setEpisodeMonitored = `-- name: SetEpisodeMonitored :exec
+UPDATE episodes SET monitored = ? WHERE id = ?
+`
+
+type SetEpisodeMonitoredParams struct {
+	Monitored int64
+	ID        int64
+}
+
+func (q *Queries) SetEpisodeMonitored(ctx context.Context, arg SetEpisodeMonitoredParams) error {
+	_, err := q.db.ExecContext(ctx, setEpisodeMonitored, arg.Monitored, arg.ID)
+	return err
+}
+
+const setSeasonEpisodesMonitored = `-- name: SetSeasonEpisodesMonitored :exec
+UPDATE episodes SET monitored = ? WHERE title_id = ? AND season = ?
+`
+
+type SetSeasonEpisodesMonitoredParams struct {
+	Monitored int64
+	TitleID   int64
+	Season    int64
+}
+
+func (q *Queries) SetSeasonEpisodesMonitored(ctx context.Context, arg SetSeasonEpisodesMonitoredParams) error {
+	_, err := q.db.ExecContext(ctx, setSeasonEpisodesMonitored, arg.Monitored, arg.TitleID, arg.Season)
+	return err
+}
+
+const setSeasonMonitored = `-- name: SetSeasonMonitored :exec
+UPDATE seasons SET monitored = ? WHERE title_id = ? AND number = ?
+`
+
+type SetSeasonMonitoredParams struct {
+	Monitored int64
+	TitleID   int64
+	Number    int64
+}
+
+func (q *Queries) SetSeasonMonitored(ctx context.Context, arg SetSeasonMonitoredParams) error {
+	_, err := q.db.ExecContext(ctx, setSeasonMonitored, arg.Monitored, arg.TitleID, arg.Number)
+	return err
+}
+
+const setSeriesMonitor = `-- name: SetSeriesMonitor :exec
+UPDATE titles SET series_monitor = ? WHERE id = ? AND kind = 'series'
+`
+
+type SetSeriesMonitorParams struct {
+	SeriesMonitor sql.NullString
+	ID            int64
+}
+
+func (q *Queries) SetSeriesMonitor(ctx context.Context, arg SetSeriesMonitorParams) error {
+	_, err := q.db.ExecContext(ctx, setSeriesMonitor, arg.SeriesMonitor, arg.ID)
+	return err
 }

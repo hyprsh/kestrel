@@ -67,6 +67,9 @@ func NewTMDB(o TMDBOptions) *TMDB {
 type Provider interface {
 	Search(ctx context.Context, query string) ([]SearchResult, error)
 	Movie(ctx context.Context, id int) (MovieDetails, error)
+	Series(ctx context.Context, id int) (SeriesDetails, error)
+	// SeriesExternalIDs is the cheap TMDB-to-TheTVDB bridge call used per search result.
+	SeriesExternalIDs(ctx context.Context, id int) (ExternalIDs, error)
 	// ImageURL is the URL of a poster at a TMDB size such as "w92".
 	ImageURL(posterPath, size string) string
 }
