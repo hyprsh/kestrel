@@ -11,10 +11,12 @@ import {
 } from '../api/queries'
 import { Button, ErrorText, Field, TextInput } from '../forms'
 import { DownloadClient } from '../plugins/DownloadClient'
+import { Indexers } from '../plugins/Indexers'
 
 /** Settings sections, in page order. Later tickets add theirs here. */
 const sections = [
   { id: 'download-client', title: 'Download client' },
+  { id: 'indexers', title: 'Indexers' },
   { id: 'account', title: 'Account' },
   { id: 'security', title: 'Security' },
 ]
@@ -39,6 +41,9 @@ export function Settings() {
           <Row label="Connection" help="Where Kestrel sends NZBs and reads their progress. Test the connection to pick the categories from SABnzbd's own list.">
             <DownloadClient />
           </Row>
+        </Group>
+        <Group id="indexers" title="Indexers">
+          <Indexers />
         </Group>
         <Group id="account" title="Account">
           <ChangePassword />
