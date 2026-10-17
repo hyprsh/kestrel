@@ -1,0 +1,263 @@
+{
+  "fixture": "NormalizeSeriesTitleFixture",
+  "cases": [
+    {
+      "method": "should_normalize_series_title",
+      "args": [
+        "Series",
+        "series"
+      ]
+    },
+    {
+      "method": "should_normalize_series_title",
+      "args": [
+        "Series (2009)",
+        "series2009"
+      ]
+    },
+    {
+      "method": "should_normalize_series_title",
+      "args": [
+        "Series.2010",
+        "series2010"
+      ]
+    },
+    {
+      "method": "should_normalize_series_title",
+      "args": [
+        "Series_and_Title_Sonarr",
+        "seriestitlesonarr"
+      ]
+    },
+    {
+      "method": "should_remove_special_characters_and_casing",
+      "args": [
+        "CaPitAl",
+        "capital"
+      ]
+    },
+    {
+      "method": "should_remove_special_characters_and_casing",
+      "args": [
+        "peri.od",
+        "period"
+      ]
+    },
+    {
+      "method": "should_remove_special_characters_and_casing",
+      "args": [
+        "this.^\u0026%^**$%@#$!That",
+        "thisthat"
+      ]
+    },
+    {
+      "method": "should_remove_special_characters_and_casing",
+      "args": [
+        "test/test",
+        "testtest"
+      ]
+    },
+    {
+      "method": "should_remove_special_characters_and_casing",
+      "args": [
+        "90210",
+        "90210"
+      ]
+    },
+    {
+      "method": "should_remove_special_characters_and_casing",
+      "args": [
+        "24",
+        "24"
+      ]
+    },
+    {
+      "method": "should_remove_special_characters_and_casing",
+      "args": [
+        "Test: Something à Deux",
+        "testsomethingdeux"
+      ]
+    },
+    {
+      "method": "should_remove_special_characters_and_casing",
+      "args": [
+        "Parler à",
+        "parlera"
+      ]
+    },
+    {
+      "method": "should_remove_common_words_from_middle_of_title",
+      "args": [
+        "the"
+      ]
+    },
+    {
+      "method": "should_remove_common_words_from_middle_of_title",
+      "args": [
+        "and"
+      ]
+    },
+    {
+      "method": "should_remove_common_words_from_middle_of_title",
+      "args": [
+        "or"
+      ]
+    },
+    {
+      "method": "should_remove_common_words_from_middle_of_title",
+      "args": [
+        "an"
+      ]
+    },
+    {
+      "method": "should_remove_common_words_from_middle_of_title",
+      "args": [
+        "of"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_from_end_of_title",
+      "args": [
+        "the"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_from_end_of_title",
+      "args": [
+        "and"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_from_end_of_title",
+      "args": [
+        "or"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_from_end_of_title",
+      "args": [
+        "an"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_from_end_of_title",
+      "args": [
+        "of"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_in_the_middle_of_word",
+      "args": [
+        "the"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_in_the_middle_of_word",
+      "args": [
+        "and"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_in_the_middle_of_word",
+      "args": [
+        "or"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_in_the_middle_of_word",
+      "args": [
+        "a"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_in_the_middle_of_word",
+      "args": [
+        "an"
+      ]
+    },
+    {
+      "method": "should_not_remove_common_words_in_the_middle_of_word",
+      "args": [
+        "of"
+      ]
+    },
+    {
+      "method": "should_not_remove_from_the_beginning_of_the_title",
+      "args": [
+        "The Series",
+        "theseries"
+      ]
+    },
+    {
+      "method": "should_not_remove_from_the_beginning_of_the_title",
+      "args": [
+        "The Series Show With Sonarr Dev",
+        "theseriesshowwithsonarrdev"
+      ]
+    },
+    {
+      "method": "should_not_remove_from_the_beginning_of_the_title",
+      "args": [
+        "The.Series.Show",
+        "theseriesshow"
+      ]
+    },
+    {
+      "method": "should_not_clean_word_from_beginning_of_string",
+      "args": [
+        "the"
+      ]
+    },
+    {
+      "method": "should_not_clean_word_from_beginning_of_string",
+      "args": [
+        "and"
+      ]
+    },
+    {
+      "method": "should_not_clean_word_from_beginning_of_string",
+      "args": [
+        "or"
+      ]
+    },
+    {
+      "method": "should_not_clean_word_from_beginning_of_string",
+      "args": [
+        "a"
+      ]
+    },
+    {
+      "method": "should_not_clean_word_from_beginning_of_string",
+      "args": [
+        "an"
+      ]
+    },
+    {
+      "method": "should_not_clean_word_from_beginning_of_string",
+      "args": [
+        "of"
+      ]
+    },
+    {
+      "method": "should_replace_percent_sign_with_percent_following_numbers",
+      "args": [
+        "3%",
+        "3percent"
+      ]
+    },
+    {
+      "method": "should_replace_percent_sign_with_percent_following_numbers",
+      "args": [
+        "Series Top \u0026 100% Coding Developers",
+        "seriestop100percentcodingdevelopers"
+      ]
+    },
+    {
+      "method": "should_replace_percent_sign_with_percent_following_numbers",
+      "args": [
+        "Series Title What's Your F@%king Deal?!",
+        "seriestitlewhatsyourfkingdeal"
+      ]
+    }
+  ]
+}
