@@ -1,0 +1,13 @@
+{
+  "data": {
+    "series": {"id": 81189, "name": "Breaking Bad"},
+    "episodes": [
+      {"id": 349235, "seriesId": 81189, "name": "Seven Thirty-Seven", "aired": "2009-03-08", "number": 1, "seasonNumber": 2},
+      {"id": 349236, "seriesId": 81189, "name": "Grilled", "aired": "2009-03-15", "number": 2, "seasonNumber": 2},
+      {"id": 349237, "seriesId": 81189, "name": "Bit by a Dead Bee", "aired": null, "number": 3, "seasonNumber": 2},
+      {"id": 349238, "seriesId": 81189, "name": "Green Light", "aired": "2099-01-01", "number": 1, "seasonNumber": 3}
+    ]
+  },
+  "links": {"prev": "https://api4.thetvdb.com/v4/series/81189/episodes/official?page=0", "self": "https://api4.thetvdb.com/v4/series/81189/episodes/official?page=1", "next": null},
+  "status": "success"
+}

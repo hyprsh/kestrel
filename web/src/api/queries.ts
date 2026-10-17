@@ -358,6 +358,49 @@ export function useCreateTitle() {
   })
 }
 
+// ---- Library: Series monitoring and the episode heat map ----
+
+export type Episode = components['schemas']['Episode']
+export type SeriesMonitor = components['schemas']['SeriesMonitor']
+
+/** A Series' episodes with one cell per Version. */
+export function useEpisodes(titleId: number, enabled = true) {
+  return useQuery({
+    queryKey: ['titles', titleId, 'episodes'],
+    enabled,
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/titles/{id}/episodes', { params: { path: { id: titleId } } })
+      if (!data) throw failure(error, response)
+      return data.items
+    },
+  })
+}
+
+/** Runs a monitoring change on a Series, then reloads it, its episodes and the list. */
+function useSeriesMutation<V>(run: (v: V) => Promise<{ error?: unknown; response: Response }>) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: V) => {
+      const { error, response } = await run(v)
+      if (!response.ok) throw failure(error, response)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['titles'] }),
+  })
+}
+
+export const usePatchSeason = (titleId: number) =>
+  useSeriesMutation(({ season, monitored }: { season: number; monitored: boolean }) =>
+    api.PATCH('/titles/{id}/seasons/{season}', { params: { path: { id: titleId, season } }, body: { monitored } }),
+  )
+
+export const useMonitorEpisodes = (titleId: number) =>
+  useSeriesMutation(({ ids, monitored }: { ids: number[]; monitored: boolean }) =>
+    api.POST('/titles/{id}/episodes/monitor', { params: { path: { id: titleId } }, body: { episode_ids: ids, monitored } }),
+  )
+
+export const useSetSeriesMonitor = (titleId: number) =>
+  useSeriesMutation((mode: SeriesMonitor) => api.PATCH('/titles/{id}', { params: { path: { id: titleId } }, body: { series_monitor: mode } }))
+
 // ---- setup progress ----
 
 export type Setup = components['schemas']['Setup']

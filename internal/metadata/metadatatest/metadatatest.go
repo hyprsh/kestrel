@@ -6,9 +6,11 @@ package metadatatest
 
 import (
 	"embed"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -39,6 +41,10 @@ func New(t testing.TB) *Server {
 			s.file(w, "search_multi.json", http.StatusOK)
 			return
 		}
+		if strings.Contains(strings.ToLower(r.URL.Query().Get("query")), "breaking") {
+			s.file(w, "search_tv.json", http.StatusOK)
+			return
+		}
 		_, _ = w.Write([]byte(`{"page":1,"results":[],"total_pages":0,"total_results":0}`))
 	}))
 	mux.HandleFunc("GET /3/movie/{id}", s.handle(func(w http.ResponseWriter, r *http.Request) {
@@ -48,6 +54,29 @@ func New(t testing.TB) *Server {
 			return
 		}
 		s.file(w, name, http.StatusOK)
+	}))
+	mux.HandleFunc("GET /3/tv/{id}", s.handle(func(w http.ResponseWriter, r *http.Request) {
+		name := "tv_" + r.PathValue("id") + ".json"
+		if _, err := fixtures.ReadFile("testdata/" + name); err != nil {
+			s.file(w, "not_found.json", http.StatusNotFound)
+			return
+		}
+		s.file(w, name, http.StatusOK)
+	}))
+	mux.HandleFunc("GET /3/tv/{id}/external_ids", s.handle(func(w http.ResponseWriter, r *http.Request) {
+		b, err := fixtures.ReadFile("testdata/tv_" + r.PathValue("id") + ".json")
+		if err != nil {
+			s.file(w, "not_found.json", http.StatusNotFound)
+			return
+		}
+		var doc struct {
+			ID          int             `json:"id"`
+			ExternalIDs json.RawMessage `json:"external_ids"`
+		}
+		_ = json.Unmarshal(b, &doc)
+		w.Header().Set("Content-Type", "application/json;charset=utf-8")
+		out := `{"id":` + strconv.Itoa(doc.ID) + `,`
+		_, _ = w.Write([]byte(out + strings.TrimPrefix(strings.TrimSpace(string(doc.ExternalIDs)), "{")))
 	}))
 	mux.HandleFunc("GET /t/p/{size}/{file}", func(w http.ResponseWriter, r *http.Request) {
 		s.record(r)

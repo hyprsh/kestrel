@@ -321,8 +321,9 @@ export interface paths {
         /**
          * Search the metadata provider for Titles to add
          * @description One TMDB search across both kinds, in English, newest relevance first. Results already in the
-         *     Library carry their Title id in `in_library`. Only Movies can be added so far, so Series
-         *     results are left out until Series can be added.
+         *     Library carry their Title id in `in_library`. A Series needs a TheTVDB id (from TMDB's external
+         *     ids, else a TheTVDB remote-id search by IMDb id); one without is `addable: false` with
+         *     `not_addable_reason: not_on_tvdb`, and `POST /titles` refuses it.
          *     `502 upstream_unavailable` means TMDB could not be reached or refused the key.
          */
         get: operations["lookup"];
@@ -379,7 +380,8 @@ export interface paths {
          * @description Fetches the Title from the metadata provider and adds it with the named Versions, each Wanted.
          *     `root_folder` must be one of the configured Root folders for the kind; left out, it is the
          *     first. `409 conflict` when the Title is already in the Library (the existing id is in
-         *     `detail`). Only Movies can be added so far.
+         *     `detail`). A Series takes `series_monitor` (default `all`); one TheTVDB does not have is refused
+         *     with a `422` whose field error is `tmdb_id` / `not_on_tvdb`.
          */
         post: operations["createTitle"];
         delete?: never;
@@ -404,7 +406,76 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
+        /**
+         * Change a Series' monitoring mode
+         * @description Applies the mode to every episode and season now (Specials are never monitored by a mode).
+         *     `422` for a Movie.
+         */
+        patch: operations["patchTitle"];
+        trace?: never;
+    };
+    "/titles/{id}/episodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A Series' episodes with one cell per Version, for the heat map
+         * @description In aired order, Specials first. `404` for a Movie.
+         */
+        get: operations["listEpisodes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/titles/{id}/episodes/monitor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Monitor or unmonitor episodes
+         * @description Every id must be an episode of this Series, else `404` and nothing changes. Seasons follow their episodes.
+         */
+        post: operations["monitorEpisodes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/titles/{id}/seasons/{season}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+                season: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Monitor or unmonitor a season and all its episodes */
+        patch: operations["patchSeason"];
         trace?: never;
     };
     "/titles/{id}/poster": {
@@ -984,6 +1055,58 @@ export interface components {
             tmdb_id: number;
             versions: components["schemas"]["VersionRef"][];
             root_folder?: string | null;
+            /** @description Series only; defaults to `all`. */
+            series_monitor?: components["schemas"]["SeriesMonitor"] | null;
+        };
+        /**
+         * @description `all` monitors every episode, future ones and new seasons included; `future` the episodes airing
+         *     today or later or without an air date, and new seasons; `none` nothing. Specials (season 0) are
+         *     never monitored automatically.
+         * @enum {string}
+         */
+        SeriesMonitor: "all" | "future" | "none";
+        Season: {
+            /** @description 0 is Specials. */
+            number: number;
+            monitored: boolean;
+        };
+        EpisodeCell: {
+            state: components["schemas"]["SlotState"];
+            /** @description The Score of the file holding the episode, when there is one. */
+            score: number | null;
+        };
+        Episode: {
+            /** Format: int64 */
+            id: number;
+            season: number;
+            number: number;
+            name: string;
+            /**
+             * Format: date
+             * @description The TheTVDB air date.
+             */
+            air_date: string | null;
+            monitored: boolean;
+            /** @description One cell per Slot, `null` where the Title has no Version. */
+            cells: {
+                sd: components["schemas"]["EpisodeCell"] | null;
+                hd: components["schemas"]["EpisodeCell"] | null;
+                uhd: components["schemas"]["EpisodeCell"] | null;
+            };
+        };
+        EpisodeList: {
+            items: components["schemas"]["Episode"][];
+        };
+        /** @description Merge patch. Only Series have a `series_monitor`. */
+        TitlePatch: {
+            series_monitor?: components["schemas"]["SeriesMonitor"];
+        };
+        SeasonPatch: {
+            monitored: boolean;
+        };
+        EpisodesMonitor: {
+            episode_ids: number[];
+            monitored: boolean;
         };
         SlotSummary: {
             /** Format: int64 */
@@ -1159,6 +1282,10 @@ export interface components {
             certification: string | null;
             /** @description Every dated release TMDB lists, in any country. */
             release_dates: components["schemas"]["ReleaseDateEntry"][];
+            /** @description `null` for a Movie. */
+            series_monitor: components["schemas"]["SeriesMonitor"] | null;
+            /** @description A Series' seasons in order, Specials (0) first; empty for a Movie. */
+            seasons: components["schemas"]["Season"][];
             /** @description In Slot order. */
             versions: components["schemas"]["VersionDetail"][];
         };
@@ -1740,6 +1867,114 @@ export interface operations {
                 };
             };
             404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    patchTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TitlePatch"];
+            };
+        };
+        responses: {
+            /** @description The Title. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleDetail"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listEpisodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The episodes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeList"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    monitorEpisodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EpisodesMonitor"];
+            };
+        };
+        responses: {
+            /** @description Done. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    patchSeason: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+                season: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeasonPatch"];
+            };
+        };
+        responses: {
+            /** @description Done. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

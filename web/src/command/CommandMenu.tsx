@@ -82,6 +82,7 @@ export function CommandMenu({
           <span className="flex items-center gap-1.5">
             {r.in_library !== null && <Badge tone="green">In library</Badge>}
             {!r.addable && r.not_addable_reason === 'not_on_tvdb' && <Badge tone="amber">Not on TheTVDB</Badge>}
+            {!r.addable && r.not_addable_reason === 'tvdb_unavailable' && <Badge tone="amber">TheTVDB unreachable</Badge>}
             <Badge>{r.kind === 'series' ? 'Series' : 'Movie'}</Badge>
           </span>
         ),

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for GrabState.
@@ -222,6 +223,27 @@ func (e ReleaseDateEntryType) Valid() bool {
 	}
 }
 
+// Defines values for SeriesMonitor.
+const (
+	SeriesMonitorAll    SeriesMonitor = "all"
+	SeriesMonitorFuture SeriesMonitor = "future"
+	SeriesMonitorNone   SeriesMonitor = "none"
+)
+
+// Valid indicates whether the value is a known member of the SeriesMonitor enum.
+func (e SeriesMonitor) Valid() bool {
+	switch e {
+	case SeriesMonitorAll:
+		return true
+	case SeriesMonitorFuture:
+		return true
+	case SeriesMonitorNone:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SettingsKidsRuleThreshold.
 const (
 	N0  SettingsKidsRuleThreshold = 0
@@ -401,6 +423,45 @@ type Credentials struct {
 type CustomFormatMatch struct {
 	Name   string `json:"name"`
 	Points int    `json:"points"`
+}
+
+// Episode defines model for Episode.
+type Episode struct {
+	// AirDate The TheTVDB air date.
+	AirDate *openapi_types.Date `json:"air_date"`
+
+	// Cells One cell per Slot, `null` where the Title has no Version.
+	Cells struct {
+		Hd  *EpisodeCell `json:"hd"`
+		Sd  *EpisodeCell `json:"sd"`
+		Uhd *EpisodeCell `json:"uhd"`
+	} `json:"cells"`
+	Id        int64  `json:"id"`
+	Monitored bool   `json:"monitored"`
+	Name      string `json:"name"`
+	Number    int    `json:"number"`
+	Season    int    `json:"season"`
+}
+
+// EpisodeCell defines model for EpisodeCell.
+type EpisodeCell struct {
+	// Score The Score of the file holding the episode, when there is one.
+	Score *int `json:"score"`
+
+	// State `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
+	// Clients tolerate new values.
+	State SlotState `json:"state"`
+}
+
+// EpisodeList defines model for EpisodeList.
+type EpisodeList struct {
+	Items []Episode `json:"items"`
+}
+
+// EpisodesMonitor defines model for EpisodesMonitor.
+type EpisodesMonitor struct {
+	EpisodeIds []int64 `json:"episode_ids"`
+	Monitored  bool    `json:"monitored"`
 }
 
 // FileSummary defines model for FileSummary.
@@ -814,6 +875,24 @@ type RootFolders struct {
 	Series []string `json:"series"`
 }
 
+// Season defines model for Season.
+type Season struct {
+	Monitored bool `json:"monitored"`
+
+	// Number 0 is Specials.
+	Number int `json:"number"`
+}
+
+// SeasonPatch defines model for SeasonPatch.
+type SeasonPatch struct {
+	Monitored bool `json:"monitored"`
+}
+
+// SeriesMonitor `all` monitors every episode, future ones and new seasons included; `future` the episodes airing
+// today or later or without an air date, and new seasons; `none` nothing. Specials (season 0) are
+// never monitored automatically.
+type SeriesMonitor string
+
 // Settings defines model for Settings.
 type Settings struct {
 	KidsRule struct {
@@ -932,10 +1011,13 @@ type System struct {
 
 // TitleCreate defines model for TitleCreate.
 type TitleCreate struct {
-	Kind       TitleKind    `json:"kind"`
-	RootFolder *string      `json:"root_folder,omitempty"`
-	TmdbId     int          `json:"tmdb_id"`
-	Versions   []VersionRef `json:"versions"`
+	Kind       TitleKind `json:"kind"`
+	RootFolder *string   `json:"root_folder,omitempty"`
+
+	// SeriesMonitor Series only; defaults to `all`.
+	SeriesMonitor *SeriesMonitor `json:"series_monitor,omitempty"`
+	TmdbId        int            `json:"tmdb_id"`
+	Versions      []VersionRef   `json:"versions"`
 }
 
 // TitleDetail defines model for TitleDetail.
@@ -968,10 +1050,16 @@ type TitleDetail struct {
 	RootFolder   string             `json:"root_folder"`
 
 	// Runtime Minutes.
-	Runtime *int   `json:"runtime"`
-	Title   string `json:"title"`
-	TmdbId  *int   `json:"tmdb_id"`
-	TvdbId  *int   `json:"tvdb_id"`
+	Runtime *int `json:"runtime"`
+
+	// Seasons A Series' seasons in order, Specials (0) first; empty for a Movie.
+	Seasons []Season `json:"seasons"`
+
+	// SeriesMonitor `null` for a Movie.
+	SeriesMonitor *SeriesMonitor `json:"series_monitor"`
+	Title         string         `json:"title"`
+	TmdbId        *int           `json:"tmdb_id"`
+	TvdbId        *int           `json:"tvdb_id"`
 
 	// Versions In Slot order.
 	Versions []VersionDetail `json:"versions"`
@@ -985,6 +1073,14 @@ type TitleKind string
 type TitleList struct {
 	Items      []TitleRow `json:"items"`
 	NextCursor *string    `json:"next_cursor"`
+}
+
+// TitlePatch Merge patch. Only Series have a `series_monitor`.
+type TitlePatch struct {
+	// SeriesMonitor `all` monitors every episode, future ones and new seasons included; `future` the episodes airing
+	// today or later or without an air date, and new seasons; `none` nothing. Specials (season 0) are
+	// never monitored automatically.
+	SeriesMonitor *SeriesMonitor `json:"series_monitor,omitempty"`
 }
 
 // TitleRow defines model for TitleRow.
@@ -1123,6 +1219,15 @@ type CreateAccountJSONRequestBody = Credentials
 // CreateTitleJSONRequestBody defines body for CreateTitle for application/json ContentType.
 type CreateTitleJSONRequestBody = TitleCreate
 
+// PatchTitleJSONRequestBody defines body for PatchTitle for application/json ContentType.
+type PatchTitleJSONRequestBody = TitlePatch
+
+// MonitorEpisodesJSONRequestBody defines body for MonitorEpisodes for application/json ContentType.
+type MonitorEpisodesJSONRequestBody = EpisodesMonitor
+
+// PatchSeasonJSONRequestBody defines body for PatchSeason for application/json ContentType.
+type PatchSeasonJSONRequestBody = SeasonPatch
+
 // SearchVersionReleasesJSONRequestBody defines body for SearchVersionReleases for application/json ContentType.
 type SearchVersionReleasesJSONRequestBody = ReleaseSearch
 
@@ -1227,9 +1332,21 @@ type ServerInterface interface {
 	// GetTitle One Title with its Versions
 	// (GET /titles/{id})
 	GetTitle(w http.ResponseWriter, r *http.Request, id TitleId)
+	// PatchTitle Change a Series' monitoring mode
+	// (PATCH /titles/{id})
+	PatchTitle(w http.ResponseWriter, r *http.Request, id TitleId)
+	// ListEpisodes A Series' episodes with one cell per Version, for the heat map
+	// (GET /titles/{id}/episodes)
+	ListEpisodes(w http.ResponseWriter, r *http.Request, id TitleId)
+	// MonitorEpisodes Monitor or unmonitor episodes
+	// (POST /titles/{id}/episodes/monitor)
+	MonitorEpisodes(w http.ResponseWriter, r *http.Request, id TitleId)
 	// GetTitlePoster The Title's poster
 	// (GET /titles/{id}/poster)
 	GetTitlePoster(w http.ResponseWriter, r *http.Request, id TitleId)
+	// PatchSeason Monitor or unmonitor a season and all its episodes
+	// (PATCH /titles/{id}/seasons/{season})
+	PatchSeason(w http.ResponseWriter, r *http.Request, id TitleId, season int)
 	// SearchVersionReleases Manual search for a Version
 	// (POST /versions/{id}/releases)
 	SearchVersionReleases(w http.ResponseWriter, r *http.Request, id VersionId)
@@ -1922,6 +2039,84 @@ func (siw *ServerInterfaceWrapper) GetTitle(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r)
 }
 
+// PatchTitle operation middleware
+func (siw *ServerInterfaceWrapper) PatchTitle(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TitleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchTitle(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListEpisodes operation middleware
+func (siw *ServerInterfaceWrapper) ListEpisodes(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TitleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListEpisodes(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// MonitorEpisodes operation middleware
+func (siw *ServerInterfaceWrapper) MonitorEpisodes(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TitleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MonitorEpisodes(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetTitlePoster operation middleware
 func (siw *ServerInterfaceWrapper) GetTitlePoster(w http.ResponseWriter, r *http.Request) {
 
@@ -1939,6 +2134,41 @@ func (siw *ServerInterfaceWrapper) GetTitlePoster(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetTitlePoster(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PatchSeason operation middleware
+func (siw *ServerInterfaceWrapper) PatchSeason(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TitleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "season" -------------
+	var season int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "season", r.PathValue("season"), &season, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "season", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchSeason(w, r, id, season)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2116,6 +2346,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles", wrapper.ListTitles)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles", wrapper.CreateTitle)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/{id}", wrapper.GetTitle)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/titles/{id}", wrapper.PatchTitle)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/{id}/episodes", wrapper.ListEpisodes)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles/{id}/episodes/monitor", wrapper.MonitorEpisodes)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/titles/{id}/seasons/{season}", wrapper.PatchSeason)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/{id}/poster", wrapper.GetTitlePoster)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/versions/{id}/releases", wrapper.SearchVersionReleases)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs", wrapper.CreateGrab)
@@ -3983,6 +4217,195 @@ func (response GetTitledefaultApplicationProblemPlusJSONResponse) VisitGetTitleR
 	return err
 }
 
+type PatchTitleRequestObject struct {
+	Id   TitleId `json:"id"`
+	Body *PatchTitleJSONRequestBody
+}
+
+type PatchTitleResponseObject interface {
+	VisitPatchTitleResponse(w http.ResponseWriter) error
+}
+
+type PatchTitle200JSONResponse TitleDetail
+
+func (response PatchTitle200JSONResponse) VisitPatchTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchTitle404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PatchTitle404ApplicationProblemPlusJSONResponse) VisitPatchTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchTitle422ApplicationProblemPlusJSONResponse Problem
+
+func (response PatchTitle422ApplicationProblemPlusJSONResponse) VisitPatchTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchTitledefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response PatchTitledefaultApplicationProblemPlusJSONResponse) VisitPatchTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEpisodesRequestObject struct {
+	Id TitleId `json:"id"`
+}
+
+type ListEpisodesResponseObject interface {
+	VisitListEpisodesResponse(w http.ResponseWriter) error
+}
+
+type ListEpisodes200JSONResponse EpisodeList
+
+func (response ListEpisodes200JSONResponse) VisitListEpisodesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEpisodes404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListEpisodes404ApplicationProblemPlusJSONResponse) VisitListEpisodesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEpisodesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListEpisodesdefaultApplicationProblemPlusJSONResponse) VisitListEpisodesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MonitorEpisodesRequestObject struct {
+	Id   TitleId `json:"id"`
+	Body *MonitorEpisodesJSONRequestBody
+}
+
+type MonitorEpisodesResponseObject interface {
+	VisitMonitorEpisodesResponse(w http.ResponseWriter) error
+}
+
+type MonitorEpisodes204Response struct {
+}
+
+func (response MonitorEpisodes204Response) VisitMonitorEpisodesResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type MonitorEpisodes404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response MonitorEpisodes404ApplicationProblemPlusJSONResponse) VisitMonitorEpisodesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MonitorEpisodes422ApplicationProblemPlusJSONResponse Problem
+
+func (response MonitorEpisodes422ApplicationProblemPlusJSONResponse) VisitMonitorEpisodesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MonitorEpisodesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response MonitorEpisodesdefaultApplicationProblemPlusJSONResponse) VisitMonitorEpisodesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetTitlePosterRequestObject struct {
 	Id TitleId `json:"id"`
 }
@@ -4047,6 +4470,71 @@ type GetTitlePosterdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetTitlePosterdefaultApplicationProblemPlusJSONResponse) VisitGetTitlePosterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchSeasonRequestObject struct {
+	Id     TitleId `json:"id"`
+	Season int     `json:"season"`
+	Body   *PatchSeasonJSONRequestBody
+}
+
+type PatchSeasonResponseObject interface {
+	VisitPatchSeasonResponse(w http.ResponseWriter) error
+}
+
+type PatchSeason204Response struct {
+}
+
+func (response PatchSeason204Response) VisitPatchSeasonResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PatchSeason404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PatchSeason404ApplicationProblemPlusJSONResponse) VisitPatchSeasonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchSeason422ApplicationProblemPlusJSONResponse Problem
+
+func (response PatchSeason422ApplicationProblemPlusJSONResponse) VisitPatchSeasonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchSeasondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response PatchSeasondefaultApplicationProblemPlusJSONResponse) VisitPatchSeasonResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -4229,9 +4717,21 @@ type StrictServerInterface interface {
 	// GetTitle One Title with its Versions
 	// (GET /titles/{id})
 	GetTitle(ctx context.Context, request GetTitleRequestObject) (GetTitleResponseObject, error)
+	// PatchTitle Change a Series' monitoring mode
+	// (PATCH /titles/{id})
+	PatchTitle(ctx context.Context, request PatchTitleRequestObject) (PatchTitleResponseObject, error)
+	// ListEpisodes A Series' episodes with one cell per Version, for the heat map
+	// (GET /titles/{id}/episodes)
+	ListEpisodes(ctx context.Context, request ListEpisodesRequestObject) (ListEpisodesResponseObject, error)
+	// MonitorEpisodes Monitor or unmonitor episodes
+	// (POST /titles/{id}/episodes/monitor)
+	MonitorEpisodes(ctx context.Context, request MonitorEpisodesRequestObject) (MonitorEpisodesResponseObject, error)
 	// GetTitlePoster The Title's poster
 	// (GET /titles/{id}/poster)
 	GetTitlePoster(ctx context.Context, request GetTitlePosterRequestObject) (GetTitlePosterResponseObject, error)
+	// PatchSeason Monitor or unmonitor a season and all its episodes
+	// (PATCH /titles/{id}/seasons/{season})
+	PatchSeason(ctx context.Context, request PatchSeasonRequestObject) (PatchSeasonResponseObject, error)
 	// SearchVersionReleases Manual search for a Version
 	// (POST /versions/{id}/releases)
 	SearchVersionReleases(ctx context.Context, request SearchVersionReleasesRequestObject) (SearchVersionReleasesResponseObject, error)
@@ -5186,6 +5686,98 @@ func (sh *strictHandler) GetTitle(w http.ResponseWriter, r *http.Request, id Tit
 	}
 }
 
+// PatchTitle operation middleware
+func (sh *strictHandler) PatchTitle(w http.ResponseWriter, r *http.Request, id TitleId) {
+	var request PatchTitleRequestObject
+
+	request.Id = id
+
+	var body PatchTitleJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PatchTitle(ctx, request.(PatchTitleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PatchTitle")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PatchTitleResponseObject); ok {
+		if err := validResponse.VisitPatchTitleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListEpisodes operation middleware
+func (sh *strictHandler) ListEpisodes(w http.ResponseWriter, r *http.Request, id TitleId) {
+	var request ListEpisodesRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListEpisodes(ctx, request.(ListEpisodesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListEpisodes")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListEpisodesResponseObject); ok {
+		if err := validResponse.VisitListEpisodesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// MonitorEpisodes operation middleware
+func (sh *strictHandler) MonitorEpisodes(w http.ResponseWriter, r *http.Request, id TitleId) {
+	var request MonitorEpisodesRequestObject
+
+	request.Id = id
+
+	var body MonitorEpisodesJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.MonitorEpisodes(ctx, request.(MonitorEpisodesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "MonitorEpisodes")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(MonitorEpisodesResponseObject); ok {
+		if err := validResponse.VisitMonitorEpisodesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetTitlePoster operation middleware
 func (sh *strictHandler) GetTitlePoster(w http.ResponseWriter, r *http.Request, id TitleId) {
 	var request GetTitlePosterRequestObject
@@ -5205,6 +5797,40 @@ func (sh *strictHandler) GetTitlePoster(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetTitlePosterResponseObject); ok {
 		if err := validResponse.VisitGetTitlePosterResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PatchSeason operation middleware
+func (sh *strictHandler) PatchSeason(w http.ResponseWriter, r *http.Request, id TitleId, season int) {
+	var request PatchSeasonRequestObject
+
+	request.Id = id
+	request.Season = season
+
+	var body PatchSeasonJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PatchSeason(ctx, request.(PatchSeasonRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PatchSeason")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PatchSeasonResponseObject); ok {
+		if err := validResponse.VisitPatchSeasonResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

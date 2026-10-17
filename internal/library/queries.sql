@@ -52,3 +52,45 @@ SELECT title_id, alias FROM title_aliases;
 
 -- name: FindTitlesByTMDB :many
 SELECT id, tmdb_id FROM titles WHERE kind = ? AND tmdb_id IS NOT NULL;
+
+-- name: FindTitleByTVDB :one
+SELECT id FROM titles WHERE kind = 'series' AND tvdb_id = ?;
+
+-- name: InsertSeason :exec
+INSERT INTO seasons (title_id, number, monitored) VALUES (?, ?, ?);
+
+-- name: InsertEpisode :exec
+INSERT INTO episodes (title_id, season, number, tvdb_id, name, air_date, monitored) VALUES (?, ?, ?, ?, ?, ?, ?);
+
+-- name: ListSeasonsOfTitle :many
+SELECT title_id, number, monitored FROM seasons WHERE title_id = ? ORDER BY number;
+
+-- name: ListEpisodes :many
+SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored FROM episodes ORDER BY title_id, season, number;
+
+-- name: ListEpisodesOfTitle :many
+SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored FROM episodes WHERE title_id = ? ORDER BY season, number;
+
+-- name: ListFileEpisodes :many
+SELECT f.version_id, fe.episode_id, f.score FROM file_episodes fe JOIN files f ON f.id = fe.file_id;
+
+-- name: ListFileEpisodesOfTitle :many
+SELECT f.version_id, fe.episode_id, f.score
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id WHERE v.title_id = ?;
+
+-- name: SetSeriesMonitor :exec
+UPDATE titles SET series_monitor = ? WHERE id = ? AND kind = 'series';
+
+-- name: SetEpisodeMonitored :exec
+UPDATE episodes SET monitored = ? WHERE id = ?;
+
+-- name: SetSeasonEpisodesMonitored :exec
+UPDATE episodes SET monitored = ? WHERE title_id = ? AND season = ?;
+
+-- name: SetSeasonMonitored :exec
+UPDATE seasons SET monitored = ? WHERE title_id = ? AND number = ?;
+
+-- name: RefreshSeasonsMonitored :exec
+UPDATE seasons SET monitored = EXISTS (
+    SELECT 1 FROM episodes e WHERE e.title_id = seasons.title_id AND e.season = seasons.number AND e.monitored = 1
+) WHERE seasons.title_id = ?;

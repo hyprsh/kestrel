@@ -71,6 +71,7 @@ func run(ctx context.Context) error {
 
 			ConfigDir:  cfg.ConfigDir,
 			TMDBAPIKey: cfg.TMDBAPIKey,
+			TVDBAPIKey: cfg.TVDBAPIKey,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

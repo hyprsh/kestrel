@@ -167,6 +167,9 @@ type Detail struct {
 	ReleaseDates     metadata.ReleaseDates
 	Aliases          []Alias
 	Versions         []Version // in Slot order
+	// SeriesMonitor and Seasons are set for a Series.
+	SeriesMonitor Monitor
+	Seasons       []Season
 }
 
 // Service reads and writes the Library.
@@ -317,26 +320,12 @@ func releaseDatesOf(rows []db.TitleReleaseDate) metadata.ReleaseDates {
 }
 
 // stateOf is a Movie Version's state. wantedSince is set when it is Wanted.
-func stateOf(monitored, hasFile bool, rel metadata.ReleaseDates, addedAt time.Time, v View) (st State, wantedSince *time.Time) {
-	switch {
-	case hasFile:
-		return Filled, nil
-	case !monitored:
-		return Unmonitored, nil
+func stateOf(monitored, hasFile bool, rel metadata.ReleaseDates, addedAt time.Time, v View) (State, *time.Time) {
+	u := Unit{Monitored: monitored, HasFile: hasFile, AddedAt: addedAt}
+	if released, ok := rel.Released(v.Country); ok {
+		u.Released = &released
 	}
-	released, ok := rel.Released(v.Country)
-	if !ok || released.After(v.Now) {
-		return Unreleased, nil
-	}
-	since := addedAt
-	if released.After(since) {
-		since = released
-	}
-	return Wanted, &since
-}
-
-func longMissing(st State, since *time.Time, now time.Time) bool {
-	return st == Wanted && since != nil && now.Sub(*since) > LongMissingAfter
+	return StateAt(u, v.Now)
 }
 
 // List returns the Library's Titles, newest first, as compact rows.
@@ -358,6 +347,23 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 	if err != nil {
 		return nil, err
 	}
+	allEps, err := q.ListEpisodes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	fileEps, err := q.ListFileEpisodes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	epsOf := map[int64][]db.Episode{}
+	for _, e := range allEps {
+		epsOf[e.TitleID] = append(epsOf[e.TitleID], e)
+	}
+	var fe []fileEp
+	for _, r := range fileEps {
+		fe = append(fe, fileEp{r.VersionID, r.EpisodeID, r.Score})
+	}
+	heldBy := heldOf(fe)
 	var aliases []db.ListAliasesForSearchRow
 	if f.Text != "" {
 		if aliases, err = q.ListAliasesForSearch(ctx); err != nil {
@@ -398,8 +404,14 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 		rel := releaseDatesOf(datesOf[t.ID])
 		row := Row{ID: t.ID, Kind: Kind(t.Kind), Title: t.Title, PrimaryTitle: t.PrimaryTitle, Year: int(t.Year.Int64), AddedAt: parseTime(t.AddedAt)}
 		for _, v := range byTitle[t.ID] {
-			st, since := stateOf(t.Monitored == 1, hasFile[v.ID], rel, parseTime(v.AddedAt), view)
-			row.Slots[slotOf(v.Slot)] = &SlotState{VersionID: v.ID, Profile: v.ProfileKey, State: st, LongMissing: longMissing(st, since, view.Now)}
+			var st State
+			var since *time.Time
+			if row.Kind == Series {
+				st, since = SeriesState(unitsOf(epsOf[t.ID], heldBy[v.ID], parseTime(v.AddedAt)), view.Now)
+			} else {
+				st, since = stateOf(t.Monitored == 1, hasFile[v.ID], rel, parseTime(v.AddedAt), view)
+			}
+			row.Slots[slotOf(v.Slot)] = &SlotState{VersionID: v.ID, Profile: v.ProfileKey, State: st, LongMissing: IsLongMissing(st, since, view.Now)}
 			if since != nil && (row.WantedSince == nil || since.Before(*row.WantedSince)) {
 				row.WantedSince = since
 			}
@@ -465,11 +477,42 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 		}
 		fileOf[f.VersionID] = fl
 	}
+	var epsOf []db.Episode
+	heldBy := heldMap{}
+	if d.Kind == Series {
+		d.SeriesMonitor = Monitor(t.SeriesMonitor.String)
+		seasons, err := q.ListSeasonsOfTitle(ctx, id)
+		if err != nil {
+			return Detail{}, err
+		}
+		for _, se := range seasons {
+			d.Seasons = append(d.Seasons, Season{Number: int(se.Number), Monitored: se.Monitored == 1})
+		}
+		if epsOf, err = q.ListEpisodesOfTitle(ctx, id); err != nil {
+			return Detail{}, err
+		}
+		fes, err := q.ListFileEpisodesOfTitle(ctx, id)
+		if err != nil {
+			return Detail{}, err
+		}
+		var fe []fileEp
+		for _, r := range fes {
+			fe = append(fe, fileEp{r.VersionID, r.EpisodeID, r.Score})
+		}
+		heldBy = heldOf(fe)
+		fileOf = map[int64]*File{} // a Series Version holds a file per episode; the heat map shows them
+	}
 	for _, v := range versions {
 		fl := fileOf[v.ID]
-		st, since := stateOf(d.Monitored, fl != nil, d.ReleaseDates, parseTime(v.AddedAt), view)
+		var st State
+		var since *time.Time
+		if d.Kind == Series {
+			st, since = SeriesState(unitsOf(epsOf, heldBy[v.ID], parseTime(v.AddedAt)), view.Now)
+		} else {
+			st, since = stateOf(d.Monitored, fl != nil, d.ReleaseDates, parseTime(v.AddedAt), view)
+		}
 		d.Versions = append(d.Versions, Version{
-			ID: v.ID, Slot: slotOf(v.Slot), Profile: v.ProfileKey, State: st, LongMissing: longMissing(st, since, view.Now),
+			ID: v.ID, Slot: slotOf(v.Slot), Profile: v.ProfileKey, State: st, LongMissing: IsLongMissing(st, since, view.Now),
 			WantedSince: since, File: fl, AddedAt: parseTime(v.AddedAt),
 		})
 	}

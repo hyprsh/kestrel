@@ -55,6 +55,11 @@ type Options struct {
 	ConfigDir string
 	// TMDBAPIKey is KESTREL_TMDB_API_KEY.
 	TMDBAPIKey string
+	// TVDBAPIKey is KESTREL_TVDB_API_KEY.
+	TVDBAPIKey string
+	// TVDB is the TheTVDB client; nil means the real one, with the key chosen by
+	// the same precedence as TMDB's. Tests inject a client pointed at fixtures.
+	TVDB metadata.TVDBProvider
 	// Metadata is the metadata provider; nil means TMDB, with the key chosen by
 	// precedence: UI override, TMDBAPIKey, embedded. Tests inject a client
 	// pointed at recorded fixtures.
@@ -87,7 +92,11 @@ func NewHandler(opts Options) http.Handler {
 	s.library = library.New(opts.Store, opts.Clock)
 	s.meta = opts.Metadata
 	if s.meta == nil {
-		s.meta = metadata.NewTMDB(metadata.TMDBOptions{Keys: metadata.NewKeys(appSettings, opts.TMDBAPIKey)})
+		s.meta = metadata.NewTMDB(metadata.TMDBOptions{Keys: metadata.NewKeys(appSettings, opts.TMDBAPIKey, opts.TVDBAPIKey)})
+	}
+	s.tvdb = opts.TVDB
+	if s.tvdb == nil {
+		s.tvdb = metadata.NewTVDB(metadata.TVDBOptions{Keys: metadata.NewKeys(appSettings, opts.TMDBAPIKey, opts.TVDBAPIKey)})
 	}
 	s.posters = opts.Posters
 	if s.posters == nil {
@@ -146,6 +155,7 @@ type server struct {
 	library     *library.Service
 	acquire     *acquire.Service
 	meta        metadata.Provider
+	tvdb        metadata.TVDBProvider
 	posters     *metadata.Posters
 }
 

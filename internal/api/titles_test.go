@@ -90,6 +90,7 @@ type suggestionJSON struct {
 type library struct {
 	*browser
 	tmdb   *metadatatest.Server
+	tvdb   *metadatatest.TVDBServer
 	config string
 	data   string
 }
@@ -98,13 +99,15 @@ type library struct {
 func newLibraryInstance(t *testing.T, key string) library {
 	t.Helper()
 	tmdb := metadatatest.New(t)
+	tvdb := metadatatest.NewTVDB(t)
 	data, config := t.TempDir(), t.TempDir()
 	in := newInstance(t, "", func(o *api.Options) {
 		o.DataDir, o.ConfigDir = data, config
 		o.Metadata = metadata.NewTMDB(metadata.TMDBOptions{BaseURL: tmdb.APIBase(), ImageBase: tmdb.ImageBase(), Keys: metadata.StaticKey(key)})
+		o.TVDB = metadata.NewTVDB(metadata.TVDBOptions{BaseURL: tvdb.APIBase(), Keys: metadata.StaticTVDBKey(metadatatest.TVDBKey)})
 		o.Posters = metadata.NewPosters(metadata.PostersOptions{ConfigDir: config, ImageBase: tmdb.ImageBase()})
 	})
-	return library{browser: in.setUp(), tmdb: tmdb, config: config, data: data}
+	return library{browser: in.setUp(), tmdb: tmdb, tvdb: tvdb, config: config, data: data}
 }
 
 const addPaddington = `{"kind":"movie","tmdb_id":116149,"versions":[{"slot":"hd","profile":"hd-primary"},{"slot":"uhd","profile":"uhd-primary"}]}`
@@ -164,10 +167,10 @@ func TestThePrimaryLanguageTitleIsStoredWhenTMDBHasATranslation(t *testing.T) {
 	}
 }
 
-func TestLookupSearchesBothKindsButOffersOnlyMoviesForNow(t *testing.T) {
+func TestLookupSearchesBothKinds(t *testing.T) {
 	l := newLibraryInstance(t, metadatatest.Key)
 	got := decode[lookupJSON](t, l.valid("GET", "/lookup?q=paddington", ""))
-	if len(got.Items) != 1 {
+	if len(got.Items) != 2 {
 		t.Fatalf("items = %+v", got.Items)
 	}
 	m := got.Items[0]
@@ -180,8 +183,8 @@ func TestLookupSearchesBothKindsButOffersOnlyMoviesForNow(t *testing.T) {
 	if none := decode[lookupJSON](t, l.valid("GET", "/lookup?q=casablanca", "")); len(none.Items) != 0 {
 		t.Errorf("a miss = %+v", none.Items)
 	}
-	if series := decode[lookupJSON](t, l.valid("GET", "/lookup?q=paddington&kind=series", "")); len(series.Items) != 0 {
-		t.Errorf("series not buildable yet: %+v", series.Items)
+	if series := decode[lookupJSON](t, l.valid("GET", "/lookup?q=paddington&kind=series", "")); len(series.Items) != 1 || series.Items[0].Kind != "series" || series.Items[0].Addable {
+		t.Errorf("the one Series TMDB lists has no TheTVDB id, so it is offered greyed out: %+v", series.Items)
 	}
 	if r := l.do("GET", "/lookup?q=", ""); r.Status != 422 && r.Status != 400 {
 		t.Errorf("empty query = %d %s", r.Status, r.Body)
@@ -192,7 +195,7 @@ func TestLookupMarksTitlesAlreadyInTheLibrary(t *testing.T) {
 	l := newLibraryInstance(t, metadatatest.Key)
 	id := decode[titleJSON](t, l.valid("POST", "/titles", addPaddington)).ID
 
-	got := decode[lookupJSON](t, l.valid("GET", "/lookup?q=paddington", ""))
+	got := decode[lookupJSON](t, l.valid("GET", "/lookup?q=paddington&kind=movie", ""))
 	if len(got.Items) != 1 || got.Items[0].InLibrary == nil || *got.Items[0].InLibrary != id {
 		t.Errorf("items = %+v", got.Items)
 	}
@@ -255,7 +258,6 @@ func TestAddingIsRefusedForBadChoices(t *testing.T) {
 		{"an unknown Profile", body(`[{"slot":"hd","profile":"nope"}]`, ""), "versions[0].profile"},
 		{"a Slot twice", body(`[{"slot":"hd","profile":"hd-primary"},{"slot":"hd","profile":"kids-primary"}]`, ""), "versions[1].slot"},
 		{"a root folder that is not configured", body(`[{"slot":"hd","profile":"hd-primary"}]`, `,"root_folder":"/elsewhere"`), "root_folder"},
-		{"a Series", `{"kind":"series","tmdb_id":61814,"versions":[{"slot":"hd","profile":"hd-primary"}]}`, "kind"},
 	} {
 		r := l.do("POST", "/titles", c.body)
 		if r.Status != 422 || !strings.Contains(r.Body, `"field":"`+c.field+`"`) {

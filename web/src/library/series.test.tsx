@@ -1,0 +1,179 @@
+import { QueryClient } from '@tanstack/react-query'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it } from 'vitest'
+import { App } from '../App'
+import { http } from '../test/handlers'
+import { detail, fakeLibrary, row, type LookupResult, type Sent } from '../test/library'
+import { fakeSeries, seriesRow } from '../test/series'
+import { server } from '../test/server'
+
+const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
+
+const result = (id: number, title: string, over: Partial<LookupResult> = {}): LookupResult => ({
+  kind: 'series',
+  tmdb_id: id,
+  tvdb_id: 1000 + id,
+  title,
+  year: 2008,
+  poster: null,
+  in_library: null,
+  addable: true,
+  not_addable_reason: null,
+  ...over,
+})
+
+function fakeSeriesLookup() {
+  const lib = fakeLibrary([])
+  const sent: Sent[] = []
+  server.use(
+    http.get('/lookup', ({ response }) =>
+      response(200).json({
+        items: [
+          result(1396, 'Breaking Bad'),
+          result(9001, 'Orphan Show', { tvdb_id: null, addable: false, not_addable_reason: 'not_on_tvdb' }),
+        ],
+        next_cursor: null,
+      }),
+    ),
+    http.get('/lookup/{kind}/{tmdb_id}', ({ params, response }) =>
+      response(200).json({
+        kind: 'series',
+        tmdb_id: Number(params.tmdb_id),
+        title: 'Breaking Bad',
+        year: 2008,
+        overview: '',
+        in_library: null,
+        certification: 'TV-MA',
+        certification_country: 'US',
+        slots: [{ slot: 'hd', profile: 'hd-primary', label: 'HD', reason: 'default' }],
+      }),
+    ),
+    http.post('/titles', async ({ request, response }) => {
+      const body = await request.json()
+      sent.push({ path: 'titles', body })
+      const added = seriesRow(8, 'Breaking Bad')
+      lib.rows = [added, ...lib.rows]
+      return response(201).json(detail(added, { kind: 'series', series_monitor: 'future' }))
+    }),
+  )
+  return { sent }
+}
+
+async function searchBreaking() {
+  await screen.findByRole('navigation')
+  await userEvent.keyboard('{Control>}k{/Control}')
+  const menu = await screen.findByRole('dialog', { name: /command menu/i })
+  await userEvent.keyboard('break')
+  await userEvent.click(await within(menu).findByRole('option', { name: /add "break"/i }))
+  return menu
+}
+
+describe('adding a Series from the command menu', () => {
+  it('greys out a Series that is not on TheTVDB, says why and cannot add it', async () => {
+    const f = fakeSeriesLookup()
+    renderApp()
+    const menu = await searchBreaking()
+
+    const orphan = await within(menu).findByRole('option', { name: /orphan show/i })
+    expect(orphan).toHaveAttribute('aria-disabled', 'true')
+    expect(orphan).toHaveTextContent('Not on TheTVDB')
+    await userEvent.click(orphan)
+    expect(within(menu).queryByText(/^Add Orphan Show/)).not.toBeInTheDocument()
+    expect(f.sent).toHaveLength(0)
+
+    // Arrow to it and press Enter: still nothing.
+    await userEvent.keyboard('{ArrowDown}{Enter}')
+    expect(within(menu).queryByRole('button', { name: /^add/i })).not.toBeInTheDocument()
+  })
+
+  it('adds a Series with a monitoring mode chosen in the panel', async () => {
+    const f = fakeSeriesLookup()
+    renderApp()
+    const menu = await searchBreaking()
+    await userEvent.click(await within(menu).findByRole('option', { name: /breaking bad/i }))
+
+    await within(menu).findByText(/Preselected/)
+    expect(within(menu).getByRole('combobox', { name: 'Monitor' })).toHaveValue('all')
+    await userEvent.selectOptions(within(menu).getByRole('combobox', { name: 'Monitor' }), 'future')
+    await userEvent.click(within(menu).getByRole('button', { name: /^add/i }))
+
+    await waitFor(() => expect(f.sent).toHaveLength(1))
+    expect(f.sent[0].body).toEqual({ kind: 'series', tmdb_id: 1396, versions: [{ slot: 'hd', profile: 'hd-primary' }], series_monitor: 'future' })
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+})
+
+async function openSeries() {
+  const state = fakeSeries()
+  renderApp()
+  await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+  const grid = await screen.findByRole('grid', { name: 'Episodes' })
+  return { state, grid }
+}
+
+describe('the episodes heat map', () => {
+  it('shows a row per episode and a cell per Slot with a Version', async () => {
+    const { grid } = await openSeries()
+    expect(within(grid).getByRole('checkbox', { name: 'Specials' })).toBeInTheDocument()
+    expect(within(grid).getByRole('checkbox', { name: 'Season 1' })).toBeChecked()
+    expect(within(grid).getByRole('img', { name: 'Season 1 episode 1 HD: Filled' })).toBeInTheDocument()
+    expect(within(grid).getByRole('img', { name: 'Season 1 episode 1 UHD: Wanted' })).toBeInTheDocument()
+    expect(within(grid).getByRole('img', { name: 'Season 1 episode 2 HD: Unreleased' })).toBeInTheDocument()
+    expect(within(grid).queryByRole('img', { name: /SD:/ })).not.toBeInTheDocument()
+    expect(within(grid).getByRole('checkbox', { name: 'Season 0 episode 1 monitored' })).not.toBeChecked()
+    expect(within(grid).getByText('no air date')).toBeInTheDocument()
+  })
+
+  it('is operated entirely from the keyboard: arrows move, Space toggles an episode or a season', async () => {
+    const { state, grid } = await openSeries()
+    await userEvent.tab() // the Monitor select
+    await userEvent.tab() // the grid's one tab stop
+    const specials = within(grid).getByRole('checkbox', { name: 'Specials' })
+    expect(specials).toHaveFocus()
+
+    await userEvent.keyboard('{ArrowDown}')
+    expect(within(grid).getByRole('checkbox', { name: 'Season 0 episode 1 monitored' })).toHaveFocus()
+    await userEvent.keyboard(' ')
+    await waitFor(() => expect(state.get().sent).toHaveLength(1))
+    expect(state.get().sent[0]).toEqual({ path: 'episodes/monitor', body: { episode_ids: [1], monitored: true } })
+    await waitFor(() => expect(within(grid).getByRole('checkbox', { name: 'Season 0 episode 1 monitored' })).toBeChecked())
+
+    // Right moves along the row onto the HD cell; Space there toggles the same episode.
+    await userEvent.keyboard('{ArrowRight}')
+    expect(within(grid).getByRole('img', { name: 'Season 0 episode 1 HD: Unmonitored' })).toHaveFocus()
+
+    // Down to the Season 1 row; Space unmonitors the whole season.
+    await userEvent.keyboard('{ArrowLeft}{ArrowDown}')
+    expect(within(grid).getByRole('checkbox', { name: 'Season 1' })).toHaveFocus()
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(state.get().sent).toHaveLength(2))
+    expect(state.get().sent[1]).toEqual({ path: 'seasons/1', body: { monitored: false } })
+    await waitFor(() => expect(within(grid).getByRole('checkbox', { name: 'Season 1 episode 1 monitored' })).not.toBeChecked())
+
+    // The keys stayed inside the grid: the Library selection did not move.
+    expect(screen.getByRole('option', { name: /breaking bad/i, selected: true })).toBeInTheDocument()
+
+    await userEvent.keyboard('{End}')
+    expect(within(grid).getByRole('checkbox', { name: 'Season 1 episode 2 monitored' })).toHaveFocus()
+    await userEvent.keyboard('{Home}')
+    expect(within(grid).getByRole('checkbox', { name: 'Specials' })).toHaveFocus()
+  })
+
+  it('changes the monitoring mode from the detail pane', async () => {
+    const { state } = await openSeries()
+    const mode = await screen.findByRole('combobox', { name: 'Monitor' })
+    expect(mode).toHaveValue('all')
+    await userEvent.selectOptions(mode, 'none')
+    await waitFor(() => expect(state.get().sent).toEqual([{ path: 'titles', body: { series_monitor: 'none' } }]))
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Monitor' })).toHaveValue('none'))
+  })
+
+  it('is not shown for a Movie', async () => {
+    fakeLibrary([row(1, 'Heat', 'Heat')])
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    await screen.findByRole('heading', { name: 'Heat' })
+    expect(screen.queryByRole('grid', { name: 'Episodes' })).not.toBeInTheDocument()
+  })
+})
