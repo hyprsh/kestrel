@@ -243,6 +243,55 @@ func (q *Queries) InsertGrab(ctx context.Context, arg InsertGrabParams) (Grab, e
 	return i, err
 }
 
+const insertGrabEpisode = `-- name: InsertGrabEpisode :exec
+INSERT INTO grab_episodes (grab_id, episode_id) VALUES (?, ?)
+`
+
+type InsertGrabEpisodeParams struct {
+	GrabID    int64
+	EpisodeID int64
+}
+
+func (q *Queries) InsertGrabEpisode(ctx context.Context, arg InsertGrabEpisodeParams) error {
+	_, err := q.db.ExecContext(ctx, insertGrabEpisode, arg.GrabID, arg.EpisodeID)
+	return err
+}
+
+const listActiveGrabEpisodes = `-- name: ListActiveGrabEpisodes :many
+SELECT g.version_id, ge.episode_id
+FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
+WHERE g.state IN ('sent', 'downloading', 'completed', 'importing') AND g.stalled_since IS NULL
+`
+
+type ListActiveGrabEpisodesRow struct {
+	VersionID sql.NullInt64
+	EpisodeID int64
+}
+
+// The episodes the active Grabs are fetching, per Version.
+func (q *Queries) ListActiveGrabEpisodes(ctx context.Context) ([]ListActiveGrabEpisodesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listActiveGrabEpisodes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActiveGrabEpisodesRow
+	for rows.Next() {
+		var i ListActiveGrabEpisodesRow
+		if err := rows.Scan(&i.VersionID, &i.EpisodeID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listActiveGrabs = `-- name: ListActiveGrabs :many
 SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at FROM grabs WHERE state IN ('sent', 'downloading', 'completed', 'importing') AND stalled_since IS NULL ORDER BY id
 `
