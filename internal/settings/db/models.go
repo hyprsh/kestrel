@@ -4,6 +4,16 @@
 
 package db
 
+type PluginInstance struct {
+	ID       int64
+	Contract string
+	PluginID string
+	Name     string
+	Enabled  int64
+	Priority int64
+	Config   string
+}
+
 type Session struct {
 	ID        string
 	CreatedAt int64

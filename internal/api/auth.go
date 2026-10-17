@@ -20,6 +20,7 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/api/db"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
+	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
 )
@@ -224,7 +225,11 @@ func (s *server) GetSetup(ctx context.Context, _ oapi.GetSetupRequestObject) (oa
 	out.AccountExists = exists
 	out.Sections.Account = state(exists)
 	out.Sections.Language = oapi.Todo
-	out.Sections.DownloadClient = oapi.Todo
+	clients, err := s.plugins.Enabled(ctx, downloadclient.Contract.ID)
+	if err != nil {
+		return nil, err
+	}
+	out.Sections.DownloadClient = state(len(clients) > 0)
 	out.Sections.Indexer = oapi.Todo
 	out.Sections.RootFolders = oapi.Todo
 	out.Sections.Profiles = oapi.Todo

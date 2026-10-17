@@ -189,7 +189,227 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /plugins:
+    get:
+      operationId: listPlugins
+      summary: The built-in plugins and their config schemas
+      description: |
+        One manifest per compiled-in plugin, any contract. The UI draws each plugin's form from
+        `fields`, so a new adapter needs no UI change.
+      tags: [plugins]
+      responses:
+        "200":
+          description: Every plugin manifest, ordered by contract then id.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PluginList"
+        default:
+          $ref: "#/components/responses/Problem"
+  /plugins/{plugin_id}/options/{field}:
+    post:
+      operationId: listPluginOptions
+      summary: Live choices for a config field
+      description: |
+        Asks the plugin for the current values of a `live` field (SABnzbd's categories) using the
+        form as it stands. `config` is merged over the stored instance when `instance_id` is given,
+        so a saved secret need not be sent again. The config is not validated as a whole, because the
+        form may be half filled. A plugin failure is `502 upstream_unavailable`.
+      tags: [plugins]
+      parameters:
+        - $ref: "#/components/parameters/PluginId"
+        - name: field
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PluginForm"
+      responses:
+        "200":
+          description: The choices.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PluginOptionList"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "502":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /plugin-instances:
+    get:
+      operationId: listPluginInstances
+      summary: Configured plugin instances
+      tags: [plugins]
+      responses:
+        "200":
+          description: Every instance of every contract. Secrets are never included.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PluginInstanceList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createPluginInstance
+      summary: Configure a plugin instance
+      description: |
+        Absent config fields take the manifest default. Secret fields are accepted here and never
+        returned: `secrets_set` lists which are set. Enabling an instance beyond its contract's cap
+        (one enabled download client in v1) is a `validation` error on `enabled`.
+      tags: [plugins]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PluginInstanceCreate"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PluginInstance"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /plugin-instances/test:
+    post:
+      operationId: testPluginConfig
+      summary: Test an unsaved plugin config
+      description: |
+        Runs the plugin's live test with the given config. A failing test is still `200` with
+        `ok: false` and the plugin's error `code`; only a malformed config is `422`.
+      tags: [plugins]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PluginTestRequest"
+      responses:
+        "200":
+          description: The test outcome.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PluginTestResult"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /plugin-instances/{id}:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+    get:
+      operationId: getPluginInstance
+      summary: One plugin instance
+      tags: [plugins]
+      responses:
+        "200":
+          description: The instance. Secrets are never included.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PluginInstance"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    patch:
+      operationId: updatePluginInstance
+      summary: Change a plugin instance
+      description: |
+        `config` merges key by key. A secret that is omitted stays as it is, a string replaces it
+        and `null` clears it; clearing any other field returns it to its default.
+      tags: [plugins]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PluginInstancePatch"
+      responses:
+        "200":
+          description: The updated instance.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PluginInstance"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deletePluginInstance
+      summary: Remove a plugin instance
+      tags: [plugins]
+      responses:
+        "204":
+          description: Removed.
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /plugin-instances/{id}/test:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+    post:
+      operationId: testPluginInstance
+      summary: Test a saved plugin instance
+      description: |
+        Like the unsaved test, with the stored config (secrets included) underneath the optional
+        `config` edits, so a form can be tested before it is saved without retyping the secret.
+      tags: [plugins]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                config:
+                  $ref: "#/components/schemas/PluginConfigPatch"
+      responses:
+        "200":
+          description: The test outcome.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PluginTestResult"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
+  parameters:
+    PluginId:
+      name: plugin_id
+      in: path
+      required: true
+      schema:
+        type: string
+    InstanceId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
   headers:
     SetCookie:
       description: The `kestrel_session` cookie (HttpOnly, SameSite=Lax, Path from KESTREL_BASE_URL).
@@ -271,6 +491,191 @@ components:
     SetupSectionState:
       type: string
       enum: [done, todo]
+    PluginConfigPatch:
+      type: object
+      description: |
+        Plugin settings by manifest field key. Secret fields are write-only: they are accepted
+        here and never returned. In a patch, `null` clears a field.
+      additionalProperties: true
+    PluginOption:
+      type: object
+      required: [value, label]
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+    PluginField:
+      type: object
+      required: [key, label, type, required, default, help, options, live]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        type:
+          type: string
+          enum: [text, url, secret, int, bool, select]
+        required:
+          type: boolean
+        default:
+          nullable: true
+          description: The value used when the field is absent, or `null`.
+        help:
+          type: string
+        options:
+          type: array
+          description: The fixed choices of a `select` field.
+          items:
+            $ref: "#/components/schemas/PluginOption"
+        live:
+          type: boolean
+          description: |
+            Choices come from `POST /plugins/{plugin_id}/options/{field}` once the connection works.
+            Until then the field is free text.
+    PluginManifest:
+      type: object
+      required: [id, name, contract, version, capabilities, fields]
+      properties:
+        id:
+          type: string
+          example: sabnzbd
+        name:
+          type: string
+        contract:
+          type: string
+          description: The versioned plugin contract, e.g. `download_client.v1`.
+          example: download_client.v1
+        version:
+          type: string
+        capabilities:
+          type: object
+          description: "Contract-specific facts, e.g. protocols: [usenet]."
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/PluginField"
+    PluginList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PluginManifest"
+        next_cursor:
+          type: string
+          nullable: true
+    PluginOptionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PluginOption"
+    PluginForm:
+      type: object
+      required: [config]
+      properties:
+        config:
+          $ref: "#/components/schemas/PluginConfigPatch"
+        instance_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: A saved instance whose stored config, secrets included, lies under `config`.
+    PluginInstance:
+      type: object
+      required: [id, contract, plugin_id, name, enabled, priority, config, secrets_set]
+      properties:
+        id:
+          type: integer
+          format: int64
+        contract:
+          type: string
+        plugin_id:
+          type: string
+        name:
+          type: string
+        enabled:
+          type: boolean
+        priority:
+          type: integer
+        config:
+          type: object
+          description: Every non-secret manifest field, `null` for none.
+          additionalProperties: true
+        secrets_set:
+          type: array
+          description: Keys of the secret fields that have a value. The values are never returned.
+          items:
+            type: string
+    PluginInstanceList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PluginInstance"
+        next_cursor:
+          type: string
+          nullable: true
+    PluginInstanceCreate:
+      type: object
+      required: [plugin_id, name, config]
+      properties:
+        plugin_id:
+          type: string
+        name:
+          type: string
+          minLength: 1
+        enabled:
+          type: boolean
+          default: true
+        priority:
+          type: integer
+          default: 0
+        config:
+          $ref: "#/components/schemas/PluginConfigPatch"
+    PluginInstancePatch:
+      type: object
+      properties:
+        name:
+          type: string
+        enabled:
+          type: boolean
+        priority:
+          type: integer
+        config:
+          $ref: "#/components/schemas/PluginConfigPatch"
+    PluginTestRequest:
+      type: object
+      required: [plugin_id, config]
+      properties:
+        plugin_id:
+          type: string
+        config:
+          $ref: "#/components/schemas/PluginConfigPatch"
+    PluginTestResult:
+      type: object
+      required: [ok, code, message]
+      properties:
+        ok:
+          type: boolean
+        code:
+          type: string
+          nullable: true
+          description: |
+            Why the test failed, `null` when it passed: `auth`, `unavailable`, `rate_limited`,
+            `invalid` or `not_found`. Clients tolerate new values.
+        message:
+          type: string
     Problem:
       type: object
       description: RFC 9457 problem details.

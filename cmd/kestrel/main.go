@@ -47,6 +47,11 @@ func run(ctx context.Context) error {
 	defer st.Close()
 	go api.RunSessionPruner(ctx, st, 24*time.Hour, logger)
 
+	plugins, err := builtinPlugins()
+	if err != nil {
+		return err
+	}
+
 	srv := &http.Server{
 		Addr: net.JoinHostPort("", strconv.Itoa(cfg.Port)),
 		Handler: api.NewHandler(api.Options{
@@ -55,6 +60,7 @@ func run(ctx context.Context) error {
 			Store:   st,
 			Web:     web.FS(),
 			Logger:  logger,
+			Plugins: plugins,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

@@ -9,8 +9,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
+
+	"github.com/oapi-codegen/runtime"
 )
 
 // Defines values for MeMethod.
@@ -28,6 +32,36 @@ func (e MeMethod) Valid() bool {
 	case Proxy:
 		return true
 	case Session:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PluginFieldType.
+const (
+	Bool   PluginFieldType = "bool"
+	Int    PluginFieldType = "int"
+	Secret PluginFieldType = "secret"
+	Select PluginFieldType = "select"
+	Text   PluginFieldType = "text"
+	Url    PluginFieldType = "url"
+)
+
+// Valid indicates whether the value is a known member of the PluginFieldType enum.
+func (e PluginFieldType) Valid() bool {
+	switch e {
+	case Bool:
+		return true
+	case Int:
+		return true
+	case Secret:
+		return true
+	case Select:
+		return true
+	case Text:
+		return true
+	case Url:
 		return true
 	default:
 		return false
@@ -70,6 +104,134 @@ type Me struct {
 
 // MeMethod How this request was authenticated.
 type MeMethod string
+
+// PluginConfigPatch Plugin settings by manifest field key. Secret fields are write-only: they are accepted
+// here and never returned. In a patch, `null` clears a field.
+type PluginConfigPatch map[string]interface{}
+
+// PluginField defines model for PluginField.
+type PluginField struct {
+	// Default The value used when the field is absent, or `null`.
+	Default interface{} `json:"default"`
+	Help    string      `json:"help"`
+	Key     string      `json:"key"`
+	Label   string      `json:"label"`
+
+	// Live Choices come from `POST /plugins/{plugin_id}/options/{field}` once the connection works.
+	// Until then the field is free text.
+	Live bool `json:"live"`
+
+	// Options The fixed choices of a `select` field.
+	Options  []PluginOption  `json:"options"`
+	Required bool            `json:"required"`
+	Type     PluginFieldType `json:"type"`
+}
+
+// PluginFieldType defines model for PluginField.Type.
+type PluginFieldType string
+
+// PluginForm defines model for PluginForm.
+type PluginForm struct {
+	// Config Plugin settings by manifest field key. Secret fields are write-only: they are accepted
+	// here and never returned. In a patch, `null` clears a field.
+	Config PluginConfigPatch `json:"config"`
+
+	// InstanceId A saved instance whose stored config, secrets included, lies under `config`.
+	InstanceId *int64 `json:"instance_id,omitempty"`
+}
+
+// PluginInstance defines model for PluginInstance.
+type PluginInstance struct {
+	// Config Every non-secret manifest field, `null` for none.
+	Config   map[string]interface{} `json:"config"`
+	Contract string                 `json:"contract"`
+	Enabled  bool                   `json:"enabled"`
+	Id       int64                  `json:"id"`
+	Name     string                 `json:"name"`
+	PluginId string                 `json:"plugin_id"`
+	Priority int                    `json:"priority"`
+
+	// SecretsSet Keys of the secret fields that have a value. The values are never returned.
+	SecretsSet []string `json:"secrets_set"`
+}
+
+// PluginInstanceCreate defines model for PluginInstanceCreate.
+type PluginInstanceCreate struct {
+	// Config Plugin settings by manifest field key. Secret fields are write-only: they are accepted
+	// here and never returned. In a patch, `null` clears a field.
+	Config   PluginConfigPatch `json:"config"`
+	Enabled  *bool             `json:"enabled,omitempty"`
+	Name     string            `json:"name"`
+	PluginId string            `json:"plugin_id"`
+	Priority *int              `json:"priority,omitempty"`
+}
+
+// PluginInstanceList defines model for PluginInstanceList.
+type PluginInstanceList struct {
+	Items      []PluginInstance `json:"items"`
+	NextCursor *string          `json:"next_cursor"`
+}
+
+// PluginInstancePatch defines model for PluginInstancePatch.
+type PluginInstancePatch struct {
+	// Config Plugin settings by manifest field key. Secret fields are write-only: they are accepted
+	// here and never returned. In a patch, `null` clears a field.
+	Config   *PluginConfigPatch `json:"config,omitempty"`
+	Enabled  *bool              `json:"enabled,omitempty"`
+	Name     *string            `json:"name,omitempty"`
+	Priority *int               `json:"priority,omitempty"`
+}
+
+// PluginList defines model for PluginList.
+type PluginList struct {
+	Items      []PluginManifest `json:"items"`
+	NextCursor *string          `json:"next_cursor"`
+}
+
+// PluginManifest defines model for PluginManifest.
+type PluginManifest struct {
+	// Capabilities Contract-specific facts, e.g. protocols: [usenet].
+	Capabilities map[string][]string `json:"capabilities"`
+
+	// Contract The versioned plugin contract, e.g. `download_client.v1`.
+	//
+	// Example: download_client.v1
+	Contract string        `json:"contract"`
+	Fields   []PluginField `json:"fields"`
+
+	// Id Example: sabnzbd
+	Id      string `json:"id"`
+	Name    string `json:"name"`
+	Version string `json:"version"`
+}
+
+// PluginOption defines model for PluginOption.
+type PluginOption struct {
+	Label string `json:"label"`
+	Value string `json:"value"`
+}
+
+// PluginOptionList defines model for PluginOptionList.
+type PluginOptionList struct {
+	Items []PluginOption `json:"items"`
+}
+
+// PluginTestRequest defines model for PluginTestRequest.
+type PluginTestRequest struct {
+	// Config Plugin settings by manifest field key. Secret fields are write-only: they are accepted
+	// here and never returned. In a patch, `null` clears a field.
+	Config   PluginConfigPatch `json:"config"`
+	PluginId string            `json:"plugin_id"`
+}
+
+// PluginTestResult defines model for PluginTestResult.
+type PluginTestResult struct {
+	// Code Why the test failed, `null` when it passed: `auth`, `unavailable`, `rate_limited`,
+	// `invalid` or `not_found`. Clients tolerate new values.
+	Code    *string `json:"code"`
+	Message string  `json:"message"`
+	Ok      bool    `json:"ok"`
+}
 
 // Problem RFC 9457 problem details.
 type Problem struct {
@@ -127,10 +289,23 @@ type System struct {
 	Version string `json:"version"`
 }
 
+// InstanceId defines model for InstanceId.
+type InstanceId = int64
+
+// PluginId defines model for PluginId.
+type PluginId = string
+
 // ChangePasswordJSONBody defines parameters for ChangePassword.
 type ChangePasswordJSONBody struct {
 	CurrentPassword *string `json:"current_password,omitempty"`
 	NewPassword     *string `json:"new_password,omitempty"`
+}
+
+// TestPluginInstanceJSONBody defines parameters for TestPluginInstance.
+type TestPluginInstanceJSONBody struct {
+	// Config Plugin settings by manifest field key. Secret fields are write-only: they are accepted
+	// here and never returned. In a patch, `null` clears a field.
+	Config *PluginConfigPatch `json:"config,omitempty"`
 }
 
 // ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
@@ -138,6 +313,21 @@ type ChangePasswordJSONRequestBody ChangePasswordJSONBody
 
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = Credentials
+
+// CreatePluginInstanceJSONRequestBody defines body for CreatePluginInstance for application/json ContentType.
+type CreatePluginInstanceJSONRequestBody = PluginInstanceCreate
+
+// TestPluginConfigJSONRequestBody defines body for TestPluginConfig for application/json ContentType.
+type TestPluginConfigJSONRequestBody = PluginTestRequest
+
+// UpdatePluginInstanceJSONRequestBody defines body for UpdatePluginInstance for application/json ContentType.
+type UpdatePluginInstanceJSONRequestBody = PluginInstancePatch
+
+// TestPluginInstanceJSONRequestBody defines body for TestPluginInstance for application/json ContentType.
+type TestPluginInstanceJSONRequestBody TestPluginInstanceJSONBody
+
+// ListPluginOptionsJSONRequestBody defines body for ListPluginOptions for application/json ContentType.
+type ListPluginOptionsJSONRequestBody = PluginForm
 
 // CreateAccountJSONRequestBody defines body for CreateAccount for application/json ContentType.
 type CreateAccountJSONRequestBody = Credentials
@@ -159,6 +349,33 @@ type ServerInterface interface {
 	// GetMe Who is logged in
 	// (GET /auth/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// ListPluginInstances Configured plugin instances
+	// (GET /plugin-instances)
+	ListPluginInstances(w http.ResponseWriter, r *http.Request)
+	// CreatePluginInstance Configure a plugin instance
+	// (POST /plugin-instances)
+	CreatePluginInstance(w http.ResponseWriter, r *http.Request)
+	// TestPluginConfig Test an unsaved plugin config
+	// (POST /plugin-instances/test)
+	TestPluginConfig(w http.ResponseWriter, r *http.Request)
+	// DeletePluginInstance Remove a plugin instance
+	// (DELETE /plugin-instances/{id})
+	DeletePluginInstance(w http.ResponseWriter, r *http.Request, id InstanceId)
+	// GetPluginInstance One plugin instance
+	// (GET /plugin-instances/{id})
+	GetPluginInstance(w http.ResponseWriter, r *http.Request, id InstanceId)
+	// UpdatePluginInstance Change a plugin instance
+	// (PATCH /plugin-instances/{id})
+	UpdatePluginInstance(w http.ResponseWriter, r *http.Request, id InstanceId)
+	// TestPluginInstance Test a saved plugin instance
+	// (POST /plugin-instances/{id}/test)
+	TestPluginInstance(w http.ResponseWriter, r *http.Request, id InstanceId)
+	// ListPlugins The built-in plugins and their config schemas
+	// (GET /plugins)
+	ListPlugins(w http.ResponseWriter, r *http.Request)
+	// ListPluginOptions Live choices for a config field
+	// (POST /plugins/{plugin_id}/options/{field})
+	ListPluginOptions(w http.ResponseWriter, r *http.Request, pluginId PluginId, field string)
 	// GetSetup Setup progress
 	// (GET /setup)
 	GetSetup(w http.ResponseWriter, r *http.Request)
@@ -240,6 +457,201 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPluginInstances operation middleware
+func (siw *ServerInterfaceWrapper) ListPluginInstances(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPluginInstances(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePluginInstance operation middleware
+func (siw *ServerInterfaceWrapper) CreatePluginInstance(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePluginInstance(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestPluginConfig operation middleware
+func (siw *ServerInterfaceWrapper) TestPluginConfig(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestPluginConfig(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeletePluginInstance operation middleware
+func (siw *ServerInterfaceWrapper) DeletePluginInstance(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id InstanceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePluginInstance(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPluginInstance operation middleware
+func (siw *ServerInterfaceWrapper) GetPluginInstance(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id InstanceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPluginInstance(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdatePluginInstance operation middleware
+func (siw *ServerInterfaceWrapper) UpdatePluginInstance(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id InstanceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdatePluginInstance(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestPluginInstance operation middleware
+func (siw *ServerInterfaceWrapper) TestPluginInstance(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id InstanceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestPluginInstance(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPlugins operation middleware
+func (siw *ServerInterfaceWrapper) ListPlugins(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPlugins(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPluginOptions operation middleware
+func (siw *ServerInterfaceWrapper) ListPluginOptions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "plugin_id" -------------
+	var pluginId PluginId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "plugin_id", r.PathValue("plugin_id"), &pluginId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "plugin_id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "field" -------------
+	var field string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "field", r.PathValue("field"), &field, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "field", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPluginOptions(w, r, pluginId, field)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -419,6 +831,15 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout-everywhere", wrapper.LogoutEverywhere)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/me", wrapper.GetMe)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/account/password", wrapper.ChangePassword)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugins", wrapper.ListPlugins)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/plugins/{plugin_id}/options/{field}", wrapper.ListPluginOptions)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugin-instances", wrapper.ListPluginInstances)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/plugin-instances", wrapper.CreatePluginInstance)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/plugin-instances/test", wrapper.TestPluginConfig)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/plugin-instances/{id}", wrapper.DeletePluginInstance)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugin-instances/{id}", wrapper.GetPluginInstance)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/plugin-instances/{id}", wrapper.UpdatePluginInstance)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/plugin-instances/{id}/test", wrapper.TestPluginInstance)
 
 	return m
 }
@@ -673,6 +1094,521 @@ func (response GetMedefaultApplicationProblemPlusJSONResponse) VisitGetMeRespons
 	return err
 }
 
+type ListPluginInstancesRequestObject struct {
+}
+
+type ListPluginInstancesResponseObject interface {
+	VisitListPluginInstancesResponse(w http.ResponseWriter) error
+}
+
+type ListPluginInstances200JSONResponse PluginInstanceList
+
+func (response ListPluginInstances200JSONResponse) VisitListPluginInstancesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPluginInstancesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListPluginInstancesdefaultApplicationProblemPlusJSONResponse) VisitListPluginInstancesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePluginInstanceRequestObject struct {
+	Body *CreatePluginInstanceJSONRequestBody
+}
+
+type CreatePluginInstanceResponseObject interface {
+	VisitCreatePluginInstanceResponse(w http.ResponseWriter) error
+}
+
+type CreatePluginInstance201JSONResponse PluginInstance
+
+func (response CreatePluginInstance201JSONResponse) VisitCreatePluginInstanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePluginInstance422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreatePluginInstance422ApplicationProblemPlusJSONResponse) VisitCreatePluginInstanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePluginInstancedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreatePluginInstancedefaultApplicationProblemPlusJSONResponse) VisitCreatePluginInstanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestPluginConfigRequestObject struct {
+	Body *TestPluginConfigJSONRequestBody
+}
+
+type TestPluginConfigResponseObject interface {
+	VisitTestPluginConfigResponse(w http.ResponseWriter) error
+}
+
+type TestPluginConfig200JSONResponse PluginTestResult
+
+func (response TestPluginConfig200JSONResponse) VisitTestPluginConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestPluginConfig422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response TestPluginConfig422ApplicationProblemPlusJSONResponse) VisitTestPluginConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestPluginConfigdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response TestPluginConfigdefaultApplicationProblemPlusJSONResponse) VisitTestPluginConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePluginInstanceRequestObject struct {
+	Id InstanceId `json:"id"`
+}
+
+type DeletePluginInstanceResponseObject interface {
+	VisitDeletePluginInstanceResponse(w http.ResponseWriter) error
+}
+
+type DeletePluginInstance204Response struct {
+}
+
+func (response DeletePluginInstance204Response) VisitDeletePluginInstanceResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeletePluginInstance404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DeletePluginInstance404ApplicationProblemPlusJSONResponse) VisitDeletePluginInstanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePluginInstancedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DeletePluginInstancedefaultApplicationProblemPlusJSONResponse) VisitDeletePluginInstanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPluginInstanceRequestObject struct {
+	Id InstanceId `json:"id"`
+}
+
+type GetPluginInstanceResponseObject interface {
+	VisitGetPluginInstanceResponse(w http.ResponseWriter) error
+}
+
+type GetPluginInstance200JSONResponse PluginInstance
+
+func (response GetPluginInstance200JSONResponse) VisitGetPluginInstanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPluginInstance404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPluginInstance404ApplicationProblemPlusJSONResponse) VisitGetPluginInstanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPluginInstancedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetPluginInstancedefaultApplicationProblemPlusJSONResponse) VisitGetPluginInstanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdatePluginInstanceRequestObject struct {
+	Id   InstanceId `json:"id"`
+	Body *UpdatePluginInstanceJSONRequestBody
+}
+
+type UpdatePluginInstanceResponseObject interface {
+	VisitUpdatePluginInstanceResponse(w http.ResponseWriter) error
+}
+
+type UpdatePluginInstance200JSONResponse PluginInstance
+
+func (response UpdatePluginInstance200JSONResponse) VisitUpdatePluginInstanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdatePluginInstance404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response UpdatePluginInstance404ApplicationProblemPlusJSONResponse) VisitUpdatePluginInstanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdatePluginInstance422ApplicationProblemPlusJSONResponse Problem
+
+func (response UpdatePluginInstance422ApplicationProblemPlusJSONResponse) VisitUpdatePluginInstanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdatePluginInstancedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdatePluginInstancedefaultApplicationProblemPlusJSONResponse) VisitUpdatePluginInstanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestPluginInstanceRequestObject struct {
+	Id   InstanceId `json:"id"`
+	Body *TestPluginInstanceJSONRequestBody
+}
+
+type TestPluginInstanceResponseObject interface {
+	VisitTestPluginInstanceResponse(w http.ResponseWriter) error
+}
+
+type TestPluginInstance200JSONResponse PluginTestResult
+
+func (response TestPluginInstance200JSONResponse) VisitTestPluginInstanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestPluginInstance404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response TestPluginInstance404ApplicationProblemPlusJSONResponse) VisitTestPluginInstanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestPluginInstance422ApplicationProblemPlusJSONResponse Problem
+
+func (response TestPluginInstance422ApplicationProblemPlusJSONResponse) VisitTestPluginInstanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestPluginInstancedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response TestPluginInstancedefaultApplicationProblemPlusJSONResponse) VisitTestPluginInstanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPluginsRequestObject struct {
+}
+
+type ListPluginsResponseObject interface {
+	VisitListPluginsResponse(w http.ResponseWriter) error
+}
+
+type ListPlugins200JSONResponse PluginList
+
+func (response ListPlugins200JSONResponse) VisitListPluginsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPluginsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListPluginsdefaultApplicationProblemPlusJSONResponse) VisitListPluginsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPluginOptionsRequestObject struct {
+	PluginId PluginId `json:"plugin_id"`
+	Field    string   `json:"field"`
+	Body     *ListPluginOptionsJSONRequestBody
+}
+
+type ListPluginOptionsResponseObject interface {
+	VisitListPluginOptionsResponse(w http.ResponseWriter) error
+}
+
+type ListPluginOptions200JSONResponse PluginOptionList
+
+func (response ListPluginOptions200JSONResponse) VisitListPluginOptionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPluginOptions404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPluginOptions404ApplicationProblemPlusJSONResponse) VisitListPluginOptionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPluginOptions422ApplicationProblemPlusJSONResponse Problem
+
+func (response ListPluginOptions422ApplicationProblemPlusJSONResponse) VisitListPluginOptionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPluginOptions502ApplicationProblemPlusJSONResponse Problem
+
+func (response ListPluginOptions502ApplicationProblemPlusJSONResponse) VisitListPluginOptionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPluginOptionsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListPluginOptionsdefaultApplicationProblemPlusJSONResponse) VisitListPluginOptionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetSetupRequestObject struct {
 }
 
@@ -845,6 +1781,33 @@ type StrictServerInterface interface {
 	// GetMe Who is logged in
 	// (GET /auth/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// ListPluginInstances Configured plugin instances
+	// (GET /plugin-instances)
+	ListPluginInstances(ctx context.Context, request ListPluginInstancesRequestObject) (ListPluginInstancesResponseObject, error)
+	// CreatePluginInstance Configure a plugin instance
+	// (POST /plugin-instances)
+	CreatePluginInstance(ctx context.Context, request CreatePluginInstanceRequestObject) (CreatePluginInstanceResponseObject, error)
+	// TestPluginConfig Test an unsaved plugin config
+	// (POST /plugin-instances/test)
+	TestPluginConfig(ctx context.Context, request TestPluginConfigRequestObject) (TestPluginConfigResponseObject, error)
+	// DeletePluginInstance Remove a plugin instance
+	// (DELETE /plugin-instances/{id})
+	DeletePluginInstance(ctx context.Context, request DeletePluginInstanceRequestObject) (DeletePluginInstanceResponseObject, error)
+	// GetPluginInstance One plugin instance
+	// (GET /plugin-instances/{id})
+	GetPluginInstance(ctx context.Context, request GetPluginInstanceRequestObject) (GetPluginInstanceResponseObject, error)
+	// UpdatePluginInstance Change a plugin instance
+	// (PATCH /plugin-instances/{id})
+	UpdatePluginInstance(ctx context.Context, request UpdatePluginInstanceRequestObject) (UpdatePluginInstanceResponseObject, error)
+	// TestPluginInstance Test a saved plugin instance
+	// (POST /plugin-instances/{id}/test)
+	TestPluginInstance(ctx context.Context, request TestPluginInstanceRequestObject) (TestPluginInstanceResponseObject, error)
+	// ListPlugins The built-in plugins and their config schemas
+	// (GET /plugins)
+	ListPlugins(ctx context.Context, request ListPluginsRequestObject) (ListPluginsResponseObject, error)
+	// ListPluginOptions Live choices for a config field
+	// (POST /plugins/{plugin_id}/options/{field})
+	ListPluginOptions(ctx context.Context, request ListPluginOptionsRequestObject) (ListPluginOptionsResponseObject, error)
 	// GetSetup Setup progress
 	// (GET /setup)
 	GetSetup(ctx context.Context, request GetSetupRequestObject) (GetSetupResponseObject, error)
@@ -1022,6 +1985,271 @@ func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetMeResponseObject); ok {
 		if err := validResponse.VisitGetMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPluginInstances operation middleware
+func (sh *strictHandler) ListPluginInstances(w http.ResponseWriter, r *http.Request) {
+	var request ListPluginInstancesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPluginInstances(ctx, request.(ListPluginInstancesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPluginInstances")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPluginInstancesResponseObject); ok {
+		if err := validResponse.VisitListPluginInstancesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreatePluginInstance operation middleware
+func (sh *strictHandler) CreatePluginInstance(w http.ResponseWriter, r *http.Request) {
+	var request CreatePluginInstanceRequestObject
+
+	var body CreatePluginInstanceJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreatePluginInstance(ctx, request.(CreatePluginInstanceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreatePluginInstance")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreatePluginInstanceResponseObject); ok {
+		if err := validResponse.VisitCreatePluginInstanceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// TestPluginConfig operation middleware
+func (sh *strictHandler) TestPluginConfig(w http.ResponseWriter, r *http.Request) {
+	var request TestPluginConfigRequestObject
+
+	var body TestPluginConfigJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.TestPluginConfig(ctx, request.(TestPluginConfigRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "TestPluginConfig")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(TestPluginConfigResponseObject); ok {
+		if err := validResponse.VisitTestPluginConfigResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeletePluginInstance operation middleware
+func (sh *strictHandler) DeletePluginInstance(w http.ResponseWriter, r *http.Request, id InstanceId) {
+	var request DeletePluginInstanceRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePluginInstance(ctx, request.(DeletePluginInstanceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePluginInstance")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeletePluginInstanceResponseObject); ok {
+		if err := validResponse.VisitDeletePluginInstanceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPluginInstance operation middleware
+func (sh *strictHandler) GetPluginInstance(w http.ResponseWriter, r *http.Request, id InstanceId) {
+	var request GetPluginInstanceRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPluginInstance(ctx, request.(GetPluginInstanceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPluginInstance")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPluginInstanceResponseObject); ok {
+		if err := validResponse.VisitGetPluginInstanceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdatePluginInstance operation middleware
+func (sh *strictHandler) UpdatePluginInstance(w http.ResponseWriter, r *http.Request, id InstanceId) {
+	var request UpdatePluginInstanceRequestObject
+
+	request.Id = id
+
+	var body UpdatePluginInstanceJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdatePluginInstance(ctx, request.(UpdatePluginInstanceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdatePluginInstance")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdatePluginInstanceResponseObject); ok {
+		if err := validResponse.VisitUpdatePluginInstanceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// TestPluginInstance operation middleware
+func (sh *strictHandler) TestPluginInstance(w http.ResponseWriter, r *http.Request, id InstanceId) {
+	var request TestPluginInstanceRequestObject
+
+	request.Id = id
+
+	var body TestPluginInstanceJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.TestPluginInstance(ctx, request.(TestPluginInstanceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "TestPluginInstance")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(TestPluginInstanceResponseObject); ok {
+		if err := validResponse.VisitTestPluginInstanceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPlugins operation middleware
+func (sh *strictHandler) ListPlugins(w http.ResponseWriter, r *http.Request) {
+	var request ListPluginsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPlugins(ctx, request.(ListPluginsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPlugins")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPluginsResponseObject); ok {
+		if err := validResponse.VisitListPluginsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPluginOptions operation middleware
+func (sh *strictHandler) ListPluginOptions(w http.ResponseWriter, r *http.Request, pluginId PluginId, field string) {
+	var request ListPluginOptionsRequestObject
+
+	request.PluginId = pluginId
+	request.Field = field
+
+	var body ListPluginOptionsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPluginOptions(ctx, request.(ListPluginOptionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPluginOptions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPluginOptionsResponseObject); ok {
+		if err := validResponse.VisitListPluginOptionsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
