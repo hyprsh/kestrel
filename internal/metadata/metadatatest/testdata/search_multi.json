@@ -1,0 +1,48 @@
+{
+  "page": 1,
+  "results": [
+    {
+      "adult": false,
+      "backdrop_path": "/hZkgoQYus5vegHoetLkCJzb17zJ.jpg",
+      "id": 116149,
+      "title": "Paddington",
+      "original_language": "en",
+      "original_title": "Paddington",
+      "overview": "A young Peruvian bear travels to London in search of a new home.",
+      "poster_path": "/pyFVnLq1sG1jdXZQhxNdCP0DLg3.jpg",
+      "media_type": "movie",
+      "genre_ids": [35, 10751, 12],
+      "popularity": 58.7,
+      "release_date": "2014-11-28",
+      "video": false,
+      "vote_average": 7.3,
+      "vote_count": 4912
+    },
+    {
+      "adult": false,
+      "backdrop_path": null,
+      "id": 61814,
+      "name": "The Adventures of Paddington Bear",
+      "original_language": "en",
+      "original_name": "The Adventures of Paddington Bear",
+      "overview": "Animated adventures.",
+      "poster_path": "/9wTYtGd8CDbj5qbSTjE1HkGQeRB.jpg",
+      "media_type": "tv",
+      "genre_ids": [16, 10751],
+      "popularity": 11.2,
+      "first_air_date": "1997-09-07",
+      "vote_average": 6.9,
+      "vote_count": 31
+    },
+    {
+      "adult": false,
+      "id": 9999,
+      "name": "Someone Paddington",
+      "media_type": "person",
+      "known_for_department": "Acting",
+      "popularity": 1.2
+    }
+  ],
+  "total_pages": 1,
+  "total_results": 3
+}

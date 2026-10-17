@@ -1,0 +1,48 @@
+{
+  "adult": false,
+  "backdrop_path": "/hZkgoQYus5vegHoetLkCJzb17zJ.jpg",
+  "id": 116149,
+  "imdb_id": "tt1109624",
+  "original_language": "en",
+  "original_title": "Paddington",
+  "overview": "A young Peruvian bear travels to London in search of a new home.",
+  "poster_path": "/pyFVnLq1sG1jdXZQhxNdCP0DLg3.jpg",
+  "production_countries": [{"iso_3166_1": "GB", "name": "United Kingdom"}],
+  "release_date": "2014-11-28",
+  "runtime": 95,
+  "status": "Released",
+  "title": "Paddington",
+  "alternative_titles": {
+    "titles": [
+      {"iso_3166_1": "DE", "title": "Paddington (2014)", "type": ""},
+      {"iso_3166_1": "FR", "title": "Paddington, l'ours", "type": ""}
+    ]
+  },
+  "translations": {
+    "translations": [
+      {"iso_3166_1": "DE", "iso_639_1": "de", "name": "Deutsch", "english_name": "German", "data": {"title": "Ein Bär namens Paddington", "overview": "", "homepage": "", "runtime": 95, "tagline": ""}},
+      {"iso_3166_1": "FR", "iso_639_1": "fr", "name": "Français", "english_name": "French", "data": {"title": "", "overview": "", "homepage": "", "runtime": 0, "tagline": ""}},
+      {"iso_3166_1": "US", "iso_639_1": "en", "name": "English", "english_name": "English", "data": {"title": "Paddington", "overview": "", "homepage": "", "runtime": 95, "tagline": ""}}
+    ]
+  },
+  "external_ids": {"imdb_id": "tt1109624", "wikidata_id": "Q4259", "facebook_id": null, "instagram_id": null, "twitter_id": null},
+  "release_dates": {
+    "results": [
+      {"iso_3166_1": "US", "release_dates": [
+        {"certification": "", "descriptors": [], "iso_639_1": "", "note": "", "release_date": "2014-11-23T00:00:00.000Z", "type": 1},
+        {"certification": "PG", "descriptors": [], "iso_639_1": "", "note": "", "release_date": "2015-01-16T00:00:00.000Z", "type": 3},
+        {"certification": "PG", "descriptors": [], "iso_639_1": "", "note": "", "release_date": "2015-04-14T00:00:00.000Z", "type": 4},
+        {"certification": "PG", "descriptors": [], "iso_639_1": "", "note": "DVD", "release_date": "2015-04-14T00:00:00.000Z", "type": 5}
+      ]},
+      {"iso_3166_1": "DE", "release_dates": [
+        {"certification": "0", "descriptors": [], "iso_639_1": "", "note": "", "release_date": "2015-01-22T00:00:00.000Z", "type": 3},
+        {"certification": "0", "descriptors": [], "iso_639_1": "", "note": "Blu-ray", "release_date": "2015-06-18T00:00:00.000Z", "type": 5}
+      ]},
+      {"iso_3166_1": "GB", "release_dates": [
+        {"certification": "PG", "descriptors": [], "iso_639_1": "", "note": "", "release_date": "2014-11-28T00:00:00.000Z", "type": 3},
+        {"certification": "PG", "descriptors": [], "iso_639_1": "", "note": "", "release_date": "2015-03-23T00:00:00.000Z", "type": 4},
+        {"certification": "", "descriptors": [], "iso_639_1": "", "note": "", "release_date": "2015-03-23T00:00:00.000Z", "type": 6}
+      ]}
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "adult": false,
+  "id": 77,
+  "imdb_id": "tt0209144",
+  "original_language": "fr",
+  "original_title": "Le Film Perdu",
+  "overview": "",
+  "poster_path": null,
+  "release_date": "2020-05-01",
+  "runtime": 101,
+  "title": "The Lost Film",
+  "alternative_titles": {"titles": []},
+  "translations": {"translations": []},
+  "external_ids": {"imdb_id": "tt0209144"},
+  "release_dates": {
+    "results": [
+      {"iso_3166_1": "JP", "release_dates": [
+        {"certification": "G", "descriptors": [], "iso_639_1": "", "note": "", "release_date": "2020-07-01T00:00:00.000Z", "type": 3}
+      ]},
+      {"iso_3166_1": "FR", "release_dates": [
+        {"certification": "U", "descriptors": [], "iso_639_1": "", "note": "", "release_date": "2020-05-01T00:00:00.000Z", "type": 3}
+      ]},
+      {"iso_3166_1": "US", "release_dates": [
+        {"certification": "PG-13", "descriptors": [], "iso_639_1": "", "note": "", "release_date": "2021-01-01T00:00:00.000Z", "type": 4}
+      ]}
+    ]
+  }
+}
