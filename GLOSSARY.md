@@ -57,6 +57,10 @@ _Avoid_: Stale, abandoned
 Scanning files already on disk and matching them to Titles and Versions, so Kestrel manages them without downloading again.
 _Avoid_: Import (reserved for completed downloads)
 
+**Unmanaged file**:
+A file under a root folder that no Version holds. Adoption can take it in, and Clean up can delete it.
+_Avoid_: Untracked, orphaned, stray (file)
+
 ### Downloading
 
 **Release**:
