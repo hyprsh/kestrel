@@ -10,12 +10,12 @@ const (
 )
 
 // DurationPlausible reports whether a probed duration is plausible for a
-// Title. It must reach half the metadata runtime when the runtime is known,
-// and it must reach the floor for the kind. An unknown runtime (zero) leaves
-// only the floor.
+// Title. When the metadata runtime is known, the duration must reach half of
+// it; the floor is not consulted. When the runtime is unknown (zero), the
+// duration must reach the floor for the kind instead.
 func DurationPlausible(duration, runtime, floor time.Duration) bool {
-	if duration < floor {
-		return false
+	if runtime > 0 {
+		return duration*2 >= runtime
 	}
-	return runtime <= 0 || duration*2 >= runtime
+	return duration >= floor
 }
