@@ -2383,11 +2383,15 @@ components:
             type: integer
     RequestDownload:
       type: object
-      required: [phase, bytes_left, eta]
+      required: [phase, bytes_total, bytes_left, eta]
       properties:
         phase:
           type: string
           description: "`queued`, `downloading`, `paused`, `post_processing` or `importing`."
+        bytes_total:
+          type: integer
+          format: int64
+          description: 0 when the download client does not know the size.
         bytes_left:
           type: integer
           format: int64

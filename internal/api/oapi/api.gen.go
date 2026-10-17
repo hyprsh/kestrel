@@ -1052,6 +1052,9 @@ type RequestCreate struct {
 type RequestDownload struct {
 	BytesLeft int64 `json:"bytes_left"`
 
+	// BytesTotal 0 when the download client does not know the size.
+	BytesTotal int64 `json:"bytes_total"`
+
 	// Eta Seconds.
 	Eta *int `json:"eta"`
 
