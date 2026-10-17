@@ -65,7 +65,8 @@ Moving a completed download into the library under its Title's folder and naming
 ### Requests
 
 **Request**:
-An ask, from outside Kestrel (such as a Silo user), for a Title under a Profile, which adds the Title or a new Version to it. Carries who asked.
+An ask from outside Kestrel, such as from a Silo user, for a Title in one or more Slots, each optionally under a named Profile. It adds the Title or its missing Versions, never changes existing ones, and carries who asked. Adding a Title or Version in Kestrel's own UI is not a Request.
+_Avoid_: Add (for Requests), order
 
 **Upcoming**:
 The list of episodes and movie releases expected soon, standing in for a calendar.
