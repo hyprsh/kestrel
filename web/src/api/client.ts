@@ -10,5 +10,7 @@ export const apiBaseUrl = new URL('api/v1', document.baseURI).href
 /** Typed client generated from openapi.yaml. */
 export const api = createClient<paths>({
   baseUrl: apiBaseUrl,
+  // The server refuses state-changing requests that are not JSON (CSRF rule), so say so on every call.
+  headers: { 'Content-Type': 'application/json' },
   fetch: (request) => fetch(request), // look fetch up per call so test mocks apply
 })
