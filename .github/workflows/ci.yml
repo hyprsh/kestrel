@@ -23,6 +23,8 @@ jobs:
           go-version-file: go.mod
       - run: make fmt-check vet
       - run: make test-go
+      - name: Real ffprobe suite (ubuntu-latest ships ffmpeg)
+        run: make test-ffprobe
 
   generated:
     name: OpenAPI drift check
