@@ -96,6 +96,20 @@ type GrabEpisode struct {
 	EpisodeID int64
 }
 
+type HealthIssue struct {
+	ID          int64
+	Key         string
+	Kind        string
+	Severity    string
+	Subject     string
+	Message     string
+	Dismissible int64
+	FirstAt     string
+	LastAt      string
+	Count       int64
+	DismissedAt sql.NullString
+}
+
 type PluginInstance struct {
 	ID       int64
 	Contract string
