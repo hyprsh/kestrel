@@ -165,6 +165,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The API key's prefix and age
+         * @description There is at most one full-access key. Only its prefix and creation time are ever shown;
+         *     both are `null` until a key has been generated.
+         */
+        get: operations["getApiKey"];
+        put?: never;
+        /**
+         * Generate or rotate the API key
+         * @description Replaces any existing key, which stops working at once. The new key is in this response
+         *     only; Kestrel keeps just its SHA-256. Send it as `X-Api-Key`.
+         */
+        post: operations["createApiKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/reverse-proxy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reverse-proxy login settings */
+        get: operations["getReverseProxy"];
+        /**
+         * Change reverse-proxy login settings
+         * @description Off by default. When enabled, a non-empty `header` from a trusted proxy address logs the
+         *     admin in for that request. The same header from any other address is ignored and
+         *     recorded under `untrusted`.
+         */
+        put: operations["putReverseProxy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -185,6 +234,47 @@ export interface components {
              * @example /kestrel
              */
             base_url: string;
+        };
+        ApiKeyInfo: {
+            /**
+             * @description The first characters of the key, for recognising it.
+             * @example kst_ABCD
+             */
+            prefix: string | null;
+            /** Format: date-time */
+            created_at: string | null;
+        };
+        NewApiKey: {
+            /** @description The whole key, `kst_` plus 52 base32 characters. */
+            key: string;
+        };
+        ReverseProxySettings: {
+            enabled: boolean;
+            /**
+             * @description Addresses or CIDR ranges of the proxies whose header is believed.
+             * @example [
+             *       "172.18.0.0/16",
+             *       "10.0.0.5"
+             *     ]
+             */
+            trusted_proxies: string[];
+            /**
+             * @description The header carrying the user name.
+             * @example Remote-User
+             */
+            header: string;
+        };
+        ReverseProxy: components["schemas"]["ReverseProxySettings"] & {
+            /** @description Addresses that sent the header without being trusted, newest first. */
+            readonly untrusted: components["schemas"]["UntrustedProxyHeader"][];
+        };
+        UntrustedProxyHeader: {
+            ip: string;
+            /** @description The header value from the latest request. */
+            value: string;
+            count: number;
+            /** Format: date-time */
+            last_seen: string;
         };
         Credentials: {
             username: string;
@@ -445,6 +535,95 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The key's public details. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyInfo"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new key, shown exactly once. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewApiKey"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getReverseProxy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings and the untrusted sightings recorded so far. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReverseProxy"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    putReverseProxy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReverseProxySettings"];
+            };
+        };
+        responses: {
+            /** @description The settings as saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReverseProxy"];
+                };
             };
             422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];

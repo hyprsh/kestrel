@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 // Defines values for MeMethod.
@@ -52,6 +53,16 @@ func (e SetupSectionState) Valid() bool {
 	}
 }
 
+// ApiKeyInfo defines model for ApiKeyInfo.
+type ApiKeyInfo struct {
+	CreatedAt *time.Time `json:"created_at"`
+
+	// Prefix The first characters of the key, for recognising it.
+	//
+	// Example: kst_ABCD
+	Prefix *string `json:"prefix"`
+}
+
 // Credentials defines model for Credentials.
 type Credentials struct {
 	Password *string `json:"password,omitempty"`
@@ -70,6 +81,12 @@ type Me struct {
 
 // MeMethod How this request was authenticated.
 type MeMethod string
+
+// NewApiKey defines model for NewApiKey.
+type NewApiKey struct {
+	// Key The whole key, `kst_` plus 52 base32 characters.
+	Key string `json:"key"`
+}
 
 // Problem RFC 9457 problem details.
 type Problem struct {
@@ -90,6 +107,39 @@ type Problem struct {
 	Status int    `json:"status"`
 	Title  string `json:"title"`
 	Type   string `json:"type"`
+}
+
+// ReverseProxy defines model for ReverseProxy.
+type ReverseProxy struct {
+	Enabled bool `json:"enabled"`
+
+	// Header The header carrying the user name.
+	//
+	// Example: Remote-User
+	Header string `json:"header"`
+
+	// TrustedProxies Addresses or CIDR ranges of the proxies whose header is believed.
+	//
+	// Example: ["172.18.0.0/16","10.0.0.5"]
+	TrustedProxies []string `json:"trusted_proxies"`
+
+	// Untrusted Addresses that sent the header without being trusted, newest first.
+	Untrusted *[]UntrustedProxyHeader `json:"untrusted,omitempty"`
+}
+
+// ReverseProxySettings defines model for ReverseProxySettings.
+type ReverseProxySettings struct {
+	Enabled bool `json:"enabled"`
+
+	// Header The header carrying the user name.
+	//
+	// Example: Remote-User
+	Header string `json:"header"`
+
+	// TrustedProxies Addresses or CIDR ranges of the proxies whose header is believed.
+	//
+	// Example: ["172.18.0.0/16","10.0.0.5"]
+	TrustedProxies []string `json:"trusted_proxies"`
 }
 
 // Setup defines model for Setup.
@@ -127,6 +177,16 @@ type System struct {
 	Version string `json:"version"`
 }
 
+// UntrustedProxyHeader defines model for UntrustedProxyHeader.
+type UntrustedProxyHeader struct {
+	Count    int       `json:"count"`
+	Ip       string    `json:"ip"`
+	LastSeen time.Time `json:"last_seen"`
+
+	// Value The header value from the latest request.
+	Value string `json:"value"`
+}
+
 // ChangePasswordJSONBody defines parameters for ChangePassword.
 type ChangePasswordJSONBody struct {
 	CurrentPassword *string `json:"current_password,omitempty"`
@@ -139,6 +199,9 @@ type ChangePasswordJSONRequestBody ChangePasswordJSONBody
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = Credentials
 
+// PutReverseProxyJSONRequestBody defines body for PutReverseProxy for application/json ContentType.
+type PutReverseProxyJSONRequestBody = ReverseProxySettings
+
 // CreateAccountJSONRequestBody defines body for CreateAccount for application/json ContentType.
 type CreateAccountJSONRequestBody = Credentials
 
@@ -147,6 +210,12 @@ type ServerInterface interface {
 	// ChangePassword Change the admin password
 	// (POST /account/password)
 	ChangePassword(w http.ResponseWriter, r *http.Request)
+	// GetApiKey The API key's prefix and age
+	// (GET /api-key)
+	GetApiKey(w http.ResponseWriter, r *http.Request)
+	// CreateApiKey Generate or rotate the API key
+	// (POST /api-key)
+	CreateApiKey(w http.ResponseWriter, r *http.Request)
 	// Login Log in with username and password
 	// (POST /auth/login)
 	Login(w http.ResponseWriter, r *http.Request)
@@ -159,6 +228,12 @@ type ServerInterface interface {
 	// GetMe Who is logged in
 	// (GET /auth/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// GetReverseProxy Reverse-proxy login settings
+	// (GET /settings/reverse-proxy)
+	GetReverseProxy(w http.ResponseWriter, r *http.Request)
+	// PutReverseProxy Change reverse-proxy login settings
+	// (PUT /settings/reverse-proxy)
+	PutReverseProxy(w http.ResponseWriter, r *http.Request)
 	// GetSetup Setup progress
 	// (GET /setup)
 	GetSetup(w http.ResponseWriter, r *http.Request)
@@ -184,6 +259,34 @@ func (siw *ServerInterfaceWrapper) ChangePassword(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ChangePassword(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetApiKey operation middleware
+func (siw *ServerInterfaceWrapper) GetApiKey(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetApiKey(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateApiKey operation middleware
+func (siw *ServerInterfaceWrapper) CreateApiKey(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateApiKey(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -240,6 +343,34 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetReverseProxy operation middleware
+func (siw *ServerInterfaceWrapper) GetReverseProxy(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetReverseProxy(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutReverseProxy operation middleware
+func (siw *ServerInterfaceWrapper) PutReverseProxy(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutReverseProxy(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -419,6 +550,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout-everywhere", wrapper.LogoutEverywhere)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/me", wrapper.GetMe)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/account/password", wrapper.ChangePassword)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api-key", wrapper.GetApiKey)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api-key", wrapper.CreateApiKey)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/settings/reverse-proxy", wrapper.GetReverseProxy)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/settings/reverse-proxy", wrapper.PutReverseProxy)
 
 	return m
 }
@@ -463,6 +598,82 @@ type ChangePassworddefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response ChangePassworddefaultApplicationProblemPlusJSONResponse) VisitChangePasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetApiKeyRequestObject struct {
+}
+
+type GetApiKeyResponseObject interface {
+	VisitGetApiKeyResponse(w http.ResponseWriter) error
+}
+
+type GetApiKey200JSONResponse ApiKeyInfo
+
+func (response GetApiKey200JSONResponse) VisitGetApiKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetApiKeydefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetApiKeydefaultApplicationProblemPlusJSONResponse) VisitGetApiKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateApiKeyRequestObject struct {
+}
+
+type CreateApiKeyResponseObject interface {
+	VisitCreateApiKeyResponse(w http.ResponseWriter) error
+}
+
+type CreateApiKey201JSONResponse NewApiKey
+
+func (response CreateApiKey201JSONResponse) VisitCreateApiKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateApiKeydefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateApiKeydefaultApplicationProblemPlusJSONResponse) VisitCreateApiKeyResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -673,6 +884,99 @@ func (response GetMedefaultApplicationProblemPlusJSONResponse) VisitGetMeRespons
 	return err
 }
 
+type GetReverseProxyRequestObject struct {
+}
+
+type GetReverseProxyResponseObject interface {
+	VisitGetReverseProxyResponse(w http.ResponseWriter) error
+}
+
+type GetReverseProxy200JSONResponse ReverseProxy
+
+func (response GetReverseProxy200JSONResponse) VisitGetReverseProxyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReverseProxydefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetReverseProxydefaultApplicationProblemPlusJSONResponse) VisitGetReverseProxyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutReverseProxyRequestObject struct {
+	Body *PutReverseProxyJSONRequestBody
+}
+
+type PutReverseProxyResponseObject interface {
+	VisitPutReverseProxyResponse(w http.ResponseWriter) error
+}
+
+type PutReverseProxy200JSONResponse ReverseProxy
+
+func (response PutReverseProxy200JSONResponse) VisitPutReverseProxyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutReverseProxy422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PutReverseProxy422ApplicationProblemPlusJSONResponse) VisitPutReverseProxyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutReverseProxydefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response PutReverseProxydefaultApplicationProblemPlusJSONResponse) VisitPutReverseProxyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetSetupRequestObject struct {
 }
 
@@ -833,6 +1137,12 @@ type StrictServerInterface interface {
 	// ChangePassword Change the admin password
 	// (POST /account/password)
 	ChangePassword(ctx context.Context, request ChangePasswordRequestObject) (ChangePasswordResponseObject, error)
+	// GetApiKey The API key's prefix and age
+	// (GET /api-key)
+	GetApiKey(ctx context.Context, request GetApiKeyRequestObject) (GetApiKeyResponseObject, error)
+	// CreateApiKey Generate or rotate the API key
+	// (POST /api-key)
+	CreateApiKey(ctx context.Context, request CreateApiKeyRequestObject) (CreateApiKeyResponseObject, error)
 	// Login Log in with username and password
 	// (POST /auth/login)
 	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
@@ -845,6 +1155,12 @@ type StrictServerInterface interface {
 	// GetMe Who is logged in
 	// (GET /auth/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// GetReverseProxy Reverse-proxy login settings
+	// (GET /settings/reverse-proxy)
+	GetReverseProxy(ctx context.Context, request GetReverseProxyRequestObject) (GetReverseProxyResponseObject, error)
+	// PutReverseProxy Change reverse-proxy login settings
+	// (PUT /settings/reverse-proxy)
+	PutReverseProxy(ctx context.Context, request PutReverseProxyRequestObject) (PutReverseProxyResponseObject, error)
 	// GetSetup Setup progress
 	// (GET /setup)
 	GetSetup(ctx context.Context, request GetSetupRequestObject) (GetSetupResponseObject, error)
@@ -919,6 +1235,54 @@ func (sh *strictHandler) ChangePassword(w http.ResponseWriter, r *http.Request) 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ChangePasswordResponseObject); ok {
 		if err := validResponse.VisitChangePasswordResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetApiKey operation middleware
+func (sh *strictHandler) GetApiKey(w http.ResponseWriter, r *http.Request) {
+	var request GetApiKeyRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetApiKey(ctx, request.(GetApiKeyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetApiKey")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetApiKeyResponseObject); ok {
+		if err := validResponse.VisitGetApiKeyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateApiKey operation middleware
+func (sh *strictHandler) CreateApiKey(w http.ResponseWriter, r *http.Request) {
+	var request CreateApiKeyRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateApiKey(ctx, request.(CreateApiKeyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateApiKey")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateApiKeyResponseObject); ok {
+		if err := validResponse.VisitCreateApiKeyResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -1022,6 +1386,61 @@ func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetMeResponseObject); ok {
 		if err := validResponse.VisitGetMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetReverseProxy operation middleware
+func (sh *strictHandler) GetReverseProxy(w http.ResponseWriter, r *http.Request) {
+	var request GetReverseProxyRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetReverseProxy(ctx, request.(GetReverseProxyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetReverseProxy")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetReverseProxyResponseObject); ok {
+		if err := validResponse.VisitGetReverseProxyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutReverseProxy operation middleware
+func (sh *strictHandler) PutReverseProxy(w http.ResponseWriter, r *http.Request) {
+	var request PutReverseProxyRequestObject
+
+	var body PutReverseProxyJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutReverseProxy(ctx, request.(PutReverseProxyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutReverseProxy")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutReverseProxyResponseObject); ok {
+		if err := validResponse.VisitPutReverseProxyResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -26,7 +26,13 @@ import (
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if err := run(ctx); err != nil {
+	cmd := run
+	if len(os.Args) > 1 && os.Args[1] == "reset-password" {
+		cmd = func(ctx context.Context) error {
+			return resetPassword(ctx, os.Args[2:], os.Stdin, os.Stdout, os.Getenv)
+		}
+	}
+	if err := cmd(ctx); err != nil {
 		fmt.Fprintln(os.Stderr, "kestrel:", err)
 		os.Exit(1)
 	}

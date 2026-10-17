@@ -189,6 +189,78 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /api-key:
+    get:
+      operationId: getApiKey
+      summary: The API key's prefix and age
+      description: |
+        There is at most one full-access key. Only its prefix and creation time are ever shown;
+        both are `null` until a key has been generated.
+      tags: [account]
+      responses:
+        "200":
+          description: The key's public details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyInfo"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createApiKey
+      summary: Generate or rotate the API key
+      description: |
+        Replaces any existing key, which stops working at once. The new key is in this response
+        only; Kestrel keeps just its SHA-256. Send it as `X-Api-Key`.
+      tags: [account]
+      responses:
+        "201":
+          description: The new key, shown exactly once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewApiKey"
+        default:
+          $ref: "#/components/responses/Problem"
+  /settings/reverse-proxy:
+    get:
+      operationId: getReverseProxy
+      summary: Reverse-proxy login settings
+      tags: [settings]
+      responses:
+        "200":
+          description: The settings and the untrusted sightings recorded so far.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReverseProxy"
+        default:
+          $ref: "#/components/responses/Problem"
+    put:
+      operationId: putReverseProxy
+      summary: Change reverse-proxy login settings
+      description: |
+        Off by default. When enabled, a non-empty `header` from a trusted proxy address logs the
+        admin in for that request. The same header from any other address is ignored and
+        recorded under `untrusted`.
+      tags: [settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReverseProxySettings"
+      responses:
+        "200":
+          description: The settings as saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReverseProxy"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   headers:
     SetCookie:
@@ -219,6 +291,68 @@ components:
           type: string
           description: The routing prefix from KESTREL_BASE_URL, empty when unset.
           example: /kestrel
+    ApiKeyInfo:
+      type: object
+      required: [prefix, created_at]
+      properties:
+        prefix:
+          type: string
+          nullable: true
+          description: The first characters of the key, for recognising it.
+          example: kst_ABCD
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+    NewApiKey:
+      type: object
+      required: [key]
+      properties:
+        key:
+          type: string
+          description: The whole key, `kst_` plus 52 base32 characters.
+    ReverseProxySettings:
+      type: object
+      required: [enabled, trusted_proxies, header]
+      properties:
+        enabled:
+          type: boolean
+        trusted_proxies:
+          type: array
+          description: Addresses or CIDR ranges of the proxies whose header is believed.
+          items:
+            type: string
+          example: ["172.18.0.0/16", "10.0.0.5"]
+        header:
+          type: string
+          description: The header carrying the user name.
+          example: Remote-User
+    ReverseProxy:
+      allOf:
+        - $ref: "#/components/schemas/ReverseProxySettings"
+        - type: object
+          required: [untrusted]
+          properties:
+            untrusted:
+              type: array
+              readOnly: true
+              description: Addresses that sent the header without being trusted, newest first.
+              items:
+                $ref: "#/components/schemas/UntrustedProxyHeader"
+    UntrustedProxyHeader:
+      type: object
+      required: [ip, value, count, last_seen]
+      properties:
+        ip:
+          type: string
+        value:
+          type: string
+          description: The header value from the latest request.
+        count:
+          type: integer
+        last_seen:
+          type: string
+          format: date-time
     Credentials:
       type: object
       required: [username, password]

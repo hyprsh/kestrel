@@ -66,6 +66,18 @@ Before each schema migration of an existing database Kestrel copies it to `backu
 
 The REST API is defined by [`api/openapi.yaml`](api/openapi.yaml) ([ADR 0009](docs/adr/0009-spec-first-openapi.md)). A running instance serves it at `{base}/api/v1/openapi.json` and the interactive docs (Scalar, loaded from a CDN) at `{base}/api/docs`.
 
+Scripts authenticate with the single full-access key from Settings > Security, sent as `X-Api-Key: kst_...` (header only). Bad keys are throttled like failed logins.
+
+### Forgot your password
+
+The only CLI command resets the admin password and logs every session out. It works while Kestrel is running:
+
+```sh
+docker exec -it kestrel kestrel reset-password
+```
+
+Pass `--password-stdin` to read the new password from stdin instead of prompting.
+
 ## Develop
 
 Needs Go, Node and `make`. Docker is only for the image and the compose check. Every other tool is pinned (Go `tool` directives in `go.mod`, devDependencies in `package.json`), so nothing needs a global install.

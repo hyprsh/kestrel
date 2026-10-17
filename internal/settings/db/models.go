@@ -14,3 +14,11 @@ type Setting struct {
 	Key   string
 	Value string
 }
+
+type UntrustedProxyHeader struct {
+	Ip        string
+	Value     string
+	Count     int64
+	FirstSeen int64
+	LastSeen  int64
+}
