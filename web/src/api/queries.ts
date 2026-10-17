@@ -83,6 +83,55 @@ export function useChangePassword() {
   })
 }
 
+export type ReverseProxy = components['schemas']['ReverseProxy']
+export type ReverseProxySettings = components['schemas']['ReverseProxySettings']
+
+export function useApiKey() {
+  return useQuery({
+    queryKey: ['api-key'],
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/api-key')
+      if (!data) throw failure(error, response)
+      return data
+    },
+  })
+}
+
+/** Generates the key, or rotates it when one exists. The returned key is shown once and never again. */
+export function useCreateApiKey() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error, response } = await api.POST('/api-key')
+      if (!data) throw failure(error, response)
+      return data.key
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['api-key'] }),
+  })
+}
+
+export function useReverseProxy() {
+  return useQuery({
+    queryKey: ['reverse-proxy'],
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/settings/reverse-proxy')
+      if (!data) throw failure(error, response)
+      return data
+    },
+  })
+}
+
+export function useSaveReverseProxy() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: ReverseProxySettings) => {
+      const { error, response } = await api.PUT('/settings/reverse-proxy', { body })
+      if (!response.ok) throw failure(error, response)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['reverse-proxy'] }),
+  })
+}
+
 // ---- plugins ----
 
 export type PluginManifest = components['schemas']['PluginManifest']

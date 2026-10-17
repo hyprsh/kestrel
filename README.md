@@ -66,6 +66,18 @@ Before each schema migration of an existing database Kestrel copies it to `backu
 
 The REST API is defined by [`api/openapi.yaml`](api/openapi.yaml) ([ADR 0009](docs/adr/0009-spec-first-openapi.md)). A running instance serves it at `{base}/api/v1/openapi.json` and the interactive docs (Scalar, loaded from a CDN) at `{base}/api/docs`.
 
+Scripts authenticate with the single full-access key from Settings > Security, sent as `X-Api-Key: kst_...` (header only). Bad keys are throttled like failed logins.
+
+### Forgot your password
+
+The only CLI command resets the admin password and logs every session out. It works while Kestrel is running:
+
+```sh
+docker exec -it kestrel kestrel reset-password
+```
+
+Pass `--password-stdin` to read the new password from stdin instead of prompting.
+
 ## Develop
 
 Needs Go, Node and `make`. Docker is only for the image and the compose check. Every other tool is pinned (Go `tool` directives in `go.mod`, devDependencies in `package.json`), so nothing needs a global install.
@@ -89,7 +101,9 @@ Run `make dev-api` and `make dev-web` in two terminals, then open the Vite URL.
 | Path | What lives there |
 |---|---|
 | `cmd/kestrel` | `main`: reads config, opens the store, wires modules, serves HTTP. |
-| `internal/<module>` | One package per module of the architecture (PRD #22). Calls only go downwards. Today: `store`, `settings`, `api`, `config`, `version`. |
+| `internal/<module>` | One package per module of the architecture (PRD #22). Calls only go downwards. Today: `store`, `settings`, `release`, `api`, `config`, `version`. |
+| `internal/release` | Release name parsing: a Go port of Radarr's (and, later, Sonarr's) parser, with the upstream commit recorded in each ported file. Its tests replay Radarr's own fixtures and golden `/api/v3/parse` files from `testdata/`, see its README. |
+| `scripts/` | Dev-only tools: fixture extraction and golden-file regeneration for the parser port (Docker, never run in CI). |
 | `api/openapi.yaml` | The hand-written API contract and the source of truth. |
 | `internal/api/oapi` | Generated Go server interface and models (oapi-codegen, strict server). Do not edit. |
 | `internal/store/migrations` | goose migrations, embedded in the binary. Also the schema sqlc reads. |
