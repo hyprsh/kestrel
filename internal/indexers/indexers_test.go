@@ -3,6 +3,7 @@ package indexers_test
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -232,5 +233,36 @@ func TestFetchReturnsTheNZBFromTheNamedIndexer(t *testing.T) {
 	}
 	if _, err := r.svc.Fetch(context.Background(), 999, "x"); !errors.Is(err, indexers.ErrNoSuchIndexer) {
 		t.Errorf("Fetch from an unknown indexer = %v, want ErrNoSuchIndexer", err)
+	}
+}
+
+func TestTheObserverHearsEachLaneButNotRateLimitPauses(t *testing.T) {
+	good, limited, broken := fake.New("k"), fake.New("k"), fake.New("k")
+	r := newRig(t, namedFake{good, "idx_good"}, namedFake{limited, "idx_limited"}, namedFake{broken, "idx_broken"})
+	goodID := r.add(t, "idx_good", "Good", 1)
+	r.add(t, "idx_limited", "Limited", 2)
+	brokenID := r.add(t, "idx_broken", "Broken", 3)
+	limited.Exhaust(plugin.LimitSearch, time.Minute)
+	if _, err := r.inst.Update(context.Background(), brokenID, instances.Patch{Config: map[string]any{"api_key": "wrong"}}); err != nil {
+		t.Fatal(err)
+	}
+	var mu sync.Mutex
+	seen := map[int64]*indexers.Failure{}
+	r.svc.SetObserver(func(_ context.Context, id int64, _ string, f *indexers.Failure) {
+		mu.Lock()
+		defer mu.Unlock()
+		seen[id] = f
+	})
+
+	r.svc.Search(context.Background(), indexers.Query{Media: indexer.MediaMovie, IMDBID: "tt1109624"})
+
+	if len(seen) != 2 {
+		t.Fatalf("observed %d indexers, want the good and the broken one: %+v", len(seen), seen)
+	}
+	if f, ok := seen[goodID]; !ok || f != nil {
+		t.Errorf("good indexer = %+v", f)
+	}
+	if f := seen[brokenID]; f == nil || f.Code != plugin.CodeAuth {
+		t.Errorf("broken indexer = %+v", f)
 	}
 }

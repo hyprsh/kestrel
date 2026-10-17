@@ -35,8 +35,21 @@ type Service struct {
 	inst  *instances.Service
 	clock func() time.Time
 
-	mu   sync.Mutex
-	caps map[int64]cachedCaps
+	mu       sync.Mutex
+	caps     map[int64]cachedCaps
+	observer Observer
+}
+
+// Observer hears how each indexer's lane of a search or an RSS read went: nil
+// Failure means it worked. Rate-limit pauses are not reported; they are not
+// failures. Health uses it to raise "Indexer failing".
+type Observer func(ctx context.Context, indexerID int64, name string, f *Failure)
+
+// SetObserver sets the Observer; nil stops observing.
+func (s *Service) SetObserver(o Observer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.observer = o
 }
 
 type cachedCaps struct {
@@ -165,8 +178,14 @@ func (s *Service) fan(ctx context.Context, lane func(instances.Instance) ([]Rele
 	}
 	wg.Wait()
 
+	s.mu.Lock()
+	observe := s.observer
+	s.mu.Unlock()
 	var out Result
-	for _, l := range lanes {
+	for i, l := range lanes {
+		if f := l.failure; observe != nil && (f == nil || (f.Limit == "" && f.Code != plugin.CodeRateLimited)) {
+			observe(ctx, enabled[i].ID, enabled[i].Name, f)
+		}
 		out.Releases = append(out.Releases, l.releases...)
 		if l.failure != nil {
 			out.Failures = append(out.Failures, *l.failure)
