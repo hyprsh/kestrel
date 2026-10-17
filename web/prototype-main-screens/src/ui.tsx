@@ -6,7 +6,7 @@ import { isLongMissing, profileById } from './mock'
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
 
-type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'tertiary' | 'error'; size?: 'sm' | 'md' | 'lg'; prefix?: ReactNode }
+type BtnProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'prefix'> & { variant?: 'primary' | 'secondary' | 'tertiary' | 'error'; size?: 'sm' | 'md' | 'lg'; prefix?: ReactNode }
 export function Button({ variant = 'secondary', size = 'md', prefix, className, children, ...rest }: BtnProps) {
   return (
     <button
@@ -29,7 +29,7 @@ export function Button({ variant = 'secondary', size = 'md', prefix, className, 
   )
 }
 
-export function Input({ className, prefix, ...rest }: InputHTMLAttributes<HTMLInputElement> & { prefix?: ReactNode }) {
+export function Input({ className, prefix, ...rest }: Omit<InputHTMLAttributes<HTMLInputElement>, 'prefix'> & { prefix?: ReactNode }) {
   return (
     <label className={cx('flex h-9 items-center gap-2 rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-sm focus-within:ring-2 focus-within:ring-gray-alpha-400 focus-within:border-gray-600', className)}>
       {prefix && <span className="text-gray-900">{prefix}</span>}
