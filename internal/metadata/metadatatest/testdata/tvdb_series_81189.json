@@ -1,0 +1,15 @@
+{
+  "data": {
+    "id": 81189,
+    "name": "Breaking Bad",
+    "slug": "breaking-bad",
+    "firstAired": "2008-01-20",
+    "year": "2008",
+    "originalLanguage": "eng",
+    "aliases": [
+      {"language": "deu", "name": "Breaking Bad - Total verhext"},
+      {"language": "fra", "name": "Breaking Bad : Le Chimiste"}
+    ]
+  },
+  "status": "success"
+}

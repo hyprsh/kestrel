@@ -1,0 +1,14 @@
+{
+  "id": 7001,
+  "name": "Bridge Show",
+  "original_name": "Bridge Show",
+  "original_language": "en",
+  "first_air_date": "2015-05-05",
+  "episode_run_time": [],
+  "overview": "Only TheTVDB's remote ids know it.",
+  "poster_path": null,
+  "external_ids": {"imdb_id": "tt7777777", "tvdb_id": null},
+  "alternative_titles": {"results": []},
+  "translations": {"translations": []},
+  "content_ratings": {"results": [{"iso_3166_1": "US", "rating": "TV-Y7"}]}
+}

@@ -82,7 +82,7 @@ func NewHandler(opts Options) http.Handler {
 	s.library = library.New(opts.Store, opts.Clock)
 	s.meta = opts.Metadata
 	if s.meta == nil {
-		s.meta = metadata.NewTMDB(metadata.TMDBOptions{Keys: metadata.NewKeys(appSettings, opts.TMDBAPIKey)})
+		s.meta = metadata.NewTMDB(metadata.TMDBOptions{Keys: metadata.NewKeys(appSettings, opts.TMDBAPIKey, opts.TVDBAPIKey)})
 	}
 	s.posters = opts.Posters
 	if s.posters == nil {

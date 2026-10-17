@@ -1,0 +1,7 @@
+{
+  "data": {"series": {"id": 300001, "name": "Bridge Show"}, "episodes": [
+    {"id": 910001, "seriesId": 300001, "name": "One", "aired": "2015-05-05", "number": 1, "seasonNumber": 1}
+  ]},
+  "links": {"prev": null, "self": "", "next": null},
+  "status": "success"
+}

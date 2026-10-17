@@ -317,26 +317,12 @@ func releaseDatesOf(rows []db.TitleReleaseDate) metadata.ReleaseDates {
 }
 
 // stateOf is a Movie Version's state. wantedSince is set when it is Wanted.
-func stateOf(monitored, hasFile bool, rel metadata.ReleaseDates, addedAt time.Time, v View) (st State, wantedSince *time.Time) {
-	switch {
-	case hasFile:
-		return Filled, nil
-	case !monitored:
-		return Unmonitored, nil
+func stateOf(monitored, hasFile bool, rel metadata.ReleaseDates, addedAt time.Time, v View) (State, *time.Time) {
+	u := Unit{Monitored: monitored, HasFile: hasFile, AddedAt: addedAt}
+	if released, ok := rel.Released(v.Country); ok {
+		u.Released = &released
 	}
-	released, ok := rel.Released(v.Country)
-	if !ok || released.After(v.Now) {
-		return Unreleased, nil
-	}
-	since := addedAt
-	if released.After(since) {
-		since = released
-	}
-	return Wanted, &since
-}
-
-func longMissing(st State, since *time.Time, now time.Time) bool {
-	return st == Wanted && since != nil && now.Sub(*since) > LongMissingAfter
+	return StateAt(u, v.Now)
 }
 
 // List returns the Library's Titles, newest first, as compact rows.
@@ -399,7 +385,7 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 		row := Row{ID: t.ID, Kind: Kind(t.Kind), Title: t.Title, PrimaryTitle: t.PrimaryTitle, Year: int(t.Year.Int64), AddedAt: parseTime(t.AddedAt)}
 		for _, v := range byTitle[t.ID] {
 			st, since := stateOf(t.Monitored == 1, hasFile[v.ID], rel, parseTime(v.AddedAt), view)
-			row.Slots[slotOf(v.Slot)] = &SlotState{VersionID: v.ID, Profile: v.ProfileKey, State: st, LongMissing: longMissing(st, since, view.Now)}
+			row.Slots[slotOf(v.Slot)] = &SlotState{VersionID: v.ID, Profile: v.ProfileKey, State: st, LongMissing: IsLongMissing(st, since, view.Now)}
 			if since != nil && (row.WantedSince == nil || since.Before(*row.WantedSince)) {
 				row.WantedSince = since
 			}
@@ -460,7 +446,7 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 		fl := fileOf[v.ID]
 		st, since := stateOf(d.Monitored, fl != nil, d.ReleaseDates, parseTime(v.AddedAt), view)
 		d.Versions = append(d.Versions, Version{
-			ID: v.ID, Slot: slotOf(v.Slot), Profile: v.ProfileKey, State: st, LongMissing: longMissing(st, since, view.Now),
+			ID: v.ID, Slot: slotOf(v.Slot), Profile: v.ProfileKey, State: st, LongMissing: IsLongMissing(st, since, view.Now),
 			WantedSince: since, File: fl, AddedAt: parseTime(v.AddedAt),
 		})
 	}

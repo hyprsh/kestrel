@@ -55,7 +55,7 @@ func TestKeyPrecedenceIsUIOverrideThenEnvironmentThenEmbedded(t *testing.T) {
 	}
 
 	// The default build carries no key at all.
-	if k := got(metadata.NewKeys(s, "")); k != "" {
+	if k := got(metadata.NewKeys(s, "", "")); k != "" {
 		t.Errorf("default build embeds %q, want none", k)
 	}
 }
