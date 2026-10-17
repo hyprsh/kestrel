@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/hyprsh/kestrel/internal/profiles/db"
 	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring"
+	"github.com/hyprsh/kestrel/internal/scoring/profiles/db"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
 )

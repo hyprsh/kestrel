@@ -1,4 +1,4 @@
-// Package profiles owns the eight builtin Profiles and the household's
+// Package profiles, part of the scoring module, owns the eight builtin Profiles and the household's
 // language settings: the Primary Language, the release-date country and the
 // Kids rule. It holds the pure helpers other modules share: Profile resolution
 // and the Kids rule's certification ages.

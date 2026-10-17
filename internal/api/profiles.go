@@ -6,9 +6,9 @@ import (
 	"net/http"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
-	"github.com/hyprsh/kestrel/internal/profiles"
 	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring"
+	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 )
 
 func profilesProblem(err error) error {
