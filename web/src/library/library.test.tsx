@@ -158,4 +158,24 @@ describe('the Library detail pane', () => {
     const pane = await screen.findByRole('region', { name: /paddington/i })
     expect(await within(pane).findByRole('img', { name: /poster/i })).toHaveAttribute('src', expect.stringContaining('/titles/1/poster'))
   })
+
+  it("shows a Version's file with its quality, probed languages and Score", async () => {
+    fakeLibrary(rows())
+    const d = detail(rows()[0])
+    const hd = d.versions.find((v) => v.slot === 'hd')!
+    hd.state = 'filled'
+    hd.file = {
+      path: '/data/media/movies/P/P.mkv',
+      size: 8 << 30,
+      release_name: 'Paddington.2014.1080p.BluRay.x264-GRP',
+      score: 1750,
+      quality: 'Bluray-1080p',
+      languages: ['English', 'German'],
+      imported_at: '2026-10-17T12:00:00Z',
+    }
+    server.use(http.get('/titles/{id}', ({ response }) => response(200).json(d)))
+    await openLibrary()
+    const pane = await screen.findByRole('region', { name: /paddington/i })
+    expect(await within(pane).findByText(/Bluray-1080p · English \+ German · .*Score 1750/)).toBeInTheDocument()
+  })
 })

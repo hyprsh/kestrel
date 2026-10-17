@@ -1,0 +1,48 @@
+{
+  "plugin_id": "hyprsh.kestrel",
+  "version": "0.0.0",
+  "checksum": "__CHECKSUM__",
+  "silo_api_version": "v1",
+  "presentation": {
+    "display_name": "Kestrel",
+    "summary": "Sends approved Requests to Kestrel and reports download progress back.",
+    "description_markdown": "Hands each approved Silo Request to Kestrel. A 1080p tier adds the Title in Kestrel's HD Slot and a 2160p tier adds it in UHD. Status and download progress come back to Silo.",
+    "setup_markdown": "1. Install the plugin.\n2. In Kestrel, open Settings and generate an API key.\n3. Add a Kestrel connection here with Kestrel's address and that key.\n4. Pick the HD and UHD Profiles, or leave them on the Kestrel default.",
+    "homepage_url": "https://github.com/hyprsh/kestrel",
+    "source_url": "https://github.com/hyprsh/kestrel",
+    "support_url": "https://github.com/hyprsh/kestrel/issues",
+    "changelog_url": "https://github.com/hyprsh/kestrel/releases",
+    "publisher_name": "hyprsh",
+    "publisher_url": "https://github.com/hyprsh",
+    "license_spdx": "GPL-3.0-only"
+  },
+  "capabilities": [
+    {
+      "type": "request_router.v1",
+      "id": "kestrel",
+      "display_name": "Kestrel",
+      "description": "Fulfils Requests through Kestrel.",
+      "request_router": {
+        "supports_seasons": true,
+        "reports_download_progress": true
+      },
+      "config_schema": [
+        {
+          "key": "connection",
+          "title": "Kestrel",
+          "json_schema": "{\"type\":\"object\",\"properties\":{\"hd_profile\":{\"type\":\"string\"},\"uhd_profile\":{\"type\":\"string\"},\"also_add_sd\":{\"type\":\"boolean\"}}}",
+          "admin_form": {
+            "fields": [
+              {"key": "hd_profile", "label": "HD Profile", "control": "ADMIN_FORM_CONTROL_SELECT", "dynamic_options": true},
+              {"key": "uhd_profile", "label": "UHD Profile", "control": "ADMIN_FORM_CONTROL_SELECT", "dynamic_options": true},
+              {"key": "also_add_sd", "label": "Also add SD", "control": "ADMIN_FORM_CONTROL_SWITCH"}
+            ],
+            "sections": [
+              {"key": "profiles", "title": "Profiles", "field_keys": ["hd_profile", "uhd_profile", "also_add_sd"]}
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

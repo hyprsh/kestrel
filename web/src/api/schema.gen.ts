@@ -1348,6 +1348,10 @@ export interface components {
             size: number;
             release_name: string;
             score: number | null;
+            /** @description The quality name parsed from the release name ("Bluray-1080p"). */
+            quality?: string | null;
+            /** @description The audio languages ffprobe found (English names), in track order. */
+            languages?: string[];
             /** Format: date-time */
             imported_at: string;
         };
@@ -1694,6 +1698,11 @@ export interface components {
         RequestDownload: {
             /** @description `queued`, `downloading`, `paused`, `post_processing` or `importing`. */
             phase: string;
+            /**
+             * Format: int64
+             * @description 0 when the download client does not know the size.
+             */
+            bytes_total: number;
             /** Format: int64 */
             bytes_left: number;
             /** @description Seconds. */

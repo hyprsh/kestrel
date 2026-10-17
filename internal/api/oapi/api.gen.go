@@ -798,11 +798,17 @@ type EpisodesMonitor struct {
 
 // FileSummary defines model for FileSummary.
 type FileSummary struct {
-	ImportedAt  time.Time `json:"imported_at"`
-	Path        string    `json:"path"`
-	ReleaseName string    `json:"release_name"`
-	Score       *int      `json:"score"`
-	Size        int64     `json:"size"`
+	ImportedAt time.Time `json:"imported_at"`
+
+	// Languages The audio languages ffprobe found (English names), in track order.
+	Languages *[]string `json:"languages,omitempty"`
+	Path      string    `json:"path"`
+
+	// Quality The quality name parsed from the release name ("Bluray-1080p").
+	Quality     *string `json:"quality,omitempty"`
+	ReleaseName string  `json:"release_name"`
+	Score       *int    `json:"score"`
+	Size        int64   `json:"size"`
 }
 
 // Grab defines model for Grab.
@@ -1275,6 +1281,9 @@ type RequestCreate struct {
 // RequestDownload defines model for RequestDownload.
 type RequestDownload struct {
 	BytesLeft int64 `json:"bytes_left"`
+
+	// BytesTotal 0 when the download client does not know the size.
+	BytesTotal int64 `json:"bytes_total"`
 
 	// Eta Seconds.
 	Eta *int `json:"eta"`

@@ -66,7 +66,7 @@ func hintsOf(ev history.Event) []hint {
 	if ev.RequestID != 0 {
 		out = append(out, hintOf("request", ev.RequestID))
 	}
-	if strings.HasPrefix(string(ev.Kind), "grab") {
+	if strings.HasPrefix(string(ev.Kind), "grab") || strings.HasPrefix(string(ev.Kind), "import") {
 		out = append(out, hintOf("queue", 0))
 	}
 	if strings.HasPrefix(string(ev.Kind), "health") {

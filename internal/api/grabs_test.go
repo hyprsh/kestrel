@@ -67,6 +67,7 @@ type search struct {
 	sab     *dcfake.Client
 	hd, uhd int64
 	title   int64
+	prober  *stubProber
 }
 
 func newSearch(t *testing.T) search {
@@ -81,7 +82,7 @@ func newSearchBare(t *testing.T, with ...func(*api.Options)) search {
 	t.Helper()
 	tmdb := metadatatest.New(t)
 	data, config := t.TempDir(), t.TempDir()
-	idx, sab := ixfake.New("ik"), dcfake.New("sk")
+	idx, sab, prober := ixfake.New("ik"), dcfake.New("sk"), &stubProber{}
 	reg := plugin.NewRegistry()
 	if err := reg.Register(indexer.Contract, idx); err != nil {
 		t.Fatal(err)
@@ -90,13 +91,13 @@ func newSearchBare(t *testing.T, with ...func(*api.Options)) search {
 		t.Fatal(err)
 	}
 	with = append([]func(*api.Options){func(o *api.Options) {
-		o.DataDir, o.ConfigDir, o.Plugins = data, config, reg
+		o.DataDir, o.ConfigDir, o.Plugins, o.Prober = data, config, reg, prober
 		o.Metadata = metadata.NewTMDB(metadata.TMDBOptions{BaseURL: tmdb.APIBase(), ImageBase: tmdb.ImageBase(), Keys: metadata.StaticKey(metadatatest.Key)})
 		o.Posters = metadata.NewPosters(metadata.PostersOptions{ConfigDir: config, ImageBase: tmdb.ImageBase()})
 	}}, with...)
 	in := newInstance(t, "", with...)
 	b := in.setUp()
-	s := search{library: library{browser: b, tmdb: tmdb, config: config, data: data}, idx: idx, sab: sab}
+	s := search{library: library{browser: b, tmdb: tmdb, config: config, data: data}, idx: idx, sab: sab, prober: prober}
 
 	if r := b.valid("POST", "/plugin-instances", `{"plugin_id":"fake_indexer","name":"Alpha","config":{"api_key":"ik"}}`); r.Status != 201 {
 		t.Fatalf("indexer = %d %s", r.Status, r.Body)

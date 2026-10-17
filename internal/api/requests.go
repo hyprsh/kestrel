@@ -34,7 +34,7 @@ func requestToAPI(r requests.Request) oapi.Request {
 			o.VersionId = &id
 		}
 		if d := sl.Download; d != nil {
-			o.Download = &oapi.RequestDownload{Phase: d.Phase, BytesLeft: d.BytesLeft}
+			o.Download = &oapi.RequestDownload{Phase: d.Phase, BytesTotal: d.BytesTotal, BytesLeft: d.BytesLeft}
 			if d.ETA > 0 {
 				secs := int(d.ETA.Seconds())
 				o.Download.Eta = &secs

@@ -63,6 +63,27 @@ func (q *Queries) FindBlocklisted(ctx context.Context, arg FindBlocklistedParams
 	return items, nil
 }
 
+const finishGrab = `-- name: FinishGrab :exec
+UPDATE grabs SET state = ?, failure = ?, stalled_reason = NULL, stalled_since = NULL, next_import_at = NULL, updated_at = ? WHERE id = ?
+`
+
+type FinishGrabParams struct {
+	State     string
+	Failure   sql.NullString
+	UpdatedAt string
+	ID        int64
+}
+
+func (q *Queries) FinishGrab(ctx context.Context, arg FinishGrabParams) error {
+	_, err := q.db.ExecContext(ctx, finishGrab,
+		arg.State,
+		arg.Failure,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	return err
+}
+
 const getGrab = `-- name: GetGrab :one
 SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at FROM grabs WHERE id = ?
 `
@@ -377,6 +398,63 @@ func (q *Queries) ListDownloadingGrabs(ctx context.Context) ([]Grab, error) {
 	return items, nil
 }
 
+const listImportableGrabs = `-- name: ListImportableGrabs :many
+SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at FROM grabs
+WHERE state = 'completed'
+   OR (state = 'importing' AND (stalled_since IS NULL OR next_import_at <= ?))
+ORDER BY id
+`
+
+// Grabs the Import should look at: finished downloads, Imports that were running
+// when the process died, and stalled Imports whose retry time has come.
+func (q *Queries) ListImportableGrabs(ctx context.Context, nextImportAt sql.NullString) ([]Grab, error) {
+	rows, err := q.db.QueryContext(ctx, listImportableGrabs, nextImportAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Grab
+	for rows.Next() {
+		var i Grab
+		if err := rows.Scan(
+			&i.ID,
+			&i.TitleID,
+			&i.VersionID,
+			&i.ReleaseGuid,
+			&i.ReleaseName,
+			&i.IndexerID,
+			&i.IndexerName,
+			&i.Protocol,
+			&i.Size,
+			&i.PublishedAt,
+			&i.Score,
+			&i.Parsed,
+			&i.Verdict,
+			&i.Overridden,
+			&i.IsUpgrade,
+			&i.ClientInstanceID,
+			&i.ClientID,
+			&i.State,
+			&i.Failure,
+			&i.StalledReason,
+			&i.StalledSince,
+			&i.NextImportAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setGrabState = `-- name: SetGrabState :exec
 UPDATE grabs SET state = ?, failure = ?, updated_at = ? WHERE id = ?
 `
@@ -395,5 +473,42 @@ func (q *Queries) SetGrabState(ctx context.Context, arg SetGrabStateParams) erro
 		arg.UpdatedAt,
 		arg.ID,
 	)
+	return err
+}
+
+const stallImport = `-- name: StallImport :exec
+UPDATE grabs SET stalled_reason = ?, stalled_since = COALESCE(stalled_since, ?), next_import_at = ?, updated_at = ? WHERE id = ?
+`
+
+type StallImportParams struct {
+	StalledReason sql.NullString
+	StalledSince  sql.NullString
+	NextImportAt  sql.NullString
+	UpdatedAt     string
+	ID            int64
+}
+
+func (q *Queries) StallImport(ctx context.Context, arg StallImportParams) error {
+	_, err := q.db.ExecContext(ctx, stallImport,
+		arg.StalledReason,
+		arg.StalledSince,
+		arg.NextImportAt,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	return err
+}
+
+const startImport = `-- name: StartImport :exec
+UPDATE grabs SET state = 'importing', updated_at = ? WHERE id = ? AND state = 'completed'
+`
+
+type StartImportParams struct {
+	UpdatedAt string
+	ID        int64
+}
+
+func (q *Queries) StartImport(ctx context.Context, arg StartImportParams) error {
+	_, err := q.db.ExecContext(ctx, startImport, arg.UpdatedAt, arg.ID)
 	return err
 }

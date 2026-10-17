@@ -107,6 +107,23 @@ UPDATE search_state SET last_missing_at = ?, next_missing_at = ? WHERE version_i
 -- name: SetNextMissing :exec
 UPDATE search_state SET next_missing_at = ? WHERE version_id = ? AND season IS NULL;
 
+-- name: SetTitleFolder :exec
+UPDATE titles SET folder = ? WHERE id = ? AND folder IS NULL;
+
+-- name: ListFilesOfVersion :many
+SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE version_id = ?;
+
+-- name: DeleteFile :exec
+DELETE FROM files WHERE id = ?;
+
+-- name: InsertFile :one
+INSERT INTO files (version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id;
+
+-- name: GetFileOfGrab :one
+SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE grab_id = ? LIMIT 1;
+
 -- name: SetNextMissingSeason :exec
 UPDATE search_state SET next_missing_at = ? WHERE version_id = ? AND season = ?;
 
