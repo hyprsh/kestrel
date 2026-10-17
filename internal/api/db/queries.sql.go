@@ -51,6 +51,45 @@ func (q *Queries) DeleteSession(ctx context.Context, id string) error {
 	return err
 }
 
+const listUntrustedProxyHeaders = `-- name: ListUntrustedProxyHeaders :many
+SELECT ip, value, count, last_seen FROM untrusted_proxy_headers ORDER BY last_seen DESC, ip LIMIT 50
+`
+
+type ListUntrustedProxyHeadersRow struct {
+	Ip       string
+	Value    string
+	Count    int64
+	LastSeen int64
+}
+
+func (q *Queries) ListUntrustedProxyHeaders(ctx context.Context) ([]ListUntrustedProxyHeadersRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUntrustedProxyHeaders)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUntrustedProxyHeadersRow
+	for rows.Next() {
+		var i ListUntrustedProxyHeadersRow
+		if err := rows.Scan(
+			&i.Ip,
+			&i.Value,
+			&i.Count,
+			&i.LastSeen,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const liveSession = `-- name: LiveSession :one
 SELECT expires_at FROM sessions WHERE id = ? AND expires_at > ?
 `
@@ -77,6 +116,23 @@ func (q *Queries) PruneSessions(ctx context.Context, expiresAt int64) (int64, er
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const recordUntrustedProxyHeader = `-- name: RecordUntrustedProxyHeader :exec
+INSERT INTO untrusted_proxy_headers (ip, value, count, first_seen, last_seen)
+VALUES (?1, ?2, 1, ?3, ?3)
+ON CONFLICT (ip) DO UPDATE SET value = excluded.value, count = count + 1, last_seen = excluded.last_seen
+`
+
+type RecordUntrustedProxyHeaderParams struct {
+	Ip        string
+	Value     string
+	FirstSeen int64
+}
+
+func (q *Queries) RecordUntrustedProxyHeader(ctx context.Context, arg RecordUntrustedProxyHeaderParams) error {
+	_, err := q.db.ExecContext(ctx, recordUntrustedProxyHeader, arg.Ip, arg.Value, arg.FirstSeen)
+	return err
 }
 
 const slideSession = `-- name: SlideSession :exec

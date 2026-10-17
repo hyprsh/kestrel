@@ -1,0 +1,215 @@
+{
+  "fixture": "ExtendedQualityParserRegex",
+  "cases": [
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "Series.Title.S04E05.HDTV.XviD-LOL",
+        0
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "Series.Title.S04E05.Garnets.or.Gold.REAL.REAL.PROPER.HDTV.x264-W4F",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "Series.Title.S03E17.REAL.PROPER.720p.HDTV.x264-ORENJI-RP",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "Series.Title.S05E09.REAL.PROPER.HDTV.x264-KILLERS",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "Series.Title.S14E01.REAL.PROPER.720p.HDTV.x264-KILLERS",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "Series.Title.s02e06.real.proper.720p.webrip.x264-2hd",
+        0
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "Series.Title.S21E07.Super.Duper.Real.Proper.HDTV.x264-FTP",
+        0
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "Series.Title.S21E07.PROPER.HDTV.x264-RiVER-RP",
+        0
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "Series.Title.S07E11.PROPER.REAL.RERIP.1080p.BluRay.x264-TENEIGHTY",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "[MGS] - Series Title - Episode 02v2 - [D8B6C90D]",
+        0
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "[Hatsuyuki] Series Title - 07 [v2][848x480][23D8F455].avi",
+        0
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "[DeadFish] Series Title - 01v3 [720p][AAC]",
+        0
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "[DeadFish] Series Title - 01v4 [720p][AAC]",
+        0
+      ]
+    },
+    {
+      "method": "should_parse_reality_from_title",
+      "args": [
+        "The Real Housewives of Some Place - S01E01 - Why are we doing this?",
+        0
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "Series.Title.S04E05.HDTV.XviD-LOL",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "Series.Title.S04E05.Garnets.or.Gold.REAL.REAL.PROPER.HDTV.x264-W4F",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "Series.Title.S03E17.REAL.PROPER.720p.HDTV.x264-ORENJI-RP",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "Series.Title.S05E09.REAL.PROPER.HDTV.x264-KILLERS",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "Series.Title.S14E01.REAL.PROPER.720p.HDTV.x264-KILLERS",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "Series.Title.Is.the.New.Black.s02e06.real.proper.720p.webrip.x264-2hd",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "Series.Title.S21E07.Super.Duper.Real.Proper.HDTV.x264-FTP",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "Series.Title.S21E07.PROPER.HDTV.x264-RiVER-RP",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "Series.Title.S07E11.PROPER.REAL.RERIP.1080p.BluRay.x264-TENEIGHTY",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "[MGS] - Series Title - Episode 02v2 - [D8B6C90D]",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "[Hatsuyuki] Series Title - 07 [v2][848x480][23D8F455].avi",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "[DeadFish] Series Title - 01v3 [720p][AAC]",
+        3
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "[DeadFish]Series Title - 01v4 [720p][AAC]",
+        4
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "[Vivid-Asenshi] Series Title - 04v2 [266EE983]",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "[Vivid-Asenshi] Series Title - 03v2 [66A05817]",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_version_from_title",
+      "args": [
+        "[Vivid-Asenshi] Series Title - 02v2 [1F67AB55]",
+        2
+      ]
+    }
+  ]
+}

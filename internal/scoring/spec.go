@@ -27,22 +27,28 @@ const (
 	FlagNuked
 )
 
-// ReleaseType is what Sonarr's Release Type condition tests.
-type ReleaseType int
+// releaseType is what Sonarr's Release Type condition tests, numbered as in
+// Sonarr's ReleaseType enum.
+type releaseType int
 
 const (
-	ReleaseTypeUnknown ReleaseType = iota
-	ReleaseTypeSingleEpisode
-	ReleaseTypeMultiEpisode
-	ReleaseTypeSeasonPack
+	releaseTypeUnknown releaseType = iota
+	releaseTypeSingleEpisode
+	releaseTypeMultiEpisode
+	releaseTypeSeasonPack
 )
 
-// Sonarr numbers two sources that Radarr has no counterpart for. They follow
-// the Radarr table in release.Source; the Series parser produces them.
-const (
-	sourceTVRaw     release.Source = 10
-	sourceBlurayRaw release.Source = 11
-)
+func releaseTypeOf(t release.SeriesReleaseType) releaseType {
+	switch t {
+	case release.SeriesReleaseSingleEpisode:
+		return releaseTypeSingleEpisode
+	case release.SeriesReleaseMultiEpisode:
+		return releaseTypeMultiEpisode
+	case release.SeriesReleaseSeasonPack:
+		return releaseTypeSeasonPack
+	}
+	return releaseTypeUnknown
+}
 
 // input is everything a Custom Format condition can look at, assembled once
 // per Evaluate.
@@ -58,7 +64,7 @@ type input struct {
 	flags        Flags
 	size         int64
 	year         int
-	releaseType  ReleaseType
+	releaseType  releaseType
 }
 
 type rawSpec struct {
@@ -245,7 +251,7 @@ func compileSpec(rs rawSpec, kind release.Kind) (*spec, error) {
 		if err != nil {
 			return nil, err
 		}
-		if v < 0 || v > int(ReleaseTypeSeasonPack) {
+		if v < 0 || v > int(releaseTypeSeasonPack) {
 			return nil, fmt.Errorf("invalid release type condition value %d", v)
 		}
 		sp.test = func(in *input) (bool, bool) { return int(in.releaseType) == v, true }
@@ -309,7 +315,7 @@ func sourceFor(kind release.Kind, code int) (release.Source, error) {
 	case 1:
 		return release.SourceTV, nil
 	case 2:
-		return sourceTVRaw, nil
+		return release.SourceTVRaw, nil
 	case 3:
 		return release.SourceWebDL, nil
 	case 4:
@@ -319,7 +325,7 @@ func sourceFor(kind release.Kind, code int) (release.Source, error) {
 	case 6:
 		return release.SourceBluray, nil
 	case 7:
-		return sourceBlurayRaw, nil
+		return release.SourceBlurayRaw, nil
 	}
 	return 0, fmt.Errorf("invalid source condition value %d", code)
 }

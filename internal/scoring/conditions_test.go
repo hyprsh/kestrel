@@ -244,7 +244,8 @@ func TestSeriesCustomFormatsUseSonarrData(t *testing.T) {
 		Languages:    []release.Language{release.LangEnglish},
 		ReleaseGroup: "GRP",
 	}
-	v := scoring.Evaluate(scoring.Release{Parsed: parsed, ReleaseType: scoring.ReleaseTypeSeasonPack}, originalEnglish, prof)
+	parsed.Series = &release.SeriesInfo{Season: 1, FullSeason: true}
+	v := scoring.Evaluate(scoring.Release{Parsed: parsed}, originalEnglish, prof)
 	if got, want := fmt.Sprint(matchedNames(v)), "[Season Pack Title Web]"; got != want {
 		t.Errorf("matched = %s, want %s", got, want)
 	}

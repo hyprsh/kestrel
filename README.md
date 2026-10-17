@@ -66,6 +66,18 @@ Before each schema migration of an existing database Kestrel copies it to `backu
 
 The REST API is defined by [`api/openapi.yaml`](api/openapi.yaml) ([ADR 0009](docs/adr/0009-spec-first-openapi.md)). A running instance serves it at `{base}/api/v1/openapi.json` and the interactive docs (Scalar, loaded from a CDN) at `{base}/api/docs`.
 
+Scripts authenticate with the single full-access key from Settings > Security, sent as `X-Api-Key: kst_...` (header only). Bad keys are throttled like failed logins.
+
+### Forgot your password
+
+The only CLI command resets the admin password and logs every session out. It works while Kestrel is running:
+
+```sh
+docker exec -it kestrel kestrel reset-password
+```
+
+Pass `--password-stdin` to read the new password from stdin instead of prompting.
+
 ## Develop
 
 Needs Go, Node and `make`. Docker is only for the image and the compose check. Every other tool is pinned (Go `tool` directives in `go.mod`, devDependencies in `package.json`), so nothing needs a global install.
@@ -90,7 +102,7 @@ Run `make dev-api` and `make dev-web` in two terminals, then open the Vite URL.
 |---|---|
 | `cmd/kestrel` | `main`: reads config, opens the store, wires modules, serves HTTP. |
 | `internal/<module>` | One package per module of the architecture (PRD #22). Calls only go downwards. Today: `store`, `settings`, `release`, `api`, `config`, `version`. |
-| `internal/release` | Release name parsing: a Go port of Radarr's (and, later, Sonarr's) parser, with the upstream commit recorded in each ported file. Its tests replay Radarr's own fixtures and golden `/api/v3/parse` files from `testdata/`, see its README. |
+| `internal/release` | Release name parsing: a Go port of Radarr's (Movies) and Sonarr's (Series) parsers, with the upstream commit recorded in each ported file. Its tests replay Radarr's and Sonarr's own fixtures and golden `/api/v3/parse` files from `testdata/`, see its README. |
 | `internal/scoring` | `Evaluate`: scores a Release with TRaSH's Custom Formats and applies the Profile's language, resolution and minimum-Score rules. The TRaSH snapshot (MIT, with its licence and commit) is embedded from `trash/`; refresh it with `scripts/update-trash-snapshot.sh`. Its tests replay golden matched-Custom-Format sets recorded from pinned Radarr and Sonarr (`testdata/`, `scripts/regen-cf-golden.sh`). |
 | `internal/resolution` | The SD/HD/UHD resolution classes shared by scoring and probe. |
 | `scripts/` | Dev-only tools: fixture extraction, golden-file regeneration for the parser port and the Custom Format parity harness, TRaSH snapshot refresh (Docker, never run in CI). |

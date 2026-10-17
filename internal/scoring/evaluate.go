@@ -39,10 +39,6 @@ type Release struct {
 	// Filename is matched by Release Title conditions as well as the title,
 	// for files already on disk.
 	Filename string
-	// ReleaseType is the episode shape of a Series release, which Sonarr's
-	// Release Type condition tests: single episode, multi-episode or season
-	// pack. Zero for Movies.
-	ReleaseType ReleaseType
 	// Blocklisted is the Blocklist's answer for this Release; Evaluate knows
 	// nothing of the Blocklist itself.
 	Blocklisted bool
@@ -225,7 +221,7 @@ func newInput(rel Release, title Title, languages []release.Language) *input {
 		flags:        rel.IndexerFlags,
 		size:         rel.Size,
 		year:         p.Year,
-		releaseType:  rel.ReleaseType,
+		releaseType:  releaseTypeOf(p.SeriesReleaseType()),
 	}
 	if in.year == 0 {
 		in.year = title.Year

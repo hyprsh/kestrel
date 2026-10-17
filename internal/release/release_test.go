@@ -98,7 +98,7 @@ func TestParseFolderAcceptsAYearFirstName(t *testing.T) {
 }
 
 func TestParseOfAnUnsupportedKindSaysSo(t *testing.T) {
-	if _, err := release.Parse("Show.S01E01.1080p.WEB-GRP", release.KindSeries); !errors.Is(err, release.ErrUnsupportedKind) {
+	if _, err := release.Parse("Show.S01E01.1080p.WEB-GRP", release.Kind("anime")); !errors.Is(err, release.ErrUnsupportedKind) {
 		t.Errorf("error = %v, want ErrUnsupportedKind", err)
 	}
 }
@@ -145,6 +145,137 @@ func TestParsedReleaseJSONShape(t *testing.T) {
 	for _, key := range []string{"kind", "titles", "year", "languages", "releaseGroup"} {
 		if _, ok := m[key]; !ok {
 			t.Errorf("json has no %q: %s", key, data)
+		}
+	}
+}
+
+func mustParseSeries(t *testing.T, name string) release.ParsedRelease {
+	t.Helper()
+	p, err := release.Parse(name, release.KindSeries)
+	if err != nil {
+		t.Fatalf("Parse(%q): %v", name, err)
+	}
+	return p
+}
+
+func TestParseReadsSingleAndMultiEpisodeReleases(t *testing.T) {
+	single := mustParseSeries(t, "Show.Name.2016.S02E05.German.DL.1080p.WEB.h264-WvF")
+	if single.Kind != release.KindSeries || single.Title() != "Show Name 2016" || single.Year != 2016 ||
+		single.Series.TitleWithoutYear != "Show Name" || single.ReleaseGroup != "WvF" {
+		t.Errorf("title/year/group = %q %d %q %q", single.Title(), single.Year, single.Series.TitleWithoutYear, single.ReleaseGroup)
+	}
+	if s := single.Series; s.Season != 2 || !reflect.DeepEqual(s.Episodes, []int{5}) || s.FullSeason {
+		t.Errorf("series = %+v, want S02E05", s)
+	}
+	if single.SeriesReleaseType() != release.SeriesReleaseSingleEpisode {
+		t.Errorf("release type = %s", single.SeriesReleaseType())
+	}
+	if q := single.Quality.Quality; q.Name != "WEBDL-1080p" || q.ID != 3 || q.Source != release.SourceWebDL {
+		t.Errorf("quality = %+v", q)
+	}
+	want := []release.Language{release.LangGerman, release.LangOriginal}
+	if !reflect.DeepEqual(single.Languages, want) {
+		t.Errorf("languages = %v, want German and Original (the DL token)", single.Languages)
+	}
+
+	multi := mustParseSeries(t, "Show.Name.S03E01-E03.1080p.BluRay.x264-GRP")
+	if s := multi.Series; s.Season != 3 || !reflect.DeepEqual(s.Episodes, []int{1, 2, 3}) {
+		t.Errorf("series = %+v, want S03E01-E03", s)
+	}
+	if multi.SeriesReleaseType() != release.SeriesReleaseMultiEpisode {
+		t.Errorf("release type = %s", multi.SeriesReleaseType())
+	}
+}
+
+func TestParseReadsSeasonPacks(t *testing.T) {
+	pack := mustParseSeries(t, "Show.Name.S04.2160p.WEB-DL.DDP5.1.H.265-GRP")
+	if s := pack.Series; s.Season != 4 || !s.FullSeason || len(s.Episodes) != 0 || s.MultiSeason {
+		t.Errorf("series = %+v, want a season 4 pack", s)
+	}
+	if !pack.IsSeasonPack() || pack.SeriesReleaseType() != release.SeriesReleaseSeasonPack {
+		t.Errorf("not recognised as a season pack: %s", pack.SeriesReleaseType())
+	}
+
+	multi := mustParseSeries(t, "Show.Name.S01-S03.1080p.BluRay.x264-GRP")
+	if s := multi.Series; s.Season != 1 || !s.FullSeason || !s.MultiSeason {
+		t.Errorf("series = %+v, want a multi-season pack starting at season 1", s)
+	}
+
+	full := mustParseSeries(t, "Show Name Complete Series S01-S05 1080p BluRay x264-GRP")
+	if !full.Series.FullSeason || !full.Series.MultiSeason {
+		t.Errorf("series = %+v, want a full-series pack", full.Series)
+	}
+
+	part := mustParseSeries(t, "Show.Name.S02.Part.1.1080p.NF.WEBRip.DD5.1.x264-NTb")
+	if s := part.Series; s.Season != 2 || !s.PartialSeason || s.SeasonPart != 1 || s.FullSeason {
+		t.Errorf("series = %+v, want part 1 of season 2", s)
+	}
+}
+
+func TestParseReadsDailyEpisodes(t *testing.T) {
+	p := mustParseSeries(t, "The.Late.Show.2024.05.13.Guest.Name.1080p.WEB.h264-GRP")
+	if !p.IsDaily() || p.Series.AirDate != "2024-05-13" || len(p.Series.Episodes) != 0 || p.Series.Season != 0 {
+		t.Errorf("series = %+v, want the daily episode of 2024-05-13", p.Series)
+	}
+	if p.Title() != "The Late Show" {
+		t.Errorf("title = %q", p.Title())
+	}
+
+	if _, err := release.Parse("Show.Name.2999.01.01.720p.HDTV.x264-GRP", release.KindSeries); !errors.Is(err, release.ErrUnparseable) {
+		t.Errorf("a daily episode in the future should not parse, got %v", err)
+	}
+}
+
+func TestParseFlagsAbsoluteNumberingForDecide(t *testing.T) {
+	p := mustParseSeries(t, "[SubGroup] Anime Show - 105 [1080p]")
+	if !p.IsAbsoluteNumbering() {
+		t.Errorf("series = %+v, want absolute numbering flagged", p.Series)
+	}
+}
+
+func TestSeriesQualityUsesSonarrsTable(t *testing.T) {
+	remux := release.ParseQualityOf("Show.Name.S01E01.2160p.UHD.BluRay.Remux.HDR.HEVC-GRP", release.KindSeries)
+	if q := remux.Quality; q.Name != "Bluray-2160p Remux" || q.ID != 21 || q.Source != release.SourceBlurayRaw {
+		t.Errorf("series remux = %+v, want Sonarr's Bluray-2160p Remux", q)
+	}
+	movie := release.ParseQualityOf("Movie.2023.2160p.UHD.BluRay.Remux.HDR.HEVC-GRP", release.KindMovie)
+	if q := movie.Quality; q.Name != "Remux-2160p" || q.ID != 31 {
+		t.Errorf("movie remux = %+v, want Radarr's Remux-2160p", q)
+	}
+}
+
+func TestParsePathReadsTheSeasonFromAFolder(t *testing.T) {
+	p, err := release.ParsePath("/tv/Show Name (2003)/Season 3/05 - Title.mkv", release.KindSeries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := p.Series; s.Season != 3 || !reflect.DeepEqual(s.Episodes, []int{5}) {
+		t.Errorf("series = %+v, want S03E05", s)
+	}
+}
+
+func TestSeriesReleaseRoundTripsThroughJSON(t *testing.T) {
+	names := []string{
+		"Show.Name.2016.S02E05.German.DL.1080p.WEB.h264-WvF",
+		"Show.Name.S03E01-E03.1080p.BluRay.x264-GRP",
+		"Show.Name.S01-S03.1080p.BluRay.x264-GRP",
+		"The.Late.Show.2024.05.13.Part.2.1080p.WEB.h264-GRP",
+		"Titel.Eins / Title Two S01E02 1080p WEB-GRP",
+		"Show.Name.S01E11.5.[SP].720p.HDTV.x264-GRP",
+		"[SubGroup] Anime Show - 12.5 [1080p]",
+	}
+	for _, name := range names {
+		want := mustParseSeries(t, name)
+		data, err := json.Marshal(want)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got release.ParsedRelease
+		if err := json.Unmarshal(data, &got); err != nil {
+			t.Fatalf("%s: %v\n%s", name, err, data)
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("%s did not round-trip\n got  %+v\n want %+v\n json %s", name, got.Series, want.Series, data)
 		}
 	}
 }

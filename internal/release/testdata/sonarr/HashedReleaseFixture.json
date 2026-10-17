@@ -1,0 +1,214 @@
+{
+  "fixture": "HashedReleaseFixture",
+  "cases": [
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\Some.Hashed.Release.S01E01.720p.WEB-DL.AAC2.0.H.264-Mercury\\0e895c37245186812cb08aab1529cf8ee389dd05.mkv",
+        "Some Hashed Release",
+        {
+          "ident": "Quality.WEBDL720p"
+        },
+        "Mercury"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\0e895c37245186812cb08aab1529cf8ee389dd05\\Some.Hashed.Release.S01E01.720p.WEB-DL.AAC2.0.H.264-Mercury.mkv",
+        "Some Hashed Release",
+        {
+          "ident": "Quality.WEBDL720p"
+        },
+        "Mercury"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\Fake.Dir.S01E01-Test\\yrucreM-462.H.0.2CAA.LD-BEW.p027.10E10S.esaeleR.dehsaH.emoS.mkv",
+        "Some Hashed Release",
+        {
+          "ident": "Quality.WEBDL720p"
+        },
+        "Mercury"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\Fake.Dir.S01E01-Test\\yrucreM-LN 1.5DD LD-BEW P0801 10E10S esaeleR dehsaH emoS.mkv",
+        "Some Hashed Release",
+        {
+          "ident": "Quality.WEBDL1080p"
+        },
+        "Mercury"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\Title.S01E10.DVDRip.XviD-SONARR\\AHFMZXGHEWD660.mkv",
+        "Title",
+        {
+          "ident": "Quality.DVD"
+        },
+        "SONARR"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\Show Title.S02E12.1080p.BluRay.x264-SONARR\\Backup_72023S02-12.mkv",
+        "Show Title",
+        {
+          "ident": "Quality.Bluray1080p"
+        },
+        "SONARR"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\Title S04E08 Chupacabra 720p WEB-DL DD5 1 H 264-ECI\\123.mkv",
+        "Title",
+        {
+          "ident": "Quality.WEBDL720p"
+        },
+        "ECI"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\Title S04E08 Chupacabra 720p WEB-DL DD5 1 H 264-ECI\\abc.mkv",
+        "Title",
+        {
+          "ident": "Quality.WEBDL720p"
+        },
+        "ECI"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\Title S04E08 Chupacabra 720p WEB-DL DD5 1 H 264-ECI\\b00bs.mkv",
+        "Title",
+        {
+          "ident": "Quality.WEBDL720p"
+        },
+        "ECI"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\The.Show.Title.S02E23.720p.HDTV.x264-NZBgeek/cgajsofuejsa501.mkv",
+        "The Show Title",
+        {
+          "ident": "Quality.HDTV720p"
+        },
+        "NZBgeek"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\Show.Title.S03E04.1080p.WEB-DL.DD5.1.H264-RARBG\\170424_26.mkv",
+        "Show Title",
+        {
+          "ident": "Quality.WEBDL1080p"
+        },
+        "RARBG"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\XxQVHK4GJMP3n2dLpmhW\\XxQVHK4GJMP3n2dLpmhW\\MKV\\010E70S.nuF.fo.snoS.mkv",
+        "Sons of Fun",
+        {
+          "ident": "Quality.HDTV720p"
+        },
+        null
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "50E50S.denorD.mkv",
+        "Droned",
+        {
+          "ident": "Quality.HDTV720p"
+        },
+        null
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\XxQVHK4GJMP3n2dLpmhW\\XxQVHK4GJMP3n2dLpmhW\\50E50S.denorD.mkv",
+        "Droned",
+        {
+          "ident": "Quality.HDTV720p"
+        },
+        null
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\Series.Title.S02E24.720p.HDTV.H.264\\abc.xyz.af6021c37f7852.mkv",
+        "Series Title",
+        {
+          "ident": "Quality.HDTV720p"
+        },
+        null
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\tv\\Series.Title.S04E03.Episode.Name.1080p.AMZN.WEB-DL.DDP5.1.H.264-NTb\\cwnOJYks5E2WP7zGuzPkdkRK3JkWw0.mkv",
+        "Series Title",
+        {
+          "ident": "Quality.WEBDL1080p"
+        },
+        "NTb"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\tv\\Series.Title.2017.S04E07.Episode.Name.1080p.AMZN.WEB-DL.DDP5.1.H.264-NTb/s2e2fYzx5xJhuBjHn5ZXE07Ebi.mkv",
+        "Series Title 2017",
+        {
+          "ident": "Quality.WEBDL1080p"
+        },
+        "NTb"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\tv\\Series.Title.S04E03.Episode.Name.1080p.AMZN.WEB-DL.DDP5.1.H.264-NTb\\zM0vnVU1SoV4uwTihfzTHkYmJPBemgN3MqXG1fY.mkv",
+        "Series Title",
+        {
+          "ident": "Quality.WEBDL1080p"
+        },
+        "NTb"
+      ]
+    },
+    {
+      "method": "should_properly_parse_hashed_releases",
+      "args": [
+        "C:\\Test\\tv\\Series.Title.2019.S02E02.The.Episode.of.Names.1080p.AMZN.WEB-DL.DDP5.1.H.264-NTb/46XuzmawYQeUBwNdH2Hw2996.mkv",
+        "Series Title 2019",
+        {
+          "ident": "Quality.WEBDL1080p"
+        },
+        "NTb"
+      ]
+    }
+  ]
+}

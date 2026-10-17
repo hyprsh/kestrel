@@ -29,9 +29,9 @@ unwanted formats) and release groups taken from TRaSH's own tier lists. Each
 case records the Custom Formats Radarr or Sonarr matched and the languages it
 settled on after its aggregation.
 
-- **Movies** run end to end: Kestrel's own parser, then `scoring`.
-- **Series** inputs are built from Sonarr's own parse of the name (what its
-  Custom Formats saw), so the engine is tested without depending on the Series
-  parser.
+- **Movies** and **Series** run end to end: Kestrel's own parser, then `scoring`.
+- Series also run with inputs built from Sonarr's own parse of the name (what
+  its Custom Formats saw), so the engine is tested without depending on the
+  Series parser.
 
 Regenerate whenever the TRaSH snapshot or an upstream pin moves.

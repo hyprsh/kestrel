@@ -1,0 +1,35 @@
+{
+  "fixture": "IsPossibleSpecialEpisodeFixture",
+  "cases": [
+    {
+      "method": "IsPossibleSpecialEpisode_should_be_true",
+      "args": [
+        "Title.the.Series.S02.Special-Inside.Chesters.Mill.HDTV.x264-BAJSKORV"
+      ]
+    },
+    {
+      "method": "IsPossibleSpecialEpisode_should_be_true",
+      "args": [
+        "Title.the.Series.S02.Special-Inside.Chesters.Mill.720p.HDTV.x264-BAJSKORV"
+      ]
+    },
+    {
+      "method": "IsPossibleSpecialEpisode_should_be_true",
+      "args": [
+        "Title.the.Series.S05.Special.HDTV.x264-2HD"
+      ]
+    },
+    {
+      "method": "IsPossibleSpecialEpisode_should_be_true_if_e00_special",
+      "args": [
+        "Title.the.Series.S11E00.A.Christmas.Carol.Special.720p.HDTV-FieldOfView"
+      ]
+    },
+    {
+      "method": "IsPossibleSpecialEpisode_should_be_false_for_Special_in_title",
+      "args": [
+        "Big.Special.Show.S05.HDTV.x264-2HD"
+      ]
+    }
+  ]
+}

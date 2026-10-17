@@ -17,6 +17,8 @@ import (
 
 	kapi "github.com/hyprsh/kestrel/api"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
+	"github.com/hyprsh/kestrel/internal/plugin"
+	"github.com/hyprsh/kestrel/internal/plugin/instances"
 	"github.com/hyprsh/kestrel/internal/store"
 )
 
@@ -36,6 +38,9 @@ type Options struct {
 	Logger *slog.Logger
 	// Clock is the instance's time source; nil means time.Now. Tests move it.
 	Clock func() time.Time
+	// Plugins is the explicit list of compiled-in plugins (cmd/kestrel fills it);
+	// nil means none.
+	Plugins *plugin.Registry
 }
 
 // NewHandler returns the whole HTTP handler, mounted under opts.BaseURL.
@@ -46,7 +51,14 @@ func NewHandler(opts Options) http.Handler {
 	if opts.Clock == nil {
 		opts.Clock = time.Now
 	}
-	s := &server{opts: opts, auth: newAuth(opts.Store, opts.Clock, opts.BaseURL)}
+	if opts.Plugins == nil {
+		opts.Plugins = plugin.NewRegistry()
+	}
+	s := &server{
+		opts:    opts,
+		auth:    newAuth(opts.Store, opts.Clock, opts.BaseURL),
+		plugins: instances.NewService(opts.Store, opts.Plugins),
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ping", s.ping)
@@ -83,8 +95,9 @@ func NewHandler(opts Options) http.Handler {
 }
 
 type server struct {
-	opts Options
-	auth *auth
+	opts    Options
+	auth    *auth
+	plugins *instances.Service
 }
 
 var _ oapi.StrictServerInterface = (*server)(nil)

@@ -1,0 +1,14 @@
+{"history": {"noofslots": 6, "slots": [
+  {"nzo_id": "SABnzbd_nzo_done1", "name": "Movie.2023.1080p.WEB-DL-GRP", "nzb_name": "Movie.2023.1080p.WEB-DL-GRP.nzb", "category": "movies",
+   "status": "Completed", "fail_message": "", "storage": "/data/usenet/complete/movies/Movie.2023.1080p.WEB-DL-GRP", "bytes": 8589934592, "completed": 1760000000},
+  {"nzo_id": "SABnzbd_nzo_post1", "name": "Extracting.Movie.2024-GRP", "nzb_name": "Extracting.Movie.2024-GRP.nzb", "category": "movies",
+   "status": "Extracting", "fail_message": "", "storage": "/data/usenet/incomplete/Extracting.Movie.2024-GRP", "bytes": 4294967296, "completed": 0},
+  {"nzo_id": "SABnzbd_nzo_fail1", "name": "Broken.Movie.2020-GRP", "nzb_name": "Broken.Movie.2020-GRP.nzb", "category": "movies",
+   "status": "Failed", "fail_message": "Repairing failed, not enough repair blocks (12 short)", "storage": "", "bytes": 3000000000, "completed": 1760000100},
+  {"nzo_id": "SABnzbd_nzo_disk1", "name": "Big.Movie.2024-GRP", "nzb_name": "Big.Movie.2024-GRP.nzb", "category": "movies",
+   "status": "Failed", "fail_message": "Unpacking failed, write error or disk is full?", "storage": "", "bytes": 50000000000, "completed": 1760000200},
+  {"nzo_id": "SABnzbd_nzo_enc2", "name": "Hidden.Movie.2019-GRP", "nzb_name": "Hidden.Movie.2019-GRP.nzb", "category": "movies",
+   "status": "Failed", "fail_message": "Aborted, encryption detected", "storage": "", "bytes": 1000000000, "completed": 1760000300},
+  {"nzo_id": "SABnzbd_nzo_tvdone", "name": "Show.S01E01-GRP", "nzb_name": "Show.S01E01-GRP.nzb", "category": "tv",
+   "status": "Completed", "fail_message": "", "storage": "/data/usenet/complete/tv/Show.S01E01-GRP", "bytes": 1000000000, "completed": 1760000400}
+]}}

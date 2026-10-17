@@ -231,6 +231,24 @@ func TestSeriesMatchedFormatsEqualSonarrs(t *testing.T) {
 	}
 }
 
+// And end to end: Kestrel's Series parser, then Evaluate.
+func TestSeriesMatchedFormatsEqualSonarrsThroughTheSeriesParser(t *testing.T) {
+	g := loadCFGolden(t, "sonarr")
+	snap := embedded(t)
+	for _, c := range g.Cases {
+		t.Run(c.Name, func(t *testing.T) {
+			parsed, err := release.Parse(c.Name, release.KindSeries)
+			if err != nil {
+				t.Fatalf("Sonarr parses it, Kestrel says %v", err)
+			}
+			got := ids(snap.MatchAll(scoring.Release{Parsed: parsed}, g.title(c.Title)))
+			if !reflect.DeepEqual(got, c.Matched) {
+				t.Errorf("matched = %v\n want    %v\n(languages %v, group %q, quality %s)", names(snap, got), names(snap, c.Matched), parsed.Languages, parsed.ReleaseGroup, parsed.Quality)
+			}
+		})
+	}
+}
+
 func TestSeriesProfilesMatchSonarrsSetNarrowedToTheProfile(t *testing.T) {
 	g := loadCFGolden(t, "sonarr")
 	snap := embedded(t)
@@ -283,21 +301,24 @@ func sonarrRelease(t testing.TB, raw json.RawMessage) scoring.Release {
 	if err := json.Unmarshal(raw, &p); err != nil {
 		t.Fatal(err)
 	}
-	// Sonarr's two extra sources follow the Radarr table in release.Source.
 	sources := map[string]release.Source{
-		"unknown": release.SourceUnknown, "television": release.SourceTV, "televisionRaw": release.Source(10),
+		"unknown": release.SourceUnknown, "television": release.SourceTV, "televisionRaw": release.SourceTVRaw,
 		"web": release.SourceWebDL, "webRip": release.SourceWebRip, "dvd": release.SourceDVD,
-		"bluray": release.SourceBluray, "blurayRaw": release.Source(11),
+		"bluray": release.SourceBluray, "blurayRaw": release.SourceBlurayRaw,
 	}
 	src, ok := sources[p.Quality.Quality.Source]
 	if !ok {
 		t.Fatalf("unknown Sonarr source %q", p.Quality.Quality.Source)
 	}
-	types := map[string]scoring.ReleaseType{
-		"unknown": scoring.ReleaseTypeUnknown, "singleEpisode": scoring.ReleaseTypeSingleEpisode,
-		"multiEpisode": scoring.ReleaseTypeMultiEpisode, "seasonPack": scoring.ReleaseTypeSeasonPack,
+	// What Sonarr called the release type, as the parsed episode numbers it
+	// is derived from.
+	series := map[string]*release.SeriesInfo{
+		"unknown":       {Season: 1},
+		"singleEpisode": {Season: 1, Episodes: []int{1}},
+		"multiEpisode":  {Season: 1, Episodes: []int{1, 2}},
+		"seasonPack":    {Season: 1, FullSeason: true},
 	}
-	rt, ok := types[p.ReleaseType]
+	info, ok := series[p.ReleaseType]
 	if !ok {
 		t.Fatalf("unknown Sonarr release type %q", p.ReleaseType)
 	}
@@ -311,7 +332,7 @@ func sonarrRelease(t testing.TB, raw json.RawMessage) scoring.Release {
 				Source: src, Resolution: p.Quality.Quality.Resolution,
 			}},
 			Languages: slices.Clone(p.Languages),
+			Series:    info,
 		},
-		ReleaseType: rt,
 	}
 }

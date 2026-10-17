@@ -1,0 +1,1094 @@
+{
+  "fixture": "LanguageParserFixture",
+  "cases": [
+    {
+      "method": "should_parse_subtitle_language_unknown",
+      "args": [
+        "Series Title - S01E01 - Pilot.sub"
+      ]
+    },
+    {
+      "method": "should_parse_subtitle_language_english",
+      "args": [
+        "Series Title - S01E01 - Pilot.en.sub"
+      ]
+    },
+    {
+      "method": "should_parse_subtitle_language_english",
+      "args": [
+        "Series Title - S01E01 - Pilot.EN.sub"
+      ]
+    },
+    {
+      "method": "should_parse_subtitle_language_english",
+      "args": [
+        "Series Title - S01E01 - Pilot.eng.sub"
+      ]
+    },
+    {
+      "method": "should_parse_subtitle_language_english",
+      "args": [
+        "Series Title - S01E01 - Pilot.ENG.sub"
+      ]
+    },
+    {
+      "method": "should_parse_subtitle_language_english",
+      "args": [
+        "Series Title - S01E01 - Pilot.English.sub"
+      ]
+    },
+    {
+      "method": "should_parse_subtitle_language_english",
+      "args": [
+        "Series Title - S01E01 - Pilot.english.sub"
+      ]
+    },
+    {
+      "method": "should_parse_subtitle_language_english",
+      "args": [
+        "Series Title - S01E01 - Pilot.en.cc.sub"
+      ]
+    },
+    {
+      "method": "should_parse_subtitle_language_english",
+      "args": [
+        "Series Title - S01E01 - Pilot.en.sdh.sub"
+      ]
+    },
+    {
+      "method": "should_parse_subtitle_language_english",
+      "args": [
+        "Series Title - S01E01 - Pilot.en.forced.sub"
+      ]
+    },
+    {
+      "method": "should_parse_subtitle_language_english",
+      "args": [
+        "Series Title - S01E01 - Pilot.en.sdh.forced.sub"
+      ]
+    },
+    {
+      "method": "should_parse_subtitle_language_english",
+      "args": [
+        "Series Title - S01E01 - Pilot.eng.sub"
+      ]
+    },
+    {
+      "method": "should_parse_language_unknown",
+      "args": [
+        "Spanish Killroy was Here S02E02 Flodden 720p AMZN WEB-DL DDP5 1 H 264-NTb"
+      ]
+    },
+    {
+      "method": "should_parse_language_unknown",
+      "args": [
+        "Title.the.Spanish.Series.S02E02.1080p.WEB.H264-CAKES"
+      ]
+    },
+    {
+      "method": "should_parse_language_unknown",
+      "args": [
+        "Title.the.Spanish.Series.S02E06.Field.of.Cloth.of.Gold.1080p.AMZN.WEBRip.DDP5.1.x264-NTb"
+      ]
+    },
+    {
+      "method": "should_parse_language_unknown",
+      "args": [
+        "Title.the.Series.2009.S01E14.Germany.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_unknown",
+      "args": [
+        "Title.the.Series.2009.S01E14.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_unknown",
+      "args": [
+        "Title.the.Italian.Series.S01E01.The.Family.720p.HDTV.x264-FTP"
+      ]
+    },
+    {
+      "method": "should_parse_language_unknown",
+      "args": [
+        "Title.the.Italy.Series.S02E01.720p.HDTV.x264-TLA"
+      ]
+    },
+    {
+      "method": "should_parse_language_unknown",
+      "args": [
+        "Series Title - S01E01 - Pilot.en.sub"
+      ]
+    },
+    {
+      "method": "should_parse_language_unknown",
+      "args": [
+        "Series.Title.S01E01.SUBFRENCH.1080p.WEB.x264-GROUP"
+      ]
+    },
+    {
+      "method": "should_parse_language_english",
+      "args": [
+        "Title.the.Series.2009.S01E14.English.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_english",
+      "args": [
+        "Series Title - S01E01 - Pilot.English.sub"
+      ]
+    },
+    {
+      "method": "should_parse_language_english",
+      "args": [
+        "Series Title - S01E01 - Pilot.english.sub"
+      ]
+    },
+    {
+      "method": "should_parse_language_english",
+      "args": [
+        "Series S02 (1999–2003)[BDRemux 1080p AVC Esp DD2.0,Ing DTS-HD5.1,Cat DD2.0 Subs][HD-Olimpo][PACK]"
+      ]
+    },
+    {
+      "method": "should_parse_language_french",
+      "args": [
+        "Title.the.Series.2009.S01E14.French.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_french",
+      "args": [
+        "Title.the.Series.The.1x13.Tueurs.De.Flics.FR.DVDRip.XviD"
+      ]
+    },
+    {
+      "method": "should_parse_language_french",
+      "args": [
+        "Title.S01.720p.VF.WEB-DL.AAC2.0.H.264-BTN"
+      ]
+    },
+    {
+      "method": "should_parse_language_french",
+      "args": [
+        "Title.S01.720p.VF2.WEB-DL.AAC2.0.H.264-BTN"
+      ]
+    },
+    {
+      "method": "should_parse_language_french",
+      "args": [
+        "Title.S01.720p.VFF.WEB-DL.AAC2.0.H.264-BTN"
+      ]
+    },
+    {
+      "method": "should_parse_language_french",
+      "args": [
+        "Title.S01.720p.VFQ.WEB-DL.AAC2.0.H.264-BTN"
+      ]
+    },
+    {
+      "method": "should_parse_language_french",
+      "args": [
+        "Title.S01.720p.TRUEFRENCH.WEB-DL.AAC2.0.H.264-BTN"
+      ]
+    },
+    {
+      "method": "should_parse_language_french",
+      "args": [
+        "Series In The Middle S01 Multi VFI VO 1080p WEB x265 HEVC AAC 5.1-Papaya"
+      ]
+    },
+    {
+      "method": "should_parse_language_spanish",
+      "args": [
+        "Title.the.Series.2009.S01E14.Spanish.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_spanish",
+      "args": [
+        "Series Title - Temporada 1 [HDTV 720p][Cap.101][AC3 5.1 Castellano][www.pctnew.ORG]"
+      ]
+    },
+    {
+      "method": "should_parse_language_spanish",
+      "args": [
+        "Series Title - Temporada 2 [HDTV 720p][Cap.206][AC3 5.1 Español Castellano]"
+      ]
+    },
+    {
+      "method": "should_parse_language_german",
+      "args": [
+        "Title.the.Series.2009.S01E14.German.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_german",
+      "args": [
+        "Title.the.Series.S04E15.Brotherly.Love.GERMAN.DUBBED.WS.WEBRiP.XviD.REPACK-TVP"
+      ]
+    },
+    {
+      "method": "should_parse_language_german",
+      "args": [
+        "The Series Title - S02E16 - Kampfhaehne - mkv - by Videomann"
+      ]
+    },
+    {
+      "method": "should_parse_language_german",
+      "args": [
+        "Series.Title.S01E03.Ger.Dub.AAC.1080p.WebDL.x264-TKP21"
+      ]
+    },
+    {
+      "method": "should_parse_language_italian",
+      "args": [
+        "Title.the.Series.2009.S01E14.Italian.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_italian",
+      "args": [
+        "Title.the.Series.1x19.ita.720p.bdmux.x264-novarip"
+      ]
+    },
+    {
+      "method": "should_parse_language_danish",
+      "args": [
+        "Title.the.Series.2009.S01E14.Danish.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_dutch",
+      "args": [
+        "Title.the.Series.2009.S01E14.Dutch.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_japanese",
+      "args": [
+        "Title.the.Series.2009.S01E14.Japanese.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_icelandic",
+      "args": [
+        "Title.the.Series.2009.S01E14.Icelandic.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_icelandic",
+      "args": [
+        "Title.the.Series.S01E03.1080p.WEB-DL.DD5.1.H.264-SbR Icelandic"
+      ]
+    },
+    {
+      "method": "should_parse_language_chinese",
+      "args": [
+        "Title.the.Series.2009.S01E14.Chinese.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_chinese",
+      "args": [
+        "Title.the.Series.2009.S01E14.Cantonese.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_chinese",
+      "args": [
+        "Title.the.Series.2009.S01E14.Mandarin.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_chinese",
+      "args": [
+        "[abc] My Series - 01 [CHS]"
+      ]
+    },
+    {
+      "method": "should_parse_language_chinese",
+      "args": [
+        "[abc] My Series - 01 [CHT]"
+      ]
+    },
+    {
+      "method": "should_parse_language_chinese",
+      "args": [
+        "[abc] My Series - 01 [BIG5]"
+      ]
+    },
+    {
+      "method": "should_parse_language_chinese",
+      "args": [
+        "[abc] My Series - 01 [GB]"
+      ]
+    },
+    {
+      "method": "should_parse_language_chinese",
+      "args": [
+        "[abc] My Series - 01 [繁中]"
+      ]
+    },
+    {
+      "method": "should_parse_language_chinese",
+      "args": [
+        "[abc] My Series - 01 [繁体]"
+      ]
+    },
+    {
+      "method": "should_parse_language_chinese",
+      "args": [
+        "[abc] My Series - 01 [简繁外挂]"
+      ]
+    },
+    {
+      "method": "should_parse_language_chinese",
+      "args": [
+        "[abc] My Series - 01 [简繁内封字幕]"
+      ]
+    },
+    {
+      "method": "should_parse_language_chinese",
+      "args": [
+        "[ABC字幕组] My Series - 01 [HDTV]"
+      ]
+    },
+    {
+      "method": "should_parse_language_chinese",
+      "args": [
+        "[喵萌奶茶屋\u0026LoliHouse] 拳愿阿修罗 / Kengan Ashura - 17 [WebRip 1080p HEVC-10bit AAC][中日双语字幕]"
+      ]
+    },
+    {
+      "method": "should_parse_language_korean",
+      "args": [
+        "Title.the.Series.2009.S01E14.Korean.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_latvian",
+      "args": [
+        "Title.the.Series.2009.S01E08.2160p.WEB-DL.LAV.ENG"
+      ]
+    },
+    {
+      "method": "should_parse_language_latvian",
+      "args": [
+        "Title.the.Series.S01.COMPLETE.2009.1080p.WEB-DL.x264.AVC.AAC.LT.LV.RU"
+      ]
+    },
+    {
+      "method": "should_parse_language_latvian",
+      "args": [
+        "Title.the.Series.S03.1080p.WEB.x264.LAT.ENG"
+      ]
+    },
+    {
+      "method": "should_parse_language_latvian",
+      "args": [
+        "Title.the.Series.S02E02.LATViAN.1080p.WEB.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_russian",
+      "args": [
+        "Title.the.Series.2009.S01E14.Russian.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_russian",
+      "args": [
+        "Title.the.Series.S01E01.1080p.WEB-DL.Rus.Eng.TVKlondike"
+      ]
+    },
+    {
+      "method": "should_parse_language_russian",
+      "args": [
+        "Title.the.Series.S01.COMPLETE.2009.1080p.WEB-DL.x264.AVC.AAC.LT.LV.RU"
+      ]
+    },
+    {
+      "method": "should_parse_language_polish",
+      "args": [
+        "Title.the.Series.2009.S01E14.Polish.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_polish",
+      "args": [
+        "Title.the.Series.2009.S01E14.PL.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_polish",
+      "args": [
+        "Title.the.Series.2009.S01E14.PLLEK.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_polish",
+      "args": [
+        "Title.the.Series.2009.S01E14.PL-LEK.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_polish",
+      "args": [
+        "Title.the.Series.2009.S01E14.LEKPL.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_polish",
+      "args": [
+        "Title.the.Series.2009.S01E14.LEK-PL.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_polish",
+      "args": [
+        "Title.the.Series.2009.S01E14.PLDUB.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_polish",
+      "args": [
+        "Title.the.Series.2009.S01E14.PL-DUB.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_polish",
+      "args": [
+        "Title.the.Series.2009.S01E14.DUBPL.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_polish",
+      "args": [
+        "Title.the.Series.2009.S01E14.DUB-PL.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_vietnamese",
+      "args": [
+        "Title.the.Series.2009.S01E14.Vietnamese.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_swedish",
+      "args": [
+        "Title.the.Series.2009.S01E14.Swedish.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_norwegian",
+      "args": [
+        "Title.the.Series.2009.S01E14.Norwegian.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_finnish",
+      "args": [
+        "Title.the.Series.2009.S01E14.Finnish.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_turkish",
+      "args": [
+        "Title.the.Series.2009.S01E14.Turkish.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_portuguese",
+      "args": [
+        "Title.the.Series.2009.S01E14.Portuguese.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_flemish",
+      "args": [
+        "Title.the.Series.S01E01.FLEMISH.HDTV.x264-BRiGAND"
+      ]
+    },
+    {
+      "method": "should_parse_language_greek",
+      "args": [
+        "Title.the.Series.S03E13.Greek.PDTV.XviD-Ouzo"
+      ]
+    },
+    {
+      "method": "should_parse_language_hungarian",
+      "args": [
+        "Title.the.Series.2009.S01E14.HDTV.XviD.HUNDUB-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_hungarian",
+      "args": [
+        "Title.the.Series.2009.S01E14.HDTV.XviD.ENG.HUN-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_hungarian",
+      "args": [
+        "Title.the.Series.2009.S01E14.HDTV.XviD.HUN-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_hebrew",
+      "args": [
+        "Title.the.Series.S01-03.DVDRip.HebDub"
+      ]
+    },
+    {
+      "method": "should_parse_language_lithuanian",
+      "args": [
+        "Title.the.Series.S05E01.WEBRip.x264.AC3.LT.EN-CNN"
+      ]
+    },
+    {
+      "method": "should_parse_language_czech",
+      "args": [
+        "Title.the.Series.​S07E11.​WEB Rip.​XviD.​Louige-​CZ.​EN.​5.​1"
+      ]
+    },
+    {
+      "method": "should_parse_language_arabic",
+      "args": [
+        "Series Title.S01.ARABIC.COMPLETE.720p.NF.WEBRip.x264-PTV"
+      ]
+    },
+    {
+      "method": "should_parse_language_hindi",
+      "args": [
+        "The Shadow Series S01 E01-08 WebRip Dual Audio [Hindi 5.1] 720p x264 AAC ESub"
+      ]
+    },
+    {
+      "method": "should_parse_language_hindi",
+      "args": [
+        "The Final Sonarr (2020) S04 Complete 720p NF WEBRip [Hindi] Dual audio"
+      ]
+    },
+    {
+      "method": "should_parse_language_bulgarian",
+      "args": [
+        "Title.the.Series.2009.S01E14.Bulgarian.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_bulgarian",
+      "args": [
+        "Title.the.Series.2009.S01E14.BGAUDIO.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_bulgarian",
+      "args": [
+        "Title.the.Series.2009.S01E14.BG.AUDIO.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_malayalam",
+      "args": [
+        "Series Title S01E01 Malayalam.1080p.WebRip.AVC.5.1-Rjaa"
+      ]
+    },
+    {
+      "method": "should_parse_language_malayalam",
+      "args": [
+        "Series Title S01E01 Malayalam DVDRip XviD 5.1 ESub MTR"
+      ]
+    },
+    {
+      "method": "should_parse_language_malayalam",
+      "args": [
+        "Series.Title.S01E01.DVDRip.1CD.Malayalam.Xvid.MP3 @Mastitorrents"
+      ]
+    },
+    {
+      "method": "should_parse_language_ukrainian",
+      "args": [
+        "Гало(Сезон 1, серії 1-5) / SeriesTitle(Season 1, episodes 1-5) (2022) WEBRip-AVC Ukr/Eng"
+      ]
+    },
+    {
+      "method": "should_parse_language_ukrainian",
+      "args": [
+        "Архів 81 (Сезон 1) / Series 81 (Season 1) (2022) WEB-DLRip-AVC Ukr/Eng | Sub Ukr/Eng"
+      ]
+    },
+    {
+      "method": "should_parse_language_ukrainian",
+      "args": [
+        "Книга Боби Фетта(Сезон 1) / Series Title(Season 1) (2021) WEB-DLRip Ukr/Eng"
+      ]
+    },
+    {
+      "method": "should_parse_language_slovak",
+      "args": [
+        "Title.the.Series.2022.S02E22.Slovak.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_slovak",
+      "args": [
+        "Title.the.Series.2021.S01E11.HDTV.XviD.ENG.SK-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_thai",
+      "args": [
+        "Thai.Series.Title.S01.THAI.1080p.WEBRip.x265-RARBG"
+      ]
+    },
+    {
+      "method": "should_parse_language_thai",
+      "args": [
+        "Series.Title.S02.THAI.1080p.NF.WEBRip.DDP2.0.x264-PAAI[rartv]"
+      ]
+    },
+    {
+      "method": "should_parse_language_thai",
+      "args": [
+        "Series.Title.S01.THAI.1080p.NF.WEBRip.DDP5.1.x264-NTG[rartv]"
+      ]
+    },
+    {
+      "method": "should_parse_language_portuguese_brazil",
+      "args": [
+        "Title.the.Series.2009.S01E14.Brazilian.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_portuguese_brazil",
+      "args": [
+        "Title.the.Series.2009.S01E14.Dublado.HDTV.XviD-LOL"
+      ]
+    },
+    {
+      "method": "should_parse_language_spanish_latino",
+      "args": [
+        "Series.Title.S01.2019.720p_Eng-Spa(Latino)_MovieClubMx"
+      ]
+    },
+    {
+      "method": "should_parse_language_spanish_latino",
+      "args": [
+        "Series.Title.1.WEB-DL.720p.Complete.Latino.YG"
+      ]
+    },
+    {
+      "method": "should_parse_language_spanish_latino",
+      "args": [
+        "Series.Title.S08E01.1080p.WEB.H264.Latino.YG"
+      ]
+    },
+    {
+      "method": "should_parse_language_spanish_latino",
+      "args": [
+        "Series Title latino"
+      ]
+    },
+    {
+      "method": "should_parse_language_spanish_latino",
+      "args": [
+        "Series Title (Temporada 11 Completa) Audio Dual Ingles/Latino 1920x1080"
+      ]
+    },
+    {
+      "method": "should_parse_language_spanish_latino",
+      "args": [
+        "series title 7x4 audio latino"
+      ]
+    },
+    {
+      "method": "should_parse_language_romanian",
+      "args": [
+        "TV.Series.S01.720p.WEB-DL.RoDubbed-RLSGRP"
+      ]
+    },
+    {
+      "method": "should_parse_language_romanian",
+      "args": [
+        "TV Series S22E36 ROMANIAN 1080p WEB-DL AAC 2.0 H.264-RLSGRP"
+      ]
+    },
+    {
+      "method": "should_parse_language_catalan",
+      "args": [
+        "Series S02 (2009–2013)[BDRemux 1080p AVC Cat.DD2.0,Subs][HD-Olimpo][PACK]"
+      ]
+    },
+    {
+      "method": "should_parse_language_catalan",
+      "args": [
+        "Series S02 (2009–2013)[BDRemux 1080p AVC Esp.DD2.0,Ing.DD2.0,Cat.DD2.0,Subs][HD-Olimpo][PACK]"
+      ]
+    },
+    {
+      "method": "should_parse_language_catalan",
+      "args": [
+        "Series S02 (1999–2003)[BDRemux 1080p AVC Esp DD2.0,Ing DTS-HD5.1,Cat DD2.0 Subs][HD-Olimpo][PACK]"
+      ]
+    },
+    {
+      "method": "should_parse_language_catalan",
+      "args": [
+        "Series S01 [WEB-DL NF 1080p EAC3 2.0 esp cat Subs][HDOlimpo]"
+      ]
+    },
+    {
+      "method": "should_parse_language_catalan",
+      "args": [
+        "Series S02E08 M+ WEBDL 1080p SPA-CAT DD5.1 SUBS x264"
+      ]
+    },
+    {
+      "method": "should_parse_language_catalan",
+      "args": [
+        "Series Title S02 (2021) [WEB-DL 1080p Castellano DD 5.1 - Catalán DD 5.1 Subs] [HDOlimpo]"
+      ]
+    },
+    {
+      "method": "should_parse_hindi_and_english",
+      "args": [
+        "The Shadow Series S01 E01-08 WebRip Dual Audio [Hindi 5.1 + English 5.1] 720p x264 AAC ESub"
+      ]
+    },
+    {
+      "method": "should_parse_hindi_and_english",
+      "args": [
+        "The Final Sonarr (2020) S04 Complete 720p NF WEBRip [Hindi+English] Dual audio"
+      ]
+    },
+    {
+      "method": "should_parse_spanish_and_catalan",
+      "args": [
+        "Series S01 [WEB-DL NF 1080p EAC3 2.0 esp cat Subs][HDOlimpo]"
+      ]
+    },
+    {
+      "method": "should_parse_spanish_and_catalan",
+      "args": [
+        "Series S02E08 M+ WEBDL 1080p SPA-CAT DD5.1 SUBS x264"
+      ]
+    },
+    {
+      "method": "should_parse_spanish_and_catalan",
+      "args": [
+        "Series Title S02 (2021) [WEB-DL 1080p Castellano DD 5.1 - Catalán DD 5.1 Subs] [HDOlimpo]"
+      ]
+    },
+    {
+      "method": "should_parse_english_spanish_and_catalan",
+      "args": [
+        "Series S02 (2009–2013)[BDRemux 1080p AVC Esp.DD2.0,Ing.DD2.0,Cat.DD2.0,Subs][HD-Olimpo][PACK]"
+      ]
+    },
+    {
+      "method": "should_parse_english_spanish_and_catalan",
+      "args": [
+        "Series S02 (1999–2003)[BDRemux 1080p AVC Esp DD2.0,Ing DTS-HD5.1,Cat DD2.0 Subs][HD-Olimpo][PACK]"
+      ]
+    },
+    {
+      "method": "should_add_original_language_to_german_release_with_dl_tag",
+      "args": [
+        "Series.Title.S01E01.German.DL.1080p.BluRay.x264-RlsGrp"
+      ]
+    },
+    {
+      "method": "should_add_original_language_to_german_release_with_dl_tag",
+      "args": [
+        "Series.Title.S01E01.GERMAN.DL.1080P.WEB.H264-RlsGrp"
+      ]
+    },
+    {
+      "method": "should_add_original_language_to_german_release_with_dl_tag",
+      "args": [
+        "Series.Title.2023.S01E01.German.DL.EAC3.1080p.DSNP.WEB.H264-RlsGrp"
+      ]
+    },
+    {
+      "method": "should_not_add_original_language_to_german_release_when_title_contains_web_dl",
+      "args": [
+        "Series.Title.2023.S01E01.GERMAN.1080P.WEB-DL.H264-RlsGrp"
+      ]
+    },
+    {
+      "method": "should_not_add_original_language_to_german_release_when_title_contains_web_dl",
+      "args": [
+        "Series.Title.2023.S01E01.GERMAN.1080P.WEB.DL.H264-RlsGrp"
+      ]
+    },
+    {
+      "method": "should_not_add_original_language_to_german_release_when_title_contains_web_dl",
+      "args": [
+        "Series Title 2023 S01E01 GERMAN 1080P WEB DL H264-RlsGrp"
+      ]
+    },
+    {
+      "method": "should_not_add_original_language_to_german_release_when_title_contains_web_dl",
+      "args": [
+        "Series.Title.2023.S01E01.GERMAN.1080P.WEBDL.H264-RlsGrp"
+      ]
+    },
+    {
+      "method": "should_add_original_language_and_english_to_german_release_with_ml_tag",
+      "args": [
+        "Series.Title.2023.S01.German.ML.EAC3.1080p.NF.WEB.H264-RlsGrp"
+      ]
+    },
+    {
+      "method": "should_parse_original_title_from_release_name",
+      "args": [
+        "Series.Title.S01E01.Original.1080P.WEB.H264-RlsGrp"
+      ]
+    },
+    {
+      "method": "should_parse_original_title_from_release_name",
+      "args": [
+        "Series.Title.S01E01.Orig.1080P.WEB.H264-RlsGrp"
+      ]
+    },
+    {
+      "method": "should_parse_original_title_from_release_name",
+      "args": [
+        "Series / S1E1-10 of 10 [2023, HEVC, HDR10, Dolby Vision, WEB-DL 2160p] [Hybrid] 3 XX + Original"
+      ]
+    },
+    {
+      "method": "should_parse_english_and_ukranian",
+      "args": [
+        "Остання серія (Сезон 1) / The Last Series (Season 1) (2024) WEB-DLRip-AVC 2xUkr/Eng | Sub Ukr/Eng"
+      ]
+    },
+    {
+      "method": "should_parse_english_and_ukranian",
+      "args": [
+        "Справжня серія (Сезон 1-3) / True Series (Season 1-3) (2014-2019) BDRip-AVC 3xUkr/Eng | Ukr/Eng"
+      ]
+    },
+    {
+      "method": "should_parse_english_and_ukranian",
+      "args": [
+        "Серія (Сезон 1-3) / The Series (Seasons 1-3) (2019-2022) BDRip-AVC 4xUkr/Eng | Sub 2xUkr/Eng"
+      ]
+    },
+    {
+      "method": "should_parse_turkish_and_ukranian",
+      "args": [
+        "Серія (Сезон 1, серії 01-26 із 51) / Seri (Season 1, episodes 01-26) (2018) WEBRip-AVC 2Ukr/Tur"
+      ]
+    },
+    {
+      "method": "should_parse_title_and_tags",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].testtitle.default.eng.forced.ass",
+        [
+          "default",
+          "forced"
+        ],
+        "testtitle",
+        "English"
+      ]
+    },
+    {
+      "method": "should_parse_title_and_tags",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].eng.default.testtitle.forced.ass",
+        [
+          "default",
+          "forced"
+        ],
+        "testtitle",
+        "English"
+      ]
+    },
+    {
+      "method": "should_parse_title_and_tags",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].default.eng.testtitle.forced.ass",
+        [
+          "default",
+          "forced"
+        ],
+        "testtitle",
+        "English"
+      ]
+    },
+    {
+      "method": "should_parse_title_and_tags",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].testtitle.forced.eng.ass",
+        [
+          "forced"
+        ],
+        "testtitle",
+        "English"
+      ]
+    },
+    {
+      "method": "should_parse_title_and_tags",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].eng.forced.testtitle.ass",
+        [
+          "forced"
+        ],
+        "testtitle",
+        "English"
+      ]
+    },
+    {
+      "method": "should_parse_title_and_tags",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].forced.eng.testtitle.ass",
+        [
+          "forced"
+        ],
+        "testtitle",
+        "English"
+      ]
+    },
+    {
+      "method": "should_parse_title_and_tags",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].testtitle.default.fra.forced.ass",
+        [
+          "default",
+          "forced"
+        ],
+        "testtitle",
+        "French"
+      ]
+    },
+    {
+      "method": "should_parse_title_and_tags",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].fra.default.testtitle.forced.ass",
+        [
+          "default",
+          "forced"
+        ],
+        "testtitle",
+        "French"
+      ]
+    },
+    {
+      "method": "should_parse_title_and_tags",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].default.fra.testtitle.forced.ass",
+        [
+          "default",
+          "forced"
+        ],
+        "testtitle",
+        "French"
+      ]
+    },
+    {
+      "method": "should_parse_title_and_tags",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].testtitle.forced.fra.ass",
+        [
+          "forced"
+        ],
+        "testtitle",
+        "French"
+      ]
+    },
+    {
+      "method": "should_parse_title_and_tags",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].fra.forced.testtitle.ass",
+        [
+          "forced"
+        ],
+        "testtitle",
+        "French"
+      ]
+    },
+    {
+      "method": "should_parse_title_and_tags",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].forced.fra.testtitle.ass",
+        [
+          "forced"
+        ],
+        "testtitle",
+        "French"
+      ]
+    },
+    {
+      "method": "should_parse_title_and_tags",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].ru-something-else.srt",
+        [],
+        "something-else",
+        "Russian"
+      ]
+    },
+    {
+      "method": "should_parse_title_and_tags",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].Full Subtitles.eng.ass",
+        [],
+        "Full Subtitles",
+        "English"
+      ]
+    },
+    {
+      "method": "should_parse_title_and_tags",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].mytitle - 1.en.ass",
+        [],
+        "mytitle",
+        "English"
+      ]
+    },
+    {
+      "method": "should_parse_title_and_tags",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].mytitle 1.en.ass",
+        [],
+        "mytitle 1",
+        "English"
+      ]
+    },
+    {
+      "method": "should_parse_title_and_tags",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].mytitle.en.ass",
+        [],
+        "mytitle",
+        "English"
+      ]
+    },
+    {
+      "method": "should_not_parse_false_title",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].default.forced.ass"
+      ]
+    },
+    {
+      "method": "should_not_parse_false_title",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].default.ass"
+      ]
+    },
+    {
+      "method": "should_not_parse_false_title",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].ass"
+      ]
+    },
+    {
+      "method": "should_not_parse_false_title",
+      "args": [
+        "Name (2020) - S01E20 - [AAC 2.0].testtitle.ass"
+      ]
+    }
+  ]
+}
