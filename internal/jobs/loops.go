@@ -174,7 +174,7 @@ func importDue(ctx context.Context, r *Runner, d Deps) error {
 				if ctx.Err() != nil {
 					continue // shutting down: the Grab stays importing and is redone
 				}
-				out := acquire.ImportOutcome{Status: acquire.ImportStatus(res.Status), Reason: res.Reason}
+				out := acquire.ImportOutcome{Status: acquire.ImportStatus(res.Status), Reason: res.Reason, Path: res.Path}
 				if err := d.ImportSource.RecordImport(ctx, j.ID, j.CanRemove, out); err != nil {
 					r.log.Warn("recording an Import failed", "grab", j.ID, "err", err)
 				}

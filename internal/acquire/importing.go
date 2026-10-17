@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/acquire/db"
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
 )
 
@@ -37,6 +38,8 @@ type ImportOutcome struct {
 	// Reason is the rejection code (invalid, resolution, language, not_upgrade)
 	// or the stalled reason.
 	Reason string
+	// Path is the imported file, for the Log.
+	Path string
 }
 
 // stallBackoff is the retry wait of a stalled Import by how long it has stalled:
@@ -106,6 +109,12 @@ func (s *Service) RecordImport(ctx context.Context, grabID int64, canRemove bool
 		if row.StalledSince.Valid {
 			since = parseTime(row.StalledSince.String)
 		}
+		if !row.StalledSince.Valid || row.StalledReason.String != o.Reason {
+			s.hist.Record(ctx, history.Event{
+				Kind: history.ImportStalled, TitleID: row.TitleID.Int64, VersionID: row.VersionID.Int64, GrabID: grabID,
+				Message: "Import of " + row.ReleaseName + " stalled: " + o.Reason,
+			})
+		}
 		return q.StallImport(ctx, db.StallImportParams{
 			StalledReason: sql.NullString{String: o.Reason, Valid: true}, StalledSince: sql.NullString{String: ts(now), Valid: true},
 			NextImportAt: sql.NullString{String: ts(now.Add(stallBackoff(now.Sub(since)))), Valid: true}, UpdatedAt: ts(now), ID: grabID,
@@ -126,6 +135,14 @@ func (s *Service) RecordImport(ctx context.Context, grabID int64, canRemove bool
 			return err
 		}
 		s.live.drop(grabID)
+		ev := history.Event{
+			Kind: history.ImportDone, TitleID: row.TitleID.Int64, VersionID: row.VersionID.Int64, GrabID: grabID,
+			Message: "Imported " + row.ReleaseName + " as " + o.Path,
+		}
+		if o.Status == ImportRejected {
+			ev.Kind, ev.Message = history.ImportRejected, "Import of "+row.ReleaseName+" rejected: "+o.Reason
+		}
+		s.hist.Record(ctx, ev)
 		if canRemove {
 			if err := s.dl.Remove(ctx, row.ClientInstanceID, row.ClientID, true); err != nil && !errors.Is(err, instances.ErrNotFound) {
 				return err

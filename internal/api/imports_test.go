@@ -196,3 +196,23 @@ func TestAStalledImportKeepsItsJobAndIsRetriedWhenItsTimeComes(t *testing.T) {
 		t.Errorf("Grab state = %s, want imported after the retry", got)
 	}
 }
+
+func TestTheStreamHintsAnImportAndEmptiesTheQueue(t *testing.T) {
+	s := newSearchBare(t, fastStream)
+	s.addPaddington(t)
+	s.prober.set(goodProbe(), nil)
+	grab, _ := s.download(t, map[string]string{"paddington.mkv": "the movie"})
+	s.pass(t, jobs.Poll)
+	st := s.stream(t)
+	st.queue("importing", func(items []queueItemJSON) bool { return len(items) == 1 && items[0].Phase == "importing" })
+
+	st.mark()
+	s.pass(t, jobs.Import)
+
+	st.until("changed hint for the Grab", func(e sseEvent) bool {
+		return e.Name == "changed" && strings.Contains(e.Data, `"grab"`) && strings.Contains(e.Data, fmt.Sprint(grab))
+	})
+	st.hint("title")
+	st.hint("queue")
+	st.queue("nothing left to import", func(items []queueItemJSON) bool { return len(items) == 0 })
+}
