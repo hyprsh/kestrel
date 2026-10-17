@@ -20,7 +20,12 @@ type fakeAcquire struct {
 	pollErr  error
 	polls    int
 	searched [][]int64
-	outcome  func(titleID int64, versionIDs []int64) (acquire.Outcome, error)
+
+	rss       acquire.RSSOutcome
+	rssErr    error
+	rssPasses int
+
+	outcome func(titleID int64, versionIDs []int64) (acquire.Outcome, error)
 }
 
 func (f *fakeAcquire) Poll(context.Context) (acquire.PollResult, error) {
@@ -28,6 +33,13 @@ func (f *fakeAcquire) Poll(context.Context) (acquire.PollResult, error) {
 	defer f.mu.Unlock()
 	f.polls++
 	return f.poll, f.pollErr
+}
+
+func (f *fakeAcquire) SyncRSS(context.Context) (acquire.RSSOutcome, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.rssPasses++
+	return f.rss, f.rssErr
 }
 
 func (f *fakeAcquire) SearchWanted(_ context.Context, titleID int64, versionIDs []int64) (acquire.Outcome, error) {
@@ -111,6 +123,28 @@ func TestTheSearchLoopSearchesEachDueTitleOnceMarksItsVersionsAndKicksThePoll(t 
 	}
 	if err := r.Pass(context.Background(), jobs.Search); err != nil || len(a.searched) != 2 {
 		t.Errorf("a second pass searched again: %v, %v", a.searched, err)
+	}
+}
+
+func TestTheRSSLoopRunsEveryFifteenMinutes(t *testing.T) {
+	a := &fakeAcquire{rss: acquire.RSSOutcome{Grabbed: []acquire.Grab{{ID: 1}}}}
+	r := standard(a, &fakeLibrary{})
+
+	if got := r.Every(jobs.RSS); got != 15*time.Minute {
+		t.Errorf("RSS cadence = %v, want 15m", got)
+	}
+	if err := r.Pass(context.Background(), jobs.RSS); err != nil {
+		t.Fatal(err)
+	}
+	if a.rssPasses != 1 {
+		t.Errorf("rss passes = %d, want 1", a.rssPasses)
+	}
+}
+
+func TestAFailingRSSPassIsReportedSoTheRunnerCanLogIt(t *testing.T) {
+	a := &fakeAcquire{rssErr: errors.New("no download client")}
+	if err := standard(a, &fakeLibrary{}).Pass(context.Background(), jobs.RSS); err == nil {
+		t.Error("want the error")
 	}
 }
 

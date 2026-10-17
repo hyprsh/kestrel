@@ -18,6 +18,8 @@ const (
 	// Search searches what the library says is due: search on add today,
 	// the sweeps (#46) and RSS (#45) later.
 	Search = "search"
+	// RSS reads every indexer's feed and grabs what the library wants from it.
+	RSS = "rss"
 )
 
 // Cadences. missingRetry and missingFailed are placeholders until the sweep
@@ -26,6 +28,7 @@ const (
 	pollBusy      = 10 * time.Second
 	pollIdle      = 5 * time.Minute
 	searchEvery   = 5 * time.Minute
+	rssEvery      = 15 * time.Minute
 	missingRetry  = 6 * time.Hour
 	missingFailed = 15 * time.Minute
 )
@@ -34,6 +37,7 @@ const (
 type Acquirer interface {
 	Poll(ctx context.Context) (acquire.PollResult, error)
 	SearchWanted(ctx context.Context, titleID int64, versionIDs []int64) (acquire.Outcome, error)
+	SyncRSS(ctx context.Context) (acquire.RSSOutcome, error)
 }
 
 // Library is what the loops need of the library module.
@@ -81,6 +85,21 @@ func Standard(d Deps) *Runner {
 		Name:  Search,
 		Run:   func(ctx context.Context) error { return searchDue(ctx, r, d) },
 		Every: func() time.Duration { return searchEvery },
+	})
+
+	r.Add(Loop{
+		Name: RSS,
+		Run: func(ctx context.Context) error {
+			out, err := d.Acquire.SyncRSS(ctx)
+			for _, f := range out.Failures {
+				r.log.Warn("an indexer's RSS feed could not be read", "indexer", f.IndexerName, "code", f.Code, "err", f.Message)
+			}
+			if len(out.Grabbed) > 0 {
+				r.Kick(Poll)
+			}
+			return err
+		},
+		Every: func() time.Duration { return rssEvery },
 	})
 	return r
 }
