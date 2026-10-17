@@ -165,14 +165,24 @@ export function usePluginInstances() {
   })
 }
 
-/** Saves the form: a PATCH when `instance` is given, otherwise a create. */
+/**
+ * Saves the form: a PATCH when `instance` is given, otherwise a create. `name`,
+ * `enabled` and `priority` are sent only when given (forms that manage several
+ * instances); otherwise a create is named after the plugin.
+ */
 export function useSavePluginInstance() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (v: { pluginId: string; name: string; config: PluginConfig; instance?: PluginInstance }) => {
+    mutationFn: async (v: {
+      pluginId: string
+      name: string
+      config: PluginConfig
+      instance?: PluginInstance
+      managed?: { name: string; enabled: boolean; priority: number }
+    }) => {
       const res = v.instance
-        ? await api.PATCH('/plugin-instances/{id}', { params: { path: { id: v.instance.id } }, body: { config: v.config } })
-        : await api.POST('/plugin-instances', { body: { plugin_id: v.pluginId, name: v.name, config: v.config } })
+        ? await api.PATCH('/plugin-instances/{id}', { params: { path: { id: v.instance.id } }, body: { ...v.managed, config: v.config } })
+        : await api.POST('/plugin-instances', { body: { plugin_id: v.pluginId, name: v.name, ...v.managed, config: v.config } })
       if (!res.data) throw failure(res.error, res.response)
       return res.data
     },

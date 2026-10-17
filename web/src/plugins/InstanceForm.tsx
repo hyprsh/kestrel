@@ -14,6 +14,9 @@ import { Button, ErrorText, Field, Select, TextInput } from '../forms'
 
 type Values = Record<string, string | boolean>
 
+/** Name, Enabled and Priority: what a form that manages several instances adds to the manifest's fields. */
+type Meta = { name: string; enabled: boolean; priority: string }
+
 const initial = (manifest: PluginManifest, instance?: PluginInstance): Values => {
   const v: Values = {}
   for (const f of manifest.fields) {
@@ -46,8 +49,27 @@ function toConfig(manifest: PluginManifest, values: Values, secrets: Record<stri
  * contract. Test connection shows the live result and, once the connection works,
  * turns the manifest's `live` fields into dropdowns of what the plugin reports.
  */
-export function InstanceForm({ manifest, instance }: { manifest: PluginManifest; instance?: PluginInstance }) {
+export function InstanceForm({
+  manifest,
+  instance,
+  managed,
+  label,
+  onSaved,
+}: {
+  manifest: PluginManifest
+  instance?: PluginInstance
+  /** Adds Name, Enabled and Priority to the form, for plugins of which many instances may exist. */
+  managed?: boolean
+  /** The form's accessible name; defaults to the plugin's. */
+  label?: string
+  onSaved?: () => void
+}) {
   const [values, setValues] = useState<Values>(() => initial(manifest, instance))
+  const [meta, setMeta] = useState<Meta>(() => ({
+    name: instance?.name ?? '',
+    enabled: instance?.enabled ?? true,
+    priority: String(instance?.priority ?? 0),
+  }))
   const [secrets, setSecrets] = useState<Record<string, string>>({})
   const test = useTestPlugin()
   const save = useSavePluginInstance()
@@ -60,9 +82,25 @@ export function InstanceForm({ manifest, instance }: { manifest: PluginManifest;
   const submit = (e: FormEvent) => {
     e.preventDefault()
     save.mutate(
-      { pluginId: manifest.id, name: manifest.name, config: config(), instance },
-      { onSuccess: () => setSecrets({}) }, // a saved secret is never shown again
+      {
+        pluginId: manifest.id,
+        name: manifest.name,
+        config: config(),
+        instance,
+        managed: managed ? { name: meta.name.trim(), enabled: meta.enabled, priority: Number(meta.priority) || 0 } : undefined,
+      },
+      {
+        onSuccess: () => {
+          setSecrets({}) // a saved secret is never shown again
+          onSaved?.()
+        },
+      },
     )
+  }
+
+  const setMetaField = (patch: Partial<Meta>) => {
+    setMeta((m) => ({ ...m, ...patch }))
+    save.reset()
   }
 
   const set = (key: string, value: string | boolean) => {
@@ -71,7 +109,20 @@ export function InstanceForm({ manifest, instance }: { manifest: PluginManifest;
   }
 
   return (
-    <form onSubmit={submit} className="flex max-w-md flex-col gap-3" aria-label={`${manifest.name} settings`}>
+    <form onSubmit={submit} className="flex max-w-md flex-col gap-3" aria-label={label ?? `${manifest.name} settings`}>
+      {managed && (
+        <>
+          <Field label="Name">{(id) => <TextInput id={id} value={meta.name} onChange={(e) => setMetaField({ name: e.target.value })} />}</Field>
+          <div className="flex items-end gap-4">
+            <Field label="Priority">
+              {(id) => <TextInput id={id} type="number" className="w-24" value={meta.priority} onChange={(e) => setMetaField({ priority: e.target.value })} />}
+            </Field>
+            <Field label="Enabled">
+              {(id) => <input id={id} type="checkbox" className="mb-2" checked={meta.enabled} onChange={(e) => setMetaField({ enabled: e.target.checked })} />}
+            </Field>
+          </div>
+        </>
+      )}
       {manifest.fields.map((f) => (
         <Field key={f.key} label={f.label}>
           {(id) => <Control id={id} field={f} instance={instance} value={values[f.key]} secret={secrets[f.key] ?? ''} live={options[f.key]} onValue={(v) => set(f.key, v)} onSecret={(v) => setSecrets((s) => ({ ...s, [f.key]: v }))} />}

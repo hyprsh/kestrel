@@ -47,7 +47,16 @@ type Error struct {
 	Code       Code          `json:"code"`
 	Message    string        `json:"message"`
 	RetryAfter time.Duration `json:"retry_after,omitempty"`
+	// Limit says which budget a rate_limited Error is about, when the plugin knows
+	// (LimitSearch, LimitGrab); empty means both or unknown.
+	Limit string `json:"limit,omitempty"`
 }
+
+// Limit values of Error.Limit.
+const (
+	LimitSearch = "search" // the indexer's request budget is spent: pause searches
+	LimitGrab   = "grab"   // the indexer's download budget is spent: pause Grabs only
+)
 
 func (e *Error) Error() string { return string(e.Code) + ": " + e.Message }
 

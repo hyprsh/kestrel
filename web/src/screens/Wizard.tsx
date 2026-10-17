@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react'
 import { ApiError, useCreateAccount } from '../api/queries'
 import { Button, ErrorText, Field, TextInput } from '../forms'
 import { DownloadClient } from '../plugins/DownloadClient'
+import { Indexer } from '../plugins/Indexer'
 import { KestrelLogo } from '../ui'
 
 const MIN_PASSWORD = 8
@@ -73,6 +74,16 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
             </h2>
             <p className="mb-4 text-gray-900">Connect SABnzbd. Kestrel hands it NZBs and reads its queue and history.</p>
             <DownloadClient />
+          </section>
+        )}
+        {signedIn && (
+          <section aria-labelledby="wizard-indexer" className="mt-4 rounded-lg border border-gray-alpha-400 bg-background-100 p-6">
+            <h2 id="wizard-indexer" className="mb-1 flex items-center gap-2 text-[15px] font-semibold tracking-tight">
+              <span className="flex size-5 items-center justify-center rounded-full bg-gray-1000 text-[11px] text-background-100">3</span>
+              Indexer
+            </h2>
+            <p className="mb-4 text-gray-900">Add a Newznab indexer. Kestrel searches it for releases and fetches their NZBs. You can add more in Settings.</p>
+            <Indexer />
             <div className="mt-6 border-t border-gray-alpha-400 pt-4">
               <Button variant="secondary" onClick={onLeave}>
                 Continue to Kestrel

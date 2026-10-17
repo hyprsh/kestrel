@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:newznab="http://www.newznab.com/DTD/2010/feeds/attributes/">
+  <channel>
+    <title>indexer.example</title>
+    <newznab:response offset="0" total="1"/>
+    <item>
+      <title>Some.Show.S01E02.1080p.WEB-DL.DDP5.1.H.264-GRP</title>
+      <guid isPermaLink="false">cccc3333</guid>
+      <link>https://indexer.example/getnzb/cccc3333.nzb&amp;r=SECRET</link>
+      <pubDate>Thu, 03 Jul 2025 09:00:00 +0000</pubDate>
+      <enclosure url="https://indexer.example/getnzb/cccc3333.nzb&amp;r=SECRET" length="2500000000" type="application/x-nzb"/>
+      <newznab:attr name="category" value="5040"/>
+      <newznab:attr name="size" value="2500000000"/>
+      <newznab:attr name="tvdbid" value="81189"/>
+      <newznab:attr name="season" value="S01"/>
+      <newznab:attr name="episode" value="E02"/>
+      <newznab:attr name="imdb" value="tt0903747"/>
+    </item>
+  </channel>
+</rss>

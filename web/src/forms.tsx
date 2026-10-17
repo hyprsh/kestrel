@@ -1,5 +1,5 @@
 // Form primitives in the Geist style, shared by the login card, the wizard and Settings.
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
+import { useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react'
 import { cx } from './ui'
 
 export function Button({
@@ -22,7 +22,7 @@ export function Button({
 }
 
 export function Field({ label, children }: { label: string; children: (id: string) => ReactNode }) {
-  const id = `field-${label.toLowerCase().replace(/[^a-z]+/g, '-')}`
+  const id = useId() // unique per field, so two forms on one page never share ids
   return (
     <div className="flex flex-col gap-1">
       <label htmlFor={id} className="text-[12px] font-medium text-gray-900">

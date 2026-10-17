@@ -20,6 +20,22 @@ export const sabnzbd: components['schemas']['PluginManifest'] = {
   ],
 }
 
+/** The Newznab manifest as the server describes it. */
+export const newznab: components['schemas']['PluginManifest'] = {
+  id: 'newznab',
+  name: 'Newznab',
+  contract: 'indexer.v1',
+  version: '1',
+  capabilities: { protocols: ['usenet'] },
+  fields: [
+    { key: 'url', label: 'URL', type: 'url', required: true, default: null, help: 'The indexer address.', options: [], live: false },
+    { key: 'api_key', label: 'API key', type: 'secret', required: true, default: null, help: 'Your API key.', options: [], live: false },
+    { key: 'movie_categories', label: 'Movie categories', type: 'text', required: false, default: '2000', help: '', options: [], live: false },
+    { key: 'tv_categories', label: 'Series categories', type: 'text', required: false, default: '5000', help: '', options: [], live: false },
+    { key: 'api_requests_per_day', label: 'API requests per day', type: 'int', required: false, default: null, help: '', options: [], live: false },
+  ],
+}
+
 /** Default handlers: a healthy instance with the admin logged in. Tests override with `server.use(...)`. */
 export const handlers = [
   http.get('/system', ({ response }) => response(200).json({ version: '0.0.0-test', api_major: 1, base_url: '' })),

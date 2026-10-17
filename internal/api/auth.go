@@ -21,6 +21,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/api/db"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
+	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
 )
@@ -285,7 +286,11 @@ func (s *server) GetSetup(ctx context.Context, _ oapi.GetSetupRequestObject) (oa
 		return nil, err
 	}
 	out.Sections.DownloadClient = state(len(clients) > 0)
-	out.Sections.Indexer = oapi.Todo
+	indexers, err := s.plugins.Enabled(ctx, indexer.Contract.ID)
+	if err != nil {
+		return nil, err
+	}
+	out.Sections.Indexer = state(len(indexers) > 0)
 	out.Sections.RootFolders = oapi.Todo
 	out.Sections.Profiles = oapi.Todo
 	return oapi.GetSetup200JSONResponse(out), nil
