@@ -600,11 +600,17 @@ type EpisodesMonitor struct {
 
 // FileSummary defines model for FileSummary.
 type FileSummary struct {
-	ImportedAt  time.Time `json:"imported_at"`
-	Path        string    `json:"path"`
-	ReleaseName string    `json:"release_name"`
-	Score       *int      `json:"score"`
-	Size        int64     `json:"size"`
+	ImportedAt time.Time `json:"imported_at"`
+
+	// Languages The audio languages ffprobe found (English names), in track order.
+	Languages *[]string `json:"languages,omitempty"`
+	Path      string    `json:"path"`
+
+	// Quality The quality name parsed from the release name ("Bluray-1080p").
+	Quality     *string `json:"quality,omitempty"`
+	ReleaseName string  `json:"release_name"`
+	Score       *int    `json:"score"`
+	Size        int64   `json:"size"`
 }
 
 // Grab defines model for Grab.

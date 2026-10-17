@@ -1938,6 +1938,15 @@ components:
         score:
           type: integer
           nullable: true
+        quality:
+          type: string
+          nullable: true
+          description: The quality name parsed from the release name ("Bluray-1080p").
+        languages:
+          type: array
+          description: The audio languages ffprobe found (English names), in track order.
+          items:
+            type: string
         imported_at:
           type: string
           format: date-time

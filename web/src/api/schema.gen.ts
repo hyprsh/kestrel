@@ -1278,6 +1278,10 @@ export interface components {
             size: number;
             release_name: string;
             score: number | null;
+            /** @description The quality name parsed from the release name ("Bluray-1080p"). */
+            quality?: string | null;
+            /** @description The audio languages ffprobe found (English names), in track order. */
+            languages?: string[];
             /** Format: date-time */
             imported_at: string;
         };

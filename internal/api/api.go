@@ -21,12 +21,14 @@ import (
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/downloads"
 	"github.com/hyprsh/kestrel/internal/history"
+	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/indexers"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/plugin"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
+	"github.com/hyprsh/kestrel/internal/probe"
 	"github.com/hyprsh/kestrel/internal/requests"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings"
@@ -70,6 +72,8 @@ type Options struct {
 	Metadata metadata.Provider
 	// Posters is the poster cache; nil means one under ConfigDir.
 	Posters *metadata.Posters
+	// Prober reads downloaded files for Imports; nil means the ffprobe on PATH.
+	Prober probe.Prober
 	// CheapPasswordHash hashes passwords with a tiny argon2 parameter set. Tests
 	// only: the production cost takes seconds under the race detector.
 	CheapPasswordHash bool
@@ -140,11 +144,19 @@ func New(opts Options) *App {
 		panic("api: the embedded TRaSH snapshot is invalid: " + err.Error())
 	}
 	s.acquire = acq
+	prober := opts.Prober
+	if prober == nil {
+		prober = probe.Default()
+	}
+	imp, err := imports.New(imports.Deps{Library: s.library, Profiles: s.profiles, Prober: prober, Clock: opts.Clock})
+	if err != nil {
+		panic("api: the embedded TRaSH snapshot is invalid: " + err.Error())
+	}
 	s.requests = requests.New(requests.Deps{
 		Store: opts.Store, Clock: opts.Clock, Library: s.library, Profiles: s.profiles, RootFolders: s.rootFolders,
 		Meta: s.meta, TVDB: s.tvdb, Grabs: acq,
 	})
-	s.jobs = jobs.Standard(jobs.Deps{Acquire: acq, Library: s.library, History: s.history, Clock: opts.Clock, Logger: opts.Logger})
+	s.jobs = jobs.Standard(jobs.Deps{Acquire: acq, Library: s.library, History: s.history, Importer: imp, ImportSource: acq, Clock: opts.Clock, Logger: opts.Logger})
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ping", s.ping)

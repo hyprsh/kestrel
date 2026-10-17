@@ -36,6 +36,12 @@ const (
 	GrabFailed Kind = "grab_failed"
 	// GrabCanceled: a Grab was canceled by hand.
 	GrabCanceled Kind = "grab_canceled"
+	// ImportDone: a completed Grab's file is in the library.
+	ImportDone Kind = "import"
+	// ImportRejected: the Import found the Release unfit (invalid, resolution, language, not_upgrade).
+	ImportRejected Kind = "import_rejected"
+	// ImportStalled: the Import cannot proceed until the environment is fixed; recorded once per stall.
+	ImportStalled Kind = "import_stalled"
 	// RequestCreated: a new Request arrived (a retry of a stored one does not record).
 	RequestCreated Kind = "request"
 )

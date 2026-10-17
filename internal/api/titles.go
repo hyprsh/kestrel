@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/hyprsh/kestrel/internal/imports"
 	"net/http"
 	"os"
 	"strconv"
@@ -296,7 +297,11 @@ func detailToAPI(d library.Detail, country string) oapi.TitleDetail {
 			LongMissing: v.LongMissing, WantedSince: v.WantedSince, AddedAt: v.AddedAt,
 		}
 		if f := v.File; f != nil {
-			ov.File = &oapi.FileSummary{Path: f.Path, Size: f.Size, ReleaseName: f.ReleaseName, Score: f.Score, ImportedAt: f.ImportedAt}
+			quality, languages := imports.Facts(f.ParsedRelease, f.Probe)
+			ov.File = &oapi.FileSummary{
+				Path: f.Path, Size: f.Size, ReleaseName: f.ReleaseName, Score: f.Score, ImportedAt: f.ImportedAt,
+				Quality: strPtr(quality), Languages: &languages,
+			}
 		}
 		out.Versions = append(out.Versions, ov)
 	}
