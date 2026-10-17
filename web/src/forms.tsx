@@ -1,5 +1,5 @@
 // Form primitives in the Geist style, shared by the login card, the wizard and Settings.
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
+import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
 import { cx } from './ui'
 
 export function Button({
@@ -39,6 +39,18 @@ export function TextInput({ className, ...props }: InputHTMLAttributes<HTMLInput
       {...props}
       className={cx(
         'h-8 w-full rounded-md border border-gray-alpha-400 bg-background-100 px-2.5 text-[13px] outline-none focus:border-gray-700',
+        className,
+      )}
+    />
+  )
+}
+
+export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      {...props}
+      className={cx(
+        'h-8 w-full rounded-md border border-gray-alpha-400 bg-background-100 px-2 text-[13px] outline-none focus:border-gray-700',
         className,
       )}
     />

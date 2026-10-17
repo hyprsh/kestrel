@@ -159,11 +159,15 @@ type PluginInstance struct {
 type PluginInstanceCreate struct {
 	// Config Plugin settings by manifest field key. Secret fields are write-only: they are accepted
 	// here and never returned. In a patch, `null` clears a field.
-	Config   PluginConfigPatch `json:"config"`
-	Enabled  *bool             `json:"enabled,omitempty"`
-	Name     string            `json:"name"`
-	PluginId string            `json:"plugin_id"`
-	Priority *int              `json:"priority,omitempty"`
+	Config PluginConfigPatch `json:"config"`
+
+	// Enabled Defaults to true when absent.
+	Enabled  *bool  `json:"enabled,omitempty"`
+	Name     string `json:"name"`
+	PluginId string `json:"plugin_id"`
+
+	// Priority Defaults to 0 when absent.
+	Priority *int `json:"priority,omitempty"`
 }
 
 // PluginInstanceList defines model for PluginInstanceList.

@@ -21,14 +21,19 @@ export function App({ client }: { client?: QueryClient }) {
  */
 function Gate() {
   const { data, isError } = useAuth()
+  // Creating the account logs the admin in, but the wizard goes on with its other
+  // sections until they leave it, so remember that this browser started it.
+  const [inWizard, setInWizard] = useState(false)
   if (isError) return <div className="flex h-full items-center justify-center text-[13px] text-gray-900">Offline: cannot reach Kestrel.</div>
   if (!data) return null
+  if (data.state === 'setup_required' && !inWizard) setInWizard(true)
+  if (data.state === 'unauthenticated' && inWizard) setInWizard(false)
   switch (data.state) {
     case 'setup_required':
-      return <Wizard />
+      return <Wizard signedIn={false} onLeave={() => {}} />
     case 'unauthenticated':
       return <Login />
     case 'ok':
-      return <Shell />
+      return inWizard ? <Wizard signedIn onLeave={() => setInWizard(false)} /> : <Shell />
   }
 }

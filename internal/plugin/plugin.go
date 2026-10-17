@@ -4,8 +4,19 @@
 //
 // A contract (download_client.v1, indexer.v1, ...) is a Go interface in its own
 // versioned package. It embeds Plugin and adds data-only methods. Adding a
-// contract changes nothing here: declare a Contract, implement adapters, and
-// register them in cmd/kestrel.
+// contract changes nothing here. The recipe, as download_client.v1 did it:
+//
+//  1. internal/plugin/<contract>/v1: the interface (embedding Plugin), its
+//     data-only types and `var Contract = plugin.Contract{ID: "...v1", MaxEnabled: n}`.
+//  2. .../v1/conformance: `Run(t, Subject)` asserting the contract's behaviour,
+//     ending with plugintest.RoundTrip[T] for every request and response type.
+//  3. .../v1/fake: an in-memory implementation that passes the suite.
+//  4. internal/plugin/adapters/<name>: the adapter, tested against recorded
+//     HTTP fixtures under httptest, plus a call to the conformance suite.
+//  5. cmd/kestrel/plugins.go: one line registering the adapter under its Contract.
+//
+// Storage (internal/plugin/instances), the instance API and the settings forms
+// are driven by the manifests, so none of them changes.
 package plugin
 
 import (

@@ -637,10 +637,10 @@ components:
           minLength: 1
         enabled:
           type: boolean
-          default: true
+          description: Defaults to true when absent.
         priority:
           type: integer
-          default: 0
+          description: Defaults to 0 when absent.
         config:
           $ref: "#/components/schemas/PluginConfigPatch"
     PluginInstancePatch:

@@ -431,10 +431,10 @@ export interface components {
         PluginInstanceCreate: {
             plugin_id: string;
             name: string;
-            /** @default true */
-            enabled: boolean;
-            /** @default 0 */
-            priority: number;
+            /** @description Defaults to true when absent. */
+            enabled?: boolean;
+            /** @description Defaults to 0 when absent. */
+            priority?: number;
             config: components["schemas"]["PluginConfigPatch"];
         };
         PluginInstancePatch: {

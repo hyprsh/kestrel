@@ -1,9 +1,13 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { ApiError, useChangePassword, useLogoutEverywhere } from '../api/queries'
 import { Button, ErrorText, Field, TextInput } from '../forms'
+import { DownloadClient } from '../plugins/DownloadClient'
 
 /** Settings sections, in page order. Later tickets add theirs here. */
-const sections = [{ id: 'account', title: 'Account' }]
+const sections = [
+  { id: 'download-client', title: 'Download client' },
+  { id: 'account', title: 'Account' },
+]
 
 /** One page with a jump list on the left; each section is a group of rows. */
 export function Settings() {
@@ -21,6 +25,11 @@ export function Settings() {
         </ul>
       </nav>
       <div className="min-w-0 max-w-3xl flex-1 p-4 pr-8">
+        <Group id="download-client" title="Download client">
+          <Row label="Connection" help="Where Kestrel sends NZBs and reads their progress. Test the connection to pick the categories from SABnzbd's own list.">
+            <DownloadClient />
+          </Row>
+        </Group>
         <Group id="account" title="Account">
           <ChangePassword />
           <LogOutEverywhere />
