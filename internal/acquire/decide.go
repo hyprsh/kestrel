@@ -62,6 +62,11 @@ type Candidate struct {
 	IndexerID string
 	// Parsed is the parsed name. A nil Series means a Movie release.
 	Parsed release.ParsedRelease
+	// ClassKnown is true when the Release's resolution is SD, HD or UHD. A
+	// known class a Version's Profile does not accept makes the Release
+	// other_slot for that Version, whether or not the Title has a Version for
+	// the class it does fit.
+	ClassKnown bool
 	// Verdicts holds the Evaluate result under the Profile of each Version the
 	// Title has, keyed by that Version's Slot. Whether the Release fits a
 	// Version is the Verdict's business: a Profile accepts the resolution
@@ -109,22 +114,11 @@ func Fits(slot Slot, c Candidate) bool {
 	return ok && !v.Rejected(scoring.RejectResolution)
 }
 
-// FitsOtherVersion reports whether the Release fits a Version of the Title
-// other than the one in slot.
-func FitsOtherVersion(slot Slot, c Candidate) bool {
-	for s := range c.Verdicts {
-		if s != slot && Fits(s, c) {
-			return true
-		}
-	}
-	return false
-}
-
 // Rejections says why the candidate cannot go to the Version in slot: only
-// other_slot when it does not fit this Version's Profile but fits another
-// Version of the Title, else the Verdict's own rejections.
+// other_slot when its class is known but this Version's Profile does not
+// accept it (never overridable), else the Verdict's own rejections.
 func Rejections(slot Slot, c Candidate) []scoring.Rejection {
-	if !Fits(slot, c) && FitsOtherVersion(slot, c) {
+	if !Fits(slot, c) && c.ClassKnown {
 		return []scoring.Rejection{RejectOtherSlot}
 	}
 	return c.Verdicts[slot].Rejections

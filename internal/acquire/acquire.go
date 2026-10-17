@@ -146,8 +146,7 @@ type Fit string
 const (
 	FitsThisSlot  Fit = "this_slot"
 	FitsOtherSlot Fit = "other_slot"
-	// FitsNone is a Release that fits no Version of the Title (its resolution
-	// is outside every Profile's range, or unknown).
+	// FitsNone is a Release whose resolution class is unknown.
 	FitsNone Fit = "none"
 )
 
@@ -307,6 +306,7 @@ func (s *Service) gather(ctx context.Context, sub subject) ([]*entry, []indexers
 			GUID: r.GUID, IndexerID: strconv.FormatInt(r.IndexerID, 10), Parsed: parsed, Verdicts: map[Slot]scoring.Verdict{},
 			PublishDate: r.PublishDate, Size: r.Size, IndexerPriority: r.IndexerPriority,
 		}
+		_, e.cand.ClassKnown = resolution.OfHeight(parsed.Quality.Quality.Resolution)
 		for slot, p := range sub.versions {
 			e.cand.Verdicts[slot] = scoring.Evaluate(sr, title, p)
 		}
@@ -352,7 +352,7 @@ func (e *entry) fits(slot Slot) Fit {
 	switch {
 	case Fits(slot, e.cand):
 		return FitsThisSlot
-	case FitsOtherVersion(slot, e.cand):
+	case e.cand.ClassKnown:
 		return FitsOtherSlot
 	}
 	return FitsNone

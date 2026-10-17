@@ -139,6 +139,7 @@ var rejectsResolution = scoring.Verdict{Score: 9999, Rejections: []scoring.Rejec
 
 func TestOtherSlotAndUnwantedSlot(t *testing.T) {
 	uhd := func(c *Candidate) {
+		c.ClassKnown = true
 		c.Verdicts = map[Slot]scoring.Verdict{resolution.UHD: {Accepted: true, Score: 9999}, resolution.HD: rejectsResolution}
 	}
 	t.Run("UHD release never fills the HD Version", func(t *testing.T) {
@@ -162,13 +163,23 @@ func TestOtherSlotAndUnwantedSlot(t *testing.T) {
 			t.Fatalf("got %v", got)
 		}
 	})
-	t.Run("a release fitting no Version of the Title is a plain resolution rejection, not other_slot", func(t *testing.T) {
-		c := movieCand("uhd", 0, func(c *Candidate) { c.Verdicts = map[Slot]scoring.Verdict{resolution.HD: rejectsResolution} })
+	t.Run("a known class the Profile does not accept is other_slot even when the Title has no Version for it", func(t *testing.T) {
+		c := movieCand("uhd", 0, func(c *Candidate) {
+			c.ClassKnown = true
+			c.Verdicts = map[Slot]scoring.Verdict{resolution.HD: rejectsResolution}
+		})
+		got := Rejections(resolution.HD, c)
+		if len(got) != 1 || got[0] != RejectOtherSlot {
+			t.Fatalf("got %v", got)
+		}
+		wantGUIDs(t, Decide(Input{Versions: []Version{movieVersion(nil)}, Candidates: []Candidate{c}}))
+	})
+	t.Run("an unknown class is the plain resolution rejection", func(t *testing.T) {
+		c := movieCand("odd", 0, func(c *Candidate) { c.Verdicts = map[Slot]scoring.Verdict{resolution.HD: rejectsResolution} })
 		got := Rejections(resolution.HD, c)
 		if len(got) != 1 || got[0] != scoring.RejectResolution {
 			t.Fatalf("got %v", got)
 		}
-		wantGUIDs(t, Decide(Input{Versions: []Version{movieVersion(nil)}, Candidates: []Candidate{c}}))
 	})
 }
 
@@ -196,8 +207,9 @@ func TestFitFollowsTheVersionsProfileRange(t *testing.T) {
 			t.Fatalf("slots = %v, %v", plans[0].Slot, plans[1].Slot)
 		}
 	})
-	t.Run("an HD release rejected by an SD Profile is other_slot for it when the Title has an HD Version", func(t *testing.T) {
+	t.Run("an HD release rejected by an SD Profile is other_slot for it", func(t *testing.T) {
 		c := movieCand("hd", 0, func(c *Candidate) {
+			c.ClassKnown = true
 			c.Verdicts = map[Slot]scoring.Verdict{sd: rejectsResolution, resolution.HD: {Accepted: true, Score: 5}}
 		})
 		if got := Rejections(sd, c); len(got) != 1 || got[0] != RejectOtherSlot {

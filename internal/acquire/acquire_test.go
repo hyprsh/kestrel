@@ -181,9 +181,9 @@ func TestASearchScoresEveryReleaseAgainstTheVersionsProfile(t *testing.T) {
 	if res.Items[0].Name != hd1080 {
 		t.Errorf("first result is %q, want the acceptable one first", res.Items[0].Name)
 	}
-	none := r.found(t, res, uhd)
-	if none.Fits != acquire.FitsNone || !slices.Contains(codes(none), scoring.RejectResolution) || slices.Contains(codes(none), acquire.RejectOtherSlot) {
-		t.Errorf("2160p release for a Title with only an HD Version = %+v, want fits none with a resolution rejection", none)
+	other := r.found(t, res, uhd)
+	if other.Fits != acquire.FitsOtherSlot || !slices.Equal(codes(other), []scoring.Rejection{acquire.RejectOtherSlot}) || other.Rejections[0].Overridable {
+		t.Errorf("2160p release for a Title with only an HD Version = %+v, want other_slot, not overridable", other)
 	}
 	de := r.found(t, res, german)
 	if de.Fits != acquire.FitsThisSlot || !slices.Contains(codes(de), scoring.RejectLanguage) || !de.Rejections[0].Overridable {
@@ -254,8 +254,8 @@ func TestAnSDReleaseFitsBothTheSDAndTheKidsVersion(t *testing.T) {
 		if _, err := r.svc.Grab(ctx, r.versions[slot], f.ID, false); err != nil {
 			t.Errorf("grab for the %v Version: %v", slot, err)
 		}
-		if u := r.found(t, res, uhd); u.Fits != acquire.FitsNone {
-			t.Errorf("2160p release for the %v Version = %+v, want fits none", slot, u)
+		if u := r.found(t, res, uhd); u.Fits != acquire.FitsOtherSlot {
+			t.Errorf("2160p release for the %v Version = %+v, want other_slot", slot, u)
 		}
 	}
 }
@@ -313,7 +313,7 @@ func TestGrabbingARejectedReleaseNeedsTheOverride(t *testing.T) {
 
 func TestAReleaseForAnotherSlotCanNeverBeGrabbed(t *testing.T) {
 	ctx := context.Background()
-	r := newRig(t, resolution.HD, resolution.UHD)
+	r := newRig(t) // an HD-only Title: a 2160p Release fits the UHD Slot, which it has no Version for
 	r.publish(t, uhd, time.Hour)
 	res, _ := r.svc.Search(ctx, r.versions[resolution.HD])
 	f := r.found(t, res, uhd)
