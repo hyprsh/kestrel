@@ -34,7 +34,167 @@ paths:
                 $ref: "#/components/schemas/System"
         default:
           $ref: "#/components/responses/Problem"
+  /setup:
+    get:
+      operationId: getSetup
+      summary: Setup progress
+      description: |
+        Answers before an account exists (one of the few endpoints that do), and afterwards to
+        a logged-in admin. `completed` and the per-section states beyond `account` fill in as the
+        wizard's sections arrive.
+      tags: [setup]
+      responses:
+        "200":
+          description: Where the setup wizard stands.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Setup"
+        default:
+          $ref: "#/components/responses/Problem"
+  /setup/account:
+    post:
+      operationId: createAccount
+      summary: Create the admin account and log in
+      description: |
+        Only answers while no account exists; whoever reaches a fresh instance sets the credentials.
+        Responds with the session cookie, so finishing this step logs the admin in.
+      tags: [setup]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Credentials"
+      responses:
+        "201":
+          description: The account was created and a session started.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SetCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /auth/login:
+    post:
+      operationId: login
+      summary: Log in with username and password
+      description: |
+        Sets a 30-day sliding session cookie. After five failures from one client address within
+        15 minutes further attempts are answered `429 rate_limited` with `Retry-After`, backing off
+        up to 15 minutes. A success resets the count.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Credentials"
+      responses:
+        "204":
+          description: Logged in.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SetCookie"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "429":
+          description: Too many failed attempts.
+          headers:
+            Retry-After:
+              description: Seconds until the next attempt is accepted.
+              schema:
+                type: integer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: End the current session
+      tags: [auth]
+      responses:
+        "204":
+          description: Logged out; the cookie is cleared.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SetCookie"
+        default:
+          $ref: "#/components/responses/Problem"
+  /auth/logout-everywhere:
+    post:
+      operationId: logoutEverywhere
+      summary: End every session, including this one
+      tags: [auth]
+      responses:
+        "204":
+          description: All sessions ended; the cookie is cleared.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SetCookie"
+        default:
+          $ref: "#/components/responses/Problem"
+  /auth/me:
+    get:
+      operationId: getMe
+      summary: Who is logged in
+      description: |
+        The SPA's first call. `401 setup_required` means no account exists yet (show the wizard's
+        Account section); `401 unauthenticated` means show the login card.
+      tags: [auth]
+      responses:
+        "200":
+          description: The current admin.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        default:
+          $ref: "#/components/responses/Problem"
+  /account/password:
+    post:
+      operationId: changePassword
+      summary: Change the admin password
+      description: Ends every other session; the current one stays logged in.
+      tags: [account]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password]
+              properties:
+                current_password:
+                  type: string
+                  writeOnly: true
+                new_password:
+                  type: string
+                  writeOnly: true
+                  minLength: 8
+      responses:
+        "204":
+          description: Password changed.
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
+  headers:
+    SetCookie:
+      description: The `kestrel_session` cookie (HttpOnly, SameSite=Lax, Path from KESTREL_BASE_URL).
+      schema:
+        type: string
   responses:
     Problem:
       description: An error.
@@ -59,6 +219,58 @@ components:
           type: string
           description: The routing prefix from KESTREL_BASE_URL, empty when unset.
           example: /kestrel
+    Credentials:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+    Me:
+      type: object
+      required: [username, method, proxy_user]
+      properties:
+        username:
+          type: string
+        method:
+          type: string
+          enum: [session, proxy, api_key]
+          description: How this request was authenticated.
+        proxy_user:
+          type: string
+          nullable: true
+          description: The reverse-proxy header value, when `method` is `proxy`.
+    Setup:
+      type: object
+      required: [account_exists, completed, sections]
+      properties:
+        account_exists:
+          type: boolean
+        completed:
+          type: boolean
+        sections:
+          type: object
+          required: [account, language, download_client, indexer, root_folders, profiles]
+          properties:
+            account:
+              $ref: "#/components/schemas/SetupSectionState"
+            language:
+              $ref: "#/components/schemas/SetupSectionState"
+            download_client:
+              $ref: "#/components/schemas/SetupSectionState"
+            indexer:
+              $ref: "#/components/schemas/SetupSectionState"
+            root_folders:
+              $ref: "#/components/schemas/SetupSectionState"
+            profiles:
+              $ref: "#/components/schemas/SetupSectionState"
+    SetupSectionState:
+      type: string
+      enum: [done, todo]
     Problem:
       type: object
       description: RFC 9457 problem details.

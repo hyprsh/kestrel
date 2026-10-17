@@ -181,10 +181,10 @@ func TestSPAIsServedWithAnIndexFallbackAndTheBaseHref(t *testing.T) {
 }
 
 func TestUnknownAPIPathsAreProblemJSONNotTheSPA(t *testing.T) {
-	srv := startServer(t, "", webFS)
-	res, body := get(t, srv.URL+"/api/v1/nope")
-	if res.StatusCode != 404 || res.Header.Get("Content-Type") != "application/problem+json" || !strings.Contains(body, `"code":"not_found"`) {
-		t.Fatalf("GET /api/v1/nope = %d %q %q", res.StatusCode, res.Header.Get("Content-Type"), body)
+	b := newInstance(t, "").setUp()
+	r := b.get("/nope")
+	if r.Status != 404 || r.Header.Get("Content-Type") != "application/problem+json" || !strings.Contains(r.Body, `"code":"not_found"`) {
+		t.Fatalf("GET /api/v1/nope = %d %q %q", r.Status, r.Header.Get("Content-Type"), r.Body)
 	}
 }
 

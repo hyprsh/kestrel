@@ -13,6 +13,64 @@ import (
 	"net/http"
 )
 
+// Defines values for MeMethod.
+const (
+	ApiKey  MeMethod = "api_key"
+	Proxy   MeMethod = "proxy"
+	Session MeMethod = "session"
+)
+
+// Valid indicates whether the value is a known member of the MeMethod enum.
+func (e MeMethod) Valid() bool {
+	switch e {
+	case ApiKey:
+		return true
+	case Proxy:
+		return true
+	case Session:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SetupSectionState.
+const (
+	Done SetupSectionState = "done"
+	Todo SetupSectionState = "todo"
+)
+
+// Valid indicates whether the value is a known member of the SetupSectionState enum.
+func (e SetupSectionState) Valid() bool {
+	switch e {
+	case Done:
+		return true
+	case Todo:
+		return true
+	default:
+		return false
+	}
+}
+
+// Credentials defines model for Credentials.
+type Credentials struct {
+	Password *string `json:"password,omitempty"`
+	Username string  `json:"username"`
+}
+
+// Me defines model for Me.
+type Me struct {
+	// Method How this request was authenticated.
+	Method MeMethod `json:"method"`
+
+	// ProxyUser The reverse-proxy header value, when `method` is `proxy`.
+	ProxyUser *string `json:"proxy_user"`
+	Username  string  `json:"username"`
+}
+
+// MeMethod How this request was authenticated.
+type MeMethod string
+
 // Problem RFC 9457 problem details.
 type Problem struct {
 	// Code Stable machine-readable code from a closed, growable list. Clients branch on this,
@@ -34,6 +92,23 @@ type Problem struct {
 	Type   string `json:"type"`
 }
 
+// Setup defines model for Setup.
+type Setup struct {
+	AccountExists bool `json:"account_exists"`
+	Completed     bool `json:"completed"`
+	Sections      struct {
+		Account        SetupSectionState `json:"account"`
+		DownloadClient SetupSectionState `json:"download_client"`
+		Indexer        SetupSectionState `json:"indexer"`
+		Language       SetupSectionState `json:"language"`
+		Profiles       SetupSectionState `json:"profiles"`
+		RootFolders    SetupSectionState `json:"root_folders"`
+	} `json:"sections"`
+}
+
+// SetupSectionState defines model for SetupSectionState.
+type SetupSectionState string
+
 // System defines model for System.
 type System struct {
 	// ApiMajor Major version of this API (the `N` in `/api/vN`).
@@ -52,8 +127,44 @@ type System struct {
 	Version string `json:"version"`
 }
 
+// ChangePasswordJSONBody defines parameters for ChangePassword.
+type ChangePasswordJSONBody struct {
+	CurrentPassword *string `json:"current_password,omitempty"`
+	NewPassword     *string `json:"new_password,omitempty"`
+}
+
+// ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
+type ChangePasswordJSONRequestBody ChangePasswordJSONBody
+
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody = Credentials
+
+// CreateAccountJSONRequestBody defines body for CreateAccount for application/json ContentType.
+type CreateAccountJSONRequestBody = Credentials
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// ChangePassword Change the admin password
+	// (POST /account/password)
+	ChangePassword(w http.ResponseWriter, r *http.Request)
+	// Login Log in with username and password
+	// (POST /auth/login)
+	Login(w http.ResponseWriter, r *http.Request)
+	// Logout End the current session
+	// (POST /auth/logout)
+	Logout(w http.ResponseWriter, r *http.Request)
+	// LogoutEverywhere End every session, including this one
+	// (POST /auth/logout-everywhere)
+	LogoutEverywhere(w http.ResponseWriter, r *http.Request)
+	// GetMe Who is logged in
+	// (GET /auth/me)
+	GetMe(w http.ResponseWriter, r *http.Request)
+	// GetSetup Setup progress
+	// (GET /setup)
+	GetSetup(w http.ResponseWriter, r *http.Request)
+	// CreateAccount Create the admin account and log in
+	// (POST /setup/account)
+	CreateAccount(w http.ResponseWriter, r *http.Request)
 	// GetSystem Version and API major of this instance
 	// (GET /system)
 	GetSystem(w http.ResponseWriter, r *http.Request)
@@ -67,6 +178,104 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// ChangePassword operation middleware
+func (siw *ServerInterfaceWrapper) ChangePassword(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ChangePassword(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Login operation middleware
+func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Login(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Logout operation middleware
+func (siw *ServerInterfaceWrapper) Logout(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Logout(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LogoutEverywhere operation middleware
+func (siw *ServerInterfaceWrapper) LogoutEverywhere(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LogoutEverywhere(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMe operation middleware
+func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSetup operation middleware
+func (siw *ServerInterfaceWrapper) GetSetup(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSetup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateAccount operation middleware
+func (siw *ServerInterfaceWrapper) CreateAccount(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateAccount(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // GetSystem operation middleware
 func (siw *ServerInterfaceWrapper) GetSystem(w http.ResponseWriter, r *http.Request) {
@@ -203,11 +412,383 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	}
 
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/system", wrapper.GetSystem)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/setup", wrapper.GetSetup)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/setup/account", wrapper.CreateAccount)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/login", wrapper.Login)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout", wrapper.Logout)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout-everywhere", wrapper.LogoutEverywhere)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/me", wrapper.GetMe)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/account/password", wrapper.ChangePassword)
 
 	return m
 }
 
 type ProblemApplicationProblemPlusJSONResponse Problem
+
+type ChangePasswordRequestObject struct {
+	Body *ChangePasswordJSONRequestBody
+}
+
+type ChangePasswordResponseObject interface {
+	VisitChangePasswordResponse(w http.ResponseWriter) error
+}
+
+type ChangePassword204Response struct {
+}
+
+func (response ChangePassword204Response) VisitChangePasswordResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type ChangePassword422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ChangePassword422ApplicationProblemPlusJSONResponse) VisitChangePasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChangePassworddefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ChangePassworddefaultApplicationProblemPlusJSONResponse) VisitChangePasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LoginRequestObject struct {
+	Body *LoginJSONRequestBody
+}
+
+type LoginResponseObject interface {
+	VisitLoginResponse(w http.ResponseWriter) error
+}
+
+type Login204ResponseHeaders struct {
+	SetCookie *string
+}
+
+type Login204Response struct {
+	Headers Login204ResponseHeaders
+}
+
+func (response Login204Response) VisitLoginResponse(w http.ResponseWriter) error {
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(204)
+	return nil
+}
+
+type Login401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response Login401ApplicationProblemPlusJSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Login429ResponseHeaders struct {
+	RetryAfter *int
+}
+
+type Login429ApplicationProblemPlusJSONResponse struct {
+	Body    Problem
+	Headers Login429ResponseHeaders
+}
+
+func (response Login429ApplicationProblemPlusJSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogindefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LogindefaultApplicationProblemPlusJSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogoutRequestObject struct {
+}
+
+type LogoutResponseObject interface {
+	VisitLogoutResponse(w http.ResponseWriter) error
+}
+
+type Logout204ResponseHeaders struct {
+	SetCookie *string
+}
+
+type Logout204Response struct {
+	Headers Logout204ResponseHeaders
+}
+
+func (response Logout204Response) VisitLogoutResponse(w http.ResponseWriter) error {
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(204)
+	return nil
+}
+
+type LogoutdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LogoutdefaultApplicationProblemPlusJSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogoutEverywhereRequestObject struct {
+}
+
+type LogoutEverywhereResponseObject interface {
+	VisitLogoutEverywhereResponse(w http.ResponseWriter) error
+}
+
+type LogoutEverywhere204ResponseHeaders struct {
+	SetCookie *string
+}
+
+type LogoutEverywhere204Response struct {
+	Headers LogoutEverywhere204ResponseHeaders
+}
+
+func (response LogoutEverywhere204Response) VisitLogoutEverywhereResponse(w http.ResponseWriter) error {
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(204)
+	return nil
+}
+
+type LogoutEverywheredefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LogoutEverywheredefaultApplicationProblemPlusJSONResponse) VisitLogoutEverywhereResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMeRequestObject struct {
+}
+
+type GetMeResponseObject interface {
+	VisitGetMeResponse(w http.ResponseWriter) error
+}
+
+type GetMe200JSONResponse Me
+
+func (response GetMe200JSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetMedefaultApplicationProblemPlusJSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSetupRequestObject struct {
+}
+
+type GetSetupResponseObject interface {
+	VisitGetSetupResponse(w http.ResponseWriter) error
+}
+
+type GetSetup200JSONResponse Setup
+
+func (response GetSetup200JSONResponse) VisitGetSetupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSetupdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetSetupdefaultApplicationProblemPlusJSONResponse) VisitGetSetupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateAccountRequestObject struct {
+	Body *CreateAccountJSONRequestBody
+}
+
+type CreateAccountResponseObject interface {
+	VisitCreateAccountResponse(w http.ResponseWriter) error
+}
+
+type CreateAccount201ResponseHeaders struct {
+	SetCookie *string
+}
+
+type CreateAccount201JSONResponse struct {
+	Body    Me
+	Headers CreateAccount201ResponseHeaders
+}
+
+func (response CreateAccount201JSONResponse) VisitCreateAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateAccount409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateAccount409ApplicationProblemPlusJSONResponse) VisitCreateAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateAccount422ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateAccount422ApplicationProblemPlusJSONResponse) VisitCreateAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateAccountdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateAccountdefaultApplicationProblemPlusJSONResponse) VisitCreateAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type GetSystemRequestObject struct {
 }
@@ -249,6 +830,27 @@ func (response GetSystemdefaultApplicationProblemPlusJSONResponse) VisitGetSyste
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// ChangePassword Change the admin password
+	// (POST /account/password)
+	ChangePassword(ctx context.Context, request ChangePasswordRequestObject) (ChangePasswordResponseObject, error)
+	// Login Log in with username and password
+	// (POST /auth/login)
+	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
+	// Logout End the current session
+	// (POST /auth/logout)
+	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
+	// LogoutEverywhere End every session, including this one
+	// (POST /auth/logout-everywhere)
+	LogoutEverywhere(ctx context.Context, request LogoutEverywhereRequestObject) (LogoutEverywhereResponseObject, error)
+	// GetMe Who is logged in
+	// (GET /auth/me)
+	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// GetSetup Setup progress
+	// (GET /setup)
+	GetSetup(ctx context.Context, request GetSetupRequestObject) (GetSetupResponseObject, error)
+	// CreateAccount Create the admin account and log in
+	// (POST /setup/account)
+	CreateAccount(ctx context.Context, request CreateAccountRequestObject) (CreateAccountResponseObject, error)
 	// GetSystem Version and API major of this instance
 	// (GET /system)
 	GetSystem(ctx context.Context, request GetSystemRequestObject) (GetSystemResponseObject, error)
@@ -291,6 +893,195 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// ChangePassword operation middleware
+func (sh *strictHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	var request ChangePasswordRequestObject
+
+	var body ChangePasswordJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ChangePassword(ctx, request.(ChangePasswordRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ChangePassword")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ChangePasswordResponseObject); ok {
+		if err := validResponse.VisitChangePasswordResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Login operation middleware
+func (sh *strictHandler) Login(w http.ResponseWriter, r *http.Request) {
+	var request LoginRequestObject
+
+	var body LoginJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Login(ctx, request.(LoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Login")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LoginResponseObject); ok {
+		if err := validResponse.VisitLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Logout operation middleware
+func (sh *strictHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	var request LogoutRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Logout(ctx, request.(LogoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Logout")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LogoutResponseObject); ok {
+		if err := validResponse.VisitLogoutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LogoutEverywhere operation middleware
+func (sh *strictHandler) LogoutEverywhere(w http.ResponseWriter, r *http.Request) {
+	var request LogoutEverywhereRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LogoutEverywhere(ctx, request.(LogoutEverywhereRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LogoutEverywhere")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LogoutEverywhereResponseObject); ok {
+		if err := validResponse.VisitLogoutEverywhereResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMe operation middleware
+func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
+	var request GetMeRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMe(ctx, request.(GetMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMe")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMeResponseObject); ok {
+		if err := validResponse.VisitGetMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSetup operation middleware
+func (sh *strictHandler) GetSetup(w http.ResponseWriter, r *http.Request) {
+	var request GetSetupRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSetup(ctx, request.(GetSetupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSetup")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSetupResponseObject); ok {
+		if err := validResponse.VisitGetSetupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateAccount operation middleware
+func (sh *strictHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
+	var request CreateAccountRequestObject
+
+	var body CreateAccountJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateAccount(ctx, request.(CreateAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateAccount")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateAccountResponseObject); ok {
+		if err := validResponse.VisitCreateAccountResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // GetSystem operation middleware

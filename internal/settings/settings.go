@@ -35,6 +35,14 @@ func (s *Settings) Get(ctx context.Context, key string) (value []byte, ok bool, 
 	return []byte(v), true, nil
 }
 
+// Insert stores value under key only if the key is unset, reporting whether it
+// did. It makes "first writer wins" races, such as creating the admin account,
+// safe.
+func (s *Settings) Insert(ctx context.Context, key string, value []byte) (bool, error) {
+	n, err := s.write.Insert(ctx, db.InsertParams{Key: key, Value: string(value)})
+	return n == 1, err
+}
+
 // Put stores value, which must be valid JSON, under key.
 func (s *Settings) Put(ctx context.Context, key string, value []byte) error {
 	return s.write.Put(ctx, db.PutParams{Key: key, Value: string(value)})
