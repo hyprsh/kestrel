@@ -85,6 +85,8 @@ type Library interface {
 	Get(ctx context.Context, id int64, view library.View) (library.Detail, error)
 	ReplaceFile(ctx context.Context, titleID int64, folder string, f library.NewFile) ([]library.File, error)
 	FileOfGrab(ctx context.Context, grabID int64) (library.File, bool, error)
+	FilesOfVersion(ctx context.Context, versionID int64) ([]library.File, error)
+	ApplyRescore(ctx context.Context, rs []library.Rescored) error
 }
 
 // Profiles is what imports needs of the Profiles.
@@ -281,7 +283,8 @@ func (s *Service) Import(ctx context.Context, g Grab) Result {
 	if !probe.DurationPlausible(info.Duration, runtime, probe.MovieFloor) {
 		return rejected(ReasonInvalid)
 	}
-	if ver.File != nil && ver.File.Score != nil && verdict.Score <= *ver.File.Score {
+	// A misfit file is replaced by any fitting Release, whatever its Score.
+	if ver.File != nil && !ver.File.Misfit && ver.File.Score != nil && verdict.Score <= *ver.File.Score {
 		return rejected(ReasonNotUpgrade)
 	}
 

@@ -129,3 +129,30 @@ UPDATE search_state SET next_missing_at = ? WHERE version_id = ? AND season = ?;
 
 -- name: FindTitleByKindTVDB :one
 SELECT id FROM titles WHERE kind = ? AND tvdb_id = ?;
+
+-- name: ListMisfitFileIDs :many
+SELECT file_id FROM file_misfits;
+
+-- name: ClearMisfit :exec
+DELETE FROM file_misfits WHERE file_id = ?;
+
+-- name: SetMisfit :exec
+INSERT OR IGNORE INTO file_misfits (file_id) VALUES (?);
+
+-- name: SetFileScore :exec
+UPDATE files SET score = ? WHERE id = ?;
+
+-- name: SetVersionProfile :exec
+UPDATE versions SET profile_key = ? WHERE id = ?;
+
+-- name: GetVersion :one
+SELECT id, title_id, slot, profile_key, added_at FROM versions WHERE id = ?;
+
+-- name: DeleteVersion :exec
+DELETE FROM versions WHERE id = ?;
+
+-- name: DeleteTitle :exec
+DELETE FROM titles WHERE id = ?;
+
+-- name: SetNextSearchesAll :exec
+UPDATE search_state SET next_missing_at = ?, next_upgrade_at = ? WHERE version_id = ?;

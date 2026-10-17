@@ -152,6 +152,7 @@ func New(opts Options) *App {
 	if err != nil {
 		panic("api: the embedded TRaSH snapshot is invalid: " + err.Error())
 	}
+	s.imports = imp
 	s.requests = requests.New(requests.Deps{
 		Store: opts.Store, Clock: opts.Clock, Library: s.library, Profiles: s.profiles, RootFolders: s.rootFolders,
 		Meta: s.meta, TVDB: s.tvdb, Grabs: acq,
@@ -203,7 +204,8 @@ type server struct {
 	requests    *requests.Service
 	jobs        *jobs.Runner
 	history     *history.Service
-	hub         *hub
+	imports     *imports.Service
+	hub        *hub
 	meta        metadata.Provider
 	tvdb        metadata.TVDBProvider
 	posters     *metadata.Posters

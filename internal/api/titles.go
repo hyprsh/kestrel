@@ -300,7 +300,7 @@ func detailToAPI(d library.Detail, country string) oapi.TitleDetail {
 			quality, languages := imports.Facts(f.ParsedRelease, f.Probe)
 			ov.File = &oapi.FileSummary{
 				Path: f.Path, Size: f.Size, ReleaseName: f.ReleaseName, Score: f.Score, ImportedAt: f.ImportedAt,
-				Quality: strPtr(quality), Languages: &languages,
+				Quality: strPtr(quality), Languages: &languages, Misfit: &f.Misfit,
 			}
 		}
 		out.Versions = append(out.Versions, ov)

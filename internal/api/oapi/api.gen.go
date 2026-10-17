@@ -604,7 +604,10 @@ type FileSummary struct {
 
 	// Languages The audio languages ffprobe found (English names), in track order.
 	Languages *[]string `json:"languages,omitempty"`
-	Path      string    `json:"path"`
+
+	// Misfit The file no longer fits the Version's Profile; the Version is Wanted.
+	Misfit *bool  `json:"misfit,omitempty"`
+	Path   string `json:"path"`
 
 	// Quality The quality name parsed from the release name ("Bluray-1080p").
 	Quality     *string `json:"quality,omitempty"`
@@ -1419,12 +1422,21 @@ type VersionDetail struct {
 	WantedSince *time.Time `json:"wanted_since"`
 }
 
+// VersionPatch defines model for VersionPatch.
+type VersionPatch struct {
+	// Profile The Profile key. It must be an enabled Profile of the Version's Slot.
+	Profile string `json:"profile"`
+}
+
 // VersionRef defines model for VersionRef.
 type VersionRef struct {
 	// Profile The Profile key. It must be an enabled Profile of that Slot.
 	Profile string `json:"profile"`
 	Slot    Slot   `json:"slot"`
 }
+
+// DeleteFiles defines model for DeleteFiles.
+type DeleteFiles = bool
 
 // GrabId defines model for GrabId.
 type GrabId = int64
@@ -1480,6 +1492,18 @@ type ListTitlesParams struct {
 	Cursor *string    `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
+// DeleteTitleParams defines parameters for DeleteTitle.
+type DeleteTitleParams struct {
+	// DeleteFiles Also delete the files from disk. Off by default.
+	DeleteFiles *DeleteFiles `form:"delete_files,omitempty" json:"delete_files,omitempty"`
+}
+
+// DeleteVersionParams defines parameters for DeleteVersion.
+type DeleteVersionParams struct {
+	// DeleteFiles Also delete the files from disk. Off by default.
+	DeleteFiles *DeleteFiles `form:"delete_files,omitempty" json:"delete_files,omitempty"`
+}
+
 // ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
 type ChangePasswordJSONRequestBody ChangePasswordJSONBody
 
@@ -1533,6 +1557,12 @@ type MonitorEpisodesJSONRequestBody = EpisodesMonitor
 
 // PatchSeasonJSONRequestBody defines body for PatchSeason for application/json ContentType.
 type PatchSeasonJSONRequestBody = SeasonPatch
+
+// AddVersionJSONRequestBody defines body for AddVersion for application/json ContentType.
+type AddVersionJSONRequestBody = VersionRef
+
+// PatchVersionJSONRequestBody defines body for PatchVersion for application/json ContentType.
+type PatchVersionJSONRequestBody = VersionPatch
 
 // SearchVersionReleasesJSONRequestBody defines body for SearchVersionReleases for application/json ContentType.
 type SearchVersionReleasesJSONRequestBody = ReleaseSearch
@@ -1653,6 +1683,9 @@ type ServerInterface interface {
 	// CreateTitle Add a Title to the Library
 	// (POST /titles)
 	CreateTitle(w http.ResponseWriter, r *http.Request)
+	// DeleteTitle Remove a Title with all its Versions
+	// (DELETE /titles/{id})
+	DeleteTitle(w http.ResponseWriter, r *http.Request, id TitleId, params DeleteTitleParams)
 	// GetTitle One Title with its Versions
 	// (GET /titles/{id})
 	GetTitle(w http.ResponseWriter, r *http.Request, id TitleId)
@@ -1671,6 +1704,15 @@ type ServerInterface interface {
 	// PatchSeason Monitor or unmonitor a season and all its episodes
 	// (PATCH /titles/{id}/seasons/{season})
 	PatchSeason(w http.ResponseWriter, r *http.Request, id TitleId, season int)
+	// AddVersion Add a Version to an empty Slot
+	// (POST /titles/{id}/versions)
+	AddVersion(w http.ResponseWriter, r *http.Request, id TitleId)
+	// DeleteVersion Remove a Version
+	// (DELETE /versions/{id})
+	DeleteVersion(w http.ResponseWriter, r *http.Request, id VersionId, params DeleteVersionParams)
+	// PatchVersion Switch a Version's Profile
+	// (PATCH /versions/{id})
+	PatchVersion(w http.ResponseWriter, r *http.Request, id VersionId)
 	// SearchVersionReleases Manual search for a Version
 	// (POST /versions/{id}/releases)
 	SearchVersionReleases(w http.ResponseWriter, r *http.Request, id VersionId)
@@ -2516,6 +2558,48 @@ func (siw *ServerInterfaceWrapper) CreateTitle(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteTitle operation middleware
+func (siw *ServerInterfaceWrapper) DeleteTitle(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TitleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteTitleParams
+
+	// ------------- Optional query parameter "delete_files" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "delete_files", r.URL.Query(), &params.DeleteFiles, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "delete_files"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "delete_files", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteTitle(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetTitle operation middleware
 func (siw *ServerInterfaceWrapper) GetTitle(w http.ResponseWriter, r *http.Request) {
 
@@ -2672,6 +2756,100 @@ func (siw *ServerInterfaceWrapper) PatchSeason(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PatchSeason(w, r, id, season)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddVersion operation middleware
+func (siw *ServerInterfaceWrapper) AddVersion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TitleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddVersion(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteVersion operation middleware
+func (siw *ServerInterfaceWrapper) DeleteVersion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id VersionId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteVersionParams
+
+	// ------------- Optional query parameter "delete_files" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "delete_files", r.URL.Query(), &params.DeleteFiles, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "delete_files"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "delete_files", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteVersion(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PatchVersion operation middleware
+func (siw *ServerInterfaceWrapper) PatchVersion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id VersionId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchVersion(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2848,8 +3026,12 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/lookup/{kind}/{tmdb_id}", wrapper.LookupTitle)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles", wrapper.ListTitles)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles", wrapper.CreateTitle)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/titles/{id}", wrapper.DeleteTitle)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/{id}", wrapper.GetTitle)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/titles/{id}", wrapper.PatchTitle)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles/{id}/versions", wrapper.AddVersion)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/versions/{id}", wrapper.DeleteVersion)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/versions/{id}", wrapper.PatchVersion)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/{id}/episodes", wrapper.ListEpisodes)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles/{id}/episodes/monitor", wrapper.MonitorEpisodes)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/titles/{id}/seasons/{season}", wrapper.PatchSeason)
@@ -5024,6 +5206,56 @@ func (response CreateTitledefaultApplicationProblemPlusJSONResponse) VisitCreate
 	return err
 }
 
+type DeleteTitleRequestObject struct {
+	Id     TitleId `json:"id"`
+	Params DeleteTitleParams
+}
+
+type DeleteTitleResponseObject interface {
+	VisitDeleteTitleResponse(w http.ResponseWriter) error
+}
+
+type DeleteTitle204Response struct {
+}
+
+func (response DeleteTitle204Response) VisitDeleteTitleResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteTitle404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteTitle404ApplicationProblemPlusJSONResponse) VisitDeleteTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteTitledefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DeleteTitledefaultApplicationProblemPlusJSONResponse) VisitDeleteTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetTitleRequestObject struct {
 	Id TitleId `json:"id"`
 }
@@ -5408,6 +5640,210 @@ func (response PatchSeasondefaultApplicationProblemPlusJSONResponse) VisitPatchS
 	return err
 }
 
+type AddVersionRequestObject struct {
+	Id   TitleId `json:"id"`
+	Body *AddVersionJSONRequestBody
+}
+
+type AddVersionResponseObject interface {
+	VisitAddVersionResponse(w http.ResponseWriter) error
+}
+
+type AddVersion201JSONResponse VersionDetail
+
+func (response AddVersion201JSONResponse) VisitAddVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddVersion404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response AddVersion404ApplicationProblemPlusJSONResponse) VisitAddVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddVersion409ApplicationProblemPlusJSONResponse Problem
+
+func (response AddVersion409ApplicationProblemPlusJSONResponse) VisitAddVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddVersion422ApplicationProblemPlusJSONResponse Problem
+
+func (response AddVersion422ApplicationProblemPlusJSONResponse) VisitAddVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddVersiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response AddVersiondefaultApplicationProblemPlusJSONResponse) VisitAddVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteVersionRequestObject struct {
+	Id     VersionId `json:"id"`
+	Params DeleteVersionParams
+}
+
+type DeleteVersionResponseObject interface {
+	VisitDeleteVersionResponse(w http.ResponseWriter) error
+}
+
+type DeleteVersion204Response struct {
+}
+
+func (response DeleteVersion204Response) VisitDeleteVersionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteVersion404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteVersion404ApplicationProblemPlusJSONResponse) VisitDeleteVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteVersiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DeleteVersiondefaultApplicationProblemPlusJSONResponse) VisitDeleteVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchVersionRequestObject struct {
+	Id   VersionId `json:"id"`
+	Body *PatchVersionJSONRequestBody
+}
+
+type PatchVersionResponseObject interface {
+	VisitPatchVersionResponse(w http.ResponseWriter) error
+}
+
+type PatchVersion200JSONResponse VersionDetail
+
+func (response PatchVersion200JSONResponse) VisitPatchVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchVersion404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PatchVersion404ApplicationProblemPlusJSONResponse) VisitPatchVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchVersion422ApplicationProblemPlusJSONResponse Problem
+
+func (response PatchVersion422ApplicationProblemPlusJSONResponse) VisitPatchVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchVersiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response PatchVersiondefaultApplicationProblemPlusJSONResponse) VisitPatchVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type SearchVersionReleasesRequestObject struct {
 	Id   VersionId `json:"id"`
 	Body *SearchVersionReleasesJSONRequestBody
@@ -5594,6 +6030,9 @@ type StrictServerInterface interface {
 	// CreateTitle Add a Title to the Library
 	// (POST /titles)
 	CreateTitle(ctx context.Context, request CreateTitleRequestObject) (CreateTitleResponseObject, error)
+	// DeleteTitle Remove a Title with all its Versions
+	// (DELETE /titles/{id})
+	DeleteTitle(ctx context.Context, request DeleteTitleRequestObject) (DeleteTitleResponseObject, error)
 	// GetTitle One Title with its Versions
 	// (GET /titles/{id})
 	GetTitle(ctx context.Context, request GetTitleRequestObject) (GetTitleResponseObject, error)
@@ -5612,6 +6051,15 @@ type StrictServerInterface interface {
 	// PatchSeason Monitor or unmonitor a season and all its episodes
 	// (PATCH /titles/{id}/seasons/{season})
 	PatchSeason(ctx context.Context, request PatchSeasonRequestObject) (PatchSeasonResponseObject, error)
+	// AddVersion Add a Version to an empty Slot
+	// (POST /titles/{id}/versions)
+	AddVersion(ctx context.Context, request AddVersionRequestObject) (AddVersionResponseObject, error)
+	// DeleteVersion Remove a Version
+	// (DELETE /versions/{id})
+	DeleteVersion(ctx context.Context, request DeleteVersionRequestObject) (DeleteVersionResponseObject, error)
+	// PatchVersion Switch a Version's Profile
+	// (PATCH /versions/{id})
+	PatchVersion(ctx context.Context, request PatchVersionRequestObject) (PatchVersionResponseObject, error)
 	// SearchVersionReleases Manual search for a Version
 	// (POST /versions/{id}/releases)
 	SearchVersionReleases(ctx context.Context, request SearchVersionReleasesRequestObject) (SearchVersionReleasesResponseObject, error)
@@ -6707,6 +7155,33 @@ func (sh *strictHandler) CreateTitle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// DeleteTitle operation middleware
+func (sh *strictHandler) DeleteTitle(w http.ResponseWriter, r *http.Request, id TitleId, params DeleteTitleParams) {
+	var request DeleteTitleRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteTitle(ctx, request.(DeleteTitleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteTitle")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteTitleResponseObject); ok {
+		if err := validResponse.VisitDeleteTitleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetTitle operation middleware
 func (sh *strictHandler) GetTitle(w http.ResponseWriter, r *http.Request, id TitleId) {
 	var request GetTitleRequestObject
@@ -6878,6 +7353,99 @@ func (sh *strictHandler) PatchSeason(w http.ResponseWriter, r *http.Request, id 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PatchSeasonResponseObject); ok {
 		if err := validResponse.VisitPatchSeasonResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AddVersion operation middleware
+func (sh *strictHandler) AddVersion(w http.ResponseWriter, r *http.Request, id TitleId) {
+	var request AddVersionRequestObject
+
+	request.Id = id
+
+	var body AddVersionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AddVersion(ctx, request.(AddVersionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddVersion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AddVersionResponseObject); ok {
+		if err := validResponse.VisitAddVersionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteVersion operation middleware
+func (sh *strictHandler) DeleteVersion(w http.ResponseWriter, r *http.Request, id VersionId, params DeleteVersionParams) {
+	var request DeleteVersionRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteVersion(ctx, request.(DeleteVersionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteVersion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteVersionResponseObject); ok {
+		if err := validResponse.VisitDeleteVersionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PatchVersion operation middleware
+func (sh *strictHandler) PatchVersion(w http.ResponseWriter, r *http.Request, id VersionId) {
+	var request PatchVersionRequestObject
+
+	request.Id = id
+
+	var body PatchVersionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PatchVersion(ctx, request.(PatchVersionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PatchVersion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PatchVersionResponseObject); ok {
+		if err := validResponse.VisitPatchVersionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

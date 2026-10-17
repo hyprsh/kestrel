@@ -10,12 +10,39 @@ import (
 	"database/sql"
 )
 
+const clearMisfit = `-- name: ClearMisfit :exec
+DELETE FROM file_misfits WHERE file_id = ?
+`
+
+func (q *Queries) ClearMisfit(ctx context.Context, fileID int64) error {
+	_, err := q.db.ExecContext(ctx, clearMisfit, fileID)
+	return err
+}
+
 const deleteFile = `-- name: DeleteFile :exec
 DELETE FROM files WHERE id = ?
 `
 
 func (q *Queries) DeleteFile(ctx context.Context, id int64) error {
 	_, err := q.db.ExecContext(ctx, deleteFile, id)
+	return err
+}
+
+const deleteTitle = `-- name: DeleteTitle :exec
+DELETE FROM titles WHERE id = ?
+`
+
+func (q *Queries) DeleteTitle(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteTitle, id)
+	return err
+}
+
+const deleteVersion = `-- name: DeleteVersion :exec
+DELETE FROM versions WHERE id = ?
+`
+
+func (q *Queries) DeleteVersion(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteVersion, id)
 	return err
 }
 
@@ -141,6 +168,23 @@ func (q *Queries) GetTitleOfVersion(ctx context.Context, id int64) (int64, error
 	var title_id int64
 	err := row.Scan(&title_id)
 	return title_id, err
+}
+
+const getVersion = `-- name: GetVersion :one
+SELECT id, title_id, slot, profile_key, added_at FROM versions WHERE id = ?
+`
+
+func (q *Queries) GetVersion(ctx context.Context, id int64) (Version, error) {
+	row := q.db.QueryRowContext(ctx, getVersion, id)
+	var i Version
+	err := row.Scan(
+		&i.ID,
+		&i.TitleID,
+		&i.Slot,
+		&i.ProfileKey,
+		&i.AddedAt,
+	)
+	return i, err
 }
 
 const insertAlias = `-- name: InsertAlias :exec
@@ -747,6 +791,33 @@ func (q *Queries) ListFilesOfVersion(ctx context.Context, versionID int64) ([]Fi
 	return items, nil
 }
 
+const listMisfitFileIDs = `-- name: ListMisfitFileIDs :many
+SELECT file_id FROM file_misfits
+`
+
+func (q *Queries) ListMisfitFileIDs(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listMisfitFileIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var file_id int64
+		if err := rows.Scan(&file_id); err != nil {
+			return nil, err
+		}
+		items = append(items, file_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReleaseDatesOfTitle = `-- name: ListReleaseDatesOfTitle :many
 SELECT title_id, country, type, date, certification FROM title_release_dates WHERE title_id = ?
 `
@@ -961,6 +1032,29 @@ func (q *Queries) SetEpisodeMonitored(ctx context.Context, arg SetEpisodeMonitor
 	return err
 }
 
+const setFileScore = `-- name: SetFileScore :exec
+UPDATE files SET score = ? WHERE id = ?
+`
+
+type SetFileScoreParams struct {
+	Score sql.NullInt64
+	ID    int64
+}
+
+func (q *Queries) SetFileScore(ctx context.Context, arg SetFileScoreParams) error {
+	_, err := q.db.ExecContext(ctx, setFileScore, arg.Score, arg.ID)
+	return err
+}
+
+const setMisfit = `-- name: SetMisfit :exec
+INSERT OR IGNORE INTO file_misfits (file_id) VALUES (?)
+`
+
+func (q *Queries) SetMisfit(ctx context.Context, fileID int64) error {
+	_, err := q.db.ExecContext(ctx, setMisfit, fileID)
+	return err
+}
+
 const setNextMissing = `-- name: SetNextMissing :exec
 UPDATE search_state SET next_missing_at = ? WHERE version_id = ? AND season IS NULL
 `
@@ -987,6 +1081,21 @@ type SetNextMissingSeasonParams struct {
 
 func (q *Queries) SetNextMissingSeason(ctx context.Context, arg SetNextMissingSeasonParams) error {
 	_, err := q.db.ExecContext(ctx, setNextMissingSeason, arg.NextMissingAt, arg.VersionID, arg.Season)
+	return err
+}
+
+const setNextSearchesAll = `-- name: SetNextSearchesAll :exec
+UPDATE search_state SET next_missing_at = ?, next_upgrade_at = ? WHERE version_id = ?
+`
+
+type SetNextSearchesAllParams struct {
+	NextMissingAt sql.NullString
+	NextUpgradeAt sql.NullString
+	VersionID     int64
+}
+
+func (q *Queries) SetNextSearchesAll(ctx context.Context, arg SetNextSearchesAllParams) error {
+	_, err := q.db.ExecContext(ctx, setNextSearchesAll, arg.NextMissingAt, arg.NextUpgradeAt, arg.VersionID)
 	return err
 }
 
@@ -1045,5 +1154,19 @@ type SetTitleFolderParams struct {
 
 func (q *Queries) SetTitleFolder(ctx context.Context, arg SetTitleFolderParams) error {
 	_, err := q.db.ExecContext(ctx, setTitleFolder, arg.Folder, arg.ID)
+	return err
+}
+
+const setVersionProfile = `-- name: SetVersionProfile :exec
+UPDATE versions SET profile_key = ? WHERE id = ?
+`
+
+type SetVersionProfileParams struct {
+	ProfileKey string
+	ID         int64
+}
+
+func (q *Queries) SetVersionProfile(ctx context.Context, arg SetVersionProfileParams) error {
+	_, err := q.db.ExecContext(ctx, setVersionProfile, arg.ProfileKey, arg.ID)
 	return err
 }

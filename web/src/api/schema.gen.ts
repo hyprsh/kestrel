@@ -403,7 +403,13 @@ export interface paths {
         get: operations["getTitle"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Remove a Title with all its Versions
+         * @description Removes the Title and what Kestrel holds of it. Files stay on disk unless `delete_files` is
+         *     true, which also removes the Title's folder if it is then empty. Active downloads of the
+         *     Title are canceled.
+         */
+        delete: operations["deleteTitle"];
         options?: never;
         head?: never;
         /**
@@ -412,6 +418,60 @@ export interface paths {
          *     `422` for a Movie.
          */
         patch: operations["patchTitle"];
+        trace?: never;
+    };
+    "/titles/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a Version to an empty Slot
+         * @description Adds a Wanted Version under an enabled Profile of the Slot and searches it at once.
+         *     `409` when the Slot already holds a Version.
+         */
+        post: operations["addVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/versions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a Version
+         * @description Removes the Version. Its files stay on disk unless `delete_files` is true. An active download
+         *     for it is canceled.
+         */
+        delete: operations["deleteVersion"];
+        options?: never;
+        head?: never;
+        /**
+         * Switch a Version's Profile
+         * @description Moves the Version to another enabled Profile of its Slot (HD to Kids, say). The file is
+         *     re-scored under the new Profile from what was stored at Import: no re-parse, no new ffprobe,
+         *     no rename. A file the new Profile no longer accepts by resolution class or language is a
+         *     `misfit`: the Version becomes Wanted and any fitting Release replaces the file whatever its
+         *     Score. The Version is searched at once.
+         */
+        patch: operations["patchVersion"];
         trace?: never;
     };
     "/titles/{id}/episodes": {
@@ -1184,6 +1244,10 @@ export interface components {
             /** @description The Profile key. It must be an enabled Profile of that Slot. */
             profile: string;
         };
+        VersionPatch: {
+            /** @description The Profile key. It must be an enabled Profile of the Version's Slot. */
+            profile: string;
+        };
         TitleCreate: {
             kind: components["schemas"]["TitleKind"];
             tmdb_id: number;
@@ -1282,6 +1346,8 @@ export interface components {
             quality?: string | null;
             /** @description The audio languages ffprobe found (English names), in track order. */
             languages?: string[];
+            /** @description The file no longer fits the Version's Profile; the Version is Wanted. */
+            misfit?: boolean;
             /** Format: date-time */
             imported_at: string;
         };
@@ -1605,6 +1671,8 @@ export interface components {
     parameters: {
         PluginId: string;
         InstanceId: number;
+        /** @description Also delete the files from disk. Off by default. */
+        DeleteFiles: boolean;
         TitleId: number;
         VersionId: number;
         GrabId: number;
@@ -2151,6 +2219,31 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
+    deleteTitle: {
+        parameters: {
+            query?: {
+                /** @description Also delete the files from disk. Off by default. */
+                delete_files?: components["parameters"]["DeleteFiles"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
     patchTitle: {
         parameters: {
             query?: never;
@@ -2173,6 +2266,90 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TitleDetail"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    addVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionRef"];
+            };
+        };
+        responses: {
+            /** @description The new Version. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionDetail"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteVersion: {
+        parameters: {
+            query?: {
+                /** @description Also delete the files from disk. Off by default. */
+                delete_files?: components["parameters"]["DeleteFiles"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    patchVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionPatch"];
+            };
+        };
+        responses: {
+            /** @description The Version. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionDetail"];
                 };
             };
             404: components["responses"]["Problem"];
