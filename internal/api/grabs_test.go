@@ -66,9 +66,18 @@ type search struct {
 	idx     *ixfake.Indexer
 	sab     *dcfake.Client
 	hd, uhd int64
+	title   int64
 }
 
 func newSearch(t *testing.T) search {
+	t.Helper()
+	s := newSearchBare(t)
+	s.addPaddington(t)
+	return s
+}
+
+// newSearchBare is newSearch before any Title is added.
+func newSearchBare(t *testing.T) search {
 	t.Helper()
 	tmdb := metadatatest.New(t)
 	data, config := t.TempDir(), t.TempDir()
@@ -94,11 +103,19 @@ func newSearch(t *testing.T) search {
 	if r := b.valid("POST", "/plugin-instances", `{"plugin_id":"fake","name":"SABnzbd","config":{"api_key":"sk","movie_category":"films"}}`); r.Status != 201 {
 		t.Fatalf("client = %d %s", r.Status, r.Body)
 	}
-	r := b.valid("POST", "/titles", addPaddington)
+	return s
+}
+
+// addPaddington adds the Movie in HD and UHD through the API, as the UI does.
+func (s *search) addPaddington(t *testing.T) {
+	t.Helper()
+	r := s.valid("POST", "/titles", addPaddington)
 	if r.Status != 201 {
 		t.Fatalf("POST /titles = %d %s", r.Status, r.Body)
 	}
-	for _, v := range decode[titleJSON](t, r).Versions {
+	created := decode[titleJSON](t, r)
+	s.title = created.ID
+	for _, v := range created.Versions {
 		switch v.Slot {
 		case "hd":
 			s.hd = v.ID
@@ -106,7 +123,6 @@ func newSearch(t *testing.T) search {
 			s.uhd = v.ID
 		}
 	}
-	return s
 }
 
 func (s search) publish(t *testing.T, name string) {

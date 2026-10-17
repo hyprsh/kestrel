@@ -139,6 +139,33 @@ func (e ProfileLanguageRule) Valid() bool {
 	}
 }
 
+// Defines values for QueueItemPhase.
+const (
+	QueueItemPhaseDownloading    QueueItemPhase = "downloading"
+	QueueItemPhaseImporting      QueueItemPhase = "importing"
+	QueueItemPhasePaused         QueueItemPhase = "paused"
+	QueueItemPhasePostProcessing QueueItemPhase = "post_processing"
+	QueueItemPhaseQueued         QueueItemPhase = "queued"
+)
+
+// Valid indicates whether the value is a known member of the QueueItemPhase enum.
+func (e QueueItemPhase) Valid() bool {
+	switch e {
+	case QueueItemPhaseDownloading:
+		return true
+	case QueueItemPhaseImporting:
+		return true
+	case QueueItemPhasePaused:
+		return true
+	case QueueItemPhasePostProcessing:
+		return true
+	case QueueItemPhaseQueued:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RejectionCode.
 const (
 	RejectionCodeBelowMinScore           RejectionCode = "below_min_score"
@@ -496,6 +523,11 @@ type Grab struct {
 // GrabState defines model for Grab.State.
 type GrabState string
 
+// GrabCancel defines model for GrabCancel.
+type GrabCancel struct {
+	Blocklist *bool `json:"blocklist,omitempty"`
+}
+
 // GrabCreate defines model for GrabCreate.
 type GrabCreate struct {
 	Override  *bool  `json:"override,omitempty"`
@@ -775,6 +807,40 @@ type ProfilePatch struct {
 	DefaultSeries    *bool `json:"default_series,omitempty"`
 	Enabled          *bool `json:"enabled,omitempty"`
 	OriginalFallback *bool `json:"original_fallback,omitempty"`
+}
+
+// QueueItem defines model for QueueItem.
+type QueueItem struct {
+	BytesLeft  int64 `json:"bytes_left"`
+	BytesTotal int64 `json:"bytes_total"`
+
+	// Episodes The episodes a Series Grab covers (`S01E02`); empty for a Movie.
+	Episodes []string `json:"episodes"`
+
+	// Eta Seconds left, null when the client does not know.
+	Eta         *int           `json:"eta"`
+	GrabId      int64          `json:"grab_id"`
+	IsUpgrade   bool           `json:"is_upgrade"`
+	Phase       QueueItemPhase `json:"phase"`
+	ReleaseName string         `json:"release_name"`
+
+	// ScoreDelta For an Upgrade, how many points the Release scores above the file it replaces.
+	ScoreDelta *int  `json:"score_delta"`
+	Slot       *Slot `json:"slot"`
+
+	// Title The Title's name, empty when the Title was deleted.
+	Title     string `json:"title"`
+	TitleId   *int64 `json:"title_id"`
+	VersionId *int64 `json:"version_id"`
+	Year      *int   `json:"year"`
+}
+
+// QueueItemPhase defines model for QueueItem.Phase.
+type QueueItemPhase string
+
+// QueueList defines model for QueueList.
+type QueueList struct {
+	Items []QueueItem `json:"items"`
 }
 
 // Rejection defines model for Rejection.
@@ -1189,6 +1255,9 @@ type LoginJSONRequestBody = Credentials
 // CreateGrabJSONRequestBody defines body for CreateGrab for application/json ContentType.
 type CreateGrabJSONRequestBody = GrabCreate
 
+// CancelGrabJSONRequestBody defines body for CancelGrab for application/json ContentType.
+type CancelGrabJSONRequestBody = GrabCancel
+
 // CreatePluginInstanceJSONRequestBody defines body for CreatePluginInstance for application/json ContentType.
 type CreatePluginInstanceJSONRequestBody = PluginInstanceCreate
 
@@ -1260,6 +1329,9 @@ type ServerInterface interface {
 	// GetGrab One Grab
 	// (GET /grabs/{id})
 	GetGrab(w http.ResponseWriter, r *http.Request, id GrabId)
+	// CancelGrab Cancel a Grab
+	// (POST /grabs/{id}/cancel)
+	CancelGrab(w http.ResponseWriter, r *http.Request, id GrabId)
 	// Lookup Search the metadata provider for Titles to add
 	// (GET /lookup)
 	Lookup(w http.ResponseWriter, r *http.Request, params LookupParams)
@@ -1299,6 +1371,9 @@ type ServerInterface interface {
 	// PatchProfile Change a Profile's settings
 	// (PATCH /profiles/{key})
 	PatchProfile(w http.ResponseWriter, r *http.Request, key ProfileKey)
+	// ListQueue Downloading now
+	// (GET /queue)
+	ListQueue(w http.ResponseWriter, r *http.Request)
 	// GetSettings App settings
 	// (GET /settings)
 	GetSettings(w http.ResponseWriter, r *http.Request)
@@ -1490,6 +1565,32 @@ func (siw *ServerInterfaceWrapper) GetGrab(w http.ResponseWriter, r *http.Reques
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetGrab(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelGrab operation middleware
+func (siw *ServerInterfaceWrapper) CancelGrab(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id GrabId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelGrab(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1806,6 +1907,20 @@ func (siw *ServerInterfaceWrapper) PatchProfile(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PatchProfile(w, r, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListQueue operation middleware
+func (siw *ServerInterfaceWrapper) ListQueue(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListQueue(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2354,6 +2469,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/versions/{id}/releases", wrapper.SearchVersionReleases)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs", wrapper.CreateGrab)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grabs/{id}", wrapper.GetGrab)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs/{id}/cancel", wrapper.CancelGrab)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/queue", wrapper.ListQueue)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugins", wrapper.ListPlugins)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/plugins/{plugin_id}/options/{field}", wrapper.ListPluginOptions)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugin-instances", wrapper.ListPluginInstances)
@@ -2848,6 +2965,70 @@ type GetGrabdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetGrabdefaultApplicationProblemPlusJSONResponse) VisitGetGrabResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelGrabRequestObject struct {
+	Id   GrabId `json:"id"`
+	Body *CancelGrabJSONRequestBody
+}
+
+type CancelGrabResponseObject interface {
+	VisitCancelGrabResponse(w http.ResponseWriter) error
+}
+
+type CancelGrab204Response struct {
+}
+
+func (response CancelGrab204Response) VisitCancelGrabResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type CancelGrab404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CancelGrab404ApplicationProblemPlusJSONResponse) VisitCancelGrabResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelGrab502ApplicationProblemPlusJSONResponse Problem
+
+func (response CancelGrab502ApplicationProblemPlusJSONResponse) VisitCancelGrabResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelGrabdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CancelGrabdefaultApplicationProblemPlusJSONResponse) VisitCancelGrabResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -3610,6 +3791,44 @@ type PatchProfiledefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response PatchProfiledefaultApplicationProblemPlusJSONResponse) VisitPatchProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListQueueRequestObject struct {
+}
+
+type ListQueueResponseObject interface {
+	VisitListQueueResponse(w http.ResponseWriter) error
+}
+
+type ListQueue200JSONResponse QueueList
+
+func (response ListQueue200JSONResponse) VisitListQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListQueuedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListQueuedefaultApplicationProblemPlusJSONResponse) VisitListQueueResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -4645,6 +4864,9 @@ type StrictServerInterface interface {
 	// GetGrab One Grab
 	// (GET /grabs/{id})
 	GetGrab(ctx context.Context, request GetGrabRequestObject) (GetGrabResponseObject, error)
+	// CancelGrab Cancel a Grab
+	// (POST /grabs/{id}/cancel)
+	CancelGrab(ctx context.Context, request CancelGrabRequestObject) (CancelGrabResponseObject, error)
 	// Lookup Search the metadata provider for Titles to add
 	// (GET /lookup)
 	Lookup(ctx context.Context, request LookupRequestObject) (LookupResponseObject, error)
@@ -4684,6 +4906,9 @@ type StrictServerInterface interface {
 	// PatchProfile Change a Profile's settings
 	// (PATCH /profiles/{key})
 	PatchProfile(ctx context.Context, request PatchProfileRequestObject) (PatchProfileResponseObject, error)
+	// ListQueue Downloading now
+	// (GET /queue)
+	ListQueue(ctx context.Context, request ListQueueRequestObject) (ListQueueResponseObject, error)
 	// GetSettings App settings
 	// (GET /settings)
 	GetSettings(ctx context.Context, request GetSettingsRequestObject) (GetSettingsResponseObject, error)
@@ -5008,6 +5233,42 @@ func (sh *strictHandler) GetGrab(w http.ResponseWriter, r *http.Request, id Grab
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetGrabResponseObject); ok {
 		if err := validResponse.VisitGetGrabResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CancelGrab operation middleware
+func (sh *strictHandler) CancelGrab(w http.ResponseWriter, r *http.Request, id GrabId) {
+	var request CancelGrabRequestObject
+
+	request.Id = id
+
+	var body CancelGrabJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CancelGrab(ctx, request.(CancelGrabRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CancelGrab")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CancelGrabResponseObject); ok {
+		if err := validResponse.VisitCancelGrabResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -5383,6 +5644,30 @@ func (sh *strictHandler) PatchProfile(w http.ResponseWriter, r *http.Request, ke
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PatchProfileResponseObject); ok {
 		if err := validResponse.VisitPatchProfileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListQueue operation middleware
+func (sh *strictHandler) ListQueue(w http.ResponseWriter, r *http.Request) {
+	var request ListQueueRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListQueue(ctx, request.(ListQueueRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListQueue")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListQueueResponseObject); ok {
+		if err := validResponse.VisitListQueueResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

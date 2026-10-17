@@ -376,6 +376,41 @@ func (q *Queries) ListAllReleaseDates(ctx context.Context) ([]TitleReleaseDate, 
 	return items, nil
 }
 
+const listDueMissing = `-- name: ListDueMissing :many
+SELECT s.version_id, v.title_id
+FROM search_state s JOIN versions v ON v.id = s.version_id JOIN titles t ON t.id = v.title_id
+WHERE s.season IS NULL AND t.kind = 'movie' AND t.monitored = 1 AND s.next_missing_at IS NOT NULL AND s.next_missing_at <= ?
+ORDER BY s.next_missing_at, s.id
+`
+
+type ListDueMissingRow struct {
+	VersionID int64
+	TitleID   int64
+}
+
+func (q *Queries) ListDueMissing(ctx context.Context, nextMissingAt sql.NullString) ([]ListDueMissingRow, error) {
+	rows, err := q.db.QueryContext(ctx, listDueMissing, nextMissingAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDueMissingRow
+	for rows.Next() {
+		var i ListDueMissingRow
+		if err := rows.Scan(&i.VersionID, &i.TitleID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEpisodes = `-- name: ListEpisodes :many
 SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored FROM episodes ORDER BY title_id, season, number
 `
@@ -766,6 +801,21 @@ func (q *Queries) ListVersionsOfTitle(ctx context.Context, titleID int64) ([]Ver
 	return items, nil
 }
 
+const markMissingSearched = `-- name: MarkMissingSearched :exec
+UPDATE search_state SET last_missing_at = ?, next_missing_at = ? WHERE version_id = ? AND season IS NULL
+`
+
+type MarkMissingSearchedParams struct {
+	LastMissingAt sql.NullString
+	NextMissingAt sql.NullString
+	VersionID     int64
+}
+
+func (q *Queries) MarkMissingSearched(ctx context.Context, arg MarkMissingSearchedParams) error {
+	_, err := q.db.ExecContext(ctx, markMissingSearched, arg.LastMissingAt, arg.NextMissingAt, arg.VersionID)
+	return err
+}
+
 const refreshSeasonsMonitored = `-- name: RefreshSeasonsMonitored :exec
 UPDATE seasons SET monitored = EXISTS (
     SELECT 1 FROM episodes e WHERE e.title_id = seasons.title_id AND e.season = seasons.number AND e.monitored = 1
@@ -788,6 +838,20 @@ type SetEpisodeMonitoredParams struct {
 
 func (q *Queries) SetEpisodeMonitored(ctx context.Context, arg SetEpisodeMonitoredParams) error {
 	_, err := q.db.ExecContext(ctx, setEpisodeMonitored, arg.Monitored, arg.ID)
+	return err
+}
+
+const setNextMissing = `-- name: SetNextMissing :exec
+UPDATE search_state SET next_missing_at = ? WHERE version_id = ? AND season IS NULL
+`
+
+type SetNextMissingParams struct {
+	NextMissingAt sql.NullString
+	VersionID     int64
+}
+
+func (q *Queries) SetNextMissing(ctx context.Context, arg SetNextMissingParams) error {
+	_, err := q.db.ExecContext(ctx, setNextMissing, arg.NextMissingAt, arg.VersionID)
 	return err
 }
 

@@ -20,6 +20,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/downloads"
 	"github.com/hyprsh/kestrel/internal/indexers"
+	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/plugin"
@@ -70,8 +71,22 @@ type Options struct {
 	SearchTimeout time.Duration
 }
 
-// NewHandler returns the whole HTTP handler, mounted under opts.BaseURL.
-func NewHandler(opts Options) http.Handler {
+// App is Kestrel's wired services: the HTTP handler and the background loops.
+// cmd/kestrel serves Handler and runs Jobs; tests drive Jobs pass by pass.
+type App struct {
+	// Handler is the whole HTTP handler, mounted under Options.BaseURL.
+	Handler http.Handler
+	// Jobs is the loop runner. It does nothing until Run, except that Kick and
+	// Pass work at once.
+	Jobs *jobs.Runner
+}
+
+// NewHandler returns the whole HTTP handler, mounted under opts.BaseURL. The
+// loops behind it do not run; use New and App.Jobs for that.
+func NewHandler(opts Options) http.Handler { return New(opts).Handler }
+
+// New wires the services behind the API and the loops that follow their state.
+func New(opts Options) *App {
 	if opts.Logger == nil {
 		opts.Logger = slog.Default()
 	}
@@ -111,6 +126,7 @@ func NewHandler(opts Options) http.Handler {
 		panic("api: the embedded TRaSH snapshot is invalid: " + err.Error())
 	}
 	s.acquire = acq
+	s.jobs = jobs.Standard(jobs.Deps{Acquire: acq, Library: s.library, Clock: opts.Clock, Logger: opts.Logger})
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ping", s.ping)
@@ -138,12 +154,12 @@ func NewHandler(opts Options) http.Handler {
 
 	guarded := s.auth.guard(mux)
 	if opts.BaseURL == "" {
-		return guarded
+		return &App{Handler: guarded, Jobs: s.jobs}
 	}
 	outer := http.NewServeMux()
 	outer.Handle(opts.BaseURL+"/", http.StripPrefix(opts.BaseURL, guarded))
 	outer.Handle(opts.BaseURL, http.RedirectHandler(opts.BaseURL+"/", http.StatusMovedPermanently))
-	return outer
+	return &App{Handler: outer, Jobs: s.jobs}
 }
 
 type server struct {
@@ -154,6 +170,7 @@ type server struct {
 	rootFolders *rootfolders.Service
 	library     *library.Service
 	acquire     *acquire.Service
+	jobs        *jobs.Runner
 	meta        metadata.Provider
 	tvdb        metadata.TVDBProvider
 	posters     *metadata.Posters

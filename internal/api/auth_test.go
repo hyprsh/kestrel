@@ -39,6 +39,8 @@ type instance struct {
 	st    *store.Store
 	clock *fakeClock
 	base  string
+	opts  api.Options
+	app   *api.App
 }
 
 // newInstance starts Kestrel; each option adjusts api.Options first (e.g. Plugins).
@@ -54,10 +56,20 @@ func newInstance(t *testing.T, base string, with ...func(*api.Options)) *instanc
 	for _, f := range with {
 		f(&opts)
 	}
-	h := api.NewHandler(opts)
-	srv := httptest.NewServer(h)
-	t.Cleanup(srv.Close)
-	return &instance{t: t, srv: srv, st: st, clock: clock, base: base}
+	app := api.New(opts)
+	srv := httptest.NewServer(app.Handler)
+	t.Cleanup(func() { srv.Close() })
+	return &instance{t: t, srv: srv, st: st, clock: clock, base: base, opts: opts, app: app}
+}
+
+// restart is a new process over the same database: new services and no memory
+// of the old ones.
+func (in *instance) restart() {
+	in.t.Helper()
+	in.srv.Close()
+	in.app = api.New(in.opts)
+	in.srv = httptest.NewServer(in.app.Handler)
+	in.t.Cleanup(func() { in.srv.Close() })
 }
 
 // browser is one cookie-holding client, like a browser tab.

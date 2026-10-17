@@ -59,6 +59,7 @@ export const handlers = [
   ),
   http.get('/profiles', ({ response }) => response(200).json({ items: [] })),
   http.get('/titles', ({ response }) => response(200).json({ items: [], next_cursor: null })),
+  http.get('/queue', ({ response }) => response(200).json({ items: [] })),
   http.get('/settings/reverse-proxy', ({ response }) =>
     response(200).json({ enabled: false, trusted_proxies: [], header: 'Remote-User', untrusted: [] }),
   ),

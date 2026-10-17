@@ -573,6 +573,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/grabs/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a Grab
+         * @description Removes the job (and its files) from the download client and drops the Grab; the Version is
+         *     Wanted again. With `blocklist: true` ("Cancel and blocklist") the Release also goes on the
+         *     Blocklist and the Version is searched again at once for the next best Release. A client that
+         *     cannot be reached is `502 upstream_unavailable` and nothing changes.
+         */
+        post: operations["cancelGrab"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Downloading now
+         * @description Every Grab that is sent, downloading or finished and waiting for its Import, oldest first.
+         *     Progress comes from the download client's last poll (every 10 s while anything downloads);
+         *     before the first poll after a start `bytes_left` is 0 and `eta` is null.
+         */
+        get: operations["listQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/plugins": {
         parameters: {
             query?: never;
@@ -1242,6 +1289,39 @@ export interface components {
             is_upgrade: boolean;
             /** Format: date-time */
             created_at: string;
+        };
+        GrabCancel: {
+            /** @default false */
+            blocklist: boolean;
+        };
+        QueueList: {
+            items: components["schemas"]["QueueItem"][];
+        };
+        QueueItem: {
+            /** Format: int64 */
+            grab_id: number;
+            /** Format: int64 */
+            title_id: number | null;
+            /** Format: int64 */
+            version_id: number | null;
+            /** @description The Title's name, empty when the Title was deleted. */
+            title: string;
+            year: number | null;
+            slot: components["schemas"]["Slot"] | null;
+            /** @description The episodes a Series Grab covers (`S01E02`); empty for a Movie. */
+            episodes: string[];
+            release_name: string;
+            /** @enum {string} */
+            phase: "queued" | "downloading" | "paused" | "post_processing" | "importing";
+            /** Format: int64 */
+            bytes_total: number;
+            /** Format: int64 */
+            bytes_left: number;
+            /** @description Seconds left, null when the client does not know. */
+            eta: number | null;
+            is_upgrade: boolean;
+            /** @description For an Upgrade, how many points the Release scores above the file it replaces. */
+            score_delta: number | null;
         };
         ReleaseDateEntry: {
             country: string;
@@ -2083,6 +2163,54 @@ export interface operations {
                 };
             };
             404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    cancelGrab: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["GrabCancel"];
+            };
+        };
+        responses: {
+            /** @description The Grab is gone. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listQueue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The active Grabs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueList"];
+                };
+            };
             default: components["responses"]["Problem"];
         };
     };

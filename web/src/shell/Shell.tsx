@@ -6,6 +6,7 @@ import { useAuth, useLogout, useSystem } from '../api/queries'
 import { CommandMenu, type MenuAction, type MenuMode } from '../command/CommandMenu'
 import { MOD } from '../keys'
 import { Library } from '../library/Library'
+import { Overview } from '../overview/Overview'
 import { Settings as SettingsScreen } from '../screens/Settings'
 import { useTheme, type Theme } from '../theme'
 import { cx, Kbd, KestrelLogo } from '../ui'
@@ -72,6 +73,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
             <SettingsScreen onRunSetup={onRunSetup} />
           ) : screen === 'library' ? (
             <Library selectedId={libraryId} onSelect={setLibraryId} onAdd={() => setMenu({ mode: 'add' })} />
+          ) : screen === 'overview' ? (
+            <Overview />
           ) : (
             <div className="flex flex-1 items-center justify-center text-center">
               <div>

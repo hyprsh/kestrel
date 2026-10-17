@@ -58,23 +58,32 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	srv := &http.Server{
-		Addr: net.JoinHostPort("", strconv.Itoa(cfg.Port)),
-		Handler: api.NewHandler(api.Options{
-			Version: version.Version,
-			BaseURL: cfg.BaseURL,
-			Store:   st,
-			Web:     web.FS(),
-			Logger:  logger,
-			Plugins: plugins,
-			DataDir: cfg.DataDir,
+	app := api.New(api.Options{
+		Version: version.Version,
+		BaseURL: cfg.BaseURL,
+		Store:   st,
+		Web:     web.FS(),
+		Logger:  logger,
+		Plugins: plugins,
+		DataDir: cfg.DataDir,
 
-			ConfigDir:  cfg.ConfigDir,
-			TMDBAPIKey: cfg.TMDBAPIKey,
-			TVDBAPIKey: cfg.TVDBAPIKey,
-		}),
+		ConfigDir:  cfg.ConfigDir,
+		TMDBAPIKey: cfg.TMDBAPIKey,
+		TVDBAPIKey: cfg.TVDBAPIKey,
+	})
+	srv := &http.Server{
+		Addr:              net.JoinHostPort("", strconv.Itoa(cfg.Port)),
+		Handler:           app.Handler,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
+	// Startup reconciliation, then the loops; both stop with ctx.
+	jobsCtx, stopJobs := context.WithCancel(ctx)
+	jobsDone := make(chan struct{})
+	go func() {
+		defer close(jobsDone)
+		_ = app.Jobs.Run(jobsCtx)
+	}()
+	defer func() { stopJobs(); <-jobsDone }() // before the store closes
 
 	errc := make(chan error, 1)
 	go func() { errc <- srv.ListenAndServe() }()

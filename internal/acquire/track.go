@@ -1,0 +1,283 @@
+package acquire
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"slices"
+	"sync"
+	"time"
+
+	"github.com/hyprsh/kestrel/internal/acquire/db"
+	"github.com/hyprsh/kestrel/internal/indexers"
+	"github.com/hyprsh/kestrel/internal/library"
+	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
+	"github.com/hyprsh/kestrel/internal/plugin/instances"
+)
+
+// Phase is what a Grab in "Downloading now" is doing.
+type Phase string
+
+const (
+	PhaseQueued         Phase = "queued"
+	PhaseDownloading    Phase = "downloading"
+	PhasePaused         Phase = "paused"
+	PhasePostProcessing Phase = "post_processing"
+	// PhaseImporting is a finished download waiting for, or in, its Import.
+	PhaseImporting Phase = "importing"
+)
+
+// Live is what the download client last said about a Grab. It lives in memory
+// only and is rebuilt by the next poll after a restart.
+type Live struct {
+	Phase      Phase
+	BytesTotal int64
+	BytesLeft  int64
+	// ETA is 0 when the client does not know.
+	ETA time.Duration
+}
+
+// Active is a Grab that shows in "Downloading now".
+type Active struct {
+	Grab
+	Live
+}
+
+type liveSet struct {
+	mu sync.Mutex
+	m  map[int64]Live
+}
+
+func (l *liveSet) get(id int64) (Live, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	v, ok := l.m[id]
+	return v, ok
+}
+
+func (l *liveSet) set(id int64, v Live) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.m[id] = v
+}
+
+func (l *liveSet) drop(id int64) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	delete(l.m, id)
+}
+
+// Active lists the Grabs that are sent, downloading or finished and waiting
+// for Import (not stalled ones), oldest first, each with what the client last
+// said. Before the first poll a Grab's phase follows from its state alone.
+func (s *Service) Active(ctx context.Context) ([]Active, error) {
+	rows, err := db.New(s.st.Read()).ListActiveGrabs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Active, 0, len(rows))
+	for _, r := range rows {
+		g := grabOf(r)
+		live, ok := s.live.get(g.ID)
+		if !ok || g.State == "completed" || g.State == "importing" {
+			live = Live{Phase: phaseOfState(g.State), BytesTotal: live.BytesTotal}
+		}
+		out = append(out, Active{Grab: g, Live: live})
+	}
+	return out, nil
+}
+
+func phaseOfState(state string) Phase {
+	switch state {
+	case "downloading":
+		return PhaseDownloading
+	case "completed", "importing":
+		return PhaseImporting
+	}
+	return PhaseQueued
+}
+
+// PollResult is what one poll found.
+type PollResult struct {
+	// Active is true while any Grab is still downloading: the poll then runs every 10 s.
+	Active bool
+	// Changed counts the Grabs whose state moved.
+	Changed int
+}
+
+// Poll reads the download client and moves each downloading Grab along: sent
+// becomes downloading once the client works on it, and a job is done only when
+// the client reports it completed or failed. It is idempotent; polling again
+// with nothing new changes nothing. A Grab the client does not list is left
+// alone (lost Grabs are healed elsewhere).
+func (s *Service) Poll(ctx context.Context) (PollResult, error) {
+	grabs, err := db.New(s.st.Read()).ListDownloadingGrabs(ctx)
+	if err != nil || len(grabs) == 0 {
+		return PollResult{}, err
+	}
+	listed, err := s.dl.List(ctx)
+	if err != nil {
+		return PollResult{Active: true}, err
+	}
+	type key struct {
+		instance int64
+		client   string
+	}
+	items := map[key]downloadclient.Item{}
+	for _, l := range listed {
+		items[key{l.InstanceID, l.Item.ClientID}] = l.Item
+	}
+
+	var res PollResult
+	now := ts(s.clock())
+	for _, g := range grabs {
+		it, ok := items[key{g.ClientInstanceID, g.ClientID}]
+		if !ok {
+			res.Active = true
+			continue
+		}
+		state, failure := g.State, ""
+		switch it.Phase {
+		case downloadclient.PhaseDownloading, downloadclient.PhasePostProcessing:
+			state = "downloading"
+		case downloadclient.PhaseCompleted:
+			state = "completed"
+		case downloadclient.PhaseFailed:
+			state = "failed"
+			failure = string(it.Failure)
+			if failure == "" {
+				failure = string(downloadclient.FailureFailed)
+			}
+		}
+		if state != g.State {
+			err := db.New(s.st.Write()).SetGrabState(ctx, db.SetGrabStateParams{
+				State: state, Failure: sql.NullString{String: failure, Valid: failure != ""}, UpdatedAt: now, ID: g.ID,
+			})
+			if err != nil {
+				return res, err
+			}
+			res.Changed++
+		}
+		switch state {
+		case "failed":
+			s.live.drop(g.ID)
+		case "completed":
+			s.live.set(g.ID, Live{Phase: PhaseImporting, BytesTotal: it.BytesTotal})
+		default:
+			res.Active = true
+			s.live.set(g.ID, Live{Phase: phaseOfItem(it.Phase), BytesTotal: it.BytesTotal, BytesLeft: it.BytesLeft, ETA: it.ETA})
+		}
+	}
+	return res, nil
+}
+
+func phaseOfItem(p downloadclient.Phase) Phase {
+	switch p {
+	case downloadclient.PhaseDownloading:
+		return PhaseDownloading
+	case downloadclient.PhasePaused:
+		return PhasePaused
+	case downloadclient.PhasePostProcessing:
+		return PhasePostProcessing
+	}
+	return PhaseQueued
+}
+
+// Cancel stops a Grab: its job leaves the download client (files included),
+// the Grab row goes and the Version is Wanted again. With blocklist the
+// Release also goes on the Blocklist. It returns the Grab as it was, or
+// ErrGrabNotFound.
+func (s *Service) Cancel(ctx context.Context, id int64, blocklist bool) (Grab, error) {
+	row, err := db.New(s.st.Read()).GetGrab(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Grab{}, ErrGrabNotFound
+	}
+	if err != nil {
+		return Grab{}, err
+	}
+	g := grabOf(row)
+	if err := s.dl.Remove(ctx, row.ClientInstanceID, row.ClientID, true); err != nil && !errors.Is(err, instances.ErrNotFound) {
+		return Grab{}, err
+	}
+	if blocklist {
+		err = s.Block(ctx, BlockEntry{
+			ReleaseName: g.ReleaseName, IndexerID: row.IndexerID, GUID: row.ReleaseGuid, PublishedAt: g.PublishedAt, Size: g.Size,
+			Reason: "canceled and blocklisted", TitleID: g.TitleID,
+		})
+		if err != nil {
+			return Grab{}, err
+		}
+	}
+	if err := db.New(s.st.Write()).DeleteGrab(ctx, id); err != nil {
+		return Grab{}, err
+	}
+	s.live.drop(id)
+	return g, nil
+}
+
+// Outcome is what SearchWanted did.
+type Outcome struct {
+	// Searched are the Versions that were searched for.
+	Searched []int64
+	// Grabbed are the Grabs it made.
+	Grabbed []Grab
+	// Failures are the indexers that could not answer fully.
+	Failures []indexers.Failure
+}
+
+// SearchWanted is the automatic search for what a Title's Versions are
+// missing (search on add, sweeps, retries): one search of the indexers, then
+// Decide picks the best Release for each Wanted Version and Grabs it. Only
+// Versions in versionIDs that are Wanted and have no active Grab are
+// searched; with none left nothing is asked of the indexers. Grabs that
+// fail to send are joined into the error, and the Versions still count as
+// searched.
+func (s *Service) SearchWanted(ctx context.Context, titleID int64, versionIDs []int64) (Outcome, error) {
+	sub, err := s.subjectOf(ctx, titleID)
+	if err != nil {
+		return Outcome{}, err
+	}
+	active, err := s.Active(ctx)
+	if err != nil {
+		return Outcome{}, err
+	}
+	var out Outcome
+	var in Input
+	slotVersion := map[Slot]int64{}
+	for _, v := range sub.detail.Versions {
+		busy := slices.ContainsFunc(active, func(a Active) bool { return a.VersionID == v.ID })
+		if !slices.Contains(versionIDs, v.ID) || v.State != library.Wanted || busy {
+			continue
+		}
+		out.Searched = append(out.Searched, v.ID)
+		slotVersion[v.Slot] = v.ID
+		in.Versions = append(in.Versions, Version{Slot: v.Slot, Units: []Unit{{}}})
+	}
+	if len(in.Versions) == 0 {
+		return out, nil
+	}
+	entries, failures, err := s.gather(ctx, sub)
+	if err != nil {
+		return out, err
+	}
+	out.Failures = failures
+	byRelease := map[string]*entry{}
+	for _, e := range entries {
+		in.Candidates = append(in.Candidates, e.cand)
+		byRelease[e.cand.GUID+"\x00"+e.cand.IndexerID] = e
+	}
+	var errs []error
+	for _, plan := range Decide(in) {
+		e := byRelease[plan.Candidate.GUID+"\x00"+plan.Candidate.IndexerID]
+		if e == nil {
+			continue
+		}
+		g, err := s.Grab(ctx, slotVersion[plan.Slot], e.id, false)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		out.Grabbed = append(out.Grabbed, g)
+	}
+	return out, errors.Join(errs...)
+}

@@ -10,6 +10,15 @@ import (
 	"database/sql"
 )
 
+const deleteGrab = `-- name: DeleteGrab :exec
+DELETE FROM grabs WHERE id = ?
+`
+
+func (q *Queries) DeleteGrab(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteGrab, id)
+	return err
+}
+
 const findBlocklisted = `-- name: FindBlocklisted :many
 SELECT id, release_name, indexer_id, guid, published_at, size, reason, title_id, grab_id, created_at FROM blocklist WHERE (indexer_id = ? AND guid = ?) OR release_name = ?
 `
@@ -211,4 +220,131 @@ func (q *Queries) InsertGrab(ctx context.Context, arg InsertGrabParams) (Grab, e
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listActiveGrabs = `-- name: ListActiveGrabs :many
+SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at FROM grabs WHERE state IN ('sent', 'downloading', 'completed', 'importing') AND stalled_since IS NULL ORDER BY id
+`
+
+// A Grab is active from `sent` until its Import is done; one that stalled waits for a person.
+func (q *Queries) ListActiveGrabs(ctx context.Context) ([]Grab, error) {
+	rows, err := q.db.QueryContext(ctx, listActiveGrabs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Grab
+	for rows.Next() {
+		var i Grab
+		if err := rows.Scan(
+			&i.ID,
+			&i.TitleID,
+			&i.VersionID,
+			&i.ReleaseGuid,
+			&i.ReleaseName,
+			&i.IndexerID,
+			&i.IndexerName,
+			&i.Protocol,
+			&i.Size,
+			&i.PublishedAt,
+			&i.Score,
+			&i.Parsed,
+			&i.Verdict,
+			&i.Overridden,
+			&i.IsUpgrade,
+			&i.ClientInstanceID,
+			&i.ClientID,
+			&i.State,
+			&i.Failure,
+			&i.StalledReason,
+			&i.StalledSince,
+			&i.NextImportAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDownloadingGrabs = `-- name: ListDownloadingGrabs :many
+SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at FROM grabs WHERE state IN ('sent', 'downloading') ORDER BY id
+`
+
+// Grabs whose download is still going: the poll follows these.
+func (q *Queries) ListDownloadingGrabs(ctx context.Context) ([]Grab, error) {
+	rows, err := q.db.QueryContext(ctx, listDownloadingGrabs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Grab
+	for rows.Next() {
+		var i Grab
+		if err := rows.Scan(
+			&i.ID,
+			&i.TitleID,
+			&i.VersionID,
+			&i.ReleaseGuid,
+			&i.ReleaseName,
+			&i.IndexerID,
+			&i.IndexerName,
+			&i.Protocol,
+			&i.Size,
+			&i.PublishedAt,
+			&i.Score,
+			&i.Parsed,
+			&i.Verdict,
+			&i.Overridden,
+			&i.IsUpgrade,
+			&i.ClientInstanceID,
+			&i.ClientID,
+			&i.State,
+			&i.Failure,
+			&i.StalledReason,
+			&i.StalledSince,
+			&i.NextImportAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setGrabState = `-- name: SetGrabState :exec
+UPDATE grabs SET state = ?, failure = ?, updated_at = ? WHERE id = ?
+`
+
+type SetGrabStateParams struct {
+	State     string
+	Failure   sql.NullString
+	UpdatedAt string
+	ID        int64
+}
+
+func (q *Queries) SetGrabState(ctx context.Context, arg SetGrabStateParams) error {
+	_, err := q.db.ExecContext(ctx, setGrabState,
+		arg.State,
+		arg.Failure,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	return err
 }

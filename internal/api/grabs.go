@@ -9,6 +9,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/acquire"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/downloads"
+	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/plugin"
 	"github.com/hyprsh/kestrel/internal/scoring"
@@ -138,6 +139,7 @@ func (s *server) CreateGrab(ctx context.Context, r oapi.CreateGrabRequestObject)
 	if err != nil {
 		return nil, grabProblem(err)
 	}
+	s.jobs.Kick(jobs.Poll) // follow the new Grab right away
 	return oapi.CreateGrab201JSONResponse(grabToAPI(g)), nil
 }
 

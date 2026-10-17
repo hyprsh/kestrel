@@ -21,6 +21,12 @@ describe('the empty shell', () => {
     for (const name of ['Overview', 'Library', 'Upcoming', 'Log', 'Settings', 'About']) {
       expect(rail).toHaveTextContent(name) // tooltip labels are in the DOM
     }
+    expect(screen.getByRole('main')).toHaveTextContent(/downloading now/i) // Overview is the home screen
+  })
+
+  it('says a screen without a ticket yet arrives later', async () => {
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Upcoming' }))
     expect(screen.getByRole('main')).toHaveTextContent(/nothing here yet/i)
   })
 

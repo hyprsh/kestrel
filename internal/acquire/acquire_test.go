@@ -38,6 +38,8 @@ type rig struct {
 	clock    *clock
 	titleID  int64
 	versions map[resolution.Class]int64
+	// deps rebuild a Service over the same rows, as after a restart.
+	deps acquire.Deps
 }
 
 type secondIndexer struct{ *ixfake.Indexer }
@@ -107,14 +109,15 @@ func newRigWith(t *testing.T, specs ...library.VersionSpec) *rig {
 		versions[v.Slot] = v.ID
 	}
 
-	svc, err := acquire.New(acquire.Deps{
+	deps := acquire.Deps{
 		Store: st, Clock: clk.Now, Library: lib, Profiles: profiles.New(st, settings.New(st)),
 		Indexers: indexers.New(inst, clk.Now), Downloads: downloads.New(inst),
-	})
+	}
+	svc, err := acquire.New(deps)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &rig{svc: svc, lib: lib, idx: idx, idxID: ix.ID, sab: sab, clock: clk, titleID: id, versions: versions}
+	return &rig{svc: svc, lib: lib, idx: idx, idxID: ix.ID, sab: sab, clock: clk, titleID: id, versions: versions, deps: deps}
 }
 
 func paddington() metadata.MovieDetails {

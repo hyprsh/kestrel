@@ -80,6 +80,8 @@ type Indexers interface {
 // Downloads is the downloads host.
 type Downloads interface {
 	Add(ctx context.Context, job downloads.Job) (downloads.Sent, error)
+	List(ctx context.Context) ([]downloads.Listed, error)
+	Remove(ctx context.Context, instanceID int64, clientID string, deleteData bool) error
 }
 
 // Deps are what a Service needs; modules take their dependencies as interfaces.
@@ -104,6 +106,7 @@ type Service struct {
 	dl    Downloads
 	snap  *scoring.Snapshot
 	cache *cache
+	live  *liveSet
 }
 
 // New returns a Service.
@@ -120,7 +123,7 @@ func New(d Deps) (*Service, error) {
 	}
 	return &Service{
 		st: d.Store, clock: d.Clock, lib: d.Library, prof: d.Profiles, idx: d.Indexers, dl: d.Downloads,
-		snap: d.Snapshot, cache: &cache{m: map[string]*entry{}},
+		snap: d.Snapshot, cache: &cache{m: map[string]*entry{}}, live: &liveSet{m: map[int64]Live{}},
 	}, nil
 }
 
@@ -430,8 +433,12 @@ type Grab struct {
 	Score       int
 	// ClientID is the download client's id for the job (SABnzbd's nzo_id).
 	ClientID string
+	// ClientInstanceID is the download client instance that holds the job.
+	ClientInstanceID int64
 	// State is sent, downloading, completed, importing, imported or failed.
 	State string
+	// Failure says why a failed Grab failed: failed, encrypted or other.
+	Failure string
 	// Overridden is true when it was grabbed despite rejections.
 	Overridden bool
 	// IsUpgrade is true when the Version already held a file.
@@ -442,7 +449,7 @@ type Grab struct {
 func grabOf(r db.Grab) Grab {
 	return Grab{
 		ID: r.ID, TitleID: r.TitleID.Int64, VersionID: r.VersionID.Int64, ReleaseName: r.ReleaseName, IndexerName: r.IndexerName,
-		Size: r.Size, PublishedAt: parseTime(r.PublishedAt), Score: int(r.Score), ClientID: r.ClientID, State: r.State,
+		Size: r.Size, PublishedAt: parseTime(r.PublishedAt), Score: int(r.Score), ClientID: r.ClientID, ClientInstanceID: r.ClientInstanceID, State: r.State, Failure: r.Failure.String,
 		Overridden: r.Overridden == 1, IsUpgrade: r.IsUpgrade == 1, CreatedAt: parseTime(r.CreatedAt),
 	}
 }

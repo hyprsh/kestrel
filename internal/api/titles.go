@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
+	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/resolution"
@@ -396,6 +397,7 @@ func (s *server) CreateTitle(ctx context.Context, r oapi.CreateTitleRequestObjec
 	if err != nil {
 		return nil, err
 	}
+	s.jobs.Kick(jobs.Search) // search on add: the new Versions are due now
 	// The poster is a nicety: a failed download is retried when it is first asked for.
 	if _, err := s.posters.Ensure(ctx, metadata.Movie, details.TMDBID, details.PosterPath); err != nil && !errors.Is(err, metadata.ErrNoPoster) {
 		s.opts.Logger.Warn("poster download failed", "tmdb_id", details.TMDBID, "err", err)

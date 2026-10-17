@@ -736,6 +736,51 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /grabs/{id}/cancel:
+    parameters:
+      - $ref: "#/components/parameters/GrabId"
+    post:
+      operationId: cancelGrab
+      summary: Cancel a Grab
+      description: |
+        Removes the job (and its files) from the download client and drops the Grab; the Version is
+        Wanted again. With `blocklist: true` ("Cancel and blocklist") the Release also goes on the
+        Blocklist and the Version is searched again at once for the next best Release. A client that
+        cannot be reached is `502 upstream_unavailable` and nothing changes.
+      tags: [grabs]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GrabCancel"
+      responses:
+        "204":
+          description: The Grab is gone.
+        "404":
+          $ref: "#/components/responses/Problem"
+        "502":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /queue:
+    get:
+      operationId: listQueue
+      summary: Downloading now
+      description: |
+        Every Grab that is sent, downloading or finished and waiting for its Import, oldest first.
+        Progress comes from the download client's last poll (every 10 s while anything downloads);
+        before the first poll after a start `bytes_left` is 0 and `eta` is null.
+      tags: [grabs]
+      responses:
+        "200":
+          description: The active Grabs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueueList"
+        default:
+          $ref: "#/components/responses/Problem"
   /plugins:
     get:
       operationId: listPlugins
@@ -1934,6 +1979,71 @@ components:
         created_at:
           type: string
           format: date-time
+    GrabCancel:
+      type: object
+      properties:
+        blocklist:
+          type: boolean
+          default: false
+    QueueList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/QueueItem"
+    QueueItem:
+      type: object
+      required: [grab_id, title_id, version_id, title, year, slot, episodes, release_name, phase, bytes_total, bytes_left, eta, is_upgrade, score_delta]
+      properties:
+        grab_id:
+          type: integer
+          format: int64
+        title_id:
+          type: integer
+          format: int64
+          nullable: true
+        version_id:
+          type: integer
+          format: int64
+          nullable: true
+        title:
+          type: string
+          description: The Title's name, empty when the Title was deleted.
+        year:
+          type: integer
+          nullable: true
+        slot:
+          allOf:
+            - $ref: "#/components/schemas/Slot"
+          nullable: true
+        episodes:
+          type: array
+          description: The episodes a Series Grab covers (`S01E02`); empty for a Movie.
+          items:
+            type: string
+        release_name:
+          type: string
+        phase:
+          type: string
+          enum: [queued, downloading, paused, post_processing, importing]
+        bytes_total:
+          type: integer
+          format: int64
+        bytes_left:
+          type: integer
+          format: int64
+        eta:
+          type: integer
+          nullable: true
+          description: Seconds left, null when the client does not know.
+        is_upgrade:
+          type: boolean
+        score_delta:
+          type: integer
+          nullable: true
+          description: For an Upgrade, how many points the Release scores above the file it replaces.
     ReleaseDateEntry:
       type: object
       required: [country, type, date, certification]
