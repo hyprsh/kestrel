@@ -1,9 +1,11 @@
-// Overview, the home screen. For now it holds "Downloading now"; Needs attention,
-// Upcoming and the health strip join it with their own tickets.
+// Overview, the home screen: Needs attention, the health strip and Downloading now.
+// Upcoming joins them with its own ticket.
 import { useQueue, useCancelGrab, type QueueItem } from '../api/queue'
 import { Button, ErrorText } from '../forms'
 import { slotLabel, type SlotKey } from '../library/bits'
 import { Badge, cx } from '../ui'
+import { HealthStrip } from './HealthStrip'
+import { NeedsAttention } from './NeedsAttention'
 
 const phaseLabel: Record<QueueItem['phase'], string> = {
   queued: 'Queued',
@@ -28,12 +30,15 @@ export function formatEta(seconds: number): string {
   return `${Math.floor(mins / 60)} h ${mins % 60} min left`
 }
 
-export function Overview() {
+/** onOpen is how an action that opens a place in the app (a GET action) gets there. */
+export function Overview({ onOpen = () => {} }: { onOpen?: (path: string) => void }) {
   const queue = useQueue()
   const cancel = useCancelGrab()
   const items = queue.data ?? []
   return (
     <div className="flex-1 overflow-y-auto p-6">
+      <NeedsAttention onOpen={onOpen} />
+      <HealthStrip />
       <section aria-labelledby="downloading-now" className="mx-auto max-w-3xl">
         <h2 id="downloading-now" className="mb-3 text-sm font-medium">
           Downloading now

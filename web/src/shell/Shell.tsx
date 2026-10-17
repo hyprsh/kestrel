@@ -3,6 +3,7 @@
 import { CalendarClock, Inbox, Info, LibraryBig, LogOut, Monitor, Moon, Plus, ScrollText, Search, Settings, Sun } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useAttention } from '../api/attention'
 import { useAuth, useLogout, useSystem } from '../api/queries'
 import { CommandMenu, type MenuAction, type MenuMode } from '../command/CommandMenu'
 import { MOD } from '../keys'
@@ -64,6 +65,13 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   )
   const places = useMemo(() => [...screens, about].map((s) => ({ id: s.key, label: s.label })), [])
   const closeMenu = useCallback(() => setMenu(null), [])
+  // An action that opens a place: "/settings/download-client" is the Settings screen at that section.
+  const goPath = useCallback((path: string) => {
+    const [key, section] = path.replace(/^\//, '').split('/')
+    if (![...screens, about].some((s) => s.key === key)) return
+    setScreen(key)
+    if (section) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
+  }, [])
   const openTitle = useCallback((id: number) => {
     setLibraryId(id)
     setScreen('library')
@@ -80,7 +88,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           ) : screen === 'library' ? (
             <Library selectedId={libraryId} onSelect={setLibraryId} onAdd={() => setMenu({ mode: 'add' })} />
           ) : screen === 'overview' ? (
-            <Overview />
+            <Overview onOpen={goPath} />
           ) : (
             <div className="flex flex-1 items-center justify-center text-center">
               <div>
@@ -96,7 +104,19 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   )
 }
 
-function RailButton({ label, active, onClick, children }: { label: string; active?: boolean; onClick: () => void; children: ReactNode }) {
+function RailButton({
+  label,
+  active,
+  onClick,
+  badge,
+  children,
+}: {
+  label: string
+  active?: boolean
+  onClick: () => void
+  badge?: ReactNode
+  children: ReactNode
+}) {
   return (
     <button
       onClick={onClick}
@@ -108,6 +128,7 @@ function RailButton({ label, active, onClick, children }: { label: string; activ
       )}
     >
       {children}
+      {badge}
       <span
         aria-hidden
         className="pointer-events-none absolute left-full z-50 ml-2 hidden rounded-md bg-gray-1000 px-2 py-1 text-[12px] font-medium whitespace-nowrap text-background-100 shadow-lg group-hover:block"
@@ -115,6 +136,21 @@ function RailButton({ label, active, onClick, children }: { label: string; activ
         {label}
       </span>
     </button>
+  )
+}
+
+/** How many rows need attention; red while any is Blocking. */
+function AttentionBadge({ count, blocking }: { count: number; blocking: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cx(
+        'absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white',
+        blocking ? 'bg-red-700' : 'bg-amber-700',
+      )}
+    >
+      {count}
+    </span>
   )
 }
 
@@ -133,6 +169,8 @@ function Rail({
 }) {
   const logout = useLogout()
   const auth = useAuth()
+  const attention = useAttention().data
+  const needs = attention?.count ?? 0
   return (
     <nav className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-gray-alpha-400 bg-background-200 py-3">
       <div className="mb-2 flex size-9 items-center justify-center text-gray-1000">
@@ -143,7 +181,13 @@ function Rail({
       </RailButton>
       <div className="my-1 h-px w-6 bg-gray-alpha-400" />
       {screens.map((s) => (
-        <RailButton key={s.key} label={s.label} active={screen === s.key} onClick={() => onSelect(s.key)}>
+        <RailButton
+          key={s.key}
+          label={s.key === 'overview' && needs > 0 ? `${s.label}, ${needs} ${needs === 1 ? 'needs' : 'need'} attention` : s.label}
+          active={screen === s.key}
+          onClick={() => onSelect(s.key)}
+          badge={s.key === 'overview' && needs > 0 ? <AttentionBadge count={needs} blocking={attention?.severity === 'blocking'} /> : undefined}
+        >
           {s.icon}
         </RailButton>
       ))}
