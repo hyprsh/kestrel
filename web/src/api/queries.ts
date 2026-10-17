@@ -287,6 +287,77 @@ export function usePatchProfile() {
   })
 }
 
+// ---- Library: lookup and Titles ----
+
+export type TitleRow = components['schemas']['TitleRow']
+export type TitleDetail = components['schemas']['TitleDetail']
+export type LookupResult = components['schemas']['LookupResult']
+export type LookupDetail = components['schemas']['LookupDetail']
+export type TitleCreate = components['schemas']['TitleCreate']
+
+/** The whole Library as compact rows; the SPA filters it locally. */
+export function useTitles() {
+  return useQuery({
+    queryKey: ['titles'],
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/titles', { params: { query: { limit: 10000 } } })
+      if (!data) throw failure(error, response)
+      return data.items
+    },
+  })
+}
+
+export function useTitle(id: number | null) {
+  return useQuery({
+    queryKey: ['titles', id],
+    enabled: id !== null,
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/titles/{id}', { params: { path: { id: id! } } })
+      if (!data) throw failure(error, response)
+      return data
+    },
+  })
+}
+
+/** One search across both kinds in the add menu. */
+export function useLookup(q: string) {
+  return useQuery({
+    queryKey: ['lookup', q],
+    enabled: q.trim().length > 0,
+    retry: false,
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/lookup', { params: { query: { q } } })
+      if (!data) throw failure(error, response)
+      return data.items
+    },
+  })
+}
+
+/** A search result with the Slots and Profiles the add panel preselects. */
+export function useLookupDetail(kind: LookupResult['kind'], tmdbId: number) {
+  return useQuery({
+    queryKey: ['lookup', kind, tmdbId],
+    retry: false,
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/lookup/{kind}/{tmdb_id}', { params: { path: { kind, tmdb_id: tmdbId } } })
+      if (!data) throw failure(error, response)
+      return data
+    },
+  })
+}
+
+export function useCreateTitle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: TitleCreate) => {
+      const { data, error, response } = await api.POST('/titles', { body })
+      if (!data) throw failure(error, response)
+      return data
+    },
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['titles'] }), qc.invalidateQueries({ queryKey: ['lookup'] })]),
+  })
+}
+
 // ---- setup progress ----
 
 export type Setup = components['schemas']['Setup']

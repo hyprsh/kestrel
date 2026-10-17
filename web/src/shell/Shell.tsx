@@ -1,8 +1,11 @@
 // The Geist shell: a thin icon rail plus a top bar with the command-menu entry.
 // Ported from the prototype's variant C; screens arrive with later tickets.
 import { CalendarClock, Inbox, Info, LibraryBig, LogOut, Monitor, Moon, Plus, ScrollText, Search, Settings, Sun } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useAuth, useLogout, useSystem } from '../api/queries'
+import { CommandMenu, type MenuAction, type MenuMode } from '../command/CommandMenu'
+import { MOD } from '../keys'
+import { Library } from '../library/Library'
 import { Settings as SettingsScreen } from '../screens/Settings'
 import { useTheme, type Theme } from '../theme'
 import { cx, Kbd, KestrelLogo } from '../ui'
@@ -21,20 +24,54 @@ const themeIcon: Record<Theme, ReactNode> = {
   light: <Sun className={icon} />,
   dark: <Moon className={icon} />,
 }
-const mod = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'
 
 export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const [screen, setScreen] = useState('overview')
+  const [libraryId, setLibraryId] = useState<number | null>(null)
+  const [menu, setMenu] = useState<{ mode: MenuMode } | null>(null)
+  const { theme, cycle } = useTheme()
+  const auth = useAuth()
+  const logout = useLogout()
   const current = [...screens, about].find((s) => s.key === screen)!
+
+  // ⌘K / Ctrl+K opens and closes the command menu from anywhere.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setMenu((m) => (m ? null : { mode: 'root' }))
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const canLogout = auth.data?.state === 'ok' && auth.data.me.method === 'session'
+  const actions: MenuAction[] = useMemo(
+    () => [
+      { id: 'theme', label: 'Switch theme', keywords: 'dark light mode', run: cycle },
+      { id: 'setup', label: 'Run setup again', keywords: 'wizard', run: onRunSetup },
+      ...(canLogout ? [{ id: 'logout', label: 'Log out', keywords: 'sign out', run: () => logout.mutate(undefined) }] : []),
+    ],
+    [cycle, onRunSetup, canLogout, logout],
+  )
+  const places = useMemo(() => [...screens, about].map((s) => ({ id: s.key, label: s.label })), [])
+  const closeMenu = useCallback(() => setMenu(null), [])
+  const openTitle = useCallback((id: number) => {
+    setLibraryId(id)
+    setScreen('library')
+  }, [])
 
   return (
     <div className="flex h-full bg-background-100 text-[13px] text-gray-1000">
-      <Rail screen={screen} onSelect={setScreen} />
+      <Rail screen={screen} onSelect={setScreen} theme={theme} onTheme={cycle} onAdd={() => setMenu({ mode: 'add' })} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar title={current.label} />
+        <TopBar title={current.label} onOpenMenu={() => setMenu({ mode: 'root' })} />
         <main className="flex min-h-0 flex-1 flex-col">
           {screen === 'settings' ? (
             <SettingsScreen onRunSetup={onRunSetup} />
+          ) : screen === 'library' ? (
+            <Library selectedId={libraryId} onSelect={setLibraryId} onAdd={() => setMenu({ mode: 'add' })} />
           ) : (
             <div className="flex flex-1 items-center justify-center text-center">
               <div>
@@ -45,6 +82,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           )}
         </main>
       </div>
+      {menu && <CommandMenu initialMode={menu.mode} actions={actions} places={places} onClose={closeMenu} onGo={setScreen} onOpenTitle={openTitle} />}
     </div>
   )
 }
@@ -71,8 +109,19 @@ function RailButton({ label, active, onClick, children }: { label: string; activ
   )
 }
 
-function Rail({ screen, onSelect }: { screen: string; onSelect: (key: string) => void }) {
-  const { theme, cycle } = useTheme()
+function Rail({
+  screen,
+  onSelect,
+  theme,
+  onTheme,
+  onAdd,
+}: {
+  screen: string
+  onSelect: (key: string) => void
+  theme: Theme
+  onTheme: () => void
+  onAdd: () => void
+}) {
   const logout = useLogout()
   const auth = useAuth()
   return (
@@ -80,7 +129,7 @@ function Rail({ screen, onSelect }: { screen: string; onSelect: (key: string) =>
       <div className="mb-2 flex size-9 items-center justify-center text-gray-1000">
         <KestrelLogo />
       </div>
-      <RailButton label={`Add Title (${mod} K)`} onClick={() => {}}>
+      <RailButton label={`Add Title (${MOD} K)`} onClick={onAdd}>
         <Plus className={icon} />
       </RailButton>
       <div className="my-1 h-px w-6 bg-gray-alpha-400" />
@@ -90,7 +139,7 @@ function Rail({ screen, onSelect }: { screen: string; onSelect: (key: string) =>
         </RailButton>
       ))}
       <div className="flex-1" />
-      <RailButton label={`Theme: ${theme}`} onClick={cycle}>
+      <RailButton label={`Theme: ${theme}`} onClick={onTheme}>
         {themeIcon[theme]}
       </RailButton>
       <RailButton label={about.label} active={screen === about.key} onClick={() => onSelect(about.key)}>
@@ -106,15 +155,18 @@ function Rail({ screen, onSelect }: { screen: string; onSelect: (key: string) =>
   )
 }
 
-function TopBar({ title }: { title: string }) {
+function TopBar({ title, onOpenMenu }: { title: string; onOpenMenu: () => void }) {
   return (
     <header className="flex h-12 shrink-0 items-center gap-4 border-b border-gray-alpha-400 px-4">
       <div className="w-40 text-[13px] font-medium">{title}</div>
-      <button className="mx-auto flex h-8 w-full max-w-[460px] items-center gap-2 rounded-md border border-gray-alpha-400 bg-background-200 px-2.5 text-gray-900 transition-colors hover:border-gray-500 hover:text-gray-1000">
+      <button
+        onClick={onOpenMenu}
+        className="mx-auto flex h-8 w-full max-w-[460px] items-center gap-2 rounded-md border border-gray-alpha-400 bg-background-200 px-2.5 text-gray-900 transition-colors hover:border-gray-500 hover:text-gray-1000"
+      >
         <Search className="size-3.5" />
         <span className="text-[13px]">Search or run a command…</span>
         <span className="ml-auto flex gap-0.5">
-          <Kbd>{mod}</Kbd>
+          <Kbd>{MOD}</Kbd>
           <Kbd>K</Kbd>
         </span>
       </button>
