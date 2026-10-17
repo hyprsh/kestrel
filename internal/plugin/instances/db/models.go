@@ -14,6 +14,23 @@ type PluginInstance struct {
 	Config   string
 }
 
+type Profile struct {
+	Key                string
+	Name               string
+	Sort               int64
+	Slot               string
+	Kids               int64
+	LanguageRule       string
+	MinHeight          int64
+	MaxHeight          int64
+	Enabled            int64
+	OriginalFallback   int64
+	DefaultMovies      int64
+	DefaultSeries      int64
+	TrashProfileMovies string
+	TrashProfileSeries string
+}
+
 type Session struct {
 	ID        string
 	CreatedAt int64

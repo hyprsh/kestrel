@@ -26,3 +26,11 @@ sql:
         package: db
         out: internal/plugin/instances/db
         emit_json_tags: false
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/profiles/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/profiles/db
+        emit_json_tags: false
