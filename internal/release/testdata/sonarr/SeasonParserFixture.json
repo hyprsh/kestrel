@@ -1,0 +1,400 @@
+{
+  "fixture": "SeasonParserFixture",
+  "cases": [
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "30.Series.Season.04.HDTV.XviD-DIMENSION",
+        "30 Series",
+        4
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "Sonarr.and.Series.S02.720p.x264-DIMENSION",
+        "Sonarr and Series",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "The.Series.US.S03.720p.x264-DIMENSION",
+        "The Series US",
+        3
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "Series.of.Sonarr.S03.720p.BluRay-CLUE\\REWARD",
+        "Series of Sonarr",
+        3
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "Series Time S02 720p HDTV x264 CRON",
+        "Series Time",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "Series.2021.S04.iNTERNAL.DVDRip.XviD-VCDVaULT",
+        "Series 2021",
+        4
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "Series Five 0 S01 720p WEB DL DD5 1 H 264 NT",
+        "Series Five 0",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "30 Series S03 WS PDTV XviD FUtV",
+        "30 Series",
+        3
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "The Series Season 4 WS PDTV XviD FUtV",
+        "The Series",
+        4
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "Series Season 1 720p WEB DL DD 5 1 h264 TjHD",
+        "Series",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "The Series Season4 WS PDTV XviD FUtV",
+        "The Series",
+        4
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "Series S 01 720p WEB DL DD 5 1 h264 TjHD",
+        "Series",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "Series Confidential   Season 3",
+        "Series Confidential",
+        3
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "Series.S01.720p.WEBDL.DD5.1.H.264-NTb",
+        "Series",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "Series.Makes.It.Right.S02.720p.HDTV.AAC5.1.x265-NOGRP",
+        "Series Makes It Right",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "My.Series.S2014.720p.HDTV.x264-ME",
+        "My Series",
+        2014
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "Series.Saison3.VOSTFR.HDTV.XviD-NOTAG",
+        "Series",
+        3
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "Series.SAISON.1.VFQ.PDTV.H264-ACC-ROLLED",
+        "Series",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "Series Title - Series 1 (1970) DivX",
+        "Series Title",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "SeriesTitle.S03.540p.AMZN.WEB-DL.DD+2.0.x264-RTN",
+        "SeriesTitle",
+        3
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "Series.Title.S01.576p.BluRay.DD5.1.x264-HiSD",
+        "Series Title",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "Series.Stagione.3.HDTV.XviD-NOTAG",
+        "Series",
+        3
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "Series.Stagione.3.HDTV.XviD-NOTAG",
+        "Series",
+        3
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "Series No More S01 2023 1080p WEB-DL AVC AC3 2.0 Dual Audio -ZR-",
+        "Series No More",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "Series Title / S1E1-8 of 8 [2024, WEB-DL 1080p] + Original + RUS",
+        "Series Title",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "Series Title / S2E1-16 of 16 [2022, WEB-DL] RUS",
+        "Series Title",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "[hchcsen] Mobile Series 00 S01 [BD Remux Dual Audio 1080p AVC 2xFLAC] (Kidou Senshi Gundam 00 Season 1)",
+        "Mobile Series 00",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "[HorribleRips] Mobile Series 00 S1 [1080p]",
+        "Mobile Series 00",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "[Zoombie] Series 100: Bucket List S01 [Web][MKV][h265 10-bit][1080p][AC3 2.0][Softsubs (Zoombie)]",
+        "Series 100: Bucket List",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_full_season_release",
+      "args": [
+        "Seriesless (2016/S01/WEB-DL/1080p/AC3 5.1/DUAL/SUB)",
+        "Seriesless (2016)",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_season_extras",
+      "args": [
+        "Acropolis Series S05 EXTRAS DVDRip XviD RUNNER",
+        "Acropolis Series",
+        5
+      ]
+    },
+    {
+      "method": "should_parse_season_extras",
+      "args": [
+        "Punky Series S01 EXTRAS DVDRip XviD RUNNER",
+        "Punky Series",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_season_extras",
+      "args": [
+        "Instant Series S03 EXTRAS DVDRip XviD OSiTV",
+        "Instant Series",
+        3
+      ]
+    },
+    {
+      "method": "should_parse_season_extras",
+      "args": [
+        "The.Series.S03.Extras.01.Deleted.Scenes.720p",
+        "The Series",
+        3
+      ]
+    },
+    {
+      "method": "should_parse_season_extras",
+      "args": [
+        "The.Series.S03.Extras.02.720p",
+        "The Series",
+        3
+      ]
+    },
+    {
+      "method": "should_parse_season_subpack",
+      "args": [
+        "Series.to.Me.S03.SUBPACK.DVDRip.XviD-REWARD",
+        "Series to Me",
+        3
+      ]
+    },
+    {
+      "method": "should_parse_season_subpack",
+      "args": [
+        "The.Series.S02.SUBPACK.DVDRip.XviD-REWARD",
+        "The Series",
+        2
+      ]
+    },
+    {
+      "method": "should_parse_season_subpack",
+      "args": [
+        "Series.S11.SUBPACK.DVDRip.XviD-REWARD",
+        "Series",
+        11
+      ]
+    },
+    {
+      "method": "should_parse_partial_season_release",
+      "args": [
+        "The.Series.2016.S02.Part.1.1080p.NF.WEBRip.DD5.1.x264-NTb",
+        "The Series 2016",
+        2,
+        1
+      ]
+    },
+    {
+      "method": "should_parse_partial_season_release",
+      "args": [
+        "The.Series.S07.Vol.1.1080p.NF.WEBRip.DD5.1.x264-NTb",
+        "The Series",
+        7,
+        1
+      ]
+    },
+    {
+      "method": "should_parse_partial_season_release",
+      "args": [
+        "The.Series.S06.P1.1080p.Blu-Ray.10-Bit.Dual-Audio.TrueHD.x265-iAHD",
+        "The Series",
+        6,
+        1
+      ]
+    },
+    {
+      "method": "should_parse_multi_season_release",
+      "args": [
+        "The Series S01-05 WS BDRip X264-REWARD-No Rars",
+        "The Series",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_multi_season_release",
+      "args": [
+        "Series.Title.S01-S09.1080p.AMZN.WEB-DL.DDP2.0.H.264-NTb",
+        "Series Title",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_multi_season_release",
+      "args": [
+        "Series Title S01 - S07 BluRay 1080p x264 REPACK -SacReD",
+        "Series Title",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_multi_season_release",
+      "args": [
+        "Series Title Season 01-07 BluRay 1080p x264 REPACK -SacReD",
+        "Series Title",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_multi_season_release",
+      "args": [
+        "Series Title Season 01 - Season 07 BluRay 1080p x264 REPACK -SacReD",
+        "Series Title",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_multi_season_release",
+      "args": [
+        "Series Title Complete Series S01 S04 (1080p BluRay x265 HEVC 10bit AAC 5.1 Vyndros)",
+        "Series Title",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_multi_season_release",
+      "args": [
+        "Series Title S01 S04 (1080p BluRay x265 HEVC 10bit AAC 5.1 Vyndros)",
+        "Series Title",
+        1
+      ]
+    },
+    {
+      "method": "should_parse_multi_season_release",
+      "args": [
+        "Series Title S01 04 (1080p BluRay x265 HEVC 10bit AAC 5.1 Vyndros)",
+        "Series Title",
+        1
+      ]
+    }
+  ]
+}

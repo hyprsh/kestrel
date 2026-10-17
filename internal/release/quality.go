@@ -22,9 +22,13 @@ const (
 	SourceWebDL
 	SourceWebRip
 	SourceBluray
+	// Sonarr's two extra sources: a raw TV capture (Raw-HD) and a Blu-ray
+	// remux. They are appended so the Radarr order above stays intact.
+	SourceTVRaw
+	SourceBlurayRaw
 )
 
-var sourceNames = []string{"unknown", "cam", "telesync", "telecine", "workprint", "dvd", "tv", "webdl", "webrip", "bluray"}
+var sourceNames = []string{"unknown", "cam", "telesync", "telecine", "workprint", "dvd", "tv", "webdl", "webrip", "bluray", "tvraw", "blurayraw"}
 
 func (s Source) String() string {
 	if s >= 0 && int(s) < len(sourceNames) {

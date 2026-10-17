@@ -1,0 +1,185 @@
+{
+  "fixture": "CrapParserFixture",
+  "cases": [
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "76El6LcgLzqb426WoVFg1vVVVGx4uCYopQkfjmLe"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "Vrq6e1Aba3U amCjuEgV5R2QvdsLEGYF3YQAQkw8"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "TDAsqTea7k4o6iofVx3MQGuDK116FSjPobMuh8oB"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "yp4nFodAAzoeoRc467HRh1mzuT17qeekmuJ3zFnL"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "oxXo8S2272KE1 lfppvxo3iwEJBrBmhlQVK1gqGc"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "dPBAtu681Ycy3A4NpJDH6kNVQooLxqtnsW1Umfiv"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "password - \"bdc435cb-93c4-4902-97ea-ca00568c3887.337\" yEnc"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "185d86a343e39f3341e35c4dad3f9959"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "ba27283b17c00d01193eacc02a8ba98eeb523a76"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "45a55debe3856da318cc35882ad07e43cd32fd15"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "86420f8ee425340d8894bf3bc636b66404b95f18"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "ce39afb7da6cf7c04eba3090f0a309f609883862"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "THIS SHOULD NEVER PARSE"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "Vh1FvU3bJXw6zs8EEUX4bMo5vbbMdHghxHirc.mkv"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "0e895c37245186812cb08aab1529cf8ee389dd05.mkv"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "08bbc153931ce3ca5fcafe1b92d3297285feb061.mkv"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "185d86a343e39f3341e35c4dad3ff159"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "ah63jka93jf0jh26ahjas961.mkv"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "qrdSD3rYzWb7cPdVIGSn4E7"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "QZC4HDl7ncmzyUj9amucWe1ddKU1oFMZDd8r0dEDUsTd"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "abc.xyz.af6021c37f7852"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "e096aeb3c2c0483a96f5b32fc6d10ff5"
+      ]
+    },
+    {
+      "method": "should_not_parse_crap",
+      "args": [
+        "_unpack e096aeb3c2c0483a96f5b32fc6d10ff5.mkv"
+      ]
+    },
+    {
+      "method": "should_parse_unknown_formats_without_error",
+      "args": [
+        "علم نف) أ.دعادل الأبيض ٢٠٢٤ ٣ ٣"
+      ]
+    },
+    {
+      "method": "should_parse_unknown_formats_without_error",
+      "args": [
+        "ror-240618_1007-1022-"
+      ]
+    },
+    {
+      "method": "should_not_parse_random",
+      "args": [
+        32
+      ]
+    },
+    {
+      "method": "should_not_parse_random",
+      "args": [
+        40
+      ]
+    },
+    {
+      "method": "should_not_parse_file_name_without_proper_spacing",
+      "args": [
+        "theseriestitle1618finale"
+      ]
+    },
+    {
+      "method": "should_not_parse_invalid_release_name",
+      "args": [
+        "Series Title (2018) Complete 360p HDTV AAC H.264-NEXT"
+      ]
+    },
+    {
+      "method": "should_not_parse_special_with_part_number",
+      "args": [
+        "Specials/Series - Episode Title (part 1)"
+      ]
+    }
+  ]
+}
