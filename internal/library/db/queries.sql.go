@@ -10,6 +10,15 @@ import (
 	"database/sql"
 )
 
+const deleteFile = `-- name: DeleteFile :exec
+DELETE FROM files WHERE id = ?
+`
+
+func (q *Queries) DeleteFile(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteFile, id)
+	return err
+}
+
 const findTitleByTVDB = `-- name: FindTitleByTVDB :one
 SELECT id FROM titles WHERE kind = 'series' AND tvdb_id = ?
 `
@@ -51,6 +60,28 @@ func (q *Queries) FindTitlesByTMDB(ctx context.Context, kind string) ([]FindTitl
 		return nil, err
 	}
 	return items, nil
+}
+
+const getFileOfGrab = `-- name: GetFileOfGrab :one
+SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE grab_id = ? LIMIT 1
+`
+
+func (q *Queries) GetFileOfGrab(ctx context.Context, grabID sql.NullInt64) (File, error) {
+	row := q.db.QueryRowContext(ctx, getFileOfGrab, grabID)
+	var i File
+	err := row.Scan(
+		&i.ID,
+		&i.VersionID,
+		&i.Path,
+		&i.Size,
+		&i.ReleaseName,
+		&i.ParsedRelease,
+		&i.Probe,
+		&i.Score,
+		&i.GrabID,
+		&i.ImportedAt,
+	)
+	return i, err
 }
 
 const getTitle = `-- name: GetTitle :one
@@ -142,6 +173,41 @@ func (q *Queries) InsertEpisode(ctx context.Context, arg InsertEpisodeParams) er
 		arg.Monitored,
 	)
 	return err
+}
+
+const insertFile = `-- name: InsertFile :one
+INSERT INTO files (version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id
+`
+
+type InsertFileParams struct {
+	VersionID     int64
+	Path          string
+	Size          int64
+	ReleaseName   string
+	ParsedRelease sql.NullString
+	Probe         sql.NullString
+	Score         sql.NullInt64
+	GrabID        sql.NullInt64
+	ImportedAt    string
+}
+
+func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, insertFile,
+		arg.VersionID,
+		arg.Path,
+		arg.Size,
+		arg.ReleaseName,
+		arg.ParsedRelease,
+		arg.Probe,
+		arg.Score,
+		arg.GrabID,
+		arg.ImportedAt,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
 }
 
 const insertReleaseDate = `-- name: InsertReleaseDate :exec
@@ -627,6 +693,44 @@ func (q *Queries) ListFilesOfTitle(ctx context.Context, titleID int64) ([]File, 
 	return items, nil
 }
 
+const listFilesOfVersion = `-- name: ListFilesOfVersion :many
+SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE version_id = ?
+`
+
+func (q *Queries) ListFilesOfVersion(ctx context.Context, versionID int64) ([]File, error) {
+	rows, err := q.db.QueryContext(ctx, listFilesOfVersion, versionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []File
+	for rows.Next() {
+		var i File
+		if err := rows.Scan(
+			&i.ID,
+			&i.VersionID,
+			&i.Path,
+			&i.Size,
+			&i.ReleaseName,
+			&i.ParsedRelease,
+			&i.Probe,
+			&i.Score,
+			&i.GrabID,
+			&i.ImportedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReleaseDatesOfTitle = `-- name: ListReleaseDatesOfTitle :many
 SELECT title_id, country, type, date, certification FROM title_release_dates WHERE title_id = ?
 `
@@ -896,5 +1000,19 @@ type SetSeriesMonitorParams struct {
 
 func (q *Queries) SetSeriesMonitor(ctx context.Context, arg SetSeriesMonitorParams) error {
 	_, err := q.db.ExecContext(ctx, setSeriesMonitor, arg.SeriesMonitor, arg.ID)
+	return err
+}
+
+const setTitleFolder = `-- name: SetTitleFolder :exec
+UPDATE titles SET folder = ? WHERE id = ? AND folder IS NULL
+`
+
+type SetTitleFolderParams struct {
+	Folder sql.NullString
+	ID     int64
+}
+
+func (q *Queries) SetTitleFolder(ctx context.Context, arg SetTitleFolderParams) error {
+	_, err := q.db.ExecContext(ctx, setTitleFolder, arg.Folder, arg.ID)
 	return err
 }

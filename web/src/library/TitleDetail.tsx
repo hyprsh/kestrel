@@ -112,7 +112,7 @@ function VersionColumn({
                 {v.file.release_name}
               </div>
               <div>
-                {size(v.file.size)}
+                {[v.file.quality, v.file.languages?.join(' + '), size(v.file.size)].filter(Boolean).join(' · ')}
                 {v.file.score !== null && ` · Score ${v.file.score}`}
               </div>
             </div>

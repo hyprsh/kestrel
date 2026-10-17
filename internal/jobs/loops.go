@@ -3,10 +3,12 @@ package jobs
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/acquire"
+	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/library"
 )
 
@@ -18,6 +20,9 @@ const (
 	// Search searches what the library says is due: search on add today,
 	// the sweeps (#46) and RSS (#45) later.
 	Search = "search"
+	// Import imports finished downloads with two workers; it wakes when a
+	// poll sees a download finish and retries stalled Imports by their backoff.
+	Import = "import"
 )
 
 // Cadences. missingRetry and missingFailed are placeholders until the sweep
@@ -28,12 +33,27 @@ const (
 	searchEvery   = 5 * time.Minute
 	missingRetry  = 6 * time.Hour
 	missingFailed = 15 * time.Minute
+	importEvery   = time.Minute
+	// importWorkers is how many Imports run at once.
+	importWorkers = 2
 )
 
 // Acquirer is what the loops need of the acquire module.
 type Acquirer interface {
 	Poll(ctx context.Context) (acquire.PollResult, error)
 	SearchWanted(ctx context.Context, titleID int64, versionIDs []int64) (acquire.Outcome, error)
+}
+
+// ImportSource is what the Import loop needs of the acquire module: the Grabs
+// that are due and a place to record how each Import ended.
+type ImportSource interface {
+	DueImports(ctx context.Context) ([]acquire.ImportJob, error)
+	RecordImport(ctx context.Context, grabID int64, canRemove bool, o acquire.ImportOutcome) error
+}
+
+// Importer is the imports module.
+type Importer interface {
+	Import(ctx context.Context, g imports.Grab) imports.Result
 }
 
 // Library is what the loops need of the library module.
@@ -46,8 +66,11 @@ type Library interface {
 type Deps struct {
 	Acquire Acquirer
 	Library Library
-	Clock   func() time.Time
-	Logger  *slog.Logger
+	// Importer and ImportSource enable the Import loop; leave both nil for none.
+	Importer     Importer
+	ImportSource ImportSource
+	Clock        func() time.Time
+	Logger       *slog.Logger
 }
 
 // Standard returns a Runner with Kestrel's loops. Later tickets add theirs
@@ -64,6 +87,9 @@ func Standard(d Deps) *Runner {
 		Run: func(ctx context.Context) error {
 			res, err := d.Acquire.Poll(ctx)
 			downloading.Store(res.Active)
+			if res.Changed > 0 {
+				r.Kick(Import)
+			}
 			return err
 		},
 		Every: func() time.Duration {
@@ -82,7 +108,50 @@ func Standard(d Deps) *Runner {
 		Run:   func(ctx context.Context) error { return searchDue(ctx, r, d) },
 		Every: func() time.Duration { return searchEvery },
 	})
+	if d.Importer != nil && d.ImportSource != nil {
+		r.Add(Loop{
+			Name:  Import,
+			Run:   func(ctx context.Context) error { return importDue(ctx, r, d) },
+			Every: func() time.Duration { return importEvery },
+		})
+	}
 	return r
+}
+
+// importDue imports every Grab that is due, importWorkers at a time, and
+// records each outcome. imports never touches Grabs; acquire does.
+func importDue(ctx context.Context, r *Runner, d Deps) error {
+	due, err := d.ImportSource.DueImports(ctx)
+	if err != nil {
+		return err
+	}
+	work := make(chan acquire.ImportJob)
+	var wg sync.WaitGroup
+	for range min(importWorkers, len(due)) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := range work {
+				res := d.Importer.Import(ctx, imports.Grab{
+					ID: j.ID, TitleID: j.TitleID, VersionID: j.VersionID, ReleaseName: j.ReleaseName,
+					Parsed: []byte(j.Parsed), SourcePath: j.OutputPath, CanRemove: j.CanRemove,
+				})
+				if ctx.Err() != nil {
+					continue // shutting down: the Grab stays importing and is redone
+				}
+				out := acquire.ImportOutcome{Status: acquire.ImportStatus(res.Status), Reason: res.Reason}
+				if err := d.ImportSource.RecordImport(ctx, j.ID, j.CanRemove, out); err != nil {
+					r.log.Warn("recording an Import failed", "grab", j.ID, "err", err)
+				}
+			}
+		}()
+	}
+	for _, j := range due {
+		work <- j
+	}
+	close(work)
+	wg.Wait()
+	return nil
 }
 
 // searchDue searches each Title with a due Version once. A searched Version

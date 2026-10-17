@@ -19,12 +19,14 @@ import (
 	"github.com/hyprsh/kestrel/internal/acquire"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/downloads"
+	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/indexers"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/plugin"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
+	"github.com/hyprsh/kestrel/internal/probe"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
@@ -67,6 +69,8 @@ type Options struct {
 	Metadata metadata.Provider
 	// Posters is the poster cache; nil means one under ConfigDir.
 	Posters *metadata.Posters
+	// Prober reads downloaded files for Imports; nil means the ffprobe on PATH.
+	Prober probe.Prober
 	// SearchTimeout bounds a manual search; zero means 30 s.
 	SearchTimeout time.Duration
 }
@@ -126,7 +130,15 @@ func New(opts Options) *App {
 		panic("api: the embedded TRaSH snapshot is invalid: " + err.Error())
 	}
 	s.acquire = acq
-	s.jobs = jobs.Standard(jobs.Deps{Acquire: acq, Library: s.library, Clock: opts.Clock, Logger: opts.Logger})
+	prober := opts.Prober
+	if prober == nil {
+		prober = probe.Default()
+	}
+	imp, err := imports.New(imports.Deps{Library: s.library, Profiles: s.profiles, Prober: prober, Clock: opts.Clock})
+	if err != nil {
+		panic("api: the embedded TRaSH snapshot is invalid: " + err.Error())
+	}
+	s.jobs = jobs.Standard(jobs.Deps{Acquire: acq, Library: s.library, Importer: imp, ImportSource: acq, Clock: opts.Clock, Logger: opts.Logger})
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ping", s.ping)

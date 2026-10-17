@@ -28,3 +28,20 @@ UPDATE grabs SET state = ?, failure = ?, updated_at = ? WHERE id = ?;
 
 -- name: DeleteGrab :exec
 DELETE FROM grabs WHERE id = ?;
+
+-- Grabs the Import should look at: finished downloads, Imports that were running
+-- when the process died, and stalled Imports whose retry time has come.
+-- name: ListImportableGrabs :many
+SELECT * FROM grabs
+WHERE state = 'completed'
+   OR (state = 'importing' AND (stalled_since IS NULL OR next_import_at <= ?))
+ORDER BY id;
+
+-- name: StartImport :exec
+UPDATE grabs SET state = 'importing', updated_at = ? WHERE id = ? AND state = 'completed';
+
+-- name: StallImport :exec
+UPDATE grabs SET stalled_reason = ?, stalled_since = COALESCE(stalled_since, ?), next_import_at = ?, updated_at = ? WHERE id = ?;
+
+-- name: FinishGrab :exec
+UPDATE grabs SET state = ?, failure = ?, stalled_reason = NULL, stalled_since = NULL, next_import_at = NULL, updated_at = ? WHERE id = ?;
