@@ -59,7 +59,7 @@ function fakeServer(initial: 'fresh' | 'logged-out' | 'logged-in') {
 }
 
 describe('the wizard Account step', () => {
-  it('is what a fresh instance shows, and creating the account logs the admin in', async () => {
+  it('is what a fresh instance shows, and creating the account logs the admin in and carries on to the next section', async () => {
     const calls = fakeServer('fresh')
     renderApp()
 
@@ -71,6 +71,8 @@ describe('the wizard Account step', () => {
     await userEvent.type(screen.getByLabelText('Confirm password'), 'correct horse')
     await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
 
+    expect(await screen.findByRole('heading', { name: /download client/i })).toBeInTheDocument() // the wizard's next section
+    await userEvent.click(screen.getByRole('button', { name: 'Continue to Kestrel' }))
     expect(await screen.findByRole('navigation')).toBeInTheDocument()
     expect(calls).toEqual([{ path: 'setup/account', body: { username: 'admin', password: 'correct horse' } }])
   })

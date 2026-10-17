@@ -1,0 +1,14 @@
+{"queue": {"version": "4.5.1", "paused": false, "slots": [
+  {"index": 0, "nzo_id": "SABnzbd_nzo_dl1", "filename": "Movie.2024.2160p.WEB-DL.DV.HDR.x265-GRP", "cat": "movies", "status": "Downloading",
+   "priority": "-100", "mb": "20480.00", "mbleft": "5120.50", "percentage": "75", "timeleft": "1:02:03", "labels": []},
+  {"index": 1, "nzo_id": "SABnzbd_nzo_q1", "filename": "Other.Movie.2023.1080p.BluRay-GRP", "cat": "movies", "status": "Queued",
+   "priority": "-100", "mb": "8000.00", "mbleft": "8000.00", "percentage": "0", "timeleft": "0:00:00", "labels": []},
+  {"index": 2, "nzo_id": "SABnzbd_nzo_p1", "filename": "Paused.Movie.2022.720p-GRP", "cat": "movies", "status": "Paused",
+   "priority": "-100", "mb": "1000.00", "mbleft": "1000.00", "percentage": "0", "timeleft": "0:00:00", "labels": []},
+  {"index": 3, "nzo_id": "SABnzbd_nzo_pr1", "filename": "Fresh.Movie.2024.1080p-GRP", "cat": "movies", "status": "Propagating",
+   "priority": "-100", "mb": "1000.00", "mbleft": "1000.00", "percentage": "0", "timeleft": "0:00:00", "labels": ["PROPAGATING 5 min"]},
+  {"index": 4, "nzo_id": "SABnzbd_nzo_enc1", "filename": "ENCRYPTED / Locked.Movie.2021.1080p-GRP", "cat": "movies", "status": "Paused",
+   "priority": "-100", "mb": "2000.00", "mbleft": "1999.00", "percentage": "0", "timeleft": "0:00:00", "labels": ["ENCRYPTED"]},
+  {"index": 5, "nzo_id": "SABnzbd_nzo_tv1", "filename": "Show.S01E01.1080p-GRP", "cat": "tv", "status": "Downloading",
+   "priority": "-100", "mb": "1500.00", "mbleft": "750.00", "percentage": "50", "timeleft": "0:10:00", "labels": []}
+]}}

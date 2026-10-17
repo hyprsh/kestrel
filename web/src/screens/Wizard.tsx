@@ -2,6 +2,7 @@ import { Check } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { ApiError, useCreateAccount } from '../api/queries'
 import { Button, ErrorText, Field, TextInput } from '../forms'
+import { DownloadClient } from '../plugins/DownloadClient'
 import { KestrelLogo } from '../ui'
 
 const MIN_PASSWORD = 8
@@ -11,7 +12,7 @@ const MIN_PASSWORD = 8
  * first; whoever reaches the instance sets the credentials, and finishing the
  * step logs them in. The other sections arrive with later tickets.
  */
-export function Wizard() {
+export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () => void }) {
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -43,12 +44,14 @@ export function Wizard() {
         <section aria-labelledby="wizard-account" className="rounded-lg border border-gray-alpha-400 bg-background-100 p-6">
           <h2 id="wizard-account" className="mb-1 flex items-center gap-2 text-[15px] font-semibold tracking-tight">
             <span className="flex size-5 items-center justify-center rounded-full bg-gray-1000 text-[11px] text-background-100">
-              {create.isSuccess ? <Check className="size-3" /> : 1}
+              {signedIn ? <Check className="size-3" /> : 1}
             </span>
             Account
           </h2>
-          <p className="mb-4 text-gray-900">Create the admin login. Kestrel is never open without one.</p>
-          <form onSubmit={submit} className="flex max-w-sm flex-col gap-3">
+          <p className="mb-4 text-gray-900">
+            {signedIn ? 'The admin account exists and you are logged in.' : 'Create the admin login. Kestrel is never open without one.'}
+          </p>
+          {!signedIn && <form onSubmit={submit} className="flex max-w-sm flex-col gap-3">
             <Field label="Username">{(id) => <TextInput id={id} autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />}</Field>
             <Field label="Password">
               {(id) => <TextInput id={id} type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />}
@@ -60,8 +63,23 @@ export function Wizard() {
             <Button type="submit" disabled={create.isPending} className="self-start">
               Create account
             </Button>
-          </form>
+          </form>}
         </section>
+        {signedIn && (
+          <section aria-labelledby="wizard-download-client" className="mt-4 rounded-lg border border-gray-alpha-400 bg-background-100 p-6">
+            <h2 id="wizard-download-client" className="mb-1 flex items-center gap-2 text-[15px] font-semibold tracking-tight">
+              <span className="flex size-5 items-center justify-center rounded-full bg-gray-1000 text-[11px] text-background-100">2</span>
+              Download client
+            </h2>
+            <p className="mb-4 text-gray-900">Connect SABnzbd. Kestrel hands it NZBs and reads its queue and history.</p>
+            <DownloadClient />
+            <div className="mt-6 border-t border-gray-alpha-400 pt-4">
+              <Button variant="secondary" onClick={onLeave}>
+                Continue to Kestrel
+              </Button>
+            </div>
+          </section>
+        )}
       </div>
     </div>
   )

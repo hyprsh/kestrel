@@ -1,0 +1,6 @@
+{"config": {"misc": {"complete_dir": "/data/usenet/complete", "history_retention": "", "api_key": "0123456789abcdef0123456789abcdef"},
+ "categories": [
+  {"name": "*", "order": 0, "pp": "3", "script": "None", "dir": "", "newzbin": "", "priority": -100},
+  {"name": "movies", "order": 1, "pp": "", "script": "Default", "dir": "movies", "newzbin": "", "priority": -100},
+  {"name": "tv", "order": 2, "pp": "", "script": "Default", "dir": "tv", "newzbin": "", "priority": -100}
+ ], "sorters": []}}

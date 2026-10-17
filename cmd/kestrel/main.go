@@ -26,7 +26,13 @@ import (
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if err := run(ctx); err != nil {
+	cmd := run
+	if len(os.Args) > 1 && os.Args[1] == "reset-password" {
+		cmd = func(ctx context.Context) error {
+			return resetPassword(ctx, os.Args[2:], os.Stdin, os.Stdout, os.Getenv)
+		}
+	}
+	if err := cmd(ctx); err != nil {
 		fmt.Fprintln(os.Stderr, "kestrel:", err)
 		os.Exit(1)
 	}
@@ -47,6 +53,11 @@ func run(ctx context.Context) error {
 	defer st.Close()
 	go api.RunSessionPruner(ctx, st, 24*time.Hour, logger)
 
+	plugins, err := builtinPlugins()
+	if err != nil {
+		return err
+	}
+
 	srv := &http.Server{
 		Addr: net.JoinHostPort("", strconv.Itoa(cfg.Port)),
 		Handler: api.NewHandler(api.Options{
@@ -55,6 +66,7 @@ func run(ctx context.Context) error {
 			Store:   st,
 			Web:     web.FS(),
 			Logger:  logger,
+			Plugins: plugins,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

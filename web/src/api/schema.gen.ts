@@ -165,6 +165,191 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The API key's prefix and age
+         * @description There is at most one full-access key. Only its prefix and creation time are ever shown;
+         *     both are `null` until a key has been generated.
+         */
+        get: operations["getApiKey"];
+        put?: never;
+        /**
+         * Generate or rotate the API key
+         * @description Replaces any existing key, which stops working at once. The new key is in this response
+         *     only; Kestrel keeps just its SHA-256. Send it as `X-Api-Key`.
+         */
+        post: operations["createApiKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/reverse-proxy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reverse-proxy login settings */
+        get: operations["getReverseProxy"];
+        /**
+         * Change reverse-proxy login settings
+         * @description Off by default. When enabled, a non-empty `header` from a trusted proxy address logs the
+         *     admin in for that request. The same header from any other address is ignored and
+         *     recorded under `untrusted`.
+         */
+        put: operations["putReverseProxy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/plugins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The built-in plugins and their config schemas
+         * @description One manifest per compiled-in plugin, any contract. The UI draws each plugin's form from
+         *     `fields`, so a new adapter needs no UI change.
+         */
+        get: operations["listPlugins"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/plugins/{plugin_id}/options/{field}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Live choices for a config field
+         * @description Asks the plugin for the current values of a `live` field (SABnzbd's categories) using the
+         *     form as it stands. `config` is merged over the stored instance when `instance_id` is given,
+         *     so a saved secret need not be sent again. The config is not validated as a whole, because the
+         *     form may be half filled. A plugin failure is `502 upstream_unavailable`.
+         */
+        post: operations["listPluginOptions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/plugin-instances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Configured plugin instances */
+        get: operations["listPluginInstances"];
+        put?: never;
+        /**
+         * Configure a plugin instance
+         * @description Absent config fields take the manifest default. Secret fields are accepted here and never
+         *     returned: `secrets_set` lists which are set. Enabling an instance beyond its contract's cap
+         *     (one enabled download client in v1) is a `validation` error on `enabled`.
+         */
+        post: operations["createPluginInstance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/plugin-instances/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test an unsaved plugin config
+         * @description Runs the plugin's live test with the given config. A failing test is still `200` with
+         *     `ok: false` and the plugin's error `code`; only a malformed config is `422`.
+         */
+        post: operations["testPluginConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/plugin-instances/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        /** One plugin instance */
+        get: operations["getPluginInstance"];
+        put?: never;
+        post?: never;
+        /** Remove a plugin instance */
+        delete: operations["deletePluginInstance"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a plugin instance
+         * @description `config` merges key by key. A secret that is omitted stays as it is, a string replaces it
+         *     and `null` clears it; clearing any other field returns it to its default.
+         */
+        patch: operations["updatePluginInstance"];
+        trace?: never;
+    };
+    "/plugin-instances/{id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test a saved plugin instance
+         * @description Like the unsaved test, with the stored config (secrets included) underneath the optional
+         *     `config` edits, so a form can be tested before it is saved without retyping the secret.
+         */
+        post: operations["testPluginInstance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -185,6 +370,47 @@ export interface components {
              * @example /kestrel
              */
             base_url: string;
+        };
+        ApiKeyInfo: {
+            /**
+             * @description The first characters of the key, for recognising it.
+             * @example kst_ABCD
+             */
+            prefix: string | null;
+            /** Format: date-time */
+            created_at: string | null;
+        };
+        NewApiKey: {
+            /** @description The whole key, `kst_` plus 52 base32 characters. */
+            key: string;
+        };
+        ReverseProxySettings: {
+            enabled: boolean;
+            /**
+             * @description Addresses or CIDR ranges of the proxies whose header is believed.
+             * @example [
+             *       "172.18.0.0/16",
+             *       "10.0.0.5"
+             *     ]
+             */
+            trusted_proxies: string[];
+            /**
+             * @description The header carrying the user name.
+             * @example Remote-User
+             */
+            header: string;
+        };
+        ReverseProxy: components["schemas"]["ReverseProxySettings"] & {
+            /** @description Addresses that sent the header without being trusted, newest first. */
+            readonly untrusted: components["schemas"]["UntrustedProxyHeader"][];
+        };
+        UntrustedProxyHeader: {
+            ip: string;
+            /** @description The header value from the latest request. */
+            value: string;
+            count: number;
+            /** Format: date-time */
+            last_seen: string;
         };
         Credentials: {
             username: string;
@@ -214,6 +440,112 @@ export interface components {
         };
         /** @enum {string} */
         SetupSectionState: "done" | "todo";
+        /**
+         * @description Plugin settings by manifest field key. Secret fields are write-only: they are accepted
+         *     here and never returned. In a patch, `null` clears a field.
+         */
+        PluginConfigPatch: {
+            [key: string]: unknown;
+        };
+        PluginOption: {
+            value: string;
+            label: string;
+        };
+        PluginField: {
+            key: string;
+            label: string;
+            /** @enum {string} */
+            type: "text" | "url" | "secret" | "int" | "bool" | "select";
+            required: boolean;
+            /** @description The value used when the field is absent, or `null`. */
+            default: unknown;
+            help: string;
+            /** @description The fixed choices of a `select` field. */
+            options: components["schemas"]["PluginOption"][];
+            /**
+             * @description Choices come from `POST /plugins/{plugin_id}/options/{field}` once the connection works.
+             *     Until then the field is free text.
+             */
+            live: boolean;
+        };
+        PluginManifest: {
+            /** @example sabnzbd */
+            id: string;
+            name: string;
+            /**
+             * @description The versioned plugin contract, e.g. `download_client.v1`.
+             * @example download_client.v1
+             */
+            contract: string;
+            version: string;
+            /** @description Contract-specific facts, e.g. protocols: [usenet]. */
+            capabilities: {
+                [key: string]: string[];
+            };
+            fields: components["schemas"]["PluginField"][];
+        };
+        PluginList: {
+            items: components["schemas"]["PluginManifest"][];
+            next_cursor: string | null;
+        };
+        PluginOptionList: {
+            items: components["schemas"]["PluginOption"][];
+        };
+        PluginForm: {
+            config: components["schemas"]["PluginConfigPatch"];
+            /**
+             * Format: int64
+             * @description A saved instance whose stored config, secrets included, lies under `config`.
+             */
+            instance_id?: number | null;
+        };
+        PluginInstance: {
+            /** Format: int64 */
+            id: number;
+            contract: string;
+            plugin_id: string;
+            name: string;
+            enabled: boolean;
+            priority: number;
+            /** @description Every non-secret manifest field, `null` for none. */
+            config: {
+                [key: string]: unknown;
+            };
+            /** @description Keys of the secret fields that have a value. The values are never returned. */
+            secrets_set: string[];
+        };
+        PluginInstanceList: {
+            items: components["schemas"]["PluginInstance"][];
+            next_cursor: string | null;
+        };
+        PluginInstanceCreate: {
+            plugin_id: string;
+            name: string;
+            /** @description Defaults to true when absent. */
+            enabled?: boolean;
+            /** @description Defaults to 0 when absent. */
+            priority?: number;
+            config: components["schemas"]["PluginConfigPatch"];
+        };
+        PluginInstancePatch: {
+            name?: string;
+            enabled?: boolean;
+            priority?: number;
+            config?: components["schemas"]["PluginConfigPatch"];
+        };
+        PluginTestRequest: {
+            plugin_id: string;
+            config: components["schemas"]["PluginConfigPatch"];
+        };
+        PluginTestResult: {
+            ok: boolean;
+            /**
+             * @description Why the test failed, `null` when it passed: `auth`, `unavailable`, `rate_limited`,
+             *     `invalid` or `not_found`. Clients tolerate new values.
+             */
+            code: string | null;
+            message: string;
+        };
         /** @description RFC 9457 problem details. */
         Problem: {
             /** @default about:blank */
@@ -246,7 +578,10 @@ export interface components {
             };
         };
     };
-    parameters: never;
+    parameters: {
+        PluginId: string;
+        InstanceId: number;
+    };
     requestBodies: never;
     headers: {
         /** @description The `kestrel_session` cookie (HttpOnly, SameSite=Lax, Path from KESTREL_BASE_URL). */
@@ -446,6 +781,326 @@ export interface operations {
                 };
                 content?: never;
             };
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The key's public details. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyInfo"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new key, shown exactly once. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewApiKey"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getReverseProxy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings and the untrusted sightings recorded so far. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReverseProxy"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    putReverseProxy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReverseProxySettings"];
+            };
+        };
+        responses: {
+            /** @description The settings as saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReverseProxy"];
+                };
+            };
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listPlugins: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every plugin manifest, ordered by contract then id. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listPluginOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: components["parameters"]["PluginId"];
+                field: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginForm"];
+            };
+        };
+        responses: {
+            /** @description The choices. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginOptionList"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listPluginInstances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every instance of every contract. Secrets are never included. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginInstanceList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createPluginInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginInstanceCreate"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginInstance"];
+                };
+            };
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    testPluginConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginTestRequest"];
+            };
+        };
+        responses: {
+            /** @description The test outcome. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginTestResult"];
+                };
+            };
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getPluginInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The instance. Secrets are never included. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginInstance"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    deletePluginInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    updatePluginInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginInstancePatch"];
+            };
+        };
+        responses: {
+            /** @description The updated instance. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginInstance"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    testPluginInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    config?: components["schemas"]["PluginConfigPatch"];
+                };
+            };
+        };
+        responses: {
+            /** @description The test outcome. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginTestResult"];
+                };
+            };
+            404: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };

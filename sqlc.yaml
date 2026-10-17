@@ -18,3 +18,11 @@ sql:
         package: db
         out: internal/api/db
         emit_json_tags: false
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/plugin/instances/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/plugin/instances/db
+        emit_json_tags: false

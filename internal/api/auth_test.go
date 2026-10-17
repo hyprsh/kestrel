@@ -41,7 +41,8 @@ type instance struct {
 	base  string
 }
 
-func newInstance(t *testing.T, base string) *instance {
+// newInstance starts Kestrel; each option adjusts api.Options first (e.g. Plugins).
+func newInstance(t *testing.T, base string, with ...func(*api.Options)) *instance {
 	t.Helper()
 	st, err := store.Open(context.Background(), store.Options{Dir: t.TempDir()})
 	if err != nil {
@@ -49,7 +50,11 @@ func newInstance(t *testing.T, base string) *instance {
 	}
 	t.Cleanup(func() { st.Close() })
 	clock := newClock()
-	h := api.NewHandler(api.Options{Version: "1.2.3", BaseURL: base, Store: st, Web: webFS, Clock: clock.Now})
+	opts := api.Options{Version: "1.2.3", BaseURL: base, Store: st, Web: webFS, Clock: clock.Now}
+	for _, f := range with {
+		f(&opts)
+	}
+	h := api.NewHandler(opts)
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 	return &instance{t: t, srv: srv, st: st, clock: clock, base: base}

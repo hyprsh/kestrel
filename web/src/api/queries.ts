@@ -82,3 +82,137 @@ export function useChangePassword() {
     },
   })
 }
+
+export type ReverseProxy = components['schemas']['ReverseProxy']
+export type ReverseProxySettings = components['schemas']['ReverseProxySettings']
+
+export function useApiKey() {
+  return useQuery({
+    queryKey: ['api-key'],
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/api-key')
+      if (!data) throw failure(error, response)
+      return data
+    },
+  })
+}
+
+/** Generates the key, or rotates it when one exists. The returned key is shown once and never again. */
+export function useCreateApiKey() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error, response } = await api.POST('/api-key')
+      if (!data) throw failure(error, response)
+      return data.key
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['api-key'] }),
+  })
+}
+
+export function useReverseProxy() {
+  return useQuery({
+    queryKey: ['reverse-proxy'],
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/settings/reverse-proxy')
+      if (!data) throw failure(error, response)
+      return data
+    },
+  })
+}
+
+export function useSaveReverseProxy() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: ReverseProxySettings) => {
+      const { error, response } = await api.PUT('/settings/reverse-proxy', { body })
+      if (!response.ok) throw failure(error, response)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['reverse-proxy'] }),
+  })
+}
+
+// ---- plugins ----
+
+export type PluginManifest = components['schemas']['PluginManifest']
+export type PluginField = components['schemas']['PluginField']
+export type PluginInstance = components['schemas']['PluginInstance']
+export type PluginOption = components['schemas']['PluginOption']
+export type PluginTestResult = components['schemas']['PluginTestResult']
+/** Settings by manifest field key; `null` clears a field and a secret left out is kept. */
+export type PluginConfig = { [key: string]: unknown }
+
+/** Every built-in plugin's manifest; the forms are drawn from these. */
+export function usePlugins() {
+  return useQuery({
+    queryKey: ['plugins'],
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/plugins')
+      if (!data) throw failure(error, response)
+      return data.items
+    },
+  })
+}
+
+export function usePluginInstances() {
+  return useQuery({
+    queryKey: ['plugin-instances'],
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/plugin-instances')
+      if (!data) throw failure(error, response)
+      return data.items
+    },
+  })
+}
+
+/** Saves the form: a PATCH when `instance` is given, otherwise a create. */
+export function useSavePluginInstance() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { pluginId: string; name: string; config: PluginConfig; instance?: PluginInstance }) => {
+      const res = v.instance
+        ? await api.PATCH('/plugin-instances/{id}', { params: { path: { id: v.instance.id } }, body: { config: v.config } })
+        : await api.POST('/plugin-instances', { body: { plugin_id: v.pluginId, name: v.name, config: v.config } })
+      if (!res.data) throw failure(res.error, res.response)
+      return res.data
+    },
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['plugin-instances'] }), qc.invalidateQueries({ queryKey: ['setup'] })]),
+  })
+}
+
+export function useDeletePluginInstance() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { error, response } = await api.DELETE('/plugin-instances/{id}', { params: { path: { id } } })
+      if (!response.ok) throw failure(error, response)
+    },
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['plugin-instances'] }), qc.invalidateQueries({ queryKey: ['setup'] })]),
+  })
+}
+
+/**
+ * Tests the form as it stands and, when the connection works, fetches the live
+ * choices of the manifest's `live` fields (SABnzbd's categories).
+ */
+export function useTestPlugin() {
+  return useMutation({
+    mutationFn: async (v: { manifest: PluginManifest; config: PluginConfig; instance?: PluginInstance }) => {
+      const test = v.instance
+        ? await api.POST('/plugin-instances/{id}/test', { params: { path: { id: v.instance.id } }, body: { config: v.config } })
+        : await api.POST('/plugin-instances/test', { body: { plugin_id: v.manifest.id, config: v.config } })
+      if (!test.data) throw failure(test.error, test.response)
+      const options: Record<string, PluginOption[]> = {}
+      if (test.data.ok) {
+        for (const f of v.manifest.fields.filter((f) => f.live)) {
+          const res = await api.POST('/plugins/{plugin_id}/options/{field}', {
+            params: { path: { plugin_id: v.manifest.id, field: f.key } },
+            body: { config: v.config, instance_id: v.instance?.id ?? null },
+          })
+          if (res.data) options[f.key] = res.data.items
+        }
+      }
+      return { result: test.data, options }
+    },
+  })
+}

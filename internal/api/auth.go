@@ -20,6 +20,7 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/api/db"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
+	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
 )
@@ -80,6 +81,8 @@ type request struct {
 	ip        string
 	secure    bool
 	sessionID string // set when the request carries a live session
+	method    oapi.MeMethod
+	proxyUser string // the Remote-User value when method is proxy
 }
 
 func requestFrom(ctx context.Context) *request {
@@ -134,43 +137,96 @@ func (a *auth) guard(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		ip, _, err := net.SplitHostPort(r.RemoteAddr)
+		socket, _, err := net.SplitHostPort(r.RemoteAddr)
 		if err != nil {
-			ip = r.RemoteAddr
+			socket = r.RemoteAddr
 		}
-		info := &request{ip: ip, secure: r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")}
-		r = r.WithContext(context.WithValue(r.Context(), ctxKey{}, info))
-
-		if p := csrfCheck(r); p != nil {
-			p.write(w)
-			return
-		}
+		fail := func(p *problemError) { p.write(w) }
+		internal := func() { fail(problem(http.StatusInternalServerError, "internal", "internal error")) }
 
 		_, exists, err := a.account(r.Context())
 		if err != nil {
-			problem(http.StatusInternalServerError, "internal", "internal error").write(w)
+			internal()
 			return
 		}
+		proxy, err := a.proxyConfig(r.Context())
+		if err != nil {
+			internal()
+			return
+		}
+		info := &request{
+			ip:     proxy.clientIP(socket, r.Header.Values("X-Forwarded-For")),
+			secure: r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https"),
+			method: oapi.Session,
+		}
+		r = r.WithContext(context.WithValue(r.Context(), ctxKey{}, info))
+
+		// An API key decides on its own: it needs no session and is exempt from
+		// the CSRF rules, and a bad one is throttled like a failed login.
+		if key := r.Header.Get("X-Api-Key"); key != "" && exists {
+			now := a.clock()
+			if wait := a.throttle.wait(info.ip, now); wait > 0 {
+				p := problem(http.StatusTooManyRequests, "rate_limited", "too many failed attempts")
+				p.retryAfter = wait
+				fail(p)
+				return
+			}
+			ok, err := a.keyMatches(r.Context(), key)
+			if err != nil {
+				internal()
+				return
+			}
+			if !ok {
+				a.throttle.fail(info.ip, now)
+				fail(problem(http.StatusUnauthorized, "unauthenticated", "invalid API key"))
+				return
+			}
+			a.throttle.reset(info.ip)
+			info.method = oapi.ApiKey
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		if p := csrfCheck(r); p != nil {
+			fail(p)
+			return
+		}
+
 		route := r.Method + " " + strings.TrimPrefix(r.URL.Path, apiRoot)
 		if !exists {
 			switch route {
 			case "GET /setup", "GET /system", "POST /setup/account":
 				next.ServeHTTP(w, r)
 			default:
-				problem(http.StatusUnauthorized, "setup_required", "create the admin account first").write(w)
+				fail(problem(http.StatusUnauthorized, "setup_required", "create the admin account first"))
 			}
 			return
 		}
 
-		if c, err := r.Cookie(cookieName); err == nil && c.Value != "" {
-			id := hashToken(c.Value)
-			if a.slide(r.Context(), id) {
-				info.sessionID = id
-				w.Header().Set("Set-Cookie", a.cookie(c.Value, info.secure, a.clock().Add(sessionLife)))
+		// Reverse-proxy login: believed per request from a trusted address only.
+		// The same header from anywhere else is ignored and recorded.
+		authed := false
+		if proxy.Enabled {
+			if user := strings.TrimSpace(r.Header.Get(proxy.Header)); user != "" {
+				if proxy.trusts(socket) {
+					info.method, info.proxyUser, authed = oapi.Proxy, user, true
+				} else {
+					a.recordUntrusted(r.Context(), socket, user)
+				}
 			}
 		}
-		if info.sessionID == "" && route != "POST /auth/login" {
-			problem(http.StatusUnauthorized, "unauthenticated", "log in first").write(w)
+		if !authed {
+			if c, err := r.Cookie(cookieName); err == nil && c.Value != "" {
+				id := hashToken(c.Value)
+				if a.slide(r.Context(), id) {
+					info.sessionID = id
+					w.Header().Set("Set-Cookie", a.cookie(c.Value, info.secure, a.clock().Add(sessionLife)))
+					authed = true
+				}
+			}
+		}
+		if !authed && route != "POST /auth/login" {
+			fail(problem(http.StatusUnauthorized, "unauthenticated", "log in first"))
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -224,7 +280,11 @@ func (s *server) GetSetup(ctx context.Context, _ oapi.GetSetupRequestObject) (oa
 	out.AccountExists = exists
 	out.Sections.Account = state(exists)
 	out.Sections.Language = oapi.Todo
-	out.Sections.DownloadClient = oapi.Todo
+	clients, err := s.plugins.Enabled(ctx, downloadclient.Contract.ID)
+	if err != nil {
+		return nil, err
+	}
+	out.Sections.DownloadClient = state(len(clients) > 0)
 	out.Sections.Indexer = oapi.Todo
 	out.Sections.RootFolders = oapi.Todo
 	out.Sections.Profiles = oapi.Todo
@@ -333,7 +393,12 @@ func (s *server) GetMe(ctx context.Context, _ oapi.GetMeRequestObject) (oapi.Get
 	if err != nil {
 		return nil, err
 	}
-	return oapi.GetMe200JSONResponse{Username: acc.Username, Method: oapi.Session}, nil
+	info := requestFrom(ctx)
+	out := oapi.Me{Username: acc.Username, Method: info.method}
+	if info.method == oapi.Proxy {
+		out.ProxyUser = &info.proxyUser
+	}
+	return oapi.GetMe200JSONResponse(out), nil
 }
 
 func (s *server) ChangePassword(ctx context.Context, req oapi.ChangePasswordRequestObject) (oapi.ChangePasswordResponseObject, error) {
