@@ -4,6 +4,39 @@
 
 package db
 
+import (
+	"database/sql"
+)
+
+type Episode struct {
+	ID        int64
+	TitleID   int64
+	Season    int64
+	Number    int64
+	TvdbID    sql.NullInt64
+	Name      string
+	AirDate   sql.NullString
+	Monitored int64
+}
+
+type File struct {
+	ID            int64
+	VersionID     int64
+	Path          string
+	Size          int64
+	ReleaseName   string
+	ParsedRelease sql.NullString
+	Probe         sql.NullString
+	Score         sql.NullInt64
+	GrabID        sql.NullInt64
+	ImportedAt    string
+}
+
+type FileEpisode struct {
+	FileID    int64
+	EpisodeID int64
+}
+
 type PluginInstance struct {
 	ID       int64
 	Contract string
@@ -31,6 +64,22 @@ type Profile struct {
 	TrashProfileSeries string
 }
 
+type SearchState struct {
+	ID            int64
+	VersionID     int64
+	Season        sql.NullInt64
+	NextMissingAt sql.NullString
+	LastMissingAt sql.NullString
+	NextUpgradeAt sql.NullString
+	LastUpgradeAt sql.NullString
+}
+
+type Season struct {
+	TitleID   int64
+	Number    int64
+	Monitored int64
+}
+
 type Session struct {
 	ID        string
 	CreatedAt int64
@@ -42,10 +91,57 @@ type Setting struct {
 	Value string
 }
 
+type Title struct {
+	ID               int64
+	Kind             string
+	TmdbID           sql.NullInt64
+	TvdbID           sql.NullInt64
+	ImdbID           sql.NullString
+	Title            string
+	OriginalTitle    string
+	PrimaryTitle     string
+	Year             sql.NullInt64
+	OriginalLanguage string
+	Overview         string
+	Runtime          sql.NullInt64
+	PosterPath       sql.NullString
+	Monitored        int64
+	SeriesMonitor    sql.NullString
+	MetadataFrozen   int64
+	RootFolder       string
+	Folder           sql.NullString
+	AddedAt          string
+	RefreshedAt      string
+}
+
+type TitleAlias struct {
+	ID       int64
+	TitleID  int64
+	Alias    string
+	Country  string
+	Language string
+}
+
+type TitleReleaseDate struct {
+	TitleID       int64
+	Country       string
+	Type          int64
+	Date          string
+	Certification string
+}
+
 type UntrustedProxyHeader struct {
 	Ip        string
 	Value     string
 	Count     int64
 	FirstSeen int64
 	LastSeen  int64
+}
+
+type Version struct {
+	ID         int64
+	TitleID    int64
+	Slot       string
+	ProfileKey string
+	AddedAt    string
 }
