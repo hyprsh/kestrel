@@ -16,7 +16,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/resolution"
-	"github.com/hyprsh/kestrel/internal/scoring/profiles"
+	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 )
 
 func intPtr(n int) *int {
@@ -350,24 +350,15 @@ func (s *server) CreateTitle(ctx context.Context, r oapi.CreateTitleRequestObjec
 	if err != nil {
 		return nil, err
 	}
-	byKey := map[string]profiles.Profile{}
-	for _, p := range all {
-		byKey[p.Key] = p
-	}
 	var specs []library.VersionSpec
 	seen := map[resolution.Class]bool{}
 	for i, v := range b.Versions {
 		slot := slotFromAPI(v.Slot)
-		p, ok := byKey[v.Profile]
-		switch {
-		case seen[slot]:
+		if seen[slot] {
 			return nil, invalid(fmt.Sprintf("versions[%d].slot", i), "duplicate", "A Slot holds one Version")
-		case !ok:
-			return nil, invalid(fmt.Sprintf("versions[%d].profile", i), "not_found", "No such Profile")
-		case p.Slot != slot:
-			return nil, invalid(fmt.Sprintf("versions[%d].profile", i), "wrong_slot", "That Profile belongs to another Slot")
-		case !p.Enabled:
-			return nil, invalid(fmt.Sprintf("versions[%d].profile", i), "disabled", "That Profile is disabled")
+		}
+		if err := profileProblem(fmt.Sprintf("versions[%d].profile", i), all, v.Profile, slot); err != nil {
+			return nil, err
 		}
 		seen[slot] = true
 		specs = append(specs, library.VersionSpec{Slot: slot, Profile: v.Profile})
@@ -376,24 +367,22 @@ func (s *server) CreateTitle(ctx context.Context, r oapi.CreateTitleRequestObjec
 	if err != nil {
 		return nil, err
 	}
-	configured, noun := roots.Movies, "Movie"
+	noun := "Movie"
 	if b.Kind == oapi.Series {
-		configured, noun = roots.Series, "Series"
+		noun = "Series"
 	}
-	root := ""
-	if b.RootFolder != nil && *b.RootFolder != "" {
-		root = *b.RootFolder
-		found := false
-		for _, f := range configured {
-			found = found || f == root
-		}
-		if !found {
-			return nil, invalid("root_folder", "not_found", "That is not one of the "+noun+" Root folders")
-		}
-	} else if len(configured) > 0 {
-		root = configured[0]
-	} else {
+	requested := ""
+	if b.RootFolder != nil {
+		requested = *b.RootFolder
+	}
+	root, err := roots.Pick(b.Kind == oapi.Series, requested)
+	switch {
+	case errors.Is(err, rootfolders.ErrNotConfigured):
+		return nil, invalid("root_folder", "not_found", "That is not one of the "+noun+" Root folders")
+	case errors.Is(err, rootfolders.ErrNoneSet):
 		return nil, invalid("root_folder", "required", "Set a "+noun+" Root folder in Settings first")
+	case err != nil:
+		return nil, err
 	}
 	if b.Kind == oapi.Series {
 		return s.createSeries(ctx, b, specs, root)
@@ -410,23 +399,29 @@ func (s *server) CreateTitle(ctx context.Context, r oapi.CreateTitleRequestObjec
 	id, err := s.library.AddMovie(ctx, library.AddMovie{
 		Details: details, PrimaryLanguage: string(region.Primary), Versions: specs, RootFolder: root,
 	})
+	return s.added(ctx, id, err, metadata.Movie, details.TMDBID, details.PosterPath, region.Country)
+}
+
+// added is the end of CreateTitle for both kinds: the 409 for a Title already
+// in the Library, the search on add, the poster and the new Title read back.
+func (s *server) added(ctx context.Context, id int64, addErr error, kind metadata.Kind, tmdbID int, posterPath, country string) (oapi.CreateTitleResponseObject, error) {
 	var exists *library.ExistsError
-	if errors.As(err, &exists) {
+	if errors.As(addErr, &exists) {
 		return nil, problem(http.StatusConflict, "conflict", fmt.Sprintf("Already in the Library as title %d", exists.ID))
 	}
-	if err != nil {
-		return nil, err
+	if addErr != nil {
+		return nil, addErr
 	}
 	s.jobs.Kick(jobs.Search) // search on add: the new Versions are due now
 	// The poster is a nicety: a failed download is retried when it is first asked for.
-	if _, err := s.posters.Ensure(ctx, metadata.Movie, details.TMDBID, details.PosterPath); err != nil && !errors.Is(err, metadata.ErrNoPoster) {
-		s.opts.Logger.Warn("poster download failed", "tmdb_id", details.TMDBID, "err", err)
+	if _, err := s.posters.Ensure(ctx, kind, tmdbID, posterPath); err != nil && !errors.Is(err, metadata.ErrNoPoster) {
+		s.opts.Logger.Warn("poster download failed", "tmdb_id", tmdbID, "err", err)
 	}
-	d, err := s.library.Get(ctx, id, library.View{Country: region.Country, Now: s.opts.Clock()})
+	d, err := s.library.Get(ctx, id, library.View{Country: country, Now: s.opts.Clock()})
 	if err != nil {
 		return nil, err
 	}
-	return oapi.CreateTitle201JSONResponse(detailToAPI(d, region.Country)), nil
+	return oapi.CreateTitle201JSONResponse(detailToAPI(d, country)), nil
 }
 
 func (s *server) GetTitlePoster(ctx context.Context, r oapi.GetTitlePosterRequestObject) (oapi.GetTitlePosterResponseObject, error) {

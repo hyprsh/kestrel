@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
@@ -43,22 +42,7 @@ func (s *server) createSeries(ctx context.Context, b *oapi.TitleCreate, specs []
 	id, err := s.library.AddSeries(ctx, library.AddSeries{
 		TMDB: details, TVDB: tv, PrimaryLanguage: string(region.Primary), Monitor: mode, Versions: specs, RootFolder: root,
 	})
-	var exists *library.ExistsError
-	if errors.As(err, &exists) {
-		return nil, problem(http.StatusConflict, "conflict", fmt.Sprintf("Already in the Library as title %d", exists.ID))
-	}
-	if err != nil {
-		return nil, err
-	}
-	s.jobs.Kick(jobs.Search) // search on add: the new Versions are due now
-	if _, err := s.posters.Ensure(ctx, metadata.Series, details.TMDBID, details.PosterPath); err != nil && !errors.Is(err, metadata.ErrNoPoster) {
-		s.opts.Logger.Warn("poster download failed", "tmdb_id", details.TMDBID, "err", err)
-	}
-	d, err := s.library.Get(ctx, id, library.View{Country: region.Country, Now: s.opts.Clock()})
-	if err != nil {
-		return nil, err
-	}
-	return oapi.CreateTitle201JSONResponse(detailToAPI(d, region.Country)), nil
+	return s.added(ctx, id, err, metadata.Series, details.TMDBID, details.PosterPath, region.Country)
 }
 
 // seriesProblem maps the library's Series errors to problems.

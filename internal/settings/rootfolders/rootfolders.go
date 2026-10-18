@@ -8,9 +8,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/hyprsh/kestrel/internal/settings"
 )
@@ -136,4 +138,31 @@ func check(path string) *ValidationError {
 	probe.Close()
 	_ = os.Remove(probe.Name())
 	return nil
+}
+
+// Why a Root folder cannot be picked for a Title.
+var (
+	// ErrNotConfigured means the requested folder is not one of the kind's Root folders.
+	ErrNotConfigured = errors.New("not one of the Root folders")
+	// ErrNoneSet means the kind has no Root folder at all.
+	ErrNoneSet = errors.New("no Root folder is configured")
+)
+
+// Pick is the Root folder a new Title goes in: the requested one, which must
+// be configured for the kind, else the kind's first (its default).
+func (f Folders) Pick(series bool, requested string) (string, error) {
+	configured := f.Movies
+	if series {
+		configured = f.Series
+	}
+	if requested != "" {
+		if !slices.Contains(configured, requested) {
+			return "", ErrNotConfigured
+		}
+		return requested, nil
+	}
+	if len(configured) == 0 {
+		return "", ErrNoneSet
+	}
+	return configured[0], nil
 }

@@ -332,11 +332,11 @@ func validate(in Input, all []profiles.Profile) error {
 		if sl.Profile == "" {
 			continue
 		}
-		p := profileByKey(all, sl.Profile)
-		switch {
-		case p.Key == "":
+		// A disabled Profile still fills a Request that names it.
+		switch _, err := profiles.Pick(all, sl.Profile, sl.Slot); {
+		case errors.Is(err, profiles.ErrNoSuchProfile):
 			return invalid(field+".profile", "not_found", "No such Profile")
-		case p.Slot != sl.Slot:
+		case errors.Is(err, profiles.ErrWrongSlot):
 			return invalid(field+".profile", "wrong_slot", "That Profile belongs to another Slot")
 		}
 	}
@@ -435,21 +435,21 @@ func (s *Service) apply(ctx context.Context, in Input, t target, specs []library
 		if err != nil {
 			return 0, false, err
 		}
-		list := roots.Movies
-		if in.Kind == library.Series {
-			list = roots.Series
-		}
-		if len(list) == 0 {
+		root, err := roots.Pick(in.Kind == library.Series, "")
+		if errors.Is(err, rootfolders.ErrNoneSet) {
 			return 0, false, ErrNoRootFolder
 		}
+		if err != nil {
+			return 0, false, err
+		}
 		if in.Kind == library.Movie {
-			titleID, err = lib.AddMovie(ctx, library.AddMovie{Details: t.movie, PrimaryLanguage: string(region.Primary), Versions: specs, RootFolder: list[0]})
+			titleID, err = lib.AddMovie(ctx, library.AddMovie{Details: t.movie, PrimaryLanguage: string(region.Primary), Versions: specs, RootFolder: root})
 		} else {
 			mode := library.MonitorAll
 			if in.Seasons != nil {
 				mode = library.MonitorNone
 			}
-			titleID, err = lib.AddSeries(ctx, library.AddSeries{TMDB: t.series, TVDB: t.tvdb, PrimaryLanguage: string(region.Primary), Monitor: mode, Versions: specs, RootFolder: list[0]})
+			titleID, err = lib.AddSeries(ctx, library.AddSeries{TMDB: t.series, TVDB: t.tvdb, PrimaryLanguage: string(region.Primary), Monitor: mode, Versions: specs, RootFolder: root})
 		}
 		var exists *library.ExistsError
 		if errors.As(err, &exists) { // a concurrent add won the race

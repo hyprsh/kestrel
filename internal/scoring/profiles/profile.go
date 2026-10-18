@@ -127,3 +127,28 @@ func Resolve(all []Profile, kind release.Kind, slot resolution.Class, kids bool)
 	}
 	return Resolved{Profile: p}, nil
 }
+
+// Why a Profile named for a Slot is refused.
+var (
+	ErrNoSuchProfile = errors.New("no such Profile")
+	ErrWrongSlot     = errors.New("that Profile belongs to another Slot")
+	ErrDisabled      = errors.New("that Profile is disabled")
+)
+
+// Pick finds the Profile with the key and checks it can fill the Slot: it
+// exists, belongs to the Slot and is enabled.
+func Pick(all []Profile, key string, slot resolution.Class) (Profile, error) {
+	for _, p := range all {
+		if p.Key != key {
+			continue
+		}
+		switch {
+		case p.Slot != slot:
+			return Profile{}, ErrWrongSlot
+		case !p.Enabled:
+			return Profile{}, ErrDisabled
+		}
+		return p, nil
+	}
+	return Profile{}, ErrNoSuchProfile
+}

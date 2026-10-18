@@ -12,6 +12,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/resolution"
+	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 )
 
 // checkProfile is the 422 for a Profile that cannot fill the Slot, or nil.
@@ -20,19 +21,20 @@ func (s *server) checkProfile(ctx context.Context, key string, slot resolution.C
 	if err != nil {
 		return err
 	}
-	for _, p := range all {
-		if p.Key != key {
-			continue
-		}
-		switch {
-		case p.Slot != slot:
-			return invalid("profile", "wrong_slot", "That Profile belongs to another Slot")
-		case !p.Enabled:
-			return invalid("profile", "disabled", "That Profile is disabled")
-		}
-		return nil
+	return profileProblem("profile", all, key, slot)
+}
+
+// profileProblem is nil when the key names an enabled Profile of the Slot, else the 422 saying why not.
+func profileProblem(field string, all []profiles.Profile, key string, slot resolution.Class) error {
+	switch _, err := profiles.Pick(all, key, slot); {
+	case errors.Is(err, profiles.ErrWrongSlot):
+		return invalid(field, "wrong_slot", "That Profile belongs to another Slot")
+	case errors.Is(err, profiles.ErrDisabled):
+		return invalid(field, "disabled", "That Profile is disabled")
+	case err != nil:
+		return invalid(field, "not_found", "No such Profile")
 	}
-	return invalid("profile", "not_found", "No such Profile")
+	return nil
 }
 
 // versionDetail reads one Version of a Title back in API shape.
