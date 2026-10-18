@@ -55,6 +55,12 @@ func New(t testing.TB) *Server {
 		}
 		_, _ = w.Write([]byte(`{"movie_results":[],"tv_results":[]}`))
 	}))
+	mux.HandleFunc("GET /3/movie/changes", s.handle(func(w http.ResponseWriter, r *http.Request) {
+		s.file(w, "changes_movie.json", http.StatusOK)
+	}))
+	mux.HandleFunc("GET /3/tv/changes", s.handle(func(w http.ResponseWriter, r *http.Request) {
+		s.file(w, "changes_tv.json", http.StatusOK)
+	}))
 	mux.HandleFunc("GET /3/movie/{id}", s.handle(func(w http.ResponseWriter, r *http.Request) {
 		name := "movie_" + r.PathValue("id") + ".json"
 		if _, err := fixtures.ReadFile("testdata/" + name); err != nil {

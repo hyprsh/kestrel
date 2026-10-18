@@ -59,6 +59,9 @@ const (
 	// KindProxyHeader: the reverse-proxy user header came from an address that is not a trusted proxy (Warning).
 	KindProxyHeader Kind = "untrusted_proxy_header"
 
+	// KindGoneUpstream: the metadata provider deleted or merged a Title's entry (Warning).
+	KindGoneUpstream Kind = "title_gone_upstream"
+
 	// One-off health warnings: dismissible, keyed kind+subject.
 
 	// KindEXDEV: an Import had to copy across filesystems instead of moving.

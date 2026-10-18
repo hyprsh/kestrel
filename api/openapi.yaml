@@ -510,6 +510,24 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /titles/{id}/refresh:
+    parameters:
+      - $ref: "#/components/parameters/TitleId"
+    post:
+      operationId: refreshTitle
+      summary: Refresh a Title's metadata now
+      description: |
+        Starts a refresh from the metadata providers and returns at once; the Title changes when it
+        finishes (a `title` hint arrives on the stream). A changed English title or year renames the
+        Title's folder and files. A Title with `metadata_frozen` is left as it is.
+      tags: [titles]
+      responses:
+        "202":
+          description: The refresh was started.
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /titles/{id}:
     parameters:
       - $ref: "#/components/parameters/TitleId"
@@ -530,10 +548,11 @@ paths:
           $ref: "#/components/responses/Problem"
     patch:
       operationId: patchTitle
-      summary: Change a Series' monitoring mode
+      summary: Change a Title's settings
       description: |
-        Applies the mode to every episode and season now (Specials are never monitored by a mode).
-        `422` for a Movie.
+        `series_monitor` applies the mode to every episode and season now (Specials are never
+        monitored by a mode); `422` for a Movie. `metadata_frozen` true keeps the stored metadata as
+        it is and clears a "Title gone upstream" row; false lets refreshes resume.
       tags: [titles]
       requestBody:
         required: true
@@ -2180,6 +2199,8 @@ components:
       properties:
         series_monitor:
           $ref: "#/components/schemas/SeriesMonitor"
+        metadata_frozen:
+          type: boolean
     SeasonPatch:
       type: object
       required: [monitored]

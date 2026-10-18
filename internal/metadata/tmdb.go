@@ -74,6 +74,9 @@ type Provider interface {
 	FindMovieByIMDb(ctx context.Context, imdbID string) (id int, ok bool, err error)
 	// ImageURL is the URL of a poster at a TMDB size such as "w92".
 	ImageURL(posterPath, size string) string
+	// Changes lists the ids of the Movies or Series whose data changed since a
+	// time. TMDB keeps a window of 14 days.
+	Changes(ctx context.Context, kind Kind, since time.Time) ([]int, error)
 }
 
 var _ Provider = (*TMDB)(nil)
@@ -262,4 +265,37 @@ func (c *TMDB) Movie(ctx context.Context, id int) (MovieDetails, error) {
 		}
 	}
 	return d, nil
+}
+
+// Changes lists the ids of the Movies or Series TMDB changed since a time
+// (day precision), following the pages.
+func (c *TMDB) Changes(ctx context.Context, kind Kind, since time.Time) ([]int, error) {
+	path := "/movie/changes"
+	if kind == Series {
+		path = "/tv/changes"
+	}
+	var ids []int
+	for page := 1; page <= 100; page++ { // a hard stop against a provider that never ends its pages
+		var r struct {
+			Results []struct {
+				ID int `json:"id"`
+			} `json:"results"`
+			TotalPages int `json:"total_pages"`
+		}
+		q := url.Values{
+			"start_date": {since.UTC().Format("2006-01-02")},
+			"end_date":   {time.Now().UTC().AddDate(0, 0, 1).Format("2006-01-02")},
+			"page":       {strconv.Itoa(page)},
+		}
+		if err := c.get(ctx, path, q, &r); err != nil {
+			return nil, err
+		}
+		for _, x := range r.Results {
+			ids = append(ids, x.ID)
+		}
+		if page >= r.TotalPages {
+			break
+		}
+	}
+	return ids, nil
 }

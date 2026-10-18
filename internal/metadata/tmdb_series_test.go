@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/metadata/metadatatest"
@@ -69,3 +70,17 @@ func TestSeriesExternalIDs(t *testing.T) {
 }
 
 var _ metadata.Provider = (*metadata.TMDB)(nil)
+
+func TestChangesListTheIDsThatChangedSince(t *testing.T) {
+	tm, srv := newTMDB(t, metadatatest.Key)
+	ids, err := tm.Changes(context.Background(), metadata.Movie, time.Date(2026, 10, 16, 8, 0, 0, 0, time.UTC))
+	if err != nil || len(ids) != 2 || ids[0] != 116149 || ids[1] != 77 {
+		t.Fatalf("ids = %v, %v", ids, err)
+	}
+	if tv, _ := tm.Changes(context.Background(), metadata.Series, time.Now()); len(tv) != 1 || tv[0] != 1396 {
+		t.Errorf("series ids = %v", tv)
+	}
+	if req := srv.Requests()[0]; !strings.Contains(req, "/3/movie/changes?") || !strings.Contains(req, "start_date=2026-10-16") {
+		t.Errorf("request = %q", req)
+	}
+}

@@ -52,6 +52,8 @@ const (
 	ImportEpisode Kind = "import_episode"
 	// RequestCreated: a new Request arrived (a retry of a stored one does not record).
 	RequestCreated Kind = "request"
+	// Renamed: a Title's folder and files were renamed after its English title or year changed.
+	Renamed Kind = "rename"
 	// HealthRaised: a Needs attention row appeared (a repeat of one already showing does not record).
 	HealthRaised Kind = "health_raised"
 	// HealthCleared: a Needs attention row cleared itself.

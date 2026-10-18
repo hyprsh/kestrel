@@ -1897,6 +1897,8 @@ type TitleList struct {
 
 // TitlePatch Merge patch. Only Series have a `series_monitor`.
 type TitlePatch struct {
+	MetadataFrozen *bool `json:"metadata_frozen,omitempty"`
+
 	// SeriesMonitor `all` monitors every episode, future ones and new seasons included; `future` the episodes airing
 	// today or later or without an air date, and new seasons; `none` nothing. Specials (season 0) are
 	// never monitored automatically.
@@ -2273,7 +2275,7 @@ type ServerInterface interface {
 	// GetTitle One Title with its Versions
 	// (GET /titles/{id})
 	GetTitle(w http.ResponseWriter, r *http.Request, id TitleId)
-	// PatchTitle Change a Series' monitoring mode
+	// PatchTitle Change a Title's settings
 	// (PATCH /titles/{id})
 	PatchTitle(w http.ResponseWriter, r *http.Request, id TitleId)
 	// ListEpisodes A Series' episodes with one cell per Version, for the heat map
@@ -2285,6 +2287,9 @@ type ServerInterface interface {
 	// GetTitlePoster The Title's poster
 	// (GET /titles/{id}/poster)
 	GetTitlePoster(w http.ResponseWriter, r *http.Request, id TitleId)
+	// RefreshTitle Refresh a Title's metadata now
+	// (POST /titles/{id}/refresh)
+	RefreshTitle(w http.ResponseWriter, r *http.Request, id TitleId)
 	// PatchSeason Monitor or unmonitor a season and all its episodes
 	// (PATCH /titles/{id}/seasons/{season})
 	PatchSeason(w http.ResponseWriter, r *http.Request, id TitleId, season int)
@@ -3483,6 +3488,32 @@ func (siw *ServerInterfaceWrapper) GetTitlePoster(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// RefreshTitle operation middleware
+func (siw *ServerInterfaceWrapper) RefreshTitle(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TitleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RefreshTitle(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PatchSeason operation middleware
 func (siw *ServerInterfaceWrapper) PatchSeason(w http.ResponseWriter, r *http.Request) {
 
@@ -3779,6 +3810,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/lookup/{kind}/{tmdb_id}", wrapper.LookupTitle)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles", wrapper.ListTitles)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles", wrapper.CreateTitle)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles/{id}/refresh", wrapper.RefreshTitle)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/titles/{id}", wrapper.DeleteTitle)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/{id}", wrapper.GetTitle)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/titles/{id}", wrapper.PatchTitle)
@@ -6782,6 +6814,55 @@ func (response GetTitlePosterdefaultApplicationProblemPlusJSONResponse) VisitGet
 	return err
 }
 
+type RefreshTitleRequestObject struct {
+	Id TitleId `json:"id"`
+}
+
+type RefreshTitleResponseObject interface {
+	VisitRefreshTitleResponse(w http.ResponseWriter) error
+}
+
+type RefreshTitle202Response struct {
+}
+
+func (response RefreshTitle202Response) VisitRefreshTitleResponse(w http.ResponseWriter) error {
+	w.WriteHeader(202)
+	return nil
+}
+
+type RefreshTitle404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RefreshTitle404ApplicationProblemPlusJSONResponse) VisitRefreshTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshTitledefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response RefreshTitledefaultApplicationProblemPlusJSONResponse) VisitRefreshTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PatchSeasonRequestObject struct {
 	Id     TitleId `json:"id"`
 	Season int     `json:"season"`
@@ -7270,7 +7351,7 @@ type StrictServerInterface interface {
 	// GetTitle One Title with its Versions
 	// (GET /titles/{id})
 	GetTitle(ctx context.Context, request GetTitleRequestObject) (GetTitleResponseObject, error)
-	// PatchTitle Change a Series' monitoring mode
+	// PatchTitle Change a Title's settings
 	// (PATCH /titles/{id})
 	PatchTitle(ctx context.Context, request PatchTitleRequestObject) (PatchTitleResponseObject, error)
 	// ListEpisodes A Series' episodes with one cell per Version, for the heat map
@@ -7282,6 +7363,9 @@ type StrictServerInterface interface {
 	// GetTitlePoster The Title's poster
 	// (GET /titles/{id}/poster)
 	GetTitlePoster(ctx context.Context, request GetTitlePosterRequestObject) (GetTitlePosterResponseObject, error)
+	// RefreshTitle Refresh a Title's metadata now
+	// (POST /titles/{id}/refresh)
+	RefreshTitle(ctx context.Context, request RefreshTitleRequestObject) (RefreshTitleResponseObject, error)
 	// PatchSeason Monitor or unmonitor a season and all its episodes
 	// (PATCH /titles/{id}/seasons/{season})
 	PatchSeason(ctx context.Context, request PatchSeasonRequestObject) (PatchSeasonResponseObject, error)
@@ -8799,6 +8883,32 @@ func (sh *strictHandler) GetTitlePoster(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetTitlePosterResponseObject); ok {
 		if err := validResponse.VisitGetTitlePosterResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RefreshTitle operation middleware
+func (sh *strictHandler) RefreshTitle(w http.ResponseWriter, r *http.Request, id TitleId) {
+	var request RefreshTitleRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RefreshTitle(ctx, request.(RefreshTitleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RefreshTitle")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RefreshTitleResponseObject); ok {
+		if err := validResponse.VisitRefreshTitleResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

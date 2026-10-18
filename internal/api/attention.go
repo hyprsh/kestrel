@@ -48,10 +48,19 @@ var attentionActions = map[health.Kind]func(health.Row) []oapi.AttentionAction{
 			},
 		}
 	},
+	health.KindGoneUpstream: func(r health.Row) []oapi.AttentionAction {
+		path := fmt.Sprintf("/titles/%d", r.Subject.TitleID)
+		return []oapi.AttentionAction{
+			{Key: "remove", Label: "Remove", Method: oapi.DELETE, Path: path, Confirm: &removeConfirm},
+			{Key: "keep", Label: "Keep as is", Method: oapi.PATCH, Path: path, Body: &map[string]any{"metadata_frozen": true}},
+		}
+	},
 	health.KindProxyHeader: func(health.Row) []oapi.AttentionAction {
 		return []oapi.AttentionAction{openSettings("security", "Open Security")}
 	},
 }
+
+var removeConfirm = "Remove this Title from the Library? Files stay on disk."
 
 func openSettings(section, label string) oapi.AttentionAction {
 	return oapi.AttentionAction{Key: "open", Label: label, Method: oapi.GET, Path: "/settings/" + section}

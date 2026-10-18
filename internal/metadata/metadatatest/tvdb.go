@@ -77,6 +77,13 @@ func (s *TVDBServer) helperServer(t testing.TB) {
 			writeFixture(w, name, http.StatusOK)
 		}
 	}
+	mux.HandleFunc("GET /v4/updates", authed(func(w http.ResponseWriter, r *http.Request) {
+		page := r.URL.Query().Get("page")
+		if page == "" {
+			page = "0"
+		}
+		serve("tvdb_updates_"+page+".json")(w, r)
+	}))
 	mux.HandleFunc("GET /v4/series/{id}", authed(func(w http.ResponseWriter, r *http.Request) {
 		serve("tvdb_series_"+r.PathValue("id")+".json")(w, r)
 	}))

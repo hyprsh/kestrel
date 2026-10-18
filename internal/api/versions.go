@@ -169,6 +169,9 @@ func (s *server) DeleteTitle(ctx context.Context, r oapi.DeleteTitleRequestObjec
 	if err != nil {
 		return nil, err
 	}
+	if err := s.health.Clear(ctx, jobs.GoneUpstreamKey(r.Id)); err != nil {
+		return nil, err
+	}
 	if r.Params.DeleteFiles != nil && *r.Params.DeleteFiles {
 		for _, f := range gone.Files {
 			imports.RemoveFile(f.Path)
@@ -178,4 +181,18 @@ func (s *server) DeleteTitle(ctx context.Context, r oapi.DeleteTitleRequestObjec
 		}
 	}
 	return oapi.DeleteTitle204Response{}, nil
+}
+
+func (s *server) RefreshTitle(ctx context.Context, r oapi.RefreshTitleRequestObject) (oapi.RefreshTitleResponseObject, error) {
+	view, err := s.view(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.library.Get(ctx, r.Id, view); errors.Is(err, library.ErrNotFound) {
+		return nil, problem(http.StatusNotFound, "not_found", "no such Title")
+	} else if err != nil {
+		return nil, err
+	}
+	s.refresher.Enqueue(r.Id)
+	return oapi.RefreshTitle202Response{}, nil
 }

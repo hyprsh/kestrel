@@ -200,6 +200,17 @@ func (s *server) PatchTitle(ctx context.Context, r oapi.PatchTitleRequestObject)
 	if r.Body == nil {
 		return nil, invalid("body", "required", "a body is required")
 	}
+	if r.Body.MetadataFrozen != nil {
+		if err := s.library.SetMetadataFrozen(ctx, r.Id, *r.Body.MetadataFrozen); err != nil {
+			return nil, seriesProblem(err)
+		}
+		if *r.Body.MetadataFrozen {
+			// "Keep as is" settles the Title gone upstream row.
+			if err := s.health.Clear(ctx, jobs.GoneUpstreamKey(r.Id)); err != nil {
+				return nil, err
+			}
+		}
+	}
 	if r.Body.SeriesMonitor != nil {
 		mode := library.Monitor(*r.Body.SeriesMonitor)
 		if !mode.Valid() {

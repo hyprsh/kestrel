@@ -3,6 +3,7 @@ package metadata_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -143,5 +144,20 @@ func TestTVDBKeyPrecedenceMatchesTMDB(t *testing.T) {
 	keys.TVDBEnv = ""
 	if got() != "embedded-key" {
 		t.Errorf("embedded is the last resort, got %q", got())
+	}
+}
+
+func TestTVDBUpdatesFollowThePages(t *testing.T) {
+	tv, srv := newTVDB(t, metadatatest.TVDBKey)
+	ids, err := tv.Updates(context.Background(), time.Unix(1789000000, 0))
+	if err != nil || len(ids) != 3 || ids[0] != 81189 || ids[2] != 5001 {
+		t.Fatalf("ids = %v, %v", ids, err)
+	}
+	var found bool
+	for _, r := range srv.Requests() {
+		found = found || strings.Contains(r, "/v4/updates?") && strings.Contains(r, "since=1789000000") && strings.Contains(r, "type=series")
+	}
+	if !found {
+		t.Errorf("requests = %v", srv.Requests())
 	}
 }

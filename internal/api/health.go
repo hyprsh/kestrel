@@ -183,3 +183,15 @@ func (o observedTVDB) SeriesByIMDb(ctx context.Context, imdbID string) (int, boo
 	observe(ctx, o.h, "TheTVDB", err)
 	return id, ok, err
 }
+
+func (o observedMeta) Changes(ctx context.Context, kind metadata.Kind, since time.Time) ([]int, error) {
+	r, err := o.Provider.Changes(ctx, kind, since)
+	observe(ctx, o.h, "TMDB", err)
+	return r, err
+}
+
+func (o observedTVDB) Updates(ctx context.Context, since time.Time) ([]int, error) {
+	r, err := o.TVDBProvider.Updates(ctx, since)
+	observe(ctx, o.h, "TheTVDB", err)
+	return r, err
+}

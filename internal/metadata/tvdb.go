@@ -42,6 +42,8 @@ type TVDBProvider interface {
 	Series(ctx context.Context, id int) (TVDBSeries, error)
 	// SeriesByIMDb resolves an IMDb id to a TheTVDB series id; ok is false when TheTVDB has none.
 	SeriesByIMDb(ctx context.Context, imdbID string) (id int, ok bool, err error)
+	// Updates lists the ids of the Series changed since a time.
+	Updates(ctx context.Context, since time.Time) ([]int, error)
 }
 
 // TVDBOptions configures NewTVDB.
@@ -257,4 +259,40 @@ func (c *TVDB) SeriesByIMDb(ctx context.Context, imdbID string) (int, bool, erro
 		}
 	}
 	return 0, false, nil
+}
+
+// Updates lists the ids of the Series TheTVDB changed since a time, following the pages.
+func (c *TVDB) Updates(ctx context.Context, since time.Time) ([]int, error) {
+	var ids []int
+	seen := map[int]bool{}
+	for page := 0; page < 200; page++ { // a hard stop against a provider that never ends its pages
+		var res struct {
+			Data []struct {
+				RecordType string `json:"recordType"`
+				RecordID   int    `json:"recordId"`
+				SeriesID   int    `json:"seriesId"`
+			} `json:"data"`
+			Links struct {
+				Next *string `json:"next"`
+			} `json:"links"`
+		}
+		q := url.Values{"since": {strconv.FormatInt(since.Unix(), 10)}, "type": {"series"}, "action": {"update"}, "page": {strconv.Itoa(page)}}
+		if err := c.get(ctx, "/updates?"+q.Encode(), &res); err != nil {
+			return nil, err
+		}
+		for _, d := range res.Data {
+			id := d.RecordID
+			if d.RecordType != "series" && d.SeriesID != 0 {
+				id = d.SeriesID
+			}
+			if id != 0 && !seen[id] {
+				seen[id] = true
+				ids = append(ids, id)
+			}
+		}
+		if res.Links.Next == nil || *res.Links.Next == "" {
+			break
+		}
+	}
+	return ids, nil
 }

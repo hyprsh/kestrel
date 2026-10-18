@@ -161,7 +161,7 @@ func New(opts Options) *App {
 	if prober == nil {
 		prober = probe.Default()
 	}
-	imp, err := imports.New(imports.Deps{Library: s.library, Profiles: s.profiles, Prober: prober, Clock: opts.Clock, Health: s.health})
+	imp, err := imports.New(imports.Deps{Library: s.library, Renames: s.library, Profiles: s.profiles, Prober: prober, Clock: opts.Clock, Health: s.health})
 	if err != nil {
 		panic("api: the embedded TRaSH snapshot is invalid: " + err.Error())
 	}
@@ -178,7 +178,16 @@ func New(opts Options) *App {
 		Store: opts.Store, Clock: opts.Clock, Library: s.library, Profiles: s.profiles, RootFolders: s.rootFolders,
 		Meta: s.meta, TVDB: s.tvdb, Grabs: acq,
 	})
-	s.jobs = jobs.Standard(jobs.Deps{Acquire: acq, Library: s.library, History: s.history, Health: s.health, Importer: imp, ImportSource: acq, Clock: opts.Clock, Logger: opts.Logger})
+	s.refresher = jobs.NewRefresher(jobs.RefresherDeps{
+		Library: s.library, Meta: s.meta, TVDB: s.tvdb, Renamer: imp, State: appSettings,
+		Primary: func(ctx context.Context) (string, error) {
+			region, _, err := s.profiles.Region(ctx)
+			return string(region.Primary), err
+		},
+		Done: func(id int64) { s.hub.publish(hintOf("title", id), hintOf("attention", 0)) },
+		History: s.history, Health: s.health, Clock: opts.Clock, Logger: opts.Logger,
+	})
+	s.jobs = jobs.Standard(jobs.Deps{Refresher: s.refresher, Acquire: acq, Library: s.library, History: s.history, Health: s.health, Importer: imp, ImportSource: acq, Clock: opts.Clock, Logger: opts.Logger})
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ping", s.ping)
@@ -225,6 +234,7 @@ type server struct {
 	requests    *requests.Service
 	adoption    *imports.Adoption
 	jobs        *jobs.Runner
+	refresher   *jobs.Refresher
 	indexers    *indexers.Service
 	downloads   *downloads.Service
 	health      *health.Service

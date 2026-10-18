@@ -390,6 +390,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/titles/{id}/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh a Title's metadata now
+         * @description Starts a refresh from the metadata providers and returns at once; the Title changes when it
+         *     finishes (a `title` hint arrives on the stream). A changed English title or year renames the
+         *     Title's folder and files. A Title with `metadata_frozen` is left as it is.
+         */
+        post: operations["refreshTitle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/titles/{id}": {
         parameters: {
             query?: never;
@@ -413,9 +437,10 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Change a Series' monitoring mode
-         * @description Applies the mode to every episode and season now (Specials are never monitored by a mode).
-         *     `422` for a Movie.
+         * Change a Title's settings
+         * @description `series_monitor` applies the mode to every episode and season now (Specials are never
+         *     monitored by a mode); `422` for a Movie. `metadata_frozen` true keeps the stored metadata as
+         *     it is and clears a "Title gone upstream" row; false lets refreshes resume.
          */
         patch: operations["patchTitle"];
         trace?: never;
@@ -1488,6 +1513,7 @@ export interface components {
         /** @description Merge patch. Only Series have a `series_monitor`. */
         TitlePatch: {
             series_monitor?: components["schemas"]["SeriesMonitor"];
+            metadata_frozen?: boolean;
         };
         SeasonPatch: {
             monitored: boolean;
@@ -2615,6 +2641,28 @@ export interface operations {
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    refreshTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The refresh was started. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

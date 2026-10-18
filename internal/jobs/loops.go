@@ -82,8 +82,15 @@ type History interface {
 	Prune(ctx context.Context) (int64, error)
 }
 
+// DailyRefresher is the metadata refresher's loop pass.
+type DailyRefresher interface {
+	Daily(ctx context.Context) error
+}
+
 // Deps are the modules Standard strings together.
 type Deps struct {
+	// Refresher is optional; without it there is no metadata refresh loop.
+	Refresher DailyRefresher
 	Acquire Acquirer
 	Library Library
 	History History
@@ -151,6 +158,14 @@ func Standard(d Deps) *Runner {
 			Name:  Health,
 			Run:   d.Health.RunChecks,
 			Every: func() time.Duration { return healthEvery },
+		})
+	}
+
+	if d.Refresher != nil {
+		r.Add(Loop{
+			Name:  Refresh,
+			Run:   d.Refresher.Daily,
+			Every: func() time.Duration { return refreshCheckEvery },
 		})
 	}
 
