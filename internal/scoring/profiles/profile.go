@@ -10,16 +10,16 @@ import (
 	"errors"
 
 	"github.com/hyprsh/kestrel/internal/release"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring"
+	"github.com/hyprsh/kestrel/internal/slot"
 )
 
-// Profile is one of the eight builtin Profiles with its per-Profile settings.
+// Profile is one of the six builtin Profiles with its per-Profile settings.
 type Profile struct {
 	Key  string
 	Name string
-	// Slot is the Slot the Profile fills; Any sits in HD but also accepts SD.
-	Slot resolution.Class
+	// Slot is the Slot the Profile fills; Any sits in Standard but also accepts SD.
+	Slot slot.Slot
 	Any  bool
 	Rule scoring.LanguageRule
 	// MinHeight and MaxHeight bound the resolutions it accepts (Settled 2).
@@ -51,27 +51,21 @@ func (p Profile) Spec(primary release.Language) scoring.ProfileSpec {
 	}
 }
 
-// Builtin returns the eight Profiles as shipped: all enabled, HD the default
+// Builtin returns the six Profiles as shipped: all enabled, HD the default
 // of both kinds, no fallback. Backing TRaSH names are the English household's.
 func Builtin() []Profile {
-	mk := func(key, name string, slot resolution.Class, any bool, rule scoring.LanguageRule) Profile {
-		p := Profile{Key: key, Name: name, Slot: slot, Any: any, Rule: rule, Enabled: true}
-		if any {
-			p.MinHeight, p.MaxHeight = 0, 1080
-		} else {
-			p.MinHeight, p.MaxHeight = slot.Range()
-		}
+	mk := func(key, name string, sl slot.Slot, any bool, rule scoring.LanguageRule) Profile {
+		p := Profile{Key: key, Name: name, Slot: sl, Any: any, Rule: rule, Enabled: true}
+		p.MinHeight, p.MaxHeight = scoring.HeightBounds(sl, any)
 		return p
 	}
 	out := []Profile{
-		mk("sd-primary", "SD", resolution.SD, false, scoring.PrimaryLanguage),
-		mk("sd-original", "SD Original", resolution.SD, false, scoring.OriginalLanguage),
-		mk("hd-primary", "HD", resolution.HD, false, scoring.PrimaryLanguage),
-		mk("hd-original", "HD Original", resolution.HD, false, scoring.OriginalLanguage),
-		mk("any-primary", "Any", resolution.HD, true, scoring.PrimaryLanguage),
-		mk("any-original", "Any Original", resolution.HD, true, scoring.OriginalLanguage),
-		mk("uhd-primary", "UHD", resolution.UHD, false, scoring.PrimaryLanguage),
-		mk("uhd-original", "UHD Original", resolution.UHD, false, scoring.OriginalLanguage),
+		mk("hd-primary", "HD", slot.Standard, false, scoring.PrimaryLanguage),
+		mk("hd-original", "HD Original", slot.Standard, false, scoring.OriginalLanguage),
+		mk("any-primary", "Any", slot.Standard, true, scoring.PrimaryLanguage),
+		mk("any-original", "Any Original", slot.Standard, true, scoring.OriginalLanguage),
+		mk("4k-primary", "4K", slot.FourK, false, scoring.PrimaryLanguage),
+		mk("4k-original", "4K Original", slot.FourK, false, scoring.OriginalLanguage),
 	}
 	for i := range out {
 		if out[i].Key == "hd-primary" {
@@ -95,10 +89,10 @@ type Resolved struct {
 // Primary-Language Profile of the Slot, else the enabled Original-Language
 // Profile. An Any Profile is only ever the Slot's default, never a fallback.
 // It returns ErrNoEnabledProfile when the Slot has nothing enabled.
-func Resolve(all []Profile, kind release.Kind, slot resolution.Class) (Resolved, error) {
+func Resolve(all []Profile, kind release.Kind, sl slot.Slot) (Resolved, error) {
 	pick := func(match func(Profile) bool) (Profile, bool) {
 		for _, p := range all {
-			if p.Enabled && p.Slot == slot && match(p) {
+			if p.Enabled && p.Slot == sl && match(p) {
 				return p, true
 			}
 		}
@@ -120,14 +114,14 @@ func Resolve(all []Profile, kind release.Kind, slot resolution.Class) (Resolved,
 // ResolveAccepting is Resolve for a file already in hand: when the Slot's
 // Profile would not accept the file, it picks the enabled Any Profile of the
 // Slot with the same language rule if that accepts it, else the Slot's Profile
-// as Resolve gave it. This is how Adoption files a 576p file in HD under Any.
-func ResolveAccepting(all []Profile, kind release.Kind, slot resolution.Class, accepts func(Profile) bool) (Resolved, error) {
-	r, err := Resolve(all, kind, slot)
+// as Resolve gave it. This is how Adoption files a 576p file in Standard under Any.
+func ResolveAccepting(all []Profile, kind release.Kind, sl slot.Slot, accepts func(Profile) bool) (Resolved, error) {
+	r, err := Resolve(all, kind, sl)
 	if err != nil || accepts(r.Profile) {
 		return r, err
 	}
 	for _, p := range all {
-		if p.Enabled && p.Any && p.Slot == slot && p.Rule == r.Rule && accepts(p) {
+		if p.Enabled && p.Any && p.Slot == sl && p.Rule == r.Rule && accepts(p) {
 			return Resolved{Profile: p}, nil
 		}
 	}
@@ -143,13 +137,13 @@ var (
 
 // Pick finds the Profile with the key and checks it can fill the Slot: it
 // exists, belongs to the Slot and is enabled.
-func Pick(all []Profile, key string, slot resolution.Class) (Profile, error) {
+func Pick(all []Profile, key string, sl slot.Slot) (Profile, error) {
 	for _, p := range all {
 		if p.Key != key {
 			continue
 		}
 		switch {
-		case p.Slot != slot:
+		case p.Slot != sl:
 			return Profile{}, ErrWrongSlot
 		case !p.Enabled:
 			return Profile{}, ErrDisabled

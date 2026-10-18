@@ -53,13 +53,12 @@ type episodeJSON struct {
 	AirDate   *string `json:"air_date"`
 	Monitored bool    `json:"monitored"`
 	Cells     struct {
-		SD  *cellJSON `json:"sd"`
-		HD  *cellJSON `json:"hd"`
-		UHD *cellJSON `json:"uhd"`
+		Standard *cellJSON `json:"standard"`
+		FourK    *cellJSON `json:"4k"`
 	} `json:"cells"`
 }
 
-const addBreakingBad = `{"kind":"series","tmdb_id":1396,"versions":[{"slot":"hd","profile":"hd-primary"}]`
+const addBreakingBad = `{"kind":"series","tmdb_id":1396,"versions":[{"slot":"standard","profile":"hd-primary"}]`
 
 func episodesOf(t *testing.T, l library, id int64) []episodeJSON {
 	t.Helper()
@@ -94,7 +93,7 @@ func TestASeriesIsAddedAgainstTMDBAndTVDBFixturesAndReadBack(t *testing.T) {
 	if len(got.Seasons) != 4 || got.Seasons[0].Number != 0 || got.Seasons[0].Monitored || got.Seasons[1].Monitored || !got.Seasons[2].Monitored || !got.Seasons[3].Monitored {
 		t.Errorf("seasons = %+v", got.Seasons)
 	}
-	if len(got.Versions) != 1 || got.Versions[0].Slot != "hd" || got.Versions[0].State != "unreleased" {
+	if len(got.Versions) != 1 || got.Versions[0].Slot != "standard" || got.Versions[0].State != "unreleased" {
 		t.Errorf("versions = %+v", got.Versions)
 	}
 
@@ -106,14 +105,14 @@ func TestASeriesIsAddedAgainstTMDBAndTVDBFixturesAndReadBack(t *testing.T) {
 	if pilot.Season != 1 || pilot.Number != 1 || pilot.Name != "Pilot" || pilot.AirDate == nil || *pilot.AirDate != "2008-01-20" || pilot.Monitored {
 		t.Errorf("pilot = %+v", pilot)
 	}
-	if pilot.Cells.HD == nil || pilot.Cells.HD.State != "unmonitored" || pilot.Cells.SD != nil || pilot.Cells.UHD != nil {
+	if pilot.Cells.Standard == nil || pilot.Cells.Standard.State != "unmonitored" || pilot.Cells.FourK != nil {
 		t.Errorf("pilot cells = %+v", pilot.Cells)
 	}
 	undated := eps[6]
-	if undated.Name != "Bit by a Dead Bee" || undated.AirDate != nil || !undated.Monitored || undated.Cells.HD.State != "unreleased" {
+	if undated.Name != "Bit by a Dead Bee" || undated.AirDate != nil || !undated.Monitored || undated.Cells.Standard.State != "unreleased" {
 		t.Errorf("undated = %+v", undated)
 	}
-	if eps[7].Cells.HD.State != "unreleased" || !eps[7].Monitored {
+	if eps[7].Cells.Standard.State != "unreleased" || !eps[7].Monitored {
 		t.Errorf("future episode = %+v", eps[7])
 	}
 
@@ -121,7 +120,7 @@ func TestASeriesIsAddedAgainstTMDBAndTVDBFixturesAndReadBack(t *testing.T) {
 	rows := decode[struct {
 		Items []rowJSON `json:"items"`
 	}](t, l.valid("GET", "/titles?kind=series", "")).Items
-	if len(rows) != 1 || rows[0].Slots.HD == nil || rows[0].Slots.HD.State != "unreleased" {
+	if len(rows) != 1 || rows[0].Slots.Standard == nil || rows[0].Slots.Standard.State != "unreleased" {
 		t.Errorf("rows = %+v", rows)
 	}
 }
@@ -179,7 +178,7 @@ func TestLookupOffersSeriesAndGreysOutThoseNotOnTheTVDB(t *testing.T) {
 
 func TestASeriesWithoutATVDBMatchIsRefused(t *testing.T) {
 	l := newLibraryInstance(t, metadatatest.Key)
-	r := l.do("POST", "/titles", `{"kind":"series","tmdb_id":9001,"versions":[{"slot":"hd","profile":"hd-primary"}]}`)
+	r := l.do("POST", "/titles", `{"kind":"series","tmdb_id":9001,"versions":[{"slot":"standard","profile":"hd-primary"}]}`)
 	if r.Status != 422 || !strings.Contains(r.Body, `"field":"tmdb_id"`) || !strings.Contains(r.Body, `"code":"not_on_tvdb"`) {
 		t.Errorf("add = %d %s", r.Status, r.Body)
 	}
@@ -190,7 +189,7 @@ func TestASeriesWithoutATVDBMatchIsRefused(t *testing.T) {
 
 func TestASeriesTheTVDBOnlyKnowsByIMDbIDIsAddedThroughTheBridge(t *testing.T) {
 	l := newLibraryInstance(t, metadatatest.Key)
-	r := l.valid("POST", "/titles", `{"kind":"series","tmdb_id":7001,"versions":[{"slot":"hd","profile":"hd-primary"}]}`)
+	r := l.valid("POST", "/titles", `{"kind":"series","tmdb_id":7001,"versions":[{"slot":"standard","profile":"hd-primary"}]}`)
 	if r.Status != 201 {
 		t.Fatalf("add = %d %s", r.Status, r.Body)
 	}
@@ -212,7 +211,7 @@ func TestAddingTheSameSeriesTwiceIsAConflict(t *testing.T) {
 func TestASeriesSuggestionPreselectsFromTheSeriesDefaults(t *testing.T) {
 	l := newLibraryInstance(t, metadatatest.Key)
 	sug := decode[suggestionJSON](t, l.valid("GET", "/lookup/series/1396", ""))
-	if sug.Title != "Breaking Bad" || len(sug.Slots) != 1 || sug.Slots[0].Slot != "hd" || sug.Slots[0].Profile != "hd-primary" {
+	if sug.Title != "Breaking Bad" || len(sug.Slots) != 1 || sug.Slots[0].Slot != "standard" || sug.Slots[0].Profile != "hd-primary" {
 		t.Errorf("suggestion = %+v", sug)
 	}
 	if sug.Certification == nil || *sug.Certification != "TV-MA" {

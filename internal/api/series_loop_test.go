@@ -102,15 +102,15 @@ func TestTheSeriesLoopAddsAGrabsASingleEpisodeImportsItAndFillsTheHeatMap(t *tes
 
 	eps := s.heat(t)
 	pilot := eps[1]
-	if pilot.Cells.HD == nil || pilot.Cells.HD.State != "filled" || pilot.Cells.HD.Score == nil {
+	if pilot.Cells.Standard == nil || pilot.Cells.Standard.State != "filled" || pilot.Cells.Standard.Score == nil {
 		t.Fatalf("pilot cells = %+v", pilot.Cells)
 	}
-	if eps[2].Cells.HD.State != "wanted" {
-		t.Errorf("episode 2 = %+v, want it still wanted", eps[2].Cells.HD)
+	if eps[2].Cells.Standard.State != "wanted" {
+		t.Errorf("episode 2 = %+v, want it still wanted", eps[2].Cells.Standard)
 	}
 	season := filepath.Join(s.data, "media", "tv", "Breaking Bad (2008) {tvdb-81189}", "Season 01")
 	entries, err := os.ReadDir(season)
-	if err != nil || len(entries) != 1 || !strings.HasPrefix(entries[0].Name(), "Breaking Bad (2008) - S01E01 - [HD]") {
+	if err != nil || len(entries) != 1 || !strings.HasPrefix(entries[0].Name(), "Breaking Bad (2008) - S01E01 - [Standard]") {
 		t.Errorf("season folder = %v, %v", entries, err)
 	}
 	if q := s.queue(t); len(q) != 0 {
@@ -134,8 +134,8 @@ func TestASeasonPackIsGrabbedAndImportedForEveryEpisodeItHolds(t *testing.T) {
 	s.pass(t, jobs.Import)
 
 	for i, ep := range s.heat(t)[1:4] {
-		if ep.Cells.HD.State != "filled" {
-			t.Errorf("episode %d = %+v", i+1, ep.Cells.HD)
+		if ep.Cells.Standard.State != "filled" {
+			t.Errorf("episode %d = %+v", i+1, ep.Cells.Standard)
 		}
 	}
 	entries, _ := os.ReadDir(filepath.Join(s.data, "media", "tv", "Breaking Bad (2008) {tvdb-81189}", "Season 01"))

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/library/db"
-	"github.com/hyprsh/kestrel/internal/resolution"
+	"github.com/hyprsh/kestrel/internal/slot"
 )
 
 // The sweeps' cadences.
@@ -412,7 +412,7 @@ type LongMissingItem struct {
 	TitleID     int64
 	VersionID   int64
 	Title       string
-	Slot        resolution.Class
+	Slot        slot.Slot
 	Profile     string
 	WantedSince time.Time
 }
@@ -428,7 +428,7 @@ func (s *Service) LongMissing(ctx context.Context, view View) ([]LongMissingItem
 		for class, sl := range r.Slots {
 			if sl != nil && sl.LongMissing && sl.WantedSince != nil {
 				out = append(out, LongMissingItem{
-					TitleID: r.ID, VersionID: sl.VersionID, Title: r.Title, Slot: resolution.Class(class), Profile: sl.Profile, WantedSince: *sl.WantedSince,
+					TitleID: r.ID, VersionID: sl.VersionID, Title: r.Title, Slot: slot.Slot(class), Profile: sl.Profile, WantedSince: *sl.WantedSince,
 				})
 			}
 		}

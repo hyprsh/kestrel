@@ -121,9 +121,9 @@ func (s *search) addPaddington(t *testing.T) {
 	s.title = created.ID
 	for _, v := range created.Versions {
 		switch v.Slot {
-		case "hd":
+		case "standard":
 			s.hd = v.ID
-		case "uhd":
+		case "4k":
 			s.uhd = v.ID
 		}
 	}

@@ -2,6 +2,7 @@ package library_test
 
 import (
 	"context"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"testing"
 
 	"github.com/hyprsh/kestrel/internal/library"
@@ -26,11 +27,11 @@ func TestAnEpisodeFileFillsItsEpisodesInTheHeatMapAndSetsTheSeriesFolder(t *test
 
 	got, _ := lib.Episodes(ctx, id, library.View{Country: "US", Now: now})
 	for _, ep := range got[1:3] {
-		if c := ep.Cells[1]; c == nil || c.State != library.Filled || c.Score == nil || *c.Score != 10 {
+		if c := ep.Cells[slot.Standard]; c == nil || c.State != library.Filled || c.Score == nil || *c.Score != 10 {
 			t.Errorf("episode %d cell = %+v", ep.Number, c)
 		}
 	}
-	if c := got[3].Cells[1]; c.State == library.Filled {
+	if c := got[3].Cells[slot.Standard]; c.State == library.Filled {
 		t.Errorf("an episode nothing was imported for is %v", c.State)
 	}
 	after, _ := lib.Get(ctx, id, library.View{Country: "US", Now: now})

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hyprsh/kestrel/internal/imports"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"net/http"
 	"os"
 	"strconv"
@@ -15,7 +16,6 @@ import (
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 )
 
@@ -33,24 +33,16 @@ func strPtr(s string) *string {
 	return &s
 }
 
-func slotToAPI(c resolution.Class) oapi.Slot {
-	switch c {
-	case resolution.HD:
-		return oapi.Hd
-	case resolution.UHD:
-		return oapi.Uhd
-	}
-	return oapi.Sd
-}
+func slotToAPI(s slot.Slot) oapi.Slot { return oapi.Slot(s.Key()) }
 
-func slotFromAPI(s oapi.Slot) resolution.Class {
-	switch s {
-	case oapi.Hd:
-		return resolution.HD
-	case oapi.Uhd:
-		return resolution.UHD
+// slotFromAPI reads a Slot from a request body; anything but standard or 4k is
+// a validation problem on the field.
+func slotFromAPI(s oapi.Slot, field string) (slot.Slot, error) {
+	sl, ok := slot.Parse(string(s))
+	if !ok {
+		return sl, invalid(field, "invalid", "slot must be standard or 4k")
 	}
-	return resolution.SD
+	return sl, nil
 }
 
 // metaProblem maps a provider failure to the API's problem codes.
@@ -203,7 +195,7 @@ func rowToAPI(r library.Row) oapi.TitleRow {
 		Id: r.ID, Kind: oapi.TitleKind(r.Kind), Title: r.Title, PrimaryTitle: r.PrimaryTitle, Year: intPtr(r.Year),
 		WantedSince: r.WantedSince, AddedAt: r.AddedAt,
 	}
-	out.Slots.Sd, out.Slots.Hd, out.Slots.Uhd = summary(r.Slots[resolution.SD]), summary(r.Slots[resolution.HD]), summary(r.Slots[resolution.UHD])
+	out.Slots.Standard, out.Slots.N4k = summary(r.Slots[slot.Standard]), summary(r.Slots[slot.FourK])
 	return out
 }
 
@@ -348,17 +340,20 @@ func (s *server) CreateTitle(ctx context.Context, r oapi.CreateTitleRequestObjec
 		return nil, err
 	}
 	var specs []library.VersionSpec
-	seen := map[resolution.Class]bool{}
+	seen := map[slot.Slot]bool{}
 	for i, v := range b.Versions {
-		slot := slotFromAPI(v.Slot)
-		if seen[slot] {
-			return nil, invalid(fmt.Sprintf("versions[%d].slot", i), "duplicate", "A Slot holds one Version")
-		}
-		if err := profileProblem(fmt.Sprintf("versions[%d].profile", i), all, v.Profile, slot); err != nil {
+		sl, err := slotFromAPI(v.Slot, fmt.Sprintf("versions[%d].slot", i))
+		if err != nil {
 			return nil, err
 		}
-		seen[slot] = true
-		specs = append(specs, library.VersionSpec{Slot: slot, Profile: v.Profile})
+		if seen[sl] {
+			return nil, invalid(fmt.Sprintf("versions[%d].slot", i), "duplicate", "A Slot holds one Version")
+		}
+		if err := profileProblem(fmt.Sprintf("versions[%d].profile", i), all, v.Profile, sl); err != nil {
+			return nil, err
+		}
+		seen[sl] = true
+		specs = append(specs, library.VersionSpec{Slot: sl, Profile: v.Profile})
 	}
 	roots, _, err := s.rootFolders.Get(ctx)
 	if err != nil {

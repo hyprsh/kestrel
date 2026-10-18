@@ -32,8 +32,8 @@ func profileMap(t *testing.T, b *browser) map[string]profileJSON {
 	list := decode[struct {
 		Items []profileJSON `json:"items"`
 	}](t, b.valid("GET", "/profiles", ""))
-	if len(list.Items) != 8 {
-		t.Fatalf("%d Profiles, want 8", len(list.Items))
+	if len(list.Items) != 6 {
+		t.Fatalf("%d Profiles, want 6", len(list.Items))
 	}
 	m := map[string]profileJSON{}
 	for _, p := range list.Items {
@@ -46,7 +46,7 @@ func TestProfilesAreSeededAndPatchable(t *testing.T) {
 	b := newInstance(t, "").setUp()
 	m := profileMap(t, b)
 	hd := m["hd-primary"]
-	if hd.Slot != "hd" || hd.LanguageRule != "primary" || !hd.Enabled || !hd.DefaultMovies || !hd.DefaultSeries || hd.MinHeight != 720 || hd.MaxHeight != 1080 {
+	if hd.Slot != "standard" || hd.LanguageRule != "primary" || !hd.Enabled || !hd.DefaultMovies || !hd.DefaultSeries || hd.MinHeight != 720 || hd.MaxHeight != 1080 {
 		t.Errorf("hd-primary = %+v", hd)
 	}
 
@@ -54,11 +54,11 @@ func TestProfilesAreSeededAndPatchable(t *testing.T) {
 	if !p.OriginalFallback {
 		t.Errorf("fallback not set: %+v", p)
 	}
-	p = decode[profileJSON](t, b.valid("PATCH", "/profiles/uhd-primary", `{"default_movies":true}`))
+	p = decode[profileJSON](t, b.valid("PATCH", "/profiles/4k-primary", `{"default_movies":true}`))
 	if !p.DefaultMovies || p.DefaultSeries {
 		t.Errorf("UHD default: %+v", p)
 	}
-	if m = profileMap(t, b); !m["uhd-primary"].DefaultMovies {
+	if m = profileMap(t, b); !m["4k-primary"].DefaultMovies {
 		t.Error("UHD default not stored")
 	}
 }
@@ -97,8 +97,8 @@ func TestChangingThePrimaryLanguageRepointsProfiles(t *testing.T) {
 		t.Errorf("German: %+v", s.LanguageRegion)
 	}
 	m := profileMap(t, b)
-	if m["hd-primary"].TrashProfileMovies != "german-hd-bluray-web" || m["uhd-primary"].TrashProfileSeries != "german-uhd-bluray-web" ||
-		m["hd-original"].TrashProfileMovies != "hd-bluray-web" || m["uhd-original"].TrashProfileSeries != "web-2160p" {
+	if m["hd-primary"].TrashProfileMovies != "german-hd-bluray-web" || m["4k-primary"].TrashProfileSeries != "german-uhd-bluray-web" ||
+		m["hd-original"].TrashProfileMovies != "hd-bluray-web" || m["4k-original"].TrashProfileSeries != "web-2160p" {
 		t.Errorf("not re-pointed: %+v", m)
 	}
 
@@ -174,7 +174,7 @@ func TestTheAnyProfilesTakeTheKidsProfilesPlace(t *testing.T) {
 	m := profileMap(t, b)
 	for key, name := range map[string]string{"any-primary": "Any", "any-original": "Any Original"} {
 		p := m[key]
-		if p.Name != name || p.Slot != "hd" || p.MinHeight != 0 || p.MaxHeight != 1080 || !p.Enabled || p.DefaultMovies || p.DefaultSeries {
+		if p.Name != name || p.Slot != "standard" || p.MinHeight != 0 || p.MaxHeight != 1080 || !p.Enabled || p.DefaultMovies || p.DefaultSeries {
 			t.Errorf("%s = %+v", key, p)
 		}
 	}

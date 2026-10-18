@@ -6,7 +6,7 @@ import (
 	"errors"
 
 	"github.com/hyprsh/kestrel/internal/library/db"
-	"github.com/hyprsh/kestrel/internal/resolution"
+	"github.com/hyprsh/kestrel/internal/slot"
 )
 
 func misfitSet(ctx context.Context, q *db.Queries) (map[int64]bool, error) {
@@ -28,7 +28,7 @@ var ErrVersionNotFound = errors.New("version not found")
 type VersionRef struct {
 	ID      int64
 	TitleID int64
-	Slot    resolution.Class
+	Slot    slot.Slot
 	Profile string
 }
 

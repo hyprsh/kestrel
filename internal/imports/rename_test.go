@@ -52,7 +52,7 @@ func TestATitleChangeRenamesTheFolderTheFileAndItsSubtitlesTogether(t *testing.T
 		t.Fatalf("files = %v", files)
 	}
 	for _, f := range files {
-		if !strings.HasPrefix(f, newFolder+string(filepath.Separator)+"Paddington Bear (2015) {tmdb-116149} - [HD]") {
+		if !strings.HasPrefix(f, newFolder+string(filepath.Separator)+"Paddington Bear (2015) {tmdb-116149} - [Standard]") {
 			t.Errorf("%q does not follow the new name", f)
 		}
 	}
@@ -165,7 +165,7 @@ func TestASeriesTitleChangeRenamesTheSeriesFolderAndEveryEpisodeFile(t *testing.
 	if len(files) != 2 {
 		t.Fatalf("files = %v", files)
 	}
-	want := []string{"Night Show Reborn (2024) {tvdb-5001}/Season 01/Night Show Reborn (2024) - S01E01 - [HD]", "Night Show Reborn (2024) {tvdb-5001}/Season 02/Night Show Reborn (2024) - S02E01 - [HD]"}
+	want := []string{"Night Show Reborn (2024) {tvdb-5001}/Season 01/Night Show Reborn (2024) - S01E01 - [Standard]", "Night Show Reborn (2024) {tvdb-5001}/Season 02/Night Show Reborn (2024) - S02E01 - [Standard]"}
 	for i, f := range files {
 		if !strings.HasPrefix(f, want[i]) {
 			t.Errorf("%q, want prefix %q", f, want[i])

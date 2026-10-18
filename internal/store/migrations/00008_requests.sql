@@ -20,7 +20,7 @@ CREATE INDEX requests_title ON requests (title_id);
 
 CREATE TABLE request_slots (
     request_id  INTEGER NOT NULL REFERENCES requests (id) ON DELETE CASCADE,
-    slot        TEXT    NOT NULL CHECK (slot IN ('sd', 'hd', 'uhd')),
+    slot        TEXT    NOT NULL CHECK (slot IN ('standard', '4k')),
     profile_key TEXT,
     version_id  INTEGER REFERENCES versions (id) ON DELETE SET NULL,
     PRIMARY KEY (request_id, slot)

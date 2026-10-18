@@ -1,12 +1,12 @@
 package scoring_test
 
 import (
+	"github.com/hyprsh/kestrel/internal/slot"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/hyprsh/kestrel/internal/release"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring"
 )
 
@@ -38,26 +38,24 @@ func TestBackingProfileTable(t *testing.T) {
 	type row struct {
 		primary release.Language
 		rule    scoring.LanguageRule
-		slot    resolution.Class
+		slot    slot.Slot
 		wide    bool
 		movie   string
 		series  string
 	}
 	rows := []row{
-		{release.LangGerman, scoring.PrimaryLanguage, resolution.HD, false, "german-hd-bluray-web", "german-hd-bluray-web"},
-		{release.LangGerman, scoring.PrimaryLanguage, resolution.UHD, false, "german-uhd-bluray-web", "german-uhd-bluray-web"},
-		{release.LangGerman, scoring.PrimaryLanguage, resolution.SD, false, "german-hd-bluray-web", "german-hd-bluray-web"},
-		{release.LangGerman, scoring.PrimaryLanguage, resolution.HD, true, "german-hd-bluray-web", "german-hd-bluray-web"},
-		{release.LangFrench, scoring.PrimaryLanguage, resolution.HD, false, "french-multi-vf-hd-bluray-web", "french-multi-vf-bluray-web-1080p"},
-		{release.LangFrench, scoring.PrimaryLanguage, resolution.UHD, false, "french-multi-vf-uhd-bluray-web", "french-multi-vf-bluray-web-2160p"},
-		{release.LangFrench, scoring.OriginalLanguage, resolution.HD, false, "french-multi-vo-hd-bluray-web", "french-multi-vo-bluray-web-1080p"},
-		{release.LangFrench, scoring.OriginalLanguage, resolution.UHD, false, "french-multi-vo-uhd-bluray-web", "french-multi-vo-bluray-web-2160p"},
-		{release.LangFrench, scoring.OriginalLanguage, resolution.SD, false, "french-multi-vo-hd-bluray-web", "french-multi-vo-bluray-web-1080p"},
-		{release.LangEnglish, scoring.PrimaryLanguage, resolution.HD, false, "hd-bluray-web", "web-1080p"},
-		{release.LangEnglish, scoring.OriginalLanguage, resolution.HD, false, "hd-bluray-web", "web-1080p"},
-		{release.LangEnglish, scoring.PrimaryLanguage, resolution.UHD, false, "uhd-bluray-web", "web-2160p"},
-		{release.LangGerman, scoring.OriginalLanguage, resolution.HD, false, "hd-bluray-web", "web-1080p"},
-		{release.LangGerman, scoring.OriginalLanguage, resolution.UHD, false, "uhd-bluray-web", "web-2160p"},
+		{release.LangGerman, scoring.PrimaryLanguage, slot.Standard, false, "german-hd-bluray-web", "german-hd-bluray-web"},
+		{release.LangGerman, scoring.PrimaryLanguage, slot.FourK, false, "german-uhd-bluray-web", "german-uhd-bluray-web"},
+		{release.LangGerman, scoring.PrimaryLanguage, slot.Standard, true, "german-hd-bluray-web", "german-hd-bluray-web"},
+		{release.LangFrench, scoring.PrimaryLanguage, slot.Standard, false, "french-multi-vf-hd-bluray-web", "french-multi-vf-bluray-web-1080p"},
+		{release.LangFrench, scoring.PrimaryLanguage, slot.FourK, false, "french-multi-vf-uhd-bluray-web", "french-multi-vf-bluray-web-2160p"},
+		{release.LangFrench, scoring.OriginalLanguage, slot.Standard, false, "french-multi-vo-hd-bluray-web", "french-multi-vo-bluray-web-1080p"},
+		{release.LangFrench, scoring.OriginalLanguage, slot.FourK, false, "french-multi-vo-uhd-bluray-web", "french-multi-vo-bluray-web-2160p"},
+		{release.LangEnglish, scoring.PrimaryLanguage, slot.Standard, false, "hd-bluray-web", "web-1080p"},
+		{release.LangEnglish, scoring.OriginalLanguage, slot.Standard, false, "hd-bluray-web", "web-1080p"},
+		{release.LangEnglish, scoring.PrimaryLanguage, slot.FourK, false, "uhd-bluray-web", "web-2160p"},
+		{release.LangGerman, scoring.OriginalLanguage, slot.Standard, false, "hd-bluray-web", "web-1080p"},
+		{release.LangGerman, scoring.OriginalLanguage, slot.FourK, false, "uhd-bluray-web", "web-2160p"},
 	}
 	for _, r := range rows {
 		prof, err := snap.Profile(scoring.ProfileSpec{Slot: r.slot, Any: r.wide, Rule: r.rule, Primary: r.primary})
@@ -78,13 +76,13 @@ func TestEveryProfileOfEveryPrimaryLanguageResolves(t *testing.T) {
 	snap := embedded(t)
 	for _, primary := range []release.Language{release.LangEnglish, release.LangGerman, release.LangFrench} {
 		for _, rule := range []scoring.LanguageRule{scoring.PrimaryLanguage, scoring.OriginalLanguage} {
-			for _, slot := range []resolution.Class{resolution.SD, resolution.HD, resolution.UHD} {
+			for _, sl := range []slot.Slot{slot.Standard, slot.FourK} {
 				for _, wide := range []bool{false, true} {
-					if wide && slot != resolution.HD {
+					if wide && sl != slot.Standard {
 						continue
 					}
-					if _, err := snap.Profile(scoring.ProfileSpec{Slot: slot, Any: wide, Rule: rule, Primary: primary}); err != nil {
-						t.Errorf("%s rule=%d %v wide=%v: %v", primary.Name, rule, slot, wide, err)
+					if _, err := snap.Profile(scoring.ProfileSpec{Slot: sl, Any: wide, Rule: rule, Primary: primary}); err != nil {
+						t.Errorf("%s rule=%d %v wide=%v: %v", primary.Name, rule, sl, wide, err)
 					}
 				}
 			}
@@ -93,25 +91,23 @@ func TestEveryProfileOfEveryPrimaryLanguageResolves(t *testing.T) {
 }
 
 func TestUnsupportedPrimaryLanguageHasNoBackingProfile(t *testing.T) {
-	_, err := embedded(t).Profile(scoring.ProfileSpec{Slot: resolution.HD, Primary: release.LangJapanese})
+	_, err := embedded(t).Profile(scoring.ProfileSpec{Slot: slot.Standard, Primary: release.LangJapanese})
 	if err == nil {
 		t.Fatal("expected an error for a Primary Language TRaSH has no profiles for")
 	}
 }
 
-func TestDerivedProfilesShareTheHDScoresAndChangeTheQualities(t *testing.T) {
+func TestAnyProfileSharesTheHDScoresAndWidensTheQualities(t *testing.T) {
 	snap := embedded(t)
 	spec := scoring.ProfileSpec{Rule: scoring.PrimaryLanguage, Primary: release.LangGerman}
 
-	spec.Slot = resolution.HD
+	spec.Slot = slot.Standard
 	hd, _ := snap.Profile(spec)
-	spec.Slot = resolution.SD
-	sd, _ := snap.Profile(spec)
-	spec.Slot, spec.Any = resolution.HD, true
+	spec.Slot, spec.Any = slot.Standard, true
 	wide, _ := snap.Profile(spec)
 
-	if sd.MinHeight != 0 || sd.MaxHeight != 576 || hd.MinHeight != 720 || hd.MaxHeight != 1080 || wide.MinHeight != 0 || wide.MaxHeight != 1080 {
-		t.Errorf("height bounds SD %d-%d, HD %d-%d, Any %d-%d", sd.MinHeight, sd.MaxHeight, hd.MinHeight, hd.MaxHeight, wide.MinHeight, wide.MaxHeight)
+	if hd.MinHeight != 720 || hd.MaxHeight != 1080 || wide.MinHeight != 0 || wide.MaxHeight != 1080 {
+		t.Errorf("height bounds HD %d-%d, Any %d-%d", hd.MinHeight, hd.MaxHeight, wide.MinHeight, wide.MaxHeight)
 	}
 	for _, q := range []string{"WEBDL-1080p", "Bluray-720p"} {
 		if !contains(hd.AllowedQualities(release.KindMovie), q) {
@@ -119,18 +115,12 @@ func TestDerivedProfilesShareTheHDScoresAndChangeTheQualities(t *testing.T) {
 		}
 	}
 	for _, q := range []string{"SDTV", "DVD", "WEBDL-480p", "WEBRip-480p", "Bluray-480p", "Bluray-576p"} {
-		if !contains(sd.AllowedQualities(release.KindMovie), q) {
-			t.Errorf("SD should allow %s", q)
-		}
 		if !contains(wide.AllowedQualities(release.KindMovie), q) {
 			t.Errorf("Any should allow %s", q)
 		}
 		if contains(hd.AllowedQualities(release.KindMovie), q) {
 			t.Errorf("HD should not allow %s", q)
 		}
-	}
-	if contains(sd.AllowedQualities(release.KindMovie), "WEBDL-1080p") {
-		t.Error("SD should not allow WEBDL-1080p")
 	}
 	if !contains(wide.AllowedQualities(release.KindMovie), "WEBDL-1080p") {
 		t.Error("Any keeps the HD qualities")
@@ -172,7 +162,7 @@ func TestGermanProfileScoresFollowTheTrashScoreSet(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			prof, err := snap.Profile(scoring.ProfileSpec{Slot: resolution.HD, Rule: scoring.PrimaryLanguage, Primary: release.LangGerman})
+			prof, err := snap.Profile(scoring.ProfileSpec{Slot: slot.Standard, Rule: scoring.PrimaryLanguage, Primary: release.LangGerman})
 			if err != nil {
 				t.Fatal(err)
 			}

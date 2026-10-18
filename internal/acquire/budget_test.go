@@ -2,12 +2,12 @@ package acquire_test
 
 import (
 	"context"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"testing"
 	"time"
 
 	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
-	"github.com/hyprsh/kestrel/internal/resolution"
 )
 
 func TestDecideSkipsAnIndexerWhoseGrabQuotaIsSpent(t *testing.T) {
@@ -25,7 +25,7 @@ func TestDecideSkipsAnIndexerWhoseGrabQuotaIsSpent(t *testing.T) {
 	}
 	r.idx.Report(indexer.Limits{Reported: true, APICurrent: 1, APIMax: 100, GrabCurrent: 5, GrabMax: 5})
 
-	out, err := r.svc.SearchWanted(ctx, r.titleID, []int64{r.versions[resolution.HD]})
+	out, err := r.svc.SearchWanted(ctx, r.titleID, []int64{r.versions[slot.Standard]})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,21 +39,21 @@ func TestSweepsStopAt80PercentOfTheBudgetButManualSearchRuns(t *testing.T) {
 	r := newRig(t)
 	r.publish(t, hd1080, time.Hour)
 	r.idx.Report(indexer.Limits{Reported: true, APICurrent: 80, APIMax: 100, GrabCurrent: 0, GrabMax: 0})
-	if res, err := r.svc.Search(ctx, r.versions[resolution.HD]); err != nil || len(res.Items) == 0 {
+	if res, err := r.svc.Search(ctx, r.versions[slot.Standard]); err != nil || len(res.Items) == 0 {
 		t.Fatalf("manual search = %+v, %v", res, err)
 	}
 
-	out, err := r.svc.SearchWanted(ctx, r.titleID, []int64{r.versions[resolution.HD]})
+	out, err := r.svc.SearchWanted(ctx, r.titleID, []int64{r.versions[slot.Standard]})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(out.Searched) != 0 || len(out.Grabbed) != 0 {
 		t.Errorf("the sweep went ahead: %+v", out)
 	}
-	if out, _ := r.svc.SearchUpgrades(ctx, r.titleID, []int64{r.versions[resolution.HD]}); len(out.Searched) != 0 {
+	if out, _ := r.svc.SearchUpgrades(ctx, r.titleID, []int64{r.versions[slot.Standard]}); len(out.Searched) != 0 {
 		t.Errorf("the Upgrade sweep went ahead: %+v", out)
 	}
-	if res, err := r.svc.Search(ctx, r.versions[resolution.HD]); err != nil || len(res.Items) == 0 {
+	if res, err := r.svc.Search(ctx, r.versions[slot.Standard]); err != nil || len(res.Items) == 0 {
 		t.Errorf("manual search after the stop = %+v, %v", res, err)
 	}
 }
@@ -64,7 +64,7 @@ func TestSearchOnAddIsNotASweepSoTheBudgetStopDoesNotApply(t *testing.T) {
 	r.publish(t, hd1080, time.Hour)
 	r.idx.Report(indexer.Limits{Reported: true, APICurrent: 80, APIMax: 100})
 
-	out, err := r.svc.SearchNew(ctx, r.titleID, []int64{r.versions[resolution.HD]})
+	out, err := r.svc.SearchNew(ctx, r.titleID, []int64{r.versions[slot.Standard]})
 
 	if err != nil || len(out.Searched) != 1 || len(out.Grabbed) != 1 {
 		t.Fatalf("search on add at 80%% = %+v, %v; only sweeps stop there", out, err)

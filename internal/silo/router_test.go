@@ -138,36 +138,24 @@ func TestASiloRequestFrom4KUserBecomesAKestrelRequestWithHDAndUHD(t *testing.T) 
 	for _, s := range req.Slots {
 		got[s.Slot] = *s.Profile
 	}
-	if len(got) != 2 || got["hd"] == "" || got["uhd"] == "" {
-		t.Errorf("slots = %v, want hd and uhd with resolved Profiles", got)
+	if len(got) != 2 || got["standard"] == "" || got["4k"] == "" {
+		t.Errorf("slots = %v, want standard and 4k with resolved Profiles", got)
 	}
 	if req.Source != "silo" || req.Requester.Name != "anna" || req.Requester.ID != "7" {
 		t.Errorf("request = %+v, want it to say Anna asked via Silo", req)
 	}
 }
 
-func TestA1080pOnlyRequestAddsOnlyHDAndAlsoAddSDAddsAnInvisibleSDVersion(t *testing.T) {
+func TestA1080pOnlyRequestAddsOnlyTheStandardSlot(t *testing.T) {
 	k := newKestrel(t)
 	r := silo.NewRouter(silo.Options{})
 
-	hdOnly := fulfil(t, r, conn(t, k.URL(), k.Key, nil), movie(7), "1080p")
-	if len(hdOnly.Targets) != 1 || hdOnly.Targets[0].Quality != "1080p" {
-		t.Fatalf("targets = %+v", hdOnly.Targets)
+	standardOnly := fulfil(t, r, conn(t, k.URL(), k.Key, nil), movie(7), "1080p")
+	if len(standardOnly.Targets) != 1 || standardOnly.Targets[0].Quality != "1080p" {
+		t.Fatalf("targets = %+v", standardOnly.Targets)
 	}
-	if slots := requestOf(t, k, hdOnly.Targets[0]).Slots; len(slots) != 1 || slots[0].Slot != "hd" {
-		t.Errorf("slots = %+v, want hd only", slots)
-	}
-
-	withSD := fulfil(t, r, conn(t, k.URL(), k.Key, map[string]any{"also_add_sd": true}), movie(8), "1080p")
-	if len(withSD.Targets) != 1 {
-		t.Errorf("targets = %+v, want SD invisible to Silo", withSD.Targets)
-	}
-	var slots []string
-	for _, s := range requestOf(t, k, withSD.Targets[0]).Slots {
-		slots = append(slots, s.Slot)
-	}
-	if fmt.Sprint(slots) != "[sd hd]" && fmt.Sprint(slots) != "[hd sd]" {
-		t.Errorf("slots = %v, want hd and sd", slots)
+	if slots := requestOf(t, k, standardOnly.Targets[0]).Slots; len(slots) != 1 || slots[0].Slot != "standard" {
+		t.Errorf("slots = %+v, want standard only", slots)
 	}
 }
 
@@ -193,7 +181,7 @@ func TestConfiguredProfilesAreRequestedPerSlotAndListedAsOptions(t *testing.T) {
 	for _, s := range requestOf(t, k, res.Targets[0]).Slots {
 		got[s.Slot] = *s.Profile
 	}
-	if got["hd"] != pick || got["uhd"] != uhdPick {
+	if got["standard"] != pick || got["4k"] != uhdPick {
 		t.Errorf("profiles = %v, want hd=%s uhd=%s", got, pick, uhdPick)
 	}
 }
@@ -300,7 +288,7 @@ func TestStatusAndProgressRoundTripFromQueuedThroughDownloadingToCompleted(t *te
 
 	var hdVersion int64
 	for _, sl := range requestOf(t, k, target(t, res, "1080p")).Slots {
-		if sl.Slot == "hd" {
+		if sl.Slot == "standard" {
 			hdVersion = *sl.VersionID
 		}
 	}
@@ -351,7 +339,7 @@ func TestASeriesRequestSendsTheRequestedSeasonsAndTheTVDBID(t *testing.T) {
 	stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		w.WriteHeader(201)
-		fmt.Fprint(w, `{"id":5,"outcome":"accepted","reject_reason":null,"slots":[{"slot":"hd","profile":"hd-primary","status":"queued","status_label":"Searching","download":null}]}`)
+		fmt.Fprint(w, `{"id":5,"outcome":"accepted","reject_reason":null,"slots":[{"slot":"standard","profile":"hd-primary","status":"queued","status_label":"Searching","download":null}]}`)
 	}))
 	defer stub.Close()
 	r := silo.NewRouter(silo.Options{})

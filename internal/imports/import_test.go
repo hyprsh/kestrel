@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"os"
 	"path/filepath"
 	"slices"
@@ -19,7 +20,6 @@ import (
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/probe"
 	"github.com/hyprsh/kestrel/internal/release"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
@@ -61,7 +61,7 @@ type rig struct {
 	root     string // the Movies root folder
 	downs    string // where the client's finished jobs are
 	titleID  int64
-	versions map[resolution.Class]int64
+	versions map[slot.Slot]int64
 	hook     func(step string) error
 	notes    recorder
 	// crossDevice makes hardlinks fail with EXDEV, as across a filesystem boundary.
@@ -77,14 +77,14 @@ func newRig(t *testing.T) *rig {
 	}
 	t.Cleanup(func() { st.Close() })
 	now := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
-	r := &rig{prober: &fakeProber{info: map[string]probe.Info{}}, root: t.TempDir(), downs: t.TempDir(), versions: map[resolution.Class]int64{}}
+	r := &rig{prober: &fakeProber{info: map[string]probe.Info{}}, root: t.TempDir(), downs: t.TempDir(), versions: map[slot.Slot]int64{}}
 	r.lib = library.New(st, func() time.Time { return now })
 	r.titleID, err = r.lib.AddMovie(ctx, library.AddMovie{
 		Details: metadata.MovieDetails{
 			TMDBID: 116149, IMDbID: "tt1109624", Title: "Paddington", OriginalTitle: "Paddington", OriginalLanguage: "en", Year: 2014, Runtime: 95,
 		},
 		PrimaryLanguage: "en", RootFolder: r.root,
-		Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}},
+		Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -139,7 +139,7 @@ func (r *rig) job(t *testing.T, id int64, files map[string]string) imports.Grab 
 	}
 	pj, _ := json.Marshal(parsed)
 	return imports.Grab{
-		ID: id, TitleID: r.titleID, VersionID: r.versions[resolution.HD], ReleaseName: hdName, Parsed: pj,
+		ID: id, TitleID: r.titleID, VersionID: r.versions[slot.Standard], ReleaseName: hdName, Parsed: pj,
 		SourcePath: dir, CanRemove: true,
 	}
 }
@@ -323,7 +323,7 @@ func (r *rig) held(t *testing.T, name string, score int) string {
 		t.Fatal(err)
 	}
 	_, err := r.lib.ReplaceFile(context.Background(), r.titleID, movieFolder, library.NewFile{
-		VersionID: r.versions[resolution.HD], Path: p, Size: 3, ReleaseName: "Old.Release", Score: score, GrabID: 99,
+		VersionID: r.versions[slot.Standard], Path: p, Size: 3, ReleaseName: "Old.Release", Score: score, GrabID: 99,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -434,7 +434,7 @@ func TestAnUntrackedFileAtTheTargetIsNeverOverwritten(t *testing.T) {
 		t.Fatal(res)
 	}
 	target := r.version(t).File.Path
-	if _, err := r.lib.ReplaceFile(context.Background(), r.titleID, movieFolder, library.NewFile{VersionID: r.versions[resolution.HD], Path: "/gone.mkv", ReleaseName: "x", Score: -100000, GrabID: 5}); err != nil {
+	if _, err := r.lib.ReplaceFile(context.Background(), r.titleID, movieFolder, library.NewFile{VersionID: r.versions[slot.Standard], Path: "/gone.mkv", ReleaseName: "x", Score: -100000, GrabID: 5}); err != nil {
 		t.Fatal(err)
 	}
 	g2 := r.job(t, 2, map[string]string{"paddington.mkv": "video again"})
@@ -524,7 +524,7 @@ func TestACopyAcrossFilesystemsIsADismissibleWarningThatClearsOnTheNextCleanImpo
 	}
 
 	r.crossDevice = false
-	files, _ := r.lib.FilesOfVersion(ctx, r.versions[resolution.HD])
+	files, _ := r.lib.FilesOfVersion(ctx, r.versions[slot.Standard])
 	if err := r.lib.ApplyRescore(ctx, []library.Rescored{{FileID: files[0].ID, Misfit: true}}); err != nil {
 		t.Fatal(err)
 	}
@@ -566,5 +566,53 @@ func TestARejectedImportTellsNoOne(t *testing.T) {
 	r.svc.Import(context.Background(), r.job(t, 1, map[string]string{"readme.txt": "x"}))
 	if len(r.notes.paths) != 0 {
 		t.Fatalf("notified %v", r.notes.paths)
+	}
+}
+
+func TestAStandardAndA4KVersionAreLabelledAndKeptInOneFolder(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	id4k, err := r.lib.AddVersion(ctx, r.titleID, library.VersionSpec{Slot: slot.FourK, Profile: "4k-primary"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const uhdName = "Paddington.2014.2160p.BluRay.x265-GRP"
+
+	std := r.job(t, 1, map[string]string{"paddington.mkv": "standard video"})
+	r.prober.info["paddington.mkv"] = good()
+	if res := r.svc.Import(ctx, std); res.Status != imports.Imported {
+		t.Fatalf("Standard import = %+v", res)
+	}
+
+	dir := filepath.Join(r.downs, uhdName)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "paddington.2160p.mkv"), []byte("4k video"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uhd := good()
+	uhd.Width, uhd.Height, uhd.VideoCodec = 3840, 2160, "hevc"
+	r.prober.info["paddington.2160p.mkv"] = uhd
+	parsed, err := release.Parse(uhdName, release.KindMovie)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pj, _ := json.Marshal(parsed)
+	g4k := imports.Grab{ID: 2, TitleID: r.titleID, VersionID: id4k, ReleaseName: uhdName, Parsed: pj, SourcePath: dir, CanRemove: true}
+	if res := r.svc.Import(ctx, g4k); res.Status != imports.Imported {
+		t.Fatalf("4K import = %+v", res)
+	}
+
+	var got []string
+	for _, f := range tree(t, r.root) {
+		dirPart, name := filepath.Split(f)
+		if dirPart != movieFolder+string(filepath.Separator) {
+			t.Errorf("%q is outside the one Movie folder", f)
+		}
+		got = append(got, name)
+	}
+	if len(got) != 2 || !strings.HasPrefix(got[0], movieFolder+" - [4K][Bluray-2160p]") || !strings.HasPrefix(got[1], movieFolder+" - [Standard][Bluray-1080p]") {
+		t.Errorf("names = %q, want one [Standard][Bluray-1080p] and one [4K][Bluray-2160p] file", got)
 	}
 }

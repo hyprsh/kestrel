@@ -2,13 +2,13 @@ package acquire_test
 
 import (
 	"context"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"testing"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
-	"github.com/hyprsh/kestrel/internal/resolution"
 )
 
 func day(y int, m time.Month, d int) *time.Time {
@@ -43,7 +43,7 @@ func (r *rig) addSeries(t *testing.T, d metadata.SeriesDetails, v metadata.TVDBS
 	t.Helper()
 	id, err := r.lib.AddSeries(context.Background(), library.AddSeries{
 		TMDB: d, TVDB: v, PrimaryLanguage: "en", Monitor: mode,
-		Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}}, RootFolder: "/data/media/tv",
+		Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}}, RootFolder: "/data/media/tv",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -77,7 +77,7 @@ func TestAnRSSItemForAMonitoredMovieIsGrabbedAndARerunOfTheSameFeedIsANoOp(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(out.Grabbed) != 1 || out.Grabbed[0].ReleaseName != hd1080 || out.Grabbed[0].VersionID != r.versions[resolution.HD] {
+	if len(out.Grabbed) != 1 || out.Grabbed[0].ReleaseName != hd1080 || out.Grabbed[0].VersionID != r.versions[slot.Standard] {
 		t.Fatalf("grabbed = %+v", out.Grabbed)
 	}
 
@@ -121,7 +121,7 @@ func TestASearchFindsAReleaseSpelledWithoutUmlauts(t *testing.T) {
 	const name = "Ein.Baer.namens.Paddington.2014.1080p.BluRay.x264-GRP"
 	r.publishPlain(t, name)
 
-	res, err := r.svc.Search(context.Background(), r.versions[resolution.HD])
+	res, err := r.svc.Search(context.Background(), r.versions[slot.Standard])
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,11 +216,11 @@ func TestRSSReplacesAMisfitMovieFileWithAnyFittingRelease(t *testing.T) {
 	ctx := context.Background()
 	r := newRig(t)
 	if _, err := r.lib.ReplaceFile(ctx, r.titleID, "Paddington (2014)", library.NewFile{
-		VersionID: r.versions[resolution.HD], Path: "/m/Paddington.mkv", Size: 1, ReleaseName: "Paddington.2014.720p", Score: 1000000,
+		VersionID: r.versions[slot.Standard], Path: "/m/Paddington.mkv", Size: 1, ReleaseName: "Paddington.2014.720p", Score: 1000000,
 	}); err != nil {
 		t.Fatal(err)
 	}
-	files, _ := r.lib.FilesOfVersion(ctx, r.versions[resolution.HD])
+	files, _ := r.lib.FilesOfVersion(ctx, r.versions[slot.Standard])
 	if err := r.lib.ApplyRescore(ctx, []library.Rescored{{FileID: files[0].ID, Score: 1000000, Misfit: true}}); err != nil {
 		t.Fatal(err)
 	}

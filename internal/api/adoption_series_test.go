@@ -13,7 +13,7 @@ func (a adopting) cellsOf(t *testing.T, id int64) map[string]string {
 	t.Helper()
 	out := map[string]string{}
 	for _, e := range episodesOf(t, a.library, id) {
-		for slot, c := range map[string]*cellJSON{"sd": e.Cells.SD, "hd": e.Cells.HD, "uhd": e.Cells.UHD} {
+		for slot, c := range map[string]*cellJSON{"standard": e.Cells.Standard, "4k": e.Cells.FourK} {
 			if c != nil && c.State == "filled" {
 				out[fmt.Sprintf("S%02dE%02d", e.Season, e.Number)+"/"+slot] = "filled"
 			}
@@ -24,10 +24,9 @@ func (a adopting) cellsOf(t *testing.T, id int64) map[string]string {
 
 func TestASeriesFolderIsAdoptedWithSeveralVersionsPerEpisodeByLabelAndResolution(t *testing.T) {
 	a := newAdopting(t)
-	a.putTV(t, bbFolder+"/Season 01/Breaking Bad - S01E01 - [HD][WEBDL-1080p][English][h264]-GRP.mkv", "hd")
-	a.putTV(t, bbFolder+"/Season 01/Breaking Bad - S01E01 - [SD][WEBDL-480p][English][h264]-GRP.mkv", "sd")
+	a.putTV(t, bbFolder+"/Season 01/Breaking Bad - S01E01 - [Standard][WEBDL-1080p][English][h264]-GRP.mkv", "standard")
 	a.putTV(t, bbFolder+"/Season 01/Breaking.Bad.S01E02-E03.1080p.WEB-DL.x264-GRP.mkv", "pack")
-	a.putTV(t, bbFolder+"/Season 02/Breaking.Bad.S02E01.2160p.WEB-DL.x265-uhd.mkv", "uhd")
+	a.putTV(t, bbFolder+"/Season 02/Breaking.Bad.S02E01.2160p.WEB-DL.x265-uhd.mkv", "4k")
 	a.putTV(t, bbFolder+"/Season 01/Breaking.Bad.S01E09.1080p.WEB-DL.x264-GRP.mkv", "nope")
 
 	plan := a.scan(t)
@@ -47,7 +46,7 @@ func TestASeriesFolderIsAdoptedWithSeveralVersionsPerEpisodeByLabelAndResolution
 			t.Errorf("left %q for %s", *f.Left, f.Path)
 		}
 	}
-	if slots["hd"] != 2 || slots["sd"] != 1 || slots["uhd"] != 1 {
+	if slots["standard"] != 2 || slots["4k"] != 1 {
 		t.Fatalf("files per Slot = %v", slots)
 	}
 
@@ -55,16 +54,16 @@ func TestASeriesFolderIsAdoptedWithSeveralVersionsPerEpisodeByLabelAndResolution
 
 	id := a.titleIDOf(t, 1396)
 	got := a.cellsOf(t, id)
-	for _, want := range []string{"S01E01/hd", "S01E01/sd", "S01E02/hd", "S01E03/hd", "S02E01/uhd"} {
+	for _, want := range []string{"S01E01/standard", "S01E02/standard", "S01E03/standard", "S02E01/4k"} {
 		if got[want] == "" {
 			t.Errorf("missing %s in %v", want, got)
 		}
 	}
-	if len(got) != 5 {
+	if len(got) != 4 {
 		t.Errorf("cells = %v", got)
 	}
 	// Renamed in place into the scheme; the pack keeps one file for two episodes.
-	if pack := a.heldFile(t, "S01E02-E03"); !strings.HasPrefix(filepath.Base(pack), "Breaking Bad (2008) - S01E02-E03 - [HD]") {
+	if pack := a.heldFile(t, "S01E02-E03"); !strings.HasPrefix(filepath.Base(pack), "Breaking Bad (2008) - S01E02-E03 - [Standard]") {
 		t.Errorf("pack = %q", pack)
 	}
 	if exists(t, filepath.Join(a.tv, bbFolder, "Season 01", "Breaking.Bad.S01E02-E03.1080p.WEB-DL.x264-GRP.mkv")) {
@@ -134,7 +133,7 @@ func TestAnEpisodeFileThatWouldReplaceAHeldOneIsUntickedAndReplacesOnlyWhenTicke
 	if done.Result == nil || !exists(t, held) || !exists(t, rival) {
 		t.Fatalf("an unticked replacement happened: %+v (held %v, rival %v) result %+v", done, exists(t, held), exists(t, rival), done.Result)
 	}
-	if got := a.cellsOf(t, id); got["S01E02/hd"] == "" {
+	if got := a.cellsOf(t, id); got["S01E02/standard"] == "" {
 		t.Errorf("the gap was not filled: %v", got)
 	}
 
@@ -148,7 +147,7 @@ func TestAnEpisodeFileThatWouldReplaceAHeldOneIsUntickedAndReplacesOnlyWhenTicke
 	if exists(t, held) || exists(t, rival) {
 		t.Errorf("held %v, rival %v still there", exists(t, held), exists(t, rival))
 	}
-	if got := a.cellsOf(t, id); got["S01E01/hd"] == "" {
+	if got := a.cellsOf(t, id); got["S01E01/standard"] == "" {
 		t.Errorf("S01E01 lost its file: %v", got)
 	}
 }

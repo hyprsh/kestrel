@@ -253,7 +253,7 @@ func (q *Queries) ListSeasonsOfRequest(ctx context.Context, requestID int64) ([]
 }
 
 const listSlotsOfRequest = `-- name: ListSlotsOfRequest :many
-SELECT request_id, slot, profile_key, version_id, filled_at FROM request_slots WHERE request_id = ? ORDER BY CASE slot WHEN 'sd' THEN 0 WHEN 'hd' THEN 1 ELSE 2 END
+SELECT request_id, slot, profile_key, version_id, filled_at FROM request_slots WHERE request_id = ? ORDER BY CASE slot WHEN 'standard' THEN 0 ELSE 1 END
 `
 
 func (q *Queries) ListSlotsOfRequest(ctx context.Context, requestID int64) ([]RequestSlot, error) {

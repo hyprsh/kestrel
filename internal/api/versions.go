@@ -3,28 +3,28 @@ package api
 import (
 	"context"
 	"errors"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"net/http"
 	"path/filepath"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 )
 
 // checkProfile is the 422 for a Profile that cannot fill the Slot, or nil.
-func (s *server) checkProfile(ctx context.Context, key string, slot resolution.Class) error {
+func (s *server) checkProfile(ctx context.Context, key string, sl slot.Slot) error {
 	all, err := s.profiles.List(ctx)
 	if err != nil {
 		return err
 	}
-	return profileProblem("profile", all, key, slot)
+	return profileProblem("profile", all, key, sl)
 }
 
 // profileProblem is nil when the key names an enabled Profile of the Slot, else the 422 saying why not.
-func profileProblem(field string, all []profiles.Profile, key string, slot resolution.Class) error {
-	switch _, err := profiles.Pick(all, key, slot); {
+func profileProblem(field string, all []profiles.Profile, key string, sl slot.Slot) error {
+	switch _, err := profiles.Pick(all, key, sl); {
 	case errors.Is(err, profiles.ErrWrongSlot):
 		return invalid(field, "wrong_slot", "That Profile belongs to another Slot")
 	case errors.Is(err, profiles.ErrDisabled):
@@ -57,11 +57,14 @@ func (s *server) AddVersion(ctx context.Context, r oapi.AddVersionRequestObject)
 	if r.Body == nil {
 		return nil, invalid("body", "required", "a body is required")
 	}
-	slot := slotFromAPI(r.Body.Slot)
-	if err := s.checkProfile(ctx, r.Body.Profile, slot); err != nil {
+	sl, err := slotFromAPI(r.Body.Slot, "slot")
+	if err != nil {
 		return nil, err
 	}
-	id, err := s.library.AddVersion(ctx, r.Id, library.VersionSpec{Slot: slot, Profile: r.Body.Profile})
+	if err := s.checkProfile(ctx, r.Body.Profile, sl); err != nil {
+		return nil, err
+	}
+	id, err := s.library.AddVersion(ctx, r.Id, library.VersionSpec{Slot: sl, Profile: r.Body.Profile})
 	switch {
 	case errors.Is(err, library.ErrNotFound):
 		return nil, problem(http.StatusNotFound, "not_found", "no such Title")

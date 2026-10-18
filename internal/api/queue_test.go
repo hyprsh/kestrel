@@ -76,7 +76,7 @@ func TestAddingAMovieGrabsTheBestReleaseAndFollowsItToCompleted(t *testing.T) {
 			hd = it
 		}
 	}
-	if hd.ReleaseName != goodRelease || hd.Phase != "queued" || hd.Title != "Paddington" || hd.Slot == nil || *hd.Slot != "hd" ||
+	if hd.ReleaseName != goodRelease || hd.Phase != "queued" || hd.Title != "Paddington" || hd.Slot == nil || *hd.Slot != "standard" ||
 		hd.IsUpgrade || hd.ScoreDelta != nil || hd.Year == nil || *hd.Year != 2014 || len(hd.Episodes) != 0 {
 		t.Errorf("HD queue item = %+v", hd)
 	}

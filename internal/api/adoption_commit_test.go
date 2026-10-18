@@ -96,8 +96,8 @@ func TestCommittingRenamesFilesInPlaceWithTheirSubtitlesAndFillsTheVersions(t *t
 	}
 	folder := filepath.Join(a.movies, "Paddington (2014) {tmdb-116149}")
 	files := a.titleFiles(t, id)
-	got := files["hd"]
-	if filepath.Dir(got) != folder || !strings.HasPrefix(filepath.Base(got), "Paddington (2014) {tmdb-116149} - [HD]") || !exists(t, got) {
+	got := files["standard"]
+	if filepath.Dir(got) != folder || !strings.HasPrefix(filepath.Base(got), "Paddington (2014) {tmdb-116149} - [Standard]") || !exists(t, got) {
 		t.Fatalf("HD file = %q (all %v)", got, files)
 	}
 	if exists(t, video) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -60,8 +61,12 @@ func (s *server) CreateRequest(ctx context.Context, r oapi.CreateRequestRequestO
 	if b.Title.TvdbId != nil {
 		in.TVDBID = *b.Title.TvdbId
 	}
-	for _, sl := range b.Slots {
-		in.Slots = append(in.Slots, requests.SlotInput{Slot: slotFromAPI(sl.Slot), Profile: deref(sl.Profile)})
+	for i, sl := range b.Slots {
+		s, err := slotFromAPI(sl.Slot, fmt.Sprintf("slots[%d].slot", i))
+		if err != nil {
+			return nil, err
+		}
+		in.Slots = append(in.Slots, requests.SlotInput{Slot: s, Profile: deref(sl.Profile)})
 	}
 	if b.Seasons != nil {
 		in.Seasons = append([]int{}, *b.Seasons...)

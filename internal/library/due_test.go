@@ -2,12 +2,12 @@ package library_test
 
 import (
 	"context"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"testing"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/store"
 )
 
@@ -15,8 +15,8 @@ func TestAFreshlyAddedMovieVersionIsDueForAMissingSearchUntilItIsMarkedSearched(
 	ctx := context.Background()
 	lib, _ := newLibrary(t)
 	id := addPaddington(t, lib,
-		library.VersionSpec{Slot: resolution.HD, Profile: "hd-primary"},
-		library.VersionSpec{Slot: resolution.UHD, Profile: "uhd-primary"})
+		library.VersionSpec{Slot: slot.Standard, Profile: "hd-primary"},
+		library.VersionSpec{Slot: slot.FourK, Profile: "4k-primary"})
 	d, _ := lib.Get(ctx, id, library.View{Country: "US", Now: now})
 
 	due, err := lib.DueMissing(ctx, now)
@@ -67,7 +67,7 @@ func TestAnAdoptedWantedVersionJoinsTheRollingSweepInsteadOfBeingFresh(t *testin
 	id, _, err := lib.AdoptMovie(ctx, library.AdoptMovie{
 		Details: paddington(), PrimaryLanguage: "de", RootFolder: "/data/media/movies", Folder: "Paddington (2014)",
 		Versions: []library.AdoptVersion{{
-			Slot: resolution.HD, Profile: "hd-primary",
+			Slot: slot.Standard, Profile: "hd-primary",
 			File: library.NewFile{Path: "/data/media/movies/Paddington (2014)/p.mkv", Size: 1, ReleaseName: "p", Misfit: true},
 		}},
 	})
@@ -158,7 +158,7 @@ func TestAnUnreleasedMovieIsNotDueAndAFailedSearchIsRetriedSoon(t *testing.T) {
 	upcoming := paddington()
 	upcoming.ReleaseDates = metadata.ReleaseDates{{Country: "US", Type: metadata.Digital, Date: now.Add(48 * time.Hour)}}
 	id, err := lib.AddMovie(ctx, library.AddMovie{
-		Details: upcoming, PrimaryLanguage: "en", RootFolder: "/m", Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}},
+		Details: upcoming, PrimaryLanguage: "en", RootFolder: "/m", Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -64,7 +64,7 @@ func (s *Service) AddVersion(ctx context.Context, titleID int64, v VersionSpec) 
 		}
 	}
 	now := ts(s.clock())
-	vid, err := q.InsertVersion(ctx, db.InsertVersionParams{TitleID: titleID, Slot: slotName(v.Slot), ProfileKey: v.Profile, AddedAt: now})
+	vid, err := q.InsertVersion(ctx, db.InsertVersionParams{TitleID: titleID, Slot: v.Slot.Key(), ProfileKey: v.Profile, AddedAt: now})
 	if err != nil {
 		return 0, fmt.Errorf("library: add the %s Version under %q: %w", v.Slot, v.Profile, err)
 	}

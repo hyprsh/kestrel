@@ -159,7 +159,7 @@ func eventsOf(rows []db.Event) []Event {
 type Filter struct {
 	Kind    Kind
 	TitleID int64
-	// Slot is "sd", "hd" or "uhd": events about a Version in that Slot.
+	// Slot is "standard" or "4k": events about a Version in that Slot.
 	Slot string
 	// Routine includes routine events, which the Log hides by default.
 	Routine bool

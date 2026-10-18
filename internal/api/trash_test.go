@@ -56,7 +56,7 @@ type trashStatus struct {
 func TestUpdateFromTrashLoadsAValidSnapshotAndRejectsABrokenOneWhole(t *testing.T) {
 	src := &trashSource{}
 	s := newSearchBare(t, func(o *app.Options) { o.TrashSource = src })
-	s.addMovie(t, `{"slot":"hd","profile":"hd-primary"}`)
+	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
 	s.prober.set(goodProbe(), nil)
 	s.download(t, map[string]string{"paddington.mkv": "the movie"})
 	s.pass(t, jobs.Poll)
@@ -94,7 +94,7 @@ func TestUpdateFromTrashLoadsAValidSnapshotAndRejectsABrokenOneWhole(t *testing.
 
 func TestChangingThePrimaryLanguageRescoresFilesWithoutRenamingOrSearching(t *testing.T) {
 	s := newSearchBare(t)
-	s.addMovie(t, `{"slot":"hd","profile":"hd-primary"}`)
+	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
 	s.prober.set(goodProbe(), nil)
 	s.download(t, map[string]string{"paddington.mkv": "the movie"})
 	s.pass(t, jobs.Poll)

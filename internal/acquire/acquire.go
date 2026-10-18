@@ -302,7 +302,7 @@ func newID() string {
 // subject is a Title and its Versions with their resolved Profiles.
 type subject struct {
 	detail   library.Detail
-	versions map[resolution.Class]*scoring.Profile
+	versions map[Slot]*scoring.Profile
 }
 
 // subjectOf is the subject of a Movie or a Series.
@@ -323,7 +323,7 @@ func (s *Service) subjectOf(ctx context.Context, titleID int64) (subject, error)
 	for _, p := range all {
 		byKey[p.Key] = p
 	}
-	sub := subject{detail: d, versions: map[resolution.Class]*scoring.Profile{}}
+	sub := subject{detail: d, versions: map[Slot]*scoring.Profile{}}
 	for _, v := range d.Versions {
 		p, ok := byKey[v.Profile]
 		if !ok {

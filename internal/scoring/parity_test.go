@@ -6,6 +6,7 @@ package scoring_test
 
 import (
 	"encoding/json"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"os"
 	"reflect"
 	"slices"
@@ -13,7 +14,6 @@ import (
 	"testing"
 
 	"github.com/hyprsh/kestrel/internal/release"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring"
 )
 
@@ -91,7 +91,7 @@ func TestGoldenRecordsThePinnedUpstreamsAndTheSnapshot(t *testing.T) {
 func TestMovieMatchedFormatsEqualRadarrs(t *testing.T) {
 	g := loadCFGolden(t, "radarr")
 	snap := embedded(t)
-	hd, err := snap.Profile(scoring.ProfileSpec{Slot: resolution.HD, Rule: scoring.PrimaryLanguage, Primary: release.LangGerman})
+	hd, err := snap.Profile(scoring.ProfileSpec{Slot: slot.Standard, Rule: scoring.PrimaryLanguage, Primary: release.LangGerman})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,8 +135,8 @@ func TestMovieProfilesMatchRadarrsSetNarrowedToTheProfile(t *testing.T) {
 	snap := embedded(t)
 	for _, primary := range []release.Language{release.LangEnglish, release.LangGerman, release.LangFrench} {
 		for _, rule := range []scoring.LanguageRule{scoring.PrimaryLanguage, scoring.OriginalLanguage} {
-			for _, slot := range []resolution.Class{resolution.HD, resolution.UHD} {
-				prof, err := snap.Profile(scoring.ProfileSpec{Slot: slot, Rule: rule, Primary: primary})
+			for _, sl := range []slot.Slot{slot.Standard, slot.FourK} {
+				prof, err := snap.Profile(scoring.ProfileSpec{Slot: sl, Rule: rule, Primary: primary})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -198,7 +198,7 @@ func names(snap *scoring.Snapshot, idList []string) []string {
 func snapAll(snap *scoring.Snapshot) []scoring.MatchedFormat {
 	var all []scoring.MatchedFormat
 	for _, kind := range []release.Kind{release.KindMovie, release.KindSeries} {
-		prof, err := snap.Profile(scoring.ProfileSpec{Slot: resolution.HD, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish})
+		prof, err := snap.Profile(scoring.ProfileSpec{Slot: slot.Standard, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish})
 		if err == nil {
 			all = append(all, prof.Formats(kind)...)
 		}
@@ -212,7 +212,7 @@ func snapAll(snap *scoring.Snapshot) []scoring.MatchedFormat {
 func TestSeriesMatchedFormatsEqualSonarrs(t *testing.T) {
 	g := loadCFGolden(t, "sonarr")
 	snap := embedded(t)
-	hd, err := snap.Profile(scoring.ProfileSpec{Slot: resolution.HD, Rule: scoring.PrimaryLanguage, Primary: release.LangGerman})
+	hd, err := snap.Profile(scoring.ProfileSpec{Slot: slot.Standard, Rule: scoring.PrimaryLanguage, Primary: release.LangGerman})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +269,7 @@ func TestSeriesProfilesMatchSonarrsSetNarrowedToTheProfile(t *testing.T) {
 	snap := embedded(t)
 	for _, primary := range []release.Language{release.LangEnglish, release.LangGerman, release.LangFrench} {
 		for _, rule := range []scoring.LanguageRule{scoring.PrimaryLanguage, scoring.OriginalLanguage} {
-			prof, err := snap.Profile(scoring.ProfileSpec{Slot: resolution.HD, Rule: rule, Primary: primary})
+			prof, err := snap.Profile(scoring.ProfileSpec{Slot: slot.Standard, Rule: rule, Primary: primary})
 			if err != nil {
 				t.Fatal(err)
 			}

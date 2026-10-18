@@ -2,12 +2,12 @@ package library_test
 
 import (
 	"context"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"slices"
 	"testing"
 
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
-	"github.com/hyprsh/kestrel/internal/resolution"
 )
 
 func TestDueMissingGoesRequestAddedFirstThenMostRecentlyReleased(t *testing.T) {
@@ -30,7 +30,7 @@ func TestDueMissingGoesRequestAddedFirstThenMostRecentlyReleased(t *testing.T) {
 		d.ReleaseDates = metadata.ReleaseDates{{Country: "US", Type: metadata.Theatrical, Date: day(y, 1, 1).AddDate(0, m-1, dd-1)}}
 		id, err := lib.AddMovie(ctx, library.AddMovie{
 			Details: d, PrimaryLanguage: "en", RootFolder: "/data/media/movies",
-			Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}},
+			Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -46,7 +46,7 @@ func TestDueMissingGoesRequestAddedFirstThenMostRecentlyReleased(t *testing.T) {
 		VALUES (1, 'silo', 'r1', 'u1', 'Una', ?, 'accepted', '2026-10-17T12:00:00Z')`, requested.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.Write().ExecContext(ctx, `INSERT INTO request_slots (request_id, slot, version_id) VALUES (1, 'hd', ?)`, requested.Versions[0].ID); err != nil {
+	if _, err := st.Write().ExecContext(ctx, `INSERT INTO request_slots (request_id, slot, version_id) VALUES (1, 'standard', ?)`, requested.Versions[0].ID); err != nil {
 		t.Fatal(err)
 	}
 

@@ -645,19 +645,16 @@ func (e SetupSectionState) Valid() bool {
 
 // Defines values for Slot.
 const (
-	Hd  Slot = "hd"
-	Sd  Slot = "sd"
-	Uhd Slot = "uhd"
+	N4k      Slot = "4k"
+	Standard Slot = "standard"
 )
 
 // Valid indicates whether the value is a known member of the Slot enum.
 func (e Slot) Valid() bool {
 	switch e {
-	case Hd:
+	case N4k:
 		return true
-	case Sd:
-		return true
-	case Uhd:
+	case Standard:
 		return true
 	default:
 		return false
@@ -751,10 +748,8 @@ const (
 	AnyPrimary  ProfileKey = "any-primary"
 	HdOriginal  ProfileKey = "hd-original"
 	HdPrimary   ProfileKey = "hd-primary"
-	SdOriginal  ProfileKey = "sd-original"
-	SdPrimary   ProfileKey = "sd-primary"
-	UhdOriginal ProfileKey = "uhd-original"
-	UhdPrimary  ProfileKey = "uhd-primary"
+	N4kOriginal ProfileKey = "4k-original"
+	N4kPrimary  ProfileKey = "4k-primary"
 )
 
 // Valid indicates whether the value is a known member of the ProfileKey enum.
@@ -768,13 +763,9 @@ func (e ProfileKey) Valid() bool {
 		return true
 	case HdPrimary:
 		return true
-	case SdOriginal:
+	case N4kOriginal:
 		return true
-	case SdPrimary:
-		return true
-	case UhdOriginal:
-		return true
-	case UhdPrimary:
+	case N4kPrimary:
 		return true
 	default:
 		return false
@@ -1190,9 +1181,8 @@ type Episode struct {
 
 	// Cells One cell per Slot, `null` where the Title has no Version.
 	Cells struct {
-		Hd  *EpisodeCell `json:"hd"`
-		Sd  *EpisodeCell `json:"sd"`
-		Uhd *EpisodeCell `json:"uhd"`
+		N4k      *EpisodeCell `json:"4k"`
+		Standard *EpisodeCell `json:"standard"`
 	} `json:"cells"`
 	Id        int64  `json:"id"`
 	Monitored bool   `json:"monitored"`
@@ -2164,9 +2154,8 @@ type TitleRow struct {
 	// PrimaryTitle The title in the Primary Language; the English title when TMDB has no translation.
 	PrimaryTitle string `json:"primary_title"`
 	Slots        struct {
-		Hd  *SlotSummary `json:"hd"`
-		Sd  *SlotSummary `json:"sd"`
-		Uhd *SlotSummary `json:"uhd"`
+		N4k      *SlotSummary `json:"4k"`
+		Standard *SlotSummary `json:"standard"`
 	} `json:"slots"`
 
 	// Title The English title.

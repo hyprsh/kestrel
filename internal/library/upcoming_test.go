@@ -2,19 +2,19 @@ package library_test
 
 import (
 	"context"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"testing"
 
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
-	"github.com/hyprsh/kestrel/internal/resolution"
 )
 
 func TestRecentImportsListsGrabbedFilesWithTheScoreTheyBeat(t *testing.T) {
 	ctx := context.Background()
 	lib, _ := newLibrary(t)
 	id := addPaddington(t, lib,
-		library.VersionSpec{Slot: resolution.HD, Profile: "hd-primary"},
-		library.VersionSpec{Slot: resolution.UHD, Profile: "uhd-primary"})
+		library.VersionSpec{Slot: slot.Standard, Profile: "hd-primary"},
+		library.VersionSpec{Slot: slot.FourK, Profile: "4k-primary"})
 	d, _ := lib.Get(ctx, id, library.View{Country: "US", Now: now})
 	hd, uhd := d.Versions[0].ID, d.Versions[1].ID
 	for _, f := range []library.NewFile{
@@ -56,7 +56,7 @@ func TestRecentImportsLeavesOutAdoptedFiles(t *testing.T) {
 	if _, _, err := lib.AdoptMovie(ctx, library.AdoptMovie{
 		Details: paddington(), PrimaryLanguage: "de", RootFolder: "/data/media/movies", Folder: "Paddington (2014)",
 		Versions: []library.AdoptVersion{{
-			Slot: resolution.HD, Profile: "hd-primary",
+			Slot: slot.Standard, Profile: "hd-primary",
 			File: library.NewFile{Path: "/data/media/movies/Paddington (2014)/p.mkv", Size: 1, ReleaseName: "p"},
 		}},
 	}); err != nil {
@@ -82,7 +82,7 @@ func TestUpcomingReadsEveryTypedDateInTheOneReleaseDateCountry(t *testing.T) {
 	}
 	if _, err := lib.AddMovie(ctx, library.AddMovie{
 		Details: d, PrimaryLanguage: "de", RootFolder: "/data/media/movies",
-		Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}},
+		Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
 	}); err != nil {
 		t.Fatal(err)
 	}

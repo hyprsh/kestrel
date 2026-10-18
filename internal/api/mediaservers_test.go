@@ -46,7 +46,7 @@ func waitRefreshed(t *testing.T, ms *msfake.Server, n int) []string {
 
 func TestAnImportRefreshesTheMediaServersAndDeletingTheTitleDoesToo(t *testing.T) {
 	s, ms := newMediaSearch(t)
-	s.addMovie(t, `{"slot":"hd","profile":"hd-primary"}`)
+	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
 	s.prober.set(goodProbe(), nil)
 	s.download(t, map[string]string{"paddington.mkv": "the movie"})
 	s.pass(t, jobs.Poll)
@@ -70,7 +70,7 @@ func TestAnImportRefreshesTheMediaServersAndDeletingTheTitleDoesToo(t *testing.T
 func TestAFailingMediaServerRaisesAWarningAndTheImportStillSucceeds(t *testing.T) {
 	s, ms := newMediaSearch(t)
 	ms.FailWith(plugin.Errorf(plugin.CodeUnavailable, "connection refused"))
-	s.addMovie(t, `{"slot":"hd","profile":"hd-primary"}`)
+	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
 	s.prober.set(goodProbe(), nil)
 	s.download(t, map[string]string{"paddington.mkv": "the movie"})
 	s.pass(t, jobs.Poll)
@@ -127,7 +127,7 @@ func TestCleaningUpATitleFolderTellsTheMediaServers(t *testing.T) {
 	a.put(t, "Paddington.2014.1080p.BluRay.x264-GRP/Paddington.2014.1080p.BluRay.x264-GRP.mkv", "movie")
 	a.commit(t, a.scan(t).Revision)
 	id := a.titleIDOf(t, 116149)
-	dir := filepath.Dir(a.titleFiles(t, id)["hd"])
+	dir := filepath.Dir(a.titleFiles(t, id)["standard"])
 	waitRefreshed(t, ms, 1)
 	if err := os.WriteFile(filepath.Join(dir, "release.nfo"), []byte("x"), 0o644); err != nil {
 		t.Fatal(err)

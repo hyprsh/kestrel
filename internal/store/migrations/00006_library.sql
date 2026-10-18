@@ -76,7 +76,7 @@ CREATE TABLE episodes (
 CREATE TABLE versions (
     id          INTEGER PRIMARY KEY,
     title_id    INTEGER NOT NULL REFERENCES titles (id) ON DELETE CASCADE,
-    slot        TEXT    NOT NULL CHECK (slot IN ('sd', 'hd', 'uhd')),
+    slot        TEXT    NOT NULL CHECK (slot IN ('standard', '4k')),
     profile_key TEXT    NOT NULL REFERENCES profiles (key),
     added_at    TEXT    NOT NULL,
     UNIQUE (title_id, slot)

@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"mime"
 	"net"
 	"net/http"
@@ -19,7 +20,6 @@ import (
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
 	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
@@ -275,11 +275,11 @@ func csrfCheck(r *http.Request) *problemError {
 
 const setupCompletedKey = settings.SetupCompleted
 
-// hdHasDefaults reports whether the HD Slot has a default Profile for Movies and for Series.
-func hdHasDefaults(all []profiles.Profile) bool {
+// standardHasDefaults reports whether the Standard Slot has a default Profile for Movies and for Series.
+func standardHasDefaults(all []profiles.Profile) bool {
 	var movies, series bool
 	for _, p := range all {
-		if p.Slot == resolution.HD && p.Enabled {
+		if p.Slot == slot.Standard && p.Enabled {
 			movies = movies || p.DefaultMovies
 			series = series || p.DefaultSeries
 		}
@@ -322,13 +322,13 @@ func (s *server) setupState(ctx context.Context) (oapi.Setup, error) {
 		return out, err
 	}
 	out.Sections.RootFolders = state(rootsSaved)
-	// Profiles have nothing to save: the builtin rows ship configured and HD
+	// Profiles have nothing to save: the builtin rows ship configured and Standard
 	// always keeps its defaults, so the section is done once those exist.
 	all, err := s.profiles.List(ctx)
 	if err != nil {
 		return out, err
 	}
-	out.Sections.Profiles = state(hdHasDefaults(all))
+	out.Sections.Profiles = state(standardHasDefaults(all))
 	_, out.Completed, err = s.auth.settings.Get(ctx, setupCompletedKey)
 	return out, err
 }

@@ -36,10 +36,10 @@ type titleRowJSON struct {
 	Title       string  `json:"title"`
 	WantedSince *string `json:"wanted_since"`
 	Slots       struct {
-		HD *struct {
+		Standard *struct {
 			State       string `json:"state"`
 			LongMissing bool   `json:"long_missing"`
-		} `json:"hd"`
+		} `json:"standard"`
 	} `json:"slots"`
 }
 
@@ -72,7 +72,7 @@ func ids(rows []titleRowJSON) []int64 {
 	return out
 }
 
-const addHD = `{"kind":"movie","tmdb_id":%d,"versions":[{"slot":"hd","profile":"hd-primary"}]}`
+const addHD = `{"kind":"movie","tmdb_id":%d,"versions":[{"slot":"standard","profile":"hd-primary"}]}`
 
 func TestTheWantedFilterListsWantedTitlesLongestWantedFirstAndTheLongMissingChipKeepsTheOldOnes(t *testing.T) {
 	w := newWantedRig(t)
@@ -89,7 +89,7 @@ func TestTheWantedFilterListsWantedTitlesLongestWantedFirstAndTheLongMissingChip
 	if got := ids(wanted); len(got) != 2 || got[0] != first.ID || got[1] != second.ID {
 		t.Errorf("Wanted by wanted_since = %v, want %d (Wanted for 101 days) then %d", got, first.ID, second.ID)
 	}
-	if wanted[0].WantedSince == nil || wanted[0].Slots.HD == nil || !wanted[0].Slots.HD.LongMissing || wanted[1].Slots.HD.LongMissing {
+	if wanted[0].WantedSince == nil || wanted[0].Slots.Standard == nil || !wanted[0].Slots.Standard.LongMissing || wanted[1].Slots.Standard.LongMissing {
 		t.Errorf("rows = %+v", wanted)
 	}
 	if got := ids(w.titles(t, "long_missing=true")); len(got) != 1 || got[0] != first.ID {
@@ -127,7 +127,7 @@ func TestLongMissingIsAGroupedRowOutsideTheBadgeCount(t *testing.T) {
 		t.Fatalf("long_missing = %+v", a.LongMissing)
 	}
 	it := a.LongMissing.Items[0]
-	if it.TitleID != first.ID || it.Title != "Paddington" || it.Slot != "hd" || it.Profile != "hd-primary" || it.WantedSince == "" || it.LastFailure != nil {
+	if it.TitleID != first.ID || it.Title != "Paddington" || it.Slot != "standard" || it.Profile != "hd-primary" || it.WantedSince == "" || it.LastFailure != nil {
 		t.Errorf("item = %+v", it)
 	}
 	// The row sits outside the rail badge: `count` is the other rows only.

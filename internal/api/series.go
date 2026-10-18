@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"net/http"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
@@ -83,7 +84,7 @@ func (s *server) ListEpisodes(ctx context.Context, r oapi.ListEpisodesRequestObj
 		if e.AirDate != nil {
 			oe.AirDate = &openapi_types.Date{Time: *e.AirDate}
 		}
-		oe.Cells.Sd, oe.Cells.Hd, oe.Cells.Uhd = cell(e.Cells[0]), cell(e.Cells[1]), cell(e.Cells[2])
+		oe.Cells.Standard, oe.Cells.N4k = cell(e.Cells[slot.Standard]), cell(e.Cells[slot.FourK])
 		out.Items = append(out.Items, oe)
 	}
 	return oapi.ListEpisodes200JSONResponse(out), nil
