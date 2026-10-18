@@ -194,7 +194,7 @@ type Outcome struct {
 }
 
 // SearchWanted is the automatic search for what a Title's Versions are
-// missing (search on add, sweeps, retries): one search of the indexers, then
+// missing (the missing sweep and retries): one search of the indexers, then
 // Decide picks the best Release for each Wanted Version and Grabs it. Only
 // Versions in versionIDs that are Wanted and have no active Grab are
 // searched; with none left nothing is asked of the indexers. Grabs that
@@ -205,20 +205,14 @@ func (s *Service) SearchWanted(ctx context.Context, titleID int64, versionIDs []
 	if !s.idx.CanSweep(ctx) {
 		return Outcome{}, nil // nothing was searched: the Versions stay due
 	}
-	return s.searchWanted(ctx, titleID, versionIDs, false)
+	return s.searchTitle(ctx, titleID, versionIDs, false, false)
 }
 
 // SearchNew is the search on add: the first search of a new Version (added by
-// hand, by a Request or by Adoption). It does what SearchWanted does but is
-// not a sweep, so the 80 % budget stop does not apply to it.
+// hand or by a Request). It does what SearchWanted does but is not a sweep, so
+// the 80 % budget stop does not apply to it.
 func (s *Service) SearchNew(ctx context.Context, titleID int64, versionIDs []int64) (Outcome, error) {
-	return s.searchWanted(ctx, titleID, versionIDs, false)
-}
-
-// searchWanted is SearchWanted that, with fromCache, looks at the Releases the
-// candidate cache still holds before it asks the indexers again.
-func (s *Service) searchWanted(ctx context.Context, titleID int64, versionIDs []int64, fromCache bool) (Outcome, error) {
-	return s.searchTitle(ctx, titleID, versionIDs, fromCache, false)
+	return s.searchTitle(ctx, titleID, versionIDs, false, false)
 }
 
 // SearchUpgrades is the Upgrade sweep's search: the same as SearchWanted for
