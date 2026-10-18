@@ -105,13 +105,14 @@ Without a TMDB key, search and add answer `502 upstream_unavailable`. For develo
 
 | Path | What lives there |
 |---|---|
-| `cmd/kestrel` | `main`: reads config, opens the store, wires modules, serves HTTP. |
-| `internal/<module>` | One package per module of the architecture (PRD #22). Calls only go downwards. Today: `store`, `settings`, `release`, `api`, `config`, `version`. |
+| `cmd/kestrel` | `main`: reads config, opens the store, starts `internal/app`, serves HTTP and runs the loops. |
+| `internal/app` | The composition root: builds every module, wires them through their interfaces and hands the API the ones it calls. `cmd/kestrel` and the API tests both start Kestrel through it. |
+| `internal/<module>` | One package per module of the architecture (PRD #22). Calls only go downwards and only `jobs` strings modules together. The modules: `store`, `settings`, `history`, `health`, `metadata`, `release`, `scoring` (with `profiles` and the TRaSH snapshot service `trashsync`), `library`, `indexers`, `downloads`, `acquire`, `imports` (Import, Adoption, Clean up, naming, renames, media-server refresh), `requests`, `jobs`, `api` and `plugin/...`; plus the leaf packages `resolution`, `probe`, `updates`, `silo`, `notices`, `config` and `version`. |
 | `internal/release` | Release name parsing: a Go port of Radarr's (Movies) and Sonarr's (Series) parsers, with the upstream commit recorded in each ported file. Its tests replay Radarr's and Sonarr's own fixtures and golden `/api/v3/parse` files from `testdata/`, see its README. |
 | `internal/scoring` | `Evaluate`: scores a Release with TRaSH's Custom Formats and applies the Profile's language, resolution and minimum-Score rules. The TRaSH snapshot (MIT, with its licence and commit) is embedded from `trash/`; refresh it with `scripts/update-trash-snapshot.sh`. Its tests replay golden matched-Custom-Format sets recorded from pinned Radarr and Sonarr (`testdata/`, `scripts/regen-cf-golden.sh`). |
 | `internal/resolution` | The SD/HD/UHD resolution classes shared by scoring and probe. |
-| `internal/metadata` | The TMDB client (search, Movie details with release dates, certifications and aliases), provider key precedence and the poster cache. `metadatatest` is a fake TMDB serving hand-written fixtures; no key is needed to run the tests. |
-| `internal/library` | Titles, Versions, files and search state, plus the add panel's preselection (`Suggest`). Movies only so far; the schema already holds seasons and episodes. |
+| `internal/metadata` | The TMDB and TheTVDB clients (search, Movie and Series details, release dates, certifications and aliases), the TMDB to TheTVDB bridge, provider key precedence and the poster cache. `metadatatest` is a fake TMDB serving hand-written fixtures; no key is needed to run the tests. |
+| `internal/library` | Titles (Movies and Series with seasons and episodes), Versions, files, monitoring and search state, plus the add panel's preselection (`Suggest`). |
 | `scripts/` | Dev-only tools: fixture extraction, golden-file regeneration for the parser port and the Custom Format parity harness, TRaSH snapshot refresh (Docker, never run in CI). |
 | `api/openapi.yaml` | The hand-written API contract and the source of truth. |
 | `internal/api/oapi` | Generated Go server interface and models (oapi-codegen, strict server). Do not edit. |

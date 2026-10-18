@@ -1,6 +1,7 @@
 // Command kestrel is the one Kestrel binary: it opens the SQLite store and
-// serves the REST API and the embedded SPA. cmd/kestrel only wires modules
-// together; behaviour lives in internal/.
+// serves the REST API and the embedded SPA. cmd/kestrel hands the config to
+// internal/app, which wires the modules, and serves what it returns; behaviour
+// lives in internal/.
 package main
 
 import (
@@ -58,7 +59,7 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	app := app.New(app.Options{
+	kestrel := app.New(app.Options{
 		Version:     version.Version,
 		BaseURL:     cfg.BaseURL,
 		Store:       st,
@@ -74,7 +75,7 @@ func run(ctx context.Context) error {
 	})
 	srv := &http.Server{
 		Addr:              net.JoinHostPort("", strconv.Itoa(cfg.Port)),
-		Handler:           app.Handler,
+		Handler:           kestrel.Handler,
 		ReadHeaderTimeout: 10 * time.Second,
 		// Open streams end with ctx, so a shutdown does not wait on them.
 		BaseContext: func(net.Listener) context.Context { return ctx },
@@ -84,7 +85,7 @@ func run(ctx context.Context) error {
 	jobsDone := make(chan struct{})
 	go func() {
 		defer close(jobsDone)
-		_ = app.Jobs.Run(jobsCtx)
+		_ = kestrel.Jobs.Run(jobsCtx)
 	}()
 	defer func() { stopJobs(); <-jobsDone }() // before the store closes
 
