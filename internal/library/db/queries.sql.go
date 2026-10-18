@@ -404,7 +404,7 @@ func (q *Queries) InsertReleaseDate(ctx context.Context, arg InsertReleaseDatePa
 }
 
 const insertSearchState = `-- name: InsertSearchState :exec
-INSERT INTO search_state (version_id, season, next_missing_at, next_upgrade_at) VALUES (?, ?, ?, ?)
+INSERT INTO search_state (version_id, season, next_missing_at, next_upgrade_at, fresh) VALUES (?, ?, ?, ?, ?)
 `
 
 type InsertSearchStateParams struct {
@@ -412,6 +412,7 @@ type InsertSearchStateParams struct {
 	Season        sql.NullInt64
 	NextMissingAt sql.NullString
 	NextUpgradeAt sql.NullString
+	Fresh         int64
 }
 
 func (q *Queries) InsertSearchState(ctx context.Context, arg InsertSearchStateParams) error {
@@ -420,6 +421,7 @@ func (q *Queries) InsertSearchState(ctx context.Context, arg InsertSearchStatePa
 		arg.Season,
 		arg.NextMissingAt,
 		arg.NextUpgradeAt,
+		arg.Fresh,
 	)
 	return err
 }
@@ -1223,7 +1225,7 @@ func (q *Queries) ListReleaseDatesOfTitle(ctx context.Context, titleID int64) ([
 }
 
 const listSearchStates = `-- name: ListSearchStates :many
-SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at, last_upgrade_at FROM search_state ORDER BY id
+SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at, last_upgrade_at, fresh FROM search_state ORDER BY id
 `
 
 func (q *Queries) ListSearchStates(ctx context.Context) ([]SearchState, error) {
@@ -1243,6 +1245,7 @@ func (q *Queries) ListSearchStates(ctx context.Context) ([]SearchState, error) {
 			&i.LastMissingAt,
 			&i.NextUpgradeAt,
 			&i.LastUpgradeAt,
+			&i.Fresh,
 		); err != nil {
 			return nil, err
 		}

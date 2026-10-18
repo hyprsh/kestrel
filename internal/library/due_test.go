@@ -61,6 +61,29 @@ func TestOnlyAVersionNeverSearchedIsFresh(t *testing.T) {
 	}
 }
 
+func TestAnAdoptedWantedVersionJoinsTheRollingSweepInsteadOfBeingFresh(t *testing.T) {
+	ctx := context.Background()
+	lib, _ := newLibrary(t)
+	id, _, err := lib.AdoptMovie(ctx, library.AdoptMovie{
+		Details: paddington(), PrimaryLanguage: "de", RootFolder: "/data/media/movies", Folder: "Paddington (2014)",
+		Versions: []library.AdoptVersion{{
+			Slot: resolution.HD, Profile: "hd-primary",
+			File: library.NewFile{Path: "/data/media/movies/Paddington (2014)/p.mkv", Size: 1, ReleaseName: "p", Misfit: true},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	due, err := lib.DueMissing(ctx, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(due) != 1 || due[0].TitleID != id || due[0].Fresh {
+		t.Errorf("due = %+v, want the adopted Version in the rolling sweep, not fresh", due)
+	}
+}
+
 func TestRequestSearchMakesAVersionDueNow(t *testing.T) {
 	ctx := context.Background()
 	lib, _ := newLibrary(t)

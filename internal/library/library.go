@@ -270,7 +270,7 @@ func (s *Service) AddMovie(ctx context.Context, a AddMovie) (int64, error) {
 		}
 		// Due now: the first sweep after the add searches it.
 		if err := q.InsertSearchState(ctx, db.InsertSearchStateParams{
-			VersionID: vid, NextMissingAt: sql.NullString{String: now, Valid: true}, NextUpgradeAt: sql.NullString{String: now, Valid: true},
+			VersionID: vid, NextMissingAt: sql.NullString{String: now, Valid: true}, NextUpgradeAt: sql.NullString{String: now, Valid: true}, Fresh: 1,
 		}); err != nil {
 			return 0, err
 		}

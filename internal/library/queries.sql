@@ -14,7 +14,7 @@ INSERT INTO title_release_dates (title_id, country, type, date, certification) V
 INSERT INTO versions (title_id, slot, profile_key, added_at) VALUES (?, ?, ?, ?) RETURNING id;
 
 -- name: InsertSearchState :exec
-INSERT INTO search_state (version_id, season, next_missing_at, next_upgrade_at) VALUES (?, ?, ?, ?);
+INSERT INTO search_state (version_id, season, next_missing_at, next_upgrade_at, fresh) VALUES (?, ?, ?, ?, ?);
 
 -- name: GetTitleOfVersion :one
 SELECT title_id FROM versions WHERE id = ?;
@@ -103,7 +103,7 @@ UPDATE seasons SET monitored = EXISTS (
 ) WHERE seasons.title_id = ?;
 
 -- name: ListSearchStates :many
-SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at, last_upgrade_at FROM search_state ORDER BY id;
+SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at, last_upgrade_at, fresh FROM search_state ORDER BY id;
 
 -- name: MarkSearchStateMissing :exec
 UPDATE search_state SET last_missing_at = ?, next_missing_at = ? WHERE id = ?;

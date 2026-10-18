@@ -79,12 +79,12 @@ func (s *Service) AddVersion(ctx context.Context, titleID int64, v VersionSpec) 
 				continue
 			}
 			if err := q.InsertSearchState(ctx, db.InsertSearchStateParams{
-				VersionID: vid, Season: sql.NullInt64{Int64: se.Number, Valid: true}, NextMissingAt: due, NextUpgradeAt: due,
+				VersionID: vid, Season: sql.NullInt64{Int64: se.Number, Valid: true}, NextMissingAt: due, NextUpgradeAt: due, Fresh: 1,
 			}); err != nil {
 				return 0, err
 			}
 		}
-	} else if err := q.InsertSearchState(ctx, db.InsertSearchStateParams{VersionID: vid, NextMissingAt: due, NextUpgradeAt: due}); err != nil {
+	} else if err := q.InsertSearchState(ctx, db.InsertSearchStateParams{VersionID: vid, NextMissingAt: due, NextUpgradeAt: due, Fresh: 1}); err != nil {
 		return 0, err
 	}
 	return vid, tx.Commit()

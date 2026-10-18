@@ -193,6 +193,7 @@ type SearchState struct {
 	LastMissingAt sql.NullString
 	NextUpgradeAt sql.NullString
 	LastUpgradeAt sql.NullString
+	Fresh         int64
 }
 
 type Season struct {

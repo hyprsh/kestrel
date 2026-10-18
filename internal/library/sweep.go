@@ -50,6 +50,7 @@ func (s *Service) WithCountry(f func(context.Context) string) *Service {
 type sweepRow struct {
 	id, versionID, titleID   int64
 	nextMissing, lastMissing *time.Time
+	fresh                    bool // added in the UI or by a Request and not searched yet
 	nextUpgrade, lastUpgrade *time.Time
 	wanted                   bool
 	since                    time.Time // when it became Wanted: the latest among a season's Wanted episodes
@@ -149,6 +150,7 @@ func (s *Service) sweepRows(ctx context.Context, now time.Time) ([]sweepRow, err
 			id: st.ID, versionID: st.VersionID, titleID: v.TitleID,
 			nextMissing: optTime(st.NextMissingAt), lastMissing: optTime(st.LastMissingAt),
 			nextUpgrade: optTime(st.NextUpgradeAt), lastUpgrade: optTime(st.LastUpgradeAt),
+			fresh: st.Fresh == 1 && !st.LastMissingAt.Valid,
 		}
 		added := parseTime(v.AddedAt)
 		if Kind(t.Kind) == Movie {
@@ -241,11 +243,11 @@ func (s *Service) DueMissing(ctx context.Context, now time.Time) ([]Due, error) 
 			if k := r.recency(); k.After(found[i].released) {
 				found[i].released = k
 			}
-			found[i].fresh = found[i].fresh && r.lastMissing == nil
+			found[i].fresh = found[i].fresh && r.fresh
 			continue
 		}
 		index[r.versionID] = len(found)
-		found = append(found, entry{Due{VersionID: r.versionID, TitleID: r.titleID}, r.recency(), requested[r.versionID], r.lastMissing == nil})
+		found = append(found, entry{Due{VersionID: r.versionID, TitleID: r.titleID}, r.recency(), requested[r.versionID], r.fresh})
 	}
 	slices.SortStableFunc(found, func(a, b entry) int {
 		if a.requested != b.requested {

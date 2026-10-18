@@ -118,7 +118,7 @@ func (s *Service) AddSeries(ctx context.Context, a AddSeries) (int64, error) {
 			}
 			if err := q.InsertSearchState(ctx, db.InsertSearchStateParams{
 				VersionID: vid, Season: sql.NullInt64{Int64: int64(n), Valid: true},
-				NextMissingAt: sql.NullString{String: now, Valid: true}, NextUpgradeAt: sql.NullString{String: now, Valid: true},
+				NextMissingAt: sql.NullString{String: now, Valid: true}, NextUpgradeAt: sql.NullString{String: now, Valid: true}, Fresh: 1,
 			}); err != nil {
 				return 0, err
 			}
