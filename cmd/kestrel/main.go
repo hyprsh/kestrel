@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/hyprsh/kestrel/internal/api"
 	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/config"
 	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
@@ -60,11 +61,7 @@ func run(ctx context.Context) error {
 	}
 
 	kestrel := app.New(app.Options{
-		Version:     version.Version,
-		BaseURL:     cfg.BaseURL,
-		Store:       st,
-		Web:         web.FS(),
-		Logger:      logger,
+		Options:     api.Options{Version: version.Version, BaseURL: cfg.BaseURL, Store: st, Web: web.FS(), Logger: logger},
 		Plugins:     plugins,
 		TrashSource: trashsync.GitHub{},
 		DataDir:     cfg.DataDir,

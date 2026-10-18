@@ -17,6 +17,7 @@ import (
 	"github.com/getkin/kin-openapi/routers/legacy"
 
 	kapi "github.com/hyprsh/kestrel/api"
+	"github.com/hyprsh/kestrel/internal/api"
 	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/store"
 )
@@ -36,7 +37,7 @@ func startServer(t *testing.T, base string, web fstest.MapFS) *httptest.Server {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
-	h := app.NewHandler(app.Options{Version: "1.2.3", BaseURL: base, Store: st, Web: web})
+	h := app.NewHandler(app.Options{Options: api.Options{Version: "1.2.3", BaseURL: base, Store: st, Web: web}})
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 	return srv

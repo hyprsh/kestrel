@@ -12,6 +12,7 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/hyprsh/kestrel/internal/api"
 	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/metadata"
@@ -60,8 +61,10 @@ func newKestrel(t *testing.T) *kestrel {
 		t.Fatal(err)
 	}
 	app := app.New(app.Options{
-		Version: "9.9.9", Store: st, CheapPasswordHash: true, Logger: nil,
-		Web:     fstest.MapFS{"index.html": &fstest.MapFile{Data: []byte("<html></html>")}},
+		Options: api.Options{
+			Version: "9.9.9", Store: st, CheapPasswordHash: true,
+			Web: fstest.MapFS{"index.html": &fstest.MapFile{Data: []byte("<html></html>")}},
+		},
 		DataDir: data, ConfigDir: config, Plugins: reg,
 		Metadata: metadata.NewTMDB(metadata.TMDBOptions{BaseURL: tmdb.APIBase(), ImageBase: tmdb.ImageBase(), Keys: metadata.StaticKey(metadatatest.Key)}),
 		Posters:  metadata.NewPosters(metadata.PostersOptions{ConfigDir: config, ImageBase: tmdb.ImageBase()}),

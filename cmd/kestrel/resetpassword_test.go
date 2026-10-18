@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hyprsh/kestrel/internal/api"
 	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/store"
 )
@@ -28,7 +29,7 @@ func TestResetPasswordCommandResetsTheConfigDirsAdmin(t *testing.T) {
 		t.Fatal(err)
 	}
 	// The server keeps running on the same database while the command runs.
-	srv := httptest.NewServer(app.NewHandler(app.Options{Store: st}))
+	srv := httptest.NewServer(app.NewHandler(app.Options{Options: api.Options{Store: st}}))
 	defer srv.Close()
 	post := func(path, body string) int {
 		req, _ := http.NewRequest("POST", srv.URL+"/api/v1"+path, strings.NewReader(body))

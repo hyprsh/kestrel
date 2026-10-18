@@ -9,7 +9,6 @@ package app
 import (
 	"context"
 	"database/sql"
-	"io/fs"
 	"log/slog"
 	"net/http"
 	"time"
@@ -33,21 +32,14 @@ import (
 	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
-	"github.com/hyprsh/kestrel/internal/store"
 	"github.com/hyprsh/kestrel/internal/updates"
 )
 
-// Options configures a Kestrel.
+// Options configures a Kestrel. The embedded api.Options is the HTTP side: the
+// version, the routing prefix, the store, the SPA, the logger, the clock and
+// the test knobs of the API.
 type Options struct {
-	Version string
-	// BaseURL is the routing prefix ("" or e.g. "/kestrel", no trailing slash).
-	BaseURL string
-	Store   *store.Store
-	// Web holds the built SPA (index.html at its root). May be empty.
-	Web    fs.FS
-	Logger *slog.Logger
-	// Clock is the instance's time source; nil means time.Now. Tests move it.
-	Clock func() time.Time
+	api.Options
 	// Plugins is the explicit list of compiled-in plugins (cmd/kestrel fills it);
 	// nil means none.
 	Plugins *plugin.Registry
@@ -73,13 +65,6 @@ type Options struct {
 	Posters *metadata.Posters
 	// Prober reads downloaded files for Imports; nil means the ffprobe on PATH.
 	Prober probe.Prober
-	// CheapPasswordHash hashes passwords with a tiny argon2 parameter set. Tests
-	// only: the production cost takes seconds under the race detector.
-	CheapPasswordHash bool
-	// Stream tunes GET /stream's polling; zero means the defaults. Tests shorten it.
-	Stream api.StreamIntervals
-	// SearchTimeout bounds a manual search; zero means 30 s.
-	SearchTimeout time.Duration
 	// DiskSpace reads the free space of a path for the disk checks; nil means the
 	// operating system's. Tests inject a full disk.
 	DiskSpace func(path string) (health.Space, error)
@@ -225,10 +210,7 @@ func New(opts Options) *App {
 		Health:   healthSvc, Importer: imp, ImportSource: acq, Trash: trashLoop(trashUpdates, opts.TrashSource), Clock: opts.Clock, Logger: opts.Logger,
 	})
 
-	handler := api.New(api.Options{
-		Version: opts.Version, BaseURL: opts.BaseURL, Store: st, Web: opts.Web, Logger: opts.Logger, Clock: opts.Clock,
-		CheapPasswordHash: opts.CheapPasswordHash, Stream: opts.Stream, SearchTimeout: opts.SearchTimeout,
-	}, api.Deps{
+	handler := api.New(opts.Options, api.Deps{
 		Plugins: pluginInstances, Profiles: profs, RootFolders: roots, Settings: settingsTx{roots, profs, trash}, Updates: upd,
 		Library: lib, Acquire: acq, Requests: reqs, Adoption: adoption, Cleanup: cleanup, Remover: remover, Imports: imp,
 		Jobs: runner, Refresher: refresher, Indexers: indexerHost, Health: healthSvc, History: hist, Scoring: live, Trash: trashAPI{trash, trashUpdates}, Keys: keys,
