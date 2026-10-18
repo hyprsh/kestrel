@@ -125,6 +125,12 @@ type Deps struct {
 	// not a directory or not writable stalls, and a copy across filesystems
 	// raises a Warning.
 	Health Health
+	// Renames enables Rename; *library.Service satisfies it.
+	Renames RenameStore
+	// FolderChanged, when set, is told the path of every Title folder that
+	// Rename changed, so the media servers can be asked to refresh it. The
+	// media-server module wires it.
+	FolderChanged func(ctx context.Context, folder string)
 	// Snapshot is the TRaSH data to score with; nil means the embedded one.
 	Snapshot *scoring.Snapshot
 	// Step, when set, is called at "partial" (the .partial file is in place)
@@ -142,6 +148,9 @@ type Service struct {
 	snap  *scoring.Snapshot
 	step  func(string) error
 	hl    Health
+
+	renames       RenameStore
+	folderChanged func(ctx context.Context, folder string)
 }
 
 // New returns a Service.
@@ -156,7 +165,7 @@ func New(d Deps) (*Service, error) {
 		}
 		d.Snapshot = snap
 	}
-	return &Service{lib: d.Library, prof: d.Profiles, probe: d.Prober, clock: d.Clock, snap: d.Snapshot, step: d.Step, hl: d.Health}, nil
+	return &Service{lib: d.Library, prof: d.Profiles, probe: d.Prober, clock: d.Clock, snap: d.Snapshot, step: d.Step, hl: d.Health, renames: d.Renames, folderChanged: d.FolderChanged}, nil
 }
 
 func (s *Service) hook(step string) error {

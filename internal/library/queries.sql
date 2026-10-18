@@ -175,3 +175,44 @@ DELETE FROM titles WHERE id = ?;
 
 -- name: SetNextSearchesAll :exec
 UPDATE search_state SET next_missing_at = ?, next_upgrade_at = ? WHERE version_id = ?;
+
+-- name: ListRefreshable :many
+SELECT id, kind, tmdb_id, tvdb_id, refreshed_at FROM titles WHERE metadata_frozen = 0 ORDER BY id;
+
+-- name: SetMetadataFrozen :exec
+UPDATE titles SET metadata_frozen = ? WHERE id = ?;
+
+-- name: UpdateTitleMetadata :exec
+UPDATE titles SET title = ?, original_title = ?, primary_title = ?, year = ?,
+    original_language = ?, overview = ?, runtime = ?, poster_path = ?, refreshed_at = ?
+WHERE id = ?;
+
+-- name: DeleteAliasesOfTitle :exec
+DELETE FROM title_aliases WHERE title_id = ?;
+
+-- name: DeleteReleaseDatesOfTitle :exec
+DELETE FROM title_release_dates WHERE title_id = ?;
+
+-- name: UpdateEpisode :exec
+UPDATE episodes SET season = ?, number = ?, tvdb_id = ?, name = ?, air_date = ? WHERE id = ?;
+
+-- name: ParkEpisodeNumber :exec
+UPDATE episodes SET number = -id WHERE id = ?;
+
+-- name: ListSeasonNumbers :many
+SELECT number FROM seasons WHERE title_id = ?;
+
+-- name: ListFilesWithSlot :many
+SELECT f.id, f.version_id, v.slot, f.path, f.parsed_release, f.probe
+FROM files f JOIN versions v ON v.id = f.version_id WHERE v.title_id = ? ORDER BY f.id;
+
+-- name: ListFileEpisodeRefs :many
+SELECT fe.file_id, e.season, e.number
+FROM file_episodes fe JOIN episodes e ON e.id = fe.episode_id JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id
+WHERE v.title_id = ? ORDER BY e.season, e.number;
+
+-- name: SetFilePath :exec
+UPDATE files SET path = ? WHERE id = ?;
+
+-- name: ForceTitleFolder :exec
+UPDATE titles SET folder = ? WHERE id = ?;

@@ -62,7 +62,7 @@ func newSeriesRig(t *testing.T) *seriesRig {
 		t.Fatal(err)
 	}
 	svc, err := imports.New(imports.Deps{
-		Library: r.lib, Profiles: profiles.New(st, settings.New(st)), Prober: r.prober, Clock: func() time.Time { return seriesNow },
+		Library: r.lib, Renames: r.lib, Profiles: profiles.New(st, settings.New(st)), Prober: r.prober, Clock: func() time.Time { return seriesNow },
 		Step: func(step string) error {
 			if r.hook != nil {
 				return r.hook(step)

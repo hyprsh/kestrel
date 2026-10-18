@@ -30,6 +30,15 @@ func (q *Queries) CountFileEpisodes(ctx context.Context, fileID int64) (int64, e
 	return count, err
 }
 
+const deleteAliasesOfTitle = `-- name: DeleteAliasesOfTitle :exec
+DELETE FROM title_aliases WHERE title_id = ?
+`
+
+func (q *Queries) DeleteAliasesOfTitle(ctx context.Context, titleID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteAliasesOfTitle, titleID)
+	return err
+}
+
 const deleteFile = `-- name: DeleteFile :exec
 DELETE FROM files WHERE id = ?
 `
@@ -50,6 +59,15 @@ type DeleteFileEpisodeParams struct {
 
 func (q *Queries) DeleteFileEpisode(ctx context.Context, arg DeleteFileEpisodeParams) error {
 	_, err := q.db.ExecContext(ctx, deleteFileEpisode, arg.VersionID, arg.EpisodeID)
+	return err
+}
+
+const deleteReleaseDatesOfTitle = `-- name: DeleteReleaseDatesOfTitle :exec
+DELETE FROM title_release_dates WHERE title_id = ?
+`
+
+func (q *Queries) DeleteReleaseDatesOfTitle(ctx context.Context, titleID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteReleaseDatesOfTitle, titleID)
 	return err
 }
 
@@ -128,6 +146,20 @@ func (q *Queries) FindTitlesByTMDB(ctx context.Context, kind string) ([]FindTitl
 		return nil, err
 	}
 	return items, nil
+}
+
+const forceTitleFolder = `-- name: ForceTitleFolder :exec
+UPDATE titles SET folder = ? WHERE id = ?
+`
+
+type ForceTitleFolderParams struct {
+	Folder sql.NullString
+	ID     int64
+}
+
+func (q *Queries) ForceTitleFolder(ctx context.Context, arg ForceTitleFolderParams) error {
+	_, err := q.db.ExecContext(ctx, forceTitleFolder, arg.Folder, arg.ID)
+	return err
 }
 
 const getFile = `-- name: GetFile :one
@@ -688,6 +720,41 @@ func (q *Queries) ListEpisodesOfTitle(ctx context.Context, titleID int64) ([]Epi
 	return items, nil
 }
 
+const listFileEpisodeRefs = `-- name: ListFileEpisodeRefs :many
+SELECT fe.file_id, e.season, e.number
+FROM file_episodes fe JOIN episodes e ON e.id = fe.episode_id JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id
+WHERE v.title_id = ? ORDER BY e.season, e.number
+`
+
+type ListFileEpisodeRefsRow struct {
+	FileID int64
+	Season int64
+	Number int64
+}
+
+func (q *Queries) ListFileEpisodeRefs(ctx context.Context, titleID int64) ([]ListFileEpisodeRefsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFileEpisodeRefs, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFileEpisodeRefsRow
+	for rows.Next() {
+		var i ListFileEpisodeRefsRow
+		if err := rows.Scan(&i.FileID, &i.Season, &i.Number); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFileEpisodes = `-- name: ListFileEpisodes :many
 SELECT f.version_id, fe.episode_id, f.score FROM file_episodes fe JOIN files f ON f.id = fe.file_id
 `
@@ -908,6 +975,50 @@ func (q *Queries) ListFilesOfVersion(ctx context.Context, versionID int64) ([]Fi
 	return items, nil
 }
 
+const listFilesWithSlot = `-- name: ListFilesWithSlot :many
+SELECT f.id, f.version_id, v.slot, f.path, f.parsed_release, f.probe
+FROM files f JOIN versions v ON v.id = f.version_id WHERE v.title_id = ? ORDER BY f.id
+`
+
+type ListFilesWithSlotRow struct {
+	ID            int64
+	VersionID     int64
+	Slot          string
+	Path          string
+	ParsedRelease sql.NullString
+	Probe         sql.NullString
+}
+
+func (q *Queries) ListFilesWithSlot(ctx context.Context, titleID int64) ([]ListFilesWithSlotRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFilesWithSlot, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFilesWithSlotRow
+	for rows.Next() {
+		var i ListFilesWithSlotRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.VersionID,
+			&i.Slot,
+			&i.Path,
+			&i.ParsedRelease,
+			&i.Probe,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMisfitFileIDs = `-- name: ListMisfitFileIDs :many
 SELECT file_id FROM file_misfits
 `
@@ -925,6 +1036,47 @@ func (q *Queries) ListMisfitFileIDs(ctx context.Context) ([]int64, error) {
 			return nil, err
 		}
 		items = append(items, file_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRefreshable = `-- name: ListRefreshable :many
+SELECT id, kind, tmdb_id, tvdb_id, refreshed_at FROM titles WHERE metadata_frozen = 0 ORDER BY id
+`
+
+type ListRefreshableRow struct {
+	ID          int64
+	Kind        string
+	TmdbID      sql.NullInt64
+	TvdbID      sql.NullInt64
+	RefreshedAt string
+}
+
+func (q *Queries) ListRefreshable(ctx context.Context) ([]ListRefreshableRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRefreshable)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRefreshableRow
+	for rows.Next() {
+		var i ListRefreshableRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Kind,
+			&i.TmdbID,
+			&i.TvdbID,
+			&i.RefreshedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -958,6 +1110,33 @@ func (q *Queries) ListReleaseDatesOfTitle(ctx context.Context, titleID int64) ([
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSeasonNumbers = `-- name: ListSeasonNumbers :many
+SELECT number FROM seasons WHERE title_id = ?
+`
+
+func (q *Queries) ListSeasonNumbers(ctx context.Context, titleID int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listSeasonNumbers, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var number int64
+		if err := rows.Scan(&number); err != nil {
+			return nil, err
+		}
+		items = append(items, number)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -1124,6 +1303,15 @@ func (q *Queries) MarkMissingSearched(ctx context.Context, arg MarkMissingSearch
 	return err
 }
 
+const parkEpisodeNumber = `-- name: ParkEpisodeNumber :exec
+UPDATE episodes SET number = -id WHERE id = ?
+`
+
+func (q *Queries) ParkEpisodeNumber(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, parkEpisodeNumber, id)
+	return err
+}
+
 const refreshSeasonsMonitored = `-- name: RefreshSeasonsMonitored :exec
 UPDATE seasons SET monitored = EXISTS (
     SELECT 1 FROM episodes e WHERE e.title_id = seasons.title_id AND e.season = seasons.number AND e.monitored = 1
@@ -1149,6 +1337,20 @@ func (q *Queries) SetEpisodeMonitored(ctx context.Context, arg SetEpisodeMonitor
 	return err
 }
 
+const setFilePath = `-- name: SetFilePath :exec
+UPDATE files SET path = ? WHERE id = ?
+`
+
+type SetFilePathParams struct {
+	Path string
+	ID   int64
+}
+
+func (q *Queries) SetFilePath(ctx context.Context, arg SetFilePathParams) error {
+	_, err := q.db.ExecContext(ctx, setFilePath, arg.Path, arg.ID)
+	return err
+}
+
 const setFileScore = `-- name: SetFileScore :exec
 UPDATE files SET score = ? WHERE id = ?
 `
@@ -1160,6 +1362,20 @@ type SetFileScoreParams struct {
 
 func (q *Queries) SetFileScore(ctx context.Context, arg SetFileScoreParams) error {
 	_, err := q.db.ExecContext(ctx, setFileScore, arg.Score, arg.ID)
+	return err
+}
+
+const setMetadataFrozen = `-- name: SetMetadataFrozen :exec
+UPDATE titles SET metadata_frozen = ? WHERE id = ?
+`
+
+type SetMetadataFrozenParams struct {
+	MetadataFrozen int64
+	ID             int64
+}
+
+func (q *Queries) SetMetadataFrozen(ctx context.Context, arg SetMetadataFrozenParams) error {
+	_, err := q.db.ExecContext(ctx, setMetadataFrozen, arg.MetadataFrozen, arg.ID)
 	return err
 }
 
@@ -1285,5 +1501,65 @@ type SetVersionProfileParams struct {
 
 func (q *Queries) SetVersionProfile(ctx context.Context, arg SetVersionProfileParams) error {
 	_, err := q.db.ExecContext(ctx, setVersionProfile, arg.ProfileKey, arg.ID)
+	return err
+}
+
+const updateEpisode = `-- name: UpdateEpisode :exec
+UPDATE episodes SET season = ?, number = ?, tvdb_id = ?, name = ?, air_date = ? WHERE id = ?
+`
+
+type UpdateEpisodeParams struct {
+	Season  int64
+	Number  int64
+	TvdbID  sql.NullInt64
+	Name    string
+	AirDate sql.NullString
+	ID      int64
+}
+
+func (q *Queries) UpdateEpisode(ctx context.Context, arg UpdateEpisodeParams) error {
+	_, err := q.db.ExecContext(ctx, updateEpisode,
+		arg.Season,
+		arg.Number,
+		arg.TvdbID,
+		arg.Name,
+		arg.AirDate,
+		arg.ID,
+	)
+	return err
+}
+
+const updateTitleMetadata = `-- name: UpdateTitleMetadata :exec
+UPDATE titles SET title = ?, original_title = ?, primary_title = ?, year = ?,
+    original_language = ?, overview = ?, runtime = ?, poster_path = ?, refreshed_at = ?
+WHERE id = ?
+`
+
+type UpdateTitleMetadataParams struct {
+	Title            string
+	OriginalTitle    string
+	PrimaryTitle     string
+	Year             sql.NullInt64
+	OriginalLanguage string
+	Overview         string
+	Runtime          sql.NullInt64
+	PosterPath       sql.NullString
+	RefreshedAt      string
+	ID               int64
+}
+
+func (q *Queries) UpdateTitleMetadata(ctx context.Context, arg UpdateTitleMetadataParams) error {
+	_, err := q.db.ExecContext(ctx, updateTitleMetadata,
+		arg.Title,
+		arg.OriginalTitle,
+		arg.PrimaryTitle,
+		arg.Year,
+		arg.OriginalLanguage,
+		arg.Overview,
+		arg.Runtime,
+		arg.PosterPath,
+		arg.RefreshedAt,
+		arg.ID,
+	)
 	return err
 }

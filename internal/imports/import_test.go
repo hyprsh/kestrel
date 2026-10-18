@@ -93,7 +93,7 @@ func newRig(t *testing.T) *rig {
 	}
 	r.health = health.New(health.Deps{Store: st, Clock: func() time.Time { return now }})
 	svc, err := imports.New(imports.Deps{
-		Library: r.lib, Profiles: profiles.New(st, settings.New(st)), Prober: r.prober, Clock: func() time.Time { return now }, Health: r.health,
+		Library: r.lib, Renames: r.lib, Profiles: profiles.New(st, settings.New(st)), Prober: r.prober, Clock: func() time.Time { return now }, Health: r.health,
 		Step: func(s string) error {
 			if r.hook != nil {
 				return r.hook(s)
