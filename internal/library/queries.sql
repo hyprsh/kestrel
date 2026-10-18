@@ -71,12 +71,15 @@ SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored FROM epi
 -- name: ListEpisodesOfTitle :many
 SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored FROM episodes WHERE title_id = ? ORDER BY season, number;
 
+-- A misfit file (it fails its Profile's gates) does not hold its episodes: they are Wanted again, as a misfit Movie is.
 -- name: ListFileEpisodes :many
-SELECT f.version_id, fe.episode_id, f.score FROM file_episodes fe JOIN files f ON f.id = fe.file_id;
+SELECT f.version_id, fe.episode_id, f.score FROM file_episodes fe JOIN files f ON f.id = fe.file_id
+WHERE f.id NOT IN (SELECT file_id FROM file_misfits);
 
 -- name: ListFileEpisodesOfTitle :many
 SELECT f.version_id, fe.episode_id, f.score
-FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id WHERE v.title_id = ?;
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id
+WHERE v.title_id = ? AND f.id NOT IN (SELECT file_id FROM file_misfits);
 
 -- name: SetSeriesMonitor :exec
 UPDATE titles SET series_monitor = ? WHERE id = ? AND kind = 'series';

@@ -772,6 +772,7 @@ func (q *Queries) ListFileEpisodeRefs(ctx context.Context, titleID int64) ([]Lis
 
 const listFileEpisodes = `-- name: ListFileEpisodes :many
 SELECT f.version_id, fe.episode_id, f.score FROM file_episodes fe JOIN files f ON f.id = fe.file_id
+WHERE f.id NOT IN (SELECT file_id FROM file_misfits)
 `
 
 type ListFileEpisodesRow struct {
@@ -780,6 +781,7 @@ type ListFileEpisodesRow struct {
 	Score     sql.NullInt64
 }
 
+// A misfit file (it fails its Profile's gates) does not hold its episodes: they are Wanted again, as a misfit Movie is.
 func (q *Queries) ListFileEpisodes(ctx context.Context) ([]ListFileEpisodesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listFileEpisodes)
 	if err != nil {
@@ -805,7 +807,8 @@ func (q *Queries) ListFileEpisodes(ctx context.Context) ([]ListFileEpisodesRow, 
 
 const listFileEpisodesOfTitle = `-- name: ListFileEpisodesOfTitle :many
 SELECT f.version_id, fe.episode_id, f.score
-FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id WHERE v.title_id = ?
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id
+WHERE v.title_id = ? AND f.id NOT IN (SELECT file_id FROM file_misfits)
 `
 
 type ListFileEpisodesOfTitleRow struct {

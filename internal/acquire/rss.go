@@ -188,7 +188,7 @@ func (s *Service) rssMovie(ctx context.Context, sub subject, items []feedItem) (
 		}
 		u := Unit{}
 		if v.File != nil {
-			h := Held{Fits: true}
+			h := Held{Fits: !v.File.Misfit}
 			if v.File.Score != nil {
 				h.Score = *v.File.Score
 			}

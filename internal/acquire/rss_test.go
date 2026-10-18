@@ -196,3 +196,45 @@ func TestRSSGrabsAFinishedSeasonAsOnePack(t *testing.T) {
 		t.Errorf("out = %+v, %v", out, err)
 	}
 }
+
+func TestRSSReplacesAMisfitMovieFileWithAnyFittingRelease(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	if _, err := r.lib.ReplaceFile(ctx, r.titleID, "Paddington (2014)", library.NewFile{
+		VersionID: r.versions[resolution.HD], Path: "/m/Paddington.mkv", Size: 1, ReleaseName: "Paddington.2014.720p", Score: 1000000,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	files, _ := r.lib.FilesOfVersion(ctx, r.versions[resolution.HD])
+	if err := r.lib.ApplyRescore(ctx, []library.Rescored{{FileID: files[0].ID, Score: 1000000, Misfit: true}}); err != nil {
+		t.Fatal(err)
+	}
+	r.publishPlain(t, hd1080)
+
+	out, err := r.svc.SyncRSS(ctx)
+
+	if err != nil || len(out.Grabbed) != 1 || out.Grabbed[0].ReleaseName != hd1080 {
+		t.Fatalf("out = %+v, %v; a fitting Release always replaces a misfit file", out, err)
+	}
+}
+
+func TestRSSReplacesAMisfitEpisodeFileWithAnyFittingRelease(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	d, v := nightShow()
+	id := r.addSeries(t, d, v, library.MonitorAll)
+	det, _ := r.lib.Get(ctx, id, library.View{Country: "US", Now: r.clock.now})
+	eps, _ := r.lib.Episodes(ctx, id, library.View{Country: "US", Now: r.clock.now})
+	if _, err := r.lib.ReplaceEpisodeFile(ctx, id, "Night Show (2024)", library.NewFile{
+		VersionID: det.Versions[0].ID, Path: "/tv/s01e01.mkv", Size: 1, ReleaseName: "old", Score: 1000000, Misfit: true,
+	}, []int64{eps[0].ID}); err != nil {
+		t.Fatal(err)
+	}
+	r.publishTV(t, "Night.Show.S01E01.1080p.WEB-DL.H264-GRP")
+
+	out, err := r.svc.SyncRSS(ctx)
+
+	if err != nil || len(out.Grabbed) != 1 {
+		t.Fatalf("out = %+v, %v; a fitting Release always replaces a misfit file", out, err)
+	}
+}
