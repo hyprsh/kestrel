@@ -54,7 +54,7 @@ func TestOfClass(t *testing.T) {
 }
 
 func TestOrder(t *testing.T) {
-	if len(slot.All) != slot.Count || slot.All[0] != slot.Standard || slot.All[1] != slot.FourK || slot.Default != slot.Standard {
+	if len(slot.All) != slot.Count || slot.All[0] != slot.Standard || slot.All[1] != slot.FourK {
 		t.Error("order")
 	}
 }

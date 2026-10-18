@@ -432,7 +432,7 @@ func (s *Service) apply(ctx context.Context, in Input, t target, specs []library
 			return 0, false, ErrNoRootFolder
 		}
 		if errors.Is(err, rootfolders.ErrNotConfigured) {
-			return 0, false, &ValidationError{Field: "root_folder", Code: "not_found", Message: "That is not one of the " + string(in.Kind) + " Root folders"}
+			return 0, false, &ValidationError{Field: "root_folder", Code: "not_found", Message: rootfolders.Kind(in.Kind).NotConfiguredMessage()}
 		}
 		if err != nil {
 			return 0, false, err

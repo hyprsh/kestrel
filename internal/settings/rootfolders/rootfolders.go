@@ -161,6 +161,16 @@ const (
 	Series Kind = "series"
 )
 
+// NotConfiguredMessage is the 422 text for a Root folder that is not one of the
+// kind's configured ones.
+func (k Kind) NotConfiguredMessage() string {
+	noun := "Movie"
+	if k == Series {
+		noun = "Series"
+	}
+	return "That is not one of the " + noun + " Root folders"
+}
+
 // of is the kind's folders.
 func (f Folders) of(kind Kind) []string {
 	if kind == Series {

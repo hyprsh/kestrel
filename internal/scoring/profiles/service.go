@@ -223,10 +223,10 @@ func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, erro
 		}
 		if cur.Slot == slot.Standard {
 			if cur.DefaultMovies && !next.DefaultMovies {
-				return hdDefaultError(p, "default_movies", "movies")
+				return standardDefaultError(p, "default_movies", "movies")
 			}
 			if cur.DefaultSeries && !next.DefaultSeries {
-				return hdDefaultError(p, "default_series", "series")
+				return standardDefaultError(p, "default_series", "series")
 			}
 		}
 
@@ -259,7 +259,7 @@ func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, erro
 	return out, err
 }
 
-func hdDefaultError(p Patch, field, kind string) error {
+func standardDefaultError(p Patch, field, kind string) error {
 	if p.Enabled != nil && !*p.Enabled && (field == "default_movies" && p.DefaultMovies == nil || field == "default_series" && p.DefaultSeries == nil) {
 		field = "enabled"
 	}

@@ -17,3 +17,7 @@ A Title has two fixed Slots, Standard (up to 1080p, the default) and 4K (2160p, 
 - Silo's `1080p` tier maps to Standard and `2160p` to 4K. The Silo plugin's config has `standard_profile`, `4k_profile` and `root_folder`, which a Silo route can override per request, and a Request can name its root folder.
 - Media servers pick a Version by its probed resolution, never by the label: Jellyfin defaults to the highest resolution and transcodes, and Silo honours device caps and group ceilings but plays the last-watched Version first.
 - The new labels need no migration because no library used the old ones; ADRs 0003, 0004 and 0005 carry a note pointing here.
+
+## Exception to ADR 0009
+
+ADR 0009 says `v1` changes are additive only. This decision renames Slot values, removes the `kids` fields from `/api/v1` and edits the seed migrations in place after v0.1.0. That is accepted this once: Kestrel is pre-adoption and nobody runs it, so there are no clients to break and no databases to migrate. Once anyone runs Kestrel, ADR 0009 holds again.

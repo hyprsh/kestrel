@@ -37,18 +37,16 @@ type ProfileSpec struct {
 	OriginalFallback bool
 }
 
-// HeightBounds are the resolution bounds of a builtin Profile (Settled 2): Any
-// 0-1080, HD (the other Standard Profiles) 720-1080 and 4K 2160-2160. They
-// always lie inside the Slot's range.
-func HeightBounds(s slot.Slot, any bool) (min, max int) {
-	switch {
-	case s == slot.FourK:
-		return 2160, 2160
-	case any:
-		return 0, 1080
-	default:
-		return 720, 1080
+// HeightBounds are the resolution bounds of a builtin Profile (Settled 2),
+// derived from the Slot's range: a wide Profile (Any) takes the whole Standard
+// range, HD (the other Standard Profiles) starts at 720 and 4K takes its
+// Slot's range. They always lie inside the Slot.
+func HeightBounds(s slot.Slot, wide bool) (min, max int) {
+	lo, hi := s.Range()
+	if s == slot.Standard && !wide {
+		lo = 720
 	}
+	return lo, hi
 }
 
 // ErrUnsupportedProfile means no TRaSH backing profile exists for the spec.
@@ -60,7 +58,7 @@ var ErrUnsupportedProfile = errors.New("no TRaSH profile backs this Profile")
 type Profile struct {
 	spec ProfileSpec
 	// MinHeight and MaxHeight bound the resolutions the Profile accepts
-	// (Settled 2): SD 0-576, HD 720-1080, Any 0-1080, UHD 2160-2160.
+	// (Settled 2): HD 720-1080, Any 0-1080, 4K 2160-2160.
 	MinHeight, MaxHeight int
 	sets                 map[release.Kind]*formatSet
 }
@@ -232,7 +230,7 @@ func backingName(spec ProfileSpec, kind release.Kind) (string, error) {
 
 var sdQualities = []string{"SDTV", "DVD", "WEBDL-480p", "WEBRip-480p", "Bluray-480p", "Bluray-576p"}
 
-// derivedQualities gives the allowed qualities of a Profile: UHD and HD keep
+// derivedQualities gives the allowed qualities of a Profile: 4K and HD keep
 // the backing profile's, Any adds the SD qualities
 // to HD's (for Series it also widens to WEB 480p/720p/1080p, DVD and SDTV).
 func derivedQualities(spec ProfileSpec, kind release.Kind, backing []string) []string {

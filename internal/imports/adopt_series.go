@@ -413,7 +413,7 @@ func (a *Adoption) planSeriesFile(e *env, m seriesFacts, title Title, en entry, 
 		if err != nil {
 			return PlanFile{}, SkipNoEnabledProfile, nil
 		}
-		profileKey = r.Profile.Key
+		profileKey = r.Key
 	}
 	var spec *profiles.Profile
 	for i := range e.profiles {

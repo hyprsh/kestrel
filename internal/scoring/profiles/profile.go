@@ -1,4 +1,4 @@
-// Package profiles, part of the scoring module, owns the eight builtin Profiles and the household's
+// Package profiles, part of the scoring module, owns the six builtin Profiles and the household's
 // language settings: the Primary Language and the release-date country. It
 // holds the pure helpers other modules share: Profile resolution.
 //
@@ -54,9 +54,9 @@ func (p Profile) Spec(primary release.Language) scoring.ProfileSpec {
 // Builtin returns the six Profiles as shipped: all enabled, HD the default
 // of both kinds, no fallback. Backing TRaSH names are the English household's.
 func Builtin() []Profile {
-	mk := func(key, name string, sl slot.Slot, any bool, rule scoring.LanguageRule) Profile {
-		p := Profile{Key: key, Name: name, Slot: sl, Any: any, Rule: rule, Enabled: true}
-		p.MinHeight, p.MaxHeight = scoring.HeightBounds(sl, any)
+	mk := func(key, name string, sl slot.Slot, wide bool, rule scoring.LanguageRule) Profile {
+		p := Profile{Key: key, Name: name, Slot: sl, Any: wide, Rule: rule, Enabled: true}
+		p.MinHeight, p.MaxHeight = scoring.HeightBounds(sl, wide)
 		return p
 	}
 	out := []Profile{
@@ -72,6 +72,11 @@ func Builtin() []Profile {
 			out[i].DefaultMovies, out[i].DefaultSeries = true, true
 		}
 	}
+	for _, p := range out {
+		if !p.Slot.Contains(p.MinHeight, p.MaxHeight) {
+			panic("profiles: builtin Profile " + p.Key + " has heights outside its Slot")
+		}
+	}
 	return out
 }
 
@@ -79,17 +84,12 @@ func Builtin() []Profile {
 // for it is rejected `no_enabled_profile`.
 var ErrNoEnabledProfile = errors.New("no enabled Profile")
 
-// Resolved is the outcome of Profile resolution.
-type Resolved struct {
-	Profile
-}
-
 // Resolve picks the Profile for a Slot when the caller named none (PRD
 // Settled 8): the Slot's default for the kind, else the enabled
 // Primary-Language Profile of the Slot, else the enabled Original-Language
 // Profile. An Any Profile is only ever the Slot's default, never a fallback.
 // It returns ErrNoEnabledProfile when the Slot has nothing enabled.
-func Resolve(all []Profile, kind release.Kind, sl slot.Slot) (Resolved, error) {
+func Resolve(all []Profile, kind release.Kind, sl slot.Slot) (Profile, error) {
 	pick := func(match func(Profile) bool) (Profile, bool) {
 		for _, p := range all {
 			if p.Enabled && p.Slot == sl && match(p) {
@@ -106,23 +106,23 @@ func Resolve(all []Profile, kind release.Kind, sl slot.Slot) (Resolved, error) {
 		p, ok = pick(func(p Profile) bool { return !p.Any && p.Rule == scoring.OriginalLanguage })
 	}
 	if !ok {
-		return Resolved{}, ErrNoEnabledProfile
+		return Profile{}, ErrNoEnabledProfile
 	}
-	return Resolved{Profile: p}, nil
+	return p, nil
 }
 
 // ResolveAccepting is Resolve for a file already in hand: when the Slot's
 // Profile would not accept the file, it picks the enabled Any Profile of the
 // Slot with the same language rule if that accepts it, else the Slot's Profile
 // as Resolve gave it. This is how Adoption files a 576p file in Standard under Any.
-func ResolveAccepting(all []Profile, kind release.Kind, sl slot.Slot, accepts func(Profile) bool) (Resolved, error) {
+func ResolveAccepting(all []Profile, kind release.Kind, sl slot.Slot, accepts func(Profile) bool) (Profile, error) {
 	r, err := Resolve(all, kind, sl)
-	if err != nil || accepts(r.Profile) {
+	if err != nil || accepts(r) {
 		return r, err
 	}
 	for _, p := range all {
 		if p.Enabled && p.Any && p.Slot == sl && p.Rule == r.Rule && accepts(p) {
-			return Resolved{Profile: p}, nil
+			return p, nil
 		}
 	}
 	return r, nil

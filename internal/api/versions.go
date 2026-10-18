@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"errors"
-	"github.com/hyprsh/kestrel/internal/slot"
 	"net/http"
 	"path/filepath"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
+	"github.com/hyprsh/kestrel/internal/slot"
 )
 
 // checkProfile is the 422 for a Profile that cannot fill the Slot, or nil.

@@ -657,7 +657,7 @@ func (a *Adoption) planFile(e *env, m movieFacts, title Title, en entry, f probe
 		if err != nil {
 			return PlanFile{}, SkipNoEnabledProfile, nil
 		}
-		profileKey = r.Profile.Key
+		profileKey = r.Key
 	}
 	var spec *profiles.Profile
 	for i := range e.profiles {
