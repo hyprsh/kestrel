@@ -681,7 +681,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adoption": {
+    "/attention": {
         parameters: {
             query?: never;
             header?: never;
@@ -689,62 +689,14 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * The Adoption scan and plan
-         * @description Adoption takes over an existing on-disk library without downloading it again. There is at most one
-         *     plan, stored until it is committed or discarded: `idle` (no plan), `scanning` (building one in the
-         *     background, with `progress`), `planned` (waiting for review) or `committing`. `revision` changes with
-         *     every edit of the plan; `POST /adoption/commit` must name the one it reviewed.
+         * Needs attention
+         * @description The problems the admin can act on. Blocking rows first, then Warnings newest first. Rows come
+         *     from conditions that clear themselves when the condition goes (Settled 16, 17; #17); `actions`
+         *     are built by the server and drawn generically by the SPA. An action with method `GET` opens
+         *     that SPA path (such as `/settings/download-client`) instead of calling the API. `count`
+         *     counts `rows` only: the Long Missing group has its own `long_missing` and never counts.
          */
-        get: operations["getAdoption"];
-        put?: never;
-        post?: never;
-        /**
-         * Throw the plan away
-         * @description Nothing was written to disk or the Library by a plan, so this only forgets it. `409 conflict` while committing.
-         */
-        delete: operations["discardAdoption"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adoption/scan": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Scan the Movie Root folders for files to adopt
-         * @description Starts a background scan (manual only) and answers `202` with `Location: /adoption`. A new scan
-         *     replaces the stored plan. Each top-level entry of a Root folder is one Title candidate; tracked
-         *     Titles' folders are scanned too, for files no Version holds. `409 conflict` while a scan or a
-         *     commit is running.
-         */
-        post: operations["scanAdoption"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adoption/rows": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The rows of the plan
-         * @description Rows are grouped Matched, Needs choice and Skipped. `duplicate` keeps rows with a file left in place
-         *     because another file holds its Slot; `replacement` keeps rows that would replace a file a Version
-         *     holds (unticked by default).
-         */
-        get: operations["listAdoptionRows"];
+        get: operations["getAttention"];
         put?: never;
         post?: never;
         delete?: never;
@@ -753,47 +705,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adoption/rows/{id}": {
+    "/attention/{id}/dismiss": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: number;
+                /** @description A row's `id` from `GET /attention`. */
+                id: components["parameters"]["AttentionRowId"];
             };
             cookie?: never;
         };
         get?: never;
         put?: never;
-        post?: never;
+        /**
+         * Dismiss a one-off health warning
+         * @description Hides the row until its condition recurs. Only rows with a `dismiss` action can be dismissed;
+         *     any other row is `409 conflict`, and one that is already gone `404`.
+         */
+        post: operations["dismissAttention"];
         delete?: never;
         options?: never;
         head?: never;
-        /**
-         * Tick a row or settle its match
-         * @description `ticked` includes or leaves out the whole row, `files` the single files in it. `tmdb_id` settles a
-         *     Needs choice row (from its candidates or a search) or corrects a match: the row is planned again
-         *     against that Movie. Unsettled Needs choice rows are left out of the commit. Every change moves the plan's `revision`.
-         */
-        patch: operations["patchAdoptionRow"];
+        patch?: never;
         trace?: never;
     };
-    "/adoption/commit": {
+    "/system/status": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
-         * Adopt the ticked rows
-         * @description Answers `202`; the work runs in the background, one transaction per Title. Files are renamed in
-         *     place into the naming scheme together with their sidecar subtitles, and each Title is logged as it is
-         *     adopted. `409 conflict` when `revision` is not the plan's current one (a row changed since it was
-         *     reviewed) or the plan is not `planned`. The plan is cleared once committed.
+         * The health strip
+         * @description Capacity at a glance: the download client, each indexer and the free space on the data mount
+         *     and every Root folder. Indexer budgets, pauses and the TRaSH snapshot's age fill in with the
+         *     tickets that own them.
          */
-        post: operations["commitAdoption"];
+        get: operations["getSystemStatus"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1580,110 +1531,6 @@ export interface components {
             /** @default false */
             blocklist: boolean;
         };
-        Adoption: {
-            /** @enum {string} */
-            state: "idle" | "scanning" | "planned" | "committing";
-            progress: {
-                done: number;
-                total: number;
-            };
-            /** @description Row counts of the plan; all zero when there is none. */
-            summary: {
-                matched: number;
-                needs_choice: number;
-                skipped: number;
-                duplicate: number;
-                replacement: number;
-            };
-            /** Format: int64 */
-            revision: number;
-            /** @description Why the last scan could not finish, if it could not. */
-            error: string | null;
-            /** Format: date-time */
-            scanned_at: string | null;
-            /** @description What the last commit did; kept until the next scan. */
-            result: {
-                adopted: number;
-                failed: number;
-            } | null;
-        };
-        AdoptionCandidate: {
-            tmdb_id: number;
-            title: string;
-            year: number | null;
-        };
-        AdoptionMatch: {
-            tmdb_id: number;
-            title: string;
-            year: number | null;
-            /**
-             * Format: int64
-             * @description The tracked Title the files join; null when adopting creates the Title.
-             */
-            title_id: number | null;
-            /**
-             * @description ID tag, confident name match, or picked by the admin.
-             * @enum {string}
-             */
-            source: "tag" | "name" | "chosen";
-            /** @description The Title folder the files are renamed into. */
-            folder: string;
-        };
-        AdoptionSubtitle: {
-            from: string;
-            to: string;
-        };
-        AdoptionFile: {
-            path: string;
-            /** @description The path it gets in the naming scheme. */
-            to: string;
-            /** Format: int64 */
-            size: number;
-            slot: components["schemas"]["Slot"];
-            /** @description Key of the Profile the Version has or gets. */
-            profile: string;
-            score: number;
-            /**
-             * @description Create the Version, fill an empty one, or replace the file a Version holds.
-             * @enum {string}
-             */
-            action: "create" | "fill" | "replace";
-            /** @description The Score of the file `replace` would replace. */
-            held_score: number | null;
-            ticked: boolean;
-            /**
-             * @description Why the file stays untouched; null when it is adopted if ticked.
-             * @enum {string|null}
-             */
-            left: "duplicate" | "path_occupied" | null;
-            subtitles: components["schemas"]["AdoptionSubtitle"][];
-        };
-        AdoptionRow: {
-            /** Format: int64 */
-            id: number;
-            /** @enum {string} */
-            status: "matched" | "needs_choice" | "skipped";
-            /** @enum {string|null} */
-            skip_reason: "invalid" | "no_video" | "no_enabled_profile" | null;
-            /** @description The folder or loose file in the Root folder. */
-            entry: string;
-            ticked: boolean;
-            match: components["schemas"]["AdoptionMatch"] | null;
-            /** @description Likely Movies for a Needs choice row. */
-            candidates: components["schemas"]["AdoptionCandidate"][];
-            files: components["schemas"]["AdoptionFile"][];
-        };
-        AdoptionRowList: {
-            items: components["schemas"]["AdoptionRow"][];
-        };
-        AdoptionRowPatch: {
-            ticked?: boolean;
-            tmdb_id?: number;
-            files?: {
-                path: string;
-                ticked: boolean;
-            }[];
-        };
         /**
          * @description Something changed; refetch it. `resource` is `title` (a Title, its Versions and the
          *     Library list), `grab`, `queue` or `log`; more are added. `id` is null when the hint is about the
@@ -1706,6 +1553,119 @@ export interface components {
              * @enum {string|null}
              */
             severity: "blocking" | "warning" | null;
+        };
+        Attention: {
+            /** @description How many `rows` there are. Long Missing does not count. */
+            count: number;
+            /**
+             * @description The worst severity among the rows, null when there are none.
+             * @enum {string|null}
+             */
+            severity: "blocking" | "warning" | null;
+            rows: components["schemas"]["AttentionRow"][];
+            long_missing: components["schemas"]["LongMissing"];
+        };
+        AttentionRow: {
+            /** @description Opaque and stable while the condition lasts. */
+            id: string;
+            /** @enum {string} */
+            severity: "blocking" | "warning";
+            /**
+             * @description What sort of condition, such as `download_client_unreachable`, `no_indexer`,
+             *     `root_folder_unavailable`, `metadata_provider_failing`, `indexer_failing`,
+             *     `low_disk_space`, `untrusted_proxy_header` or a one-off health warning (`exdev`,
+             *     `refresh_failed`, `plex_no_section`). The set grows; clients tolerate unknown kinds.
+             */
+            kind: string;
+            subject: components["schemas"]["AttentionSubject"];
+            message: string;
+            /**
+             * Format: date-time
+             * @description When the condition first showed.
+             */
+            since: string;
+            /** @description How often it was raised since it first showed. */
+            count: number;
+            actions: components["schemas"]["AttentionAction"][];
+        };
+        AttentionSubject: {
+            /** Format: int64 */
+            title_id: number | null;
+            /** Format: int64 */
+            version_id: number | null;
+            /** Format: int64 */
+            grab_id: number | null;
+            /** Format: int64 */
+            plugin_instance_id: number | null;
+        };
+        AttentionAction: {
+            /** @description `dismiss`, `test`, `open`, `disable`, `retry` and so on. */
+            key: string;
+            /** @description The JSON body to send with an API call, when it needs one. */
+            body: {
+                [key: string]: unknown;
+            } | null;
+            label: string;
+            /**
+             * @description `GET` opens `path` in the SPA; the others call the API.
+             * @enum {string}
+             */
+            method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+            /**
+             * @description For an API call, relative to the API root (`/plugin-instances/3/test`); for `GET`, an SPA
+             *     path (`/settings/download-client`).
+             */
+            path: string;
+            /** @description Ask this before running the action, when set. */
+            confirm: string | null;
+        };
+        LongMissing: {
+            /** @description How many Versions are Long Missing. */
+            count: number;
+            /** @description The five most recently released. */
+            items: {
+                /** Format: int64 */
+                title_id: number;
+                /** Format: int64 */
+                version_id: number;
+                slot: components["schemas"]["Slot"];
+                /** Format: date-time */
+                wanted_since: string;
+                last_failure: string | null;
+            }[];
+        };
+        SystemStatus: {
+            download_client: components["schemas"]["ClientStatus"];
+            indexers: components["schemas"]["IndexerStatus"][];
+            /** @description The data mount first, then every Root folder. */
+            disks: components["schemas"]["DiskStatus"][];
+        };
+        ClientStatus: {
+            /**
+             * @description `none` when no download client is enabled.
+             * @enum {string}
+             */
+            state: "ok" | "failing" | "none";
+            name: string | null;
+            /** Format: int64 */
+            instance_id: number | null;
+            /** @description What the last failed call said. */
+            message: string | null;
+        };
+        IndexerStatus: {
+            /** Format: int64 */
+            instance_id: number;
+            name: string;
+            /** @enum {string} */
+            state: "ok" | "failing" | "disabled";
+            message: string | null;
+        };
+        DiskStatus: {
+            path: string;
+            /** Format: int64 */
+            free_bytes: number;
+            /** Format: int64 */
+            total_bytes: number;
         };
         QueueList: {
             items: components["schemas"]["QueueItem"][];
@@ -1907,6 +1867,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description A row's `id` from `GET /attention`. */
+        AttentionRowId: string;
         PluginId: string;
         InstanceId: number;
         /** @description Also delete the files from disk. Off by default. */
@@ -2830,7 +2792,7 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
-    getAdoption: {
+    getAttention: {
         parameters: {
             query?: never;
             header?: never;
@@ -2839,149 +2801,60 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The Adoption state. */
+            /** @description The rows that need attention. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Adoption"];
+                    "application/json": components["schemas"]["Attention"];
                 };
             };
             default: components["responses"]["Problem"];
         };
     };
-    discardAdoption: {
+    dismissAttention: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                /** @description A row's `id` from `GET /attention`. */
+                id: components["parameters"]["AttentionRowId"];
+            };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description The plan is gone. */
+            /** @description The row is hidden. */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };
-    scanAdoption: {
+    getSystemStatus: {
         parameters: {
             query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description Limit the scan to these configured Root folders; `null` or absent scans them all. */
-                    root_folders?: string[] | null;
-                };
-            };
-        };
-        responses: {
-            /** @description The scan started. */
-            202: {
-                headers: {
-                    Location?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Adoption"];
-                };
-            };
-            409: components["responses"]["Problem"];
-            422: components["responses"]["Problem"];
-            default: components["responses"]["Problem"];
-        };
-    };
-    listAdoptionRows: {
-        parameters: {
-            query?: {
-                filter?: "needs_choice" | "matched" | "duplicate" | "replacement" | "skipped";
-            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description The rows. */
+            /** @description The current status. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdoptionRowList"];
+                    "application/json": components["schemas"]["SystemStatus"];
                 };
             };
-            default: components["responses"]["Problem"];
-        };
-    };
-    patchAdoptionRow: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdoptionRowPatch"];
-            };
-        };
-        responses: {
-            /** @description The row. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdoptionRow"];
-                };
-            };
-            404: components["responses"]["Problem"];
-            409: components["responses"]["Problem"];
-            422: components["responses"]["Problem"];
-            default: components["responses"]["Problem"];
-        };
-    };
-    commitAdoption: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** Format: int64 */
-                    revision: number;
-                };
-            };
-        };
-        responses: {
-            /** @description The commit started. */
-            202: {
-                headers: {
-                    Location?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Adoption"];
-                };
-            };
-            409: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

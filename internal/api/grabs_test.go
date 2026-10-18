@@ -82,6 +82,8 @@ func newSearchBare(t *testing.T, with ...func(*api.Options)) search {
 	t.Helper()
 	tmdb := metadatatest.New(t)
 	data, config := t.TempDir(), t.TempDir()
+	// Imports wait for a Root folder that is not there, so the defaults exist.
+	mkdirs(t, data+"/media/movies", data+"/media/tv")
 	idx, sab, prober := ixfake.New("ik"), dcfake.New("sk"), &stubProber{}
 	reg := plugin.NewRegistry()
 	if err := reg.Register(indexer.Contract, idx); err != nil {

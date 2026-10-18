@@ -145,18 +145,102 @@ func (e AdoptionRowStatus) Valid() bool {
 	}
 }
 
+// Defines values for AttentionSeverity.
+const (
+	AttentionSeverityBlocking AttentionSeverity = "blocking"
+	AttentionSeverityWarning  AttentionSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the AttentionSeverity enum.
+func (e AttentionSeverity) Valid() bool {
+	switch e {
+	case AttentionSeverityBlocking:
+		return true
+	case AttentionSeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AttentionActionMethod.
+const (
+	DELETE AttentionActionMethod = "DELETE"
+	GET    AttentionActionMethod = "GET"
+	PATCH  AttentionActionMethod = "PATCH"
+	POST   AttentionActionMethod = "POST"
+	PUT    AttentionActionMethod = "PUT"
+)
+
+// Valid indicates whether the value is a known member of the AttentionActionMethod enum.
+func (e AttentionActionMethod) Valid() bool {
+	switch e {
+	case DELETE:
+		return true
+	case GET:
+		return true
+	case PATCH:
+		return true
+	case POST:
+		return true
+	case PUT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AttentionRowSeverity.
+const (
+	AttentionRowSeverityBlocking AttentionRowSeverity = "blocking"
+	AttentionRowSeverityWarning  AttentionRowSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the AttentionRowSeverity enum.
+func (e AttentionRowSeverity) Valid() bool {
+	switch e {
+	case AttentionRowSeverityBlocking:
+		return true
+	case AttentionRowSeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AttentionSnapshotSeverity.
 const (
-	Blocking AttentionSnapshotSeverity = "blocking"
-	Warning  AttentionSnapshotSeverity = "warning"
+	AttentionSnapshotSeverityBlocking AttentionSnapshotSeverity = "blocking"
+	AttentionSnapshotSeverityWarning  AttentionSnapshotSeverity = "warning"
 )
 
 // Valid indicates whether the value is a known member of the AttentionSnapshotSeverity enum.
 func (e AttentionSnapshotSeverity) Valid() bool {
 	switch e {
-	case Blocking:
+	case AttentionSnapshotSeverityBlocking:
 		return true
-	case Warning:
+	case AttentionSnapshotSeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientStatusState.
+const (
+	ClientStatusStateFailing ClientStatusState = "failing"
+	ClientStatusStateNone    ClientStatusState = "none"
+	ClientStatusStateOk      ClientStatusState = "ok"
+)
+
+// Valid indicates whether the value is a known member of the ClientStatusState enum.
+func (e ClientStatusState) Valid() bool {
+	switch e {
+	case ClientStatusStateFailing:
+		return true
+	case ClientStatusStateNone:
+		return true
+	case ClientStatusStateOk:
 		return true
 	default:
 		return false
@@ -187,6 +271,27 @@ func (e GrabState) Valid() bool {
 	case GrabStateImporting:
 		return true
 	case GrabStateSent:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IndexerStatusState.
+const (
+	IndexerStatusStateDisabled IndexerStatusState = "disabled"
+	IndexerStatusStateFailing  IndexerStatusState = "failing"
+	IndexerStatusStateOk       IndexerStatusState = "ok"
+)
+
+// Valid indicates whether the value is a known member of the IndexerStatusState enum.
+func (e IndexerStatusState) Valid() bool {
+	switch e {
+	case IndexerStatusStateDisabled:
+		return true
+	case IndexerStatusStateFailing:
+		return true
+	case IndexerStatusStateOk:
 		return true
 	default:
 		return false
@@ -808,6 +913,69 @@ type ApiKeyInfo struct {
 	Prefix *string `json:"prefix"`
 }
 
+// Attention defines model for Attention.
+type Attention struct {
+	// Count How many `rows` there are. Long Missing does not count.
+	Count       int            `json:"count"`
+	LongMissing LongMissing    `json:"long_missing"`
+	Rows        []AttentionRow `json:"rows"`
+
+	// Severity The worst severity among the rows, null when there are none.
+	Severity *AttentionSeverity `json:"severity"`
+}
+
+// AttentionSeverity The worst severity among the rows, null when there are none.
+type AttentionSeverity string
+
+// AttentionAction defines model for AttentionAction.
+type AttentionAction struct {
+	// Body The JSON body to send with an API call, when it needs one.
+	Body *map[string]interface{} `json:"body"`
+
+	// Confirm Ask this before running the action, when set.
+	Confirm *string `json:"confirm"`
+
+	// Key `dismiss`, `test`, `open`, `disable`, `retry` and so on.
+	Key   string `json:"key"`
+	Label string `json:"label"`
+
+	// Method `GET` opens `path` in the SPA; the others call the API.
+	Method AttentionActionMethod `json:"method"`
+
+	// Path For an API call, relative to the API root (`/plugin-instances/3/test`); for `GET`, an SPA
+	// path (`/settings/download-client`).
+	Path string `json:"path"`
+}
+
+// AttentionActionMethod `GET` opens `path` in the SPA; the others call the API.
+type AttentionActionMethod string
+
+// AttentionRow defines model for AttentionRow.
+type AttentionRow struct {
+	Actions []AttentionAction `json:"actions"`
+
+	// Count How often it was raised since it first showed.
+	Count int `json:"count"`
+
+	// Id Opaque and stable while the condition lasts.
+	Id string `json:"id"`
+
+	// Kind What sort of condition, such as `download_client_unreachable`, `no_indexer`,
+	// `root_folder_unavailable`, `metadata_provider_failing`, `indexer_failing`,
+	// `low_disk_space`, `untrusted_proxy_header` or a one-off health warning (`exdev`,
+	// `refresh_failed`, `plex_no_section`). The set grows; clients tolerate unknown kinds.
+	Kind     string               `json:"kind"`
+	Message  string               `json:"message"`
+	Severity AttentionRowSeverity `json:"severity"`
+
+	// Since When the condition first showed.
+	Since   time.Time        `json:"since"`
+	Subject AttentionSubject `json:"subject"`
+}
+
+// AttentionRowSeverity defines model for AttentionRow.Severity.
+type AttentionRowSeverity string
+
 // AttentionSnapshot defines model for AttentionSnapshot.
 type AttentionSnapshot struct {
 	// Count How many Needs attention rows there are.
@@ -820,6 +988,14 @@ type AttentionSnapshot struct {
 // AttentionSnapshotSeverity The worst severity among them, null when there are none.
 type AttentionSnapshotSeverity string
 
+// AttentionSubject defines model for AttentionSubject.
+type AttentionSubject struct {
+	GrabId           *int64 `json:"grab_id"`
+	PluginInstanceId *int64 `json:"plugin_instance_id"`
+	TitleId          *int64 `json:"title_id"`
+	VersionId        *int64 `json:"version_id"`
+}
+
 // ChangedHint Something changed; refetch it. `resource` is `title` (a Title, its Versions and the
 // Library list), `grab`, `queue` or `log`; more are added. `id` is null when the hint is about the
 // whole resource. Clients ignore resources they do not know.
@@ -827,6 +1003,21 @@ type ChangedHint struct {
 	Id       *int64 `json:"id"`
 	Resource string `json:"resource"`
 }
+
+// ClientStatus defines model for ClientStatus.
+type ClientStatus struct {
+	InstanceId *int64 `json:"instance_id"`
+
+	// Message What the last failed call said.
+	Message *string `json:"message"`
+	Name    *string `json:"name"`
+
+	// State `none` when no download client is enabled.
+	State ClientStatusState `json:"state"`
+}
+
+// ClientStatusState `none` when no download client is enabled.
+type ClientStatusState string
 
 // Credentials defines model for Credentials.
 type Credentials struct {
@@ -838,6 +1029,13 @@ type Credentials struct {
 type CustomFormatMatch struct {
 	Name   string `json:"name"`
 	Points int    `json:"points"`
+}
+
+// DiskStatus defines model for DiskStatus.
+type DiskStatus struct {
+	FreeBytes  int64  `json:"free_bytes"`
+	Path       string `json:"path"`
+	TotalBytes int64  `json:"total_bytes"`
 }
 
 // Episode defines model for Episode.
@@ -942,6 +1140,32 @@ type IndexerError struct {
 
 	// RetryAfter Seconds, when the indexer said how long to wait.
 	RetryAfter *int `json:"retry_after"`
+}
+
+// IndexerStatus defines model for IndexerStatus.
+type IndexerStatus struct {
+	InstanceId int64              `json:"instance_id"`
+	Message    *string            `json:"message"`
+	Name       string             `json:"name"`
+	State      IndexerStatusState `json:"state"`
+}
+
+// IndexerStatusState defines model for IndexerStatus.State.
+type IndexerStatusState string
+
+// LongMissing defines model for LongMissing.
+type LongMissing struct {
+	// Count How many Versions are Long Missing.
+	Count int `json:"count"`
+
+	// Items The five most recently released.
+	Items []struct {
+		LastFailure *string   `json:"last_failure"`
+		Slot        Slot      `json:"slot"`
+		TitleId     int64     `json:"title_id"`
+		VersionId   int64     `json:"version_id"`
+		WantedSince time.Time `json:"wanted_since"`
+	} `json:"items"`
 }
 
 // LookupDetail defines model for LookupDetail.
@@ -1594,6 +1818,14 @@ type System struct {
 	Version string `json:"version"`
 }
 
+// SystemStatus defines model for SystemStatus.
+type SystemStatus struct {
+	// Disks The data mount first, then every Root folder.
+	Disks          []DiskStatus    `json:"disks"`
+	DownloadClient ClientStatus    `json:"download_client"`
+	Indexers       []IndexerStatus `json:"indexers"`
+}
+
 // TitleCreate defines model for TitleCreate.
 type TitleCreate struct {
 	Kind       TitleKind `json:"kind"`
@@ -1728,6 +1960,9 @@ type VersionRef struct {
 	Profile string `json:"profile"`
 	Slot    Slot   `json:"slot"`
 }
+
+// AttentionRowId defines model for AttentionRowId.
+type AttentionRowId = string
 
 // DeleteFiles defines model for DeleteFiles.
 type DeleteFiles = bool
@@ -1918,6 +2153,12 @@ type ServerInterface interface {
 	// CreateApiKey Generate or rotate the API key
 	// (POST /api-key)
 	CreateApiKey(w http.ResponseWriter, r *http.Request)
+	// GetAttention Needs attention
+	// (GET /attention)
+	GetAttention(w http.ResponseWriter, r *http.Request)
+	// DismissAttention Dismiss a one-off health warning
+	// (POST /attention/{id}/dismiss)
+	DismissAttention(w http.ResponseWriter, r *http.Request, id AttentionRowId)
 	// Login Log in with username and password
 	// (POST /auth/login)
 	Login(w http.ResponseWriter, r *http.Request)
@@ -2017,6 +2258,9 @@ type ServerInterface interface {
 	// GetSystem Version and API major of this instance
 	// (GET /system)
 	GetSystem(w http.ResponseWriter, r *http.Request)
+	// GetSystemStatus The health strip
+	// (GET /system/status)
+	GetSystemStatus(w http.ResponseWriter, r *http.Request)
 	// ListTitles The Library's Titles as compact rows
 	// (GET /titles)
 	ListTitles(w http.ResponseWriter, r *http.Request, params ListTitlesParams)
@@ -2215,6 +2459,46 @@ func (siw *ServerInterfaceWrapper) CreateApiKey(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateApiKey(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAttention operation middleware
+func (siw *ServerInterfaceWrapper) GetAttention(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAttention(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DismissAttention operation middleware
+func (siw *ServerInterfaceWrapper) DismissAttention(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id AttentionRowId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DismissAttention(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2927,6 +3211,20 @@ func (siw *ServerInterfaceWrapper) GetSystem(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// GetSystemStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetSystemStatus(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSystemStatus(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListTitles operation middleware
 func (siw *ServerInterfaceWrapper) ListTitles(w http.ResponseWriter, r *http.Request) {
 
@@ -3501,7 +3799,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/adoption/scan", wrapper.ScanAdoption)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/adoption/rows", wrapper.ListAdoptionRows)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/adoption/rows/{id}", wrapper.PatchAdoptionRow)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/attention", wrapper.GetAttention)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/attention/{id}/dismiss", wrapper.DismissAttention)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/adoption/commit", wrapper.CommitAdoption)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/system/status", wrapper.GetSystemStatus)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/stream", wrapper.Stream)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/requests", wrapper.ListRequests)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/requests", wrapper.CreateRequest)
@@ -3783,67 +4084,6 @@ func (response PatchAdoptionRow200JSONResponse) VisitPatchAdoptionRowResponse(w 
 	return err
 }
 
-type PatchAdoptionRow404ApplicationProblemPlusJSONResponse struct {
-	ProblemApplicationProblemPlusJSONResponse
-}
-
-func (response PatchAdoptionRow404ApplicationProblemPlusJSONResponse) VisitPatchAdoptionRowResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(404)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type PatchAdoptionRow409ApplicationProblemPlusJSONResponse Problem
-
-func (response PatchAdoptionRow409ApplicationProblemPlusJSONResponse) VisitPatchAdoptionRowResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(409)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type PatchAdoptionRow422ApplicationProblemPlusJSONResponse Problem
-
-func (response PatchAdoptionRow422ApplicationProblemPlusJSONResponse) VisitPatchAdoptionRowResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(422)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type PatchAdoptionRowdefaultApplicationProblemPlusJSONResponse struct {
-	Body       Problem
-	StatusCode int
-}
-
-func (response PatchAdoptionRowdefaultApplicationProblemPlusJSONResponse) VisitPatchAdoptionRowResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(response.StatusCode)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
 type ScanAdoptionRequestObject struct {
 	Body *ScanAdoptionJSONRequestBody
 }
@@ -3988,6 +4228,121 @@ type CreateApiKeydefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response CreateApiKeydefaultApplicationProblemPlusJSONResponse) VisitCreateApiKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAttentionRequestObject struct {
+}
+
+type GetAttentionResponseObject interface {
+	VisitGetAttentionResponse(w http.ResponseWriter) error
+}
+
+type GetAttention200JSONResponse Attention
+
+func (response GetAttention200JSONResponse) VisitGetAttentionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAttentiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetAttentiondefaultApplicationProblemPlusJSONResponse) VisitGetAttentionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DismissAttentionRequestObject struct {
+	Id AttentionRowId `json:"id"`
+}
+
+type DismissAttentionResponseObject interface {
+	VisitDismissAttentionResponse(w http.ResponseWriter) error
+}
+
+type DismissAttention204Response struct {
+}
+
+func (response DismissAttention204Response) VisitDismissAttentionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DismissAttention404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DismissAttention404ApplicationProblemPlusJSONResponse) VisitDismissAttentionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DismissAttention409ApplicationProblemPlusJSONResponse Problem
+
+func (response DismissAttention409ApplicationProblemPlusJSONResponse) VisitDismissAttentionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DismissAttention422ApplicationProblemPlusJSONResponse Problem
+
+func (response DismissAttention422ApplicationProblemPlusJSONResponse) VisitDismissAttentionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DismissAttentiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DismissAttentiondefaultApplicationProblemPlusJSONResponse) VisitDismissAttentionResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -5868,6 +6223,44 @@ func (response GetSystemdefaultApplicationProblemPlusJSONResponse) VisitGetSyste
 	return err
 }
 
+type GetSystemStatusRequestObject struct {
+}
+
+type GetSystemStatusResponseObject interface {
+	VisitGetSystemStatusResponse(w http.ResponseWriter) error
+}
+
+type GetSystemStatus200JSONResponse SystemStatus
+
+func (response GetSystemStatus200JSONResponse) VisitGetSystemStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSystemStatusdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetSystemStatusdefaultApplicationProblemPlusJSONResponse) VisitGetSystemStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListTitlesRequestObject struct {
 	Params ListTitlesParams
 }
@@ -6757,6 +7150,12 @@ type StrictServerInterface interface {
 	// CreateApiKey Generate or rotate the API key
 	// (POST /api-key)
 	CreateApiKey(ctx context.Context, request CreateApiKeyRequestObject) (CreateApiKeyResponseObject, error)
+	// GetAttention Needs attention
+	// (GET /attention)
+	GetAttention(ctx context.Context, request GetAttentionRequestObject) (GetAttentionResponseObject, error)
+	// DismissAttention Dismiss a one-off health warning
+	// (POST /attention/{id}/dismiss)
+	DismissAttention(ctx context.Context, request DismissAttentionRequestObject) (DismissAttentionResponseObject, error)
 	// Login Log in with username and password
 	// (POST /auth/login)
 	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
@@ -6856,6 +7255,9 @@ type StrictServerInterface interface {
 	// GetSystem Version and API major of this instance
 	// (GET /system)
 	GetSystem(ctx context.Context, request GetSystemRequestObject) (GetSystemResponseObject, error)
+	// GetSystemStatus The health strip
+	// (GET /system/status)
+	GetSystemStatus(ctx context.Context, request GetSystemStatusRequestObject) (GetSystemStatusResponseObject, error)
 	// ListTitles The Library's Titles as compact rows
 	// (GET /titles)
 	ListTitles(ctx context.Context, request ListTitlesRequestObject) (ListTitlesResponseObject, error)
@@ -7180,6 +7582,56 @@ func (sh *strictHandler) CreateApiKey(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CreateApiKeyResponseObject); ok {
 		if err := validResponse.VisitCreateApiKeyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAttention operation middleware
+func (sh *strictHandler) GetAttention(w http.ResponseWriter, r *http.Request) {
+	var request GetAttentionRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAttention(ctx, request.(GetAttentionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAttention")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAttentionResponseObject); ok {
+		if err := validResponse.VisitGetAttentionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DismissAttention operation middleware
+func (sh *strictHandler) DismissAttention(w http.ResponseWriter, r *http.Request, id AttentionRowId) {
+	var request DismissAttentionRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DismissAttention(ctx, request.(DismissAttentionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DismissAttention")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DismissAttentionResponseObject); ok {
+		if err := validResponse.VisitDismissAttentionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -8095,6 +8547,30 @@ func (sh *strictHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetSystemResponseObject); ok {
 		if err := validResponse.VisitGetSystemResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSystemStatus operation middleware
+func (sh *strictHandler) GetSystemStatus(w http.ResponseWriter, r *http.Request) {
+	var request GetSystemStatusRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSystemStatus(ctx, request.(GetSystemStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSystemStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSystemStatusResponseObject); ok {
+		if err := validResponse.VisitGetSystemStatusResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

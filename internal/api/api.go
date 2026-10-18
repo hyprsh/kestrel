@@ -20,6 +20,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/acquire"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/downloads"
+	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/indexers"
@@ -81,6 +82,9 @@ type Options struct {
 	Stream StreamIntervals
 	// SearchTimeout bounds a manual search; zero means 30 s.
 	SearchTimeout time.Duration
+	// DiskSpace reads the free space of a path for the disk checks; nil means the
+	// operating system's. Tests inject a full disk.
+	DiskSpace func(path string) (health.Space, error)
 }
 
 // App is Kestrel's wired services: the HTTP handler and the background loops.
@@ -91,6 +95,10 @@ type App struct {
 	// Jobs is the loop runner. It does nothing until Run, except that Kick and
 	// Pass work at once.
 	Jobs *jobs.Runner
+	// Health raises and clears Needs attention rows. Modules that notice a
+	// problem outside the api (Import's EXDEV copy, a failed media-server
+	// refresh) are given it by cmd/kestrel.
+	Health *health.Service
 }
 
 // NewHandler returns the whole HTTP handler, mounted under opts.BaseURL. The
@@ -136,9 +144,14 @@ func New(opts Options) *App {
 		s.posters = metadata.NewPosters(metadata.PostersOptions{ConfigDir: opts.ConfigDir})
 	}
 
+	s.indexers = indexers.New(s.plugins, opts.Clock)
+	s.downloads = downloads.New(s.plugins)
+	s.health = health.New(s.healthDeps())
+	s.watchHealth()
+
 	acq, err := acquire.New(acquire.Deps{
 		Store: opts.Store, Clock: opts.Clock, Library: s.library, Profiles: s.profiles,
-		Indexers: indexers.New(s.plugins, opts.Clock), Downloads: downloads.New(s.plugins), History: s.history,
+		Indexers: s.indexers, Downloads: s.downloads, History: s.history,
 	})
 	if err != nil {
 		panic("api: the embedded TRaSH snapshot is invalid: " + err.Error())
@@ -148,7 +161,7 @@ func New(opts Options) *App {
 	if prober == nil {
 		prober = probe.Default()
 	}
-	imp, err := imports.New(imports.Deps{Library: s.library, Profiles: s.profiles, Prober: prober, Clock: opts.Clock})
+	imp, err := imports.New(imports.Deps{Library: s.library, Profiles: s.profiles, Prober: prober, Clock: opts.Clock, Health: s.health})
 	if err != nil {
 		panic("api: the embedded TRaSH snapshot is invalid: " + err.Error())
 	}
@@ -165,7 +178,7 @@ func New(opts Options) *App {
 		Store: opts.Store, Clock: opts.Clock, Library: s.library, Profiles: s.profiles, RootFolders: s.rootFolders,
 		Meta: s.meta, TVDB: s.tvdb, Grabs: acq,
 	})
-	s.jobs = jobs.Standard(jobs.Deps{Acquire: acq, Library: s.library, History: s.history, Importer: imp, ImportSource: acq, Clock: opts.Clock, Logger: opts.Logger})
+	s.jobs = jobs.Standard(jobs.Deps{Acquire: acq, Library: s.library, History: s.history, Health: s.health, Importer: imp, ImportSource: acq, Clock: opts.Clock, Logger: opts.Logger})
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ping", s.ping)
@@ -193,12 +206,12 @@ func New(opts Options) *App {
 
 	guarded := s.auth.guard(mux)
 	if opts.BaseURL == "" {
-		return &App{Handler: guarded, Jobs: s.jobs}
+		return &App{Handler: guarded, Jobs: s.jobs, Health: s.health}
 	}
 	outer := http.NewServeMux()
 	outer.Handle(opts.BaseURL+"/", http.StripPrefix(opts.BaseURL, guarded))
 	outer.Handle(opts.BaseURL, http.RedirectHandler(opts.BaseURL+"/", http.StatusMovedPermanently))
-	return &App{Handler: outer, Jobs: s.jobs}
+	return &App{Handler: outer, Jobs: s.jobs, Health: s.health}
 }
 
 type server struct {
@@ -212,6 +225,9 @@ type server struct {
 	requests    *requests.Service
 	adoption    *imports.Adoption
 	jobs        *jobs.Runner
+	indexers    *indexers.Service
+	downloads   *downloads.Service
+	health      *health.Service
 	history     *history.Service
 	imports     *imports.Service
 	hub         *hub

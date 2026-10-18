@@ -73,4 +73,9 @@ sql:
       go:
         package: db
         out: internal/imports/db
+    queries: internal/health/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/health/db
         emit_json_tags: false

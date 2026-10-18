@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
@@ -52,6 +53,7 @@ func good() probe.Info {
 
 type rig struct {
 	svc      *imports.Service
+	health   *health.Service
 	lib      *library.Service
 	prober   *fakeProber
 	root     string // the Movies root folder
@@ -89,8 +91,9 @@ func newRig(t *testing.T) *rig {
 	for _, v := range d.Versions {
 		r.versions[v.Slot] = v.ID
 	}
+	r.health = health.New(health.Deps{Store: st, Clock: func() time.Time { return now }})
 	svc, err := imports.New(imports.Deps{
-		Library: r.lib, Profiles: profiles.New(st, settings.New(st)), Prober: r.prober, Clock: func() time.Time { return now },
+		Library: r.lib, Profiles: profiles.New(st, settings.New(st)), Prober: r.prober, Clock: func() time.Time { return now }, Health: r.health,
 		Step: func(s string) error {
 			if r.hook != nil {
 				return r.hook(s)
@@ -457,4 +460,52 @@ func TestStalledReasonsLeaveTheGrabForARetry(t *testing.T) {
 			t.Errorf("result = %+v", res)
 		}
 	})
+}
+
+func TestAnImportIntoAMissingRootFolderStallsUntilItIsBack(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	g := r.job(t, 1, map[string]string{"paddington.mkv": "x"})
+	r.prober.info["paddington.mkv"] = good()
+	gone := r.root + ".unmounted"
+	if err := os.Rename(r.root, gone); err != nil {
+		t.Fatal(err)
+	}
+
+	res := r.svc.Import(ctx, g)
+
+	if res.Status != imports.Stalled || res.Reason != imports.StalledRootFolder {
+		t.Fatalf("result = %+v", res)
+	}
+	rows, _ := r.health.List(ctx)
+	if len(rows) != 1 || rows[0].Kind != health.KindRootFolder || rows[0].Severity != health.Blocking {
+		t.Fatalf("rows = %+v", rows)
+	}
+
+	if err := os.Rename(gone, r.root); err != nil {
+		t.Fatal(err)
+	}
+	if res := r.svc.Import(ctx, g); res.Status != imports.Imported {
+		t.Fatalf("after the folder is back: %+v", res)
+	}
+	if rows, _ := r.health.List(ctx); len(rows) != 0 {
+		t.Errorf("the row should have cleared: %+v", rows)
+	}
+}
+
+func TestACopyAcrossFilesystemsIsADismissibleWarningThatClearsOnTheNextCleanImport(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+
+	r.svc.NoteCrossDevice(ctx, r.root, true)
+	r.svc.NoteCrossDevice(ctx, r.root, true)
+
+	rows, _ := r.health.List(ctx)
+	if len(rows) != 1 || rows[0].Kind != health.KindEXDEV || rows[0].Severity != health.Warning || !rows[0].Dismissible || rows[0].Count != 2 {
+		t.Fatalf("rows = %+v", rows)
+	}
+	r.svc.NoteCrossDevice(ctx, r.root, false)
+	if rows, _ := r.health.List(ctx); len(rows) != 0 {
+		t.Errorf("rows = %+v", rows)
+	}
 }

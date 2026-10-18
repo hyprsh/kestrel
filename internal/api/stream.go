@@ -72,6 +72,9 @@ func hintsOf(ev history.Event) []hint {
 	if strings.HasPrefix(string(ev.Kind), "adoption") {
 		out = append(out, hintOf("adoption", 0))
 	}
+	if strings.HasPrefix(string(ev.Kind), "health") {
+		out = append(out, hintOf("attention", 0))
+	}
 	return append(out, hintOf("log", 0))
 }
 
@@ -128,6 +131,7 @@ var apiHints = map[string][]hint{
 	"PatchAdoptionRow": {hintOf("adoption", 0)},
 	"CommitAdoption":   {hintOf("adoption", 0)},
 	"DiscardAdoption":  {hintOf("adoption", 0)},
+	"DismissAttention": {hintOf("attention", 0)},
 }
 
 // emitHints is a strict-server middleware that publishes an operation's hints
@@ -144,12 +148,6 @@ func (s *server) emitHints(next oapi.StrictHandlerFunc, operationID string) oapi
 		}
 		return res, err
 	}
-}
-
-// attention is the Needs attention count and worst severity. Nothing raises a
-// row yet; the attention ticket replaces this with the real read model.
-func (s *server) attention(context.Context) (count int, severity *string, err error) {
-	return 0, nil, nil
 }
 
 // Stream is GET /stream. The response object runs the stream itself: the

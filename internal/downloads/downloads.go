@@ -7,6 +7,7 @@ package downloads
 import (
 	"context"
 	"errors"
+	"sync"
 
 	"github.com/hyprsh/kestrel/internal/plugin"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
@@ -43,6 +44,45 @@ type Sent struct {
 // Service sends jobs to the enabled download client.
 type Service struct {
 	inst *instances.Service
+
+	mu       sync.Mutex
+	observer Observer
+}
+
+// Observer hears how each call to the download client went (err nil: it
+// worked), with the instance it went to. Health uses it to tell when the
+// client is down.
+type Observer func(ctx context.Context, instanceID int64, name string, err error)
+
+// SetObserver sets the Observer; nil stops observing.
+func (s *Service) SetObserver(o Observer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.observer = o
+}
+
+func (s *Service) observe(ctx context.Context, inst instances.Instance, err error) {
+	s.mu.Lock()
+	o := s.observer
+	s.mu.Unlock()
+	if o != nil {
+		o(ctx, inst.ID, inst.Name, err)
+	}
+}
+
+// Ping tests the enabled client's connection and reports it to the Observer.
+// With no client enabled it reports nothing and says so.
+func (s *Service) Ping(ctx context.Context) (enabled bool, err error) {
+	inst, client, err := s.enabled(ctx)
+	if errors.Is(err, ErrNoClient) {
+		return false, nil
+	}
+	if err != nil {
+		return true, err
+	}
+	_, err = client.Test(ctx, inst.Connection())
+	s.observe(ctx, inst, err)
+	return true, err
 }
 
 // New returns a Service over the plugin instances.
@@ -127,12 +167,14 @@ func (s *Service) List(ctx context.Context) ([]Listed, error) {
 		seen[cat] = true
 		items, err := client.List(ctx, conn, cat)
 		if err != nil {
+			s.observe(ctx, inst, err)
 			return nil, err
 		}
 		for _, it := range items {
 			out = append(out, Listed{InstanceID: inst.ID, Item: it})
 		}
 	}
+	s.observe(ctx, inst, nil)
 	return out, nil
 }
 

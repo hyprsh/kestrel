@@ -11,3 +11,7 @@ Uses the five default triage labels (`needs-triage`, `needs-info`, `ready-for-ag
 ### Domain docs
 
 Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+## Checks
+
+The check command is `make check` (gofmt, vet, the generated-code drift check, Go tests with the race detector, SPA tests and the compose check). In a fresh worktree run `npm --prefix web ci` first. Commit generated output before running it: the drift check fails on uncommitted changes. `make help` lists the narrower targets, such as `make test` and `make generate`.

@@ -52,6 +52,10 @@ const (
 	ImportEpisode Kind = "import_episode"
 	// RequestCreated: a new Request arrived (a retry of a stored one does not record).
 	RequestCreated Kind = "request"
+	// HealthRaised: a Needs attention row appeared (a repeat of one already showing does not record).
+	HealthRaised Kind = "health_raised"
+	// HealthCleared: a Needs attention row cleared itself.
+	HealthCleared Kind = "health_cleared"
 )
 
 var routine = map[Kind]bool{GrabDownloading: true, GrabCompleted: true, AdoptionScanned: true}

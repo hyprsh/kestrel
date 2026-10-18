@@ -148,6 +148,32 @@ func TestAFailingRSSPassIsReportedSoTheRunnerCanLogIt(t *testing.T) {
 	}
 }
 
+type fakeHealth struct{ runs int }
+
+func (f *fakeHealth) RunChecks(context.Context) error { f.runs++; return nil }
+
+func TestTheHealthLoopRunsTheChecksEveryFiveMinutes(t *testing.T) {
+	h := &fakeHealth{}
+	r := jobs.Standard(jobs.Deps{Acquire: &fakeAcquire{}, Library: &fakeLibrary{}, Health: h, Clock: func() time.Time { return now }})
+
+	if got := r.Every(jobs.Health); got != 5*time.Minute {
+		t.Errorf("health cadence = %v, want 5m", got)
+	}
+	if err := r.Pass(context.Background(), jobs.Health); err != nil {
+		t.Fatal(err)
+	}
+	if h.runs != 1 {
+		t.Errorf("check runs = %d, want 1", h.runs)
+	}
+}
+
+func TestWithoutHealthThereIsNoHealthLoop(t *testing.T) {
+	r := standard(&fakeAcquire{}, &fakeLibrary{})
+	if err := r.Pass(context.Background(), jobs.Health); err == nil {
+		t.Error("want an unknown loop error")
+	}
+}
+
 func TestAFailedSearchIsRetriedSoonerThanASuccessfulOne(t *testing.T) {
 	a := &fakeAcquire{outcome: func(_ int64, v []int64) (acquire.Outcome, error) {
 		return acquire.Outcome{Searched: v}, errors.New("no download client")

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/api"
+	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/store"
 )
 
@@ -52,7 +53,8 @@ func newInstance(t *testing.T, base string, with ...func(*api.Options)) *instanc
 	}
 	t.Cleanup(func() { st.Close() })
 	clock := newClock()
-	opts := api.Options{Version: "1.2.3", BaseURL: base, Store: st, Web: webFS, Clock: clock.Now, CheapPasswordHash: true}
+	roomy := func(string) (health.Space, error) { return health.Space{Free: 500 << 30, Total: 1 << 40}, nil }
+	opts := api.Options{Version: "1.2.3", BaseURL: base, Store: st, Web: webFS, Clock: clock.Now, CheapPasswordHash: true, DiskSpace: roomy}
 	for _, f := range with {
 		f(&opts)
 	}

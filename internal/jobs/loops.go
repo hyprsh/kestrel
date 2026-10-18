@@ -27,6 +27,8 @@ const (
 	Prune = "prune"
 	// RSS reads every indexer's feed and grabs what the library wants from it.
 	RSS = "rss"
+	// Health runs the health checks (disk, Root folders, indexers, the download client) every 5 min.
+	Health = "health"
 )
 
 // Cadences. missingRetry and missingFailed are placeholders until the sweep
@@ -42,7 +44,13 @@ const (
 	// importWorkers is how many Imports run at once.
 	importWorkers = 2
 	pruneEvery    = 24 * time.Hour
+	healthEvery   = 5 * time.Minute
 )
+
+// HealthChecker is what the loops need of the health module.
+type HealthChecker interface {
+	RunChecks(ctx context.Context) error
+}
 
 // Acquirer is what the loops need of the acquire module.
 type Acquirer interface {
@@ -79,6 +87,8 @@ type Deps struct {
 	Acquire Acquirer
 	Library Library
 	History History
+	// Health is optional; without it there is no health loop.
+	Health HealthChecker
 	// Importer and ImportSource enable the Import loop; leave both nil for none.
 	Importer     Importer
 	ImportSource ImportSource
@@ -133,6 +143,14 @@ func Standard(d Deps) *Runner {
 			Name:  Prune,
 			Run:   func(ctx context.Context) error { _, err := d.History.Prune(ctx); return err },
 			Every: func() time.Duration { return pruneEvery },
+		})
+	}
+
+	if d.Health != nil {
+		r.Add(Loop{
+			Name:  Health,
+			Run:   d.Health.RunChecks,
+			Every: func() time.Duration { return healthEvery },
 		})
 	}
 

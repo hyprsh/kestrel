@@ -38,6 +38,8 @@ function keysOf(h: ChangedHint): string[][] {
   switch (h.resource) {
     case 'title':
       return [['titles'], ['releases']]
+    case 'attention':
+      return [['attention'], ['status']]
     default:
       return [[h.resource]]
   }
@@ -53,8 +55,12 @@ export function applyFrame(qc: QueryClient, f: Frame) {
       qc.setQueryData(['queue'], (f.data as { items: unknown[] }).items)
       return
     case 'activity':
-    case 'attention':
       qc.setQueryData([f.event], f.data)
+      return
+    case 'attention':
+      // The frame only says the count moved; the rows and the strip beside them are refetched.
+      void qc.invalidateQueries({ queryKey: ['attention'] })
+      void qc.invalidateQueries({ queryKey: ['status'] })
       return
     case 'reset':
       void qc.invalidateQueries()

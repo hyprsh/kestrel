@@ -60,6 +60,12 @@ export const handlers = [
   http.get('/profiles', ({ response }) => response(200).json({ items: [] })),
   http.get('/titles', ({ response }) => response(200).json({ items: [], next_cursor: null })),
   http.get('/queue', ({ response }) => response(200).json({ items: [] })),
+  http.get('/attention', ({ response }) =>
+    response(200).json({ count: 0, severity: null, rows: [], long_missing: { count: 0, items: [] } }),
+  ),
+  http.get('/system/status', ({ response }) =>
+    response(200).json({ download_client: { state: 'none', name: null, instance_id: null, message: null }, indexers: [], disks: [] }),
+  ),
   http.get('/settings/reverse-proxy', ({ response }) =>
     response(200).json({ enabled: false, trusted_proxies: [], header: 'Remote-User', untrusted: [] }),
   ),

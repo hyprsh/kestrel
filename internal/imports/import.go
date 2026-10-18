@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/probe"
 	"github.com/hyprsh/kestrel/internal/release"
@@ -45,6 +46,7 @@ const (
 	StalledPathOccupied = "path occupied"
 	StalledNoVideo      = "no video file"
 	StalledNoFFprobe    = "ffprobe not installed"
+	StalledRootFolder   = "root folder unavailable"
 )
 
 // Grab is what an Import needs to know of a completed Grab. imports never
@@ -104,12 +106,25 @@ type Profiles interface {
 	Region(ctx context.Context) (profiles.Region, bool, error)
 }
 
+// Health is what imports needs of the health module: the Root folder check
+// before each Import and the Needs attention row for a copy across filesystems.
+// *health.Service satisfies it.
+type Health interface {
+	CheckRootFolder(ctx context.Context, path string) error
+	Raise(ctx context.Context, is health.Issue) error
+	Clear(ctx context.Context, key string) error
+}
+
 // Deps are what a Service needs.
 type Deps struct {
 	Library  Library
 	Profiles Profiles
 	Prober   probe.Prober
 	Clock    func() time.Time
+	// Health is optional. With it an Import into a Root folder that is missing,
+	// not a directory or not writable stalls, and a copy across filesystems
+	// raises a Warning.
+	Health Health
 	// Snapshot is the TRaSH data to score with; nil means the embedded one.
 	Snapshot *scoring.Snapshot
 	// Step, when set, is called at "partial" (the .partial file is in place)
@@ -126,6 +141,7 @@ type Service struct {
 	clock func() time.Time
 	snap  *scoring.Snapshot
 	step  func(string) error
+	hl    Health
 }
 
 // New returns a Service.
@@ -140,7 +156,7 @@ func New(d Deps) (*Service, error) {
 		}
 		d.Snapshot = snap
 	}
-	return &Service{lib: d.Library, prof: d.Profiles, probe: d.Prober, clock: d.Clock, snap: d.Snapshot, step: d.Step}, nil
+	return &Service{lib: d.Library, prof: d.Profiles, probe: d.Prober, clock: d.Clock, snap: d.Snapshot, step: d.Step, hl: d.Health}, nil
 }
 
 func (s *Service) hook(step string) error {
@@ -227,6 +243,11 @@ func (s *Service) Import(ctx context.Context, g Grab) Result {
 	if folder == "" {
 		if folder, err = MovieFolder(title); err != nil {
 			return stalledBy(err)
+		}
+	}
+	if s.hl != nil {
+		if err := s.hl.CheckRootFolder(ctx, d.RootFolder); err != nil {
+			return stalled(StalledRootFolder)
 		}
 	}
 	dir := filepath.Join(d.RootFolder, folder)
@@ -317,6 +338,7 @@ func (s *Service) Import(ctx context.Context, g Grab) Result {
 		return stalledBy(err)
 	}
 	res.CrossDevice = cross
+	s.noteCrossDevice(ctx, d.RootFolder, cross)
 	if err := s.hook("partial"); err != nil {
 		return stalledBy(err)
 	}
@@ -347,6 +369,23 @@ func (s *Service) Import(ctx context.Context, g Grab) Result {
 		_ = os.Remove(src.video)
 	}
 	return res
+}
+
+// noteCrossDevice raises the Warning that Imports into root are copied, not
+// moved, and clears it on the next Import into root that was not.
+func (s *Service) noteCrossDevice(ctx context.Context, root string, cross bool) {
+	if s.hl == nil {
+		return
+	}
+	key := "exdev:" + root
+	if !cross {
+		_ = s.hl.Clear(ctx, key)
+		return
+	}
+	_ = s.hl.Raise(ctx, health.Issue{
+		Key: key, Kind: health.KindEXDEV, Severity: health.Warning, Dismissible: true,
+		Message: fmt.Sprintf("Imports into %s are copied, not moved: the download folder is on another filesystem. Put downloads and library under one mount to move or hardlink instead.", root),
+	})
 }
 
 // finish completes an Import whose row an earlier run already wrote: the
