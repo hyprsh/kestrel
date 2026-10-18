@@ -196,7 +196,7 @@ func New(opts Options) *App {
 	}
 	s.imports = imp
 	adoption, err := imports.NewAdoption(imports.AdoptionDeps{
-		Store: opts.Store, Library: s.library, Profiles: s.profiles, Meta: s.meta, TVDB: s.tvdb, Prober: prober, Roots: s.rootFolders,
+		Store: opts.Store, Library: s.library, Profiles: s.profiles, Meta: s.meta, TVDB: s.tvdb, Prober: prober, Roots: s.rootFolders, Scoring: s.scoring,
 		History: s.history, Clock: opts.Clock, Logger: opts.Logger,
 	})
 	if err != nil {

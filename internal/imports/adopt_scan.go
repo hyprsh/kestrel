@@ -674,7 +674,7 @@ func (a *Adoption) planFile(e *env, m movieFacts, title Title, en entry, f probe
 	if spec == nil {
 		return PlanFile{}, SkipNoEnabledProfile, nil
 	}
-	profile, err := a.snap.Profile(spec.Spec(e.region.Primary.Release()))
+	profile, err := a.snap.Current().Profile(spec.Spec(e.region.Primary.Release()))
 	if err != nil {
 		return PlanFile{}, "", err
 	}

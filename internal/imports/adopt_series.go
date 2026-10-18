@@ -448,7 +448,7 @@ func (a *Adoption) planSeriesFile(e *env, m seriesFacts, title Title, en entry, 
 	if spec == nil {
 		return PlanFile{}, SkipNoEnabledProfile, nil
 	}
-	profile, err := a.snap.Profile(spec.Spec(e.region.Primary.Release()))
+	profile, err := a.snap.Current().Profile(spec.Spec(e.region.Primary.Release()))
 	if err != nil {
 		return PlanFile{}, "", err
 	}

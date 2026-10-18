@@ -240,6 +240,8 @@ type AdoptionDeps struct {
 	Logger   *slog.Logger
 	// Snapshot is the TRaSH data to score with; nil means the embedded one.
 	Snapshot *scoring.Snapshot
+	// Scoring is the live TRaSH snapshot; it wins over Snapshot.
+	Scoring *scoring.Holder
 }
 
 // Adoption takes over an existing on-disk library: a manual scan builds one
@@ -247,7 +249,7 @@ type AdoptionDeps struct {
 // ticked. Nothing is written to the Library or the disk before the commit.
 type Adoption struct {
 	d    AdoptionDeps
-	snap *scoring.Snapshot
+	snap *scoring.Holder
 	q    *db.Queries
 	mu   sync.Mutex // serialises the plan's state changes and row edits
 	wg   sync.WaitGroup
@@ -262,12 +264,16 @@ func NewAdoption(d AdoptionDeps) (*Adoption, error) {
 	if d.Logger == nil {
 		d.Logger = slog.Default()
 	}
-	snap := d.Snapshot
+	snap := d.Scoring
 	if snap == nil {
-		var err error
-		if snap, err = scoring.Embedded(); err != nil {
-			return nil, err
+		one := d.Snapshot
+		if one == nil {
+			var err error
+			if one, err = scoring.Embedded(); err != nil {
+				return nil, err
+			}
 		}
+		snap = scoring.NewHolder(one)
 	}
 	a := &Adoption{d: d, snap: snap, q: db.New(d.Store.Write())}
 	ctx := context.Background()
