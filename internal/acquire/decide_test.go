@@ -11,7 +11,7 @@ import (
 
 var t0 = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 
-// movieCand is an accepted Movie candidate in the HD Slot unless changed.
+// movieCand is an accepted Movie candidate in the Standard Slot unless changed.
 func movieCand(guid string, score int, mod ...func(*Candidate)) Candidate {
 	c := Candidate{
 		GUID: guid, PublishDate: t0, Size: 1000,
@@ -142,11 +142,11 @@ func TestOtherSlotAndUnwantedSlot(t *testing.T) {
 		c.ClassKnown = true
 		c.Verdicts = map[Slot]scoring.Verdict{slot.FourK: {Accepted: true, Score: 9999}, slot.Standard: rejectsResolution}
 	}
-	t.Run("UHD release never fills the HD Version", func(t *testing.T) {
+	t.Run("4K release never fills the Standard Version", func(t *testing.T) {
 		plans := Decide(Input{Versions: []Version{movieVersion(nil)}, Candidates: []Candidate{movieCand("uhd", 0, uhd)}})
 		wantGUIDs(t, plans)
 	})
-	t.Run("UHD release fills a UHD Version only when the Title has one", func(t *testing.T) {
+	t.Run("4K release fills a 4K Version only when the Title has one", func(t *testing.T) {
 		vs := []Version{movieVersion(nil), {Slot: slot.FourK, Units: []Unit{{}}}}
 		plans := Decide(Input{Versions: vs, Candidates: []Candidate{movieCand("hd", 1), movieCand("uhd", 0, uhd)}})
 		wantGUIDs(t, plans, "hd", "uhd")

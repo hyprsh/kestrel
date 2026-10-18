@@ -53,7 +53,7 @@ func TestSearchWantedGrabsTheBestReleaseForEachWantedVersionOnce(t *testing.T) {
 		}
 	}
 	if names[r.versions[slot.Standard]] != hd1080 || names[r.versions[slot.FourK]] != uhd {
-		t.Errorf("grabs = %v, want 1080p for HD and 2160p for UHD", names)
+		t.Errorf("grabs = %v, want 1080p for Standard and 2160p for 4K", names)
 	}
 
 	again, err := r.svc.SearchWanted(ctx, r.titleID, r.wanted(t, slot.Standard, slot.FourK))

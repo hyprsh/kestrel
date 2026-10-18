@@ -56,10 +56,10 @@ func TestProfilesAreSeededAndPatchable(t *testing.T) {
 	}
 	p = decode[profileJSON](t, b.valid("PATCH", "/profiles/4k-primary", `{"default_movies":true}`))
 	if !p.DefaultMovies || p.DefaultSeries {
-		t.Errorf("UHD default: %+v", p)
+		t.Errorf("4K default: %+v", p)
 	}
 	if m = profileMap(t, b); !m["4k-primary"].DefaultMovies {
-		t.Error("UHD default not stored")
+		t.Error("4K default not stored")
 	}
 }
 

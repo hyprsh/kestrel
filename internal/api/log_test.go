@@ -71,7 +71,7 @@ func TestTheLogFiltersByKindTitleAndSlotAndHidesRoutineEventsUnlessAsked(t *test
 	}
 	hd := s.events(t, "?slot=standard")
 	if len(hd.Items) != 1 || hd.Items[0].VersionID == nil || *hd.Items[0].VersionID != s.hd {
-		t.Errorf("slot=standard = %+v, want the HD grab only", hd.Items)
+		t.Errorf("slot=standard = %+v, want the Standard grab only", hd.Items)
 	}
 	if got := s.events(t, "?slot=standard&routine=true").Items; len(got) != 2 {
 		t.Errorf("slot=standard with routine = %+v", got)

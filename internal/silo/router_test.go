@@ -345,7 +345,7 @@ func TestStatusAndProgressRoundTripFromQueuedThroughDownloadingToCompleted(t *te
 		t.Errorf("downloading: %+v", hd)
 	}
 	if uhd := st["2160p"]; uhd.Status != "queued" || uhd.Progress != nil {
-		t.Errorf("the UHD Version has nothing downloading yet: %+v", uhd)
+		t.Errorf("the 4K Version has nothing downloading yet: %+v", uhd)
 	}
 
 	var hdVersion int64

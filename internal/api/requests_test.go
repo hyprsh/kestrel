@@ -367,7 +367,7 @@ func TestARequestForAChildrensTitleGoesInTheFirstRootFolderWithTheSlotDefault(t 
 				t.Errorf("root folder = %q, want %q", got, want)
 			}
 			if _, _, profile, _ := req.slot(t, "standard"); profile != "hd-primary" {
-				t.Errorf("profile = %q, want the HD Slot's default", profile)
+				t.Errorf("profile = %q, want the Standard Slot's default", profile)
 			}
 		})
 	}

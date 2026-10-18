@@ -9,7 +9,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/library"
 )
 
-// fill gives the Movie's HD Version a file of the given Score.
+// fill gives the Movie's Standard Version a file of the given Score.
 func (r *rig) fill(t *testing.T, score int) {
 	t.Helper()
 	if _, err := r.lib.ReplaceFile(context.Background(), r.titleID, "Paddington (2014)", library.NewFile{

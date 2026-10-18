@@ -39,7 +39,7 @@ func TestResolve(t *testing.T) {
 	}{
 		{"slot default for movies", set(allKeys, hdDefault, hdDefault), release.KindMovie, slot.Standard, "hd-primary", nil},
 		{"default differs per kind", set(allKeys, map[slot.Slot]string{slot.Standard: "hd-primary"}, map[slot.Slot]string{slot.Standard: "hd-original"}), release.KindSeries, slot.Standard, "hd-original", nil},
-		{"configured UHD default", set(allKeys, map[slot.Slot]string{slot.Standard: "hd-primary", slot.FourK: "4k-original"}, hdDefault), release.KindMovie, slot.FourK, "4k-original", nil},
+		{"configured 4K default", set(allKeys, map[slot.Slot]string{slot.Standard: "hd-primary", slot.FourK: "4k-original"}, hdDefault), release.KindMovie, slot.FourK, "4k-original", nil},
 		{"no default falls to enabled Primary-Language Profile", set(allKeys, hdDefault, hdDefault), release.KindMovie, slot.FourK, "4k-primary", nil},
 		{"no default and Primary disabled falls to Original", set([]string{"hd-primary", "4k-original"}, hdDefault, hdDefault), release.KindMovie, slot.FourK, "4k-original", nil},
 		{"4K with nothing enabled in the Slot", set([]string{"hd-primary"}, hdDefault, hdDefault), release.KindMovie, slot.FourK, "", ErrNoEnabledProfile},

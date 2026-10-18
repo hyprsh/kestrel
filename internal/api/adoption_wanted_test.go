@@ -18,7 +18,7 @@ func (a adopting) stateOf(t *testing.T, id int64, slot string) string {
 
 func TestAnAdoptedFileThatFailsTheResolutionGateIsTheBaselineAndItsVersionIsWanted(t *testing.T) {
 	a := newAdopting(t)
-	// A 1080p file under Kestrel's own UHD label: the UHD Profile does not take it.
+	// A 1080p file under Kestrel's own 4K label: the 4K Profile does not take it.
 	a.put(t, "Paddington (2014) {tmdb-116149}/Paddington (2014) {tmdb-116149} - [4K][Bluray-1080p][English][h264]-GRP.mkv", "x")
 
 	a.commit(t, a.scan(t).Revision)
@@ -28,7 +28,7 @@ func TestAnAdoptedFileThatFailsTheResolutionGateIsTheBaselineAndItsVersionIsWant
 		t.Fatal("the misfit file was not adopted as the baseline")
 	}
 	if got := a.stateOf(t, id, "4k"); got != "wanted" {
-		t.Errorf("UHD Version state = %q, want wanted", got)
+		t.Errorf("4K Version state = %q, want wanted", got)
 	}
 }
 
@@ -41,9 +41,9 @@ func TestAnAdoptedFileInTheWrongLanguageMakesItsVersionWantedWhileAFittingOneIsF
 
 	id := a.titleIDOf(t, 116149)
 	if got := a.stateOf(t, id, "standard"); got != "wanted" {
-		t.Errorf("HD Version (French audio) state = %q, want wanted", got)
+		t.Errorf("Standard Version (French audio) state = %q, want wanted", got)
 	}
 	if got := a.stateOf(t, id, "4k"); got != "filled" {
-		t.Errorf("UHD Version state = %q, want filled", got)
+		t.Errorf("4K Version state = %q, want filled", got)
 	}
 }
