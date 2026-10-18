@@ -106,6 +106,7 @@ func (s *Service) Upcoming(ctx context.Context, view View, from, to time.Time) (
 			continue
 		}
 		rel := releaseDatesOf(datesOf[t.ID])
+		scope := rel.ScopeFor(view.Country)
 		var searchable time.Time
 		released := false
 		if at, ok := rel.Released(view.Country); ok {
@@ -122,7 +123,7 @@ func (s *Service) Upcoming(ctx context.Context, view View, from, to time.Time) (
 			var best time.Time
 			found := false
 			for _, ty := range r.types {
-				if d, ok := rel.Date(ty, view.Country); ok && (!found || d.Before(best)) {
+				if d, ok := scope.Date(ty, view.Country); ok && (!found || d.Before(best)) {
 					best, found = d, true
 				}
 			}

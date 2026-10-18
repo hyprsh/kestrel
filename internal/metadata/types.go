@@ -87,7 +87,7 @@ const TheatricalToHome = 90 * 24 * time.Hour
 // its TV date. All of it is read in one country: the one asked for, or the US
 // only when that country has no dates at all, or else any.
 func (r ReleaseDates) Released(country string) (time.Time, bool) {
-	scope := r.scopeFor(country)
+	scope := r.ScopeFor(country)
 	earliest := func(types ...ReleaseType) (time.Time, bool) {
 		var best time.Time
 		found := false
@@ -110,9 +110,9 @@ func (r ReleaseDates) Released(country string) (time.Time, bool) {
 	return earliest(TV)
 }
 
-// scopeFor is the dates of the country, or of the US if the country has none,
+// ScopeFor is the dates of the country, or of the US if the country has none,
 // or else all of them.
-func (r ReleaseDates) scopeFor(country string) ReleaseDates {
+func (r ReleaseDates) ScopeFor(country string) ReleaseDates {
 	for _, c := range []string{country, "US"} {
 		var in ReleaseDates
 		for _, d := range r {

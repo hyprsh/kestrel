@@ -1,0 +1,35 @@
+package library_test
+
+import (
+	"context"
+	"testing"
+
+	"github.com/hyprsh/kestrel/internal/library"
+	"github.com/hyprsh/kestrel/internal/metadata"
+	"github.com/hyprsh/kestrel/internal/resolution"
+)
+
+func TestUpcomingReadsEveryTypedDateInTheOneReleaseDateCountry(t *testing.T) {
+	ctx := context.Background()
+	lib, _ := newLibrary(t)
+	d := paddington()
+	d.ReleaseDates = metadata.ReleaseDates{
+		{Country: "DE", Type: metadata.Theatrical, Date: day(2026, 10, 20)},
+		{Country: "US", Type: metadata.Theatrical, Date: day(2026, 10, 19)},
+		{Country: "US", Type: metadata.Digital, Date: day(2026, 11, 5)},
+	}
+	if _, err := lib.AddMovie(ctx, library.AddMovie{
+		Details: d, PrimaryLanguage: "de", RootFolder: "/data/media/movies",
+		Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := lib.Upcoming(ctx, library.View{Country: "DE", Now: now}, day(2026, 10, 17), day(2026, 11, 16))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].ReleaseType != library.TheatricalRelease || !got[0].Date.Equal(day(2026, 10, 20)) {
+		t.Errorf("agenda for DE = %+v, want only the German theatrical date, not the US digital one", got)
+	}
+}
