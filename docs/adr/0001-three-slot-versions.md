@@ -1,5 +1,7 @@
 # A Title holds up to three Versions, one per Slot
 
+Status: superseded by ADR-0012 (two Slots, Standard and 4K).
+
 A Title has three Slots (SD, HD and UHD). Each Slot holds at most one Version, kept as its own file in the Title's folder, and a Title always has at least one Version. HD is the standard Slot and the default; SD and UHD are opt-in. Versions never overwrite each other: a UHD Release fills the UHD Version and never replaces the HD file, and Upgrades happen only within a Version. We chose this over Radarr/Sonarr's one-file-per-Title model because the household wants an HD file that plays everywhere next to a UHD file for the big screen, and a small SD file for Silo's mobile app. The same split matches Silo's "separate HD and 4K instance" request pattern, which Kestrel replaces with a single app.
 
 ## Considered Options

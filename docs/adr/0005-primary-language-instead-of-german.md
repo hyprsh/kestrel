@@ -1,5 +1,7 @@
 # One household Primary Language instead of hard-coded German
 
+Note: ADR-0012 removes the Kids rule; the release-date country no longer feeds an age rating.
+
 Kestrel was charted for a German household, so Profiles, Dual-Language Releases, release parsing and title search all said "German". We replaced that with a **Primary Language**, chosen once in the setup wizard. Everything that said German now derives from it:
 
 - the audio a Profile requires,

@@ -1,5 +1,7 @@
 # Silo Requests come through a Kestrel router plugin, not Radarr/Sonarr emulation
 
+Note: ADR-0012 maps Silo's `1080p` tier to the Standard Slot and `2160p` to 4K, and lets Silo routes set the root folder and Profiles.
+
 Silo hands each approved Request to a `request_router.v1` plugin. Kestrel ships its own plugin, a second binary from this repo with the same version, and that plugin calls a native, source-neutral Kestrel Request API. Kestrel does not pretend to be Radarr or Sonarr. We chose this because a Request must carry who asked, and Radarr's API has no field for that. We also want Kestrel to own both sides of the contract, in its own terms (Title, Slot, Profile, Version), rather than track a copy of someone else's API.
 
 ## Considered Options

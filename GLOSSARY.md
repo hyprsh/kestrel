@@ -23,11 +23,11 @@ An episode Kestrel added itself because a Release named it before TheTVDB listed
 _Avoid_: TBA episode, ghost episode
 
 **Profile**:
-A named, switchable quality-and-language target, such as UHD or HD, backed by a TRaSH profile. Each Profile belongs to one Slot, covers a fixed resolution range, and either requires the Primary Language or requires the Title's Original Language. Profiles can be enabled or disabled and chosen as the default for a Slot in new Movies or new Series. A Version's Profile can be switched at any time to another Profile of the same Slot.
-_Avoid_: Quality profile, preset
+A named, switchable quality-and-language target, such as HD, Any or 4K, backed by a TRaSH profile. Any takes every resolution up to 1080p, for Titles that never had an HD release. Each Profile belongs to one Slot, covers a fixed resolution range, and either requires the Primary Language or requires the Title's Original Language. Profiles can be enabled or disabled and chosen as the default for a Slot in new Movies or new Series. A Version's Profile can be switched at any time to another Profile of the same Slot.
+_Avoid_: Quality profile, preset, UHD (say 4K), Kids Profile
 
 **Slot**:
-One of SD, HD and UHD: the place in a Title that one Version fills. A Title has at most one Version per Slot and at least one Version overall. HD is the standard Slot and the default for new Titles; SD and UHD are opt-in.
+One of two fixed places in a Title that one Version fills: Standard, up to 1080p, and the opt-in 4K. A Title has at most one Version per Slot and at least one Version overall; Standard is the default for new Titles. Which Version a viewer plays, and who may watch 4K, is the media server's choice, not Kestrel's.
 _Avoid_: Tier (TRaSH uses it for release groups)
 
 **Primary Language**:

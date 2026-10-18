@@ -1,5 +1,7 @@
 # A fixed naming scheme with Slot labels
 
+Note: ADR-0012 replaces the Slot labels with `[Standard]` and `[4K]`; the rest of this scheme stands.
+
 Kestrel names every library folder and file by one fixed scheme, with no naming editor or settings. A Movie lives in `Title (Year) {tmdb-N}/`, and each of its files starts with that exact folder name, followed by ` - ` and the Slot label (`[SD]`, `[HD]` or `[UHD]`), then bracketed quality, edition, language, audio, HDR and codec, and `-GROUP`. A Series lives in `Title (Year) {tvdb-N}/Season 01/` and names its episodes `Title (Year) - S01E01 - [HD]…`. We chose a fixed scheme because several Versions only group as one item when the names obey rules that Plex, Jellyfin (12.0+) and Silo each impose. Jellyfin groups nothing in a folder if a single file breaks the folder-name prefix, and Adoption reads the Slot back from the label. A user-editable template would make both easy to break.
 
 ## Considered Options
