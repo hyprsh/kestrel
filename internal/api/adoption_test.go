@@ -77,8 +77,8 @@ type adoptionFileJSON struct {
 }
 
 type adoptionJSON struct {
-	State    string `json:"state"`
-	Revision int64  `json:"revision"`
+	State    string  `json:"state"`
+	Revision int64   `json:"revision"`
 	Error    *string `json:"error"`
 	Summary  struct {
 		Matched     int `json:"matched"`
