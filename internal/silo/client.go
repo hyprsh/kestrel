@@ -88,6 +88,11 @@ type profile struct {
 	Enabled bool   `json:"enabled"`
 }
 
+// The error texts below carry the phrases Silo's options probe looks for
+// (internal/requests/integration_probe.go): "HTTP <status>", "base URL is
+// required", "unsupported protocol scheme", "API key is required" and "decode
+// response", so Silo marks the base URL or API key field in its form.
+
 // apiError is a non-2xx answer from Kestrel.
 type apiError struct {
 	Status int
@@ -97,9 +102,9 @@ type apiError struct {
 
 func (e *apiError) Error() string {
 	if e.Detail != "" {
-		return fmt.Sprintf("kestrel answered %d: %s", e.Status, e.Detail)
+		return fmt.Sprintf("kestrel answered HTTP %d: %s", e.Status, e.Detail)
 	}
-	return fmt.Sprintf("kestrel answered %d", e.Status)
+	return fmt.Sprintf("kestrel answered HTTP %d", e.Status)
 }
 
 // client is one Kestrel connection: base URL (with any routing prefix) and API key.
@@ -112,13 +117,17 @@ type client struct {
 func newClient(h *http.Client, baseURL, apiKey string) (*client, error) {
 	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if baseURL == "" {
-		return nil, errors.New("the connection has no base URL")
+		return nil, errors.New("base URL is required")
 	}
-	if u, err := url.Parse(baseURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return nil, fmt.Errorf("the base URL %q is not an http(s) URL", baseURL)
+	u, err := url.Parse(baseURL)
+	switch {
+	case err != nil || u.Host == "" && (u.Scheme == "http" || u.Scheme == "https"):
+		return nil, fmt.Errorf("the base URL %q is not a URL", baseURL)
+	case u.Scheme != "http" && u.Scheme != "https":
+		return nil, fmt.Errorf("the base URL %q has an unsupported protocol scheme; it needs http:// or https://", baseURL)
 	}
 	if apiKey == "" {
-		return nil, errors.New("the connection has no API key")
+		return nil, errors.New("API key is required")
 	}
 	if h == nil {
 		h = &http.Client{Timeout: 30 * time.Second}
@@ -167,7 +176,7 @@ func (c *client) do(ctx context.Context, method, path string, in, out any) (int,
 	}
 	if out != nil {
 		if err := json.Unmarshal(raw, out); err != nil {
-			return res.StatusCode, fmt.Errorf("kestrel sent an unreadable answer: %w", err)
+			return res.StatusCode, fmt.Errorf("kestrel sent an unreadable answer (decode response: %w); is the base URL Kestrel's?", err)
 		}
 	}
 	return res.StatusCode, nil

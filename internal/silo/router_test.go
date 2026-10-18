@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 
 	pluginv1 "github.com/Silo-Server/silo-plugin-sdk/pkg/pluginproto/silo/plugin/v1"
@@ -194,6 +195,51 @@ func TestConfiguredProfilesAreRequestedPerSlotAndListedAsOptions(t *testing.T) {
 	}
 	if got["hd"] != pick || got["uhd"] != uhdPick {
 		t.Errorf("profiles = %v, want hd=%s uhd=%s", got, pick, uhdPick)
+	}
+}
+
+// TestAFailedOptionsProbeNamesWhatSiloShowsTheAdminAbout checks the error text
+// against the phrases Silo's options probe looks for
+// (internal/requests/integration_probe.go) to mark the base URL or API key
+// field instead of answering "could not be reached".
+func TestAFailedOptionsProbeNamesWhatSiloShowsTheAdminAbout(t *testing.T) {
+	answer := func(code int, body string) string {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(code)
+			_, _ = io.WriteString(w, body)
+		}))
+		t.Cleanup(srv.Close)
+		return srv.URL
+	}
+	for _, tc := range []struct {
+		name, base, key string
+		want            []string
+	}{
+		{"no base URL", "", "kst_x", []string{"base url is required"}},
+		{"not an http URL", "ftp://kestrel.lan", "kst_x", []string{"unsupported protocol scheme"}},
+		{"no API key", "http://kestrel.lan", "", []string{"api key is required"}},
+		{"a rejected key", answer(http.StatusUnauthorized, `{"detail":"invalid API key"}`), "kst_x", []string{"HTTP 401"}},
+		{"no Kestrel API there", answer(http.StatusNotFound, ""), "kst_x", []string{"HTTP 404"}},
+		{"a web page there", answer(http.StatusOK, "<!doctype html>"), "kst_x", []string{"decode response", "invalid character '<'"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := silo.NewRouter(silo.Options{})
+			_, err := r.ListConfigOptions(context.Background(), &pluginv1.ListConfigOptionsRequest{
+				CapabilityId: "kestrel", Connection: conn(t, tc.base, tc.key, nil),
+			})
+			if err == nil {
+				t.Fatal("ListConfigOptions succeeded")
+			}
+			for _, w := range tc.want {
+				msg := err.Error()
+				if !strings.HasPrefix(w, "HTTP") {
+					msg = strings.ToLower(msg)
+				}
+				if !strings.Contains(msg, w) {
+					t.Errorf("error = %q, want it to contain %q", err, w)
+				}
+			}
+		})
 	}
 }
 

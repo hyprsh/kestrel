@@ -23,7 +23,7 @@ var manifestJSON []byte
 func ManifestJSON() []byte { return manifestJSON }
 
 // Manifest is the plugin's manifest stamped with the build's version. The
-// checksum and platforms are the caller's to fill, as they depend on the binary.
+// checksum is the caller's to fill, as it depends on the binary.
 func Manifest(version string) (*pluginv1.PluginManifest, error) {
 	m, err := manifest.Load(manifestJSON)
 	if err != nil {
