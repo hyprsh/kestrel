@@ -126,11 +126,13 @@ func (s *server) cancelDownloads(ctx context.Context, versionIDs ...int64) error
 }
 
 func (s *server) DeleteVersion(ctx context.Context, r oapi.DeleteVersionRequestObject) (oapi.DeleteVersionResponseObject, error) {
-	if _, err := s.library.GetVersion(ctx, r.Id); errors.Is(err, library.ErrVersionNotFound) {
+	ref, err := s.library.GetVersion(ctx, r.Id)
+	if errors.Is(err, library.ErrVersionNotFound) {
 		return nil, problem(http.StatusNotFound, "not_found", "no such Version")
 	} else if err != nil {
 		return nil, err
 	}
+	folder := s.titleFolder(ctx, ref.TitleID)
 	if err := s.cancelDownloads(ctx, r.Id); err != nil {
 		return nil, err
 	}
@@ -141,6 +143,9 @@ func (s *server) DeleteVersion(ctx context.Context, r oapi.DeleteVersionRequestO
 	if r.Params.DeleteFiles != nil && *r.Params.DeleteFiles {
 		for _, f := range files {
 			imports.RemoveFile(f.Path)
+		}
+		if len(files) > 0 {
+			s.mediaRefresh.FolderChanged(ctx, folder)
 		}
 	}
 	return oapi.DeleteVersion204Response{}, nil
@@ -178,6 +183,7 @@ func (s *server) DeleteTitle(ctx context.Context, r oapi.DeleteTitleRequestObjec
 		}
 		if gone.Folder != "" {
 			_ = os.Remove(filepath.Join(gone.RootFolder, gone.Folder)) // only if nothing else is in it
+			s.mediaRefresh.FolderChanged(ctx, filepath.Join(gone.RootFolder, gone.Folder))
 		}
 	}
 	return oapi.DeleteTitle204Response{}, nil
@@ -195,4 +201,17 @@ func (s *server) RefreshTitle(ctx context.Context, r oapi.RefreshTitleRequestObj
 	}
 	s.refresher.Enqueue(r.Id)
 	return oapi.RefreshTitle202Response{}, nil
+}
+
+// titleFolder is the Title's folder on disk, or "" while it has none yet.
+func (s *server) titleFolder(ctx context.Context, titleID int64) string {
+	view, err := s.view(ctx)
+	if err != nil {
+		return ""
+	}
+	d, err := s.library.Get(ctx, titleID, view)
+	if err != nil || d.Folder == "" {
+		return ""
+	}
+	return filepath.Join(d.RootFolder, d.Folder)
 }

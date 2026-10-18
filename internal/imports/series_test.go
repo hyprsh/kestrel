@@ -62,7 +62,7 @@ func newSeriesRig(t *testing.T) *seriesRig {
 		t.Fatal(err)
 	}
 	svc, err := imports.New(imports.Deps{
-		Library: r.lib, Renames: r.lib, Profiles: profiles.New(st, settings.New(st)), Prober: r.prober, Clock: func() time.Time { return seriesNow },
+		Library: r.lib, Renames: r.lib, FolderChanged: r.notes.changed, Profiles: profiles.New(st, settings.New(st)), Prober: r.prober, Clock: func() time.Time { return seriesNow },
 		Step: func(step string) error {
 			if r.hook != nil {
 				return r.hook(step)
@@ -276,5 +276,16 @@ func TestACrashAfterTheRowWasWrittenIsFinishedByTheRerun(t *testing.T) {
 	}
 	if b, err := os.ReadFile(res.Path); err != nil || string(b) != "video x.mkv" {
 		t.Errorf("file = %q, %v", b, err)
+	}
+}
+
+func TestAnImportedEpisodeTellsTheMediaServersTheSeriesFolderNotTheSeasonFolder(t *testing.T) {
+	s := newSeriesRig(t)
+	g := s.download(t, "Night.Show.S01E01.1080p.WEB-DL.H264-GRP", 1, []string{"night.show.s01e01.1080p.mkv"})
+	if res := s.svc.Import(context.Background(), g); res.Status != imports.Imported {
+		t.Fatalf("result = %+v", res)
+	}
+	if want := filepath.Join(s.root, seriesRoot); len(s.notes.paths) != 1 || s.notes.paths[0] != want {
+		t.Fatalf("notified %v, want %s", s.notes.paths, want)
 	}
 }

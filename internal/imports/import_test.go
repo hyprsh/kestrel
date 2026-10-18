@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -61,6 +62,7 @@ type rig struct {
 	titleID  int64
 	versions map[resolution.Class]int64
 	hook     func(step string) error
+	notes    recorder
 }
 
 func newRig(t *testing.T) *rig {
@@ -93,7 +95,7 @@ func newRig(t *testing.T) *rig {
 	}
 	r.health = health.New(health.Deps{Store: st, Clock: func() time.Time { return now }})
 	svc, err := imports.New(imports.Deps{
-		Library: r.lib, Renames: r.lib, Profiles: profiles.New(st, settings.New(st)), Prober: r.prober, Clock: func() time.Time { return now }, Health: r.health,
+		Library: r.lib, Renames: r.lib, Profiles: profiles.New(st, settings.New(st)), Prober: r.prober, Clock: func() time.Time { return now }, Health: r.health, FolderChanged: r.notes.changed,
 		Step: func(s string) error {
 			if r.hook != nil {
 				return r.hook(s)
@@ -507,5 +509,37 @@ func TestACopyAcrossFilesystemsIsADismissibleWarningThatClearsOnTheNextCleanImpo
 	r.svc.NoteCrossDevice(ctx, r.root, false)
 	if rows, _ := r.health.List(ctx); len(rows) != 0 {
 		t.Errorf("rows = %+v", rows)
+	}
+}
+
+// recorder is the Notifier the rig hands the Service.
+type recorder struct {
+	mu    sync.Mutex
+	paths []string
+}
+
+func (r *recorder) changed(_ context.Context, folder string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.paths = append(r.paths, folder)
+}
+
+func TestAnImportedMovieTellsTheMediaServersItsTitleFolder(t *testing.T) {
+	r := newRig(t)
+	r.prober.info["Paddington.2014.mkv"] = good()
+	res := r.svc.Import(context.Background(), r.job(t, 1, map[string]string{"Paddington.2014.mkv": "video"}))
+	if res.Status != imports.Imported {
+		t.Fatalf("%+v", res)
+	}
+	if len(r.notes.paths) != 1 || r.notes.paths[0] != filepath.Dir(res.Path) {
+		t.Fatalf("notified %v for %s", r.notes.paths, res.Path)
+	}
+}
+
+func TestARejectedImportTellsNoOne(t *testing.T) {
+	r := newRig(t)
+	r.svc.Import(context.Background(), r.job(t, 1, map[string]string{"readme.txt": "x"}))
+	if len(r.notes.paths) != 0 {
+		t.Fatalf("notified %v", r.notes.paths)
 	}
 }

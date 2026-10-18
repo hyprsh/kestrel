@@ -13,6 +13,7 @@ import { Button, ErrorText, Field, TextInput } from '../forms'
 import { UpdateCheckSwitch } from '../about/UpdateCheck'
 import { DownloadClient } from '../plugins/DownloadClient'
 import { Indexers } from '../plugins/Indexers'
+import { MediaServers } from '../plugins/MediaServers'
 import { LanguageForm } from '../profiles/Language'
 import { RootFoldersForm } from '../rootfolders/RootFolders'
 import { DefaultsPerSlot, KidsRuleForm, ProfileToggles } from '../profiles/Profiles'
@@ -25,6 +26,7 @@ const sections = [
   { id: 'indexers', title: 'Indexers' },
   { id: 'root-folders', title: 'Root folders' },
   { id: 'adoption', title: 'Existing files' },
+  { id: 'media-servers', title: 'Media servers' },
   { id: 'account', title: 'Account' },
   { id: 'updates', title: 'Updates' },
   { id: 'security', title: 'Security' },
@@ -82,6 +84,9 @@ export function Settings({ onRunSetup, onAdopt }: { onRunSetup: () => void; onAd
               Scan for unmanaged files
             </Button>
           </Row>
+        </Group>
+        <Group id="media-servers" title="Media servers">
+          <MediaServers />
         </Group>
         <Group id="account" title="Account">
           <ChangePassword />

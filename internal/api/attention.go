@@ -59,6 +59,12 @@ var attentionActions = map[health.Kind]func(health.Row) []oapi.AttentionAction{
 	health.KindSecurityFix: func(health.Row) []oapi.AttentionAction {
 		return []oapi.AttentionAction{{Key: "open", Label: "Open About", Method: oapi.GET, Path: "/about"}}
 	},
+	health.KindRefreshFailed: func(r health.Row) []oapi.AttentionAction {
+		return []oapi.AttentionAction{testInstance(r), openSettings("media-servers", "Open Media servers")}
+	},
+	health.KindPlexNoSection: func(health.Row) []oapi.AttentionAction {
+		return []oapi.AttentionAction{openSettings("media-servers", "Open Media servers")}
+	},
 	health.KindProxyHeader: func(health.Row) []oapi.AttentionAction {
 		return []oapi.AttentionAction{openSettings("security", "Open Security")}
 	},

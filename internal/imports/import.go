@@ -199,6 +199,19 @@ func stalledBy(err error) Result {
 // error: what goes wrong is either the Release's fault (Rejected) or the
 // environment's (Stalled), and importing again is always safe.
 func (s *Service) Import(ctx context.Context, g Grab) Result {
+	res := s.importGrab(ctx, g)
+	if res.Status == Imported && res.Path != "" && s.folderChanged != nil {
+		// A movie's file lies in the Title folder, an episode's in a Season folder below it.
+		folder := filepath.Dir(res.Path)
+		if base := filepath.Base(folder); base == SeasonFolder(0) || strings.HasPrefix(base, "Season ") {
+			folder = filepath.Dir(folder)
+		}
+		s.folderChanged(ctx, folder)
+	}
+	return res
+}
+
+func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 	region, _, err := s.prof.Region(ctx)
 	if err != nil {
 		return stalledBy(err)

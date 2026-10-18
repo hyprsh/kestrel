@@ -57,6 +57,9 @@ type Options struct {
 	// Plugins is the explicit list of compiled-in plugins (cmd/kestrel fills it);
 	// nil means none.
 	Plugins *plugin.Registry
+	// MediaRefreshDelay is how long changes to a Title folder are collected
+	// before the media servers are told; 0 means 10 s. Tests shorten it.
+	MediaRefreshDelay time.Duration
 	// DataDir is the media mount (KESTREL_DATA_DIR); it prefills the Root folders.
 	DataDir string
 	// ConfigDir is the config dir (KESTREL_CONFIG_DIR); posters are cached under it.
@@ -170,7 +173,13 @@ func New(opts Options) *App {
 	if prober == nil {
 		prober = probe.Default()
 	}
-	imp, err := imports.New(imports.Deps{Library: s.library, Renames: s.library, Profiles: s.profiles, Prober: prober, Clock: opts.Clock, Health: s.health})
+	s.mediaRefresh = imports.NewRefresher(imports.RefresherDeps{
+		Servers: imports.InstanceServers(s.plugins), Health: s.health, Logger: opts.Logger, Delay: opts.MediaRefreshDelay,
+	})
+	imp, err := imports.New(imports.Deps{
+		Library: s.library, Renames: s.library, Profiles: s.profiles, Prober: prober, Clock: opts.Clock, Health: s.health,
+		FolderChanged: s.mediaRefresh.FolderChanged,
+	})
 	if err != nil {
 		panic("api: the embedded TRaSH snapshot is invalid: " + err.Error())
 	}
@@ -237,28 +246,29 @@ func New(opts Options) *App {
 }
 
 type server struct {
-	opts        Options
-	auth        *auth
-	plugins     *instances.Service
-	profiles    *profiles.Service
-	rootFolders *rootfolders.Service
-	updates     *updates.Service
-	library     *library.Service
-	acquire     *acquire.Service
-	requests    *requests.Service
-	adoption    *imports.Adoption
-	cleanup     *imports.Cleanup
-	jobs        *jobs.Runner
-	refresher   *jobs.Refresher
-	indexers    *indexers.Service
-	downloads   *downloads.Service
-	health      *health.Service
-	history     *history.Service
-	imports     *imports.Service
-	hub         *hub
-	meta        metadata.Provider
-	tvdb        metadata.TVDBProvider
-	posters     *metadata.Posters
+	opts         Options
+	auth         *auth
+	plugins      *instances.Service
+	profiles     *profiles.Service
+	rootFolders  *rootfolders.Service
+	updates      *updates.Service
+	library      *library.Service
+	acquire      *acquire.Service
+	requests     *requests.Service
+	adoption     *imports.Adoption
+	cleanup      *imports.Cleanup
+	jobs         *jobs.Runner
+	refresher    *jobs.Refresher
+	indexers     *indexers.Service
+	downloads    *downloads.Service
+	health       *health.Service
+	history      *history.Service
+	imports      *imports.Service
+	mediaRefresh *imports.Refresher
+	hub          *hub
+	meta         metadata.Provider
+	tvdb         metadata.TVDBProvider
+	posters      *metadata.Posters
 }
 
 var _ oapi.StrictServerInterface = (*server)(nil)

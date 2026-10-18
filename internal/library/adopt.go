@@ -180,9 +180,6 @@ func (s *Service) AdoptMovie(ctx context.Context, a AdoptMovie) (int64, []File, 
 	return id, replaced, tx.Commit()
 }
 
-// EpisodeRef names an episode by its season (0 is Specials) and number.
-type EpisodeRef struct{ Season, Number int }
-
 // AdoptSeriesFile is a file that becomes the file of some episodes of a Version.
 type AdoptSeriesFile struct {
 	File     NewFile
