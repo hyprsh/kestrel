@@ -45,11 +45,6 @@ func TVDBIDOf(ctx context.Context, tvdb TVDBProvider, known int, imdbID string) 
 	return id, nil
 }
 
-// TVDBID is TVDBIDOf with the Bridge's TheTVDB client.
-func (b *Bridge) TVDBID(ctx context.Context, known int, imdbID string) (int, error) {
-	return TVDBIDOf(ctx, b.TVDB, known, imdbID)
-}
-
 // Lookup bridges every series of a search in parallel. A TMDB series that has
 // vanished is not on TheTVDB; a TheTVDB outage greys the result out instead
 // of failing the search. Any other TMDB error fails the lookup.
@@ -75,7 +70,7 @@ func (b *Bridge) Lookup(ctx context.Context, tmdbIDs []int) (map[int]Bridged, er
 				br, err = Bridged{Reason: ReasonNotOnTVDB}, nil
 			case err == nil:
 				var tvdbID int
-				if tvdbID, err = b.TVDBID(ctx, ext.TVDBID, ext.IMDbID); err != nil {
+				if tvdbID, err = TVDBIDOf(ctx, b.TVDB, ext.TVDBID, ext.IMDbID); err != nil {
 					b.warn("TheTVDB lookup failed", id, err)
 					br, err = Bridged{Reason: ReasonTVDBUnavailable}, nil
 				} else if tvdbID == 0 {

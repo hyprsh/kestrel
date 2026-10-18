@@ -24,7 +24,7 @@ func (s *server) createSeries(ctx context.Context, b *oapi.TitleCreate, specs []
 	if err != nil {
 		return nil, metaProblem(err)
 	}
-	tvdbID, err := s.bridge.TVDBID(ctx, details.TVDBID, details.IMDbID)
+	tvdbID, err := metadata.TVDBIDOf(ctx, s.tvdb, details.TVDBID, details.IMDbID)
 	if err != nil {
 		return nil, metaProblem(err)
 	}

@@ -230,7 +230,6 @@ type ProviderKeys interface {
 
 // Bridge maps TMDB series to TheTVDB ones.
 type Bridge interface {
-	TVDBID(ctx context.Context, known int, imdbID string) (int, error)
 	Lookup(ctx context.Context, tmdbIDs []int) (map[int]metadata.Bridged, error)
 }
 

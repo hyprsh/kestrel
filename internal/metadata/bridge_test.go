@@ -23,17 +23,17 @@ func TestTheBridgeFindsATVDBIdFromTMDBsOwnIdsThenFromAnIMDbSearch(t *testing.T) 
 	b := newBridge(t)
 	ctx := context.Background()
 
-	if id, err := b.TVDBID(ctx, 81189, ""); err != nil || id != 81189 {
+	if id, err := metadata.TVDBIDOf(ctx, b.TVDB, 81189, ""); err != nil || id != 81189 {
 		t.Errorf("known id: %d, %v", id, err)
 	}
-	if id, err := b.TVDBID(ctx, 0, ""); err != nil || id != 0 {
+	if id, err := metadata.TVDBIDOf(ctx, b.TVDB, 0, ""); err != nil || id != 0 {
 		t.Errorf("no ids at all: %d, %v", id, err)
 	}
 	d, err := b.Meta.Series(ctx, 7001)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id, err := b.TVDBID(ctx, d.TVDBID, d.IMDbID); err != nil || id != 300001 {
+	if id, err := metadata.TVDBIDOf(ctx, b.TVDB, d.TVDBID, d.IMDbID); err != nil || id != 300001 {
 		t.Errorf("IMDb bridge: %d, %v", id, err)
 	}
 }
