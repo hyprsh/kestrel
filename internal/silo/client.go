@@ -120,11 +120,11 @@ func newClient(h *http.Client, baseURL, apiKey string) (*client, error) {
 		return nil, errors.New("base URL is required")
 	}
 	u, err := url.Parse(baseURL)
-	switch {
-	case err != nil || u.Host == "" && (u.Scheme == "http" || u.Scheme == "https"):
-		return nil, fmt.Errorf("the base URL %q is not a URL", baseURL)
-	case u.Scheme != "http" && u.Scheme != "https":
+	if err == nil && u.Scheme != "http" && u.Scheme != "https" {
 		return nil, fmt.Errorf("the base URL %q has an unsupported protocol scheme; it needs http:// or https://", baseURL)
+	}
+	if err != nil || u.Host == "" {
+		return nil, fmt.Errorf("base URL is required to name a host; %q names none", baseURL)
 	}
 	if apiKey == "" {
 		return nil, errors.New("API key is required")

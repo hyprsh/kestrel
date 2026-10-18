@@ -106,11 +106,12 @@ func TestRepositoryNeedsAReleaseVersion(t *testing.T) {
 	}
 }
 
-// TestTheBinaryReportsThePlatformsTheRepositoryShips checks the manifest
+// TestTheBinaryReportsAChecksumAndTheReleasedPlatforms checks the manifest
 // kestrel-silo prints, as runtime.ServeManifest loads it, against what Silo
 // asks of it at install (internal/plugins/manifest.go): a checksum and
-// supported platforms, here the ones the repository has binaries for.
-func TestTheBinaryReportsThePlatformsTheRepositoryShips(t *testing.T) {
+// supported platforms, here the builds .goreleaser.yaml makes (darwin/amd64 is
+// left out).
+func TestTheBinaryReportsAChecksumAndTheReleasedPlatforms(t *testing.T) {
 	m, err := manifest.LoadWithChecksum(ManifestJSON(), "0.2.0")
 	if err != nil {
 		t.Fatal(err)
@@ -118,29 +119,11 @@ func TestTheBinaryReportsThePlatformsTheRepositoryShips(t *testing.T) {
 	if m.GetChecksum() == "" {
 		t.Error("the manifest has no checksum")
 	}
-	b, err := Repository("v0.2.0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var repo struct {
-		Plugins []struct {
-			Binaries map[string]any `json:"binaries"`
-		} `json:"plugins"`
-	}
-	if err := json.Unmarshal(b, &repo); err != nil {
-		t.Fatal(err)
-	}
 	var got []string
 	for _, p := range m.GetSupportedPlatforms() {
 		got = append(got, p.GetOs()+"/"+p.GetArch())
 	}
-	var want []string
-	for k := range repo.Plugins[0].Binaries {
-		want = append(want, k)
-	}
-	slices.Sort(got)
-	slices.Sort(want)
-	if !slices.Equal(got, want) {
-		t.Errorf("supported_platforms = %v, want the repository's binaries %v", got, want)
+	if want := []string{"linux/amd64", "linux/arm64", "darwin/arm64"}; !slices.Equal(got, want) {
+		t.Errorf("supported_platforms = %v, want %v", got, want)
 	}
 }

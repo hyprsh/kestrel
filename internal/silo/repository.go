@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	pluginv1 "github.com/Silo-Server/silo-plugin-sdk/pkg/pluginproto/silo/plugin/v1"
-	"github.com/Silo-Server/silo-plugin-sdk/pkg/pluginsdk/manifest"
 )
 
 // Repository renders silo-repository.json for a release: the catalog format of
@@ -21,11 +20,10 @@ func Repository(version string) ([]byte, error) {
 	if v == "" || v == "dev" || v == "edge" {
 		return nil, fmt.Errorf("silo repository: %q is not a release version", version)
 	}
-	m, err := manifest.Load(manifestJSON)
+	m, err := Manifest(v)
 	if err != nil {
-		return nil, fmt.Errorf("load embedded manifest: %w", err)
+		return nil, err
 	}
-	m.Version = v
 	m.Checksum = "" // the checksum is the build's; checksums.txt carries the real ones
 
 	const repo = "https://github.com/hyprsh/kestrel"
@@ -39,14 +37,15 @@ func Repository(version string) ([]byte, error) {
 	}
 	// Silo reads the file with encoding/json, not protojson, so the manifest is
 	// written the same way: enums as numbers, as Silo-Server/silo-plugins does.
-	type pkg struct {
+	// An entry is one plugin of the catalog.
+	type entry struct {
 		Manifest     *pluginv1.PluginManifest `json:"manifest"`
 		RepoURL      string                   `json:"repo_url"`
 		ChecksumsURL string                   `json:"checksums_url"`
 		Binaries     map[string]binary        `json:"binaries"`
 	}
 	doc := struct {
-		Plugins []pkg `json:"plugins"`
-	}{[]pkg{{Manifest: m, RepoURL: repo, ChecksumsURL: base + "checksums.txt", Binaries: binaries}}}
+		Plugins []entry `json:"plugins"`
+	}{[]entry{{Manifest: m, RepoURL: repo, ChecksumsURL: base + "checksums.txt", Binaries: binaries}}}
 	return json.MarshalIndent(doc, "", "  ")
 }
