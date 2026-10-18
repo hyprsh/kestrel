@@ -2562,6 +2562,8 @@ export interface components {
             requester: components["schemas"]["Requester"];
             title: components["schemas"]["RequestTitle"];
             slots: components["schemas"]["RequestSlotCreate"][];
+            /** @description One of the configured Root folders of the Title's kind; left out means the first one. It applies only to a Title the Request creates: a Request never moves a Title already in the library. Not one of that kind's Root folders is a `422` on `root_folder`. */
+            root_folder?: string;
             /** @description Series only; `null` or left out asks for the whole Series. */
             seasons?: number[] | null;
         };

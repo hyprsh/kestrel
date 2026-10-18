@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/hyprsh/kestrel/internal/jobs"
@@ -369,6 +370,53 @@ func TestARequestForAChildrensTitleGoesInTheFirstRootFolderWithTheSlotDefault(t 
 				t.Errorf("profile = %q, want the HD Slot's default", profile)
 			}
 		})
+	}
+}
+
+func requestBodyIn(sourceID, kind string, tmdb int, root string) string {
+	return fmt.Sprintf(`{"source":"silo","source_request_id":%q,"requester":{"id":"u-1","name":"Anna"},"title":{"kind":%q,"tmdb_id":%d},"slots":[{"slot":"standard"}],"root_folder":%q}`,
+		sourceID, kind, tmdb, root)
+}
+
+func TestARequestMayNameTheRootFolderOfANewTitle(t *testing.T) {
+	l := newLibraryInstance(t, metadatatest.Key)
+	movies, _ := l.moreFolders(t)
+
+	r := l.valid("POST", "/requests", requestBodyIn("r-1", "movie", 116149, movies))
+	if r.Status != 201 {
+		t.Fatalf("POST /requests = %d %s", r.Status, r.Body)
+	}
+	if got := l.rootFolderOf(t, r); got != movies {
+		t.Errorf("root folder = %q, want %q", got, movies)
+	}
+}
+
+func TestARequestWithARootFolderOfTheWrongKindOrUnknownIsRefused(t *testing.T) {
+	l := newLibraryInstance(t, metadatatest.Key)
+	_, series := l.moreFolders(t)
+
+	for _, root := range []string{l.data + "/media/elsewhere", series} {
+		r := l.valid("POST", "/requests", requestBodyIn("r-1", "movie", 116149, root))
+		if r.Status != 422 || !strings.Contains(r.Body, "root_folder") {
+			t.Errorf("root %q: POST /requests = %d %s, want 422 on root_folder", root, r.Status, r.Body)
+		}
+	}
+}
+
+func TestARequestForATitleInTheLibraryIgnoresTheRootFolder(t *testing.T) {
+	l := newLibraryInstance(t, metadatatest.Key)
+	movies, _ := l.moreFolders(t)
+
+	first := l.valid("POST", "/requests", requestBody("r-1", "movie", 116149, `[{"slot":"standard"}]`, "null"))
+	if got := l.rootFolderOf(t, first); got != l.data+"/media/movies" {
+		t.Fatalf("first root folder = %q", got)
+	}
+	again := l.valid("POST", "/requests", fmt.Sprintf(`{"source":"silo","source_request_id":"r-2","requester":{"id":"u-1","name":"Anna"},"title":{"kind":"movie","tmdb_id":116149},"slots":[{"slot":"4k"}],"root_folder":%q}`, movies))
+	if again.Status != 201 {
+		t.Fatalf("second request = %d %s", again.Status, again.Body)
+	}
+	if got := l.rootFolderOf(t, again); got != l.data+"/media/movies" {
+		t.Errorf("root folder = %q, want the Title left where it was", got)
 	}
 }
 
