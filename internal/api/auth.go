@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/hyprsh/kestrel/internal/slot"
 	"mime"
 	"net"
 	"net/http"
@@ -20,7 +19,6 @@ import (
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
 	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
-	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
 )
@@ -275,18 +273,6 @@ func csrfCheck(r *http.Request) *problemError {
 
 const setupCompletedKey = settings.SetupCompleted
 
-// standardHasDefaults reports whether the Standard Slot has a default Profile for Movies and for Series.
-func standardHasDefaults(all []profiles.Profile) bool {
-	var movies, series bool
-	for _, p := range all {
-		if p.Slot == slot.Standard && p.Enabled {
-			movies = movies || p.DefaultMovies
-			series = series || p.DefaultSeries
-		}
-	}
-	return movies && series
-}
-
 // setupState reads where every wizard section stands.
 func (s *server) setupState(ctx context.Context) (oapi.Setup, error) {
 	_, exists, err := s.auth.account(ctx)
@@ -323,12 +309,8 @@ func (s *server) setupState(ctx context.Context) (oapi.Setup, error) {
 	}
 	out.Sections.RootFolders = state(rootsSaved)
 	// Profiles have nothing to save: the builtin rows ship configured and Standard
-	// always keeps its defaults, so the section is done once those exist.
-	all, err := s.profiles.List(ctx)
-	if err != nil {
-		return out, err
-	}
-	out.Sections.Profiles = state(standardHasDefaults(all))
+	// always keeps its defaults, so the section is always done.
+	out.Sections.Profiles = oapi.Done
 	_, out.Completed, err = s.auth.settings.Get(ctx, setupCompletedKey)
 	return out, err
 }

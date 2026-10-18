@@ -5,18 +5,18 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/hyprsh/kestrel/internal/imports"
-	"github.com/hyprsh/kestrel/internal/slot"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
+	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
+	"github.com/hyprsh/kestrel/internal/slot"
 )
 
 func intPtr(n int) *int {
@@ -370,7 +370,7 @@ func (s *server) CreateTitle(ctx context.Context, r oapi.CreateTitleRequestObjec
 	root, err := roots.Pick(rootfolders.Kind(b.Kind), requested)
 	switch {
 	case errors.Is(err, rootfolders.ErrNotConfigured):
-		return nil, invalid("root_folder", "not_found", "That is not one of the "+noun+" Root folders")
+		return nil, invalid("root_folder", "not_found", rootfolders.Kind(b.Kind).NotConfiguredMessage())
 	case errors.Is(err, rootfolders.ErrNoneSet):
 		return nil, invalid("root_folder", "required", "Set a "+noun+" Root folder in Settings first")
 	case err != nil:

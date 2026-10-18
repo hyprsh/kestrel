@@ -52,7 +52,7 @@ func Suggest(all []profiles.Profile, kind Kind) Suggestion {
 		if err != nil {
 			continue
 		}
-		out := SuggestedSlot{Slot: sl, Profile: r.Profile, Reason: ReasonDefault, Label: r.Name}
+		out := SuggestedSlot{Slot: sl, Profile: r, Reason: ReasonDefault, Label: r.Name}
 		s.Slots = append(s.Slots, out)
 	}
 	return s

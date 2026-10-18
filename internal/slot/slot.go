@@ -21,9 +21,6 @@ const Count = 2
 // All lists the Slots in order.
 var All = [Count]Slot{Standard, FourK}
 
-// Default is the Slot a new Title gets.
-const Default = Standard
-
 // Key is the stored and API value: "standard" or "4k".
 func (s Slot) Key() string {
 	if s == FourK {

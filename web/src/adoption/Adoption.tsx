@@ -14,7 +14,7 @@ import {
 import { ApiError, useLookup } from '../api/queries'
 import { useOpenCleanup } from '../cleanup/launch'
 import { Button, ErrorText, TextInput } from '../forms'
-import { slotLabel } from '../library/bits'
+import { slotKeys, slotLabel } from '../library/bits'
 import { Badge } from '../ui'
 
 type Filter = 'all' | 'matched' | 'needs_choice' | 'skipped' | 'duplicate' | 'replacement'
@@ -37,7 +37,6 @@ const skipText: Record<string, string> = {
 
 const baseName = (p: string) => p.slice(p.lastIndexOf('/') + 1)
 
-const slotOrder = ['standard', '4k'] as const
 
 /** "S01E02" or "S01E02-E03" for a Series file, "" for a Movie file. */
 function episodeLabel(f: AdoptionFile) {
@@ -52,7 +51,7 @@ function episodeLabel(f: AdoptionFile) {
 function versionsSummary(row: AdoptionRow) {
   const counts = new Map<string, number>()
   for (const f of row.files) if (f.ticked && !f.left) counts.set(f.slot, (counts.get(f.slot) ?? 0) + f.episodes.length)
-  return slotOrder
+  return slotKeys
     .filter((s) => counts.has(s))
     .map((s) => `${slotLabel[s]}: ${counts.get(s)} ${counts.get(s) === 1 ? 'episode' : 'episodes'}`)
     .join(', ')

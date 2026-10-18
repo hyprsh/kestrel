@@ -13,6 +13,7 @@ import (
 
 	pluginv1 "github.com/Silo-Server/silo-plugin-sdk/pkg/pluginproto/silo/plugin/v1"
 	"github.com/Silo-Server/silo-plugin-sdk/pkg/pluginsdk/manifest"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -66,25 +67,19 @@ func settingsOf(c *pluginv1.RouterConnection) settings {
 }
 
 // slotOf maps a Silo tier to a Kestrel Slot.
-func slotOf(q *pluginv1.RequestedQuality) (string, bool) {
+func slotOf(q *pluginv1.RequestedQuality) (slot.Slot, bool) {
 	switch {
 	case q.GetId() == "2160p" || q.GetIs4K():
-		return "4k", true
+		return slot.FourK, true
 	case q.GetId() == "1080p":
-		return "standard", true
+		return slot.Standard, true
 	}
-	return "", false
+	return slot.Standard, false
 }
 
-func slotName(slot string) string {
-	if slot == "4k" {
-		return "4K"
-	}
-	return "Standard"
-}
-
-func qualityOf(slot string) string {
-	if slot == "4k" {
+// qualityOf is the Silo tier a Slot answers.
+func qualityOf(sl slot.Slot) string {
+	if sl == slot.FourK {
 		return "2160p"
 	}
 	return "1080p"
@@ -119,22 +114,22 @@ func (r *Router) Fulfill(ctx context.Context, in *pluginv1.FulfillRequest) (*plu
 	cfg := settingsOf(conn)
 	d := in.GetRequest()
 
-	var tiers []string // Kestrel Slots with a Silo target, in tier order
+	var tiers []slot.Slot // Kestrel Slots with a Silo target, in tier order
 	var skipped []*pluginv1.FulfillmentTarget
 	for _, q := range in.GetQualities() {
-		slot, ok := slotOf(q)
+		sl, ok := slotOf(q)
 		if !ok {
 			skipped = append(skipped, &pluginv1.FulfillmentTarget{
 				Quality: q.GetId(), ConnectionId: conn.GetId(), Status: "failed", Message: "Kestrel has no Slot for " + q.GetId(),
 			})
 			continue
 		}
-		if !slices.Contains(tiers, slot) {
-			tiers = append(tiers, slot)
+		if !slices.Contains(tiers, sl) {
+			tiers = append(tiers, sl)
 		}
 	}
 	if len(in.GetQualities()) == 0 {
-		tiers = []string{"standard"}
+		tiers = []slot.Slot{slot.Standard}
 	}
 	if len(tiers) == 0 {
 		return &pluginv1.FulfillResponse{Targets: skipped, Message: "no tier Kestrel can serve"}, nil
@@ -142,8 +137,8 @@ func (r *Router) Fulfill(ctx context.Context, in *pluginv1.FulfillRequest) (*plu
 
 	var slots []slotCreate
 	for _, s := range tiers {
-		sc := slotCreate{Slot: s}
-		if p := map[string]string{"standard": cfg.standardProfile, "4k": cfg.fourKProfile}[s]; p != "" {
+		sc := slotCreate{Slot: s.Key()}
+		if p := map[slot.Slot]string{slot.Standard: cfg.standardProfile, slot.FourK: cfg.fourKProfile}[s]; p != "" {
 			sc.Profile = &p
 		}
 		slots = append(slots, sc)
@@ -186,8 +181,8 @@ func (r *Router) Fulfill(ctx context.Context, in *pluginv1.FulfillRequest) (*plu
 	}
 
 	res := &pluginv1.FulfillResponse{Targets: skipped}
-	for _, slot := range tiers {
-		res.Targets = append(res.Targets, targetOf(conn.GetId(), req, slot))
+	for _, sl := range tiers {
+		res.Targets = append(res.Targets, targetOf(conn.GetId(), req, sl))
 	}
 	return res, nil
 }
@@ -238,23 +233,23 @@ func rejection(reason *string) string {
 	return "Kestrel rejected the Request: " + *reason
 }
 
-func targetOf(connID string, req kestrelRequest, slot string) *pluginv1.FulfillmentTarget {
-	st := statusOf(req, slot)
+func targetOf(connID string, req kestrelRequest, sl slot.Slot) *pluginv1.FulfillmentTarget {
+	st := statusOf(req, sl)
 	return &pluginv1.FulfillmentTarget{
-		Quality: qualityOf(slot), ConnectionId: connID, ExternalId: strconv.FormatInt(req.ID, 10),
+		Quality: qualityOf(sl), ConnectionId: connID, ExternalId: strconv.FormatInt(req.ID, 10),
 		ExternalStatus: st.ExternalStatus, Status: st.Status, Message: st.Message, Wording: st.Wording,
 	}
 }
 
-func statusOf(req kestrelRequest, slot string) *pluginv1.TargetStatus {
-	out := &pluginv1.TargetStatus{Quality: qualityOf(slot)}
+func statusOf(req kestrelRequest, sl slot.Slot) *pluginv1.TargetStatus {
+	out := &pluginv1.TargetStatus{Quality: qualityOf(sl)}
 	if req.Outcome == "rejected" {
 		out.Status, out.Message = "failed", rejection(req.RejectReason)
 		return out
 	}
-	s, ok := req.slot(slot)
+	s, ok := req.slot(sl.Key())
 	if !ok {
-		out.Status, out.Message = "failed", "Kestrel has no "+slotName(slot)+" Version for this Request"
+		out.Status, out.Message = "failed", "Kestrel has no "+sl.Name()+" Version for this Request"
 		return out
 	}
 	out.Status, out.ExternalStatus = s.Status, s.StatusLabel
@@ -323,13 +318,10 @@ func (r *Router) CheckStatus(ctx context.Context, in *pluginv1.CheckStatusReques
 		}
 		for _, t := range refs {
 			n, _ := strconv.ParseInt(t.GetExternalId(), 10, 64)
-			slot := "standard"
-			if t.GetQuality() == "2160p" {
-				slot = "4k"
-			}
+			sl, _ := slotOf(&pluginv1.RequestedQuality{Id: t.GetQuality()})
 			st := &pluginv1.TargetStatus{Quality: t.GetQuality(), ConnectionId: id, Status: "failed", Message: "Kestrel no longer has this Request"}
 			if req, ok := got[n]; ok {
-				st = statusOf(req, slot)
+				st = statusOf(req, sl)
 				st.ConnectionId = id
 				st.Quality = t.GetQuality()
 			}
@@ -359,17 +351,17 @@ func (r *Router) ListConfigOptions(ctx context.Context, in *pluginv1.ListConfigO
 	for _, p := range roots {
 		folders.Options = append(folders.Options, &pluginv1.ConfigOption{Value: p, Label: p})
 	}
-	list := func(slot string) *pluginv1.ConfigOptionList {
+	list := func(sl slot.Slot) *pluginv1.ConfigOptionList {
 		out := &pluginv1.ConfigOptionList{Options: []*pluginv1.ConfigOption{{Value: "", Label: "Kestrel default"}}}
 		for _, p := range profiles {
-			if p.Slot == slot && p.Enabled {
+			if p.Slot == sl.Key() && p.Enabled {
 				out.Options = append(out.Options, &pluginv1.ConfigOption{Value: p.Key, Label: p.Name})
 			}
 		}
 		return out
 	}
 	return &pluginv1.ListConfigOptionsResponse{OptionsByField: map[string]*pluginv1.ConfigOptionList{
-		"standard_profile": list("standard"), "4k_profile": list("4k"), "root_folder": folders,
+		"standard_profile": list(slot.Standard), "4k_profile": list(slot.FourK), "root_folder": folders,
 	}}, nil
 }
 

@@ -1,11 +1,6 @@
 import { ApiError, usePatchProfile, useProfiles, type Profile } from '../api/queries'
 import { ErrorText, Select } from '../forms'
-import { slotLabel } from '../library/bits'
-
-const slots = [
-  { slot: 'standard', label: 'Standard' },
-  { slot: '4k', label: '4K' },
-] as const
+import { slotKeys, slotLabel } from '../library/bits'
 
 const problemText = (e: unknown) => (e instanceof ApiError && e.status === 422 ? e.message : 'Could not save. Try again.')
 
@@ -33,7 +28,8 @@ export function DefaultsPerSlot() {
             {k.kind}
           </span>
         ))}
-        {slots.map(({ slot, label }) => {
+        {slotKeys.map((slot) => {
+          const label = slotLabel[slot]
           const inSlot = profiles.data.filter((p) => p.slot === slot)
           return (
             <Row key={slot} label={label}>
