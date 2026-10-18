@@ -16,6 +16,13 @@ const kinds: { key: Kind; label: string }[] = [
   { key: 'series', label: 'Series' },
 ]
 
+/** What the Library list is narrowed to besides text and kind. */
+export type Preset = 'wanted' | 'long_missing'
+
+/** A Title is Wanted when any of its Versions is; Long Missing when any is long missing. */
+const hasSlot = (r: TitleRow, test: (s: NonNullable<TitleRow['slots']['hd']>) => boolean) =>
+  [r.slots.sd, r.slots.hd, r.slots.uhd].some((s) => s !== null && test(s))
+
 const norm = (s: string) => s.toLowerCase()
 
 function matches(r: TitleRow, text: string): boolean {
@@ -28,16 +35,44 @@ function matches(r: TitleRow, text: string): boolean {
  * right. Everything is reachable from the keyboard: j/k and the arrows move,
  * Enter steps into the detail, Escape steps back, `/` filters.
  */
-export function Library({ selectedId, onSelect, onAdd }: { selectedId: number | null; onSelect: (id: number) => void; onAdd: () => void }) {
+export function Library({
+  selectedId,
+  onSelect,
+  onAdd,
+  preset,
+}: {
+  selectedId: number | null
+  onSelect: (id: number) => void
+  onAdd: () => void
+  /** Opens with the Wanted filter on, and the Long Missing chip too for 'long_missing'. */
+  preset?: Preset
+}) {
   const titles = useTitles()
   const [text, setText] = useState('')
   const [kind, setKind] = useState<Kind>('all')
+  const [wanted, setWanted] = useState(preset !== undefined)
+  const [longMissing, setLongMissing] = useState(preset === 'long_missing')
+  const [byWantedSince, setByWantedSince] = useState(preset !== undefined)
   const listRef = useRef<HTMLDivElement>(null)
   const paneRef = useRef<HTMLElement>(null)
   const filterRef = useRef<HTMLInputElement>(null)
 
   const all = titles.data ?? []
-  const rows = useMemo(() => all.filter((r) => (kind === 'all' || r.kind === kind) && matches(r, text)), [all, kind, text])
+  const rows = useMemo(() => {
+    const kept = all.filter(
+      (r) =>
+        (kind === 'all' || r.kind === kind) &&
+        matches(r, text) &&
+        (!wanted || hasSlot(r, (s) => s.state === 'wanted')) &&
+        (!longMissing || hasSlot(r, (s) => s.long_missing)),
+    )
+    if (!byWantedSince) return kept
+    // Wanted longest first; Titles that are not Wanted keep their order, last.
+    return [...kept].sort((a, b) => {
+      if (a.wanted_since === null || b.wanted_since === null) return a.wanted_since === b.wanted_since ? 0 : a.wanted_since === null ? 1 : -1
+      return a.wanted_since.localeCompare(b.wanted_since)
+    })
+  }, [all, kind, text, wanted, longMissing, byWantedSince])
   const index = Math.max(0, rows.findIndex((r) => r.id === selectedId)) // the first row until something is picked
   const current = rows[index] as TitleRow | undefined
   // A manual search replaces the detail pane; picking another Title in the list closes it.
@@ -103,6 +138,43 @@ export function Library({ selectedId, onSelect, onAdd }: { selectedId: number | 
                 {k.label}
               </button>
             ))}
+          </div>
+          <div role="group" aria-label="Filters" className="flex flex-wrap gap-1">
+            <button
+              aria-pressed={wanted}
+              onClick={() => {
+                setWanted(!wanted)
+                if (wanted) setLongMissing(false) // Long Missing is a narrowing of Wanted
+              }}
+              className={cx(
+                'h-6 rounded-md px-2 text-[12px] font-medium',
+                wanted ? 'bg-gray-alpha-200 text-gray-1000' : 'text-gray-900 hover:bg-gray-alpha-100',
+              )}
+            >
+              Wanted
+            </button>
+            {wanted && (
+              <button
+                aria-pressed={longMissing}
+                onClick={() => setLongMissing(!longMissing)}
+                className={cx(
+                  'h-6 rounded-md px-2 text-[12px] font-medium',
+                  longMissing ? 'bg-red-200 text-red-900' : 'text-gray-900 hover:bg-gray-alpha-100',
+                )}
+              >
+                Long Missing
+              </button>
+            )}
+            <button
+              aria-pressed={byWantedSince}
+              onClick={() => setByWantedSince(!byWantedSince)}
+              className={cx(
+                'h-6 rounded-md px-2 text-[12px] font-medium',
+                byWantedSince ? 'bg-gray-alpha-200 text-gray-1000' : 'text-gray-900 hover:bg-gray-alpha-100',
+              )}
+            >
+              Sort by Wanted since
+            </button>
           </div>
         </div>
 

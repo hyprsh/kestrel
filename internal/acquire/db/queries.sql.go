@@ -482,6 +482,39 @@ func (q *Queries) ListImportableGrabs(ctx context.Context, nextImportAt sql.Null
 	return items, nil
 }
 
+const listLastFailures = `-- name: ListLastFailures :many
+SELECT version_id, failure FROM grabs WHERE state = 'failed' AND version_id IS NOT NULL AND failure IS NOT NULL ORDER BY id
+`
+
+type ListLastFailuresRow struct {
+	VersionID sql.NullInt64
+	Failure   sql.NullString
+}
+
+// The failure of the latest failed Grab of each Version that has one.
+func (q *Queries) ListLastFailures(ctx context.Context) ([]ListLastFailuresRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLastFailures)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLastFailuresRow
+	for rows.Next() {
+		var i ListLastFailuresRow
+		if err := rows.Scan(&i.VersionID, &i.Failure); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStalledGrabs = `-- name: ListStalledGrabs :many
 SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at FROM grabs WHERE state = 'importing' AND stalled_since IS NOT NULL ORDER BY stalled_since, id
 `

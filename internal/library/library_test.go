@@ -162,7 +162,7 @@ func TestTheListShowsOneDotPerSlotWithItsState(t *testing.T) {
 	}
 }
 
-func TestAMovieIsUnreleasedUntilItsReleaseDateInTheCountry(t *testing.T) {
+func TestAMovieWithOnlyATheatricalDateIsUnreleasedUntil90DaysAfterItInTheCountry(t *testing.T) {
 	ctx := context.Background()
 	lib, _ := newLibrary(t)
 	addPaddington(t, lib)
@@ -174,13 +174,13 @@ func TestAMovieIsUnreleasedUntilItsReleaseDateInTheCountry(t *testing.T) {
 		}
 		return rows[0].Slots[resolution.HD].State
 	}
-	if got := state(day(2015, 1, 17), "US"); got != library.Wanted {
+	if got := state(day(2015, 4, 17), "US"); got != library.Wanted {
 		t.Errorf("US the day after release = %v", got)
 	}
-	if got := state(day(2015, 1, 17), "DE"); got != library.Unreleased {
+	if got := state(day(2015, 4, 17), "DE"); got != library.Unreleased {
 		t.Errorf("DE before its own release = %v", got)
 	}
-	if got := state(day(2015, 1, 22), "DE"); got != library.Wanted {
+	if got := state(day(2015, 4, 22), "DE"); got != library.Wanted {
 		t.Errorf("DE on release day = %v", got)
 	}
 }

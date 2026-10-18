@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/health"
+	"github.com/hyprsh/kestrel/internal/jobs"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
 	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
 )
@@ -165,13 +166,11 @@ func (s *server) GetAttention(ctx context.Context, _ oapi.GetAttentionRequestObj
 		sev := oapi.AttentionSeverity(rows[0].Severity)
 		out.Severity = &sev
 	}
-	out.LongMissing.Items = []struct {
-		LastFailure *string   `json:"last_failure"`
-		Slot        oapi.Slot `json:"slot"`
-		TitleId     int64     `json:"title_id"`
-		VersionId   int64     `json:"version_id"`
-		WantedSince time.Time `json:"wanted_since"`
-	}{}
+	lm, err := s.longMissing(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out.LongMissing = lm
 	return oapi.GetAttention200JSONResponse(out), nil
 }
 
@@ -238,4 +237,62 @@ func (s *server) GetSystemStatus(ctx context.Context, _ oapi.GetSystemStatusRequ
 		out.Disks = append(out.Disks, oapi.DiskStatus{Path: d.Path, FreeBytes: int64(d.Free), TotalBytes: int64(d.Total)})
 	}
 	return oapi.GetSystemStatus200JSONResponse(out), nil
+}
+
+// longMissingShown is how many Long Missing Versions the grouped row lists.
+const longMissingShown = 5
+
+// longMissing is the grouped Long Missing row: how many Versions are Long
+// Missing and the five most recently Wanted. It is joined in from the library
+// (not copied into health) and sits outside the rail badge.
+func (s *server) longMissing(ctx context.Context) (oapi.LongMissing, error) {
+	out := oapi.LongMissing{Items: []struct {
+		LastFailure *string   `json:"last_failure"`
+		Profile     string    `json:"profile"`
+		Slot        oapi.Slot `json:"slot"`
+		Title       string    `json:"title"`
+		TitleId     int64     `json:"title_id"`
+		VersionId   int64     `json:"version_id"`
+		WantedSince time.Time `json:"wanted_since"`
+	}{}}
+	view, err := s.view(ctx)
+	if err != nil {
+		return out, err
+	}
+	all, err := s.library.LongMissing(ctx, view)
+	if err != nil {
+		return out, err
+	}
+	failures, err := s.acquire.LastFailures(ctx)
+	if err != nil {
+		return out, err
+	}
+	out.Count = len(all)
+	for _, it := range all[:min(longMissingShown, len(all))] {
+		item := struct {
+			LastFailure *string   `json:"last_failure"`
+			Profile     string    `json:"profile"`
+			Slot        oapi.Slot `json:"slot"`
+			Title       string    `json:"title"`
+			TitleId     int64     `json:"title_id"`
+			VersionId   int64     `json:"version_id"`
+			WantedSince time.Time `json:"wanted_since"`
+		}{Profile: it.Profile, Slot: slotToAPI(it.Slot), Title: it.Title, TitleId: it.TitleID, VersionId: it.VersionID, WantedSince: it.WantedSince}
+		if f, ok := failures[it.VersionID]; ok {
+			item.LastFailure = &f
+		}
+		out.Items = append(out.Items, item)
+	}
+	return out, nil
+}
+
+// SearchAllWanted is "Search all Wanted": every Wanted Version becomes due now
+// and the sweep is woken.
+func (s *server) SearchAllWanted(ctx context.Context, _ oapi.SearchAllWantedRequestObject) (oapi.SearchAllWantedResponseObject, error) {
+	n, err := s.library.SearchAllWanted(ctx)
+	if err != nil {
+		return nil, err
+	}
+	s.jobs.Kick(jobs.Search)
+	return oapi.SearchAllWanted202JSONResponse(oapi.WantedSearch{Versions: n}), nil
 }

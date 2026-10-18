@@ -95,15 +95,20 @@ UPDATE seasons SET monitored = EXISTS (
     SELECT 1 FROM episodes e WHERE e.title_id = seasons.title_id AND e.season = seasons.number AND e.monitored = 1
 ) WHERE seasons.title_id = ?;
 
--- name: ListDueMissing :many
-SELECT s.version_id, v.title_id
-FROM search_state s JOIN versions v ON v.id = s.version_id JOIN titles t ON t.id = v.title_id
-WHERE ((s.season IS NULL) = (t.kind = 'movie')) AND t.monitored = 1 AND s.next_missing_at IS NOT NULL AND s.next_missing_at <= ?
-GROUP BY s.version_id, v.title_id
-ORDER BY MIN(s.next_missing_at), MIN(s.id);
+-- name: ListSearchStates :many
+SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at, last_upgrade_at FROM search_state ORDER BY id;
 
--- name: MarkMissingSearched :exec
-UPDATE search_state SET last_missing_at = ?, next_missing_at = ? WHERE version_id = ?;
+-- name: MarkSearchStateMissing :exec
+UPDATE search_state SET last_missing_at = ?, next_missing_at = ? WHERE id = ?;
+
+-- name: SetSearchStateNextUpgrade :exec
+UPDATE search_state SET next_upgrade_at = ? WHERE id = ?;
+
+-- name: SetSearchStateNextMissing :exec
+UPDATE search_state SET next_missing_at = ? WHERE id = ?;
+
+-- name: MarkUpgradeSearched :exec
+UPDATE search_state SET last_upgrade_at = ?, next_upgrade_at = ? WHERE version_id = ?;
 
 -- name: SetNextMissing :exec
 UPDATE search_state SET next_missing_at = ? WHERE version_id = ?;

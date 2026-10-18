@@ -1009,6 +1009,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/wanted/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search all Wanted
+         * @description Makes every Wanted Version due a search now and wakes the sweep, so they are searched in the
+         *     next minute or so rather than on their own cadence (the indexers' budgets still apply).
+         *     Filled Versions are not touched: there is no "search all Upgrades". The answer is how many
+         *     Versions were queued.
+         */
+        post: operations["searchAllWanted"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/status": {
         parameters: {
             query?: never;
@@ -2009,6 +2032,10 @@ export interface components {
             /** @description Ask this before running the action, when set. */
             confirm: string | null;
         };
+        WantedSearch: {
+            /** @description How many Wanted Versions were queued for a search. */
+            versions: number;
+        };
         LongMissing: {
             /** @description How many Versions are Long Missing. */
             count: number;
@@ -2016,6 +2043,9 @@ export interface components {
             items: {
                 /** Format: int64 */
                 title_id: number;
+                title: string;
+                /** @description The key of the Version's Profile. */
+                profile: string;
                 /** Format: int64 */
                 version_id: number;
                 slot: components["schemas"]["Slot"];
@@ -2761,6 +2791,15 @@ export interface operations {
             query?: {
                 kind?: components["schemas"]["TitleKind"];
                 q?: string;
+                /** @description `true` keeps the Titles with a Wanted Version (the Library's Wanted filter). */
+                wanted?: boolean;
+                /** @description `true` keeps the Titles with a Long Missing Version (the Long Missing chip). */
+                long_missing?: boolean;
+                /**
+                 * @description `added_at` (default) is newest first. `wanted_since` puts the Titles that have been Wanted
+                 *     longest first, and the ones that are not Wanted last.
+                 */
+                sort?: "added_at" | "wanted_since";
                 limit?: number;
                 cursor?: string;
             };
@@ -3578,6 +3617,27 @@ export interface operations {
             };
             404: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    searchAllWanted: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Wanted Versions are queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WantedSearch"];
+                };
+            };
             default: components["responses"]["Problem"];
         };
     };

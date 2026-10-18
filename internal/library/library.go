@@ -14,6 +14,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -72,6 +73,11 @@ type Filter struct {
 	Kind Kind
 	// Text matches titles and aliases, ignoring case.
 	Text string
+	// Wanted keeps the Titles with a Wanted Version; LongMissing those with a Long Missing one.
+	Wanted, LongMissing bool
+	// ByWantedSince puts the Titles Wanted longest first, those not Wanted last,
+	// instead of the newest-added first order.
+	ByWantedSince bool
 }
 
 // VersionSpec names a Slot and the Profile (by key) that fills it.
@@ -95,6 +101,8 @@ type SlotState struct {
 	Profile     string
 	State       State
 	LongMissing bool
+	// WantedSince is set while the Version is Wanted.
+	WantedSince *time.Time
 }
 
 // Row is a compact Library row.
@@ -179,6 +187,8 @@ type Detail struct {
 type Service struct {
 	st    *store.Store
 	clock func() time.Time
+	// country is the household's release-date country; see WithCountry.
+	country func(context.Context) string
 }
 
 // New returns a Service. clock is the time source (time.Now in production).
@@ -429,12 +439,28 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 			} else {
 				st, since = stateOf(t.Monitored == 1, hasFile[v.ID], rel, parseTime(v.AddedAt), view)
 			}
-			row.Slots[slotOf(v.Slot)] = &SlotState{VersionID: v.ID, Profile: v.ProfileKey, State: st, LongMissing: IsLongMissing(st, since, view.Now)}
+			row.Slots[slotOf(v.Slot)] = &SlotState{VersionID: v.ID, Profile: v.ProfileKey, State: st, LongMissing: IsLongMissing(st, since, view.Now), WantedSince: since}
 			if since != nil && (row.WantedSince == nil || since.Before(*row.WantedSince)) {
 				row.WantedSince = since
 			}
 		}
+		if f.Wanted && !slices.ContainsFunc(row.Slots[:], func(sl *SlotState) bool { return sl != nil && sl.State == Wanted }) {
+			continue
+		}
+		if f.LongMissing && !slices.ContainsFunc(row.Slots[:], func(sl *SlotState) bool { return sl != nil && sl.LongMissing }) {
+			continue
+		}
 		out = append(out, row)
+	}
+	if f.ByWantedSince {
+		sort.SliceStable(out, func(i, j int) bool {
+			a, b := out[i].WantedSince, out[j].WantedSince
+			switch {
+			case a == nil || b == nil:
+				return a != nil && b == nil
+			}
+			return a.Before(*b)
+		})
 	}
 	return out, nil
 }

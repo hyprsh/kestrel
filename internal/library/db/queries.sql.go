@@ -612,42 +612,6 @@ func (q *Queries) ListAllReleaseDates(ctx context.Context) ([]TitleReleaseDate, 
 	return items, nil
 }
 
-const listDueMissing = `-- name: ListDueMissing :many
-SELECT s.version_id, v.title_id
-FROM search_state s JOIN versions v ON v.id = s.version_id JOIN titles t ON t.id = v.title_id
-WHERE ((s.season IS NULL) = (t.kind = 'movie')) AND t.monitored = 1 AND s.next_missing_at IS NOT NULL AND s.next_missing_at <= ?
-GROUP BY s.version_id, v.title_id
-ORDER BY MIN(s.next_missing_at), MIN(s.id)
-`
-
-type ListDueMissingRow struct {
-	VersionID int64
-	TitleID   int64
-}
-
-func (q *Queries) ListDueMissing(ctx context.Context, nextMissingAt sql.NullString) ([]ListDueMissingRow, error) {
-	rows, err := q.db.QueryContext(ctx, listDueMissing, nextMissingAt)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListDueMissingRow
-	for rows.Next() {
-		var i ListDueMissingRow
-		if err := rows.Scan(&i.VersionID, &i.TitleID); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listEpisodes = `-- name: ListEpisodes :many
 SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored FROM episodes ORDER BY title_id, season, number
 `
@@ -1120,6 +1084,41 @@ func (q *Queries) ListReleaseDatesOfTitle(ctx context.Context, titleID int64) ([
 	return items, nil
 }
 
+const listSearchStates = `-- name: ListSearchStates :many
+SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at, last_upgrade_at FROM search_state ORDER BY id
+`
+
+func (q *Queries) ListSearchStates(ctx context.Context) ([]SearchState, error) {
+	rows, err := q.db.QueryContext(ctx, listSearchStates)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchState
+	for rows.Next() {
+		var i SearchState
+		if err := rows.Scan(
+			&i.ID,
+			&i.VersionID,
+			&i.Season,
+			&i.NextMissingAt,
+			&i.LastMissingAt,
+			&i.NextUpgradeAt,
+			&i.LastUpgradeAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSeasonNumbers = `-- name: ListSeasonNumbers :many
 SELECT number FROM seasons WHERE title_id = ?
 `
@@ -1288,18 +1287,33 @@ func (q *Queries) ListVersionsOfTitle(ctx context.Context, titleID int64) ([]Ver
 	return items, nil
 }
 
-const markMissingSearched = `-- name: MarkMissingSearched :exec
-UPDATE search_state SET last_missing_at = ?, next_missing_at = ? WHERE version_id = ?
+const markSearchStateMissing = `-- name: MarkSearchStateMissing :exec
+UPDATE search_state SET last_missing_at = ?, next_missing_at = ? WHERE id = ?
 `
 
-type MarkMissingSearchedParams struct {
+type MarkSearchStateMissingParams struct {
 	LastMissingAt sql.NullString
 	NextMissingAt sql.NullString
+	ID            int64
+}
+
+func (q *Queries) MarkSearchStateMissing(ctx context.Context, arg MarkSearchStateMissingParams) error {
+	_, err := q.db.ExecContext(ctx, markSearchStateMissing, arg.LastMissingAt, arg.NextMissingAt, arg.ID)
+	return err
+}
+
+const markUpgradeSearched = `-- name: MarkUpgradeSearched :exec
+UPDATE search_state SET last_upgrade_at = ?, next_upgrade_at = ? WHERE version_id = ?
+`
+
+type MarkUpgradeSearchedParams struct {
+	LastUpgradeAt sql.NullString
+	NextUpgradeAt sql.NullString
 	VersionID     int64
 }
 
-func (q *Queries) MarkMissingSearched(ctx context.Context, arg MarkMissingSearchedParams) error {
-	_, err := q.db.ExecContext(ctx, markMissingSearched, arg.LastMissingAt, arg.NextMissingAt, arg.VersionID)
+func (q *Queries) MarkUpgradeSearched(ctx context.Context, arg MarkUpgradeSearchedParams) error {
+	_, err := q.db.ExecContext(ctx, markUpgradeSearched, arg.LastUpgradeAt, arg.NextUpgradeAt, arg.VersionID)
 	return err
 }
 
@@ -1429,6 +1443,34 @@ type SetNextSearchesAllParams struct {
 
 func (q *Queries) SetNextSearchesAll(ctx context.Context, arg SetNextSearchesAllParams) error {
 	_, err := q.db.ExecContext(ctx, setNextSearchesAll, arg.NextMissingAt, arg.NextUpgradeAt, arg.VersionID)
+	return err
+}
+
+const setSearchStateNextMissing = `-- name: SetSearchStateNextMissing :exec
+UPDATE search_state SET next_missing_at = ? WHERE id = ?
+`
+
+type SetSearchStateNextMissingParams struct {
+	NextMissingAt sql.NullString
+	ID            int64
+}
+
+func (q *Queries) SetSearchStateNextMissing(ctx context.Context, arg SetSearchStateNextMissingParams) error {
+	_, err := q.db.ExecContext(ctx, setSearchStateNextMissing, arg.NextMissingAt, arg.ID)
+	return err
+}
+
+const setSearchStateNextUpgrade = `-- name: SetSearchStateNextUpgrade :exec
+UPDATE search_state SET next_upgrade_at = ? WHERE id = ?
+`
+
+type SetSearchStateNextUpgradeParams struct {
+	NextUpgradeAt sql.NullString
+	ID            int64
+}
+
+func (q *Queries) SetSearchStateNextUpgrade(ctx context.Context, arg SetSearchStateNextUpgradeParams) error {
+	_, err := q.db.ExecContext(ctx, setSearchStateNextUpgrade, arg.NextUpgradeAt, arg.ID)
 	return err
 }
 

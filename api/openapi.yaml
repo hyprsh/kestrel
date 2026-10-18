@@ -455,6 +455,25 @@ paths:
           in: query
           schema:
             type: string
+        - name: wanted
+          in: query
+          description: "`true` keeps the Titles with a Wanted Version (the Library's Wanted filter)."
+          schema:
+            type: boolean
+        - name: long_missing
+          in: query
+          description: "`true` keeps the Titles with a Long Missing Version (the Long Missing chip)."
+          schema:
+            type: boolean
+        - name: sort
+          in: query
+          description: |
+            `added_at` (default) is newest first. `wanted_since` puts the Titles that have been Wanted
+            longest first, and the ones that are not Wanted last.
+          schema:
+            type: string
+            enum: [added_at, wanted_since]
+            default: added_at
         - name: limit
           in: query
           schema:
@@ -1248,6 +1267,25 @@ paths:
           $ref: "#/components/responses/Problem"
         "422":
           $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /wanted/search:
+    post:
+      operationId: searchAllWanted
+      summary: Search all Wanted
+      description: |
+        Makes every Wanted Version due a search now and wakes the sweep, so they are searched in the
+        next minute or so rather than on their own cadence (the indexers' budgets still apply).
+        Filled Versions are not touched: there is no "search all Upgrades". The answer is how many
+        Versions were queued.
+      tags: [titles]
+      responses:
+        "202":
+          description: The Wanted Versions are queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WantedSearch"
         default:
           $ref: "#/components/responses/Problem"
   /system/status:
@@ -2991,6 +3029,13 @@ components:
           type: string
           nullable: true
           description: Ask this before running the action, when set.
+    WantedSearch:
+      type: object
+      required: [versions]
+      properties:
+        versions:
+          type: integer
+          description: How many Wanted Versions were queued for a search.
     LongMissing:
       type: object
       required: [count, items]
@@ -3003,11 +3048,16 @@ components:
           description: The five most recently released.
           items:
             type: object
-            required: [title_id, version_id, slot, wanted_since, last_failure]
+            required: [title_id, title, version_id, slot, profile, wanted_since, last_failure]
             properties:
               title_id:
                 type: integer
                 format: int64
+              title:
+                type: string
+              profile:
+                type: string
+                description: The key of the Version's Profile.
               version_id:
                 type: integer
                 format: int64

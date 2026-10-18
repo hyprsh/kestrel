@@ -9,7 +9,8 @@ import { CommandMenu, type MenuAction, type MenuMode } from '../command/CommandM
 import { Adoption } from '../adoption/Adoption'
 import { Cleanup } from '../cleanup/Cleanup'
 import { MOD } from '../keys'
-import { Library } from '../library/Library'
+import { useSearchAllWanted } from '../api/wanted'
+import { Library, type Preset } from '../library/Library'
 import { startLiveStream } from '../live/stream'
 import { Overview } from '../overview/Overview'
 import { Settings as SettingsScreen } from '../screens/Settings'
@@ -37,6 +38,7 @@ const themeIcon: Record<Theme, ReactNode> = {
 export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const [screen, setScreen] = useState('overview')
   const [libraryId, setLibraryId] = useState<number | null>(null)
+  const [libraryPreset, setLibraryPreset] = useState<{ preset: Preset; n: number } | null>(null)
   const [menu, setMenu] = useState<{ mode: MenuMode } | null>(null)
   const { theme, cycle } = useTheme()
   const auth = useAuth()
@@ -60,15 +62,18 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   }, [])
 
   const canLogout = auth.data?.state === 'ok' && auth.data.me.method === 'session'
+  const searchAll = useSearchAllWanted()
+  const { mutate: searchAllWanted } = searchAll
   const actions: MenuAction[] = useMemo(
     () => [
+      { id: 'search-wanted', label: 'Search all Wanted', keywords: 'missing search catch up', run: () => searchAllWanted() },
       { id: 'theme', label: 'Switch theme', keywords: 'dark light mode', run: cycle },
       { id: 'setup', label: 'Run setup again', keywords: 'wizard', run: onRunSetup },
       { id: 'adopt', label: 'Scan for unmanaged files', keywords: 'adopt adoption existing library import', run: () => setScreen('adoption') },
       { id: 'cleanup', label: 'Clean up Unmanaged files', keywords: 'junk samples subtitles delete tidy', run: () => setScreen('cleanup') },
       ...(canLogout ? [{ id: 'logout', label: 'Log out', keywords: 'sign out', run: () => logout.mutate(undefined) }] : []),
     ],
-    [cycle, onRunSetup, canLogout, logout],
+    [cycle, onRunSetup, canLogout, logout, searchAllWanted],
   )
   const places = useMemo(() => [...screens, about].map((s) => ({ id: s.key, label: s.label })), [])
   const closeMenu = useCallback(() => setMenu(null), [])
@@ -77,16 +82,24 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     const [key, section] = path.replace(/^\//, '').split('/')
     if (![...screens, about].some((s) => s.key === key)) return
     setScreen(key)
-    if (section) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
+    // "/library/long-missing" opens the Library on the Wanted filter with the Long Missing chip.
+    if (key === 'library') setLibraryPreset(section === 'long-missing' ? { preset: 'long_missing', n: Date.now() } : null)
+    else if (section) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
+  }, [])
+  // Going to a screen from the rail or the menu clears a preset left by an earlier link.
+  const select = useCallback((key: string) => {
+    setScreen(key)
+    if (key === 'library') setLibraryPreset(null)
   }, [])
   const openTitle = useCallback((id: number) => {
     setLibraryId(id)
+    setLibraryPreset(null)
     setScreen('library')
   }, [])
 
   return (
     <div className="flex h-full bg-background-100 text-[13px] text-gray-1000">
-      <Rail screen={screen} onSelect={setScreen} theme={theme} onTheme={cycle} onAdd={() => setMenu({ mode: 'add' })} />
+      <Rail screen={screen} onSelect={select} theme={theme} onTheme={cycle} onAdd={() => setMenu({ mode: 'add' })} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar title={current.label} onOpenMenu={() => setMenu({ mode: 'root' })} />
         <main className="flex min-h-0 flex-1 flex-col">
@@ -97,7 +110,13 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           ) : screen === 'cleanup' ? (
             <Cleanup />
           ) : screen === 'library' ? (
-            <Library selectedId={libraryId} onSelect={setLibraryId} onAdd={() => setMenu({ mode: 'add' })} />
+            <Library
+              key={libraryPreset?.n ?? 0}
+              preset={libraryPreset?.preset}
+              selectedId={libraryId}
+              onSelect={setLibraryId}
+              onAdd={() => setMenu({ mode: 'add' })}
+            />
           ) : screen === 'overview' ? (
             <Overview onOpen={goPath} />
           ) : (
@@ -110,7 +129,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           )}
         </main>
       </div>
-      {menu && <CommandMenu initialMode={menu.mode} actions={actions} places={places} onClose={closeMenu} onGo={setScreen} onOpenTitle={openTitle} />}
+      {menu && <CommandMenu initialMode={menu.mode} actions={actions} places={places} onClose={closeMenu} onGo={select} onOpenTitle={openTitle} />}
     </div>
   )
 }

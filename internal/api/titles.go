@@ -234,6 +234,17 @@ func (s *server) ListTitles(ctx context.Context, r oapi.ListTitlesRequestObject)
 	if r.Params.Q != nil {
 		f.Text = strings.TrimSpace(*r.Params.Q)
 	}
+	f.Wanted = r.Params.Wanted != nil && *r.Params.Wanted
+	f.LongMissing = r.Params.LongMissing != nil && *r.Params.LongMissing
+	if r.Params.Sort != nil {
+		switch *r.Params.Sort {
+		case "added_at":
+		case "wanted_since":
+			f.ByWantedSince = true
+		default:
+			return nil, invalid("sort", "invalid", "sort is added_at or wanted_since")
+		}
+	}
 	view, err := s.view(ctx)
 	if err != nil {
 		return nil, err

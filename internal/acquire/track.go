@@ -190,12 +190,30 @@ func (s *Service) SearchWanted(ctx context.Context, titleID int64, versionIDs []
 // searchWanted is SearchWanted that, with fromCache, looks at the Releases the
 // candidate cache still holds before it asks the indexers again.
 func (s *Service) searchWanted(ctx context.Context, titleID int64, versionIDs []int64, fromCache bool) (Outcome, error) {
+	return s.searchTitle(ctx, titleID, versionIDs, fromCache, false)
+}
+
+// SearchUpgrades is the Upgrade sweep's search: the same as SearchWanted for
+// the Filled Versions among versionIDs, with the files they hold as the bar
+// a Release has to clear (Decide's Upgrade threshold). It grabs nothing that
+// does not beat what is held.
+func (s *Service) SearchUpgrades(ctx context.Context, titleID int64, versionIDs []int64) (Outcome, error) {
+	return s.searchTitle(ctx, titleID, versionIDs, false, true)
+}
+
+// searchTitle searches a Title for its Wanted Versions, or with upgrade for its
+// Filled ones.
+func (s *Service) searchTitle(ctx context.Context, titleID int64, versionIDs []int64, fromCache, upgrade bool) (Outcome, error) {
 	sub, err := s.subjectOf(ctx, titleID)
 	if err != nil {
 		return Outcome{}, err
 	}
+	want := library.Wanted
+	if upgrade {
+		want = library.Filled
+	}
 	if sub.detail.Kind == library.Series {
-		return s.searchSeries(ctx, sub, versionIDs, fromCache)
+		return s.searchSeries(ctx, sub, versionIDs, fromCache, upgrade)
 	}
 	busy, err := s.busyVersions(ctx)
 	if err != nil {
@@ -205,12 +223,20 @@ func (s *Service) searchWanted(ctx context.Context, titleID int64, versionIDs []
 	var in Input
 	slotVersion := map[Slot]int64{}
 	for _, v := range sub.detail.Versions {
-		if !slices.Contains(versionIDs, v.ID) || v.State != library.Wanted || busy[v.ID] {
+		if !slices.Contains(versionIDs, v.ID) || v.State != want || busy[v.ID] {
 			continue
 		}
 		out.Searched = append(out.Searched, v.ID)
 		slotVersion[v.Slot] = v.ID
-		in.Versions = append(in.Versions, Version{Slot: v.Slot, Units: []Unit{{}}})
+		u := Unit{}
+		if upgrade && v.File != nil {
+			h := Held{Fits: true}
+			if v.File.Score != nil {
+				h.Score = *v.File.Score
+			}
+			u.Held = &h
+		}
+		in.Versions = append(in.Versions, Version{Slot: v.Slot, Units: []Unit{u}})
 	}
 	if len(in.Versions) == 0 {
 		return out, nil

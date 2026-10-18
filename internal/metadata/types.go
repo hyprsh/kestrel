@@ -77,23 +77,35 @@ func (r ReleaseDates) Date(t ReleaseType, country string) (time.Time, bool) {
 	return pick(func(ReleaseDate) bool { return true })
 }
 
-// Released is when the Movie came out for a country: the earliest of its
-// theatrical, digital and physical dates, else its premiere, else its TV date.
-// It is what "unreleased" is measured against.
+// TheatricalToHome is how long after a theatrical release a Movie with no digital
+// or physical date is taken to be available.
+const TheatricalToHome = 90 * 24 * time.Hour
+
+// Released is when the Movie became searchable in a country: its earliest
+// digital or physical date, else its theatrical date plus 90 days (a Radarr
+// "minimum availability" replacement), else its premiere plus 90 days, else
+// its TV date.
 func (r ReleaseDates) Released(country string) (time.Time, bool) {
-	for _, group := range [][]ReleaseType{{TheatricalLimited, Theatrical, Digital, Physical}, {Premiere}, {TV}} {
+	earliest := func(types ...ReleaseType) (time.Time, bool) {
 		var best time.Time
 		found := false
-		for _, t := range group {
+		for _, t := range types {
 			if d, ok := r.Date(t, country); ok && (!found || d.Before(best)) {
 				best, found = d, true
 			}
 		}
-		if found {
-			return best, true
-		}
+		return best, found
 	}
-	return time.Time{}, false
+	if d, ok := earliest(Digital, Physical); ok {
+		return d, true
+	}
+	if d, ok := earliest(TheatricalLimited, Theatrical); ok {
+		return d.Add(TheatricalToHome), true
+	}
+	if d, ok := earliest(Premiere); ok {
+		return d.Add(TheatricalToHome), true
+	}
+	return earliest(TV)
 }
 
 // Certification is the certification to read for a country, and the country it

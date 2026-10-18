@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/library"
+	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/resolution"
+	"github.com/hyprsh/kestrel/internal/store"
 )
 
 func TestAFreshlyAddedMovieVersionIsDueForAMissingSearchUntilItIsMarkedSearched(t *testing.T) {
@@ -25,7 +27,7 @@ func TestAFreshlyAddedMovieVersionIsDueForAMissingSearchUntilItIsMarkedSearched(
 		t.Fatalf("due = %+v, want both Versions of title %d", due, id)
 	}
 
-	if err := lib.MarkMissingSearched(ctx, d.Versions[0].ID, now, now.Add(6*time.Hour)); err != nil {
+	if err := lib.MarkMissingSearched(ctx, d.Versions[0].ID, now, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -33,9 +35,9 @@ func TestAFreshlyAddedMovieVersionIsDueForAMissingSearchUntilItIsMarkedSearched(
 	if len(due) != 1 || due[0].VersionID != d.Versions[1].ID {
 		t.Errorf("due after marking the HD Version searched = %+v", due)
 	}
-	due, _ = lib.DueMissing(ctx, now.Add(6*time.Hour))
+	due, _ = lib.DueMissing(ctx, now.Add(24*time.Hour))
 	if len(due) != 2 {
-		t.Errorf("due six hours later = %+v, want both again", due)
+		t.Errorf("due a day later = %+v, want both again", due)
 	}
 }
 
@@ -45,7 +47,7 @@ func TestRequestSearchMakesAVersionDueNow(t *testing.T) {
 	id := addPaddington(t, lib)
 	d, _ := lib.Get(ctx, id, library.View{Country: "US", Now: now})
 	vid := d.Versions[0].ID
-	if err := lib.MarkMissingSearched(ctx, vid, now, now.Add(24*time.Hour)); err != nil {
+	if err := lib.MarkMissingSearched(ctx, vid, now, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -69,6 +71,9 @@ func TestUnmonitoredTitlesAreNeverDue(t *testing.T) {
 	if due, err := lib.DueMissing(ctx, now); err != nil || len(due) != 0 {
 		t.Errorf("due = %+v, %v, want none", due, err)
 	}
+	if due, err := lib.DueUpgrades(ctx, now.Add(365*24*time.Hour), 0); err != nil || len(due) != 0 {
+		t.Errorf("upgrades due = %+v, %v, want none", due, err)
+	}
 }
 
 func TestASeriesVersionIsDueOnceWhateverItsSeasonsAndOneMarkSchedulesAllOfThem(t *testing.T) {
@@ -82,7 +87,7 @@ func TestASeriesVersionIsDueOnceWhateverItsSeasonsAndOneMarkSchedulesAllOfThem(t
 		t.Fatalf("due = %+v, %v, want the Version once", due, err)
 	}
 
-	if err := lib.MarkMissingSearched(ctx, d.Versions[0].ID, now, now.Add(6*time.Hour)); err != nil {
+	if err := lib.MarkMissingSearched(ctx, d.Versions[0].ID, now, false); err != nil {
 		t.Fatal(err)
 	}
 	if due, _ := lib.DueMissing(ctx, now); len(due) != 0 {
@@ -94,5 +99,43 @@ func TestASeriesVersionIsDueOnceWhateverItsSeasonsAndOneMarkSchedulesAllOfThem(t
 	}
 	if due, _ := lib.DueMissing(ctx, now); len(due) != 1 {
 		t.Errorf("due after a season request = %+v", due)
+	}
+}
+
+func TestAnUnreleasedMovieIsNotDueAndAFailedSearchIsRetriedSoon(t *testing.T) {
+	ctx := context.Background()
+	st, err := store.Open(ctx, store.Options{Dir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	clock := now
+	lib := library.New(st, func() time.Time { return clock }).WithCountry(func(context.Context) string { return "US" })
+
+	upcoming := paddington()
+	upcoming.ReleaseDates = metadata.ReleaseDates{{Country: "US", Type: metadata.Digital, Date: now.Add(48 * time.Hour)}}
+	id, err := lib.AddMovie(ctx, library.AddMovie{
+		Details: upcoming, PrimaryLanguage: "en", RootFolder: "/m", Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if due, _ := lib.DueMissing(ctx, now); len(due) != 0 {
+		t.Fatalf("an unreleased Movie is due: %+v", due)
+	}
+
+	released := now.Add(72 * time.Hour)
+	due, _ := lib.DueMissing(ctx, released)
+	if len(due) != 1 || due[0].TitleID != id {
+		t.Fatalf("once released it is due: %+v", due)
+	}
+	if err := lib.MarkMissingSearched(ctx, due[0].VersionID, released, true); err != nil {
+		t.Fatal(err)
+	}
+	if due, _ := lib.DueMissing(ctx, released.Add(14*time.Minute)); len(due) != 0 {
+		t.Errorf("due before the retry = %+v", due)
+	}
+	if due, _ := lib.DueMissing(ctx, released.Add(15*time.Minute)); len(due) != 1 {
+		t.Errorf("due at the retry = %+v", due)
 	}
 }

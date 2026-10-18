@@ -69,3 +69,7 @@ WHERE g.state IN ('sent', 'downloading', 'completed', 'importing');
 
 -- name: ListGrabEpisodes :many
 SELECT episode_id FROM grab_episodes WHERE grab_id = ? ORDER BY episode_id;
+
+-- The failure of the latest failed Grab of each Version that has one.
+-- name: ListLastFailures :many
+SELECT version_id, failure FROM grabs WHERE state = 'failed' AND version_id IS NOT NULL AND failure IS NOT NULL ORDER BY id;

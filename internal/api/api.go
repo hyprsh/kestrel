@@ -130,7 +130,13 @@ func New(opts Options) *App {
 	appSettings := settings.New(opts.Store)
 	s.profiles = profiles.New(opts.Store, appSettings)
 	s.rootFolders = rootfolders.New(appSettings, opts.DataDir)
-	s.library = library.New(opts.Store, opts.Clock)
+	s.library = library.New(opts.Store, opts.Clock).WithCountry(func(ctx context.Context) string {
+		region, _, err := s.profiles.Region(ctx)
+		if err != nil {
+			return ""
+		}
+		return region.Country
+	})
 	s.meta = opts.Metadata
 	if s.meta == nil {
 		s.meta = metadata.NewTMDB(metadata.TMDBOptions{Keys: metadata.NewKeys(appSettings, opts.TMDBAPIKey, opts.TVDBAPIKey)})

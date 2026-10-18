@@ -107,12 +107,49 @@ func TestReleaseDatesUseTheCountryThenTheUSThenTheEarliestAnywhere(t *testing.T)
 		t.Error("a type nobody released has no date")
 	}
 
-	// Released is the earliest of the theatrical, digital and physical dates.
-	if got, ok := pad.ReleaseDates.Released("US"); !ok || !got.Equal(day(2015, 1, 16)) {
+	// Released is the earliest digital or physical date; the US digital date is April 14.
+	if got, ok := pad.ReleaseDates.Released("US"); !ok || !got.Equal(day(2015, 4, 14)) {
 		t.Errorf("US released = %v %v", got, ok)
 	}
-	if got, ok := pad.ReleaseDates.Released("DE"); !ok || !got.Equal(day(2015, 1, 22)) {
+	if got, ok := pad.ReleaseDates.Released("DE"); !ok || !got.Equal(day(2015, 4, 14)) {
 		t.Errorf("DE released = %v %v", got, ok)
+	}
+}
+
+func TestReleasedIsTheEarliestHomeDateElseTheatricalPlus90Days(t *testing.T) {
+	d := func(y int, m time.Month, dd int) time.Time { return time.Date(y, m, dd, 0, 0, 0, 0, time.UTC) }
+	cases := []struct {
+		name  string
+		dates metadata.ReleaseDates
+		want  time.Time
+		ok    bool
+	}{
+		{"digital beats a later physical", metadata.ReleaseDates{
+			{Country: "DE", Type: metadata.Theatrical, Date: d(2020, 1, 1)},
+			{Country: "DE", Type: metadata.Physical, Date: d(2020, 5, 1)},
+			{Country: "DE", Type: metadata.Digital, Date: d(2020, 4, 1)},
+		}, d(2020, 4, 1), true},
+		{"the home date wins even when it is later than theatrical plus 90 days", metadata.ReleaseDates{
+			{Country: "DE", Type: metadata.Theatrical, Date: d(2020, 1, 1)},
+			{Country: "DE", Type: metadata.Digital, Date: d(2020, 8, 1)},
+		}, d(2020, 8, 1), true},
+		{"theatrical alone is released 90 days later", metadata.ReleaseDates{
+			{Country: "DE", Type: metadata.Theatrical, Date: d(2020, 1, 1)},
+		}, d(2020, 3, 31), true},
+		{"the earlier of limited and wide theatrical counts", metadata.ReleaseDates{
+			{Country: "DE", Type: metadata.TheatricalLimited, Date: d(2020, 1, 1)},
+			{Country: "DE", Type: metadata.Theatrical, Date: d(2020, 2, 1)},
+		}, d(2020, 3, 31), true},
+		{"a TV date stands as it is", metadata.ReleaseDates{{Country: "DE", Type: metadata.TV, Date: d(2020, 1, 1)}}, d(2020, 1, 1), true},
+		{"no dates is unknown", nil, time.Time{}, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, ok := c.dates.Released("DE")
+			if ok != c.ok || !got.Equal(c.want) {
+				t.Fatalf("Released = %v %v, want %v %v", got, ok, c.want, c.ok)
+			}
+		})
 	}
 }
 

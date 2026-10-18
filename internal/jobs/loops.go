@@ -17,8 +17,9 @@ const (
 	// Poll follows the download client: every 10 s while any Grab is downloading,
 	// every 5 min otherwise, and right after a Grab.
 	Poll = "poll"
-	// Search searches what the library says is due: search on add today,
-	// the sweeps (#46) and RSS (#45) later.
+	// Search is the sweep: it searches what the library says is due, the
+	// Wanted Versions first and then the Filled ones due an Upgrade, and it
+	// serves search on add, "Search all Wanted" and retries.
 	Search = "search"
 	// Import imports finished downloads with two workers; it wakes when a
 	// poll sees a download finish and retries stalled Imports by their backoff.
@@ -31,16 +32,18 @@ const (
 	Health = "health"
 )
 
-// Cadences. missingRetry and missingFailed are placeholders until the sweep
-// ticket sets the real missing and upgrade cadences.
+// Cadences. How long a Version waits between missing and Upgrade searches is
+// the library's (library.NextMissing, library.UpgradeEvery); the loop only wakes
+// to see what is due.
 const (
-	pollBusy      = 10 * time.Second
-	pollIdle      = 5 * time.Minute
-	searchEvery   = 5 * time.Minute
-	rssEvery      = 15 * time.Minute
-	missingRetry  = 6 * time.Hour
-	missingFailed = 15 * time.Minute
-	importEvery   = time.Minute
+	pollBusy    = 10 * time.Second
+	pollIdle    = 5 * time.Minute
+	searchEvery = 5 * time.Minute
+	rssEvery    = 15 * time.Minute
+	// upgradesPerPass keeps the Upgrade sweep from searching a whole library on
+	// one pass; the oldest-searched Versions go first and the rest follow on later passes.
+	upgradesPerPass = 5
+	importEvery     = time.Minute
 	// importWorkers is how many Imports run at once.
 	importWorkers = 2
 	pruneEvery    = 24 * time.Hour
@@ -58,6 +61,7 @@ type Acquirer interface {
 	// Reconcile is the poll at startup, where a Grab the client lost is lost at once.
 	Reconcile(ctx context.Context) (acquire.PollResult, error)
 	SearchWanted(ctx context.Context, titleID int64, versionIDs []int64) (acquire.Outcome, error)
+	SearchUpgrades(ctx context.Context, titleID int64, versionIDs []int64) (acquire.Outcome, error)
 	SyncRSS(ctx context.Context) (acquire.RSSOutcome, error)
 }
 
@@ -76,7 +80,9 @@ type Importer interface {
 // Library is what the loops need of the library module.
 type Library interface {
 	DueMissing(ctx context.Context, now time.Time) ([]library.Due, error)
-	MarkMissingSearched(ctx context.Context, versionID int64, at, next time.Time) error
+	MarkMissingSearched(ctx context.Context, versionID int64, at time.Time, failed bool) error
+	DueUpgrades(ctx context.Context, now time.Time, limit int) ([]library.Due, error)
+	MarkUpgradeSearched(ctx context.Context, versionID int64, at time.Time, failed bool) error
 }
 
 // History is what the loops need of the history module.
@@ -238,14 +244,37 @@ func importDue(ctx context.Context, r *Runner, d Deps) error {
 	return nil
 }
 
-// searchDue searches each Title with a due Version once. A searched Version
-// moves its next search out, so a second pass finds nothing to do.
+// searchDue is the sweep: each Title with a Wanted Version due is searched once,
+// then the Filled Versions due an Upgrade, the one searched longest ago first.
+// A searched Version moves its next search out, so a second pass finds nothing
+// to do.
 func searchDue(ctx context.Context, r *Runner, d Deps) error {
 	now := d.Clock()
-	due, err := d.Library.DueMissing(ctx, now)
+	grabbed := false
+	missing, err := d.Library.DueMissing(ctx, now)
 	if err != nil {
 		return err
 	}
+	err = sweep(ctx, r, missing, d.Acquire.SearchWanted, d.Library.MarkMissingSearched, now, &grabbed)
+	if err == nil {
+		var upgrades []library.Due
+		if upgrades, err = d.Library.DueUpgrades(ctx, now, upgradesPerPass); err == nil {
+			err = sweep(ctx, r, upgrades, d.Acquire.SearchUpgrades, d.Library.MarkUpgradeSearched, now, &grabbed)
+		}
+	}
+	if grabbed {
+		r.Kick(Poll)
+	}
+	return err
+}
+
+// sweep searches each Title of due once, with the Versions of it that are due.
+func sweep(
+	ctx context.Context, r *Runner, due []library.Due,
+	search func(ctx context.Context, titleID int64, versionIDs []int64) (acquire.Outcome, error),
+	mark func(ctx context.Context, versionID int64, at time.Time, failed bool) error,
+	now time.Time, grabbed *bool,
+) error {
 	var titles []int64
 	byTitle := map[int64][]int64{}
 	for _, x := range due {
@@ -254,25 +283,18 @@ func searchDue(ctx context.Context, r *Runner, d Deps) error {
 		}
 		byTitle[x.TitleID] = append(byTitle[x.TitleID], x.VersionID)
 	}
-	grabbed := false
 	for _, id := range titles {
-		out, err := d.Acquire.SearchWanted(ctx, id, byTitle[id])
+		out, err := search(ctx, id, byTitle[id])
 		if err != nil {
 			r.log.Warn("search for a Title failed", "title", id, "err", err)
 		}
-		grabbed = grabbed || len(out.Grabbed) > 0
-		next := now.Add(missingRetry)
-		if err != nil || len(out.Failures) > 0 {
-			next = now.Add(missingFailed)
-		}
+		*grabbed = *grabbed || len(out.Grabbed) > 0
+		failed := err != nil || len(out.Failures) > 0
 		for _, v := range out.Searched {
-			if err := d.Library.MarkMissingSearched(ctx, v, now, next); err != nil {
+			if err := mark(ctx, v, now, failed); err != nil {
 				return err
 			}
 		}
-	}
-	if grabbed {
-		r.Kick(Poll)
 	}
 	return nil
 }

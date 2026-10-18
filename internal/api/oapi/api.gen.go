@@ -805,6 +805,24 @@ func (e ListAdoptionRowsParamsFilter) Valid() bool {
 	}
 }
 
+// Defines values for ListTitlesParamsSort.
+const (
+	AddedAt     ListTitlesParamsSort = "added_at"
+	WantedSince ListTitlesParamsSort = "wanted_since"
+)
+
+// Valid indicates whether the value is a known member of the ListTitlesParamsSort enum.
+func (e ListTitlesParamsSort) Valid() bool {
+	switch e {
+	case AddedAt:
+		return true
+	case WantedSince:
+		return true
+	default:
+		return false
+	}
+}
+
 // ActivitySnapshot defines model for ActivitySnapshot.
 type ActivitySnapshot struct {
 	// Running Names of the background loops mid-pass right now.
@@ -1229,8 +1247,12 @@ type LongMissing struct {
 
 	// Items The five most recently released.
 	Items []struct {
-		LastFailure *string   `json:"last_failure"`
+		LastFailure *string `json:"last_failure"`
+
+		// Profile The key of the Version's Profile.
+		Profile     string    `json:"profile"`
 		Slot        Slot      `json:"slot"`
+		Title       string    `json:"title"`
 		TitleId     int64     `json:"title_id"`
 		VersionId   int64     `json:"version_id"`
 		WantedSince time.Time `json:"wanted_since"`
@@ -2038,6 +2060,12 @@ type VersionRef struct {
 	Slot    Slot   `json:"slot"`
 }
 
+// WantedSearch defines model for WantedSearch.
+type WantedSearch struct {
+	// Versions How many Wanted Versions were queued for a search.
+	Versions int `json:"versions"`
+}
+
 // AttentionRowId defines model for AttentionRowId.
 type AttentionRowId = string
 
@@ -2125,11 +2153,24 @@ type ListRequestsParams struct {
 
 // ListTitlesParams defines parameters for ListTitles.
 type ListTitlesParams struct {
-	Kind   *TitleKind `form:"kind,omitempty" json:"kind,omitempty"`
-	Q      *string    `form:"q,omitempty" json:"q,omitempty"`
-	Limit  *int       `form:"limit,omitempty" json:"limit,omitempty"`
-	Cursor *string    `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Kind *TitleKind `form:"kind,omitempty" json:"kind,omitempty"`
+	Q    *string    `form:"q,omitempty" json:"q,omitempty"`
+
+	// Wanted `true` keeps the Titles with a Wanted Version (the Library's Wanted filter).
+	Wanted *bool `form:"wanted,omitempty" json:"wanted,omitempty"`
+
+	// LongMissing `true` keeps the Titles with a Long Missing Version (the Long Missing chip).
+	LongMissing *bool `form:"long_missing,omitempty" json:"long_missing,omitempty"`
+
+	// Sort `added_at` (default) is newest first. `wanted_since` puts the Titles that have been Wanted
+	// longest first, and the ones that are not Wanted last.
+	Sort   *ListTitlesParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+	Limit  *int                  `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor *string               `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
+
+// ListTitlesParamsSort defines parameters for ListTitles.
+type ListTitlesParamsSort string
 
 // DeleteTitleParams defines parameters for DeleteTitle.
 type DeleteTitleParams struct {
@@ -2424,6 +2465,9 @@ type ServerInterface interface {
 	// SearchVersionReleases Manual search for a Version
 	// (POST /versions/{id}/releases)
 	SearchVersionReleases(w http.ResponseWriter, r *http.Request, id VersionId)
+	// SearchAllWanted Search all Wanted
+	// (POST /wanted/search)
+	SearchAllWanted(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -3492,6 +3536,45 @@ func (siw *ServerInterfaceWrapper) ListTitles(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// ------------- Optional query parameter "wanted" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "wanted", r.URL.Query(), &params.Wanted, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "wanted"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "wanted", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "long_missing" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "long_missing", r.URL.Query(), &params.LongMissing, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "long_missing"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "long_missing", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "limit" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
@@ -3896,6 +3979,20 @@ func (siw *ServerInterfaceWrapper) SearchVersionReleases(w http.ResponseWriter, 
 	handler.ServeHTTP(w, r)
 }
 
+// SearchAllWanted operation middleware
+func (siw *ServerInterfaceWrapper) SearchAllWanted(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SearchAllWanted(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -4067,6 +4164,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/adoption/commit", wrapper.CommitAdoption)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/cleanup/preview", wrapper.PreviewCleanup)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/cleanup/run", wrapper.RunCleanup)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/wanted/search", wrapper.SearchAllWanted)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/system/status", wrapper.GetSystemStatus)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/stream", wrapper.Stream)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/requests", wrapper.ListRequests)
@@ -7753,6 +7851,44 @@ func (response SearchVersionReleasesdefaultApplicationProblemPlusJSONResponse) V
 	return err
 }
 
+type SearchAllWantedRequestObject struct {
+}
+
+type SearchAllWantedResponseObject interface {
+	VisitSearchAllWantedResponse(w http.ResponseWriter) error
+}
+
+type SearchAllWanted202JSONResponse WantedSearch
+
+func (response SearchAllWanted202JSONResponse) VisitSearchAllWantedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchAllWanteddefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response SearchAllWanteddefaultApplicationProblemPlusJSONResponse) VisitSearchAllWantedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// ChangePassword Change the admin password
@@ -7950,6 +8086,9 @@ type StrictServerInterface interface {
 	// SearchVersionReleases Manual search for a Version
 	// (POST /versions/{id}/releases)
 	SearchVersionReleases(ctx context.Context, request SearchVersionReleasesRequestObject) (SearchVersionReleasesResponseObject, error)
+	// SearchAllWanted Search all Wanted
+	// (POST /wanted/search)
+	SearchAllWanted(ctx context.Context, request SearchAllWantedRequestObject) (SearchAllWantedResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -9826,6 +9965,30 @@ func (sh *strictHandler) SearchVersionReleases(w http.ResponseWriter, r *http.Re
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SearchVersionReleasesResponseObject); ok {
 		if err := validResponse.VisitSearchVersionReleasesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SearchAllWanted operation middleware
+func (sh *strictHandler) SearchAllWanted(w http.ResponseWriter, r *http.Request) {
+	var request SearchAllWantedRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SearchAllWanted(ctx, request.(SearchAllWantedRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SearchAllWanted")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SearchAllWantedResponseObject); ok {
+		if err := validResponse.VisitSearchAllWantedResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

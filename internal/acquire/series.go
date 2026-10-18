@@ -146,7 +146,10 @@ func coveredBy(p release.ParsedRelease, eps []library.Episode, slot Slot) (ids [
 // Wanted episode in a requested Version (Specials are never searched on their
 // own), then one Decide over everything found, so a finished season takes its
 // pack and a running one its episodes.
-func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []int64, fromCache bool) (Outcome, error) {
+//
+// With upgrade it is the Upgrade sweep: the Filled Versions, with their files as
+// the bar to clear, season by season.
+func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []int64, fromCache, upgrade bool) (Outcome, error) {
 	d := sub.detail
 	var out Outcome
 	now := s.clock()
@@ -159,21 +162,33 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 		return out, err
 	}
 
+	want := library.Wanted
+	if upgrade {
+		want = library.Filled
+	}
 	var in Input
 	in.SeasonsFinished = seasonsFinished(episodes, now)
 	versionOf := map[Slot]int64{}
 	wantedSeasons := map[int]bool{}
 	for _, v := range d.Versions {
-		if !slices.Contains(versionIDs, v.ID) || v.State != library.Wanted {
+		if !slices.Contains(versionIDs, v.ID) || v.State != want {
 			continue
 		}
 		ver := Version{Slot: v.Slot}
 		for _, ep := range episodes {
 			cell := ep.Cells[v.Slot]
-			if cell == nil || cell.State != library.Wanted || covered[[2]int64{v.ID, ep.ID}] {
+			if cell == nil || cell.State != want || covered[[2]int64{v.ID, ep.ID}] || (upgrade && !ep.Monitored) {
 				continue
 			}
-			ver.Units = append(ver.Units, Unit{Ref: EpisodeRef{ep.Season, ep.Number}})
+			u := Unit{Ref: EpisodeRef{ep.Season, ep.Number}}
+			if upgrade {
+				h := Held{Fits: true}
+				if cell.Score != nil {
+					h.Score = *cell.Score
+				}
+				u.Held = &h
+			}
+			ver.Units = append(ver.Units, u)
 			if ep.Season != 0 {
 				wantedSeasons[ep.Season] = true
 			}
