@@ -18,7 +18,7 @@ func TestTheUpdateAndTrashChecksAreDailyByTheirLastRunNotByUptime(t *testing.T) 
 	state := memState{}
 	build := func() *jobs.Runner {
 		return jobs.Standard(jobs.Deps{
-			Acquire: &fakeAcquire{}, Library: &fakeLibrary{}, Updates: updates, Trash: trash, PruneState: state,
+			Acquire: &fakeAcquire{}, Library: &fakeLibrary{}, Updates: updates, Trash: trash, LastRun: state,
 			Clock: func() time.Time { return clock },
 		})
 	}

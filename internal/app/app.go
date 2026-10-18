@@ -220,7 +220,7 @@ func New(opts Options) *App {
 	})
 	upd = updates.New(updates.Deps{Settings: appSettings, Health: healthSvc, Version: opts.Version, APIBase: opts.GitHubAPI, Clock: opts.Clock})
 	runner := jobs.Standard(jobs.Deps{
-		Refresher: refresher, Updates: upd, Acquire: acq, Library: lib, History: hist, PruneState: appSettings,
+		Refresher: refresher, Updates: upd, Acquire: acq, Library: lib, History: hist, LastRun: appSettings,
 		Sessions: func(ctx context.Context) error { _, err := api.PruneSessions(ctx, st, opts.Clock()); return err },
 		Health:   healthSvc, Importer: imp, ImportSource: acq, Trash: trashLoop(trashUpdates, opts.TrashSource), Clock: opts.Clock, Logger: opts.Logger,
 	})

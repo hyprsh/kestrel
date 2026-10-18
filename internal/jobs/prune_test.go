@@ -24,7 +24,7 @@ func TestPruningIsCheckedHourlyAndRunsOnceTheLastRunIsOverADayOld(t *testing.T) 
 	h, sessions := &countingHistory{}, 0
 	clock := now
 	r := jobs.Standard(jobs.Deps{
-		Acquire: &fakeAcquire{}, Library: &fakeLibrary{}, History: h, PruneState: memState{},
+		Acquire: &fakeAcquire{}, Library: &fakeLibrary{}, History: h, LastRun: memState{},
 		Sessions: func(context.Context) error { sessions++; return nil }, Clock: func() time.Time { return clock },
 	})
 	ctx := context.Background()

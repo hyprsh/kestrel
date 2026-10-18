@@ -52,7 +52,6 @@ const (
 	// importWorkers is how many Imports run at once.
 	importWorkers = 2
 	pruneCheck    = time.Hour
-	pruneEvery    = 24 * time.Hour
 	healthEvery   = 5 * time.Minute
 )
 
@@ -120,9 +119,9 @@ type Deps struct {
 	Acquire   Acquirer
 	Library   Library
 	History   History
-	// PruneState remembers when the daily loops (pruning, the update and TRaSH
+	// LastRun remembers when the daily loops (pruning, the update and TRaSH
 	// checks) last ran; without it each runs at every hourly check.
-	PruneState RefreshState
+	LastRun RefreshState
 	// Sessions deletes expired sessions; optional.
 	Sessions func(ctx context.Context) error
 	// Health is optional; without it there is no health loop.
@@ -211,7 +210,7 @@ func Standard(d Deps) *Runner {
 	if d.Trash != nil {
 		r.Add(Loop{
 			Name:  Trash,
-			Run:   daily(d.PruneState, trashStateKey, d.Clock, d.Trash.Check),
+			Run:   daily(d.LastRun, trashStateKey, d.Clock, d.Trash.Check),
 			Every: func() time.Duration { return dailyCheck },
 		})
 	}
@@ -219,7 +218,7 @@ func Standard(d Deps) *Runner {
 	if d.Updates != nil {
 		r.Add(Loop{
 			Name:  Updates,
-			Run:   daily(d.PruneState, updatesStateKey, d.Clock, d.Updates.Check),
+			Run:   daily(d.LastRun, updatesStateKey, d.Clock, d.Updates.Check),
 			Every: func() time.Duration { return dailyCheck },
 		})
 	}
