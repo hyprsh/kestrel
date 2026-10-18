@@ -2,25 +2,38 @@ package release
 
 import (
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/dlclark/regexp2"
 )
 
 // MatchTimeout bounds every regex match in this package (ADR 0006). A match
-// that times out counts as no match and logs a warning.
+// that times out counts as no match and logs a warning. Tests may raise it
+// before the first match; it is read when each pattern is first compiled.
 var MatchTimeout = 100 * time.Millisecond
 
 // rx wraps a .NET-compatible regexp2 expression with the .NET Regex calls the
-// ported parsers use. Patterns are compiled once, at package load.
+// ported parsers use. Each pattern is compiled once, on first use, so that
+// MatchTimeout set at package init or in a TestMain applies to it.
 type rx struct {
-	re *regexp2.Regexp
+	pattern string
+	opts    regexp2.RegexOptions
+	once    sync.Once
+	re      *regexp2.Regexp
 }
 
 func mustRx(pattern string, opts regexp2.RegexOptions) *rx {
-	re := regexp2.MustCompile(pattern, opts)
-	re.MatchTimeout = MatchTimeout
-	return &rx{re: re}
+	return &rx{pattern: pattern, opts: opts}
+}
+
+// regexp returns the compiled expression, compiling it on the first call.
+func (r *rx) regexp() *regexp2.Regexp {
+	r.once.Do(func() {
+		r.re = regexp2.MustCompile(r.pattern, r.opts)
+		r.re.MatchTimeout = MatchTimeout
+	})
+	return r.re
 }
 
 // ci compiles with IgnoreCase, the most common *arr option set.
@@ -35,12 +48,12 @@ func cix(pattern string) *rx {
 }
 
 func (r *rx) warn(err error) {
-	slog.Warn("regex timed out, treating as no match", "pattern", r.re.String(), "error", err)
+	slog.Warn("regex timed out, treating as no match", "pattern", r.pattern, "error", err)
 }
 
 // match returns the first match or nil.
 func (r *rx) match(s string) *regexp2.Match {
-	m, err := r.re.FindStringMatch(s)
+	m, err := r.regexp().FindStringMatch(s)
 	if err != nil {
 		r.warn(err)
 		return nil
@@ -51,10 +64,10 @@ func (r *rx) match(s string) *regexp2.Match {
 // matchAll returns every match, like Regex.Matches.
 func (r *rx) matchAll(s string) []*regexp2.Match {
 	var out []*regexp2.Match
-	m, err := r.re.FindStringMatch(s)
+	m, err := r.regexp().FindStringMatch(s)
 	for err == nil && m != nil {
 		out = append(out, m)
-		m, err = r.re.FindNextMatch(m)
+		m, err = r.regexp().FindNextMatch(m)
 	}
 	if err != nil {
 		r.warn(err)
@@ -66,7 +79,7 @@ func (r *rx) isMatch(s string) bool { return r.match(s) != nil }
 
 // replace substitutes every match using .NET replacement syntax ($1, ${name}).
 func (r *rx) replace(s, repl string) string {
-	out, err := r.re.Replace(s, repl, -1, -1)
+	out, err := r.regexp().Replace(s, repl, -1, -1)
 	if err != nil {
 		r.warn(err)
 		return s
@@ -75,7 +88,7 @@ func (r *rx) replace(s, repl string) string {
 }
 
 func (r *rx) replaceFunc(s string, f func(*regexp2.Match) string) string {
-	out, err := r.re.ReplaceFunc(s, func(m regexp2.Match) string { return f(&m) }, -1, -1)
+	out, err := r.regexp().ReplaceFunc(s, func(m regexp2.Match) string { return f(&m) }, -1, -1)
 	if err != nil {
 		r.warn(err)
 		return s
