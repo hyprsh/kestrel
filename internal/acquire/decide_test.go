@@ -301,6 +301,14 @@ func TestPackAsUpgradeNeedsToBeatOrMatchEveryHeldEpisode(t *testing.T) {
 		v := seasonVersion(1, map[int]*Held{1: {Fits: true, Score: 100}}, 2)
 		wantGUIDs(t, Decide(Input{Versions: []Version{v}, SeasonsFinished: fin, Candidates: []Candidate{packCand("pack", 100, 1)}}), "pack")
 	})
+	t.Run("a missing episode is filled even when the pack scores below another held episode", func(t *testing.T) {
+		v := seasonVersion(1, map[int]*Held{1: {Fits: true, Score: 200}}, 3)
+		plans := Decide(Input{Versions: []Version{v}, SeasonsFinished: fin, Candidates: []Candidate{packCand("pack", 100, 1)}})
+		wantGUIDs(t, plans, "pack")
+		if !plans[0].Pack || plans[0].Upgrade || len(plans[0].Covers) != 2 || plans[0].Covers[0] != (EpisodeRef{1, 2}) {
+			t.Fatalf("plan = %+v, want the pack covering only the two missing episodes", plans[0])
+		}
+	})
 	t.Run("a misfit held episode never blocks the pack", func(t *testing.T) {
 		v := seasonVersion(1, map[int]*Held{1: {Fits: false, Score: 5000}, 2: {Fits: true, Score: 100}}, 2)
 		wantGUIDs(t, Decide(Input{Versions: []Version{v}, SeasonsFinished: fin, Candidates: []Candidate{packCand("pack", 100, 1)}}), "pack")

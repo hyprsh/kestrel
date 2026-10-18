@@ -130,9 +130,10 @@ func Rejections(slot Slot, c Candidate) []scoring.Rejection {
 //
 // For Series, once a season has finished airing a season pack is preferred
 // unless a single episode scores higher than the pack for some episode the
-// pack would improve. A pack (or multi-episode release) never downgrades: its
-// Score must beat or match every fitting file it would replace, and beat at
-// least one by the Upgrade threshold or fill a missing or misfit unit.
+// pack would improve. A pack (or multi-episode release) never downgrades: with
+// nothing missing or misfit to fill, its Score must beat or match every fitting
+// file and beat at least one by the Upgrade threshold; one that fills a unit is
+// planned for the units it improves, and the Import leaves the rest alone.
 // Absolute-numbered, daily, multi-season and partial packs are not planned.
 // Plans come out per Version in input order, ordered by first covered unit.
 func Decide(in Input) []GrabPlan {
@@ -233,18 +234,28 @@ func compareRef(a, b EpisodeRef) int {
 // gains applies the Upgrade threshold and the no-downgrade rule to the refs the
 // option would give a Version. It returns the units that improve, whether any
 // replaces a fitting file, and false when the option must not be used.
+//
+// A release that fills a missing or misfit unit is worth having even when it
+// scores below some other held file: the Import keeps those files and takes
+// only the units the release improves. Only a release that fills nothing is
+// refused for scoring below a held file, since it would be a downgrade.
 func gains(score int, refs []EpisodeRef, units map[EpisodeRef]*Unit) (improved []EpisodeRef, upgrade, ok bool) {
+	fills, loses := false, false
 	for _, r := range refs {
 		h := units[r].Held
 		switch {
 		case h == nil || !h.Fits:
 			improved = append(improved, r)
+			fills = true
 		case score >= h.Score+MinUpgradeFormatScore:
 			improved = append(improved, r)
 			upgrade = true
 		case score < h.Score:
-			return nil, false, false
+			loses = true
 		}
+	}
+	if loses && !fills {
+		return nil, false, false
 	}
 	return improved, upgrade, len(improved) > 0
 }
