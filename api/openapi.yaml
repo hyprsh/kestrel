@@ -3563,7 +3563,7 @@ components:
             $ref: "#/components/schemas/RecentItem"
     RecentItem:
       type: object
-      required: [title_id, title, year, kind, slot, release_name, score, files, is_upgrade, imported_at]
+      required: [title_id, title, year, kind, slot, release_name, score, score_delta, files, is_upgrade, imported_at]
       properties:
         title_id:
           type: integer
@@ -3582,6 +3582,10 @@ components:
         score:
           type: integer
           nullable: true
+        score_delta:
+          type: integer
+          nullable: true
+          description: What an Upgrade gained over the file it replaced; null for a first Import.
         files:
           type: integer
         is_upgrade:

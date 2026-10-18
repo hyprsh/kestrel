@@ -1683,10 +1683,13 @@ type RecentItem struct {
 	Kind        TitleKind `json:"kind"`
 	ReleaseName string    `json:"release_name"`
 	Score       *int      `json:"score"`
-	Slot        Slot      `json:"slot"`
-	Title       string    `json:"title"`
-	TitleId     int64     `json:"title_id"`
-	Year        *int      `json:"year"`
+
+	// ScoreDelta What an Upgrade gained over the file it replaced; null for a first Import.
+	ScoreDelta *int   `json:"score_delta"`
+	Slot       Slot   `json:"slot"`
+	Title      string `json:"title"`
+	TitleId    int64  `json:"title_id"`
+	Year       *int   `json:"year"`
 }
 
 // RecentList defines model for RecentList.

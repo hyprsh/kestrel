@@ -164,13 +164,15 @@ func (s *Service) Upcoming(ctx context.Context, view View, from, to time.Time) (
 
 // RecentImport is one Import in "Recently added".
 type RecentImport struct {
-	TitleID    int64
-	Title      string
-	Year       int
-	Kind       Kind
-	Slot       string
-	Release    string
-	Score      *int
+	TitleID int64
+	Title   string
+	Year    int
+	Kind    Kind
+	Slot    string
+	Release string
+	Score   *int
+	// ScoreDelta is what an Upgrade gained over the file it replaced; nil for a first Import.
+	ScoreDelta *int
 	Files      int // how many files the Import brought (a season pack brings many)
 	IsUpgrade  bool
 	ImportedAt time.Time
@@ -208,6 +210,10 @@ func (s *Service) RecentImports(ctx context.Context, n int) ([]RecentImport, err
 		if r.Score.Valid {
 			v := int(r.Score.Int64)
 			item.Score = &v
+			if r.ReplacedScore.Valid {
+				d := v - int(r.ReplacedScore.Int64)
+				item.ScoreDelta = &d
+			}
 		}
 		if r.GrabID.Valid {
 			byGrab[r.GrabID.Int64] = len(out)

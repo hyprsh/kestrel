@@ -141,9 +141,11 @@ func TestRecentlyAddedListsTheLatestImportsNewestFirst(t *testing.T) {
 		at    string
 		score int
 	}{{a.ID, "2026-10-10T00:00:00Z", 100}, {b.ID, "2026-10-12T00:00:00Z", 250}} {
-		w.exec(t, `INSERT INTO files (version_id, path, size, release_name, score, imported_at) SELECT id, ?, 1, ?, ?, ? FROM versions WHERE title_id = ?`,
-			fmt.Sprintf("f%d.mkv", i), fmt.Sprintf("Release.%d", i), f.score, f.at, f.title)
+		w.exec(t, `INSERT INTO files (version_id, path, size, release_name, score, grab_id, imported_at) SELECT id, ?, 1, ?, ?, ?, ? FROM versions WHERE title_id = ?`,
+			fmt.Sprintf("f%d.mkv", i), fmt.Sprintf("Release.%d", i), f.score, i+1, f.at, f.title)
 	}
+	// An adopted file (no Grab) is not an Import.
+	w.exec(t, `INSERT INTO files (version_id, path, size, release_name, score, imported_at) SELECT id, 'adopted.mkv', 1, 'Adopted', 1, '2026-10-16T00:00:00Z' FROM versions WHERE title_id = ?`, a.ID)
 	got := decode[struct {
 		Items []struct {
 			TitleID int64 `json:"title_id"`

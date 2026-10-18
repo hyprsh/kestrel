@@ -1100,21 +1100,23 @@ func (q *Queries) ListMisfitFileIDs(ctx context.Context) ([]int64, error) {
 }
 
 const listRecentFiles = `-- name: ListRecentFiles :many
-SELECT f.id, f.version_id, v.title_id, v.slot, f.release_name, f.score, f.grab_id, f.imported_at, COALESCE(g.is_upgrade, 0) AS is_upgrade
-FROM files f JOIN versions v ON v.id = f.version_id LEFT JOIN grabs g ON g.id = f.grab_id
+SELECT f.id, f.version_id, v.title_id, v.slot, f.release_name, f.score, f.grab_id, f.imported_at, COALESCE(g.is_upgrade, 0) AS is_upgrade, r.score AS replaced_score
+FROM files f JOIN versions v ON v.id = f.version_id LEFT JOIN grabs g ON g.id = f.grab_id LEFT JOIN file_replaced_scores r ON r.file_id = f.id
+WHERE f.grab_id IS NOT NULL
 ORDER BY f.imported_at DESC, f.id DESC LIMIT ?
 `
 
 type ListRecentFilesRow struct {
-	ID          int64
-	VersionID   int64
-	TitleID     int64
-	Slot        string
-	ReleaseName string
-	Score       sql.NullInt64
-	GrabID      sql.NullInt64
-	ImportedAt  string
-	IsUpgrade   int64
+	ID            int64
+	VersionID     int64
+	TitleID       int64
+	Slot          string
+	ReleaseName   string
+	Score         sql.NullInt64
+	GrabID        sql.NullInt64
+	ImportedAt    string
+	IsUpgrade     int64
+	ReplacedScore sql.NullInt64
 }
 
 func (q *Queries) ListRecentFiles(ctx context.Context, limit int64) ([]ListRecentFilesRow, error) {
@@ -1136,6 +1138,7 @@ func (q *Queries) ListRecentFiles(ctx context.Context, limit int64) ([]ListRecen
 			&i.GrabID,
 			&i.ImportedAt,
 			&i.IsUpgrade,
+			&i.ReplacedScore,
 		); err != nil {
 			return nil, err
 		}
@@ -1584,6 +1587,20 @@ type SetNextSearchesAllParams struct {
 
 func (q *Queries) SetNextSearchesAll(ctx context.Context, arg SetNextSearchesAllParams) error {
 	_, err := q.db.ExecContext(ctx, setNextSearchesAll, arg.NextMissingAt, arg.NextUpgradeAt, arg.VersionID)
+	return err
+}
+
+const setReplacedScore = `-- name: SetReplacedScore :exec
+INSERT OR REPLACE INTO file_replaced_scores (file_id, score) VALUES (?, ?)
+`
+
+type SetReplacedScoreParams struct {
+	FileID int64
+	Score  int64
+}
+
+func (q *Queries) SetReplacedScore(ctx context.Context, arg SetReplacedScoreParams) error {
+	_, err := q.db.ExecContext(ctx, setReplacedScore, arg.FileID, arg.Score)
 	return err
 }
 

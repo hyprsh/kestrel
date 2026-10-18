@@ -58,12 +58,15 @@ func (s *Service) ReplaceFile(ctx context.Context, titleID int64, folder string,
 		}
 		replaced = append(replaced, fileOf(o))
 	}
-	_, err = q.InsertFile(ctx, db.InsertFileParams{
+	fileID, err := q.InsertFile(ctx, db.InsertFileParams{
 		VersionID: f.VersionID, Path: f.Path, Size: f.Size, ReleaseName: f.ReleaseName,
 		ParsedRelease: nullStr(f.ParsedRelease), Probe: nullStr(f.Probe), Score: sql.NullInt64{Int64: int64(f.Score), Valid: true},
 		GrabID: sql.NullInt64{Int64: f.GrabID, Valid: f.GrabID != 0}, ImportedAt: ts(s.clock()),
 	})
 	if err != nil {
+		return nil, err
+	}
+	if err := recordReplacedScore(ctx, q, fileID, replaced); err != nil {
 		return nil, err
 	}
 	return replaced, tx.Commit()
@@ -190,5 +193,24 @@ func putEpisodeFile(ctx context.Context, q *db.Queries, f NewFile, episodeIDs []
 		}
 		replaced = append(replaced, fileOf(row))
 	}
+	if err := recordReplacedScore(ctx, q, fileID, replaced); err != nil {
+		return nil, err
+	}
 	return replaced, nil
+}
+
+// recordReplacedScore keeps the best Score among the files a new file replaced,
+// for the Upgrade's gain in "Recently added". Nothing is kept if none was scored.
+func recordReplacedScore(ctx context.Context, q *db.Queries, fileID int64, replaced []File) error {
+	best := -1 << 31
+	found := false
+	for _, r := range replaced {
+		if r.Score != nil && (!found || *r.Score > best) {
+			best, found = *r.Score, true
+		}
+	}
+	if !found {
+		return nil
+	}
+	return q.SetReplacedScore(ctx, db.SetReplacedScoreParams{FileID: fileID, Score: int64(best)})
 }

@@ -170,6 +170,9 @@ DELETE FROM file_misfits WHERE file_id = ?;
 -- name: SetMisfit :exec
 INSERT OR IGNORE INTO file_misfits (file_id) VALUES (?);
 
+-- name: SetReplacedScore :exec
+INSERT OR REPLACE INTO file_replaced_scores (file_id, score) VALUES (?, ?);
+
 -- name: SetFileScore :exec
 UPDATE files SET score = ? WHERE id = ?;
 
@@ -236,6 +239,7 @@ WHERE t.monitored = 1 AND e.monitored = 1 AND e.air_date >= ? AND e.air_date <= 
 ORDER BY e.air_date, e.title_id, e.season, e.number;
 
 -- name: ListRecentFiles :many
-SELECT f.id, f.version_id, v.title_id, v.slot, f.release_name, f.score, f.grab_id, f.imported_at, COALESCE(g.is_upgrade, 0) AS is_upgrade
-FROM files f JOIN versions v ON v.id = f.version_id LEFT JOIN grabs g ON g.id = f.grab_id
+SELECT f.id, f.version_id, v.title_id, v.slot, f.release_name, f.score, f.grab_id, f.imported_at, COALESCE(g.is_upgrade, 0) AS is_upgrade, r.score AS replaced_score
+FROM files f JOIN versions v ON v.id = f.version_id LEFT JOIN grabs g ON g.id = f.grab_id LEFT JOIN file_replaced_scores r ON r.file_id = f.id
+WHERE f.grab_id IS NOT NULL
 ORDER BY f.imported_at DESC, f.id DESC LIMIT ?;

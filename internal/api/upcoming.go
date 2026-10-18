@@ -69,7 +69,7 @@ func (s *server) ListRecentlyAdded(ctx context.Context, _ oapi.ListRecentlyAdded
 	for _, r := range rows {
 		out.Items = append(out.Items, oapi.RecentItem{
 			TitleId: r.TitleID, Title: r.Title, Year: intPtr(r.Year), Kind: oapi.TitleKind(r.Kind), Slot: oapi.Slot(r.Slot),
-			ReleaseName: r.Release, Score: r.Score, Files: r.Files, IsUpgrade: r.IsUpgrade, ImportedAt: r.ImportedAt,
+			ReleaseName: r.Release, Score: r.Score, ScoreDelta: r.ScoreDelta, Files: r.Files, IsUpgrade: r.IsUpgrade, ImportedAt: r.ImportedAt,
 		})
 	}
 	return oapi.ListRecentlyAdded200JSONResponse(out), nil

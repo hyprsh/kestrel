@@ -88,6 +88,11 @@ type FileMisfit struct {
 	FileID int64
 }
 
+type FileReplacedScore struct {
+	FileID int64
+	Score  int64
+}
+
 type Grab struct {
 	ID               int64
 	TitleID          sql.NullInt64
