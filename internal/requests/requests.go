@@ -262,6 +262,7 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 	}
 	var specs []library.VersionSpec
 	chosen := map[resolution.Class]string{}
+	kidsFolder := false // the HD Profile is a named Kids one, or the Kids rule chose it
 	for _, sl := range in.Slots {
 		if have[sl.Slot] {
 			continue // accepted unchanged
@@ -276,14 +277,17 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 				return Result{}, err
 			}
 			key = r.Key
+			kidsFolder = kidsFolder || sl.Slot == resolution.HD && r.KidsSwap
 		} else if p := profileByKey(all, key); !p.Enabled {
 			return s.store(ctx, in, prior, 0, nil, NoEnabledProfile)
+		} else if sl.Slot == resolution.HD {
+			kidsFolder = kidsFolder || p.Kids
 		}
 		chosen[sl.Slot] = key
 		specs = append(specs, library.VersionSpec{Slot: sl.Slot, Profile: key})
 	}
 
-	titleID, searchDue, err := s.apply(ctx, in, tgt, specs, region, library.KidsTitle(all, specs))
+	titleID, searchDue, err := s.apply(ctx, in, tgt, specs, region, kidsFolder)
 	if err != nil {
 		return Result{}, err
 	}

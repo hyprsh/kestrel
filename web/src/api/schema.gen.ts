@@ -1662,6 +1662,8 @@ export interface components {
             enabled: boolean;
             default_movies: boolean;
             default_series: boolean;
+            /** @description A Kids Profile: the Kids rule swaps HD to it, and a new Title with it in HD goes in the Kids root folder. */
+            kids: boolean;
             min_height: number;
             max_height: number;
             /** @description The TRaSH profile file (without .json) backing the Profile for Movies under the current Primary Language. */

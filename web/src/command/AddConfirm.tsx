@@ -8,7 +8,7 @@ import { Kbd } from '../ui'
 /** The Profile a Slot gets when ticked without a suggestion: its default, else the first enabled Primary-Language one. */
 function fallbackProfile(profiles: Profile[], slot: SlotKey, kind: 'movie' | 'series'): string | undefined {
   const of = profiles.filter((p) => p.slot === slot && p.enabled)
-  return (of.find((p) => (kind === 'series' ? p.default_series : p.default_movies)) ?? of.find((p) => p.language_rule === 'primary' && !p.name.startsWith('Kids')) ?? of[0])?.key
+  return (of.find((p) => (kind === 'series' ? p.default_series : p.default_movies)) ?? of.find((p) => p.language_rule === 'primary' && !p.kids) ?? of[0])?.key
 }
 
 /**
@@ -41,7 +41,7 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
   const roots = (result.kind === 'series' ? folders?.series : folders?.movies) ?? []
   // A Title whose HD Profile is a Kids one goes in the kind's Kids root folder, as the server does when none is named.
   const kidsRoot = result.kind === 'series' ? folders?.kids_series : folders?.kids_movies
-  const defaultRoot = kidsRoot && picked.hd?.startsWith('kids-') ? kidsRoot : roots[0]
+  const defaultRoot = kidsRoot && all.find((p) => p.key === picked.hd)?.kids ? kidsRoot : roots[0]
   const chosen = slotKeys.filter((k) => picked[k])
   const ready = seeded && chosen.length > 0 && !create.isPending
 

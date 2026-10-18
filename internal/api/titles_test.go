@@ -110,6 +110,25 @@ func newLibraryInstance(t *testing.T, key string) library {
 	return library{browser: in.setUp(), tmdb: tmdb, tvdb: tvdb, config: config, data: data}
 }
 
+// kidsFolders saves the default Root folders plus a Kids root folder per kind, and returns those two.
+func (l library) kidsFolders(t *testing.T) (movies, series string) {
+	t.Helper()
+	movies, series = l.data+"/media/kids-movies", l.data+"/media/kids-tv"
+	mkdirs(t, l.data+"/media/movies", l.data+"/media/tv", movies, series)
+	l.valid("PATCH", "/settings", fmt.Sprintf(`{"root_folders":{"movies":[%q,%q],"series":[%q,%q],"kids_movies":%q,"kids_series":%q}}`,
+		l.data+"/media/movies", movies, l.data+"/media/tv", series, movies, series))
+	return movies, series
+}
+
+func (l library) rootFolderOf(t *testing.T, r reply) string {
+	t.Helper()
+	req := decode[requestJSON](t, r)
+	if req.Outcome != "accepted" || req.TitleID == nil {
+		t.Fatalf("request = %+v", req)
+	}
+	return decode[titleJSON](t, l.valid("GET", fmt.Sprintf("/titles/%d", *req.TitleID), "")).RootFolder
+}
+
 const addPaddington = `{"kind":"movie","tmdb_id":116149,"versions":[{"slot":"hd","profile":"hd-primary"},{"slot":"uhd","profile":"uhd-primary"}]}`
 
 func TestAMovieIsAddedThroughTheAPIAndReadBackWithItsVersions(t *testing.T) {

@@ -75,10 +75,11 @@ func Suggest(all []profiles.Profile, kind Kind, rel metadata.ReleaseDates, count
 	return s
 }
 
-// KidsTitle reports whether a new Title with these Versions goes in its kind's
-// Kids root folder: its HD Version has a Kids Profile, whether the Kids rule
-// chose it or the user or a Request named it.
-func KidsTitle(all []profiles.Profile, specs []VersionSpec) bool {
+// KidsHD reports whether the HD Version among these specs has a Kids Profile.
+// An add names its Profiles, so there a Kids HD Profile means the Kids root
+// folder; a Request may leave the Profile to resolution, which decides by
+// whether the Kids rule chose it.
+func KidsHD(all []profiles.Profile, specs []VersionSpec) bool {
 	for _, sp := range specs {
 		if sp.Slot != resolution.HD {
 			continue

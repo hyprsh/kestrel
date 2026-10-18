@@ -26,6 +26,7 @@ const profile = (key: string, name: string, slot: Profile['slot'], rule: Profile
   enabled: true,
   default_movies: false,
   default_series: false,
+  kids: key.startsWith('kids-'),
   min_height: 0,
   max_height: 1080,
   trash_profile_movies: 'hd-bluray-web',

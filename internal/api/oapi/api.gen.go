@@ -1613,6 +1613,9 @@ type Profile struct {
 	// Key Example: hd-primary
 	Key string `json:"key"`
 
+	// Kids A Kids Profile: the Kids rule swaps HD to it, and a new Title with it in HD goes in the Kids root folder.
+	Kids bool `json:"kids"`
+
 	// LanguageRule Which audio the Profile requires.
 	LanguageRule ProfileLanguageRule `json:"language_rule"`
 	MaxHeight    int                 `json:"max_height"`

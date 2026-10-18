@@ -38,7 +38,7 @@ func profileToAPI(p profiles.Profile) oapi.Profile {
 	return oapi.Profile{
 		Key: p.Key, Name: p.Name, Slot: slot, LanguageRule: rule,
 		OriginalFallback: p.OriginalFallback, Enabled: p.Enabled,
-		DefaultMovies: p.DefaultMovies, DefaultSeries: p.DefaultSeries,
+		DefaultMovies: p.DefaultMovies, DefaultSeries: p.DefaultSeries, Kids: p.Kids,
 		MinHeight: p.MinHeight, MaxHeight: p.MaxHeight,
 		TrashProfileMovies: p.TrashMovies, TrashProfileSeries: p.TrashSeries,
 	}

@@ -91,6 +91,7 @@ export function fakeLibrary(initial: TitleRow[]) {
           enabled: true,
           default_movies: key === 'hd-primary',
           default_series: key === 'hd-primary',
+          kids: key.startsWith('kids-'),
           min_height: 0,
           max_height: 1080,
           trash_profile_movies: 'hd-bluray-web',

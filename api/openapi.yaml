@@ -2178,7 +2178,7 @@ components:
       enum: [sd, hd, uhd]
     Profile:
       type: object
-      required: [key, name, slot, language_rule, original_fallback, enabled, default_movies, default_series, min_height, max_height, trash_profile_movies, trash_profile_series]
+      required: [key, name, slot, language_rule, original_fallback, enabled, default_movies, default_series, kids, min_height, max_height, trash_profile_movies, trash_profile_series]
       properties:
         key:
           type: string
@@ -2201,6 +2201,9 @@ components:
           type: boolean
         default_series:
           type: boolean
+        kids:
+          type: boolean
+          description: "A Kids Profile: the Kids rule swaps HD to it, and a new Title with it in HD goes in the Kids root folder."
         min_height:
           type: integer
         max_height:

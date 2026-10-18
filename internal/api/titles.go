@@ -375,7 +375,7 @@ func (s *server) CreateTitle(ctx context.Context, r oapi.CreateTitleRequestObjec
 	if b.RootFolder != nil {
 		requested = *b.RootFolder
 	}
-	root, err := roots.Pick(rootfolders.Kind(b.Kind), requested, library.KidsTitle(all, specs))
+	root, err := roots.Pick(rootfolders.Kind(b.Kind), requested, library.KidsHD(all, specs))
 	switch {
 	case errors.Is(err, rootfolders.ErrNotConfigured):
 		return nil, invalid("root_folder", "not_found", "That is not one of the "+noun+" Root folders")
