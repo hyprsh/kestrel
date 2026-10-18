@@ -3,7 +3,8 @@
 // one or more Slots. It is accepted at once, adds the Title or only its missing
 // Versions, never changes an existing Version, and carries who asked and from
 // where. Per-Slot status is derived from the Version and its Grabs on every
-// read and never stored.
+// read; the only thing kept is when a Slot was first filled with a fitting file,
+// so that Completed stays Completed.
 //
 // requests owns the requests, request_slots and request_seasons tables. It
 // calls library, scoring/profiles, metadata and acquire's active Grabs; the
@@ -228,7 +229,7 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 		return Result{}, err
 	}
 	if reason != "" {
-		return s.store(ctx, in, prior, 0, nil, reason, false)
+		return s.store(ctx, in, prior, 0, nil, reason)
 	}
 	if in.Seasons != nil {
 		for _, n := range in.Seasons {
@@ -269,14 +270,14 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 		if key == "" {
 			r, err := profiles.Resolve(all, kind, sl.Slot, isKids)
 			if errors.Is(err, profiles.ErrNoEnabledProfile) {
-				return s.store(ctx, in, prior, 0, nil, NoEnabledProfile, false)
+				return s.store(ctx, in, prior, 0, nil, NoEnabledProfile)
 			}
 			if err != nil {
 				return Result{}, err
 			}
 			key = r.Key
 		} else if p := profileByKey(all, key); !p.Enabled {
-			return s.store(ctx, in, prior, 0, nil, NoEnabledProfile, false)
+			return s.store(ctx, in, prior, 0, nil, NoEnabledProfile)
 		}
 		chosen[sl.Slot] = key
 		specs = append(specs, library.VersionSpec{Slot: sl.Slot, Profile: key})
@@ -299,7 +300,7 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 		v := versionOf[sl.Slot]
 		slots = append(slots, slotRow{slot: sl.Slot, profile: v.Profile, versionID: v.ID})
 	}
-	res, err := s.store(ctx, in, prior, titleID, slots, "", true)
+	res, err := s.store(ctx, in, prior, titleID, slots, "")
 	res.SearchDue = searchDue
 	return res, err
 }
@@ -339,7 +340,7 @@ func validate(in Input, all []profiles.Profile) error {
 		if sl.Profile == "" {
 			continue
 		}
-		// A disabled Profile still fills a Request that names it.
+		// A disabled Profile is a valid name; Submit rejects the Request for it (NoEnabledProfile).
 		switch _, err := profiles.Pick(all, sl.Profile, sl.Slot); {
 		case errors.Is(err, profiles.ErrNoSuchProfile):
 			return invalid(field+".profile", "not_found", "No such Profile")
@@ -547,7 +548,8 @@ type slotRow struct {
 // one wins on the unique key and its stored Request is returned instead. prior
 // is the stored rejection this one re-evaluates: it stands while the Request is
 // rejected again, and gives way to an accepted one.
-func (s *Service) store(ctx context.Context, in Input, prior *db.Request, titleID int64, slots []slotRow, reason Reason, accepted bool) (Result, error) {
+func (s *Service) store(ctx context.Context, in Input, prior *db.Request, titleID int64, slots []slotRow, reason Reason) (Result, error) {
+	accepted := reason == ""
 	if prior != nil && !accepted {
 		r, err := s.view(ctx, *prior)
 		return Result{Request: r}, err
@@ -725,7 +727,7 @@ func (s *Service) viewWith(ctx context.Context, row db.Request, c *cache) (Reque
 		st := SlotStatus{Slot: slotOf(sl.Slot), Profile: sl.ProfileKey.String, VersionID: sl.VersionID.Int64}
 		if r.Outcome == Rejected {
 			st.Status, st.Label = Failed, reasonLabel(r.Reason)
-		} else if err := s.derive(ctx, &r, &st, c); err != nil {
+		} else if err := s.derive(ctx, &r, &st, sl.FilledAt.Valid, c); err != nil {
 			return r, err
 		}
 		r.Slots = append(r.Slots, st)
@@ -746,7 +748,7 @@ func reasonLabel(r Reason) string {
 }
 
 // derive sets a Slot's status from its Version, files and active Grabs.
-func (s *Service) derive(ctx context.Context, r *Request, st *SlotStatus, c *cache) error {
+func (s *Service) derive(ctx context.Context, r *Request, st *SlotStatus, wasFilled bool, c *cache) error {
 	if st.VersionID == 0 || r.TitleID == 0 {
 		st.VersionID = 0
 		st.Status, st.Label = Failed, "Removed"
@@ -783,9 +785,9 @@ func (s *Service) derive(ctx context.Context, r *Request, st *SlotStatus, c *cac
 	}
 	st.Profile = v.Profile // the Version's own Profile, which a Request never changes
 
-	// A file completes a Request even when a later Profile change made it a
-	// misfit: later changes do not reopen it.
-	complete := v.File != nil
+	// Completed is "filled with a fitting file at some point": a Wanted misfit
+	// does not fill the Slot, and a later change does not reopen it.
+	fits := v.File != nil && !v.File.Misfit
 	if d.Kind == library.Series {
 		eps, ok := c.eps[d.ID]
 		if !ok {
@@ -810,9 +812,17 @@ func (s *Service) derive(ctx context.Context, r *Request, st *SlotStatus, c *cac
 				held++
 			}
 		}
-		complete = aired > 0 && held == aired
+		fits = aired > 0 && held == aired
 	}
-	if complete {
+	if fits && !wasFilled {
+		err := db.New(s.d.Store.Write()).MarkSlotFilled(ctx, db.MarkSlotFilledParams{
+			FilledAt: sql.NullString{String: ts(s.d.Clock()), Valid: true}, RequestID: r.ID, Slot: slotName(st.Slot),
+		})
+		if err != nil {
+			return err
+		}
+	}
+	if fits || wasFilled {
 		st.Status, st.Label = Completed, "Completed"
 		return nil
 	}

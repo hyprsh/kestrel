@@ -246,14 +246,37 @@ func TestACompletedRequestStaysCompletedWhenALaterProfileChangeMakesItsFileAMisf
 		t.Fatal(err)
 	}
 	file, _ := res.LastInsertId()
+	path := fmt.Sprintf("/requests/%d", req.ID)
+	if st, _, _, _ := decode[requestJSON](t, s.valid("GET", path, "")).slot(t, "hd"); st != "completed" {
+		t.Fatalf("hd = %s, want completed once a fitting file fills it", st)
+	}
+
 	if _, err := s.in.st.Write().Exec(`INSERT INTO file_misfits (file_id) VALUES (?)`, file); err != nil {
 		t.Fatal(err)
 	}
 
-	got := decode[requestJSON](t, s.valid("GET", fmt.Sprintf("/requests/%d", req.ID), ""))
-
-	if st, _, _, _ := got.slot(t, "hd"); st != "completed" {
+	if st, _, _, _ := decode[requestJSON](t, s.valid("GET", path, "")).slot(t, "hd"); st != "completed" {
 		t.Errorf("hd = %s, want completed: later changes do not reopen a Request", st)
+	}
+}
+
+func TestARequestForAVersionHoldingAMisfitFileIsNotCompleted(t *testing.T) {
+	s := newSearchBare(t)
+	first := decode[requestJSON](t, s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, `[{"slot":"hd"}]`, "null")))
+	_, _, _, hd := first.slot(t, "hd")
+	res, err := s.in.st.Write().Exec(`INSERT INTO files (version_id, path, size, release_name, imported_at) VALUES (?, '/x.mkv', 1, 'x', '2026-10-17T12:00:00Z')`, hd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, _ := res.LastInsertId()
+	if _, err := s.in.st.Write().Exec(`INSERT INTO file_misfits (file_id) VALUES (?)`, file); err != nil {
+		t.Fatal(err)
+	}
+
+	again := decode[requestJSON](t, s.valid("POST", "/requests", requestBody("r-2", "movie", 116149, `[{"slot":"hd"}]`, "null")))
+
+	if st, _, _, _ := again.slot(t, "hd"); st == "completed" {
+		t.Errorf("hd = %s, want a Wanted misfit not to count as filled", st)
 	}
 }
 

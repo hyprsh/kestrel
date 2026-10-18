@@ -30,7 +30,10 @@ LIMIT sqlc.arg(max);
 SELECT * FROM requests WHERE title_id = ? ORDER BY id;
 
 -- name: ListSlotsOfRequest :many
-SELECT request_id, slot, profile_key, version_id FROM request_slots WHERE request_id = ? ORDER BY CASE slot WHEN 'sd' THEN 0 WHEN 'hd' THEN 1 ELSE 2 END;
+SELECT request_id, slot, profile_key, version_id, filled_at FROM request_slots WHERE request_id = ? ORDER BY CASE slot WHEN 'sd' THEN 0 WHEN 'hd' THEN 1 ELSE 2 END;
 
 -- name: ListSeasonsOfRequest :many
 SELECT season FROM request_seasons WHERE request_id = ? ORDER BY season;
+
+-- name: MarkSlotFilled :exec
+UPDATE request_slots SET filled_at = ? WHERE request_id = ? AND slot = ? AND filled_at IS NULL;

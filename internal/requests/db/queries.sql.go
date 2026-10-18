@@ -253,7 +253,7 @@ func (q *Queries) ListSeasonsOfRequest(ctx context.Context, requestID int64) ([]
 }
 
 const listSlotsOfRequest = `-- name: ListSlotsOfRequest :many
-SELECT request_id, slot, profile_key, version_id FROM request_slots WHERE request_id = ? ORDER BY CASE slot WHEN 'sd' THEN 0 WHEN 'hd' THEN 1 ELSE 2 END
+SELECT request_id, slot, profile_key, version_id, filled_at FROM request_slots WHERE request_id = ? ORDER BY CASE slot WHEN 'sd' THEN 0 WHEN 'hd' THEN 1 ELSE 2 END
 `
 
 func (q *Queries) ListSlotsOfRequest(ctx context.Context, requestID int64) ([]RequestSlot, error) {
@@ -270,6 +270,7 @@ func (q *Queries) ListSlotsOfRequest(ctx context.Context, requestID int64) ([]Re
 			&i.Slot,
 			&i.ProfileKey,
 			&i.VersionID,
+			&i.FilledAt,
 		); err != nil {
 			return nil, err
 		}
@@ -282,4 +283,19 @@ func (q *Queries) ListSlotsOfRequest(ctx context.Context, requestID int64) ([]Re
 		return nil, err
 	}
 	return items, nil
+}
+
+const markSlotFilled = `-- name: MarkSlotFilled :exec
+UPDATE request_slots SET filled_at = ? WHERE request_id = ? AND slot = ? AND filled_at IS NULL
+`
+
+type MarkSlotFilledParams struct {
+	FilledAt  sql.NullString
+	RequestID int64
+	Slot      string
+}
+
+func (q *Queries) MarkSlotFilled(ctx context.Context, arg MarkSlotFilledParams) error {
+	_, err := q.db.ExecContext(ctx, markSlotFilled, arg.FilledAt, arg.RequestID, arg.Slot)
+	return err
 }

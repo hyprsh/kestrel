@@ -188,6 +188,7 @@ type RequestSlot struct {
 	Slot       string
 	ProfileKey sql.NullString
 	VersionID  sql.NullInt64
+	FilledAt   sql.NullString
 }
 
 type SearchState struct {
