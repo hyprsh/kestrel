@@ -373,12 +373,16 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 
 	parsedJSON, _ := json.Marshal(parsed)
 	probeJSON, _ := json.Marshal(info)
+	if ver.File != nil && ver.File.Path != target {
+		writeReplaces(partial, []string{ver.File.Path})
+	}
 	replaced, err := s.lib.ReplaceFile(ctx, g.TitleID, folder, library.NewFile{
 		VersionID: g.VersionID, Path: target, Size: info.Size, ReleaseName: g.ReleaseName,
 		ParsedRelease: string(parsedJSON), Probe: string(probeJSON), Score: verdict.Score, GrabID: g.ID,
 	})
 	if err != nil {
 		_ = os.Remove(partial)
+		_ = os.Remove(replacesMarker(partial))
 		return stalledBy(err)
 	}
 	if err := s.hook("committed"); err != nil {
@@ -392,11 +396,41 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 			removeWithSidecars(old.Path)
 		}
 	}
+	settleReplaces(partial, target)
 	s.sidecars(src, target, primary, original)
 	if g.CanRemove {
 		_ = os.Remove(src.video)
 	}
 	return res
+}
+
+// replacesMarker is where an Import writes the paths it replaces before the
+// database row swaps them, so a rerun after a crash can still delete them.
+func replacesMarker(partial string) string { return partial + ".replaces" }
+
+func writeReplaces(partial string, paths []string) {
+	if len(paths) == 0 {
+		return
+	}
+	b, _ := json.Marshal(paths)
+	_ = os.WriteFile(replacesMarker(partial), b, 0o644)
+}
+
+// settleReplaces deletes the files the marker names, except keep, and the marker.
+func settleReplaces(partial, keep string) {
+	b, err := os.ReadFile(replacesMarker(partial))
+	if err != nil {
+		return
+	}
+	var paths []string
+	if json.Unmarshal(b, &paths) == nil {
+		for _, p := range paths {
+			if p != keep {
+				removeWithSidecars(p)
+			}
+		}
+	}
+	_ = os.Remove(replacesMarker(partial))
 }
 
 // noteCrossDevice raises the Warning that Imports into root are copied, not
@@ -424,6 +458,7 @@ func (s *Service) finish(g Grab, f library.File, partial string, src selection, 
 			return stalledBy(err)
 		}
 	}
+	settleReplaces(partial, f.Path)
 	s.sidecars(src, f.Path, primary, original)
 	if g.CanRemove && src.video != "" {
 		_ = os.Remove(src.video)

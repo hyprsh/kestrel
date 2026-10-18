@@ -405,6 +405,9 @@ func TestACrashBetweenThePartialFileAndTheRenameIsFinishedByTheRerun(t *testing.
 			if _, err := os.Stat(v.File.Path); err != nil {
 				t.Errorf("the new file is not on disk: %v", err)
 			}
+			if _, err := os.Stat(old); err == nil {
+				t.Errorf("the replaced file %s was left behind", old)
+			}
 			for _, f := range tree(t, filepath.Join(r.root, movieFolder)) {
 				if strings.HasSuffix(f, ".partial") {
 					t.Errorf("leftover %s", f)
