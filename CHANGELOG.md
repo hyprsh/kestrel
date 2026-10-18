@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.2.0](https://github.com/hyprsh/kestrel/compare/v0.1.0...v0.2.0) (2026-10-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* show Standard and 4K Slots in the SPA and update the docs
+* two Slots, Standard and 4K, instead of SD, HD and UHD in the backend
+* Settings loses kids_rule and root_folders.kids_*, Profile loses kids, the kids-* Profile keys become any-*, and SuggestedSlot.reason no longer has kids_rule.
+
+### Features
+
+* **api:** take a fixed API key from KESTREL_API_KEY ([f9ffeb3](https://github.com/hyprsh/kestrel/commit/f9ffeb360c9ebaa0ef50e192577b9a973482d970)), closes [#68](https://github.com/hyprsh/kestrel/issues/68)
+* remove the Kids rule and Kids root folders, rename the Kids Profiles to Any ([7a313e1](https://github.com/hyprsh/kestrel/commit/7a313e1496ba42dabd0b9211bb15520b5b22ad57))
+* **requests:** let a Request name the root folder of a Title it creates ([e512570](https://github.com/hyprsh/kestrel/commit/e5125701b598fab0b0c30b2d5e12468bb7ff862a))
+* **settings:** a Kids root folder per kind for Titles the Kids rule catches ([677a759](https://github.com/hyprsh/kestrel/commit/677a759d8bfe508dc3750a1a3d2dea391d355532)), closes [#69](https://github.com/hyprsh/kestrel/issues/69)
+* **settings:** a switch for Kids root folders with a path field per kind ([0a10f35](https://github.com/hyprsh/kestrel/commit/0a10f351276dc81cd4395ac6ff701d69d9886ae2))
+* show Standard and 4K Slots in the SPA and update the docs ([c9bb388](https://github.com/hyprsh/kestrel/commit/c9bb388a40892dc90153cad271d813d68072e16c))
+* **silo:** add standard_profile, 4k_profile and root_folder config and drop also_add_sd ([506aa14](https://github.com/hyprsh/kestrel/commit/506aa142f5b97a0db218eb6d5ec42c048965ad38))
+* **slot:** add the Slot domain type, Standard and 4K ([67defe1](https://github.com/hyprsh/kestrel/commit/67defe19cb2606f5fc66d97164d7d62fbb71b864))
+* two Slots, Standard and 4K, instead of SD, HD and UHD in the backend ([6cfc333](https://github.com/hyprsh/kestrel/commit/6cfc33394ce0f582419e56d2451357ea07bc4489))
+
+
+### Bug Fixes
+
+* **requests:** file a Title in the Kids root folder only when Kids is given ([7569eca](https://github.com/hyprsh/kestrel/commit/7569eca95aad3334f832206ec0ccc51cb3c11fd2))
+* **silo:** name a host-less base URL as missing and tidy the catalog after review ([2b6d4b9](https://github.com/hyprsh/kestrel/commit/2b6d4b9058d4d69935a73b8b267e7f2a7e9ffe0c)), closes [#75](https://github.com/hyprsh/kestrel/issues/75)
+* **silo:** write the catalog as Silo reads it and report the plugin's platforms ([66fbda7](https://github.com/hyprsh/kestrel/commit/66fbda7f3cebfd76fab74bf09f233ed2251a5c3b)), closes [#75](https://github.com/hyprsh/kestrel/issues/75)
+
 ## 0.1.0 (2026-10-18)
 
 
