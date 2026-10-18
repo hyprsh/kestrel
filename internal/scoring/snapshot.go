@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hyprsh/kestrel/internal/release"
 )
@@ -40,12 +41,17 @@ func Embedded() (*Snapshot, error) {
 // groups and quality profiles. Radarr's data scores Movies and Sonarr's scores
 // Series. A Snapshot is immutable and safe for concurrent use.
 type Snapshot struct {
-	commit string
-	apps   map[release.Kind]*appData
+	commit      string
+	committedAt time.Time
+	apps        map[release.Kind]*appData
 }
 
 // Commit is the TRaSH commit the snapshot was taken from, if recorded.
 func (s *Snapshot) Commit() string { return s.commit }
+
+// CommittedAt is when that commit was made (COMMITTED_AT, RFC 3339); zero if not
+// recorded. It is what "newer" and the snapshot age mean.
+func (s *Snapshot) CommittedAt() time.Time { return s.committedAt }
 
 type appData struct {
 	kind     release.Kind
@@ -112,6 +118,9 @@ func LoadSnapshot(fsys fs.FS) (*Snapshot, error) {
 	s := &Snapshot{apps: map[release.Kind]*appData{}}
 	if b, err := fs.ReadFile(fsys, "COMMIT"); err == nil {
 		s.commit = strings.TrimSpace(string(b))
+	}
+	if b, err := fs.ReadFile(fsys, "COMMITTED_AT"); err == nil {
+		s.committedAt, _ = time.Parse(time.RFC3339, strings.TrimSpace(string(b)))
 	}
 	for _, a := range apps {
 		d, err := loadApp(fsys, a.dir, a.kind)

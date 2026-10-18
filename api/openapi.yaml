@@ -301,8 +301,9 @@ paths:
       description: |
         A JSON merge patch over the sections: send only what changes. Changing `primary_language`
         re-points the eight Profiles to their backing TRaSH profiles and, unless the same patch
-        names `release_date_country`, moves the country to the new language's default. It affects
-        scoring and Grabs from then on; files already stored are left alone.
+        names `release_date_country`, moves the country to the new language's default. It also
+        re-scores every stored file under the new Profiles, in the same step; files are not renamed
+        and nothing is searched.
       tags: [settings]
       requestBody:
         required: true
@@ -1351,9 +1352,9 @@ paths:
       operationId: getSystemStatus
       summary: The health strip
       description: |
-        Capacity at a glance: the download client, each indexer with its daily budget and any pause, and
-        the free space on the data mount and every Root folder. The TRaSH snapshot's age fills in with
-        the ticket that owns it.
+        Capacity at a glance: the download client, each indexer with its daily budget and any pause, the
+        free space on the data mount and every Root folder, and the active TRaSH snapshot with its commit
+        date.
       tags: [system]
       responses:
         "200":
@@ -1399,6 +1400,30 @@ paths:
             text/plain:
               schema:
                 type: string
+  /trash/update:
+    post:
+      operationId: updateTrash
+      summary: Update from TRaSH
+      description: |
+        Fetches TRaSH's newest Custom Formats and profiles now, whatever the daily check's switch says.
+        The load is all-or-nothing: the snapshot must parse and every stored file is re-scored under it
+        before it becomes active. A snapshot that fails either is rejected whole (`422 validation`), the
+        previous one stays in use and the "TRaSH update rejected" Warning is raised. Nothing is renamed
+        or searched. When TRaSH cannot be reached it is `502 upstream_unavailable`.
+      tags: [system]
+      responses:
+        "200":
+          description: Done; `changed` is false when TRaSH had nothing newer.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [changed, commit]
+                properties:
+                  changed:
+                    type: boolean
+                  commit:
+                    type: string
         default:
           $ref: "#/components/responses/Problem"
   /stream:
@@ -1954,8 +1979,15 @@ components:
       enum: [en, de, fr]
     Settings:
       type: object
-      required: [language_region, kids_rule, root_folders, check_github_updates]
+      required: [language_region, kids_rule, root_folders, check_github_updates, trash]
       properties:
+        trash:
+          type: object
+          required: [auto_update]
+          properties:
+            auto_update:
+              type: boolean
+              description: Check TRaSH daily and take its newest Custom Formats and profiles. On by default (and only while "Check GitHub for updates" is on).
         check_github_updates:
           type: boolean
           description: |
@@ -2006,6 +2038,11 @@ components:
       properties:
         check_github_updates:
           type: boolean
+        trash:
+          type: object
+          properties:
+            auto_update:
+              type: boolean
         root_folders:
           type: object
           description: Replaces the named lists. Each path must exist, be a directory and be writable (`not_found`, `not_directory`, `not_writable`, `not_absolute`, `required`).
@@ -3191,8 +3228,27 @@ components:
                 nullable: true
     SystemStatus:
       type: object
-      required: [download_client, indexers, disks]
+      required: [download_client, indexers, disks, trash]
       properties:
+        trash:
+          type: object
+          description: The active TRaSH snapshot.
+          required: [commit, committed_at, checked_at, auto_update]
+          properties:
+            commit:
+              type: string
+            committed_at:
+              type: string
+              format: date-time
+              nullable: true
+              description: When that commit was made; its age is the snapshot's age.
+            checked_at:
+              type: string
+              format: date-time
+              nullable: true
+              description: When TRaSH was last asked for something newer.
+            auto_update:
+              type: boolean
         download_client:
           $ref: "#/components/schemas/ClientStatus"
         indexers:

@@ -31,10 +31,12 @@ import (
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
 	"github.com/hyprsh/kestrel/internal/probe"
 	"github.com/hyprsh/kestrel/internal/requests"
+	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/trash"
 	"github.com/hyprsh/kestrel/internal/updates"
 )
 
@@ -91,6 +93,9 @@ type Options struct {
 	DiskSpace func(path string) (health.Space, error)
 	// GitHubAPI is the GitHub API root for the update check; empty means api.github.com. Tests inject a fake.
 	GitHubAPI string
+	// TrashSource is where TRaSH updates come from. Nil means none: no daily check,
+	// and "Update from TRaSH" answers 502. cmd/kestrel passes trash.GitHub{}.
+	TrashSource trash.Source
 }
 
 // App is Kestrel's wired services: the HTTP handler and the background loops.
@@ -134,7 +139,13 @@ func New(opts Options) *App {
 	s.history = history.New(opts.Store, opts.Clock, opts.Logger)
 	s.hub = newHub()
 	appSettings := settings.New(opts.Store)
+	embedded, err := scoring.Embedded()
+	if err != nil {
+		panic("api: the embedded TRaSH snapshot is invalid: " + err.Error())
+	}
+	s.scoring = scoring.NewHolder(embedded)
 	s.profiles = profiles.New(opts.Store, appSettings)
+	s.profiles.UseScoring(s.scoring)
 	s.rootFolders = rootfolders.New(appSettings, opts.DataDir)
 	s.library = library.New(opts.Store, opts.Clock).WithCountry(func(ctx context.Context) string {
 		region, _, err := s.profiles.Region(ctx)
@@ -163,7 +174,7 @@ func New(opts Options) *App {
 
 	acq, err := acquire.New(acquire.Deps{
 		Store: opts.Store, Clock: opts.Clock, Library: s.library, Profiles: s.profiles,
-		Indexers: s.indexers, Downloads: s.downloads, History: s.history,
+		Indexers: s.indexers, Downloads: s.downloads, History: s.history, Scoring: s.scoring,
 	})
 	if err != nil {
 		panic("api: the embedded TRaSH snapshot is invalid: " + err.Error())
@@ -178,7 +189,7 @@ func New(opts Options) *App {
 	})
 	imp, err := imports.New(imports.Deps{
 		Library: s.library, Renames: s.library, Profiles: s.profiles, Prober: prober, Clock: opts.Clock, Health: s.health,
-		FolderChanged: s.mediaRefresh.FolderChanged,
+		FolderChanged: s.mediaRefresh.FolderChanged, Scoring: s.scoring,
 	})
 	if err != nil {
 		panic("api: the embedded TRaSH snapshot is invalid: " + err.Error())
@@ -193,6 +204,22 @@ func New(opts Options) *App {
 	}
 	s.adoption = adoption
 	s.cleanup = imports.NewCleanup(imports.CleanupDeps{Library: s.library, Profiles: s.profiles, History: s.history, Clock: opts.Clock})
+	s.trash = trash.New(trash.Deps{
+		Holder: s.scoring, Settings: appSettings, Source: opts.TrashSource, Health: s.health, Clock: opts.Clock, Logger: opts.Logger,
+		Enabled: func(ctx context.Context) bool { return s.updates.Enabled(ctx) },
+		Titles: func(ctx context.Context) ([]int64, error) {
+			named, err := s.library.Names(ctx)
+			ids := make([]int64, len(named))
+			for i, n := range named {
+				ids[i] = n.ID
+			}
+			return ids, err
+		},
+		Rescore: imp.RescoreTitles,
+	})
+	if err := s.trash.Start(context.Background()); err != nil {
+		panic("api: loading the stored TRaSH snapshot: " + err.Error())
+	}
 	s.requests = requests.New(requests.Deps{
 		Store: opts.Store, Clock: opts.Clock, Library: s.library, Profiles: s.profiles, RootFolders: s.rootFolders,
 		Meta: s.meta, TVDB: s.tvdb, Grabs: acq,
@@ -209,7 +236,7 @@ func New(opts Options) *App {
 	s.updates = updates.New(updates.Deps{Settings: appSettings, Health: s.health, Version: opts.Version, APIBase: opts.GitHubAPI, Clock: opts.Clock})
 	s.jobs = jobs.Standard(jobs.Deps{Refresher: s.refresher, Updates: s.updates, Acquire: acq, Library: s.library, History: s.history, PruneState: appSettings,
 		Sessions: func(ctx context.Context) error { _, err := PruneSessions(ctx, opts.Store, opts.Clock()); return err },
-		Health:   s.health, Importer: imp, ImportSource: acq, Clock: opts.Clock, Logger: opts.Logger})
+		Health:   s.health, Importer: imp, ImportSource: acq, Trash: trashLoop(s.trash, opts.TrashSource), Clock: opts.Clock, Logger: opts.Logger})
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ping", s.ping)
@@ -264,6 +291,8 @@ type server struct {
 	health       *health.Service
 	history      *history.Service
 	imports      *imports.Service
+	scoring      *scoring.Holder
+	trash        *trash.Service
 	mediaRefresh *imports.Refresher
 	hub          *hub
 	meta         metadata.Provider
@@ -339,4 +368,12 @@ func docsPage(w http.ResponseWriter, _ *http.Request) {
   </body>
 </html>
 `))
+}
+
+// trashLoop is the daily TRaSH check, or nothing without a source.
+func trashLoop(s *trash.Service, src trash.Source) jobs.TrashChecker {
+	if src == nil {
+		return nil
+	}
+	return s
 }

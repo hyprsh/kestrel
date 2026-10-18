@@ -133,6 +133,8 @@ type Deps struct {
 	FolderChanged func(ctx context.Context, folder string)
 	// Snapshot is the TRaSH data to score with; nil means the embedded one.
 	Snapshot *scoring.Snapshot
+	// Scoring is the live TRaSH snapshot; it wins over Snapshot.
+	Scoring *scoring.Holder
 	// Step, when set, is called at "partial" (the .partial file is in place)
 	// and "committed" (the database row is written). An error stops the
 	// Import there as if the process had been killed; tests use it.
@@ -145,7 +147,7 @@ type Service struct {
 	prof  Profiles
 	probe probe.Prober
 	clock func() time.Time
-	snap  *scoring.Snapshot
+	snap  *scoring.Holder
 	step  func(string) error
 	hl    Health
 
@@ -158,14 +160,17 @@ func New(d Deps) (*Service, error) {
 	if d.Clock == nil {
 		d.Clock = time.Now
 	}
-	if d.Snapshot == nil {
-		snap, err := scoring.Embedded()
-		if err != nil {
-			return nil, err
+	if d.Scoring == nil {
+		if d.Snapshot == nil {
+			snap, err := scoring.Embedded()
+			if err != nil {
+				return nil, err
+			}
+			d.Snapshot = snap
 		}
-		d.Snapshot = snap
+		d.Scoring = scoring.NewHolder(d.Snapshot)
 	}
-	return &Service{lib: d.Library, prof: d.Profiles, probe: d.Prober, clock: d.Clock, snap: d.Snapshot, step: d.Step, hl: d.Health, renames: d.Renames, folderChanged: d.FolderChanged}, nil
+	return &Service{lib: d.Library, prof: d.Profiles, probe: d.Prober, clock: d.Clock, snap: d.Scoring, step: d.Step, hl: d.Health, renames: d.Renames, folderChanged: d.FolderChanged}, nil
 }
 
 func (s *Service) hook(step string) error {
@@ -199,6 +204,7 @@ func stalledBy(err error) Result {
 // error: what goes wrong is either the Release's fault (Rejected) or the
 // environment's (Stalled), and importing again is always safe.
 func (s *Service) Import(ctx context.Context, g Grab) Result {
+	defer s.snap.Hold()()
 	res := s.importGrab(ctx, g)
 	if res.Status == Imported && res.Path != "" && s.folderChanged != nil {
 		// A movie's file lies in the Title folder, an episode's in a Season folder below it.
@@ -242,7 +248,7 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 	if spec == nil {
 		return stalled("the Version's Profile no longer exists")
 	}
-	profile, err := s.snap.Profile(spec.Spec(region.Primary.Release()))
+	profile, err := s.snap.Current().Profile(spec.Spec(region.Primary.Release()))
 	if err != nil {
 		return stalledBy(err)
 	}

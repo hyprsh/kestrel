@@ -55,6 +55,7 @@ export const handlers = [
       language_region: { primary_language: 'en', release_date_country: 'US' },
       kids_rule: { enabled: true, threshold: 6 },
       check_github_updates: true,
+      trash: { auto_update: true },
       root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'] },
     }),
   ),
@@ -65,7 +66,7 @@ export const handlers = [
     response(200).json({ count: 0, severity: null, rows: [], long_missing: { count: 0, items: [] } }),
   ),
   http.get('/system/status', ({ response }) =>
-    response(200).json({ download_client: { state: 'none', name: null, instance_id: null, message: null }, indexers: [], disks: [] }),
+    response(200).json({ download_client: { state: 'none', name: null, instance_id: null, message: null }, indexers: [], disks: [], trash: { commit: 'abc1234', committed_at: null, checked_at: null, auto_update: true } }),
   ),
   http.get('/settings/reverse-proxy', ({ response }) =>
     response(200).json({ enabled: false, trusted_proxies: [], header: 'Remote-User', untrusted: [] }),

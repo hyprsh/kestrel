@@ -68,6 +68,7 @@ describe('the health strip', () => {
           download_client: { state: 'none', name: null, instance_id: null, message: null },
           indexers: [],
           disks: [],
+          trash: { commit: 'abc1234', committed_at: null, checked_at: null, auto_update: true },
           update: { version: '0.3.0', url: 'https://example.test/r' },
         }),
       ),

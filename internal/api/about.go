@@ -5,18 +5,11 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/notices"
-	"github.com/hyprsh/kestrel/internal/scoring"
 )
 
-// trashCommit is the TRaSH commit that scores Releases now. Until TRaSH updates
-// can swap the snapshot, that is the embedded one.
-func (s *server) trashCommit(context.Context) string {
-	snap, err := scoring.Embedded()
-	if err != nil {
-		return ""
-	}
-	return snap.Commit()
-}
+// trashCommit is the TRaSH commit that scores Releases now: the embedded
+// snapshot or a newer one taken from TRaSH.
+func (s *server) trashCommit(context.Context) string { return s.scoring.Current().Commit() }
 
 func (s *server) GetAbout(ctx context.Context, _ oapi.GetAboutRequestObject) (oapi.GetAboutResponseObject, error) {
 	info := s.updates.Info(ctx)

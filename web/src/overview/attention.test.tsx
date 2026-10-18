@@ -228,6 +228,7 @@ const status = (over: Partial<Status> = {}): Status => ({
     { instance_id: 12, name: 'Beta', state: 'failing', message: 'API key rejected', ...idle },
   ],
   disks: [{ path: '/data', free_bytes: 800 * 2 ** 30, total_bytes: 2 ** 40 }],
+  trash: { commit: 'abc1234def', committed_at: new Date(Date.now() - 3 * 86_400_000).toISOString(), checked_at: null, auto_update: true },
   ...over,
 })
 
@@ -244,6 +245,16 @@ describe('The health strip', () => {
     expect(strip).toHaveTextContent(/Beta.*failing/i)
     expect(strip).toHaveTextContent('/data')
     expect(strip).toHaveTextContent('800 GB free of 1 TB')
+  })
+
+  it('shows how old the TRaSH snapshot is', async () => {
+    server.use(http.get('/system/status', ({ response }) => response(200).json(status())))
+    renderApp()
+
+    const strip = await screen.findByRole('region', { name: /health/i })
+
+    expect(await within(strip).findByText(/3 days old/)).toBeInTheDocument()
+    expect(strip).toHaveTextContent(/TRaSH.*3 days old/)
   })
 
   it("shows each indexer's daily budget and any pause, which are not failures", async () => {

@@ -1,4 +1,4 @@
-// The health strip: capacity at a glance. TRaSH age and updates join it with their own tickets.
+// The health strip: capacity at a glance, and how old the TRaSH snapshot is.
 import { useStatus, type SystemStatus } from '../api/attention'
 import { cx } from '../ui'
 
@@ -45,6 +45,13 @@ function indexerDetail(i: Indexer): string {
   return parts.join(' · ')
 }
 
+/** "from today", "1 day old", "12 days old"; "age unknown" when the snapshot has no date. */
+export function snapshotAge(committedAt: string | null, now = Date.now()): string {
+  if (!committedAt) return 'age unknown'
+  const days = Math.max(0, Math.floor((now - Date.parse(committedAt)) / 86_400_000))
+  return days === 0 ? 'from today' : `${days} day${days === 1 ? '' : 's'} old`
+}
+
 export function HealthStrip() {
   const status = useStatus()
   const s = status.data
@@ -64,6 +71,7 @@ export function HealthStrip() {
               detail={indexerDetail(i)}
             />
           ))}
+          <Item label="TRaSH" state="idle" detail={snapshotAge(s.trash.committed_at)} />
           {s.update && <Item label="Update" state="idle" detail={`Kestrel ${s.update.version} available`} />}
           {s.disks.map((d) => (
             <Item key={d.path} label={d.path} state="idle" detail={`${formatBytes(d.free_bytes)} free of ${formatBytes(d.total_bytes)}`} />

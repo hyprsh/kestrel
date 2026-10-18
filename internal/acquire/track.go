@@ -212,6 +212,7 @@ func (s *Service) SearchUpgrades(ctx context.Context, titleID int64, versionIDs 
 // searchTitle searches a Title for its Wanted Versions, or with upgrade for its
 // Filled ones.
 func (s *Service) searchTitle(ctx context.Context, titleID int64, versionIDs []int64, fromCache, upgrade bool) (Outcome, error) {
+	defer s.snap.Hold()()
 	sub, err := s.subjectOf(ctx, titleID)
 	if err != nil {
 		return Outcome{}, err
@@ -265,7 +266,7 @@ func (s *Service) searchTitle(ctx context.Context, titleID int64, versionIDs []i
 		if e == nil {
 			continue
 		}
-		g, err := s.Grab(ctx, slotVersion[plan.Slot], e.id, false)
+		g, err := s.grab(ctx, slotVersion[plan.Slot], e.id, false)
 		if err != nil {
 			errs = append(errs, err)
 			continue

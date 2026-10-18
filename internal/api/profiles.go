@@ -88,6 +88,10 @@ func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {
 	out.RootFolders = oapi.RootFolders{Movies: roots.Movies, Series: roots.Series}
 	out.LanguageRegion.PrimaryLanguage = oapi.PrimaryLanguage(region.Primary)
 	out.LanguageRegion.ReleaseDateCountry = region.Country
+	out.Trash.AutoUpdate, err = s.trash.AutoUpdate(ctx)
+	if err != nil {
+		return oapi.Settings{}, err
+	}
 	out.KidsRule.Enabled = kids.Enabled
 	out.KidsRule.Threshold = oapi.SettingsKidsRuleThreshold(kids.Threshold)
 	return out, nil
@@ -105,6 +109,23 @@ func (s *server) PatchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 	if r.Body == nil {
 		return nil, invalid("body", "required", "a body is required")
 	}
+	if l := r.Body.LanguageRegion; l != nil && l.PrimaryLanguage != nil {
+		// A new Primary Language re-scores every file in the same step, with no
+		// Grab deciding on a mix of old and new Scores.
+		var resp oapi.PatchSettingsResponseObject
+		err := s.trash.ChangeLanguage(ctx, func() (err error) {
+			resp, err = s.patchSettings(ctx, r)
+			return err
+		})
+		if err != nil {
+			return nil, err
+		}
+		return resp, nil
+	}
+	return s.patchSettings(ctx, r)
+}
+
+func (s *server) patchSettings(ctx context.Context, r oapi.PatchSettingsRequestObject) (oapi.PatchSettingsResponseObject, error) {
 	// Every section saves in one transaction, so a rejected patch changes nothing.
 	if k := r.Body.KidsRule; k != nil && k.Threshold != nil {
 		switch *k.Threshold {
@@ -142,6 +163,11 @@ func (s *server) PatchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 	if k := r.Body.KidsRule; k != nil {
 		if _, err := profs.SetKids(ctx, profiles.KidsPatch{Enabled: k.Enabled, Threshold: k.Threshold}); err != nil {
 			return nil, profilesProblem(err)
+		}
+	}
+	if t := r.Body.Trash; t != nil && t.AutoUpdate != nil {
+		if err := s.trash.InTx(tx).SetAutoUpdate(ctx, *t.AutoUpdate); err != nil {
+			return nil, err
 		}
 	}
 	if err := tx.Commit(); err != nil {

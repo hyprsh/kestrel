@@ -103,6 +103,9 @@ type Deps struct {
 	History *history.Service
 	// Snapshot is the TRaSH data to score with; nil means the one embedded in the binary.
 	Snapshot *scoring.Snapshot
+	// Scoring is the live TRaSH snapshot; it wins over Snapshot. A swap drops the
+	// candidate cache and waits for decisions in flight (Settled 6).
+	Scoring *scoring.Holder
 }
 
 // Service searches for Releases and grabs them.
@@ -113,7 +116,7 @@ type Service struct {
 	prof  Profiles
 	idx   Indexers
 	dl    Downloads
-	snap  *scoring.Snapshot
+	snap  *scoring.Holder
 	cache *cache
 	live  *liveSet
 	hist  *history.Service
@@ -126,17 +129,26 @@ func New(d Deps) (*Service, error) {
 	if d.Clock == nil {
 		d.Clock = time.Now
 	}
-	if d.Snapshot == nil {
-		snap, err := scoring.Embedded()
-		if err != nil {
-			return nil, err
+	if d.Scoring == nil {
+		if d.Snapshot == nil {
+			snap, err := scoring.Embedded()
+			if err != nil {
+				return nil, err
+			}
+			d.Snapshot = snap
 		}
-		d.Snapshot = snap
+		d.Scoring = scoring.NewHolder(d.Snapshot)
 	}
-	return &Service{
+	svc := &Service{
 		st: d.Store, clock: d.Clock, lib: d.Library, prof: d.Profiles, idx: d.Indexers, dl: d.Downloads,
-		snap: d.Snapshot, cache: &cache{m: map[string]*entry{}}, live: &liveSet{m: map[int64]Live{}}, hist: d.History, misses: &missCount{m: map[int64]int{}},
-	}, nil
+		snap: d.Scoring, cache: &cache{m: map[string]*entry{}}, live: &liveSet{m: map[int64]Live{}}, hist: d.History, misses: &missCount{m: map[int64]int{}},
+	}
+	d.Scoring.OnSwap(func() {
+		svc.cache.mu.Lock()
+		svc.cache.m = map[string]*entry{}
+		svc.cache.mu.Unlock()
+	})
+	return svc, nil
 }
 
 func ts(t time.Time) string { return t.UTC().Format(time.RFC3339) }
@@ -317,7 +329,7 @@ func (s *Service) subjectOf(ctx context.Context, titleID int64) (subject, error)
 		if !ok {
 			return subject{}, fmt.Errorf("acquire: Version %d has unknown Profile %q", v.ID, v.Profile)
 		}
-		sp, err := s.snap.Profile(p.Spec(region.Primary.Release()))
+		sp, err := s.snap.Current().Profile(p.Spec(region.Primary.Release()))
 		if err != nil {
 			return subject{}, err
 		}
@@ -439,6 +451,7 @@ func (s *Service) Search(ctx context.Context, versionID int64) (SearchResult, er
 // SearchScope is Search narrowed, for a Series Version, to a season or to
 // episodes of it. A Movie Version ignores the scope.
 func (s *Service) SearchScope(ctx context.Context, versionID int64, scope Scope) (SearchResult, error) {
+	defer s.snap.Hold()()
 	titleID, err := s.lib.TitleOfVersion(ctx, versionID)
 	if err != nil {
 		return SearchResult{}, err
@@ -552,6 +565,12 @@ var ErrGrabNotFound = errors.New("grab not found")
 // unless override is set; blocklisted and other_slot are refused whatever the
 // override (a *RejectedError). The Blocklist is checked again here.
 func (s *Service) Grab(ctx context.Context, versionID int64, releaseID string, override bool) (Grab, error) {
+	defer s.snap.Hold()()
+	return s.grab(ctx, versionID, releaseID, override)
+}
+
+// grab is Grab for callers that already hold the snapshot gate.
+func (s *Service) grab(ctx context.Context, versionID int64, releaseID string, override bool) (Grab, error) {
 	titleID, err := s.lib.TitleOfVersion(ctx, versionID)
 	if err != nil {
 		return Grab{}, err

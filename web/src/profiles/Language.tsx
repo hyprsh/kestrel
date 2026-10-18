@@ -40,7 +40,7 @@ function Form({ saved }: { saved: Settings['language_region'] }) {
     <form onSubmit={submit} className="flex max-w-md flex-col gap-3">
       <p className="text-[12px] text-gray-900">
         The Primary Language sets the required audio of your Profiles, what DL and MULTi mean in release names, and the language of title search.
-        Changing it later affects scoring and Grabs from then on; existing files are left alone.
+        Changing it later re-scores every file you already have under the new Profiles, without renaming or searching.
       </p>
       <Field label="Primary Language">
         {(id) => (

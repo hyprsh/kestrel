@@ -15,6 +15,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/jobs"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
 	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
+	"github.com/hyprsh/kestrel/internal/trash"
 )
 
 // healthRowPrefix starts the id of every row that comes from the health module.
@@ -64,6 +65,9 @@ var attentionActions = map[health.Kind]func(health.Row) []oapi.AttentionAction{
 	},
 	health.KindPlexNoSection: func(health.Row) []oapi.AttentionAction {
 		return []oapi.AttentionAction{openSettings("media-servers", "Open Media servers")}
+	},
+	health.KindTrashRejected: func(health.Row) []oapi.AttentionAction {
+		return []oapi.AttentionAction{{Key: "update_trash", Label: "Update from TRaSH", Method: oapi.POST, Path: "/trash/update"}}
 	},
 	health.KindProxyHeader: func(health.Row) []oapi.AttentionAction {
 		return []oapi.AttentionAction{openSettings("security", "Open Security")}
@@ -263,6 +267,14 @@ func (s *server) GetSystemStatus(ctx context.Context, _ oapi.GetSystemStatusRequ
 	for _, d := range disks {
 		out.Disks = append(out.Disks, oapi.DiskStatus{Path: d.Path, FreeBytes: int64(d.Free), TotalBytes: int64(d.Total)})
 	}
+	ts := s.trash.Status(ctx)
+	out.Trash.Commit, out.Trash.AutoUpdate = ts.Commit, ts.AutoUpdate
+	if !ts.CommittedAt.IsZero() {
+		out.Trash.CommittedAt = &ts.CommittedAt
+	}
+	if !ts.CheckedAt.IsZero() {
+		out.Trash.CheckedAt = &ts.CheckedAt
+	}
 	return oapi.GetSystemStatus200JSONResponse(out), nil
 }
 
@@ -322,4 +334,18 @@ func (s *server) SearchAllWanted(ctx context.Context, _ oapi.SearchAllWantedRequ
 	}
 	s.jobs.Kick(jobs.Search)
 	return oapi.SearchAllWanted202JSONResponse(oapi.WantedSearch{Versions: n}), nil
+}
+
+// UpdateTrash is "Update from TRaSH".
+func (s *server) UpdateTrash(ctx context.Context, _ oapi.UpdateTrashRequestObject) (oapi.UpdateTrashResponseObject, error) {
+	res, err := s.trash.Update(ctx)
+	switch {
+	case errors.Is(err, trash.ErrUnreachable):
+		return nil, problem(http.StatusBadGateway, "upstream_unavailable", err.Error())
+	case errors.Is(err, trash.ErrRejected):
+		return nil, problem(http.StatusUnprocessableEntity, "validation", err.Error())
+	case err != nil:
+		return nil, err
+	}
+	return oapi.UpdateTrash200JSONResponse{Changed: res.Changed, Commit: res.Commit}, nil
 }

@@ -139,6 +139,7 @@ func sameExternalID(r indexers.Release, t library.Named) bool {
 
 // rssTitle decides and grabs for one Title from the feed items that name it.
 func (s *Service) rssTitle(ctx context.Context, titleID int64, items []feedItem) ([]Grab, error) {
+	defer s.snap.Hold()()
 	sub, err := s.subjectOf(ctx, titleID)
 	if err != nil {
 		return nil, err

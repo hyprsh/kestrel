@@ -19,6 +19,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/api"
 	"github.com/hyprsh/kestrel/internal/config"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/trash"
 	"github.com/hyprsh/kestrel/internal/version"
 	"github.com/hyprsh/kestrel/web"
 )
@@ -58,13 +59,14 @@ func run(ctx context.Context) error {
 	}
 
 	app := api.New(api.Options{
-		Version: version.Version,
-		BaseURL: cfg.BaseURL,
-		Store:   st,
-		Web:     web.FS(),
-		Logger:  logger,
-		Plugins: plugins,
-		DataDir: cfg.DataDir,
+		Version:     version.Version,
+		BaseURL:     cfg.BaseURL,
+		Store:       st,
+		Web:         web.FS(),
+		Logger:      logger,
+		Plugins:     plugins,
+		TrashSource: trash.GitHub{},
+		DataDir:     cfg.DataDir,
 
 		ConfigDir:  cfg.ConfigDir,
 		TMDBAPIKey: cfg.TMDBAPIKey,

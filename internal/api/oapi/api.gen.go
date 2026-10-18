@@ -1917,6 +1917,10 @@ type Settings struct {
 	// RootFolders Where Imports put Titles, one or more absolute paths per kind. The first is the default when
 	// adding a Title. Unsaved, they report `<data dir>/media/movies` and `<data dir>/media/tv`.
 	RootFolders RootFolders `json:"root_folders"`
+	Trash       struct {
+		// AutoUpdate Check TRaSH daily and take its newest Custom Formats and profiles. On by default (and only while "Check GitHub for updates" is on).
+		AutoUpdate bool `json:"auto_update"`
+	} `json:"trash"`
 }
 
 // SettingsKidsRuleThreshold Titles certified at or below this age get the Kids Profile in HD.
@@ -1940,6 +1944,9 @@ type SettingsPatch struct {
 		Movies *[]string `json:"movies,omitempty"`
 		Series *[]string `json:"series,omitempty"`
 	} `json:"root_folders,omitempty"`
+	Trash *struct {
+		AutoUpdate *bool `json:"auto_update,omitempty"`
+	} `json:"trash,omitempty"`
 }
 
 // Setup defines model for Setup.
@@ -2025,6 +2032,18 @@ type SystemStatus struct {
 	Disks          []DiskStatus    `json:"disks"`
 	DownloadClient ClientStatus    `json:"download_client"`
 	Indexers       []IndexerStatus `json:"indexers"`
+
+	// Trash The active TRaSH snapshot.
+	Trash struct {
+		AutoUpdate bool `json:"auto_update"`
+
+		// CheckedAt When TRaSH was last asked for something newer.
+		CheckedAt *time.Time `json:"checked_at"`
+		Commit    string     `json:"commit"`
+
+		// CommittedAt When that commit was made; its age is the snapshot's age.
+		CommittedAt *time.Time `json:"committed_at"`
+	} `json:"trash"`
 
 	// Update A newer release exists. Absent when up to date or when the update check is off.
 	Update *UpdateAvailable `json:"update,omitempty"`
@@ -2602,6 +2621,9 @@ type ServerInterface interface {
 	// AddVersion Add a Version to an empty Slot
 	// (POST /titles/{id}/versions)
 	AddVersion(w http.ResponseWriter, r *http.Request, id TitleId)
+	// UpdateTrash Update from TRaSH
+	// (POST /trash/update)
+	UpdateTrash(w http.ResponseWriter, r *http.Request)
 	// DeleteVersion Remove a Version
 	// (DELETE /versions/{id})
 	DeleteVersion(w http.ResponseWriter, r *http.Request, id VersionId, params DeleteVersionParams)
@@ -4216,6 +4238,20 @@ func (siw *ServerInterfaceWrapper) AddVersion(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// UpdateTrash operation middleware
+func (siw *ServerInterfaceWrapper) UpdateTrash(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateTrash(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteVersion operation middleware
 func (siw *ServerInterfaceWrapper) DeleteVersion(w http.ResponseWriter, r *http.Request) {
 
@@ -4502,6 +4538,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/system/status", wrapper.GetSystemStatus)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/about", wrapper.GetAbout)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/about/notices", wrapper.GetNotices)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/trash/update", wrapper.UpdateTrash)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/stream", wrapper.Stream)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/requests", wrapper.ListRequests)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/requests", wrapper.CreateRequest)
@@ -4574,23 +4611,6 @@ func (response GetNotices200TextResponse) VisitGetNoticesResponse(w http.Respons
 	w.WriteHeader(200)
 
 	_, err := w.Write([]byte(fmt.Sprint(response)))
-	return err
-}
-
-type GetNoticesdefaultApplicationProblemPlusJSONResponse struct {
-	Body       Problem
-	StatusCode int
-}
-
-func (response GetNoticesdefaultApplicationProblemPlusJSONResponse) VisitGetNoticesResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(response.StatusCode)
-	_, err := buf.WriteTo(w)
 	return err
 }
 
@@ -8197,6 +8217,47 @@ func (response AddVersiondefaultApplicationProblemPlusJSONResponse) VisitAddVers
 	return err
 }
 
+type UpdateTrashRequestObject struct {
+}
+
+type UpdateTrashResponseObject interface {
+	VisitUpdateTrashResponse(w http.ResponseWriter) error
+}
+
+type UpdateTrash200JSONResponse struct {
+	Changed bool   `json:"changed"`
+	Commit  string `json:"commit"`
+}
+
+func (response UpdateTrash200JSONResponse) VisitUpdateTrashResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTrashdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateTrashdefaultApplicationProblemPlusJSONResponse) VisitUpdateTrashResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeleteVersionRequestObject struct {
 	Id     VersionId `json:"id"`
 	Params DeleteVersionParams
@@ -8628,6 +8689,9 @@ type StrictServerInterface interface {
 	// AddVersion Add a Version to an empty Slot
 	// (POST /titles/{id}/versions)
 	AddVersion(ctx context.Context, request AddVersionRequestObject) (AddVersionResponseObject, error)
+	// UpdateTrash Update from TRaSH
+	// (POST /trash/update)
+	UpdateTrash(ctx context.Context, request UpdateTrashRequestObject) (UpdateTrashResponseObject, error)
 	// DeleteVersion Remove a Version
 	// (DELETE /versions/{id})
 	DeleteVersion(ctx context.Context, request DeleteVersionRequestObject) (DeleteVersionResponseObject, error)
@@ -10546,6 +10610,30 @@ func (sh *strictHandler) AddVersion(w http.ResponseWriter, r *http.Request, id T
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(AddVersionResponseObject); ok {
 		if err := validResponse.VisitAddVersionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateTrash operation middleware
+func (sh *strictHandler) UpdateTrash(w http.ResponseWriter, r *http.Request) {
+	var request UpdateTrashRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateTrash(ctx, request.(UpdateTrashRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateTrash")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateTrashResponseObject); ok {
+		if err := validResponse.VisitUpdateTrashResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -14,6 +14,7 @@ import { UpdateCheckSwitch } from '../about/UpdateCheck'
 import { DownloadClient } from '../plugins/DownloadClient'
 import { Indexers } from '../plugins/Indexers'
 import { MediaServers } from '../plugins/MediaServers'
+import { TrashForm } from '../trash/Trash'
 import { LanguageForm } from '../profiles/Language'
 import { RootFoldersForm } from '../rootfolders/RootFolders'
 import { DefaultsPerSlot, KidsRuleForm, ProfileToggles } from '../profiles/Profiles'
@@ -22,6 +23,7 @@ import { DefaultsPerSlot, KidsRuleForm, ProfileToggles } from '../profiles/Profi
 const sections = [
   { id: 'language', title: 'Primary Language' },
   { id: 'profiles', title: 'Profiles' },
+  { id: 'trash', title: 'TRaSH' },
   { id: 'download-client', title: 'Download client' },
   { id: 'indexers', title: 'Indexers' },
   { id: 'root-folders', title: 'Root folders' },
@@ -63,6 +65,11 @@ export function Settings({ onRunSetup, onAdopt }: { onRunSetup: () => void; onAd
           </Row>
           <Row label="Profiles" help="Turn Profiles off or let Primary-Language ones accept the Original Language. Disabling a Profile clears its defaults.">
             <ProfileToggles />
+          </Row>
+        </Group>
+        <Group id="trash" title="TRaSH">
+          <Row label="Custom Formats and profiles" help="Kestrel scores Releases with TRaSH's Custom Formats. It checks daily and takes the newest set whole, after re-scoring every file under it.">
+            <TrashForm />
           </Row>
         </Group>
         <Group id="download-client" title="Download client">

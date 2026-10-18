@@ -261,6 +261,20 @@ export function usePatchSettings() {
   })
 }
 
+/** "Update from TRaSH": loads the newest snapshot now. A rejected one is a 422 and the old one stays. */
+export function useUpdateTrash() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error, response } = await api.POST('/trash/update')
+      if (!data) throw failure(error, response)
+      return data
+    },
+    // Success or not, the snapshot's age and any Warning may have changed.
+    onSettled: () => Promise.all(['status', 'attention', 'settings'].map((k) => qc.invalidateQueries({ queryKey: [k] }))),
+  })
+}
+
 export function useProfiles() {
   return useQuery({
     queryKey: ['profiles'],

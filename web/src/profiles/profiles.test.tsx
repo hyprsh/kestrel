@@ -53,6 +53,7 @@ function fakeProfiles(opts: { fresh?: boolean } = {}) {
     language_region: { primary_language: 'en', release_date_country: 'US' },
     kids_rule: { enabled: true, threshold: 6 },
     check_github_updates: true,
+    trash: { auto_update: true },
     root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'] },
   }
   if (opts.fresh) fakeSetup()
@@ -228,7 +229,7 @@ describe('Settings', () => {
     await open()
     const section = await screen.findByRole('region', { name: 'Primary Language' })
     await userEvent.selectOptions(await within(section).findByLabelText('Primary Language'), 'de')
-    expect(within(section).getByText(/existing files are left alone/i)).toBeInTheDocument()
+    expect(within(section).getByText(/re-scores every file you already have/i)).toBeInTheDocument()
     await userEvent.click(within(section).getByRole('button', { name: 'Save language' }))
     expect(await within(section).findByText('Saved.')).toBeInTheDocument()
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'settings', body: { language_region: { primary_language: 'de', release_date_country: 'DE' } } }))

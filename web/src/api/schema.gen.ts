@@ -259,8 +259,9 @@ export interface paths {
          * Change settings
          * @description A JSON merge patch over the sections: send only what changes. Changing `primary_language`
          *     re-points the eight Profiles to their backing TRaSH profiles and, unless the same patch
-         *     names `release_date_country`, moves the country to the new language's default. It affects
-         *     scoring and Grabs from then on; files already stored are left alone.
+         *     names `release_date_country`, moves the country to the new language's default. It also
+         *     re-scores every stored file under the new Profiles, in the same step; files are not renamed
+         *     and nothing is searched.
          */
         patch: operations["patchSettings"];
         trace?: never;
@@ -1106,9 +1107,9 @@ export interface paths {
         };
         /**
          * The health strip
-         * @description Capacity at a glance: the download client, each indexer with its daily budget and any pause, and
-         *     the free space on the data mount and every Root folder. The TRaSH snapshot's age fills in with
-         *     the ticket that owns it.
+         * @description Capacity at a glance: the download client, each indexer with its daily budget and any pause, the
+         *     free space on the data mount and every Root folder, and the active TRaSH snapshot with its commit
+         *     date.
          */
         get: operations["getSystemStatus"];
         put?: never;
@@ -1158,6 +1159,30 @@ export interface paths {
         get: operations["getNotices"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/trash/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update from TRaSH
+         * @description Fetches TRaSH's newest Custom Formats and profiles now, whatever the daily check's switch says.
+         *     The load is all-or-nothing: the snapshot must parse and every stored file is re-scored under it
+         *     before it becomes active. A snapshot that fails either is rejected whole (`422 validation`), the
+         *     previous one stays in use and the "TRaSH update rejected" Warning is raised. Nothing is renamed
+         *     or searched. When TRaSH cannot be reached it is `502 upstream_unavailable`.
+         */
+        post: operations["updateTrash"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1481,6 +1506,10 @@ export interface components {
          */
         PrimaryLanguage: "en" | "de" | "fr";
         Settings: {
+            trash: {
+                /** @description Check TRaSH daily and take its newest Custom Formats and profiles. On by default (and only while "Check GitHub for updates" is on). */
+                auto_update: boolean;
+            };
             /**
              * @description "Check GitHub for updates" (default on). Once a day Kestrel asks GitHub for the latest release
              *     and the published security advisories (and, with the TRaSH update, the latest TRaSH commit).
@@ -1515,6 +1544,9 @@ export interface components {
         };
         SettingsPatch: {
             check_github_updates?: boolean;
+            trash?: {
+                auto_update?: boolean;
+            };
             /** @description Replaces the named lists. Each path must exist, be a directory and be writable (`not_found`, `not_directory`, `not_writable`, `not_absolute`, `required`). */
             root_folders?: {
                 movies?: string[];
@@ -2180,6 +2212,21 @@ export interface components {
             }[];
         };
         SystemStatus: {
+            /** @description The active TRaSH snapshot. */
+            trash: {
+                commit: string;
+                /**
+                 * Format: date-time
+                 * @description When that commit was made; its age is the snapshot's age.
+                 */
+                committed_at: string | null;
+                /**
+                 * Format: date-time
+                 * @description When TRaSH was last asked for something newer.
+                 */
+                checked_at: string | null;
+                auto_update: boolean;
+            };
             download_client: components["schemas"]["ClientStatus"];
             indexers: components["schemas"]["IndexerStatus"][];
             /** @description The data mount first, then every Root folder. */
@@ -3994,6 +4041,29 @@ export interface operations {
                 };
                 content: {
                     "text/plain": string;
+                };
+            };
+        };
+    };
+    updateTrash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Done; `changed` is false when TRaSH had nothing newer. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        commit: string;
+                    };
                 };
             };
             default: components["responses"]["Problem"];

@@ -33,6 +33,8 @@ const (
 	Health = "health"
 	// Updates asks GitHub once a day for a newer release and security advisories.
 	Updates = "updates"
+	// Trash checks for newer TRaSH Custom Formats and profiles once a day (a Settings switch turns the updating off).
+	Trash = "trash"
 )
 
 // Cadences. How long a Version waits between missing and Upgrade searches is
@@ -53,6 +55,7 @@ const (
 	pruneEvery    = 24 * time.Hour
 	healthEvery   = 5 * time.Minute
 	updatesEvery  = 24 * time.Hour
+	trashEvery    = 24 * time.Hour
 )
 
 // HealthChecker is what the loops need of the health module.
@@ -62,6 +65,11 @@ type HealthChecker interface {
 
 // UpdateChecker is what the loops need of the updates module.
 type UpdateChecker interface {
+	Check(ctx context.Context) error
+}
+
+// TrashChecker is what the loops need of the trash module.
+type TrashChecker interface {
 	Check(ctx context.Context) error
 }
 
@@ -120,6 +128,8 @@ type Deps struct {
 	Health HealthChecker
 	// Updates is optional; without it there is no update check.
 	Updates UpdateChecker
+	// Trash is optional; without it there is no daily TRaSH check.
+	Trash TrashChecker
 	// Importer and ImportSource enable the Import loop; leave both nil for none.
 	Importer     Importer
 	ImportSource ImportSource
@@ -195,6 +205,13 @@ func Standard(d Deps) *Runner {
 			Name:  Refresh,
 			Run:   d.Refresher.Daily,
 			Every: func() time.Duration { return refreshCheckEvery },
+		})
+	}
+	if d.Trash != nil {
+		r.Add(Loop{
+			Name:  Trash,
+			Run:   d.Trash.Check,
+			Every: func() time.Duration { return trashEvery },
 		})
 	}
 

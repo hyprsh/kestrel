@@ -63,6 +63,8 @@ const (
 
 	// KindGoneUpstream: the metadata provider deleted or merged a Title's entry (Warning).
 	KindGoneUpstream Kind = "title_gone_upstream"
+	// KindTrashRejected: a TRaSH update was rejected whole (Warning); a good update clears it.
+	KindTrashRejected Kind = "trash_update_rejected"
 
 	// One-off health warnings: dismissible, keyed kind+subject.
 

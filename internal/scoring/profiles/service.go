@@ -112,13 +112,18 @@ type Service struct {
 	st       *store.Store
 	settings *settings.Settings
 	tx       *sql.Tx // set by InTx: writes join the caller's transaction
+	live     *scoring.Holder
 }
 
 // InTx returns a Service whose settings and Profile writes run inside tx; the
 // caller commits or rolls back.
 func (s *Service) InTx(tx *sql.Tx) *Service {
-	return &Service{st: s.st, settings: s.settings.InTx(tx), tx: tx}
+	return &Service{st: s.st, settings: s.settings.InTx(tx), tx: tx, live: s.live}
 }
+
+// UseScoring makes the Service back Profiles with the live TRaSH snapshot
+// instead of the embedded one. Call it before the Service is shared.
+func (s *Service) UseScoring(h *scoring.Holder) { s.live = h }
 
 // New returns a Service over st. settings holds the language and Kids documents.
 func New(st *store.Store, s *settings.Settings) *Service {
@@ -310,8 +315,8 @@ func (s *Service) Region(ctx context.Context) (Region, bool, error) {
 // SetRegion saves the language settings. Changing the Primary Language without
 // naming a country moves the country to the new language's default; naming one
 // keeps it. A new Primary Language re-points the eight Profiles to their
-// backing TRaSH profiles (Settled 5); it does not re-score stored files, rename
-// anything or search.
+// backing TRaSH profiles (Settled 5). Re-scoring the stored files is the
+// caller's job (trash.Service.ChangeLanguage); nothing is renamed or searched.
 func (s *Service) SetRegion(ctx context.Context, p RegionPatch) (Region, error) {
 	cur, _, err := s.Region(ctx)
 	if err != nil {
@@ -335,8 +340,10 @@ func (s *Service) SetRegion(ctx context.Context, p RegionPatch) (Region, error) 
 		}
 		next.Country = *p.Country
 	}
-	snap, err := scoring.Embedded()
-	if err != nil {
+	var snap *scoring.Snapshot
+	if s.live != nil {
+		snap = s.live.Current()
+	} else if snap, err = scoring.Embedded(); err != nil {
 		return Region{}, err
 	}
 	err = s.write(ctx, func(q *db.Queries) error {
