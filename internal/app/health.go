@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/downloads"
@@ -17,13 +16,18 @@ import (
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 )
 
-// failureOf turns a plugin error into what health watches: auth or not.
+// failure is what health watches of a plugin failure: auth or not.
+func failure(code plugin.Code, message string) *health.Failure {
+	return &health.Failure{Auth: code == plugin.CodeAuth, Message: message}
+}
+
+// failureOf turns a plugin error into what health watches.
 func failureOf(err error) *health.Failure {
 	if err == nil {
 		return nil
 	}
 	pe := plugin.AsError(err)
-	return &health.Failure{Auth: pe.Code == plugin.CodeAuth, Message: pe.Message}
+	return failure(pe.Code, pe.Message)
 }
 
 // healthDeps wires the health module to this instance's services. Everything
@@ -67,7 +71,7 @@ func watchHealth(h *health.Service, dl *downloads.Service, ix *indexers.Service)
 	ix.SetObserver(func(ctx context.Context, id int64, name string, f *indexers.Failure) {
 		var hf *health.Failure
 		if f != nil {
-			hf = &health.Failure{Auth: f.Code == plugin.CodeAuth, Message: f.Message}
+			hf = failure(f.Code, f.Message)
 		}
 		h.ObserveIndexer(ctx, health.Ref{ID: id, Name: name}, hf)
 	})
@@ -75,32 +79,18 @@ func watchHealth(h *health.Service, dl *downloads.Service, ix *indexers.Service)
 
 // ---- metadata providers ----
 
-// metadataFailure classifies a provider error for health. Not-found and rate
-// limits say nothing about the provider's health; an error that is not the
-// provider's (a canceled request) is ignored too.
-func metadataFailure(err error) (f *health.Failure, observe bool) {
-	if err == nil {
-		return nil, true
-	}
-	var me *metadata.Error
-	if !errors.As(err, &me) {
-		return nil, false
-	}
-	switch me.Code {
-	case metadata.CodeNotFound:
-		return nil, true
-	case metadata.CodeRateLimited:
-		return nil, false
-	case metadata.CodeAuth:
-		return &health.Failure{Auth: true, Message: me.Message}, true
-	}
-	return &health.Failure{Message: me.Message}, true
-}
-
+// observe tells health how a metadata call went; metadata.StandingOf decides
+// which calls count.
 func observe(ctx context.Context, h *health.Service, provider string, err error) {
-	if f, ok := metadataFailure(err); ok {
-		h.ObserveMetadata(ctx, provider, f)
+	st := metadata.StandingOf(err)
+	if !st.Counts {
+		return
 	}
+	var f *health.Failure
+	if st.Failing {
+		f = &health.Failure{Auth: st.Auth, Message: st.Message}
+	}
+	h.ObserveMetadata(ctx, provider, f)
 }
 
 type observedMeta struct {

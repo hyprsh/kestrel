@@ -1,7 +1,9 @@
 // Package app is Kestrel's composition root: it builds every module, wires
 // them together through their interfaces and hands the API the ones it calls.
 // cmd/kestrel and the API tests both start a Kestrel through it, so a test
-// drives the same wiring as the binary. It holds no behaviour of its own.
+// drives the same wiring as the binary. It holds no behaviour of its own: the
+// rules it wires (which provider errors count against health, which files are
+// re-scored when) live in the modules and in jobs.
 package app
 
 import (
