@@ -1954,6 +1954,13 @@ type Settings struct {
 		ReleaseDateCountry string `json:"release_date_country"`
 	} `json:"language_region"`
 
+	// Metadata The provider keys the UI overrides, by precedence UI override, then `KESTREL_TMDB_API_KEY` /
+	// `KESTREL_TVDB_API_KEY`, then the key embedded in the build. The keys are secrets: only whether an override is set is reported.
+	Metadata struct {
+		TmdbApiKeySet bool `json:"tmdb_api_key_set"`
+		TvdbApiKeySet bool `json:"tvdb_api_key_set"`
+	} `json:"metadata"`
+
 	// RootFolders Where Imports put Titles, one or more absolute paths per kind. The first is the default when
 	// adding a Title. Unsaved, they report `<data dir>/media/movies` and `<data dir>/media/tv`.
 	RootFolders RootFolders `json:"root_folders"`
@@ -1978,6 +1985,12 @@ type SettingsPatch struct {
 		PrimaryLanguage    *PrimaryLanguage `json:"primary_language,omitempty"`
 		ReleaseDateCountry *string          `json:"release_date_country,omitempty"`
 	} `json:"language_region,omitempty"`
+
+	// Metadata A key that is omitted stays; an empty string clears the override so the next source applies.
+	Metadata *struct {
+		TmdbApiKey *string `json:"tmdb_api_key,omitempty"`
+		TvdbApiKey *string `json:"tvdb_api_key,omitempty"`
+	} `json:"metadata,omitempty"`
 
 	// RootFolders Replaces the named lists. Each path must exist, be a directory and be writable (`not_found`, `not_directory`, `not_writable`, `not_absolute`, `required`).
 	RootFolders *struct {

@@ -77,6 +77,44 @@ func (k Keys) override(ctx context.Context, field string) (string, error) {
 	return v, nil
 }
 
+// OverridesSet says which provider keys the UI has overridden. The keys
+// themselves are secrets and are never read back out.
+type OverridesSet struct{ TMDB, TVDB bool }
+
+// OverridesSet reports which UI overrides are set.
+func (k Keys) OverridesSet(ctx context.Context) (OverridesSet, error) {
+	tmdb, err := k.override(ctx, "tmdb_api_key")
+	if err != nil {
+		return OverridesSet{}, err
+	}
+	tvdb, err := k.override(ctx, "tvdb_api_key")
+	return OverridesSet{TMDB: tmdb != "", TVDB: tvdb != ""}, err
+}
+
+// SetOverrides saves the UI's key overrides: nil leaves a key as it is, an
+// empty string clears it so the next source in the precedence applies.
+func (k Keys) SetOverrides(ctx context.Context, tmdb, tvdb *string) error {
+	doc := map[string]any{}
+	if raw, ok, err := k.Settings.Get(ctx, SettingsKey); err != nil {
+		return err
+	} else if ok {
+		if err := json.Unmarshal(raw, &doc); err != nil {
+			return fmt.Errorf("metadata: stored %s is invalid: %w", SettingsKey, err)
+		}
+	}
+	if tmdb != nil {
+		doc["tmdb_api_key"] = *tmdb
+	}
+	if tvdb != nil {
+		doc["tvdb_api_key"] = *tvdb
+	}
+	raw, err := json.Marshal(doc)
+	if err != nil {
+		return err
+	}
+	return k.Settings.Put(ctx, SettingsKey, raw)
+}
+
 // TMDB returns the key to use, or "" when no source has one.
 func (k Keys) TMDB(ctx context.Context) (string, error) {
 	if v, err := k.override(ctx, "tmdb_api_key"); err != nil || v != "" {

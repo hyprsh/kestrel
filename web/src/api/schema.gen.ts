@@ -1551,6 +1551,14 @@ export interface components {
          */
         PrimaryLanguage: "en" | "de" | "fr";
         Settings: {
+            /**
+             * @description The provider keys the UI overrides, by precedence UI override, then `KESTREL_TMDB_API_KEY` /
+             *     `KESTREL_TVDB_API_KEY`, then the key embedded in the build. The keys are secrets: only whether an override is set is reported.
+             */
+            metadata: {
+                tmdb_api_key_set: boolean;
+                tvdb_api_key_set: boolean;
+            };
             trash: {
                 /** @description Check TRaSH daily and take its newest Custom Formats and profiles. On by default (and only while "Check GitHub for updates" is on). */
                 auto_update: boolean;
@@ -1589,6 +1597,11 @@ export interface components {
         };
         SettingsPatch: {
             check_github_updates?: boolean;
+            /** @description A key that is omitted stays; an empty string clears the override so the next source applies. */
+            metadata?: {
+                tmdb_api_key?: string;
+                tvdb_api_key?: string;
+            };
             trash?: {
                 auto_update?: boolean;
             };

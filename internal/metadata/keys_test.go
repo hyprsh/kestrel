@@ -83,3 +83,38 @@ func TestTheClientSendsTheKeyThePrecedenceChose(t *testing.T) {
 		t.Errorf("keys on the wire = %v", seen)
 	}
 }
+
+func TestOverridesAreWrittenAndClearedAndNeverReadBack(t *testing.T) {
+	ctx := context.Background()
+	keys := metadata.Keys{Settings: newSettings(t), Env: "env-key", TVDBEnv: "tvdb-env"}
+	str := func(v string) *string { return &v }
+
+	if set, err := keys.OverridesSet(ctx); err != nil || set.TMDB || set.TVDB {
+		t.Fatalf("fresh = %+v, %v", set, err)
+	}
+	if err := keys.SetOverrides(ctx, str("ui-tmdb"), nil); err != nil {
+		t.Fatal(err)
+	}
+	if set, _ := keys.OverridesSet(ctx); !set.TMDB || set.TVDB {
+		t.Errorf("after setting TMDB = %+v", set)
+	}
+	if k, _ := keys.TMDB(ctx); k != "ui-tmdb" {
+		t.Errorf("TMDB key = %q, want the override", k)
+	}
+	if k, _ := keys.TVDB(ctx); k != "tvdb-env" {
+		t.Errorf("TVDB key = %q, want the untouched environment one", k)
+	}
+
+	if err := keys.SetOverrides(ctx, str(""), str("ui-tvdb")); err != nil {
+		t.Fatal(err)
+	}
+	if k, _ := keys.TMDB(ctx); k != "env-key" {
+		t.Errorf("a cleared override falls through, got %q", k)
+	}
+	if k, _ := keys.TVDB(ctx); k != "ui-tvdb" {
+		t.Errorf("TVDB key = %q", k)
+	}
+	if set, _ := keys.OverridesSet(ctx); set.TMDB || !set.TVDB {
+		t.Errorf("after clearing TMDB = %+v", set)
+	}
+}

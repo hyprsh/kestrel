@@ -120,6 +120,32 @@ func TestChangingThePrimaryLanguageRepointsProfiles(t *testing.T) {
 	}
 }
 
+func TestProviderKeyOverridesAreSavedWithTheSettingsAndNeverShownAgain(t *testing.T) {
+	b := newInstance(t, "").setUp()
+	type metaJSON struct {
+		Metadata struct {
+			TMDB bool `json:"tmdb_api_key_set"`
+			TVDB bool `json:"tvdb_api_key_set"`
+		} `json:"metadata"`
+	}
+	if got := decode[metaJSON](t, b.valid("GET", "/settings", "")); got.Metadata.TMDB || got.Metadata.TVDB {
+		t.Fatalf("fresh settings = %+v", got)
+	}
+
+	r := b.valid("PATCH", "/settings", `{"metadata":{"tmdb_api_key":"secret-tmdb"}}`)
+
+	if got := decode[metaJSON](t, r); !got.Metadata.TMDB || got.Metadata.TVDB {
+		t.Errorf("after setting TMDB = %+v", got)
+	}
+	if strings.Contains(string(r.Body), "secret-tmdb") || strings.Contains(string(b.valid("GET", "/settings", "").Body), "secret-tmdb") {
+		t.Error("the key was sent back")
+	}
+	got := decode[metaJSON](t, b.valid("PATCH", "/settings", `{"metadata":{"tmdb_api_key":"","tvdb_api_key":"secret-tvdb"}}`))
+	if got.Metadata.TMDB || !got.Metadata.TVDB {
+		t.Errorf("after clearing TMDB and setting TheTVDB = %+v", got)
+	}
+}
+
 func TestSettingsValidationAndKidsRule(t *testing.T) {
 	b := newInstance(t, "").setUp()
 	for _, body := range []string{

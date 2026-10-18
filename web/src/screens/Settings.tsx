@@ -14,6 +14,7 @@ import { UpdateCheckSwitch } from '../about/UpdateCheck'
 import { DownloadClient } from '../plugins/DownloadClient'
 import { Indexers } from '../plugins/Indexers'
 import { MediaServers } from '../plugins/MediaServers'
+import { ProviderKeysForm } from '../metadata/ProviderKeys'
 import { TrashForm } from '../trash/Trash'
 import { LanguageForm } from '../profiles/Language'
 import { RootFoldersForm } from '../rootfolders/RootFolders'
@@ -24,6 +25,7 @@ const sections = [
   { id: 'language', title: 'Primary Language' },
   { id: 'profiles', title: 'Profiles' },
   { id: 'trash', title: 'TRaSH' },
+  { id: 'metadata', title: 'Provider keys' },
   { id: 'download-client', title: 'Download client' },
   { id: 'indexers', title: 'Indexers' },
   { id: 'root-folders', title: 'Root folders' },
@@ -70,6 +72,11 @@ export function Settings({ onRunSetup, onAdopt }: { onRunSetup: () => void; onAd
         <Group id="trash" title="TRaSH">
           <Row label="Custom Formats and profiles" help="Kestrel scores Releases with TRaSH's Custom Formats. It checks daily and takes the newest set whole, after re-scoring every file under it.">
             <TrashForm />
+          </Row>
+        </Group>
+        <Group id="metadata" title="Provider keys">
+          <Row label="TMDB and TheTVDB" help="Kestrel looks Titles up with the project's own keys. Enter your own to use them instead; they are never shown again.">
+            <ProviderKeysForm />
           </Row>
         </Group>
         <Group id="download-client" title="Download client">

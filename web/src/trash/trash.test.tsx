@@ -38,6 +38,7 @@ describe('Update from TRaSH', () => {
           root_folders: { movies: ['/m'], series: ['/s'] },
           check_github_updates: true,
           trash: { auto_update: false },
+          metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
         })
       }),
     )

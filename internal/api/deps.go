@@ -45,6 +45,7 @@ type Deps struct {
 	History     History
 	Scoring     Scoring
 	Trash       Trash
+	Keys        ProviderKeys
 	Meta        metadata.Provider
 	TVDB        metadata.TVDBProvider
 	Bridge      Bridge
@@ -219,6 +220,12 @@ type Trash interface {
 	Status(ctx context.Context) trashsync.Status
 	ChangeLanguage(ctx context.Context, change func() error) error
 	AutoUpdate(ctx context.Context) (bool, error)
+}
+
+// ProviderKeys is the UI's metadata provider key overrides.
+type ProviderKeys interface {
+	OverridesSet(ctx context.Context) (metadata.OverridesSet, error)
+	SetOverrides(ctx context.Context, tmdb, tvdb *string) error
 }
 
 // Bridge maps TMDB series to TheTVDB ones.

@@ -67,7 +67,7 @@ func New(opts Options, d Deps) http.Handler {
 		plugins: d.Plugins, profiles: d.Profiles, rootFolders: d.RootFolders, settings: d.Settings, updates: d.Updates,
 		library: d.Library, acquire: d.Acquire, requests: d.Requests, adoption: d.Adoption, cleanup: d.Cleanup,
 		remover: d.Remover, imports: d.Imports, jobs: d.Jobs, refresher: d.Refresher, indexers: d.Indexers,
-		health: d.Health, history: d.History, scoring: d.Scoring, trash: d.Trash, meta: d.Meta, tvdb: d.TVDB,
+		health: d.Health, history: d.History, scoring: d.Scoring, trash: d.Trash, keys: d.Keys, meta: d.Meta, tvdb: d.TVDB,
 		bridge: d.Bridge, posters: d.Posters,
 	}
 	s.health.AddCheck("untrusted proxy header", s.checkUntrustedProxy)
@@ -130,6 +130,7 @@ type server struct {
 	history     History
 	scoring     Scoring
 	trash       Trash
+	keys        ProviderKeys
 	meta        metadata.Provider
 	tvdb        metadata.TVDBProvider
 	bridge      Bridge

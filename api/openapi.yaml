@@ -2031,8 +2031,19 @@ components:
       enum: [en, de, fr]
     Settings:
       type: object
-      required: [language_region, kids_rule, root_folders, check_github_updates, trash]
+      required: [language_region, kids_rule, root_folders, check_github_updates, trash, metadata]
       properties:
+        metadata:
+          type: object
+          required: [tmdb_api_key_set, tvdb_api_key_set]
+          description: |
+            The provider keys the UI overrides, by precedence UI override, then `KESTREL_TMDB_API_KEY` /
+            `KESTREL_TVDB_API_KEY`, then the key embedded in the build. The keys are secrets: only whether an override is set is reported.
+          properties:
+            tmdb_api_key_set:
+              type: boolean
+            tvdb_api_key_set:
+              type: boolean
         trash:
           type: object
           required: [auto_update]
@@ -2090,6 +2101,16 @@ components:
       properties:
         check_github_updates:
           type: boolean
+        metadata:
+          type: object
+          description: A key that is omitted stays; an empty string clears the override so the next source applies.
+          properties:
+            tmdb_api_key:
+              type: string
+              writeOnly: true
+            tvdb_api_key:
+              type: string
+              writeOnly: true
         trash:
           type: object
           properties:

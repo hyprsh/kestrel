@@ -19,6 +19,7 @@ function fakeSettings(onSave?: (body: unknown) => void) {
     kids_rule: { enabled: true, threshold: 6 },
     check_github_updates: true,
     trash: { auto_update: true },
+    metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
     root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'] },
   }
   server.use(

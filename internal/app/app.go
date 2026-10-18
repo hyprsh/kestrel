@@ -136,13 +136,14 @@ func New(opts Options) *App {
 		return region.Country
 	})
 
+	keys := metadata.NewKeys(appSettings, opts.TMDBAPIKey, opts.TVDBAPIKey)
 	var meta metadata.Provider = opts.Metadata
 	if meta == nil {
-		meta = metadata.NewTMDB(metadata.TMDBOptions{Keys: metadata.NewKeys(appSettings, opts.TMDBAPIKey, opts.TVDBAPIKey)})
+		meta = metadata.NewTMDB(metadata.TMDBOptions{Keys: keys})
 	}
 	var tvdb metadata.TVDBProvider = opts.TVDB
 	if tvdb == nil {
-		tvdb = metadata.NewTVDB(metadata.TVDBOptions{Keys: metadata.NewKeys(appSettings, opts.TMDBAPIKey, opts.TVDBAPIKey)})
+		tvdb = metadata.NewTVDB(metadata.TVDBOptions{Keys: keys})
 	}
 	posters := opts.Posters
 	if posters == nil {
@@ -234,7 +235,7 @@ func New(opts Options) *App {
 	}, api.Deps{
 		Plugins: pluginInstances, Profiles: profs, RootFolders: roots, Settings: settingsTx{roots, profs, trash}, Updates: upd,
 		Library: lib, Acquire: acq, Requests: reqs, Adoption: adoption, Cleanup: cleanup, Remover: remover, Imports: imp,
-		Jobs: runner, Refresher: refresher, Indexers: indexerHost, Health: healthSvc, History: hist, Scoring: live, Trash: trash,
+		Jobs: runner, Refresher: refresher, Indexers: indexerHost, Health: healthSvc, History: hist, Scoring: live, Trash: trash, Keys: keys,
 		Meta: meta, TVDB: tvdb, Bridge: &metadata.Bridge{Meta: meta, TVDB: tvdb, Log: opts.Logger}, Posters: posters,
 	})
 	return &App{Handler: handler, Jobs: runner, Health: healthSvc}

@@ -92,6 +92,11 @@ func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {
 	if err != nil {
 		return oapi.Settings{}, err
 	}
+	set, err := s.keys.OverridesSet(ctx)
+	if err != nil {
+		return oapi.Settings{}, err
+	}
+	out.Metadata.TmdbApiKeySet, out.Metadata.TvdbApiKeySet = set.TMDB, set.TVDB
 	out.KidsRule.Enabled = kids.Enabled
 	out.KidsRule.Threshold = oapi.SettingsKidsRuleThreshold(kids.Threshold)
 	return out, nil
@@ -172,6 +177,11 @@ func (s *server) patchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
+	}
+	if m := r.Body.Metadata; m != nil {
+		if err := s.keys.SetOverrides(ctx, m.TmdbApiKey, m.TvdbApiKey); err != nil {
+			return nil, err
+		}
 	}
 	if on := r.Body.CheckGithubUpdates; on != nil {
 		if err := s.updates.SetEnabled(ctx, *on); err != nil {
