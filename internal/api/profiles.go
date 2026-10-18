@@ -84,6 +84,7 @@ func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {
 		return oapi.Settings{}, err
 	}
 	var out oapi.Settings
+	out.CheckGithubUpdates = s.updates.Enabled(ctx)
 	out.RootFolders = oapi.RootFolders{Movies: roots.Movies, Series: roots.Series}
 	out.LanguageRegion.PrimaryLanguage = oapi.PrimaryLanguage(region.Primary)
 	out.LanguageRegion.ReleaseDateCountry = region.Country
@@ -145,6 +146,16 @@ func (s *server) PatchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
+	}
+	if on := r.Body.CheckGithubUpdates; on != nil {
+		if err := s.updates.SetEnabled(ctx, *on); err != nil {
+			return nil, err
+		}
+		if !*on { // nothing from GitHub stays on screen once the switch is off
+			if err := s.updates.Check(ctx); err != nil {
+				return nil, err
+			}
+		}
 	}
 	out, err := s.settingsBody(ctx)
 	if err != nil {

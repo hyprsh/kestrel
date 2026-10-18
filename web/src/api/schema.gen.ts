@@ -1054,6 +1054,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/about": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * About Kestrel
+         * @description The running version and licence, what the daily GitHub check found (an `update` is present
+         *     only when a newer release exists and the "Check GitHub for updates" switch is on), and the
+         *     TRaSH commit whose Custom Formats score Releases now. Attribution and shortcuts are static
+         *     text in the SPA; the full third-party notices are `GET /about/notices`.
+         */
+        get: operations["getAbout"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/about/notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Third-party notices
+         * @description The generated notices (Markdown as plain text): the ported Radarr and Sonarr code, TRaSH data
+         *     and the Go and npm dependencies with their licences. The same file ships in the image and with
+         *     every release as `THIRD_PARTY_NOTICES.md`.
+         */
+        get: operations["getNotices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/stream": {
         parameters: {
             query?: never;
@@ -1371,6 +1416,12 @@ export interface components {
          */
         PrimaryLanguage: "en" | "de" | "fr";
         Settings: {
+            /**
+             * @description "Check GitHub for updates" (default on). Once a day Kestrel asks GitHub for the latest release
+             *     and the published security advisories (and, with the TRaSH update, the latest TRaSH commit).
+             *     Off means no request to GitHub at all, except a manual "Update from TRaSH".
+             */
+            check_github_updates: boolean;
             root_folders: components["schemas"]["RootFolders"];
             language_region: {
                 primary_language: components["schemas"]["PrimaryLanguage"];
@@ -1398,6 +1449,7 @@ export interface components {
             series: string[];
         };
         SettingsPatch: {
+            check_github_updates?: boolean;
             /** @description Replaces the named lists. Each path must exist, be a directory and be writable (`not_found`, `not_directory`, `not_writable`, `not_absolute`, `required`). */
             root_folders?: {
                 movies?: string[];
@@ -2059,6 +2111,32 @@ export interface components {
             indexers: components["schemas"]["IndexerStatus"][];
             /** @description The data mount first, then every Root folder. */
             disks: components["schemas"]["DiskStatus"][];
+            /** @description A newer release exists. Absent when up to date or when the update check is off. */
+            update?: components["schemas"]["UpdateAvailable"] | null;
+        };
+        UpdateAvailable: {
+            /** @example 0.3.2 */
+            version: string;
+            /** @description The release page. */
+            url: string;
+        };
+        About: {
+            /**
+             * @description The running version, `dev` for local builds, `edge` for main builds.
+             * @example 0.2.0
+             */
+            version: string;
+            /** @example GPL-3.0-only */
+            license: string;
+            /** @description The TRaSH Guides commit of the data scoring Releases now. */
+            trash_commit: string;
+            check_github_updates: boolean;
+            update?: components["schemas"]["UpdateAvailable"] | null;
+            /**
+             * Format: date-time
+             * @description When the daily GitHub check last succeeded.
+             */
+            checked_at?: string | null;
         };
         ClientStatus: {
             /**
@@ -3657,6 +3735,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getAbout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The About data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["About"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getNotices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The notices. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
                 };
             };
             default: components["responses"]["Problem"];

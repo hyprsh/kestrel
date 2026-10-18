@@ -1306,6 +1306,43 @@ paths:
                 $ref: "#/components/schemas/SystemStatus"
         default:
           $ref: "#/components/responses/Problem"
+  /about:
+    get:
+      operationId: getAbout
+      summary: About Kestrel
+      description: |
+        The running version and licence, what the daily GitHub check found (an `update` is present
+        only when a newer release exists and the "Check GitHub for updates" switch is on), and the
+        TRaSH commit whose Custom Formats score Releases now. Attribution and shortcuts are static
+        text in the SPA; the full third-party notices are `GET /about/notices`.
+      tags: [system]
+      responses:
+        "200":
+          description: The About data.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/About"
+        default:
+          $ref: "#/components/responses/Problem"
+  /about/notices:
+    get:
+      operationId: getNotices
+      summary: Third-party notices
+      description: |
+        The generated notices (Markdown as plain text): the ported Radarr and Sonarr code, TRaSH data
+        and the Go and npm dependencies with their licences. The same file ships in the image and with
+        every release as `THIRD_PARTY_NOTICES.md`.
+      tags: [system]
+      responses:
+        "200":
+          description: The notices.
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Problem"
   /stream:
     get:
       operationId: stream
@@ -1859,8 +1896,14 @@ components:
       enum: [en, de, fr]
     Settings:
       type: object
-      required: [language_region, kids_rule, root_folders]
+      required: [language_region, kids_rule, root_folders, check_github_updates]
       properties:
+        check_github_updates:
+          type: boolean
+          description: |
+            "Check GitHub for updates" (default on). Once a day Kestrel asks GitHub for the latest release
+            and the published security advisories (and, with the TRaSH update, the latest TRaSH commit).
+            Off means no request to GitHub at all, except a manual "Update from TRaSH".
         root_folders:
           $ref: "#/components/schemas/RootFolders"
         language_region:
@@ -1903,6 +1946,8 @@ components:
     SettingsPatch:
       type: object
       properties:
+        check_github_updates:
+          type: boolean
         root_folders:
           type: object
           description: Replaces the named lists. Each path must exist, be a directory and be writable (`not_found`, `not_directory`, `not_writable`, `not_absolute`, `required`).
@@ -3084,6 +3129,46 @@ components:
           description: The data mount first, then every Root folder.
           items:
             $ref: "#/components/schemas/DiskStatus"
+        update:
+          allOf:
+            - $ref: "#/components/schemas/UpdateAvailable"
+          nullable: true
+          description: A newer release exists. Absent when up to date or when the update check is off.
+    UpdateAvailable:
+      type: object
+      required: [version, url]
+      properties:
+        version:
+          type: string
+          example: 0.3.2
+        url:
+          type: string
+          description: The release page.
+    About:
+      type: object
+      required: [version, license, trash_commit, check_github_updates]
+      properties:
+        version:
+          type: string
+          description: The running version, `dev` for local builds, `edge` for main builds.
+          example: 0.2.0
+        license:
+          type: string
+          example: GPL-3.0-only
+        trash_commit:
+          type: string
+          description: The TRaSH Guides commit of the data scoring Releases now.
+        check_github_updates:
+          type: boolean
+        update:
+          allOf:
+            - $ref: "#/components/schemas/UpdateAvailable"
+          nullable: true
+        checked_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the daily GitHub check last succeeded.
     ClientStatus:
       type: object
       required: [state, name, instance_id, message]

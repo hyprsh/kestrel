@@ -56,6 +56,9 @@ var attentionActions = map[health.Kind]func(health.Row) []oapi.AttentionAction{
 			{Key: "keep", Label: "Keep as is", Method: oapi.PATCH, Path: path, Body: &map[string]any{"metadata_frozen": true}},
 		}
 	},
+	health.KindSecurityFix: func(health.Row) []oapi.AttentionAction {
+		return []oapi.AttentionAction{{Key: "open", Label: "Open About", Method: oapi.GET, Path: "/about"}}
+	},
 	health.KindProxyHeader: func(health.Row) []oapi.AttentionAction {
 		return []oapi.AttentionAction{openSettings("security", "Open Security")}
 	},
@@ -194,6 +197,10 @@ func (s *server) DismissAttention(ctx context.Context, r oapi.DismissAttentionRe
 // GetSystemStatus is the `status` read model behind the health strip.
 func (s *server) GetSystemStatus(ctx context.Context, _ oapi.GetSystemStatusRequestObject) (oapi.GetSystemStatusResponseObject, error) {
 	out := oapi.SystemStatus{Indexers: []oapi.IndexerStatus{}, Disks: []oapi.DiskStatus{}, DownloadClient: oapi.ClientStatus{State: oapi.ClientStatusState("none")}}
+
+	if u := s.updates.Info(ctx); u.UpdateAvailable {
+		out.Update = &oapi.UpdateAvailable{Version: u.Latest, Url: u.URL}
+	}
 
 	clients, err := s.plugins.Enabled(ctx, downloadclient.Contract.ID)
 	if err != nil {

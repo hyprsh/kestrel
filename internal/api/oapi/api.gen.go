@@ -823,6 +823,26 @@ func (e ListTitlesParamsSort) Valid() bool {
 	}
 }
 
+// About defines model for About.
+type About struct {
+	CheckGithubUpdates bool `json:"check_github_updates"`
+
+	// CheckedAt When the daily GitHub check last succeeded.
+	CheckedAt *time.Time `json:"checked_at,omitempty"`
+
+	// License Example: GPL-3.0-only
+	License string `json:"license"`
+
+	// TrashCommit The TRaSH Guides commit of the data scoring Releases now.
+	TrashCommit string           `json:"trash_commit"`
+	Update      *UpdateAvailable `json:"update,omitempty"`
+
+	// Version The running version, `dev` for local builds, `edge` for main builds.
+	//
+	// Example: 0.2.0
+	Version string `json:"version"`
+}
+
 // ActivitySnapshot defines model for ActivitySnapshot.
 type ActivitySnapshot struct {
 	// Running Names of the background loops mid-pass right now.
@@ -1795,7 +1815,11 @@ type SeriesMonitor string
 
 // Settings defines model for Settings.
 type Settings struct {
-	KidsRule struct {
+	// CheckGithubUpdates "Check GitHub for updates" (default on). Once a day Kestrel asks GitHub for the latest release
+	// and the published security advisories (and, with the TRaSH update, the latest TRaSH commit).
+	// Off means no request to GitHub at all, except a manual "Update from TRaSH".
+	CheckGithubUpdates bool `json:"check_github_updates"`
+	KidsRule           struct {
 		Enabled bool `json:"enabled"`
 
 		// Threshold Titles certified at or below this age get the Kids Profile in HD.
@@ -1821,7 +1845,8 @@ type SettingsKidsRuleThreshold int
 
 // SettingsPatch defines model for SettingsPatch.
 type SettingsPatch struct {
-	KidsRule *struct {
+	CheckGithubUpdates *bool `json:"check_github_updates,omitempty"`
+	KidsRule           *struct {
 		Enabled   *bool `json:"enabled,omitempty"`
 		Threshold *int  `json:"threshold,omitempty"`
 	} `json:"kids_rule,omitempty"`
@@ -1921,6 +1946,9 @@ type SystemStatus struct {
 	Disks          []DiskStatus    `json:"disks"`
 	DownloadClient ClientStatus    `json:"download_client"`
 	Indexers       []IndexerStatus `json:"indexers"`
+
+	// Update A newer release exists. Absent when up to date or when the update check is off.
+	Update *UpdateAvailable `json:"update,omitempty"`
 }
 
 // TitleCreate defines model for TitleCreate.
@@ -2030,6 +2058,15 @@ type UntrustedProxyHeader struct {
 
 	// Value The header value from the latest request.
 	Value string `json:"value"`
+}
+
+// UpdateAvailable defines model for UpdateAvailable.
+type UpdateAvailable struct {
+	// Url The release page.
+	Url string `json:"url"`
+
+	// Version Example: 0.3.2
+	Version string `json:"version"`
 }
 
 // VersionDetail defines model for VersionDetail.
@@ -2270,6 +2307,12 @@ type SearchVersionReleasesJSONRequestBody = ReleaseSearch
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// GetAbout About Kestrel
+	// (GET /about)
+	GetAbout(w http.ResponseWriter, r *http.Request)
+	// GetNotices Third-party notices
+	// (GET /about/notices)
+	GetNotices(w http.ResponseWriter, r *http.Request)
 	// ChangePassword Change the admin password
 	// (POST /account/password)
 	ChangePassword(w http.ResponseWriter, r *http.Request)
@@ -2478,6 +2521,34 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// GetAbout operation middleware
+func (siw *ServerInterfaceWrapper) GetAbout(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAbout(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetNotices operation middleware
+func (siw *ServerInterfaceWrapper) GetNotices(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetNotices(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // ChangePassword operation middleware
 func (siw *ServerInterfaceWrapper) ChangePassword(w http.ResponseWriter, r *http.Request) {
@@ -4166,6 +4237,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/cleanup/run", wrapper.RunCleanup)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/wanted/search", wrapper.SearchAllWanted)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/system/status", wrapper.GetSystemStatus)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/about", wrapper.GetAbout)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/about/notices", wrapper.GetNotices)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/stream", wrapper.Stream)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/requests", wrapper.ListRequests)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/requests", wrapper.CreateRequest)
@@ -4184,6 +4257,79 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 }
 
 type ProblemApplicationProblemPlusJSONResponse Problem
+
+type GetAboutRequestObject struct {
+}
+
+type GetAboutResponseObject interface {
+	VisitGetAboutResponse(w http.ResponseWriter) error
+}
+
+type GetAbout200JSONResponse About
+
+func (response GetAbout200JSONResponse) VisitGetAboutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAboutdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetAboutdefaultApplicationProblemPlusJSONResponse) VisitGetAboutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetNoticesRequestObject struct {
+}
+
+type GetNoticesResponseObject interface {
+	VisitGetNoticesResponse(w http.ResponseWriter) error
+}
+
+type GetNotices200TextResponse string
+
+func (response GetNotices200TextResponse) VisitGetNoticesResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(200)
+
+	_, err := w.Write([]byte(fmt.Sprint(response)))
+	return err
+}
+
+type GetNoticesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetNoticesdefaultApplicationProblemPlusJSONResponse) VisitGetNoticesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type ChangePasswordRequestObject struct {
 	Body *ChangePasswordJSONRequestBody
@@ -7891,6 +8037,12 @@ func (response SearchAllWanteddefaultApplicationProblemPlusJSONResponse) VisitSe
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// GetAbout About Kestrel
+	// (GET /about)
+	GetAbout(ctx context.Context, request GetAboutRequestObject) (GetAboutResponseObject, error)
+	// GetNotices Third-party notices
+	// (GET /about/notices)
+	GetNotices(ctx context.Context, request GetNoticesRequestObject) (GetNoticesResponseObject, error)
 	// ChangePassword Change the admin password
 	// (POST /account/password)
 	ChangePassword(ctx context.Context, request ChangePasswordRequestObject) (ChangePasswordResponseObject, error)
@@ -8128,6 +8280,54 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// GetAbout operation middleware
+func (sh *strictHandler) GetAbout(w http.ResponseWriter, r *http.Request) {
+	var request GetAboutRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAbout(ctx, request.(GetAboutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAbout")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAboutResponseObject); ok {
+		if err := validResponse.VisitGetAboutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetNotices operation middleware
+func (sh *strictHandler) GetNotices(w http.ResponseWriter, r *http.Request) {
+	var request GetNoticesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetNotices(ctx, request.(GetNoticesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetNotices")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetNoticesResponseObject); ok {
+		if err := validResponse.VisitGetNoticesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // ChangePassword operation middleware

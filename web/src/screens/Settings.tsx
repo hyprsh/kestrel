@@ -10,6 +10,7 @@ import {
   type ReverseProxy,
 } from '../api/queries'
 import { Button, ErrorText, Field, TextInput } from '../forms'
+import { UpdateCheckSwitch } from '../about/UpdateCheck'
 import { DownloadClient } from '../plugins/DownloadClient'
 import { Indexers } from '../plugins/Indexers'
 import { LanguageForm } from '../profiles/Language'
@@ -25,6 +26,7 @@ const sections = [
   { id: 'root-folders', title: 'Root folders' },
   { id: 'adoption', title: 'Existing files' },
   { id: 'account', title: 'Account' },
+  { id: 'updates', title: 'Updates' },
   { id: 'security', title: 'Security' },
   { id: 'setup', title: 'Setup' },
 ]
@@ -84,6 +86,11 @@ export function Settings({ onRunSetup, onAdopt }: { onRunSetup: () => void; onAd
         <Group id="account" title="Account">
           <ChangePassword />
           <LogOutEverywhere />
+        </Group>
+        <Group id="updates" title="Updates">
+          <Row label="GitHub" help="One switch for the daily release, security advisory and TRaSH checks.">
+            <UpdateCheckSwitch />
+          </Row>
         </Group>
         <Group id="security" title="Security">
           <ApiKeyRow />

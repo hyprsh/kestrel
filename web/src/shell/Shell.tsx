@@ -1,5 +1,6 @@
 // The Geist shell: a thin icon rail plus a top bar with the command-menu entry.
 // Ported from the prototype's variant C; screens arrive with later tickets.
+import { About } from '../about/About'
 import { CalendarClock, Inbox, Info, LibraryBig, LogOut, Monitor, Moon, Plus, ScrollText, Search, Settings, Sun } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -117,6 +118,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
               onSelect={setLibraryId}
               onAdd={() => setMenu({ mode: 'add' })}
             />
+          ) : screen === 'about' ? (
+            <About />
           ) : screen === 'overview' ? (
             <Overview onOpen={goPath} />
           ) : (

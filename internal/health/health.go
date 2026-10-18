@@ -58,6 +58,8 @@ const (
 	KindLowDisk Kind = "low_disk_space"
 	// KindProxyHeader: the reverse-proxy user header came from an address that is not a trusted proxy (Warning).
 	KindProxyHeader Kind = "untrusted_proxy_header"
+	// KindSecurityFix: a published GHSA covers the running version (Warning).
+	KindSecurityFix Kind = "security_fix_available"
 
 	// KindGoneUpstream: the metadata provider deleted or merged a Title's entry (Warning).
 	KindGoneUpstream Kind = "title_gone_upstream"

@@ -54,6 +54,7 @@ export const handlers = [
     response(200).json({
       language_region: { primary_language: 'en', release_date_country: 'US' },
       kids_rule: { enabled: true, threshold: 6 },
+      check_github_updates: true,
       root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'] },
     }),
   ),

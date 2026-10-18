@@ -257,7 +257,7 @@ export function usePatchSettings() {
       if (!data) throw failure(error, response)
       return data
     },
-    onSuccess: () => Promise.all(['settings', 'profiles', 'setup'].map((k) => qc.invalidateQueries({ queryKey: [k] }))),
+    onSuccess: () => Promise.all(['settings', 'profiles', 'setup', 'about', 'status', 'attention'].map((k) => qc.invalidateQueries({ queryKey: [k] }))),
   })
 }
 

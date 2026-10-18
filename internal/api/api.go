@@ -35,6 +35,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/updates"
 )
 
 // Major is the API major version: the N in /api/vN.
@@ -85,6 +86,8 @@ type Options struct {
 	// DiskSpace reads the free space of a path for the disk checks; nil means the
 	// operating system's. Tests inject a full disk.
 	DiskSpace func(path string) (health.Space, error)
+	// GitHubAPI is the GitHub API root for the update check; empty means api.github.com. Tests inject a fake.
+	GitHubAPI string
 }
 
 // App is Kestrel's wired services: the HTTP handler and the background loops.
@@ -194,7 +197,8 @@ func New(opts Options) *App {
 		Done:    func(id int64) { s.hub.publish(hintOf("title", id), hintOf("attention", 0)) },
 		History: s.history, Health: s.health, Clock: opts.Clock, Logger: opts.Logger,
 	})
-	s.jobs = jobs.Standard(jobs.Deps{Refresher: s.refresher, Acquire: acq, Library: s.library, History: s.history, Health: s.health, Importer: imp, ImportSource: acq, Clock: opts.Clock, Logger: opts.Logger})
+	s.updates = updates.New(updates.Deps{Settings: appSettings, Health: s.health, Version: opts.Version, APIBase: opts.GitHubAPI, Clock: opts.Clock})
+	s.jobs = jobs.Standard(jobs.Deps{Refresher: s.refresher, Updates: s.updates, Acquire: acq, Library: s.library, History: s.history, Health: s.health, Importer: imp, ImportSource: acq, Clock: opts.Clock, Logger: opts.Logger})
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ping", s.ping)
@@ -236,6 +240,7 @@ type server struct {
 	plugins     *instances.Service
 	profiles    *profiles.Service
 	rootFolders *rootfolders.Service
+	updates     *updates.Service
 	library     *library.Service
 	acquire     *acquire.Service
 	requests    *requests.Service

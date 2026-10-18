@@ -30,6 +30,8 @@ const (
 	RSS = "rss"
 	// Health runs the health checks (disk, Root folders, indexers, the download client) every 5 min.
 	Health = "health"
+	// Updates asks GitHub once a day for a newer release and security advisories.
+	Updates = "updates"
 )
 
 // Cadences. How long a Version waits between missing and Upgrade searches is
@@ -48,11 +50,17 @@ const (
 	importWorkers = 2
 	pruneEvery    = 24 * time.Hour
 	healthEvery   = 5 * time.Minute
+	updatesEvery  = 24 * time.Hour
 )
 
 // HealthChecker is what the loops need of the health module.
 type HealthChecker interface {
 	RunChecks(ctx context.Context) error
+}
+
+// UpdateChecker is what the loops need of the updates module.
+type UpdateChecker interface {
+	Check(ctx context.Context) error
 }
 
 // Acquirer is what the loops need of the acquire module.
@@ -104,6 +112,8 @@ type Deps struct {
 	History   History
 	// Health is optional; without it there is no health loop.
 	Health HealthChecker
+	// Updates is optional; without it there is no update check.
+	Updates UpdateChecker
 	// Importer and ImportSource enable the Import loop; leave both nil for none.
 	Importer     Importer
 	ImportSource ImportSource
@@ -179,6 +189,14 @@ func Standard(d Deps) *Runner {
 			Name:  Refresh,
 			Run:   d.Refresher.Daily,
 			Every: func() time.Duration { return refreshCheckEvery },
+		})
+	}
+
+	if d.Updates != nil {
+		r.Add(Loop{
+			Name:  Updates,
+			Run:   d.Updates.Check,
+			Every: func() time.Duration { return updatesEvery },
 		})
 	}
 

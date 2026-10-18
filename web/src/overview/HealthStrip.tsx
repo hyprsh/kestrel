@@ -48,6 +48,7 @@ export function HealthStrip() {
               detail={i.state === 'failing' && i.message ? `failing: ${i.message}` : i.state}
             />
           ))}
+          {s.update && <Item label="Update" state="idle" detail={`Kestrel ${s.update.version} available`} />}
           {s.disks.map((d) => (
             <Item key={d.path} label={d.path} state="idle" detail={`${formatBytes(d.free_bytes)} free of ${formatBytes(d.total_bytes)}`} />
           ))}
