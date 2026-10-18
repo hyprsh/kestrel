@@ -163,12 +163,18 @@ func (s *Service) AdoptMovie(ctx context.Context, a AdoptMovie) (int64, []File, 
 			replaced = append(replaced, fileOf(o))
 		}
 		f := v.File
-		if _, err := q.InsertFile(ctx, db.InsertFileParams{
+		fileID, err := q.InsertFile(ctx, db.InsertFileParams{
 			VersionID: vid, Path: f.Path, Size: f.Size, ReleaseName: f.ReleaseName,
 			ParsedRelease: nullStr(f.ParsedRelease), Probe: nullStr(f.Probe), Score: sql.NullInt64{Int64: int64(f.Score), Valid: true},
 			ImportedAt: ts(now),
-		}); err != nil {
+		})
+		if err != nil {
 			return 0, nil, err
+		}
+		if f.Misfit {
+			if err := q.SetMisfit(ctx, fileID); err != nil {
+				return 0, nil, err
+			}
 		}
 	}
 	return id, replaced, tx.Commit()

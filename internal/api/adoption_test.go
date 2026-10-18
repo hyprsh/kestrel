@@ -28,6 +28,10 @@ func (pathProber) Probe(_ context.Context, path string) (probe.Info, error) {
 		i := goodProbe()
 		i.Width, i.Height = 3840, 2160
 		return i, nil
+	case strings.Contains(path, "french"):
+		i := goodProbe()
+		i.Audio = []probe.AudioTrack{{Index: 1, Codec: "eac3", Channels: 6, Language: "fra", Default: true}}
+		return i, nil
 	case strings.Contains(path, "short"):
 		i := goodProbe()
 		i.Duration = 10 * time.Minute

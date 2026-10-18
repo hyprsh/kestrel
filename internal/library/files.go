@@ -19,6 +19,8 @@ type NewFile struct {
 	Probe         string
 	Score         int
 	GrabID        int64
+	// Misfit marks a file that fails its Version's Profile gates (Adoption); the Version is Wanted.
+	Misfit bool
 }
 
 func fileOf(f db.File) File {

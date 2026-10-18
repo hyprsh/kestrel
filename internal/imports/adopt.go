@@ -154,6 +154,7 @@ type PlanFile struct {
 	// Left says why the file is not adopted whatever is ticked; "" when it is.
 	Left        string          `json:"left,omitempty"`
 	Subtitles   []PlanSub       `json:"subtitles,omitempty"`
+	Misfit      bool            `json:"misfit"`
 	ReleaseName string          `json:"release_name"`
 	Parsed      json.RawMessage `json:"parsed"`
 	Probe       json.RawMessage `json:"probe"`
