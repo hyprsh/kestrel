@@ -281,6 +281,45 @@ func TestACrashAfterTheRowWasWrittenIsFinishedByTheRerun(t *testing.T) {
 	}
 }
 
+func TestACrashAfterTheRowReplacedAnEpisodeFileStillDeletesTheOldFileOnTheRerun(t *testing.T) {
+	ctx := context.Background()
+	s := newSeriesRig(t)
+	dir := filepath.Join(s.root, seriesRoot, "Season 01")
+	old := filepath.Join(dir, "old.mkv")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(old, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.lib.ReplaceEpisodeFile(ctx, s.titleID, seriesRoot, library.NewFile{VersionID: s.version, Path: old, Size: 3, ReleaseName: "old", Score: -5000}, []int64{s.eps[0].ID}); err != nil {
+		t.Fatal(err)
+	}
+	g := s.download(t, "Night.Show.S01E01.1080p.WEB-DL.H264-GRP", 9, []string{"x.mkv"})
+	s.hook = func(step string) error {
+		if step == "committed" {
+			return errors.New("killed")
+		}
+		return nil
+	}
+	if res := s.svc.Import(ctx, g); res.Status != imports.Stalled {
+		t.Fatalf("first run = %+v", res)
+	}
+	s.hook = nil
+
+	res := s.svc.Import(ctx, g)
+
+	if res.Status != imports.Imported {
+		t.Fatalf("rerun = %+v", res)
+	}
+	if _, err := os.Stat(old); !os.IsNotExist(err) {
+		t.Error("the replaced file was orphaned on disk")
+	}
+	if entries, _ := os.ReadDir(dir); len(entries) != 1 {
+		t.Errorf("season folder holds %d files, want only the new one", len(entries))
+	}
+}
+
 func TestAnImportedEpisodeTellsTheMediaServersTheSeriesFolderNotTheSeasonFolder(t *testing.T) {
 	s := newSeriesRig(t)
 	g := s.download(t, "Night.Show.S01E01.1080p.WEB-DL.H264-GRP", 1, []string{"night.show.s01e01.1080p.mkv"})

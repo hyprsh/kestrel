@@ -94,11 +94,13 @@ func (s *Service) importSeries(ctx context.Context, g Grab, d library.Detail, ve
 	done := map[string]library.File{}
 	for _, f := range recorded {
 		done[f.Path] = f
-		if p := partialPath(g.ID, f.Path); exists(p) {
+		p := partialPath(g.ID, f.Path)
+		if exists(p) {
 			if err := os.Rename(p, f.Path); err != nil {
 				return stalledBy(err)
 			}
 		}
+		settleReplaces(p, f.Path)
 	}
 
 	src, err := selectFiles(g.SourcePath)
@@ -417,12 +419,27 @@ func (in *seriesImport) file(ctx context.Context, video string, out *Result) {
 	}
 	parsedJSON, _ := json.Marshal(fileParsed)
 	probeJSON, _ := json.Marshal(info)
+	// Name the files this one replaces before the row swaps them, so a crash after the commit still deletes them.
+	going, err := s.lib.FilesReplacedBy(ctx, in.g.VersionID, ids)
+	if err != nil {
+		_ = os.Remove(partial)
+		stall(err)
+		return
+	}
+	var goingPaths []string
+	for _, f := range going {
+		if f.Path != target {
+			goingPaths = append(goingPaths, f.Path)
+		}
+	}
+	writeReplaces(partial, goingPaths)
 	replaced, err := s.lib.ReplaceEpisodeFile(ctx, in.g.TitleID, in.folder, library.NewFile{
 		VersionID: in.g.VersionID, Path: target, Size: info.Size, ReleaseName: in.g.ReleaseName,
 		ParsedRelease: string(parsedJSON), Probe: string(probeJSON), Score: verdict.Score, GrabID: in.g.ID,
 	}, ids)
 	if err != nil {
 		_ = os.Remove(partial)
+		_ = os.Remove(replacesMarker(partial))
 		stall(err)
 		return
 	}
@@ -439,6 +456,7 @@ func (in *seriesImport) file(ctx context.Context, video string, out *Result) {
 			removeWithSidecars(old.Path)
 		}
 	}
+	settleReplaces(partial, target)
 	in.held = append(in.held, target)
 	s.sidecars(in.subsOf(video), target, in.primary, in.original)
 	if in.g.CanRemove {

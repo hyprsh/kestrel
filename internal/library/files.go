@@ -108,6 +108,44 @@ func (s *Service) ReplaceEpisodeFile(ctx context.Context, titleID int64, folder 
 	return replaced, tx.Commit()
 }
 
+// FilesReplacedBy lists the files of a Version that a new file for these
+// episodes would leave holding no episode: the ones ReplaceEpisodeFile deletes.
+// An Import names them before it commits, so a crash cannot orphan them.
+func (s *Service) FilesReplacedBy(ctx context.Context, versionID int64, episodeIDs []int64) ([]File, error) {
+	q := db.New(s.st.Read())
+	taken := map[int64]int64{} // file id -> how many of the episodes it holds
+	var order []int64
+	for _, ep := range episodeIDs {
+		id, err := q.GetFileOfVersionEpisode(ctx, db.GetFileOfVersionEpisodeParams{VersionID: versionID, EpisodeID: ep})
+		if errors.Is(err, sql.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if taken[id] == 0 {
+			order = append(order, id)
+		}
+		taken[id]++
+	}
+	var out []File
+	for _, id := range order {
+		held, err := q.CountFileEpisodes(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if held > taken[id] {
+			continue // it still holds other episodes
+		}
+		row, err := q.GetFile(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, fileOf(row))
+	}
+	return out, nil
+}
+
 // FilesOfGrab returns the files an Import recorded for a Grab, oldest first.
 func (s *Service) FilesOfGrab(ctx context.Context, grabID int64) ([]File, error) {
 	rows, err := db.New(s.st.Read()).ListFilesOfGrab(ctx, sql.NullInt64{Int64: grabID, Valid: true})

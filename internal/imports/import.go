@@ -93,6 +93,7 @@ type Library interface {
 	// at once, the files an earlier run of this Grab recorded and the paths a
 	// Version holds.
 	Episodes(ctx context.Context, titleID int64, view library.View) ([]library.Episode, error)
+	FilesReplacedBy(ctx context.Context, versionID int64, episodeIDs []int64) ([]library.File, error)
 	ReplaceEpisodeFile(ctx context.Context, titleID int64, folder string, f library.NewFile, episodeIDs []int64) ([]library.File, error)
 	FilesOfGrab(ctx context.Context, grabID int64) ([]library.File, error)
 	PathsOfVersion(ctx context.Context, versionID int64) ([]string, error)
