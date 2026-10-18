@@ -80,6 +80,29 @@ func TestAFailedDownloadIsBlocklistedAndTheNextBestReleaseGrabbed(t *testing.T) 
 	}
 }
 
+func TestAFailedUpgradeIsBlocklistedAndTheNextBestUpgradeGrabbed(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	r.fill(t, -100000)
+	r.publish(t, hd1080, time.Hour)
+	r.publish(t, hd1080web, 2*time.Hour)
+	out, err := r.svc.SearchUpgrades(ctx, r.titleID, r.wanted(t, resolution.HD))
+	if err != nil || len(out.Grabbed) != 1 {
+		t.Fatalf("SearchUpgrades = %+v, %v", out, err)
+	}
+	first := out.Grabbed[0]
+	_ = r.sab.Fail(first.ClientID, downloadclient.FailureFailed, "Aborted, cannot be completed")
+
+	if _, err := r.svc.Poll(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	a := r.active(t)
+	if len(a) != 1 || a[0].ReleaseName == first.ReleaseName || !a[0].IsUpgrade {
+		t.Fatalf("active = %+v, want the other Release as an Upgrade", a)
+	}
+}
+
 func TestAnEncryptedDownloadIsBlocklistedAndRetried(t *testing.T) {
 	ctx := context.Background()
 	r := newRig(t)
