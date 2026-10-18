@@ -23,13 +23,14 @@ const sections = [
   { id: 'download-client', title: 'Download client' },
   { id: 'indexers', title: 'Indexers' },
   { id: 'root-folders', title: 'Root folders' },
+  { id: 'adoption', title: 'Existing files' },
   { id: 'account', title: 'Account' },
   { id: 'security', title: 'Security' },
   { id: 'setup', title: 'Setup' },
 ]
 
 /** One page with a jump list on the left; each section is a group of rows. */
-export function Settings({ onRunSetup }: { onRunSetup: () => void }) {
+export function Settings({ onRunSetup, onAdopt }: { onRunSetup: () => void; onAdopt: () => void }) {
   return (
     <div className="flex min-h-0 flex-1 overflow-auto">
       <nav aria-label="Settings sections" className="sticky top-0 w-48 shrink-0 self-start p-4">
@@ -71,6 +72,13 @@ export function Settings({ onRunSetup }: { onRunSetup: () => void }) {
         <Group id="root-folders" title="Root folders">
           <Row label="Folders" help="Where Imports put Movies and Series. The first of each kind is the default when adding a Title.">
             <RootFoldersForm />
+          </Row>
+        </Group>
+        <Group id="adoption" title="Existing files">
+          <Row label="Adopt existing library" help="Scan the Movie Root folders for files Kestrel does not manage yet and take them over without downloading again.">
+            <Button variant="secondary" onClick={onAdopt}>
+              Scan for unmanaged files
+            </Button>
           </Row>
         </Group>
         <Group id="account" title="Account">
