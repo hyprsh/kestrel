@@ -111,9 +111,9 @@ func (s *server) Lookup(ctx context.Context, r oapi.LookupRequestObject) (oapi.L
 	if err != nil {
 		return nil, err
 	}
-	tvdb, err := s.bridgeAll(ctx, seriesIDs)
+	tvdb, err := s.bridge.Lookup(ctx, seriesIDs)
 	if err != nil {
-		return nil, err
+		return nil, metaProblem(err)
 	}
 	out := oapi.LookupList{Items: []oapi.LookupResult{}}
 	for _, h := range hits {
@@ -129,10 +129,10 @@ func (s *server) Lookup(ctx context.Context, r oapi.LookupRequestObject) (oapi.L
 		} else {
 			res.Kind = oapi.Series
 			b := tvdb[h.TMDBID]
-			res.TvdbId = intPtr(b.id)
-			if b.id == 0 {
+			res.TvdbId = intPtr(b.ID)
+			if b.ID == 0 {
 				res.Addable = false
-				res.NotAddableReason = &b.reason
+				res.NotAddableReason = &b.Reason
 			}
 			if id, ok := inSeries[h.TMDBID]; ok {
 				res.InLibrary = &id

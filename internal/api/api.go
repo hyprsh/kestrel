@@ -162,6 +162,7 @@ func New(opts Options) *App {
 	if s.tvdb == nil {
 		s.tvdb = metadata.NewTVDB(metadata.TVDBOptions{Keys: metadata.NewKeys(appSettings, opts.TMDBAPIKey, opts.TVDBAPIKey)})
 	}
+	s.bridge = &metadata.Bridge{Meta: s.meta, TVDB: s.tvdb, Log: opts.Logger}
 	s.posters = opts.Posters
 	if s.posters == nil {
 		s.posters = metadata.NewPosters(metadata.PostersOptions{ConfigDir: opts.ConfigDir})
@@ -296,6 +297,7 @@ type server struct {
 	hub          *hub
 	meta         metadata.Provider
 	tvdb         metadata.TVDBProvider
+	bridge       *metadata.Bridge
 	posters      *metadata.Posters
 }
 

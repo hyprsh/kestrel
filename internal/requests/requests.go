@@ -399,18 +399,13 @@ func (s *Service) resolveTitle(ctx context.Context, in Input) (target, Reason, e
 	if err != nil {
 		return t, "", err
 	}
-	tvdbID := sd.TVDBID
-	if tvdbID == 0 {
-		tvdbID = in.TVDBID
+	known := sd.TVDBID
+	if known == 0 {
+		known = in.TVDBID
 	}
-	if tvdbID == 0 && sd.IMDbID != "" {
-		found, ok, err := s.d.TVDB.SeriesByIMDb(ctx, sd.IMDbID)
-		if err != nil {
-			return t, "", err
-		}
-		if ok {
-			tvdbID = found
-		}
+	tvdbID, err := metadata.TVDBIDOf(ctx, s.d.TVDB, known, sd.IMDbID)
+	if err != nil {
+		return t, "", err
 	}
 	if tvdbID == 0 {
 		return t, NotOnTVDB, nil

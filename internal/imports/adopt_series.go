@@ -110,7 +110,7 @@ func (a *Adoption) seriesFacts(ctx context.Context, e *env, tmdbID int) (seriesF
 		TMDBID: tmdbID, Title: d.Title, OriginalTitle: d.OriginalTitle, Year: d.Year, Runtime: d.Runtime,
 		OriginalISO: d.OriginalLanguage, Rel: d.Ratings, eps: map[library.EpisodeRef]epInfo{},
 	}
-	f.TVDBID, err = a.tvdbIDOf(ctx, d)
+	f.TVDBID, err = metadata.TVDBIDOf(ctx, a.d.TVDB, d.TVDBID, d.IMDbID)
 	if err != nil {
 		return seriesFacts{}, err
 	}
@@ -134,25 +134,6 @@ func (a *Adoption) seriesFacts(ctx context.Context, e *env, tmdbID int) (seriesF
 		f.eps[library.EpisodeRef{Season: ep.Season, Number: ep.Number}] = epInfo{season: ep.Season, number: ep.Number, air: air, name: ep.Name}
 	}
 	return f, nil
-}
-
-// tvdbIDOf is the TheTVDB id of a TMDB Series: TMDB's own, else TheTVDB's
-// remote-id search by IMDb id; 0 when TheTVDB does not have it.
-func (a *Adoption) tvdbIDOf(ctx context.Context, d metadata.SeriesDetails) (int, error) {
-	if d.TVDBID != 0 {
-		return d.TVDBID, nil
-	}
-	if d.IMDbID == "" {
-		return 0, nil
-	}
-	id, ok, err := a.d.TVDB.SeriesByIMDb(ctx, d.IMDbID)
-	if err != nil {
-		return 0, err
-	}
-	if !ok {
-		return 0, nil
-	}
-	return id, nil
 }
 
 // refsOf are the episodes TheTVDB lists that a parsed file name names: by

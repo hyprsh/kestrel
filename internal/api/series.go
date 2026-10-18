@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"sync"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/jobs"
@@ -13,79 +12,6 @@ import (
 	"github.com/hyprsh/kestrel/internal/metadata"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
-
-// Reasons a Series cannot be added, for `not_addable_reason`.
-const (
-	reasonNotOnTVDB       = "not_on_tvdb"
-	reasonTVDBUnavailable = "tvdb_unavailable"
-)
-
-// bridged is a Series' TheTVDB id, or why it has none.
-type bridged struct {
-	id     int
-	reason string
-}
-
-// bridge finds a TMDB series' TheTVDB id: TMDB's own external ids first, else a
-// TheTVDB remote-id search by IMDb id. A series with neither is not on TheTVDB.
-func (s *server) bridge(ctx context.Context, tvdbID int, imdbID string) (bridged, error) {
-	if tvdbID != 0 {
-		return bridged{id: tvdbID}, nil
-	}
-	if imdbID == "" {
-		return bridged{reason: reasonNotOnTVDB}, nil
-	}
-	id, ok, err := s.tvdb.SeriesByIMDb(ctx, imdbID)
-	if err != nil {
-		return bridged{}, err
-	}
-	if !ok {
-		return bridged{reason: reasonNotOnTVDB}, nil
-	}
-	return bridged{id: id}, nil
-}
-
-// bridgeAll bridges every series of a search in parallel. A TMDB series that
-// has vanished is not on TheTVDB; a TheTVDB outage greys the result out instead of failing the search.
-func (s *server) bridgeAll(ctx context.Context, tmdbIDs []int) (map[int]bridged, error) {
-	out := map[int]bridged{}
-	var (
-		mu       sync.Mutex
-		wg       sync.WaitGroup
-		firstErr error
-		sem      = make(chan struct{}, 8)
-	)
-	for _, id := range tmdbIDs {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-			var b bridged
-			ext, err := s.meta.SeriesExternalIDs(ctx, id)
-			var me *metadata.Error
-			switch {
-			case errors.As(err, &me) && me.Code == metadata.CodeNotFound:
-				b = bridged{reason: reasonNotOnTVDB}
-				err = nil
-			case err == nil:
-				b, err = s.bridge(ctx, ext.TVDBID, ext.IMDbID)
-				if err != nil {
-					s.opts.Logger.Warn("TheTVDB lookup failed", "tmdb_id", id, "err", err)
-					b, err = bridged{reason: reasonTVDBUnavailable}, nil
-				}
-			}
-			mu.Lock()
-			defer mu.Unlock()
-			if err != nil && firstErr == nil {
-				firstErr = metaProblem(err)
-			}
-			out[id] = b
-		}()
-	}
-	wg.Wait()
-	return out, firstErr
-}
 
 func (s *server) createSeries(ctx context.Context, b *oapi.TitleCreate, specs []library.VersionSpec, root string) (oapi.CreateTitleResponseObject, error) {
 	mode := library.MonitorAll
@@ -99,14 +25,14 @@ func (s *server) createSeries(ctx context.Context, b *oapi.TitleCreate, specs []
 	if err != nil {
 		return nil, metaProblem(err)
 	}
-	br, err := s.bridge(ctx, details.TVDBID, details.IMDbID)
+	tvdbID, err := s.bridge.TVDBID(ctx, details.TVDBID, details.IMDbID)
 	if err != nil {
 		return nil, metaProblem(err)
 	}
-	if br.id == 0 {
-		return nil, invalid("tmdb_id", reasonNotOnTVDB, "This Series is not on TheTVDB, so Kestrel cannot add it")
+	if tvdbID == 0 {
+		return nil, invalid("tmdb_id", metadata.ReasonNotOnTVDB, "This Series is not on TheTVDB, so Kestrel cannot add it")
 	}
-	tv, err := s.tvdb.Series(ctx, br.id)
+	tv, err := s.tvdb.Series(ctx, tvdbID)
 	if err != nil {
 		return nil, metaProblem(err)
 	}
