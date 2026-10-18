@@ -1,5 +1,7 @@
 # The API is spec-first OpenAPI
 
+Note: ADR-0012 makes an exception to this ADR; see its "Exception to ADR 0009" section.
+
 Kestrel's REST API is defined by a hand-written `api/openapi.yaml`, checked into the repo. `oapi-codegen` (strict server) generates the Go handler interfaces from it, and `openapi-typescript` with `openapi-fetch` generates the SPA's typed client. CI fails when the generated code drifts from the spec, and in tests every response is validated against it. We chose this because the contract is shared by the SPA, the Silo router plugin and outside scripts, and a breaking change to it is a Kestrel major release (`/api/v1` → `/api/v2`). A contract with that weight should be a file someone reviews, not a by-product of whatever the handlers happen to do.
 
 ## Considered Options

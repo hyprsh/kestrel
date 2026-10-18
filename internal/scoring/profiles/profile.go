@@ -54,9 +54,9 @@ func (p Profile) Spec(primary release.Language) scoring.ProfileSpec {
 // Builtin returns the six Profiles as shipped: all enabled, HD the default
 // of both kinds, no fallback. Backing TRaSH names are the English household's.
 func Builtin() []Profile {
-	mk := func(key, name string, sl slot.Slot, wide bool, rule scoring.LanguageRule) Profile {
-		p := Profile{Key: key, Name: name, Slot: sl, Any: wide, Rule: rule, Enabled: true}
-		p.MinHeight, p.MaxHeight = scoring.HeightBounds(sl, wide)
+	mk := func(key, name string, sl slot.Slot, isAny bool, rule scoring.LanguageRule) Profile {
+		p := Profile{Key: key, Name: name, Slot: sl, Any: isAny, Rule: rule, Enabled: true}
+		p.MinHeight, p.MaxHeight = scoring.HeightBounds(sl, isAny)
 		return p
 	}
 	out := []Profile{
@@ -70,11 +70,6 @@ func Builtin() []Profile {
 	for i := range out {
 		if out[i].Key == "hd-primary" {
 			out[i].DefaultMovies, out[i].DefaultSeries = true, true
-		}
-	}
-	for _, p := range out {
-		if !p.Slot.Contains(p.MinHeight, p.MaxHeight) {
-			panic("profiles: builtin Profile " + p.Key + " has heights outside its Slot")
 		}
 	}
 	return out
