@@ -79,6 +79,8 @@ type Acquirer interface {
 	// Reconcile is the poll at startup, where a Grab the client lost is lost at once.
 	Reconcile(ctx context.Context) (acquire.PollResult, error)
 	SearchWanted(ctx context.Context, titleID int64, versionIDs []int64) (acquire.Outcome, error)
+	// SearchNew is the search on add, which is not a sweep.
+	SearchNew(ctx context.Context, titleID int64, versionIDs []int64) (acquire.Outcome, error)
 	SearchUpgrades(ctx context.Context, titleID int64, versionIDs []int64) (acquire.Outcome, error)
 	SyncRSS(ctx context.Context) (acquire.RSSOutcome, error)
 }
@@ -296,7 +298,19 @@ func searchDue(ctx context.Context, r *Runner, d Deps) error {
 	if err != nil {
 		return err
 	}
-	err = sweep(ctx, r, missing, d.Acquire.SearchWanted, d.Library.MarkMissingSearched, now, &grabbed)
+	var fresh, due []library.Due
+	for _, m := range missing {
+		if m.Fresh {
+			fresh = append(fresh, m)
+		} else {
+			due = append(due, m)
+		}
+	}
+	// A new Version is searched at once, whatever the budget; the sweep after it obeys the 80 % stop.
+	err = sweep(ctx, r, fresh, d.Acquire.SearchNew, d.Library.MarkMissingSearched, now, &grabbed)
+	if err == nil {
+		err = sweep(ctx, r, due, d.Acquire.SearchWanted, d.Library.MarkMissingSearched, now, &grabbed)
+	}
 	if err == nil {
 		var upgrades []library.Due
 		if upgrades, err = d.Library.DueUpgrades(ctx, now, upgradesPerPass); err == nil {

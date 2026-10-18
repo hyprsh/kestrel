@@ -59,6 +59,10 @@ func (f *fakeAcquire) SearchWanted(_ context.Context, titleID int64, versionIDs 
 	return f.outcome(titleID, versionIDs)
 }
 
+func (f *fakeAcquire) SearchNew(ctx context.Context, titleID int64, versionIDs []int64) (acquire.Outcome, error) {
+	return f.SearchWanted(ctx, titleID, versionIDs)
+}
+
 func (f *fakeAcquire) SearchUpgrades(_ context.Context, titleID int64, versionIDs []int64) (acquire.Outcome, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

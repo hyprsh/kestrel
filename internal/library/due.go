@@ -11,6 +11,9 @@ import (
 type Due struct {
 	VersionID int64
 	TitleID   int64
+	// Fresh is true when the Version was never searched: its search is the
+	// search on add (or after a Request), not a sweep.
+	Fresh bool
 }
 
 // RequestSearch makes a Version due a missing search now; the caller

@@ -41,6 +41,26 @@ func TestAFreshlyAddedMovieVersionIsDueForAMissingSearchUntilItIsMarkedSearched(
 	}
 }
 
+func TestOnlyAVersionNeverSearchedIsFresh(t *testing.T) {
+	ctx := context.Background()
+	lib, _ := newLibrary(t)
+	id := addPaddington(t, lib)
+	d, _ := lib.Get(ctx, id, library.View{Country: "US", Now: now})
+
+	due, _ := lib.DueMissing(ctx, now)
+	if len(due) != 1 || !due[0].Fresh {
+		t.Fatalf("due on add = %+v, want fresh", due)
+	}
+
+	if err := lib.MarkMissingSearched(ctx, d.Versions[0].ID, now, false); err != nil {
+		t.Fatal(err)
+	}
+	due, _ = lib.DueMissing(ctx, now.Add(24*time.Hour))
+	if len(due) != 1 || due[0].Fresh {
+		t.Errorf("due a day later = %+v, want a sweep, not fresh", due)
+	}
+}
+
 func TestRequestSearchMakesAVersionDueNow(t *testing.T) {
 	ctx := context.Background()
 	lib, _ := newLibrary(t)

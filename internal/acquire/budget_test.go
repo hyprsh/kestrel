@@ -57,3 +57,16 @@ func TestSweepsStopAt80PercentOfTheBudgetButManualSearchRuns(t *testing.T) {
 		t.Errorf("manual search after the stop = %+v, %v", res, err)
 	}
 }
+
+func TestSearchOnAddIsNotASweepSoTheBudgetStopDoesNotApply(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	r.publish(t, hd1080, time.Hour)
+	r.idx.Report(indexer.Limits{Reported: true, APICurrent: 80, APIMax: 100})
+
+	out, err := r.svc.SearchNew(ctx, r.titleID, []int64{r.versions[resolution.HD]})
+
+	if err != nil || len(out.Searched) != 1 || len(out.Grabbed) != 1 {
+		t.Fatalf("search on add at 80%% = %+v, %v; only sweeps stop there", out, err)
+	}
+}

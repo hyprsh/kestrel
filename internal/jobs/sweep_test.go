@@ -31,6 +31,7 @@ type recorder struct {
 	fakeAcquire
 	mu2     sync.Mutex
 	wanted  []time.Time
+	added   []time.Time
 	upgrade []time.Time
 	now     func() time.Time
 }
@@ -38,6 +39,14 @@ type recorder struct {
 func (r *recorder) SearchWanted(_ context.Context, _ int64, v []int64) (acquire.Outcome, error) {
 	r.mu2.Lock()
 	defer r.mu2.Unlock()
+	r.wanted = append(r.wanted, r.now())
+	return acquire.Outcome{Searched: v}, nil
+}
+
+func (r *recorder) SearchNew(_ context.Context, _ int64, v []int64) (acquire.Outcome, error) {
+	r.mu2.Lock()
+	defer r.mu2.Unlock()
+	r.added = append(r.added, r.now())
 	r.wanted = append(r.wanted, r.now())
 	return acquire.Outcome{Searched: v}, nil
 }
@@ -93,6 +102,17 @@ func (r *sweepRig) passAt(offset time.Duration) (wanted, upgrades int) {
 }
 
 const hour = time.Hour
+
+func TestTheFirstSearchOfAVersionIsSearchOnAddAndOnlyTheLaterOnesAreSweeps(t *testing.T) {
+	rig := newSweepRig(t)
+
+	rig.passAt(0)
+	rig.passAt(24 * hour)
+
+	if len(rig.acq.added) != 1 || len(rig.acq.wanted) != 2 {
+		t.Fatalf("searched on add %d times, in all %d; want 1 and 2", len(rig.acq.added), len(rig.acq.wanted))
+	}
+}
 
 func TestAWantedMovieIsSearchedOnAddThenAtOneThreeAndSevenDaysAndAFilledOneGetsAnUpgradeSearchAfterThirtyDays(t *testing.T) {
 	rig := newSweepRig(t)

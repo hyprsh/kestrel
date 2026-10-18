@@ -208,6 +208,13 @@ func (s *Service) SearchWanted(ctx context.Context, titleID int64, versionIDs []
 	return s.searchWanted(ctx, titleID, versionIDs, false)
 }
 
+// SearchNew is the search on add: the first search of a new Version (added by
+// hand, by a Request or by Adoption). It does what SearchWanted does but is
+// not a sweep, so the 80 % budget stop does not apply to it.
+func (s *Service) SearchNew(ctx context.Context, titleID int64, versionIDs []int64) (Outcome, error) {
+	return s.searchWanted(ctx, titleID, versionIDs, false)
+}
+
 // searchWanted is SearchWanted that, with fromCache, looks at the Releases the
 // candidate cache still holds before it asks the indexers again.
 func (s *Service) searchWanted(ctx context.Context, titleID int64, versionIDs []int64, fromCache bool) (Outcome, error) {

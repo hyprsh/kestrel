@@ -228,6 +228,7 @@ func (s *Service) DueMissing(ctx context.Context, now time.Time) ([]Due, error) 
 		Due
 		released  time.Time
 		requested bool
+		fresh     bool
 	}
 	var found []entry
 	index := map[int64]int{}
@@ -240,10 +241,11 @@ func (s *Service) DueMissing(ctx context.Context, now time.Time) ([]Due, error) 
 			if k := r.recency(); k.After(found[i].released) {
 				found[i].released = k
 			}
+			found[i].fresh = found[i].fresh && r.lastMissing == nil
 			continue
 		}
 		index[r.versionID] = len(found)
-		found = append(found, entry{Due{VersionID: r.versionID, TitleID: r.titleID}, r.recency(), requested[r.versionID]})
+		found = append(found, entry{Due{VersionID: r.versionID, TitleID: r.titleID}, r.recency(), requested[r.versionID], r.lastMissing == nil})
 	}
 	slices.SortStableFunc(found, func(a, b entry) int {
 		if a.requested != b.requested {
@@ -257,6 +259,7 @@ func (s *Service) DueMissing(ctx context.Context, now time.Time) ([]Due, error) 
 	out := make([]Due, len(found))
 	for i, f := range found {
 		out[i] = f.Due
+		out[i].Fresh = f.fresh
 	}
 	return out, nil
 }
