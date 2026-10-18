@@ -99,7 +99,7 @@ make hooks         # install the commitlint commit-msg hook
 
 Run `make dev-api` and `make dev-web` in two terminals, then open the Vite URL.
 
-Without a TMDB key, search and add answer `502 upstream_unavailable`. For development set `KESTREL_TMDB_API_KEY`. A release build embeds the project's key at link time: `make build TMDB_API_KEY=...` (or `--build-arg TMDB_API_KEY=...` for `make docker`'s Dockerfile). The default build embeds none.
+Without a TMDB key, search and add answer `502 upstream_unavailable`. For development set `KESTREL_TMDB_API_KEY`. A release build embeds the project's keys at link time: `make build TMDB_API_KEY=... TVDB_API_KEY=...` (or `--build-arg TMDB_API_KEY=...` for `make docker`'s Dockerfile). The default build embeds none.
 
 ### Layout
 
@@ -125,7 +125,7 @@ Without a TMDB key, search and add answer `502 upstream_unavailable`. For develo
 
 [release-please](release-please-config.json) keeps a release PR open on `main`; merging it tags `vX.Y.Z` (versions stay `0.x`) and writes `CHANGELOG.md` from `feat`, `fix` and `perf` commits. The release workflow then runs [GoReleaser](.goreleaser.yaml), which attaches the Silo plugin binaries (`kestrel-silo-linux-amd64`, `-linux-arm64`, `-darwin-arm64`), `checksums.txt`, `silo-repository.json` and `THIRD_PARTY_NOTICES.md` to that release, and pushes the multi-arch image `ghcr.io/hyprsh/kestrel` (`X.Y.Z`, `X.Y`, `X`, `latest`); every push to `main` also publishes `:edge`. Binaries, checksums and the image carry build-provenance attestations. Silo users add `https://github.com/hyprsh/kestrel/releases/latest/download/silo-repository.json` as a plugin repository.
 
-`make release-dry-run` runs all of it except publishing. `make notices` regenerates `internal/notices/THIRD_PARTY_NOTICES.md` (Go and npm dependency licences, the ported Radarr and Sonarr code, TRaSH data); do it when dependencies or the embedded TRaSH snapshot change. The repository needs a `TMDB_API_KEY` Actions secret to embed the project's key in the image.
+`make release-dry-run` runs all of it except publishing. `make notices` regenerates `internal/notices/THIRD_PARTY_NOTICES.md` (Go and npm dependency licences, the ported Radarr and Sonarr code, TRaSH data); do it when dependencies or the embedded TRaSH snapshot change. The repository needs a `TMDB_API_KEY` and a `TVDB_API_KEY` Actions secret to embed the project's keys in the image.
 
 Once a day, unless Settings > Updates > "Check GitHub for updates" is off, Kestrel asks GitHub (unauthenticated) for the latest release and the published security advisories of `hyprsh/kestrel`. A newer release shows in the health strip and About. An advisory whose vulnerable range covers the running version raises the "Security fix available" Warning in Needs attention. `dev` and `edge` builds never compare versions. Publish a GHSA to announce a security fix.
 

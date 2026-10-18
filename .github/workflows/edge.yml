@@ -41,6 +41,7 @@ jobs:
           build-args: |
             VERSION=edge
             TMDB_API_KEY=${{ secrets.TMDB_API_KEY }}
+            TVDB_API_KEY=${{ secrets.TVDB_API_KEY }}
           labels: |
             org.opencontainers.image.source=https://github.com/hyprsh/kestrel
             org.opencontainers.image.revision=${{ github.sha }}

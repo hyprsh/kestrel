@@ -1,10 +1,11 @@
 .DEFAULT_GOAL := help
-.PHONY: release-dry-run notices build-silo help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet compose-check commitlint hooks docker check
+.PHONY: typecheck release-dry-run notices build-silo help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet compose-check commitlint hooks docker check
 
 VERSION ?= dev
-# The project's TMDB key is injected at link time; the default build embeds none.
+# The project's TMDB and TVDB keys are injected at link time; the default build embeds none.
 TMDB_API_KEY ?=
-LDFLAGS := -s -w -X github.com/hyprsh/kestrel/internal/version.Version=$(VERSION) -X github.com/hyprsh/kestrel/internal/metadata.embeddedTMDBKey=$(TMDB_API_KEY)
+TVDB_API_KEY ?=
+LDFLAGS := -s -w -X github.com/hyprsh/kestrel/internal/version.Version=$(VERSION) -X github.com/hyprsh/kestrel/internal/metadata.embeddedTMDBKey=$(TMDB_API_KEY) -X github.com/hyprsh/kestrel/internal/metadata.embeddedTVDBKey=$(TVDB_API_KEY)
 
 help: ## List the dev commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-15s %s\n", $$1, $$2}'
@@ -67,7 +68,7 @@ hooks: ## Install the commit-msg hook (commitlint via lefthook)
 	npx --no-install lefthook install
 
 docker: ## Build the image as kestrel:dev
-	docker build --build-arg VERSION=$(VERSION) --build-arg TMDB_API_KEY=$(TMDB_API_KEY) -t kestrel:dev .
+	docker build --build-arg VERSION=$(VERSION) --build-arg TMDB_API_KEY=$(TMDB_API_KEY) --build-arg TVDB_API_KEY=$(TVDB_API_KEY) -t kestrel:dev .
 
 GORELEASER ?= github.com/goreleaser/goreleaser/v2@v2.18.3
 
@@ -78,4 +79,7 @@ release-dry-run: docker ## Run the release without publishing: the image, Silo p
 notices: ## Regenerate internal/notices/THIRD_PARTY_NOTICES.md (needs network and `npm --prefix web ci`)
 	scripts/gen-notices.sh
 
-check: fmt-check vet generate-check test compose-check ## Everything CI runs, minus the image build and commitlint
+typecheck: ## TypeScript typecheck of the SPA (tsc --noEmit)
+	npm --prefix web run typecheck
+
+check: fmt-check vet typecheck generate-check test compose-check ## Everything CI runs, minus the image build and commitlint

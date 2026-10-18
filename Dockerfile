@@ -14,13 +14,14 @@ ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION=dev
 ARG TMDB_API_KEY=
+ARG TVDB_API_KEY=
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=web /src/web/dist ./web/dist
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    go build -trimpath -ldflags "-s -w -X github.com/hyprsh/kestrel/internal/version.Version=${VERSION} -X github.com/hyprsh/kestrel/internal/metadata.embeddedTMDBKey=${TMDB_API_KEY}" \
+    go build -trimpath -ldflags "-s -w -X github.com/hyprsh/kestrel/internal/version.Version=${VERSION} -X github.com/hyprsh/kestrel/internal/metadata.embeddedTMDBKey=${TMDB_API_KEY} -X github.com/hyprsh/kestrel/internal/metadata.embeddedTVDBKey=${TVDB_API_KEY}" \
     -o /out/kestrel ./cmd/kestrel
 
 # 3. The image: Alpine with ffmpeg (for ffprobe), tzdata and su-exec.
