@@ -25,10 +25,6 @@ type settingsJSON struct {
 		PrimaryLanguage    string `json:"primary_language"`
 		ReleaseDateCountry string `json:"release_date_country"`
 	} `json:"language_region"`
-	KidsRule struct {
-		Enabled   bool `json:"enabled"`
-		Threshold int  `json:"threshold"`
-	} `json:"kids_rule"`
 }
 
 func profileMap(t *testing.T, b *browser) map[string]profileJSON {
@@ -88,11 +84,11 @@ func TestChangingThePrimaryLanguageRepointsProfiles(t *testing.T) {
 	b := newInstance(t, "").setUp()
 
 	s := decode[settingsJSON](t, b.valid("GET", "/settings", ""))
-	if s.LanguageRegion.PrimaryLanguage != "en" || s.LanguageRegion.ReleaseDateCountry != "US" || !s.KidsRule.Enabled || s.KidsRule.Threshold != 6 {
+	if s.LanguageRegion.PrimaryLanguage != "en" || s.LanguageRegion.ReleaseDateCountry != "US" {
 		t.Errorf("defaults: %+v", s)
 	}
 	setup := b.valid("GET", "/setup", "").Body
-	if !strings.Contains(setup, `"language":"todo"`) || !strings.Contains(setup, `"profiles":"todo"`) {
+	if !strings.Contains(setup, `"language":"todo"`) || strings.Contains(setup, "kids_rule") {
 		t.Errorf("setup before saving: %s", setup)
 	}
 
@@ -111,8 +107,8 @@ func TestChangingThePrimaryLanguageRepointsProfiles(t *testing.T) {
 	if s.LanguageRegion.ReleaseDateCountry != "BE" {
 		t.Errorf("country: %+v", s.LanguageRegion)
 	}
-	if m = profileMap(t, b); m["kids-original"].TrashProfileSeries != "french-multi-vo-bluray-web-1080p" {
-		t.Errorf("French: %+v", m["kids-original"])
+	if m = profileMap(t, b); m["any-original"].TrashProfileSeries != "french-multi-vo-bluray-web-1080p" {
+		t.Errorf("French: %+v", m["any-original"])
 	}
 
 	if setup = b.valid("GET", "/setup", "").Body; !strings.Contains(setup, `"language":"done"`) {
@@ -146,22 +142,43 @@ func TestProviderKeyOverridesAreSavedWithTheSettingsAndNeverShownAgain(t *testin
 	}
 }
 
-func TestSettingsValidationAndKidsRule(t *testing.T) {
+func TestSettingsValidation(t *testing.T) {
 	b := newInstance(t, "").setUp()
 	for _, body := range []string{
 		`{"language_region":{"primary_language":"xx"}}`,
 		`{"language_region":{"release_date_country":"Germany"}}`,
-		`{"kids_rule":{"threshold":9}}`,
 	} {
 		if r := b.do("PATCH", "/settings", body); r.Status != 422 && r.Status != 400 {
 			t.Errorf("PATCH %s = %d %s", body, r.Status, r.Body)
 		}
 	}
-	s := decode[settingsJSON](t, b.valid("PATCH", "/settings", `{"kids_rule":{"enabled":false,"threshold":12}}`))
-	if s.KidsRule.Enabled || s.KidsRule.Threshold != 12 {
-		t.Errorf("kids rule: %+v", s.KidsRule)
+}
+
+func TestSettingsHaveNoKidsRuleOrKidsRootFolders(t *testing.T) {
+	b := newInstance(t, "").setUp()
+	body := b.valid("GET", "/settings", "").Body
+	if strings.Contains(strings.ToLower(body), "kids") {
+		t.Errorf("GET /settings mentions kids: %s", body)
 	}
-	if setup := b.valid("GET", "/setup", "").Body; !strings.Contains(setup, `"profiles":"done"`) {
-		t.Errorf("setup after saving the Kids rule: %s", setup)
+	if setup := b.valid("GET", "/setup", "").Body; strings.Contains(strings.ToLower(setup), "kids") || !strings.Contains(setup, `"profiles":"done"`) {
+		t.Errorf("GET /setup = %s", setup)
+	}
+}
+
+func TestTheAnyProfilesTakeTheKidsProfilesPlace(t *testing.T) {
+	b := newInstance(t, "").setUp()
+	r := b.valid("GET", "/profiles", "")
+	if strings.Contains(strings.ToLower(r.Body), "kids") {
+		t.Errorf("GET /profiles mentions kids: %s", r.Body)
+	}
+	m := profileMap(t, b)
+	for key, name := range map[string]string{"any-primary": "Any", "any-original": "Any Original"} {
+		p := m[key]
+		if p.Name != name || p.Slot != "hd" || p.MinHeight != 0 || p.MaxHeight != 1080 || !p.Enabled || p.DefaultMovies || p.DefaultSeries {
+			t.Errorf("%s = %+v", key, p)
+		}
+	}
+	if m["any-original"].LanguageRule != "original" || m["any-primary"].LanguageRule != "primary" {
+		t.Errorf("language rules: %+v %+v", m["any-primary"], m["any-original"])
 	}
 }

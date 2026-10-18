@@ -73,7 +73,7 @@ func TestARequestAddsAMovieInHDAndUHDAndSearchesBothAtOnce(t *testing.T) {
 	if req.Outcome != "accepted" || req.TitleID == nil || req.Source != "silo" || req.Requester.Name != "Anna" {
 		t.Fatalf("request = %+v", req)
 	}
-	if st, label, profile, _ := req.slot(t, "hd"); st != "queued" || label != "Searching" || profile != "kids-primary" {
+	if st, label, profile, _ := req.slot(t, "hd"); st != "queued" || label != "Searching" || profile != "hd-primary" {
 		t.Errorf("hd = %s %q %s", st, label, profile)
 	}
 	if _, _, profile, _ := req.slot(t, "uhd"); profile != "uhd-primary" {
@@ -122,7 +122,7 @@ func TestARequestNamingAnExistingSlotLeavesItUnchangedAndReportsIt(t *testing.T)
 	created := decode[titleJSON](t, s.valid("POST", "/titles", `{"kind":"movie","tmdb_id":116149,"versions":[{"slot":"hd","profile":"hd-original"}]}`))
 
 	req := decode[requestJSON](t, s.valid("POST", "/requests", requestBody("r-1", "movie", 116149,
-		`[{"slot":"hd","profile":"kids-primary"},{"slot":"uhd"}]`, "null")))
+		`[{"slot":"hd","profile":"any-primary"},{"slot":"uhd"}]`, "null")))
 
 	if req.Outcome != "accepted" || *req.TitleID != created.ID {
 		t.Fatalf("request = %+v", req)
@@ -346,67 +346,36 @@ func TestASeasonRequestMonitorsOnlyThoseSeasonsAndNeverUnmonitors(t *testing.T) 
 	}
 }
 
-func TestARequestTheKidsRuleCatchesGoesInTheKidsRootFolder(t *testing.T) {
+func TestARequestForAChildrensTitleGoesInTheFirstRootFolderWithTheSlotDefault(t *testing.T) {
 	for _, c := range []struct {
 		name, kind string
 		tmdb       int
-		threshold  int
-		kids       bool
 	}{
-		{"kids movie", "movie", 116149, 6, true}, // PG in the US: age 6
-		{"movie above the age", "movie", 116149, 0, false},
-		{"kids series", "series", 7001, 6, true}, // TV-Y7
-		{"series above the age", "series", 7001, 0, false},
+		{"movie", "movie", 116149}, // PG in the US
+		{"series", "series", 7001}, // TV-Y7
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			l := newLibraryInstance(t, metadatatest.Key)
-			kidsMovies, kidsSeries := l.kidsFolders(t)
-			l.valid("PATCH", "/settings", fmt.Sprintf(`{"kids_rule":{"enabled":true,"threshold":%d}}`, c.threshold))
+			l.moreFolders(t)
 
-			got := l.rootFolderOf(t, l.valid("POST", "/requests", requestBody("r-1", c.kind, c.tmdb, `[{"slot":"hd"}]`, "null")))
+			r := l.valid("POST", "/requests", requestBody("r-1", c.kind, c.tmdb, `[{"slot":"hd"}]`, "null"))
+			req := decode[requestJSON](t, r)
+
 			want := map[string]string{"movie": l.data + "/media/movies", "series": l.data + "/media/tv"}[c.kind]
-			if c.kids {
-				want = map[string]string{"movie": kidsMovies, "series": kidsSeries}[c.kind]
-			}
-			if got != want {
+			if got := l.rootFolderOf(t, r); got != want {
 				t.Errorf("root folder = %q, want %q", got, want)
+			}
+			if _, _, profile, _ := req.slot(t, "hd"); profile != "hd-primary" {
+				t.Errorf("profile = %q, want the HD Slot's default", profile)
 			}
 		})
 	}
 }
 
-func TestANamedHDProfilePicksTheFolderInsteadOfTheKidsRule(t *testing.T) {
-	t.Run("a non-Kids Profile on a Kids title", func(t *testing.T) {
-		l := newLibraryInstance(t, metadatatest.Key)
-		l.kidsFolders(t)
-		if got := l.rootFolderOf(t, l.valid("POST", "/requests", requestBody("r-1", "movie", 116149, `[{"slot":"hd","profile":"hd-primary"}]`, "null"))); got != l.data+"/media/movies" {
-			t.Errorf("a Kids title under a named HD Profile went to %q, want the first folder", got)
-		}
-	})
-	t.Run("a Kids Profile with the Kids rule off", func(t *testing.T) {
-		l := newLibraryInstance(t, metadatatest.Key)
-		kidsMovies, _ := l.kidsFolders(t)
-		l.valid("PATCH", "/settings", `{"kids_rule":{"enabled":false}}`)
-		if got := l.rootFolderOf(t, l.valid("POST", "/requests", requestBody("r-1", "movie", 116149, `[{"slot":"hd","profile":"kids-original"}]`, "null"))); got != kidsMovies {
-			t.Errorf("a named Kids Profile went to %q, want the Kids folder", got)
-		}
-	})
-}
-
-func TestAKidsProfileAsTheHDDefaultIsNotTheKidsRuleGivingIt(t *testing.T) {
+func TestARequestMayNameAnAnyProfile(t *testing.T) {
 	l := newLibraryInstance(t, metadatatest.Key)
-	l.kidsFolders(t)
-	l.valid("PATCH", "/profiles/kids-primary", `{"default_movies":true}`)
-	l.valid("PATCH", "/settings", `{"kids_rule":{"enabled":true,"threshold":0}}`)
-
-	if got := l.rootFolderOf(t, l.valid("POST", "/requests", requestBody("r-1", "movie", 116149, `[{"slot":"hd"}]`, "null"))); got != l.data+"/media/movies" {
-		t.Errorf("a Title above the Kids age under a Kids default went to %q, want the first folder", got)
-	}
-}
-
-func TestWithoutKidsRootFoldersARequestGoesInTheFirstRootFolder(t *testing.T) {
-	l := newLibraryInstance(t, metadatatest.Key)
-	if got := l.rootFolderOf(t, l.valid("POST", "/requests", requestBody("r-1", "movie", 116149, `[{"slot":"hd"}]`, "null"))); got != l.data+"/media/movies" {
-		t.Errorf("root folder = %q", got)
+	req := decode[requestJSON](t, l.valid("POST", "/requests", requestBody("r-1", "movie", 116149, `[{"slot":"hd","profile":"any-original"}]`, "null")))
+	if _, _, profile, _ := req.slot(t, "hd"); profile != "any-original" {
+		t.Errorf("profile = %q, want the named Any Original", profile)
 	}
 }

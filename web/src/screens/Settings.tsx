@@ -18,7 +18,7 @@ import { ProviderKeysForm } from '../metadata/ProviderKeys'
 import { TrashForm } from '../trash/Trash'
 import { LanguageForm } from '../profiles/Language'
 import { RootFoldersForm } from '../rootfolders/RootFolders'
-import { DefaultsPerSlot, KidsRuleForm, ProfileToggles } from '../profiles/Profiles'
+import { DefaultsPerSlot, ProfileToggles } from '../profiles/Profiles'
 
 /** Settings sections, in page order. Later tickets add theirs here. */
 const sections = [
@@ -61,9 +61,6 @@ export function Settings({ onRunSetup, onAdopt }: { onRunSetup: () => void; onAd
         <Group id="profiles" title="Profiles">
           <Row label="Defaults per Slot" help="The Profile a new Title gets for each Slot. HD always has one.">
             <DefaultsPerSlot />
-          </Row>
-          <Row label="Kids rule" help="Children’s titles get the Kids Profile in HD.">
-            <KidsRuleForm />
           </Row>
           <Row label="Profiles" help="Turn Profiles off or let Primary-Language ones accept the Original Language. Disabling a Profile clears its defaults.">
             <ProfileToggles />

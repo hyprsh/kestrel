@@ -57,7 +57,6 @@ type entry struct {
 type env struct {
 	profiles []profiles.Profile
 	region   profiles.Region
-	kids     profiles.KidsRule
 	held     map[string]bool
 	// folders maps a tracked Title's folder path to it.
 	folders map[string]library.Tracked
@@ -73,9 +72,6 @@ func (a *Adoption) env(ctx context.Context) (*env, error) {
 		return nil, err
 	}
 	if e.region, _, err = a.d.Profiles.Region(ctx); err != nil {
-		return nil, err
-	}
-	if e.kids, _, err = a.d.Profiles.Kids(ctx); err != nil {
 		return nil, err
 	}
 	if e.held, err = a.d.Library.HeldPaths(ctx); err != nil {
@@ -629,6 +625,14 @@ func (a *Adoption) facts(ctx context.Context, e *env, tmdbID int) (movieFacts, e
 	}, nil
 }
 
+// accepts reports whether a Profile takes files of the class, under the household's Primary Language.
+func (a *Adoption) accepts(e *env, class probe.Class) func(profiles.Profile) bool {
+	return func(p profiles.Profile) bool {
+		sp, err := a.snap.Current().Profile(p.Spec(e.region.Primary.Release()))
+		return err == nil && slices.Contains(sp.Classes(), class)
+	}
+}
+
 // planFile plans one probed video of a matched entry. reason is a skip reason
 // for the whole entry.
 func (a *Adoption) planFile(e *env, m movieFacts, title Title, en entry, f probed, dir string) (PlanFile, string, error) {
@@ -658,8 +662,7 @@ func (a *Adoption) planFile(e *env, m movieFacts, title Title, en entry, f probe
 	if ver != nil {
 		profileKey = ver.Profile
 	} else {
-		certCountry, cert := m.Rel.Certification(e.region.Country)
-		r, err := profiles.Resolve(e.profiles, release.KindMovie, slot, e.kids.Applies(certCountry, cert))
+		r, err := profiles.ResolveAccepting(e.profiles, release.KindMovie, slot, a.accepts(e, f.info.Class()))
 		if err != nil {
 			return PlanFile{}, SkipNoEnabledProfile, nil
 		}

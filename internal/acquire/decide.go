@@ -71,7 +71,7 @@ type Candidate struct {
 	// Title has, keyed by that Version's Slot. Whether the Release fits a
 	// Version is the Verdict's business: a Profile accepts the resolution
 	// classes whose range lies inside its heights (Settled 2), so an SD
-	// Release fits an SD Version and a Kids Version (0-1080, in the HD Slot).
+	// Release fits an SD Version and an Any Version (0-1080, in the HD Slot).
 	Verdicts map[Slot]scoring.Verdict
 	// PublishDate is when the Release was posted, Size its bytes and
 	// IndexerPriority its indexer's priority (lower wins).

@@ -39,7 +39,7 @@ func TestBackingProfileTable(t *testing.T) {
 		primary release.Language
 		rule    scoring.LanguageRule
 		slot    resolution.Class
-		kids    bool
+		wide    bool
 		movie   string
 		series  string
 	}
@@ -60,16 +60,16 @@ func TestBackingProfileTable(t *testing.T) {
 		{release.LangGerman, scoring.OriginalLanguage, resolution.UHD, false, "uhd-bluray-web", "web-2160p"},
 	}
 	for _, r := range rows {
-		prof, err := snap.Profile(scoring.ProfileSpec{Slot: r.slot, Kids: r.kids, Rule: r.rule, Primary: r.primary})
+		prof, err := snap.Profile(scoring.ProfileSpec{Slot: r.slot, Any: r.wide, Rule: r.rule, Primary: r.primary})
 		if err != nil {
-			t.Errorf("%s rule %d %v kids=%v: %v", r.primary.Name, r.rule, r.slot, r.kids, err)
+			t.Errorf("%s rule %d %v wide=%v: %v", r.primary.Name, r.rule, r.slot, r.wide, err)
 			continue
 		}
 		if got := prof.BackingProfile(release.KindMovie); got != r.movie {
-			t.Errorf("%s rule %d %v kids=%v: Movie backing %q, want %q", r.primary.Name, r.rule, r.slot, r.kids, got, r.movie)
+			t.Errorf("%s rule %d %v wide=%v: Movie backing %q, want %q", r.primary.Name, r.rule, r.slot, r.wide, got, r.movie)
 		}
 		if got := prof.BackingProfile(release.KindSeries); got != r.series {
-			t.Errorf("%s rule %d %v kids=%v: Series backing %q, want %q", r.primary.Name, r.rule, r.slot, r.kids, got, r.series)
+			t.Errorf("%s rule %d %v wide=%v: Series backing %q, want %q", r.primary.Name, r.rule, r.slot, r.wide, got, r.series)
 		}
 	}
 }
@@ -79,12 +79,12 @@ func TestEveryProfileOfEveryPrimaryLanguageResolves(t *testing.T) {
 	for _, primary := range []release.Language{release.LangEnglish, release.LangGerman, release.LangFrench} {
 		for _, rule := range []scoring.LanguageRule{scoring.PrimaryLanguage, scoring.OriginalLanguage} {
 			for _, slot := range []resolution.Class{resolution.SD, resolution.HD, resolution.UHD} {
-				for _, kids := range []bool{false, true} {
-					if kids && slot != resolution.HD {
+				for _, wide := range []bool{false, true} {
+					if wide && slot != resolution.HD {
 						continue
 					}
-					if _, err := snap.Profile(scoring.ProfileSpec{Slot: slot, Kids: kids, Rule: rule, Primary: primary}); err != nil {
-						t.Errorf("%s rule=%d %v kids=%v: %v", primary.Name, rule, slot, kids, err)
+					if _, err := snap.Profile(scoring.ProfileSpec{Slot: slot, Any: wide, Rule: rule, Primary: primary}); err != nil {
+						t.Errorf("%s rule=%d %v wide=%v: %v", primary.Name, rule, slot, wide, err)
 					}
 				}
 			}
@@ -107,11 +107,11 @@ func TestDerivedProfilesShareTheHDScoresAndChangeTheQualities(t *testing.T) {
 	hd, _ := snap.Profile(spec)
 	spec.Slot = resolution.SD
 	sd, _ := snap.Profile(spec)
-	spec.Slot, spec.Kids = resolution.HD, true
-	kids, _ := snap.Profile(spec)
+	spec.Slot, spec.Any = resolution.HD, true
+	wide, _ := snap.Profile(spec)
 
-	if sd.MinHeight != 0 || sd.MaxHeight != 576 || hd.MinHeight != 720 || hd.MaxHeight != 1080 || kids.MinHeight != 0 || kids.MaxHeight != 1080 {
-		t.Errorf("height bounds SD %d-%d, HD %d-%d, Kids %d-%d", sd.MinHeight, sd.MaxHeight, hd.MinHeight, hd.MaxHeight, kids.MinHeight, kids.MaxHeight)
+	if sd.MinHeight != 0 || sd.MaxHeight != 576 || hd.MinHeight != 720 || hd.MaxHeight != 1080 || wide.MinHeight != 0 || wide.MaxHeight != 1080 {
+		t.Errorf("height bounds SD %d-%d, HD %d-%d, Any %d-%d", sd.MinHeight, sd.MaxHeight, hd.MinHeight, hd.MaxHeight, wide.MinHeight, wide.MaxHeight)
 	}
 	for _, q := range []string{"WEBDL-1080p", "Bluray-720p"} {
 		if !contains(hd.AllowedQualities(release.KindMovie), q) {
@@ -122,8 +122,8 @@ func TestDerivedProfilesShareTheHDScoresAndChangeTheQualities(t *testing.T) {
 		if !contains(sd.AllowedQualities(release.KindMovie), q) {
 			t.Errorf("SD should allow %s", q)
 		}
-		if !contains(kids.AllowedQualities(release.KindMovie), q) {
-			t.Errorf("Kids should allow %s", q)
+		if !contains(wide.AllowedQualities(release.KindMovie), q) {
+			t.Errorf("Any should allow %s", q)
 		}
 		if contains(hd.AllowedQualities(release.KindMovie), q) {
 			t.Errorf("HD should not allow %s", q)
@@ -132,13 +132,13 @@ func TestDerivedProfilesShareTheHDScoresAndChangeTheQualities(t *testing.T) {
 	if contains(sd.AllowedQualities(release.KindMovie), "WEBDL-1080p") {
 		t.Error("SD should not allow WEBDL-1080p")
 	}
-	if !contains(kids.AllowedQualities(release.KindMovie), "WEBDL-1080p") {
-		t.Error("Kids keeps the HD qualities")
+	if !contains(wide.AllowedQualities(release.KindMovie), "WEBDL-1080p") {
+		t.Error("Any keeps the HD qualities")
 	}
-	// Series Kids widens to WEB 480p, 720p and 1080p, DVD and SDTV.
+	// Series Any widens to WEB 480p, 720p and 1080p, DVD and SDTV.
 	for _, q := range []string{"WEBDL-480p", "WEBDL-720p", "WEBRip-720p", "WEBDL-1080p", "DVD", "SDTV"} {
-		if !contains(kids.AllowedQualities(release.KindSeries), q) {
-			t.Errorf("Series Kids should allow %s", q)
+		if !contains(wide.AllowedQualities(release.KindSeries), q) {
+			t.Errorf("Series Any should allow %s", q)
 		}
 	}
 }

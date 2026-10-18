@@ -168,10 +168,6 @@ func (s *server) LookupTitle(ctx context.Context, r oapi.LookupTitleRequestObjec
 	if err != nil {
 		return nil, err
 	}
-	kids, _, err := s.profiles.Kids(ctx)
-	if err != nil {
-		return nil, err
-	}
 	all, err := s.profiles.List(ctx)
 	if err != nil {
 		return nil, err
@@ -180,10 +176,11 @@ func (s *server) LookupTitle(ctx context.Context, r oapi.LookupTitleRequestObjec
 	if err != nil {
 		return nil, err
 	}
-	sug := library.Suggest(all, kind, rel, region.Country, kids)
+	sug := library.Suggest(all, kind)
+	certCountry, cert := rel.Certification(region.Country)
 	out := oapi.LookupDetail{
 		Kind: oapi.TitleKind(kind), TmdbId: tmdbID, Title: name, Year: intPtr(year), Overview: overview,
-		Certification: strPtr(sug.Certification), CertificationCountry: strPtr(sug.CertificationCountry),
+		Certification: strPtr(cert), CertificationCountry: strPtr(certCountry),
 		Slots: make([]oapi.SuggestedSlot, len(sug.Slots)),
 	}
 	if id, ok := in[r.TmdbId]; ok {
@@ -375,7 +372,7 @@ func (s *server) CreateTitle(ctx context.Context, r oapi.CreateTitleRequestObjec
 	if b.RootFolder != nil {
 		requested = *b.RootFolder
 	}
-	root, err := roots.Pick(rootfolders.Kind(b.Kind), requested, library.KidsHD(all, specs))
+	root, err := roots.Pick(rootfolders.Kind(b.Kind), requested)
 	switch {
 	case errors.Is(err, rootfolders.ErrNotConfigured):
 		return nil, invalid("root_folder", "not_found", "That is not one of the "+noun+" Root folders")

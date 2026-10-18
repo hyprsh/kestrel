@@ -4,26 +4,16 @@ import { Button, ErrorText, TextInput } from '../forms'
 
 type Kind = 'movies' | 'series'
 type Folders = Settings['root_folders']
-type Paths = Record<Kind, string>
 
-const kinds: { key: Kind; kids: 'kids_movies' | 'kids_series'; label: string; sibling: string }[] = [
-  { key: 'movies', kids: 'kids_movies', label: 'Movies', sibling: 'kids-movies' },
-  { key: 'series', kids: 'kids_series', label: 'Series', sibling: 'kids-tv' },
+const kinds: { key: Kind; label: string }[] = [
+  { key: 'movies', label: 'Movies' },
+  { key: 'series', label: 'Series' },
 ]
-
-/** A sibling of the kind's first folder, or '' while there is no folder to sit beside. */
-function siblingOf(first: string | undefined, name: string) {
-  const path = (first ?? '').trim().replace(/\/+$/, '')
-  return path === '' ? '' : `${path.slice(0, path.lastIndexOf('/'))}/${name}`
-}
 
 /**
  * The Root folders, shared by the wizard and Settings: one or more per kind,
  * prefilled from the server. The first of each kind is the default when adding
- * a Title. With "Keep kids’ titles in their own folders" each kind also has a
- * Kids root folder, which takes the Titles whose HD Profile is a Kids one. The
- * API keeps it in the kind's list; the form keeps it out of the visible list.
- * The server checks that each exists, is a directory and is writable.
+ * a Title. The server checks that each exists, is a directory and is writable.
  */
 export function RootFoldersForm() {
   const { data, isError } = useSettings()
@@ -33,42 +23,13 @@ export function RootFoldersForm() {
 }
 
 function Form({ saved }: { saved: Folders }) {
-  const [keepKids, setKeepKids] = useState(saved.kids_movies !== '' || saved.kids_series !== '')
-  const [kidsPaths, setKidsPaths] = useState<Paths>({ movies: saved.kids_movies, series: saved.kids_series })
-  // A saved Kids folder leaves its list, unless it is the list's only folder.
-  const [folders, setFolders] = useState<Pick<Folders, Kind>>(() => {
-    const visible = (list: string[], kids: string) => (kids !== '' && list.length > 1 ? list.filter((p) => p !== kids) : list)
-    return { movies: visible(saved.movies, saved.kids_movies), series: visible(saved.series, saved.kids_series) }
-  })
-  // Where the last save appended each Kids path in the list it sent, to show that list's error at the Kids field.
-  const [appended, setAppended] = useState<Record<Kind, number>>({ movies: -1, series: -1 })
+  const [folders, setFolders] = useState<Pick<Folders, Kind>>({ movies: saved.movies, series: saved.series })
   const save = usePatchSettings()
 
   const set = (kind: Kind, list: string[]) => setFolders((f) => ({ ...f, [kind]: list }))
-  const setKids = (kind: Kind, path: string) => setKidsPaths((k) => ({ ...k, [kind]: path }))
-  const toggle = (on: boolean) => {
-    setKeepKids(on)
-    for (const { key, sibling } of kinds) {
-      const old = kidsPaths[key].trim()
-      if (on) {
-        if (old === '') setKids(key, siblingOf(folders[key][0], sibling))
-      } else {
-        // A folder that may hold Titles stays a Root folder: show it in the list now.
-        if (old !== '' && !folders[key].some((p) => p.trim() === old)) set(key, [...folders[key], old])
-        setKids(key, '')
-      }
-    }
-  }
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    const lists = { movies: folders.movies.map((p) => p.trim()), series: folders.series.map((p) => p.trim()) }
-    const kids: Paths = { movies: keepKids ? kidsPaths.movies.trim() : '', series: keepKids ? kidsPaths.series.trim() : '' }
-    const at: Record<Kind, number> = { movies: -1, series: -1 }
-    for (const { key } of kinds) {
-      if (kids[key] !== '' && !lists[key].includes(kids[key])) at[key] = lists[key].push(kids[key]) - 1
-    }
-    setAppended(at)
-    save.mutate({ root_folders: { ...lists, kids_movies: kids.movies, kids_series: kids.series } })
+    save.mutate({ root_folders: { movies: folders.movies.map((p) => p.trim()), series: folders.series.map((p) => p.trim()) } })
   }
   const fields = save.error instanceof ApiError ? save.error.fields : []
   const otherError = save.isError && fields.length === 0
@@ -128,34 +89,7 @@ function Form({ saved }: { saved: Folders }) {
             ))}
         </fieldset>
       ))}
-      <label className="flex items-center gap-2 text-[13px]">
-        <input type="checkbox" checked={keepKids} onChange={(e) => toggle(e.target.checked)} />
-        Keep kids’ titles in their own folders
-      </label>
-      {keepKids &&
-        kinds.map(({ key, kids, label }) => {
-          const problems = fields.filter((f) => f.field === `root_folders.${kids}` || (appended[key] >= 0 && f.field === `root_folders.${key}[${appended[key]}]`))
-          return (
-            <div key={key} className="flex flex-col gap-1">
-              <label className="flex flex-col gap-1 text-[12px] font-medium text-gray-900">
-                Kids {label} folder
-                <TextInput
-                  aria-invalid={problems.length > 0 ? true : undefined}
-                  className="font-mono"
-                  value={kidsPaths[key]}
-                  onChange={(e) => setKids(key, e.target.value)}
-                />
-              </label>
-              {problems.map((f) => (
-                <ErrorText key={f.field}>{f.message}</ErrorText>
-              ))}
-            </div>
-          )
-        })}
-      <p className="text-[12px] text-gray-900">
-        Each folder must exist and be writable by Kestrel. Keep them on the same mount as your downloads so Imports can hardlink. New Titles the
-        Kids rule catches, or that get a Kids Profile in HD, go in the Kids folders, so a media server can show them as their own library.
-      </p>
+      <p className="text-[12px] text-gray-900">Each folder must exist and be writable by Kestrel. Keep them on the same mount as your downloads so Imports can hardlink.</p>
       {otherError && <ErrorText>Could not save. Try again.</ErrorText>}
       {save.isSuccess && (
         <p role="status" className="text-[12px] text-green-900">

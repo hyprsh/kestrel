@@ -16,11 +16,10 @@ type Settings = components['schemas']['Settings']
 function fakeSettings(onSave?: (body: unknown) => void, rootFolders: Partial<Settings['root_folders']> = {}) {
   let settings: Settings = {
     language_region: { primary_language: 'en', release_date_country: 'US' },
-    kids_rule: { enabled: true, threshold: 6 },
     check_github_updates: true,
     trash: { auto_update: true },
     metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
-    root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'], kids_movies: '', kids_series: '', ...rootFolders },
+    root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'], ...rootFolders },
   }
   server.use(
     http.get('/settings', ({ response }) => response(200).json(settings)),
@@ -221,7 +220,7 @@ describe('Root folders', () => {
     await userEvent.click(within(section).getByRole('button', { name: 'Save root folders' }))
 
     expect(await within(section).findByText('Saved.')).toBeInTheDocument()
-    expect(saved).toEqual([{ root_folders: { movies: ['/data/films', '/data/more'], series: ['/data/media/tv'], kids_movies: '', kids_series: '' } }])
+    expect(saved).toEqual([{ root_folders: { movies: ['/data/films', '/data/more'], series: ['/data/media/tv'] } }])
   })
 
   it('marks the first folder as the default for adding a Title and lets another take over', async () => {
@@ -237,7 +236,7 @@ describe('Root folders', () => {
     expect(within(section).getByLabelText('Series folder 1')).toHaveValue('/data/anime')
     await userEvent.click(within(section).getByRole('button', { name: 'Save root folders' }))
     await waitFor(() => expect(saved).toHaveLength(1))
-    expect(saved[0]).toEqual({ root_folders: { movies: ['/data/media/movies'], series: ['/data/anime', '/data/media/tv'], kids_movies: '', kids_series: '' } })
+    expect(saved[0]).toEqual({ root_folders: { movies: ['/data/media/movies'], series: ['/data/anime', '/data/media/tv'] } })
   })
 
   it('shows what is wrong with a folder next to it', async () => {
@@ -250,88 +249,6 @@ describe('Root folders', () => {
     await userEvent.click(within(section).getByRole('button', { name: 'Save root folders' }))
     expect(await within(section).findByRole('alert')).toHaveTextContent('This folder does not exist')
     expect(movies).toHaveAttribute('aria-invalid', 'true')
-  })
-
-  it('offers Kids folders per kind, prefilled beside the first folder, and appends them to the lists on save', async () => {
-    const saved: unknown[] = []
-    fakeSettings((b) => saved.push(b))
-    fakeSetup({}, true)
-    const section = await open()
-    const keep = await within(section).findByRole('checkbox', { name: 'Keep kids’ titles in their own folders' })
-    expect(keep).not.toBeChecked()
-    expect(within(section).queryByLabelText('Kids Movies folder')).not.toBeInTheDocument()
-
-    await userEvent.click(keep)
-    expect(within(section).getByLabelText('Kids Movies folder')).toHaveValue('/data/media/kids-movies')
-    expect(within(section).getByLabelText('Kids Series folder')).toHaveValue('/data/media/kids-tv')
-    expect(within(section).queryByLabelText('Movies folder 2')).not.toBeInTheDocument()
-    await userEvent.click(within(section).getByRole('button', { name: 'Save root folders' }))
-
-    await waitFor(() => expect(saved).toHaveLength(1))
-    expect(saved[0]).toEqual({
-      root_folders: {
-        movies: ['/data/media/movies', '/data/media/kids-movies'],
-        series: ['/data/media/tv', '/data/media/kids-tv'],
-        kids_movies: '/data/media/kids-movies',
-        kids_series: '/data/media/kids-tv',
-      },
-    })
-  })
-
-  it('loads a saved Kids folder checked, out of its list and in its field, and turns a cleared field off', async () => {
-    const saved: unknown[] = []
-    fakeSettings((b) => saved.push(b), {
-      movies: ['/data/media/movies', '/data/kids'],
-      kids_movies: '/data/kids',
-      series: ['/data/media/kids-tv'],
-      kids_series: '/data/media/kids-tv',
-    })
-    fakeSetup({}, true)
-    const section = await open()
-    expect(await within(section).findByRole('checkbox', { name: 'Keep kids’ titles in their own folders' })).toBeChecked()
-    expect(within(section).getByLabelText('Kids Movies folder')).toHaveValue('/data/kids')
-    expect(within(section).queryByLabelText('Movies folder 2')).not.toBeInTheDocument()
-    // the only folder of its list stays there too
-    expect(within(section).getByLabelText('Series folder 1')).toHaveValue('/data/media/kids-tv')
-    expect(within(section).getByLabelText('Kids Series folder')).toHaveValue('/data/media/kids-tv')
-
-    await userEvent.clear(within(section).getByLabelText('Kids Series folder'))
-    await userEvent.click(within(section).getByRole('button', { name: 'Save root folders' }))
-    await waitFor(() => expect(saved).toHaveLength(1))
-    expect(saved[0]).toEqual({
-      root_folders: { movies: ['/data/media/movies', '/data/kids'], series: ['/data/media/kids-tv'], kids_movies: '/data/kids', kids_series: '' },
-    })
-  })
-
-  it('unchecking turns the Kids folders off and keeps the old ones as regular folders', async () => {
-    const saved: unknown[] = []
-    fakeSettings((b) => saved.push(b), { movies: ['/data/media/movies', '/data/kids'], kids_movies: '/data/kids' })
-    fakeSetup({}, true)
-    const section = await open()
-    await userEvent.click(await within(section).findByRole('checkbox', { name: 'Keep kids’ titles in their own folders' }))
-
-    expect(within(section).queryByLabelText('Kids Movies folder')).not.toBeInTheDocument()
-    expect(within(section).getByLabelText('Movies folder 2')).toHaveValue('/data/kids')
-    await userEvent.click(within(section).getByRole('button', { name: 'Save root folders' }))
-    await waitFor(() => expect(saved).toHaveLength(1))
-    expect(saved[0]).toEqual({
-      root_folders: { movies: ['/data/media/movies', '/data/kids'], series: ['/data/media/tv'], kids_movies: '', kids_series: '' },
-    })
-  })
-
-  it('shows a server error on the appended Kids path under its Kids field', async () => {
-    fakeSettings()
-    fakeSetup({}, true)
-    const section = await open()
-    await userEvent.click(await within(section).findByRole('checkbox', { name: 'Keep kids’ titles in their own folders' }))
-    const kids = within(section).getByLabelText('Kids Movies folder')
-    await userEvent.clear(kids)
-    await userEvent.type(kids, '/missing/kids')
-    await userEvent.click(within(section).getByRole('button', { name: 'Save root folders' }))
-
-    expect(await within(section).findByRole('alert')).toHaveTextContent('This folder does not exist')
-    expect(kids).toHaveAttribute('aria-invalid', 'true')
-    expect(within(section).getByLabelText('Movies folder 1')).not.toHaveAttribute('aria-invalid')
   })
 
   it('removes a folder but keeps at least one per kind', async () => {

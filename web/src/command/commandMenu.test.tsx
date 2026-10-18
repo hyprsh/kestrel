@@ -22,7 +22,7 @@ const result = (id: number, title: string, over: Partial<LookupResult> = {}): Lo
   ...over,
 })
 
-const kidsSuggestion = (id: number, title: string): Suggestion => ({
+const defaultSuggestion = (id: number, title: string): Suggestion => ({
   kind: 'movie',
   tmdb_id: id,
   title,
@@ -31,11 +31,11 @@ const kidsSuggestion = (id: number, title: string): Suggestion => ({
   in_library: null,
   certification: '6',
   certification_country: 'DE',
-  slots: [{ slot: 'hd', profile: 'kids-primary', label: 'Kids (FSK 6)', reason: 'kids_rule' }],
+  slots: [{ slot: 'hd', profile: 'hd-primary', label: 'HD', reason: 'default' }],
 })
 
 /** TMDB lookups: Paddington is addable, Paddington Returns is already in the Library. */
-function fakeLookup(suggestion: (id: number, title: string) => Suggestion = kidsSuggestion) {
+function fakeLookup(suggestion: (id: number, title: string) => Suggestion = defaultSuggestion) {
   const lib = fakeLibrary([row(7, 'Paddington Returns', 'Paddington 2')])
   const sent: Sent[] = []
   const queries: string[] = []
@@ -54,7 +54,7 @@ function fakeLookup(suggestion: (id: number, title: string) => Suggestion = kids
     http.post('/titles', async ({ request, response }) => {
       const body = await request.json()
       sent.push({ path: 'titles', body })
-      const added = row(8, 'Paddington', 'Ein Bär namens Paddington', { slots: { sd: null, hd: { version_id: 81, profile: 'kids-primary', state: 'wanted', long_missing: false }, uhd: null } })
+      const added = row(8, 'Paddington', 'Ein Bär namens Paddington', { slots: { sd: null, hd: { version_id: 81, profile: 'hd-primary', state: 'wanted', long_missing: false }, uhd: null } })
       lib.rows = [added, ...lib.rows]
       return response(201).json(detail(added))
     }),
@@ -117,22 +117,22 @@ describe('the command menu', () => {
     expect(f.queries.at(-1)).toBe('padd')
   })
 
-  it('adds a Movie with the Slots preselected and the Kids rule named as the reason', async () => {
+  it('adds a Movie with the Slots preselected and the default named as the reason', async () => {
     const f = fakeLookup()
     renderApp()
     const menu = await searchForPaddington()
     await userEvent.click(await within(menu).findByRole('option', { name: /^Paddington\b(?!.*Returns)/ }))
 
-    expect(await within(menu).findByText('Preselected: HD · Kids (FSK 6) — Kids rule')).toBeInTheDocument()
+    expect(await within(menu).findByText('Preselected: HD · HD (default)')).toBeInTheDocument()
     expect(within(menu).getByRole('checkbox', { name: 'HD' })).toBeChecked()
     expect(within(menu).getByRole('checkbox', { name: 'SD' })).not.toBeChecked()
     expect(within(menu).getByRole('checkbox', { name: 'UHD' })).not.toBeChecked()
-    expect(within(menu).getByRole('combobox', { name: 'HD Profile' })).toHaveValue('kids-primary')
+    expect(within(menu).getByRole('combobox', { name: 'HD Profile' })).toHaveValue('hd-primary')
 
     await userEvent.keyboard('{Enter}') // one key confirms
 
     await waitFor(() => expect(f.sent).toHaveLength(1))
-    expect(f.sent[0].body).toEqual({ kind: 'movie', tmdb_id: 116149, versions: [{ slot: 'hd', profile: 'kids-primary' }] })
+    expect(f.sent[0].body).toEqual({ kind: 'movie', tmdb_id: 116149, versions: [{ slot: 'hd', profile: 'hd-primary' }] })
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(screen.getByRole('banner')).toHaveTextContent('Library')
     expect(await screen.findByRole('option', { name: /paddington/i, selected: true })).toBeInTheDocument()
@@ -160,17 +160,16 @@ describe('the command menu', () => {
     })
   })
 
-  it('preselects the Kids root folder for a Title whose HD Profile is a Kids one, and lets another be picked', async () => {
+  it('preselects the first root folder and lets another be picked', async () => {
     const f = fakeLookup()
     server.use(
       http.get('/settings', ({ response }) =>
         response(200).json({
           language_region: { primary_language: 'en', release_date_country: 'US' },
-          kids_rule: { enabled: true, threshold: 6 },
           check_github_updates: true,
           trash: { auto_update: true },
           metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
-          root_folders: { movies: ['/data/movies', '/data/kids-movies'], series: ['/data/tv'], kids_movies: '/data/kids-movies', kids_series: '' },
+          root_folders: { movies: ['/data/movies', '/data/more-movies'], series: ['/data/tv'] },
         }),
       ),
     )
@@ -180,16 +179,14 @@ describe('the command menu', () => {
     await within(menu).findByText(/Preselected/)
 
     const folder = within(menu).getByRole('combobox', { name: 'Root folder' })
-    expect(folder).toHaveValue('/data/kids-movies')
-    await userEvent.selectOptions(within(menu).getByRole('combobox', { name: 'HD Profile' }), 'hd-primary')
-    expect(folder).toHaveValue('/data/movies') // the folder follows the HD Profile until one is picked
-    await userEvent.selectOptions(within(menu).getByRole('combobox', { name: 'HD Profile' }), 'kids-primary')
-    expect(folder).toHaveValue('/data/kids-movies')
+    expect(folder).toHaveValue('/data/movies')
+    await userEvent.selectOptions(within(menu).getByRole('combobox', { name: 'HD Profile' }), 'any-primary')
+    expect(folder).toHaveValue('/data/movies') // no Profile moves the folder
 
-    await userEvent.selectOptions(folder, '/data/movies')
+    await userEvent.selectOptions(folder, '/data/more-movies')
     await userEvent.click(within(menu).getByRole('button', { name: /^add/i }))
     await waitFor(() => expect(f.sent).toHaveLength(1))
-    expect(f.sent[0].body).toEqual({ kind: 'movie', tmdb_id: 116149, versions: [{ slot: 'hd', profile: 'kids-primary' }], root_folder: '/data/movies' })
+    expect(f.sent[0].body).toEqual({ kind: 'movie', tmdb_id: 116149, versions: [{ slot: 'hd', profile: 'any-primary' }], root_folder: '/data/more-movies' })
   })
 
   it('does not add an already-added Movie: it opens it in the Library', async () => {

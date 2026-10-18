@@ -244,10 +244,6 @@ func (w settingsWriter) SetRegion(ctx context.Context, p profiles.RegionPatch) (
 	return w.profs.SetRegion(ctx, p)
 }
 
-func (w settingsWriter) SetKids(ctx context.Context, p profiles.KidsPatch) (profiles.KidsRule, error) {
-	return w.profs.SetKids(ctx, p)
-}
-
 func (w settingsWriter) SetTrashAutoUpdate(ctx context.Context, on bool) error {
 	return w.trash.SetAutoUpdate(ctx, on)
 }

@@ -625,27 +625,6 @@ func (e SeriesMonitor) Valid() bool {
 	}
 }
 
-// Defines values for SettingsKidsRuleThreshold.
-const (
-	N0  SettingsKidsRuleThreshold = 0
-	N12 SettingsKidsRuleThreshold = 12
-	N6  SettingsKidsRuleThreshold = 6
-)
-
-// Valid indicates whether the value is a known member of the SettingsKidsRuleThreshold enum.
-func (e SettingsKidsRuleThreshold) Valid() bool {
-	switch e {
-	case N0:
-		return true
-	case N12:
-		return true
-	case N6:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for SetupSectionState.
 const (
 	Done SetupSectionState = "done"
@@ -714,16 +693,13 @@ func (e SlotState) Valid() bool {
 
 // Defines values for SuggestedSlotReason.
 const (
-	Default  SuggestedSlotReason = "default"
-	KidsRule SuggestedSlotReason = "kids_rule"
+	Default SuggestedSlotReason = "default"
 )
 
 // Valid indicates whether the value is a known member of the SuggestedSlotReason enum.
 func (e SuggestedSlotReason) Valid() bool {
 	switch e {
 	case Default:
-		return true
-	case KidsRule:
 		return true
 	default:
 		return false
@@ -771,26 +747,26 @@ func (e UpcomingItemReleaseType) Valid() bool {
 
 // Defines values for ProfileKey.
 const (
-	HdOriginal   ProfileKey = "hd-original"
-	HdPrimary    ProfileKey = "hd-primary"
-	KidsOriginal ProfileKey = "kids-original"
-	KidsPrimary  ProfileKey = "kids-primary"
-	SdOriginal   ProfileKey = "sd-original"
-	SdPrimary    ProfileKey = "sd-primary"
-	UhdOriginal  ProfileKey = "uhd-original"
-	UhdPrimary   ProfileKey = "uhd-primary"
+	AnyOriginal ProfileKey = "any-original"
+	AnyPrimary  ProfileKey = "any-primary"
+	HdOriginal  ProfileKey = "hd-original"
+	HdPrimary   ProfileKey = "hd-primary"
+	SdOriginal  ProfileKey = "sd-original"
+	SdPrimary   ProfileKey = "sd-primary"
+	UhdOriginal ProfileKey = "uhd-original"
+	UhdPrimary  ProfileKey = "uhd-primary"
 )
 
 // Valid indicates whether the value is a known member of the ProfileKey enum.
 func (e ProfileKey) Valid() bool {
 	switch e {
+	case AnyOriginal:
+		return true
+	case AnyPrimary:
+		return true
 	case HdOriginal:
 		return true
 	case HdPrimary:
-		return true
-	case KidsOriginal:
-		return true
-	case KidsPrimary:
 		return true
 	case SdOriginal:
 		return true
@@ -1388,7 +1364,7 @@ type LongMissing struct {
 
 // LookupDetail defines model for LookupDetail.
 type LookupDetail struct {
-	// Certification The rating the Kids rule read, as TMDB writes it ("6", "PG").
+	// Certification The Title's rating, as TMDB writes it ("6", "PG").
 	Certification *string `json:"certification"`
 
 	// CertificationCountry The country that rating is from; the release-date country unless TMDB had none there.
@@ -1612,9 +1588,6 @@ type Profile struct {
 
 	// Key Example: hd-primary
 	Key string `json:"key"`
-
-	// Kids A Kids Profile: the Kids rule swaps HD to it, and a new Title with it in HD goes in the Kids root folder.
-	Kids bool `json:"kids"`
 
 	// LanguageRule Which audio the Profile requires.
 	LanguageRule ProfileLanguageRule `json:"language_rule"`
@@ -1923,14 +1896,8 @@ type ReverseProxySettings struct {
 // RootFolders Where Imports put Titles, one or more absolute paths per kind. The first is the default when
 // adding a Title. Unsaved, they report `<data dir>/media/movies` and `<data dir>/media/tv`.
 type RootFolders struct {
-	// KidsMovies The Kids root folder for Movies, one of `movies`, or empty (off). A new Movie whose HD Version
-	// gets a Kids Profile goes in it instead of the first; Adoption never moves a Title into it.
-	KidsMovies string `json:"kids_movies"`
-
-	// KidsSeries The Kids root folder for Series, one of `series`, or empty (off). As `kids_movies`.
-	KidsSeries string   `json:"kids_series"`
-	Movies     []string `json:"movies"`
-	Series     []string `json:"series"`
+	Movies []string `json:"movies"`
+	Series []string `json:"series"`
 }
 
 // Season defines model for Season.
@@ -1957,17 +1924,11 @@ type Settings struct {
 	// and the published security advisories (and, with the TRaSH update, the latest TRaSH commit).
 	// Off means no request to GitHub at all, except a manual "Update from TRaSH".
 	CheckGithubUpdates bool `json:"check_github_updates"`
-	KidsRule           struct {
-		Enabled bool `json:"enabled"`
-
-		// Threshold Titles certified at or below this age get the Kids Profile in HD.
-		Threshold SettingsKidsRuleThreshold `json:"threshold"`
-	} `json:"kids_rule"`
-	LanguageRegion struct {
+	LanguageRegion     struct {
 		// PrimaryLanguage The household's Primary Language as ISO 639-1.
 		PrimaryLanguage PrimaryLanguage `json:"primary_language"`
 
-		// ReleaseDateCountry ISO 3166-1 alpha-2. "Released" and the Kids rule's certifications follow it.
+		// ReleaseDateCountry ISO 3166-1 alpha-2. "Released" follows it.
 		//
 		// Example: DE
 		ReleaseDateCountry string `json:"release_date_country"`
@@ -1989,17 +1950,10 @@ type Settings struct {
 	} `json:"trash"`
 }
 
-// SettingsKidsRuleThreshold Titles certified at or below this age get the Kids Profile in HD.
-type SettingsKidsRuleThreshold int
-
 // SettingsPatch defines model for SettingsPatch.
 type SettingsPatch struct {
 	CheckGithubUpdates *bool `json:"check_github_updates,omitempty"`
-	KidsRule           *struct {
-		Enabled   *bool `json:"enabled,omitempty"`
-		Threshold *int  `json:"threshold,omitempty"`
-	} `json:"kids_rule,omitempty"`
-	LanguageRegion *struct {
+	LanguageRegion     *struct {
 		// PrimaryLanguage The household's Primary Language as ISO 639-1.
 		PrimaryLanguage    *PrimaryLanguage `json:"primary_language,omitempty"`
 		ReleaseDateCountry *string          `json:"release_date_country,omitempty"`
@@ -2011,18 +1965,11 @@ type SettingsPatch struct {
 		TvdbApiKey *string `json:"tvdb_api_key,omitempty"`
 	} `json:"metadata,omitempty"`
 
-	// RootFolders Replaces the named lists and Kids root folders. Each path must exist, be a directory and be writable
-	// (`not_found`, `not_directory`, `not_writable`, `not_absolute`, `required`). A Kids root folder must be
-	// empty or one of its kind's folders (`not_configured`), and a list can't drop the folder its kind's
-	// Kids root folder is set to (`kids_root_folder` on the list).
+	// RootFolders Replaces the named lists. Each path must exist, be a directory and be writable
+	// (`not_found`, `not_directory`, `not_writable`, `not_absolute`, `required`).
 	RootFolders *struct {
-		// KidsMovies One of the Movies root folders, or empty to turn it off.
-		KidsMovies *string `json:"kids_movies,omitempty"`
-
-		// KidsSeries One of the Series root folders, or empty to turn it off.
-		KidsSeries *string   `json:"kids_series,omitempty"`
-		Movies     *[]string `json:"movies,omitempty"`
-		Series     *[]string `json:"series,omitempty"`
+		Movies *[]string `json:"movies,omitempty"`
+		Series *[]string `json:"series,omitempty"`
 	} `json:"root_folders,omitempty"`
 	Trash *struct {
 		AutoUpdate *bool `json:"auto_update,omitempty"`
@@ -2072,20 +2019,20 @@ type StalledImportsSelect struct {
 
 // SuggestedSlot defines model for SuggestedSlot.
 type SuggestedSlot struct {
-	// Label Example: Kids (FSK 6)
+	// Label Example: Any
 	Label string `json:"label"`
 
 	// Profile The Profile key.
 	//
-	// Example: kids-primary
+	// Example: any-primary
 	Profile string `json:"profile"`
 
-	// Reason `default` (the Slot's default Profile) or `kids_rule` (the Kids rule swapped HD for its Kids Profile). Clients tolerate new values.
+	// Reason `default` (the Slot's default Profile). Clients tolerate new values.
 	Reason SuggestedSlotReason `json:"reason"`
 	Slot   Slot                `json:"slot"`
 }
 
-// SuggestedSlotReason `default` (the Slot's default Profile) or `kids_rule` (the Kids rule swapped HD for its Kids Profile). Clients tolerate new values.
+// SuggestedSlotReason `default` (the Slot's default Profile). Clients tolerate new values.
 type SuggestedSlotReason string
 
 // System defines model for System.
@@ -2144,7 +2091,7 @@ type TitleCreate struct {
 type TitleDetail struct {
 	AddedAt time.Time `json:"added_at"`
 
-	// Certification The certification in the release-date country, with the same fallback as the Kids rule.
+	// Certification The certification in the release-date country, else the US, else the earliest anywhere.
 	Certification *string `json:"certification"`
 
 	// Folder The Title's folder name; set by its first Import.

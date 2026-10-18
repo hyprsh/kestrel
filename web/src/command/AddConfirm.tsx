@@ -5,15 +5,15 @@ import { Button, ErrorText, Select } from '../forms'
 import { slotKeys, slotLabel, type SlotKey } from '../library/bits'
 import { Kbd } from '../ui'
 
-/** The Profile a Slot gets when ticked without a suggestion: its default, else the first enabled Primary-Language one. */
+/** The Profile a Slot gets when ticked without a suggestion: its default, else the first enabled Primary-Language one (Any comes after HD in the list). */
 function fallbackProfile(profiles: Profile[], slot: SlotKey, kind: 'movie' | 'series'): string | undefined {
   const of = profiles.filter((p) => p.slot === slot && p.enabled)
-  return (of.find((p) => (kind === 'series' ? p.default_series : p.default_movies)) ?? of.find((p) => p.language_rule === 'primary' && !p.kids) ?? of[0])?.key
+  return (of.find((p) => (kind === 'series' ? p.default_series : p.default_movies)) ?? of.find((p) => p.language_rule === 'primary') ?? of[0])?.key
 }
 
 /**
  * The add panel: every Slot with a default is preselected, with the reason
- * ("HD · Kids (FSK 6) — Kids rule"). One key (Enter) adds; Slots and Profiles
+ * ("HD (default)"). One key (Enter) adds; Slots and Profiles
  * can be changed first.
  */
 export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; onBack: () => void; onAdded: (titleId: number) => void }) {
@@ -39,9 +39,8 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
   const all = profiles.data ?? []
   const folders = settings.data?.root_folders
   const roots = (result.kind === 'series' ? folders?.series : folders?.movies) ?? []
-  // A Title whose HD Profile is a Kids one goes in the kind's Kids root folder, as the server does when none is named.
-  const kidsRoot = result.kind === 'series' ? folders?.kids_series : folders?.kids_movies
-  const defaultRoot = kidsRoot && all.find((p) => p.key === picked.hd)?.kids ? kidsRoot : roots[0]
+  // The server files a new Title in the kind's first root folder when none is named.
+  const defaultRoot = roots[0]
   const chosen = slotKeys.filter((k) => picked[k])
   const ready = seeded && chosen.length > 0 && !create.isPending
 
@@ -68,7 +67,7 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
   }
 
   const reasons = (suggestion.data?.slots ?? []).map(
-    (s) => `${slotLabel[s.slot]} · ${s.label}${s.reason === 'kids_rule' ? ' — Kids rule' : ' (default)'}`,
+    (s) => `${slotLabel[s.slot]} · ${s.label} (default)`,
   )
 
   return (

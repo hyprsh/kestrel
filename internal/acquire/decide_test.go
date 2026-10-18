@@ -183,10 +183,10 @@ func TestOtherSlotAndUnwantedSlot(t *testing.T) {
 	})
 }
 
-// Kids sits in the HD Slot but its Profile accepts 0-1080, so it takes SD and HD releases.
+// Any sits in the HD Slot but its Profile accepts 0-1080, so it takes SD and HD releases.
 func TestFitFollowsTheVersionsProfileRange(t *testing.T) {
 	sd := Slot(resolution.SD)
-	t.Run("an SD release is planned for a Kids Version in the HD Slot", func(t *testing.T) {
+	t.Run("an SD release is planned for an Any Version in the HD Slot", func(t *testing.T) {
 		c := movieCand("sd", 0, func(c *Candidate) {
 			c.Verdicts = map[Slot]scoring.Verdict{resolution.HD: {Accepted: true, Score: 5}}
 		})
@@ -196,7 +196,7 @@ func TestFitFollowsTheVersionsProfileRange(t *testing.T) {
 			t.Fatalf("rejections = %v", got)
 		}
 	})
-	t.Run("the same SD release is planned for both the SD and the Kids Version", func(t *testing.T) {
+	t.Run("the same SD release is planned for both the SD and the Any Version", func(t *testing.T) {
 		c := movieCand("sd", 0, func(c *Candidate) {
 			c.Verdicts = map[Slot]scoring.Verdict{sd: {Accepted: true, Score: 5}, resolution.HD: {Accepted: true, Score: 5}}
 		})

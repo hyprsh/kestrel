@@ -97,7 +97,7 @@ func TestAddingToATakenSlotOrWithAWrongProfileIsRefused(t *testing.T) {
 	s.addMovie(t, `{"slot":"hd","profile":"hd-primary"}`)
 	path := fmt.Sprintf("/titles/%d/versions", s.title)
 
-	if r := s.valid("POST", path, `{"slot":"hd","profile":"kids-primary"}`); r.Status != 409 {
+	if r := s.valid("POST", path, `{"slot":"hd","profile":"any-primary"}`); r.Status != 409 {
 		t.Errorf("taken Slot = %d %s, want 409", r.Status, r.Body)
 	}
 	if r := s.valid("POST", path, `{"slot":"uhd","profile":"hd-primary"}`); r.Status != 422 {
@@ -108,7 +108,7 @@ func TestAddingToATakenSlotOrWithAWrongProfileIsRefused(t *testing.T) {
 	}
 }
 
-func TestSwitchingHDToKidsRescoresTheFileWithoutRenamingAndSearchesAtOnce(t *testing.T) {
+func TestSwitchingHDToAnyAndBackRescoresTheFileWithoutRenamingAndSearchesAtOnce(t *testing.T) {
 	s := newSearchBare(t)
 	s.addMovie(t, `{"slot":"hd","profile":"hd-primary"}`)
 	s.prober.set(goodProbe(), nil)
@@ -121,14 +121,14 @@ func TestSwitchingHDToKidsRescoresTheFileWithoutRenamingAndSearchesAtOnce(t *tes
 	}
 	s.in.clock.Advance(3 * time.Hour)
 
-	r := s.valid("PATCH", fmt.Sprintf("/versions/%d", s.hd), `{"profile":"kids-primary"}`)
+	r := s.valid("PATCH", fmt.Sprintf("/versions/%d", s.hd), `{"profile":"any-primary"}`)
 
 	if r.Status != 200 {
 		t.Fatalf("PATCH /versions/{id} = %d %s", r.Status, r.Body)
 	}
 	after := s.version(t, s.hd)
-	if after.Profile != "kids-primary" || after.State != "filled" {
-		t.Errorf("version = %+v, want Kids and still filled: an HD file fits Kids", after)
+	if after.Profile != "any-primary" || after.State != "filled" {
+		t.Errorf("version = %+v, want Any and still filled: an HD file fits Any", after)
 	}
 	if after.File == nil || after.File.Path != before.File.Path || after.File.Misfit {
 		t.Errorf("file = %+v, want the same path and no misfit", after.File)
@@ -139,6 +139,13 @@ func TestSwitchingHDToKidsRescoresTheFileWithoutRenamingAndSearchesAtOnce(t *tes
 	now := s.in.clock.Now().UTC().Format(time.RFC3339)
 	if st := s.searchState(t, s.hd); st.missing != now || st.upgrade != now {
 		t.Errorf("search state = %+v, want both due at %s", st, now)
+	}
+
+	if r := s.valid("PATCH", fmt.Sprintf("/versions/%d", s.hd), `{"profile":"hd-primary"}`); r.Status != 200 {
+		t.Fatalf("switching back = %d %s", r.Status, r.Body)
+	}
+	if back := s.version(t, s.hd); back.Profile != "hd-primary" || back.State != "filled" {
+		t.Errorf("version = %+v, want HD and still filled", back)
 	}
 }
 

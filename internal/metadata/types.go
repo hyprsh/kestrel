@@ -130,7 +130,7 @@ func (r ReleaseDates) ScopeFor(country string) ReleaseDates {
 // Certification is the certification to read for a country, and the country it
 // was read in: the country's own, else the US, else the earliest-released
 // non-blank one anywhere. Callers need that country to interpret the rating
-// (the Kids rule reads an age per country). Both are empty if nothing is certified.
+// (a rating is per country). Both are empty if nothing is certified.
 func (r ReleaseDates) Certification(country string) (usedCountry, cert string) {
 	of := func(c string) (string, bool) {
 		var best *ReleaseDate

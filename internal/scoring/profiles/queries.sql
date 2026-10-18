@@ -1,5 +1,5 @@
 -- name: ListProfiles :many
-SELECT key, name, sort, slot, kids, language_rule, min_height, max_height, enabled, original_fallback,
+SELECT key, name, sort, slot, any, language_rule, min_height, max_height, enabled, original_fallback,
        default_movies, default_series, trash_profile_movies, trash_profile_series
 FROM profiles ORDER BY sort;
 

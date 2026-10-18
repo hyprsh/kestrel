@@ -215,7 +215,6 @@ type AdoptLibrary interface {
 type AdoptProfiles interface {
 	List(ctx context.Context) ([]profiles.Profile, error)
 	Region(ctx context.Context) (profiles.Region, bool, error)
-	Kids(ctx context.Context) (profiles.KidsRule, bool, error)
 }
 
 // AdoptMeta is what Adoption needs of the metadata provider.

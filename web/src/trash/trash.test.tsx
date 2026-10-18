@@ -34,8 +34,7 @@ describe('Update from TRaSH', () => {
         bodies.push(await request.clone().json())
         return response(200).json({
           language_region: { primary_language: 'en', release_date_country: 'US' },
-          kids_rule: { enabled: true, threshold: 6 },
-          root_folders: { movies: ['/m'], series: ['/s'], kids_movies: '', kids_series: '' },
+          root_folders: { movies: ['/m'], series: ['/s'] },
           check_github_updates: true,
           trash: { auto_update: false },
           metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },

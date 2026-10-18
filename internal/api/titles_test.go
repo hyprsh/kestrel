@@ -110,13 +110,13 @@ func newLibraryInstance(t *testing.T, key string) library {
 	return library{browser: in.setUp(), tmdb: tmdb, tvdb: tvdb, config: config, data: data}
 }
 
-// kidsFolders saves the default Root folders plus a Kids root folder per kind, and returns those two.
-func (l library) kidsFolders(t *testing.T) (movies, series string) {
+// moreFolders saves the default Root folders plus a second one per kind, and returns those two.
+func (l library) moreFolders(t *testing.T) (movies, series string) {
 	t.Helper()
-	movies, series = l.data+"/media/kids-movies", l.data+"/media/kids-tv"
+	movies, series = l.data+"/media/more-movies", l.data+"/media/more-tv"
 	mkdirs(t, l.data+"/media/movies", l.data+"/media/tv", movies, series)
-	l.valid("PATCH", "/settings", fmt.Sprintf(`{"root_folders":{"movies":[%q,%q],"series":[%q,%q],"kids_movies":%q,"kids_series":%q}}`,
-		l.data+"/media/movies", movies, l.data+"/media/tv", series, movies, series))
+	l.valid("PATCH", "/settings", fmt.Sprintf(`{"root_folders":{"movies":[%q,%q],"series":[%q,%q]}}`,
+		l.data+"/media/movies", movies, l.data+"/media/tv", series))
 	return movies, series
 }
 
@@ -224,13 +224,13 @@ func TestLookupMarksTitlesAlreadyInTheLibrary(t *testing.T) {
 	}
 }
 
-func TestTheSuggestionPreselectsHDAndSwapsToKidsWithTheReason(t *testing.T) {
+func TestTheSuggestionPreselectsTheSlotDefaultsWhateverTheRating(t *testing.T) {
 	l := newLibraryInstance(t, metadatatest.Key)
 
-	// US household: Paddington is PG, age 6, at the default threshold.
+	// US household: Paddington is PG, and still gets HD.
 	sug := decode[suggestionJSON](t, l.valid("GET", "/lookup/movie/116149", ""))
-	if len(sug.Slots) != 1 || sug.Slots[0].Slot != "hd" || sug.Slots[0].Profile != "kids-primary" ||
-		sug.Slots[0].Label != "Kids (PG)" || sug.Slots[0].Reason != "kids_rule" {
+	if len(sug.Slots) != 1 || sug.Slots[0].Slot != "hd" || sug.Slots[0].Profile != "hd-primary" ||
+		sug.Slots[0].Label != "HD" || sug.Slots[0].Reason != "default" {
 		t.Errorf("US = %+v", sug.Slots)
 	}
 	if sug.Certification == nil || *sug.Certification != "PG" || sug.CertificationCountry == nil || *sug.CertificationCountry != "US" {
@@ -240,17 +240,12 @@ func TestTheSuggestionPreselectsHDAndSwapsToKidsWithTheReason(t *testing.T) {
 	// German household reads the FSK rating.
 	l.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`)
 	sug = decode[suggestionJSON](t, l.valid("GET", "/lookup/movie/116149", ""))
-	if sug.Slots[0].Label != "Kids (FSK 0)" || sug.Slots[0].Reason != "kids_rule" || *sug.CertificationCountry != "DE" {
+	if sug.Slots[0].Profile != "hd-primary" || sug.Slots[0].Label != "HD" || sug.Slots[0].Reason != "default" || *sug.CertificationCountry != "DE" {
 		t.Errorf("DE = %+v", sug.Slots)
 	}
 
-	// An adult title and a switched-off rule keep the default.
-	l.valid("PATCH", "/settings", `{"kids_rule":{"enabled":false}}`)
-	sug = decode[suggestionJSON](t, l.valid("GET", "/lookup/movie/116149", ""))
-	if sug.Slots[0].Profile != "hd-primary" || sug.Slots[0].Reason != "default" || sug.Slots[0].Label != "HD" {
-		t.Errorf("rule off = %+v", sug.Slots)
-	}
-	l.valid("PATCH", "/settings", `{"kids_rule":{"enabled":true},"language_region":{"primary_language":"en"}}`)
+	// An adult title gets the same.
+	l.valid("PATCH", "/settings", `{"language_region":{"primary_language":"en"}}`)
 	sug = decode[suggestionJSON](t, l.valid("GET", "/lookup/movie/77", ""))
 	if sug.Slots[0].Profile != "hd-primary" {
 		t.Errorf("PG-13 = %+v", sug.Slots)
@@ -275,7 +270,7 @@ func TestAddingIsRefusedForBadChoices(t *testing.T) {
 		{"no versions", body(`[]`, ""), "versions"},
 		{"a Profile of another Slot", body(`[{"slot":"hd","profile":"uhd-primary"}]`, ""), "versions[0].profile"},
 		{"an unknown Profile", body(`[{"slot":"hd","profile":"nope"}]`, ""), "versions[0].profile"},
-		{"a Slot twice", body(`[{"slot":"hd","profile":"hd-primary"},{"slot":"hd","profile":"kids-primary"}]`, ""), "versions[1].slot"},
+		{"a Slot twice", body(`[{"slot":"hd","profile":"hd-primary"},{"slot":"hd","profile":"any-primary"}]`, ""), "versions[1].slot"},
 		{"a root folder that is not configured", body(`[{"slot":"hd","profile":"hd-primary"}]`, `,"root_folder":"/elsewhere"`), "root_folder"},
 	} {
 		r := l.do("POST", "/titles", c.body)
@@ -378,27 +373,27 @@ func TestTheListFiltersByKindAndText(t *testing.T) {
 	}
 }
 
-func TestAnAddWithAKidsHDProfileGoesInTheKidsRootFolderUnlessOneIsNamed(t *testing.T) {
+func TestAnAddGoesInTheFirstRootFolderUnlessOneIsNamed(t *testing.T) {
 	for _, c := range []struct {
 		name, hd, root string
-		kids           bool
+		second         bool
 	}{
-		{"kids profile", "kids-primary", "", true},
-		{"other profile", "hd-primary", "", false},
-		{"named folder", "kids-primary", "first", false},
+		{"default profile", "hd-primary", "", false},
+		{"any profile", "any-primary", "", false},
+		{"named folder", "any-primary", "second", true},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			l := newLibraryInstance(t, metadatatest.Key)
-			kidsMovies, _ := l.kidsFolders(t)
+			second, _ := l.moreFolders(t)
 			first := l.data + "/media/movies"
 			root := ""
-			if c.root == "first" {
-				root = fmt.Sprintf(`,"root_folder":%q`, first)
+			if c.root == "second" {
+				root = fmt.Sprintf(`,"root_folder":%q`, second)
 			}
 			got := decode[titleJSON](t, l.valid("POST", "/titles", fmt.Sprintf(`{"kind":"movie","tmdb_id":116149,"versions":[{"slot":"hd","profile":%q}]%s}`, c.hd, root)))
 			want := first
-			if c.kids {
-				want = kidsMovies
+			if c.second {
+				want = second
 			}
 			if got.RootFolder != want {
 				t.Errorf("root folder = %q, want %q", got.RootFolder, want)

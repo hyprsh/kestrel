@@ -60,7 +60,7 @@ func TestClassWithinProfileBounds(t *testing.T) {
 		{resolution.HD, 0, 576, false},
 		{resolution.HD, 720, 1080, true},
 		{resolution.SD, 720, 1080, false},
-		{resolution.SD, 0, 1080, true}, // Kids
+		{resolution.SD, 0, 1080, true}, // Any
 		{resolution.HD, 0, 1080, true},
 		{resolution.UHD, 0, 1080, false},
 		{resolution.UHD, 2160, 2160, true},

@@ -1,8 +1,7 @@
 // Package rootfolders holds the Root folders Imports put Titles in: one or
 // more absolute paths per kind, the first being the default when adding a
-// Title, and per kind an optional Kids root folder, one of the kind's folders,
-// for new Titles whose HD Version has a Kids Profile. A folder is checked to
-// exist, be a directory and be writable when it is saved.
+// Title. A folder is checked to exist, be a directory and be writable when it
+// is saved.
 package rootfolders
 
 import (
@@ -24,18 +23,12 @@ const key = "root_folders"
 type Folders struct {
 	Movies []string `json:"movies"`
 	Series []string `json:"series"`
-	// KidsMovies and KidsSeries are the Kids root folders, each one of its
-	// kind's folders or "" (off).
-	KidsMovies string `json:"kids_movies,omitempty"`
-	KidsSeries string `json:"kids_series,omitempty"`
 }
 
-// Patch replaces the named lists and Kids root folders; nil ones stay.
+// Patch replaces the named lists; nil ones stay.
 type Patch struct {
-	Movies     *[]string
-	Series     *[]string
-	KidsMovies *string
-	KidsSeries *string
+	Movies *[]string
+	Series *[]string
 }
 
 // ValidationError is a rejected folder. Field is an API field name such as
@@ -82,9 +75,8 @@ func (s *Service) Get(ctx context.Context) (Folders, bool, error) {
 	return f, true, nil
 }
 
-// Set replaces the named lists and Kids root folders after checking every
-// folder in them, and that each Kids root folder is still one of its kind's
-// folders. A rejected patch changes nothing.
+// Set replaces the named lists after checking every folder in them. A
+// rejected patch changes nothing.
 func (s *Service) Set(ctx context.Context, p Patch) (Folders, error) {
 	f, _, err := s.Get(ctx)
 	if err != nil {
@@ -96,42 +88,26 @@ func (s *Service) Set(ctx context.Context, p Patch) (Folders, error) {
 	if p.Series != nil {
 		f.Series = *p.Series
 	}
-	if p.KidsMovies != nil {
-		f.KidsMovies = *p.KidsMovies
-	}
-	if p.KidsSeries != nil {
-		f.KidsSeries = *p.KidsSeries
-	}
 	for _, kind := range []struct {
-		name, noun string
-		kind       Kind
-		set        bool
-		kidsSet    bool
+		name string
+		kind Kind
+		set  bool
 	}{
-		{"movies", "Movies", Movie, p.Movies != nil, p.KidsMovies != nil},
-		{"series", "Series", Series, p.Series != nil, p.KidsSeries != nil},
+		{"movies", Movie, p.Movies != nil},
+		{"series", Series, p.Series != nil},
 	} {
-		list, kids := f.of(kind.kind)
-		if kind.set {
-			if len(list) == 0 {
-				return Folders{}, &ValidationError{Field: "root_folders." + kind.name, Code: "required", Message: "Add at least one folder"}
-			}
-			for i, path := range list {
-				if verr := check(path); verr != nil {
-					verr.Field = fmt.Sprintf("root_folders.%s[%d]", kind.name, i)
-					return Folders{}, verr
-				}
-			}
-		}
-		if kids == "" || slices.Contains(list, kids) {
+		if !kind.set {
 			continue
 		}
-		if kind.kidsSet {
-			return Folders{}, &ValidationError{Field: "root_folders.kids_" + kind.name, Code: "not_configured", Message: "Pick one of the " + kind.noun + " root folders"}
+		list := f.of(kind.kind)
+		if len(list) == 0 {
+			return Folders{}, &ValidationError{Field: "root_folders." + kind.name, Code: "required", Message: "Add at least one folder"}
 		}
-		return Folders{}, &ValidationError{
-			Field: "root_folders." + kind.name, Code: "kids_root_folder",
-			Message: kids + " is the Kids root folder for " + kind.noun + ": pick another one or turn it off first",
+		for i, path := range list {
+			if verr := check(path); verr != nil {
+				verr.Field = fmt.Sprintf("root_folders.%s[%d]", kind.name, i)
+				return Folders{}, verr
+			}
 		}
 	}
 	raw, err := json.Marshal(f)
@@ -185,23 +161,18 @@ const (
 	Series Kind = "series"
 )
 
-// of is the kind's folders and its Kids root folder ("" when off).
-func (f Folders) of(kind Kind) (list []string, kids string) {
+// of is the kind's folders.
+func (f Folders) of(kind Kind) []string {
 	if kind == Series {
-		return f.Series, f.KidsSeries
+		return f.Series
 	}
-	return f.Movies, f.KidsMovies
+	return f.Movies
 }
 
 // Pick is the Root folder a new Title goes in: the requested one, which must
-// be configured for the kind, else the kind's Kids root folder for a Title
-// whose HD Version has a Kids Profile (kids) when one is set, else the kind's
-// first (its default).
-func (f Folders) Pick(kind Kind, requested string, kids bool) (string, error) {
-	configured, kidsFolder := f.of(kind)
-	if requested == "" && kids {
-		requested = kidsFolder
-	}
+// be configured for the kind, else the kind's first (its default).
+func (f Folders) Pick(kind Kind, requested string) (string, error) {
+	configured := f.of(kind)
 	if requested != "" {
 		if !slices.Contains(configured, requested) {
 			return "", ErrNotConfigured
