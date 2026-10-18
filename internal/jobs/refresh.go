@@ -220,7 +220,7 @@ func (r *Refresher) Daily(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var movies, shows, tvdb map[int]bool
+	var movies, series, tvdb map[int]bool
 	for _, x := range refs {
 		if x.Kind == library.Movie && movies == nil {
 			ids, err := r.d.Meta.Changes(ctx, metadata.Movie, since)
@@ -229,12 +229,12 @@ func (r *Refresher) Daily(ctx context.Context) error {
 			}
 			movies = set(ids)
 		}
-		if x.Kind == library.Series && shows == nil {
+		if x.Kind == library.Series && series == nil {
 			ids, err := r.d.Meta.Changes(ctx, metadata.Series, since)
 			if err != nil {
 				return err
 			}
-			shows = set(ids)
+			series = set(ids)
 			tids, err := r.d.TVDB.Updates(ctx, since)
 			if err != nil {
 				return err
@@ -249,7 +249,7 @@ func (r *Refresher) Daily(ctx context.Context) error {
 		case library.Movie:
 			changed = changed || movies[x.TMDBID]
 		default:
-			changed = changed || shows[x.TMDBID] || tvdb[x.TVDBID]
+			changed = changed || series[x.TMDBID] || tvdb[x.TVDBID]
 		}
 		if changed {
 			due = append(due, x.ID)

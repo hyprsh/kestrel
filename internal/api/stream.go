@@ -38,13 +38,27 @@ func (i StreamIntervals) withDefaults() StreamIntervals {
 	return i
 }
 
+// resource names what a `changed` hint tells the SPA to refetch.
+type resource string
+
+const (
+	resAdoption  resource = "adoption"
+	resAttention resource = "attention"
+	resBlocklist resource = "blocklist"
+	resGrab      resource = "grab"
+	resLog       resource = "log"
+	resQueue     resource = "queue"
+	resRequest   resource = "request"
+	resTitle     resource = "title"
+)
+
 // hint is a `changed` frame: refetch this resource.
 type hint struct {
-	Resource string `json:"resource"`
-	ID       *int64 `json:"id"`
+	Resource resource `json:"resource"`
+	ID       *int64   `json:"id"`
 }
 
-func hintOf(resource string, id int64) hint {
+func hintOf(resource resource, id int64) hint {
 	h := hint{Resource: resource}
 	if id != 0 {
 		h.ID = &id
@@ -58,28 +72,28 @@ func hintOf(resource string, id int64) hint {
 func hintsOf(ev history.Event) []hint {
 	var out []hint
 	if ev.TitleID != 0 {
-		out = append(out, hintOf("title", ev.TitleID))
+		out = append(out, hintOf(resTitle, ev.TitleID))
 	}
 	if ev.GrabID != 0 {
-		out = append(out, hintOf("grab", ev.GrabID))
+		out = append(out, hintOf(resGrab, ev.GrabID))
 	}
 	if ev.RequestID != 0 {
-		out = append(out, hintOf("request", ev.RequestID))
+		out = append(out, hintOf(resRequest, ev.RequestID))
 	}
 	if strings.HasPrefix(string(ev.Kind), "grab") || strings.HasPrefix(string(ev.Kind), "import") {
-		out = append(out, hintOf("queue", 0))
+		out = append(out, hintOf(resQueue, 0))
 	}
 	if ev.Kind == history.Blocklisted {
-		out = append(out, hintOf("blocklist", 0))
+		out = append(out, hintOf(resBlocklist, 0))
 	}
 	if strings.HasPrefix(string(ev.Kind), "adoption") {
-		out = append(out, hintOf("adoption", 0))
+		out = append(out, hintOf(resAdoption, 0))
 	}
 	if strings.HasPrefix(string(ev.Kind), "health") || strings.HasPrefix(string(ev.Kind), "import") || ev.Kind == history.TitleRefreshed {
 		// Stalled Imports are Needs attention rows too.
-		out = append(out, hintOf("attention", 0))
+		out = append(out, hintOf(resAttention, 0))
 	}
-	return append(out, hintOf("log", 0))
+	return append(out, hintOf(resLog, 0))
 }
 
 // hub carries the hints handlers emit for changes made through the API itself
@@ -121,26 +135,26 @@ func (h *hub) publish(hs ...hint) {
 // apiHints are the hints a successful call of an operation causes. Changes made
 // by background loops reach the stream through the events log instead.
 var apiHints = map[string][]hint{
-	"CreateTitle":           {hintOf("title", 0)},
-	"PatchTitle":            {hintOf("title", 0)},
-	"PatchSeason":           {hintOf("title", 0)},
-	"MonitorEpisodes":       {hintOf("title", 0)},
-	"AddVersion":            {hintOf("title", 0)},
-	"PatchVersion":          {hintOf("title", 0)},
-	"DeleteVersion":         {hintOf("title", 0), hintOf("queue", 0)},
-	"DeleteTitle":           {hintOf("title", 0), hintOf("queue", 0)},
-	"CreateGrab":            {hintOf("grab", 0), hintOf("queue", 0), hintOf("title", 0)},
-	"CancelGrab":            {hintOf("grab", 0), hintOf("queue", 0), hintOf("title", 0)},
-	"RetryGrabImport":       {hintOf("grab", 0), hintOf("queue", 0), hintOf("attention", 0)},
-	"DiscardGrab":           {hintOf("grab", 0), hintOf("queue", 0), hintOf("title", 0), hintOf("attention", 0)},
-	"RetryStalledImports":   {hintOf("grab", 0), hintOf("queue", 0), hintOf("attention", 0)},
-	"DiscardStalledImports": {hintOf("grab", 0), hintOf("queue", 0), hintOf("title", 0), hintOf("attention", 0)},
-	"ScanAdoption":          {hintOf("adoption", 0)},
-	"PatchAdoptionRow":      {hintOf("adoption", 0)},
-	"CommitAdoption":        {hintOf("adoption", 0)},
-	"DiscardAdoption":       {hintOf("adoption", 0)},
-	"DismissAttention":      {hintOf("attention", 0)},
-	"DeleteBlocklistEntry":  {hintOf("blocklist", 0)},
+	"CreateTitle":           {hintOf(resTitle, 0)},
+	"PatchTitle":            {hintOf(resTitle, 0)},
+	"PatchSeason":           {hintOf(resTitle, 0)},
+	"MonitorEpisodes":       {hintOf(resTitle, 0)},
+	"AddVersion":            {hintOf(resTitle, 0)},
+	"PatchVersion":          {hintOf(resTitle, 0)},
+	"DeleteVersion":         {hintOf(resTitle, 0), hintOf(resQueue, 0)},
+	"DeleteTitle":           {hintOf(resTitle, 0), hintOf(resQueue, 0)},
+	"CreateGrab":            {hintOf(resGrab, 0), hintOf(resQueue, 0), hintOf(resTitle, 0)},
+	"CancelGrab":            {hintOf(resGrab, 0), hintOf(resQueue, 0), hintOf(resTitle, 0)},
+	"RetryGrabImport":       {hintOf(resGrab, 0), hintOf(resQueue, 0), hintOf(resAttention, 0)},
+	"DiscardGrab":           {hintOf(resGrab, 0), hintOf(resQueue, 0), hintOf(resTitle, 0), hintOf(resAttention, 0)},
+	"RetryStalledImports":   {hintOf(resGrab, 0), hintOf(resQueue, 0), hintOf(resAttention, 0)},
+	"DiscardStalledImports": {hintOf(resGrab, 0), hintOf(resQueue, 0), hintOf(resTitle, 0), hintOf(resAttention, 0)},
+	"ScanAdoption":          {hintOf(resAdoption, 0)},
+	"PatchAdoptionRow":      {hintOf(resAdoption, 0)},
+	"CommitAdoption":        {hintOf(resAdoption, 0)},
+	"DiscardAdoption":       {hintOf(resAdoption, 0)},
+	"DismissAttention":      {hintOf(resAttention, 0)},
+	"DeleteBlocklistEntry":  {hintOf(resBlocklist, 0)},
 }
 
 // emitHints is a strict-server middleware that publishes an operation's hints
