@@ -91,9 +91,9 @@ type DailyRefresher interface {
 type Deps struct {
 	// Refresher is optional; without it there is no metadata refresh loop.
 	Refresher DailyRefresher
-	Acquire Acquirer
-	Library Library
-	History History
+	Acquire   Acquirer
+	Library   Library
+	History   History
 	// Health is optional; without it there is no health loop.
 	Health HealthChecker
 	// Importer and ImportSource enable the Import loop; leave both nil for none.

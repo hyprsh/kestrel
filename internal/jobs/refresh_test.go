@@ -267,7 +267,7 @@ func TestAVanishedUpstreamEntryRaisesTheRowAndKeepsTheStoredData(t *testing.T) {
 	ctx := context.Background()
 	r := newRefreshRig(t)
 	id, err := r.lib.AddMovie(ctx, library.AddMovie{
-		Details: metadata.MovieDetails{TMDBID: 99999, Title: "Gone Film", OriginalTitle: "Gone Film", OriginalLanguage: "en", Year: 2001, Overview: "kept"},
+		Details:         metadata.MovieDetails{TMDBID: 99999, Title: "Gone Film", OriginalTitle: "Gone Film", OriginalLanguage: "en", Year: 2001, Overview: "kept"},
 		PrimaryLanguage: "en", RootFolder: r.root, Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}},
 	})
 	if err != nil {
@@ -339,7 +339,7 @@ func TestATitleNotRefreshedFor30DaysIsFullyRefreshedEvenIfNothingChanged(t *test
 	ctx := context.Background()
 	r := newRefreshRig(t)
 	id, err := r.lib.AddMovie(ctx, library.AddMovie{
-		Details: metadata.MovieDetails{TMDBID: 116149, Title: "Paddington", OriginalTitle: "Paddington", OriginalLanguage: "en", Year: 2014},
+		Details:         metadata.MovieDetails{TMDBID: 116149, Title: "Paddington", OriginalTitle: "Paddington", OriginalLanguage: "en", Year: 2014},
 		PrimaryLanguage: "en", RootFolder: r.root, Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}},
 	})
 	if err != nil {

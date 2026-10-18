@@ -184,7 +184,7 @@ func New(opts Options) *App {
 			region, _, err := s.profiles.Region(ctx)
 			return string(region.Primary), err
 		},
-		Done: func(id int64) { s.hub.publish(hintOf("title", id), hintOf("attention", 0)) },
+		Done:    func(id int64) { s.hub.publish(hintOf("title", id), hintOf("attention", 0)) },
 		History: s.history, Health: s.health, Clock: opts.Clock, Logger: opts.Logger,
 	})
 	s.jobs = jobs.Standard(jobs.Deps{Refresher: s.refresher, Acquire: acq, Library: s.library, History: s.history, Health: s.health, Importer: imp, ImportSource: acq, Clock: opts.Clock, Logger: opts.Logger})
