@@ -37,7 +37,11 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
   }, [seeded, suggestion.data])
 
   const all = profiles.data ?? []
-  const roots = (result.kind === 'series' ? settings.data?.root_folders.series : settings.data?.root_folders.movies) ?? []
+  const folders = settings.data?.root_folders
+  const roots = (result.kind === 'series' ? folders?.series : folders?.movies) ?? []
+  // A Title whose HD Profile is a Kids one goes in the kind's Kids root folder, as the server does when none is named.
+  const kidsRoot = result.kind === 'series' ? folders?.kids_series : folders?.kids_movies
+  const defaultRoot = kidsRoot && picked.hd?.startsWith('kids-') ? kidsRoot : roots[0]
   const chosen = slotKeys.filter((k) => picked[k])
   const ready = seeded && chosen.length > 0 && !create.isPending
 
@@ -135,7 +139,7 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
             {roots.length > 1 && (
               <label className="mt-3 flex items-center gap-3 text-[13px]">
                 <span className="w-20 font-medium">Folder</span>
-                <Select aria-label="Root folder" value={root ?? roots[0]} onChange={(e) => setRoot(e.target.value)} className="max-w-72">
+                <Select aria-label="Root folder" value={root ?? defaultRoot} onChange={(e) => setRoot(e.target.value)} className="max-w-72">
                   {roots.map((r) => (
                     <option key={r}>{r}</option>
                   ))}

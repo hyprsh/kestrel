@@ -283,7 +283,7 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 		specs = append(specs, library.VersionSpec{Slot: sl.Slot, Profile: key})
 	}
 
-	titleID, searchDue, err := s.apply(ctx, in, tgt, specs, region)
+	titleID, searchDue, err := s.apply(ctx, in, tgt, specs, region, library.KidsTitle(all, specs))
 	if err != nil {
 		return Result{}, err
 	}
@@ -433,7 +433,8 @@ func (s *Service) resolveTitle(ctx context.Context, in Input) (target, Reason, e
 }
 
 // apply adds the Title or its missing Versions and sets the season monitoring.
-func (s *Service) apply(ctx context.Context, in Input, t target, specs []library.VersionSpec, region profiles.Region) (titleID int64, searchDue bool, err error) {
+// A new Title goes in its kind's Kids root folder when kids, else the first.
+func (s *Service) apply(ctx context.Context, in Input, t target, specs []library.VersionSpec, region profiles.Region, kids bool) (titleID int64, searchDue bool, err error) {
 	lib := s.d.Library
 	titleID = 0
 	if t.existing != nil {
@@ -443,7 +444,7 @@ func (s *Service) apply(ctx context.Context, in Input, t target, specs []library
 		if err != nil {
 			return 0, false, err
 		}
-		root, err := roots.Pick(rootfolders.Kind(in.Kind), "")
+		root, err := roots.Pick(rootfolders.Kind(in.Kind), "", kids)
 		if errors.Is(err, rootfolders.ErrNoneSet) {
 			return 0, false, ErrNoRootFolder
 		}

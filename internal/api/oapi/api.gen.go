@@ -1920,8 +1920,14 @@ type ReverseProxySettings struct {
 // RootFolders Where Imports put Titles, one or more absolute paths per kind. The first is the default when
 // adding a Title. Unsaved, they report `<data dir>/media/movies` and `<data dir>/media/tv`.
 type RootFolders struct {
-	Movies []string `json:"movies"`
-	Series []string `json:"series"`
+	// KidsMovies The Kids root folder for Movies, one of `movies`, or empty (off). A new Movie whose HD Version
+	// gets a Kids Profile goes in it instead of the first; Adoption never moves a Title into it.
+	KidsMovies string `json:"kids_movies"`
+
+	// KidsSeries The Kids root folder for Series, one of `series`, or empty (off). As `kids_movies`.
+	KidsSeries string   `json:"kids_series"`
+	Movies     []string `json:"movies"`
+	Series     []string `json:"series"`
 }
 
 // Season defines model for Season.
@@ -2002,10 +2008,18 @@ type SettingsPatch struct {
 		TvdbApiKey *string `json:"tvdb_api_key,omitempty"`
 	} `json:"metadata,omitempty"`
 
-	// RootFolders Replaces the named lists. Each path must exist, be a directory and be writable (`not_found`, `not_directory`, `not_writable`, `not_absolute`, `required`).
+	// RootFolders Replaces the named lists and Kids root folders. Each path must exist, be a directory and be writable
+	// (`not_found`, `not_directory`, `not_writable`, `not_absolute`, `required`). A Kids root folder must be
+	// empty or one of its kind's folders (`not_configured`), and a list can't drop the folder its kind's
+	// Kids root folder is set to (`kids_root_folder` on the list).
 	RootFolders *struct {
-		Movies *[]string `json:"movies,omitempty"`
-		Series *[]string `json:"series,omitempty"`
+		// KidsMovies One of the Movies root folders, or empty to turn it off.
+		KidsMovies *string `json:"kids_movies,omitempty"`
+
+		// KidsSeries One of the Series root folders, or empty to turn it off.
+		KidsSeries *string   `json:"kids_series,omitempty"`
+		Movies     *[]string `json:"movies,omitempty"`
+		Series     *[]string `json:"series,omitempty"`
 	} `json:"root_folders,omitempty"`
 	Trash *struct {
 		AutoUpdate *bool `json:"auto_update,omitempty"`

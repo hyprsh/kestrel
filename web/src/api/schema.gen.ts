@@ -382,7 +382,8 @@ export interface paths {
          * Add a Title to the Library
          * @description Fetches the Title from the metadata provider and adds it with the named Versions, each Wanted.
          *     `root_folder` must be one of the configured Root folders for the kind; left out, it is the
-         *     first. `409 conflict` when the Title is already in the Library (the existing id is in
+         *     kind's Kids root folder when the HD Version has a Kids Profile and one is set, else the first.
+         *     `409 conflict` when the Title is already in the Library (the existing id is in
          *     `detail`). A Series takes `series_monitor` (default `all`); one TheTVDB does not have is refused
          *     with a `422` whose field error is `tmdb_id` / `not_on_tvdb`.
          */
@@ -1289,8 +1290,9 @@ export interface paths {
          *     accepted at once, with no approval step. It adds the Title or only its missing Versions, searches
          *     them at once, and never changes an existing Version: a Slot that already has a Version is accepted
          *     unchanged and reports that Version's Profile and status. A Slot named without a `profile` uses
-         *     Profile resolution (with the Kids rule in HD). A Series Request names `seasons`, or `null` for the
-         *     whole Series; it only ever adds monitoring.
+         *     Profile resolution (with the Kids rule in HD). A new Title goes in its kind's Kids root folder when
+         *     its HD Version gets a Kids Profile, by the Kids rule or by name, and in the first Root folder
+         *     otherwise. A Series Request names `seasons`, or `null` for the whole Series; it only ever adds monitoring.
          *
          *     `201` for a new Request, accepted or rejected (`outcome`, `reject_reason`); a Request Kestrel cannot
          *     serve (`not_on_tvdb`, `unknown_title`, `no_enabled_profile`) is stored as rejected and changes nothing.
@@ -1601,6 +1603,13 @@ export interface components {
         RootFolders: {
             movies: string[];
             series: string[];
+            /**
+             * @description The Kids root folder for Movies, one of `movies`, or empty (off). A new Movie whose HD Version
+             *     gets a Kids Profile goes in it instead of the first; Adoption never moves a Title into it.
+             */
+            kids_movies: string;
+            /** @description The Kids root folder for Series, one of `series`, or empty (off). As `kids_movies`. */
+            kids_series: string;
         };
         SettingsPatch: {
             check_github_updates?: boolean;
@@ -1612,10 +1621,19 @@ export interface components {
             trash?: {
                 auto_update?: boolean;
             };
-            /** @description Replaces the named lists. Each path must exist, be a directory and be writable (`not_found`, `not_directory`, `not_writable`, `not_absolute`, `required`). */
+            /**
+             * @description Replaces the named lists and Kids root folders. Each path must exist, be a directory and be writable
+             *     (`not_found`, `not_directory`, `not_writable`, `not_absolute`, `required`). A Kids root folder must be
+             *     empty or one of its kind's folders (`not_configured`), and a list can't drop the folder its kind's
+             *     Kids root folder is set to (`kids_root_folder` on the list).
+             */
             root_folders?: {
                 movies?: string[];
                 series?: string[];
+                /** @description One of the Movies root folders, or empty to turn it off. */
+                kids_movies?: string;
+                /** @description One of the Series root folders, or empty to turn it off. */
+                kids_series?: string;
             };
             language_region?: {
                 primary_language?: components["schemas"]["PrimaryLanguage"];

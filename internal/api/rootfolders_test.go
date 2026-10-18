@@ -178,3 +178,47 @@ func TestFinishSetupWhenEverySectionIsDone(t *testing.T) {
 		t.Error("setup not completed after finishing")
 	}
 }
+
+type kidsFoldersJSON struct {
+	RootFolders struct {
+		Movies     []string `json:"movies"`
+		KidsMovies string   `json:"kids_movies"`
+		KidsSeries string   `json:"kids_series"`
+	} `json:"root_folders"`
+}
+
+func TestAKidsRootFolderIsOneOfTheKindsRootFolders(t *testing.T) {
+	b, data := dataDirInstance(t)
+	movies, kids, tv := data+"/media/movies", data+"/media/kids-movies", data+"/media/tv"
+	mkdirs(t, movies, kids, tv)
+
+	if got := decode[kidsFoldersJSON](t, b.valid("GET", "/settings", "")); got.RootFolders.KidsMovies != "" || got.RootFolders.KidsSeries != "" {
+		t.Errorf("unsaved = %+v, want both off", got.RootFolders)
+	}
+	r := b.do("PATCH", "/settings", fmt.Sprintf(`{"root_folders":{"movies":[%q],"kids_movies":%q}}`, movies, kids))
+	if r.Status != 422 || !strings.Contains(r.Body, `"field":"root_folders.kids_movies"`) {
+		t.Errorf("a Kids folder outside the list = %d %s, want 422", r.Status, r.Body)
+	}
+	if r := b.do("PATCH", "/settings", fmt.Sprintf(`{"root_folders":{"kids_series":%q}}`, kids)); r.Status != 422 || !strings.Contains(r.Body, `"field":"root_folders.kids_series"`) {
+		t.Errorf("a Movies folder as the Kids Series folder = %d %s, want 422", r.Status, r.Body)
+	}
+
+	got := decode[kidsFoldersJSON](t, b.valid("PATCH", "/settings", fmt.Sprintf(`{"root_folders":{"movies":[%q,%q],"kids_movies":%q}}`, movies, kids, kids)))
+	if got.RootFolders.KidsMovies != kids || got.RootFolders.KidsSeries != "" {
+		t.Errorf("saved = %+v", got.RootFolders)
+	}
+
+	r = b.do("PATCH", "/settings", fmt.Sprintf(`{"root_folders":{"movies":[%q]}}`, movies))
+	if r.Status != 422 || !strings.Contains(r.Body, `"field":"root_folders.movies"`) || !strings.Contains(r.Body, `"code":"kids_root_folder"`) {
+		t.Errorf("removing the Kids folder = %d %s, want 422", r.Status, r.Body)
+	}
+	if got := decode[kidsFoldersJSON](t, b.valid("GET", "/settings", "")); len(got.RootFolders.Movies) != 2 || got.RootFolders.KidsMovies != kids {
+		t.Errorf("a rejected patch changed %+v", got.RootFolders)
+	}
+
+	// Turning it off and removing the folder in one patch is fine.
+	got = decode[kidsFoldersJSON](t, b.valid("PATCH", "/settings", fmt.Sprintf(`{"root_folders":{"movies":[%q],"kids_movies":""}}`, movies)))
+	if got.RootFolders.KidsMovies != "" || len(got.RootFolders.Movies) != 1 {
+		t.Errorf("off = %+v", got.RootFolders)
+	}
+}

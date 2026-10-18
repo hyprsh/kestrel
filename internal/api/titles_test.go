@@ -358,3 +358,32 @@ func TestTheListFiltersByKindAndText(t *testing.T) {
 		t.Error("filters do not narrow the list")
 	}
 }
+
+func TestAnAddWithAKidsHDProfileGoesInTheKidsRootFolderUnlessOneIsNamed(t *testing.T) {
+	for _, c := range []struct {
+		name, hd, root string
+		kids           bool
+	}{
+		{"kids profile", "kids-primary", "", true},
+		{"other profile", "hd-primary", "", false},
+		{"named folder", "kids-primary", "first", false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			l := newLibraryInstance(t, metadatatest.Key)
+			kidsMovies, _ := l.kidsFolders(t)
+			first := l.data + "/media/movies"
+			root := ""
+			if c.root == "first" {
+				root = fmt.Sprintf(`,"root_folder":%q`, first)
+			}
+			got := decode[titleJSON](t, l.valid("POST", "/titles", fmt.Sprintf(`{"kind":"movie","tmdb_id":116149,"versions":[{"slot":"hd","profile":%q}]%s}`, c.hd, root)))
+			want := first
+			if c.kids {
+				want = kidsMovies
+			}
+			if got.RootFolder != want {
+				t.Errorf("root folder = %q, want %q", got.RootFolder, want)
+			}
+		})
+	}
+}

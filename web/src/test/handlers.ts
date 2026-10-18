@@ -57,7 +57,7 @@ export const handlers = [
       check_github_updates: true,
       trash: { auto_update: true },
       metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
-      root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'] },
+      root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'], kids_movies: '', kids_series: '' },
     }),
   ),
   http.get('/profiles', ({ response }) => response(200).json({ items: [] })),

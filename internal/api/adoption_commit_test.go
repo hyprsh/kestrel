@@ -116,3 +116,28 @@ func TestCommittingRenamesFilesInPlaceWithTheirSubtitlesAndFillsTheVersions(t *t
 		t.Errorf("plan not cleared: %+v", rows)
 	}
 }
+
+func TestAdoptionLeavesTitlesInTheRootFolderTheyWereFoundIn(t *testing.T) {
+	a := newAdopting(t)
+	kids := filepath.Join(a.data, "media", "kids-movies")
+	mkdirs(t, kids)
+	a.valid("PATCH", "/settings", fmt.Sprintf(`{"root_folders":{"movies":[%q,%q],"kids_movies":%q}}`, a.movies, kids, kids))
+	a.put(t, "Paddington.2014.1080p.BluRay.x264-GRP/Paddington.2014.1080p.BluRay.x264-GRP.mkv", "pad") // PG: the Kids rule catches it
+	lost := filepath.Join(kids, "The Lost Film (2020) [tmdbid-77]", "lost.film.mkv")                   // PG-13: it doesn't
+	mkdirs(t, filepath.Dir(lost))
+	if err := os.WriteFile(lost, []byte("lost"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	plan := a.scan(t)
+	if done := a.commit(t, plan.Revision); done.Result == nil || done.Result.Adopted != 2 {
+		t.Fatalf("after commit = %+v", done)
+	}
+
+	for tmdb, want := range map[int]string{116149: a.movies, 77: kids} {
+		got := decode[titleJSON](t, a.valid("GET", fmt.Sprintf("/titles/%d", a.titleIDOf(t, tmdb)), ""))
+		if got.RootFolder != want {
+			t.Errorf("tmdb %d: root folder = %q, want %q where it was found", tmdb, got.RootFolder, want)
+		}
+	}
+}

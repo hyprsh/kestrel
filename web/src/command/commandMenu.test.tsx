@@ -160,6 +160,38 @@ describe('the command menu', () => {
     })
   })
 
+  it('preselects the Kids root folder for a Title whose HD Profile is a Kids one, and lets another be picked', async () => {
+    const f = fakeLookup()
+    server.use(
+      http.get('/settings', ({ response }) =>
+        response(200).json({
+          language_region: { primary_language: 'en', release_date_country: 'US' },
+          kids_rule: { enabled: true, threshold: 6 },
+          check_github_updates: true,
+          trash: { auto_update: true },
+          metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
+          root_folders: { movies: ['/data/movies', '/data/kids-movies'], series: ['/data/tv'], kids_movies: '/data/kids-movies', kids_series: '' },
+        }),
+      ),
+    )
+    renderApp()
+    const menu = await searchForPaddington()
+    await userEvent.click(await within(menu).findByRole('option', { name: /^Paddington\b(?!.*Returns)/ }))
+    await within(menu).findByText(/Preselected/)
+
+    const folder = within(menu).getByRole('combobox', { name: 'Root folder' })
+    expect(folder).toHaveValue('/data/kids-movies')
+    await userEvent.selectOptions(within(menu).getByRole('combobox', { name: 'HD Profile' }), 'hd-primary')
+    expect(folder).toHaveValue('/data/movies') // the folder follows the HD Profile until one is picked
+    await userEvent.selectOptions(within(menu).getByRole('combobox', { name: 'HD Profile' }), 'kids-primary')
+    expect(folder).toHaveValue('/data/kids-movies')
+
+    await userEvent.selectOptions(folder, '/data/movies')
+    await userEvent.click(within(menu).getByRole('button', { name: /^add/i }))
+    await waitFor(() => expect(f.sent).toHaveLength(1))
+    expect(f.sent[0].body).toEqual({ kind: 'movie', tmdb_id: 116149, versions: [{ slot: 'hd', profile: 'kids-primary' }], root_folder: '/data/movies' })
+  })
+
   it('does not add an already-added Movie: it opens it in the Library', async () => {
     const f = fakeLookup()
     renderApp()

@@ -1,7 +1,8 @@
 // Package rootfolders holds the Root folders Imports put Titles in: one or
 // more absolute paths per kind, the first being the default when adding a
-// Title. A folder is checked to exist, be a directory and be writable when it
-// is saved.
+// Title, and per kind an optional Kids root folder, one of the kind's folders,
+// for new Titles whose HD Version has a Kids Profile. A folder is checked to
+// exist, be a directory and be writable when it is saved.
 package rootfolders
 
 import (
@@ -23,12 +24,18 @@ const key = "root_folders"
 type Folders struct {
 	Movies []string `json:"movies"`
 	Series []string `json:"series"`
+	// KidsMovies and KidsSeries are the Kids root folders, each one of its
+	// kind's folders or "" (off).
+	KidsMovies string `json:"kids_movies,omitempty"`
+	KidsSeries string `json:"kids_series,omitempty"`
 }
 
-// Patch replaces the named lists; nil lists stay.
+// Patch replaces the named lists and Kids root folders; nil ones stay.
 type Patch struct {
-	Movies *[]string
-	Series *[]string
+	Movies     *[]string
+	Series     *[]string
+	KidsMovies *string
+	KidsSeries *string
 }
 
 // ValidationError is a rejected folder. Field is an API field name such as
@@ -75,8 +82,9 @@ func (s *Service) Get(ctx context.Context) (Folders, bool, error) {
 	return f, true, nil
 }
 
-// Set replaces the named lists after checking every folder in them. A rejected
-// patch changes nothing.
+// Set replaces the named lists and Kids root folders after checking every
+// folder in them, and that each Kids root folder is still one of its kind's
+// folders. A rejected patch changes nothing.
 func (s *Service) Set(ctx context.Context, p Patch) (Folders, error) {
 	f, _, err := s.Get(ctx)
 	if err != nil {
@@ -88,22 +96,42 @@ func (s *Service) Set(ctx context.Context, p Patch) (Folders, error) {
 	if p.Series != nil {
 		f.Series = *p.Series
 	}
+	if p.KidsMovies != nil {
+		f.KidsMovies = *p.KidsMovies
+	}
+	if p.KidsSeries != nil {
+		f.KidsSeries = *p.KidsSeries
+	}
 	for _, kind := range []struct {
-		name string
-		set  bool
-		list []string
-	}{{"movies", p.Movies != nil, f.Movies}, {"series", p.Series != nil, f.Series}} {
-		if !kind.set {
+		name, noun string
+		set        bool
+		list       []string
+		kidsSet    bool
+		kids       string
+	}{
+		{"movies", "Movies", p.Movies != nil, f.Movies, p.KidsMovies != nil, f.KidsMovies},
+		{"series", "Series", p.Series != nil, f.Series, p.KidsSeries != nil, f.KidsSeries},
+	} {
+		if kind.set {
+			if len(kind.list) == 0 {
+				return Folders{}, &ValidationError{Field: "root_folders." + kind.name, Code: "required", Message: "Add at least one folder"}
+			}
+			for i, path := range kind.list {
+				if verr := check(path); verr != nil {
+					verr.Field = fmt.Sprintf("root_folders.%s[%d]", kind.name, i)
+					return Folders{}, verr
+				}
+			}
+		}
+		if kind.kids == "" || slices.Contains(kind.list, kind.kids) {
 			continue
 		}
-		if len(kind.list) == 0 {
-			return Folders{}, &ValidationError{Field: "root_folders." + kind.name, Code: "required", Message: "Add at least one folder"}
+		if kind.kidsSet {
+			return Folders{}, &ValidationError{Field: "root_folders.kids_" + kind.name, Code: "not_configured", Message: "Pick one of the " + kind.noun + " root folders"}
 		}
-		for i, path := range kind.list {
-			if verr := check(path); verr != nil {
-				verr.Field = fmt.Sprintf("root_folders.%s[%d]", kind.name, i)
-				return Folders{}, verr
-			}
+		return Folders{}, &ValidationError{
+			Field: "root_folders." + kind.name, Code: "kids_root_folder",
+			Message: kind.kids + " is the Kids root folder for " + kind.noun + ": pick another one or turn it off first",
 		}
 	}
 	raw, err := json.Marshal(f)
@@ -158,11 +186,16 @@ const (
 )
 
 // Pick is the Root folder a new Title goes in: the requested one, which must
-// be configured for the kind, else the kind's first (its default).
-func (f Folders) Pick(kind Kind, requested string) (string, error) {
-	configured := f.Movies
+// be configured for the kind, else the kind's Kids root folder for a Title
+// whose HD Version has a Kids Profile (kids) when one is set, else the kind's
+// first (its default).
+func (f Folders) Pick(kind Kind, requested string, kids bool) (string, error) {
+	configured, kidsFolder := f.Movies, f.KidsMovies
 	if kind == Series {
-		configured = f.Series
+		configured, kidsFolder = f.Series, f.KidsSeries
+	}
+	if requested == "" && kids {
+		requested = kidsFolder
 	}
 	if requested != "" {
 		if !slices.Contains(configured, requested) {

@@ -85,7 +85,7 @@ func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {
 	}
 	var out oapi.Settings
 	out.CheckGithubUpdates = s.updates.Enabled(ctx)
-	out.RootFolders = oapi.RootFolders{Movies: roots.Movies, Series: roots.Series}
+	out.RootFolders = oapi.RootFolders{Movies: roots.Movies, Series: roots.Series, KidsMovies: roots.KidsMovies, KidsSeries: roots.KidsSeries}
 	out.LanguageRegion.PrimaryLanguage = oapi.PrimaryLanguage(region.Primary)
 	out.LanguageRegion.ReleaseDateCountry = region.Country
 	out.Trash.AutoUpdate, err = s.trash.AutoUpdate(ctx)
@@ -146,7 +146,7 @@ func (s *server) patchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 	defer tx.Rollback()
 	w := s.settings.InTx(tx)
 	if rf := r.Body.RootFolders; rf != nil {
-		if _, err := w.SetRootFolders(ctx, rootfolders.Patch{Movies: rf.Movies, Series: rf.Series}); err != nil {
+		if _, err := w.SetRootFolders(ctx, rootfolders.Patch{Movies: rf.Movies, Series: rf.Series, KidsMovies: rf.KidsMovies, KidsSeries: rf.KidsSeries}); err != nil {
 			var ve *rootfolders.ValidationError
 			if errors.As(err, &ve) {
 				return nil, invalid(ve.Field, ve.Code, ve.Message)
