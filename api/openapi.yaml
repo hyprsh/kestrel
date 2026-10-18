@@ -995,6 +995,58 @@ paths:
                 $ref: "#/components/schemas/QueueList"
         default:
           $ref: "#/components/responses/Problem"
+  /upcoming:
+    get:
+      operationId: listUpcoming
+      summary: Upcoming
+      description: |
+        The agenda for a window of days (both ends included; default today to 30 days on, in UTC).
+        Monitored episodes airing in the window, and for each monitored Movie with an unfilled Version
+        its theatrical, digital and physical dates in the release-date country (falling back to the
+        US, then the earliest anywhere) that lie in the window. A Movie that cannot be searched yet
+        says from when it can (`searchable_from`). Oldest day first (Settled 18).
+      tags: [titles]
+      parameters:
+        - name: from
+          in: query
+          description: First day of the window. Default today.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          description: Last day of the window. Default 30 days after `from`.
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: The agenda.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpcomingList"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /recent:
+    get:
+      operationId: listRecentlyAdded
+      summary: Recently added
+      description: |
+        The ten most recent Imports, newest first. An Import of several files at once (a season pack)
+        is one row with `files` set to how many it brought.
+      tags: [titles]
+      responses:
+        "200":
+          description: The recent Imports.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecentList"
+        default:
+          $ref: "#/components/responses/Problem"
   /events:
     get:
       operationId: listEvents
@@ -3427,6 +3479,95 @@ components:
         created_at: { type: string, format: date-time }
         title_id: { type: integer, format: int64, nullable: true }
         grab_id: { type: integer, format: int64, nullable: true }
+    UpcomingList:
+      type: object
+      required: [from, to, items]
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/UpcomingItem"
+    UpcomingItem:
+      type: object
+      required: [date, kind, title_id, title, year, release_type, season, episode, episode_name, searchable_from, released]
+      properties:
+        date:
+          type: string
+          format: date
+        kind:
+          $ref: "#/components/schemas/TitleKind"
+        title_id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        year:
+          type: integer
+          nullable: true
+        release_type:
+          type: string
+          nullable: true
+          enum: [theatrical, digital, physical]
+          description: Which release a Movie's `date` is; null for an episode.
+        season:
+          type: integer
+          nullable: true
+        episode:
+          type: integer
+          nullable: true
+        episode_name:
+          type: string
+          nullable: true
+        searchable_from:
+          type: string
+          format: date
+          nullable: true
+          description: For a Movie, the day it becomes searchable in the release-date country; null for an episode or when unknown.
+        released:
+          type: boolean
+          description: For a Movie, whether it is already searchable (false means "searchable from `searchable_from`"). Always true for an episode.
+    RecentList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecentItem"
+    RecentItem:
+      type: object
+      required: [title_id, title, year, kind, slot, release_name, score, files, is_upgrade, imported_at]
+      properties:
+        title_id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        year:
+          type: integer
+          nullable: true
+        kind:
+          $ref: "#/components/schemas/TitleKind"
+        slot:
+          $ref: "#/components/schemas/Slot"
+        release_name:
+          type: string
+        score:
+          type: integer
+          nullable: true
+        files:
+          type: integer
+        is_upgrade:
+          type: boolean
+        imported_at:
+          type: string
+          format: date-time
     QueueList:
       type: object
       required: [items]

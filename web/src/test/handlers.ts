@@ -62,6 +62,11 @@ export const handlers = [
   http.get('/profiles', ({ response }) => response(200).json({ items: [] })),
   http.get('/titles', ({ response }) => response(200).json({ items: [], next_cursor: null })),
   http.get('/queue', ({ response }) => response(200).json({ items: [] })),
+  http.get('/upcoming', ({ request, response }) => {
+    const q = new URL(request.url).searchParams
+    return response(200).json({ from: q.get('from') ?? '', to: q.get('to') ?? '', items: [] })
+  }),
+  http.get('/recent', ({ response }) => response(200).json({ items: [] })),
   http.get('/attention', ({ response }) =>
     response(200).json({ count: 0, severity: null, rows: [], long_missing: { count: 0, items: [] } }),
   ),

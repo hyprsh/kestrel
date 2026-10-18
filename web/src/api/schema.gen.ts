@@ -797,6 +797,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/upcoming": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Upcoming
+         * @description The agenda for a window of days (both ends included; default today to 30 days on, in UTC).
+         *     Monitored episodes airing in the window, and for each monitored Movie with an unfilled Version
+         *     its theatrical, digital and physical dates in the release-date country (falling back to the
+         *     US, then the earliest anywhere) that lie in the window. A Movie that cannot be searched yet
+         *     says from when it can (`searchable_from`). Oldest day first (Settled 18).
+         */
+        get: operations["listUpcoming"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recently added
+         * @description The ten most recent Imports, newest first. An Import of several files at once (a season pack)
+         *     is one row with `files` set to how many it brought.
+         */
+        get: operations["listRecentlyAdded"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events": {
         parameters: {
             query?: never;
@@ -2356,6 +2401,54 @@ export interface components {
             /** Format: int64 */
             grab_id: number | null;
         };
+        UpcomingList: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            items: components["schemas"]["UpcomingItem"][];
+        };
+        UpcomingItem: {
+            /** Format: date */
+            date: string;
+            kind: components["schemas"]["TitleKind"];
+            /** Format: int64 */
+            title_id: number;
+            title: string;
+            year: number | null;
+            /**
+             * @description Which release a Movie's `date` is; null for an episode.
+             * @enum {string|null}
+             */
+            release_type: "theatrical" | "digital" | "physical" | null;
+            season: number | null;
+            episode: number | null;
+            episode_name: string | null;
+            /**
+             * Format: date
+             * @description For a Movie, the day it becomes searchable in the release-date country; null for an episode or when unknown.
+             */
+            searchable_from: string | null;
+            /** @description For a Movie, whether it is already searchable (false means "searchable from `searchable_from`"). Always true for an episode. */
+            released: boolean;
+        };
+        RecentList: {
+            items: components["schemas"]["RecentItem"][];
+        };
+        RecentItem: {
+            /** Format: int64 */
+            title_id: number;
+            title: string;
+            year: number | null;
+            kind: components["schemas"]["TitleKind"];
+            slot: components["schemas"]["Slot"];
+            release_name: string;
+            score: number | null;
+            files: number;
+            is_upgrade: boolean;
+            /** Format: date-time */
+            imported_at: string;
+        };
         QueueList: {
             items: components["schemas"]["QueueItem"][];
         };
@@ -3626,6 +3719,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QueueList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listUpcoming: {
+        parameters: {
+            query?: {
+                /** @description First day of the window. Default today. */
+                from?: string;
+                /** @description Last day of the window. Default 30 days after `from`. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The agenda. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpcomingList"];
+                };
+            };
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listRecentlyAdded: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The recent Imports. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecentList"];
                 };
             };
             default: components["responses"]["Problem"];

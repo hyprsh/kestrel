@@ -15,6 +15,7 @@ import { Library, type Preset } from '../library/Library'
 import { startLiveStream } from '../live/stream'
 import { Log } from '../log/Log'
 import { Overview } from '../overview/Overview'
+import { Upcoming } from '../upcoming/Upcoming'
 import { Settings as SettingsScreen } from '../screens/Settings'
 import { useTheme, type Theme } from '../theme'
 import { cx, Kbd, KestrelLogo } from '../ui'
@@ -123,15 +124,10 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
             <About />
           ) : screen === 'log' ? (
             <Log />
-          ) : screen === 'overview' ? (
-            <Overview onOpen={goPath} />
+          ) : screen === 'upcoming' ? (
+            <Upcoming onOpenTitle={openTitle} />
           ) : (
-            <div className="flex flex-1 items-center justify-center text-center">
-              <div>
-                <div className="text-sm font-medium">Nothing here yet</div>
-                <div className="mt-1 text-gray-900">{current.label} arrives in a later release.</div>
-              </div>
-            </div>
+            <Overview onOpen={goPath} onOpenTitle={openTitle} />
           )}
         </main>
       </div>

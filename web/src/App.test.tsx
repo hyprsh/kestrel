@@ -24,12 +24,6 @@ describe('the empty shell', () => {
     expect(screen.getByRole('main')).toHaveTextContent(/downloading now/i) // Overview is the home screen
   })
 
-  it('says a screen without a ticket yet arrives later', async () => {
-    renderApp()
-    await userEvent.click(await screen.findByRole('button', { name: 'Upcoming' }))
-    expect(screen.getByRole('main')).toHaveTextContent(/nothing here yet/i)
-  })
-
   it('switches the screen title when a rail item is chosen', async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))

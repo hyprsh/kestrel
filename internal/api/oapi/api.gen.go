@@ -513,28 +513,28 @@ func (e ReleaseFits) Valid() bool {
 
 // Defines values for ReleaseDateEntryType.
 const (
-	Digital           ReleaseDateEntryType = "digital"
-	Physical          ReleaseDateEntryType = "physical"
-	Premiere          ReleaseDateEntryType = "premiere"
-	Theatrical        ReleaseDateEntryType = "theatrical"
-	TheatricalLimited ReleaseDateEntryType = "theatrical_limited"
-	Tv                ReleaseDateEntryType = "tv"
+	ReleaseDateEntryTypeDigital           ReleaseDateEntryType = "digital"
+	ReleaseDateEntryTypePhysical          ReleaseDateEntryType = "physical"
+	ReleaseDateEntryTypePremiere          ReleaseDateEntryType = "premiere"
+	ReleaseDateEntryTypeTheatrical        ReleaseDateEntryType = "theatrical"
+	ReleaseDateEntryTypeTheatricalLimited ReleaseDateEntryType = "theatrical_limited"
+	ReleaseDateEntryTypeTv                ReleaseDateEntryType = "tv"
 )
 
 // Valid indicates whether the value is a known member of the ReleaseDateEntryType enum.
 func (e ReleaseDateEntryType) Valid() bool {
 	switch e {
-	case Digital:
+	case ReleaseDateEntryTypeDigital:
 		return true
-	case Physical:
+	case ReleaseDateEntryTypePhysical:
 		return true
-	case Premiere:
+	case ReleaseDateEntryTypePremiere:
 		return true
-	case Theatrical:
+	case ReleaseDateEntryTypeTheatrical:
 		return true
-	case TheatricalLimited:
+	case ReleaseDateEntryTypeTheatricalLimited:
 		return true
-	case Tv:
+	case ReleaseDateEntryTypeTv:
 		return true
 	default:
 		return false
@@ -742,6 +742,27 @@ func (e TitleKind) Valid() bool {
 	case Movie:
 		return true
 	case Series:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpcomingItemReleaseType.
+const (
+	UpcomingItemReleaseTypeDigital    UpcomingItemReleaseType = "digital"
+	UpcomingItemReleaseTypePhysical   UpcomingItemReleaseType = "physical"
+	UpcomingItemReleaseTypeTheatrical UpcomingItemReleaseType = "theatrical"
+)
+
+// Valid indicates whether the value is a known member of the UpcomingItemReleaseType enum.
+func (e UpcomingItemReleaseType) Valid() bool {
+	switch e {
+	case UpcomingItemReleaseTypeDigital:
+		return true
+	case UpcomingItemReleaseTypePhysical:
+		return true
+	case UpcomingItemReleaseTypeTheatrical:
 		return true
 	default:
 		return false
@@ -1654,6 +1675,25 @@ type QueueList struct {
 	Items []QueueItem `json:"items"`
 }
 
+// RecentItem defines model for RecentItem.
+type RecentItem struct {
+	Files       int       `json:"files"`
+	ImportedAt  time.Time `json:"imported_at"`
+	IsUpgrade   bool      `json:"is_upgrade"`
+	Kind        TitleKind `json:"kind"`
+	ReleaseName string    `json:"release_name"`
+	Score       *int      `json:"score"`
+	Slot        Slot      `json:"slot"`
+	Title       string    `json:"title"`
+	TitleId     int64     `json:"title_id"`
+	Year        *int      `json:"year"`
+}
+
+// RecentList defines model for RecentList.
+type RecentList struct {
+	Items []RecentItem `json:"items"`
+}
+
 // Rejection defines model for Rejection.
 type Rejection struct {
 	// Code Why a Release cannot go to a Version. Clients tolerate codes they do not know.
@@ -2158,6 +2198,37 @@ type UntrustedProxyHeader struct {
 	Value string `json:"value"`
 }
 
+// UpcomingItem defines model for UpcomingItem.
+type UpcomingItem struct {
+	Date        openapi_types.Date `json:"date"`
+	Episode     *int               `json:"episode"`
+	EpisodeName *string            `json:"episode_name"`
+	Kind        TitleKind          `json:"kind"`
+
+	// ReleaseType Which release a Movie's `date` is; null for an episode.
+	ReleaseType *UpcomingItemReleaseType `json:"release_type"`
+
+	// Released For a Movie, whether it is already searchable (false means "searchable from `searchable_from`"). Always true for an episode.
+	Released bool `json:"released"`
+
+	// SearchableFrom For a Movie, the day it becomes searchable in the release-date country; null for an episode or when unknown.
+	SearchableFrom *openapi_types.Date `json:"searchable_from"`
+	Season         *int                `json:"season"`
+	Title          string              `json:"title"`
+	TitleId        int64               `json:"title_id"`
+	Year           *int                `json:"year"`
+}
+
+// UpcomingItemReleaseType Which release a Movie's `date` is; null for an episode.
+type UpcomingItemReleaseType string
+
+// UpcomingList defines model for UpcomingList.
+type UpcomingList struct {
+	From  openapi_types.Date `json:"from"`
+	Items []UpcomingItem     `json:"items"`
+	To    openapi_types.Date `json:"to"`
+}
+
 // UpdateAvailable defines model for UpdateAvailable.
 type UpdateAvailable struct {
 	// Url The release page.
@@ -2326,6 +2397,15 @@ type ListTitlesParamsSort string
 type DeleteTitleParams struct {
 	// DeleteFiles Also delete the files from disk. Off by default.
 	DeleteFiles *DeleteFiles `form:"delete_files,omitempty" json:"delete_files,omitempty"`
+}
+
+// ListUpcomingParams defines parameters for ListUpcoming.
+type ListUpcomingParams struct {
+	// From First day of the window. Default today.
+	From *openapi_types.Date `form:"from,omitempty" json:"from,omitempty"`
+
+	// To Last day of the window. Default 30 days after `from`.
+	To *openapi_types.Date `form:"to,omitempty" json:"to,omitempty"`
 }
 
 // DeleteVersionParams defines parameters for DeleteVersion.
@@ -2543,6 +2623,9 @@ type ServerInterface interface {
 	// ListQueue Downloading now
 	// (GET /queue)
 	ListQueue(w http.ResponseWriter, r *http.Request)
+	// ListRecentlyAdded Recently added
+	// (GET /recent)
+	ListRecentlyAdded(w http.ResponseWriter, r *http.Request)
 	// ListRequests Requests, newest first, or the named ones
 	// (GET /requests)
 	ListRequests(w http.ResponseWriter, r *http.Request, params ListRequestsParams)
@@ -2624,6 +2707,9 @@ type ServerInterface interface {
 	// UpdateTrash Update from TRaSH
 	// (POST /trash/update)
 	UpdateTrash(w http.ResponseWriter, r *http.Request)
+	// ListUpcoming Upcoming
+	// (GET /upcoming)
+	ListUpcoming(w http.ResponseWriter, r *http.Request, params ListUpcomingParams)
 	// DeleteVersion Remove a Version
 	// (DELETE /versions/{id})
 	DeleteVersion(w http.ResponseWriter, r *http.Request, id VersionId, params DeleteVersionParams)
@@ -3561,6 +3647,20 @@ func (siw *ServerInterfaceWrapper) ListQueue(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// ListRecentlyAdded operation middleware
+func (siw *ServerInterfaceWrapper) ListRecentlyAdded(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRecentlyAdded(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListRequests operation middleware
 func (siw *ServerInterfaceWrapper) ListRequests(w http.ResponseWriter, r *http.Request) {
 
@@ -4252,6 +4352,52 @@ func (siw *ServerInterfaceWrapper) UpdateTrash(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// ListUpcoming operation middleware
+func (siw *ServerInterfaceWrapper) ListUpcoming(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListUpcomingParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListUpcoming(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteVersion operation middleware
 func (siw *ServerInterfaceWrapper) DeleteVersion(w http.ResponseWriter, r *http.Request) {
 
@@ -4521,6 +4667,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/stalled-imports/retry", wrapper.RetryStalledImports)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/stalled-imports/discard", wrapper.DiscardStalledImports)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/queue", wrapper.ListQueue)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/upcoming", wrapper.ListUpcoming)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/recent", wrapper.ListRecentlyAdded)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/events", wrapper.ListEvents)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/blocklist", wrapper.ListBlocklist)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/blocklist/{id}", wrapper.DeleteBlocklistEntry)
@@ -6738,6 +6886,44 @@ func (response ListQueuedefaultApplicationProblemPlusJSONResponse) VisitListQueu
 	return err
 }
 
+type ListRecentlyAddedRequestObject struct {
+}
+
+type ListRecentlyAddedResponseObject interface {
+	VisitListRecentlyAddedResponse(w http.ResponseWriter) error
+}
+
+type ListRecentlyAdded200JSONResponse RecentList
+
+func (response ListRecentlyAdded200JSONResponse) VisitListRecentlyAddedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRecentlyAddeddefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListRecentlyAddeddefaultApplicationProblemPlusJSONResponse) VisitListRecentlyAddedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListRequestsRequestObject struct {
 	Params ListRequestsParams
 }
@@ -8258,6 +8444,61 @@ func (response UpdateTrashdefaultApplicationProblemPlusJSONResponse) VisitUpdate
 	return err
 }
 
+type ListUpcomingRequestObject struct {
+	Params ListUpcomingParams
+}
+
+type ListUpcomingResponseObject interface {
+	VisitListUpcomingResponse(w http.ResponseWriter) error
+}
+
+type ListUpcoming200JSONResponse UpcomingList
+
+func (response ListUpcoming200JSONResponse) VisitListUpcomingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListUpcoming422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListUpcoming422ApplicationProblemPlusJSONResponse) VisitListUpcomingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListUpcomingdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListUpcomingdefaultApplicationProblemPlusJSONResponse) VisitListUpcomingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeleteVersionRequestObject struct {
 	Id     VersionId `json:"id"`
 	Params DeleteVersionParams
@@ -8611,6 +8852,9 @@ type StrictServerInterface interface {
 	// ListQueue Downloading now
 	// (GET /queue)
 	ListQueue(ctx context.Context, request ListQueueRequestObject) (ListQueueResponseObject, error)
+	// ListRecentlyAdded Recently added
+	// (GET /recent)
+	ListRecentlyAdded(ctx context.Context, request ListRecentlyAddedRequestObject) (ListRecentlyAddedResponseObject, error)
 	// ListRequests Requests, newest first, or the named ones
 	// (GET /requests)
 	ListRequests(ctx context.Context, request ListRequestsRequestObject) (ListRequestsResponseObject, error)
@@ -8692,6 +8936,9 @@ type StrictServerInterface interface {
 	// UpdateTrash Update from TRaSH
 	// (POST /trash/update)
 	UpdateTrash(ctx context.Context, request UpdateTrashRequestObject) (UpdateTrashResponseObject, error)
+	// ListUpcoming Upcoming
+	// (GET /upcoming)
+	ListUpcoming(ctx context.Context, request ListUpcomingRequestObject) (ListUpcomingResponseObject, error)
 	// DeleteVersion Remove a Version
 	// (DELETE /versions/{id})
 	DeleteVersion(ctx context.Context, request DeleteVersionRequestObject) (DeleteVersionResponseObject, error)
@@ -9884,6 +10131,30 @@ func (sh *strictHandler) ListQueue(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ListRecentlyAdded operation middleware
+func (sh *strictHandler) ListRecentlyAdded(w http.ResponseWriter, r *http.Request) {
+	var request ListRecentlyAddedRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRecentlyAdded(ctx, request.(ListRecentlyAddedRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRecentlyAdded")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListRecentlyAddedResponseObject); ok {
+		if err := validResponse.VisitListRecentlyAddedResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListRequests operation middleware
 func (sh *strictHandler) ListRequests(w http.ResponseWriter, r *http.Request, params ListRequestsParams) {
 	var request ListRequestsRequestObject
@@ -10634,6 +10905,32 @@ func (sh *strictHandler) UpdateTrash(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(UpdateTrashResponseObject); ok {
 		if err := validResponse.VisitUpdateTrashResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListUpcoming operation middleware
+func (sh *strictHandler) ListUpcoming(w http.ResponseWriter, r *http.Request, params ListUpcomingParams) {
+	var request ListUpcomingRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListUpcoming(ctx, request.(ListUpcomingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListUpcoming")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListUpcomingResponseObject); ok {
+		if err := validResponse.VisitListUpcomingResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

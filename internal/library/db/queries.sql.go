@@ -648,6 +648,57 @@ func (q *Queries) ListEpisodes(ctx context.Context) ([]Episode, error) {
 	return items, nil
 }
 
+const listEpisodesAiring = `-- name: ListEpisodesAiring :many
+SELECT e.id, e.title_id, e.season, e.number, e.name, e.air_date
+FROM episodes e JOIN titles t ON t.id = e.title_id
+WHERE t.monitored = 1 AND e.monitored = 1 AND e.air_date >= ? AND e.air_date <= ?
+ORDER BY e.air_date, e.title_id, e.season, e.number
+`
+
+type ListEpisodesAiringParams struct {
+	AirDate   sql.NullString
+	AirDate_2 sql.NullString
+}
+
+type ListEpisodesAiringRow struct {
+	ID      int64
+	TitleID int64
+	Season  int64
+	Number  int64
+	Name    string
+	AirDate sql.NullString
+}
+
+func (q *Queries) ListEpisodesAiring(ctx context.Context, arg ListEpisodesAiringParams) ([]ListEpisodesAiringRow, error) {
+	rows, err := q.db.QueryContext(ctx, listEpisodesAiring, arg.AirDate, arg.AirDate_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEpisodesAiringRow
+	for rows.Next() {
+		var i ListEpisodesAiringRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TitleID,
+			&i.Season,
+			&i.Number,
+			&i.Name,
+			&i.AirDate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEpisodesOfTitle = `-- name: ListEpisodesOfTitle :many
 SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored FROM episodes WHERE title_id = ? ORDER BY season, number
 `
@@ -1000,6 +1051,57 @@ func (q *Queries) ListMisfitFileIDs(ctx context.Context) ([]int64, error) {
 			return nil, err
 		}
 		items = append(items, file_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRecentFiles = `-- name: ListRecentFiles :many
+SELECT f.id, f.version_id, v.title_id, v.slot, f.release_name, f.score, f.grab_id, f.imported_at, COALESCE(g.is_upgrade, 0) AS is_upgrade
+FROM files f JOIN versions v ON v.id = f.version_id LEFT JOIN grabs g ON g.id = f.grab_id
+ORDER BY f.imported_at DESC, f.id DESC LIMIT ?
+`
+
+type ListRecentFilesRow struct {
+	ID          int64
+	VersionID   int64
+	TitleID     int64
+	Slot        string
+	ReleaseName string
+	Score       sql.NullInt64
+	GrabID      sql.NullInt64
+	ImportedAt  string
+	IsUpgrade   int64
+}
+
+func (q *Queries) ListRecentFiles(ctx context.Context, limit int64) ([]ListRecentFilesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRecentFiles, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRecentFilesRow
+	for rows.Next() {
+		var i ListRecentFilesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.VersionID,
+			&i.TitleID,
+			&i.Slot,
+			&i.ReleaseName,
+			&i.Score,
+			&i.GrabID,
+			&i.ImportedAt,
+			&i.IsUpgrade,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

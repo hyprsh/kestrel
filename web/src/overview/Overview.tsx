@@ -1,9 +1,10 @@
-// Overview, the home screen: Needs attention, the health strip and Downloading now.
-// Upcoming joins them with its own ticket.
+// Overview, the home screen: Needs attention, the health strip, Downloading now,
+// Coming this week and Recently added.
 import { useQueue, useCancelGrab, type QueueItem } from '../api/queue'
 import { Button, ErrorText } from '../forms'
 import { slotLabel, type SlotKey } from '../library/bits'
 import { Badge, cx } from '../ui'
+import { ComingRecent } from './ComingRecent'
 import { HealthStrip } from './HealthStrip'
 import { NeedsAttention } from './NeedsAttention'
 
@@ -31,7 +32,7 @@ export function formatEta(seconds: number): string {
 }
 
 /** onOpen is how an action that opens a place in the app (a GET action) gets there. */
-export function Overview({ onOpen = () => {} }: { onOpen?: (path: string) => void }) {
+export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen?: (path: string) => void; onOpenTitle?: (id: number) => void }) {
   const queue = useQueue()
   const cancel = useCancelGrab()
   const items = queue.data ?? []
@@ -54,6 +55,7 @@ export function Overview({ onOpen = () => {} }: { onOpen?: (path: string) => voi
           </ul>
         )}
       </section>
+      <ComingRecent onOpenTitle={onOpenTitle} />
     </div>
   )
 }

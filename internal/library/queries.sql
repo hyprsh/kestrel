@@ -221,3 +221,14 @@ UPDATE files SET path = ? WHERE id = ?;
 
 -- name: ForceTitleFolder :exec
 UPDATE titles SET folder = ? WHERE id = ?;
+
+-- name: ListEpisodesAiring :many
+SELECT e.id, e.title_id, e.season, e.number, e.name, e.air_date
+FROM episodes e JOIN titles t ON t.id = e.title_id
+WHERE t.monitored = 1 AND e.monitored = 1 AND e.air_date >= ? AND e.air_date <= ?
+ORDER BY e.air_date, e.title_id, e.season, e.number;
+
+-- name: ListRecentFiles :many
+SELECT f.id, f.version_id, v.title_id, v.slot, f.release_name, f.score, f.grab_id, f.imported_at, COALESCE(g.is_upgrade, 0) AS is_upgrade
+FROM files f JOIN versions v ON v.id = f.version_id LEFT JOIN grabs g ON g.id = f.grab_id
+ORDER BY f.imported_at DESC, f.id DESC LIMIT ?;
