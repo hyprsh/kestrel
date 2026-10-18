@@ -60,7 +60,7 @@ type problemJSON struct {
 }
 
 // search is Kestrel with the TMDB fake, an indexer fake and a download-client fake, and the
-// Movie Paddington added in HD and UHD.
+// Movie Paddington added in Standard and 4K.
 type search struct {
 	library
 	idx     *ixfake.Indexer
@@ -110,7 +110,7 @@ func newSearchBare(t *testing.T, with ...func(*app.Options)) search {
 	return s
 }
 
-// addPaddington adds the Movie in HD and UHD through the API, as the UI does.
+// addPaddington adds the Movie in Standard and 4K through the API, as the UI does.
 func (s *search) addPaddington(t *testing.T) {
 	t.Helper()
 	r := s.valid("POST", "/titles", addPaddington)
@@ -225,7 +225,7 @@ func TestGrabAnywayWorksForOverridableRejectionsAndIsRefusedForOtherSlotAndBlock
 
 	other := list.find(t, uhdRelease)
 	if other.Fits != "other_slot" || len(other.Rejections) != 1 || other.Rejections[0].Code != "other_slot" || other.Rejections[0].Overridable {
-		t.Fatalf("2160p for the HD Version = %+v", other)
+		t.Fatalf("2160p for the Standard Version = %+v", other)
 	}
 	for _, override := range []bool{false, true} {
 		r = s.grab(s.hd, other.ReleaseID, override)
@@ -233,9 +233,9 @@ func TestGrabAnywayWorksForOverridableRejectionsAndIsRefusedForOtherSlotAndBlock
 			t.Errorf("other_slot with override=%v = %d %s, want 422 not_overridable", override, r.Status, r.Body)
 		}
 	}
-	// The same Release is fine for the UHD Version.
+	// The same Release is fine for the 4K Version.
 	if r = s.grab(s.uhd, other.ReleaseID, false); r.Status != 201 {
-		t.Errorf("grab for the UHD Version = %d %s", r.Status, r.Body)
+		t.Errorf("grab for the 4K Version = %d %s", r.Status, r.Body)
 	}
 }
 

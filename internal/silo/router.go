@@ -66,12 +66,22 @@ func settingsOf(c *pluginv1.RouterConnection) settings {
 	return settings{standardProfile: s, fourKProfile: u, rootFolder: f}
 }
 
-// slotOf maps a Silo tier to a Kestrel Slot.
+// slotOf maps a Silo tier to a Kestrel Slot. An unknown tier falls back to
+// Standard with ok false.
 func slotOf(q *pluginv1.RequestedQuality) (slot.Slot, bool) {
-	switch {
-	case q.GetId() == "2160p" || q.GetIs4K():
+	if q.GetIs4K() {
 		return slot.FourK, true
-	case q.GetId() == "1080p":
+	}
+	return slotOfTier(q.GetId())
+}
+
+// slotOfTier maps a Silo tier id to a Kestrel Slot. An unknown tier falls
+// back to Standard with ok false.
+func slotOfTier(id string) (slot.Slot, bool) {
+	switch id {
+	case "2160p":
+		return slot.FourK, true
+	case "1080p":
 		return slot.Standard, true
 	}
 	return slot.Standard, false
@@ -318,7 +328,7 @@ func (r *Router) CheckStatus(ctx context.Context, in *pluginv1.CheckStatusReques
 		}
 		for _, t := range refs {
 			n, _ := strconv.ParseInt(t.GetExternalId(), 10, 64)
-			sl, _ := slotOf(&pluginv1.RequestedQuality{Id: t.GetQuality()})
+			sl, _ := slotOfTier(t.GetQuality())
 			st := &pluginv1.TargetStatus{Quality: t.GetQuality(), ConnectionId: id, Status: "failed", Message: "Kestrel no longer has this Request"}
 			if req, ok := got[n]; ok {
 				st = statusOf(req, sl)

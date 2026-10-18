@@ -188,7 +188,7 @@ func TestASearchScoresEveryReleaseAgainstTheVersionsProfile(t *testing.T) {
 	}
 	other := r.found(t, res, uhd)
 	if other.Fits != acquire.FitsOtherSlot || !slices.Equal(codes(other), []scoring.Rejection{acquire.RejectOtherSlot}) || other.Rejections[0].Overridable {
-		t.Errorf("2160p release for a Title with only an HD Version = %+v, want other_slot, not overridable", other)
+		t.Errorf("2160p release for a Title with only a Standard Version = %+v, want other_slot, not overridable", other)
 	}
 	de := r.found(t, res, german)
 	if de.Fits != acquire.FitsThisSlot || !slices.Contains(codes(de), scoring.RejectLanguage) || !de.Rejections[0].Overridable {
@@ -230,10 +230,10 @@ func TestEachVersionSeesTheSameReleasesFromItsOwnSlot(t *testing.T) {
 	}
 
 	if r.found(t, hd, hd1080).Fits != acquire.FitsThisSlot || r.found(t, hd, uhd).Fits != acquire.FitsOtherSlot {
-		t.Errorf("HD Version results = %+v", hd.Items)
+		t.Errorf("Standard Version results = %+v", hd.Items)
 	}
 	if r.found(t, u, uhd).Fits != acquire.FitsThisSlot || r.found(t, u, hd1080).Fits != acquire.FitsOtherSlot {
-		t.Errorf("UHD Version results = %+v", u.Items)
+		t.Errorf("4K Version results = %+v", u.Items)
 	}
 }
 
@@ -317,7 +317,7 @@ func TestGrabbingARejectedReleaseNeedsTheOverride(t *testing.T) {
 
 func TestAReleaseForAnotherSlotCanNeverBeGrabbed(t *testing.T) {
 	ctx := context.Background()
-	r := newRig(t) // an HD-only Title: a 2160p Release fits the UHD Slot, which it has no Version for
+	r := newRig(t) // a Standard-only Title: a 2160p Release fits the 4K Slot, which it has no Version for
 	r.publish(t, uhd, time.Hour)
 	res, _ := r.svc.Search(ctx, r.versions[slot.Standard])
 	f := r.found(t, res, uhd)

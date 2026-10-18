@@ -5,6 +5,7 @@ import { useBlocklist, useEvents, useUnblock, type LogEvent } from '../api/log'
 import { useTitles } from '../api/queries'
 import { Button, ErrorText, Select, TextInput } from '../forms'
 import { useKey, useListNav } from '../keys'
+import { slotKeys, slotLabel } from '../library/bits'
 import { Badge, type Tone } from '../ui'
 
 const kinds: Record<string, { label: string; tone: Tone }> = {
@@ -108,8 +109,11 @@ function Events() {
         </Select>
         <Select aria-label="Slot" value={slot} onChange={(e) => setSlot(e.target.value)} className="w-28">
           <option value="">All Slots</option>
-          <option value="standard">Standard</option>
-          <option value="4k">4K</option>
+          {slotKeys.map((k) => (
+            <option key={k} value={k}>
+              {slotLabel[k]}
+            </option>
+          ))}
         </Select>
         <label className="flex items-center gap-1.5 text-gray-900">
           <input type="checkbox" checked={routine} onChange={(e) => setRoutine(e.target.checked)} />

@@ -25,7 +25,7 @@ func (r *rig) twoCandidates(t *testing.T) acquire.Grab {
 	return out.Grabbed[0]
 }
 
-// active is the Grab now fetching for the HD Version, if any.
+// active is the Grab now fetching for the Standard Version, if any.
 func (r *rig) active(t *testing.T) []acquire.Active {
 	t.Helper()
 	a, err := r.svc.Active(context.Background())

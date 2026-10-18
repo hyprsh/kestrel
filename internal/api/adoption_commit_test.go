@@ -98,7 +98,7 @@ func TestCommittingRenamesFilesInPlaceWithTheirSubtitlesAndFillsTheVersions(t *t
 	files := a.titleFiles(t, id)
 	got := files["standard"]
 	if filepath.Dir(got) != folder || !strings.HasPrefix(filepath.Base(got), "Paddington (2014) {tmdb-116149} - [Standard]") || !exists(t, got) {
-		t.Fatalf("HD file = %q (all %v)", got, files)
+		t.Fatalf("Standard file = %q (all %v)", got, files)
 	}
 	if exists(t, video) {
 		t.Error("the old file is still where it was")

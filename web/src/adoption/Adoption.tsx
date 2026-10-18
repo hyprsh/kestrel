@@ -37,7 +37,6 @@ const skipText: Record<string, string> = {
 
 const baseName = (p: string) => p.slice(p.lastIndexOf('/') + 1)
 
-
 /** "S01E02" or "S01E02-E03" for a Series file, "" for a Movie file. */
 function episodeLabel(f: AdoptionFile) {
   if (f.episodes.length === 0) return ''

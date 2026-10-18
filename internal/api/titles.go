@@ -359,10 +359,6 @@ func (s *server) CreateTitle(ctx context.Context, r oapi.CreateTitleRequestObjec
 	if err != nil {
 		return nil, err
 	}
-	noun := "Movie"
-	if b.Kind == oapi.Series {
-		noun = "Series"
-	}
 	requested := ""
 	if b.RootFolder != nil {
 		requested = *b.RootFolder
@@ -372,7 +368,7 @@ func (s *server) CreateTitle(ctx context.Context, r oapi.CreateTitleRequestObjec
 	case errors.Is(err, rootfolders.ErrNotConfigured):
 		return nil, invalid("root_folder", "not_found", rootfolders.Kind(b.Kind).NotConfiguredMessage())
 	case errors.Is(err, rootfolders.ErrNoneSet):
-		return nil, invalid("root_folder", "required", "Set a "+noun+" Root folder in Settings first")
+		return nil, invalid("root_folder", "required", "Set a "+rootfolders.Kind(b.Kind).Noun()+" Root folder in Settings first")
 	case err != nil:
 		return nil, err
 	}

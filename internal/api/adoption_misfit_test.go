@@ -61,7 +61,7 @@ func TestAFileOnlyAnyAcceptsGetsTheAnyProfile(t *testing.T) {
 		} `json:"versions"`
 	}](t, a.valid("GET", fmt.Sprintf("/titles/%d", a.titleIDOf(t, 116149)), ""))
 	if len(d.Versions) != 1 || d.Versions[0].Profile != "any-primary" || d.Versions[0].File == nil || d.Versions[0].File.Misfit {
-		t.Fatalf("versions = %+v, want the HD Version under Any with no misfit", d.Versions)
+		t.Fatalf("versions = %+v, want the Standard Version under Any with no misfit", d.Versions)
 	}
 }
 

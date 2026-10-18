@@ -49,7 +49,7 @@ type fileJSON struct {
 }
 
 // download runs the Movie loop up to a completed job whose files are in a
-// fresh folder, and returns the HD Grab's id and the client's job id.
+// fresh folder, and returns the Standard Grab's id and the client's job id.
 func (s search) download(t *testing.T, files map[string]string) (grabID int64, jobID string) {
 	t.Helper()
 	s.publish(t, goodRelease)
@@ -60,7 +60,7 @@ func (s search) download(t *testing.T, files map[string]string) (grabID int64, j
 		}
 	}
 	if grabID == 0 {
-		t.Fatal("no Grab for the HD Version")
+		t.Fatal("no Grab for the Standard Version")
 	}
 	for _, j := range s.jobs(t) {
 		jobID = j.ClientID

@@ -20,7 +20,7 @@ const (
 	badPack = "Breaking.Bad.S01.1080p.WEB-DL.H264-GRP"
 )
 
-// seriesSearch is Kestrel with the fake TMDB, TheTVDB, an indexer and a download client, and Breaking Bad added in HD.
+// seriesSearch is Kestrel with the fake TMDB, TheTVDB, an indexer and a download client, and Breaking Bad added in Standard.
 type seriesSearch struct {
 	search
 	hdVersion int64

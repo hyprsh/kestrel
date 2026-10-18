@@ -88,7 +88,7 @@ func TestAddingUHDToATitleWithHDCreatesAVersionAndSearchesItAtOnce(t *testing.T)
 		grabbed = grabbed || (it.VersionID != nil && *it.VersionID == v.ID && it.ReleaseName == uhdRelease)
 	}
 	if !grabbed {
-		t.Errorf("the new UHD Version was not searched: queue = %+v", s.queue(t))
+		t.Errorf("the new 4K Version was not searched: queue = %+v", s.queue(t))
 	}
 }
 
@@ -232,7 +232,7 @@ func TestRemovingAVersionLeavesTheFileUnlessAskedToDeleteIt(t *testing.T) {
 			}
 			d := decode[titleJSON](t, s.valid("GET", fmt.Sprintf("/titles/%d", s.title), ""))
 			if len(d.Versions) != 1 || d.Versions[0].Slot != "4k" {
-				t.Errorf("versions = %+v, want only UHD", d.Versions)
+				t.Errorf("versions = %+v, want only 4K", d.Versions)
 			}
 			if r := s.valid("DELETE", fmt.Sprintf("/versions/%d", s.hd), ""); r.Status != 404 {
 				t.Errorf("second DELETE = %d, want 404", r.Status)

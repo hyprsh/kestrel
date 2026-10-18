@@ -164,11 +164,15 @@ const (
 // NotConfiguredMessage is the 422 text for a Root folder that is not one of the
 // kind's configured ones.
 func (k Kind) NotConfiguredMessage() string {
-	noun := "Movie"
+	return "That is not one of the " + k.Noun() + " Root folders"
+}
+
+// Noun is the capitalised name the kind goes by in messages: "Movie" or "Series".
+func (k Kind) Noun() string {
 	if k == Series {
-		noun = "Series"
+		return "Series"
 	}
-	return "That is not one of the " + noun + " Root folders"
+	return "Movie"
 }
 
 // of is the kind's folders.
