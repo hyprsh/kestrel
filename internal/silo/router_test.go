@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -87,6 +88,7 @@ func target(t *testing.T, res *pluginv1.FulfillResponse, quality string) *plugin
 
 type reqJSON struct {
 	Outcome string `json:"outcome"`
+	TitleID int64  `json:"title_id"`
 	Source  string `json:"source"`
 	Slots   []struct {
 		Slot      string  `json:"slot"`
@@ -117,7 +119,7 @@ func requestOf(t *testing.T, k *kestrel, tg *pluginv1.FulfillmentTarget) reqJSON
 	return out
 }
 
-func TestASiloRequestFrom4KUserBecomesAKestrelRequestWithHDAndUHD(t *testing.T) {
+func TestASiloRequestFrom4KUserBecomesAKestrelRequestWithStandardAnd4K(t *testing.T) {
 	k := newKestrel(t)
 	r := silo.NewRouter(silo.Options{})
 	c := conn(t, k.URL(), k.Key, nil)
@@ -125,7 +127,7 @@ func TestASiloRequestFrom4KUserBecomesAKestrelRequestWithHDAndUHD(t *testing.T) 
 	res := fulfil(t, r, c, movie(7), "1080p", "2160p")
 
 	if len(res.Targets) != 2 {
-		t.Fatalf("targets = %+v, want HD and UHD", res.Targets)
+		t.Fatalf("targets = %+v, want Standard and 4K", res.Targets)
 	}
 	for _, q := range []string{"1080p", "2160p"} {
 		tg := target(t, res, q)
@@ -161,6 +163,7 @@ func TestA1080pOnlyRequestAddsOnlyTheStandardSlot(t *testing.T) {
 
 func TestConfiguredProfilesAreRequestedPerSlotAndListedAsOptions(t *testing.T) {
 	k := newKestrel(t)
+	more := k.moreMovies()
 	r := silo.NewRouter(silo.Options{})
 	c := conn(t, k.URL(), k.Key, nil)
 
@@ -168,21 +171,80 @@ func TestConfiguredProfilesAreRequestedPerSlotAndListedAsOptions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hd := opts.OptionsByField["hd_profile"].GetOptions()
-	uhd := opts.OptionsByField["uhd_profile"].GetOptions()
-	if len(hd) < 2 || hd[0].Value != "" || hd[0].Label != "Kestrel default" || len(uhd) < 2 {
-		t.Fatalf("hd = %v, uhd = %v, want Kestrel default first and the Slot's Profiles after", hd, uhd)
+	if len(opts.OptionsByField) != 3 {
+		t.Errorf("fields = %v, want exactly standard_profile, 4k_profile and root_folder", opts.OptionsByField)
 	}
-	pick := hd[len(hd)-1].Value
+	std := opts.OptionsByField["standard_profile"].GetOptions()
+	uhd := opts.OptionsByField["4k_profile"].GetOptions()
+	if len(std) < 2 || std[0].Value != "" || std[0].Label != "Kestrel default" || len(uhd) < 2 {
+		t.Fatalf("standard = %v, 4k = %v, want Kestrel default first and the Slot's Profiles after", std, uhd)
+	}
+	roots := opts.OptionsByField["root_folder"].GetOptions()
+	var paths []string
+	for _, o := range roots {
+		paths = append(paths, o.Value)
+	}
+	if len(roots) < 2 || roots[0].Value != "" || roots[0].Label != "Kestrel default" || !slices.Contains(paths, more) {
+		t.Errorf("root folders = %v, want Kestrel default first and the folders Kestrel has, including %s", paths, more)
+	}
+	pick := std[len(std)-1].Value
 	uhdPick := uhd[len(uhd)-1].Value
 
-	res := fulfil(t, r, conn(t, k.URL(), k.Key, map[string]any{"hd_profile": pick, "uhd_profile": uhdPick}), movie(7), "1080p", "2160p")
+	res := fulfil(t, r, conn(t, k.URL(), k.Key, map[string]any{"standard_profile": pick, "4k_profile": uhdPick}), movie(7), "1080p", "2160p")
 	got := map[string]string{}
 	for _, s := range requestOf(t, k, res.Targets[0]).Slots {
 		got[s.Slot] = *s.Profile
 	}
 	if got["standard"] != pick || got["4k"] != uhdPick {
-		t.Errorf("profiles = %v, want hd=%s uhd=%s", got, pick, uhdPick)
+		t.Errorf("profiles = %v, want standard=%s 4k=%s", got, pick, uhdPick)
+	}
+}
+
+func TestARouteOverrideOfRootFolderAndProfileFilesTheTitleThere(t *testing.T) {
+	k := newKestrel(t)
+	more := k.moreMovies()
+	r := silo.NewRouter(silo.Options{})
+	c := conn(t, k.URL(), k.Key, map[string]any{"root_folder": more, "standard_profile": "any-original"})
+
+	res := fulfil(t, r, c, movie(7), "1080p")
+	req := requestOf(t, k, res.Targets[0])
+	if got := k.rootFolderOf(req); got != more {
+		t.Errorf("root folder = %q, want %q", got, more)
+	}
+	if len(req.Slots) != 1 || req.Slots[0].Slot != "standard" || *req.Slots[0].Profile != "any-original" {
+		t.Errorf("slots = %+v, want standard with any-original", req.Slots)
+	}
+
+	// The 2160p tier carries its own override: the Title is already there, so
+	// the folder it names is ignored and only the 4K Version is added.
+	other := conn(t, k.URL(), k.Key, map[string]any{"root_folder": k.Data + "/media/movies", "4k_profile": "4k-original"})
+	res = fulfil(t, r, other, movie(7), "2160p")
+	req = requestOf(t, k, res.Targets[0])
+	if got := k.rootFolderOf(req); got != more {
+		t.Errorf("root folder after the 4K tier = %q, want it left at %q", got, more)
+	}
+	has4K := false
+	for _, sl := range req.Slots {
+		has4K = has4K || (sl.Slot == "4k" && *sl.Profile == "4k-original")
+	}
+	if !has4K {
+		t.Errorf("slots = %+v, want a 4k Version under 4k-original", req.Slots)
+	}
+}
+
+func TestARootFolderKestrelDoesNotHaveIsAFailedRequest(t *testing.T) {
+	k := newKestrel(t)
+	r := silo.NewRouter(silo.Options{})
+	c := conn(t, k.URL(), k.Key, map[string]any{"root_folder": k.Data + "/nowhere"})
+
+	res, err := r.Fulfill(context.Background(), &pluginv1.FulfillRequest{
+		CapabilityId: "kestrel", Request: movie(7), Qualities: tiers("1080p"), Connections: []*pluginv1.RouterConnection{c},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Targets) != 0 || !strings.Contains(res.Message, "Root folder") {
+		t.Errorf("response = %+v, want no targets and Kestrel's refusal", res)
 	}
 }
 

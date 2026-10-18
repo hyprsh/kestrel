@@ -11,8 +11,8 @@
   "presentation": {
     "display_name": "Kestrel",
     "summary": "Sends approved Requests to Kestrel and reports download progress back.",
-    "description_markdown": "Hands each approved Silo Request to Kestrel. A 1080p tier adds the Title in Kestrel's HD Slot and a 2160p tier adds it in UHD. Status and download progress come back to Silo.",
-    "setup_markdown": "1. Install the plugin.\n2. In Kestrel, open Settings and generate an API key.\n3. Add a Kestrel connection here with Kestrel's address and that key.\n4. Pick the HD and UHD Profiles, or leave them on the Kestrel default.",
+    "description_markdown": "Hands each approved Silo Request to Kestrel. A 1080p tier adds the Title in Kestrel's Standard Slot and a 2160p tier adds it in 4K. Each of Standard Profile, 4K Profile and Root folder can be left on the Kestrel default or set per request route in Silo. A Root folder only applies to a Title Kestrel does not have yet: if the Standard and 4K tiers of one request name different folders, the first to create the Title wins and the other is ignored. Status and download progress come back to Silo.",
+    "setup_markdown": "1. Install the plugin.\n2. In Kestrel, open Settings and generate an API key.\n3. Add a Kestrel connection here with Kestrel's address and that key.\n4. Pick the Standard and 4K Profiles and a Root folder, or leave them on the Kestrel default. Silo request routes can override each per audience.",
     "homepage_url": "https://github.com/hyprsh/kestrel",
     "source_url": "https://github.com/hyprsh/kestrel",
     "support_url": "https://github.com/hyprsh/kestrel/issues",
@@ -35,15 +35,15 @@
         {
           "key": "connection",
           "title": "Kestrel",
-          "json_schema": "{\"type\":\"object\",\"properties\":{\"hd_profile\":{\"type\":\"string\"},\"uhd_profile\":{\"type\":\"string\"},\"also_add_sd\":{\"type\":\"boolean\"}}}",
+          "json_schema": "{\"type\":\"object\",\"properties\":{\"standard_profile\":{\"type\":\"string\"},\"4k_profile\":{\"type\":\"string\"},\"root_folder\":{\"type\":\"string\"}}}",
           "admin_form": {
             "fields": [
-              {"key": "hd_profile", "label": "HD Profile", "control": "ADMIN_FORM_CONTROL_SELECT", "dynamic_options": true},
-              {"key": "uhd_profile", "label": "UHD Profile", "control": "ADMIN_FORM_CONTROL_SELECT", "dynamic_options": true},
-              {"key": "also_add_sd", "label": "Also add SD", "control": "ADMIN_FORM_CONTROL_SWITCH"}
+              {"key": "standard_profile", "label": "Standard Profile", "control": "ADMIN_FORM_CONTROL_SELECT", "dynamic_options": true},
+              {"key": "4k_profile", "label": "4K Profile", "control": "ADMIN_FORM_CONTROL_SELECT", "dynamic_options": true},
+              {"key": "root_folder", "label": "Root folder", "control": "ADMIN_FORM_CONTROL_SELECT", "dynamic_options": true}
             ],
             "sections": [
-              {"key": "profiles", "title": "Profiles", "field_keys": ["hd_profile", "uhd_profile", "also_add_sd"]}
+              {"key": "profiles", "title": "Profiles and folder", "field_keys": ["standard_profile", "4k_profile", "root_folder"]}
             ]
           }
         }
