@@ -122,6 +122,9 @@ type File struct {
 	ParsedRelease string
 	Probe         string
 	ImportedAt    time.Time
+	// Misfit says the file no longer fits its Version's Profile (a Profile
+	// switch): the Version counts as Wanted and any fitting Release replaces it.
+	Misfit bool
 }
 
 // Version is one Slot of a Title in detail.
@@ -371,9 +374,13 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 		}
 	}
 
+	misfits, err := misfitSet(ctx, q)
+	if err != nil {
+		return nil, err
+	}
 	hasFile := map[int64]bool{}
 	for _, fl := range files {
-		hasFile[fl.VersionID] = true
+		hasFile[fl.VersionID] = hasFile[fl.VersionID] || !misfits[fl.ID]
 	}
 	byTitle := map[int64][]db.Version{}
 	for _, v := range versions {
@@ -468,9 +475,13 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 	for _, a := range aliases {
 		d.Aliases = append(d.Aliases, Alias{Title: a.Alias, Country: a.Country, Language: a.Language})
 	}
+	misfits, err := misfitSet(ctx, q)
+	if err != nil {
+		return Detail{}, err
+	}
 	fileOf := map[int64]*File{}
 	for _, f := range files {
-		fl := &File{ID: f.ID, Path: f.Path, Size: f.Size, ReleaseName: f.ReleaseName, ParsedRelease: f.ParsedRelease.String, Probe: f.Probe.String, ImportedAt: parseTime(f.ImportedAt)}
+		fl := &File{Misfit: misfits[f.ID], ID: f.ID, Path: f.Path, Size: f.Size, ReleaseName: f.ReleaseName, ParsedRelease: f.ParsedRelease.String, Probe: f.Probe.String, ImportedAt: parseTime(f.ImportedAt)}
 		if f.Score.Valid {
 			n := int(f.Score.Int64)
 			fl.Score = &n
@@ -509,7 +520,7 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 		if d.Kind == Series {
 			st, since = SeriesState(unitsOf(epsOf, heldBy[v.ID], parseTime(v.AddedAt)), view.Now)
 		} else {
-			st, since = stateOf(d.Monitored, fl != nil, d.ReleaseDates, parseTime(v.AddedAt), view)
+			st, since = stateOf(d.Monitored, fl != nil && !fl.Misfit, d.ReleaseDates, parseTime(v.AddedAt), view)
 		}
 		d.Versions = append(d.Versions, Version{
 			ID: v.ID, Slot: slotOf(v.Slot), Profile: v.ProfileKey, State: st, LongMissing: IsLongMissing(st, since, view.Now),

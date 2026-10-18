@@ -1,9 +1,10 @@
 import { forwardRef } from 'react'
 import { apiBaseUrl } from '../api/client'
-import { useProfiles, useTitle, type TitleDetail as Detail, type TitleRow } from '../api/queries'
+import { useProfiles, useTitle, type Profile, type TitleDetail as Detail, type TitleRow } from '../api/queries'
 import { Button } from '../forms'
 import { cx } from '../ui'
 import { slotKeys, slotLabel, StatusBadge, type SlotKey } from './bits'
+import { AddVersion, RemoveTitle, VersionControls } from './ManageVersion'
 import { SeriesSection } from './SeriesSection'
 
 function size(bytes: number): string {
@@ -81,11 +82,12 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
 
       <div className="mt-6 grid grid-cols-3 gap-3">
         {slotKeys.map((k) => (
-          <VersionColumn key={k} slot={k} title={title} profileName={(key) => names.get(key) ?? key} onManualSearch={onManualSearch} />
+          <VersionColumn key={k} slot={k} title={title} profiles={profiles.data ?? []} profileName={(key) => names.get(key) ?? key} onManualSearch={onManualSearch} />
         ))}
       </div>
 
       {title.kind === 'series' && <SeriesSection title={title} />}
+      <RemoveTitle titleId={title.id} />
     </div>
   )
 }
@@ -93,11 +95,13 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
 function VersionColumn({
   slot,
   title,
+  profiles,
   profileName,
   onManualSearch,
 }: {
   slot: SlotKey
   title: Detail
+  profiles: Profile[]
   profileName: (key: string) => string
   onManualSearch: (search: ManualSearchTarget) => void
 }) {
@@ -120,6 +124,7 @@ function VersionColumn({
                 {[v.file.quality, v.file.languages?.join(' + '), size(v.file.size)].filter(Boolean).join(' · ')}
                 {v.file.score !== null && ` · Score ${v.file.score}`}
               </div>
+              {v.file.misfit && <div className="text-red-900">No longer fits this Profile</div>}
             </div>
           ) : (
             <div className="mt-1 text-[12px] text-gray-900">No file yet</div>
@@ -129,9 +134,13 @@ function VersionColumn({
               Manual search
             </Button>
           )}
+          <VersionControls versionId={v.id} slot={slot} profile={v.profile} profiles={profiles} />
         </div>
       ) : (
-        <div className="mt-2 text-gray-900">No Version</div>
+        <div className="mt-2 text-gray-900">
+          No Version
+          <AddVersion titleId={title.id} slot={slot} profiles={profiles} />
+        </div>
       )}
     </div>
   )

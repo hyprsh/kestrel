@@ -3,7 +3,9 @@ package acquire
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/acquire/db"
@@ -39,6 +41,22 @@ type ImportOutcome struct {
 	// or the stalled reason.
 	Reason string
 	// Path is the imported file, for the Log.
+	Path string
+	// Episodes are the per-episode results of a Series Import; each goes to the Log.
+	Episodes []EpisodeOutcome
+}
+
+// EpisodeOutcome is what an Import did for one episode.
+type EpisodeOutcome struct {
+	// EpisodeID is 0 for a file that named no known episode.
+	EpisodeID int64
+	Season    int
+	Number    int
+	Status    ImportStatus
+	// Reason says why an episode was left alone or stalled.
+	Reason string
+	// File is the downloaded file; Path the imported one.
+	File string
 	Path string
 }
 
@@ -143,6 +161,7 @@ func (s *Service) RecordImport(ctx context.Context, grabID int64, canRemove bool
 			ev.Kind, ev.Message = history.ImportRejected, "Import of "+row.ReleaseName+" rejected: "+o.Reason
 		}
 		s.hist.Record(ctx, ev)
+		s.recordEpisodes(ctx, row, o.Episodes)
 		if canRemove {
 			if err := s.dl.Remove(ctx, row.ClientInstanceID, row.ClientID, true); err != nil && !errors.Is(err, instances.ErrNotFound) {
 				return err
@@ -150,4 +169,26 @@ func (s *Service) RecordImport(ctx context.Context, grabID int64, canRemove bool
 		}
 	}
 	return nil
+}
+
+// recordEpisodes writes one event per episode of a Series Import, so the Log
+// shows what became of each file in a pack.
+func (s *Service) recordEpisodes(ctx context.Context, row db.Grab, eps []EpisodeOutcome) {
+	for _, e := range eps {
+		code := fmt.Sprintf("S%02dE%02d", e.Season, e.Number)
+		if e.EpisodeID == 0 && e.Number == 0 {
+			code = e.File
+		}
+		msg := code + ": imported as " + e.Path
+		if e.Status != ImportDone {
+			msg = code + ": left alone (" + e.Reason + ")"
+		}
+		data, _ := json.Marshal(map[string]any{
+			"season": e.Season, "episode": e.Number, "status": e.Status, "reason": e.Reason, "file": e.File, "path": e.Path,
+		})
+		s.hist.Record(ctx, history.Event{
+			Kind: history.ImportEpisode, TitleID: row.TitleID.Int64, VersionID: row.VersionID.Int64, EpisodeID: e.EpisodeID, GrabID: row.ID,
+			Message: msg, Data: data,
+		})
+	}
 }

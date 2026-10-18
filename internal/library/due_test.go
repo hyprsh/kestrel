@@ -70,3 +70,29 @@ func TestUnmonitoredTitlesAreNeverDue(t *testing.T) {
 		t.Errorf("due = %+v, %v, want none", due, err)
 	}
 }
+
+func TestASeriesVersionIsDueOnceWhateverItsSeasonsAndOneMarkSchedulesAllOfThem(t *testing.T) {
+	ctx := context.Background()
+	lib, _ := newLibrary(t)
+	id := addShow(t, lib, library.MonitorAll)
+	d, _ := lib.Get(ctx, id, library.View{Country: "US", Now: now})
+
+	due, err := lib.DueMissing(ctx, now)
+	if err != nil || len(due) != 1 || due[0].VersionID != d.Versions[0].ID || due[0].TitleID != id {
+		t.Fatalf("due = %+v, %v, want the Version once", due, err)
+	}
+
+	if err := lib.MarkMissingSearched(ctx, d.Versions[0].ID, now, now.Add(6*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if due, _ := lib.DueMissing(ctx, now); len(due) != 0 {
+		t.Errorf("due after the search = %+v", due)
+	}
+
+	if err := lib.RequestSeasonSearch(ctx, d.Versions[0].ID, []int{2}); err != nil {
+		t.Fatal(err)
+	}
+	if due, _ := lib.DueMissing(ctx, now); len(due) != 1 {
+		t.Errorf("due after a season request = %+v", due)
+	}
+}

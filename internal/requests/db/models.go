@@ -61,7 +61,12 @@ type File struct {
 
 type FileEpisode struct {
 	FileID    int64
+	VersionID int64
 	EpisodeID int64
+}
+
+type FileMisfit struct {
+	FileID int64
 }
 
 type Grab struct {

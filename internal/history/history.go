@@ -42,6 +42,10 @@ const (
 	ImportRejected Kind = "import_rejected"
 	// ImportStalled: the Import cannot proceed until the environment is fixed; recorded once per stall.
 	ImportStalled Kind = "import_stalled"
+	// ImportEpisode: what an Import did for one episode of a Series Grab (imported,
+	// or left alone because it was unmonitored, held or unreadable). Data carries
+	// the result.
+	ImportEpisode Kind = "import_episode"
 	// RequestCreated: a new Request arrived (a retry of a stored one does not record).
 	RequestCreated Kind = "request"
 	// HealthRaised: a Needs attention row appeared (a repeat of one already showing does not record).

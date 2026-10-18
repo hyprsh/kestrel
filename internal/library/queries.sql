@@ -98,14 +98,15 @@ UPDATE seasons SET monitored = EXISTS (
 -- name: ListDueMissing :many
 SELECT s.version_id, v.title_id
 FROM search_state s JOIN versions v ON v.id = s.version_id JOIN titles t ON t.id = v.title_id
-WHERE s.season IS NULL AND t.kind = 'movie' AND t.monitored = 1 AND s.next_missing_at IS NOT NULL AND s.next_missing_at <= ?
-ORDER BY s.next_missing_at, s.id;
+WHERE ((s.season IS NULL) = (t.kind = 'movie')) AND t.monitored = 1 AND s.next_missing_at IS NOT NULL AND s.next_missing_at <= ?
+GROUP BY s.version_id, v.title_id
+ORDER BY MIN(s.next_missing_at), MIN(s.id);
 
 -- name: MarkMissingSearched :exec
-UPDATE search_state SET last_missing_at = ?, next_missing_at = ? WHERE version_id = ? AND season IS NULL;
+UPDATE search_state SET last_missing_at = ?, next_missing_at = ? WHERE version_id = ?;
 
 -- name: SetNextMissing :exec
-UPDATE search_state SET next_missing_at = ? WHERE version_id = ? AND season IS NULL;
+UPDATE search_state SET next_missing_at = ? WHERE version_id = ?;
 
 -- name: SetTitleFolder :exec
 UPDATE titles SET folder = ? WHERE id = ? AND folder IS NULL;
@@ -129,3 +130,48 @@ UPDATE search_state SET next_missing_at = ? WHERE version_id = ? AND season = ?;
 
 -- name: FindTitleByKindTVDB :one
 SELECT id FROM titles WHERE kind = ? AND tvdb_id = ?;
+
+-- name: InsertFileEpisode :exec
+INSERT INTO file_episodes (file_id, version_id, episode_id) VALUES (?, ?, ?);
+
+-- name: GetFileOfVersionEpisode :one
+SELECT file_id FROM file_episodes WHERE version_id = ? AND episode_id = ?;
+
+-- name: DeleteFileEpisode :exec
+DELETE FROM file_episodes WHERE version_id = ? AND episode_id = ?;
+
+-- name: CountFileEpisodes :one
+SELECT COUNT(*) FROM file_episodes WHERE file_id = ?;
+
+-- name: GetFile :one
+SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE id = ?;
+
+-- name: ListFilesOfGrab :many
+SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE grab_id = ? ORDER BY id;
+
+-- name: ListMisfitFileIDs :many
+SELECT file_id FROM file_misfits;
+
+-- name: ClearMisfit :exec
+DELETE FROM file_misfits WHERE file_id = ?;
+
+-- name: SetMisfit :exec
+INSERT OR IGNORE INTO file_misfits (file_id) VALUES (?);
+
+-- name: SetFileScore :exec
+UPDATE files SET score = ? WHERE id = ?;
+
+-- name: SetVersionProfile :exec
+UPDATE versions SET profile_key = ? WHERE id = ?;
+
+-- name: GetVersion :one
+SELECT id, title_id, slot, profile_key, added_at FROM versions WHERE id = ?;
+
+-- name: DeleteVersion :exec
+DELETE FROM versions WHERE id = ?;
+
+-- name: DeleteTitle :exec
+DELETE FROM titles WHERE id = ?;
+
+-- name: SetNextSearchesAll :exec
+UPDATE search_state SET next_missing_at = ?, next_upgrade_at = ? WHERE version_id = ?;

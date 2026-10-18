@@ -193,6 +193,12 @@ func importDue(ctx context.Context, r *Runner, d Deps) error {
 					continue // shutting down: the Grab stays importing and is redone
 				}
 				out := acquire.ImportOutcome{Status: acquire.ImportStatus(res.Status), Reason: res.Reason, Path: res.Path}
+				for _, e := range res.Episodes {
+					out.Episodes = append(out.Episodes, acquire.EpisodeOutcome{
+						EpisodeID: e.EpisodeID, Season: e.Season, Number: e.Number, Status: acquire.ImportStatus(e.Status),
+						Reason: e.Reason, File: e.File, Path: e.Path,
+					})
+				}
 				if err := d.ImportSource.RecordImport(ctx, j.ID, j.CanRemove, out); err != nil {
 					r.log.Warn("recording an Import failed", "grab", j.ID, "err", err)
 				}

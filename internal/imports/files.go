@@ -46,7 +46,10 @@ type sub struct {
 // selection is what Import takes from a finished download: the main video
 // and the text subtitles. Samples, extras and junk are never picked.
 type selection struct {
-	video     string
+	video string
+	// videos are all the episode-sized videos, largest first; a Series
+	// download may hold one per episode.
+	videos    []string
 	multiPart bool
 	subs      []sub
 }
@@ -62,6 +65,7 @@ func selectFiles(source string) (selection, error) {
 	if !st.IsDir() {
 		if videoExts[strings.ToLower(filepath.Ext(source))] {
 			sel.video = source
+			sel.videos = []string{source}
 		}
 		return sel, nil
 	}
@@ -113,6 +117,9 @@ func selectFiles(source string) (selection, error) {
 			return strings.Compare(a.path, b.path)
 		})
 		sel.video = videos[0].path
+		for _, v := range videos {
+			sel.videos = append(sel.videos, v.path)
+		}
 		parts := map[string]bool{}
 		for _, v := range videos {
 			if m := partRx.FindStringSubmatch(filepath.Base(v.path)); m != nil {
