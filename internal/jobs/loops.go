@@ -54,8 +54,6 @@ const (
 	pruneCheck    = time.Hour
 	pruneEvery    = 24 * time.Hour
 	healthEvery   = 5 * time.Minute
-	updatesEvery  = 24 * time.Hour
-	trashEvery    = 24 * time.Hour
 )
 
 // HealthChecker is what the loops need of the health module.
@@ -122,7 +120,8 @@ type Deps struct {
 	Acquire   Acquirer
 	Library   Library
 	History   History
-	// PruneState remembers when pruning last ran; without it every hourly check prunes.
+	// PruneState remembers when the daily loops (pruning, the update and TRaSH
+	// checks) last ran; without it each runs at every hourly check.
 	PruneState RefreshState
 	// Sessions deletes expired sessions; optional.
 	Sessions func(ctx context.Context) error
@@ -212,16 +211,16 @@ func Standard(d Deps) *Runner {
 	if d.Trash != nil {
 		r.Add(Loop{
 			Name:  Trash,
-			Run:   d.Trash.Check,
-			Every: func() time.Duration { return trashEvery },
+			Run:   daily(d.PruneState, trashStateKey, d.Clock, d.Trash.Check),
+			Every: func() time.Duration { return dailyCheck },
 		})
 	}
 
 	if d.Updates != nil {
 		r.Add(Loop{
 			Name:  Updates,
-			Run:   d.Updates.Check,
-			Every: func() time.Duration { return updatesEvery },
+			Run:   daily(d.PruneState, updatesStateKey, d.Clock, d.Updates.Check),
+			Every: func() time.Duration { return dailyCheck },
 		})
 	}
 
