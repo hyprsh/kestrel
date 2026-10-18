@@ -73,9 +73,6 @@ type RefresherDeps struct {
 	State   RefreshState
 	// Primary is the household's Primary Language (ISO 639-1).
 	Primary func(ctx context.Context) (string, error)
-	// Done, when set, is called after each background refresh (Enqueue), so the
-	// live views can reload the Title whether or not its names changed.
-	Done func(titleID int64)
 	// History and Health are optional.
 	History *history.Service
 	Health  RefreshHealth
@@ -195,9 +192,11 @@ func (r *Refresher) Enqueue(id int64) {
 		if err := r.Refresh(context.WithoutCancel(context.Background()), id); err != nil {
 			r.d.Logger.Warn("refreshing a Title failed", "title", id, "err", err)
 		}
-		if r.d.Done != nil {
-			r.d.Done(id)
-		}
+		// The live views reload the Title whether or not its names changed: the
+		// stream learns of it from the events log (ADR 0010).
+		r.d.History.Record(context.WithoutCancel(context.Background()), history.Event{
+			Kind: history.TitleRefreshed, TitleID: id, Message: "Refreshed from the metadata providers",
+		})
 	}()
 }
 

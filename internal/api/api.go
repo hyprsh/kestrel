@@ -230,7 +230,6 @@ func New(opts Options) *App {
 			region, _, err := s.profiles.Region(ctx)
 			return string(region.Primary), err
 		},
-		Done:    func(id int64) { s.hub.publish(hintOf("title", id), hintOf("attention", 0)) },
 		History: s.history, Health: s.health, Clock: opts.Clock, Logger: opts.Logger,
 	})
 	s.updates = updates.New(updates.Deps{Settings: appSettings, Health: s.health, Version: opts.Version, APIBase: opts.GitHubAPI, Clock: opts.Clock})

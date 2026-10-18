@@ -75,6 +75,28 @@ func TestAManualRefreshReturns202AndAppliesTheChange(t *testing.T) {
 	}
 }
 
+// ADR 0010: work a background loop did reaches the stream through the events
+// log, so a finished refresh records a routine event the stream maps to hints.
+func TestABackgroundRefreshIsRecordedAsARoutineEventForTheStream(t *testing.T) {
+	l, _ := newRefreshInstance(t)
+	created := decode[titleJSON](t, l.valid("POST", "/titles", addPaddington))
+
+	if r := l.valid("POST", fmt.Sprintf("/titles/%d/refresh", created.ID), ""); r.Status != 202 {
+		t.Fatalf("POST refresh = %d %s", r.Status, r.Body)
+	}
+
+	eventually(t, "the refresh event", func() bool {
+		log := decode[struct {
+			Items []struct {
+				Kind    string `json:"kind"`
+				Routine bool   `json:"routine"`
+				TitleID int64  `json:"title_id"`
+			} `json:"items"`
+		}](t, l.valid("GET", "/events?kind=title_refreshed&routine=true", ""))
+		return len(log.Items) == 1 && log.Items[0].Routine && log.Items[0].TitleID == created.ID
+	})
+}
+
 func TestAVanishedUpstreamEntryRaisesTheRowAndKeepAsIsFreezesTheTitleAndClearsIt(t *testing.T) {
 	l, meta := newRefreshInstance(t)
 	created := decode[titleJSON](t, l.valid("POST", "/titles", addPaddington))

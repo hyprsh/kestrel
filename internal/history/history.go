@@ -56,6 +56,8 @@ const (
 	RequestCreated Kind = "request"
 	// Renamed: a Title's folder and files were renamed after its English title or year changed.
 	Renamed Kind = "rename"
+	// TitleRefreshed: a Title's metadata was refreshed in the background (routine).
+	TitleRefreshed Kind = "title_refreshed"
 	// Blocklisted: a Release went on the Blocklist.
 	Blocklisted Kind = "blocklist"
 	// HealthRaised: a Needs attention row appeared (a repeat of one already showing does not record).
@@ -64,7 +66,7 @@ const (
 	HealthCleared Kind = "health_cleared"
 )
 
-var routine = map[Kind]bool{GrabDownloading: true, GrabCompleted: true, AdoptionScanned: true}
+var routine = map[Kind]bool{GrabDownloading: true, GrabCompleted: true, AdoptionScanned: true, TitleRefreshed: true}
 
 // IsRoutine reports whether events of this kind are pruned after 30 days.
 func IsRoutine(k Kind) bool { return routine[k] }

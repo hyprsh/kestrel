@@ -75,7 +75,7 @@ func hintsOf(ev history.Event) []hint {
 	if strings.HasPrefix(string(ev.Kind), "adoption") {
 		out = append(out, hintOf("adoption", 0))
 	}
-	if strings.HasPrefix(string(ev.Kind), "health") || strings.HasPrefix(string(ev.Kind), "import") {
+	if strings.HasPrefix(string(ev.Kind), "health") || strings.HasPrefix(string(ev.Kind), "import") || ev.Kind == history.TitleRefreshed {
 		// Stalled Imports are Needs attention rows too.
 		out = append(out, hintOf("attention", 0))
 	}
