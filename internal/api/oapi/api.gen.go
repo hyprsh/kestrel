@@ -962,6 +962,7 @@ type AttentionRow struct {
 
 	// Kind What sort of condition, such as `download_client_unreachable`, `no_indexer`,
 	// `root_folder_unavailable`, `metadata_provider_failing`, `indexer_failing`,
+	// `stalled_imports` (one row per stall reason),
 	// `low_disk_space`, `untrusted_proxy_header` or a one-off health warning (`exdev`,
 	// `refresh_failed`, `plex_no_section`). The set grows; clients tolerate unknown kinds.
 	Kind     string               `json:"kind"`
@@ -1782,6 +1783,12 @@ type SlotSummary struct {
 	VersionId int64     `json:"version_id"`
 }
 
+// StalledImportsSelect defines model for StalledImportsSelect.
+type StalledImportsSelect struct {
+	// Reason Only the Imports stalled for this reason; all of them when absent.
+	Reason *string `json:"reason,omitempty"`
+}
+
 // SuggestedSlot defines model for SuggestedSlot.
 type SuggestedSlot struct {
 	// Label Example: Kids (FSK 6)
@@ -2105,6 +2112,12 @@ type PutReverseProxyJSONRequestBody = ReverseProxySettings
 // CreateAccountJSONRequestBody defines body for CreateAccount for application/json ContentType.
 type CreateAccountJSONRequestBody = Credentials
 
+// DiscardStalledImportsJSONRequestBody defines body for DiscardStalledImports for application/json ContentType.
+type DiscardStalledImportsJSONRequestBody = StalledImportsSelect
+
+// RetryStalledImportsJSONRequestBody defines body for RetryStalledImports for application/json ContentType.
+type RetryStalledImportsJSONRequestBody = StalledImportsSelect
+
 // CreateTitleJSONRequestBody defines body for CreateTitle for application/json ContentType.
 type CreateTitleJSONRequestBody = TitleCreate
 
@@ -2182,6 +2195,12 @@ type ServerInterface interface {
 	// CancelGrab Cancel a Grab
 	// (POST /grabs/{id}/cancel)
 	CancelGrab(w http.ResponseWriter, r *http.Request, id GrabId)
+	// DiscardGrab Discard a stalled Import
+	// (POST /grabs/{id}/discard)
+	DiscardGrab(w http.ResponseWriter, r *http.Request, id GrabId)
+	// RetryGrabImport Retry a stalled Import now
+	// (POST /grabs/{id}/retry-import)
+	RetryGrabImport(w http.ResponseWriter, r *http.Request, id GrabId)
 	// Lookup Search the metadata provider for Titles to add
 	// (GET /lookup)
 	Lookup(w http.ResponseWriter, r *http.Request, params LookupParams)
@@ -2254,6 +2273,12 @@ type ServerInterface interface {
 	// CompleteSetup Finish setup
 	// (POST /setup/complete)
 	CompleteSetup(w http.ResponseWriter, r *http.Request)
+	// DiscardStalledImports Discard stalled Imports
+	// (POST /stalled-imports/discard)
+	DiscardStalledImports(w http.ResponseWriter, r *http.Request)
+	// RetryStalledImports Retry stalled Imports now
+	// (POST /stalled-imports/retry)
+	RetryStalledImports(w http.ResponseWriter, r *http.Request)
 	// Stream Live state as Server-Sent Events
 	// (GET /stream)
 	Stream(w http.ResponseWriter, r *http.Request)
@@ -2626,6 +2651,58 @@ func (siw *ServerInterfaceWrapper) CancelGrab(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CancelGrab(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DiscardGrab operation middleware
+func (siw *ServerInterfaceWrapper) DiscardGrab(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id GrabId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DiscardGrab(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RetryGrabImport operation middleware
+func (siw *ServerInterfaceWrapper) RetryGrabImport(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id GrabId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RetryGrabImport(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3179,6 +3256,34 @@ func (siw *ServerInterfaceWrapper) CompleteSetup(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CompleteSetup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DiscardStalledImports operation middleware
+func (siw *ServerInterfaceWrapper) DiscardStalledImports(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DiscardStalledImports(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RetryStalledImports operation middleware
+func (siw *ServerInterfaceWrapper) RetryStalledImports(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RetryStalledImports(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3825,6 +3930,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs", wrapper.CreateGrab)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grabs/{id}", wrapper.GetGrab)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs/{id}/cancel", wrapper.CancelGrab)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs/{id}/retry-import", wrapper.RetryGrabImport)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs/{id}/discard", wrapper.DiscardGrab)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/stalled-imports/retry", wrapper.RetryStalledImports)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/stalled-imports/discard", wrapper.DiscardStalledImports)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/queue", wrapper.ListQueue)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/adoption", wrapper.DiscardAdoption)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/adoption", wrapper.GetAdoption)
@@ -4804,6 +4913,118 @@ type CancelGrabdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response CancelGrabdefaultApplicationProblemPlusJSONResponse) VisitCancelGrabResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DiscardGrabRequestObject struct {
+	Id GrabId `json:"id"`
+}
+
+type DiscardGrabResponseObject interface {
+	VisitDiscardGrabResponse(w http.ResponseWriter) error
+}
+
+type DiscardGrab204Response struct {
+}
+
+func (response DiscardGrab204Response) VisitDiscardGrabResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DiscardGrab404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DiscardGrab404ApplicationProblemPlusJSONResponse) VisitDiscardGrabResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DiscardGrab502ApplicationProblemPlusJSONResponse Problem
+
+func (response DiscardGrab502ApplicationProblemPlusJSONResponse) VisitDiscardGrabResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DiscardGrabdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DiscardGrabdefaultApplicationProblemPlusJSONResponse) VisitDiscardGrabResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetryGrabImportRequestObject struct {
+	Id GrabId `json:"id"`
+}
+
+type RetryGrabImportResponseObject interface {
+	VisitRetryGrabImportResponse(w http.ResponseWriter) error
+}
+
+type RetryGrabImport204Response struct {
+}
+
+func (response RetryGrabImport204Response) VisitRetryGrabImportResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RetryGrabImport404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RetryGrabImport404ApplicationProblemPlusJSONResponse) VisitRetryGrabImportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetryGrabImportdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response RetryGrabImportdefaultApplicationProblemPlusJSONResponse) VisitRetryGrabImportResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -6159,6 +6380,88 @@ func (response CompleteSetupdefaultApplicationProblemPlusJSONResponse) VisitComp
 	return err
 }
 
+type DiscardStalledImportsRequestObject struct {
+	Body *DiscardStalledImportsJSONRequestBody
+}
+
+type DiscardStalledImportsResponseObject interface {
+	VisitDiscardStalledImportsResponse(w http.ResponseWriter) error
+}
+
+type DiscardStalledImports204Response struct {
+}
+
+func (response DiscardStalledImports204Response) VisitDiscardStalledImportsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DiscardStalledImports502ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DiscardStalledImports502ApplicationProblemPlusJSONResponse) VisitDiscardStalledImportsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DiscardStalledImportsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DiscardStalledImportsdefaultApplicationProblemPlusJSONResponse) VisitDiscardStalledImportsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetryStalledImportsRequestObject struct {
+	Body *RetryStalledImportsJSONRequestBody
+}
+
+type RetryStalledImportsResponseObject interface {
+	VisitRetryStalledImportsResponse(w http.ResponseWriter) error
+}
+
+type RetryStalledImports204Response struct {
+}
+
+func (response RetryStalledImports204Response) VisitRetryStalledImportsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RetryStalledImportsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response RetryStalledImportsdefaultApplicationProblemPlusJSONResponse) VisitRetryStalledImportsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type StreamRequestObject struct {
 }
 
@@ -7258,6 +7561,12 @@ type StrictServerInterface interface {
 	// CancelGrab Cancel a Grab
 	// (POST /grabs/{id}/cancel)
 	CancelGrab(ctx context.Context, request CancelGrabRequestObject) (CancelGrabResponseObject, error)
+	// DiscardGrab Discard a stalled Import
+	// (POST /grabs/{id}/discard)
+	DiscardGrab(ctx context.Context, request DiscardGrabRequestObject) (DiscardGrabResponseObject, error)
+	// RetryGrabImport Retry a stalled Import now
+	// (POST /grabs/{id}/retry-import)
+	RetryGrabImport(ctx context.Context, request RetryGrabImportRequestObject) (RetryGrabImportResponseObject, error)
 	// Lookup Search the metadata provider for Titles to add
 	// (GET /lookup)
 	Lookup(ctx context.Context, request LookupRequestObject) (LookupResponseObject, error)
@@ -7330,6 +7639,12 @@ type StrictServerInterface interface {
 	// CompleteSetup Finish setup
 	// (POST /setup/complete)
 	CompleteSetup(ctx context.Context, request CompleteSetupRequestObject) (CompleteSetupResponseObject, error)
+	// DiscardStalledImports Discard stalled Imports
+	// (POST /stalled-imports/discard)
+	DiscardStalledImports(ctx context.Context, request DiscardStalledImportsRequestObject) (DiscardStalledImportsResponseObject, error)
+	// RetryStalledImports Retry stalled Imports now
+	// (POST /stalled-imports/retry)
+	RetryStalledImports(ctx context.Context, request RetryStalledImportsRequestObject) (RetryStalledImportsResponseObject, error)
 	// Stream Live state as Server-Sent Events
 	// (GET /stream)
 	Stream(ctx context.Context, request StreamRequestObject) (StreamResponseObject, error)
@@ -7912,6 +8227,58 @@ func (sh *strictHandler) CancelGrab(w http.ResponseWriter, r *http.Request, id G
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CancelGrabResponseObject); ok {
 		if err := validResponse.VisitCancelGrabResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DiscardGrab operation middleware
+func (sh *strictHandler) DiscardGrab(w http.ResponseWriter, r *http.Request, id GrabId) {
+	var request DiscardGrabRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DiscardGrab(ctx, request.(DiscardGrabRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DiscardGrab")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DiscardGrabResponseObject); ok {
+		if err := validResponse.VisitDiscardGrabResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RetryGrabImport operation middleware
+func (sh *strictHandler) RetryGrabImport(w http.ResponseWriter, r *http.Request, id GrabId) {
+	var request RetryGrabImportRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RetryGrabImport(ctx, request.(RetryGrabImportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RetryGrabImport")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RetryGrabImportResponseObject); ok {
+		if err := validResponse.VisitRetryGrabImportResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -8583,6 +8950,74 @@ func (sh *strictHandler) CompleteSetup(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CompleteSetupResponseObject); ok {
 		if err := validResponse.VisitCompleteSetupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DiscardStalledImports operation middleware
+func (sh *strictHandler) DiscardStalledImports(w http.ResponseWriter, r *http.Request) {
+	var request DiscardStalledImportsRequestObject
+
+	var body DiscardStalledImportsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DiscardStalledImports(ctx, request.(DiscardStalledImportsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DiscardStalledImports")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DiscardStalledImportsResponseObject); ok {
+		if err := validResponse.VisitDiscardStalledImportsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RetryStalledImports operation middleware
+func (sh *strictHandler) RetryStalledImports(w http.ResponseWriter, r *http.Request) {
+	var request RetryStalledImportsRequestObject
+
+	var body RetryStalledImportsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RetryStalledImports(ctx, request.(RetryStalledImportsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RetryStalledImports")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RetryStalledImportsResponseObject); ok {
+		if err := validResponse.VisitRetryStalledImportsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

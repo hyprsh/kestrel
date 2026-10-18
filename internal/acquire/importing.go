@@ -108,7 +108,8 @@ func (s *Service) DueImports(ctx context.Context) ([]ImportJob, error) {
 }
 
 // RecordImport records how a Grab's Import ended. imported and rejected end
-// the Grab (a rejected Release goes on the Blocklist) and, once the client
+// the Grab (a rejected Release goes on the Blocklist and the next best one is
+// grabbed) and, once the client
 // lets go of the files, remove its job with the data. stalled keeps the Grab
 // `importing` and sets its next retry.
 func (s *Service) RecordImport(ctx context.Context, grabID int64, canRemove bool, o ImportOutcome) error {
@@ -166,6 +167,11 @@ func (s *Service) RecordImport(ctx context.Context, grabID int64, canRemove bool
 			if err := s.dl.Remove(ctx, row.ClientInstanceID, row.ClientID, true); err != nil && !errors.Is(err, instances.ErrNotFound) {
 				return err
 			}
+		}
+		if o.Status == ImportRejected {
+			// The Release was unfit: the Version's next best one replaces it.
+			_, err := s.retry(ctx, row)
+			return err
 		}
 	}
 	return nil

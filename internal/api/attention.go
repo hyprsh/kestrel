@@ -124,6 +124,21 @@ func (s *server) attentionRows(ctx context.Context) ([]oapi.AttentionRow, error)
 	for i, r := range rows {
 		out[i] = attentionRowOf(r)
 	}
+	stalled, err := s.stalledRows(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, stalled...)
+	// Blocking before Warning, newest first; rows of one kind keep their order.
+	slices.SortStableFunc(out, func(a, b oapi.AttentionRow) int {
+		if (a.Severity == oapi.AttentionRowSeverity(health.Blocking)) != (b.Severity == oapi.AttentionRowSeverity(health.Blocking)) {
+			if a.Severity == oapi.AttentionRowSeverity(health.Blocking) {
+				return -1
+			}
+			return 1
+		}
+		return b.Since.Compare(a.Since)
+	})
 	return out, nil
 }
 

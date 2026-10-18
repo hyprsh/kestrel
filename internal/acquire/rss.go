@@ -152,6 +152,7 @@ func (s *Service) rssTitle(ctx context.Context, titleID int64, items []feedItem)
 	return s.rssMovie(ctx, sub, items)
 }
 
+// busyVersions are the Versions an active or stalled Grab already serves.
 func (s *Service) busyVersions(ctx context.Context) (map[int64]bool, error) {
 	active, err := s.Active(ctx)
 	if err != nil {
@@ -160,6 +161,14 @@ func (s *Service) busyVersions(ctx context.Context) (map[int64]bool, error) {
 	busy := map[int64]bool{}
 	for _, a := range active {
 		busy[a.VersionID] = true
+	}
+	// A Version whose Import is stalled still has its download.
+	stalled, err := db.New(s.st.Read()).ListStalledGrabs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, g := range stalled {
+		busy[g.VersionID.Int64] = true
 	}
 	return busy, nil
 }

@@ -15,11 +15,13 @@ import (
 var now = time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
 
 type fakeAcquire struct {
-	mu       sync.Mutex
-	poll     acquire.PollResult
-	pollErr  error
-	polls    int
-	searched [][]int64
+	mu      sync.Mutex
+	poll    acquire.PollResult
+	pollErr error
+	polls   int
+	// reconciles counts the startup polls.
+	reconciles int
+	searched   [][]int64
 
 	rss       acquire.RSSOutcome
 	rssErr    error
@@ -32,6 +34,13 @@ func (f *fakeAcquire) Poll(context.Context) (acquire.PollResult, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.polls++
+	return f.poll, f.pollErr
+}
+
+func (f *fakeAcquire) Reconcile(context.Context) (acquire.PollResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.reconciles++
 	return f.poll, f.pollErr
 }
 
@@ -99,8 +108,8 @@ func TestStartupReconciliationPollsOnceSoInFlightGrabsAreSeenBeforeTheLoopsRun(t
 
 	r.Reconcile(context.Background())
 
-	if a.polls != 1 {
-		t.Errorf("polls = %d, want 1", a.polls)
+	if a.reconciles != 1 || a.polls != 0 {
+		t.Errorf("reconciles = %d, polls = %d, want one startup poll", a.reconciles, a.polls)
 	}
 }
 

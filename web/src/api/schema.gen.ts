@@ -684,6 +684,96 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/grabs/{id}/retry-import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry a stalled Import now
+         * @description A stalled Import (the environment is at fault: disk full, a folder not writable) retries
+         *     on its own after 1, 5, 15 and 60 minutes, then hourly. This skips the wait and imports at
+         *     once. `404` for a Grab whose Import is not stalled.
+         */
+        post: operations["retryGrabImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/grabs/{id}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard a stalled Import
+         * @description Gives up on a stalled Import: the Grab fails as `discarded` (no Blocklist entry), the job
+         *     and its files leave the download client and the Version is Wanted again. `404` for a Grab
+         *     whose Import is not stalled; a client that cannot be reached is `502 upstream_unavailable`.
+         */
+        post: operations["discardGrab"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stalled-imports/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry stalled Imports now
+         * @description "Retry all" of Needs attention: every stalled Import with the `reason`, or all of them
+         *     without one, is due at once.
+         */
+        post: operations["retryStalledImports"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stalled-imports/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard stalled Imports
+         * @description "Discard all" of Needs attention: every stalled Import with the `reason`, or all of them
+         *     without one, is discarded as `POST /grabs/{id}/discard` does.
+         */
+        post: operations["discardStalledImports"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/queue": {
         parameters: {
             query?: never;
@@ -1780,6 +1870,10 @@ export interface components {
                 ticked: boolean;
             }[];
         };
+        StalledImportsSelect: {
+            /** @description Only the Imports stalled for this reason; all of them when absent. */
+            reason?: string;
+        };
         /**
          * @description Something changed; refetch it. `resource` is `title` (a Title, its Versions and the
          *     Library list), `grab`, `queue` or `log`; more are added. `id` is null when the hint is about the
@@ -1822,6 +1916,7 @@ export interface components {
             /**
              * @description What sort of condition, such as `download_client_unreachable`, `no_indexer`,
              *     `root_folder_unavailable`, `metadata_provider_failing`, `indexer_failing`,
+             *     `stalled_imports` (one row per stall reason),
              *     `low_disk_space`, `untrusted_proxy_header` or a one-off health warning (`exdev`,
              *     `refresh_failed`, `plex_no_section`). The set grows; clients tolerate unknown kinds.
              */
@@ -3038,6 +3133,98 @@ export interface operations {
                 content?: never;
             };
             404: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    retryGrabImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Import is due now. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    discardGrab: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Grab is discarded. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    retryStalledImports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["StalledImportsSelect"];
+            };
+        };
+        responses: {
+            /** @description The Imports are due now. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    discardStalledImports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["StalledImportsSelect"];
+            };
+        };
+        responses: {
+            /** @description The Imports are discarded. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             502: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };

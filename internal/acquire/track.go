@@ -98,81 +98,6 @@ func phaseOfState(state string) Phase {
 	return PhaseQueued
 }
 
-// PollResult is what one poll found.
-type PollResult struct {
-	// Active is true while any Grab is still downloading: the poll then runs every 10 s.
-	Active bool
-	// Changed counts the Grabs whose state moved.
-	Changed int
-}
-
-// Poll reads the download client and moves each downloading Grab along: sent
-// becomes downloading once the client works on it, and a job is done only when
-// the client reports it completed or failed. It is idempotent; polling again
-// with nothing new changes nothing. A Grab the client does not list is left
-// alone (lost Grabs are healed elsewhere).
-func (s *Service) Poll(ctx context.Context) (PollResult, error) {
-	grabs, err := db.New(s.st.Read()).ListDownloadingGrabs(ctx)
-	if err != nil || len(grabs) == 0 {
-		return PollResult{}, err
-	}
-	listed, err := s.dl.List(ctx)
-	if err != nil {
-		return PollResult{Active: true}, err
-	}
-	type key struct {
-		instance int64
-		client   string
-	}
-	items := map[key]downloadclient.Item{}
-	for _, l := range listed {
-		items[key{l.InstanceID, l.Item.ClientID}] = l.Item
-	}
-
-	var res PollResult
-	now := ts(s.clock())
-	for _, g := range grabs {
-		it, ok := items[key{g.ClientInstanceID, g.ClientID}]
-		if !ok {
-			res.Active = true
-			continue
-		}
-		state, failure := g.State, ""
-		switch it.Phase {
-		case downloadclient.PhaseDownloading, downloadclient.PhasePostProcessing:
-			state = "downloading"
-		case downloadclient.PhaseCompleted:
-			state = "completed"
-		case downloadclient.PhaseFailed:
-			state = "failed"
-			failure = string(it.Failure)
-			if failure == "" {
-				failure = string(downloadclient.FailureFailed)
-			}
-		}
-		if state != g.State {
-			err := db.New(s.st.Write()).SetGrabState(ctx, db.SetGrabStateParams{
-				State: state, Failure: sql.NullString{String: failure, Valid: failure != ""}, UpdatedAt: now, ID: g.ID,
-			})
-			if err != nil {
-				return res, err
-			}
-			res.Changed++
-			s.recordMove(ctx, g, state, failure)
-		}
-		switch state {
-		case "failed":
-			s.live.drop(g.ID)
-		case "completed":
-			s.live.set(g.ID, Live{Phase: PhaseImporting, BytesTotal: it.BytesTotal})
-		default:
-			res.Active = true
-			s.live.set(g.ID, Live{Phase: phaseOfItem(it.Phase), BytesTotal: it.BytesTotal, BytesLeft: it.BytesLeft, ETA: it.ETA})
-		}
-	}
-	return res, nil
-}
-
 // recordMove records a Grab's move to a new state, for the Log and the live UI.
 func (s *Service) recordMove(ctx context.Context, g db.Grab, state, failure string) {
 	ev := history.Event{TitleID: g.TitleID.Int64, VersionID: g.VersionID.Int64, GrabID: g.ID}
@@ -203,7 +128,7 @@ func phaseOfItem(p downloadclient.Phase) Phase {
 
 // Cancel stops a Grab: its job leaves the download client (files included),
 // the Grab row goes and the Version is Wanted again. With blocklist the
-// Release also goes on the Blocklist. It returns the Grab as it was, or
+// Release also goes on the Blocklist and the next best Release is grabbed. It returns the Grab as it was, or
 // ErrGrabNotFound.
 func (s *Service) Cancel(ctx context.Context, id int64, blocklist bool) (Grab, error) {
 	row, err := db.New(s.st.Read()).GetGrab(ctx, id)
@@ -233,6 +158,11 @@ func (s *Service) Cancel(ctx context.Context, id int64, blocklist bool) (Grab, e
 	s.hist.Record(ctx, history.Event{
 		Kind: history.GrabCanceled, TitleID: g.TitleID, VersionID: g.VersionID, Message: "Canceled " + g.ReleaseName,
 	})
+	if blocklist {
+		// The Release is out: take the next best one at once. A retry that finds
+		// nothing, or fails, leaves the Version Wanted for the sweep.
+		_, _ = s.retry(ctx, row)
+	}
 	return g, nil
 }
 
@@ -254,14 +184,20 @@ type Outcome struct {
 // fail to send are joined into the error, and the Versions still count as
 // searched.
 func (s *Service) SearchWanted(ctx context.Context, titleID int64, versionIDs []int64) (Outcome, error) {
+	return s.searchWanted(ctx, titleID, versionIDs, false)
+}
+
+// searchWanted is SearchWanted that, with fromCache, looks at the Releases the
+// candidate cache still holds before it asks the indexers again.
+func (s *Service) searchWanted(ctx context.Context, titleID int64, versionIDs []int64, fromCache bool) (Outcome, error) {
 	sub, err := s.subjectOf(ctx, titleID)
 	if err != nil {
 		return Outcome{}, err
 	}
 	if sub.detail.Kind == library.Series {
-		return s.searchSeries(ctx, sub, versionIDs)
+		return s.searchSeries(ctx, sub, versionIDs, fromCache)
 	}
-	active, err := s.Active(ctx)
+	busy, err := s.busyVersions(ctx)
 	if err != nil {
 		return Outcome{}, err
 	}
@@ -269,8 +205,7 @@ func (s *Service) SearchWanted(ctx context.Context, titleID int64, versionIDs []
 	var in Input
 	slotVersion := map[Slot]int64{}
 	for _, v := range sub.detail.Versions {
-		busy := slices.ContainsFunc(active, func(a Active) bool { return a.VersionID == v.ID })
-		if !slices.Contains(versionIDs, v.ID) || v.State != library.Wanted || busy {
+		if !slices.Contains(versionIDs, v.ID) || v.State != library.Wanted || busy[v.ID] {
 			continue
 		}
 		out.Searched = append(out.Searched, v.ID)
@@ -280,7 +215,7 @@ func (s *Service) SearchWanted(ctx context.Context, titleID int64, versionIDs []
 	if len(in.Versions) == 0 {
 		return out, nil
 	}
-	entries, failures, err := s.gather(ctx, sub, Scope{})
+	entries, failures, err := s.candidates(ctx, sub, Scope{}, fromCache)
 	if err != nil {
 		return out, err
 	}

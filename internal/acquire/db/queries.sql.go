@@ -260,7 +260,7 @@ func (q *Queries) InsertGrabEpisode(ctx context.Context, arg InsertGrabEpisodePa
 const listActiveGrabEpisodes = `-- name: ListActiveGrabEpisodes :many
 SELECT g.version_id, ge.episode_id
 FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
-WHERE g.state IN ('sent', 'downloading', 'completed', 'importing') AND g.stalled_since IS NULL
+WHERE g.state IN ('sent', 'downloading', 'completed', 'importing')
 `
 
 type ListActiveGrabEpisodesRow struct {
@@ -268,7 +268,7 @@ type ListActiveGrabEpisodesRow struct {
 	EpisodeID int64
 }
 
-// The episodes the active Grabs are fetching, per Version.
+// The episodes the active Grabs are fetching, per Version. A stalled Import still holds its episodes.
 func (q *Queries) ListActiveGrabEpisodes(ctx context.Context) ([]ListActiveGrabEpisodesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listActiveGrabEpisodes)
 	if err != nil {
@@ -480,6 +480,131 @@ func (q *Queries) ListImportableGrabs(ctx context.Context, nextImportAt sql.Null
 		return nil, err
 	}
 	return items, nil
+}
+
+const listStalledGrabs = `-- name: ListStalledGrabs :many
+SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at FROM grabs WHERE state = 'importing' AND stalled_since IS NOT NULL ORDER BY stalled_since, id
+`
+
+// Imports that wait for the environment to be fixed.
+func (q *Queries) ListStalledGrabs(ctx context.Context) ([]Grab, error) {
+	rows, err := q.db.QueryContext(ctx, listStalledGrabs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Grab
+	for rows.Next() {
+		var i Grab
+		if err := rows.Scan(
+			&i.ID,
+			&i.TitleID,
+			&i.VersionID,
+			&i.ReleaseGuid,
+			&i.ReleaseName,
+			&i.IndexerID,
+			&i.IndexerName,
+			&i.Protocol,
+			&i.Size,
+			&i.PublishedAt,
+			&i.Score,
+			&i.Parsed,
+			&i.Verdict,
+			&i.Overridden,
+			&i.IsUpgrade,
+			&i.ClientInstanceID,
+			&i.ClientID,
+			&i.State,
+			&i.Failure,
+			&i.StalledReason,
+			&i.StalledSince,
+			&i.NextImportAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTrackedGrabs = `-- name: ListTrackedGrabs :many
+SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at FROM grabs WHERE state IN ('sent', 'downloading', 'completed') ORDER BY id
+`
+
+// Grabs whose download the poll watches for failure and for going missing.
+func (q *Queries) ListTrackedGrabs(ctx context.Context) ([]Grab, error) {
+	rows, err := q.db.QueryContext(ctx, listTrackedGrabs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Grab
+	for rows.Next() {
+		var i Grab
+		if err := rows.Scan(
+			&i.ID,
+			&i.TitleID,
+			&i.VersionID,
+			&i.ReleaseGuid,
+			&i.ReleaseName,
+			&i.IndexerID,
+			&i.IndexerName,
+			&i.Protocol,
+			&i.Size,
+			&i.PublishedAt,
+			&i.Score,
+			&i.Parsed,
+			&i.Verdict,
+			&i.Overridden,
+			&i.IsUpgrade,
+			&i.ClientInstanceID,
+			&i.ClientID,
+			&i.State,
+			&i.Failure,
+			&i.StalledReason,
+			&i.StalledSince,
+			&i.NextImportAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const retryStalledImport = `-- name: RetryStalledImport :execrows
+UPDATE grabs SET next_import_at = ?, updated_at = ? WHERE id = ? AND state = 'importing' AND stalled_since IS NOT NULL
+`
+
+type RetryStalledImportParams struct {
+	NextImportAt sql.NullString
+	UpdatedAt    string
+	ID           int64
+}
+
+// A person's "Retry now": the stalled Import is due at once.
+func (q *Queries) RetryStalledImport(ctx context.Context, arg RetryStalledImportParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, retryStalledImport, arg.NextImportAt, arg.UpdatedAt, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const setGrabState = `-- name: SetGrabState :exec

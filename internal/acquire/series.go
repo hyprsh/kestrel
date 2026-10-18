@@ -146,7 +146,7 @@ func coveredBy(p release.ParsedRelease, eps []library.Episode, slot Slot) (ids [
 // Wanted episode in a requested Version (Specials are never searched on their
 // own), then one Decide over everything found, so a finished season takes its
 // pack and a running one its episodes.
-func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []int64) (Outcome, error) {
+func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []int64, fromCache bool) (Outcome, error) {
 	d := sub.detail
 	var out Outcome
 	now := s.clock()
@@ -194,18 +194,32 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 	}
 	slices.Sort(seasons)
 	entries := map[string]*entry{}
-	for _, n := range seasons {
-		n := n
-		found, failures, err := s.gather(ctx, sub, Scope{Season: &n})
-		if err != nil {
-			return out, err
-		}
-		out.Failures = append(out.Failures, failures...)
+	add := func(found []*entry) {
 		for _, e := range found {
 			if _, seen := entries[entryKey(e.cand)]; !seen {
 				entries[entryKey(e.cand)] = e
 				in.Candidates = append(in.Candidates, e.cand)
 			}
+		}
+	}
+	cached, usable := []*entry(nil), false
+	if fromCache {
+		var err error
+		if cached, usable, err = s.cachedFor(ctx, d.ID); err != nil {
+			return out, err
+		}
+	}
+	if usable {
+		add(cached)
+	} else {
+		for _, n := range seasons {
+			n := n
+			found, failures, err := s.gather(ctx, sub, Scope{Season: &n})
+			if err != nil {
+				return out, err
+			}
+			out.Failures = append(out.Failures, failures...)
+			add(found)
 		}
 	}
 

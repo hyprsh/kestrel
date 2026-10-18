@@ -35,6 +35,7 @@ type attentionRowJSON struct {
 	Count    int    `json:"count"`
 	Subject  struct {
 		PluginInstanceID *int64 `json:"plugin_instance_id"`
+		GrabID           *int64 `json:"grab_id"`
 	} `json:"subject"`
 	Actions []actionJSON `json:"actions"`
 }

@@ -23,6 +23,18 @@ SELECT * FROM grabs WHERE state IN ('sent', 'downloading', 'completed', 'importi
 -- name: ListDownloadingGrabs :many
 SELECT * FROM grabs WHERE state IN ('sent', 'downloading') ORDER BY id;
 
+-- Grabs whose download the poll watches for failure and for going missing.
+-- name: ListTrackedGrabs :many
+SELECT * FROM grabs WHERE state IN ('sent', 'downloading', 'completed') ORDER BY id;
+
+-- Imports that wait for the environment to be fixed.
+-- name: ListStalledGrabs :many
+SELECT * FROM grabs WHERE state = 'importing' AND stalled_since IS NOT NULL ORDER BY stalled_since, id;
+
+-- A person's "Retry now": the stalled Import is due at once.
+-- name: RetryStalledImport :execrows
+UPDATE grabs SET next_import_at = ?, updated_at = ? WHERE id = ? AND state = 'importing' AND stalled_since IS NOT NULL;
+
 -- name: SetGrabState :exec
 UPDATE grabs SET state = ?, failure = ?, updated_at = ? WHERE id = ?;
 
@@ -49,11 +61,11 @@ UPDATE grabs SET state = ?, failure = ?, stalled_reason = NULL, stalled_since = 
 -- name: InsertGrabEpisode :exec
 INSERT INTO grab_episodes (grab_id, episode_id) VALUES (?, ?);
 
--- The episodes the active Grabs are fetching, per Version.
+-- The episodes the active Grabs are fetching, per Version. A stalled Import still holds its episodes.
 -- name: ListActiveGrabEpisodes :many
 SELECT g.version_id, ge.episode_id
 FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
-WHERE g.state IN ('sent', 'downloading', 'completed', 'importing') AND g.stalled_since IS NULL;
+WHERE g.state IN ('sent', 'downloading', 'completed', 'importing');
 
 -- name: ListGrabEpisodes :many
 SELECT episode_id FROM grab_episodes WHERE grab_id = ? ORDER BY episode_id;

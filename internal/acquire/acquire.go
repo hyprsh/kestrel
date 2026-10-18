@@ -113,6 +113,8 @@ type Service struct {
 	cache *cache
 	live  *liveSet
 	hist  *history.Service
+	// misses counts, per Grab, the polls in a row that did not find its job.
+	misses *missCount
 }
 
 // New returns a Service.
@@ -129,7 +131,7 @@ func New(d Deps) (*Service, error) {
 	}
 	return &Service{
 		st: d.Store, clock: d.Clock, lib: d.Library, prof: d.Profiles, idx: d.Indexers, dl: d.Downloads,
-		snap: d.Snapshot, cache: &cache{m: map[string]*entry{}}, live: &liveSet{m: map[int64]Live{}}, hist: d.History,
+		snap: d.Snapshot, cache: &cache{m: map[string]*entry{}}, live: &liveSet{m: map[int64]Live{}}, hist: d.History, misses: &missCount{m: map[int64]int{}},
 	}, nil
 }
 
@@ -234,6 +236,45 @@ func (c *cache) get(now time.Time, id string) (*entry, bool) {
 		return nil, false
 	}
 	return e, true
+}
+
+// cachedFor returns the Title's Releases in the cache that are still fresh and
+// not on the Blocklist now, and whether the cache holds any for it at all.
+func (s *Service) cachedFor(ctx context.Context, titleID int64) ([]*entry, bool, error) {
+	now := s.clock()
+	c := s.cache
+	c.mu.Lock()
+	var all []*entry
+	for _, e := range c.m {
+		if e.titleID == titleID && now.Sub(e.at) < CacheTTL {
+			all = append(all, e)
+		}
+	}
+	c.mu.Unlock()
+	slices.SortFunc(all, func(a, b *entry) int { return a.at.Compare(b.at) })
+	var out []*entry
+	for _, e := range all {
+		blocked, err := s.blocklisted(ctx, e.raw)
+		if err != nil {
+			return nil, false, err
+		}
+		if !blocked {
+			out = append(out, e)
+		}
+	}
+	return out, len(all) > 0, nil
+}
+
+// candidates is gather that, when fromCache is set and the Title has fresh
+// Releases cached, answers from the cache instead of searching again.
+func (s *Service) candidates(ctx context.Context, sub subject, scope Scope, fromCache bool) ([]*entry, []indexers.Failure, error) {
+	if fromCache {
+		es, held, err := s.cachedFor(ctx, sub.detail.ID)
+		if err != nil || held {
+			return es, nil, err
+		}
+	}
+	return s.gather(ctx, sub, scope)
 }
 
 func newID() string {

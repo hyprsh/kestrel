@@ -55,6 +55,8 @@ type HealthChecker interface {
 // Acquirer is what the loops need of the acquire module.
 type Acquirer interface {
 	Poll(ctx context.Context) (acquire.PollResult, error)
+	// Reconcile is the poll at startup, where a Grab the client lost is lost at once.
+	Reconcile(ctx context.Context) (acquire.PollResult, error)
 	SearchWanted(ctx context.Context, titleID int64, versionIDs []int64) (acquire.Outcome, error)
 	SyncRSS(ctx context.Context) (acquire.RSSOutcome, error)
 }
@@ -130,8 +132,13 @@ func Standard(d Deps) *Runner {
 		},
 	})
 	// A restart finds in-flight Grabs in their rows; one poll before the loops
-	// start brings their state and progress up to date.
-	r.OnStart("poll the download client", func(ctx context.Context) error { return r.Pass(ctx, Poll) })
+	// start brings their state and progress up to date, and fails (and retries)
+	// the Grabs the client no longer has.
+	r.OnStart("poll the download client", func(ctx context.Context) error {
+		res, err := d.Acquire.Reconcile(ctx)
+		downloading.Store(res.Active)
+		return err
+	})
 
 	r.Add(Loop{
 		Name:  Search,
@@ -216,6 +223,9 @@ func importDue(ctx context.Context, r *Runner, d Deps) error {
 				}
 				if err := d.ImportSource.RecordImport(ctx, j.ID, j.CanRemove, out); err != nil {
 					r.log.Warn("recording an Import failed", "grab", j.ID, "err", err)
+				}
+				if out.Status == acquire.ImportRejected {
+					r.Kick(Poll) // the next best Release was grabbed: follow it
 				}
 			}
 		}()

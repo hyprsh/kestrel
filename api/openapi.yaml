@@ -879,6 +879,84 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /grabs/{id}/retry-import:
+    parameters:
+      - $ref: "#/components/parameters/GrabId"
+    post:
+      operationId: retryGrabImport
+      summary: Retry a stalled Import now
+      description: |
+        A stalled Import (the environment is at fault: disk full, a folder not writable) retries
+        on its own after 1, 5, 15 and 60 minutes, then hourly. This skips the wait and imports at
+        once. `404` for a Grab whose Import is not stalled.
+      tags: [grabs]
+      responses:
+        "204":
+          description: The Import is due now.
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /grabs/{id}/discard:
+    parameters:
+      - $ref: "#/components/parameters/GrabId"
+    post:
+      operationId: discardGrab
+      summary: Discard a stalled Import
+      description: |
+        Gives up on a stalled Import: the Grab fails as `discarded` (no Blocklist entry), the job
+        and its files leave the download client and the Version is Wanted again. `404` for a Grab
+        whose Import is not stalled; a client that cannot be reached is `502 upstream_unavailable`.
+      tags: [grabs]
+      responses:
+        "204":
+          description: The Grab is discarded.
+        "404":
+          $ref: "#/components/responses/Problem"
+        "502":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /stalled-imports/retry:
+    post:
+      operationId: retryStalledImports
+      summary: Retry stalled Imports now
+      description: |
+        "Retry all" of Needs attention: every stalled Import with the `reason`, or all of them
+        without one, is due at once.
+      tags: [grabs]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StalledImportsSelect"
+      responses:
+        "204":
+          description: The Imports are due now.
+        default:
+          $ref: "#/components/responses/Problem"
+  /stalled-imports/discard:
+    post:
+      operationId: discardStalledImports
+      summary: Discard stalled Imports
+      description: |
+        "Discard all" of Needs attention: every stalled Import with the `reason`, or all of them
+        without one, is discarded as `POST /grabs/{id}/discard` does.
+      tags: [grabs]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StalledImportsSelect"
+      responses:
+        "204":
+          description: The Imports are discarded.
+        "502":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /queue:
     get:
       operationId: listQueue
@@ -2701,6 +2779,12 @@ components:
                 type: string
               ticked:
                 type: boolean
+    StalledImportsSelect:
+      type: object
+      properties:
+        reason:
+          type: string
+          description: Only the Imports stalled for this reason; all of them when absent.
     ChangedHint:
       type: object
       required: [resource, id]
@@ -2769,6 +2853,7 @@ components:
           description: |
             What sort of condition, such as `download_client_unreachable`, `no_indexer`,
             `root_folder_unavailable`, `metadata_provider_failing`, `indexer_failing`,
+            `stalled_imports` (one row per stall reason),
             `low_disk_space`, `untrusted_proxy_header` or a one-off health warning (`exdev`,
             `refresh_failed`, `plex_no_section`). The set grows; clients tolerate unknown kinds.
         subject:

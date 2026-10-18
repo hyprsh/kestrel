@@ -95,6 +95,9 @@ func (s *server) CancelGrab(ctx context.Context, r oapi.CancelGrabRequestObject)
 	case err != nil:
 		return nil, err
 	}
+	if blocklist {
+		s.jobs.Kick(jobs.Poll) // the retry may have grabbed the next best Release
+	}
 	if blocklist && g.VersionID != 0 {
 		// The Release is blocklisted: look for the next best one at once.
 		if err := s.library.RequestSearch(ctx, g.VersionID); err != nil {
