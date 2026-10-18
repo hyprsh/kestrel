@@ -10,6 +10,15 @@ import (
 	"database/sql"
 )
 
+const deleteRequest = `-- name: DeleteRequest :exec
+DELETE FROM requests WHERE id = ?
+`
+
+func (q *Queries) DeleteRequest(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteRequest, id)
+	return err
+}
+
 const getRequest = `-- name: GetRequest :one
 SELECT id, source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at FROM requests WHERE id = ?
 `

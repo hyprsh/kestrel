@@ -201,9 +201,16 @@ type target struct {
 // returns the stored one. A Request Kestrel cannot serve is stored as rejected.
 func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 	q := db.New(s.d.Store.Read())
+	var prior *db.Request
 	if row, err := q.GetRequestBySource(ctx, db.GetRequestBySourceParams{Source: in.Source, SourceRequestID: in.SourceRequestID}); err == nil {
-		r, err := s.view(ctx, row)
-		return Result{Request: r}, err
+		if row.Outcome != string(Rejected) {
+			r, err := s.view(ctx, row)
+			return Result{Request: r}, err
+		}
+		// A rejection may have a cause that was fixed since (a Profile enabled,
+		// a Title TheTVDB now has): evaluate it again, keeping the stored one
+		// while it is still rejected.
+		prior = &row
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return Result{}, err
 	}
@@ -221,7 +228,7 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 		return Result{}, err
 	}
 	if reason != "" {
-		return s.store(ctx, in, 0, nil, reason, false)
+		return s.store(ctx, in, prior, 0, nil, reason, false)
 	}
 	if in.Seasons != nil {
 		for _, n := range in.Seasons {
@@ -262,14 +269,14 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 		if key == "" {
 			r, err := profiles.Resolve(all, kind, sl.Slot, isKids)
 			if errors.Is(err, profiles.ErrNoEnabledProfile) {
-				return s.store(ctx, in, 0, nil, NoEnabledProfile, false)
+				return s.store(ctx, in, prior, 0, nil, NoEnabledProfile, false)
 			}
 			if err != nil {
 				return Result{}, err
 			}
 			key = r.Key
 		} else if p := profileByKey(all, key); !p.Enabled {
-			return s.store(ctx, in, 0, nil, NoEnabledProfile, false)
+			return s.store(ctx, in, prior, 0, nil, NoEnabledProfile, false)
 		}
 		chosen[sl.Slot] = key
 		specs = append(specs, library.VersionSpec{Slot: sl.Slot, Profile: key})
@@ -292,7 +299,7 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 		v := versionOf[sl.Slot]
 		slots = append(slots, slotRow{slot: sl.Slot, profile: v.Profile, versionID: v.ID})
 	}
-	res, err := s.store(ctx, in, titleID, slots, "", true)
+	res, err := s.store(ctx, in, prior, titleID, slots, "", true)
 	res.SearchDue = searchDue
 	return res, err
 }
@@ -537,8 +544,14 @@ type slotRow struct {
 }
 
 // store writes the Request and returns its current view. A retry racing this
-// one wins on the unique key and its stored Request is returned instead.
-func (s *Service) store(ctx context.Context, in Input, titleID int64, slots []slotRow, reason Reason, accepted bool) (Result, error) {
+// one wins on the unique key and its stored Request is returned instead. prior
+// is the stored rejection this one re-evaluates: it stands while the Request is
+// rejected again, and gives way to an accepted one.
+func (s *Service) store(ctx context.Context, in Input, prior *db.Request, titleID int64, slots []slotRow, reason Reason, accepted bool) (Result, error) {
+	if prior != nil && !accepted {
+		r, err := s.view(ctx, *prior)
+		return Result{Request: r}, err
+	}
 	if !accepted {
 		for _, sl := range in.Slots {
 			slots = append(slots, slotRow{slot: sl.Slot, profile: sl.Profile})
@@ -550,6 +563,11 @@ func (s *Service) store(ctx context.Context, in Input, titleID int64, slots []sl
 	}
 	defer tx.Rollback()
 	q := db.New(tx)
+	if prior != nil {
+		if err := q.DeleteRequest(ctx, prior.ID); err != nil {
+			return Result{}, err
+		}
+	}
 	outcome := string(Accepted)
 	var rr sql.NullString
 	if !accepted {

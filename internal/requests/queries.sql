@@ -3,6 +3,9 @@ INSERT INTO requests (source, source_request_id, requester_id, requester_name, t
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id;
 
+-- name: DeleteRequest :exec
+DELETE FROM requests WHERE id = ?;
+
 -- name: InsertRequestSlot :exec
 INSERT INTO request_slots (request_id, slot, profile_key, version_id) VALUES (?, ?, ?, ?);
 

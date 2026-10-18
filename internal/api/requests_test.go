@@ -162,6 +162,36 @@ func TestASlotWithNoEnabledProfileRejectsTheRequestAndAddsNothing(t *testing.T) 
 	}
 }
 
+func TestRetryingARejectedRequestEvaluatesItAgain(t *testing.T) {
+	s := newSearchBare(t)
+	for _, k := range []string{"uhd-primary", "uhd-original"} {
+		s.valid("PATCH", "/profiles/"+k, `{"enabled":false}`)
+	}
+	first := decode[requestJSON](t, s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, dualSlots, "null")))
+	if first.Outcome != "rejected" {
+		t.Fatalf("first = %+v", first)
+	}
+	if r := s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, dualSlots, "null")); r.Status != 200 || decode[requestJSON](t, r).ID != first.ID {
+		t.Fatalf("a retry that is still rejected = %d %s, want the stored one", r.Status, r.Body)
+	}
+
+	s.valid("PATCH", "/profiles/uhd-primary", `{"enabled":true}`)
+	r := s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, dualSlots, "null"))
+
+	if r.Status != 201 {
+		t.Fatalf("retry after the cause is fixed = %d %s, want 201", r.Status, r.Body)
+	}
+	if again := decode[requestJSON](t, r); again.Outcome != "accepted" || again.TitleID == nil {
+		t.Errorf("retry = %+v, want accepted", again)
+	}
+	if list := decode[requestListJSON](t, s.valid("GET", "/requests?source=silo", "")); len(list.Items) != 1 {
+		t.Errorf("%d Requests stored, want the one", len(list.Items))
+	}
+	if r := s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, dualSlots, "null")); r.Status != 200 {
+		t.Errorf("a retry of an accepted Request = %d, want 200", r.Status)
+	}
+}
+
 func TestAnUnknownTitleIsRejected(t *testing.T) {
 	s := newSearchBare(t)
 	req := decode[requestJSON](t, s.valid("POST", "/requests", requestBody("r-1", "movie", 999999999, `[{"slot":"hd"}]`, "null")))
