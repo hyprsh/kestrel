@@ -47,6 +47,7 @@ describe('manage Versions', () => {
     const uhd = await within(pane).findByRole('group', { name: 'UHD' })
 
     await userEvent.click(await within(uhd).findByRole('button', { name: 'Add Version' }))
+    await userEvent.click(within(uhd).getByRole('button', { name: 'Add' }))
 
     await screen.findByRole('region', { name: /paddington/i })
     expect(calls).toHaveLength(1)
@@ -58,7 +59,9 @@ describe('manage Versions', () => {
     const pane = await openPane()
     const hd = await within(pane).findByRole('group', { name: 'HD' })
 
-    await userEvent.selectOptions(await within(hd).findByRole('combobox', { name: 'Profile' }), 'Kids')
+    await userEvent.click(await within(hd).findByRole('button', { name: 'Change Profile' }))
+    await userEvent.selectOptions(within(hd).getByRole('combobox', { name: 'Profile' }), 'Kids')
+    await userEvent.click(within(hd).getByRole('button', { name: 'Switch' }))
 
     await screen.findByRole('region', { name: /paddington/i })
     expect(calls.map((c) => c.body)).toEqual([{ profile: 'kids-primary' }])
