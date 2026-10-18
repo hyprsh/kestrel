@@ -51,6 +51,30 @@ func (a adopting) titleIDOf(t *testing.T, tmdb int) int64 {
 	return 0
 }
 
+// The plan's Scores and misfit marks are those of the scan. A commit stores what
+// the active snapshot and the household's settings say now.
+func TestCommittingStoresTheScoresOfNowNotOfTheScan(t *testing.T) {
+	a := newAdopting(t)
+	a.put(t, "Paddington.2014.1080p.BluRay.x264-GRP/Paddington.2014.1080p.BluRay.x264-GRP.mkv", "movie")
+	plan := a.scan(t)
+	if r := a.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`); r.Status != 200 {
+		t.Fatalf("PATCH /settings = %d %s", r.Status, r.Body)
+	}
+
+	a.commit(t, plan.Revision)
+
+	d := decode[struct {
+		Versions []struct {
+			File *struct {
+				Misfit bool `json:"misfit"`
+			} `json:"file"`
+		} `json:"versions"`
+	}](t, a.valid("GET", fmt.Sprintf("/titles/%d", a.titleIDOf(t, 116149)), ""))
+	if len(d.Versions) != 1 || d.Versions[0].File == nil || !d.Versions[0].File.Misfit {
+		t.Fatalf("versions = %+v, want the English file a misfit for a German household", d.Versions)
+	}
+}
+
 func TestCommittingRenamesFilesInPlaceWithTheirSubtitlesAndFillsTheVersions(t *testing.T) {
 	a := newAdopting(t)
 	old := "Paddington.2014.1080p.BluRay.x264-GRP"

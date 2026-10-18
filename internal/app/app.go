@@ -180,6 +180,9 @@ func New(opts Options) *App {
 	adoption, err := imports.NewAdoption(imports.AdoptionDeps{
 		Store: st, Library: lib, Profiles: profs, Meta: meta, TVDB: tvdb, Prober: prober, Roots: roots, Scoring: live,
 		History: hist, Clock: opts.Clock, Logger: opts.Logger, FolderChanged: mediaRefresh.FolderChanged,
+		Rescore: func(ctx context.Context, titleID int64) error {
+			return imp.RescoreTitles(ctx, live.Current(), []int64{titleID})
+		},
 	})
 	if err != nil {
 		panic("app: Adoption cannot start: " + err.Error())

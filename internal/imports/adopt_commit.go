@@ -160,6 +160,7 @@ func (a *Adoption) Commit(ctx context.Context, revision int64) error {
 }
 
 func (a *Adoption) runCommit(ctx context.Context, todo []Row) {
+	defer a.snap.Hold()() // no TRaSH update lands between a row's Scores and the re-score after it
 	var res CommitResult
 	e, err := a.env(ctx)
 	if err != nil {
@@ -286,6 +287,7 @@ func (a *Adoption) adoptRow(ctx context.Context, e *env, row Row) (err error) {
 	if err != nil {
 		return err
 	}
+	a.rescored(ctx, id)
 	for _, old := range replaced {
 		keep := false
 		for _, f := range moved {

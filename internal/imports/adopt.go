@@ -242,9 +242,24 @@ type AdoptionDeps struct {
 	Snapshot *scoring.Snapshot
 	// Scoring is the live TRaSH snapshot; it wins over Snapshot.
 	Scoring *scoring.Holder
+	// Rescore, when set, re-scores a Title's files under the active TRaSH
+	// snapshot and the settings of now; the plan holds the Scores of the scan.
+	Rescore func(ctx context.Context, titleID int64) error
 	// FolderChanged, when set, is told the Title folder an Adoption took over,
 	// so the media servers can be asked to refresh it.
 	FolderChanged func(ctx context.Context, folder string)
+}
+
+// rescored brings a just-adopted Title's stored Scores and misfit marks up to
+// date: the plan was made at scan time, and the snapshot or the household's
+// language may have changed since.
+func (a *Adoption) rescored(ctx context.Context, titleID int64) {
+	if a.d.Rescore == nil {
+		return
+	}
+	if err := a.d.Rescore(ctx, titleID); err != nil {
+		a.d.Logger.Warn("re-scoring an adopted Title failed", "title", titleID, "err", err)
+	}
 }
 
 func (a *Adoption) folderChanged(ctx context.Context, folder string) {

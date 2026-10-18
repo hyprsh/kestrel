@@ -16,7 +16,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/probe"
 )
 
-// pathProber answers by file path: "broken" is unreadable, "uhd" is 2160p,
+// pathProber answers by file path: "broken" is unreadable, "uhd" is 2160p, "[SD]" is 480p,
 // "short" is ten minutes long, everything else is a good 1080p file.
 type pathProber struct{}
 
@@ -27,6 +27,10 @@ func (pathProber) Probe(_ context.Context, path string) (probe.Info, error) {
 	case strings.Contains(path, "uhd"):
 		i := goodProbe()
 		i.Width, i.Height = 3840, 2160
+		return i, nil
+	case strings.Contains(path, "[SD]"):
+		i := goodProbe()
+		i.Width, i.Height = 854, 480
 		return i, nil
 	case strings.Contains(path, "french"):
 		i := goodProbe()

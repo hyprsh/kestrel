@@ -610,6 +610,7 @@ func (a *Adoption) adoptSeriesRow(ctx context.Context, e *env, row Row) (err err
 	if err != nil {
 		return err
 	}
+	a.rescored(ctx, id)
 	for _, old := range replaced {
 		keep := false
 		for _, f := range moved {
