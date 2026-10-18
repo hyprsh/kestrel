@@ -80,6 +80,12 @@ func (s *Service) importSeries(ctx context.Context, g Grab, d library.Detail, ve
 		}
 	}
 
+	if s.hl != nil {
+		if err := s.hl.CheckRootFolder(ctx, d.RootFolder); err != nil {
+			return stalled(StalledRootFolder)
+		}
+	}
+
 	// Files an earlier run committed: finish their rename.
 	recorded, err := s.lib.FilesOfGrab(ctx, g.ID)
 	if err != nil {

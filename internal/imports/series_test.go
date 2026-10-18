@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
@@ -61,8 +62,9 @@ func newSeriesRig(t *testing.T) *seriesRig {
 	if err != nil {
 		t.Fatal(err)
 	}
+	r.health = health.New(health.Deps{Store: st, Clock: func() time.Time { return seriesNow }})
 	svc, err := imports.New(imports.Deps{
-		Library: r.lib, Renames: r.lib, FolderChanged: r.notes.changed, Profiles: profiles.New(st, settings.New(st)), Prober: r.prober, Clock: func() time.Time { return seriesNow },
+		Library: r.lib, Renames: r.lib, Health: r.health, FolderChanged: r.notes.changed, Profiles: profiles.New(st, settings.New(st)), Prober: r.prober, Clock: func() time.Time { return seriesNow },
 		Step: func(step string) error {
 			if r.hook != nil {
 				return r.hook(step)
@@ -287,5 +289,19 @@ func TestAnImportedEpisodeTellsTheMediaServersTheSeriesFolderNotTheSeasonFolder(
 	}
 	if want := filepath.Join(s.root, seriesRoot); len(s.notes.paths) != 1 || s.notes.paths[0] != want {
 		t.Fatalf("notified %v, want %s", s.notes.paths, want)
+	}
+}
+
+func TestASeriesImportIntoAMissingRootFolderStalls(t *testing.T) {
+	s := newSeriesRig(t)
+	g := s.download(t, "Night.Show.S01E01.1080p.WEB-DL.H264-GRP", 1, []string{"night.show.s01e01.1080p.mkv"})
+	if err := os.Rename(s.root, s.root+".unmounted"); err != nil {
+		t.Fatal(err)
+	}
+
+	res := s.svc.Import(context.Background(), g)
+
+	if res.Status != imports.Stalled || res.Reason != imports.StalledRootFolder {
+		t.Fatalf("result = %+v", res)
 	}
 }
