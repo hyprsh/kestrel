@@ -118,12 +118,16 @@ var apiHints = map[string][]hint{
 	"PatchTitle":       {hintOf("title", 0)},
 	"PatchSeason":      {hintOf("title", 0)},
 	"MonitorEpisodes":  {hintOf("title", 0)},
+	"AddVersion":       {hintOf("title", 0)},
+	"PatchVersion":     {hintOf("title", 0)},
+	"DeleteVersion":    {hintOf("title", 0), hintOf("queue", 0)},
+	"DeleteTitle":      {hintOf("title", 0), hintOf("queue", 0)},
+	"CreateGrab":       {hintOf("grab", 0), hintOf("queue", 0), hintOf("title", 0)},
+	"CancelGrab":       {hintOf("grab", 0), hintOf("queue", 0), hintOf("title", 0)},
 	"ScanAdoption":     {hintOf("adoption", 0)},
 	"PatchAdoptionRow": {hintOf("adoption", 0)},
 	"CommitAdoption":   {hintOf("adoption", 0)},
 	"DiscardAdoption":  {hintOf("adoption", 0)},
-	"CreateGrab":       {hintOf("grab", 0), hintOf("queue", 0), hintOf("title", 0)},
-	"CancelGrab":       {hintOf("grab", 0), hintOf("queue", 0), hintOf("title", 0)},
 }
 
 // emitHints is a strict-server middleware that publishes an operation's hints

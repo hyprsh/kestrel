@@ -554,6 +554,102 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteTitle
+      summary: Remove a Title with all its Versions
+      description: |
+        Removes the Title and what Kestrel holds of it. Files stay on disk unless `delete_files` is
+        true, which also removes the Title's folder if it is then empty. Active downloads of the
+        Title are canceled.
+      tags: [titles]
+      parameters:
+        - $ref: "#/components/parameters/DeleteFiles"
+      responses:
+        "204":
+          description: Removed.
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /titles/{id}/versions:
+    parameters:
+      - $ref: "#/components/parameters/TitleId"
+    post:
+      operationId: addVersion
+      summary: Add a Version to an empty Slot
+      description: |
+        Adds a Wanted Version under an enabled Profile of the Slot and searches it at once.
+        `409` when the Slot already holds a Version.
+      tags: [titles]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VersionRef"
+      responses:
+        "201":
+          description: The new Version.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VersionDetail"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /versions/{id}:
+    parameters:
+      - $ref: "#/components/parameters/VersionId"
+    patch:
+      operationId: patchVersion
+      summary: Switch a Version's Profile
+      description: |
+        Moves the Version to another enabled Profile of its Slot (HD to Kids, say). The file is
+        re-scored under the new Profile from what was stored at Import: no re-parse, no new ffprobe,
+        no rename. A file the new Profile no longer accepts by resolution class or language is a
+        `misfit`: the Version becomes Wanted and any fitting Release replaces the file whatever its
+        Score. The Version is searched at once.
+      tags: [titles]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VersionPatch"
+      responses:
+        "200":
+          description: The Version.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VersionDetail"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteVersion
+      summary: Remove a Version
+      description: |
+        Removes the Version. Its files stay on disk unless `delete_files` is true. An active download
+        for it is canceled.
+      tags: [titles]
+      parameters:
+        - $ref: "#/components/parameters/DeleteFiles"
+      responses:
+        "204":
+          description: Removed.
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /titles/{id}/episodes:
     parameters:
       - $ref: "#/components/parameters/TitleId"
@@ -658,8 +754,9 @@ paths:
         Synchronous, with a server timeout of about 30 s: an indexer that has not answered by then
         is reported in `indexer_errors` and the rest still come back. The Releases stay grabbable
         for 6 h through their `release_id`. `fits` says whether the Release belongs to this Version's
-        Slot; a Release for another Slot carries the `other_slot` rejection. Only Movie Versions can
-        be searched so far.
+        Slot; a Release for another Slot carries the `other_slot` rejection. A Series Version is
+        searched by `season` and `episode_ids` in the body (none searches the whole Series); the
+        Releases are single or multi-episode ones and season packs, told apart by `episodes` and `pack`.
       tags: [grabs]
       requestBody:
         required: false
@@ -1315,6 +1412,13 @@ components:
       schema:
         type: integer
         format: int64
+    DeleteFiles:
+      name: delete_files
+      in: query
+      description: Also delete the files from disk. Off by default.
+      schema:
+        type: boolean
+        default: false
     TitleId:
       name: id
       in: path
@@ -1913,6 +2017,13 @@ components:
         profile:
           type: string
           description: The Profile key. It must be an enabled Profile of that Slot.
+    VersionPatch:
+      type: object
+      required: [profile]
+      properties:
+        profile:
+          type: string
+          description: The Profile key. It must be an enabled Profile of the Version's Slot.
     TitleCreate:
       type: object
       required: [kind, tmdb_id, versions]
@@ -2116,6 +2227,9 @@ components:
           description: The audio languages ffprobe found (English names), in track order.
           items:
             type: string
+        misfit:
+          type: boolean
+          description: The file no longer fits the Version's Profile; the Version is Wanted.
         imported_at:
           type: string
           format: date-time
@@ -2147,7 +2261,9 @@ components:
           format: date-time
     ReleaseSearch:
       type: object
-      description: Series searches will take `season` and `episode_ids`; Movie searches take nothing.
+      description: |
+        Narrows the search of a Series Version to a season and, within it, episodes. Movie searches
+        take nothing.
       properties:
         season:
           type: integer
@@ -2217,6 +2333,17 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Rejection"
+        season:
+          type: integer
+          description: Series only. The season of the Release (the first of a multi-season pack).
+        episodes:
+          type: array
+          items:
+            type: integer
+          description: Series only. The episode numbers of a single or multi-episode Release; empty for a pack.
+        pack:
+          type: boolean
+          description: Series only. True for a season pack.
     IndexerError:
       type: object
       required: [indexer_id, indexer, code, message, retry_after]

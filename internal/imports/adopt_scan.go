@@ -155,7 +155,7 @@ func (a *Adoption) runScan(ctx context.Context, roots []string) {
 		return
 	}
 	_ = a.q.FinishAdoptionScan(ctx, sql.NullString{String: a.d.Clock().UTC().Format("2006-01-02T15:04:05Z07:00"), Valid: true})
-	s := summarize(rows)
+	s := summarizeRows(rows)
 	a.d.History.Record(ctx, history.Event{
 		Kind: history.AdoptionScanned, Message: fmt.Sprintf("Adoption scan: %d matched, %d need a choice, %d skipped", s.Matched, s.NeedsChoice, s.Skipped),
 	})

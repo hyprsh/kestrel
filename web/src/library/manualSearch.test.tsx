@@ -97,6 +97,18 @@ describe('manual search', () => {
     expect(rows[3]).toHaveTextContent('On the Blocklist')
   })
 
+  it('labels Series Releases as a pack or by their episodes', async () => {
+    fakeSearch([
+      release('p', 'Show.S01.1080p.WEB-DL-GRP', { season: 1, pack: true, episodes: [] }),
+      release('e', 'Show.S01E03E04.1080p.WEB-DL-GRP', { season: 1, pack: false, episodes: [3, 4] }),
+    ])
+    const table = await openManualSearch()
+
+    const rows = within(table).getAllByRole('row').slice(1)
+    expect(rows[0]).toHaveTextContent('Season 1 pack')
+    expect(rows[1]).toHaveTextContent('S01E03-E04')
+  })
+
   it('hides rejected Releases on request', async () => {
     fakeSearch(releases())
     const table = await openManualSearch()

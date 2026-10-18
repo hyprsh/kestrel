@@ -287,11 +287,11 @@ func (a *Adoption) Get(ctx context.Context) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
-	out.Summary = summarize(rows)
+	out.Summary = summarizeRows(rows)
 	return out, nil
 }
 
-func summarize(rows []Row) Summary {
+func summarizeRows(rows []Row) Summary {
 	var s Summary
 	for _, r := range rows {
 		switch r.Status {

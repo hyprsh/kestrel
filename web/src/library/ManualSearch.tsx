@@ -154,6 +154,7 @@ export function ManualSearch({
                         </span>
                         {x.rejections.some((r) => r.code === 'blocklisted') && <Badge tone="red">Blocklisted</Badge>}
                         {x.fits === 'other_slot' && <Badge>Other Slot</Badge>}
+                        {scopeLabel(x) && <Badge>{scopeLabel(x)}</Badge>}
                       </div>
                       {rejected && (
                         <div className={cx('mt-0.5 text-[11px]', rejectionBlocked(x) ? 'text-red-900' : 'text-amber-900')}>
@@ -216,4 +217,14 @@ export function ManualSearch({
       </div>
     </section>
   )
+}
+
+/** What a Series Release holds: "Season 1 pack", or "S01E03" / "S01E03-E04" for episodes. */
+function scopeLabel(x: Release): string | null {
+  if (x.pack) return `Season ${x.season ?? ''} pack`.replace('  ', ' ')
+  const eps = x.episodes ?? []
+  if (x.season == null || eps.length === 0) return null
+  const code = (n: number) => String(n).padStart(2, '0')
+  const last = eps[eps.length - 1]
+  return eps.length > 1 ? `S${code(x.season)}E${code(eps[0])}-E${code(last)}` : `S${code(x.season)}E${code(eps[0])}`
 }

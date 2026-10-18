@@ -3,7 +3,9 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/hyprsh/kestrel/internal/acquire"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
@@ -57,6 +59,11 @@ func (s *server) ListQueue(ctx context.Context, _ oapi.ListQueueRequestObject) (
 			it.Eta = &secs
 		}
 		if d := detail(a.TitleID); d != nil {
+			if d.Kind == library.Series {
+				if labels, err := s.episodeLabels(ctx, a.ID, a.TitleID, view); err == nil {
+					it.Episodes = labels
+				}
+			}
 			it.Title = d.Title
 			it.Year = intPtr(d.Year)
 			for _, v := range d.Versions {
@@ -96,4 +103,35 @@ func (s *server) CancelGrab(ctx context.Context, r oapi.CancelGrabRequestObject)
 		s.jobs.Kick(jobs.Search)
 	}
 	return oapi.CancelGrab204Response{}, nil
+}
+
+// episodeLabels names the episodes a Series Grab fetches, such as "S01E01-E08"
+// for a run and "S02E03" for one.
+func (s *server) episodeLabels(ctx context.Context, grabID, titleID int64, view library.View) ([]string, error) {
+	ids, err := s.acquire.GrabEpisodes(ctx, grabID)
+	if err != nil || len(ids) == 0 {
+		return []string{}, err
+	}
+	eps, err := s.library.Episodes(ctx, titleID, view)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for i := 0; i < len(eps); {
+		if !slices.Contains(ids, eps[i].ID) {
+			i++
+			continue
+		}
+		j := i
+		for j+1 < len(eps) && eps[j+1].Season == eps[i].Season && slices.Contains(ids, eps[j+1].ID) {
+			j++
+		}
+		label := fmt.Sprintf("S%02dE%02d", eps[i].Season, eps[i].Number)
+		if j > i {
+			label += fmt.Sprintf("-E%02d", eps[j].Number)
+		}
+		out = append(out, label)
+		i = j + 1
+	}
+	return out, nil
 }

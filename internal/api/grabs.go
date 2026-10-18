@@ -46,12 +46,17 @@ func (s *server) searchTimeout() time.Duration {
 func (s *server) SearchVersionReleases(ctx context.Context, r oapi.SearchVersionReleasesRequestObject) (oapi.SearchVersionReleasesResponseObject, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.searchTimeout())
 	defer cancel()
-	res, err := s.acquire.Search(ctx, r.Id)
+	var scope acquire.Scope
+	if r.Body != nil {
+		scope.Season = r.Body.Season
+		if r.Body.EpisodeIds != nil {
+			scope.EpisodeIDs = *r.Body.EpisodeIds
+		}
+	}
+	res, err := s.acquire.SearchScope(ctx, r.Id, scope)
 	switch {
 	case errors.Is(err, library.ErrNotFound):
 		return nil, problem(http.StatusNotFound, "not_found", "no such Version")
-	case errors.Is(err, acquire.ErrUnsupportedKind):
-		return nil, invalid("id", "unsupported", "Only Movies can be searched so far")
 	case err != nil:
 		return nil, err
 	}
@@ -61,6 +66,10 @@ func (s *server) SearchVersionReleases(ctx context.Context, r oapi.SearchVersion
 			ReleaseId: f.ID, Name: f.Name, Indexer: f.Indexer, Size: f.Size, PublishedAt: f.PublishedAt, Quality: f.Quality,
 			Languages: append([]string{}, f.Languages...), Score: f.Score, Fits: oapi.ReleaseFits(f.Fits),
 			CustomFormats: make([]oapi.CustomFormatMatch, 0, len(f.Formats)), Rejections: make([]oapi.Rejection, 0, len(f.Rejections)),
+		}
+		if f.Pack || f.Season != 0 || len(f.Episodes) > 0 {
+			season, episodes, pack := f.Season, append([]int{}, f.Episodes...), f.Pack
+			rel.Season, rel.Episodes, rel.Pack = &season, &episodes, &pack
 		}
 		for _, cf := range f.Formats {
 			rel.CustomFormats = append(rel.CustomFormats, oapi.CustomFormatMatch{Name: cf.Name, Points: cf.Score})
@@ -110,8 +119,6 @@ func grabProblem(err error) error {
 		return problem(http.StatusConflict, "release_expired", "That Release is no longer in the search results; search again")
 	case errors.Is(err, acquire.ErrReleaseGone):
 		return problem(http.StatusConflict, "release_expired", "The indexer no longer has that Release; search again")
-	case errors.Is(err, acquire.ErrUnsupportedKind):
-		return invalid("version_id", "unsupported", "Only Movies can be grabbed so far")
 	case errors.Is(err, downloads.ErrNoClient):
 		return problem(http.StatusBadGateway, "upstream_unavailable", "No download client is enabled; add one in Settings")
 	case errors.As(err, &rej):

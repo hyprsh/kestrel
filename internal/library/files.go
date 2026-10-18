@@ -78,3 +78,98 @@ func (s *Service) FileOfGrab(ctx context.Context, grabID int64) (File, bool, err
 	}
 	return fileOf(f), true, nil
 }
+
+// ReplaceEpisodeFile records f as the file of the given episodes of its Series
+// Version, in one transaction: each episode's old file stops holding it, and
+// the Title's folder name is set if the first Import has not set it yet. A
+// file that no longer holds any episode is deleted and returned, so the
+// caller can delete it from disk; a file that still holds another episode
+// stays. One file per (Version, episode) is the database's own rule.
+func (s *Service) ReplaceEpisodeFile(ctx context.Context, titleID int64, folder string, f NewFile, episodeIDs []int64) ([]File, error) {
+	tx, err := s.st.Write().BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	q := db.New(tx)
+	if err := q.SetTitleFolder(ctx, db.SetTitleFolderParams{Folder: nullStr(folder), ID: titleID}); err != nil {
+		return nil, err
+	}
+	var touched []int64
+	for _, ep := range episodeIDs {
+		old, err := q.GetFileOfVersionEpisode(ctx, db.GetFileOfVersionEpisodeParams{VersionID: f.VersionID, EpisodeID: ep})
+		if errors.Is(err, sql.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if err := q.DeleteFileEpisode(ctx, db.DeleteFileEpisodeParams{VersionID: f.VersionID, EpisodeID: ep}); err != nil {
+			return nil, err
+		}
+		touched = append(touched, old)
+	}
+	fileID, err := q.InsertFile(ctx, db.InsertFileParams{
+		VersionID: f.VersionID, Path: f.Path, Size: f.Size, ReleaseName: f.ReleaseName,
+		ParsedRelease: nullStr(f.ParsedRelease), Probe: nullStr(f.Probe), Score: sql.NullInt64{Int64: int64(f.Score), Valid: true},
+		GrabID: sql.NullInt64{Int64: f.GrabID, Valid: f.GrabID != 0}, ImportedAt: ts(s.clock()),
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, ep := range episodeIDs {
+		if err := q.InsertFileEpisode(ctx, db.InsertFileEpisodeParams{FileID: fileID, VersionID: f.VersionID, EpisodeID: ep}); err != nil {
+			return nil, err
+		}
+	}
+	var replaced []File
+	done := map[int64]bool{}
+	for _, id := range touched {
+		if done[id] {
+			continue
+		}
+		done[id] = true
+		n, err := q.CountFileEpisodes(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if n > 0 {
+			continue
+		}
+		row, err := q.GetFile(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if err := q.DeleteFile(ctx, id); err != nil {
+			return nil, err
+		}
+		replaced = append(replaced, fileOf(row))
+	}
+	return replaced, tx.Commit()
+}
+
+// FilesOfGrab returns the files an Import recorded for a Grab, oldest first.
+func (s *Service) FilesOfGrab(ctx context.Context, grabID int64) ([]File, error) {
+	rows, err := db.New(s.st.Read()).ListFilesOfGrab(ctx, sql.NullInt64{Int64: grabID, Valid: true})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]File, len(rows))
+	for i, r := range rows {
+		out[i] = fileOf(r)
+	}
+	return out, nil
+}
+
+// PathsOfVersion are the paths of the files a Version holds.
+func (s *Service) PathsOfVersion(ctx context.Context, versionID int64) ([]string, error) {
+	rows, err := db.New(s.st.Read()).ListFilesOfVersion(ctx, versionID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, len(rows))
+	for i, r := range rows {
+		out[i] = r.Path
+	}
+	return out, nil
+}
