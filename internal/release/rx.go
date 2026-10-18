@@ -23,8 +23,19 @@ type rx struct {
 	re      *regexp2.Regexp
 }
 
+// allRx records every rx mustRx builds, so a test can compile each pattern
+// and fail on a bad one rather than at first use in production.
+var (
+	allRxMu sync.Mutex
+	allRx   []*rx
+)
+
 func mustRx(pattern string, opts regexp2.RegexOptions) *rx {
-	return &rx{pattern: pattern, opts: opts}
+	r := &rx{pattern: pattern, opts: opts}
+	allRxMu.Lock()
+	allRx = append(allRx, r)
+	allRxMu.Unlock()
+	return r
 }
 
 // regexp returns the compiled expression, compiling it on the first call.

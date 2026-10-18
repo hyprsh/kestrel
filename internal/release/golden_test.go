@@ -75,51 +75,58 @@ func TestGoldenRecordsThePinnedUpstream(t *testing.T) {
 func TestGoldenParityWithRadarr(t *testing.T) {
 	g := loadGolden(t)
 	var german, french, unparseable int
-	for _, c := range g.Cases {
-		t.Run(c.Title, func(t *testing.T) {
-			got, err := Parse(c.Title, KindMovie)
+	// The cases run as parallel subtests inside one wrapper, so the corpus
+	// checks below run after every case has finished.
+	t.Run("cases", func(t *testing.T) {
+		for _, c := range g.Cases {
 			if c.Parsed == nil {
 				unparseable++
-				if !errors.Is(err, ErrUnparseable) {
-					t.Fatalf("Radarr cannot parse it, got %+v (err %v)", got, err)
+			}
+			t.Run(c.Title, func(t *testing.T) {
+				t.Parallel()
+				got, err := Parse(c.Title, KindMovie)
+				if c.Parsed == nil {
+					if !errors.Is(err, ErrUnparseable) {
+						t.Fatalf("Radarr cannot parse it, got %+v (err %v)", got, err)
+					}
+					return
 				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("Radarr parses it, got error %v", err)
-			}
-			want := c.Parsed
-			check := func(field string, got, want any) {
-				if !reflect.DeepEqual(got, want) {
-					t.Errorf("%s = %#v, Radarr says %#v", field, got, want)
+				if err != nil {
+					t.Fatalf("Radarr parses it, got error %v", err)
 				}
-			}
-			check("titles", got.Titles, want.MovieTitles)
-			check("originalTitle", got.OriginalTitle, want.OriginalTitle)
-			check("releaseTitle", got.ReleaseTitle, want.ReleaseTitle)
-			check("simpleReleaseTitle", got.SimpleReleaseTitle, want.SimpleReleaseTitle)
-			check("quality", got.Quality.Quality, want.Quality.Quality)
-			check("revision", got.Quality.Revision, want.Quality.Revision)
-			check("languages", got.Languages, want.Languages)
-			check("releaseGroup", got.ReleaseGroup, want.ReleaseGroup)
-			check("releaseHash", got.ReleaseHash, want.ReleaseHash)
-			check("edition", got.Edition, want.Edition)
-			check("year", got.Year, want.Year)
-			check("imdbId", got.ImdbID, want.ImdbID)
-			check("tmdbId", got.TmdbID, want.TmdbID)
-			check("hardcodedSubs", got.HardcodedSubs, want.HardcodedSubs)
-		})
-		if c.Parsed != nil {
-			for _, l := range c.Parsed.Languages {
-				switch l {
-				case LangGerman:
-					german++
-				case LangFrench:
-					french++
+				want := c.Parsed
+				check := func(field string, got, want any) {
+					if !reflect.DeepEqual(got, want) {
+						t.Errorf("%s = %#v, Radarr says %#v", field, got, want)
+					}
+				}
+				check("titles", got.Titles, want.MovieTitles)
+				check("originalTitle", got.OriginalTitle, want.OriginalTitle)
+				check("releaseTitle", got.ReleaseTitle, want.ReleaseTitle)
+				check("simpleReleaseTitle", got.SimpleReleaseTitle, want.SimpleReleaseTitle)
+				check("quality", got.Quality.Quality, want.Quality.Quality)
+				check("revision", got.Quality.Revision, want.Quality.Revision)
+				check("languages", got.Languages, want.Languages)
+				check("releaseGroup", got.ReleaseGroup, want.ReleaseGroup)
+				check("releaseHash", got.ReleaseHash, want.ReleaseHash)
+				check("edition", got.Edition, want.Edition)
+				check("year", got.Year, want.Year)
+				check("imdbId", got.ImdbID, want.ImdbID)
+				check("tmdbId", got.TmdbID, want.TmdbID)
+				check("hardcodedSubs", got.HardcodedSubs, want.HardcodedSubs)
+			})
+			if c.Parsed != nil {
+				for _, l := range c.Parsed.Languages {
+					switch l {
+					case LangGerman:
+						german++
+					case LangFrench:
+						french++
+					}
 				}
 			}
 		}
-	}
+	})
 	if german < 30 || french < 20 {
 		t.Errorf("corpus should cover German and French names broadly, got %d German and %d French", german, french)
 	}

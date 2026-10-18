@@ -116,95 +116,102 @@ func TestGoldenSeriesRecordsThePinnedUpstream(t *testing.T) {
 func TestGoldenSeriesParityWithSonarr(t *testing.T) {
 	g := loadGoldenSeries(t)
 	var packs, multi, daily, german, french, unparseable int
-	for _, c := range g.Cases {
-		t.Run(c.Title, func(t *testing.T) {
-			got, err := Parse(c.Title, KindSeries)
+	// The cases run as parallel subtests inside one wrapper, so the corpus
+	// checks below run after every case has finished.
+	t.Run("cases", func(t *testing.T) {
+		for _, c := range g.Cases {
 			if c.Parsed == nil {
 				unparseable++
-				if !errors.Is(err, ErrUnparseable) {
-					t.Fatalf("Sonarr cannot parse it, got %+v (err %v)", got, err)
+			}
+			t.Run(c.Title, func(t *testing.T) {
+				t.Parallel()
+				got, err := Parse(c.Title, KindSeries)
+				if c.Parsed == nil {
+					if !errors.Is(err, ErrUnparseable) {
+						t.Fatalf("Sonarr cannot parse it, got %+v (err %v)", got, err)
+					}
+					return
 				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("Sonarr parses it, got error %v", err)
-			}
-			want := c.Parsed
-			s := got.Series
-			check := func(field string, got, want any) {
-				t.Helper()
-				if !reflect.DeepEqual(got, want) {
-					t.Errorf("%s = %#v, Sonarr says %#v", field, got, want)
+				if err != nil {
+					t.Fatalf("Sonarr parses it, got error %v", err)
 				}
-			}
-			nilIfEmpty := func(v []int) []int {
-				if len(v) == 0 {
-					return nil
+				want := c.Parsed
+				s := got.Series
+				check := func(field string, got, want any) {
+					t.Helper()
+					if !reflect.DeepEqual(got, want) {
+						t.Errorf("%s = %#v, Sonarr says %#v", field, got, want)
+					}
 				}
-				return v
-			}
-			check("seriesTitle", got.Title(), want.SeriesTitle)
-			check("seriesTitleInfo.title", got.Title(), want.SeriesTitleInfo.Title)
-			check("seriesTitleInfo.titleWithoutYear", s.TitleWithoutYear, want.SeriesTitleInfo.TitleWithoutYear)
-			check("seriesTitleInfo.year", got.Year, want.SeriesTitleInfo.Year)
-			check("seriesTitleInfo.allTitles", s.AllTitles, want.SeriesTitleInfo.AllTitles)
-			check("releaseTitle", got.ReleaseTitle, want.ReleaseTitle)
-			check("quality.id", got.Quality.Quality.ID, want.Quality.Quality.ID)
-			check("quality.name", got.Quality.Quality.Name, want.Quality.Quality.Name)
-			check("quality.source", got.Quality.Quality.Source, sonarrSources[want.Quality.Quality.Source])
-			check("quality.resolution", got.Quality.Quality.Resolution, want.Quality.Quality.Resolution)
-			check("revision", got.Quality.Revision, want.Quality.Revision)
-			check("seasonNumber", s.Season, want.SeasonNumber)
-			check("episodeNumbers", nilIfEmpty(s.Episodes), nilIfEmpty(want.EpisodeNumbers))
-			check("absoluteEpisodeNumbers", nilIfEmpty(s.AbsoluteEpisodes), nilIfEmpty(want.AbsoluteEpisodeNumbers))
-			check("specialAbsoluteEpisodeNumbers", len(s.SpecialAbsoluteEpisodes), len(want.SpecialAbsoluteEpisodeNumbers))
-			check("airDate", s.AirDate, want.AirDate)
-			check("dailyPart", s.DailyPart, want.DailyPart)
-			var names []string
-			for _, l := range got.Languages {
-				names = append(names, l.Name)
-			}
-			var wantNames []string
-			for _, l := range want.Languages {
-				wantNames = append(wantNames, l.Name)
-			}
-			check("languages", names, wantNames)
-			check("fullSeason", s.FullSeason, want.FullSeason)
-			check("isPartialSeason", s.PartialSeason, want.IsPartialSeason)
-			check("isMultiSeason", s.MultiSeason, want.IsMultiSeason)
-			check("isSeasonExtra", s.SeasonExtra, want.IsSeasonExtra)
-			check("isSplitEpisode", s.SplitEpisode, want.IsSplitEpisode)
-			check("isMiniSeries", s.MiniSeries, want.IsMiniSeries)
-			check("special", s.Special, want.Special)
-			check("releaseGroup", got.ReleaseGroup, want.ReleaseGroup)
-			check("releaseHash", got.ReleaseHash, want.ReleaseHash)
-			check("seasonPart", s.SeasonPart, want.SeasonPart)
-			check("releaseTokens", s.ReleaseTokens, want.ReleaseTokens)
-			check("isDaily", got.IsDaily(), want.IsDaily)
-			check("isAbsoluteNumbering", got.IsAbsoluteNumbering(), want.IsAbsoluteNumbering)
-			check("isPossibleSpecialEpisode", got.IsPossibleSpecialEpisode(), want.IsPossibleSpecialEpisode)
-			check("isPossibleSceneSeasonSpecial", got.IsPossibleSceneSeasonSpecial(), want.IsPossibleSceneSeasonSpecial)
-			check("releaseType", string(got.SeriesReleaseType()), want.ReleaseType)
-		})
-		if p := c.Parsed; p != nil {
-			switch {
-			case p.FullSeason || p.IsPartialSeason:
-				packs++
-			case len(p.EpisodeNumbers) > 1:
-				multi++
-			case p.IsDaily:
-				daily++
-			}
-			for _, l := range p.Languages {
-				switch l.Name {
-				case "German":
-					german++
-				case "French":
-					french++
+				nilIfEmpty := func(v []int) []int {
+					if len(v) == 0 {
+						return nil
+					}
+					return v
+				}
+				check("seriesTitle", got.Title(), want.SeriesTitle)
+				check("seriesTitleInfo.title", got.Title(), want.SeriesTitleInfo.Title)
+				check("seriesTitleInfo.titleWithoutYear", s.TitleWithoutYear, want.SeriesTitleInfo.TitleWithoutYear)
+				check("seriesTitleInfo.year", got.Year, want.SeriesTitleInfo.Year)
+				check("seriesTitleInfo.allTitles", s.AllTitles, want.SeriesTitleInfo.AllTitles)
+				check("releaseTitle", got.ReleaseTitle, want.ReleaseTitle)
+				check("quality.id", got.Quality.Quality.ID, want.Quality.Quality.ID)
+				check("quality.name", got.Quality.Quality.Name, want.Quality.Quality.Name)
+				check("quality.source", got.Quality.Quality.Source, sonarrSources[want.Quality.Quality.Source])
+				check("quality.resolution", got.Quality.Quality.Resolution, want.Quality.Quality.Resolution)
+				check("revision", got.Quality.Revision, want.Quality.Revision)
+				check("seasonNumber", s.Season, want.SeasonNumber)
+				check("episodeNumbers", nilIfEmpty(s.Episodes), nilIfEmpty(want.EpisodeNumbers))
+				check("absoluteEpisodeNumbers", nilIfEmpty(s.AbsoluteEpisodes), nilIfEmpty(want.AbsoluteEpisodeNumbers))
+				check("specialAbsoluteEpisodeNumbers", len(s.SpecialAbsoluteEpisodes), len(want.SpecialAbsoluteEpisodeNumbers))
+				check("airDate", s.AirDate, want.AirDate)
+				check("dailyPart", s.DailyPart, want.DailyPart)
+				var names []string
+				for _, l := range got.Languages {
+					names = append(names, l.Name)
+				}
+				var wantNames []string
+				for _, l := range want.Languages {
+					wantNames = append(wantNames, l.Name)
+				}
+				check("languages", names, wantNames)
+				check("fullSeason", s.FullSeason, want.FullSeason)
+				check("isPartialSeason", s.PartialSeason, want.IsPartialSeason)
+				check("isMultiSeason", s.MultiSeason, want.IsMultiSeason)
+				check("isSeasonExtra", s.SeasonExtra, want.IsSeasonExtra)
+				check("isSplitEpisode", s.SplitEpisode, want.IsSplitEpisode)
+				check("isMiniSeries", s.MiniSeries, want.IsMiniSeries)
+				check("special", s.Special, want.Special)
+				check("releaseGroup", got.ReleaseGroup, want.ReleaseGroup)
+				check("releaseHash", got.ReleaseHash, want.ReleaseHash)
+				check("seasonPart", s.SeasonPart, want.SeasonPart)
+				check("releaseTokens", s.ReleaseTokens, want.ReleaseTokens)
+				check("isDaily", got.IsDaily(), want.IsDaily)
+				check("isAbsoluteNumbering", got.IsAbsoluteNumbering(), want.IsAbsoluteNumbering)
+				check("isPossibleSpecialEpisode", got.IsPossibleSpecialEpisode(), want.IsPossibleSpecialEpisode)
+				check("isPossibleSceneSeasonSpecial", got.IsPossibleSceneSeasonSpecial(), want.IsPossibleSceneSeasonSpecial)
+				check("releaseType", string(got.SeriesReleaseType()), want.ReleaseType)
+			})
+			if p := c.Parsed; p != nil {
+				switch {
+				case p.FullSeason || p.IsPartialSeason:
+					packs++
+				case len(p.EpisodeNumbers) > 1:
+					multi++
+				case p.IsDaily:
+					daily++
+				}
+				for _, l := range p.Languages {
+					switch l.Name {
+					case "German":
+						german++
+					case "French":
+						french++
+					}
 				}
 			}
 		}
-	}
+	})
 	if packs < 40 || multi < 30 || daily < 30 || german < 20 || french < 10 {
 		t.Errorf("corpus should cover packs, multi-episode, daily, German and French names broadly, got %d packs, %d multi, %d daily, %d German, %d French", packs, multi, daily, german, french)
 	}

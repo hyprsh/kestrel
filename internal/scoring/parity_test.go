@@ -95,26 +95,33 @@ func TestMovieMatchedFormatsEqualRadarrs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var distinct = map[string]bool{}
+	// The cases run as parallel subtests inside one wrapper, so the corpus
+	// checks below run after every case has finished.
+	t.Run("cases", func(t *testing.T) {
+		for _, c := range g.Cases {
+			t.Run(c.Name, func(t *testing.T) {
+				t.Parallel()
+				parsed, err := release.Parse(c.Name, release.KindMovie)
+				if err != nil {
+					t.Fatalf("Radarr parses it, Kestrel says %v", err)
+				}
+				title := g.title(c.Title)
+				rel := scoring.Release{Parsed: parsed}
+				got := ids(snap.MatchAll(rel, title))
+				if !reflect.DeepEqual(got, c.Matched) {
+					t.Errorf("matched = %v\n want    %v\n(languages %v, group %q, quality %s)", names(snap, got), names(snap, c.Matched), parsed.Languages, parsed.ReleaseGroup, parsed.Quality)
+				}
+				if v := scoring.Evaluate(rel, title, hd); !reflect.DeepEqual(v.Languages, c.Languages) {
+					t.Errorf("languages = %v, Radarr says %v", v.Languages, c.Languages)
+				}
+			})
+		}
+	})
+	distinct := map[string]bool{}
 	for _, c := range g.Cases {
-		t.Run(c.Name, func(t *testing.T) {
-			parsed, err := release.Parse(c.Name, release.KindMovie)
-			if err != nil {
-				t.Fatalf("Radarr parses it, Kestrel says %v", err)
-			}
-			title := g.title(c.Title)
-			rel := scoring.Release{Parsed: parsed}
-			got := ids(snap.MatchAll(rel, title))
-			if !reflect.DeepEqual(got, c.Matched) {
-				t.Errorf("matched = %v\n want    %v\n(languages %v, group %q, quality %s)", names(snap, got), names(snap, c.Matched), parsed.Languages, parsed.ReleaseGroup, parsed.Quality)
-			}
-			if v := scoring.Evaluate(rel, title, hd); !reflect.DeepEqual(v.Languages, c.Languages) {
-				t.Errorf("languages = %v, Radarr says %v", v.Languages, c.Languages)
-			}
-			for _, id := range c.Matched {
-				distinct[id] = true
-			}
-		})
+		for _, id := range c.Matched {
+			distinct[id] = true
+		}
 	}
 	if len(distinct) < 80 {
 		t.Errorf("the corpus only exercises %d distinct Custom Formats", len(distinct))
@@ -138,6 +145,7 @@ func TestMovieProfilesMatchRadarrsSetNarrowedToTheProfile(t *testing.T) {
 					inProfile[f.TrashID] = f.Score
 				}
 				t.Run(prof.BackingProfile(release.KindMovie), func(t *testing.T) {
+					t.Parallel()
 					for _, c := range g.Cases {
 						parsed, err := release.Parse(c.Name, release.KindMovie)
 						if err != nil {
@@ -185,18 +193,17 @@ func names(snap *scoring.Snapshot, idList []string) []string {
 	return out
 }
 
-var allNames []scoring.MatchedFormat
-
+// snapAll is computed on each call: parallel subtests call names, so a
+// package-level cache would be written from several goroutines.
 func snapAll(snap *scoring.Snapshot) []scoring.MatchedFormat {
-	if allNames == nil {
-		for _, kind := range []release.Kind{release.KindMovie, release.KindSeries} {
-			prof, err := snap.Profile(scoring.ProfileSpec{Slot: resolution.HD, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish})
-			if err == nil {
-				allNames = append(allNames, prof.Formats(kind)...)
-			}
+	var all []scoring.MatchedFormat
+	for _, kind := range []release.Kind{release.KindMovie, release.KindSeries} {
+		prof, err := snap.Profile(scoring.ProfileSpec{Slot: resolution.HD, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish})
+		if err == nil {
+			all = append(all, prof.Formats(kind)...)
 		}
 	}
-	return allNames
+	return all
 }
 
 // Series are checked with inputs built by hand from Sonarr's own parse of the
@@ -209,22 +216,29 @@ func TestSeriesMatchedFormatsEqualSonarrs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The cases run as parallel subtests inside one wrapper, so the corpus
+	// checks below run after every case has finished.
+	t.Run("cases", func(t *testing.T) {
+		for _, c := range g.Cases {
+			t.Run(c.Name, func(t *testing.T) {
+				t.Parallel()
+				rel := sonarrRelease(t, c.Parsed)
+				title := g.title(c.Title)
+				got := ids(snap.MatchAll(rel, title))
+				if !reflect.DeepEqual(got, c.Matched) {
+					t.Errorf("matched = %v\n want    %v", names(snap, got), names(snap, c.Matched))
+				}
+				if v := scoring.Evaluate(rel, title, hd); !reflect.DeepEqual(v.Languages, c.Languages) {
+					t.Errorf("languages = %v, Sonarr says %v", v.Languages, c.Languages)
+				}
+			})
+		}
+	})
 	distinct := map[string]bool{}
 	for _, c := range g.Cases {
-		t.Run(c.Name, func(t *testing.T) {
-			rel := sonarrRelease(t, c.Parsed)
-			title := g.title(c.Title)
-			got := ids(snap.MatchAll(rel, title))
-			if !reflect.DeepEqual(got, c.Matched) {
-				t.Errorf("matched = %v\n want    %v", names(snap, got), names(snap, c.Matched))
-			}
-			if v := scoring.Evaluate(rel, title, hd); !reflect.DeepEqual(v.Languages, c.Languages) {
-				t.Errorf("languages = %v, Sonarr says %v", v.Languages, c.Languages)
-			}
-			for _, id := range c.Matched {
-				distinct[id] = true
-			}
-		})
+		for _, id := range c.Matched {
+			distinct[id] = true
+		}
 	}
 	if len(distinct) < 70 {
 		t.Errorf("the corpus only exercises %d distinct Custom Formats", len(distinct))
@@ -237,6 +251,7 @@ func TestSeriesMatchedFormatsEqualSonarrsThroughTheSeriesParser(t *testing.T) {
 	snap := embedded(t)
 	for _, c := range g.Cases {
 		t.Run(c.Name, func(t *testing.T) {
+			t.Parallel()
 			parsed, err := release.Parse(c.Name, release.KindSeries)
 			if err != nil {
 				t.Fatalf("Sonarr parses it, Kestrel says %v", err)
@@ -263,6 +278,7 @@ func TestSeriesProfilesMatchSonarrsSetNarrowedToTheProfile(t *testing.T) {
 				inProfile[f.TrashID] = true
 			}
 			t.Run(prof.BackingProfile(release.KindSeries), func(t *testing.T) {
+				t.Parallel()
 				for _, c := range g.Cases {
 					v := scoring.Evaluate(sonarrRelease(t, c.Parsed), g.title(c.Title), prof)
 					want := []string{}

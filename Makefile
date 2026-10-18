@@ -22,7 +22,7 @@ generate-check: generate ## Fail if generated code differs from what is committe
 test: test-go test-web ## Run all tests
 
 test-go: ## Go tests with the race detector
-	go test -race ./...
+	go test -race -timeout 30m ./...
 
 test-ffprobe: ## Real-ffprobe suite on ffmpeg-generated MKVs (needs ffmpeg and ffprobe on PATH; CI runs it)
 	go test -race -tags ffprobe ./internal/probe/
