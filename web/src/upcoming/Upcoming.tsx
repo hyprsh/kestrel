@@ -3,8 +3,8 @@ import { useMemo, useState } from 'react'
 import { useUpcoming, type UpcomingItem } from '../api/upcoming'
 import { ErrorText } from '../forms'
 import { useListNav } from '../keys'
-import { cx } from '../ui'
-import { dayLabel, UpcomingLine } from './bits'
+import { NavRow } from '../ui'
+import { dayLabel, UpcomingLine, upcomingKey } from './bits'
 
 export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void }) {
   const upcoming = useUpcoming(30)
@@ -32,18 +32,19 @@ export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void })
             <div className="sticky top-0 w-28 shrink-0 self-start px-4 py-2 text-[12px] text-gray-900 tabular">{dayLabel(d.day)}</div>
             <ul aria-label={dayLabel(d.day)} className="min-w-0 flex-1">
               {d.items.map(({ item, index }) => (
-                <li
-                  key={`${item.kind}-${item.title_id}-${item.season ?? ''}-${item.episode ?? ''}-${item.release_type ?? ''}`}
-                  data-nav={`up-${index}`}
-                  aria-current={index === sel ? 'true' : undefined}
-                  onClick={() => {
+                <NavRow
+                  key={upcomingKey(item)}
+                  scope="up"
+                  index={index}
+                  sel={sel}
+                  onSelect={() => {
                     setSel(index)
                     onOpenTitle(item.title_id)
                   }}
-                  className={cx('flex cursor-pointer items-center gap-2 px-3 py-2', index === sel ? 'bg-gray-alpha-200' : 'hover:bg-gray-alpha-100')}
+                  className="flex items-center gap-2 px-3 py-2"
                 >
                   <UpcomingLine item={item} />
-                </li>
+                </NavRow>
               ))}
             </ul>
           </li>

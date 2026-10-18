@@ -8,6 +8,10 @@ export function dayLabel(day: string): string {
   return new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
 }
 
+/** A stable React key for an agenda line. */
+export const upcomingKey = (item: UpcomingItem) =>
+  `${item.kind}-${item.title_id}-${item.season ?? ''}-${item.episode ?? ''}-${item.release_type ?? ''}`
+
 /** One agenda line: an episode airing, or a typed Movie release with when it becomes searchable. */
 export function UpcomingLine({ item }: { item: UpcomingItem }) {
   if (item.kind === 'series') {

@@ -49,6 +49,7 @@ const recent = (over: Partial<Recent> = {}): Recent => ({
   slot: 'hd',
   release_name: 'Paddington.2014.1080p.BluRay.x264-GRP',
   score: 120,
+  score_delta: null,
   files: 1,
   is_upgrade: false,
   imported_at: '2026-10-16T10:00:00Z',

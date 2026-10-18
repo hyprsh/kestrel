@@ -1,12 +1,17 @@
 // Overview, the home screen: Needs attention, the health strip, Downloading now,
 // Coming this week and Recently added.
+import { useState } from 'react'
+import { useAttention } from '../api/attention'
 import { useQueue, useCancelGrab, type QueueItem } from '../api/queue'
+import { useRecent, useUpcoming } from '../api/upcoming'
 import { Button, ErrorText } from '../forms'
 import { slotLabel, type SlotKey } from '../library/bits'
-import { Badge, cx } from '../ui'
+import { useListNav } from '../keys'
+import { Badge, cx, NavRow } from '../ui'
 import { ComingRecent } from './ComingRecent'
 import { HealthStrip } from './HealthStrip'
 import { NeedsAttention } from './NeedsAttention'
+import type { OverviewNav } from './nav'
 
 const phaseLabel: Record<QueueItem['phase'], string> = {
   queued: 'Queued',
@@ -36,9 +41,26 @@ export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen
   const queue = useQueue()
   const cancel = useCancelGrab()
   const items = queue.data ?? []
+  const rows = useAttention().data?.rows ?? []
+  const coming = useUpcoming(6).data ?? []
+  const recentItems = useRecent().data ?? []
+
+  // One selection runs through every section; Enter does what clicking the row would.
+  const [sel, setSel] = useState(0)
+  const enter: (() => void)[] = [
+    ...rows.map((r) => () => {
+      const open = r.actions.find((a) => a.method === 'GET')
+      if (open) onOpen(open.path)
+    }),
+    ...items.map((i) => () => i.title_id != null && onOpenTitle(i.title_id)),
+    ...coming.map((c) => () => onOpenTitle(c.title_id)),
+    ...recentItems.map((r) => () => onOpenTitle(r.title_id)),
+  ]
+  const nav = (base: number): OverviewNav => ({ base, sel, select: setSel })
+  useListNav('ov', enter.length, sel, setSel, (i) => enter[i]?.())
   return (
     <div className="flex-1 overflow-y-auto p-6">
-      <NeedsAttention onOpen={onOpen} />
+      <NeedsAttention onOpen={onOpen} nav={nav(0)} />
       <HealthStrip />
       <section aria-labelledby="downloading-now" className="mx-auto max-w-3xl">
         <h2 id="downloading-now" className="mb-3 text-sm font-medium">
@@ -49,21 +71,21 @@ export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen
           <p className="text-gray-900">Nothing is downloading.</p>
         ) : (
           <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
-            {items.map((i) => (
-              <Row key={i.grab_id} item={i} busy={cancel.isPending} onCancel={(blocklist) => cancel.mutate({ id: i.grab_id, blocklist })} />
+            {items.map((i, n) => (
+              <Row key={i.grab_id} item={i} nav={nav(rows.length)} index={rows.length + n} busy={cancel.isPending} onCancel={(blocklist) => cancel.mutate({ id: i.grab_id, blocklist })} />
             ))}
           </ul>
         )}
       </section>
-      <ComingRecent onOpenTitle={onOpenTitle} />
+      <ComingRecent onOpenTitle={onOpenTitle} nav={nav(rows.length + items.length)} />
     </div>
   )
 }
 
-function Row({ item: i, busy, onCancel }: { item: QueueItem; busy: boolean; onCancel: (blocklist: boolean) => void }) {
+function Row({ item: i, nav, index, busy, onCancel }: { item: QueueItem; nav: OverviewNav; index: number; busy: boolean; onCancel: (blocklist: boolean) => void }) {
   const pct = percent(i)
   return (
-    <li className="flex flex-col gap-2 px-4 py-3">
+    <NavRow scope="ov" index={index} sel={nav.sel} onSelect={() => nav.select(index)} className="flex flex-col gap-2 px-4 py-3">
       <div className="flex items-center gap-2">
         <span className="font-medium">{i.title || 'Deleted Title'}</span>
         {i.year ? <span className="text-gray-900">{i.year}</span> : null}
@@ -104,6 +126,6 @@ function Row({ item: i, busy, onCancel }: { item: QueueItem; busy: boolean; onCa
         )}
         {i.eta != null && <span>{formatEta(i.eta)}</span>}
       </div>
-    </li>
+    </NavRow>
   )
 }

@@ -2457,6 +2457,8 @@ export interface components {
             slot: components["schemas"]["Slot"];
             release_name: string;
             score: number | null;
+            /** @description What an Upgrade gained over the file it replaced; null for a first Import. */
+            score_delta: number | null;
             files: number;
             is_upgrade: boolean;
             /** Format: date-time */

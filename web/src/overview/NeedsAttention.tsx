@@ -4,9 +4,10 @@ import { useState } from 'react'
 import { useAttention, useRunAction, type Attention, type AttentionAction, type AttentionRow } from '../api/attention'
 import { Button, ErrorText } from '../forms'
 import { slotLabel } from '../library/bits'
-import { Badge } from '../ui'
+import { Badge, NavRow } from '../ui'
+import type { OverviewNav } from './nav'
 
-export function NeedsAttention({ onOpen }: { onOpen: (path: string) => void }) {
+export function NeedsAttention({ onOpen, nav }: { onOpen: (path: string) => void; nav: OverviewNav }) {
   const attention = useAttention()
   const rows = attention.data?.rows ?? []
   const longMissing = attention.data?.long_missing
@@ -20,8 +21,8 @@ export function NeedsAttention({ onOpen }: { onOpen: (path: string) => void }) {
       ) : (
         rows.length > 0 && (
           <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
-            {rows.map((r) => (
-              <Row key={r.id} row={r} onOpen={onOpen} />
+            {rows.map((r, i) => (
+              <Row key={r.id} row={r} onOpen={onOpen} nav={nav} index={nav.base + i} />
             ))}
           </ul>
         )
@@ -73,7 +74,7 @@ function LongMissingRow({ group, onOpen }: { group: Attention['long_missing']; o
   )
 }
 
-function Row({ row, onOpen }: { row: AttentionRow; onOpen: (path: string) => void }) {
+function Row({ row, onOpen, nav, index }: { row: AttentionRow; onOpen: (path: string) => void; nav: OverviewNav; index: number }) {
   const run = useRunAction()
   const [result, setResult] = useState<string | null>(null)
 
@@ -85,7 +86,7 @@ function Row({ row, onOpen }: { row: AttentionRow; onOpen: (path: string) => voi
   }
 
   return (
-    <li className="flex flex-col gap-2 px-4 py-3">
+    <NavRow scope="ov" index={index} sel={nav.sel} onSelect={() => nav.select(index)} className="flex flex-col gap-2 px-4 py-3">
       <div className="flex items-start gap-2">
         <Badge tone={row.severity === 'blocking' ? 'red' : 'amber'}>{row.severity === 'blocking' ? 'Blocking' : 'Warning'}</Badge>
         <span className="min-w-0 flex-1">{row.message}</span>
@@ -101,6 +102,6 @@ function Row({ row, onOpen }: { row: AttentionRow; onOpen: (path: string) => voi
       )}
       {run.isError && <ErrorText>{run.error.message}</ErrorText>}
       {result && <p className="text-[12px] text-gray-900">{result}</p>}
-    </li>
+    </NavRow>
   )
 }
