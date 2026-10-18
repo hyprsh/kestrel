@@ -46,6 +46,23 @@ func dayOf(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
 }
 
+// UpcomingDays is how far past `from` the agenda looks when no end is asked for.
+const UpcomingDays = 30
+
+// UpcomingWindow is the agenda's days: from (today in UTC if not given) to
+// `to` (UpcomingDays after from if not given).
+func UpcomingWindow(now time.Time, from, to *time.Time) (time.Time, time.Time) {
+	start := dayOf(now)
+	if from != nil {
+		start = *from
+	}
+	end := start.AddDate(0, 0, UpcomingDays)
+	if to != nil {
+		end = *to
+	}
+	return start, end
+}
+
 // Upcoming is the agenda for the days from..to, both included (Settled 18):
 // monitored episodes airing then, and, for each monitored Movie with a Version
 // that holds no file, its theatrical, digital and physical dates in the

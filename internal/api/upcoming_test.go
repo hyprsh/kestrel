@@ -57,11 +57,11 @@ func TestUpcomingListsMonitoredEpisodesAndTypedMovieDatesInTheWindow(t *testing.
 		4: "2026-11-05T00:00:00Z", // digital, in the window
 		5: "2026-12-25T00:00:00Z", // physical, past it
 	})
-	show := decode[seriesTitleJSON](t, w.valid("POST", "/titles", addBreakingBad+`,"series_monitor":"all"}`))
-	w.exec(t, `UPDATE episodes SET air_date = '2026-01-01' WHERE title_id = ?`, show.ID)
-	w.exec(t, `UPDATE episodes SET air_date = '2026-10-18' WHERE title_id = ? AND season = 1 AND number = 1`, show.ID)
-	w.exec(t, `UPDATE episodes SET air_date = '2026-10-19', monitored = 0 WHERE title_id = ? AND season = 1 AND number = 2`, show.ID)
-	w.exec(t, `UPDATE episodes SET air_date = '2026-11-17' WHERE title_id = ? AND season = 1 AND number = 3`, show.ID)
+	series := decode[seriesTitleJSON](t, w.valid("POST", "/titles", addBreakingBad+`,"series_monitor":"all"}`))
+	w.exec(t, `UPDATE episodes SET air_date = '2026-01-01' WHERE title_id = ?`, series.ID)
+	w.exec(t, `UPDATE episodes SET air_date = '2026-10-18' WHERE title_id = ? AND season = 1 AND number = 1`, series.ID)
+	w.exec(t, `UPDATE episodes SET air_date = '2026-10-19', monitored = 0 WHERE title_id = ? AND season = 1 AND number = 2`, series.ID)
+	w.exec(t, `UPDATE episodes SET air_date = '2026-11-17' WHERE title_id = ? AND season = 1 AND number = 3`, series.ID)
 
 	got := w.upcoming(t, "")
 	if got.From != "2026-10-17" || got.To != "2026-11-16" {

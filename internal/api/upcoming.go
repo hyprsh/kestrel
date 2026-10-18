@@ -10,9 +10,6 @@ import (
 	"github.com/hyprsh/kestrel/internal/library"
 )
 
-// upcomingDays is how far past `from` the agenda looks when `to` is not given.
-const upcomingDays = 30
-
 // recentImports is how many Imports "Recently added" shows.
 const recentImports = 10
 
@@ -22,15 +19,14 @@ func (s *server) ListUpcoming(ctx context.Context, r oapi.ListUpcomingRequestObj
 	if err != nil {
 		return nil, err
 	}
-	n := view.Now.UTC()
-	from := time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.UTC)
+	var asked struct{ from, to *time.Time }
 	if r.Params.From != nil {
-		from = r.Params.From.Time
+		asked.from = &r.Params.From.Time
 	}
-	to := from.AddDate(0, 0, upcomingDays)
 	if r.Params.To != nil {
-		to = r.Params.To.Time
+		asked.to = &r.Params.To.Time
 	}
+	from, to := library.UpcomingWindow(view.Now, asked.from, asked.to)
 	if to.Before(from) {
 		return nil, invalid("to", "invalid", "to must not be before from")
 	}
