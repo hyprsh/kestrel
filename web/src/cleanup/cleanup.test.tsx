@@ -6,6 +6,7 @@ import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { server } from '../test/server'
+import { fakeLibrary, row } from '../test/library'
 
 type Preview = components['schemas']['CleanupPreview']
 type Cat = components['schemas']['CleanupPreviewCategory']
@@ -52,5 +53,28 @@ describe('Clean up', () => {
 
     expect(await screen.findByRole('status')).toHaveTextContent('Deleted 1 file')
     expect(runs).toEqual([{ preview_id: 'p1', categories: ['junk', 'samples'], exclude: ['/data/media/movies/Paddington (2014)/b.txt'] }])
+  })
+
+  it('opens from the Library header for every Title and from a Title for that Title alone', async () => {
+    const previews: unknown[] = []
+    fakeLibrary([row(7, 'Paddington', 'Paddington'), row(8, 'Heat', 'Heat', { year: 1995 })])
+    server.use(
+      http.post('/cleanup/preview', async ({ request, response }) => {
+        previews.push(await request.clone().json())
+        return response(200).json(preview)
+      }),
+    )
+    const user = userEvent.setup()
+    render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
+    await user.click(await screen.findByRole('button', { name: 'Library' }))
+
+    await user.click(await screen.findByRole('button', { name: 'Clean up Unmanaged files' }))
+    await user.click(await screen.findByRole('button', { name: /look for unmanaged files/i }))
+    expect(previews).toEqual([{}])
+
+    await user.click(screen.getByRole('button', { name: 'Library' }))
+    await user.click(await screen.findByRole('button', { name: 'Clean up this Title' }))
+    await user.click(await screen.findByRole('button', { name: /look for unmanaged files/i }))
+    expect(previews).toEqual([{}, { title_id: 7 }])
   })
 })

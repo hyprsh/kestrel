@@ -9,6 +9,7 @@ import { useAuth, useLogout, useSystem } from '../api/queries'
 import { CommandMenu, type MenuAction, type MenuMode } from '../command/CommandMenu'
 import { Adoption } from '../adoption/Adoption'
 import { Cleanup } from '../cleanup/Cleanup'
+import { CleanupLauncher } from '../cleanup/launch'
 import { MOD } from '../keys'
 import { useSearchAllWanted } from '../api/wanted'
 import { Library, type Preset } from '../library/Library'
@@ -41,6 +42,7 @@ const themeIcon: Record<Theme, ReactNode> = {
 export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const [screen, setScreen] = useState('overview')
   const [libraryId, setLibraryId] = useState<number | null>(null)
+  const [cleanupTitle, setCleanupTitle] = useState<number | undefined>(undefined)
   const [libraryPreset, setLibraryPreset] = useState<{ preset: Preset; n: number } | null>(null)
   const [menu, setMenu] = useState<{ mode: MenuMode } | null>(null)
   const { theme, cycle } = useTheme()
@@ -64,6 +66,10 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  const openCleanup = useCallback((titleId?: number) => {
+    setCleanupTitle(titleId)
+    setScreen('cleanup')
+  }, [])
   const canLogout = auth.data?.state === 'ok' && auth.data.me.method === 'session'
   const searchAll = useSearchAllWanted()
   const { mutate: searchAllWanted } = searchAll
@@ -73,10 +79,10 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
       { id: 'theme', label: 'Switch theme', keywords: 'dark light mode', run: cycle },
       { id: 'setup', label: 'Run setup again', keywords: 'wizard', run: onRunSetup },
       { id: 'adopt', label: 'Scan for unmanaged files', keywords: 'adopt adoption existing library import', run: () => setScreen('adoption') },
-      { id: 'cleanup', label: 'Clean up Unmanaged files', keywords: 'junk samples subtitles delete tidy', run: () => setScreen('cleanup') },
+      { id: 'cleanup', label: 'Clean up Unmanaged files', keywords: 'junk samples subtitles delete tidy', run: () => openCleanup() },
       ...(canLogout ? [{ id: 'logout', label: 'Log out', keywords: 'sign out', run: () => logout.mutate(undefined) }] : []),
     ],
-    [cycle, onRunSetup, canLogout, logout, searchAllWanted],
+    [cycle, onRunSetup, canLogout, logout, searchAllWanted, openCleanup],
   )
   const places = useMemo(() => [...screens, about].map((s) => ({ id: s.key, label: s.label })), [])
   const closeMenu = useCallback(() => setMenu(null), [])
@@ -101,6 +107,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   }, [])
 
   return (
+    <CleanupLauncher.Provider value={openCleanup}>
     <div className="flex h-full bg-background-100 text-[13px] text-gray-1000">
       <Rail screen={screen} onSelect={select} theme={theme} onTheme={cycle} onAdd={() => setMenu({ mode: 'add' })} />
       <div className="flex min-w-0 flex-1 flex-col">
@@ -111,7 +118,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           ) : screen === 'adoption' ? (
             <Adoption />
           ) : screen === 'cleanup' ? (
-            <Cleanup />
+            <Cleanup key={cleanupTitle ?? 'all'} titleId={cleanupTitle} />
           ) : screen === 'library' ? (
             <Library
               key={libraryPreset?.n ?? 0}
@@ -133,6 +140,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
       </div>
       {menu && <CommandMenu initialMode={menu.mode} actions={actions} places={places} onClose={closeMenu} onGo={select} onOpenTitle={openTitle} />}
     </div>
+    </CleanupLauncher.Provider>
   )
 }
 

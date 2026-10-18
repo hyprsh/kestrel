@@ -1,6 +1,7 @@
 import { forwardRef } from 'react'
 import { apiBaseUrl } from '../api/client'
 import { useProfiles, useTitle, type Profile, type TitleDetail as Detail, type TitleRow } from '../api/queries'
+import { useOpenCleanup } from '../cleanup/launch'
 import { Button } from '../forms'
 import { cx } from '../ui'
 import { slotKeys, slotLabel, StatusBadge, type SlotKey } from './bits'
@@ -49,6 +50,7 @@ export type ManualSearchTarget = { versionId: number; slot: SlotKey; profileName
 
 function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (search: ManualSearchTarget) => void }) {
   const profiles = useProfiles()
+  const openCleanup = useOpenCleanup()
   const names = new Map((profiles.data ?? []).map((p) => [p.key, p.name]))
   const meta = [
     title.year,
@@ -87,6 +89,11 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
       </div>
 
       {title.kind === 'series' && <SeriesSection title={title} />}
+      <div className="mt-6 flex items-center gap-3">
+        <Button variant="secondary" onClick={() => openCleanup(title.id)}>
+          Clean up this Title
+        </Button>
+      </div>
       <RemoveTitle titleId={title.id} />
     </div>
   )

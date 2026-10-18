@@ -12,6 +12,7 @@ import {
   type AdoptionRow,
 } from '../api/adoption'
 import { ApiError, useLookup } from '../api/queries'
+import { useOpenCleanup } from '../cleanup/launch'
 import { Button, ErrorText, TextInput } from '../forms'
 import { slotLabel } from '../library/bits'
 import { Badge } from '../ui'
@@ -75,6 +76,7 @@ function inFilter(r: AdoptionRow, f: Filter) {
 
 export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
   const plan = useAdoption()
+  const openCleanup = useOpenCleanup()
   const scan = useScan()
   const commit = useCommit()
   const discard = useDiscard()
@@ -103,6 +105,11 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
               <div role="status" className="rounded-md border border-gray-alpha-400 p-3">
                 Adopted {p.result.adopted} {p.result.adopted === 1 ? 'Title' : 'Titles'}
                 {p.result.failed > 0 && `, ${p.result.failed} could not be adopted (see the Log)`}.
+                {p.result.adopted > 0 && (
+                  <Button variant="secondary" onClick={() => openCleanup()} className="ml-3">
+                    Clean up adopted folders
+                  </Button>
+                )}
               </div>
             )}
             <div>

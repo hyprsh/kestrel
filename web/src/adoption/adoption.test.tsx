@@ -180,6 +180,28 @@ describe('Adoption review', () => {
     expect(state.commits).toEqual([{ revision: state.revision }])
   })
 
+  it('offers Clean up for the adopted folders once Titles were adopted', async () => {
+    fakeAdoption()
+    server.use(
+      http.get('/adoption', ({ response }) =>
+        response(200).json({
+          state: 'idle',
+          progress: { done: 0, total: 0 },
+          summary: { matched: 0, needs_choice: 0, skipped: 0, duplicate: 0, replacement: 0 },
+          revision: 3,
+          error: null,
+          scanned_at: null,
+          result: { adopted: 2, failed: 0 },
+        }),
+      ),
+    )
+    const user = await openAdoption()
+
+    await user.click(await screen.findByRole('button', { name: 'Clean up adopted folders' }))
+
+    expect(await screen.findByRole('button', { name: /look for unmanaged files/i })).toBeInTheDocument()
+  })
+
   it('unticking a row leaves it out of the count', async () => {
     fakeAdoption()
     const user = await openAdoption()

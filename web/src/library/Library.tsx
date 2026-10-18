@@ -1,6 +1,7 @@
-import { Plus } from 'lucide-react'
+import { Eraser, Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTitles, type TitleRow } from '../api/queries'
+import { useOpenCleanup } from '../cleanup/launch'
 import { Button } from '../forms'
 import { useKey, useListNav } from '../keys'
 import { cx, Kbd } from '../ui'
@@ -48,6 +49,7 @@ export function Library({
   preset?: Preset
 }) {
   const titles = useTitles()
+  const openCleanup = useOpenCleanup()
   const [text, setText] = useState('')
   const [kind, setKind] = useState<Kind>('all')
   const [wanted, setWanted] = useState(preset !== undefined)
@@ -96,6 +98,10 @@ export function Library({
     <div className="flex min-h-0 flex-1">
       <aside className="flex w-72 shrink-0 flex-col border-r border-gray-alpha-400">
         <div className="flex flex-col gap-2 border-b border-gray-alpha-400 p-3">
+          <Button variant="secondary" onClick={() => openCleanup()} className="self-start">
+            <Eraser className="mr-1 size-4" />
+            Clean up Unmanaged files
+          </Button>
           <div className="relative">
             <input
               ref={filterRef}
