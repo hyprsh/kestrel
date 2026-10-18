@@ -49,15 +49,7 @@ type env struct {
 	holder *scoring.Holder
 	src    *fakeSource
 	health *health.Service
-	// rescored records the snapshot each re-score ran under and which one was
-	// active at that moment.
-	rescored []rescoreCall
-	failWith error
-	st       *store.Store
-}
-
-type rescoreCall struct {
-	under, active *scoring.Snapshot
+	st     *store.Store
 }
 
 func newEnv(t *testing.T) *env {
@@ -80,11 +72,6 @@ func newEnv(t *testing.T) *env {
 func (e *env) newService() *trashsync.Service {
 	return trashsync.New(trashsync.Deps{
 		Holder: e.holder, Settings: settings.New(e.st), Source: e.src, Health: e.health, Clock: func() time.Time { return now },
-		Titles: func(context.Context) ([]int64, error) { return []int64{1}, nil },
-		Rescore: func(_ context.Context, snap *scoring.Snapshot, _ []int64) error {
-			e.rescored = append(e.rescored, rescoreCall{under: snap, active: e.holder.Current()})
-			return e.failWith
-		},
 	})
 }
 
@@ -102,25 +89,35 @@ func (e *env) warnings(t *testing.T) []health.Row {
 	return rows
 }
 
-func TestValidUpdateRescoresBeforeItBecomesActive(t *testing.T) {
+// update is what jobs.TrashUpdates does around a re-score that succeeds.
+func (e *env) update(t *testing.T) *trashsync.Candidate {
+	t.Helper()
+	ctx := context.Background()
+	c, err := e.svc.Fetch(ctx)
+	if err != nil || c == nil {
+		t.Fatalf("Fetch = %v, %v", c, err)
+	}
+	if err := e.holder.Exclusive(func() error { e.svc.Activate(ctx, c); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
+
+func TestFetchHandsBackTheNewSnapshotWithoutActivatingIt(t *testing.T) {
 	e := newEnv(t)
 	e.offer("new", now.Add(-time.Hour))
-	res, err := e.svc.Update(context.Background())
-	if err != nil || !res.Changed {
-		t.Fatalf("Update = %+v, %v", res, err)
+
+	c, err := e.svc.Fetch(context.Background())
+
+	if err != nil || c == nil || c.Commit() != "new" || c.Snapshot.Commit() != "new" {
+		t.Fatalf("Fetch = %+v, %v", c, err)
 	}
-	if len(e.rescored) != 1 {
-		t.Fatalf("re-scored %d times, want once", len(e.rescored))
+	if e.holder.Current().Commit() != "old" {
+		t.Errorf("active = %q before Activate", e.holder.Current().Commit())
 	}
-	c := e.rescored[0]
-	if c.under.Commit() != "new" || c.active.Commit() != "old" {
-		t.Errorf("re-score ran under %q while %q was active; want new under old", c.under.Commit(), c.active.Commit())
-	}
-	if e.holder.Current().Commit() != "new" {
-		t.Errorf("active = %q after the update", e.holder.Current().Commit())
-	}
-	if len(e.warnings(t)) != 0 {
-		t.Errorf("warnings after a good update: %+v", e.warnings(t))
+	e.holder.Exclusive(func() error { e.svc.Activate(context.Background(), c); return nil })
+	if e.holder.Current().Commit() != "new" || len(e.warnings(t)) != 0 {
+		t.Errorf("active = %q, warnings %+v after Activate", e.holder.Current().Commit(), e.warnings(t))
 	}
 }
 
@@ -129,11 +126,11 @@ func TestInvalidUpdateChangesNothingAndWarns(t *testing.T) {
 	before := e.holder.Current()
 	e.src.ref = trashsync.Ref{Commit: "broken", CommittedAt: now}
 	e.src.files = fstest.MapFS{"COMMIT": {Data: []byte("broken")}} // no app directories
-	if _, err := e.svc.Update(context.Background()); err == nil {
-		t.Fatal("a broken snapshot was accepted")
+	if _, err := e.svc.Fetch(context.Background()); !errors.Is(err, trashsync.ErrRejected) {
+		t.Fatalf("a broken snapshot was accepted: %v", err)
 	}
-	if e.holder.Current() != before || len(e.rescored) != 0 {
-		t.Error("a rejected update changed the active snapshot or re-scored files")
+	if e.holder.Current() != before {
+		t.Error("a rejected update changed the active snapshot")
 	}
 	rows := e.warnings(t)
 	if len(rows) != 1 || rows[0].Severity != health.Warning || rows[0].Kind != health.KindTrashRejected {
@@ -141,26 +138,24 @@ func TestInvalidUpdateChangesNothingAndWarns(t *testing.T) {
 	}
 }
 
-func TestFailedRescoreRejectsTheWholeUpdate(t *testing.T) {
+func TestARejectedCandidateRaisesTheWarningUntilTheNextGoodUpdate(t *testing.T) {
 	e := newEnv(t)
-	before := e.holder.Current()
+	ctx := context.Background()
 	e.offer("new", now)
-	e.failWith = errors.New("profile german-hd no longer resolves")
-	if _, err := e.svc.Update(context.Background()); err == nil {
-		t.Fatal("update succeeded though re-scoring failed")
-	}
-	if e.holder.Current() != before {
-		t.Error("the new snapshot became active")
-	}
-	if len(e.warnings(t)) != 1 {
-		t.Error("no Warning raised")
-	}
-	// The next good update clears the Warning.
-	e.failWith = nil
-	e.offer("newer", now.Add(time.Minute))
-	if _, err := e.svc.Update(context.Background()); err != nil {
+	c, err := e.svc.Fetch(ctx)
+	if err != nil {
 		t.Fatal(err)
 	}
+	if err := e.svc.Reject(ctx, c, errors.New("profile german-hd no longer resolves")); !errors.Is(err, trashsync.ErrRejected) {
+		t.Fatalf("Reject = %v", err)
+	}
+	if e.holder.Current().Commit() != "old" || len(e.warnings(t)) != 1 {
+		t.Error("the snapshot changed or no Warning was raised")
+	}
+
+	e.offer("newer", now.Add(time.Minute))
+	e.update(t)
+
 	if len(e.warnings(t)) != 0 {
 		t.Error("the Warning stayed after a good update")
 	}
@@ -169,30 +164,23 @@ func TestFailedRescoreRejectsTheWholeUpdate(t *testing.T) {
 func TestSameCommitIsNotDownloadedAgain(t *testing.T) {
 	e := newEnv(t)
 	e.offer("old", now.AddDate(0, 0, -10))
-	res, err := e.svc.Update(context.Background())
-	if err != nil || res.Changed || e.src.calls != 0 {
-		t.Fatalf("res = %+v, err = %v, downloads = %d", res, err, e.src.calls)
+	c, err := e.svc.Fetch(context.Background())
+	if err != nil || c != nil || e.src.calls != 0 {
+		t.Fatalf("c = %+v, err = %v, downloads = %d", c, err, e.src.calls)
 	}
 }
 
-func TestDailyCheckFollowsTheSwitch(t *testing.T) {
+func TestAutoUpdateIsOnUnlessSwitchedOff(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
-	e.offer("new", now)
 	if on, err := e.svc.AutoUpdate(ctx); err != nil || !on {
 		t.Fatalf("auto update default = %v, %v; want on", on, err)
 	}
 	if err := e.svc.SetAutoUpdate(ctx, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := e.svc.Check(ctx); err != nil || e.holder.Current().Commit() != "old" {
-		t.Fatalf("Check with the switch off changed the snapshot (%v)", err)
-	}
-	if err := e.svc.SetAutoUpdate(ctx, true); err != nil {
-		t.Fatal(err)
-	}
-	if err := e.svc.Check(ctx); err != nil || e.holder.Current().Commit() != "new" {
-		t.Fatalf("Check with the switch on: %v, active %q", err, e.holder.Current().Commit())
+	if on, err := e.svc.AutoUpdate(ctx); err != nil || on {
+		t.Fatalf("auto update after switching off = %v, %v", on, err)
 	}
 }
 
@@ -200,13 +188,11 @@ func TestStartupTakesTheNewerOfDownloadedAndEmbedded(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	e.offer("downloaded", now.Add(-24*time.Hour))
-	if _, err := e.svc.Update(ctx); err != nil {
-		t.Fatal(err)
-	}
+	e.update(t)
 	// A restart on a binary whose embedded snapshot is older: the download wins.
 	e.holder = scoring.NewHolder(mustLoad(t, bundle("embedded-old", now.AddDate(0, 0, -30))))
 	svc := e.newService()
-	if err := svc.Start(ctx); err != nil {
+	if err := svc.Select(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if got := e.holder.Current().Commit(); got != "downloaded" {
@@ -215,7 +201,7 @@ func TestStartupTakesTheNewerOfDownloadedAndEmbedded(t *testing.T) {
 	// A restart on a newer binary: the embedded one wins.
 	e.holder = scoring.NewHolder(mustLoad(t, bundle("embedded-new", now)))
 	svc = e.newService()
-	if err := svc.Start(ctx); err != nil {
+	if err := svc.Select(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if got := e.holder.Current().Commit(); got != "embedded-new" {
@@ -227,45 +213,35 @@ func TestStartupTakesTheNewerOfDownloadedAndEmbedded(t *testing.T) {
 	}
 }
 
-func TestStartupRescoresWhenTheActiveSnapshotIsNotTheOneTheFilesWereScoredUnder(t *testing.T) {
+func TestFilesAreStaleWhenTheActiveSnapshotIsNotTheOneTheyWereScoredUnder(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
-	if err := e.svc.Start(ctx); err != nil {
-		t.Fatal(err)
+	if stale, err := e.svc.Stale(ctx); err != nil || !stale {
+		t.Fatalf("Stale before any scoring = %v, %v", stale, err)
 	}
-	e.rescored = nil
-
-	// Same snapshot as last time: nothing to redo.
-	if err := e.newService().Start(ctx); err != nil || len(e.rescored) != 0 {
-		t.Fatalf("restart on the same snapshot: %v, %d re-scores", err, len(e.rescored))
+	e.svc.NoteScored(ctx, "old")
+	if stale, err := e.newService().Stale(ctx); err != nil || stale {
+		t.Fatalf("Stale on the same snapshot = %v, %v", stale, err)
 	}
-
 	// A new binary ships a newer embedded snapshot: the stored Scores are stale.
 	e.holder = scoring.NewHolder(mustLoad(t, bundle("embedded-new", now)))
-	if err := e.newService().Start(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if len(e.rescored) != 1 || e.rescored[0].under.Commit() != "embedded-new" {
-		t.Fatalf("re-scores = %+v, want one under embedded-new", e.rescored)
-	}
-	e.rescored = nil
-	if err := e.newService().Start(ctx); err != nil || len(e.rescored) != 0 {
-		t.Errorf("the next restart re-scored again: %v, %d", err, len(e.rescored))
+	if stale, err := e.newService().Stale(ctx); err != nil || !stale {
+		t.Fatalf("Stale under a newer snapshot = %v, %v", stale, err)
 	}
 }
 
-func TestADownloadedSnapshotIsNotRescoredAgainAtStartup(t *testing.T) {
+func TestADownloadedSnapshotIsNotStaleAtStartup(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	e.offer("downloaded", now.Add(-24*time.Hour))
-	if _, err := e.svc.Update(ctx); err != nil {
+	e.update(t)
+	e.holder = scoring.NewHolder(mustLoad(t, bundle("embedded-old", now.AddDate(0, 0, -30))))
+	svc := e.newService()
+	if err := svc.Select(ctx); err != nil {
 		t.Fatal(err)
 	}
-	e.rescored = nil
-	e.holder = scoring.NewHolder(mustLoad(t, bundle("embedded-old", now.AddDate(0, 0, -30))))
-
-	if err := e.newService().Start(ctx); err != nil || len(e.rescored) != 0 {
-		t.Fatalf("Start: %v, %d re-scores; the files were scored under the download already", err, len(e.rescored))
+	if stale, err := svc.Stale(ctx); err != nil || stale {
+		t.Fatalf("Stale = %v, %v; the files were scored under the download already", stale, err)
 	}
 }
 
@@ -276,13 +252,4 @@ func mustLoad(t *testing.T, f fs.FS) *scoring.Snapshot {
 		t.Fatal(err)
 	}
 	return s
-}
-
-func TestPrimaryLanguageChangeRescoresEverything(t *testing.T) {
-	e := newEnv(t)
-	called := false
-	err := e.svc.ChangeLanguage(context.Background(), func() error { called = true; return nil })
-	if err != nil || !called || len(e.rescored) != 1 || e.rescored[0].under != e.holder.Current() {
-		t.Fatalf("err = %v, called = %v, rescored = %d", err, called, len(e.rescored))
-	}
 }

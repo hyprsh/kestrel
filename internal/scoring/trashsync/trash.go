@@ -4,6 +4,10 @@
 // stored file must be re-scored under it in the same step, before it becomes
 // the active snapshot. Any failure leaves everything as it was and raises the
 // "TRaSH update rejected" Warning.
+//
+// trashsync only fetches, keeps and activates snapshots. It never calls the
+// modules that score files: the jobs module drives an update, re-scoring
+// through imports between Fetch and Activate (see jobs.TrashUpdates).
 package trashsync
 
 import (
@@ -14,7 +18,6 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
-	"sync"
 	"testing/fstest"
 	"time"
 
@@ -67,21 +70,10 @@ type Deps struct {
 	Health   Health
 	Clock    func() time.Time
 	Logger   *slog.Logger
-	// Enabled, when set, gates the daily check: with "Check GitHub for updates"
-	// off nothing is asked of GitHub, except by a manual Update.
-	Enabled func(ctx context.Context) bool
-	// Titles lists every Title id, the files of which are re-scored.
-	Titles func(ctx context.Context) ([]int64, error)
-	// Rescore re-scores every file of the Titles under snap and stores the result
-	// in one write, or changes nothing and fails.
-	Rescore func(ctx context.Context, snap *scoring.Snapshot, titleIDs []int64) error
 }
 
-// Service is the TRaSH updater.
-type Service struct {
-	d  Deps
-	mu sync.Mutex // one update at a time
-}
+// Service keeps the TRaSH snapshots.
+type Service struct{ d Deps }
 
 // New returns a Service.
 func New(d Deps) *Service {
@@ -163,19 +155,11 @@ type stored struct {
 	Files       map[string]string `json:"files"`
 }
 
-// Start makes the newer of the downloaded snapshot (if any was kept) and the
+// Select makes the newer of the downloaded snapshot (if any was kept) and the
 // active, embedded one the active snapshot. A kept snapshot that no longer
-// loads is ignored with a log line. If the stored files were scored under
-// another snapshot (a new binary embeds a newer one), they are re-scored under
-// the active one before anything decides on them.
-func (s *Service) Start(ctx context.Context) error {
-	if err := s.chooseSnapshot(ctx); err != nil {
-		return err
-	}
-	return s.rescoreIfStale(ctx)
-}
-
-func (s *Service) chooseSnapshot(ctx context.Context) error {
+// loads is ignored with a log line. Call it before anything decides on Scores,
+// then Stale to see whether the stored files need re-scoring.
+func (s *Service) Select(ctx context.Context) error {
 	raw, ok, err := s.d.Settings.Get(ctx, snapshotKey)
 	if err != nil || !ok {
 		return err
@@ -196,34 +180,23 @@ func (s *Service) chooseSnapshot(ctx context.Context) error {
 	return s.d.Holder.Exclusive(func() error { s.d.Holder.Set(snap); return nil })
 }
 
-func (s *Service) rescoreIfStale(ctx context.Context) error {
-	active := s.d.Holder.Current()
+// Stale reports whether the stored files were scored under another snapshot
+// than the active one (a new binary embeds a newer one): they must be
+// re-scored, and NoteScored called after.
+func (s *Service) Stale(ctx context.Context) (bool, error) {
 	raw, ok, err := s.d.Settings.Get(ctx, scoredKey)
 	if err != nil {
-		return err
+		return false, err
 	}
 	var scored string
 	if ok {
 		_ = json.Unmarshal(raw, &scored)
 	}
-	if scored == active.Commit() {
-		return nil
-	}
-	ids, err := s.d.Titles(ctx)
-	if err != nil {
-		return err
-	}
-	err = s.d.Holder.Exclusive(func() error { return s.d.Rescore(ctx, active, ids) })
-	if err != nil {
-		s.d.Logger.Warn("re-scoring under the active TRaSH snapshot failed", "commit", short(active.Commit()), "err", err)
-		return nil
-	}
-	s.noteScored(ctx, active.Commit())
-	return nil
+	return scored != s.d.Holder.Current().Commit(), nil
 }
 
-// noteScored remembers which snapshot the stored files are scored under.
-func (s *Service) noteScored(ctx context.Context, commit string) {
+// NoteScored remembers which snapshot the stored files are scored under.
+func (s *Service) NoteScored(ctx context.Context, commit string) {
 	raw, _ := json.Marshal(commit)
 	if err := s.d.Settings.Put(ctx, scoredKey, raw); err != nil {
 		s.d.Logger.Warn("recording the TRaSH snapshot the files are scored under failed", "err", err)
@@ -237,84 +210,58 @@ type Result struct {
 	Commit  string
 }
 
-// Check is the daily pass: Update, if the switch is on.
-func (s *Service) Check(ctx context.Context) error {
-	if s.d.Enabled != nil && !s.d.Enabled(ctx) {
-		return nil
-	}
-	on, err := s.AutoUpdate(ctx)
-	if err != nil || !on {
-		return err
-	}
-	_, err = s.Update(ctx)
-	return err
+// Candidate is a downloaded snapshot that loads and is not active yet.
+type Candidate struct {
+	// Snapshot is what the stored files must be re-scored under.
+	Snapshot *scoring.Snapshot
+	ref      Ref
+	files    fs.FS
 }
 
-// Update fetches the newest TRaSH snapshot and, if it is a different commit,
-// loads it. An unreachable TRaSH is an error but not a rejection. A snapshot
-// that does not load, or under which a stored file cannot be re-scored, is
-// rejected whole: nothing changes and the Warning is raised.
-func (s *Service) Update(ctx context.Context) (Result, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+// Commit is the TRaSH commit of the snapshot.
+func (c *Candidate) Commit() string { return c.ref.Commit }
 
+// Fetch asks for the newest TRaSH snapshot and returns it unless it is the
+// active commit already (then nil). An unreachable TRaSH is an error but not a
+// rejection; a snapshot that does not load is rejected: nothing changes and the
+// Warning is raised. The caller re-scores every stored file under
+// Candidate.Snapshot inside scoring.Holder.Exclusive and then calls Activate,
+// or Reject if that fails.
+func (s *Service) Fetch(ctx context.Context) (*Candidate, error) {
 	if s.d.Source == nil {
-		return Result{}, fmt.Errorf("%w: no source is configured", ErrUnreachable)
+		return nil, fmt.Errorf("%w: no source is configured", ErrUnreachable)
 	}
 	ref, err := s.d.Source.Latest(ctx)
 	if err != nil {
-		return Result{}, fmt.Errorf("%w: asking for the latest commit: %v", ErrUnreachable, err)
+		return nil, fmt.Errorf("%w: asking for the latest commit: %v", ErrUnreachable, err)
 	}
 	s.noteCheck(ctx)
 	if ref.Commit == s.d.Holder.Current().Commit() {
 		s.clearRejected(ctx)
-		return Result{Commit: ref.Commit}, nil
+		return nil, nil
 	}
 	files, err := s.d.Source.Download(ctx, ref)
 	if err != nil {
-		return Result{}, fmt.Errorf("%w: downloading %s: %v", ErrUnreachable, short(ref.Commit), err)
+		return nil, fmt.Errorf("%w: downloading %s: %v", ErrUnreachable, short(ref.Commit), err)
 	}
 	snap, err := scoring.LoadSnapshot(files)
 	if err != nil {
-		return Result{}, s.reject(ctx, ref, err)
+		return nil, s.Reject(ctx, &Candidate{ref: ref}, err)
 	}
-	ids, err := s.d.Titles(ctx)
-	if err != nil {
-		return Result{}, err
-	}
-	err = s.d.Holder.Exclusive(func() error {
-		if err := s.d.Rescore(ctx, snap, ids); err != nil {
-			return err
-		}
-		s.d.Holder.Set(snap)
-		return nil
-	})
-	if err != nil {
-		return Result{}, s.reject(ctx, ref, err)
-	}
-	s.noteScored(ctx, ref.Commit)
-	if err := s.keep(ctx, files, ref); err != nil {
+	return &Candidate{Snapshot: snap, ref: ref, files: files}, nil
+}
+
+// Activate makes the candidate the active snapshot and keeps it for restarts.
+// Call it inside scoring.Holder.Exclusive, after every stored file was
+// re-scored under it.
+func (s *Service) Activate(ctx context.Context, c *Candidate) {
+	s.d.Holder.Set(c.Snapshot)
+	s.NoteScored(ctx, c.ref.Commit)
+	if err := s.keep(ctx, c.files, c.ref); err != nil {
 		s.d.Logger.Error("keeping the TRaSH snapshot failed; it is active until restart", "err", err)
 	}
 	s.clearRejected(ctx)
-	s.d.Logger.Info("TRaSH updated", "commit", short(ref.Commit))
-	return Result{Changed: true, Commit: ref.Commit}, nil
-}
-
-// ChangeLanguage runs change, which saves a new Primary Language, and then
-// re-scores every file under the active snapshot, all with no decision in
-// flight. Nothing is renamed or searched.
-func (s *Service) ChangeLanguage(ctx context.Context, change func() error) error {
-	return s.d.Holder.Exclusive(func() error {
-		if err := change(); err != nil {
-			return err
-		}
-		ids, err := s.d.Titles(ctx)
-		if err != nil {
-			return err
-		}
-		return s.d.Rescore(ctx, s.d.Holder.Current(), ids)
-	})
+	s.d.Logger.Info("TRaSH updated", "commit", short(c.ref.Commit))
 }
 
 func (s *Service) noteCheck(ctx context.Context) {
@@ -328,7 +275,10 @@ func (s *Service) noteCheck(ctx context.Context) {
 	}
 }
 
-func (s *Service) reject(ctx context.Context, ref Ref, cause error) error {
+// Reject refuses the candidate whole: it returns ErrRejected, raises the
+// "TRaSH update rejected" Warning and leaves everything as it was.
+func (s *Service) Reject(ctx context.Context, c *Candidate, cause error) error {
+	ref := c.ref
 	err := fmt.Errorf("%w: update to %s: %v", ErrRejected, short(ref.Commit), cause)
 	if s.d.Health != nil {
 		if herr := s.d.Health.Raise(ctx, health.Issue{

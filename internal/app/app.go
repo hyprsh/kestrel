@@ -196,18 +196,12 @@ func New(opts Options) *App {
 	var upd *updates.Service
 	trash := trashsync.New(trashsync.Deps{
 		Holder: live, Settings: appSettings, Source: opts.TrashSource, Health: healthSvc, Clock: opts.Clock, Logger: opts.Logger,
-		Enabled: func(ctx context.Context) bool { return upd.Enabled(ctx) },
-		Titles: func(ctx context.Context) ([]int64, error) {
-			named, err := lib.Names(ctx)
-			ids := make([]int64, len(named))
-			for i, n := range named {
-				ids[i] = n.ID
-			}
-			return ids, err
-		},
-		Rescore: imp.RescoreTitles,
 	})
-	if err := trash.Start(context.Background()); err != nil {
+	trashUpdates := jobs.NewTrashUpdates(jobs.TrashUpdatesDeps{
+		Snapshots: trash, Holder: live, Library: lib, Rescorer: imp, Logger: opts.Logger,
+		Enabled: func(ctx context.Context) bool { return upd.Enabled(ctx) },
+	})
+	if err := trashUpdates.Start(context.Background()); err != nil {
 		panic("app: loading the stored TRaSH snapshot: " + err.Error())
 	}
 	reqs := requests.New(requests.Deps{
@@ -226,7 +220,7 @@ func New(opts Options) *App {
 	runner := jobs.Standard(jobs.Deps{
 		Refresher: refresher, Updates: upd, Acquire: acq, Library: lib, History: hist, PruneState: appSettings,
 		Sessions: func(ctx context.Context) error { _, err := api.PruneSessions(ctx, st, opts.Clock()); return err },
-		Health:   healthSvc, Importer: imp, ImportSource: acq, Trash: trashLoop(trash, opts.TrashSource), Clock: opts.Clock, Logger: opts.Logger,
+		Health:   healthSvc, Importer: imp, ImportSource: acq, Trash: trashLoop(trashUpdates, opts.TrashSource), Clock: opts.Clock, Logger: opts.Logger,
 	})
 
 	handler := api.New(api.Options{
@@ -235,7 +229,7 @@ func New(opts Options) *App {
 	}, api.Deps{
 		Plugins: pluginInstances, Profiles: profs, RootFolders: roots, Settings: settingsTx{roots, profs, trash}, Updates: upd,
 		Library: lib, Acquire: acq, Requests: reqs, Adoption: adoption, Cleanup: cleanup, Remover: remover, Imports: imp,
-		Jobs: runner, Refresher: refresher, Indexers: indexerHost, Health: healthSvc, History: hist, Scoring: live, Trash: trash, Keys: keys,
+		Jobs: runner, Refresher: refresher, Indexers: indexerHost, Health: healthSvc, History: hist, Scoring: live, Trash: trashAPI{trash, trashUpdates}, Keys: keys,
 		Meta: meta, TVDB: tvdb, Bridge: &metadata.Bridge{Meta: meta, TVDB: tvdb, Log: opts.Logger}, Posters: posters,
 	})
 	return &App{Handler: handler, Jobs: runner, Health: healthSvc}
@@ -274,8 +268,15 @@ func (w settingsWriter) SetTrashAutoUpdate(ctx context.Context, on bool) error {
 	return w.trash.SetAutoUpdate(ctx, on)
 }
 
+// trashAPI is what the API sees of TRaSH: the status and switch from trashsync,
+// the updates from jobs.
+type trashAPI struct {
+	*trashsync.Service
+	*jobs.TrashUpdates
+}
+
 // trashLoop is the daily TRaSH check, or nothing without a source.
-func trashLoop(s *trashsync.Service, src trashsync.Source) jobs.TrashChecker {
+func trashLoop(s *jobs.TrashUpdates, src trashsync.Source) jobs.TrashChecker {
 	if src == nil {
 		return nil
 	}
