@@ -8,14 +8,14 @@ import (
 
 func TestFilesOfATrackedTitleFillItsEmptyVersionAndCreateAMissingOneWithoutAddingATitleOrSearching(t *testing.T) {
 	a := newAdopting(t)
-	added := decode[titleJSON](t, a.valid("POST", "/titles", `{"kind":"movie","tmdb_id":116149,"versions":[{"slot":"hd","profile":"hd-primary"}]}`))
-	a.put(t, "Paddington (2014)/Paddington.2014.1080p.BluRay.x264-GRP.mkv", "hd")
-	a.put(t, "Paddington (2014) uhd/Paddington.2014.2160p.BluRay.x265-GRP.mkv", "uhd")
+	added := decode[titleJSON](t, a.valid("POST", "/titles", `{"kind":"movie","tmdb_id":116149,"versions":[{"slot":"standard","profile":"hd-primary"}]}`))
+	a.put(t, "Paddington (2014)/Paddington.2014.1080p.BluRay.x264-GRP.mkv", "standard")
+	a.put(t, "Paddington (2014) uhd/Paddington.2014.2160p.BluRay.x265-GRP.mkv", "4k")
 
 	plan := a.scan(t)
 	hd := a.rowOf(t, "Paddington (2014)").Files[0]
 	uhd := a.rowOf(t, "Paddington (2014) uhd").Files[0]
-	if hd.Action != "fill" || hd.Profile != "hd-primary" || !hd.Ticked || uhd.Action != "create" || uhd.Slot != "uhd" || !uhd.Ticked {
+	if hd.Action != "fill" || hd.Profile != "hd-primary" || !hd.Ticked || uhd.Action != "create" || uhd.Slot != "4k" || !uhd.Ticked {
 		t.Fatalf("hd = %+v, uhd = %+v", hd, uhd)
 	}
 	if got := a.rowOf(t, "Paddington (2014)").Match; got == nil || got.TitleID == nil || *got.TitleID != added.ID {
@@ -25,13 +25,13 @@ func TestFilesOfATrackedTitleFillItsEmptyVersionAndCreateAMissingOneWithoutAddin
 	a.commit(t, plan.Revision)
 
 	files := a.titleFiles(t, added.ID)
-	if len(files) != 2 || files["hd"] == "" || files["uhd"] == "" {
+	if len(files) != 2 || files["standard"] == "" || files["4k"] == "" {
 		t.Fatalf("files = %v", files)
 	}
 	d := decode[titleJSON](t, a.valid("GET", fmt.Sprintf("/titles/%d", added.ID), ""))
 	var sawUHD bool
 	for _, v := range d.Versions {
-		if v.Slot == "uhd" {
+		if v.Slot == "4k" {
 			sawUHD = v.State == "filled"
 		}
 	}
@@ -51,7 +51,7 @@ func TestAFileInATrackedFolderThatWouldReplaceTheHeldOneIsUntickedUntilTheAdminT
 	a.put(t, "Paddington.2014.1080p.BluRay.x264-GRP/Paddington.2014.1080p.BluRay.x264-GRP.mkv", "first")
 	a.commit(t, a.scan(t).Revision)
 	id := a.titleIDOf(t, 116149)
-	held := a.titleFiles(t, id)["hd"]
+	held := a.titleFiles(t, id)["standard"]
 	rival := a.put(t, "Paddington (2014) {tmdb-116149}/Paddington.2014.1080p.BluRay.x264-OTHER.mkv", "second")
 
 	plan := a.scan(t)
@@ -75,7 +75,7 @@ func TestAFileInATrackedFolderThatWouldReplaceTheHeldOneIsUntickedUntilTheAdminT
 	}
 	a.commit(t, decode[adoptionJSON](t, a.valid("GET", "/adoption", "")).Revision)
 
-	now := a.titleFiles(t, id)["hd"]
+	now := a.titleFiles(t, id)["standard"]
 	if now == held || filepath.Dir(now) != filepath.Dir(held) || !exists(t, now) || exists(t, held) || exists(t, rival) {
 		t.Errorf("held %q -> %q; old still there %v, rival still there %v", held, now, exists(t, held), exists(t, rival))
 	}

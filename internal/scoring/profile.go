@@ -7,6 +7,7 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/resolution"
+	"github.com/hyprsh/kestrel/internal/slot"
 )
 
 // LanguageRule says which audio a Profile requires.
@@ -23,9 +24,10 @@ const (
 // requires and, for Primary-Language Profiles, whether the Title's Original
 // Language is an acceptable fallback (PRD Settled 1).
 type ProfileSpec struct {
-	// Slot is SD, HD or UHD. Any Profiles sit in the HD Slot.
-	Slot resolution.Class
-	// Any marks an Any Profile, which sits in the HD Slot but accepts SD too.
+	// Slot is Standard or 4K. Any Profiles sit in the Standard Slot.
+	Slot slot.Slot
+	// Any marks an Any Profile, which sits in the Standard Slot but accepts
+	// SD too.
 	Any  bool
 	Rule LanguageRule
 	// Primary is the household's Primary Language: English, German or French.
@@ -33,6 +35,20 @@ type ProfileSpec struct {
 	// OriginalFallback accepts a Release with the Title's Original Language
 	// but no Primary audio. Only meaningful with PrimaryLanguage.
 	OriginalFallback bool
+}
+
+// HeightBounds are the resolution bounds of a builtin Profile (Settled 2): Any
+// 0-1080, HD (the other Standard Profiles) 720-1080 and 4K 2160-2160. They
+// always lie inside the Slot's range.
+func HeightBounds(s slot.Slot, any bool) (min, max int) {
+	switch {
+	case s == slot.FourK:
+		return 2160, 2160
+	case any:
+		return 0, 1080
+	default:
+		return 720, 1080
+	}
 }
 
 // ErrUnsupportedProfile means no TRaSH backing profile exists for the spec.
@@ -107,8 +123,8 @@ func (p *Profile) Formats(kind release.Kind) []MatchedFormat {
 	return out
 }
 
-// AllowedQualities lists the quality names the Profile allows for a kind. SD
-// and Any derive theirs from the HD backing profile (Settled 5).
+// AllowedQualities lists the quality names the Profile allows for a kind. Any
+// derives them from the HD backing profile (Settled 5).
 func (p *Profile) AllowedQualities(kind release.Kind) []string {
 	if s := p.sets[kind]; s != nil {
 		return slices.Clone(s.qualities)
@@ -116,23 +132,18 @@ func (p *Profile) AllowedQualities(kind release.Kind) []string {
 	return nil
 }
 
-// Profile resolves a ProfileSpec against the snapshot. SD and Any Profiles
+// Profile resolves a ProfileSpec against the snapshot. Any Profiles
 // are derived from the HD backing profile: same Custom Formats and scores,
 // different allowed qualities and resolution bounds.
 func (s *Snapshot) Profile(spec ProfileSpec) (*Profile, error) {
-	if spec.Any && spec.Slot != resolution.HD {
-		return nil, fmt.Errorf("%w: Any sits in the HD Slot", ErrUnsupportedProfile)
+	if spec.Any && spec.Slot != slot.Standard {
+		return nil, fmt.Errorf("%w: Any sits in the Standard Slot", ErrUnsupportedProfile)
 	}
 	if spec.Rule == OriginalLanguage {
 		spec.OriginalFallback = false // always off for Original-Language Profiles
 	}
 	p := &Profile{spec: spec, sets: map[release.Kind]*formatSet{}}
-	switch {
-	case spec.Any:
-		p.MinHeight, p.MaxHeight = 0, 1080
-	default:
-		p.MinHeight, p.MaxHeight = spec.Slot.Range()
-	}
+	p.MinHeight, p.MaxHeight = HeightBounds(spec.Slot, spec.Any)
 	for _, a := range apps {
 		d := s.apps[a.kind]
 		name, err := backingName(spec, a.kind)
@@ -183,9 +194,9 @@ func (d *appData) formatsFor(bp *backingProfile) []scoredFormat {
 }
 
 // backingName is the Settled 5 table: the TRaSH profile file backing a
-// (Primary Language, language rule, kind, Slot). SD and Any use the HD file.
+// (Primary Language, language rule, kind, Slot). Any uses the HD file.
 func backingName(spec ProfileSpec, kind release.Kind) (string, error) {
-	uhd := spec.Slot == resolution.UHD
+	uhd := spec.Slot == slot.FourK
 	pick := func(hd, uhdName string) string {
 		if uhd {
 			return uhdName
@@ -222,7 +233,7 @@ func backingName(spec ProfileSpec, kind release.Kind) (string, error) {
 var sdQualities = []string{"SDTV", "DVD", "WEBDL-480p", "WEBRip-480p", "Bluray-480p", "Bluray-576p"}
 
 // derivedQualities gives the allowed qualities of a Profile: UHD and HD keep
-// the backing profile's, SD keeps the SD qualities, Any adds the SD qualities
+// the backing profile's, Any adds the SD qualities
 // to HD's (for Series it also widens to WEB 480p/720p/1080p, DVD and SDTV).
 func derivedQualities(spec ProfileSpec, kind release.Kind, backing []string) []string {
 	switch {
@@ -238,8 +249,6 @@ func derivedQualities(spec ProfileSpec, kind release.Kind, backing []string) []s
 			}
 		}
 		return out
-	case spec.Slot == resolution.SD:
-		return slices.Clone(sdQualities)
 	}
 	return slices.Clone(backing)
 }

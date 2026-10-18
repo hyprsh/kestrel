@@ -54,30 +54,28 @@ func NewRouter(o Options) *Router { return &Router{opts: o} }
 // settings is the connection's config blob.
 type settings struct {
 	hdProfile, uhdProfile string
-	alsoSD                bool
 }
 
 func settingsOf(c *pluginv1.RouterConnection) settings {
 	m := c.GetConfig().AsMap()
 	s, _ := m["hd_profile"].(string)
 	u, _ := m["uhd_profile"].(string)
-	sd, _ := m["also_add_sd"].(bool)
-	return settings{hdProfile: s, uhdProfile: u, alsoSD: sd}
+	return settings{hdProfile: s, uhdProfile: u}
 }
 
 // slotOf maps a Silo tier to a Kestrel Slot.
 func slotOf(q *pluginv1.RequestedQuality) (string, bool) {
 	switch {
 	case q.GetId() == "2160p" || q.GetIs4K():
-		return "uhd", true
+		return "4k", true
 	case q.GetId() == "1080p":
-		return "hd", true
+		return "standard", true
 	}
 	return "", false
 }
 
 func qualityOf(slot string) string {
-	if slot == "uhd" {
+	if slot == "4k" {
 		return "2160p"
 	}
 	return "1080p"
@@ -98,8 +96,8 @@ func intID(s string) *int {
 	return &n
 }
 
-// Fulfill turns the Silo Request into one Kestrel Request naming the HD and/or
-// UHD Slot (plus SD when configured) and answers with one Target per Silo tier.
+// Fulfill turns the Silo Request into one Kestrel Request naming the Standard
+// and/or 4K Slot and answers with one Target per Silo tier.
 func (r *Router) Fulfill(ctx context.Context, in *pluginv1.FulfillRequest) (*pluginv1.FulfillResponse, error) {
 	if len(in.GetConnections()) == 0 {
 		return &pluginv1.FulfillResponse{Message: "no Kestrel connection is configured"}, nil
@@ -127,7 +125,7 @@ func (r *Router) Fulfill(ctx context.Context, in *pluginv1.FulfillRequest) (*plu
 		}
 	}
 	if len(in.GetQualities()) == 0 {
-		tiers = []string{"hd"}
+		tiers = []string{"standard"}
 	}
 	if len(tiers) == 0 {
 		return &pluginv1.FulfillResponse{Targets: skipped, Message: "no tier Kestrel can serve"}, nil
@@ -136,13 +134,10 @@ func (r *Router) Fulfill(ctx context.Context, in *pluginv1.FulfillRequest) (*plu
 	var slots []slotCreate
 	for _, s := range tiers {
 		sc := slotCreate{Slot: s}
-		if p := map[string]string{"hd": cfg.hdProfile, "uhd": cfg.uhdProfile}[s]; p != "" {
+		if p := map[string]string{"standard": cfg.hdProfile, "4k": cfg.uhdProfile}[s]; p != "" {
 			sc.Profile = &p
 		}
 		slots = append(slots, sc)
-	}
-	if cfg.alsoSD {
-		slots = append(slots, slotCreate{Slot: "sd"})
 	}
 
 	body := requestCreate{
@@ -311,9 +306,9 @@ func (r *Router) CheckStatus(ctx context.Context, in *pluginv1.CheckStatusReques
 		}
 		for _, t := range refs {
 			n, _ := strconv.ParseInt(t.GetExternalId(), 10, 64)
-			slot := "hd"
+			slot := "standard"
 			if t.GetQuality() == "2160p" {
-				slot = "uhd"
+				slot = "4k"
 			}
 			st := &pluginv1.TargetStatus{Quality: t.GetQuality(), ConnectionId: id, Status: "failed", Message: "Kestrel no longer has this Request"}
 			if req, ok := got[n]; ok {
@@ -327,7 +322,7 @@ func (r *Router) CheckStatus(ctx context.Context, in *pluginv1.CheckStatusReques
 	return res, nil
 }
 
-// ListConfigOptions fills the HD and UHD Profile dropdowns from Kestrel.
+// ListConfigOptions fills the Standard and 4K Profile dropdowns from Kestrel.
 func (r *Router) ListConfigOptions(ctx context.Context, in *pluginv1.ListConfigOptionsRequest) (*pluginv1.ListConfigOptionsResponse, error) {
 	cl, err := r.client(in.GetConnection())
 	if err != nil {
@@ -347,7 +342,7 @@ func (r *Router) ListConfigOptions(ctx context.Context, in *pluginv1.ListConfigO
 		return out
 	}
 	return &pluginv1.ListConfigOptionsResponse{OptionsByField: map[string]*pluginv1.ConfigOptionList{
-		"hd_profile": list("hd"), "uhd_profile": list("uhd"),
+		"hd_profile": list("standard"), "uhd_profile": list("4k"),
 	}}, nil
 }
 

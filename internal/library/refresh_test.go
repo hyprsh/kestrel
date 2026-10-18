@@ -2,12 +2,12 @@ package library_test
 
 import (
 	"context"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"testing"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
-	"github.com/hyprsh/kestrel/internal/resolution"
 )
 
 func TestRefreshingAMovieUpdatesItsMetadataAndSaysWhenItsNameChanged(t *testing.T) {
@@ -76,7 +76,7 @@ func TestRefreshingASeriesUpdatesEpisodesAndAddsNewOnes(t *testing.T) {
 			{ID: 2, Season: 1, Number: 2, Name: "Midnight", Aired: aired(1, 12)},
 		}},
 		PrimaryLanguage: "en", Monitor: library.MonitorAll, RootFolder: "/data/media/tv",
-		Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}},
+		Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
 	})
 	if err != nil {
 		t.Fatal(err)

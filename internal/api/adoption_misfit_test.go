@@ -7,18 +7,18 @@ import (
 
 func TestTheSlotLabelWinsOverTheProbeAndAProfileMisfitIsStillAdopted(t *testing.T) {
 	a := newAdopting(t)
-	// A 1080p file that Kestrel's own label puts in SD: the SD Profile does not take
+	// A 1080p file that Kestrel's own label puts in 4K: the 4K Profile does not take
 	// 1080p, but gates never block Adoption.
-	a.put(t, "Paddington (2014) {tmdb-116149}/Paddington (2014) {tmdb-116149} - [SD][Bluray-1080p][English][h264]-GRP.mkv", "x")
+	a.put(t, "Paddington (2014) {tmdb-116149}/Paddington (2014) {tmdb-116149} - [4K][Bluray-1080p][English][h264]-GRP.mkv", "x")
 
 	plan := a.scan(t)
 
 	f := a.rows(t, "matched")[0].Files[0]
-	if f.Slot != "sd" || f.Profile != "sd-primary" || f.Left != nil || !f.Ticked {
+	if f.Slot != "4k" || f.Profile != "4k-primary" || f.Left != nil || !f.Ticked {
 		t.Fatalf("file = %+v", f)
 	}
 	a.commit(t, plan.Revision)
-	if files := a.titleFiles(t, a.titleIDOf(t, 116149)); files["sd"] == "" {
+	if files := a.titleFiles(t, a.titleIDOf(t, 116149)); files["4k"] == "" {
 		t.Errorf("the misfit was not adopted: %v", files)
 	}
 }
@@ -41,13 +41,13 @@ func TestDiscardingThePlanForgetsItWithoutTouchingAnyFile(t *testing.T) {
 
 func TestAFileOnlyAnyAcceptsGetsTheAnyProfile(t *testing.T) {
 	a := newAdopting(t)
-	// A 576p file that Kestrel's own label puts in HD: HD takes 720-1080 only, Any takes it.
-	a.put(t, "Paddington (2014) {tmdb-116149}/Paddington (2014) {tmdb-116149} - [HD][Bluray-576p][English][h264]-GRP 576p.mkv", "x")
+	// An unlabelled 576p file goes to Standard: HD takes 720-1080 only, Any takes it.
+	a.put(t, "Paddington (2014) {tmdb-116149}/Paddington.2014.576p.BluRay.x264-GRP.mkv", "x")
 
 	plan := a.scan(t)
 
 	f := a.rows(t, "matched")[0].Files[0]
-	if f.Slot != "hd" || f.Profile != "any-primary" || f.Left != nil || !f.Ticked {
+	if f.Slot != "standard" || f.Profile != "any-primary" || f.Left != nil || !f.Ticked {
 		t.Fatalf("file = %+v", f)
 	}
 	a.commit(t, plan.Revision)
@@ -62,5 +62,19 @@ func TestAFileOnlyAnyAcceptsGetsTheAnyProfile(t *testing.T) {
 	}](t, a.valid("GET", fmt.Sprintf("/titles/%d", a.titleIDOf(t, 116149)), ""))
 	if len(d.Versions) != 1 || d.Versions[0].Profile != "any-primary" || d.Versions[0].File == nil || d.Versions[0].File.Misfit {
 		t.Fatalf("versions = %+v, want the HD Version under Any with no misfit", d.Versions)
+	}
+}
+
+func TestTheOldSDHDAndUHDLabelsAreNotRecognised(t *testing.T) {
+	a := newAdopting(t)
+	// A 1080p file labelled with the retired UHD label: the label is ignored, so the
+	// probe decides and it goes to Standard.
+	a.put(t, "Paddington (2014) {tmdb-116149}/Paddington (2014) {tmdb-116149} - [UHD][Bluray-1080p][English][h264]-GRP.mkv", "x")
+
+	a.scan(t)
+
+	f := a.rows(t, "matched")[0].Files[0]
+	if f.Slot != "standard" {
+		t.Fatalf("file = %+v, want the retired label ignored and the Standard Slot", f)
 	}
 }

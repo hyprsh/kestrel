@@ -3,12 +3,12 @@ package library_test
 import (
 	"context"
 	"errors"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"testing"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/store"
 )
 
@@ -43,7 +43,7 @@ func paddington() metadata.MovieDetails {
 func addPaddington(t *testing.T, lib *library.Service, versions ...library.VersionSpec) int64 {
 	t.Helper()
 	if len(versions) == 0 {
-		versions = []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}}
+		versions = []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}}
 	}
 	id, err := lib.AddMovie(context.Background(), library.AddMovie{
 		Details: paddington(), PrimaryLanguage: "de", Versions: versions, RootFolder: "/data/media/movies",
@@ -58,8 +58,8 @@ func TestAMovieIsAddedWithItsVersionsAndReadBack(t *testing.T) {
 	ctx := context.Background()
 	lib, _ := newLibrary(t)
 	id := addPaddington(t, lib,
-		library.VersionSpec{Slot: resolution.HD, Profile: "any-primary"},
-		library.VersionSpec{Slot: resolution.UHD, Profile: "uhd-primary"})
+		library.VersionSpec{Slot: slot.Standard, Profile: "any-primary"},
+		library.VersionSpec{Slot: slot.FourK, Profile: "4k-primary"})
 
 	d, err := lib.Get(ctx, id, library.View{Country: "DE", Now: now})
 	if err != nil {
@@ -74,8 +74,8 @@ func TestAMovieIsAddedWithItsVersionsAndReadBack(t *testing.T) {
 		t.Fatalf("versions = %+v", d.Versions)
 	}
 	hd, uhd := d.Versions[0], d.Versions[1]
-	if hd.Slot != resolution.HD || hd.Profile != "any-primary" || hd.State != library.Wanted || hd.File != nil ||
-		uhd.Slot != resolution.UHD || uhd.Profile != "uhd-primary" {
+	if hd.Slot != slot.Standard || hd.Profile != "any-primary" || hd.State != library.Wanted || hd.File != nil ||
+		uhd.Slot != slot.FourK || uhd.Profile != "4k-primary" {
 		t.Errorf("versions = %+v", d.Versions)
 	}
 	if len(d.Aliases) != 2 {
@@ -91,7 +91,7 @@ func TestThePrimaryTitleIsTheEnglishOneWhenThereIsNoTranslation(t *testing.T) {
 	lib, _ := newLibrary(t)
 	id, err := lib.AddMovie(ctx, library.AddMovie{
 		Details: paddington(), PrimaryLanguage: "fr", RootFolder: "/m",
-		Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}},
+		Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -107,7 +107,7 @@ func TestAddingTheSameMovieTwiceNamesTheExistingTitle(t *testing.T) {
 	id := addPaddington(t, lib)
 	_, err := lib.AddMovie(context.Background(), library.AddMovie{
 		Details: paddington(), PrimaryLanguage: "de", RootFolder: "/m",
-		Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}},
+		Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
 	})
 	var exists *library.ExistsError
 	if !errors.As(err, &exists) || exists.ID != id {
@@ -124,10 +124,10 @@ func TestAMovieNeedsAtLeastOneVersionAndOneVersionPerSlot(t *testing.T) {
 	if err := add(); !errors.Is(err, library.ErrNoVersions) {
 		t.Errorf("no versions: %v", err)
 	}
-	if err := add(library.VersionSpec{Slot: resolution.HD, Profile: "hd-primary"}, library.VersionSpec{Slot: resolution.HD, Profile: "any-primary"}); !errors.Is(err, library.ErrDuplicateSlot) {
+	if err := add(library.VersionSpec{Slot: slot.Standard, Profile: "hd-primary"}, library.VersionSpec{Slot: slot.Standard, Profile: "any-primary"}); !errors.Is(err, library.ErrDuplicateSlot) {
 		t.Errorf("two HD versions: %v", err)
 	}
-	if err := add(library.VersionSpec{Slot: resolution.HD, Profile: "no-such-profile"}); err == nil {
+	if err := add(library.VersionSpec{Slot: slot.Standard, Profile: "no-such-profile"}); err == nil {
 		t.Error("an unknown Profile was accepted")
 	}
 	// A failed add leaves nothing behind.
@@ -140,7 +140,7 @@ func TestAMovieNeedsAtLeastOneVersionAndOneVersionPerSlot(t *testing.T) {
 func TestTheListShowsOneDotPerSlotWithItsState(t *testing.T) {
 	ctx := context.Background()
 	lib, _ := newLibrary(t)
-	id := addPaddington(t, lib, library.VersionSpec{Slot: resolution.SD, Profile: "sd-primary"}, library.VersionSpec{Slot: resolution.HD, Profile: "hd-primary"})
+	id := addPaddington(t, lib, library.VersionSpec{Slot: slot.Standard, Profile: "hd-primary"}, library.VersionSpec{Slot: slot.FourK, Profile: "4k-primary"})
 
 	rows, err := lib.List(ctx, library.View{Country: "DE", Now: now}, library.Filter{})
 	if err != nil {
@@ -153,12 +153,9 @@ func TestTheListShowsOneDotPerSlotWithItsState(t *testing.T) {
 	if r.ID != id || r.Kind != library.Movie || r.Title != "Paddington" || r.PrimaryTitle != "Ein Bär namens Paddington" || r.Year != 2014 {
 		t.Errorf("row = %+v", r)
 	}
-	if r.Slots[resolution.SD] == nil || r.Slots[resolution.SD].State != library.Wanted || r.Slots[resolution.SD].Profile != "sd-primary" ||
-		r.Slots[resolution.HD] == nil || r.Slots[resolution.HD].State != library.Wanted {
-		t.Errorf("slots = %+v %+v", r.Slots[resolution.SD], r.Slots[resolution.HD])
-	}
-	if r.Slots[resolution.UHD] != nil {
-		t.Errorf("UHD has no Version, got %+v", r.Slots[resolution.UHD])
+	if r.Slots[slot.Standard] == nil || r.Slots[slot.Standard].State != library.Wanted || r.Slots[slot.Standard].Profile != "hd-primary" ||
+		r.Slots[slot.FourK] == nil || r.Slots[slot.FourK].State != library.Wanted || r.Slots[slot.FourK].Profile != "4k-primary" {
+		t.Errorf("slots = %+v %+v", r.Slots[slot.Standard], r.Slots[slot.FourK])
 	}
 }
 
@@ -172,7 +169,7 @@ func TestAMovieWithOnlyATheatricalDateIsUnreleasedUntil90DaysAfterItInTheCountry
 		if err != nil {
 			t.Fatal(err)
 		}
-		return rows[0].Slots[resolution.HD].State
+		return rows[0].Slots[slot.Standard].State
 	}
 	if got := state(day(2015, 4, 17), "US"); got != library.Wanted {
 		t.Errorf("US the day after release = %v", got)
@@ -191,7 +188,7 @@ func TestLongMissingStartsNinetyDaysAfterWantedSince(t *testing.T) {
 	addPaddington(t, lib)
 	flag := func(at time.Time) bool {
 		rows, _ := lib.List(ctx, library.View{Country: "US", Now: at}, library.Filter{})
-		return rows[0].Slots[resolution.HD].LongMissing
+		return rows[0].Slots[slot.Standard].LongMissing
 	}
 	// Wanted since is the later of release and being added: the add moment.
 	if flag(now.Add(89 * 24 * time.Hour)) {

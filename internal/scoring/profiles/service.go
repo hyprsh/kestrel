@@ -9,10 +9,10 @@ import (
 	"regexp"
 
 	"github.com/hyprsh/kestrel/internal/release"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles/db"
 	"github.com/hyprsh/kestrel/internal/settings"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"github.com/hyprsh/kestrel/internal/store"
 )
 
@@ -118,19 +118,13 @@ func New(st *store.Store, s *settings.Settings) *Service {
 }
 
 func fromRow(r db.Profile) Profile {
-	slot := resolution.SD
-	switch r.Slot {
-	case "hd":
-		slot = resolution.HD
-	case "uhd":
-		slot = resolution.UHD
-	}
+	sl, _ := slot.Parse(r.Slot) // the table CHECK keeps the value valid
 	rule := scoring.PrimaryLanguage
 	if r.LanguageRule == "original" {
 		rule = scoring.OriginalLanguage
 	}
 	return Profile{
-		Key: r.Key, Name: r.Name, Slot: slot, Any: r.Any == 1, Rule: rule,
+		Key: r.Key, Name: r.Name, Slot: sl, Any: r.Any == 1, Rule: rule,
 		MinHeight: int(r.MinHeight), MaxHeight: int(r.MaxHeight),
 		Enabled: r.Enabled == 1, OriginalFallback: r.OriginalFallback == 1,
 		DefaultMovies: r.DefaultMovies == 1, DefaultSeries: r.DefaultSeries == 1,
@@ -138,7 +132,7 @@ func fromRow(r db.Profile) Profile {
 	}
 }
 
-// List returns the eight Profiles in display order.
+// List returns the six Profiles in display order.
 func (s *Service) List(ctx context.Context) ([]Profile, error) {
 	rows, err := db.New(s.st.Read()).ListProfiles(ctx)
 	if err != nil {
@@ -178,21 +172,11 @@ func b2i(b bool) int64 {
 	return 0
 }
 
-func slotName(c resolution.Class) string {
-	switch c {
-	case resolution.HD:
-		return "hd"
-	case resolution.UHD:
-		return "uhd"
-	}
-	return "sd"
-}
-
 // Patch changes one Profile. A rejected patch changes nothing. The rules
 // (PRD Settled 1 and 8): Original-Language Profiles never take
 // original_fallback; a Slot has at most one default per kind, so a new default
-// replaces the old; HD always keeps exactly one default per kind, so unsetting
-// or disabling it is refused until another HD Profile is the default; a
+// replaces the old; the Standard Slot always keeps exactly one default per kind, so unsetting
+// or disabling it is refused until another Standard Profile is the default; a
 // disabled Profile is no default, and disabling clears its flags.
 func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, error) {
 	var out Profile
@@ -237,7 +221,7 @@ func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, erro
 			}
 			next.DefaultMovies, next.DefaultSeries = false, false
 		}
-		if cur.Slot == resolution.HD {
+		if cur.Slot == slot.Standard {
 			if cur.DefaultMovies && !next.DefaultMovies {
 				return hdDefaultError(p, "default_movies", "movies")
 			}
@@ -246,14 +230,14 @@ func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, erro
 			}
 		}
 
-		slot := slotName(cur.Slot)
+		slotKey := cur.Slot.Key()
 		if next.DefaultMovies && !cur.DefaultMovies {
-			if err := q.ClearSlotDefaultMovies(ctx, slot); err != nil {
+			if err := q.ClearSlotDefaultMovies(ctx, slotKey); err != nil {
 				return err
 			}
 		}
 		if next.DefaultSeries && !cur.DefaultSeries {
-			if err := q.ClearSlotDefaultSeries(ctx, slot); err != nil {
+			if err := q.ClearSlotDefaultSeries(ctx, slotKey); err != nil {
 				return err
 			}
 		}
@@ -279,7 +263,7 @@ func hdDefaultError(p Patch, field, kind string) error {
 	if p.Enabled != nil && !*p.Enabled && (field == "default_movies" && p.DefaultMovies == nil || field == "default_series" && p.DefaultSeries == nil) {
 		field = "enabled"
 	}
-	return invalid(field, "HD always has a default for "+kind+": make another HD Profile the default first")
+	return invalid(field, "The Standard Slot always has a default for "+kind+": make another Standard Profile the default first")
 }
 
 // Region returns the language settings and whether they were ever saved.

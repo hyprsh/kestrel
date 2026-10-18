@@ -8,7 +8,7 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/library/db"
 	"github.com/hyprsh/kestrel/internal/metadata"
-	"github.com/hyprsh/kestrel/internal/resolution"
+	"github.com/hyprsh/kestrel/internal/slot"
 )
 
 // UpgradeSweepAfter is how long an adopted Version waits for its first Upgrade
@@ -59,7 +59,7 @@ func (s *Service) HeldPaths(ctx context.Context) (map[string]bool, error) {
 // AdoptVersion is one Slot of an Adopted Movie: the file an existing file on
 // disk becomes the Version's.
 type AdoptVersion struct {
-	Slot resolution.Class
+	Slot slot.Slot
 	// Profile is used when the Title has no Version in the Slot yet.
 	Profile string
 	File    NewFile
@@ -139,7 +139,7 @@ func (s *Service) AdoptMovie(ctx context.Context, a AdoptMovie) (int64, []File, 
 			}
 		}
 		if vid == 0 {
-			if vid, err = q.InsertVersion(ctx, db.InsertVersionParams{TitleID: id, Slot: slotName(v.Slot), ProfileKey: v.Profile, AddedAt: ts(now)}); err != nil {
+			if vid, err = q.InsertVersion(ctx, db.InsertVersionParams{TitleID: id, Slot: v.Slot.Key(), ProfileKey: v.Profile, AddedAt: ts(now)}); err != nil {
 				return 0, nil, err
 			}
 			if err := q.InsertSearchState(ctx, db.InsertSearchStateParams{
@@ -190,7 +190,7 @@ type AdoptSeriesFile struct {
 
 // AdoptSeriesVersion is one Slot of an Adopted Series.
 type AdoptSeriesVersion struct {
-	Slot resolution.Class
+	Slot slot.Slot
 	// Profile is used when the Title has no Version in the Slot yet.
 	Profile string
 	Files   []AdoptSeriesFile
@@ -281,7 +281,7 @@ func (s *Service) AdoptSeries(ctx context.Context, a AdoptSeries) (int64, []File
 			}
 		}
 		if vid == 0 {
-			if vid, err = q.InsertVersion(ctx, db.InsertVersionParams{TitleID: id, Slot: slotName(v.Slot), ProfileKey: v.Profile, AddedAt: ts(now)}); err != nil {
+			if vid, err = q.InsertVersion(ctx, db.InsertVersionParams{TitleID: id, Slot: v.Slot.Key(), ProfileKey: v.Profile, AddedAt: ts(now)}); err != nil {
 				return 0, nil, err
 			}
 			for _, season := range seasons {

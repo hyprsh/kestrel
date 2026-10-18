@@ -2,12 +2,12 @@ package library_test
 
 import (
 	"context"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"testing"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/store"
 )
 
@@ -115,7 +115,7 @@ func TestASeasonCountsFromItsLatestWantedEpisodeAndANewlyAiredEpisodeRestartsThe
 	}}
 	id, err := lib.AddSeries(ctx, library.AddSeries{
 		TMDB: d, TVDB: v, PrimaryLanguage: "en", Monitor: library.MonitorAll, RootFolder: "/tv",
-		Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}},
+		Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -161,7 +161,7 @@ func TestAFilledMovieIsDueAnUpgradeSearchEveryThirtyDaysOldestSearchedFirst(t *t
 	other := paddington()
 	other.TMDBID = 2
 	second, err := lib.AddMovie(ctx, library.AddMovie{
-		Details: other, PrimaryLanguage: "en", RootFolder: "/m", Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}},
+		Details: other, PrimaryLanguage: "en", RootFolder: "/m", Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -242,7 +242,7 @@ func TestSearchAllWantedMakesEveryWantedVersionDueNowAndLeavesFilledOnesAlone(t 
 	other := paddington()
 	other.TMDBID = 2
 	filled, _ := lib.AddMovie(ctx, library.AddMovie{
-		Details: other, PrimaryLanguage: "en", RootFolder: "/m", Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}},
+		Details: other, PrimaryLanguage: "en", RootFolder: "/m", Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
 	})
 	wv, fv := mustVersion(t, lib, wanted), mustVersion(t, lib, filled)
 	if _, err := lib.ReplaceFile(ctx, filled, "folder", library.NewFile{VersionID: fv, Path: "/m/a.mkv", Size: 1, ReleaseName: "r", Score: 10}); err != nil {
@@ -271,7 +271,7 @@ func TestLongMissingListsTheVersionsWantedForMoreThanNinetyDaysMostRecentFirst(t
 	other.TMDBID = 2
 	other.Title = "Later"
 	newer, _ := lib.AddMovie(ctx, library.AddMovie{
-		Details: other, PrimaryLanguage: "en", RootFolder: "/m", Versions: []library.VersionSpec{{Slot: resolution.UHD, Profile: "uhd-primary"}},
+		Details: other, PrimaryLanguage: "en", RootFolder: "/m", Versions: []library.VersionSpec{{Slot: slot.FourK, Profile: "4k-primary"}},
 	})
 
 	if got, _ := lib.LongMissing(ctx, library.View{Country: "US", Now: now.Add(89 * 24 * hours)}); len(got) != 0 {
@@ -281,7 +281,7 @@ func TestLongMissingListsTheVersionsWantedForMoreThanNinetyDaysMostRecentFirst(t
 	if err != nil || len(got) != 2 {
 		t.Fatalf("LongMissing = %+v, %v", got, err)
 	}
-	if got[0].TitleID != newer || got[0].Slot != resolution.UHD || got[1].TitleID != older || got[1].Slot != resolution.HD {
+	if got[0].TitleID != newer || got[0].Slot != slot.FourK || got[1].TitleID != older || got[1].Slot != slot.Standard {
 		t.Errorf("order/fields = %+v", got)
 	}
 	if !got[0].WantedSince.Equal(now.Add(10 * 24 * hours)) {

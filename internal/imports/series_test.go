@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,7 +17,6 @@ import (
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/probe"
 	"github.com/hyprsh/kestrel/internal/release"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
@@ -45,7 +45,7 @@ func newSeriesRig(t *testing.T) *seriesRig {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
-	r := &rig{prober: &fakeProber{info: map[string]probe.Info{}}, root: t.TempDir(), downs: t.TempDir(), versions: map[resolution.Class]int64{}}
+	r := &rig{prober: &fakeProber{info: map[string]probe.Info{}}, root: t.TempDir(), downs: t.TempDir(), versions: map[slot.Slot]int64{}}
 	r.lib = library.New(st, func() time.Time { return seriesNow })
 	aired := func(m time.Month, d int) *time.Time { x := time.Date(2026, m, d, 0, 0, 0, 0, time.UTC); return &x }
 	id, err := r.lib.AddSeries(ctx, library.AddSeries{
@@ -57,7 +57,7 @@ func newSeriesRig(t *testing.T) *seriesRig {
 			{ID: 4, Season: 2, Number: 1, Name: "Noon", Aired: aired(2, 1)},
 		}},
 		PrimaryLanguage: "en", Monitor: library.MonitorAll, RootFolder: r.root,
-		Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}},
+		Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -136,15 +136,15 @@ func TestASingleEpisodeIsImportedIntoItsSeasonFolderAndFillsTheHeatMap(t *testin
 		t.Fatalf("result = %+v", res)
 	}
 	dir := filepath.Join(s.root, seriesRoot, "Season 01")
-	if filepath.Dir(res.Path) != dir || !strings.HasPrefix(filepath.Base(res.Path), "Night Show (2024) - S01E01 - [HD]") {
+	if filepath.Dir(res.Path) != dir || !strings.HasPrefix(filepath.Base(res.Path), "Night Show (2024) - S01E01 - [Standard]") {
 		t.Errorf("path = %q", res.Path)
 	}
 	if b, err := os.ReadFile(res.Path); err != nil || string(b) != "video night.show.s01e01.1080p.mkv" {
 		t.Errorf("file = %q, %v", b, err)
 	}
 	eps := s.episodes(t)
-	if eps[0].Cells[resolution.HD].State != library.Filled || eps[1].Cells[resolution.HD].State == library.Filled {
-		t.Errorf("cells = %+v / %+v", eps[0].Cells[resolution.HD], eps[1].Cells[resolution.HD])
+	if eps[0].Cells[slot.Standard].State != library.Filled || eps[1].Cells[slot.Standard].State == library.Filled {
+		t.Errorf("cells = %+v / %+v", eps[0].Cells[slot.Standard], eps[1].Cells[slot.Standard])
 	}
 	if e := resultOf(t, res, 1, 1); e.Status != imports.Imported || e.Path != res.Path {
 		t.Errorf("episode result = %+v", e)
@@ -211,7 +211,7 @@ func TestADoubleEpisodeFileHoldsBothEpisodesUnderOneRangeName(t *testing.T) {
 		t.Fatalf("result = %+v", res)
 	}
 	eps := s.episodes(t)
-	if eps[0].Cells[resolution.HD].State != library.Filled || eps[1].Cells[resolution.HD].State != library.Filled {
+	if eps[0].Cells[slot.Standard].State != library.Filled || eps[1].Cells[slot.Standard].State != library.Filled {
 		t.Error("both episodes should be filled")
 	}
 }

@@ -3,6 +3,7 @@ package jobs_test
 import (
 	"context"
 	"encoding/json"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,7 +19,6 @@ import (
 	"github.com/hyprsh/kestrel/internal/metadata/metadatatest"
 	"github.com/hyprsh/kestrel/internal/probe"
 	"github.com/hyprsh/kestrel/internal/release"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
@@ -146,7 +146,7 @@ func (r *refreshRig) addMovie(t *testing.T, tmdbID int) (titleID, versionID int6
 	}
 	id, err := r.lib.AddMovie(ctx, library.AddMovie{
 		Details: d, PrimaryLanguage: "en", RootFolder: r.root,
-		Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}},
+		Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -174,7 +174,7 @@ func TestAChangedEnglishTitleOrYearRenamesTheFolderAndEveryFileAndIsLogged(t *te
 	ctx := context.Background()
 	r := newRefreshRig(t)
 	id, vid := r.addMovie(t, 116149)
-	r.holdFile(t, id, vid, "Paddington (2014) {tmdb-116149}", "Paddington (2014) {tmdb-116149} - [HD][Bluray-1080p][EAC3 5.1][h264]-GRP.mkv", paddingtonRelease, release.KindMovie, nil)
+	r.holdFile(t, id, vid, "Paddington (2014) {tmdb-116149}", "Paddington (2014) {tmdb-116149} - [Standard][Bluray-1080p][EAC3 5.1][h264]-GRP.mkv", paddingtonRelease, release.KindMovie, nil)
 	after := r.history.Last
 	last, _ := after(ctx)
 
@@ -184,7 +184,7 @@ func TestAChangedEnglishTitleOrYearRenamesTheFolderAndEveryFileAndIsLogged(t *te
 	}
 
 	files := r.files(t)
-	if len(files) != 1 || !strings.HasPrefix(files[0], "Paddington Bear (2015) {tmdb-116149}/Paddington Bear (2015) {tmdb-116149} - [HD]") {
+	if len(files) != 1 || !strings.HasPrefix(files[0], "Paddington Bear (2015) {tmdb-116149}/Paddington Bear (2015) {tmdb-116149} - [Standard]") {
 		t.Errorf("files = %v", files)
 	}
 	d, _ := r.lib.Get(ctx, id, library.View{Country: "US", Now: now})
@@ -219,7 +219,7 @@ func TestAnEpisodeTitleChangeNeverRenamesButASeriesTitleChangeDoes(t *testing.T)
 	}
 	id, err := r.lib.AddSeries(ctx, library.AddSeries{
 		TMDB: tmdb, TVDB: tv, PrimaryLanguage: "en", Monitor: library.MonitorAll, RootFolder: r.root,
-		Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}},
+		Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -233,7 +233,7 @@ func TestAnEpisodeTitleChangeNeverRenamesButASeriesTitleChangeDoes(t *testing.T)
 		}
 	}
 	folder := "Breaking Bad (2008) {tvdb-81189}"
-	r.holdFile(t, id, d.Versions[0].ID, folder, "Season 01/Breaking Bad (2008) - S01E01 - [HD][WEBDL-1080p][EAC3 5.1][h264]-GRP.mkv",
+	r.holdFile(t, id, d.Versions[0].ID, folder, "Season 01/Breaking Bad (2008) - S01E01 - [Standard][WEBDL-1080p][EAC3 5.1][h264]-GRP.mkv",
 		"Breaking.Bad.S01E01.1080p.WEB-DL.H264-GRP", release.KindSeries, []int64{pilot.ID})
 	before := r.files(t)
 
@@ -258,7 +258,7 @@ func TestAnEpisodeTitleChangeNeverRenamesButASeriesTitleChangeDoes(t *testing.T)
 		t.Fatal(err)
 	}
 	files := r.files(t)
-	if len(files) != 1 || !strings.HasPrefix(files[0], "Breaking Bad - Reloaded (2008) {tvdb-81189}/Season 01/Breaking Bad - Reloaded (2008) - S01E01 - [HD]") {
+	if len(files) != 1 || !strings.HasPrefix(files[0], "Breaking Bad - Reloaded (2008) {tvdb-81189}/Season 01/Breaking Bad - Reloaded (2008) - S01E01 - [Standard]") {
 		t.Errorf("files = %v", files)
 	}
 }
@@ -268,7 +268,7 @@ func TestAVanishedUpstreamEntryRaisesTheRowAndKeepsTheStoredData(t *testing.T) {
 	r := newRefreshRig(t)
 	id, err := r.lib.AddMovie(ctx, library.AddMovie{
 		Details:         metadata.MovieDetails{TMDBID: 99999, Title: "Gone Film", OriginalTitle: "Gone Film", OriginalLanguage: "en", Year: 2001, Overview: "kept"},
-		PrimaryLanguage: "en", RootFolder: r.root, Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}},
+		PrimaryLanguage: "en", RootFolder: r.root, Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -340,7 +340,7 @@ func TestATitleNotRefreshedFor30DaysIsFullyRefreshedEvenIfNothingChanged(t *test
 	r := newRefreshRig(t)
 	id, err := r.lib.AddMovie(ctx, library.AddMovie{
 		Details:         metadata.MovieDetails{TMDBID: 116149, Title: "Paddington", OriginalTitle: "Paddington", OriginalLanguage: "en", Year: 2014},
-		PrimaryLanguage: "en", RootFolder: r.root, Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}},
+		PrimaryLanguage: "en", RootFolder: r.root, Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
 	})
 	if err != nil {
 		t.Fatal(err)

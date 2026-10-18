@@ -23,9 +23,9 @@ func (s *server) ListEvents(ctx context.Context, r oapi.ListEventsRequestObject)
 	}
 	if p.Slot != nil {
 		switch *p.Slot {
-		case oapi.Slot("sd"), oapi.Slot("hd"), oapi.Slot("uhd"):
+		case oapi.Standard, oapi.N4k:
 		default:
-			return nil, invalid("slot", "invalid", "slot must be sd, hd or uhd")
+			return nil, invalid("slot", "invalid", "slot must be standard or 4k")
 		}
 		f.Slot = string(*p.Slot)
 	}

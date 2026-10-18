@@ -306,8 +306,8 @@ export interface paths {
         /**
          * Change a Profile's settings
          * @description A Slot has at most one default Profile per kind: making one the default replaces the old.
-         *     HD always keeps exactly one default per kind, so unsetting or disabling it is a `validation`
-         *     error until another HD Profile is the default. Disabling a Profile clears its defaults, and
+         *     The Standard Slot always keeps exactly one default per kind, so unsetting or disabling it is a
+         *     `validation` error until another Standard Profile is the default. Disabling a Profile clears its defaults, and
          *     a disabled Profile cannot be made a default. `original_fallback` is a `validation` error on
          *     Original-Language Profiles.
          */
@@ -1617,7 +1617,7 @@ export interface components {
             };
         };
         /** @enum {string} */
-        Slot: "sd" | "hd" | "uhd";
+        Slot: "standard" | "4k";
         Profile: {
             /** @example hd-primary */
             key: string;
@@ -1865,9 +1865,8 @@ export interface components {
             monitored: boolean;
             /** @description One cell per Slot, `null` where the Title has no Version. */
             cells: {
-                sd: components["schemas"]["EpisodeCell"] | null;
-                hd: components["schemas"]["EpisodeCell"] | null;
-                uhd: components["schemas"]["EpisodeCell"] | null;
+                standard: components["schemas"]["EpisodeCell"] | null;
+                "4k": components["schemas"]["EpisodeCell"] | null;
             };
         };
         EpisodeList: {
@@ -1902,9 +1901,8 @@ export interface components {
             primary_title: string;
             year: number | null;
             slots: {
-                sd: components["schemas"]["SlotSummary"] | null;
-                hd: components["schemas"]["SlotSummary"] | null;
-                uhd: components["schemas"]["SlotSummary"] | null;
+                standard: components["schemas"]["SlotSummary"] | null;
+                "4k": components["schemas"]["SlotSummary"] | null;
             };
             /** Format: date-time */
             wanted_since: string | null;
@@ -2699,7 +2697,7 @@ export interface components {
         TitleId: number;
         VersionId: number;
         GrabId: number;
-        ProfileKey: "sd-primary" | "sd-original" | "hd-primary" | "hd-original" | "any-primary" | "any-original" | "uhd-primary" | "uhd-original";
+        ProfileKey: "hd-primary" | "hd-original" | "any-primary" | "any-original" | "4k-primary" | "4k-original";
     };
     requestBodies: never;
     headers: {

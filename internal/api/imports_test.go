@@ -125,7 +125,7 @@ func TestACompletedMovieIsImportedIntoItsFolderAndTheVersionShowsItsFile(t *test
 		t.Fatal("the Version has no file")
 	}
 	folder := filepath.Join(s.data, "media", "movies", "Paddington (2014) {tmdb-116149}")
-	if filepath.Dir(f.Path) != folder || !strings.HasPrefix(filepath.Base(f.Path), "Paddington (2014) {tmdb-116149} - [HD]") {
+	if filepath.Dir(f.Path) != folder || !strings.HasPrefix(filepath.Base(f.Path), "Paddington (2014) {tmdb-116149} - [Standard]") {
 		t.Errorf("file path = %q", f.Path)
 	}
 	if b, err := os.ReadFile(f.Path); err != nil || string(b) != "the movie" {

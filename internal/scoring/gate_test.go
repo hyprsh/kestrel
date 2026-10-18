@@ -1,6 +1,7 @@
 package scoring_test
 
 import (
+	"github.com/hyprsh/kestrel/internal/slot"
 	"reflect"
 	"strconv"
 	"strings"
@@ -8,7 +9,6 @@ import (
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/release"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring"
 )
 
@@ -33,7 +33,7 @@ func verdict(t testing.TB, spec scoring.ProfileSpec, name string, title scoring.
 func rejections(v scoring.Verdict) []scoring.Rejection { return v.Rejections }
 
 var (
-	germanHD = scoring.ProfileSpec{Slot: resolution.HD, Rule: scoring.PrimaryLanguage, Primary: release.LangGerman}
+	germanHD = scoring.ProfileSpec{Slot: slot.Standard, Rule: scoring.PrimaryLanguage, Primary: release.LangGerman}
 	titleEN  = scoring.Title{Name: "A Movie", OriginalLanguage: release.LangEnglish}
 	titleDE  = scoring.Title{Name: "Ein Film", OriginalLanguage: release.LangGerman}
 )
@@ -60,7 +60,7 @@ func TestPrimaryLanguageProfileNeedsThePrimaryAudio(t *testing.T) {
 		{"English profile rejects a German-only release of an English Title",
 			englishHD, nameGermanOnly, titleEN, []scoring.Rejection{scoring.RejectLanguage}},
 		{"French profile, French release",
-			scoring.ProfileSpec{Slot: resolution.HD, Rule: scoring.PrimaryLanguage, Primary: release.LangFrench},
+			scoring.ProfileSpec{Slot: slot.Standard, Rule: scoring.PrimaryLanguage, Primary: release.LangFrench},
 			"A.Movie.2020.TRUEFRENCH.1080p.WEB-DL.DD5.1.H264-GRP", titleEN, nil},
 	}
 	for _, tc := range cases {
@@ -106,7 +106,7 @@ func TestOriginalLanguageFallback(t *testing.T) {
 }
 
 func TestOriginalLanguageProfile(t *testing.T) {
-	origHD := scoring.ProfileSpec{Slot: resolution.HD, Rule: scoring.OriginalLanguage, Primary: release.LangGerman}
+	origHD := scoring.ProfileSpec{Slot: slot.Standard, Rule: scoring.OriginalLanguage, Primary: release.LangGerman}
 
 	// The Original Language is English: an untagged release is English.
 	if v := verdict(t, origHD, nameEnglish1080, titleEN, nil); !v.Accepted {
@@ -154,9 +154,8 @@ func TestLanguagesOfTheVerdict(t *testing.T) {
 }
 
 func TestResolutionClasses(t *testing.T) {
-	wide := scoring.ProfileSpec{Slot: resolution.HD, Any: true, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish}
-	sd := scoring.ProfileSpec{Slot: resolution.SD, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish}
-	uhd := scoring.ProfileSpec{Slot: resolution.UHD, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish}
+	wide := scoring.ProfileSpec{Slot: slot.Standard, Any: true, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish}
+	uhd := scoring.ProfileSpec{Slot: slot.FourK, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish}
 
 	names := map[string]string{
 		"480p":  "A.Movie.2020.480p.WEB-DL.DD5.1.H264-GRP",
@@ -170,10 +169,9 @@ func TestResolutionClasses(t *testing.T) {
 		spec    scoring.ProfileSpec
 		accepts map[string]bool
 	}{
-		{"SD", sd, map[string]bool{"480p": true, "576p": true}},
 		{"HD", englishHD, map[string]bool{"720p": true, "1080p": true}},
 		{"Any", wide, map[string]bool{"480p": true, "576p": true, "720p": true, "1080p": true}},
-		{"UHD", uhd, map[string]bool{"2160p": true}},
+		{"4K", uhd, map[string]bool{"2160p": true}},
 	}
 	for _, tc := range cases {
 		for res, name := range names {

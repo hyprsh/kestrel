@@ -3,12 +3,12 @@ package library_test
 import (
 	"context"
 	"errors"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"testing"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
-	"github.com/hyprsh/kestrel/internal/resolution"
 )
 
 func aired(y int, m time.Month, d int) *time.Time {
@@ -40,7 +40,7 @@ func show() (metadata.SeriesDetails, metadata.TVDBSeries) {
 func addShow(t *testing.T, lib *library.Service, mode library.Monitor, versions ...library.VersionSpec) int64 {
 	t.Helper()
 	if len(versions) == 0 {
-		versions = []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}}
+		versions = []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}}
 	}
 	d, v := show()
 	id, err := lib.AddSeries(context.Background(), library.AddSeries{
@@ -98,16 +98,16 @@ func TestASeriesIsAddedWithSeasonsAndEpisodesAndReadBack(t *testing.T) {
 	if len(eps) != 6 || eps[1].Season != 1 || eps[1].Number != 1 || eps[1].Name != "Pilot" || eps[1].AirDate == nil || !eps[1].AirDate.Equal(day(2008, 1, 20)) || eps[4].AirDate != nil {
 		t.Errorf("episodes = %+v", eps)
 	}
-	if got := eps[1].Cells[resolution.HD]; got == nil || got.State != library.Wanted {
+	if got := eps[1].Cells[slot.Standard]; got == nil || got.State != library.Wanted {
 		t.Errorf("aired monitored episode, HD cell = %+v", got)
 	}
-	if eps[1].Cells[resolution.SD] != nil || eps[1].Cells[resolution.UHD] != nil {
+	if eps[1].Cells[slot.FourK] != nil {
 		t.Errorf("only the Slots that have a Version have cells: %+v", eps[1].Cells)
 	}
-	if got := eps[5].Cells[resolution.HD]; got.State != library.Unreleased {
+	if got := eps[5].Cells[slot.Standard]; got.State != library.Unreleased {
 		t.Errorf("a future episode is unreleased, got %+v", got)
 	}
-	if got := eps[0].Cells[resolution.HD]; got.State != library.Unmonitored {
+	if got := eps[0].Cells[slot.Standard]; got.State != library.Unmonitored {
 		t.Errorf("a special is not monitored, got %+v", got)
 	}
 	if len(d.Versions) != 1 || d.Versions[0].State != library.Wanted || d.Versions[0].WantedSince == nil {
@@ -222,7 +222,7 @@ func TestASeriesAlreadyInTheLibraryIsRefused(t *testing.T) {
 	id := addShow(t, lib, library.MonitorAll)
 	d, v := show()
 	_, err := lib.AddSeries(context.Background(), library.AddSeries{
-		TMDB: d, TVDB: v, Monitor: library.MonitorAll, Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}}, RootFolder: "/x",
+		TMDB: d, TVDB: v, Monitor: library.MonitorAll, Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}}, RootFolder: "/x",
 	})
 	var exists *library.ExistsError
 	if !errors.As(err, &exists) || exists.ID != id {
@@ -233,19 +233,19 @@ func TestASeriesAlreadyInTheLibraryIsRefused(t *testing.T) {
 func TestSeriesSlotsShowInTheListWithTheirState(t *testing.T) {
 	ctx := context.Background()
 	lib, _ := newLibrary(t)
-	addShow(t, lib, library.MonitorAll, library.VersionSpec{Slot: resolution.HD, Profile: "hd-primary"}, library.VersionSpec{Slot: resolution.UHD, Profile: "uhd-primary"})
+	addShow(t, lib, library.MonitorAll, library.VersionSpec{Slot: slot.Standard, Profile: "hd-primary"}, library.VersionSpec{Slot: slot.FourK, Profile: "4k-primary"})
 	rows, err := lib.List(ctx, library.View{Country: "US", Now: now}, library.Filter{Kind: library.Series})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != 1 || rows[0].Kind != library.Series || rows[0].Slots[resolution.HD].State != library.Wanted || rows[0].Slots[resolution.UHD] == nil || rows[0].WantedSince == nil {
+	if len(rows) != 1 || rows[0].Kind != library.Series || rows[0].Slots[slot.Standard].State != library.Wanted || rows[0].Slots[slot.FourK] == nil || rows[0].WantedSince == nil {
 		t.Fatalf("rows = %+v", rows)
 	}
 	// Monitoring nothing leaves nothing to want.
 	lib2, _ := newLibrary(t)
 	addShow(t, lib2, library.MonitorNone)
 	rows, _ = lib2.List(ctx, library.View{Country: "US", Now: now}, library.Filter{})
-	if got := rows[0].Slots[resolution.HD].State; got != library.Unmonitored {
+	if got := rows[0].Slots[slot.Standard].State; got != library.Unmonitored {
 		t.Errorf("state = %s", got)
 	}
 }

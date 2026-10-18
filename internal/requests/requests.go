@@ -24,9 +24,9 @@ import (
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/requests/db"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"github.com/hyprsh/kestrel/internal/store"
 )
 
@@ -66,7 +66,7 @@ func invalid(field, code, msg string) error { return &ValidationError{field, cod
 
 // SlotInput is a Slot the Request names, with the Profile key it asks for, or "".
 type SlotInput struct {
-	Slot    resolution.Class
+	Slot    slot.Slot
 	Profile string
 }
 
@@ -94,7 +94,7 @@ type Download struct {
 
 // SlotStatus is one requested Slot.
 type SlotStatus struct {
-	Slot resolution.Class
+	Slot slot.Slot
 	// Profile is the Version's Profile (what the Request resolved to, or what
 	// an existing Version already had); "" when the Request was rejected first.
 	Profile   string
@@ -157,24 +157,10 @@ func New(d Deps) *Service {
 
 func ts(t time.Time) string { return t.UTC().Format(time.RFC3339) }
 
-func slotName(c resolution.Class) string {
-	switch c {
-	case resolution.HD:
-		return "hd"
-	case resolution.UHD:
-		return "uhd"
-	}
-	return "sd"
-}
-
-func slotOf(s string) resolution.Class {
-	switch s {
-	case "hd":
-		return resolution.HD
-	case "uhd":
-		return resolution.UHD
-	}
-	return resolution.SD
+// slotOf reads a stored Slot; the table's CHECK keeps the value valid.
+func slotOf(s string) slot.Slot {
+	sl, _ := slot.Parse(s)
+	return sl
 }
 
 func notFound(err error) bool {
@@ -248,14 +234,14 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 		kind = release.KindSeries
 	}
 
-	have := map[resolution.Class]bool{}
+	have := map[slot.Slot]bool{}
 	if tgt.existing != nil {
 		for _, v := range tgt.existing.Versions {
 			have[v.Slot] = true
 		}
 	}
 	var specs []library.VersionSpec
-	chosen := map[resolution.Class]string{}
+	chosen := map[slot.Slot]string{}
 	for _, sl := range in.Slots {
 		if have[sl.Slot] {
 			continue // accepted unchanged
@@ -285,7 +271,7 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	versionOf := map[resolution.Class]library.Version{}
+	versionOf := map[slot.Slot]library.Version{}
 	for _, v := range d.Versions {
 		versionOf[v.Slot] = v
 	}
@@ -324,7 +310,7 @@ func validate(in Input, all []profiles.Profile) error {
 	if len(in.Slots) == 0 {
 		return invalid("slots", "required", "Name at least one Slot")
 	}
-	seen := map[resolution.Class]bool{}
+	seen := map[slot.Slot]bool{}
 	for i, sl := range in.Slots {
 		field := fmt.Sprintf("slots[%d]", i)
 		if seen[sl.Slot] {
@@ -461,7 +447,7 @@ func (s *Service) apply(ctx context.Context, in Input, t target, specs []library
 				return 0, false, gerr
 			}
 			t.existing, titleID = &d, d.ID
-			have := map[resolution.Class]bool{}
+			have := map[slot.Slot]bool{}
 			for _, v := range d.Versions {
 				have[v.Slot] = true
 			}
@@ -534,7 +520,7 @@ func (s *Service) apply(ctx context.Context, in Input, t target, specs []library
 }
 
 type slotRow struct {
-	slot      resolution.Class
+	slot      slot.Slot
 	profile   string
 	versionID int64
 }
@@ -584,7 +570,7 @@ func (s *Service) store(ctx context.Context, in Input, prior *db.Request, titleI
 	}
 	for _, sl := range slots {
 		if err := q.InsertRequestSlot(ctx, db.InsertRequestSlotParams{
-			RequestID: id, Slot: slotName(sl.slot), ProfileKey: sql.NullString{String: sl.profile, Valid: sl.profile != ""},
+			RequestID: id, Slot: sl.slot.Key(), ProfileKey: sql.NullString{String: sl.profile, Valid: sl.profile != ""},
 			VersionID: sql.NullInt64{Int64: sl.versionID, Valid: sl.versionID != 0},
 		}); err != nil {
 			return Result{}, err
@@ -811,7 +797,7 @@ func (s *Service) derive(ctx context.Context, r *Request, st *SlotStatus, wasFil
 	}
 	if fits && !wasFilled {
 		err := db.New(s.d.Store.Write()).MarkSlotFilled(ctx, db.MarkSlotFilledParams{
-			FilledAt: sql.NullString{String: ts(s.d.Clock()), Valid: true}, RequestID: r.ID, Slot: slotName(st.Slot),
+			FilledAt: sql.NullString{String: ts(s.d.Clock()), Valid: true}, RequestID: r.ID, Slot: st.Slot.Key(),
 		})
 		if err != nil {
 			return err

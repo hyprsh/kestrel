@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
@@ -24,13 +23,7 @@ func profilesProblem(err error) error {
 }
 
 func profileToAPI(p profiles.Profile) oapi.Profile {
-	slot := oapi.Sd
-	switch p.Slot {
-	case resolution.HD:
-		slot = oapi.Hd
-	case resolution.UHD:
-		slot = oapi.Uhd
-	}
+	slot := slotToAPI(p.Slot)
 	rule := oapi.ProfileLanguageRule("primary")
 	if p.Rule == scoring.OriginalLanguage {
 		rule = "original"

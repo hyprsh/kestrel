@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/hyprsh/kestrel/internal/library/db"
-	"github.com/hyprsh/kestrel/internal/resolution"
+	"github.com/hyprsh/kestrel/internal/slot"
 )
 
 // EpisodeRef names an episode by its place.
@@ -14,7 +14,7 @@ type EpisodeRef struct{ Season, Number int }
 type RenameFile struct {
 	ID            int64
 	VersionID     int64
-	Slot          resolution.Class
+	Slot          slot.Slot
 	Path          string
 	ParsedRelease string // JSON snapshot
 	Probe         string // JSON snapshot

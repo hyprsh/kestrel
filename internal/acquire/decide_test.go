@@ -1,11 +1,11 @@
 package acquire
 
 import (
+	"github.com/hyprsh/kestrel/internal/slot"
 	"testing"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/release"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring"
 )
 
@@ -15,7 +15,7 @@ var t0 = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 func movieCand(guid string, score int, mod ...func(*Candidate)) Candidate {
 	c := Candidate{
 		GUID: guid, PublishDate: t0, Size: 1000,
-		Verdicts: map[Slot]scoring.Verdict{resolution.HD: {Accepted: true, Score: score}},
+		Verdicts: map[Slot]scoring.Verdict{slot.Standard: {Accepted: true, Score: score}},
 	}
 	for _, m := range mod {
 		m(&c)
@@ -36,7 +36,7 @@ func packCand(guid string, score, season int, mod ...func(*Candidate)) Candidate
 }
 
 func movieVersion(held *Held) Version {
-	return Version{Slot: resolution.HD, Units: []Unit{{Held: held}}}
+	return Version{Slot: slot.Standard, Units: []Unit{{Held: held}}}
 }
 
 func guids(plans []GrabPlan) []string {
@@ -66,14 +66,14 @@ func TestMovieMissingTakesHighestScore(t *testing.T) {
 		Candidates: []Candidate{movieCand("a", 100), movieCand("b", 300), movieCand("c", 200)},
 	})
 	wantGUIDs(t, plans, "b")
-	if plans[0].Upgrade || plans[0].Pack || plans[0].Slot != resolution.HD {
+	if plans[0].Upgrade || plans[0].Pack || plans[0].Slot != slot.Standard {
 		t.Fatalf("plan = %+v", plans[0])
 	}
 }
 
 func TestRejectedCandidatesAreNotPlanned(t *testing.T) {
 	rej := func(c *Candidate) {
-		c.Verdicts = map[Slot]scoring.Verdict{resolution.HD: {Accepted: false, Score: 900, Rejections: []scoring.Rejection{scoring.RejectLanguage}}}
+		c.Verdicts = map[Slot]scoring.Verdict{slot.Standard: {Accepted: false, Score: 900, Rejections: []scoring.Rejection{scoring.RejectLanguage}}}
 	}
 	plans := Decide(Input{
 		Versions:   []Version{movieVersion(nil)},
@@ -140,80 +140,59 @@ var rejectsResolution = scoring.Verdict{Score: 9999, Rejections: []scoring.Rejec
 func TestOtherSlotAndUnwantedSlot(t *testing.T) {
 	uhd := func(c *Candidate) {
 		c.ClassKnown = true
-		c.Verdicts = map[Slot]scoring.Verdict{resolution.UHD: {Accepted: true, Score: 9999}, resolution.HD: rejectsResolution}
+		c.Verdicts = map[Slot]scoring.Verdict{slot.FourK: {Accepted: true, Score: 9999}, slot.Standard: rejectsResolution}
 	}
 	t.Run("UHD release never fills the HD Version", func(t *testing.T) {
 		plans := Decide(Input{Versions: []Version{movieVersion(nil)}, Candidates: []Candidate{movieCand("uhd", 0, uhd)}})
 		wantGUIDs(t, plans)
 	})
 	t.Run("UHD release fills a UHD Version only when the Title has one", func(t *testing.T) {
-		vs := []Version{movieVersion(nil), {Slot: resolution.UHD, Units: []Unit{{}}}}
+		vs := []Version{movieVersion(nil), {Slot: slot.FourK, Units: []Unit{{}}}}
 		plans := Decide(Input{Versions: vs, Candidates: []Candidate{movieCand("hd", 1), movieCand("uhd", 0, uhd)}})
 		wantGUIDs(t, plans, "hd", "uhd")
-		if plans[1].Slot != resolution.UHD {
+		if plans[1].Slot != slot.FourK {
 			t.Fatalf("slot = %v", plans[1].Slot)
 		}
 	})
 	t.Run("rejections", func(t *testing.T) {
 		c := movieCand("uhd", 0, uhd)
-		if got := Rejections(resolution.HD, c); len(got) != 1 || got[0] != RejectOtherSlot {
+		if got := Rejections(slot.Standard, c); len(got) != 1 || got[0] != RejectOtherSlot {
 			t.Fatalf("got %v", got)
 		}
-		if got := Rejections(resolution.UHD, c); len(got) != 0 {
+		if got := Rejections(slot.FourK, c); len(got) != 0 {
 			t.Fatalf("got %v", got)
 		}
 	})
 	t.Run("a known class the Profile does not accept is other_slot even when the Title has no Version for it", func(t *testing.T) {
 		c := movieCand("uhd", 0, func(c *Candidate) {
 			c.ClassKnown = true
-			c.Verdicts = map[Slot]scoring.Verdict{resolution.HD: rejectsResolution}
+			c.Verdicts = map[Slot]scoring.Verdict{slot.Standard: rejectsResolution}
 		})
-		got := Rejections(resolution.HD, c)
+		got := Rejections(slot.Standard, c)
 		if len(got) != 1 || got[0] != RejectOtherSlot {
 			t.Fatalf("got %v", got)
 		}
 		wantGUIDs(t, Decide(Input{Versions: []Version{movieVersion(nil)}, Candidates: []Candidate{c}}))
 	})
 	t.Run("an unknown class is the plain resolution rejection", func(t *testing.T) {
-		c := movieCand("odd", 0, func(c *Candidate) { c.Verdicts = map[Slot]scoring.Verdict{resolution.HD: rejectsResolution} })
-		got := Rejections(resolution.HD, c)
+		c := movieCand("odd", 0, func(c *Candidate) { c.Verdicts = map[Slot]scoring.Verdict{slot.Standard: rejectsResolution} })
+		got := Rejections(slot.Standard, c)
 		if len(got) != 1 || got[0] != scoring.RejectResolution {
 			t.Fatalf("got %v", got)
 		}
 	})
 }
 
-// Any sits in the HD Slot but its Profile accepts 0-1080, so it takes SD and HD releases.
+// Any sits in the Standard Slot but its Profile accepts 0-1080, so it takes SD and HD releases.
 func TestFitFollowsTheVersionsProfileRange(t *testing.T) {
-	sd := Slot(resolution.SD)
-	t.Run("an SD release is planned for an Any Version in the HD Slot", func(t *testing.T) {
+	t.Run("an SD release is planned for an Any Version in the Standard Slot", func(t *testing.T) {
 		c := movieCand("sd", 0, func(c *Candidate) {
-			c.Verdicts = map[Slot]scoring.Verdict{resolution.HD: {Accepted: true, Score: 5}}
+			c.Verdicts = map[Slot]scoring.Verdict{slot.Standard: {Accepted: true, Score: 5}}
 		})
 		plans := Decide(Input{Versions: []Version{movieVersion(nil)}, Candidates: []Candidate{c}})
 		wantGUIDs(t, plans, "sd")
-		if got := Rejections(resolution.HD, c); len(got) != 0 {
+		if got := Rejections(slot.Standard, c); len(got) != 0 {
 			t.Fatalf("rejections = %v", got)
-		}
-	})
-	t.Run("the same SD release is planned for both the SD and the Any Version", func(t *testing.T) {
-		c := movieCand("sd", 0, func(c *Candidate) {
-			c.Verdicts = map[Slot]scoring.Verdict{sd: {Accepted: true, Score: 5}, resolution.HD: {Accepted: true, Score: 5}}
-		})
-		vs := []Version{{Slot: sd, Units: []Unit{{}}}, movieVersion(nil)}
-		plans := Decide(Input{Versions: vs, Candidates: []Candidate{c}})
-		wantGUIDs(t, plans, "sd", "sd")
-		if plans[0].Slot != sd || plans[1].Slot != resolution.HD {
-			t.Fatalf("slots = %v, %v", plans[0].Slot, plans[1].Slot)
-		}
-	})
-	t.Run("an HD release rejected by an SD Profile is other_slot for it", func(t *testing.T) {
-		c := movieCand("hd", 0, func(c *Candidate) {
-			c.ClassKnown = true
-			c.Verdicts = map[Slot]scoring.Verdict{sd: rejectsResolution, resolution.HD: {Accepted: true, Score: 5}}
-		})
-		if got := Rejections(sd, c); len(got) != 1 || got[0] != RejectOtherSlot {
-			t.Fatalf("got %v", got)
 		}
 	})
 }
@@ -230,12 +209,12 @@ func TestPausedIndexerIsSkipped(t *testing.T) {
 func TestAbsoluteNumberingAndMultiSeasonAreSkipped(t *testing.T) {
 	abs := epCand("abs", 100, 1, nil, func(c *Candidate) { c.Parsed.Series.AbsoluteEpisodes = []int{5} })
 	multi := packCand("multi", 100, 1, func(c *Candidate) { c.Parsed.Series.MultiSeason = true })
-	v := Version{Slot: resolution.HD, Units: []Unit{{Ref: EpisodeRef{1, 5}}}}
+	v := Version{Slot: slot.Standard, Units: []Unit{{Ref: EpisodeRef{1, 5}}}}
 	wantGUIDs(t, Decide(Input{Versions: []Version{v}, Candidates: []Candidate{abs, multi}}))
 }
 
 func seasonVersion(season int, held map[int]*Held, n int) Version {
-	v := Version{Slot: resolution.HD}
+	v := Version{Slot: slot.Standard}
 	for e := 1; e <= n; e++ {
 		v.Units = append(v.Units, Unit{Ref: EpisodeRef{season, e}, Held: held[e]})
 	}
@@ -316,7 +295,7 @@ func TestPackAsUpgradeNeedsToBeatOrMatchEveryHeldEpisode(t *testing.T) {
 }
 
 func TestPackOnlyCoversItsSeason(t *testing.T) {
-	v := Version{Slot: resolution.HD, Units: []Unit{{Ref: EpisodeRef{2, 1}}}}
+	v := Version{Slot: slot.Standard, Units: []Unit{{Ref: EpisodeRef{2, 1}}}}
 	wantGUIDs(t, Decide(Input{Versions: []Version{v}, SeasonsFinished: map[int]bool{1: true, 2: true}, Candidates: []Candidate{packCand("s1", 100, 1)}}))
 }
 

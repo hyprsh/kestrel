@@ -2,18 +2,18 @@ package acquire_test
 
 import (
 	"context"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"testing"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/library"
-	"github.com/hyprsh/kestrel/internal/resolution"
 )
 
 // fill gives the Movie's HD Version a file of the given Score.
 func (r *rig) fill(t *testing.T, score int) {
 	t.Helper()
 	if _, err := r.lib.ReplaceFile(context.Background(), r.titleID, "Paddington (2014)", library.NewFile{
-		VersionID: r.versions[resolution.HD], Path: "/m/Paddington.mkv", Size: 1, ReleaseName: "Paddington.2014.720p", Score: score,
+		VersionID: r.versions[slot.Standard], Path: "/m/Paddington.mkv", Size: 1, ReleaseName: "Paddington.2014.720p", Score: score,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +25,7 @@ func TestSearchUpgradesGrabsAReleaseThatBeatsTheHeldFileAsAnUpgrade(t *testing.T
 	r.fill(t, -100000)
 	r.publish(t, hd1080, time.Hour)
 
-	out, err := r.svc.SearchUpgrades(ctx, r.titleID, r.wanted(t, resolution.HD))
+	out, err := r.svc.SearchUpgrades(ctx, r.titleID, r.wanted(t, slot.Standard))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func TestSearchUpgradesGrabsNothingThatDoesNotBeatTheHeldFileButCountsAsSearched
 	r.fill(t, 1000000)
 	r.publish(t, hd1080, time.Hour)
 
-	out, err := r.svc.SearchUpgrades(ctx, r.titleID, r.wanted(t, resolution.HD))
+	out, err := r.svc.SearchUpgrades(ctx, r.titleID, r.wanted(t, slot.Standard))
 
 	if err != nil || len(out.Searched) != 1 || len(out.Grabbed) != 0 {
 		t.Fatalf("outcome = %+v, %v, want searched with no Grab", out, err)
@@ -53,13 +53,13 @@ func TestSearchUpgradesLeavesWantedVersionsAloneAndSearchWantedLeavesFilledOnesA
 	r := newRig(t)
 	r.publish(t, hd1080, time.Hour)
 
-	out, err := r.svc.SearchUpgrades(ctx, r.titleID, r.wanted(t, resolution.HD))
+	out, err := r.svc.SearchUpgrades(ctx, r.titleID, r.wanted(t, slot.Standard))
 	if err != nil || len(out.Searched) != 0 || len(out.Grabbed) != 0 {
 		t.Fatalf("upgrade search of a Wanted Version = %+v, %v", out, err)
 	}
 
 	r.fill(t, -100000)
-	out, err = r.svc.SearchWanted(ctx, r.titleID, r.wanted(t, resolution.HD))
+	out, err = r.svc.SearchWanted(ctx, r.titleID, r.wanted(t, slot.Standard))
 	if err != nil || len(out.Searched) != 0 || len(out.Grabbed) != 0 {
 		t.Fatalf("missing search of a filled Version = %+v, %v", out, err)
 	}

@@ -12,11 +12,11 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/probe"
 	"github.com/hyprsh/kestrel/internal/release"
+	"github.com/hyprsh/kestrel/internal/slot"
 )
 
-// Slot is the place in a Title that one Version fills. It shares the
-// resolution-class type with probe.ClassOf until a shared home exists (#28).
-type Slot = probe.Class
+// Slot is the place in a Title that one Version fills.
+type Slot = slot.Slot
 
 // maxNameBytes is the longest file or folder name the naming scheme makes.
 const maxNameBytes = 255
@@ -98,18 +98,18 @@ func SeasonFolder(season int) string {
 // MovieFileName is a Movie Version's file: the Movie folder, ` - `, the Slot
 // label and the brackets, then the extension (which includes its dot). Every
 // file of a Movie starts with the folder name, so Jellyfin groups the Versions.
-func MovieFileName(t Title, slot Slot, f FileFacts, ext string) (string, error) {
+func MovieFileName(t Title, s Slot, f FileFacts, ext string) (string, error) {
 	if t.TMDBID <= 0 {
 		return "", ErrMissingID
 	}
 	tail := yearPart(t.Year) + fmt.Sprintf(" {tmdb-%d}", t.TMDBID)
-	return fileName(t, tail, slot, f, ext)
+	return fileName(t, tail, s, f, ext)
 }
 
 // EpisodeFileName is a Series episode's file: `Title (Year) - S01E01`, the
 // Slot label and the brackets, then the extension. Episode titles are left
 // out, so TheTVDB edits never rename a file. A range is `S01E01-E02`.
-func EpisodeFileName(t Title, slot Slot, ep Episode, f FileFacts, ext string) (string, error) {
+func EpisodeFileName(t Title, s Slot, ep Episode, f FileFacts, ext string) (string, error) {
 	if ep.First < 1 || ep.Last < ep.First || ep.Season < 0 {
 		return "", ErrInvalidEpisode
 	}
@@ -117,7 +117,7 @@ func EpisodeFileName(t Title, slot Slot, ep Episode, f FileFacts, ext string) (s
 	if ep.Last > ep.First {
 		code += fmt.Sprintf("-E%02d", ep.Last)
 	}
-	return fileName(t, yearPart(t.Year)+code, slot, f, ext)
+	return fileName(t, yearPart(t.Year)+code, s, f, ext)
 }
 
 // SubtitleFileName names a subtitle sidecar `<stem>.<lang>[.forced][.sdh].<ext>`
@@ -152,11 +152,11 @@ func SubtitleFileName(stem, lang string, forced, sdh bool, ext string, taken fun
 // fileName assembles `Title<tail> - [Slot]<brackets>-GROUP<ext>`, with the
 // title trimmed so the whole name fits. tail is what sits between the title
 // and the Slot label (the year and ID tag, and any episode code).
-func fileName(t Title, tail string, slot Slot, f FileFacts, ext string) (string, error) {
+func fileName(t Title, tail string, s Slot, f FileFacts, ext string) (string, error) {
 	if !strings.HasPrefix(ext, ".") {
 		return "", ErrInvalidExt
 	}
-	rest := " - [" + slot.String() + "]" + brackets(t, f)
+	rest := " - [" + s.Label() + "]" + brackets(t, f)
 	group := ""
 	if g := sanitizeBracket(f.Release.ReleaseGroup); g != "" {
 		group = "-" + g

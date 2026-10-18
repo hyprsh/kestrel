@@ -2,26 +2,26 @@ package profiles_test
 
 import (
 	"errors"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"testing"
 
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 )
 
 func TestPickChecksAProfileNamedForASlot(t *testing.T) {
 	all := []profiles.Profile{
-		{Key: "hd-primary", Slot: resolution.HD, Enabled: true},
-		{Key: "uhd-primary", Slot: resolution.UHD, Enabled: false},
+		{Key: "hd-primary", Slot: slot.Standard, Enabled: true},
+		{Key: "4k-primary", Slot: slot.FourK, Enabled: false},
 	}
 	cases := []struct {
 		key  string
-		slot resolution.Class
+		slot slot.Slot
 		want error
 	}{
-		{"hd-primary", resolution.HD, nil},
-		{"nope", resolution.HD, profiles.ErrNoSuchProfile},
-		{"hd-primary", resolution.UHD, profiles.ErrWrongSlot},
-		{"uhd-primary", resolution.UHD, profiles.ErrDisabled},
+		{"hd-primary", slot.Standard, nil},
+		{"nope", slot.Standard, profiles.ErrNoSuchProfile},
+		{"hd-primary", slot.FourK, profiles.ErrWrongSlot},
+		{"4k-primary", slot.FourK, profiles.ErrDisabled},
 	}
 	for _, c := range cases {
 		p, err := profiles.Pick(all, c.key, c.slot)

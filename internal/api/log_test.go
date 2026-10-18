@@ -69,12 +69,12 @@ func TestTheLogFiltersByKindTitleAndSlotAndHidesRoutineEventsUnlessAsked(t *test
 	if got := s.events(t, "?kind=grab").Items; len(got) != 2 {
 		t.Errorf("kind=grab = %+v", got)
 	}
-	hd := s.events(t, "?slot=hd")
+	hd := s.events(t, "?slot=standard")
 	if len(hd.Items) != 1 || hd.Items[0].VersionID == nil || *hd.Items[0].VersionID != s.hd {
-		t.Errorf("slot=hd = %+v, want the HD grab only", hd.Items)
+		t.Errorf("slot=standard = %+v, want the HD grab only", hd.Items)
 	}
-	if got := s.events(t, "?slot=hd&routine=true").Items; len(got) != 2 {
-		t.Errorf("slot=hd with routine = %+v", got)
+	if got := s.events(t, "?slot=standard&routine=true").Items; len(got) != 2 {
+		t.Errorf("slot=standard with routine = %+v", got)
 	}
 	if got := s.events(t, fmt.Sprintf("?title_id=%d", s.title)).Items; len(got) != 2 {
 		t.Errorf("title filter = %+v", got)

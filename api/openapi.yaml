@@ -349,8 +349,8 @@ paths:
       summary: Change a Profile's settings
       description: |
         A Slot has at most one default Profile per kind: making one the default replaces the old.
-        HD always keeps exactly one default per kind, so unsetting or disabling it is a `validation`
-        error until another HD Profile is the default. Disabling a Profile clears its defaults, and
+        The Standard Slot always keeps exactly one default per kind, so unsetting or disabling it is a
+        `validation` error until another Standard Profile is the default. Disabling a Profile clears its defaults, and
         a disabled Profile cannot be made a default. `original_fallback` is a `validation` error on
         Original-Language Profiles.
       tags: [profiles]
@@ -1889,7 +1889,7 @@ components:
       required: true
       schema:
         type: string
-        enum: [sd-primary, sd-original, hd-primary, hd-original, any-primary, any-original, uhd-primary, uhd-original]
+        enum: [hd-primary, hd-original, any-primary, any-original, 4k-primary, 4k-original]
   headers:
     SetCookie:
       description: The `kestrel_session` cookie (HttpOnly, SameSite=Lax, Path from KESTREL_BASE_URL).
@@ -2139,7 +2139,7 @@ components:
               type: string
     Slot:
       type: string
-      enum: [sd, hd, uhd]
+      enum: [standard, 4k]
     Profile:
       type: object
       required: [key, name, slot, language_rule, original_fallback, enabled, default_movies, default_series, min_height, max_height, trash_profile_movies, trash_profile_series]
@@ -2568,17 +2568,13 @@ components:
         cells:
           type: object
           description: One cell per Slot, `null` where the Title has no Version.
-          required: [sd, hd, uhd]
+          required: [standard, 4k]
           properties:
-            sd:
+            standard:
               allOf:
                 - $ref: "#/components/schemas/EpisodeCell"
               nullable: true
-            hd:
-              allOf:
-                - $ref: "#/components/schemas/EpisodeCell"
-              nullable: true
-            uhd:
+            4k:
               allOf:
                 - $ref: "#/components/schemas/EpisodeCell"
               nullable: true
@@ -2648,17 +2644,13 @@ components:
           nullable: true
         slots:
           type: object
-          required: [sd, hd, uhd]
+          required: [standard, 4k]
           properties:
-            sd:
+            standard:
               allOf:
                 - $ref: "#/components/schemas/SlotSummary"
               nullable: true
-            hd:
-              allOf:
-                - $ref: "#/components/schemas/SlotSummary"
-              nullable: true
-            uhd:
+            4k:
               allOf:
                 - $ref: "#/components/schemas/SlotSummary"
               nullable: true

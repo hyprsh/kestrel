@@ -3,6 +3,7 @@ package acquire_test
 import (
 	"context"
 	"errors"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"slices"
 	"testing"
 	"time"
@@ -18,7 +19,6 @@ import (
 	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
 	ixfake "github.com/hyprsh/kestrel/internal/plugin/indexer/v1/fake"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings"
@@ -39,7 +39,7 @@ type rig struct {
 	sab      *dcfake.Client
 	clock    *clock
 	titleID  int64
-	versions map[resolution.Class]int64
+	versions map[slot.Slot]int64
 	// deps rebuild a Service over the same rows, as after a restart.
 	deps acquire.Deps
 }
@@ -52,12 +52,12 @@ func (secondIndexer) Describe() plugin.Manifest {
 	return m
 }
 
-var defaultProfiles = map[resolution.Class]string{resolution.SD: "sd-primary", resolution.HD: "hd-primary", resolution.UHD: "uhd-primary"}
+var defaultProfiles = map[slot.Slot]string{slot.Standard: "hd-primary", slot.FourK: "4k-primary"}
 
-func newRig(t *testing.T, slots ...resolution.Class) *rig {
+func newRig(t *testing.T, slots ...slot.Slot) *rig {
 	t.Helper()
 	if len(slots) == 0 {
-		slots = []resolution.Class{resolution.HD}
+		slots = []slot.Slot{slot.Standard}
 	}
 	var specs []library.VersionSpec
 	for _, s := range slots {
@@ -106,7 +106,7 @@ func newRigWith(t *testing.T, specs ...library.VersionSpec) *rig {
 	if err != nil {
 		t.Fatal(err)
 	}
-	versions := map[resolution.Class]int64{}
+	versions := map[slot.Slot]int64{}
 	for _, v := range d.Versions {
 		versions[v.Slot] = v.ID
 	}
@@ -171,7 +171,7 @@ func TestASearchScoresEveryReleaseAgainstTheVersionsProfile(t *testing.T) {
 	r.publish(t, uhd, 2*time.Hour)
 	r.publish(t, german, 3*time.Hour)
 
-	res, err := r.svc.Search(context.Background(), r.versions[resolution.HD])
+	res, err := r.svc.Search(context.Background(), r.versions[slot.Standard])
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,7 +205,7 @@ func TestATextHitIsKeptOnlyWhenItIsTheSameTitle(t *testing.T) {
 		}
 	}
 
-	res, err := r.svc.Search(context.Background(), r.versions[resolution.HD])
+	res, err := r.svc.Search(context.Background(), r.versions[slot.Standard])
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,15 +216,15 @@ func TestATextHitIsKeptOnlyWhenItIsTheSameTitle(t *testing.T) {
 }
 
 func TestEachVersionSeesTheSameReleasesFromItsOwnSlot(t *testing.T) {
-	r := newRig(t, resolution.HD, resolution.UHD)
+	r := newRig(t, slot.Standard, slot.FourK)
 	r.publish(t, hd1080, time.Hour)
 	r.publish(t, uhd, time.Hour)
 
-	hd, err := r.svc.Search(context.Background(), r.versions[resolution.HD])
+	hd, err := r.svc.Search(context.Background(), r.versions[slot.Standard])
 	if err != nil {
 		t.Fatal(err)
 	}
-	u, err := r.svc.Search(context.Background(), r.versions[resolution.UHD])
+	u, err := r.svc.Search(context.Background(), r.versions[slot.FourK])
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,17 +237,16 @@ func TestEachVersionSeesTheSameReleasesFromItsOwnSlot(t *testing.T) {
 	}
 }
 
-func TestAnSDReleaseFitsBothTheSDAndTheAnyVersion(t *testing.T) {
+func TestAnSDReleaseFitsTheAnyVersion(t *testing.T) {
 	ctx := context.Background()
 	r := newRigWith(t,
-		library.VersionSpec{Slot: resolution.SD, Profile: "sd-primary"},
-		library.VersionSpec{Slot: resolution.HD, Profile: "any-primary"},
+		library.VersionSpec{Slot: slot.Standard, Profile: "any-primary"},
 	)
 	const sdRelease = "Paddington.2014.576p.BluRay.x264-GRP"
 	r.publish(t, sdRelease, time.Hour)
 	r.publish(t, uhd, time.Hour)
 
-	for _, slot := range []resolution.Class{resolution.SD, resolution.HD} {
+	for _, slot := range []slot.Slot{slot.Standard} {
 		res, err := r.svc.Search(ctx, r.versions[slot])
 		if err != nil {
 			t.Fatal(err)
@@ -276,15 +275,15 @@ func TestGrabbingAReleaseSendsItsNZBToTheClientAndRecordsTheGrab(t *testing.T) {
 	ctx := context.Background()
 	r := newRig(t)
 	r.publish(t, hd1080, time.Hour)
-	res, _ := r.svc.Search(ctx, r.versions[resolution.HD])
+	res, _ := r.svc.Search(ctx, r.versions[slot.Standard])
 	f := r.found(t, res, hd1080)
 
-	g, err := r.svc.Grab(ctx, r.versions[resolution.HD], f.ID, false)
+	g, err := r.svc.Grab(ctx, r.versions[slot.Standard], f.ID, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if g.State != "sent" || g.ReleaseName != hd1080 || g.ClientID == "" || g.VersionID != r.versions[resolution.HD] || g.TitleID != r.titleID || g.Score != f.Score || g.Overridden || g.IsUpgrade {
+	if g.State != "sent" || g.ReleaseName != hd1080 || g.ClientID == "" || g.VersionID != r.versions[slot.Standard] || g.TitleID != r.titleID || g.Score != f.Score || g.Overridden || g.IsUpgrade {
 		t.Errorf("grab = %+v", g)
 	}
 	items, _ := r.sab.List(ctx, r.sab.Conn(0), "films")
@@ -301,16 +300,16 @@ func TestGrabbingARejectedReleaseNeedsTheOverride(t *testing.T) {
 	ctx := context.Background()
 	r := newRig(t)
 	r.publish(t, german, time.Hour)
-	res, _ := r.svc.Search(ctx, r.versions[resolution.HD])
+	res, _ := r.svc.Search(ctx, r.versions[slot.Standard])
 	f := r.found(t, res, german)
 
-	_, err := r.svc.Grab(ctx, r.versions[resolution.HD], f.ID, false)
+	_, err := r.svc.Grab(ctx, r.versions[slot.Standard], f.ID, false)
 	var rej *acquire.RejectedError
 	if !errors.As(err, &rej) || rej.NotOverridable() || !slices.Contains(rej.Rejections, scoring.RejectLanguage) {
 		t.Fatalf("err = %v, want an overridable rejection", err)
 	}
 
-	g, err := r.svc.Grab(ctx, r.versions[resolution.HD], f.ID, true)
+	g, err := r.svc.Grab(ctx, r.versions[slot.Standard], f.ID, true)
 	if err != nil || !g.Overridden {
 		t.Fatalf("Grab anyway = %+v, %v", g, err)
 	}
@@ -320,11 +319,11 @@ func TestAReleaseForAnotherSlotCanNeverBeGrabbed(t *testing.T) {
 	ctx := context.Background()
 	r := newRig(t) // an HD-only Title: a 2160p Release fits the UHD Slot, which it has no Version for
 	r.publish(t, uhd, time.Hour)
-	res, _ := r.svc.Search(ctx, r.versions[resolution.HD])
+	res, _ := r.svc.Search(ctx, r.versions[slot.Standard])
 	f := r.found(t, res, uhd)
 
 	for _, override := range []bool{false, true} {
-		_, err := r.svc.Grab(ctx, r.versions[resolution.HD], f.ID, override)
+		_, err := r.svc.Grab(ctx, r.versions[slot.Standard], f.ID, override)
 		var rej *acquire.RejectedError
 		if !errors.As(err, &rej) || !rej.NotOverridable() {
 			t.Errorf("override=%v: err = %v, want a not-overridable rejection", override, err)
@@ -339,7 +338,7 @@ func TestABlocklistedReleaseIsRejectedAndNeverGrabbable(t *testing.T) {
 	ctx := context.Background()
 	r := newRig(t)
 	r.publish(t, hd1080, time.Hour)
-	res, _ := r.svc.Search(ctx, r.versions[resolution.HD])
+	res, _ := r.svc.Search(ctx, r.versions[slot.Standard])
 	f := r.found(t, res, hd1080)
 	if slices.Contains(codes(f), scoring.RejectBlocklisted) {
 		t.Fatal("blocklisted before it was added")
@@ -348,12 +347,12 @@ func TestABlocklistedReleaseIsRejectedAndNeverGrabbable(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, _ = r.svc.Search(ctx, r.versions[resolution.HD])
+	res, _ = r.svc.Search(ctx, r.versions[slot.Standard])
 	f = r.found(t, res, hd1080)
 	if !slices.Contains(codes(f), scoring.RejectBlocklisted) || f.Rejections[slices.Index(codes(f), scoring.RejectBlocklisted)].Overridable {
 		t.Errorf("rejections = %+v, want blocklisted, not overridable", f.Rejections)
 	}
-	_, err := r.svc.Grab(ctx, r.versions[resolution.HD], f.ID, true)
+	_, err := r.svc.Grab(ctx, r.versions[slot.Standard], f.ID, true)
 	var rej *acquire.RejectedError
 	if !errors.As(err, &rej) || !rej.NotOverridable() {
 		t.Errorf("Grab anyway of a blocklisted release: err = %v", err)
@@ -366,7 +365,7 @@ func TestABlocklistEntryAlsoCatchesTheSameReleaseFromAnotherIndexerWithinTwoMinu
 		return acquire.BlockEntry{ReleaseName: hd1080, IndexerID: idx, GUID: "elsewhere", PublishedAt: at, Size: size, Reason: "failed"}
 	}
 	r.publish(t, hd1080, time.Hour)
-	res, _ := r.svc.Search(context.Background(), r.versions[resolution.HD])
+	res, _ := r.svc.Search(context.Background(), r.versions[slot.Standard])
 	f := r.found(t, res, hd1080)
 
 	for _, tc := range []struct {
@@ -385,7 +384,7 @@ func TestABlocklistEntryAlsoCatchesTheSameReleaseFromAnotherIndexerWithinTwoMinu
 			if err := rr.svc.Block(context.Background(), tc.entry); err != nil {
 				t.Fatal(err)
 			}
-			res, _ := rr.svc.Search(context.Background(), rr.versions[resolution.HD])
+			res, _ := rr.svc.Search(context.Background(), rr.versions[slot.Standard])
 			got := slices.Contains(codes(rr.found(t, res, hd1080)), scoring.RejectBlocklisted)
 			if got != tc.blocked {
 				t.Errorf("blocklisted = %v, want %v", got, tc.blocked)
@@ -398,14 +397,14 @@ func TestAGrabNeedsAReleaseFromARecentSearch(t *testing.T) {
 	ctx := context.Background()
 	r := newRig(t)
 	r.publish(t, hd1080, time.Hour)
-	res, _ := r.svc.Search(ctx, r.versions[resolution.HD])
+	res, _ := r.svc.Search(ctx, r.versions[slot.Standard])
 	f := r.found(t, res, hd1080)
 
-	if _, err := r.svc.Grab(ctx, r.versions[resolution.HD], "nope", false); !errors.Is(err, acquire.ErrReleaseExpired) {
+	if _, err := r.svc.Grab(ctx, r.versions[slot.Standard], "nope", false); !errors.Is(err, acquire.ErrReleaseExpired) {
 		t.Errorf("unknown release: err = %v, want ErrReleaseExpired", err)
 	}
 	r.clock.now = r.clock.now.Add(6*time.Hour + time.Minute)
-	if _, err := r.svc.Grab(ctx, r.versions[resolution.HD], f.ID, false); !errors.Is(err, acquire.ErrReleaseExpired) {
+	if _, err := r.svc.Grab(ctx, r.versions[slot.Standard], f.ID, false); !errors.Is(err, acquire.ErrReleaseExpired) {
 		t.Errorf("after six hours: err = %v, want ErrReleaseExpired", err)
 	}
 }
@@ -414,11 +413,11 @@ func TestAReleaseTheIndexerNoLongerHasIsGone(t *testing.T) {
 	ctx := context.Background()
 	r := newRig(t)
 	r.publish(t, hd1080, time.Hour)
-	res, _ := r.svc.Search(ctx, r.versions[resolution.HD])
+	res, _ := r.svc.Search(ctx, r.versions[slot.Standard])
 	f := r.found(t, res, hd1080)
 	r.idx.Remove(hd1080)
 
-	_, err := r.svc.Grab(ctx, r.versions[resolution.HD], f.ID, false)
+	_, err := r.svc.Grab(ctx, r.versions[slot.Standard], f.ID, false)
 	if !errors.Is(err, acquire.ErrReleaseGone) {
 		t.Errorf("err = %v, want ErrReleaseGone", err)
 	}
@@ -428,11 +427,11 @@ func TestASpentGrabBudgetSurfacesAsAPluginError(t *testing.T) {
 	ctx := context.Background()
 	r := newRig(t)
 	r.publish(t, hd1080, time.Hour)
-	res, _ := r.svc.Search(ctx, r.versions[resolution.HD])
+	res, _ := r.svc.Search(ctx, r.versions[slot.Standard])
 	f := r.found(t, res, hd1080)
 	r.idx.Exhaust(plugin.LimitGrab, time.Minute)
 
-	_, err := r.svc.Grab(ctx, r.versions[resolution.HD], f.ID, false)
+	_, err := r.svc.Grab(ctx, r.versions[slot.Standard], f.ID, false)
 	if pe := plugin.AsError(err); pe.Code != plugin.CodeRateLimited || pe.Limit != plugin.LimitGrab {
 		t.Errorf("err = %v", err)
 	}
@@ -442,7 +441,7 @@ func TestAReleaseFromAnotherTitlesSearchCannotBeGrabbedForThisVersion(t *testing
 	ctx := context.Background()
 	r := newRig(t)
 	r.publish(t, hd1080, time.Hour)
-	res, _ := r.svc.Search(ctx, r.versions[resolution.HD])
+	res, _ := r.svc.Search(ctx, r.versions[slot.Standard])
 	f := r.found(t, res, hd1080)
 
 	if _, err := r.svc.Grab(ctx, 999, f.ID, false); !errors.Is(err, library.ErrNotFound) {

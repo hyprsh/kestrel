@@ -2,13 +2,13 @@ package acquire_test
 
 import (
 	"context"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"testing"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/acquire"
 	"github.com/hyprsh/kestrel/internal/library"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
-	"github.com/hyprsh/kestrel/internal/resolution"
 )
 
 const hd1080web = "Paddington.2014.1080p.WEB-DL.x264-GRP"
@@ -18,7 +18,7 @@ func (r *rig) twoCandidates(t *testing.T) acquire.Grab {
 	t.Helper()
 	r.publish(t, hd1080, time.Hour)
 	r.publish(t, hd1080web, 2*time.Hour)
-	out, err := r.svc.SearchWanted(context.Background(), r.titleID, r.wanted(t, resolution.HD))
+	out, err := r.svc.SearchWanted(context.Background(), r.titleID, r.wanted(t, slot.Standard))
 	if err != nil || len(out.Grabbed) != 1 {
 		t.Fatalf("SearchWanted = %+v, %v", out, err)
 	}
@@ -86,7 +86,7 @@ func TestAFailedUpgradeIsBlocklistedAndTheNextBestUpgradeGrabbed(t *testing.T) {
 	r.fill(t, -100000)
 	r.publish(t, hd1080, time.Hour)
 	r.publish(t, hd1080web, 2*time.Hour)
-	out, err := r.svc.SearchUpgrades(ctx, r.titleID, r.wanted(t, resolution.HD))
+	out, err := r.svc.SearchUpgrades(ctx, r.titleID, r.wanted(t, slot.Standard))
 	if err != nil || len(out.Grabbed) != 1 {
 		t.Fatalf("SearchUpgrades = %+v, %v", out, err)
 	}
@@ -335,7 +335,7 @@ func TestAStalledImportBacksOffAndKeepsTheVersionBusy(t *testing.T) {
 	}
 
 	r.publish(t, hd1080web, time.Hour)
-	out, err := r.svc.SearchWanted(ctx, r.titleID, r.wanted(t, resolution.HD))
+	out, err := r.svc.SearchWanted(ctx, r.titleID, r.wanted(t, slot.Standard))
 	if err != nil || len(out.Searched) != 0 || len(out.Grabbed) != 0 {
 		t.Errorf("a Version with a stalled Import was searched: %+v, %v", out, err)
 	}
@@ -395,10 +395,10 @@ func TestDiscardFailsAStalledImportWithoutBlocklistingAndFreesTheVersion(t *test
 
 func TestRetryAllAndDiscardAllWorkPerReason(t *testing.T) {
 	ctx := context.Background()
-	r := newRig(t, resolution.HD, resolution.UHD)
+	r := newRig(t, slot.Standard, slot.FourK)
 	r.publish(t, hd1080, time.Hour)
 	r.publish(t, uhd, time.Hour)
-	out, err := r.svc.SearchWanted(ctx, r.titleID, r.wanted(t, resolution.HD, resolution.UHD))
+	out, err := r.svc.SearchWanted(ctx, r.titleID, r.wanted(t, slot.Standard, slot.FourK))
 	if err != nil || len(out.Grabbed) != 2 {
 		t.Fatalf("SearchWanted = %+v, %v", out, err)
 	}

@@ -34,7 +34,7 @@ func TestANeedsChoiceRowIsSettledFromItsCandidatesAndAdoptedWhileUnsettledOnesAr
 
 	a.commit(t, decode[adoptionJSON](t, a.valid("GET", "/adoption", "")).Revision)
 
-	if files := a.titleFiles(t, a.titleIDOf(t, 116149)); filepath.Dir(files["hd"]) != filepath.Join(a.movies, "Paddington (2014) {tmdb-116149}") || exists(t, pick) {
+	if files := a.titleFiles(t, a.titleIDOf(t, 116149)); filepath.Dir(files["standard"]) != filepath.Join(a.movies, "Paddington (2014) {tmdb-116149}") || exists(t, pick) {
 		t.Errorf("the chosen row was not adopted: %v", files)
 	}
 	if !exists(t, left) {

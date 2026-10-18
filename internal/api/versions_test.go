@@ -34,9 +34,9 @@ func (s *search) addMovie(t *testing.T, versions string) {
 	s.title = created.ID
 	for _, v := range created.Versions {
 		switch v.Slot {
-		case "hd":
+		case "standard":
 			s.hd = v.ID
-		case "uhd":
+		case "4k":
 			s.uhd = v.ID
 		}
 	}
@@ -70,16 +70,16 @@ func (s search) searchState(t *testing.T, version int64) searchStateRow {
 
 func TestAddingUHDToATitleWithHDCreatesAVersionAndSearchesItAtOnce(t *testing.T) {
 	s := newSearchBare(t)
-	s.addMovie(t, `{"slot":"hd","profile":"hd-primary"}`)
+	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
 	s.publish(t, uhdRelease)
 
-	r := s.valid("POST", fmt.Sprintf("/titles/%d/versions", s.title), `{"slot":"uhd","profile":"uhd-primary"}`)
+	r := s.valid("POST", fmt.Sprintf("/titles/%d/versions", s.title), `{"slot":"4k","profile":"4k-primary"}`)
 
 	if r.Status != 201 {
 		t.Fatalf("POST /titles/{id}/versions = %d %s", r.Status, r.Body)
 	}
 	v := decode[versionJSON](t, r)
-	if v.Slot != "uhd" || v.Profile != "uhd-primary" || v.State != "wanted" {
+	if v.Slot != "4k" || v.Profile != "4k-primary" || v.State != "wanted" {
 		t.Errorf("version = %+v", v)
 	}
 	s.pass(t, jobs.Search)
@@ -94,23 +94,23 @@ func TestAddingUHDToATitleWithHDCreatesAVersionAndSearchesItAtOnce(t *testing.T)
 
 func TestAddingToATakenSlotOrWithAWrongProfileIsRefused(t *testing.T) {
 	s := newSearchBare(t)
-	s.addMovie(t, `{"slot":"hd","profile":"hd-primary"}`)
+	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
 	path := fmt.Sprintf("/titles/%d/versions", s.title)
 
-	if r := s.valid("POST", path, `{"slot":"hd","profile":"any-primary"}`); r.Status != 409 {
+	if r := s.valid("POST", path, `{"slot":"standard","profile":"any-primary"}`); r.Status != 409 {
 		t.Errorf("taken Slot = %d %s, want 409", r.Status, r.Body)
 	}
-	if r := s.valid("POST", path, `{"slot":"uhd","profile":"hd-primary"}`); r.Status != 422 {
+	if r := s.valid("POST", path, `{"slot":"4k","profile":"hd-primary"}`); r.Status != 422 {
 		t.Errorf("wrong Profile = %d %s, want 422", r.Status, r.Body)
 	}
-	if r := s.valid("POST", "/titles/9999/versions", `{"slot":"uhd","profile":"uhd-primary"}`); r.Status != 404 {
+	if r := s.valid("POST", "/titles/9999/versions", `{"slot":"4k","profile":"4k-primary"}`); r.Status != 404 {
 		t.Errorf("unknown Title = %d %s, want 404", r.Status, r.Body)
 	}
 }
 
 func TestSwitchingHDToAnyAndBackRescoresTheFileWithoutRenamingAndSearchesAtOnce(t *testing.T) {
 	s := newSearchBare(t)
-	s.addMovie(t, `{"slot":"hd","profile":"hd-primary"}`)
+	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
 	s.prober.set(goodProbe(), nil)
 	s.download(t, map[string]string{"paddington.mkv": "the movie"})
 	s.pass(t, jobs.Poll)
@@ -151,7 +151,7 @@ func TestSwitchingHDToAnyAndBackRescoresTheFileWithoutRenamingAndSearchesAtOnce(
 
 func TestAFileThatNoLongerFitsAfterASwitchMakesTheVersionWantedAndAnyFittingReleaseReplacesIt(t *testing.T) {
 	s := newSearchBare(t)
-	s.addMovie(t, `{"slot":"hd","profile":"hd-original"}`)
+	s.addMovie(t, `{"slot":"standard","profile":"hd-original"}`)
 	s.prober.set(goodProbe(), nil)
 	s.download(t, map[string]string{"paddington.mkv": "the movie"})
 	s.pass(t, jobs.Poll)
@@ -215,7 +215,7 @@ func TestRemovingAVersionLeavesTheFileUnlessAskedToDeleteIt(t *testing.T) {
 	}{{"", true}, {"?delete_files=false", true}, {"?delete_files=true", false}} {
 		t.Run("delete"+tc.query, func(t *testing.T) {
 			s := newSearchBare(t)
-			s.addMovie(t, `{"slot":"hd","profile":"hd-primary"},{"slot":"uhd","profile":"uhd-primary"}`)
+			s.addMovie(t, `{"slot":"standard","profile":"hd-primary"},{"slot":"4k","profile":"4k-primary"}`)
 			s.prober.set(goodProbe(), nil)
 			s.download(t, map[string]string{"paddington.mkv": "the movie"})
 			s.pass(t, jobs.Poll)
@@ -231,7 +231,7 @@ func TestRemovingAVersionLeavesTheFileUnlessAskedToDeleteIt(t *testing.T) {
 				t.Errorf("file on disk = %v, want %v", err == nil, tc.wantOnDisk)
 			}
 			d := decode[titleJSON](t, s.valid("GET", fmt.Sprintf("/titles/%d", s.title), ""))
-			if len(d.Versions) != 1 || d.Versions[0].Slot != "uhd" {
+			if len(d.Versions) != 1 || d.Versions[0].Slot != "4k" {
 				t.Errorf("versions = %+v, want only UHD", d.Versions)
 			}
 			if r := s.valid("DELETE", fmt.Sprintf("/versions/%d", s.hd), ""); r.Status != 404 {
@@ -245,7 +245,7 @@ func TestRemovingATitleLeavesItsFilesUnlessAskedToDeleteThem(t *testing.T) {
 	for _, deleteFiles := range []bool{false, true} {
 		t.Run(fmt.Sprintf("delete_files=%v", deleteFiles), func(t *testing.T) {
 			s := newSearchBare(t)
-			s.addMovie(t, `{"slot":"hd","profile":"hd-primary"}`)
+			s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
 			s.prober.set(goodProbe(), nil)
 			s.download(t, map[string]string{"paddington.mkv": "the movie"})
 			s.pass(t, jobs.Poll)
@@ -275,7 +275,7 @@ func TestRemovingATitleLeavesItsFilesUnlessAskedToDeleteThem(t *testing.T) {
 
 func TestRemovingAVersionCancelsItsActiveDownload(t *testing.T) {
 	s := newSearchBare(t)
-	s.addMovie(t, `{"slot":"hd","profile":"hd-primary"}`)
+	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
 	s.publish(t, goodRelease)
 	s.pass(t, jobs.Search)
 	if len(s.queue(t)) != 1 {

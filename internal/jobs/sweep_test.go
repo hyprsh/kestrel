@@ -2,6 +2,7 @@ package jobs_test
 
 import (
 	"context"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"sync"
 	"testing"
 	"time"
@@ -10,7 +11,6 @@ import (
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/store"
 )
 
@@ -77,7 +77,7 @@ func newSweepRig(t *testing.T) *sweepRig {
 			TMDBID: 1, Title: "Paddington", OriginalTitle: "Paddington", OriginalLanguage: "en", Year: 2014,
 			ReleaseDates: metadata.ReleaseDates{{Country: "US", Type: metadata.Digital, Date: time.Date(2015, 4, 1, 0, 0, 0, 0, time.UTC)}},
 		},
-		PrimaryLanguage: "en", RootFolder: "/m", Versions: []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}},
+		PrimaryLanguage: "en", RootFolder: "/m", Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
 	})
 	if err != nil {
 		t.Fatal(err)

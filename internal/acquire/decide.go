@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/release"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring"
+	"github.com/hyprsh/kestrel/internal/slot"
 )
 
-// Slot is a Version's Slot: the resolution class its files must have.
-type Slot = resolution.Class
+// Slot is a Version's Slot.
+type Slot = slot.Slot
 
 // MinUpgradeFormatScore is how much higher a Release must score than a fitting
 // file to replace it (TRaSH's minUpgradeFormatScore). It never applies to a
@@ -71,7 +71,7 @@ type Candidate struct {
 	// Title has, keyed by that Version's Slot. Whether the Release fits a
 	// Version is the Verdict's business: a Profile accepts the resolution
 	// classes whose range lies inside its heights (Settled 2), so an SD
-	// Release fits an SD Version and an Any Version (0-1080, in the HD Slot).
+	// Release fits an Any Version (0-1080, in the Standard Slot) but not an HD one.
 	Verdicts map[Slot]scoring.Verdict
 	// PublishDate is when the Release was posted, Size its bytes and
 	// IndexerPriority its indexer's priority (lower wins).

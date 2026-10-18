@@ -18,9 +18,9 @@ import (
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/probe"
 	"github.com/hyprsh/kestrel/internal/release"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
+	"github.com/hyprsh/kestrel/internal/slot"
 )
 
 var (
@@ -41,7 +41,7 @@ type epInfo struct {
 	air            string // yyyy-mm-dd, "" when TheTVDB has none
 	name           string
 	// cells are the Series' Versions' cells of a tracked Series; nil elsewhere.
-	cells [3]*library.EpisodeCell
+	cells [slot.Count]*library.EpisodeCell
 }
 
 // seriesFacts is what planning needs to know of a Series, from the Library
@@ -365,19 +365,15 @@ func (a *Adoption) byNameSeries(ctx context.Context, en entry, files []probed) (
 	return cands, 0, nil
 }
 
-// slotFor is a file's Slot: Kestrel's own label wins, else the probed resolution.
+// slotFor is a file's Slot: Kestrel's own label wins, else a file probed at
+// 2160p is 4K and anything else Standard.
 func slotFor(base string, info probe.Info) Slot {
 	if lm := slotLabelRx.FindStringSubmatch(base); lm != nil {
-		switch strings.ToUpper(lm[1]) {
-		case "SD":
-			return resolution.SD
-		case "HD":
-			return resolution.HD
-		default:
-			return resolution.UHD
+		if s, ok := slot.Parse(strings.ToLower(lm[1])); ok {
+			return s
 		}
 	}
-	return info.Class()
+	return slot.OfClass(info.Class())
 }
 
 // planSeriesFile plans one probed video of a matched Series entry. reason is a

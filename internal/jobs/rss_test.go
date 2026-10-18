@@ -2,6 +2,7 @@ package jobs_test
 
 import (
 	"context"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"testing"
 	"time"
 
@@ -17,7 +18,6 @@ import (
 	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
 	ixfake "github.com/hyprsh/kestrel/internal/plugin/indexer/v1/fake"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
@@ -55,7 +55,7 @@ func TestTheRSSLoopGrabsAMatchingReleaseSkipsAnUnmonitoredTitleAndIsANoOpWhenRer
 	}
 
 	lib := library.New(st, func() time.Time { return now })
-	hd := []library.VersionSpec{{Slot: resolution.HD, Profile: "hd-primary"}}
+	hd := []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}}
 	if _, err := lib.AddMovie(ctx, library.AddMovie{
 		Details:         metadata.MovieDetails{TMDBID: 1, Title: "Paddington", OriginalTitle: "Paddington", OriginalLanguage: "en", Year: 2014},
 		PrimaryLanguage: "en", Versions: hd, RootFolder: "/m",

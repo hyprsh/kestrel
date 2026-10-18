@@ -2,8 +2,8 @@ package library
 
 import (
 	"github.com/hyprsh/kestrel/internal/release"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
+	"github.com/hyprsh/kestrel/internal/slot"
 )
 
 // Reason says why a Slot was preselected with its Profile.
@@ -16,7 +16,7 @@ const (
 
 // SuggestedSlot is one preselected Slot.
 type SuggestedSlot struct {
-	Slot    resolution.Class
+	Slot    slot.Slot
 	Profile profiles.Profile
 	Reason  Reason
 	// Label names the Profile for the add panel.
@@ -38,21 +38,21 @@ func Suggest(all []profiles.Profile, kind Kind) Suggestion {
 	if kind == Series {
 		rk = release.KindSeries
 	}
-	for _, slot := range []resolution.Class{resolution.SD, resolution.HD, resolution.UHD} {
+	for _, sl := range slot.All {
 		hasDefault := false
 		for _, p := range all {
-			if p.Enabled && p.Slot == slot && p.Default(rk) {
+			if p.Enabled && p.Slot == sl && p.Default(rk) {
 				hasDefault = true
 			}
 		}
 		if !hasDefault {
 			continue
 		}
-		r, err := profiles.Resolve(all, rk, slot)
+		r, err := profiles.Resolve(all, rk, sl)
 		if err != nil {
 			continue
 		}
-		out := SuggestedSlot{Slot: slot, Profile: r.Profile, Reason: ReasonDefault, Label: r.Name}
+		out := SuggestedSlot{Slot: sl, Profile: r.Profile, Reason: ReasonDefault, Label: r.Name}
 		s.Slots = append(s.Slots, out)
 	}
 	return s

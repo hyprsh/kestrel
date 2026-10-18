@@ -26,9 +26,8 @@ type rowJSON struct {
 	PrimaryTitle string `json:"primary_title"`
 	Year         *int   `json:"year"`
 	Slots        struct {
-		SD  *slotJSON `json:"sd"`
-		HD  *slotJSON `json:"hd"`
-		UHD *slotJSON `json:"uhd"`
+		Standard *slotJSON `json:"standard"`
+		FourK    *slotJSON `json:"4k"`
 	} `json:"slots"`
 	WantedSince *time.Time `json:"wanted_since"`
 }
@@ -129,7 +128,7 @@ func (l library) rootFolderOf(t *testing.T, r reply) string {
 	return decode[titleJSON](t, l.valid("GET", fmt.Sprintf("/titles/%d", *req.TitleID), "")).RootFolder
 }
 
-const addPaddington = `{"kind":"movie","tmdb_id":116149,"versions":[{"slot":"hd","profile":"hd-primary"},{"slot":"uhd","profile":"uhd-primary"}]}`
+const addPaddington = `{"kind":"movie","tmdb_id":116149,"versions":[{"slot":"standard","profile":"hd-primary"},{"slot":"4k","profile":"4k-primary"}]}`
 
 func TestAMovieIsAddedThroughTheAPIAndReadBackWithItsVersions(t *testing.T) {
 	l := newLibraryInstance(t, metadatatest.Key)
@@ -155,8 +154,8 @@ func TestAMovieIsAddedThroughTheAPIAndReadBackWithItsVersions(t *testing.T) {
 	if len(got.ReleaseDates) != 9 {
 		t.Errorf("%d release dates stored, want every type of every country", len(got.ReleaseDates))
 	}
-	if len(got.Versions) != 2 || got.Versions[0].Slot != "hd" || got.Versions[0].Profile != "hd-primary" || got.Versions[0].State != "wanted" ||
-		got.Versions[1].Slot != "uhd" || got.Versions[1].Profile != "uhd-primary" || got.Versions[0].File != nil {
+	if len(got.Versions) != 2 || got.Versions[0].Slot != "standard" || got.Versions[0].Profile != "hd-primary" || got.Versions[0].State != "wanted" ||
+		got.Versions[1].Slot != "4k" || got.Versions[1].Profile != "4k-primary" || got.Versions[0].File != nil {
 		t.Errorf("versions = %+v", got.Versions)
 	}
 
@@ -167,8 +166,8 @@ func TestAMovieIsAddedThroughTheAPIAndReadBackWithItsVersions(t *testing.T) {
 		t.Fatalf("list = %+v", list.Items)
 	}
 	row := list.Items[0]
-	if row.ID != created.ID || row.Title != "Paddington" || row.Slots.SD != nil || row.Slots.HD == nil || row.Slots.HD.State != "wanted" ||
-		row.Slots.UHD == nil || row.Slots.UHD.Profile != "uhd-primary" || row.WantedSince == nil {
+	if row.ID != created.ID || row.Title != "Paddington" || row.Slots.Standard == nil || row.Slots.Standard.State != "wanted" ||
+		row.Slots.FourK == nil || row.Slots.FourK.Profile != "4k-primary" || row.WantedSince == nil {
 		t.Errorf("row = %+v", row)
 	}
 }
@@ -229,7 +228,7 @@ func TestTheSuggestionPreselectsTheSlotDefaultsWhateverTheRating(t *testing.T) {
 
 	// US household: Paddington is PG, and still gets HD.
 	sug := decode[suggestionJSON](t, l.valid("GET", "/lookup/movie/116149", ""))
-	if len(sug.Slots) != 1 || sug.Slots[0].Slot != "hd" || sug.Slots[0].Profile != "hd-primary" ||
+	if len(sug.Slots) != 1 || sug.Slots[0].Slot != "standard" || sug.Slots[0].Profile != "hd-primary" ||
 		sug.Slots[0].Label != "HD" || sug.Slots[0].Reason != "default" {
 		t.Errorf("US = %+v", sug.Slots)
 	}
@@ -252,10 +251,10 @@ func TestTheSuggestionPreselectsTheSlotDefaultsWhateverTheRating(t *testing.T) {
 	}
 
 	// Slots with a default join in.
-	l.valid("PATCH", "/profiles/uhd-primary", `{"default_movies":true}`)
+	l.valid("PATCH", "/profiles/4k-primary", `{"default_movies":true}`)
 	sug = decode[suggestionJSON](t, l.valid("GET", "/lookup/movie/77", ""))
-	if len(sug.Slots) != 2 || sug.Slots[1].Slot != "uhd" || sug.Slots[1].Profile != "uhd-primary" {
-		t.Errorf("with a UHD default = %+v", sug.Slots)
+	if len(sug.Slots) != 2 || sug.Slots[1].Slot != "4k" || sug.Slots[1].Profile != "4k-primary" {
+		t.Errorf("with a 4K default = %+v", sug.Slots)
 	}
 }
 
@@ -268,10 +267,13 @@ func TestAddingIsRefusedForBadChoices(t *testing.T) {
 		name, body, field string
 	}{
 		{"no versions", body(`[]`, ""), "versions"},
-		{"a Profile of another Slot", body(`[{"slot":"hd","profile":"uhd-primary"}]`, ""), "versions[0].profile"},
-		{"an unknown Profile", body(`[{"slot":"hd","profile":"nope"}]`, ""), "versions[0].profile"},
-		{"a Slot twice", body(`[{"slot":"hd","profile":"hd-primary"},{"slot":"hd","profile":"any-primary"}]`, ""), "versions[1].slot"},
-		{"a root folder that is not configured", body(`[{"slot":"hd","profile":"hd-primary"}]`, `,"root_folder":"/elsewhere"`), "root_folder"},
+		{"a Profile of another Slot", body(`[{"slot":"standard","profile":"4k-primary"}]`, ""), "versions[0].profile"},
+		{"the retired SD Slot", body(`[{"slot":"sd","profile":"hd-primary"}]`, ""), "versions[0].slot"},
+		{"the retired HD Slot", body(`[{"slot":"hd","profile":"hd-primary"}]`, ""), "versions[0].slot"},
+		{"the retired UHD Slot", body(`[{"slot":"uhd","profile":"4k-primary"}]`, ""), "versions[0].slot"},
+		{"an unknown Profile", body(`[{"slot":"standard","profile":"nope"}]`, ""), "versions[0].profile"},
+		{"a Slot twice", body(`[{"slot":"standard","profile":"hd-primary"},{"slot":"standard","profile":"any-primary"}]`, ""), "versions[1].slot"},
+		{"a root folder that is not configured", body(`[{"slot":"standard","profile":"hd-primary"}]`, `,"root_folder":"/elsewhere"`), "root_folder"},
 	} {
 		r := l.do("POST", "/titles", c.body)
 		if r.Status != 422 || !strings.Contains(r.Body, `"field":"`+c.field+`"`) {
@@ -280,8 +282,8 @@ func TestAddingIsRefusedForBadChoices(t *testing.T) {
 	}
 
 	// A disabled Profile is no choice either.
-	l.valid("PATCH", "/profiles/sd-primary", `{"enabled":false}`)
-	if r := l.do("POST", "/titles", body(`[{"slot":"sd","profile":"sd-primary"}]`, "")); r.Status != 422 {
+	l.valid("PATCH", "/profiles/hd-original", `{"enabled":false}`)
+	if r := l.do("POST", "/titles", body(`[{"slot":"standard","profile":"hd-original"}]`, "")); r.Status != 422 {
 		t.Errorf("disabled Profile = %d %s", r.Status, r.Body)
 	}
 	if list := decode[struct{ Items []rowJSON }](t, l.valid("GET", "/titles", "")); len(list.Items) != 0 {
@@ -300,7 +302,7 @@ func TestAddingTheSameMovieTwiceIsAConflict(t *testing.T) {
 
 func TestAMovieTMDBDoesNotKnowIsNotFound(t *testing.T) {
 	l := newLibraryInstance(t, metadatatest.Key)
-	if r := l.valid("POST", "/titles", `{"kind":"movie","tmdb_id":424242,"versions":[{"slot":"hd","profile":"hd-primary"}]}`); r.Status != 404 {
+	if r := l.valid("POST", "/titles", `{"kind":"movie","tmdb_id":424242,"versions":[{"slot":"standard","profile":"hd-primary"}]}`); r.Status != 404 {
 		t.Errorf("add = %d %s", r.Status, r.Body)
 	}
 	if r := l.valid("GET", "/lookup/movie/424242", ""); r.Status != 404 {
@@ -342,7 +344,7 @@ func TestThePosterIsCachedUnderTheConfigDirAndServed(t *testing.T) {
 	}
 
 	// A Title with no poster answers 404.
-	noPoster := decode[titleJSON](t, l.valid("POST", "/titles", `{"kind":"movie","tmdb_id":77,"versions":[{"slot":"hd","profile":"hd-primary"}]}`))
+	noPoster := decode[titleJSON](t, l.valid("POST", "/titles", `{"kind":"movie","tmdb_id":77,"versions":[{"slot":"standard","profile":"hd-primary"}]}`))
 	if noPoster.HasPoster {
 		t.Error("has_poster for a Title without one")
 	}
@@ -390,7 +392,7 @@ func TestAnAddGoesInTheFirstRootFolderUnlessOneIsNamed(t *testing.T) {
 			if c.root == "second" {
 				root = fmt.Sprintf(`,"root_folder":%q`, second)
 			}
-			got := decode[titleJSON](t, l.valid("POST", "/titles", fmt.Sprintf(`{"kind":"movie","tmdb_id":116149,"versions":[{"slot":"hd","profile":%q}]%s}`, c.hd, root)))
+			got := decode[titleJSON](t, l.valid("POST", "/titles", fmt.Sprintf(`{"kind":"movie","tmdb_id":116149,"versions":[{"slot":"standard","profile":%q}]%s}`, c.hd, root)))
 			want := first
 			if c.second {
 				want = second

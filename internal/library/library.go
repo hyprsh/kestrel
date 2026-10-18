@@ -21,7 +21,7 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/library/db"
 	"github.com/hyprsh/kestrel/internal/metadata"
-	"github.com/hyprsh/kestrel/internal/resolution"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"github.com/hyprsh/kestrel/internal/store"
 )
 
@@ -82,7 +82,7 @@ type Filter struct {
 
 // VersionSpec names a Slot and the Profile (by key) that fills it.
 type VersionSpec struct {
-	Slot    resolution.Class
+	Slot    slot.Slot
 	Profile string
 }
 
@@ -112,8 +112,8 @@ type Row struct {
 	Title        string
 	PrimaryTitle string
 	Year         int // 0 when unknown
-	// Slots is indexed by resolution.Class; nil where the Title has no Version.
-	Slots [3]*SlotState
+	// Slots is indexed by slot.Slot; nil where the Title has no Version.
+	Slots [slot.Count]*SlotState
 	// WantedSince is the earliest Wanted-since of its Wanted Versions.
 	WantedSince *time.Time
 	AddedAt     time.Time
@@ -138,7 +138,7 @@ type File struct {
 // Version is one Slot of a Title in detail.
 type Version struct {
 	ID          int64
-	Slot        resolution.Class
+	Slot        slot.Slot
 	Profile     string
 	State       State
 	LongMissing bool
@@ -206,16 +206,10 @@ func parseTime(s string) time.Time {
 	return t
 }
 
-func slotName(c resolution.Class) string { return strings.ToLower(c.String()) }
-
-func slotOf(name string) resolution.Class {
-	switch name {
-	case "hd":
-		return resolution.HD
-	case "uhd":
-		return resolution.UHD
-	}
-	return resolution.SD
+// slotOf reads a stored Slot; the table's CHECK keeps the value valid.
+func slotOf(name string) slot.Slot {
+	s, _ := slot.Parse(name)
+	return s
 }
 
 func nullInt(n int) sql.NullInt64 { return sql.NullInt64{Int64: int64(n), Valid: n != 0} }
@@ -229,7 +223,7 @@ func (s *Service) AddMovie(ctx context.Context, a AddMovie) (int64, error) {
 	if len(a.Versions) == 0 {
 		return 0, ErrNoVersions
 	}
-	seen := map[resolution.Class]bool{}
+	seen := map[slot.Slot]bool{}
 	for _, v := range a.Versions {
 		if seen[v.Slot] {
 			return 0, ErrDuplicateSlot
@@ -264,7 +258,7 @@ func (s *Service) AddMovie(ctx context.Context, a AddMovie) (int64, error) {
 		return 0, err
 	}
 	for _, v := range a.Versions {
-		vid, err := q.InsertVersion(ctx, db.InsertVersionParams{TitleID: id, Slot: slotName(v.Slot), ProfileKey: v.Profile, AddedAt: now})
+		vid, err := q.InsertVersion(ctx, db.InsertVersionParams{TitleID: id, Slot: v.Slot.Key(), ProfileKey: v.Profile, AddedAt: now})
 		if err != nil {
 			return 0, fmt.Errorf("library: add the %s Version under %q: %w", v.Slot, v.Profile, err)
 		}

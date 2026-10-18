@@ -35,8 +35,9 @@ var (
 	// and the *arrs [tmdbid-N], [imdbid-tt..]. A tag is taken as certain.
 	tmdbTagRx = regexp.MustCompile(`(?i)(?:\{tmdb-(\d+)\}|\[tmdbid[-=](\d+)\])`)
 	imdbTagRx = regexp.MustCompile(`(?i)(?:\{imdb-(tt\d+)\}|\[imdbid[-=](tt\d+)\])`)
-	// slotLabelRx is Kestrel's own `- [SD|HD|UHD]` label, which wins over the probe.
-	slotLabelRx = regexp.MustCompile(`(?i) - \[(SD|HD|UHD)\]`)
+	// slotLabelRx is Kestrel's own `- [Standard]` or `- [4K]` label, which wins
+	// over the probe. The old SD, HD and UHD labels are not recognised.
+	slotLabelRx = regexp.MustCompile(`(?i) - \[(Standard|4K)\]`)
 )
 
 // subtitleExts are every sidecar subtitle format that moves with its video.
@@ -637,17 +638,7 @@ func (a *Adoption) accepts(e *env, class probe.Class) func(profiles.Profile) boo
 // for the whole entry.
 func (a *Adoption) planFile(e *env, m movieFacts, title Title, en entry, f probed, dir string) (PlanFile, string, error) {
 	base := strings.TrimSuffix(filepath.Base(f.path), filepath.Ext(f.path))
-	slot := f.info.Class()
-	if lm := slotLabelRx.FindStringSubmatch(base); lm != nil {
-		switch strings.ToUpper(lm[1]) {
-		case "SD":
-			slot = resolution.SD
-		case "HD":
-			slot = resolution.HD
-		default:
-			slot = resolution.UHD
-		}
-	}
+	slot := slotFor(base, f.info)
 
 	// The Profile is the Version's own, else Profile resolution picks one.
 	var ver *library.Version

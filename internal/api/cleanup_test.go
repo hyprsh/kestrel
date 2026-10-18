@@ -37,7 +37,7 @@ func adoptedFolder(t *testing.T) (adopting, int64, string, string) {
 	a.put(t, "Paddington.2014.1080p.BluRay.x264-GRP/Paddington.2014.1080p.BluRay.x264-GRP.mkv", "movie")
 	a.commit(t, a.scan(t).Revision)
 	id := a.titleIDOf(t, 116149)
-	held := a.titleFiles(t, id)["hd"]
+	held := a.titleFiles(t, id)["standard"]
 	return a, id, filepath.Dir(held), held
 }
 

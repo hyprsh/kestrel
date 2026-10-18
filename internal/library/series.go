@@ -10,7 +10,7 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/library/db"
 	"github.com/hyprsh/kestrel/internal/metadata"
-	"github.com/hyprsh/kestrel/internal/resolution"
+	"github.com/hyprsh/kestrel/internal/slot"
 )
 
 var (
@@ -53,8 +53,8 @@ type Episode struct {
 	Name      string
 	AirDate   *time.Time // the TheTVDB air date; nil when it has none
 	Monitored bool
-	// Cells is indexed by resolution.Class; nil where the Title has no Version.
-	Cells [3]*EpisodeCell
+	// Cells is indexed by slot.Slot; nil where the Title has no Version.
+	Cells [slot.Count]*EpisodeCell
 }
 
 func parseDate(s sql.NullString) *time.Time {
@@ -86,7 +86,7 @@ func (s *Service) AddSeries(ctx context.Context, a AddSeries) (int64, error) {
 	if !a.Monitor.Valid() {
 		return 0, fmt.Errorf("library: unknown monitoring mode %q", a.Monitor)
 	}
-	seen := map[resolution.Class]bool{}
+	seen := map[slot.Slot]bool{}
 	for _, v := range a.Versions {
 		if seen[v.Slot] {
 			return 0, ErrDuplicateSlot
@@ -108,7 +108,7 @@ func (s *Service) AddSeries(ctx context.Context, a AddSeries) (int64, error) {
 		return 0, err
 	}
 	for _, v := range a.Versions {
-		vid, err := q.InsertVersion(ctx, db.InsertVersionParams{TitleID: id, Slot: slotName(v.Slot), ProfileKey: v.Profile, AddedAt: now})
+		vid, err := q.InsertVersion(ctx, db.InsertVersionParams{TitleID: id, Slot: v.Slot.Key(), ProfileKey: v.Profile, AddedAt: now})
 		if err != nil {
 			return 0, fmt.Errorf("library: add the %s Version under %q: %w", v.Slot, v.Profile, err)
 		}

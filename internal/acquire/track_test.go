@@ -3,16 +3,16 @@ package acquire_test
 import (
 	"context"
 	"errors"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"testing"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/acquire"
 	"github.com/hyprsh/kestrel/internal/library"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
-	"github.com/hyprsh/kestrel/internal/resolution"
 )
 
-func (r *rig) wanted(t *testing.T, slots ...resolution.Class) []int64 {
+func (r *rig) wanted(t *testing.T, slots ...slot.Slot) []int64 {
 	t.Helper()
 	var ids []int64
 	for _, s := range slots {
@@ -24,7 +24,7 @@ func (r *rig) wanted(t *testing.T, slots ...resolution.Class) []int64 {
 func (r *rig) grabOne(t *testing.T) acquire.Grab {
 	t.Helper()
 	r.publish(t, hd1080, time.Hour)
-	out, err := r.svc.SearchWanted(context.Background(), r.titleID, r.wanted(t, resolution.HD))
+	out, err := r.svc.SearchWanted(context.Background(), r.titleID, r.wanted(t, slot.Standard))
 	if err != nil || len(out.Grabbed) != 1 {
 		t.Fatalf("SearchWanted = %+v, %v", out, err)
 	}
@@ -33,11 +33,11 @@ func (r *rig) grabOne(t *testing.T) acquire.Grab {
 
 func TestSearchWantedGrabsTheBestReleaseForEachWantedVersionOnce(t *testing.T) {
 	ctx := context.Background()
-	r := newRig(t, resolution.HD, resolution.UHD)
+	r := newRig(t, slot.Standard, slot.FourK)
 	r.publish(t, hd1080, time.Hour)
 	r.publish(t, uhd, 2*time.Hour)
 
-	out, err := r.svc.SearchWanted(ctx, r.titleID, r.wanted(t, resolution.HD, resolution.UHD))
+	out, err := r.svc.SearchWanted(ctx, r.titleID, r.wanted(t, slot.Standard, slot.FourK))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,11 +52,11 @@ func TestSearchWantedGrabsTheBestReleaseForEachWantedVersionOnce(t *testing.T) {
 			t.Errorf("grab = %+v", g)
 		}
 	}
-	if names[r.versions[resolution.HD]] != hd1080 || names[r.versions[resolution.UHD]] != uhd {
+	if names[r.versions[slot.Standard]] != hd1080 || names[r.versions[slot.FourK]] != uhd {
 		t.Errorf("grabs = %v, want 1080p for HD and 2160p for UHD", names)
 	}
 
-	again, err := r.svc.SearchWanted(ctx, r.titleID, r.wanted(t, resolution.HD, resolution.UHD))
+	again, err := r.svc.SearchWanted(ctx, r.titleID, r.wanted(t, slot.Standard, slot.FourK))
 	if err != nil || len(again.Searched) != 0 || len(again.Grabbed) != 0 {
 		t.Errorf("a second pass = %+v, %v, want nothing: both Versions have an active Grab", again, err)
 	}
@@ -68,7 +68,7 @@ func TestSearchWantedGrabsTheBestReleaseForEachWantedVersionOnce(t *testing.T) {
 func TestSearchWantedWithNothingToGrabStillCountsAsSearched(t *testing.T) {
 	r := newRig(t)
 
-	out, err := r.svc.SearchWanted(context.Background(), r.titleID, r.wanted(t, resolution.HD))
+	out, err := r.svc.SearchWanted(context.Background(), r.titleID, r.wanted(t, slot.Standard))
 
 	if err != nil || len(out.Searched) != 1 || len(out.Grabbed) != 0 {
 		t.Errorf("outcome = %+v, %v", out, err)
@@ -83,7 +83,7 @@ func TestSearchWantedSkipsVersionsThatAreNotWanted(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	out, err := r.svc.SearchWanted(ctx, r.titleID, r.wanted(t, resolution.HD))
+	out, err := r.svc.SearchWanted(ctx, r.titleID, r.wanted(t, slot.Standard))
 
 	if err != nil || len(out.Searched) != 0 || len(out.Grabbed) != 0 {
 		t.Errorf("an unmonitored Title got %+v, %v, want no search and no Grab", out, err)
@@ -97,7 +97,7 @@ func TestSearchWantedReportsAGrabThatCouldNotBeSent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	out, err := r.svc.SearchWanted(context.Background(), r.titleID, r.wanted(t, resolution.HD))
+	out, err := r.svc.SearchWanted(context.Background(), r.titleID, r.wanted(t, slot.Standard))
 
 	if err == nil || len(out.Searched) != 1 || len(out.Grabbed) != 0 {
 		t.Errorf("outcome = %+v, %v, want the searched Version and an error", out, err)
@@ -225,7 +225,7 @@ func TestACanceledGrabIsRemovedFromTheClientAndTheVersionIsWantedAgain(t *testin
 	if d.Versions[0].State != library.Wanted {
 		t.Errorf("Version state = %s, want wanted", d.Versions[0].State)
 	}
-	res, _ := r.svc.Search(ctx, r.versions[resolution.HD])
+	res, _ := r.svc.Search(ctx, r.versions[slot.Standard])
 	if f := r.found(t, res, hd1080); len(f.Rejections) != 0 {
 		t.Errorf("a plain cancel must not blocklist: %+v", f.Rejections)
 	}
@@ -240,7 +240,7 @@ func TestCancelAndBlocklistAlsoBlocklistsTheRelease(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, _ := r.svc.Search(ctx, r.versions[resolution.HD])
+	res, _ := r.svc.Search(ctx, r.versions[slot.Standard])
 	f := r.found(t, res, hd1080)
 	if len(f.Rejections) != 1 || f.Rejections[0].Code != "blocklisted" {
 		t.Errorf("rejections = %+v, want blocklisted", f.Rejections)

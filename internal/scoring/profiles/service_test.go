@@ -3,10 +3,11 @@ package profiles_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"testing"
 
 	"github.com/hyprsh/kestrel/internal/release"
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings"
@@ -50,7 +51,7 @@ func wantField(t *testing.T, err error, field string) {
 	}
 }
 
-func TestSeedsTheEightBuiltinProfiles(t *testing.T) {
+func TestSeedsTheSixBuiltinProfiles(t *testing.T) {
 	s := newService(t)
 	all, err := s.List(context.Background())
 	if err != nil {
@@ -63,7 +64,7 @@ func TestSeedsTheEightBuiltinProfiles(t *testing.T) {
 			t.Errorf("%s: enabled=%v fallback=%v, want enabled without fallback", p.Key, p.Enabled, p.OriginalFallback)
 		}
 	}
-	want := []string{"sd-primary", "sd-original", "hd-primary", "hd-original", "any-primary", "any-original", "uhd-primary", "uhd-original"}
+	want := []string{"hd-primary", "hd-original", "any-primary", "any-original", "4k-primary", "4k-original"}
 	if len(keys) != len(want) {
 		t.Fatalf("keys = %v, want %v", keys, want)
 	}
@@ -76,16 +77,16 @@ func TestSeedsTheEightBuiltinProfiles(t *testing.T) {
 	if hd := m["hd-primary"]; !hd.DefaultMovies || !hd.DefaultSeries {
 		t.Errorf("hd-primary is not the default of both kinds: %+v", hd)
 	}
-	for _, k := range []string{"sd-primary", "uhd-primary", "any-primary", "hd-original"} {
+	for _, k := range []string{"4k-original", "4k-primary", "any-primary", "hd-original"} {
 		if m[k].DefaultMovies || m[k].DefaultSeries {
 			t.Errorf("%s has a default out of the box", k)
 		}
 	}
-	if k := m["any-primary"]; !k.Any || k.Slot != resolution.HD || k.MinHeight != 0 || k.MaxHeight != 1080 {
+	if k := m["any-primary"]; !k.Any || k.Slot != slot.Standard || k.MinHeight != 0 || k.MaxHeight != 1080 {
 		t.Errorf("any-primary = %+v", k)
 	}
-	if o := m["uhd-original"]; o.Rule != scoring.OriginalLanguage || o.Slot != resolution.UHD || o.MinHeight != 2160 {
-		t.Errorf("uhd-original = %+v", o)
+	if o := m["4k-original"]; o.Rule != scoring.OriginalLanguage || o.Slot != slot.FourK || o.MinHeight != 2160 {
+		t.Errorf("4k-original = %+v", o)
 	}
 }
 
@@ -126,22 +127,22 @@ func TestAtMostOneDefaultPerSlotAndKind(t *testing.T) {
 		t.Errorf("series default moved too")
 	}
 
-	// SD and UHD take a default and let go of it.
-	if _, err := s.Patch(ctx, "sd-primary", profiles.Patch{DefaultSeries: yes()}); err != nil {
+	// 4K takes a default and let go of it.
+	if _, err := s.Patch(ctx, "4k-primary", profiles.Patch{DefaultSeries: yes()}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Patch(ctx, "sd-original", profiles.Patch{DefaultSeries: yes()}); err != nil {
+	if _, err := s.Patch(ctx, "4k-original", profiles.Patch{DefaultSeries: yes()}); err != nil {
 		t.Fatal(err)
 	}
 	m = byKey(t, s)
-	if m["sd-primary"].DefaultSeries || !m["sd-original"].DefaultSeries {
-		t.Errorf("SD series default did not move: %+v %+v", m["sd-primary"], m["sd-original"])
+	if m["4k-primary"].DefaultSeries || !m["4k-original"].DefaultSeries {
+		t.Errorf("4K series default did not move: %+v %+v", m["4k-primary"], m["4k-original"])
 	}
-	if _, err := s.Patch(ctx, "sd-original", profiles.Patch{DefaultSeries: no()}); err != nil {
-		t.Fatalf("unsetting an SD default: %v", err)
+	if _, err := s.Patch(ctx, "4k-original", profiles.Patch{DefaultSeries: no()}); err != nil {
+		t.Fatalf("unsetting a 4K default: %v", err)
 	}
 	for _, p := range byKey(t, s) {
-		if p.Slot == resolution.SD && p.DefaultSeries {
+		if p.Slot == slot.FourK && p.DefaultSeries {
 			t.Errorf("%s kept its default", p.Key)
 		}
 	}
@@ -175,10 +176,10 @@ func TestHDAlwaysHasExactlyOneDefault(t *testing.T) {
 func TestDisablingAProfileClearsItsDefaults(t *testing.T) {
 	s := newService(t)
 	ctx := context.Background()
-	if _, err := s.Patch(ctx, "uhd-primary", profiles.Patch{DefaultMovies: yes(), DefaultSeries: yes()}); err != nil {
+	if _, err := s.Patch(ctx, "4k-primary", profiles.Patch{DefaultMovies: yes(), DefaultSeries: yes()}); err != nil {
 		t.Fatal(err)
 	}
-	p, err := s.Patch(ctx, "uhd-primary", profiles.Patch{Enabled: no()})
+	p, err := s.Patch(ctx, "4k-primary", profiles.Patch{Enabled: no()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,13 +191,13 @@ func TestDisablingAProfileClearsItsDefaults(t *testing.T) {
 func TestADisabledProfileCannotBeADefault(t *testing.T) {
 	s := newService(t)
 	ctx := context.Background()
-	if _, err := s.Patch(ctx, "uhd-original", profiles.Patch{Enabled: no()}); err != nil {
+	if _, err := s.Patch(ctx, "4k-original", profiles.Patch{Enabled: no()}); err != nil {
 		t.Fatal(err)
 	}
-	_, err := s.Patch(ctx, "uhd-original", profiles.Patch{DefaultMovies: yes()})
+	_, err := s.Patch(ctx, "4k-original", profiles.Patch{DefaultMovies: yes()})
 	wantField(t, err, "default_movies")
 	// Enabling and defaulting in one patch is fine.
-	if _, err := s.Patch(ctx, "uhd-original", profiles.Patch{Enabled: yes(), DefaultMovies: yes()}); err != nil {
+	if _, err := s.Patch(ctx, "4k-original", profiles.Patch{Enabled: yes(), DefaultMovies: yes()}); err != nil {
 		t.Fatalf("enable and default together: %v", err)
 	}
 }
@@ -204,10 +205,10 @@ func TestADisabledProfileCannotBeADefault(t *testing.T) {
 func TestOriginalFallbackIsKeptWhenDisabling(t *testing.T) {
 	s := newService(t)
 	ctx := context.Background()
-	if _, err := s.Patch(ctx, "uhd-primary", profiles.Patch{OriginalFallback: yes()}); err != nil {
+	if _, err := s.Patch(ctx, "4k-primary", profiles.Patch{OriginalFallback: yes()}); err != nil {
 		t.Fatal(err)
 	}
-	p, err := s.Patch(ctx, "uhd-primary", profiles.Patch{Enabled: no()})
+	p, err := s.Patch(ctx, "4k-primary", profiles.Patch{Enabled: no()})
 	if err != nil || !p.OriginalFallback {
 		t.Fatalf("%+v, %v", p, err)
 	}
@@ -242,25 +243,24 @@ func strp(s string) *string { return &s }
 
 // The re-point table of PRD Settled 5, checked against the scoring package's
 // own resolution of each Profile.
-func TestChangingThePrimaryLanguageRepointsTheEightProfiles(t *testing.T) {
+func TestChangingThePrimaryLanguageRepointsTheSixProfiles(t *testing.T) {
 	s := newService(t)
 	ctx := context.Background()
 	want := map[profiles.Language]map[string][2]string{
 		profiles.German: {
-			"sd-primary": {"german-hd-bluray-web", "german-hd-bluray-web"}, "hd-primary": {"german-hd-bluray-web", "german-hd-bluray-web"},
-			"any-primary": {"german-hd-bluray-web", "german-hd-bluray-web"}, "uhd-primary": {"german-uhd-bluray-web", "german-uhd-bluray-web"},
-			"sd-original": {"hd-bluray-web", "web-1080p"}, "hd-original": {"hd-bluray-web", "web-1080p"},
-			"any-original": {"hd-bluray-web", "web-1080p"}, "uhd-original": {"uhd-bluray-web", "web-2160p"},
+			"hd-primary":  {"german-hd-bluray-web", "german-hd-bluray-web"},
+			"any-primary": {"german-hd-bluray-web", "german-hd-bluray-web"}, "4k-primary": {"german-uhd-bluray-web", "german-uhd-bluray-web"},
+			"hd-original":  {"hd-bluray-web", "web-1080p"},
+			"any-original": {"hd-bluray-web", "web-1080p"}, "4k-original": {"uhd-bluray-web", "web-2160p"},
 		},
 		profiles.French: {
 			"hd-primary":   {"french-multi-vf-hd-bluray-web", "french-multi-vf-bluray-web-1080p"},
-			"uhd-primary":  {"french-multi-vf-uhd-bluray-web", "french-multi-vf-bluray-web-2160p"},
+			"4k-primary":   {"french-multi-vf-uhd-bluray-web", "french-multi-vf-bluray-web-2160p"},
 			"any-original": {"french-multi-vo-hd-bluray-web", "french-multi-vo-bluray-web-1080p"},
-			"uhd-original": {"french-multi-vo-uhd-bluray-web", "french-multi-vo-bluray-web-2160p"},
+			"4k-original":  {"french-multi-vo-uhd-bluray-web", "french-multi-vo-bluray-web-2160p"},
 		},
 		profiles.English: {
-			"hd-primary": {"hd-bluray-web", "web-1080p"}, "uhd-original": {"uhd-bluray-web", "web-2160p"},
-			"sd-primary": {"hd-bluray-web", "web-1080p"},
+			"hd-primary": {"hd-bluray-web", "web-1080p"}, "4k-original": {"uhd-bluray-web", "web-2160p"},
 		},
 	}
 	// German's Series rows: Settled 5 gives german-hd-bluray-web for both apps.
@@ -306,5 +306,45 @@ func TestRepointKeepsProfileSettings(t *testing.T) {
 	p := byKey(t, s)["hd-primary"]
 	if !p.OriginalFallback || !p.DefaultMovies || !p.Enabled {
 		t.Errorf("settings lost on re-point: %+v", p)
+	}
+}
+
+func TestSeededProfilesLieInsideTheirSlot(t *testing.T) {
+	for _, p := range byKey(t, newService(t)) {
+		if !p.Slot.Contains(p.MinHeight, p.MaxHeight) {
+			t.Errorf("%s: heights %d-%d are outside the %v Slot", p.Key, p.MinHeight, p.MaxHeight, p.Slot)
+		}
+	}
+	for _, p := range profiles.Builtin() {
+		if !p.Slot.Contains(p.MinHeight, p.MaxHeight) {
+			t.Errorf("builtin %s: heights %d-%d are outside the %v Slot", p.Key, p.MinHeight, p.MaxHeight, p.Slot)
+		}
+	}
+}
+
+func TestAProfileOutsideItsSlotCannotBeStored(t *testing.T) {
+	st, err := store.Open(context.Background(), store.Options{Dir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	n := 0
+	insert := func(slotKey string, minH, maxH int) error {
+		n++
+		_, err := st.Write().Exec(`INSERT INTO profiles (key, name, sort, slot, any, language_rule, min_height, max_height, trash_profile_movies, trash_profile_series)
+			VALUES (?, 'X', 99, ?, 0, 'primary', ?, ?, 'a', 'b')`, fmt.Sprintf("x-%d", n), slotKey, minH, maxH)
+		return err
+	}
+	if err := insert("standard", 0, 2160); err == nil {
+		t.Error("a Standard Profile up to 2160p was stored")
+	}
+	if err := insert("4k", 1080, 2160); err == nil {
+		t.Error("a 4K Profile from 1080p was stored")
+	}
+	if err := insert("hd", 720, 1080); err == nil {
+		t.Error("a Profile in the retired hd Slot was stored")
+	}
+	if err := insert("standard", 480, 1080); err != nil {
+		t.Errorf("a Standard Profile 480-1080 was refused: %v", err)
 	}
 }

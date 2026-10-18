@@ -32,7 +32,7 @@ func TestTwoFilesForOneSlotGoToTheHigherScoreThenTheLargerAndTheRestAreLeftUntou
 	a.commit(t, plan.Revision)
 
 	files := a.titleFiles(t, a.titleIDOf(t, 116149))
-	if filepath.Dir(files["hd"]) != filepath.Join(a.movies, "Paddington (2014) {tmdb-116149}") || exists(t, big) {
+	if filepath.Dir(files["standard"]) != filepath.Join(a.movies, "Paddington (2014) {tmdb-116149}") || exists(t, big) {
 		t.Errorf("winner not adopted: %v", files)
 	}
 	if !exists(t, small) {
