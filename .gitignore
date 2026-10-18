@@ -7,3 +7,7 @@ node_modules/
 
 # Local dev state (config dir with the SQLite database)
 /.dev/
+
+# GoReleaser output
+/dist/
+/release-assets/

@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: build-silo help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet compose-check commitlint hooks docker check
+.PHONY: release-dry-run notices build-silo help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet compose-check commitlint hooks docker check
 
 VERSION ?= dev
 # The project's TMDB key is injected at link time; the default build embeds none.
@@ -68,5 +68,14 @@ hooks: ## Install the commit-msg hook (commitlint via lefthook)
 
 docker: ## Build the image as kestrel:dev
 	docker build --build-arg VERSION=$(VERSION) --build-arg TMDB_API_KEY=$(TMDB_API_KEY) -t kestrel:dev .
+
+GORELEASER ?= github.com/goreleaser/goreleaser/v2@v2.18.3
+
+release-dry-run: docker ## Run the release without publishing: the image, Silo plugin binaries, silo-repository.json, checksums (needs Docker)
+	go run $(GORELEASER) release --snapshot --clean --skip=publish,announce,validate
+	scripts/check-release-dist.sh dist release-assets
+
+notices: ## Regenerate internal/notices/THIRD_PARTY_NOTICES.md (needs network and `npm --prefix web ci`)
+	scripts/gen-notices.sh
 
 check: fmt-check vet generate-check test compose-check ## Everything CI runs, minus the image build and commitlint

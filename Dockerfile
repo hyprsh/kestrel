@@ -28,6 +28,7 @@ FROM alpine:3.24
 RUN apk add --no-cache ffmpeg tzdata su-exec
 COPY --from=build /out/kestrel /usr/local/bin/kestrel
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY --from=build /src/internal/notices/THIRD_PARTY_NOTICES.md /usr/share/doc/kestrel/THIRD_PARTY_NOTICES.md
 
 ENV KESTREL_PORT=7676 \
     KESTREL_CONFIG_DIR=/config \
