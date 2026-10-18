@@ -108,9 +108,8 @@ function Events() {
         </Select>
         <Select aria-label="Slot" value={slot} onChange={(e) => setSlot(e.target.value)} className="w-28">
           <option value="">All Slots</option>
-          <option value="sd">SD</option>
-          <option value="hd">HD</option>
-          <option value="uhd">UHD</option>
+          <option value="standard">Standard</option>
+          <option value="4k">4K</option>
         </Select>
         <label className="flex items-center gap-1.5 text-gray-900">
           <input type="checkbox" checked={routine} onChange={(e) => setRoutine(e.target.checked)} />

@@ -34,14 +34,12 @@ const profile = (key: string, name: string, slot: Profile['slot'], rule: Profile
 })
 
 const seeded = (): Profile[] => [
-  profile('sd-primary', 'SD', 'sd', 'primary'),
-  profile('sd-original', 'SD Original', 'sd', 'original'),
-  profile('hd-primary', 'HD', 'hd', 'primary', { default_movies: true, default_series: true }),
-  profile('hd-original', 'HD Original', 'hd', 'original'),
-  profile('any-primary', 'Any', 'hd', 'primary'),
-  profile('any-original', 'Any Original', 'hd', 'original'),
-  profile('uhd-primary', 'UHD', 'uhd', 'primary'),
-  profile('uhd-original', 'UHD Original', 'uhd', 'original'),
+  profile('hd-primary', 'HD', 'standard', 'primary', { default_movies: true, default_series: true }),
+  profile('hd-original', 'HD Original', 'standard', 'original'),
+  profile('any-primary', 'Any', 'standard', 'primary'),
+  profile('any-original', 'Any Original', 'standard', 'original'),
+  profile('4k-primary', '4K', '4k', 'primary'),
+  profile('4k-original', '4K Original', '4k', 'original'),
 ]
 
 /** The Profile and settings API with real behaviour for the rules the UI leans on. */
@@ -80,8 +78,8 @@ function fakeProfiles(opts: { fresh?: boolean } = {}) {
       const body = (await request.json()) as Partial<Profile>
       sent.push({ path: `profile ${params.key}`, body })
       const cur = profiles.find((p) => p.key === params.key)!
-      if (cur.slot === 'hd' && cur.enabled && (body.enabled === false || body.default_movies === false)) {
-        return response('default').json(problem(422, 'validation', 'HD always has a default: make another HD Profile the default first'), { status: 422 })
+      if (cur.slot === 'standard' && cur.enabled && (body.enabled === false || body.default_movies === false)) {
+        return response('default').json(problem(422, 'validation', 'The Standard Slot always has a default: make another Standard Profile the default first'), { status: 422 })
       }
       profiles = profiles.map((p) => {
         if (p.slot === cur.slot && body.default_movies) p = { ...p, default_movies: false }
@@ -134,23 +132,23 @@ describe('the wizard Profiles section', () => {
     await createAccount()
 
     const section = await screen.findByRole('region', { name: 'Profiles' })
-    // HD is preselected for both kinds and has no empty choice; SD and UHD start empty.
-    const hdMovies = await within(section).findByLabelText('HD default for Movies')
+    // Standard is preselected for both kinds and has no empty choice; 4K starts empty.
+    const hdMovies = await within(section).findByLabelText('Standard default for Movies')
     expect(hdMovies).toHaveValue('hd-primary')
     expect(within(hdMovies).queryByRole('option', { name: 'None' })).not.toBeInTheDocument()
-    expect(within(section).getByLabelText('UHD default for Movies')).toHaveValue('')
+    expect(within(section).getByLabelText('4K default for Movies')).toHaveValue('')
 
-    await userEvent.selectOptions(within(section).getByLabelText('UHD default for Movies'), 'uhd-primary')
-    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile uhd-primary', body: { default_movies: true } }))
-    expect(await within(section).findByLabelText('UHD default for Movies')).toHaveValue('uhd-primary')
-    expect(within(section).getByLabelText('UHD default for Series')).toHaveValue('')
+    await userEvent.selectOptions(within(section).getByLabelText('4K default for Movies'), '4k-primary')
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile 4k-primary', body: { default_movies: true } }))
+    expect(await within(section).findByLabelText('4K default for Movies')).toHaveValue('4k-primary')
+    expect(within(section).getByLabelText('4K default for Series')).toHaveValue('')
 
-    await userEvent.selectOptions(within(section).getByLabelText('HD default for Series'), 'hd-original')
+    await userEvent.selectOptions(within(section).getByLabelText('Standard default for Series'), 'hd-original')
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile hd-original', body: { default_series: true } }))
 
-    // Unsetting a default is "None" for SD and UHD.
-    await userEvent.selectOptions(within(section).getByLabelText('UHD default for Movies'), '')
-    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile uhd-primary', body: { default_movies: false } }))
+    // Unsetting a default is "None" for 4K.
+    await userEvent.selectOptions(within(section).getByLabelText('4K default for Movies'), '')
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile 4k-primary', body: { default_movies: false } }))
   })
 
   it('shows why a default cannot be unset', async () => {
@@ -164,7 +162,7 @@ describe('the wizard Profiles section', () => {
         response('default').json(problem(422, 'validation', 'HD always has a default for movies'), { status: 422 }),
       ),
     )
-    await userEvent.selectOptions(await within(section).findByLabelText('HD default for Movies'), 'hd-original')
+    await userEvent.selectOptions(await within(section).findByLabelText('Standard default for Movies'), 'hd-original')
     expect(await within(section).findByRole('alert')).toHaveTextContent('HD always has a default for movies')
   })
 })
@@ -189,11 +187,11 @@ describe('Settings', () => {
     await open()
     const section = await screen.findByRole('region', { name: 'Profiles' })
 
-    await userEvent.click(await within(section).findByLabelText('UHD enabled'))
-    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile uhd-primary', body: { enabled: false } }))
+    await userEvent.click(await within(section).findByLabelText('4K enabled'))
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile 4k-primary', body: { enabled: false } }))
     // A disabled Profile cannot be a default, so it leaves the choices.
     await waitFor(() =>
-      expect(within(within(section).getByLabelText('UHD default for Movies')).queryByRole('option', { name: 'UHD' })).not.toBeInTheDocument(),
+      expect(within(within(section).getByLabelText('4K default for Movies')).queryByRole('option', { name: '4K' })).not.toBeInTheDocument(),
     )
 
     // Original-Language Profiles have no fallback switch; Primary-Language ones do.
@@ -207,7 +205,7 @@ describe('Settings', () => {
     await open()
     const section = await screen.findByRole('region', { name: 'Profiles' })
     await userEvent.click(await within(section).findByLabelText('HD enabled'))
-    expect(await within(section).findByRole('alert')).toHaveTextContent('HD always has a default')
+    expect(await within(section).findByRole('alert')).toHaveTextContent('The Standard Slot always has a default')
   })
 
   it('saves a new Primary Language and says what it changes', async () => {

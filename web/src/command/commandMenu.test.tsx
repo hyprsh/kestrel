@@ -31,7 +31,7 @@ const defaultSuggestion = (id: number, title: string): Suggestion => ({
   in_library: null,
   certification: '6',
   certification_country: 'DE',
-  slots: [{ slot: 'hd', profile: 'hd-primary', label: 'HD', reason: 'default' }],
+  slots: [{ slot: 'standard', profile: 'hd-primary', label: 'HD', reason: 'default' }],
 })
 
 /** TMDB lookups: Paddington is addable, Paddington Returns is already in the Library. */
@@ -54,7 +54,7 @@ function fakeLookup(suggestion: (id: number, title: string) => Suggestion = defa
     http.post('/titles', async ({ request, response }) => {
       const body = await request.json()
       sent.push({ path: 'titles', body })
-      const added = row(8, 'Paddington', 'Ein Bär namens Paddington', { slots: { sd: null, hd: { version_id: 81, profile: 'hd-primary', state: 'wanted', long_missing: false }, uhd: null } })
+      const added = row(8, 'Paddington', 'Ein Bär namens Paddington', { slots: { standard: { version_id: 81, profile: 'hd-primary', state: 'wanted', long_missing: false }, '4k': null } })
       lib.rows = [added, ...lib.rows]
       return response(201).json(detail(added))
     }),
@@ -123,16 +123,15 @@ describe('the command menu', () => {
     const menu = await searchForPaddington()
     await userEvent.click(await within(menu).findByRole('option', { name: /^Paddington\b(?!.*Returns)/ }))
 
-    expect(await within(menu).findByText('Preselected: HD · HD (default)')).toBeInTheDocument()
-    expect(within(menu).getByRole('checkbox', { name: 'HD' })).toBeChecked()
-    expect(within(menu).getByRole('checkbox', { name: 'SD' })).not.toBeChecked()
-    expect(within(menu).getByRole('checkbox', { name: 'UHD' })).not.toBeChecked()
-    expect(within(menu).getByRole('combobox', { name: 'HD Profile' })).toHaveValue('hd-primary')
+    expect(await within(menu).findByText('Preselected: Standard · HD (default)')).toBeInTheDocument()
+    expect(within(menu).getByRole('checkbox', { name: 'Standard' })).toBeChecked()
+    expect(within(menu).getByRole('checkbox', { name: '4K' })).not.toBeChecked()
+    expect(within(menu).getByRole('combobox', { name: 'Standard Profile' })).toHaveValue('hd-primary')
 
     await userEvent.keyboard('{Enter}') // one key confirms
 
     await waitFor(() => expect(f.sent).toHaveLength(1))
-    expect(f.sent[0].body).toEqual({ kind: 'movie', tmdb_id: 116149, versions: [{ slot: 'hd', profile: 'hd-primary' }] })
+    expect(f.sent[0].body).toEqual({ kind: 'movie', tmdb_id: 116149, versions: [{ slot: 'standard', profile: 'hd-primary' }] })
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(screen.getByRole('banner')).toHaveTextContent('Library')
     expect(await screen.findByRole('option', { name: /paddington/i, selected: true })).toBeInTheDocument()
@@ -145,8 +144,8 @@ describe('the command menu', () => {
     await userEvent.click(await within(menu).findByRole('option', { name: /^Paddington\b(?!.*Returns)/ }))
     await within(menu).findByText(/Preselected/)
 
-    await userEvent.selectOptions(within(menu).getByRole('combobox', { name: 'HD Profile' }), 'hd-primary')
-    await userEvent.click(within(menu).getByRole('checkbox', { name: 'UHD' }))
+    await userEvent.selectOptions(within(menu).getByRole('combobox', { name: 'Standard Profile' }), 'hd-primary')
+    await userEvent.click(within(menu).getByRole('checkbox', { name: '4K' }))
     await userEvent.click(within(menu).getByRole('button', { name: /^add/i }))
 
     await waitFor(() => expect(f.sent).toHaveLength(1))
@@ -154,8 +153,8 @@ describe('the command menu', () => {
       kind: 'movie',
       tmdb_id: 116149,
       versions: [
-        { slot: 'hd', profile: 'hd-primary' },
-        { slot: 'uhd', profile: 'uhd-primary' },
+        { slot: 'standard', profile: 'hd-primary' },
+        { slot: '4k', profile: '4k-primary' },
       ],
     })
   })
@@ -180,13 +179,13 @@ describe('the command menu', () => {
 
     const folder = within(menu).getByRole('combobox', { name: 'Root folder' })
     expect(folder).toHaveValue('/data/movies')
-    await userEvent.selectOptions(within(menu).getByRole('combobox', { name: 'HD Profile' }), 'any-primary')
+    await userEvent.selectOptions(within(menu).getByRole('combobox', { name: 'Standard Profile' }), 'any-primary')
     expect(folder).toHaveValue('/data/movies') // no Profile moves the folder
 
     await userEvent.selectOptions(folder, '/data/more-movies')
     await userEvent.click(within(menu).getByRole('button', { name: /^add/i }))
     await waitFor(() => expect(f.sent).toHaveLength(1))
-    expect(f.sent[0].body).toEqual({ kind: 'movie', tmdb_id: 116149, versions: [{ slot: 'hd', profile: 'any-primary' }], root_folder: '/data/more-movies' })
+    expect(f.sent[0].body).toEqual({ kind: 'movie', tmdb_id: 116149, versions: [{ slot: 'standard', profile: 'any-primary' }], root_folder: '/data/more-movies' })
   })
 
   it('does not add an already-added Movie: it opens it in the Library', async () => {

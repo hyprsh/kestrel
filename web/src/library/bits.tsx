@@ -1,9 +1,9 @@
 import { Film, Tv } from 'lucide-react'
 import { Badge, cx, type Tone } from '../ui'
 
-export type SlotKey = 'sd' | 'hd' | 'uhd'
-export const slotKeys: SlotKey[] = ['sd', 'hd', 'uhd']
-export const slotLabel: Record<SlotKey, string> = { sd: 'SD', hd: 'HD', uhd: 'UHD' }
+export type SlotKey = 'standard' | '4k'
+export const slotKeys: SlotKey[] = ['standard', '4k']
+export const slotLabel: Record<SlotKey, string> = { standard: 'Standard', '4k': '4K' }
 
 type State = 'wanted' | 'filled' | 'downloading' | 'unmonitored' | 'unreleased' | string
 

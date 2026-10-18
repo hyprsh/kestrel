@@ -59,7 +59,7 @@ export function Settings({ onRunSetup, onAdopt }: { onRunSetup: () => void; onAd
           </Row>
         </Group>
         <Group id="profiles" title="Profiles">
-          <Row label="Defaults per Slot" help="The Profile a new Title gets for each Slot. HD always has one.">
+          <Row label="Defaults per Slot" help="The Profile a new Title gets for each Slot. Standard always has one.">
             <DefaultsPerSlot />
           </Row>
           <Row label="Profiles" help="Turn Profiles off or let Primary-Language ones accept the Original Language. Disabling a Profile clears its defaults.">

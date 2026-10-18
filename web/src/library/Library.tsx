@@ -21,8 +21,8 @@ const kinds: { key: Kind; label: string }[] = [
 export type Preset = 'wanted' | 'long_missing'
 
 /** A Title is Wanted when any of its Versions is; Long Missing when any is long missing. */
-const hasSlot = (r: TitleRow, test: (s: NonNullable<TitleRow['slots']['hd']>) => boolean) =>
-  [r.slots.sd, r.slots.hd, r.slots.uhd].some((s) => s !== null && test(s))
+const hasSlot = (r: TitleRow, test: (s: NonNullable<TitleRow['slots']['standard']>) => boolean) =>
+  [r.slots.standard, r.slots['4k']].some((s) => s !== null && test(s))
 
 const norm = (s: string) => s.toLowerCase()
 

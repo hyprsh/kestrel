@@ -17,7 +17,7 @@ const item = (over: Partial<QueueItem> = {}): QueueItem => ({
   version_id: 11,
   title: 'Paddington',
   year: 2014,
-  slot: 'hd',
+  slot: 'standard',
   episodes: [],
   release_name: 'Paddington.2014.1080p.BluRay.x264-GRP',
   phase: 'downloading',
@@ -52,7 +52,7 @@ describe('Overview', () => {
     const row = await within(section).findByRole('listitem')
     expect(row).toHaveTextContent('Paddington')
     expect(row).toHaveTextContent('2014')
-    expect(row).toHaveTextContent('HD')
+    expect(row).toHaveTextContent('Standard')
     expect(row).toHaveTextContent('Downloading')
     expect(row).toHaveTextContent('Paddington.2014.1080p.BluRay.x264-GRP')
     expect(within(row).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '75')

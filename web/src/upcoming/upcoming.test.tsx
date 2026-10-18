@@ -46,7 +46,7 @@ const recent = (over: Partial<Recent> = {}): Recent => ({
   title: 'Paddington',
   year: 2014,
   kind: 'movie',
-  slot: 'hd',
+  slot: 'standard',
   release_name: 'Paddington.2014.1080p.BluRay.x264-GRP',
   score: 120,
   score_delta: null,
@@ -119,7 +119,7 @@ describe('Upcoming', () => {
 
 describe('Overview: Coming this week and Recently added', () => {
   it('shows the next 7 days and the latest Imports', async () => {
-    const asked = fakeAgenda([episode()], [recent({ is_upgrade: true }), recent({ title_id: 2, title: 'Bridge Show', kind: 'series', slot: 'uhd', files: 8, score: null })])
+    const asked = fakeAgenda([episode()], [recent({ is_upgrade: true }), recent({ title_id: 2, title: 'Bridge Show', kind: 'series', slot: '4k', files: 8, score: null })])
     renderApp()
 
     const coming = await screen.findByRole('region', { name: /coming this week/i })

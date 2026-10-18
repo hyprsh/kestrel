@@ -58,13 +58,13 @@ describe('Log', () => {
     expect(within(list).getAllByRole('listitem')).toHaveLength(2)
     expect(queries.at(-1)).toBe('')
 
-    await user.selectOptions(screen.getByLabelText('Slot'), 'hd')
+    await user.selectOptions(screen.getByLabelText('Slot'), 'standard')
     await user.selectOptions(screen.getByLabelText('Kind'), 'grab')
     await user.click(screen.getByLabelText('Show routine'))
 
     await screen.findByRole('list', { name: 'Events' })
     await expect.poll(() => queries.at(-1)).toContain('routine=true')
-    expect(queries.at(-1)).toContain('slot=hd')
+    expect(queries.at(-1)).toContain('slot=standard')
     expect(queries.at(-1)).toContain('kind=grab')
   })
 

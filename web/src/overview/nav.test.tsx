@@ -17,7 +17,7 @@ const recent = (over: Partial<Recent>): Recent => ({
   title: 'Paddington',
   year: 2014,
   kind: 'movie',
-  slot: 'hd',
+  slot: 'standard',
   release_name: 'Paddington.2014.1080p.BluRay-GRP',
   score: 250,
   score_delta: null,
@@ -34,7 +34,7 @@ describe('Overview rows', () => {
         response(200).json({
           items: [
             recent({ is_upgrade: true, score_delta: 150 }),
-            recent({ title_id: 8, title: 'Arrival', release_name: 'Arrival.2016.2160p-GRP', slot: 'uhd' }),
+            recent({ title_id: 8, title: 'Arrival', release_name: 'Arrival.2016.2160p-GRP', slot: '4k' }),
           ],
         }),
       ),
@@ -79,7 +79,7 @@ describe('Overview rows', () => {
               version_id: 11,
               title: 'Heat',
               year: 1995,
-              slot: 'hd',
+              slot: 'standard',
               episodes: [],
               release_name: 'Heat.1995-GRP',
               phase: 'downloading',

@@ -12,9 +12,8 @@ const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { 
 const rows = () => [
   row(1, 'Paddington', 'Ein Bär namens Paddington', {
     slots: {
-      sd: null,
-      hd: { version_id: 11, profile: 'any-primary', state: 'wanted', long_missing: false },
-      uhd: { version_id: 12, profile: 'uhd-primary', state: 'filled', long_missing: false },
+      standard: { version_id: 11, profile: 'any-primary', state: 'wanted', long_missing: false },
+      '4k': { version_id: 12, profile: '4k-primary', state: 'filled', long_missing: false },
     },
   }),
   row(2, 'Heat', 'Heat', { year: 1995 }),
@@ -37,9 +36,8 @@ describe('the Library list', () => {
     const first = await within(list).findByRole('option', { name: /paddington/i })
     expect(first).toHaveTextContent('Paddington')
     expect(first).toHaveTextContent('Ein Bär namens Paddington')
-    expect(within(first).getByRole('img', { name: 'SD: no Version' })).toBeInTheDocument()
-    expect(within(first).getByRole('img', { name: 'HD: wanted' })).toBeInTheDocument()
-    expect(within(first).getByRole('img', { name: 'UHD: filled' })).toBeInTheDocument()
+    expect(within(first).getByRole('img', { name: 'Standard: wanted' })).toBeInTheDocument()
+    expect(within(first).getByRole('img', { name: '4K: filled' })).toBeInTheDocument()
 
     // The second line is only for a Primary-Language title that differs.
     const heat = within(list).getByRole('option', { name: /heat/i })
@@ -114,20 +112,18 @@ describe('the Library list', () => {
 })
 
 describe('the Library detail pane', () => {
-  it('shows the SD | HD | UHD Versions strip with Profile and status', async () => {
+  it('shows the Standard | 4K Versions strip with Profile and status', async () => {
     fakeLibrary(rows())
     await openLibrary()
     const pane = await screen.findByRole('region', { name: /paddington/i })
 
     expect(await within(pane).findByRole('heading', { name: 'Paddington' })).toBeInTheDocument()
     expect(pane).toHaveTextContent('Ein Bär namens Paddington')
-    const sd = within(pane).getByRole('group', { name: 'SD' })
-    const hd = within(pane).getByRole('group', { name: 'HD' })
-    const uhd = within(pane).getByRole('group', { name: 'UHD' })
-    expect(sd).toHaveTextContent('No Version')
+    const hd = within(pane).getByRole('group', { name: 'Standard' })
+    const uhd = within(pane).getByRole('group', { name: '4K' })
     expect(await within(hd).findByText('Any')).toBeInTheDocument() // the Profile's name arrives with GET /profiles
     expect(hd).toHaveTextContent('Wanted')
-    expect(uhd).toHaveTextContent('UHD')
+    expect(uhd).toHaveTextContent('4K')
     expect(uhd).toHaveTextContent('Filled')
   })
 
@@ -162,7 +158,7 @@ describe('the Library detail pane', () => {
   it("shows a Version's file with its quality, probed languages and Score", async () => {
     fakeLibrary(rows())
     const d = detail(rows()[0])
-    const hd = d.versions.find((v) => v.slot === 'hd')!
+    const hd = d.versions.find((v) => v.slot === 'standard')!
     hd.state = 'filled'
     hd.file = {
       path: '/data/media/movies/P/P.mkv',
