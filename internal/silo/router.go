@@ -344,10 +344,20 @@ func (r *Router) CheckStatus(ctx context.Context, in *pluginv1.CheckStatusReques
 // ListConfigOptions fills the Standard Profile, 4K Profile and Root folder
 // dropdowns from Kestrel. Root folders are offered for both kinds: one of the
 // wrong kind for a Request is Kestrel's 422, surfaced as the Request's failure.
+// Silo's Test button lists options rather than calling TestConnection, so the
+// API major is compared here first; client errors pass through unchanged for
+// Silo's options probe.
 func (r *Router) ListConfigOptions(ctx context.Context, in *pluginv1.ListConfigOptionsRequest) (*pluginv1.ListConfigOptionsResponse, error) {
 	cl, err := r.client(in.GetConnection())
 	if err != nil {
 		return nil, err
+	}
+	major, version, err := cl.system(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if major != APIMajor {
+		return nil, errors.New(majorMismatch(version, major))
 	}
 	profiles, err := cl.profiles(ctx)
 	if err != nil {
@@ -389,9 +399,15 @@ func (r *Router) TestConnection(ctx context.Context, in *pluginv1.TestConnection
 	case err != nil:
 		return &pluginv1.TestConnectionResponse{Message: "Could not reach Kestrel: " + err.Error()}, nil
 	case major != APIMajor:
-		return &pluginv1.TestConnectionResponse{Message: fmt.Sprintf("Kestrel %s speaks API v%d but this plugin speaks v%d; install the plugin release that matches Kestrel", version, major, APIMajor)}, nil
+		return &pluginv1.TestConnectionResponse{Message: majorMismatch(version, major)}, nil
 	}
 	return &pluginv1.TestConnectionResponse{Ok: true, Message: "Connected to Kestrel " + version}, nil
+}
+
+// majorMismatch tells the admin that Kestrel at version speaks API major, not
+// the plugin's APIMajor.
+func majorMismatch(version string, major int) string {
+	return fmt.Sprintf("Kestrel %s speaks API v%d but this plugin speaks v%d; install the plugin release that matches Kestrel", version, major, APIMajor)
 }
 
 // Validate has no cross-connection rules.

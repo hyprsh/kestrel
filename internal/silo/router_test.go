@@ -390,6 +390,31 @@ func TestTestConnectionComparesAPIMajorAndChecksTheKey(t *testing.T) {
 	}
 }
 
+// TestOptionsFromAKestrelOnAnotherAPIMajorAreRefused covers Silo's Test button,
+// which lists config options rather than calling TestConnection.
+func TestOptionsFromAKestrelOnAnotherAPIMajorAreRefused(t *testing.T) {
+	newer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprintf(w, `{"version":"2.0.0","api_major":%d,"base_url":""}`, api.Major+1)
+	}))
+	defer newer.Close()
+	r := silo.NewRouter(silo.Options{})
+	c := conn(t, newer.URL, "kst_x", nil)
+
+	opts, err := r.ListConfigOptions(context.Background(), &pluginv1.ListConfigOptionsRequest{CapabilityId: "kestrel", Connection: c})
+	if err == nil || opts != nil {
+		t.Fatalf("options = %v, err = %v, want no options and the mismatch", opts, err)
+	}
+	for _, w := range []string{fmt.Sprintf("Kestrel 2.0.0 speaks API v%d but this plugin speaks v%d", api.Major+1, api.Major), "install the plugin release that matches Kestrel"} {
+		if !strings.Contains(err.Error(), w) {
+			t.Errorf("error = %q, want it to contain %q", err, w)
+		}
+	}
+	res, terr := r.TestConnection(context.Background(), &pluginv1.TestConnectionRequest{CapabilityId: "kestrel", Connection: c})
+	if terr != nil || res.Message != err.Error() {
+		t.Errorf("TestConnection = %+v, %v, want the same message as ListConfigOptions' %q", res, terr, err)
+	}
+}
+
 func TestAPIMajorMatchesTheServer(t *testing.T) {
 	if silo.APIMajor != api.Major {
 		t.Fatalf("silo.APIMajor = %d, api.Major = %d", silo.APIMajor, api.Major)
