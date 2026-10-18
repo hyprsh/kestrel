@@ -5,7 +5,7 @@ SELECT * FROM adoption_plan WHERE id = 1;
 UPDATE adoption_plan SET state = ?, revision = revision + 1, error = ? WHERE id = 1;
 
 -- name: StartAdoptionScan :exec
-UPDATE adoption_plan SET state = 'scanning', revision = revision + 1, done = 0, total = 0, error = NULL, scanned_at = NULL, adopted = NULL, failed = NULL WHERE id = 1;
+UPDATE adoption_plan SET state = 'scanning', revision = revision + 1, done = 0, total = 0, error = NULL, scanned_at = NULL, adopted = NULL, failed = NULL, adopted_titles = NULL WHERE id = 1;
 
 -- name: SetAdoptionProgress :exec
 UPDATE adoption_plan SET done = ?, total = ? WHERE id = 1;
@@ -23,10 +23,10 @@ UPDATE adoption_plan SET revision = revision + 1 WHERE id = 1;
 UPDATE adoption_plan SET state = 'committing', revision = revision + 1, done = 0, total = ? WHERE id = 1;
 
 -- name: FinishAdoptionCommit :exec
-UPDATE adoption_plan SET state = 'idle', revision = revision + 1, adopted = ?, failed = ? WHERE id = 1;
+UPDATE adoption_plan SET state = 'idle', revision = revision + 1, adopted = ?, failed = ?, adopted_titles = ? WHERE id = 1;
 
 -- name: ResetAdoption :exec
-UPDATE adoption_plan SET state = 'idle', revision = revision + 1, done = 0, total = 0, error = NULL, scanned_at = NULL, adopted = NULL, failed = NULL WHERE id = 1;
+UPDATE adoption_plan SET state = 'idle', revision = revision + 1, done = 0, total = 0, error = NULL, scanned_at = NULL, adopted = NULL, failed = NULL, adopted_titles = NULL WHERE id = 1;
 
 -- name: InsertAdoptionRow :one
 INSERT INTO adoption_rows (status, ticked, data) VALUES (?, ?, ?) RETURNING id;

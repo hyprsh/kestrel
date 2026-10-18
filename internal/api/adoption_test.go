@@ -101,8 +101,9 @@ type adoptionJSON struct {
 		Replacement int `json:"replacement"`
 	} `json:"summary"`
 	Result *struct {
-		Adopted int `json:"adopted"`
-		Failed  int `json:"failed"`
+		Adopted  int     `json:"adopted"`
+		Failed   int     `json:"failed"`
+		TitleIDs []int64 `json:"title_ids"`
 	} `json:"result"`
 }
 

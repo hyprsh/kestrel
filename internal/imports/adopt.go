@@ -102,6 +102,8 @@ type Summary struct {
 // CommitResult is what the last commit did.
 type CommitResult struct {
 	Adopted, Failed int
+	// TitleIDs are the Titles the commit adopted.
+	TitleIDs []int64
 }
 
 // Plan is the Adoption plan's state.
@@ -336,7 +338,10 @@ func (a *Adoption) Get(ctx context.Context) (Plan, error) {
 		}
 	}
 	if p.Adopted.Valid {
-		out.Result = &CommitResult{Adopted: int(p.Adopted.Int64), Failed: int(p.Failed.Int64)}
+		out.Result = &CommitResult{Adopted: int(p.Adopted.Int64), Failed: int(p.Failed.Int64), TitleIDs: []int64{}}
+		if p.AdoptedTitles.Valid {
+			_ = json.Unmarshal([]byte(p.AdoptedTitles.String), &out.Result.TitleIDs)
+		}
 	}
 	rows, err := a.rows(ctx)
 	if err != nil {

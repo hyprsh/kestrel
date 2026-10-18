@@ -889,6 +889,9 @@ type Adoption struct {
 	Result *struct {
 		Adopted int `json:"adopted"`
 		Failed  int `json:"failed"`
+
+		// TitleIds The Titles the commit adopted.
+		TitleIds []int64 `json:"title_ids"`
 	} `json:"result"`
 	Revision  int64         `json:"revision"`
 	ScannedAt *time.Time    `json:"scanned_at"`
@@ -2344,7 +2347,7 @@ type ListBlocklistParams struct {
 
 // PreviewCleanupJSONBody defines parameters for PreviewCleanup.
 type PreviewCleanupJSONBody struct {
-	TitleId *int64 `json:"title_id,omitempty"`
+	TitleIds *[]int64 `json:"title_ids,omitempty"`
 }
 
 // RunCleanupJSONBody defines parameters for RunCleanup.

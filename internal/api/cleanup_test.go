@@ -62,7 +62,7 @@ func TestCleanUpListsUnmanagedFilesByCategoryAndDeletesOnlyTheTickedOnes(t *test
 	}
 	stray := a.put(t, "Not Tracked (1999)/stray.nfo", "x")
 
-	pv := decode[cleanupPreviewJSON](t, a.valid("POST", "/cleanup/preview", fmt.Sprintf(`{"title_id":%d}`, id)))
+	pv := decode[cleanupPreviewJSON](t, a.valid("POST", "/cleanup/preview", fmt.Sprintf(`{"title_ids":[%d]}`, id)))
 
 	for _, want := range []struct {
 		key    string
@@ -120,9 +120,16 @@ func TestCleanUpWithoutATitleCoversEveryTrackedFolderAndHonoursUntickedFiles(t *
 
 func TestCleanUpNeverDeletesAFileAVersionHolds(t *testing.T) {
 	a, id, _, held := adoptedFolder(t)
-	pv := decode[cleanupPreviewJSON](t, a.valid("POST", "/cleanup/preview", fmt.Sprintf(`{"title_id":%d}`, id)))
+	pv := decode[cleanupPreviewJSON](t, a.valid("POST", "/cleanup/preview", fmt.Sprintf(`{"title_ids":[%d]}`, id)))
 	r := a.valid("POST", "/cleanup/run", fmt.Sprintf(`{"preview_id":%q,"categories":["junk","samples","unmanaged_videos"]}`, pv.PreviewID))
 	if r.Status != 202 || !exists(t, held) {
 		t.Errorf("run = %d, held exists %v", r.Status, exists(t, held))
+	}
+}
+
+func TestCleanUpNamingAnUnknownTitleIs404(t *testing.T) {
+	a, id, _, _ := adoptedFolder(t)
+	if r := a.do("POST", "/cleanup/preview", fmt.Sprintf(`{"title_ids":[%d,%d]}`, id, id+1000)); r.Status != 404 {
+		t.Errorf("status = %d, want 404", r.Status)
 	}
 }

@@ -1315,7 +1315,7 @@ paths:
         Lists the Unmanaged files inside tracked Titles' folders by category: junk, samples, orphaned
         subtitles and empty folders (ticked by default as safe), then subtitles in other languages, local
         artwork, extras and unmanaged videos (unticked). Files any Version holds are never listed. Without
-        `title_id` every tracked Title's folder is covered. The answer names a `preview_id` that
+        `title_ids` every tracked Title's folder is covered. The answer names a `preview_id` that
         `POST /cleanup/run` deletes from; nothing is deleted here.
       tags: [cleanup]
       requestBody:
@@ -1325,9 +1325,11 @@ paths:
             schema:
               type: object
               properties:
-                title_id:
-                  type: integer
-                  format: int64
+                title_ids:
+                  type: array
+                  items:
+                    type: integer
+                    format: int64
       responses:
         "200":
           description: The categories with their files.
@@ -2960,12 +2962,18 @@ components:
           type: object
           nullable: true
           description: What the last commit did; kept until the next scan.
-          required: [adopted, failed]
+          required: [adopted, failed, title_ids]
           properties:
             adopted:
               type: integer
             failed:
               type: integer
+            title_ids:
+              type: array
+              description: The Titles the commit adopted.
+              items:
+                type: integer
+                format: int64
     AdoptionCandidate:
       type: object
       required: [tmdb_id, title, year]

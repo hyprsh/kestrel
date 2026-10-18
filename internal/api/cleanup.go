@@ -20,11 +20,11 @@ func cleanupProblem(err error) error {
 }
 
 func (s *server) PreviewCleanup(ctx context.Context, r oapi.PreviewCleanupRequestObject) (oapi.PreviewCleanupResponseObject, error) {
-	var titleID int64
-	if r.Body != nil && r.Body.TitleId != nil {
-		titleID = *r.Body.TitleId
+	var titleIDs []int64
+	if r.Body != nil && r.Body.TitleIds != nil {
+		titleIDs = *r.Body.TitleIds
 	}
-	p, err := s.cleanup.Preview(ctx, titleID)
+	p, err := s.cleanup.Preview(ctx, titleIDs)
 	if err != nil {
 		return nil, cleanupProblem(err)
 	}

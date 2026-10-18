@@ -38,16 +38,17 @@ func (q *Queries) FailAdoptionScan(ctx context.Context, error sql.NullString) er
 }
 
 const finishAdoptionCommit = `-- name: FinishAdoptionCommit :exec
-UPDATE adoption_plan SET state = 'idle', revision = revision + 1, adopted = ?, failed = ? WHERE id = 1
+UPDATE adoption_plan SET state = 'idle', revision = revision + 1, adopted = ?, failed = ?, adopted_titles = ? WHERE id = 1
 `
 
 type FinishAdoptionCommitParams struct {
-	Adopted sql.NullInt64
-	Failed  sql.NullInt64
+	Adopted       sql.NullInt64
+	Failed        sql.NullInt64
+	AdoptedTitles sql.NullString
 }
 
 func (q *Queries) FinishAdoptionCommit(ctx context.Context, arg FinishAdoptionCommitParams) error {
-	_, err := q.db.ExecContext(ctx, finishAdoptionCommit, arg.Adopted, arg.Failed)
+	_, err := q.db.ExecContext(ctx, finishAdoptionCommit, arg.Adopted, arg.Failed, arg.AdoptedTitles)
 	return err
 }
 
@@ -61,7 +62,7 @@ func (q *Queries) FinishAdoptionScan(ctx context.Context, scannedAt sql.NullStri
 }
 
 const getAdoptionPlan = `-- name: GetAdoptionPlan :one
-SELECT id, state, revision, done, total, error, scanned_at, adopted, failed FROM adoption_plan WHERE id = 1
+SELECT id, state, revision, done, total, error, scanned_at, adopted, failed, adopted_titles FROM adoption_plan WHERE id = 1
 `
 
 func (q *Queries) GetAdoptionPlan(ctx context.Context) (AdoptionPlan, error) {
@@ -77,6 +78,7 @@ func (q *Queries) GetAdoptionPlan(ctx context.Context) (AdoptionPlan, error) {
 		&i.ScannedAt,
 		&i.Adopted,
 		&i.Failed,
+		&i.AdoptedTitles,
 	)
 	return i, err
 }
@@ -147,7 +149,7 @@ func (q *Queries) ListAdoptionRows(ctx context.Context) ([]AdoptionRow, error) {
 }
 
 const resetAdoption = `-- name: ResetAdoption :exec
-UPDATE adoption_plan SET state = 'idle', revision = revision + 1, done = 0, total = 0, error = NULL, scanned_at = NULL, adopted = NULL, failed = NULL WHERE id = 1
+UPDATE adoption_plan SET state = 'idle', revision = revision + 1, done = 0, total = 0, error = NULL, scanned_at = NULL, adopted = NULL, failed = NULL, adopted_titles = NULL WHERE id = 1
 `
 
 func (q *Queries) ResetAdoption(ctx context.Context) error {
@@ -193,7 +195,7 @@ func (q *Queries) StartAdoptionCommit(ctx context.Context, total int64) error {
 }
 
 const startAdoptionScan = `-- name: StartAdoptionScan :exec
-UPDATE adoption_plan SET state = 'scanning', revision = revision + 1, done = 0, total = 0, error = NULL, scanned_at = NULL, adopted = NULL, failed = NULL WHERE id = 1
+UPDATE adoption_plan SET state = 'scanning', revision = revision + 1, done = 0, total = 0, error = NULL, scanned_at = NULL, adopted = NULL, failed = NULL, adopted_titles = NULL WHERE id = 1
 `
 
 func (q *Queries) StartAdoptionScan(ctx context.Context) error {

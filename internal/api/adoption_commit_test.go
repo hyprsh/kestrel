@@ -91,6 +91,9 @@ func TestCommittingRenamesFilesInPlaceWithTheirSubtitlesAndFillsTheVersions(t *t
 		t.Fatalf("after commit = %+v", done)
 	}
 	id := a.titleIDOf(t, 116149)
+	if len(done.Result.TitleIDs) != 1 || done.Result.TitleIDs[0] != id {
+		t.Errorf("result title_ids = %v, want [%d]", done.Result.TitleIDs, id)
+	}
 	folder := filepath.Join(a.movies, "Paddington (2014) {tmdb-116149}")
 	files := a.titleFiles(t, id)
 	got := files["hd"]

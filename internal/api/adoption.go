@@ -22,9 +22,10 @@ func adoptionToAPI(p imports.Plan) oapi.Adoption {
 	out.Summary.Duplicate, out.Summary.Replacement = p.Summary.Duplicate, p.Summary.Replacement
 	if p.Result != nil {
 		out.Result = &struct {
-			Adopted int `json:"adopted"`
-			Failed  int `json:"failed"`
-		}{p.Result.Adopted, p.Result.Failed}
+			Adopted  int     `json:"adopted"`
+			Failed   int     `json:"failed"`
+			TitleIds []int64 `json:"title_ids"`
+		}{p.Result.Adopted, p.Result.Failed, p.Result.TitleIDs}
 	}
 	return out
 }

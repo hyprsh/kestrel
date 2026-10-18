@@ -9,15 +9,16 @@ import (
 )
 
 type AdoptionPlan struct {
-	ID        int64
-	State     string
-	Revision  int64
-	Done      int64
-	Total     int64
-	Error     sql.NullString
-	ScannedAt sql.NullString
-	Adopted   sql.NullInt64
-	Failed    sql.NullInt64
+	ID            int64
+	State         string
+	Revision      int64
+	Done          int64
+	Total         int64
+	Error         sql.NullString
+	ScannedAt     sql.NullString
+	Adopted       sql.NullInt64
+	Failed        sql.NullInt64
+	AdoptedTitles sql.NullString
 }
 
 type AdoptionRow struct {

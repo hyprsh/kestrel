@@ -160,7 +160,7 @@ type Adoption interface {
 // Cleanup deletes Unmanaged files.
 type Cleanup interface {
 	Run(ctx context.Context, previewID string, cats []imports.CleanupCategory, exclude []string) (imports.CleanupResult, error)
-	Preview(ctx context.Context, titleID int64) (imports.CleanupPreview, error)
+	Preview(ctx context.Context, titleIDs []int64) (imports.CleanupPreview, error)
 }
 
 // Remover deletes Versions and Titles.

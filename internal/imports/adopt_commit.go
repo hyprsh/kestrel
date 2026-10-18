@@ -175,14 +175,19 @@ func (a *Adoption) runCommit(ctx context.Context, todo []Row) {
 			res.Failed++
 		} else {
 			res.Adopted++
+			if id, ok, err := a.d.Library.Find(ctx, row.kind(), row.Match.TMDBID, row.Match.TVDBID); err == nil && ok {
+				res.TitleIDs = append(res.TitleIDs, id)
+			}
 		}
 		_ = a.q.SetAdoptionProgress(ctx, db.SetAdoptionProgressParams{Done: int64(i + 1), Total: total})
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	_ = a.q.DeleteAdoptionRows(ctx)
+	titles, _ := json.Marshal(append([]int64{}, res.TitleIDs...))
 	_ = a.q.FinishAdoptionCommit(ctx, db.FinishAdoptionCommitParams{
 		Adopted: sql.NullInt64{Int64: int64(res.Adopted), Valid: true}, Failed: sql.NullInt64{Int64: int64(res.Failed), Valid: true},
+		AdoptedTitles: sql.NullString{String: string(titles), Valid: true},
 	})
 }
 

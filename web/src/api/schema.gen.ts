@@ -1088,7 +1088,7 @@ export interface paths {
          * @description Lists the Unmanaged files inside tracked Titles' folders by category: junk, samples, orphaned
          *     subtitles and empty folders (ticked by default as safe), then subtitles in other languages, local
          *     artwork, extras and unmanaged videos (unticked). Files any Version holds are never listed. Without
-         *     `title_id` every tracked Title's folder is covered. The answer names a `preview_id` that
+         *     `title_ids` every tracked Title's folder is covered. The answer names a `preview_id` that
          *     `POST /cleanup/run` deletes from; nothing is deleted here.
          */
         post: operations["previewCleanup"];
@@ -2067,6 +2067,8 @@ export interface components {
             result: {
                 adopted: number;
                 failed: number;
+                /** @description The Titles the commit adopted. */
+                title_ids: number[];
             } | null;
         };
         AdoptionCandidate: {
@@ -4067,8 +4069,7 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": {
-                    /** Format: int64 */
-                    title_id?: number;
+                    title_ids?: number[];
                 };
             };
         };

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -125,9 +126,9 @@ func NewCleanup(d CleanupDeps) *Cleanup {
 	return &Cleanup{d: d, previews: map[string]storedPreview{}}
 }
 
-// Preview lists the Unmanaged files of one tracked Title (titleID != 0) or of
-// every tracked Title. Files any Version holds are never listed.
-func (c *Cleanup) Preview(ctx context.Context, titleID int64) (CleanupPreview, error) {
+// Preview lists the Unmanaged files of the named tracked Titles, or of every
+// tracked Title when none is named. Files any Version holds are never listed.
+func (c *Cleanup) Preview(ctx context.Context, titleIDs []int64) (CleanupPreview, error) {
 	tracked, err := c.d.Library.Tracked(ctx)
 	if err != nil {
 		return CleanupPreview{}, err
@@ -147,12 +148,12 @@ func (c *Cleanup) Preview(ctx context.Context, titleID int64) (CleanupPreview, e
 		byCat[k] = &CleanupGroup{Key: k, DefaultTicked: k.DefaultTicked()}
 	}
 	folders := map[int64]string{}
-	known := false
+	known := map[int64]bool{}
 	for _, t := range tracked {
-		if (titleID != 0 && t.TitleID != titleID) || t.Folder == "" {
+		if (len(titleIDs) > 0 && !slices.Contains(titleIDs, t.TitleID)) || t.Folder == "" {
 			continue
 		}
-		known = true
+		known[t.TitleID] = true
 		dir := filepath.Join(t.RootFolder, t.Folder)
 		if st, err := os.Stat(dir); err != nil || !st.IsDir() {
 			continue
@@ -169,8 +170,10 @@ func (c *Cleanup) Preview(ctx context.Context, titleID int64) (CleanupPreview, e
 			g.Size += f.file.Size
 		}
 	}
-	if titleID != 0 && !known {
-		return CleanupPreview{}, ErrNoTitle
+	for _, id := range titleIDs {
+		if !known[id] {
+			return CleanupPreview{}, ErrNoTitle
+		}
 	}
 	p := CleanupPreview{ID: newPreviewID()}
 	for _, k := range cleanupOrder {
