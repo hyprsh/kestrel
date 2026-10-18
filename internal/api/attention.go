@@ -15,7 +15,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/jobs"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
 	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
-	"github.com/hyprsh/kestrel/internal/trash"
+	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
 )
 
 // healthRowPrefix starts the id of every row that comes from the health module.
@@ -340,9 +340,9 @@ func (s *server) SearchAllWanted(ctx context.Context, _ oapi.SearchAllWantedRequ
 func (s *server) UpdateTrash(ctx context.Context, _ oapi.UpdateTrashRequestObject) (oapi.UpdateTrashResponseObject, error) {
 	res, err := s.trash.Update(ctx)
 	switch {
-	case errors.Is(err, trash.ErrUnreachable):
+	case errors.Is(err, trashsync.ErrUnreachable):
 		return nil, problem(http.StatusBadGateway, "upstream_unavailable", err.Error())
-	case errors.Is(err, trash.ErrRejected):
+	case errors.Is(err, trashsync.ErrRejected):
 		return nil, problem(http.StatusUnprocessableEntity, "validation", err.Error())
 	case err != nil:
 		return nil, err

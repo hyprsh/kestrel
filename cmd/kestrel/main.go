@@ -18,8 +18,8 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/api"
 	"github.com/hyprsh/kestrel/internal/config"
+	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
 	"github.com/hyprsh/kestrel/internal/store"
-	"github.com/hyprsh/kestrel/internal/trash"
 	"github.com/hyprsh/kestrel/internal/version"
 	"github.com/hyprsh/kestrel/web"
 )
@@ -65,7 +65,7 @@ func run(ctx context.Context) error {
 		Web:         web.FS(),
 		Logger:      logger,
 		Plugins:     plugins,
-		TrashSource: trash.GitHub{},
+		TrashSource: trashsync.GitHub{},
 		DataDir:     cfg.DataDir,
 
 		ConfigDir:  cfg.ConfigDir,

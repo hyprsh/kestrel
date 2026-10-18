@@ -1,4 +1,4 @@
-package trash
+package trashsync
 
 import (
 	"archive/tar"

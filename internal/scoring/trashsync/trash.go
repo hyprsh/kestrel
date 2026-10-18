@@ -1,10 +1,10 @@
-// Package trash keeps Kestrel on TRaSH's latest Custom Formats and profiles
+// Package trashsync keeps Kestrel on TRaSH's latest Custom Formats and profiles
 // (Settled 5 and 6). A daily check, or the manual "Update from TRaSH", fetches
 // the newest snapshot and loads it all-or-nothing: it must parse, and every
 // stored file must be re-scored under it in the same step, before it becomes
 // the active snapshot. Any failure leaves everything as it was and raises the
 // "TRaSH update rejected" Warning.
-package trash
+package trashsync
 
 import (
 	"context"

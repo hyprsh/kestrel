@@ -33,10 +33,10 @@ import (
 	"github.com/hyprsh/kestrel/internal/requests"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
+	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 	"github.com/hyprsh/kestrel/internal/store"
-	"github.com/hyprsh/kestrel/internal/trash"
 	"github.com/hyprsh/kestrel/internal/updates"
 )
 
@@ -94,8 +94,8 @@ type Options struct {
 	// GitHubAPI is the GitHub API root for the update check; empty means api.github.com. Tests inject a fake.
 	GitHubAPI string
 	// TrashSource is where TRaSH updates come from. Nil means none: no daily check,
-	// and "Update from TRaSH" answers 502. cmd/kestrel passes trash.GitHub{}.
-	TrashSource trash.Source
+	// and "Update from TRaSH" answers 502. cmd/kestrel passes trashsync.GitHub{}.
+	TrashSource trashsync.Source
 }
 
 // App is Kestrel's wired services: the HTTP handler and the background loops.
@@ -204,7 +204,7 @@ func New(opts Options) *App {
 	}
 	s.adoption = adoption
 	s.cleanup = imports.NewCleanup(imports.CleanupDeps{Library: s.library, Profiles: s.profiles, History: s.history, Clock: opts.Clock})
-	s.trash = trash.New(trash.Deps{
+	s.trash = trashsync.New(trashsync.Deps{
 		Holder: s.scoring, Settings: appSettings, Source: opts.TrashSource, Health: s.health, Clock: opts.Clock, Logger: opts.Logger,
 		Enabled: func(ctx context.Context) bool { return s.updates.Enabled(ctx) },
 		Titles: func(ctx context.Context) ([]int64, error) {
@@ -291,7 +291,7 @@ type server struct {
 	history      *history.Service
 	imports      *imports.Service
 	scoring      *scoring.Holder
-	trash        *trash.Service
+	trash        *trashsync.Service
 	mediaRefresh *imports.Refresher
 	hub          *hub
 	meta         metadata.Provider
@@ -370,7 +370,7 @@ func docsPage(w http.ResponseWriter, _ *http.Request) {
 }
 
 // trashLoop is the daily TRaSH check, or nothing without a source.
-func trashLoop(s *trash.Service, src trash.Source) jobs.TrashChecker {
+func trashLoop(s *trashsync.Service, src trashsync.Source) jobs.TrashChecker {
 	if src == nil {
 		return nil
 	}

@@ -1,4 +1,4 @@
-package trash_test
+package trashsync_test
 
 import (
 	"context"
@@ -10,9 +10,9 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/scoring"
+	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
-	"github.com/hyprsh/kestrel/internal/trash"
 )
 
 var now = time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC)
@@ -32,20 +32,20 @@ func bundle(commit string, at time.Time) fstest.MapFS {
 }
 
 type fakeSource struct {
-	ref   trash.Ref
+	ref   trashsync.Ref
 	files fs.FS
 	err   error
 	calls int
 }
 
-func (f *fakeSource) Latest(context.Context) (trash.Ref, error) { return f.ref, f.err }
-func (f *fakeSource) Download(context.Context, trash.Ref) (fs.FS, error) {
+func (f *fakeSource) Latest(context.Context) (trashsync.Ref, error) { return f.ref, f.err }
+func (f *fakeSource) Download(context.Context, trashsync.Ref) (fs.FS, error) {
 	f.calls++
 	return f.files, nil
 }
 
 type env struct {
-	svc    *trash.Service
+	svc    *trashsync.Service
 	holder *scoring.Holder
 	src    *fakeSource
 	health *health.Service
@@ -77,8 +77,8 @@ func newEnv(t *testing.T) *env {
 	return e
 }
 
-func (e *env) newService() *trash.Service {
-	return trash.New(trash.Deps{
+func (e *env) newService() *trashsync.Service {
+	return trashsync.New(trashsync.Deps{
 		Holder: e.holder, Settings: settings.New(e.st), Source: e.src, Health: e.health, Clock: func() time.Time { return now },
 		Titles: func(context.Context) ([]int64, error) { return []int64{1}, nil },
 		Rescore: func(_ context.Context, snap *scoring.Snapshot, _ []int64) error {
@@ -89,7 +89,7 @@ func (e *env) newService() *trash.Service {
 }
 
 func (e *env) offer(commit string, at time.Time) {
-	e.src.ref = trash.Ref{Commit: commit, CommittedAt: at}
+	e.src.ref = trashsync.Ref{Commit: commit, CommittedAt: at}
 	e.src.files = bundle(commit, at)
 }
 
@@ -127,7 +127,7 @@ func TestValidUpdateRescoresBeforeItBecomesActive(t *testing.T) {
 func TestInvalidUpdateChangesNothingAndWarns(t *testing.T) {
 	e := newEnv(t)
 	before := e.holder.Current()
-	e.src.ref = trash.Ref{Commit: "broken", CommittedAt: now}
+	e.src.ref = trashsync.Ref{Commit: "broken", CommittedAt: now}
 	e.src.files = fstest.MapFS{"COMMIT": {Data: []byte("broken")}} // no app directories
 	if _, err := e.svc.Update(context.Background()); err == nil {
 		t.Fatal("a broken snapshot was accepted")

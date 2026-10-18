@@ -1,4 +1,4 @@
-package trash_test
+package trashsync_test
 
 import (
 	"archive/tar"
@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyprsh/kestrel/internal/trash"
+	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
 )
 
 func TestGitHubSourceKeepsOnlyWhatKestrelReads(t *testing.T) {
@@ -47,7 +47,7 @@ func TestGitHubSourceKeepsOnlyWhatKestrelReads(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	g := trash.GitHub{BaseURL: srv.URL}
+	g := trashsync.GitHub{BaseURL: srv.URL}
 	ref, err := g.Latest(context.Background())
 	if err != nil || ref.Commit != "abc" || !ref.CommittedAt.Equal(time.Date(2026, 10, 12, 17, 15, 34, 0, time.UTC)) {
 		t.Fatalf("Latest = %+v, %v", ref, err)

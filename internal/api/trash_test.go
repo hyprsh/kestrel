@@ -10,16 +10,16 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/api"
 	"github.com/hyprsh/kestrel/internal/jobs"
-	"github.com/hyprsh/kestrel/internal/trash"
+	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
 )
 
 type trashSource struct {
-	ref   trash.Ref
+	ref   trashsync.Ref
 	files fs.FS
 }
 
-func (s *trashSource) Latest(context.Context) (trash.Ref, error) { return s.ref, nil }
-func (s *trashSource) Download(context.Context, trash.Ref) (fs.FS, error) {
+func (s *trashSource) Latest(context.Context) (trashsync.Ref, error) { return s.ref, nil }
+func (s *trashSource) Download(context.Context, trashsync.Ref) (fs.FS, error) {
 	return s.files, nil
 }
 
@@ -63,7 +63,7 @@ func TestUpdateFromTrashLoadsAValidSnapshotAndRejectsABrokenOneWhole(t *testing.
 	s.pass(t, jobs.Import)
 	before := s.version(t, s.hd)
 
-	src.ref = trash.Ref{Commit: "broken", CommittedAt: time.Now()}
+	src.ref = trashsync.Ref{Commit: "broken", CommittedAt: time.Now()}
 	src.files = fstest.MapFS{"COMMIT": {Data: []byte("broken")}}
 	if r := s.valid("POST", "/trash/update", ``); r.Status != 422 {
 		t.Fatalf("broken update = %d %s, want 422", r.Status, r.Body)
@@ -75,7 +75,7 @@ func TestUpdateFromTrashLoadsAValidSnapshotAndRejectsABrokenOneWhole(t *testing.
 		t.Errorf("no TRaSH update rejected Warning in %v", a.kinds())
 	}
 
-	src.ref = trash.Ref{Commit: "good", CommittedAt: time.Now()}
+	src.ref = trashsync.Ref{Commit: "good", CommittedAt: time.Now()}
 	src.files = trashBundle(t, "good")
 	if r := s.valid("POST", "/trash/update", ``); r.Status != 200 {
 		t.Fatalf("good update = %d %s", r.Status, r.Body)
