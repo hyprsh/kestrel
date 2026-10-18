@@ -242,6 +242,15 @@ type AdoptionDeps struct {
 	Snapshot *scoring.Snapshot
 	// Scoring is the live TRaSH snapshot; it wins over Snapshot.
 	Scoring *scoring.Holder
+	// FolderChanged, when set, is told the Title folder an Adoption took over,
+	// so the media servers can be asked to refresh it.
+	FolderChanged func(ctx context.Context, folder string)
+}
+
+func (a *Adoption) folderChanged(ctx context.Context, folder string) {
+	if a.d.FolderChanged != nil {
+		a.d.FolderChanged(ctx, folder)
+	}
 }
 
 // Adoption takes over an existing on-disk library: a manual scan builds one

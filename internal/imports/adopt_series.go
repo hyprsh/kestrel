@@ -631,5 +631,6 @@ func (a *Adoption) adoptSeriesRow(ctx context.Context, e *env, row Row) (err err
 		Kind: history.AdoptionDone, TitleID: id,
 		Message: fmt.Sprintf("Adopted %s (%d) — %s", m.Title, m.Year, strings.Join(parts, ", ")),
 	})
+	a.folderChanged(ctx, dir)
 	return nil
 }

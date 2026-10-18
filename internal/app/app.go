@@ -179,12 +179,12 @@ func New(opts Options) *App {
 	}
 	adoption, err := imports.NewAdoption(imports.AdoptionDeps{
 		Store: st, Library: lib, Profiles: profs, Meta: meta, TVDB: tvdb, Prober: prober, Roots: roots, Scoring: live,
-		History: hist, Clock: opts.Clock, Logger: opts.Logger,
+		History: hist, Clock: opts.Clock, Logger: opts.Logger, FolderChanged: mediaRefresh.FolderChanged,
 	})
 	if err != nil {
 		panic("app: Adoption cannot start: " + err.Error())
 	}
-	cleanup := imports.NewCleanup(imports.CleanupDeps{Library: lib, Profiles: profs, History: hist, Clock: opts.Clock})
+	cleanup := imports.NewCleanup(imports.CleanupDeps{Library: lib, Profiles: profs, History: hist, Clock: opts.Clock, FolderChanged: mediaRefresh.FolderChanged})
 	remover := imports.NewRemover(imports.RemoverDeps{
 		Library: lib, Downloads: acq, Health: healthSvc, FolderChanged: mediaRefresh.FolderChanged, Clock: opts.Clock,
 	})

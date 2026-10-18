@@ -109,17 +109,17 @@ type adopting struct {
 	tv     string
 }
 
-func newAdopting(t *testing.T) adopting {
+func newAdopting(t *testing.T, with ...func(*app.Options)) adopting {
 	t.Helper()
 	tmdb := metadatatest.New(t)
 	tvdb := metadatatest.NewTVDB(t)
 	data, config := t.TempDir(), t.TempDir()
-	in := newInstance(t, "", func(o *app.Options) {
+	in := newInstance(t, "", append([]func(*app.Options){func(o *app.Options) {
 		o.DataDir, o.ConfigDir, o.Prober = data, config, pathProber{}
 		o.TVDB = metadata.NewTVDB(metadata.TVDBOptions{BaseURL: tvdb.APIBase(), Keys: metadata.StaticTVDBKey(metadatatest.TVDBKey)})
 		o.Metadata = metadata.NewTMDB(metadata.TMDBOptions{BaseURL: tmdb.APIBase(), ImageBase: tmdb.ImageBase(), Keys: metadata.StaticKey(metadatatest.Key)})
 		o.Posters = metadata.NewPosters(metadata.PostersOptions{ConfigDir: config, ImageBase: tmdb.ImageBase()})
-	})
+	}}, with...)...)
 	movies := filepath.Join(data, "media", "movies")
 	tv := filepath.Join(data, "media", "tv")
 	for _, d := range []string{movies, tv} {

@@ -98,6 +98,9 @@ type CleanupDeps struct {
 	Profiles AdoptProfiles
 	History  *history.Service
 	Clock    func() time.Time
+	// FolderChanged, when set, is told each Title folder files were deleted
+	// from, so the media servers can be asked to refresh it.
+	FolderChanged func(ctx context.Context, folder string)
 }
 
 // Cleanup deletes Unmanaged files inside tracked Titles' folders, by category.
@@ -275,6 +278,9 @@ func (c *Cleanup) Run(ctx context.Context, previewID string, cats []CleanupCateg
 			Kind: history.CleanupDone, TitleID: id,
 			Message: fmt.Sprintf("Cleaned up %d Unmanaged file(s), %d bytes", tr.Deleted, tr.Bytes),
 		})
+		if c.d.FolderChanged != nil {
+			c.d.FolderChanged(ctx, sp.folders[id])
+		}
 	}
 	c.mu.Lock()
 	delete(c.previews, previewID)

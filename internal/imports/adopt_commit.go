@@ -303,6 +303,7 @@ func (a *Adoption) adoptRow(ctx context.Context, e *env, row Row) (err error) {
 		Kind: history.AdoptionDone, TitleID: id,
 		Message: fmt.Sprintf("Adopted %s (%d) in %s", m.Title, m.Year, strings.Join(slots, ", ")),
 	})
+	a.folderChanged(ctx, dir)
 	return nil
 }
 
