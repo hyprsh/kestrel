@@ -620,6 +620,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/adoption": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Adoption scan and plan
+         * @description Adoption takes over an existing on-disk library without downloading it again. There is at most one
+         *     plan, stored until it is committed or discarded: `idle` (no plan), `scanning` (building one in the
+         *     background, with `progress`), `planned` (waiting for review) or `committing`. `revision` changes with
+         *     every edit of the plan; `POST /adoption/commit` must name the one it reviewed.
+         */
+        get: operations["getAdoption"];
+        put?: never;
+        post?: never;
+        /**
+         * Throw the plan away
+         * @description Nothing was written to disk or the Library by a plan, so this only forgets it. `409 conflict` while committing.
+         */
+        delete: operations["discardAdoption"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adoption/scan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Scan the Movie Root folders for files to adopt
+         * @description Starts a background scan (manual only) and answers `202` with `Location: /adoption`. A new scan
+         *     replaces the stored plan. Each top-level entry of a Root folder is one Title candidate; tracked
+         *     Titles' folders are scanned too, for files no Version holds. `409 conflict` while a scan or a
+         *     commit is running.
+         */
+        post: operations["scanAdoption"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adoption/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The rows of the plan
+         * @description Rows are grouped Matched, Needs choice and Skipped. `duplicate` keeps rows with a file left in place
+         *     because another file holds its Slot; `replacement` keeps rows that would replace a file a Version
+         *     holds (unticked by default).
+         */
+        get: operations["listAdoptionRows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adoption/rows/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Tick a row or settle its match
+         * @description `ticked` includes or leaves out the whole row, `files` the single files in it. `tmdb_id` settles a
+         *     Needs choice row (from its candidates or a search) or corrects a match: the row is planned again
+         *     against that Movie. Unsettled Needs choice rows are left out of the commit. Every change moves the plan's `revision`.
+         */
+        patch: operations["patchAdoptionRow"];
+        trace?: never;
+    };
+    "/adoption/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adopt the ticked rows
+         * @description Answers `202`; the work runs in the background, one transaction per Title. Files are renamed in
+         *     place into the naming scheme together with their sidecar subtitles, and each Title is logged as it is
+         *     adopted. `409 conflict` when `revision` is not the plan's current one (a row changed since it was
+         *     reviewed) or the plan is not `planned`. The plan is cleared once committed.
+         */
+        post: operations["commitAdoption"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/stream": {
         parameters: {
             query?: never;
@@ -1384,6 +1503,110 @@ export interface components {
         GrabCancel: {
             /** @default false */
             blocklist: boolean;
+        };
+        Adoption: {
+            /** @enum {string} */
+            state: "idle" | "scanning" | "planned" | "committing";
+            progress: {
+                done: number;
+                total: number;
+            };
+            /** @description Row counts of the plan; all zero when there is none. */
+            summary: {
+                matched: number;
+                needs_choice: number;
+                skipped: number;
+                duplicate: number;
+                replacement: number;
+            };
+            /** Format: int64 */
+            revision: number;
+            /** @description Why the last scan could not finish, if it could not. */
+            error: string | null;
+            /** Format: date-time */
+            scanned_at: string | null;
+            /** @description What the last commit did; kept until the next scan. */
+            result: {
+                adopted: number;
+                failed: number;
+            } | null;
+        };
+        AdoptionCandidate: {
+            tmdb_id: number;
+            title: string;
+            year: number | null;
+        };
+        AdoptionMatch: {
+            tmdb_id: number;
+            title: string;
+            year: number | null;
+            /**
+             * Format: int64
+             * @description The tracked Title the files join; null when adopting creates the Title.
+             */
+            title_id: number | null;
+            /**
+             * @description ID tag, confident name match, or picked by the admin.
+             * @enum {string}
+             */
+            source: "tag" | "name" | "chosen";
+            /** @description The Title folder the files are renamed into. */
+            folder: string;
+        };
+        AdoptionSubtitle: {
+            from: string;
+            to: string;
+        };
+        AdoptionFile: {
+            path: string;
+            /** @description The path it gets in the naming scheme. */
+            to: string;
+            /** Format: int64 */
+            size: number;
+            slot: components["schemas"]["Slot"];
+            /** @description Key of the Profile the Version has or gets. */
+            profile: string;
+            score: number;
+            /**
+             * @description Create the Version, fill an empty one, or replace the file a Version holds.
+             * @enum {string}
+             */
+            action: "create" | "fill" | "replace";
+            /** @description The Score of the file `replace` would replace. */
+            held_score: number | null;
+            ticked: boolean;
+            /**
+             * @description Why the file stays untouched; null when it is adopted if ticked.
+             * @enum {string|null}
+             */
+            left: "duplicate" | "path_occupied" | null;
+            subtitles: components["schemas"]["AdoptionSubtitle"][];
+        };
+        AdoptionRow: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            status: "matched" | "needs_choice" | "skipped";
+            /** @enum {string|null} */
+            skip_reason: "invalid" | "no_video" | "no_enabled_profile" | null;
+            /** @description The folder or loose file in the Root folder. */
+            entry: string;
+            ticked: boolean;
+            match: components["schemas"]["AdoptionMatch"] | null;
+            /** @description Likely Movies for a Needs choice row. */
+            candidates: components["schemas"]["AdoptionCandidate"][];
+            files: components["schemas"]["AdoptionFile"][];
+        };
+        AdoptionRowList: {
+            items: components["schemas"]["AdoptionRow"][];
+        };
+        AdoptionRowPatch: {
+            ticked?: boolean;
+            tmdb_id?: number;
+            files?: {
+                path: string;
+                ticked: boolean;
+            }[];
         };
         /**
          * @description Something changed; refetch it. `resource` is `title` (a Title, its Versions and the
@@ -2412,6 +2635,161 @@ export interface operations {
                     "application/json": components["schemas"]["QueueList"];
                 };
             };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getAdoption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Adoption state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Adoption"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    discardAdoption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The plan is gone. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    scanAdoption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Limit the scan to these configured Root folders; `null` or absent scans them all. */
+                    root_folders?: string[] | null;
+                };
+            };
+        };
+        responses: {
+            /** @description The scan started. */
+            202: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Adoption"];
+                };
+            };
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listAdoptionRows: {
+        parameters: {
+            query?: {
+                filter?: "needs_choice" | "matched" | "duplicate" | "replacement" | "skipped";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rows. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdoptionRowList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    patchAdoptionRow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdoptionRowPatch"];
+            };
+        };
+        responses: {
+            /** @description The row. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdoptionRow"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    commitAdoption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: int64 */
+                    revision: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The commit started. */
+            202: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Adoption"];
+                };
+            };
+            409: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

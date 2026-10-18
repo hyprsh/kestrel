@@ -69,6 +69,9 @@ func hintsOf(ev history.Event) []hint {
 	if strings.HasPrefix(string(ev.Kind), "grab") || strings.HasPrefix(string(ev.Kind), "import") {
 		out = append(out, hintOf("queue", 0))
 	}
+	if strings.HasPrefix(string(ev.Kind), "adoption") {
+		out = append(out, hintOf("adoption", 0))
+	}
 	return append(out, hintOf("log", 0))
 }
 
@@ -111,12 +114,16 @@ func (h *hub) publish(hs ...hint) {
 // apiHints are the hints a successful call of an operation causes. Changes made
 // by background loops reach the stream through the events log instead.
 var apiHints = map[string][]hint{
-	"CreateTitle":     {hintOf("title", 0)},
-	"PatchTitle":      {hintOf("title", 0)},
-	"PatchSeason":     {hintOf("title", 0)},
-	"MonitorEpisodes": {hintOf("title", 0)},
-	"CreateGrab":      {hintOf("grab", 0), hintOf("queue", 0), hintOf("title", 0)},
-	"CancelGrab":      {hintOf("grab", 0), hintOf("queue", 0), hintOf("title", 0)},
+	"CreateTitle":      {hintOf("title", 0)},
+	"PatchTitle":       {hintOf("title", 0)},
+	"PatchSeason":      {hintOf("title", 0)},
+	"MonitorEpisodes":  {hintOf("title", 0)},
+	"ScanAdoption":     {hintOf("adoption", 0)},
+	"PatchAdoptionRow": {hintOf("adoption", 0)},
+	"CommitAdoption":   {hintOf("adoption", 0)},
+	"DiscardAdoption":  {hintOf("adoption", 0)},
+	"CreateGrab":       {hintOf("grab", 0), hintOf("queue", 0), hintOf("title", 0)},
+	"CancelGrab":       {hintOf("grab", 0), hintOf("queue", 0), hintOf("title", 0)},
 }
 
 // emitHints is a strict-server middleware that publishes an operation's hints

@@ -19,6 +19,132 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AdoptionState.
+const (
+	Committing AdoptionState = "committing"
+	Idle       AdoptionState = "idle"
+	Planned    AdoptionState = "planned"
+	Scanning   AdoptionState = "scanning"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionState enum.
+func (e AdoptionState) Valid() bool {
+	switch e {
+	case Committing:
+		return true
+	case Idle:
+		return true
+	case Planned:
+		return true
+	case Scanning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdoptionFileAction.
+const (
+	Create  AdoptionFileAction = "create"
+	Fill    AdoptionFileAction = "fill"
+	Replace AdoptionFileAction = "replace"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionFileAction enum.
+func (e AdoptionFileAction) Valid() bool {
+	switch e {
+	case Create:
+		return true
+	case Fill:
+		return true
+	case Replace:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdoptionFileLeft.
+const (
+	AdoptionFileLeftDuplicate    AdoptionFileLeft = "duplicate"
+	AdoptionFileLeftPathOccupied AdoptionFileLeft = "path_occupied"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionFileLeft enum.
+func (e AdoptionFileLeft) Valid() bool {
+	switch e {
+	case AdoptionFileLeftDuplicate:
+		return true
+	case AdoptionFileLeftPathOccupied:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdoptionMatchSource.
+const (
+	Chosen AdoptionMatchSource = "chosen"
+	Name   AdoptionMatchSource = "name"
+	Tag    AdoptionMatchSource = "tag"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionMatchSource enum.
+func (e AdoptionMatchSource) Valid() bool {
+	switch e {
+	case Chosen:
+		return true
+	case Name:
+		return true
+	case Tag:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdoptionRowSkipReason.
+const (
+	AdoptionRowSkipReasonInvalid          AdoptionRowSkipReason = "invalid"
+	AdoptionRowSkipReasonNoEnabledProfile AdoptionRowSkipReason = "no_enabled_profile"
+	AdoptionRowSkipReasonNoVideo          AdoptionRowSkipReason = "no_video"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionRowSkipReason enum.
+func (e AdoptionRowSkipReason) Valid() bool {
+	switch e {
+	case AdoptionRowSkipReasonInvalid:
+		return true
+	case AdoptionRowSkipReasonNoEnabledProfile:
+		return true
+	case AdoptionRowSkipReasonNoVideo:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdoptionRowStatus.
+const (
+	AdoptionRowStatusMatched     AdoptionRowStatus = "matched"
+	AdoptionRowStatusNeedsChoice AdoptionRowStatus = "needs_choice"
+	AdoptionRowStatusSkipped     AdoptionRowStatus = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionRowStatus enum.
+func (e AdoptionRowStatus) Valid() bool {
+	switch e {
+	case AdoptionRowStatusMatched:
+		return true
+	case AdoptionRowStatusNeedsChoice:
+		return true
+	case AdoptionRowStatusSkipped:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AttentionSnapshotSeverity.
 const (
 	Blocking AttentionSnapshotSeverity = "blocking"
@@ -288,19 +414,19 @@ func (e RequestOutcome) Valid() bool {
 
 // Defines values for RequestRejectReason.
 const (
-	NoEnabledProfile RequestRejectReason = "no_enabled_profile"
-	NotOnTvdb        RequestRejectReason = "not_on_tvdb"
-	UnknownTitle     RequestRejectReason = "unknown_title"
+	RequestRejectReasonNoEnabledProfile RequestRejectReason = "no_enabled_profile"
+	RequestRejectReasonNotOnTvdb        RequestRejectReason = "not_on_tvdb"
+	RequestRejectReasonUnknownTitle     RequestRejectReason = "unknown_title"
 )
 
 // Valid indicates whether the value is a known member of the RequestRejectReason enum.
 func (e RequestRejectReason) Valid() bool {
 	switch e {
-	case NoEnabledProfile:
+	case RequestRejectReasonNoEnabledProfile:
 		return true
-	case NotOnTvdb:
+	case RequestRejectReasonNotOnTvdb:
 		return true
-	case UnknownTitle:
+	case RequestRejectReasonUnknownTitle:
 		return true
 	default:
 		return false
@@ -511,10 +637,165 @@ func (e ProfileKey) Valid() bool {
 	}
 }
 
+// Defines values for ListAdoptionRowsParamsFilter.
+const (
+	ListAdoptionRowsParamsFilterDuplicate   ListAdoptionRowsParamsFilter = "duplicate"
+	ListAdoptionRowsParamsFilterMatched     ListAdoptionRowsParamsFilter = "matched"
+	ListAdoptionRowsParamsFilterNeedsChoice ListAdoptionRowsParamsFilter = "needs_choice"
+	ListAdoptionRowsParamsFilterReplacement ListAdoptionRowsParamsFilter = "replacement"
+	ListAdoptionRowsParamsFilterSkipped     ListAdoptionRowsParamsFilter = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the ListAdoptionRowsParamsFilter enum.
+func (e ListAdoptionRowsParamsFilter) Valid() bool {
+	switch e {
+	case ListAdoptionRowsParamsFilterDuplicate:
+		return true
+	case ListAdoptionRowsParamsFilterMatched:
+		return true
+	case ListAdoptionRowsParamsFilterNeedsChoice:
+		return true
+	case ListAdoptionRowsParamsFilterReplacement:
+		return true
+	case ListAdoptionRowsParamsFilterSkipped:
+		return true
+	default:
+		return false
+	}
+}
+
 // ActivitySnapshot defines model for ActivitySnapshot.
 type ActivitySnapshot struct {
 	// Running Names of the background loops mid-pass right now.
 	Running []string `json:"running"`
+}
+
+// Adoption defines model for Adoption.
+type Adoption struct {
+	// Error Why the last scan could not finish, if it could not.
+	Error    *string `json:"error"`
+	Progress struct {
+		Done  int `json:"done"`
+		Total int `json:"total"`
+	} `json:"progress"`
+
+	// Result What the last commit did; kept until the next scan.
+	Result *struct {
+		Adopted int `json:"adopted"`
+		Failed  int `json:"failed"`
+	} `json:"result"`
+	Revision  int64         `json:"revision"`
+	ScannedAt *time.Time    `json:"scanned_at"`
+	State     AdoptionState `json:"state"`
+
+	// Summary Row counts of the plan; all zero when there is none.
+	Summary struct {
+		Duplicate   int `json:"duplicate"`
+		Matched     int `json:"matched"`
+		NeedsChoice int `json:"needs_choice"`
+		Replacement int `json:"replacement"`
+		Skipped     int `json:"skipped"`
+	} `json:"summary"`
+}
+
+// AdoptionState defines model for Adoption.State.
+type AdoptionState string
+
+// AdoptionCandidate defines model for AdoptionCandidate.
+type AdoptionCandidate struct {
+	Title  string `json:"title"`
+	TmdbId int    `json:"tmdb_id"`
+	Year   *int   `json:"year"`
+}
+
+// AdoptionFile defines model for AdoptionFile.
+type AdoptionFile struct {
+	// Action Create the Version, fill an empty one, or replace the file a Version holds.
+	Action AdoptionFileAction `json:"action"`
+
+	// HeldScore The Score of the file `replace` would replace.
+	HeldScore *int `json:"held_score"`
+
+	// Left Why the file stays untouched; null when it is adopted if ticked.
+	Left *AdoptionFileLeft `json:"left"`
+	Path string            `json:"path"`
+
+	// Profile Key of the Profile the Version has or gets.
+	Profile   string             `json:"profile"`
+	Score     int                `json:"score"`
+	Size      int64              `json:"size"`
+	Slot      Slot               `json:"slot"`
+	Subtitles []AdoptionSubtitle `json:"subtitles"`
+	Ticked    bool               `json:"ticked"`
+
+	// To The path it gets in the naming scheme.
+	To string `json:"to"`
+}
+
+// AdoptionFileAction Create the Version, fill an empty one, or replace the file a Version holds.
+type AdoptionFileAction string
+
+// AdoptionFileLeft Why the file stays untouched; null when it is adopted if ticked.
+type AdoptionFileLeft string
+
+// AdoptionMatch defines model for AdoptionMatch.
+type AdoptionMatch struct {
+	// Folder The Title folder the files are renamed into.
+	Folder string `json:"folder"`
+
+	// Source ID tag, confident name match, or picked by the admin.
+	Source AdoptionMatchSource `json:"source"`
+	Title  string              `json:"title"`
+
+	// TitleId The tracked Title the files join; null when adopting creates the Title.
+	TitleId *int64 `json:"title_id"`
+	TmdbId  int    `json:"tmdb_id"`
+	Year    *int   `json:"year"`
+}
+
+// AdoptionMatchSource ID tag, confident name match, or picked by the admin.
+type AdoptionMatchSource string
+
+// AdoptionRow defines model for AdoptionRow.
+type AdoptionRow struct {
+	// Candidates Likely Movies for a Needs choice row.
+	Candidates []AdoptionCandidate `json:"candidates"`
+
+	// Entry The folder or loose file in the Root folder.
+	Entry      string                 `json:"entry"`
+	Files      []AdoptionFile         `json:"files"`
+	Id         int64                  `json:"id"`
+	Match      *AdoptionMatch         `json:"match"`
+	SkipReason *AdoptionRowSkipReason `json:"skip_reason"`
+	Status     AdoptionRowStatus      `json:"status"`
+	Ticked     bool                   `json:"ticked"`
+}
+
+// AdoptionRowSkipReason defines model for AdoptionRow.SkipReason.
+type AdoptionRowSkipReason string
+
+// AdoptionRowStatus defines model for AdoptionRow.Status.
+type AdoptionRowStatus string
+
+// AdoptionRowList defines model for AdoptionRowList.
+type AdoptionRowList struct {
+	Items []AdoptionRow `json:"items"`
+}
+
+// AdoptionRowPatch defines model for AdoptionRowPatch.
+type AdoptionRowPatch struct {
+	Files *[]struct {
+		Path   string `json:"path"`
+		Ticked bool   `json:"ticked"`
+	} `json:"files,omitempty"`
+	Ticked *bool `json:"ticked,omitempty"`
+	TmdbId *int  `json:"tmdb_id,omitempty"`
+}
+
+// AdoptionSubtitle defines model for AdoptionSubtitle.
+type AdoptionSubtitle struct {
+	From string `json:"from"`
+	To   string `json:"to"`
 }
 
 // ApiKeyInfo defines model for ApiKeyInfo.
@@ -1450,6 +1731,25 @@ type ChangePasswordJSONBody struct {
 	NewPassword     *string `json:"new_password,omitempty"`
 }
 
+// CommitAdoptionJSONBody defines parameters for CommitAdoption.
+type CommitAdoptionJSONBody struct {
+	Revision int64 `json:"revision"`
+}
+
+// ListAdoptionRowsParams defines parameters for ListAdoptionRows.
+type ListAdoptionRowsParams struct {
+	Filter *ListAdoptionRowsParamsFilter `form:"filter,omitempty" json:"filter,omitempty"`
+}
+
+// ListAdoptionRowsParamsFilter defines parameters for ListAdoptionRows.
+type ListAdoptionRowsParamsFilter string
+
+// ScanAdoptionJSONBody defines parameters for ScanAdoption.
+type ScanAdoptionJSONBody struct {
+	// RootFolders Limit the scan to these configured Root folders; `null` or absent scans them all.
+	RootFolders *[]string `json:"root_folders,omitempty"`
+}
+
 // LookupParams defines parameters for Lookup.
 type LookupParams struct {
 	Q    string     `form:"q" json:"q"`
@@ -1482,6 +1782,15 @@ type ListTitlesParams struct {
 
 // ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
 type ChangePasswordJSONRequestBody ChangePasswordJSONBody
+
+// CommitAdoptionJSONRequestBody defines body for CommitAdoption for application/json ContentType.
+type CommitAdoptionJSONRequestBody CommitAdoptionJSONBody
+
+// PatchAdoptionRowJSONRequestBody defines body for PatchAdoptionRow for application/json ContentType.
+type PatchAdoptionRowJSONRequestBody = AdoptionRowPatch
+
+// ScanAdoptionJSONRequestBody defines body for ScanAdoption for application/json ContentType.
+type ScanAdoptionJSONRequestBody ScanAdoptionJSONBody
 
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = Credentials
@@ -1542,6 +1851,24 @@ type ServerInterface interface {
 	// ChangePassword Change the admin password
 	// (POST /account/password)
 	ChangePassword(w http.ResponseWriter, r *http.Request)
+	// DiscardAdoption Throw the plan away
+	// (DELETE /adoption)
+	DiscardAdoption(w http.ResponseWriter, r *http.Request)
+	// GetAdoption The Adoption scan and plan
+	// (GET /adoption)
+	GetAdoption(w http.ResponseWriter, r *http.Request)
+	// CommitAdoption Adopt the ticked rows
+	// (POST /adoption/commit)
+	CommitAdoption(w http.ResponseWriter, r *http.Request)
+	// ListAdoptionRows The rows of the plan
+	// (GET /adoption/rows)
+	ListAdoptionRows(w http.ResponseWriter, r *http.Request, params ListAdoptionRowsParams)
+	// PatchAdoptionRow Tick a row or settle its match
+	// (PATCH /adoption/rows/{id})
+	PatchAdoptionRow(w http.ResponseWriter, r *http.Request, id int64)
+	// ScanAdoption Scan the Movie Root folders for files to adopt
+	// (POST /adoption/scan)
+	ScanAdoption(w http.ResponseWriter, r *http.Request)
 	// GetApiKey The API key's prefix and age
 	// (GET /api-key)
 	GetApiKey(w http.ResponseWriter, r *http.Request)
@@ -1690,6 +2017,121 @@ func (siw *ServerInterfaceWrapper) ChangePassword(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ChangePassword(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DiscardAdoption operation middleware
+func (siw *ServerInterfaceWrapper) DiscardAdoption(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DiscardAdoption(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdoption operation middleware
+func (siw *ServerInterfaceWrapper) GetAdoption(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdoption(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CommitAdoption operation middleware
+func (siw *ServerInterfaceWrapper) CommitAdoption(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CommitAdoption(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAdoptionRows operation middleware
+func (siw *ServerInterfaceWrapper) ListAdoptionRows(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAdoptionRowsParams
+
+	// ------------- Optional query parameter "filter" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "filter", r.URL.Query(), &params.Filter, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "filter"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filter", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAdoptionRows(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PatchAdoptionRow operation middleware
+func (siw *ServerInterfaceWrapper) PatchAdoptionRow(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchAdoptionRow(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ScanAdoption operation middleware
+func (siw *ServerInterfaceWrapper) ScanAdoption(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ScanAdoption(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2859,6 +3301,12 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grabs/{id}", wrapper.GetGrab)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs/{id}/cancel", wrapper.CancelGrab)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/queue", wrapper.ListQueue)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/adoption", wrapper.DiscardAdoption)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/adoption", wrapper.GetAdoption)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/adoption/scan", wrapper.ScanAdoption)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/adoption/rows", wrapper.ListAdoptionRows)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/adoption/rows/{id}", wrapper.PatchAdoptionRow)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/adoption/commit", wrapper.CommitAdoption)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/stream", wrapper.Stream)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/requests", wrapper.ListRequests)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/requests", wrapper.CreateRequest)
@@ -2916,6 +3364,359 @@ type ChangePassworddefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response ChangePassworddefaultApplicationProblemPlusJSONResponse) VisitChangePasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DiscardAdoptionRequestObject struct {
+}
+
+type DiscardAdoptionResponseObject interface {
+	VisitDiscardAdoptionResponse(w http.ResponseWriter) error
+}
+
+type DiscardAdoption204Response struct {
+}
+
+func (response DiscardAdoption204Response) VisitDiscardAdoptionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DiscardAdoption409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DiscardAdoption409ApplicationProblemPlusJSONResponse) VisitDiscardAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DiscardAdoptiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DiscardAdoptiondefaultApplicationProblemPlusJSONResponse) VisitDiscardAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdoptionRequestObject struct {
+}
+
+type GetAdoptionResponseObject interface {
+	VisitGetAdoptionResponse(w http.ResponseWriter) error
+}
+
+type GetAdoption200JSONResponse Adoption
+
+func (response GetAdoption200JSONResponse) VisitGetAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdoptiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetAdoptiondefaultApplicationProblemPlusJSONResponse) VisitGetAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitAdoptionRequestObject struct {
+	Body *CommitAdoptionJSONRequestBody
+}
+
+type CommitAdoptionResponseObject interface {
+	VisitCommitAdoptionResponse(w http.ResponseWriter) error
+}
+
+type CommitAdoption202ResponseHeaders struct {
+	Location *string
+}
+
+type CommitAdoption202JSONResponse struct {
+	Body    Adoption
+	Headers CommitAdoption202ResponseHeaders
+}
+
+func (response CommitAdoption202JSONResponse) VisitCommitAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.Location != nil {
+		w.Header().Set("Location", fmt.Sprint(*response.Headers.Location))
+	}
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitAdoption409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CommitAdoption409ApplicationProblemPlusJSONResponse) VisitCommitAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitAdoptiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CommitAdoptiondefaultApplicationProblemPlusJSONResponse) VisitCommitAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAdoptionRowsRequestObject struct {
+	Params ListAdoptionRowsParams
+}
+
+type ListAdoptionRowsResponseObject interface {
+	VisitListAdoptionRowsResponse(w http.ResponseWriter) error
+}
+
+type ListAdoptionRows200JSONResponse AdoptionRowList
+
+func (response ListAdoptionRows200JSONResponse) VisitListAdoptionRowsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAdoptionRowsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListAdoptionRowsdefaultApplicationProblemPlusJSONResponse) VisitListAdoptionRowsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdoptionRowRequestObject struct {
+	Id   int64 `json:"id"`
+	Body *PatchAdoptionRowJSONRequestBody
+}
+
+type PatchAdoptionRowResponseObject interface {
+	VisitPatchAdoptionRowResponse(w http.ResponseWriter) error
+}
+
+type PatchAdoptionRow200JSONResponse AdoptionRow
+
+func (response PatchAdoptionRow200JSONResponse) VisitPatchAdoptionRowResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdoptionRow404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PatchAdoptionRow404ApplicationProblemPlusJSONResponse) VisitPatchAdoptionRowResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdoptionRow409ApplicationProblemPlusJSONResponse Problem
+
+func (response PatchAdoptionRow409ApplicationProblemPlusJSONResponse) VisitPatchAdoptionRowResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdoptionRow422ApplicationProblemPlusJSONResponse Problem
+
+func (response PatchAdoptionRow422ApplicationProblemPlusJSONResponse) VisitPatchAdoptionRowResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdoptionRowdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response PatchAdoptionRowdefaultApplicationProblemPlusJSONResponse) VisitPatchAdoptionRowResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ScanAdoptionRequestObject struct {
+	Body *ScanAdoptionJSONRequestBody
+}
+
+type ScanAdoptionResponseObject interface {
+	VisitScanAdoptionResponse(w http.ResponseWriter) error
+}
+
+type ScanAdoption202ResponseHeaders struct {
+	Location *string
+}
+
+type ScanAdoption202JSONResponse struct {
+	Body    Adoption
+	Headers ScanAdoption202ResponseHeaders
+}
+
+func (response ScanAdoption202JSONResponse) VisitScanAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.Location != nil {
+		w.Header().Set("Location", fmt.Sprint(*response.Headers.Location))
+	}
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ScanAdoption409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ScanAdoption409ApplicationProblemPlusJSONResponse) VisitScanAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ScanAdoption422ApplicationProblemPlusJSONResponse Problem
+
+func (response ScanAdoption422ApplicationProblemPlusJSONResponse) VisitScanAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ScanAdoptiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ScanAdoptiondefaultApplicationProblemPlusJSONResponse) VisitScanAdoptionResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -5483,6 +6284,24 @@ type StrictServerInterface interface {
 	// ChangePassword Change the admin password
 	// (POST /account/password)
 	ChangePassword(ctx context.Context, request ChangePasswordRequestObject) (ChangePasswordResponseObject, error)
+	// DiscardAdoption Throw the plan away
+	// (DELETE /adoption)
+	DiscardAdoption(ctx context.Context, request DiscardAdoptionRequestObject) (DiscardAdoptionResponseObject, error)
+	// GetAdoption The Adoption scan and plan
+	// (GET /adoption)
+	GetAdoption(ctx context.Context, request GetAdoptionRequestObject) (GetAdoptionResponseObject, error)
+	// CommitAdoption Adopt the ticked rows
+	// (POST /adoption/commit)
+	CommitAdoption(ctx context.Context, request CommitAdoptionRequestObject) (CommitAdoptionResponseObject, error)
+	// ListAdoptionRows The rows of the plan
+	// (GET /adoption/rows)
+	ListAdoptionRows(ctx context.Context, request ListAdoptionRowsRequestObject) (ListAdoptionRowsResponseObject, error)
+	// PatchAdoptionRow Tick a row or settle its match
+	// (PATCH /adoption/rows/{id})
+	PatchAdoptionRow(ctx context.Context, request PatchAdoptionRowRequestObject) (PatchAdoptionRowResponseObject, error)
+	// ScanAdoption Scan the Movie Root folders for files to adopt
+	// (POST /adoption/scan)
+	ScanAdoption(ctx context.Context, request ScanAdoptionRequestObject) (ScanAdoptionResponseObject, error)
 	// GetApiKey The API key's prefix and age
 	// (GET /api-key)
 	GetApiKey(ctx context.Context, request GetApiKeyRequestObject) (GetApiKeyResponseObject, error)
@@ -5680,6 +6499,178 @@ func (sh *strictHandler) ChangePassword(w http.ResponseWriter, r *http.Request) 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ChangePasswordResponseObject); ok {
 		if err := validResponse.VisitChangePasswordResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DiscardAdoption operation middleware
+func (sh *strictHandler) DiscardAdoption(w http.ResponseWriter, r *http.Request) {
+	var request DiscardAdoptionRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DiscardAdoption(ctx, request.(DiscardAdoptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DiscardAdoption")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DiscardAdoptionResponseObject); ok {
+		if err := validResponse.VisitDiscardAdoptionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdoption operation middleware
+func (sh *strictHandler) GetAdoption(w http.ResponseWriter, r *http.Request) {
+	var request GetAdoptionRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdoption(ctx, request.(GetAdoptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdoption")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdoptionResponseObject); ok {
+		if err := validResponse.VisitGetAdoptionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CommitAdoption operation middleware
+func (sh *strictHandler) CommitAdoption(w http.ResponseWriter, r *http.Request) {
+	var request CommitAdoptionRequestObject
+
+	var body CommitAdoptionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CommitAdoption(ctx, request.(CommitAdoptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CommitAdoption")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CommitAdoptionResponseObject); ok {
+		if err := validResponse.VisitCommitAdoptionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAdoptionRows operation middleware
+func (sh *strictHandler) ListAdoptionRows(w http.ResponseWriter, r *http.Request, params ListAdoptionRowsParams) {
+	var request ListAdoptionRowsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAdoptionRows(ctx, request.(ListAdoptionRowsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAdoptionRows")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAdoptionRowsResponseObject); ok {
+		if err := validResponse.VisitListAdoptionRowsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PatchAdoptionRow operation middleware
+func (sh *strictHandler) PatchAdoptionRow(w http.ResponseWriter, r *http.Request, id int64) {
+	var request PatchAdoptionRowRequestObject
+
+	request.Id = id
+
+	var body PatchAdoptionRowJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PatchAdoptionRow(ctx, request.(PatchAdoptionRowRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PatchAdoptionRow")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PatchAdoptionRowResponseObject); ok {
+		if err := validResponse.VisitPatchAdoptionRowResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ScanAdoption operation middleware
+func (sh *strictHandler) ScanAdoption(w http.ResponseWriter, r *http.Request) {
+	var request ScanAdoptionRequestObject
+
+	var body ScanAdoptionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ScanAdoption(ctx, request.(ScanAdoptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ScanAdoption")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ScanAdoptionResponseObject); ok {
+		if err := validResponse.VisitScanAdoptionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

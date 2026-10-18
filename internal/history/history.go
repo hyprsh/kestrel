@@ -42,11 +42,15 @@ const (
 	ImportRejected Kind = "import_rejected"
 	// ImportStalled: the Import cannot proceed until the environment is fixed; recorded once per stall.
 	ImportStalled Kind = "import_stalled"
+	// AdoptionScanned: an Adoption scan built a plan for review (routine).
+	AdoptionScanned Kind = "adoption_scanned"
+	// AdoptionDone: Adoption took a Title over with the files it already had.
+	AdoptionDone Kind = "adoption"
 	// RequestCreated: a new Request arrived (a retry of a stored one does not record).
 	RequestCreated Kind = "request"
 )
 
-var routine = map[Kind]bool{GrabDownloading: true, GrabCompleted: true}
+var routine = map[Kind]bool{GrabDownloading: true, GrabCompleted: true, AdoptionScanned: true}
 
 // IsRoutine reports whether events of this kind are pruned after 30 days.
 func IsRoutine(k Kind) bool { return routine[k] }

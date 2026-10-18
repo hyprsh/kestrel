@@ -66,3 +66,11 @@ sql:
         package: db
         out: internal/requests/db
         emit_json_tags: false
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/imports/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/imports/db
+        emit_json_tags: false

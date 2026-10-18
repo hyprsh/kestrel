@@ -8,6 +8,25 @@ import (
 	"database/sql"
 )
 
+type AdoptionPlan struct {
+	ID        int64
+	State     string
+	Revision  int64
+	Done      int64
+	Total     int64
+	Error     sql.NullString
+	ScannedAt sql.NullString
+	Adopted   sql.NullInt64
+	Failed    sql.NullInt64
+}
+
+type AdoptionRow struct {
+	ID     int64
+	Status string
+	Ticked int64
+	Data   string
+}
+
 type Blocklist struct {
 	ID          int64
 	ReleaseName string

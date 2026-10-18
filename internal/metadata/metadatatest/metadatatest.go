@@ -47,6 +47,14 @@ func New(t testing.TB) *Server {
 		}
 		_, _ = w.Write([]byte(`{"page":1,"results":[],"total_pages":0,"total_results":0}`))
 	}))
+	mux.HandleFunc("GET /3/find/{id}", s.handle(func(w http.ResponseWriter, r *http.Request) {
+		// Only Paddington's IMDb id is known to the fake.
+		if r.PathValue("id") == "tt1109624" {
+			_, _ = w.Write([]byte(`{"movie_results":[{"id":116149}],"tv_results":[]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"movie_results":[],"tv_results":[]}`))
+	}))
 	mux.HandleFunc("GET /3/movie/{id}", s.handle(func(w http.ResponseWriter, r *http.Request) {
 		name := "movie_" + r.PathValue("id") + ".json"
 		if _, err := fixtures.ReadFile("testdata/" + name); err != nil {

@@ -246,6 +246,29 @@ func (s *Service) AddMovie(ctx context.Context, a AddMovie) (int64, error) {
 			return 0, &ExistsError{ID: e.ID}
 		}
 	}
+	id, err := insertMovie(ctx, q, a, primary, now)
+	if err != nil {
+		return 0, err
+	}
+	for _, v := range a.Versions {
+		vid, err := q.InsertVersion(ctx, db.InsertVersionParams{TitleID: id, Slot: slotName(v.Slot), ProfileKey: v.Profile, AddedAt: now})
+		if err != nil {
+			return 0, fmt.Errorf("library: add the %s Version under %q: %w", v.Slot, v.Profile, err)
+		}
+		// Due now: the first sweep after the add searches it.
+		if err := q.InsertSearchState(ctx, db.InsertSearchStateParams{
+			VersionID: vid, NextMissingAt: sql.NullString{String: now, Valid: true}, NextUpgradeAt: sql.NullString{String: now, Valid: true},
+		}); err != nil {
+			return 0, err
+		}
+	}
+	return id, tx.Commit()
+}
+
+// insertMovie writes a Movie's Title row with its aliases, translations and
+// release dates, and returns its id. Versions are the caller's.
+func insertMovie(ctx context.Context, q *db.Queries, a AddMovie, primary, now string) (int64, error) {
+	d := a.Details
 	id, err := q.InsertTitle(ctx, db.InsertTitleParams{
 		Kind: string(Movie), TmdbID: nullInt(d.TMDBID), ImdbID: nullStr(d.IMDbID),
 		Title: d.Title, OriginalTitle: d.OriginalTitle, PrimaryTitle: primary,
@@ -276,19 +299,7 @@ func (s *Service) AddMovie(ctx context.Context, a AddMovie) (int64, error) {
 			return 0, err
 		}
 	}
-	for _, v := range a.Versions {
-		vid, err := q.InsertVersion(ctx, db.InsertVersionParams{TitleID: id, Slot: slotName(v.Slot), ProfileKey: v.Profile, AddedAt: now})
-		if err != nil {
-			return 0, fmt.Errorf("library: add the %s Version under %q: %w", v.Slot, v.Profile, err)
-		}
-		// Due now: the first sweep after the add searches it.
-		if err := q.InsertSearchState(ctx, db.InsertSearchStateParams{
-			VersionID: vid, NextMissingAt: sql.NullString{String: now, Valid: true}, NextUpgradeAt: sql.NullString{String: now, Valid: true},
-		}); err != nil {
-			return 0, err
-		}
-	}
-	return id, tx.Commit()
+	return id, nil
 }
 
 // InLibrary maps the TMDB ids that are already Titles of kind to their Title ids.

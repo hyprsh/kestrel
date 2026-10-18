@@ -70,6 +70,8 @@ type Provider interface {
 	Series(ctx context.Context, id int) (SeriesDetails, error)
 	// SeriesExternalIDs is the cheap TMDB-to-TheTVDB bridge call used per search result.
 	SeriesExternalIDs(ctx context.Context, id int) (ExternalIDs, error)
+	// FindMovieByIMDb is the TMDB id of the Movie with an IMDb id, or ok false.
+	FindMovieByIMDb(ctx context.Context, imdbID string) (id int, ok bool, err error)
 	// ImageURL is the URL of a poster at a TMDB size such as "w92".
 	ImageURL(posterPath, size string) string
 }
@@ -167,6 +169,22 @@ func (c *TMDB) Search(ctx context.Context, query string) ([]SearchResult, error)
 		}
 	}
 	return out, nil
+}
+
+// FindMovieByIMDb looks a Movie up by its IMDb id (tt1234567).
+func (c *TMDB) FindMovieByIMDb(ctx context.Context, imdbID string) (int, bool, error) {
+	var res struct {
+		MovieResults []struct {
+			ID int `json:"id"`
+		} `json:"movie_results"`
+	}
+	if err := c.get(ctx, "/find/"+url.PathEscape(imdbID), url.Values{"external_source": {"imdb_id"}}, &res); err != nil {
+		return 0, false, err
+	}
+	if len(res.MovieResults) == 0 {
+		return 0, false, nil
+	}
+	return res.MovieResults[0].ID, true, nil
 }
 
 // Movie fetches a Movie's details with its release dates, aliases,

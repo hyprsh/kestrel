@@ -781,6 +781,175 @@ paths:
                 $ref: "#/components/schemas/QueueList"
         default:
           $ref: "#/components/responses/Problem"
+  /adoption:
+    get:
+      operationId: getAdoption
+      summary: The Adoption scan and plan
+      description: |
+        Adoption takes over an existing on-disk library without downloading it again. There is at most one
+        plan, stored until it is committed or discarded: `idle` (no plan), `scanning` (building one in the
+        background, with `progress`), `planned` (waiting for review) or `committing`. `revision` changes with
+        every edit of the plan; `POST /adoption/commit` must name the one it reviewed.
+      tags: [adoption]
+      responses:
+        "200":
+          description: The Adoption state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Adoption"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: discardAdoption
+      summary: Throw the plan away
+      description: Nothing was written to disk or the Library by a plan, so this only forgets it. `409 conflict` while committing.
+      tags: [adoption]
+      responses:
+        "204":
+          description: The plan is gone.
+        "409":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /adoption/scan:
+    post:
+      operationId: scanAdoption
+      summary: Scan the Movie Root folders for files to adopt
+      description: |
+        Starts a background scan (manual only) and answers `202` with `Location: /adoption`. A new scan
+        replaces the stored plan. Each top-level entry of a Root folder is one Title candidate; tracked
+        Titles' folders are scanned too, for files no Version holds. `409 conflict` while a scan or a
+        commit is running.
+      tags: [adoption]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                root_folders:
+                  type: array
+                  nullable: true
+                  description: Limit the scan to these configured Root folders; `null` or absent scans them all.
+                  items:
+                    type: string
+      responses:
+        "202":
+          description: The scan started.
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Adoption"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /adoption/rows:
+    get:
+      operationId: listAdoptionRows
+      summary: The rows of the plan
+      description: |
+        Rows are grouped Matched, Needs choice and Skipped. `duplicate` keeps rows with a file left in place
+        because another file holds its Slot; `replacement` keeps rows that would replace a file a Version
+        holds (unticked by default).
+      tags: [adoption]
+      parameters:
+        - name: filter
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [needs_choice, matched, duplicate, replacement, skipped]
+      responses:
+        "200":
+          description: The rows.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdoptionRowList"
+        default:
+          $ref: "#/components/responses/Problem"
+  /adoption/rows/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    patch:
+      operationId: patchAdoptionRow
+      summary: Tick a row or settle its match
+      description: |
+        `ticked` includes or leaves out the whole row, `files` the single files in it. `tmdb_id` settles a
+        Needs choice row (from its candidates or a search) or corrects a match: the row is planned again
+        against that Movie. Unsettled Needs choice rows are left out of the commit. Every change moves the plan's `revision`.
+      tags: [adoption]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdoptionRowPatch"
+      responses:
+        "200":
+          description: The row.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdoptionRow"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /adoption/commit:
+    post:
+      operationId: commitAdoption
+      summary: Adopt the ticked rows
+      description: |
+        Answers `202`; the work runs in the background, one transaction per Title. Files are renamed in
+        place into the naming scheme together with their sidecar subtitles, and each Title is logged as it is
+        adopted. `409 conflict` when `revision` is not the plan's current one (a row changed since it was
+        reviewed) or the plan is not `planned`. The plan is cleared once committed.
+      tags: [adoption]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision]
+              properties:
+                revision:
+                  type: integer
+                  format: int64
+      responses:
+        "202":
+          description: The commit started.
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Adoption"
+        "409":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /stream:
     get:
       operationId: stream
@@ -2138,6 +2307,194 @@ components:
         blocklist:
           type: boolean
           default: false
+    Adoption:
+      type: object
+      required: [state, progress, summary, revision, error, scanned_at, result]
+      properties:
+        state:
+          type: string
+          enum: [idle, scanning, planned, committing]
+        progress:
+          type: object
+          required: [done, total]
+          properties:
+            done:
+              type: integer
+            total:
+              type: integer
+        summary:
+          type: object
+          description: Row counts of the plan; all zero when there is none.
+          required: [matched, needs_choice, skipped, duplicate, replacement]
+          properties:
+            matched:
+              type: integer
+            needs_choice:
+              type: integer
+            skipped:
+              type: integer
+            duplicate:
+              type: integer
+            replacement:
+              type: integer
+        revision:
+          type: integer
+          format: int64
+        error:
+          type: string
+          nullable: true
+          description: Why the last scan could not finish, if it could not.
+        scanned_at:
+          type: string
+          format: date-time
+          nullable: true
+        result:
+          type: object
+          nullable: true
+          description: What the last commit did; kept until the next scan.
+          required: [adopted, failed]
+          properties:
+            adopted:
+              type: integer
+            failed:
+              type: integer
+    AdoptionCandidate:
+      type: object
+      required: [tmdb_id, title, year]
+      properties:
+        tmdb_id:
+          type: integer
+        title:
+          type: string
+        year:
+          type: integer
+          nullable: true
+    AdoptionMatch:
+      type: object
+      required: [tmdb_id, title, year, title_id, source, folder]
+      properties:
+        tmdb_id:
+          type: integer
+        title:
+          type: string
+        year:
+          type: integer
+          nullable: true
+        title_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: The tracked Title the files join; null when adopting creates the Title.
+        source:
+          type: string
+          enum: [tag, name, chosen]
+          description: ID tag, confident name match, or picked by the admin.
+        folder:
+          type: string
+          description: The Title folder the files are renamed into.
+    AdoptionSubtitle:
+      type: object
+      required: [from, to]
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+    AdoptionFile:
+      type: object
+      required: [path, to, size, slot, profile, score, action, held_score, ticked, left, subtitles]
+      properties:
+        path:
+          type: string
+        to:
+          type: string
+          description: The path it gets in the naming scheme.
+        size:
+          type: integer
+          format: int64
+        slot:
+          $ref: "#/components/schemas/Slot"
+        profile:
+          type: string
+          description: Key of the Profile the Version has or gets.
+        score:
+          type: integer
+        action:
+          type: string
+          enum: [create, fill, replace]
+          description: Create the Version, fill an empty one, or replace the file a Version holds.
+        held_score:
+          type: integer
+          nullable: true
+          description: The Score of the file `replace` would replace.
+        ticked:
+          type: boolean
+        left:
+          type: string
+          nullable: true
+          enum: [duplicate, path_occupied]
+          description: Why the file stays untouched; null when it is adopted if ticked.
+        subtitles:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdoptionSubtitle"
+    AdoptionRow:
+      type: object
+      required: [id, status, skip_reason, entry, ticked, match, candidates, files]
+      properties:
+        id:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [matched, needs_choice, skipped]
+        skip_reason:
+          type: string
+          nullable: true
+          enum: [invalid, no_video, no_enabled_profile]
+        entry:
+          type: string
+          description: The folder or loose file in the Root folder.
+        ticked:
+          type: boolean
+        match:
+          allOf:
+            - $ref: "#/components/schemas/AdoptionMatch"
+          nullable: true
+        candidates:
+          type: array
+          description: Likely Movies for a Needs choice row.
+          items:
+            $ref: "#/components/schemas/AdoptionCandidate"
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdoptionFile"
+    AdoptionRowList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdoptionRow"
+    AdoptionRowPatch:
+      type: object
+      properties:
+        ticked:
+          type: boolean
+        tmdb_id:
+          type: integer
+        files:
+          type: array
+          items:
+            type: object
+            required: [path, ticked]
+            properties:
+              path:
+                type: string
+              ticked:
+                type: boolean
     ChangedHint:
       type: object
       required: [resource, id]
