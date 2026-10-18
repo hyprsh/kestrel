@@ -1764,6 +1764,9 @@ type RequestRejectReason string
 type RequestCreate struct {
 	Requester Requester `json:"requester"`
 
+	// RootFolder One of the configured Root folders of the Title's kind; left out means the first one. It applies only to a Title the Request creates: a Request never moves a Title already in the library. Not one of that kind's Root folders is a `422` on `root_folder`.
+	RootFolder *string `json:"root_folder,omitempty"`
+
 	// Seasons Series only; `null` or left out asks for the whole Series.
 	Seasons *[]int              `json:"seasons,omitempty"`
 	Slots   []RequestSlotCreate `json:"slots"`

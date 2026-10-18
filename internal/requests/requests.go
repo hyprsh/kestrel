@@ -80,6 +80,9 @@ type Input struct {
 	TMDBID, TVDBID  int
 	IMDbID          string
 	Slots           []SlotInput
+	// RootFolder is the Root folder for a Title the Request creates; empty
+	// takes the kind's first.
+	RootFolder string
 	// Seasons is the Series seasons asked for; nil asks for the whole Series.
 	Seasons []int
 }
@@ -424,9 +427,12 @@ func (s *Service) apply(ctx context.Context, in Input, t target, specs []library
 		if err != nil {
 			return 0, false, err
 		}
-		root, err := roots.Pick(rootfolders.Kind(in.Kind), "")
+		root, err := roots.Pick(rootfolders.Kind(in.Kind), in.RootFolder)
 		if errors.Is(err, rootfolders.ErrNoneSet) {
 			return 0, false, ErrNoRootFolder
+		}
+		if errors.Is(err, rootfolders.ErrNotConfigured) {
+			return 0, false, &ValidationError{Field: "root_folder", Code: "not_found", Message: "That is not one of the " + string(in.Kind) + " Root folders"}
 		}
 		if err != nil {
 			return 0, false, err

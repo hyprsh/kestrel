@@ -54,6 +54,7 @@ func (s *server) CreateRequest(ctx context.Context, r oapi.CreateRequestRequestO
 	in := requests.Input{
 		Source: b.Source, SourceRequestID: b.SourceRequestId, RequesterID: b.Requester.Id, RequesterName: b.Requester.Name,
 		Kind: library.Kind(b.Title.Kind), IMDbID: deref(b.Title.ImdbId),
+		RootFolder: deref(b.RootFolder),
 	}
 	if b.Title.TmdbId != nil {
 		in.TMDBID = *b.Title.TmdbId
