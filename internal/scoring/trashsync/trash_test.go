@@ -227,6 +227,48 @@ func TestStartupTakesTheNewerOfDownloadedAndEmbedded(t *testing.T) {
 	}
 }
 
+func TestStartupRescoresWhenTheActiveSnapshotIsNotTheOneTheFilesWereScoredUnder(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	if err := e.svc.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	e.rescored = nil
+
+	// Same snapshot as last time: nothing to redo.
+	if err := e.newService().Start(ctx); err != nil || len(e.rescored) != 0 {
+		t.Fatalf("restart on the same snapshot: %v, %d re-scores", err, len(e.rescored))
+	}
+
+	// A new binary ships a newer embedded snapshot: the stored Scores are stale.
+	e.holder = scoring.NewHolder(mustLoad(t, bundle("embedded-new", now)))
+	if err := e.newService().Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if len(e.rescored) != 1 || e.rescored[0].under.Commit() != "embedded-new" {
+		t.Fatalf("re-scores = %+v, want one under embedded-new", e.rescored)
+	}
+	e.rescored = nil
+	if err := e.newService().Start(ctx); err != nil || len(e.rescored) != 0 {
+		t.Errorf("the next restart re-scored again: %v, %d", err, len(e.rescored))
+	}
+}
+
+func TestADownloadedSnapshotIsNotRescoredAgainAtStartup(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	e.offer("downloaded", now.Add(-24*time.Hour))
+	if _, err := e.svc.Update(ctx); err != nil {
+		t.Fatal(err)
+	}
+	e.rescored = nil
+	e.holder = scoring.NewHolder(mustLoad(t, bundle("embedded-old", now.AddDate(0, 0, -30))))
+
+	if err := e.newService().Start(ctx); err != nil || len(e.rescored) != 0 {
+		t.Fatalf("Start: %v, %d re-scores; the files were scored under the download already", err, len(e.rescored))
+	}
+}
+
 func mustLoad(t *testing.T, f fs.FS) *scoring.Snapshot {
 	t.Helper()
 	s, err := scoring.LoadSnapshot(f)

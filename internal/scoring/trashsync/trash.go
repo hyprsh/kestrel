@@ -27,6 +27,8 @@ const (
 	configKey   = "trash"
 	snapshotKey = "trash_snapshot"
 	rejectedKey = "trash_update_rejected"
+	// scoredKey holds the commit of the snapshot the stored files were last scored under.
+	scoredKey = "trash_scored"
 )
 
 var (
@@ -163,8 +165,17 @@ type stored struct {
 
 // Start makes the newer of the downloaded snapshot (if any was kept) and the
 // active, embedded one the active snapshot. A kept snapshot that no longer
-// loads is ignored with a log line.
+// loads is ignored with a log line. If the stored files were scored under
+// another snapshot (a new binary embeds a newer one), they are re-scored under
+// the active one before anything decides on them.
 func (s *Service) Start(ctx context.Context) error {
+	if err := s.chooseSnapshot(ctx); err != nil {
+		return err
+	}
+	return s.rescoreIfStale(ctx)
+}
+
+func (s *Service) chooseSnapshot(ctx context.Context) error {
 	raw, ok, err := s.d.Settings.Get(ctx, snapshotKey)
 	if err != nil || !ok {
 		return err
@@ -183,6 +194,40 @@ func (s *Service) Start(ctx context.Context) error {
 		return nil
 	}
 	return s.d.Holder.Exclusive(func() error { s.d.Holder.Set(snap); return nil })
+}
+
+func (s *Service) rescoreIfStale(ctx context.Context) error {
+	active := s.d.Holder.Current()
+	raw, ok, err := s.d.Settings.Get(ctx, scoredKey)
+	if err != nil {
+		return err
+	}
+	var scored string
+	if ok {
+		_ = json.Unmarshal(raw, &scored)
+	}
+	if scored == active.Commit() {
+		return nil
+	}
+	ids, err := s.d.Titles(ctx)
+	if err != nil {
+		return err
+	}
+	err = s.d.Holder.Exclusive(func() error { return s.d.Rescore(ctx, active, ids) })
+	if err != nil {
+		s.d.Logger.Warn("re-scoring under the active TRaSH snapshot failed", "commit", short(active.Commit()), "err", err)
+		return nil
+	}
+	s.noteScored(ctx, active.Commit())
+	return nil
+}
+
+// noteScored remembers which snapshot the stored files are scored under.
+func (s *Service) noteScored(ctx context.Context, commit string) {
+	raw, _ := json.Marshal(commit)
+	if err := s.d.Settings.Put(ctx, scoredKey, raw); err != nil {
+		s.d.Logger.Warn("recording the TRaSH snapshot the files are scored under failed", "err", err)
+	}
 }
 
 // Result says what an Update did.
@@ -247,6 +292,7 @@ func (s *Service) Update(ctx context.Context) (Result, error) {
 	if err != nil {
 		return Result{}, s.reject(ctx, ref, err)
 	}
+	s.noteScored(ctx, ref.Commit)
 	if err := s.keep(ctx, files, ref); err != nil {
 		s.d.Logger.Error("keeping the TRaSH snapshot failed; it is active until restart", "err", err)
 	}
