@@ -73,6 +73,9 @@ sql:
       go:
         package: db
         out: internal/imports/db
+        emit_json_tags: false
+  - engine: sqlite
+    schema: internal/store/migrations
     queries: internal/health/queries.sql
     gen:
       go:
