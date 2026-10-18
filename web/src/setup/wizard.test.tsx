@@ -45,7 +45,62 @@ function fakeSettings(onSave?: (body: unknown) => void) {
   )
 }
 
+type Adoption = components['schemas']['Adoption']
+
+/** A GET /adoption that is idle until the scan is posted, then holds one planned Series. */
+function fakeAdoption() {
+  const state = { scans: 0 }
+  const plan = (): Adoption => ({
+    state: state.scans > 0 ? 'planned' : 'idle',
+    progress: { done: 0, total: 0 },
+    summary: { matched: state.scans > 0 ? 1 : 0, needs_choice: 0, skipped: 0, duplicate: 0, replacement: 0 },
+    revision: 1,
+    error: null,
+    scanned_at: null,
+    result: null,
+  })
+  server.use(
+    http.get('/adoption', ({ response }) => response(200).json(plan())),
+    http.post('/adoption/scan', ({ response }) => {
+      state.scans++
+      return response(202).json(plan())
+    }),
+    http.get('/adoption/rows', ({ response }) =>
+      response(200).json({
+        items: [
+          {
+            id: 1,
+            kind: 'series',
+            status: 'matched',
+            skip_reason: null,
+            entry: '/data/media/tv/Breaking Bad',
+            ticked: true,
+            match: { tmdb_id: 1396, tvdb_id: 81189, title: 'Breaking Bad', year: 2008, title_id: null, source: 'tag', folder: 'Breaking Bad (2008) {tvdb-81189}' },
+            candidates: [],
+            files: [],
+          },
+        ],
+      }),
+    ),
+  )
+  return state
+}
+
 describe('the wizard', () => {
+  it('ends with an optional Adopt step that scans and leads into the review', async () => {
+    fakeSettings()
+    fakeSetup()
+    const adoption = fakeAdoption()
+    renderApp()
+
+    const adopt = await screen.findByRole('region', { name: /Adopt existing library/ })
+    await userEvent.click(await within(adopt).findByRole('button', { name: /scan for existing files/i }))
+
+    expect(adoption.scans).toBe(1)
+    expect(await within(adopt).findByLabelText('Adopt Breaking Bad (2008)')).toBeChecked()
+    expect(within(adopt).getByRole('button', { name: 'Discard plan' })).toBeEnabled()
+  })
+
   it('opens finished sections as one-line summaries and the rest as forms', async () => {
     fakeSettings()
     fakeSetup({ language: 'done' })
@@ -64,9 +119,10 @@ describe('the wizard', () => {
     expect(await within(language).findByLabelText('Release-date country')).toHaveValue('US')
   })
 
-  it('orders the sections and leaves a placeholder for adopting an existing library', async () => {
+  it('orders the sections and ends with the optional Adopt step', async () => {
     fakeSettings()
     fakeSetup()
+    fakeAdoption()
     renderApp()
     await screen.findByRole('region', { name: 'Root folders' })
     const titles = () => screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent?.replace(/^\d+/, ''))

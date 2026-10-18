@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/hyprsh/kestrel/internal/library/db"
 )
@@ -97,55 +98,9 @@ func (s *Service) ReplaceEpisodeFile(ctx context.Context, titleID int64, folder 
 	if err := q.SetTitleFolder(ctx, db.SetTitleFolderParams{Folder: nullStr(folder), ID: titleID}); err != nil {
 		return nil, err
 	}
-	var touched []int64
-	for _, ep := range episodeIDs {
-		old, err := q.GetFileOfVersionEpisode(ctx, db.GetFileOfVersionEpisodeParams{VersionID: f.VersionID, EpisodeID: ep})
-		if errors.Is(err, sql.ErrNoRows) {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		if err := q.DeleteFileEpisode(ctx, db.DeleteFileEpisodeParams{VersionID: f.VersionID, EpisodeID: ep}); err != nil {
-			return nil, err
-		}
-		touched = append(touched, old)
-	}
-	fileID, err := q.InsertFile(ctx, db.InsertFileParams{
-		VersionID: f.VersionID, Path: f.Path, Size: f.Size, ReleaseName: f.ReleaseName,
-		ParsedRelease: nullStr(f.ParsedRelease), Probe: nullStr(f.Probe), Score: sql.NullInt64{Int64: int64(f.Score), Valid: true},
-		GrabID: sql.NullInt64{Int64: f.GrabID, Valid: f.GrabID != 0}, ImportedAt: ts(s.clock()),
-	})
+	replaced, err := putEpisodeFile(ctx, q, f, episodeIDs, s.clock())
 	if err != nil {
 		return nil, err
-	}
-	for _, ep := range episodeIDs {
-		if err := q.InsertFileEpisode(ctx, db.InsertFileEpisodeParams{FileID: fileID, VersionID: f.VersionID, EpisodeID: ep}); err != nil {
-			return nil, err
-		}
-	}
-	var replaced []File
-	done := map[int64]bool{}
-	for _, id := range touched {
-		if done[id] {
-			continue
-		}
-		done[id] = true
-		n, err := q.CountFileEpisodes(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-		if n > 0 {
-			continue
-		}
-		row, err := q.GetFile(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-		if err := q.DeleteFile(ctx, id); err != nil {
-			return nil, err
-		}
-		replaced = append(replaced, fileOf(row))
 	}
 	return replaced, tx.Commit()
 }
@@ -174,4 +129,66 @@ func (s *Service) PathsOfVersion(ctx context.Context, versionID int64) ([]string
 		out[i] = r.Path
 	}
 	return out, nil
+}
+
+// putEpisodeFile records f as the file of the given episodes of its Series
+// Version inside the caller's transaction, and returns the files that no
+// longer hold any episode (already deleted from the database).
+func putEpisodeFile(ctx context.Context, q *db.Queries, f NewFile, episodeIDs []int64, now time.Time) ([]File, error) {
+	var touched []int64
+	for _, ep := range episodeIDs {
+		old, err := q.GetFileOfVersionEpisode(ctx, db.GetFileOfVersionEpisodeParams{VersionID: f.VersionID, EpisodeID: ep})
+		if errors.Is(err, sql.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if err := q.DeleteFileEpisode(ctx, db.DeleteFileEpisodeParams{VersionID: f.VersionID, EpisodeID: ep}); err != nil {
+			return nil, err
+		}
+		touched = append(touched, old)
+	}
+	fileID, err := q.InsertFile(ctx, db.InsertFileParams{
+		VersionID: f.VersionID, Path: f.Path, Size: f.Size, ReleaseName: f.ReleaseName,
+		ParsedRelease: nullStr(f.ParsedRelease), Probe: nullStr(f.Probe), Score: sql.NullInt64{Int64: int64(f.Score), Valid: true},
+		GrabID: sql.NullInt64{Int64: f.GrabID, Valid: f.GrabID != 0}, ImportedAt: ts(now),
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, ep := range episodeIDs {
+		if err := q.InsertFileEpisode(ctx, db.InsertFileEpisodeParams{FileID: fileID, VersionID: f.VersionID, EpisodeID: ep}); err != nil {
+			return nil, err
+		}
+	}
+	if f.Misfit {
+		if err := q.SetMisfit(ctx, fileID); err != nil {
+			return nil, err
+		}
+	}
+	var replaced []File
+	done := map[int64]bool{}
+	for _, id := range touched {
+		if done[id] {
+			continue
+		}
+		done[id] = true
+		n, err := q.CountFileEpisodes(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if n > 0 {
+			continue
+		}
+		row, err := q.GetFile(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if err := q.DeleteFile(ctx, id); err != nil {
+			return nil, err
+		}
+		replaced = append(replaced, fileOf(row))
+	}
+	return replaced, nil
 }

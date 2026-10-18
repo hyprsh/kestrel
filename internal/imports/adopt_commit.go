@@ -74,7 +74,7 @@ func (a *Adoption) PatchRow(ctx context.Context, id int64, p RowPatch) (Row, err
 		if err != nil {
 			return Row{}, ErrNotSettleable
 		}
-		en := entry{Root: row.EntryRoot, Path: row.Entry, Name: filepath.Base(row.Entry), IsDir: st.IsDir()}
+		en := entry{Kind: row.kind(), Root: row.EntryRoot, Path: row.Entry, Name: filepath.Base(row.Entry), IsDir: st.IsDir()}
 		if !en.IsDir {
 			en.Name = strings.TrimSuffix(en.Name, filepath.Ext(en.Name))
 		}
@@ -192,6 +192,9 @@ type move struct{ from, to string }
 // Title's Versions in one transaction. If the transaction fails, every
 // rename is undone, so each Title either happened or did not.
 func (a *Adoption) adoptRow(ctx context.Context, e *env, row Row) (err error) {
+	if row.kind() == library.Series {
+		return a.adoptSeriesRow(ctx, e, row)
+	}
 	m := row.Match
 	// The Title may have been added since the scan, by an earlier row or the admin.
 	titleID, tracked, err := a.d.Library.Find(ctx, library.Movie, m.TMDBID, 0)

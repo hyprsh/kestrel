@@ -46,6 +46,7 @@ var subtitleExts = map[string]bool{
 
 // entry is one top-level item of a Root folder: a Title candidate.
 type entry struct {
+	Kind  library.Kind
 	Root  string
 	Path  string
 	Name  string // the folder name, or the file name without extension
@@ -58,13 +59,15 @@ type env struct {
 	region   profiles.Region
 	kids     profiles.KidsRule
 	held     map[string]bool
-	// folders maps a tracked Movie's folder path to the Title.
+	// folders maps a tracked Title's folder path to it.
 	folders map[string]library.Tracked
 	byTMDB  map[int]library.Tracked
+	// seriesByTMDB are the tracked Series.
+	seriesByTMDB map[int]library.Tracked
 }
 
 func (a *Adoption) env(ctx context.Context) (*env, error) {
-	e := &env{folders: map[string]library.Tracked{}, byTMDB: map[int]library.Tracked{}}
+	e := &env{folders: map[string]library.Tracked{}, byTMDB: map[int]library.Tracked{}, seriesByTMDB: map[int]library.Tracked{}}
 	var err error
 	if e.profiles, err = a.d.Profiles.List(ctx); err != nil {
 		return nil, err
@@ -83,10 +86,11 @@ func (a *Adoption) env(ctx context.Context) (*env, error) {
 		return nil, err
 	}
 	for _, t := range tracked {
-		if t.Kind != library.Movie {
-			continue
+		if t.Kind == library.Series {
+			e.seriesByTMDB[t.TMDBID] = t
+		} else {
+			e.byTMDB[t.TMDBID] = t
 		}
-		e.byTMDB[t.TMDBID] = t
 		if t.Folder != "" {
 			e.folders[filepath.Join(t.RootFolder, t.Folder)] = t
 		}
@@ -94,7 +98,7 @@ func (a *Adoption) env(ctx context.Context) (*env, error) {
 	return e, nil
 }
 
-// Scan starts the background scan of the Movie Root folders (all of them when
+// Scan starts the background scan of the Root folders (all of them when
 // roots is empty) and replaces the stored plan.
 func (a *Adoption) Scan(ctx context.Context, roots []string) error {
 	a.mu.Lock()
@@ -103,16 +107,16 @@ func (a *Adoption) Scan(ctx context.Context, roots []string) error {
 	if err != nil {
 		return err
 	}
-	scan := configured.Movies
+	scan := scanRoots{movies: configured.Movies, series: configured.Series}
 	if len(roots) > 0 {
-		scan = nil
+		scan = scanRoots{}
 		for _, r := range roots {
 			r = filepath.Clean(r)
 			switch {
 			case slices.Contains(configured.Movies, r):
-				scan = append(scan, r)
+				scan.movies = append(scan.movies, r)
 			case slices.Contains(configured.Series, r):
-				// Series Adoption joins later; its Root folders scan to nothing for now.
+				scan.series = append(scan.series, r)
 			default:
 				return fmt.Errorf("%w: %s", ErrNoRoot, r)
 			}
@@ -139,7 +143,11 @@ func (a *Adoption) Scan(ctx context.Context, roots []string) error {
 	return nil
 }
 
-func (a *Adoption) runScan(ctx context.Context, roots []string) {
+// scanRoots are the Root folders a scan covers; the folder a file sits in
+// decides its kind.
+type scanRoots struct{ movies, series []string }
+
+func (a *Adoption) runScan(ctx context.Context, roots scanRoots) {
 	rows, err := a.scan(ctx, roots)
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -195,31 +203,37 @@ func (a *Adoption) save(ctx context.Context, rows []Row) error {
 }
 
 // entries lists the Title candidates of the Root folders.
-func entries(roots []string) ([]entry, error) {
+func entries(roots scanRoots) ([]entry, error) {
 	var out []entry
-	for _, root := range roots {
-		list, err := os.ReadDir(root)
-		if err != nil {
-			return nil, fmt.Errorf("read the Root folder %s: %w", root, err)
-		}
-		for _, d := range list {
-			name := d.Name()
-			if strings.HasPrefix(name, ".") || strings.HasPrefix(name, "@") || strings.HasPrefix(name, "#") || name == "lost+found" {
-				continue
+	for _, kr := range []struct {
+		kind  library.Kind
+		roots []string
+	}{{library.Movie, roots.movies}, {library.Series, roots.series}} {
+		kind := kr.kind
+		for _, root := range kr.roots {
+			list, err := os.ReadDir(root)
+			if err != nil {
+				return nil, fmt.Errorf("read the Root folder %s: %w", root, err)
 			}
-			p := filepath.Join(root, name)
-			switch {
-			case d.IsDir():
-				out = append(out, entry{Root: root, Path: p, Name: name, IsDir: true})
-			case videoExts[strings.ToLower(filepath.Ext(name))]:
-				out = append(out, entry{Root: root, Path: p, Name: strings.TrimSuffix(name, filepath.Ext(name))})
+			for _, d := range list {
+				name := d.Name()
+				if strings.HasPrefix(name, ".") || strings.HasPrefix(name, "@") || strings.HasPrefix(name, "#") || name == "lost+found" {
+					continue
+				}
+				p := filepath.Join(root, name)
+				switch {
+				case d.IsDir():
+					out = append(out, entry{Kind: kind, Root: root, Path: p, Name: name, IsDir: true})
+				case videoExts[strings.ToLower(filepath.Ext(name))]:
+					out = append(out, entry{Kind: kind, Root: root, Path: p, Name: strings.TrimSuffix(name, filepath.Ext(name))})
+				}
 			}
 		}
 	}
 	return out, nil
 }
 
-func (a *Adoption) scan(ctx context.Context, roots []string) ([]Row, error) {
+func (a *Adoption) scan(ctx context.Context, roots scanRoots) ([]Row, error) {
 	list, err := entries(roots)
 	if err != nil {
 		return nil, err
@@ -284,12 +298,43 @@ type probed struct {
 	info probe.Info
 }
 
+// probeAll probes the videos; one that is unreadable or has no video stream
+// is left out. An error is the environment's.
+func (a *Adoption) probeAll(ctx context.Context, videos []string) ([]probed, error) {
+	var files []probed
+	for _, v := range videos {
+		info, err := a.d.Prober.Probe(ctx, v)
+		switch {
+		case errors.Is(err, probe.ErrNotInstalled):
+			return nil, err
+		case ctx.Err() != nil:
+			return nil, ctx.Err()
+		case err != nil || !info.HasVideo:
+			continue
+		}
+		if info.Size == 0 {
+			if st, err := os.Stat(v); err == nil {
+				info.Size = st.Size()
+			}
+		}
+		files = append(files, probed{v, info})
+	}
+	return files, nil
+}
+
 // planEntry plans one entry. force, when set, is the TMDB id the admin chose.
 // It returns nil when there is nothing to adopt and nothing to say about the
 // entry (a tracked folder with no new files). An error is the environment's
 // (the metadata provider, a missing ffprobe) and stops the scan.
 func (a *Adoption) planEntry(ctx context.Context, e *env, en entry, force int) (*Row, error) {
-	row := &Row{Entry: en.Path, EntryRoot: en.Root, Root: en.Root, Ticked: true}
+	if en.Kind == library.Series {
+		return a.planSeries(ctx, e, en, force)
+	}
+	return a.planMovie(ctx, e, en, force)
+}
+
+func (a *Adoption) planMovie(ctx context.Context, e *env, en entry, force int) (*Row, error) {
+	row := &Row{Kind: library.Movie, Entry: en.Path, EntryRoot: en.Root, Root: en.Root, Ticked: true}
 	skip := func(reason string) (*Row, error) {
 		row.Status, row.SkipReason, row.Ticked = Skipped, reason, false
 		return row, nil
@@ -310,23 +355,9 @@ func (a *Adoption) planEntry(ctx context.Context, e *env, en entry, force int) (
 	if multiPart(videos) {
 		return skip(SkipInvalid)
 	}
-	var files []probed
-	for _, v := range videos {
-		info, err := a.d.Prober.Probe(ctx, v)
-		switch {
-		case errors.Is(err, probe.ErrNotInstalled):
-			return nil, err
-		case ctx.Err() != nil:
-			return nil, ctx.Err()
-		case err != nil || !info.HasVideo:
-			continue
-		}
-		if info.Size == 0 {
-			if st, err := os.Stat(v); err == nil {
-				info.Size = st.Size()
-			}
-		}
-		files = append(files, probed{v, info})
+	files, err := a.probeAll(ctx, videos)
+	if err != nil {
+		return nil, err
 	}
 	if len(files) == 0 {
 		return skip(SkipInvalid)
@@ -515,6 +546,10 @@ func plainTitle(name string) string {
 // the file; a name that says nothing about the resolution (or the wrong
 // thing) is read again with the probed one, so the file is named for what it is.
 func withProbedResolution(p release.ParsedRelease, info probe.Info, name string) release.ParsedRelease {
+	kind := p.Kind
+	if kind == "" {
+		kind = release.KindMovie
+	}
 	if c, known := resolution.OfHeight(p.Quality.Quality.Resolution); known && c == info.Class() && p.Quality.ResolutionDetection == release.DetectedName {
 		return p
 	}
@@ -528,7 +563,7 @@ func withProbedResolution(p release.ParsedRelease, info probe.Info, name string)
 	case resolution.UHD:
 		height = 2160
 	}
-	p.Quality = release.ParseQuality(fmt.Sprintf("%s %dp", name, height))
+	p.Quality = release.ParseQualityOf(fmt.Sprintf("%s %dp", name, height), kind)
 	return p
 }
 
@@ -719,16 +754,18 @@ func planSubtitles(video, newStem string) []PlanSub {
 	return out
 }
 
-// settle resolves what the rows leave open between them: two files for one
-// Slot of one Movie go to the higher Score, then the larger size, and the
-// others stay where they are as duplicates.
+// settle resolves what the rows leave open between them: files for one Slot
+// of one Movie, or of one episode of one Series, go to the higher Score, then
+// the larger size, and the others stay where they are as duplicates.
 func settle(rows []Row) {
-	type key struct {
-		tmdb int
-		slot Slot
+	type claim struct {
+		kind    library.Kind
+		tmdb    int
+		slot    Slot
+		episode library.EpisodeRef
 	}
 	type ref struct{ row, file int }
-	groups := map[key][]ref{}
+	var contenders []ref
 	for i := range rows {
 		r := &rows[i]
 		if r.Status != Matched || r.Match == nil {
@@ -740,31 +777,45 @@ func settle(rows []Row) {
 				f.Left = ""
 			}
 			if f.Left == "" {
-				k := key{r.Match.TMDBID, f.Slot}
-				groups[k] = append(groups[k], ref{i, j})
+				contenders = append(contenders, ref{i, j})
 			}
 		}
 	}
-	for _, g := range groups {
-		if len(g) < 2 {
+	file := func(r ref) *PlanFile { return &rows[r.row].Files[r.file] }
+	slices.SortStableFunc(contenders, func(x, y ref) int {
+		fx, fy := file(x), file(y)
+		switch {
+		case fx.Score != fy.Score:
+			return fy.Score - fx.Score
+		case fx.Size != fy.Size:
+			if fx.Size > fy.Size {
+				return -1
+			}
+			return 1
+		}
+		return strings.Compare(fx.Path, fy.Path)
+	})
+	claimed := map[claim]bool{}
+	for _, c := range contenders {
+		r, f := &rows[c.row], file(c)
+		var keys []claim
+		if r.kind() == library.Series {
+			for _, ep := range f.Episodes {
+				keys = append(keys, claim{library.Series, r.Match.TMDBID, f.Slot, ep})
+			}
+		} else {
+			keys = append(keys, claim{library.Movie, r.Match.TMDBID, f.Slot, library.EpisodeRef{}})
+		}
+		taken := false
+		for _, k := range keys {
+			taken = taken || claimed[k]
+		}
+		if taken {
+			f.Left = LeftDuplicate
 			continue
 		}
-		file := func(r ref) *PlanFile { return &rows[r.row].Files[r.file] }
-		slices.SortStableFunc(g, func(x, y ref) int {
-			fx, fy := file(x), file(y)
-			switch {
-			case fx.Score != fy.Score:
-				return fy.Score - fx.Score
-			case fx.Size != fy.Size:
-				if fx.Size > fy.Size {
-					return -1
-				}
-				return 1
-			}
-			return strings.Compare(fx.Path, fy.Path)
-		})
-		for _, loser := range g[1:] {
-			file(loser).Left = LeftDuplicate
+		for _, k := range keys {
+			claimed[k] = true
 		}
 	}
 }

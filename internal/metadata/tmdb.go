@@ -72,6 +72,10 @@ type Provider interface {
 	SeriesExternalIDs(ctx context.Context, id int) (ExternalIDs, error)
 	// FindMovieByIMDb is the TMDB id of the Movie with an IMDb id, or ok false.
 	FindMovieByIMDb(ctx context.Context, imdbID string) (id int, ok bool, err error)
+	// FindSeriesByIMDb is the TMDB id of the Series with an IMDb id, or ok false.
+	FindSeriesByIMDb(ctx context.Context, imdbID string) (id int, ok bool, err error)
+	// FindSeriesByTVDB is the TMDB id of the Series with a TheTVDB id, or ok false.
+	FindSeriesByTVDB(ctx context.Context, tvdbID int) (id int, ok bool, err error)
 	// ImageURL is the URL of a poster at a TMDB size such as "w92".
 	ImageURL(posterPath, size string) string
 	// Changes lists the ids of the Movies or Series whose data changed since a
@@ -188,6 +192,31 @@ func (c *TMDB) FindMovieByIMDb(ctx context.Context, imdbID string) (int, bool, e
 		return 0, false, nil
 	}
 	return res.MovieResults[0].ID, true, nil
+}
+
+// FindSeriesByIMDb looks a Series up by its IMDb id (tt1234567).
+func (c *TMDB) FindSeriesByIMDb(ctx context.Context, imdbID string) (int, bool, error) {
+	return c.findSeries(ctx, imdbID, "imdb_id")
+}
+
+// FindSeriesByTVDB looks a Series up by its TheTVDB id.
+func (c *TMDB) FindSeriesByTVDB(ctx context.Context, tvdbID int) (int, bool, error) {
+	return c.findSeries(ctx, strconv.Itoa(tvdbID), "tvdb_id")
+}
+
+func (c *TMDB) findSeries(ctx context.Context, id, source string) (int, bool, error) {
+	var res struct {
+		TVResults []struct {
+			ID int `json:"id"`
+		} `json:"tv_results"`
+	}
+	if err := c.get(ctx, "/find/"+url.PathEscape(id), url.Values{"external_source": {source}}, &res); err != nil {
+		return 0, false, err
+	}
+	if len(res.TVResults) == 0 {
+		return 0, false, nil
+	}
+	return res.TVResults[0].ID, true, nil
 }
 
 // Movie fetches a Movie's details with its release dates, aliases,

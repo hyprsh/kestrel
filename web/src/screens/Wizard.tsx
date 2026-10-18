@@ -11,6 +11,7 @@ import {
   useSettings,
 } from '../api/queries'
 import { Button, ErrorText, Field, TextInput } from '../forms'
+import { Adoption } from '../adoption/Adoption'
 import { DownloadClient } from '../plugins/DownloadClient'
 import { Indexer } from '../plugins/Indexer'
 import { LanguageForm } from '../profiles/Language'
@@ -105,9 +106,7 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
               <KidsRuleForm />
             </Section>
             <Section n={7} id="adopt" title="Adopt existing library (optional)">
-              <p className="text-gray-900">
-                Already have a library on disk? Kestrel will be able to adopt it without moving or renaming anything. This step arrives with Series Adoption; skip it for now.
-              </p>
+              <Adoption embedded />
             </Section>
             <Finish completed={setup.data.completed} onLeave={onLeave} />
           </>

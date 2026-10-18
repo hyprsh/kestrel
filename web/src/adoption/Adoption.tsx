@@ -1,4 +1,4 @@
-// The Adoption review screen: scan the Movie Root folders, review the plan of matched,
+// The Adoption review screen: scan the Movie and Series Root folders, review the plan of matched,
 // needs-choice and skipped entries, settle the doubtful ones and adopt what is ticked.
 import { useState, type FormEvent } from 'react'
 import {
@@ -31,9 +31,31 @@ const skipText: Record<string, string> = {
   invalid: 'No readable video file',
   no_video: 'No video file',
   no_enabled_profile: 'No enabled Profile for its Slot',
+  not_on_tvdb: 'Not on TheTVDB, so Kestrel cannot manage it',
 }
 
 const baseName = (p: string) => p.slice(p.lastIndexOf('/') + 1)
+
+const slotOrder = ['sd', 'hd', 'uhd'] as const
+
+/** "S01E02" or "S01E02-E03" for a Series file, "" for a Movie file. */
+function episodeLabel(f: AdoptionFile) {
+  if (f.episodes.length === 0) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const first = f.episodes[0]
+  const last = f.episodes[f.episodes.length - 1]
+  return `S${pad(first.season)}E${pad(first.number)}${last.number !== first.number ? `-E${pad(last.number)}` : ''}`
+}
+
+/** The Versions a Series row proposes, e.g. "HD: 38 episodes, UHD: 4 episodes". */
+function versionsSummary(row: AdoptionRow) {
+  const counts = new Map<string, number>()
+  for (const f of row.files) if (f.ticked && !f.left) counts.set(f.slot, (counts.get(f.slot) ?? 0) + f.episodes.length)
+  return slotOrder
+    .filter((s) => counts.has(s))
+    .map((s) => `${slotLabel[s]}: ${counts.get(s)} ${counts.get(s) === 1 ? 'episode' : 'episodes'}`)
+    .join(', ')
+}
 
 const adopts = (f: AdoptionFile) => f.ticked && !f.left
 const willAdopt = (r: AdoptionRow) => r.status === 'matched' && r.ticked && r.files.some(adopts)
@@ -51,7 +73,7 @@ function inFilter(r: AdoptionRow, f: Filter) {
   }
 }
 
-export function Adoption() {
+export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
   const plan = useAdoption()
   const scan = useScan()
   const commit = useCommit()
@@ -65,12 +87,12 @@ export function Adoption() {
   const failed = scan.error ?? commit.error ?? discard.error
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
-      <div className="mx-auto max-w-4xl p-6">
-        <h1 className="text-[15px] font-semibold tracking-tight">Adopt existing library</h1>
+    <div className={embedded ? '' : 'min-h-0 flex-1 overflow-auto'}>
+      <div className={embedded ? '' : 'mx-auto max-w-4xl p-6'}>
+        {!embedded && <h1 className="text-[15px] font-semibold tracking-tight">Adopt existing library</h1>}
         <p className="mt-1 text-gray-900">
-          Kestrel scans your Movie Root folders and plans how to manage the files already there without downloading them again. Nothing changes until you
-          adopt the plan.
+          Kestrel scans your Movie and Series Root folders and plans how to manage the files already there without downloading them again. Nothing changes
+          until you adopt the plan.
         </p>
         {failed instanceof ApiError && <ErrorText>{failed.message}</ErrorText>}
 
@@ -200,6 +222,7 @@ function MatchedRow({ row }: { row: AdoptionRow }) {
         {m.title_id !== null && <Badge tone="blue">In library</Badge>}
         <span className="text-[12px] font-normal text-gray-900">{baseName(row.entry)}</span>
       </label>
+      {row.kind === 'series' && <div className="mt-1 pl-6 text-[12px] text-gray-900">{versionsSummary(row)}</div>}
       <ul className="mt-2 flex flex-col gap-1.5 pl-6">
         {row.files.map((f) => (
           <li key={f.path} className="flex flex-wrap items-center gap-2 text-[12px]">
@@ -211,6 +234,7 @@ function MatchedRow({ row }: { row: AdoptionRow }) {
               aria-label={`Adopt ${baseName(f.path)}`}
             />
             <Badge tone="teal">{slotLabel[f.slot]}</Badge>
+            {episodeLabel(f) && <Badge tone="gray">{episodeLabel(f)}</Badge>}
             <span className="font-mono text-gray-900">{baseName(f.path)}</span>
             <span aria-hidden>→</span>
             <span className="font-mono">{baseName(f.to)}</span>
@@ -222,6 +246,7 @@ function MatchedRow({ row }: { row: AdoptionRow }) {
               <Badge tone="amber">Would replace the current file (Score {f.score} vs {f.held_score ?? 0})</Badge>
             )}
             {f.left === 'duplicate' && <Badge tone="gray">Duplicate, left in place</Badge>}
+            {f.left === 'unmatched' && <Badge tone="gray">No matching episode, left in place</Badge>}
             {f.left === 'path_occupied' && <Badge tone="gray">Name taken, left in place</Badge>}
           </li>
         ))}
@@ -240,7 +265,7 @@ function NeedsChoice({ row }: { row: AdoptionRow }) {
     e.preventDefault()
     setQuery(q.trim())
   }
-  const found = (search.data ?? []).filter((r) => r.kind === 'movie')
+  const found = (search.data ?? []).filter((r) => r.kind === row.kind)
   return (
     <div>
       <div className="flex items-center gap-2 font-medium">
@@ -258,7 +283,7 @@ function NeedsChoice({ row }: { row: AdoptionRow }) {
         </div>
       )}
       <form onSubmit={submit} className="mt-2 flex max-w-md gap-2">
-        <TextInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search for the Movie" aria-label={`Search for ${baseName(row.entry)}`} />
+        <TextInput value={q} onChange={(e) => setQ(e.target.value)} placeholder={row.kind === 'series' ? 'Search for the Series' : 'Search for the Movie'} aria-label={`Search for ${baseName(row.entry)}`} />
         <Button variant="secondary" type="submit">
           Search
         </Button>

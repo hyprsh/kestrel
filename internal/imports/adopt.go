@@ -52,6 +52,8 @@ const (
 	SkipInvalid          = "invalid"
 	SkipNoVideo          = "no_video"
 	SkipNoEnabledProfile = "no_enabled_profile"
+	// SkipNotOnTVDB: a Series TheTVDB does not know cannot be managed.
+	SkipNotOnTVDB = "not_on_tvdb"
 )
 
 // How a file joins its Title.
@@ -65,6 +67,8 @@ const (
 const (
 	LeftDuplicate    = "duplicate"
 	LeftPathOccupied = "path_occupied"
+	// LeftUnmatched: the file names no episode TheTVDB lists for the Series.
+	LeftUnmatched = "unmatched"
 )
 
 // How a row was matched.
@@ -113,9 +117,11 @@ type Plan struct {
 	Result    *CommitResult
 }
 
-// Match is the Movie a row's files are adopted as.
+// Match is the Movie or Series a row's files are adopted as.
 type Match struct {
-	TMDBID int    `json:"tmdb_id"`
+	TMDBID int `json:"tmdb_id"`
+	// TVDBID is the Series' TheTVDB id; 0 for a Movie.
+	TVDBID int    `json:"tvdb_id,omitempty"`
 	Title  string `json:"title"`
 	Year   int    `json:"year"`
 	// TitleID is the tracked Title the files join; 0 when adopting adds it.
@@ -152,20 +158,24 @@ type PlanFile struct {
 	HeldScore *int `json:"held_score,omitempty"`
 	Ticked    bool `json:"ticked"`
 	// Left says why the file is not adopted whatever is ticked; "" when it is.
-	Left        string          `json:"left,omitempty"`
-	Subtitles   []PlanSub       `json:"subtitles,omitempty"`
-	Misfit      bool            `json:"misfit"`
-	ReleaseName string          `json:"release_name"`
-	Parsed      json.RawMessage `json:"parsed"`
-	Probe       json.RawMessage `json:"probe"`
+	Left      string    `json:"left,omitempty"`
+	Subtitles []PlanSub `json:"subtitles,omitempty"`
+	// Episodes are the episodes of a Series file; empty for a Movie file.
+	Episodes    []library.EpisodeRef `json:"episodes,omitempty"`
+	Misfit      bool                 `json:"misfit"`
+	ReleaseName string               `json:"release_name"`
+	Parsed      json.RawMessage      `json:"parsed"`
+	Probe       json.RawMessage      `json:"probe"`
 }
 
 // Row is one entry of a Root folder and what Adoption would do with it.
 type Row struct {
-	ID         int64     `json:"-"`
-	Status     RowStatus `json:"-"`
-	Ticked     bool      `json:"-"`
-	SkipReason string    `json:"skip_reason,omitempty"`
+	// Kind is the kind of Root folder the entry sits in; "" reads as a Movie.
+	Kind       library.Kind `json:"kind"`
+	ID         int64        `json:"-"`
+	Status     RowStatus    `json:"-"`
+	Ticked     bool         `json:"-"`
+	SkipReason string       `json:"skip_reason,omitempty"`
 	// Entry is the folder or loose file in the Root folder.
 	Entry string `json:"entry"`
 	// EntryRoot is the Root folder the entry sits in; Root is the one its
@@ -175,6 +185,14 @@ type Row struct {
 	Match      *Match      `json:"match,omitempty"`
 	Candidates []Candidate `json:"candidates,omitempty"`
 	Files      []PlanFile  `json:"files,omitempty"`
+}
+
+// kind is the row's kind, a Movie when the plan was stored before Series.
+func (r Row) kind() library.Kind {
+	if r.Kind == "" {
+		return library.Movie
+	}
+	return r.Kind
 }
 
 // adopts reports whether the file would be adopted if its row is ticked.
@@ -187,6 +205,8 @@ type AdoptLibrary interface {
 	Get(ctx context.Context, id int64, view library.View) (library.Detail, error)
 	Find(ctx context.Context, kind library.Kind, tmdbID, tvdbID int) (int64, bool, error)
 	AdoptMovie(ctx context.Context, a library.AdoptMovie) (int64, []library.File, error)
+	AdoptSeries(ctx context.Context, a library.AdoptSeries) (int64, []library.File, error)
+	Episodes(ctx context.Context, titleID int64, view library.View) ([]library.Episode, error)
 }
 
 // AdoptProfiles is what Adoption needs of the Profiles.
@@ -201,6 +221,9 @@ type AdoptMeta interface {
 	Search(ctx context.Context, query string) ([]metadata.SearchResult, error)
 	Movie(ctx context.Context, id int) (metadata.MovieDetails, error)
 	FindMovieByIMDb(ctx context.Context, imdbID string) (int, bool, error)
+	Series(ctx context.Context, id int) (metadata.SeriesDetails, error)
+	FindSeriesByIMDb(ctx context.Context, imdbID string) (int, bool, error)
+	FindSeriesByTVDB(ctx context.Context, tvdbID int) (int, bool, error)
 }
 
 // AdoptionDeps are what an Adoption service needs.
@@ -209,6 +232,7 @@ type AdoptionDeps struct {
 	Library  AdoptLibrary
 	Profiles AdoptProfiles
 	Meta     AdoptMeta
+	TVDB     metadata.TVDBProvider
 	Prober   probe.Prober
 	Roots    *rootfolders.Service
 	History  *history.Service

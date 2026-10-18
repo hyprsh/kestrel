@@ -61,6 +61,7 @@ type adoptionRowJSON struct {
 		TMDBID int    `json:"tmdb_id"`
 		Title  string `json:"title"`
 	} `json:"candidates"`
+	Kind  string             `json:"kind"`
 	Files []adoptionFileJSON `json:"files"`
 }
 
@@ -74,6 +75,10 @@ type adoptionFileJSON struct {
 	HeldScore *int    `json:"held_score"`
 	Ticked    bool    `json:"ticked"`
 	Left      *string `json:"left"`
+	Episodes  []struct {
+		Season int `json:"season"`
+		Number int `json:"number"`
+	} `json:"episodes"`
 	Subtitles []struct {
 		From string `json:"from"`
 		To   string `json:"to"`
@@ -101,28 +106,47 @@ type adoptionJSON struct {
 type adopting struct {
 	library
 	movies string
+	tv     string
 }
 
 func newAdopting(t *testing.T) adopting {
 	t.Helper()
 	tmdb := metadatatest.New(t)
+	tvdb := metadatatest.NewTVDB(t)
 	data, config := t.TempDir(), t.TempDir()
 	in := newInstance(t, "", func(o *api.Options) {
 		o.DataDir, o.ConfigDir, o.Prober = data, config, pathProber{}
+		o.TVDB = metadata.NewTVDB(metadata.TVDBOptions{BaseURL: tvdb.APIBase(), Keys: metadata.StaticTVDBKey(metadatatest.TVDBKey)})
 		o.Metadata = metadata.NewTMDB(metadata.TMDBOptions{BaseURL: tmdb.APIBase(), ImageBase: tmdb.ImageBase(), Keys: metadata.StaticKey(metadatatest.Key)})
 		o.Posters = metadata.NewPosters(metadata.PostersOptions{ConfigDir: config, ImageBase: tmdb.ImageBase()})
 	})
 	movies := filepath.Join(data, "media", "movies")
-	if err := os.MkdirAll(movies, 0o755); err != nil {
-		t.Fatal(err)
+	tv := filepath.Join(data, "media", "tv")
+	for _, d := range []string{movies, tv} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
-	return adopting{library: library{browser: in.setUp(), tmdb: tmdb, config: config, data: data}, movies: movies}
+	return adopting{library: library{browser: in.setUp(), tmdb: tmdb, tvdb: tvdb, config: config, data: data}, movies: movies, tv: tv}
 }
 
 // put writes a file under the movies root, making its folders.
 func (a adopting) put(t *testing.T, rel, body string) string {
 	t.Helper()
 	p := filepath.Join(a.movies, rel)
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+// putTV writes a file under the Series root folder, making its folders.
+func (a adopting) putTV(t *testing.T, rel, body string) string {
+	t.Helper()
+	p := filepath.Join(a.tv, rel)
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		t.Fatal(err)
 	}

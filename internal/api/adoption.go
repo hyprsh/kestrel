@@ -7,6 +7,7 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/imports"
+	"github.com/hyprsh/kestrel/internal/library"
 )
 
 func (s *server) adoptionLocation() *string {
@@ -30,8 +31,11 @@ func adoptionToAPI(p imports.Plan) oapi.Adoption {
 
 func adoptionRowToAPI(r imports.Row) oapi.AdoptionRow {
 	out := oapi.AdoptionRow{
-		Id: r.ID, Status: oapi.AdoptionRowStatus(r.Status), Entry: r.Entry, Ticked: r.Ticked,
+		Id: r.ID, Kind: oapi.Movie, Status: oapi.AdoptionRowStatus(r.Status), Entry: r.Entry, Ticked: r.Ticked,
 		Candidates: []oapi.AdoptionCandidate{}, Files: []oapi.AdoptionFile{},
+	}
+	if r.Kind == library.Series {
+		out.Kind = oapi.Series
 	}
 	if r.SkipReason != "" {
 		reason := oapi.AdoptionRowSkipReason(r.SkipReason)
@@ -40,6 +44,9 @@ func adoptionRowToAPI(r imports.Row) oapi.AdoptionRow {
 	if m := r.Match; m != nil {
 		out.Match = &oapi.AdoptionMatch{
 			TmdbId: m.TMDBID, Title: m.Title, Year: intPtr(m.Year), Source: oapi.AdoptionMatchSource(m.Source), Folder: m.Folder,
+		}
+		if m.TVDBID != 0 {
+			out.Match.TvdbId = intPtr(m.TVDBID)
 		}
 		if m.TitleID != 0 {
 			id := m.TitleID
@@ -53,6 +60,13 @@ func adoptionRowToAPI(r imports.Row) oapi.AdoptionRow {
 		af := oapi.AdoptionFile{
 			Path: f.Path, To: f.To, Size: f.Size, Slot: slotToAPI(f.Slot), Profile: f.Profile, Score: f.Score,
 			Action: oapi.AdoptionFileAction(f.Action), HeldScore: f.HeldScore, Ticked: f.Ticked, Subtitles: []oapi.AdoptionSubtitle{},
+		}
+		af.Episodes = make([]struct {
+			Number int `json:"number"`
+			Season int `json:"season"`
+		}, len(f.Episodes))
+		for i, ep := range f.Episodes {
+			af.Episodes[i].Season, af.Episodes[i].Number = ep.Season, ep.Number
 		}
 		if f.Left != "" {
 			left := oapi.AdoptionFileLeft(f.Left)
@@ -77,7 +91,7 @@ func adoptionProblem(err error) error {
 	case errors.Is(err, imports.ErrNoRoot):
 		return invalid("root_folders", "invalid", err.Error())
 	case errors.Is(err, imports.ErrNotSettleable):
-		return invalid("tmdb_id", "invalid", "The row's files cannot be matched to that Movie")
+		return invalid("tmdb_id", "invalid", "The row's files cannot be matched to that Title")
 	}
 	return metaProblem(err)
 }

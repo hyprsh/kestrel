@@ -77,7 +77,7 @@ export function Settings({ onRunSetup, onAdopt }: { onRunSetup: () => void; onAd
           </Row>
         </Group>
         <Group id="adoption" title="Existing files">
-          <Row label="Adopt existing library" help="Scan the Movie Root folders for files Kestrel does not manage yet and take them over without downloading again.">
+          <Row label="Adopt existing library" help="Scan the Movie and Series Root folders for files Kestrel does not manage yet and take them over without downloading again.">
             <Button variant="secondary" onClick={onAdopt}>
               Scan for unmanaged files
             </Button>

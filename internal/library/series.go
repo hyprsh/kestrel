@@ -90,11 +90,6 @@ func (s *Service) AddSeries(ctx context.Context, a AddSeries) (int64, error) {
 		}
 		seen[v.Slot] = true
 	}
-	d := a.TMDB
-	primary := d.TitleIn(a.PrimaryLanguage)
-	if primary == "" {
-		primary = d.Title
-	}
 	nowT := s.clock()
 	now := ts(nowT)
 
@@ -105,19 +100,53 @@ func (s *Service) AddSeries(ctx context.Context, a AddSeries) (int64, error) {
 	defer tx.Rollback()
 	q := db.New(tx)
 
-	existing, err := q.FindTitlesByTMDB(ctx, string(Series))
+	id, seasons, err := insertSeries(ctx, q, a, nowT)
 	if err != nil {
 		return 0, err
 	}
+	for _, v := range a.Versions {
+		vid, err := q.InsertVersion(ctx, db.InsertVersionParams{TitleID: id, Slot: slotName(v.Slot), ProfileKey: v.Profile, AddedAt: now})
+		if err != nil {
+			return 0, fmt.Errorf("library: add the %s Version under %q: %w", v.Slot, v.Profile, err)
+		}
+		for _, n := range seasons {
+			if n == 0 {
+				continue // Specials are never searched automatically
+			}
+			if err := q.InsertSearchState(ctx, db.InsertSearchStateParams{
+				VersionID: vid, Season: sql.NullInt64{Int64: int64(n), Valid: true},
+				NextMissingAt: sql.NullString{String: now, Valid: true}, NextUpgradeAt: sql.NullString{String: now, Valid: true},
+			}); err != nil {
+				return 0, err
+			}
+		}
+	}
+	return id, tx.Commit()
+}
+
+// insertSeries writes a new Series Title with its aliases, ratings, seasons and
+// episodes, and returns its id and season numbers. A Series already in the
+// Library is an *ExistsError.
+func insertSeries(ctx context.Context, q *db.Queries, a AddSeries, nowT time.Time) (int64, []int, error) {
+	d := a.TMDB
+	primary := d.TitleIn(a.PrimaryLanguage)
+	if primary == "" {
+		primary = d.Title
+	}
+	now := ts(nowT)
+	existing, err := q.FindTitlesByTMDB(ctx, string(Series))
+	if err != nil {
+		return 0, nil, err
+	}
 	for _, e := range existing {
 		if e.TmdbID.Int64 == int64(d.TMDBID) {
-			return 0, &ExistsError{ID: e.ID}
+			return 0, nil, &ExistsError{ID: e.ID}
 		}
 	}
 	if id, err := q.FindTitleByTVDB(ctx, nullInt(a.TVDB.ID)); err == nil {
-		return 0, &ExistsError{ID: id}
+		return 0, nil, &ExistsError{ID: id}
 	} else if !errors.Is(err, sql.ErrNoRows) {
-		return 0, err
+		return 0, nil, err
 	}
 	id, err := q.InsertTitle(ctx, db.InsertTitleParams{
 		Kind: string(Series), TmdbID: nullInt(d.TMDBID), TvdbID: nullInt(a.TVDB.ID), ImdbID: nullStr(d.IMDbID),
@@ -128,11 +157,11 @@ func (s *Service) AddSeries(ctx context.Context, a AddSeries) (int64, error) {
 		RootFolder:    a.RootFolder, AddedAt: now, RefreshedAt: now,
 	})
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	for _, al := range d.Aliases {
 		if err := q.InsertAlias(ctx, db.InsertAliasParams{TitleID: id, Alias: al.Title, Country: al.Country}); err != nil {
-			return 0, err
+			return 0, nil, err
 		}
 	}
 	for _, tr := range d.Translations {
@@ -140,19 +169,19 @@ func (s *Service) AddSeries(ctx context.Context, a AddSeries) (int64, error) {
 			continue
 		}
 		if err := q.InsertAlias(ctx, db.InsertAliasParams{TitleID: id, Alias: tr.Title, Country: tr.Country, Language: tr.Language}); err != nil {
-			return 0, err
+			return 0, nil, err
 		}
 	}
 	for _, al := range a.TVDB.Aliases {
 		if err := q.InsertAlias(ctx, db.InsertAliasParams{TitleID: id, Alias: al}); err != nil {
-			return 0, err
+			return 0, nil, err
 		}
 	}
 	for _, r := range d.Ratings {
 		if err := q.InsertReleaseDate(ctx, db.InsertReleaseDateParams{
 			TitleID: id, Country: r.Country, Type: int64(r.Type), Date: ts(r.Date), Certification: r.Certification,
 		}); err != nil {
-			return 0, err
+			return 0, nil, err
 		}
 	}
 
@@ -179,32 +208,15 @@ func (s *Service) AddSeries(ctx context.Context, a AddSeries) (int64, error) {
 		if err := q.InsertEpisode(ctx, db.InsertEpisodeParams{
 			TitleID: id, Season: int64(e.Season), Number: int64(e.Number), TvdbID: nullInt(e.ID), Name: e.Name, AirDate: air, Monitored: boolInt(on),
 		}); err != nil {
-			return 0, err
+			return 0, nil, err
 		}
 	}
 	for _, n := range seasons {
 		if err := q.InsertSeason(ctx, db.InsertSeasonParams{TitleID: id, Number: int64(n), Monitored: boolInt(seasonMonitored[n])}); err != nil {
-			return 0, err
+			return 0, nil, err
 		}
 	}
-	for _, v := range a.Versions {
-		vid, err := q.InsertVersion(ctx, db.InsertVersionParams{TitleID: id, Slot: slotName(v.Slot), ProfileKey: v.Profile, AddedAt: now})
-		if err != nil {
-			return 0, fmt.Errorf("library: add the %s Version under %q: %w", v.Slot, v.Profile, err)
-		}
-		for _, n := range seasons {
-			if n == 0 {
-				continue // Specials are never searched automatically
-			}
-			if err := q.InsertSearchState(ctx, db.InsertSearchStateParams{
-				VersionID: vid, Season: sql.NullInt64{Int64: int64(n), Valid: true},
-				NextMissingAt: sql.NullString{String: now, Valid: true}, NextUpgradeAt: sql.NullString{String: now, Valid: true},
-			}); err != nil {
-				return 0, err
-			}
-		}
-	}
-	return id, tx.Commit()
+	return id, seasons, nil
 }
 
 // fileEp is a file covering an episode of a Version.

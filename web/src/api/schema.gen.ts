@@ -898,7 +898,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Scan the Movie Root folders for files to adopt
+         * Scan the Root folders for files to adopt
          * @description Starts a background scan (manual only) and answers `202` with `Location: /adoption`. A new scan
          *     replaces the stored plan. Each top-level entry of a Root folder is one Title candidate; tracked
          *     Titles' folders are scanned too, for files no Version holds. `409 conflict` while a scan or a
@@ -1986,6 +1986,8 @@ export interface components {
         };
         AdoptionMatch: {
             tmdb_id: number;
+            /** @description The TheTVDB id of a Series match; null for a Movie. */
+            tvdb_id?: number | null;
             title: string;
             year: number | null;
             /**
@@ -2006,6 +2008,11 @@ export interface components {
             to: string;
         };
         AdoptionFile: {
+            /** @description The episodes of a Series file (a multi-episode file names several); empty for a Movie file. */
+            episodes: {
+                season: number;
+                number: number;
+            }[];
             path: string;
             /** @description The path it gets in the naming scheme. */
             to: string;
@@ -2027,21 +2034,22 @@ export interface components {
              * @description Why the file stays untouched; null when it is adopted if ticked.
              * @enum {string|null}
              */
-            left: "duplicate" | "path_occupied" | null;
+            left: "duplicate" | "path_occupied" | "unmatched" | null;
             subtitles: components["schemas"]["AdoptionSubtitle"][];
         };
         AdoptionRow: {
             /** Format: int64 */
             id: number;
+            kind: components["schemas"]["TitleKind"];
             /** @enum {string} */
             status: "matched" | "needs_choice" | "skipped";
             /** @enum {string|null} */
-            skip_reason: "invalid" | "no_video" | "no_enabled_profile" | null;
+            skip_reason: "invalid" | "no_video" | "no_enabled_profile" | "not_on_tvdb" | null;
             /** @description The folder or loose file in the Root folder. */
             entry: string;
             ticked: boolean;
             match: components["schemas"]["AdoptionMatch"] | null;
-            /** @description Likely Movies for a Needs choice row. */
+            /** @description Likely Movies or Series for a Needs choice row. */
             candidates: components["schemas"]["AdoptionCandidate"][];
             files: components["schemas"]["AdoptionFile"][];
         };

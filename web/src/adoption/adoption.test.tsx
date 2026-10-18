@@ -31,12 +31,14 @@ const file = (name: string, over: Partial<components['schemas']['AdoptionFile']>
   held_score: null,
   ticked: true,
   left: null,
+  episodes: [],
   subtitles: [{ from: '/a.en.srt', to: '/b.eng.srt' }],
   ...over,
 })
 
 const matched: Row = {
   id: 1,
+  kind: 'movie',
   status: 'matched',
   skip_reason: null,
   entry: '/data/media/movies/Paddington.2014.1080p',
@@ -47,6 +49,7 @@ const matched: Row = {
 }
 const doubtful: Row = {
   id: 2,
+  kind: 'movie',
   status: 'needs_choice',
   skip_reason: null,
   entry: '/data/media/movies/The Lost',
@@ -57,6 +60,7 @@ const doubtful: Row = {
 }
 const broken: Row = {
   id: 3,
+  kind: 'movie',
   status: 'skipped',
   skip_reason: 'invalid',
   entry: '/data/media/movies/Broken',
@@ -66,11 +70,29 @@ const broken: Row = {
   files: [],
 }
 
-function fakeAdoption() {
+const series: Row = {
+  id: 4,
+  kind: 'series',
+  status: 'matched',
+  skip_reason: null,
+  entry: '/data/media/tv/Breaking Bad',
+  ticked: true,
+  match: { tmdb_id: 1396, tvdb_id: 81189, title: 'Breaking Bad', year: 2008, title_id: null, source: 'tag', folder: 'Breaking Bad (2008) {tvdb-81189}' },
+  candidates: [],
+  files: [
+    file('e1', { episodes: [{ season: 1, number: 1 }] }),
+    file('e23', { episodes: [{ season: 1, number: 2 }, { season: 1, number: 3 }] }),
+    file('uhd', { slot: 'uhd', episodes: [{ season: 2, number: 1 }] }),
+    file('stray', { left: 'unmatched', ticked: false }),
+  ],
+}
+const orphan: Row = { ...broken, id: 5, kind: 'series', skip_reason: 'not_on_tvdb', entry: '/data/media/tv/Orphan Show' }
+
+export function fakeAdoption(rows: Row[] = [matched, doubtful, broken]) {
   const state = {
     plan: 'idle' as Adoption['state'],
     revision: 1,
-    rows: [matched, doubtful, broken],
+    rows,
     patches: [] as { id: string; body: unknown }[],
     commits: [] as unknown[],
   }
@@ -95,7 +117,7 @@ function fakeAdoption() {
       const body = await request.clone().json()
       state.patches.push({ id: String(params.id), body })
       state.revision++
-      if ('ticked' in body) state.rows = state.rows.map((r) => (String(r.id) === String(params.id) ? { ...r, ticked: body.ticked } : r))
+      if ('ticked' in body) state.rows = state.rows.map((r) => (String(r.id) === String(params.id) ? { ...r, ticked: body.ticked as boolean } : r))
       if ('tmdb_id' in body) {
         state.rows = state.rows.map((r) =>
           r.id === 2
@@ -123,6 +145,18 @@ async function openAdoption() {
 }
 
 describe('Adoption review', () => {
+  it('shows a Series with its episodes, the Versions it proposes, unmatched files and a Series not on TheTVDB', async () => {
+    fakeAdoption([series, orphan])
+    const user = await openAdoption()
+    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+
+    const row = (await screen.findAllByRole('listitem')).find((li) => li.textContent?.includes('Breaking Bad (2008)'))!
+    expect(row).toHaveTextContent('HD: 3 episodes, UHD: 1 episode')
+    expect(row).toHaveTextContent('S01E02-E03')
+    expect(row).toHaveTextContent('No matching episode, left in place')
+    expect(screen.getByText('Not on TheTVDB, so Kestrel cannot manage it')).toBeInTheDocument()
+  })
+
   it('scans, shows matched, needs-choice and skipped rows, settles a choice and commits the plan it reviewed', async () => {
     const state = fakeAdoption()
     const user = await openAdoption()

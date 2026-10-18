@@ -68,6 +68,7 @@ func (e AdoptionFileAction) Valid() bool {
 const (
 	AdoptionFileLeftDuplicate    AdoptionFileLeft = "duplicate"
 	AdoptionFileLeftPathOccupied AdoptionFileLeft = "path_occupied"
+	AdoptionFileLeftUnmatched    AdoptionFileLeft = "unmatched"
 )
 
 // Valid indicates whether the value is a known member of the AdoptionFileLeft enum.
@@ -76,6 +77,8 @@ func (e AdoptionFileLeft) Valid() bool {
 	case AdoptionFileLeftDuplicate:
 		return true
 	case AdoptionFileLeftPathOccupied:
+		return true
+	case AdoptionFileLeftUnmatched:
 		return true
 	default:
 		return false
@@ -108,6 +111,7 @@ const (
 	AdoptionRowSkipReasonInvalid          AdoptionRowSkipReason = "invalid"
 	AdoptionRowSkipReasonNoEnabledProfile AdoptionRowSkipReason = "no_enabled_profile"
 	AdoptionRowSkipReasonNoVideo          AdoptionRowSkipReason = "no_video"
+	AdoptionRowSkipReasonNotOnTvdb        AdoptionRowSkipReason = "not_on_tvdb"
 )
 
 // Valid indicates whether the value is a known member of the AdoptionRowSkipReason enum.
@@ -118,6 +122,8 @@ func (e AdoptionRowSkipReason) Valid() bool {
 	case AdoptionRowSkipReasonNoEnabledProfile:
 		return true
 	case AdoptionRowSkipReasonNoVideo:
+		return true
+	case AdoptionRowSkipReasonNotOnTvdb:
 		return true
 	default:
 		return false
@@ -892,6 +898,12 @@ type AdoptionFile struct {
 	// Action Create the Version, fill an empty one, or replace the file a Version holds.
 	Action AdoptionFileAction `json:"action"`
 
+	// Episodes The episodes of a Series file (a multi-episode file names several); empty for a Movie file.
+	Episodes []struct {
+		Number int `json:"number"`
+		Season int `json:"season"`
+	} `json:"episodes"`
+
 	// HeldScore The Score of the file `replace` would replace.
 	HeldScore *int `json:"held_score"`
 
@@ -929,7 +941,10 @@ type AdoptionMatch struct {
 	// TitleId The tracked Title the files join; null when adopting creates the Title.
 	TitleId *int64 `json:"title_id"`
 	TmdbId  int    `json:"tmdb_id"`
-	Year    *int   `json:"year"`
+
+	// TvdbId The TheTVDB id of a Series match; null for a Movie.
+	TvdbId *int `json:"tvdb_id,omitempty"`
+	Year   *int `json:"year"`
 }
 
 // AdoptionMatchSource ID tag, confident name match, or picked by the admin.
@@ -937,13 +952,14 @@ type AdoptionMatchSource string
 
 // AdoptionRow defines model for AdoptionRow.
 type AdoptionRow struct {
-	// Candidates Likely Movies for a Needs choice row.
+	// Candidates Likely Movies or Series for a Needs choice row.
 	Candidates []AdoptionCandidate `json:"candidates"`
 
 	// Entry The folder or loose file in the Root folder.
 	Entry      string                 `json:"entry"`
 	Files      []AdoptionFile         `json:"files"`
 	Id         int64                  `json:"id"`
+	Kind       TitleKind              `json:"kind"`
 	Match      *AdoptionMatch         `json:"match"`
 	SkipReason *AdoptionRowSkipReason `json:"skip_reason"`
 	Status     AdoptionRowStatus      `json:"status"`
@@ -2388,7 +2404,7 @@ type ServerInterface interface {
 	// PatchAdoptionRow Tick a row or settle its match
 	// (PATCH /adoption/rows/{id})
 	PatchAdoptionRow(w http.ResponseWriter, r *http.Request, id int64)
-	// ScanAdoption Scan the Movie Root folders for files to adopt
+	// ScanAdoption Scan the Root folders for files to adopt
 	// (POST /adoption/scan)
 	ScanAdoption(w http.ResponseWriter, r *http.Request)
 	// GetApiKey The API key's prefix and age
@@ -8414,7 +8430,7 @@ type StrictServerInterface interface {
 	// PatchAdoptionRow Tick a row or settle its match
 	// (PATCH /adoption/rows/{id})
 	PatchAdoptionRow(ctx context.Context, request PatchAdoptionRowRequestObject) (PatchAdoptionRowResponseObject, error)
-	// ScanAdoption Scan the Movie Root folders for files to adopt
+	// ScanAdoption Scan the Root folders for files to adopt
 	// (POST /adoption/scan)
 	ScanAdoption(ctx context.Context, request ScanAdoptionRequestObject) (ScanAdoptionResponseObject, error)
 	// GetApiKey The API key's prefix and age
