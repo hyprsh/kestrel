@@ -148,11 +148,20 @@ var (
 	ErrNoneSet = errors.New("no Root folder is configured")
 )
 
+// Kind is what a Root folder holds: the "movie" or "series" of a Title's kind.
+type Kind string
+
+// The kinds of Root folder.
+const (
+	Movie  Kind = "movie"
+	Series Kind = "series"
+)
+
 // Pick is the Root folder a new Title goes in: the requested one, which must
 // be configured for the kind, else the kind's first (its default).
-func (f Folders) Pick(series bool, requested string) (string, error) {
+func (f Folders) Pick(kind Kind, requested string) (string, error) {
 	configured := f.Movies
-	if series {
+	if kind == Series {
 		configured = f.Series
 	}
 	if requested != "" {

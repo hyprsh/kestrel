@@ -11,23 +11,23 @@ func TestPickTakesTheNamedRootFolderOrTheKindsFirst(t *testing.T) {
 	f := rootfolders.Folders{Movies: []string{"/m1", "/m2"}, Series: []string{"/tv"}}
 
 	cases := []struct {
-		series    bool
+		kind      rootfolders.Kind
 		requested string
 		want      string
 		err       error
 	}{
-		{false, "", "/m1", nil},
-		{false, "/m2", "/m2", nil},
-		{false, "/tv", "", rootfolders.ErrNotConfigured},
-		{true, "", "/tv", nil},
+		{rootfolders.Movie, "", "/m1", nil},
+		{rootfolders.Movie, "/m2", "/m2", nil},
+		{rootfolders.Movie, "/tv", "", rootfolders.ErrNotConfigured},
+		{rootfolders.Series, "", "/tv", nil},
 	}
 	for _, c := range cases {
-		got, err := f.Pick(c.series, c.requested)
+		got, err := f.Pick(c.kind, c.requested)
 		if got != c.want || !errors.Is(err, c.err) {
-			t.Errorf("Pick(%v, %q) = %q, %v; want %q, %v", c.series, c.requested, got, err, c.want, c.err)
+			t.Errorf("Pick(%v, %q) = %q, %v; want %q, %v", c.kind, c.requested, got, err, c.want, c.err)
 		}
 	}
-	if _, err := (rootfolders.Folders{}).Pick(true, ""); !errors.Is(err, rootfolders.ErrNoneSet) {
+	if _, err := (rootfolders.Folders{}).Pick(rootfolders.Series, ""); !errors.Is(err, rootfolders.ErrNoneSet) {
 		t.Errorf("no folders: %v", err)
 	}
 }

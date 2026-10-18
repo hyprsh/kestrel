@@ -443,7 +443,7 @@ func (s *Service) apply(ctx context.Context, in Input, t target, specs []library
 		if err != nil {
 			return 0, false, err
 		}
-		root, err := roots.Pick(in.Kind == library.Series, "")
+		root, err := roots.Pick(rootfolders.Kind(in.Kind), "")
 		if errors.Is(err, rootfolders.ErrNoneSet) {
 			return 0, false, ErrNoRootFolder
 		}
