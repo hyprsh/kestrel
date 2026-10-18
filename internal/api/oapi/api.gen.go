@@ -1309,9 +1309,30 @@ type IndexerError struct {
 
 // IndexerStatus defines model for IndexerStatus.
 type IndexerStatus struct {
-	InstanceId int64              `json:"instance_id"`
-	Message    *string            `json:"message"`
-	Name       string             `json:"name"`
+	GrabMax *int `json:"grab_max"`
+
+	// GrabUsed Downloads used today, when the indexer reports its download quota.
+	GrabUsed *int `json:"grab_used"`
+
+	// GrabsPaused Grabs are paused (code 501, a bare 429 or a spent download quota). Not a failure.
+	GrabsPaused bool `json:"grabs_paused"`
+
+	// GrabsPausedUntil When the pause ends; null for a spent download quota, which ends when the indexer says so.
+	GrabsPausedUntil *time.Time `json:"grabs_paused_until"`
+	InstanceId       int64      `json:"instance_id"`
+	Message          *string    `json:"message"`
+	Name             string     `json:"name"`
+
+	// SearchMax The daily search budget, from the indexer's `apilimits` or the instance's `api_requests_per_day`;
+	// null when neither is known. Sweeps stop at 80 % of it; RSS, Grabs and manual searches go on.
+	SearchMax *int `json:"search_max"`
+
+	// SearchPausedUntil Searches (RSS included) are paused until then because the indexer said its request limit
+	// (code 500) or a bare 429 was reached. Not a failure.
+	SearchPausedUntil *time.Time `json:"search_paused_until"`
+
+	// SearchUsed Search requests made today (the indexer's own count when it reports one).
+	SearchUsed int                `json:"search_used"`
 	State      IndexerStatusState `json:"state"`
 }
 

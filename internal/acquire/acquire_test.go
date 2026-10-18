@@ -33,6 +33,8 @@ type rig struct {
 	svc      *acquire.Service
 	lib      *library.Service
 	idx      *ixfake.Indexer
+	idx2     *ixfake.Indexer
+	inst     *instances.Service
 	idxID    int64
 	sab      *dcfake.Client
 	clock    *clock
@@ -74,11 +76,11 @@ func newRigWith(t *testing.T, specs ...library.VersionSpec) *rig {
 	t.Cleanup(func() { st.Close() })
 	clk := &clock{now: time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)}
 
-	idx, sab := ixfake.New("k"), dcfake.New("k")
+	idx, idx2, sab := ixfake.New("k"), ixfake.New("k"), dcfake.New("k")
 	reg := plugin.NewRegistry()
 	for _, err := range []error{
 		reg.Register(indexer.Contract, idx),
-		reg.Register(indexer.Contract, secondIndexer{ixfake.New("k")}),
+		reg.Register(indexer.Contract, secondIndexer{idx2}),
 		reg.Register(downloadclient.Contract, sab),
 	} {
 		if err != nil {
@@ -117,7 +119,7 @@ func newRigWith(t *testing.T, specs ...library.VersionSpec) *rig {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &rig{svc: svc, lib: lib, idx: idx, idxID: ix.ID, sab: sab, clock: clk, titleID: id, versions: versions, deps: deps}
+	return &rig{svc: svc, lib: lib, idx: idx, idx2: idx2, inst: inst, idxID: ix.ID, sab: sab, clock: clk, titleID: id, versions: versions, deps: deps}
 }
 
 func paddington() metadata.MovieDetails {

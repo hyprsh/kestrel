@@ -53,6 +53,7 @@ type sweepRow struct {
 	nextUpgrade, lastUpgrade *time.Time
 	wanted                   bool
 	since                    time.Time // when it became Wanted: the latest among a season's Wanted episodes
+	released                 time.Time // when a Movie came out in the household's country; zero if unknown or a Series
 	versionFilled            bool      // the Version as a whole is Filled: it is up for Upgrades
 }
 
@@ -154,6 +155,7 @@ func (s *Service) sweepRows(ctx context.Context, now time.Time) ([]sweepRow, err
 			u := Unit{Monitored: true, HasFile: hasFile[v.ID], AddedAt: added}
 			if released, ok := releaseDatesOf(datesOf[t.ID]).Released(country); ok {
 				u.Released = &released
+				r.released = released
 			}
 			state, since := StateAt(u, now)
 			r.versionFilled = state == Filled
@@ -183,6 +185,15 @@ func (s *Service) sweepRows(ctx context.Context, now time.Time) ([]sweepRow, err
 	return out, nil
 }
 
+// recency is how recently the row's content came out: a Movie's release date,
+// else when it became Wanted (a Series season: its latest aired episode).
+func (r sweepRow) recency() time.Time {
+	if !r.released.IsZero() {
+		return r.released
+	}
+	return r.since
+}
+
 // dueAt is when a Wanted row is next searched. A Wanted episode that appeared
 // after the last search (one just aired) restarts the early cadence: the row is
 // searched a day after it became Wanted, whatever was scheduled.
@@ -200,16 +211,23 @@ func (r sweepRow) dueAt() (time.Time, bool) {
 }
 
 // DueMissing lists the Versions of monitored Titles with something Wanted whose
-// next missing search is due at now, longest-waiting first. A Series Version has a
-// search_state row per season and is listed once, however many seasons are due.
+// next missing search is due at now. The order is the sweep's, for a budget that
+// may run out: Versions a Request added first, then the most recently released.
+// A Series Version has a search_state row per season and is listed once,
+// however many seasons are due.
 func (s *Service) DueMissing(ctx context.Context, now time.Time) ([]Due, error) {
 	rows, err := s.sweepRows(ctx, now)
 	if err != nil {
 		return nil, err
 	}
+	requested, err := s.requestAdded(ctx)
+	if err != nil {
+		return nil, err
+	}
 	type entry struct {
 		Due
-		at time.Time
+		released  time.Time
+		requested bool
 	}
 	var found []entry
 	index := map[int64]int{}
@@ -219,20 +237,46 @@ func (s *Service) DueMissing(ctx context.Context, now time.Time) ([]Due, error) 
 			continue
 		}
 		if i, seen := index[r.versionID]; seen {
-			if at.Before(found[i].at) {
-				found[i].at = at
+			if k := r.recency(); k.After(found[i].released) {
+				found[i].released = k
 			}
 			continue
 		}
 		index[r.versionID] = len(found)
-		found = append(found, entry{Due{VersionID: r.versionID, TitleID: r.titleID}, at})
+		found = append(found, entry{Due{VersionID: r.versionID, TitleID: r.titleID}, r.recency(), requested[r.versionID]})
 	}
-	slices.SortStableFunc(found, func(a, b entry) int { return a.at.Compare(b.at) })
+	slices.SortStableFunc(found, func(a, b entry) int {
+		if a.requested != b.requested {
+			if a.requested {
+				return -1
+			}
+			return 1
+		}
+		return b.released.Compare(a.released)
+	})
 	out := make([]Due, len(found))
 	for i, f := range found {
 		out[i] = f.Due
 	}
 	return out, nil
+}
+
+// requestAdded is the Versions a Request added (requests keeps the link).
+func (s *Service) requestAdded(ctx context.Context) (map[int64]bool, error) {
+	rows, err := s.st.Read().QueryContext(ctx, `SELECT DISTINCT version_id FROM request_slots WHERE version_id IS NOT NULL`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64]bool{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out[id] = true
+	}
+	return out, rows.Err()
 }
 
 // MarkMissingSearched records that a Version was searched for what it is missing

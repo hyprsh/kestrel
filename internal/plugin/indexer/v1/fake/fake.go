@@ -29,6 +29,7 @@ type Indexer struct {
 	releases []indexer.Release
 	nzbs     map[string][]byte // by download URL
 	limits   map[string]time.Duration
+	reported indexer.Limits
 }
 
 var _ indexer.Indexer = (*Indexer)(nil)
@@ -50,6 +51,7 @@ func (*Indexer) Describe() plugin.Manifest {
 		Capabilities: map[string][]string{"protocols": {"usenet"}},
 		Fields: []plugin.Field{
 			{Key: "api_key", Label: "API key", Type: plugin.FieldSecret, Required: true},
+			{Key: "api_requests_per_day", Label: "API requests per day", Type: plugin.FieldInt},
 		},
 	}
 }
@@ -108,6 +110,9 @@ func (i *Indexer) Search(_ context.Context, conn plugin.Connection, q indexer.Se
 	if wait, spent := i.limits[plugin.LimitSearch]; spent {
 		return indexer.SearchResult{}, &plugin.Error{Code: plugin.CodeRateLimited, Message: "Request limit reached", RetryAfter: wait, Limit: plugin.LimitSearch}
 	}
+	if wait, spent := i.limits[""]; spent {
+		return indexer.SearchResult{}, &plugin.Error{Code: plugin.CodeRateLimited, Message: "Too many requests", RetryAfter: wait}
+	}
 
 	cats := q.Categories
 	if len(cats) == 0 {
@@ -137,7 +142,7 @@ func (i *Indexer) Search(_ context.Context, conn plugin.Connection, q indexer.Se
 	if len(hits) > limit {
 		hits = hits[:limit]
 	}
-	return indexer.SearchResult{Releases: append([]indexer.Release{}, hits...), Offset: q.Offset, Total: total}, nil
+	return indexer.SearchResult{Releases: append([]indexer.Release{}, hits...), Offset: q.Offset, Total: total, Limits: i.reported}, nil
 }
 
 // inCategories matches like Newznab: a parent id (2000) covers its sub-categories (2040).
@@ -200,6 +205,9 @@ func (i *Indexer) Fetch(_ context.Context, conn plugin.Connection, downloadURL s
 	if wait, spent := i.limits[plugin.LimitGrab]; spent {
 		return nil, &plugin.Error{Code: plugin.CodeRateLimited, Message: "Download limit reached", RetryAfter: wait, Limit: plugin.LimitGrab}
 	}
+	if wait, spent := i.limits[""]; spent {
+		return nil, &plugin.Error{Code: plugin.CodeRateLimited, Message: "Too many requests", RetryAfter: wait}
+	}
 	data, ok := i.nzbs[downloadURL]
 	if !ok {
 		return nil, plugin.Errorf(plugin.CodeNotFound, "no such release")
@@ -239,7 +247,15 @@ func (i *Indexer) drop(title string) {
 	})
 }
 
-// Exhaust spends a budget (conformance.Backend).
+// Report makes every search answer carry l, as Newznab's apilimits element does.
+func (i *Indexer) Report(l indexer.Limits) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.reported = l
+}
+
+// Exhaust spends a budget (conformance.Backend). The limit "" is a bare
+// HTTP 429: both searches and downloads are refused, with no Limit on the Error.
 func (i *Indexer) Exhaust(limit string, retryAfter time.Duration) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
@@ -251,4 +267,5 @@ func (i *Indexer) Replenish() {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	clear(i.limits)
+	i.reported = indexer.Limits{}
 }

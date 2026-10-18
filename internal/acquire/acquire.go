@@ -78,6 +78,10 @@ type Indexers interface {
 	Search(ctx context.Context, q indexers.Query) indexers.Result
 	RSS(ctx context.Context) indexers.Result
 	Fetch(ctx context.Context, indexerID int64, downloadURL string) ([]byte, error)
+	// GrabsPaused says whether the indexer's Grabs are paused: Decide skips its Releases.
+	GrabsPaused(indexerID int64) bool
+	// CanSweep says whether a sweep could ask any indexer now (the 80 % stop, pauses).
+	CanSweep(ctx context.Context) bool
 }
 
 // Downloads is the downloads host.
@@ -657,4 +661,18 @@ func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
 // GrabEpisodes are the episodes a Series Grab was sent for, by id; none for a Movie.
 func (s *Service) GrabEpisodes(ctx context.Context, grabID int64) ([]int64, error) {
 	return db.New(s.st.Read()).ListGrabEpisodes(ctx, grabID)
+}
+
+// decide is Decide over candidates whose indexers' Grabs may be paused right
+// now. The flag is set here and not when a Release is cached, so a pause that
+// began or ended since the search counts.
+func (s *Service) decide(in Input) []GrabPlan {
+	cands := slices.Clone(in.Candidates)
+	for i := range cands {
+		if id, err := strconv.ParseInt(cands[i].IndexerID, 10, 64); err == nil {
+			cands[i].IndexerGrabsPaused = s.idx.GrabsPaused(id)
+		}
+	}
+	in.Candidates = cands
+	return Decide(in)
 }

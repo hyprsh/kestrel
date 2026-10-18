@@ -1351,9 +1351,9 @@ paths:
       operationId: getSystemStatus
       summary: The health strip
       description: |
-        Capacity at a glance: the download client, each indexer and the free space on the data mount
-        and every Root folder. Indexer budgets, pauses and the TRaSH snapshot's age fill in with the
-        tickets that own them.
+        Capacity at a glance: the download client, each indexer with its daily budget and any pause, and
+        the free space on the data mount and every Root folder. The TRaSH snapshot's age fills in with
+        the ticket that owns it.
       tags: [system]
       responses:
         "200":
@@ -3265,7 +3265,7 @@ components:
           description: What the last failed call said.
     IndexerStatus:
       type: object
-      required: [instance_id, name, state, message]
+      required: [instance_id, name, state, message, search_used, search_max, grab_used, grab_max, search_paused_until, grabs_paused, grabs_paused_until]
       properties:
         instance_id:
           type: integer
@@ -3278,6 +3278,37 @@ components:
         message:
           type: string
           nullable: true
+        search_used:
+          type: integer
+          description: Search requests made today (the indexer's own count when it reports one).
+        search_max:
+          type: integer
+          nullable: true
+          description: |
+            The daily search budget, from the indexer's `apilimits` or the instance's `api_requests_per_day`;
+            null when neither is known. Sweeps stop at 80 % of it; RSS, Grabs and manual searches go on.
+        grab_used:
+          type: integer
+          nullable: true
+          description: Downloads used today, when the indexer reports its download quota.
+        grab_max:
+          type: integer
+          nullable: true
+        search_paused_until:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Searches (RSS included) are paused until then because the indexer said its request limit
+            (code 500) or a bare 429 was reached. Not a failure.
+        grabs_paused:
+          type: boolean
+          description: Grabs are paused (code 501, a bare 429 or a spent download quota). Not a failure.
+        grabs_paused_until:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the pause ends; null for a spent download quota, which ends when the indexer says so.
     DiskStatus:
       type: object
       required: [path, free_bytes, total_bytes]

@@ -231,6 +231,20 @@ func (s *server) GetSystemStatus(ctx context.Context, _ oapi.GetSystemStatusRequ
 			continue
 		}
 		row := oapi.IndexerStatus{InstanceId: inst.ID, Name: inst.Name, State: oapi.IndexerStatusState("ok")}
+		b := s.indexers.Status(inst.ID, inst.Connection().Int("api_requests_per_day"))
+		row.SearchUsed, row.GrabsPaused = b.SearchUsed, b.GrabsPaused
+		if b.SearchMax > 0 {
+			row.SearchMax = &b.SearchMax
+		}
+		if b.GrabMax > 0 {
+			row.GrabUsed, row.GrabMax = &b.GrabUsed, &b.GrabMax
+		}
+		if !b.SearchPausedUntil.IsZero() {
+			row.SearchPausedUntil = &b.SearchPausedUntil
+		}
+		if !b.GrabsPausedUntil.IsZero() {
+			row.GrabsPausedUntil = &b.GrabsPausedUntil
+		}
 		switch st := states[inst.ID]; {
 		case !inst.Enabled:
 			row.State = oapi.IndexerStatusState("disabled")

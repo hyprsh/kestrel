@@ -1,4 +1,4 @@
-// The health strip: capacity at a glance. Budgets, TRaSH age and updates join it with their own tickets.
+// The health strip: capacity at a glance. TRaSH age and updates join it with their own tickets.
 import { useStatus, type SystemStatus } from '../api/attention'
 import { cx } from '../ui'
 
@@ -29,6 +29,22 @@ function client(s: SystemStatus['download_client']) {
   return <Item label={s.name ?? 'Download client'} state={s.state === 'ok' ? 'ok' : 'failing'} detail={s.state === 'ok' ? 'ok' : `failing${s.message ? `: ${s.message}` : ''}`} />
 }
 
+type Indexer = SystemStatus['indexers'][number]
+
+const clockTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+/** The budget and pauses after the state: "ok · 42 of 100 searches today · searches paused until 14:05". */
+function indexerDetail(i: Indexer): string {
+  const parts: string[] = [i.state === 'failing' && i.message ? `failing: ${i.message}` : i.state]
+  if (i.state !== 'disabled') {
+    parts.push(i.search_max == null ? `${i.search_used} searches today` : `${i.search_used} of ${i.search_max} searches today`)
+  }
+  if (i.search_paused_until) parts.push(`searches paused until ${clockTime(i.search_paused_until)}`)
+  if (i.grabs_paused_until) parts.push(`Grabs paused until ${clockTime(i.grabs_paused_until)}`)
+  else if (i.grabs_paused) parts.push(`Grabs paused (${i.grab_used ?? '?'} of ${i.grab_max ?? '?'} downloads used)`)
+  return parts.join(' · ')
+}
+
 export function HealthStrip() {
   const status = useStatus()
   const s = status.data
@@ -45,7 +61,7 @@ export function HealthStrip() {
               key={i.instance_id}
               label={i.name}
               state={i.state === 'ok' ? 'ok' : i.state === 'failing' ? 'failing' : 'idle'}
-              detail={i.state === 'failing' && i.message ? `failing: ${i.message}` : i.state}
+              detail={indexerDetail(i)}
             />
           ))}
           {s.update && <Item label="Update" state="idle" detail={`Kestrel ${s.update.version} available`} />}

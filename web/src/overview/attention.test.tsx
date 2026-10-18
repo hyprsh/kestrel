@@ -211,11 +211,21 @@ describe('Needs attention', () => {
   })
 })
 
+const idle = {
+  search_used: 0,
+  search_max: null,
+  grab_used: null,
+  grab_max: null,
+  search_paused_until: null,
+  grabs_paused: false,
+  grabs_paused_until: null,
+}
+
 const status = (over: Partial<Status> = {}): Status => ({
   download_client: { state: 'ok', name: 'SABnzbd', instance_id: 3, message: null },
   indexers: [
-    { instance_id: 11, name: 'Alpha', state: 'ok', message: null },
-    { instance_id: 12, name: 'Beta', state: 'failing', message: 'API key rejected' },
+    { instance_id: 11, name: 'Alpha', state: 'ok', message: null, ...idle },
+    { instance_id: 12, name: 'Beta', state: 'failing', message: 'API key rejected', ...idle },
   ],
   disks: [{ path: '/data', free_bytes: 800 * 2 ** 30, total_bytes: 2 ** 40 }],
   ...over,
@@ -234,6 +244,32 @@ describe('The health strip', () => {
     expect(strip).toHaveTextContent(/Beta.*failing/i)
     expect(strip).toHaveTextContent('/data')
     expect(strip).toHaveTextContent('800 GB free of 1 TB')
+  })
+
+  it("shows each indexer's daily budget and any pause, which are not failures", async () => {
+    server.use(
+      http.get('/system/status', ({ response }) =>
+        response(200).json(
+          status({
+            indexers: [
+              { instance_id: 11, name: 'Alpha', state: 'ok', message: null, ...idle, search_used: 42, search_max: 100 },
+              { instance_id: 12, name: 'Beta', state: 'ok', message: null, ...idle, search_used: 7, search_paused_until: '2026-10-18T14:05:00Z', grabs_paused: true, grabs_paused_until: '2026-10-18T14:05:00Z' },
+              { instance_id: 13, name: 'Gamma', state: 'ok', message: null, ...idle, grab_used: 5, grab_max: 5, grabs_paused: true },
+            ],
+          }),
+        ),
+      ),
+    )
+    renderApp()
+
+    const strip = await screen.findByRole('region', { name: /health/i })
+
+    expect(await within(strip).findByText(/42 of 100 searches today/)).toBeInTheDocument()
+    expect(strip).toHaveTextContent(/Beta.*7 searches today/)
+    expect(strip).toHaveTextContent(/Beta.*searches paused until/)
+    expect(strip).toHaveTextContent(/Beta.*Grabs paused until/)
+    expect(strip).toHaveTextContent(/Gamma.*Grabs paused \(5 of 5 downloads used\)/)
+    expect(strip).not.toHaveTextContent(/failing/)
   })
 
   it('says when no download client is set up', async () => {

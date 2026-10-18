@@ -184,6 +184,10 @@ type Outcome struct {
 // fail to send are joined into the error, and the Versions still count as
 // searched.
 func (s *Service) SearchWanted(ctx context.Context, titleID int64, versionIDs []int64) (Outcome, error) {
+	ctx = indexers.WithSweep(ctx)
+	if !s.idx.CanSweep(ctx) {
+		return Outcome{}, nil // nothing was searched: the Versions stay due
+	}
 	return s.searchWanted(ctx, titleID, versionIDs, false)
 }
 
@@ -198,6 +202,10 @@ func (s *Service) searchWanted(ctx context.Context, titleID int64, versionIDs []
 // a Release has to clear (Decide's Upgrade threshold). It grabs nothing that
 // does not beat what is held.
 func (s *Service) SearchUpgrades(ctx context.Context, titleID int64, versionIDs []int64) (Outcome, error) {
+	ctx = indexers.WithSweep(ctx)
+	if !s.idx.CanSweep(ctx) {
+		return Outcome{}, nil
+	}
 	return s.searchTitle(ctx, titleID, versionIDs, false, true)
 }
 
@@ -252,7 +260,7 @@ func (s *Service) searchTitle(ctx context.Context, titleID int64, versionIDs []i
 		byRelease[e.cand.GUID+"\x00"+e.cand.IndexerID] = e
 	}
 	var errs []error
-	for _, plan := range Decide(in) {
+	for _, plan := range s.decide(in) {
 		e := byRelease[plan.Candidate.GUID+"\x00"+plan.Candidate.IndexerID]
 		if e == nil {
 			continue

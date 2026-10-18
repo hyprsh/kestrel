@@ -1106,9 +1106,9 @@ export interface paths {
         };
         /**
          * The health strip
-         * @description Capacity at a glance: the download client, each indexer and the free space on the data mount
-         *     and every Root folder. Indexer budgets, pauses and the TRaSH snapshot's age fill in with the
-         *     tickets that own them.
+         * @description Capacity at a glance: the download client, each indexer with its daily budget and any pause, and
+         *     the free space on the data mount and every Root folder. The TRaSH snapshot's age fills in with
+         *     the ticket that owns it.
          */
         get: operations["getSystemStatus"];
         put?: never;
@@ -2230,6 +2230,29 @@ export interface components {
             /** @enum {string} */
             state: "ok" | "failing" | "disabled";
             message: string | null;
+            /** @description Search requests made today (the indexer's own count when it reports one). */
+            search_used: number;
+            /**
+             * @description The daily search budget, from the indexer's `apilimits` or the instance's `api_requests_per_day`;
+             *     null when neither is known. Sweeps stop at 80 % of it; RSS, Grabs and manual searches go on.
+             */
+            search_max: number | null;
+            /** @description Downloads used today, when the indexer reports its download quota. */
+            grab_used: number | null;
+            grab_max: number | null;
+            /**
+             * Format: date-time
+             * @description Searches (RSS included) are paused until then because the indexer said its request limit
+             *     (code 500) or a bare 429 was reached. Not a failure.
+             */
+            search_paused_until: string | null;
+            /** @description Grabs are paused (code 501, a bare 429 or a spent download quota). Not a failure. */
+            grabs_paused: boolean;
+            /**
+             * Format: date-time
+             * @description When the pause ends; null for a spent download quota, which ends when the indexer says so.
+             */
+            grabs_paused_until: string | null;
         };
         DiskStatus: {
             path: string;

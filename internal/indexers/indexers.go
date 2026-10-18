@@ -3,9 +3,8 @@
 // enabled indexer and all in parallel; paging through a result; falling back
 // from an ID search to a text search; and caching each indexer's Caps.
 //
-// Budgets, pacing and pauses on a spent request budget are the host's too but
-// arrive with the loops that need them (RSS, sweeps): every call goes through
-// lane, so that is where they hook in.
+// Budgets, pacing and pauses (budget.go) are the host's too: every request a
+// lane makes, and every NZB fetch, goes through them.
 package indexers
 
 import (
@@ -37,6 +36,8 @@ type Service struct {
 
 	mu       sync.Mutex
 	caps     map[int64]cachedCaps
+	states   map[int64]*state
+	sleep    func(ctx context.Context, d time.Duration) error
 	observer Observer
 }
 
@@ -63,7 +64,7 @@ func New(inst *instances.Service, clock func() time.Time) *Service {
 	if clock == nil {
 		clock = time.Now
 	}
-	return &Service{inst: inst, clock: clock, caps: map[int64]cachedCaps{}}
+	return &Service{inst: inst, clock: clock, caps: map[int64]cachedCaps{}, states: map[int64]*state{}, sleep: sleepFor}
 }
 
 // Query is what to look for, whichever way each indexer can be asked.
@@ -137,7 +138,7 @@ func (s *Service) rssLane(ctx context.Context, inst instances.Instance) (out []R
 	}
 	caps := s.capsOf(ctx, p, inst)
 	for _, media := range []indexer.Media{indexer.MediaMovie, indexer.MediaTV} {
-		res, err := p.Search(ctx, inst.Connection(), indexer.SearchQuery{Media: media, Mode: indexer.ModeRSS, Limit: cmpFirst(caps.MaxPageSize, caps.PageSize, defaultPage)})
+		res, err := s.askSearch(ctx, p, inst, indexer.SearchQuery{Media: media, Mode: indexer.ModeRSS, Limit: cmpFirst(caps.MaxPageSize, caps.PageSize, defaultPage)})
 		for _, r := range res.Releases {
 			out = append(out, Release{Release: r, IndexerID: inst.ID, IndexerName: inst.Name, IndexerPriority: inst.Priority, Media: media})
 		}
@@ -204,7 +205,24 @@ func (s *Service) Fetch(ctx context.Context, indexerID int64, downloadURL string
 	if !ok {
 		return nil, ErrNoSuchIndexer
 	}
-	return p.Fetch(ctx, inst.Connection(), downloadURL)
+	s.mu.Lock()
+	now := s.clock()
+	if st := s.stateOf(inst); st.grabUntil.After(now) {
+		until := st.grabUntil
+		s.mu.Unlock()
+		return nil, pausedErr(plugin.LimitGrab, until, now, "Grabs are paused: the indexer's download limit was reached")
+	} else if st.grabQuotaSpent(now) {
+		s.mu.Unlock()
+		return nil, pausedErr(plugin.LimitGrab, now, now, "Grabs are paused: the indexer's download quota is spent")
+	}
+	s.mu.Unlock()
+	nzb, err := p.Fetch(ctx, inst.Connection(), downloadURL)
+	if pe := plugin.AsError(err); err != nil && ctx.Err() == nil && pe.Code == plugin.CodeRateLimited {
+		s.mu.Lock()
+		s.pause(s.stateOf(inst), pe, s.clock())
+		s.mu.Unlock()
+	}
+	return nzb, err
 }
 
 func (s *Service) plugin(inst instances.Instance) (indexer.Indexer, bool) {
@@ -242,7 +260,7 @@ func (s *Service) lane(ctx context.Context, inst instances.Instance, q Query) (o
 
 	caps := s.capsOf(ctx, p, inst)
 	if byID, ok := idQuery(q, caps); ok {
-		rels, err := page(ctx, p, inst, byID, caps)
+		rels, err := s.page(ctx, p, inst, byID, caps)
 		tag(true, fresh(rels))
 		if err != nil {
 			return out, fail(err)
@@ -252,7 +270,7 @@ func (s *Service) lane(ctx context.Context, inst instances.Instance, q Query) (o
 		}
 	}
 	for _, text := range textQueries(q) {
-		rels, err := page(ctx, p, inst, indexer.SearchQuery{
+		rels, err := s.page(ctx, p, inst, indexer.SearchQuery{
 			Media: q.Media, Mode: indexer.ModeText, Text: text, Season: q.Season, Episode: q.Episode,
 		}, caps)
 		tag(false, fresh(rels))
@@ -351,12 +369,12 @@ func textQueries(q Query) []string {
 }
 
 // page runs q until the indexer has no more, keeping what it gave before an error.
-func page(ctx context.Context, p indexer.Indexer, inst instances.Instance, q indexer.SearchQuery, caps indexer.Caps) ([]indexer.Release, error) {
+func (s *Service) page(ctx context.Context, p indexer.Indexer, inst instances.Instance, q indexer.SearchQuery, caps indexer.Caps) ([]indexer.Release, error) {
 	limit := cmpFirst(caps.MaxPageSize, caps.PageSize, defaultPage)
 	var out []indexer.Release
 	for range maxPages {
 		q.Limit, q.Offset = limit, len(out)
-		res, err := p.Search(ctx, inst.Connection(), q)
+		res, err := s.askSearch(ctx, p, inst, q)
 		if err != nil {
 			return out, err
 		}
