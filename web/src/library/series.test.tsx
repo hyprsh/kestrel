@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
@@ -127,7 +127,8 @@ describe('the episodes heat map', () => {
 
   it('is operated entirely from the keyboard: arrows move, Space toggles an episode or a season', async () => {
     const { state, grid } = await openSeries()
-    await userEvent.tab() // the Monitor select
+    // The Version controls above the pane's Series section have their own tab stops: start at the Monitor select.
+    await act(async () => (await screen.findByRole('combobox', { name: 'Monitor' })).focus())
     await userEvent.tab() // the grid's one tab stop
     const specials = within(grid).getByRole('checkbox', { name: 'Specials' })
     expect(specials).toHaveFocus()

@@ -85,9 +85,9 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
           <VersionColumn key={k} slot={k} title={title} profiles={profiles.data ?? []} profileName={(key) => names.get(key) ?? key} onManualSearch={onManualSearch} />
         ))}
       </div>
-      <RemoveTitle titleId={title.id} />
 
       {title.kind === 'series' && <SeriesSection title={title} />}
+      <RemoveTitle titleId={title.id} />
     </div>
   )
 }
