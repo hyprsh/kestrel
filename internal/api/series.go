@@ -42,7 +42,10 @@ func (s *server) createSeries(ctx context.Context, b *oapi.TitleCreate, specs []
 	id, err := s.library.AddSeries(ctx, library.AddSeries{
 		TMDB: details, TVDB: tv, PrimaryLanguage: string(region.Primary), Monitor: mode, Versions: specs, RootFolder: root,
 	})
-	return s.added(ctx, id, err, metadata.Series, details.TMDBID, details.PosterPath, region.Country)
+	if err != nil {
+		return nil, addProblem(err)
+	}
+	return s.added(ctx, newTitle{id, metadata.Series, details.TMDBID, details.PosterPath, region.Country})
 }
 
 // seriesProblem maps the library's Series errors to problems.

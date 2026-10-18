@@ -399,29 +399,43 @@ func (s *server) CreateTitle(ctx context.Context, r oapi.CreateTitleRequestObjec
 	id, err := s.library.AddMovie(ctx, library.AddMovie{
 		Details: details, PrimaryLanguage: string(region.Primary), Versions: specs, RootFolder: root,
 	})
-	return s.added(ctx, id, err, metadata.Movie, details.TMDBID, details.PosterPath, region.Country)
+	if err != nil {
+		return nil, addProblem(err)
+	}
+	return s.added(ctx, newTitle{id, metadata.Movie, details.TMDBID, details.PosterPath, region.Country})
 }
 
-// added is the end of CreateTitle for both kinds: the 409 for a Title already
-// in the Library, the search on add, the poster and the new Title read back.
-func (s *server) added(ctx context.Context, id int64, addErr error, kind metadata.Kind, tmdbID int, posterPath, country string) (oapi.CreateTitleResponseObject, error) {
+// addProblem is the 409 for a Title already in the Library; any other error as it is.
+func addProblem(err error) error {
 	var exists *library.ExistsError
-	if errors.As(addErr, &exists) {
-		return nil, problem(http.StatusConflict, "conflict", fmt.Sprintf("Already in the Library as title %d", exists.ID))
+	if errors.As(err, &exists) {
+		return problem(http.StatusConflict, "conflict", fmt.Sprintf("Already in the Library as title %d", exists.ID))
 	}
-	if addErr != nil {
-		return nil, addErr
-	}
+	return err
+}
+
+// newTitle is a Title CreateTitle just added, of either kind.
+type newTitle struct {
+	id         int64
+	kind       metadata.Kind
+	tmdbID     int
+	posterPath string
+	country    string
+}
+
+// added is the end of CreateTitle for both kinds: the search on add, the
+// poster and the new Title read back.
+func (s *server) added(ctx context.Context, t newTitle) (oapi.CreateTitleResponseObject, error) {
 	s.jobs.Kick(jobs.Search) // search on add: the new Versions are due now
 	// The poster is a nicety: a failed download is retried when it is first asked for.
-	if _, err := s.posters.Ensure(ctx, kind, tmdbID, posterPath); err != nil && !errors.Is(err, metadata.ErrNoPoster) {
-		s.opts.Logger.Warn("poster download failed", "tmdb_id", tmdbID, "err", err)
+	if _, err := s.posters.Ensure(ctx, t.kind, t.tmdbID, t.posterPath); err != nil && !errors.Is(err, metadata.ErrNoPoster) {
+		s.opts.Logger.Warn("poster download failed", "tmdb_id", t.tmdbID, "err", err)
 	}
-	d, err := s.library.Get(ctx, id, library.View{Country: country, Now: s.opts.Clock()})
+	d, err := s.library.Get(ctx, t.id, library.View{Country: t.country, Now: s.opts.Clock()})
 	if err != nil {
 		return nil, err
 	}
-	return oapi.CreateTitle201JSONResponse(detailToAPI(d, country)), nil
+	return oapi.CreateTitle201JSONResponse(detailToAPI(d, t.country)), nil
 }
 
 func (s *server) GetTitlePoster(ctx context.Context, r oapi.GetTitlePosterRequestObject) (oapi.GetTitlePosterResponseObject, error) {
