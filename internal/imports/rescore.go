@@ -112,7 +112,3 @@ func (s *Service) rescoreVersion(ctx context.Context, snap *scoring.Snapshot, re
 	}
 	return out, nil
 }
-
-// RemoveFile deletes a library file from disk with the subtitles named after
-// it. A file that is already gone is fine.
-func RemoveFile(path string) { removeWithSidecars(path) }

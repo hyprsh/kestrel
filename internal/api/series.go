@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
-	"github.com/hyprsh/kestrel/internal/jobs"
+	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -116,7 +116,7 @@ func (s *server) PatchTitle(ctx context.Context, r oapi.PatchTitleRequestObject)
 		}
 		if *r.Body.MetadataFrozen {
 			// "Keep as is" settles the Title gone upstream row.
-			if err := s.health.Clear(ctx, jobs.GoneUpstreamKey(r.Id)); err != nil {
+			if err := s.health.Clear(ctx, health.GoneUpstreamKey(r.Id)); err != nil {
 				return nil, err
 			}
 		}

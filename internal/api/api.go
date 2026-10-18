@@ -205,6 +205,9 @@ func New(opts Options) *App {
 	}
 	s.adoption = adoption
 	s.cleanup = imports.NewCleanup(imports.CleanupDeps{Library: s.library, Profiles: s.profiles, History: s.history, Clock: opts.Clock})
+	s.remover = imports.NewRemover(imports.RemoverDeps{
+		Library: s.library, Downloads: acq, Health: s.health, FolderChanged: s.mediaRefresh.FolderChanged, Clock: opts.Clock,
+	})
 	s.trash = trashsync.New(trashsync.Deps{
 		Holder: s.scoring, Settings: appSettings, Source: opts.TrashSource, Health: s.health, Clock: opts.Clock, Logger: opts.Logger,
 		Enabled: func(ctx context.Context) bool { return s.updates.Enabled(ctx) },
@@ -294,6 +297,7 @@ type server struct {
 	scoring      *scoring.Holder
 	trash        *trashsync.Service
 	mediaRefresh *imports.Refresher
+	remover      *imports.Remover
 	hub          *hub
 	meta         metadata.Provider
 	tvdb         metadata.TVDBProvider

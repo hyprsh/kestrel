@@ -290,7 +290,7 @@ func TestAVanishedUpstreamEntryRaisesTheRowAndKeepsTheStoredData(t *testing.T) {
 	if err := r.lib.SetMetadataFrozen(ctx, id, true); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.health.Clear(ctx, jobs.GoneUpstreamKey(id)); err != nil {
+	if err := r.health.Clear(ctx, health.GoneUpstreamKey(id)); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.ref.Refresh(ctx, id); err != nil {

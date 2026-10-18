@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"sync"
 	"time"
 
@@ -299,4 +300,9 @@ func (s *Service) Dismiss(ctx context.Context, id int64) error {
 		}
 	}
 	return ErrNotFound
+}
+
+// GoneUpstreamKey is the Needs attention key of a Title whose upstream entry is gone.
+func GoneUpstreamKey(titleID int64) string {
+	return "gone_upstream:" + strconv.FormatInt(titleID, 10)
 }

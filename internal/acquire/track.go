@@ -126,6 +126,23 @@ func phaseOfItem(p downloadclient.Phase) Phase {
 	return PhaseQueued
 }
 
+// CancelVersions cancels the active Grabs of the Versions, their client jobs
+// with them. Canceled Grabs are not blocklisted.
+func (s *Service) CancelVersions(ctx context.Context, versionIDs ...int64) error {
+	active, err := s.Active(ctx)
+	if err != nil {
+		return err
+	}
+	for _, a := range active {
+		if slices.Contains(versionIDs, a.VersionID) {
+			if _, err := s.Cancel(ctx, a.ID, false); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // Cancel stops a Grab: its job leaves the download client (files included),
 // the Grab row goes and the Version is Wanted again. With blocklist the
 // Release also goes on the Blocklist and the next best Release is grabbed. It returns the Grab as it was, or

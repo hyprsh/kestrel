@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strconv"
 	"sync"
 	"time"
 
@@ -60,9 +59,6 @@ type RefreshHealth interface {
 	Raise(ctx context.Context, is health.Issue) error
 	Clear(ctx context.Context, key string) error
 }
-
-// GoneUpstreamKey is the Needs attention key of a Title whose upstream entry is gone.
-func GoneUpstreamKey(titleID int64) string { return "gone_upstream:" + strconv.FormatInt(titleID, 10) }
 
 // RefresherDeps are what NewRefresher needs.
 type RefresherDeps struct {
@@ -146,7 +142,7 @@ func (r *Refresher) Refresh(ctx context.Context, id int64) error {
 		return err
 	}
 	if r.d.Health != nil {
-		if err := r.d.Health.Clear(ctx, GoneUpstreamKey(id)); err != nil {
+		if err := r.d.Health.Clear(ctx, health.GoneUpstreamKey(id)); err != nil {
 			r.d.Logger.Warn("clearing a Title gone upstream failed", "title", id, "err", err)
 		}
 	}
@@ -176,7 +172,7 @@ func (r *Refresher) raiseGone(ctx context.Context, d library.Detail) error {
 		name = d.OriginalTitle
 	}
 	return r.d.Health.Raise(ctx, health.Issue{
-		Key: GoneUpstreamKey(d.ID), Kind: health.KindGoneUpstream, Severity: health.Warning, Subject: health.Subject{TitleID: d.ID},
+		Key: health.GoneUpstreamKey(d.ID), Kind: health.KindGoneUpstream, Severity: health.Warning, Subject: health.Subject{TitleID: d.ID},
 		Message: fmt.Sprintf("%s is gone upstream: the metadata provider no longer has it", name),
 	})
 }

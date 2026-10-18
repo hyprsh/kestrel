@@ -4,11 +4,9 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"os"
 	"path/filepath"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
-	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/resolution"
@@ -108,85 +106,22 @@ func (s *server) PatchVersion(ctx context.Context, r oapi.PatchVersionRequestObj
 	return oapi.PatchVersion200JSONResponse(v), nil
 }
 
-// cancelDownloads cancels the active Grabs of the Versions; their jobs go
-// with them.
-func (s *server) cancelDownloads(ctx context.Context, versionIDs ...int64) error {
-	active, err := s.acquire.Active(ctx)
-	if err != nil {
-		return err
-	}
-	for _, a := range active {
-		for _, id := range versionIDs {
-			if a.VersionID == id {
-				if _, err := s.acquire.Cancel(ctx, a.ID, false); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
-}
-
 func (s *server) DeleteVersion(ctx context.Context, r oapi.DeleteVersionRequestObject) (oapi.DeleteVersionResponseObject, error) {
-	ref, err := s.library.GetVersion(ctx, r.Id)
+	err := s.remover.DeleteVersion(ctx, r.Id, r.Params.DeleteFiles != nil && *r.Params.DeleteFiles)
 	if errors.Is(err, library.ErrVersionNotFound) {
 		return nil, problem(http.StatusNotFound, "not_found", "no such Version")
 	} else if err != nil {
 		return nil, err
 	}
-	folder := s.titleFolder(ctx, ref.TitleID)
-	if err := s.cancelDownloads(ctx, r.Id); err != nil {
-		return nil, err
-	}
-	files, err := s.library.RemoveVersion(ctx, r.Id)
-	if err != nil {
-		return nil, err
-	}
-	if r.Params.DeleteFiles != nil && *r.Params.DeleteFiles {
-		for _, f := range files {
-			imports.RemoveFile(f.Path)
-		}
-		if len(files) > 0 {
-			s.mediaRefresh.FolderChanged(ctx, folder)
-		}
-	}
 	return oapi.DeleteVersion204Response{}, nil
 }
 
 func (s *server) DeleteTitle(ctx context.Context, r oapi.DeleteTitleRequestObject) (oapi.DeleteTitleResponseObject, error) {
-	view, err := s.view(ctx)
-	if err != nil {
-		return nil, err
-	}
-	d, err := s.library.Get(ctx, r.Id, view)
+	err := s.remover.DeleteTitle(ctx, r.Id, r.Params.DeleteFiles != nil && *r.Params.DeleteFiles)
 	if errors.Is(err, library.ErrNotFound) {
 		return nil, problem(http.StatusNotFound, "not_found", "no such Title")
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, err
-	}
-	ids := make([]int64, len(d.Versions))
-	for i, v := range d.Versions {
-		ids[i] = v.ID
-	}
-	if err := s.cancelDownloads(ctx, ids...); err != nil {
-		return nil, err
-	}
-	gone, err := s.library.RemoveTitle(ctx, r.Id)
-	if err != nil {
-		return nil, err
-	}
-	if err := s.health.Clear(ctx, jobs.GoneUpstreamKey(r.Id)); err != nil {
-		return nil, err
-	}
-	if r.Params.DeleteFiles != nil && *r.Params.DeleteFiles {
-		for _, f := range gone.Files {
-			imports.RemoveFile(f.Path)
-		}
-		if gone.Folder != "" {
-			_ = os.Remove(filepath.Join(gone.RootFolder, gone.Folder)) // only if nothing else is in it
-			s.mediaRefresh.FolderChanged(ctx, filepath.Join(gone.RootFolder, gone.Folder))
-		}
 	}
 	return oapi.DeleteTitle204Response{}, nil
 }
