@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -47,6 +48,7 @@ type requestCreate struct {
 	Requester       requester    `json:"requester"`
 	Title           requestTitle `json:"title"`
 	Slots           []slotCreate `json:"slots"`
+	RootFolder      *string      `json:"root_folder,omitempty"`
 	Seasons         *[]int       `json:"seasons,omitempty"`
 }
 
@@ -230,4 +232,25 @@ func (c *client) profiles(ctx context.Context) ([]profile, error) {
 		return nil, err
 	}
 	return out.Items, nil
+}
+
+// rootFolders reads the Root folders Kestrel has: Movies first, then Series,
+// without repeats.
+func (c *client) rootFolders(ctx context.Context) ([]string, error) {
+	var out struct {
+		RootFolders struct {
+			Movies []string `json:"movies"`
+			Series []string `json:"series"`
+		} `json:"root_folders"`
+	}
+	if _, err := c.do(ctx, http.MethodGet, "/settings", nil, &out); err != nil {
+		return nil, err
+	}
+	var all []string
+	for _, p := range append(out.RootFolders.Movies, out.RootFolders.Series...) {
+		if !slices.Contains(all, p) {
+			all = append(all, p)
+		}
+	}
+	return all, nil
 }

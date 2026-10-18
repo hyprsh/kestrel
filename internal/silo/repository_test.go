@@ -3,6 +3,7 @@ package silo
 import (
 	"encoding/json"
 	"slices"
+	"strings"
 	"testing"
 
 	pluginv1 "github.com/Silo-Server/silo-plugin-sdk/pkg/pluginproto/silo/plugin/v1"
@@ -37,9 +38,9 @@ func TestSiloCanReadTheRepository(t *testing.T) {
 	}
 	fields := m.GetCapabilities()[0].GetConfigSchema()[0].GetAdminForm().GetFields()
 	want := map[string]pluginv1.AdminFormControl{
-		"hd_profile":  pluginv1.AdminFormControl_ADMIN_FORM_CONTROL_SELECT,
-		"uhd_profile": pluginv1.AdminFormControl_ADMIN_FORM_CONTROL_SELECT,
-		"also_add_sd": pluginv1.AdminFormControl_ADMIN_FORM_CONTROL_SWITCH,
+		"standard_profile": pluginv1.AdminFormControl_ADMIN_FORM_CONTROL_SELECT,
+		"4k_profile":       pluginv1.AdminFormControl_ADMIN_FORM_CONTROL_SELECT,
+		"root_folder":      pluginv1.AdminFormControl_ADMIN_FORM_CONTROL_SELECT,
 	}
 	for _, f := range fields {
 		if f.GetControl() != want[f.GetKey()] {
@@ -125,5 +126,19 @@ func TestTheBinaryReportsAChecksumAndTheReleasedPlatforms(t *testing.T) {
 	}
 	if want := []string{"linux/amd64", "linux/arm64", "darwin/arm64"}; !slices.Equal(got, want) {
 		t.Errorf("supported_platforms = %v, want %v", got, want)
+	}
+}
+
+func TestTheManifestNamesStandardAnd4KAndNoOtherSlot(t *testing.T) {
+	text := string(ManifestJSON())
+	for _, banned := range []string{"HD", "UHD", "SD", "hd_profile", "also_add"} {
+		if strings.Contains(text, banned) {
+			t.Errorf("manifest mentions %q", banned)
+		}
+	}
+	for _, want := range []string{"Standard", "4K", "root_folder"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("manifest does not mention %q", want)
+		}
 	}
 }

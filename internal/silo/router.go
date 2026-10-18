@@ -51,16 +51,18 @@ type Router struct {
 // NewRouter returns a Router.
 func NewRouter(o Options) *Router { return &Router{opts: o} }
 
-// settings is the connection's config blob.
+// settings is the connection's config blob. Silo request routes can override
+// any key per tier; an empty value means Kestrel's default.
 type settings struct {
-	hdProfile, uhdProfile string
+	standardProfile, fourKProfile, rootFolder string
 }
 
 func settingsOf(c *pluginv1.RouterConnection) settings {
 	m := c.GetConfig().AsMap()
-	s, _ := m["hd_profile"].(string)
-	u, _ := m["uhd_profile"].(string)
-	return settings{hdProfile: s, uhdProfile: u}
+	s, _ := m["standard_profile"].(string)
+	u, _ := m["4k_profile"].(string)
+	f, _ := m["root_folder"].(string)
+	return settings{standardProfile: s, fourKProfile: u, rootFolder: f}
 }
 
 // slotOf maps a Silo tier to a Kestrel Slot.
@@ -72,6 +74,13 @@ func slotOf(q *pluginv1.RequestedQuality) (string, bool) {
 		return "standard", true
 	}
 	return "", false
+}
+
+func slotName(slot string) string {
+	if slot == "4k" {
+		return "4K"
+	}
+	return "Standard"
 }
 
 func qualityOf(slot string) string {
@@ -134,7 +143,7 @@ func (r *Router) Fulfill(ctx context.Context, in *pluginv1.FulfillRequest) (*plu
 	var slots []slotCreate
 	for _, s := range tiers {
 		sc := slotCreate{Slot: s}
-		if p := map[string]string{"standard": cfg.hdProfile, "4k": cfg.uhdProfile}[s]; p != "" {
+		if p := map[string]string{"standard": cfg.standardProfile, "4k": cfg.fourKProfile}[s]; p != "" {
 			sc.Profile = &p
 		}
 		slots = append(slots, sc)
@@ -142,10 +151,13 @@ func (r *Router) Fulfill(ctx context.Context, in *pluginv1.FulfillRequest) (*plu
 
 	body := requestCreate{
 		Source:          "silo",
-		SourceRequestID: idempotencyKey(d, slots),
+		SourceRequestID: idempotencyKey(d, slots, cfg.rootFolder),
 		Requester:       requester{ID: strconv.FormatInt(d.GetRequesterUserId(), 10), Name: d.GetRequesterUsername()},
 		Title:           requestTitle{Kind: "movie", TMDBID: intID(d.GetExternalIds()["tmdb"]), TVDBID: intID(d.GetExternalIds()["tvdb"])},
 		Slots:           slots,
+	}
+	if cfg.rootFolder != "" {
+		body.RootFolder = &cfg.rootFolder
 	}
 	if body.Requester.Name == "" {
 		body.Requester.Name = "Silo user " + body.Requester.ID
@@ -182,8 +194,9 @@ func (r *Router) Fulfill(ctx context.Context, in *pluginv1.FulfillRequest) (*plu
 
 // idempotencyKey makes a repeated Fulfill land on the same Kestrel Request:
 // the descriptor has no Silo request id, so it is the requester, the Title,
-// the seasons and the Slots asked for.
-func idempotencyKey(d *pluginv1.RequestDescriptor, slots []slotCreate) string {
+// the seasons, the Slots asked for and the Root folder, so a route that now
+// files the Title elsewhere is a new Kestrel Request.
+func idempotencyKey(d *pluginv1.RequestDescriptor, slots []slotCreate, rootFolder string) string {
 	ids := d.GetExternalIds()
 	title := "tmdb:" + ids["tmdb"]
 	if ids["tmdb"] == "" {
@@ -203,7 +216,11 @@ func idempotencyKey(d *pluginv1.RequestDescriptor, slots []slotCreate) string {
 		names = append(names, n)
 	}
 	slices.Sort(names)
-	return fmt.Sprintf("u%d/%s/%s/s%v/%s", d.GetRequesterUserId(), d.GetMediaType(), title, seasons, strings.Join(names, ","))
+	key := fmt.Sprintf("u%d/%s/%s/s%v/%s", d.GetRequesterUserId(), d.GetMediaType(), title, seasons, strings.Join(names, ","))
+	if rootFolder != "" {
+		key += "/r:" + rootFolder
+	}
+	return key
 }
 
 func rejection(reason *string) string {
@@ -237,7 +254,7 @@ func statusOf(req kestrelRequest, slot string) *pluginv1.TargetStatus {
 	}
 	s, ok := req.slot(slot)
 	if !ok {
-		out.Status, out.Message = "failed", "Kestrel has no "+strings.ToUpper(slot)+" Version for this Request"
+		out.Status, out.Message = "failed", "Kestrel has no "+slotName(slot)+" Version for this Request"
 		return out
 	}
 	out.Status, out.ExternalStatus = s.Status, s.StatusLabel
@@ -322,7 +339,9 @@ func (r *Router) CheckStatus(ctx context.Context, in *pluginv1.CheckStatusReques
 	return res, nil
 }
 
-// ListConfigOptions fills the Standard and 4K Profile dropdowns from Kestrel.
+// ListConfigOptions fills the Standard Profile, 4K Profile and Root folder
+// dropdowns from Kestrel. Root folders are offered for both kinds: one of the
+// wrong kind for a Request is Kestrel's 422, surfaced as the Request's failure.
 func (r *Router) ListConfigOptions(ctx context.Context, in *pluginv1.ListConfigOptionsRequest) (*pluginv1.ListConfigOptionsResponse, error) {
 	cl, err := r.client(in.GetConnection())
 	if err != nil {
@@ -331,6 +350,14 @@ func (r *Router) ListConfigOptions(ctx context.Context, in *pluginv1.ListConfigO
 	profiles, err := cl.profiles(ctx)
 	if err != nil {
 		return nil, err
+	}
+	roots, err := cl.rootFolders(ctx)
+	if err != nil {
+		return nil, err
+	}
+	folders := &pluginv1.ConfigOptionList{Options: []*pluginv1.ConfigOption{{Value: "", Label: "Kestrel default"}}}
+	for _, p := range roots {
+		folders.Options = append(folders.Options, &pluginv1.ConfigOption{Value: p, Label: p})
 	}
 	list := func(slot string) *pluginv1.ConfigOptionList {
 		out := &pluginv1.ConfigOptionList{Options: []*pluginv1.ConfigOption{{Value: "", Label: "Kestrel default"}}}
@@ -342,7 +369,7 @@ func (r *Router) ListConfigOptions(ctx context.Context, in *pluginv1.ListConfigO
 		return out
 	}
 	return &pluginv1.ListConfigOptionsResponse{OptionsByField: map[string]*pluginv1.ConfigOptionList{
-		"hd_profile": list("standard"), "uhd_profile": list("4k"),
+		"standard_profile": list("standard"), "4k_profile": list("4k"), "root_folder": folders,
 	}}, nil
 }
 

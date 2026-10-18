@@ -1289,12 +1289,12 @@ export interface paths {
          *     accepted at once, with no approval step. It adds the Title or only its missing Versions, searches
          *     them at once, and never changes an existing Version: a Slot that already has a Version is accepted
          *     unchanged and reports that Version's Profile and status. A Slot named without a `profile` uses
-         *     Profile resolution. A new Title goes in the first Root folder of its kind. A Series Request names `seasons`, or `null` for the whole Series; it only ever adds monitoring.
+         *     Profile resolution. A new Title goes in the `root_folder` named, else the first Root folder of its kind; an existing Title is never moved. A Series Request names `seasons`, or `null` for the whole Series; it only ever adds monitoring.
          *
          *     `201` for a new Request, accepted or rejected (`outcome`, `reject_reason`); a Request Kestrel cannot
          *     serve (`not_on_tvdb`, `unknown_title`, `no_enabled_profile`) is stored as rejected and changes nothing.
          *     A retry of the same `(source, source_request_id)` creates nothing and returns the stored Request
-         *     with `200`. `422` only for a malformed body. The requester's email is never stored.
+         *     with `200`. `422` for a malformed body or a `root_folder` that is not one of the kind's Root folders. The requester's email is never stored.
          */
         post: operations["createRequest"];
         delete?: never;

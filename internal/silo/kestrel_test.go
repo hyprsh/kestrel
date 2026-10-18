@@ -3,10 +3,13 @@ package silo_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -41,6 +44,8 @@ type kestrel struct {
 	idx *ixfake.Indexer
 	sab *dcfake.Client
 	Key string
+	// Data is Kestrel's data dir; its media/movies is the first Movies root folder.
+	Data string
 }
 
 func newKestrel(t *testing.T) *kestrel {
@@ -71,7 +76,7 @@ func newKestrel(t *testing.T) *kestrel {
 	})
 	srv := httptest.NewServer(app.Handler)
 	t.Cleanup(srv.Close)
-	k := &kestrel{t: t, srv: srv, st: st, app: app, idx: idx, sab: sab}
+	k := &kestrel{t: t, srv: srv, st: st, app: app, idx: idx, sab: sab, Data: data}
 
 	jar, _ := cookiejar.New(nil)
 	browser := &http.Client{Jar: jar}
@@ -138,4 +143,50 @@ func (k *kestrel) grab(release string) string {
 	}
 	k.t.Fatalf("%s was not grabbed: %+v", release, items)
 	return ""
+}
+
+// moreMovies adds a second Movies root folder next to the default pair and
+// returns its path.
+func (k *kestrel) moreMovies() string {
+	k.t.Helper()
+	more := filepath.Join(k.Data, "media", "more-movies")
+	for _, d := range []string{filepath.Join(k.Data, "media", "movies"), filepath.Join(k.Data, "media", "tv"), more} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			k.t.Fatal(err)
+		}
+	}
+	body := fmt.Sprintf(`{"root_folders":{"movies":[%q,%q],"series":[%q]}}`,
+		filepath.Join(k.Data, "media", "movies"), more, filepath.Join(k.Data, "media", "tv"))
+	req, _ := http.NewRequest("PATCH", k.URL()+"/api/v1/settings", strings.NewReader(body))
+	req.Header.Set("X-Api-Key", k.Key)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		k.t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		raw, _ := io.ReadAll(res.Body)
+		k.t.Fatalf("PATCH /settings = %d %s", res.StatusCode, raw)
+	}
+	return more
+}
+
+// rootFolderOf reads the root folder of the Title behind a Request.
+func (k *kestrel) rootFolderOf(req reqJSON) string {
+	k.t.Helper()
+	r, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/titles/%d", k.URL(), req.TitleID), nil)
+	r.Header.Set("X-Api-Key", k.Key)
+	res, err := http.DefaultClient.Do(r)
+	if err != nil {
+		k.t.Fatal(err)
+	}
+	defer res.Body.Close()
+	var out struct {
+		RootFolder string `json:"root_folder"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		k.t.Fatal(err)
+	}
+	return out.RootFolder
 }
