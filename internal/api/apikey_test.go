@@ -152,3 +152,64 @@ func TestAKeyIsRefusedWhenNoneWasGenerated(t *testing.T) {
 		t.Errorf("made-up key = %d, want 401", r.Status)
 	}
 }
+
+const envKey = "kst_ENVKEYABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+// withEnvKey restarts the instance as if KESTREL_API_KEY were key ("" unsets it).
+func (in *instance) withEnvKey(key string) {
+	in.t.Helper()
+	in.opts.APIKey = key
+	in.restart()
+}
+
+func TestTheKeyFromTheEnvironmentReplacesTheStoredOne(t *testing.T) {
+	in := newInstance(t, "")
+	b := in.setUp()
+	stored := newKey(t, b)
+	in.clock.Advance(time.Hour)
+	in.withEnvKey(envKey)
+
+	if r := in.call("GET", "/auth/me", "", map[string]string{"X-Api-Key": envKey}); r.Status != 200 || !strings.Contains(r.Body, `"method":"api_key"`) {
+		t.Errorf("environment key = %d %s, want 200", r.Status, r.Body)
+	}
+	if r := in.call("GET", "/auth/me", "", map[string]string{"X-Api-Key": stored}); r.Status != 401 {
+		t.Errorf("stored key = %d, want 401", r.Status)
+	}
+	r := b.get("/api-key")
+	if r.Status != 200 || !strings.Contains(r.Body, `"prefix":"kst_ENVK"`) || strings.Contains(r.Body, envKey) ||
+		!strings.Contains(r.Body, `"created_at":"2026-10-17T13:00:00Z"`) || !strings.Contains(r.Body, `"from_environment":true`) {
+		t.Errorf("GET /api-key = %d %s, want the prefix, the start time and from_environment", r.Status, r.Body)
+	}
+}
+
+func TestTheKeyCannotBeRotatedWhileTheEnvironmentSetsIt(t *testing.T) {
+	in := newInstance(t, "")
+	b := in.setUp()
+	in.withEnvKey(envKey)
+
+	r := b.post("/api-key", "")
+	if r.Status != 409 || !strings.Contains(r.Body, `"code":"conflict"`) || !strings.Contains(r.Body, "KESTREL_API_KEY") {
+		t.Fatalf("POST /api-key = %d %s, want 409 naming the variable", r.Status, r.Body)
+	}
+	if r := in.call("GET", "/auth/me", "", map[string]string{"X-Api-Key": envKey}); r.Status != 200 {
+		t.Errorf("environment key after the refused rotation = %d, want 200", r.Status)
+	}
+}
+
+func TestRemovingTheVariableLeavesNoKey(t *testing.T) {
+	in := newInstance(t, "")
+	b := in.setUp()
+	stored := newKey(t, b)
+	in.withEnvKey(envKey)
+	in.withEnvKey("")
+
+	if r := b.get("/api-key"); r.Status != 200 || !strings.Contains(r.Body, `"prefix":null`) || !strings.Contains(r.Body, `"from_environment":false`) {
+		t.Errorf("GET /api-key = %d %s, want no key", r.Status, r.Body)
+	}
+	for name, key := range map[string]string{"environment": envKey, "stored": stored} {
+		if r := in.call("GET", "/auth/me", "", map[string]string{"X-Api-Key": key}); r.Status != 401 {
+			t.Errorf("%s key = %d, want 401", name, r.Status)
+		}
+	}
+	newKey(t, b) // the UI can generate one again
+}

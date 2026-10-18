@@ -74,3 +74,33 @@ func TestInvalidValuesAreRejectedWithTheVariableName(t *testing.T) {
 		t.Error("port out of range accepted")
 	}
 }
+
+func TestTheAPIKeyComesFromTheEnvironment(t *testing.T) {
+	key := "kst_ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+	c, err := config.Load(env("KESTREL_API_KEY", key))
+	if err != nil || c.APIKey != key {
+		t.Fatalf("key = %q (err %v), want %q", c.APIKey, err, key)
+	}
+	if c, _ = config.Load(env()); c.APIKey != "" {
+		t.Errorf("unset key = %q", c.APIKey)
+	}
+}
+
+func TestAMalformedAPIKeyIsRejectedWithoutEchoingIt(t *testing.T) {
+	for _, v := range []string{
+		"hunter2-secret-value",                 // no prefix
+		"kst_ABCDEFGHIJKLMNOPQRSTUVWXYZ23456",  // 31 characters after the prefix
+		"kst_abcdefghijklmnopqrstuvwxyz234567", // lower case is not the alphabet
+		"kst_ABCDEFGHIJKLMNOPQRSTUVWXYZ234568", // 8 is not base32
+		"KST_ABCDEFGHIJKLMNOPQRSTUVWXYZ234567",
+	} {
+		_, err := config.Load(env("KESTREL_API_KEY", v))
+		if err == nil || !strings.Contains(err.Error(), "KESTREL_API_KEY") {
+			t.Errorf("%q: err = %v, want one naming the variable", v, err)
+			continue
+		}
+		if strings.Contains(err.Error(), v) || strings.Contains(err.Error(), v[4:]) {
+			t.Errorf("%q: the error repeats the value: %v", v, err)
+		}
+	}
+}

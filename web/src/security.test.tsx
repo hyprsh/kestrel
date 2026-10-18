@@ -11,12 +11,16 @@ const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { 
 type Proxy = { enabled: boolean; trusted_proxies: string[]; header: string }
 
 /** A logged-in instance whose API key and reverse-proxy settings the test controls. */
-function fakeSecurity(opts: { key?: { prefix: string; created_at: string }; proxy?: Partial<Proxy>; untrusted?: boolean } = {}) {
+function fakeSecurity(
+  opts: { key?: { prefix: string; created_at: string; from_environment?: boolean }; proxy?: Partial<Proxy>; untrusted?: boolean } = {},
+) {
   let key = opts.key ?? null
   let proxy: Proxy = { enabled: false, trusted_proxies: [], header: 'Remote-User', ...opts.proxy }
   const saved: Proxy[] = []
   server.use(
-    http.get('/api-key', ({ response }) => response(200).json({ prefix: key?.prefix ?? null, created_at: key?.created_at ?? null })),
+    http.get('/api-key', ({ response }) =>
+      response(200).json({ prefix: key?.prefix ?? null, created_at: key?.created_at ?? null, from_environment: key?.from_environment ?? false }),
+    ),
     http.post('/api-key', ({ response }) => {
       key = { prefix: 'kst_NEWK', created_at: '2026-10-17T12:00:00Z' }
       return response(201).json({ key: 'kst_NEWKEYSHOWNONCE' })
@@ -71,6 +75,14 @@ describe('Settings > Security', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Rotate API key' }))
     expect(await screen.findByText('kst_NEWKEYSHOWNONCE')).toBeInTheDocument()
+  })
+
+  it('shows a key set from the environment and does not offer to rotate it', async () => {
+    fakeSecurity({ key: { prefix: 'kst_ENVK', created_at: '2026-10-17T12:00:00Z', from_environment: true } })
+    await openSecurity()
+    expect(await screen.findByText(/kst_ENVK/)).toBeInTheDocument()
+    expect(screen.getByText(/KESTREL_API_KEY/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Rotate API key' })).toBeDisabled()
   })
 
   it('saves reverse-proxy settings', async () => {

@@ -61,7 +61,7 @@ func run(ctx context.Context) error {
 	}
 
 	kestrel := app.New(app.Options{
-		Options:     api.Options{Version: version.Version, BaseURL: cfg.BaseURL, Store: st, Web: web.FS(), Logger: logger},
+		Options:     api.Options{Version: version.Version, BaseURL: cfg.BaseURL, Store: st, Web: web.FS(), Logger: logger, APIKey: cfg.APIKey},
 		Plugins:     plugins,
 		TrashSource: trashsync.GitHub{},
 		DataDir:     cfg.DataDir,

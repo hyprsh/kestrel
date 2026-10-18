@@ -1021,6 +1021,10 @@ type AdoptionSubtitle struct {
 type ApiKeyInfo struct {
 	CreatedAt *time.Time `json:"created_at"`
 
+	// FromEnvironment `true` while the key comes from `KESTREL_API_KEY`, which replaces any generated key and
+	// stops it from being rotated here.
+	FromEnvironment bool `json:"from_environment"`
+
 	// Prefix The first characters of the key, for recognising it.
 	//
 	// Example: kst_ABCD
@@ -5177,6 +5181,22 @@ func (response CreateApiKey201JSONResponse) VisitCreateApiKeyResponse(w http.Res
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateApiKey409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateApiKey409ApplicationProblemPlusJSONResponse) VisitCreateApiKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }

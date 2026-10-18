@@ -5,6 +5,7 @@ package config
 import (
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -21,7 +22,13 @@ type Config struct {
 	// Provider keys: they rank below the UI override and above the key embedded in the build.
 	TMDBAPIKey string // KESTREL_TMDB_API_KEY
 	TVDBAPIKey string // KESTREL_TVDB_API_KEY
+	// APIKey is Kestrel's own full-access key when set: it replaces the one
+	// generated in the UI.
+	APIKey string // KESTREL_API_KEY
 }
+
+// apiKeyFormat is the shape of a key Kestrel generates: kst_ and base32.
+var apiKeyFormat = regexp.MustCompile(`^kst_[A-Z2-7]{32,}$`)
 
 // Load reads the configuration through getenv (os.Getenv in production).
 func Load(getenv func(string) string) (Config, error) {
@@ -54,6 +61,12 @@ func Load(getenv func(string) string) (Config, error) {
 		return c, fmt.Errorf("UMASK: %q is not an octal mode", getenv("UMASK"))
 	}
 	c.Umask = int(umask)
+
+	// The error leaves the value out: it is a secret and ends up in the log.
+	if c.APIKey = strings.TrimSpace(getenv("KESTREL_API_KEY")); c.APIKey != "" && !apiKeyFormat.MatchString(c.APIKey) {
+		c.APIKey = ""
+		return c, fmt.Errorf("KESTREL_API_KEY: not a Kestrel API key, which is kst_ followed by at least 32 characters from A-Z and 2-7")
+	}
 
 	if b := strings.Trim(getenv("KESTREL_BASE_URL"), "/"); b != "" {
 		c.BaseURL = "/" + b

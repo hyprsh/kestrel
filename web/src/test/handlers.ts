@@ -42,7 +42,7 @@ export const handlers = [
   http.get('/plugins', ({ response }) => response(200).json({ items: [sabnzbd], next_cursor: null })),
   http.get('/plugin-instances', ({ response }) => response(200).json({ items: [], next_cursor: null })),
   http.get('/auth/me', ({ response }) => response(200).json({ username: 'admin', method: 'session', proxy_user: null })),
-  http.get('/api-key', ({ response }) => response(200).json({ prefix: null, created_at: null })),
+  http.get('/api-key', ({ response }) => response(200).json({ prefix: null, created_at: null, from_environment: false })),
   http.get('/setup', ({ response }) =>
     response(200).json({
       account_exists: true,

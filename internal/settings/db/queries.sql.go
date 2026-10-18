@@ -9,6 +9,15 @@ import (
 	"context"
 )
 
+const delete = `-- name: Delete :exec
+DELETE FROM settings WHERE key = ?
+`
+
+func (q *Queries) Delete(ctx context.Context, key string) error {
+	_, err := q.db.ExecContext(ctx, delete, key)
+	return err
+}
+
 const get = `-- name: Get :one
 SELECT value FROM settings WHERE key = ?
 `

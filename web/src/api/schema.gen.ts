@@ -197,14 +197,16 @@ export interface paths {
         /**
          * The API key's prefix and age
          * @description There is at most one full-access key. Only its prefix and creation time are ever shown;
-         *     both are `null` until a key has been generated.
+         *     both are `null` until a key has been generated. While `KESTREL_API_KEY` is set, that is
+         *     the key, `from_environment` is `true` and `created_at` is when Kestrel started.
          */
         get: operations["getApiKey"];
         put?: never;
         /**
          * Generate or rotate the API key
          * @description Replaces any existing key, which stops working at once. The new key is in this response
-         *     only; Kestrel keeps just its SHA-256. Send it as `X-Api-Key`.
+         *     only; Kestrel keeps just its SHA-256. Send it as `X-Api-Key`. `409 conflict` while
+         *     `KESTREL_API_KEY` sets the key.
          */
         post: operations["createApiKey"];
         delete?: never;
@@ -1486,6 +1488,11 @@ export interface components {
             prefix: string | null;
             /** Format: date-time */
             created_at: string | null;
+            /**
+             * @description `true` while the key comes from `KESTREL_API_KEY`, which replaces any generated key and
+             *     stops it from being rotated here.
+             */
+            from_environment: boolean;
         };
         NewApiKey: {
             /** @description The whole key, `kst_` plus 52 base32 characters. */
@@ -2966,6 +2973,7 @@ export interface operations {
                     "application/json": components["schemas"]["NewApiKey"];
                 };
             };
+            409: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

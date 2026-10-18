@@ -211,7 +211,8 @@ paths:
       summary: The API key's prefix and age
       description: |
         There is at most one full-access key. Only its prefix and creation time are ever shown;
-        both are `null` until a key has been generated.
+        both are `null` until a key has been generated. While `KESTREL_API_KEY` is set, that is
+        the key, `from_environment` is `true` and `created_at` is when Kestrel started.
       tags: [account]
       responses:
         "200":
@@ -227,7 +228,8 @@ paths:
       summary: Generate or rotate the API key
       description: |
         Replaces any existing key, which stops working at once. The new key is in this response
-        only; Kestrel keeps just its SHA-256. Send it as `X-Api-Key`.
+        only; Kestrel keeps just its SHA-256. Send it as `X-Api-Key`. `409 conflict` while
+        `KESTREL_API_KEY` sets the key.
       tags: [account]
       responses:
         "201":
@@ -236,6 +238,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NewApiKey"
+        "409":
+          $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
   /settings/reverse-proxy:
@@ -1918,7 +1922,7 @@ components:
           example: /kestrel
     ApiKeyInfo:
       type: object
-      required: [prefix, created_at]
+      required: [prefix, created_at, from_environment]
       properties:
         prefix:
           type: string
@@ -1929,6 +1933,11 @@ components:
           type: string
           format: date-time
           nullable: true
+        from_environment:
+          type: boolean
+          description: |
+            `true` while the key comes from `KESTREL_API_KEY`, which replaces any generated key and
+            stops it from being rotated here.
     NewApiKey:
       type: object
       required: [key]

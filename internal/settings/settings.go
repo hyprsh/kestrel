@@ -57,3 +57,8 @@ func (s *Settings) Insert(ctx context.Context, key string, value []byte) (bool, 
 func (s *Settings) Put(ctx context.Context, key string, value []byte) error {
 	return s.write.Put(ctx, db.PutParams{Key: key, Value: string(value)})
 }
+
+// Delete removes key and its value; an unset key is not an error.
+func (s *Settings) Delete(ctx context.Context, key string) error {
+	return s.write.Delete(ctx, key)
+}

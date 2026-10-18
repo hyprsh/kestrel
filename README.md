@@ -59,6 +59,7 @@ Bootstrap settings are environment variables. Everything else lives in SQLite an
 | `KESTREL_DATA_DIR` | `/data` | Prefills the root folders and is the mount the disk checks watch. |
 | `KESTREL_TMDB_API_KEY` | empty | Your own [TMDB](https://www.themoviedb.org/settings/api) API key (v3). It outranks the key embedded in the build and is outranked by one saved in the UI. |
 | `KESTREL_TVDB_API_KEY` | empty | Your own TheTVDB key, same precedence. |
+| `KESTREL_API_KEY` | empty | A fixed full-access API key, for deployments that wire Kestrel up from a script. It must look like a generated key: `kst_` followed by at least 32 characters from `A-Z` and `2-7` (`echo kst_$(LC_ALL=C tr -dc A-Z2-7 </dev/urandom \| head -c 52)`); anything else stops startup. While set it replaces the key from Settings > Security, which is deleted, and rotating in the UI is disabled. Removed again, there is no key until one is generated in the UI. |
 
 The image has a `HEALTHCHECK` on the unauthenticated `GET {base}/ping`.
 
@@ -68,7 +69,7 @@ Before each schema migration of an existing database Kestrel copies it to `backu
 
 The REST API is defined by [`api/openapi.yaml`](api/openapi.yaml) ([ADR 0009](docs/adr/0009-spec-first-openapi.md)). A running instance serves it at `{base}/api/v1/openapi.json` and the interactive docs (Scalar, loaded from a CDN) at `{base}/api/docs`.
 
-Scripts authenticate with the single full-access key from Settings > Security, sent as `X-Api-Key: kst_...` (header only). Bad keys are throttled like failed logins.
+Scripts authenticate with the single full-access key from Settings > Security (or `KESTREL_API_KEY`), sent as `X-Api-Key: kst_...` (header only). Bad keys are throttled like failed logins.
 
 ### Forgot your password
 

@@ -47,6 +47,10 @@ type Options struct {
 	Stream StreamIntervals
 	// SearchTimeout bounds a manual search; zero means 30 s.
 	SearchTimeout time.Duration
+	// APIKey is KESTREL_API_KEY, already checked to look like a generated key.
+	// When set it is the one API key: the generated one is deleted at startup and
+	// POST /api-key answers 409.
+	APIKey string
 }
 
 // New returns the whole HTTP handler, mounted under opts.BaseURL. The modules
@@ -63,7 +67,7 @@ func New(opts Options, d Deps) http.Handler {
 		cost = cheapCost
 	}
 	s := &server{
-		opts: opts, auth: newAuth(opts.Store, opts.Clock, opts.BaseURL, cost), hub: newHub(),
+		opts: opts, auth: newAuth(opts.Store, opts.Clock, opts.BaseURL, cost, opts.APIKey), hub: newHub(),
 		plugins: d.Plugins, profiles: d.Profiles, rootFolders: d.RootFolders, settings: d.Settings, updates: d.Updates,
 		library: d.Library, acquire: d.Acquire, requests: d.Requests, adoption: d.Adoption, cleanup: d.Cleanup,
 		remover: d.Remover, imports: d.Imports, jobs: d.Jobs, refresher: d.Refresher, indexers: d.Indexers,
@@ -71,6 +75,9 @@ func New(opts Options, d Deps) http.Handler {
 		bridge: d.Bridge, posters: d.Posters,
 	}
 	s.health.AddCheck("untrusted proxy header", s.checkUntrustedProxy)
+	if err := s.auth.dropGeneratedKey(context.Background()); err != nil {
+		panic("api: removing the generated API key: " + err.Error())
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ping", s.ping)

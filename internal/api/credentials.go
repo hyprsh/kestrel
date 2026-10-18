@@ -7,6 +7,7 @@ import (
 	"encoding/base32"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"net/netip"
 	"regexp"
 	"strings"
@@ -35,12 +36,27 @@ type storedKey struct {
 	CreatedAt int64  `json:"created_at"`
 }
 
+// fromEnvironment reports whether KESTREL_API_KEY sets the key.
+func (a *auth) fromEnvironment() bool { return a.envKey.Hash != "" }
+
 func (a *auth) apiKey(ctx context.Context) (k storedKey, ok bool, err error) {
+	if a.fromEnvironment() {
+		return a.envKey, true, nil
+	}
 	raw, ok, err := a.settings.Get(ctx, apiKeyKey)
 	if err != nil || !ok {
 		return storedKey{}, false, err
 	}
 	return k, true, json.Unmarshal(raw, &k)
+}
+
+// dropGeneratedKey deletes the generated key while KESTREL_API_KEY is set, so
+// it stays dead once the variable is removed again.
+func (a *auth) dropGeneratedKey(ctx context.Context) error {
+	if !a.fromEnvironment() {
+		return nil
+	}
+	return a.settings.Delete(ctx, apiKeyKey)
 }
 
 // keyMatches reports whether presented is the current API key.
@@ -61,10 +77,13 @@ func (s *server) GetApiKey(ctx context.Context, _ oapi.GetApiKeyRequestObject) (
 		return oapi.GetApiKey200JSONResponse{}, nil
 	}
 	created := time.Unix(k.CreatedAt, 0).UTC()
-	return oapi.GetApiKey200JSONResponse{Prefix: &k.Prefix, CreatedAt: &created}, nil
+	return oapi.GetApiKey200JSONResponse{Prefix: &k.Prefix, CreatedAt: &created, FromEnvironment: s.auth.fromEnvironment()}, nil
 }
 
 func (s *server) CreateApiKey(ctx context.Context, _ oapi.CreateApiKeyRequestObject) (oapi.CreateApiKeyResponseObject, error) {
+	if s.auth.fromEnvironment() {
+		return nil, problem(http.StatusConflict, "conflict", "the API key is set by KESTREL_API_KEY; remove the variable to generate one here")
+	}
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
 		return nil, err

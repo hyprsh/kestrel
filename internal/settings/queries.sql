@@ -8,3 +8,6 @@ ON CONFLICT (key) DO UPDATE SET value = excluded.value;
 -- name: Insert :execrows
 INSERT INTO settings (key, value) VALUES (?, ?)
 ON CONFLICT (key) DO NOTHING;
+
+-- name: Delete :exec
+DELETE FROM settings WHERE key = ?;

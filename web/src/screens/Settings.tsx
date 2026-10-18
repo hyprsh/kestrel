@@ -207,6 +207,7 @@ function ApiKeyRow() {
   const create = useCreateApiKey()
   const [shown, setShown] = useState<string | null>(null)
   const exists = !!info.data?.prefix
+  const fromEnv = !!info.data?.from_environment
 
   const generate = () => create.mutate(undefined, { onSuccess: setShown })
 
@@ -230,7 +231,8 @@ function ApiKeyRow() {
               <p className="text-[13px]">
                 {exists ? (
                   <>
-                    <code className="font-mono">{info.data.prefix}…</code>, created {new Date(info.data.created_at ?? '').toLocaleDateString()}
+                    <code className="font-mono">{info.data.prefix}…</code>,{' '}
+                    {fromEnv ? 'set from the environment' : `created ${new Date(info.data.created_at ?? '').toLocaleDateString()}`}
                   </>
                 ) : (
                   <span className="text-gray-900">No API key yet.</span>
@@ -238,10 +240,22 @@ function ApiKeyRow() {
               </p>
             )}
             {create.isError && <ErrorText>Could not generate a key. Try again.</ErrorText>}
-            <Button variant={exists ? 'secondary' : 'primary'} disabled={create.isPending || !info.data} onClick={generate} className="self-start">
+            <Button
+              variant={exists ? 'secondary' : 'primary'}
+              disabled={create.isPending || !info.data || fromEnv}
+              onClick={generate}
+              className="self-start"
+            >
               {exists ? 'Rotate API key' : 'Generate API key'}
             </Button>
-            {exists && <p className="text-[12px] text-gray-900">Rotating stops the old key at once.</p>}
+            {fromEnv ? (
+              <p className="text-[12px] text-gray-900">
+                The <code className="font-mono">KESTREL_API_KEY</code> environment variable sets this key, so it cannot be rotated here. Change
+                the variable and restart Kestrel instead.
+              </p>
+            ) : (
+              exists && <p className="text-[12px] text-gray-900">Rotating stops the old key at once.</p>
+            )}
           </>
         )}
       </div>
