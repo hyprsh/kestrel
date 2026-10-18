@@ -363,6 +363,16 @@ func TestStatusAndProgressRoundTripFromQueuedThroughDownloadingToCompleted(t *te
 	}
 }
 
+// newerKestrel serves a /system answer from Kestrel 2.0.0 on the next API major
+// and returns its URL.
+func newerKestrel(t *testing.T) string {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprintf(w, `{"version":"2.0.0","api_major":%d,"base_url":""}`, api.Major+1)
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL
+}
+
 func TestTestConnectionComparesAPIMajorAndChecksTheKey(t *testing.T) {
 	k := newKestrel(t)
 	r := silo.NewRouter(silo.Options{})
@@ -381,11 +391,7 @@ func TestTestConnectionComparesAPIMajorAndChecksTheKey(t *testing.T) {
 		t.Errorf("wrong key: %+v", res)
 	}
 
-	newer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprintf(w, `{"version":"2.0.0","api_major":%d,"base_url":""}`, api.Major+1)
-	}))
-	defer newer.Close()
-	if res := test(conn(t, newer.URL, "kst_x", nil)); res.Ok || res.Message == "" {
+	if res := test(conn(t, newerKestrel(t), "kst_x", nil)); res.Ok || res.Message == "" {
 		t.Errorf("mismatched api_major: %+v", res)
 	}
 }
@@ -393,12 +399,8 @@ func TestTestConnectionComparesAPIMajorAndChecksTheKey(t *testing.T) {
 // TestOptionsFromAKestrelOnAnotherAPIMajorAreRefused covers Silo's Test button,
 // which lists config options rather than calling TestConnection.
 func TestOptionsFromAKestrelOnAnotherAPIMajorAreRefused(t *testing.T) {
-	newer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprintf(w, `{"version":"2.0.0","api_major":%d,"base_url":""}`, api.Major+1)
-	}))
-	defer newer.Close()
 	r := silo.NewRouter(silo.Options{})
-	c := conn(t, newer.URL, "kst_x", nil)
+	c := conn(t, newerKestrel(t), "kst_x", nil)
 
 	opts, err := r.ListConfigOptions(context.Background(), &pluginv1.ListConfigOptionsRequest{CapabilityId: "kestrel", Connection: c})
 	if err == nil || opts != nil {

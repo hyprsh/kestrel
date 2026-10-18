@@ -404,8 +404,8 @@ func (r *Router) TestConnection(ctx context.Context, in *pluginv1.TestConnection
 	return &pluginv1.TestConnectionResponse{Ok: true, Message: "Connected to Kestrel " + version}, nil
 }
 
-// majorMismatch tells the admin that Kestrel at version speaks API major, not
-// the plugin's APIMajor.
+// majorMismatch is the message for a Kestrel whose API major differs from
+// APIMajor, shared by TestConnection and ListConfigOptions.
 func majorMismatch(version string, major int) string {
 	return fmt.Sprintf("Kestrel %s speaks API v%d but this plugin speaks v%d; install the plugin release that matches Kestrel", version, major, APIMajor)
 }
