@@ -81,6 +81,10 @@ SELECT f.version_id, fe.episode_id, f.score
 FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id
 WHERE v.title_id = ? AND f.id NOT IN (SELECT file_id FROM file_misfits);
 
+-- name: ListAllFileEpisodesOfTitle :many
+SELECT f.version_id, fe.episode_id
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id WHERE v.title_id = ?;
+
 -- name: SetSeriesMonitor :exec
 UPDATE titles SET series_monitor = ? WHERE id = ? AND kind = 'series';
 

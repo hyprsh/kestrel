@@ -579,6 +579,39 @@ func (q *Queries) ListAliasesOfTitle(ctx context.Context, titleID int64) ([]List
 	return items, nil
 }
 
+const listAllFileEpisodesOfTitle = `-- name: ListAllFileEpisodesOfTitle :many
+SELECT f.version_id, fe.episode_id
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id WHERE v.title_id = ?
+`
+
+type ListAllFileEpisodesOfTitleRow struct {
+	VersionID int64
+	EpisodeID int64
+}
+
+func (q *Queries) ListAllFileEpisodesOfTitle(ctx context.Context, titleID int64) ([]ListAllFileEpisodesOfTitleRow, error) {
+	rows, err := q.db.QueryContext(ctx, listAllFileEpisodesOfTitle, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllFileEpisodesOfTitleRow
+	for rows.Next() {
+		var i ListAllFileEpisodesOfTitleRow
+		if err := rows.Scan(&i.VersionID, &i.EpisodeID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAllReleaseDates = `-- name: ListAllReleaseDates :many
 SELECT title_id, country, type, date, certification FROM title_release_dates
 `

@@ -237,6 +237,26 @@ func TestStatusFollowsTheFileAndALaterRemovedVersionFails(t *testing.T) {
 	}
 }
 
+func TestACompletedRequestStaysCompletedWhenALaterProfileChangeMakesItsFileAMisfit(t *testing.T) {
+	s := newSearchBare(t)
+	req := decode[requestJSON](t, s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, `[{"slot":"hd"}]`, "null")))
+	_, _, _, hd := req.slot(t, "hd")
+	res, err := s.in.st.Write().Exec(`INSERT INTO files (version_id, path, size, release_name, imported_at) VALUES (?, '/x.mkv', 1, 'x', '2026-10-17T12:00:00Z')`, hd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, _ := res.LastInsertId()
+	if _, err := s.in.st.Write().Exec(`INSERT INTO file_misfits (file_id) VALUES (?)`, file); err != nil {
+		t.Fatal(err)
+	}
+
+	got := decode[requestJSON](t, s.valid("GET", fmt.Sprintf("/requests/%d", req.ID), ""))
+
+	if st, _, _, _ := got.slot(t, "hd"); st != "completed" {
+		t.Errorf("hd = %s, want completed: later changes do not reopen a Request", st)
+	}
+}
+
 func TestTheTitleDetailSaysWhoRequestedItFromWhere(t *testing.T) {
 	s := newSearchBare(t)
 	req := decode[requestJSON](t, s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, dualSlots, "null")))

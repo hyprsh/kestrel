@@ -783,7 +783,9 @@ func (s *Service) derive(ctx context.Context, r *Request, st *SlotStatus, c *cac
 	}
 	st.Profile = v.Profile // the Version's own Profile, which a Request never changes
 
-	complete := v.State == library.Filled
+	// A file completes a Request even when a later Profile change made it a
+	// misfit: later changes do not reopen it.
+	complete := v.File != nil
 	if d.Kind == library.Series {
 		eps, ok := c.eps[d.ID]
 		if !ok {
@@ -804,7 +806,7 @@ func (s *Service) derive(ctx context.Context, r *Request, st *SlotStatus, c *cac
 				continue
 			}
 			aired++
-			if cell := e.Cells[st.Slot]; cell != nil && cell.State == library.Filled {
+			if cell := e.Cells[st.Slot]; cell != nil && cell.HasFile {
 				held++
 			}
 		}

@@ -40,6 +40,9 @@ type Season struct {
 type EpisodeCell struct {
 	State State
 	Score *int // of the file holding it, when there is one
+	// HasFile is true when a file holds the episode, even a misfit one (which
+	// leaves the cell Wanted).
+	HasFile bool
 }
 
 // Episode is an episode with a cell per Slot that has a Version.
@@ -286,13 +289,21 @@ func (s *Service) Episodes(ctx context.Context, titleID int64, view View) ([]Epi
 		rows = append(rows, fileEp{r.VersionID, r.EpisodeID, r.Score})
 	}
 	heldBy := heldOf(rows)
+	all, err := q.ListAllFileEpisodesOfTitle(ctx, titleID)
+	if err != nil {
+		return nil, err
+	}
+	hasFile := map[[2]int64]bool{}
+	for _, r := range all {
+		hasFile[[2]int64{r.VersionID, r.EpisodeID}] = true
+	}
 	out := make([]Episode, 0, len(eps))
 	for _, e := range eps {
 		ep := Episode{ID: e.ID, Season: int(e.Season), Number: int(e.Number), Name: e.Name, AirDate: parseDate(e.AirDate), Monitored: e.Monitored == 1}
 		for _, v := range versions {
 			score, has := heldBy[v.ID][e.ID]
 			st, _ := StateAt(Unit{Monitored: ep.Monitored, HasFile: has, Released: ep.AirDate, AddedAt: parseTime(v.AddedAt)}, view.Now)
-			ep.Cells[slotOf(v.Slot)] = &EpisodeCell{State: st, Score: score}
+			ep.Cells[slotOf(v.Slot)] = &EpisodeCell{State: st, Score: score, HasFile: hasFile[[2]int64{v.ID, e.ID}]}
 		}
 		out = append(out, ep)
 	}
