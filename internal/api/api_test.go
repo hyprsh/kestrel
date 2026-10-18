@@ -62,7 +62,10 @@ var (
 
 // specRouter is the spec's router for a test server's host. Parsing the spec
 // takes long under the race detector, so it happens once per test binary;
-// each host only builds its router.
+// each host only builds its router. The router reads its document's Servers
+// on every match, so each host gets its own shallow copy of the document:
+// sharing one would point every cached router at the newest host, and a test
+// server that reuses an earlier port would match no route.
 func specRouter(t *testing.T, host string) routers.Router {
 	t.Helper()
 	specMu.Lock()
@@ -77,13 +80,23 @@ func specRouter(t *testing.T, host string) routers.Router {
 		}
 		specDoc = doc
 	}
-	specDoc.Servers = openapi3.Servers{{URL: "http://" + host + "/api/v1"}}
-	r, err := legacy.NewRouter(specDoc)
+	doc := *specDoc
+	doc.Servers = openapi3.Servers{{URL: "http://" + host + "/api/v1"}}
+	r, err := legacy.NewRouter(&doc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	specRouters[host] = r
 	return r
+}
+
+func TestASpecRouterStillMatchesItsHostAfterAnotherHostsRouterIsBuilt(t *testing.T) {
+	first := specRouter(t, "first.test")
+	specRouter(t, "second.test")
+	req, _ := http.NewRequest("GET", "http://first.test/api/v1/system", nil)
+	if _, _, err := first.FindRoute(req); err != nil {
+		t.Fatalf("first host's router: %v", err)
+	}
 }
 
 // validateAgainstSpec checks a live response against openapi.yaml.
