@@ -145,6 +145,31 @@ func TestBadKeysAreThrottledLikeFailedLogins(t *testing.T) {
 	}
 }
 
+func TestBadKeysAreThrottledWhileTheEnvironmentSetsTheKey(t *testing.T) {
+	in := newInstance(t, "")
+	in.setUp()
+	in.withEnvKey(envKey)
+	bad := map[string]string{"X-Api-Key": "kst_nope"}
+	good := map[string]string{"X-Api-Key": envKey}
+
+	for i := 0; i < 5; i++ {
+		if r := in.call("GET", "/auth/me", "", bad); r.Status != 401 {
+			t.Fatalf("bad key #%d = %d", i+1, r.Status)
+		}
+	}
+	r := in.call("GET", "/auth/me", "", bad)
+	if r.Status != 429 || !strings.Contains(r.Body, `"code":"rate_limited"`) || r.Header.Get("Retry-After") == "" {
+		t.Fatalf("6th bad key = %d %s, want 429 rate_limited", r.Status, r.Body)
+	}
+	if r := in.call("GET", "/auth/me", "", good); r.Status != 429 {
+		t.Errorf("environment key while throttled = %d, want 429", r.Status)
+	}
+	in.clock.Advance(time.Minute)
+	if r := in.call("GET", "/auth/me", "", good); r.Status != 200 {
+		t.Errorf("environment key after the wait = %d, want 200", r.Status)
+	}
+}
+
 func TestAKeyIsRefusedWhenNoneWasGenerated(t *testing.T) {
 	in := newInstance(t, "")
 	in.setUp()

@@ -3,6 +3,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"regexp"
@@ -65,7 +66,7 @@ func Load(getenv func(string) string) (Config, error) {
 	// The error leaves the value out: it is a secret and ends up in the log.
 	if c.APIKey = strings.TrimSpace(getenv("KESTREL_API_KEY")); c.APIKey != "" && !apiKeyFormat.MatchString(c.APIKey) {
 		c.APIKey = ""
-		return c, fmt.Errorf("KESTREL_API_KEY: not a Kestrel API key, which is kst_ followed by at least 32 characters from A-Z and 2-7")
+		return c, errors.New("KESTREL_API_KEY: not a Kestrel API key, which is kst_ followed by at least 32 characters from A-Z and 2-7")
 	}
 
 	if b := strings.Trim(getenv("KESTREL_BASE_URL"), "/"); b != "" {

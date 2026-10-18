@@ -36,12 +36,17 @@ type storedKey struct {
 	CreatedAt int64  `json:"created_at"`
 }
 
+// newStoredKey keeps key as it is stored: its hash and visible prefix.
+func newStoredKey(key string, created time.Time) storedKey {
+	return storedKey{Hash: hashToken(key), Prefix: key[:apiKeyShown], CreatedAt: created.Unix()}
+}
+
 // fromEnvironment reports whether KESTREL_API_KEY sets the key.
-func (a *auth) fromEnvironment() bool { return a.envKey.Hash != "" }
+func (a *auth) fromEnvironment() bool { return a.fixedKey.Hash != "" }
 
 func (a *auth) apiKey(ctx context.Context) (k storedKey, ok bool, err error) {
 	if a.fromEnvironment() {
-		return a.envKey, true, nil
+		return a.fixedKey, true, nil
 	}
 	raw, ok, err := a.settings.Get(ctx, apiKeyKey)
 	if err != nil || !ok {
@@ -89,7 +94,7 @@ func (s *server) CreateApiKey(ctx context.Context, _ oapi.CreateApiKeyRequestObj
 		return nil, err
 	}
 	key := apiKeyPrefix + base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(raw)
-	stored, _ := json.Marshal(storedKey{Hash: hashToken(key), Prefix: key[:apiKeyShown], CreatedAt: s.auth.clock().Unix()})
+	stored, _ := json.Marshal(newStoredKey(key, s.auth.clock()))
 	if err := s.auth.settings.Put(ctx, apiKeyKey, stored); err != nil {
 		return nil, err
 	}

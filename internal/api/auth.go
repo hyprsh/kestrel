@@ -46,18 +46,18 @@ type auth struct {
 	throttle *throttle
 	cost     hashCost
 	dummy    string    // a hash to verify against when the username is wrong, so timing does not reveal it
-	envKey   storedKey // the KESTREL_API_KEY key; its Hash is empty when the variable is unset
+	fixedKey storedKey // the hashed KESTREL_API_KEY key; its Hash is empty when the variable is unset
 }
 
-func newAuth(st *store.Store, clock func() time.Time, baseURL string, cost hashCost, envKey string) *auth {
+func newAuth(st *store.Store, clock func() time.Time, baseURL string, cost hashCost, fixedAPIKey string) *auth {
 	path := baseURL
 	if path == "" {
 		path = "/"
 	}
 	dummy, _ := hashWith("kestrel", cost)
-	var env storedKey
-	if envKey != "" {
-		env = storedKey{Hash: hashToken(envKey), Prefix: envKey[:apiKeyShown], CreatedAt: clock().Unix()}
+	var fixed storedKey
+	if fixedAPIKey != "" {
+		fixed = newStoredKey(fixedAPIKey, clock())
 	}
 	return &auth{
 		settings: settings.New(st),
@@ -68,7 +68,7 @@ func newAuth(st *store.Store, clock func() time.Time, baseURL string, cost hashC
 		throttle: newThrottle(),
 		cost:     cost,
 		dummy:    dummy,
-		envKey:   env,
+		fixedKey: fixed,
 	}
 }
 
