@@ -42,6 +42,9 @@ type ImportOutcome struct {
 	Reason string
 	// Path is the imported file, for the Log.
 	Path string
+	// Inconclusive says the probe could not tell the audio languages, so the
+	// parsed ones stood; the Log notes it.
+	Inconclusive bool
 	// Episodes are the per-episode results of a Series Import; each goes to the Log.
 	Episodes []EpisodeOutcome
 }
@@ -157,6 +160,10 @@ func (s *Service) RecordImport(ctx context.Context, grabID int64, canRemove bool
 		ev := history.Event{
 			Kind: history.ImportDone, TitleID: row.TitleID.Int64, VersionID: row.VersionID.Int64, GrabID: grabID,
 			Message: "Imported " + row.ReleaseName + " as " + o.Path,
+		}
+		if o.Status == ImportDone && o.Inconclusive {
+			ev.Message += " (probe inconclusive: the parsed languages stand)"
+			ev.Data = json.RawMessage(`{"probe_inconclusive":true}`)
 		}
 		if o.Status == ImportRejected {
 			ev.Kind, ev.Message = history.ImportRejected, "Import of "+row.ReleaseName+" rejected: "+o.Reason

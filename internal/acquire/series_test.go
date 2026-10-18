@@ -3,6 +3,7 @@ package acquire_test
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -199,4 +200,37 @@ func TestAPackImportRecordsOneLogEventPerEpisode(t *testing.T) {
 	if data.Status != "rejected" || data.Reason != "not_upgrade" {
 		t.Errorf("data = %s", per[1].Data)
 	}
+}
+
+func TestAnInconclusiveProbeIsNotedOnTheImportLogEvent(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	hist := history.New(r.deps.Store, r.clock.Now, nil)
+	r.deps.History = hist
+	svc, err := acquire.New(r.deps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, ver := r.nightShow(t, library.MonitorAll)
+	r.publishShow(t, nightEp1, "1", "1")
+	res, _ := svc.Search(ctx, ver)
+	g, err := svc.Grab(ctx, ver, r.found(t, res, nightEp1).ID, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.RecordImport(ctx, g.ID, false, acquire.ImportOutcome{Status: acquire.ImportDone, Path: "/tv/a.mkv", Inconclusive: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	events, _ := hist.After(ctx, 0, 100)
+	for _, e := range events {
+		if e.Kind == history.ImportDone {
+			if !strings.Contains(e.Message, "probe inconclusive") || !strings.Contains(string(e.Data), `"probe_inconclusive":true`) {
+				t.Errorf("event = %+v / %s", e, e.Data)
+			}
+			return
+		}
+	}
+	t.Fatal("no import event")
 }
