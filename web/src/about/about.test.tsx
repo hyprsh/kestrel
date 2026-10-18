@@ -1,6 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
@@ -27,7 +28,7 @@ describe('About', () => {
       http.get('/about', ({ response }) =>
         response(200).json(about({ update: { version: '0.3.0', url: 'https://github.com/hyprsh/kestrel/releases/tag/v0.3.0' } })),
       ),
-      http.get('/about/notices', () => new Response('# Third-party notices\n\nRadarr and Sonarr', { headers: { 'Content-Type': 'text/plain' } })),
+      http.get('/about/notices', () => HttpResponse.text('# Third-party notices\n\nRadarr and Sonarr')),
     )
     renderApp()
 

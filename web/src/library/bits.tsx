@@ -17,7 +17,7 @@ const stateText: Record<string, { tone: Tone; label: string }> = {
 
 /** Tone and label for a Version's state; an unknown future state shows as itself. */
 export function versionStatus(state: State, longMissing = false): { tone: Tone; label: string } {
-  if (longMissing) return { tone: 'red', label: 'Long missing' }
+  if (longMissing) return { tone: 'red', label: 'Long Missing' }
   return stateText[state] ?? { tone: 'gray', label: state }
 }
 
