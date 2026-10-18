@@ -116,6 +116,21 @@ func TestRSSMatchesAMovieWithinAYearAndByAliasAndPrimaryLanguageTitle(t *testing
 	}
 }
 
+func TestASearchFindsAReleaseSpelledWithoutUmlauts(t *testing.T) {
+	r := newRig(t)
+	const name = "Ein.Baer.namens.Paddington.2014.1080p.BluRay.x264-GRP"
+	r.publishPlain(t, name)
+
+	res, err := r.svc.Search(context.Background(), r.versions[resolution.HD])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if r.found(t, res, name).ID == "" {
+		t.Errorf("the search for a title with umlauts missed %s: %+v", name, res.Items)
+	}
+}
+
 func TestRSSDoesNotGrabAReleaseForAnotherSlotOrOneTheProfileRejects(t *testing.T) {
 	r := newRig(t)
 	r.publishPlain(t, uhd)

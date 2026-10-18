@@ -139,6 +139,9 @@ type Deps struct {
 	// and "committed" (the database row is written). An error stops the
 	// Import there as if the process had been killed; tests use it.
 	Step func(step string) error
+	// Link hardlinks src to dst; nil means os.Link. Tests answer EXDEV with it
+	// to cross a filesystem boundary that a temp dir does not have.
+	Link func(src, dst string) error
 }
 
 // Service imports completed Grabs into the library.
@@ -149,6 +152,7 @@ type Service struct {
 	clock func() time.Time
 	snap  *scoring.Holder
 	step  func(string) error
+	link  func(src, dst string) error
 	hl    Health
 
 	renames       RenameStore
@@ -170,7 +174,10 @@ func New(d Deps) (*Service, error) {
 		}
 		d.Scoring = scoring.NewHolder(d.Snapshot)
 	}
-	return &Service{lib: d.Library, prof: d.Profiles, probe: d.Prober, clock: d.Clock, snap: d.Scoring, step: d.Step, hl: d.Health, renames: d.Renames, folderChanged: d.FolderChanged}, nil
+	if d.Link == nil {
+		d.Link = os.Link
+	}
+	return &Service{lib: d.Library, prof: d.Profiles, probe: d.Prober, clock: d.Clock, snap: d.Scoring, step: d.Step, link: d.Link, hl: d.Health, renames: d.Renames, folderChanged: d.FolderChanged}, nil
 }
 
 func (s *Service) hook(step string) error {
@@ -360,7 +367,7 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 	if err := os.MkdirAll(dir, 0o777); err != nil {
 		return stalledBy(err)
 	}
-	cross, err := place(src.video, partial)
+	cross, err := place(s.link, src.video, partial)
 	if err != nil {
 		_ = os.Remove(partial)
 		return stalledBy(err)

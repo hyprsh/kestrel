@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -63,6 +64,8 @@ type rig struct {
 	versions map[resolution.Class]int64
 	hook     func(step string) error
 	notes    recorder
+	// crossDevice makes hardlinks fail with EXDEV, as across a filesystem boundary.
+	crossDevice bool
 }
 
 func newRig(t *testing.T) *rig {
@@ -96,6 +99,12 @@ func newRig(t *testing.T) *rig {
 	r.health = health.New(health.Deps{Store: st, Clock: func() time.Time { return now }})
 	svc, err := imports.New(imports.Deps{
 		Library: r.lib, Renames: r.lib, Profiles: profiles.New(st, settings.New(st)), Prober: r.prober, Clock: func() time.Time { return now }, Health: r.health, FolderChanged: r.notes.changed,
+		Link: func(src, dst string) error {
+			if r.crossDevice {
+				return &os.LinkError{Op: "link", Old: src, New: dst, Err: syscall.EXDEV}
+			}
+			return os.Link(src, dst)
+		},
 		Step: func(s string) error {
 			if r.hook != nil {
 				return r.hook(s)
@@ -501,17 +510,30 @@ func TestAnImportIntoAMissingRootFolderStallsUntilItIsBack(t *testing.T) {
 func TestACopyAcrossFilesystemsIsADismissibleWarningThatClearsOnTheNextCleanImport(t *testing.T) {
 	ctx := context.Background()
 	r := newRig(t)
+	r.prober.info["paddington.mkv"] = good()
+	r.crossDevice = true
 
-	r.svc.NoteCrossDevice(ctx, r.root, true)
-	r.svc.NoteCrossDevice(ctx, r.root, true)
+	res := r.svc.Import(ctx, r.job(t, 1, map[string]string{"paddington.mkv": "video"}))
 
+	if res.Status != imports.Imported || !res.CrossDevice {
+		t.Fatalf("result = %+v, want imported by copy", res)
+	}
 	rows, _ := r.health.List(ctx)
-	if len(rows) != 1 || rows[0].Kind != health.KindEXDEV || rows[0].Severity != health.Warning || !rows[0].Dismissible || rows[0].Count != 2 {
+	if len(rows) != 1 || rows[0].Kind != health.KindEXDEV || rows[0].Severity != health.Warning || !rows[0].Dismissible {
 		t.Fatalf("rows = %+v", rows)
 	}
-	r.svc.NoteCrossDevice(ctx, r.root, false)
+
+	r.crossDevice = false
+	files, _ := r.lib.FilesOfVersion(ctx, r.versions[resolution.HD])
+	if err := r.lib.ApplyRescore(ctx, []library.Rescored{{FileID: files[0].ID, Misfit: true}}); err != nil {
+		t.Fatal(err)
+	}
+	r.prober.info["paddington2.mkv"] = good()
+	if res := r.svc.Import(ctx, r.job(t, 2, map[string]string{"paddington2.mkv": "video"})); res.Status != imports.Imported {
+		t.Fatalf("second import = %+v", res)
+	}
 	if rows, _ := r.health.List(ctx); len(rows) != 0 {
-		t.Errorf("rows = %+v", rows)
+		t.Errorf("rows = %+v, want the Warning cleared", rows)
 	}
 }
 

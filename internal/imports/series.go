@@ -400,7 +400,7 @@ func (in *seriesImport) file(ctx context.Context, video string, out *Result) {
 	}
 	partial := partialPath(in.g.ID, target)
 	_ = os.Remove(partial)
-	cross, err := place(video, partial)
+	cross, err := place(s.link, video, partial)
 	if err != nil {
 		_ = os.Remove(partial)
 		stall(err)

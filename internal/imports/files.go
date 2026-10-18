@@ -218,8 +218,8 @@ func escapeGlob(s string) string {
 
 // place puts src at dst without disturbing src: a hardlink, or on EXDEV a
 // verified copy. cross says it had to copy.
-func place(src, dst string) (cross bool, err error) {
-	err = os.Link(src, dst)
+func place(link func(src, dst string) error, src, dst string) (cross bool, err error) {
+	err = link(src, dst)
 	if err == nil {
 		return false, nil
 	}
