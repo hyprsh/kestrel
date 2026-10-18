@@ -37,7 +37,7 @@ const skipText: Record<string, string> = {
 
 const baseName = (p: string) => p.slice(p.lastIndexOf('/') + 1)
 
-const slotOrder = ['sd', 'hd', 'uhd'] as const
+const slotOrder = ['standard', '4k'] as const
 
 /** "S01E02" or "S01E02-E03" for a Series file, "" for a Movie file. */
 function episodeLabel(f: AdoptionFile) {
@@ -48,7 +48,7 @@ function episodeLabel(f: AdoptionFile) {
   return `S${pad(first.season)}E${pad(first.number)}${last.number !== first.number ? `-E${pad(last.number)}` : ''}`
 }
 
-/** The Versions a Series row proposes, e.g. "HD: 38 episodes, UHD: 4 episodes". */
+/** The Versions a Series row proposes, e.g. "Standard: 38 episodes, 4K: 4 episodes". */
 function versionsSummary(row: AdoptionRow) {
   const counts = new Map<string, number>()
   for (const f of row.files) if (f.ticked && !f.left) counts.set(f.slot, (counts.get(f.slot) ?? 0) + f.episodes.length)

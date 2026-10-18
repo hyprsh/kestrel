@@ -100,7 +100,7 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
               <RootFoldersForm />
             </Section>
             <Section n={6} id="profiles" title="Profiles" state={sections.profiles} summary={<ProfilesSummary />}>
-              <p className="mb-4 text-gray-900">Pick the Profile each new Title gets per Slot. HD is preselected; leave SD and UHD empty to add them per Title.</p>
+              <p className="mb-4 text-gray-900">Pick the Profile each new Title gets per Slot. Standard is preselected; leave 4K empty to add it per Title.</p>
               <DefaultsPerSlot />
             </Section>
             <Section n={7} id="adopt" title="Adopt existing library (optional)">

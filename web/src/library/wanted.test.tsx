@@ -12,9 +12,8 @@ const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { 
 
 type Slots = components['schemas']['TitleRow']['slots']
 const hd = (state: 'wanted' | 'filled', long = false): Slots => ({
-  sd: null,
-  hd: { version_id: 1, profile: 'hd-primary', state, long_missing: long },
-  uhd: null,
+  standard: { version_id: 1, profile: 'hd-primary', state, long_missing: long },
+  '4k': null,
 })
 
 const rows = () => [

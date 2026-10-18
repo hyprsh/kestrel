@@ -13,7 +13,7 @@ function size(bytes: number): string {
   return gb >= 1 ? `${gb.toFixed(1)} GB` : `${Math.round(bytes / 1024 ** 2)} MB`
 }
 
-/** The right pane of the Library: the selected Title's header and its SD | HD | UHD Versions strip. */
+/** The right pane of the Library: the selected Title's header and its Standard | 4K Versions strip. */
 export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: () => void; onManualSearch: (search: ManualSearchTarget) => void }>(function TitleDetail(
   { row, onEscape, onManualSearch },
   ref,

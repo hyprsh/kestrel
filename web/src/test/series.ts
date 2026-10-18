@@ -15,7 +15,7 @@ export const episode = (id: number, season: number, number: number, name: string
   name,
   air_date: '2008-01-20',
   monitored: season > 0,
-  cells: { sd: null, hd: cell(season > 0 ? 'wanted' : 'unmonitored'), uhd: cell(season > 0 ? 'wanted' : 'unmonitored') },
+  cells: { standard: cell(season > 0 ? 'wanted' : 'unmonitored'), '4k': cell(season > 0 ? 'wanted' : 'unmonitored') },
   ...over,
 })
 
@@ -23,9 +23,8 @@ export const seriesRow = (id: number, title: string): TitleRow =>
   row(id, title, title, {
     kind: 'series',
     slots: {
-      sd: null,
-      hd: { version_id: id * 10 + 1, profile: 'hd-primary', state: 'wanted', long_missing: false },
-      uhd: { version_id: id * 10 + 2, profile: 'uhd-primary', state: 'wanted', long_missing: false },
+      standard: { version_id: id * 10 + 1, profile: 'hd-primary', state: 'wanted', long_missing: false },
+      '4k': { version_id: id * 10 + 2, profile: '4k-primary', state: 'wanted', long_missing: false },
     },
   })
 
@@ -40,8 +39,8 @@ export function fakeSeries() {
     mode: 'all' as Mode,
     episodes: [
       episode(1, 0, 1, 'Good Cop Bad Cop'),
-      episode(2, 1, 1, 'Pilot', { cells: { sd: null, hd: cell('filled', 120), uhd: cell('wanted') } }),
-      episode(3, 1, 2, "Cat's in the Bag...", { air_date: null, cells: { sd: null, hd: cell('unreleased'), uhd: cell('unreleased') } }),
+      episode(2, 1, 1, 'Pilot', { cells: { standard: cell('filled', 120), '4k': cell('wanted') } }),
+      episode(3, 1, 2, "Cat's in the Bag...", { air_date: null, cells: { standard: cell('unreleased'), '4k': cell('unreleased') } }),
     ],
     sent: [] as Sent[],
   }

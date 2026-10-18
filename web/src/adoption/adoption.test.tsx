@@ -22,9 +22,9 @@ const summary = (rows: Row[]): Adoption['summary'] => ({
 
 const file = (name: string, over: Partial<components['schemas']['AdoptionFile']> = {}): components['schemas']['AdoptionFile'] => ({
   path: `/data/media/movies/old/${name}.mkv`,
-  to: `/data/media/movies/Paddington (2014) {tmdb-116149}/Paddington (2014) {tmdb-116149} - [HD] ${name}.mkv`,
+  to: `/data/media/movies/Paddington (2014) {tmdb-116149}/Paddington (2014) {tmdb-116149} - [Standard] ${name}.mkv`,
   size: 8 << 30,
-  slot: 'hd',
+  slot: 'standard',
   profile: 'hd-primary',
   score: 1750,
   action: 'create',
@@ -82,7 +82,7 @@ const series: Row = {
   files: [
     file('e1', { episodes: [{ season: 1, number: 1 }] }),
     file('e23', { episodes: [{ season: 1, number: 2 }, { season: 1, number: 3 }] }),
-    file('uhd', { slot: 'uhd', episodes: [{ season: 2, number: 1 }] }),
+    file('4k', { slot: '4k', episodes: [{ season: 2, number: 1 }] }),
     file('stray', { left: 'unmatched', ticked: false }),
   ],
 }
@@ -151,7 +151,7 @@ describe('Adoption review', () => {
     await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
 
     const row = (await screen.findAllByRole('listitem')).find((li) => li.textContent?.includes('Breaking Bad (2008)'))!
-    expect(row).toHaveTextContent('HD: 3 episodes, UHD: 1 episode')
+    expect(row).toHaveTextContent('Standard: 3 episodes, 4K: 1 episode')
     expect(row).toHaveTextContent('S01E02-E03')
     expect(row).toHaveTextContent('No matching episode, left in place')
     expect(screen.getByText('Not on TheTVDB, so Kestrel cannot manage it')).toBeInTheDocument()

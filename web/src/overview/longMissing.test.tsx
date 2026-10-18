@@ -27,8 +27,8 @@ function fakeLongMissing(rows: Attention['rows'] = []) {
   const long_missing: Attention['long_missing'] = {
     count: 7,
     items: [
-      { title_id: 3, title: 'Ancient Film', version_id: 31, slot: 'hd', profile: 'hd-primary', wanted_since: '2026-01-01T00:00:00Z', last_failure: 'download_failed' },
-      { title_id: 4, title: 'Older Film', version_id: 41, slot: 'uhd', profile: 'uhd-primary', wanted_since: '2025-12-01T00:00:00Z', last_failure: null },
+      { title_id: 3, title: 'Ancient Film', version_id: 31, slot: 'standard', profile: 'hd-primary', wanted_since: '2026-01-01T00:00:00Z', last_failure: 'download_failed' },
+      { title_id: 4, title: 'Older Film', version_id: 41, slot: '4k', profile: '4k-primary', wanted_since: '2025-12-01T00:00:00Z', last_failure: null },
     ],
   }
   server.use(
@@ -52,9 +52,9 @@ describe('the Long Missing row in Needs attention', () => {
     await userEvent.click(within(section).getByRole('button', { name: 'Show' }))
 
     const items = within(section).getAllByRole('listitem')
-    expect(items[1]).toHaveTextContent('Ancient Film · HD · hd-primary')
+    expect(items[1]).toHaveTextContent('Ancient Film · Standard · hd-primary')
     expect(items[1]).toHaveTextContent('Wanted since 2026-01-01, last failure: download failed')
-    expect(items[2]).toHaveTextContent('Older Film · UHD')
+    expect(items[2]).toHaveTextContent('Older Film · 4K')
     expect(items[2]).not.toHaveTextContent(/last failure/i)
   })
 
@@ -72,8 +72,8 @@ describe('the Long Missing row in Needs attention', () => {
   it('links to the Library on its Wanted filter with the Long Missing chip', async () => {
     fakeLongMissing()
     fakeLibrary([
-      row(3, 'Ancient Film', 'Ancient Film', { slots: { sd: null, hd: { version_id: 31, profile: 'hd-primary', state: 'wanted', long_missing: true }, uhd: null } }),
-      row(5, 'Recent Film', 'Recent Film', { slots: { sd: null, hd: { version_id: 51, profile: 'hd-primary', state: 'wanted', long_missing: false }, uhd: null } }),
+      row(3, 'Ancient Film', 'Ancient Film', { slots: { standard: { version_id: 31, profile: 'hd-primary', state: 'wanted', long_missing: true }, '4k': null } }),
+      row(5, 'Recent Film', 'Recent Film', { slots: { standard: { version_id: 51, profile: 'hd-primary', state: 'wanted', long_missing: false }, '4k': null } }),
     ])
     renderApp()
 

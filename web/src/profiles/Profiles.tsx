@@ -1,17 +1,17 @@
 import { ApiError, usePatchProfile, useProfiles, type Profile } from '../api/queries'
 import { ErrorText, Select } from '../forms'
+import { slotLabel } from '../library/bits'
 
 const slots = [
-  { slot: 'sd', label: 'SD' },
-  { slot: 'hd', label: 'HD' },
-  { slot: 'uhd', label: 'UHD' },
+  { slot: 'standard', label: 'Standard' },
+  { slot: '4k', label: '4K' },
 ] as const
 
 const problemText = (e: unknown) => (e instanceof ApiError && e.status === 422 ? e.message : 'Could not save. Try again.')
 
 /**
- * One default Profile per Slot for Movies and for Series. HD always has one;
- * SD and UHD can have none. A change saves at once.
+ * One default Profile per Slot for Movies and for Series. Standard always has one;
+ * 4K can have none. A change saves at once.
  */
 export function DefaultsPerSlot() {
   const profiles = useProfiles()
@@ -50,7 +50,7 @@ export function DefaultsPerSlot() {
                       else if (current) patch.mutate({ key: current.key, patch: { [flag]: false } })
                     }}
                   >
-                    {slot !== 'hd' && <option value="">None</option>}
+                    {slot !== 'standard' && <option value="">None</option>}
                     {inSlot
                       .filter((p) => p.enabled)
                       .map((p) => (
@@ -96,7 +96,7 @@ export function ProfileToggles() {
             <label className="flex w-48 items-center gap-2">
               <input type="checkbox" aria-label={`${p.name} enabled`} checked={p.enabled} onChange={(e) => toggle(p, { enabled: e.target.checked })} />
               <span className="font-medium">{p.name}</span>
-              <span className="text-[12px] text-gray-900">{p.slot.toUpperCase()}</span>
+              <span className="text-[12px] text-gray-900">{slotLabel[p.slot]}</span>
             </label>
             {p.language_rule === 'primary' ? (
               <label className="flex items-center gap-2 text-[12px]">

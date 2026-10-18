@@ -46,7 +46,7 @@ function fakeSeriesLookup() {
         in_library: null,
         certification: 'TV-MA',
         certification_country: 'US',
-        slots: [{ slot: 'hd', profile: 'hd-primary', label: 'HD', reason: 'default' }],
+        slots: [{ slot: 'standard', profile: 'hd-primary', label: 'HD', reason: 'default' }],
       }),
     ),
     http.post('/titles', async ({ request, response }) => {
@@ -99,7 +99,7 @@ describe('adding a Series from the command menu', () => {
     await userEvent.click(within(menu).getByRole('button', { name: /^add/i }))
 
     await waitFor(() => expect(f.sent).toHaveLength(1))
-    expect(f.sent[0].body).toEqual({ kind: 'series', tmdb_id: 1396, versions: [{ slot: 'hd', profile: 'hd-primary' }], series_monitor: 'future' })
+    expect(f.sent[0].body).toEqual({ kind: 'series', tmdb_id: 1396, versions: [{ slot: 'standard', profile: 'hd-primary' }], series_monitor: 'future' })
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 })
@@ -117,10 +117,9 @@ describe('the episodes heat map', () => {
     const { grid } = await openSeries()
     expect(within(grid).getByRole('checkbox', { name: 'Specials' })).toBeInTheDocument()
     expect(within(grid).getByRole('checkbox', { name: 'Season 1' })).toBeChecked()
-    expect(within(grid).getByRole('img', { name: 'Season 1 episode 1 HD: Filled' })).toBeInTheDocument()
-    expect(within(grid).getByRole('img', { name: 'Season 1 episode 1 UHD: Wanted' })).toBeInTheDocument()
-    expect(within(grid).getByRole('img', { name: 'Season 1 episode 2 HD: Unreleased' })).toBeInTheDocument()
-    expect(within(grid).queryByRole('img', { name: /SD:/ })).not.toBeInTheDocument()
+    expect(within(grid).getByRole('img', { name: 'Season 1 episode 1 Standard: Filled' })).toBeInTheDocument()
+    expect(within(grid).getByRole('img', { name: 'Season 1 episode 1 4K: Wanted' })).toBeInTheDocument()
+    expect(within(grid).getByRole('img', { name: 'Season 1 episode 2 Standard: Unreleased' })).toBeInTheDocument()
     expect(within(grid).getByRole('checkbox', { name: 'Season 0 episode 1 monitored' })).not.toBeChecked()
     expect(within(grid).getByText('no air date')).toBeInTheDocument()
   })
@@ -140,9 +139,9 @@ describe('the episodes heat map', () => {
     expect(state.get().sent[0]).toEqual({ path: 'episodes/monitor', body: { episode_ids: [1], monitored: true } })
     await waitFor(() => expect(within(grid).getByRole('checkbox', { name: 'Season 0 episode 1 monitored' })).toBeChecked())
 
-    // Right moves along the row onto the HD cell; Space there toggles the same episode.
+    // Right moves along the row onto the Standard cell; Space there toggles the same episode.
     await userEvent.keyboard('{ArrowRight}')
-    expect(within(grid).getByRole('img', { name: 'Season 0 episode 1 HD: Unmonitored' })).toHaveFocus()
+    expect(within(grid).getByRole('img', { name: 'Season 0 episode 1 Standard: Unmonitored' })).toHaveFocus()
 
     // Down to the Season 1 row; Space unmonitors the whole season.
     await userEvent.keyboard('{ArrowLeft}{ArrowDown}')

@@ -73,7 +73,7 @@ async function openManualSearch() {
   renderApp()
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
   const pane = await screen.findByRole('region', { name: /paddington/i })
-  const hd = await within(pane).findByRole('group', { name: 'HD' })
+  const hd = await within(pane).findByRole('group', { name: 'Standard' })
   await userEvent.click(within(hd).getByRole('button', { name: /manual search/i }))
   return screen.findByRole('table', { name: /releases/i })
 }
@@ -178,7 +178,7 @@ describe('manual search', () => {
 
     await userEvent.keyboard('{Escape}')
 
-    expect(await screen.findByRole('group', { name: 'HD' })).toBeInTheDocument()
+    expect(await screen.findByRole('group', { name: 'Standard' })).toBeInTheDocument()
     expect(screen.queryByRole('table', { name: /releases/i })).not.toBeInTheDocument()
   })
 

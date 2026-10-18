@@ -22,7 +22,7 @@ export const row = (id: number, title: string, primary: string, over: Partial<Ti
   title,
   primary_title: primary,
   year: 2014,
-  slots: { sd: null, hd: slot('hd-primary', 'wanted', id * 10 + 1), uhd: null },
+  slots: { standard: slot('hd-primary', 'wanted', id * 10 + 1), '4k': null },
   wanted_since: '2026-10-17T12:00:00Z',
   added_at: '2026-10-17T12:00:00Z',
   ...over,
@@ -53,7 +53,7 @@ export const detail = (r: TitleRow, over: Partial<TitleDetail> = {}): TitleDetai
   series_monitor: null,
   seasons: [],
   requests: [],
-  versions: (['sd', 'hd', 'uhd'] as const).flatMap((s) => {
+  versions: (['standard', '4k'] as const).flatMap((s) => {
     const sl = r.slots[s]
     return sl
       ? [{ id: sl.version_id, slot: s, profile: sl.profile, state: sl.state, long_missing: false, wanted_since: r.wanted_since, file: null, added_at: r.added_at }]
@@ -63,10 +63,9 @@ export const detail = (r: TitleRow, over: Partial<TitleDetail> = {}): TitleDetai
 })
 
 export const profileNames: Record<string, string> = {
-  'sd-primary': 'SD',
   'hd-primary': 'HD',
   'any-primary': 'Any',
-  'uhd-primary': 'UHD',
+  '4k-primary': '4K',
 }
 
 /** A Library of titles served by GET /titles and GET /titles/{id}. */
@@ -85,7 +84,7 @@ export function fakeLibrary(initial: TitleRow[]) {
         items: Object.entries(profileNames).map(([key, name]) => ({
           key,
           name,
-          slot: key.startsWith('sd') ? 'sd' : key.startsWith('uhd') ? 'uhd' : 'hd',
+          slot: key.startsWith('4k') ? '4k' : 'standard',
           language_rule: 'primary',
           original_fallback: false,
           enabled: true,
