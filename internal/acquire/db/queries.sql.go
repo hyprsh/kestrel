@@ -10,6 +10,18 @@ import (
 	"database/sql"
 )
 
+const deleteBlocklist = `-- name: DeleteBlocklist :execrows
+DELETE FROM blocklist WHERE id = ?
+`
+
+func (q *Queries) DeleteBlocklist(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteBlocklist, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteGrab = `-- name: DeleteGrab :exec
 DELETE FROM grabs WHERE id = ?
 `
@@ -331,6 +343,44 @@ func (q *Queries) ListActiveGrabs(ctx context.Context) ([]Grab, error) {
 			&i.NextImportAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBlocklist = `-- name: ListBlocklist :many
+SELECT id, release_name, indexer_id, guid, published_at, size, reason, title_id, grab_id, created_at FROM blocklist WHERE (?1 IS NULL OR title_id = ?1) ORDER BY id DESC
+`
+
+func (q *Queries) ListBlocklist(ctx context.Context, titleID interface{}) ([]Blocklist, error) {
+	rows, err := q.db.QueryContext(ctx, listBlocklist, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Blocklist
+	for rows.Next() {
+		var i Blocklist
+		if err := rows.Scan(
+			&i.ID,
+			&i.ReleaseName,
+			&i.IndexerID,
+			&i.Guid,
+			&i.PublishedAt,
+			&i.Size,
+			&i.Reason,
+			&i.TitleID,
+			&i.GrabID,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

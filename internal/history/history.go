@@ -56,6 +56,8 @@ const (
 	RequestCreated Kind = "request"
 	// Renamed: a Title's folder and files were renamed after its English title or year changed.
 	Renamed Kind = "rename"
+	// Blocklisted: a Release went on the Blocklist.
+	Blocklisted Kind = "blocklist"
 	// HealthRaised: a Needs attention row appeared (a repeat of one already showing does not record).
 	HealthRaised Kind = "health_raised"
 	// HealthCleared: a Needs attention row cleared itself.
@@ -132,6 +134,10 @@ func (s *Service) After(ctx context.Context, id int64, limit int) ([]Event, erro
 	if err != nil {
 		return nil, err
 	}
+	return eventsOf(rows), nil
+}
+
+func eventsOf(rows []db.Event) []Event {
 	out := make([]Event, 0, len(rows))
 	for _, r := range rows {
 		at, _ := time.Parse(time.RFC3339, r.At)
@@ -144,7 +150,46 @@ func (s *Service) After(ctx context.Context, id int64, limit int) ([]Event, erro
 		}
 		out = append(out, ev)
 	}
-	return out, nil
+	return out
+}
+
+// Filter narrows the Log. Zero fields match everything.
+type Filter struct {
+	Kind    Kind
+	TitleID int64
+	// Slot is "sd", "hd" or "uhd": events about a Version in that Slot.
+	Slot string
+	// Routine includes routine events, which the Log hides by default.
+	Routine bool
+	// Before returns only events with a smaller id, for paging.
+	Before int64
+	// Limit caps the result; zero means 200.
+	Limit int
+}
+
+// List returns the Log newest first.
+func (s *Service) List(ctx context.Context, f Filter) ([]Event, error) {
+	p := db.ListEventsParams{WithRoutine: b2i(f.Routine), MaxRows: int64(f.Limit)}
+	if p.MaxRows <= 0 {
+		p.MaxRows = 200
+	}
+	if f.Kind != "" {
+		p.Kind = string(f.Kind)
+	}
+	if f.TitleID != 0 {
+		p.TitleID = f.TitleID
+	}
+	if f.Slot != "" {
+		p.Slot = f.Slot
+	}
+	if f.Before != 0 {
+		p.Before = f.Before
+	}
+	rows, err := db.New(s.st.Read()).ListEvents(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	return eventsOf(rows), nil
 }
 
 // Last is the id of the newest event, 0 when the log is empty.

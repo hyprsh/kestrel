@@ -1071,6 +1071,24 @@ type AttentionSubject struct {
 	VersionId        *int64 `json:"version_id"`
 }
 
+// BlocklistEntry defines model for BlocklistEntry.
+type BlocklistEntry struct {
+	CreatedAt   time.Time `json:"created_at"`
+	GrabId      *int64    `json:"grab_id"`
+	Id          int64     `json:"id"`
+	IndexerId   int64     `json:"indexer_id"`
+	PublishedAt time.Time `json:"published_at"`
+	Reason      string    `json:"reason"`
+	ReleaseName string    `json:"release_name"`
+	Size        int64     `json:"size"`
+	TitleId     *int64    `json:"title_id"`
+}
+
+// BlocklistList defines model for BlocklistList.
+type BlocklistList struct {
+	Items []BlocklistEntry `json:"items"`
+}
+
 // ChangedHint Something changed; refetch it. `resource` is `title` (a Title, its Versions and the
 // Library list), `grab`, `queue` or `log`; more are added. `id` is null when the hint is about the
 // whole resource. Clients ignore resources they do not know.
@@ -1182,6 +1200,30 @@ type EpisodeList struct {
 type EpisodesMonitor struct {
 	EpisodeIds []int64 `json:"episode_ids"`
 	Monitored  bool    `json:"monitored"`
+}
+
+// Event defines model for Event.
+type Event struct {
+	At time.Time `json:"at"`
+
+	// Data The kind's payload, such as per-episode pack results.
+	Data      *map[string]interface{} `json:"data"`
+	EpisodeId *int64                  `json:"episode_id"`
+	GrabId    *int64                  `json:"grab_id"`
+	Id        int64                   `json:"id"`
+
+	// Kind A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned.
+	Kind      string `json:"kind"`
+	Message   string `json:"message"`
+	RequestId *int64 `json:"request_id"`
+	Routine   bool   `json:"routine"`
+	TitleId   *int64 `json:"title_id"`
+	VersionId *int64 `json:"version_id"`
+}
+
+// EventList defines model for EventList.
+type EventList struct {
+	Items []Event `json:"items"`
 }
 
 // FileSummary defines model for FileSummary.
@@ -2152,6 +2194,11 @@ type ScanAdoptionJSONBody struct {
 	RootFolders *[]string `json:"root_folders,omitempty"`
 }
 
+// ListBlocklistParams defines parameters for ListBlocklist.
+type ListBlocklistParams struct {
+	TitleId *int64 `form:"title_id,omitempty" json:"title_id,omitempty"`
+}
+
 // PreviewCleanupJSONBody defines parameters for PreviewCleanup.
 type PreviewCleanupJSONBody struct {
 	TitleId *int64 `json:"title_id,omitempty"`
@@ -2164,6 +2211,16 @@ type RunCleanupJSONBody struct {
 	// Exclude Paths to leave alone although their category is ticked.
 	Exclude   *[]string `json:"exclude,omitempty"`
 	PreviewId string    `json:"preview_id"`
+}
+
+// ListEventsParams defines parameters for ListEvents.
+type ListEventsParams struct {
+	Kind    *string `form:"kind,omitempty" json:"kind,omitempty"`
+	TitleId *int64  `form:"title_id,omitempty" json:"title_id,omitempty"`
+	Slot    *Slot   `form:"slot,omitempty" json:"slot,omitempty"`
+	Routine *bool   `form:"routine,omitempty" json:"routine,omitempty"`
+	Before  *int64  `form:"before,omitempty" json:"before,omitempty"`
+	Limit   *int    `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // LookupParams defines parameters for Lookup.
@@ -2358,12 +2415,21 @@ type ServerInterface interface {
 	// GetMe Who is logged in
 	// (GET /auth/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// ListBlocklist The Blocklist
+	// (GET /blocklist)
+	ListBlocklist(w http.ResponseWriter, r *http.Request, params ListBlocklistParams)
+	// DeleteBlocklistEntry Remove a Blocklist entry
+	// (DELETE /blocklist/{id})
+	DeleteBlocklistEntry(w http.ResponseWriter, r *http.Request, id GrabId)
 	// PreviewCleanup List the Unmanaged files Clean up could delete
 	// (POST /cleanup/preview)
 	PreviewCleanup(w http.ResponseWriter, r *http.Request)
 	// RunCleanup Delete the ticked categories of a preview
 	// (POST /cleanup/run)
 	RunCleanup(w http.ResponseWriter, r *http.Request)
+	// ListEvents The Log
+	// (GET /events)
+	ListEvents(w http.ResponseWriter, r *http.Request, params ListEventsParams)
 	// CreateGrab Grab a Release into the download client
 	// (POST /grabs)
 	CreateGrab(w http.ResponseWriter, r *http.Request)
@@ -2803,6 +2869,65 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 	handler.ServeHTTP(w, r)
 }
 
+// ListBlocklist operation middleware
+func (siw *ServerInterfaceWrapper) ListBlocklist(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListBlocklistParams
+
+	// ------------- Optional query parameter "title_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "title_id", r.URL.Query(), &params.TitleId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "title_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "title_id", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListBlocklist(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteBlocklistEntry operation middleware
+func (siw *ServerInterfaceWrapper) DeleteBlocklistEntry(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id GrabId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteBlocklistEntry(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PreviewCleanup operation middleware
 func (siw *ServerInterfaceWrapper) PreviewCleanup(w http.ResponseWriter, r *http.Request) {
 
@@ -2822,6 +2947,104 @@ func (siw *ServerInterfaceWrapper) RunCleanup(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RunCleanup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListEvents operation middleware
+func (siw *ServerInterfaceWrapper) ListEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListEventsParams
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "title_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "title_id", r.URL.Query(), &params.TitleId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "title_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "title_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "slot" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "slot", r.URL.Query(), &params.Slot, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "slot"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slot", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "routine" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "routine", r.URL.Query(), &params.Routine, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "routine"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "routine", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", r.URL.Query(), &params.Before, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListEvents(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4225,6 +4448,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/stalled-imports/retry", wrapper.RetryStalledImports)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/stalled-imports/discard", wrapper.DiscardStalledImports)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/queue", wrapper.ListQueue)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/events", wrapper.ListEvents)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/blocklist", wrapper.ListBlocklist)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/blocklist/{id}", wrapper.DeleteBlocklistEntry)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/adoption", wrapper.DiscardAdoption)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/adoption", wrapper.GetAdoption)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/adoption/scan", wrapper.ScanAdoption)
@@ -5062,6 +5288,94 @@ func (response GetMedefaultApplicationProblemPlusJSONResponse) VisitGetMeRespons
 	return err
 }
 
+type ListBlocklistRequestObject struct {
+	Params ListBlocklistParams
+}
+
+type ListBlocklistResponseObject interface {
+	VisitListBlocklistResponse(w http.ResponseWriter) error
+}
+
+type ListBlocklist200JSONResponse BlocklistList
+
+func (response ListBlocklist200JSONResponse) VisitListBlocklistResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListBlocklistdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListBlocklistdefaultApplicationProblemPlusJSONResponse) VisitListBlocklistResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteBlocklistEntryRequestObject struct {
+	Id GrabId `json:"id"`
+}
+
+type DeleteBlocklistEntryResponseObject interface {
+	VisitDeleteBlocklistEntryResponse(w http.ResponseWriter) error
+}
+
+type DeleteBlocklistEntry204Response struct {
+}
+
+func (response DeleteBlocklistEntry204Response) VisitDeleteBlocklistEntryResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteBlocklistEntry404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteBlocklistEntry404ApplicationProblemPlusJSONResponse) VisitDeleteBlocklistEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteBlocklistEntrydefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DeleteBlocklistEntrydefaultApplicationProblemPlusJSONResponse) VisitDeleteBlocklistEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PreviewCleanupRequestObject struct {
 	Body *PreviewCleanupJSONRequestBody
 }
@@ -5175,6 +5489,45 @@ type RunCleanupdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response RunCleanupdefaultApplicationProblemPlusJSONResponse) VisitRunCleanupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEventsRequestObject struct {
+	Params ListEventsParams
+}
+
+type ListEventsResponseObject interface {
+	VisitListEventsResponse(w http.ResponseWriter) error
+}
+
+type ListEvents200JSONResponse EventList
+
+func (response ListEvents200JSONResponse) VisitListEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEventsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListEventsdefaultApplicationProblemPlusJSONResponse) VisitListEventsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -8088,12 +8441,21 @@ type StrictServerInterface interface {
 	// GetMe Who is logged in
 	// (GET /auth/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// ListBlocklist The Blocklist
+	// (GET /blocklist)
+	ListBlocklist(ctx context.Context, request ListBlocklistRequestObject) (ListBlocklistResponseObject, error)
+	// DeleteBlocklistEntry Remove a Blocklist entry
+	// (DELETE /blocklist/{id})
+	DeleteBlocklistEntry(ctx context.Context, request DeleteBlocklistEntryRequestObject) (DeleteBlocklistEntryResponseObject, error)
 	// PreviewCleanup List the Unmanaged files Clean up could delete
 	// (POST /cleanup/preview)
 	PreviewCleanup(ctx context.Context, request PreviewCleanupRequestObject) (PreviewCleanupResponseObject, error)
 	// RunCleanup Delete the ticked categories of a preview
 	// (POST /cleanup/run)
 	RunCleanup(ctx context.Context, request RunCleanupRequestObject) (RunCleanupResponseObject, error)
+	// ListEvents The Log
+	// (GET /events)
+	ListEvents(ctx context.Context, request ListEventsRequestObject) (ListEventsResponseObject, error)
 	// CreateGrab Grab a Release into the download client
 	// (POST /grabs)
 	CreateGrab(ctx context.Context, request CreateGrabRequestObject) (CreateGrabResponseObject, error)
@@ -8734,6 +9096,58 @@ func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ListBlocklist operation middleware
+func (sh *strictHandler) ListBlocklist(w http.ResponseWriter, r *http.Request, params ListBlocklistParams) {
+	var request ListBlocklistRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListBlocklist(ctx, request.(ListBlocklistRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListBlocklist")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListBlocklistResponseObject); ok {
+		if err := validResponse.VisitListBlocklistResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteBlocklistEntry operation middleware
+func (sh *strictHandler) DeleteBlocklistEntry(w http.ResponseWriter, r *http.Request, id GrabId) {
+	var request DeleteBlocklistEntryRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteBlocklistEntry(ctx, request.(DeleteBlocklistEntryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteBlocklistEntry")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteBlocklistEntryResponseObject); ok {
+		if err := validResponse.VisitDeleteBlocklistEntryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // PreviewCleanup operation middleware
 func (sh *strictHandler) PreviewCleanup(w http.ResponseWriter, r *http.Request) {
 	var request PreviewCleanupRequestObject
@@ -8792,6 +9206,32 @@ func (sh *strictHandler) RunCleanup(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RunCleanupResponseObject); ok {
 		if err := validResponse.VisitRunCleanupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListEvents operation middleware
+func (sh *strictHandler) ListEvents(w http.ResponseWriter, r *http.Request, params ListEventsParams) {
+	var request ListEventsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListEvents(ctx, request.(ListEventsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListEvents")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListEventsResponseObject); ok {
+		if err := validResponse.VisitListEventsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

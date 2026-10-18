@@ -4,12 +4,9 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
-	"log/slog"
 	"mime"
 	"net"
 	"net/http"
@@ -500,29 +497,4 @@ func (s *server) ChangePassword(ctx context.Context, req oapi.ChangePasswordRequ
 // PruneSessions deletes sessions that expired at or before now and reports how many.
 func PruneSessions(ctx context.Context, st *store.Store, now time.Time) (int64, error) {
 	return db.New(st.Write()).PruneSessions(ctx, now.Unix())
-}
-
-// RunSessionPruner prunes expired sessions at start and then every interval,
-// until ctx ends. It stands in for the jobs reconciler that will own this later.
-func RunSessionPruner(ctx context.Context, st *store.Store, every time.Duration, logger *slog.Logger) {
-	run := func() {
-		n, err := PruneSessions(ctx, st, time.Now())
-		switch {
-		case err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, sql.ErrConnDone):
-			logger.Error("prune sessions", "err", err)
-		case n > 0:
-			logger.Info("pruned expired sessions", "count", n)
-		}
-	}
-	run()
-	t := time.NewTicker(every)
-	defer t.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			run()
-		}
-	}
 }

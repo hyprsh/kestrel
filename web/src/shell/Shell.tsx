@@ -13,6 +13,7 @@ import { MOD } from '../keys'
 import { useSearchAllWanted } from '../api/wanted'
 import { Library, type Preset } from '../library/Library'
 import { startLiveStream } from '../live/stream'
+import { Log } from '../log/Log'
 import { Overview } from '../overview/Overview'
 import { Settings as SettingsScreen } from '../screens/Settings'
 import { useTheme, type Theme } from '../theme'
@@ -120,6 +121,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
             />
           ) : screen === 'about' ? (
             <About />
+          ) : screen === 'log' ? (
+            <Log />
           ) : screen === 'overview' ? (
             <Overview onOpen={goPath} />
           ) : (

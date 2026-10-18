@@ -201,7 +201,7 @@ func (s *Service) healFailed(ctx context.Context, g db.Grab, lost, block bool, r
 func (s *Service) blockGrab(ctx context.Context, g db.Grab, reason string) error {
 	return s.Block(ctx, BlockEntry{
 		ReleaseName: g.ReleaseName, IndexerID: g.IndexerID, GUID: g.ReleaseGuid, PublishedAt: parseTime(g.PublishedAt), Size: g.Size,
-		Reason: reason, TitleID: g.TitleID.Int64, GrabID: g.ID,
+		Reason: reason, TitleID: g.TitleID.Int64, VersionID: g.VersionID.Int64, GrabID: g.ID,
 	})
 }
 

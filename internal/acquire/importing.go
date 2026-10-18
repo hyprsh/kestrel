@@ -145,7 +145,7 @@ func (s *Service) RecordImport(ctx context.Context, grabID int64, canRemove bool
 			g := grabOf(row)
 			if err := s.Block(ctx, BlockEntry{
 				ReleaseName: g.ReleaseName, IndexerID: row.IndexerID, GUID: row.ReleaseGuid, PublishedAt: g.PublishedAt, Size: g.Size,
-				Reason: "import rejected: " + o.Reason, TitleID: g.TitleID, GrabID: g.ID,
+				Reason: "import rejected: " + o.Reason, TitleID: g.TitleID, VersionID: row.VersionID.Int64, GrabID: g.ID,
 			}); err != nil {
 				return err
 			}

@@ -994,6 +994,64 @@ paths:
                 $ref: "#/components/schemas/QueueList"
         default:
           $ref: "#/components/responses/Problem"
+  /events:
+    get:
+      operationId: listEvents
+      summary: The Log
+      description: |
+        Events newest first. Routine events (a download started or finished, an Adoption scan) are
+        left out unless `routine=true`; they are pruned after 30 days, the rest are kept forever.
+        `kind` is a growing set: clients show kinds they do not know. `slot` matches events about a
+        Version in that Slot. `before` pages: pass the smallest `id` seen.
+      tags: [system]
+      parameters:
+        - { name: kind, in: query, schema: { type: string } }
+        - { name: title_id, in: query, schema: { type: integer, format: int64 } }
+        - { name: slot, in: query, schema: { $ref: "#/components/schemas/Slot" } }
+        - { name: routine, in: query, schema: { type: boolean, default: false } }
+        - { name: before, in: query, schema: { type: integer, format: int64 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 1000, default: 200 } }
+      responses:
+        "200":
+          description: The events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventList"
+        default:
+          $ref: "#/components/responses/Problem"
+  /blocklist:
+    get:
+      operationId: listBlocklist
+      summary: The Blocklist
+      description: Releases never to be grabbed again, newest first. `title_id` narrows it to one Title.
+      tags: [grabs]
+      parameters:
+        - { name: title_id, in: query, schema: { type: integer, format: int64 } }
+      responses:
+        "200":
+          description: The entries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlocklistList"
+        default:
+          $ref: "#/components/responses/Problem"
+  /blocklist/{id}:
+    parameters:
+      - $ref: "#/components/parameters/GrabId"
+    delete:
+      operationId: deleteBlocklistEntry
+      summary: Remove a Blocklist entry
+      description: The Release can be grabbed again. An entry that is already gone is `404`.
+      tags: [grabs]
+      responses:
+        "204":
+          description: The entry is gone.
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /adoption:
     get:
       operationId: getAdoption
@@ -3215,6 +3273,56 @@ components:
         total_bytes:
           type: integer
           format: int64
+    EventList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+    Event:
+      type: object
+      required: [id, at, kind, routine, title_id, version_id, episode_id, grab_id, request_id, message, data]
+      properties:
+        id: { type: integer, format: int64 }
+        at: { type: string, format: date-time }
+        kind:
+          type: string
+          description: "A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned."
+        routine: { type: boolean }
+        title_id: { type: integer, format: int64, nullable: true }
+        version_id: { type: integer, format: int64, nullable: true }
+        episode_id: { type: integer, format: int64, nullable: true }
+        grab_id: { type: integer, format: int64, nullable: true }
+        request_id: { type: integer, format: int64, nullable: true }
+        message: { type: string }
+        data:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: The kind's payload, such as per-episode pack results.
+    BlocklistList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/BlocklistEntry"
+    BlocklistEntry:
+      type: object
+      required: [id, release_name, indexer_id, reason, size, published_at, created_at, title_id, grab_id]
+      properties:
+        id: { type: integer, format: int64 }
+        release_name: { type: string }
+        indexer_id: { type: integer, format: int64 }
+        reason: { type: string }
+        size: { type: integer, format: int64 }
+        published_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        title_id: { type: integer, format: int64, nullable: true }
+        grab_id: { type: integer, format: int64, nullable: true }
     QueueList:
       type: object
       required: [items]

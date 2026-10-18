@@ -796,6 +796,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Log
+         * @description Events newest first. Routine events (a download started or finished, an Adoption scan) are
+         *     left out unless `routine=true`; they are pruned after 30 days, the rest are kept forever.
+         *     `kind` is a growing set: clients show kinds they do not know. `slot` matches events about a
+         *     Version in that Slot. `before` pages: pass the smallest `id` seen.
+         */
+        get: operations["listEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blocklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Blocklist
+         * @description Releases never to be grabbed again, newest first. `title_id` narrows it to one Title.
+         */
+        get: operations["listBlocklist"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blocklist/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a Blocklist entry
+         * @description The Release can be grabbed again. An entry that is already gone is `404`.
+         */
+        delete: operations["deleteBlocklistEntry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/adoption": {
         parameters: {
             query?: never;
@@ -2165,6 +2230,54 @@ export interface components {
             /** Format: int64 */
             total_bytes: number;
         };
+        EventList: {
+            items: components["schemas"]["Event"][];
+        };
+        Event: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            at: string;
+            /** @description A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned. */
+            kind: string;
+            routine: boolean;
+            /** Format: int64 */
+            title_id: number | null;
+            /** Format: int64 */
+            version_id: number | null;
+            /** Format: int64 */
+            episode_id: number | null;
+            /** Format: int64 */
+            grab_id: number | null;
+            /** Format: int64 */
+            request_id: number | null;
+            message: string;
+            /** @description The kind's payload, such as per-episode pack results. */
+            data: {
+                [key: string]: unknown;
+            } | null;
+        };
+        BlocklistList: {
+            items: components["schemas"]["BlocklistEntry"][];
+        };
+        BlocklistEntry: {
+            /** Format: int64 */
+            id: number;
+            release_name: string;
+            /** Format: int64 */
+            indexer_id: number;
+            reason: string;
+            /** Format: int64 */
+            size: number;
+            /** Format: date-time */
+            published_at: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: int64 */
+            title_id: number | null;
+            /** Format: int64 */
+            grab_id: number | null;
+        };
         QueueList: {
             items: components["schemas"]["QueueItem"][];
         };
@@ -3437,6 +3550,79 @@ export interface operations {
                     "application/json": components["schemas"]["QueueList"];
                 };
             };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listEvents: {
+        parameters: {
+            query?: {
+                kind?: string;
+                title_id?: number;
+                slot?: components["schemas"]["Slot"];
+                routine?: boolean;
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The events. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listBlocklist: {
+        parameters: {
+            query?: {
+                title_id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlocklistList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteBlocklistEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entry is gone. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

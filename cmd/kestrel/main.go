@@ -51,7 +51,6 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer st.Close()
-	go api.RunSessionPruner(ctx, st, 24*time.Hour, logger)
 
 	plugins, err := builtinPlugins()
 	if err != nil {

@@ -198,7 +198,9 @@ func New(opts Options) *App {
 		History: s.history, Health: s.health, Clock: opts.Clock, Logger: opts.Logger,
 	})
 	s.updates = updates.New(updates.Deps{Settings: appSettings, Health: s.health, Version: opts.Version, APIBase: opts.GitHubAPI, Clock: opts.Clock})
-	s.jobs = jobs.Standard(jobs.Deps{Refresher: s.refresher, Updates: s.updates, Acquire: acq, Library: s.library, History: s.history, Health: s.health, Importer: imp, ImportSource: acq, Clock: opts.Clock, Logger: opts.Logger})
+	s.jobs = jobs.Standard(jobs.Deps{Refresher: s.refresher, Updates: s.updates, Acquire: acq, Library: s.library, History: s.history, PruneState: appSettings,
+		Sessions: func(ctx context.Context) error { _, err := PruneSessions(ctx, opts.Store, opts.Clock()); return err },
+		Health:   s.health, Importer: imp, ImportSource: acq, Clock: opts.Clock, Logger: opts.Logger})
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ping", s.ping)

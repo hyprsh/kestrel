@@ -102,6 +102,69 @@ func (q *Queries) LastEventID(ctx context.Context) (int64, error) {
 	return column_1, err
 }
 
+const listEvents = `-- name: ListEvents :many
+SELECT id, at, kind, routine, title_id, version_id, episode_id, grab_id, request_id, message, data FROM events
+WHERE (?1 IS NULL OR kind = ?1)
+  AND (?2 IS NULL OR title_id = ?2)
+  AND (?3 IS NULL OR version_id IN (SELECT v.id FROM versions v WHERE v.slot = ?3))
+  AND (?4 = 1 OR routine = 0)
+  AND (?5 IS NULL OR id < ?5)
+ORDER BY id DESC
+LIMIT ?6
+`
+
+type ListEventsParams struct {
+	Kind        interface{}
+	TitleID     interface{}
+	Slot        interface{}
+	WithRoutine interface{}
+	Before      interface{}
+	MaxRows     int64
+}
+
+// The Log: newest first; each filter is off when its argument is NULL.
+func (q *Queries) ListEvents(ctx context.Context, arg ListEventsParams) ([]Event, error) {
+	rows, err := q.db.QueryContext(ctx, listEvents,
+		arg.Kind,
+		arg.TitleID,
+		arg.Slot,
+		arg.WithRoutine,
+		arg.Before,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Event
+	for rows.Next() {
+		var i Event
+		if err := rows.Scan(
+			&i.ID,
+			&i.At,
+			&i.Kind,
+			&i.Routine,
+			&i.TitleID,
+			&i.VersionID,
+			&i.EpisodeID,
+			&i.GrabID,
+			&i.RequestID,
+			&i.Message,
+			&i.Data,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const pruneRoutineEvents = `-- name: PruneRoutineEvents :execrows
 DELETE FROM events WHERE routine = 1 AND at < ?
 `

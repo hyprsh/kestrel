@@ -69,6 +69,9 @@ func hintsOf(ev history.Event) []hint {
 	if strings.HasPrefix(string(ev.Kind), "grab") || strings.HasPrefix(string(ev.Kind), "import") {
 		out = append(out, hintOf("queue", 0))
 	}
+	if ev.Kind == history.Blocklisted {
+		out = append(out, hintOf("blocklist", 0))
+	}
 	if strings.HasPrefix(string(ev.Kind), "adoption") {
 		out = append(out, hintOf("adoption", 0))
 	}
@@ -137,6 +140,7 @@ var apiHints = map[string][]hint{
 	"CommitAdoption":        {hintOf("adoption", 0)},
 	"DiscardAdoption":       {hintOf("adoption", 0)},
 	"DismissAttention":      {hintOf("attention", 0)},
+	"DeleteBlocklistEntry":  {hintOf("blocklist", 0)},
 }
 
 // emitHints is a strict-server middleware that publishes an operation's hints

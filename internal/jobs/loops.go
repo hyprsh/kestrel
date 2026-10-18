@@ -24,7 +24,8 @@ const (
 	// Import imports finished downloads with two workers; it wakes when a
 	// poll sees a download finish and retries stalled Imports by their backoff.
 	Import = "import"
-	// Prune deletes routine events older than 30 days, once a day.
+	// Prune deletes routine events older than 30 days and expired sessions, once
+	// a day: checked hourly, it runs when the last run is over 24 h old.
 	Prune = "prune"
 	// RSS reads every indexer's feed and grabs what the library wants from it.
 	RSS = "rss"
@@ -48,6 +49,7 @@ const (
 	importEvery     = time.Minute
 	// importWorkers is how many Imports run at once.
 	importWorkers = 2
+	pruneCheck    = time.Hour
 	pruneEvery    = 24 * time.Hour
 	healthEvery   = 5 * time.Minute
 	updatesEvery  = 24 * time.Hour
@@ -110,6 +112,10 @@ type Deps struct {
 	Acquire   Acquirer
 	Library   Library
 	History   History
+	// PruneState remembers when pruning last ran; without it every hourly check prunes.
+	PruneState RefreshState
+	// Sessions deletes expired sessions; optional.
+	Sessions func(ctx context.Context) error
 	// Health is optional; without it there is no health loop.
 	Health HealthChecker
 	// Updates is optional; without it there is no update check.
@@ -171,8 +177,8 @@ func Standard(d Deps) *Runner {
 	if d.History != nil {
 		r.Add(Loop{
 			Name:  Prune,
-			Run:   func(ctx context.Context) error { _, err := d.History.Prune(ctx); return err },
-			Every: func() time.Duration { return pruneEvery },
+			Run:   func(ctx context.Context) error { return prune(ctx, d) },
+			Every: func() time.Duration { return pruneCheck },
 		})
 	}
 

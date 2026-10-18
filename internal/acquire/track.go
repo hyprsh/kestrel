@@ -145,7 +145,7 @@ func (s *Service) Cancel(ctx context.Context, id int64, blocklist bool) (Grab, e
 	if blocklist {
 		err = s.Block(ctx, BlockEntry{
 			ReleaseName: g.ReleaseName, IndexerID: row.IndexerID, GUID: row.ReleaseGuid, PublishedAt: g.PublishedAt, Size: g.Size,
-			Reason: "canceled and blocklisted", TitleID: g.TitleID,
+			Reason: "canceled and blocklisted", TitleID: g.TitleID, VersionID: g.VersionID,
 		})
 		if err != nil {
 			return Grab{}, err
