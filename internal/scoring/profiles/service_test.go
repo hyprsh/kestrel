@@ -63,7 +63,7 @@ func TestSeedsTheEightBuiltinProfiles(t *testing.T) {
 			t.Errorf("%s: enabled=%v fallback=%v, want enabled without fallback", p.Key, p.Enabled, p.OriginalFallback)
 		}
 	}
-	want := []string{"sd-primary", "sd-original", "hd-primary", "hd-original", "kids-primary", "kids-original", "uhd-primary", "uhd-original"}
+	want := []string{"sd-primary", "sd-original", "hd-primary", "hd-original", "any-primary", "any-original", "uhd-primary", "uhd-original"}
 	if len(keys) != len(want) {
 		t.Fatalf("keys = %v, want %v", keys, want)
 	}
@@ -76,13 +76,13 @@ func TestSeedsTheEightBuiltinProfiles(t *testing.T) {
 	if hd := m["hd-primary"]; !hd.DefaultMovies || !hd.DefaultSeries {
 		t.Errorf("hd-primary is not the default of both kinds: %+v", hd)
 	}
-	for _, k := range []string{"sd-primary", "uhd-primary", "kids-primary", "hd-original"} {
+	for _, k := range []string{"sd-primary", "uhd-primary", "any-primary", "hd-original"} {
 		if m[k].DefaultMovies || m[k].DefaultSeries {
 			t.Errorf("%s has a default out of the box", k)
 		}
 	}
-	if k := m["kids-primary"]; !k.Kids || k.Slot != resolution.HD || k.MinHeight != 0 || k.MaxHeight != 1080 {
-		t.Errorf("kids-primary = %+v", k)
+	if k := m["any-primary"]; !k.Any || k.Slot != resolution.HD || k.MinHeight != 0 || k.MaxHeight != 1080 {
+		t.Errorf("any-primary = %+v", k)
 	}
 	if o := m["uhd-original"]; o.Rule != scoring.OriginalLanguage || o.Slot != resolution.UHD || o.MinHeight != 2160 {
 		t.Errorf("uhd-original = %+v", o)
@@ -115,14 +115,14 @@ func TestAtMostOneDefaultPerSlotAndKind(t *testing.T) {
 	ctx := context.Background()
 
 	// Moving the HD default for Movies leaves Series alone.
-	if _, err := s.Patch(ctx, "kids-primary", profiles.Patch{DefaultMovies: yes()}); err != nil {
+	if _, err := s.Patch(ctx, "any-primary", profiles.Patch{DefaultMovies: yes()}); err != nil {
 		t.Fatal(err)
 	}
 	m := byKey(t, s)
-	if m["hd-primary"].DefaultMovies || !m["kids-primary"].DefaultMovies {
-		t.Errorf("movies default did not move: hd=%v kids=%v", m["hd-primary"].DefaultMovies, m["kids-primary"].DefaultMovies)
+	if m["hd-primary"].DefaultMovies || !m["any-primary"].DefaultMovies {
+		t.Errorf("movies default did not move: hd=%v wide=%v", m["hd-primary"].DefaultMovies, m["any-primary"].DefaultMovies)
 	}
-	if !m["hd-primary"].DefaultSeries || m["kids-primary"].DefaultSeries {
+	if !m["hd-primary"].DefaultSeries || m["any-primary"].DefaultSeries {
 		t.Errorf("series default moved too")
 	}
 
@@ -240,27 +240,6 @@ func TestRegionDefaultsAndValidation(t *testing.T) {
 
 func strp(s string) *string { return &s }
 
-func TestKidsRuleDefaultsAndValidation(t *testing.T) {
-	s := newService(t)
-	ctx := context.Background()
-	k, saved, err := s.Kids(ctx)
-	if err != nil || saved || !k.Enabled || k.Threshold != 6 {
-		t.Fatalf("defaults: %+v saved=%v err=%v", k, saved, err)
-	}
-	twelve := 12
-	k, err = s.SetKids(ctx, profiles.KidsPatch{Enabled: no(), Threshold: &twelve})
-	if err != nil || k.Enabled || k.Threshold != 12 {
-		t.Fatalf("SetKids: %+v, %v", k, err)
-	}
-	if _, saved, _ := s.Kids(ctx); !saved {
-		t.Error("kids rule not reported as saved")
-	}
-	for _, bad := range []int{-1, 3, 16} {
-		_, err = s.SetKids(ctx, profiles.KidsPatch{Threshold: &bad})
-		wantField(t, err, "threshold")
-	}
-}
-
 // The re-point table of PRD Settled 5, checked against the scoring package's
 // own resolution of each Profile.
 func TestChangingThePrimaryLanguageRepointsTheEightProfiles(t *testing.T) {
@@ -269,15 +248,15 @@ func TestChangingThePrimaryLanguageRepointsTheEightProfiles(t *testing.T) {
 	want := map[profiles.Language]map[string][2]string{
 		profiles.German: {
 			"sd-primary": {"german-hd-bluray-web", "german-hd-bluray-web"}, "hd-primary": {"german-hd-bluray-web", "german-hd-bluray-web"},
-			"kids-primary": {"german-hd-bluray-web", "german-hd-bluray-web"}, "uhd-primary": {"german-uhd-bluray-web", "german-uhd-bluray-web"},
+			"any-primary": {"german-hd-bluray-web", "german-hd-bluray-web"}, "uhd-primary": {"german-uhd-bluray-web", "german-uhd-bluray-web"},
 			"sd-original": {"hd-bluray-web", "web-1080p"}, "hd-original": {"hd-bluray-web", "web-1080p"},
-			"kids-original": {"hd-bluray-web", "web-1080p"}, "uhd-original": {"uhd-bluray-web", "web-2160p"},
+			"any-original": {"hd-bluray-web", "web-1080p"}, "uhd-original": {"uhd-bluray-web", "web-2160p"},
 		},
 		profiles.French: {
-			"hd-primary":    {"french-multi-vf-hd-bluray-web", "french-multi-vf-bluray-web-1080p"},
-			"uhd-primary":   {"french-multi-vf-uhd-bluray-web", "french-multi-vf-bluray-web-2160p"},
-			"kids-original": {"french-multi-vo-hd-bluray-web", "french-multi-vo-bluray-web-1080p"},
-			"uhd-original":  {"french-multi-vo-uhd-bluray-web", "french-multi-vo-bluray-web-2160p"},
+			"hd-primary":   {"french-multi-vf-hd-bluray-web", "french-multi-vf-bluray-web-1080p"},
+			"uhd-primary":  {"french-multi-vf-uhd-bluray-web", "french-multi-vf-bluray-web-2160p"},
+			"any-original": {"french-multi-vo-hd-bluray-web", "french-multi-vo-bluray-web-1080p"},
+			"uhd-original": {"french-multi-vo-uhd-bluray-web", "french-multi-vo-bluray-web-2160p"},
 		},
 		profiles.English: {
 			"hd-primary": {"hd-bluray-web", "web-1080p"}, "uhd-original": {"uhd-bluray-web", "web-2160p"},

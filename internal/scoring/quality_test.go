@@ -13,8 +13,8 @@ import (
 // 720p and 1080p and nothing else.
 func TestQualityOutsideTheProfilesAllowedQualitiesIsRejected(t *testing.T) {
 	snap := embedded(t)
-	spec := func(slot resolution.Class, kids bool) scoring.ProfileSpec {
-		return scoring.ProfileSpec{Slot: slot, Kids: kids, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish}
+	spec := func(slot resolution.Class, wide bool) scoring.ProfileSpec {
+		return scoring.ProfileSpec{Slot: slot, Any: wide, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish}
 	}
 	cases := []struct {
 		name    string
@@ -31,9 +31,9 @@ func TestQualityOutsideTheProfilesAllowedQualitiesIsRejected(t *testing.T) {
 		{"SD allows DVD", spec(resolution.SD, false), "A.Movie.2020.DVDRip.x264-GRP", false},
 		{"SD allows Bluray 576p", spec(resolution.SD, false), "A.Movie.2020.576p.BluRay.x264-GRP", false},
 		{"SD rejects WEB-DL 1080p", spec(resolution.SD, false), "A.Movie.2020.1080p.WEB-DL.DD5.1.H264-GRP", true},
-		{"Kids allows DVD", spec(resolution.HD, true), "A.Movie.2020.DVDRip.x264-GRP", false},
-		{"Kids allows WEB-DL 1080p", spec(resolution.HD, true), "A.Movie.2020.1080p.WEB-DL.DD5.1.H264-GRP", false},
-		{"Kids rejects Remux 1080p", spec(resolution.HD, true), "A.Movie.2020.1080p.BluRay.REMUX.AVC.DTS-HD.MA.5.1-GRP", true},
+		{"Any allows DVD", spec(resolution.HD, true), "A.Movie.2020.DVDRip.x264-GRP", false},
+		{"Any allows WEB-DL 1080p", spec(resolution.HD, true), "A.Movie.2020.1080p.WEB-DL.DD5.1.H264-GRP", false},
+		{"Any rejects Remux 1080p", spec(resolution.HD, true), "A.Movie.2020.1080p.BluRay.REMUX.AVC.DTS-HD.MA.5.1-GRP", true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -9,7 +9,7 @@ CREATE TABLE profiles (
     name                 TEXT    NOT NULL,
     sort                 INTEGER NOT NULL,
     slot                 TEXT    NOT NULL CHECK (slot IN ('sd', 'hd', 'uhd')),
-    kids                 INTEGER NOT NULL CHECK (kids IN (0, 1)),
+    any                  INTEGER NOT NULL CHECK (any IN (0, 1)),
     language_rule        TEXT    NOT NULL CHECK (language_rule IN ('primary', 'original')),
     min_height           INTEGER NOT NULL,
     max_height           INTEGER NOT NULL,
@@ -26,13 +26,13 @@ CREATE TABLE profiles (
 CREATE UNIQUE INDEX profiles_default_movies ON profiles (slot) WHERE default_movies = 1;
 CREATE UNIQUE INDEX profiles_default_series ON profiles (slot) WHERE default_series = 1;
 
-INSERT INTO profiles (key, name, sort, slot, kids, language_rule, min_height, max_height, default_movies, default_series, trash_profile_movies, trash_profile_series) VALUES
+INSERT INTO profiles (key, name, sort, slot, any, language_rule, min_height, max_height, default_movies, default_series, trash_profile_movies, trash_profile_series) VALUES
     ('sd-primary',    'SD',            1, 'sd',  0, 'primary',  0,    576,  0, 0, 'hd-bluray-web',  'web-1080p'),
     ('sd-original',   'SD Original',   2, 'sd',  0, 'original', 0,    576,  0, 0, 'hd-bluray-web',  'web-1080p'),
     ('hd-primary',    'HD',            3, 'hd',  0, 'primary',  720,  1080, 1, 1, 'hd-bluray-web',  'web-1080p'),
     ('hd-original',   'HD Original',   4, 'hd',  0, 'original', 720,  1080, 0, 0, 'hd-bluray-web',  'web-1080p'),
-    ('kids-primary',  'Kids',          5, 'hd',  1, 'primary',  0,    1080, 0, 0, 'hd-bluray-web',  'web-1080p'),
-    ('kids-original', 'Kids Original', 6, 'hd',  1, 'original', 0,    1080, 0, 0, 'hd-bluray-web',  'web-1080p'),
+    ('any-primary',   'Any',           5, 'hd',  1, 'primary',  0,    1080, 0, 0, 'hd-bluray-web',  'web-1080p'),
+    ('any-original',  'Any Original',  6, 'hd',  1, 'original', 0,    1080, 0, 0, 'hd-bluray-web',  'web-1080p'),
     ('uhd-primary',   'UHD',           7, 'uhd', 0, 'primary',  2160, 2160, 0, 0, 'uhd-bluray-web', 'web-2160p'),
     ('uhd-original',  'UHD Original',  8, 'uhd', 0, 'original', 2160, 2160, 0, 0, 'uhd-bluray-web', 'web-2160p');
 

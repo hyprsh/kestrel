@@ -58,7 +58,7 @@ func TestAMovieIsAddedWithItsVersionsAndReadBack(t *testing.T) {
 	ctx := context.Background()
 	lib, _ := newLibrary(t)
 	id := addPaddington(t, lib,
-		library.VersionSpec{Slot: resolution.HD, Profile: "kids-primary"},
+		library.VersionSpec{Slot: resolution.HD, Profile: "any-primary"},
 		library.VersionSpec{Slot: resolution.UHD, Profile: "uhd-primary"})
 
 	d, err := lib.Get(ctx, id, library.View{Country: "DE", Now: now})
@@ -74,7 +74,7 @@ func TestAMovieIsAddedWithItsVersionsAndReadBack(t *testing.T) {
 		t.Fatalf("versions = %+v", d.Versions)
 	}
 	hd, uhd := d.Versions[0], d.Versions[1]
-	if hd.Slot != resolution.HD || hd.Profile != "kids-primary" || hd.State != library.Wanted || hd.File != nil ||
+	if hd.Slot != resolution.HD || hd.Profile != "any-primary" || hd.State != library.Wanted || hd.File != nil ||
 		uhd.Slot != resolution.UHD || uhd.Profile != "uhd-primary" {
 		t.Errorf("versions = %+v", d.Versions)
 	}
@@ -124,7 +124,7 @@ func TestAMovieNeedsAtLeastOneVersionAndOneVersionPerSlot(t *testing.T) {
 	if err := add(); !errors.Is(err, library.ErrNoVersions) {
 		t.Errorf("no versions: %v", err)
 	}
-	if err := add(library.VersionSpec{Slot: resolution.HD, Profile: "hd-primary"}, library.VersionSpec{Slot: resolution.HD, Profile: "kids-primary"}); !errors.Is(err, library.ErrDuplicateSlot) {
+	if err := add(library.VersionSpec{Slot: resolution.HD, Profile: "hd-primary"}, library.VersionSpec{Slot: resolution.HD, Profile: "any-primary"}); !errors.Is(err, library.ErrDuplicateSlot) {
 		t.Errorf("two HD versions: %v", err)
 	}
 	if err := add(library.VersionSpec{Slot: resolution.HD, Profile: "no-such-profile"}); err == nil {

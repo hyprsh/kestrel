@@ -51,8 +51,7 @@ func (l Language) DefaultCountry() string {
 // Region is the household's language settings.
 type Region struct {
 	Primary Language
-	// Country is the ISO 3166-1 alpha-2 release-date country: "released" and
-	// the Kids rule's certifications are read for it.
+	// Country is the ISO 3166-1 alpha-2 release-date country: "released" is read for it.
 	Country string
 }
 
@@ -60,12 +59,6 @@ type Region struct {
 type RegionPatch struct {
 	Primary *Language
 	Country *string
-}
-
-// KidsPatch changes the Kids rule; nil fields stay.
-type KidsPatch struct {
-	Enabled   *bool
-	Threshold *int
 }
 
 // Patch changes one Profile's settings; nil fields stay.
@@ -92,7 +85,6 @@ func invalid(field, msg string) *ValidationError {
 
 const (
 	regionKey = "language_region"
-	kidsKey   = "kids_rule"
 )
 
 type regionDoc struct {
@@ -100,14 +92,9 @@ type regionDoc struct {
 	ReleaseDateCountry string   `json:"release_date_country"`
 }
 
-type kidsDoc struct {
-	Enabled   bool `json:"enabled"`
-	Threshold int  `json:"threshold"`
-}
-
 var countryRE = regexp.MustCompile(`^[A-Z]{2}$`)
 
-// Service reads and writes the Profiles, the Primary Language and the Kids rule.
+// Service reads and writes the Profiles, and the Primary Language.
 type Service struct {
 	st       *store.Store
 	settings *settings.Settings
@@ -125,7 +112,7 @@ func (s *Service) InTx(tx *sql.Tx) *Service {
 // instead of the embedded one. Call it before the Service is shared.
 func (s *Service) UseScoring(h *scoring.Holder) { s.live = h }
 
-// New returns a Service over st. settings holds the language and Kids documents.
+// New returns a Service over st. settings holds the language document.
 func New(st *store.Store, s *settings.Settings) *Service {
 	return &Service{st: st, settings: s}
 }
@@ -143,7 +130,7 @@ func fromRow(r db.Profile) Profile {
 		rule = scoring.OriginalLanguage
 	}
 	return Profile{
-		Key: r.Key, Name: r.Name, Slot: slot, Kids: r.Kids == 1, Rule: rule,
+		Key: r.Key, Name: r.Name, Slot: slot, Any: r.Any == 1, Rule: rule,
 		MinHeight: int(r.MinHeight), MaxHeight: int(r.MaxHeight),
 		Enabled: r.Enabled == 1, OriginalFallback: r.OriginalFallback == 1,
 		DefaultMovies: r.DefaultMovies == 1, DefaultSeries: r.DefaultSeries == 1,
@@ -372,47 +359,6 @@ func (s *Service) SetRegion(ctx context.Context, p RegionPatch) (Region, error) 
 	raw, _ := json.Marshal(regionDoc{PrimaryLanguage: next.Primary, ReleaseDateCountry: next.Country})
 	if err := s.settings.Put(ctx, regionKey, raw); err != nil {
 		return Region{}, err
-	}
-	return next, nil
-}
-
-// Kids returns the Kids rule and whether it was ever saved. Unsaved, it is on
-// with threshold 6.
-func (s *Service) Kids(ctx context.Context) (KidsRule, bool, error) {
-	raw, ok, err := s.settings.Get(ctx, kidsKey)
-	if err != nil {
-		return KidsRule{}, false, err
-	}
-	if !ok {
-		return DefaultKidsRule, false, nil
-	}
-	var d kidsDoc
-	if err := json.Unmarshal(raw, &d); err != nil {
-		return KidsRule{}, false, fmt.Errorf("profiles: stored %s is invalid: %w", kidsKey, err)
-	}
-	return KidsRule{Enabled: d.Enabled, Threshold: d.Threshold}, true, nil
-}
-
-// SetKids saves the Kids rule: a switch and a threshold age of 0, 6 or 12.
-func (s *Service) SetKids(ctx context.Context, p KidsPatch) (KidsRule, error) {
-	next, _, err := s.Kids(ctx)
-	if err != nil {
-		return KidsRule{}, err
-	}
-	if p.Enabled != nil {
-		next.Enabled = *p.Enabled
-	}
-	if p.Threshold != nil {
-		switch *p.Threshold {
-		case 0, 6, 12:
-		default:
-			return KidsRule{}, invalid("threshold", "The threshold age is 0, 6 or 12")
-		}
-		next.Threshold = *p.Threshold
-	}
-	raw, _ := json.Marshal(kidsDoc{Enabled: next.Enabled, Threshold: next.Threshold})
-	if err := s.settings.Put(ctx, kidsKey, raw); err != nil {
-		return KidsRule{}, err
 	}
 	return next, nil
 }

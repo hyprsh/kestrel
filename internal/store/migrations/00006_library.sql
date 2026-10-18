@@ -71,8 +71,8 @@ CREATE TABLE episodes (
     UNIQUE (title_id, season, number)
 ) STRICT;
 
--- One Version per Slot of a Title, under a Profile (named by key; the Kids rule
--- picks the key when the Version is added and is not stored).
+-- One Version per Slot of a Title, under a Profile (named by key; the Profile
+-- is chosen when the Version is added).
 CREATE TABLE versions (
     id          INTEGER PRIMARY KEY,
     title_id    INTEGER NOT NULL REFERENCES titles (id) ON DELETE CASCADE,

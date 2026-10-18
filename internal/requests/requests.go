@@ -243,12 +243,6 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	kids, _, err := s.d.Profiles.Kids(ctx)
-	if err != nil {
-		return Result{}, err
-	}
-	certCountry, cert := tgt.rel.Certification(region.Country)
-	isKids := kids.Applies(certCountry, cert)
 	kind := release.KindMovie
 	if in.Kind == library.Series {
 		kind = release.KindSeries
@@ -262,14 +256,13 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 	}
 	var specs []library.VersionSpec
 	chosen := map[resolution.Class]string{}
-	kidsFolder := false // the HD Profile is a named Kids one, or the Kids rule chose it
 	for _, sl := range in.Slots {
 		if have[sl.Slot] {
 			continue // accepted unchanged
 		}
 		key := sl.Profile
 		if key == "" {
-			r, err := profiles.Resolve(all, kind, sl.Slot, isKids)
+			r, err := profiles.Resolve(all, kind, sl.Slot)
 			if errors.Is(err, profiles.ErrNoEnabledProfile) {
 				return s.store(ctx, in, prior, 0, nil, NoEnabledProfile)
 			}
@@ -277,17 +270,14 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 				return Result{}, err
 			}
 			key = r.Key
-			kidsFolder = kidsFolder || sl.Slot == resolution.HD && r.KidsSwap
 		} else if p := profileByKey(all, key); !p.Enabled {
 			return s.store(ctx, in, prior, 0, nil, NoEnabledProfile)
-		} else if sl.Slot == resolution.HD {
-			kidsFolder = kidsFolder || p.Kids
 		}
 		chosen[sl.Slot] = key
 		specs = append(specs, library.VersionSpec{Slot: sl.Slot, Profile: key})
 	}
 
-	titleID, searchDue, err := s.apply(ctx, in, tgt, specs, region, kidsFolder)
+	titleID, searchDue, err := s.apply(ctx, in, tgt, specs, region)
 	if err != nil {
 		return Result{}, err
 	}
@@ -437,8 +427,8 @@ func (s *Service) resolveTitle(ctx context.Context, in Input) (target, Reason, e
 }
 
 // apply adds the Title or its missing Versions and sets the season monitoring.
-// A new Title goes in its kind's Kids root folder when kids, else the first.
-func (s *Service) apply(ctx context.Context, in Input, t target, specs []library.VersionSpec, region profiles.Region, kids bool) (titleID int64, searchDue bool, err error) {
+// A new Title goes in the kind's first root folder.
+func (s *Service) apply(ctx context.Context, in Input, t target, specs []library.VersionSpec, region profiles.Region) (titleID int64, searchDue bool, err error) {
 	lib := s.d.Library
 	titleID = 0
 	if t.existing != nil {
@@ -448,7 +438,7 @@ func (s *Service) apply(ctx context.Context, in Input, t target, specs []library
 		if err != nil {
 			return 0, false, err
 		}
-		root, err := roots.Pick(rootfolders.Kind(in.Kind), "", kids)
+		root, err := roots.Pick(rootfolders.Kind(in.Kind), "")
 		if errors.Is(err, rootfolders.ErrNoneSet) {
 			return 0, false, ErrNoRootFolder
 		}

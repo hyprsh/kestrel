@@ -218,9 +218,9 @@ func TestASeriesSuggestionPreselectsFromTheSeriesDefaults(t *testing.T) {
 	if sug.Certification == nil || *sug.Certification != "TV-MA" {
 		t.Errorf("certification = %v", sug.Certification)
 	}
-	kids := decode[suggestionJSON](t, l.valid("GET", "/lookup/series/7001", ""))
-	if len(kids.Slots) != 1 || kids.Slots[0].Profile != "kids-primary" || kids.Slots[0].Reason != "kids_rule" {
-		t.Errorf("TV-Y7 is age 6, so the Kids rule applies: %+v", kids)
+	child := decode[suggestionJSON](t, l.valid("GET", "/lookup/series/7001", ""))
+	if len(child.Slots) != 1 || child.Slots[0].Profile != "hd-primary" || child.Slots[0].Reason != "default" {
+		t.Errorf("TV-Y7 gets the HD default like any other Title: %+v", child)
 	}
 }
 

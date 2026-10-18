@@ -114,7 +114,6 @@ func TestRootFoldersAreCheckedWhenSaved(t *testing.T) {
 
 func TestARejectedSettingsPatchSavesNothing(t *testing.T) {
 	for _, c := range []struct{ name, rest string }{
-		{"kids rule", `"kids_rule":{"threshold":7}`},
 		{"language", `"language_region":{"primary_language":"de","release_date_country":"nope"}`},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -148,7 +147,7 @@ func TestFinishSetupNamesEveryMissingSection(t *testing.T) {
 	if r.Status != 422 {
 		t.Fatalf("complete on a fresh instance = %d %s", r.Status, r.Body)
 	}
-	for _, section := range []string{"language", "download_client", "indexer", "root_folders", "profiles"} {
+	for _, section := range []string{"language", "download_client", "indexer", "root_folders"} {
 		if !strings.Contains(r.Body, `"field":"sections.`+section+`"`) {
 			t.Errorf("missing list lacks %s: %s", section, r.Body)
 		}
@@ -169,7 +168,7 @@ func TestFinishSetupWhenEverySectionIsDone(t *testing.T) {
 
 	b.valid("POST", "/plugin-instances", sabBody(sab.URL, sabKey, ""))
 	b.valid("POST", "/plugin-instances", newznabBody("Geek", idx.URL, nzbKey, ""))
-	b.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"},"kids_rule":{"enabled":true,"threshold":6},"root_folders":{"movies":["`+data+`/media/movies"],"series":["`+data+`/media/tv"]}}`)
+	b.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"},"root_folders":{"movies":["`+data+`/media/movies"],"series":["`+data+`/media/tv"]}}`)
 
 	if r := b.valid("POST", "/setup/complete", ""); r.Status != 204 {
 		t.Fatalf("complete = %d %s", r.Status, r.Body)
@@ -179,46 +178,22 @@ func TestFinishSetupWhenEverySectionIsDone(t *testing.T) {
 	}
 }
 
-type kidsFoldersJSON struct {
-	RootFolders struct {
-		Movies     []string `json:"movies"`
-		KidsMovies string   `json:"kids_movies"`
-		KidsSeries string   `json:"kids_series"`
-	} `json:"root_folders"`
-}
-
-func TestAKidsRootFolderIsOneOfTheKindsRootFolders(t *testing.T) {
+func TestRootFoldersHaveOnlyMoviesAndSeries(t *testing.T) {
 	b, data := dataDirInstance(t)
-	movies, kids, tv := data+"/media/movies", data+"/media/kids-movies", data+"/media/tv"
-	mkdirs(t, movies, kids, tv)
+	movies, more, tv := data+"/media/movies", data+"/media/more-movies", data+"/media/tv"
+	mkdirs(t, movies, more, tv)
 
-	if got := decode[kidsFoldersJSON](t, b.valid("GET", "/settings", "")); got.RootFolders.KidsMovies != "" || got.RootFolders.KidsSeries != "" {
-		t.Errorf("unsaved = %+v, want both off", got.RootFolders)
+	body := b.valid("GET", "/settings", "").Body
+	if strings.Contains(body, "kids") {
+		t.Errorf("unsaved settings mention kids: %s", body)
 	}
-	r := b.do("PATCH", "/settings", fmt.Sprintf(`{"root_folders":{"movies":[%q],"kids_movies":%q}}`, movies, kids))
-	if r.Status != 422 || !strings.Contains(r.Body, `"field":"root_folders.kids_movies"`) {
-		t.Errorf("a Kids folder outside the list = %d %s, want 422", r.Status, r.Body)
-	}
-	if r := b.do("PATCH", "/settings", fmt.Sprintf(`{"root_folders":{"kids_series":%q}}`, kids)); r.Status != 422 || !strings.Contains(r.Body, `"field":"root_folders.kids_series"`) {
-		t.Errorf("a Movies folder as the Kids Series folder = %d %s, want 422", r.Status, r.Body)
-	}
-
-	got := decode[kidsFoldersJSON](t, b.valid("PATCH", "/settings", fmt.Sprintf(`{"root_folders":{"movies":[%q,%q],"kids_movies":%q}}`, movies, kids, kids)))
-	if got.RootFolders.KidsMovies != kids || got.RootFolders.KidsSeries != "" {
+	got := decode[rootFoldersJSON](t, b.valid("PATCH", "/settings", fmt.Sprintf(`{"root_folders":{"movies":[%q,%q]}}`, movies, more)))
+	if len(got.RootFolders.Movies) != 2 {
 		t.Errorf("saved = %+v", got.RootFolders)
 	}
-
-	r = b.do("PATCH", "/settings", fmt.Sprintf(`{"root_folders":{"movies":[%q]}}`, movies))
-	if r.Status != 422 || !strings.Contains(r.Body, `"field":"root_folders.movies"`) || !strings.Contains(r.Body, `"code":"kids_root_folder"`) {
-		t.Errorf("removing the Kids folder = %d %s, want 422", r.Status, r.Body)
-	}
-	if got := decode[kidsFoldersJSON](t, b.valid("GET", "/settings", "")); len(got.RootFolders.Movies) != 2 || got.RootFolders.KidsMovies != kids {
-		t.Errorf("a rejected patch changed %+v", got.RootFolders)
-	}
-
-	// Turning it off and removing the folder in one patch is fine.
-	got = decode[kidsFoldersJSON](t, b.valid("PATCH", "/settings", fmt.Sprintf(`{"root_folders":{"movies":[%q],"kids_movies":""}}`, movies)))
-	if got.RootFolders.KidsMovies != "" || len(got.RootFolders.Movies) != 1 {
-		t.Errorf("off = %+v", got.RootFolders)
+	// Any list can drop any folder: nothing else refers to it.
+	got = decode[rootFoldersJSON](t, b.valid("PATCH", "/settings", fmt.Sprintf(`{"root_folders":{"movies":[%q]}}`, movies)))
+	if len(got.RootFolders.Movies) != 1 {
+		t.Errorf("after dropping a folder = %+v", got.RootFolders)
 	}
 }

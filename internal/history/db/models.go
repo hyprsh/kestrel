@@ -155,7 +155,7 @@ type Profile struct {
 	Name               string
 	Sort               int64
 	Slot               string
-	Kids               int64
+	Any                int64
 	LanguageRule       string
 	MinHeight          int64
 	MaxHeight          int64

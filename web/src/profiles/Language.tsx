@@ -57,7 +57,7 @@ function Form({ saved }: { saved: Settings['language_region'] }) {
         {(id) => <TextInput id={id} maxLength={2} value={country} onChange={(e) => setCountry(e.target.value)} className="w-24 uppercase" />}
       </Field>
       <p className="text-[12px] text-gray-900">
-        The country decides when a Title counts as released and which age rating the Kids rule reads. It follows the language until you edit it.
+        The country decides when a Title counts as released. It follows the language until you edit it.
       </p>
       {save.isError && <ErrorText>{save.error instanceof ApiError && save.error.status === 422 ? save.error.message : 'Could not save. Try again.'}</ErrorText>}
       {save.isSuccess && (

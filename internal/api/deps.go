@@ -69,7 +69,6 @@ type PluginInstances interface {
 type Profiles interface {
 	Region(ctx context.Context) (profiles.Region, bool, error)
 	List(ctx context.Context) ([]profiles.Profile, error)
-	Kids(ctx context.Context) (profiles.KidsRule, bool, error)
 	Patch(ctx context.Context, key string, p profiles.Patch) (profiles.Profile, error)
 }
 
@@ -87,7 +86,6 @@ type SettingsTx interface {
 type SettingsWriter interface {
 	SetRootFolders(ctx context.Context, p rootfolders.Patch) (rootfolders.Folders, error)
 	SetRegion(ctx context.Context, p profiles.RegionPatch) (profiles.Region, error)
-	SetKids(ctx context.Context, p profiles.KidsPatch) (profiles.KidsRule, error)
 	SetTrashAutoUpdate(ctx context.Context, on bool) error
 }
 

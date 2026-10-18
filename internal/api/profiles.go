@@ -38,7 +38,7 @@ func profileToAPI(p profiles.Profile) oapi.Profile {
 	return oapi.Profile{
 		Key: p.Key, Name: p.Name, Slot: slot, LanguageRule: rule,
 		OriginalFallback: p.OriginalFallback, Enabled: p.Enabled,
-		DefaultMovies: p.DefaultMovies, DefaultSeries: p.DefaultSeries, Kids: p.Kids,
+		DefaultMovies: p.DefaultMovies, DefaultSeries: p.DefaultSeries,
 		MinHeight: p.MinHeight, MaxHeight: p.MaxHeight,
 		TrashProfileMovies: p.TrashMovies, TrashProfileSeries: p.TrashSeries,
 	}
@@ -75,17 +75,13 @@ func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {
 	if err != nil {
 		return oapi.Settings{}, err
 	}
-	kids, _, err := s.profiles.Kids(ctx)
-	if err != nil {
-		return oapi.Settings{}, err
-	}
 	roots, _, err := s.rootFolders.Get(ctx)
 	if err != nil {
 		return oapi.Settings{}, err
 	}
 	var out oapi.Settings
 	out.CheckGithubUpdates = s.updates.Enabled(ctx)
-	out.RootFolders = oapi.RootFolders{Movies: roots.Movies, Series: roots.Series, KidsMovies: roots.KidsMovies, KidsSeries: roots.KidsSeries}
+	out.RootFolders = oapi.RootFolders{Movies: roots.Movies, Series: roots.Series}
 	out.LanguageRegion.PrimaryLanguage = oapi.PrimaryLanguage(region.Primary)
 	out.LanguageRegion.ReleaseDateCountry = region.Country
 	out.Trash.AutoUpdate, err = s.trash.AutoUpdate(ctx)
@@ -97,8 +93,6 @@ func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {
 		return oapi.Settings{}, err
 	}
 	out.Metadata.TmdbApiKeySet, out.Metadata.TvdbApiKeySet = set.TMDB, set.TVDB
-	out.KidsRule.Enabled = kids.Enabled
-	out.KidsRule.Threshold = oapi.SettingsKidsRuleThreshold(kids.Threshold)
 	return out, nil
 }
 
@@ -132,13 +126,6 @@ func (s *server) PatchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 
 func (s *server) patchSettings(ctx context.Context, r oapi.PatchSettingsRequestObject) (oapi.PatchSettingsResponseObject, error) {
 	// Every section saves in one transaction, so a rejected patch changes nothing.
-	if k := r.Body.KidsRule; k != nil && k.Threshold != nil {
-		switch *k.Threshold {
-		case 0, 6, 12:
-		default:
-			return nil, invalid("threshold", "invalid", "The threshold age is 0, 6 or 12")
-		}
-	}
 	tx, err := s.opts.Store.Write().BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -146,7 +133,7 @@ func (s *server) patchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 	defer tx.Rollback()
 	w := s.settings.InTx(tx)
 	if rf := r.Body.RootFolders; rf != nil {
-		if _, err := w.SetRootFolders(ctx, rootfolders.Patch{Movies: rf.Movies, Series: rf.Series, KidsMovies: rf.KidsMovies, KidsSeries: rf.KidsSeries}); err != nil {
+		if _, err := w.SetRootFolders(ctx, rootfolders.Patch{Movies: rf.Movies, Series: rf.Series}); err != nil {
 			var ve *rootfolders.ValidationError
 			if errors.As(err, &ve) {
 				return nil, invalid(ve.Field, ve.Code, ve.Message)
@@ -162,11 +149,6 @@ func (s *server) patchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 		}
 		patch.Country = l.ReleaseDateCountry
 		if _, err := w.SetRegion(ctx, patch); err != nil {
-			return nil, profilesProblem(err)
-		}
-	}
-	if k := r.Body.KidsRule; k != nil {
-		if _, err := w.SetKids(ctx, profiles.KidsPatch{Enabled: k.Enabled, Threshold: k.Threshold}); err != nil {
 			return nil, profilesProblem(err)
 		}
 	}

@@ -286,8 +286,8 @@ paths:
       operationId: getSettings
       summary: App settings
       description: |
-        The settings sections that exist so far: `language_region`, `kids_rule` and `root_folders`. Sections never
-        saved report their defaults (English, US, Kids rule on at age 6); `GET /setup` says which
+        The settings sections that exist so far: `language_region` and `root_folders`. Sections never
+        saved report their defaults (English, US); `GET /setup` says which
         were saved. Reverse-proxy login settings have their own endpoint.
       tags: [settings]
       responses:
@@ -426,9 +426,8 @@ paths:
       summary: One search result with the add panel's suggested Slots and Profiles
       description: |
         The Slots to preselect when adding it: every Slot with a default Profile for the kind, resolved
-        by Profile resolution, with the Kids rule applied to HD when the Title's certification in the
-        release-date country reads as a kids' age. Each Slot says why (`reason`) and carries a display
-        `label`, such as "Kids (FSK 6)". Requests use the same logic.
+        by Profile resolution. Each Slot says why (`reason`) and carries a display `label`, the
+        Profile's name. Requests use the same logic.
       tags: [titles]
       responses:
         "200":
@@ -507,7 +506,7 @@ paths:
       description: |
         Fetches the Title from the metadata provider and adds it with the named Versions, each Wanted.
         `root_folder` must be one of the configured Root folders for the kind; left out, it is the
-        kind's Kids root folder when the HD Version has a Kids Profile and one is set, else the first.
+        kind's first.
         `409 conflict` when the Title is already in the Library (the existing id is in
         `detail`). A Series takes `series_monitor` (default `all`); one TheTVDB does not have is refused
         with a `422` whose field error is `tmdb_id` / `not_on_tvdb`.
@@ -653,7 +652,7 @@ paths:
       operationId: patchVersion
       summary: Switch a Version's Profile
       description: |
-        Moves the Version to another enabled Profile of its Slot (HD to Kids, say). The file is
+        Moves the Version to another enabled Profile of its Slot (HD to Any, say). The file is
         re-scored under the new Profile from what was stored at Import: no re-parse, no new ffprobe,
         no rename. A file the new Profile no longer accepts by resolution class or language is a
         `misfit`: the Version becomes Wanted and any fitting Release replaces the file whatever its
@@ -1526,9 +1525,7 @@ paths:
         accepted at once, with no approval step. It adds the Title or only its missing Versions, searches
         them at once, and never changes an existing Version: a Slot that already has a Version is accepted
         unchanged and reports that Version's Profile and status. A Slot named without a `profile` uses
-        Profile resolution (with the Kids rule in HD). A new Title goes in its kind's Kids root folder when
-        its HD Version gets a Kids Profile, by the Kids rule or by name, and in the first Root folder
-        otherwise. A Series Request names `seasons`, or `null` for the whole Series; it only ever adds monitoring.
+        Profile resolution. A new Title goes in the first Root folder of its kind. A Series Request names `seasons`, or `null` for the whole Series; it only ever adds monitoring.
 
         `201` for a new Request, accepted or rejected (`outcome`, `reject_reason`); a Request Kestrel cannot
         serve (`not_on_tvdb`, `unknown_title`, `no_enabled_profile`) is stored as rejected and changes nothing.
@@ -1892,7 +1889,7 @@ components:
       required: true
       schema:
         type: string
-        enum: [sd-primary, sd-original, hd-primary, hd-original, kids-primary, kids-original, uhd-primary, uhd-original]
+        enum: [sd-primary, sd-original, hd-primary, hd-original, any-primary, any-original, uhd-primary, uhd-original]
   headers:
     SetCookie:
       description: The `kestrel_session` cookie (HttpOnly, SameSite=Lax, Path from KESTREL_BASE_URL).
@@ -2044,7 +2041,7 @@ components:
       enum: [en, de, fr]
     Settings:
       type: object
-      required: [language_region, kids_rule, root_folders, check_github_updates, trash, metadata]
+      required: [language_region, root_folders, check_github_updates, trash, metadata]
       properties:
         metadata:
           type: object
@@ -2080,21 +2077,11 @@ components:
               $ref: "#/components/schemas/PrimaryLanguage"
             release_date_country:
               type: string
-              description: ISO 3166-1 alpha-2. "Released" and the Kids rule's certifications follow it.
+              description: ISO 3166-1 alpha-2. "Released" follows it.
               example: DE
-        kids_rule:
-          type: object
-          required: [enabled, threshold]
-          properties:
-            enabled:
-              type: boolean
-            threshold:
-              type: integer
-              description: Titles certified at or below this age get the Kids Profile in HD.
-              enum: [0, 6, 12]
     RootFolders:
       type: object
-      required: [movies, series, kids_movies, kids_series]
+      required: [movies, series]
       description: |
         Where Imports put Titles, one or more absolute paths per kind. The first is the default when
         adding a Title. Unsaved, they report `<data dir>/media/movies` and `<data dir>/media/tv`.
@@ -2109,14 +2096,6 @@ components:
           minItems: 1
           items:
             type: string
-        kids_movies:
-          type: string
-          description: |
-            The Kids root folder for Movies, one of `movies`, or empty (off). A new Movie whose HD Version
-            gets a Kids Profile goes in it instead of the first; Adoption never moves a Title into it.
-        kids_series:
-          type: string
-          description: The Kids root folder for Series, one of `series`, or empty (off). As `kids_movies`.
     SettingsPatch:
       type: object
       properties:
@@ -2140,10 +2119,8 @@ components:
         root_folders:
           type: object
           description: |
-            Replaces the named lists and Kids root folders. Each path must exist, be a directory and be writable
-            (`not_found`, `not_directory`, `not_writable`, `not_absolute`, `required`). A Kids root folder must be
-            empty or one of its kind's folders (`not_configured`), and a list can't drop the folder its kind's
-            Kids root folder is set to (`kids_root_folder` on the list).
+            Replaces the named lists. Each path must exist, be a directory and be writable
+            (`not_found`, `not_directory`, `not_writable`, `not_absolute`, `required`).
           properties:
             movies:
               type: array
@@ -2153,12 +2130,6 @@ components:
               type: array
               items:
                 type: string
-            kids_movies:
-              type: string
-              description: One of the Movies root folders, or empty to turn it off.
-            kids_series:
-              type: string
-              description: One of the Series root folders, or empty to turn it off.
         language_region:
           type: object
           properties:
@@ -2166,19 +2137,12 @@ components:
               $ref: "#/components/schemas/PrimaryLanguage"
             release_date_country:
               type: string
-        kids_rule:
-          type: object
-          properties:
-            enabled:
-              type: boolean
-            threshold:
-              type: integer
     Slot:
       type: string
       enum: [sd, hd, uhd]
     Profile:
       type: object
-      required: [key, name, slot, language_rule, original_fallback, enabled, default_movies, default_series, kids, min_height, max_height, trash_profile_movies, trash_profile_series]
+      required: [key, name, slot, language_rule, original_fallback, enabled, default_movies, default_series, min_height, max_height, trash_profile_movies, trash_profile_series]
       properties:
         key:
           type: string
@@ -2201,9 +2165,6 @@ components:
           type: boolean
         default_series:
           type: boolean
-        kids:
-          type: boolean
-          description: "A Kids Profile: the Kids rule swaps HD to it, and a new Title with it in HD goes in the Kids root folder."
         min_height:
           type: integer
         max_height:
@@ -2481,14 +2442,14 @@ components:
         profile:
           type: string
           description: The Profile key.
-          example: kids-primary
+          example: any-primary
         label:
           type: string
-          example: Kids (FSK 6)
+          example: Any
         reason:
           type: string
-          description: "`default` (the Slot's default Profile) or `kids_rule` (the Kids rule swapped HD for its Kids Profile). Clients tolerate new values."
-          enum: [default, kids_rule]
+          description: "`default` (the Slot's default Profile). Clients tolerate new values."
+          enum: [default]
     LookupDetail:
       type: object
       required: [kind, tmdb_id, title, year, overview, in_library, certification, certification_country, slots]
@@ -2511,7 +2472,7 @@ components:
         certification:
           type: string
           nullable: true
-          description: The rating the Kids rule read, as TMDB writes it ("6", "PG").
+          description: The Title's rating, as TMDB writes it ("6", "PG").
         certification_country:
           type: string
           nullable: true
@@ -3770,7 +3731,7 @@ components:
         certification:
           type: string
           nullable: true
-          description: The certification in the release-date country, with the same fallback as the Kids rule.
+          description: The certification in the release-date country, else the US, else the earliest anywhere.
         release_dates:
           type: array
           description: Every dated release TMDB lists, in any country.

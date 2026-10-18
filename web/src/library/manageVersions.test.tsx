@@ -24,7 +24,7 @@ function fakeManage() {
     }),
     http.patch('/versions/{id}', async ({ request, response }) => {
       calls.push({ method: 'PATCH', url: request.url, body: await request.clone().json() })
-      return response(200).json(version('hd', 'kids-primary'))
+      return response(200).json(version('hd', 'any-primary'))
     }),
     http.delete('/versions/{id}', ({ request, response }) => {
       calls.push({ method: 'DELETE', url: request.url })
@@ -60,11 +60,11 @@ describe('manage Versions', () => {
     const hd = await within(pane).findByRole('group', { name: 'HD' })
 
     await userEvent.click(await within(hd).findByRole('button', { name: 'Change Profile' }))
-    await userEvent.selectOptions(within(hd).getByRole('combobox', { name: 'Profile' }), 'Kids')
+    await userEvent.selectOptions(within(hd).getByRole('combobox', { name: 'Profile' }), 'Any')
     await userEvent.click(within(hd).getByRole('button', { name: 'Switch' }))
 
     await screen.findByRole('region', { name: /paddington/i })
-    expect(calls.map((c) => c.body)).toEqual([{ profile: 'kids-primary' }])
+    expect(calls.map((c) => c.body)).toEqual([{ profile: 'any-primary' }])
   })
 
   it('removes a Version without deleting files unless ticked', async () => {

@@ -8,8 +8,7 @@ import { server } from '../test/server'
 
 const settings = (tmdbSet: boolean) => ({
   language_region: { primary_language: 'en' as const, release_date_country: 'US' },
-  kids_rule: { enabled: true, threshold: 6 as const },
-  root_folders: { movies: ['/m'], series: ['/s'], kids_movies: '', kids_series: '' },
+  root_folders: { movies: ['/m'], series: ['/s'] },
   check_github_updates: true,
   trash: { auto_update: true },
   metadata: { tmdb_api_key_set: tmdbSet, tvdb_api_key_set: false },

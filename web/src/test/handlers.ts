@@ -53,11 +53,10 @@ export const handlers = [
   http.get('/settings', ({ response }) =>
     response(200).json({
       language_region: { primary_language: 'en', release_date_country: 'US' },
-      kids_rule: { enabled: true, threshold: 6 },
       check_github_updates: true,
       trash: { auto_update: true },
       metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
-      root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'], kids_movies: '', kids_series: '' },
+      root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'] },
     }),
   ),
   http.get('/profiles', ({ response }) => response(200).json({ items: [] })),

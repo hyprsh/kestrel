@@ -413,8 +413,7 @@ func (a *Adoption) planSeriesFile(e *env, m seriesFacts, title Title, en entry, 
 	if ver != nil {
 		profileKey = ver.Profile
 	} else {
-		certCountry, cert := m.Rel.Certification(e.region.Country)
-		r, err := profiles.Resolve(e.profiles, release.KindSeries, slot, e.kids.Applies(certCountry, cert))
+		r, err := profiles.ResolveAccepting(e.profiles, release.KindSeries, slot, a.accepts(e, f.info.Class()))
 		if err != nil {
 			return PlanFile{}, SkipNoEnabledProfile, nil
 		}

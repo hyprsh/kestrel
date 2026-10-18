@@ -154,7 +154,7 @@ func TestLanguagesOfTheVerdict(t *testing.T) {
 }
 
 func TestResolutionClasses(t *testing.T) {
-	kids := scoring.ProfileSpec{Slot: resolution.HD, Kids: true, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish}
+	wide := scoring.ProfileSpec{Slot: resolution.HD, Any: true, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish}
 	sd := scoring.ProfileSpec{Slot: resolution.SD, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish}
 	uhd := scoring.ProfileSpec{Slot: resolution.UHD, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish}
 
@@ -172,7 +172,7 @@ func TestResolutionClasses(t *testing.T) {
 	}{
 		{"SD", sd, map[string]bool{"480p": true, "576p": true}},
 		{"HD", englishHD, map[string]bool{"720p": true, "1080p": true}},
-		{"Kids", kids, map[string]bool{"480p": true, "576p": true, "720p": true, "1080p": true}},
+		{"Any", wide, map[string]bool{"480p": true, "576p": true, "720p": true, "1080p": true}},
 		{"UHD", uhd, map[string]bool{"2160p": true}},
 	}
 	for _, tc := range cases {

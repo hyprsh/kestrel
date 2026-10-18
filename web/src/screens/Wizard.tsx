@@ -15,7 +15,7 @@ import { Adoption } from '../adoption/Adoption'
 import { DownloadClient } from '../plugins/DownloadClient'
 import { Indexer } from '../plugins/Indexer'
 import { LanguageForm } from '../profiles/Language'
-import { DefaultsPerSlot, KidsRuleForm } from '../profiles/Profiles'
+import { DefaultsPerSlot } from '../profiles/Profiles'
 import { RootFoldersForm } from '../rootfolders/RootFolders'
 import { KestrelLogo } from '../ui'
 
@@ -102,8 +102,6 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
             <Section n={6} id="profiles" title="Profiles" state={sections.profiles} summary={<ProfilesSummary />}>
               <p className="mb-4 text-gray-900">Pick the Profile each new Title gets per Slot. HD is preselected; leave SD and UHD empty to add them per Title.</p>
               <DefaultsPerSlot />
-              <h3 className="mb-2 mt-6 text-[13px] font-semibold">Kids rule</h3>
-              <KidsRuleForm />
             </Section>
             <Section n={7} id="adopt" title="Adopt existing library (optional)">
               <Adoption embedded />
@@ -190,18 +188,16 @@ function RootFoldersSummary() {
 }
 
 function ProfilesSummary() {
-  const { data: settings } = useSettings()
   const { data: profiles } = useProfiles()
-  if (!settings || !profiles) return null
+  if (!profiles) return null
   const names = (kind: 'default_movies' | 'default_series') =>
     profiles
       .filter((p) => p[kind])
       .map((p) => p.name)
       .join(', ')
-  const kids = settings.kids_rule
   return (
     <>
-      Movies: {names('default_movies')}; Series: {names('default_series')}. Kids rule {kids.enabled ? `on, age ${kids.threshold} or younger` : 'off'}
+      Movies: {names('default_movies')}; Series: {names('default_series')}
     </>
   )
 }

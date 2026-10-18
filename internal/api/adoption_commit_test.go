@@ -119,11 +119,11 @@ func TestCommittingRenamesFilesInPlaceWithTheirSubtitlesAndFillsTheVersions(t *t
 
 func TestAdoptionLeavesTitlesInTheRootFolderTheyWereFoundIn(t *testing.T) {
 	a := newAdopting(t)
-	kids := filepath.Join(a.data, "media", "kids-movies")
-	mkdirs(t, kids)
-	a.valid("PATCH", "/settings", fmt.Sprintf(`{"root_folders":{"movies":[%q,%q],"kids_movies":%q}}`, a.movies, kids, kids))
-	a.put(t, "Paddington.2014.1080p.BluRay.x264-GRP/Paddington.2014.1080p.BluRay.x264-GRP.mkv", "pad") // PG: the Kids rule catches it
-	lost := filepath.Join(kids, "The Lost Film (2020) [tmdbid-77]", "lost.film.mkv")                   // PG-13: it doesn't
+	second := filepath.Join(a.data, "media", "more-movies")
+	mkdirs(t, second)
+	a.valid("PATCH", "/settings", fmt.Sprintf(`{"root_folders":{"movies":[%q,%q]}}`, a.movies, second))
+	a.put(t, "Paddington.2014.1080p.BluRay.x264-GRP/Paddington.2014.1080p.BluRay.x264-GRP.mkv", "pad") // in the first folder
+	lost := filepath.Join(second, "The Lost Film (2020) [tmdbid-77]", "lost.film.mkv")                 // in the second
 	mkdirs(t, filepath.Dir(lost))
 	if err := os.WriteFile(lost, []byte("lost"), 0o644); err != nil {
 		t.Fatal(err)
@@ -134,7 +134,7 @@ func TestAdoptionLeavesTitlesInTheRootFolderTheyWereFoundIn(t *testing.T) {
 		t.Fatalf("after commit = %+v", done)
 	}
 
-	for tmdb, want := range map[int]string{116149: a.movies, 77: kids} {
+	for tmdb, want := range map[int]string{116149: a.movies, 77: second} {
 		got := decode[titleJSON](t, a.valid("GET", fmt.Sprintf("/titles/%d", a.titleIDOf(t, tmdb)), ""))
 		if got.RootFolder != want {
 			t.Errorf("tmdb %d: root folder = %q, want %q where it was found", tmdb, got.RootFolder, want)

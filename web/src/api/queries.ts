@@ -229,7 +229,7 @@ export function useTestPlugin() {
   })
 }
 
-// ---- Primary Language, Kids rule and Profiles ----
+// ---- Primary Language and Profiles ----
 
 export type Settings = components['schemas']['Settings']
 export type SettingsPatch = components['schemas']['SettingsPatch']

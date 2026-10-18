@@ -13,7 +13,7 @@ const rows = () => [
   row(1, 'Paddington', 'Ein Bär namens Paddington', {
     slots: {
       sd: null,
-      hd: { version_id: 11, profile: 'kids-primary', state: 'wanted', long_missing: false },
+      hd: { version_id: 11, profile: 'any-primary', state: 'wanted', long_missing: false },
       uhd: { version_id: 12, profile: 'uhd-primary', state: 'filled', long_missing: false },
     },
   }),
@@ -125,7 +125,7 @@ describe('the Library detail pane', () => {
     const hd = within(pane).getByRole('group', { name: 'HD' })
     const uhd = within(pane).getByRole('group', { name: 'UHD' })
     expect(sd).toHaveTextContent('No Version')
-    expect(await within(hd).findByText('Kids')).toBeInTheDocument() // the Profile's name arrives with GET /profiles
+    expect(await within(hd).findByText('Any')).toBeInTheDocument() // the Profile's name arrives with GET /profiles
     expect(hd).toHaveTextContent('Wanted')
     expect(uhd).toHaveTextContent('UHD')
     expect(uhd).toHaveTextContent('Filled')

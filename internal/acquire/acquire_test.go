@@ -237,11 +237,11 @@ func TestEachVersionSeesTheSameReleasesFromItsOwnSlot(t *testing.T) {
 	}
 }
 
-func TestAnSDReleaseFitsBothTheSDAndTheKidsVersion(t *testing.T) {
+func TestAnSDReleaseFitsBothTheSDAndTheAnyVersion(t *testing.T) {
 	ctx := context.Background()
 	r := newRigWith(t,
 		library.VersionSpec{Slot: resolution.SD, Profile: "sd-primary"},
-		library.VersionSpec{Slot: resolution.HD, Profile: "kids-primary"},
+		library.VersionSpec{Slot: resolution.HD, Profile: "any-primary"},
 	)
 	const sdRelease = "Paddington.2014.576p.BluRay.x264-GRP"
 	r.publish(t, sdRelease, time.Hour)

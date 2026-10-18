@@ -1,6 +1,5 @@
-import { useState, type FormEvent } from 'react'
-import { ApiError, usePatchProfile, usePatchSettings, useProfiles, useSettings, type Profile, type Settings } from '../api/queries'
-import { Button, ErrorText, Select } from '../forms'
+import { ApiError, usePatchProfile, useProfiles, type Profile } from '../api/queries'
+import { ErrorText, Select } from '../forms'
 
 const slots = [
   { slot: 'sd', label: 'SD' },
@@ -77,66 +76,6 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
       <span className="font-medium">{label}</span>
       {children}
     </>
-  )
-}
-
-/** The Kids rule: a switch and an age threshold of 0, 6 or 12. */
-export function KidsRuleForm() {
-  const { data, isError } = useSettings()
-  if (isError) return <p className="text-[12px] text-red-900">Could not load the Kids rule.</p>
-  if (!data) return null
-  return <KidsForm saved={data.kids_rule} />
-}
-
-function KidsForm({ saved }: { saved: Settings['kids_rule'] }) {
-  const [enabled, setEnabled] = useState(saved.enabled)
-  const [threshold, setThreshold] = useState(saved.threshold)
-  const save = usePatchSettings()
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    save.mutate({ kids_rule: { enabled, threshold } })
-  }
-
-  return (
-    <form onSubmit={submit} className="flex max-w-md flex-col gap-3">
-      <p className="text-[12px] text-gray-900">
-        Titles certified for young viewers get the Kids Profile in HD, in the same language rule as your HD default. It only preselects: it never
-        overrides a Profile you pick and never changes a Version that exists.
-      </p>
-      <label className="flex items-center gap-2 text-[13px]">
-        <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
-        Use the Kids Profile for children’s titles
-      </label>
-      <div className="flex items-center gap-2">
-        <label htmlFor="kids-threshold" className="text-[12px] font-medium text-gray-900">
-          Age threshold
-        </label>
-        <Select
-          id="kids-threshold"
-          className="w-20"
-          disabled={!enabled}
-          value={String(threshold)}
-          onChange={(e) => setThreshold(Number(e.target.value) as Settings['kids_rule']['threshold'])}
-        >
-          {[0, 6, 12].map((age) => (
-            <option key={age} value={age}>
-              {age}
-            </option>
-          ))}
-        </Select>
-        <span className="text-[12px] text-gray-900">and under</span>
-      </div>
-      {save.isError && <ErrorText>{problemText(save.error)}</ErrorText>}
-      {save.isSuccess && (
-        <p role="status" className="text-[12px] text-green-900">
-          Saved.
-        </p>
-      )}
-      <Button type="submit" disabled={save.isPending} className="self-start">
-        Save Kids rule
-      </Button>
-    </form>
   )
 }
 

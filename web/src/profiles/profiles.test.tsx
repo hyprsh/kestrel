@@ -26,7 +26,6 @@ const profile = (key: string, name: string, slot: Profile['slot'], rule: Profile
   enabled: true,
   default_movies: false,
   default_series: false,
-  kids: key.startsWith('kids-'),
   min_height: 0,
   max_height: 1080,
   trash_profile_movies: 'hd-bluray-web',
@@ -39,8 +38,8 @@ const seeded = (): Profile[] => [
   profile('sd-original', 'SD Original', 'sd', 'original'),
   profile('hd-primary', 'HD', 'hd', 'primary', { default_movies: true, default_series: true }),
   profile('hd-original', 'HD Original', 'hd', 'original'),
-  profile('kids-primary', 'Kids', 'hd', 'primary'),
-  profile('kids-original', 'Kids Original', 'hd', 'original'),
+  profile('any-primary', 'Any', 'hd', 'primary'),
+  profile('any-original', 'Any Original', 'hd', 'original'),
   profile('uhd-primary', 'UHD', 'uhd', 'primary'),
   profile('uhd-original', 'UHD Original', 'uhd', 'original'),
 ]
@@ -52,11 +51,10 @@ function fakeProfiles(opts: { fresh?: boolean } = {}) {
   let profiles = seeded()
   let settings: Settings = {
     language_region: { primary_language: 'en', release_date_country: 'US' },
-    kids_rule: { enabled: true, threshold: 6 },
     check_github_updates: true,
     trash: { auto_update: true },
     metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
-    root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'], kids_movies: '', kids_series: '' },
+    root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'] },
   }
   if (opts.fresh) fakeSetup()
   server.use(
@@ -69,12 +67,11 @@ function fakeProfiles(opts: { fresh?: boolean } = {}) {
     }),
     http.get('/settings', ({ response }) => response(200).json(settings)),
     http.patch('/settings', async ({ request, response }) => {
-      const body = (await request.json()) as { language_region?: Partial<Settings['language_region']>; kids_rule?: Partial<Settings['kids_rule']> }
+      const body = (await request.json()) as { language_region?: Partial<Settings['language_region']> }
       sent.push({ path: 'settings', body })
       settings = {
         ...settings,
         language_region: { ...settings.language_region, ...body.language_region },
-        kids_rule: { ...settings.kids_rule, ...body.kids_rule },
       } as Settings
       return response(200).json(settings)
     }),
@@ -131,7 +128,7 @@ describe('the wizard Primary Language section', () => {
 })
 
 describe('the wizard Profiles section', () => {
-  it('sets a default per Slot for Movies and for Series and saves the Kids rule', async () => {
+  it('sets a default per Slot for Movies and for Series ', async () => {
     const sent = fakeProfiles({ fresh: true })
     renderApp()
     await createAccount()
@@ -154,19 +151,6 @@ describe('the wizard Profiles section', () => {
     // Unsetting a default is "None" for SD and UHD.
     await userEvent.selectOptions(within(section).getByLabelText('UHD default for Movies'), '')
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile uhd-primary', body: { default_movies: false } }))
-
-    // The Kids rule: a switch and a threshold of 0, 6 or 12, default 6.
-    expect(within(section).getByText(/young viewers/i)).toBeInTheDocument() // the explainer
-    const threshold = within(section).getByLabelText('Age threshold')
-    expect(threshold).toHaveValue('6')
-    expect(within(threshold).getAllByRole('option').map((o) => o.textContent)).toEqual(['0', '6', '12'])
-    await userEvent.selectOptions(threshold, '12')
-    await userEvent.click(within(section).getByRole('button', { name: 'Save Kids rule' }))
-    expect(await within(section).findByText('Saved.')).toBeInTheDocument()
-    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'settings', body: { kids_rule: { enabled: true, threshold: 12 } } }))
-
-    await userEvent.click(within(section).getByLabelText('Use the Kids Profile for children’s titles'))
-    expect(within(section).getByLabelText('Age threshold')).toBeDisabled()
   })
 
   it('shows why a default cannot be unset', async () => {
