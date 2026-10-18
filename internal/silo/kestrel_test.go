@@ -12,7 +12,7 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/hyprsh/kestrel/internal/api"
+	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/metadata/metadatatest"
@@ -36,7 +36,7 @@ type kestrel struct {
 	t   *testing.T
 	srv *httptest.Server
 	st  *store.Store
-	app *api.App
+	app *app.App
 	idx *ixfake.Indexer
 	sab *dcfake.Client
 	Key string
@@ -59,7 +59,7 @@ func newKestrel(t *testing.T) *kestrel {
 	if err := reg.Register(downloadclient.Contract, sab); err != nil {
 		t.Fatal(err)
 	}
-	app := api.New(api.Options{
+	app := app.New(app.Options{
 		Version: "9.9.9", Store: st, CheapPasswordHash: true, Logger: nil,
 		Web:     fstest.MapFS{"index.html": &fstest.MapFile{Data: []byte("<html></html>")}},
 		DataDir: data, ConfigDir: config, Plugins: reg,

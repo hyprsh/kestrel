@@ -16,7 +16,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/hyprsh/kestrel/internal/api"
+	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/config"
 	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
 	"github.com/hyprsh/kestrel/internal/store"
@@ -58,7 +58,7 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	app := api.New(api.Options{
+	app := app.New(app.Options{
 		Version:     version.Version,
 		BaseURL:     cfg.BaseURL,
 		Store:       st,

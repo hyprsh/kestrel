@@ -1,0 +1,233 @@
+package api
+
+import (
+	"context"
+	"database/sql"
+	"time"
+
+	"github.com/hyprsh/kestrel/internal/acquire"
+	"github.com/hyprsh/kestrel/internal/health"
+	"github.com/hyprsh/kestrel/internal/history"
+	"github.com/hyprsh/kestrel/internal/imports"
+	"github.com/hyprsh/kestrel/internal/indexers"
+	"github.com/hyprsh/kestrel/internal/library"
+	"github.com/hyprsh/kestrel/internal/metadata"
+	"github.com/hyprsh/kestrel/internal/plugin"
+	"github.com/hyprsh/kestrel/internal/plugin/instances"
+	"github.com/hyprsh/kestrel/internal/requests"
+	"github.com/hyprsh/kestrel/internal/scoring"
+	"github.com/hyprsh/kestrel/internal/scoring/profiles"
+	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
+	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
+	"github.com/hyprsh/kestrel/internal/updates"
+)
+
+// Deps are the modules the API calls, as the interfaces it needs from them.
+// Something outside this package (internal/app, in the binary and in tests)
+// builds the modules and hands them over, so the API holds no wiring.
+type Deps struct {
+	Plugins     PluginInstances
+	Profiles    Profiles
+	RootFolders RootFolders
+	Settings    SettingsTx
+	Updates     Updates
+	Library     Library
+	Acquire     Acquire
+	Requests    Requests
+	Adoption    Adoption
+	Cleanup     Cleanup
+	Remover     Remover
+	Imports     Rescorer
+	Jobs        Jobs
+	Refresher   Refresher
+	Indexers    IndexerStatus
+	Health      Health
+	History     History
+	Scoring     Scoring
+	Trash       Trash
+	Meta        metadata.Provider
+	TVDB        metadata.TVDBProvider
+	Bridge      Bridge
+	Posters     Posters
+}
+
+// PluginInstances is the plugin instance store.
+type PluginInstances interface {
+	Enabled(ctx context.Context, contract string) ([]instances.Instance, error)
+	Resolve(ctx context.Context, pluginID string, instanceID int64, patch map[string]any, validate bool) (plugin.Plugin, plugin.Connection, error)
+	List(ctx context.Context) ([]instances.Instance, error)
+	Get(ctx context.Context, id int64) (instances.Instance, error)
+	Update(ctx context.Context, id int64, patch instances.Patch) (instances.Instance, error)
+	Registry() *plugin.Registry
+	Public(i instances.Instance) (config map[string]any, secretsSet []string)
+	Delete(ctx context.Context, id int64) error
+	Create(ctx context.Context, in instances.New) (instances.Instance, error)
+}
+
+// Profiles is the household's language settings and the Profiles.
+type Profiles interface {
+	Region(ctx context.Context) (profiles.Region, bool, error)
+	List(ctx context.Context) ([]profiles.Profile, error)
+	Kids(ctx context.Context) (profiles.KidsRule, bool, error)
+	Patch(ctx context.Context, key string, p profiles.Patch) (profiles.Profile, error)
+}
+
+// RootFolders reads the Root folders.
+type RootFolders interface {
+	Get(ctx context.Context) (rootfolders.Folders, bool, error)
+}
+
+// SettingsTx opens the settings that PATCH /settings writes in one transaction.
+type SettingsTx interface {
+	InTx(tx *sql.Tx) SettingsWriter
+}
+
+// SettingsWriter writes settings through one transaction; the caller commits.
+type SettingsWriter interface {
+	SetRootFolders(ctx context.Context, p rootfolders.Patch) (rootfolders.Folders, error)
+	SetRegion(ctx context.Context, p profiles.RegionPatch) (profiles.Region, error)
+	SetKids(ctx context.Context, p profiles.KidsPatch) (profiles.KidsRule, error)
+	SetTrashAutoUpdate(ctx context.Context, on bool) error
+}
+
+// Updates is the GitHub update check.
+type Updates interface {
+	Enabled(ctx context.Context) bool
+	Info(ctx context.Context) updates.Info
+	SetEnabled(ctx context.Context, on bool) error
+	Check(ctx context.Context) error
+}
+
+// Library is Titles, Versions, files and monitoring.
+type Library interface {
+	Get(ctx context.Context, id int64, view library.View) (library.Detail, error)
+	InLibrary(ctx context.Context, kind library.Kind, tmdbIDs []int) (map[int]int64, error)
+	GetVersion(ctx context.Context, id int64) (library.VersionRef, error)
+	Episodes(ctx context.Context, titleID int64, view library.View) ([]library.Episode, error)
+	SetSeriesMonitor(ctx context.Context, id int64, mode library.Monitor) error
+	SetSeasonMonitored(ctx context.Context, id int64, season int, monitored bool) error
+	SetProfile(ctx context.Context, versionID int64, profile string) error
+	SetMetadataFrozen(ctx context.Context, id int64, frozen bool) error
+	SetEpisodesMonitored(ctx context.Context, id int64, episodeIDs []int64, monitored bool) error
+	SearchAllWanted(ctx context.Context) (int, error)
+	RequestSearch(ctx context.Context, versionID int64) error
+	LongMissing(ctx context.Context, view library.View) ([]library.LongMissingItem, error)
+	Upcoming(ctx context.Context, view library.View, from, to time.Time) ([]library.UpcomingEntry, error)
+	RecentImports(ctx context.Context, n int) ([]library.RecentImport, error)
+	List(ctx context.Context, view library.View, f library.Filter) ([]library.Row, error)
+	AddVersion(ctx context.Context, titleID int64, v library.VersionSpec) (int64, error)
+	AddSeries(ctx context.Context, a library.AddSeries) (int64, error)
+	AddMovie(ctx context.Context, a library.AddMovie) (int64, error)
+}
+
+// Acquire is search, Grabs and the Blocklist.
+type Acquire interface {
+	Cancel(ctx context.Context, id int64, blocklist bool) (acquire.Grab, error)
+	Active(ctx context.Context) ([]acquire.Active, error)
+	Unblock(ctx context.Context, id int64) error
+	Stalled(ctx context.Context) ([]acquire.StalledImport, error)
+	SearchScope(ctx context.Context, versionID int64, scope acquire.Scope) (acquire.SearchResult, error)
+	RetryStalled(ctx context.Context, reason string) (int, error)
+	RetryImport(ctx context.Context, grabID int64) error
+	LastFailures(ctx context.Context) (map[int64]string, error)
+	GrabEpisodes(ctx context.Context, grabID int64) ([]int64, error)
+	Grab(ctx context.Context, versionID int64, releaseID string, override bool) (acquire.Grab, error)
+	GetGrab(ctx context.Context, id int64) (acquire.Grab, error)
+	DiscardStalled(ctx context.Context, reason string) (int, error)
+	Discard(ctx context.Context, grabID int64) error
+	Blocklist(ctx context.Context, titleID int64) ([]acquire.Blocked, error)
+}
+
+// Requests is Request records and their semantics.
+type Requests interface {
+	Submit(ctx context.Context, in requests.Input) (requests.Result, error)
+	OriginsOf(ctx context.Context, titleID int64) ([]requests.Origin, error)
+	List(ctx context.Context, f requests.Filter) ([]requests.Request, error)
+	Get(ctx context.Context, id int64) (requests.Request, error)
+}
+
+// Adoption takes over an existing on-disk library.
+type Adoption interface {
+	Get(ctx context.Context) (imports.Plan, error)
+	Scan(ctx context.Context, roots []string) error
+	Rows(ctx context.Context, f imports.Filter) ([]imports.Row, error)
+	PatchRow(ctx context.Context, id int64, p imports.RowPatch) (imports.Row, error)
+	Discard(ctx context.Context) error
+	Commit(ctx context.Context, revision int64) error
+}
+
+// Cleanup deletes Unmanaged files.
+type Cleanup interface {
+	Run(ctx context.Context, previewID string, cats []imports.CleanupCategory, exclude []string) (imports.CleanupResult, error)
+	Preview(ctx context.Context, titleID int64) (imports.CleanupPreview, error)
+}
+
+// Remover deletes Versions and Titles.
+type Remover interface {
+	DeleteVersion(ctx context.Context, versionID int64, deleteFiles bool) error
+	DeleteTitle(ctx context.Context, titleID int64, deleteFiles bool) error
+}
+
+// Rescorer re-scores a Version's stored file.
+type Rescorer interface {
+	Rescore(ctx context.Context, titleID, versionID int64) error
+}
+
+// Jobs is the loop runner.
+type Jobs interface {
+	Kick(name string)
+	Running() []string
+}
+
+// Refresher refreshes a Title from the metadata providers in the background.
+type Refresher interface {
+	Enqueue(id int64)
+}
+
+// IndexerStatus reports an indexer's budget.
+type IndexerStatus interface {
+	Status(indexerID int64, configured int) indexers.Status
+}
+
+// Health is Needs attention and the system status.
+type Health interface {
+	Clear(ctx context.Context, key string) error
+	List(ctx context.Context) ([]health.Row, error)
+	IndexerStates() map[int64]health.State
+	Dismiss(ctx context.Context, id int64) error
+	Disks(ctx context.Context) ([]health.Disk, error)
+	ClientState() health.State
+	AddCheck(name string, c health.Check)
+}
+
+// History is the events log.
+type History interface {
+	Record(ctx context.Context, ev history.Event)
+	List(ctx context.Context, f history.Filter) ([]history.Event, error)
+	Last(ctx context.Context) (int64, error)
+	After(ctx context.Context, id int64, limit int) ([]history.Event, error)
+}
+
+// Scoring is the live TRaSH snapshot.
+type Scoring interface {
+	Current() *scoring.Snapshot
+}
+
+// Trash is the TRaSH update service.
+type Trash interface {
+	Update(ctx context.Context) (trashsync.Result, error)
+	Status(ctx context.Context) trashsync.Status
+	ChangeLanguage(ctx context.Context, change func() error) error
+	AutoUpdate(ctx context.Context) (bool, error)
+}
+
+// Bridge maps TMDB series to TheTVDB ones.
+type Bridge interface {
+	TVDBID(ctx context.Context, known int, imdbID string) (int, error)
+	Lookup(ctx context.Context, tmdbIDs []int) (map[int]metadata.Bridged, error)
+}
+
+// Posters is the poster cache.
+type Posters interface {
+	Ensure(ctx context.Context, kind metadata.Kind, tmdbID int, posterPath string) (string, error)
+}

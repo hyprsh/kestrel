@@ -265,7 +265,7 @@ func csrfCheck(r *http.Request) *problemError {
 
 // ---- handlers ----
 
-const setupCompletedKey = "setup_completed"
+const setupCompletedKey = settings.SetupCompleted
 
 // setupState reads where every wizard section stands.
 func (s *server) setupState(ctx context.Context) (oapi.Setup, error) {

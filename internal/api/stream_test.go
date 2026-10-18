@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/api"
+	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
 )
@@ -136,7 +137,7 @@ func (s *sseStream) queue(what string, ok func([]queueItemJSON) bool) {
 	})
 }
 
-func fastStream(o *api.Options) {
+func fastStream(o *app.Options) {
 	o.Stream = api.StreamIntervals{Events: 20 * time.Millisecond, Snapshots: 20 * time.Millisecond, Heartbeat: 100 * time.Millisecond}
 }
 

@@ -11,6 +11,9 @@ import (
 	"github.com/hyprsh/kestrel/internal/store"
 )
 
+// SetupCompleted is the key that says the first-run wizard was finished.
+const SetupCompleted = "setup_completed"
+
 // Settings reads through the store's read pool and writes through its write
 // connection.
 type Settings struct {

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyprsh/kestrel/internal/api"
+	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/plugin"
 	mediaserver "github.com/hyprsh/kestrel/internal/plugin/mediaserver/v1"
@@ -19,7 +19,7 @@ import (
 func newMediaSearch(t *testing.T) (search, *msfake.Server) {
 	t.Helper()
 	ms := msfake.New("mk")
-	s := newSearchBare(t, func(o *api.Options) {
+	s := newSearchBare(t, func(o *app.Options) {
 		if err := o.Plugins.Register(mediaserver.Contract, ms); err != nil {
 			t.Fatal(err)
 		}

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyprsh/kestrel/internal/api"
+	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/metadata"
@@ -278,7 +278,7 @@ func TestRootFolderUnavailableIsBlockingForAMissingFolderAndClearsWhenItIsBack(t
 	}
 }
 
-func lowDisk(o *api.Options) {
+func lowDisk(o *app.Options) {
 	o.DiskSpace = func(string) (health.Space, error) { return health.Space{Free: 10 << 30, Total: 1 << 40}, nil }
 }
 
@@ -489,7 +489,7 @@ func TestTheMetadataProviderRejectingItsKeyIsABlockingRowUntilALookupWorksAgain(
 	tmdb := metadatatest.New(t)
 	key := &swappable{}
 	key.set("wrong")
-	s := newSearchBare(t, func(o *api.Options) {
+	s := newSearchBare(t, func(o *app.Options) {
 		o.Metadata = metadata.NewTMDB(metadata.TMDBOptions{BaseURL: tmdb.APIBase(), ImageBase: tmdb.ImageBase(), Keys: key})
 	})
 

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hyprsh/kestrel/internal/api"
+	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/plugin"
 	"github.com/hyprsh/kestrel/internal/plugin/adapters/sabnzbd"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
@@ -35,12 +35,12 @@ func fakeSAB(t *testing.T) *httptest.Server {
 	return srv
 }
 
-func withSAB(t *testing.T) func(*api.Options) {
+func withSAB(t *testing.T) func(*app.Options) {
 	reg := plugin.NewRegistry()
 	if err := reg.Register(downloadclient.Contract, sabnzbd.New(nil)); err != nil {
 		t.Fatal(err)
 	}
-	return func(o *api.Options) { o.Plugins = reg }
+	return func(o *app.Options) { o.Plugins = reg }
 }
 
 // valid sends a request and checks the answer against openapi.yaml.

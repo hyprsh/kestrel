@@ -8,7 +8,7 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/hyprsh/kestrel/internal/api"
+	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
 )
@@ -55,7 +55,7 @@ type trashStatus struct {
 
 func TestUpdateFromTrashLoadsAValidSnapshotAndRejectsABrokenOneWhole(t *testing.T) {
 	src := &trashSource{}
-	s := newSearchBare(t, func(o *api.Options) { o.TrashSource = src })
+	s := newSearchBare(t, func(o *app.Options) { o.TrashSource = src })
 	s.addMovie(t, `{"slot":"hd","profile":"hd-primary"}`)
 	s.prober.set(goodProbe(), nil)
 	s.download(t, map[string]string{"paddington.mkv": "the movie"})

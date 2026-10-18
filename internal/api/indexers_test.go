@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hyprsh/kestrel/internal/api"
+	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/plugin"
 	"github.com/hyprsh/kestrel/internal/plugin/adapters/newznab"
 	"github.com/hyprsh/kestrel/internal/plugin/adapters/sabnzbd"
@@ -43,7 +43,7 @@ func fakeIndexer(t *testing.T) *httptest.Server {
 	return srv
 }
 
-func withSABAndNewznab(t *testing.T) func(*api.Options) {
+func withSABAndNewznab(t *testing.T) func(*app.Options) {
 	reg := plugin.NewRegistry()
 	if err := reg.Register(downloadclient.Contract, sabnzbd.New(nil)); err != nil {
 		t.Fatal(err)
@@ -51,7 +51,7 @@ func withSABAndNewznab(t *testing.T) func(*api.Options) {
 	if err := reg.Register(indexer.Contract, newznab.New(nil)); err != nil {
 		t.Fatal(err)
 	}
-	return func(o *api.Options) { o.Plugins = reg }
+	return func(o *app.Options) { o.Plugins = reg }
 }
 
 func newznabBody(name, srvURL, key, extra string) string {

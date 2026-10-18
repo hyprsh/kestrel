@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/hyprsh/kestrel/internal/api"
+	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/settings"
 )
@@ -38,7 +38,7 @@ func fakeGitHubAPI(t *testing.T, calls *atomic.Int32) *httptest.Server {
 func TestTheDailyCheckRaisesTheSecurityWarningAndShowsTheUpdate(t *testing.T) {
 	var calls atomic.Int32
 	gh := fakeGitHubAPI(t, &calls)
-	in := newInstance(t, "", func(o *api.Options) { o.GitHubAPI = gh.URL })
+	in := newInstance(t, "", func(o *app.Options) { o.GitHubAPI = gh.URL })
 	b := in.setUp()
 	if err := settings.New(in.st).Put(context.Background(), "setup_completed", []byte("true")); err != nil {
 		t.Fatal(err)
@@ -81,7 +81,7 @@ func TestTheDailyCheckRaisesTheSecurityWarningAndShowsTheUpdate(t *testing.T) {
 func TestTurningTheSwitchOffClearsWhatGitHubShowedAndStopsAsking(t *testing.T) {
 	var calls atomic.Int32
 	gh := fakeGitHubAPI(t, &calls)
-	in := newInstance(t, "", func(o *api.Options) { o.GitHubAPI = gh.URL })
+	in := newInstance(t, "", func(o *app.Options) { o.GitHubAPI = gh.URL })
 	b := in.setUp()
 	if err := settings.New(in.st).Put(context.Background(), "setup_completed", []byte("true")); err != nil {
 		t.Fatal(err)

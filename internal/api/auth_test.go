@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyprsh/kestrel/internal/api"
+	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/store"
 )
@@ -40,12 +40,12 @@ type instance struct {
 	st    *store.Store
 	clock *fakeClock
 	base  string
-	opts  api.Options
-	app   *api.App
+	opts  app.Options
+	app   *app.App
 }
 
-// newInstance starts Kestrel; each option adjusts api.Options first (e.g. Plugins).
-func newInstance(t *testing.T, base string, with ...func(*api.Options)) *instance {
+// newInstance starts Kestrel; each option adjusts app.Options first (e.g. Plugins).
+func newInstance(t *testing.T, base string, with ...func(*app.Options)) *instance {
 	t.Helper()
 	st, err := store.Open(context.Background(), store.Options{Dir: t.TempDir()})
 	if err != nil {
@@ -54,11 +54,11 @@ func newInstance(t *testing.T, base string, with ...func(*api.Options)) *instanc
 	t.Cleanup(func() { st.Close() })
 	clock := newClock()
 	roomy := func(string) (health.Space, error) { return health.Space{Free: 500 << 30, Total: 1 << 40}, nil }
-	opts := api.Options{Version: "1.2.3", BaseURL: base, Store: st, Web: webFS, Clock: clock.Now, CheapPasswordHash: true, DiskSpace: roomy}
+	opts := app.Options{Version: "1.2.3", BaseURL: base, Store: st, Web: webFS, Clock: clock.Now, CheapPasswordHash: true, DiskSpace: roomy}
 	for _, f := range with {
 		f(&opts)
 	}
-	app := api.New(opts)
+	app := app.New(opts)
 	srv := httptest.NewServer(app.Handler)
 	t.Cleanup(func() { srv.Close() })
 	return &instance{t: t, srv: srv, st: st, clock: clock, base: base, opts: opts, app: app}
@@ -69,7 +69,7 @@ func newInstance(t *testing.T, base string, with ...func(*api.Options)) *instanc
 func (in *instance) restart() {
 	in.t.Helper()
 	in.srv.Close()
-	in.app = api.New(in.opts)
+	in.app = app.New(in.opts)
 	in.srv = httptest.NewServer(in.app.Handler)
 	in.t.Cleanup(func() { in.srv.Close() })
 }

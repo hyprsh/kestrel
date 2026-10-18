@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyprsh/kestrel/internal/api"
+	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/metadata/metadatatest"
@@ -29,7 +29,7 @@ type seriesSearch struct {
 func newSeriesSearch(t *testing.T) seriesSearch {
 	t.Helper()
 	tvdb := metadatatest.NewTVDB(t)
-	s := newSearchBare(t, func(o *api.Options) {
+	s := newSearchBare(t, func(o *app.Options) {
 		o.TVDB = metadata.NewTVDB(metadata.TVDBOptions{BaseURL: tvdb.APIBase(), Keys: metadata.StaticTVDBKey(metadatatest.TVDBKey)})
 	})
 	r := s.valid("POST", "/titles", addBreakingBad+`,"series_monitor":"all"}`)

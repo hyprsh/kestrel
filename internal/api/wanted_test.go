@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyprsh/kestrel/internal/api"
+	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/metadata/metadatatest"
 )
@@ -22,7 +22,7 @@ func newWantedRig(t *testing.T) wantedRig {
 	tmdb := metadatatest.New(t)
 	tvdb := metadatatest.NewTVDB(t)
 	data, config := t.TempDir(), t.TempDir()
-	in := newInstance(t, "", func(o *api.Options) {
+	in := newInstance(t, "", func(o *app.Options) {
 		o.DataDir, o.ConfigDir = data, config
 		o.Metadata = metadata.NewTMDB(metadata.TMDBOptions{BaseURL: tmdb.APIBase(), ImageBase: tmdb.ImageBase(), Keys: metadata.StaticKey(metadatatest.Key)})
 		o.TVDB = metadata.NewTVDB(metadata.TVDBOptions{BaseURL: tvdb.APIBase(), Keys: metadata.StaticTVDBKey(metadatatest.TVDBKey)})

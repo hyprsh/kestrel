@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hyprsh/kestrel/internal/api"
+	"github.com/hyprsh/kestrel/internal/app"
 )
 
 type rootFoldersJSON struct {
@@ -27,7 +27,7 @@ type setupJSON struct {
 func dataDirInstance(t *testing.T) (*browser, string) {
 	t.Helper()
 	data := t.TempDir()
-	in := newInstance(t, "", func(o *api.Options) { o.DataDir = data })
+	in := newInstance(t, "", func(o *app.Options) { o.DataDir = data })
 	return in.setUp(), data
 }
 
@@ -164,7 +164,7 @@ func TestFinishSetupNamesEveryMissingSection(t *testing.T) {
 func TestFinishSetupWhenEverySectionIsDone(t *testing.T) {
 	sab, idx := fakeSAB(t), fakeIndexer(t)
 	data := t.TempDir()
-	b := newInstance(t, "", withSABAndNewznab(t), func(o *api.Options) { o.DataDir = data }).setUp()
+	b := newInstance(t, "", withSABAndNewznab(t), func(o *app.Options) { o.DataDir = data }).setUp()
 	mkdirs(t, data+"/media/movies", data+"/media/tv")
 
 	b.valid("POST", "/plugin-instances", sabBody(sab.URL, sabKey, ""))

@@ -139,9 +139,9 @@ func (s *server) patchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 		return nil, err
 	}
 	defer tx.Rollback()
-	rootFolders, profs := s.rootFolders.InTx(tx), s.profiles.InTx(tx)
+	w := s.settings.InTx(tx)
 	if rf := r.Body.RootFolders; rf != nil {
-		if _, err := rootFolders.Set(ctx, rootfolders.Patch{Movies: rf.Movies, Series: rf.Series}); err != nil {
+		if _, err := w.SetRootFolders(ctx, rootfolders.Patch{Movies: rf.Movies, Series: rf.Series}); err != nil {
 			var ve *rootfolders.ValidationError
 			if errors.As(err, &ve) {
 				return nil, invalid(ve.Field, ve.Code, ve.Message)
@@ -156,17 +156,17 @@ func (s *server) patchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 			patch.Primary = &lang
 		}
 		patch.Country = l.ReleaseDateCountry
-		if _, err := profs.SetRegion(ctx, patch); err != nil {
+		if _, err := w.SetRegion(ctx, patch); err != nil {
 			return nil, profilesProblem(err)
 		}
 	}
 	if k := r.Body.KidsRule; k != nil {
-		if _, err := profs.SetKids(ctx, profiles.KidsPatch{Enabled: k.Enabled, Threshold: k.Threshold}); err != nil {
+		if _, err := w.SetKids(ctx, profiles.KidsPatch{Enabled: k.Enabled, Threshold: k.Threshold}); err != nil {
 			return nil, profilesProblem(err)
 		}
 	}
 	if t := r.Body.Trash; t != nil && t.AutoUpdate != nil {
-		if err := s.trash.InTx(tx).SetAutoUpdate(ctx, *t.AutoUpdate); err != nil {
+		if err := w.SetTrashAutoUpdate(ctx, *t.AutoUpdate); err != nil {
 			return nil, err
 		}
 	}
