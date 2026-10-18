@@ -38,12 +38,12 @@ type ProfileSpec struct {
 }
 
 // HeightBounds are the resolution bounds of a builtin Profile (Settled 2),
-// derived from the Slot's range: a wide Profile (Any) takes the whole Standard
+// derived from the Slot's range: an Any Profile takes the whole Standard
 // range, HD (the other Standard Profiles) starts at 720 and 4K takes its
 // Slot's range. They always lie inside the Slot.
-func HeightBounds(s slot.Slot, wide bool) (min, max int) {
+func HeightBounds(s slot.Slot, isAny bool) (min, max int) {
 	lo, hi := s.Range()
-	if s == slot.Standard && !wide {
+	if s == slot.Standard && !isAny {
 		lo = 720
 	}
 	return lo, hi

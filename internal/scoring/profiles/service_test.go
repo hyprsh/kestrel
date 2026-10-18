@@ -10,6 +10,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
+	"github.com/hyprsh/kestrel/internal/scoring/profiles/db"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
 )
@@ -319,6 +320,17 @@ func TestSeededProfilesLieInsideTheirSlot(t *testing.T) {
 		if !p.Slot.Contains(p.MinHeight, p.MaxHeight) {
 			t.Errorf("builtin %s: heights %d-%d are outside the %v Slot", p.Key, p.MinHeight, p.MaxHeight, p.Slot)
 		}
+	}
+}
+
+func TestLoadingARowOutsideItsSlotIsAnError(t *testing.T) {
+	row := db.Profile{Key: "x", Name: "X", Slot: "standard", LanguageRule: "primary", MinHeight: 0, MaxHeight: 2160}
+	if _, err := profiles.FromRow(row); err == nil {
+		t.Error("a Standard row up to 2160p loaded")
+	}
+	row.MaxHeight = 1080
+	if _, err := profiles.FromRow(row); err != nil {
+		t.Errorf("a Standard row 0-1080 was refused: %v", err)
 	}
 }
 

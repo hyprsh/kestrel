@@ -117,11 +117,14 @@ func New(st *store.Store, s *settings.Settings) *Service {
 	return &Service{st: st, settings: s}
 }
 
-func fromRow(r db.Profile) Profile {
+func fromRow(r db.Profile) (Profile, error) {
 	sl, _ := slot.Parse(r.Slot) // the table CHECK keeps the value valid
 	rule := scoring.PrimaryLanguage
 	if r.LanguageRule == "original" {
 		rule = scoring.OriginalLanguage
+	}
+	if !sl.Contains(int(r.MinHeight), int(r.MaxHeight)) {
+		return Profile{}, fmt.Errorf("profiles: %s has heights %d-%d outside its %v Slot", r.Key, r.MinHeight, r.MaxHeight, sl)
 	}
 	return Profile{
 		Key: r.Key, Name: r.Name, Slot: sl, Any: r.Any == 1, Rule: rule,
@@ -129,7 +132,7 @@ func fromRow(r db.Profile) Profile {
 		Enabled: r.Enabled == 1, OriginalFallback: r.OriginalFallback == 1,
 		DefaultMovies: r.DefaultMovies == 1, DefaultSeries: r.DefaultSeries == 1,
 		TrashMovies: r.TrashProfileMovies, TrashSeries: r.TrashProfileSeries,
-	}
+	}, nil
 }
 
 // List returns the six Profiles in display order.
@@ -138,15 +141,19 @@ func (s *Service) List(ctx context.Context) ([]Profile, error) {
 	if err != nil {
 		return nil, err
 	}
-	return convert(rows), nil
+	return convert(rows)
 }
 
-func convert(rows []db.Profile) []Profile {
+func convert(rows []db.Profile) ([]Profile, error) {
 	out := make([]Profile, len(rows))
 	for i, r := range rows {
-		out[i] = fromRow(r)
+		p, err := fromRow(r)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = p
 	}
-	return out
+	return out, nil
 }
 
 func (s *Service) write(ctx context.Context, f func(*db.Queries) error) error {
@@ -189,7 +196,10 @@ func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, erro
 		found := false
 		for _, r := range rows {
 			if r.Key == key {
-				cur, found = fromRow(r), true
+				if cur, err = fromRow(r); err != nil {
+					return err
+				}
+				found = true
 			}
 		}
 		if !found {
@@ -322,7 +332,11 @@ func (s *Service) SetRegion(ctx context.Context, p RegionPatch) (Region, error) 
 		if err != nil {
 			return err
 		}
-		for _, p := range convert(rows) {
+		all, err := convert(rows)
+		if err != nil {
+			return err
+		}
+		for _, p := range all {
 			sp, err := snap.Profile(p.Spec(next.Primary.Release()))
 			if err != nil {
 				return fmt.Errorf("profiles: back %s under %s: %w", p.Key, next.Primary, err)
