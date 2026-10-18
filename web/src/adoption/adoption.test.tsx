@@ -181,6 +181,7 @@ describe('Adoption review', () => {
   })
 
   it('offers Clean up for the adopted folders once Titles were adopted', async () => {
+    const previews: unknown[] = []
     fakeAdoption()
     server.use(
       http.get('/adoption', ({ response }) =>
@@ -191,15 +192,20 @@ describe('Adoption review', () => {
           revision: 3,
           error: null,
           scanned_at: null,
-          result: { adopted: 2, failed: 0 },
+          result: { adopted: 2, failed: 0, title_ids: [3, 4] },
         }),
       ),
+      http.post('/cleanup/preview', async ({ request, response }) => {
+        previews.push(await request.clone().json())
+        return response(200).json({ preview_id: 'p1', categories: [] })
+      }),
     )
     const user = await openAdoption()
 
     await user.click(await screen.findByRole('button', { name: 'Clean up adopted folders' }))
+    await user.click(await screen.findByRole('button', { name: /look for unmanaged files/i }))
 
-    expect(await screen.findByRole('button', { name: /look for unmanaged files/i })).toBeInTheDocument()
+    expect(previews).toEqual([{ title_ids: [3, 4] }])
   })
 
   it('unticking a row leaves it out of the count', async () => {

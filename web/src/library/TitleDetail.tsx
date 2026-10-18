@@ -90,7 +90,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
 
       {title.kind === 'series' && <SeriesSection title={title} />}
       <div className="mt-6 flex items-center gap-3">
-        <Button variant="secondary" onClick={() => openCleanup(title.id)}>
+        <Button variant="secondary" onClick={() => openCleanup([title.id])}>
           Clean up this Title
         </Button>
       </div>

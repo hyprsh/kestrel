@@ -42,7 +42,7 @@ const themeIcon: Record<Theme, ReactNode> = {
 export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const [screen, setScreen] = useState('overview')
   const [libraryId, setLibraryId] = useState<number | null>(null)
-  const [cleanupTitle, setCleanupTitle] = useState<number | undefined>(undefined)
+  const [cleanupTitles, setCleanupTitles] = useState<number[] | undefined>(undefined)
   const [libraryPreset, setLibraryPreset] = useState<{ preset: Preset; n: number } | null>(null)
   const [menu, setMenu] = useState<{ mode: MenuMode } | null>(null)
   const { theme, cycle } = useTheme()
@@ -66,8 +66,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const openCleanup = useCallback((titleId?: number) => {
-    setCleanupTitle(titleId)
+  const openCleanup = useCallback((titleIds?: number[]) => {
+    setCleanupTitles(titleIds)
     setScreen('cleanup')
   }, [])
   const canLogout = auth.data?.state === 'ok' && auth.data.me.method === 'session'
@@ -118,7 +118,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           ) : screen === 'adoption' ? (
             <Adoption />
           ) : screen === 'cleanup' ? (
-            <Cleanup key={cleanupTitle ?? 'all'} titleId={cleanupTitle} />
+            <Cleanup key={cleanupTitles?.join(',') ?? 'all'} titleIds={cleanupTitles} />
           ) : screen === 'library' ? (
             <Library
               key={libraryPreset?.n ?? 0}

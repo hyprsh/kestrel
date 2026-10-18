@@ -19,8 +19,8 @@ const labels: Record<CleanupCategory['key'], string> = {
 const mb = (n: number) => (n >= 1 << 30 ? `${(n / (1 << 30)).toFixed(1)} GB` : `${(n / (1 << 20)).toFixed(1)} MB`)
 const baseName = (p: string) => p.slice(p.lastIndexOf('/') + 1)
 
-/** titleId narrows the look to one Title; without it every tracked Title is looked at. */
-export function Cleanup({ titleId }: { titleId?: number }) {
+/** titleIds narrows the look to those Titles; without them every tracked Title is looked at. */
+export function Cleanup({ titleIds }: { titleIds?: number[] }) {
   const preview = usePreviewCleanup()
   const run = useRunCleanup()
   const [done, setDone] = useState<CleanupResult | null>(null)
@@ -52,7 +52,7 @@ export function Cleanup({ titleId }: { titleId?: number }) {
           />
         ) : (
           <div className="mt-4">
-            <Button onClick={() => { setDone(null); preview.mutate(titleId) }} disabled={preview.isPending}>
+            <Button onClick={() => { setDone(null); preview.mutate(titleIds) }} disabled={preview.isPending}>
               Look for Unmanaged files
             </Button>
           </div>

@@ -17,8 +17,8 @@ function failure(error: unknown, response: Response): ApiError {
 
 export function usePreviewCleanup() {
   return useMutation({
-    mutationFn: async (titleId?: number) => {
-      const { data, error, response } = await api.POST('/cleanup/preview', { body: titleId ? { title_id: titleId } : {} })
+    mutationFn: async (titleIds?: number[]) => {
+      const { data, error, response } = await api.POST('/cleanup/preview', { body: titleIds?.length ? { title_ids: titleIds } : {} })
       if (!data) throw failure(error, response)
       return data
     },

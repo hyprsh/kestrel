@@ -106,7 +106,7 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
                 Adopted {p.result.adopted} {p.result.adopted === 1 ? 'Title' : 'Titles'}
                 {p.result.failed > 0 && `, ${p.result.failed} could not be adopted (see the Log)`}.
                 {p.result.adopted > 0 && (
-                  <Button variant="secondary" onClick={() => openCleanup()} className="ml-3">
+                  <Button variant="secondary" onClick={() => openCleanup(p.result?.title_ids)} className="ml-3">
                     Clean up adopted folders
                   </Button>
                 )}
