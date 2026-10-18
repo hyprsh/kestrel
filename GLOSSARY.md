@@ -18,6 +18,10 @@ _Avoid_: Film
 A Title made of seasons and episodes.
 _Avoid_: Show, TV show
 
+**Placeholder Episode**:
+An episode Kestrel added itself because a Release named it before TheTVDB listed it. It has a season and number but no name or air date until a metadata refresh adopts it.
+_Avoid_: TBA episode, ghost episode
+
 **Profile**:
 A named, switchable quality-and-language target, such as UHD or HD, backed by a TRaSH profile. Each Profile belongs to one Slot, covers a fixed resolution range, and either requires the Primary Language or requires the Title's Original Language. Profiles can be enabled or disabled and chosen as the default for a Slot in new Movies or new Series. A Version's Profile can be switched at any time to another Profile of the same Slot.
 _Avoid_: Quality profile, preset
@@ -46,7 +50,7 @@ _Avoid_: Multi-audio, DL or MULTi (unexpanded)
 Replacing a Version's file with a better-scoring Release. Versions never stop upgrading; there is no cutoff.
 
 **Wanted**:
-A monitored, released Version, or episode of a Series Version, that has no file or whose file no longer fits its Profile. Unmonitored and unreleased ones are not Wanted, and a filled Version waiting for an Upgrade is not Wanted either.
+A monitored, released Version, or episode of a Series Version, that has no file or whose file no longer fits its Profile. An episode counts as released once it has aired, once it is a Placeholder Episode, or, without an air date, once a later episode of its Series is out. Unmonitored and unreleased ones are not Wanted, and a filled Version waiting for an Upgrade is not Wanted either.
 _Avoid_: Missing (for the whole set), cutoff unmet
 
 **Long Missing**:
