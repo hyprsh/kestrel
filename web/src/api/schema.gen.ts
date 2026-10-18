@@ -963,6 +963,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/cleanup/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * List the Unmanaged files Clean up could delete
+         * @description Lists the Unmanaged files inside tracked Titles' folders by category: junk, samples, orphaned
+         *     subtitles and empty folders (ticked by default as safe), then subtitles in other languages, local
+         *     artwork, extras and unmanaged videos (unticked). Files any Version holds are never listed. Without
+         *     `title_id` every tracked Title's folder is covered. The answer names a `preview_id` that
+         *     `POST /cleanup/run` deletes from; nothing is deleted here.
+         */
+        post: operations["previewCleanup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cleanup/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete the ticked categories of a preview
+         * @description Permanently deletes the files of the named categories that the preview listed, except those named
+         *     in `exclude`, and removes the folders they leave empty. Files that a Version holds by now are
+         *     skipped. Each cleaned Title is logged. `404 not_found` when the preview is unknown or expired.
+         */
+        post: operations["runCleanup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/status": {
         parameters: {
             query?: never;
@@ -2177,6 +2223,33 @@ export interface components {
             requester_name: string;
             /** Format: date-time */
             created_at: string;
+        };
+        /** @enum {string} */
+        CleanupCategoryKey: "junk" | "samples" | "orphaned_subtitles" | "empty_folders" | "other_language_subtitles" | "artwork" | "extras" | "unmanaged_videos";
+        CleanupPreviewFile: {
+            path: string;
+            /** Format: int64 */
+            size: number;
+            /** Format: int64 */
+            title_id: number;
+        };
+        CleanupPreviewCategory: {
+            key: components["schemas"]["CleanupCategoryKey"];
+            default_ticked: boolean;
+            count: number;
+            /** Format: int64 */
+            size: number;
+            files: components["schemas"]["CleanupPreviewFile"][];
+        };
+        CleanupPreview: {
+            preview_id: string;
+            categories: components["schemas"]["CleanupPreviewCategory"][];
+        };
+        CleanupResult: {
+            deleted: number;
+            /** Format: int64 */
+            bytes: number;
+            failed: number;
         };
         /** @description RFC 9457 problem details. */
         Problem: {
@@ -3444,6 +3517,67 @@ export interface operations {
                 };
             };
             409: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    previewCleanup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: int64 */
+                    title_id?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The categories with their files. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CleanupPreview"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    runCleanup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    preview_id: string;
+                    categories: components["schemas"]["CleanupCategoryKey"][];
+                    /** @description Paths to leave alone although their category is ticked. */
+                    exclude?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description What the run deleted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CleanupResult"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

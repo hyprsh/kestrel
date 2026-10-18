@@ -7,6 +7,7 @@ import { useAttention } from '../api/attention'
 import { useAuth, useLogout, useSystem } from '../api/queries'
 import { CommandMenu, type MenuAction, type MenuMode } from '../command/CommandMenu'
 import { Adoption } from '../adoption/Adoption'
+import { Cleanup } from '../cleanup/Cleanup'
 import { MOD } from '../keys'
 import { Library } from '../library/Library'
 import { startLiveStream } from '../live/stream'
@@ -26,6 +27,7 @@ const screens = [
 const about = { key: 'about', label: 'About', icon: <Info className={icon} /> }
 // Reached from Settings and the command menu, not the rail.
 const adoption = { key: 'adoption', label: 'Adopt existing library' }
+const cleanup = { key: 'cleanup', label: 'Clean up Unmanaged files' }
 const themeIcon: Record<Theme, ReactNode> = {
   system: <Monitor className={icon} />,
   light: <Sun className={icon} />,
@@ -39,7 +41,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const { theme, cycle } = useTheme()
   const auth = useAuth()
   const logout = useLogout()
-  const current = [...screens, about, adoption].find((s) => s.key === screen)!
+  const current = [...screens, about, adoption, cleanup].find((s) => s.key === screen)!
 
   // Every open tab stays live through one shared stream; the cache refetches on its hints.
   const queryClient = useQueryClient()
@@ -63,6 +65,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
       { id: 'theme', label: 'Switch theme', keywords: 'dark light mode', run: cycle },
       { id: 'setup', label: 'Run setup again', keywords: 'wizard', run: onRunSetup },
       { id: 'adopt', label: 'Scan for unmanaged files', keywords: 'adopt adoption existing library import', run: () => setScreen('adoption') },
+      { id: 'cleanup', label: 'Clean up Unmanaged files', keywords: 'junk samples subtitles delete tidy', run: () => setScreen('cleanup') },
       ...(canLogout ? [{ id: 'logout', label: 'Log out', keywords: 'sign out', run: () => logout.mutate(undefined) }] : []),
     ],
     [cycle, onRunSetup, canLogout, logout],
@@ -91,6 +94,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
             <SettingsScreen onRunSetup={onRunSetup} onAdopt={() => setScreen('adoption')} />
           ) : screen === 'adoption' ? (
             <Adoption />
+          ) : screen === 'cleanup' ? (
+            <Cleanup />
           ) : screen === 'library' ? (
             <Library selectedId={libraryId} onSelect={setLibraryId} onAdd={() => setMenu({ mode: 'add' })} />
           ) : screen === 'overview' ? (

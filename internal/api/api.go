@@ -174,6 +174,7 @@ func New(opts Options) *App {
 		panic("api: Adoption cannot start: " + err.Error())
 	}
 	s.adoption = adoption
+	s.cleanup = imports.NewCleanup(imports.CleanupDeps{Library: s.library, Profiles: s.profiles, History: s.history, Clock: opts.Clock})
 	s.requests = requests.New(requests.Deps{
 		Store: opts.Store, Clock: opts.Clock, Library: s.library, Profiles: s.profiles, RootFolders: s.rootFolders,
 		Meta: s.meta, TVDB: s.tvdb, Grabs: acq,
@@ -233,6 +234,7 @@ type server struct {
 	acquire     *acquire.Service
 	requests    *requests.Service
 	adoption    *imports.Adoption
+	cleanup     *imports.Cleanup
 	jobs        *jobs.Runner
 	refresher   *jobs.Refresher
 	indexers    *indexers.Service

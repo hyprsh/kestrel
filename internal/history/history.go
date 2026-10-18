@@ -46,6 +46,8 @@ const (
 	AdoptionScanned Kind = "adoption_scanned"
 	// AdoptionDone: Adoption took a Title over with the files it already had.
 	AdoptionDone Kind = "adoption"
+	// CleanupDone: Clean up deleted a Title folder's Unmanaged files.
+	CleanupDone Kind = "cleanup"
 	// ImportEpisode: what an Import did for one episode of a Series Grab (imported,
 	// or left alone because it was unmonitored, held or unreadable). Data carries
 	// the result.

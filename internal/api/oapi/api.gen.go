@@ -226,6 +226,42 @@ func (e AttentionSnapshotSeverity) Valid() bool {
 	}
 }
 
+// Defines values for CleanupCategoryKey.
+const (
+	Artwork                CleanupCategoryKey = "artwork"
+	EmptyFolders           CleanupCategoryKey = "empty_folders"
+	Extras                 CleanupCategoryKey = "extras"
+	Junk                   CleanupCategoryKey = "junk"
+	OrphanedSubtitles      CleanupCategoryKey = "orphaned_subtitles"
+	OtherLanguageSubtitles CleanupCategoryKey = "other_language_subtitles"
+	Samples                CleanupCategoryKey = "samples"
+	UnmanagedVideos        CleanupCategoryKey = "unmanaged_videos"
+)
+
+// Valid indicates whether the value is a known member of the CleanupCategoryKey enum.
+func (e CleanupCategoryKey) Valid() bool {
+	switch e {
+	case Artwork:
+		return true
+	case EmptyFolders:
+		return true
+	case Extras:
+		return true
+	case Junk:
+		return true
+	case OrphanedSubtitles:
+		return true
+	case OtherLanguageSubtitles:
+		return true
+	case Samples:
+		return true
+	case UnmanagedVideos:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ClientStatusState.
 const (
 	ClientStatusStateFailing ClientStatusState = "failing"
@@ -1003,6 +1039,38 @@ type AttentionSubject struct {
 type ChangedHint struct {
 	Id       *int64 `json:"id"`
 	Resource string `json:"resource"`
+}
+
+// CleanupCategoryKey defines model for CleanupCategoryKey.
+type CleanupCategoryKey string
+
+// CleanupPreview defines model for CleanupPreview.
+type CleanupPreview struct {
+	Categories []CleanupPreviewCategory `json:"categories"`
+	PreviewId  string                   `json:"preview_id"`
+}
+
+// CleanupPreviewCategory defines model for CleanupPreviewCategory.
+type CleanupPreviewCategory struct {
+	Count         int                  `json:"count"`
+	DefaultTicked bool                 `json:"default_ticked"`
+	Files         []CleanupPreviewFile `json:"files"`
+	Key           CleanupCategoryKey   `json:"key"`
+	Size          int64                `json:"size"`
+}
+
+// CleanupPreviewFile defines model for CleanupPreviewFile.
+type CleanupPreviewFile struct {
+	Path    string `json:"path"`
+	Size    int64  `json:"size"`
+	TitleId int64  `json:"title_id"`
+}
+
+// CleanupResult defines model for CleanupResult.
+type CleanupResult struct {
+	Bytes   int64 `json:"bytes"`
+	Deleted int   `json:"deleted"`
+	Failed  int   `json:"failed"`
 }
 
 // ClientStatus defines model for ClientStatus.
@@ -2019,6 +2087,20 @@ type ScanAdoptionJSONBody struct {
 	RootFolders *[]string `json:"root_folders,omitempty"`
 }
 
+// PreviewCleanupJSONBody defines parameters for PreviewCleanup.
+type PreviewCleanupJSONBody struct {
+	TitleId *int64 `json:"title_id,omitempty"`
+}
+
+// RunCleanupJSONBody defines parameters for RunCleanup.
+type RunCleanupJSONBody struct {
+	Categories []CleanupCategoryKey `json:"categories"`
+
+	// Exclude Paths to leave alone although their category is ticked.
+	Exclude   *[]string `json:"exclude,omitempty"`
+	PreviewId string    `json:"preview_id"`
+}
+
 // LookupParams defines parameters for Lookup.
 type LookupParams struct {
 	Q    string     `form:"q" json:"q"`
@@ -2075,6 +2157,12 @@ type ScanAdoptionJSONRequestBody ScanAdoptionJSONBody
 
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = Credentials
+
+// PreviewCleanupJSONRequestBody defines body for PreviewCleanup for application/json ContentType.
+type PreviewCleanupJSONRequestBody PreviewCleanupJSONBody
+
+// RunCleanupJSONRequestBody defines body for RunCleanup for application/json ContentType.
+type RunCleanupJSONRequestBody RunCleanupJSONBody
 
 // CreateGrabJSONRequestBody defines body for CreateGrab for application/json ContentType.
 type CreateGrabJSONRequestBody = GrabCreate
@@ -2186,6 +2274,12 @@ type ServerInterface interface {
 	// GetMe Who is logged in
 	// (GET /auth/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// PreviewCleanup List the Unmanaged files Clean up could delete
+	// (POST /cleanup/preview)
+	PreviewCleanup(w http.ResponseWriter, r *http.Request)
+	// RunCleanup Delete the ticked categories of a preview
+	// (POST /cleanup/run)
+	RunCleanup(w http.ResponseWriter, r *http.Request)
 	// CreateGrab Grab a Release into the download client
 	// (POST /grabs)
 	CreateGrab(w http.ResponseWriter, r *http.Request)
@@ -2585,6 +2679,34 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreviewCleanup operation middleware
+func (siw *ServerInterfaceWrapper) PreviewCleanup(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewCleanup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RunCleanup operation middleware
+func (siw *ServerInterfaceWrapper) RunCleanup(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RunCleanup(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3943,6 +4065,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/attention", wrapper.GetAttention)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/attention/{id}/dismiss", wrapper.DismissAttention)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/adoption/commit", wrapper.CommitAdoption)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/cleanup/preview", wrapper.PreviewCleanup)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/cleanup/run", wrapper.RunCleanup)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/system/status", wrapper.GetSystemStatus)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/stream", wrapper.Stream)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/requests", wrapper.ListRequests)
@@ -4683,6 +4807,130 @@ type GetMedefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetMedefaultApplicationProblemPlusJSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewCleanupRequestObject struct {
+	Body *PreviewCleanupJSONRequestBody
+}
+
+type PreviewCleanupResponseObject interface {
+	VisitPreviewCleanupResponse(w http.ResponseWriter) error
+}
+
+type PreviewCleanup200JSONResponse CleanupPreview
+
+func (response PreviewCleanup200JSONResponse) VisitPreviewCleanupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewCleanup404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PreviewCleanup404ApplicationProblemPlusJSONResponse) VisitPreviewCleanupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewCleanupdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response PreviewCleanupdefaultApplicationProblemPlusJSONResponse) VisitPreviewCleanupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RunCleanupRequestObject struct {
+	Body *RunCleanupJSONRequestBody
+}
+
+type RunCleanupResponseObject interface {
+	VisitRunCleanupResponse(w http.ResponseWriter) error
+}
+
+type RunCleanup202JSONResponse CleanupResult
+
+func (response RunCleanup202JSONResponse) VisitRunCleanupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RunCleanup404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RunCleanup404ApplicationProblemPlusJSONResponse) VisitRunCleanupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RunCleanup422ApplicationProblemPlusJSONResponse Problem
+
+func (response RunCleanup422ApplicationProblemPlusJSONResponse) VisitRunCleanupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RunCleanupdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response RunCleanupdefaultApplicationProblemPlusJSONResponse) VisitRunCleanupResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -7552,6 +7800,12 @@ type StrictServerInterface interface {
 	// GetMe Who is logged in
 	// (GET /auth/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// PreviewCleanup List the Unmanaged files Clean up could delete
+	// (POST /cleanup/preview)
+	PreviewCleanup(ctx context.Context, request PreviewCleanupRequestObject) (PreviewCleanupResponseObject, error)
+	// RunCleanup Delete the ticked categories of a preview
+	// (POST /cleanup/run)
+	RunCleanup(ctx context.Context, request RunCleanupRequestObject) (RunCleanupResponseObject, error)
 	// CreateGrab Grab a Release into the download client
 	// (POST /grabs)
 	CreateGrab(ctx context.Context, request CreateGrabRequestObject) (CreateGrabResponseObject, error)
@@ -8134,6 +8388,71 @@ func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetMeResponseObject); ok {
 		if err := validResponse.VisitGetMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PreviewCleanup operation middleware
+func (sh *strictHandler) PreviewCleanup(w http.ResponseWriter, r *http.Request) {
+	var request PreviewCleanupRequestObject
+
+	var body PreviewCleanupJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewCleanup(ctx, request.(PreviewCleanupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewCleanup")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewCleanupResponseObject); ok {
+		if err := validResponse.VisitPreviewCleanupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RunCleanup operation middleware
+func (sh *strictHandler) RunCleanup(w http.ResponseWriter, r *http.Request) {
+	var request RunCleanupRequestObject
+
+	var body RunCleanupJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RunCleanup(ctx, request.(RunCleanupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RunCleanup")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RunCleanupResponseObject); ok {
+		if err := validResponse.VisitRunCleanupResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -1177,6 +1177,79 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /cleanup/preview:
+    post:
+      operationId: previewCleanup
+      summary: List the Unmanaged files Clean up could delete
+      description: |
+        Lists the Unmanaged files inside tracked Titles' folders by category: junk, samples, orphaned
+        subtitles and empty folders (ticked by default as safe), then subtitles in other languages, local
+        artwork, extras and unmanaged videos (unticked). Files any Version holds are never listed. Without
+        `title_id` every tracked Title's folder is covered. The answer names a `preview_id` that
+        `POST /cleanup/run` deletes from; nothing is deleted here.
+      tags: [cleanup]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title_id:
+                  type: integer
+                  format: int64
+      responses:
+        "200":
+          description: The categories with their files.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CleanupPreview"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /cleanup/run:
+    post:
+      operationId: runCleanup
+      summary: Delete the ticked categories of a preview
+      description: |
+        Permanently deletes the files of the named categories that the preview listed, except those named
+        in `exclude`, and removes the folders they leave empty. Files that a Version holds by now are
+        skipped. Each cleaned Title is logged. `404 not_found` when the preview is unknown or expired.
+      tags: [cleanup]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [preview_id, categories]
+              properties:
+                preview_id:
+                  type: string
+                categories:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/CleanupCategoryKey"
+                exclude:
+                  type: array
+                  description: Paths to leave alone although their category is ticked.
+                  items:
+                    type: string
+      responses:
+        "202":
+          description: What the run deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CleanupResult"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /system/status:
     get:
       operationId: getSystemStatus
@@ -3332,6 +3405,59 @@ components:
         created_at:
           type: string
           format: date-time
+    CleanupCategoryKey:
+      type: string
+      enum: [junk, samples, orphaned_subtitles, empty_folders, other_language_subtitles, artwork, extras, unmanaged_videos]
+    CleanupPreviewFile:
+      type: object
+      required: [path, size, title_id]
+      properties:
+        path:
+          type: string
+        size:
+          type: integer
+          format: int64
+        title_id:
+          type: integer
+          format: int64
+    CleanupPreviewCategory:
+      type: object
+      required: [key, default_ticked, count, size, files]
+      properties:
+        key:
+          $ref: "#/components/schemas/CleanupCategoryKey"
+        default_ticked:
+          type: boolean
+        count:
+          type: integer
+        size:
+          type: integer
+          format: int64
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/CleanupPreviewFile"
+    CleanupPreview:
+      type: object
+      required: [preview_id, categories]
+      properties:
+        preview_id:
+          type: string
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CleanupPreviewCategory"
+    CleanupResult:
+      type: object
+      required: [deleted, bytes, failed]
+      properties:
+        deleted:
+          type: integer
+        bytes:
+          type: integer
+          format: int64
+        failed:
+          type: integer
     Problem:
       type: object
       description: RFC 9457 problem details.
