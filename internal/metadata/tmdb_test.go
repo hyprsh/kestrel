@@ -111,7 +111,8 @@ func TestReleaseDatesUseTheCountryThenTheUSThenTheEarliestAnywhere(t *testing.T)
 	if got, ok := pad.ReleaseDates.Released("US"); !ok || !got.Equal(day(2015, 4, 14)) {
 		t.Errorf("US released = %v %v", got, ok)
 	}
-	if got, ok := pad.ReleaseDates.Released("DE"); !ok || !got.Equal(day(2015, 4, 14)) {
+	// Germany has its own physical date (June 18): the US digital date does not stand in for it.
+	if got, ok := pad.ReleaseDates.Released("DE"); !ok || !got.Equal(day(2015, 6, 18)) {
 		t.Errorf("DE released = %v %v", got, ok)
 	}
 }
@@ -142,6 +143,18 @@ func TestReleasedIsTheEarliestHomeDateElseTheatricalPlus90Days(t *testing.T) {
 		}, d(2020, 3, 31), true},
 		{"a TV date stands as it is", metadata.ReleaseDates{{Country: "DE", Type: metadata.TV, Date: d(2020, 1, 1)}}, d(2020, 1, 1), true},
 		{"no dates is unknown", nil, time.Time{}, false},
+		{"the household's country decides: its theatrical date counts even when the US has a home date", metadata.ReleaseDates{
+			{Country: "DE", Type: metadata.Theatrical, Date: d(2020, 1, 1)},
+			{Country: "US", Type: metadata.Digital, Date: d(2020, 2, 1)},
+		}, d(2020, 3, 31), true},
+		{"a country with no dates at all falls back to the US", metadata.ReleaseDates{
+			{Country: "FR", Type: metadata.Digital, Date: d(2020, 2, 1)},
+			{Country: "US", Type: metadata.Digital, Date: d(2020, 6, 1)},
+		}, d(2020, 6, 1), true},
+		{"with neither the country nor the US, the earliest anywhere", metadata.ReleaseDates{
+			{Country: "JP", Type: metadata.Digital, Date: d(2020, 7, 1)},
+			{Country: "FR", Type: metadata.Theatrical, Date: d(2020, 1, 1)},
+		}, d(2020, 7, 1), true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

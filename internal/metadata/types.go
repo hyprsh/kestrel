@@ -84,13 +84,15 @@ const TheatricalToHome = 90 * 24 * time.Hour
 // Released is when the Movie became searchable in a country: its earliest
 // digital or physical date, else its theatrical date plus 90 days (a Radarr
 // "minimum availability" replacement), else its premiere plus 90 days, else
-// its TV date.
+// its TV date. All of it is read in one country: the one asked for, or the US
+// only when that country has no dates at all, or else any.
 func (r ReleaseDates) Released(country string) (time.Time, bool) {
+	scope := r.scopeFor(country)
 	earliest := func(types ...ReleaseType) (time.Time, bool) {
 		var best time.Time
 		found := false
 		for _, t := range types {
-			if d, ok := r.Date(t, country); ok && (!found || d.Before(best)) {
+			if d, ok := scope.Date(t, country); ok && (!found || d.Before(best)) {
 				best, found = d, true
 			}
 		}
@@ -106,6 +108,23 @@ func (r ReleaseDates) Released(country string) (time.Time, bool) {
 		return d.Add(TheatricalToHome), true
 	}
 	return earliest(TV)
+}
+
+// scopeFor is the dates of the country, or of the US if the country has none,
+// or else all of them.
+func (r ReleaseDates) scopeFor(country string) ReleaseDates {
+	for _, c := range []string{country, "US"} {
+		var in ReleaseDates
+		for _, d := range r {
+			if d.Country == c {
+				in = append(in, d)
+			}
+		}
+		if len(in) > 0 {
+			return in
+		}
+	}
+	return r
 }
 
 // Certification is the certification to read for a country, and the country it
