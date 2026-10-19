@@ -5,6 +5,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -67,5 +69,21 @@ func TestResetPasswordCommandNeedsAPasswordSource(t *testing.T) {
 	err = resetPassword(context.Background(), []string{"--password-stdin"}, strings.NewReader(""), &bytes.Buffer{}, env)
 	if err == nil {
 		t.Error("empty stdin accepted")
+	}
+}
+
+func TestResetPasswordCommandRefusesADeclaredAccount(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "kestrel.yaml")
+	if err := os.WriteFile(path, []byte("account:\n  username: admin\n  password_env: PW\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	env := func(k string) string {
+		return map[string]string{"KESTREL_CONFIG_DIR": dir, "KESTREL_CONFIG_FILE": path, "PW": "correct horse"}[k]
+	}
+	// Refused before asking for a password: no terminal and no --password-stdin.
+	err := resetPassword(context.Background(), nil, strings.NewReader(""), &bytes.Buffer{}, env)
+	if err == nil || !strings.Contains(err.Error(), "Config File") || !strings.Contains(err.Error(), path) {
+		t.Errorf("err = %v, want a refusal naming the Config File %s", err, path)
 	}
 }

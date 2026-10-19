@@ -14,6 +14,7 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/api"
 	"github.com/hyprsh/kestrel/internal/config"
+	"github.com/hyprsh/kestrel/internal/configfile"
 	"github.com/hyprsh/kestrel/internal/store"
 )
 
@@ -32,6 +33,9 @@ func resetPassword(ctx context.Context, args []string, stdin io.Reader, stdout i
 	if err != nil {
 		return err
 	}
+	if err := refuseDeclaredAccount(cfg.ConfigFile, getenv); err != nil {
+		return err
+	}
 	password, err := readNewPassword(stdin, stdout, *fromStdin)
 	if err != nil {
 		return err
@@ -45,6 +49,23 @@ func resetPassword(ctx context.Context, args []string, stdin io.Reader, stdout i
 		return err
 	}
 	fmt.Fprintln(stdout, "Password reset. Every session was logged out.")
+	return nil
+}
+
+// refuseDeclaredAccount fails when the Config File at path declares the
+// account: its password comes from the file's variable on every start, so a
+// reset here would not last (ADR 0014).
+func refuseDeclaredAccount(path string, getenv func(string) string) error {
+	if path == "" {
+		return nil
+	}
+	f, err := configfile.Load(path, getenv)
+	if err != nil {
+		return err
+	}
+	if a := f.Account; a != nil {
+		return fmt.Errorf("the account is declared in the Config File %s: set the new password in %s and restart Kestrel", path, a.PasswordEnv)
+	}
 	return nil
 }
 
