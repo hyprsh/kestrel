@@ -50,6 +50,25 @@ func TestADeclaredSettingsSectionIsReadOnly(t *testing.T) {
 	}
 }
 
+func TestADeclaredAccountIsReadOnly(t *testing.T) {
+	in := newInstance(t, "")
+	if me := in.setUp().valid("GET", "/auth/me", ""); !strings.Contains(me.Body, `"from_config_file":false`) {
+		t.Errorf("without a Config File: %s, want from_config_file false", me.Body)
+	}
+	in.mustDeclare(declaredAccount, "KESTREL_ADMIN_PASSWORD", "correct horse")
+	b := in.login()
+
+	if me := b.valid("GET", "/auth/me", ""); !strings.Contains(me.Body, `"from_config_file":true`) {
+		t.Errorf("declared: %s, want from_config_file true", me.Body)
+	}
+	in.conflictNamingTheFile("POST /account/password",
+		b.valid("POST", "/account/password", `{"current_password":"correct horse","new_password":"battery staple"}`))
+	in.conflictNamingTheFile("POST /setup/account", b.valid("POST", "/setup/account", adminJSON))
+	if _, r := in.loginAs("admin", "correct horse"); r.Status != 204 {
+		t.Errorf("login with the declared password = %d, want 204", r.Status)
+	}
+}
+
 func TestADeclaredReverseProxyIsReadOnly(t *testing.T) {
 	in := newInstance(t, "")
 	b := in.setUp()
