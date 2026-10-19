@@ -16,6 +16,7 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/api/db"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
+	"github.com/hyprsh/kestrel/internal/configfile"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
 )
@@ -214,6 +215,7 @@ func (s *server) reverseProxyBody(ctx context.Context) (oapi.ReverseProxy, error
 	untrusted := make([]oapi.UntrustedProxyHeader, 0, len(rows))
 	out := oapi.ReverseProxy{
 		Enabled: cfg.Enabled, TrustedProxies: cfg.TrustedProxies, Header: cfg.Header, Untrusted: &untrusted,
+		FromConfigFile: s.declares(configfile.SectionReverseProxy),
 	}
 	for _, r := range rows {
 		untrusted = append(untrusted, oapi.UntrustedProxyHeader{
@@ -234,6 +236,9 @@ func (s *server) GetReverseProxy(ctx context.Context, _ oapi.GetReverseProxyRequ
 func (s *server) PutReverseProxy(ctx context.Context, req oapi.PutReverseProxyRequestObject) (oapi.PutReverseProxyResponseObject, error) {
 	if req.Body == nil {
 		return nil, invalid("body", "required", "settings are required")
+	}
+	if err := s.refuseDeclared(configfile.SectionReverseProxy); err != nil {
+		return nil, err
 	}
 	cfg := proxyConfig{Enabled: req.Body.Enabled, TrustedProxies: req.Body.TrustedProxies, Header: strings.TrimSpace(req.Body.Header)}
 	if cfg.TrustedProxies == nil {

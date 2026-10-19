@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
+	"github.com/hyprsh/kestrel/internal/configfile"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
@@ -22,7 +23,7 @@ func profilesProblem(err error) error {
 	return err
 }
 
-func profileToAPI(p profiles.Profile) oapi.Profile {
+func (s *server) profileToAPI(p profiles.Profile) oapi.Profile {
 	slot := slotToAPI(p.Slot)
 	rule := oapi.ProfileLanguageRule("primary")
 	if p.Rule == scoring.OriginalLanguage {
@@ -34,6 +35,7 @@ func profileToAPI(p profiles.Profile) oapi.Profile {
 		DefaultMovies: p.DefaultMovies, DefaultSeries: p.DefaultSeries,
 		MinHeight: p.MinHeight, MaxHeight: p.MaxHeight,
 		TrashProfileMovies: p.TrashMovies, TrashProfileSeries: p.TrashSeries,
+		FromConfigFile: s.declares(configfile.SectionProfiles),
 	}
 }
 
@@ -44,7 +46,7 @@ func (s *server) ListProfiles(ctx context.Context, _ oapi.ListProfilesRequestObj
 	}
 	out := oapi.ProfileList{Items: make([]oapi.Profile, len(all))}
 	for i, p := range all {
-		out.Items[i] = profileToAPI(p)
+		out.Items[i] = s.profileToAPI(p)
 	}
 	return oapi.ListProfiles200JSONResponse(out), nil
 }
@@ -53,6 +55,9 @@ func (s *server) PatchProfile(ctx context.Context, r oapi.PatchProfileRequestObj
 	if r.Body == nil {
 		return nil, invalid("body", "required", "a body is required")
 	}
+	if err := s.refuseDeclared(configfile.SectionProfiles); err != nil {
+		return nil, err
+	}
 	b := r.Body
 	p, err := s.profiles.Patch(ctx, string(r.Key), profiles.Patch{
 		Enabled: b.Enabled, OriginalFallback: b.OriginalFallback, DefaultMovies: b.DefaultMovies, DefaultSeries: b.DefaultSeries,
@@ -60,7 +65,7 @@ func (s *server) PatchProfile(ctx context.Context, r oapi.PatchProfileRequestObj
 	if err != nil {
 		return nil, profilesProblem(err)
 	}
-	return oapi.PatchProfile200JSONResponse(profileToAPI(p)), nil
+	return oapi.PatchProfile200JSONResponse(s.profileToAPI(p)), nil
 }
 
 func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {
@@ -86,6 +91,9 @@ func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {
 		return oapi.Settings{}, err
 	}
 	out.Metadata.TmdbApiKeySet, out.Metadata.TvdbApiKeySet = set.TMDB, set.TVDB
+	out.FromConfigFile.LanguageRegion = s.declares(configfile.SectionLanguageRegion)
+	out.FromConfigFile.RootFolders = s.declares(configfile.SectionRootFolders)
+	out.FromConfigFile.CheckGithubUpdates = s.declares(configfile.SectionCheckGitHubUpdates)
 	return out, nil
 }
 
@@ -100,6 +108,9 @@ func (s *server) GetSettings(ctx context.Context, _ oapi.GetSettingsRequestObjec
 func (s *server) PatchSettings(ctx context.Context, r oapi.PatchSettingsRequestObject) (oapi.PatchSettingsResponseObject, error) {
 	if r.Body == nil {
 		return nil, invalid("body", "required", "a body is required")
+	}
+	if err := s.refuseDeclared(patchedSections(r.Body)...); err != nil {
+		return nil, err // before any write, so the patch's other sections stay unsaved too
 	}
 	if l := r.Body.LanguageRegion; l != nil && l.PrimaryLanguage != nil {
 		// A new Primary Language re-scores every file in the same step, with no

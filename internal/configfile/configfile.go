@@ -91,6 +91,56 @@ type ReverseProxy struct {
 	Header         string   `yaml:"header"`
 }
 
+// Section is one of the File's top-level keys.
+type Section string
+
+// The sections a Config File may declare, spelled as in the file.
+const (
+	SectionAccount            Section = "account"
+	SectionLanguageRegion     Section = "language_region"
+	SectionRootFolders        Section = "root_folders"
+	SectionProfiles           Section = "profiles"
+	SectionPluginInstances    Section = "plugin_instances"
+	SectionReverseProxy       Section = "reverse_proxy"
+	SectionCheckGitHubUpdates Section = "check_github_updates"
+)
+
+// Declares reports whether the file declares s. A nil File declares nothing,
+// so callers need not check for a Config File first.
+func (f *File) Declares(s Section) bool {
+	if f == nil {
+		return false
+	}
+	switch s {
+	case SectionAccount:
+		return f.Account != nil
+	case SectionLanguageRegion:
+		return f.LanguageRegion != nil
+	case SectionRootFolders:
+		return f.RootFolders != nil
+	case SectionProfiles:
+		return f.Profiles != nil
+	case SectionPluginInstances:
+		return f.PluginInstances != nil
+	case SectionReverseProxy:
+		return f.ReverseProxy != nil
+	case SectionCheckGitHubUpdates:
+		return f.CheckGitHubUpdates != nil
+	}
+	return false
+}
+
+// DeclaresInstance reports whether the file declares a plugin instance named
+// name. Names compare trimmed and case-sensitive, as instances are matched at
+// startup.
+func (f *File) DeclaresInstance(name string) bool {
+	if f == nil {
+		return false
+	}
+	name = strings.TrimSpace(name)
+	return slices.ContainsFunc(f.PluginInstances, func(p PluginInstance) bool { return strings.TrimSpace(p.Name) == name })
+}
+
 // Secret is a value resolved from the environment. It prints as a mask, so a
 // logged or wrapped File never shows it.
 type Secret string
