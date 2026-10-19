@@ -73,10 +73,6 @@ func newAuth(st *store.Store, clock func() time.Time, baseURL string, cost hashC
 	}
 }
 
-func (a *auth) account(ctx context.Context) (account, bool, error) {
-	return loadAccount(ctx, a.settings)
-}
-
 func loadAccount(ctx context.Context, s *settings.Settings) (acc account, ok bool, err error) {
 	raw, ok, err := s.Get(ctx, accountKey)
 	if err != nil || !ok {
@@ -155,12 +151,12 @@ func (a *auth) guard(next http.Handler) http.Handler {
 		fail := func(p *problemError) { p.write(w) }
 		internal := func() { fail(problem(http.StatusInternalServerError, "internal", "internal error")) }
 
-		_, exists, err := a.account(r.Context())
+		_, exists, err := loadAccount(r.Context(), a.settings)
 		if err != nil {
 			internal()
 			return
 		}
-		proxy, err := a.proxyConfig(r.Context())
+		proxy, err := loadProxyConfig(r.Context(), a.settings)
 		if err != nil {
 			internal()
 			return
@@ -332,8 +328,8 @@ func (s setupSources) state(ctx context.Context) (oapi.Setup, error) {
 	return out, err
 }
 
-// todo lists the sections still to set up, as field errors.
-func todo(st oapi.Setup) []fieldError {
+// missingSections lists the sections still to set up, as field errors.
+func missingSections(st oapi.Setup) []fieldError {
 	var missing []fieldError
 	for _, sec := range []struct {
 		name  string
@@ -363,7 +359,7 @@ func (s *server) CompleteSetup(ctx context.Context, _ oapi.CompleteSetupRequestO
 	if err != nil {
 		return nil, err
 	}
-	if missing := todo(st); len(missing) > 0 {
+	if missing := missingSections(st); len(missing) > 0 {
 		p := problem(http.StatusUnprocessableEntity, "validation", "setup is not finished: some sections are missing")
 		p.fields = missing
 		return nil, p
@@ -429,7 +425,7 @@ func (s *server) Login(ctx context.Context, req oapi.LoginRequestObject) (oapi.L
 		p.retryAfter = wait
 		return nil, p
 	}
-	acc, _, err := s.auth.account(ctx)
+	acc, _, err := loadAccount(ctx, s.auth.settings)
 	if err != nil {
 		return nil, err
 	}
@@ -475,7 +471,7 @@ func (s *server) LogoutEverywhere(ctx context.Context, _ oapi.LogoutEverywhereRe
 }
 
 func (s *server) GetMe(ctx context.Context, _ oapi.GetMeRequestObject) (oapi.GetMeResponseObject, error) {
-	acc, _, err := s.auth.account(ctx)
+	acc, _, err := loadAccount(ctx, s.auth.settings)
 	if err != nil {
 		return nil, err
 	}
@@ -494,7 +490,7 @@ func (s *server) ChangePassword(ctx context.Context, req oapi.ChangePasswordRequ
 	if err := s.refuseDeclared(configfile.SectionAccount); err != nil {
 		return nil, err
 	}
-	acc, _, err := s.auth.account(ctx)
+	acc, _, err := loadAccount(ctx, s.auth.settings)
 	if err != nil {
 		return nil, err
 	}

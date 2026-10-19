@@ -110,10 +110,6 @@ type proxyConfig struct {
 	Header         string   `json:"header"`
 }
 
-func (a *auth) proxyConfig(ctx context.Context) (proxyConfig, error) {
-	return loadProxyConfig(ctx, a.settings)
-}
-
 func loadProxyConfig(ctx context.Context, s *settings.Settings) (proxyConfig, error) {
 	cfg := proxyConfig{TrustedProxies: []string{}, Header: defaultProxyHeader}
 	raw, ok, err := s.Get(ctx, reverseProxyKey)
@@ -204,7 +200,7 @@ func truncate(s string, n int) string {
 }
 
 func (s *server) reverseProxyBody(ctx context.Context) (oapi.ReverseProxy, error) {
-	cfg, err := s.auth.proxyConfig(ctx)
+	cfg, err := loadProxyConfig(ctx, s.auth.settings)
 	if err != nil {
 		return oapi.ReverseProxy{}, err
 	}

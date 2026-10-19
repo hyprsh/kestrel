@@ -6,9 +6,9 @@ import (
 	"errors"
 	"slices"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/hyprsh/kestrel/internal/api/db"
+	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/configfile"
 	"github.com/hyprsh/kestrel/internal/settings"
 )
@@ -44,13 +44,15 @@ func NewDeclared(opts Options, d Deps) *Declared {
 // CheckAccount applies POST /setup/account's rules to the declared account.
 // The error names the password's variable, never its value.
 func (d *Declared) CheckAccount(a configfile.Account) error {
-	if strings.TrimSpace(a.Username) == "" {
-		return errors.New("account.username: username is required")
+	pw := string(a.Password)
+	_, _, perr := validateCredentials(&oapi.Credentials{Username: a.Username, Password: &pw})
+	switch {
+	case perr == nil:
+		return nil
+	case perr.fields[0].Field == "password":
+		return errors.New("account.password_env: " + a.PasswordEnv + ": " + perr.fields[0].Message)
 	}
-	if utf8.RuneCountInString(string(a.Password)) < minPasswordLn {
-		return errors.New("account.password_env: the password in " + a.PasswordEnv + " must be at least 8 characters")
-	}
-	return nil
+	return declaredField("account", perr)
 }
 
 // DeclareAccount creates the account, or renames it and sets its password
@@ -116,7 +118,7 @@ func declaredProxy(p configfile.ReverseProxy) proxyConfig {
 // un-completes it.
 func (d *Declared) CompleteSetup(ctx context.Context) error {
 	st, err := d.setup.state(ctx)
-	if err != nil || st.Completed || len(todo(st)) > 0 {
+	if err != nil || st.Completed || len(missingSections(st)) > 0 {
 		return err
 	}
 	return d.settings.Put(ctx, setupCompletedKey, []byte("true"))
