@@ -10,7 +10,7 @@ import {
   type PluginManifest,
   type PluginOption,
 } from '../api/queries'
-import { Button, ErrorText, Field, Select, TextInput } from '../forms'
+import { Button, DeclaredNote, ErrorText, Field, Select, TextInput } from '../forms'
 
 type Values = Record<string, string | boolean>
 
@@ -75,6 +75,8 @@ export function InstanceForm({
   const save = useSavePluginInstance()
   const remove = useDeletePluginInstance()
 
+  // The Config File declares the instance: it can be tested but not changed here.
+  const declared = !!instance?.from_config_file
   const config = () => toConfig(manifest, values, secrets)
   const options: Record<string, PluginOption[]> = test.data?.result.ok ? test.data.options : {}
 
@@ -110,24 +112,26 @@ export function InstanceForm({
 
   return (
     <form onSubmit={submit} className="flex max-w-md flex-col gap-3" aria-label={label ?? `${manifest.name} settings`}>
-      {managed && (
-        <>
-          <Field label="Name">{(id) => <TextInput id={id} value={meta.name} onChange={(e) => setMetaField({ name: e.target.value })} />}</Field>
-          <div className="flex items-end gap-4">
-            <Field label="Priority">
-              {(id) => <TextInput id={id} type="number" className="w-24" value={meta.priority} onChange={(e) => setMetaField({ priority: e.target.value })} />}
-            </Field>
-            <Field label="Enabled">
-              {(id) => <input id={id} type="checkbox" className="mb-2" checked={meta.enabled} onChange={(e) => setMetaField({ enabled: e.target.checked })} />}
-            </Field>
-          </div>
-        </>
-      )}
-      {manifest.fields.map((f) => (
-        <Field key={f.key} label={f.label}>
-          {(id) => <Control id={id} field={f} instance={instance} value={values[f.key]} secret={secrets[f.key] ?? ''} live={options[f.key]} onValue={(v) => set(f.key, v)} onSecret={(v) => setSecrets((s) => ({ ...s, [f.key]: v }))} />}
-        </Field>
-      ))}
+      <fieldset disabled={declared} className="contents">
+        {managed && (
+          <>
+            <Field label="Name">{(id) => <TextInput id={id} value={meta.name} onChange={(e) => setMetaField({ name: e.target.value })} />}</Field>
+            <div className="flex items-end gap-4">
+              <Field label="Priority">
+                {(id) => <TextInput id={id} type="number" className="w-24" value={meta.priority} onChange={(e) => setMetaField({ priority: e.target.value })} />}
+              </Field>
+              <Field label="Enabled">
+                {(id) => <input id={id} type="checkbox" className="mb-2" checked={meta.enabled} onChange={(e) => setMetaField({ enabled: e.target.checked })} />}
+              </Field>
+            </div>
+          </>
+        )}
+        {manifest.fields.map((f) => (
+          <Field key={f.key} label={f.label}>
+            {(id) => <Control id={id} field={f} instance={instance} value={values[f.key]} secret={secrets[f.key] ?? ''} live={options[f.key]} onValue={(v) => set(f.key, v)} onSecret={(v) => setSecrets((s) => ({ ...s, [f.key]: v }))} />}
+          </Field>
+        ))}
+      </fieldset>
 
       {test.isError && <ErrorText>Could not run the test. Try again.</ErrorText>}
       {test.data &&
@@ -145,15 +149,16 @@ export function InstanceForm({
         <Button type="button" variant="secondary" disabled={test.isPending} onClick={runTest}>
           Test connection
         </Button>
-        <Button type="submit" disabled={save.isPending}>
+        <Button type="submit" disabled={save.isPending || declared}>
           Save
         </Button>
         {instance && (
-          <Button type="button" variant="secondary" disabled={remove.isPending} onClick={() => remove.mutate(instance.id)}>
+          <Button type="button" variant="secondary" disabled={remove.isPending || declared} onClick={() => remove.mutate(instance.id)}>
             Remove
           </Button>
         )}
       </div>
+      {declared && <DeclaredNote>The Config File declares this instance, so it can be tested but not changed or removed here.</DeclaredNote>}
     </form>
   )
 }

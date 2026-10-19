@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, usePatchSettings, useSettings, type Settings } from '../api/queries'
-import { Button, ErrorText, Field, Select, TextInput } from '../forms'
+import { Button, DeclaredNote, ErrorText, Field, Select, TextInput } from '../forms'
 
 type Language = Settings['language_region']['primary_language']
 
@@ -19,10 +19,10 @@ export function LanguageForm() {
   const { data, isError } = useSettings()
   if (isError) return <p className="text-[12px] text-red-900">Could not load the language settings.</p>
   if (!data) return null
-  return <Form saved={data.language_region} />
+  return <Form saved={data.language_region} declared={data.from_config_file.language_region} />
 }
 
-function Form({ saved }: { saved: Settings['language_region'] }) {
+function Form({ saved, declared }: { saved: Settings['language_region']; declared: boolean }) {
   const [language, setLanguage] = useState<Language>(saved.primary_language)
   const [country, setCountry] = useState(saved.release_date_country)
   const save = usePatchSettings()
@@ -44,7 +44,7 @@ function Form({ saved }: { saved: Settings['language_region'] }) {
       </p>
       <Field label="Primary Language">
         {(id) => (
-          <Select id={id} value={language} onChange={(e) => pick(e.target.value as Language)}>
+          <Select id={id} value={language} disabled={declared} onChange={(e) => pick(e.target.value as Language)}>
             {languages.map((l) => (
               <option key={l.value} value={l.value}>
                 {l.label}
@@ -54,7 +54,7 @@ function Form({ saved }: { saved: Settings['language_region'] }) {
         )}
       </Field>
       <Field label="Release-date country">
-        {(id) => <TextInput id={id} maxLength={2} value={country} onChange={(e) => setCountry(e.target.value)} className="w-24 uppercase" />}
+        {(id) => <TextInput id={id} maxLength={2} value={country} disabled={declared} onChange={(e) => setCountry(e.target.value)} className="w-24 uppercase" />}
       </Field>
       <p className="text-[12px] text-gray-900">
         The country decides when a Title counts as released. It follows the language until you edit it.
@@ -65,9 +65,10 @@ function Form({ saved }: { saved: Settings['language_region'] }) {
           Saved.
         </p>
       )}
-      <Button type="submit" disabled={save.isPending} className="self-start">
+      <Button type="submit" disabled={save.isPending || declared} className="self-start">
         Save language
       </Button>
+      {declared && <DeclaredNote>The Config File sets the language and country, so they cannot be changed here.</DeclaredNote>}
     </form>
   )
 }

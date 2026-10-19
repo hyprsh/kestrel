@@ -98,6 +98,16 @@ describe('Settings > Security', () => {
     expect(saved).toEqual([{ enabled: true, trusted_proxies: ['172.18.0.0/16', '10.0.0.5'], header: 'Remote-User' }])
   })
 
+  it('shows reverse-proxy settings the Config File declares as read-only', async () => {
+    fakeSecurity({ proxy: { enabled: true, trusted_proxies: ['10.0.0.5'] }, proxyDeclared: true })
+    await openSecurity()
+
+    expect(await screen.findByRole('checkbox', { name: /trust a login header/i })).toBeDisabled()
+    expect(screen.getByLabelText('Trusted proxies')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Save reverse proxy' })).toBeDisabled()
+    expect(screen.getByText(/Config File/)).toBeInTheDocument()
+  })
+
   it('lists addresses that sent the header without being trusted', async () => {
     fakeSecurity({ proxy: { enabled: true, trusted_proxies: ['10.0.0.5'] }, untrusted: true })
     await openSecurity()
