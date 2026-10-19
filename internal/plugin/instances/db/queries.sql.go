@@ -189,6 +189,18 @@ func (q *Queries) ListInstances(ctx context.Context) ([]PluginInstance, error) {
 	return items, nil
 }
 
+const undeclareInstances = `-- name: UndeclareInstances :execrows
+UPDATE plugin_instances SET declared = 0 WHERE declared = 1
+`
+
+func (q *Queries) UndeclareInstances(ctx context.Context) (int64, error) {
+	result, err := q.db.ExecContext(ctx, undeclareInstances)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const updateInstance = `-- name: UpdateInstance :execrows
 UPDATE plugin_instances SET name = ?, enabled = ?, priority = ?, config = ? WHERE id = ?
 `

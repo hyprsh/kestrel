@@ -24,5 +24,8 @@ UPDATE plugin_instances SET name = ?, enabled = ?, priority = ?, config = ? WHER
 -- name: DeclareInstance :execrows
 UPDATE plugin_instances SET name = ?, enabled = ?, priority = ?, config = ?, declared = 1 WHERE id = ?;
 
+-- name: UndeclareInstances :execrows
+UPDATE plugin_instances SET declared = 0 WHERE declared = 1;
+
 -- name: DeleteInstance :execrows
 DELETE FROM plugin_instances WHERE id = ?;
