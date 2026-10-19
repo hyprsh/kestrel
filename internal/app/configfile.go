@@ -44,12 +44,14 @@ type section struct {
 // file's state (ADR 0014). It checks every section before writing any, so an
 // invalid file changes nothing, then applies each section on its own and marks
 // setup completed when no section is left to do. A second run with the same
-// file writes nothing. Without a Config File it does nothing. cmd/kestrel calls
-// it before the loops start and the server listens; its error ends startup.
+// file writes nothing. A section the file leaves out goes back to the UI, so
+// without a Config File it only hands the plugin instances a file once
+// declared back to the UI. cmd/kestrel calls it before the loops start and the
+// server listens; its error ends startup.
 func (a *App) EnforceConfigFile(ctx context.Context) error {
 	f := a.declarer.file
 	if f == nil {
-		return nil
+		return a.declarer.plugins.Undeclare(ctx)
 	}
 	sections := a.declarer.sections()
 	for _, s := range sections {
@@ -68,7 +70,8 @@ func (a *App) EnforceConfigFile(ctx context.Context) error {
 	return nil
 }
 
-// sections are the declared sections in the order they apply.
+// sections are the declared sections in the order they apply, and the hand
+// back to the UI of plugin instances the file no longer declares.
 func (d declarer) sections() []section {
 	f := d.file
 	var out []section
@@ -119,6 +122,11 @@ func (d declarer) sections() []section {
 				d.testInstances(ctx, declared)
 				return nil
 			},
+		})
+	} else {
+		out = append(out, section{
+			check: func(context.Context) error { return nil },
+			apply: d.plugins.Undeclare,
 		})
 	}
 	if p := f.ReverseProxy; p != nil {

@@ -5,7 +5,6 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles/db"
 	"github.com/hyprsh/kestrel/internal/slot"
 )
@@ -42,8 +41,8 @@ func CheckAll(want map[string]State) error {
 	defaults := map[slotKind]string{}
 	for _, p := range builtin {
 		w := want[p.Key]
-		if w.OriginalFallback && p.Rule == scoring.OriginalLanguage {
-			return invalid(p.Key+".original_fallback", "An Original-Language Profile already requires the Original Language, so it has no fallback")
+		if err := checkOwn(p.Rule, w, p.Key+"."); err != nil {
+			return err
 		}
 		for _, d := range []struct {
 			on     bool
@@ -52,9 +51,6 @@ func CheckAll(want map[string]State) error {
 		}{{w.DefaultMovies, false, "default_movies"}, {w.DefaultSeries, true, "default_series"}} {
 			if !d.on {
 				continue
-			}
-			if !w.Enabled {
-				return invalid(p.Key+"."+d.field, "A disabled Profile cannot be a default")
 			}
 			k := slotKind{p.Slot, d.series}
 			if other, ok := defaults[k]; ok {

@@ -218,17 +218,13 @@ func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, erro
 		if p.DefaultSeries != nil {
 			next.DefaultSeries = *p.DefaultSeries
 		}
-		if next.OriginalFallback && next.Rule == scoring.OriginalLanguage {
-			return invalid("original_fallback", "An Original-Language Profile already requires the Original Language, so it has no fallback")
-		}
 		// Disabling clears the flags, unless the patch itself sets one on a disabled Profile.
+		sets := func(b *bool) bool { return b != nil && *b }
+		own := State{Enabled: next.Enabled, OriginalFallback: next.OriginalFallback, DefaultMovies: sets(p.DefaultMovies), DefaultSeries: sets(p.DefaultSeries)}
+		if err := checkOwn(next.Rule, own, ""); err != nil {
+			return err
+		}
 		if !next.Enabled {
-			if p.DefaultMovies != nil && *p.DefaultMovies {
-				return invalid("default_movies", "A disabled Profile cannot be a default")
-			}
-			if p.DefaultSeries != nil && *p.DefaultSeries {
-				return invalid("default_series", "A disabled Profile cannot be a default")
-			}
 			next.DefaultMovies, next.DefaultSeries = false, false
 		}
 		if cur.Slot == slot.Standard {
@@ -267,6 +263,25 @@ func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, erro
 		return nil
 	})
 	return out, err
+}
+
+// checkOwn applies the rules that hold within one Profile, for Patch and
+// CheckAll: an Original-Language Profile takes no original_fallback, and a
+// default is enabled. prefix goes before each field.
+func checkOwn(rule scoring.LanguageRule, s State, prefix string) error {
+	if s.OriginalFallback && rule == scoring.OriginalLanguage {
+		return invalid(prefix+"original_fallback", "An Original-Language Profile already requires the Original Language, so it has no fallback")
+	}
+	if s.Enabled {
+		return nil
+	}
+	if s.DefaultMovies {
+		return invalid(prefix+"default_movies", "A disabled Profile cannot be a default")
+	}
+	if s.DefaultSeries {
+		return invalid(prefix+"default_series", "A disabled Profile cannot be a default")
+	}
+	return nil
 }
 
 func standardDefaultError(p Patch, field, kind string) error {

@@ -100,7 +100,7 @@ func (s *Service) Declare(ctx context.Context, want []Declared) ([]Instance, err
 					return err
 				}
 				inst.ID = id
-			case !same(*st.cur, inst):
+			case !alreadyDeclared(*st.cur, inst):
 				if _, err := q.DeclareInstance(ctx, db.DeclareInstanceParams{
 					Name: inst.Name, Enabled: boolInt(inst.Enabled), Priority: int64(inst.Priority), Config: string(raw), ID: inst.ID,
 				}); err != nil {
@@ -112,6 +112,18 @@ func (s *Service) Declare(ctx context.Context, want []Declared) ([]Instance, err
 		return nil
 	})
 	return out, err
+}
+
+// Undeclare hands every declared instance back to the UI, for a start whose
+// Config File leaves plugin_instances out: the instances keep what the file
+// last set, and a file that declares the section again treats them as
+// instances created in the UI, taking them over by name. With no declared
+// instance it writes nothing.
+func (s *Service) Undeclare(ctx context.Context) error {
+	return s.write(ctx, func(q *db.Queries) error {
+		_, err := q.UndeclareInstances(ctx)
+		return err
+	})
 }
 
 // plan checks want against the plugins and the rows q reads, and works out
@@ -213,8 +225,9 @@ func (s *Service) capCheckDeclared(p plan, stored []Instance, kept map[int64]boo
 	return nil
 }
 
-// same reports whether a stored instance already is the declared one.
-func same(cur, want Instance) bool {
+// alreadyDeclared reports whether a stored instance is declared and already is
+// the declared one.
+func alreadyDeclared(cur, want Instance) bool {
 	a, _ := json.Marshal(cur.Config)
 	b, _ := json.Marshal(want.Config)
 	return cur.Declared && cur.Name == want.Name && cur.Enabled == want.Enabled && cur.Priority == want.Priority && bytes.Equal(a, b)

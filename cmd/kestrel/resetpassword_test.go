@@ -78,12 +78,16 @@ func TestResetPasswordCommandRefusesADeclaredAccount(t *testing.T) {
 	if err := os.WriteFile(path, []byte("account:\n  username: admin\n  password_env: PW\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	env := func(k string) string {
-		return map[string]string{"KESTREL_CONFIG_DIR": dir, "KESTREL_CONFIG_FILE": path, "PW": "correct horse"}[k]
-	}
-	// Refused before asking for a password: no terminal and no --password-stdin.
-	err := resetPassword(context.Background(), nil, strings.NewReader(""), &bytes.Buffer{}, env)
-	if err == nil || !strings.Contains(err.Error(), "Config File") || !strings.Contains(err.Error(), path) {
-		t.Errorf("err = %v, want a refusal naming the Config File %s", err, path)
+	// The password's variable belongs to the server, so the shell running the
+	// command may not have it.
+	for _, pw := range []string{"correct horse", ""} {
+		env := func(k string) string {
+			return map[string]string{"KESTREL_CONFIG_DIR": dir, "KESTREL_CONFIG_FILE": path, "PW": pw}[k]
+		}
+		// Refused before asking for a password: no terminal and no --password-stdin.
+		err := resetPassword(context.Background(), nil, strings.NewReader(""), &bytes.Buffer{}, env)
+		if err == nil || !strings.Contains(err.Error(), "the account is declared in the Config File "+path) {
+			t.Errorf("PW=%q: err = %v, want a refusal naming the Config File %s", pw, err, path)
+		}
 	}
 }

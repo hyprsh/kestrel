@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
+	"github.com/hyprsh/kestrel/internal/configfile"
 	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
@@ -87,11 +88,18 @@ func testInstance(r health.Row) oapi.AttentionAction {
 	}
 }
 
-func attentionRowOf(r health.Row) oapi.AttentionRow {
+// attentionRowOf builds a health row. declared reports whether the Config
+// File declares the row's plugin instance: an action that would change it is
+// left out, as the API refuses it.
+func attentionRowOf(r health.Row, declared bool) oapi.AttentionRow {
 	id := healthRowPrefix + strconv.FormatInt(r.ID, 10)
 	actions := []oapi.AttentionAction{}
 	if build := attentionActions[r.Kind]; build != nil {
-		actions = append(actions, build(r)...)
+		for _, a := range build(r) {
+			if !declared || !changesInstance(a, r.Subject.PluginInstanceID) {
+				actions = append(actions, a)
+			}
+		}
 	}
 	if r.Dismissible {
 		actions = append(actions, oapi.AttentionAction{
@@ -106,6 +114,11 @@ func attentionRowOf(r health.Row) oapi.AttentionRow {
 			GrabId: idPtr(r.Subject.GrabID), PluginInstanceId: idPtr(r.Subject.PluginInstanceID),
 		},
 	}
+}
+
+// changesInstance reports whether a writes to the plugin instance id.
+func changesInstance(a oapi.AttentionAction, id int64) bool {
+	return (a.Method == oapi.PATCH || a.Method == oapi.DELETE) && a.Path == fmt.Sprintf("/plugin-instances/%d", id)
 }
 
 func idPtr(n int64) *int64 {
@@ -134,9 +147,13 @@ func (s *server) attentionRows(ctx context.Context) ([]oapi.AttentionRow, error)
 		}
 		return int(b.ID - a.ID)
 	})
+	declared, err := s.declaredInstanceIDs(ctx)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]oapi.AttentionRow, len(rows))
 	for i, r := range rows {
-		out[i] = attentionRowOf(r)
+		out[i] = attentionRowOf(r, declared[r.Subject.PluginInstanceID])
 	}
 	stalled, err := s.stalledRows(ctx)
 	if err != nil {
@@ -153,6 +170,23 @@ func (s *server) attentionRows(ctx context.Context) ([]oapi.AttentionRow, error)
 		}
 		return b.Since.Compare(a.Since)
 	})
+	return out, nil
+}
+
+// declaredInstanceIDs holds the ids of the plugin instances the Config File
+// declares.
+func (s *server) declaredInstanceIDs(ctx context.Context) (map[int64]bool, error) {
+	out := map[int64]bool{}
+	if !s.declares(configfile.SectionPluginInstances) {
+		return out, nil
+	}
+	all, err := s.plugins.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, i := range all {
+		out[i.ID] = s.instanceDeclared(i)
+	}
 	return out, nil
 }
 
