@@ -99,3 +99,9 @@ _Avoid_: Add (for Requests), order
 **Upcoming**:
 The list of episodes and movie releases expected soon, standing in for a calendar.
 _Avoid_: Calendar
+
+### Deployment
+
+**Config File**:
+The file a deployment uses to declare the account, settings, Profiles and plugin instances it wants. Whatever it declares can't be changed in the UI; anything it leaves out stays the UI's to manage. Say "declared" for what it holds: a declared section, a declared instance.
+_Avoid_: Managed, provisioned, locked (for what the Config File declares)
