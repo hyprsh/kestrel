@@ -69,10 +69,20 @@ func newInstance(t *testing.T, base string, with ...func(*app.Options)) *instanc
 // of the old ones.
 func (in *instance) restart() {
 	in.t.Helper()
+	if err := in.start(); err != nil {
+		in.t.Fatal(err)
+	}
+}
+
+// start is restart that returns the error startup ends with, as when the
+// Config File cannot be applied. The instance serves either way.
+func (in *instance) start() error {
+	in.t.Helper()
 	in.srv.Close()
 	in.app = app.New(in.opts)
 	in.srv = httptest.NewServer(in.app.Handler)
 	in.t.Cleanup(func() { in.srv.Close() })
+	return in.app.EnforceConfigFile(context.Background())
 }
 
 // browser is one cookie-holding client, like a browser tab.

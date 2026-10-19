@@ -293,6 +293,33 @@ func (s *Service) Region(ctx context.Context) (Region, bool, error) {
 	return Region{Primary: d.PrimaryLanguage, Country: d.ReleaseDateCountry}, true, nil
 }
 
+// CheckRegion applies SetRegion's rules to a whole Region without saving it.
+// A rejection is a *ValidationError.
+func CheckRegion(r Region) error {
+	if err := checkPrimary(r.Primary); err != nil {
+		return err
+	}
+	if err := checkCountry(r.Country); err != nil {
+		return err
+	}
+	return nil
+}
+
+func checkPrimary(l Language) *ValidationError {
+	switch l {
+	case English, German, French:
+		return nil
+	}
+	return invalid("primary_language", "Primary Language must be en, de or fr")
+}
+
+func checkCountry(c string) *ValidationError {
+	if !countryRE.MatchString(c) {
+		return invalid("release_date_country", "Use a two-letter uppercase country code such as US, DE or FR")
+	}
+	return nil
+}
+
 // SetRegion saves the language settings. Changing the Primary Language without
 // naming a country moves the country to the new language's default; naming one
 // keeps it. A new Primary Language re-points the eight Profiles to their
@@ -305,10 +332,8 @@ func (s *Service) SetRegion(ctx context.Context, p RegionPatch) (Region, error) 
 	}
 	next := cur
 	if p.Primary != nil {
-		switch *p.Primary {
-		case English, German, French:
-		default:
-			return Region{}, invalid("primary_language", "Primary Language must be en, de or fr")
+		if err := checkPrimary(*p.Primary); err != nil {
+			return Region{}, err
 		}
 		next.Primary = *p.Primary
 		if p.Country == nil && next.Primary != cur.Primary {
@@ -316,8 +341,8 @@ func (s *Service) SetRegion(ctx context.Context, p RegionPatch) (Region, error) 
 		}
 	}
 	if p.Country != nil {
-		if !countryRE.MatchString(*p.Country) {
-			return Region{}, invalid("release_date_country", "Use a two-letter uppercase country code such as US, DE or FR")
+		if err := checkCountry(*p.Country); err != nil {
+			return Region{}, err
 		}
 		next.Country = *p.Country
 	}

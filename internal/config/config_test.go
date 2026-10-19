@@ -104,3 +104,16 @@ func TestAMalformedAPIKeyIsRejectedWithoutEchoingIt(t *testing.T) {
 		}
 	}
 }
+
+func TestTheConfigFileIsNamedByTheEnvironment(t *testing.T) {
+	c, err := config.Load(env("KESTREL_CONFIG_FILE", " /config/kestrel.yaml "))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.ConfigFile != "/config/kestrel.yaml" {
+		t.Errorf("config file = %q", c.ConfigFile)
+	}
+	if c, _ = config.Load(env()); c.ConfigFile != "" {
+		t.Errorf("unset config file = %q", c.ConfigFile)
+	}
+}
