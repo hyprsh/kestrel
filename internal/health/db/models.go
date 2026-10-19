@@ -148,6 +148,7 @@ type PluginInstance struct {
 	Enabled  int64
 	Priority int64
 	Config   string
+	Declared int64
 }
 
 type Profile struct {

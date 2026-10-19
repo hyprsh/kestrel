@@ -4,11 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/hyprsh/kestrel/internal/api"
 	"github.com/hyprsh/kestrel/internal/configfile"
 	"github.com/hyprsh/kestrel/internal/jobs"
+	"github.com/hyprsh/kestrel/internal/plugin"
+	"github.com/hyprsh/kestrel/internal/plugin/instances"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 	"github.com/hyprsh/kestrel/internal/updates"
@@ -23,12 +29,14 @@ type declarer struct {
 	roots    *rootfolders.Service
 	updates  *updates.Service
 	trash    *jobs.TrashUpdates
+	plugins  *instances.Service
+	log      *slog.Logger
 }
 
 // section is one declared section: check validates it and writes nothing,
 // apply writes only what differs from the store.
 type section struct {
-	check func() error
+	check func(context.Context) error
 	apply func(context.Context) error
 }
 
@@ -45,7 +53,7 @@ func (a *App) EnforceConfigFile(ctx context.Context) error {
 	}
 	sections := a.declarer.sections()
 	for _, s := range sections {
-		if err := s.check(); err != nil {
+		if err := s.check(ctx); err != nil {
 			return fmt.Errorf("config file %s: %w", f.Path, err)
 		}
 	}
@@ -66,33 +74,62 @@ func (d declarer) sections() []section {
 	var out []section
 	if a := f.Account; a != nil {
 		out = append(out, section{
-			check: func() error { return d.api.CheckAccount(*a) },
+			check: func(context.Context) error { return d.api.CheckAccount(*a) },
 			apply: func(ctx context.Context) error { return d.api.DeclareAccount(ctx, *a) },
 		})
 	}
 	if l := f.LanguageRegion; l != nil {
 		want := profiles.Region{Primary: profiles.Language(l.PrimaryLanguage), Country: l.ReleaseDateCountry}
 		out = append(out, section{
-			check: func() error { return validation("language_region", profiles.CheckRegion(want)) },
+			check: func(context.Context) error { return validation("language_region", profiles.CheckRegion(want)) },
 			apply: func(ctx context.Context) error { return d.declareRegion(ctx, want) },
 		})
 	}
 	if r := f.RootFolders; r != nil {
 		want := rootfolders.Folders{Movies: r.Movies, Series: r.Series}
 		out = append(out, section{
-			check: func() error { return validation("", rootfolders.Check(want)) },
+			check: func(context.Context) error { return validation("", rootfolders.Check(want)) },
 			apply: func(ctx context.Context) error { return d.declareRoots(ctx, want) },
+		})
+	}
+	if f.Profiles != nil {
+		want := map[string]profiles.State{}
+		for key, p := range f.Profiles {
+			want[key] = profiles.State{Enabled: *p.Enabled, OriginalFallback: *p.OriginalFallback, DefaultMovies: *p.DefaultMovies, DefaultSeries: *p.DefaultSeries}
+		}
+		out = append(out, section{
+			check: func(context.Context) error { return validation("profiles", profiles.CheckAll(want)) },
+			apply: func(ctx context.Context) error { return d.profiles.SetAll(ctx, want) },
+		})
+	}
+	if f.PluginInstances != nil {
+		var want []instances.Declared
+		out = append(out, section{
+			check: func(ctx context.Context) (err error) {
+				if want, err = d.declaredInstances(); err != nil {
+					return err
+				}
+				return instanceError(d.plugins.CheckDeclared(ctx, want))
+			},
+			apply: func(ctx context.Context) error {
+				declared, err := d.plugins.Declare(ctx, want)
+				if err != nil {
+					return instanceError(err)
+				}
+				d.testInstances(ctx, declared)
+				return nil
+			},
 		})
 	}
 	if p := f.ReverseProxy; p != nil {
 		out = append(out, section{
-			check: func() error { return d.api.CheckReverseProxy(*p) },
+			check: func(context.Context) error { return d.api.CheckReverseProxy(*p) },
 			apply: func(ctx context.Context) error { return d.api.DeclareReverseProxy(ctx, *p) },
 		})
 	}
 	if on := f.CheckGitHubUpdates; on != nil {
 		out = append(out, section{
-			check: func() error { return nil },
+			check: func(context.Context) error { return nil },
 			apply: func(ctx context.Context) error { return d.declareUpdates(ctx, *on) },
 		})
 	}
@@ -138,6 +175,70 @@ func (d declarer) declareUpdates(ctx context.Context, on bool) error {
 	return d.updates.Check(ctx)
 }
 
+// declaredInstances reads the declared plugin instances, their secrets
+// resolved against each plugin's manifest.
+func (d declarer) declaredInstances() ([]instances.Declared, error) {
+	var out []instances.Declared
+	for _, p := range d.file.PluginInstances {
+		pl, _, ok := d.plugins.Registry().Lookup(p.PluginID)
+		if !ok {
+			return nil, fmt.Errorf("line %d: plugin_instances %q: plugin_id: no such plugin", p.Line, strings.TrimSpace(p.Name))
+		}
+		m := pl.Describe()
+		cfg, err := p.ConfigValues(func(key string) (known, secret bool) {
+			f, ok := m.Field(key)
+			return ok, f.Type == plugin.FieldSecret
+		})
+		if err != nil {
+			return nil, err
+		}
+		in := instances.Declared{Name: p.Name, PluginID: p.PluginID, Enabled: true, Config: cfg}
+		if p.Enabled != nil {
+			in.Enabled = *p.Enabled
+		}
+		if p.Priority != nil {
+			in.Priority = *p.Priority
+		}
+		out = append(out, in)
+	}
+	return out, nil
+}
+
+// testTimeout bounds the live test of a declared instance at startup.
+const testTimeout = 10 * time.Second
+
+// testInstances runs the live test of each enabled declared instance, all at
+// once, and logs the ones that fail: a service that is down at startup does
+// not stop Kestrel.
+func (d declarer) testInstances(ctx context.Context, declared []instances.Instance) {
+	ctx, cancel := context.WithTimeout(ctx, testTimeout)
+	defer cancel()
+	var wg sync.WaitGroup
+	for _, inst := range declared {
+		pl, _, ok := d.plugins.Registry().Lookup(inst.PluginID)
+		if !inst.Enabled || !ok {
+			continue
+		}
+		wg.Go(func() {
+			if _, err := pl.Test(ctx, inst.Connection()); err != nil {
+				pe := plugin.AsError(err)
+				d.log.Warn("config file: a declared plugin instance failed its connection test",
+					"instance", inst.Name, "plugin", inst.PluginID, "code", pe.Code, "message", pe.Message)
+			}
+		})
+	}
+	wg.Wait()
+}
+
+// instanceError words a rejected declared instance under plugin_instances.
+func instanceError(err error) error {
+	var de *instances.DeclaredError
+	if errors.As(err, &de) {
+		return fmt.Errorf("plugin_instances %w", de)
+	}
+	return err
+}
+
 // validation words a module's rejected field under its Config File section.
 func validation(section string, err error) error {
 	field, msg := "", ""
@@ -153,8 +254,11 @@ func validation(section string, err error) error {
 	default:
 		return err
 	}
-	if section != "" {
+	switch {
+	case section != "" && field != "":
 		field = section + "." + field
+	case section != "":
+		field = section
 	}
 	return fmt.Errorf("%s: %s", field, msg)
 }

@@ -222,7 +222,7 @@ func New(opts Options) *App {
 	handler := api.New(opts.Options, deps)
 	return &App{Handler: handler, Jobs: runner, Health: healthSvc, declarer: declarer{
 		file: opts.ConfigFile, api: api.NewDeclared(opts.Options, deps),
-		profiles: profs, roots: roots, updates: upd, trash: trashUpdates,
+		profiles: profs, roots: roots, updates: upd, trash: trashUpdates, plugins: pluginInstances, log: opts.Logger,
 	}}
 }
 
