@@ -69,6 +69,9 @@ func TestInvalidDeclaredProfilesFailStartupAndWriteNothing(t *testing.T) {
 			if s := in.browser().valid("GET", "/setup", ""); !strings.Contains(s.Body, `"account_exists":false`) {
 				t.Errorf("setup = %s, want nothing written", s.Body)
 			}
+			// Kestrel would have exited; start it without the file to read the Profiles.
+			in.opts.ConfigFile = nil
+			in.restart()
 			if p := profileMap(t, in.setUp())["hd-primary"]; !p.Enabled || !p.DefaultMovies {
 				t.Errorf("hd-primary = %+v, want the shipped Profile", p)
 			}
