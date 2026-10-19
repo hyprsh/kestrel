@@ -1397,6 +1397,9 @@ type LookupResult struct {
 
 // Me defines model for Me.
 type Me struct {
+	// FromConfigFile `true` while the Config File declares the account, whose password can't be changed here then.
+	FromConfigFile bool `json:"from_config_file"`
+
 	// Method How this request was authenticated.
 	Method MeMethod `json:"method"`
 
@@ -1455,10 +1458,14 @@ type PluginInstance struct {
 	Config   map[string]interface{} `json:"config"`
 	Contract string                 `json:"contract"`
 	Enabled  bool                   `json:"enabled"`
-	Id       int64                  `json:"id"`
-	Name     string                 `json:"name"`
-	PluginId string                 `json:"plugin_id"`
-	Priority int                    `json:"priority"`
+
+	// FromConfigFile `true` for an instance the Config File declares. It can't be changed or removed here,
+	// and its name can't be given to another instance.
+	FromConfigFile bool   `json:"from_config_file"`
+	Id             int64  `json:"id"`
+	Name           string `json:"name"`
+	PluginId       string `json:"plugin_id"`
+	Priority       int    `json:"priority"`
 
 	// SecretsSet Keys of the secret fields that have a value. The values are never returned.
 	SecretsSet []string `json:"secrets_set"`
@@ -1575,6 +1582,9 @@ type Profile struct {
 	DefaultMovies bool `json:"default_movies"`
 	DefaultSeries bool `json:"default_series"`
 	Enabled       bool `json:"enabled"`
+
+	// FromConfigFile `true` while the Config File declares `profiles`, which declares every Profile at once.
+	FromConfigFile bool `json:"from_config_file"`
 
 	// Key Example: hd-primary
 	Key string `json:"key"`
@@ -1857,6 +1867,9 @@ type Requester struct {
 type ReverseProxy struct {
 	Enabled bool `json:"enabled"`
 
+	// FromConfigFile `true` while the Config File declares `reverse_proxy`, which can't be changed here then.
+	FromConfigFile bool `json:"from_config_file"`
+
 	// Header The header carrying the user name.
 	//
 	// Example: Remote-User
@@ -1917,7 +1930,15 @@ type Settings struct {
 	// and the published security advisories (and, with the TRaSH update, the latest TRaSH commit).
 	// Off means no request to GitHub at all, except a manual "Update from TRaSH".
 	CheckGithubUpdates bool `json:"check_github_updates"`
-	LanguageRegion     struct {
+
+	// FromConfigFile Per section, `true` while the Config File declares it. A declared section can't be
+	// changed here: a patch naming it answers `409 conflict`.
+	FromConfigFile struct {
+		CheckGithubUpdates bool `json:"check_github_updates"`
+		LanguageRegion     bool `json:"language_region"`
+		RootFolders        bool `json:"root_folders"`
+	} `json:"from_config_file"`
+	LanguageRegion struct {
 		// PrimaryLanguage The household's Primary Language as ISO 639-1.
 		PrimaryLanguage PrimaryLanguage `json:"primary_language"`
 
@@ -4757,9 +4778,23 @@ func (response ChangePassword204Response) VisitChangePasswordResponse(w http.Res
 	return nil
 }
 
-type ChangePassword422ApplicationProblemPlusJSONResponse struct {
+type ChangePassword409ApplicationProblemPlusJSONResponse struct {
 	ProblemApplicationProblemPlusJSONResponse
 }
+
+func (response ChangePassword409ApplicationProblemPlusJSONResponse) VisitChangePasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChangePassword422ApplicationProblemPlusJSONResponse Problem
 
 func (response ChangePassword422ApplicationProblemPlusJSONResponse) VisitChangePasswordResponse(w http.ResponseWriter) error {
 
@@ -6280,9 +6315,23 @@ func (response CreatePluginInstance201JSONResponse) VisitCreatePluginInstanceRes
 	return err
 }
 
-type CreatePluginInstance422ApplicationProblemPlusJSONResponse struct {
+type CreatePluginInstance409ApplicationProblemPlusJSONResponse struct {
 	ProblemApplicationProblemPlusJSONResponse
 }
+
+func (response CreatePluginInstance409ApplicationProblemPlusJSONResponse) VisitCreatePluginInstanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePluginInstance422ApplicationProblemPlusJSONResponse Problem
 
 func (response CreatePluginInstance422ApplicationProblemPlusJSONResponse) VisitCreatePluginInstanceResponse(w http.ResponseWriter) error {
 
@@ -6400,6 +6449,20 @@ func (response DeletePluginInstance404ApplicationProblemPlusJSONResponse) VisitD
 	return err
 }
 
+type DeletePluginInstance409ApplicationProblemPlusJSONResponse Problem
+
+func (response DeletePluginInstance409ApplicationProblemPlusJSONResponse) VisitDeletePluginInstanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeletePluginInstancedefaultApplicationProblemPlusJSONResponse struct {
 	Body       Problem
 	StatusCode int
@@ -6507,6 +6570,20 @@ func (response UpdatePluginInstance404ApplicationProblemPlusJSONResponse) VisitU
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdatePluginInstance409ApplicationProblemPlusJSONResponse Problem
+
+func (response UpdatePluginInstance409ApplicationProblemPlusJSONResponse) VisitUpdatePluginInstanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -6808,6 +6885,20 @@ func (response PatchProfile404ApplicationProblemPlusJSONResponse) VisitPatchProf
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchProfile409ApplicationProblemPlusJSONResponse Problem
+
+func (response PatchProfile409ApplicationProblemPlusJSONResponse) VisitPatchProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -7172,9 +7263,23 @@ func (response PatchSettings200JSONResponse) VisitPatchSettingsResponse(w http.R
 	return err
 }
 
-type PatchSettings422ApplicationProblemPlusJSONResponse struct {
+type PatchSettings409ApplicationProblemPlusJSONResponse struct {
 	ProblemApplicationProblemPlusJSONResponse
 }
+
+func (response PatchSettings409ApplicationProblemPlusJSONResponse) VisitPatchSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchSettings422ApplicationProblemPlusJSONResponse Problem
 
 func (response PatchSettings422ApplicationProblemPlusJSONResponse) VisitPatchSettingsResponse(w http.ResponseWriter) error {
 
@@ -7265,9 +7370,23 @@ func (response PutReverseProxy200JSONResponse) VisitPutReverseProxyResponse(w ht
 	return err
 }
 
-type PutReverseProxy422ApplicationProblemPlusJSONResponse struct {
+type PutReverseProxy409ApplicationProblemPlusJSONResponse struct {
 	ProblemApplicationProblemPlusJSONResponse
 }
+
+func (response PutReverseProxy409ApplicationProblemPlusJSONResponse) VisitPutReverseProxyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutReverseProxy422ApplicationProblemPlusJSONResponse Problem
 
 func (response PutReverseProxy422ApplicationProblemPlusJSONResponse) VisitPutReverseProxyResponse(w http.ResponseWriter) error {
 
