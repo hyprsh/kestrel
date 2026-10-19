@@ -114,6 +114,18 @@ func (s *Service) Declare(ctx context.Context, want []Declared) ([]Instance, err
 	return out, err
 }
 
+// Undeclare hands every declared instance back to the UI, for a start whose
+// Config File leaves plugin_instances out: the instances keep what the file
+// last set, and a file that declares the section again treats them as
+// instances created in the UI, taking them over by name. With no declared
+// instance it writes nothing.
+func (s *Service) Undeclare(ctx context.Context) error {
+	return s.write(ctx, func(q *db.Queries) error {
+		_, err := q.UndeclareInstances(ctx)
+		return err
+	})
+}
+
 // plan checks want against the plugins and the rows q reads, and works out
 // the writes that bring the store to it.
 func (s *Service) plan(ctx context.Context, q *db.Queries, want []Declared) (plan, error) {

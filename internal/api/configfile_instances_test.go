@@ -295,3 +295,57 @@ func TestADeclaredInstanceThatFailsItsTestIsOnlyLogged(t *testing.T) {
 		t.Errorf("log = %s, want only the failing instance", log.String())
 	}
 }
+
+func TestAnInstanceTheUIRenamedWhileUndeclaredIsKeptWhenTheSectionReturns(t *testing.T) {
+	for _, c := range []struct {
+		name  string
+		leave func(*instance)
+	}{
+		{"a file without the section", func(in *instance) { in.mustDeclare(declaredRegion) }},
+		{"no file", func(in *instance) { in.opts.ConfigFile = nil; in.restart() }},
+	} {
+		t.Run(c.name, func(t *testing.T) { renameWhileUndeclared(t, c.leave) })
+	}
+}
+
+func renameWhileUndeclared(t *testing.T, leave func(*instance)) {
+	in := newInstance(t, "", withFakes(t))
+	b := in.setUp()
+	in.mustDeclare(declaredInstances, fakeEnv...)
+	first := instancesByName(t, b)
+	leave(in)
+
+	sab := strconv.FormatInt(first["SABnzbd"].ID, 10)
+	if r := b.valid("PATCH", "/plugin-instances/"+sab, `{"name":"Mine","enabled":false}`); r.Status != 200 {
+		t.Fatalf("renaming in the UI = %d %s", r.Status, r.Body)
+	}
+	alpha := strconv.FormatInt(first["Alpha"].ID, 10)
+	if r := b.valid("PATCH", "/plugin-instances/"+alpha, `{"priority":7}`); r.Status != 200 {
+		t.Fatalf("editing in the UI = %d %s", r.Status, r.Body)
+	}
+
+	in.mustDeclare(declaredInstances, fakeEnv...)
+	got := instancesByName(t, b)
+	if m, ok := got["Mine"]; !ok || m.ID != first["SABnzbd"].ID || m.FromConfigFile {
+		t.Errorf("the instance renamed in the UI = %+v (present %v), want it kept as the UI's", m, ok)
+	}
+	if s := got["SABnzbd"]; s.ID == first["SABnzbd"].ID || !s.FromConfigFile {
+		t.Errorf("SABnzbd = %+v, want a new declared instance", s)
+	}
+	if a := got["Alpha"]; a.ID != first["Alpha"].ID || a.Priority != 5 || !a.FromConfigFile {
+		t.Errorf("Alpha = %+v, want it taken over and brought back to the file", a)
+	}
+}
+
+func TestASecondInstanceTheUIGaveADeclaredNameWhileUndeclaredMakesTheReturnAmbiguous(t *testing.T) {
+	in := newInstance(t, "", withFakes(t))
+	b := in.setUp()
+	in.mustDeclare(declaredInstances, fakeEnv...)
+	in.mustDeclare(declaredRegion)
+	uiClient(t, b, "SABnzbd", false)
+
+	err := in.declare(declaredInstances, fakeEnv...)
+	if err == nil || !strings.Contains(err.Error(), `plugin_instances "SABnzbd": name`) {
+		t.Fatalf("err = %v, want the takeover to be ambiguous", err)
+	}
+}
