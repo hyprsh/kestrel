@@ -246,6 +246,23 @@ func TestAnIndexerWithBadCredentialsIsAWarningWithTestOpenAndDisableAndBlockingR
 	}
 }
 
+func TestADeclaredIndexerWithBadCredentialsOffersNoDisable(t *testing.T) {
+	s := newSearch(t)
+	s.finishSetup(t)
+	alpha := "plugin_instances:\n  - name: Alpha\n    plugin_id: fake_indexer\n    config:\n      api_key_env: INDEXER_KEY\n"
+	s.in.mustDeclare(alpha, "INDEXER_KEY", "rejected")
+	s.releases(t, s.hd)
+
+	row := s.attention(t).row(t, "indexer_failing")
+	row.action(t, "test")
+	row.action(t, "open")
+	for _, a := range row.Actions {
+		if a.Key == "disable" {
+			t.Errorf("a declared indexer offers %+v, which the API refuses", a)
+		}
+	}
+}
+
 func TestRootFolderUnavailableIsBlockingForAMissingFolderAndClearsWhenItIsBack(t *testing.T) {
 	s := newSearchBare(t)
 	s.finishSetup(t)
