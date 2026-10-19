@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -101,5 +102,67 @@ func TestDeclaredProfilesAreReadOnly(t *testing.T) {
 	in.conflictNamingTheFile("PATCH /profiles/any-original", b.valid("PATCH", "/profiles/any-original", `{"enabled":true}`))
 	if got := profileMap(t, b)["any-original"]; got.Enabled {
 		t.Errorf("any-original after the refused patch = %+v, want it still disabled", got)
+	}
+}
+
+// uiIndexer is a POST /plugin-instances body for a fake indexer named name.
+func uiIndexer(name string) string {
+	return `{"plugin_id":"fake_indexer","name":"` + name + `","enabled":false,"config":{"api_key":"ik"}}`
+}
+
+func TestADeclaredInstanceIsReadOnly(t *testing.T) {
+	in := newInstance(t, "", withFakes(t))
+	b := in.setUp()
+	ui := decode[instanceJSON](t, b.valid("POST", "/plugin-instances", uiIndexer("Beta")))
+	if ui.FromConfigFile {
+		t.Errorf("without a Config File: %+v, want from_config_file false", ui)
+	}
+	in.mustDeclare(declaredInstances, fakeEnv...)
+
+	got := instancesByName(t, b)
+	declared := got["Alpha"]
+	if !declared.FromConfigFile || got["SABnzbd"].FromConfigFile != true || got["Beta"].FromConfigFile {
+		t.Errorf("from_config_file: %+v, want Alpha and SABnzbd only", got)
+	}
+	id := strconv.FormatInt(declared.ID, 10)
+	if one := decode[instanceJSON](t, b.valid("GET", "/plugin-instances/"+id, "")); !one.FromConfigFile {
+		t.Errorf("GET one = %+v, want from_config_file", one)
+	}
+	in.conflictNamingTheFile("PATCH a declared instance", b.valid("PATCH", "/plugin-instances/"+id, `{"enabled":false}`))
+	in.conflictNamingTheFile("DELETE a declared instance", b.valid("DELETE", "/plugin-instances/"+id, ""))
+	if after := instancesByName(t, b)["Alpha"]; !after.Enabled {
+		t.Errorf("Alpha after the refused writes = %+v, want it unchanged", after)
+	}
+	if r := b.valid("POST", "/plugin-instances/"+id+"/test", "{}"); r.Status != 200 {
+		t.Errorf("testing a declared instance = %d %s, want 200", r.Status, r.Body)
+	}
+
+	in.conflictNamingTheFile("POST with a declared name", b.valid("POST", "/plugin-instances", uiIndexer(" Alpha ")))
+	uiID := strconv.FormatInt(ui.ID, 10)
+	in.conflictNamingTheFile("rename to a declared name", b.valid("PATCH", "/plugin-instances/"+uiID, `{"name":"SABnzbd"}`))
+
+	if r := b.valid("POST", "/plugin-instances", uiIndexer("Beta")); r.Status != 201 {
+		t.Errorf("a second UI instance named Beta = %d %s, want 201", r.Status, r.Body)
+	}
+	if r := b.valid("PATCH", "/plugin-instances/"+uiID, `{"name":"Gamma"}`); r.Status != 200 {
+		t.Errorf("renaming a UI instance = %d %s, want 200", r.Status, r.Body)
+	}
+	if r := b.valid("DELETE", "/plugin-instances/"+uiID, ""); r.Status != 204 {
+		t.Errorf("deleting a UI instance = %d %s, want 204", r.Status, r.Body)
+	}
+}
+
+func TestInstancesGoBackToTheUIWhenTheFileStopsDeclaringThem(t *testing.T) {
+	in := newInstance(t, "", withFakes(t))
+	b := in.setUp()
+	in.mustDeclare(declaredInstances, fakeEnv...)
+	in.mustDeclare(declaredRegion)
+
+	alpha := instancesByName(t, b)["Alpha"]
+	if alpha.FromConfigFile {
+		t.Errorf("Alpha once the file leaves plugin_instances out = %+v, want from_config_file false", alpha)
+	}
+	if r := b.valid("PATCH", "/plugin-instances/"+strconv.FormatInt(alpha.ID, 10), `{"priority":7}`); r.Status != 200 {
+		t.Errorf("PATCH = %d %s, want 200", r.Status, r.Body)
 	}
 }

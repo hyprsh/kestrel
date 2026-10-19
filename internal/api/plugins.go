@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -48,6 +49,9 @@ func (s *server) CreatePluginInstance(ctx context.Context, r oapi.CreatePluginIn
 		return nil, invalid("body", "required", "a body is required")
 	}
 	b := r.Body
+	if err := s.refuseDeclaredName(b.Name); err != nil {
+		return nil, err
+	}
 	in := instances.New{PluginID: b.PluginId, Name: b.Name, Enabled: b.Enabled, Config: b.Config}
 	if b.Priority != nil {
 		in.Priority = *b.Priority
@@ -63,7 +67,15 @@ func (s *server) UpdatePluginInstance(ctx context.Context, r oapi.UpdatePluginIn
 	if r.Body == nil {
 		return nil, invalid("body", "required", "a body is required")
 	}
+	if err := s.refuseDeclaredInstance(ctx, r.Id); err != nil {
+		return nil, err
+	}
 	b := r.Body
+	if b.Name != nil {
+		if err := s.refuseDeclaredName(*b.Name); err != nil {
+			return nil, err
+		}
+	}
 	patch := instances.Patch{Name: b.Name, Enabled: b.Enabled, Priority: b.Priority}
 	if b.Config != nil {
 		patch.Config = *b.Config
@@ -76,6 +88,9 @@ func (s *server) UpdatePluginInstance(ctx context.Context, r oapi.UpdatePluginIn
 }
 
 func (s *server) DeletePluginInstance(ctx context.Context, r oapi.DeletePluginInstanceRequestObject) (oapi.DeletePluginInstanceResponseObject, error) {
+	if err := s.refuseDeclaredInstance(ctx, r.Id); err != nil {
+		return nil, err
+	}
 	if err := s.plugins.Delete(ctx, r.Id); err != nil {
 		return nil, pluginProblem(err)
 	}
@@ -183,8 +198,21 @@ func (s *server) instanceToAPI(i instances.Instance) oapi.PluginInstance {
 	cfg, set := s.plugins.Public(i)
 	return oapi.PluginInstance{
 		Id: i.ID, Contract: i.Contract, PluginId: i.PluginID, Name: i.Name,
-		Enabled: i.Enabled, Priority: i.Priority, Config: cfg, SecretsSet: set,
+		Enabled: i.Enabled, Priority: i.Priority, Config: cfg, SecretsSet: set, FromConfigFile: s.instanceDeclared(i),
 	}
+}
+
+// refuseDeclaredInstance answers 409 when the Config File declares the
+// instance, and 404 when there is none.
+func (s *server) refuseDeclaredInstance(ctx context.Context, id int64) error {
+	inst, err := s.plugins.Get(ctx, id)
+	if err != nil {
+		return pluginProblem(err)
+	}
+	if s.instanceDeclared(inst) {
+		return s.declaredConflict(fmt.Sprintf("the plugin instance %q", inst.Name), changeTheFile)
+	}
+	return nil
 }
 
 func manifestToAPI(m plugin.Manifest) oapi.PluginManifest {
