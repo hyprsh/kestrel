@@ -70,6 +70,8 @@ type instanceJSON struct {
 	Priority   int            `json:"priority"`
 	Config     map[string]any `json:"config"`
 	SecretsSet []string       `json:"secrets_set"`
+	// FromConfigFile is true for an instance the Config File declares.
+	FromConfigFile bool `json:"from_config_file"`
 }
 
 type testJSON struct {

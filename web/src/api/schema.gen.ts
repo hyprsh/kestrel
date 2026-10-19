@@ -59,7 +59,8 @@ export interface paths {
         /**
          * Create the admin account and log in
          * @description Only answers while no account exists; whoever reaches a fresh instance sets the credentials.
-         *     Responds with the session cookie, so finishing this step logs the admin in.
+         *     Responds with the session cookie, so finishing this step logs the admin in. `409 conflict`
+         *     once an account exists, or while the Config File declares it.
          */
         post: operations["createAccount"];
         delete?: never;
@@ -178,7 +179,8 @@ export interface paths {
         put?: never;
         /**
          * Change the admin password
-         * @description Ends every other session; the current one stays logged in.
+         * @description Ends every other session; the current one stays logged in. `409 conflict` while the Config
+         *     File declares the account.
          */
         post: operations["changePassword"];
         delete?: never;
@@ -228,7 +230,7 @@ export interface paths {
          * Change reverse-proxy login settings
          * @description Off by default. When enabled, a non-empty `header` from a trusted proxy address logs the
          *     admin in for that request. The same header from any other address is ignored and
-         *     recorded under `untrusted`.
+         *     recorded under `untrusted`. `409 conflict` while the Config File declares `reverse_proxy`.
          */
         put: operations["putReverseProxy"];
         post?: never;
@@ -263,7 +265,9 @@ export interface paths {
          *     re-points the eight Profiles to their backing TRaSH profiles and, unless the same patch
          *     names `release_date_country`, moves the country to the new language's default. It also
          *     re-scores every stored file under the new Profiles, in the same step; files are not renamed
-         *     and nothing is searched.
+         *     and nothing is searched. A patch that names a section the Config File declares
+         *     (`language_region`, `root_folders`, `check_github_updates`) answers `409 conflict` and saves
+         *     nothing, not even its other sections.
          */
         patch: operations["patchSettings"];
         trace?: never;
@@ -309,7 +313,7 @@ export interface paths {
          *     The Standard Slot always keeps exactly one default per kind, so unsetting or disabling it is a
          *     `validation` error until another Standard Profile is the default. Disabling a Profile clears its defaults, and
          *     a disabled Profile cannot be made a default. `original_fallback` is a `validation` error on
-         *     Original-Language Profiles.
+         *     Original-Language Profiles. `409 conflict` while the Config File declares `profiles`.
          */
         patch: operations["patchProfile"];
         trace?: never;
@@ -1380,7 +1384,8 @@ export interface paths {
          * Configure a plugin instance
          * @description Absent config fields take the manifest default. Secret fields are accepted here and never
          *     returned: `secrets_set` lists which are set. Enabling an instance beyond its contract's cap
-         *     (one enabled download client in v1) is a `validation` error on `enabled`.
+         *     (one enabled download client in v1) is a `validation` error on `enabled`. A name the Config
+         *     File declares answers `409 conflict`; instances created here may share names with each other.
          */
         post: operations["createPluginInstance"];
         delete?: never;
@@ -1423,14 +1428,18 @@ export interface paths {
         get: operations["getPluginInstance"];
         put?: never;
         post?: never;
-        /** Remove a plugin instance */
+        /**
+         * Remove a plugin instance
+         * @description `409 conflict` for an instance the Config File declares (`from_config_file`).
+         */
         delete: operations["deletePluginInstance"];
         options?: never;
         head?: never;
         /**
          * Change a plugin instance
          * @description `config` merges key by key. A secret that is omitted stays as it is, a string replaces it
-         *     and `null` clears it; clearing any other field returns it to its default.
+         *     and `null` clears it; clearing any other field returns it to its default. `409 conflict` for
+         *     an instance the Config File declares (`from_config_file`), or a rename to a declared name.
          */
         patch: operations["updatePluginInstance"];
         trace?: never;
@@ -1514,6 +1523,8 @@ export interface components {
             header: string;
         };
         ReverseProxy: components["schemas"]["ReverseProxySettings"] & {
+            /** @description `true` while the Config File declares `reverse_proxy`, which can't be changed here then. */
+            from_config_file: boolean;
             /** @description Addresses that sent the header without being trusted, newest first. */
             readonly untrusted: components["schemas"]["UntrustedProxyHeader"][];
         };
@@ -1531,6 +1542,8 @@ export interface components {
         };
         Me: {
             username: string;
+            /** @description `true` while the Config File declares the account, whose password can't be changed here then. */
+            from_config_file: boolean;
             /**
              * @description How this request was authenticated.
              * @enum {string}
@@ -1557,6 +1570,15 @@ export interface components {
          */
         PrimaryLanguage: "en" | "de" | "fr";
         Settings: {
+            /**
+             * @description Per section, `true` while the Config File declares it. A declared section can't be
+             *     changed here: a patch naming it answers `409 conflict`.
+             */
+            from_config_file: {
+                language_region: boolean;
+                root_folders: boolean;
+                check_github_updates: boolean;
+            };
             /**
              * @description The provider keys the UI overrides, by precedence UI override, then `KESTREL_TMDB_API_KEY` /
              *     `KESTREL_TVDB_API_KEY`, then the key embedded in the build. The keys are secrets: only whether an override is set is reported.
@@ -1619,6 +1641,8 @@ export interface components {
         /** @enum {string} */
         Slot: "standard" | "4k";
         Profile: {
+            /** @description `true` while the Config File declares `profiles`, which declares every Profile at once. */
+            from_config_file: boolean;
             /** @example hd-primary */
             key: string;
             /** @example HD */
@@ -1712,6 +1736,11 @@ export interface components {
             instance_id?: number | null;
         };
         PluginInstance: {
+            /**
+             * @description `true` for an instance the Config File declares. It can't be changed or removed here,
+             *     and its name can't be given to another instance.
+             */
+            from_config_file: boolean;
             /** Format: int64 */
             id: number;
             contract: string;
@@ -2920,6 +2949,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
@@ -3010,6 +3040,7 @@ export interface operations {
                     "application/json": components["schemas"]["ReverseProxy"];
                 };
             };
+            409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
@@ -3057,6 +3088,7 @@ export interface operations {
                     "application/json": components["schemas"]["Settings"];
                 };
             };
+            409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
@@ -3107,6 +3139,7 @@ export interface operations {
                 };
             };
             404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
@@ -4428,6 +4461,7 @@ export interface operations {
                     "application/json": components["schemas"]["PluginInstance"];
                 };
             };
+            409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
@@ -4501,6 +4535,7 @@ export interface operations {
                 content?: never;
             };
             404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };
@@ -4529,6 +4564,7 @@ export interface operations {
                 };
             };
             404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };

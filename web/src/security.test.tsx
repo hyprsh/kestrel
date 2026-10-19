@@ -12,7 +12,7 @@ type Proxy = { enabled: boolean; trusted_proxies: string[]; header: string }
 
 /** A logged-in instance whose API key and reverse-proxy settings the test controls. */
 function fakeSecurity(
-  opts: { key?: { prefix: string; created_at: string; from_environment?: boolean }; proxy?: Partial<Proxy>; untrusted?: boolean } = {},
+  opts: { key?: { prefix: string; created_at: string; from_environment?: boolean }; proxy?: Partial<Proxy>; untrusted?: boolean; proxyDeclared?: boolean } = {},
 ) {
   let key = opts.key ?? null
   let proxy: Proxy = { enabled: false, trusted_proxies: [], header: 'Remote-User', ...opts.proxy }
@@ -29,12 +29,13 @@ function fakeSecurity(
       response(200).json({
         ...proxy,
         untrusted: opts.untrusted ? [{ ip: '203.0.113.9', value: 'mallory', count: 3, last_seen: '2026-10-17T11:00:00Z' }] : [],
+        from_config_file: opts.proxyDeclared ?? false,
       }),
     ),
     http.put('/settings/reverse-proxy', async ({ request, response }) => {
       proxy = (await request.json()) as Proxy
       saved.push(proxy)
-      return response(200).json({ ...proxy, untrusted: [] })
+      return response(200).json({ ...proxy, untrusted: [], from_config_file: false })
     }),
   )
   return saved
@@ -97,6 +98,16 @@ describe('Settings > Security', () => {
     expect(saved).toEqual([{ enabled: true, trusted_proxies: ['172.18.0.0/16', '10.0.0.5'], header: 'Remote-User' }])
   })
 
+  it('shows reverse-proxy settings the Config File declares as read-only', async () => {
+    fakeSecurity({ proxy: { enabled: true, trusted_proxies: ['10.0.0.5'] }, proxyDeclared: true })
+    await openSecurity()
+
+    expect(await screen.findByRole('checkbox', { name: /trust a login header/i })).toBeDisabled()
+    expect(screen.getByLabelText('Trusted proxies')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Save reverse proxy' })).toBeDisabled()
+    expect(screen.getByText(/Config File/)).toBeInTheDocument()
+  })
+
   it('lists addresses that sent the header without being trusted', async () => {
     fakeSecurity({ proxy: { enabled: true, trusted_proxies: ['10.0.0.5'] }, untrusted: true })
     await openSecurity()
@@ -108,7 +119,7 @@ describe('Settings > Security', () => {
 
 describe('a proxy-authenticated session', () => {
   it('has no Log out button', async () => {
-    server.use(http.get('/auth/me', ({ response }) => response(200).json({ username: 'admin', method: 'proxy', proxy_user: 'alice' })))
+    server.use(http.get('/auth/me', ({ response }) => response(200).json({ username: 'admin', method: 'proxy', proxy_user: 'alice', from_config_file: false })))
     renderApp()
     await screen.findByRole('button', { name: 'Settings' })
     expect(screen.queryByRole('button', { name: 'Log out' })).not.toBeInTheDocument()

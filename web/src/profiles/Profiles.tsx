@@ -1,8 +1,11 @@
 import { ApiError, usePatchProfile, useProfiles, type Profile } from '../api/queries'
-import { ErrorText, Select } from '../forms'
+import { DeclaredNote, ErrorText, Select } from '../forms'
 import { slotKeys, slotLabel } from '../library/bits'
 
 const problemText = (e: unknown) => (e instanceof ApiError && e.status === 422 ? e.message : 'Could not save. Try again.')
+
+/** Profiles are declared together: the Config File sets all of them or none. */
+const declaredNote = <DeclaredNote>The Config File sets the Profiles, so they cannot be changed here.</DeclaredNote>
 
 /**
  * One default Profile per Slot for Movies and for Series. Standard always has one;
@@ -13,6 +16,7 @@ export function DefaultsPerSlot() {
   const patch = usePatchProfile()
   if (profiles.isError) return <p className="text-[12px] text-red-900">Could not load the Profiles.</p>
   if (!profiles.data) return null
+  const declared = profiles.data.some((p) => p.from_config_file)
 
   const kinds = [
     { kind: 'Movies', flag: 'default_movies' },
@@ -40,6 +44,7 @@ export function DefaultsPerSlot() {
                     key={kind}
                     aria-label={`${label} default for ${kind}`}
                     value={current?.key ?? ''}
+                    disabled={declared}
                     onChange={(e) => {
                       const key = e.target.value
                       if (key) patch.mutate({ key, patch: { [flag]: true } })
@@ -62,6 +67,7 @@ export function DefaultsPerSlot() {
         })}
       </div>
       {patch.isError && <ErrorText>{problemText(patch.error)}</ErrorText>}
+      {declared && declaredNote}
     </div>
   )
 }
@@ -81,6 +87,7 @@ export function ProfileToggles() {
   const patch = usePatchProfile()
   if (profiles.isError) return <p className="text-[12px] text-red-900">Could not load the Profiles.</p>
   if (!profiles.data) return null
+  const declared = profiles.data.some((p) => p.from_config_file)
 
   const toggle = (p: Profile, change: { enabled?: boolean; original_fallback?: boolean }) => patch.mutate({ key: p.key, patch: change })
 
@@ -90,7 +97,7 @@ export function ProfileToggles() {
         {profiles.data.map((p) => (
           <li key={p.key} className="flex items-center gap-4 py-1.5">
             <label className="flex w-48 items-center gap-2">
-              <input type="checkbox" aria-label={`${p.name} enabled`} checked={p.enabled} onChange={(e) => toggle(p, { enabled: e.target.checked })} />
+              <input type="checkbox" aria-label={`${p.name} enabled`} checked={p.enabled} disabled={declared} onChange={(e) => toggle(p, { enabled: e.target.checked })} />
               <span className="font-medium">{p.name}</span>
               <span className="text-[12px] text-gray-900">{slotLabel[p.slot]}</span>
             </label>
@@ -100,6 +107,7 @@ export function ProfileToggles() {
                   type="checkbox"
                   aria-label={`${p.name} fallback to the Original Language`}
                   checked={p.original_fallback}
+                  disabled={declared}
                   onChange={(e) => toggle(p, { original_fallback: e.target.checked })}
                 />
                 Accept the Original Language when no Primary-Language audio exists
@@ -111,6 +119,7 @@ export function ProfileToggles() {
         ))}
       </ul>
       {patch.isError && <ErrorText>{problemText(patch.error)}</ErrorText>}
+      {declared && declaredNote}
     </div>
   )
 }

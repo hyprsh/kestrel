@@ -156,6 +156,7 @@ How it behaves:
   - Renaming an instance in the file (or changing its `plugin_id`) deletes it and creates a new one. Don't rename a download client while Grabs are in flight: a Grab belongs to the instance it was sent to, and the new one is a different instance.
   - An instance removed from the file is deleted on the next start. `plugin_instances: []` declares none, and deletes the instances the file declared before.
   - Instances created in the UI are never touched. On the first start that declares a name, an instance created in the UI with that exact name and the same plugin is taken over instead of duplicated. A name the UI uses for another plugin, or for two instances, fails startup.
+  - A declared instance can be tested in the UI but not changed or removed, and its name can't be given to an instance in the UI: creating or renaming one to it answers `409 conflict`. Instances created in the UI may still share names with each other.
   - `enabled` is enforced, so switching a declared instance off is a file change and a restart. A file that would exceed a contract's cap on enabled instances (one download client), counting the enabled instances created in the UI, fails startup.
   - After applying the file, Kestrel tests the connection of each enabled declared instance. An instance that can't connect at startup is only logged as a warning, and Kestrel starts anyway.
 - **`reverse_proxy`**: `enabled`, `trusted_proxies` and `header`, all three, checked as in Settings > Security.

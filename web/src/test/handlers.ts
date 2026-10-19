@@ -41,7 +41,7 @@ export const handlers = [
   http.get('/system', ({ response }) => response(200).json({ version: '0.0.0-test', api_major: 1, base_url: '' })),
   http.get('/plugins', ({ response }) => response(200).json({ items: [sabnzbd], next_cursor: null })),
   http.get('/plugin-instances', ({ response }) => response(200).json({ items: [], next_cursor: null })),
-  http.get('/auth/me', ({ response }) => response(200).json({ username: 'admin', method: 'session', proxy_user: null })),
+  http.get('/auth/me', ({ response }) => response(200).json({ username: 'admin', method: 'session', proxy_user: null, from_config_file: false })),
   http.get('/api-key', ({ response }) => response(200).json({ prefix: null, created_at: null, from_environment: false })),
   http.get('/setup', ({ response }) =>
     response(200).json({
@@ -54,6 +54,7 @@ export const handlers = [
     response(200).json({
       language_region: { primary_language: 'en', release_date_country: 'US' },
       check_github_updates: true,
+      from_config_file: { language_region: false, root_folders: false, check_github_updates: false },
       trash: { auto_update: true },
       metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
       root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'] },
@@ -74,6 +75,6 @@ export const handlers = [
     response(200).json({ download_client: { state: 'none', name: null, instance_id: null, message: null }, indexers: [], disks: [], trash: { commit: 'abc1234', committed_at: null, checked_at: null, auto_update: true } }),
   ),
   http.get('/settings/reverse-proxy', ({ response }) =>
-    response(200).json({ enabled: false, trusted_proxies: [], header: 'Remote-User', untrusted: [] }),
+    response(200).json({ enabled: false, trusted_proxies: [], header: 'Remote-User', untrusted: [], from_config_file: false }),
   ),
 ]

@@ -17,6 +17,7 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/api/db"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
+	"github.com/hyprsh/kestrel/internal/configfile"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
 	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
 	"github.com/hyprsh/kestrel/internal/settings"
@@ -391,6 +392,9 @@ func validateCredentials(c *oapi.Credentials) (username, password string, err *p
 }
 
 func (s *server) CreateAccount(ctx context.Context, req oapi.CreateAccountRequestObject) (oapi.CreateAccountResponseObject, error) {
+	if err := s.refuseDeclared(configfile.SectionAccount); err != nil {
+		return nil, err
+	}
 	username, password, perr := validateCredentials(req.Body)
 	if perr != nil {
 		return nil, perr
@@ -412,7 +416,7 @@ func (s *server) CreateAccount(ctx context.Context, req oapi.CreateAccountReques
 		return nil, err
 	}
 	return oapi.CreateAccount201JSONResponse{
-		Body:    oapi.Me{Username: username, Method: oapi.Session},
+		Body:    oapi.Me{Username: username, Method: oapi.Session, FromConfigFile: s.declares(configfile.SectionAccount)},
 		Headers: oapi.CreateAccount201ResponseHeaders{SetCookie: &cookie},
 	}, nil
 }
@@ -476,7 +480,7 @@ func (s *server) GetMe(ctx context.Context, _ oapi.GetMeRequestObject) (oapi.Get
 		return nil, err
 	}
 	info := requestFrom(ctx)
-	out := oapi.Me{Username: acc.Username, Method: info.method}
+	out := oapi.Me{Username: acc.Username, Method: info.method, FromConfigFile: s.declares(configfile.SectionAccount)}
 	if info.method == oapi.Proxy {
 		out.ProxyUser = &info.proxyUser
 	}
@@ -486,6 +490,9 @@ func (s *server) GetMe(ctx context.Context, _ oapi.GetMeRequestObject) (oapi.Get
 func (s *server) ChangePassword(ctx context.Context, req oapi.ChangePasswordRequestObject) (oapi.ChangePasswordResponseObject, error) {
 	if req.Body == nil {
 		return nil, invalid("body", "required", "current_password and new_password are required")
+	}
+	if err := s.refuseDeclared(configfile.SectionAccount); err != nil {
+		return nil, err
 	}
 	acc, _, err := s.auth.account(ctx)
 	if err != nil {

@@ -9,13 +9,13 @@ import { fakeSetup } from '../test/fakeSetup'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
-const me = { username: 'admin', method: 'session', proxy_user: null } as const
+const me = { username: 'admin', method: 'session', proxy_user: null, from_config_file: false } as const
 const problem = (status: number, code: string) => ({ type: 'about:blank', title: 'x', status, code, detail: code })
 
 type Sent = { path: string; body?: unknown }
 
 /** A SABnzbd that accepts one key, and the plugin API in front of it. */
-function fakePlugins(opts: { fresh?: boolean; saved?: boolean } = {}) {
+function fakePlugins(opts: { fresh?: boolean; saved?: boolean; declared?: boolean } = {}) {
   const sent: Sent[] = []
   let signedIn = !opts.fresh
   if (opts.fresh) fakeSetup()
@@ -29,6 +29,7 @@ function fakePlugins(opts: { fresh?: boolean; saved?: boolean } = {}) {
     priority: 0,
     config: { url: 'http://sab:8080', movie_category: 'movies', tv_category: 'tv' },
     secrets_set: ['api_key'],
+    from_config_file: !!opts.declared,
   })
   const result = (config: Record<string, unknown>) =>
     config.api_key === undefined || config.api_key === 'good-key'
@@ -159,6 +160,20 @@ describe('Settings download client', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
     await screen.findByText('Saved.')
     expect(sent.at(-1)).toMatchObject({ path: 'patch', body: { config: { api_key: 'good-key' } } })
+  })
+
+  it('shows an instance the Config File declares as read-only, and still tests it', async () => {
+    fakePlugins({ saved: true, declared: true })
+    await open()
+
+    expect(await screen.findByLabelText('URL')).toBeDisabled()
+    expect(screen.getByLabelText('API key')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeDisabled()
+    expect(screen.getByText(/Config File declares this instance/)).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Test connection' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Connected: SABnzbd 4.5.1')
   })
 
   it('removes the instance', async () => {
