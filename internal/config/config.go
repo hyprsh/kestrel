@@ -1,5 +1,6 @@
 // Package config reads Kestrel's bootstrap environment variables. Everything
-// else lives in SQLite and is set in the UI.
+// else lives in SQLite and is set in the UI, except the sections a Config File
+// declares (KESTREL_CONFIG_FILE, internal/configfile; ADR 0014).
 package config
 
 import (
@@ -26,6 +27,9 @@ type Config struct {
 	// APIKey is Kestrel's own full-access key when set: it replaces the one
 	// generated in the UI.
 	APIKey string // KESTREL_API_KEY
+	// ConfigFile is the path of the Config File, which declares sections over
+	// the UI; empty means none.
+	ConfigFile string // KESTREL_CONFIG_FILE
 }
 
 // apiKeyFormat is the shape of a key Kestrel generates: kst_ and base32.
@@ -45,6 +49,7 @@ func Load(getenv func(string) string) (Config, error) {
 
 		TMDBAPIKey: strings.TrimSpace(getenv("KESTREL_TMDB_API_KEY")),
 		TVDBAPIKey: strings.TrimSpace(getenv("KESTREL_TVDB_API_KEY")),
+		ConfigFile: strings.TrimSpace(getenv("KESTREL_CONFIG_FILE")),
 	}
 
 	port, err := strconv.Atoi(str("KESTREL_PORT", "7676"))
