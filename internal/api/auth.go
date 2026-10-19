@@ -72,8 +72,12 @@ func newAuth(st *store.Store, clock func() time.Time, baseURL string, cost hashC
 	}
 }
 
-func (a *auth) account(ctx context.Context) (acc account, ok bool, err error) {
-	raw, ok, err := a.settings.Get(ctx, accountKey)
+func (a *auth) account(ctx context.Context) (account, bool, error) {
+	return loadAccount(ctx, a.settings)
+}
+
+func loadAccount(ctx context.Context, s *settings.Settings) (acc account, ok bool, err error) {
+	raw, ok, err := s.Get(ctx, accountKey)
 	if err != nil || !ok {
 		return account{}, false, err
 	}
@@ -273,9 +277,21 @@ func csrfCheck(r *http.Request) *problemError {
 
 const setupCompletedKey = settings.SetupCompleted
 
-// setupState reads where every wizard section stands.
+// setupSources are what the wizard's sections are read from.
+type setupSources struct {
+	settings    *settings.Settings
+	plugins     PluginInstances
+	profiles    Profiles
+	rootFolders RootFolders
+}
+
 func (s *server) setupState(ctx context.Context) (oapi.Setup, error) {
-	_, exists, err := s.auth.account(ctx)
+	return setupSources{settings: s.auth.settings, plugins: s.plugins, profiles: s.profiles, rootFolders: s.rootFolders}.state(ctx)
+}
+
+// state reads where every wizard section stands.
+func (s setupSources) state(ctx context.Context) (oapi.Setup, error) {
+	_, exists, err := loadAccount(ctx, s.settings)
 	if err != nil {
 		return oapi.Setup{}, err
 	}
@@ -311,8 +327,26 @@ func (s *server) setupState(ctx context.Context) (oapi.Setup, error) {
 	// Profiles have nothing to save: the builtin rows ship configured and Standard
 	// always keeps its defaults, so the section is always done.
 	out.Sections.Profiles = oapi.Done
-	_, out.Completed, err = s.auth.settings.Get(ctx, setupCompletedKey)
+	_, out.Completed, err = s.settings.Get(ctx, setupCompletedKey)
 	return out, err
+}
+
+// todo lists the sections still to set up, as field errors.
+func todo(st oapi.Setup) []fieldError {
+	var missing []fieldError
+	for _, sec := range []struct {
+		name  string
+		state oapi.SetupSectionState
+	}{
+		{"account", st.Sections.Account}, {"language", st.Sections.Language},
+		{"download_client", st.Sections.DownloadClient}, {"indexer", st.Sections.Indexer},
+		{"root_folders", st.Sections.RootFolders}, {"profiles", st.Sections.Profiles},
+	} {
+		if sec.state != oapi.Done {
+			missing = append(missing, fieldError{Field: "sections." + sec.name, Code: "todo", Message: sec.name + " is not set up yet"})
+		}
+	}
+	return missing
 }
 
 func (s *server) GetSetup(ctx context.Context, _ oapi.GetSetupRequestObject) (oapi.GetSetupResponseObject, error) {
@@ -328,20 +362,7 @@ func (s *server) CompleteSetup(ctx context.Context, _ oapi.CompleteSetupRequestO
 	if err != nil {
 		return nil, err
 	}
-	var missing []fieldError
-	for _, sec := range []struct {
-		name  string
-		state oapi.SetupSectionState
-	}{
-		{"account", st.Sections.Account}, {"language", st.Sections.Language},
-		{"download_client", st.Sections.DownloadClient}, {"indexer", st.Sections.Indexer},
-		{"root_folders", st.Sections.RootFolders}, {"profiles", st.Sections.Profiles},
-	} {
-		if sec.state != oapi.Done {
-			missing = append(missing, fieldError{Field: "sections." + sec.name, Code: "todo", Message: sec.name + " is not set up yet"})
-		}
-	}
-	if len(missing) > 0 {
+	if missing := todo(st); len(missing) > 0 {
 		p := problem(http.StatusUnprocessableEntity, "validation", "setup is not finished: some sections are missing")
 		p.fields = missing
 		return nil, p

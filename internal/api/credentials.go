@@ -110,8 +110,12 @@ type proxyConfig struct {
 }
 
 func (a *auth) proxyConfig(ctx context.Context) (proxyConfig, error) {
+	return loadProxyConfig(ctx, a.settings)
+}
+
+func loadProxyConfig(ctx context.Context, s *settings.Settings) (proxyConfig, error) {
 	cfg := proxyConfig{TrustedProxies: []string{}, Header: defaultProxyHeader}
-	raw, ok, err := a.settings.Get(ctx, reverseProxyKey)
+	raw, ok, err := s.Get(ctx, reverseProxyKey)
 	if err != nil || !ok {
 		return cfg, err
 	}

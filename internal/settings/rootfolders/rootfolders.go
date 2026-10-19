@@ -88,26 +88,14 @@ func (s *Service) Set(ctx context.Context, p Patch) (Folders, error) {
 	if p.Series != nil {
 		f.Series = *p.Series
 	}
-	for _, kind := range []struct {
-		name string
-		kind Kind
-		set  bool
-	}{
-		{"movies", Movie, p.Movies != nil},
-		{"series", Series, p.Series != nil},
-	} {
-		if !kind.set {
-			continue
+	if p.Movies != nil {
+		if verr := checkList("movies", f.Movies); verr != nil {
+			return Folders{}, verr
 		}
-		list := f.of(kind.kind)
-		if len(list) == 0 {
-			return Folders{}, &ValidationError{Field: "root_folders." + kind.name, Code: "required", Message: "Add at least one folder"}
-		}
-		for i, path := range list {
-			if verr := check(path); verr != nil {
-				verr.Field = fmt.Sprintf("root_folders.%s[%d]", kind.name, i)
-				return Folders{}, verr
-			}
+	}
+	if p.Series != nil {
+		if verr := checkList("series", f.Series); verr != nil {
+			return Folders{}, verr
 		}
 	}
 	raw, err := json.Marshal(f)
@@ -118,6 +106,32 @@ func (s *Service) Set(ctx context.Context, p Patch) (Folders, error) {
 		return Folders{}, err
 	}
 	return f, nil
+}
+
+// Check applies Set's rules to both lists without saving them. A rejection is
+// a *ValidationError.
+func Check(f Folders) error {
+	if verr := checkList("movies", f.Movies); verr != nil {
+		return verr
+	}
+	if verr := checkList("series", f.Series); verr != nil {
+		return verr
+	}
+	return nil
+}
+
+// checkList checks one kind's list, named by its key in root_folders.
+func checkList(name string, list []string) *ValidationError {
+	if len(list) == 0 {
+		return &ValidationError{Field: "root_folders." + name, Code: "required", Message: "Add at least one folder"}
+	}
+	for i, path := range list {
+		if verr := check(path); verr != nil {
+			verr.Field = fmt.Sprintf("root_folders.%s[%d]", name, i)
+			return verr
+		}
+	}
+	return nil
 }
 
 func check(path string) *ValidationError {
