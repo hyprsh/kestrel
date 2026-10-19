@@ -100,7 +100,7 @@ func (s *Service) Declare(ctx context.Context, want []Declared) ([]Instance, err
 					return err
 				}
 				inst.ID = id
-			case !same(*st.cur, inst):
+			case !alreadyDeclared(*st.cur, inst):
 				if _, err := q.DeclareInstance(ctx, db.DeclareInstanceParams{
 					Name: inst.Name, Enabled: boolInt(inst.Enabled), Priority: int64(inst.Priority), Config: string(raw), ID: inst.ID,
 				}); err != nil {
@@ -225,8 +225,9 @@ func (s *Service) capCheckDeclared(p plan, stored []Instance, kept map[int64]boo
 	return nil
 }
 
-// same reports whether a stored instance already is the declared one.
-func same(cur, want Instance) bool {
+// alreadyDeclared reports whether a stored instance is declared and already is
+// the declared one.
+func alreadyDeclared(cur, want Instance) bool {
 	a, _ := json.Marshal(cur.Config)
 	b, _ := json.Marshal(want.Config)
 	return cur.Declared && cur.Name == want.Name && cur.Enabled == want.Enabled && cur.Priority == want.Priority && bytes.Equal(a, b)
