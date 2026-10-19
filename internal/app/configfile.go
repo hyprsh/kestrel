@@ -28,7 +28,7 @@ type declarer struct {
 // section is one declared section: check validates it and writes nothing,
 // apply writes only what differs from the store.
 type section struct {
-	check func() error
+	check func(context.Context) error
 	apply func(context.Context) error
 }
 
@@ -45,7 +45,7 @@ func (a *App) EnforceConfigFile(ctx context.Context) error {
 	}
 	sections := a.declarer.sections()
 	for _, s := range sections {
-		if err := s.check(); err != nil {
+		if err := s.check(ctx); err != nil {
 			return fmt.Errorf("config file %s: %w", f.Path, err)
 		}
 	}
@@ -66,33 +66,43 @@ func (d declarer) sections() []section {
 	var out []section
 	if a := f.Account; a != nil {
 		out = append(out, section{
-			check: func() error { return d.api.CheckAccount(*a) },
+			check: func(context.Context) error { return d.api.CheckAccount(*a) },
 			apply: func(ctx context.Context) error { return d.api.DeclareAccount(ctx, *a) },
 		})
 	}
 	if l := f.LanguageRegion; l != nil {
 		want := profiles.Region{Primary: profiles.Language(l.PrimaryLanguage), Country: l.ReleaseDateCountry}
 		out = append(out, section{
-			check: func() error { return validation("language_region", profiles.CheckRegion(want)) },
+			check: func(context.Context) error { return validation("language_region", profiles.CheckRegion(want)) },
 			apply: func(ctx context.Context) error { return d.declareRegion(ctx, want) },
 		})
 	}
 	if r := f.RootFolders; r != nil {
 		want := rootfolders.Folders{Movies: r.Movies, Series: r.Series}
 		out = append(out, section{
-			check: func() error { return validation("", rootfolders.Check(want)) },
+			check: func(context.Context) error { return validation("", rootfolders.Check(want)) },
 			apply: func(ctx context.Context) error { return d.declareRoots(ctx, want) },
+		})
+	}
+	if f.Profiles != nil {
+		want := map[string]profiles.State{}
+		for key, p := range f.Profiles {
+			want[key] = profiles.State{Enabled: *p.Enabled, OriginalFallback: *p.OriginalFallback, DefaultMovies: *p.DefaultMovies, DefaultSeries: *p.DefaultSeries}
+		}
+		out = append(out, section{
+			check: func(context.Context) error { return validation("profiles", profiles.CheckAll(want)) },
+			apply: func(ctx context.Context) error { return d.profiles.SetAll(ctx, want) },
 		})
 	}
 	if p := f.ReverseProxy; p != nil {
 		out = append(out, section{
-			check: func() error { return d.api.CheckReverseProxy(*p) },
+			check: func(context.Context) error { return d.api.CheckReverseProxy(*p) },
 			apply: func(ctx context.Context) error { return d.api.DeclareReverseProxy(ctx, *p) },
 		})
 	}
 	if on := f.CheckGitHubUpdates; on != nil {
 		out = append(out, section{
-			check: func() error { return nil },
+			check: func(context.Context) error { return nil },
 			apply: func(ctx context.Context) error { return d.declareUpdates(ctx, *on) },
 		})
 	}
@@ -153,8 +163,11 @@ func validation(section string, err error) error {
 	default:
 		return err
 	}
-	if section != "" {
+	switch {
+	case section != "" && field != "":
 		field = section + "." + field
+	case section != "":
+		field = section
 	}
 	return fmt.Errorf("%s: %s", field, msg)
 }
