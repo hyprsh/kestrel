@@ -10,7 +10,7 @@ import { fakeSetup } from '../test/fakeSetup'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
-const me = { username: 'admin', method: 'session', proxy_user: null } as const
+const me = { username: 'admin', method: 'session', proxy_user: null, from_config_file: false } as const
 const problem = (status: number, code: string, detail: string) => ({ type: 'about:blank', title: 'x', status, code, detail })
 
 type Profile = components['schemas']['Profile']
@@ -23,6 +23,7 @@ const profile = (key: string, name: string, slot: Profile['slot'], rule: Profile
   slot,
   language_rule: rule,
   original_fallback: false,
+  from_config_file: false,
   enabled: true,
   default_movies: false,
   default_series: false,
@@ -50,6 +51,7 @@ function fakeProfiles(opts: { fresh?: boolean } = {}) {
   let settings: Settings = {
     language_region: { primary_language: 'en', release_date_country: 'US' },
     check_github_updates: true,
+    from_config_file: { language_region: false, root_folders: false, check_github_updates: false },
     trash: { auto_update: true },
     metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
     root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'] },

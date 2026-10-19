@@ -10,6 +10,7 @@ const settings = (tmdbSet: boolean) => ({
   language_region: { primary_language: 'en' as const, release_date_country: 'US' },
   root_folders: { movies: ['/m'], series: ['/s'] },
   check_github_updates: true,
+  from_config_file: { language_region: false, root_folders: false, check_github_updates: false },
   trash: { auto_update: true },
   metadata: { tmdb_api_key_set: tmdbSet, tvdb_api_key_set: false },
 })

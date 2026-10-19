@@ -73,6 +73,7 @@ function fakeAttention(rows: Row[]) {
         priority: 1,
         config: {},
         secrets_set: [],
+        from_config_file: false,
       })
     }),
   )

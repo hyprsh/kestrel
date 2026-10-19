@@ -30,6 +30,7 @@ const stored: Instance = {
   priority: 0,
   config: { url: 'http://jellyfin:8096' },
   secrets_set: ['api_key'],
+  from_config_file: false,
 }
 
 describe('Settings media servers', () => {

@@ -9,7 +9,7 @@ import { fakeSetup } from '../test/fakeSetup'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
-const me = { username: 'admin', method: 'session', proxy_user: null } as const
+const me = { username: 'admin', method: 'session', proxy_user: null, from_config_file: false } as const
 const problem = (status: number, code: string) => ({ type: 'about:blank', title: 'x', status, code, detail: code })
 
 type Sent = { path: string; body?: unknown }
@@ -29,6 +29,7 @@ function fakePlugins(opts: { fresh?: boolean; saved?: boolean } = {}) {
     priority: 0,
     config: { url: 'http://sab:8080', movie_category: 'movies', tv_category: 'tv' },
     secrets_set: ['api_key'],
+    from_config_file: false,
   })
   const result = (config: Record<string, unknown>) =>
     config.api_key === undefined || config.api_key === 'good-key'
