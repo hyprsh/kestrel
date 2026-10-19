@@ -33,7 +33,7 @@ func resetPassword(ctx context.Context, args []string, stdin io.Reader, stdout i
 	if err != nil {
 		return err
 	}
-	if err := refuseDeclaredAccount(cfg.ConfigFile, getenv); err != nil {
+	if err := refuseDeclaredAccount(cfg.ConfigFile); err != nil {
 		return err
 	}
 	password, err := readNewPassword(stdin, stdout, *fromStdin)
@@ -54,12 +54,13 @@ func resetPassword(ctx context.Context, args []string, stdin io.Reader, stdout i
 
 // refuseDeclaredAccount fails when the Config File at path declares the
 // account: its password comes from the file's variable on every start, so a
-// reset here would not last (ADR 0014).
-func refuseDeclaredAccount(path string, getenv func(string) string) error {
+// reset here would not last (ADR 0014). The file is read without resolving
+// its variables, which the shell running the command may not have.
+func refuseDeclaredAccount(path string) error {
 	if path == "" {
 		return nil
 	}
-	f, err := configfile.Load(path, getenv)
+	f, err := configfile.Read(path)
 	if err != nil {
 		return err
 	}

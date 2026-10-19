@@ -2,10 +2,10 @@
 // names, which declares sections that the UI then can't change (ADR 0014).
 //
 // Load decodes the file strictly and resolves the environment variables that
-// carry its secrets. It checks the file's shape only: whether a declared value
-// is acceptable is the owning module's rule, checked when the file is applied
-// (internal/app). Every section is optional, and a nil section is one the file
-// does not declare.
+// carry its secrets; Read only decodes it. Both check the file's shape only:
+// whether a declared value is acceptable is the owning module's rule, checked
+// when the file is applied (internal/app). Every section is optional, and a nil
+// section is one the file does not declare.
 package configfile
 
 import (
@@ -148,9 +148,30 @@ type Secret string
 func (Secret) String() string   { return "[secret]" }
 func (Secret) GoString() string { return `"[secret]"` }
 
-// Load reads and decodes the file at path. getenv resolves the variables the
-// file names (os.Getenv in production). No error carries a secret value.
+// Load reads the file at path as Read does, then resolves the variables the
+// file names with getenv (os.Getenv in production). No error carries a secret
+// value.
 func Load(path string, getenv func(string) string) (*File, error) {
+	f, err := Read(path)
+	if err != nil {
+		return nil, err
+	}
+	if a := f.Account; a != nil {
+		if a.Password, err = resolve(getenv, "account.password_env", a.PasswordEnv); err != nil {
+			return nil, fmt.Errorf("config file %s: %w", path, err)
+		}
+	}
+	for i := range f.PluginInstances {
+		f.PluginInstances[i].getenv = getenv
+	}
+	return f, nil
+}
+
+// Read decodes the file at path strictly and checks its shape without reading
+// the environment: the account's password stays empty, and ConfigValues must
+// not be called on its plugin instances. It tells what the file declares, as
+// for a command that refuses a declared account.
+func Read(path string) (*File, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("config file: %w", err)
@@ -177,17 +198,17 @@ func Load(path string, getenv func(string) string) (*File, error) {
 	}
 	f.Path = path
 	if len(doc.Content) > 0 {
-		f.locate(doc.Content[0], getenv)
+		f.locate(doc.Content[0])
 	}
-	if err := f.complete(getenv); err != nil {
+	if err := f.complete(); err != nil {
 		return fail(err)
 	}
 	return f, nil
 }
 
-// complete checks that each declared section names all its fields and
-// resolves the secrets.
-func (f *File) complete(getenv func(string) string) error {
+// complete checks that each declared section names all its fields and that
+// no instance name is declared twice.
+func (f *File) complete() error {
 	var missing []string
 	need := func(ok bool, field string) {
 		if !ok {
@@ -233,13 +254,6 @@ func (f *File) complete(getenv func(string) string) error {
 			return fmt.Errorf("line %d: plugin_instances[%d].name: %q is declared twice: an instance is known by its name", p.Line, i, name)
 		}
 		seen[name] = true
-	}
-	if a := f.Account; a != nil {
-		pw, err := resolve(getenv, "account.password_env", a.PasswordEnv)
-		if err != nil {
-			return err
-		}
-		a.Password = pw
 	}
 	return nil
 }
@@ -311,8 +325,8 @@ func (p PluginInstance) ConfigValues(fields func(key string) (known, secret bool
 	return out, nil
 }
 
-// locate records where each plugin instance starts, and how its secrets resolve.
-func (f *File) locate(root *yaml.Node, getenv func(string) string) {
+// locate records where each plugin instance starts.
+func (f *File) locate(root *yaml.Node) {
 	for i := 0; i+1 < len(root.Content); i += 2 {
 		if root.Content[i].Value != "plugin_instances" {
 			continue
@@ -322,9 +336,6 @@ func (f *File) locate(root *yaml.Node, getenv func(string) string) {
 				f.PluginInstances[j].Line = item.Line
 			}
 		}
-	}
-	for i := range f.PluginInstances {
-		f.PluginInstances[i].getenv = getenv
 	}
 }
 
