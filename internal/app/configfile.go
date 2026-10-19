@@ -4,11 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/hyprsh/kestrel/internal/api"
 	"github.com/hyprsh/kestrel/internal/configfile"
 	"github.com/hyprsh/kestrel/internal/jobs"
+	"github.com/hyprsh/kestrel/internal/plugin"
+	"github.com/hyprsh/kestrel/internal/plugin/instances"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 	"github.com/hyprsh/kestrel/internal/updates"
@@ -23,6 +29,8 @@ type declarer struct {
 	roots    *rootfolders.Service
 	updates  *updates.Service
 	trash    *jobs.TrashUpdates
+	plugins  *instances.Service
+	log      *slog.Logger
 }
 
 // section is one declared section: check validates it and writes nothing,
@@ -94,6 +102,25 @@ func (d declarer) sections() []section {
 			apply: func(ctx context.Context) error { return d.profiles.SetAll(ctx, want) },
 		})
 	}
+	if f.PluginInstances != nil {
+		var want []instances.Declared
+		out = append(out, section{
+			check: func(ctx context.Context) (err error) {
+				if want, err = d.declaredInstances(); err != nil {
+					return err
+				}
+				return instanceError(d.plugins.CheckDeclared(ctx, want))
+			},
+			apply: func(ctx context.Context) error {
+				declared, err := d.plugins.Declare(ctx, want)
+				if err != nil {
+					return instanceError(err)
+				}
+				d.testInstances(ctx, declared)
+				return nil
+			},
+		})
+	}
 	if p := f.ReverseProxy; p != nil {
 		out = append(out, section{
 			check: func(context.Context) error { return d.api.CheckReverseProxy(*p) },
@@ -146,6 +173,70 @@ func (d declarer) declareUpdates(ctx context.Context, on bool) error {
 		return err
 	}
 	return d.updates.Check(ctx)
+}
+
+// declaredInstances reads the declared plugin instances, their secrets
+// resolved against each plugin's manifest.
+func (d declarer) declaredInstances() ([]instances.Declared, error) {
+	var out []instances.Declared
+	for _, p := range d.file.PluginInstances {
+		pl, _, ok := d.plugins.Registry().Lookup(p.PluginID)
+		if !ok {
+			return nil, fmt.Errorf("line %d: plugin_instances %q: plugin_id: no such plugin", p.Line, strings.TrimSpace(p.Name))
+		}
+		m := pl.Describe()
+		cfg, err := p.ConfigValues(func(key string) (known, secret bool) {
+			f, ok := m.Field(key)
+			return ok, f.Type == plugin.FieldSecret
+		})
+		if err != nil {
+			return nil, err
+		}
+		in := instances.Declared{Name: p.Name, PluginID: p.PluginID, Enabled: true, Config: cfg}
+		if p.Enabled != nil {
+			in.Enabled = *p.Enabled
+		}
+		if p.Priority != nil {
+			in.Priority = *p.Priority
+		}
+		out = append(out, in)
+	}
+	return out, nil
+}
+
+// testTimeout bounds the live test of a declared instance at startup.
+const testTimeout = 10 * time.Second
+
+// testInstances runs the live test of each enabled declared instance, all at
+// once, and logs the ones that fail: a service that is down at startup does
+// not stop Kestrel.
+func (d declarer) testInstances(ctx context.Context, declared []instances.Instance) {
+	ctx, cancel := context.WithTimeout(ctx, testTimeout)
+	defer cancel()
+	var wg sync.WaitGroup
+	for _, inst := range declared {
+		pl, _, ok := d.plugins.Registry().Lookup(inst.PluginID)
+		if !inst.Enabled || !ok {
+			continue
+		}
+		wg.Go(func() {
+			if _, err := pl.Test(ctx, inst.Connection()); err != nil {
+				pe := plugin.AsError(err)
+				d.log.Warn("config file: a declared plugin instance failed its connection test",
+					"instance", inst.Name, "plugin", inst.PluginID, "code", pe.Code, "message", pe.Message)
+			}
+		})
+	}
+	wg.Wait()
+}
+
+// instanceError words a rejected declared instance under plugin_instances.
+func instanceError(err error) error {
+	var de *instances.DeclaredError
+	if errors.As(err, &de) {
+		return fmt.Errorf("plugin_instances %w", de)
+	}
+	return err
 }
 
 // validation words a module's rejected field under its Config File section.

@@ -50,6 +50,8 @@ type Instance struct {
 	Enabled  bool
 	Priority int
 	Config   map[string]any
+	// Declared marks an instance the Config File declares (ADR 0014).
+	Declared bool
 }
 
 // Connection is what a plugin call receives for this instance.
@@ -97,7 +99,7 @@ func fromRow(r db.PluginInstance) (Instance, error) {
 	}
 	return Instance{
 		ID: r.ID, Contract: r.Contract, PluginID: r.PluginID, Name: r.Name,
-		Enabled: r.Enabled == 1, Priority: int(r.Priority), Config: cfg,
+		Enabled: r.Enabled == 1, Priority: int(r.Priority), Config: cfg, Declared: r.Declared == 1,
 	}, nil
 }
 
