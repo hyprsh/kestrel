@@ -15,7 +15,7 @@ const untrustedWindow = 24 * time.Hour
 // reverse-proxy header without being a trusted proxy, and clears the ones that
 // stopped, were trusted since, or whose feature is off.
 func (s *server) checkUntrustedProxy(ctx context.Context, h *health.Service) error {
-	cfg, err := s.auth.proxyConfig(ctx)
+	cfg, err := loadProxyConfig(ctx, s.auth.settings)
 	if err != nil {
 		return err
 	}
