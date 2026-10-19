@@ -5,6 +5,7 @@ import { slotKeys, slotLabel } from '../library/bits'
 const problemText = (e: unknown) => (e instanceof ApiError && e.status === 422 ? e.message : 'Could not save. Try again.')
 
 /** Profiles are declared together: the Config File sets all of them or none. */
+const declaresProfiles = (profiles: Profile[]) => profiles.some((p) => p.from_config_file)
 const declaredNote = <DeclaredNote>The Config File sets the Profiles, so they cannot be changed here.</DeclaredNote>
 
 /**
@@ -16,7 +17,7 @@ export function DefaultsPerSlot() {
   const patch = usePatchProfile()
   if (profiles.isError) return <p className="text-[12px] text-red-900">Could not load the Profiles.</p>
   if (!profiles.data) return null
-  const declared = profiles.data.some((p) => p.from_config_file)
+  const declared = declaresProfiles(profiles.data)
 
   const kinds = [
     { kind: 'Movies', flag: 'default_movies' },
@@ -87,7 +88,7 @@ export function ProfileToggles() {
   const patch = usePatchProfile()
   if (profiles.isError) return <p className="text-[12px] text-red-900">Could not load the Profiles.</p>
   if (!profiles.data) return null
-  const declared = profiles.data.some((p) => p.from_config_file)
+  const declared = declaresProfiles(profiles.data)
 
   const toggle = (p: Profile, change: { enabled?: boolean; original_fallback?: boolean }) => patch.mutate({ key: p.key, patch: change })
 
