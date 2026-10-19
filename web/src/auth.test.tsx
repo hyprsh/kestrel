@@ -9,7 +9,7 @@ import { fakeSetup } from './test/fakeSetup'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
-const me = { username: 'admin', method: 'session', proxy_user: null } as const
+const me = { username: 'admin', method: 'session', proxy_user: null, from_config_file: false } as const
 
 const body = (status: number, code: string) => ({ type: 'about:blank', title: 'x', status, code, detail: code })
 

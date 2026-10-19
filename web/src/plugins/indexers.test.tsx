@@ -10,7 +10,7 @@ import { fakeSetup } from '../test/fakeSetup'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
-const me = { username: 'admin', method: 'session', proxy_user: null } as const
+const me = { username: 'admin', method: 'session', proxy_user: null, from_config_file: false } as const
 const problem = (status: number, code: string) => ({ type: 'about:blank', title: 'x', status, code, detail: code })
 
 type Instance = components['schemas']['PluginInstance']
@@ -25,6 +25,7 @@ const stored = (id: number, name: string, over: Partial<Instance> = {}): Instanc
   priority: 0,
   config: { url: `https://${name.toLowerCase()}.example`, movie_categories: '2000', tv_categories: '5000', api_requests_per_day: null },
   secrets_set: ['api_key'],
+  from_config_file: false,
   ...over,
 })
 

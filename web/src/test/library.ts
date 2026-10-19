@@ -87,6 +87,7 @@ export function fakeLibrary(initial: TitleRow[]) {
           slot: key.startsWith('4k') ? '4k' : 'standard',
           language_rule: 'primary',
           original_fallback: false,
+          from_config_file: false,
           enabled: true,
           default_movies: key === 'hd-primary',
           default_series: key === 'hd-primary',
