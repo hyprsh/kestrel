@@ -13,6 +13,11 @@ info:
     Conventions: `snake_case` fields, integer ids, RFC 3339 UTC times, lowercase string enums,
     every field always present (`null` for "none"), errors as RFC 9457 `application/problem+json`
     with a stable `code`.
+
+    A deployment may name a Config File with `KESTREL_CONFIG_FILE`. The sections and plugin
+    instances it declares can't be changed here: a write to one answers `409 conflict`, with a
+    `detail` naming the file, and reads report `from_config_file`. Without a Config File every
+    `from_config_file` is `false`.
 servers:
   - url: /api/v1
     description: Relative to the instance's KESTREL_BASE_URL, if any.
@@ -58,7 +63,8 @@ paths:
       summary: Create the admin account and log in
       description: |
         Only answers while no account exists; whoever reaches a fresh instance sets the credentials.
-        Responds with the session cookie, so finishing this step logs the admin in.
+        Responds with the session cookie, so finishing this step logs the admin in. `409 conflict`
+        once an account exists, or while the Config File declares it.
       tags: [setup]
       requestBody:
         required: true
@@ -181,7 +187,9 @@ paths:
     post:
       operationId: changePassword
       summary: Change the admin password
-      description: Ends every other session; the current one stays logged in.
+      description: |
+        Ends every other session; the current one stays logged in. `409 conflict` while the Config
+        File declares the account.
       tags: [account]
       requestBody:
         required: true
@@ -201,6 +209,8 @@ paths:
       responses:
         "204":
           description: Password changed.
+        "409":
+          $ref: "#/components/responses/Problem"
         "422":
           $ref: "#/components/responses/Problem"
         default:
@@ -262,7 +272,7 @@ paths:
       description: |
         Off by default. When enabled, a non-empty `header` from a trusted proxy address logs the
         admin in for that request. The same header from any other address is ignored and
-        recorded under `untrusted`.
+        recorded under `untrusted`. `409 conflict` while the Config File declares `reverse_proxy`.
       tags: [settings]
       requestBody:
         required: true
@@ -277,6 +287,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReverseProxy"
+        "409":
+          $ref: "#/components/responses/Problem"
         "422":
           $ref: "#/components/responses/Problem"
         default:
@@ -307,7 +319,9 @@ paths:
         re-points the eight Profiles to their backing TRaSH profiles and, unless the same patch
         names `release_date_country`, moves the country to the new language's default. It also
         re-scores every stored file under the new Profiles, in the same step; files are not renamed
-        and nothing is searched.
+        and nothing is searched. A patch that names a section the Config File declares
+        (`language_region`, `root_folders`, `check_github_updates`) answers `409 conflict` and saves
+        nothing, not even its other sections.
       tags: [settings]
       requestBody:
         required: true
@@ -322,6 +336,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Settings"
+        "409":
+          $ref: "#/components/responses/Problem"
         "422":
           $ref: "#/components/responses/Problem"
         default:
@@ -352,7 +368,7 @@ paths:
         The Standard Slot always keeps exactly one default per kind, so unsetting or disabling it is a
         `validation` error until another Standard Profile is the default. Disabling a Profile clears its defaults, and
         a disabled Profile cannot be made a default. `original_fallback` is a `validation` error on
-        Original-Language Profiles.
+        Original-Language Profiles. `409 conflict` while the Config File declares `profiles`.
       tags: [profiles]
       requestBody:
         required: true
@@ -368,6 +384,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/Profile"
         "404":
+          $ref: "#/components/responses/Problem"
+        "409":
           $ref: "#/components/responses/Problem"
         "422":
           $ref: "#/components/responses/Problem"
@@ -1702,7 +1720,8 @@ paths:
       description: |
         Absent config fields take the manifest default. Secret fields are accepted here and never
         returned: `secrets_set` lists which are set. Enabling an instance beyond its contract's cap
-        (one enabled download client in v1) is a `validation` error on `enabled`.
+        (one enabled download client in v1) is a `validation` error on `enabled`. A name the Config
+        File declares answers `409 conflict`; instances created here may share names with each other.
       tags: [plugins]
       requestBody:
         required: true
@@ -1717,6 +1736,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PluginInstance"
+        "409":
+          $ref: "#/components/responses/Problem"
         "422":
           $ref: "#/components/responses/Problem"
         default:
@@ -1769,7 +1790,8 @@ paths:
       summary: Change a plugin instance
       description: |
         `config` merges key by key. A secret that is omitted stays as it is, a string replaces it
-        and `null` clears it; clearing any other field returns it to its default.
+        and `null` clears it; clearing any other field returns it to its default. `409 conflict` for
+        an instance the Config File declares (`from_config_file`), or a rename to a declared name.
       tags: [plugins]
       requestBody:
         required: true
@@ -1786,6 +1808,8 @@ paths:
                 $ref: "#/components/schemas/PluginInstance"
         "404":
           $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
         "422":
           $ref: "#/components/responses/Problem"
         default:
@@ -1793,11 +1817,14 @@ paths:
     delete:
       operationId: deletePluginInstance
       summary: Remove a plugin instance
+      description: "`409 conflict` for an instance the Config File declares (`from_config_file`)."
       tags: [plugins]
       responses:
         "204":
           description: Removed.
         "404":
+          $ref: "#/components/responses/Problem"
+        "409":
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
@@ -1964,8 +1991,11 @@ components:
       allOf:
         - $ref: "#/components/schemas/ReverseProxySettings"
         - type: object
-          required: [untrusted]
+          required: [untrusted, from_config_file]
           properties:
+            from_config_file:
+              type: boolean
+              description: "`true` while the Config File declares `reverse_proxy`, which can't be changed here then."
             untrusted:
               type: array
               readOnly: true
@@ -1999,10 +2029,13 @@ components:
           minLength: 8
     Me:
       type: object
-      required: [username, method, proxy_user]
+      required: [username, method, proxy_user, from_config_file]
       properties:
         username:
           type: string
+        from_config_file:
+          type: boolean
+          description: "`true` while the Config File declares the account, whose password can't be changed here then."
         method:
           type: string
           enum: [session, proxy, api_key]
@@ -2041,8 +2074,21 @@ components:
       enum: [en, de, fr]
     Settings:
       type: object
-      required: [language_region, root_folders, check_github_updates, trash, metadata]
+      required: [language_region, root_folders, check_github_updates, trash, metadata, from_config_file]
       properties:
+        from_config_file:
+          type: object
+          required: [language_region, root_folders, check_github_updates]
+          description: |
+            Per section, `true` while the Config File declares it. A declared section can't be
+            changed here: a patch naming it answers `409 conflict`.
+          properties:
+            language_region:
+              type: boolean
+            root_folders:
+              type: boolean
+            check_github_updates:
+              type: boolean
         metadata:
           type: object
           required: [tmdb_api_key_set, tvdb_api_key_set]
@@ -2142,8 +2188,11 @@ components:
       enum: [standard, 4k]
     Profile:
       type: object
-      required: [key, name, slot, language_rule, original_fallback, enabled, default_movies, default_series, min_height, max_height, trash_profile_movies, trash_profile_series]
+      required: [key, name, slot, language_rule, original_fallback, enabled, default_movies, default_series, min_height, max_height, trash_profile_movies, trash_profile_series, from_config_file]
       properties:
+        from_config_file:
+          type: boolean
+          description: "`true` while the Config File declares `profiles`, which declares every Profile at once."
         key:
           type: string
           example: hd-primary
@@ -2297,8 +2346,13 @@ components:
           description: A saved instance whose stored config, secrets included, lies under `config`.
     PluginInstance:
       type: object
-      required: [id, contract, plugin_id, name, enabled, priority, config, secrets_set]
+      required: [id, contract, plugin_id, name, enabled, priority, config, secrets_set, from_config_file]
       properties:
+        from_config_file:
+          type: boolean
+          description: |
+            `true` for an instance the Config File declares. It can't be changed or removed here,
+            and its name can't be given to another instance.
         id:
           type: integer
           format: int64
