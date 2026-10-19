@@ -10,12 +10,15 @@ package configfile
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 
 	"go.yaml.in/yaml/v3"
@@ -75,6 +78,10 @@ type PluginInstance struct {
 	Enabled  *bool     `yaml:"enabled"`
 	Priority *int      `yaml:"priority"`
 	Config   yaml.Node `yaml:"config"`
+
+	// Line is where the instance starts in the file.
+	Line   int                 `yaml:"-"`
+	getenv func(string) string // resolves the secrets Config names
 }
 
 // ReverseProxy is the reverse-proxy login, declared as a whole like PUT /reverse-proxy.
@@ -119,6 +126,9 @@ func Load(path string, getenv func(string) string) (*File, error) {
 		return fail(yamlError(err))
 	}
 	f.Path = path
+	if len(doc.Content) > 0 {
+		f.locate(doc.Content[0], getenv)
+	}
 	if err := f.complete(getenv); err != nil {
 		return fail(err)
 	}
@@ -151,8 +161,28 @@ func (f *File) complete(getenv func(string) string) error {
 		need(p.TrustedProxies != nil, "reverse_proxy.trusted_proxies")
 		need(p.Header != "", "reverse_proxy.header")
 	}
+	for _, key := range slices.Sorted(maps.Keys(f.Profiles)) {
+		p, field := f.Profiles[key], "profiles."+key+"."
+		need(p.Enabled != nil, field+"enabled")
+		need(p.OriginalFallback != nil, field+"original_fallback")
+		need(p.DefaultMovies != nil, field+"default_movies")
+		need(p.DefaultSeries != nil, field+"default_series")
+	}
+	for i, p := range f.PluginInstances {
+		field := fmt.Sprintf("plugin_instances[%d].", i)
+		need(strings.TrimSpace(p.Name) != "", field+"name")
+		need(p.PluginID != "", field+"plugin_id")
+	}
 	if len(missing) > 0 {
 		return fmt.Errorf("%s: required in a declared section", strings.Join(missing, ", "))
+	}
+	seen := map[string]bool{}
+	for i, p := range f.PluginInstances {
+		name := strings.TrimSpace(p.Name)
+		if seen[name] {
+			return fmt.Errorf("line %d: plugin_instances[%d].name: %q is declared twice: an instance is known by its name", p.Line, i, name)
+		}
+		seen[name] = true
 	}
 	if a := f.Account; a != nil {
 		pw, err := resolve(getenv, "account.password_env", a.PasswordEnv)
@@ -162,6 +192,90 @@ func (f *File) complete(getenv func(string) string) error {
 		a.Password = pw
 	}
 	return nil
+}
+
+// ConfigValues returns the instance's config with its secrets read from the
+// environment, as JSON would carry it to POST /plugin-instances. fields says
+// which keys the plugin's manifest knows and which of them are secret: a
+// secret is given only as <field>_env, and <field>_env on any other field is
+// an unknown key. No error carries a value.
+func (p PluginInstance) ConfigValues(fields func(key string) (known, secret bool)) (map[string]any, error) {
+	name := strings.TrimSpace(p.Name)
+	fail := func(line int, key, format string, args ...any) error {
+		return fmt.Errorf("line %d: plugin_instances %q: config%s: %s", line, name, key, fmt.Sprintf(format, args...))
+	}
+	n := &p.Config
+	for n.Kind == yaml.AliasNode && n.Alias != nil {
+		n = n.Alias
+	}
+	out := map[string]any{}
+	switch {
+	case n.Kind == 0 || n.Kind == yaml.ScalarNode && n.Tag == "!!null":
+		return out, nil
+	case n.Kind != yaml.MappingNode:
+		return nil, fail(n.Line, "", "must be a map of the plugin's settings")
+	}
+	for i := 0; i+1 < len(n.Content); i += 2 {
+		key, val := n.Content[i], n.Content[i+1]
+		field, isEnv := strings.CutSuffix(key.Value, "_env")
+		if known, secret := fields(field); isEnv && known && secret {
+			if _, dup := out[field]; dup {
+				return nil, fail(key.Line, "."+field, "given twice")
+			}
+			var env string
+			if val.Decode(&env) != nil {
+				return nil, fail(key.Line, "."+key.Value, "must name an environment variable")
+			}
+			v, err := resolve(p.getenv, "config."+key.Value, env)
+			if err != nil {
+				return nil, fmt.Errorf("line %d: plugin_instances %q: %w", key.Line, name, err)
+			}
+			out[field] = string(v)
+			continue
+		}
+		known, secret := fields(key.Value)
+		switch {
+		case !known:
+			return nil, fail(key.Line, "."+key.Value, "unknown key")
+		case secret:
+			return nil, fail(key.Line, "."+key.Value, "a secret is never written in the file: name its environment variable with %s_env", key.Value)
+		}
+		if _, dup := out[key.Value]; dup {
+			return nil, fail(key.Line, "."+key.Value, "given twice")
+		}
+		var v any
+		if err := val.Decode(&v); err != nil {
+			return nil, fail(key.Line, "."+key.Value, "not a value")
+		}
+		out[key.Value] = v
+	}
+	// Round-trip through JSON so numbers compare with the stored config.
+	raw, err := json.Marshal(out)
+	if err != nil {
+		return nil, fail(n.Line, "", "not a map of plain values")
+	}
+	out = map[string]any{}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// locate records where each plugin instance starts, and how its secrets resolve.
+func (f *File) locate(root *yaml.Node, getenv func(string) string) {
+	for i := 0; i+1 < len(root.Content); i += 2 {
+		if root.Content[i].Value != "plugin_instances" {
+			continue
+		}
+		for j, item := range root.Content[i+1].Content {
+			if j < len(f.PluginInstances) {
+				f.PluginInstances[j].Line = item.Line
+			}
+		}
+	}
+	for i := range f.PluginInstances {
+		f.PluginInstances[i].getenv = getenv
+	}
 }
 
 // emptySection reports a top-level key with no value. It would decode like an
