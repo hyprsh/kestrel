@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, usePatchSettings, useSettings, type Settings } from '../api/queries'
-import { Button, ErrorText, TextInput } from '../forms'
+import { Button, DeclaredNote, ErrorText, TextInput } from '../forms'
 
 type Kind = 'movies' | 'series'
 type Folders = Settings['root_folders']
@@ -19,10 +19,10 @@ export function RootFoldersForm() {
   const { data, isError } = useSettings()
   if (isError) return <p className="text-[12px] text-red-900">Could not load the root folders.</p>
   if (!data) return null
-  return <Form saved={data.root_folders} />
+  return <Form saved={data.root_folders} declared={data.from_config_file.root_folders} />
 }
 
-function Form({ saved }: { saved: Folders }) {
+function Form({ saved, declared }: { saved: Folders; declared: boolean }) {
   const [folders, setFolders] = useState<Pick<Folders, Kind>>({ movies: saved.movies, series: saved.series })
   const save = usePatchSettings()
 
@@ -37,7 +37,7 @@ function Form({ saved }: { saved: Folders }) {
   return (
     <form onSubmit={submit} className="flex max-w-xl flex-col gap-5">
       {kinds.map(({ key, label }) => (
-        <fieldset key={key} className="flex flex-col gap-2">
+        <fieldset key={key} disabled={declared} className="flex flex-col gap-2">
           <legend className="mb-1 text-[12px] font-medium text-gray-900">{label}</legend>
           {folders[key].map((path, i) => {
             const name = `${label} folder ${i + 1}`
@@ -96,9 +96,10 @@ function Form({ saved }: { saved: Folders }) {
           Saved.
         </p>
       )}
-      <Button type="submit" disabled={save.isPending} className="self-start">
+      <Button type="submit" disabled={save.isPending || declared} className="self-start">
         Save root folders
       </Button>
+      {declared && <DeclaredNote>The Config File sets the root folders, so they cannot be changed here.</DeclaredNote>}
     </form>
   )
 }

@@ -64,3 +64,8 @@ export function ErrorText({ children }: { children: ReactNode }) {
     </p>
   )
 }
+
+/** Says the Config File declares what is shown, so the UI cannot change it. */
+export function DeclaredNote({ children = 'The Config File sets this, so it cannot be changed here.' }: { children?: ReactNode }) {
+  return <p className="text-[12px] text-gray-900">{children} Change the file and restart Kestrel instead.</p>
+}

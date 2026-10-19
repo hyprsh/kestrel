@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 import {
   ApiError,
   useApiKey,
+  useAuth,
   useChangePassword,
   useCreateApiKey,
   useLogoutEverywhere,
@@ -9,7 +10,7 @@ import {
   useSaveReverseProxy,
   type ReverseProxy,
 } from '../api/queries'
-import { Button, ErrorText, Field, TextInput } from '../forms'
+import { Button, DeclaredNote, ErrorText, Field, TextInput } from '../forms'
 import { UpdateCheckSwitch } from '../about/UpdateCheck'
 import { DownloadClient } from '../plugins/DownloadClient'
 import { Indexers } from '../plugins/Indexers'
@@ -151,6 +152,8 @@ function ChangePassword() {
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const change = useChangePassword()
+  const auth = useAuth()
+  const declared = auth.data?.state === 'ok' && auth.data.me.from_config_file
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -168,21 +171,24 @@ function ChangePassword() {
   return (
     <Row label="Password" help="At least 8 characters. Changing it logs out every other session.">
       <form onSubmit={submit} className="flex max-w-sm flex-col gap-3">
-        <Field label="Current password">
-          {(id) => <TextInput id={id} type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />}
-        </Field>
-        <Field label="New password">
-          {(id) => <TextInput id={id} type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} />}
-        </Field>
-        {change.isError && (
-          <ErrorText>
-            {change.error instanceof ApiError && change.error.status === 422 ? change.error.message : 'Could not change the password. Try again.'}
-          </ErrorText>
-        )}
-        {change.isSuccess && <p role="status" className="text-[12px] text-green-900">Password changed. Other sessions were logged out.</p>}
-        <Button type="submit" disabled={change.isPending || !current || !next} className="self-start">
-          Change password
-        </Button>
+        <fieldset disabled={declared} className="contents">
+          <Field label="Current password">
+            {(id) => <TextInput id={id} type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />}
+          </Field>
+          <Field label="New password">
+            {(id) => <TextInput id={id} type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} />}
+          </Field>
+          {change.isError && (
+            <ErrorText>
+              {change.error instanceof ApiError && change.error.status === 422 ? change.error.message : 'Could not change the password. Try again.'}
+            </ErrorText>
+          )}
+          {change.isSuccess && <p role="status" className="text-[12px] text-green-900">Password changed. Other sessions were logged out.</p>}
+          <Button type="submit" disabled={change.isPending || !current || !next} className="self-start">
+            Change password
+          </Button>
+        </fieldset>
+        {declared && <DeclaredNote>The Config File sets the account, so its password cannot be changed here.</DeclaredNote>}
       </form>
     </Row>
   )
@@ -292,32 +298,35 @@ function ReverseProxyForm({ saved }: { saved: ReverseProxy }) {
 
   return (
     <form onSubmit={submit} className="flex max-w-sm flex-col gap-3">
-      <label className="flex items-center gap-2 text-[13px]">
-        <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
-        Trust a login header from a reverse proxy
-      </label>
-      <Field label="Trusted proxies">
-        {(id) => (
-          <textarea
-            id={id}
-            rows={3}
-            value={trusted}
-            onChange={(e) => setTrusted(e.target.value)}
-            placeholder={'172.18.0.0/16\n10.0.0.5'}
-            className="w-full rounded-md border border-gray-alpha-400 bg-background-100 px-2.5 py-1.5 font-mono text-[13px] outline-none focus:border-gray-700"
-          />
+      <fieldset disabled={saved.from_config_file} className="contents">
+        <label className="flex items-center gap-2 text-[13px]">
+          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+          Trust a login header from a reverse proxy
+        </label>
+        <Field label="Trusted proxies">
+          {(id) => (
+            <textarea
+              id={id}
+              rows={3}
+              value={trusted}
+              onChange={(e) => setTrusted(e.target.value)}
+              placeholder={'172.18.0.0/16\n10.0.0.5'}
+              className="w-full rounded-md border border-gray-alpha-400 bg-background-100 px-2.5 py-1.5 font-mono text-[13px] outline-none focus:border-gray-700"
+            />
+          )}
+        </Field>
+        <Field label="Header">{(id) => <TextInput id={id} value={header} onChange={(e) => setHeader(e.target.value)} />}</Field>
+        {save.isError && <ErrorText>{save.error instanceof ApiError && save.error.status === 422 ? save.error.message : 'Could not save. Try again.'}</ErrorText>}
+        {save.isSuccess && (
+          <p role="status" className="text-[12px] text-green-900">
+            Saved.
+          </p>
         )}
-      </Field>
-      <Field label="Header">{(id) => <TextInput id={id} value={header} onChange={(e) => setHeader(e.target.value)} />}</Field>
-      {save.isError && <ErrorText>{save.error instanceof ApiError && save.error.status === 422 ? save.error.message : 'Could not save. Try again.'}</ErrorText>}
-      {save.isSuccess && (
-        <p role="status" className="text-[12px] text-green-900">
-          Saved.
-        </p>
-      )}
-      <Button type="submit" disabled={save.isPending} className="self-start">
-        Save reverse proxy
-      </Button>
+        <Button type="submit" disabled={save.isPending} className="self-start">
+          Save reverse proxy
+        </Button>
+      </fieldset>
+      {saved.from_config_file && <DeclaredNote>The Config File sets the reverse proxy, so it cannot be changed here.</DeclaredNote>}
       {saved.untrusted.length > 0 && (
         <section aria-label="Untrusted proxy header sightings" className="rounded-md border border-gray-alpha-400 bg-background-200 p-3 text-[12px]">
           <p className="mb-1 font-medium">The header came from addresses that are not trusted proxies, so it was ignored:</p>
