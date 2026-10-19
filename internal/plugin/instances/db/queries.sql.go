@@ -25,6 +25,32 @@ func (q *Queries) CountOtherEnabled(ctx context.Context, arg CountOtherEnabledPa
 	return count, err
 }
 
+const declareInstance = `-- name: DeclareInstance :execrows
+UPDATE plugin_instances SET name = ?, enabled = ?, priority = ?, config = ?, declared = 1 WHERE id = ?
+`
+
+type DeclareInstanceParams struct {
+	Name     string
+	Enabled  int64
+	Priority int64
+	Config   string
+	ID       int64
+}
+
+func (q *Queries) DeclareInstance(ctx context.Context, arg DeclareInstanceParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, declareInstance,
+		arg.Name,
+		arg.Enabled,
+		arg.Priority,
+		arg.Config,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteInstance = `-- name: DeleteInstance :execrows
 DELETE FROM plugin_instances WHERE id = ?
 `
@@ -38,7 +64,7 @@ func (q *Queries) DeleteInstance(ctx context.Context, id int64) (int64, error) {
 }
 
 const getInstance = `-- name: GetInstance :one
-SELECT id, contract, plugin_id, name, enabled, priority, config FROM plugin_instances WHERE id = ?
+SELECT id, contract, plugin_id, name, enabled, priority, config, declared FROM plugin_instances WHERE id = ?
 `
 
 func (q *Queries) GetInstance(ctx context.Context, id int64) (PluginInstance, error) {
@@ -52,13 +78,14 @@ func (q *Queries) GetInstance(ctx context.Context, id int64) (PluginInstance, er
 		&i.Enabled,
 		&i.Priority,
 		&i.Config,
+		&i.Declared,
 	)
 	return i, err
 }
 
 const insertInstance = `-- name: InsertInstance :one
-INSERT INTO plugin_instances (contract, plugin_id, name, enabled, priority, config)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO plugin_instances (contract, plugin_id, name, enabled, priority, config, declared)
+VALUES (?, ?, ?, ?, ?, ?, ?)
 RETURNING id
 `
 
@@ -69,6 +96,7 @@ type InsertInstanceParams struct {
 	Enabled  int64
 	Priority int64
 	Config   string
+	Declared int64
 }
 
 func (q *Queries) InsertInstance(ctx context.Context, arg InsertInstanceParams) (int64, error) {
@@ -79,6 +107,7 @@ func (q *Queries) InsertInstance(ctx context.Context, arg InsertInstanceParams) 
 		arg.Enabled,
 		arg.Priority,
 		arg.Config,
+		arg.Declared,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -86,7 +115,7 @@ func (q *Queries) InsertInstance(ctx context.Context, arg InsertInstanceParams) 
 }
 
 const listEnabledInstances = `-- name: ListEnabledInstances :many
-SELECT id, contract, plugin_id, name, enabled, priority, config FROM plugin_instances
+SELECT id, contract, plugin_id, name, enabled, priority, config, declared FROM plugin_instances
 WHERE contract = ? AND enabled = 1
 ORDER BY priority, id
 `
@@ -108,6 +137,7 @@ func (q *Queries) ListEnabledInstances(ctx context.Context, contract string) ([]
 			&i.Enabled,
 			&i.Priority,
 			&i.Config,
+			&i.Declared,
 		); err != nil {
 			return nil, err
 		}
@@ -123,7 +153,7 @@ func (q *Queries) ListEnabledInstances(ctx context.Context, contract string) ([]
 }
 
 const listInstances = `-- name: ListInstances :many
-SELECT id, contract, plugin_id, name, enabled, priority, config FROM plugin_instances
+SELECT id, contract, plugin_id, name, enabled, priority, config, declared FROM plugin_instances
 ORDER BY contract, priority, id
 `
 
@@ -144,6 +174,7 @@ func (q *Queries) ListInstances(ctx context.Context) ([]PluginInstance, error) {
 			&i.Enabled,
 			&i.Priority,
 			&i.Config,
+			&i.Declared,
 		); err != nil {
 			return nil, err
 		}
