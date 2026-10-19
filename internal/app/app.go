@@ -3,7 +3,8 @@
 // cmd/kestrel and the API tests both start a Kestrel through it, so a test
 // drives the same wiring as the binary. It holds no behaviour of its own: the
 // rules it wires (which provider errors count against health, which files are
-// re-scored when) live in the modules and in jobs.
+// re-scored when) live in the modules and in jobs. Applying the Config File
+// (configfile.go) only orders the modules' own checks and writers.
 package app
 
 import (
@@ -85,6 +86,8 @@ type App struct {
 	Jobs *jobs.Runner
 	// Health raises and clears Needs attention rows.
 	Health *health.Service
+
+	declarer declarer
 }
 
 // NewHandler returns the whole HTTP handler, mounted under opts.BaseURL. The
@@ -210,13 +213,17 @@ func New(opts Options) *App {
 		Health:   healthSvc, Importer: imp, ImportSource: acq, Trash: trashLoop(trashUpdates, opts.TrashSource), Clock: opts.Clock, Logger: opts.Logger,
 	})
 
-	handler := api.New(opts.Options, api.Deps{
+	deps := api.Deps{
 		Plugins: pluginInstances, Profiles: profs, RootFolders: roots, Settings: settingsTx{roots, profs, trash}, Updates: upd,
 		Library: lib, Acquire: acq, Requests: reqs, Adoption: adoption, Cleanup: cleanup, Remover: remover, Imports: imp,
 		Jobs: runner, Refresher: refresher, Indexers: indexerHost, Health: healthSvc, History: hist, Scoring: live, Trash: trashAPI{trash, trashUpdates}, Keys: keys,
 		Meta: meta, TVDB: tvdb, Bridge: &metadata.Bridge{Meta: meta, TVDB: tvdb, Log: opts.Logger}, Posters: posters,
-	})
-	return &App{Handler: handler, Jobs: runner, Health: healthSvc}
+	}
+	handler := api.New(opts.Options, deps)
+	return &App{Handler: handler, Jobs: runner, Health: healthSvc, declarer: declarer{
+		file: opts.ConfigFile, api: api.NewDeclared(opts.Options, deps),
+		profiles: profs, roots: roots, updates: upd, trash: trashUpdates,
+	}}
 }
 
 // settingsTx lets PATCH /settings write the settings of several modules in one transaction.

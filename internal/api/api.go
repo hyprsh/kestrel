@@ -18,6 +18,7 @@ import (
 
 	kapi "github.com/hyprsh/kestrel/api"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
+	"github.com/hyprsh/kestrel/internal/configfile"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/store"
 )
@@ -51,6 +52,9 @@ type Options struct {
 	// When set it is the one API key: the generated one is deleted at startup and
 	// POST /api-key answers 409.
 	APIKey string
+	// ConfigFile is the decoded Config File (KESTREL_CONFIG_FILE); nil means
+	// none. Its sections are applied at startup through Declared.
+	ConfigFile *configfile.File
 }
 
 // New returns the whole HTTP handler, mounted under opts.BaseURL. The modules

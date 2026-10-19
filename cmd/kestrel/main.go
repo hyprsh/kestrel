@@ -20,6 +20,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/api"
 	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/config"
+	"github.com/hyprsh/kestrel/internal/configfile"
 	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
 	"github.com/hyprsh/kestrel/internal/store"
 	"github.com/hyprsh/kestrel/internal/version"
@@ -49,6 +50,15 @@ func run(ctx context.Context) error {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel}))
 	applyUmask(cfg.Umask)
 
+	// A bad Config File fails before the store opens; its values are checked
+	// against the store once the modules exist.
+	var file *configfile.File
+	if cfg.ConfigFile != "" {
+		if file, err = configfile.Load(cfg.ConfigFile, os.Getenv); err != nil {
+			return err
+		}
+	}
+
 	st, err := store.Open(ctx, store.Options{Dir: cfg.ConfigDir})
 	if err != nil {
 		return err
@@ -61,7 +71,7 @@ func run(ctx context.Context) error {
 	}
 
 	kestrel := app.New(app.Options{
-		Options:     api.Options{Version: version.Version, BaseURL: cfg.BaseURL, Store: st, Web: web.FS(), Logger: logger, APIKey: cfg.APIKey},
+		Options:     api.Options{Version: version.Version, BaseURL: cfg.BaseURL, Store: st, Web: web.FS(), Logger: logger, APIKey: cfg.APIKey, ConfigFile: file},
 		Plugins:     plugins,
 		TrashSource: trashsync.GitHub{},
 		DataDir:     cfg.DataDir,
@@ -70,6 +80,12 @@ func run(ctx context.Context) error {
 		TMDBAPIKey: cfg.TMDBAPIKey,
 		TVDBAPIKey: cfg.TVDBAPIKey,
 	})
+	if err := kestrel.EnforceConfigFile(ctx); err != nil {
+		return err
+	}
+	if file != nil {
+		logger.Info("config file applied", "path", file.Path)
+	}
 	srv := &http.Server{
 		Addr:              net.JoinHostPort("", strconv.Itoa(cfg.Port)),
 		Handler:           kestrel.Handler,
