@@ -27,7 +27,8 @@ func (s *Service) searchNow(ctx context.Context, versionID int64, scope library.
 
 // StartSearch checks the Version and scope as searchNow does, then runs
 // searchNow in the background and returns at once. When the search is done it
-// records a Searched event saying what came of it (each Grab records its own).
+// records a Searched event saying what came of it in the Version's Slot (each
+// Grab records its own).
 // The search lives as long as Kestrel does: StopSearches cancels it, and after
 // StopSearches no search starts. This in-memory pool is ADR 0007's exception:
 // a season or episode scope cannot be stored in search_state, so a restart
@@ -37,12 +38,16 @@ func (s *Service) StartSearch(ctx context.Context, versionID int64, scope librar
 	if err != nil {
 		return err
 	}
+	where, err := s.slotOf(ctx, titleID, versionID)
+	if err != nil {
+		return err
+	}
 	s.searches.run(func(ctx context.Context) {
 		out, err := s.searchTitle(ctx, titleID, []int64{versionID}, scope, false, false)
 		// A search cancelled at shutdown still says so in the Log.
 		ctx = context.WithoutCancel(ctx)
 		s.hist.Record(ctx, history.Event{
-			Kind: history.Searched, TitleID: titleID, VersionID: versionID, Message: s.searchedMessage(ctx, label, out, err),
+			Kind: history.Searched, TitleID: titleID, VersionID: versionID, Message: s.searchedMessage(ctx, label, where, out, err),
 		})
 	})
 	return nil
@@ -89,11 +94,29 @@ func (s *Service) checkScope(ctx context.Context, versionID int64, scope library
 	return titleID, label, nil
 }
 
-func (s *Service) searchedMessage(ctx context.Context, label string, out Outcome, err error) string {
+// slotOf is the Slot of one of the Title's Versions.
+func (s *Service) slotOf(ctx context.Context, titleID, versionID int64) (Slot, error) {
+	d, err := s.lib.Get(ctx, titleID, library.View{Now: s.clock()})
+	if err != nil {
+		return 0, err
+	}
+	for _, v := range d.Versions {
+		if v.ID == versionID {
+			return v.Slot, nil
+		}
+	}
+	return 0, library.ErrNotFound
+}
+
+// searchedMessage says what a search by hand came to, naming the scope and the
+// Slot so two Versions' searches read apart: "Searched by hand for S01E02 in
+// 4K: grabbed 1 Release".
+func (s *Service) searchedMessage(ctx context.Context, label string, where Slot, out Outcome, err error) string {
 	msg := "Searched by hand"
 	if label != "" {
 		msg += " for " + label
 	}
+	msg += " in " + where.Name()
 	switch {
 	case err != nil && len(out.Grabbed) == 0:
 		return msg + " and failed: " + err.Error()
