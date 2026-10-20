@@ -176,6 +176,9 @@ func (s *Service) busyVersions(ctx context.Context) (map[int64]bool, error) {
 
 func (s *Service) rssMovie(ctx context.Context, sub subject, items []feedItem) ([]Grab, error) {
 	d := sub.detail
+	if err := s.releaseSeen(ctx, d, len(items)); err != nil {
+		return nil, err
+	}
 	busy, err := s.busyVersions(ctx)
 	if err != nil {
 		return nil, err
