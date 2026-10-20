@@ -257,11 +257,7 @@ func (s *Service) searchTitle(ctx context.Context, titleID int64, versionIDs []i
 		slotVersion[v.Slot] = v.ID
 		u := Unit{}
 		if upgrade && v.File != nil {
-			h := Held{Fits: true, Original: v.File.Original}
-			if v.File.Score != nil {
-				h.Score = *v.File.Score
-			}
-			u.Held = &h
+			u.Held = fileHeld(v.File)
 		}
 		in.Versions = append(in.Versions, Version{Slot: v.Slot, Units: []Unit{u}})
 	}
