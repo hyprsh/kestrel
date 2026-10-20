@@ -44,16 +44,29 @@ func releasedOf(eps []db.Episode, filed map[int64]time.Time) map[int64]*time.Tim
 }
 
 // ownRelease is when an episode is released by its own data alone: its air
-// date. nil when that says nothing.
+// date, or a Placeholder Episode's creation. nil when that says nothing.
 func ownRelease(e db.Episode) *time.Time {
+	if at := placeholderAt(e); at != nil {
+		return at
+	}
 	return parseDate(e.AirDate)
 }
 
+// placeholderAt is when a Placeholder Episode was created; nil for a listed episode.
+func placeholderAt(e db.Episode) *time.Time {
+	if !e.PlaceholderAt.Valid {
+		return nil
+	}
+	at := parseTime(e.PlaceholderAt.String)
+	return &at
+}
+
 // outAt is when an episode was out, so that every undated episode before it
-// counts as released: when it aired, or when a file for it was first imported,
-// whichever came first. nil when neither happened.
+// counts as released: when it aired, when it was added as a Placeholder
+// Episode, or when a file for it was first imported, whichever came first. nil
+// when none happened.
 func outAt(e db.Episode, filed map[int64]time.Time) *time.Time {
-	at := parseDate(e.AirDate)
+	at := earliest(parseDate(e.AirDate), placeholderAt(e))
 	if f, ok := filed[e.ID]; ok {
 		at = earliest(at, &f)
 	}

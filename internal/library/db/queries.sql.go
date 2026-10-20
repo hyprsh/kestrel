@@ -39,6 +39,15 @@ func (q *Queries) DeleteAliasesOfTitle(ctx context.Context, titleID int64) error
 	return err
 }
 
+const deleteEpisode = `-- name: DeleteEpisode :exec
+DELETE FROM episodes WHERE id = ?
+`
+
+func (q *Queries) DeleteEpisode(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteEpisode, id)
+	return err
+}
+
 const deleteFile = `-- name: DeleteFile :exec
 DELETE FROM files WHERE id = ?
 `
@@ -68,6 +77,22 @@ DELETE FROM title_release_dates WHERE title_id = ?
 
 func (q *Queries) DeleteReleaseDatesOfTitle(ctx context.Context, titleID int64) error {
 	_, err := q.db.ExecContext(ctx, deleteReleaseDatesOfTitle, titleID)
+	return err
+}
+
+const deleteStrayPlaceholders = `-- name: DeleteStrayPlaceholders :exec
+DELETE FROM episodes
+WHERE episodes.title_id = ? AND episodes.placeholder_at IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM file_episodes fe WHERE fe.episode_id = episodes.id)
+  AND NOT EXISTS (
+    SELECT 1 FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
+    WHERE ge.episode_id = episodes.id AND g.state IN ('sent', 'downloading', 'completed', 'importing')
+  )
+`
+
+// A Placeholder Episode that holds no file in any Version and that no active Grab (as acquire counts one) is fetching.
+func (q *Queries) DeleteStrayPlaceholders(ctx context.Context, titleID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteStrayPlaceholders, titleID)
 	return err
 }
 
@@ -385,6 +410,28 @@ func (q *Queries) InsertFileEpisode(ctx context.Context, arg InsertFileEpisodePa
 	return err
 }
 
+const insertPlaceholderEpisode = `-- name: InsertPlaceholderEpisode :exec
+INSERT INTO episodes (title_id, season, number, monitored, placeholder_at) VALUES (?, ?, ?, 1, ?)
+ON CONFLICT (title_id, season, number) DO NOTHING
+`
+
+type InsertPlaceholderEpisodeParams struct {
+	TitleID       int64
+	Season        int64
+	Number        int64
+	PlaceholderAt sql.NullString
+}
+
+func (q *Queries) InsertPlaceholderEpisode(ctx context.Context, arg InsertPlaceholderEpisodeParams) error {
+	_, err := q.db.ExecContext(ctx, insertPlaceholderEpisode,
+		arg.TitleID,
+		arg.Season,
+		arg.Number,
+		arg.PlaceholderAt,
+	)
+	return err
+}
+
 const insertReleaseDate = `-- name: InsertReleaseDate :exec
 INSERT INTO title_release_dates (title_id, country, type, date, certification) VALUES (?, ?, ?, ?, ?)
 `
@@ -669,7 +716,7 @@ func (q *Queries) ListAllReleaseDates(ctx context.Context) ([]TitleReleaseDate, 
 }
 
 const listEpisodes = `-- name: ListEpisodes :many
-SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name FROM episodes ORDER BY title_id, season, number
+SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name, placeholder_at FROM episodes ORDER BY title_id, season, number
 `
 
 func (q *Queries) ListEpisodes(ctx context.Context) ([]Episode, error) {
@@ -691,6 +738,7 @@ func (q *Queries) ListEpisodes(ctx context.Context) ([]Episode, error) {
 			&i.AirDate,
 			&i.Monitored,
 			&i.PrimaryName,
+			&i.PlaceholderAt,
 		); err != nil {
 			return nil, err
 		}
@@ -757,7 +805,7 @@ func (q *Queries) ListEpisodesAiring(ctx context.Context, arg ListEpisodesAiring
 }
 
 const listEpisodesOfTitle = `-- name: ListEpisodesOfTitle :many
-SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name FROM episodes WHERE title_id = ? ORDER BY season, number
+SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name, placeholder_at FROM episodes WHERE title_id = ? ORDER BY season, number
 `
 
 func (q *Queries) ListEpisodesOfTitle(ctx context.Context, titleID int64) ([]Episode, error) {
@@ -779,6 +827,7 @@ func (q *Queries) ListEpisodesOfTitle(ctx context.Context, titleID int64) ([]Epi
 			&i.AirDate,
 			&i.Monitored,
 			&i.PrimaryName,
+			&i.PlaceholderAt,
 		); err != nil {
 			return nil, err
 		}
@@ -850,6 +899,38 @@ func (q *Queries) ListFileEpisodes(ctx context.Context) ([]ListFileEpisodesRow, 
 	for rows.Next() {
 		var i ListFileEpisodesRow
 		if err := rows.Scan(&i.VersionID, &i.EpisodeID, &i.Score); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFileEpisodesOfEpisode = `-- name: ListFileEpisodesOfEpisode :many
+SELECT file_id, version_id FROM file_episodes WHERE episode_id = ?
+`
+
+type ListFileEpisodesOfEpisodeRow struct {
+	FileID    int64
+	VersionID int64
+}
+
+func (q *Queries) ListFileEpisodesOfEpisode(ctx context.Context, episodeID int64) ([]ListFileEpisodesOfEpisodeRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFileEpisodesOfEpisode, episodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFileEpisodesOfEpisodeRow
+	for rows.Next() {
+		var i ListFileEpisodesOfEpisodeRow
+		if err := rows.Scan(&i.FileID, &i.VersionID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1569,6 +1650,21 @@ func (q *Queries) MarkUpgradeSearched(ctx context.Context, arg MarkUpgradeSearch
 	return err
 }
 
+const moveFileEpisode = `-- name: MoveFileEpisode :exec
+UPDATE file_episodes SET episode_id = ?1 WHERE version_id = ?2 AND episode_id = ?3
+`
+
+type MoveFileEpisodeParams struct {
+	ToEpisode   int64
+	VersionID   int64
+	FromEpisode int64
+}
+
+func (q *Queries) MoveFileEpisode(ctx context.Context, arg MoveFileEpisodeParams) error {
+	_, err := q.db.ExecContext(ctx, moveFileEpisode, arg.ToEpisode, arg.VersionID, arg.FromEpisode)
+	return err
+}
+
 const parkEpisodeNumber = `-- name: ParkEpisodeNumber :exec
 UPDATE episodes SET number = -id WHERE id = ?
 `
@@ -1855,7 +1951,8 @@ func (q *Queries) SetVersionProfile(ctx context.Context, arg SetVersionProfilePa
 }
 
 const updateEpisode = `-- name: UpdateEpisode :exec
-UPDATE episodes SET season = ?, number = ?, tvdb_id = ?, name = ?, air_date = ?, primary_name = ? WHERE id = ?
+UPDATE episodes SET season = ?, number = ?, tvdb_id = ?, name = ?, air_date = ?, primary_name = ?, placeholder_at = NULL
+WHERE id = ?
 `
 
 type UpdateEpisodeParams struct {
@@ -1868,6 +1965,7 @@ type UpdateEpisodeParams struct {
 	ID          int64
 }
 
+// TheTVDB lists every episode it updates, so a Placeholder Episode it matches is adopted.
 func (q *Queries) UpdateEpisode(ctx context.Context, arg UpdateEpisodeParams) error {
 	_, err := q.db.ExecContext(ctx, updateEpisode,
 		arg.Season,
