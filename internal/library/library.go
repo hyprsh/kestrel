@@ -212,6 +212,7 @@ type Detail struct {
 	RefreshedAt      time.Time
 	Rating           metadata.AudienceRating // TMDB's audience rating, as of the last refresh
 	ReleaseDates     metadata.ReleaseDates
+	ReleaseSeenAt    *time.Time // when a Release for a Movie was first seen; nil if never
 	Aliases          []Alias
 	Versions         []Version // in Slot order
 	// SeriesMonitor and Seasons are set for a Series.
@@ -376,11 +377,8 @@ func releaseDatesOf(rows []db.TitleReleaseDate) metadata.ReleaseDates {
 }
 
 // stateOf is a Movie Version's state. wantedSince is set when it is Wanted.
-func stateOf(monitored, hasFile bool, rel metadata.ReleaseDates, addedAt time.Time, v View) (State, *time.Time) {
-	u := Unit{Monitored: monitored, HasFile: hasFile, AddedAt: addedAt}
-	if released, ok := rel.Released(v.Country); ok {
-		u.Released = &released
-	}
+func stateOf(monitored, hasFile bool, rel metadata.ReleaseDates, seen sql.NullString, addedAt time.Time, v View) (State, *time.Time) {
+	u := Unit{Monitored: monitored, HasFile: hasFile, AddedAt: addedAt, Released: movieReleased(rel, v.Country, seen)}
 	return StateAt(u, v.Now)
 }
 
@@ -472,7 +470,7 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 			if row.Kind == Series {
 				st, since = SeriesState(unitsOf(epsOf[t.ID], heldBy[v.ID], parseTime(v.AddedAt)), view.Now)
 			} else {
-				st, since = stateOf(t.Monitored == 1, hasFile[v.ID], rel, parseTime(v.AddedAt), view)
+				st, since = stateOf(t.Monitored == 1, hasFile[v.ID], rel, t.ReleaseSeenAt, parseTime(v.AddedAt), view)
 			}
 			row.Slots[slotOf(v.Slot)] = &SlotState{VersionID: v.ID, Profile: v.ProfileKey, State: st, LongMissing: IsLongMissing(st, since, view.Now), WantedSince: since}
 			if since != nil && (row.WantedSince == nil || since.Before(*row.WantedSince)) {
@@ -544,6 +542,7 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 		AddedAt: parseTime(t.AddedAt), RefreshedAt: parseTime(t.RefreshedAt), Rating: ratingOf(t),
 	}
 	d.ReleaseDates = releaseDatesOf(dates)
+	d.ReleaseSeenAt = optTime(t.ReleaseSeenAt)
 	for _, a := range aliases {
 		d.Aliases = append(d.Aliases, Alias{Title: a.Alias, Country: a.Country, Language: a.Language})
 	}
@@ -594,7 +593,7 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 			st, since = SeriesState(units, view.Now)
 			cov = coverageOf(units, versionSize[v.ID], view.Now)
 		} else {
-			st, since = stateOf(d.Monitored, fl != nil && !fl.Misfit, d.ReleaseDates, parseTime(v.AddedAt), view)
+			st, since = stateOf(d.Monitored, fl != nil && !fl.Misfit, d.ReleaseDates, t.ReleaseSeenAt, parseTime(v.AddedAt), view)
 		}
 		d.Versions = append(d.Versions, Version{
 			ID: v.ID, Slot: slotOf(v.Slot), Profile: v.ProfileKey, State: st, LongMissing: IsLongMissing(st, since, view.Now),

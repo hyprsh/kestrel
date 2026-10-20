@@ -245,6 +245,7 @@ type Title struct {
 	RefreshedAt      string
 	TmdbVoteAverage  sql.NullFloat64
 	TmdbVoteCount    sql.NullInt64
+	ReleaseSeenAt    sql.NullString
 }
 
 type TitleAlias struct {

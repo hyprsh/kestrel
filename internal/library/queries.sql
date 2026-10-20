@@ -249,6 +249,9 @@ ORDER BY f.imported_at DESC, f.id DESC LIMIT ?;
 -- name: SetTitleMonitored :exec
 UPDATE titles SET monitored = ? WHERE id = ? AND kind = 'movie';
 
+-- name: MarkReleaseSeen :exec
+UPDATE titles SET release_seen_at = COALESCE(release_seen_at, ?) WHERE id = ? AND kind = 'movie';
+
 -- name: SetUpgradesDueSince :exec
 UPDATE search_state SET next_upgrade_at = ? WHERE last_upgrade_at >= ?;
 
