@@ -243,3 +243,6 @@ SELECT f.id, f.version_id, v.title_id, v.slot, f.release_name, f.score, f.grab_i
 FROM files f JOIN versions v ON v.id = f.version_id LEFT JOIN grabs g ON g.id = f.grab_id LEFT JOIN file_replaced_scores r ON r.file_id = f.id
 WHERE f.grab_id IS NOT NULL
 ORDER BY f.imported_at DESC, f.id DESC LIMIT ?;
+
+-- name: SetTitleMonitored :exec
+UPDATE titles SET monitored = ? WHERE id = ? AND kind = 'movie';

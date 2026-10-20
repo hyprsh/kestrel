@@ -1,6 +1,128 @@
 package library
 
-import "time"
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/hyprsh/kestrel/internal/library/db"
+)
+
+// ErrNotAMovie rejects a Movie-only operation on a Series.
+var ErrNotAMovie = errors.New("not a Movie")
+
+// MonitorResult is what SetMonitored did to one Title.
+type MonitorResult struct {
+	TitleID int64
+	// Changed is false when the Title already was as asked, or does not exist.
+	Changed bool
+	// NotFound is true when there is no such Title.
+	NotFound bool
+}
+
+// SetMonitored monitors or unmonitors Titles, all in one transaction, and says
+// per Title whether that changed it; an id given twice counts once. A Movie's
+// flag is set: an unmonitored Movie is never Wanted, searched or Upgraded, and
+// keeps its Versions and files. A Series follows the same rule through its
+// mode: unmonitoring sets MonitorNone, which unmonitors every episode, and
+// monitoring applies mode (MonitorAll when empty). A Title monitored again has
+// its Versions due a search now; the caller kicks the sweep.
+func (s *Service) SetMonitored(ctx context.Context, ids []int64, monitored bool, mode Monitor) ([]MonitorResult, error) {
+	if !monitored {
+		mode = MonitorNone
+	} else if mode == "" {
+		mode = MonitorAll
+	}
+	if !mode.Valid() {
+		return nil, fmt.Errorf("library: unknown monitoring mode %q", mode)
+	}
+	now := s.clock()
+	tx, err := s.st.Write().BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	q := db.New(tx)
+	out := make([]MonitorResult, 0, len(ids))
+	seen := make(map[int64]bool, len(ids))
+	for _, id := range ids {
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		r, err := setMonitored(ctx, q, id, monitored, mode, now)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, tx.Commit()
+}
+
+// SetMovieMonitored monitors or unmonitors one Movie, as SetMonitored does;
+// ErrNotFound for no such Title and ErrNotAMovie for a Series.
+func (s *Service) SetMovieMonitored(ctx context.Context, id int64, monitored bool) error {
+	tx, err := s.st.Write().BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	q := db.New(tx)
+	t, err := q.GetTitle(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if Kind(t.Kind) != Movie {
+		return ErrNotAMovie
+	}
+	if _, err := setMonitored(ctx, q, id, monitored, "", s.clock()); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func setMonitored(ctx context.Context, q *db.Queries, id int64, monitored bool, mode Monitor, now time.Time) (MonitorResult, error) {
+	r := MonitorResult{TitleID: id}
+	t, err := q.GetTitle(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		r.NotFound = true
+		return r, nil
+	}
+	if err != nil {
+		return r, err
+	}
+	if Kind(t.Kind) == Series {
+		if r.Changed, err = applySeriesMode(ctx, q, id, mode, now); err != nil {
+			return r, err
+		}
+		if err := q.RefreshSeasonsMonitored(ctx, id); err != nil {
+			return r, err
+		}
+	} else if r.Changed = (t.Monitored == 1) != monitored; r.Changed {
+		if err := q.SetTitleMonitored(ctx, db.SetTitleMonitoredParams{Monitored: boolInt(monitored), ID: id}); err != nil {
+			return r, err
+		}
+	}
+	if !r.Changed || !monitored {
+		return r, nil
+	}
+	versions, err := q.ListVersionsOfTitle(ctx, id)
+	if err != nil {
+		return r, err
+	}
+	due := sql.NullString{String: ts(now), Valid: true}
+	for _, v := range versions {
+		if err := q.SetNextSearchesAll(ctx, db.SetNextSearchesAllParams{NextMissingAt: due, NextUpgradeAt: due, VersionID: v.ID}); err != nil {
+			return r, err
+		}
+	}
+	return r, nil
+}
 
 // Monitor is a Series' monitoring mode (PRD Settled 10).
 type Monitor string

@@ -397,6 +397,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/titles/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change many Titles at once
+         * @description Applies one `action` to every Title in `title_ids`, with the action's parameters next to it,
+         *     and answers per Title: `changed`, `skipped` with a `reason` (such as `unchanged` when the
+         *     Title already is as asked, or `not_found`), or `failed`. A repeated id counts once. Running
+         *     the same call again changes nothing and skips every Title as `unchanged`.
+         *
+         *     - `monitor` sets `monitored` on Movies, as `PATCH /titles/{id}` does. A Series follows the
+         *       same rule through its monitoring mode: `monitored: false` sets `series_monitor: none` and
+         *       unmonitors every episode, so an unmonitored Series behaves like an unmonitored Movie;
+         *       `monitored: true` applies `series_monitor` (default `all`).
+         */
+        post: operations["bulkTitles"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/titles/{id}/refresh": {
         parameters: {
             query?: never;
@@ -445,9 +473,13 @@ export interface paths {
         head?: never;
         /**
          * Change a Title's settings
-         * @description `series_monitor` applies the mode to every episode and season now (Specials are never
-         *     monitored by a mode); `422` for a Movie. `metadata_frozen` true keeps the stored metadata as
-         *     it is and clears a "Title gone upstream" row; false lets refreshes resume.
+         * @description `monitored` monitors or unmonitors a Movie; `422` for a Series, which uses `series_monitor`.
+         *     An unmonitored Movie is never Wanted, searched or Upgraded, by the sweep or RSS; its Versions
+         *     and files stay as they are, and a Grab started by hand still works. Monitoring it again makes
+         *     its Versions due a search now. `series_monitor` applies the mode to every episode and season
+         *     now (Specials are never monitored by a mode); `422` for a Movie. `metadata_frozen` true keeps
+         *     the stored metadata as it is and clears a "Title gone upstream" row; false lets refreshes
+         *     resume.
          */
         patch: operations["patchTitle"];
         trace?: never;
@@ -1159,8 +1191,8 @@ export interface paths {
         /**
          * The health strip
          * @description Capacity at a glance: the download client, each indexer with its daily budget and any pause, the
-         *     free space on the data mount and every Root folder, and the active TRaSH snapshot with its commit
-         *     date.
+         *     free space on the data mount and every Root folder, the active TRaSH snapshot with its commit
+         *     date, and whether "Pause grabs" is on.
          */
         get: operations["getSystemStatus"];
         put?: never;
@@ -1571,6 +1603,15 @@ export interface components {
         PrimaryLanguage: "en" | "de" | "fr";
         Settings: {
             /**
+             * @description "Pause grabs" (default off). On, no automatic Grab is made: the sweep, RSS, the search on
+             *     add and the retry after a failed download still search and score Releases, so Wanted and
+             *     Upgrade candidates still show up, but send nothing to the download client. A Grab started
+             *     by hand from a Version's Releases still goes through. Turning it off makes every Wanted
+             *     Version due a search now, so the next sweep grabs as usual. The health strip shows it as
+             *     `grabs_paused`.
+             */
+            pause_grabs: boolean;
+            /**
              * @description Per section, `true` while the Config File declares it. A declared section can't be
              *     changed here: a patch naming it answers `409 conflict`.
              */
@@ -1616,6 +1657,7 @@ export interface components {
             series: string[];
         };
         SettingsPatch: {
+            pause_grabs?: boolean;
             check_github_updates?: boolean;
             /** @description A key that is omitted stays; an empty string clears the override so the next source applies. */
             metadata?: {
@@ -1901,10 +1943,45 @@ export interface components {
         EpisodeList: {
             items: components["schemas"]["Episode"][];
         };
-        /** @description Merge patch. Only Series have a `series_monitor`. */
+        /** @description Merge patch. Only Movies take `monitored`, only Series have a `series_monitor`. */
         TitlePatch: {
+            /** @description A Movie only; a Series is monitored through `series_monitor`. */
+            monitored?: boolean;
             series_monitor?: components["schemas"]["SeriesMonitor"];
             metadata_frozen?: boolean;
+        };
+        /** @description One action over many Titles. `action` says which, and picks the parameters that go with it. */
+        TitlesBulk: components["schemas"]["TitlesBulkMonitor"];
+        TitlesBulkMonitor: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "monitor";
+            title_ids: number[];
+            monitored: boolean;
+            /**
+             * @description The mode monitored Series get; left out, `all`. With `monitored: false` it can only be
+             *     `none`.
+             */
+            series_monitor?: components["schemas"]["SeriesMonitor"];
+        };
+        TitlesBulkResult: {
+            items: components["schemas"]["TitleBulkOutcome"][];
+        };
+        TitleBulkOutcome: {
+            /** Format: int64 */
+            title_id: number;
+            /** @enum {string} */
+            outcome: "changed" | "skipped" | "failed";
+            /**
+             * @description Why the Title was skipped or failed, `null` when it changed. `unchanged`: it already is as
+             *     asked. `not_found`: there is no such Title. `internal`: the change failed. More reasons
+             *     come with more actions; clients must tolerate unknown ones.
+             */
+            reason: string | null;
+            /** @description The reason in a sentence. */
+            message: string | null;
         };
         SeasonPatch: {
             monitored: boolean;
@@ -2296,6 +2373,8 @@ export interface components {
             }[];
         };
         SystemStatus: {
+            /** @description The "Pause grabs" setting is on, so no automatic Grab is made. */
+            grabs_paused: boolean;
             /** @description The active TRaSH snapshot. */
             trash: {
                 commit: string;
@@ -3258,6 +3337,32 @@ export interface operations {
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    bulkTitles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TitlesBulk"];
+            };
+        };
+        responses: {
+            /** @description What happened to each Title, in the order of `title_ids`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitlesBulkResult"];
+                };
+            };
+            422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

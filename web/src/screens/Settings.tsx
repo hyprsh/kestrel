@@ -12,6 +12,7 @@ import {
 } from '../api/queries'
 import { Button, DeclaredNote, ErrorText, Field, TextInput } from '../forms'
 import { UpdateCheckSwitch } from '../about/UpdateCheck'
+import { PauseGrabsSwitch } from '../grabs/PauseGrabs'
 import { DownloadClient } from '../plugins/DownloadClient'
 import { Indexers } from '../plugins/Indexers'
 import { MediaServers } from '../plugins/MediaServers'
@@ -29,6 +30,7 @@ const sections = [
   { id: 'metadata', title: 'Provider keys' },
   { id: 'download-client', title: 'Download client' },
   { id: 'indexers', title: 'Indexers' },
+  { id: 'grabs', title: 'Grabs' },
   { id: 'root-folders', title: 'Root folders' },
   { id: 'adoption', title: 'Existing files' },
   { id: 'media-servers', title: 'Media servers' },
@@ -84,6 +86,11 @@ export function Settings({ onRunSetup, onAdopt }: { onRunSetup: () => void; onAd
         </Group>
         <Group id="indexers" title="Indexers">
           <Indexers />
+        </Group>
+        <Group id="grabs" title="Grabs">
+          <Row label="Automatic grabs" help="Hold Kestrel back, for example after a large Adoption, without disabling the download client or the indexers.">
+            <PauseGrabsSwitch />
+          </Row>
         </Group>
         <Group id="root-folders" title="Root folders">
           <Row label="Folders" help="Where Imports put Movies and Series. The first of each kind is the default when adding a Title.">

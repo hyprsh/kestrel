@@ -703,6 +703,27 @@ func (e SuggestedSlotReason) Valid() bool {
 	}
 }
 
+// Defines values for TitleBulkOutcomeOutcome.
+const (
+	TitleBulkOutcomeOutcomeChanged TitleBulkOutcomeOutcome = "changed"
+	TitleBulkOutcomeOutcomeFailed  TitleBulkOutcomeOutcome = "failed"
+	TitleBulkOutcomeOutcomeSkipped TitleBulkOutcomeOutcome = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the TitleBulkOutcomeOutcome enum.
+func (e TitleBulkOutcomeOutcome) Valid() bool {
+	switch e {
+	case TitleBulkOutcomeOutcomeChanged:
+		return true
+	case TitleBulkOutcomeOutcomeFailed:
+		return true
+	case TitleBulkOutcomeOutcomeSkipped:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TitleKind.
 const (
 	Movie  TitleKind = "movie"
@@ -715,6 +736,21 @@ func (e TitleKind) Valid() bool {
 	case Movie:
 		return true
 	case Series:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TitlesBulkMonitorAction.
+const (
+	Monitor TitlesBulkMonitorAction = "monitor"
+)
+
+// Valid indicates whether the value is a known member of the TitlesBulkMonitorAction enum.
+func (e TitlesBulkMonitorAction) Valid() bool {
+	switch e {
+	case Monitor:
 		return true
 	default:
 		return false
@@ -1955,6 +1991,14 @@ type Settings struct {
 		TvdbApiKeySet bool `json:"tvdb_api_key_set"`
 	} `json:"metadata"`
 
+	// PauseGrabs "Pause grabs" (default off). On, no automatic Grab is made: the sweep, RSS, the search on
+	// add and the retry after a failed download still search and score Releases, so Wanted and
+	// Upgrade candidates still show up, but send nothing to the download client. A Grab started
+	// by hand from a Version's Releases still goes through. Turning it off makes every Wanted
+	// Version due a search now, so the next sweep grabs as usual. The health strip shows it as
+	// `grabs_paused`.
+	PauseGrabs bool `json:"pause_grabs"`
+
 	// RootFolders Where Imports put Titles, one or more absolute paths per kind. The first is the default when
 	// adding a Title. Unsaved, they report `<data dir>/media/movies` and `<data dir>/media/tv`.
 	RootFolders RootFolders `json:"root_folders"`
@@ -1978,6 +2022,7 @@ type SettingsPatch struct {
 		TmdbApiKey *string `json:"tmdb_api_key,omitempty"`
 		TvdbApiKey *string `json:"tvdb_api_key,omitempty"`
 	} `json:"metadata,omitempty"`
+	PauseGrabs *bool `json:"pause_grabs,omitempty"`
 
 	// RootFolders Replaces the named lists. Each path must exist, be a directory and be writable
 	// (`not_found`, `not_directory`, `not_writable`, `not_absolute`, `required`).
@@ -2070,9 +2115,12 @@ type System struct {
 // SystemStatus defines model for SystemStatus.
 type SystemStatus struct {
 	// Disks The data mount first, then every Root folder.
-	Disks          []DiskStatus    `json:"disks"`
-	DownloadClient ClientStatus    `json:"download_client"`
-	Indexers       []IndexerStatus `json:"indexers"`
+	Disks          []DiskStatus `json:"disks"`
+	DownloadClient ClientStatus `json:"download_client"`
+
+	// GrabsPaused The "Pause grabs" setting is on, so no automatic Grab is made.
+	GrabsPaused bool            `json:"grabs_paused"`
+	Indexers    []IndexerStatus `json:"indexers"`
 
 	// Trash The active TRaSH snapshot.
 	Trash struct {
@@ -2089,6 +2137,22 @@ type SystemStatus struct {
 	// Update A newer release exists. Absent when up to date or when the update check is off.
 	Update *UpdateAvailable `json:"update,omitempty"`
 }
+
+// TitleBulkOutcome defines model for TitleBulkOutcome.
+type TitleBulkOutcome struct {
+	// Message The reason in a sentence.
+	Message *string                 `json:"message"`
+	Outcome TitleBulkOutcomeOutcome `json:"outcome"`
+
+	// Reason Why the Title was skipped or failed, `null` when it changed. `unchanged`: it already is as
+	// asked. `not_found`: there is no such Title. `internal`: the change failed. More reasons
+	// come with more actions; clients must tolerate unknown ones.
+	Reason  *string `json:"reason"`
+	TitleId int64   `json:"title_id"`
+}
+
+// TitleBulkOutcomeOutcome defines model for TitleBulkOutcome.Outcome.
+type TitleBulkOutcomeOutcome string
 
 // TitleCreate defines model for TitleCreate.
 type TitleCreate struct {
@@ -2159,9 +2223,12 @@ type TitleList struct {
 	NextCursor *string    `json:"next_cursor"`
 }
 
-// TitlePatch Merge patch. Only Series have a `series_monitor`.
+// TitlePatch Merge patch. Only Movies take `monitored`, only Series have a `series_monitor`.
 type TitlePatch struct {
 	MetadataFrozen *bool `json:"metadata_frozen,omitempty"`
+
+	// Monitored A Movie only; a Series is monitored through `series_monitor`.
+	Monitored *bool `json:"monitored,omitempty"`
 
 	// SeriesMonitor `all` monitors every episode, future ones and new seasons included; `future` the episodes airing
 	// today or later or without an air date, and new seasons; `none` nothing. Specials (season 0) are
@@ -2186,6 +2253,30 @@ type TitleRow struct {
 	Title       string     `json:"title"`
 	WantedSince *time.Time `json:"wanted_since"`
 	Year        *int       `json:"year"`
+}
+
+// TitlesBulk One action over many Titles. `action` says which, and picks the parameters that go with it.
+type TitlesBulk struct {
+	union json.RawMessage
+}
+
+// TitlesBulkMonitor defines model for TitlesBulkMonitor.
+type TitlesBulkMonitor struct {
+	Action    TitlesBulkMonitorAction `json:"action"`
+	Monitored bool                    `json:"monitored"`
+
+	// SeriesMonitor The mode monitored Series get; left out, `all`. With `monitored: false` it can only be
+	// `none`.
+	SeriesMonitor *SeriesMonitor `json:"series_monitor,omitempty"`
+	TitleIds      []int64        `json:"title_ids"`
+}
+
+// TitlesBulkMonitorAction defines model for TitlesBulkMonitor.Action.
+type TitlesBulkMonitorAction string
+
+// TitlesBulkResult defines model for TitlesBulkResult.
+type TitlesBulkResult struct {
+	Items []TitleBulkOutcome `json:"items"`
 }
 
 // UntrustedProxyHeader defines model for UntrustedProxyHeader.
@@ -2480,6 +2571,9 @@ type RetryStalledImportsJSONRequestBody = StalledImportsSelect
 // CreateTitleJSONRequestBody defines body for CreateTitle for application/json ContentType.
 type CreateTitleJSONRequestBody = TitleCreate
 
+// BulkTitlesJSONRequestBody defines body for BulkTitles for application/json ContentType.
+type BulkTitlesJSONRequestBody = TitlesBulk
+
 // PatchTitleJSONRequestBody defines body for PatchTitle for application/json ContentType.
 type PatchTitleJSONRequestBody = TitlePatch
 
@@ -2497,6 +2591,71 @@ type PatchVersionJSONRequestBody = VersionPatch
 
 // SearchVersionReleasesJSONRequestBody defines body for SearchVersionReleases for application/json ContentType.
 type SearchVersionReleasesJSONRequestBody = ReleaseSearch
+
+// AsTitlesBulkMonitor returns the union data inside the TitlesBulk as a TitlesBulkMonitor
+func (t TitlesBulk) AsTitlesBulkMonitor() (TitlesBulkMonitor, error) {
+	var body TitlesBulkMonitor
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTitlesBulkMonitor overwrites any union data inside the TitlesBulk as the provided TitlesBulkMonitor
+func (t *TitlesBulk) FromTitlesBulkMonitor(v TitlesBulkMonitor) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"action":"monitor"}`))
+	t.union = b
+	return err
+}
+
+// MergeTitlesBulkMonitor performs a merge with any union data inside the TitlesBulk, using the provided TitlesBulkMonitor
+func (t *TitlesBulk) MergeTitlesBulkMonitor(v TitlesBulkMonitor) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"action":"monitor"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t TitlesBulk) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"action"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t TitlesBulk) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "monitor":
+		return t.AsTitlesBulkMonitor()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t TitlesBulk) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *TitlesBulk) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -2677,6 +2836,9 @@ type ServerInterface interface {
 	// CreateTitle Add a Title to the Library
 	// (POST /titles)
 	CreateTitle(w http.ResponseWriter, r *http.Request)
+	// BulkTitles Change many Titles at once
+	// (POST /titles/bulk)
+	BulkTitles(w http.ResponseWriter, r *http.Request)
 	// DeleteTitle Remove a Title with all its Versions
 	// (DELETE /titles/{id})
 	DeleteTitle(w http.ResponseWriter, r *http.Request, id TitleId, params DeleteTitleParams)
@@ -4079,6 +4241,20 @@ func (siw *ServerInterfaceWrapper) CreateTitle(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// BulkTitles operation middleware
+func (siw *ServerInterfaceWrapper) BulkTitles(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BulkTitles(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteTitle operation middleware
 func (siw *ServerInterfaceWrapper) DeleteTitle(w http.ResponseWriter, r *http.Request) {
 
@@ -4647,6 +4823,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/lookup/{kind}/{tmdb_id}", wrapper.LookupTitle)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles", wrapper.ListTitles)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles", wrapper.CreateTitle)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles/bulk", wrapper.BulkTitles)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles/{id}/refresh", wrapper.RefreshTitle)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/titles/{id}", wrapper.DeleteTitle)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/{id}", wrapper.GetTitle)
@@ -7950,6 +8127,61 @@ func (response CreateTitledefaultApplicationProblemPlusJSONResponse) VisitCreate
 	return err
 }
 
+type BulkTitlesRequestObject struct {
+	Body *BulkTitlesJSONRequestBody
+}
+
+type BulkTitlesResponseObject interface {
+	VisitBulkTitlesResponse(w http.ResponseWriter) error
+}
+
+type BulkTitles200JSONResponse TitlesBulkResult
+
+func (response BulkTitles200JSONResponse) VisitBulkTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BulkTitles422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response BulkTitles422ApplicationProblemPlusJSONResponse) VisitBulkTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BulkTitlesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response BulkTitlesdefaultApplicationProblemPlusJSONResponse) VisitBulkTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeleteTitleRequestObject struct {
 	Id     TitleId `json:"id"`
 	Params DeleteTitleParams
@@ -9020,6 +9252,9 @@ type StrictServerInterface interface {
 	// CreateTitle Add a Title to the Library
 	// (POST /titles)
 	CreateTitle(ctx context.Context, request CreateTitleRequestObject) (CreateTitleResponseObject, error)
+	// BulkTitles Change many Titles at once
+	// (POST /titles/bulk)
+	BulkTitles(ctx context.Context, request BulkTitlesRequestObject) (BulkTitlesResponseObject, error)
 	// DeleteTitle Remove a Title with all its Versions
 	// (DELETE /titles/{id})
 	DeleteTitle(ctx context.Context, request DeleteTitleRequestObject) (DeleteTitleResponseObject, error)
@@ -10731,6 +10966,37 @@ func (sh *strictHandler) CreateTitle(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CreateTitleResponseObject); ok {
 		if err := validResponse.VisitCreateTitleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// BulkTitles operation middleware
+func (sh *strictHandler) BulkTitles(w http.ResponseWriter, r *http.Request) {
+	var request BulkTitlesRequestObject
+
+	var body BulkTitlesJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.BulkTitles(ctx, request.(BulkTitlesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "BulkTitles")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(BulkTitlesResponseObject); ok {
+		if err := validResponse.VisitBulkTitlesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
