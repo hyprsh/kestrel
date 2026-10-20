@@ -43,6 +43,7 @@ const seriesOffer: OriginalOffer = {
 /** Serves /attention with the offers and records the actions taken on them. */
 function fakeOffers(items: OriginalOffer[]) {
   const sent: string[] = []
+  fakeLibrary([]) // serves /profiles with their names
   const originals: Attention['originals'] = { count: items.length, items }
   server.use(
     http.get('/attention', ({ response }) => response(200).json({ count: 0, severity: null, rows: [], long_missing: { count: 0, items: [] }, originals })),
@@ -59,18 +60,27 @@ function fakeOffers(items: OriginalOffer[]) {
 }
 
 describe('the Originals available group in Needs attention', () => {
+  it('names the Version\'s Profile by its name, not its key', async () => {
+    fakeOffers([movieOffer])
+    renderApp()
+
+    const section = await screen.findByRole('region', { name: /needs attention/i })
+    await userEvent.click(await within(section).findByRole('button', { name: 'Show' }))
+    expect(await within(section).findByText(/Standard · HD$/)).toBeInTheDocument()
+    expect(within(section).queryByText(/hd-primary/)).not.toBeInTheDocument()
+  })
+
   it('is one grouped row outside the badge that expands to one row per Version with Accept and Dismiss', async () => {
     const sent = fakeOffers([movieOffer, seriesOffer])
     renderApp()
 
     const section = await screen.findByRole('region', { name: /needs attention/i })
     expect(await within(section).findByText('Originals available · 2')).toBeInTheDocument()
-    expect(within(section).getByText(/nothing needs attention/i)).toBeInTheDocument()
     expect(within(section).queryByText(/paddington/i)).not.toBeInTheDocument()
 
     await userEvent.click(within(section).getByRole('button', { name: 'Show' }))
     const items = within(section).getAllByRole('listitem')
-    expect(items[0]).toHaveTextContent('Paddington · Standard · hd-primary')
+    expect(items[0]).toHaveTextContent('Paddington · Standard · HD')
     expect(items[0]).toHaveTextContent('Paddington.2014.1080p.BluRay.x264-GRP · Score 50')
     expect(items[1]).toHaveTextContent('Night Show · Standard')
     expect(items[1]).toHaveTextContent('S01 pack, S02E01')
@@ -79,6 +89,15 @@ describe('the Originals available group in Needs attention', () => {
     await waitFor(() => expect(sent).toEqual(['accept 11']))
     await userEvent.click(within(items[1]).getByRole('button', { name: 'Dismiss' }))
     await waitFor(() => expect(sent).toEqual(['accept 11', 'dismiss 21']))
+  })
+
+  it('does not say nothing needs attention while it shows', async () => {
+    fakeOffers([movieOffer])
+    renderApp()
+
+    const section = await screen.findByRole('region', { name: /needs attention/i })
+    expect(await within(section).findByText('Originals available · 1')).toBeInTheDocument()
+    expect(within(section).queryByText(/nothing needs attention/i)).not.toBeInTheDocument()
   })
 
   it('opens the Title from a row', async () => {
