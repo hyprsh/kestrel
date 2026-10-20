@@ -2,29 +2,17 @@
 
 ## [0.3.0](https://github.com/hyprsh/kestrel/compare/v0.2.0...v0.3.0) (2026-10-20)
 
+> Kestrel can now be set up from a file: point `KESTREL_CONFIG_FILE` at a YAML Config File, and every start brings the account, settings, Profiles, download clients and indexers to the state it declares, with no clicks in the UI. See [The Config File](https://github.com/hyprsh/kestrel#the-config-file).
 
 ### New Features
 
-* **api:** refuse changing a declared account ([77aa23e](https://github.com/hyprsh/kestrel/commit/77aa23e866aeb12aaea3714a82d3bf8721735ec9))
-* **api:** refuse changing declared plugin instances or taking their names ([c5df392](https://github.com/hyprsh/kestrel/commit/c5df3924e7fd51af194c361eb5cdac34ccd456b2))
-* **api:** refuse writes to declared settings, reverse proxy and Profiles ([468ca02](https://github.com/hyprsh/kestrel/commit/468ca02d5c372de9067b8b5d29d5fa0dbfb4bf44))
-* **api:** specify the Config File's 409s and from_config_file flags ([29e20a2](https://github.com/hyprsh/kestrel/commit/29e20a2ccca74cc29f65ad91600eed16aa72e248))
-* **cli:** refuse reset-password for an account the Config File declares ([5c324d2](https://github.com/hyprsh/kestrel/commit/5c324d2f55e76b2d576d7823b6bae4ab5b896986))
-* **configfile:** decode the Config File strictly and resolve its password ([e557ee3](https://github.com/hyprsh/kestrel/commit/e557ee30e12b78e252b193197b491376e6a318d7))
-* **configfile:** read declared Profiles and plugin instances, resolving instance secrets ([1c10b4c](https://github.com/hyprsh/kestrel/commit/1c10b4ce8ef8167ec8a487834c5040e8ffa4591f))
-* **config:** read the Config File path from KESTREL_CONFIG_FILE ([09db61a](https://github.com/hyprsh/kestrel/commit/09db61a8311ddeab501ed5135a083e9bf3d7e4db))
-* enforce the Config File's account and settings sections at startup ([047c1e2](https://github.com/hyprsh/kestrel/commit/047c1e2eb152b6cbcab08251a8e9b5378a8962e9))
-* enforce the Config File's plugin_instances section at startup ([b11c1f4](https://github.com/hyprsh/kestrel/commit/b11c1f4cbd8afe14bd55d7b1941db8fdd07270c1))
-* enforce the Config File's profiles section at startup ([0495bac](https://github.com/hyprsh/kestrel/commit/0495bace96d8af5d647633bdbb0468237642f176))
-* **web:** show what the Config File declares as read-only ([a19f3f8](https://github.com/hyprsh/kestrel/commit/a19f3f8edb45b184bec4120a8a23c1899e089b4c))
-
+* **config:** declare the account, language and region, root folders, reverse proxy, GitHub update check, Profiles and plugin instances in a YAML file named by `KESTREL_CONFIG_FILE`. Use it when Kestrel should come up the same way on every deployment. Kestrel checks the whole file before it writes anything, and an unknown key or invalid value stops startup with its line number. Secrets are named by environment variable (`api_key_env: SABNZBD_API_KEY`) and never written in the file. An instance removed from the file is deleted on the next start, and `enabled` is enforced, so switching an instance off means editing the file and restarting ([#97](https://github.com/hyprsh/kestrel/pull/97)), closes [#91](https://github.com/hyprsh/kestrel/issues/91)
+* **web:** everything the Config File declares is shown read-only, with a note to change it in the file. The API refuses those writes with 409 and reports `from_config_file` for each section and instance, and `kestrel reset-password` refuses a declared account ([#97](https://github.com/hyprsh/kestrel/pull/97))
 
 ### Bug Fixes
 
-* **api:** offer no Disable on a Needs attention row for a declared indexer ([2afe880](https://github.com/hyprsh/kestrel/commit/2afe880f04f7155376403c16aa0d5c2b3060ee94))
-* **cli:** refuse reset-password for a declared account without its password variable ([41e2eed](https://github.com/hyprsh/kestrel/commit/41e2eed407ff9b2b62f9f67ee4447660b68a5208))
-* hand declared instances back to the UI when the file leaves plugin_instances out ([a8f3162](https://github.com/hyprsh/kestrel/commit/a8f3162d283c9281472f72d8d6a0762862eb6545))
-* **silo:** check Kestrel's API major before listing config options ([7d18007](https://github.com/hyprsh/kestrel/commit/7d18007f5337fea00fb5003a17ba9a9bdd4a8756)), closes [#87](https://github.com/hyprsh/kestrel/issues/87)
+* **silo:** Silo's Test button now reports a Kestrel with an incompatible API version instead of showing "Connected" ([7d18007](https://github.com/hyprsh/kestrel/commit/7d18007f5337fea00fb5003a17ba9a9bdd4a8756)), closes [#87](https://github.com/hyprsh/kestrel/issues/87)
+
 
 ## [0.2.0](https://github.com/hyprsh/kestrel/compare/v0.1.0...v0.2.0) (2026-10-18)
 
