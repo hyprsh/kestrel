@@ -7,6 +7,7 @@ import (
 )
 
 func TestFilesOfATrackedTitleFillItsEmptyVersionAndCreateAMissingOneWithoutAddingATitleOrSearching(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	added := decode[titleJSON](t, a.valid("POST", "/titles", `{"kind":"movie","tmdb_id":116149,"versions":[{"slot":"standard","profile":"hd-primary"}]}`))
 	a.put(t, "Paddington (2014)/Paddington.2014.1080p.BluRay.x264-GRP.mkv", "standard")
@@ -47,6 +48,7 @@ func TestFilesOfATrackedTitleFillItsEmptyVersionAndCreateAMissingOneWithoutAddin
 }
 
 func TestAFileInATrackedFolderThatWouldReplaceTheHeldOneIsUntickedUntilTheAdminTicksIt(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	a.put(t, "Paddington.2014.1080p.BluRay.x264-GRP/Paddington.2014.1080p.BluRay.x264-GRP.mkv", "first")
 	a.commit(t, a.scan(t).Revision)

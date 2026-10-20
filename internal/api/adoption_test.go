@@ -217,6 +217,7 @@ func (a adopting) commit(t *testing.T, revision int64) adoptionJSON {
 }
 
 func TestScanningRootFoldersPlansTaggedConfidentAmbiguousAndUnreadableMovies(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	a.put(t, "The Lost Film (2020) [tmdbid-77]/lost.film.mkv", "lost")
 	a.put(t, "Paddington.2014.1080p.BluRay.x264-GRP/Paddington.2014.1080p.BluRay.x264-GRP.mkv", "pad")

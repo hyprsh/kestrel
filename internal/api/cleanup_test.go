@@ -42,6 +42,7 @@ func adoptedFolder(t *testing.T) (adopting, int64, string, string) {
 }
 
 func TestCleanUpListsUnmanagedFilesByCategoryAndDeletesOnlyTheTickedOnes(t *testing.T) {
+	t.Parallel()
 	a, id, dir, held := adoptedFolder(t)
 	junk := filepath.Join(dir, "release.nfo")
 	sample := filepath.Join(dir, "Sample", "sample.mkv")
@@ -101,6 +102,7 @@ func TestCleanUpListsUnmanagedFilesByCategoryAndDeletesOnlyTheTickedOnes(t *test
 }
 
 func TestCleanUpWithoutATitleCoversEveryTrackedFolderAndHonoursUntickedFiles(t *testing.T) {
+	t.Parallel()
 	a, _, dir, _ := adoptedFolder(t)
 	keep, drop := filepath.Join(dir, "keep.txt"), filepath.Join(dir, "drop.txt")
 	for _, p := range []string{keep, drop} {
@@ -119,6 +121,7 @@ func TestCleanUpWithoutATitleCoversEveryTrackedFolderAndHonoursUntickedFiles(t *
 }
 
 func TestCleanUpNeverDeletesAFileAVersionHolds(t *testing.T) {
+	t.Parallel()
 	a, id, _, held := adoptedFolder(t)
 	pv := decode[cleanupPreviewJSON](t, a.valid("POST", "/cleanup/preview", fmt.Sprintf(`{"title_ids":[%d]}`, id)))
 	r := a.valid("POST", "/cleanup/run", fmt.Sprintf(`{"preview_id":%q,"categories":["junk","samples","unmanaged_videos"]}`, pv.PreviewID))
@@ -128,6 +131,7 @@ func TestCleanUpNeverDeletesAFileAVersionHolds(t *testing.T) {
 }
 
 func TestCleanUpNamingAnUnknownTitleIs404(t *testing.T) {
+	t.Parallel()
 	a, id, _, _ := adoptedFolder(t)
 	if r := a.do("POST", "/cleanup/preview", fmt.Sprintf(`{"title_ids":[%d,%d]}`, id, id+1000)); r.Status != 404 {
 		t.Errorf("status = %d, want 404", r.Status)

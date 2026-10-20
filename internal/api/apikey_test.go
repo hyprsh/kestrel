@@ -46,6 +46,7 @@ func newKey(t *testing.T, b *browser) string {
 }
 
 func TestApiKeyIsGeneratedShownOnceAndOnlyItsPrefixIsKept(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.setUp()
 
@@ -64,6 +65,7 @@ func TestApiKeyIsGeneratedShownOnceAndOnlyItsPrefixIsKept(t *testing.T) {
 }
 
 func TestApiKeyAuthenticatesWithoutASessionOrCSRFHeaders(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	key := newKey(t, in.setUp())
 
@@ -90,6 +92,7 @@ func TestApiKeyAuthenticatesWithoutASessionOrCSRFHeaders(t *testing.T) {
 }
 
 func TestRotatingTheKeyStopsTheOldOneAtOnce(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.setUp()
 	old := newKey(t, b)
@@ -104,6 +107,7 @@ func TestRotatingTheKeyStopsTheOldOneAtOnce(t *testing.T) {
 }
 
 func TestTheKeyDecidesWhenCookieAndKeyBothArrive(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.setUp()
 	req, _ := http.NewRequest("GET", in.srv.URL+"/api/v1/auth/me", nil)
@@ -122,6 +126,7 @@ func TestTheKeyDecidesWhenCookieAndKeyBothArrive(t *testing.T) {
 }
 
 func TestBadKeysAreThrottledLikeFailedLogins(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	key := newKey(t, in.setUp())
 	bad := map[string]string{"X-Api-Key": "kst_nope"}
@@ -146,6 +151,7 @@ func TestBadKeysAreThrottledLikeFailedLogins(t *testing.T) {
 }
 
 func TestBadKeysAreThrottledWhileTheEnvironmentSetsTheKey(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	in.setUp()
 	in.withEnvKey(envKey)
@@ -171,6 +177,7 @@ func TestBadKeysAreThrottledWhileTheEnvironmentSetsTheKey(t *testing.T) {
 }
 
 func TestAKeyIsRefusedWhenNoneWasGenerated(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	in.setUp()
 	if r := in.call("GET", "/auth/me", "", map[string]string{"X-Api-Key": "kst_"}); r.Status != 401 {
@@ -188,6 +195,7 @@ func (in *instance) withEnvKey(key string) {
 }
 
 func TestTheKeyFromTheEnvironmentReplacesTheStoredOne(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.setUp()
 	stored := newKey(t, b)
@@ -208,6 +216,7 @@ func TestTheKeyFromTheEnvironmentReplacesTheStoredOne(t *testing.T) {
 }
 
 func TestTheKeyCannotBeRotatedWhileTheEnvironmentSetsIt(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.setUp()
 	in.withEnvKey(envKey)
@@ -222,6 +231,7 @@ func TestTheKeyCannotBeRotatedWhileTheEnvironmentSetsIt(t *testing.T) {
 }
 
 func TestRemovingTheVariableLeavesNoKey(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.setUp()
 	stored := newKey(t, b)

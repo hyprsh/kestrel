@@ -36,6 +36,7 @@ func fakeGitHubAPI(t *testing.T, calls *atomic.Int32) *httptest.Server {
 }
 
 func TestTheDailyCheckRaisesTheSecurityWarningAndShowsTheUpdate(t *testing.T) {
+	t.Parallel()
 	var calls atomic.Int32
 	gh := fakeGitHubAPI(t, &calls)
 	in := newInstance(t, "", func(o *app.Options) { o.GitHubAPI = gh.URL })
@@ -79,6 +80,7 @@ func TestTheDailyCheckRaisesTheSecurityWarningAndShowsTheUpdate(t *testing.T) {
 }
 
 func TestTurningTheSwitchOffClearsWhatGitHubShowedAndStopsAsking(t *testing.T) {
+	t.Parallel()
 	var calls atomic.Int32
 	gh := fakeGitHubAPI(t, &calls)
 	in := newInstance(t, "", func(o *app.Options) { o.GitHubAPI = gh.URL })
@@ -111,6 +113,7 @@ func TestTurningTheSwitchOffClearsWhatGitHubShowedAndStopsAsking(t *testing.T) {
 }
 
 func TestNoticesCreditRadarrSonarrAndTRaSH(t *testing.T) {
+	t.Parallel()
 	b := newInstance(t, "").setUp()
 	r := b.get("/about/notices")
 	if r.Status != 200 || !strings.Contains(r.Body, "Radarr") || !strings.Contains(r.Body, "Sonarr") || !strings.Contains(r.Body, "TRaSH") {

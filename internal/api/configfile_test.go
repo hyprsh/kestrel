@@ -64,6 +64,7 @@ func (in *instance) writes() int64 {
 const declaredAccount = "account:\n  username: admin\n  password_env: KESTREL_ADMIN_PASSWORD\n"
 
 func TestADeclaredAccountIsCreatedOnAFreshStart(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	in.mustDeclare(declaredAccount, "KESTREL_ADMIN_PASSWORD", "correct horse")
 
@@ -77,6 +78,7 @@ func TestADeclaredAccountIsCreatedOnAFreshStart(t *testing.T) {
 }
 
 func TestADeclaredAccountIsRenamedAndItsPasswordSetOnEveryStart(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	in.setUp() // admin / correct horse, made in the UI
 	old := in.login()
@@ -99,6 +101,7 @@ func TestADeclaredAccountIsRenamedAndItsPasswordSetOnEveryStart(t *testing.T) {
 }
 
 func TestARenameAloneKeepsTheSessions(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	in.mustDeclare(declaredAccount, "KESTREL_ADMIN_PASSWORD", "correct horse")
 	b, _ := in.loginAs("admin", "correct horse")
@@ -146,6 +149,7 @@ type reverseProxyJSON struct {
 }
 
 func TestAFreshStartTakesEveryDeclaredSetting(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	data := t.TempDir()
 	mkdirs(t, data+"/movies", data+"/movies-4k", data+"/tv")
@@ -175,6 +179,7 @@ func TestAFreshStartTakesEveryDeclaredSetting(t *testing.T) {
 }
 
 func TestASecondStartWithTheSameFileWritesNothing(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	data := t.TempDir()
 	mkdirs(t, data+"/movies", data+"/movies-4k", data+"/tv")
@@ -191,6 +196,7 @@ func TestASecondStartWithTheSameFileWritesNothing(t *testing.T) {
 }
 
 func TestAChangedDeclaredValueAppliesOnTheNextStart(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	data := t.TempDir()
 	mkdirs(t, data+"/movies", data+"/movies-4k", data+"/tv", data+"/shows")
@@ -211,6 +217,7 @@ func TestAChangedDeclaredValueAppliesOnTheNextStart(t *testing.T) {
 }
 
 func TestASectionLeftOutIsNotTouched(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.setUp()
 	if r := b.valid("PATCH", "/settings", `{"language_region":{"primary_language":"fr"},"check_github_updates":false}`); r.Status != 200 {
@@ -227,6 +234,7 @@ func TestASectionLeftOutIsNotTouched(t *testing.T) {
 }
 
 func TestAnInvalidSectionLeavesTheEarlierOnesUnwritten(t *testing.T) {
+	t.Parallel()
 	data := t.TempDir()
 	mkdirs(t, data+"/movies", data+"/movies-4k") // no tv
 	for _, c := range []struct{ name, body, want string }{
@@ -235,6 +243,7 @@ func TestAnInvalidSectionLeavesTheEarlierOnesUnwritten(t *testing.T) {
 		{"country", strings.Replace(settingsFile(data), "AT", "Austria", 1), "language_region.release_date_country"},
 		{"proxy", strings.Replace(settingsFile(data), "192.168.1.2", "proxy.local", 1), "reverse_proxy.trusted_proxies"},
 	} {
+		// Serial: the cases share data and add and remove its tv folder.
 		t.Run(c.name, func(t *testing.T) {
 			if c.name != "root folder" {
 				mkdirs(t, data+"/tv")
@@ -253,6 +262,7 @@ func TestAnInvalidSectionLeavesTheEarlierOnesUnwritten(t *testing.T) {
 }
 
 func TestTheFileCompletesSetupWhenTheStoreHasAClientAndAnIndexer(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t) // an enabled download client and indexer, made in the UI
 	in := s.in
 	mkdirs(t, s.data+"/movies", s.data+"/movies-4k", s.data+"/tv")
@@ -264,6 +274,7 @@ func TestTheFileCompletesSetupWhenTheStoreHasAClientAndAnIndexer(t *testing.T) {
 }
 
 func TestADeclaredPrimaryLanguageRescoresFilesWhenItChanges(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
 	s.prober.set(goodProbe(), nil)
@@ -287,6 +298,7 @@ func TestADeclaredPrimaryLanguageRescoresFilesWhenItChanges(t *testing.T) {
 }
 
 func TestAShortDeclaredPasswordFailsStartupWithoutEchoingIt(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	err := in.declare(declaredAccount, "KESTREL_ADMIN_PASSWORD", "hunter2")
 	if err == nil || !strings.Contains(err.Error(), "account.password_env") || !strings.Contains(err.Error(), "KESTREL_ADMIN_PASSWORD") {

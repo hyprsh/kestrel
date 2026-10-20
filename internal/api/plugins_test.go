@@ -85,6 +85,7 @@ func sabBody(srvURL, key string, extra string) string {
 }
 
 func TestPluginEndpointsNeedALogin(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "", withSAB(t))
 	b := in.setUp()
 	anon := in.browser()
@@ -99,6 +100,7 @@ func TestPluginEndpointsNeedALogin(t *testing.T) {
 }
 
 func TestPluginsListManifestsDrawnFromTheAdapters(t *testing.T) {
+	t.Parallel()
 	b := newInstance(t, "", withSAB(t)).setUp()
 	r := b.valid("GET", "/plugins", "")
 	var got struct {
@@ -128,6 +130,7 @@ func TestPluginsListManifestsDrawnFromTheAdapters(t *testing.T) {
 }
 
 func TestConnectingSABnzbdEndToEnd(t *testing.T) {
+	t.Parallel()
 	sab := fakeSAB(t)
 	in := newInstance(t, "", withSAB(t))
 	b := in.setUp()
@@ -186,6 +189,7 @@ func TestConnectingSABnzbdEndToEnd(t *testing.T) {
 }
 
 func TestSecretsAreKeptReplacedAndCleared(t *testing.T) {
+	t.Parallel()
 	sab := fakeSAB(t)
 	b := newInstance(t, "", withSAB(t)).setUp()
 	created := decode[instanceJSON](t, b.valid("POST", "/plugin-instances", sabBody(sab.URL, sabKey, "")))
@@ -214,6 +218,7 @@ func TestSecretsAreKeptReplacedAndCleared(t *testing.T) {
 }
 
 func TestOnlyOneDownloadClientCanBeEnabled(t *testing.T) {
+	t.Parallel()
 	sab := fakeSAB(t)
 	b := newInstance(t, "", withSAB(t)).setUp()
 	if r := b.valid("POST", "/plugin-instances", sabBody(sab.URL, sabKey, "")); r.Status != 201 {
@@ -236,6 +241,7 @@ func TestOnlyOneDownloadClientCanBeEnabled(t *testing.T) {
 }
 
 func TestPluginInstanceValidationAndNotFound(t *testing.T) {
+	t.Parallel()
 	sab := fakeSAB(t)
 	b := newInstance(t, "", withSAB(t)).setUp()
 	cases := []struct {
@@ -257,6 +263,7 @@ func TestPluginInstanceValidationAndNotFound(t *testing.T) {
 		{"options with a wrong key are an upstream problem", "POST", "/plugins/sabnzbd/options/tv_category", `{"config":{"url":"` + sab.URL + `","api_key":"wrong"}}`, 502, `"code":"upstream_unavailable"`},
 	}
 	for _, c := range cases {
+		// Serial: the cases share one instance and the browser's cookie jar.
 		t.Run(c.name, func(t *testing.T) {
 			r := b.valid(c.method, c.path, c.body)
 			if r.Status != c.status || !strings.Contains(r.Body, c.contains) {
@@ -267,6 +274,7 @@ func TestPluginInstanceValidationAndNotFound(t *testing.T) {
 }
 
 func TestDeleteRemovesTheInstance(t *testing.T) {
+	t.Parallel()
 	sab := fakeSAB(t)
 	b := newInstance(t, "", withSAB(t)).setUp()
 	created := decode[instanceJSON](t, b.valid("POST", "/plugin-instances", sabBody(sab.URL, sabKey, "")))

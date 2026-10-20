@@ -91,6 +91,7 @@ func specRouter(t *testing.T, host string) routers.Router {
 }
 
 func TestASpecRouterStillMatchesItsHostAfterAnotherHostsRouterIsBuilt(t *testing.T) {
+	t.Parallel()
 	first := specRouter(t, "first.test")
 	specRouter(t, "second.test")
 	req, _ := http.NewRequest("GET", "http://first.test/api/v1/system", nil)
@@ -120,6 +121,7 @@ func validateAgainstSpec(t *testing.T, req *http.Request, res *http.Response, bo
 }
 
 func TestSystemIsServedFromTheSpecAndMatchesIt(t *testing.T) {
+	t.Parallel()
 	srv := startServer(t, "", webFS)
 	req, _ := http.NewRequest("GET", srv.URL+"/api/v1/system", nil)
 	res, body := get(t, req.URL.String())
@@ -143,6 +145,7 @@ func TestSystemIsServedFromTheSpecAndMatchesIt(t *testing.T) {
 }
 
 func TestPingIsUnauthenticatedWithNoBody(t *testing.T) {
+	t.Parallel()
 	srv := startServer(t, "", webFS)
 	res, body := get(t, srv.URL+"/ping")
 	if res.StatusCode != 200 || body != "" {
@@ -151,6 +154,7 @@ func TestPingIsUnauthenticatedWithNoBody(t *testing.T) {
 }
 
 func TestBaseURLPrefixesEveryRoute(t *testing.T) {
+	t.Parallel()
 	srv := startServer(t, "/kestrel", webFS)
 
 	for _, path := range []string{"/kestrel/ping", "/kestrel/api/v1/system", "/kestrel/api/v1/openapi.json", "/kestrel/api/docs", "/kestrel/", "/kestrel/library"} {
@@ -180,6 +184,7 @@ func TestBaseURLPrefixesEveryRoute(t *testing.T) {
 }
 
 func TestSpecAndDocsArePublished(t *testing.T) {
+	t.Parallel()
 	srv := startServer(t, "/kestrel", webFS)
 
 	res, body := get(t, srv.URL+"/kestrel/api/v1/openapi.json")
@@ -204,6 +209,7 @@ func TestSpecAndDocsArePublished(t *testing.T) {
 }
 
 func TestSPAIsServedWithAnIndexFallbackAndTheBaseHref(t *testing.T) {
+	t.Parallel()
 	srv := startServer(t, "/kestrel", webFS)
 
 	for _, path := range []string{"/kestrel/", "/kestrel/library", "/kestrel/title/42"} {
@@ -221,6 +227,7 @@ func TestSPAIsServedWithAnIndexFallbackAndTheBaseHref(t *testing.T) {
 }
 
 func TestUnknownAPIPathsAreProblemJSONNotTheSPA(t *testing.T) {
+	t.Parallel()
 	b := newInstance(t, "").setUp()
 	r := b.get("/nope")
 	if r.Status != 404 || r.Header.Get("Content-Type") != "application/problem+json" || !strings.Contains(r.Body, `"code":"not_found"`) {
@@ -229,6 +236,7 @@ func TestUnknownAPIPathsAreProblemJSONNotTheSPA(t *testing.T) {
 }
 
 func TestMissingSPABuildDoesNotBreakTheAPI(t *testing.T) {
+	t.Parallel()
 	srv := startServer(t, "", fstest.MapFS{})
 	if res, _ := get(t, srv.URL+"/"); res.StatusCode != http.StatusServiceUnavailable {
 		t.Errorf("GET / without a built SPA = %d, want 503", res.StatusCode)

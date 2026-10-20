@@ -12,6 +12,7 @@ import (
 )
 
 func TestLoginSetsAnHttpOnlyLaxCookieScopedToTheBaseURL(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "/kestrel")
 	in.setUp()
 	b := in.browser()
@@ -30,6 +31,7 @@ func TestLoginSetsAnHttpOnlyLaxCookieScopedToTheBaseURL(t *testing.T) {
 }
 
 func TestCookieIsSecureBehindATLSTerminatingProxy(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	in.setUp()
 	req, _ := http.NewRequest("POST", in.srv.URL+"/api/v1/auth/login", strings.NewReader(adminJSON))
@@ -46,6 +48,7 @@ func TestCookieIsSecureBehindATLSTerminatingProxy(t *testing.T) {
 }
 
 func TestWrongCredentialsAreRefusedWithoutSayingWhich(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	in.setUp()
 	for _, body := range []string{
@@ -60,6 +63,7 @@ func TestWrongCredentialsAreRefusedWithoutSayingWhich(t *testing.T) {
 }
 
 func TestActivitySlidesTheThirtyDayExpiry(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	in.setUp()
 	b := in.login()
@@ -79,6 +83,7 @@ func TestActivitySlidesTheThirtyDayExpiry(t *testing.T) {
 }
 
 func TestLogOutEndsTheSessionAndClearsTheCookie(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	in.setUp()
 	b := in.login()
@@ -100,6 +105,7 @@ func TestLogOutEndsTheSessionAndClearsTheCookie(t *testing.T) {
 }
 
 func TestLogOutEverywhereEndsEverySession(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	a := in.setUp()
 	b := in.login()
@@ -119,6 +125,7 @@ func TestLogOutEverywhereEndsEverySession(t *testing.T) {
 }
 
 func TestChangingThePasswordLogsOutOtherSessions(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	in.setUp()
 	here := in.login()
@@ -153,6 +160,7 @@ func TestChangingThePasswordLogsOutOtherSessions(t *testing.T) {
 }
 
 func TestFiveFailedLoginsSlowFurtherAttempts(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	in.setUp()
 	b := in.browser()
@@ -182,6 +190,7 @@ func TestFiveFailedLoginsSlowFurtherAttempts(t *testing.T) {
 }
 
 func TestLoginBackoffGrowsButNeverPastFifteenMinutes(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	in.setUp()
 	b := in.browser()
@@ -209,6 +218,7 @@ func TestLoginBackoffGrowsButNeverPastFifteenMinutes(t *testing.T) {
 }
 
 func TestForeignOriginAndNonJSONStateChangesAreRefused(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.setUp()
 
@@ -240,6 +250,7 @@ func TestForeignOriginAndNonJSONStateChangesAreRefused(t *testing.T) {
 }
 
 func TestOriginIsComparedByHostAndPortIgnoringTheScheme(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.setUp()
 	host := strings.TrimPrefix(in.srv.URL, "http://")
@@ -251,6 +262,7 @@ func TestOriginIsComparedByHostAndPortIgnoringTheScheme(t *testing.T) {
 }
 
 func TestExpiredSessionsArePruned(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	in.setUp()
 	in.clock.Advance(20 * 24 * time.Hour)
@@ -264,6 +276,7 @@ func TestExpiredSessionsArePruned(t *testing.T) {
 }
 
 func TestAuthResponsesMatchTheSpec(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.browser()
 	check := func(method, path string, r reply) {

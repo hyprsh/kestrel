@@ -32,6 +32,7 @@ type fromConfigFileSettings struct {
 }
 
 func TestADeclaredSettingsSectionIsReadOnly(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.setUp()
 	in.mustDeclare(declaredRegion)
@@ -52,6 +53,7 @@ func TestADeclaredSettingsSectionIsReadOnly(t *testing.T) {
 }
 
 func TestADeclaredAccountIsReadOnly(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	if me := in.setUp().valid("GET", "/auth/me", ""); !strings.Contains(me.Body, `"from_config_file":false`) {
 		t.Errorf("without a Config File: %s, want from_config_file false", me.Body)
@@ -71,6 +73,7 @@ func TestADeclaredAccountIsReadOnly(t *testing.T) {
 }
 
 func TestADeclaredReverseProxyIsReadOnly(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.setUp()
 	if r := b.valid("GET", "/settings/reverse-proxy", ""); !strings.Contains(r.Body, `"from_config_file":false`) {
@@ -89,6 +92,7 @@ func TestADeclaredReverseProxyIsReadOnly(t *testing.T) {
 }
 
 func TestDeclaredProfilesAreReadOnly(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.setUp()
 	if r := b.valid("GET", "/profiles", ""); strings.Contains(r.Body, `"from_config_file":true`) {
@@ -111,6 +115,7 @@ func uiIndexer(name string) string {
 }
 
 func TestADeclaredInstanceIsReadOnly(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "", withFakes(t))
 	b := in.setUp()
 	ui := decode[instanceJSON](t, b.valid("POST", "/plugin-instances", uiIndexer("Beta")))
@@ -153,6 +158,7 @@ func TestADeclaredInstanceIsReadOnly(t *testing.T) {
 }
 
 func TestInstancesGoBackToTheUIWhenTheFileStopsDeclaringThem(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "", withFakes(t))
 	b := in.setUp()
 	in.mustDeclare(declaredInstances, fakeEnv...)

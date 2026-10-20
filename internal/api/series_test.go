@@ -76,6 +76,7 @@ func monitoredNames(eps []episodeJSON) map[string]bool {
 }
 
 func TestASeriesIsAddedAgainstTMDBAndTVDBFixturesAndReadBack(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	r := l.valid("POST", "/titles", addBreakingBad+`,"series_monitor":"future"}`)
 	if r.Status != 201 {
@@ -126,6 +127,7 @@ func TestASeriesIsAddedAgainstTMDBAndTVDBFixturesAndReadBack(t *testing.T) {
 }
 
 func TestEachMonitoringModeThroughTheAPIMonitorsWhatSettledTenSays(t *testing.T) {
+	t.Parallel()
 	cases := map[string]map[string]bool{
 		"all":    {"Good Cop Bad Cop": false, "Pilot": true, "Seven Thirty-Seven": true, "Bit by a Dead Bee": true, "Green Light": true},
 		"future": {"Good Cop Bad Cop": false, "Pilot": false, "Seven Thirty-Seven": false, "Bit by a Dead Bee": true, "Green Light": true},
@@ -133,6 +135,7 @@ func TestEachMonitoringModeThroughTheAPIMonitorsWhatSettledTenSays(t *testing.T)
 	}
 	for mode, want := range cases {
 		t.Run(mode, func(t *testing.T) {
+			t.Parallel()
 			l := newLibraryInstance(t, metadatatest.Key)
 			id := decode[seriesTitleJSON](t, l.valid("POST", "/titles", addBreakingBad+`,"series_monitor":"`+mode+`"}`)).ID
 			got := monitoredNames(episodesOf(t, l, id))
@@ -146,6 +149,7 @@ func TestEachMonitoringModeThroughTheAPIMonitorsWhatSettledTenSays(t *testing.T)
 }
 
 func TestASeriesIsMonitoredAllWhenNoModeIsGiven(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	got := decode[seriesTitleJSON](t, l.valid("POST", "/titles", addBreakingBad+`}`))
 	if got.SeriesMonitor == nil || *got.SeriesMonitor != "all" || got.Versions[0].State != "wanted" {
@@ -154,6 +158,7 @@ func TestASeriesIsMonitoredAllWhenNoModeIsGiven(t *testing.T) {
 }
 
 func TestLookupOffersSeriesAndGreysOutThoseNotOnTheTVDB(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	got := decode[seriesLookupJSON](t, l.valid("GET", "/lookup?q=breaking&kind=series", ""))
 	if len(got.Items) != 3 {
@@ -177,6 +182,7 @@ func TestLookupOffersSeriesAndGreysOutThoseNotOnTheTVDB(t *testing.T) {
 }
 
 func TestASeriesWithoutATVDBMatchIsRefused(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	r := l.do("POST", "/titles", `{"kind":"series","tmdb_id":9001,"versions":[{"slot":"standard","profile":"hd-primary"}]}`)
 	if r.Status != 422 || !strings.Contains(r.Body, `"field":"tmdb_id"`) || !strings.Contains(r.Body, `"code":"not_on_tvdb"`) {
@@ -188,6 +194,7 @@ func TestASeriesWithoutATVDBMatchIsRefused(t *testing.T) {
 }
 
 func TestASeriesTheTVDBOnlyKnowsByIMDbIDIsAddedThroughTheBridge(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	r := l.valid("POST", "/titles", `{"kind":"series","tmdb_id":7001,"versions":[{"slot":"standard","profile":"hd-primary"}]}`)
 	if r.Status != 201 {
@@ -200,6 +207,7 @@ func TestASeriesTheTVDBOnlyKnowsByIMDbIDIsAddedThroughTheBridge(t *testing.T) {
 }
 
 func TestAddingTheSameSeriesTwiceIsAConflict(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	id := decode[seriesTitleJSON](t, l.valid("POST", "/titles", addBreakingBad+`}`)).ID
 	r := l.do("POST", "/titles", addBreakingBad+`}`)
@@ -209,6 +217,7 @@ func TestAddingTheSameSeriesTwiceIsAConflict(t *testing.T) {
 }
 
 func TestASeriesSuggestionPreselectsFromTheSeriesDefaults(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	sug := decode[suggestionJSON](t, l.valid("GET", "/lookup/series/1396", ""))
 	if sug.Title != "Breaking Bad" || len(sug.Slots) != 1 || sug.Slots[0].Slot != "standard" || sug.Slots[0].Profile != "hd-primary" {
@@ -224,6 +233,7 @@ func TestASeriesSuggestionPreselectsFromTheSeriesDefaults(t *testing.T) {
 }
 
 func TestSeasonAndEpisodeToggles(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	id := decode[seriesTitleJSON](t, l.valid("POST", "/titles", addBreakingBad+`,"series_monitor":"none"}`)).ID
 	path := func(p string) string { return fmt.Sprintf("/titles/%d%s", id, p) }
@@ -267,6 +277,7 @@ func TestSeasonAndEpisodeToggles(t *testing.T) {
 }
 
 func TestMoviesHaveNoEpisodesOrModes(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	id := decode[titleJSON](t, l.valid("POST", "/titles", addPaddington)).ID
 	if r := l.do("GET", fmt.Sprintf("/titles/%d/episodes", id), ""); r.Status != 404 {

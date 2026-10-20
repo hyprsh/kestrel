@@ -54,6 +54,7 @@ func (a adopting) titleIDOf(t *testing.T, tmdb int) int64 {
 // The plan's Scores and misfit marks are those of the scan. A commit stores what
 // the active snapshot and the household's settings say now.
 func TestCommittingStoresTheScoresOfNowNotOfTheScan(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	a.put(t, "Paddington.2014.1080p.BluRay.x264-GRP/Paddington.2014.1080p.BluRay.x264-GRP.mkv", "movie")
 	plan := a.scan(t)
@@ -76,6 +77,7 @@ func TestCommittingStoresTheScoresOfNowNotOfTheScan(t *testing.T) {
 }
 
 func TestCommittingRenamesFilesInPlaceWithTheirSubtitlesAndFillsTheVersions(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	old := "Paddington.2014.1080p.BluRay.x264-GRP"
 	video := a.put(t, old+"/"+old+".mkv", "movie")
@@ -118,6 +120,7 @@ func TestCommittingRenamesFilesInPlaceWithTheirSubtitlesAndFillsTheVersions(t *t
 }
 
 func TestAdoptionLeavesTitlesInTheRootFolderTheyWereFoundIn(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	second := filepath.Join(a.data, "media", "more-movies")
 	mkdirs(t, second)

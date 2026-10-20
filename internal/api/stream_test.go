@@ -142,6 +142,7 @@ func fastStream(o *app.Options) {
 }
 
 func TestTheStreamShowsAGrabAndItsStateChangesAsHintsAndQueueSnapshots(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t, fastStream)
 	s.addPaddington(t)
 	s.publish(t, goodRelease)
@@ -177,6 +178,7 @@ func TestTheStreamShowsAGrabAndItsStateChangesAsHintsAndQueueSnapshots(t *testin
 }
 
 func TestTheStreamDoesNotReplayWhatHappenedBeforeItOpened(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t, fastStream)
 	s.addPaddington(t)
 	s.publish(t, goodRelease)
@@ -193,6 +195,7 @@ func TestTheStreamDoesNotReplayWhatHappenedBeforeItOpened(t *testing.T) {
 }
 
 func TestTheStreamHintsAChangeMadeThroughTheAPIItself(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t, fastStream)
 	st := s.stream(t)
 	st.until("first frame", func(e sseEvent) bool { return e.Name == "queue" })
@@ -204,6 +207,7 @@ func TestTheStreamHintsAChangeMadeThroughTheAPIItself(t *testing.T) {
 }
 
 func TestTheStreamSendsActivityAndAttentionSnapshotsAndHeartbeats(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t, fastStream)
 	st := s.stream(t)
 
@@ -218,6 +222,7 @@ func TestTheStreamSendsActivityAndAttentionSnapshotsAndHeartbeats(t *testing.T) 
 }
 
 func TestTheStreamIsClosedWith401WithoutALogin(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	in.setUp()
 
@@ -229,6 +234,7 @@ func TestTheStreamIsClosedWith401WithoutALogin(t *testing.T) {
 }
 
 func TestANewRequestIsLoggedOnceAndHintedButARetryIsNot(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t, fastStream)
 	st := s.stream(t)
 	st.until("first frame", func(e sseEvent) bool { return e.Name == "queue" })

@@ -17,6 +17,7 @@ func (a adopting) stateOf(t *testing.T, id int64, slot string) string {
 }
 
 func TestAnAdoptedFileThatFailsTheResolutionGateIsTheBaselineAndItsVersionIsWanted(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	// A 1080p file under Kestrel's own 4K label: the 4K Profile does not take it.
 	a.put(t, "Paddington (2014) {tmdb-116149}/Paddington (2014) {tmdb-116149} - [4K][Bluray-1080p][English][h264]-GRP.mkv", "x")
@@ -33,6 +34,7 @@ func TestAnAdoptedFileThatFailsTheResolutionGateIsTheBaselineAndItsVersionIsWant
 }
 
 func TestAnAdoptedFileInTheWrongLanguageMakesItsVersionWantedWhileAFittingOneIsFilled(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	a.put(t, "Paddington (2014) {tmdb-116149}/Paddington (2014) {tmdb-116149} - [Standard][Bluray-1080p][English][h264]-GRP french.mkv", "x")
 	a.put(t, "Paddington (2014) uhd/Paddington.2014.2160p.BluRay.x265-GRP.mkv", "x")

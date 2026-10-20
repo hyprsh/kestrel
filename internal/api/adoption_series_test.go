@@ -23,6 +23,7 @@ func (a adopting) cellsOf(t *testing.T, id int64) map[string]string {
 }
 
 func TestASeriesFolderIsAdoptedWithSeveralVersionsPerEpisodeByLabelAndResolution(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	a.putTV(t, bbFolder+"/Season 01/Breaking Bad - S01E01 - [Standard][WEBDL-1080p][English][h264]-GRP.mkv", "standard")
 	a.putTV(t, bbFolder+"/Season 01/Breaking.Bad.S01E02-E03.1080p.WEB-DL.x264-GRP.mkv", "pack")
@@ -75,6 +76,7 @@ func TestASeriesFolderIsAdoptedWithSeveralVersionsPerEpisodeByLabelAndResolution
 }
 
 func TestASeriesNotOnTheTVDBIsSkippedWithTheReason(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	a.putTV(t, "Orphan Show (2019) {tmdb-9001}/Season 01/Orphan.Show.S01E01.1080p.WEB-DL-GRP.mkv", "x")
 
@@ -87,6 +89,7 @@ func TestASeriesNotOnTheTVDBIsSkippedWithTheReason(t *testing.T) {
 }
 
 func TestASeriesIsMatchedByNameWithinAYearAndOtherwiseNeedsAChoice(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	a.putTV(t, "Breaking Bad (2009)/Season 01/Breaking.Bad.S01E01.1080p.WEB-DL-GRP.mkv", "x")
 	a.putTV(t, "Breaking Bad (2012)/Season 01/Breaking.Bad.S01E01.1080p.WEB-DL-GRP.mkv", "y")
@@ -102,6 +105,7 @@ func TestASeriesIsMatchedByNameWithinAYearAndOtherwiseNeedsAChoice(t *testing.T)
 }
 
 func TestAnEpisodeFileThatWouldReplaceAHeldOneIsUntickedAndReplacesOnlyWhenTicked(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	a.putTV(t, bbFolder+"/Season 01/Breaking.Bad.S01E01.1080p.WEB-DL.x264-GRP.mkv", "first")
 	a.commit(t, a.scan(t).Revision)
@@ -163,6 +167,7 @@ func (a adopting) heldFile(t *testing.T, ep string) string {
 }
 
 func TestTwoFilesForOneEpisodeAndSlotGoToTheHigherScoreAndTheOtherStaysAsADuplicate(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	a.putTV(t, bbFolder+"/Season 01/Breaking.Bad.S01E01.1080p.WEB-DL.x264-GRP.mkv", "a")
 	a.putTV(t, bbFolder+"/Season 01/Breaking.Bad.S01E01.small.1080p.WEB-DL.x264-GRP.mkv", "b")
