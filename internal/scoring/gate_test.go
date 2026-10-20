@@ -78,7 +78,7 @@ func TestPrimaryLanguageProfileNeedsThePrimaryAudio(t *testing.T) {
 
 func TestOriginalLanguageFallback(t *testing.T) {
 	withFallback := germanHD
-	withFallback.OriginalFallback = true
+	withFallback.OriginalChoice = scoring.OriginalAccept
 
 	// An English Title, only English audio: German Profile accepts it with the
 	// fallback, rejects it without.
@@ -105,6 +105,31 @@ func TestOriginalLanguageFallback(t *testing.T) {
 	}
 }
 
+func TestOfferingTheOriginalLanguage(t *testing.T) {
+	offer := germanHD
+	offer.OriginalChoice = scoring.OriginalOffer
+
+	// An Original-only Release is held back with its own code, not language.
+	v := verdict(t, offer, nameEnglish1080, titleEN, nil)
+	if !reflect.DeepEqual(v.Rejections, []scoring.Rejection{scoring.RejectOriginalOnly}) {
+		t.Errorf("rejections = %v, want [original_only]", v.Rejections)
+	}
+	// Primary-Language audio is accepted as ever.
+	if v := verdict(t, offer, nameGermanDL, titleEN, nil); !v.Accepted {
+		t.Errorf("DL rejected %v", v.Rejections)
+	}
+	// Some other language is still a language rejection.
+	v = verdict(t, offer, "A.Movie.2020.FRENCH.1080p.WEB-DL.DD5.1.H264-GRP", titleEN, nil)
+	if !reflect.DeepEqual(v.Rejections, []scoring.Rejection{scoring.RejectLanguage}) {
+		t.Errorf("French: rejections = %v, want [language]", v.Rejections)
+	}
+	// Nothing to offer when the Original Language is unknown.
+	v = verdict(t, offer, nameEnglish1080, scoring.Title{Name: "A Movie"}, nil)
+	if !reflect.DeepEqual(v.Rejections, []scoring.Rejection{scoring.RejectLanguage}) {
+		t.Errorf("unknown Original: rejections = %v, want [language]", v.Rejections)
+	}
+}
+
 func TestOriginalLanguageProfile(t *testing.T) {
 	origHD := scoring.ProfileSpec{Slot: slot.Standard, Rule: scoring.OriginalLanguage, Primary: release.LangGerman}
 
@@ -127,7 +152,7 @@ func TestOriginalLanguageProfile(t *testing.T) {
 	}
 	// The fallback flag is ignored on Original-Language Profiles.
 	withFallback := origHD
-	withFallback.OriginalFallback = true
+	withFallback.OriginalChoice = scoring.OriginalAccept
 	if v := verdict(t, withFallback, nameEnglish1080, scoring.Title{Name: "A Movie"}, nil); v.Accepted {
 		t.Error("an Original-Language Profile accepted a Title with unknown Original Language")
 	}

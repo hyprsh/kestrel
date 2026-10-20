@@ -67,10 +67,10 @@ INSERT INTO episodes (title_id, season, number, tvdb_id, name, air_date, monitor
 SELECT title_id, number, monitored FROM seasons WHERE title_id = ? ORDER BY number;
 
 -- name: ListEpisodes :many
-SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name FROM episodes ORDER BY title_id, season, number;
+SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name, placeholder_at FROM episodes ORDER BY title_id, season, number;
 
 -- name: ListEpisodesOfTitle :many
-SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name FROM episodes WHERE title_id = ? ORDER BY season, number;
+SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name, placeholder_at FROM episodes WHERE title_id = ? ORDER BY season, number;
 
 -- A misfit file (it fails its Profile's gates) does not hold its episodes: they are Wanted again, as a misfit Movie is.
 -- name: ListFileEpisodes :many
@@ -85,6 +85,16 @@ WHERE v.title_id = ? AND f.id NOT IN (SELECT file_id FROM file_misfits);
 -- name: ListAllFileEpisodesOfTitle :many
 SELECT f.version_id, fe.episode_id, f.id AS file_id, f.path, f.size, f.parsed_release
 FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id WHERE v.title_id = ?;
+
+-- When each episode's earliest file in any Version was imported, misfits included: a file shows the episode is out.
+-- name: ListFirstFiled :many
+SELECT fe.episode_id, CAST(MIN(f.imported_at) AS TEXT) AS imported_at
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id GROUP BY fe.episode_id;
+
+-- name: ListFirstFiledOfTitle :many
+SELECT fe.episode_id, CAST(MIN(f.imported_at) AS TEXT) AS imported_at
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id
+WHERE v.title_id = ? GROUP BY fe.episode_id;
 
 -- name: SetSeriesMonitor :exec
 UPDATE titles SET series_monitor = ? WHERE id = ? AND kind = 'series';
@@ -171,6 +181,15 @@ DELETE FROM file_misfits WHERE file_id = ?;
 -- name: SetMisfit :exec
 INSERT OR IGNORE INTO file_misfits (file_id) VALUES (?);
 
+-- name: ListOriginalFileIDs :many
+SELECT file_id FROM file_originals;
+
+-- name: ClearOriginal :exec
+DELETE FROM file_originals WHERE file_id = ?;
+
+-- name: SetOriginal :exec
+INSERT OR IGNORE INTO file_originals (file_id) VALUES (?);
+
 -- name: SetReplacedScore :exec
 INSERT OR REPLACE INTO file_replaced_scores (file_id, score) VALUES (?, ?);
 
@@ -211,7 +230,28 @@ DELETE FROM title_aliases WHERE title_id = ?;
 DELETE FROM title_release_dates WHERE title_id = ?;
 
 -- name: UpdateEpisode :exec
-UPDATE episodes SET season = ?, number = ?, tvdb_id = ?, name = ?, air_date = ?, primary_name = ? WHERE id = ?;
+-- TheTVDB lists every episode it updates, so a Placeholder Episode it matches is adopted.
+UPDATE episodes SET season = ?, number = ?, tvdb_id = ?, name = ?, air_date = ?, primary_name = ?, placeholder_at = NULL
+WHERE id = ?;
+
+-- name: InsertPlaceholderEpisode :exec
+INSERT INTO episodes (title_id, season, number, monitored, placeholder_at) VALUES (?, ?, ?, 1, ?)
+ON CONFLICT (title_id, season, number) DO NOTHING;
+
+-- name: ListFileEpisodesOfEpisode :many
+SELECT file_id, version_id FROM file_episodes WHERE episode_id = ?;
+
+-- name: MoveFileEpisode :exec
+UPDATE file_episodes SET episode_id = sqlc.arg(to_episode) WHERE version_id = sqlc.arg(version_id) AND episode_id = sqlc.arg(from_episode);
+
+-- name: DeleteEpisode :exec
+DELETE FROM episodes WHERE id = ?;
+
+-- The Placeholder Episodes of a Title that hold no file in any Version.
+-- name: ListFilelessPlaceholders :many
+SELECT id FROM episodes
+WHERE episodes.title_id = ? AND episodes.placeholder_at IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM file_episodes fe WHERE fe.episode_id = episodes.id);
 
 -- name: ParkEpisodeNumber :exec
 UPDATE episodes SET number = -id WHERE id = ?;
@@ -248,6 +288,9 @@ ORDER BY f.imported_at DESC, f.id DESC LIMIT ?;
 
 -- name: SetTitleMonitored :exec
 UPDATE titles SET monitored = ? WHERE id = ? AND kind = 'movie';
+
+-- name: MarkReleaseSeen :exec
+UPDATE titles SET release_seen_at = COALESCE(release_seen_at, ?) WHERE id = ? AND kind = 'movie';
 
 -- name: SetUpgradesDueSince :exec
 UPDATE search_state SET next_upgrade_at = ? WHERE last_upgrade_at >= ?;

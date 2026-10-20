@@ -171,10 +171,8 @@ func (s *Service) AdoptMovie(ctx context.Context, a AdoptMovie) (int64, []File, 
 		if err != nil {
 			return 0, nil, err
 		}
-		if f.Misfit {
-			if err := q.SetMisfit(ctx, fileID); err != nil {
-				return 0, nil, err
-			}
+		if err := markFile(ctx, q, fileID, f.Misfit, f.Original); err != nil {
+			return 0, nil, err
 		}
 	}
 	return id, replaced, tx.Commit()

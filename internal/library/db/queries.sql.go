@@ -19,6 +19,15 @@ func (q *Queries) ClearMisfit(ctx context.Context, fileID int64) error {
 	return err
 }
 
+const clearOriginal = `-- name: ClearOriginal :exec
+DELETE FROM file_originals WHERE file_id = ?
+`
+
+func (q *Queries) ClearOriginal(ctx context.Context, fileID int64) error {
+	_, err := q.db.ExecContext(ctx, clearOriginal, fileID)
+	return err
+}
+
 const countFileEpisodes = `-- name: CountFileEpisodes :one
 SELECT COUNT(*) FROM file_episodes WHERE file_id = ?
 `
@@ -36,6 +45,15 @@ DELETE FROM title_aliases WHERE title_id = ?
 
 func (q *Queries) DeleteAliasesOfTitle(ctx context.Context, titleID int64) error {
 	_, err := q.db.ExecContext(ctx, deleteAliasesOfTitle, titleID)
+	return err
+}
+
+const deleteEpisode = `-- name: DeleteEpisode :exec
+DELETE FROM episodes WHERE id = ?
+`
+
+func (q *Queries) DeleteEpisode(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteEpisode, id)
 	return err
 }
 
@@ -223,7 +241,7 @@ func (q *Queries) GetFileOfVersionEpisode(ctx context.Context, arg GetFileOfVers
 }
 
 const getTitle = `-- name: GetTitle :one
-SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count FROM titles WHERE id = ?
+SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count, release_seen_at FROM titles WHERE id = ?
 `
 
 func (q *Queries) GetTitle(ctx context.Context, id int64) (Title, error) {
@@ -252,6 +270,7 @@ func (q *Queries) GetTitle(ctx context.Context, id int64) (Title, error) {
 		&i.RefreshedAt,
 		&i.TmdbVoteAverage,
 		&i.TmdbVoteCount,
+		&i.ReleaseSeenAt,
 	)
 	return i, err
 }
@@ -381,6 +400,28 @@ type InsertFileEpisodeParams struct {
 
 func (q *Queries) InsertFileEpisode(ctx context.Context, arg InsertFileEpisodeParams) error {
 	_, err := q.db.ExecContext(ctx, insertFileEpisode, arg.FileID, arg.VersionID, arg.EpisodeID)
+	return err
+}
+
+const insertPlaceholderEpisode = `-- name: InsertPlaceholderEpisode :exec
+INSERT INTO episodes (title_id, season, number, monitored, placeholder_at) VALUES (?, ?, ?, 1, ?)
+ON CONFLICT (title_id, season, number) DO NOTHING
+`
+
+type InsertPlaceholderEpisodeParams struct {
+	TitleID       int64
+	Season        int64
+	Number        int64
+	PlaceholderAt sql.NullString
+}
+
+func (q *Queries) InsertPlaceholderEpisode(ctx context.Context, arg InsertPlaceholderEpisodeParams) error {
+	_, err := q.db.ExecContext(ctx, insertPlaceholderEpisode,
+		arg.TitleID,
+		arg.Season,
+		arg.Number,
+		arg.PlaceholderAt,
+	)
 	return err
 }
 
@@ -668,7 +709,7 @@ func (q *Queries) ListAllReleaseDates(ctx context.Context) ([]TitleReleaseDate, 
 }
 
 const listEpisodes = `-- name: ListEpisodes :many
-SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name FROM episodes ORDER BY title_id, season, number
+SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name, placeholder_at FROM episodes ORDER BY title_id, season, number
 `
 
 func (q *Queries) ListEpisodes(ctx context.Context) ([]Episode, error) {
@@ -690,6 +731,7 @@ func (q *Queries) ListEpisodes(ctx context.Context) ([]Episode, error) {
 			&i.AirDate,
 			&i.Monitored,
 			&i.PrimaryName,
+			&i.PlaceholderAt,
 		); err != nil {
 			return nil, err
 		}
@@ -756,7 +798,7 @@ func (q *Queries) ListEpisodesAiring(ctx context.Context, arg ListEpisodesAiring
 }
 
 const listEpisodesOfTitle = `-- name: ListEpisodesOfTitle :many
-SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name FROM episodes WHERE title_id = ? ORDER BY season, number
+SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name, placeholder_at FROM episodes WHERE title_id = ? ORDER BY season, number
 `
 
 func (q *Queries) ListEpisodesOfTitle(ctx context.Context, titleID int64) ([]Episode, error) {
@@ -778,6 +820,7 @@ func (q *Queries) ListEpisodesOfTitle(ctx context.Context, titleID int64) ([]Epi
 			&i.AirDate,
 			&i.Monitored,
 			&i.PrimaryName,
+			&i.PlaceholderAt,
 		); err != nil {
 			return nil, err
 		}
@@ -862,6 +905,38 @@ func (q *Queries) ListFileEpisodes(ctx context.Context) ([]ListFileEpisodesRow, 
 	return items, nil
 }
 
+const listFileEpisodesOfEpisode = `-- name: ListFileEpisodesOfEpisode :many
+SELECT file_id, version_id FROM file_episodes WHERE episode_id = ?
+`
+
+type ListFileEpisodesOfEpisodeRow struct {
+	FileID    int64
+	VersionID int64
+}
+
+func (q *Queries) ListFileEpisodesOfEpisode(ctx context.Context, episodeID int64) ([]ListFileEpisodesOfEpisodeRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFileEpisodesOfEpisode, episodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFileEpisodesOfEpisodeRow
+	for rows.Next() {
+		var i ListFileEpisodesOfEpisodeRow
+		if err := rows.Scan(&i.FileID, &i.VersionID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFileEpisodesOfTitle = `-- name: ListFileEpisodesOfTitle :many
 SELECT f.version_id, fe.episode_id, f.score
 FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id
@@ -887,6 +962,36 @@ func (q *Queries) ListFileEpisodesOfTitle(ctx context.Context, titleID int64) ([
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFilelessPlaceholders = `-- name: ListFilelessPlaceholders :many
+SELECT id FROM episodes
+WHERE episodes.title_id = ? AND episodes.placeholder_at IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM file_episodes fe WHERE fe.episode_id = episodes.id)
+`
+
+// The Placeholder Episodes of a Title that hold no file in any Version.
+func (q *Queries) ListFilelessPlaceholders(ctx context.Context, titleID int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listFilelessPlaceholders, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -1094,12 +1199,107 @@ func (q *Queries) ListFilesWithSlot(ctx context.Context, titleID int64) ([]ListF
 	return items, nil
 }
 
+const listFirstFiled = `-- name: ListFirstFiled :many
+SELECT fe.episode_id, CAST(MIN(f.imported_at) AS TEXT) AS imported_at
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id GROUP BY fe.episode_id
+`
+
+type ListFirstFiledRow struct {
+	EpisodeID  int64
+	ImportedAt string
+}
+
+// When each episode's earliest file in any Version was imported, misfits included: a file shows the episode is out.
+func (q *Queries) ListFirstFiled(ctx context.Context) ([]ListFirstFiledRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFirstFiled)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFirstFiledRow
+	for rows.Next() {
+		var i ListFirstFiledRow
+		if err := rows.Scan(&i.EpisodeID, &i.ImportedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFirstFiledOfTitle = `-- name: ListFirstFiledOfTitle :many
+SELECT fe.episode_id, CAST(MIN(f.imported_at) AS TEXT) AS imported_at
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id
+WHERE v.title_id = ? GROUP BY fe.episode_id
+`
+
+type ListFirstFiledOfTitleRow struct {
+	EpisodeID  int64
+	ImportedAt string
+}
+
+func (q *Queries) ListFirstFiledOfTitle(ctx context.Context, titleID int64) ([]ListFirstFiledOfTitleRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFirstFiledOfTitle, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFirstFiledOfTitleRow
+	for rows.Next() {
+		var i ListFirstFiledOfTitleRow
+		if err := rows.Scan(&i.EpisodeID, &i.ImportedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMisfitFileIDs = `-- name: ListMisfitFileIDs :many
 SELECT file_id FROM file_misfits
 `
 
 func (q *Queries) ListMisfitFileIDs(ctx context.Context) ([]int64, error) {
 	rows, err := q.db.QueryContext(ctx, listMisfitFileIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var file_id int64
+		if err := rows.Scan(&file_id); err != nil {
+			return nil, err
+		}
+		items = append(items, file_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOriginalFileIDs = `-- name: ListOriginalFileIDs :many
+SELECT file_id FROM file_originals
+`
+
+func (q *Queries) ListOriginalFileIDs(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listOriginalFileIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -1340,7 +1540,7 @@ func (q *Queries) ListSeasonsOfTitle(ctx context.Context, titleID int64) ([]Seas
 }
 
 const listTitles = `-- name: ListTitles :many
-SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count FROM titles ORDER BY added_at DESC, id DESC
+SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count, release_seen_at FROM titles ORDER BY added_at DESC, id DESC
 `
 
 func (q *Queries) ListTitles(ctx context.Context) ([]Title, error) {
@@ -1375,6 +1575,7 @@ func (q *Queries) ListTitles(ctx context.Context) ([]Title, error) {
 			&i.RefreshedAt,
 			&i.TmdbVoteAverage,
 			&i.TmdbVoteCount,
+			&i.ReleaseSeenAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1455,6 +1656,20 @@ func (q *Queries) ListVersionsOfTitle(ctx context.Context, titleID int64) ([]Ver
 	return items, nil
 }
 
+const markReleaseSeen = `-- name: MarkReleaseSeen :exec
+UPDATE titles SET release_seen_at = COALESCE(release_seen_at, ?) WHERE id = ? AND kind = 'movie'
+`
+
+type MarkReleaseSeenParams struct {
+	ReleaseSeenAt sql.NullString
+	ID            int64
+}
+
+func (q *Queries) MarkReleaseSeen(ctx context.Context, arg MarkReleaseSeenParams) error {
+	_, err := q.db.ExecContext(ctx, markReleaseSeen, arg.ReleaseSeenAt, arg.ID)
+	return err
+}
+
 const markSearchStateMissing = `-- name: MarkSearchStateMissing :exec
 UPDATE search_state SET last_missing_at = ?, next_missing_at = ? WHERE id = ?
 `
@@ -1482,6 +1697,21 @@ type MarkUpgradeSearchedParams struct {
 
 func (q *Queries) MarkUpgradeSearched(ctx context.Context, arg MarkUpgradeSearchedParams) error {
 	_, err := q.db.ExecContext(ctx, markUpgradeSearched, arg.LastUpgradeAt, arg.NextUpgradeAt, arg.VersionID)
+	return err
+}
+
+const moveFileEpisode = `-- name: MoveFileEpisode :exec
+UPDATE file_episodes SET episode_id = ?1 WHERE version_id = ?2 AND episode_id = ?3
+`
+
+type MoveFileEpisodeParams struct {
+	ToEpisode   int64
+	VersionID   int64
+	FromEpisode int64
+}
+
+func (q *Queries) MoveFileEpisode(ctx context.Context, arg MoveFileEpisodeParams) error {
+	_, err := q.db.ExecContext(ctx, moveFileEpisode, arg.ToEpisode, arg.VersionID, arg.FromEpisode)
 	return err
 }
 
@@ -1611,6 +1841,15 @@ type SetNextSearchesAllParams struct {
 
 func (q *Queries) SetNextSearchesAll(ctx context.Context, arg SetNextSearchesAllParams) error {
 	_, err := q.db.ExecContext(ctx, setNextSearchesAll, arg.NextMissingAt, arg.NextUpgradeAt, arg.VersionID)
+	return err
+}
+
+const setOriginal = `-- name: SetOriginal :exec
+INSERT OR IGNORE INTO file_originals (file_id) VALUES (?)
+`
+
+func (q *Queries) SetOriginal(ctx context.Context, fileID int64) error {
+	_, err := q.db.ExecContext(ctx, setOriginal, fileID)
 	return err
 }
 
@@ -1771,7 +2010,8 @@ func (q *Queries) SetVersionProfile(ctx context.Context, arg SetVersionProfilePa
 }
 
 const updateEpisode = `-- name: UpdateEpisode :exec
-UPDATE episodes SET season = ?, number = ?, tvdb_id = ?, name = ?, air_date = ?, primary_name = ? WHERE id = ?
+UPDATE episodes SET season = ?, number = ?, tvdb_id = ?, name = ?, air_date = ?, primary_name = ?, placeholder_at = NULL
+WHERE id = ?
 `
 
 type UpdateEpisodeParams struct {
@@ -1784,6 +2024,7 @@ type UpdateEpisodeParams struct {
 	ID          int64
 }
 
+// TheTVDB lists every episode it updates, so a Placeholder Episode it matches is adopted.
 func (q *Queries) UpdateEpisode(ctx context.Context, arg UpdateEpisodeParams) error {
 	_, err := q.db.ExecContext(ctx, updateEpisode,
 		arg.Season,

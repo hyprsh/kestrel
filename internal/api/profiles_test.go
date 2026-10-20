@@ -10,6 +10,7 @@ type profileJSON struct {
 	Name               string `json:"name"`
 	Slot               string `json:"slot"`
 	LanguageRule       string `json:"language_rule"`
+	OriginalLanguage   string `json:"original_language"`
 	OriginalFallback   bool   `json:"original_fallback"`
 	Enabled            bool   `json:"enabled"`
 	DefaultMovies      bool   `json:"default_movies"`
@@ -51,9 +52,19 @@ func TestProfilesAreSeededAndPatchable(t *testing.T) {
 		t.Errorf("hd-primary = %+v", hd)
 	}
 
+	if hd.OriginalLanguage != "reject" || hd.OriginalFallback {
+		t.Errorf("hd-primary originals = %q/%v, want reject", hd.OriginalLanguage, hd.OriginalFallback)
+	}
 	p := decode[profileJSON](t, b.valid("PATCH", "/profiles/hd-primary", `{"original_fallback":true}`))
-	if !p.OriginalFallback {
+	if !p.OriginalFallback || p.OriginalLanguage != "accept" {
 		t.Errorf("fallback not set: %+v", p)
+	}
+	p = decode[profileJSON](t, b.valid("PATCH", "/profiles/hd-primary", `{"original_language":"offer"}`))
+	if p.OriginalFallback || p.OriginalLanguage != "offer" {
+		t.Errorf("offer: %+v, want offer without the deprecated fallback", p)
+	}
+	if m = profileMap(t, b); m["hd-primary"].OriginalLanguage != "offer" {
+		t.Error("offer not stored")
 	}
 	p = decode[profileJSON](t, b.valid("PATCH", "/profiles/4k-primary", `{"default_movies":true}`))
 	if !p.DefaultMovies || p.DefaultSeries {
@@ -69,6 +80,8 @@ func TestProfileRulesAreValidationErrors(t *testing.T) {
 	b := newInstance(t, "").setUp()
 	for _, c := range []struct{ path, body, field string }{
 		{"/profiles/hd-original", `{"original_fallback":true}`, "original_fallback"},
+		{"/profiles/hd-original", `{"original_language":"offer"}`, "original_language"},
+		{"/profiles/hd-primary", `{"original_language":"offer","original_fallback":true}`, "original_fallback"},
 		{"/profiles/hd-primary", `{"default_movies":false}`, "default_movies"},
 		{"/profiles/hd-primary", `{"enabled":false}`, "enabled"},
 	} {

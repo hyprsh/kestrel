@@ -786,20 +786,21 @@ func (s *Service) derive(ctx context.Context, r *Request, st *SlotStatus, wasFil
 			c.eps[d.ID] = eps
 		}
 		now := s.d.Clock()
-		aired, held := 0, 0
+		released, held := 0, 0
 		for _, e := range eps {
 			if len(r.Seasons) == 0 && e.Season == 0 || len(r.Seasons) > 0 && !slices.Contains(r.Seasons, e.Season) {
 				continue
 			}
-			if e.AirDate == nil || e.AirDate.After(now) {
+			// The Library's released rule: aired, or for an undated episode a later one out.
+			if e.Released == nil || e.Released.After(now) {
 				continue
 			}
-			aired++
+			released++
 			if cell := e.Cells[st.Slot]; cell != nil && cell.HasFile {
 				held++
 			}
 		}
-		fits = aired > 0 && held == aired
+		fits = released > 0 && held == released
 	}
 	if fits && !wasFilled {
 		err := db.New(s.d.Store.Write()).MarkSlotFilled(ctx, db.MarkSlotFilledParams{

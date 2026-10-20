@@ -67,6 +67,12 @@ SELECT g.version_id, ge.episode_id
 FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
 WHERE g.state IN ('sent', 'downloading', 'completed', 'importing');
 
+-- The episodes of a Title its active Grabs are fetching. A stalled Import still holds its episodes.
+-- name: ListActiveGrabEpisodesOfTitle :many
+SELECT DISTINCT ge.episode_id
+FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
+WHERE g.title_id = ? AND g.state IN ('sent', 'downloading', 'completed', 'importing');
+
 -- name: ListGrabEpisodes :many
 SELECT episode_id FROM grab_episodes WHERE grab_id = ? ORDER BY episode_id;
 
@@ -79,3 +85,23 @@ SELECT * FROM blocklist WHERE (sqlc.narg(title_id) IS NULL OR title_id = sqlc.na
 
 -- name: DeleteBlocklist :execrows
 DELETE FROM blocklist WHERE id = ?;
+
+-- name: GetOriginalOffer :one
+SELECT * FROM original_offers WHERE version_id = ? AND coalesce(episode_id, 0) = ?;
+
+-- name: InsertOriginalOffer :exec
+INSERT INTO original_offers (version_id, episode_id, release_guid, release_name, indexer_id, indexer_name, download_url,
+    size, published_at, score, parsed, verdict, pack, found_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: DeleteOriginalOffer :exec
+DELETE FROM original_offers WHERE id = ?;
+
+-- name: ListOriginalOffers :many
+SELECT * FROM original_offers ORDER BY version_id, id;
+
+-- name: ListOriginalOffersOfVersion :many
+SELECT * FROM original_offers WHERE version_id = ? ORDER BY id;
+
+-- name: DismissOriginalOffer :exec
+UPDATE original_offers SET dismissed = 1 WHERE id = ?;

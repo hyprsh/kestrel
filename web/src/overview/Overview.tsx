@@ -60,7 +60,7 @@ export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen
   useListNav('ov', enter.length, sel, setSel, (i) => enter[i]?.())
   return (
     <div className="flex-1 overflow-y-auto p-6">
-      <NeedsAttention onOpen={onOpen} nav={nav(0)} />
+      <NeedsAttention onOpen={onOpen} onOpenTitle={onOpenTitle} nav={nav(0)} />
       <HealthStrip />
       <section aria-labelledby="downloading-now" className="mx-auto max-w-3xl">
         <h2 id="downloading-now" className="mb-3 text-sm font-medium">

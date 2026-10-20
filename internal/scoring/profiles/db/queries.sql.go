@@ -29,7 +29,7 @@ func (q *Queries) ClearSlotDefaultSeries(ctx context.Context, slot string) error
 
 const listProfiles = `-- name: ListProfiles :many
 SELECT key, name, sort, slot, any, language_rule, min_height, max_height, enabled, original_fallback,
-       default_movies, default_series, trash_profile_movies, trash_profile_series
+       default_movies, default_series, trash_profile_movies, trash_profile_series, original_language
 FROM profiles ORDER BY sort
 `
 
@@ -57,6 +57,7 @@ func (q *Queries) ListProfiles(ctx context.Context) ([]Profile, error) {
 			&i.DefaultSeries,
 			&i.TrashProfileMovies,
 			&i.TrashProfileSeries,
+			&i.OriginalLanguage,
 		); err != nil {
 			return nil, err
 		}
@@ -115,17 +116,19 @@ func (q *Queries) SetProfileEnabled(ctx context.Context, arg SetProfileEnabledPa
 	return err
 }
 
-const setProfileOriginalFallback = `-- name: SetProfileOriginalFallback :exec
-UPDATE profiles SET original_fallback = ? WHERE key = ?
+const setProfileOriginalChoice = `-- name: SetProfileOriginalChoice :exec
+UPDATE profiles SET original_language = ?, original_fallback = ? WHERE key = ?
 `
 
-type SetProfileOriginalFallbackParams struct {
+type SetProfileOriginalChoiceParams struct {
+	OriginalLanguage string
 	OriginalFallback int64
 	Key              string
 }
 
-func (q *Queries) SetProfileOriginalFallback(ctx context.Context, arg SetProfileOriginalFallbackParams) error {
-	_, err := q.db.ExecContext(ctx, setProfileOriginalFallback, arg.OriginalFallback, arg.Key)
+// original_fallback is kept in step for older readers (scoring.OriginalChoice.DeprecatedFlag).
+func (q *Queries) SetProfileOriginalChoice(ctx context.Context, arg SetProfileOriginalChoiceParams) error {
+	_, err := q.db.ExecContext(ctx, setProfileOriginalChoice, arg.OriginalLanguage, arg.OriginalFallback, arg.Key)
 	return err
 }
 

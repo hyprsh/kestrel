@@ -1,6 +1,6 @@
 -- name: ListProfiles :many
 SELECT key, name, sort, slot, any, language_rule, min_height, max_height, enabled, original_fallback,
-       default_movies, default_series, trash_profile_movies, trash_profile_series
+       default_movies, default_series, trash_profile_movies, trash_profile_series, original_language
 FROM profiles ORDER BY sort;
 
 -- name: SetProfileEnabled :exec
@@ -8,8 +8,9 @@ UPDATE profiles SET enabled = ?1, default_movies = CASE WHEN ?1 = 0 THEN 0 ELSE 
     default_series = CASE WHEN ?1 = 0 THEN 0 ELSE default_series END
 WHERE key = ?2;
 
--- name: SetProfileOriginalFallback :exec
-UPDATE profiles SET original_fallback = ? WHERE key = ?;
+-- name: SetProfileOriginalChoice :exec
+-- original_fallback is kept in step for older readers (scoring.OriginalChoice.DeprecatedFlag).
+UPDATE profiles SET original_language = ?, original_fallback = ? WHERE key = ?;
 
 -- name: ClearSlotDefaultMovies :exec
 UPDATE profiles SET default_movies = 0 WHERE slot = ?;

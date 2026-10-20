@@ -64,6 +64,9 @@ type Grab struct {
 	// CanRemove says the client lets go of the files, so the Import moves
 	// them; otherwise it hardlinks.
 	CanRemove bool
+	// Overridden says the Grab was made despite rejections: "Grab anyway" or
+	// an accepted Original Offer. Only then may an Original-only file come in.
+	Overridden bool
 }
 
 // Result is the outcome of one Import.
@@ -104,6 +107,8 @@ type Library interface {
 	// GetVersion and RemoveFiles delete files and keep their Version.
 	GetVersion(ctx context.Context, id int64) (library.VersionRef, error)
 	RemoveFiles(ctx context.Context, versionID int64, fileIDs []int64) ([]library.File, error)
+	// AddPlaceholders adds Placeholder Episodes for files naming episodes TheTVDB does not list yet.
+	AddPlaceholders(ctx context.Context, titleID int64, refs []library.EpisodeRef) error
 }
 
 // Profiles is what imports needs of the Profiles.
@@ -380,7 +385,9 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 		scoring.Release{Parsed: parsed, IndexerLanguages: languagesOf(languages, inconclusive), Size: info.Size, Filename: filepath.Base(src.video)},
 		scoring.Title{Name: d.Title, Year: d.Year, OriginalLanguage: release.LanguageByISO(d.OriginalLanguage)}, profile,
 	)
-	if verdict.Rejected(scoring.RejectLanguage) {
+	// The resolution class passed above, so a misfit is in the wrong language.
+	misfit, asOriginal := fitOf(profile, info, verdict, g.Overridden)
+	if misfit {
 		return rejected(ReasonLanguage)
 	}
 	var runtime time.Duration
@@ -390,8 +397,9 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 	if !probe.DurationPlausible(info.Duration, runtime, probe.MovieFloor) {
 		return rejected(ReasonInvalid)
 	}
-	// A misfit file is replaced by any fitting Release, whatever its Score.
-	if ver.File != nil && !ver.File.Misfit && ver.File.Score != nil && verdict.Score <= *ver.File.Score {
+	// A misfit file is replaced by any fitting Release, whatever its Score, and
+	// so is an Original by any that is not one.
+	if ver.File != nil && !ver.File.Misfit && !replacesOriginal(ver.File.Original, verdict) && ver.File.Score != nil && verdict.Score <= *ver.File.Score {
 		return rejected(ReasonNotUpgrade)
 	}
 
@@ -428,6 +436,7 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 	replaced, err := s.lib.ReplaceFile(ctx, g.TitleID, folder, library.NewFile{
 		VersionID: g.VersionID, Path: target, Size: info.Size, ReleaseName: g.ReleaseName,
 		ParsedRelease: string(parsedJSON), Probe: string(probeJSON), Score: verdict.Score, GrabID: g.ID,
+		Original: asOriginal,
 	})
 	if err != nil {
 		_ = os.Remove(partial)

@@ -22,6 +22,9 @@ type NewFile struct {
 	GrabID        int64
 	// Misfit marks a file that fails its Version's Profile gates (Adoption); the Version is Wanted.
 	Misfit bool
+	// Original marks an Original (see File): the Version is filled, but any
+	// acceptable Release replaces it.
+	Original bool
 }
 
 func fileOf(f db.File) File {
@@ -64,6 +67,9 @@ func (s *Service) ReplaceFile(ctx context.Context, titleID int64, folder string,
 		GrabID: sql.NullInt64{Int64: f.GrabID, Valid: f.GrabID != 0}, ImportedAt: ts(s.clock()),
 	})
 	if err != nil {
+		return nil, err
+	}
+	if err := markFile(ctx, q, fileID, f.Misfit, f.Original); err != nil {
 		return nil, err
 	}
 	if err := recordReplacedScore(ctx, q, fileID, replaced); err != nil {
@@ -203,10 +209,8 @@ func putEpisodeFile(ctx context.Context, q *db.Queries, f NewFile, episodeIDs []
 			return nil, err
 		}
 	}
-	if f.Misfit {
-		if err := q.SetMisfit(ctx, fileID); err != nil {
-			return nil, err
-		}
+	if err := markFile(ctx, q, fileID, f.Misfit, f.Original); err != nil {
+		return nil, err
 	}
 	var replaced []File
 	done := map[int64]bool{}

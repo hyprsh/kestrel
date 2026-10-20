@@ -9,18 +9,6 @@ import (
 	"github.com/hyprsh/kestrel/internal/slot"
 )
 
-func misfitSet(ctx context.Context, q *db.Queries) (map[int64]bool, error) {
-	ids, err := q.ListMisfitFileIDs(ctx)
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[int64]bool, len(ids))
-	for _, id := range ids {
-		out[id] = true
-	}
-	return out, nil
-}
-
 // ErrVersionNotFound is returned for a Version that does not exist.
 var ErrVersionNotFound = errors.New("version not found")
 
@@ -56,10 +44,15 @@ func (s *Service) FilesOfVersion(ctx context.Context, versionID int64) ([]File, 
 	if err != nil {
 		return nil, err
 	}
+	originals, err := originalSet(ctx, q)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]File, len(rows))
 	for i, r := range rows {
 		out[i] = fileOf(r)
 		out[i].Misfit = misfits[r.ID]
+		out[i].Original = originals[r.ID]
 	}
 	return out, nil
 }
@@ -89,12 +82,13 @@ func (s *Service) SetProfile(ctx context.Context, versionID int64, profile strin
 	return tx.Commit()
 }
 
-// Rescored is a file's new Score under its Version's new Profile and whether it
-// still fits.
+// Rescored is a file's new Score under its Version's new Profile, whether it
+// still fits and whether it is an Original (see File).
 type Rescored struct {
-	FileID int64
-	Score  int
-	Misfit bool
+	FileID   int64
+	Score    int
+	Misfit   bool
+	Original bool
 }
 
 // ApplyRescore stores the new Score of files and flags or clears their misfit
@@ -110,12 +104,7 @@ func (s *Service) ApplyRescore(ctx context.Context, rs []Rescored) error {
 		if err := q.SetFileScore(ctx, db.SetFileScoreParams{Score: sql.NullInt64{Int64: int64(r.Score), Valid: true}, ID: r.FileID}); err != nil {
 			return err
 		}
-		if r.Misfit {
-			err = q.SetMisfit(ctx, r.FileID)
-		} else {
-			err = q.ClearMisfit(ctx, r.FileID)
-		}
-		if err != nil {
+		if err := markFile(ctx, q, r.FileID, r.Misfit, r.Original); err != nil {
 			return err
 		}
 	}

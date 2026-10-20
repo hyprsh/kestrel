@@ -22,6 +22,8 @@ import (
 	"strings"
 
 	"go.yaml.in/yaml/v3"
+
+	"github.com/hyprsh/kestrel/internal/scoring"
 )
 
 // File is a decoded Config File.
@@ -63,10 +65,23 @@ type RootFolders struct {
 
 // Profile is one Profile's declared settings. A nil field is one the file left out.
 type Profile struct {
-	Enabled          *bool `yaml:"enabled"`
-	OriginalFallback *bool `yaml:"original_fallback"`
-	DefaultMovies    *bool `yaml:"default_movies"`
-	DefaultSeries    *bool `yaml:"default_series"`
+	Enabled *bool `yaml:"enabled"`
+	// OriginalChoice is original_language: reject, offer or accept. The
+	// deprecated OriginalFallback stands in for it (scoring.OriginalChoiceOf).
+	OriginalChoice   *scoring.OriginalChoice `yaml:"original_language"`
+	OriginalFallback *bool                   `yaml:"original_fallback"`
+	DefaultMovies    *bool                   `yaml:"default_movies"`
+	DefaultSeries    *bool                   `yaml:"default_series"`
+}
+
+// Choice is the Profile's declared OriginalChoice, from original_language or
+// the deprecated original_fallback. Only meaningful once Load has checked the
+// Profile.
+func (p Profile) Choice() scoring.OriginalChoice {
+	if c, _ := scoring.OriginalChoiceOf(p.OriginalChoice, p.OriginalFallback); c != nil {
+		return *c
+	}
+	return scoring.OriginalReject
 }
 
 // PluginInstance is one declared plugin instance. Config is kept as YAML: its
@@ -235,7 +250,7 @@ func (f *File) complete() error {
 	for _, key := range slices.Sorted(maps.Keys(f.Profiles)) {
 		p, field := f.Profiles[key], "profiles."+key+"."
 		need(p.Enabled != nil, field+"enabled")
-		need(p.OriginalFallback != nil, field+"original_fallback")
+		need(p.OriginalChoice != nil || p.OriginalFallback != nil, field+"original_language")
 		need(p.DefaultMovies != nil, field+"default_movies")
 		need(p.DefaultSeries != nil, field+"default_series")
 	}
@@ -246,6 +261,12 @@ func (f *File) complete() error {
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("%s: required in a declared section", strings.Join(missing, ", "))
+	}
+	for _, key := range slices.Sorted(maps.Keys(f.Profiles)) {
+		p := f.Profiles[key]
+		if _, err := scoring.OriginalChoiceOf(p.OriginalChoice, p.OriginalFallback); err != nil {
+			return fmt.Errorf("profiles.%s.original_language: %w; declare original_language only", key, err)
+		}
 	}
 	seen := map[string]bool{}
 	for i, p := range f.PluginInstances {

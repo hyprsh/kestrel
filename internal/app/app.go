@@ -221,7 +221,7 @@ func New(opts Options) *App {
 		Meta: meta, TVDB: tvdb, Grabs: acq,
 	})
 	refresher := jobs.NewRefresher(jobs.RefresherDeps{
-		Library: lib, Meta: meta, TVDB: tvdb, Renamer: imp, State: appSettings,
+		Library: lib, Grabs: acq, Meta: meta, TVDB: tvdb, Renamer: imp, State: appSettings,
 		Primary: func(ctx context.Context) (string, error) {
 			region, _, err := profs.Region(ctx)
 			return string(region.Primary), err

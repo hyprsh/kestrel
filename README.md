@@ -87,12 +87,12 @@ root_folders: # the first of each list is the default
   series: [/data/media/tv]
 
 profiles: # all six or none, each with all four fields
-  hd-primary: { enabled: true, original_fallback: true, default_movies: true, default_series: true }
-  hd-original: { enabled: true, original_fallback: false, default_movies: false, default_series: false }
-  any-primary: { enabled: false, original_fallback: false, default_movies: false, default_series: false }
-  any-original: { enabled: false, original_fallback: false, default_movies: false, default_series: false }
-  4k-primary: { enabled: true, original_fallback: true, default_movies: false, default_series: false }
-  4k-original: { enabled: false, original_fallback: false, default_movies: false, default_series: false }
+  hd-primary: { enabled: true, original_language: accept, default_movies: true, default_series: true }
+  hd-original: { enabled: true, original_language: reject, default_movies: false, default_series: false }
+  any-primary: { enabled: false, original_language: reject, default_movies: false, default_series: false }
+  any-original: { enabled: false, original_language: reject, default_movies: false, default_series: false }
+  4k-primary: { enabled: true, original_language: accept, default_movies: false, default_series: false }
+  4k-original: { enabled: false, original_language: reject, default_movies: false, default_series: false }
 
 plugin_instances: # known by name
   - name: SABnzbd
@@ -150,7 +150,7 @@ How it behaves:
 - **`account`**: created when there is none. The username is set from the file, and the password from its variable on every start. A password that changes logs every session out.
 - **`language_region`**: `primary_language` is `en`, `de` or `fr`, and `release_date_country` a two-letter uppercase code. A new Primary Language re-scores the files, as it does in Settings.
 - **`root_folders`**: `movies` and `series`, each a list whose first folder is the default. Every folder must exist and be writable.
-- **`profiles`** must list every Profile: `hd-primary`, `hd-original`, `any-primary`, `any-original`, `4k-primary` and `4k-original`, each with `enabled`, `original_fallback`, `default_movies` and `default_series`. The rules of Settings > Profiles hold across the six: an Original-Language Profile (`*-original`) takes no `original_fallback`, a default must be enabled, a Slot has at most one default per kind, and the Standard Slot has exactly one for Movies and one for Series. The 4K Slot may have none.
+- **`profiles`** must list every Profile: `hd-primary`, `hd-original`, `any-primary`, `any-original`, `4k-primary` and `4k-original`, each with `enabled`, `original_language`, `default_movies` and `default_series`. `original_language` says what a Profile does with a Release that has the Title's Original Language but no Primary-Language audio: `reject` it, `offer` it for approval in Needs attention, or `accept` it. The older `original_fallback` still works in its place (`true` is `accept`, `false` is `reject`). The rules of Settings > Profiles hold across the six: an Original-Language Profile (`*-original`) always rejects, a default must be enabled, a Slot has at most one default per kind, and the Standard Slot has exactly one for Movies and one for Series. The 4K Slot may have none.
 - **`plugin_instances`**: each has a `name` and a `plugin_id`, and may set `enabled` (default `true`), `priority` (default `0`) and `config`. The plugin's defaults fill the config fields left out.
   - Instances are known by name, and a name is declared once. A declared instance is created when missing and updated in place when it differs.
   - Renaming an instance in the file (or changing its `plugin_id`) deletes it and creates a new one. Don't rename a download client while Grabs are in flight: a Grab belongs to the instance it was sent to, and the new one is a different instance.

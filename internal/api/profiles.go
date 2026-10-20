@@ -32,8 +32,8 @@ func (s *server) profileToAPI(p profiles.Profile) oapi.Profile {
 	}
 	return oapi.Profile{
 		Key: p.Key, Name: p.Name, Slot: slot, LanguageRule: rule,
-		OriginalFallback: p.OriginalFallback, Enabled: p.Enabled,
-		DefaultMovies: p.DefaultMovies, DefaultSeries: p.DefaultSeries,
+		OriginalLanguage: oapi.OriginalLanguageChoice(p.OriginalChoice), OriginalFallback: p.OriginalChoice.DeprecatedFlag(),
+		Enabled: p.Enabled, DefaultMovies: p.DefaultMovies, DefaultSeries: p.DefaultSeries,
 		MinHeight: p.MinHeight, MaxHeight: p.MaxHeight,
 		TrashProfileMovies: p.TrashMovies, TrashProfileSeries: p.TrashSeries,
 		FromConfigFile: s.declares(configfile.SectionProfiles),
@@ -60,9 +60,17 @@ func (s *server) PatchProfile(ctx context.Context, r oapi.PatchProfileRequestObj
 		return nil, err
 	}
 	b := r.Body
+	original, err := scoring.OriginalChoiceOf((*scoring.OriginalChoice)(b.OriginalLanguage), b.OriginalFallback)
+	if err != nil {
+		return nil, invalid("original_fallback", "invalid", "original_fallback disagrees with original_language; send original_language only")
+	}
 	p, err := s.profiles.Patch(ctx, string(r.Key), profiles.Patch{
-		Enabled: b.Enabled, OriginalFallback: b.OriginalFallback, DefaultMovies: b.DefaultMovies, DefaultSeries: b.DefaultSeries,
+		Enabled: b.Enabled, OriginalChoice: original, DefaultMovies: b.DefaultMovies, DefaultSeries: b.DefaultSeries,
 	})
+	var ve *profiles.ValidationError
+	if b.OriginalLanguage == nil && errors.As(err, &ve) && ve.Field == "original_language" {
+		ve.Field = "original_fallback" // the client sent the deprecated field
+	}
 	if err != nil {
 		return nil, profilesProblem(err)
 	}

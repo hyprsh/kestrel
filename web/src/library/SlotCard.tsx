@@ -4,6 +4,7 @@ import { Badge, cx } from '../ui'
 import { size, slotLabel, StatusBadge, type SlotKey } from './bits'
 import { DeleteFile } from './DeleteFiles'
 import { AddVersion, VersionControls } from './ManageVersion'
+import { OriginalOfferNote } from './OriginalOfferNote'
 
 type Version = TitleDetail['versions'][number]
 
@@ -38,6 +39,7 @@ export function SlotCard({
           <>
             <div className="text-[13px] font-medium">{profileName(v.profile)}</div>
             <Holds version={v} kind={title.kind} onCoverage={onCoverage} />
+            <OriginalOfferNote offer={v.original_offer} />
           </>
         ) : (
           <div className="text-[13px] text-gray-900">Not kept in {slotLabel[slot]}</div>

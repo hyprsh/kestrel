@@ -461,10 +461,10 @@ func (a *Adoption) planSeriesFile(e *env, m seriesFacts, title Title, en entry, 
 	to := filepath.Join(dir, SeasonFolder(season), name)
 	parsedJSON, _ := json.Marshal(parsed)
 	probeJSON, _ := json.Marshal(f.info)
+	misfit, _ := fitOf(profile, f.info, verdict, false)
 	pf := PlanFile{
 		Path: f.path, To: to, Size: f.info.Size, Slot: slot, Profile: profileKey, Score: verdict.Score, Action: ActionCreate, Ticked: true,
-		Misfit:      !slices.Contains(profile.Classes(), f.info.Class()) || verdict.Rejected(scoring.RejectLanguage),
-		ReleaseName: base, Parsed: parsedJSON, Probe: probeJSON, Episodes: refs,
+		Misfit: misfit, ReleaseName: base, Parsed: parsedJSON, Probe: probeJSON, Episodes: refs,
 	}
 	if ver != nil {
 		pf.Action = ActionFill

@@ -14,7 +14,8 @@ async function openSeries() {
     episode(1, 0, 1, 'Good Cop Bad Cop'),
     episode(2, 1, 1, 'Pilot', { primary_name: 'Der Einstieg', cells: { standard: cell('filled', 120, pilotFile), '4k': cell('wanted') } }),
     episode(3, 1, 2, "Cat's in the Bag...", { cells: { standard: cell('filled', 120, pilotFile), '4k': cell('wanted') } }),
-    episode(4, 1, 3, '', { cells: { standard: cell('wanted'), '4k': cell('wanted') } }),
+    episode(4, 1, 3, '', { air_date: null, placeholder: true, cells: { standard: cell('wanted'), '4k': cell('wanted') } }),
+    episode(5, 2, 1, '', { air_date: null }),
   ]
   const user = userEvent.setup()
   render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
@@ -40,6 +41,13 @@ describe('episode titles', () => {
     const { grid } = await openSeries()
     const placeholder = rowOf(grid, 'Season 1 episode 3')
     expect(within(placeholder).getAllByText('TBA')).toHaveLength(1)
+    expect(within(placeholder).getByText('TBA')).toHaveAttribute('title', 'Not listed on TheTVDB yet')
+    expect(within(placeholder).getByText('no air date')).toBeInTheDocument()
+  })
+
+  it('shows a listed episode without a title as TBA with no tooltip', async () => {
+    const { grid } = await openSeries()
+    expect(within(rowOf(grid, 'Season 2 episode 1')).getByText('TBA')).not.toHaveAttribute('title')
   })
 })
 

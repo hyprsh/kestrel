@@ -31,6 +31,24 @@ func (q *Queries) DeleteGrab(ctx context.Context, id int64) error {
 	return err
 }
 
+const deleteOriginalOffer = `-- name: DeleteOriginalOffer :exec
+DELETE FROM original_offers WHERE id = ?
+`
+
+func (q *Queries) DeleteOriginalOffer(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteOriginalOffer, id)
+	return err
+}
+
+const dismissOriginalOffer = `-- name: DismissOriginalOffer :exec
+UPDATE original_offers SET dismissed = 1 WHERE id = ?
+`
+
+func (q *Queries) DismissOriginalOffer(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, dismissOriginalOffer, id)
+	return err
+}
+
 const findBlocklisted = `-- name: FindBlocklisted :many
 SELECT id, release_name, indexer_id, guid, published_at, size, reason, title_id, grab_id, created_at FROM blocklist WHERE (indexer_id = ? AND guid = ?) OR release_name = ?
 `
@@ -128,6 +146,39 @@ func (q *Queries) GetGrab(ctx context.Context, id int64) (Grab, error) {
 		&i.NextImportAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getOriginalOffer = `-- name: GetOriginalOffer :one
+SELECT id, version_id, episode_id, release_guid, release_name, indexer_id, indexer_name, download_url, size, published_at, score, parsed, verdict, pack, found_at, dismissed FROM original_offers WHERE version_id = ? AND coalesce(episode_id, 0) = ?
+`
+
+type GetOriginalOfferParams struct {
+	VersionID int64
+	EpisodeID sql.NullInt64
+}
+
+func (q *Queries) GetOriginalOffer(ctx context.Context, arg GetOriginalOfferParams) (OriginalOffer, error) {
+	row := q.db.QueryRowContext(ctx, getOriginalOffer, arg.VersionID, arg.EpisodeID)
+	var i OriginalOffer
+	err := row.Scan(
+		&i.ID,
+		&i.VersionID,
+		&i.EpisodeID,
+		&i.ReleaseGuid,
+		&i.ReleaseName,
+		&i.IndexerID,
+		&i.IndexerName,
+		&i.DownloadUrl,
+		&i.Size,
+		&i.PublishedAt,
+		&i.Score,
+		&i.Parsed,
+		&i.Verdict,
+		&i.Pack,
+		&i.FoundAt,
+		&i.Dismissed,
 	)
 	return i, err
 }
@@ -269,6 +320,49 @@ func (q *Queries) InsertGrabEpisode(ctx context.Context, arg InsertGrabEpisodePa
 	return err
 }
 
+const insertOriginalOffer = `-- name: InsertOriginalOffer :exec
+INSERT INTO original_offers (version_id, episode_id, release_guid, release_name, indexer_id, indexer_name, download_url,
+    size, published_at, score, parsed, verdict, pack, found_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertOriginalOfferParams struct {
+	VersionID   int64
+	EpisodeID   sql.NullInt64
+	ReleaseGuid string
+	ReleaseName string
+	IndexerID   int64
+	IndexerName string
+	DownloadUrl string
+	Size        int64
+	PublishedAt string
+	Score       int64
+	Parsed      string
+	Verdict     string
+	Pack        int64
+	FoundAt     string
+}
+
+func (q *Queries) InsertOriginalOffer(ctx context.Context, arg InsertOriginalOfferParams) error {
+	_, err := q.db.ExecContext(ctx, insertOriginalOffer,
+		arg.VersionID,
+		arg.EpisodeID,
+		arg.ReleaseGuid,
+		arg.ReleaseName,
+		arg.IndexerID,
+		arg.IndexerName,
+		arg.DownloadUrl,
+		arg.Size,
+		arg.PublishedAt,
+		arg.Score,
+		arg.Parsed,
+		arg.Verdict,
+		arg.Pack,
+		arg.FoundAt,
+	)
+	return err
+}
+
 const listActiveGrabEpisodes = `-- name: ListActiveGrabEpisodes :many
 SELECT g.version_id, ge.episode_id
 FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
@@ -294,6 +388,36 @@ func (q *Queries) ListActiveGrabEpisodes(ctx context.Context) ([]ListActiveGrabE
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listActiveGrabEpisodesOfTitle = `-- name: ListActiveGrabEpisodesOfTitle :many
+SELECT DISTINCT ge.episode_id
+FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
+WHERE g.title_id = ? AND g.state IN ('sent', 'downloading', 'completed', 'importing')
+`
+
+// The episodes of a Title its active Grabs are fetching. A stalled Import still holds its episodes.
+func (q *Queries) ListActiveGrabEpisodesOfTitle(ctx context.Context, titleID sql.NullInt64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listActiveGrabEpisodesOfTitle, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var episode_id int64
+		if err := rows.Scan(&episode_id); err != nil {
+			return nil, err
+		}
+		items = append(items, episode_id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -552,6 +676,94 @@ func (q *Queries) ListLastFailures(ctx context.Context) ([]ListLastFailuresRow, 
 	for rows.Next() {
 		var i ListLastFailuresRow
 		if err := rows.Scan(&i.VersionID, &i.Failure); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOriginalOffers = `-- name: ListOriginalOffers :many
+SELECT id, version_id, episode_id, release_guid, release_name, indexer_id, indexer_name, download_url, size, published_at, score, parsed, verdict, pack, found_at, dismissed FROM original_offers ORDER BY version_id, id
+`
+
+func (q *Queries) ListOriginalOffers(ctx context.Context) ([]OriginalOffer, error) {
+	rows, err := q.db.QueryContext(ctx, listOriginalOffers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OriginalOffer
+	for rows.Next() {
+		var i OriginalOffer
+		if err := rows.Scan(
+			&i.ID,
+			&i.VersionID,
+			&i.EpisodeID,
+			&i.ReleaseGuid,
+			&i.ReleaseName,
+			&i.IndexerID,
+			&i.IndexerName,
+			&i.DownloadUrl,
+			&i.Size,
+			&i.PublishedAt,
+			&i.Score,
+			&i.Parsed,
+			&i.Verdict,
+			&i.Pack,
+			&i.FoundAt,
+			&i.Dismissed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOriginalOffersOfVersion = `-- name: ListOriginalOffersOfVersion :many
+SELECT id, version_id, episode_id, release_guid, release_name, indexer_id, indexer_name, download_url, size, published_at, score, parsed, verdict, pack, found_at, dismissed FROM original_offers WHERE version_id = ? ORDER BY id
+`
+
+func (q *Queries) ListOriginalOffersOfVersion(ctx context.Context, versionID int64) ([]OriginalOffer, error) {
+	rows, err := q.db.QueryContext(ctx, listOriginalOffersOfVersion, versionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OriginalOffer
+	for rows.Next() {
+		var i OriginalOffer
+		if err := rows.Scan(
+			&i.ID,
+			&i.VersionID,
+			&i.EpisodeID,
+			&i.ReleaseGuid,
+			&i.ReleaseName,
+			&i.IndexerID,
+			&i.IndexerName,
+			&i.DownloadUrl,
+			&i.Size,
+			&i.PublishedAt,
+			&i.Score,
+			&i.Parsed,
+			&i.Verdict,
+			&i.Pack,
+			&i.FoundAt,
+			&i.Dismissed,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

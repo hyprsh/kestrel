@@ -82,7 +82,14 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   )
 }
 
-/** Settings: enable or disable each Profile and set the Original-Language fallback of Primary-Language ones. */
+/** What a Primary-Language Profile does with a Release that has the Original Language but no Primary-Language audio. */
+const originalChoices: { value: Profile['original_language']; label: string }[] = [
+  { value: 'reject', label: 'Reject' },
+  { value: 'offer', label: 'Offer for approval' },
+  { value: 'accept', label: 'Grab' },
+]
+
+/** Settings: enable or disable each Profile and choose what Primary-Language ones do with Original-only Releases. */
 export function ProfileToggles() {
   const profiles = useProfiles()
   const patch = usePatchProfile()
@@ -90,7 +97,7 @@ export function ProfileToggles() {
   if (!profiles.data) return null
   const declared = declaresProfiles(profiles.data)
 
-  const toggle = (p: Profile, change: { enabled?: boolean; original_fallback?: boolean }) => patch.mutate({ key: p.key, patch: change })
+  const toggle = (p: Profile, change: { enabled?: boolean; original_language?: Profile['original_language'] }) => patch.mutate({ key: p.key, patch: change })
 
   return (
     <div className="flex flex-col gap-2">
@@ -104,14 +111,20 @@ export function ProfileToggles() {
             </label>
             {p.language_rule === 'primary' ? (
               <label className="flex items-center gap-2 text-[12px]">
-                <input
-                  type="checkbox"
-                  aria-label={`${p.name} fallback to the Original Language`}
-                  checked={p.original_fallback}
+                Original Language only
+                <Select
+                  aria-label={`${p.name} Original Language only`}
+                  className="w-auto"
+                  value={p.original_language}
                   disabled={declared}
-                  onChange={(e) => toggle(p, { original_fallback: e.target.checked })}
-                />
-                Accept the Original Language when no Primary-Language audio exists
+                  onChange={(e) => toggle(p, { original_language: e.target.value as Profile['original_language'] })}
+                >
+                  {originalChoices.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </Select>
               </label>
             ) : (
               <span className="text-[12px] text-gray-900">Requires the Title’s Original Language</span>

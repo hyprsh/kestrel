@@ -69,6 +69,12 @@ func newRig(t *testing.T, slots ...slot.Slot) *rig {
 
 func newRigWith(t *testing.T, specs ...library.VersionSpec) *rig {
 	t.Helper()
+	return newRigOf(t, paddington(), specs...)
+}
+
+// newRigOf is newRigWith for a Movie with other details.
+func newRigOf(t *testing.T, details metadata.MovieDetails, specs ...library.VersionSpec) *rig {
+	t.Helper()
 	ctx := context.Background()
 	st, err := store.Open(ctx, store.Options{Dir: storetest.Dir(t)})
 	if err != nil {
@@ -99,7 +105,7 @@ func newRigWith(t *testing.T, specs ...library.VersionSpec) *rig {
 	}
 
 	lib := library.New(st, clk.Now)
-	id, err := lib.AddMovie(ctx, library.AddMovie{Details: paddington(), PrimaryLanguage: "en", Versions: specs, RootFolder: "/data/media/movies"})
+	id, err := lib.AddMovie(ctx, library.AddMovie{Details: details, PrimaryLanguage: "en", Versions: specs, RootFolder: "/data/media/movies"})
 	if err != nil {
 		t.Fatal(err)
 	}

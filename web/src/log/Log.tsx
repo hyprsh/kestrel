@@ -30,6 +30,7 @@ const kinds: Record<string, { label: string; tone: Tone }> = {
   cleanup: { label: 'Cleaned up', tone: 'gray' },
   health_raised: { label: 'Warning', tone: 'amber' },
   health_cleared: { label: 'Cleared', tone: 'green' },
+  original_offered: { label: 'Original offered', tone: 'amber' },
 }
 
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })

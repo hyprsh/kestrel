@@ -103,7 +103,7 @@ func (s *server) ListEpisodes(ctx context.Context, r oapi.ListEpisodesRequestObj
 	for _, e := range eps {
 		oe := oapi.Episode{
 			Id: e.ID, Season: e.Season, Number: e.Number, Name: e.Name, Monitored: e.Monitored,
-			PrimaryName: e.PrimaryName, OriginalName: e.Name,
+			PrimaryName: e.PrimaryName, OriginalName: e.Name, Placeholder: e.Placeholder,
 		}
 		if e.AirDate != nil {
 			oe.AirDate = &openapi_types.Date{Time: *e.AirDate}
@@ -180,6 +180,9 @@ func (s *server) PatchTitle(ctx context.Context, r oapi.PatchTitleRequestObject)
 	}
 	out := detailToAPI(d, view.Country)
 	if err := s.origins(ctx, &out); err != nil {
+		return nil, err
+	}
+	if err := s.withOffers(ctx, &out); err != nil {
 		return nil, err
 	}
 	return oapi.PatchTitle200JSONResponse(out), nil

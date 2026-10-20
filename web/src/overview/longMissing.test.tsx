@@ -32,7 +32,7 @@ function fakeLongMissing(rows: Attention['rows'] = []) {
     ],
   }
   server.use(
-    http.get('/attention', ({ response }) => response(200).json({ count: rows.length, severity: rows.length ? 'warning' : null, rows, long_missing })),
+    http.get('/attention', ({ response }) => response(200).json({ count: rows.length, severity: rows.length ? 'warning' : null, rows, long_missing, originals: { count: 0, items: [] } })),
   )
 }
 

@@ -26,10 +26,11 @@ type Profile struct {
 	MinHeight, MaxHeight int
 
 	Enabled bool
-	// OriginalFallback is only ever true on Primary-Language Profiles.
-	OriginalFallback bool
-	DefaultMovies    bool
-	DefaultSeries    bool
+	// OriginalChoice is what the Profile does with a Release in the Title's
+	// Original Language only; always reject on Original-Language Profiles.
+	OriginalChoice scoring.OriginalChoice
+	DefaultMovies  bool
+	DefaultSeries  bool
 
 	// TrashMovies and TrashSeries name the TRaSH profile files (without .json)
 	// backing the Profile under the current Primary Language (Settled 5).
@@ -47,15 +48,15 @@ func (p Profile) Default(kind release.Kind) bool {
 // Spec is the scoring.ProfileSpec of the Profile under a Primary Language.
 func (p Profile) Spec(primary release.Language) scoring.ProfileSpec {
 	return scoring.ProfileSpec{
-		Slot: p.Slot, Any: p.Any, Rule: p.Rule, Primary: primary, OriginalFallback: p.OriginalFallback,
+		Slot: p.Slot, Any: p.Any, Rule: p.Rule, Primary: primary, OriginalChoice: p.OriginalChoice,
 	}
 }
 
 // Builtin returns the six Profiles as shipped: all enabled, HD the default
-// of both kinds, no fallback. Backing TRaSH names are the English household's.
+// of both kinds, Original-only Releases rejected. Backing TRaSH names are the English household's.
 func Builtin() []Profile {
 	mk := func(key, name string, sl slot.Slot, isAny bool, rule scoring.LanguageRule) Profile {
-		p := Profile{Key: key, Name: name, Slot: sl, Any: isAny, Rule: rule, Enabled: true}
+		p := Profile{Key: key, Name: name, Slot: sl, Any: isAny, Rule: rule, Enabled: true, OriginalChoice: scoring.OriginalReject}
 		p.MinHeight, p.MaxHeight = scoring.HeightBounds(sl, isAny)
 		return p
 	}

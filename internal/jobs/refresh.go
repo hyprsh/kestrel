@@ -44,6 +44,12 @@ type RefreshLibrary interface {
 	SetMetadataFrozen(ctx context.Context, id int64, frozen bool) error
 }
 
+// RefreshGrabs is what a refresh needs of the acquire module: the episodes
+// an active Grab is fetching, whose Placeholder Episodes must stay.
+type RefreshGrabs interface {
+	FetchingEpisodes(ctx context.Context, titleID int64) (map[int64]bool, error)
+}
+
 // TitleRenamer is the imports module's Rename.
 type TitleRenamer interface {
 	Rename(ctx context.Context, titleID int64) (imports.Renamed, error)
@@ -64,6 +70,7 @@ type RefreshHealth interface {
 // RefresherDeps are what NewRefresher needs.
 type RefresherDeps struct {
 	Library RefreshLibrary
+	Grabs   RefreshGrabs
 	Meta    metadata.Provider
 	TVDB    metadata.TVDBProvider
 	Renamer TitleRenamer
@@ -143,9 +150,14 @@ func (r *Refresher) Refresh(ctx context.Context, id int64) error {
 	default:
 		var det metadata.SeriesDetails
 		var tv metadata.TVDBSeries
+		var fetching map[int64]bool
 		if det, err = r.d.Meta.Series(ctx, d.TMDBID); err == nil {
 			if tv, err = metadata.SeriesIn(ctx, r.d.TVDB, d.TVDBID, primary); err == nil {
-				res, err = r.d.Library.RefreshSeries(ctx, id, library.SeriesRefresh{TMDB: det, TVDB: tv, PrimaryLanguage: primary})
+				if fetching, err = r.d.Grabs.FetchingEpisodes(ctx, id); err == nil {
+					res, err = r.d.Library.RefreshSeries(ctx, id, library.SeriesRefresh{
+						TMDB: det, TVDB: tv, PrimaryLanguage: primary, Fetching: fetching,
+					})
+				}
 			}
 		}
 	}

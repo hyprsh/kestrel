@@ -367,8 +367,10 @@ paths:
         A Slot has at most one default Profile per kind: making one the default replaces the old.
         The Standard Slot always keeps exactly one default per kind, so unsetting or disabling it is a
         `validation` error until another Standard Profile is the default. Disabling a Profile clears its defaults, and
-        a disabled Profile cannot be made a default. `original_fallback` is a `validation` error on
-        Original-Language Profiles. `409 conflict` while the Config File declares `profiles`.
+        a disabled Profile cannot be made a default. `original_language` other than `reject` (or
+        `original_fallback: true`) is a `validation` error on Original-Language Profiles, and so is an
+        `original_fallback` that disagrees with `original_language` in the same patch.
+        `409 conflict` while the Config File declares `profiles`.
       tags: [profiles]
       requestBody:
         required: true
@@ -990,6 +992,10 @@ paths:
         Slot; a Release for another Slot carries the `other_slot` rejection. A Series Version is
         searched by `season` and `episode_ids` in the body (none searches the whole Series); the
         Releases are single or multi-episode ones and season packs, told apart by `episodes` and `pack`.
+        A Release naming an episode TheTVDB does not list yet is grabbable as a Placeholder Episode
+        when its season is listed and monitored and the episode is at most 2 past the season's last
+        listed one; otherwise it carries `episode_not_listed` (overridable), or `season_not_listed`
+        when TheTVDB lists no such season.
       tags: [grabs]
       requestBody:
         required: false
@@ -1044,6 +1050,59 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /versions/{id}/original-offer/accept:
+    parameters:
+      - $ref: "#/components/parameters/VersionId"
+    post:
+      operationId: acceptOriginalOffer
+      summary: Accept a Version's Original Offer
+      description: |
+        Grabs every Release the offer lists, the same as "Grab anyway": exactly the Releases offered,
+        however old the offer is, a dismissed one included. A Release that cannot be grabbed counts in
+        `failed`: one the indexer no longer has, or the Blocklist holds, has its offer dropped; one that
+        failed for another reason (the download client is down, a spent budget) stays offered. When none
+        could be grabbed the first failure answers as `createGrab` would. No offer is `404`.
+        Once imported, the file fills the Version, and any acceptable Release replaces it whatever its
+        Score.
+      tags: [grabs]
+      responses:
+        "201":
+          description: The Grabs made.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfferAccepted"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/Problem"
+        "502":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /versions/{id}/original-offer/dismiss:
+    parameters:
+      - $ref: "#/components/parameters/VersionId"
+    post:
+      operationId: dismissOriginalOffer
+      summary: Dismiss a Version's Original Offer
+      description: |
+        Keeps waiting for a Primary-Language Release for the units the offer shows (a Movie's one, a
+        Series' episodes). Dismissal is per unit: a unit stays dismissed until a Release that scores
+        higher for it is offered, and a unit offered for the first time, such as a new episode, shows the
+        offer again with the units not dismissed alone. No offer is `404`.
+      tags: [grabs]
+      responses:
+        "204":
+          description: The offer is dismissed.
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /grabs:
     post:
       operationId: createGrab
@@ -1053,7 +1112,9 @@ paths:
         the Title's kind. The Grab starts at `sent`, keyed by the client's id. `release_id` comes from
         a search in the last 6 h, otherwise `409 release_expired` (also when the indexer no longer has
         the NZB). A Release with rejections needs `override: true` ("Grab anyway"), else `422 rejected`;
-        `blocklisted` and `other_slot` can never be overridden and answer `422 not_overridable`.
+        `blocklisted`, `other_slot` and `season_not_listed` can never be overridden and answer
+        `422 not_overridable`. A Series Release naming episodes TheTVDB does not list yet adds them as
+        Placeholder Episodes, which the Grab covers.
         A spent grab budget is `429 rate_limited`; an unreachable client or indexer is
         `502 upstream_unavailable`.
       tags: [grabs]
@@ -1467,7 +1528,8 @@ paths:
         from conditions that clear themselves when the condition goes (Settled 16, 17; #17); `actions`
         are built by the server and drawn generically by the SPA. An action with method `GET` opens
         that SPA path (such as `/settings/download-client`) instead of calling the API. `count`
-        counts `rows` only: the Long Missing group has its own `long_missing` and never counts.
+        counts `rows` only: the Long Missing group has its own `long_missing` and the Originals
+        available group its own `originals`, and neither counts.
       tags: [system]
       responses:
         "200":
@@ -2406,7 +2468,7 @@ components:
       enum: [standard, 4k]
     Profile:
       type: object
-      required: [key, name, slot, language_rule, original_fallback, enabled, default_movies, default_series, min_height, max_height, trash_profile_movies, trash_profile_series, from_config_file]
+      required: [key, name, slot, language_rule, original_language, original_fallback, enabled, default_movies, default_series, min_height, max_height, trash_profile_movies, trash_profile_series, from_config_file]
       properties:
         from_config_file:
           type: boolean
@@ -2423,9 +2485,14 @@ components:
           type: string
           description: Which audio the Profile requires.
           enum: [primary, original]
+        original_language:
+          $ref: "#/components/schemas/OriginalLanguageChoice"
         original_fallback:
           type: boolean
-          description: Accept a Release with the Title's Original Language but no Primary-Language audio. Always false on Original-Language Profiles.
+          deprecated: true
+          description: |
+            Deprecated in favour of `original_language`: `true` exactly when it is `accept`. Always
+            false on Original-Language Profiles.
         enabled:
           type: boolean
         default_movies:
@@ -2455,12 +2522,24 @@ components:
       properties:
         enabled:
           type: boolean
+        original_language:
+          $ref: "#/components/schemas/OriginalLanguageChoice"
         original_fallback:
           type: boolean
+          deprecated: true
+          description: Deprecated in favour of `original_language`; `true` sets `accept`, `false` sets `reject`.
         default_movies:
           type: boolean
         default_series:
           type: boolean
+    OriginalLanguageChoice:
+      type: string
+      enum: [reject, offer, accept]
+      description: |
+        What a Primary-Language Profile does with a Release that has the Title's Original Language but
+        no Primary-Language audio: `reject` it, `offer` it to the admin as an Original Offer (Needs
+        attention, never grabbed on its own), or `accept` it like any other. Always `reject` on
+        Original-Language Profiles.
     SetupSectionState:
       type: string
       enum: [done, todo]
@@ -2941,7 +3020,7 @@ components:
             format: int64
     Episode:
       type: object
-      required: [id, season, number, name, primary_name, original_name, air_date, monitored, cells]
+      required: [id, season, number, name, primary_name, original_name, air_date, monitored, cells, placeholder]
       properties:
         id:
           type: integer
@@ -2979,6 +3058,12 @@ components:
         original_name:
           type: string
           description: The title in the Series' original language. Empty for a Placeholder Episode.
+        placeholder:
+          type: boolean
+          description: |
+            True for a Placeholder Episode: one Kestrel added because a Release named it before
+            TheTVDB listed it. It has no name, air date or TheTVDB id until a metadata refresh adopts
+            it, and counts as released from when it was added.
     EpisodeList:
       type: object
       required: [items]
@@ -3306,6 +3391,11 @@ components:
           format: date-time
         coverage:
           $ref: "#/components/schemas/VersionCoverage"
+        original_offer:
+          description: The Version's Original Offer, dismissed or not; null or absent when it has none.
+          allOf:
+            - $ref: "#/components/schemas/OriginalOffer"
+          nullable: true
     VersionCoverage:
       type: object
       description: |
@@ -3397,8 +3487,11 @@ components:
             format: int64
     RejectionCode:
       type: string
-      description: Why a Release cannot go to a Version. Clients tolerate codes they do not know.
-      enum: [below_min_score, resolution, quality, language, original_language_unknown, blocklisted, other_slot]
+      description: |
+        Why a Release cannot go to a Version. Clients tolerate codes they do not know. `original_only`
+        is a Release with the Title's Original Language but no Primary-Language audio under a Profile
+        that offers such Releases.
+      enum: [below_min_score, resolution, quality, language, original_language_unknown, blocklisted, other_slot, episode_not_listed, season_not_listed, original_only]
     Rejection:
       type: object
       required: [code, message, overridable]
@@ -3409,7 +3502,7 @@ components:
           type: string
         overridable:
           type: boolean
-          description: False for `blocklisted` and `other_slot`, which "Grab anyway" never overrides.
+          description: False for `blocklisted`, `other_slot` and `season_not_listed`, which "Grab anyway" never overrides.
     CustomFormatMatch:
       type: object
       required: [name, points]
@@ -3810,7 +3903,7 @@ components:
           description: The worst severity among them, null when there are none.
     Attention:
       type: object
-      required: [count, severity, rows, long_missing]
+      required: [count, severity, rows, long_missing, originals]
       properties:
         count:
           type: integer
@@ -3826,6 +3919,8 @@ components:
             $ref: "#/components/schemas/AttentionRow"
         long_missing:
           $ref: "#/components/schemas/LongMissing"
+        originals:
+          $ref: "#/components/schemas/OriginalsAvailable"
     AttentionRow:
       type: object
       required: [id, severity, kind, subject, message, since, count, actions]
@@ -3946,6 +4041,102 @@ components:
               last_failure:
                 type: string
                 nullable: true
+    OriginalsAvailable:
+      type: object
+      description: The Originals available group of Needs attention, outside the rail badge.
+      required: [count, items]
+      properties:
+        count:
+          type: integer
+          description: How many Versions have an Original Offer that is not dismissed.
+        items:
+          type: array
+          description: Those offers, newest first.
+          items:
+            $ref: "#/components/schemas/OriginalOffer"
+    OriginalOffer:
+      type: object
+      description: |
+        Releases with the Title's Original Language but no Primary-Language audio, held back for one
+        Version whose Profile offers them, for what it is missing. A Movie has one Release; a Series
+        lists every episode or season pack that has one. The offer lasts while those units are Wanted
+        with no active Grab: a Primary-Language Release that is grabbed makes it go.
+      required: [title_id, title, version_id, slot, profile, release, score, releases, found_at, dismissed]
+      properties:
+        title_id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        version_id:
+          type: integer
+          format: int64
+        slot:
+          $ref: "#/components/schemas/Slot"
+        profile:
+          type: string
+          description: The key of the Version's Profile.
+        release:
+          type: string
+          description: The name of the best-scoring Release offered.
+        score:
+          type: integer
+          description: Its Score under the Version's Profile.
+        releases:
+          type: array
+          items:
+            $ref: "#/components/schemas/OfferedRelease"
+        found_at:
+          type: string
+          format: date-time
+          description: When the newest of the Releases was offered.
+        dismissed:
+          type: boolean
+          description: |
+            Every unit of the offer is dismissed: the admin keeps waiting for a Primary-Language Release,
+            and `releases` lists the dismissed ones. While any unit is not dismissed, this is false and
+            `releases` lists those units alone, which is what Accept grabs.
+    OfferedRelease:
+      type: object
+      required: [name, indexer, score, size, published_at, season, pack, episodes]
+      properties:
+        name:
+          type: string
+        indexer:
+          type: string
+        score:
+          type: integer
+        size:
+          type: integer
+          format: int64
+        published_at:
+          type: string
+          format: date-time
+        season:
+          type: integer
+          nullable: true
+          description: The season of a Series Release; null for a Movie.
+        pack:
+          type: boolean
+          description: A season pack.
+        episodes:
+          type: array
+          description: The episode numbers it is offered for, in `season`; empty for a Movie.
+          items:
+            type: integer
+    OfferAccepted:
+      type: object
+      required: [grabs, failed]
+      properties:
+        grabs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Grab"
+        failed:
+          type: integer
+          description: |
+            How many of the offered Releases could not be grabbed. One the indexer no longer has, or the
+            Blocklist holds, leaves the offer; one that failed for another reason stays offered.
     SystemStatus:
       type: object
       required: [download_client, indexers, disks, trash, grabs_paused]
@@ -4116,7 +4307,7 @@ components:
         at: { type: string, format: date-time }
         kind:
           type: string
-          description: "A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search."
+          description: "A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered."
         routine: { type: boolean }
         title_id: { type: integer, format: int64, nullable: true }
         version_id: { type: integer, format: int64, nullable: true }

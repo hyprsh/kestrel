@@ -98,10 +98,12 @@ func (d declarer) sections() []section {
 	if f.Profiles != nil {
 		want := map[string]profiles.State{}
 		for key, p := range f.Profiles {
-			want[key] = profiles.State{Enabled: *p.Enabled, OriginalFallback: *p.OriginalFallback, DefaultMovies: *p.DefaultMovies, DefaultSeries: *p.DefaultSeries}
+			want[key] = profiles.State{Enabled: *p.Enabled, OriginalChoice: p.Choice(), DefaultMovies: *p.DefaultMovies, DefaultSeries: *p.DefaultSeries}
 		}
 		out = append(out, section{
-			check: func(context.Context) error { return validation("profiles", profiles.CheckAll(want)) },
+			check: func(context.Context) error {
+				return validation("profiles", deprecatedField(f.Profiles, profiles.CheckAll(want)))
+			},
 			apply: func(ctx context.Context) error { return d.profiles.SetAll(ctx, want) },
 		})
 	}
@@ -243,6 +245,19 @@ func instanceError(err error) error {
 	var de *instances.DeclaredError
 	if errors.As(err, &de) {
 		return fmt.Errorf("plugin_instances %w", de)
+	}
+	return err
+}
+
+// deprecatedField names original_fallback instead of original_language in a
+// Profile's error when the file declared only the deprecated field.
+func deprecatedField(declared map[string]configfile.Profile, err error) error {
+	var pe *profiles.ValidationError
+	if !errors.As(err, &pe) {
+		return err
+	}
+	if key, ok := strings.CutSuffix(pe.Field, ".original_language"); ok && declared[key].OriginalChoice == nil {
+		pe.Field = key + ".original_fallback"
 	}
 	return err
 }

@@ -259,7 +259,7 @@ func importDue(ctx context.Context, r *Runner, d Deps) error {
 			for j := range work {
 				res := d.Importer.Import(ctx, imports.Grab{
 					ID: j.ID, TitleID: j.TitleID, VersionID: j.VersionID, ReleaseName: j.ReleaseName,
-					Parsed: []byte(j.Parsed), SourcePath: j.OutputPath, CanRemove: j.CanRemove,
+					Parsed: []byte(j.Parsed), SourcePath: j.OutputPath, CanRemove: j.CanRemove, Overridden: j.Overridden,
 				})
 				if ctx.Err() != nil {
 					continue // shutting down: the Grab stays importing and is redone

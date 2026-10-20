@@ -5,18 +5,30 @@ import { useAttention, useRunAction, type Attention, type AttentionAction, type 
 import { Button, ErrorText } from '../forms'
 import { slotLabel } from '../library/bits'
 import { Badge, NavRow } from '../ui'
+import { OriginalsRow } from './OriginalsRow'
 import type { OverviewNav } from './nav'
 
-export function NeedsAttention({ onOpen, nav }: { onOpen: (path: string) => void; nav: OverviewNav }) {
+export function NeedsAttention({
+  onOpen,
+  onOpenTitle,
+  nav,
+}: {
+  onOpen: (path: string) => void
+  onOpenTitle: (id: number) => void
+  nav: OverviewNav
+}) {
   const attention = useAttention()
   const rows = attention.data?.rows ?? []
   const longMissing = attention.data?.long_missing
+  const originals = attention.data?.originals
+  // Long Missing only waits, so it leaves the section saying nothing needs attention; offers ask for a choice.
+  const nothing = rows.length === 0 && !(originals && originals.count > 0)
   return (
     <section aria-labelledby="needs-attention" className="mx-auto mb-8 max-w-3xl">
       <h2 id="needs-attention" className="mb-3 text-sm font-medium">
         Needs attention
       </h2>
-      {attention.data && rows.length === 0 ? (
+      {attention.data && nothing ? (
         <p className="text-gray-900">Nothing needs attention.</p>
       ) : (
         rows.length > 0 && (
@@ -28,6 +40,7 @@ export function NeedsAttention({ onOpen, nav }: { onOpen: (path: string) => void
         )
       )}
       {longMissing && longMissing.count > 0 && <LongMissingRow group={longMissing} onOpen={onOpen} />}
+      {originals && originals.count > 0 && <OriginalsRow group={originals} onOpenTitle={onOpenTitle} />}
     </section>
   )
 }

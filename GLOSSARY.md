@@ -23,7 +23,7 @@ An episode Kestrel added itself because a Release named it before TheTVDB listed
 _Avoid_: TBA episode, ghost episode
 
 **Profile**:
-A named, switchable quality-and-language target, such as HD, Any or 4K, backed by a TRaSH profile. Any takes every resolution up to 1080p, for Titles that never had an HD release. Each Profile belongs to one Slot, covers a fixed resolution range, and either requires the Primary Language or requires the Title's Original Language. Profiles can be enabled or disabled and chosen as the default for a Slot in new Movies or new Series. A Version's Profile can be switched at any time to another Profile of the same Slot.
+A named, switchable quality-and-language target, such as HD, Any or 4K, backed by a TRaSH profile. Any takes every resolution up to 1080p, for Titles that never had an HD release. Each Profile belongs to one Slot, covers a fixed resolution range, and either requires the Primary Language or requires the Title's Original Language. A Primary-Language Profile rejects, offers (an Original Offer) or accepts a Release that has the Title's Original Language but no Primary-Language audio. Profiles can be enabled or disabled and chosen as the default for a Slot in new Movies or new Series. A Version's Profile can be switched at any time to another Profile of the same Slot.
 _Avoid_: Quality profile, preset, UHD (say 4K), Kids Profile
 
 **Slot**:
@@ -50,7 +50,7 @@ _Avoid_: Multi-audio, DL or MULTi (unexpanded)
 Replacing a Version's file with a better-scoring Release. Monitored Versions never stop upgrading; there is no cutoff. An unmonitored Title, or an unmonitored episode of a Series, is not Upgraded.
 
 **Wanted**:
-A monitored, released Version, or episode of a Series Version, that has no file or whose file no longer fits its Profile. An episode counts as released once it has aired, once it is a Placeholder Episode, or, without an air date, once a later episode of its Series is out. Unmonitored and unreleased ones are not Wanted, and a filled Version waiting for an Upgrade is not Wanted either.
+A monitored, released Version, or episode of a Series Version, that has no file or whose file no longer fits its Profile. An episode counts as released once it has aired, once it is a Placeholder Episode, or, without an air date, once a later episode of its Series is out. A Movie with no release date anywhere counts as released once a Release for it has been seen. Unmonitored and unreleased ones are not Wanted, and a filled Version waiting for an Upgrade is not Wanted either.
 _Avoid_: Missing (for the whole set), cutoff unmet
 
 **Long Missing**:
@@ -86,6 +86,10 @@ _Avoid_: Rating (that is a Title's), rank
 **Grab**:
 Choosing a Release for a Version and handing it to the download client. Every download Kestrel tracks traces back to one Grab.
 _Avoid_: Snatch, download (as a noun)
+
+**Original Offer**:
+A Release with the Title's Original Language but no Primary-Language audio that a Version's Profile holds back for the admin instead of grabbing it: Accept grabs it, Dismiss keeps waiting for a Primary-Language Release. Once accepted, its file fills the Version until any acceptable Release replaces it, whatever the Scores.
+_Avoid_: Original fallback, O-Ton offer, pending original
 
 **Blocklist**:
 Releases that failed and are never grabbed again.

@@ -50,6 +50,7 @@ function fakeAttention(rows: Row[]) {
         severity: state.rows.length === 0 ? null : state.rows[0].severity,
         rows: state.rows,
         long_missing: { count: 0, items: [] },
+        originals: { count: 0, items: [] },
       }),
     ),
     http.post('/attention/{id}/dismiss', ({ params, response }) => {
