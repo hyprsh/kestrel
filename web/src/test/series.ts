@@ -6,13 +6,17 @@ import { server } from './server'
 type Episode = components['schemas']['Episode']
 type Mode = components['schemas']['SeriesMonitor']
 
-const cell = (state: components['schemas']['SlotState'], score: number | null = null) => ({ state, score })
+type EpisodeFile = components['schemas']['EpisodeFile']
+
+export const cell = (state: components['schemas']['SlotState'], score: number | null = null, file: EpisodeFile | null = null) => ({ state, score, file })
 
 export const episode = (id: number, season: number, number: number, name: string, over: Partial<Episode> = {}): Episode => ({
   id,
   season,
   number,
   name,
+  primary_name: name,
+  original_name: name,
   air_date: '2008-01-20',
   monitored: season > 0,
   cells: { standard: cell(season > 0 ? 'wanted' : 'unmonitored'), '4k': cell(season > 0 ? 'wanted' : 'unmonitored') },

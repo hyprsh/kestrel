@@ -133,6 +133,12 @@ func (o observedTVDB) Series(ctx context.Context, id int) (metadata.TVDBSeries, 
 	return r, err
 }
 
+func (o observedTVDB) EpisodeNames(ctx context.Context, id int, lang string) (map[int]string, error) {
+	r, err := o.TVDBProvider.EpisodeNames(ctx, id, lang)
+	observe(ctx, o.h, "TheTVDB", err)
+	return r, err
+}
+
 func (o observedTVDB) SeriesByIMDb(ctx context.Context, imdbID string) (int, bool, error) {
 	id, ok, err := o.TVDBProvider.SeriesByIMDb(ctx, imdbID)
 	observe(ctx, o.h, "TheTVDB", err)

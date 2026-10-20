@@ -42,14 +42,15 @@ type Blocklist struct {
 }
 
 type Episode struct {
-	ID        int64
-	TitleID   int64
-	Season    int64
-	Number    int64
-	TvdbID    sql.NullInt64
-	Name      string
-	AirDate   sql.NullString
-	Monitored int64
+	ID          int64
+	TitleID     int64
+	Season      int64
+	Number      int64
+	TvdbID      sql.NullInt64
+	Name        string
+	AirDate     sql.NullString
+	Monitored   int64
+	PrimaryName string
 }
 
 type Event struct {

@@ -2685,7 +2685,7 @@ components:
           type: boolean
     EpisodeCell:
       type: object
-      required: [state, score]
+      required: [state, score, file]
       properties:
         state:
           $ref: "#/components/schemas/SlotState"
@@ -2693,9 +2693,37 @@ components:
           type: integer
           nullable: true
           description: The Score of the file holding the episode, when there is one.
+        file:
+          allOf:
+            - $ref: "#/components/schemas/EpisodeFile"
+          nullable: true
+          description: The file holding the episode in this Version, even a misfit one; `null` when there is none.
+    EpisodeFile:
+      type: object
+      description: A file on disk holding one or more episodes of a Version (a multi-episode file holds several).
+      required: [id, path, size, quality, episode_ids]
+      properties:
+        id:
+          type: integer
+          format: int64
+        path:
+          type: string
+        size:
+          type: integer
+          format: int64
+        quality:
+          type: string
+          nullable: true
+          description: The quality name parsed from the release name ("WEBDL-1080p").
+        episode_ids:
+          type: array
+          description: Every episode the file holds, in aired order; more than one for a multi-episode file.
+          items:
+            type: integer
+            format: int64
     Episode:
       type: object
-      required: [id, season, number, name, air_date, monitored, cells]
+      required: [id, season, number, name, primary_name, original_name, air_date, monitored, cells]
       properties:
         id:
           type: integer
@@ -2706,6 +2734,7 @@ components:
           type: integer
         name:
           type: string
+          description: The original title; kept for older clients, the same as `original_name`.
         air_date:
           type: string
           format: date
@@ -2726,6 +2755,12 @@ components:
               allOf:
                 - $ref: "#/components/schemas/EpisodeCell"
               nullable: true
+        primary_name:
+          type: string
+          description: The title in the Primary Language, from TheTVDB; the original title when TheTVDB has no translation. Empty for a Placeholder Episode.
+        original_name:
+          type: string
+          description: The title in the Series' original language. Empty for a Placeholder Episode.
     EpisodeList:
       type: object
       required: [items]

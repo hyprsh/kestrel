@@ -4,6 +4,8 @@ import { cx } from '../ui'
 import { slotLabel, versionStatus, type SlotKey } from './bits'
 import { SeasonSummary, SeasonToggle } from './SeasonSummary'
 import type { SeasonOpen } from './useSeasonOpen'
+import { EpisodeFileTip, cellTitle } from './EpisodeFileTip'
+import { EpisodeName } from './EpisodeName'
 
 type Row = { kind: 'season'; season: number; episodes: Episode[] } | { kind: 'episode'; episode: Episode }
 
@@ -253,6 +255,7 @@ function EpisodeRow({
   onToggle: () => void
 }) {
   const label = `Season ${episode.season} episode ${episode.number}`
+  const [fileOpen, setFileOpen] = useState<SlotKey | null>(null)
   return (
     <div role="row" aria-rowindex={index + 2} className="flex items-center gap-3 px-3 py-1 hover:bg-gray-alpha-100">
       <div role="gridcell" className="flex min-w-0 flex-1 items-center gap-2">
@@ -270,23 +273,25 @@ function EpisodeRow({
         <span className="w-14 shrink-0 font-mono text-[11px] text-gray-900">
           {episode.season}x{String(episode.number).padStart(2, '0')}
         </span>
-        <span className="truncate">{episode.name || 'TBA'}</span>
+        <EpisodeName episode={episode} />
         <span className="ml-auto shrink-0 text-[12px] text-gray-900">{episode.air_date ?? 'no air date'}</span>
       </div>
       {slots.map((s, c) => {
         const cell = episode.cells[s]
         const state = cell ? versionStatus(cell.state).label : 'no Version'
         return (
-          <div key={s} role="gridcell" className="flex w-10 justify-center">
+          <div key={s} role="gridcell" className="relative flex w-10 justify-center">
             <span
               role="img"
               aria-label={`${label} ${slotLabel[s]}: ${state}`}
-              title={`${slotLabel[s]}: ${state}${cell?.score != null ? ` · Score ${cell.score}` : ''}`}
+              title={cellTitle(slotLabel[s], state, cell)}
+              onClick={() => setFileOpen(cell?.file && fileOpen !== s ? s : null)}
               data-cell={`${index}-${c + 1}`}
               tabIndex={tab(index, c + 1)}
               onFocus={() => onFocus(c + 1)}
               className={cx('size-4 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-blue-700', cell ? cellClass(cell.state) : 'border border-gray-alpha-400')}
             />
+            {fileOpen === s && cell?.file && <EpisodeFileTip label={`${label} ${slotLabel[s]}`} cell={cell} file={cell.file} onClose={() => setFileOpen(null)} />}
           </div>
         )
       })}

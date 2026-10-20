@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
+	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
@@ -32,13 +33,13 @@ func (s *server) createSeries(ctx context.Context, b *oapi.TitleCreate, specs []
 	if tvdbID == 0 {
 		return nil, invalid("tmdb_id", metadata.ReasonNotOnTVDB, "This Series is not on TheTVDB, so Kestrel cannot add it")
 	}
-	tv, err := s.tvdb.Series(ctx, tvdbID)
-	if err != nil {
-		return nil, metaProblem(err)
-	}
 	region, _, err := s.profiles.Region(ctx)
 	if err != nil {
 		return nil, err
+	}
+	tv, err := metadata.SeriesIn(ctx, s.tvdb, tvdbID, string(region.Primary))
+	if err != nil {
+		return nil, metaProblem(err)
 	}
 	id, err := s.library.AddSeries(ctx, library.AddSeries{
 		TMDB: details, TVDB: tv, PrimaryLanguage: string(region.Primary), Monitor: mode, Versions: specs, RootFolder: root,
@@ -77,10 +78,18 @@ func (s *server) ListEpisodes(ctx context.Context, r oapi.ListEpisodesRequestObj
 		if c == nil {
 			return nil
 		}
-		return &oapi.EpisodeCell{State: oapi.SlotState(c.State), Score: c.Score}
+		out := &oapi.EpisodeCell{State: oapi.SlotState(c.State), Score: c.Score}
+		if f := c.File; f != nil {
+			quality, _ := imports.Facts(f.ParsedRelease, "")
+			out.File = &oapi.EpisodeFile{Id: f.ID, Path: f.Path, Size: f.Size, Quality: strPtr(quality), EpisodeIds: f.EpisodeIDs}
+		}
+		return out
 	}
 	for _, e := range eps {
-		oe := oapi.Episode{Id: e.ID, Season: e.Season, Number: e.Number, Name: e.Name, Monitored: e.Monitored}
+		oe := oapi.Episode{
+			Id: e.ID, Season: e.Season, Number: e.Number, Name: e.Name, Monitored: e.Monitored,
+			PrimaryName: e.PrimaryName, OriginalName: e.Name,
+		}
 		if e.AirDate != nil {
 			oe.AirDate = &openapi_types.Date{Time: *e.AirDate}
 		}
