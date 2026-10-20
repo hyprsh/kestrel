@@ -1,4 +1,4 @@
-import { Eraser, Plus } from 'lucide-react'
+import { Eraser, FolderInput, Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTitles, type TitleRow } from '../api/queries'
 import { useOpenCleanup } from '../cleanup/launch'
@@ -36,15 +36,19 @@ function matches(r: TitleRow, text: string): boolean {
  * right. Everything is reachable from the keyboard: j/k and the arrows move,
  * Enter steps into the detail, Escape steps back, `/` filters.
  */
+const toolButton = 'flex h-6 items-center gap-1 rounded-md px-2 text-[12px] font-medium text-gray-900 hover:bg-gray-alpha-100 hover:text-gray-1000'
+
 export function Library({
   selectedId,
   onSelect,
   onAdd,
+  onAdopt,
   preset,
 }: {
   selectedId: number | null
   onSelect: (id: number) => void
   onAdd: () => void
+  onAdopt: () => void
   /** Opens with the Wanted filter on, and the Long Missing chip too for 'long_missing'. */
   preset?: Preset
 }) {
@@ -98,10 +102,16 @@ export function Library({
     <div className="flex min-h-0 flex-1">
       <aside className="flex w-72 shrink-0 flex-col border-r border-gray-alpha-400">
         <div className="flex flex-col gap-2 border-b border-gray-alpha-400 p-3">
-          <Button variant="secondary" onClick={() => openCleanup()} className="self-start">
-            <Eraser className="mr-1 size-4" />
-            Clean up Unmanaged files
-          </Button>
+          <div className="flex gap-1">
+            <button onClick={onAdopt} aria-label="Adopt existing library" title="Adopt existing library" className={toolButton}>
+              <FolderInput className="size-3.5" />
+              Adopt
+            </button>
+            <button onClick={() => openCleanup()} aria-label="Clean up Unmanaged files" title="Clean up Unmanaged files" className={toolButton}>
+              <Eraser className="size-3.5" />
+              Clean up
+            </button>
+          </div>
           <div className="relative">
             <input
               ref={filterRef}

@@ -126,6 +126,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
               selectedId={libraryId}
               onSelect={setLibraryId}
               onAdd={() => setMenu({ mode: 'add' })}
+              onAdopt={() => setScreen('adoption')}
             />
           ) : screen === 'about' ? (
             <About />
