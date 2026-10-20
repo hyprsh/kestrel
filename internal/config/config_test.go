@@ -105,6 +105,28 @@ func TestAMalformedAPIKeyIsRejectedWithoutEchoingIt(t *testing.T) {
 	}
 }
 
+func TestProviderURLsComeFromTheEnvironment(t *testing.T) {
+	c, err := config.Load(env(
+		"KESTREL_TMDB_API_URL", "http://127.0.0.1:7690/3", "KESTREL_TMDB_IMAGE_URL", "http://127.0.0.1:7690/t/p",
+		"KESTREL_TVDB_API_URL", " https://tvdb.example/v4 "))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.TMDBAPIURL != "http://127.0.0.1:7690/3" || c.TMDBImageURL != "http://127.0.0.1:7690/t/p" || c.TVDBAPIURL != "https://tvdb.example/v4" {
+		t.Errorf("urls = %q %q %q", c.TMDBAPIURL, c.TMDBImageURL, c.TVDBAPIURL)
+	}
+}
+
+func TestAProviderURLMustBeAnHTTPURL(t *testing.T) {
+	for _, key := range []string{"KESTREL_TMDB_API_URL", "KESTREL_TMDB_IMAGE_URL", "KESTREL_TVDB_API_URL"} {
+		for _, bad := range []string{"127.0.0.1:7690", "ftp://host/3", "/3", "http://"} {
+			if _, err := config.Load(env(key, bad)); err == nil || !strings.Contains(err.Error(), key) {
+				t.Errorf("%s=%q: err = %v, want one naming the variable", key, bad, err)
+			}
+		}
+	}
+}
+
 func TestTheConfigFileIsNamedByTheEnvironment(t *testing.T) {
 	c, err := config.Load(env("KESTREL_CONFIG_FILE", " /config/kestrel.yaml "))
 	if err != nil {

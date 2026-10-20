@@ -55,6 +55,12 @@ type Options struct {
 	TMDBAPIKey string
 	// TVDBAPIKey is KESTREL_TVDB_API_KEY.
 	TVDBAPIKey string
+	// TMDBAPIURL, TMDBImageURL and TVDBAPIURL are KESTREL_TMDB_API_URL,
+	// KESTREL_TMDB_IMAGE_URL and KESTREL_TVDB_API_URL: the base URLs of the
+	// real clients and the poster cache. Empty means the real services.
+	TMDBAPIURL   string
+	TMDBImageURL string
+	TVDBAPIURL   string
 	// TVDB is the TheTVDB client; nil means the real one, with the key chosen by
 	// the same precedence as TMDB's. Tests inject a client pointed at fixtures.
 	TVDB metadata.TVDBProvider
@@ -129,15 +135,15 @@ func New(opts Options) *App {
 	keys := metadata.NewKeys(appSettings, opts.TMDBAPIKey, opts.TVDBAPIKey)
 	var meta metadata.Provider = opts.Metadata
 	if meta == nil {
-		meta = metadata.NewTMDB(metadata.TMDBOptions{Keys: keys})
+		meta = metadata.NewTMDB(metadata.TMDBOptions{BaseURL: opts.TMDBAPIURL, ImageBase: opts.TMDBImageURL, Keys: keys})
 	}
 	var tvdb metadata.TVDBProvider = opts.TVDB
 	if tvdb == nil {
-		tvdb = metadata.NewTVDB(metadata.TVDBOptions{Keys: keys})
+		tvdb = metadata.NewTVDB(metadata.TVDBOptions{BaseURL: opts.TVDBAPIURL, Keys: keys})
 	}
 	posters := opts.Posters
 	if posters == nil {
-		posters = metadata.NewPosters(metadata.PostersOptions{ConfigDir: opts.ConfigDir})
+		posters = metadata.NewPosters(metadata.PostersOptions{ConfigDir: opts.ConfigDir, ImageBase: opts.TMDBImageURL})
 	}
 
 	indexerHost := indexers.New(pluginInstances, opts.Clock)

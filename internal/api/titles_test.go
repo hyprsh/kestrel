@@ -3,6 +3,7 @@ package api_test
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -360,6 +361,39 @@ func TestThePosterIsCachedUnderTheConfigDirAndServed(t *testing.T) {
 	}
 	if r := l.valid("GET", fmt.Sprintf("/titles/%d/poster", noPoster.ID), ""); r.Status != 404 {
 		t.Errorf("no poster = %d %s", r.Status, r.Body)
+	}
+}
+
+// The provider URLs (KESTREL_TMDB_API_URL, KESTREL_TMDB_IMAGE_URL and
+// KESTREL_TVDB_API_URL) point the real clients and the poster cache at other
+// servers, here the fakes, with no client injected.
+func TestTheProviderURLsPointKestrelAtOtherServers(t *testing.T) {
+	t.Parallel()
+	tmdb := metadatatest.New(t)
+	tvdb := metadatatest.NewTVDB(t)
+	in := newInstance(t, "", func(o *app.Options) {
+		o.DataDir, o.ConfigDir = t.TempDir(), t.TempDir()
+		o.TMDBAPIKey, o.TVDBAPIKey = metadatatest.Key, metadatatest.TVDBKey
+		o.TMDBAPIURL, o.TMDBImageURL, o.TVDBAPIURL = tmdb.APIBase(), tmdb.ImageBase(), tvdb.APIBase()
+	})
+	b := in.setUp()
+
+	found := decode[lookupJSON](t, b.valid("GET", "/lookup?q=paddington&kind=movie", ""))
+	if len(found.Items) != 1 || found.Items[0].Poster == nil || !strings.HasPrefix(*found.Items[0].Poster, tmdb.ImageBase()+"/") {
+		t.Errorf("lookup = %+v", found.Items)
+	}
+	movie := decode[titleJSON](t, b.valid("POST", "/titles", addPaddington))
+	if r := b.do("GET", fmt.Sprintf("/titles/%d/poster", movie.ID), ""); r.Status != 200 || r.Body != "poster-bytes" {
+		t.Errorf("poster = %d %q", r.Status, r.Body)
+	}
+	if r := b.valid("POST", "/titles", addBreakingBad+`}`); r.Status != 201 {
+		t.Errorf("adding a Series = %d %s", r.Status, r.Body)
+	}
+	if !slices.ContainsFunc(tmdb.Requests(), func(r string) bool { return strings.HasPrefix(r, "/t/p/") }) {
+		t.Errorf("no poster download reached the fake TMDB: %v", tmdb.Requests())
+	}
+	if len(tvdb.Requests()) == 0 {
+		t.Error("no request reached the fake TheTVDB")
 	}
 }
 
