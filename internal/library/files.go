@@ -69,7 +69,7 @@ func (s *Service) ReplaceFile(ctx context.Context, titleID int64, folder string,
 	if err != nil {
 		return nil, err
 	}
-	if err := markOriginal(ctx, q, fileID, f.Original); err != nil {
+	if err := markFile(ctx, q, fileID, f.Misfit, f.Original); err != nil {
 		return nil, err
 	}
 	if err := recordReplacedScore(ctx, q, fileID, replaced); err != nil {
@@ -209,12 +209,7 @@ func putEpisodeFile(ctx context.Context, q *db.Queries, f NewFile, episodeIDs []
 			return nil, err
 		}
 	}
-	if f.Misfit {
-		if err := q.SetMisfit(ctx, fileID); err != nil {
-			return nil, err
-		}
-	}
-	if err := markOriginal(ctx, q, fileID, f.Original); err != nil {
+	if err := markFile(ctx, q, fileID, f.Misfit, f.Original); err != nil {
 		return nil, err
 	}
 	var replaced []File
