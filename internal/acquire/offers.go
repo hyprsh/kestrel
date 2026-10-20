@@ -110,8 +110,14 @@ func (s *Service) noteOffers(ctx context.Context, d library.Detail, versionOf ma
 		}
 		vid := versionOf[p.Slot]
 		verdict := e.cand.Verdicts[p.Slot]
-		parsed, _ := json.Marshal(e.cand.Parsed)
-		vjson, _ := json.Marshal(verdict)
+		parsed, err := json.Marshal(e.cand.Parsed)
+		if err != nil {
+			return err
+		}
+		vjson, err := json.Marshal(verdict)
+		if err != nil {
+			return err
+		}
 		added := false
 		for _, ref := range p.Covers {
 			cur, err := q.GetOriginalOffer(ctx, unit(vid, ref))
