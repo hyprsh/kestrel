@@ -15,7 +15,7 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
   const seasons = useSeasonOpen(title.id)
   const slots = slotKeys.filter((k) => title.versions.some((v) => v.slot === k))
   const episodes = useEpisodes(title.id).data ?? noEpisodes
-  const actions = useEpisodeActions(title, episodes, slots, onManualSearch)
+  const actions = useEpisodeActions(title, episodes, seasons, slots, onManualSearch)
   return (
     <section aria-label="Episodes" className="mt-6">
       <div className="mb-3 flex flex-wrap items-center gap-3">
@@ -37,7 +37,7 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
         </label>
       </div>
       {setMode.isError && <ErrorText>{setMode.error instanceof ApiError ? setMode.error.message : 'Could not change monitoring.'}</ErrorText>}
-      <EpisodeToolbar actions={actions} episodes={episodes} />
+      <EpisodeToolbar actions={actions} />
       <EpisodeMatrix titleId={title.id} slots={slots} seasons={seasons} actions={actions} />
     </section>
   )

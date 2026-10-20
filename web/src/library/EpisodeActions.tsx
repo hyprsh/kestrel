@@ -12,6 +12,7 @@ import { cx } from '../ui'
 import { slotLabel, type SlotKey } from './bits'
 import { DeleteMenuItems, DeleteTickedButtons, EpisodeDeleteConfirm, useEpisodeDeletes, type EpisodeDeletes } from './DeleteFiles'
 import type { ManualSearchTarget } from './TitleDetail'
+import type { SeasonOpen } from './useSeasonOpen'
 
 const two = (n: number) => String(n).padStart(2, '0')
 /** "S01E03": how an episode reads in a scope label. */
@@ -22,6 +23,8 @@ const episodeName = (e: Episode) => `Season ${e.season} episode ${e.number}`
 type Version = { id: number; slot: SlotKey; profileName: string }
 
 export type EpisodeActions = {
+  /** The episodes the grid shows: those of the open seasons. Only they can be ticked. */
+  shown: Episode[]
   /** The ticked episodes. */
   selection: Selection
   /** The Series' Versions in the grid's Slot order. */
@@ -38,9 +41,21 @@ export type EpisodeActions = {
   onKey: (e: KeyboardEvent, episode: Episode | null) => boolean
 }
 
-/** The actions of one Series' episode grid, with the selection of ticked episodes. */
-export function useEpisodeActions(title: TitleDetail, episodes: Episode[], slots: SlotKey[], onManualSearch?: (t: ManualSearchTarget) => void): EpisodeActions {
-  const ids = useMemo(() => episodes.map((e) => e.id), [episodes])
+/**
+ * The actions of one Series' episode grid, with the selection of ticked
+ * episodes. Only the episodes of open seasons can be ticked, as only they are
+ * shown: closing a season drops its ticks, as the Library drops the ticks a
+ * filter hides.
+ */
+export function useEpisodeActions(
+  title: TitleDetail,
+  episodes: Episode[],
+  seasons: SeasonOpen,
+  slots: SlotKey[],
+  onManualSearch?: (t: ManualSearchTarget) => void,
+): EpisodeActions {
+  const shown = useMemo(() => episodes.filter((e) => seasons.isOpen(e.season)), [episodes, seasons])
+  const ids = useMemo(() => shown.map((e) => e.id), [shown])
   const selection = useSelection(ids)
   const profiles = useProfiles()
   const searchNow = useSearchNow()
@@ -95,7 +110,7 @@ export function useEpisodeActions(title: TitleDetail, episodes: Episode[], slots
     return false
   }
 
-  return { selection, versions, search, manual, deletes, status, onKey }
+  return { shown, selection, versions, search, manual, deletes, status, onKey }
 }
 
 const nothingWanted = 'Nothing here is Wanted'
@@ -149,14 +164,14 @@ export function EpisodeTick({ actions, episode }: { actions: EpisodeActions; epi
 }
 
 /** Above the grid: the ticked episodes' actions and what the last Search now said. */
-export function EpisodeToolbar({ actions, episodes }: { actions: EpisodeActions; episodes: Episode[] }) {
-  const { selection, status } = actions
-  const ticked = episodes.filter((e) => selection.has(e.id))
+export function EpisodeToolbar({ actions }: { actions: EpisodeActions }) {
+  const { selection, status, shown } = actions
+  const ticked = shown.filter((e) => selection.has(e.id))
   const wanted = wantedIn(ticked, actions.versions)
   const label = ticked.length === 1 ? episodeCode(ticked[0]) : `${ticked.length} episodes`
   return (
     <div className={cx('flex flex-col gap-1', (selection.active || status || actions.deletes.pending) && 'mb-2')}>
-      <SelectionBar selection={selection} shown={episodes.length}>
+      <SelectionBar selection={selection} shown={shown.length}>
         <Button
           variant="secondary"
           className="h-6 px-2 text-[12px]"
