@@ -18,7 +18,7 @@ type shiftingMeta struct {
 	metadata.Provider
 	retitled atomic.Bool
 	vanished atomic.Bool
-	rescored atomic.Bool // TMDB's score moved to 7.5 over 5000 votes
+	rescored atomic.Bool // TMDB's audience rating moved to 7.5 over 5000 votes
 }
 
 func (s *shiftingMeta) Movie(ctx context.Context, id int) (metadata.MovieDetails, error) {
@@ -30,7 +30,7 @@ func (s *shiftingMeta) Movie(ctx context.Context, id int) (metadata.MovieDetails
 		d.Title, d.Year = "Paddington Bear", 2015
 	}
 	if s.rescored.Load() {
-		d.Score = metadata.Score{Average: 7.5, Votes: 5000}
+		d.Rating = metadata.AudienceRating{Average: 7.5, Votes: 5000}
 	}
 	return d, err
 }

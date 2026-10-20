@@ -57,6 +57,10 @@ _Avoid_: Missing (for the whole set), cutoff unmet
 Wanted for more than 90 days, counted from the later of its release and the moment it became Wanted. A Series Version is Long Missing once any of its episodes is.
 _Avoid_: Stale, abandoned
 
+**Rating**:
+How well a ratings source's users like a Title: today TMDB's average vote out of 10, with how many votes it averages. Kestrel shows it and never acts on it. It is not a content rating, which Kestrel calls the Certification (an age rating such as PG or FSK 12), and not a Score.
+_Avoid_: Score, audience score, vote (for the average)
+
 **Adoption**:
 Scanning files already on disk and matching them to Titles and Versions, so Kestrel manages them without downloading again.
 _Avoid_: Import (reserved for completed downloads)
@@ -77,7 +81,7 @@ _Avoid_: CF (unexpanded), tag, rule
 
 **Score**:
 The sum of the points of every Custom Format a Release matches under one Profile. The higher Score wins a Grab or an Upgrade.
-_Avoid_: Rating, rank
+_Avoid_: Rating (that is a Title's), rank
 
 **Grab**:
 Choosing a Release for a Version and handing it to the download client. Every download Kestrel tracks traces back to one Grab.

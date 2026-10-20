@@ -2665,7 +2665,7 @@ components:
           description: "`not_on_tvdb` for a Series TheTVDB does not have; `null` when addable. Clients tolerate new values."
         ratings:
           type: array
-          description: Scores for the Title from ratings sources; empty when none has one.
+          description: Audience ratings of the Title from ratings sources; empty when none has one.
           items:
             $ref: "#/components/schemas/Rating"
     LookupList:
@@ -2730,7 +2730,7 @@ components:
             $ref: "#/components/schemas/SuggestedSlot"
         ratings:
           type: array
-          description: Scores for the Title from ratings sources; empty when none has one.
+          description: Audience ratings of the Title from ratings sources; empty when none has one.
           items:
             $ref: "#/components/schemas/Rating"
         poster:
@@ -4291,28 +4291,30 @@ components:
     Rating:
       type: object
       required: [source, value, scale, votes, url]
-      description: One score for a Title from a ratings source. Today only TMDB's audience score.
+      description: |
+        One audience rating of a Title from a ratings source: the average of its users' votes. Today
+        only TMDB's. Not a content rating (`certification`) and not a Release's `score`.
       properties:
         source:
           type: string
-          description: "Where the score is from: `tmdb`. Clients tolerate new values."
+          description: "Where the rating is from: `tmdb`. Clients tolerate new values."
           example: tmdb
         value:
           type: number
           format: double
           nullable: true
-          description: The score on the source's scale; `null` when the source has none yet.
+          description: The rating on the source's scale; `null` when the source has none yet.
           example: 8.4
         scale:
           type: number
           format: double
           nullable: true
-          description: The best score on the source's scale, such as 10.
+          description: The best rating on the source's scale, such as 10.
           example: 10
         votes:
           type: integer
           nullable: true
-          description: How many votes the score averages.
+          description: How many votes the rating averages.
           example: 21000
         url:
           type: string
@@ -4405,7 +4407,7 @@ components:
             $ref: "#/components/schemas/VersionDetail"
         ratings:
           type: array
-          description: Scores for the Title from ratings sources; empty when none has one.
+          description: Audience ratings of the Title from ratings sources; empty when none has one.
           items:
             $ref: "#/components/schemas/Rating"
     RequestTitle:

@@ -22,7 +22,7 @@ type SeriesDetails struct {
 	Runtime          int    // minutes of a typical episode, 0 when unknown
 	Overview         string
 	PosterPath       string
-	Score            Score // TMDB's audience score; not the content Ratings below
+	Rating           AudienceRating // TMDB's audience rating; not the content Ratings below
 	// Ratings are the TV content ratings per country, as TV-typed ReleaseDates
 	// dated by the first air date, so the release-date fallback applies.
 	Ratings      ReleaseDates
@@ -103,7 +103,7 @@ func (c *TMDB) Series(ctx context.Context, id int) (SeriesDetails, error) {
 	d := SeriesDetails{
 		TMDBID: r.ID, IMDbID: r.ExternalIDs.IMDbID, Title: r.Name, OriginalTitle: r.OriginalName,
 		OriginalLanguage: r.OriginalLanguage, Year: year(r.FirstAirDate), Overview: r.Overview, PosterPath: r.PosterPath,
-		Score:  Score{Average: r.VoteAverage, Votes: r.VoteCount},
+		Rating: AudienceRating{Average: r.VoteAverage, Votes: r.VoteCount},
 		Genres: r.Genres.names(),
 	}
 	if len(r.Networks) > 0 {

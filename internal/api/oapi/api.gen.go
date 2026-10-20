@@ -1592,7 +1592,7 @@ type LookupDetail struct {
 	// Poster A TMDB poster URL, larger than the search result's.
 	Poster *string `json:"poster"`
 
-	// Ratings Scores for the Title from ratings sources; empty when none has one.
+	// Ratings Audience ratings of the Title from ratings sources; empty when none has one.
 	Ratings []Rating `json:"ratings"`
 
 	// Runtime Minutes; a typical episode's for a Series.
@@ -1628,7 +1628,7 @@ type LookupResult struct {
 	// Poster A small TMDB poster URL.
 	Poster *string `json:"poster"`
 
-	// Ratings Scores for the Title from ratings sources; empty when none has one.
+	// Ratings Audience ratings of the Title from ratings sources; empty when none has one.
 	Ratings []Rating `json:"ratings"`
 	Title   string   `json:"title"`
 	TmdbId  int      `json:"tmdb_id"`
@@ -1949,14 +1949,15 @@ type QueueList struct {
 	Items []QueueItem `json:"items"`
 }
 
-// Rating One score for a Title from a ratings source. Today only TMDB's audience score.
+// Rating One audience rating of a Title from a ratings source: the average of its users' votes. Today
+// only TMDB's. Not a content rating (`certification`) and not a Release's `score`.
 type Rating struct {
-	// Scale The best score on the source's scale, such as 10.
+	// Scale The best rating on the source's scale, such as 10.
 	//
 	// Example: 10
 	Scale *float64 `json:"scale"`
 
-	// Source Where the score is from: `tmdb`. Clients tolerate new values.
+	// Source Where the rating is from: `tmdb`. Clients tolerate new values.
 	//
 	// Example: tmdb
 	Source string `json:"source"`
@@ -1966,12 +1967,12 @@ type Rating struct {
 	// Example: https://www.themoviedb.org/movie/116149
 	Url *string `json:"url"`
 
-	// Value The score on the source's scale; `null` when the source has none yet.
+	// Value The rating on the source's scale; `null` when the source has none yet.
 	//
 	// Example: 8.4
 	Value *float64 `json:"value"`
 
-	// Votes How many votes the score averages.
+	// Votes How many votes the rating averages.
 	//
 	// Example: 21000
 	Votes *int `json:"votes"`
@@ -2495,7 +2496,7 @@ type TitleDetail struct {
 	Overview         string `json:"overview"`
 	PrimaryTitle     string `json:"primary_title"`
 
-	// Ratings Scores for the Title from ratings sources; empty when none has one.
+	// Ratings Audience ratings of the Title from ratings sources; empty when none has one.
 	Ratings     []Rating  `json:"ratings"`
 	RefreshedAt time.Time `json:"refreshed_at"`
 

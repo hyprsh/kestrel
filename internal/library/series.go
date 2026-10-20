@@ -176,7 +176,7 @@ func insertSeries(ctx context.Context, q *db.Queries, a AddSeries, nowT time.Tim
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return 0, nil, err
 	}
-	voteAverage, voteCount := scoreColumns(d.Score)
+	voteAverage, voteCount := ratingColumns(d.Rating)
 	id, err := q.InsertTitle(ctx, db.InsertTitleParams{
 		Kind: string(Series), TmdbID: nullInt(d.TMDBID), TvdbID: nullInt(a.TVDB.ID), ImdbID: nullStr(d.IMDbID),
 		Title: d.Title, OriginalTitle: d.OriginalTitle, PrimaryTitle: primary,

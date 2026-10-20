@@ -133,7 +133,7 @@ func (s *Service) RefreshMovie(ctx context.Context, id int64, r MovieRefresh) (R
 		return Refreshed{}, err
 	}
 	defer tx.Rollback()
-	voteAverage, voteCount := scoreColumns(d.Score)
+	voteAverage, voteCount := ratingColumns(d.Rating)
 	renamed, err := s.refreshCommon(ctx, db.New(tx), id, Movie, db.UpdateTitleMetadataParams{
 		Title: d.Title, OriginalTitle: d.OriginalTitle, PrimaryTitle: primary, Year: nullInt(d.Year),
 		OriginalLanguage: d.OriginalLanguage, Overview: d.Overview, Runtime: nullInt(d.Runtime), PosterPath: nullStr(d.PosterPath),
@@ -162,7 +162,7 @@ func (s *Service) RefreshSeries(ctx context.Context, id int64, r SeriesRefresh) 
 	}
 	defer tx.Rollback()
 	q := db.New(tx)
-	voteAverage, voteCount := scoreColumns(d.Score)
+	voteAverage, voteCount := ratingColumns(d.Rating)
 	renamed, err := s.refreshCommon(ctx, q, id, Series, db.UpdateTitleMetadataParams{
 		Title: d.Title, OriginalTitle: d.OriginalTitle, PrimaryTitle: primary, Year: nullInt(d.Year),
 		OriginalLanguage: d.OriginalLanguage, Overview: d.Overview, Runtime: nullInt(d.Runtime), PosterPath: nullStr(d.PosterPath),

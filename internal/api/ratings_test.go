@@ -19,11 +19,11 @@ type ratedJSON struct {
 	Ratings []ratingJSON `json:"ratings"`
 }
 
-// wantTMDB checks a ratings list is exactly TMDB's score.
+// wantTMDB checks a ratings list is exactly TMDB's audience rating.
 func wantTMDB(t *testing.T, what string, got []ratingJSON, value float64, votes int, url string) {
 	t.Helper()
 	if len(got) != 1 {
-		t.Fatalf("%s ratings = %+v, want TMDB's score only", what, got)
+		t.Fatalf("%s ratings = %+v, want TMDB's audience rating only", what, got)
 	}
 	r := got[0]
 	if r.Source != "tmdb" || r.Value == nil || *r.Value != value || r.Scale == nil || *r.Scale != 10 ||
@@ -76,7 +76,7 @@ func TestTheScoreIsStoredWithTheTitleAndMovesOnlyOnARefresh(t *testing.T) {
 	wantTMDB(t, "before the refresh", decode[ratedJSON](t, l.valid("GET", path, "")).Ratings, 7.3, 4912, "https://www.themoviedb.org/movie/116149")
 
 	l.valid("POST", path+"/refresh", "")
-	eventually(t, "the refresh to bring the new score", func() bool {
+	eventually(t, "the refresh to bring the new rating", func() bool {
 		r := decode[ratedJSON](t, l.valid("GET", path, "")).Ratings
 		return len(r) == 1 && r[0].Votes != nil && *r[0].Votes == 5000
 	})

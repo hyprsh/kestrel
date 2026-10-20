@@ -29,18 +29,19 @@ type SearchResult struct {
 	Year          int // 0 when unknown
 	PosterPath    string
 	Overview      string
-	Score         Score
+	Rating        AudienceRating
 }
 
-// Score is TMDB's audience score: the average vote out of 10. The zero Score
-// is "no votes yet".
-type Score struct {
+// AudienceRating is TMDB's audience rating: the average of its users' votes
+// out of 10. It is not a content rating (certification), nor a Score. The
+// zero AudienceRating is "no votes yet".
+type AudienceRating struct {
 	Average float64 // 0-10
 	Votes   int
 }
 
 // Rated reports whether anyone has voted.
-func (s Score) Rated() bool { return s.Votes > 0 }
+func (s AudienceRating) Rated() bool { return s.Votes > 0 }
 
 // ReleaseType is TMDB's release-date type.
 type ReleaseType int
@@ -196,7 +197,7 @@ type MovieDetails struct {
 	Runtime          int    // minutes, 0 when unknown
 	Overview         string
 	PosterPath       string
-	Score            Score
+	Rating           AudienceRating
 	ReleaseDates     ReleaseDates
 	Aliases          []Alias
 	Translations     []Translation

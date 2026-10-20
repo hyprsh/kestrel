@@ -1,4 +1,4 @@
-/** A Title's scores from ratings sources (today TMDB's audience score), as "TMDB 8.4 (21k)". */
+/** A Title's audience ratings from ratings sources (today TMDB's), as "TMDB 8.4 (21k)". */
 
 import { Fragment } from 'react'
 import type { components } from '../api/schema.gen'
@@ -15,7 +15,7 @@ function shortCount(n: number): string {
   return unit(n / 1_000_000, 'M')
 }
 
-/** One rating's label, or '' when the source has no score yet. */
+/** One rating's label, or '' when the source has no rating yet. */
 function label(r: Rating): string {
   if (r.value === null) return ''
   const scale = r.scale !== null && r.scale !== 10 ? `/${r.scale}` : ''
@@ -23,19 +23,19 @@ function label(r: Rating): string {
   return `${sourceNames[r.source] ?? r.source.toUpperCase()} ${r.value.toFixed(1)}${scale}${votes}`
 }
 
-const scored = (ratings: Rating[]) => ratings.filter((r) => label(r) !== '')
+const rated = (ratings: Rating[]) => ratings.filter((r) => label(r) !== '')
 
-/** The scores as one line of text ("TMDB 8.4 (21k)"), '' when there are none; for places that take a string. */
-export function scoreText(ratings: Rating[]): string {
-  return scored(ratings).map(label).join(' · ')
+/** The ratings as one line of text ("TMDB 8.4 (21k)"), '' when there are none; for places that take a string. */
+export function ratingsText(ratings: Rating[]): string {
+  return rated(ratings).map(label).join(' · ')
 }
 
 /**
- * The scores inline, each linking to the Title at its source in a new tab.
+ * The ratings inline, each linking to the Title at its source in a new tab.
  * `lead` puts a " · " in front, to continue a metadata line.
  */
-export function Scores({ ratings, lead = false }: { ratings: Rating[]; lead?: boolean }) {
-  return scored(ratings).map((r, i) => (
+export function Ratings({ ratings, lead = false }: { ratings: Rating[]; lead?: boolean }) {
+  return rated(ratings).map((r, i) => (
     <Fragment key={r.source}>
       {(lead || i > 0) && ' · '}
       {r.url ? (
@@ -52,5 +52,5 @@ export function Scores({ ratings, lead = false }: { ratings: Rating[]; lead?: bo
 function tooltip(r: Rating): string {
   const of = r.scale !== null ? ` out of ${r.scale}` : ''
   const votes = r.votes ? ` from ${r.votes.toLocaleString('en')} votes` : ''
-  return `${sourceNames[r.source] ?? r.source} users score it ${r.value}${of}${votes}`
+  return `${sourceNames[r.source] ?? r.source} users rate it ${r.value}${of}${votes}`
 }
