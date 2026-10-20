@@ -63,6 +63,11 @@ func (e editedTVDB) Series(ctx context.Context, id int) (metadata.TVDBSeries, er
 	return s, err
 }
 
+// noGrabs is an acquire module with no active Grab.
+type noGrabs struct{}
+
+func (noGrabs) FetchingEpisodes(context.Context, int64) (map[int64]bool, error) { return nil, nil }
+
 type refreshRig struct {
 	lib     *library.Service
 	imp     *imports.Service
@@ -101,7 +106,7 @@ func newRefreshRig(t *testing.T) *refreshRig {
 		t.Fatal(err)
 	}
 	r.ref = jobs.NewRefresher(jobs.RefresherDeps{
-		Library: r.lib, Meta: r.meta, TVDB: r.tvdb, Renamer: r.imp, State: settings.New(st),
+		Library: r.lib, Grabs: noGrabs{}, Meta: r.meta, TVDB: r.tvdb, Renamer: r.imp, State: settings.New(st),
 		Primary: func(context.Context) (string, error) { return "en", nil },
 		History: r.history, Health: r.health, Clock: clock,
 	})

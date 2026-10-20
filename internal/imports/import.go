@@ -385,7 +385,9 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 		scoring.Release{Parsed: parsed, IndexerLanguages: languagesOf(languages, inconclusive), Size: info.Size, Filename: filepath.Base(src.video)},
 		scoring.Title{Name: d.Title, Year: d.Year, OriginalLanguage: release.LanguageByISO(d.OriginalLanguage)}, profile,
 	)
-	if languageRejected(verdict, g) {
+	// The resolution class passed above, so a misfit is in the wrong language.
+	misfit, asOriginal := fitOf(profile, info, verdict, g.Overridden)
+	if misfit {
 		return rejected(ReasonLanguage)
 	}
 	var runtime time.Duration
@@ -434,7 +436,7 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 	replaced, err := s.lib.ReplaceFile(ctx, g.TitleID, folder, library.NewFile{
 		VersionID: g.VersionID, Path: target, Size: info.Size, ReleaseName: g.ReleaseName,
 		ParsedRelease: string(parsedJSON), Probe: string(probeJSON), Score: verdict.Score, GrabID: g.ID,
-		Original: verdict.Rejected(scoring.RejectOriginalOnly),
+		Original: asOriginal,
 	})
 	if err != nil {
 		_ = os.Remove(partial)

@@ -8,10 +8,9 @@ UPDATE profiles SET enabled = ?1, default_movies = CASE WHEN ?1 = 0 THEN 0 ELSE 
     default_series = CASE WHEN ?1 = 0 THEN 0 ELSE default_series END
 WHERE key = ?2;
 
--- name: SetProfileOriginalLanguage :exec
--- original_fallback is kept in step for older readers: 1 only for accept.
-UPDATE profiles SET original_language = ?1, original_fallback = CASE WHEN ?1 = 'accept' THEN 1 ELSE 0 END
-WHERE key = ?2;
+-- name: SetProfileOriginalChoice :exec
+-- original_fallback is kept in step for older readers (scoring.OriginalChoice.DeprecatedFlag).
+UPDATE profiles SET original_language = ?, original_fallback = ? WHERE key = ?;
 
 -- name: ClearSlotDefaultMovies :exec
 UPDATE profiles SET default_movies = 0 WHERE slot = ?;

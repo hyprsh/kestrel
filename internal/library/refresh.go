@@ -23,6 +23,10 @@ type SeriesRefresh struct {
 	TMDB            metadata.SeriesDetails
 	TVDB            metadata.TVDBSeries
 	PrimaryLanguage string
+	// Fetching are the ids of the Series' episodes an active Grab is
+	// fetching, as the acquire module counts one: a Placeholder Episode among
+	// them stays though it holds no file yet.
+	Fetching map[int64]bool
 }
 
 // Refreshed says what a refresh changed that others must act on.
@@ -151,8 +155,8 @@ func (s *Service) RefreshMovie(ctx context.Context, id int64, r MovieRefresh) (R
 // TheTVDB has added is monitored by the Series' mode. Episodes TheTVDB no
 // longer lists stay, so files they hold are never orphaned. A Placeholder
 // Episode TheTVDB now lists is adopted; one a listed episode moves onto yields
-// to it (yieldPlaceholders); one that holds no file and that no active Grab is
-// fetching is removed.
+// to it (yieldPlaceholders); one that holds no file and is not among
+// r.Fetching is removed.
 func (s *Service) RefreshSeries(ctx context.Context, id int64, r SeriesRefresh) (Refreshed, error) {
 	d := r.TMDB
 	primary := d.TitleIn(r.PrimaryLanguage)
@@ -174,13 +178,13 @@ func (s *Service) RefreshSeries(ctx context.Context, id int64, r SeriesRefresh) 
 	if err != nil {
 		return Refreshed{}, err
 	}
-	if err := s.refreshEpisodes(ctx, q, id, r.TVDB.Episodes); err != nil {
+	if err := s.refreshEpisodes(ctx, q, id, r.TVDB.Episodes, r.Fetching); err != nil {
 		return Refreshed{}, err
 	}
 	return Refreshed{Renamed: renamed}, tx.Commit()
 }
 
-func (s *Service) refreshEpisodes(ctx context.Context, q *db.Queries, id int64, fresh []metadata.Episode) error {
+func (s *Service) refreshEpisodes(ctx context.Context, q *db.Queries, id int64, fresh []metadata.Episode, fetching map[int64]bool) error {
 	t, err := q.GetTitle(ctx, id)
 	if err != nil {
 		return err
@@ -305,8 +309,17 @@ func (s *Service) refreshEpisodes(ctx context.Context, q *db.Queries, id int64, 
 			}
 		}
 	}
-	if err := q.DeleteStrayPlaceholders(ctx, id); err != nil {
+	strays, err := q.ListFilelessPlaceholders(ctx, id)
+	if err != nil {
 		return err
+	}
+	for _, ep := range strays {
+		if fetching[ep] {
+			continue
+		}
+		if err := q.DeleteEpisode(ctx, ep); err != nil {
+			return err
+		}
 	}
 	return q.RefreshSeasonsMonitored(ctx, id)
 }

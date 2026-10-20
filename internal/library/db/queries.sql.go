@@ -89,22 +89,6 @@ func (q *Queries) DeleteReleaseDatesOfTitle(ctx context.Context, titleID int64) 
 	return err
 }
 
-const deleteStrayPlaceholders = `-- name: DeleteStrayPlaceholders :exec
-DELETE FROM episodes
-WHERE episodes.title_id = ? AND episodes.placeholder_at IS NOT NULL
-  AND NOT EXISTS (SELECT 1 FROM file_episodes fe WHERE fe.episode_id = episodes.id)
-  AND NOT EXISTS (
-    SELECT 1 FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
-    WHERE ge.episode_id = episodes.id AND g.state IN ('sent', 'downloading', 'completed', 'importing')
-  )
-`
-
-// A Placeholder Episode that holds no file in any Version and that no active Grab (as acquire counts one) is fetching.
-func (q *Queries) DeleteStrayPlaceholders(ctx context.Context, titleID int64) error {
-	_, err := q.db.ExecContext(ctx, deleteStrayPlaceholders, titleID)
-	return err
-}
-
 const deleteTitle = `-- name: DeleteTitle :exec
 DELETE FROM titles WHERE id = ?
 `
@@ -978,6 +962,36 @@ func (q *Queries) ListFileEpisodesOfTitle(ctx context.Context, titleID int64) ([
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFilelessPlaceholders = `-- name: ListFilelessPlaceholders :many
+SELECT id FROM episodes
+WHERE episodes.title_id = ? AND episodes.placeholder_at IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM file_episodes fe WHERE fe.episode_id = episodes.id)
+`
+
+// The Placeholder Episodes of a Title that hold no file in any Version.
+func (q *Queries) ListFilelessPlaceholders(ctx context.Context, titleID int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listFilelessPlaceholders, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

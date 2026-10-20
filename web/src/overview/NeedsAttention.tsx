@@ -8,7 +8,15 @@ import { Badge, NavRow } from '../ui'
 import { OriginalsRow } from './OriginalsRow'
 import type { OverviewNav } from './nav'
 
-export function NeedsAttention({ onOpen, nav }: { onOpen: (path: string) => void; nav: OverviewNav }) {
+export function NeedsAttention({
+  onOpen,
+  onOpenTitle,
+  nav,
+}: {
+  onOpen: (path: string) => void
+  onOpenTitle: (id: number) => void
+  nav: OverviewNav
+}) {
   const attention = useAttention()
   const rows = attention.data?.rows ?? []
   const longMissing = attention.data?.long_missing
@@ -29,7 +37,7 @@ export function NeedsAttention({ onOpen, nav }: { onOpen: (path: string) => void
         )
       )}
       {longMissing && longMissing.count > 0 && <LongMissingRow group={longMissing} onOpen={onOpen} />}
-      {attention.data?.originals && attention.data.originals.count > 0 && <OriginalsRow group={attention.data.originals} />}
+      {attention.data?.originals && attention.data.originals.count > 0 && <OriginalsRow group={attention.data.originals} onOpenTitle={onOpenTitle} />}
     </section>
   )
 }

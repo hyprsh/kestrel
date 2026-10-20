@@ -30,7 +30,7 @@ const (
 	RejectOriginalLanguageUnknown Rejection = "original_language_unknown"
 	RejectBlocklisted             Rejection = "blocklisted"
 	// RejectOriginalOnly is a Release with the Title's Original Language but no
-	// Primary-Language audio under a Profile that offers such Releases (#103):
+	// Primary-Language audio under a Profile that offers such Releases:
 	// it is never grabbed on its own, but Accept or "Grab anyway" may take it,
 	// and an Import lets it in.
 	RejectOriginalOnly Rejection = "original_only"
@@ -198,7 +198,7 @@ func languageGate(spec ProfileSpec, title Title, languages []release.Language) [
 			return nil
 		}
 		if originalKnown && has(title.OriginalLanguage) {
-			switch spec.Original {
+			switch spec.OriginalChoice {
 			case OriginalAccept:
 				return nil
 			case OriginalOffer:

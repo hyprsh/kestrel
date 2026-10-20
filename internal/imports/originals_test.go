@@ -2,12 +2,14 @@ package imports_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/probe"
+	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings"
@@ -25,7 +27,7 @@ func offerOriginals(t *testing.T, r *rig) {
 		t.Fatal(err)
 	}
 	offer := scoring.OriginalOffer
-	if _, err := ps.Patch(ctx, "hd-primary", profiles.Patch{OriginalLanguage: &offer}); err != nil {
+	if _, err := ps.Patch(ctx, "hd-primary", profiles.Patch{OriginalChoice: &offer}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -108,5 +110,41 @@ func TestAnAcceptedOriginalEpisodeFillsItsCell(t *testing.T) {
 	}
 	if c := s.episodes(t)[0].Cells[slot.Standard]; c.File == nil || c.File.Original {
 		t.Errorf("cell file = %+v, want the German one", c.File)
+	}
+}
+
+func TestARescoreMakesAnOriginalOnlyFileAMisfitUnlessItIsAlreadyAnOriginal(t *testing.T) {
+	for _, original := range []bool{false, true} {
+		ctx := context.Background()
+		r := newRig(t)
+		offerOriginals(t, r)
+		parsed, err := release.Parse("Paddington.2014.1080p.BluRay.x264-GRP", release.KindMovie)
+		if err != nil {
+			t.Fatal(err)
+		}
+		pj, _ := json.Marshal(parsed)
+		ij, _ := json.Marshal(good()) // English audio only
+		if _, err := r.lib.ReplaceFile(ctx, r.titleID, movieFolder, library.NewFile{
+			VersionID: r.versions[slot.Standard], Path: "/m/p.mkv", Size: 1, ReleaseName: "Paddington.2014.1080p.BluRay.x264-GRP",
+			ParsedRelease: string(pj), Probe: string(ij), Score: 10, Original: original,
+		}); err != nil {
+			t.Fatal(err)
+		}
+		snap, err := scoring.Embedded()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if err := r.svc.RescoreTitles(ctx, snap, []int64{r.titleID}); err != nil {
+			t.Fatal(err)
+		}
+
+		v := r.version(t)
+		switch {
+		case original && (v.State != library.Filled || !v.File.Original || v.File.Misfit):
+			t.Errorf("an accepted Original: version %+v, file %+v; want it kept, filling the Version", v, v.File)
+		case !original && (v.State == library.Filled || v.File.Original || !v.File.Misfit):
+			t.Errorf("an adopted file: version %+v, file %+v; want a misfit that fills nothing", v, v.File)
+		}
 	}
 }

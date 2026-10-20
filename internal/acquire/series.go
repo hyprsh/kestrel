@@ -188,11 +188,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 			}
 			u := Unit{Ref: EpisodeRef{ep.Season, ep.Number}}
 			if upgrade {
-				h := Held{Fits: true, Original: cell.File != nil && cell.File.Original}
-				if cell.Score != nil {
-					h.Score = *cell.Score
-				}
-				u.Held = &h
+				u.Held = cellHeld(cell)
 			}
 			ver.Units = append(ver.Units, u)
 			if ep.Season != 0 || scope.Narrow() {

@@ -711,6 +711,20 @@ func (s *Service) GrabEpisodes(ctx context.Context, grabID int64) ([]int64, erro
 	return db.New(s.st.Read()).ListGrabEpisodes(ctx, grabID)
 }
 
+// FetchingEpisodes are the ids of a Series' episodes its active Grabs are
+// fetching (a stalled Import still holds its episodes).
+func (s *Service) FetchingEpisodes(ctx context.Context, titleID int64) (map[int64]bool, error) {
+	ids, err := db.New(s.st.Read()).ListActiveGrabEpisodesOfTitle(ctx, sql.NullInt64{Int64: titleID, Valid: true})
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[int64]bool, len(ids))
+	for _, id := range ids {
+		out[id] = true
+	}
+	return out, nil
+}
+
 // decide is Decide over candidates whose indexers' Grabs may be paused right
 // now. The flag is set here and not when a Release is cached, so a pause that
 // began or ended since the search counts. With Pause Grabs on it plans

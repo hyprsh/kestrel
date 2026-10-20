@@ -2,20 +2,13 @@
 // holds back. POST /versions/{id}/original-offer/accept and /dismiss.
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import { ApiError } from './queries'
+import { failure } from './queries'
 import type { components } from './schema.gen'
 
 export type OriginalOffer = components['schemas']['OriginalOffer']
 export type OriginalsAvailable = components['schemas']['OriginalsAvailable']
 
-type Problem = { code?: string; detail?: string; title?: string } | undefined
-
-function failure(error: unknown, response: Response): ApiError {
-  const p = error as Problem
-  return new ApiError(p?.code ?? 'internal', response.status, p?.detail ?? p?.title ?? 'Request failed')
-}
-
-/** Accept grabs every Release of the offer, the same as "Grab anyway". */
+/** Accept grabs every Release the offer lists, the same as "Grab anyway". */
 export function useAcceptOffer() {
   const qc = useQueryClient()
   return useMutation({

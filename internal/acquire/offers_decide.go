@@ -2,12 +2,14 @@ package acquire
 
 import "github.com/hyprsh/kestrel/internal/scoring"
 
-// OriginalOffers is Decide's counterpart for Original Offers (#103): what it
+// OriginalOffers is Decide's counterpart for Original Offers: what it
 // would grab for each Version if the Releases whose one rejection is
 // original_only were acceptable, limited to the units Decide leaves missing or
 // misfit. A Primary-Language Release that Decide plans always wins its units,
 // a fitting file (an Original included) is never offered against, and a Series
-// takes its packs and episodes by Decide's own rules. Like Decide it is pure.
+// takes its packs and episodes by Decide's own rules. Only episodes the Series
+// has are offered: an Unlisted unit would need a Placeholder Episode, which
+// only a Grab adds. Like Decide it is pure.
 func OriginalOffers(in Input) []GrabPlan {
 	planned := map[Slot]map[EpisodeRef]bool{}
 	for _, p := range Decide(in) {
@@ -22,7 +24,7 @@ func OriginalOffers(in Input) []GrabPlan {
 	for _, v := range in.Versions {
 		ov := Version{Slot: v.Slot}
 		for _, u := range v.Units {
-			if (u.Held == nil || !u.Held.Fits) && !planned[v.Slot][u.Ref] {
+			if !u.Unlisted && (u.Held == nil || !u.Held.Fits) && !planned[v.Slot][u.Ref] {
 				ov.Units = append(ov.Units, u)
 			}
 		}

@@ -25,14 +25,19 @@ func movieReleased(rel metadata.ReleaseDates, country string, seen sql.NullStrin
 	return optTime(seen)
 }
 
-// Dateless is whether the Title is a Movie with no release date anywhere: it
-// counts as released only once a Release for it has been seen (MarkReleaseSeen).
-func (d Detail) Dateless() bool {
-	if d.Kind != Movie {
-		return false
-	}
-	_, ok := d.ReleaseDates.Released("")
-	return !ok
+// AwaitingRelease is whether the Title is a Movie with no release date
+// anywhere that has no Release seen by now: it counts as released only once
+// one is seen (MarkReleaseSeen). Until then the sweep searches it
+// DatelessEvery.
+func (d Detail) AwaitingRelease(now time.Time) bool {
+	return d.Kind == Movie && awaitingRelease(d.ReleaseDates, d.ReleaseSeenAt, now)
+}
+
+// awaitingRelease is AwaitingRelease's rule for a Movie's dates and first
+// sighting.
+func awaitingRelease(rel metadata.ReleaseDates, seen *time.Time, now time.Time) bool {
+	_, dated := rel.Released("")
+	return !dated && (seen == nil || seen.After(now))
 }
 
 // MarkReleaseSeen records that a Release for a Movie was seen at `at` (in RSS or

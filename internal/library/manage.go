@@ -9,18 +9,6 @@ import (
 	"github.com/hyprsh/kestrel/internal/slot"
 )
 
-func misfitSet(ctx context.Context, q *db.Queries) (map[int64]bool, error) {
-	ids, err := q.ListMisfitFileIDs(ctx)
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[int64]bool, len(ids))
-	for _, id := range ids {
-		out[id] = true
-	}
-	return out, nil
-}
-
 // ErrVersionNotFound is returned for a Version that does not exist.
 var ErrVersionNotFound = errors.New("version not found")
 
@@ -116,15 +104,7 @@ func (s *Service) ApplyRescore(ctx context.Context, rs []Rescored) error {
 		if err := q.SetFileScore(ctx, db.SetFileScoreParams{Score: sql.NullInt64{Int64: int64(r.Score), Valid: true}, ID: r.FileID}); err != nil {
 			return err
 		}
-		if r.Misfit {
-			err = q.SetMisfit(ctx, r.FileID)
-		} else {
-			err = q.ClearMisfit(ctx, r.FileID)
-		}
-		if err != nil {
-			return err
-		}
-		if err := markOriginal(ctx, q, r.FileID, r.Original); err != nil {
+		if err := markFile(ctx, q, r.FileID, r.Misfit, r.Original); err != nil {
 			return err
 		}
 	}

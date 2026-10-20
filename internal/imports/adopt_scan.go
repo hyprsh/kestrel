@@ -697,11 +697,10 @@ func (a *Adoption) planFile(e *env, m movieFacts, title Title, en entry, f probe
 	to := filepath.Join(dir, name)
 	parsedJSON, _ := json.Marshal(parsed)
 	probeJSON, _ := json.Marshal(f.info)
+	misfit, _ := fitOf(profile, f.info, verdict, false)
 	pf := PlanFile{
 		Path: f.path, To: to, Size: f.info.Size, Slot: slot, Profile: profileKey, Score: verdict.Score, Action: ActionCreate, Ticked: true,
-		Misfit:      !slices.Contains(profile.Classes(), f.info.Class()) || verdict.Rejected(scoring.RejectLanguage),
-		Original:    verdict.Rejected(scoring.RejectOriginalOnly),
-		ReleaseName: base, Parsed: parsedJSON, Probe: probeJSON,
+		Misfit: misfit, ReleaseName: base, Parsed: parsedJSON, Probe: probeJSON,
 	}
 	switch {
 	case ver == nil:

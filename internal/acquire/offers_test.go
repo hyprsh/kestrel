@@ -28,7 +28,7 @@ func (r *rig) offering(t *testing.T) {
 		t.Fatal(err)
 	}
 	offer := scoring.OriginalOffer
-	if _, err := ps.Patch(ctx, "hd-primary", profiles.Patch{OriginalLanguage: &offer}); err != nil {
+	if _, err := ps.Patch(ctx, "hd-primary", profiles.Patch{OriginalChoice: &offer}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -105,7 +105,7 @@ func TestOnlyAnOfferingProfileOffers(t *testing.T) {
 	r := newRig(t)
 	r.offering(t)
 	reject := scoring.OriginalReject
-	if _, err := r.deps.Profiles.(*profiles.Service).Patch(ctx, "hd-primary", profiles.Patch{OriginalLanguage: &reject}); err != nil {
+	if _, err := r.deps.Profiles.(*profiles.Service).Patch(ctx, "hd-primary", profiles.Patch{OriginalChoice: &reject}); err != nil {
 		t.Fatal(err)
 	}
 	r.publish(t, hd1080, time.Hour)
@@ -269,5 +269,68 @@ func TestAnAcceptedOriginalIsReplacedByAnyPrimaryLanguageRelease(t *testing.T) {
 	out, err := r.svc.SyncRSS(ctx)
 	if err != nil || len(out.Grabbed) != 1 || out.Grabbed[0].ReleaseName != german || !out.Grabbed[0].IsUpgrade {
 		t.Fatalf("RSS = %+v, %v: want the German Release despite its lower Score", out, err)
+	}
+}
+
+func TestAnOriginalNamingAnEpisodeTheSeriesDoesNotHaveIsNotOffered(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	r.offering(t)
+	id, ver := r.nightShow(t, library.MonitorAll)
+	r.publishShow(t, nightEp1, "1", "1")
+	r.publishShow(t, "Night.Show.S01E03.1080p.WEB-DL.H264-GRP", "1", "3") // qualifies for a Placeholder Episode
+
+	if _, err := r.svc.SearchNew(ctx, id, []int64{ver}); err != nil {
+		t.Fatal(err)
+	}
+	offers := r.offers(t)
+	if len(offers) != 1 || len(offers[0].Releases) != 1 || offers[0].Releases[0].Name != nightEp1 {
+		t.Fatalf("offers = %+v, want S01E01 alone", offers)
+	}
+	if _, ok := r.placeholderAt(t, id, 1, 3); ok {
+		t.Error("an offer added a Placeholder Episode")
+	}
+}
+
+// offerOf is the Version's Offer from the full list; the zero Offer when it has none.
+func (r *rig) offerOf(t *testing.T, ver int64) acquire.Offer {
+	t.Helper()
+	for _, o := range r.offers(t) {
+		if o.VersionID == ver {
+			return o
+		}
+	}
+	return acquire.Offer{}
+}
+
+func TestASeriesOfferIsDismissedPerEpisodeAndANewEpisodeShowsOnlyItself(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	r.offering(t)
+	id, ver := r.nightShow(t, library.MonitorAll)
+	r.publishShow(t, nightEp1, "1", "1")
+	if _, err := r.svc.SearchNew(ctx, id, []int64{ver}); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.svc.DismissOffer(ctx, ver); err != nil {
+		t.Fatal(err)
+	}
+
+	r.publishShow(t, nightEp2, "1", "2")
+	if _, err := r.svc.SearchNew(ctx, id, []int64{ver}); err != nil {
+		t.Fatal(err)
+	}
+	o := r.offerOf(t, ver)
+	if o.Dismissed || len(o.Releases) != 1 || o.Releases[0].Name != nightEp2 {
+		t.Fatalf("offer = %+v, want S01E02 alone and not dismissed", o)
+	}
+
+	got, err := r.svc.AcceptOffer(ctx, ver)
+	if err != nil || len(got.Grabs) != 1 || got.Grabs[0].ReleaseName != nightEp2 {
+		t.Fatalf("accept = %+v, %v; want S01E02 alone grabbed", got, err)
+	}
+	o = r.offerOf(t, ver)
+	if !o.Dismissed || len(o.Releases) != 1 || o.Releases[0].Name != nightEp1 {
+		t.Errorf("offer after the accept = %+v, want S01E01 still dismissed", o)
 	}
 }

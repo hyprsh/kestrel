@@ -171,8 +171,7 @@ func (s *Service) sweepRows(ctx context.Context, now time.Time) ([]sweepRow, err
 			if state == Wanted {
 				r.wanted, r.since = true, *since
 			}
-			_, dated := rel.Released(country)
-			r.dateless = state == Unreleased && !dated
+			r.dateless = state == Unreleased && awaitingRelease(rel, optTime(t.ReleaseSeenAt), now)
 		} else {
 			released, ok := releasedBy[t.ID]
 			if !ok {

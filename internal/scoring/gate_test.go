@@ -78,7 +78,7 @@ func TestPrimaryLanguageProfileNeedsThePrimaryAudio(t *testing.T) {
 
 func TestOriginalLanguageFallback(t *testing.T) {
 	withFallback := germanHD
-	withFallback.Original = scoring.OriginalAccept
+	withFallback.OriginalChoice = scoring.OriginalAccept
 
 	// An English Title, only English audio: German Profile accepts it with the
 	// fallback, rejects it without.
@@ -107,7 +107,7 @@ func TestOriginalLanguageFallback(t *testing.T) {
 
 func TestOfferingTheOriginalLanguage(t *testing.T) {
 	offer := germanHD
-	offer.Original = scoring.OriginalOffer
+	offer.OriginalChoice = scoring.OriginalOffer
 
 	// An Original-only Release is held back with its own code, not language.
 	v := verdict(t, offer, nameEnglish1080, titleEN, nil)
@@ -152,7 +152,7 @@ func TestOriginalLanguageProfile(t *testing.T) {
 	}
 	// The fallback flag is ignored on Original-Language Profiles.
 	withFallback := origHD
-	withFallback.Original = scoring.OriginalAccept
+	withFallback.OriginalChoice = scoring.OriginalAccept
 	if v := verdict(t, withFallback, nameEnglish1080, scoring.Title{Name: "A Movie"}, nil); v.Accepted {
 		t.Error("an Original-Language Profile accepted a Title with unknown Original Language")
 	}

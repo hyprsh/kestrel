@@ -81,6 +81,18 @@ describe('the Originals available group in Needs attention', () => {
     await waitFor(() => expect(sent).toEqual(['accept 11', 'dismiss 21']))
   })
 
+  it('opens the Title from a row', async () => {
+    fakeOffers([movieOffer])
+    fakeLibrary([row(1, 'Paddington', 'Paddington')])
+    renderApp()
+
+    const section = await screen.findByRole('region', { name: /needs attention/i })
+    await userEvent.click(await within(section).findByRole('button', { name: 'Show' }))
+    await userEvent.click(within(section).getByRole('button', { name: 'Paddington' }))
+
+    expect(await screen.findByRole('region', { name: /paddington/i })).toBeInTheDocument()
+  })
+
   it('does not show without offers', async () => {
     fakeOffers([])
     renderApp()

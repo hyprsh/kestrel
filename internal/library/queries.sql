@@ -247,15 +247,11 @@ UPDATE file_episodes SET episode_id = sqlc.arg(to_episode) WHERE version_id = sq
 -- name: DeleteEpisode :exec
 DELETE FROM episodes WHERE id = ?;
 
--- A Placeholder Episode that holds no file in any Version and that no active Grab (as acquire counts one) is fetching.
--- name: DeleteStrayPlaceholders :exec
-DELETE FROM episodes
+-- The Placeholder Episodes of a Title that hold no file in any Version.
+-- name: ListFilelessPlaceholders :many
+SELECT id FROM episodes
 WHERE episodes.title_id = ? AND episodes.placeholder_at IS NOT NULL
-  AND NOT EXISTS (SELECT 1 FROM file_episodes fe WHERE fe.episode_id = episodes.id)
-  AND NOT EXISTS (
-    SELECT 1 FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
-    WHERE ge.episode_id = episodes.id AND g.state IN ('sent', 'downloading', 'completed', 'importing')
-  );
+  AND NOT EXISTS (SELECT 1 FROM file_episodes fe WHERE fe.episode_id = episodes.id);
 
 -- name: ParkEpisodeNumber :exec
 UPDATE episodes SET number = -id WHERE id = ?;

@@ -812,10 +812,11 @@ export interface paths {
         put?: never;
         /**
          * Accept a Version's Original Offer
-         * @description Grabs every Release of the offer, the same as "Grab anyway": exactly the Releases offered,
-         *     however old the offer is, a dismissed one included. A Release that cannot be grabbed (the
-         *     indexer no longer has it, it is on the Blocklist) has its offer dropped and counts in `failed`;
-         *     when none could be grabbed the first failure answers as `createGrab` would. No offer is `404`.
+         * @description Grabs every Release the offer lists, the same as "Grab anyway": exactly the Releases offered,
+         *     however old the offer is, a dismissed one included. A Release that cannot be grabbed counts in
+         *     `failed`: one the indexer no longer has, or the Blocklist holds, has its offer dropped; one that
+         *     failed for another reason (the download client is down, a spent budget) stays offered. When none
+         *     could be grabbed the first failure answers as `createGrab` would. No offer is `404`.
          *     Once imported, the file fills the Version, and any acceptable Release replaces it whatever its
          *     Score.
          */
@@ -839,8 +840,10 @@ export interface paths {
         put?: never;
         /**
          * Dismiss a Version's Original Offer
-         * @description Keeps waiting for a Primary-Language Release: the offer leaves Needs attention until a Release
-         *     that scores higher than the dismissed one is offered. No offer is `404`.
+         * @description Keeps waiting for a Primary-Language Release for the units the offer shows (a Movie's one, a
+         *     Series' episodes). Dismissal is per unit: a unit stays dismissed until a Release that scores
+         *     higher for it is offered, and a unit offered for the first time, such as a new episode, shows the
+         *     offer again with the units not dismissed alone. No offer is `404`.
          */
         post: operations["dismissOriginalOffer"];
         delete?: never;
@@ -2864,8 +2867,9 @@ export interface components {
              */
             found_at: string;
             /**
-             * @description Dismissed: the admin keeps waiting for a Primary-Language Release. A Release that scores
-             *     higher than a dismissed one shows the offer again.
+             * @description Every unit of the offer is dismissed: the admin keeps waiting for a Primary-Language Release,
+             *     and `releases` lists the dismissed ones. While any unit is not dismissed, this is false and
+             *     `releases` lists those units alone, which is what Accept grabs.
              */
             dismissed: boolean;
         };
@@ -2886,7 +2890,10 @@ export interface components {
         };
         OfferAccepted: {
             grabs: components["schemas"]["Grab"][];
-            /** @description How many of the offered Releases could not be grabbed; their offers are dropped. */
+            /**
+             * @description How many of the offered Releases could not be grabbed. One the indexer no longer has, or the
+             *     Blocklist holds, leaves the offer; one that failed for another reason stays offered.
+             */
             failed: number;
         };
         SystemStatus: {

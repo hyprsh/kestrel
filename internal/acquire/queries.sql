@@ -67,6 +67,12 @@ SELECT g.version_id, ge.episode_id
 FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
 WHERE g.state IN ('sent', 'downloading', 'completed', 'importing');
 
+-- The episodes of a Title its active Grabs are fetching. A stalled Import still holds its episodes.
+-- name: ListActiveGrabEpisodesOfTitle :many
+SELECT DISTINCT ge.episode_id
+FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
+WHERE g.title_id = ? AND g.state IN ('sent', 'downloading', 'completed', 'importing');
+
 -- name: ListGrabEpisodes :many
 SELECT episode_id FROM grab_episodes WHERE grab_id = ? ORDER BY episode_id;
 
@@ -92,13 +98,10 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 DELETE FROM original_offers WHERE id = ?;
 
 -- name: ListOriginalOffers :many
-SELECT o.id, o.version_id, o.episode_id, o.release_guid, o.release_name, o.indexer_id, o.indexer_name, o.download_url,
-    o.size, o.published_at, o.score, o.parsed, o.verdict, o.pack, o.found_at, o.dismissed, v.title_id
-FROM original_offers o JOIN versions v ON v.id = o.version_id
-ORDER BY o.version_id, o.id;
+SELECT * FROM original_offers ORDER BY version_id, id;
 
--- name: DismissOriginalOffers :exec
-UPDATE original_offers SET dismissed = 1 WHERE version_id = ?;
+-- name: ListOriginalOffersOfVersion :many
+SELECT * FROM original_offers WHERE version_id = ? ORDER BY id;
 
--- name: DeleteOriginalOffersOfRelease :exec
-DELETE FROM original_offers WHERE version_id = ? AND indexer_id = ? AND release_guid = ?;
+-- name: DismissOriginalOffer :exec
+UPDATE original_offers SET dismissed = 1 WHERE id = ?;

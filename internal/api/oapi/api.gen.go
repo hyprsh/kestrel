@@ -1746,7 +1746,8 @@ type NotDeletedFile struct {
 
 // OfferAccepted defines model for OfferAccepted.
 type OfferAccepted struct {
-	// Failed How many of the offered Releases could not be grabbed; their offers are dropped.
+	// Failed How many of the offered Releases could not be grabbed. One the indexer no longer has, or the
+	// Blocklist holds, leaves the offer; one that failed for another reason stays offered.
 	Failed int    `json:"failed"`
 	Grabs  []Grab `json:"grabs"`
 }
@@ -1779,8 +1780,9 @@ type OriginalLanguageChoice string
 // lists every episode or season pack that has one. The offer lasts while those units are Wanted
 // with no active Grab: a Primary-Language Release that is grabbed makes it go.
 type OriginalOffer struct {
-	// Dismissed Dismissed: the admin keeps waiting for a Primary-Language Release. A Release that scores
-	// higher than a dismissed one shows the offer again.
+	// Dismissed Every unit of the offer is dismissed: the admin keeps waiting for a Primary-Language Release,
+	// and `releases` lists the dismissed ones. While any unit is not dismissed, this is false and
+	// `releases` lists those units alone, which is what Accept grabs.
 	Dismissed bool `json:"dismissed"`
 
 	// FoundAt When the newest of the Releases was offered.

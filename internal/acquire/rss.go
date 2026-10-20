@@ -191,11 +191,7 @@ func (s *Service) rssMovie(ctx context.Context, sub subject, items []feedItem) (
 		}
 		u := Unit{}
 		if v.File != nil {
-			h := Held{Fits: !v.File.Misfit, Original: v.File.Original}
-			if v.File.Score != nil {
-				h.Score = *v.File.Score
-			}
-			u.Held = &h
+			u.Held = fileHeld(v.File)
 		}
 		versionOf[v.Slot] = v.ID
 		in.Versions = append(in.Versions, Version{Slot: v.Slot, Units: []Unit{u}})
@@ -261,11 +257,7 @@ func (s *Service) rssSeries(ctx context.Context, sub subject, items []feedItem) 
 			}
 			u := Unit{Ref: EpisodeRef{ep.Season, ep.Number}}
 			if cell.State == library.Filled {
-				h := Held{Fits: true, Original: cell.File != nil && cell.File.Original}
-				if cell.Score != nil {
-					h.Score = *cell.Score
-				}
-				u.Held = &h
+				u.Held = cellHeld(cell)
 			}
 			ver.Units = append(ver.Units, u)
 		}

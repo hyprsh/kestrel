@@ -1,6 +1,8 @@
 package api_test
 
 import (
+	"fmt"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -52,5 +54,25 @@ func TestAManualGrabBeyondTheLastListedEpisodeAddsAPlaceholderEpisodeTheSeriesPa
 	}
 	if !found {
 		t.Error("no Placeholder Episode S02E06")
+	}
+}
+
+func TestARefreshKeepsThePlaceholderEpisodeAGrabIsFetching(t *testing.T) {
+	t.Parallel()
+	s := newSeriesSearch(t)
+	const beyond = "Breaking.Bad.S02E06.1080p.WEB-DL.H264-GRP"
+	s.publishEpisode(t, beyond, "2", "6")
+	if r := s.grab(s.hdVersion, s.releases(t, s.hdVersion).find(t, beyond).ReleaseID, true); r.Status != 201 {
+		t.Fatalf("grab = %d %s", r.Status, r.Body)
+	}
+
+	// A German household's refresh fetches the German episode titles, which shows it ran.
+	s.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`)
+	if r := s.valid("POST", fmt.Sprintf("/titles/%d/refresh", s.title), ""); r.Status != 202 {
+		t.Fatalf("POST refresh = %d %s", r.Status, r.Body)
+	}
+	eventually(t, "the refresh", func() bool { return s.heat(t)[1].PrimaryName == "Der Einstieg" })
+	if !slices.ContainsFunc(s.heat(t), func(e episodeJSON) bool { return e.Season == 2 && e.Number == 6 && e.Placeholder }) {
+		t.Error("the refresh removed the Placeholder Episode the Grab is fetching")
 	}
 }

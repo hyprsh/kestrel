@@ -116,19 +116,19 @@ func (q *Queries) SetProfileEnabled(ctx context.Context, arg SetProfileEnabledPa
 	return err
 }
 
-const setProfileOriginalLanguage = `-- name: SetProfileOriginalLanguage :exec
-UPDATE profiles SET original_language = ?1, original_fallback = CASE WHEN ?1 = 'accept' THEN 1 ELSE 0 END
-WHERE key = ?2
+const setProfileOriginalChoice = `-- name: SetProfileOriginalChoice :exec
+UPDATE profiles SET original_language = ?, original_fallback = ? WHERE key = ?
 `
 
-type SetProfileOriginalLanguageParams struct {
+type SetProfileOriginalChoiceParams struct {
 	OriginalLanguage string
+	OriginalFallback int64
 	Key              string
 }
 
-// original_fallback is kept in step for older readers: 1 only for accept.
-func (q *Queries) SetProfileOriginalLanguage(ctx context.Context, arg SetProfileOriginalLanguageParams) error {
-	_, err := q.db.ExecContext(ctx, setProfileOriginalLanguage, arg.OriginalLanguage, arg.Key)
+// original_fallback is kept in step for older readers (scoring.OriginalChoice.DeprecatedFlag).
+func (q *Queries) SetProfileOriginalChoice(ctx context.Context, arg SetProfileOriginalChoiceParams) error {
+	_, err := q.db.ExecContext(ctx, setProfileOriginalChoice, arg.OriginalLanguage, arg.OriginalFallback, arg.Key)
 	return err
 }
 
