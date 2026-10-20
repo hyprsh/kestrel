@@ -100,6 +100,9 @@ type Library interface {
 	FilesOfVersion(ctx context.Context, versionID int64) ([]library.File, error)
 	ApplyRescore(ctx context.Context, rs []library.Rescored) error
 	SetProfile(ctx context.Context, versionID int64, profile string) error
+	// GetVersion and RemoveFiles delete files and keep their Version.
+	GetVersion(ctx context.Context, id int64) (library.VersionRef, error)
+	RemoveFiles(ctx context.Context, versionID int64, fileIDs []int64) ([]library.File, error)
 }
 
 // Profiles is what imports needs of the Profiles.
@@ -161,7 +164,7 @@ type Service struct {
 	hl    Health
 	// rename renames a Title folder on a Move.
 	rename func(oldpath, newpath string) error
-	// guard serialises Import, Rename and Move per Title.
+	// guard serialises Import, Rename, Move and DeleteFiles per Title.
 	guard titleGuard
 
 	renames       RenameStore

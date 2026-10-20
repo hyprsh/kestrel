@@ -2,8 +2,9 @@ package imports
 
 import "sync"
 
-// titleGuard serialises Import, Rename and Move for one Title, so a folder is
-// never moved or renamed while a file goes into it, and the reverse. It counts
+// titleGuard serialises Import, Rename, Move and file deletion for one Title,
+// so a folder is never moved or renamed while a file goes into it, and the
+// reverse, and no file is deleted while an Import replaces it. It counts
 // the Imports holding or waiting for a Title, so a Move can refuse instead of
 // queueing behind one.
 type titleGuard struct {
@@ -22,6 +23,7 @@ const (
 	forImport = iota
 	forRename
 	forMove // refused while an Import holds or waits for the lock
+	forDelete
 )
 
 // lock takes the Title's lock, waiting for whoever holds it, and returns its

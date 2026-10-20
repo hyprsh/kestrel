@@ -1344,6 +1344,23 @@ type CustomFormatMatch struct {
 	Points int    `json:"points"`
 }
 
+// DeletedFile defines model for DeletedFile.
+type DeletedFile struct {
+	// Blocklisted The Release went on the Blocklist. False unless asked, and for a file Kestrel did not grab.
+	Blocklisted bool `json:"blocklisted"`
+
+	// EpisodeIds Every episode that lost its file, in aired order; empty for a Movie.
+	EpisodeIds  []int64 `json:"episode_ids"`
+	Path        string  `json:"path"`
+	ReleaseName string  `json:"release_name"`
+	Size        int64   `json:"size"`
+}
+
+// DeletedFiles defines model for DeletedFiles.
+type DeletedFiles struct {
+	Files []DeletedFile `json:"files"`
+}
+
 // DiskStatus defines model for DiskStatus.
 type DiskStatus struct {
 	FreeBytes  int64  `json:"free_bytes"`
@@ -1422,7 +1439,7 @@ type Event struct {
 	GrabId    *int64                  `json:"grab_id"`
 	Id        int64                   `json:"id"`
 
-	// Kind A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search.
+	// Kind A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search.
 	Kind      string `json:"kind"`
 	Message   string `json:"message"`
 	RequestId *int64 `json:"request_id"`
@@ -2871,6 +2888,18 @@ type DeleteVersionParams struct {
 	DeleteFiles *DeleteFiles `form:"delete_files,omitempty" json:"delete_files,omitempty"`
 }
 
+// DeleteVersionFilesParams defines parameters for DeleteVersionFiles.
+type DeleteVersionFilesParams struct {
+	// Season Only the files holding episodes of this season (0 is Specials).
+	Season *int `form:"season,omitempty" json:"season,omitempty"`
+
+	// EpisodeIds Only the files holding these episodes.
+	EpisodeIds *[]int64 `form:"episode_ids,omitempty" json:"episode_ids,omitempty"`
+
+	// Blocklist Also put each deleted file's Release on the Blocklist. Off by default.
+	Blocklist *bool `form:"blocklist,omitempty" json:"blocklist,omitempty"`
+}
+
 // ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
 type ChangePasswordJSONRequestBody ChangePasswordJSONBody
 
@@ -3499,6 +3528,9 @@ type ServerInterface interface {
 	// PatchVersion Switch a Version's Profile
 	// (PATCH /versions/{id})
 	PatchVersion(w http.ResponseWriter, r *http.Request, id VersionId)
+	// DeleteVersionFiles Delete a Version's files and keep the Version
+	// (DELETE /versions/{id}/files)
+	DeleteVersionFiles(w http.ResponseWriter, r *http.Request, id VersionId, params DeleteVersionFilesParams)
 	// SearchVersionReleases Manual search for a Version
 	// (POST /versions/{id}/releases)
 	SearchVersionReleases(w http.ResponseWriter, r *http.Request, id VersionId)
@@ -5266,6 +5298,74 @@ func (siw *ServerInterfaceWrapper) PatchVersion(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteVersionFiles operation middleware
+func (siw *ServerInterfaceWrapper) DeleteVersionFiles(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id VersionId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteVersionFilesParams
+
+	// ------------- Optional query parameter "season" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "season", r.URL.Query(), &params.Season, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "season"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "season", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "episode_ids" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "episode_ids", r.URL.Query(), &params.EpisodeIds, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "episode_ids"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "episode_ids", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "blocklist" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "blocklist", r.URL.Query(), &params.Blocklist, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "blocklist"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "blocklist", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteVersionFiles(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SearchVersionReleases operation middleware
 func (siw *ServerInterfaceWrapper) SearchVersionReleases(w http.ResponseWriter, r *http.Request) {
 
@@ -5481,6 +5581,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles/{id}/versions", wrapper.AddVersion)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/versions/{id}", wrapper.DeleteVersion)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/versions/{id}", wrapper.PatchVersion)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/versions/{id}/files", wrapper.DeleteVersionFiles)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/{id}/episodes", wrapper.ListEpisodes)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles/{id}/episodes/monitor", wrapper.MonitorEpisodes)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/titles/{id}/seasons/{season}", wrapper.PatchSeason)
@@ -9630,6 +9731,76 @@ func (response PatchVersiondefaultApplicationProblemPlusJSONResponse) VisitPatch
 	return err
 }
 
+type DeleteVersionFilesRequestObject struct {
+	Id     VersionId `json:"id"`
+	Params DeleteVersionFilesParams
+}
+
+type DeleteVersionFilesResponseObject interface {
+	VisitDeleteVersionFilesResponse(w http.ResponseWriter) error
+}
+
+type DeleteVersionFiles200JSONResponse DeletedFiles
+
+func (response DeleteVersionFiles200JSONResponse) VisitDeleteVersionFilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteVersionFiles404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteVersionFiles404ApplicationProblemPlusJSONResponse) VisitDeleteVersionFilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteVersionFiles422ApplicationProblemPlusJSONResponse Problem
+
+func (response DeleteVersionFiles422ApplicationProblemPlusJSONResponse) VisitDeleteVersionFilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteVersionFilesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DeleteVersionFilesdefaultApplicationProblemPlusJSONResponse) VisitDeleteVersionFilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type SearchVersionReleasesRequestObject struct {
 	Id   VersionId `json:"id"`
 	Body *SearchVersionReleasesJSONRequestBody
@@ -10023,6 +10194,9 @@ type StrictServerInterface interface {
 	// PatchVersion Switch a Version's Profile
 	// (PATCH /versions/{id})
 	PatchVersion(ctx context.Context, request PatchVersionRequestObject) (PatchVersionResponseObject, error)
+	// DeleteVersionFiles Delete a Version's files and keep the Version
+	// (DELETE /versions/{id}/files)
+	DeleteVersionFiles(ctx context.Context, request DeleteVersionFilesRequestObject) (DeleteVersionFilesResponseObject, error)
 	// SearchVersionReleases Manual search for a Version
 	// (POST /versions/{id}/releases)
 	SearchVersionReleases(ctx context.Context, request SearchVersionReleasesRequestObject) (SearchVersionReleasesResponseObject, error)
@@ -12103,6 +12277,33 @@ func (sh *strictHandler) PatchVersion(w http.ResponseWriter, r *http.Request, id
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PatchVersionResponseObject); ok {
 		if err := validResponse.VisitPatchVersionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteVersionFiles operation middleware
+func (sh *strictHandler) DeleteVersionFiles(w http.ResponseWriter, r *http.Request, id VersionId, params DeleteVersionFilesParams) {
+	var request DeleteVersionFilesRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteVersionFiles(ctx, request.(DeleteVersionFilesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteVersionFiles")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteVersionFilesResponseObject); ok {
+		if err := validResponse.VisitDeleteVersionFilesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

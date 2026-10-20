@@ -58,6 +58,8 @@ const (
 	Renamed Kind = "rename"
 	// Moved: a Title was moved to another Root folder. Data carries from and to.
 	Moved Kind = "move"
+	// FilesDeleted: files of a Version were deleted by hand; the Version stays. Data carries the paths and episode ids.
+	FilesDeleted Kind = "delete"
 	// TitleRefreshed: a Title's metadata was refreshed in the background (routine).
 	TitleRefreshed Kind = "title_refreshed"
 	// Blocklisted: a Release went on the Blocklist.
