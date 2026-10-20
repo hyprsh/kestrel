@@ -165,6 +165,30 @@ describe('the add panel', () => {
     expect(sent[0].body).toMatchObject({ series_monitor: 'all' })
   })
 
+  it('offers no season presets without the series overview, and says why', async () => {
+    let answer: (v: 'down') => void = () => {}
+    const { menu } = await openPanel(new Promise((resolve) => (answer = resolve)))
+    const monitor = within(menu).getByRole('combobox', { name: 'Monitor' })
+    const presets = () => ['First season', /^Latest season/, 'Pick seasons…'].map((name) => within(monitor).getByRole('option', { name }))
+
+    for (const o of presets()) expect(o).toBeDisabled()
+    expect(monitor).toHaveAccessibleDescription('Picking seasons waits for the series overview.')
+
+    answer('down')
+
+    await within(menu).findByText(/Could not load the series overview/)
+    for (const o of presets()) expect(o).toBeDisabled()
+    expect(monitor).toHaveAccessibleDescription('Picking seasons needs the series overview, which could not be loaded.')
+    expect(within(monitor).getByRole('option', { name: 'All episodes' })).toBeEnabled()
+  })
+
+  it('needs no hint once the series overview is there', async () => {
+    const { menu } = await openPanel()
+    const monitor = within(menu).getByRole('combobox', { name: 'Monitor' })
+    expect(within(monitor).getByRole('option', { name: 'Pick seasons…' })).toBeEnabled()
+    expect(monitor).not.toHaveAccessibleDescription()
+  })
+
   it('adds only the first season, and nothing that comes later', async () => {
     const { menu, sent } = await openPanel()
     await addWith(menu, 'first')
