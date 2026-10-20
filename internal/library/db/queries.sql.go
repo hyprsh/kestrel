@@ -223,7 +223,7 @@ func (q *Queries) GetFileOfVersionEpisode(ctx context.Context, arg GetFileOfVers
 }
 
 const getTitle = `-- name: GetTitle :one
-SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at FROM titles WHERE id = ?
+SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count FROM titles WHERE id = ?
 `
 
 func (q *Queries) GetTitle(ctx context.Context, id int64) (Title, error) {
@@ -250,6 +250,8 @@ func (q *Queries) GetTitle(ctx context.Context, id int64) (Title, error) {
 		&i.Folder,
 		&i.AddedAt,
 		&i.RefreshedAt,
+		&i.TmdbVoteAverage,
+		&i.TmdbVoteCount,
 	)
 	return i, err
 }
@@ -443,8 +445,9 @@ func (q *Queries) InsertSeason(ctx context.Context, arg InsertSeasonParams) erro
 
 const insertTitle = `-- name: InsertTitle :one
 INSERT INTO titles (kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language,
-                    overview, runtime, poster_path, monitored, series_monitor, root_folder, added_at, refreshed_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    overview, runtime, poster_path, monitored, series_monitor, root_folder, added_at, refreshed_at,
+                    tmdb_vote_average, tmdb_vote_count)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id
 `
 
@@ -466,6 +469,8 @@ type InsertTitleParams struct {
 	RootFolder       string
 	AddedAt          string
 	RefreshedAt      string
+	TmdbVoteAverage  sql.NullFloat64
+	TmdbVoteCount    sql.NullInt64
 }
 
 func (q *Queries) InsertTitle(ctx context.Context, arg InsertTitleParams) (int64, error) {
@@ -487,6 +492,8 @@ func (q *Queries) InsertTitle(ctx context.Context, arg InsertTitleParams) (int64
 		arg.RootFolder,
 		arg.AddedAt,
 		arg.RefreshedAt,
+		arg.TmdbVoteAverage,
+		arg.TmdbVoteCount,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -1318,7 +1325,7 @@ func (q *Queries) ListSeasonsOfTitle(ctx context.Context, titleID int64) ([]Seas
 }
 
 const listTitles = `-- name: ListTitles :many
-SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at FROM titles ORDER BY added_at DESC, id DESC
+SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count FROM titles ORDER BY added_at DESC, id DESC
 `
 
 func (q *Queries) ListTitles(ctx context.Context) ([]Title, error) {
@@ -1351,6 +1358,8 @@ func (q *Queries) ListTitles(ctx context.Context) ([]Title, error) {
 			&i.Folder,
 			&i.AddedAt,
 			&i.RefreshedAt,
+			&i.TmdbVoteAverage,
+			&i.TmdbVoteCount,
 		); err != nil {
 			return nil, err
 		}
@@ -1773,7 +1782,8 @@ func (q *Queries) UpdateEpisode(ctx context.Context, arg UpdateEpisodeParams) er
 
 const updateTitleMetadata = `-- name: UpdateTitleMetadata :exec
 UPDATE titles SET title = ?, original_title = ?, primary_title = ?, year = ?,
-    original_language = ?, overview = ?, runtime = ?, poster_path = ?, refreshed_at = ?
+    original_language = ?, overview = ?, runtime = ?, poster_path = ?, refreshed_at = ?,
+    tmdb_vote_average = ?, tmdb_vote_count = ?
 WHERE id = ?
 `
 
@@ -1787,6 +1797,8 @@ type UpdateTitleMetadataParams struct {
 	Runtime          sql.NullInt64
 	PosterPath       sql.NullString
 	RefreshedAt      string
+	TmdbVoteAverage  sql.NullFloat64
+	TmdbVoteCount    sql.NullInt64
 	ID               int64
 }
 
@@ -1801,6 +1813,8 @@ func (q *Queries) UpdateTitleMetadata(ctx context.Context, arg UpdateTitleMetada
 		arg.Runtime,
 		arg.PosterPath,
 		arg.RefreshedAt,
+		arg.TmdbVoteAverage,
+		arg.TmdbVoteCount,
 		arg.ID,
 	)
 	return err
