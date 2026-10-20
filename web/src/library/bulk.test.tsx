@@ -31,7 +31,7 @@ async function openLibrary() {
   return list
 }
 
-const box = (name: string) => screen.getByRole('checkbox', { name: `Select ${name}` })
+const box = (name: string) => screen.getByRole('checkbox', { name: `Tick ${name}` })
 
 describe('selecting Titles in the Library', () => {
   it('ticks the Title under the cursor with x and clears the selection with Escape', async () => {
@@ -43,31 +43,31 @@ describe('selecting Titles in the Library', () => {
     await userEvent.keyboard('j')
     await userEvent.keyboard('x')
 
-    expect(screen.getByText('2 selected')).toBeInTheDocument()
+    expect(screen.getByText('2 ticked')).toBeInTheDocument()
     expect(box('Paddington')).toBeChecked()
     expect(box('Heat')).not.toBeChecked()
     expect(box('Zodiac')).toBeChecked()
 
     await userEvent.keyboard('x') // x again unticks
-    expect(screen.getByText('1 selected')).toBeInTheDocument()
+    expect(screen.getByText('1 ticked')).toBeInTheDocument()
 
     await userEvent.keyboard('{Escape}')
-    expect(screen.queryByText(/selected/)).not.toBeInTheDocument()
-    expect(screen.queryByRole('checkbox', { name: /select/i })).not.toBeInTheDocument()
+    expect(screen.queryByText(/ticked/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('checkbox', { name: /tick/i })).not.toBeInTheDocument()
   })
 
   it('ticks a range with shift-click without moving the cursor', async () => {
     fakeLibrary(rows())
     await openLibrary()
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: 'Select' }))
+    await user.click(screen.getByRole('button', { name: 'Tick' }))
 
     await user.click(box('Heat'))
     await user.keyboard('{Shift>}')
     await user.click(box('Breaking Bad'))
     await user.keyboard('{/Shift}')
 
-    expect(screen.getByText('3 selected')).toBeInTheDocument()
+    expect(screen.getByText('3 ticked')).toBeInTheDocument()
     expect(box('Paddington')).not.toBeChecked()
     expect(box('Zodiac')).toBeChecked()
     expect(screen.getByRole('option', { selected: true })).toHaveTextContent('Paddington')
@@ -77,15 +77,15 @@ describe('selecting Titles in the Library', () => {
     fakeLibrary(rows())
     await openLibrary()
     await userEvent.click(screen.getByRole('button', { name: 'Series' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Select' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Tick' }))
     await userEvent.click(screen.getByRole('button', { name: 'Movies' }))
 
-    await userEvent.click(screen.getByRole('button', { name: 'Select all 3 shown' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Tick all 3 shown' }))
 
-    expect(screen.getByText('3 selected')).toBeInTheDocument()
+    expect(screen.getByText('3 ticked')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'All' }))
     expect(box('Breaking Bad')).not.toBeChecked()
-    expect(screen.getByText('3 selected')).toBeInTheDocument()
+    expect(screen.getByText('3 ticked')).toBeInTheDocument()
   })
 })
 
@@ -105,17 +105,17 @@ function fakeBulk(answer: (body: components['schemas']['TitlesBulk']) => Outcome
 }
 
 const changed = (id: number): Outcome => ({ title_id: id, outcome: 'changed', reason: null, message: null })
-const skipped = (id: number, reason: string, message: string): Outcome => ({ title_id: id, outcome: 'skipped', reason, message })
+const skipped = (id: number, reason: Outcome['reason'], message: string): Outcome => ({ title_id: id, outcome: 'skipped', reason, message })
 
 /** Opens the Library with the named Titles ticked and returns the actions pane. */
 async function withTicked(...names: string[]) {
   await openLibrary()
-  await userEvent.click(screen.getByRole('button', { name: 'Select' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Tick' }))
   for (const n of names) await userEvent.click(box(n))
-  return screen.getByRole('region', { name: `${names.length} ${names.length === 1 ? 'Title' : 'Titles'} selected` })
+  return screen.getByRole('region', { name: `${names.length} ${names.length === 1 ? 'Title' : 'Titles'} ticked` })
 }
 
-describe('changing the selected Titles together', () => {
+describe('changing the ticked Titles together', () => {
   it('unmonitors them in one call and says what changed', async () => {
     fakeLibrary(rows())
     const sent = fakeBulk((b) => b.title_ids.map(changed))

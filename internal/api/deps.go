@@ -91,9 +91,10 @@ type SettingsWriter interface {
 	SetGrabsPaused(ctx context.Context, on bool) error
 }
 
-// GrabPause reads the Pause grabs switch.
+// GrabPause reads the Pause Grabs switch.
 type GrabPause interface {
 	Paused(ctx context.Context) (bool, error)
+	PausedSince(ctx context.Context) (time.Time, error)
 }
 
 // Updates is the GitHub update check.
@@ -114,10 +115,9 @@ type Library interface {
 	SetMovieMonitored(ctx context.Context, id int64, monitored bool) error
 	SetMonitored(ctx context.Context, ids []int64, monitored bool, mode library.Monitor) ([]library.MonitorResult, error)
 	SetSeasonMonitored(ctx context.Context, id int64, season int, monitored bool) error
-	SetProfile(ctx context.Context, versionID int64, profile string) error
-	SetMetadataFrozen(ctx context.Context, id int64, frozen bool) error
 	SetEpisodesMonitored(ctx context.Context, id int64, episodeIDs []int64, monitored bool) error
 	SearchAllWanted(ctx context.Context) (int, error)
+	SearchAfterPause(ctx context.Context, since time.Time) error
 	SearchWanted(ctx context.Context, titleIDs []int64) (map[int64]int, error)
 	RequestSearch(ctx context.Context, versionID int64) error
 	LongMissing(ctx context.Context, view library.View) ([]library.LongMissingItem, error)
@@ -177,9 +177,9 @@ type Remover interface {
 	DeleteTitle(ctx context.Context, titleID int64, deleteFiles bool) error
 }
 
-// Rescorer re-scores a Version's stored file.
+// Rescorer moves a Version to another Profile and re-scores its stored file.
 type Rescorer interface {
-	Rescore(ctx context.Context, titleID, versionID int64) error
+	SwitchProfile(ctx context.Context, titleID, versionID int64, profile string) error
 }
 
 // Jobs is the loop runner.
@@ -191,6 +191,7 @@ type Jobs interface {
 // Refresher refreshes a Title from the metadata providers in the background.
 type Refresher interface {
 	Enqueue(id int64)
+	SetFrozen(ctx context.Context, id int64, frozen bool) error
 }
 
 // IndexerStatus reports an indexer's budget.
@@ -200,7 +201,6 @@ type IndexerStatus interface {
 
 // Health is Needs attention and the system status.
 type Health interface {
-	Clear(ctx context.Context, key string) error
 	List(ctx context.Context) ([]health.Row, error)
 	IndexerStates() map[int64]health.State
 	Dismiss(ctx context.Context, id int64) error

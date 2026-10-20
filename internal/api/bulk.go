@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
-	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
+	"github.com/hyprsh/kestrel/internal/plugin"
 	"github.com/hyprsh/kestrel/internal/slot"
 )
 
@@ -31,31 +32,31 @@ func (s *server) BulkTitles(ctx context.Context, r oapi.BulkTitlesRequestObject)
 	}
 	var items []oapi.TitleBulkOutcome
 	switch action {
-	case "monitor":
+	case string(oapi.Monitor):
 		items, err = bulkArm(r.Body.AsTitlesBulkMonitor, func(b oapi.TitlesBulkMonitor) ([]oapi.TitleBulkOutcome, error) {
 			return s.bulkMonitor(ctx, ids, b)
 		})
-	case "switch_profile":
+	case string(oapi.SwitchProfile):
 		items, err = bulkArm(r.Body.AsTitlesBulkSwitchProfile, func(b oapi.TitlesBulkSwitchProfile) ([]oapi.TitleBulkOutcome, error) {
 			return s.bulkSwitchProfile(ctx, ids, b)
 		})
-	case "add_version":
+	case string(oapi.AddVersion):
 		items, err = bulkArm(r.Body.AsTitlesBulkAddVersion, func(b oapi.TitlesBulkAddVersion) ([]oapi.TitleBulkOutcome, error) {
 			return s.bulkAddVersion(ctx, ids, b)
 		})
-	case "remove_version":
+	case string(oapi.RemoveVersion):
 		items, err = bulkArm(r.Body.AsTitlesBulkRemoveVersion, func(b oapi.TitlesBulkRemoveVersion) ([]oapi.TitleBulkOutcome, error) {
 			return s.bulkRemoveVersion(ctx, ids, b)
 		})
-	case "search":
+	case string(oapi.Search):
 		items, err = s.bulkSearch(ctx, ids)
-	case "refresh":
+	case string(oapi.Refresh):
 		items, err = s.bulkRefresh(ctx, ids)
-	case "freeze":
+	case string(oapi.Freeze):
 		items, err = bulkArm(r.Body.AsTitlesBulkFreeze, func(b oapi.TitlesBulkFreeze) ([]oapi.TitleBulkOutcome, error) {
 			return s.bulkFreeze(ctx, ids, b.Frozen)
 		})
-	case "remove":
+	case string(oapi.Remove):
 		items, err = bulkArm(r.Body.AsTitlesBulkRemove, func(b oapi.TitlesBulkRemove) ([]oapi.TitleBulkOutcome, error) {
 			return s.bulkRemove(ctx, ids, b.DeleteFiles != nil && *b.DeleteFiles)
 		})
@@ -94,7 +95,7 @@ func bulkTitleIDs(body *oapi.TitlesBulk) ([]int64, error) {
 		return nil, invalid("title_ids", "required", "Pick at least one Title")
 	}
 	if len(common.TitleIDs) > maxBulkTitles {
-		return nil, invalid("title_ids", "too_many", "At most 10000 Titles at once")
+		return nil, invalid("title_ids", "too_many", fmt.Sprintf("At most %d Titles at once", maxBulkTitles))
 	}
 	seen := make(map[int64]bool, len(common.TitleIDs))
 	ids := common.TitleIDs[:0]
@@ -111,26 +112,32 @@ func bulkChanged(id int64) oapi.TitleBulkOutcome {
 	return oapi.TitleBulkOutcome{TitleId: id, Outcome: oapi.TitleBulkOutcomeOutcomeChanged}
 }
 
-func bulkSkipped(id int64, reason, message string) oapi.TitleBulkOutcome {
+func bulkSkipped(id int64, reason oapi.TitleBulkOutcomeReason, message string) oapi.TitleBulkOutcome {
 	return oapi.TitleBulkOutcome{TitleId: id, Outcome: oapi.TitleBulkOutcomeOutcomeSkipped, Reason: &reason, Message: &message}
 }
 
 func bulkNotFound(id int64) oapi.TitleBulkOutcome {
-	return bulkSkipped(id, "not_found", "No such Title")
+	return bulkSkipped(id, oapi.NotFound, "No such Title")
 }
 
 func bulkUnchanged(id int64) oapi.TitleBulkOutcome {
-	return bulkSkipped(id, "unchanged", "Already as asked")
+	return bulkSkipped(id, oapi.Unchanged, "Already as asked")
 }
 
 func bulkNoVersion(id int64, sl slot.Slot) oapi.TitleBulkOutcome {
-	return bulkSkipped(id, "no_version", "Has no "+sl.Name()+" Version")
+	return bulkSkipped(id, oapi.NoVersion, "Has no "+sl.Name()+" Version")
 }
 
-// bulkFailed logs why one Title's change failed; the others go on.
+// bulkFailed answers for a Title whose change failed; the others go on. A
+// cause it knows gets its own reason; any other is logged and is internal.
 func (s *server) bulkFailed(id int64, err error) oapi.TitleBulkOutcome {
-	s.opts.Logger.Error("bulk change of a Title failed", "title_id", id, "err", err)
-	reason, message := "internal", "The change failed"
+	reason, message := oapi.Internal, "The change failed"
+	var pe *plugin.Error
+	if errors.As(err, &pe) {
+		reason, message = oapi.DownloadClient, "The download client could not cancel its download: "+pe.Message
+	} else {
+		s.opts.Logger.Error("bulk change of a Title failed", "title_id", id, "err", err)
+	}
 	return oapi.TitleBulkOutcome{TitleId: id, Outcome: oapi.TitleBulkOutcomeOutcomeFailed, Reason: &reason, Message: &message}
 }
 
@@ -169,15 +176,16 @@ func (s *server) bulkMonitor(ctx context.Context, ids []int64, b oapi.TitlesBulk
 	var mode library.Monitor
 	if b.SeriesMonitor != nil {
 		mode = library.Monitor(*b.SeriesMonitor)
-		if !mode.Valid() {
-			return nil, invalid("series_monitor", "invalid", "Monitor all, future or none")
-		}
-		if !b.Monitored && mode != library.MonitorNone {
-			return nil, invalid("series_monitor", "invalid", "Unmonitored Series monitor none")
-		}
 	}
 	results, err := s.library.SetMonitored(ctx, ids, b.Monitored, mode)
-	if err != nil {
+	switch {
+	case errors.Is(err, library.ErrUnknownMode):
+		return nil, invalid("series_monitor", "invalid", "Monitor all, future or none")
+	case errors.Is(err, library.ErrModeContradicts) && b.Monitored:
+		return nil, invalid("series_monitor", "invalid", "Monitored Series monitor all or future")
+	case errors.Is(err, library.ErrModeContradicts):
+		return nil, invalid("series_monitor", "invalid", "Unmonitored Series monitor none")
+	case err != nil:
 		return nil, err
 	}
 	out := make([]oapi.TitleBulkOutcome, 0, len(results))
@@ -222,11 +230,7 @@ func (s *server) bulkSwitchProfile(ctx context.Context, ids []int64, b oapi.Titl
 		case v.Profile == b.Profile:
 			out = append(out, bulkUnchanged(id))
 		default:
-			if err := s.library.SetProfile(ctx, v.VersionID, b.Profile); err != nil {
-				out = append(out, s.bulkFailed(id, err))
-				continue
-			}
-			if err := s.imports.Rescore(ctx, id, v.VersionID); err != nil {
+			if err := s.imports.SwitchProfile(ctx, id, v.VersionID, b.Profile); err != nil {
 				out = append(out, s.bulkFailed(id, err))
 				continue
 			}
@@ -255,7 +259,7 @@ func (s *server) bulkAddVersion(ctx context.Context, ids []int64, b oapi.TitlesB
 		case errors.Is(err, library.ErrNotFound):
 			out = append(out, bulkNotFound(id))
 		case errors.Is(err, library.ErrSlotTaken):
-			out = append(out, bulkSkipped(id, "slot_taken", "Already has a "+sl.Name()+" Version"))
+			out = append(out, bulkSkipped(id, oapi.SlotTaken, "Already has a "+sl.Name()+" Version"))
 		case err != nil:
 			out = append(out, s.bulkFailed(id, err))
 		default:
@@ -286,7 +290,7 @@ func (s *server) bulkSearch(ctx context.Context, ids []int64) ([]oapi.TitleBulkO
 		case !ok:
 			out = append(out, bulkNotFound(id))
 		case due[id] == 0:
-			out = append(out, bulkSkipped(id, "nothing_wanted", "Nothing Wanted"))
+			out = append(out, bulkSkipped(id, oapi.NothingWanted, "Nothing Wanted"))
 		default:
 			out = append(out, bulkChanged(id))
 		}
@@ -323,7 +327,7 @@ func (s *server) bulkEachTitle(ctx context.Context, ids []int64, do func(library
 func (s *server) bulkRefresh(ctx context.Context, ids []int64) ([]oapi.TitleBulkOutcome, error) {
 	return s.bulkEachTitle(ctx, ids, func(d library.Detail) oapi.TitleBulkOutcome {
 		if d.MetadataFrozen {
-			return bulkSkipped(d.ID, "frozen", "Metadata frozen")
+			return bulkSkipped(d.ID, oapi.Frozen, "Metadata frozen")
 		}
 		s.refresher.Enqueue(d.ID)
 		return bulkChanged(d.ID)
@@ -336,14 +340,8 @@ func (s *server) bulkFreeze(ctx context.Context, ids []int64, frozen bool) ([]oa
 		if d.MetadataFrozen == frozen {
 			return bulkUnchanged(d.ID)
 		}
-		if err := s.library.SetMetadataFrozen(ctx, d.ID, frozen); err != nil {
+		if err := s.refresher.SetFrozen(ctx, d.ID, frozen); err != nil {
 			return s.bulkFailed(d.ID, err)
-		}
-		if frozen {
-			// "Keep as is" settles the Title gone upstream row.
-			if err := s.health.Clear(ctx, health.GoneUpstreamKey(d.ID)); err != nil {
-				return s.bulkFailed(d.ID, err)
-			}
 		}
 		return bulkChanged(d.ID)
 	})

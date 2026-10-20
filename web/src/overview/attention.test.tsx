@@ -285,13 +285,13 @@ describe('The health strip', () => {
     expect(strip).not.toHaveTextContent(/failing/)
   })
 
-  it('says when Pause grabs is on', async () => {
+  it('says when Pause Grabs is on', async () => {
     server.use(http.get('/system/status', ({ response }) => response(200).json(status({ grabs_paused: true }))))
     renderApp()
 
     const strip = await screen.findByRole('region', { name: /health/i })
 
-    expect(await within(strip).findByText(/automatic grabs are paused/i)).toBeInTheDocument()
+    expect(await within(strip).findByText(/automatic Grabs are paused/i)).toBeInTheDocument()
   })
 
   it('says nothing about pausing while grabs run', async () => {
@@ -301,7 +301,7 @@ describe('The health strip', () => {
     const strip = await screen.findByRole('region', { name: /health/i })
 
     await within(strip).findByText(/SABnzbd/)
-    expect(strip).not.toHaveTextContent(/automatic grabs are paused/i)
+    expect(strip).not.toHaveTextContent(/automatic Grabs are paused/i)
   })
 
   it('says when no download client is set up', async () => {

@@ -106,7 +106,7 @@ type Deps struct {
 	// Scoring is the live TRaSH snapshot; it wins over Snapshot. A swap drops the
 	// candidate cache and waits for decisions in flight (Settled 6).
 	Scoring *scoring.Holder
-	// Pause is the Pause grabs switch; nil never pauses.
+	// Pause is the Pause Grabs switch; nil never pauses.
 	Pause GrabPause
 }
 
@@ -693,7 +693,7 @@ func (s *Service) GrabEpisodes(ctx context.Context, grabID int64) ([]int64, erro
 
 // decide is Decide over candidates whose indexers' Grabs may be paused right
 // now. The flag is set here and not when a Release is cached, so a pause that
-// began or ended since the search counts. With Pause grabs on it plans
+// began or ended since the search counts. With Pause Grabs on it plans
 // nothing: every automatic Grab goes through here, a hand-started one does not.
 func (s *Service) decide(ctx context.Context, in Input) ([]GrabPlan, error) {
 	if s.pause != nil {

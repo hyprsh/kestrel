@@ -14,6 +14,17 @@ import (
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 )
 
+// SwitchProfile moves a Version of a Title to another Profile, makes it due a
+// search now and re-scores its files under the new Profile; the caller kicks
+// the sweep. Whether the Profile belongs to the Version's Slot is for the
+// caller to check.
+func (s *Service) SwitchProfile(ctx context.Context, titleID, versionID int64, profile string) error {
+	if err := s.lib.SetProfile(ctx, versionID, profile); err != nil {
+		return err
+	}
+	return s.Rescore(ctx, titleID, versionID)
+}
+
 // Rescore re-scores the files of a Version under the Version's current Profile
 // after a Profile switch. It reads the snapshots stored at Import time: no
 // re-parse, no new ffprobe and no rename. A file whose probed resolution class

@@ -84,7 +84,7 @@ func (s *Service) AddSeries(ctx context.Context, a AddSeries) (int64, error) {
 		return 0, ErrNoVersions
 	}
 	if !a.Monitor.Valid() {
-		return 0, fmt.Errorf("library: unknown monitoring mode %q", a.Monitor)
+		return 0, fmt.Errorf("library: %w %q", ErrUnknownMode, a.Monitor)
 	}
 	seen := map[slot.Slot]bool{}
 	for _, v := range a.Versions {
@@ -348,7 +348,7 @@ func (s *Service) writeSeries(ctx context.Context, id int64, fn func(q *db.Queri
 // season now, Specials excepted.
 func (s *Service) SetSeriesMonitor(ctx context.Context, id int64, mode Monitor) error {
 	if !mode.Valid() {
-		return fmt.Errorf("library: unknown monitoring mode %q", mode)
+		return fmt.Errorf("library: %w %q", ErrUnknownMode, mode)
 	}
 	return s.writeSeries(ctx, id, func(q *db.Queries) error {
 		_, err := applySeriesMode(ctx, q, id, mode, s.clock())

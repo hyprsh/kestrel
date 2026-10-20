@@ -3,6 +3,7 @@ package api_test
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/hyprsh/kestrel/internal/jobs"
@@ -297,5 +298,27 @@ func TestRemovingThe4KVersionInBulkSkipsTitlesWithoutOne(t *testing.T) {
 	}
 	if o := b.bulk(t, body).outcomes(); o["skipped/no_version"] != 3 {
 		t.Errorf("second call = %v, want 3 without a 4K Version", o)
+	}
+}
+
+func TestATitleWhoseDownloadCannotBeCanceledFailsToBeRemovedInBulkAndSaysWhy(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	s.publish(t, goodRelease)
+	s.pass(t, jobs.Search)
+	if q := s.queue(t); len(q) != 1 {
+		t.Fatalf("queue = %+v, want one Grab", q)
+	}
+	s.setKey(t, s.instanceID(t, "fake"), "rejected")
+
+	r := s.valid("POST", "/titles/bulk", fmt.Sprintf(`{"action":"remove","title_ids":[%d]}`, s.title))
+
+	if r.Status != 200 {
+		t.Fatalf("bulk = %d %s", r.Status, r.Body)
+	}
+	got := decode[bulkJSON](t, r).Items
+	if len(got) != 1 || got[0].Outcome != "failed" || got[0].Reason == nil || *got[0].Reason != "download_client" ||
+		got[0].Message == nil || !strings.Contains(*got[0].Message, "API key rejected") {
+		t.Errorf("items = %+v, want failed as download_client with the client's message", got)
 	}
 }

@@ -21,7 +21,7 @@ const settings = (pause: boolean): Settings => ({
   metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
 })
 
-describe('Pause grabs', () => {
+describe('Pause Grabs', () => {
   it('is a switch in Settings saved like the other sections', async () => {
     let paused = false
     const bodies: unknown[] = []

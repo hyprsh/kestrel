@@ -144,6 +144,10 @@ func (s *server) patchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 	if err != nil {
 		return nil, err
 	}
+	pausedSince, err := s.pause.PausedSince(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if rf := r.Body.RootFolders; rf != nil {
 		if _, err := w.SetRootFolders(ctx, rootfolders.Patch{Movies: rf.Movies, Series: rf.Series}); err != nil {
 			var ve *rootfolders.ValidationError
@@ -179,7 +183,7 @@ func (s *server) patchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 	}
 	if p := r.Body.PauseGrabs; p != nil && !*p && wasPaused {
 		// What the sweep searched while paused is due again, so the next sweep grabs.
-		if _, err := s.library.SearchAllWanted(ctx); err != nil {
+		if err := s.library.SearchAfterPause(ctx, pausedSince); err != nil {
 			return nil, err
 		}
 		s.jobs.Kick(jobs.Search)

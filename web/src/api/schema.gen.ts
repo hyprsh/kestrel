@@ -410,31 +410,36 @@ export interface paths {
          * Change many Titles at once
          * @description Applies one `action` to every Title in `title_ids`, with the action's parameters next to it,
          *     and answers per Title: `changed`, `skipped` with a `reason` (such as `unchanged` when the
-         *     Title already is as asked, or `not_found`), or `failed`. A repeated id counts once. Running
-         *     the same call again changes nothing and skips every Title as `unchanged`.
+         *     Title already is as asked, or `not_found`), or `failed` with a `reason` saying why. A
+         *     repeated id counts once. Running the same call again changes nothing more: each Title is
+         *     then skipped, with the reason that fits the action (see below).
          *
          *     - `monitor` sets `monitored` on Movies, as `PATCH /titles/{id}` does. A Series follows the
          *       same rule through its monitoring mode: `monitored: false` sets `series_monitor: none` and
          *       unmonitors every episode, so an unmonitored Series behaves like an unmonitored Movie;
-         *       `monitored: true` applies `series_monitor` (default `all`).
+         *       `monitored: true` applies `series_monitor`. Left out, a Series already monitored keeps
+         *       its mode and an unmonitored one gets `all`. Again: `unchanged`.
          *     - `switch_profile` moves each Title's Version in `slot` to `profile`, as
          *       `PATCH /versions/{id}` does: the file is re-scored and the Version searched. A Title with no
-         *       Version in that Slot is skipped as `no_version`.
+         *       Version in that Slot is skipped as `no_version`. Again: `unchanged`.
          *     - `add_version` adds a Version in `slot` under `profile`, as `POST /titles/{id}/versions`
-         *       does. A Title whose Slot already holds a Version is skipped as `slot_taken`.
+         *       does. A Title whose Slot already holds a Version is skipped as `slot_taken`. Again:
+         *       `slot_taken`.
          *     - `remove_version` removes each Title's Version in `slot`, as `DELETE /versions/{id}` does;
          *       files stay on disk unless `delete_files` is true. No Version there: skipped as `no_version`.
+         *       Again: `no_version`.
          *     - `search` makes every Wanted Version of the Titles due a search now and starts the sweep,
          *       as "Search all Wanted" does for the whole Library; the indexers' daily budgets apply. A
-         *       Title with nothing Wanted is skipped as `nothing_wanted`.
+         *       Title with nothing Wanted is skipped as `nothing_wanted`. It acts on every call.
          *     - `refresh` starts a metadata refresh of each Title, as `POST /titles/{id}/refresh` does. A
-         *       Title with `metadata_frozen` is skipped as `frozen`.
-         *     - `freeze` sets `metadata_frozen` to `frozen`, as `PATCH /titles/{id}` does.
+         *       Title with `metadata_frozen` is skipped as `frozen`. It acts on every call.
+         *     - `freeze` sets `metadata_frozen` to `frozen`, as `PATCH /titles/{id}` does. Again:
+         *       `unchanged`.
          *     - `remove` removes the Titles from the Library, as `DELETE /titles/{id}` does; files stay on
-         *       disk unless `delete_files` is true.
+         *       disk unless `delete_files` is true. Again: `not_found`.
          *
-         *     `search` and `refresh` act on every call; the other actions skip a Title already as asked.
-         *     A wrong or disabled Profile for the Slot refuses the whole call with 422.
+         *     A wrong or disabled Profile for the Slot, or a `series_monitor` that contradicts
+         *     `monitored`, refuses the whole call with 422.
          */
         post: operations["bulkTitles"];
         delete?: never;
@@ -1210,7 +1215,7 @@ export interface paths {
          * The health strip
          * @description Capacity at a glance: the download client, each indexer with its daily budget and any pause, the
          *     free space on the data mount and every Root folder, the active TRaSH snapshot with its commit
-         *     date, and whether "Pause grabs" is on.
+         *     date, and whether "Pause Grabs" is on.
          */
         get: operations["getSystemStatus"];
         put?: never;
@@ -1621,11 +1626,12 @@ export interface components {
         PrimaryLanguage: "en" | "de" | "fr";
         Settings: {
             /**
-             * @description "Pause grabs" (default off). On, no automatic Grab is made: the sweep, RSS, the search on
+             * @description "Pause Grabs" (default off). On, no automatic Grab is made: the sweep, RSS, the search on
              *     add and the retry after a failed download still search and score Releases, so Wanted and
              *     Upgrade candidates still show up, but send nothing to the download client. A Grab started
              *     by hand from a Version's Releases still goes through. Turning it off makes every Wanted
-             *     Version due a search now, so the next sweep grabs as usual. The health strip shows it as
+             *     Version, and every Upgrade search made while paused, due a search now, so the next sweep
+             *     grabs as usual. The health strip shows it as
              *     `grabs_paused`.
              */
             pause_grabs: boolean;
@@ -1980,8 +1986,9 @@ export interface components {
             title_ids: components["schemas"]["TitleIds"];
             monitored: boolean;
             /**
-             * @description The mode monitored Series get; left out, `all`. With `monitored: false` it can only be
-             *     `none`.
+             * @description The mode monitored Series get. Left out, a Series already monitored keeps its mode and
+             *     an unmonitored one gets `all`. With `monitored: true` it cannot be `none`, and with
+             *     `monitored: false` it can only be `none`.
              */
             series_monitor?: components["schemas"]["SeriesMonitor"];
         };
@@ -2068,13 +2075,15 @@ export interface components {
             /** @enum {string} */
             outcome: "changed" | "skipped" | "failed";
             /**
-             * @description Why the Title was skipped or failed, `null` when it changed. `unchanged`: it already is as
-             *     asked. `not_found`: there is no such Title. `no_version`: it has no Version in the Slot.
-             *     `slot_taken`: the Slot already holds a Version. `nothing_wanted`: none of its Versions is
-             *     Wanted. `frozen`: its metadata is frozen. `internal`: the change failed. More reasons
-             *     may come; clients must tolerate unknown ones.
+             * @description Why the Title was skipped or failed, `null` when it changed. Skipped: `unchanged`, it
+             *     already is as asked; `not_found`, there is no such Title; `no_version`, it has no Version
+             *     in the Slot; `slot_taken`, the Slot already holds a Version; `nothing_wanted`, none of its
+             *     Versions is Wanted; `frozen`, its metadata is frozen. Failed: `download_client`, the
+             *     download client could not cancel the Title's download (`message` has what it said);
+             *     `internal`, an unexpected error, which the log has.
+             * @enum {string|null}
              */
-            reason: string | null;
+            reason: "unchanged" | "not_found" | "no_version" | "slot_taken" | "nothing_wanted" | "frozen" | "download_client" | "internal" | null;
             /** @description The reason in a sentence. */
             message: string | null;
         };
@@ -2473,7 +2482,7 @@ export interface components {
             }[];
         };
         SystemStatus: {
-            /** @description The "Pause grabs" setting is on, so no automatic Grab is made. */
+            /** @description The "Pause Grabs" setting is on, so no automatic Grab is made. */
             grabs_paused: boolean;
             /** @description The active TRaSH snapshot. */
             trash: {
