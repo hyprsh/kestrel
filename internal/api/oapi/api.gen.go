@@ -1399,7 +1399,7 @@ type Event struct {
 	GrabId    *int64                  `json:"grab_id"`
 	Id        int64                   `json:"id"`
 
-	// Kind A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed.
+	// Kind A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed.
 	Kind      string `json:"kind"`
 	Message   string `json:"message"`
 	RequestId *int64 `json:"request_id"`
@@ -2385,6 +2385,9 @@ type TitlePatch struct {
 
 	// Monitored A Movie only; a Series is monitored through `series_monitor`.
 	Monitored *bool `json:"monitored,omitempty"`
+
+	// RootFolder One of the Root folders of the Title's kind to move the Title to.
+	RootFolder *string `json:"root_folder,omitempty"`
 
 	// SeriesMonitor `all` monitors every episode, future ones and new seasons included; `future` the episodes airing
 	// today or later or without an air date, and new seasons; `none` nothing. Specials (season 0) are
@@ -8813,6 +8816,20 @@ func (response PatchTitle404ApplicationProblemPlusJSONResponse) VisitPatchTitleR
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchTitle409ApplicationProblemPlusJSONResponse Problem
+
+func (response PatchTitle409ApplicationProblemPlusJSONResponse) VisitPatchTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }

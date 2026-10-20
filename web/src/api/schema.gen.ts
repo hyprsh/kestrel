@@ -503,6 +503,17 @@ export interface paths {
          *     now (Specials are never monitored by a mode); `422` for a Movie. `metadata_frozen` true keeps
          *     the stored metadata as it is and clears a "Title gone upstream" row; false lets refreshes
          *     resume.
+         *
+         *     `root_folder` moves the Title to another of its kind's Root folders: its folder moves there
+         *     under the same name in one directory rename, taking every Version's files and subtitles,
+         *     and the Title's `root_folder` and file paths change with it. A Title with no folder on disk
+         *     only has its `root_folder` changed; its current Root folder changes nothing. Media servers
+         *     are told about both folders and the log records a `move` event. Refusals change nothing:
+         *     `422` `root_folder` / `not_found` when it isn't one of the kind's Root folders, `422`
+         *     `root_folder` / `other_filesystem` when it is on another filesystem (Kestrel never copies a
+         *     Title across mounts), `409` `folder_taken` when a folder of that name is already in the
+         *     target, `409` `import_running` while an Import into the Title is running (try again after
+         *     it).
          */
         patch: operations["patchTitle"];
         trace?: never;
@@ -1973,6 +1984,8 @@ export interface components {
             monitored?: boolean;
             series_monitor?: components["schemas"]["SeriesMonitor"];
             metadata_frozen?: boolean;
+            /** @description One of the Root folders of the Title's kind to move the Title to. */
+            root_folder?: string;
         };
         /** @description One action over many Titles. `action` says which, and picks the parameters that go with it. */
         TitlesBulk: components["schemas"]["TitlesBulkMonitor"] | components["schemas"]["TitlesBulkSwitchProfile"] | components["schemas"]["TitlesBulkAddVersion"] | components["schemas"]["TitlesBulkRemoveVersion"] | components["schemas"]["TitlesBulkSearch"] | components["schemas"]["TitlesBulkRefresh"] | components["schemas"]["TitlesBulkFreeze"] | components["schemas"]["TitlesBulkRemove"];
@@ -2588,7 +2601,7 @@ export interface components {
             id: number;
             /** Format: date-time */
             at: string;
-            /** @description A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed. */
+            /** @description A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed. */
             kind: string;
             routine: boolean;
             /** Format: int64 */
@@ -3571,6 +3584,7 @@ export interface operations {
                 };
             };
             404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
