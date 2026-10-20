@@ -4,6 +4,8 @@
     "name": "Breaking Bad",
     "slug": "breaking-bad",
     "firstAired": "2008-01-20",
+    "lastAired": "2013-09-29",
+    "status": {"id": 2, "name": "Ended", "recordType": "series", "keepUpdated": false},
     "year": "2008",
     "originalLanguage": "eng",
     "aliases": [

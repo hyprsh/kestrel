@@ -49,6 +49,10 @@ function fakeSeriesLookup() {
         certification_country: 'US',
         slots: [{ slot: 'standard', profile: 'hd-primary', label: 'HD', reason: 'default' }],
         ratings: [],
+        poster: null,
+        runtime: null,
+        genres: [],
+        series: null,
       }),
     ),
     http.post('/titles', async ({ request, response }) => {

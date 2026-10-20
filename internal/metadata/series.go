@@ -28,6 +28,8 @@ type SeriesDetails struct {
 	Ratings      ReleaseDates
 	Aliases      []Alias
 	Translations []Translation
+	Genres       []string // TMDB's genre names, in its order
+	Network      string   // the first network it aired on; "" when unknown
 }
 
 // TitleIn is the Series' title in a language (ISO 639-1), or "" when TMDB has
@@ -59,7 +61,11 @@ func (c *TMDB) Series(ctx context.Context, id int) (SeriesDetails, error) {
 		EpisodeRunTime   []int  `json:"episode_run_time"`
 		Overview         string `json:"overview"`
 		PosterPath       string `json:"poster_path"`
-		ExternalIDs      struct {
+		Genres           genres `json:"genres"`
+		Networks         []struct {
+			Name string `json:"name"`
+		} `json:"networks"`
+		ExternalIDs struct {
 			IMDbID string `json:"imdb_id"`
 			TVDBID *int   `json:"tvdb_id"`
 		} `json:"external_ids"`
@@ -97,7 +103,11 @@ func (c *TMDB) Series(ctx context.Context, id int) (SeriesDetails, error) {
 	d := SeriesDetails{
 		TMDBID: r.ID, IMDbID: r.ExternalIDs.IMDbID, Title: r.Name, OriginalTitle: r.OriginalName,
 		OriginalLanguage: r.OriginalLanguage, Year: year(r.FirstAirDate), Overview: r.Overview, PosterPath: r.PosterPath,
-		Score: Score{Average: r.VoteAverage, Votes: r.VoteCount},
+		Score:  Score{Average: r.VoteAverage, Votes: r.VoteCount},
+		Genres: r.Genres.names(),
+	}
+	if len(r.Networks) > 0 {
+		d.Network = r.Networks[0].Name
 	}
 	if r.ExternalIDs.TVDBID != nil {
 		d.TVDBID = *r.ExternalIDs.TVDBID

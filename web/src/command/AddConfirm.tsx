@@ -1,10 +1,12 @@
 import { CornerDownLeft } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { ApiError, useCreateTitle, useLookupDetail, useProfiles, useSettings, type LookupResult, type Profile, type SeriesMonitor } from '../api/queries'
+import { ApiError, useCreateTitle, useLookupDetail, useProfiles, useSettings, type LookupResult, type Profile } from '../api/queries'
 import { Button, ErrorText, Select } from '../forms'
 import { slotKeys, slotLabel, type SlotKey } from '../library/bits'
 import { Scores } from '../library/Score'
 import { Kbd } from '../ui'
+import { LookupSummary } from './LookupSummary'
+import { allEpisodes, seasonBody, SeasonPresets, type SeasonChoice } from './SeasonPresets'
 
 /** The Profile a Slot gets when ticked without a suggestion: its default, else the first enabled Primary-Language one (Any comes after HD in the list). */
 function fallbackProfile(profiles: Profile[], slot: SlotKey, kind: 'movie' | 'series'): string | undefined {
@@ -26,7 +28,7 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
   const [picked, setPicked] = useState<Partial<Record<SlotKey, string>>>({})
   const [seeded, setSeeded] = useState(false)
   const [root, setRoot] = useState<string | null>(null)
-  const [monitor, setMonitor] = useState<SeriesMonitor>('all')
+  const [seasons, setSeasons] = useState<SeasonChoice>(allEpisodes)
 
   useEffect(() => panel.current?.focus(), [])
 
@@ -52,7 +54,7 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
         kind: result.kind,
         tmdb_id: result.tmdb_id,
         versions: chosen.map((slot) => ({ slot, profile: picked[slot]! })),
-        ...(result.kind === 'series' ? { series_monitor: monitor } : {}),
+        ...(result.kind === 'series' ? seasonBody(seasons, suggestion.data?.series ?? null) : {}),
         ...(root ? { root_folder: root } : {}),
       },
       { onSuccess: (title) => onAdded(title.id) },
@@ -88,6 +90,7 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
           <p className="text-gray-900">Loading…</p>
         ) : (
           <>
+            <LookupSummary detail={suggestion.data} />
             {reasons.length > 0 && (
               <p className="rounded-md bg-gray-alpha-100 px-3 py-2 text-[12px] text-gray-900">Preselected: {reasons.join('; ')}</p>
             )}
@@ -126,16 +129,7 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
                 )
               })}
             </div>
-            {result.kind === 'series' && (
-              <label className="mt-3 flex items-center gap-3 text-[13px]">
-                <span className="w-20 font-medium">Monitor</span>
-                <Select aria-label="Monitor" value={monitor} onChange={(e) => setMonitor(e.target.value as SeriesMonitor)} className="max-w-56">
-                  <option value="all">All episodes</option>
-                  <option value="future">Future episodes only</option>
-                  <option value="none">None</option>
-                </Select>
-              </label>
-            )}
+            {result.kind === 'series' && <SeasonPresets choice={seasons} onChange={setSeasons} series={suggestion.data.series} />}
             {roots.length > 1 && (
               <label className="mt-3 flex items-center gap-3 text-[13px]">
                 <span className="w-20 font-medium">Folder</span>

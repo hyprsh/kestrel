@@ -55,6 +55,7 @@ describe("TMDB's score", () => {
           kind: 'movie', tmdb_id: 116149, title: 'Paddington', year: 2014, overview: '', in_library: null, certification: null, certification_country: null,
           slots: [{ slot: 'standard', profile: 'hd-primary', label: 'HD', reason: 'default' }],
           ratings: [tmdb(7.3, 4912)],
+          poster: null, runtime: null, genres: [], series: null,
         }),
       ),
     )

@@ -446,6 +446,8 @@ paths:
         The Slots to preselect when adding it: every Slot with a default Profile for the kind, resolved
         by Profile resolution. Each Slot says why (`reason`) and carries a display `label`, the
         Profile's name. Requests use the same logic.
+        A Series also carries its overview (`series`): status, network, air dates and seasons, read
+        from TheTVDB, so this call waits on TheTVDB as well as TMDB.
       tags: [titles]
       responses:
         "200":
@@ -526,8 +528,9 @@ paths:
         `root_folder` must be one of the configured Root folders for the kind; left out, it is the
         kind's first.
         `409 conflict` when the Title is already in the Library (the existing id is in
-        `detail`). A Series takes `series_monitor` (default `all`); one TheTVDB does not have is refused
-        with a `422` whose field error is `tmdb_id` / `not_on_tvdb`.
+        `detail`). A Series takes `series_monitor` (default `all`) and, to start with only some seasons
+        monitored, `seasons`; one TheTVDB does not have is refused with a `422` whose field error is
+        `tmdb_id` / `not_on_tvdb`.
       tags: [titles]
       requestBody:
         required: true
@@ -2595,7 +2598,7 @@ components:
           enum: [default]
     LookupDetail:
       type: object
-      required: [kind, tmdb_id, title, year, overview, in_library, certification, certification_country, slots, ratings]
+      required: [kind, tmdb_id, title, year, overview, in_library, certification, certification_country, slots, ratings, poster, runtime, genres, series]
       properties:
         kind:
           $ref: "#/components/schemas/TitleKind"
@@ -2630,6 +2633,79 @@ components:
           description: Scores for the Title from ratings sources; empty when none has one.
           items:
             $ref: "#/components/schemas/Rating"
+        poster:
+          type: string
+          nullable: true
+          description: A TMDB poster URL, larger than the search result's.
+        runtime:
+          type: integer
+          nullable: true
+          description: Minutes; a typical episode's for a Series.
+        genres:
+          type: array
+          description: TMDB's genre names, in TMDB's order.
+          items:
+            type: string
+          example: [Drama, Crime]
+        series:
+          allOf:
+            - $ref: "#/components/schemas/LookupSeries"
+          nullable: true
+          description: The Series overview; `null` for a Movie and for a Series TheTVDB does not have.
+    LookupSeries:
+      type: object
+      required: [status, network, first_aired, last_aired, latest_season, seasons]
+      properties:
+        status:
+          type: string
+          nullable: true
+          description: "`continuing`, `ended` or `upcoming`, as TheTVDB says. Clients tolerate new values."
+          example: ended
+        network:
+          type: string
+          nullable: true
+          description: The network it first aired on, from TMDB.
+          example: AMC
+        first_aired:
+          type: string
+          format: date
+          nullable: true
+          description: The first episode's air date, Specials aside.
+        last_aired:
+          type: string
+          format: date
+          nullable: true
+          description: The latest air date up to today, Specials aside.
+        latest_season:
+          type: integer
+          nullable: true
+          description: |
+            The latest season that has aired or is airing (Specials aside); `null` when none has
+            started. What `TitleCreate.seasons` takes to add only the current season.
+        seasons:
+          type: array
+          description: Every season TheTVDB lists, Specials (0) first.
+          items:
+            $ref: "#/components/schemas/LookupSeason"
+    LookupSeason:
+      type: object
+      required: [number, episodes, first_aired, last_aired]
+      properties:
+        number:
+          type: integer
+          description: 0 is Specials.
+        episodes:
+          type: integer
+        first_aired:
+          type: string
+          format: date
+          nullable: true
+          description: The season's earliest known air date.
+        last_aired:
+          type: string
+          format: date
+          nullable: true
+          description: The season's latest known air date, which may be in the future.
     VersionRef:
       type: object
       required: [slot, profile]
@@ -2667,6 +2743,18 @@ components:
             - $ref: "#/components/schemas/SeriesMonitor"
           nullable: true
           description: Series only; defaults to `all`.
+        seasons:
+          type: array
+          nullable: true
+          description: |
+            Series only: the seasons monitored when it is added, Specials (0) included when named.
+            Left out, `series_monitor` decides every episode. Given, it decides seasons that have
+            not started airing and every episode that arrives later; the seasons not named are
+            left unmonitored. A season the Series does not have is a `422` (`seasons` /
+            `not_found`), as is a Movie with seasons (`seasons` / `not_a_series`).
+          items:
+            type: integer
+          example: [1]
     SeriesMonitor:
       type: string
       description: |

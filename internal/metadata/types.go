@@ -200,6 +200,7 @@ type MovieDetails struct {
 	ReleaseDates     ReleaseDates
 	Aliases          []Alias
 	Translations     []Translation
+	Genres           []string // TMDB's genre names, in its order
 }
 
 // TitleIn is the Movie's title in a language (ISO 639-1), or "" when TMDB has

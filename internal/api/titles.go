@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/imports"
@@ -17,6 +18,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 	"github.com/hyprsh/kestrel/internal/slot"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 func intPtr(n int) *int {
@@ -71,7 +73,10 @@ func (s *server) view(ctx context.Context) (library.View, error) {
 	return library.View{Country: region.Country, Now: s.opts.Clock()}, nil
 }
 
-const posterThumb = "w92"
+const (
+	posterThumb = "w92"
+	posterPanel = "w185" // the add panel's poster
+)
 
 func (s *server) Lookup(ctx context.Context, r oapi.LookupRequestObject) (oapi.LookupResponseObject, error) {
 	q := strings.TrimSpace(r.Params.Q)
@@ -138,12 +143,14 @@ func (s *server) Lookup(ctx context.Context, r oapi.LookupRequestObject) (oapi.L
 
 func (s *server) LookupTitle(ctx context.Context, r oapi.LookupTitleRequestObject) (oapi.LookupTitleResponseObject, error) {
 	var (
-		name, overview string
-		year           int
-		rel            metadata.ReleaseDates
-		tmdbID         int
-		kind           = library.Movie
-		score          metadata.Score
+		name, overview, poster string
+		year, runtime          int
+		genres                 []string
+		rel                    metadata.ReleaseDates
+		tmdbID                 int
+		kind                   = library.Movie
+		score                  metadata.Score
+		series                 *oapi.LookupSeries
 	)
 	if r.Kind == oapi.Series {
 		details, err := s.meta.Series(ctx, r.TmdbId)
@@ -152,6 +159,10 @@ func (s *server) LookupTitle(ctx context.Context, r oapi.LookupTitleRequestObjec
 		}
 		name, overview, year, rel, tmdbID, kind = details.Title, details.Overview, details.Year, details.Ratings, details.TMDBID, library.Series
 		score = details.Score
+		poster, runtime, genres = details.PosterPath, details.Runtime, details.Genres
+		if series, err = s.seriesOverview(ctx, details); err != nil {
+			return nil, metaProblem(err)
+		}
 	} else {
 		details, err := s.meta.Movie(ctx, r.TmdbId)
 		if err != nil {
@@ -159,6 +170,7 @@ func (s *server) LookupTitle(ctx context.Context, r oapi.LookupTitleRequestObjec
 		}
 		name, overview, year, rel, tmdbID = details.Title, details.Overview, details.Year, details.ReleaseDates, details.TMDBID
 		score = details.Score
+		poster, runtime, genres = details.PosterPath, details.Runtime, details.Genres
 	}
 	region, _, err := s.profiles.Region(ctx)
 	if err != nil {
@@ -179,6 +191,8 @@ func (s *server) LookupTitle(ctx context.Context, r oapi.LookupTitleRequestObjec
 		Certification: strPtr(cert), CertificationCountry: strPtr(certCountry),
 		Slots:   make([]oapi.SuggestedSlot, len(sug.Slots)),
 		Ratings: ratingsOf(oapi.TitleKind(kind), tmdbID, score),
+		Poster:  strPtr(s.meta.ImageURL(poster, posterPanel)), Runtime: intPtr(runtime),
+		Genres: append(make([]string, 0, len(genres)), genres...), Series: series,
 	}
 	if id, ok := in[r.TmdbId]; ok {
 		out.InLibrary = &id
@@ -187,6 +201,35 @@ func (s *server) LookupTitle(ctx context.Context, r oapi.LookupTitleRequestObjec
 		out.Slots[i] = oapi.SuggestedSlot{Slot: slotToAPI(sl.Slot), Profile: sl.Profile.Key, Label: sl.Label, Reason: oapi.SuggestedSlotReason(sl.Reason)}
 	}
 	return oapi.LookupTitle200JSONResponse(out), nil
+}
+
+// seriesOverview is a Series' overview for the add panel, read from TheTVDB;
+// nil for a Series TheTVDB does not have.
+func (s *server) seriesOverview(ctx context.Context, d metadata.SeriesDetails) (*oapi.LookupSeries, error) {
+	tvdbID, err := metadata.TVDBIDOf(ctx, s.tvdb, d.TVDBID, d.IMDbID)
+	if err != nil || tvdbID == 0 {
+		return nil, err
+	}
+	tv, err := s.tvdb.Series(ctx, tvdbID)
+	if err != nil {
+		return nil, err
+	}
+	o := library.Overview(tv.Episodes, s.opts.Clock())
+	out := &oapi.LookupSeries{
+		Status: strPtr(tv.Status), Network: strPtr(d.Network), FirstAired: datePtr(o.FirstAired), LastAired: datePtr(o.LastAired),
+		LatestSeason: intPtr(o.Latest), Seasons: make([]oapi.LookupSeason, len(o.Seasons)),
+	}
+	for i, se := range o.Seasons {
+		out.Seasons[i] = oapi.LookupSeason{Number: se.Number, Episodes: se.Episodes, FirstAired: datePtr(se.FirstAired), LastAired: datePtr(se.LastAired)}
+	}
+	return out, nil
+}
+
+func datePtr(t *time.Time) *openapi_types.Date {
+	if t == nil {
+		return nil
+	}
+	return &openapi_types.Date{Time: *t}
 }
 
 func rowToAPI(r library.Row) oapi.TitleRow {
@@ -340,6 +383,9 @@ func (s *server) CreateTitle(ctx context.Context, r oapi.CreateTitleRequestObjec
 	b := r.Body
 	if len(b.Versions) == 0 {
 		return nil, invalid("versions", "required", "Pick at least one Slot")
+	}
+	if b.Seasons != nil && b.Kind != oapi.Series {
+		return nil, invalid("seasons", "not_a_series", "Only a Series has seasons")
 	}
 	all, err := s.profiles.List(ctx)
 	if err != nil {

@@ -40,6 +40,7 @@ type TVDBSeries struct {
 	Episodes []Episode
 	// OriginalLanguage is TheTVDB's ISO 639-2/T code ("eng"); "" when it has none.
 	OriginalLanguage string
+	Status           string // "continuing", "ended" or "upcoming" as TheTVDB says, lower-cased; "" when unknown
 }
 
 // TVDBProvider is what callers need of TheTVDB; *TVDB satisfies it and tests can swap it.
@@ -207,6 +208,9 @@ func (c *TVDB) Series(ctx context.Context, id int) (TVDBSeries, error) {
 			Aliases          []struct {
 				Name string `json:"name"`
 			} `json:"aliases"`
+			Status *struct {
+				Name string `json:"name"`
+			} `json:"status"`
 		} `json:"data"`
 	}
 	sid := strconv.Itoa(id)
@@ -214,6 +218,9 @@ func (c *TVDB) Series(ctx context.Context, id int) (TVDBSeries, error) {
 		return TVDBSeries{}, err
 	}
 	out := TVDBSeries{ID: head.Data.ID, Name: head.Data.Name, OriginalLanguage: head.Data.OriginalLanguage}
+	if head.Data.Status != nil {
+		out.Status = strings.ToLower(head.Data.Status.Name)
+	}
 	for _, a := range head.Data.Aliases {
 		if a.Name != "" {
 			out.Aliases = append(out.Aliases, a.Name)

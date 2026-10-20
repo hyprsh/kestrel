@@ -1558,13 +1558,27 @@ type LookupDetail struct {
 	Certification *string `json:"certification"`
 
 	// CertificationCountry The country that rating is from; the release-date country unless TMDB had none there.
-	CertificationCountry *string   `json:"certification_country"`
-	InLibrary            *int64    `json:"in_library"`
-	Kind                 TitleKind `json:"kind"`
-	Overview             string    `json:"overview"`
+	CertificationCountry *string `json:"certification_country"`
+
+	// Genres TMDB's genre names, in TMDB's order.
+	//
+	// Example: ["Drama","Crime"]
+	Genres    []string  `json:"genres"`
+	InLibrary *int64    `json:"in_library"`
+	Kind      TitleKind `json:"kind"`
+	Overview  string    `json:"overview"`
+
+	// Poster A TMDB poster URL, larger than the search result's.
+	Poster *string `json:"poster"`
 
 	// Ratings Scores for the Title from ratings sources; empty when none has one.
 	Ratings []Rating `json:"ratings"`
+
+	// Runtime Minutes; a typical episode's for a Series.
+	Runtime *int `json:"runtime"`
+
+	// Series The Series overview; `null` for a Movie and for a Series TheTVDB does not have.
+	Series *LookupSeries `json:"series"`
 
 	// Slots Every Slot with a default Profile for the kind, in Slot order.
 	Slots  []SuggestedSlot `json:"slots"`
@@ -1599,6 +1613,46 @@ type LookupResult struct {
 	TmdbId  int      `json:"tmdb_id"`
 	TvdbId  *int     `json:"tvdb_id"`
 	Year    *int     `json:"year"`
+}
+
+// LookupSeason defines model for LookupSeason.
+type LookupSeason struct {
+	Episodes int `json:"episodes"`
+
+	// FirstAired The season's earliest known air date.
+	FirstAired *openapi_types.Date `json:"first_aired"`
+
+	// LastAired The season's latest known air date, which may be in the future.
+	LastAired *openapi_types.Date `json:"last_aired"`
+
+	// Number 0 is Specials.
+	Number int `json:"number"`
+}
+
+// LookupSeries defines model for LookupSeries.
+type LookupSeries struct {
+	// FirstAired The first episode's air date, Specials aside.
+	FirstAired *openapi_types.Date `json:"first_aired"`
+
+	// LastAired The latest air date up to today, Specials aside.
+	LastAired *openapi_types.Date `json:"last_aired"`
+
+	// LatestSeason The latest season that has aired or is airing (Specials aside); `null` when none has
+	// started. What `TitleCreate.seasons` takes to add only the current season.
+	LatestSeason *int `json:"latest_season"`
+
+	// Network The network it first aired on, from TMDB.
+	//
+	// Example: AMC
+	Network *string `json:"network"`
+
+	// Seasons Every season TheTVDB lists, Specials (0) first.
+	Seasons []LookupSeason `json:"seasons"`
+
+	// Status `continuing`, `ended` or `upcoming`, as TheTVDB says. Clients tolerate new values.
+	//
+	// Example: ended
+	Status *string `json:"status"`
 }
 
 // Me defines model for Me.
@@ -2368,6 +2422,16 @@ type TitleBulkOutcomeReason string
 type TitleCreate struct {
 	Kind       TitleKind `json:"kind"`
 	RootFolder *string   `json:"root_folder,omitempty"`
+
+	// Seasons Series only: the seasons monitored when it is added, Specials (0) included when named.
+	// Left out, `series_monitor` decides every episode. Given, it decides seasons that have
+	// not started airing and every episode that arrives later; the seasons not named are
+	// left unmonitored. A season the Series does not have is a `422` (`seasons` /
+	// `not_found`), as is a Movie with seasons (`seasons` / `not_a_series`).
+	//
+	//
+	// Example: [1]
+	Seasons *[]int `json:"seasons,omitempty"`
 
 	// SeriesMonitor Series only; defaults to `all`.
 	SeriesMonitor *SeriesMonitor `json:"series_monitor,omitempty"`

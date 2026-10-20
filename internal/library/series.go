@@ -28,6 +28,11 @@ type AddSeries struct {
 	Monitor         Monitor
 	Versions        []VersionSpec
 	RootFolder      string
+	// Seasons, when not nil, are the seasons monitored at add, Specials
+	// included when named; Monitor then decides only seasons that have not
+	// started airing, and what arrives later. A season TheTVDB does not list
+	// is an *UnknownSeasonError.
+	Seasons []int
 }
 
 // Season is a season of a Series; season 0 is Specials.
@@ -92,7 +97,8 @@ func boolInt(b bool) int64 {
 }
 
 // AddSeries adds a Series with its seasons, episodes and Versions in one
-// transaction and returns its id. Monitoring follows the mode (PRD Settled 10);
+// transaction and returns its id. Monitoring follows the mode (PRD Settled 10)
+// or the Seasons asked for;
 // each Version's search_state is due now for every season but Specials. A
 // Series already in the Library is an *ExistsError.
 func (s *Service) AddSeries(ctx context.Context, a AddSeries) (int64, error) {
@@ -108,6 +114,9 @@ func (s *Service) AddSeries(ctx context.Context, a AddSeries) (int64, error) {
 			return 0, ErrDuplicateSlot
 		}
 		seen[v.Slot] = true
+	}
+	if err := checkSeasons(a.Seasons, a.TVDB.Episodes); err != nil {
+		return 0, err
 	}
 	nowT := s.clock()
 	now := ts(nowT)
@@ -214,13 +223,14 @@ func insertSeries(ctx context.Context, q *db.Queries, a AddSeries, nowT time.Tim
 		return eps[i].Number < eps[j].Number
 	})
 	seasonMonitored := map[int]bool{}
+	started := startedSeasons(eps, nowT)
 	var seasons []int
 	for _, e := range eps {
 		if _, ok := seasonMonitored[e.Season]; !ok {
 			seasonMonitored[e.Season] = false
 			seasons = append(seasons, e.Season)
 		}
-		on := a.Monitor.MonitorsEpisode(e.Season, e.Aired, nowT)
+		on := a.monitorsAtAdd(e, started, nowT)
 		seasonMonitored[e.Season] = seasonMonitored[e.Season] || on
 		var air sql.NullString
 		if e.Aired != nil {
