@@ -3,7 +3,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
-import { episode, fakeSeries } from '../test/series'
+import { cell, episode, fakeSeries } from '../test/series'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -119,7 +119,7 @@ describe('collapsible seasons in the episode grid', () => {
   it("sums up a closed season per Slot: filled, Wanted and downloading episodes and the air years", async () => {
     const state = fakeSeries()
     const eps = state.get().episodes
-    eps[1] = { ...eps[1], cells: { standard: { state: 'filled', score: 120 }, '4k': { state: 'downloading', score: null } } }
+    eps[1] = { ...eps[1], cells: { standard: cell('filled', 120), '4k': cell('downloading') } }
     eps.push(episode(4, 1, 3, '...And the Bag\'s in the River', { air_date: '2009-02-03' }))
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
@@ -139,7 +139,7 @@ describe('collapsible seasons in the episode grid', () => {
 
   it('opens the latest season and any season with Wanted episodes, and closes the rest', async () => {
     const state = fakeSeries()
-    const filled = { standard: { state: 'filled' as const, score: 100 }, '4k': { state: 'filled' as const, score: 100 } }
+    const filled = { standard: cell('filled', 100), '4k': cell('filled', 100) }
     state.get().episodes = [
       episode(1, 0, 1, 'Special'),
       episode(2, 1, 1, 'Pilot', { cells: filled }),
