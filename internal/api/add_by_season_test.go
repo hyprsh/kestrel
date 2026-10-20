@@ -134,7 +134,7 @@ func TestSeasonsAtAddMustExistAndBelongToASeries(t *testing.T) {
 	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	for body, field := range map[string]string{
-		addBreakingBad + `,"seasons":[9]}`:                         "not_found",
+		addBreakingBad + `,"seasons":[9]}`:                         "unknown",
 		addBreakingBad + `,"seasons":[-1]}`:                        "invalid",
 		strings.TrimSuffix(addPaddington, "}") + `,"seasons":[1]}`: "not_a_series",
 	} {

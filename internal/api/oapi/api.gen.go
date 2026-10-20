@@ -2444,7 +2444,8 @@ type TitleCreate struct {
 	// Left out, `series_monitor` decides every episode. Given, it decides seasons that have
 	// not started airing and every episode that arrives later; the seasons not named are
 	// left unmonitored. A season the Series does not have is a `422` (`seasons` /
-	// `not_found`), as is a Movie with seasons (`seasons` / `not_a_series`).
+	// `unknown`), as is a negative one (`seasons` / `invalid`) and a Movie with seasons
+	// (`seasons` / `not_a_series`).
 	//
 	//
 	// Example: [1]

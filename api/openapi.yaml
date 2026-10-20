@@ -529,8 +529,14 @@ paths:
         kind's first.
         `409 conflict` when the Title is already in the Library (the existing id is in
         `detail`). A Series takes `series_monitor` (default `all`) and, to start with only some seasons
-        monitored, `seasons`; one TheTVDB does not have is refused with a `422` whose field error is
-        `tmdb_id` / `not_on_tvdb`.
+        monitored, `seasons`.
+        A `422` names the field and code: `body` / `required` (no body), `versions` / `required`
+        (no Version), `versions[i].slot` / `invalid` (not a Slot) or `duplicate` (a Slot twice),
+        `versions[i].profile` / `not_found`, `disabled` or `wrong_slot`, `root_folder` / `not_found`
+        (not one of the kind's Root folders) or `required` (none configured), `series_monitor` /
+        `invalid`, `seasons` / `invalid` (a negative season), `unknown` (a season the Series does
+        not have) or `not_a_series` (seasons for a Movie), and `tmdb_id` / `not_on_tvdb` (a Series
+        TheTVDB does not have).
       tags: [titles]
       requestBody:
         required: true
@@ -802,9 +808,10 @@ paths:
         With `blocklist` each file's Release goes on the Blocklist, so it is not grabbed again; a file
         Kestrel did not grab (an adopted one) cannot be and says so in `blocklisted`.
         A `delete` event in the Log names the files. It waits for an Import into the Title to finish.
-        A `season` the Series lacks, or an episode that is not the Series' (or not of `season`), is a
-        `422` naming that field with the code `unknown`; on a Movie either is `422` with the code
-        `not_a_series`.
+        A `season` the Series lacks (a negative one included), or an episode that is not the Series'
+        (or not of `season`), is a `422` naming that field (`season` or `episode_ids`) with the code
+        `unknown`; on a Movie either is a `422` with the code `not_a_series`. There are no other
+        `422` codes.
       tags: [titles]
       parameters:
         - name: season
@@ -983,8 +990,9 @@ paths:
         body (none searches the whole Series; `episode_ids` may span seasons). A Movie ignores both.
         The answer comes at once; when the search is done, a `search` event in the Log says what it
         grabbed, and Grabs record their own events.
-        A `season` the Series lacks, or an episode that is not the Series' (or not of `season`), is a
-        `422` naming that field with the code `unknown`.
+        A `season` the Series lacks (a negative one included), or an episode that is not the Series'
+        (or not of `season`), is a `422` naming that field (`season` or `episode_ids`) with the code
+        `unknown`. There are no other `422` codes.
       tags: [grabs]
       requestBody:
         required: false
@@ -2839,7 +2847,8 @@ components:
             Left out, `series_monitor` decides every episode. Given, it decides seasons that have
             not started airing and every episode that arrives later; the seasons not named are
             left unmonitored. A season the Series does not have is a `422` (`seasons` /
-            `not_found`), as is a Movie with seasons (`seasons` / `not_a_series`).
+            `unknown`), as is a negative one (`seasons` / `invalid`) and a Movie with seasons
+            (`seasons` / `not_a_series`).
           items:
             type: integer
           example: [1]
