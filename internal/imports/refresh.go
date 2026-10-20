@@ -80,9 +80,14 @@ type Refresher struct {
 	delay   time.Duration
 	log     *slog.Logger
 
+	// ctx is what a refresh sent when its delay ends runs under; Close ends it.
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	mu      sync.Mutex
 	pending map[string]*pendingRefresh
 	closed  bool
+	sending sync.WaitGroup
 }
 
 type pendingRefresh struct{ timer *time.Timer }
@@ -95,7 +100,8 @@ func NewRefresher(d RefresherDeps) *Refresher {
 	if d.Logger == nil {
 		d.Logger = slog.Default()
 	}
-	return &Refresher{servers: d.Servers, hl: d.Health, delay: d.Delay, log: d.Logger, pending: map[string]*pendingRefresh{}}
+	ctx, cancel := context.WithCancel(context.Background())
+	return &Refresher{servers: d.Servers, hl: d.Health, delay: d.Delay, log: d.Logger, ctx: ctx, cancel: cancel, pending: map[string]*pendingRefresh{}}
 }
 
 // FolderChanged records that a Title folder changed: after an Import or Upgrade,
@@ -117,11 +123,12 @@ func (r *Refresher) FolderChanged(_ context.Context, folder string) {
 		return
 	}
 	p := &pendingRefresh{}
-	p.timer = time.AfterFunc(r.delay, func() { r.fire(context.Background(), folder) })
+	p.timer = time.AfterFunc(r.delay, func() { r.fire(r.ctx, folder) })
 	r.pending[folder] = p
 }
 
-// Flush sends every pending refresh now.
+// Flush sends every pending refresh now. Kestrel's shutdown calls it, then
+// Close, so a change in the last delay still reaches the media servers.
 func (r *Refresher) Flush(ctx context.Context) {
 	r.mu.Lock()
 	folders := make([]string, 0, len(r.pending))
@@ -134,15 +141,19 @@ func (r *Refresher) Flush(ctx context.Context) {
 	}
 }
 
-// Close drops what is pending and ignores later changes.
+// Close drops what is pending, ignores later changes, and cuts off a refresh
+// still being sent and waits for it, so the Refresher reads and writes nothing
+// once Close returns: the store can close after it.
 func (r *Refresher) Close() {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	r.closed = true
 	for f, p := range r.pending {
 		p.timer.Stop()
 		delete(r.pending, f)
 	}
+	r.mu.Unlock()
+	r.cancel()
+	r.sending.Wait()
 }
 
 func (r *Refresher) fire(ctx context.Context, folder string) {
@@ -151,11 +162,13 @@ func (r *Refresher) fire(ctx context.Context, folder string) {
 	if ok {
 		p.timer.Stop()
 		delete(r.pending, folder)
+		r.sending.Add(1)
 	}
 	r.mu.Unlock()
 	if !ok {
 		return
 	}
+	defer r.sending.Done()
 	servers, err := r.servers.MediaServers(ctx)
 	if err != nil {
 		r.log.Warn("media-server refresh: listing the servers failed", "err", err)
@@ -179,6 +192,9 @@ func (r *Refresher) tell(ctx context.Context, s MediaServer, c mediaserver.Chang
 	case err == nil:
 		r.clear(ctx, failKey)
 		r.clear(ctx, sectionKey)
+	case ctx.Err() != nil:
+		// Shutdown cut it off; the server did nothing wrong.
+		r.log.Warn("media-server refresh cut off by shutdown", "server", s.Name, "folder", c.Path)
 	case errors.As(err, &pe) && pe.Code == plugin.CodeNotFound:
 		r.log.Warn("media-server refresh: folder is in no library", "server", s.Name, "folder", c.Path)
 		r.raise(ctx, health.Issue{

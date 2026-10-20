@@ -97,7 +97,18 @@ type App struct {
 	// Health raises and clears Needs attention rows.
 	Health *health.Service
 
-	declarer declarer
+	mediaRefresh *imports.Refresher
+	declarer     declarer
+}
+
+// Close is the shutdown of what New started that is neither the handler nor a
+// loop: it sends the media-server refreshes still waiting for their delay, for
+// as long as ctx allows, then stops the media-server Refresher. Call it after
+// the HTTP server and Jobs have stopped, so no change comes after it, and
+// before the store closes.
+func (a *App) Close(ctx context.Context) {
+	a.mediaRefresh.Flush(ctx)
+	a.mediaRefresh.Close()
 }
 
 // NewHandler returns the whole HTTP handler, mounted under opts.BaseURL. The
@@ -231,7 +242,7 @@ func New(opts Options) *App {
 		Meta: meta, TVDB: tvdb, Bridge: &metadata.Bridge{Meta: meta, TVDB: tvdb, Log: opts.Logger}, Posters: posters,
 	}
 	handler := api.New(opts.Options, deps)
-	return &App{Handler: handler, Jobs: runner, Health: healthSvc, declarer: declarer{
+	return &App{Handler: handler, Jobs: runner, Health: healthSvc, mediaRefresh: mediaRefresh, declarer: declarer{
 		file: opts.ConfigFile, api: api.NewDeclared(opts.Options, deps),
 		profiles: profs, roots: roots, updates: upd, trash: trashUpdates, plugins: pluginInstances, log: opts.Logger,
 	}}

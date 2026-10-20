@@ -3,12 +3,14 @@ package imports_test
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/plugin"
+	mediaserver "github.com/hyprsh/kestrel/internal/plugin/mediaserver/v1"
 	"github.com/hyprsh/kestrel/internal/plugin/mediaserver/v1/fake"
 )
 
@@ -146,5 +148,46 @@ func TestAFolderInNoPlexSectionRaisesPerFolder(t *testing.T) {
 	}
 	if _, bad := h.keys()["refresh_failed:plex"]; bad {
 		t.Fatal("a missing section is not a failed refresh")
+	}
+}
+
+// blockingServer holds each Refresh until its context ends, like a media server
+// that does not answer.
+type blockingServer struct {
+	*fake.Server
+	started chan struct{}
+	once    sync.Once
+	ended   atomic.Bool
+}
+
+func (b *blockingServer) Refresh(ctx context.Context, _ plugin.Connection, _ []mediaserver.Change) error {
+	b.once.Do(func() { close(b.started) })
+	<-ctx.Done()
+	b.ended.Store(true)
+	return ctx.Err()
+}
+
+func TestCloseCutsOffARefreshBeingSentAndWaitsForIt(t *testing.T) {
+	b := &blockingServer{Server: fake.New("k"), started: make(chan struct{})}
+	r, h := refresher(t, time.Millisecond, imports.MediaServer{InstanceID: 1, Name: "Plex", PluginID: "plex", Server: b, Conn: b.Conn(1)})
+	r.FolderChanged(context.Background(), "/x")
+	select {
+	case <-b.started:
+	case <-time.After(3 * time.Second):
+		t.Fatal("the refresh was never sent")
+	}
+
+	closed := make(chan struct{})
+	go func() { r.Close(); close(closed) }()
+	select {
+	case <-closed:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Close did not return: the refresh being sent was not cut off")
+	}
+	if !b.ended.Load() {
+		t.Fatal("Close returned while a refresh was still being sent")
+	}
+	if len(h.keys()) != 0 {
+		t.Fatalf("a refresh cut off by Close is not a failing server: %+v", h.keys())
 	}
 }

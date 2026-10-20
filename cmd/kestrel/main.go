@@ -84,6 +84,11 @@ func run(ctx context.Context) error {
 		TMDBImageURL: cfg.TMDBImageURL,
 		TVDBAPIURL:   cfg.TVDBAPIURL,
 	})
+	defer func() { // after the server and the loops, before the store closes
+		flush, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		kestrel.Close(flush)
+	}()
 	if err := kestrel.EnforceConfigFile(ctx); err != nil {
 		return err
 	}
