@@ -5,7 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/jobs"
+	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/metadata/metadatatest"
 )
 
@@ -288,6 +290,59 @@ func TestARequestForAVersionHoldingAMisfitFileIsNotCompleted(t *testing.T) {
 
 	if st, _, _, _ := again.slot(t, "standard"); st == "completed" {
 		t.Errorf("hd = %s, want a Wanted misfit not to count as filled", st)
+	}
+}
+
+func TestASeriesRequestCountsAnUndatedEpisodeOnceALaterOneIsOut(t *testing.T) {
+	t.Parallel()
+	tvdb := metadatatest.NewTVDB(t)
+	s := newSearchBare(t, func(o *app.Options) {
+		o.TVDB = metadata.NewTVDB(metadata.TVDBOptions{BaseURL: tvdb.APIBase(), Keys: metadata.StaticTVDBKey(metadatatest.TVDBKey)})
+	})
+	req := decode[requestJSON](t, s.valid("POST", "/requests", requestBody("r-1", "series", 1396, `[{"slot":"standard"}]`, "[1]")))
+	_, _, _, hd := req.slot(t, "standard")
+	st := s.in.st.Write()
+	// Season 1 gains an E04 with no air date and an E05 that aired, which makes E04 released.
+	if _, err := st.Exec(`INSERT INTO episodes (title_id, season, number, air_date) VALUES (?, 1, 4, NULL), (?, 1, 5, '2008-03-09')`,
+		*req.TitleID, *req.TitleID); err != nil {
+		t.Fatal(err)
+	}
+	hold := func(where string) {
+		t.Helper()
+		rows, err := st.Query(`SELECT id FROM episodes WHERE title_id = ? AND season = 1 AND `+where, *req.TitleID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var ids []int64
+		for rows.Next() {
+			var id int64
+			if err := rows.Scan(&id); err != nil {
+				t.Fatal(err)
+			}
+			ids = append(ids, id)
+		}
+		rows.Close()
+		for _, ep := range ids {
+			res, err := st.Exec(`INSERT INTO files (version_id, path, size, release_name, imported_at) VALUES (?, ?, 1, 'x', '2026-10-17T12:00:00Z')`,
+				hd, fmt.Sprintf("/tv/%d.mkv", ep))
+			if err != nil {
+				t.Fatal(err)
+			}
+			file, _ := res.LastInsertId()
+			if _, err := st.Exec(`INSERT INTO file_episodes (file_id, version_id, episode_id) VALUES (?, ?, ?)`, file, hd, ep); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	path := fmt.Sprintf("/requests/%d", req.ID)
+
+	hold("number != 4")
+	if st, _, _, _ := decode[requestJSON](t, s.valid("GET", path, "")).slot(t, "standard"); st == "completed" {
+		t.Fatalf("hd = %s, want E04 missing to keep it open", st)
+	}
+	hold("number = 4")
+	if st, _, _, _ := decode[requestJSON](t, s.valid("GET", path, "")).slot(t, "standard"); st != "completed" {
+		t.Errorf("hd = %s, want completed once E04 is held too", st)
 	}
 }
 
