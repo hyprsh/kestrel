@@ -9,6 +9,8 @@
       "bump-patch-for-minor-pre-major": false,
       "initial-version": "0.1.0",
       "changelog-path": "CHANGELOG.md",
+      "pull-request-header": ":rocket: **Release PR.** It collects everything merged to `main` since the last release, and release-please rebuilds it on every push to `main`. Merging it publishes the release.\n\nWhile Kestrel is 0.x, `feat` commits and breaking changes bump the minor version; `fix` and `perf` bump the patch.",
+      "pull-request-footer": "**On merge**, release-please tags `vX.Y.Z` and creates the GitHub release with the notes above. The Release workflow then attaches the Silo plugin binaries, `checksums.txt`, `silo-repository.json` and the third-party notices, and pushes `ghcr.io/hyprsh/kestrel` as `X.Y.Z`, `X.Y`, `X` and `latest`, with build-provenance attestations for all of them.\n\n**Notes:** the list above is generated from commit messages. To release, ask Claude Code to *release*: it adds Highlights, rewrites the list into user-facing changes and merges this PR (`.claude/skills/release`). Edits to this description by hand are lost on the next push to `main`.",
       "changelog-sections": [
         { "type": "feat", "section": "Features" },
         { "type": "fix", "section": "Bug Fixes" },
