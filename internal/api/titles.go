@@ -214,7 +214,7 @@ func (s *server) seriesOverview(ctx context.Context, d metadata.SeriesDetails) (
 	if err != nil {
 		return nil, err
 	}
-	o := library.Overview(tv.Episodes, s.opts.Clock())
+	o := library.SummariseSeasons(tv.Episodes, s.opts.Clock())
 	out := &oapi.LookupSeries{
 		Status: strPtr(tv.Status), Network: strPtr(d.Network), FirstAired: datePtr(o.FirstAired), LastAired: datePtr(o.LastAired),
 		LatestSeason: intPtr(o.Latest), Seasons: make([]oapi.LookupSeason, len(o.Seasons)),

@@ -9,6 +9,8 @@ import (
 	"github.com/hyprsh/kestrel/internal/library"
 )
 
+// SearchVersion is POST /versions/{id}/search, Search now: it checks the
+// scope and starts the search in the background, answering 202 at once.
 func (s *server) SearchVersion(ctx context.Context, r oapi.SearchVersionRequestObject) (oapi.SearchVersionResponseObject, error) {
 	var scope library.Scope
 	if r.Body != nil {
