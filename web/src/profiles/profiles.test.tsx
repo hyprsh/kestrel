@@ -22,6 +22,7 @@ const profile = (key: string, name: string, slot: Profile['slot'], rule: Profile
   name,
   slot,
   language_rule: rule,
+  original_language: 'reject',
   original_fallback: false,
   from_config_file: false,
   enabled: true,
@@ -185,7 +186,7 @@ describe('Settings', () => {
     expect(await within(await screen.findByRole('region', { name: 'Primary Language' })).findByLabelText('Primary Language')).toHaveValue('en')
   })
 
-  it('enables, disables and sets the Original-Language fallback per Profile', async () => {
+  it('enables, disables and chooses what each Primary-Language Profile does with Original-only Releases', async () => {
     const sent = fakeProfiles()
     await open()
     const section = await screen.findByRole('region', { name: 'Profiles' })
@@ -197,10 +198,13 @@ describe('Settings', () => {
       expect(within(within(section).getByLabelText('4K default for Movies')).queryByRole('option', { name: '4K' })).not.toBeInTheDocument(),
     )
 
-    // Original-Language Profiles have no fallback switch; Primary-Language ones do.
-    expect(within(section).queryByLabelText('HD Original fallback to the Original Language')).not.toBeInTheDocument()
-    await userEvent.click(within(section).getByLabelText('HD fallback to the Original Language'))
-    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile hd-primary', body: { original_fallback: true } }))
+    // Original-Language Profiles have no choice; Primary-Language ones reject, offer or grab.
+    expect(within(section).queryByLabelText('HD Original Original Language only')).not.toBeInTheDocument()
+    const choice = within(section).getByLabelText('HD Original Language only')
+    expect(choice).toHaveValue('reject')
+    expect(within(choice).getAllByRole('option').map((o) => o.textContent)).toEqual(['Reject', 'Offer for approval', 'Grab'])
+    await userEvent.selectOptions(choice, 'offer')
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile hd-primary', body: { original_language: 'offer' } }))
   })
 
   it('shows the server problem when the only HD default is disabled', async () => {

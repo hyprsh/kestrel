@@ -70,7 +70,7 @@ export const handlers = [
   }),
   http.get('/recent', ({ response }) => response(200).json({ items: [] })),
   http.get('/attention', ({ response }) =>
-    response(200).json({ count: 0, severity: null, rows: [], long_missing: { count: 0, items: [] } }),
+    response(200).json({ count: 0, severity: null, rows: [], long_missing: { count: 0, items: [] }, originals: { count: 0, items: [] } }),
   ),
   http.get('/system/status', ({ response }) =>
     response(200).json({ download_client: { state: 'none', name: null, instance_id: null, message: null }, indexers: [], disks: [], trash: { commit: 'abc1234', committed_at: null, checked_at: null, auto_update: true }, grabs_paused: false }),
