@@ -1215,7 +1215,7 @@ export interface paths {
          * The health strip
          * @description Capacity at a glance: the download client, each indexer with its daily budget and any pause, the
          *     free space on the data mount and every Root folder, the active TRaSH snapshot with its commit
-         *     date, and whether "Pause grabs" is on.
+         *     date, and whether "Pause Grabs" is on.
          */
         get: operations["getSystemStatus"];
         put?: never;
@@ -1626,7 +1626,7 @@ export interface components {
         PrimaryLanguage: "en" | "de" | "fr";
         Settings: {
             /**
-             * @description "Pause grabs" (default off). On, no automatic Grab is made: the sweep, RSS, the search on
+             * @description "Pause Grabs" (default off). On, no automatic Grab is made: the sweep, RSS, the search on
              *     add and the retry after a failed download still search and score Releases, so Wanted and
              *     Upgrade candidates still show up, but send nothing to the download client. A Grab started
              *     by hand from a Version's Releases still goes through. Turning it off makes every Wanted
@@ -2482,7 +2482,7 @@ export interface components {
             }[];
         };
         SystemStatus: {
-            /** @description The "Pause grabs" setting is on, so no automatic Grab is made. */
+            /** @description The "Pause Grabs" setting is on, so no automatic Grab is made. */
             grabs_paused: boolean;
             /** @description The active TRaSH snapshot. */
             trash: {

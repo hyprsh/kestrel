@@ -10,14 +10,14 @@ import (
 	"github.com/hyprsh/kestrel/internal/settings"
 )
 
-// pauseKey is the settings key of the Pause grabs switch; pauseSinceKey keeps
+// pauseKey is the settings key of the Pause Grabs switch; pauseSinceKey keeps
 // when it was last switched on.
 const (
 	pauseKey      = "pause_grabs"
 	pauseSinceKey = "pause_grabs_since"
 )
 
-// Pause is the "Pause grabs" switch. While it is on no automatic Grab is made:
+// Pause is the "Pause Grabs" switch. While it is on no automatic Grab is made:
 // the sweep, RSS, the search on add and the retry after a failure still search
 // and score Releases but send nothing to the download client. A Grab started
 // by hand still goes through. It is off until switched on.

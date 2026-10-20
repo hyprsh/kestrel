@@ -1,4 +1,4 @@
-// The health strip: capacity at a glance, how old the TRaSH snapshot is, and whether grabs are paused.
+// The health strip: capacity at a glance, how old the TRaSH snapshot is, and whether Grabs are paused.
 import { useStatus, type SystemStatus } from '../api/attention'
 import { cx } from '../ui'
 
@@ -62,7 +62,7 @@ export function HealthStrip() {
       </h2>
       {s && (
         <div className="flex flex-wrap gap-x-6 gap-y-2 rounded-lg border border-gray-alpha-400 px-4 py-3 text-[12px]">
-          {s.grabs_paused && <Item label="Grabs" state="idle" detail="Automatic grabs are paused" />}
+          {s.grabs_paused && <Item label="Grabs" state="idle" detail="Automatic Grabs are paused" />}
           {client(s.download_client)}
           {s.indexers.map((i) => (
             <Item

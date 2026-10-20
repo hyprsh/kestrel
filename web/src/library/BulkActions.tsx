@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useBulkTitles, type TitleBulkOutcome, type TitlesBulk } from '../api/bulk'
+import { useBulkTitles, type TitleBulkOutcome, type TitleBulkReason, type TitlesBulk } from '../api/bulk'
 import { useProfiles, type Profile, type TitleRow } from '../api/queries'
 import { Button, ErrorText, Select } from '../forms'
 import { size, slotKeys, slotLabel, type SlotKey } from './bits'
@@ -8,8 +8,8 @@ import { RemoveConfirm } from './ManageVersion'
 const has = (n: number) => (n === 1 ? 'has' : 'have')
 
 /** One group of skipped or failed Titles in a sentence, such as "3 have no 4K Version". */
-function phrase(outcome: TitleBulkOutcome['outcome'], reason: string, message: string | null, n: number, slot: string | null): string {
-  if (outcome === 'failed') return `${n} failed: ${message ?? reason}`
+function phrase(outcome: TitleBulkOutcome['outcome'], reason: TitleBulkReason | null, message: string | null, n: number, slot: string | null): string {
+  if (outcome === 'failed') return `${n} failed: ${message ?? reason ?? 'unknown'}`
   switch (reason) {
     case 'unchanged':
       return `${n} already as asked`
@@ -24,21 +24,20 @@ function phrase(outcome: TitleBulkOutcome['outcome'], reason: string, message: s
     case 'frozen':
       return `${n} ${has(n)} frozen metadata`
   }
-  return `${n} skipped: ${message ?? reason}`
+  return `${n} skipped: ${message ?? reason ?? 'unknown'}`
 }
 
 /** What a bulk call did: how many changed, then each reason Titles were skipped or failed. */
 function summarize(items: TitleBulkOutcome[], slot: string | null): { changed: number; others: string[] } {
-  const groups = new Map<string, { outcome: TitleBulkOutcome['outcome']; reason: string; message: string | null; n: number }>()
+  const groups = new Map<string, { outcome: TitleBulkOutcome['outcome']; reason: TitleBulkReason | null; message: string | null; n: number }>()
   let changed = 0
   for (const it of items) {
     if (it.outcome === 'changed') {
       changed++
       continue
     }
-    const reason = it.reason ?? 'unknown'
-    const key = `${it.outcome}/${reason}`
-    const g = groups.get(key) ?? { outcome: it.outcome, reason, message: it.message, n: 0 }
+    const key = `${it.outcome}/${it.reason}`
+    const g = groups.get(key) ?? { outcome: it.outcome, reason: it.reason, message: it.message, n: 0 }
     g.n++
     groups.set(key, g)
   }
@@ -75,11 +74,11 @@ export function BulkActions({ rows }: { rows: TitleRow[] }) {
   const close = () => setForm(null)
   const busy = bulk.isPending
 
-  const name = `${plural(rows.length, 'Title')} selected`
+  const name = `${plural(rows.length, 'Title')} ticked`
   return (
     <section aria-label={name} className="min-w-0 flex-1 overflow-auto p-6">
       <h2 className="text-[15px] font-semibold tracking-tight">{name}</h2>
-      <div role="toolbar" aria-label="Change the selected Titles" className="mt-4 flex flex-wrap gap-2">
+      <div role="toolbar" aria-label="Change the ticked Titles" className="mt-4 flex flex-wrap gap-2">
         {action('Monitor', () => (hasSeries ? setForm('monitor') : run('Monitor', { action: 'monitor', monitored: true, title_ids: ids })))}
         {action('Unmonitor', () => run('Unmonitor', { action: 'monitor', monitored: false, title_ids: ids }))}
         {action('Switch Profile', () => setForm('switch_profile'))}
@@ -145,7 +144,7 @@ function FormButtons({ busy, onApply, onCancel }: { busy: boolean; onApply: () =
   )
 }
 
-/** The Series among the selection take a monitoring mode; Movies are simply monitored. */
+/** The Series among the ticked Titles take a monitoring mode; Movies are simply monitored. */
 function MonitorForm({ busy, onApply, onCancel }: { busy: boolean; onApply: (mode: 'all' | 'future') => void; onCancel: () => void }) {
   const [mode, setMode] = useState<'all' | 'future'>('all')
   return (

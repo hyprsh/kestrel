@@ -88,7 +88,7 @@ export function Settings({ onRunSetup, onAdopt }: { onRunSetup: () => void; onAd
           <Indexers />
         </Group>
         <Group id="grabs" title="Grabs">
-          <Row label="Automatic grabs" help="Hold Kestrel back, for example after a large Adoption, without disabling the download client or the indexers.">
+          <Row label="Automatic Grabs" help="Hold Kestrel back, for example after a large Adoption, without disabling the download client or the indexers.">
             <PauseGrabsSwitch />
           </Row>
         </Group>

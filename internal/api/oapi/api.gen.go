@@ -2132,7 +2132,7 @@ type Settings struct {
 		TvdbApiKeySet bool `json:"tvdb_api_key_set"`
 	} `json:"metadata"`
 
-	// PauseGrabs "Pause grabs" (default off). On, no automatic Grab is made: the sweep, RSS, the search on
+	// PauseGrabs "Pause Grabs" (default off). On, no automatic Grab is made: the sweep, RSS, the search on
 	// add and the retry after a failed download still search and score Releases, so Wanted and
 	// Upgrade candidates still show up, but send nothing to the download client. A Grab started
 	// by hand from a Version's Releases still goes through. Turning it off makes every Wanted
@@ -2260,7 +2260,7 @@ type SystemStatus struct {
 	Disks          []DiskStatus `json:"disks"`
 	DownloadClient ClientStatus `json:"download_client"`
 
-	// GrabsPaused The "Pause grabs" setting is on, so no automatic Grab is made.
+	// GrabsPaused The "Pause Grabs" setting is on, so no automatic Grab is made.
 	GrabsPaused bool            `json:"grabs_paused"`
 	Indexers    []IndexerStatus `json:"indexers"`
 

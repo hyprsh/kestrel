@@ -145,7 +145,7 @@ func TestPauseGrabsIsSavedWithTheSettingsAndShownInTheHealthStrip(t *testing.T) 
 		GrabsPaused bool `json:"grabs_paused"`
 	}
 	if decode[status](t, s.valid("GET", "/system/status", "")).GrabsPaused {
-		t.Fatal("grabs are paused on a new instance")
+		t.Fatal("Grabs are paused on a new instance")
 	}
 
 	s.pauseGrabs(t, true)
@@ -153,10 +153,10 @@ func TestPauseGrabsIsSavedWithTheSettingsAndShownInTheHealthStrip(t *testing.T) 
 	if !decode[struct {
 		PauseGrabs bool `json:"pause_grabs"`
 	}](t, s.valid("GET", "/settings", "")).PauseGrabs {
-		t.Error("GET /settings does not report Pause grabs")
+		t.Error("GET /settings does not report Pause Grabs")
 	}
 	if !decode[status](t, s.valid("GET", "/system/status", "")).GrabsPaused {
-		t.Error("the health strip does not say grabs are paused")
+		t.Error("the health strip does not say Grabs are paused")
 	}
 }
 

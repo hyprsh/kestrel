@@ -23,7 +23,8 @@ export class ApiError extends Error {
 
 type Problem = { code?: string; detail?: string; title?: string; errors?: { field: string; code: string; message: string }[] } | undefined
 
-function failure(error: unknown, response: Response): ApiError {
+/** The ApiError for a failed response: its Problem code, message, Retry-After and field errors. */
+export function failure(error: unknown, response: Response): ApiError {
   const p = error as Problem
   const retry = Number(response.headers.get('Retry-After'))
   return new ApiError(p?.code ?? 'internal', response.status, p?.detail ?? p?.title ?? 'Request failed', retry > 0 ? retry : undefined, p?.errors ?? [])

@@ -1489,7 +1489,7 @@ paths:
       description: |
         Capacity at a glance: the download client, each indexer with its daily budget and any pause, the
         free space on the data mount and every Root folder, the active TRaSH snapshot with its commit
-        date, and whether "Pause grabs" is on.
+        date, and whether "Pause Grabs" is on.
       tags: [system]
       responses:
         "200":
@@ -2138,7 +2138,7 @@ components:
         pause_grabs:
           type: boolean
           description: |
-            "Pause grabs" (default off). On, no automatic Grab is made: the sweep, RSS, the search on
+            "Pause Grabs" (default off). On, no automatic Grab is made: the sweep, RSS, the search on
             add and the retry after a failed download still search and score Releases, so Wanted and
             Upgrade candidates still show up, but send nothing to the download client. A Grab started
             by hand from a Version's Releases still goes through. Turning it off makes every Wanted
@@ -3596,7 +3596,7 @@ components:
       properties:
         grabs_paused:
           type: boolean
-          description: The "Pause grabs" setting is on, so no automatic Grab is made.
+          description: The "Pause Grabs" setting is on, so no automatic Grab is made.
         trash:
           type: object
           description: The active TRaSH snapshot.

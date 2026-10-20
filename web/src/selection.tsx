@@ -1,5 +1,7 @@
-// Multi-select for lists, shared by the Library, Adoption and the episode grid.
-// "Checked" is the selection; "selected" stays the list's cursor (aria-selected).
+// Multi-select for lists: the Library uses it, and it is built to be shared
+// with Adoption (#112) and the episode grid (#127). "Checked" is the selection
+// in code and "ticked" in the UI; "selected" stays the list's cursor
+// (aria-selected).
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useKey } from './keys'
 import { Kbd } from './ui'
@@ -22,10 +24,10 @@ export type Selection = {
 /**
  * The checked subset of `ids`, the ids a list shows in its order. Ids that
  * leave the list (filtered out, removed) are unchecked, so the count always
- * matches what is on screen. With `escape`, Escape clears the selection unless
- * something else already handled the key.
+ * matches what is on screen. Escape clears the selection unless something else
+ * already handled the key.
  */
-export function useSelection(ids: number[], { escape = true }: { escape?: boolean } = {}): Selection {
+export function useSelection(ids: number[]): Selection {
   const [stored, setStored] = useState<ReadonlySet<number>>(() => new Set())
   const [on, setOn] = useState(false)
   const anchor = useRef<number | null>(null)
@@ -67,7 +69,7 @@ export function useSelection(ids: number[], { escape = true }: { escape?: boolea
       e.preventDefault()
       clear()
     },
-    escape && (checked.length > 0 || on),
+    checked.length > 0 || on,
   )
 
   return {
@@ -82,12 +84,12 @@ export function useSelection(ids: number[], { escape = true }: { escape?: boolea
   }
 }
 
-/** One row's checkbox; shift-click checks a range. Clicking it never moves the cursor. */
+/** One row's checkbox; shift-click ticks a range. Clicking it never moves the cursor. */
 export function SelectBox({ selection, id, name }: { selection: Selection; id: number; name: string }) {
   return (
     <input
       type="checkbox"
-      aria-label={`Select ${name}`}
+      aria-label={`Tick ${name}`}
       checked={selection.has(id)}
       onChange={() => {}}
       onClick={(e) => {
@@ -99,15 +101,15 @@ export function SelectBox({ selection, id, name }: { selection: Selection; id: n
   )
 }
 
-/** The count of checked rows, "Select all N shown" and Clear, with the actions for the selection beside them. */
+/** The count of ticked rows, "Tick all N shown" and Clear, with the actions for the selection beside them. */
 export function SelectionBar({ selection, shown, children }: { selection: Selection; shown: number; children?: ReactNode }) {
   if (!selection.active) return null
   return (
     <div role="group" aria-label="Selection" className="flex flex-wrap items-center gap-2 text-[12px]">
-      <span className="font-medium">{selection.count} selected</span>
+      <span className="font-medium">{selection.count} ticked</span>
       {selection.count < shown && (
         <button className="text-gray-900 underline hover:text-gray-1000" onClick={selection.checkAll}>
-          Select all {shown} shown
+          Tick all {shown} shown
         </button>
       )}
       <button className="flex items-center gap-1 text-gray-900 hover:text-gray-1000" onClick={selection.clear}>

@@ -91,7 +91,7 @@ type SettingsWriter interface {
 	SetGrabsPaused(ctx context.Context, on bool) error
 }
 
-// GrabPause reads the Pause grabs switch.
+// GrabPause reads the Pause Grabs switch.
 type GrabPause interface {
 	Paused(ctx context.Context) (bool, error)
 	PausedSince(ctx context.Context) (time.Time, error)

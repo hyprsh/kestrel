@@ -121,11 +121,11 @@ export function Library({
             <button
               onClick={() => (selection.active ? selection.clear() : selection.setActive(true))}
               aria-pressed={selection.active}
-              title="Select Titles to change together (x)"
+              title="Tick Titles to change together (x)"
               className={cx(toolButton, selection.active && 'bg-gray-alpha-200 text-gray-1000')}
             >
               <CheckSquare className="size-3.5" />
-              Select
+              Tick
             </button>
           </div>
           <div className="relative">
@@ -253,7 +253,7 @@ export function Library({
         <footer className="flex items-center justify-between border-t border-gray-alpha-400 px-3 py-2 text-[12px] text-gray-900">
           <span className="flex items-center gap-1">
             <Kbd>j</Kbd>
-            <Kbd>k</Kbd> move <Kbd>x</Kbd> select
+            <Kbd>k</Kbd> move <Kbd>x</Kbd> tick
           </span>
           <span>
             {rows.length} of {all.length}
