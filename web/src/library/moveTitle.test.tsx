@@ -11,8 +11,11 @@ const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { 
 
 const roots = { movies: ['/data/media/movies', '/data/media/more-movies'], series: ['/data/media/tv'] }
 
+/** A refusal of PATCH /titles/{id} as the API words it; a 422 also names the field. */
+type Refusal = { status: 409 | 422; code: string; detail: string; errors?: { field: string; code: string; message: string }[] }
+
 /** A Library with one Movie in the first Movies Root folder; PATCH /titles/{id} answers with `refuse` or moves it. */
-function fakeMovie(refuse?: { status: 409 | 422; code: string; detail: string }) {
+function fakeMovie(refuse?: Refusal) {
   const r = row(1, 'Heat', 'Heat')
   fakeLibrary([r])
   const state = { root: roots.movies[0], sent: [] as Sent[] }
@@ -33,7 +36,7 @@ function fakeMovie(refuse?: { status: 409 | 422; code: string; detail: string })
       const body = await request.json()
       state.sent.push({ path: 'titles', body })
       if (refuse) {
-        return response(refuse.status).json({ type: 'about:blank', title: 'refused', status: refuse.status, code: refuse.code, detail: refuse.detail })
+        return response(refuse.status).json({ type: 'about:blank', title: 'refused', status: refuse.status, code: refuse.code, detail: refuse.detail, errors: refuse.errors })
       }
       if (body.root_folder) state.root = body.root_folder
       return response(200).json(detail(r, { root_folder: state.root }))
@@ -69,11 +72,18 @@ describe('moving a Title to another Root folder', () => {
     expect(await within(again).findByRole('radio', { name: '/data/media/more-movies (current)' })).toBeChecked()
   })
 
-  it.each([
-    { status: 409 as const, code: 'folder_taken', detail: "A folder named like this Title's is already in that Root folder" },
-    { status: 409 as const, code: 'import_running', detail: 'An Import into this Title is running; try again when it is done' },
-    { status: 422 as const, code: 'validation', detail: 'That Root folder is on another filesystem. Kestrel moves a Title only between Root folders on the same mount' },
-  ])('shows why the API refused the move ($code)', async (refusal) => {
+  const otherFilesystem = 'That Root folder is on another filesystem. Kestrel moves a Title only between Root folders on the same mount'
+  it.each<Refusal & { name: string }>([
+    { name: '409 folder_taken', status: 409, code: 'folder_taken', detail: "A folder named like this Title's is already in that Root folder" },
+    { name: '409 import_running', status: 409, code: 'import_running', detail: 'An Import into this Title is running; try again when it is done' },
+    {
+      name: '422 other_filesystem',
+      status: 422,
+      code: 'validation',
+      detail: otherFilesystem,
+      errors: [{ field: 'root_folder', code: 'other_filesystem', message: otherFilesystem }],
+    },
+  ])('shows why the API refused the move ($name)', async (refusal) => {
     fakeMovie(refusal)
     renderApp()
     const picker = await openPicker()
@@ -82,6 +92,7 @@ describe('moving a Title to another Root folder', () => {
     await userEvent.click(within(picker).getByRole('button', { name: 'Move here' }))
 
     expect(await within(picker).findByText(refusal.detail)).toBeInTheDocument()
+    expect(within(picker).getByRole('radio', { name: '/data/media/more-movies' })).toBeChecked()
   })
 
   it('closes without a request on Cancel', async () => {
