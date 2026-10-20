@@ -133,9 +133,11 @@ func (s *Service) RefreshMovie(ctx context.Context, id int64, r MovieRefresh) (R
 		return Refreshed{}, err
 	}
 	defer tx.Rollback()
+	voteAverage, voteCount := scoreColumns(d.Score)
 	renamed, err := s.refreshCommon(ctx, db.New(tx), id, Movie, db.UpdateTitleMetadataParams{
 		Title: d.Title, OriginalTitle: d.OriginalTitle, PrimaryTitle: primary, Year: nullInt(d.Year),
 		OriginalLanguage: d.OriginalLanguage, Overview: d.Overview, Runtime: nullInt(d.Runtime), PosterPath: nullStr(d.PosterPath),
+		TmdbVoteAverage: voteAverage, TmdbVoteCount: voteCount,
 	}, d.Aliases, d.Translations, nil, d.ReleaseDates)
 	if err != nil {
 		return Refreshed{}, err
@@ -160,9 +162,11 @@ func (s *Service) RefreshSeries(ctx context.Context, id int64, r SeriesRefresh) 
 	}
 	defer tx.Rollback()
 	q := db.New(tx)
+	voteAverage, voteCount := scoreColumns(d.Score)
 	renamed, err := s.refreshCommon(ctx, q, id, Series, db.UpdateTitleMetadataParams{
 		Title: d.Title, OriginalTitle: d.OriginalTitle, PrimaryTitle: primary, Year: nullInt(d.Year),
 		OriginalLanguage: d.OriginalLanguage, Overview: d.Overview, Runtime: nullInt(d.Runtime), PosterPath: nullStr(d.PosterPath),
+		TmdbVoteAverage: voteAverage, TmdbVoteCount: voteCount,
 	}, d.Aliases, d.Translations, r.TVDB.Aliases, d.Ratings)
 	if err != nil {
 		return Refreshed{}, err
