@@ -119,7 +119,7 @@ func (s *Service) rescoreVersion(ctx context.Context, snap *scoring.Snapshot, re
 			scoring.Title{Name: d.Title, Year: d.Year, OriginalLanguage: release.LanguageByISO(d.OriginalLanguage)}, profile,
 		)
 		misfit := !slices.Contains(profile.Classes(), info.Class()) || verdict.Rejected(scoring.RejectLanguage)
-		out = append(out, library.Rescored{FileID: f.ID, Score: verdict.Score, Misfit: misfit})
+		out = append(out, library.Rescored{FileID: f.ID, Score: verdict.Score, Misfit: misfit, Original: verdict.Rejected(scoring.RejectOriginalOnly)})
 	}
 	return out, nil
 }

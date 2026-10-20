@@ -168,6 +168,10 @@ type PlanFile struct {
 	ReleaseName string               `json:"release_name"`
 	Parsed      json.RawMessage      `json:"parsed"`
 	Probe       json.RawMessage      `json:"probe"`
+	// Original marks a file with the Title's Original Language only under a
+	// Profile that offers such Releases: it fills the Version until any
+	// acceptable Release replaces it.
+	Original bool `json:"original,omitempty"`
 }
 
 // Row is one entry of a Root folder and what Adoption would do with it.

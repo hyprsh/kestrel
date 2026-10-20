@@ -135,6 +135,11 @@ type File struct {
 	// Misfit says the file no longer fits its Version's Profile (a Profile
 	// switch): the Version counts as Wanted and any fitting Release replaces it.
 	Misfit bool
+	// Original says the file has the Title's Original Language but no
+	// Primary-Language audio under a Profile that offers such Releases (an
+	// accepted Original Offer): it fills the Version, but any acceptable
+	// Release replaces it whatever its Score.
+	Original bool
 	// GrabID is the Grab the file came from; 0 for an adopted file.
 	GrabID int64
 }
@@ -551,12 +556,17 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 	if err != nil {
 		return Detail{}, err
 	}
+	originals, err := originalSet(ctx, q)
+	if err != nil {
+		return Detail{}, err
+	}
 	fileOfVersion := map[int64]*File{}
 	versionSize := map[int64]int64{}
 	for _, f := range files {
 		versionSize[f.VersionID] += f.Size
 		fl := fileOf(f)
 		fl.Misfit = misfits[f.ID]
+		fl.Original = originals[f.ID]
 		fileOfVersion[f.VersionID] = &fl
 	}
 	var epsOf []db.Episode

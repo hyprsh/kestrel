@@ -61,6 +61,8 @@ type EpisodeFile struct {
 	ParsedRelease string
 	// EpisodeIDs are every episode the file holds, in aired order.
 	EpisodeIDs []int64
+	// Original marks an Original (see File).
+	Original bool
 }
 
 // Episode is an episode with a cell per Slot that has a Version.
@@ -338,8 +340,13 @@ func (s *Service) Episodes(ctx context.Context, titleID int64, view View) ([]Epi
 		f.EpisodeIDs = append(f.EpisodeIDs, r.EpisodeID)
 		fileOf[[2]int64{r.VersionID, r.EpisodeID}] = f
 	}
+	originals, err := originalSet(ctx, q)
+	if err != nil {
+		return nil, err
+	}
 	for _, f := range files {
 		sort.Slice(f.EpisodeIDs, func(i, j int) bool { return order[f.EpisodeIDs[i]] < order[f.EpisodeIDs[j]] })
+		f.Original = originals[f.ID]
 	}
 	out := make([]Episode, 0, len(eps))
 	for _, e := range eps {

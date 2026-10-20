@@ -90,6 +90,10 @@ type FileMisfit struct {
 	FileID int64
 }
 
+type FileOriginal struct {
+	FileID int64
+}
+
 type FileReplacedScore struct {
 	FileID int64
 	Score  int64
@@ -141,6 +145,25 @@ type HealthIssue struct {
 	DismissedAt sql.NullString
 }
 
+type OriginalOffer struct {
+	ID          int64
+	VersionID   int64
+	EpisodeID   sql.NullInt64
+	ReleaseGuid string
+	ReleaseName string
+	IndexerID   int64
+	IndexerName string
+	DownloadUrl string
+	Size        int64
+	PublishedAt string
+	Score       int64
+	Parsed      string
+	Verdict     string
+	Pack        int64
+	FoundAt     string
+	Dismissed   int64
+}
+
 type PluginInstance struct {
 	ID       int64
 	Contract string
@@ -167,6 +190,7 @@ type Profile struct {
 	DefaultSeries      int64
 	TrashProfileMovies string
 	TrashProfileSeries string
+	OriginalLanguage   string
 }
 
 type Request struct {

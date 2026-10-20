@@ -27,6 +27,7 @@ var rejectionMessages = map[scoring.Rejection]string{
 	scoring.RejectOriginalLanguageUnknown: "The Title's original language is not known",
 	scoring.RejectBlocklisted:             "On the Blocklist",
 	acquire.RejectOtherSlot:               "Fits another Slot",
+	scoring.RejectOriginalOnly:            "Only in the Title's Original Language: the Profile offers it instead of grabbing it",
 }
 
 func rejectionMessage(r scoring.Rejection) string {

@@ -20,9 +20,25 @@ const (
 	OriginalLanguage
 )
 
+// OriginalChoice is what a Primary-Language Profile does with a Release that
+// has the Title's Original Language but no Primary-Language audio: reject it,
+// offer it to the admin (an Original Offer) or accept it like any other.
+type OriginalChoice string
+
+const (
+	OriginalReject OriginalChoice = "reject"
+	OriginalOffer  OriginalChoice = "offer"
+	OriginalAccept OriginalChoice = "accept"
+)
+
+// Valid reports whether c is one of the three choices.
+func (c OriginalChoice) Valid() bool {
+	return c == OriginalReject || c == OriginalOffer || c == OriginalAccept
+}
+
 // ProfileSpec describes a Kestrel Profile: which Slot it fills, which audio it
-// requires and, for Primary-Language Profiles, whether the Title's Original
-// Language is an acceptable fallback (PRD Settled 1).
+// requires and, for Primary-Language Profiles, what it does with a Release in
+// the Title's Original Language only (PRD Settled 1, #103).
 type ProfileSpec struct {
 	// Slot is Standard or 4K. Any Profiles sit in the Standard Slot.
 	Slot slot.Slot
@@ -32,9 +48,10 @@ type ProfileSpec struct {
 	Rule LanguageRule
 	// Primary is the household's Primary Language: English, German or French.
 	Primary release.Language
-	// OriginalFallback accepts a Release with the Title's Original Language
-	// but no Primary audio. Only meaningful with PrimaryLanguage.
-	OriginalFallback bool
+	// Original is what happens to a Release with the Title's Original
+	// Language but no Primary audio; the zero value rejects it. Only
+	// meaningful with PrimaryLanguage.
+	Original OriginalChoice
 }
 
 // HeightBounds are the resolution bounds of a builtin Profile (Settled 2),
@@ -138,7 +155,7 @@ func (s *Snapshot) Profile(spec ProfileSpec) (*Profile, error) {
 		return nil, fmt.Errorf("%w: Any sits in the Standard Slot", ErrUnsupportedProfile)
 	}
 	if spec.Rule == OriginalLanguage {
-		spec.OriginalFallback = false // always off for Original-Language Profiles
+		spec.Original = OriginalReject // no choice on Original-Language Profiles
 	}
 	p := &Profile{spec: spec, sets: map[release.Kind]*formatSet{}}
 	p.MinHeight, p.MaxHeight = HeightBounds(spec.Slot, spec.Any)

@@ -171,6 +171,15 @@ DELETE FROM file_misfits WHERE file_id = ?;
 -- name: SetMisfit :exec
 INSERT OR IGNORE INTO file_misfits (file_id) VALUES (?);
 
+-- name: ListOriginalFileIDs :many
+SELECT file_id FROM file_originals;
+
+-- name: ClearOriginal :exec
+DELETE FROM file_originals WHERE file_id = ?;
+
+-- name: SetOriginal :exec
+INSERT OR IGNORE INTO file_originals (file_id) VALUES (?);
+
 -- name: SetReplacedScore :exec
 INSERT OR REPLACE INTO file_replaced_scores (file_id, score) VALUES (?, ?);
 

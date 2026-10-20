@@ -339,7 +339,7 @@ func (in *seriesImport) file(ctx context.Context, video string, out *Result) {
 		scoring.Release{Parsed: fileParsed, IndexerLanguages: languagesOf(languages, inconclusive), Size: info.Size, Filename: fileName},
 		scoring.Title{Name: in.d.Title, Year: in.d.Year, OriginalLanguage: release.LanguageByISO(in.d.OriginalLanguage), EpisodeTitles: epTitles}, in.profile,
 	)
-	if verdict.Rejected(scoring.RejectLanguage) {
+	if languageRejected(verdict, in.g) {
 		reject(ReasonLanguage)
 		return
 	}
@@ -374,7 +374,7 @@ func (in *seriesImport) file(ctx context.Context, video string, out *Result) {
 	var take []library.Episode
 	for _, ep := range wanted {
 		c := ep.Cells[in.ver.Slot]
-		if c != nil && c.State == library.Filled && c.Score != nil && verdict.Score <= *c.Score {
+		if c != nil && c.State == library.Filled && !replacesOriginal(c.File != nil && c.File.Original, verdict) && c.Score != nil && verdict.Score <= *c.Score {
 			add(ep, Rejected, ReasonNotUpgrade, "", 0)
 			continue
 		}
@@ -436,6 +436,7 @@ func (in *seriesImport) file(ctx context.Context, video string, out *Result) {
 	replaced, err := s.lib.ReplaceEpisodeFile(ctx, in.g.TitleID, in.folder, library.NewFile{
 		VersionID: in.g.VersionID, Path: target, Size: info.Size, ReleaseName: in.g.ReleaseName,
 		ParsedRelease: string(parsedJSON), Probe: string(probeJSON), Score: verdict.Score, GrabID: in.g.ID,
+		Original: verdict.Rejected(scoring.RejectOriginalOnly),
 	}, ids)
 	if err != nil {
 		_ = os.Remove(partial)

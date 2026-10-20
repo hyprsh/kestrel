@@ -274,7 +274,7 @@ func (a *Adoption) adoptRow(ctx context.Context, e *env, row Row) (err error) {
 		versions = append(versions, library.AdoptVersion{
 			Slot: f.Slot, Profile: f.Profile, Replace: f.Action == ActionReplace,
 			File: library.NewFile{
-				Path: f.To, Size: f.Size, ReleaseName: f.ReleaseName, ParsedRelease: string(f.Parsed), Probe: string(f.Probe), Score: f.Score, Misfit: f.Misfit,
+				Path: f.To, Size: f.Size, ReleaseName: f.ReleaseName, ParsedRelease: string(f.Parsed), Probe: string(f.Probe), Score: f.Score, Misfit: f.Misfit, Original: f.Original,
 			},
 		})
 	}

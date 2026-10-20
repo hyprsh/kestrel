@@ -145,6 +145,7 @@ func TestADeclaredSectionNamesEveryField(t *testing.T) {
 		{"check_github_updates:\n", "check_github_updates"},
 		{"profiles:\n  hd-primary:\n    enabled: true\n    original_fallback: false\n    default_movies: true\n", "profiles.hd-primary.default_series"},
 		{"profiles:\n  4k-primary:\n", "profiles.4k-primary.enabled"},
+		{"profiles:\n  4k-primary:\n    enabled: true\n    default_movies: false\n    default_series: false\n", "profiles.4k-primary.original_language"},
 		{"plugin_instances:\n  - plugin_id: sabnzbd\n", "plugin_instances[0].name"},
 		{"plugin_instances:\n  - name: \"  \"\n    plugin_id: sabnzbd\n", "plugin_instances[0].name"},
 		{"plugin_instances:\n  - name: SABnzbd\n", "plugin_instances[0].plugin_id"},
@@ -153,6 +154,29 @@ func TestADeclaredSectionNamesEveryField(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%q: err = %v, want one naming %s", c.body, err, c.want)
 		}
+	}
+}
+
+func TestAProfileDeclaresItsOriginalLanguageChoice(t *testing.T) {
+	const head = "profiles:\n  hd-primary:\n    enabled: true\n    default_movies: true\n    default_series: true\n"
+	for _, c := range []struct{ body, want string }{
+		{head + "    original_language: offer\n", "offer"},
+		// The deprecated original_fallback still works: true accepts, false rejects.
+		{head + "    original_fallback: true\n", "accept"},
+		{head + "    original_fallback: false\n", "reject"},
+		{head + "    original_fallback: true\n    original_language: accept\n", "accept"},
+	} {
+		f, err := configfile.Load(write(t, c.body), env())
+		if err != nil {
+			t.Fatalf("%q: %v", c.body, err)
+		}
+		if got := f.Profiles["hd-primary"].OriginalChoice(); got != c.want {
+			t.Errorf("%q: choice = %q, want %q", c.body, got, c.want)
+		}
+	}
+	_, err := configfile.Load(write(t, head+"    original_fallback: true\n    original_language: offer\n"), env())
+	if err == nil || !strings.Contains(err.Error(), "profiles.hd-primary.original_language") {
+		t.Errorf("disagreeing fields: err = %v, want one naming profiles.hd-primary.original_language", err)
 	}
 }
 

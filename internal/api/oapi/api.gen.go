@@ -361,6 +361,27 @@ func (e MeMethod) Valid() bool {
 	}
 }
 
+// Defines values for OriginalLanguageChoice.
+const (
+	Accept OriginalLanguageChoice = "accept"
+	Offer  OriginalLanguageChoice = "offer"
+	Reject OriginalLanguageChoice = "reject"
+)
+
+// Valid indicates whether the value is a known member of the OriginalLanguageChoice enum.
+func (e OriginalLanguageChoice) Valid() bool {
+	switch e {
+	case Accept:
+		return true
+	case Offer:
+		return true
+	case Reject:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PluginFieldType.
 const (
 	Bool   PluginFieldType = "bool"
@@ -463,6 +484,7 @@ const (
 	RejectionCodeBlocklisted             RejectionCode = "blocklisted"
 	RejectionCodeLanguage                RejectionCode = "language"
 	RejectionCodeOriginalLanguageUnknown RejectionCode = "original_language_unknown"
+	RejectionCodeOriginalOnly            RejectionCode = "original_only"
 	RejectionCodeOtherSlot               RejectionCode = "other_slot"
 	RejectionCodeQuality                 RejectionCode = "quality"
 	RejectionCodeResolution              RejectionCode = "resolution"
@@ -478,6 +500,8 @@ func (e RejectionCode) Valid() bool {
 	case RejectionCodeLanguage:
 		return true
 	case RejectionCodeOriginalLanguageUnknown:
+		return true
+	case RejectionCodeOriginalOnly:
 		return true
 	case RejectionCodeOtherSlot:
 		return true
@@ -1178,9 +1202,12 @@ type ApiKeyInfo struct {
 // Attention defines model for Attention.
 type Attention struct {
 	// Count How many `rows` there are. Long Missing does not count.
-	Count       int            `json:"count"`
-	LongMissing LongMissing    `json:"long_missing"`
-	Rows        []AttentionRow `json:"rows"`
+	Count       int         `json:"count"`
+	LongMissing LongMissing `json:"long_missing"`
+
+	// Originals The Originals available group of Needs attention, outside the rail badge.
+	Originals OriginalsAvailable `json:"originals"`
+	Rows      []AttentionRow     `json:"rows"`
 
 	// Severity The worst severity among the rows, null when there are none.
 	Severity *AttentionSeverity `json:"severity"`
@@ -1443,7 +1470,7 @@ type Event struct {
 	GrabId    *int64                  `json:"grab_id"`
 	Id        int64                   `json:"id"`
 
-	// Kind A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search.
+	// Kind A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered.
 	Kind      string `json:"kind"`
 	Message   string `json:"message"`
 	RequestId *int64 `json:"request_id"`
@@ -1706,6 +1733,72 @@ type NotDeletedFile struct {
 	Reason string `json:"reason"`
 }
 
+// OfferAccepted defines model for OfferAccepted.
+type OfferAccepted struct {
+	// Failed How many of the offered Releases could not be grabbed; their offers are dropped.
+	Failed int    `json:"failed"`
+	Grabs  []Grab `json:"grabs"`
+}
+
+// OfferedRelease defines model for OfferedRelease.
+type OfferedRelease struct {
+	// Episodes The episode numbers it is offered for, in `season`; empty for a Movie.
+	Episodes []int  `json:"episodes"`
+	Indexer  string `json:"indexer"`
+	Name     string `json:"name"`
+
+	// Pack A season pack.
+	Pack        bool      `json:"pack"`
+	PublishedAt time.Time `json:"published_at"`
+	Score       int       `json:"score"`
+
+	// Season The season of a Series Release; null for a Movie.
+	Season *int  `json:"season"`
+	Size   int64 `json:"size"`
+}
+
+// OriginalLanguageChoice What a Primary-Language Profile does with a Release that has the Title's Original Language but
+// no Primary-Language audio: `reject` it, `offer` it to the admin as an Original Offer (Needs
+// attention, never grabbed on its own), or `accept` it like any other. Always `reject` on
+// Original-Language Profiles.
+type OriginalLanguageChoice string
+
+// OriginalOffer Releases with the Title's Original Language but no Primary-Language audio, held back for one
+// Version whose Profile offers them, for what it is missing. A Movie has one Release; a Series
+// lists every episode or season pack that has one. The offer lasts while those units are Wanted
+// with no active Grab: a Primary-Language Release that is grabbed makes it go.
+type OriginalOffer struct {
+	// Dismissed Dismissed: the admin keeps waiting for a Primary-Language Release. A Release that scores
+	// higher than a dismissed one shows the offer again.
+	Dismissed bool `json:"dismissed"`
+
+	// FoundAt When the newest of the Releases was offered.
+	FoundAt time.Time `json:"found_at"`
+
+	// Profile The key of the Version's Profile.
+	Profile string `json:"profile"`
+
+	// Release The name of the best-scoring Release offered.
+	Release  string           `json:"release"`
+	Releases []OfferedRelease `json:"releases"`
+
+	// Score Its Score under the Version's Profile.
+	Score     int    `json:"score"`
+	Slot      Slot   `json:"slot"`
+	Title     string `json:"title"`
+	TitleId   int64  `json:"title_id"`
+	VersionId int64  `json:"version_id"`
+}
+
+// OriginalsAvailable The Originals available group of Needs attention, outside the rail badge.
+type OriginalsAvailable struct {
+	// Count How many Versions have an Original Offer that is not dismissed.
+	Count int `json:"count"`
+
+	// Items Those offers, newest first.
+	Items []OriginalOffer `json:"items"`
+}
+
 // PluginConfigPatch Plugin settings by manifest field key. Secret fields are write-only: they are accepted
 // here and never returned. In a patch, `null` clears a field.
 type PluginConfigPatch map[string]interface{}
@@ -1886,9 +1979,17 @@ type Profile struct {
 	// Name Example: HD
 	Name string `json:"name"`
 
-	// OriginalFallback Accept a Release with the Title's Original Language but no Primary-Language audio. Always false on Original-Language Profiles.
+	// OriginalFallback Deprecated in favour of `original_language`: `true` exactly when it is `accept`. Always
+	// false on Original-Language Profiles.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	OriginalFallback bool `json:"original_fallback"`
-	Slot             Slot `json:"slot"`
+
+	// OriginalLanguage What a Primary-Language Profile does with a Release that has the Title's Original Language but
+	// no Primary-Language audio: `reject` it, `offer` it to the admin as an Original Offer (Needs
+	// attention, never grabbed on its own), or `accept` it like any other. Always `reject` on
+	// Original-Language Profiles.
+	OriginalLanguage OriginalLanguageChoice `json:"original_language"`
+	Slot             Slot                   `json:"slot"`
 
 	// TrashProfileMovies The TRaSH profile file (without .json) backing the Profile for Movies under the current Primary Language.
 	TrashProfileMovies string `json:"trash_profile_movies"`
@@ -1907,10 +2008,19 @@ type ProfileList struct {
 
 // ProfilePatch defines model for ProfilePatch.
 type ProfilePatch struct {
-	DefaultMovies    *bool `json:"default_movies,omitempty"`
-	DefaultSeries    *bool `json:"default_series,omitempty"`
-	Enabled          *bool `json:"enabled,omitempty"`
+	DefaultMovies *bool `json:"default_movies,omitempty"`
+	DefaultSeries *bool `json:"default_series,omitempty"`
+	Enabled       *bool `json:"enabled,omitempty"`
+
+	// OriginalFallback Deprecated in favour of `original_language`; `true` sets `accept`, `false` sets `reject`.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	OriginalFallback *bool `json:"original_fallback,omitempty"`
+
+	// OriginalLanguage What a Primary-Language Profile does with a Release that has the Title's Original Language but
+	// no Primary-Language audio: `reject` it, `offer` it to the admin as an Original Offer (Needs
+	// attention, never grabbed on its own), or `accept` it like any other. Always `reject` on
+	// Original-Language Profiles.
+	OriginalLanguage *OriginalLanguageChoice `json:"original_language,omitempty"`
 }
 
 // QueueItem defines model for QueueItem.
@@ -2000,7 +2110,9 @@ type RecentList struct {
 
 // Rejection defines model for Rejection.
 type Rejection struct {
-	// Code Why a Release cannot go to a Version. Clients tolerate codes they do not know.
+	// Code Why a Release cannot go to a Version. Clients tolerate codes they do not know. `original_only`
+	// is a Release with the Title's Original Language but no Primary-Language audio under a Profile
+	// that offers such Releases.
 	Code    RejectionCode `json:"code"`
 	Message string        `json:"message"`
 
@@ -2008,7 +2120,9 @@ type Rejection struct {
 	Overridable bool `json:"overridable"`
 }
 
-// RejectionCode Why a Release cannot go to a Version. Clients tolerate codes they do not know.
+// RejectionCode Why a Release cannot go to a Version. Clients tolerate codes they do not know. `original_only`
+// is a Release with the Title's Original Language but no Primary-Language audio under a Profile
+// that offers such Releases.
 type RejectionCode string
 
 // Release defines model for Release.
@@ -2756,8 +2870,11 @@ type VersionDetail struct {
 	File        *FileSummary     `json:"file"`
 	Id          int64            `json:"id"`
 	LongMissing bool             `json:"long_missing"`
-	Profile     string           `json:"profile"`
-	Slot        Slot             `json:"slot"`
+
+	// OriginalOffer The Version's Original Offer, dismissed or not; null or absent when it has none.
+	OriginalOffer *OriginalOffer `json:"original_offer,omitempty"`
+	Profile       string         `json:"profile"`
+	Slot          Slot           `json:"slot"`
 
 	// State `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
 	// Clients tolerate new values.
@@ -3572,6 +3689,12 @@ type ServerInterface interface {
 	// DeleteVersionFiles Delete a Version's files and keep the Version
 	// (DELETE /versions/{id}/files)
 	DeleteVersionFiles(w http.ResponseWriter, r *http.Request, id VersionId, params DeleteVersionFilesParams)
+	// AcceptOriginalOffer Accept a Version's Original Offer
+	// (POST /versions/{id}/original-offer/accept)
+	AcceptOriginalOffer(w http.ResponseWriter, r *http.Request, id VersionId)
+	// DismissOriginalOffer Dismiss a Version's Original Offer
+	// (POST /versions/{id}/original-offer/dismiss)
+	DismissOriginalOffer(w http.ResponseWriter, r *http.Request, id VersionId)
 	// SearchVersionReleases Manual search for a Version
 	// (POST /versions/{id}/releases)
 	SearchVersionReleases(w http.ResponseWriter, r *http.Request, id VersionId)
@@ -5433,6 +5556,58 @@ func (siw *ServerInterfaceWrapper) DeleteVersionFiles(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// AcceptOriginalOffer operation middleware
+func (siw *ServerInterfaceWrapper) AcceptOriginalOffer(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id VersionId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AcceptOriginalOffer(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DismissOriginalOffer operation middleware
+func (siw *ServerInterfaceWrapper) DismissOriginalOffer(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id VersionId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DismissOriginalOffer(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SearchVersionReleases operation middleware
 func (siw *ServerInterfaceWrapper) SearchVersionReleases(w http.ResponseWriter, r *http.Request) {
 
@@ -5656,6 +5831,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/{id}/poster", wrapper.GetTitlePoster)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/versions/{id}/releases", wrapper.SearchVersionReleases)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/versions/{id}/search", wrapper.SearchVersion)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/versions/{id}/original-offer/accept", wrapper.AcceptOriginalOffer)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/versions/{id}/original-offer/dismiss", wrapper.DismissOriginalOffer)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs", wrapper.CreateGrab)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grabs/{id}", wrapper.GetGrab)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs/{id}/cancel", wrapper.CancelGrab)
@@ -9938,6 +10115,166 @@ func (response DeleteVersionFilesdefaultApplicationProblemPlusJSONResponse) Visi
 	return err
 }
 
+type AcceptOriginalOfferRequestObject struct {
+	Id VersionId `json:"id"`
+}
+
+type AcceptOriginalOfferResponseObject interface {
+	VisitAcceptOriginalOfferResponse(w http.ResponseWriter) error
+}
+
+type AcceptOriginalOffer201JSONResponse OfferAccepted
+
+func (response AcceptOriginalOffer201JSONResponse) VisitAcceptOriginalOfferResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptOriginalOffer404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response AcceptOriginalOffer404ApplicationProblemPlusJSONResponse) VisitAcceptOriginalOfferResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptOriginalOffer409ApplicationProblemPlusJSONResponse Problem
+
+func (response AcceptOriginalOffer409ApplicationProblemPlusJSONResponse) VisitAcceptOriginalOfferResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptOriginalOffer422ApplicationProblemPlusJSONResponse Problem
+
+func (response AcceptOriginalOffer422ApplicationProblemPlusJSONResponse) VisitAcceptOriginalOfferResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptOriginalOffer429ApplicationProblemPlusJSONResponse Problem
+
+func (response AcceptOriginalOffer429ApplicationProblemPlusJSONResponse) VisitAcceptOriginalOfferResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptOriginalOffer502ApplicationProblemPlusJSONResponse Problem
+
+func (response AcceptOriginalOffer502ApplicationProblemPlusJSONResponse) VisitAcceptOriginalOfferResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptOriginalOfferdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response AcceptOriginalOfferdefaultApplicationProblemPlusJSONResponse) VisitAcceptOriginalOfferResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DismissOriginalOfferRequestObject struct {
+	Id VersionId `json:"id"`
+}
+
+type DismissOriginalOfferResponseObject interface {
+	VisitDismissOriginalOfferResponse(w http.ResponseWriter) error
+}
+
+type DismissOriginalOffer204Response struct {
+}
+
+func (response DismissOriginalOffer204Response) VisitDismissOriginalOfferResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DismissOriginalOffer404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DismissOriginalOffer404ApplicationProblemPlusJSONResponse) VisitDismissOriginalOfferResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DismissOriginalOfferdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DismissOriginalOfferdefaultApplicationProblemPlusJSONResponse) VisitDismissOriginalOfferResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type SearchVersionReleasesRequestObject struct {
 	Id   VersionId `json:"id"`
 	Body *SearchVersionReleasesJSONRequestBody
@@ -10337,6 +10674,12 @@ type StrictServerInterface interface {
 	// DeleteVersionFiles Delete a Version's files and keep the Version
 	// (DELETE /versions/{id}/files)
 	DeleteVersionFiles(ctx context.Context, request DeleteVersionFilesRequestObject) (DeleteVersionFilesResponseObject, error)
+	// AcceptOriginalOffer Accept a Version's Original Offer
+	// (POST /versions/{id}/original-offer/accept)
+	AcceptOriginalOffer(ctx context.Context, request AcceptOriginalOfferRequestObject) (AcceptOriginalOfferResponseObject, error)
+	// DismissOriginalOffer Dismiss a Version's Original Offer
+	// (POST /versions/{id}/original-offer/dismiss)
+	DismissOriginalOffer(ctx context.Context, request DismissOriginalOfferRequestObject) (DismissOriginalOfferResponseObject, error)
 	// SearchVersionReleases Manual search for a Version
 	// (POST /versions/{id}/releases)
 	SearchVersionReleases(ctx context.Context, request SearchVersionReleasesRequestObject) (SearchVersionReleasesResponseObject, error)
@@ -12470,6 +12813,58 @@ func (sh *strictHandler) DeleteVersionFiles(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(DeleteVersionFilesResponseObject); ok {
 		if err := validResponse.VisitDeleteVersionFilesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AcceptOriginalOffer operation middleware
+func (sh *strictHandler) AcceptOriginalOffer(w http.ResponseWriter, r *http.Request, id VersionId) {
+	var request AcceptOriginalOfferRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AcceptOriginalOffer(ctx, request.(AcceptOriginalOfferRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AcceptOriginalOffer")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AcceptOriginalOfferResponseObject); ok {
+		if err := validResponse.VisitAcceptOriginalOfferResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DismissOriginalOffer operation middleware
+func (sh *strictHandler) DismissOriginalOffer(w http.ResponseWriter, r *http.Request, id VersionId) {
+	var request DismissOriginalOfferRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DismissOriginalOffer(ctx, request.(DismissOriginalOfferRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DismissOriginalOffer")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DismissOriginalOfferResponseObject); ok {
+		if err := validResponse.VisitDismissOriginalOfferResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

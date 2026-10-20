@@ -62,8 +62,8 @@ func TestSeedsTheSixBuiltinProfiles(t *testing.T) {
 	var keys []string
 	for _, p := range all {
 		keys = append(keys, p.Key)
-		if !p.Enabled || p.OriginalFallback {
-			t.Errorf("%s: enabled=%v fallback=%v, want enabled without fallback", p.Key, p.Enabled, p.OriginalFallback)
+		if !p.Enabled || p.OriginalLanguage != scoring.OriginalReject {
+			t.Errorf("%s: enabled=%v original=%q, want enabled, rejecting originals", p.Key, p.Enabled, p.OriginalLanguage)
 		}
 	}
 	want := []string{"hd-primary", "hd-original", "any-primary", "any-original", "4k-primary", "4k-original"}
@@ -92,17 +92,28 @@ func TestSeedsTheSixBuiltinProfiles(t *testing.T) {
 	}
 }
 
-func TestOriginalFallbackIsRejectedOnOriginalLanguageProfiles(t *testing.T) {
-	s := newService(t)
-	_, err := s.Patch(context.Background(), "hd-original", profiles.Patch{OriginalFallback: yes()})
-	wantField(t, err, "original_fallback")
+func choice(c scoring.OriginalChoice) *scoring.OriginalChoice { return &c }
 
-	p, err := s.Patch(context.Background(), "hd-primary", profiles.Patch{OriginalFallback: yes()})
-	if err != nil || !p.OriginalFallback {
-		t.Fatalf("Primary-Language fallback: %+v, %v", p, err)
+func TestOriginalLanguageChoiceIsRejectedOnOriginalLanguageProfiles(t *testing.T) {
+	s := newService(t)
+	for _, c := range []scoring.OriginalChoice{scoring.OriginalOffer, scoring.OriginalAccept} {
+		_, err := s.Patch(context.Background(), "hd-original", profiles.Patch{OriginalLanguage: choice(c)})
+		wantField(t, err, "original_language")
 	}
-	if !byKey(t, s)["hd-primary"].OriginalFallback {
-		t.Error("fallback not stored")
+	if _, err := s.Patch(context.Background(), "hd-original", profiles.Patch{OriginalLanguage: choice(scoring.OriginalReject)}); err != nil {
+		t.Errorf("reject on an Original-Language Profile: %v", err)
+	}
+	_, err := s.Patch(context.Background(), "hd-primary", profiles.Patch{OriginalLanguage: choice("maybe")})
+	wantField(t, err, "original_language")
+
+	for _, c := range []scoring.OriginalChoice{scoring.OriginalOffer, scoring.OriginalAccept, scoring.OriginalReject} {
+		p, err := s.Patch(context.Background(), "hd-primary", profiles.Patch{OriginalLanguage: choice(c)})
+		if err != nil || p.OriginalLanguage != c {
+			t.Fatalf("Primary-Language %s: %+v, %v", c, p, err)
+		}
+		if got := byKey(t, s)["hd-primary"].OriginalLanguage; got != c {
+			t.Errorf("stored %q, want %q", got, c)
+		}
 	}
 }
 
@@ -204,14 +215,14 @@ func TestADisabledProfileCannotBeADefault(t *testing.T) {
 	}
 }
 
-func TestOriginalFallbackIsKeptWhenDisabling(t *testing.T) {
+func TestOriginalLanguageChoiceIsKeptWhenDisabling(t *testing.T) {
 	s := newService(t)
 	ctx := context.Background()
-	if _, err := s.Patch(ctx, "4k-primary", profiles.Patch{OriginalFallback: yes()}); err != nil {
+	if _, err := s.Patch(ctx, "4k-primary", profiles.Patch{OriginalLanguage: choice(scoring.OriginalOffer)}); err != nil {
 		t.Fatal(err)
 	}
 	p, err := s.Patch(ctx, "4k-primary", profiles.Patch{Enabled: no()})
-	if err != nil || !p.OriginalFallback {
+	if err != nil || p.OriginalLanguage != scoring.OriginalOffer {
 		t.Fatalf("%+v, %v", p, err)
 	}
 }
@@ -298,7 +309,7 @@ func TestChangingThePrimaryLanguageRepointsTheSixProfiles(t *testing.T) {
 func TestRepointKeepsProfileSettings(t *testing.T) {
 	s := newService(t)
 	ctx := context.Background()
-	if _, err := s.Patch(ctx, "hd-primary", profiles.Patch{OriginalFallback: yes()}); err != nil {
+	if _, err := s.Patch(ctx, "hd-primary", profiles.Patch{OriginalLanguage: choice(scoring.OriginalAccept)}); err != nil {
 		t.Fatal(err)
 	}
 	fr := profiles.French
@@ -306,7 +317,7 @@ func TestRepointKeepsProfileSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := byKey(t, s)["hd-primary"]
-	if !p.OriginalFallback || !p.DefaultMovies || !p.Enabled {
+	if p.OriginalLanguage != scoring.OriginalAccept || !p.DefaultMovies || !p.Enabled {
 		t.Errorf("settings lost on re-point: %+v", p)
 	}
 }

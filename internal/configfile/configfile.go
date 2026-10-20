@@ -63,10 +63,25 @@ type RootFolders struct {
 
 // Profile is one Profile's declared settings. A nil field is one the file left out.
 type Profile struct {
-	Enabled          *bool `yaml:"enabled"`
-	OriginalFallback *bool `yaml:"original_fallback"`
-	DefaultMovies    *bool `yaml:"default_movies"`
-	DefaultSeries    *bool `yaml:"default_series"`
+	Enabled *bool `yaml:"enabled"`
+	// OriginalLanguage is reject, offer or accept (#103). The deprecated
+	// OriginalFallback stands in for it: true is accept, false reject.
+	OriginalLanguage *string `yaml:"original_language"`
+	OriginalFallback *bool   `yaml:"original_fallback"`
+	DefaultMovies    *bool   `yaml:"default_movies"`
+	DefaultSeries    *bool   `yaml:"default_series"`
+}
+
+// OriginalChoice is the declared original_language, else what the deprecated
+// original_fallback says. Only meaningful once Load has checked the Profile.
+func (p Profile) OriginalChoice() string {
+	switch {
+	case p.OriginalLanguage != nil:
+		return *p.OriginalLanguage
+	case p.OriginalFallback != nil && *p.OriginalFallback:
+		return "accept"
+	}
+	return "reject"
 }
 
 // PluginInstance is one declared plugin instance. Config is kept as YAML: its
@@ -235,7 +250,7 @@ func (f *File) complete() error {
 	for _, key := range slices.Sorted(maps.Keys(f.Profiles)) {
 		p, field := f.Profiles[key], "profiles."+key+"."
 		need(p.Enabled != nil, field+"enabled")
-		need(p.OriginalFallback != nil, field+"original_fallback")
+		need(p.OriginalLanguage != nil || p.OriginalFallback != nil, field+"original_language")
 		need(p.DefaultMovies != nil, field+"default_movies")
 		need(p.DefaultSeries != nil, field+"default_series")
 	}
@@ -246,6 +261,12 @@ func (f *File) complete() error {
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("%s: required in a declared section", strings.Join(missing, ", "))
+	}
+	for _, key := range slices.Sorted(maps.Keys(f.Profiles)) {
+		p := f.Profiles[key]
+		if p.OriginalLanguage != nil && p.OriginalFallback != nil && *p.OriginalFallback != (*p.OriginalLanguage == "accept") {
+			return fmt.Errorf("profiles.%s.original_language: disagrees with original_fallback; declare original_language only", key)
+		}
 	}
 	seen := map[string]bool{}
 	for i, p := range f.PluginInstances {

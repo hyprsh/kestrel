@@ -176,6 +176,9 @@ func (s *Service) AdoptMovie(ctx context.Context, a AdoptMovie) (int64, []File, 
 				return 0, nil, err
 			}
 		}
+		if err := markOriginal(ctx, q, fileID, f.Original); err != nil {
+			return 0, nil, err
+		}
 	}
 	return id, replaced, tx.Commit()
 }

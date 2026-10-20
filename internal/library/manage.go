@@ -56,10 +56,15 @@ func (s *Service) FilesOfVersion(ctx context.Context, versionID int64) ([]File, 
 	if err != nil {
 		return nil, err
 	}
+	originals, err := originalSet(ctx, q)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]File, len(rows))
 	for i, r := range rows {
 		out[i] = fileOf(r)
 		out[i].Misfit = misfits[r.ID]
+		out[i].Original = originals[r.ID]
 	}
 	return out, nil
 }
@@ -89,12 +94,13 @@ func (s *Service) SetProfile(ctx context.Context, versionID int64, profile strin
 	return tx.Commit()
 }
 
-// Rescored is a file's new Score under its Version's new Profile and whether it
-// still fits.
+// Rescored is a file's new Score under its Version's new Profile, whether it
+// still fits and whether it is an Original (see File).
 type Rescored struct {
-	FileID int64
-	Score  int
-	Misfit bool
+	FileID   int64
+	Score    int
+	Misfit   bool
+	Original bool
 }
 
 // ApplyRescore stores the new Score of files and flags or clears their misfit
@@ -116,6 +122,9 @@ func (s *Service) ApplyRescore(ctx context.Context, rs []Rescored) error {
 			err = q.ClearMisfit(ctx, r.FileID)
 		}
 		if err != nil {
+			return err
+		}
+		if err := markOriginal(ctx, q, r.FileID, r.Original); err != nil {
 			return err
 		}
 	}

@@ -380,6 +380,9 @@ func (s *server) GetTitle(ctx context.Context, r oapi.GetTitleRequestObject) (oa
 	if err := s.origins(ctx, &out); err != nil {
 		return nil, err
 	}
+	if err := s.withOffers(ctx, &out); err != nil {
+		return nil, err
+	}
 	return oapi.GetTitle200JSONResponse(out), nil
 }
 

@@ -218,6 +218,9 @@ func (s *server) GetAttention(ctx context.Context, _ oapi.GetAttentionRequestObj
 		return nil, err
 	}
 	out.LongMissing = lm
+	if out.Originals, err = s.originals(ctx); err != nil {
+		return nil, err
+	}
 	return oapi.GetAttention200JSONResponse(out), nil
 }
 

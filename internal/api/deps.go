@@ -150,6 +150,11 @@ type Acquire interface {
 	StartSearch(ctx context.Context, versionID int64, scope library.Scope) error
 	// BlockGrab puts a Grab's Release on the Blocklist (a deleted file's).
 	BlockGrab(ctx context.Context, grabID int64, reason string) error
+	// Original Offers: every one, a Title's by Version, and the two actions on one.
+	Offers(ctx context.Context) ([]acquire.Offer, error)
+	OffersOfTitle(ctx context.Context, titleID int64) (map[int64]acquire.Offer, error)
+	AcceptOffer(ctx context.Context, versionID int64) (acquire.Accepted, error)
+	DismissOffer(ctx context.Context, versionID int64) error
 }
 
 // Requests is Request records and their semantics.

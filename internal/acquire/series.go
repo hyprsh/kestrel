@@ -188,7 +188,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 			}
 			u := Unit{Ref: EpisodeRef{ep.Season, ep.Number}}
 			if upgrade {
-				h := Held{Fits: true}
+				h := Held{Fits: true, Original: cell.File != nil && cell.File.Original}
 				if cell.Score != nil {
 					h.Score = *cell.Score
 				}
@@ -263,6 +263,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 		}
 		out.Grabbed = append(out.Grabbed, g)
 	}
+	errs = append(errs, s.noteOffers(ctx, d, versionOf, in, entries, episodes))
 	return out, errors.Join(errs...)
 }
 
