@@ -1,29 +1,25 @@
 ---
 name: release
-description: Release Kestrel. Curates the open release-please PR's notes (a description, upgrade steps and user-facing changes), then merges it and checks the published release. Use when the user says to release, cut or ship a version.
+description: Release Kestrel. Picks the next version, writes the notes (a description, upgrade steps and user-facing changes) into CHANGELOG.md and publishes the GitHub release, then checks the published assets. Use when the user says to release, cut or ship a version.
 ---
 
-The user decides when to release; you write the notes and ship. Their request to release is the go-ahead to merge.
+The user decides when to release; you pick the version, write the notes and publish. Their request to release is the go-ahead to merge the changelog and publish.
 
-release-please keeps one release PR open (label `autorelease: pending`, branch `release-please--branches--main--components--kestrel`, title `chore(main): release X.Y.Z`). On merge it creates the `vX.Y.Z` tag and GitHub release **from the PR description**: the notes are the text between its first and last `---` lines. The header and footer around them come from `release-please-config.json`.
+Publishing a `vX.Y.Z` GitHub release starts `.github/workflows/release.yml`, which attaches the Silo assets and pushes the image. Nothing else releases Kestrel.
 
 ## Steps
 
-1. **Find the release PR.** `gh pr list --label "autorelease: pending" --state open`. No PR: tell the user there is nothing unreleased and stop. Done when you have its number and version.
+1. **Gather every change since the last release.** The last tag is `gh release view --json tagName -q .tagName`. Read `git log <tag>..origin/main`, the PRs merged since then, and the issues they close. No `feat`, `fix`, `perf` or breaking commit and no version named by the user: tell the user there is nothing to release and stop. Done when you know, for each `feat`, `fix`, `perf` and breaking commit, what a person running Kestrel sees change.
 
-2. **Gather every change since the last release.** The last tag is `gh release view --json tagName -q .tagName`. Read `git log <tag>..origin/main`, the PRs merged since then, and the issues they close. Read the generated notes in the PR description: they are your checklist. Done when you know, for each `feat`, `fix`, `perf` and breaking commit, what a person running Kestrel sees change.
+2. **Pick the version.** A version the user names wins. Otherwise bump the last tag: while Kestrel is 0.x, a breaking change or a `feat` bumps the minor (0.3.0 → 0.4.0), and `fix` or `perf` alone bumps the patch (0.3.0 → 0.3.1). From 1.0 on, a breaking change bumps the major.
 
-3. **Write the notes** by the rules under [Notes](#notes). Done when every `feat`, `fix`, `perf` and breaking commit is covered by a bullet or left out by one of those rules.
+3. **Write the notes** by the rules under [Notes](#notes), into a file outside the repo. Done when every `feat`, `fix`, `perf` and breaking commit is covered by a bullet or left out by one of those rules.
 
-4. **Put the notes in both places.**
-   - `CHANGELOG.md` on the release branch: replace the top entry (its `## [X.Y.Z]` heading down to the next `## [` heading) with the notes. Commit as `chore(main): curate the X.Y.Z release notes` and push to the release branch.
-   - The PR description: keep the header and footer, and replace everything between the first and last `---` lines with the notes (`gh pr edit <n> --body-file`).
+4. **Merge the changelog.** On a branch `chore/release-X.Y.Z` from `origin/main`, put the notes at the top of `CHANGELOG.md`, above the newest `## [` entry. Commit as `chore(release): X.Y.Z`, push, and open a PR with that title and the notes as its description. Wait for its checks (`gh pr checks <n> --watch`) and merge with `gh pr merge <n> --squash --subject "chore(release): X.Y.Z" --body ""`. Done when the PR is merged and you have the merge commit's SHA.
 
-   Done when `gh pr view <n> --json body` shows the notes between the delimiters, starting with the version heading.
+5. **Publish.** `gh release create vX.Y.Z --target <merge SHA> --title vX.Y.Z --notes-file <notes>`. This creates the tag and starts the Release workflow.
 
-5. **Merge.** Wait for the PR's checks to pass (`gh pr checks <n> --watch`). Re-read the description first: a push to `main` makes release-please rebuild it, and then you redo step 4. Merge with `gh pr merge <n> --squash --subject "chore(main): release X.Y.Z" --body ""`.
-
-6. **Verify the release.** Watch the Release workflow run for the merge commit (`gh run list --workflow release.yml --branch main`, then `gh run watch`). Done when both of its jobs, `release-please` and `publish`, are green and `gh release view vX.Y.Z` shows your notes and the assets. If the notes differ, set them with `gh release edit vX.Y.Z --notes-file`.
+6. **Verify.** Watch the Release workflow's run for the tag (`gh run list --workflow release.yml`, then `gh run watch`). Done when its `publish` job is green and `gh release view vX.Y.Z` shows your notes and six assets: the three `kestrel-silo-*` binaries, `checksums.txt`, `silo-repository.json` and `THIRD_PARTY_NOTICES.md`.
 
 Report the version, the release URL and the description.
 
@@ -55,7 +51,7 @@ Report the version, the release URL and the description.
 ### Other Changes
 ```
 
-- **Heading:** copy the generated version heading exactly. release-please reads the version from it.
+- **Heading:** the new version, a compare link from the last tag, and today's date.
 - **Description:** lead with the change a user would upgrade for, in plain words. Link the README section or ADR that explains it.
 - **Upgrade Steps:** concrete steps beyond `docker compose pull`, such as a new environment variable, a compose change or a manual migration. Also say when upgrading fixes a known problem in older releases.
 - **New Features:** say when to use the feature and any caveats.
@@ -63,5 +59,4 @@ Report the version, the release URL and the description.
 - **Left out:** fixes for bugs introduced since the last release, and refactors, tests, CI and docs that a user wouldn't notice.
 - **Other Changes:** only what a user notices and fits no other section.
 - **Sections:** use only the ones that have bullets, in the order above.
-- **Delimiters:** a line that is exactly `---` ends the notes, so the notes never contain one.
 - **Attribution:** the notes end with the last bullet.

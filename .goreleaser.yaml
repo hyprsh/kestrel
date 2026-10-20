@@ -1,7 +1,7 @@
-# GoReleaser builds what release-please's release carries: the Silo plugin
-# binaries, checksums, silo-repository.json and the third-party notices.
-# release-please creates the GitHub release and its changelog; GoReleaser only
-# attaches to it (mode: keep-existing). The multi-arch image on
+# GoReleaser builds what a Kestrel release carries: the Silo plugin binaries,
+# checksums, silo-repository.json and the third-party notices. The release
+# skill creates the GitHub release and its notes; GoReleaser only attaches to
+# it (mode: keep-existing). The multi-arch image on
 # ghcr.io/hyprsh/kestrel is built from the Dockerfile by the release workflow
 # (docker buildx), because the Dockerfile builds the SPA and the binary itself,
 # which GoReleaser's docker pipe, with its prebuilt-binary context, cannot do.
@@ -41,13 +41,13 @@ checksum:
   name_template: checksums.txt
   algorithm: sha256
 
-# release-please made the release and wrote its notes; add the assets only.
+# The release skill made the release and wrote its notes; add the assets only.
 release:
   mode: keep-existing
   extra_files:
     - glob: release-assets/silo-repository.json
     - glob: internal/notices/THIRD_PARTY_NOTICES.md
 
-# release-please owns the changelog.
+# The release skill writes CHANGELOG.md and the release notes.
 changelog:
   disable: true
