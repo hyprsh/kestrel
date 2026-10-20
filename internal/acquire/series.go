@@ -238,8 +238,12 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 		}
 	}
 
+	plans, err := s.decide(ctx, in)
+	if err != nil {
+		return out, err
+	}
 	var errs []error
-	for _, plan := range s.decide(in) {
+	for _, plan := range plans {
 		e := entries[entryKey(plan.Candidate)]
 		ids, _ := coveredBy(e.cand.Parsed, episodes, plan.Slot)
 		ids = onlyPlanned(ids, plan.Covers, episodes)

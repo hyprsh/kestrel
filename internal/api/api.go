@@ -72,7 +72,7 @@ func New(opts Options, d Deps) http.Handler {
 	}
 	s := &server{
 		opts: opts, auth: newAuth(opts.Store, opts.Clock, opts.BaseURL, cost, opts.APIKey), hub: newHub(),
-		plugins: d.Plugins, profiles: d.Profiles, rootFolders: d.RootFolders, settings: d.Settings, updates: d.Updates,
+		plugins: d.Plugins, profiles: d.Profiles, rootFolders: d.RootFolders, settings: d.Settings, pause: d.Pause, updates: d.Updates,
 		library: d.Library, acquire: d.Acquire, requests: d.Requests, adoption: d.Adoption, cleanup: d.Cleanup,
 		remover: d.Remover, imports: d.Imports, jobs: d.Jobs, refresher: d.Refresher, indexers: d.Indexers,
 		health: d.Health, history: d.History, scoring: d.Scoring, trash: d.Trash, keys: d.Keys, meta: d.Meta, tvdb: d.TVDB,
@@ -126,6 +126,7 @@ type server struct {
 	profiles    Profiles
 	rootFolders RootFolders
 	settings    SettingsTx
+	pause       GrabPause
 	updates     Updates
 	library     Library
 	acquire     Acquire

@@ -1,11 +1,13 @@
-import { Eraser, FolderInput, Plus } from 'lucide-react'
+import { CheckSquare, Eraser, FolderInput, Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTitles, type TitleRow } from '../api/queries'
 import { useOpenCleanup } from '../cleanup/launch'
 import { Button } from '../forms'
 import { useKey, useListNav } from '../keys'
+import { SelectBox, SelectionBar, useSelection } from '../selection'
 import { cx, Kbd } from '../ui'
 import { KindIcon, SlotDots } from './bits'
+import { BulkActions } from './BulkActions'
 import { ManualSearch } from './ManualSearch'
 import { slotLabel } from './bits'
 import { TitleDetail, type ManualSearchTarget } from './TitleDetail'
@@ -34,7 +36,9 @@ function matches(r: TitleRow, text: string): boolean {
 /**
  * The Library: a filterable list on the left and the selected Title on the
  * right. Everything is reachable from the keyboard: j/k and the arrows move,
- * Enter steps into the detail, Escape steps back, `/` filters.
+ * Enter steps into the detail, Escape steps back, `/` filters, x ticks the
+ * Title under the cursor. While Titles are ticked, the right pane holds the
+ * actions that change them together, and Escape clears the ticks.
  */
 const toolButton = 'flex h-6 items-center gap-1 rounded-md px-2 text-[12px] font-medium text-gray-900 hover:bg-gray-alpha-100 hover:text-gray-1000'
 
@@ -79,6 +83,8 @@ export function Library({
       return a.wanted_since.localeCompare(b.wanted_since)
     })
   }, [all, kind, text, wanted, longMissing, byWantedSince])
+  const ids = useMemo(() => rows.map((r) => r.id), [rows])
+  const selection = useSelection(ids)
   const index = Math.max(0, rows.findIndex((r) => r.id === selectedId)) // the first row until something is picked
   const current = rows[index] as TitleRow | undefined
   // A manual search replaces the detail pane; picking another Title in the list closes it.
@@ -96,6 +102,7 @@ export function Library({
     },
     !searching,
   )
+  useKey('x', () => current && selection.toggle(current.id), !searching)
 
   const empty = titles.isSuccess && all.length === 0
   return (
@@ -110,6 +117,15 @@ export function Library({
             <button onClick={() => openCleanup()} aria-label="Clean up Unmanaged files" title="Clean up Unmanaged files" className={toolButton}>
               <Eraser className="size-3.5" />
               Clean up
+            </button>
+            <button
+              onClick={() => (selection.active ? selection.clear() : selection.setActive(true))}
+              aria-pressed={selection.active}
+              title="Tick Titles to change together (x)"
+              className={cx(toolButton, selection.active && 'bg-gray-alpha-200 text-gray-1000')}
+            >
+              <CheckSquare className="size-3.5" />
+              Tick
             </button>
           </div>
           <div className="relative">
@@ -192,6 +208,7 @@ export function Library({
               Sort by Wanted since
             </button>
           </div>
+          <SelectionBar selection={selection} shown={rows.length} />
         </div>
 
         <div
@@ -215,6 +232,7 @@ export function Library({
               }}
               className={cx('flex cursor-default items-center gap-2 rounded-md px-2 py-1.5', i === index ? 'bg-gray-alpha-200' : 'hover:bg-gray-alpha-100')}
             >
+              {selection.active && <SelectBox selection={selection} id={r.id} name={r.title} />}
               <KindIcon kind={r.kind} className="shrink-0 text-gray-900" />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[13px] font-medium">
@@ -235,7 +253,7 @@ export function Library({
         <footer className="flex items-center justify-between border-t border-gray-alpha-400 px-3 py-2 text-[12px] text-gray-900">
           <span className="flex items-center gap-1">
             <Kbd>j</Kbd>
-            <Kbd>k</Kbd> move
+            <Kbd>k</Kbd> move <Kbd>x</Kbd> tick
           </span>
           <span>
             {rows.length} of {all.length}
@@ -243,7 +261,9 @@ export function Library({
         </footer>
       </aside>
 
-      {current && searching ? (
+      {selection.count > 0 ? (
+        <BulkActions rows={rows.filter((r) => selection.has(r.id))} />
+      ) : current && searching ? (
         <ManualSearch
           key={search.versionId}
           titleName={current.title}

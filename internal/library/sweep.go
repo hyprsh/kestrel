@@ -386,25 +386,74 @@ func (s *Service) MarkUpgradeSearched(ctx context.Context, versionID int64, at t
 // SearchAllWanted makes every Wanted row due now ("Search all Wanted") and
 // returns how many Versions that is; the caller kicks the sweep.
 func (s *Service) SearchAllWanted(ctx context.Context) (int, error) {
-	now := s.clock()
-	rows, err := s.sweepRows(ctx, now)
+	versions, err := s.searchWanted(ctx, func(int64) bool { return true })
 	if err != nil {
 		return 0, err
 	}
+	n := 0
+	for _, vs := range versions {
+		n += len(vs)
+	}
+	return n, nil
+}
+
+// SearchAfterPause makes due now what the sweep searched while Grabs were
+// paused, since `since`, so the next sweep can grab it: every Wanted row and
+// every Upgrade search made since then. The caller kicks the sweep.
+func (s *Service) SearchAfterPause(ctx context.Context, since time.Time) error {
+	if _, err := s.SearchAllWanted(ctx); err != nil {
+		return err
+	}
+	return db.New(s.st.Write()).SetUpgradesDueSince(ctx, db.SetUpgradesDueSinceParams{
+		NextUpgradeAt: sql.NullString{String: ts(s.clock()), Valid: true},
+		LastUpgradeAt: sql.NullString{String: ts(since), Valid: true},
+	})
+}
+
+// SearchWanted makes the Wanted rows of the given Titles due now and returns,
+// per Title, how many of its Versions that is; a Title with nothing Wanted is
+// left out. The caller kicks the sweep.
+func (s *Service) SearchWanted(ctx context.Context, titleIDs []int64) (map[int64]int, error) {
+	want := make(map[int64]bool, len(titleIDs))
+	for _, id := range titleIDs {
+		want[id] = true
+	}
+	versions, err := s.searchWanted(ctx, func(id int64) bool { return want[id] })
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[int64]int, len(versions))
+	for id, vs := range versions {
+		out[id] = len(vs)
+	}
+	return out, nil
+}
+
+// searchWanted makes the Wanted rows of the Titles that pass due now and
+// returns the Versions it touched by Title.
+func (s *Service) searchWanted(ctx context.Context, title func(int64) bool) (map[int64]map[int64]bool, error) {
+	now := s.clock()
+	rows, err := s.sweepRows(ctx, now)
+	if err != nil {
+		return nil, err
+	}
 	q := db.New(s.st.Write())
-	versions := map[int64]bool{}
+	versions := map[int64]map[int64]bool{}
 	for _, r := range rows {
-		if !r.wanted {
+		if !r.wanted || !title(r.titleID) {
 			continue
 		}
 		if err := q.SetSearchStateNextMissing(ctx, db.SetSearchStateNextMissingParams{
 			NextMissingAt: sql.NullString{String: ts(now), Valid: true}, ID: r.id,
 		}); err != nil {
-			return 0, err
+			return nil, err
 		}
-		versions[r.versionID] = true
+		if versions[r.titleID] == nil {
+			versions[r.titleID] = map[int64]bool{}
+		}
+		versions[r.titleID][r.versionID] = true
 	}
-	return len(versions), nil
+	return versions, nil
 }
 
 // LongMissingItem is a Version that has been Wanted for more than LongMissingAfter.

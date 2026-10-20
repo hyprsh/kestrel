@@ -1,17 +1,12 @@
 import { forwardRef } from 'react'
 import { apiBaseUrl } from '../api/client'
-import { useProfiles, useTitle, type Profile, type TitleDetail as Detail, type TitleRow } from '../api/queries'
+import { ApiError, useProfiles, useSetMovieMonitored, useTitle, type Profile, type TitleDetail as Detail, type TitleRow } from '../api/queries'
 import { useOpenCleanup } from '../cleanup/launch'
-import { Button } from '../forms'
+import { Button, ErrorText } from '../forms'
 import { cx } from '../ui'
-import { slotKeys, slotLabel, StatusBadge, type SlotKey } from './bits'
+import { size, slotKeys, slotLabel, StatusBadge, type SlotKey } from './bits'
 import { AddVersion, RemoveTitle, VersionControls } from './ManageVersion'
 import { SeriesSection } from './SeriesSection'
-
-function size(bytes: number): string {
-  const gb = bytes / 1024 ** 3
-  return gb >= 1 ? `${gb.toFixed(1)} GB` : `${Math.round(bytes / 1024 ** 2)} MB`
-}
 
 /** The right pane of the Library: the selected Title's header and its Standard | 4K Versions strip. */
 export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: () => void; onManualSearch: (search: ManualSearchTarget) => void }>(function TitleDetail(
@@ -79,6 +74,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
             </div>
           ))}
           {title.overview && <p className="mt-3 max-w-prose text-gray-900">{title.overview}</p>}
+          {title.kind === 'movie' && <MovieMonitored title={title} />}
         </div>
       </div>
 
@@ -95,6 +91,30 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
         </Button>
       </div>
       <RemoveTitle titleId={title.id} />
+    </div>
+  )
+}
+
+/** A Movie's Monitored switch: off, the Movie is never searched, grabbed or upgraded automatically. */
+function MovieMonitored({ title }: { title: Detail }) {
+  const set = useSetMovieMonitored(title.id)
+  const hint = `title-${title.id}-monitored-hint`
+  return (
+    <div className="mt-3">
+      <label className="flex items-center gap-2 text-[13px]">
+        <input
+          type="checkbox"
+          checked={title.monitored}
+          disabled={set.isPending}
+          aria-describedby={hint}
+          onChange={(e) => set.mutate(e.target.checked)}
+        />
+        Monitored
+      </label>
+      <p id={hint} className="mt-0.5 pl-5 text-[12px] text-gray-900">
+        {title.monitored ? 'Kestrel searches for this Movie and upgrades its files.' : 'Kestrel leaves this Movie as it is: no searches, Grabs or Upgrades.'}
+      </p>
+      {set.isError && <ErrorText>{set.error instanceof ApiError ? set.error.message : 'Could not change monitoring.'}</ErrorText>}
     </div>
   )
 }

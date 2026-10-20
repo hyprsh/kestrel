@@ -23,7 +23,8 @@ export class ApiError extends Error {
 
 type Problem = { code?: string; detail?: string; title?: string; errors?: { field: string; code: string; message: string }[] } | undefined
 
-function failure(error: unknown, response: Response): ApiError {
+/** The ApiError for a failed response: its Problem code, message, Retry-After and field errors. */
+export function failure(error: unknown, response: Response): ApiError {
   const p = error as Problem
   const retry = Number(response.headers.get('Retry-After'))
   return new ApiError(p?.code ?? 'internal', response.status, p?.detail ?? p?.title ?? 'Request failed', retry > 0 ? retry : undefined, p?.errors ?? [])
@@ -390,8 +391,8 @@ export function useEpisodes(titleId: number, enabled = true) {
   })
 }
 
-/** Runs a monitoring change on a Series, then reloads it, its episodes and the list. */
-function useSeriesMutation<V>(run: (v: V) => Promise<{ error?: unknown; response: Response }>) {
+/** Runs a monitoring change on a Title, then reloads it, a Series' episodes and the list. */
+function useMonitorMutation<V>(run: (v: V) => Promise<{ error?: unknown; response: Response }>) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (v: V) => {
@@ -403,17 +404,21 @@ function useSeriesMutation<V>(run: (v: V) => Promise<{ error?: unknown; response
 }
 
 export const usePatchSeason = (titleId: number) =>
-  useSeriesMutation(({ season, monitored }: { season: number; monitored: boolean }) =>
+  useMonitorMutation(({ season, monitored }: { season: number; monitored: boolean }) =>
     api.PATCH('/titles/{id}/seasons/{season}', { params: { path: { id: titleId, season } }, body: { monitored } }),
   )
 
 export const useMonitorEpisodes = (titleId: number) =>
-  useSeriesMutation(({ ids, monitored }: { ids: number[]; monitored: boolean }) =>
+  useMonitorMutation(({ ids, monitored }: { ids: number[]; monitored: boolean }) =>
     api.POST('/titles/{id}/episodes/monitor', { params: { path: { id: titleId } }, body: { episode_ids: ids, monitored } }),
   )
 
+/** Monitors or unmonitors a Movie; a Series uses its monitoring mode instead. */
+export const useSetMovieMonitored = (titleId: number) =>
+  useMonitorMutation((monitored: boolean) => api.PATCH('/titles/{id}', { params: { path: { id: titleId } }, body: { monitored } }))
+
 export const useSetSeriesMonitor = (titleId: number) =>
-  useSeriesMutation((mode: SeriesMonitor) => api.PATCH('/titles/{id}', { params: { path: { id: titleId } }, body: { series_monitor: mode } }))
+  useMonitorMutation((mode: SeriesMonitor) => api.PATCH('/titles/{id}', { params: { path: { id: titleId } }, body: { series_monitor: mode } }))
 
 // ---- setup progress ----
 

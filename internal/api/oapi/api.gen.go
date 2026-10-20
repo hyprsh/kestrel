@@ -703,6 +703,63 @@ func (e SuggestedSlotReason) Valid() bool {
 	}
 }
 
+// Defines values for TitleBulkOutcomeOutcome.
+const (
+	TitleBulkOutcomeOutcomeChanged TitleBulkOutcomeOutcome = "changed"
+	TitleBulkOutcomeOutcomeFailed  TitleBulkOutcomeOutcome = "failed"
+	TitleBulkOutcomeOutcomeSkipped TitleBulkOutcomeOutcome = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the TitleBulkOutcomeOutcome enum.
+func (e TitleBulkOutcomeOutcome) Valid() bool {
+	switch e {
+	case TitleBulkOutcomeOutcomeChanged:
+		return true
+	case TitleBulkOutcomeOutcomeFailed:
+		return true
+	case TitleBulkOutcomeOutcomeSkipped:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TitleBulkOutcomeReason.
+const (
+	DownloadClient TitleBulkOutcomeReason = "download_client"
+	Frozen         TitleBulkOutcomeReason = "frozen"
+	Internal       TitleBulkOutcomeReason = "internal"
+	NoVersion      TitleBulkOutcomeReason = "no_version"
+	NotFound       TitleBulkOutcomeReason = "not_found"
+	NothingWanted  TitleBulkOutcomeReason = "nothing_wanted"
+	SlotTaken      TitleBulkOutcomeReason = "slot_taken"
+	Unchanged      TitleBulkOutcomeReason = "unchanged"
+)
+
+// Valid indicates whether the value is a known member of the TitleBulkOutcomeReason enum.
+func (e TitleBulkOutcomeReason) Valid() bool {
+	switch e {
+	case DownloadClient:
+		return true
+	case Frozen:
+		return true
+	case Internal:
+		return true
+	case NoVersion:
+		return true
+	case NotFound:
+		return true
+	case NothingWanted:
+		return true
+	case SlotTaken:
+		return true
+	case Unchanged:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TitleKind.
 const (
 	Movie  TitleKind = "movie"
@@ -715,6 +772,126 @@ func (e TitleKind) Valid() bool {
 	case Movie:
 		return true
 	case Series:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TitlesBulkAddVersionAction.
+const (
+	AddVersion TitlesBulkAddVersionAction = "add_version"
+)
+
+// Valid indicates whether the value is a known member of the TitlesBulkAddVersionAction enum.
+func (e TitlesBulkAddVersionAction) Valid() bool {
+	switch e {
+	case AddVersion:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TitlesBulkFreezeAction.
+const (
+	Freeze TitlesBulkFreezeAction = "freeze"
+)
+
+// Valid indicates whether the value is a known member of the TitlesBulkFreezeAction enum.
+func (e TitlesBulkFreezeAction) Valid() bool {
+	switch e {
+	case Freeze:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TitlesBulkMonitorAction.
+const (
+	Monitor TitlesBulkMonitorAction = "monitor"
+)
+
+// Valid indicates whether the value is a known member of the TitlesBulkMonitorAction enum.
+func (e TitlesBulkMonitorAction) Valid() bool {
+	switch e {
+	case Monitor:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TitlesBulkRefreshAction.
+const (
+	Refresh TitlesBulkRefreshAction = "refresh"
+)
+
+// Valid indicates whether the value is a known member of the TitlesBulkRefreshAction enum.
+func (e TitlesBulkRefreshAction) Valid() bool {
+	switch e {
+	case Refresh:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TitlesBulkRemoveAction.
+const (
+	Remove TitlesBulkRemoveAction = "remove"
+)
+
+// Valid indicates whether the value is a known member of the TitlesBulkRemoveAction enum.
+func (e TitlesBulkRemoveAction) Valid() bool {
+	switch e {
+	case Remove:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TitlesBulkRemoveVersionAction.
+const (
+	RemoveVersion TitlesBulkRemoveVersionAction = "remove_version"
+)
+
+// Valid indicates whether the value is a known member of the TitlesBulkRemoveVersionAction enum.
+func (e TitlesBulkRemoveVersionAction) Valid() bool {
+	switch e {
+	case RemoveVersion:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TitlesBulkSearchAction.
+const (
+	Search TitlesBulkSearchAction = "search"
+)
+
+// Valid indicates whether the value is a known member of the TitlesBulkSearchAction enum.
+func (e TitlesBulkSearchAction) Valid() bool {
+	switch e {
+	case Search:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TitlesBulkSwitchProfileAction.
+const (
+	SwitchProfile TitlesBulkSwitchProfileAction = "switch_profile"
+)
+
+// Valid indicates whether the value is a known member of the TitlesBulkSwitchProfileAction enum.
+func (e TitlesBulkSwitchProfileAction) Valid() bool {
+	switch e {
+	case SwitchProfile:
 		return true
 	default:
 		return false
@@ -1955,6 +2132,15 @@ type Settings struct {
 		TvdbApiKeySet bool `json:"tvdb_api_key_set"`
 	} `json:"metadata"`
 
+	// PauseGrabs "Pause Grabs" (default off). On, no automatic Grab is made: the sweep, RSS, the search on
+	// add and the retry after a failed download still search and score Releases, so Wanted and
+	// Upgrade candidates still show up, but send nothing to the download client. A Grab started
+	// by hand from a Version's Releases still goes through. Turning it off makes every Wanted
+	// Version, and every Upgrade search made while paused, due a search now, so the next sweep
+	// grabs as usual. The health strip shows it as
+	// `grabs_paused`.
+	PauseGrabs bool `json:"pause_grabs"`
+
 	// RootFolders Where Imports put Titles, one or more absolute paths per kind. The first is the default when
 	// adding a Title. Unsaved, they report `<data dir>/media/movies` and `<data dir>/media/tv`.
 	RootFolders RootFolders `json:"root_folders"`
@@ -1978,6 +2164,7 @@ type SettingsPatch struct {
 		TmdbApiKey *string `json:"tmdb_api_key,omitempty"`
 		TvdbApiKey *string `json:"tvdb_api_key,omitempty"`
 	} `json:"metadata,omitempty"`
+	PauseGrabs *bool `json:"pause_grabs,omitempty"`
 
 	// RootFolders Replaces the named lists. Each path must exist, be a directory and be writable
 	// (`not_found`, `not_directory`, `not_writable`, `not_absolute`, `required`).
@@ -2070,9 +2257,12 @@ type System struct {
 // SystemStatus defines model for SystemStatus.
 type SystemStatus struct {
 	// Disks The data mount first, then every Root folder.
-	Disks          []DiskStatus    `json:"disks"`
-	DownloadClient ClientStatus    `json:"download_client"`
-	Indexers       []IndexerStatus `json:"indexers"`
+	Disks          []DiskStatus `json:"disks"`
+	DownloadClient ClientStatus `json:"download_client"`
+
+	// GrabsPaused The "Pause Grabs" setting is on, so no automatic Grab is made.
+	GrabsPaused bool            `json:"grabs_paused"`
+	Indexers    []IndexerStatus `json:"indexers"`
 
 	// Trash The active TRaSH snapshot.
 	Trash struct {
@@ -2089,6 +2279,33 @@ type SystemStatus struct {
 	// Update A newer release exists. Absent when up to date or when the update check is off.
 	Update *UpdateAvailable `json:"update,omitempty"`
 }
+
+// TitleBulkOutcome defines model for TitleBulkOutcome.
+type TitleBulkOutcome struct {
+	// Message The reason in a sentence.
+	Message *string                 `json:"message"`
+	Outcome TitleBulkOutcomeOutcome `json:"outcome"`
+
+	// Reason Why the Title was skipped or failed, `null` when it changed. Skipped: `unchanged`, it
+	// already is as asked; `not_found`, there is no such Title; `no_version`, it has no Version
+	// in the Slot; `slot_taken`, the Slot already holds a Version; `nothing_wanted`, none of its
+	// Versions is Wanted; `frozen`, its metadata is frozen. Failed: `download_client`, the
+	// download client could not cancel the Title's download (`message` has what it said);
+	// `internal`, an unexpected error, which the log has.
+	Reason  *TitleBulkOutcomeReason `json:"reason"`
+	TitleId int64                   `json:"title_id"`
+}
+
+// TitleBulkOutcomeOutcome defines model for TitleBulkOutcome.Outcome.
+type TitleBulkOutcomeOutcome string
+
+// TitleBulkOutcomeReason Why the Title was skipped or failed, `null` when it changed. Skipped: `unchanged`, it
+// already is as asked; `not_found`, there is no such Title; `no_version`, it has no Version
+// in the Slot; `slot_taken`, the Slot already holds a Version; `nothing_wanted`, none of its
+// Versions is Wanted; `frozen`, its metadata is frozen. Failed: `download_client`, the
+// download client could not cancel the Title's download (`message` has what it said);
+// `internal`, an unexpected error, which the log has.
+type TitleBulkOutcomeReason string
 
 // TitleCreate defines model for TitleCreate.
 type TitleCreate struct {
@@ -2150,6 +2367,9 @@ type TitleDetail struct {
 	Year     *int            `json:"year"`
 }
 
+// TitleIds defines model for TitleIds.
+type TitleIds = []int64
+
 // TitleKind defines model for TitleKind.
 type TitleKind string
 
@@ -2159,9 +2379,12 @@ type TitleList struct {
 	NextCursor *string    `json:"next_cursor"`
 }
 
-// TitlePatch Merge patch. Only Series have a `series_monitor`.
+// TitlePatch Merge patch. Only Movies take `monitored`, only Series have a `series_monitor`.
 type TitlePatch struct {
 	MetadataFrozen *bool `json:"metadata_frozen,omitempty"`
+
+	// Monitored A Movie only; a Series is monitored through `series_monitor`.
+	Monitored *bool `json:"monitored,omitempty"`
 
 	// SeriesMonitor `all` monitors every episode, future ones and new seasons included; `future` the episodes airing
 	// today or later or without an air date, and new seasons; `none` nothing. Specials (season 0) are
@@ -2177,7 +2400,10 @@ type TitleRow struct {
 
 	// PrimaryTitle The title in the Primary Language; the English title when TMDB has no translation.
 	PrimaryTitle string `json:"primary_title"`
-	Slots        struct {
+
+	// Size Bytes the files of its Versions take on disk, 0 when it holds none.
+	Size  int64 `json:"size"`
+	Slots struct {
 		N4k      *SlotSummary `json:"4k"`
 		Standard *SlotSummary `json:"standard"`
 	} `json:"slots"`
@@ -2187,6 +2413,110 @@ type TitleRow struct {
 	WantedSince *time.Time `json:"wanted_since"`
 	Year        *int       `json:"year"`
 }
+
+// TitlesBulk One action over many Titles. `action` says which, and picks the parameters that go with it.
+type TitlesBulk struct {
+	union json.RawMessage
+}
+
+// TitlesBulkAddVersion defines model for TitlesBulkAddVersion.
+type TitlesBulkAddVersion struct {
+	Action TitlesBulkAddVersionAction `json:"action"`
+
+	// Profile The Profile key. It must be an enabled Profile of that Slot.
+	Profile  string   `json:"profile"`
+	Slot     Slot     `json:"slot"`
+	TitleIds TitleIds `json:"title_ids"`
+}
+
+// TitlesBulkAddVersionAction defines model for TitlesBulkAddVersion.Action.
+type TitlesBulkAddVersionAction string
+
+// TitlesBulkFreeze defines model for TitlesBulkFreeze.
+type TitlesBulkFreeze struct {
+	Action   TitlesBulkFreezeAction `json:"action"`
+	Frozen   bool                   `json:"frozen"`
+	TitleIds TitleIds               `json:"title_ids"`
+}
+
+// TitlesBulkFreezeAction defines model for TitlesBulkFreeze.Action.
+type TitlesBulkFreezeAction string
+
+// TitlesBulkMonitor defines model for TitlesBulkMonitor.
+type TitlesBulkMonitor struct {
+	Action    TitlesBulkMonitorAction `json:"action"`
+	Monitored bool                    `json:"monitored"`
+
+	// SeriesMonitor The mode monitored Series get. Left out, a Series already monitored keeps its mode and
+	// an unmonitored one gets `all`. With `monitored: true` it cannot be `none`, and with
+	// `monitored: false` it can only be `none`.
+	SeriesMonitor *SeriesMonitor `json:"series_monitor,omitempty"`
+	TitleIds      TitleIds       `json:"title_ids"`
+}
+
+// TitlesBulkMonitorAction defines model for TitlesBulkMonitor.Action.
+type TitlesBulkMonitorAction string
+
+// TitlesBulkRefresh defines model for TitlesBulkRefresh.
+type TitlesBulkRefresh struct {
+	Action   TitlesBulkRefreshAction `json:"action"`
+	TitleIds TitleIds                `json:"title_ids"`
+}
+
+// TitlesBulkRefreshAction defines model for TitlesBulkRefresh.Action.
+type TitlesBulkRefreshAction string
+
+// TitlesBulkRemove defines model for TitlesBulkRemove.
+type TitlesBulkRemove struct {
+	Action TitlesBulkRemoveAction `json:"action"`
+
+	// DeleteFiles Delete the files from disk too.
+	DeleteFiles *bool    `json:"delete_files,omitempty"`
+	TitleIds    TitleIds `json:"title_ids"`
+}
+
+// TitlesBulkRemoveAction defines model for TitlesBulkRemove.Action.
+type TitlesBulkRemoveAction string
+
+// TitlesBulkRemoveVersion defines model for TitlesBulkRemoveVersion.
+type TitlesBulkRemoveVersion struct {
+	Action TitlesBulkRemoveVersionAction `json:"action"`
+
+	// DeleteFiles Delete the files from disk too.
+	DeleteFiles *bool    `json:"delete_files,omitempty"`
+	Slot        Slot     `json:"slot"`
+	TitleIds    TitleIds `json:"title_ids"`
+}
+
+// TitlesBulkRemoveVersionAction defines model for TitlesBulkRemoveVersion.Action.
+type TitlesBulkRemoveVersionAction string
+
+// TitlesBulkResult defines model for TitlesBulkResult.
+type TitlesBulkResult struct {
+	Items []TitleBulkOutcome `json:"items"`
+}
+
+// TitlesBulkSearch defines model for TitlesBulkSearch.
+type TitlesBulkSearch struct {
+	Action   TitlesBulkSearchAction `json:"action"`
+	TitleIds TitleIds               `json:"title_ids"`
+}
+
+// TitlesBulkSearchAction defines model for TitlesBulkSearch.Action.
+type TitlesBulkSearchAction string
+
+// TitlesBulkSwitchProfile defines model for TitlesBulkSwitchProfile.
+type TitlesBulkSwitchProfile struct {
+	Action TitlesBulkSwitchProfileAction `json:"action"`
+
+	// Profile The Profile key. It must be an enabled Profile of that Slot.
+	Profile  string   `json:"profile"`
+	Slot     Slot     `json:"slot"`
+	TitleIds TitleIds `json:"title_ids"`
+}
+
+// TitlesBulkSwitchProfileAction defines model for TitlesBulkSwitchProfile.Action.
+type TitlesBulkSwitchProfileAction string
 
 // UntrustedProxyHeader defines model for UntrustedProxyHeader.
 type UntrustedProxyHeader struct {
@@ -2480,6 +2810,9 @@ type RetryStalledImportsJSONRequestBody = StalledImportsSelect
 // CreateTitleJSONRequestBody defines body for CreateTitle for application/json ContentType.
 type CreateTitleJSONRequestBody = TitleCreate
 
+// BulkTitlesJSONRequestBody defines body for BulkTitles for application/json ContentType.
+type BulkTitlesJSONRequestBody = TitlesBulk
+
 // PatchTitleJSONRequestBody defines body for PatchTitle for application/json ContentType.
 type PatchTitleJSONRequestBody = TitlePatch
 
@@ -2497,6 +2830,323 @@ type PatchVersionJSONRequestBody = VersionPatch
 
 // SearchVersionReleasesJSONRequestBody defines body for SearchVersionReleases for application/json ContentType.
 type SearchVersionReleasesJSONRequestBody = ReleaseSearch
+
+// AsTitlesBulkMonitor returns the union data inside the TitlesBulk as a TitlesBulkMonitor
+func (t TitlesBulk) AsTitlesBulkMonitor() (TitlesBulkMonitor, error) {
+	var body TitlesBulkMonitor
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTitlesBulkMonitor overwrites any union data inside the TitlesBulk as the provided TitlesBulkMonitor
+func (t *TitlesBulk) FromTitlesBulkMonitor(v TitlesBulkMonitor) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"action":"monitor"}`))
+	t.union = b
+	return err
+}
+
+// MergeTitlesBulkMonitor performs a merge with any union data inside the TitlesBulk, using the provided TitlesBulkMonitor
+func (t *TitlesBulk) MergeTitlesBulkMonitor(v TitlesBulkMonitor) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"action":"monitor"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTitlesBulkSwitchProfile returns the union data inside the TitlesBulk as a TitlesBulkSwitchProfile
+func (t TitlesBulk) AsTitlesBulkSwitchProfile() (TitlesBulkSwitchProfile, error) {
+	var body TitlesBulkSwitchProfile
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTitlesBulkSwitchProfile overwrites any union data inside the TitlesBulk as the provided TitlesBulkSwitchProfile
+func (t *TitlesBulk) FromTitlesBulkSwitchProfile(v TitlesBulkSwitchProfile) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"action":"switch_profile"}`))
+	t.union = b
+	return err
+}
+
+// MergeTitlesBulkSwitchProfile performs a merge with any union data inside the TitlesBulk, using the provided TitlesBulkSwitchProfile
+func (t *TitlesBulk) MergeTitlesBulkSwitchProfile(v TitlesBulkSwitchProfile) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"action":"switch_profile"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTitlesBulkAddVersion returns the union data inside the TitlesBulk as a TitlesBulkAddVersion
+func (t TitlesBulk) AsTitlesBulkAddVersion() (TitlesBulkAddVersion, error) {
+	var body TitlesBulkAddVersion
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTitlesBulkAddVersion overwrites any union data inside the TitlesBulk as the provided TitlesBulkAddVersion
+func (t *TitlesBulk) FromTitlesBulkAddVersion(v TitlesBulkAddVersion) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"action":"add_version"}`))
+	t.union = b
+	return err
+}
+
+// MergeTitlesBulkAddVersion performs a merge with any union data inside the TitlesBulk, using the provided TitlesBulkAddVersion
+func (t *TitlesBulk) MergeTitlesBulkAddVersion(v TitlesBulkAddVersion) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"action":"add_version"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTitlesBulkRemoveVersion returns the union data inside the TitlesBulk as a TitlesBulkRemoveVersion
+func (t TitlesBulk) AsTitlesBulkRemoveVersion() (TitlesBulkRemoveVersion, error) {
+	var body TitlesBulkRemoveVersion
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTitlesBulkRemoveVersion overwrites any union data inside the TitlesBulk as the provided TitlesBulkRemoveVersion
+func (t *TitlesBulk) FromTitlesBulkRemoveVersion(v TitlesBulkRemoveVersion) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"action":"remove_version"}`))
+	t.union = b
+	return err
+}
+
+// MergeTitlesBulkRemoveVersion performs a merge with any union data inside the TitlesBulk, using the provided TitlesBulkRemoveVersion
+func (t *TitlesBulk) MergeTitlesBulkRemoveVersion(v TitlesBulkRemoveVersion) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"action":"remove_version"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTitlesBulkSearch returns the union data inside the TitlesBulk as a TitlesBulkSearch
+func (t TitlesBulk) AsTitlesBulkSearch() (TitlesBulkSearch, error) {
+	var body TitlesBulkSearch
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTitlesBulkSearch overwrites any union data inside the TitlesBulk as the provided TitlesBulkSearch
+func (t *TitlesBulk) FromTitlesBulkSearch(v TitlesBulkSearch) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"action":"search"}`))
+	t.union = b
+	return err
+}
+
+// MergeTitlesBulkSearch performs a merge with any union data inside the TitlesBulk, using the provided TitlesBulkSearch
+func (t *TitlesBulk) MergeTitlesBulkSearch(v TitlesBulkSearch) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"action":"search"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTitlesBulkRefresh returns the union data inside the TitlesBulk as a TitlesBulkRefresh
+func (t TitlesBulk) AsTitlesBulkRefresh() (TitlesBulkRefresh, error) {
+	var body TitlesBulkRefresh
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTitlesBulkRefresh overwrites any union data inside the TitlesBulk as the provided TitlesBulkRefresh
+func (t *TitlesBulk) FromTitlesBulkRefresh(v TitlesBulkRefresh) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"action":"refresh"}`))
+	t.union = b
+	return err
+}
+
+// MergeTitlesBulkRefresh performs a merge with any union data inside the TitlesBulk, using the provided TitlesBulkRefresh
+func (t *TitlesBulk) MergeTitlesBulkRefresh(v TitlesBulkRefresh) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"action":"refresh"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTitlesBulkFreeze returns the union data inside the TitlesBulk as a TitlesBulkFreeze
+func (t TitlesBulk) AsTitlesBulkFreeze() (TitlesBulkFreeze, error) {
+	var body TitlesBulkFreeze
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTitlesBulkFreeze overwrites any union data inside the TitlesBulk as the provided TitlesBulkFreeze
+func (t *TitlesBulk) FromTitlesBulkFreeze(v TitlesBulkFreeze) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"action":"freeze"}`))
+	t.union = b
+	return err
+}
+
+// MergeTitlesBulkFreeze performs a merge with any union data inside the TitlesBulk, using the provided TitlesBulkFreeze
+func (t *TitlesBulk) MergeTitlesBulkFreeze(v TitlesBulkFreeze) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"action":"freeze"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTitlesBulkRemove returns the union data inside the TitlesBulk as a TitlesBulkRemove
+func (t TitlesBulk) AsTitlesBulkRemove() (TitlesBulkRemove, error) {
+	var body TitlesBulkRemove
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTitlesBulkRemove overwrites any union data inside the TitlesBulk as the provided TitlesBulkRemove
+func (t *TitlesBulk) FromTitlesBulkRemove(v TitlesBulkRemove) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"action":"remove"}`))
+	t.union = b
+	return err
+}
+
+// MergeTitlesBulkRemove performs a merge with any union data inside the TitlesBulk, using the provided TitlesBulkRemove
+func (t *TitlesBulk) MergeTitlesBulkRemove(v TitlesBulkRemove) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"action":"remove"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t TitlesBulk) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"action"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t TitlesBulk) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "add_version":
+		return t.AsTitlesBulkAddVersion()
+	case "freeze":
+		return t.AsTitlesBulkFreeze()
+	case "monitor":
+		return t.AsTitlesBulkMonitor()
+	case "refresh":
+		return t.AsTitlesBulkRefresh()
+	case "remove":
+		return t.AsTitlesBulkRemove()
+	case "remove_version":
+		return t.AsTitlesBulkRemoveVersion()
+	case "search":
+		return t.AsTitlesBulkSearch()
+	case "switch_profile":
+		return t.AsTitlesBulkSwitchProfile()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t TitlesBulk) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *TitlesBulk) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -2677,6 +3327,9 @@ type ServerInterface interface {
 	// CreateTitle Add a Title to the Library
 	// (POST /titles)
 	CreateTitle(w http.ResponseWriter, r *http.Request)
+	// BulkTitles Change many Titles at once
+	// (POST /titles/bulk)
+	BulkTitles(w http.ResponseWriter, r *http.Request)
 	// DeleteTitle Remove a Title with all its Versions
 	// (DELETE /titles/{id})
 	DeleteTitle(w http.ResponseWriter, r *http.Request, id TitleId, params DeleteTitleParams)
@@ -4079,6 +4732,20 @@ func (siw *ServerInterfaceWrapper) CreateTitle(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// BulkTitles operation middleware
+func (siw *ServerInterfaceWrapper) BulkTitles(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BulkTitles(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteTitle operation middleware
 func (siw *ServerInterfaceWrapper) DeleteTitle(w http.ResponseWriter, r *http.Request) {
 
@@ -4647,6 +5314,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/lookup/{kind}/{tmdb_id}", wrapper.LookupTitle)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles", wrapper.ListTitles)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles", wrapper.CreateTitle)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles/bulk", wrapper.BulkTitles)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles/{id}/refresh", wrapper.RefreshTitle)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/titles/{id}", wrapper.DeleteTitle)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/{id}", wrapper.GetTitle)
@@ -7950,6 +8618,61 @@ func (response CreateTitledefaultApplicationProblemPlusJSONResponse) VisitCreate
 	return err
 }
 
+type BulkTitlesRequestObject struct {
+	Body *BulkTitlesJSONRequestBody
+}
+
+type BulkTitlesResponseObject interface {
+	VisitBulkTitlesResponse(w http.ResponseWriter) error
+}
+
+type BulkTitles200JSONResponse TitlesBulkResult
+
+func (response BulkTitles200JSONResponse) VisitBulkTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BulkTitles422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response BulkTitles422ApplicationProblemPlusJSONResponse) VisitBulkTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BulkTitlesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response BulkTitlesdefaultApplicationProblemPlusJSONResponse) VisitBulkTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeleteTitleRequestObject struct {
 	Id     TitleId `json:"id"`
 	Params DeleteTitleParams
@@ -9020,6 +9743,9 @@ type StrictServerInterface interface {
 	// CreateTitle Add a Title to the Library
 	// (POST /titles)
 	CreateTitle(ctx context.Context, request CreateTitleRequestObject) (CreateTitleResponseObject, error)
+	// BulkTitles Change many Titles at once
+	// (POST /titles/bulk)
+	BulkTitles(ctx context.Context, request BulkTitlesRequestObject) (BulkTitlesResponseObject, error)
 	// DeleteTitle Remove a Title with all its Versions
 	// (DELETE /titles/{id})
 	DeleteTitle(ctx context.Context, request DeleteTitleRequestObject) (DeleteTitleResponseObject, error)
@@ -10731,6 +11457,37 @@ func (sh *strictHandler) CreateTitle(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CreateTitleResponseObject); ok {
 		if err := validResponse.VisitCreateTitleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// BulkTitles operation middleware
+func (sh *strictHandler) BulkTitles(w http.ResponseWriter, r *http.Request) {
+	var request BulkTitlesRequestObject
+
+	var body BulkTitlesJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.BulkTitles(ctx, request.(BulkTitlesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "BulkTitles")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(BulkTitlesResponseObject); ok {
+		if err := validResponse.VisitBulkTitlesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

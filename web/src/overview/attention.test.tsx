@@ -230,6 +230,7 @@ const status = (over: Partial<Status> = {}): Status => ({
   ],
   disks: [{ path: '/data', free_bytes: 800 * 2 ** 30, total_bytes: 2 ** 40 }],
   trash: { commit: 'abc1234def', committed_at: new Date(Date.now() - 3 * 86_400_000).toISOString(), checked_at: null, auto_update: true },
+  grabs_paused: false,
   ...over,
 })
 
@@ -282,6 +283,25 @@ describe('The health strip', () => {
     expect(strip).toHaveTextContent(/Beta.*Grabs paused until/)
     expect(strip).toHaveTextContent(/Gamma.*Grabs paused \(5 of 5 downloads used\)/)
     expect(strip).not.toHaveTextContent(/failing/)
+  })
+
+  it('says when Pause Grabs is on', async () => {
+    server.use(http.get('/system/status', ({ response }) => response(200).json(status({ grabs_paused: true }))))
+    renderApp()
+
+    const strip = await screen.findByRole('region', { name: /health/i })
+
+    expect(await within(strip).findByText(/automatic Grabs are paused/i)).toBeInTheDocument()
+  })
+
+  it('says nothing about pausing while grabs run', async () => {
+    server.use(http.get('/system/status', ({ response }) => response(200).json(status())))
+    renderApp()
+
+    const strip = await screen.findByRole('region', { name: /health/i })
+
+    await within(strip).findByText(/SABnzbd/)
+    expect(strip).not.toHaveTextContent(/automatic Grabs are paused/i)
   })
 
   it('says when no download client is set up', async () => {

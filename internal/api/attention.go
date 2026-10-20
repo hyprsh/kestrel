@@ -242,6 +242,11 @@ func (s *server) DismissAttention(ctx context.Context, r oapi.DismissAttentionRe
 func (s *server) GetSystemStatus(ctx context.Context, _ oapi.GetSystemStatusRequestObject) (oapi.GetSystemStatusResponseObject, error) {
 	out := oapi.SystemStatus{Indexers: []oapi.IndexerStatus{}, Disks: []oapi.DiskStatus{}, DownloadClient: oapi.ClientStatus{State: oapi.ClientStatusState("none")}}
 
+	paused, err := s.pause.Paused(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out.GrabsPaused = paused
 	if u := s.updates.Info(ctx); u.UpdateAvailable {
 		out.Update = &oapi.UpdateAvailable{Version: u.Latest, Url: u.URL}
 	}

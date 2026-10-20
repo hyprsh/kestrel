@@ -25,6 +25,7 @@ export const row = (id: number, title: string, primary: string, over: Partial<Ti
   slots: { standard: slot('hd-primary', 'wanted', id * 10 + 1), '4k': null },
   wanted_since: '2026-10-17T12:00:00Z',
   added_at: '2026-10-17T12:00:00Z',
+  size: 0,
   ...over,
 })
 

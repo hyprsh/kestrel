@@ -278,8 +278,12 @@ func (s *Service) searchTitle(ctx context.Context, titleID int64, versionIDs []i
 		in.Candidates = append(in.Candidates, e.cand)
 		byRelease[e.cand.GUID+"\x00"+e.cand.IndexerID] = e
 	}
+	plans, err := s.decide(ctx, in)
+	if err != nil {
+		return out, err
+	}
 	var errs []error
-	for _, plan := range s.decide(in) {
+	for _, plan := range plans {
 		e := byRelease[plan.Candidate.GUID+"\x00"+plan.Candidate.IndexerID]
 		if e == nil {
 			continue

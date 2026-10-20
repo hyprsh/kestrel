@@ -166,6 +166,7 @@ describe('the command menu', () => {
         response(200).json({
           language_region: { primary_language: 'en', release_date_country: 'US' },
           check_github_updates: true,
+          pause_grabs: false,
           from_config_file: { language_region: false, root_folders: false, check_github_updates: false },
           trash: { auto_update: true },
           metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },

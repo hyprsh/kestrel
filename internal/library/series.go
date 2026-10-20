@@ -84,7 +84,7 @@ func (s *Service) AddSeries(ctx context.Context, a AddSeries) (int64, error) {
 		return 0, ErrNoVersions
 	}
 	if !a.Monitor.Valid() {
-		return 0, fmt.Errorf("library: unknown monitoring mode %q", a.Monitor)
+		return 0, fmt.Errorf("library: %w %q", ErrUnknownMode, a.Monitor)
 	}
 	seen := map[slot.Slot]bool{}
 	for _, v := range a.Versions {
@@ -348,25 +348,42 @@ func (s *Service) writeSeries(ctx context.Context, id int64, fn func(q *db.Queri
 // season now, Specials excepted.
 func (s *Service) SetSeriesMonitor(ctx context.Context, id int64, mode Monitor) error {
 	if !mode.Valid() {
-		return fmt.Errorf("library: unknown monitoring mode %q", mode)
+		return fmt.Errorf("library: %w %q", ErrUnknownMode, mode)
 	}
 	return s.writeSeries(ctx, id, func(q *db.Queries) error {
-		if err := q.SetSeriesMonitor(ctx, db.SetSeriesMonitorParams{SeriesMonitor: nullStr(string(mode)), ID: id}); err != nil {
-			return err
-		}
-		eps, err := q.ListEpisodesOfTitle(ctx, id)
-		if err != nil {
-			return err
-		}
-		now := s.clock()
-		for _, e := range eps {
-			on := mode.MonitorsEpisode(int(e.Season), parseDate(e.AirDate), now)
-			if err := q.SetEpisodeMonitored(ctx, db.SetEpisodeMonitoredParams{Monitored: boolInt(on), ID: e.ID}); err != nil {
-				return err
-			}
-		}
-		return nil
+		_, err := applySeriesMode(ctx, q, id, mode, s.clock())
+		return err
 	})
+}
+
+// applySeriesMode sets a Series' mode and applies it to every episode, and
+// reports whether that changed anything. The caller refreshes the seasons.
+func applySeriesMode(ctx context.Context, q *db.Queries, id int64, mode Monitor, now time.Time) (bool, error) {
+	t, err := q.GetTitle(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	changed := t.SeriesMonitor.String != string(mode)
+	if changed {
+		if err := q.SetSeriesMonitor(ctx, db.SetSeriesMonitorParams{SeriesMonitor: nullStr(string(mode)), ID: id}); err != nil {
+			return false, err
+		}
+	}
+	eps, err := q.ListEpisodesOfTitle(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	for _, e := range eps {
+		on := boolInt(mode.MonitorsEpisode(int(e.Season), parseDate(e.AirDate), now))
+		if on == e.Monitored {
+			continue
+		}
+		changed = true
+		if err := q.SetEpisodeMonitored(ctx, db.SetEpisodeMonitoredParams{Monitored: on, ID: e.ID}); err != nil {
+			return false, err
+		}
+	}
+	return changed, nil
 }
 
 // SetSeasonMonitored monitors or unmonitors a season and all its episodes.

@@ -1690,6 +1690,34 @@ func (q *Queries) SetTitleFolder(ctx context.Context, arg SetTitleFolderParams) 
 	return err
 }
 
+const setTitleMonitored = `-- name: SetTitleMonitored :exec
+UPDATE titles SET monitored = ? WHERE id = ? AND kind = 'movie'
+`
+
+type SetTitleMonitoredParams struct {
+	Monitored int64
+	ID        int64
+}
+
+func (q *Queries) SetTitleMonitored(ctx context.Context, arg SetTitleMonitoredParams) error {
+	_, err := q.db.ExecContext(ctx, setTitleMonitored, arg.Monitored, arg.ID)
+	return err
+}
+
+const setUpgradesDueSince = `-- name: SetUpgradesDueSince :exec
+UPDATE search_state SET next_upgrade_at = ? WHERE last_upgrade_at >= ?
+`
+
+type SetUpgradesDueSinceParams struct {
+	NextUpgradeAt sql.NullString
+	LastUpgradeAt sql.NullString
+}
+
+func (q *Queries) SetUpgradesDueSince(ctx context.Context, arg SetUpgradesDueSinceParams) error {
+	_, err := q.db.ExecContext(ctx, setUpgradesDueSince, arg.NextUpgradeAt, arg.LastUpgradeAt)
+	return err
+}
+
 const setVersionProfile = `-- name: SetVersionProfile :exec
 UPDATE versions SET profile_key = ? WHERE id = ?
 `

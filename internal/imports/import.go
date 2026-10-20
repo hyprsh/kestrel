@@ -99,6 +99,7 @@ type Library interface {
 	PathsOfVersion(ctx context.Context, versionID int64) ([]string, error)
 	FilesOfVersion(ctx context.Context, versionID int64) ([]library.File, error)
 	ApplyRescore(ctx context.Context, rs []library.Rescored) error
+	SetProfile(ctx context.Context, versionID int64, profile string) error
 }
 
 // Profiles is what imports needs of the Profiles.

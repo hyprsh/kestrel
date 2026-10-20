@@ -7,6 +7,7 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/configfile"
+	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
@@ -91,6 +92,9 @@ func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {
 		return oapi.Settings{}, err
 	}
 	out.Metadata.TmdbApiKeySet, out.Metadata.TvdbApiKeySet = set.TMDB, set.TVDB
+	if out.PauseGrabs, err = s.pause.Paused(ctx); err != nil {
+		return oapi.Settings{}, err
+	}
 	out.FromConfigFile.LanguageRegion = s.declares(configfile.SectionLanguageRegion)
 	out.FromConfigFile.RootFolders = s.declares(configfile.SectionRootFolders)
 	out.FromConfigFile.CheckGithubUpdates = s.declares(configfile.SectionCheckGitHubUpdates)
@@ -136,6 +140,14 @@ func (s *server) patchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 	}
 	defer tx.Rollback()
 	w := s.settings.InTx(tx)
+	wasPaused, err := s.pause.Paused(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pausedSince, err := s.pause.PausedSince(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if rf := r.Body.RootFolders; rf != nil {
 		if _, err := w.SetRootFolders(ctx, rootfolders.Patch{Movies: rf.Movies, Series: rf.Series}); err != nil {
 			var ve *rootfolders.ValidationError
@@ -161,8 +173,20 @@ func (s *server) patchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 			return nil, err
 		}
 	}
+	if p := r.Body.PauseGrabs; p != nil {
+		if err := w.SetGrabsPaused(ctx, *p); err != nil {
+			return nil, err
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
+	}
+	if p := r.Body.PauseGrabs; p != nil && !*p && wasPaused {
+		// What the sweep searched while paused is due again, so the next sweep grabs.
+		if err := s.library.SearchAfterPause(ctx, pausedSince); err != nil {
+			return nil, err
+		}
+		s.jobs.Kick(jobs.Search)
 	}
 	if m := r.Body.Metadata; m != nil {
 		if err := s.keys.SetOverrides(ctx, m.TmdbApiKey, m.TvdbApiKey); err != nil {

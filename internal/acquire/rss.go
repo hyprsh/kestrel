@@ -212,8 +212,12 @@ func (s *Service) rssMovie(ctx context.Context, sub subject, items []feedItem) (
 		in.Candidates = append(in.Candidates, e.cand)
 	}
 	var out []Grab
+	plans, err := s.decide(ctx, in)
+	if err != nil {
+		return nil, err
+	}
 	var errs []error
-	for _, plan := range s.decide(in) {
+	for _, plan := range plans {
 		e := entries[entryKey(plan.Candidate)]
 		g, err := s.send(ctx, outgoing{
 			titleID: d.ID, versionID: versionOf[plan.Slot], e: e, slot: plan.Slot, media: downloads.Movie, upgrade: plan.Upgrade,
@@ -293,8 +297,12 @@ func (s *Service) rssSeries(ctx context.Context, sub subject, items []feedItem) 
 		idOf[EpisodeRef{ep.Season, ep.Number}] = ep.ID
 	}
 	var out []Grab
+	plans, err := s.decide(ctx, in)
+	if err != nil {
+		return nil, err
+	}
 	var errs []error
-	for _, plan := range s.decide(in) {
+	for _, plan := range plans {
 		e := entries[entryKey(plan.Candidate)]
 		var covers []int64
 		for _, ref := range plan.Covers {
