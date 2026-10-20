@@ -1746,7 +1746,8 @@ type NotDeletedFile struct {
 
 // OfferAccepted defines model for OfferAccepted.
 type OfferAccepted struct {
-	// Failed How many of the offered Releases could not be grabbed; their offers are dropped.
+	// Failed How many of the offered Releases could not be grabbed. One the indexer no longer has, or the
+	// Blocklist holds, leaves the offer; one that failed for another reason stays offered.
 	Failed int    `json:"failed"`
 	Grabs  []Grab `json:"grabs"`
 }

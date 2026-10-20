@@ -813,9 +813,10 @@ export interface paths {
         /**
          * Accept a Version's Original Offer
          * @description Grabs every Release of the offer, the same as "Grab anyway": exactly the Releases offered,
-         *     however old the offer is, a dismissed one included. A Release that cannot be grabbed (the
-         *     indexer no longer has it, it is on the Blocklist) has its offer dropped and counts in `failed`;
-         *     when none could be grabbed the first failure answers as `createGrab` would. No offer is `404`.
+         *     however old the offer is, a dismissed one included. A Release that cannot be grabbed counts in
+         *     `failed`: one the indexer no longer has, or the Blocklist holds, has its offer dropped; one that
+         *     failed for another reason (the download client is down, a spent budget) stays offered. When none
+         *     could be grabbed the first failure answers as `createGrab` would. No offer is `404`.
          *     Once imported, the file fills the Version, and any acceptable Release replaces it whatever its
          *     Score.
          */
@@ -2886,7 +2887,10 @@ export interface components {
         };
         OfferAccepted: {
             grabs: components["schemas"]["Grab"][];
-            /** @description How many of the offered Releases could not be grabbed; their offers are dropped. */
+            /**
+             * @description How many of the offered Releases could not be grabbed. One the indexer no longer has, or the
+             *     Blocklist holds, leaves the offer; one that failed for another reason stays offered.
+             */
             failed: number;
         };
         SystemStatus: {
