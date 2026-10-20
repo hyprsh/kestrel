@@ -30,16 +30,39 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [api-1, api-2, domain, rest, parity]
+        shard: [api, domain, rest, parity]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+          cache: false
+      # Each shard keeps its own build cache, because race builds share nothing with
+      # setup-go's default one. Pushes to main save it; PRs restore main's latest.
+      - id: go-env
+        run: |
+          echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+          echo "mod=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v6
+        with:
+          path: |
+            ${{ steps.go-env.outputs.build }}
+            ${{ steps.go-env.outputs.mod }}
+          key: go-test-${{ runner.os }}-${{ matrix.shard }}-${{ hashFiles('go.mod', 'go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            go-test-${{ runner.os }}-${{ matrix.shard }}-${{ hashFiles('go.mod', 'go.sum') }}-
+            go-test-${{ runner.os }}-${{ matrix.shard }}-
       - run: make test-go-shard GO_SHARD=${{ matrix.shard }}
       - name: Real ffprobe suite (ubuntu-latest ships ffmpeg)
         if: matrix.shard == 'rest'
         run: make test-ffprobe
+      - if: github.event_name == 'push' || github.head_ref == 'ci/faster-checks'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ${{ steps.go-env.outputs.build }}
+            ${{ steps.go-env.outputs.mod }}
+          key: go-test-${{ runner.os }}-${{ matrix.shard }}-${{ hashFiles('go.mod', 'go.sum') }}-${{ github.sha }}
 
   generated:
     name: OpenAPI drift check

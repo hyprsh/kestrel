@@ -36,21 +36,17 @@ test-go-race: ## Go tests with the race detector, minus the parity suites
 test-parity: ## The Radarr and Sonarr parity suites, without the race detector
 	go test -run '$(PARITY_TESTS)' ./...
 
-# CI splits test-go across parallel jobs: api-1 and api-2 (alternate halves of
-# internal/api's tests, which run one at a time), domain (the heaviest packages
-# after it), rest (every other package) and parity. The internal/api subpackages
-# have no tests.
+# CI splits test-go across parallel jobs: api (the largest package), domain (the
+# heaviest after it), rest (every other package) and parity.
 HEAVY_PKGS := ./internal/scoring/... ./internal/acquire/... ./internal/release/...
 
-test-go-shard: ## One CI shard of test-go: GO_SHARD=api-1|api-2|domain|rest|parity
+test-go-shard: ## One CI shard of test-go: GO_SHARD=api|domain|rest|parity
 	@case "$(GO_SHARD)" in \
-	  api-1|api-2) half=$${GO_SHARD#api-}; \
-	    tests=$$(go test -race -list . ./internal/api | grep -E '^(Test|Example|Fuzz)' | awk -v h=$$half 'NR % 2 == h % 2' | paste -sd'|' -); \
-	    set -- -race -skip '$(PARITY_TESTS)' -run "^($$tests)$$" ./internal/api ;; \
+	  api) set -- -race -skip '$(PARITY_TESTS)' ./internal/api/... ;; \
 	  domain) set -- -race -skip '$(PARITY_TESTS)' $(HEAVY_PKGS) ;; \
 	  rest) set -- -race -skip '$(PARITY_TESTS)' $$(go list ./... | grep -v -E '/internal/(api|scoring|acquire|release)(/|$$)') ;; \
 	  parity) set -- -run '$(PARITY_TESTS)' ./... ;; \
-	  *) echo "GO_SHARD must be api-1, api-2, domain, rest or parity"; exit 1 ;; \
+	  *) echo "GO_SHARD must be api, domain, rest or parity"; exit 1 ;; \
 	esac; \
 	go test -timeout 30m "$$@"
 
