@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
 import { fakeLibrary, row } from '../test/library'
@@ -50,6 +50,23 @@ describe('Search now on the Title page', () => {
 
     await waitFor(() => expect(sent).toEqual([{ path: 'search', version: 11, body: null }]))
     expect(await screen.findByText(/Searching… The Log shows what it grabs/)).toBeInTheDocument()
+  })
+
+  it('lets the Searching notice go after a few seconds', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      fakeLibrary([row(1, 'Paddington', 'Paddington')])
+      recordSearches()
+      const actions = await openActions(/paddington/i)
+      await userEvent.click(within(actions).getByRole('button', { name: 'Search now' }))
+      expect(await screen.findByText(/Searching… The Log shows what it grabs/)).toBeInTheDocument()
+
+      act(() => vi.advanceTimersByTime(10_000))
+
+      expect(screen.queryByText(/Searching…/)).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('cannot search a Title that wants nothing', async () => {

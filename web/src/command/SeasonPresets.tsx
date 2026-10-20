@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import type { TitleCreate } from '../api/queries'
 import { Select } from '../forms'
 import { SeasonList, type LookupSeries } from './SeriesOverview'
@@ -50,12 +51,27 @@ function pick(c: SeasonChoice, series: LookupSeries | null): SeasonChoice {
   return c.preset === 'pick' ? c : { preset: 'pick', picked: seasonsOf(c, series) ?? [], follow: modeOf(c) !== 'none' }
 }
 
+/** The series overview as the add panel loads it from TheTVDB. */
+export type Overview = { data?: LookupSeries | null; isPending: boolean; error: Error | null }
+
+/** Why the season presets are off: they need the seasons the series overview lists. */
+function unavailable(o: Overview): string | null {
+  if (o.data) return null
+  if (o.error) return 'Picking seasons needs the series overview, which could not be loaded.'
+  if (o.isPending) return 'Picking seasons waits for the series overview.'
+  return 'Picking seasons needs the series overview.'
+}
+
 /**
  * The Monitor choice for a Series being added: All, Future and None as
  * before, First season, Latest season and Pick…, with the season list showing
- * what is monitored at add. Ticking a season switches to Pick….
+ * what is monitored at add. Ticking a season switches to Pick…. Without the
+ * series overview only All, Future and None can be chosen, and a hint says why.
  */
-export function SeasonPresets({ choice, onChange, series }: { choice: SeasonChoice; onChange: (c: SeasonChoice) => void; series: LookupSeries | null }) {
+export function SeasonPresets({ choice, onChange, overview }: { choice: SeasonChoice; onChange: (c: SeasonChoice) => void; overview: Overview }) {
+  const series = overview.data ?? null
+  const why = unavailable(overview)
+  const hint = useId()
   const has = (n: number) => !!series?.seasons.some((s) => s.number === n)
   const toggle = (n: number) => {
     const p = pick(choice, series)
@@ -67,6 +83,7 @@ export function SeasonPresets({ choice, onChange, series }: { choice: SeasonChoi
         <span className="w-20 font-medium">Monitor</span>
         <Select
           aria-label="Monitor"
+          aria-describedby={why ? hint : undefined}
           value={choice.preset}
           onChange={(e) => {
             const preset = e.target.value as Preset
@@ -88,6 +105,11 @@ export function SeasonPresets({ choice, onChange, series }: { choice: SeasonChoi
           </option>
         </Select>
       </label>
+      {why && (
+        <p id={hint} className="mt-1 ml-[92px] text-[12px] text-gray-900">
+          {why}
+        </p>
+      )}
       {choice.preset === 'pick' && (
         <label className="mt-2 ml-[92px] flex items-center gap-2 text-[12px]">
           <input type="checkbox" checked={choice.follow} onChange={(e) => onChange({ ...choice, follow: e.target.checked })} />

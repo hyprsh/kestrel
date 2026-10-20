@@ -7,7 +7,8 @@ import { SeasonSummary, SeasonToggle } from './SeasonSummary'
 import type { SeasonOpen } from './useSeasonOpen'
 import { EpisodeFileTip, cellTitle } from './EpisodeFileTip'
 import { EpisodeName } from './EpisodeName'
-import { seasonName } from './episodes'
+import { episodeRow, seasonName, seasonRow } from './episodes'
+import { RowDeleteConfirm } from './DeleteFiles'
 
 type Row = { kind: 'season'; season: number; episodes: Episode[] } | { kind: 'episode'; episode: Episode }
 
@@ -180,6 +181,7 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
             onOpen={(open) => seasons.set(r.season, open)}
             slots={slots}
             menu={actions && <SeasonMenu actions={actions} season={r.season} episodes={r.episodes} />}
+            after={actions && <RowDeleteConfirm deletes={actions.deletes} at={seasonRow(r.season)} columns={columns} />}
           />
         ) : (
           <EpisodeRow
@@ -192,6 +194,7 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
             onToggle={() => monitor.mutate({ ids: [r.episode.id], monitored: !r.episode.monitored })}
             tick={actions && <EpisodeTick actions={actions} episode={r.episode} />}
             menu={actions && <EpisodeMenu actions={actions} episode={r.episode} />}
+            after={actions && <RowDeleteConfirm deletes={actions.deletes} at={episodeRow(r.episode.id)} columns={columns} />}
           />
         ),
       )}
@@ -209,6 +212,7 @@ function SeasonRow({
   onOpen,
   slots,
   menu,
+  after,
 }: {
   row: Extract<Row, { kind: 'season' }>
   index: number
@@ -219,31 +223,36 @@ function SeasonRow({
   onOpen: (open: boolean) => void
   slots: SlotKey[]
   menu?: ReactNode
+  /** What shows right under the row, such as a question asked from its menu. */
+  after?: ReactNode
 }) {
   const on = row.episodes.filter((e) => e.monitored).length
   const checked = on === 0 ? 'false' : on === row.episodes.length ? 'true' : 'mixed'
   return (
-    <div role="row" aria-rowindex={index + 2} className="flex items-center gap-3 border-t border-gray-alpha-400 bg-gray-alpha-100 px-3 py-1.5">
-      <div role="gridcell" className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={checked}
-          aria-label={seasonName(row.season)}
-          data-cell={`${index}-0`}
-          tabIndex={tabIndex}
-          onFocus={onFocus}
-          onClick={() => onToggle(on === 0)}
-          className={cx('size-4 shrink-0 rounded border border-gray-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-700', checked !== 'false' && 'bg-gray-1000')}
-        />
-        <SeasonToggle name={seasonName(row.season)} open={open} onToggle={() => onOpen(!open)} onFocus={onFocus} />
-        <span className="text-[12px] text-gray-900">
-          {on} of {row.episodes.length} monitored
-        </span>
-        {!open && <SeasonSummary episodes={row.episodes} slots={slots} />}
-        {menu && <span className="ml-auto">{menu}</span>}
+    <>
+      <div role="row" aria-rowindex={index + 2} className="flex items-center gap-3 border-t border-gray-alpha-400 bg-gray-alpha-100 px-3 py-1.5">
+        <div role="gridcell" className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={checked}
+            aria-label={seasonName(row.season)}
+            data-cell={`${index}-0`}
+            tabIndex={tabIndex}
+            onFocus={onFocus}
+            onClick={() => onToggle(on === 0)}
+            className={cx('size-4 shrink-0 rounded border border-gray-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-700', checked !== 'false' && 'bg-gray-1000')}
+          />
+          <SeasonToggle name={seasonName(row.season)} open={open} onToggle={() => onOpen(!open)} onFocus={onFocus} />
+          <span className="text-[12px] text-gray-900">
+            {on} of {row.episodes.length} monitored
+          </span>
+          {!open && <SeasonSummary episodes={row.episodes} slots={slots} />}
+          {menu && <span className="ml-auto">{menu}</span>}
+        </div>
       </div>
-    </div>
+      {after}
+    </>
   )
 }
 
@@ -256,6 +265,7 @@ function EpisodeRow({
   onToggle,
   tick,
   menu,
+  after,
 }: {
   episode: Episode
   slots: SlotKey[]
@@ -265,50 +275,55 @@ function EpisodeRow({
   onToggle: () => void
   tick?: ReactNode
   menu?: ReactNode
+  /** What shows right under the row, such as a question asked from its menu. */
+  after?: ReactNode
 }) {
   const label = `Season ${episode.season} episode ${episode.number}`
   const [fileOpen, setFileOpen] = useState<SlotKey | null>(null)
   return (
-    <div role="row" aria-rowindex={index + 2} className="flex items-center gap-3 px-3 py-1 hover:bg-gray-alpha-100">
-      <div role="gridcell" className="flex min-w-0 flex-1 items-center gap-2">
-        {tick}
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={episode.monitored}
-          aria-label={`${label} monitored`}
-          data-cell={`${index}-0`}
-          tabIndex={tab(index, 0)}
-          onFocus={() => onFocus(0)}
-          onClick={onToggle}
-          className={cx('size-4 shrink-0 rounded border border-gray-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-700', episode.monitored && 'bg-gray-1000')}
-        />
-        <span className="w-14 shrink-0 font-mono text-[11px] text-gray-900">
-          {episode.season}x{String(episode.number).padStart(2, '0')}
-        </span>
-        <EpisodeName episode={episode} />
-        <span className="ml-auto shrink-0 text-[12px] text-gray-900">{episode.air_date ?? 'no air date'}</span>
-        {menu}
+    <>
+      <div role="row" aria-rowindex={index + 2} className="flex items-center gap-3 px-3 py-1 hover:bg-gray-alpha-100">
+        <div role="gridcell" className="flex min-w-0 flex-1 items-center gap-2">
+          {tick}
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={episode.monitored}
+            aria-label={`${label} monitored`}
+            data-cell={`${index}-0`}
+            tabIndex={tab(index, 0)}
+            onFocus={() => onFocus(0)}
+            onClick={onToggle}
+            className={cx('size-4 shrink-0 rounded border border-gray-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-700', episode.monitored && 'bg-gray-1000')}
+          />
+          <span className="w-14 shrink-0 font-mono text-[11px] text-gray-900">
+            {episode.season}x{String(episode.number).padStart(2, '0')}
+          </span>
+          <EpisodeName episode={episode} />
+          <span className="ml-auto shrink-0 text-[12px] text-gray-900">{episode.air_date ?? 'no air date'}</span>
+          {menu}
+        </div>
+        {slots.map((s, c) => {
+          const cell = episode.cells[s]
+          const state = cell ? versionStatus(cell.state).label : 'no Version'
+          return (
+            <div key={s} role="gridcell" className="relative flex w-10 justify-center">
+              <span
+                role="img"
+                aria-label={`${label} ${slotLabel[s]}: ${state}`}
+                title={cellTitle(slotLabel[s], state, cell)}
+                onClick={() => setFileOpen(cell?.file && fileOpen !== s ? s : null)}
+                data-cell={`${index}-${c + 1}`}
+                tabIndex={tab(index, c + 1)}
+                onFocus={() => onFocus(c + 1)}
+                className={cx('size-4 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-blue-700', cell ? cellClass(cell.state) : 'border border-gray-alpha-400')}
+              />
+              {fileOpen === s && cell?.file && <EpisodeFileTip label={`${label} ${slotLabel[s]}`} cell={cell} file={cell.file} onClose={() => setFileOpen(null)} />}
+            </div>
+          )
+        })}
       </div>
-      {slots.map((s, c) => {
-        const cell = episode.cells[s]
-        const state = cell ? versionStatus(cell.state).label : 'no Version'
-        return (
-          <div key={s} role="gridcell" className="relative flex w-10 justify-center">
-            <span
-              role="img"
-              aria-label={`${label} ${slotLabel[s]}: ${state}`}
-              title={cellTitle(slotLabel[s], state, cell)}
-              onClick={() => setFileOpen(cell?.file && fileOpen !== s ? s : null)}
-              data-cell={`${index}-${c + 1}`}
-              tabIndex={tab(index, c + 1)}
-              onFocus={() => onFocus(c + 1)}
-              className={cx('size-4 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-blue-700', cell ? cellClass(cell.state) : 'border border-gray-alpha-400')}
-            />
-            {fileOpen === s && cell?.file && <EpisodeFileTip label={`${label} ${slotLabel[s]}`} cell={cell} file={cell.file} onClose={() => setFileOpen(null)} />}
-          </div>
-        )
-      })}
-    </div>
+      {after}
+    </>
   )
 }

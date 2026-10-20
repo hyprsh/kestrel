@@ -9,6 +9,7 @@ import { Menu, MenuItem } from '../menu'
 import { RemoveTitle } from './ManageVersion'
 import { MoveTitle } from './MoveTitle'
 import type { ManualSearchTarget } from './TitleDetail'
+import { useFade } from './useFade'
 import { ManualSearch, SearchNow, useSearchWanted } from './VersionSearch'
 
 const message = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback)
@@ -31,6 +32,7 @@ export function TitleActions({
   const [panel, setPanel] = useState<'move' | 'remove' | null>(null)
   const openCleanup = useOpenCleanup()
   const search = useSearchWanted(title)
+  useFade(search.mutation.isSuccess ? search.mutation.submittedAt : null, search.mutation.reset)
   const refresh = useRefreshTitle(title.id)
   const freeze = useSetFrozen(title.id)
   const frozen = title.metadata_frozen

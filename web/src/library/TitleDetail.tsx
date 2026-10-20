@@ -56,7 +56,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
   ].filter(Boolean)
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="@container mx-auto max-w-3xl">
       <div className="flex gap-4">
         {title.has_poster ? (
           <img src={`${apiBaseUrl}/titles/${title.id}/poster`} alt={`${title.title} poster`} className="h-36 w-24 shrink-0 rounded-md object-cover" />
@@ -78,7 +78,8 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
       </div>
       <TitleActions title={title} profileName={profileName} onManualSearch={onManualSearch} />
 
-      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {/* Side by side only when the pane, not the window, has room for both cards' buttons. */}
+      <div className="mt-6 grid grid-cols-1 gap-3 @xl:grid-cols-2">
         {slotKeys.map((k) => (
           <SlotCard
             key={k}

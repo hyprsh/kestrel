@@ -132,7 +132,7 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
                 )
               })}
             </div>
-            {result.kind === 'series' && <SeasonPresets choice={seasons} onChange={setSeasons} series={series} />}
+            {result.kind === 'series' && <SeasonPresets choice={seasons} onChange={setSeasons} overview={overview} />}
             {roots.length > 1 && (
               <label className="mt-3 flex items-center gap-3 text-[13px]">
                 <span className="w-20 font-medium">Folder</span>

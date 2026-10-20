@@ -10,9 +10,10 @@ import { Menu, MenuItem } from '../menu'
 import { SelectBox, SelectionBar, useSelection, type Selection } from '../selection'
 import { cx } from '../ui'
 import { slotLabel, type SlotKey } from './bits'
-import { episodeCode, seasonName, type ActionStatus, type EpisodeVersion } from './episodes'
+import { episodeCode, episodeRow, seasonName, seasonRow, type ActionStatus, type EpisodeVersion } from './episodes'
 import { DeleteMenuItems, DeleteTickedButtons, EpisodeDeleteConfirm, useEpisodeDeletes, type EpisodeDeletes } from './DeleteFiles'
 import type { ManualSearchTarget } from './TitleDetail'
+import { useFade } from './useFade'
 import type { SeasonOpen } from './useSeasonOpen'
 
 const episodeName = (e: Episode) => `Season ${e.season} episode ${e.number}`
@@ -56,6 +57,7 @@ export function useEpisodeActions(
   const searchNow = useSearchNow()
   const [status, setStatus] = useState<ActionStatus>(null)
   const deletes = useEpisodeDeletes(episodes, setStatus)
+  useFade(status?.fades ? status : null, () => setStatus(null))
 
   const names = new Map((profiles.data ?? []).map((p) => [p.key, p.name]))
   const versions: EpisodeVersion[] = slots.flatMap((slot) => {
@@ -70,7 +72,7 @@ export function useEpisodeActions(
     })
     if (runs.length === 0) return
     const where = runs.map((r) => slotLabel[r.v.slot]).join(' and ')
-    setStatus({ text: `Searching ${label} in ${where}… The Log shows what it grabs.`, error: false })
+    setStatus({ text: `Searching ${label} in ${where}… The Log shows what it grabs.`, error: false, fades: true })
     Promise.all(runs.map((r) => searchNow.mutateAsync({ versionId: r.v.id, scope: r.scope }))).catch((err: Error) =>
       setStatus({ text: `Could not search ${label}: ${err.message}`, error: true }),
     )
@@ -127,7 +129,7 @@ export function EpisodeMenu({ actions, episode }: { actions: EpisodeActions; epi
           {versions.length > 1 ? `Manual search ${slotLabel[v.slot]}` : 'Manual search'}
         </MenuItem>
       ))}
-      <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={[episode]} label={code} scope={{ season: episode.season, episode_ids: [episode.id] }} text="Delete file" />
+      <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={[episode]} label={code} scope={{ season: episode.season, episode_ids: [episode.id] }} text="Delete file" at={episodeRow(episode.id)} />
       <MenuItem onSelect={() => selection.toggle(episode.id)}>{selection.has(episode.id) ? 'Untick' : 'Tick'}</MenuItem>
     </Menu>
   )
@@ -148,7 +150,7 @@ export function SeasonMenu({ actions, season, episodes }: { actions: EpisodeActi
           {versions.length > 1 ? `Manual search season ${slotLabel[v.slot]}` : 'Manual search season'}
         </MenuItem>
       ))}
-      <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={episodes} label={name} scope={{ season }} text="Delete season's files" />
+      <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={episodes} label={name} scope={{ season }} text="Delete season's files" at={seasonRow(season)} />
     </Menu>
   )
 }
@@ -158,14 +160,14 @@ export function EpisodeTick({ actions, episode }: { actions: EpisodeActions; epi
   return actions.selection.active ? <SelectBox selection={actions.selection} id={episode.id} name={episodeName(episode)} /> : null
 }
 
-/** Above the grid: the ticked episodes' actions and what the last Search now said. */
+/** Above the grid: the ticked episodes' actions, their deletion's confirmation and what the last Search now or deletion said. */
 export function EpisodeToolbar({ actions }: { actions: EpisodeActions }) {
   const { selection, status, shown } = actions
   const ticked = shown.filter((e) => selection.has(e.id))
   const wanted = wantedIn(ticked, actions.versions)
   const label = ticked.length === 1 ? episodeCode(ticked[0]) : `${ticked.length} episodes`
   return (
-    <div className={cx('flex flex-col gap-1', (selection.active || status || actions.deletes.pending) && 'mb-2')}>
+    <div className={cx('flex flex-col gap-1', (selection.active || status || actions.deletes.pending?.at === null) && 'mb-2')}>
       <SelectionBar selection={selection} shown={shown.length}>
         <Button
           variant="secondary"
