@@ -30,6 +30,7 @@ type Deps struct {
 	Profiles    Profiles
 	RootFolders RootFolders
 	Settings    SettingsTx
+	Pause       GrabPause
 	Updates     Updates
 	Library     Library
 	Acquire     Acquire
@@ -87,6 +88,12 @@ type SettingsWriter interface {
 	SetRootFolders(ctx context.Context, p rootfolders.Patch) (rootfolders.Folders, error)
 	SetRegion(ctx context.Context, p profiles.RegionPatch) (profiles.Region, error)
 	SetTrashAutoUpdate(ctx context.Context, on bool) error
+	SetGrabsPaused(ctx context.Context, on bool) error
+}
+
+// GrabPause reads the Pause grabs switch.
+type GrabPause interface {
+	Paused(ctx context.Context) (bool, error)
 }
 
 // Updates is the GitHub update check.
@@ -104,6 +111,8 @@ type Library interface {
 	GetVersion(ctx context.Context, id int64) (library.VersionRef, error)
 	Episodes(ctx context.Context, titleID int64, view library.View) ([]library.Episode, error)
 	SetSeriesMonitor(ctx context.Context, id int64, mode library.Monitor) error
+	SetMovieMonitored(ctx context.Context, id int64, monitored bool) error
+	SetMonitored(ctx context.Context, ids []int64, monitored bool, mode library.Monitor) ([]library.MonitorResult, error)
 	SetSeasonMonitored(ctx context.Context, id int64, season int, monitored bool) error
 	SetProfile(ctx context.Context, versionID int64, profile string) error
 	SetMetadataFrozen(ctx context.Context, id int64, frozen bool) error

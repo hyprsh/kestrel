@@ -106,6 +106,13 @@ type Deps struct {
 	// Scoring is the live TRaSH snapshot; it wins over Snapshot. A swap drops the
 	// candidate cache and waits for decisions in flight (Settled 6).
 	Scoring *scoring.Holder
+	// Pause is the Pause grabs switch; nil never pauses.
+	Pause GrabPause
+}
+
+// GrabPause says whether automatic Grabs are paused (see Pause).
+type GrabPause interface {
+	Paused(ctx context.Context) (bool, error)
 }
 
 // Service searches for Releases and grabs them.
@@ -122,6 +129,7 @@ type Service struct {
 	hist  *history.Service
 	// misses counts, per Grab, the polls in a row that did not find its job.
 	misses *missCount
+	pause  GrabPause
 }
 
 // New returns a Service.
@@ -142,6 +150,7 @@ func New(d Deps) (*Service, error) {
 	svc := &Service{
 		st: d.Store, clock: d.Clock, lib: d.Library, prof: d.Profiles, idx: d.Indexers, dl: d.Downloads,
 		snap: d.Scoring, cache: &cache{m: map[string]*entry{}}, live: &liveSet{m: map[int64]Live{}}, hist: d.History, misses: &missCount{m: map[int64]int{}},
+		pause: d.Pause,
 	}
 	d.Scoring.OnSwap(func() {
 		svc.cache.mu.Lock()
@@ -684,8 +693,14 @@ func (s *Service) GrabEpisodes(ctx context.Context, grabID int64) ([]int64, erro
 
 // decide is Decide over candidates whose indexers' Grabs may be paused right
 // now. The flag is set here and not when a Release is cached, so a pause that
-// began or ended since the search counts.
-func (s *Service) decide(in Input) []GrabPlan {
+// began or ended since the search counts. With Pause grabs on it plans
+// nothing: every automatic Grab goes through here, a hand-started one does not.
+func (s *Service) decide(ctx context.Context, in Input) ([]GrabPlan, error) {
+	if s.pause != nil {
+		if paused, err := s.pause.Paused(ctx); err != nil || paused {
+			return nil, err
+		}
+	}
 	cands := slices.Clone(in.Candidates)
 	for i := range cands {
 		if id, err := strconv.ParseInt(cands[i].IndexerID, 10, 64); err == nil {
@@ -693,5 +708,5 @@ func (s *Service) decide(in Input) []GrabPlan {
 		}
 	}
 	in.Candidates = cands
-	return Decide(in)
+	return Decide(in), nil
 }

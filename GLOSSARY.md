@@ -47,7 +47,7 @@ A release carrying Primary Language audio plus the Title's Original Language aud
 _Avoid_: Multi-audio, DL or MULTi (unexpanded)
 
 **Upgrade**:
-Replacing a Version's file with a better-scoring Release. Versions never stop upgrading; there is no cutoff.
+Replacing a Version's file with a better-scoring Release. Monitored Versions never stop upgrading; there is no cutoff. An unmonitored Title, or an unmonitored episode of a Series, is not Upgraded.
 
 **Wanted**:
 A monitored, released Version, or episode of a Series Version, that has no file or whose file no longer fits its Profile. An episode counts as released once it has aired, once it is a Placeholder Episode, or, without an air date, once a later episode of its Series is out. Unmonitored and unreleased ones are not Wanted, and a filled Version waiting for an Upgrade is not Wanted either.

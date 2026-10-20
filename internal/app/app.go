@@ -147,9 +147,10 @@ func New(opts Options) *App {
 	meta = observedMeta{Provider: meta, h: healthSvc}
 	tvdb = observedTVDB{TVDBProvider: tvdb, h: healthSvc}
 
+	pause := acquire.NewPause(appSettings)
 	acq, err := acquire.New(acquire.Deps{
 		Store: st, Clock: opts.Clock, Library: lib, Profiles: profs,
-		Indexers: indexerHost, Downloads: downloadHost, History: hist, Scoring: live,
+		Indexers: indexerHost, Downloads: downloadHost, History: hist, Scoring: live, Pause: pause,
 	})
 	if err != nil {
 		panic("app: acquire cannot start: " + err.Error())
@@ -214,7 +215,7 @@ func New(opts Options) *App {
 	})
 
 	deps := api.Deps{
-		Plugins: pluginInstances, Profiles: profs, RootFolders: roots, Settings: settingsTx{roots, profs, trash}, Updates: upd,
+		Plugins: pluginInstances, Profiles: profs, RootFolders: roots, Settings: settingsTx{roots, profs, trash, pause}, Pause: pause, Updates: upd,
 		Library: lib, Acquire: acq, Requests: reqs, Adoption: adoption, Cleanup: cleanup, Remover: remover, Imports: imp,
 		Jobs: runner, Refresher: refresher, Indexers: indexerHost, Health: healthSvc, History: hist, Scoring: live, Trash: trashAPI{trash, trashUpdates}, Keys: keys,
 		Meta: meta, TVDB: tvdb, Bridge: &metadata.Bridge{Meta: meta, TVDB: tvdb, Log: opts.Logger}, Posters: posters,
@@ -231,16 +232,22 @@ type settingsTx struct {
 	roots *rootfolders.Service
 	profs *profiles.Service
 	trash *trashsync.Service
+	pause *acquire.Pause
 }
 
 func (s settingsTx) InTx(tx *sql.Tx) api.SettingsWriter {
-	return settingsWriter{roots: s.roots.InTx(tx), profs: s.profs.InTx(tx), trash: s.trash.InTx(tx)}
+	return settingsWriter{roots: s.roots.InTx(tx), profs: s.profs.InTx(tx), trash: s.trash.InTx(tx), pause: s.pause.InTx(tx)}
 }
 
 type settingsWriter struct {
 	roots *rootfolders.Service
 	profs *profiles.Service
 	trash *trashsync.Service
+	pause *acquire.Pause
+}
+
+func (w settingsWriter) SetGrabsPaused(ctx context.Context, on bool) error {
+	return w.pause.SetPaused(ctx, on)
 }
 
 func (w settingsWriter) SetRootFolders(ctx context.Context, p rootfolders.Patch) (rootfolders.Folders, error) {

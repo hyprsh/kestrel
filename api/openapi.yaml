@@ -552,6 +552,38 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /titles/bulk:
+    post:
+      operationId: bulkTitles
+      summary: Change many Titles at once
+      description: |
+        Applies one `action` to every Title in `title_ids`, with the action's parameters next to it,
+        and answers per Title: `changed`, `skipped` with a `reason` (such as `unchanged` when the
+        Title already is as asked, or `not_found`), or `failed`. A repeated id counts once. Running
+        the same call again changes nothing and skips every Title as `unchanged`.
+
+        - `monitor` sets `monitored` on Movies, as `PATCH /titles/{id}` does. A Series follows the
+          same rule through its monitoring mode: `monitored: false` sets `series_monitor: none` and
+          unmonitors every episode, so an unmonitored Series behaves like an unmonitored Movie;
+          `monitored: true` applies `series_monitor` (default `all`).
+      tags: [titles]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TitlesBulk"
+      responses:
+        "200":
+          description: What happened to each Title, in the order of `title_ids`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TitlesBulkResult"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /titles/{id}/refresh:
     parameters:
       - $ref: "#/components/parameters/TitleId"
@@ -592,9 +624,13 @@ paths:
       operationId: patchTitle
       summary: Change a Title's settings
       description: |
-        `series_monitor` applies the mode to every episode and season now (Specials are never
-        monitored by a mode); `422` for a Movie. `metadata_frozen` true keeps the stored metadata as
-        it is and clears a "Title gone upstream" row; false lets refreshes resume.
+        `monitored` monitors or unmonitors a Movie; `422` for a Series, which uses `series_monitor`.
+        An unmonitored Movie is never Wanted, searched or Upgraded, by the sweep or RSS; its Versions
+        and files stay as they are, and a Grab started by hand still works. Monitoring it again makes
+        its Versions due a search now. `series_monitor` applies the mode to every episode and season
+        now (Specials are never monitored by a mode); `422` for a Movie. `metadata_frozen` true keeps
+        the stored metadata as it is and clears a "Title gone upstream" row; false lets refreshes
+        resume.
       tags: [titles]
       requestBody:
         required: true
@@ -1429,8 +1465,8 @@ paths:
       summary: The health strip
       description: |
         Capacity at a glance: the download client, each indexer with its daily budget and any pause, the
-        free space on the data mount and every Root folder, and the active TRaSH snapshot with its commit
-        date.
+        free space on the data mount and every Root folder, the active TRaSH snapshot with its commit
+        date, and whether "Pause grabs" is on.
       tags: [system]
       responses:
         "200":
@@ -2074,8 +2110,17 @@ components:
       enum: [en, de, fr]
     Settings:
       type: object
-      required: [language_region, root_folders, check_github_updates, trash, metadata, from_config_file]
+      required: [language_region, root_folders, check_github_updates, trash, metadata, pause_grabs, from_config_file]
       properties:
+        pause_grabs:
+          type: boolean
+          description: |
+            "Pause grabs" (default off). On, no automatic Grab is made: the sweep, RSS, the search on
+            add and the retry after a failed download still search and score Releases, so Wanted and
+            Upgrade candidates still show up, but send nothing to the download client. A Grab started
+            by hand from a Version's Releases still goes through. Turning it off makes every Wanted
+            Version due a search now, so the next sweep grabs as usual. The health strip shows it as
+            `grabs_paused`.
         from_config_file:
           type: object
           required: [language_region, root_folders, check_github_updates]
@@ -2145,6 +2190,8 @@ components:
     SettingsPatch:
       type: object
       properties:
+        pause_grabs:
+          type: boolean
         check_github_updates:
           type: boolean
         metadata:
@@ -2642,12 +2689,75 @@ components:
             $ref: "#/components/schemas/Episode"
     TitlePatch:
       type: object
-      description: Merge patch. Only Series have a `series_monitor`.
+      description: Merge patch. Only Movies take `monitored`, only Series have a `series_monitor`.
       properties:
+        monitored:
+          type: boolean
+          description: A Movie only; a Series is monitored through `series_monitor`.
         series_monitor:
           $ref: "#/components/schemas/SeriesMonitor"
         metadata_frozen:
           type: boolean
+    TitlesBulk:
+      description: |
+        One action over many Titles. `action` says which, and picks the parameters that go with it.
+      oneOf:
+        - $ref: "#/components/schemas/TitlesBulkMonitor"
+      discriminator:
+        propertyName: action
+        mapping:
+          monitor: "#/components/schemas/TitlesBulkMonitor"
+    TitlesBulkMonitor:
+      type: object
+      required: [action, title_ids, monitored]
+      properties:
+        action:
+          type: string
+          enum: [monitor]
+        title_ids:
+          type: array
+          minItems: 1
+          maxItems: 10000
+          items:
+            type: integer
+            format: int64
+        monitored:
+          type: boolean
+        series_monitor:
+          allOf:
+            - $ref: "#/components/schemas/SeriesMonitor"
+          description: |
+            The mode monitored Series get; left out, `all`. With `monitored: false` it can only be
+            `none`.
+    TitlesBulkResult:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TitleBulkOutcome"
+    TitleBulkOutcome:
+      type: object
+      required: [title_id, outcome, reason, message]
+      properties:
+        title_id:
+          type: integer
+          format: int64
+        outcome:
+          type: string
+          enum: [changed, skipped, failed]
+        reason:
+          type: string
+          nullable: true
+          description: |
+            Why the Title was skipped or failed, `null` when it changed. `unchanged`: it already is as
+            asked. `not_found`: there is no such Title. `internal`: the change failed. More reasons
+            come with more actions; clients must tolerate unknown ones.
+        message:
+          type: string
+          nullable: true
+          description: The reason in a sentence.
     SeasonPatch:
       type: object
       required: [monitored]
@@ -3348,8 +3458,11 @@ components:
                 nullable: true
     SystemStatus:
       type: object
-      required: [download_client, indexers, disks, trash]
+      required: [download_client, indexers, disks, trash, grabs_paused]
       properties:
+        grabs_paused:
+          type: boolean
+          description: The "Pause grabs" setting is on, so no automatic Grab is made.
         trash:
           type: object
           description: The active TRaSH snapshot.
