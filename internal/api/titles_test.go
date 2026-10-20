@@ -131,6 +131,7 @@ func (l library) rootFolderOf(t *testing.T, r reply) string {
 const addPaddington = `{"kind":"movie","tmdb_id":116149,"versions":[{"slot":"standard","profile":"hd-primary"},{"slot":"4k","profile":"4k-primary"}]}`
 
 func TestAMovieIsAddedThroughTheAPIAndReadBackWithItsVersions(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 
 	r := l.valid("POST", "/titles", addPaddington)
@@ -173,6 +174,7 @@ func TestAMovieIsAddedThroughTheAPIAndReadBackWithItsVersions(t *testing.T) {
 }
 
 func TestThePrimaryLanguageTitleIsStoredWhenTMDBHasATranslation(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	l.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`)
 	got := decode[titleJSON](t, l.valid("POST", "/titles", addPaddington))
@@ -186,6 +188,7 @@ func TestThePrimaryLanguageTitleIsStoredWhenTMDBHasATranslation(t *testing.T) {
 }
 
 func TestLookupSearchesBothKinds(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	got := decode[lookupJSON](t, l.valid("GET", "/lookup?q=paddington", ""))
 	if len(got.Items) != 2 {
@@ -210,6 +213,7 @@ func TestLookupSearchesBothKinds(t *testing.T) {
 }
 
 func TestLookupMarksTitlesAlreadyInTheLibrary(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	id := decode[titleJSON](t, l.valid("POST", "/titles", addPaddington)).ID
 
@@ -224,6 +228,7 @@ func TestLookupMarksTitlesAlreadyInTheLibrary(t *testing.T) {
 }
 
 func TestTheSuggestionPreselectsTheSlotDefaultsWhateverTheRating(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 
 	// US household: Paddington is PG, and still gets HD.
@@ -259,6 +264,7 @@ func TestTheSuggestionPreselectsTheSlotDefaultsWhateverTheRating(t *testing.T) {
 }
 
 func TestAddingIsRefusedForBadChoices(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	body := func(versions, extra string) string {
 		return `{"kind":"movie","tmdb_id":116149,"versions":` + versions + extra + `}`
@@ -292,6 +298,7 @@ func TestAddingIsRefusedForBadChoices(t *testing.T) {
 }
 
 func TestAddingTheSameMovieTwiceIsAConflict(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	id := decode[titleJSON](t, l.valid("POST", "/titles", addPaddington)).ID
 	r := l.do("POST", "/titles", addPaddington)
@@ -301,6 +308,7 @@ func TestAddingTheSameMovieTwiceIsAConflict(t *testing.T) {
 }
 
 func TestAMovieTMDBDoesNotKnowIsNotFound(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	if r := l.valid("POST", "/titles", `{"kind":"movie","tmdb_id":424242,"versions":[{"slot":"standard","profile":"hd-primary"}]}`); r.Status != 404 {
 		t.Errorf("add = %d %s", r.Status, r.Body)
@@ -314,6 +322,7 @@ func TestAMovieTMDBDoesNotKnowIsNotFound(t *testing.T) {
 }
 
 func TestWithoutAWorkingKeyTheProviderIsUnavailable(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, "")
 	for _, path := range []string{"/lookup?q=paddington", "/lookup/movie/116149"} {
 		r := l.valid("GET", path, "")
@@ -330,6 +339,7 @@ func TestWithoutAWorkingKeyTheProviderIsUnavailable(t *testing.T) {
 }
 
 func TestThePosterIsCachedUnderTheConfigDirAndServed(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	created := decode[titleJSON](t, l.valid("POST", "/titles", addPaddington))
 	if !created.HasPoster {
@@ -354,6 +364,7 @@ func TestThePosterIsCachedUnderTheConfigDirAndServed(t *testing.T) {
 }
 
 func TestTitleEndpointsNeedALogin(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	in.setUp()
 	anon := in.browser()
@@ -365,6 +376,7 @@ func TestTitleEndpointsNeedALogin(t *testing.T) {
 }
 
 func TestTheListFiltersByKindAndText(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	l.valid("POST", "/titles", addPaddington)
 	count := func(q string) int {
@@ -376,6 +388,7 @@ func TestTheListFiltersByKindAndText(t *testing.T) {
 }
 
 func TestAnAddGoesInTheFirstRootFolderUnlessOneIsNamed(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		name, hd, root string
 		second         bool
@@ -385,6 +398,7 @@ func TestAnAddGoesInTheFirstRootFolderUnlessOneIsNamed(t *testing.T) {
 		{"named folder", "any-primary", "second", true},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
 			l := newLibraryInstance(t, metadatatest.Key)
 			second, _ := l.moreFolders(t)
 			first := l.data + "/media/movies"

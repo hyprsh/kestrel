@@ -43,6 +43,7 @@ func profileMap(t *testing.T, b *browser) map[string]profileJSON {
 }
 
 func TestProfilesAreSeededAndPatchable(t *testing.T) {
+	t.Parallel()
 	b := newInstance(t, "").setUp()
 	m := profileMap(t, b)
 	hd := m["hd-primary"]
@@ -64,6 +65,7 @@ func TestProfilesAreSeededAndPatchable(t *testing.T) {
 }
 
 func TestProfileRulesAreValidationErrors(t *testing.T) {
+	t.Parallel()
 	b := newInstance(t, "").setUp()
 	for _, c := range []struct{ path, body, field string }{
 		{"/profiles/hd-original", `{"original_fallback":true}`, "original_fallback"},
@@ -81,6 +83,7 @@ func TestProfileRulesAreValidationErrors(t *testing.T) {
 }
 
 func TestChangingThePrimaryLanguageRepointsProfiles(t *testing.T) {
+	t.Parallel()
 	b := newInstance(t, "").setUp()
 
 	s := decode[settingsJSON](t, b.valid("GET", "/settings", ""))
@@ -117,6 +120,7 @@ func TestChangingThePrimaryLanguageRepointsProfiles(t *testing.T) {
 }
 
 func TestProviderKeyOverridesAreSavedWithTheSettingsAndNeverShownAgain(t *testing.T) {
+	t.Parallel()
 	b := newInstance(t, "").setUp()
 	type metaJSON struct {
 		Metadata struct {
@@ -143,6 +147,7 @@ func TestProviderKeyOverridesAreSavedWithTheSettingsAndNeverShownAgain(t *testin
 }
 
 func TestSettingsValidation(t *testing.T) {
+	t.Parallel()
 	b := newInstance(t, "").setUp()
 	for _, body := range []string{
 		`{"language_region":{"primary_language":"xx"}}`,
@@ -155,6 +160,7 @@ func TestSettingsValidation(t *testing.T) {
 }
 
 func TestSettingsHaveNoKidsRuleOrKidsRootFolders(t *testing.T) {
+	t.Parallel()
 	b := newInstance(t, "").setUp()
 	body := b.valid("GET", "/settings", "").Body
 	if strings.Contains(strings.ToLower(body), "kids") {
@@ -166,6 +172,7 @@ func TestSettingsHaveNoKidsRuleOrKidsRootFolders(t *testing.T) {
 }
 
 func TestTheAnyProfilesTakeTheKidsProfilesPlace(t *testing.T) {
+	t.Parallel()
 	b := newInstance(t, "").setUp()
 	r := b.valid("GET", "/profiles", "")
 	if strings.Contains(strings.ToLower(r.Body), "kids") {

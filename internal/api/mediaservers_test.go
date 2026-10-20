@@ -45,6 +45,7 @@ func waitRefreshed(t *testing.T, ms *msfake.Server, n int) []string {
 }
 
 func TestAnImportRefreshesTheMediaServersAndDeletingTheTitleDoesToo(t *testing.T) {
+	t.Parallel()
 	s, ms := newMediaSearch(t)
 	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
 	s.prober.set(goodProbe(), nil)
@@ -68,6 +69,7 @@ func TestAnImportRefreshesTheMediaServersAndDeletingTheTitleDoesToo(t *testing.T
 }
 
 func TestAFailingMediaServerRaisesAWarningAndTheImportStillSucceeds(t *testing.T) {
+	t.Parallel()
 	s, ms := newMediaSearch(t)
 	ms.FailWith(plugin.Errorf(plugin.CodeUnavailable, "connection refused"))
 	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
@@ -111,6 +113,7 @@ func newMediaAdopting(t *testing.T) (adopting, *msfake.Server) {
 }
 
 func TestAdoptingATitleTellsTheMediaServersItsFolder(t *testing.T) {
+	t.Parallel()
 	a, ms := newMediaAdopting(t)
 	a.put(t, "Paddington.2014.1080p.BluRay.x264-GRP/Paddington.2014.1080p.BluRay.x264-GRP.mkv", "movie")
 
@@ -123,6 +126,7 @@ func TestAdoptingATitleTellsTheMediaServersItsFolder(t *testing.T) {
 }
 
 func TestCleaningUpATitleFolderTellsTheMediaServers(t *testing.T) {
+	t.Parallel()
 	a, ms := newMediaAdopting(t)
 	a.put(t, "Paddington.2014.1080p.BluRay.x264-GRP/Paddington.2014.1080p.BluRay.x264-GRP.mkv", "movie")
 	a.commit(t, a.scan(t).Revision)

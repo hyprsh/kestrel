@@ -7,6 +7,7 @@ import (
 )
 
 func TestANeedsChoiceRowIsSettledFromItsCandidatesAndAdoptedWhileUnsettledOnesAreLeftOut(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	pick := a.put(t, "Paddington/pad.mkv", "ambiguous")
 	left := a.put(t, "Unknown Thing/thing.mkv", "nobody knows")
@@ -43,6 +44,7 @@ func TestANeedsChoiceRowIsSettledFromItsCandidatesAndAdoptedWhileUnsettledOnesAr
 }
 
 func TestACommitOfAStalePlanIsRefusedAndAnUntickedRowIsNotAdopted(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	video := a.put(t, "Paddington.2014.1080p.BluRay.x264-GRP/Paddington.2014.1080p.BluRay.x264-GRP.mkv", "movie")
 	plan := a.scan(t)
@@ -63,6 +65,7 @@ func TestACommitOfAStalePlanIsRefusedAndAnUntickedRowIsNotAdopted(t *testing.T) 
 }
 
 func TestAnIMDbTagMatchesAndAScanOfAnUnconfiguredRootFolderIsRefused(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	a.put(t, "Whatever {imdb-tt1109624}/whatever.mkv", "x")
 	if r := a.do("POST", "/adoption/scan", `{"root_folders":["/nowhere"]}`); r.Status != 422 {

@@ -18,6 +18,7 @@ const declaredProfiles = `profiles:
 `
 
 func TestDeclaredProfilesAreAppliedAsAWhole(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	in.mustDeclare(declaredProfiles)
 	got := profileMap(t, in.setUp())
@@ -39,6 +40,7 @@ func TestDeclaredProfilesAreAppliedAsAWhole(t *testing.T) {
 }
 
 func TestDeclaredProfilesAreWrittenOnlyWhenTheyDiffer(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	in.mustDeclare(declaredProfiles)
 
@@ -52,6 +54,7 @@ func TestDeclaredProfilesAreWrittenOnlyWhenTheyDiffer(t *testing.T) {
 }
 
 func TestInvalidDeclaredProfilesFailStartupAndWriteNothing(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct{ name, body, want string }{
 		{"missing key", strings.Replace(declaredProfiles, "  4k-original:", "  # 4k-original:", 1), "profiles.4k-original"},
 		{"unknown key", declaredProfiles + "  8k-primary:   {enabled: true, original_fallback: false, default_movies: false, default_series: false}\n", "profiles.8k-primary"},
@@ -61,6 +64,7 @@ func TestInvalidDeclaredProfilesFailStartupAndWriteNothing(t *testing.T) {
 		{"two defaults in a Slot", strings.Replace(declaredProfiles, "4k-original:  {enabled: true,  original_fallback: false, default_movies: false", "4k-original:  {enabled: true,  original_fallback: false, default_movies: true", 1), "profiles.4k-original.default_movies"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
 			in := newInstance(t, "")
 			err := in.declare(declaredAccount+c.body, "KESTREL_ADMIN_PASSWORD", "correct horse")
 			if err == nil || !strings.Contains(err.Error(), c.want) {

@@ -130,6 +130,7 @@ func (s search) finishSetup(t *testing.T) {
 }
 
 func TestABlockingRowAppearsWhenSABnzbdFailsAndClearsWhenItRecovers(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	sab := s.instanceID(t, "fake")
 	if n := s.attention(t).Count; n != 0 {
@@ -167,6 +168,7 @@ func TestABlockingRowAppearsWhenSABnzbdFailsAndClearsWhenItRecovers(t *testing.T
 }
 
 func TestFailedPollsOfARunningDownloadAlsoRaiseTheSABnzbdRow(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.publish(t, goodRelease)
 	s.pass(t, jobs.Search)
@@ -182,6 +184,7 @@ func TestFailedPollsOfARunningDownloadAlsoRaiseTheSABnzbdRow(t *testing.T) {
 }
 
 func TestNoIndexerCanSearchIsBlockingOnceSetupIsDoneAndClearsWithAnEnabledIndexer(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	idx := s.instanceID(t, "fake_indexer")
 	path := fmt.Sprintf("/plugin-instances/%d", idx)
@@ -214,6 +217,7 @@ func TestNoIndexerCanSearchIsBlockingOnceSetupIsDoneAndClearsWithAnEnabledIndexe
 }
 
 func TestAnIndexerWithBadCredentialsIsAWarningWithTestOpenAndDisableAndBlockingRowsSortFirst(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.finishSetup(t)
 	idx := s.instanceID(t, "fake_indexer")
@@ -247,6 +251,7 @@ func TestAnIndexerWithBadCredentialsIsAWarningWithTestOpenAndDisableAndBlockingR
 }
 
 func TestADeclaredIndexerWithBadCredentialsOffersNoDisable(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.finishSetup(t)
 	alpha := "plugin_instances:\n  - name: Alpha\n    plugin_id: fake_indexer\n    config:\n      api_key_env: INDEXER_KEY\n"
@@ -264,6 +269,7 @@ func TestADeclaredIndexerWithBadCredentialsOffersNoDisable(t *testing.T) {
 }
 
 func TestRootFolderUnavailableIsBlockingForAMissingFolderAndClearsWhenItIsBack(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	s.finishSetup(t)
 	movies, tv := s.data+"/media/movies", s.data+"/media/tv"
@@ -300,6 +306,7 @@ func lowDisk(o *app.Options) {
 }
 
 func TestLowDiskSpaceIsAWarningAndTheHealthStripShowsFreeSpace(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t, lowDisk)
 	s.checks(t)
 
@@ -335,6 +342,7 @@ type statusJSON struct {
 }
 
 func TestTheHealthStripShowsTheDownloadClientAndEachIndexersState(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 
 	st := decode[statusJSON](t, s.valid("GET", "/system/status", ""))
@@ -369,6 +377,7 @@ func TestTheHealthStripShowsTheDownloadClientAndEachIndexersState(t *testing.T) 
 }
 
 func TestAnUntrustedProxyHeaderThatKeepsComingIsAWarningUntilTheAddressIsTrusted(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.setUp()
 	enableProxy(t, b, "10.0.0.0/8")
@@ -403,6 +412,7 @@ func TestAnUntrustedProxyHeaderThatKeepsComingIsAWarningUntilTheAddressIsTrusted
 }
 
 func TestOnlyOneOffHealthWarningsCanBeDismissedAndTheyReturnWhenTheyRecur(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newSearchBare(t)
 	h := s.in.app.Health
@@ -449,6 +459,7 @@ func TestOnlyOneOffHealthWarningsCanBeDismissedAndTheyReturnWhenTheyRecur(t *tes
 }
 
 func TestWarningsSortNewestFirstAfterEveryBlockingRow(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newSearchBare(t)
 	h := s.in.app.Health
@@ -473,6 +484,7 @@ func TestWarningsSortNewestFirstAfterEveryBlockingRow(t *testing.T) {
 }
 
 func TestTheStreamCarriesTheAttentionCountAndSeverityAsRowsComeAndGo(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s := newSearchBare(t, fastStream)
 	st := s.stream(t)
@@ -503,6 +515,7 @@ func TestTheStreamCarriesTheAttentionCountAndSeverityAsRowsComeAndGo(t *testing.
 }
 
 func TestTheMetadataProviderRejectingItsKeyIsABlockingRowUntilALookupWorksAgain(t *testing.T) {
+	t.Parallel()
 	tmdb := metadatatest.New(t)
 	key := &swappable{}
 	key.set("wrong")

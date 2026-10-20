@@ -11,6 +11,7 @@ import (
 )
 
 func TestResetPasswordSetsANewPasswordAndEndsEverySession(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.setUp()
 
@@ -30,6 +31,7 @@ func TestResetPasswordSetsANewPasswordAndEndsEverySession(t *testing.T) {
 }
 
 func TestResetPasswordWorksOnTheConfigDirOfARunningInstance(t *testing.T) {
+	t.Parallel()
 	dir := storetest.Dir(t)
 	st, err := store.Open(context.Background(), store.Options{Dir: dir})
 	if err != nil {
@@ -43,6 +45,7 @@ func TestResetPasswordWorksOnTheConfigDirOfARunningInstance(t *testing.T) {
 }
 
 func TestResetPasswordRefusesAWeakPassword(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	in.setUp()
 	if err := api.ResetPassword(context.Background(), in.st, "short"); err == nil {

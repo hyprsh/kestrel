@@ -108,6 +108,7 @@ func (s search) hasJob(t *testing.T, id string) bool {
 }
 
 func TestACompletedMovieIsImportedIntoItsFolderAndTheVersionShowsItsFile(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.prober.set(goodProbe(), nil)
 	grab, jobID := s.download(t, map[string]string{
@@ -143,6 +144,7 @@ func TestACompletedMovieIsImportedIntoItsFolderAndTheVersionShowsItsFile(t *test
 }
 
 func TestAnImportThatFailsTheProbeBlocklistsTheReleaseAndFreesTheVersion(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	short := goodProbe()
 	short.Duration = 5 * time.Minute
@@ -168,6 +170,7 @@ func TestAnImportThatFailsTheProbeBlocklistsTheReleaseAndFreesTheVersion(t *test
 }
 
 func TestAStalledImportKeepsItsJobAndIsRetriedWhenItsTimeComes(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.prober.set(probe.Info{}, probe.ErrNotInstalled)
 	grab, jobID := s.download(t, map[string]string{"paddington.mkv": "the movie"})
@@ -198,6 +201,7 @@ func TestAStalledImportKeepsItsJobAndIsRetriedWhenItsTimeComes(t *testing.T) {
 }
 
 func TestTheStreamHintsAnImportAndEmptiesTheQueue(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t, fastStream)
 	s.addPaddington(t)
 	s.prober.set(goodProbe(), nil)

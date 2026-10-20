@@ -48,7 +48,10 @@ func newRefreshInstance(t *testing.T) (library, *shiftingMeta) {
 
 func eventually(t *testing.T, what string, ok func() bool) {
 	t.Helper()
-	for range 200 {
+	// The deadline is generous: the package's tests run in parallel under the
+	// race detector, and a loaded machine slows the background work.
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
 		if ok() {
 			return
 		}
@@ -58,6 +61,7 @@ func eventually(t *testing.T, what string, ok func() bool) {
 }
 
 func TestAManualRefreshReturns202AndAppliesTheChange(t *testing.T) {
+	t.Parallel()
 	l, meta := newRefreshInstance(t)
 	created := decode[titleJSON](t, l.valid("POST", "/titles", addPaddington))
 	path := fmt.Sprintf("/titles/%d", created.ID)
@@ -78,6 +82,7 @@ func TestAManualRefreshReturns202AndAppliesTheChange(t *testing.T) {
 // ADR 0010: work a background loop did reaches the stream through the events
 // log, so a finished refresh records a routine event the stream maps to hints.
 func TestABackgroundRefreshIsRecordedAsARoutineEventForTheStream(t *testing.T) {
+	t.Parallel()
 	l, _ := newRefreshInstance(t)
 	created := decode[titleJSON](t, l.valid("POST", "/titles", addPaddington))
 
@@ -98,6 +103,7 @@ func TestABackgroundRefreshIsRecordedAsARoutineEventForTheStream(t *testing.T) {
 }
 
 func TestAVanishedUpstreamEntryRaisesTheRowAndKeepAsIsFreezesTheTitleAndClearsIt(t *testing.T) {
+	t.Parallel()
 	l, meta := newRefreshInstance(t)
 	created := decode[titleJSON](t, l.valid("POST", "/titles", addPaddington))
 	path := fmt.Sprintf("/titles/%d", created.ID)
@@ -144,6 +150,7 @@ func TestAVanishedUpstreamEntryRaisesTheRowAndKeepAsIsFreezesTheTitleAndClearsIt
 }
 
 func TestRemovingATitleGoneUpstreamClearsItsRow(t *testing.T) {
+	t.Parallel()
 	l, meta := newRefreshInstance(t)
 	created := decode[titleJSON](t, l.valid("POST", "/titles", addPaddington))
 	path := fmt.Sprintf("/titles/%d", created.ID)

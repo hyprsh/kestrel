@@ -20,6 +20,7 @@ type budgetStatusJSON struct {
 }
 
 func TestTheHealthStripShowsBudgetsAndPausesAndNeitherCountsAsAFailure(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.publish(t, goodRelease)
 	s.releases(t, s.hd)

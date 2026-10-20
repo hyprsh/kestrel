@@ -60,6 +60,7 @@ func (s search) grabState(t *testing.T, id int64) string {
 }
 
 func TestAddingAMovieGrabsTheBestReleaseAndFollowsItToCompleted(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.publish(t, goodRelease)
 	s.publish(t, uhdRelease)
@@ -120,6 +121,7 @@ func TestAddingAMovieGrabsTheBestReleaseAndFollowsItToCompleted(t *testing.T) {
 }
 
 func TestRunningALoopPassAgainChangesNothing(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.publish(t, goodRelease)
 	s.pass(t, jobs.Search)
@@ -140,6 +142,7 @@ func TestRunningALoopPassAgainChangesNothing(t *testing.T) {
 }
 
 func TestAfterARestartStartupReconciliationPicksUpTheGrabsInFlight(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.publish(t, goodRelease)
 	s.pass(t, jobs.Search)
@@ -166,6 +169,7 @@ func TestAfterARestartStartupReconciliationPicksUpTheGrabsInFlight(t *testing.T)
 }
 
 func TestAddingAMovieThroughTheUIKicksTheSearchLoop(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	s.publish(t, goodRelease)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -185,6 +189,7 @@ func TestAddingAMovieThroughTheUIKicksTheSearchLoop(t *testing.T) {
 }
 
 func TestAnUnmonitoredTitleGetsNoAutomaticGrab(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.publish(t, goodRelease)
 	if _, err := s.in.st.Write().Exec(`UPDATE titles SET monitored = 0`); err != nil {
@@ -199,6 +204,7 @@ func TestAnUnmonitoredTitleGetsNoAutomaticGrab(t *testing.T) {
 }
 
 func TestCancelRemovesTheJobFromTheClientAndTheQueue(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.publish(t, goodRelease)
 	s.pass(t, jobs.Search)
@@ -225,6 +231,7 @@ func TestCancelRemovesTheJobFromTheClientAndTheQueue(t *testing.T) {
 }
 
 func TestCancelAndBlocklistBlocklistsTheReleaseAndSearchesForTheNextBest(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.publish(t, goodRelease)
 	s.publish(t, "Paddington.2014.1080p.WEBDL.x264-OTHER")
@@ -248,6 +255,7 @@ func TestCancelAndBlocklistBlocklistsTheReleaseAndSearchesForTheNextBest(t *test
 }
 
 func TestAnUpgradeGrabShowsTheBadgeAndHowMuchBetterItScores(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.publish(t, goodRelease)
 	if _, err := s.in.st.Write().Exec(
@@ -271,6 +279,7 @@ func TestAnUpgradeGrabShowsTheBadgeAndHowMuchBetterItScores(t *testing.T) {
 }
 
 func TestQueueAndCancelNeedALogin(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	anon := s.in.browser()
 	for _, p := range []struct{ method, path string }{{"GET", "/queue"}, {"POST", "/grabs/1/cancel"}} {

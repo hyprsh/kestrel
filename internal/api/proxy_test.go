@@ -16,6 +16,7 @@ func enableProxy(t *testing.T, b *browser, trusted string) {
 }
 
 func TestReverseProxyAuthIsOffByDefault(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.setUp()
 
@@ -29,6 +30,7 @@ func TestReverseProxyAuthIsOffByDefault(t *testing.T) {
 }
 
 func TestATrustedProxyLogsTheAdminInPerRequestWithoutACookie(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	enableProxy(t, in.setUp(), "127.0.0.1")
 
@@ -49,6 +51,7 @@ func TestATrustedProxyLogsTheAdminInPerRequestWithoutACookie(t *testing.T) {
 }
 
 func TestATrustedCIDRRangeCountsToo(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	enableProxy(t, in.setUp(), "127.0.0.0/8")
 	if r := in.call("GET", "/auth/me", "", map[string]string{"Remote-User": "alice"}); r.Status != 200 {
@@ -57,6 +60,7 @@ func TestATrustedCIDRRangeCountsToo(t *testing.T) {
 }
 
 func TestTheHeaderFromAnUntrustedAddressIsIgnoredAndRecorded(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.setUp()
 	enableProxy(t, b, "10.0.0.0/8")
@@ -75,6 +79,7 @@ func TestTheHeaderFromAnUntrustedAddressIsIgnoredAndRecorded(t *testing.T) {
 }
 
 func TestProxySettingsAreValidated(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.setUp()
 	for _, body := range []string{
@@ -90,6 +95,7 @@ func TestProxySettingsAreValidated(t *testing.T) {
 }
 
 func TestBehindATrustedProxyTheClientIsTheRightmostUntrustedForwardedAddress(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	enableProxy(t, in.setUp(), "127.0.0.1")
 	bad := map[string]string{"X-Api-Key": "kst_nope", "X-Forwarded-For": "203.0.113.9, 198.51.100.7, 127.0.0.1"}

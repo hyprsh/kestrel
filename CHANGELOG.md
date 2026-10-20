@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.1](https://github.com/hyprsh/kestrel/compare/v0.3.0...v0.3.1) (2026-10-20)
+
+> Silo's request route dialog no longer crashes when one of Kestrel's dropdowns opens, so a route can pick a Profile and a Root folder again.
+
+### Upgrade Steps
+
+* **[ACTION REQUIRED]** Update the Kestrel plugin in Silo to 0.3.1. The route dialog fix ships in the plugin, so pulling the new image alone does not fix it.
+
+### Bug Fixes
+
+* **silo:** the Standard Profile, 4K Profile and Root folder dropdowns open in Silo's request route dialog instead of crashing it. "Kestrel default" is now stored as `default`, and connections saved with the old empty value keep working ([#104](https://github.com/hyprsh/kestrel/pull/104))
+* **web:** clicking the Kestrel logo at the top of the rail goes back to the Overview ([#105](https://github.com/hyprsh/kestrel/pull/105))
+
 ## [0.3.0](https://github.com/hyprsh/kestrel/compare/v0.2.0...v0.3.0) (2026-10-20)
 
 > Kestrel can now be set up from a file: point `KESTREL_CONFIG_FILE` at a YAML Config File, and every start brings the account, settings, Profiles, download clients and indexers to the state it declares, with no clicks in the UI. See [The Config File](https://github.com/hyprsh/kestrel#the-config-file).
