@@ -260,39 +260,29 @@ func TestAListedEpisodeMovedOntoAPlaceholderEpisodeTakesItsFilesWhereItHasNone(t
 	}
 }
 
-func TestARefreshRemovesPlaceholderEpisodesWithNoFileAndNoActiveGrab(t *testing.T) {
+func TestARefreshRemovesPlaceholderEpisodesWithNoFileThatNoGrabIsFetching(t *testing.T) {
 	ctx := context.Background()
-	lib, st := newLibrary(t)
+	lib, _ := newLibrary(t)
 	id, ver := fourEpisodes(t, lib)
 	withFile := addPlaceholder(t, lib, id, 2, 5)
 	fetching := addPlaceholder(t, lib, id, 2, 6)
-	failed := addPlaceholder(t, lib, id, 1, 2)
 	stray := addPlaceholder(t, lib, id, 1, 3)
 	if _, err := lib.ReplaceEpisodeFile(ctx, id, "F", newEpisodeFile(ver, "/tv/S02E05.mkv", 10), []int64{withFile.ID}); err != nil {
 		t.Fatal(err)
 	}
-	grab := func(state string, ep int64) {
-		t.Helper()
-		res, err := st.Write().ExecContext(ctx, `INSERT INTO grabs (title_id, version_id, release_guid, release_name, indexer_id, indexer_name,
-			size, published_at, score, parsed, verdict, client_instance_id, client_id, state, created_at, updated_at)
-			VALUES (?, ?, 'g', 'r', 1, 'i', 1, 'x', 0, '{}', '{}', 1, ?, ?, 'x', 'x')`, id, ver, state+"-job", state)
-		if err != nil {
-			t.Fatal(err)
-		}
-		gid, _ := res.LastInsertId()
-		if _, err := st.Write().ExecContext(ctx, `INSERT INTO grab_episodes (grab_id, episode_id) VALUES (?, ?)`, gid, ep); err != nil {
-			t.Fatal(err)
-		}
-	}
-	grab("downloading", fetching.ID)
-	grab("failed", failed.ID)
 
-	refreshWith(t, lib, id, listedFour())
+	d, _ := show()
+	if _, err := lib.RefreshSeries(ctx, id, library.SeriesRefresh{
+		TMDB: d, TVDB: metadata.TVDBSeries{ID: 81189, Name: "Breaking Bad", Episodes: listedFour()}, PrimaryLanguage: "en",
+		Fetching: map[int64]bool{fetching.ID: true},
+	}); err != nil {
+		t.Fatal(err)
+	}
 	for _, c := range []struct {
 		name string
 		ep   library.Episode
 		kept bool
-	}{{"with a file", withFile, true}, {"with an active Grab", fetching, true}, {"with a failed Grab", failed, false}, {"with nothing", stray, false}} {
+	}{{"with a file", withFile, true}, {"being fetched", fetching, true}, {"with nothing", stray, false}} {
 		_, ok := episodeAt(t, lib, id, c.ep.Season, c.ep.Number, now)
 		if ok != c.kept {
 			t.Errorf("%s: kept = %v", c.name, ok)

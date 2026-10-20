@@ -413,6 +413,36 @@ func (q *Queries) ListActiveGrabEpisodes(ctx context.Context) ([]ListActiveGrabE
 	return items, nil
 }
 
+const listActiveGrabEpisodesOfTitle = `-- name: ListActiveGrabEpisodesOfTitle :many
+SELECT DISTINCT ge.episode_id
+FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
+WHERE g.title_id = ? AND g.state IN ('sent', 'downloading', 'completed', 'importing')
+`
+
+// The episodes of a Title its active Grabs are fetching. A stalled Import still holds its episodes.
+func (q *Queries) ListActiveGrabEpisodesOfTitle(ctx context.Context, titleID sql.NullInt64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listActiveGrabEpisodesOfTitle, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var episode_id int64
+		if err := rows.Scan(&episode_id); err != nil {
+			return nil, err
+		}
+		items = append(items, episode_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listActiveGrabs = `-- name: ListActiveGrabs :many
 SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at FROM grabs WHERE state IN ('sent', 'downloading', 'completed', 'importing') AND stalled_since IS NULL ORDER BY id
 `

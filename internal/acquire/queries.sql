@@ -67,6 +67,12 @@ SELECT g.version_id, ge.episode_id
 FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
 WHERE g.state IN ('sent', 'downloading', 'completed', 'importing');
 
+-- The episodes of a Title its active Grabs are fetching. A stalled Import still holds its episodes.
+-- name: ListActiveGrabEpisodesOfTitle :many
+SELECT DISTINCT ge.episode_id
+FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
+WHERE g.title_id = ? AND g.state IN ('sent', 'downloading', 'completed', 'importing');
+
 -- name: ListGrabEpisodes :many
 SELECT episode_id FROM grab_episodes WHERE grab_id = ? ORDER BY episode_id;
 

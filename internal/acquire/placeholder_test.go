@@ -62,6 +62,31 @@ func TestRSSGrabsAnEpisodeJustPastTheLastListedOneAsAPlaceholderEpisode(t *testi
 	}
 }
 
+func TestTheEpisodesAnActiveGrabIsFetchingAreTheTitlesUntilTheGrabEnds(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	id, _ := r.nightShow(t, library.MonitorAll)
+	r.publishTV(t, "Night.Show.S01E03.1080p.WEB-DL.H264-GRP")
+	out, err := r.svc.SyncRSS(ctx)
+	if err != nil || len(out.Grabbed) != 1 {
+		t.Fatalf("RSS = %+v, %v", out, err)
+	}
+	p, _ := r.placeholderAt(t, id, 1, 3)
+
+	if got, err := r.svc.FetchingEpisodes(ctx, id); err != nil || len(got) != 1 || !got[p.ID] {
+		t.Fatalf("fetching = %v, %v; want the placeholder %d", got, err, p.ID)
+	}
+	if got, _ := r.svc.FetchingEpisodes(ctx, r.titleID); len(got) != 0 {
+		t.Errorf("another Title's = %v", got)
+	}
+	if _, err := r.svc.Cancel(ctx, out.Grabbed[0].ID, false); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := r.svc.FetchingEpisodes(ctx, id); len(got) != 0 {
+		t.Errorf("fetching after the cancel = %v", got)
+	}
+}
+
 func TestRSSDoesNotGrabUnlistedEpisodesThatDoNotQualify(t *testing.T) {
 	for _, tc := range []struct {
 		name string
