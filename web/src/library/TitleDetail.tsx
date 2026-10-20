@@ -6,6 +6,7 @@ import { Button, ErrorText } from '../forms'
 import { cx } from '../ui'
 import { size, slotKeys, slotLabel, StatusBadge, type SlotKey } from './bits'
 import { AddVersion, RemoveTitle, VersionControls } from './ManageVersion'
+import { MoveTitle } from './MoveTitle'
 import { SeriesSection } from './SeriesSection'
 
 /** The right pane of the Library: the selected Title's header and its Standard | 4K Versions strip. */
@@ -90,6 +91,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
           Clean up this Title
         </Button>
       </div>
+      <MoveTitle title={title} />
       <RemoveTitle titleId={title.id} />
     </div>
   )
