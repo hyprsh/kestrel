@@ -56,6 +56,10 @@ const (
 	RequestCreated Kind = "request"
 	// Renamed: a Title's folder and files were renamed after its English title or year changed.
 	Renamed Kind = "rename"
+	// Moved: a Title was moved to another Root folder. Data carries from and to.
+	Moved Kind = "move"
+	// FilesDeleted: files of a Version were deleted by hand; the Version stays. Data carries the paths and episode ids.
+	FilesDeleted Kind = "delete"
 	// TitleRefreshed: a Title's metadata was refreshed in the background (routine).
 	TitleRefreshed Kind = "title_refreshed"
 	// Blocklisted: a Release went on the Blocklist.
@@ -64,9 +68,11 @@ const (
 	HealthRaised Kind = "health_raised"
 	// HealthCleared: a Needs attention row cleared itself.
 	HealthCleared Kind = "health_cleared"
+	// Searched: a search started by hand (Search now) finished; the message says what it found (routine).
+	Searched Kind = "search"
 )
 
-var routine = map[Kind]bool{GrabDownloading: true, GrabCompleted: true, AdoptionScanned: true, TitleRefreshed: true}
+var routine = map[Kind]bool{GrabDownloading: true, GrabCompleted: true, AdoptionScanned: true, TitleRefreshed: true, Searched: true}
 
 // IsRoutine reports whether events of this kind are pruned after 30 days.
 func IsRoutine(k Kind) bool { return routine[k] }

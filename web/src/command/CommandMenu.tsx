@@ -2,8 +2,10 @@ import { CornerDownLeft, Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ApiError, useLookup, useTitles, type LookupResult } from '../api/queries'
 import { KindIcon } from '../library/bits'
+import { ratingsText } from '../library/Ratings'
 import { Badge, cx, Kbd } from '../ui'
 import { AddConfirm } from './AddConfirm'
+import { Poster } from './LookupSummary'
 
 export type MenuMode = 'root' | 'add'
 
@@ -21,6 +23,8 @@ type Item = {
   /** Items that change the menu itself, or close it on their own, leave it open when run. */
   keepOpen?: boolean
   run: () => void
+  /** A search result's poster thumbnail; null draws an empty frame. */
+  thumb?: string | null
 }
 
 /** Waits for typing to pause before a value is used, so a search is not sent per keystroke. */
@@ -75,9 +79,10 @@ export function CommandMenu({
         id: `${r.kind}-${r.tmdb_id}`,
         group: 'Titles' as const,
         label: r.title,
-        sub: r.year ? String(r.year) : undefined,
+        sub: [r.year, ratingsText(r.ratings)].filter(Boolean).join(' · ') || undefined,
         disabled: !r.addable,
         keepOpen: true,
+        thumb: r.poster,
         right: (
           <span className="flex items-center gap-1.5">
             {r.in_library !== null && <Badge tone="green">In library</Badge>}
@@ -228,11 +233,13 @@ export function CommandMenu({
                     onMouseMove={() => setSel(i)}
                     onClick={() => run(item)}
                     className={cx(
-                      'flex h-9 cursor-default items-center gap-2 rounded-md px-2.5',
+                      'flex cursor-default items-center rounded-md px-2.5',
+                      item.thumb !== undefined ? 'h-12 gap-2.5' : 'h-9 gap-2',
                       i === index && 'bg-gray-alpha-200',
                       item.disabled && 'opacity-50',
                     )}
                   >
+                    {item.thumb !== undefined && <Poster src={item.thumb} className="h-10 w-7" />}
                     {item.group === 'Add' && <Plus className="size-3.5 text-gray-900" />}
                     <span className="truncate text-[13px]">{item.label}</span>{' '}
                     {item.sub && <span className="text-[12px] text-gray-900">{item.sub}</span>}{' '}

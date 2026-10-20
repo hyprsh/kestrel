@@ -67,6 +67,43 @@ type rig struct {
 	notes    recorder
 	// crossDevice makes hardlinks fail with EXDEV, as across a filesystem boundary.
 	crossDevice bool
+	// crossDeviceRename makes folder renames fail with EXDEV.
+	crossDeviceRename bool
+	// failMove makes the database write of a Move fail.
+	failMove bool
+	// log is the Log, blocks the Blocklist.
+	log    eventLog
+	blocks blocklist
+	// undeletable are paths whose deletion fails, as on a read-only disk.
+	undeletable map[string]bool
+}
+
+// remove is os.Remove, failing for the undeletable paths.
+func (r *rig) remove(path string) error {
+	if r.undeletable[path] {
+		return &os.PathError{Op: "remove", Path: path, Err: syscall.EROFS}
+	}
+	return os.Remove(path)
+}
+
+// renames is the library with a Move's database write that can be made to fail.
+type renames struct {
+	*library.Service
+	r *rig
+}
+
+func (s renames) ApplyMove(ctx context.Context, titleID int64, root string, moves []library.FileMove) error {
+	if s.r.failMove {
+		return errors.New("database is locked")
+	}
+	return s.Service.ApplyMove(ctx, titleID, root, moves)
+}
+
+func (r *rig) renameDir(oldpath, newpath string) error {
+	if r.crossDeviceRename {
+		return &os.LinkError{Op: "rename", Old: oldpath, New: newpath, Err: syscall.EXDEV}
+	}
+	return os.Rename(oldpath, newpath)
 }
 
 func newRig(t *testing.T) *rig {
@@ -99,7 +136,8 @@ func newRig(t *testing.T) *rig {
 	}
 	r.health = health.New(health.Deps{Store: st, Clock: func() time.Time { return now }})
 	svc, err := imports.New(imports.Deps{
-		Library: r.lib, Renames: r.lib, Profiles: profiles.New(st, settings.New(st)), Prober: r.prober, Clock: func() time.Time { return now }, Health: r.health, FolderChanged: r.notes.changed,
+		Library: r.lib, Renames: renames{r.lib, r}, Rename: r.renameDir, Profiles: profiles.New(st, settings.New(st)), Prober: r.prober, Clock: func() time.Time { return now }, Health: r.health, FolderChanged: r.notes.changed,
+		History: &r.log, Blocklist: &r.blocks, Remove: r.remove,
 		Link: func(src, dst string) error {
 			if r.crossDevice {
 				return &os.LinkError{Op: "link", Old: src, New: dst, Err: syscall.EXDEV}

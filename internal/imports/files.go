@@ -203,6 +203,11 @@ func (s *Service) sidecars(sel selection, target, primary, original string) {
 // removeWithSidecars deletes a video and the subtitles named after it.
 func removeWithSidecars(video string) {
 	_ = os.Remove(video)
+	removeSidecars(video)
+}
+
+// removeSidecars deletes the text subtitles named after a video.
+func removeSidecars(video string) {
 	stem := strings.TrimSuffix(video, filepath.Ext(video))
 	matches, _ := filepath.Glob(escapeGlob(stem) + ".*")
 	for _, m := range matches {

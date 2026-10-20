@@ -223,7 +223,7 @@ func (q *Queries) GetFileOfVersionEpisode(ctx context.Context, arg GetFileOfVers
 }
 
 const getTitle = `-- name: GetTitle :one
-SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at FROM titles WHERE id = ?
+SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count FROM titles WHERE id = ?
 `
 
 func (q *Queries) GetTitle(ctx context.Context, id int64) (Title, error) {
@@ -250,6 +250,8 @@ func (q *Queries) GetTitle(ctx context.Context, id int64) (Title, error) {
 		&i.Folder,
 		&i.AddedAt,
 		&i.RefreshedAt,
+		&i.TmdbVoteAverage,
+		&i.TmdbVoteCount,
 	)
 	return i, err
 }
@@ -304,17 +306,18 @@ func (q *Queries) InsertAlias(ctx context.Context, arg InsertAliasParams) error 
 }
 
 const insertEpisode = `-- name: InsertEpisode :exec
-INSERT INTO episodes (title_id, season, number, tvdb_id, name, air_date, monitored) VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO episodes (title_id, season, number, tvdb_id, name, air_date, monitored, primary_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertEpisodeParams struct {
-	TitleID   int64
-	Season    int64
-	Number    int64
-	TvdbID    sql.NullInt64
-	Name      string
-	AirDate   sql.NullString
-	Monitored int64
+	TitleID     int64
+	Season      int64
+	Number      int64
+	TvdbID      sql.NullInt64
+	Name        string
+	AirDate     sql.NullString
+	Monitored   int64
+	PrimaryName string
 }
 
 func (q *Queries) InsertEpisode(ctx context.Context, arg InsertEpisodeParams) error {
@@ -326,6 +329,7 @@ func (q *Queries) InsertEpisode(ctx context.Context, arg InsertEpisodeParams) er
 		arg.Name,
 		arg.AirDate,
 		arg.Monitored,
+		arg.PrimaryName,
 	)
 	return err
 }
@@ -443,8 +447,9 @@ func (q *Queries) InsertSeason(ctx context.Context, arg InsertSeasonParams) erro
 
 const insertTitle = `-- name: InsertTitle :one
 INSERT INTO titles (kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language,
-                    overview, runtime, poster_path, monitored, series_monitor, root_folder, added_at, refreshed_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    overview, runtime, poster_path, monitored, series_monitor, root_folder, added_at, refreshed_at,
+                    tmdb_vote_average, tmdb_vote_count)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id
 `
 
@@ -466,6 +471,8 @@ type InsertTitleParams struct {
 	RootFolder       string
 	AddedAt          string
 	RefreshedAt      string
+	TmdbVoteAverage  sql.NullFloat64
+	TmdbVoteCount    sql.NullInt64
 }
 
 func (q *Queries) InsertTitle(ctx context.Context, arg InsertTitleParams) (int64, error) {
@@ -487,6 +494,8 @@ func (q *Queries) InsertTitle(ctx context.Context, arg InsertTitleParams) (int64
 		arg.RootFolder,
 		arg.AddedAt,
 		arg.RefreshedAt,
+		arg.TmdbVoteAverage,
+		arg.TmdbVoteCount,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -582,13 +591,17 @@ func (q *Queries) ListAliasesOfTitle(ctx context.Context, titleID int64) ([]List
 }
 
 const listAllFileEpisodesOfTitle = `-- name: ListAllFileEpisodesOfTitle :many
-SELECT f.version_id, fe.episode_id
+SELECT f.version_id, fe.episode_id, f.id AS file_id, f.path, f.size, f.parsed_release
 FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id WHERE v.title_id = ?
 `
 
 type ListAllFileEpisodesOfTitleRow struct {
-	VersionID int64
-	EpisodeID int64
+	VersionID     int64
+	EpisodeID     int64
+	FileID        int64
+	Path          string
+	Size          int64
+	ParsedRelease sql.NullString
 }
 
 func (q *Queries) ListAllFileEpisodesOfTitle(ctx context.Context, titleID int64) ([]ListAllFileEpisodesOfTitleRow, error) {
@@ -600,7 +613,14 @@ func (q *Queries) ListAllFileEpisodesOfTitle(ctx context.Context, titleID int64)
 	var items []ListAllFileEpisodesOfTitleRow
 	for rows.Next() {
 		var i ListAllFileEpisodesOfTitleRow
-		if err := rows.Scan(&i.VersionID, &i.EpisodeID); err != nil {
+		if err := rows.Scan(
+			&i.VersionID,
+			&i.EpisodeID,
+			&i.FileID,
+			&i.Path,
+			&i.Size,
+			&i.ParsedRelease,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -648,7 +668,7 @@ func (q *Queries) ListAllReleaseDates(ctx context.Context) ([]TitleReleaseDate, 
 }
 
 const listEpisodes = `-- name: ListEpisodes :many
-SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored FROM episodes ORDER BY title_id, season, number
+SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name FROM episodes ORDER BY title_id, season, number
 `
 
 func (q *Queries) ListEpisodes(ctx context.Context) ([]Episode, error) {
@@ -669,6 +689,7 @@ func (q *Queries) ListEpisodes(ctx context.Context) ([]Episode, error) {
 			&i.Name,
 			&i.AirDate,
 			&i.Monitored,
+			&i.PrimaryName,
 		); err != nil {
 			return nil, err
 		}
@@ -735,7 +756,7 @@ func (q *Queries) ListEpisodesAiring(ctx context.Context, arg ListEpisodesAiring
 }
 
 const listEpisodesOfTitle = `-- name: ListEpisodesOfTitle :many
-SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored FROM episodes WHERE title_id = ? ORDER BY season, number
+SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name FROM episodes WHERE title_id = ? ORDER BY season, number
 `
 
 func (q *Queries) ListEpisodesOfTitle(ctx context.Context, titleID int64) ([]Episode, error) {
@@ -756,6 +777,7 @@ func (q *Queries) ListEpisodesOfTitle(ctx context.Context, titleID int64) ([]Epi
 			&i.Name,
 			&i.AirDate,
 			&i.Monitored,
+			&i.PrimaryName,
 		); err != nil {
 			return nil, err
 		}
@@ -1318,7 +1340,7 @@ func (q *Queries) ListSeasonsOfTitle(ctx context.Context, titleID int64) ([]Seas
 }
 
 const listTitles = `-- name: ListTitles :many
-SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at FROM titles ORDER BY added_at DESC, id DESC
+SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count FROM titles ORDER BY added_at DESC, id DESC
 `
 
 func (q *Queries) ListTitles(ctx context.Context) ([]Title, error) {
@@ -1351,6 +1373,8 @@ func (q *Queries) ListTitles(ctx context.Context) ([]Title, error) {
 			&i.Folder,
 			&i.AddedAt,
 			&i.RefreshedAt,
+			&i.TmdbVoteAverage,
+			&i.TmdbVoteCount,
 		); err != nil {
 			return nil, err
 		}
@@ -1704,6 +1728,20 @@ func (q *Queries) SetTitleMonitored(ctx context.Context, arg SetTitleMonitoredPa
 	return err
 }
 
+const setTitleRootFolder = `-- name: SetTitleRootFolder :exec
+UPDATE titles SET root_folder = ? WHERE id = ?
+`
+
+type SetTitleRootFolderParams struct {
+	RootFolder string
+	ID         int64
+}
+
+func (q *Queries) SetTitleRootFolder(ctx context.Context, arg SetTitleRootFolderParams) error {
+	_, err := q.db.ExecContext(ctx, setTitleRootFolder, arg.RootFolder, arg.ID)
+	return err
+}
+
 const setUpgradesDueSince = `-- name: SetUpgradesDueSince :exec
 UPDATE search_state SET next_upgrade_at = ? WHERE last_upgrade_at >= ?
 `
@@ -1733,16 +1771,17 @@ func (q *Queries) SetVersionProfile(ctx context.Context, arg SetVersionProfilePa
 }
 
 const updateEpisode = `-- name: UpdateEpisode :exec
-UPDATE episodes SET season = ?, number = ?, tvdb_id = ?, name = ?, air_date = ? WHERE id = ?
+UPDATE episodes SET season = ?, number = ?, tvdb_id = ?, name = ?, air_date = ?, primary_name = ? WHERE id = ?
 `
 
 type UpdateEpisodeParams struct {
-	Season  int64
-	Number  int64
-	TvdbID  sql.NullInt64
-	Name    string
-	AirDate sql.NullString
-	ID      int64
+	Season      int64
+	Number      int64
+	TvdbID      sql.NullInt64
+	Name        string
+	AirDate     sql.NullString
+	PrimaryName string
+	ID          int64
 }
 
 func (q *Queries) UpdateEpisode(ctx context.Context, arg UpdateEpisodeParams) error {
@@ -1752,6 +1791,7 @@ func (q *Queries) UpdateEpisode(ctx context.Context, arg UpdateEpisodeParams) er
 		arg.TvdbID,
 		arg.Name,
 		arg.AirDate,
+		arg.PrimaryName,
 		arg.ID,
 	)
 	return err
@@ -1759,7 +1799,8 @@ func (q *Queries) UpdateEpisode(ctx context.Context, arg UpdateEpisodeParams) er
 
 const updateTitleMetadata = `-- name: UpdateTitleMetadata :exec
 UPDATE titles SET title = ?, original_title = ?, primary_title = ?, year = ?,
-    original_language = ?, overview = ?, runtime = ?, poster_path = ?, refreshed_at = ?
+    original_language = ?, overview = ?, runtime = ?, poster_path = ?, refreshed_at = ?,
+    tmdb_vote_average = ?, tmdb_vote_count = ?
 WHERE id = ?
 `
 
@@ -1773,6 +1814,8 @@ type UpdateTitleMetadataParams struct {
 	Runtime          sql.NullInt64
 	PosterPath       sql.NullString
 	RefreshedAt      string
+	TmdbVoteAverage  sql.NullFloat64
+	TmdbVoteCount    sql.NullInt64
 	ID               int64
 }
 
@@ -1787,6 +1830,8 @@ func (q *Queries) UpdateTitleMetadata(ctx context.Context, arg UpdateTitleMetada
 		arg.Runtime,
 		arg.PosterPath,
 		arg.RefreshedAt,
+		arg.TmdbVoteAverage,
+		arg.TmdbVoteCount,
 		arg.ID,
 	)
 	return err

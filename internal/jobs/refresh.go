@@ -144,7 +144,7 @@ func (r *Refresher) Refresh(ctx context.Context, id int64) error {
 		var det metadata.SeriesDetails
 		var tv metadata.TVDBSeries
 		if det, err = r.d.Meta.Series(ctx, d.TMDBID); err == nil {
-			if tv, err = r.d.TVDB.Series(ctx, d.TVDBID); err == nil {
+			if tv, err = metadata.SeriesIn(ctx, r.d.TVDB, d.TVDBID, primary); err == nil {
 				res, err = r.d.Library.RefreshSeries(ctx, id, library.SeriesRefresh{TMDB: det, TVDB: tv, PrimaryLanguage: primary})
 			}
 		}

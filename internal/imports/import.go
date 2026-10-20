@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/health"
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/probe"
 	"github.com/hyprsh/kestrel/internal/release"
@@ -100,6 +101,9 @@ type Library interface {
 	FilesOfVersion(ctx context.Context, versionID int64) ([]library.File, error)
 	ApplyRescore(ctx context.Context, rs []library.Rescored) error
 	SetProfile(ctx context.Context, versionID int64, profile string) error
+	// GetVersion and RemoveFiles delete files and keep their Version.
+	GetVersion(ctx context.Context, id int64) (library.VersionRef, error)
+	RemoveFiles(ctx context.Context, versionID int64, fileIDs []int64) ([]library.File, error)
 }
 
 // Profiles is what imports needs of the Profiles.
@@ -115,6 +119,18 @@ type Health interface {
 	CheckRootFolder(ctx context.Context, path string) error
 	Raise(ctx context.Context, is health.Issue) error
 	Clear(ctx context.Context, key string) error
+}
+
+// History records the Log events of moves and deletions; *history.Service
+// satisfies it.
+type History interface {
+	Record(ctx context.Context, ev history.Event)
+}
+
+// Blocklist puts the Release of the Grab a deleted file came from on the
+// Blocklist; *acquire.Service satisfies it. It fails for a Grab that is gone.
+type Blocklist interface {
+	BlockGrab(ctx context.Context, grabID int64, reason string) error
 }
 
 // Deps are what a Service needs.
@@ -144,6 +160,15 @@ type Deps struct {
 	// Link hardlinks src to dst; nil means os.Link. Tests answer EXDEV with it
 	// to cross a filesystem boundary that a temp dir does not have.
 	Link func(src, dst string) error
+	// Rename renames a directory; nil means os.Rename. Tests answer EXDEV with
+	// it to cross a filesystem boundary that a temp dir does not have.
+	Rename func(oldpath, newpath string) error
+	// History records the move and delete events; may be nil.
+	History History
+	// Blocklist blocklists the Releases of deleted files; nil blocklists none.
+	Blocklist Blocklist
+	// Remove deletes a file; nil means os.Remove. Tests fail it.
+	Remove func(path string) error
 }
 
 // Service imports completed Grabs into the library.
@@ -156,9 +181,16 @@ type Service struct {
 	step  func(string) error
 	link  func(src, dst string) error
 	hl    Health
+	// rename renames a Title folder on a Move.
+	rename func(oldpath, newpath string) error
+	// guard serialises Import, Rename, Move and DeleteFiles per Title.
+	guard titleGuard
 
 	renames       RenameStore
 	folderChanged func(ctx context.Context, folder string)
+	hist          History
+	blocklist     Blocklist
+	remove        func(path string) error
 }
 
 // New returns a Service.
@@ -179,7 +211,13 @@ func New(d Deps) (*Service, error) {
 	if d.Link == nil {
 		d.Link = os.Link
 	}
-	return &Service{lib: d.Library, prof: d.Profiles, probe: d.Prober, clock: d.Clock, snap: d.Scoring, step: d.Step, link: d.Link, hl: d.Health, renames: d.Renames, folderChanged: d.FolderChanged}, nil
+	if d.Rename == nil {
+		d.Rename = os.Rename
+	}
+	if d.Remove == nil {
+		d.Remove = os.Remove
+	}
+	return &Service{lib: d.Library, prof: d.Profiles, probe: d.Prober, clock: d.Clock, snap: d.Scoring, step: d.Step, link: d.Link, rename: d.Rename, hl: d.Health, renames: d.Renames, folderChanged: d.FolderChanged, hist: d.History, blocklist: d.Blocklist, remove: d.Remove}, nil
 }
 
 func (s *Service) hook(step string) error {
@@ -213,6 +251,8 @@ func stalledBy(err error) Result {
 // error: what goes wrong is either the Release's fault (Rejected) or the
 // environment's (Stalled), and importing again is always safe.
 func (s *Service) Import(ctx context.Context, g Grab) Result {
+	unlock, _ := s.guard.lock(g.TitleID, forImport)
+	defer unlock()
 	defer s.snap.Hold()()
 	res := s.importGrab(ctx, g)
 	if res.Status == Imported && res.Path != "" && s.folderChanged != nil {

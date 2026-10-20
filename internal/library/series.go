@@ -28,6 +28,11 @@ type AddSeries struct {
 	Monitor         Monitor
 	Versions        []VersionSpec
 	RootFolder      string
+	// Seasons, when not nil, are the seasons monitored at add, Specials
+	// included when named; Monitor then decides only seasons that have not
+	// started airing, and what arrives later. A season TheTVDB does not list
+	// is an *UnknownSeasonError.
+	Seasons []int
 }
 
 // Season is a season of a Series; season 0 is Specials.
@@ -43,16 +48,32 @@ type EpisodeCell struct {
 	// HasFile is true when a file holds the episode, even a misfit one (which
 	// leaves the cell Wanted).
 	HasFile bool
+	// File is that file; nil when HasFile is false.
+	File *EpisodeFile
+}
+
+// EpisodeFile is a file holding one or more episodes of a Version.
+type EpisodeFile struct {
+	ID   int64
+	Path string
+	Size int64
+	// ParsedRelease is the JSON snapshot Imports wrote; "" when none.
+	ParsedRelease string
+	// EpisodeIDs are every episode the file holds, in aired order.
+	EpisodeIDs []int64
 }
 
 // Episode is an episode with a cell per Slot that has a Version.
 type Episode struct {
-	ID        int64
-	Season    int
-	Number    int
-	Name      string
-	AirDate   *time.Time // the TheTVDB air date; nil when it has none
-	Monitored bool
+	ID     int64
+	Season int
+	Number int
+	Name   string // the original title; "" for a Placeholder Episode
+	// PrimaryName is the title in the Primary Language, Name where TheTVDB has
+	// no translation or none was fetched yet.
+	PrimaryName string
+	AirDate     *time.Time // the TheTVDB air date; nil when it has none
+	Monitored   bool
 	// Cells is indexed by slot.Slot; nil where the Title has no Version.
 	Cells [slot.Count]*EpisodeCell
 }
@@ -76,7 +97,8 @@ func boolInt(b bool) int64 {
 }
 
 // AddSeries adds a Series with its seasons, episodes and Versions in one
-// transaction and returns its id. Monitoring follows the mode (PRD Settled 10);
+// transaction and returns its id. Monitoring follows the mode (PRD Settled 10)
+// or the Seasons asked for;
 // each Version's search_state is due now for every season but Specials. A
 // Series already in the Library is an *ExistsError.
 func (s *Service) AddSeries(ctx context.Context, a AddSeries) (int64, error) {
@@ -92,6 +114,9 @@ func (s *Service) AddSeries(ctx context.Context, a AddSeries) (int64, error) {
 			return 0, ErrDuplicateSlot
 		}
 		seen[v.Slot] = true
+	}
+	if err := checkSeasons(a.Seasons, a.TVDB.Episodes); err != nil {
+		return 0, err
 	}
 	nowT := s.clock()
 	now := ts(nowT)
@@ -151,6 +176,7 @@ func insertSeries(ctx context.Context, q *db.Queries, a AddSeries, nowT time.Tim
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return 0, nil, err
 	}
+	voteAverage, voteCount := ratingColumns(d.Rating)
 	id, err := q.InsertTitle(ctx, db.InsertTitleParams{
 		Kind: string(Series), TmdbID: nullInt(d.TMDBID), TvdbID: nullInt(a.TVDB.ID), ImdbID: nullStr(d.IMDbID),
 		Title: d.Title, OriginalTitle: d.OriginalTitle, PrimaryTitle: primary,
@@ -158,6 +184,7 @@ func insertSeries(ctx context.Context, q *db.Queries, a AddSeries, nowT time.Tim
 		Runtime: nullInt(d.Runtime), PosterPath: nullStr(d.PosterPath), Monitored: 1,
 		SeriesMonitor: nullStr(string(a.Monitor)),
 		RootFolder:    a.RootFolder, AddedAt: now, RefreshedAt: now,
+		TmdbVoteAverage: voteAverage, TmdbVoteCount: voteCount,
 	})
 	if err != nil {
 		return 0, nil, err
@@ -196,13 +223,14 @@ func insertSeries(ctx context.Context, q *db.Queries, a AddSeries, nowT time.Tim
 		return eps[i].Number < eps[j].Number
 	})
 	seasonMonitored := map[int]bool{}
+	started := startedSeasons(eps, nowT)
 	var seasons []int
 	for _, e := range eps {
 		if _, ok := seasonMonitored[e.Season]; !ok {
 			seasonMonitored[e.Season] = false
 			seasons = append(seasons, e.Season)
 		}
-		on := a.Monitor.MonitorsEpisode(e.Season, e.Aired, nowT)
+		on := a.monitorsAtAdd(e, started, nowT)
 		seasonMonitored[e.Season] = seasonMonitored[e.Season] || on
 		var air sql.NullString
 		if e.Aired != nil {
@@ -210,6 +238,7 @@ func insertSeries(ctx context.Context, q *db.Queries, a AddSeries, nowT time.Tim
 		}
 		if err := q.InsertEpisode(ctx, db.InsertEpisodeParams{
 			TitleID: id, Season: int64(e.Season), Number: int64(e.Number), TvdbID: nullInt(e.ID), Name: e.Name, AirDate: air, Monitored: boolInt(on),
+			PrimaryName: e.PrimaryName,
 		}); err != nil {
 			return 0, nil, err
 		}
@@ -293,17 +322,36 @@ func (s *Service) Episodes(ctx context.Context, titleID int64, view View) ([]Epi
 	if err != nil {
 		return nil, err
 	}
-	hasFile := map[[2]int64]bool{}
+	// A file holding several episodes is one EpisodeFile shared by their cells.
+	files := map[int64]*EpisodeFile{}
+	fileOf := map[[2]int64]*EpisodeFile{}
+	order := map[int64]int{}
+	for i, e := range eps {
+		order[e.ID] = i
+	}
 	for _, r := range all {
-		hasFile[[2]int64{r.VersionID, r.EpisodeID}] = true
+		f := files[r.FileID]
+		if f == nil {
+			f = &EpisodeFile{ID: r.FileID, Path: r.Path, Size: r.Size, ParsedRelease: r.ParsedRelease.String}
+			files[r.FileID] = f
+		}
+		f.EpisodeIDs = append(f.EpisodeIDs, r.EpisodeID)
+		fileOf[[2]int64{r.VersionID, r.EpisodeID}] = f
+	}
+	for _, f := range files {
+		sort.Slice(f.EpisodeIDs, func(i, j int) bool { return order[f.EpisodeIDs[i]] < order[f.EpisodeIDs[j]] })
 	}
 	out := make([]Episode, 0, len(eps))
 	for _, e := range eps {
-		ep := Episode{ID: e.ID, Season: int(e.Season), Number: int(e.Number), Name: e.Name, AirDate: parseDate(e.AirDate), Monitored: e.Monitored == 1}
+		ep := Episode{ID: e.ID, Season: int(e.Season), Number: int(e.Number), Name: e.Name, PrimaryName: e.PrimaryName, AirDate: parseDate(e.AirDate), Monitored: e.Monitored == 1}
+		if ep.PrimaryName == "" {
+			ep.PrimaryName = ep.Name
+		}
 		for _, v := range versions {
 			score, has := heldBy[v.ID][e.ID]
 			st, _ := StateAt(Unit{Monitored: ep.Monitored, HasFile: has, Released: ep.AirDate, AddedAt: parseTime(v.AddedAt)}, view.Now)
-			ep.Cells[slotOf(v.Slot)] = &EpisodeCell{State: st, Score: score, HasFile: hasFile[[2]int64{v.ID, e.ID}]}
+			f := fileOf[[2]int64{v.ID, e.ID}]
+			ep.Cells[slotOf(v.Slot)] = &EpisodeCell{State: st, Score: score, HasFile: f != nil, File: f}
 		}
 		out = append(out, ep)
 	}

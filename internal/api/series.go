@@ -3,10 +3,12 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/hyprsh/kestrel/internal/slot"
 	"net/http"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
+	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
@@ -21,6 +23,15 @@ func (s *server) createSeries(ctx context.Context, b *oapi.TitleCreate, specs []
 	if !mode.Valid() {
 		return nil, invalid("series_monitor", "invalid", "Monitor all, future or none")
 	}
+	var seasons []int
+	if b.Seasons != nil {
+		seasons = append(make([]int, 0, len(*b.Seasons)), *b.Seasons...)
+		for _, n := range seasons {
+			if n < 0 {
+				return nil, invalid("seasons", "invalid", "Seasons are numbered from 0")
+			}
+		}
+	}
 	details, err := s.meta.Series(ctx, b.TmdbId)
 	if err != nil {
 		return nil, metaProblem(err)
@@ -32,17 +43,22 @@ func (s *server) createSeries(ctx context.Context, b *oapi.TitleCreate, specs []
 	if tvdbID == 0 {
 		return nil, invalid("tmdb_id", metadata.ReasonNotOnTVDB, "This Series is not on TheTVDB, so Kestrel cannot add it")
 	}
-	tv, err := s.tvdb.Series(ctx, tvdbID)
-	if err != nil {
-		return nil, metaProblem(err)
-	}
 	region, _, err := s.profiles.Region(ctx)
 	if err != nil {
 		return nil, err
 	}
+	tv, err := metadata.SeriesIn(ctx, s.tvdb, tvdbID, string(region.Primary))
+	if err != nil {
+		return nil, metaProblem(err)
+	}
 	id, err := s.library.AddSeries(ctx, library.AddSeries{
 		TMDB: details, TVDB: tv, PrimaryLanguage: string(region.Primary), Monitor: mode, Versions: specs, RootFolder: root,
+		Seasons: seasons,
 	})
+	var unknown *library.UnknownSeasonError
+	if errors.As(err, &unknown) {
+		return nil, invalid("seasons", "unknown", fmt.Sprintf("The Series has no season %d", unknown.Season))
+	}
 	if err != nil {
 		return nil, addProblem(err)
 	}
@@ -77,10 +93,18 @@ func (s *server) ListEpisodes(ctx context.Context, r oapi.ListEpisodesRequestObj
 		if c == nil {
 			return nil
 		}
-		return &oapi.EpisodeCell{State: oapi.SlotState(c.State), Score: c.Score}
+		out := &oapi.EpisodeCell{State: oapi.SlotState(c.State), Score: c.Score}
+		if f := c.File; f != nil {
+			quality, _ := imports.Facts(f.ParsedRelease, "")
+			out.File = &oapi.EpisodeFile{Id: f.ID, Path: f.Path, Size: f.Size, Quality: strPtr(quality), EpisodeIds: f.EpisodeIDs}
+		}
+		return out
 	}
 	for _, e := range eps {
-		oe := oapi.Episode{Id: e.ID, Season: e.Season, Number: e.Number, Name: e.Name, Monitored: e.Monitored}
+		oe := oapi.Episode{
+			Id: e.ID, Season: e.Season, Number: e.Number, Name: e.Name, Monitored: e.Monitored,
+			PrimaryName: e.PrimaryName, OriginalName: e.Name,
+		}
 		if e.AirDate != nil {
 			oe.AirDate = &openapi_types.Date{Time: *e.AirDate}
 		}
@@ -113,6 +137,12 @@ func (s *server) PatchSeason(ctx context.Context, r oapi.PatchSeasonRequestObjec
 func (s *server) PatchTitle(ctx context.Context, r oapi.PatchTitleRequestObject) (oapi.PatchTitleResponseObject, error) {
 	if r.Body == nil {
 		return nil, invalid("body", "required", "a body is required")
+	}
+	if r.Body.RootFolder != nil {
+		// First, so a refused move leaves the other fields unapplied too.
+		if err := s.moveTitle(ctx, r.Id, *r.Body.RootFolder); err != nil {
+			return nil, err
+		}
 	}
 	if r.Body.MetadataFrozen != nil {
 		if err := s.refresher.SetFrozen(ctx, r.Id, *r.Body.MetadataFrozen); err != nil {

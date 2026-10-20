@@ -135,6 +135,8 @@ type File struct {
 	// Misfit says the file no longer fits its Version's Profile (a Profile
 	// switch): the Version counts as Wanted and any fitting Release replaces it.
 	Misfit bool
+	// GrabID is the Grab the file came from; 0 for an adopted file.
+	GrabID int64
 }
 
 // Version is one Slot of a Title in detail.
@@ -147,6 +149,37 @@ type Version struct {
 	WantedSince *time.Time
 	File        *File // Movies; nil until an Import fills it
 	AddedAt     time.Time
+	Coverage    *Coverage // Series only
+}
+
+// Coverage is how far a Series Version is filled. Episodes counts those it
+// holds a file for and those it Wants, so a Version is Wanted exactly when
+// Wanted is above zero.
+type Coverage struct {
+	Episodes    int
+	Filled      int
+	Wanted      int
+	LongMissing int
+	Size        int64 // bytes of all the Version's files
+}
+
+// coverageOf counts one Series Version's Units at now; size is the bytes of its files.
+func coverageOf(units []Unit, size int64, now time.Time) *Coverage {
+	c := &Coverage{Size: size}
+	for _, u := range units {
+		st, since := StateAt(u, now)
+		switch st {
+		case Filled:
+			c.Filled++
+		case Wanted:
+			c.Wanted++
+			if IsLongMissing(st, since, now) {
+				c.LongMissing++
+			}
+		}
+	}
+	c.Episodes = c.Filled + c.Wanted
+	return c
 }
 
 // Alias is an alternative title or translation.
@@ -177,6 +210,7 @@ type Detail struct {
 	Folder           string
 	AddedAt          time.Time
 	RefreshedAt      time.Time
+	Rating           metadata.AudienceRating // TMDB's audience rating, as of the last refresh
 	ReleaseDates     metadata.ReleaseDates
 	Aliases          []Alias
 	Versions         []Version // in Slot order
@@ -278,12 +312,14 @@ func (s *Service) AddMovie(ctx context.Context, a AddMovie) (int64, error) {
 // release dates, and returns its id. Versions are the caller's.
 func insertMovie(ctx context.Context, q *db.Queries, a AddMovie, primary, now string) (int64, error) {
 	d := a.Details
+	voteAverage, voteCount := ratingColumns(d.Rating)
 	id, err := q.InsertTitle(ctx, db.InsertTitleParams{
 		Kind: string(Movie), TmdbID: nullInt(d.TMDBID), ImdbID: nullStr(d.IMDbID),
 		Title: d.Title, OriginalTitle: d.OriginalTitle, PrimaryTitle: primary,
 		Year: nullInt(d.Year), OriginalLanguage: d.OriginalLanguage, Overview: d.Overview,
 		Runtime: nullInt(d.Runtime), PosterPath: nullStr(d.PosterPath), Monitored: 1,
 		RootFolder: a.RootFolder, AddedAt: now, RefreshedAt: now,
+		TmdbVoteAverage: voteAverage, TmdbVoteCount: voteCount,
 	})
 	if err != nil {
 		return 0, err
@@ -505,7 +541,7 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 		Title: t.Title, OriginalTitle: t.OriginalTitle, PrimaryTitle: t.PrimaryTitle, Year: int(t.Year.Int64),
 		OriginalLanguage: t.OriginalLanguage, Overview: t.Overview, Runtime: int(t.Runtime.Int64), PosterPath: t.PosterPath.String,
 		Monitored: t.Monitored == 1, MetadataFrozen: t.MetadataFrozen == 1, RootFolder: t.RootFolder, Folder: t.Folder.String,
-		AddedAt: parseTime(t.AddedAt), RefreshedAt: parseTime(t.RefreshedAt),
+		AddedAt: parseTime(t.AddedAt), RefreshedAt: parseTime(t.RefreshedAt), Rating: ratingOf(t),
 	}
 	d.ReleaseDates = releaseDatesOf(dates)
 	for _, a := range aliases {
@@ -515,14 +551,13 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 	if err != nil {
 		return Detail{}, err
 	}
-	fileOf := map[int64]*File{}
+	fileOfVersion := map[int64]*File{}
+	versionSize := map[int64]int64{}
 	for _, f := range files {
-		fl := &File{Misfit: misfits[f.ID], ID: f.ID, Path: f.Path, Size: f.Size, ReleaseName: f.ReleaseName, ParsedRelease: f.ParsedRelease.String, Probe: f.Probe.String, ImportedAt: parseTime(f.ImportedAt)}
-		if f.Score.Valid {
-			n := int(f.Score.Int64)
-			fl.Score = &n
-		}
-		fileOf[f.VersionID] = fl
+		versionSize[f.VersionID] += f.Size
+		fl := fileOf(f)
+		fl.Misfit = misfits[f.ID]
+		fileOfVersion[f.VersionID] = &fl
 	}
 	var epsOf []db.Episode
 	heldBy := heldMap{}
@@ -547,20 +582,23 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 			fe = append(fe, fileEp{r.VersionID, r.EpisodeID, r.Score})
 		}
 		heldBy = heldOf(fe)
-		fileOf = map[int64]*File{} // a Series Version holds a file per episode; the heat map shows them
+		fileOfVersion = map[int64]*File{} // a Series Version holds a file per episode; the heat map shows them
 	}
 	for _, v := range versions {
-		fl := fileOf[v.ID]
+		fl := fileOfVersion[v.ID]
 		var st State
 		var since *time.Time
+		var cov *Coverage
 		if d.Kind == Series {
-			st, since = SeriesState(unitsOf(epsOf, heldBy[v.ID], parseTime(v.AddedAt)), view.Now)
+			units := unitsOf(epsOf, heldBy[v.ID], parseTime(v.AddedAt))
+			st, since = SeriesState(units, view.Now)
+			cov = coverageOf(units, versionSize[v.ID], view.Now)
 		} else {
 			st, since = stateOf(d.Monitored, fl != nil && !fl.Misfit, d.ReleaseDates, parseTime(v.AddedAt), view)
 		}
 		d.Versions = append(d.Versions, Version{
 			ID: v.ID, Slot: slotOf(v.Slot), Profile: v.ProfileKey, State: st, LongMissing: IsLongMissing(st, since, view.Now),
-			WantedSince: since, File: fl, AddedAt: parseTime(v.AddedAt),
+			WantedSince: since, File: fl, AddedAt: parseTime(v.AddedAt), Coverage: cov,
 		})
 	}
 	sort.SliceStable(d.Versions, func(i, j int) bool { return d.Versions[i].Slot < d.Versions[j].Slot })

@@ -19,6 +19,7 @@ const result = (id: number, title: string, over: Partial<LookupResult> = {}): Lo
   in_library: null,
   addable: true,
   not_addable_reason: null,
+  ratings: [],
   ...over,
 })
 
@@ -32,6 +33,10 @@ const defaultSuggestion = (id: number, title: string): Suggestion => ({
   certification: '6',
   certification_country: 'DE',
   slots: [{ slot: 'standard', profile: 'hd-primary', label: 'HD', reason: 'default' }],
+  ratings: [],
+  poster: null,
+  runtime: null,
+  genres: [],
 })
 
 /** TMDB lookups: Paddington is addable, Paddington Returns is already in the Library. */

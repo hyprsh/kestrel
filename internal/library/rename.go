@@ -72,3 +72,23 @@ func (s *Service) ApplyRename(ctx context.Context, titleID int64, folder string,
 	}
 	return tx.Commit()
 }
+
+// ApplyMove records, in one transaction, the Title's new Root folder and the
+// new paths of its files after its folder moved there on disk.
+func (s *Service) ApplyMove(ctx context.Context, titleID int64, root string, moves []FileMove) error {
+	tx, err := s.st.Write().BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	q := db.New(tx)
+	if err := q.SetTitleRootFolder(ctx, db.SetTitleRootFolderParams{RootFolder: root, ID: titleID}); err != nil {
+		return err
+	}
+	for _, m := range moves {
+		if err := q.SetFilePath(ctx, db.SetFilePathParams{Path: m.Path, ID: m.FileID}); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}

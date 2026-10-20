@@ -133,9 +133,11 @@ func (s *Service) RefreshMovie(ctx context.Context, id int64, r MovieRefresh) (R
 		return Refreshed{}, err
 	}
 	defer tx.Rollback()
+	voteAverage, voteCount := ratingColumns(d.Rating)
 	renamed, err := s.refreshCommon(ctx, db.New(tx), id, Movie, db.UpdateTitleMetadataParams{
 		Title: d.Title, OriginalTitle: d.OriginalTitle, PrimaryTitle: primary, Year: nullInt(d.Year),
 		OriginalLanguage: d.OriginalLanguage, Overview: d.Overview, Runtime: nullInt(d.Runtime), PosterPath: nullStr(d.PosterPath),
+		TmdbVoteAverage: voteAverage, TmdbVoteCount: voteCount,
 	}, d.Aliases, d.Translations, nil, d.ReleaseDates)
 	if err != nil {
 		return Refreshed{}, err
@@ -160,9 +162,11 @@ func (s *Service) RefreshSeries(ctx context.Context, id int64, r SeriesRefresh) 
 	}
 	defer tx.Rollback()
 	q := db.New(tx)
+	voteAverage, voteCount := ratingColumns(d.Rating)
 	renamed, err := s.refreshCommon(ctx, q, id, Series, db.UpdateTitleMetadataParams{
 		Title: d.Title, OriginalTitle: d.OriginalTitle, PrimaryTitle: primary, Year: nullInt(d.Year),
 		OriginalLanguage: d.OriginalLanguage, Overview: d.Overview, Runtime: nullInt(d.Runtime), PosterPath: nullStr(d.PosterPath),
+		TmdbVoteAverage: voteAverage, TmdbVoteCount: voteCount,
 	}, d.Aliases, d.Translations, r.TVDB.Aliases, d.Ratings)
 	if err != nil {
 		return Refreshed{}, err
@@ -230,8 +234,13 @@ func (s *Service) refreshEpisodes(ctx context.Context, q *db.Queries, id int64, 
 		if c.fresh.ID != 0 {
 			tvdb = nullInt(c.fresh.ID)
 		}
+		primary := c.fresh.PrimaryName
+		if primary == "" {
+			primary = c.ep.PrimaryName // the translated titles could not be fetched: keep the stored one
+		}
 		if err := q.UpdateEpisode(ctx, db.UpdateEpisodeParams{
-			Season: int64(c.fresh.Season), Number: int64(c.fresh.Number), TvdbID: tvdb, Name: c.fresh.Name, AirDate: airOf(c.fresh), ID: c.ep.ID,
+			Season: int64(c.fresh.Season), Number: int64(c.fresh.Number), TvdbID: tvdb, Name: c.fresh.Name, AirDate: airOf(c.fresh),
+			PrimaryName: primary, ID: c.ep.ID,
 		}); err != nil {
 			return err
 		}
@@ -254,6 +263,7 @@ func (s *Service) refreshEpisodes(ctx context.Context, q *db.Queries, id int64, 
 		on := mode.Valid() && mode.MonitorsEpisode(f.Season, f.Aired, now)
 		if err := q.InsertEpisode(ctx, db.InsertEpisodeParams{
 			TitleID: id, Season: int64(f.Season), Number: int64(f.Number), TvdbID: nullInt(f.ID), Name: f.Name, AirDate: airOf(f), Monitored: boolInt(on),
+			PrimaryName: f.PrimaryName,
 		}); err != nil {
 			return err
 		}

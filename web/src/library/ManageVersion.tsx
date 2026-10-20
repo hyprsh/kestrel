@@ -111,11 +111,11 @@ export function VersionControls({ versionId, slot, profile, profiles }: { versio
     return <RemoveConfirm what="Version" busy={rm.isPending} error={rm.error?.message} onCancel={() => setMode(null)} onConfirm={(d) => rm.mutate(d)} />
   }
   return (
-    <div className="mt-2 flex gap-2">
-      <Button variant="secondary" className="h-7 flex-1" onClick={() => setMode('switch')}>
+    <div className="mt-2 flex flex-wrap gap-2">
+      <Button variant="secondary" className="h-7 flex-1 whitespace-nowrap" onClick={() => setMode('switch')}>
         Change Profile
       </Button>
-      <Button variant="secondary" className="h-7 flex-1" onClick={() => setMode('remove')}>
+      <Button variant="secondary" className="h-7 flex-1 whitespace-nowrap" onClick={() => setMode('remove')}>
         Remove Version
       </Button>
     </div>
@@ -149,15 +149,8 @@ export function AddVersion({ titleId, slot, profiles }: { titleId: number; slot:
   )
 }
 
-/** Remove the whole Title. */
-export function RemoveTitle({ titleId }: { titleId: number }) {
+/** Asks before removing the whole Title; the Title actions' "…" menu opens it. */
+export function RemoveTitle({ titleId, onCancel }: { titleId: number; onCancel: () => void }) {
   const rm = useRemoveTitle(titleId)
-  const [open, setOpen] = useState(false)
-  return open ? (
-    <RemoveConfirm what="Title" busy={rm.isPending} error={rm.error?.message} onCancel={() => setOpen(false)} onConfirm={(d) => rm.mutate(d)} />
-  ) : (
-    <Button variant="secondary" className="mt-6" onClick={() => setOpen(true)}>
-      Remove Title
-    </Button>
-  )
+  return <RemoveConfirm what="Title" busy={rm.isPending} error={rm.error?.message} onCancel={onCancel} onConfirm={(d) => rm.mutate(d)} />
 }

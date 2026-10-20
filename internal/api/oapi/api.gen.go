@@ -1344,6 +1344,27 @@ type CustomFormatMatch struct {
 	Points int    `json:"points"`
 }
 
+// DeletedFile defines model for DeletedFile.
+type DeletedFile struct {
+	// Blocklisted The Release went on the Blocklist. False unless asked, for a file Kestrel did not grab and when blocklisting failed.
+	Blocklisted bool `json:"blocklisted"`
+
+	// EpisodeIds Every episode that lost its file, in aired order; empty for a Movie.
+	EpisodeIds  []int64 `json:"episode_ids"`
+	Path        string  `json:"path"`
+	ReleaseName string  `json:"release_name"`
+	Size        int64   `json:"size"`
+}
+
+// DeletedFiles defines model for DeletedFiles.
+type DeletedFiles struct {
+	Files []DeletedFile `json:"files"`
+
+	// NotDeleted The files in scope that could not be deleted from disk (a read-only disk, missing
+	// permissions). They stay the Version's; nothing else about them changed.
+	NotDeleted []NotDeletedFile `json:"not_deleted"`
+}
+
 // DiskStatus defines model for DiskStatus.
 type DiskStatus struct {
 	FreeBytes  int64  `json:"free_bytes"`
@@ -1361,21 +1382,44 @@ type Episode struct {
 		N4k      *EpisodeCell `json:"4k"`
 		Standard *EpisodeCell `json:"standard"`
 	} `json:"cells"`
-	Id        int64  `json:"id"`
-	Monitored bool   `json:"monitored"`
-	Name      string `json:"name"`
-	Number    int    `json:"number"`
-	Season    int    `json:"season"`
+	Id        int64 `json:"id"`
+	Monitored bool  `json:"monitored"`
+
+	// Name The original title; kept for older clients, the same as `original_name`.
+	Name   string `json:"name"`
+	Number int    `json:"number"`
+
+	// OriginalName The title in the Series' original language. Empty for a Placeholder Episode.
+	OriginalName string `json:"original_name"`
+
+	// PrimaryName The title in the Primary Language, from TheTVDB; the original title when TheTVDB has no translation. Empty for a Placeholder Episode.
+	PrimaryName string `json:"primary_name"`
+	Season      int    `json:"season"`
 }
 
 // EpisodeCell defines model for EpisodeCell.
 type EpisodeCell struct {
+	// File The file holding the episode in this Version, even a misfit one; `null` when there is none.
+	File *EpisodeFile `json:"file"`
+
 	// Score The Score of the file holding the episode, when there is one.
 	Score *int `json:"score"`
 
 	// State `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
 	// Clients tolerate new values.
 	State SlotState `json:"state"`
+}
+
+// EpisodeFile A file on disk holding one or more episodes of a Version (a multi-episode file holds several).
+type EpisodeFile struct {
+	// EpisodeIds Every episode the file holds, in aired order; more than one for a multi-episode file.
+	EpisodeIds []int64 `json:"episode_ids"`
+	Id         int64   `json:"id"`
+	Path       string  `json:"path"`
+
+	// Quality The quality name parsed from the release name ("WEBDL-1080p").
+	Quality *string `json:"quality"`
+	Size    int64   `json:"size"`
 }
 
 // EpisodeList defines model for EpisodeList.
@@ -1399,7 +1443,7 @@ type Event struct {
 	GrabId    *int64                  `json:"grab_id"`
 	Id        int64                   `json:"id"`
 
-	// Kind A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed.
+	// Kind A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search.
 	Kind      string `json:"kind"`
 	Message   string `json:"message"`
 	RequestId *int64 `json:"request_id"`
@@ -1535,10 +1579,24 @@ type LookupDetail struct {
 	Certification *string `json:"certification"`
 
 	// CertificationCountry The country that rating is from; the release-date country unless TMDB had none there.
-	CertificationCountry *string   `json:"certification_country"`
-	InLibrary            *int64    `json:"in_library"`
-	Kind                 TitleKind `json:"kind"`
-	Overview             string    `json:"overview"`
+	CertificationCountry *string `json:"certification_country"`
+
+	// Genres TMDB's genre names, in TMDB's order.
+	//
+	// Example: ["Drama","Crime"]
+	Genres    []string  `json:"genres"`
+	InLibrary *int64    `json:"in_library"`
+	Kind      TitleKind `json:"kind"`
+	Overview  string    `json:"overview"`
+
+	// Poster A TMDB poster URL, larger than the search result's.
+	Poster *string `json:"poster"`
+
+	// Ratings Audience ratings of the Title from ratings sources; empty when none has one.
+	Ratings []Rating `json:"ratings"`
+
+	// Runtime Minutes; a typical episode's for a Series.
+	Runtime *int `json:"runtime"`
 
 	// Slots Every Slot with a default Profile for the kind, in Slot order.
 	Slots  []SuggestedSlot `json:"slots"`
@@ -1566,10 +1624,54 @@ type LookupResult struct {
 
 	// Poster A small TMDB poster URL.
 	Poster *string `json:"poster"`
-	Title  string  `json:"title"`
-	TmdbId int     `json:"tmdb_id"`
-	TvdbId *int    `json:"tvdb_id"`
-	Year   *int    `json:"year"`
+
+	// Ratings Audience ratings of the Title from ratings sources; empty when none has one.
+	Ratings []Rating `json:"ratings"`
+	Title   string   `json:"title"`
+	TmdbId  int      `json:"tmdb_id"`
+	TvdbId  *int     `json:"tvdb_id"`
+	Year    *int     `json:"year"`
+}
+
+// LookupSeason defines model for LookupSeason.
+type LookupSeason struct {
+	Episodes int `json:"episodes"`
+
+	// FirstAired The season's earliest known air date.
+	FirstAired *openapi_types.Date `json:"first_aired"`
+
+	// LastAired The season's latest known air date, which may be in the future.
+	LastAired *openapi_types.Date `json:"last_aired"`
+
+	// Number 0 is Specials.
+	Number int `json:"number"`
+}
+
+// LookupSeries A Series' overview for the add panel (`GET /lookup/series/{tmdb_id}/overview`): status,
+// network, air dates and seasons.
+type LookupSeries struct {
+	// FirstAired The first episode's air date, Specials aside.
+	FirstAired *openapi_types.Date `json:"first_aired"`
+
+	// LastAired The latest air date up to today, Specials aside.
+	LastAired *openapi_types.Date `json:"last_aired"`
+
+	// LatestSeason The latest season that has aired or is airing (Specials aside); `null` when none has
+	// started. What `TitleCreate.seasons` takes to add only the current season.
+	LatestSeason *int `json:"latest_season"`
+
+	// Network The network it first aired on, from TMDB.
+	//
+	// Example: AMC
+	Network *string `json:"network"`
+
+	// Seasons Every season TheTVDB lists, Specials (0) first.
+	Seasons []LookupSeason `json:"seasons"`
+
+	// Status `continuing`, `ended` or `upcoming`, as TheTVDB says. Clients tolerate new values.
+	//
+	// Example: ended
+	Status *string `json:"status"`
 }
 
 // Me defines model for Me.
@@ -1592,6 +1694,16 @@ type MeMethod string
 type NewApiKey struct {
 	// Key The whole key, `kst_` plus 52 base32 characters.
 	Key string `json:"key"`
+}
+
+// NotDeletedFile defines model for NotDeletedFile.
+type NotDeletedFile struct {
+	// EpisodeIds Every episode the file holds, in aired order; empty for a Movie.
+	EpisodeIds []int64 `json:"episode_ids"`
+	Path       string  `json:"path"`
+
+	// Reason Why, as the filesystem said it, e.g. `permission denied`.
+	Reason string `json:"reason"`
 }
 
 // PluginConfigPatch Plugin settings by manifest field key. Secret fields are write-only: they are accepted
@@ -1833,6 +1945,35 @@ type QueueItemPhase string
 // QueueList defines model for QueueList.
 type QueueList struct {
 	Items []QueueItem `json:"items"`
+}
+
+// Rating One audience rating of a Title from a ratings source: the average of its users' votes. Today
+// only TMDB's. Not a content rating (`certification`) and not a Release's `score`.
+type Rating struct {
+	// Scale The best rating on the source's scale, such as 10.
+	//
+	// Example: 10
+	Scale *float64 `json:"scale"`
+
+	// Source Where the rating is from: `tmdb`. Clients tolerate new values.
+	//
+	// Example: tmdb
+	Source string `json:"source"`
+
+	// Url The Title's page at the source.
+	//
+	// Example: https://www.themoviedb.org/movie/116149
+	Url *string `json:"url"`
+
+	// Value The rating on the source's scale; `null` when the source has none yet.
+	//
+	// Example: 8.4
+	Value *float64 `json:"value"`
+
+	// Votes How many votes the rating averages.
+	//
+	// Example: 21000
+	Votes *int `json:"votes"`
 }
 
 // RecentItem defines model for RecentItem.
@@ -2312,6 +2453,17 @@ type TitleCreate struct {
 	Kind       TitleKind `json:"kind"`
 	RootFolder *string   `json:"root_folder,omitempty"`
 
+	// Seasons Series only: the seasons monitored when it is added, Specials (0) included when named.
+	// Left out, `series_monitor` decides every episode. Given, it decides seasons that have
+	// not started airing and every episode that arrives later; the seasons not named are
+	// left unmonitored. A season the Series does not have is a `422` (`seasons` /
+	// `unknown`), as is a negative one (`seasons` / `invalid`) and a Movie with seasons
+	// (`seasons` / `not_a_series`).
+	//
+	//
+	// Example: [1]
+	Seasons *[]int `json:"seasons,omitempty"`
+
 	// SeriesMonitor Series only; defaults to `all`.
 	SeriesMonitor *SeriesMonitor `json:"series_monitor,omitempty"`
 	TmdbId        int            `json:"tmdb_id"`
@@ -2337,11 +2489,14 @@ type TitleDetail struct {
 	Monitored      bool      `json:"monitored"`
 
 	// OriginalLanguage ISO 639-1; empty when unknown.
-	OriginalLanguage string    `json:"original_language"`
-	OriginalTitle    string    `json:"original_title"`
-	Overview         string    `json:"overview"`
-	PrimaryTitle     string    `json:"primary_title"`
-	RefreshedAt      time.Time `json:"refreshed_at"`
+	OriginalLanguage string `json:"original_language"`
+	OriginalTitle    string `json:"original_title"`
+	Overview         string `json:"overview"`
+	PrimaryTitle     string `json:"primary_title"`
+
+	// Ratings Audience ratings of the Title from ratings sources; empty when none has one.
+	Ratings     []Rating  `json:"ratings"`
+	RefreshedAt time.Time `json:"refreshed_at"`
 
 	// ReleaseDates Every dated release TMDB lists, in any country.
 	ReleaseDates []ReleaseDateEntry `json:"release_dates"`
@@ -2385,6 +2540,9 @@ type TitlePatch struct {
 
 	// Monitored A Movie only; a Series is monitored through `series_monitor`.
 	Monitored *bool `json:"monitored,omitempty"`
+
+	// RootFolder One of the Root folders of the Title's kind to move the Title to.
+	RootFolder *string `json:"root_folder,omitempty"`
 
 	// SeriesMonitor `all` monitors every episode, future ones and new seasons included; `future` the episodes airing
 	// today or later or without an air date, and new seasons; `none` nothing. Specials (season 0) are
@@ -2568,14 +2726,38 @@ type UpdateAvailable struct {
 	Version string `json:"version"`
 }
 
+// VersionCoverage How far a Series Version is filled, in episodes and bytes; present only for a Series
+// Version. It agrees with the Version's `state`: Wanted while `wanted` is above zero.
+type VersionCoverage struct {
+	// Episodes The episodes the Version counts: those it holds a file for and those it Wants. Unmonitored
+	// and unreleased episodes without a file are left out.
+	Episodes int `json:"episodes"`
+
+	// Filled Episodes the Version holds a file for.
+	Filled int `json:"filled"`
+
+	// LongMissing The Wanted episodes that are Long Missing.
+	LongMissing int `json:"long_missing"`
+
+	// Size Bytes of all the Version's files.
+	Size int64 `json:"size"`
+
+	// Wanted Episodes that are Wanted.
+	Wanted int `json:"wanted"`
+}
+
 // VersionDetail defines model for VersionDetail.
 type VersionDetail struct {
-	AddedAt     time.Time    `json:"added_at"`
-	File        *FileSummary `json:"file"`
-	Id          int64        `json:"id"`
-	LongMissing bool         `json:"long_missing"`
-	Profile     string       `json:"profile"`
-	Slot        Slot         `json:"slot"`
+	AddedAt time.Time `json:"added_at"`
+
+	// Coverage How far a Series Version is filled, in episodes and bytes; present only for a Series
+	// Version. It agrees with the Version's `state`: Wanted while `wanted` is above zero.
+	Coverage    *VersionCoverage `json:"coverage,omitempty"`
+	File        *FileSummary     `json:"file"`
+	Id          int64            `json:"id"`
+	LongMissing bool             `json:"long_missing"`
+	Profile     string           `json:"profile"`
+	Slot        Slot             `json:"slot"`
 
 	// State `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
 	// Clients tolerate new values.
@@ -2744,6 +2926,18 @@ type DeleteVersionParams struct {
 	DeleteFiles *DeleteFiles `form:"delete_files,omitempty" json:"delete_files,omitempty"`
 }
 
+// DeleteVersionFilesParams defines parameters for DeleteVersionFiles.
+type DeleteVersionFilesParams struct {
+	// Season Only the files holding episodes of this season (0 is Specials).
+	Season *int `form:"season,omitempty" json:"season,omitempty"`
+
+	// EpisodeIds Only the files holding these episodes.
+	EpisodeIds *[]int64 `form:"episode_ids,omitempty" json:"episode_ids,omitempty"`
+
+	// Blocklist Also put each deleted file's Release on the Blocklist. Off by default.
+	Blocklist *bool `form:"blocklist,omitempty" json:"blocklist,omitempty"`
+}
+
 // ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
 type ChangePasswordJSONRequestBody ChangePasswordJSONBody
 
@@ -2830,6 +3024,9 @@ type PatchVersionJSONRequestBody = VersionPatch
 
 // SearchVersionReleasesJSONRequestBody defines body for SearchVersionReleases for application/json ContentType.
 type SearchVersionReleasesJSONRequestBody = ReleaseSearch
+
+// SearchVersionJSONRequestBody defines body for SearchVersion for application/json ContentType.
+type SearchVersionJSONRequestBody = ReleaseSearch
 
 // AsTitlesBulkMonitor returns the union data inside the TitlesBulk as a TitlesBulkMonitor
 func (t TitlesBulk) AsTitlesBulkMonitor() (TitlesBulkMonitor, error) {
@@ -3234,6 +3431,9 @@ type ServerInterface interface {
 	// Lookup Search the metadata provider for Titles to add
 	// (GET /lookup)
 	Lookup(w http.ResponseWriter, r *http.Request, params LookupParams)
+	// LookupSeriesOverview A search result's Series overview, from TheTVDB
+	// (GET /lookup/series/{tmdb_id}/overview)
+	LookupSeriesOverview(w http.ResponseWriter, r *http.Request, tmdbId int)
 	// LookupTitle One search result with the add panel's suggested Slots and Profiles
 	// (GET /lookup/{kind}/{tmdb_id})
 	LookupTitle(w http.ResponseWriter, r *http.Request, kind TitleKind, tmdbId int)
@@ -3369,9 +3569,15 @@ type ServerInterface interface {
 	// PatchVersion Switch a Version's Profile
 	// (PATCH /versions/{id})
 	PatchVersion(w http.ResponseWriter, r *http.Request, id VersionId)
+	// DeleteVersionFiles Delete a Version's files and keep the Version
+	// (DELETE /versions/{id}/files)
+	DeleteVersionFiles(w http.ResponseWriter, r *http.Request, id VersionId, params DeleteVersionFilesParams)
 	// SearchVersionReleases Manual search for a Version
 	// (POST /versions/{id}/releases)
 	SearchVersionReleases(w http.ResponseWriter, r *http.Request, id VersionId)
+	// SearchVersion Search now for a Version
+	// (POST /versions/{id}/search)
+	SearchVersion(w http.ResponseWriter, r *http.Request, id VersionId)
 	// SearchAllWanted Search all Wanted
 	// (POST /wanted/search)
 	SearchAllWanted(w http.ResponseWriter, r *http.Request)
@@ -4007,6 +4213,32 @@ func (siw *ServerInterfaceWrapper) Lookup(w http.ResponseWriter, r *http.Request
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.Lookup(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LookupSeriesOverview operation middleware
+func (siw *ServerInterfaceWrapper) LookupSeriesOverview(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tmdb_id" -------------
+	var tmdbId int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tmdb_id", r.PathValue("tmdb_id"), &tmdbId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tmdb_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LookupSeriesOverview(w, r, tmdbId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5133,6 +5365,74 @@ func (siw *ServerInterfaceWrapper) PatchVersion(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteVersionFiles operation middleware
+func (siw *ServerInterfaceWrapper) DeleteVersionFiles(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id VersionId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteVersionFilesParams
+
+	// ------------- Optional query parameter "season" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "season", r.URL.Query(), &params.Season, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "season"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "season", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "episode_ids" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "episode_ids", r.URL.Query(), &params.EpisodeIds, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "episode_ids"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "episode_ids", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "blocklist" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "blocklist", r.URL.Query(), &params.Blocklist, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "blocklist"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "blocklist", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteVersionFiles(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SearchVersionReleases operation middleware
 func (siw *ServerInterfaceWrapper) SearchVersionReleases(w http.ResponseWriter, r *http.Request) {
 
@@ -5150,6 +5450,32 @@ func (siw *ServerInterfaceWrapper) SearchVersionReleases(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SearchVersionReleases(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SearchVersion operation middleware
+func (siw *ServerInterfaceWrapper) SearchVersion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id VersionId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SearchVersion(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5312,6 +5638,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/profiles/{key}", wrapper.PatchProfile)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/lookup", wrapper.Lookup)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/lookup/{kind}/{tmdb_id}", wrapper.LookupTitle)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/lookup/series/{tmdb_id}/overview", wrapper.LookupSeriesOverview)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles", wrapper.ListTitles)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles", wrapper.CreateTitle)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles/bulk", wrapper.BulkTitles)
@@ -5322,11 +5649,13 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles/{id}/versions", wrapper.AddVersion)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/versions/{id}", wrapper.DeleteVersion)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/versions/{id}", wrapper.PatchVersion)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/versions/{id}/files", wrapper.DeleteVersionFiles)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/{id}/episodes", wrapper.ListEpisodes)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles/{id}/episodes/monitor", wrapper.MonitorEpisodes)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/titles/{id}/seasons/{season}", wrapper.PatchSeason)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/{id}/poster", wrapper.GetTitlePoster)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/versions/{id}/releases", wrapper.SearchVersionReleases)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/versions/{id}/search", wrapper.SearchVersion)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs", wrapper.CreateGrab)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grabs/{id}", wrapper.GetGrab)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs/{id}/cancel", wrapper.CancelGrab)
@@ -6842,6 +7171,75 @@ type LookupdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response LookupdefaultApplicationProblemPlusJSONResponse) VisitLookupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupSeriesOverviewRequestObject struct {
+	TmdbId int `json:"tmdb_id"`
+}
+
+type LookupSeriesOverviewResponseObject interface {
+	VisitLookupSeriesOverviewResponse(w http.ResponseWriter) error
+}
+
+type LookupSeriesOverview200JSONResponse LookupSeries
+
+func (response LookupSeriesOverview200JSONResponse) VisitLookupSeriesOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupSeriesOverview404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response LookupSeriesOverview404ApplicationProblemPlusJSONResponse) VisitLookupSeriesOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupSeriesOverview502ApplicationProblemPlusJSONResponse Problem
+
+func (response LookupSeriesOverview502ApplicationProblemPlusJSONResponse) VisitLookupSeriesOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupSeriesOverviewdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LookupSeriesOverviewdefaultApplicationProblemPlusJSONResponse) VisitLookupSeriesOverviewResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -8817,6 +9215,20 @@ func (response PatchTitle404ApplicationProblemPlusJSONResponse) VisitPatchTitleR
 	return err
 }
 
+type PatchTitle409ApplicationProblemPlusJSONResponse Problem
+
+func (response PatchTitle409ApplicationProblemPlusJSONResponse) VisitPatchTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PatchTitle422ApplicationProblemPlusJSONResponse Problem
 
 func (response PatchTitle422ApplicationProblemPlusJSONResponse) VisitPatchTitleResponse(w http.ResponseWriter) error {
@@ -9456,6 +9868,76 @@ func (response PatchVersiondefaultApplicationProblemPlusJSONResponse) VisitPatch
 	return err
 }
 
+type DeleteVersionFilesRequestObject struct {
+	Id     VersionId `json:"id"`
+	Params DeleteVersionFilesParams
+}
+
+type DeleteVersionFilesResponseObject interface {
+	VisitDeleteVersionFilesResponse(w http.ResponseWriter) error
+}
+
+type DeleteVersionFiles200JSONResponse DeletedFiles
+
+func (response DeleteVersionFiles200JSONResponse) VisitDeleteVersionFilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteVersionFiles404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteVersionFiles404ApplicationProblemPlusJSONResponse) VisitDeleteVersionFilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteVersionFiles422ApplicationProblemPlusJSONResponse Problem
+
+func (response DeleteVersionFiles422ApplicationProblemPlusJSONResponse) VisitDeleteVersionFilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteVersionFilesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DeleteVersionFilesdefaultApplicationProblemPlusJSONResponse) VisitDeleteVersionFilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type SearchVersionReleasesRequestObject struct {
 	Id   VersionId `json:"id"`
 	Body *SearchVersionReleasesJSONRequestBody
@@ -9515,6 +9997,70 @@ type SearchVersionReleasesdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response SearchVersionReleasesdefaultApplicationProblemPlusJSONResponse) VisitSearchVersionReleasesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchVersionRequestObject struct {
+	Id   VersionId `json:"id"`
+	Body *SearchVersionJSONRequestBody
+}
+
+type SearchVersionResponseObject interface {
+	VisitSearchVersionResponse(w http.ResponseWriter) error
+}
+
+type SearchVersion202Response struct {
+}
+
+func (response SearchVersion202Response) VisitSearchVersionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(202)
+	return nil
+}
+
+type SearchVersion404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SearchVersion404ApplicationProblemPlusJSONResponse) VisitSearchVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchVersion422ApplicationProblemPlusJSONResponse Problem
+
+func (response SearchVersion422ApplicationProblemPlusJSONResponse) VisitSearchVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchVersiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response SearchVersiondefaultApplicationProblemPlusJSONResponse) VisitSearchVersionResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -9650,6 +10196,9 @@ type StrictServerInterface interface {
 	// Lookup Search the metadata provider for Titles to add
 	// (GET /lookup)
 	Lookup(ctx context.Context, request LookupRequestObject) (LookupResponseObject, error)
+	// LookupSeriesOverview A search result's Series overview, from TheTVDB
+	// (GET /lookup/series/{tmdb_id}/overview)
+	LookupSeriesOverview(ctx context.Context, request LookupSeriesOverviewRequestObject) (LookupSeriesOverviewResponseObject, error)
 	// LookupTitle One search result with the add panel's suggested Slots and Profiles
 	// (GET /lookup/{kind}/{tmdb_id})
 	LookupTitle(ctx context.Context, request LookupTitleRequestObject) (LookupTitleResponseObject, error)
@@ -9785,9 +10334,15 @@ type StrictServerInterface interface {
 	// PatchVersion Switch a Version's Profile
 	// (PATCH /versions/{id})
 	PatchVersion(ctx context.Context, request PatchVersionRequestObject) (PatchVersionResponseObject, error)
+	// DeleteVersionFiles Delete a Version's files and keep the Version
+	// (DELETE /versions/{id}/files)
+	DeleteVersionFiles(ctx context.Context, request DeleteVersionFilesRequestObject) (DeleteVersionFilesResponseObject, error)
 	// SearchVersionReleases Manual search for a Version
 	// (POST /versions/{id}/releases)
 	SearchVersionReleases(ctx context.Context, request SearchVersionReleasesRequestObject) (SearchVersionReleasesResponseObject, error)
+	// SearchVersion Search now for a Version
+	// (POST /versions/{id}/search)
+	SearchVersion(ctx context.Context, request SearchVersionRequestObject) (SearchVersionResponseObject, error)
 	// SearchAllWanted Search all Wanted
 	// (POST /wanted/search)
 	SearchAllWanted(ctx context.Context, request SearchAllWantedRequestObject) (SearchAllWantedResponseObject, error)
@@ -10591,6 +11146,32 @@ func (sh *strictHandler) Lookup(w http.ResponseWriter, r *http.Request, params L
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(LookupResponseObject); ok {
 		if err := validResponse.VisitLookupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LookupSeriesOverview operation middleware
+func (sh *strictHandler) LookupSeriesOverview(w http.ResponseWriter, r *http.Request, tmdbId int) {
+	var request LookupSeriesOverviewRequestObject
+
+	request.TmdbId = tmdbId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LookupSeriesOverview(ctx, request.(LookupSeriesOverviewRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LookupSeriesOverview")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LookupSeriesOverviewResponseObject); ok {
+		if err := validResponse.VisitLookupSeriesOverviewResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -11869,6 +12450,33 @@ func (sh *strictHandler) PatchVersion(w http.ResponseWriter, r *http.Request, id
 	}
 }
 
+// DeleteVersionFiles operation middleware
+func (sh *strictHandler) DeleteVersionFiles(w http.ResponseWriter, r *http.Request, id VersionId, params DeleteVersionFilesParams) {
+	var request DeleteVersionFilesRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteVersionFiles(ctx, request.(DeleteVersionFilesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteVersionFiles")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteVersionFilesResponseObject); ok {
+		if err := validResponse.VisitDeleteVersionFilesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // SearchVersionReleases operation middleware
 func (sh *strictHandler) SearchVersionReleases(w http.ResponseWriter, r *http.Request, id VersionId) {
 	var request SearchVersionReleasesRequestObject
@@ -11898,6 +12506,42 @@ func (sh *strictHandler) SearchVersionReleases(w http.ResponseWriter, r *http.Re
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SearchVersionReleasesResponseObject); ok {
 		if err := validResponse.VisitSearchVersionReleasesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SearchVersion operation middleware
+func (sh *strictHandler) SearchVersion(w http.ResponseWriter, r *http.Request, id VersionId) {
+	var request SearchVersionRequestObject
+
+	request.Id = id
+
+	var body SearchVersionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SearchVersion(ctx, request.(SearchVersionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SearchVersion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SearchVersionResponseObject); ok {
+		if err := validResponse.VisitSearchVersionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

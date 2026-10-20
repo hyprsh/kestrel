@@ -143,6 +143,7 @@ var apiHints = map[string][]hint{
 	"AddVersion":            {hintOf(resTitle, 0)},
 	"PatchVersion":          {hintOf(resTitle, 0)},
 	"DeleteVersion":         {hintOf(resTitle, 0), hintOf(resQueue, 0)},
+	"DeleteVersionFiles":    {hintOf(resTitle, 0), hintOf(resBlocklist, 0)},
 	"DeleteTitle":           {hintOf(resTitle, 0), hintOf(resQueue, 0)},
 	"CreateGrab":            {hintOf(resGrab, 0), hintOf(resQueue, 0), hintOf(resTitle, 0)},
 	"CancelGrab":            {hintOf(resGrab, 0), hintOf(resQueue, 0), hintOf(resTitle, 0)},

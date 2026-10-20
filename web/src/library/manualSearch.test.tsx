@@ -73,8 +73,8 @@ async function openManualSearch() {
   renderApp()
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
   const pane = await screen.findByRole('region', { name: /paddington/i })
-  const hd = await within(pane).findByRole('group', { name: 'Standard' })
-  await userEvent.click(within(hd).getByRole('button', { name: /manual search/i }))
+  const actions = await within(pane).findByRole('group', { name: 'Title actions' })
+  await userEvent.click(within(actions).getByRole('button', { name: /manual search/i }))
   return screen.findByRole('table', { name: /releases/i })
 }
 

@@ -158,6 +158,9 @@ func (c *TMDB) Search(ctx context.Context, query string) ([]SearchResult, error)
 			PosterPath    string `json:"poster_path"`
 			ReleaseDate   string `json:"release_date"`
 			FirstAirDate  string `json:"first_air_date"`
+
+			VoteAverage float64 `json:"vote_average"`
+			VoteCount   int     `json:"vote_count"`
 		} `json:"results"`
 	}
 	q := url.Values{"query": {query}, "language": {"en-US"}, "include_adult": {"false"}}
@@ -169,10 +172,12 @@ func (c *TMDB) Search(ctx context.Context, query string) ([]SearchResult, error)
 		switch r.MediaType {
 		case "movie":
 			out = append(out, SearchResult{Kind: Movie, TMDBID: r.ID, Title: r.Title, OriginalTitle: r.OriginalTitle,
-				Year: year(r.ReleaseDate), PosterPath: r.PosterPath, Overview: r.Overview})
+				Year: year(r.ReleaseDate), PosterPath: r.PosterPath, Overview: r.Overview,
+				Rating: AudienceRating{Average: r.VoteAverage, Votes: r.VoteCount}})
 		case "tv":
 			out = append(out, SearchResult{Kind: Series, TMDBID: r.ID, Title: r.Name, OriginalTitle: r.OriginalName,
-				Year: year(r.FirstAirDate), PosterPath: r.PosterPath, Overview: r.Overview})
+				Year: year(r.FirstAirDate), PosterPath: r.PosterPath, Overview: r.Overview,
+				Rating: AudienceRating{Average: r.VoteAverage, Votes: r.VoteCount}})
 		}
 	}
 	return out, nil
@@ -232,6 +237,7 @@ func (c *TMDB) Movie(ctx context.Context, id int) (MovieDetails, error) {
 		Runtime          int    `json:"runtime"`
 		Overview         string `json:"overview"`
 		PosterPath       string `json:"poster_path"`
+		Genres           genres `json:"genres"`
 		ExternalIDs      struct {
 			IMDbID string `json:"imdb_id"`
 		} `json:"external_ids"`
@@ -260,6 +266,8 @@ func (c *TMDB) Movie(ctx context.Context, id int) (MovieDetails, error) {
 				} `json:"release_dates"`
 			} `json:"results"`
 		} `json:"release_dates"`
+		VoteAverage float64 `json:"vote_average"`
+		VoteCount   int     `json:"vote_count"`
 	}
 	q := url.Values{
 		"language":           {"en-US"},
@@ -271,7 +279,8 @@ func (c *TMDB) Movie(ctx context.Context, id int) (MovieDetails, error) {
 	d := MovieDetails{
 		TMDBID: r.ID, IMDbID: r.IMDbID, Title: r.Title, OriginalTitle: r.OriginalTitle,
 		OriginalLanguage: r.OriginalLanguage, Year: year(r.ReleaseDate), Runtime: r.Runtime,
-		Overview: r.Overview, PosterPath: r.PosterPath,
+		Overview: r.Overview, PosterPath: r.PosterPath, Rating: AudienceRating{Average: r.VoteAverage, Votes: r.VoteCount},
+		Genres: r.Genres.names(),
 	}
 	if d.IMDbID == "" {
 		d.IMDbID = r.ExternalIDs.IMDbID
@@ -294,6 +303,21 @@ func (c *TMDB) Movie(ctx context.Context, id int) (MovieDetails, error) {
 		}
 	}
 	return d, nil
+}
+
+// genres is TMDB's genre list on a Movie or a Series.
+type genres []struct {
+	Name string `json:"name"`
+}
+
+func (g genres) names() []string {
+	var out []string
+	for _, x := range g {
+		if x.Name != "" {
+			out = append(out, x.Name)
+		}
+	}
+	return out
 }
 
 // Changes lists the ids of the Movies or Series TMDB changed since a time

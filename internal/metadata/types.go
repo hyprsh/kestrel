@@ -29,7 +29,19 @@ type SearchResult struct {
 	Year          int // 0 when unknown
 	PosterPath    string
 	Overview      string
+	Rating        AudienceRating
 }
+
+// AudienceRating is TMDB's audience rating: the average of its users' votes
+// out of 10. It is not a content rating (certification), nor a Score. The
+// zero AudienceRating is "no votes yet".
+type AudienceRating struct {
+	Average float64 // 0-10
+	Votes   int
+}
+
+// Rated reports whether anyone has voted.
+func (s AudienceRating) Rated() bool { return s.Votes > 0 }
 
 // ReleaseType is TMDB's release-date type.
 type ReleaseType int
@@ -185,9 +197,11 @@ type MovieDetails struct {
 	Runtime          int    // minutes, 0 when unknown
 	Overview         string
 	PosterPath       string
+	Rating           AudienceRating
 	ReleaseDates     ReleaseDates
 	Aliases          []Alias
 	Translations     []Translation
+	Genres           []string // TMDB's genre names, in its order
 }
 
 // TitleIn is the Movie's title in a language (ISO 639-1), or "" when TMDB has

@@ -265,11 +265,12 @@ export function Library({
         <BulkActions rows={rows.filter((r) => selection.has(r.id))} />
       ) : current && searching ? (
         <ManualSearch
-          key={search.versionId}
+          key={`${search.versionId} ${JSON.stringify(search.scope?.body ?? null)}`}
           titleName={current.title}
           slotLabel={slotLabel[search.slot]}
           profileName={search.profileName}
           versionId={search.versionId}
+          scope={search.scope}
           onBack={() => {
             setSearch(null)
             requestAnimationFrame(() => paneRef.current?.focus())

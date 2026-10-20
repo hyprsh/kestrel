@@ -1,7 +1,8 @@
 -- name: InsertTitle :one
 INSERT INTO titles (kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language,
-                    overview, runtime, poster_path, monitored, series_monitor, root_folder, added_at, refreshed_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    overview, runtime, poster_path, monitored, series_monitor, root_folder, added_at, refreshed_at,
+                    tmdb_vote_average, tmdb_vote_count)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id;
 
 -- name: InsertAlias :exec
@@ -60,16 +61,16 @@ SELECT id FROM titles WHERE kind = 'series' AND tvdb_id = ?;
 INSERT INTO seasons (title_id, number, monitored) VALUES (?, ?, ?);
 
 -- name: InsertEpisode :exec
-INSERT INTO episodes (title_id, season, number, tvdb_id, name, air_date, monitored) VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT INTO episodes (title_id, season, number, tvdb_id, name, air_date, monitored, primary_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: ListSeasonsOfTitle :many
 SELECT title_id, number, monitored FROM seasons WHERE title_id = ? ORDER BY number;
 
 -- name: ListEpisodes :many
-SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored FROM episodes ORDER BY title_id, season, number;
+SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name FROM episodes ORDER BY title_id, season, number;
 
 -- name: ListEpisodesOfTitle :many
-SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored FROM episodes WHERE title_id = ? ORDER BY season, number;
+SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name FROM episodes WHERE title_id = ? ORDER BY season, number;
 
 -- A misfit file (it fails its Profile's gates) does not hold its episodes: they are Wanted again, as a misfit Movie is.
 -- name: ListFileEpisodes :many
@@ -82,7 +83,7 @@ FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id 
 WHERE v.title_id = ? AND f.id NOT IN (SELECT file_id FROM file_misfits);
 
 -- name: ListAllFileEpisodesOfTitle :many
-SELECT f.version_id, fe.episode_id
+SELECT f.version_id, fe.episode_id, f.id AS file_id, f.path, f.size, f.parsed_release
 FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id WHERE v.title_id = ?;
 
 -- name: SetSeriesMonitor :exec
@@ -199,7 +200,8 @@ UPDATE titles SET metadata_frozen = ? WHERE id = ?;
 
 -- name: UpdateTitleMetadata :exec
 UPDATE titles SET title = ?, original_title = ?, primary_title = ?, year = ?,
-    original_language = ?, overview = ?, runtime = ?, poster_path = ?, refreshed_at = ?
+    original_language = ?, overview = ?, runtime = ?, poster_path = ?, refreshed_at = ?,
+    tmdb_vote_average = ?, tmdb_vote_count = ?
 WHERE id = ?;
 
 -- name: DeleteAliasesOfTitle :exec
@@ -209,7 +211,7 @@ DELETE FROM title_aliases WHERE title_id = ?;
 DELETE FROM title_release_dates WHERE title_id = ?;
 
 -- name: UpdateEpisode :exec
-UPDATE episodes SET season = ?, number = ?, tvdb_id = ?, name = ?, air_date = ? WHERE id = ?;
+UPDATE episodes SET season = ?, number = ?, tvdb_id = ?, name = ?, air_date = ?, primary_name = ? WHERE id = ?;
 
 -- name: ParkEpisodeNumber :exec
 UPDATE episodes SET number = -id WHERE id = ?;
@@ -249,3 +251,6 @@ UPDATE titles SET monitored = ? WHERE id = ? AND kind = 'movie';
 
 -- name: SetUpgradesDueSince :exec
 UPDATE search_state SET next_upgrade_at = ? WHERE last_upgrade_at >= ?;
+
+-- name: SetTitleRootFolder :exec
+UPDATE titles SET root_folder = ? WHERE id = ?;

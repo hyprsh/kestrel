@@ -22,6 +22,8 @@ type TVDBServer struct {
 	logins   int
 	keys     []string
 	epoch    int // bumped by ExpireTokens; the live token is "tvdb-token-<epoch+1>"
+	// translationsDown makes the episodes in a language answer 500.
+	translationsDown bool
 }
 
 // NewTVDB starts the fake and stops it with the test.
@@ -94,6 +96,21 @@ func (s *TVDBServer) helperServer(t testing.TB) {
 		}
 		serve("tvdb_episodes_"+r.PathValue("id")+"_"+page+".json")(w, r)
 	}))
+	// The episodes in one language; a language without a fixture is a 404.
+	mux.HandleFunc("GET /v4/series/{id}/episodes/{season_type}/{lang}", authed(func(w http.ResponseWriter, r *http.Request) {
+		s.mu.Lock()
+		down := s.translationsDown
+		s.mu.Unlock()
+		if down {
+			http.Error(w, `{"status":"failure","message":"Internal Server Error"}`, http.StatusInternalServerError)
+			return
+		}
+		page := r.URL.Query().Get("page")
+		if page == "" {
+			page = "0"
+		}
+		serve("tvdb_episodes_"+r.PathValue("id")+"_"+r.PathValue("lang")+"_"+page+".json")(w, r)
+	}))
 	mux.HandleFunc("GET /v4/search/remoteid/{remote}", authed(func(w http.ResponseWriter, r *http.Request) {
 		name := "tvdb_remoteid_" + r.PathValue("remote") + ".json"
 		if _, err := fixtures.ReadFile("testdata/" + name); err != nil {
@@ -131,6 +148,14 @@ func (s *TVDBServer) APIKeysSeen() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]string(nil), s.keys...)
+}
+
+// FailTranslations makes the episodes in a language (the translated titles)
+// answer 500 from now on, while everything else still answers.
+func (s *TVDBServer) FailTranslations() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.translationsDown = true
 }
 
 // ExpireTokens makes every token issued so far be refused with 401.
