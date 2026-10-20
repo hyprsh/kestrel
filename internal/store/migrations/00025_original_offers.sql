@@ -1,5 +1,5 @@
 -- +goose Up
--- Owned by the acquire module: Original Offers (#103). One row per Version and
+-- Owned by the acquire module: Original Offers. One row per Version and
 -- unit (a Movie Version's one unit has no episode) holding the best Release
 -- with the Title's Original Language but no Primary-Language audio found for
 -- it, with everything a Grab needs, so Accept grabs exactly that Release however

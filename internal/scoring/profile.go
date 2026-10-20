@@ -67,7 +67,7 @@ func OriginalChoiceOf(choice *OriginalChoice, deprecated *bool) (*OriginalChoice
 
 // ProfileSpec describes a Kestrel Profile: which Slot it fills, which audio it
 // requires and, for Primary-Language Profiles, what it does with a Release in
-// the Title's Original Language only (PRD Settled 1, #103).
+// the Title's Original Language only (PRD Settled 1).
 type ProfileSpec struct {
 	// Slot is Standard or 4K. Any Profiles sit in the Standard Slot.
 	Slot slot.Slot

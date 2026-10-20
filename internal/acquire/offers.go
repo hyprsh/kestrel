@@ -23,7 +23,7 @@ import (
 // ErrNoOffer means the Version has no Original Offer to accept or dismiss.
 var ErrNoOffer = errors.New("the Version has no Original Offer")
 
-// Offer is a Version's Original Offer (#103): the Releases with the Title's
+// Offer is a Version's Original Offer: the Releases with the Title's
 // Original Language but no Primary-Language audio that its Profile held back
 // for what the Version is missing. It lasts while those units are Wanted with
 // no active Grab, so a Primary-Language Release that is grabbed ends it.

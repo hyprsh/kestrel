@@ -1,7 +1,7 @@
 -- +goose Up
 -- Owned by the profiles module: what a Primary-Language Profile does with a
--- Release that has the Title's Original Language but no Primary-Language audio
--- (#103): reject it, offer it to the admin, or accept it. It replaces
+-- Release that has the Title's Original Language but no Primary-Language audio:
+-- reject it, offer it to the admin, or accept it. It replaces
 -- `original_fallback` (0 = reject, 1 = accept), which is still written in step
 -- (1 only for accept) but no longer read. Original-Language Profiles always
 -- reject.

@@ -180,7 +180,7 @@ func b2i(b bool) int64 {
 }
 
 // Patch changes one Profile. A rejected patch changes nothing. The rules
-// (PRD Settled 1 and 8, #103): Original-Language Profiles always reject
+// (PRD Settled 1 and 8): Original-Language Profiles always reject
 // Original-only Releases; a Slot has at most one default per kind, so a new default
 // replaces the old; the Standard Slot always keeps exactly one default per kind, so unsetting
 // or disabling it is refused until another Standard Profile is the default; a

@@ -2,7 +2,7 @@ package acquire
 
 import "github.com/hyprsh/kestrel/internal/scoring"
 
-// OriginalOffers is Decide's counterpart for Original Offers (#103): what it
+// OriginalOffers is Decide's counterpart for Original Offers: what it
 // would grab for each Version if the Releases whose one rejection is
 // original_only were acceptable, limited to the units Decide leaves missing or
 // misfit. A Primary-Language Release that Decide plans always wins its units,
