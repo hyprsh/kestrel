@@ -14,16 +14,9 @@ import (
 	"github.com/hyprsh/kestrel/internal/scoring"
 )
 
-// Scope narrows the search of a Series Version to one season, and within it to
-// episodes. The zero Scope searches the whole Series. RSS and the sweeps reuse
-// the same season searches.
-type Scope struct {
-	Season     *int
-	EpisodeIDs []int64
-}
-
-// seasonQuery returns the season and episode strings an indexer is asked for.
-func (sc Scope) query(eps []library.Episode) (season, episode string) {
+// scopeQuery returns the season and episode strings an indexer is asked for
+// in a scoped search. RSS and the sweeps reuse the same season searches.
+func scopeQuery(sc library.Scope, eps []library.Episode) (season, episode string) {
 	if sc.Season == nil {
 		return "", ""
 	}
@@ -38,10 +31,10 @@ func (sc Scope) query(eps []library.Episode) (season, episode string) {
 	return season, episode
 }
 
-// wants says whether a parsed Series release is about the scoped season and
-// episodes: a single or multi-episode release naming one of them, or a pack of
-// the season.
-func (sc Scope) wants(p release.ParsedRelease, eps []library.Episode) bool {
+// scopeWants says whether a parsed Series release is about the scoped season
+// and episodes: a single or multi-episode release naming one of them, or a pack
+// of the season.
+func scopeWants(sc library.Scope, p release.ParsedRelease, eps []library.Episode) bool {
 	s := p.Series
 	if sc.Season == nil || s == nil {
 		return true
@@ -66,14 +59,14 @@ func (sc Scope) wants(p release.ParsedRelease, eps []library.Episode) bool {
 // gatherSeries is gather for a Series: it asks the indexers by TheTVDB id
 // (then by title), keeps the Releases that name this Series (and the scoped
 // season or episodes) and scores each under every Version's Profile.
-func (s *Service) gatherSeries(ctx context.Context, sub subject, scope Scope) ([]*entry, []indexers.Failure, error) {
+func (s *Service) gatherSeries(ctx context.Context, sub subject, scope library.Scope) ([]*entry, []indexers.Failure, error) {
 	d := sub.detail
 	now := s.clock()
 	episodes, err := s.lib.Episodes(ctx, d.ID, library.View{Now: now})
 	if err != nil {
 		return nil, nil, err
 	}
-	season, episode := scope.query(episodes)
+	season, episode := scopeQuery(scope, episodes)
 	res := s.idx.Search(ctx, indexers.Query{
 		Media: indexer.MediaTV, IMDBID: d.IMDbID, TVDBID: d.TVDBID,
 		Titles: searchTitles(d.Title, d.OriginalTitle, d.PrimaryTitle), Season: season, Episode: episode,
@@ -96,7 +89,7 @@ func (s *Service) gatherSeries(ctx context.Context, sub subject, scope Scope) ([
 			continue // a text hit for some other Series
 		}
 		parsed, ok := resolveDaily(parsed, episodes)
-		if !ok || !scope.wants(parsed, episodes) {
+		if !ok || !scopeWants(scope, parsed, episodes) {
 			continue
 		}
 		title := scoring.Title{
@@ -142,21 +135,10 @@ func coveredBy(p release.ParsedRelease, eps []library.Episode, slot Slot) (ids [
 	return ids, upgrade
 }
 
-// holds says whether the scope takes in the episode.
-func (sc Scope) holds(ep library.Episode) bool {
-	if sc.Season != nil && ep.Season != *sc.Season {
-		return false
-	}
-	return len(sc.EpisodeIDs) == 0 || slices.Contains(sc.EpisodeIDs, ep.ID)
-}
-
-// narrow says whether the scope names a season or episodes.
-func (sc Scope) narrow() bool { return sc.Season != nil || len(sc.EpisodeIDs) > 0 }
-
 // inSeason is the scope's search of one season: the season, with the scope's
 // episodes of it.
-func (sc Scope) inSeason(season int, eps []library.Episode) Scope {
-	out := Scope{Season: &season}
+func inSeason(sc library.Scope, season int, eps []library.Episode) library.Scope {
+	out := library.Scope{Season: &season}
 	for _, ep := range eps {
 		if ep.Season == season && slices.Contains(sc.EpisodeIDs, ep.ID) {
 			out.EpisodeIDs = append(out.EpisodeIDs, ep.ID)
@@ -173,7 +155,7 @@ func (sc Scope) inSeason(season int, eps []library.Episode) Scope {
 //
 // With upgrade it is the Upgrade sweep: the Filled Versions, with their files as
 // the bar to clear, season by season.
-func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []int64, scope Scope, fromCache, upgrade bool) (Outcome, error) {
+func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []int64, scope library.Scope, fromCache, upgrade bool) (Outcome, error) {
 	d := sub.detail
 	var out Outcome
 	now := s.clock()
@@ -201,7 +183,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 		ver := Version{Slot: v.Slot}
 		for _, ep := range episodes {
 			cell := ep.Cells[v.Slot]
-			if cell == nil || cell.State != want || covered[[2]int64{v.ID, ep.ID}] || (upgrade && !ep.Monitored) || !scope.holds(ep) {
+			if cell == nil || cell.State != want || covered[[2]int64{v.ID, ep.ID}] || (upgrade && !ep.Monitored) || !scope.Holds(ep) {
 				continue
 			}
 			u := Unit{Ref: EpisodeRef{ep.Season, ep.Number}}
@@ -213,7 +195,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 				u.Held = &h
 			}
 			ver.Units = append(ver.Units, u)
-			if ep.Season != 0 || scope.narrow() {
+			if ep.Season != 0 || scope.Narrow() {
 				wantedSeasons[ep.Season] = true
 			}
 		}
@@ -253,7 +235,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 	} else {
 		for _, n := range seasons {
 			n := n
-			found, failures, err := s.gather(ctx, sub, scope.inSeason(n, episodes))
+			found, failures, err := s.gather(ctx, sub, inSeason(scope, n, episodes))
 			if err != nil {
 				return out, err
 			}

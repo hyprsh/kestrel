@@ -228,7 +228,7 @@ func (s *Service) retry(ctx context.Context, g db.Grab) ([]Grab, error) {
 		return nil, nil // the Title or Version was removed meanwhile
 	}
 	// A failed Upgrade leaves a Filled Version: its next best Release is the next Upgrade.
-	out, err := s.searchTitle(ctx, g.TitleID.Int64, []int64{g.VersionID.Int64}, Scope{}, true, g.IsUpgrade == 1)
+	out, err := s.searchTitle(ctx, g.TitleID.Int64, []int64{g.VersionID.Int64}, library.Scope{}, true, g.IsUpgrade == 1)
 	if errors.Is(err, library.ErrNotFound) {
 		return nil, nil
 	}

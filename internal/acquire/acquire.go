@@ -294,7 +294,7 @@ func (s *Service) cachedFor(ctx context.Context, titleID int64) ([]*entry, bool,
 
 // candidates is gather that, when fromCache is set and the Title has fresh
 // Releases cached, answers from the cache instead of searching again.
-func (s *Service) candidates(ctx context.Context, sub subject, scope Scope, fromCache bool) ([]*entry, []indexers.Failure, error) {
+func (s *Service) candidates(ctx context.Context, sub subject, scope library.Scope, fromCache bool) ([]*entry, []indexers.Failure, error) {
 	if fromCache {
 		es, held, err := s.cachedFor(ctx, sub.detail.ID)
 		if err != nil || held {
@@ -352,7 +352,7 @@ func (s *Service) subjectOf(ctx context.Context, titleID int64) (subject, error)
 // gather searches every indexer for the Title and scores each Release under
 // the Profile of every Version the Title has. The entries go into the
 // candidate cache. Search on add, sweeps and retries reuse it.
-func (s *Service) gather(ctx context.Context, sub subject, scope Scope) ([]*entry, []indexers.Failure, error) {
+func (s *Service) gather(ctx context.Context, sub subject, scope library.Scope) ([]*entry, []indexers.Failure, error) {
 	d := sub.detail
 	if d.Kind == library.Series {
 		return s.gatherSeries(ctx, sub, scope)
@@ -456,12 +456,12 @@ func (e *entry) fits(slot Slot) Fit {
 // and the lot is cached for CacheTTL. It returns library.ErrNotFound for an
 // unknown Version.
 func (s *Service) Search(ctx context.Context, versionID int64) (SearchResult, error) {
-	return s.SearchScope(ctx, versionID, Scope{})
+	return s.SearchScope(ctx, versionID, library.Scope{})
 }
 
 // SearchScope is Search narrowed, for a Series Version, to a season or to
 // episodes of it. A Movie Version ignores the scope.
-func (s *Service) SearchScope(ctx context.Context, versionID int64, scope Scope) (SearchResult, error) {
+func (s *Service) SearchScope(ctx context.Context, versionID int64, scope library.Scope) (SearchResult, error) {
 	defer s.snap.Hold()()
 	titleID, err := s.lib.TitleOfVersion(ctx, versionID)
 	if err != nil {

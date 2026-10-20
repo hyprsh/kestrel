@@ -4,21 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"sync"
 
 	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/library"
 )
-
-// ScopeError is a Scope that does not fit the Series: Field is "season" or
-// "episode_ids".
-type ScopeError struct {
-	Field   string
-	Message string
-}
-
-func (e *ScopeError) Error() string { return e.Message }
 
 // SearchNow is the search started by hand (Search now): the automatic search
 // for what one Version is missing within scope, run at once. It grabs the best
@@ -26,8 +16,8 @@ func (e *ScopeError) Error() string { return e.Message }
 // not apply; indexer pauses and backoff and Pause Grabs still do. A Series is
 // searched once per season with a Wanted episode in scope; a Movie ignores the
 // scope. It returns library.ErrNotFound for an unknown Version and a
-// *ScopeError for a scope the Series does not have.
-func (s *Service) SearchNow(ctx context.Context, versionID int64, scope Scope) (Outcome, error) {
+// *library.ScopeError for a scope the Series does not have.
+func (s *Service) SearchNow(ctx context.Context, versionID int64, scope library.Scope) (Outcome, error) {
 	titleID, _, err := s.checkScope(ctx, versionID, scope)
 	if err != nil {
 		return Outcome{}, err
@@ -38,7 +28,7 @@ func (s *Service) SearchNow(ctx context.Context, versionID int64, scope Scope) (
 // StartSearch checks the Version and scope as SearchNow does, then runs
 // SearchNow in the background and returns at once. When the search is done it
 // records a Searched event saying what came of it (each Grab records its own).
-func (s *Service) StartSearch(ctx context.Context, versionID int64, scope Scope) error {
+func (s *Service) StartSearch(ctx context.Context, versionID int64, scope library.Scope) error {
 	titleID, label, err := s.checkScope(ctx, versionID, scope)
 	if err != nil {
 		return err
@@ -58,7 +48,7 @@ func (s *Service) WaitSearches() { s.searches.wait() }
 
 // checkScope finds the Version's Title and checks the scope against its
 // episodes. It returns how the scope reads in the Log ("" for all of it).
-func (s *Service) checkScope(ctx context.Context, versionID int64, scope Scope) (titleID int64, label string, err error) {
+func (s *Service) checkScope(ctx context.Context, versionID int64, scope library.Scope) (titleID int64, label string, err error) {
 	titleID, err = s.lib.TitleOfVersion(ctx, versionID)
 	if err != nil {
 		return 0, "", err
@@ -70,16 +60,14 @@ func (s *Service) checkScope(ctx context.Context, versionID int64, scope Scope) 
 	if err != nil {
 		return 0, "", err
 	}
-	if sc := scope.Season; sc != nil && !slices.ContainsFunc(eps, func(ep library.Episode) bool { return ep.Season == *sc }) {
-		return 0, "", &ScopeError{Field: "season", Message: fmt.Sprintf("The Series has no season %d", *sc)}
+	if err := scope.Check(eps); err != nil {
+		return 0, "", err
 	}
 	var named []library.Episode
-	for _, id := range scope.EpisodeIDs {
-		i := slices.IndexFunc(eps, func(ep library.Episode) bool { return ep.ID == id })
-		if i < 0 || (scope.Season != nil && eps[i].Season != *scope.Season) {
-			return 0, "", &ScopeError{Field: "episode_ids", Message: fmt.Sprintf("Episode %d is not one of the Series' episodes in scope", id)}
+	for _, ep := range eps {
+		if len(scope.EpisodeIDs) > 0 && scope.Holds(ep) {
+			named = append(named, ep)
 		}
-		named = append(named, eps[i])
 	}
 	switch {
 	case len(named) == 1:

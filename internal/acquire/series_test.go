@@ -78,11 +78,11 @@ func TestASeriesSearchCanBeNarrowedToASeasonOrAnEpisode(t *testing.T) {
 	eps, _ := r.lib.Episodes(ctx, id, library.View{Country: "US", Now: r.clock.now})
 
 	season := 1
-	res, err := r.svc.SearchScope(ctx, ver, acquire.Scope{Season: &season})
+	res, err := r.svc.SearchScope(ctx, ver, library.Scope{Season: &season})
 	if err != nil || len(res.Items) != 3 {
 		t.Fatalf("season search = %+v, %v", res.Items, err)
 	}
-	res, err = r.svc.SearchScope(ctx, ver, acquire.Scope{Season: &season, EpisodeIDs: []int64{eps[1].ID}})
+	res, err = r.svc.SearchScope(ctx, ver, library.Scope{Season: &season, EpisodeIDs: []int64{eps[1].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}

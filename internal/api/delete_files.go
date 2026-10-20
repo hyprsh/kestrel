@@ -9,19 +9,18 @@ import (
 	"github.com/hyprsh/kestrel/internal/acquire"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/history"
-	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/library"
 )
 
 // DeleteVersionFiles is DELETE /versions/{id}/files: it deletes files and
 // keeps the Version, blocklisting their Releases when asked.
 func (s *server) DeleteVersionFiles(ctx context.Context, r oapi.DeleteVersionFilesRequestObject) (oapi.DeleteVersionFilesResponseObject, error) {
-	scope := imports.FileScope{Season: r.Params.Season}
+	scope := library.Scope{Season: r.Params.Season}
 	if r.Params.EpisodeIds != nil {
 		scope.EpisodeIDs = *r.Params.EpisodeIds
 	}
 	d, err := s.imports.DeleteFiles(ctx, r.Id, scope)
-	var se *imports.FileScopeError
+	var se *library.ScopeError
 	switch {
 	case errors.Is(err, library.ErrVersionNotFound), errors.Is(err, library.ErrNotFound):
 		return nil, problem(http.StatusNotFound, "not_found", "no such Version")

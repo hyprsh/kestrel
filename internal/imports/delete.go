@@ -10,22 +10,6 @@ import (
 	"github.com/hyprsh/kestrel/internal/library"
 )
 
-// FileScope narrows DeleteFiles on a Series Version to a season and, within
-// it, episodes. The zero FileScope is every file of the Version.
-type FileScope struct {
-	Season     *int
-	EpisodeIDs []int64
-}
-
-// FileScopeError is a FileScope that does not fit the Title: Field is "season"
-// or "episode_ids", Code "unknown" (not the Series') or "not_a_series" (a
-// Movie).
-type FileScopeError struct {
-	Field, Code, Message string
-}
-
-func (e *FileScopeError) Error() string { return e.Message }
-
 // DeletedFile is a file DeleteFiles took off disk.
 type DeletedFile struct {
 	library.File
@@ -46,9 +30,10 @@ type Deleted struct {
 // monitored Movie or episode is Wanted again. A Movie loses its file; a Series
 // the files holding the episodes in scope. A file holding several episodes is
 // deleted whole. It waits for an Import into the Title, and returns
-// library.ErrVersionNotFound for an unknown Version and a *FileScopeError for
-// a scope the Title does not have.
-func (s *Service) DeleteFiles(ctx context.Context, versionID int64, scope FileScope) (Deleted, error) {
+// library.ErrVersionNotFound for an unknown Version and a *library.ScopeError
+// for a scope the Title does not have (any scope, for a Movie). The zero
+// Scope is every file of the Version.
+func (s *Service) DeleteFiles(ctx context.Context, versionID int64, scope library.Scope) (Deleted, error) {
 	ref, err := s.lib.GetVersion(ctx, versionID)
 	if err != nil {
 		return Deleted{}, err
@@ -66,10 +51,10 @@ func (s *Service) DeleteFiles(ctx context.Context, versionID int64, scope FileSc
 	code := map[int64]string{}  // episode id → S01E02
 	if d.Kind == library.Movie {
 		if scope.Season != nil {
-			return Deleted{}, &FileScopeError{Field: "season", Code: "not_a_series", Message: "A Movie has no seasons"}
+			return Deleted{}, &library.ScopeError{Field: "season", Code: "not_a_series", Message: "A Movie has no seasons"}
 		}
 		if len(scope.EpisodeIDs) > 0 {
-			return Deleted{}, &FileScopeError{Field: "episode_ids", Code: "not_a_series", Message: "A Movie has no episodes"}
+			return Deleted{}, &library.ScopeError{Field: "episode_ids", Code: "not_a_series", Message: "A Movie has no episodes"}
 		}
 		files, err := s.lib.FilesOfVersion(ctx, versionID)
 		if err != nil {
@@ -83,14 +68,13 @@ func (s *Service) DeleteFiles(ctx context.Context, versionID int64, scope FileSc
 		if err != nil {
 			return Deleted{}, err
 		}
-		inScope, err := episodeScope(eps, scope)
-		if err != nil {
+		if err := scope.Check(eps); err != nil {
 			return Deleted{}, err
 		}
 		for _, ep := range eps {
 			code[ep.ID] = fmt.Sprintf("S%02dE%02d", ep.Season, ep.Number)
 			c := ep.Cells[ref.Slot]
-			if !inScope(ep) || c == nil || c.File == nil {
+			if !scope.Holds(ep) || c == nil || c.File == nil {
 				continue
 			}
 			if _, seen := held[c.File.ID]; !seen {
@@ -115,26 +99,6 @@ func (s *Service) DeleteFiles(ctx context.Context, versionID int64, scope FileSc
 	}
 	out.Message = deletedMessage(out.Files, code)
 	return out, nil
-}
-
-// episodeScope checks a FileScope against a Series' episodes and returns
-// whether an episode is in it.
-func episodeScope(eps []library.Episode, scope FileScope) (func(library.Episode) bool, error) {
-	if sc := scope.Season; sc != nil && !slices.ContainsFunc(eps, func(ep library.Episode) bool { return ep.Season == *sc }) {
-		return nil, &FileScopeError{Field: "season", Code: "unknown", Message: fmt.Sprintf("The Series has no season %d", *sc)}
-	}
-	for _, id := range scope.EpisodeIDs {
-		i := slices.IndexFunc(eps, func(ep library.Episode) bool { return ep.ID == id })
-		if i < 0 || (scope.Season != nil && eps[i].Season != *scope.Season) {
-			return nil, &FileScopeError{Field: "episode_ids", Code: "unknown", Message: fmt.Sprintf("Episode %d is not one of the Series' episodes in scope", id)}
-		}
-	}
-	return func(ep library.Episode) bool {
-		if scope.Season != nil && ep.Season != *scope.Season {
-			return false
-		}
-		return len(scope.EpisodeIDs) == 0 || slices.Contains(scope.EpisodeIDs, ep.ID)
-	}, nil
 }
 
 // deletedMessage is the Log line of a deletion: the file for one, the
