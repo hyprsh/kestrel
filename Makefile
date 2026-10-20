@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: typecheck release-dry-run notices build-silo help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet compose-check commitlint hooks docker check
+.PHONY: typecheck release-dry-run dry-run-assets test-go-shard notices build-silo help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet compose-check commitlint hooks docker check
 
 VERSION ?= dev
 # The project's TMDB and TVDB keys are injected at link time; the default build embeds none.
@@ -24,6 +24,22 @@ test: test-go test-web ## Run all tests
 
 test-go: ## Go tests with the race detector
 	go test -race -timeout 30m ./...
+
+# CI splits test-go across parallel jobs. The parity suites (thousands of Radarr
+# and Sonarr fixtures, in parallel subtests) are the heaviest tests, so they get a
+# shard of their own; HEAVY_PKGS are the next heaviest. rest is everything else.
+PARITY_TESTS := ^(TestMovieMatchedFormatsEqualRadarrs|TestSeriesMatchedFormatsEqualSonarrs|TestGoldenParityWithRadarr|TestGoldenSeriesParityWithSonarr)$$
+HEAVY_PKGS := ./internal/scoring/... ./internal/acquire/... ./internal/release/...
+
+test-go-shard: ## One CI shard of test-go: GO_SHARD=api|parity|domain|rest
+	@case "$(GO_SHARD)" in \
+	  api) set -- ./internal/api/... ;; \
+	  parity) set -- -run '$(PARITY_TESTS)' ./internal/scoring ./internal/release ;; \
+	  domain) set -- -skip '$(PARITY_TESTS)' $(HEAVY_PKGS) ;; \
+	  rest) set -- $$(go list ./... | grep -v -E '/internal/(api|scoring|acquire|release)(/|$$)') ;; \
+	  *) echo "GO_SHARD must be api, parity, domain or rest"; exit 1 ;; \
+	esac; \
+	go test -race -timeout 30m "$$@"
 
 test-ffprobe: ## Real-ffprobe suite on ffmpeg-generated MKVs (needs ffmpeg and ffprobe on PATH; CI runs it)
 	go test -race -tags ffprobe ./internal/probe/
@@ -70,10 +86,14 @@ hooks: ## Install the commit-msg hook (commitlint via lefthook)
 docker: ## Build the image as kestrel:dev
 	docker build --build-arg VERSION=$(VERSION) --build-arg TMDB_API_KEY=$(TMDB_API_KEY) --build-arg TVDB_API_KEY=$(TVDB_API_KEY) -t kestrel:dev .
 
+# CI installs this version's prebuilt binary and passes GORELEASER_CMD=goreleaser.
 GORELEASER ?= github.com/goreleaser/goreleaser/v2@v2.18.3
+GORELEASER_CMD ?= go run $(GORELEASER)
 
-release-dry-run: docker ## Run the release without publishing: the image, Silo plugin binaries, silo-repository.json, checksums (needs Docker)
-	go run $(GORELEASER) release --snapshot --clean --skip=publish,announce,validate
+release-dry-run: docker dry-run-assets ## Run the release without publishing: the image, Silo plugin binaries, silo-repository.json, checksums (needs Docker)
+
+dry-run-assets: ## The release's Silo plugin binaries, silo-repository.json and checksums, without publishing (CI runs this)
+	$(GORELEASER_CMD) release --snapshot --clean --skip=publish,announce,validate
 	scripts/check-release-dist.sh dist release-assets
 
 notices: ## Regenerate internal/notices/THIRD_PARTY_NOTICES.md (needs network and `npm --prefix web ci`)
