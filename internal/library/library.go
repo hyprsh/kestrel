@@ -117,6 +117,8 @@ type Row struct {
 	// WantedSince is the earliest Wanted-since of its Wanted Versions.
 	WantedSince *time.Time
 	AddedAt     time.Time
+	// Size is the bytes the files of its Versions take on disk.
+	Size int64
 }
 
 // File is the file a Version holds.
@@ -394,8 +396,10 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 		return nil, err
 	}
 	hasFile := map[int64]bool{}
+	versionSize := map[int64]int64{}
 	for _, fl := range files {
 		hasFile[fl.VersionID] = hasFile[fl.VersionID] || !misfits[fl.ID]
+		versionSize[fl.VersionID] += fl.Size
 	}
 	byTitle := map[int64][]db.Version{}
 	for _, v := range versions {
@@ -426,6 +430,7 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 		rel := releaseDatesOf(datesOf[t.ID])
 		row := Row{ID: t.ID, Kind: Kind(t.Kind), Title: t.Title, PrimaryTitle: t.PrimaryTitle, Year: int(t.Year.Int64), AddedAt: parseTime(t.AddedAt)}
 		for _, v := range byTitle[t.ID] {
+			row.Size += versionSize[v.ID]
 			var st State
 			var since *time.Time
 			if row.Kind == Series {

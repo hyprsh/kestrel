@@ -118,6 +118,7 @@ type Library interface {
 	SetMetadataFrozen(ctx context.Context, id int64, frozen bool) error
 	SetEpisodesMonitored(ctx context.Context, id int64, episodeIDs []int64, monitored bool) error
 	SearchAllWanted(ctx context.Context) (int, error)
+	SearchWanted(ctx context.Context, titleIDs []int64) (map[int64]int, error)
 	RequestSearch(ctx context.Context, versionID int64) error
 	LongMissing(ctx context.Context, view library.View) ([]library.LongMissingItem, error)
 	Upcoming(ctx context.Context, view library.View, from, to time.Time) ([]library.UpcomingEntry, error)
