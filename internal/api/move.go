@@ -2,12 +2,10 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"slices"
 
-	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 )
@@ -30,7 +28,7 @@ func (s *server) moveTitle(ctx context.Context, id int64, root string) error {
 	if root == "" || !slices.Contains(rootsOf(roots, kind), root) {
 		return invalid("root_folder", "not_found", kind.NotConfiguredMessage())
 	}
-	moved, err := s.imports.Move(ctx, id, root)
+	_, err = s.files.Move(ctx, id, root)
 	switch {
 	case errors.Is(err, imports.ErrFolderTaken):
 		return problem(http.StatusConflict, "folder_taken", "A folder named like this Title's is already in that Root folder")
@@ -41,14 +39,6 @@ func (s *server) moveTitle(ctx context.Context, id int64, root string) error {
 	case err != nil:
 		return seriesProblem(err)
 	}
-	if moved.From == moved.To {
-		return nil
-	}
-	data, _ := json.Marshal(map[string]string{"from": moved.From, "to": moved.To})
-	s.history.Record(ctx, history.Event{
-		Kind: history.Moved, TitleID: id, Data: data,
-		Message: "Moved from " + moved.From + " to " + moved.To,
-	})
 	return nil
 }
 

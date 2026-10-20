@@ -39,6 +39,7 @@ type Deps struct {
 	Cleanup     Cleanup
 	Remover     Remover
 	Imports     Rescorer
+	Files       TitleFiles
 	Jobs        Jobs
 	Refresher   Refresher
 	Indexers    IndexerStatus
@@ -181,10 +182,14 @@ type Remover interface {
 	DeleteTitle(ctx context.Context, titleID int64, deleteFiles bool) error
 }
 
-// Rescorer moves a Version to another Profile and re-scores its stored file,
-// moves a Title to another Root folder and deletes a Version's files.
+// Rescorer moves a Version to another Profile and re-scores its stored file.
 type Rescorer interface {
 	SwitchProfile(ctx context.Context, titleID, versionID int64, profile string) error
+}
+
+// TitleFiles moves a Title's files to another Root folder and deletes a
+// Version's files, recording both in the Log.
+type TitleFiles interface {
 	Move(ctx context.Context, titleID int64, root string) (imports.Moved, error)
 	DeleteFiles(ctx context.Context, versionID int64, scope library.Scope) (imports.Deleted, error)
 }

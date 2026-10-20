@@ -19,7 +19,7 @@ func (s *server) DeleteVersionFiles(ctx context.Context, r oapi.DeleteVersionFil
 	if r.Params.EpisodeIds != nil {
 		scope.EpisodeIDs = *r.Params.EpisodeIds
 	}
-	d, err := s.imports.DeleteFiles(ctx, r.Id, scope)
+	d, err := s.files.DeleteFiles(ctx, r.Id, scope)
 	var se *library.ScopeError
 	switch {
 	case errors.Is(err, library.ErrVersionNotFound), errors.Is(err, library.ErrNotFound):
