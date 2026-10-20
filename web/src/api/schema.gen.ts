@@ -2294,6 +2294,29 @@ export interface components {
             file: components["schemas"]["FileSummary"] | null;
             /** Format: date-time */
             added_at: string;
+            coverage?: components["schemas"]["VersionCoverage"];
+        };
+        /**
+         * @description How far a Series Version is filled, in episodes and bytes; present only for a Series
+         *     Version. It agrees with the Version's `state`: Wanted while `wanted` is above zero.
+         */
+        VersionCoverage: {
+            /**
+             * @description The episodes the Version counts: those it holds a file for and those it Wants. Unmonitored
+             *     and unreleased episodes without a file are left out.
+             */
+            episodes: number;
+            /** @description Episodes the Version holds a file for. */
+            filled: number;
+            /** @description Episodes that are Wanted. */
+            wanted: number;
+            /** @description The Wanted episodes that are Long Missing. */
+            long_missing: number;
+            /**
+             * Format: int64
+             * @description Bytes of all the Version's files.
+             */
+            size: number;
         };
         /**
          * @description Narrows the search of a Series Version to a season and, within it, episodes. Movie searches
