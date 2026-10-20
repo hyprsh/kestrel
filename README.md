@@ -87,7 +87,7 @@ root_folders: # the first of each list is the default
   series: [/data/media/tv]
 
 profiles: # all six or none, each with all four fields
-  hd-primary: { enabled: true, original_language: offer, default_movies: true, default_series: true }
+  hd-primary: { enabled: true, original_language: accept, default_movies: true, default_series: true }
   hd-original: { enabled: true, original_language: reject, default_movies: false, default_series: false }
   any-primary: { enabled: false, original_language: reject, default_movies: false, default_series: false }
   any-original: { enabled: false, original_language: reject, default_movies: false, default_series: false }
