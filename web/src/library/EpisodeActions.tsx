@@ -1,6 +1,6 @@
 // What the episode grid can do beyond monitoring: Search now and Manual search
 // for an episode, a season or the ticked episodes, from each row's menu and
-// the selection bar. Delete files (#130) joins the same menus and bar.
+// the selection bar, and Delete files (DeleteFiles.tsx) in the same menus and bar.
 import { MoreHorizontal } from 'lucide-react'
 import { useMemo, useState, type KeyboardEvent } from 'react'
 import { useSearchNow, type ReleaseScope } from '../api/grabs'
@@ -10,6 +10,7 @@ import { Menu, MenuItem } from '../menu'
 import { SelectBox, SelectionBar, useSelection, type Selection } from '../selection'
 import { cx } from '../ui'
 import { slotLabel, type SlotKey } from './bits'
+import { DeleteMenuItems, DeleteTickedButtons, EpisodeDeleteConfirm, useEpisodeDeletes, type EpisodeDeletes } from './DeleteFiles'
 import type { ManualSearchTarget } from './TitleDetail'
 
 const two = (n: number) => String(n).padStart(2, '0')
@@ -29,7 +30,9 @@ export type EpisodeActions = {
   search: (eps: Episode[], label: string, scope: (wanted: number[]) => ReleaseScope) => void
   /** Opens Manual search for one Version, narrowed to `body` and named `label`. */
   manual: (v: Version, body: ReleaseScope, label: string) => void
-  /** What the last Search now said. */
+  /** Delete files of an episode, a season or the ticked episodes, after a confirmation. */
+  deletes: EpisodeDeletes
+  /** What the last Search now or deletion said. */
   status: { text: string; error: boolean } | null
   /** The grid's keys for actions: x ticks (X a range), Shift+F10 or the menu key opens the row's menu, Escape clears the ticks. True when handled. */
   onKey: (e: KeyboardEvent, episode: Episode | null) => boolean
@@ -42,6 +45,7 @@ export function useEpisodeActions(title: TitleDetail, episodes: Episode[], slots
   const profiles = useProfiles()
   const searchNow = useSearchNow()
   const [status, setStatus] = useState<EpisodeActions['status']>(null)
+  const deletes = useEpisodeDeletes(episodes, setStatus)
 
   const names = new Map((profiles.data ?? []).map((p) => [p.key, p.name]))
   const versions: Version[] = slots.flatMap((slot) => {
@@ -91,7 +95,7 @@ export function useEpisodeActions(title: TitleDetail, episodes: Episode[], slots
     return false
   }
 
-  return { selection, versions, search, manual, status, onKey }
+  return { selection, versions, search, manual, deletes, status, onKey }
 }
 
 const nothingWanted = 'Nothing here is Wanted'
@@ -113,6 +117,7 @@ export function EpisodeMenu({ actions, episode }: { actions: EpisodeActions; epi
           {versions.length > 1 ? `Manual search ${slotLabel[v.slot]}` : 'Manual search'}
         </MenuItem>
       ))}
+      <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={[episode]} label={code} scope={{ season: episode.season, episode_ids: [episode.id] }} text="Delete file" />
       <MenuItem onSelect={() => selection.toggle(episode.id)}>{selection.has(episode.id) ? 'Untick' : 'Tick'}</MenuItem>
     </Menu>
   )
@@ -133,6 +138,7 @@ export function SeasonMenu({ actions, season, episodes }: { actions: EpisodeActi
           {versions.length > 1 ? `Manual search season ${slotLabel[v.slot]}` : 'Manual search season'}
         </MenuItem>
       ))}
+      <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={episodes} label={name} scope={{ season }} text="Delete season's files" />
     </Menu>
   )
 }
@@ -149,7 +155,7 @@ export function EpisodeToolbar({ actions, episodes }: { actions: EpisodeActions;
   const wanted = wantedIn(ticked, actions.versions)
   const label = ticked.length === 1 ? episodeCode(ticked[0]) : `${ticked.length} episodes`
   return (
-    <div className={cx('flex flex-col gap-1', (selection.active || status) && 'mb-2')}>
+    <div className={cx('flex flex-col gap-1', (selection.active || status || actions.deletes.pending) && 'mb-2')}>
       <SelectionBar selection={selection} shown={episodes.length}>
         <Button
           variant="secondary"
@@ -160,7 +166,9 @@ export function EpisodeToolbar({ actions, episodes }: { actions: EpisodeActions;
         >
           Search
         </Button>
+        <DeleteTickedButtons deletes={actions.deletes} versions={actions.versions} ticked={ticked} label={label} />
       </SelectionBar>
+      <EpisodeDeleteConfirm deletes={actions.deletes} />
       <p role="status" className={cx('text-[12px] empty:hidden', status?.error ? 'text-red-900' : 'text-gray-900')}>
         {status?.text}
       </p>

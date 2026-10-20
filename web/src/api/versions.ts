@@ -50,3 +50,21 @@ export function useRemoveTitle(titleId: number) {
     if (!response.ok) throw failure(error, response)
   })
 }
+
+export type DeletedFiles = components['schemas']['DeletedFiles']
+/** Narrows DELETE /versions/{id}/files on a Series Version; none deletes every file of the Version. */
+export type FilesScope = { season?: number; episode_ids?: number[] }
+
+/** Deletes files of a Version and keeps it (DELETE /versions/{id}/files); `blocklist` also blocklists their Releases. */
+export function useDeleteFiles() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ versionId, scope, blocklist }: { versionId: number; scope?: FilesScope; blocklist: boolean }): Promise<DeletedFiles> => {
+      const query = { ...scope, ...(blocklist ? { blocklist } : {}) }
+      const { data, error, response } = await api.DELETE('/versions/{id}/files', { params: { path: { id: versionId }, query } })
+      if (!data) throw failure(error, response)
+      return data
+    },
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['titles'] }), qc.invalidateQueries({ queryKey: ['blocklist'] })]),
+  })
+}

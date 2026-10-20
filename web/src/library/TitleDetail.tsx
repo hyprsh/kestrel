@@ -6,6 +6,7 @@ import { useOpenCleanup } from '../cleanup/launch'
 import { Button, ErrorText } from '../forms'
 import { cx } from '../ui'
 import { size, slotKeys, slotLabel, StatusBadge, type SlotKey } from './bits'
+import { DeleteFile } from './DeleteFiles'
 import { ExternalIds } from './ExternalIds'
 import { Scores } from './Score'
 import { AddVersion, RemoveTitle, VersionControls } from './ManageVersion'
@@ -162,6 +163,7 @@ function VersionColumn({
             <div className="mt-1 text-[12px] text-gray-900">No file yet</div>
           )}
           <VersionSearch versionId={v.id} wanted={v.state === 'wanted'} onManualSearch={() => onManualSearch({ versionId: v.id, slot, profileName: profileName(v.profile) })} />
+          <DeleteFile versionId={v.id} file={v.file} />
           <VersionControls versionId={v.id} slot={slot} profile={v.profile} profiles={profiles} />
         </div>
       ) : (
