@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { Menu, MenuItem } from './menu'
+import { Menu, MenuItem, placeMenu } from './menu'
 import { useSelection } from './selection'
 
 function Harness({ onSearch = () => {} }: { onSearch?: () => void }) {
@@ -85,5 +85,22 @@ describe('Menu', () => {
 
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Elsewhere 1' })).toBeInTheDocument()
+  })
+})
+
+describe('placeMenu', () => {
+  const viewport = 800
+
+  it('opens below its button when there is room', () => {
+    expect(placeMenu({ top: 100, bottom: 120 }, 150, viewport)).toEqual({ up: false, maxHeight: null })
+  })
+
+  it('opens upward when the button is too near the bottom for it', () => {
+    expect(placeMenu({ top: 700, bottom: 720 }, 150, viewport)).toEqual({ up: true, maxHeight: null })
+  })
+
+  it('takes the roomier side and scrolls when it fits on neither', () => {
+    expect(placeMenu({ top: 300, bottom: 320 }, 500, viewport)).toEqual({ up: false, maxHeight: 800 - 320 - 12 })
+    expect(placeMenu({ top: 500, bottom: 520 }, 600, viewport)).toEqual({ up: true, maxHeight: 500 - 12 })
   })
 })

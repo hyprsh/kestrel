@@ -2,11 +2,31 @@
 // row actions, the Title page's "…" menu). The button opens a role=menu list
 // with focus on its first item; arrows, Home and End move, Enter or Space runs
 // an item, Escape and Tab close it. Escape is handled here, so a list's own
-// Escape (clearing a selection, leaving a pane) does not also fire.
-import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+// Escape (clearing a selection, leaving a pane) does not also fire. It opens
+// below its button, or above when only there it fits in the window.
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { cx } from './ui'
 
 const CloseMenu = createContext<(refocus: boolean) => void>(() => {})
+
+/** The room a menu keeps: 4px to its button and 8px to the window's edge. */
+const edge = 12
+
+export type MenuPlace = { up: boolean; maxHeight: number | null }
+
+/**
+ * Where a menu `height` px tall opens beside a button at `button` in a window
+ * `viewport` px high: below when it fits there, above when it fits only there,
+ * and otherwise on the roomier side with a `maxHeight` it scrolls within, so
+ * every item can be reached.
+ */
+export function placeMenu(button: { top: number; bottom: number }, height: number, viewport: number): MenuPlace {
+  const below = viewport - button.bottom - edge
+  const above = button.top - edge
+  if (height <= below) return { up: false, maxHeight: null }
+  if (height <= above) return { up: true, maxHeight: null }
+  return below >= above ? { up: false, maxHeight: below } : { up: true, maxHeight: above }
+}
 
 const items = (menu: HTMLElement | null) => [...(menu?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])]
 
@@ -37,15 +57,22 @@ export function Menu({
   // Where focus was when the menu opened: it goes back there on close.
   const back = useRef<HTMLElement | null>(null)
   const id = useId()
+  const [place, setPlace] = useState<MenuPlace>({ up: false, maxHeight: null })
 
   const close = useCallback((refocus: boolean) => {
     setOpen(false)
     if (refocus) (back.current ?? button.current)?.focus()
   }, [])
 
+  // Measured before the menu is painted, so it never shows on the wrong side first.
+  useLayoutEffect(() => {
+    if (!open || !button.current || !menu.current) return
+    setPlace(placeMenu(button.current.getBoundingClientRect(), menu.current.scrollHeight, window.innerHeight))
+  }, [open])
+
   useEffect(() => {
     if (!open) return
-    items(menu.current)[0]?.focus()
+    items(menu.current)[0]?.focus({ preventScroll: true })
     const outside = (e: PointerEvent) => {
       if (!wrap.current?.contains(e.target as Node)) close(false)
     }
@@ -107,7 +134,11 @@ export function Menu({
           role="menu"
           aria-label={label}
           onKeyDown={onKeyDown}
-          className="absolute top-full right-0 z-30 mt-1 flex min-w-44 flex-col rounded-md border border-gray-alpha-400 bg-background-100 py-1 text-[13px] shadow-lg"
+          style={place.maxHeight === null ? undefined : { maxHeight: place.maxHeight }}
+          className={cx(
+            'absolute right-0 z-30 flex min-w-44 flex-col overflow-y-auto rounded-md border border-gray-alpha-400 bg-background-100 py-1 text-[13px] shadow-lg',
+            place.up ? 'bottom-full mb-1' : 'top-full mt-1',
+          )}
         >
           <CloseMenu.Provider value={close}>{children}</CloseMenu.Provider>
         </div>
