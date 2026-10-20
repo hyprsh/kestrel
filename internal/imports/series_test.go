@@ -20,6 +20,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/store/storetest"
 )
 
 const (
@@ -40,7 +41,7 @@ type seriesRig struct {
 func newSeriesRig(t *testing.T) *seriesRig {
 	t.Helper()
 	ctx := context.Background()
-	st, err := store.Open(ctx, store.Options{Dir: t.TempDir()})
+	st, err := store.Open(ctx, store.Options{Dir: storetest.Dir(t)})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/plugin/indexer/v1/fake"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/store/storetest"
 )
 
 type rig struct {
@@ -23,7 +24,7 @@ type rig struct {
 
 func newRig(t *testing.T, plugins ...plugin.Plugin) rig {
 	t.Helper()
-	st, err := store.Open(context.Background(), store.Options{Dir: t.TempDir()})
+	st, err := store.Open(context.Background(), store.Options{Dir: storetest.Dir(t)})
 	if err != nil {
 		t.Fatal(err)
 	}

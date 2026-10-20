@@ -22,6 +22,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/configfile"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/store/storetest"
 )
 
 // readmeBlocks returns the README's fenced blocks whose info string is info,
@@ -98,7 +99,7 @@ func TestTheReadmesExampleConfigFileStartsAFreshKestrel(t *testing.T) {
 		}
 	}
 
-	st, err := store.Open(context.Background(), store.Options{Dir: t.TempDir()})
+	st, err := store.Open(context.Background(), store.Options{Dir: storetest.Dir(t)})
 	if err != nil {
 		t.Fatal(err)
 	}

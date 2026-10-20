@@ -14,6 +14,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/store/storetest"
 )
 
 // fakeClock is the instance's time, moved by tests.
@@ -48,7 +49,7 @@ type instance struct {
 // newInstance starts Kestrel; each option adjusts app.Options first (e.g. Plugins).
 func newInstance(t *testing.T, base string, with ...func(*app.Options)) *instance {
 	t.Helper()
-	st, err := store.Open(context.Background(), store.Options{Dir: t.TempDir()})
+	st, err := store.Open(context.Background(), store.Options{Dir: storetest.Dir(t)})
 	if err != nil {
 		t.Fatal(err)
 	}

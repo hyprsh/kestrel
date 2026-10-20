@@ -22,6 +22,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/store/storetest"
 )
 
 // editedMeta serves the recorded TMDB fixtures, with edits on top to play the
@@ -78,7 +79,7 @@ type refreshRig struct {
 func newRefreshRig(t *testing.T) *refreshRig {
 	t.Helper()
 	ctx := context.Background()
-	st, err := store.Open(ctx, store.Options{Dir: t.TempDir()})
+	st, err := store.Open(ctx, store.Options{Dir: storetest.Dir(t)})
 	if err != nil {
 		t.Fatal(err)
 	}

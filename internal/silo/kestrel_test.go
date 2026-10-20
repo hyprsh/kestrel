@@ -26,6 +26,7 @@ import (
 	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
 	ixfake "github.com/hyprsh/kestrel/internal/plugin/indexer/v1/fake"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/store/storetest"
 )
 
 const (
@@ -50,7 +51,7 @@ type kestrel struct {
 
 func newKestrel(t *testing.T) *kestrel {
 	t.Helper()
-	st, err := store.Open(context.Background(), store.Options{Dir: t.TempDir()})
+	st, err := store.Open(context.Background(), store.Options{Dir: storetest.Dir(t)})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/api"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/store/storetest"
 )
 
 func TestResetPasswordSetsANewPasswordAndEndsEverySession(t *testing.T) {
@@ -29,7 +30,7 @@ func TestResetPasswordSetsANewPasswordAndEndsEverySession(t *testing.T) {
 }
 
 func TestResetPasswordWorksOnTheConfigDirOfARunningInstance(t *testing.T) {
-	dir := t.TempDir()
+	dir := storetest.Dir(t)
 	st, err := store.Open(context.Background(), store.Options{Dir: dir})
 	if err != nil {
 		t.Fatal(err)

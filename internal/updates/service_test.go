@@ -13,6 +13,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/store/storetest"
 	"github.com/hyprsh/kestrel/internal/updates"
 )
 
@@ -53,7 +54,7 @@ type env struct {
 
 func newEnv(t *testing.T, version string, gh *fakeGitHub) env {
 	t.Helper()
-	st, err := store.Open(context.Background(), store.Options{Dir: t.TempDir()})
+	st, err := store.Open(context.Background(), store.Options{Dir: storetest.Dir(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
