@@ -20,12 +20,15 @@ export function NeedsAttention({
   const attention = useAttention()
   const rows = attention.data?.rows ?? []
   const longMissing = attention.data?.long_missing
+  const originals = attention.data?.originals
+  // Long Missing only waits, so it leaves the section saying nothing needs attention; offers ask for a choice.
+  const nothing = rows.length === 0 && !(originals && originals.count > 0)
   return (
     <section aria-labelledby="needs-attention" className="mx-auto mb-8 max-w-3xl">
       <h2 id="needs-attention" className="mb-3 text-sm font-medium">
         Needs attention
       </h2>
-      {attention.data && rows.length === 0 ? (
+      {attention.data && nothing ? (
         <p className="text-gray-900">Nothing needs attention.</p>
       ) : (
         rows.length > 0 && (
@@ -37,7 +40,7 @@ export function NeedsAttention({
         )
       )}
       {longMissing && longMissing.count > 0 && <LongMissingRow group={longMissing} onOpen={onOpen} />}
-      {attention.data?.originals && attention.data.originals.count > 0 && <OriginalsRow group={attention.data.originals} onOpenTitle={onOpenTitle} />}
+      {originals && originals.count > 0 && <OriginalsRow group={originals} onOpenTitle={onOpenTitle} />}
     </section>
   )
 }
