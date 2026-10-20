@@ -213,9 +213,13 @@ function Rail({
   const needs = attention?.count ?? 0
   return (
     <nav className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-gray-alpha-400 bg-background-200 py-3">
-      <div className="mb-2 flex size-9 items-center justify-center text-gray-1000">
+      <button
+        onClick={() => onSelect('overview')}
+        aria-label="Kestrel, go to Overview"
+        className="mb-2 flex size-9 items-center justify-center rounded-md text-gray-1000 transition-colors hover:bg-gray-alpha-100"
+      >
         <KestrelLogo />
-      </div>
+      </button>
       <RailButton label={`Add Title (${MOD} K)`} onClick={onAdd}>
         <Plus className={icon} />
       </RailButton>

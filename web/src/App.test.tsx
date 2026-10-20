@@ -30,6 +30,14 @@ describe('the empty shell', () => {
     expect(screen.getByRole('banner')).toHaveTextContent('Library')
   })
 
+  it('goes back to the Overview when the Kestrel logo is clicked', async () => {
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Kestrel, go to Overview' }))
+    expect(screen.getByRole('banner')).toHaveTextContent('Overview')
+    expect(screen.getByRole('main')).toHaveTextContent(/downloading now/i)
+  })
+
   it('shows the server version read through the generated client', async () => {
     server.use(http.get('/system', ({ response }) => response(200).json({ version: '9.9.9', api_major: 1, base_url: '' })))
     renderApp()
