@@ -56,7 +56,7 @@ jobs:
       - name: Real ffprobe suite (ubuntu-latest ships ffmpeg)
         if: matrix.shard == 'rest'
         run: make test-ffprobe
-      - if: github.event_name == 'push' || github.head_ref == 'ci/faster-checks'
+      - if: github.event_name == 'push'
         uses: actions/cache/save@v6
         with:
           path: |
