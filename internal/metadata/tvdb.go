@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,8 +25,11 @@ type Episode struct {
 	ID     int
 	Season int // 0 is Specials
 	Number int
-	Name   string
+	Name   string     // the original title, from TheTVDB's default list
 	Aired  *time.Time // the air date as a date at 00:00 UTC; nil when TheTVDB has none
+	// PrimaryName is the title in the Primary Language; SeriesIn fills it, with
+	// Name standing in where TheTVDB has no translation.
+	PrimaryName string
 }
 
 // TVDBSeries is a Series on TheTVDB with every episode in aired order.
@@ -34,6 +38,8 @@ type TVDBSeries struct {
 	Name     string
 	Aliases  []string
 	Episodes []Episode
+	// OriginalLanguage is TheTVDB's ISO 639-2/T code ("eng"); "" when it has none.
+	OriginalLanguage string
 }
 
 // TVDBProvider is what callers need of TheTVDB; *TVDB satisfies it and tests can swap it.
@@ -44,6 +50,10 @@ type TVDBProvider interface {
 	SeriesByIMDb(ctx context.Context, imdbID string) (id int, ok bool, err error)
 	// Updates lists the ids of the Series changed since a time.
 	Updates(ctx context.Context, since time.Time) ([]int, error)
+	// EpisodeNames fetches the official (aired) order's episode titles in a
+	// language (ISO 639-1), keyed by TheTVDB episode id; untranslated episodes
+	// are missing.
+	EpisodeNames(ctx context.Context, id int, lang string) (map[int]string, error)
 }
 
 // TVDBOptions configures NewTVDB.
@@ -191,9 +201,10 @@ func airDate(s string) *time.Time {
 func (c *TVDB) Series(ctx context.Context, id int) (TVDBSeries, error) {
 	var head struct {
 		Data struct {
-			ID      int    `json:"id"`
-			Name    string `json:"name"`
-			Aliases []struct {
+			ID               int    `json:"id"`
+			Name             string `json:"name"`
+			OriginalLanguage string `json:"originalLanguage"`
+			Aliases          []struct {
 				Name string `json:"name"`
 			} `json:"aliases"`
 		} `json:"data"`
@@ -202,7 +213,7 @@ func (c *TVDB) Series(ctx context.Context, id int) (TVDBSeries, error) {
 	if err := c.get(ctx, "/series/"+sid, &head); err != nil {
 		return TVDBSeries{}, err
 	}
-	out := TVDBSeries{ID: head.Data.ID, Name: head.Data.Name}
+	out := TVDBSeries{ID: head.Data.ID, Name: head.Data.Name, OriginalLanguage: head.Data.OriginalLanguage}
 	for _, a := range head.Data.Aliases {
 		if a.Name != "" {
 			out.Aliases = append(out.Aliases, a.Name)
@@ -239,6 +250,75 @@ func (c *TVDB) Series(ctx context.Context, id int) (TVDBSeries, error) {
 		}
 	}
 	return out, nil
+}
+
+// tvdbLanguages maps the Primary Languages (ISO 639-1) to TheTVDB's ISO 639-2/T codes.
+var tvdbLanguages = map[string]string{"en": "eng", "de": "deu", "fr": "fra"}
+
+// EpisodeNames pages through /series/{id}/episodes/official/{lang}, TheTVDB's
+// episode list with names in one language. A language Kestrel cannot name to
+// TheTVDB is an empty map.
+func (c *TVDB) EpisodeNames(ctx context.Context, id int, lang string) (map[int]string, error) {
+	out := map[int]string{}
+	code, ok := tvdbLanguages[lang]
+	if !ok {
+		return out, nil
+	}
+	for page := 0; page < 200; page++ { // a hard stop against a provider that never ends its pages
+		var res struct {
+			Data struct {
+				Episodes []struct {
+					ID   int     `json:"id"`
+					Name *string `json:"name"`
+				} `json:"episodes"`
+			} `json:"data"`
+			Links struct {
+				Next *string `json:"next"`
+			} `json:"links"`
+		}
+		q := url.Values{"page": {strconv.Itoa(page)}}
+		if err := c.get(ctx, "/series/"+strconv.Itoa(id)+"/episodes/official/"+code+"?"+q.Encode(), &res); err != nil {
+			return nil, err
+		}
+		for _, e := range res.Data.Episodes {
+			if e.Name != nil && *e.Name != "" {
+				out[e.ID] = *e.Name
+			}
+		}
+		if res.Links.Next == nil || *res.Links.Next == "" {
+			break
+		}
+	}
+	return out, nil
+}
+
+// SeriesIn fetches a Series with every episode's title in the Primary Language
+// (ISO 639-1) as well. A Series already in that language asks for no
+// translation, and a translation TheTVDB does not have (a 404 included) leaves
+// the original title in its place.
+func SeriesIn(ctx context.Context, p TVDBProvider, id int, lang string) (TVDBSeries, error) {
+	s, err := p.Series(ctx, id)
+	if err != nil {
+		return s, err
+	}
+	var names map[int]string
+	if code, ok := tvdbLanguages[lang]; ok && code != s.OriginalLanguage {
+		names, err = p.EpisodeNames(ctx, id, lang)
+		var e *Error
+		if errors.As(err, &e) && e.Code == CodeNotFound {
+			err = nil
+		}
+		if err != nil {
+			return TVDBSeries{}, err
+		}
+	}
+	for i := range s.Episodes {
+		e := &s.Episodes[i]
+		if e.PrimaryName = names[e.ID]; e.PrimaryName == "" {
+			e.PrimaryName = e.Name
+		}
+	}
+	return s, nil
 }
 
 // SeriesByIMDb resolves an IMDb id to a TheTVDB series id.

@@ -401,7 +401,7 @@ func (s *Service) resolveTitle(ctx context.Context, in Input) (target, Reason, e
 	if tvdbID == 0 {
 		return t, NotOnTVDB, nil
 	}
-	tv, err := s.d.TVDB.Series(ctx, tvdbID)
+	tv, err := metadata.SeriesIn(ctx, s.d.TVDB, tvdbID, string(region.Primary))
 	if notFound(err) {
 		return t, NotOnTVDB, nil
 	}

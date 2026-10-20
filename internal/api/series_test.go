@@ -43,16 +43,25 @@ type seriesTitleJSON struct {
 type cellJSON struct {
 	State string `json:"state"`
 	Score *int   `json:"score"`
+	File  *struct {
+		ID         int64   `json:"id"`
+		Path       string  `json:"path"`
+		Size       int64   `json:"size"`
+		Quality    *string `json:"quality"`
+		EpisodeIDs []int64 `json:"episode_ids"`
+	} `json:"file"`
 }
 
 type episodeJSON struct {
-	ID        int64   `json:"id"`
-	Season    int     `json:"season"`
-	Number    int     `json:"number"`
-	Name      string  `json:"name"`
-	AirDate   *string `json:"air_date"`
-	Monitored bool    `json:"monitored"`
-	Cells     struct {
+	ID           int64   `json:"id"`
+	Season       int     `json:"season"`
+	Number       int     `json:"number"`
+	Name         string  `json:"name"`
+	PrimaryName  string  `json:"primary_name"`
+	OriginalName string  `json:"original_name"`
+	AirDate      *string `json:"air_date"`
+	Monitored    bool    `json:"monitored"`
+	Cells        struct {
 		Standard *cellJSON `json:"standard"`
 		FourK    *cellJSON `json:"4k"`
 	} `json:"cells"`

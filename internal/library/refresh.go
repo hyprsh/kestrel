@@ -231,7 +231,8 @@ func (s *Service) refreshEpisodes(ctx context.Context, q *db.Queries, id int64, 
 			tvdb = nullInt(c.fresh.ID)
 		}
 		if err := q.UpdateEpisode(ctx, db.UpdateEpisodeParams{
-			Season: int64(c.fresh.Season), Number: int64(c.fresh.Number), TvdbID: tvdb, Name: c.fresh.Name, AirDate: airOf(c.fresh), ID: c.ep.ID,
+			Season: int64(c.fresh.Season), Number: int64(c.fresh.Number), TvdbID: tvdb, Name: c.fresh.Name, AirDate: airOf(c.fresh),
+			PrimaryName: c.fresh.PrimaryName, ID: c.ep.ID,
 		}); err != nil {
 			return err
 		}
@@ -254,6 +255,7 @@ func (s *Service) refreshEpisodes(ctx context.Context, q *db.Queries, id int64, 
 		on := mode.Valid() && mode.MonitorsEpisode(f.Season, f.Aired, now)
 		if err := q.InsertEpisode(ctx, db.InsertEpisodeParams{
 			TitleID: id, Season: int64(f.Season), Number: int64(f.Number), TvdbID: nullInt(f.ID), Name: f.Name, AirDate: airOf(f), Monitored: boolInt(on),
+			PrimaryName: f.PrimaryName,
 		}); err != nil {
 			return err
 		}

@@ -94,6 +94,14 @@ func (s *TVDBServer) helperServer(t testing.TB) {
 		}
 		serve("tvdb_episodes_"+r.PathValue("id")+"_"+page+".json")(w, r)
 	}))
+	// The episodes in one language; a language without a fixture is a 404.
+	mux.HandleFunc("GET /v4/series/{id}/episodes/{season_type}/{lang}", authed(func(w http.ResponseWriter, r *http.Request) {
+		page := r.URL.Query().Get("page")
+		if page == "" {
+			page = "0"
+		}
+		serve("tvdb_episodes_"+r.PathValue("id")+"_"+r.PathValue("lang")+"_"+page+".json")(w, r)
+	}))
 	mux.HandleFunc("GET /v4/search/remoteid/{remote}", authed(func(w http.ResponseWriter, r *http.Request) {
 		name := "tvdb_remoteid_" + r.PathValue("remote") + ".json"
 		if _, err := fixtures.ReadFile("testdata/" + name); err != nil {

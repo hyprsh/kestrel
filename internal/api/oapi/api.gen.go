@@ -1361,21 +1361,44 @@ type Episode struct {
 		N4k      *EpisodeCell `json:"4k"`
 		Standard *EpisodeCell `json:"standard"`
 	} `json:"cells"`
-	Id        int64  `json:"id"`
-	Monitored bool   `json:"monitored"`
-	Name      string `json:"name"`
-	Number    int    `json:"number"`
-	Season    int    `json:"season"`
+	Id        int64 `json:"id"`
+	Monitored bool  `json:"monitored"`
+
+	// Name The original title; kept for older clients, the same as `original_name`.
+	Name   string `json:"name"`
+	Number int    `json:"number"`
+
+	// OriginalName The title in the Series' original language. Empty for a Placeholder Episode.
+	OriginalName string `json:"original_name"`
+
+	// PrimaryName The title in the Primary Language, from TheTVDB; the original title when TheTVDB has no translation. Empty for a Placeholder Episode.
+	PrimaryName string `json:"primary_name"`
+	Season      int    `json:"season"`
 }
 
 // EpisodeCell defines model for EpisodeCell.
 type EpisodeCell struct {
+	// File The file holding the episode in this Version, even a misfit one; `null` when there is none.
+	File *EpisodeFile `json:"file"`
+
 	// Score The Score of the file holding the episode, when there is one.
 	Score *int `json:"score"`
 
 	// State `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
 	// Clients tolerate new values.
 	State SlotState `json:"state"`
+}
+
+// EpisodeFile A file on disk holding one or more episodes of a Version (a multi-episode file holds several).
+type EpisodeFile struct {
+	// EpisodeIds Every episode the file holds, in aired order; more than one for a multi-episode file.
+	EpisodeIds []int64 `json:"episode_ids"`
+	Id         int64   `json:"id"`
+	Path       string  `json:"path"`
+
+	// Quality The quality name parsed from the release name ("WEBDL-1080p").
+	Quality *string `json:"quality"`
+	Size    int64   `json:"size"`
 }
 
 // EpisodeList defines model for EpisodeList.

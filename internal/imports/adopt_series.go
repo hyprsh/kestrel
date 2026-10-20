@@ -597,7 +597,7 @@ func (a *Adoption) adoptSeriesRow(ctx context.Context, e *env, row Row) (err err
 		if adopt.TMDB, err = a.d.Meta.Series(ctx, m.TMDBID); err != nil {
 			return err
 		}
-		if adopt.TVDB, err = a.d.TVDB.Series(ctx, m.TVDBID); err != nil {
+		if adopt.TVDB, err = metadata.SeriesIn(ctx, a.d.TVDB, m.TVDBID, adopt.PrimaryLanguage); err != nil {
 			return err
 		}
 	}

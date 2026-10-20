@@ -1945,12 +1945,27 @@ export interface components {
             state: components["schemas"]["SlotState"];
             /** @description The Score of the file holding the episode, when there is one. */
             score: number | null;
+            /** @description The file holding the episode in this Version, even a misfit one; `null` when there is none. */
+            file: components["schemas"]["EpisodeFile"] | null;
+        };
+        /** @description A file on disk holding one or more episodes of a Version (a multi-episode file holds several). */
+        EpisodeFile: {
+            /** Format: int64 */
+            id: number;
+            path: string;
+            /** Format: int64 */
+            size: number;
+            /** @description The quality name parsed from the release name ("WEBDL-1080p"). */
+            quality: string | null;
+            /** @description Every episode the file holds, in aired order; more than one for a multi-episode file. */
+            episode_ids: number[];
         };
         Episode: {
             /** Format: int64 */
             id: number;
             season: number;
             number: number;
+            /** @description The original title; kept for older clients, the same as `original_name`. */
             name: string;
             /**
              * Format: date
@@ -1963,6 +1978,10 @@ export interface components {
                 standard: components["schemas"]["EpisodeCell"] | null;
                 "4k": components["schemas"]["EpisodeCell"] | null;
             };
+            /** @description The title in the Primary Language, from TheTVDB; the original title when TheTVDB has no translation. Empty for a Placeholder Episode. */
+            primary_name: string;
+            /** @description The title in the Series' original language. Empty for a Placeholder Episode. */
+            original_name: string;
         };
         EpisodeList: {
             items: components["schemas"]["Episode"][];
