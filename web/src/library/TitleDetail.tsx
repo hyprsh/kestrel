@@ -1,7 +1,6 @@
 import { forwardRef, useRef } from 'react'
 import { apiBaseUrl } from '../api/client'
-import type { ReleaseScope } from '../api/grabs'
-import { useProfiles, useTitle, type TitleDetail as Detail, type TitleRow } from '../api/queries'
+import { useProfiles, useTitle, type EpisodeScope, type TitleDetail as Detail, type TitleRow } from '../api/queries'
 import { slotKeys, type SlotKey } from './bits'
 import { ExternalIds } from './ExternalIds'
 import { Ratings } from './Ratings'
@@ -42,7 +41,7 @@ export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: ()
 })
 
 /** The Version a manual search is opened for, of a Series maybe narrowed to a season or episodes. */
-export type ManualSearchTarget = { versionId: number; slot: SlotKey; profileName: string; scope?: { body: ReleaseScope; label: string } }
+export type ManualSearchTarget = { versionId: number; slot: SlotKey; profileName: string; scope?: { body: EpisodeScope; label: string } }
 
 function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (search: ManualSearchTarget) => void }) {
   const profiles = useProfiles()

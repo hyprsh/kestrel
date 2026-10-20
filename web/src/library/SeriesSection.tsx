@@ -1,4 +1,5 @@
-import { ApiError, useEpisodes, useSetSeriesMonitor, type Episode, type SeriesMonitor, type TitleDetail } from '../api/queries'
+import { ApiError, useEpisodes, type Episode, type SeriesMonitor, type TitleDetail } from '../api/queries'
+import { useSetSeriesMonitor } from '../api/titleActions'
 import { ErrorText, Select } from '../forms'
 import { slotKeys } from './bits'
 import { EpisodeToolbar, useEpisodeActions } from './EpisodeActions'

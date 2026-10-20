@@ -396,6 +396,11 @@ export function useCreateTitle() {
 
 export type Episode = components['schemas']['Episode']
 export type SeriesMonitor = components['schemas']['SeriesMonitor']
+/**
+ * Narrows work on a Series Version (Search now, Manual search, deleting files)
+ * to a season and, within it, episodes; none is the whole Series.
+ */
+export type EpisodeScope = { season?: number; episode_ids?: number[] }
 
 /** A Series' episodes with one cell per Version. */
 export function useEpisodes(titleId: number, enabled = true) {
@@ -432,12 +437,6 @@ export const useMonitorEpisodes = (titleId: number) =>
     api.POST('/titles/{id}/episodes/monitor', { params: { path: { id: titleId } }, body: { episode_ids: ids, monitored } }),
   )
 
-/** Monitors or unmonitors a Movie; a Series uses its monitoring mode instead. */
-export const useSetMovieMonitored = (titleId: number) =>
-  useMonitorMutation((monitored: boolean) => api.PATCH('/titles/{id}', { params: { path: { id: titleId } }, body: { monitored } }))
-
-export const useSetSeriesMonitor = (titleId: number) =>
-  useMonitorMutation((mode: SeriesMonitor) => api.PATCH('/titles/{id}', { params: { path: { id: titleId } }, body: { series_monitor: mode } }))
 
 // ---- setup progress ----
 

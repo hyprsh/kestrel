@@ -1,6 +1,7 @@
 import { ApiError } from '../api/queries'
 import type { components } from '../api/schema.gen'
 import { ErrorText } from '../forms'
+import { seasonName } from '../library/episodes'
 
 export type LookupSeries = components['schemas']['LookupSeries']
 type LookupSeason = components['schemas']['LookupSeason']
@@ -32,8 +33,6 @@ export function SeriesOverviewLine({ overview }: { overview: { data?: LookupSeri
   if (overview.isPending) return <p className="text-gray-900">Loading the series overview…</p>
   return overview.data ? <SeriesFacts series={overview.data} /> : null
 }
-
-const seasonName = (n: number) => (n === 0 ? 'Specials' : `Season ${n}`)
 
 function seasonAired(s: LookupSeason) {
   if (!s.first_aired) return 'not aired yet'

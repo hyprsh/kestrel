@@ -3,20 +3,16 @@
 // Every deletion asks first, naming the files, their total size and every
 // episode that loses its file, those sharing a file with the chosen ones too.
 import { useState } from 'react'
-import type { Episode } from '../api/queries'
+import type { Episode, EpisodeScope } from '../api/queries'
 import type { components } from '../api/schema.gen'
-import { useDeleteFiles, type DeletedFiles, type FilesScope } from '../api/versions'
+import { useDeleteFiles, type DeletedFiles } from '../api/versions'
 import { Button, ErrorText } from '../forms'
 import { MenuItem } from '../menu'
-import { size, slotLabel, type SlotKey } from './bits'
+import { size, slotLabel } from './bits'
+import { episodeCode, type ActionStatus, type EpisodeVersion } from './episodes'
 
 type FileSummary = components['schemas']['FileSummary']
 type EpisodeFile = components['schemas']['EpisodeFile']
-type Version = { id: number; slot: SlotKey }
-type Status = { text: string; error: boolean } | null
-
-const two = (n: number) => String(n).padStart(2, '0')
-const code = (e: Episode) => `S${two(e.season)}E${two(e.number)}`
 const base = (path: string) => path.split(/[\\/]/).pop() ?? path
 const files = (n: number) => (n === 1 ? '1 file' : `${n} files`)
 
@@ -132,13 +128,13 @@ export function DeleteFile({ versionId, file }: { versionId: number; file: FileS
 }
 
 /** A deletion in the episode grid waiting for its confirmation. */
-type Plan = { version: Version; label: string; scope: FilesScope; files: EpisodeFile[]; episodes: string[]; extra: string[] }
+type Plan = { version: EpisodeVersion; label: string; scope: EpisodeScope; files: EpisodeFile[]; episodes: string[]; extra: string[] }
 
 export type EpisodeDeletes = {
   /** Whether a Version holds a file for any of `eps`. */
-  has: (v: Version, eps: Episode[]) => boolean
+  has: (v: EpisodeVersion, eps: Episode[]) => boolean
   /** Asks to delete the files of `v` holding `eps`, sent with `scope` and named `label`. */
-  ask: (v: Version, eps: Episode[], label: string, scope: FilesScope) => void
+  ask: (v: EpisodeVersion, eps: Episode[], label: string, scope: EpisodeScope) => void
   pending: Plan | null
   confirm: (blocklist: boolean) => void
   cancel: () => void
@@ -146,7 +142,7 @@ export type EpisodeDeletes = {
   busy: boolean
 }
 
-const filesOf = (v: Version, eps: Episode[]) => {
+const filesOf = (v: EpisodeVersion, eps: Episode[]) => {
   const out = new Map<number, EpisodeFile>()
   for (const e of eps) {
     const f = e.cells[v.slot]?.file
@@ -156,7 +152,7 @@ const filesOf = (v: Version, eps: Episode[]) => {
 }
 
 /** The episode grid's deletions: one waits for its confirmation at a time; `say` reports what came of it. */
-export function useEpisodeDeletes(episodes: Episode[], say: (s: Status) => void): EpisodeDeletes {
+export function useEpisodeDeletes(episodes: Episode[], say: (s: ActionStatus) => void): EpisodeDeletes {
   const del = useDeleteFiles()
   const [pending, setPending] = useState<Plan | null>(null)
 
@@ -172,8 +168,8 @@ export function useEpisodeDeletes(episodes: Episode[], say: (s: Status) => void)
       label,
       scope,
       files: fs,
-      episodes: lost.map(code),
-      extra: lost.filter((e) => !chosen.has(e.id)).map(code),
+      episodes: lost.map(episodeCode),
+      extra: lost.filter((e) => !chosen.has(e.id)).map(episodeCode),
     })
   }
 
@@ -212,10 +208,10 @@ export function DeleteMenuItems({
   text,
 }: {
   deletes: EpisodeDeletes
-  versions: Version[]
+  versions: EpisodeVersion[]
   episodes: Episode[]
   label: string
-  scope: FilesScope
+  scope: EpisodeScope
   text: string
 }) {
   return versions.map((v) => {
@@ -229,7 +225,7 @@ export function DeleteMenuItems({
 }
 
 /** The selection bar's Delete files, one per Slot when the Series has both. */
-export function DeleteTickedButtons({ deletes, versions, ticked, label }: { deletes: EpisodeDeletes; versions: Version[]; ticked: Episode[]; label: string }) {
+export function DeleteTickedButtons({ deletes, versions, ticked, label }: { deletes: EpisodeDeletes; versions: EpisodeVersion[]; ticked: Episode[]; label: string }) {
   return versions.map((v) => {
     const has = deletes.has(v, ticked)
     return (

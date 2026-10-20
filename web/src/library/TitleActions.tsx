@@ -1,8 +1,8 @@
 // The Title actions row under a Title's description: searches, metadata, monitoring and a "…" menu.
 import { MoreHorizontal } from 'lucide-react'
 import { useState } from 'react'
-import { ApiError, useSetMovieMonitored, type TitleDetail } from '../api/queries'
-import { useRefreshTitle, useSetFrozen } from '../api/titleActions'
+import { ApiError, type TitleDetail } from '../api/queries'
+import { useRefreshTitle, useSetFrozen, useSetMovieMonitored } from '../api/titleActions'
 import { useOpenCleanup } from '../cleanup/launch'
 import { Button, ErrorText } from '../forms'
 import { Menu, MenuItem } from '../menu'

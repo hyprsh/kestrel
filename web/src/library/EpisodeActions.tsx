@@ -3,24 +3,19 @@
 // the selection bar, and Delete files (DeleteFiles.tsx) in the same menus and bar.
 import { MoreHorizontal } from 'lucide-react'
 import { useMemo, useState, type KeyboardEvent } from 'react'
-import { useSearchNow, type ReleaseScope } from '../api/grabs'
-import { useProfiles, type Episode, type TitleDetail } from '../api/queries'
+import { useSearchNow } from '../api/grabs'
+import { useProfiles, type Episode, type EpisodeScope, type TitleDetail } from '../api/queries'
 import { Button } from '../forms'
 import { Menu, MenuItem } from '../menu'
 import { SelectBox, SelectionBar, useSelection, type Selection } from '../selection'
 import { cx } from '../ui'
 import { slotLabel, type SlotKey } from './bits'
+import { episodeCode, seasonName, type ActionStatus, type EpisodeVersion } from './episodes'
 import { DeleteMenuItems, DeleteTickedButtons, EpisodeDeleteConfirm, useEpisodeDeletes, type EpisodeDeletes } from './DeleteFiles'
 import type { ManualSearchTarget } from './TitleDetail'
 import type { SeasonOpen } from './useSeasonOpen'
 
-const two = (n: number) => String(n).padStart(2, '0')
-/** "S01E03": how an episode reads in a scope label. */
-export const episodeCode = (e: Episode) => `S${two(e.season)}E${two(e.number)}`
-const seasonName = (n: number) => (n === 0 ? 'Specials' : `Season ${n}`)
 const episodeName = (e: Episode) => `Season ${e.season} episode ${e.number}`
-
-type Version = { id: number; slot: SlotKey; profileName: string }
 
 export type EpisodeActions = {
   /** The episodes the grid shows: those of the open seasons. Only they can be ticked. */
@@ -28,15 +23,15 @@ export type EpisodeActions = {
   /** The ticked episodes. */
   selection: Selection
   /** The Series' Versions in the grid's Slot order. */
-  versions: Version[]
+  versions: EpisodeVersion[]
   /** Search now in every Slot where one of `eps` is Wanted; `scope` builds each body from that Slot's Wanted ids. */
-  search: (eps: Episode[], label: string, scope: (wanted: number[]) => ReleaseScope) => void
+  search: (eps: Episode[], label: string, scope: (wanted: number[]) => EpisodeScope) => void
   /** Opens Manual search for one Version, narrowed to `body` and named `label`. */
-  manual: (v: Version, body: ReleaseScope, label: string) => void
+  manual: (v: EpisodeVersion, body: EpisodeScope, label: string) => void
   /** Delete files of an episode, a season or the ticked episodes, after a confirmation. */
   deletes: EpisodeDeletes
   /** What the last Search now or deletion said. */
-  status: { text: string; error: boolean } | null
+  status: ActionStatus
   /** The grid's keys for actions: x ticks (X a range), Shift+F10 or the menu key opens the row's menu, Escape clears the ticks. True when handled. */
   onKey: (e: KeyboardEvent, episode: Episode | null) => boolean
 }
@@ -59,11 +54,11 @@ export function useEpisodeActions(
   const selection = useSelection(ids)
   const profiles = useProfiles()
   const searchNow = useSearchNow()
-  const [status, setStatus] = useState<EpisodeActions['status']>(null)
+  const [status, setStatus] = useState<ActionStatus>(null)
   const deletes = useEpisodeDeletes(episodes, setStatus)
 
   const names = new Map((profiles.data ?? []).map((p) => [p.key, p.name]))
-  const versions: Version[] = slots.flatMap((slot) => {
+  const versions: EpisodeVersion[] = slots.flatMap((slot) => {
     const v = title.versions.find((x) => x.slot === slot)
     return v ? [{ id: v.id, slot, profileName: names.get(v.profile) ?? v.profile }] : []
   })
@@ -114,7 +109,7 @@ export function useEpisodeActions(
 }
 
 const nothingWanted = 'Nothing here is Wanted'
-const wantedIn = (eps: Episode[], versions: Version[]) => versions.some((v) => eps.some((e) => e.cells[v.slot]?.state === 'wanted'))
+const wantedIn = (eps: Episode[], versions: EpisodeVersion[]) => versions.some((v) => eps.some((e) => e.cells[v.slot]?.state === 'wanted'))
 const menuButton = { trigger: <MoreHorizontal className="size-3.5" />, buttonTabIndex: -1, buttonClassName: 'size-5' }
 
 /** The ⋯ menu of one episode row. */
