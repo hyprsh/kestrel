@@ -135,6 +135,12 @@ func (s *Service) sweepRows(ctx context.Context, now time.Time) ([]sweepRow, err
 		fe = append(fe, fileEp{r.VersionID, r.EpisodeID, r.Score})
 	}
 	heldBy := heldOf(fe)
+	firstFiled, err := q.ListFirstFiled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	filed := filedOf(firstFiled)
+	releasedBy := map[int64]map[int64]*time.Time{} // per Title: releasedOf over all its episodes
 
 	var out []sweepRow
 	for _, st := range states {
@@ -165,13 +171,18 @@ func (s *Service) sweepRows(ctx context.Context, now time.Time) ([]sweepRow, err
 				r.wanted, r.since = true, *since
 			}
 		} else {
+			released, ok := releasedBy[t.ID]
+			if !ok {
+				released = releasedOf(epsOf[t.ID], filed)
+				releasedBy[t.ID] = released
+			}
 			var season []db.Episode
 			for _, e := range epsOf[t.ID] {
 				if e.Season == st.Season.Int64 {
 					season = append(season, e)
 				}
 			}
-			for _, u := range unitsOf(season, heldBy[v.ID], added) {
+			for _, u := range unitsOf(season, released, heldBy[v.ID], added) {
 				if state, since := StateAt(u, now); state == Wanted {
 					if !r.wanted || since.After(r.since) {
 						r.since = *since
@@ -179,7 +190,7 @@ func (s *Service) sweepRows(ctx context.Context, now time.Time) ([]sweepRow, err
 					r.wanted = true
 				}
 			}
-			state, _ := SeriesState(unitsOf(epsOf[t.ID], heldBy[v.ID], added), now)
+			state, _ := SeriesState(unitsOf(epsOf[t.ID], released, heldBy[v.ID], added), now)
 			r.versionFilled = state == Filled
 		}
 		out = append(out, r)

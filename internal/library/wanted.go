@@ -4,8 +4,8 @@ import "time"
 
 // Unit is one thing a Version can hold or lack: a Movie, or one episode of a
 // Series. Released is when it came out, nil when unknown: the release-date
-// country's date for a Movie, the TheTVDB air date for an episode (a date,
-// read as midnight UTC).
+// country's date for a Movie; for an episode its air date (a date, read as
+// midnight UTC) or, without one, when a later episode was out (releasedOf).
 type Unit struct {
 	Monitored bool
 	HasFile   bool

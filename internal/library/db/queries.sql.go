@@ -1094,6 +1094,74 @@ func (q *Queries) ListFilesWithSlot(ctx context.Context, titleID int64) ([]ListF
 	return items, nil
 }
 
+const listFirstFiled = `-- name: ListFirstFiled :many
+SELECT fe.episode_id, CAST(MIN(f.imported_at) AS TEXT) AS imported_at
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id GROUP BY fe.episode_id
+`
+
+type ListFirstFiledRow struct {
+	EpisodeID  int64
+	ImportedAt string
+}
+
+// When each episode's earliest file in any Version was imported, misfits included: a file shows the episode is out.
+func (q *Queries) ListFirstFiled(ctx context.Context) ([]ListFirstFiledRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFirstFiled)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFirstFiledRow
+	for rows.Next() {
+		var i ListFirstFiledRow
+		if err := rows.Scan(&i.EpisodeID, &i.ImportedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFirstFiledOfTitle = `-- name: ListFirstFiledOfTitle :many
+SELECT fe.episode_id, CAST(MIN(f.imported_at) AS TEXT) AS imported_at
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id
+WHERE v.title_id = ? GROUP BY fe.episode_id
+`
+
+type ListFirstFiledOfTitleRow struct {
+	EpisodeID  int64
+	ImportedAt string
+}
+
+func (q *Queries) ListFirstFiledOfTitle(ctx context.Context, titleID int64) ([]ListFirstFiledOfTitleRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFirstFiledOfTitle, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFirstFiledOfTitleRow
+	for rows.Next() {
+		var i ListFirstFiledOfTitleRow
+		if err := rows.Scan(&i.EpisodeID, &i.ImportedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMisfitFileIDs = `-- name: ListMisfitFileIDs :many
 SELECT file_id FROM file_misfits
 `
