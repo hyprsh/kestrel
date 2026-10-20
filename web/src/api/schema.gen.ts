@@ -357,6 +357,8 @@ export interface paths {
          * @description The Slots to preselect when adding it: every Slot with a default Profile for the kind, resolved
          *     by Profile resolution. Each Slot says why (`reason`) and carries a display `label`, the
          *     Profile's name. Requests use the same logic.
+         *     A Series also carries its overview (`series`): status, network, air dates and seasons, read
+         *     from TheTVDB, so this call waits on TheTVDB as well as TMDB.
          */
         get: operations["lookupTitle"];
         put?: never;
@@ -387,8 +389,9 @@ export interface paths {
          *     `root_folder` must be one of the configured Root folders for the kind; left out, it is the
          *     kind's first.
          *     `409 conflict` when the Title is already in the Library (the existing id is in
-         *     `detail`). A Series takes `series_monitor` (default `all`); one TheTVDB does not have is refused
-         *     with a `422` whose field error is `tmdb_id` / `not_on_tvdb`.
+         *     `detail`). A Series takes `series_monitor` (default `all`) and, to start with only some seasons
+         *     monitored, `seasons`; one TheTVDB does not have is refused with a `422` whose field error is
+         *     `tmdb_id` / `not_on_tvdb`.
          */
         post: operations["createTitle"];
         delete?: never;
@@ -1911,6 +1914,64 @@ export interface components {
             certification_country: string | null;
             /** @description Every Slot with a default Profile for the kind, in Slot order. */
             slots: components["schemas"]["SuggestedSlot"][];
+            /** @description A TMDB poster URL, larger than the search result's. */
+            poster: string | null;
+            /** @description Minutes; a typical episode's for a Series. */
+            runtime: number | null;
+            /**
+             * @description TMDB's genre names, in TMDB's order.
+             * @example [
+             *       "Drama",
+             *       "Crime"
+             *     ]
+             */
+            genres: string[];
+            /** @description The Series overview; `null` for a Movie and for a Series TheTVDB does not have. */
+            series: components["schemas"]["LookupSeries"] | null;
+        };
+        LookupSeries: {
+            /**
+             * @description `continuing`, `ended` or `upcoming`, as TheTVDB says. Clients tolerate new values.
+             * @example ended
+             */
+            status: string | null;
+            /**
+             * @description The network it first aired on, from TMDB.
+             * @example AMC
+             */
+            network: string | null;
+            /**
+             * Format: date
+             * @description The first episode's air date, Specials aside.
+             */
+            first_aired: string | null;
+            /**
+             * Format: date
+             * @description The latest air date up to today, Specials aside.
+             */
+            last_aired: string | null;
+            /**
+             * @description The latest season that has aired or is airing (Specials aside); `null` when none has
+             *     started. What `TitleCreate.seasons` takes to add only the current season.
+             */
+            latest_season: number | null;
+            /** @description Every season TheTVDB lists, Specials (0) first. */
+            seasons: components["schemas"]["LookupSeason"][];
+        };
+        LookupSeason: {
+            /** @description 0 is Specials. */
+            number: number;
+            episodes: number;
+            /**
+             * Format: date
+             * @description The season's earliest known air date.
+             */
+            first_aired: string | null;
+            /**
+             * Format: date
+             * @description The season's latest known air date, which may be in the future.
+             */
+            last_aired: string | null;
         };
         VersionRef: {
             slot: components["schemas"]["Slot"];
@@ -1928,6 +1989,17 @@ export interface components {
             root_folder?: string | null;
             /** @description Series only; defaults to `all`. */
             series_monitor?: components["schemas"]["SeriesMonitor"] | null;
+            /**
+             * @description Series only: the seasons monitored when it is added, Specials (0) included when named.
+             *     Left out, `series_monitor` decides every episode. Given, it decides seasons that have
+             *     not started airing and every episode that arrives later; the seasons not named are
+             *     left unmonitored. A season the Series does not have is a `422` (`seasons` /
+             *     `not_found`), as is a Movie with seasons (`seasons` / `not_a_series`).
+             * @example [
+             *       1
+             *     ]
+             */
+            seasons?: number[] | null;
         };
         /**
          * @description `all` monitors every episode, future ones and new seasons included; `future` the episodes airing

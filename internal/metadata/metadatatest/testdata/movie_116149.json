@@ -7,6 +7,7 @@
   "original_title": "Paddington",
   "overview": "A young Peruvian bear travels to London in search of a new home.",
   "poster_path": "/pyFVnLq1sG1jdXZQhxNdCP0DLg3.jpg",
+  "genres": [{"id": 35, "name": "Comedy"}, {"id": 10751, "name": "Family"}],
   "production_countries": [{"iso_3166_1": "GB", "name": "United Kingdom"}],
   "release_date": "2014-11-28",
   "runtime": 95,

@@ -32,6 +32,10 @@ const defaultSuggestion = (id: number, title: string): Suggestion => ({
   certification: '6',
   certification_country: 'DE',
   slots: [{ slot: 'standard', profile: 'hd-primary', label: 'HD', reason: 'default' }],
+  poster: null,
+  runtime: null,
+  genres: [],
+  series: null,
 })
 
 /** TMDB lookups: Paddington is addable, Paddington Returns is already in the Library. */

@@ -232,6 +232,7 @@ func (c *TMDB) Movie(ctx context.Context, id int) (MovieDetails, error) {
 		Runtime          int    `json:"runtime"`
 		Overview         string `json:"overview"`
 		PosterPath       string `json:"poster_path"`
+		Genres           genres `json:"genres"`
 		ExternalIDs      struct {
 			IMDbID string `json:"imdb_id"`
 		} `json:"external_ids"`
@@ -271,7 +272,7 @@ func (c *TMDB) Movie(ctx context.Context, id int) (MovieDetails, error) {
 	d := MovieDetails{
 		TMDBID: r.ID, IMDbID: r.IMDbID, Title: r.Title, OriginalTitle: r.OriginalTitle,
 		OriginalLanguage: r.OriginalLanguage, Year: year(r.ReleaseDate), Runtime: r.Runtime,
-		Overview: r.Overview, PosterPath: r.PosterPath,
+		Overview: r.Overview, PosterPath: r.PosterPath, Genres: r.Genres.names(),
 	}
 	if d.IMDbID == "" {
 		d.IMDbID = r.ExternalIDs.IMDbID
@@ -294,6 +295,21 @@ func (c *TMDB) Movie(ctx context.Context, id int) (MovieDetails, error) {
 		}
 	}
 	return d, nil
+}
+
+// genres is TMDB's genre list on a Movie or a Series.
+type genres []struct {
+	Name string `json:"name"`
+}
+
+func (g genres) names() []string {
+	var out []string
+	for _, x := range g {
+		if x.Name != "" {
+			out = append(out, x.Name)
+		}
+	}
+	return out
 }
 
 // Changes lists the ids of the Movies or Series TMDB changed since a time

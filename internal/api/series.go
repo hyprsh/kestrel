@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/hyprsh/kestrel/internal/slot"
 	"net/http"
 
@@ -20,6 +21,15 @@ func (s *server) createSeries(ctx context.Context, b *oapi.TitleCreate, specs []
 	}
 	if !mode.Valid() {
 		return nil, invalid("series_monitor", "invalid", "Monitor all, future or none")
+	}
+	var seasons []int
+	if b.Seasons != nil {
+		seasons = append(make([]int, 0, len(*b.Seasons)), *b.Seasons...)
+		for _, n := range seasons {
+			if n < 0 {
+				return nil, invalid("seasons", "invalid", "Seasons are numbered from 0")
+			}
+		}
 	}
 	details, err := s.meta.Series(ctx, b.TmdbId)
 	if err != nil {
@@ -42,7 +52,12 @@ func (s *server) createSeries(ctx context.Context, b *oapi.TitleCreate, specs []
 	}
 	id, err := s.library.AddSeries(ctx, library.AddSeries{
 		TMDB: details, TVDB: tv, PrimaryLanguage: string(region.Primary), Monitor: mode, Versions: specs, RootFolder: root,
+		Seasons: seasons,
 	})
+	var unknown *library.UnknownSeasonError
+	if errors.As(err, &unknown) {
+		return nil, invalid("seasons", "not_found", fmt.Sprintf("The Series has no season %d", unknown.Season))
+	}
 	if err != nil {
 		return nil, addProblem(err)
 	}
