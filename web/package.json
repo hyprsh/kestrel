@@ -6,6 +6,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build && touch dist/.keep",
     "typecheck": "tsc --noEmit",
+    "knip": "knip",
     "test": "vitest run",
     "test:watch": "vitest",
     "generate": "openapi-typescript ../api/openapi.yaml -o src/api/schema.gen.ts"
@@ -29,6 +30,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "jsdom": "^30.1.3",
+    "knip": "^6.39.0",
     "msw": "^3.0.3",
     "openapi-msw": "^2.1.0",
     "openapi-typescript": "^7.13.0",

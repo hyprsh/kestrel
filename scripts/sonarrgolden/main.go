@@ -77,7 +77,7 @@ func main() {
 
 	version := sonarrVersion(*base, *key)
 	if want := strings.TrimPrefix(release.UpstreamSonarrVersion, "v"); version != want {
-		fatal(fmt.Errorf("Sonarr at %s is %s, the port is pinned to %s", *base, version, want))
+		fatal(fmt.Errorf("the port is pinned to Sonarr %s, but %s runs %s", want, *base, version))
 	}
 
 	titles, err := corpus(*fixtures, *extra)

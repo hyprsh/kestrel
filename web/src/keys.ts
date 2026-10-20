@@ -8,7 +8,7 @@ export const MOD = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'
 const typing = 'input, textarea, select, [contenteditable=true]'
 
 /** Whether keystrokes belong to a text field, so single-key shortcuts stay out of the way. */
-export function isTyping(target: EventTarget | null): boolean {
+function isTyping(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest(typing) !== null
 }
 

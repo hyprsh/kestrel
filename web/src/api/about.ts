@@ -1,9 +1,6 @@
 // About: GET /about and GET /about/notices.
 import { useQuery } from '@tanstack/react-query'
 import { api } from './client'
-import type { components } from './schema.gen'
-
-export type About = components['schemas']['About']
 
 export function useAbout() {
   return useQuery({

@@ -194,7 +194,7 @@ func TestMovieSearchByIDsSendsTheRightRequestAndMapsTheFeed(t *testing.T) {
 	if !b.PublishDate.Equal(time.Date(2025, 6, 30, 9, 0, 0, 0, time.UTC)) {
 		t.Errorf("without usenetdate the pubDate is used: %v", b.PublishDate)
 	}
-	if b.IMDBID != "tt0133093" || !b.Nuked || b.Scene || b.Password != 2 || b.Size != 9000000000 || b.Languages != nil && len(b.Languages) != 0 {
+	if b.IMDBID != "tt0133093" || !b.Nuked || b.Scene || b.Password != 2 || b.Size != 9000000000 || len(b.Languages) != 0 {
 		t.Errorf("second release %+v", b)
 	}
 }

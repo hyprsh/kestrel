@@ -6,10 +6,6 @@ import type { EpisodeScope } from './queries'
 import type { components } from './schema.gen'
 
 export type Release = components['schemas']['Release']
-export type Rejection = components['schemas']['Rejection']
-export type ReleaseList = components['schemas']['ReleaseList']
-export type IndexerError = components['schemas']['IndexerError']
-export type Grab = components['schemas']['Grab']
 export type GrabCreate = components['schemas']['GrabCreate']
 
 type Problem = { code?: string; detail?: string; title?: string } | undefined

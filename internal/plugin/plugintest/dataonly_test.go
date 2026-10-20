@@ -18,6 +18,8 @@ type good struct {
 type hasPointer struct{ P *int }
 type hasFunc struct{ F func() }
 type hasChan struct{ C chan int }
+
+//lint:ignore U1000 the unexported field is what dataOnly must reject
 type hasUnexported struct{ x int }
 
 func TestDataOnlyAcceptsPlainData(t *testing.T) {

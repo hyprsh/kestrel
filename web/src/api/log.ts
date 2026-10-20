@@ -6,7 +6,6 @@ import { ApiError } from './queries'
 import type { components } from './schema.gen'
 
 export type LogEvent = components['schemas']['Event']
-export type BlockedRelease = components['schemas']['BlocklistEntry']
 export type LogFilter = { kind: string; slot: string; titleId: number | null; routine: boolean }
 
 type Problem = { code?: string; detail?: string; title?: string } | undefined

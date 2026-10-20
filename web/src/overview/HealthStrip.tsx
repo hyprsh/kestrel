@@ -3,7 +3,7 @@ import { useStatus, type SystemStatus } from '../api/attention'
 import { cx } from '../ui'
 
 /** "800 GB", "1 TB": powers of 1024, no decimals once a number is round. */
-export function formatBytes(n: number): string {
+function formatBytes(n: number): string {
   const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
   let v = n
   let i = 0

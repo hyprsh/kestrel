@@ -70,7 +70,6 @@ var (
 
 	partRegex                = cs(`\(\d+\)$`)
 	punctuationRegex         = cs(`[^\w\s]`)
-	articleWordRegex         = ci(`^(a|an|the)\s`)
 	duplicateSpacesRegex     = cs(`\s{2,}`)
 	seasonFolderRegex        = ci(`^(?:S|Season|Saison|Series|Stagione)[-_. ]*(?<season>(?<!\d+)\d{1,4}(?!\d+))(?:[_. ]+(?!\d+)|$)`)
 	simpleEpisodeNumberRegex = ci(`^[ex]?(?<episode>(?<!\d+)\d{1,3}(?!\d+))(?:[ex-](?<episode>(?<!\d+)\d{1,3}(?!\d+)))?(?:[_. ](?!\d+)(?<remaining>.+)|$)`)

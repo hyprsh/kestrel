@@ -4,7 +4,6 @@ import { api } from './client'
 import { ApiError } from './queries'
 import type { components } from './schema.gen'
 
-export type Adoption = components['schemas']['Adoption']
 export type AdoptionRow = components['schemas']['AdoptionRow']
 export type AdoptionFile = components['schemas']['AdoptionFile']
 export type AdoptionRowPatch = components['schemas']['AdoptionRowPatch']

@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: typecheck release-dry-run dry-run-assets test-go-shard test-go-race test-parity notices build-silo help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet compose-check commitlint hooks docker check
+.PHONY: typecheck release-dry-run dry-run-assets test-go-shard test-go-race test-parity notices build-silo help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet lint-go lint-web compose-check commitlint hooks docker check
 
 VERSION ?= dev
 # The project's TMDB and TVDB keys are injected at link time; the default build embeds none.
@@ -80,6 +80,14 @@ fmt-check: ## Fail if Go code is not gofmt-clean
 vet: ## go vet
 	go vet ./...
 
+lint-go: ## staticcheck, deadcode (code not even a test reaches) and go.mod drift
+	go tool staticcheck ./...
+	@out=$$(go tool deadcode -test ./...) || exit 1; test -z "$$out" || { echo "unreachable code:"; echo "$$out"; exit 1; }
+	go mod tidy -diff
+
+lint-web: ## knip: unused files, exports and dependencies in the SPA
+	npm --prefix web run knip
+
 compose-check: ## Validate the README's reference compose.yaml with `docker compose config`
 	@awk '/^```yaml compose.yaml/{f=1;next} /^```/{f=0} f' README.md > $${TMPDIR:-/tmp}/kestrel-compose.yaml
 	@test -s $${TMPDIR:-/tmp}/kestrel-compose.yaml || { echo "no compose.yaml block in README.md"; exit 1; }
@@ -111,4 +119,4 @@ notices: ## Regenerate internal/notices/THIRD_PARTY_NOTICES.md (needs network an
 typecheck: ## TypeScript typecheck of the SPA (tsc --noEmit)
 	npm --prefix web run typecheck
 
-check: fmt-check vet typecheck generate-check test compose-check ## Everything CI runs, minus the image build and commitlint
+check: fmt-check vet lint-go lint-web typecheck generate-check test compose-check ## Everything CI runs, minus the image build and commitlint

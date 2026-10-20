@@ -14,7 +14,7 @@ const day = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString(undefin
 const year = (d: string) => d.slice(0, 4)
 
 /** A Series' status, network and air dates on one line. */
-export function SeriesFacts({ series }: { series: LookupSeries }) {
+function SeriesFacts({ series }: { series: LookupSeries }) {
   const aired = series.first_aired ? (series.last_aired && series.last_aired !== series.first_aired ? `${day(series.first_aired)} – ${day(series.last_aired)}` : `since ${day(series.first_aired)}`) : null
   const facts = [series.status ? (statusLabel[series.status] ?? series.status) : null, series.network, aired].filter(Boolean)
   if (facts.length === 0) return null

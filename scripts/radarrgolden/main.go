@@ -76,7 +76,7 @@ func main() {
 
 	version := radarrVersion(*base, *key)
 	if want := strings.TrimPrefix(release.UpstreamRadarrVersion, "v"); version != want {
-		fatal(fmt.Errorf("Radarr at %s is %s, the port is pinned to %s", *base, version, want))
+		fatal(fmt.Errorf("the port is pinned to Radarr %s, but %s runs %s", want, *base, version))
 	}
 
 	titles, err := corpus(*fixtures, *extra)

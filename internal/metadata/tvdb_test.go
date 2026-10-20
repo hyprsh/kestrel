@@ -40,10 +40,7 @@ func TestTVDBSeriesInAiredOrderAcrossPages(t *testing.T) {
 	if s.Episodes[6].Aired != nil {
 		t.Errorf("an episode without an air date has none, got %v", s.Episodes[6].Aired)
 	}
-	var paths []string
-	for _, r := range srv.Requests() {
-		paths = append(paths, r)
-	}
+	paths := srv.Requests()
 	want := []string{"POST /v4/login", "GET /v4/series/81189", "GET /v4/series/81189/episodes/official?page=0", "GET /v4/series/81189/episodes/official?page=1"}
 	if len(paths) != len(want) {
 		t.Fatalf("requests = %v, want %v", paths, want)
