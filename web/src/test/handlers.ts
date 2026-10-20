@@ -54,6 +54,7 @@ export const handlers = [
     response(200).json({
       language_region: { primary_language: 'en', release_date_country: 'US' },
       check_github_updates: true,
+      pause_grabs: false,
       from_config_file: { language_region: false, root_folders: false, check_github_updates: false },
       trash: { auto_update: true },
       metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
@@ -72,7 +73,7 @@ export const handlers = [
     response(200).json({ count: 0, severity: null, rows: [], long_missing: { count: 0, items: [] } }),
   ),
   http.get('/system/status', ({ response }) =>
-    response(200).json({ download_client: { state: 'none', name: null, instance_id: null, message: null }, indexers: [], disks: [], trash: { commit: 'abc1234', committed_at: null, checked_at: null, auto_update: true } }),
+    response(200).json({ download_client: { state: 'none', name: null, instance_id: null, message: null }, indexers: [], disks: [], trash: { commit: 'abc1234', committed_at: null, checked_at: null, auto_update: true }, grabs_paused: false }),
   ),
   http.get('/settings/reverse-proxy', ({ response }) =>
     response(200).json({ enabled: false, trusted_proxies: [], header: 'Remote-User', untrusted: [], from_config_file: false }),

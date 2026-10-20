@@ -70,6 +70,7 @@ describe('the health strip', () => {
           indexers: [],
           disks: [],
           trash: { commit: 'abc1234', committed_at: null, checked_at: null, auto_update: true },
+          grabs_paused: false,
           update: { version: '0.3.0', url: 'https://example.test/r' },
         }),
       ),
