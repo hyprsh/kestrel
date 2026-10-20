@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0](https://github.com/hyprsh/kestrel/compare/v0.2.0...v0.3.0) (2026-10-20)
+
+> Kestrel can now be set up from a file: point `KESTREL_CONFIG_FILE` at a YAML Config File, and every start brings the account, settings, Profiles, download clients and indexers to the state it declares, with no clicks in the UI. See [The Config File](https://github.com/hyprsh/kestrel#the-config-file).
+
+### New Features
+
+* **config:** declare the account, language and region, root folders, reverse proxy, GitHub update check, Profiles and plugin instances in a YAML file named by `KESTREL_CONFIG_FILE`. Use it when Kestrel should come up the same way on every deployment. Kestrel checks the whole file before it writes anything, and an unknown key or invalid value stops startup with its line number. Secrets are named by environment variable (`api_key_env: SABNZBD_API_KEY`) and never written in the file. An instance removed from the file is deleted on the next start, and `enabled` is enforced, so switching an instance off means editing the file and restarting ([#97](https://github.com/hyprsh/kestrel/pull/97)), closes [#91](https://github.com/hyprsh/kestrel/issues/91)
+* **web:** everything the Config File declares is shown read-only, with a note to change it in the file. The API refuses those writes with 409 and reports `from_config_file` for each section and instance, and `kestrel reset-password` refuses a declared account ([#97](https://github.com/hyprsh/kestrel/pull/97))
+
+### Bug Fixes
+
+* **silo:** Silo's Test button now reports a Kestrel with an incompatible API version instead of showing "Connected" ([7d18007](https://github.com/hyprsh/kestrel/commit/7d18007f5337fea00fb5003a17ba9a9bdd4a8756)), closes [#87](https://github.com/hyprsh/kestrel/issues/87)
+
+
 ## [0.2.0](https://github.com/hyprsh/kestrel/compare/v0.1.0...v0.2.0) (2026-10-18)
 
 
