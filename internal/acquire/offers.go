@@ -55,7 +55,7 @@ type OfferedRelease struct {
 	// Episodes are the episode numbers in Season it is offered for.
 	Episodes []int
 
-	row        db.ListOriginalOffersRow
+	row        db.OriginalOffer
 	episodeIDs []int64
 	upgrade    bool
 	series     bool
@@ -158,143 +158,191 @@ func (s *Service) noteOffers(ctx context.Context, d library.Detail, versionOf ma
 
 // Offers lists every Original Offer, dismissed ones included, newest first.
 func (s *Service) Offers(ctx context.Context) ([]Offer, error) {
-	return s.offers(ctx, 0)
-}
-
-// OffersOfTitle are a Title's Original Offers by Version id.
-func (s *Service) OffersOfTitle(ctx context.Context, titleID int64) (map[int64]Offer, error) {
-	all, err := s.offers(ctx, titleID)
-	if err != nil {
-		return nil, err
-	}
-	out := map[int64]Offer{}
-	for _, o := range all {
-		out[o.VersionID] = o
-	}
-	return out, nil
-}
-
-// offers builds the Offers of one Title, or of all with titleID 0, from the
-// stored rows: only Versions whose Profile still offers, and only units that
-// are still Wanted with no active Grab.
-func (s *Service) offers(ctx context.Context, titleID int64) ([]Offer, error) {
 	rows, err := db.New(s.st.Read()).ListOriginalOffers(ctx)
 	if err != nil {
 		return nil, err
 	}
-	byTitle := map[int64][]db.ListOriginalOffersRow{}
+	byTitle := map[int64]map[int64][]db.OriginalOffer{}
+	titleOf := map[int64]int64{}
 	var titles []int64
 	for _, r := range rows {
-		if titleID != 0 && r.TitleID != titleID {
-			continue
+		tid, ok := titleOf[r.VersionID]
+		if !ok {
+			if tid, err = s.lib.TitleOfVersion(ctx, r.VersionID); errors.Is(err, library.ErrNotFound) {
+				continue
+			} else if err != nil {
+				return nil, err
+			}
+			titleOf[r.VersionID] = tid
 		}
-		if byTitle[r.TitleID] == nil {
-			titles = append(titles, r.TitleID)
+		if byTitle[tid] == nil {
+			byTitle[tid] = map[int64][]db.OriginalOffer{}
+			titles = append(titles, tid)
 		}
-		byTitle[r.TitleID] = append(byTitle[r.TitleID], r)
+		byTitle[tid][r.VersionID] = append(byTitle[tid][r.VersionID], r)
 	}
 	if len(titles) == 0 {
 		return nil, nil
 	}
-	region, _, err := s.prof.Region(ctx)
+	rd, err := s.offerReader(ctx)
 	if err != nil {
 		return nil, err
 	}
-	all, err := s.prof.List(ctx)
-	if err != nil {
-		return nil, err
-	}
-	offering := map[string]bool{}
-	for _, p := range all {
-		offering[p.Key] = p.Rule == scoring.PrimaryLanguage && p.OriginalLanguage == scoring.OriginalOffer
-	}
-	busy, err := s.busyVersions(ctx)
-	if err != nil {
-		return nil, err
-	}
-	covered, err := s.coveredEpisodes(ctx)
-	if err != nil {
-		return nil, err
-	}
-	view := library.View{Country: region.Country, Now: s.clock()}
 	var out []Offer
 	for _, tid := range titles {
-		d, err := s.lib.Get(ctx, tid, view)
+		d, err := s.lib.Get(ctx, tid, rd.view)
 		if errors.Is(err, library.ErrNotFound) {
 			continue
 		}
 		if err != nil {
 			return nil, err
 		}
-		episodes := map[int64]library.Episode{}
-		if d.Kind == library.Series {
-			eps, err := s.lib.Episodes(ctx, tid, view)
-			if err != nil {
-				return nil, err
-			}
-			for _, ep := range eps {
-				episodes[ep.ID] = ep
-			}
+		got, err := s.titleOffers(ctx, rd, d, byTitle[tid])
+		if err != nil {
+			return nil, err
 		}
-		for _, v := range d.Versions {
-			if !offering[v.Profile] {
-				continue
-			}
-			o := Offer{TitleID: d.ID, Title: d.Title, VersionID: v.ID, Slot: v.Slot, Profile: v.Profile, Dismissed: true}
-			byRelease := map[string]*OfferedRelease{}
-			var order []string
-			for _, r := range byTitle[tid] {
-				if r.VersionID != v.ID {
-					continue
-				}
-				var ep library.Episode
-				if d.Kind == library.Series {
-					var ok bool
-					ep, ok = episodes[r.EpisodeID.Int64]
-					c := ep.Cells[v.Slot]
-					if !ok || c == nil || c.State != library.Wanted || covered[[2]int64{v.ID, ep.ID}] {
-						continue
-					}
-				} else if v.State != library.Wanted || busy[v.ID] {
-					continue
-				}
-				key := strconv.FormatInt(r.IndexerID, 10) + "\x00" + r.ReleaseGuid
-				rel := byRelease[key]
-				if rel == nil {
-					rel = &OfferedRelease{
-						Name: r.ReleaseName, Indexer: r.IndexerName, Score: int(r.Score), Size: r.Size, PublishedAt: parseTime(r.PublishedAt),
-						Pack: r.Pack == 1, row: r, series: d.Kind == library.Series, upgrade: v.File != nil,
-					}
-					byRelease[key] = rel
-					order = append(order, key)
-				}
-				if d.Kind == library.Series {
-					season := ep.Season
-					rel.Season = &season
-					rel.Episodes = append(rel.Episodes, ep.Number)
-					rel.episodeIDs = append(rel.episodeIDs, ep.ID)
-					rel.upgrade = rel.upgrade || ep.Cells[v.Slot].HasFile
-				}
-				if at := parseTime(r.FoundAt); at.After(o.FoundAt) {
-					o.FoundAt = at
-				}
-				o.Dismissed = o.Dismissed && r.Dismissed == 1
-			}
-			if len(order) == 0 {
-				continue
-			}
-			for _, k := range order {
-				rel := byRelease[k]
-				slices.Sort(rel.Episodes)
-				o.Releases = append(o.Releases, *rel)
-			}
-			slices.SortStableFunc(o.Releases, func(a, b OfferedRelease) int {
-				return cmp.Or(cmp.Compare(b.Score, a.Score), cmp.Compare(*seasonOf(a), *seasonOf(b)), cmp.Compare(firstOf(a), firstOf(b)))
-			})
-			out = append(out, o)
-		}
+		out = append(out, got...)
 	}
 	slices.SortStableFunc(out, func(a, b Offer) int { return b.FoundAt.Compare(a.FoundAt) })
+	return out, nil
+}
+
+// OffersOfTitle are a Title's Original Offers by Version id. It reads that
+// Title's offers alone, so a Title page does not pay for every offer.
+func (s *Service) OffersOfTitle(ctx context.Context, titleID int64) (map[int64]Offer, error) {
+	region, _, err := s.prof.Region(ctx)
+	if err != nil {
+		return nil, err
+	}
+	d, err := s.lib.Get(ctx, titleID, library.View{Country: region.Country, Now: s.clock()})
+	if err != nil {
+		return nil, err
+	}
+	rows := map[int64][]db.OriginalOffer{}
+	q := db.New(s.st.Read())
+	for _, v := range d.Versions {
+		if rows[v.ID], err = q.ListOriginalOffersOfVersion(ctx, v.ID); err != nil {
+			return nil, err
+		}
+	}
+	out := map[int64]Offer{}
+	if !slices.ContainsFunc(d.Versions, func(v library.Version) bool { return len(rows[v.ID]) > 0 }) {
+		return out, nil
+	}
+	rd, err := s.offerReader(ctx)
+	if err != nil {
+		return nil, err
+	}
+	all, err := s.titleOffers(ctx, rd, d, rows)
+	if err != nil {
+		return nil, err
+	}
+	for _, o := range all {
+		out[o.VersionID] = o
+	}
+	return out, nil
+}
+
+// offerReader is what building Offers from their rows needs beyond a Title:
+// which Profiles still offer and what the active Grabs hold.
+type offerReader struct {
+	view     library.View
+	offering map[string]bool
+	busy     map[int64]bool
+	covered  map[[2]int64]bool
+}
+
+func (s *Service) offerReader(ctx context.Context) (offerReader, error) {
+	region, _, err := s.prof.Region(ctx)
+	if err != nil {
+		return offerReader{}, err
+	}
+	all, err := s.prof.List(ctx)
+	if err != nil {
+		return offerReader{}, err
+	}
+	rd := offerReader{view: library.View{Country: region.Country, Now: s.clock()}, offering: map[string]bool{}}
+	for _, p := range all {
+		rd.offering[p.Key] = p.Rule == scoring.PrimaryLanguage && p.OriginalLanguage == scoring.OriginalOffer
+	}
+	if rd.busy, err = s.busyVersions(ctx); err != nil {
+		return offerReader{}, err
+	}
+	if rd.covered, err = s.coveredEpisodes(ctx); err != nil {
+		return offerReader{}, err
+	}
+	return rd, nil
+}
+
+// titleOffers builds a Title's Offers from its stored rows by Version: only
+// Versions whose Profile still offers, and only units that are still Wanted
+// with no active Grab.
+func (s *Service) titleOffers(ctx context.Context, rd offerReader, d library.Detail, rows map[int64][]db.OriginalOffer) ([]Offer, error) {
+	episodes := map[int64]library.Episode{}
+	if d.Kind == library.Series {
+		eps, err := s.lib.Episodes(ctx, d.ID, rd.view)
+		if err != nil {
+			return nil, err
+		}
+		for _, ep := range eps {
+			episodes[ep.ID] = ep
+		}
+	}
+	var out []Offer
+	for _, v := range d.Versions {
+		if !rd.offering[v.Profile] {
+			continue
+		}
+		o := Offer{TitleID: d.ID, Title: d.Title, VersionID: v.ID, Slot: v.Slot, Profile: v.Profile, Dismissed: true}
+		byRelease := map[string]*OfferedRelease{}
+		var order []string
+		for _, r := range rows[v.ID] {
+			var ep library.Episode
+			if d.Kind == library.Series {
+				var ok bool
+				ep, ok = episodes[r.EpisodeID.Int64]
+				c := ep.Cells[v.Slot]
+				if !ok || c == nil || c.State != library.Wanted || rd.covered[[2]int64{v.ID, ep.ID}] {
+					continue
+				}
+			} else if v.State != library.Wanted || rd.busy[v.ID] {
+				continue
+			}
+			key := strconv.FormatInt(r.IndexerID, 10) + "\x00" + r.ReleaseGuid
+			rel := byRelease[key]
+			if rel == nil {
+				rel = &OfferedRelease{
+					Name: r.ReleaseName, Indexer: r.IndexerName, Score: int(r.Score), Size: r.Size, PublishedAt: parseTime(r.PublishedAt),
+					Pack: r.Pack == 1, row: r, series: d.Kind == library.Series, upgrade: v.File != nil,
+				}
+				byRelease[key] = rel
+				order = append(order, key)
+			}
+			if d.Kind == library.Series {
+				season := ep.Season
+				rel.Season = &season
+				rel.Episodes = append(rel.Episodes, ep.Number)
+				rel.episodeIDs = append(rel.episodeIDs, ep.ID)
+				rel.upgrade = rel.upgrade || ep.Cells[v.Slot].HasFile
+			}
+			if at := parseTime(r.FoundAt); at.After(o.FoundAt) {
+				o.FoundAt = at
+			}
+			o.Dismissed = o.Dismissed && r.Dismissed == 1
+		}
+		if len(order) == 0 {
+			continue
+		}
+		for _, k := range order {
+			rel := byRelease[k]
+			slices.Sort(rel.Episodes)
+			o.Releases = append(o.Releases, *rel)
+		}
+		slices.SortStableFunc(o.Releases, func(a, b OfferedRelease) int {
+			return cmp.Or(cmp.Compare(b.Score, a.Score), cmp.Compare(*seasonOf(a), *seasonOf(b)), cmp.Compare(firstOf(a), firstOf(b)))
+		})
+		out = append(out, o)
+	}
 	return out, nil
 }
 

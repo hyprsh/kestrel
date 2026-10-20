@@ -705,41 +705,18 @@ func (q *Queries) ListLastFailures(ctx context.Context) ([]ListLastFailuresRow, 
 }
 
 const listOriginalOffers = `-- name: ListOriginalOffers :many
-SELECT o.id, o.version_id, o.episode_id, o.release_guid, o.release_name, o.indexer_id, o.indexer_name, o.download_url,
-    o.size, o.published_at, o.score, o.parsed, o.verdict, o.pack, o.found_at, o.dismissed, v.title_id
-FROM original_offers o JOIN versions v ON v.id = o.version_id
-ORDER BY o.version_id, o.id
+SELECT id, version_id, episode_id, release_guid, release_name, indexer_id, indexer_name, download_url, size, published_at, score, parsed, verdict, pack, found_at, dismissed FROM original_offers ORDER BY version_id, id
 `
 
-type ListOriginalOffersRow struct {
-	ID          int64
-	VersionID   int64
-	EpisodeID   sql.NullInt64
-	ReleaseGuid string
-	ReleaseName string
-	IndexerID   int64
-	IndexerName string
-	DownloadUrl string
-	Size        int64
-	PublishedAt string
-	Score       int64
-	Parsed      string
-	Verdict     string
-	Pack        int64
-	FoundAt     string
-	Dismissed   int64
-	TitleID     int64
-}
-
-func (q *Queries) ListOriginalOffers(ctx context.Context) ([]ListOriginalOffersRow, error) {
+func (q *Queries) ListOriginalOffers(ctx context.Context) ([]OriginalOffer, error) {
 	rows, err := q.db.QueryContext(ctx, listOriginalOffers)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListOriginalOffersRow
+	var items []OriginalOffer
 	for rows.Next() {
-		var i ListOriginalOffersRow
+		var i OriginalOffer
 		if err := rows.Scan(
 			&i.ID,
 			&i.VersionID,
@@ -757,7 +734,50 @@ func (q *Queries) ListOriginalOffers(ctx context.Context) ([]ListOriginalOffersR
 			&i.Pack,
 			&i.FoundAt,
 			&i.Dismissed,
-			&i.TitleID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOriginalOffersOfVersion = `-- name: ListOriginalOffersOfVersion :many
+SELECT id, version_id, episode_id, release_guid, release_name, indexer_id, indexer_name, download_url, size, published_at, score, parsed, verdict, pack, found_at, dismissed FROM original_offers WHERE version_id = ? ORDER BY id
+`
+
+func (q *Queries) ListOriginalOffersOfVersion(ctx context.Context, versionID int64) ([]OriginalOffer, error) {
+	rows, err := q.db.QueryContext(ctx, listOriginalOffersOfVersion, versionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OriginalOffer
+	for rows.Next() {
+		var i OriginalOffer
+		if err := rows.Scan(
+			&i.ID,
+			&i.VersionID,
+			&i.EpisodeID,
+			&i.ReleaseGuid,
+			&i.ReleaseName,
+			&i.IndexerID,
+			&i.IndexerName,
+			&i.DownloadUrl,
+			&i.Size,
+			&i.PublishedAt,
+			&i.Score,
+			&i.Parsed,
+			&i.Verdict,
+			&i.Pack,
+			&i.FoundAt,
+			&i.Dismissed,
 		); err != nil {
 			return nil, err
 		}
