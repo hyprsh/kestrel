@@ -461,11 +461,13 @@ func (e QueueItemPhase) Valid() bool {
 const (
 	RejectionCodeBelowMinScore           RejectionCode = "below_min_score"
 	RejectionCodeBlocklisted             RejectionCode = "blocklisted"
+	RejectionCodeEpisodeNotListed        RejectionCode = "episode_not_listed"
 	RejectionCodeLanguage                RejectionCode = "language"
 	RejectionCodeOriginalLanguageUnknown RejectionCode = "original_language_unknown"
 	RejectionCodeOtherSlot               RejectionCode = "other_slot"
 	RejectionCodeQuality                 RejectionCode = "quality"
 	RejectionCodeResolution              RejectionCode = "resolution"
+	RejectionCodeSeasonNotListed         RejectionCode = "season_not_listed"
 )
 
 // Valid indicates whether the value is a known member of the RejectionCode enum.
@@ -474,6 +476,8 @@ func (e RejectionCode) Valid() bool {
 	case RejectionCodeBelowMinScore:
 		return true
 	case RejectionCodeBlocklisted:
+		return true
+	case RejectionCodeEpisodeNotListed:
 		return true
 	case RejectionCodeLanguage:
 		return true
@@ -484,6 +488,8 @@ func (e RejectionCode) Valid() bool {
 	case RejectionCodeQuality:
 		return true
 	case RejectionCodeResolution:
+		return true
+	case RejectionCodeSeasonNotListed:
 		return true
 	default:
 		return false
@@ -1392,6 +1398,11 @@ type Episode struct {
 	// OriginalName The title in the Series' original language. Empty for a Placeholder Episode.
 	OriginalName string `json:"original_name"`
 
+	// Placeholder True for a Placeholder Episode: one Kestrel added because a Release named it before
+	// TheTVDB listed it. It has no name, air date or TheTVDB id until a metadata refresh adopts
+	// it, and counts as released from when it was added.
+	Placeholder bool `json:"placeholder"`
+
 	// PrimaryName The title in the Primary Language, from TheTVDB; the original title when TheTVDB has no translation. Empty for a Placeholder Episode.
 	PrimaryName string `json:"primary_name"`
 	Season      int    `json:"season"`
@@ -2004,7 +2015,7 @@ type Rejection struct {
 	Code    RejectionCode `json:"code"`
 	Message string        `json:"message"`
 
-	// Overridable False for `blocklisted` and `other_slot`, which "Grab anyway" never overrides.
+	// Overridable False for `blocklisted`, `other_slot` and `season_not_listed`, which "Grab anyway" never overrides.
 	Overridable bool `json:"overridable"`
 }
 

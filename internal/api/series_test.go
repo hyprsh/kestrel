@@ -61,6 +61,7 @@ type episodeJSON struct {
 	OriginalName string  `json:"original_name"`
 	AirDate      *string `json:"air_date"`
 	Monitored    bool    `json:"monitored"`
+	Placeholder  bool    `json:"placeholder"`
 	Cells        struct {
 		Standard *cellJSON `json:"standard"`
 		FourK    *cellJSON `json:"4k"`
