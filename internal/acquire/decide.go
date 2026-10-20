@@ -47,6 +47,9 @@ type Held struct {
 type Unit struct {
 	Ref  EpisodeRef
 	Held *Held
+	// Unlisted marks an episode TheTVDB does not list yet that qualifies for a
+	// Placeholder Episode: only a Release naming it, and not Unqualified, plans it.
+	Unlisted bool
 }
 
 // Version is a Version to consider: its Slot and the units it wants.
@@ -81,6 +84,10 @@ type Candidate struct {
 	// IndexerGrabsPaused is set when the indexer's Grabs are paused; the
 	// candidate is skipped.
 	IndexerGrabsPaused bool
+	// Unqualified is set when the Release names an episode TheTVDB does not
+	// list that may not get a Placeholder Episode: it then plans none of the
+	// unlisted episodes it names, only its listed ones.
+	Unqualified bool
 }
 
 // Input is everything Decide looks at.
@@ -210,8 +217,11 @@ func eligible(c Candidate, v Version, units map[EpisodeRef]*Unit) (option, bool)
 			o.refs = append(o.refs, EpisodeRef{s.Season, e})
 		}
 	}
-	// Only units the Version wants count.
-	o.refs = slices.DeleteFunc(o.refs, func(r EpisodeRef) bool { return units[r] == nil })
+	// Only units the Version wants count; an unlisted one only for a Release
+	// that names it and whose unlisted episodes all qualify.
+	o.refs = slices.DeleteFunc(o.refs, func(r EpisodeRef) bool {
+		return units[r] == nil || (units[r].Unlisted && (o.pack || c.Unqualified))
+	})
 	slices.SortFunc(o.refs, compareRef)
 	return o, len(o.refs) > 0
 }

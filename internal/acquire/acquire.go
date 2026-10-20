@@ -47,15 +47,16 @@ type RejectedError struct {
 func (e *RejectedError) Error() string { return fmt.Sprintf("release rejected: %v", e.Rejections) }
 
 // NotOverridable is true when at least one rejection can never be overridden
-// (blocklisted, other_slot): no "Grab anyway" for this Release.
+// (blocklisted, other_slot, season_not_listed): no "Grab anyway" for this Release.
 func (e *RejectedError) NotOverridable() bool {
 	return slices.ContainsFunc(e.Rejections, func(r scoring.Rejection) bool { return !Overridable(r) })
 }
 
 // Overridable says whether "Grab anyway" may override the rejection. Every
-// code can be except blocklisted and other_slot.
+// code can be except blocklisted, other_slot and season_not_listed.
 func Overridable(r scoring.Rejection) bool {
-	return r != scoring.RejectBlocklisted && r != RejectOtherSlot
+	return r != scoring.RejectBlocklisted && r != RejectOtherSlot &&
+		r != RejectSeasonNotListed
 }
 
 // Library is what acquire reads from the library module.
@@ -67,6 +68,8 @@ type Library interface {
 	Episodes(ctx context.Context, titleID int64, view library.View) ([]library.Episode, error)
 	// MarkReleaseSeen records a Release seen for a Movie with no release date anywhere.
 	MarkReleaseSeen(ctx context.Context, titleID int64, at time.Time) error
+	// AddPlaceholders adds Placeholder Episodes for a Grab to cover.
+	AddPlaceholders(ctx context.Context, titleID int64, refs []library.EpisodeRef) error
 }
 
 // Profiles is what acquire reads from the scoring module's settings.
@@ -484,6 +487,10 @@ func (s *Service) SearchScope(ctx context.Context, versionID int64, scope librar
 	if err != nil {
 		return SearchResult{}, err
 	}
+	eps, err := s.seriesEpisodes(ctx, sub.detail)
+	if err != nil {
+		return SearchResult{}, err
+	}
 	out := SearchResult{Failures: failures}
 	for _, e := range entries {
 		v := e.cand.Verdicts[slot]
@@ -497,7 +504,7 @@ func (s *Service) SearchScope(ctx context.Context, versionID int64, scope librar
 		for _, l := range v.Languages {
 			f.Languages = append(f.Languages, l.Name)
 		}
-		for _, code := range reasonsFor(e, slot) {
+		for _, code := range slices.Concat(reasonsFor(e, slot), unlistedReasons(sub.detail, eps, e.cand.Parsed, s.clock())) {
 			f.Rejections = append(f.Rejections, Reason{Code: code, Overridable: Overridable(code)})
 		}
 		out.Items = append(out.Items, f)
@@ -578,8 +585,10 @@ var ErrGrabNotFound = errors.New("grab not found")
 // Grab sends a Release from the candidate cache to the download client for a
 // Version: the NZB is fetched from its indexer and added to the client, and a
 // Grab row starts at `sent`, keyed by the client's id. Rejections refuse it
-// unless override is set; blocklisted and other_slot are refused whatever the
-// override (a *RejectedError). The Blocklist is checked again here.
+// unless override is set; blocklisted, other_slot and season_not_listed are
+// refused whatever the override (a *RejectedError). The Blocklist is checked
+// again here. A Series Release naming episodes TheTVDB does not list adds
+// their Placeholder Episodes, so the Grab covers them.
 func (s *Service) Grab(ctx context.Context, versionID int64, releaseID string, override bool) (Grab, error) {
 	defer s.snap.Hold()()
 	return s.grab(ctx, versionID, releaseID, override)
@@ -604,7 +613,11 @@ func (s *Service) grab(ctx context.Context, versionID int64, releaseID string, o
 		return Grab{}, library.ErrNotFound
 	}
 
-	reasons := slices.Clone(reasonsFor(e, slot))
+	eps, err := s.seriesEpisodes(ctx, sub.detail)
+	if err != nil {
+		return Grab{}, err
+	}
+	reasons := slices.Concat(reasonsFor(e, slot), unlistedReasons(sub.detail, eps, e.cand.Parsed, s.clock()))
 	if blocked, err := s.blocklisted(ctx, e.raw); err != nil {
 		return Grab{}, err
 	} else if blocked && !slices.Contains(reasons, scoring.RejectBlocklisted) {
@@ -616,7 +629,7 @@ func (s *Service) grab(ctx context.Context, versionID int64, releaseID string, o
 
 	o := outgoing{titleID: titleID, versionID: versionID, e: e, slot: slot, media: downloads.Movie, overridden: len(reasons) > 0}
 	if sub.detail.Kind == library.Series {
-		eps, err := s.lib.Episodes(ctx, titleID, library.View{Now: s.clock()})
+		eps, err := s.placeholdersNamed(ctx, titleID, e.cand.Parsed, eps)
 		if err != nil {
 			return Grab{}, err
 		}
