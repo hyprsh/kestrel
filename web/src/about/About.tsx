@@ -18,7 +18,8 @@ const shortcuts: [string[], string][] = [
   [[MOD, 'K'], 'Open the command menu: jump to a Title or screen, add a Title, run an action'],
   [['J', 'K'], 'Move down and up in a list (arrow keys work too)'],
   [['Enter'], 'Open the selected row'],
-  [['Esc'], 'Close the menu or go back'],
+  [['X'], 'Tick the Title under the cursor in the Library, to change several at once (Shift-click ticks a range)'],
+  [['Esc'], 'Close the menu, go back or clear the ticked Titles'],
 ]
 
 export function About() {

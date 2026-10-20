@@ -5,6 +5,12 @@ export type SlotKey = 'standard' | '4k'
 export const slotKeys: SlotKey[] = ['standard', '4k']
 export const slotLabel: Record<SlotKey, string> = { standard: 'Standard', '4k': '4K' }
 
+/** Bytes on disk, in GB from 1 GB up, else in MB. */
+export function size(bytes: number): string {
+  const gb = bytes / 1024 ** 3
+  return gb >= 1 ? `${gb.toFixed(1)} GB` : `${Math.round(bytes / 1024 ** 2)} MB`
+}
+
 type State = 'wanted' | 'filled' | 'downloading' | 'unmonitored' | 'unreleased' | string
 
 const stateText: Record<string, { tone: Tone; label: string }> = {

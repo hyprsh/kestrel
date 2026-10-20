@@ -1,26 +1,32 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { Profile } from '../api/queries'
 import { useAddVersion, useRemoveTitle, useRemoveVersion, useSwitchProfile } from '../api/versions'
 import { Button, ErrorText, Select } from '../forms'
 import type { SlotKey } from './bits'
 
-/** "Also delete files" is unticked by default: removing never loses a file by accident. */
-function RemoveConfirm({
+/**
+ * "Also delete files" is unticked by default: removing never loses a file by
+ * accident. `children` go above it, such as what a bulk removal covers.
+ */
+export function RemoveConfirm({
   what,
   onConfirm,
   onCancel,
   error,
   busy,
+  children,
 }: {
   what: string
   onConfirm: (deleteFiles: boolean) => void
   onCancel: () => void
   error?: string
   busy: boolean
+  children?: ReactNode
 }) {
   const [deleteFiles, setDeleteFiles] = useState(false)
   return (
     <div role="group" aria-label={`Remove ${what}`} className="mt-2 rounded-md border border-gray-alpha-400 p-2 text-[12px]">
+      {children}
       <label className="flex items-center gap-2">
         <input type="checkbox" checked={deleteFiles} onChange={(e) => setDeleteFiles(e.target.checked)} />
         Also delete files

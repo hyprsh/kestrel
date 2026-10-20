@@ -4,14 +4,9 @@ import { ApiError, useProfiles, useSetMovieMonitored, useTitle, type Profile, ty
 import { useOpenCleanup } from '../cleanup/launch'
 import { Button, ErrorText } from '../forms'
 import { cx } from '../ui'
-import { slotKeys, slotLabel, StatusBadge, type SlotKey } from './bits'
+import { size, slotKeys, slotLabel, StatusBadge, type SlotKey } from './bits'
 import { AddVersion, RemoveTitle, VersionControls } from './ManageVersion'
 import { SeriesSection } from './SeriesSection'
-
-function size(bytes: number): string {
-  const gb = bytes / 1024 ** 3
-  return gb >= 1 ? `${gb.toFixed(1)} GB` : `${Math.round(bytes / 1024 ** 2)} MB`
-}
 
 /** The right pane of the Library: the selected Title's header and its Standard | 4K Versions strip. */
 export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: () => void; onManualSearch: (search: ManualSearchTarget) => void }>(function TitleDetail(
