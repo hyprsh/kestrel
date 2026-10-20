@@ -2,7 +2,7 @@
 // an episode's, a season's or the ticked episodes' files in the episode grid.
 // Every deletion asks first, naming the files, their total size and every
 // episode that loses its file, those sharing a file with the chosen ones too.
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Episode, EpisodeScope } from '../api/queries'
 import type { components } from '../api/schema.gen'
 import { useDeleteFiles, type DeletedFiles } from '../api/versions'
@@ -29,7 +29,9 @@ function deletedText(res: DeletedFiles, blocklist: boolean, label?: string) {
 /**
  * The confirmation of a deletion: the files with their total size, the
  * episodes that lose their file (`extra` are those outside the choice that
- * share a file with it), and Delete or Delete and blocklist.
+ * share a file with it), and Delete or Delete and blocklist. With `focus` it
+ * takes the focus and scrolls into view when it opens, Escape cancels, and the
+ * focus goes back where it was when it closes.
  */
 export function DeleteFilesConfirm({
   paths,
@@ -40,6 +42,7 @@ export function DeleteFilesConfirm({
   onCancel,
   error,
   busy,
+  focus = false,
 }: {
   paths: string[]
   bytes: number
@@ -49,10 +52,34 @@ export function DeleteFilesConfirm({
   onCancel: () => void
   error?: string
   busy: boolean
+  focus?: boolean
 }) {
   const releases = paths.length === 1 ? 'this Release' : 'these Releases'
+  const group = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!focus) return
+    const back = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    group.current?.focus({ preventScroll: true })
+    group.current?.scrollIntoView?.({ block: 'nearest' })
+    return () => {
+      const lost = !document.activeElement || document.activeElement === document.body
+      if (lost && back?.isConnected) back.focus()
+    }
+  }, [focus])
   return (
-    <div role="group" aria-label="Delete files" className="mt-2 rounded-md border border-gray-alpha-400 p-2 text-[12px]">
+    <div
+      ref={group}
+      role="group"
+      aria-label="Delete files"
+      tabIndex={focus ? -1 : undefined}
+      onKeyDown={(e) => {
+        if (!focus || e.key !== 'Escape') return
+        e.preventDefault()
+        e.stopPropagation()
+        onCancel()
+      }}
+      className="mt-2 rounded-md border border-gray-alpha-400 p-2 text-[12px] outline-none"
+    >
       <p>
         Delete {files(paths.length)}, {size(bytes)}, from disk? The Version stays; while monitored it is Wanted again.
       </p>
@@ -127,14 +154,18 @@ export function DeleteFile({ versionId, file }: { versionId: number; file: FileS
   )
 }
 
-/** A deletion in the episode grid waiting for its confirmation. */
-type Plan = { version: EpisodeVersion; label: string; scope: EpisodeScope; files: EpisodeFile[]; episodes: string[]; extra: string[] }
+/**
+ * A deletion in the episode grid waiting for its confirmation. `at` is the
+ * grid row it was asked from (episodeRow, seasonRow), where it shows; null for
+ * the ticked episodes, whose confirmation shows by the selection bar.
+ */
+type Plan = { version: EpisodeVersion; label: string; scope: EpisodeScope; files: EpisodeFile[]; episodes: string[]; extra: string[]; at: string | null }
 
 export type EpisodeDeletes = {
   /** Whether a Version holds a file for any of `eps`. */
   has: (v: EpisodeVersion, eps: Episode[]) => boolean
-  /** Asks to delete the files of `v` holding `eps`, sent with `scope` and named `label`. */
-  ask: (v: EpisodeVersion, eps: Episode[], label: string, scope: EpisodeScope) => void
+  /** Asks to delete the files of `v` holding `eps`, sent with `scope` and named `label`, asked from grid row `at` (null: the selection bar). */
+  ask: (v: EpisodeVersion, eps: Episode[], label: string, scope: EpisodeScope, at: string | null) => void
   pending: Plan | null
   confirm: (blocklist: boolean) => void
   cancel: () => void
@@ -156,7 +187,7 @@ export function useEpisodeDeletes(episodes: Episode[], say: (s: ActionStatus) =>
   const del = useDeleteFiles()
   const [pending, setPending] = useState<Plan | null>(null)
 
-  const ask: EpisodeDeletes['ask'] = (version, eps, label, scope) => {
+  const ask: EpisodeDeletes['ask'] = (version, eps, label, scope, at) => {
     const fs = filesOf(version, eps)
     if (fs.length === 0) return
     const chosen = new Set(eps.map((e) => e.id))
@@ -170,6 +201,7 @@ export function useEpisodeDeletes(episodes: Episode[], say: (s: ActionStatus) =>
       files: fs,
       episodes: lost.map(episodeCode),
       extra: lost.filter((e) => !chosen.has(e.id)).map(episodeCode),
+      at,
     })
   }
 
@@ -206,6 +238,7 @@ export function DeleteMenuItems({
   label,
   scope,
   text,
+  at,
 }: {
   deletes: EpisodeDeletes
   versions: EpisodeVersion[]
@@ -213,11 +246,13 @@ export function DeleteMenuItems({
   label: string
   scope: EpisodeScope
   text: string
+  /** The grid row the menu belongs to. */
+  at: string
 }) {
   return versions.map((v) => {
     const has = deletes.has(v, episodes)
     return (
-      <MenuItem key={`delete-${v.slot}`} disabled={!has} hint={has ? undefined : 'No file to delete'} onSelect={() => deletes.ask(v, episodes, label, scope)}>
+      <MenuItem key={`delete-${v.slot}`} disabled={!has} hint={has ? undefined : 'No file to delete'} onSelect={() => deletes.ask(v, episodes, label, scope, at)}>
         {versions.length > 1 ? `${text} ${slotLabel[v.slot]}` : text}
       </MenuItem>
     )
@@ -235,7 +270,7 @@ export function DeleteTickedButtons({ deletes, versions, ticked, label }: { dele
         className="h-6 px-2 text-[12px]"
         disabled={!has}
         title={has ? undefined : 'No file to delete'}
-        onClick={() => deletes.ask(v, ticked, label, { episode_ids: ticked.map((e) => e.id) })}
+        onClick={() => deletes.ask(v, ticked, label, { episode_ids: ticked.map((e) => e.id) }, null)}
       >
         {versions.length > 1 ? `Delete files ${slotLabel[v.slot]}` : 'Delete files'}
       </Button>
@@ -243,10 +278,10 @@ export function DeleteTickedButtons({ deletes, versions, ticked, label }: { dele
   })
 }
 
-/** The waiting deletion's confirmation, above the episode grid. */
-export function EpisodeDeleteConfirm({ deletes }: { deletes: EpisodeDeletes }) {
+/** The waiting deletion's confirmation where it was asked from: grid row `at`, or (null) by the selection bar. */
+export function EpisodeDeleteConfirm({ deletes, at = null }: { deletes: EpisodeDeletes; at?: string | null }) {
   const p = deletes.pending
-  if (!p) return null
+  if (!p || p.at !== at) return null
   return (
     <DeleteFilesConfirm
       paths={p.files.map((f) => f.path)}
@@ -257,6 +292,23 @@ export function EpisodeDeleteConfirm({ deletes }: { deletes: EpisodeDeletes }) {
       onCancel={deletes.cancel}
       error={deletes.error}
       busy={deletes.busy}
+      focus
     />
+  )
+}
+
+/**
+ * The confirmation of a deletion asked from grid row `at`, as a row of its own
+ * right under it, so it shows where the menu was. Keys typed in it stay in it:
+ * the grid's own (arrows, Enter on a season) must not also act.
+ */
+export function RowDeleteConfirm({ deletes, at, columns }: { deletes: EpisodeDeletes; at: string; columns: number }) {
+  if (deletes.pending?.at !== at) return null
+  return (
+    <div role="row">
+      <div role="gridcell" aria-colspan={columns} className="px-3 pb-2" onKeyDown={(e) => e.stopPropagation()}>
+        <EpisodeDeleteConfirm deletes={deletes} at={at} />
+      </div>
+    </div>
   )
 }

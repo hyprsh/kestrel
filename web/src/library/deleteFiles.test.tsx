@@ -151,6 +151,33 @@ describe('deleting files from the episodes heat map', () => {
     expect(screen.queryByRole('group', { name: 'Delete files' })).not.toBeInTheDocument()
   })
 
+  it("asks right under the episode's row, with focus on the question, and Escape takes it back to the row", async () => {
+    const { grid, sent } = await openSeriesWithFiles()
+    const pilot = within(grid).getByRole('checkbox', { name: 'Season 1 episode 1 monitored' })
+
+    await choose(grid, 'Actions for Season 1 episode 1', 'Delete file Standard')
+
+    const confirm = within(grid).getByRole('group', { name: 'Delete files' })
+    expect(confirm.closest('[role="row"]')?.previousElementSibling).toContainElement(pilot)
+    expect(confirm).toHaveFocus()
+
+    await userEvent.keyboard('{Escape}')
+
+    expect(within(grid).queryByRole('group', { name: 'Delete files' })).not.toBeInTheDocument()
+    expect(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 1' }).closest('[role="row"]')).toContainElement(document.activeElement as HTMLElement)
+    expect(sent).toEqual([])
+  })
+
+  it("asks under the season's row for a season's files", async () => {
+    const { grid } = await openSeriesWithFiles()
+
+    await choose(grid, 'Actions for Season 1', "Delete season's files Standard")
+
+    const confirm = within(grid).getByRole('group', { name: 'Delete files' })
+    expect(confirm.closest('[role="row"]')?.previousElementSibling).toContainElement(within(grid).getByRole('checkbox', { name: 'Season 1' }))
+    expect(confirm).toHaveFocus()
+  })
+
   it('cannot delete a file a Slot does not have', async () => {
     const { grid } = await openSeriesWithFiles()
     await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 1' }))
@@ -173,6 +200,7 @@ describe('deleting files from the episodes heat map', () => {
     const bar = screen.getByRole('group', { name: 'Selection' })
     await userEvent.click(within(bar).getByRole('button', { name: 'Delete files Standard' }))
     expect(screen.getByRole('group', { name: 'Delete files' })).toHaveTextContent('S01E01 shares a file with it')
+    expect(within(grid).queryByRole('group', { name: 'Delete files' })).not.toBeInTheDocument() // above the grid, by the selection bar
     await userEvent.click(within(screen.getByRole('group', { name: 'Delete files' })).getByRole('button', { name: 'Delete' }))
 
     await waitFor(() => expect(sent).toEqual([{ version: 51, query: 'episode_ids=3' }]))

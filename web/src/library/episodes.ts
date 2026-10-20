@@ -11,6 +11,10 @@ export const episodeCode = (e: Episode) => `S${two(e.season)}E${two(e.number)}`
 /** "Specials" or "Season 2". */
 export const seasonName = (n: number) => (n === 0 ? 'Specials' : `Season ${n}`)
 
+/** The episode grid's row of an episode, or of a season: where a question asked from its menu shows. */
+export const episodeRow = (id: number) => `episode-${id}`
+export const seasonRow = (season: number) => `season-${season}`
+
 /** One of the Series' Versions as the episode grid's actions see it. */
 export type EpisodeVersion = { id: number; slot: SlotKey; profileName: string }
 
