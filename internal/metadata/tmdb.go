@@ -173,11 +173,11 @@ func (c *TMDB) Search(ctx context.Context, query string) ([]SearchResult, error)
 		case "movie":
 			out = append(out, SearchResult{Kind: Movie, TMDBID: r.ID, Title: r.Title, OriginalTitle: r.OriginalTitle,
 				Year: year(r.ReleaseDate), PosterPath: r.PosterPath, Overview: r.Overview,
-				Score: Score{Average: r.VoteAverage, Votes: r.VoteCount}})
+				Rating: AudienceRating{Average: r.VoteAverage, Votes: r.VoteCount}})
 		case "tv":
 			out = append(out, SearchResult{Kind: Series, TMDBID: r.ID, Title: r.Name, OriginalTitle: r.OriginalName,
 				Year: year(r.FirstAirDate), PosterPath: r.PosterPath, Overview: r.Overview,
-				Score: Score{Average: r.VoteAverage, Votes: r.VoteCount}})
+				Rating: AudienceRating{Average: r.VoteAverage, Votes: r.VoteCount}})
 		}
 	}
 	return out, nil
@@ -279,7 +279,7 @@ func (c *TMDB) Movie(ctx context.Context, id int) (MovieDetails, error) {
 	d := MovieDetails{
 		TMDBID: r.ID, IMDbID: r.IMDbID, Title: r.Title, OriginalTitle: r.OriginalTitle,
 		OriginalLanguage: r.OriginalLanguage, Year: year(r.ReleaseDate), Runtime: r.Runtime,
-		Overview: r.Overview, PosterPath: r.PosterPath, Score: Score{Average: r.VoteAverage, Votes: r.VoteCount},
+		Overview: r.Overview, PosterPath: r.PosterPath, Rating: AudienceRating{Average: r.VoteAverage, Votes: r.VoteCount},
 		Genres: r.Genres.names(),
 	}
 	if d.IMDbID == "" {

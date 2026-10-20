@@ -39,6 +39,7 @@ type Deps struct {
 	Cleanup     Cleanup
 	Remover     Remover
 	Imports     Rescorer
+	Files       TitleFiles
 	Jobs        Jobs
 	Refresher   Refresher
 	Indexers    IndexerStatus
@@ -135,7 +136,7 @@ type Acquire interface {
 	Active(ctx context.Context) ([]acquire.Active, error)
 	Unblock(ctx context.Context, id int64) error
 	Stalled(ctx context.Context) ([]acquire.StalledImport, error)
-	SearchScope(ctx context.Context, versionID int64, scope acquire.Scope) (acquire.SearchResult, error)
+	SearchScope(ctx context.Context, versionID int64, scope library.Scope) (acquire.SearchResult, error)
 	RetryStalled(ctx context.Context, reason string) (int, error)
 	RetryImport(ctx context.Context, grabID int64) error
 	LastFailures(ctx context.Context) (map[int64]string, error)
@@ -146,7 +147,7 @@ type Acquire interface {
 	Discard(ctx context.Context, grabID int64) error
 	Blocklist(ctx context.Context, titleID int64) ([]acquire.Blocked, error)
 	// StartSearch is Search now: it checks the scope, then searches in the background.
-	StartSearch(ctx context.Context, versionID int64, scope acquire.Scope) error
+	StartSearch(ctx context.Context, versionID int64, scope library.Scope) error
 	// BlockGrab puts a Grab's Release on the Blocklist (a deleted file's).
 	BlockGrab(ctx context.Context, grabID int64, reason string) error
 }
@@ -181,12 +182,16 @@ type Remover interface {
 	DeleteTitle(ctx context.Context, titleID int64, deleteFiles bool) error
 }
 
-// Rescorer moves a Version to another Profile and re-scores its stored file,
-// moves a Title to another Root folder and deletes a Version's files.
+// Rescorer moves a Version to another Profile and re-scores its stored file.
 type Rescorer interface {
 	SwitchProfile(ctx context.Context, titleID, versionID int64, profile string) error
+}
+
+// TitleFiles moves a Title's files to another Root folder and deletes a
+// Version's files, recording both in the Log.
+type TitleFiles interface {
 	Move(ctx context.Context, titleID int64, root string) (imports.Moved, error)
-	DeleteFiles(ctx context.Context, versionID int64, scope imports.FileScope) (imports.Deleted, error)
+	DeleteFiles(ctx context.Context, versionID int64, scope library.Scope, blocklist bool) (imports.Deleted, error)
 }
 
 // Jobs is the loop runner.

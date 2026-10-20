@@ -168,7 +168,7 @@ func New(opts Options) *App {
 	})
 	imp, err := imports.New(imports.Deps{
 		Library: lib, Renames: lib, Profiles: profs, Prober: prober, Clock: opts.Clock, Health: healthSvc,
-		FolderChanged: mediaRefresh.FolderChanged, Scoring: live, Rename: opts.RenameFolder,
+		FolderChanged: mediaRefresh.FolderChanged, Scoring: live, Rename: opts.RenameFolder, History: hist, Blocklist: acq,
 	})
 	if err != nil {
 		panic("app: Import cannot start: " + err.Error())
@@ -220,7 +220,7 @@ func New(opts Options) *App {
 
 	deps := api.Deps{
 		Plugins: pluginInstances, Profiles: profs, RootFolders: roots, Settings: settingsTx{roots, profs, trash, pause}, Pause: pause, Updates: upd,
-		Library: lib, Acquire: acq, Requests: reqs, Adoption: adoption, Cleanup: cleanup, Remover: remover, Imports: imp,
+		Library: lib, Acquire: acq, Requests: reqs, Adoption: adoption, Cleanup: cleanup, Remover: remover, Imports: imp, Files: imp,
 		Jobs: runner, Refresher: refresher, Indexers: indexerHost, Health: healthSvc, History: hist, Scoring: live, Trash: trashAPI{trash, trashUpdates}, Keys: keys,
 		Meta: meta, TVDB: tvdb, Bridge: &metadata.Bridge{Meta: meta, TVDB: tvdb, Log: opts.Logger}, Posters: posters,
 	}

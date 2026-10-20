@@ -87,6 +87,28 @@ func TestAMovieIsAddedWithItsVersionsAndReadBack(t *testing.T) {
 	}
 }
 
+func TestAMoviesFileNamesTheGrabItCameFrom(t *testing.T) {
+	ctx := context.Background()
+	lib, _ := newLibrary(t)
+	id := addPaddington(t, lib)
+	d, err := lib.Get(ctx, id, library.View{Country: "DE", Now: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := library.NewFile{VersionID: d.Versions[0].ID, Path: "/m/a.mkv", Size: 1, ReleaseName: "r", Score: 10, GrabID: 7}
+	if _, err := lib.ReplaceFile(ctx, id, "Paddington (2014)", f); err != nil {
+		t.Fatal(err)
+	}
+
+	d, err = lib.Get(ctx, id, library.View{Country: "DE", Now: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := d.Versions[0].File; got == nil || got.GrabID != 7 {
+		t.Errorf("file = %+v, want it to name Grab 7", got)
+	}
+}
+
 func TestThePrimaryTitleIsTheEnglishOneWhenThereIsNoTranslation(t *testing.T) {
 	ctx := context.Background()
 	lib, _ := newLibrary(t)

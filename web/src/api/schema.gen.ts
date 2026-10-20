@@ -357,10 +357,37 @@ export interface paths {
          * @description The Slots to preselect when adding it: every Slot with a default Profile for the kind, resolved
          *     by Profile resolution. Each Slot says why (`reason`) and carries a display `label`, the
          *     Profile's name. Requests use the same logic.
-         *     A Series also carries its overview (`series`): status, network, air dates and seasons, read
-         *     from TheTVDB, so this call waits on TheTVDB as well as TMDB.
+         *     It reads TMDB only. A Series' overview (status, network, air dates and seasons) comes from
+         *     TheTVDB through `GET /lookup/series/{tmdb_id}/overview`, so the panel can open before TheTVDB
+         *     answers and a TheTVDB failure affects only the overview.
          */
         get: operations["lookupTitle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lookup/series/{tmdb_id}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tmdb_id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * A search result's Series overview, from TheTVDB
+         * @description The add panel's Series overview: whether it is running or ended, its network, its first and
+         *     last air dates and every season with its episode count and air dates. It reads TMDB and
+         *     TheTVDB, so it can take longer than `GET /lookup/{kind}/{tmdb_id}`; the add panel loads it
+         *     on its own. `404 not_found` when TMDB has no such Series, `404 not_on_tvdb` when TheTVDB does
+         *     not have it (it cannot be added either), `502` when a provider fails.
+         */
+        get: operations["lookupSeriesOverview"];
         put?: never;
         post?: never;
         delete?: never;
@@ -390,8 +417,14 @@ export interface paths {
          *     kind's first.
          *     `409 conflict` when the Title is already in the Library (the existing id is in
          *     `detail`). A Series takes `series_monitor` (default `all`) and, to start with only some seasons
-         *     monitored, `seasons`; one TheTVDB does not have is refused with a `422` whose field error is
-         *     `tmdb_id` / `not_on_tvdb`.
+         *     monitored, `seasons`.
+         *     A `422` names the field and code: `body` / `required` (no body), `versions` / `required`
+         *     (no Version), `versions[i].slot` / `invalid` (not a Slot) or `duplicate` (a Slot twice),
+         *     `versions[i].profile` / `not_found`, `disabled` or `wrong_slot`, `root_folder` / `not_found`
+         *     (not one of the kind's Root folders) or `required` (none configured), `series_monitor` /
+         *     `invalid`, `seasons` / `invalid` (a negative season), `unknown` (a season the Series does
+         *     not have) or `not_a_series` (seasons for a Movie), and `tmdb_id` / `not_on_tvdb` (a Series
+         *     TheTVDB does not have).
          */
         post: operations["createTitle"];
         delete?: never;
@@ -595,12 +628,17 @@ export interface paths {
          *     `episode_ids` to those episodes (within `season` when both are given); neither deletes every
          *     file of the Version. A file holding several episodes (a season pack, a double episode) is
          *     deleted whole, so every episode it holds loses its file, also those outside the scope.
+         *     A file that cannot be deleted from disk stays the Version's (its Release is not blocklisted)
+         *     and is listed in `not_deleted` with the reason; the others go all the same.
          *     With `blocklist` each file's Release goes on the Blocklist, so it is not grabbed again; a file
-         *     Kestrel did not grab (an adopted one) cannot be and says so in `blocklisted`.
-         *     A `delete` event in the Log names the files. It waits for an Import into the Title to finish.
-         *     A `season` the Series lacks, or an episode that is not the Series' (or not of `season`), is a
-         *     `422` naming that field with the code `unknown`; on a Movie either is `422` with the code
-         *     `not_a_series`.
+         *     Kestrel did not grab (an adopted one) cannot be, and says so in `blocklisted`, as does one
+         *     whose Release could not be blocklisted: the file is deleted all the same.
+         *     A `delete` event in the Log names the files and the Releases blocklisted. It waits for an
+         *     Import into the Title to finish.
+         *     A `season` the Series lacks (a negative one included), or an episode that is not the Series'
+         *     (or not of `season`), is a `422` naming that field (`season` or `episode_ids`) with the code
+         *     `unknown`; on a Movie either is a `422` with the code `not_a_series`. There are no other
+         *     `422` codes.
          */
         delete: operations["deleteVersionFiles"];
         options?: never;
@@ -744,8 +782,9 @@ export interface paths {
          *     body (none searches the whole Series; `episode_ids` may span seasons). A Movie ignores both.
          *     The answer comes at once; when the search is done, a `search` event in the Log says what it
          *     grabbed, and Grabs record their own events.
-         *     A `season` the Series lacks, or an episode that is not the Series' (or not of `season`), is a
-         *     `422` naming that field with the code `unknown`.
+         *     A `season` the Series lacks (a negative one included), or an episode that is not the Series'
+         *     (or not of `season`), is a `422` naming that field (`season` or `episode_ids`) with the code
+         *     `unknown`. There are no other `422` codes.
          */
         post: operations["searchVersion"];
         delete?: never;
@@ -1955,7 +1994,7 @@ export interface components {
             addable: boolean;
             /** @description `not_on_tvdb` for a Series TheTVDB does not have; `null` when addable. Clients tolerate new values. */
             not_addable_reason: string | null;
-            /** @description Scores for the Title from ratings sources; empty when none has one. */
+            /** @description Audience ratings of the Title from ratings sources; empty when none has one. */
             ratings: components["schemas"]["Rating"][];
         };
         LookupList: {
@@ -1991,7 +2030,7 @@ export interface components {
             certification_country: string | null;
             /** @description Every Slot with a default Profile for the kind, in Slot order. */
             slots: components["schemas"]["SuggestedSlot"][];
-            /** @description Scores for the Title from ratings sources; empty when none has one. */
+            /** @description Audience ratings of the Title from ratings sources; empty when none has one. */
             ratings: components["schemas"]["Rating"][];
             /** @description A TMDB poster URL, larger than the search result's. */
             poster: string | null;
@@ -2005,9 +2044,11 @@ export interface components {
              *     ]
              */
             genres: string[];
-            /** @description The Series overview; `null` for a Movie and for a Series TheTVDB does not have. */
-            series: components["schemas"]["LookupSeries"] | null;
         };
+        /**
+         * @description A Series' overview for the add panel (`GET /lookup/series/{tmdb_id}/overview`): status,
+         *     network, air dates and seasons.
+         */
         LookupSeries: {
             /**
              * @description `continuing`, `ended` or `upcoming`, as TheTVDB says. Clients tolerate new values.
@@ -2073,7 +2114,8 @@ export interface components {
              *     Left out, `series_monitor` decides every episode. Given, it decides seasons that have
              *     not started airing and every episode that arrives later; the seasons not named are
              *     left unmonitored. A season the Series does not have is a `422` (`seasons` /
-             *     `not_found`), as is a Movie with seasons (`seasons` / `not_a_series`).
+             *     `unknown`), as is a negative one (`seasons` / `invalid`) and a Movie with seasons
+             *     (`seasons` / `not_a_series`).
              * @example [
              *       1
              *     ]
@@ -2353,6 +2395,11 @@ export interface components {
         };
         DeletedFiles: {
             files: components["schemas"]["DeletedFile"][];
+            /**
+             * @description The files in scope that could not be deleted from disk (a read-only disk, missing
+             *     permissions). They stay the Version's; nothing else about them changed.
+             */
+            not_deleted: components["schemas"]["NotDeletedFile"][];
         };
         DeletedFile: {
             path: string;
@@ -2361,8 +2408,15 @@ export interface components {
             release_name: string;
             /** @description Every episode that lost its file, in aired order; empty for a Movie. */
             episode_ids: number[];
-            /** @description The Release went on the Blocklist. False unless asked, and for a file Kestrel did not grab. */
+            /** @description The Release went on the Blocklist. False unless asked, for a file Kestrel did not grab and when blocklisting failed. */
             blocklisted: boolean;
+        };
+        NotDeletedFile: {
+            path: string;
+            /** @description Every episode the file holds, in aired order; empty for a Movie. */
+            episode_ids: number[];
+            /** @description Why, as the filesystem said it, e.g. `permission denied`. */
+            reason: string;
         };
         /**
          * @description Narrows the search of a Series Version to a season and, within it, episodes. Movie searches
@@ -2923,27 +2977,30 @@ export interface components {
             date: string;
             certification: string | null;
         };
-        /** @description One score for a Title from a ratings source. Today only TMDB's audience score. */
+        /**
+         * @description One audience rating of a Title from a ratings source: the average of its users' votes. Today
+         *     only TMDB's. Not a content rating (`certification`) and not a Release's `score`.
+         */
         Rating: {
             /**
-             * @description Where the score is from: `tmdb`. Clients tolerate new values.
+             * @description Where the rating is from: `tmdb`. Clients tolerate new values.
              * @example tmdb
              */
             source: string;
             /**
              * Format: double
-             * @description The score on the source's scale; `null` when the source has none yet.
+             * @description The rating on the source's scale; `null` when the source has none yet.
              * @example 8.4
              */
             value: number | null;
             /**
              * Format: double
-             * @description The best score on the source's scale, such as 10.
+             * @description The best rating on the source's scale, such as 10.
              * @example 10
              */
             scale: number | null;
             /**
-             * @description How many votes the score averages.
+             * @description How many votes the rating averages.
              * @example 21000
              */
             votes: number | null;
@@ -2992,7 +3049,7 @@ export interface components {
             seasons: components["schemas"]["Season"][];
             /** @description In Slot order. */
             versions: components["schemas"]["VersionDetail"][];
-            /** @description Scores for the Title from ratings sources; empty when none has one. */
+            /** @description Audience ratings of the Title from ratings sources; empty when none has one. */
             ratings: components["schemas"]["Rating"][];
         };
         /** @description The Title asked for. Kestrel needs `tmdb_id`, or a `tvdb_id` of a Series already in the Library. */
@@ -3617,6 +3674,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LookupDetail"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    lookupSeriesOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tmdb_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The overview. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LookupSeries"];
                 };
             };
             404: components["responses"]["Problem"];

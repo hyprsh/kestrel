@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
-import { fakeSeries } from '../test/series'
+import { episode, fakeSeries } from '../test/series'
 import { server } from '../test/server'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
@@ -97,6 +97,52 @@ describe('searching from the episodes heat map', () => {
 
     // Only the 4K pilot is Wanted among the three.
     await waitFor(() => expect(searched).toEqual([{ version: 52, body: { episode_ids: [2] } }]))
+  })
+
+  it('ticks all of only the episodes shown, not those of a closed season', async () => {
+    const { grid } = await openSeries() // Specials start closed
+    within(grid).getByRole('img', { name: 'Season 1 episode 1 Standard: Filled' }).focus()
+    await userEvent.keyboard('x')
+    const bar = screen.getByRole('group', { name: 'Selection' })
+
+    await userEvent.click(within(bar).getByRole('button', { name: 'Tick all 2 shown' }))
+
+    expect(bar).toHaveTextContent('2 ticked')
+  })
+
+  it('drops the ticks of a season when it closes', async () => {
+    const { grid } = await openSeries()
+    await userEvent.click(within(grid).getByRole('button', { name: 'Specials episodes' }))
+    await choose(grid, 'Actions for Season 0 episode 1', 'Tick')
+    await userEvent.click(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' }))
+    const bar = screen.getByRole('group', { name: 'Selection' })
+    expect(bar).toHaveTextContent('2 ticked')
+
+    await userEvent.click(within(grid).getByRole('button', { name: 'Specials episodes' }))
+
+    expect(bar).toHaveTextContent('1 ticked')
+    await userEvent.click(within(grid).getByRole('button', { name: 'Specials episodes' }))
+    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 0 episode 1' })).not.toBeChecked()
+  })
+
+  it('ticks a shift-click range over the episodes shown only', async () => {
+    const state = fakeSeries()
+    state.get().episodes.push(episode(4, 2, 1, 'Seven Thirty-Seven', { air_date: '2009-03-08' }))
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    const grid = await screen.findByRole('grid', { name: 'Episodes' })
+    await userEvent.click(within(grid).getByRole('button', { name: 'Specials episodes' })) // open
+    await userEvent.click(within(grid).getByRole('button', { name: 'Season 1 episodes' })) // close
+
+    await choose(grid, 'Actions for Season 0 episode 1', 'Tick')
+    const user = userEvent.setup()
+    await user.keyboard('{Shift>}')
+    await user.click(within(grid).getByRole('checkbox', { name: 'Tick Season 2 episode 1' }))
+    await user.keyboard('{/Shift}')
+
+    expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('2 ticked')
+    await userEvent.click(within(grid).getByRole('button', { name: 'Season 1 episodes' }))
+    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' })).not.toBeChecked()
   })
 
   it('opens a row menu from the keyboard and Escape closes it, back on the cell', async () => {

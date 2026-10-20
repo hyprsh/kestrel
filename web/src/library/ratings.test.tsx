@@ -7,7 +7,7 @@ import { App } from '../App'
 import { http } from '../test/handlers'
 import { detail, fakeLibrary, row, type LookupResult } from '../test/library'
 import { server } from '../test/server'
-import { scoreText } from './Score'
+import { ratingsText } from './Ratings'
 
 type Rating = components['schemas']['Rating']
 
@@ -15,15 +15,15 @@ const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { 
 
 const tmdb = (value: number, votes: number, url = 'https://www.themoviedb.org/movie/116149'): Rating => ({ source: 'tmdb', value, scale: 10, votes, url })
 
-describe("TMDB's score", () => {
-  it('reads as the source, the score to one decimal and the votes, shortened', () => {
-    expect(scoreText([tmdb(8.4, 21345)])).toBe('TMDB 8.4 (21k)')
-    expect(scoreText([tmdb(7.25, 4912)])).toBe('TMDB 7.3 (4.9k)')
-    expect(scoreText([tmdb(6.9, 31)])).toBe('TMDB 6.9 (31)')
-    expect(scoreText([tmdb(9, 1000)])).toBe('TMDB 9.0 (1k)')
-    expect(scoreText([tmdb(8.9, 2_400_000)])).toBe('TMDB 8.9 (2.4M)')
-    expect(scoreText([{ source: 'tmdb', value: null, scale: 10, votes: 0, url: null }])).toBe('')
-    expect(scoreText([])).toBe('')
+describe("TMDB's audience rating", () => {
+  it('reads as the source, the rating to one decimal and the votes, shortened', () => {
+    expect(ratingsText([tmdb(8.4, 21345)])).toBe('TMDB 8.4 (21k)')
+    expect(ratingsText([tmdb(7.25, 4912)])).toBe('TMDB 7.3 (4.9k)')
+    expect(ratingsText([tmdb(6.9, 31)])).toBe('TMDB 6.9 (31)')
+    expect(ratingsText([tmdb(9, 1000)])).toBe('TMDB 9.0 (1k)')
+    expect(ratingsText([tmdb(8.9, 2_400_000)])).toBe('TMDB 8.9 (2.4M)')
+    expect(ratingsText([{ source: 'tmdb', value: null, scale: 10, votes: 0, url: null }])).toBe('')
+    expect(ratingsText([])).toBe('')
   })
 
   it("shows on the Title page's metadata line, linking to the Title on TMDB", async () => {
@@ -55,7 +55,7 @@ describe("TMDB's score", () => {
           kind: 'movie', tmdb_id: 116149, title: 'Paddington', year: 2014, overview: '', in_library: null, certification: null, certification_country: null,
           slots: [{ slot: 'standard', profile: 'hd-primary', label: 'HD', reason: 'default' }],
           ratings: [tmdb(7.3, 4912)],
-          poster: null, runtime: null, genres: [], series: null,
+          poster: null, runtime: null, genres: [],
         }),
       ),
     )

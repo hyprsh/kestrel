@@ -89,3 +89,20 @@ func TestARefreshFetchesEpisodeTitlesInANewPrimaryLanguage(t *testing.T) {
 		return pilot.PrimaryName == "Der Einstieg" && pilot.OriginalName == "Pilot"
 	})
 }
+
+func TestAddingASeriesSurvivesTheTranslatedTitlesFailingAndKeepsTheOriginalOnes(t *testing.T) {
+	t.Parallel()
+	l := newLibraryInstance(t, metadatatest.Key)
+	l.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`)
+	l.tvdb.FailTranslations()
+
+	r := l.valid("POST", "/titles", addBreakingBad+`}`)
+
+	if r.Status != 201 {
+		t.Fatalf("POST /titles = %d %s, want the add to survive TheTVDB failing the German titles", r.Status, r.Body)
+	}
+	created := decode[seriesTitleJSON](t, r)
+	if pilot := episodesOf(t, l, created.ID)[1]; pilot.PrimaryName != "Pilot" || pilot.OriginalName != "Pilot" {
+		t.Errorf("pilot = %+v, want the original title standing in", pilot)
+	}
+}

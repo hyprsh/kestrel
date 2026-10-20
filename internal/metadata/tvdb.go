@@ -28,7 +28,9 @@ type Episode struct {
 	Name   string     // the original title, from TheTVDB's default list
 	Aired  *time.Time // the air date as a date at 00:00 UTC; nil when TheTVDB has none
 	// PrimaryName is the title in the Primary Language; SeriesIn fills it, with
-	// Name standing in where TheTVDB has no translation.
+	// Name standing in where TheTVDB has no translation. It is empty when the
+	// translated titles could not be fetched: an add then shows Name, and a
+	// refresh keeps the stored title.
 	PrimaryName string
 }
 
@@ -302,7 +304,8 @@ func (c *TVDB) EpisodeNames(ctx context.Context, id int, lang string) (map[int]s
 // SeriesIn fetches a Series with every episode's title in the Primary Language
 // (ISO 639-1) as well. A Series already in that language asks for no
 // translation, and a translation TheTVDB does not have (a 404 included) leaves
-// the original title in its place.
+// the original title in its place. When the translations cannot be fetched at
+// all, every PrimaryName stays empty and SeriesIn still succeeds.
 func SeriesIn(ctx context.Context, p TVDBProvider, id int, lang string) (TVDBSeries, error) {
 	s, err := p.Series(ctx, id)
 	if err != nil {
@@ -316,7 +319,9 @@ func SeriesIn(ctx context.Context, p TVDBProvider, id int, lang string) (TVDBSer
 			err = nil
 		}
 		if err != nil {
-			return TVDBSeries{}, err
+			// The titles in the Primary Language are a nicety: their failure
+			// (which the provider reports to health) fails nothing else.
+			return s, nil
 		}
 	}
 	for i := range s.Episodes {

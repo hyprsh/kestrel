@@ -2,6 +2,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api } from './client'
 import { ApiError } from './queries'
+import type { EpisodeScope } from './queries'
 import type { components } from './schema.gen'
 
 export type Release = components['schemas']['Release']
@@ -10,8 +11,6 @@ export type ReleaseList = components['schemas']['ReleaseList']
 export type IndexerError = components['schemas']['IndexerError']
 export type Grab = components['schemas']['Grab']
 export type GrabCreate = components['schemas']['GrabCreate']
-/** Narrows a Series search to a season and, within it, episodes. */
-export type ReleaseScope = components['schemas']['ReleaseSearch']
 
 type Problem = { code?: string; detail?: string; title?: string } | undefined
 
@@ -26,7 +25,7 @@ function failure(error: unknown, response: Response): ApiError {
  * a POST, so it runs once when the view opens and again only on `refetch()`:
  * never in the background.
  */
-export function useReleases(versionId: number, scope?: ReleaseScope) {
+export function useReleases(versionId: number, scope?: EpisodeScope) {
   return useQuery({
     queryKey: ['releases', versionId, scope ?? null],
     staleTime: Infinity,
@@ -58,7 +57,7 @@ export function useGrab() {
  */
 export function useSearchNow() {
   return useMutation({
-    mutationFn: async ({ versionId, scope }: { versionId: number; scope?: ReleaseScope }) => {
+    mutationFn: async ({ versionId, scope }: { versionId: number; scope?: EpisodeScope }) => {
       const { error, response } = await api.POST('/versions/{id}/search', { params: { path: { id: versionId } }, body: scope })
       if (!response.ok) throw failure(error, response)
     },

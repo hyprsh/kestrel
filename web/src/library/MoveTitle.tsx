@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useMoveTitle } from '../api/move'
+import { useMoveTitle } from '../api/titleActions'
 import { ApiError, useSettings, type TitleDetail } from '../api/queries'
 import { Button, ErrorText } from '../forms'
 

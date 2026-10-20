@@ -7,6 +7,7 @@ import { SeasonSummary, SeasonToggle } from './SeasonSummary'
 import type { SeasonOpen } from './useSeasonOpen'
 import { EpisodeFileTip, cellTitle } from './EpisodeFileTip'
 import { EpisodeName } from './EpisodeName'
+import { seasonName } from './episodes'
 
 type Row = { kind: 'season'; season: number; episodes: Episode[] } | { kind: 'episode'; episode: Episode }
 
@@ -24,8 +25,6 @@ function cellClass(state: string): string {
       return 'bg-gray-400'
   }
 }
-
-const seasonName = (n: number) => (n === 0 ? 'Specials' : `Season ${n}`)
 
 /** Where a row is now: its own index if it is still shown, or else its season's header. */
 function followRow(rows: Row[], was: Row): { row: number; same: boolean } {
@@ -111,11 +110,10 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
       move(r, c)
     }
     // On a season header Enter flips it open or closed, Right (l) opens and Left (h) closes; Space toggles its monitoring.
-    const header = rows[row]
-    if (header?.kind === 'season' && ['Enter', 'ArrowRight', 'l', 'ArrowLeft', 'h'].includes(e.key)) {
+    if (at?.kind === 'season' && ['Enter', 'ArrowRight', 'l', 'ArrowLeft', 'h'].includes(e.key)) {
       e.preventDefault() // also stops Enter clicking the focused checkbox
       e.stopPropagation()
-      seasons.set(header.season, e.key === 'Enter' ? !seasons.isOpen(header.season) : e.key === 'ArrowRight' || e.key === 'l')
+      seasons.set(at.season, e.key === 'Enter' ? !seasons.isOpen(at.season) : e.key === 'ArrowRight' || e.key === 'l')
       return
     }
     switch (e.key) {
@@ -141,9 +139,8 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
         if (e.target instanceof Element && e.target.closest('button')) return
         e.preventDefault()
         e.stopPropagation()
-        const r = rows[row]
-        if (r.kind === 'season') patchSeason.mutate({ season: r.season, monitored: !r.episodes.some((x) => x.monitored) })
-        else monitor.mutate({ ids: [r.episode.id], monitored: !r.episode.monitored })
+        if (at.kind === 'season') patchSeason.mutate({ season: at.season, monitored: !at.episodes.some((x) => x.monitored) })
+        else monitor.mutate({ ids: [at.episode.id], monitored: !at.episode.monitored })
         return
       }
     }

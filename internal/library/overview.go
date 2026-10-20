@@ -30,8 +30,8 @@ type SeriesOverview struct {
 	Seasons []SeasonOverview // in season order, Specials first
 }
 
-// Overview summarises a Series' episodes per season at now.
-func Overview(eps []metadata.Episode, now time.Time) SeriesOverview {
+// SummariseSeasons summarises a Series' episodes per season at now.
+func SummariseSeasons(eps []metadata.Episode, now time.Time) SeriesOverview {
 	var out SeriesOverview
 	at := map[int]int{} // season -> index in out.Seasons
 	today := dayOf(now)

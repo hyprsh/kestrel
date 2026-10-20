@@ -1,7 +1,7 @@
 // Manage Versions: POST /titles/{id}/versions, PATCH and DELETE /versions/{id}, DELETE /titles/{id}.
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import { ApiError } from './queries'
+import { ApiError, type EpisodeScope } from './queries'
 import type { components } from './schema.gen'
 
 export type VersionRef = components['schemas']['VersionRef']
@@ -52,14 +52,12 @@ export function useRemoveTitle(titleId: number) {
 }
 
 export type DeletedFiles = components['schemas']['DeletedFiles']
-/** Narrows DELETE /versions/{id}/files on a Series Version; none deletes every file of the Version. */
-export type FilesScope = { season?: number; episode_ids?: number[] }
 
 /** Deletes files of a Version and keeps it (DELETE /versions/{id}/files); `blocklist` also blocklists their Releases. */
 export function useDeleteFiles() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ versionId, scope, blocklist }: { versionId: number; scope?: FilesScope; blocklist: boolean }): Promise<DeletedFiles> => {
+    mutationFn: async ({ versionId, scope, blocklist }: { versionId: number; scope?: EpisodeScope; blocklist: boolean }): Promise<DeletedFiles> => {
       const query = { ...scope, ...(blocklist ? { blocklist } : {}) }
       const { data, error, response } = await api.DELETE('/versions/{id}/files', { params: { path: { id: versionId }, query } })
       if (!data) throw failure(error, response)

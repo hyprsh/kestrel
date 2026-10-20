@@ -18,9 +18,12 @@ type titleLock struct {
 	imports int // Imports among them
 }
 
+// lockMode is what a Title's lock is taken for.
+type lockMode int
+
 // The ways to take a Title's lock.
 const (
-	forImport = iota
+	forImport lockMode = iota
 	forRename
 	forMove // refused while an Import holds or waits for the lock
 	forDelete
@@ -29,7 +32,7 @@ const (
 // lock takes the Title's lock, waiting for whoever holds it, and returns its
 // release. For a Move it returns false, without waiting, when an Import holds
 // or waits for the lock.
-func (g *titleGuard) lock(titleID int64, what int) (func(), bool) {
+func (g *titleGuard) lock(titleID int64, what lockMode) (func(), bool) {
 	g.mu.Lock()
 	if g.held == nil {
 		g.held = map[int64]*titleLock{}

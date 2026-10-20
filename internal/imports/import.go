@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/health"
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/probe"
 	"github.com/hyprsh/kestrel/internal/release"
@@ -120,6 +121,18 @@ type Health interface {
 	Clear(ctx context.Context, key string) error
 }
 
+// History records the Log events of moves and deletions; *history.Service
+// satisfies it.
+type History interface {
+	Record(ctx context.Context, ev history.Event)
+}
+
+// Blocklist puts the Release of the Grab a deleted file came from on the
+// Blocklist; *acquire.Service satisfies it. It fails for a Grab that is gone.
+type Blocklist interface {
+	BlockGrab(ctx context.Context, grabID int64, reason string) error
+}
+
 // Deps are what a Service needs.
 type Deps struct {
 	Library  Library
@@ -150,6 +163,12 @@ type Deps struct {
 	// Rename renames a directory; nil means os.Rename. Tests answer EXDEV with
 	// it to cross a filesystem boundary that a temp dir does not have.
 	Rename func(oldpath, newpath string) error
+	// History records the move and delete events; may be nil.
+	History History
+	// Blocklist blocklists the Releases of deleted files; nil blocklists none.
+	Blocklist Blocklist
+	// Remove deletes a file; nil means os.Remove. Tests fail it.
+	Remove func(path string) error
 }
 
 // Service imports completed Grabs into the library.
@@ -169,6 +188,9 @@ type Service struct {
 
 	renames       RenameStore
 	folderChanged func(ctx context.Context, folder string)
+	hist          History
+	blocklist     Blocklist
+	remove        func(path string) error
 }
 
 // New returns a Service.
@@ -192,7 +214,10 @@ func New(d Deps) (*Service, error) {
 	if d.Rename == nil {
 		d.Rename = os.Rename
 	}
-	return &Service{lib: d.Library, prof: d.Profiles, probe: d.Prober, clock: d.Clock, snap: d.Scoring, step: d.Step, link: d.Link, rename: d.Rename, hl: d.Health, renames: d.Renames, folderChanged: d.FolderChanged}, nil
+	if d.Remove == nil {
+		d.Remove = os.Remove
+	}
+	return &Service{lib: d.Library, prof: d.Profiles, probe: d.Prober, clock: d.Clock, snap: d.Scoring, step: d.Step, link: d.Link, rename: d.Rename, hl: d.Health, renames: d.Renames, folderChanged: d.FolderChanged, hist: d.History, blocklist: d.Blocklist, remove: d.Remove}, nil
 }
 
 func (s *Service) hook(step string) error {

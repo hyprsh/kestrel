@@ -80,6 +80,8 @@ type Acquirer interface {
 	SearchNew(ctx context.Context, titleID int64, versionIDs []int64) (acquire.Outcome, error)
 	SearchUpgrades(ctx context.Context, titleID int64, versionIDs []int64) (acquire.Outcome, error)
 	SyncRSS(ctx context.Context) (acquire.RSSOutcome, error)
+	// StopSearches cancels the searches started by hand (Search now) and waits for them.
+	StopSearches()
 }
 
 // ImportSource is what the Import loop needs of the acquire module: the Grabs
@@ -144,6 +146,7 @@ func Standard(d Deps) *Runner {
 		d.Clock = time.Now
 	}
 	r := New(d.Logger)
+	r.OnStop(d.Acquire.StopSearches)
 
 	var downloading atomic.Bool
 	r.Add(Loop{

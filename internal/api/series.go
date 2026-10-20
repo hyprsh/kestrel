@@ -57,7 +57,7 @@ func (s *server) createSeries(ctx context.Context, b *oapi.TitleCreate, specs []
 	})
 	var unknown *library.UnknownSeasonError
 	if errors.As(err, &unknown) {
-		return nil, invalid("seasons", "not_found", fmt.Sprintf("The Series has no season %d", unknown.Season))
+		return nil, invalid("seasons", "unknown", fmt.Sprintf("The Series has no season %d", unknown.Season))
 	}
 	if err != nil {
 		return nil, addProblem(err)

@@ -1,10 +1,9 @@
 import { forwardRef, useRef } from 'react'
 import { apiBaseUrl } from '../api/client'
-import type { ReleaseScope } from '../api/grabs'
-import { useProfiles, useTitle, type TitleDetail as Detail, type TitleRow } from '../api/queries'
+import { useProfiles, useTitle, type EpisodeScope, type TitleDetail as Detail, type TitleRow } from '../api/queries'
 import { slotKeys, type SlotKey } from './bits'
 import { ExternalIds } from './ExternalIds'
-import { Scores } from './Score'
+import { Ratings } from './Ratings'
 import { SeriesSection } from './SeriesSection'
 import { SlotCard } from './SlotCard'
 import { TitleActions } from './TitleActions'
@@ -42,7 +41,7 @@ export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: ()
 })
 
 /** The Version a manual search is opened for, of a Series maybe narrowed to a season or episodes. */
-export type ManualSearchTarget = { versionId: number; slot: SlotKey; profileName: string; scope?: { body: ReleaseScope; label: string } }
+export type ManualSearchTarget = { versionId: number; slot: SlotKey; profileName: string; scope?: { body: EpisodeScope; label: string } }
 
 function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (search: ManualSearchTarget) => void }) {
   const profiles = useProfiles()
@@ -67,7 +66,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
         <div className="min-w-0">
           <h2 className="text-2xl font-semibold tracking-tight">{title.title}</h2>
           {title.primary_title !== title.title && <div className="text-[15px] text-gray-900">{title.primary_title}</div>}
-          <div className="mt-1 text-gray-900">{meta.join(' · ')}<Scores ratings={title.ratings} lead={meta.length > 0} /></div>
+          <div className="mt-1 text-gray-900">{meta.join(' · ')}<Ratings ratings={title.ratings} lead={meta.length > 0} /></div>
           <ExternalIds title={title} />
           {title.requests.map((r) => (
             <div key={r.id} className="mt-1 text-[13px] text-gray-900">

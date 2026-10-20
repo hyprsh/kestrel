@@ -21,19 +21,30 @@ type lookupDetailJSON struct {
 	Poster   *string  `json:"poster"`
 	Runtime  *int     `json:"runtime"`
 	Genres   []string `json:"genres"`
-	Series   *struct {
-		Status       *string            `json:"status"`
-		Network      *string            `json:"network"`
-		FirstAired   *string            `json:"first_aired"`
-		LastAired    *string            `json:"last_aired"`
-		LatestSeason *int               `json:"latest_season"`
-		Seasons      []lookupSeasonJSON `json:"seasons"`
-	} `json:"series"`
+}
+
+type lookupSeriesJSON struct {
+	Status       *string            `json:"status"`
+	Network      *string            `json:"network"`
+	FirstAired   *string            `json:"first_aired"`
+	LastAired    *string            `json:"last_aired"`
+	LatestSeason *int               `json:"latest_season"`
+	Seasons      []lookupSeasonJSON `json:"seasons"`
 }
 
 func str(s string) *string { return &s }
 
-func TestTheAddPanelShowsASeriesOverviewFromTheTVDB(t *testing.T) {
+// askedTheTVDB says whether the fake TheTVDB was asked for the series.
+func askedTheTVDB(l library, id string) bool {
+	for _, p := range l.tvdb.Requests() {
+		if strings.HasPrefix(p, "GET /v4/series/"+id) {
+			return true
+		}
+	}
+	return false
+}
+
+func TestTheAddPanelDescribesASeriesWithoutWaitingForTheTVDB(t *testing.T) {
 	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	got := decode[lookupDetailJSON](t, l.valid("GET", "/lookup/series/1396", ""))
@@ -44,10 +55,16 @@ func TestTheAddPanelShowsASeriesOverviewFromTheTVDB(t *testing.T) {
 	if got.Runtime == nil || *got.Runtime != 47 || !reflect.DeepEqual(got.Genres, []string{"Drama", "Crime"}) {
 		t.Errorf("runtime/genres = %v %v", got.Runtime, got.Genres)
 	}
-	s := got.Series
-	if s == nil {
-		t.Fatal("a Series has an overview")
+	if askedTheTVDB(l, "81189") {
+		t.Errorf("the lookup waited on TheTVDB: %v", l.tvdb.Requests())
 	}
+}
+
+func TestASeriesOverviewComesFromTheTVDB(t *testing.T) {
+	t.Parallel()
+	l := newLibraryInstance(t, metadatatest.Key)
+	s := decode[lookupSeriesJSON](t, l.valid("GET", "/lookup/series/1396/overview", ""))
+
 	if s.Status == nil || *s.Status != "ended" || s.Network == nil || *s.Network != "AMC" {
 		t.Errorf("status/network = %v %v", s.Status, s.Network)
 	}
@@ -67,25 +84,33 @@ func TestTheAddPanelShowsASeriesOverviewFromTheTVDB(t *testing.T) {
 	if !reflect.DeepEqual(s.Seasons, want) {
 		t.Errorf("seasons = %+v", s.Seasons)
 	}
-	asked := false
-	for _, p := range l.tvdb.Requests() {
-		asked = asked || strings.HasPrefix(p, "GET /v4/series/81189")
-	}
-	if !asked {
-		t.Errorf("the lookup did not ask TheTVDB: %v", l.tvdb.Requests())
+	if !askedTheTVDB(l, "81189") {
+		t.Errorf("the overview did not ask TheTVDB: %v", l.tvdb.Requests())
 	}
 }
 
-func TestAMovieOrASeriesTheTVDBLacksHasNoSeriesOverview(t *testing.T) {
+func TestASeriesTheTVDBLacksHasNoOverview(t *testing.T) {
 	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
-	movie := decode[lookupDetailJSON](t, l.valid("GET", "/lookup/movie/116149", ""))
-	if movie.Series != nil || movie.Poster == nil || movie.Runtime == nil || len(movie.Genres) == 0 {
-		t.Errorf("movie = %+v", movie)
+	r := l.valid("GET", "/lookup/series/9001/overview", "")
+	if r.Status != 404 || !strings.Contains(r.Body, `"code":"not_on_tvdb"`) {
+		t.Errorf("overview of a Series TheTVDB lacks = %d %s, want 404 not_on_tvdb", r.Status, r.Body)
 	}
-	missing := decode[lookupDetailJSON](t, l.valid("GET", "/lookup/series/9001", ""))
-	if missing.Series != nil {
-		t.Errorf("a Series TheTVDB lacks = %+v", missing.Series)
+	if r := l.valid("GET", "/lookup/series/424242/overview", ""); r.Status != 404 {
+		t.Errorf("overview of a Series TMDB lacks = %d %s", r.Status, r.Body)
+	}
+}
+
+func TestTheTVDBFailingFailsOnlyTheSeriesOverview(t *testing.T) {
+	t.Parallel()
+	l := newLibraryInstance(t, metadatatest.Key)
+	l.tvdb.Close()
+
+	if r := l.valid("GET", "/lookup/series/1396", ""); r.Status != 200 {
+		t.Errorf("lookup with TheTVDB down = %d %s, want the panel's details all the same", r.Status, r.Body)
+	}
+	if r := l.valid("GET", "/lookup/series/1396/overview", ""); r.Status != 502 {
+		t.Errorf("overview with TheTVDB down = %d %s, want 502", r.Status, r.Body)
 	}
 }
 
@@ -134,7 +159,7 @@ func TestSeasonsAtAddMustExistAndBelongToASeries(t *testing.T) {
 	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	for body, field := range map[string]string{
-		addBreakingBad + `,"seasons":[9]}`:                         "not_found",
+		addBreakingBad + `,"seasons":[9]}`:                         "unknown",
 		addBreakingBad + `,"seasons":[-1]}`:                        "invalid",
 		strings.TrimSuffix(addPaddington, "}") + `,"seasons":[1]}`: "not_a_series",
 	} {

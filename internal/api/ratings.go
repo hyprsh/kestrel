@@ -16,13 +16,13 @@ func tmdbPage(kind oapi.TitleKind, tmdbID int) string {
 	return "https://www.themoviedb.org/" + path + "/" + strconv.Itoa(tmdbID)
 }
 
-// ratingsOf is the `ratings` list of a Title: TMDB's score when anyone has
+// ratingsOf is the `ratings` list of a Title: TMDB's audience rating when anyone has
 // voted, else empty.
-func ratingsOf(kind oapi.TitleKind, tmdbID int, sc metadata.Score) []oapi.Rating {
+func ratingsOf(kind oapi.TitleKind, tmdbID int, r metadata.AudienceRating) []oapi.Rating {
 	out := []oapi.Rating{}
-	if !sc.Rated() || tmdbID == 0 {
+	if !r.Rated() || tmdbID == 0 {
 		return out
 	}
-	value, scale, votes, url := sc.Average, 10.0, sc.Votes, tmdbPage(kind, tmdbID)
+	value, scale, votes, url := r.Average, 10.0, r.Votes, tmdbPage(kind, tmdbID)
 	return append(out, oapi.Rating{Source: "tmdb", Value: &value, Scale: &scale, Votes: &votes, Url: &url})
 }

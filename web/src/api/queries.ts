@@ -361,6 +361,25 @@ export function useLookupDetail(kind: LookupResult['kind'], tmdbId: number) {
   })
 }
 
+/**
+ * A Series' overview from TheTVDB, loaded apart from the lookup so the add
+ * panel never waits for it; null for a Series TheTVDB does not have.
+ */
+export function useSeriesOverview(tmdbId: number, enabled: boolean) {
+  return useQuery({
+    queryKey: ['lookup', 'series', tmdbId, 'overview'],
+    retry: false,
+    enabled,
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/lookup/series/{tmdb_id}/overview', { params: { path: { tmdb_id: tmdbId } } })
+      if (data) return data
+      const err = failure(error, response)
+      if (err.code === 'not_on_tvdb') return null
+      throw err
+    },
+  })
+}
+
 export function useCreateTitle() {
   const qc = useQueryClient()
   return useMutation({
@@ -377,6 +396,11 @@ export function useCreateTitle() {
 
 export type Episode = components['schemas']['Episode']
 export type SeriesMonitor = components['schemas']['SeriesMonitor']
+/**
+ * Narrows work on a Series Version (Search now, Manual search, deleting files)
+ * to a season and, within it, episodes; none is the whole Series.
+ */
+export type EpisodeScope = { season?: number; episode_ids?: number[] }
 
 /** A Series' episodes with one cell per Version. */
 export function useEpisodes(titleId: number, enabled = true) {
@@ -413,12 +437,6 @@ export const useMonitorEpisodes = (titleId: number) =>
     api.POST('/titles/{id}/episodes/monitor', { params: { path: { id: titleId } }, body: { episode_ids: ids, monitored } }),
   )
 
-/** Monitors or unmonitors a Movie; a Series uses its monitoring mode instead. */
-export const useSetMovieMonitored = (titleId: number) =>
-  useMonitorMutation((monitored: boolean) => api.PATCH('/titles/{id}', { params: { path: { id: titleId } }, body: { monitored } }))
-
-export const useSetSeriesMonitor = (titleId: number) =>
-  useMonitorMutation((mode: SeriesMonitor) => api.PATCH('/titles/{id}', { params: { path: { id: titleId } }, body: { series_monitor: mode } }))
 
 // ---- setup progress ----
 

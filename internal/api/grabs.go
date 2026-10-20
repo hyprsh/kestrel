@@ -46,7 +46,7 @@ func (s *server) searchTimeout() time.Duration {
 func (s *server) SearchVersionReleases(ctx context.Context, r oapi.SearchVersionReleasesRequestObject) (oapi.SearchVersionReleasesResponseObject, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.searchTimeout())
 	defer cancel()
-	var scope acquire.Scope
+	var scope library.Scope
 	if r.Body != nil {
 		scope.Season = r.Body.Season
 		if r.Body.EpisodeIds != nil {

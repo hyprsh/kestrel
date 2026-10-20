@@ -2,11 +2,13 @@ package imports
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"path/filepath"
 	"strings"
 	"syscall"
 
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/library"
 )
 
@@ -29,8 +31,8 @@ type Moved struct {
 
 // Move puts a Title in another Root folder: its folder moves there under the
 // same name in one directory rename, taking every Version's files and their
-// subtitles along, and one database write records the new Root folder and file
-// paths. If that write fails the folder is moved back, so disk and database
+// subtitles along, one database write records the new Root folder and file
+// paths, and a move event goes to the Log. If that write fails the folder is moved back, so disk and database
 // never disagree. A Title with no folder on disk only has its Root folder
 // changed. Moving to the current Root folder does nothing. The caller checks
 // that root is one of the kind's Root folders.
@@ -92,5 +94,21 @@ func (s *Service) Move(ctx context.Context, titleID int64, root string) (Moved, 
 		s.folderChanged(ctx, newDir)
 		s.folderChanged(ctx, oldDir)
 	}
+	s.record(ctx, history.Event{
+		Kind: history.Moved, TitleID: titleID, Data: jsonOf(map[string]string{"from": out.From, "to": out.To}),
+		Message: "Moved from " + out.From + " to " + out.To,
+	})
 	return out, nil
+}
+
+// record records a Log event, when there is a Log.
+func (s *Service) record(ctx context.Context, ev history.Event) {
+	if s.hist != nil {
+		s.hist.Record(ctx, ev)
+	}
+}
+
+func jsonOf(v any) []byte {
+	b, _ := json.Marshal(v)
+	return b
 }

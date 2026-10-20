@@ -1,7 +1,8 @@
 import { ArrowLeft, Download } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { ApiError } from '../api/queries'
-import { useGrab, useReleases, type Release, type ReleaseScope } from '../api/grabs'
+import { useGrab, useReleases, type Release } from '../api/grabs'
+import type { EpisodeScope } from '../api/queries'
 import { Button } from '../forms'
 import { useKey, useListNav } from '../keys'
 import { Badge, cx, Kbd } from '../ui'
@@ -44,7 +45,7 @@ export function ManualSearch({
   slotLabel: string
   profileName: string
   versionId: number
-  scope?: { body: ReleaseScope; label: string }
+  scope?: { body: EpisodeScope; label: string }
   onBack: () => void
 }) {
   const search = useReleases(versionId, scope?.body)
