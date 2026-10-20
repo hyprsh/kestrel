@@ -1713,6 +1713,20 @@ func (q *Queries) SetTitleMonitored(ctx context.Context, arg SetTitleMonitoredPa
 	return err
 }
 
+const setTitleRootFolder = `-- name: SetTitleRootFolder :exec
+UPDATE titles SET root_folder = ? WHERE id = ?
+`
+
+type SetTitleRootFolderParams struct {
+	RootFolder string
+	ID         int64
+}
+
+func (q *Queries) SetTitleRootFolder(ctx context.Context, arg SetTitleRootFolderParams) error {
+	_, err := q.db.ExecContext(ctx, setTitleRootFolder, arg.RootFolder, arg.ID)
+	return err
+}
+
 const setUpgradesDueSince = `-- name: SetUpgradesDueSince :exec
 UPDATE search_state SET next_upgrade_at = ? WHERE last_upgrade_at >= ?
 `

@@ -15,10 +15,11 @@ import (
 	"github.com/hyprsh/kestrel/internal/release"
 )
 
-// RenameStore is what Rename needs of the library beyond Library. *library.Service satisfies it.
+// RenameStore is what Rename and Move need of the library beyond Library. *library.Service satisfies it.
 type RenameStore interface {
 	RenameFiles(ctx context.Context, titleID int64) ([]library.RenameFile, error)
 	ApplyRename(ctx context.Context, titleID int64, folder string, moves []library.FileMove) error
+	ApplyMove(ctx context.Context, titleID int64, root string, moves []library.FileMove) error
 }
 
 // ErrFolderTaken means a folder is already where the Title's folder would go.
@@ -45,6 +46,8 @@ func (s *Service) Rename(ctx context.Context, titleID int64) (Renamed, error) {
 	if s.renames == nil {
 		return Renamed{}, errors.New("imports: renaming is not configured")
 	}
+	unlock, _ := s.guard.lock(titleID, forRename)
+	defer unlock()
 	region, _, err := s.prof.Region(ctx)
 	if err != nil {
 		return Renamed{}, err

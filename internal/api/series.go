@@ -114,6 +114,12 @@ func (s *server) PatchTitle(ctx context.Context, r oapi.PatchTitleRequestObject)
 	if r.Body == nil {
 		return nil, invalid("body", "required", "a body is required")
 	}
+	if r.Body.RootFolder != nil {
+		// First, so a refused move leaves the other fields unapplied too.
+		if err := s.moveTitle(ctx, r.Id, *r.Body.RootFolder); err != nil {
+			return nil, err
+		}
+	}
 	if r.Body.MetadataFrozen != nil {
 		if err := s.refresher.SetFrozen(ctx, r.Id, *r.Body.MetadataFrozen); err != nil {
 			return nil, seriesProblem(err)
