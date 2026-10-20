@@ -786,6 +786,61 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /versions/{id}/files:
+    parameters:
+      - $ref: "#/components/parameters/VersionId"
+    delete:
+      operationId: deleteVersionFiles
+      summary: Delete a Version's files and keep the Version
+      description: |
+        Deletes files of the Version from disk, with their text subtitles, and keeps the Version and
+        its monitoring: a monitored Movie or episode whose file goes is Wanted again. A Movie loses its
+        file. A Series loses the files holding the episodes in scope: `season` narrows to one season,
+        `episode_ids` to those episodes (within `season` when both are given); neither deletes every
+        file of the Version. A file holding several episodes (a season pack, a double episode) is
+        deleted whole, so every episode it holds loses its file, also those outside the scope.
+        With `blocklist` each file's Release goes on the Blocklist, so it is not grabbed again; a file
+        Kestrel did not grab (an adopted one) cannot be and says so in `blocklisted`.
+        A `delete` event in the Log names the files. It waits for an Import into the Title to finish.
+        A `season` the Series lacks, or an episode that is not the Series' (or not of `season`), is a
+        `422` naming that field with the code `unknown`; on a Movie either is `422` with the code
+        `not_a_series`.
+      tags: [titles]
+      parameters:
+        - name: season
+          in: query
+          description: Only the files holding episodes of this season (0 is Specials).
+          schema:
+            type: integer
+        - name: episode_ids
+          in: query
+          description: Only the files holding these episodes.
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: integer
+              format: int64
+        - name: blocklist
+          in: query
+          description: Also put each deleted file's Release on the Blocklist. Off by default.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: What was deleted; no files when the scope held none.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletedFiles"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /titles/{id}/episodes:
     parameters:
       - $ref: "#/components/parameters/TitleId"
@@ -3234,6 +3289,34 @@ components:
           type: integer
           format: int64
           description: Bytes of all the Version's files.
+    DeletedFiles:
+      type: object
+      required: [files]
+      properties:
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeletedFile"
+    DeletedFile:
+      type: object
+      required: [path, size, release_name, episode_ids, blocklisted]
+      properties:
+        path:
+          type: string
+        size:
+          type: integer
+          format: int64
+        release_name:
+          type: string
+        episode_ids:
+          type: array
+          description: Every episode that lost its file, in aired order; empty for a Movie.
+          items:
+            type: integer
+            format: int64
+        blocklisted:
+          type: boolean
+          description: The Release went on the Blocklist. False unless asked, and for a file Kestrel did not grab.
     ReleaseSearch:
       type: object
       description: |
@@ -3969,7 +4052,7 @@ components:
         at: { type: string, format: date-time }
         kind:
           type: string
-          description: "A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search."
+          description: "A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search."
         routine: { type: boolean }
         title_id: { type: integer, format: int64, nullable: true }
         version_id: { type: integer, format: int64, nullable: true }

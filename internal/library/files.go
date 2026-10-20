@@ -25,7 +25,7 @@ type NewFile struct {
 }
 
 func fileOf(f db.File) File {
-	out := File{ID: f.ID, Path: f.Path, Size: f.Size, ReleaseName: f.ReleaseName, ParsedRelease: f.ParsedRelease.String, Probe: f.Probe.String, ImportedAt: parseTime(f.ImportedAt)}
+	out := File{ID: f.ID, Path: f.Path, Size: f.Size, ReleaseName: f.ReleaseName, ParsedRelease: f.ParsedRelease.String, Probe: f.Probe.String, ImportedAt: parseTime(f.ImportedAt), GrabID: f.GrabID.Int64}
 	if f.Score.Valid {
 		n := int(f.Score.Int64)
 		out.Score = &n
@@ -251,4 +251,35 @@ func recordReplacedScore(ctx context.Context, q *db.Queries, fileID int64, repla
 		return nil
 	}
 	return q.SetReplacedScore(ctx, db.SetReplacedScoreParams{FileID: fileID, Score: int64(best)})
+}
+
+// RemoveFiles drops the rows of a Version's files in one transaction, their
+// episodes with them, and returns the files so the caller can delete them from
+// disk. Ids that are not files of the Version are skipped. The Version and its
+// monitoring stay: a monitored Movie or episode without a file is Wanted.
+func (s *Service) RemoveFiles(ctx context.Context, versionID int64, fileIDs []int64) ([]File, error) {
+	tx, err := s.st.Write().BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	q := db.New(tx)
+	var out []File
+	for _, id := range fileIDs {
+		row, err := q.GetFile(ctx, id)
+		if errors.Is(err, sql.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if row.VersionID != versionID {
+			continue
+		}
+		if err := q.DeleteFile(ctx, id); err != nil {
+			return nil, err
+		}
+		out = append(out, fileOf(row))
+	}
+	return out, tx.Commit()
 }

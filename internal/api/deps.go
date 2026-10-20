@@ -147,6 +147,8 @@ type Acquire interface {
 	Blocklist(ctx context.Context, titleID int64) ([]acquire.Blocked, error)
 	// StartSearch is Search now: it checks the scope, then searches in the background.
 	StartSearch(ctx context.Context, versionID int64, scope acquire.Scope) error
+	// BlockGrab puts a Grab's Release on the Blocklist (a deleted file's).
+	BlockGrab(ctx context.Context, grabID int64, reason string) error
 }
 
 // Requests is Request records and their semantics.
@@ -180,10 +182,11 @@ type Remover interface {
 }
 
 // Rescorer moves a Version to another Profile and re-scores its stored file,
-// and moves a Title to another Root folder.
+// moves a Title to another Root folder and deletes a Version's files.
 type Rescorer interface {
 	SwitchProfile(ctx context.Context, titleID, versionID int64, profile string) error
 	Move(ctx context.Context, titleID int64, root string) (imports.Moved, error)
+	DeleteFiles(ctx context.Context, versionID int64, scope imports.FileScope) (imports.Deleted, error)
 }
 
 // Jobs is the loop runner.

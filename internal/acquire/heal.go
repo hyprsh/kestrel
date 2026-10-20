@@ -197,6 +197,20 @@ func (s *Service) healFailed(ctx context.Context, g db.Grab, lost, block bool, r
 	return retried, errors.Join(append(errs, err)...)
 }
 
+// BlockGrab puts the Release of a Grab on the Blocklist, as Cancel with
+// blocklist does; a Grab Import kept is found too. It returns ErrGrabNotFound
+// for a Grab that does not exist.
+func (s *Service) BlockGrab(ctx context.Context, grabID int64, reason string) error {
+	g, err := db.New(s.st.Read()).GetGrab(ctx, grabID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrGrabNotFound
+	}
+	if err != nil {
+		return err
+	}
+	return s.blockGrab(ctx, g, reason)
+}
+
 // blockGrab puts a Grab's Release on the Blocklist.
 func (s *Service) blockGrab(ctx context.Context, g db.Grab, reason string) error {
 	return s.Block(ctx, BlockEntry{

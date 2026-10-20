@@ -575,6 +575,39 @@ export interface paths {
         patch: operations["patchVersion"];
         trace?: never;
     };
+    "/versions/{id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a Version's files and keep the Version
+         * @description Deletes files of the Version from disk, with their text subtitles, and keeps the Version and
+         *     its monitoring: a monitored Movie or episode whose file goes is Wanted again. A Movie loses its
+         *     file. A Series loses the files holding the episodes in scope: `season` narrows to one season,
+         *     `episode_ids` to those episodes (within `season` when both are given); neither deletes every
+         *     file of the Version. A file holding several episodes (a season pack, a double episode) is
+         *     deleted whole, so every episode it holds loses its file, also those outside the scope.
+         *     With `blocklist` each file's Release goes on the Blocklist, so it is not grabbed again; a file
+         *     Kestrel did not grab (an adopted one) cannot be and says so in `blocklisted`.
+         *     A `delete` event in the Log names the files. It waits for an Import into the Title to finish.
+         *     A `season` the Series lacks, or an episode that is not the Series' (or not of `season`), is a
+         *     `422` naming that field with the code `unknown`; on a Movie either is `422` with the code
+         *     `not_a_series`.
+         */
+        delete: operations["deleteVersionFiles"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/titles/{id}/episodes": {
         parameters: {
             query?: never;
@@ -2318,6 +2351,19 @@ export interface components {
              */
             size: number;
         };
+        DeletedFiles: {
+            files: components["schemas"]["DeletedFile"][];
+        };
+        DeletedFile: {
+            path: string;
+            /** Format: int64 */
+            size: number;
+            release_name: string;
+            /** @description Every episode that lost its file, in aired order; empty for a Movie. */
+            episode_ids: number[];
+            /** @description The Release went on the Blocklist. False unless asked, and for a file Kestrel did not grab. */
+            blocklisted: boolean;
+        };
         /**
          * @description Narrows the search of a Series Version to a season and, within it, episodes. Movie searches
          *     take nothing.
@@ -2750,7 +2796,7 @@ export interface components {
             id: number;
             /** Format: date-time */
             at: string;
-            /** @description A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search. */
+            /** @description A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search. */
             kind: string;
             routine: boolean;
             /** Format: int64 */
@@ -3847,6 +3893,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VersionDetail"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteVersionFiles: {
+        parameters: {
+            query?: {
+                /** @description Only the files holding episodes of this season (0 is Specials). */
+                season?: number;
+                /** @description Only the files holding these episodes. */
+                episode_ids?: number[];
+                /** @description Also put each deleted file's Release on the Blocklist. Off by default. */
+                blocklist?: boolean;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What was deleted; no files when the scope held none. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletedFiles"];
                 };
             };
             404: components["responses"]["Problem"];

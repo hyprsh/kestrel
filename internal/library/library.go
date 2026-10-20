@@ -135,6 +135,8 @@ type File struct {
 	// Misfit says the file no longer fits its Version's Profile (a Profile
 	// switch): the Version counts as Wanted and any fitting Release replaces it.
 	Misfit bool
+	// GrabID is the Grab the file came from; 0 for an adopted file.
+	GrabID int64
 }
 
 // Version is one Slot of a Title in detail.

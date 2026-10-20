@@ -2,6 +2,7 @@
 import type { Profile, TitleDetail } from '../api/queries'
 import { Badge, cx } from '../ui'
 import { size, slotLabel, StatusBadge, type SlotKey } from './bits'
+import { DeleteFile } from './DeleteFiles'
 import { AddVersion, VersionControls } from './ManageVersion'
 
 type Version = TitleDetail['versions'][number]
@@ -44,6 +45,7 @@ export function SlotCard({
       </div>
       <div className="mt-3 flex flex-col gap-2">
         {v ? <VersionControls versionId={v.id} slot={slot} profile={v.profile} profiles={profiles} /> : <AddVersion titleId={title.id} slot={slot} profiles={profiles} />}
+        {v && <DeleteFile versionId={v.id} file={v.file} />}
       </div>
     </div>
   )
