@@ -198,7 +198,7 @@ func languageGate(spec ProfileSpec, title Title, languages []release.Language) [
 			return nil
 		}
 		if originalKnown && has(title.OriginalLanguage) {
-			switch spec.Original {
+			switch spec.OriginalChoice {
 			case OriginalAccept:
 				return nil
 			case OriginalOffer:

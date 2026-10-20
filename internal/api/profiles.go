@@ -32,7 +32,7 @@ func (s *server) profileToAPI(p profiles.Profile) oapi.Profile {
 	}
 	return oapi.Profile{
 		Key: p.Key, Name: p.Name, Slot: slot, LanguageRule: rule,
-		OriginalLanguage: oapi.OriginalLanguageChoice(p.OriginalLanguage), OriginalFallback: p.OriginalLanguage == scoring.OriginalAccept,
+		OriginalLanguage: oapi.OriginalLanguageChoice(p.OriginalChoice), OriginalFallback: p.OriginalChoice.DeprecatedFlag(),
 		Enabled: p.Enabled, DefaultMovies: p.DefaultMovies, DefaultSeries: p.DefaultSeries,
 		MinHeight: p.MinHeight, MaxHeight: p.MaxHeight,
 		TrashProfileMovies: p.TrashMovies, TrashProfileSeries: p.TrashSeries,
@@ -60,43 +60,21 @@ func (s *server) PatchProfile(ctx context.Context, r oapi.PatchProfileRequestObj
 		return nil, err
 	}
 	b := r.Body
-	original, fromFallback, err := originalChoiceOf(b)
+	original, err := scoring.OriginalChoiceOf((*scoring.OriginalChoice)(b.OriginalLanguage), b.OriginalFallback)
 	if err != nil {
-		return nil, err
+		return nil, invalid("original_fallback", "invalid", "original_fallback disagrees with original_language; send original_language only")
 	}
 	p, err := s.profiles.Patch(ctx, string(r.Key), profiles.Patch{
-		Enabled: b.Enabled, OriginalLanguage: original, DefaultMovies: b.DefaultMovies, DefaultSeries: b.DefaultSeries,
+		Enabled: b.Enabled, OriginalChoice: original, DefaultMovies: b.DefaultMovies, DefaultSeries: b.DefaultSeries,
 	})
 	var ve *profiles.ValidationError
-	if fromFallback && errors.As(err, &ve) && ve.Field == "original_language" {
+	if b.OriginalLanguage == nil && errors.As(err, &ve) && ve.Field == "original_language" {
 		ve.Field = "original_fallback" // the client sent the deprecated field
 	}
 	if err != nil {
 		return nil, profilesProblem(err)
 	}
 	return oapi.PatchProfile200JSONResponse(s.profileToAPI(p)), nil
-}
-
-// originalChoiceOf is the patch's original_language, or what the deprecated
-// original_fallback stands for (true is accept, false reject), and whether it
-// came from original_fallback. When both are given they must agree.
-func originalChoiceOf(b *oapi.ProfilePatch) (*scoring.OriginalChoice, bool, error) {
-	var fallback *scoring.OriginalChoice
-	if b.OriginalFallback != nil {
-		c := scoring.OriginalReject
-		if *b.OriginalFallback {
-			c = scoring.OriginalAccept
-		}
-		fallback = &c
-	}
-	if b.OriginalLanguage == nil {
-		return fallback, fallback != nil, nil
-	}
-	c := scoring.OriginalChoice(*b.OriginalLanguage)
-	if b.OriginalFallback != nil && *b.OriginalFallback != (c == scoring.OriginalAccept) {
-		return nil, false, invalid("original_fallback", "invalid", "original_fallback disagrees with original_language; send original_language only")
-	}
-	return &c, false, nil
 }
 
 func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {

@@ -170,7 +170,7 @@ func TestAProfileDeclaresItsOriginalLanguageChoice(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%q: %v", c.body, err)
 		}
-		if got := f.Profiles["hd-primary"].OriginalChoice(); got != c.want {
+		if got := f.Profiles["hd-primary"].Choice(); string(got) != c.want {
 			t.Errorf("%q: choice = %q, want %q", c.body, got, c.want)
 		}
 	}

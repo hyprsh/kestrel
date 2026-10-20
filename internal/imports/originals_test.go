@@ -27,7 +27,7 @@ func offerOriginals(t *testing.T, r *rig) {
 		t.Fatal(err)
 	}
 	offer := scoring.OriginalOffer
-	if _, err := ps.Patch(ctx, "hd-primary", profiles.Patch{OriginalLanguage: &offer}); err != nil {
+	if _, err := ps.Patch(ctx, "hd-primary", profiles.Patch{OriginalChoice: &offer}); err != nil {
 		t.Fatal(err)
 	}
 }

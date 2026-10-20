@@ -266,7 +266,7 @@ func (s *Service) offerReader(ctx context.Context) (offerReader, error) {
 	}
 	rd := offerReader{view: library.View{Country: region.Country, Now: s.clock()}, offering: map[string]bool{}}
 	for _, p := range all {
-		rd.offering[p.Key] = p.Rule == scoring.PrimaryLanguage && p.OriginalLanguage == scoring.OriginalOffer
+		rd.offering[p.Key] = p.Rule == scoring.PrimaryLanguage && p.OriginalChoice == scoring.OriginalOffer
 	}
 	if rd.busy, err = s.busyVersions(ctx); err != nil {
 		return offerReader{}, err

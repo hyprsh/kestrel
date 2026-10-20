@@ -12,10 +12,10 @@ import (
 
 // State is one Profile's settings, as a Config File declares them.
 type State struct {
-	Enabled          bool
-	OriginalLanguage scoring.OriginalChoice
-	DefaultMovies    bool
-	DefaultSeries    bool
+	Enabled        bool
+	OriginalChoice scoring.OriginalChoice
+	DefaultMovies  bool
+	DefaultSeries  bool
 }
 
 // CheckAll applies Patch's rules to the settings of every Profile at once,
@@ -92,7 +92,7 @@ func (s *Service) SetAll(ctx context.Context, want map[string]State) error {
 			if err != nil {
 				return err
 			}
-			if w := want[cur.Key]; w != (State{cur.Enabled, cur.OriginalLanguage, cur.DefaultMovies, cur.DefaultSeries}) {
+			if w := want[cur.Key]; w != (State{cur.Enabled, cur.OriginalChoice, cur.DefaultMovies, cur.DefaultSeries}) {
 				changed = append(changed, cur)
 			}
 		}
@@ -103,7 +103,9 @@ func (s *Service) SetAll(ctx context.Context, want map[string]State) error {
 			if err := q.SetProfileEnabled(ctx, db.SetProfileEnabledParams{Enabled: b2i(w.Enabled), Key: cur.Key}); err != nil {
 				return err
 			}
-			if err := q.SetProfileOriginalLanguage(ctx, db.SetProfileOriginalLanguageParams{OriginalLanguage: string(w.OriginalLanguage), Key: cur.Key}); err != nil {
+			if err := q.SetProfileOriginalChoice(ctx, db.SetProfileOriginalChoiceParams{
+				OriginalLanguage: string(w.OriginalChoice), OriginalFallback: b2i(w.OriginalChoice.DeprecatedFlag()), Key: cur.Key,
+			}); err != nil {
 				return err
 			}
 			if err := q.SetProfileDefaultMovies(ctx, db.SetProfileDefaultMoviesParams{DefaultMovies: b2i(w.DefaultMovies && cur.DefaultMovies), Key: cur.Key}); err != nil {

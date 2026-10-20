@@ -28,7 +28,7 @@ func (r *rig) offering(t *testing.T) {
 		t.Fatal(err)
 	}
 	offer := scoring.OriginalOffer
-	if _, err := ps.Patch(ctx, "hd-primary", profiles.Patch{OriginalLanguage: &offer}); err != nil {
+	if _, err := ps.Patch(ctx, "hd-primary", profiles.Patch{OriginalChoice: &offer}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -105,7 +105,7 @@ func TestOnlyAnOfferingProfileOffers(t *testing.T) {
 	r := newRig(t)
 	r.offering(t)
 	reject := scoring.OriginalReject
-	if _, err := r.deps.Profiles.(*profiles.Service).Patch(ctx, "hd-primary", profiles.Patch{OriginalLanguage: &reject}); err != nil {
+	if _, err := r.deps.Profiles.(*profiles.Service).Patch(ctx, "hd-primary", profiles.Patch{OriginalChoice: &reject}); err != nil {
 		t.Fatal(err)
 	}
 	r.publish(t, hd1080, time.Hour)

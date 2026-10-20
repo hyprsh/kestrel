@@ -36,6 +36,35 @@ func (c OriginalChoice) Valid() bool {
 	return c == OriginalReject || c == OriginalOffer || c == OriginalAccept
 }
 
+// DeprecatedFlag is what the deprecated original_fallback says for c: true for
+// accept only.
+func (c OriginalChoice) DeprecatedFlag() bool { return c == OriginalAccept }
+
+// ErrOriginalChoiceDisagrees says a declaration gives both original_language
+// and the deprecated original_fallback, and they disagree.
+var ErrOriginalChoiceDisagrees = errors.New("original_fallback disagrees with original_language")
+
+// OriginalChoiceOf is the choice a Profile declares by original_language, or
+// else by the deprecated original_fallback (true is accept, false reject); nil
+// when neither is given. Given both, they must agree (see DeprecatedFlag), else the
+// error is ErrOriginalChoiceDisagrees.
+func OriginalChoiceOf(choice *OriginalChoice, deprecated *bool) (*OriginalChoice, error) {
+	if choice == nil {
+		if deprecated == nil {
+			return nil, nil
+		}
+		c := OriginalReject
+		if *deprecated {
+			c = OriginalAccept
+		}
+		return &c, nil
+	}
+	if deprecated != nil && *deprecated != choice.DeprecatedFlag() {
+		return nil, ErrOriginalChoiceDisagrees
+	}
+	return choice, nil
+}
+
 // ProfileSpec describes a Kestrel Profile: which Slot it fills, which audio it
 // requires and, for Primary-Language Profiles, what it does with a Release in
 // the Title's Original Language only (PRD Settled 1, #103).
@@ -48,10 +77,10 @@ type ProfileSpec struct {
 	Rule LanguageRule
 	// Primary is the household's Primary Language: English, German or French.
 	Primary release.Language
-	// Original is what happens to a Release with the Title's Original
+	// OriginalChoice is what happens to a Release with the Title's Original
 	// Language but no Primary audio; the zero value rejects it. Only
 	// meaningful with PrimaryLanguage.
-	Original OriginalChoice
+	OriginalChoice OriginalChoice
 }
 
 // HeightBounds are the resolution bounds of a builtin Profile (Settled 2),
@@ -155,7 +184,7 @@ func (s *Snapshot) Profile(spec ProfileSpec) (*Profile, error) {
 		return nil, fmt.Errorf("%w: Any sits in the Standard Slot", ErrUnsupportedProfile)
 	}
 	if spec.Rule == OriginalLanguage {
-		spec.Original = OriginalReject // no choice on Original-Language Profiles
+		spec.OriginalChoice = OriginalReject // no choice on Original-Language Profiles
 	}
 	p := &Profile{spec: spec, sets: map[release.Kind]*formatSet{}}
 	p.MinHeight, p.MaxHeight = HeightBounds(spec.Slot, spec.Any)
