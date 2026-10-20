@@ -20,6 +20,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/api"
 	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/store/storetest"
 )
 
 const indexHTML = `<!doctype html><html><head><base href="/" /></head><body><div id="root"></div></body></html>`
@@ -32,7 +33,7 @@ var webFS = fstest.MapFS{
 // startServer runs the real handler on a temp-dir SQLite.
 func startServer(t *testing.T, base string, web fstest.MapFS) *httptest.Server {
 	t.Helper()
-	st, err := store.Open(context.Background(), store.Options{Dir: t.TempDir()})
+	st, err := store.Open(context.Background(), store.Options{Dir: storetest.Dir(t)})
 	if err != nil {
 		t.Fatal(err)
 	}

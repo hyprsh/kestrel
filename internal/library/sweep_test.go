@@ -9,6 +9,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/store/storetest"
 )
 
 const hours = time.Hour
@@ -43,7 +44,7 @@ func TestNextMissingFollowsTheCadenceFromWantedSince(t *testing.T) {
 // clocked is a Library on a clock the test moves.
 func clocked(t *testing.T) (*library.Service, *time.Time, *store.Store) {
 	t.Helper()
-	st, err := store.Open(context.Background(), store.Options{Dir: t.TempDir()})
+	st, err := store.Open(context.Background(), store.Options{Dir: storetest.Dir(t)})
 	if err != nil {
 		t.Fatal(err)
 	}

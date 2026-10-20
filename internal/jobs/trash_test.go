@@ -15,6 +15,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/store/storetest"
 )
 
 var trashNow = time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC)
@@ -73,7 +74,7 @@ func (r rescorer) RescoreTitles(_ context.Context, snap *scoring.Snapshot, _ []i
 
 func newTrashEnv(t *testing.T) *trashEnv {
 	t.Helper()
-	st, err := store.Open(context.Background(), store.Options{Dir: t.TempDir()})
+	st, err := store.Open(context.Background(), store.Options{Dir: storetest.Dir(t)})
 	if err != nil {
 		t.Fatal(err)
 	}

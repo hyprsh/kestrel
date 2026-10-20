@@ -7,11 +7,12 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/store/storetest"
 )
 
 func newService(t *testing.T, now *time.Time) *history.Service {
 	t.Helper()
-	st, err := store.Open(context.Background(), store.Options{Dir: t.TempDir()})
+	st, err := store.Open(context.Background(), store.Options{Dir: storetest.Dir(t)})
 	if err != nil {
 		t.Fatal(err)
 	}

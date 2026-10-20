@@ -12,6 +12,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/store/storetest"
 )
 
 // A Library on a clock the test moves, a Movie in it, and an acquirer that
@@ -61,7 +62,7 @@ func (r *recorder) SearchUpgrades(_ context.Context, _ int64, v []int64) (acquir
 func newSweepRig(t *testing.T) *sweepRig {
 	t.Helper()
 	ctx := context.Background()
-	st, err := store.Open(ctx, store.Options{Dir: t.TempDir()})
+	st, err := store.Open(ctx, store.Options{Dir: storetest.Dir(t)})
 	if err != nil {
 		t.Fatal(err)
 	}

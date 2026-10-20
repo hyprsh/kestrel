@@ -13,11 +13,12 @@ import (
 	"github.com/hyprsh/kestrel/internal/scoring/profiles/db"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/store/storetest"
 )
 
 func newService(t *testing.T) *profiles.Service {
 	t.Helper()
-	st, err := store.Open(context.Background(), store.Options{Dir: t.TempDir()})
+	st, err := store.Open(context.Background(), store.Options{Dir: storetest.Dir(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -335,7 +336,7 @@ func TestLoadingARowOutsideItsSlotIsAnError(t *testing.T) {
 }
 
 func TestAProfileOutsideItsSlotCannotBeStored(t *testing.T) {
-	st, err := store.Open(context.Background(), store.Options{Dir: t.TempDir()})
+	st, err := store.Open(context.Background(), store.Options{Dir: storetest.Dir(t)})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/store/storetest"
 )
 
 var now = time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
@@ -18,7 +19,7 @@ func day(y int, m time.Month, d int) time.Time { return time.Date(y, m, d, 0, 0,
 
 func newLibrary(t *testing.T) (*library.Service, *store.Store) {
 	t.Helper()
-	st, err := store.Open(context.Background(), store.Options{Dir: t.TempDir()})
+	st, err := store.Open(context.Background(), store.Options{Dir: storetest.Dir(t)})
 	if err != nil {
 		t.Fatal(err)
 	}

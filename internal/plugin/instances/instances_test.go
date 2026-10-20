@@ -11,6 +11,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1/fake"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/store/storetest"
 )
 
 // other is a second contract with no cap, standing in for indexer.v1: the
@@ -34,7 +35,7 @@ func (other) ListOptions(context.Context, plugin.Connection, string) ([]plugin.O
 
 func newService(t *testing.T) *instances.Service {
 	t.Helper()
-	st, err := store.Open(context.Background(), store.Options{Dir: t.TempDir()})
+	st, err := store.Open(context.Background(), store.Options{Dir: storetest.Dir(t)})
 	if err != nil {
 		t.Fatal(err)
 	}

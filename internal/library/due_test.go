@@ -9,6 +9,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/store/storetest"
 )
 
 func TestAFreshlyAddedMovieVersionIsDueForAMissingSearchUntilItIsMarkedSearched(t *testing.T) {
@@ -147,7 +148,7 @@ func TestASeriesVersionIsDueOnceWhateverItsSeasonsAndOneMarkSchedulesAllOfThem(t
 
 func TestAnUnreleasedMovieIsNotDueAndAFailedSearchIsRetriedSoon(t *testing.T) {
 	ctx := context.Background()
-	st, err := store.Open(ctx, store.Options{Dir: t.TempDir()})
+	st, err := store.Open(ctx, store.Options{Dir: storetest.Dir(t)})
 	if err != nil {
 		t.Fatal(err)
 	}

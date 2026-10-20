@@ -8,11 +8,12 @@ import (
 	"github.com/hyprsh/kestrel/internal/metadata/metadatatest"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
+	"github.com/hyprsh/kestrel/internal/store/storetest"
 )
 
 func newSettings(t *testing.T) *settings.Settings {
 	t.Helper()
-	st, err := store.Open(context.Background(), store.Options{Dir: t.TempDir()})
+	st, err := store.Open(context.Background(), store.Options{Dir: storetest.Dir(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
