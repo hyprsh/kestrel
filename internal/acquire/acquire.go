@@ -130,6 +130,8 @@ type Service struct {
 	// misses counts, per Grab, the polls in a row that did not find its job.
 	misses *missCount
 	pause  GrabPause
+	// searches runs the searches started by hand, two at a time.
+	searches *background
 }
 
 // New returns a Service.
@@ -150,7 +152,7 @@ func New(d Deps) (*Service, error) {
 	svc := &Service{
 		st: d.Store, clock: d.Clock, lib: d.Library, prof: d.Profiles, idx: d.Indexers, dl: d.Downloads,
 		snap: d.Scoring, cache: &cache{m: map[string]*entry{}}, live: &liveSet{m: map[int64]Live{}}, hist: d.History, misses: &missCount{m: map[int64]int{}},
-		pause: d.Pause,
+		pause: d.Pause, searches: newBackground(2),
 	}
 	d.Scoring.OnSwap(func() {
 		svc.cache.mu.Lock()

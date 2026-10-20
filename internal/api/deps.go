@@ -145,6 +145,8 @@ type Acquire interface {
 	DiscardStalled(ctx context.Context, reason string) (int, error)
 	Discard(ctx context.Context, grabID int64) error
 	Blocklist(ctx context.Context, titleID int64) ([]acquire.Blocked, error)
+	// StartSearch is Search now: it checks the scope, then searches in the background.
+	StartSearch(ctx context.Context, versionID int64, scope acquire.Scope) error
 }
 
 // Requests is Request records and their semantics.

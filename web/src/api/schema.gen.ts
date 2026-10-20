@@ -690,6 +690,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/versions/{id}/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search now for a Version
+         * @description The automatic search for what the Version is missing, started by hand and run at once in the
+         *     background: it grabs the best Release as the sweep would. Unlike the sweep it is not held back
+         *     by the 80 % daily search budget stop; indexer pauses, backoff and Pause Grabs still apply.
+         *     Only Wanted Movies and episodes without an active Grab are searched. A Series Version is
+         *     searched once per season with a Wanted episode, narrowed by `season` and `episode_ids` in the
+         *     body (none searches the whole Series; `episode_ids` may span seasons). A Movie ignores both.
+         *     The answer comes at once; when the search is done, a `search` event in the Log says what it
+         *     grabbed, and Grabs record their own events.
+         *     A `season` the Series lacks, or an episode that is not the Series' (or not of `season`), is a
+         *     `422` naming that field with the code `unknown`.
+         */
+        post: operations["searchVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/grabs": {
         parameters: {
             query?: never;
@@ -2696,7 +2727,7 @@ export interface components {
             id: number;
             /** Format: date-time */
             at: string;
-            /** @description A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed. */
+            /** @description A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search. */
             kind: string;
             routine: boolean;
             /** Format: int64 */
@@ -3927,6 +3958,33 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ReleaseList"];
                 };
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    searchVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReleaseSearch"];
+            };
+        };
+        responses: {
+            /** @description The search started. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             404: components["responses"]["Problem"];
             422: components["responses"]["Problem"];

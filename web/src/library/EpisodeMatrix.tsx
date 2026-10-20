@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ApiError, useEpisodes, useMonitorEpisodes, usePatchSeason, type Episode } from '../api/queries'
 import { cx } from '../ui'
 import { slotLabel, versionStatus, type SlotKey } from './bits'
+import { EpisodeMenu, EpisodeTick, SeasonMenu, type EpisodeActions } from './EpisodeActions'
 import { SeasonSummary, SeasonToggle } from './SeasonSummary'
 import type { SeasonOpen } from './useSeasonOpen'
 import { EpisodeFileTip, cellTitle } from './EpisodeFileTip'
@@ -41,9 +42,11 @@ function followRow(rows: Row[], was: Row): { row: number; same: boolean } {
  * h/j/k/l) move between cells, Space (or Enter on an episode) toggles
  * monitoring, Home and End jump to the first and last row. Enter, Right and
  * Left on a season header open and close it; a closed season shows only its
- * header row, with a summary, and the arrows skip its episodes.
+ * header row, with a summary, and the arrows skip its episodes. With `actions`,
+ * each row has a menu (Shift+F10 or the menu key opens it) and x ticks an
+ * episode for the actions on several.
  */
-export function EpisodeMatrix({ titleId, slots, seasons }: { titleId: number; slots: SlotKey[]; seasons: SeasonOpen }) {
+export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: number; slots: SlotKey[]; seasons: SeasonOpen; actions?: EpisodeActions }) {
   const episodes = useEpisodes(titleId)
   const patchSeason = usePatchSeason(titleId)
   const monitor = useMonitorEpisodes(titleId)
@@ -100,6 +103,8 @@ export function EpisodeMatrix({ titleId, slots, seasons }: { titleId: number; sl
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return
     const { row, col } = pos
+    const at = rows[row]
+    if (actions?.onKey(e, at?.kind === 'episode' ? at.episode : null)) return
     const go = (r: number, c: number) => {
       e.preventDefault()
       e.stopPropagation() // the Library's own j/k/Enter must not also fire
@@ -177,6 +182,7 @@ export function EpisodeMatrix({ titleId, slots, seasons }: { titleId: number; sl
             open={seasons.isOpen(r.season)}
             onOpen={(open) => seasons.set(r.season, open)}
             slots={slots}
+            menu={actions && <SeasonMenu actions={actions} season={r.season} episodes={r.episodes} />}
           />
         ) : (
           <EpisodeRow
@@ -187,6 +193,8 @@ export function EpisodeMatrix({ titleId, slots, seasons }: { titleId: number; sl
             tab={tab}
             onFocus={(col) => setPos({ row: i, col })}
             onToggle={() => monitor.mutate({ ids: [r.episode.id], monitored: !r.episode.monitored })}
+            tick={actions && <EpisodeTick actions={actions} episode={r.episode} />}
+            menu={actions && <EpisodeMenu actions={actions} episode={r.episode} />}
           />
         ),
       )}
@@ -203,6 +211,7 @@ function SeasonRow({
   open,
   onOpen,
   slots,
+  menu,
 }: {
   row: Extract<Row, { kind: 'season' }>
   index: number
@@ -212,6 +221,7 @@ function SeasonRow({
   open: boolean
   onOpen: (open: boolean) => void
   slots: SlotKey[]
+  menu?: ReactNode
 }) {
   const on = row.episodes.filter((e) => e.monitored).length
   const checked = on === 0 ? 'false' : on === row.episodes.length ? 'true' : 'mixed'
@@ -234,6 +244,7 @@ function SeasonRow({
           {on} of {row.episodes.length} monitored
         </span>
         {!open && <SeasonSummary episodes={row.episodes} slots={slots} />}
+        {menu && <span className="ml-auto">{menu}</span>}
       </div>
     </div>
   )
@@ -246,6 +257,8 @@ function EpisodeRow({
   tab,
   onFocus,
   onToggle,
+  tick,
+  menu,
 }: {
   episode: Episode
   slots: SlotKey[]
@@ -253,12 +266,15 @@ function EpisodeRow({
   tab: (row: number, col: number) => number
   onFocus: (col: number) => void
   onToggle: () => void
+  tick?: ReactNode
+  menu?: ReactNode
 }) {
   const label = `Season ${episode.season} episode ${episode.number}`
   const [fileOpen, setFileOpen] = useState<SlotKey | null>(null)
   return (
     <div role="row" aria-rowindex={index + 2} className="flex items-center gap-3 px-3 py-1 hover:bg-gray-alpha-100">
       <div role="gridcell" className="flex min-w-0 flex-1 items-center gap-2">
+        {tick}
         <button
           type="button"
           role="checkbox"
@@ -275,6 +291,7 @@ function EpisodeRow({
         </span>
         <EpisodeName episode={episode} />
         <span className="ml-auto shrink-0 text-[12px] text-gray-900">{episode.air_date ?? 'no air date'}</span>
+        {menu}
       </div>
       {slots.map((s, c) => {
         const cell = episode.cells[s]

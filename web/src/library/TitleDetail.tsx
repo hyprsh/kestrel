@@ -1,5 +1,6 @@
 import { forwardRef } from 'react'
 import { apiBaseUrl } from '../api/client'
+import type { ReleaseScope } from '../api/grabs'
 import { ApiError, useProfiles, useSetMovieMonitored, useTitle, type Profile, type TitleDetail as Detail, type TitleRow } from '../api/queries'
 import { useOpenCleanup } from '../cleanup/launch'
 import { Button, ErrorText } from '../forms'
@@ -10,6 +11,7 @@ import { Scores } from './Score'
 import { AddVersion, RemoveTitle, VersionControls } from './ManageVersion'
 import { MoveTitle } from './MoveTitle'
 import { SeriesSection } from './SeriesSection'
+import { VersionSearch } from './VersionSearch'
 
 /** The right pane of the Library: the selected Title's header and its Standard | 4K Versions strip. */
 export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: () => void; onManualSearch: (search: ManualSearchTarget) => void }>(function TitleDetail(
@@ -43,8 +45,8 @@ export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: ()
   )
 })
 
-/** The Version a manual search is opened for. */
-export type ManualSearchTarget = { versionId: number; slot: SlotKey; profileName: string }
+/** The Version a manual search is opened for, of a Series maybe narrowed to a season or episodes. */
+export type ManualSearchTarget = { versionId: number; slot: SlotKey; profileName: string; scope?: { body: ReleaseScope; label: string } }
 
 function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (search: ManualSearchTarget) => void }) {
   const profiles = useProfiles()
@@ -86,7 +88,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
         ))}
       </div>
 
-      {title.kind === 'series' && <SeriesSection title={title} />}
+      {title.kind === 'series' && <SeriesSection title={title} onManualSearch={onManualSearch} />}
       <div className="mt-6 flex items-center gap-3">
         <Button variant="secondary" onClick={() => openCleanup([title.id])}>
           Clean up this Title
@@ -159,11 +161,7 @@ function VersionColumn({
           ) : (
             <div className="mt-1 text-[12px] text-gray-900">No file yet</div>
           )}
-          {title.kind === 'movie' && (
-            <Button variant="secondary" className="mt-3 h-7 w-full" onClick={() => onManualSearch({ versionId: v.id, slot, profileName: profileName(v.profile) })}>
-              Manual search
-            </Button>
-          )}
+          <VersionSearch versionId={v.id} wanted={v.state === 'wanted'} onManualSearch={() => onManualSearch({ versionId: v.id, slot, profileName: profileName(v.profile) })} />
           <VersionControls versionId={v.id} slot={slot} profile={v.profile} profiles={profiles} />
         </div>
       ) : (
