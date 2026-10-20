@@ -134,18 +134,3 @@ jobs:
           version: v2.18.3 # GORELEASER in the Makefile
           install-only: true
       - run: make dry-run-assets GORELEASER_CMD=goreleaser
-
-  commitlint-main:
-    name: Conventional Commit messages on main
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 26
-          cache: npm
-      - run: npm ci
-      - run: npx --no-install commitlint --from "${{ github.event.before }}" --to "${{ github.sha }}"

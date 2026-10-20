@@ -18,4 +18,4 @@ The check command is `make check` (gofmt, vet, the dead-code checks in `make lin
 
 ## Commits and PR titles
 
-commitlint (`commitlint.config.js`) checks every commit header, merge commits included, and the PR title: start the subject lower-case (`feat: title page, …`) and keep the header within 100 characters. Check a PR title before opening the PR: `printf '%s\n' "<title>" | npx --no-install commitlint`.
+`scripts/check-commit-header.sh` checks the PR title in CI, and each commit header once `make hooks` is run: a type from `feat fix docs style refactor perf test build ci chore revert`, an optional scope, a subject that starts lower-case (`feat: title page, …`) without a trailing full stop, and at most 100 characters. Squash merges use the PR title as the header on main. Check a PR title before opening the PR: `printf '%s\n' "<title>" | make commit-check`.
