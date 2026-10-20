@@ -79,6 +79,10 @@ func run(ctx context.Context) error {
 		ConfigDir:  cfg.ConfigDir,
 		TMDBAPIKey: cfg.TMDBAPIKey,
 		TVDBAPIKey: cfg.TVDBAPIKey,
+
+		TMDBAPIURL:   cfg.TMDBAPIURL,
+		TMDBImageURL: cfg.TMDBImageURL,
+		TVDBAPIURL:   cfg.TVDBAPIURL,
 	})
 	if err := kestrel.EnforceConfigFile(ctx); err != nil {
 		return err

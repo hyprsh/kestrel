@@ -59,6 +59,7 @@ Bootstrap settings are environment variables. Everything else lives in SQLite an
 | `KESTREL_DATA_DIR` | `/data` | Prefills the root folders and is the mount the disk checks watch. |
 | `KESTREL_TMDB_API_KEY` | empty | Your own [TMDB](https://www.themoviedb.org/settings/api) API key (v3). It outranks the key embedded in the build and is outranked by one saved in the UI. |
 | `KESTREL_TVDB_API_KEY` | empty | Your own TheTVDB key, same precedence. |
+| `KESTREL_TMDB_API_URL`, `KESTREL_TMDB_IMAGE_URL`, `KESTREL_TVDB_API_URL` | empty | Base URLs of the TMDB API (`https://api.themoviedb.org/3`), TMDB images (`https://image.tmdb.org/t/p`) and TheTVDB API (`https://api4.thetvdb.com/v4`), which they replace. For development and demos against stand-ins (`scripts/demo`); anything but an `http` or `https` URL stops startup. |
 | `KESTREL_API_KEY` | empty | A fixed full-access API key, for deployments that wire Kestrel up from a script. It must look like a generated key: `kst_` followed by at least 32 characters from `A-Z` and `2-7` (`echo kst_$(LC_ALL=C tr -dc A-Z2-7 </dev/urandom \| head -c 52)`); anything else stops startup. While set it replaces the key from Settings > Security, which is deleted, and rotating in the UI is disabled. Removed again, there is no key until one is generated in the UI. |
 | `KESTREL_CONFIG_FILE` | empty | Path of a [Config File](#the-config-file), which declares sections the UI then can't change. Unset, everything is set in the UI. |
 
@@ -212,6 +213,8 @@ Run `make dev-api` and `make dev-web` in two terminals, then open the Vite URL.
 
 Without a TMDB key, search and add answer `502 upstream_unavailable`. For development set `KESTREL_TMDB_API_KEY`. A release build embeds the project's keys at link time: `make build TMDB_API_KEY=... TVDB_API_KEY=...` (or `--build-arg TMDB_API_KEY=...` for `make docker`'s Dockerfile). The default build embeds none.
 
+To see a change with realistic data, no keys and no network, run Kestrel against the fakes in `scripts/demo` (TMDB, TheTVDB, a Newznab indexer and SABnzbd, seeded with a Library); the [demo skill](.claude/skills/demo/SKILL.md) walks through it, including before/after screenshots for a PR.
+
 ### Layout
 
 | Path | What lives there |
@@ -224,7 +227,7 @@ Without a TMDB key, search and add answer `502 upstream_unavailable`. For develo
 | `internal/resolution` | The SD/HD/UHD resolution classes shared by scoring and probe (a Slot is its own type in `internal/slot`). |
 | `internal/metadata` | The TMDB and TheTVDB clients (search, Movie and Series details, release dates, certifications and aliases), the TMDB to TheTVDB bridge, provider key precedence and the poster cache. `metadatatest` is a fake TMDB serving hand-written fixtures; no key is needed to run the tests. |
 | `internal/library` | Titles (Movies and Series with seasons and episodes), Versions, files, monitoring and search state, plus the add panel's preselection (`Suggest`). |
-| `scripts/` | Dev-only tools: fixture extraction, golden-file regeneration for the parser port and the Custom Format parity harness, TRaSH snapshot refresh (Docker, never run in CI). |
+| `scripts/` | Dev-only tools: fixture extraction, golden-file regeneration for the parser port and the Custom Format parity harness, TRaSH snapshot refresh (Docker, never run in CI), and the demo: fake providers, seed data and a headless-browser driver (`scripts/demo`). |
 | `api/openapi.yaml` | The hand-written API contract and the source of truth. |
 | `internal/api/oapi` | Generated Go server interface and models (oapi-codegen, strict server). Do not edit. |
 | `internal/store/migrations` | goose migrations, embedded in the binary. Also the schema sqlc reads. |

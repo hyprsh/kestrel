@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -24,6 +25,11 @@ type Config struct {
 	// Provider keys: they rank below the UI override and above the key embedded in the build.
 	TMDBAPIKey string // KESTREL_TMDB_API_KEY
 	TVDBAPIKey string // KESTREL_TVDB_API_KEY
+	// Provider base URLs: empty means the real services. They point Kestrel at
+	// stand-ins, such as the demo fakes in scripts/demo.
+	TMDBAPIURL   string // KESTREL_TMDB_API_URL
+	TMDBImageURL string // KESTREL_TMDB_IMAGE_URL
+	TVDBAPIURL   string // KESTREL_TVDB_API_URL
 	// APIKey is Kestrel's own full-access key when set: it replaces the one
 	// generated in the UI.
 	APIKey string // KESTREL_API_KEY
@@ -72,6 +78,24 @@ func Load(getenv func(string) string) (Config, error) {
 	if c.APIKey = strings.TrimSpace(getenv("KESTREL_API_KEY")); c.APIKey != "" && !apiKeyFormat.MatchString(c.APIKey) {
 		c.APIKey = ""
 		return c, errors.New("KESTREL_API_KEY: not a Kestrel API key, which is kst_ followed by at least 32 characters from A-Z and 2-7")
+	}
+
+	for _, u := range []struct {
+		key  string
+		into *string
+	}{
+		{"KESTREL_TMDB_API_URL", &c.TMDBAPIURL},
+		{"KESTREL_TMDB_IMAGE_URL", &c.TMDBImageURL},
+		{"KESTREL_TVDB_API_URL", &c.TVDBAPIURL},
+	} {
+		v := strings.TrimSpace(getenv(u.key))
+		if v == "" {
+			continue
+		}
+		if p, err := url.Parse(v); err != nil || (p.Scheme != "http" && p.Scheme != "https") || p.Host == "" {
+			return c, fmt.Errorf("%s: %q is not an http or https URL", u.key, v)
+		}
+		*u.into = v
 	}
 
 	if b := strings.Trim(getenv("KESTREL_BASE_URL"), "/"); b != "" {
