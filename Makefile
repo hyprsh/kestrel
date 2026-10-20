@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: typecheck release-dry-run dry-run-assets test-go-shard notices build-silo help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet compose-check commitlint hooks docker check
+.PHONY: typecheck release-dry-run dry-run-assets test-go-shard test-go-race test-parity notices build-silo help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet compose-check commitlint hooks docker check
 
 VERSION ?= dev
 # The project's TMDB and TVDB keys are injected at link time; the default build embeds none.
@@ -22,24 +22,33 @@ generate-check: generate ## Fail if generated code differs from what is committe
 
 test: test-go test-web ## Run all tests
 
-test-go: ## Go tests with the race detector
-	go test -race -timeout 30m ./...
+test-go: test-go-race test-parity ## Go tests: the race detector on all but the Radarr and Sonarr parity suites
 
-# CI splits test-go across parallel jobs. The parity suites (thousands of Radarr
-# and Sonarr fixtures, in parallel subtests) are the heaviest tests, so they get a
-# shard of their own; HEAVY_PKGS are the next heaviest. rest is everything else.
-PARITY_TESTS := ^(TestMovieMatchedFormatsEqualRadarrs|TestSeriesMatchedFormatsEqualSonarrs|TestGoldenParityWithRadarr|TestGoldenSeriesParityWithSonarr)$$
+# The Radarr and Sonarr parity suites (every test named after them) replay thousands
+# of fixtures through read-only parsing and scoring tables: seconds without the race
+# detector, minutes with it. holder_test and gate_test keep the shared scoring
+# snapshot under -race.
+PARITY_TESTS := Radarr|Sonarr
+
+test-go-race: ## Go tests with the race detector, minus the parity suites
+	go test -race -timeout 30m -skip '$(PARITY_TESTS)' ./...
+
+test-parity: ## The Radarr and Sonarr parity suites, without the race detector
+	go test -run '$(PARITY_TESTS)' ./...
+
+# CI splits test-go across parallel jobs: api (the largest package), domain (the
+# heaviest after it), rest (every other package) and parity.
 HEAVY_PKGS := ./internal/scoring/... ./internal/acquire/... ./internal/release/...
 
-test-go-shard: ## One CI shard of test-go: GO_SHARD=api|parity|domain|rest
+test-go-shard: ## One CI shard of test-go: GO_SHARD=api|domain|rest|parity
 	@case "$(GO_SHARD)" in \
-	  api) set -- ./internal/api/... ;; \
-	  parity) set -- -run '$(PARITY_TESTS)' ./internal/scoring ./internal/release ;; \
-	  domain) set -- -skip '$(PARITY_TESTS)' $(HEAVY_PKGS) ;; \
-	  rest) set -- $$(go list ./... | grep -v -E '/internal/(api|scoring|acquire|release)(/|$$)') ;; \
-	  *) echo "GO_SHARD must be api, parity, domain or rest"; exit 1 ;; \
+	  api) set -- -race -skip '$(PARITY_TESTS)' ./internal/api/... ;; \
+	  domain) set -- -race -skip '$(PARITY_TESTS)' $(HEAVY_PKGS) ;; \
+	  rest) set -- -race -skip '$(PARITY_TESTS)' $$(go list ./... | grep -v -E '/internal/(api|scoring|acquire|release)(/|$$)') ;; \
+	  parity) set -- -run '$(PARITY_TESTS)' ./... ;; \
+	  *) echo "GO_SHARD must be api, domain, rest or parity"; exit 1 ;; \
 	esac; \
-	go test -race -timeout 30m "$$@"
+	go test -timeout 30m "$$@"
 
 test-ffprobe: ## Real-ffprobe suite on ffmpeg-generated MKVs (needs ffmpeg and ffprobe on PATH; CI runs it)
 	go test -race -tags ffprobe ./internal/probe/

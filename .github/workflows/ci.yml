@@ -25,12 +25,12 @@ jobs:
 
   go:
     # make test-go, split across parallel jobs (see test-go-shard in the Makefile).
-    name: Go tests (race detector, ${{ matrix.shard }})
+    name: Go tests (${{ matrix.shard }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [api, parity, domain, rest]
+        shard: [api, domain, rest, parity]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
