@@ -13,6 +13,7 @@ import { slotLabel, type SlotKey } from './bits'
 import { episodeCode, seasonName, type ActionStatus, type EpisodeVersion } from './episodes'
 import { DeleteMenuItems, DeleteTickedButtons, EpisodeDeleteConfirm, useEpisodeDeletes, type EpisodeDeletes } from './DeleteFiles'
 import type { ManualSearchTarget } from './TitleDetail'
+import { useFade } from './useFade'
 import type { SeasonOpen } from './useSeasonOpen'
 
 const episodeName = (e: Episode) => `Season ${e.season} episode ${e.number}`
@@ -56,6 +57,7 @@ export function useEpisodeActions(
   const searchNow = useSearchNow()
   const [status, setStatus] = useState<ActionStatus>(null)
   const deletes = useEpisodeDeletes(episodes, setStatus)
+  useFade(status?.fades ? status : null, () => setStatus(null))
 
   const names = new Map((profiles.data ?? []).map((p) => [p.key, p.name]))
   const versions: EpisodeVersion[] = slots.flatMap((slot) => {
@@ -70,7 +72,7 @@ export function useEpisodeActions(
     })
     if (runs.length === 0) return
     const where = runs.map((r) => slotLabel[r.v.slot]).join(' and ')
-    setStatus({ text: `Searching ${label} in ${where}… The Log shows what it grabs.`, error: false })
+    setStatus({ text: `Searching ${label} in ${where}… The Log shows what it grabs.`, error: false, fades: true })
     Promise.all(runs.map((r) => searchNow.mutateAsync({ versionId: r.v.id, scope: r.scope }))).catch((err: Error) =>
       setStatus({ text: `Could not search ${label}: ${err.message}`, error: true }),
     )

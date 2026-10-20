@@ -14,5 +14,5 @@ export const seasonName = (n: number) => (n === 0 ? 'Specials' : `Season ${n}`)
 /** One of the Series' Versions as the episode grid's actions see it. */
 export type EpisodeVersion = { id: number; slot: SlotKey; profileName: string }
 
-/** What the last Search now or deletion said, above the grid. */
-export type ActionStatus = { text: string; error: boolean } | null
+/** What the last Search now or deletion said, above the grid; one that `fades` goes after a few seconds. */
+export type ActionStatus = { text: string; error: boolean; fades?: boolean } | null

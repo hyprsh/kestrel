@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
 import { episode, fakeSeries } from '../test/series'
@@ -51,6 +51,21 @@ describe('searching from the episodes heat map', () => {
 
     await waitFor(() => expect(searched).toEqual([{ version: 52, body: { season: 1, episode_ids: [2] } }]))
     expect(await screen.findByText(/Searching S01E01/)).toBeInTheDocument()
+  })
+
+  it('lets the Searching notice go after a few seconds', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      const { grid } = await openSeries()
+      await choose(grid, 'Actions for Season 1 episode 1', 'Search')
+      expect(await screen.findByText(/Searching S01E01/)).toBeInTheDocument()
+
+      act(() => vi.advanceTimersByTime(10_000))
+
+      expect(screen.queryByText(/Searching S01E01/)).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('cannot search an episode nothing wants', async () => {
