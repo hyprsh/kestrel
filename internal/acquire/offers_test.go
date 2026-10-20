@@ -271,3 +271,23 @@ func TestAnAcceptedOriginalIsReplacedByAnyPrimaryLanguageRelease(t *testing.T) {
 		t.Fatalf("RSS = %+v, %v: want the German Release despite its lower Score", out, err)
 	}
 }
+
+func TestAnOriginalNamingAnEpisodeTheSeriesDoesNotHaveIsNotOffered(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	r.offering(t)
+	id, ver := r.nightShow(t, library.MonitorAll)
+	r.publishShow(t, nightEp1, "1", "1")
+	r.publishShow(t, "Night.Show.S01E03.1080p.WEB-DL.H264-GRP", "1", "3") // qualifies for a Placeholder Episode
+
+	if _, err := r.svc.SearchNew(ctx, id, []int64{ver}); err != nil {
+		t.Fatal(err)
+	}
+	offers := r.offers(t)
+	if len(offers) != 1 || len(offers[0].Releases) != 1 || offers[0].Releases[0].Name != nightEp1 {
+		t.Fatalf("offers = %+v, want S01E01 alone", offers)
+	}
+	if _, ok := r.placeholderAt(t, id, 1, 3); ok {
+		t.Error("an offer added a Placeholder Episode")
+	}
+}
