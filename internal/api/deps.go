@@ -191,7 +191,7 @@ type Rescorer interface {
 // Version's files, recording both in the Log.
 type TitleFiles interface {
 	Move(ctx context.Context, titleID int64, root string) (imports.Moved, error)
-	DeleteFiles(ctx context.Context, versionID int64, scope library.Scope) (imports.Deleted, error)
+	DeleteFiles(ctx context.Context, versionID int64, scope library.Scope, blocklist bool) (imports.Deleted, error)
 }
 
 // Jobs is the loop runner.

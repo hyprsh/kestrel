@@ -602,8 +602,10 @@ export interface paths {
          *     file of the Version. A file holding several episodes (a season pack, a double episode) is
          *     deleted whole, so every episode it holds loses its file, also those outside the scope.
          *     With `blocklist` each file's Release goes on the Blocklist, so it is not grabbed again; a file
-         *     Kestrel did not grab (an adopted one) cannot be and says so in `blocklisted`.
-         *     A `delete` event in the Log names the files. It waits for an Import into the Title to finish.
+         *     Kestrel did not grab (an adopted one) cannot be, and says so in `blocklisted`, as does one
+         *     whose Release could not be blocklisted: the file is deleted all the same.
+         *     A `delete` event in the Log names the files and the Releases blocklisted. It waits for an
+         *     Import into the Title to finish.
          *     A `season` the Series lacks (a negative one included), or an episode that is not the Series'
          *     (or not of `season`), is a `422` naming that field (`season` or `episode_ids`) with the code
          *     `unknown`; on a Movie either is a `422` with the code `not_a_series`. There are no other
@@ -2370,7 +2372,7 @@ export interface components {
             release_name: string;
             /** @description Every episode that lost its file, in aired order; empty for a Movie. */
             episode_ids: number[];
-            /** @description The Release went on the Blocklist. False unless asked, and for a file Kestrel did not grab. */
+            /** @description The Release went on the Blocklist. False unless asked, for a file Kestrel did not grab and when blocklisting failed. */
             blocklisted: boolean;
         };
         /**

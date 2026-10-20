@@ -1346,7 +1346,7 @@ type CustomFormatMatch struct {
 
 // DeletedFile defines model for DeletedFile.
 type DeletedFile struct {
-	// Blocklisted The Release went on the Blocklist. False unless asked, and for a file Kestrel did not grab.
+	// Blocklisted The Release went on the Blocklist. False unless asked, for a file Kestrel did not grab and when blocklisting failed.
 	Blocklisted bool `json:"blocklisted"`
 
 	// EpisodeIds Every episode that lost its file, in aired order; empty for a Movie.

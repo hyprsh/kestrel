@@ -20,12 +20,12 @@ const code = (e: Episode) => `S${two(e.season)}E${two(e.number)}`
 const base = (path: string) => path.split(/[\\/]/).pop() ?? path
 const files = (n: number) => (n === 1 ? '1 file' : `${n} files`)
 
-/** What a deletion did, for the status line: the files, and those whose Release could not be blocklisted. */
+/** What a deletion did, for the status line: the files, and those whose Release was not blocklisted. */
 function deletedText(res: DeletedFiles, blocklist: boolean, label?: string) {
   if (res.files.length === 0) return `Nothing to delete${label ? ` in ${label}` : ''}.`
   let text = `Deleted ${files(res.files.length)}${label ? ` of ${label}` : ''}.`
   const missed = res.files.filter((f) => !f.blocklisted).length
-  if (blocklist && missed > 0) text += ` ${files(missed)} not blocklisted: Kestrel did not grab ${missed === 1 ? 'it' : 'them'}.`
+  if (blocklist && missed > 0) text += ` ${files(missed)} not blocklisted: Kestrel did not grab or could not blocklist ${missed === 1 ? 'it' : 'them'}.`
   return text
 }
 

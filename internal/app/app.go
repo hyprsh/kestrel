@@ -168,7 +168,7 @@ func New(opts Options) *App {
 	})
 	imp, err := imports.New(imports.Deps{
 		Library: lib, Renames: lib, Profiles: profs, Prober: prober, Clock: opts.Clock, Health: healthSvc,
-		FolderChanged: mediaRefresh.FolderChanged, Scoring: live, Rename: opts.RenameFolder, History: hist,
+		FolderChanged: mediaRefresh.FolderChanged, Scoring: live, Rename: opts.RenameFolder, History: hist, Blocklist: acq,
 	})
 	if err != nil {
 		panic("app: Import cannot start: " + err.Error())
