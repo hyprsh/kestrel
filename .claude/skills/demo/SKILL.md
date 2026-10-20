@@ -37,7 +37,7 @@ Keep every binary, scenario and screenshot in your scratchpad (`$S` below). Run 
 
 6. **Stop.** `scripts/demo/demo.sh stop`. Done when nothing listens on the demo ports.
 
-7. **Publish.** `scripts/demo/publish.sh <PR> $S/shots` commits the images to the orphan branch `pr-assets/<PR>` and prints a raw URL per image, pinned to that commit. Embed them in the PR body's Evidence section, one Before/After table per change, with alt text saying what the shot shows:
+7. **Publish.** `scripts/demo/publish.sh <PR> $S/shots` commits the images to the folder `<PR>/` of the orphan branch `pr-assets`, which holds every PR's screenshots, and prints a raw URL per image, pinned to that commit. Embed them in the PR body's Evidence section, one Before/After table per change, with alt text saying what the shot shows:
 
    ```markdown
    - **Before:** what the screen did. **After:** what it does now.
