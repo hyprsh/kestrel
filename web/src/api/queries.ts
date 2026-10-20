@@ -361,6 +361,25 @@ export function useLookupDetail(kind: LookupResult['kind'], tmdbId: number) {
   })
 }
 
+/**
+ * A Series' overview from TheTVDB, loaded apart from the lookup so the add
+ * panel never waits for it; null for a Series TheTVDB does not have.
+ */
+export function useSeriesOverview(tmdbId: number, enabled: boolean) {
+  return useQuery({
+    queryKey: ['lookup', 'series', tmdbId, 'overview'],
+    retry: false,
+    enabled,
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/lookup/series/{tmdb_id}/overview', { params: { path: { tmdb_id: tmdbId } } })
+      if (data) return data
+      const err = failure(error, response)
+      if (err.code === 'not_on_tvdb') return null
+      throw err
+    },
+  })
+}
+
 export function useCreateTitle() {
   const qc = useQueryClient()
   return useMutation({

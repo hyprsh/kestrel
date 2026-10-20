@@ -1,4 +1,6 @@
+import { ApiError } from '../api/queries'
 import type { components } from '../api/schema.gen'
+import { ErrorText } from '../forms'
 
 export type LookupSeries = components['schemas']['LookupSeries']
 type LookupSeason = components['schemas']['LookupSeason']
@@ -18,7 +20,20 @@ export function SeriesFacts({ series }: { series: LookupSeries }) {
   return <p className="text-gray-900">{facts.join(' · ')}</p>
 }
 
-export const seasonName = (n: number) => (n === 0 ? 'Specials' : `Season ${n}`)
+/**
+ * The Series overview's line in the add panel: loading until TheTVDB answers,
+ * its own error when that fails (the rest of the panel stays usable), then the
+ * status, network and air dates.
+ */
+export function SeriesOverviewLine({ overview }: { overview: { data?: LookupSeries | null; isPending: boolean; error: Error | null } }) {
+  if (overview.error) {
+    return <ErrorText>Could not load the series overview{overview.error instanceof ApiError ? `: ${overview.error.message}` : '.'}</ErrorText>
+  }
+  if (overview.isPending) return <p className="text-gray-900">Loading the series overview…</p>
+  return overview.data ? <SeriesFacts series={overview.data} /> : null
+}
+
+const seasonName = (n: number) => (n === 0 ? 'Specials' : `Season ${n}`)
 
 function seasonAired(s: LookupSeason) {
   if (!s.first_aired) return 'not aired yet'

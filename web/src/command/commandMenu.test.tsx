@@ -37,7 +37,6 @@ const defaultSuggestion = (id: number, title: string): Suggestion => ({
   poster: null,
   runtime: null,
   genres: [],
-  series: null,
 })
 
 /** TMDB lookups: Paddington is addable, Paddington Returns is already in the Library. */

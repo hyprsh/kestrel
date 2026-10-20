@@ -37,6 +37,9 @@ function fakeSeriesLookup() {
         next_cursor: null,
       }),
     ),
+    http.get('/lookup/series/{tmdb_id}/overview', ({ response }) =>
+      response(404).json({ type: 'about:blank', title: 'not found', status: 404, detail: 'This Series is not on TheTVDB', code: 'not_on_tvdb' }),
+    ),
     http.get('/lookup/{kind}/{tmdb_id}', ({ params, response }) =>
       response(200).json({
         kind: 'series',
@@ -52,7 +55,6 @@ function fakeSeriesLookup() {
         poster: null,
         runtime: null,
         genres: [],
-        series: null,
       }),
     ),
     http.post('/titles', async ({ request, response }) => {

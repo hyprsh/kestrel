@@ -357,10 +357,37 @@ export interface paths {
          * @description The Slots to preselect when adding it: every Slot with a default Profile for the kind, resolved
          *     by Profile resolution. Each Slot says why (`reason`) and carries a display `label`, the
          *     Profile's name. Requests use the same logic.
-         *     A Series also carries its overview (`series`): status, network, air dates and seasons, read
-         *     from TheTVDB, so this call waits on TheTVDB as well as TMDB.
+         *     It reads TMDB only. A Series' overview (status, network, air dates and seasons) comes from
+         *     TheTVDB through `GET /lookup/series/{tmdb_id}/overview`, so the panel can open before TheTVDB
+         *     answers and a TheTVDB failure affects only the overview.
          */
         get: operations["lookupTitle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lookup/series/{tmdb_id}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tmdb_id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * A search result's Series overview, from TheTVDB
+         * @description The add panel's Series overview: whether it is running or ended, its network, its first and
+         *     last air dates and every season with its episode count and air dates. It reads TMDB and
+         *     TheTVDB, so it can take longer than `GET /lookup/{kind}/{tmdb_id}`; the add panel loads it
+         *     on its own. `404 not_found` when TMDB has no such Series, `404 not_on_tvdb` when TheTVDB does
+         *     not have it (it cannot be added either), `502` when a provider fails.
+         */
+        get: operations["lookupSeriesOverview"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2017,9 +2044,11 @@ export interface components {
              *     ]
              */
             genres: string[];
-            /** @description The Series overview; `null` for a Movie and for a Series TheTVDB does not have. */
-            series: components["schemas"]["LookupSeries"] | null;
         };
+        /**
+         * @description A Series' overview for the add panel (`GET /lookup/series/{tmdb_id}/overview`): status,
+         *     network, air dates and seasons.
+         */
         LookupSeries: {
             /**
              * @description `continuing`, `ended` or `upcoming`, as TheTVDB says. Clients tolerate new values.
@@ -3645,6 +3674,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LookupDetail"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    lookupSeriesOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tmdb_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The overview. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LookupSeries"];
                 };
             };
             404: components["responses"]["Problem"];

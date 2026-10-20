@@ -1598,9 +1598,6 @@ type LookupDetail struct {
 	// Runtime Minutes; a typical episode's for a Series.
 	Runtime *int `json:"runtime"`
 
-	// Series The Series overview; `null` for a Movie and for a Series TheTVDB does not have.
-	Series *LookupSeries `json:"series"`
-
 	// Slots Every Slot with a default Profile for the kind, in Slot order.
 	Slots  []SuggestedSlot `json:"slots"`
 	Title  string          `json:"title"`
@@ -1650,7 +1647,8 @@ type LookupSeason struct {
 	Number int `json:"number"`
 }
 
-// LookupSeries defines model for LookupSeries.
+// LookupSeries A Series' overview for the add panel (`GET /lookup/series/{tmdb_id}/overview`): status,
+// network, air dates and seasons.
 type LookupSeries struct {
 	// FirstAired The first episode's air date, Specials aside.
 	FirstAired *openapi_types.Date `json:"first_aired"`
@@ -3433,6 +3431,9 @@ type ServerInterface interface {
 	// Lookup Search the metadata provider for Titles to add
 	// (GET /lookup)
 	Lookup(w http.ResponseWriter, r *http.Request, params LookupParams)
+	// LookupSeriesOverview A search result's Series overview, from TheTVDB
+	// (GET /lookup/series/{tmdb_id}/overview)
+	LookupSeriesOverview(w http.ResponseWriter, r *http.Request, tmdbId int)
 	// LookupTitle One search result with the add panel's suggested Slots and Profiles
 	// (GET /lookup/{kind}/{tmdb_id})
 	LookupTitle(w http.ResponseWriter, r *http.Request, kind TitleKind, tmdbId int)
@@ -4212,6 +4213,32 @@ func (siw *ServerInterfaceWrapper) Lookup(w http.ResponseWriter, r *http.Request
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.Lookup(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LookupSeriesOverview operation middleware
+func (siw *ServerInterfaceWrapper) LookupSeriesOverview(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tmdb_id" -------------
+	var tmdbId int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tmdb_id", r.PathValue("tmdb_id"), &tmdbId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tmdb_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LookupSeriesOverview(w, r, tmdbId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5611,6 +5638,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/profiles/{key}", wrapper.PatchProfile)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/lookup", wrapper.Lookup)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/lookup/{kind}/{tmdb_id}", wrapper.LookupTitle)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/lookup/series/{tmdb_id}/overview", wrapper.LookupSeriesOverview)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles", wrapper.ListTitles)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles", wrapper.CreateTitle)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/titles/bulk", wrapper.BulkTitles)
@@ -7143,6 +7171,75 @@ type LookupdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response LookupdefaultApplicationProblemPlusJSONResponse) VisitLookupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupSeriesOverviewRequestObject struct {
+	TmdbId int `json:"tmdb_id"`
+}
+
+type LookupSeriesOverviewResponseObject interface {
+	VisitLookupSeriesOverviewResponse(w http.ResponseWriter) error
+}
+
+type LookupSeriesOverview200JSONResponse LookupSeries
+
+func (response LookupSeriesOverview200JSONResponse) VisitLookupSeriesOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupSeriesOverview404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response LookupSeriesOverview404ApplicationProblemPlusJSONResponse) VisitLookupSeriesOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupSeriesOverview502ApplicationProblemPlusJSONResponse Problem
+
+func (response LookupSeriesOverview502ApplicationProblemPlusJSONResponse) VisitLookupSeriesOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupSeriesOverviewdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LookupSeriesOverviewdefaultApplicationProblemPlusJSONResponse) VisitLookupSeriesOverviewResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -10099,6 +10196,9 @@ type StrictServerInterface interface {
 	// Lookup Search the metadata provider for Titles to add
 	// (GET /lookup)
 	Lookup(ctx context.Context, request LookupRequestObject) (LookupResponseObject, error)
+	// LookupSeriesOverview A search result's Series overview, from TheTVDB
+	// (GET /lookup/series/{tmdb_id}/overview)
+	LookupSeriesOverview(ctx context.Context, request LookupSeriesOverviewRequestObject) (LookupSeriesOverviewResponseObject, error)
 	// LookupTitle One search result with the add panel's suggested Slots and Profiles
 	// (GET /lookup/{kind}/{tmdb_id})
 	LookupTitle(ctx context.Context, request LookupTitleRequestObject) (LookupTitleResponseObject, error)
@@ -11046,6 +11146,32 @@ func (sh *strictHandler) Lookup(w http.ResponseWriter, r *http.Request, params L
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(LookupResponseObject); ok {
 		if err := validResponse.VisitLookupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LookupSeriesOverview operation middleware
+func (sh *strictHandler) LookupSeriesOverview(w http.ResponseWriter, r *http.Request, tmdbId int) {
+	var request LookupSeriesOverviewRequestObject
+
+	request.TmdbId = tmdbId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LookupSeriesOverview(ctx, request.(LookupSeriesOverviewRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LookupSeriesOverview")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LookupSeriesOverviewResponseObject); ok {
+		if err := validResponse.VisitLookupSeriesOverviewResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
