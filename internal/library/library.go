@@ -177,6 +177,7 @@ type Detail struct {
 	Folder           string
 	AddedAt          time.Time
 	RefreshedAt      time.Time
+	Score            metadata.Score // TMDB's audience score, as of the last refresh
 	ReleaseDates     metadata.ReleaseDates
 	Aliases          []Alias
 	Versions         []Version // in Slot order
@@ -278,12 +279,14 @@ func (s *Service) AddMovie(ctx context.Context, a AddMovie) (int64, error) {
 // release dates, and returns its id. Versions are the caller's.
 func insertMovie(ctx context.Context, q *db.Queries, a AddMovie, primary, now string) (int64, error) {
 	d := a.Details
+	voteAverage, voteCount := scoreColumns(d.Score)
 	id, err := q.InsertTitle(ctx, db.InsertTitleParams{
 		Kind: string(Movie), TmdbID: nullInt(d.TMDBID), ImdbID: nullStr(d.IMDbID),
 		Title: d.Title, OriginalTitle: d.OriginalTitle, PrimaryTitle: primary,
 		Year: nullInt(d.Year), OriginalLanguage: d.OriginalLanguage, Overview: d.Overview,
 		Runtime: nullInt(d.Runtime), PosterPath: nullStr(d.PosterPath), Monitored: 1,
 		RootFolder: a.RootFolder, AddedAt: now, RefreshedAt: now,
+		TmdbVoteAverage: voteAverage, TmdbVoteCount: voteCount,
 	})
 	if err != nil {
 		return 0, err
@@ -505,7 +508,7 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 		Title: t.Title, OriginalTitle: t.OriginalTitle, PrimaryTitle: t.PrimaryTitle, Year: int(t.Year.Int64),
 		OriginalLanguage: t.OriginalLanguage, Overview: t.Overview, Runtime: int(t.Runtime.Int64), PosterPath: t.PosterPath.String,
 		Monitored: t.Monitored == 1, MetadataFrozen: t.MetadataFrozen == 1, RootFolder: t.RootFolder, Folder: t.Folder.String,
-		AddedAt: parseTime(t.AddedAt), RefreshedAt: parseTime(t.RefreshedAt),
+		AddedAt: parseTime(t.AddedAt), RefreshedAt: parseTime(t.RefreshedAt), Score: scoreOf(t),
 	}
 	d.ReleaseDates = releaseDatesOf(dates)
 	for _, a := range aliases {
