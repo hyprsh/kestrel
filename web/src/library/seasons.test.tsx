@@ -116,10 +116,10 @@ describe('collapsible seasons in the episode grid', () => {
     expect(within(grid).getByRole('checkbox', { name: 'Season 0 episode 1 monitored' })).toBeInTheDocument()
   })
 
-  it("sums up a closed season per Slot: filled, Wanted and downloading episodes and the air years", async () => {
+  it('sums up a closed season per Slot: filled and Wanted episodes and the air years', async () => {
     const state = fakeSeries()
     const eps = state.get().episodes
-    eps[1] = { ...eps[1], cells: { standard: cell('filled', 120), '4k': cell('downloading') } }
+    eps[1] = { ...eps[1], cells: { standard: cell('filled', 120), '4k': cell('wanted') } }
     eps.push(episode(4, 1, 3, '...And the Bag\'s in the River', { air_date: '2009-02-03' }))
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
@@ -134,7 +134,8 @@ describe('collapsible seasons in the episode grid', () => {
     await userEvent.click(within(grid).getByRole('button', { name: 'Season 1 episodes' }))
     expect(header('Season 1')).toHaveTextContent('3 episodes · 2008–2009')
     expect(header('Season 1')).toHaveTextContent('Standard 1/3 filled, 1 Wanted')
-    expect(header('Season 1')).toHaveTextContent('4K 0/3 filled, 1 Wanted, 1 downloading')
+    expect(header('Season 1')).toHaveTextContent('4K 0/3 filled, 2 Wanted')
+    expect(header('Season 1')).not.toHaveTextContent('downloading')
   })
 
   it('opens the latest season and any season with Wanted episodes, and closes the rest', async () => {

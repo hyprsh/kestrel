@@ -29,7 +29,8 @@ export function SeasonToggle({ name, open, onToggle, onFocus }: { name: string; 
 
 /**
  * How a closed season stands: its episode count and air years, and per Slot
- * how many episodes are filled, Wanted or downloading.
+ * how many episodes are filled and Wanted. An episode cell is never
+ * downloading (the Grab shows in "Downloading now"), so that is not counted.
  */
 export function SeasonSummary({ episodes, slots }: { episodes: Episode[]; slots: SlotKey[] }) {
   const years = episodes.flatMap((e) => (e.air_date ? [Number(e.air_date.slice(0, 4))] : []))
@@ -45,12 +46,10 @@ export function SeasonSummary({ episodes, slots }: { episodes: Episode[]; slots:
       </span>
       {slots.map((s) => {
         const wanted = count(s, 'wanted')
-        const downloading = count(s, 'downloading')
         return (
           <span key={s}>
             {slotLabel[s]} {count(s, 'filled')}/{episodes.length} filled
             {wanted > 0 && `, ${wanted} Wanted`}
-            {downloading > 0 && `, ${downloading} downloading`}
           </span>
         )
       })}
