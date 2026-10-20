@@ -22,6 +22,7 @@ const result = (over: Partial<LookupResult> = {}): LookupResult => ({
   in_library: null,
   addable: true,
   not_addable_reason: null,
+  ratings: [],
   ...over,
 })
 
@@ -36,6 +37,7 @@ const breakingBad: Suggestion = {
   certification: 'TV-MA',
   certification_country: 'US',
   slots: [{ slot: 'standard', profile: 'hd-primary', label: 'HD', reason: 'default' }],
+  ratings: [],
   poster: 'https://image.tmdb.org/t/p/w185/bb.jpg',
   runtime: 47,
   genres: ['Drama', 'Crime'],

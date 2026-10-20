@@ -20,6 +20,7 @@ const result = (id: number, title: string, over: Partial<LookupResult> = {}): Lo
   in_library: null,
   addable: true,
   not_addable_reason: null,
+  ratings: [],
   ...over,
 })
 
@@ -47,6 +48,7 @@ function fakeSeriesLookup() {
         certification: 'TV-MA',
         certification_country: 'US',
         slots: [{ slot: 'standard', profile: 'hd-primary', label: 'HD', reason: 'default' }],
+        ratings: [],
         poster: null,
         runtime: null,
         genres: [],

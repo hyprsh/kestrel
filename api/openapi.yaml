@@ -2521,7 +2521,7 @@ components:
       enum: [wanted, filled, downloading, unmonitored, unreleased]
     LookupResult:
       type: object
-      required: [kind, tmdb_id, tvdb_id, title, year, poster, in_library, addable, not_addable_reason]
+      required: [kind, tmdb_id, tvdb_id, title, year, poster, in_library, addable, not_addable_reason, ratings]
       properties:
         kind:
           $ref: "#/components/schemas/TitleKind"
@@ -2550,6 +2550,11 @@ components:
           type: string
           nullable: true
           description: "`not_on_tvdb` for a Series TheTVDB does not have; `null` when addable. Clients tolerate new values."
+        ratings:
+          type: array
+          description: Scores for the Title from ratings sources; empty when none has one.
+          items:
+            $ref: "#/components/schemas/Rating"
     LookupList:
       type: object
       required: [items, next_cursor]
@@ -2580,7 +2585,7 @@ components:
           enum: [default]
     LookupDetail:
       type: object
-      required: [kind, tmdb_id, title, year, overview, in_library, certification, certification_country, slots, poster, runtime, genres, series]
+      required: [kind, tmdb_id, title, year, overview, in_library, certification, certification_country, slots, ratings, poster, runtime, genres, series]
       properties:
         kind:
           $ref: "#/components/schemas/TitleKind"
@@ -2610,6 +2615,11 @@ components:
           description: Every Slot with a default Profile for the kind, in Slot order.
           items:
             $ref: "#/components/schemas/SuggestedSlot"
+        ratings:
+          type: array
+          description: Scores for the Title from ratings sources; empty when none has one.
+          items:
+            $ref: "#/components/schemas/Rating"
         poster:
           type: string
           nullable: true
@@ -4049,9 +4059,40 @@ components:
         certification:
           type: string
           nullable: true
+    Rating:
+      type: object
+      required: [source, value, scale, votes, url]
+      description: One score for a Title from a ratings source. Today only TMDB's audience score.
+      properties:
+        source:
+          type: string
+          description: "Where the score is from: `tmdb`. Clients tolerate new values."
+          example: tmdb
+        value:
+          type: number
+          format: double
+          nullable: true
+          description: The score on the source's scale; `null` when the source has none yet.
+          example: 8.4
+        scale:
+          type: number
+          format: double
+          nullable: true
+          description: The best score on the source's scale, such as 10.
+          example: 10
+        votes:
+          type: integer
+          nullable: true
+          description: How many votes the score averages.
+          example: 21000
+        url:
+          type: string
+          nullable: true
+          description: The Title's page at the source.
+          example: https://www.themoviedb.org/movie/116149
     TitleDetail:
       type: object
-      required: [id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, has_poster, monitored, metadata_frozen, root_folder, folder, added_at, refreshed_at, certification, release_dates, series_monitor, seasons, versions, requests]
+      required: [id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, has_poster, monitored, metadata_frozen, root_folder, folder, added_at, refreshed_at, certification, release_dates, series_monitor, seasons, versions, requests, ratings]
       properties:
         id:
           type: integer
@@ -4133,6 +4174,11 @@ components:
           description: In Slot order.
           items:
             $ref: "#/components/schemas/VersionDetail"
+        ratings:
+          type: array
+          description: Scores for the Title from ratings sources; empty when none has one.
+          items:
+            $ref: "#/components/schemas/Rating"
     RequestTitle:
       type: object
       required: [kind]

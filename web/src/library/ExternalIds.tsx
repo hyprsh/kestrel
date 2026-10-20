@@ -1,0 +1,22 @@
+import { ExternalLink } from 'lucide-react'
+import { Fragment } from 'react'
+import { titleLinks } from './links'
+
+/** A Title's TMDB, IMDb and TheTVDB ids, each opening the Title on its site in a new tab. */
+export function ExternalIds({ title }: { title: Parameters<typeof titleLinks>[0] }) {
+  const links = titleLinks(title)
+  if (links.length === 0) return null
+  return (
+    <div className="mt-0.5 font-mono text-[11px] text-gray-900">
+      {links.map((l, i) => (
+        <Fragment key={l.href}>
+          {i > 0 && ' · '}
+          <a href={l.href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 hover:underline">
+            {l.label}
+            <ExternalLink aria-hidden className="size-2.5" />
+          </a>
+        </Fragment>
+      ))}
+    </div>
+  )
+}

@@ -117,6 +117,7 @@ func (s *server) Lookup(ctx context.Context, r oapi.LookupRequestObject) (oapi.L
 		res := oapi.LookupResult{
 			TmdbId: h.TMDBID, Title: h.Title, Year: intPtr(h.Year),
 			Poster: strPtr(s.meta.ImageURL(h.PosterPath, posterThumb)), Addable: true,
+			Ratings: ratingsOf(oapi.TitleKind(h.Kind), h.TMDBID, h.Score),
 		}
 		if h.Kind == metadata.Movie {
 			res.Kind = oapi.Movie
@@ -148,6 +149,7 @@ func (s *server) LookupTitle(ctx context.Context, r oapi.LookupTitleRequestObjec
 		rel                    metadata.ReleaseDates
 		tmdbID                 int
 		kind                   = library.Movie
+		score                  metadata.Score
 		series                 *oapi.LookupSeries
 	)
 	if r.Kind == oapi.Series {
@@ -156,6 +158,7 @@ func (s *server) LookupTitle(ctx context.Context, r oapi.LookupTitleRequestObjec
 			return nil, metaProblem(err)
 		}
 		name, overview, year, rel, tmdbID, kind = details.Title, details.Overview, details.Year, details.Ratings, details.TMDBID, library.Series
+		score = details.Score
 		poster, runtime, genres = details.PosterPath, details.Runtime, details.Genres
 		if series, err = s.seriesOverview(ctx, details); err != nil {
 			return nil, metaProblem(err)
@@ -166,6 +169,7 @@ func (s *server) LookupTitle(ctx context.Context, r oapi.LookupTitleRequestObjec
 			return nil, metaProblem(err)
 		}
 		name, overview, year, rel, tmdbID = details.Title, details.Overview, details.Year, details.ReleaseDates, details.TMDBID
+		score = details.Score
 		poster, runtime, genres = details.PosterPath, details.Runtime, details.Genres
 	}
 	region, _, err := s.profiles.Region(ctx)
@@ -185,8 +189,9 @@ func (s *server) LookupTitle(ctx context.Context, r oapi.LookupTitleRequestObjec
 	out := oapi.LookupDetail{
 		Kind: oapi.TitleKind(kind), TmdbId: tmdbID, Title: name, Year: intPtr(year), Overview: overview,
 		Certification: strPtr(cert), CertificationCountry: strPtr(certCountry),
-		Slots:  make([]oapi.SuggestedSlot, len(sug.Slots)),
-		Poster: strPtr(s.meta.ImageURL(poster, posterPanel)), Runtime: intPtr(runtime),
+		Slots:   make([]oapi.SuggestedSlot, len(sug.Slots)),
+		Ratings: ratingsOf(oapi.TitleKind(kind), tmdbID, score),
+		Poster:  strPtr(s.meta.ImageURL(poster, posterPanel)), Runtime: intPtr(runtime),
 		Genres: append(make([]string, 0, len(genres)), genres...), Series: series,
 	}
 	if id, ok := in[r.TmdbId]; ok {
@@ -321,6 +326,7 @@ func detailToAPI(d library.Detail, country string) oapi.TitleDetail {
 		AddedAt: d.AddedAt, RefreshedAt: d.RefreshedAt, Certification: strPtr(cert),
 		ReleaseDates: make([]oapi.ReleaseDateEntry, 0, len(d.ReleaseDates)), Requests: []oapi.RequestOrigin{}, Versions: make([]oapi.VersionDetail, 0, len(d.Versions)),
 		Seasons: make([]oapi.Season, 0, len(d.Seasons)),
+		Ratings: ratingsOf(oapi.TitleKind(d.Kind), d.TMDBID, d.Score),
 	}
 	if d.Kind == library.Series {
 		mode := oapi.SeriesMonitor(d.SeriesMonitor)
