@@ -3,6 +3,8 @@ import { ApiError, useEpisodes, useMonitorEpisodes, usePatchSeason, type Episode
 import { cx } from '../ui'
 import { slotLabel, versionStatus, type SlotKey } from './bits'
 import { EpisodeMenu, EpisodeTick, SeasonMenu, type EpisodeActions } from './EpisodeActions'
+import { SeasonSummary, SeasonToggle } from './SeasonSummary'
+import type { SeasonOpen } from './useSeasonOpen'
 
 type Row = { kind: 'season'; season: number; episodes: Episode[] } | { kind: 'episode'; episode: Episode }
 
@@ -23,15 +25,26 @@ function cellClass(state: string): string {
 
 const seasonName = (n: number) => (n === 0 ? 'Specials' : `Season ${n}`)
 
+/** Where a row is now: its own index if it is still shown, or else its season's header. */
+function followRow(rows: Row[], was: Row): { row: number; same: boolean } {
+  const season = was.kind === 'season' ? was.season : was.episode.season
+  const same = rows.findIndex((r) => (r.kind === 'season' ? was.kind === 'season' && r.season === season : was.kind === 'episode' && r.episode.id === was.episode.id))
+  if (same >= 0) return { row: same, same: true }
+  return { row: Math.max(0, rows.findIndex((r) => r.kind === 'season' && r.season === season)), same: false }
+}
+
 /**
  * The episodes × Slots heat map of a Series: a season row to toggle a whole
  * season and a row per episode with its monitoring toggle and one cell per
  * Slot that has a Version. It is one grid with a roving focus: arrows (or
- * h/j/k/l) move between cells, Space or Enter toggles monitoring, Home and End
- * jump to the first and last row. With `actions`, each row has a menu (Shift+F10
- * or the menu key opens it) and x ticks an episode for the actions on several.
+ * h/j/k/l) move between cells, Space (or Enter on an episode) toggles
+ * monitoring, Home and End jump to the first and last row. Enter, Right and
+ * Left on a season header open and close it; a closed season shows only its
+ * header row, with a summary, and the arrows skip its episodes. With `actions`,
+ * each row has a menu (Shift+F10 or the menu key opens it) and x ticks an
+ * episode for the actions on several.
  */
-export function EpisodeMatrix({ titleId, slots, actions }: { titleId: number; slots: SlotKey[]; actions?: EpisodeActions }) {
+export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: number; slots: SlotKey[]; seasons: SeasonOpen; actions?: EpisodeActions }) {
   const episodes = useEpisodes(titleId)
   const patchSeason = usePatchSeason(titleId)
   const monitor = useMonitorEpisodes(titleId)
@@ -45,10 +58,20 @@ export function EpisodeMatrix({ titleId, slots, actions }: { titleId: number; sl
     for (const e of episodes.data ?? []) bySeason.set(e.season, [...(bySeason.get(e.season) ?? []), e])
     for (const [season, eps] of bySeason) {
       out.push({ kind: 'season', season, episodes: eps })
-      for (const e of eps) out.push({ kind: 'episode', episode: e })
+      if (seasons.isOpen(season)) for (const e of eps) out.push({ kind: 'episode', episode: e }) // a closed season shows only its header
     }
     return out
-  }, [episodes.data])
+  }, [episodes.data, seasons])
+
+  // Rows come and go as seasons open and close: keep the tab stop on the same row, or on its season's header.
+  const shown = useRef(rows)
+  useEffect(() => {
+    const was = shown.current[pos.row]
+    shown.current = rows
+    if (!was || rows[pos.row] === was) return
+    const at = followRow(rows, was)
+    if (at.row !== pos.row) setPos({ row: at.row, col: at.same ? pos.col : 0 })
+  }, [rows, pos])
 
   // Moving focus is a position change followed by focusing the cell at it.
   const [focusNext, setFocusNext] = useState(false)
@@ -84,6 +107,14 @@ export function EpisodeMatrix({ titleId, slots, actions }: { titleId: number; sl
       e.preventDefault()
       e.stopPropagation() // the Library's own j/k/Enter must not also fire
       move(r, c)
+    }
+    // On a season header Enter flips it open or closed, Right (l) opens and Left (h) closes; Space toggles its monitoring.
+    const header = rows[row]
+    if (header?.kind === 'season' && ['Enter', 'ArrowRight', 'l', 'ArrowLeft', 'h'].includes(e.key)) {
+      e.preventDefault() // also stops Enter clicking the focused checkbox
+      e.stopPropagation()
+      seasons.set(header.season, e.key === 'Enter' ? !seasons.isOpen(header.season) : e.key === 'ArrowRight' || e.key === 'l')
+      return
     }
     switch (e.key) {
       case 'ArrowDown':
@@ -146,6 +177,9 @@ export function EpisodeMatrix({ titleId, slots, actions }: { titleId: number; sl
             tabIndex={tab(i, 0)}
             onFocus={() => setPos({ row: i, col: 0 })}
             onToggle={(monitored) => patchSeason.mutate({ season: r.season, monitored })}
+            open={seasons.isOpen(r.season)}
+            onOpen={(open) => seasons.set(r.season, open)}
+            slots={slots}
             menu={actions && <SeasonMenu actions={actions} season={r.season} episodes={r.episodes} />}
           />
         ) : (
@@ -172,6 +206,9 @@ function SeasonRow({
   tabIndex,
   onFocus,
   onToggle,
+  open,
+  onOpen,
+  slots,
   menu,
 }: {
   row: Extract<Row, { kind: 'season' }>
@@ -179,13 +216,16 @@ function SeasonRow({
   tabIndex: number
   onFocus: () => void
   onToggle: (monitored: boolean) => void
+  open: boolean
+  onOpen: (open: boolean) => void
+  slots: SlotKey[]
   menu?: ReactNode
 }) {
   const on = row.episodes.filter((e) => e.monitored).length
   const checked = on === 0 ? 'false' : on === row.episodes.length ? 'true' : 'mixed'
   return (
     <div role="row" aria-rowindex={index + 2} className="flex items-center gap-3 border-t border-gray-alpha-400 bg-gray-alpha-100 px-3 py-1.5">
-      <div role="gridcell" className="flex flex-1 items-center gap-2">
+      <div role="gridcell" className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
         <button
           type="button"
           role="checkbox"
@@ -197,10 +237,11 @@ function SeasonRow({
           onClick={() => onToggle(on === 0)}
           className={cx('size-4 shrink-0 rounded border border-gray-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-700', checked !== 'false' && 'bg-gray-1000')}
         />
-        <span className="font-medium">{seasonName(row.season)}</span>
+        <SeasonToggle name={seasonName(row.season)} open={open} onToggle={() => onOpen(!open)} onFocus={onFocus} />
         <span className="text-[12px] text-gray-900">
           {on} of {row.episodes.length} monitored
         </span>
+        {!open && <SeasonSummary episodes={row.episodes} slots={slots} />}
         {menu && <span className="ml-auto">{menu}</span>}
       </div>
     </div>

@@ -6,7 +6,10 @@ import { useOpenCleanup } from '../cleanup/launch'
 import { Button, ErrorText } from '../forms'
 import { cx } from '../ui'
 import { size, slotKeys, slotLabel, StatusBadge, type SlotKey } from './bits'
+import { ExternalIds } from './ExternalIds'
+import { Scores } from './Score'
 import { AddVersion, RemoveTitle, VersionControls } from './ManageVersion'
+import { MoveTitle } from './MoveTitle'
 import { SeriesSection } from './SeriesSection'
 import { VersionSearch } from './VersionSearch'
 
@@ -55,7 +58,6 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
     title.certification,
     title.original_language ? `Original ${title.original_language.toUpperCase()}` : null,
   ].filter(Boolean)
-  const ids = [title.tmdb_id ? `TMDB ${title.tmdb_id}` : null, title.imdb_id, title.tvdb_id ? `TVDB ${title.tvdb_id}` : null].filter(Boolean)
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -68,8 +70,8 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
         <div className="min-w-0">
           <h2 className="text-2xl font-semibold tracking-tight">{title.title}</h2>
           {title.primary_title !== title.title && <div className="text-[15px] text-gray-900">{title.primary_title}</div>}
-          <div className="mt-1 text-gray-900">{meta.join(' · ')}</div>
-          <div className="mt-0.5 font-mono text-[11px] text-gray-900">{ids.join(' · ')}</div>
+          <div className="mt-1 text-gray-900">{meta.join(' · ')}<Scores ratings={title.ratings} lead={meta.length > 0} /></div>
+          <ExternalIds title={title} />
           {title.requests.map((r) => (
             <div key={r.id} className="mt-1 text-[13px] text-gray-900">
               Requested by {r.requester_name} via {r.source}
@@ -92,6 +94,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
           Clean up this Title
         </Button>
       </div>
+      <MoveTitle title={title} />
       <RemoveTitle titleId={title.id} />
     </div>
   )

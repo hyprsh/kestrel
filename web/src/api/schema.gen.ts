@@ -503,6 +503,17 @@ export interface paths {
          *     now (Specials are never monitored by a mode); `422` for a Movie. `metadata_frozen` true keeps
          *     the stored metadata as it is and clears a "Title gone upstream" row; false lets refreshes
          *     resume.
+         *
+         *     `root_folder` moves the Title to another of its kind's Root folders: its folder moves there
+         *     under the same name in one directory rename, taking every Version's files and subtitles,
+         *     and the Title's `root_folder` and file paths change with it. A Title with no folder on disk
+         *     only has its `root_folder` changed; its current Root folder changes nothing. Media servers
+         *     are told about both folders and the log records a `move` event. Refusals change nothing:
+         *     `422` `root_folder` / `not_found` when it isn't one of the kind's Root folders, `422`
+         *     `root_folder` / `other_filesystem` when it is on another filesystem (Kestrel never copies a
+         *     Title across mounts), `409` `folder_taken` when a folder of that name is already in the
+         *     target, `409` `import_running` while an Import into the Title is running (try again after
+         *     it).
          */
         patch: operations["patchTitle"];
         trace?: never;
@@ -1908,6 +1919,8 @@ export interface components {
             addable: boolean;
             /** @description `not_on_tvdb` for a Series TheTVDB does not have; `null` when addable. Clients tolerate new values. */
             not_addable_reason: string | null;
+            /** @description Scores for the Title from ratings sources; empty when none has one. */
+            ratings: components["schemas"]["Rating"][];
         };
         LookupList: {
             items: components["schemas"]["LookupResult"][];
@@ -1942,6 +1955,8 @@ export interface components {
             certification_country: string | null;
             /** @description Every Slot with a default Profile for the kind, in Slot order. */
             slots: components["schemas"]["SuggestedSlot"][];
+            /** @description Scores for the Title from ratings sources; empty when none has one. */
+            ratings: components["schemas"]["Rating"][];
         };
         VersionRef: {
             slot: components["schemas"]["Slot"];
@@ -2004,6 +2019,8 @@ export interface components {
             monitored?: boolean;
             series_monitor?: components["schemas"]["SeriesMonitor"];
             metadata_frozen?: boolean;
+            /** @description One of the Root folders of the Title's kind to move the Title to. */
+            root_folder?: string;
         };
         /** @description One action over many Titles. `action` says which, and picks the parameters that go with it. */
         TitlesBulk: components["schemas"]["TitlesBulkMonitor"] | components["schemas"]["TitlesBulkSwitchProfile"] | components["schemas"]["TitlesBulkAddVersion"] | components["schemas"]["TitlesBulkRemoveVersion"] | components["schemas"]["TitlesBulkSearch"] | components["schemas"]["TitlesBulkRefresh"] | components["schemas"]["TitlesBulkFreeze"] | components["schemas"]["TitlesBulkRemove"];
@@ -2619,7 +2636,7 @@ export interface components {
             id: number;
             /** Format: date-time */
             at: string;
-            /** @description A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search. */
+            /** @description A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search. */
             kind: string;
             routine: boolean;
             /** Format: int64 */
@@ -2746,6 +2763,36 @@ export interface components {
             date: string;
             certification: string | null;
         };
+        /** @description One score for a Title from a ratings source. Today only TMDB's audience score. */
+        Rating: {
+            /**
+             * @description Where the score is from: `tmdb`. Clients tolerate new values.
+             * @example tmdb
+             */
+            source: string;
+            /**
+             * Format: double
+             * @description The score on the source's scale; `null` when the source has none yet.
+             * @example 8.4
+             */
+            value: number | null;
+            /**
+             * Format: double
+             * @description The best score on the source's scale, such as 10.
+             * @example 10
+             */
+            scale: number | null;
+            /**
+             * @description How many votes the score averages.
+             * @example 21000
+             */
+            votes: number | null;
+            /**
+             * @description The Title's page at the source.
+             * @example https://www.themoviedb.org/movie/116149
+             */
+            url: string | null;
+        };
         TitleDetail: {
             /** Format: int64 */
             id: number;
@@ -2785,6 +2832,8 @@ export interface components {
             seasons: components["schemas"]["Season"][];
             /** @description In Slot order. */
             versions: components["schemas"]["VersionDetail"][];
+            /** @description Scores for the Title from ratings sources; empty when none has one. */
+            ratings: components["schemas"]["Rating"][];
         };
         /** @description The Title asked for. Kestrel needs `tmdb_id`, or a `tvdb_id` of a Series already in the Library. */
         RequestTitle: {
@@ -3602,6 +3651,7 @@ export interface operations {
                 };
             };
             404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };

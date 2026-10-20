@@ -21,6 +21,7 @@ const kinds: Record<string, { label: string; tone: Tone }> = {
   blocklist: { label: 'Blocklisted', tone: 'red' },
   request: { label: 'Requested', tone: 'teal' },
   rename: { label: 'Renamed', tone: 'gray' },
+  move: { label: 'Moved', tone: 'gray' },
   title_refreshed: { label: 'Refreshed', tone: 'gray' },
   search: { label: 'Searched', tone: 'gray' },
   adoption: { label: 'Adopted', tone: 'teal' },

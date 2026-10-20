@@ -654,6 +654,17 @@ paths:
         now (Specials are never monitored by a mode); `422` for a Movie. `metadata_frozen` true keeps
         the stored metadata as it is and clears a "Title gone upstream" row; false lets refreshes
         resume.
+
+        `root_folder` moves the Title to another of its kind's Root folders: its folder moves there
+        under the same name in one directory rename, taking every Version's files and subtitles,
+        and the Title's `root_folder` and file paths change with it. A Title with no folder on disk
+        only has its `root_folder` changed; its current Root folder changes nothing. Media servers
+        are told about both folders and the log records a `move` event. Refusals change nothing:
+        `422` `root_folder` / `not_found` when it isn't one of the kind's Root folders, `422`
+        `root_folder` / `other_filesystem` when it is on another filesystem (Kestrel never copies a
+        Title across mounts), `409` `folder_taken` when a folder of that name is already in the
+        target, `409` `import_running` while an Import into the Title is running (try again after
+        it).
       tags: [titles]
       requestBody:
         required: true
@@ -669,6 +680,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/TitleDetail"
         "404":
+          $ref: "#/components/responses/Problem"
+        "409":
           $ref: "#/components/responses/Problem"
         "422":
           $ref: "#/components/responses/Problem"
@@ -2551,7 +2564,7 @@ components:
       enum: [wanted, filled, downloading, unmonitored, unreleased]
     LookupResult:
       type: object
-      required: [kind, tmdb_id, tvdb_id, title, year, poster, in_library, addable, not_addable_reason]
+      required: [kind, tmdb_id, tvdb_id, title, year, poster, in_library, addable, not_addable_reason, ratings]
       properties:
         kind:
           $ref: "#/components/schemas/TitleKind"
@@ -2580,6 +2593,11 @@ components:
           type: string
           nullable: true
           description: "`not_on_tvdb` for a Series TheTVDB does not have; `null` when addable. Clients tolerate new values."
+        ratings:
+          type: array
+          description: Scores for the Title from ratings sources; empty when none has one.
+          items:
+            $ref: "#/components/schemas/Rating"
     LookupList:
       type: object
       required: [items, next_cursor]
@@ -2610,7 +2628,7 @@ components:
           enum: [default]
     LookupDetail:
       type: object
-      required: [kind, tmdb_id, title, year, overview, in_library, certification, certification_country, slots]
+      required: [kind, tmdb_id, title, year, overview, in_library, certification, certification_country, slots, ratings]
       properties:
         kind:
           $ref: "#/components/schemas/TitleKind"
@@ -2640,6 +2658,11 @@ components:
           description: Every Slot with a default Profile for the kind, in Slot order.
           items:
             $ref: "#/components/schemas/SuggestedSlot"
+        ratings:
+          type: array
+          description: Scores for the Title from ratings sources; empty when none has one.
+          items:
+            $ref: "#/components/schemas/Rating"
     VersionRef:
       type: object
       required: [slot, profile]
@@ -2755,6 +2778,9 @@ components:
           $ref: "#/components/schemas/SeriesMonitor"
         metadata_frozen:
           type: boolean
+        root_folder:
+          type: string
+          description: One of the Root folders of the Title's kind to move the Title to.
     TitlesBulk:
       description: |
         One action over many Titles. `action` says which, and picks the parameters that go with it.
@@ -3793,7 +3819,7 @@ components:
         at: { type: string, format: date-time }
         kind:
           type: string
-          description: "A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search."
+          description: "A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search."
         routine: { type: boolean }
         title_id: { type: integer, format: int64, nullable: true }
         version_id: { type: integer, format: int64, nullable: true }
@@ -3994,9 +4020,40 @@ components:
         certification:
           type: string
           nullable: true
+    Rating:
+      type: object
+      required: [source, value, scale, votes, url]
+      description: One score for a Title from a ratings source. Today only TMDB's audience score.
+      properties:
+        source:
+          type: string
+          description: "Where the score is from: `tmdb`. Clients tolerate new values."
+          example: tmdb
+        value:
+          type: number
+          format: double
+          nullable: true
+          description: The score on the source's scale; `null` when the source has none yet.
+          example: 8.4
+        scale:
+          type: number
+          format: double
+          nullable: true
+          description: The best score on the source's scale, such as 10.
+          example: 10
+        votes:
+          type: integer
+          nullable: true
+          description: How many votes the score averages.
+          example: 21000
+        url:
+          type: string
+          nullable: true
+          description: The Title's page at the source.
+          example: https://www.themoviedb.org/movie/116149
     TitleDetail:
       type: object
-      required: [id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, has_poster, monitored, metadata_frozen, root_folder, folder, added_at, refreshed_at, certification, release_dates, series_monitor, seasons, versions, requests]
+      required: [id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, has_poster, monitored, metadata_frozen, root_folder, folder, added_at, refreshed_at, certification, release_dates, series_monitor, seasons, versions, requests, ratings]
       properties:
         id:
           type: integer
@@ -4078,6 +4135,11 @@ components:
           description: In Slot order.
           items:
             $ref: "#/components/schemas/VersionDetail"
+        ratings:
+          type: array
+          description: Scores for the Title from ratings sources; empty when none has one.
+          items:
+            $ref: "#/components/schemas/Rating"
     RequestTitle:
       type: object
       required: [kind]

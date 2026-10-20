@@ -1,7 +1,8 @@
 -- name: InsertTitle :one
 INSERT INTO titles (kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language,
-                    overview, runtime, poster_path, monitored, series_monitor, root_folder, added_at, refreshed_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    overview, runtime, poster_path, monitored, series_monitor, root_folder, added_at, refreshed_at,
+                    tmdb_vote_average, tmdb_vote_count)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id;
 
 -- name: InsertAlias :exec
@@ -199,7 +200,8 @@ UPDATE titles SET metadata_frozen = ? WHERE id = ?;
 
 -- name: UpdateTitleMetadata :exec
 UPDATE titles SET title = ?, original_title = ?, primary_title = ?, year = ?,
-    original_language = ?, overview = ?, runtime = ?, poster_path = ?, refreshed_at = ?
+    original_language = ?, overview = ?, runtime = ?, poster_path = ?, refreshed_at = ?,
+    tmdb_vote_average = ?, tmdb_vote_count = ?
 WHERE id = ?;
 
 -- name: DeleteAliasesOfTitle :exec
@@ -249,3 +251,6 @@ UPDATE titles SET monitored = ? WHERE id = ? AND kind = 'movie';
 
 -- name: SetUpgradesDueSince :exec
 UPDATE search_state SET next_upgrade_at = ? WHERE last_upgrade_at >= ?;
+
+-- name: SetTitleRootFolder :exec
+UPDATE titles SET root_folder = ? WHERE id = ?;

@@ -179,9 +179,11 @@ type Remover interface {
 	DeleteTitle(ctx context.Context, titleID int64, deleteFiles bool) error
 }
 
-// Rescorer moves a Version to another Profile and re-scores its stored file.
+// Rescorer moves a Version to another Profile and re-scores its stored file,
+// and moves a Title to another Root folder.
 type Rescorer interface {
 	SwitchProfile(ctx context.Context, titleID, versionID int64, profile string) error
+	Move(ctx context.Context, titleID int64, root string) (imports.Moved, error)
 }
 
 // Jobs is the loop runner.

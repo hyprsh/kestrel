@@ -1,7 +1,7 @@
 {
   "page": 1,
   "results": [
-    {"id": 1396, "name": "Breaking Bad", "original_name": "Breaking Bad", "original_language": "en", "overview": "A teacher turns to crime.", "poster_path": "/ggFHVNu6YYI5L9pCfOacjizRGt.jpg", "media_type": "tv", "first_air_date": "2008-01-20"},
+    {"id": 1396, "name": "Breaking Bad", "original_name": "Breaking Bad", "original_language": "en", "overview": "A teacher turns to crime.", "poster_path": "/ggFHVNu6YYI5L9pCfOacjizRGt.jpg", "media_type": "tv", "first_air_date": "2008-01-20", "vote_average": 8.9, "vote_count": 14523},
     {"id": 7001, "name": "Bridge Show", "original_name": "Bridge Show", "original_language": "en", "overview": "Only TheTVDB's remote ids know it.", "poster_path": null, "media_type": "tv", "first_air_date": "2015-05-05"},
     {"id": 9001, "name": "Orphan Show", "original_name": "Orphan Show", "original_language": "en", "overview": "Not on TheTVDB.", "poster_path": null, "media_type": "tv", "first_air_date": "2019-09-09"}
   ],

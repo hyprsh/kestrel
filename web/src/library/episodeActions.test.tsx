@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
 import { fakeSeries } from '../test/series'
@@ -42,6 +42,8 @@ async function choose(grid: HTMLElement, menu: string, item: string) {
 }
 
 describe('searching from the episodes heat map', () => {
+  afterEach(() => localStorage.clear()) // opened seasons are remembered per Title
+
   it('searches one episode from its row, in each Slot that wants it', async () => {
     const { grid, searched } = await openSeries()
 
@@ -80,6 +82,7 @@ describe('searching from the episodes heat map', () => {
 
   it('ticks episodes, a range with shift-click, and searches them together', async () => {
     const { grid, searched } = await openSeries()
+    await userEvent.click(within(grid).getByRole('button', { name: 'Specials episodes' })) // open the closed Specials
 
     await choose(grid, 'Actions for Season 0 episode 1', 'Tick')
     const bar = screen.getByRole('group', { name: 'Selection' })

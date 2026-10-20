@@ -1399,7 +1399,7 @@ type Event struct {
 	GrabId    *int64                  `json:"grab_id"`
 	Id        int64                   `json:"id"`
 
-	// Kind A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search.
+	// Kind A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search.
 	Kind      string `json:"kind"`
 	Message   string `json:"message"`
 	RequestId *int64 `json:"request_id"`
@@ -1540,6 +1540,9 @@ type LookupDetail struct {
 	Kind                 TitleKind `json:"kind"`
 	Overview             string    `json:"overview"`
 
+	// Ratings Scores for the Title from ratings sources; empty when none has one.
+	Ratings []Rating `json:"ratings"`
+
 	// Slots Every Slot with a default Profile for the kind, in Slot order.
 	Slots  []SuggestedSlot `json:"slots"`
 	Title  string          `json:"title"`
@@ -1566,10 +1569,13 @@ type LookupResult struct {
 
 	// Poster A small TMDB poster URL.
 	Poster *string `json:"poster"`
-	Title  string  `json:"title"`
-	TmdbId int     `json:"tmdb_id"`
-	TvdbId *int    `json:"tvdb_id"`
-	Year   *int    `json:"year"`
+
+	// Ratings Scores for the Title from ratings sources; empty when none has one.
+	Ratings []Rating `json:"ratings"`
+	Title   string   `json:"title"`
+	TmdbId  int      `json:"tmdb_id"`
+	TvdbId  *int     `json:"tvdb_id"`
+	Year    *int     `json:"year"`
 }
 
 // Me defines model for Me.
@@ -1833,6 +1839,34 @@ type QueueItemPhase string
 // QueueList defines model for QueueList.
 type QueueList struct {
 	Items []QueueItem `json:"items"`
+}
+
+// Rating One score for a Title from a ratings source. Today only TMDB's audience score.
+type Rating struct {
+	// Scale The best score on the source's scale, such as 10.
+	//
+	// Example: 10
+	Scale *float64 `json:"scale"`
+
+	// Source Where the score is from: `tmdb`. Clients tolerate new values.
+	//
+	// Example: tmdb
+	Source string `json:"source"`
+
+	// Url The Title's page at the source.
+	//
+	// Example: https://www.themoviedb.org/movie/116149
+	Url *string `json:"url"`
+
+	// Value The score on the source's scale; `null` when the source has none yet.
+	//
+	// Example: 8.4
+	Value *float64 `json:"value"`
+
+	// Votes How many votes the score averages.
+	//
+	// Example: 21000
+	Votes *int `json:"votes"`
 }
 
 // RecentItem defines model for RecentItem.
@@ -2337,11 +2371,14 @@ type TitleDetail struct {
 	Monitored      bool      `json:"monitored"`
 
 	// OriginalLanguage ISO 639-1; empty when unknown.
-	OriginalLanguage string    `json:"original_language"`
-	OriginalTitle    string    `json:"original_title"`
-	Overview         string    `json:"overview"`
-	PrimaryTitle     string    `json:"primary_title"`
-	RefreshedAt      time.Time `json:"refreshed_at"`
+	OriginalLanguage string `json:"original_language"`
+	OriginalTitle    string `json:"original_title"`
+	Overview         string `json:"overview"`
+	PrimaryTitle     string `json:"primary_title"`
+
+	// Ratings Scores for the Title from ratings sources; empty when none has one.
+	Ratings     []Rating  `json:"ratings"`
+	RefreshedAt time.Time `json:"refreshed_at"`
 
 	// ReleaseDates Every dated release TMDB lists, in any country.
 	ReleaseDates []ReleaseDateEntry `json:"release_dates"`
@@ -2385,6 +2422,9 @@ type TitlePatch struct {
 
 	// Monitored A Movie only; a Series is monitored through `series_monitor`.
 	Monitored *bool `json:"monitored,omitempty"`
+
+	// RootFolder One of the Root folders of the Title's kind to move the Title to.
+	RootFolder *string `json:"root_folder,omitempty"`
 
 	// SeriesMonitor `all` monitors every episode, future ones and new seasons included; `future` the episodes airing
 	// today or later or without an air date, and new seasons; `none` nothing. Specials (season 0) are
@@ -8846,6 +8886,20 @@ func (response PatchTitle404ApplicationProblemPlusJSONResponse) VisitPatchTitleR
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchTitle409ApplicationProblemPlusJSONResponse Problem
+
+func (response PatchTitle409ApplicationProblemPlusJSONResponse) VisitPatchTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }

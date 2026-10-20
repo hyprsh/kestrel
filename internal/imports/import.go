@@ -144,6 +144,9 @@ type Deps struct {
 	// Link hardlinks src to dst; nil means os.Link. Tests answer EXDEV with it
 	// to cross a filesystem boundary that a temp dir does not have.
 	Link func(src, dst string) error
+	// Rename renames a directory; nil means os.Rename. Tests answer EXDEV with
+	// it to cross a filesystem boundary that a temp dir does not have.
+	Rename func(oldpath, newpath string) error
 }
 
 // Service imports completed Grabs into the library.
@@ -156,6 +159,10 @@ type Service struct {
 	step  func(string) error
 	link  func(src, dst string) error
 	hl    Health
+	// rename renames a Title folder on a Move.
+	rename func(oldpath, newpath string) error
+	// guard serialises Import, Rename and Move per Title.
+	guard titleGuard
 
 	renames       RenameStore
 	folderChanged func(ctx context.Context, folder string)
@@ -179,7 +186,10 @@ func New(d Deps) (*Service, error) {
 	if d.Link == nil {
 		d.Link = os.Link
 	}
-	return &Service{lib: d.Library, prof: d.Profiles, probe: d.Prober, clock: d.Clock, snap: d.Scoring, step: d.Step, link: d.Link, hl: d.Health, renames: d.Renames, folderChanged: d.FolderChanged}, nil
+	if d.Rename == nil {
+		d.Rename = os.Rename
+	}
+	return &Service{lib: d.Library, prof: d.Profiles, probe: d.Prober, clock: d.Clock, snap: d.Scoring, step: d.Step, link: d.Link, rename: d.Rename, hl: d.Health, renames: d.Renames, folderChanged: d.FolderChanged}, nil
 }
 
 func (s *Service) hook(step string) error {
@@ -213,6 +223,8 @@ func stalledBy(err error) Result {
 // error: what goes wrong is either the Release's fault (Rejected) or the
 // environment's (Stalled), and importing again is always safe.
 func (s *Service) Import(ctx context.Context, g Grab) Result {
+	unlock, _ := s.guard.lock(g.TitleID, forImport)
+	defer unlock()
 	defer s.snap.Hold()()
 	res := s.importGrab(ctx, g)
 	if res.Status == Imported && res.Path != "" && s.folderChanged != nil {

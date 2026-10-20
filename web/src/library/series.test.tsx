@@ -20,6 +20,7 @@ const result = (id: number, title: string, over: Partial<LookupResult> = {}): Lo
   in_library: null,
   addable: true,
   not_addable_reason: null,
+  ratings: [],
   ...over,
 })
 
@@ -47,6 +48,7 @@ function fakeSeriesLookup() {
         certification: 'TV-MA',
         certification_country: 'US',
         slots: [{ slot: 'standard', profile: 'hd-primary', label: 'HD', reason: 'default' }],
+        ratings: [],
       }),
     ),
     http.post('/titles', async ({ request, response }) => {
@@ -120,6 +122,7 @@ describe('the episodes heat map', () => {
     expect(within(grid).getByRole('img', { name: 'Season 1 episode 1 Standard: Filled' })).toBeInTheDocument()
     expect(within(grid).getByRole('img', { name: 'Season 1 episode 1 4K: Wanted' })).toBeInTheDocument()
     expect(within(grid).getByRole('img', { name: 'Season 1 episode 2 Standard: Unreleased' })).toBeInTheDocument()
+    await userEvent.click(within(grid).getByRole('button', { name: 'Specials episodes' })) // Specials start closed
     expect(within(grid).getByRole('checkbox', { name: 'Season 0 episode 1 monitored' })).not.toBeChecked()
     expect(within(grid).getByText('no air date')).toBeInTheDocument()
   })
@@ -132,7 +135,7 @@ describe('the episodes heat map', () => {
     const specials = within(grid).getByRole('checkbox', { name: 'Specials' })
     expect(specials).toHaveFocus()
 
-    await userEvent.keyboard('{ArrowDown}')
+    await userEvent.keyboard('{ArrowRight}{ArrowDown}') // open the Specials, then down into them
     expect(within(grid).getByRole('checkbox', { name: 'Season 0 episode 1 monitored' })).toHaveFocus()
     await userEvent.keyboard(' ')
     await waitFor(() => expect(state.get().sent).toHaveLength(1))
@@ -146,7 +149,7 @@ describe('the episodes heat map', () => {
     // Down to the Season 1 row; Space unmonitors the whole season.
     await userEvent.keyboard('{ArrowLeft}{ArrowDown}')
     expect(within(grid).getByRole('checkbox', { name: 'Season 1' })).toHaveFocus()
-    await userEvent.keyboard('{Enter}')
+    await userEvent.keyboard(' ')
     await waitFor(() => expect(state.get().sent).toHaveLength(2))
     expect(state.get().sent[1]).toEqual({ path: 'seasons/1', body: { monitored: false } })
     await waitFor(() => expect(within(grid).getByRole('checkbox', { name: 'Season 1 episode 1 monitored' })).not.toBeChecked())

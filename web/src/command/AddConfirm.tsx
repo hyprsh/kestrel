@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { ApiError, useCreateTitle, useLookupDetail, useProfiles, useSettings, type LookupResult, type Profile, type SeriesMonitor } from '../api/queries'
 import { Button, ErrorText, Select } from '../forms'
 import { slotKeys, slotLabel, type SlotKey } from '../library/bits'
+import { Scores } from '../library/Score'
 import { Kbd } from '../ui'
 
 /** The Profile a Slot gets when ticked without a suggestion: its default, else the first enabled Primary-Language one (Any comes after HD in the list). */
@@ -77,7 +78,7 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
           Add {result.title}
           {result.year ? <span className="ml-1.5 font-normal text-gray-900">{result.year}</span> : null}
         </div>
-        <div className="text-[12px] text-gray-900">{result.kind === 'series' ? 'Series' : 'Movie'}</div>
+        <div className="text-[12px] text-gray-900">{result.kind === 'series' ? 'Series' : 'Movie'}<Scores ratings={suggestion.data?.ratings ?? result.ratings} lead /></div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
