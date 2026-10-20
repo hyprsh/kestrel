@@ -27,6 +27,8 @@ var rejectionMessages = map[scoring.Rejection]string{
 	scoring.RejectOriginalLanguageUnknown: "The Title's original language is not known",
 	scoring.RejectBlocklisted:             "On the Blocklist",
 	acquire.RejectOtherSlot:               "Fits another Slot",
+	acquire.RejectEpisodeNotListed:        "Names an episode TheTVDB does not list yet",
+	acquire.RejectSeasonNotListed:         "Names a season TheTVDB does not list",
 	scoring.RejectOriginalOnly:            "Only in the Title's Original Language: the Profile offers it instead of grabbing it",
 }
 
@@ -124,7 +126,8 @@ func grabProblem(err error) error {
 		return problem(http.StatusBadGateway, "upstream_unavailable", "No download client is enabled; add one in Settings")
 	case errors.As(err, &rej):
 		if rej.NotOverridable() {
-			return problem(http.StatusUnprocessableEntity, "not_overridable", "That Release is on the Blocklist or fits another Slot, so it cannot be grabbed")
+			return problem(http.StatusUnprocessableEntity, "not_overridable",
+				"That Release is on the Blocklist, fits another Slot or names a season TheTVDB does not list, so it cannot be grabbed")
 		}
 		return problem(http.StatusUnprocessableEntity, "rejected", "That Release is rejected; Grab anyway to override")
 	case errors.As(err, &pe):

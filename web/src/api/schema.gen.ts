@@ -755,6 +755,10 @@ export interface paths {
          *     Slot; a Release for another Slot carries the `other_slot` rejection. A Series Version is
          *     searched by `season` and `episode_ids` in the body (none searches the whole Series); the
          *     Releases are single or multi-episode ones and season packs, told apart by `episodes` and `pack`.
+         *     A Release naming an episode TheTVDB does not list yet is grabbable as a Placeholder Episode
+         *     when its season is listed and monitored and the episode is at most 2 past the season's last
+         *     listed one; otherwise it carries `episode_not_listed` (overridable), or `season_not_listed`
+         *     when TheTVDB lists no such season.
          */
         post: operations["searchVersionReleases"];
         delete?: never;
@@ -860,7 +864,9 @@ export interface paths {
          *     the Title's kind. The Grab starts at `sent`, keyed by the client's id. `release_id` comes from
          *     a search in the last 6 h, otherwise `409 release_expired` (also when the indexer no longer has
          *     the NZB). A Release with rejections needs `override: true` ("Grab anyway"), else `422 rejected`;
-         *     `blocklisted` and `other_slot` can never be overridden and answer `422 not_overridable`.
+         *     `blocklisted`, `other_slot` and `season_not_listed` can never be overridden and answer
+         *     `422 not_overridable`. A Series Release naming episodes TheTVDB does not list yet adds them as
+         *     Placeholder Episodes, which the Grab covers.
          *     A spent grab budget is `429 rate_limited`; an unreachable client or indexer is
          *     `502 upstream_unavailable`.
          */
@@ -2246,6 +2252,12 @@ export interface components {
             primary_name: string;
             /** @description The title in the Series' original language. Empty for a Placeholder Episode. */
             original_name: string;
+            /**
+             * @description True for a Placeholder Episode: one Kestrel added because a Release named it before
+             *     TheTVDB listed it. It has no name, air date or TheTVDB id until a metadata refresh adopts
+             *     it, and counts as released from when it was added.
+             */
+            placeholder: boolean;
         };
         EpisodeList: {
             items: components["schemas"]["Episode"][];
@@ -2505,11 +2517,11 @@ export interface components {
          *     that offers such Releases.
          * @enum {string}
          */
-        RejectionCode: "below_min_score" | "resolution" | "quality" | "language" | "original_language_unknown" | "blocklisted" | "other_slot" | "original_only";
+        RejectionCode: "below_min_score" | "resolution" | "quality" | "language" | "original_language_unknown" | "blocklisted" | "other_slot" | "episode_not_listed" | "season_not_listed" | "original_only";
         Rejection: {
             code: components["schemas"]["RejectionCode"];
             message: string;
-            /** @description False for `blocklisted` and `other_slot`, which "Grab anyway" never overrides. */
+            /** @description False for `blocklisted`, `other_slot` and `season_not_listed`, which "Grab anyway" never overrides. */
             overridable: boolean;
         };
         CustomFormatMatch: {

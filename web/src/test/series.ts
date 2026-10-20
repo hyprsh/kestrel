@@ -20,6 +20,7 @@ export const episode = (id: number, season: number, number: number, name: string
   air_date: '2008-01-20',
   monitored: season > 0,
   cells: { standard: cell(season > 0 ? 'wanted' : 'unmonitored'), '4k': cell(season > 0 ? 'wanted' : 'unmonitored') },
+  placeholder: false,
   ...over,
 })
 

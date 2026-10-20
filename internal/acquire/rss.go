@@ -176,6 +176,9 @@ func (s *Service) busyVersions(ctx context.Context) (map[int64]bool, error) {
 
 func (s *Service) rssMovie(ctx context.Context, sub subject, items []feedItem) ([]Grab, error) {
 	d := sub.detail
+	if err := s.releaseSeen(ctx, d, len(items)); err != nil {
+		return nil, err
+	}
 	busy, err := s.busyVersions(ctx)
 	if err != nil {
 		return nil, err
@@ -293,10 +296,7 @@ func (s *Service) rssSeries(ctx context.Context, sub subject, items []feedItem) 
 		in.Candidates = append(in.Candidates, e.cand)
 	}
 
-	idOf := map[EpisodeRef]int64{}
-	for _, ep := range episodes {
-		idOf[EpisodeRef{ep.Season, ep.Number}] = ep.ID
-	}
+	planUnlisted(&in, d, episodes, now, library.Scope{})
 	var out []Grab
 	plans, err := s.decide(ctx, in)
 	if err != nil {
@@ -305,9 +305,15 @@ func (s *Service) rssSeries(ctx context.Context, sub subject, items []feedItem) 
 	var errs []error
 	for _, plan := range plans {
 		e := entries[entryKey(plan.Candidate)]
+		eps, err := s.placeholdersFor(ctx, d.ID, plan.Covers, episodes)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		episodes = eps
 		var covers []int64
 		for _, ref := range plan.Covers {
-			covers = append(covers, idOf[ref])
+			covers = append(covers, episodeID(episodes, ref))
 		}
 		g, err := s.send(ctx, outgoing{
 			titleID: d.ID, versionID: versionOf[plan.Slot], e: e, slot: plan.Slot, media: downloads.Series,
@@ -336,11 +342,12 @@ func (s *Service) coveredEpisodes(ctx context.Context) (map[[2]int64]bool, error
 	return out, nil
 }
 
-// seasonsFinished marks the seasons whose every episode has aired.
+// seasonsFinished marks the seasons whose every episode is released (the
+// Library's rule: aired, or for an undated episode a later one out).
 func seasonsFinished(eps []library.Episode, now time.Time) map[int]bool {
 	finished := map[int]bool{}
 	for _, ep := range eps {
-		done := ep.AirDate != nil && !ep.AirDate.After(now)
+		done := ep.Released != nil && !ep.Released.After(now)
 		if prev, seen := finished[ep.Season]; !seen {
 			finished[ep.Season] = done
 		} else {

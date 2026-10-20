@@ -42,15 +42,16 @@ type Blocklist struct {
 }
 
 type Episode struct {
-	ID          int64
-	TitleID     int64
-	Season      int64
-	Number      int64
-	TvdbID      sql.NullInt64
-	Name        string
-	AirDate     sql.NullString
-	Monitored   int64
-	PrimaryName string
+	ID            int64
+	TitleID       int64
+	Season        int64
+	Number        int64
+	TvdbID        sql.NullInt64
+	Name          string
+	AirDate       sql.NullString
+	Monitored     int64
+	PrimaryName   string
+	PlaceholderAt sql.NullString
 }
 
 type Event struct {
@@ -269,6 +270,7 @@ type Title struct {
 	RefreshedAt      string
 	TmdbVoteAverage  sql.NullFloat64
 	TmdbVoteCount    sql.NullInt64
+	ReleaseSeenAt    sql.NullString
 }
 
 type TitleAlias struct {

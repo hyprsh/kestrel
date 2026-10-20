@@ -254,6 +254,9 @@ func (in *seriesImport) file(ctx context.Context, video string, out *Result) {
 		return
 	}
 	slices.Sort(numbers)
+	if !in.placeholders(ctx, season, numbers, fileName, out) {
+		return
+	}
 	var named []library.Episode
 	for _, n := range numbers {
 		if ep, ok := in.byRef[[2]int{season, n}]; ok {

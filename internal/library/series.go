@@ -75,7 +75,13 @@ type Episode struct {
 	// no translation or none was fetched yet.
 	PrimaryName string
 	AirDate     *time.Time // the TheTVDB air date; nil when it has none
-	Monitored   bool
+	// Released is when it counts as released (releasedOf): the air date, or for
+	// an undated episode when a later one was first out. nil while it is not.
+	Released  *time.Time
+	Monitored bool
+	// Placeholder is set for a Placeholder Episode: one Kestrel added because a
+	// Release named it before TheTVDB listed it.
+	Placeholder bool
 	// Cells is indexed by slot.Slot; nil where the Title has no Version.
 	Cells [slot.Count]*EpisodeCell
 }
@@ -279,12 +285,13 @@ func heldOf(rows []fileEp) heldMap {
 	return out
 }
 
-// unitsOf are one Series Version's episodes as Units at its added time.
-func unitsOf(eps []db.Episode, held map[int64]*int, addedAt time.Time) []Unit {
+// unitsOf are one Series Version's episodes as Units at its added time;
+// released is the Series' releasedOf.
+func unitsOf(eps []db.Episode, released map[int64]*time.Time, held map[int64]*int, addedAt time.Time) []Unit {
 	out := make([]Unit, 0, len(eps))
 	for _, e := range eps {
 		_, has := held[e.ID]
-		out = append(out, Unit{Monitored: e.Monitored == 1, HasFile: has, Released: parseDate(e.AirDate), AddedAt: addedAt})
+		out = append(out, Unit{Monitored: e.Monitored == 1, HasFile: has, Released: released[e.ID], AddedAt: addedAt})
 	}
 	return out
 }
@@ -320,6 +327,11 @@ func (s *Service) Episodes(ctx context.Context, titleID int64, view View) ([]Epi
 		rows = append(rows, fileEp{r.VersionID, r.EpisodeID, r.Score})
 	}
 	heldBy := heldOf(rows)
+	filed, err := filedOfTitle(ctx, q, titleID)
+	if err != nil {
+		return nil, err
+	}
+	released := releasedOf(eps, filed)
 	all, err := q.ListAllFileEpisodesOfTitle(ctx, titleID)
 	if err != nil {
 		return nil, err
@@ -350,13 +362,14 @@ func (s *Service) Episodes(ctx context.Context, titleID int64, view View) ([]Epi
 	}
 	out := make([]Episode, 0, len(eps))
 	for _, e := range eps {
-		ep := Episode{ID: e.ID, Season: int(e.Season), Number: int(e.Number), Name: e.Name, PrimaryName: e.PrimaryName, AirDate: parseDate(e.AirDate), Monitored: e.Monitored == 1}
+		ep := Episode{ID: e.ID, Season: int(e.Season), Number: int(e.Number), Name: e.Name, PrimaryName: e.PrimaryName, AirDate: parseDate(e.AirDate), Released: released[e.ID], Monitored: e.Monitored == 1,
+			Placeholder: e.PlaceholderAt.Valid}
 		if ep.PrimaryName == "" {
 			ep.PrimaryName = ep.Name
 		}
 		for _, v := range versions {
 			score, has := heldBy[v.ID][e.ID]
-			st, _ := StateAt(Unit{Monitored: ep.Monitored, HasFile: has, Released: ep.AirDate, AddedAt: parseTime(v.AddedAt)}, view.Now)
+			st, _ := StateAt(Unit{Monitored: ep.Monitored, HasFile: has, Released: ep.Released, AddedAt: parseTime(v.AddedAt)}, view.Now)
 			f := fileOf[[2]int64{v.ID, e.ID}]
 			ep.Cells[slotOf(v.Slot)] = &EpisodeCell{State: st, Score: score, HasFile: f != nil, File: f}
 		}
