@@ -59,7 +59,6 @@ Bootstrap settings are environment variables. Everything else lives in SQLite an
 | `KESTREL_DATA_DIR` | `/data` | Prefills the root folders and is the mount the disk checks watch. |
 | `KESTREL_TMDB_API_KEY` | empty | Your own [TMDB](https://www.themoviedb.org/settings/api) API key (v3). It outranks the key embedded in the build and is outranked by one saved in the UI. |
 | `KESTREL_TVDB_API_KEY` | empty | Your own TheTVDB key, same precedence. |
-| `KESTREL_TMDB_API_URL`, `KESTREL_TMDB_IMAGE_URL`, `KESTREL_TVDB_API_URL` | empty | Base URLs of the TMDB API (`https://api.themoviedb.org/3`), TMDB images (`https://image.tmdb.org/t/p`) and TheTVDB API (`https://api4.thetvdb.com/v4`), which they replace. For development and demos against stand-ins (`scripts/demo`); anything but an `http` or `https` URL stops startup. |
 | `KESTREL_API_KEY` | empty | A fixed full-access API key, for deployments that wire Kestrel up from a script. It must look like a generated key: `kst_` followed by at least 32 characters from `A-Z` and `2-7` (`echo kst_$(LC_ALL=C tr -dc A-Z2-7 </dev/urandom \| head -c 52)`); anything else stops startup. While set it replaces the key from Settings > Security, which is deleted, and rotating in the UI is disabled. Removed again, there is no key until one is generated in the UI. |
 | `KESTREL_CONFIG_FILE` | empty | Path of a [Config File](#the-config-file), which declares sections the UI then can't change. Unset, everything is set in the UI. |
 
