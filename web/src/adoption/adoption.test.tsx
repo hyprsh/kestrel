@@ -208,6 +208,15 @@ describe('Adoption review', () => {
     expect(previews).toEqual([{ title_ids: [3, 4] }])
   })
 
+  it('opens from the Library', async () => {
+    fakeAdoption()
+    const user = userEvent.setup()
+    renderApp()
+    await user.click(await screen.findByRole('button', { name: 'Library' }))
+    await user.click(await screen.findByRole('button', { name: 'Adopt existing library' }))
+    expect(screen.getByRole('banner')).toHaveTextContent('Adopt existing library')
+  })
+
   it('unticking a row leaves it out of the count', async () => {
     fakeAdoption()
     const user = await openAdoption()
