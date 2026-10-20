@@ -60,10 +60,10 @@ func newInstance(t *testing.T, base string, with ...func(*app.Options)) *instanc
 	for _, f := range with {
 		f(&opts)
 	}
-	app := app.New(opts)
-	srv := httptest.NewServer(app.Handler)
-	t.Cleanup(func() { srv.Close() })
-	return &instance{t: t, srv: srv, st: st, clock: clock, base: base, opts: opts, app: app}
+	in := &instance{t: t, st: st, clock: clock, base: base, opts: opts, app: app.New(opts)}
+	in.srv = httptest.NewServer(in.app.Handler)
+	t.Cleanup(func() { in.srv.Close(); in.app.Close(context.Background()) }) // before the store closes
+	return in
 }
 
 // restart is a new process over the same database: new services and no memory
@@ -80,6 +80,7 @@ func (in *instance) restart() {
 func (in *instance) start() error {
 	in.t.Helper()
 	in.srv.Close()
+	in.app.Close(context.Background())
 	in.app = app.New(in.opts)
 	in.srv = httptest.NewServer(in.app.Handler)
 	in.t.Cleanup(func() { in.srv.Close() })

@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,16 +17,16 @@ import (
 )
 
 // newMediaSearch is newSearchBare with the fake media server registered and
-// one instance of it configured.
-func newMediaSearch(t *testing.T) (search, *msfake.Server) {
+// one instance of it configured; each option adjusts app.Options after that.
+func newMediaSearch(t *testing.T, with ...func(*app.Options)) (search, *msfake.Server) {
 	t.Helper()
 	ms := msfake.New("mk")
-	s := newSearchBare(t, func(o *app.Options) {
+	s := newSearchBare(t, append([]func(*app.Options){func(o *app.Options) {
 		if err := o.Plugins.Register(mediaserver.Contract, ms); err != nil {
 			t.Fatal(err)
 		}
 		o.MediaRefreshDelay = 30 * time.Millisecond
-	})
+	}}, with...)...)
 	if r := s.valid("POST", "/plugin-instances", `{"plugin_id":"fake_media_server","name":"Plex","config":{"token":"mk"}}`); r.Status != 201 {
 		t.Fatalf("media server = %d %s", r.Status, r.Body)
 	}
@@ -65,6 +66,25 @@ func TestAnImportRefreshesTheMediaServersAndDeletingTheTitleDoesToo(t *testing.T
 	got = waitRefreshed(t, ms, 2)
 	if !slices.Equal(got, []string{folder, folder}) {
 		t.Fatalf("refreshed %v", got)
+	}
+}
+
+func TestStoppingKestrelSendsTheRefreshesStillWaiting(t *testing.T) {
+	t.Parallel()
+	s, ms := newMediaSearch(t, func(o *app.Options) { o.MediaRefreshDelay = time.Hour })
+	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
+	s.prober.set(goodProbe(), nil)
+	s.download(t, map[string]string{"paddington.mkv": "the movie"})
+	s.pass(t, jobs.Poll)
+	s.pass(t, jobs.Import)
+	folder := filepath.Dir(s.version(t, s.hd).File.Path)
+	if got := ms.Refreshed(); len(got) != 0 {
+		t.Fatalf("refreshed %v before the delay ended", got)
+	}
+
+	s.in.app.Close(context.Background())
+	if got := ms.Refreshed(); !slices.Equal(got, []string{folder}) {
+		t.Fatalf("refreshed %v at shutdown, want the Title folder %s", got, folder)
 	}
 }
 
