@@ -147,7 +147,7 @@ func New(opts Options) *App {
 	meta = observedMeta{Provider: meta, h: healthSvc}
 	tvdb = observedTVDB{TVDBProvider: tvdb, h: healthSvc}
 
-	pause := acquire.NewPause(appSettings)
+	pause := acquire.NewPause(appSettings, opts.Clock)
 	acq, err := acquire.New(acquire.Deps{
 		Store: st, Clock: opts.Clock, Library: lib, Profiles: profs,
 		Indexers: indexerHost, Downloads: downloadHost, History: hist, Scoring: live, Pause: pause,

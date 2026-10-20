@@ -164,14 +164,19 @@ func TestWithGrabsPausedTheSweepAndRSSSearchButGrabNothingWhileAHandStartedGrabG
 	t.Parallel()
 	s := newSearch(t)
 	s.publish(t, goodRelease)
+	s.publish(t, uhdRelease)
 	s.pauseGrabs(t, true)
 
 	before := s.searchesUsed(t)
 	s.pass(t, jobs.Search)
+	afterSweep := s.searchesUsed(t)
 	s.pass(t, jobs.RSS)
 
-	if used := s.searchesUsed(t); used <= before {
-		t.Errorf("the sweep stopped searching (%d -> %d searches)", before, used)
+	if afterSweep <= before {
+		t.Errorf("the sweep stopped searching (%d -> %d searches)", before, afterSweep)
+	}
+	if used := s.searchesUsed(t); used <= afterSweep {
+		t.Errorf("RSS stopped reading the feed (%d -> %d searches)", afterSweep, used)
 	}
 	if q := s.queue(t); len(q) != 0 {
 		t.Fatalf("queue = %+v, want no automatic Grab", q)
@@ -184,6 +189,18 @@ func TestWithGrabsPausedTheSweepAndRSSSearchButGrabNothingWhileAHandStartedGrabG
 	r := s.grab(s.hd, s.releases(t, s.hd).find(t, goodRelease).ReleaseID, false)
 	if r.Status != 201 {
 		t.Errorf("hand-started grab = %d %s", r.Status, r.Body)
+	}
+
+	// The feed RSS read while paused matched and scored the 4K Release: the
+	// same feed grabs it once Grabs are back on.
+	s.pauseGrabs(t, false)
+	s.pass(t, jobs.RSS)
+	var uhd bool
+	for _, it := range s.queue(t) {
+		uhd = uhd || (it.VersionID != nil && *it.VersionID == s.uhd && it.ReleaseName == uhdRelease)
+	}
+	if !uhd {
+		t.Errorf("queue = %+v, want RSS to grab the 4K Release once unpaused", s.queue(t))
 	}
 }
 
@@ -199,6 +216,26 @@ func TestTurningPauseGrabsOffLetsTheNextSweepGrab(t *testing.T) {
 
 	if q := s.queue(t); len(q) != 1 || q[0].ReleaseName != goodRelease {
 		t.Errorf("queue = %+v, want the Standard Version grabbed", q)
+	}
+}
+
+func TestTurningPauseGrabsOffLetsTheNextSweepGrabAnUpgradeFoundWhilePaused(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	if _, err := s.in.st.Write().Exec(
+		`INSERT INTO files (version_id, path, size, release_name, score, imported_at)
+		 VALUES (?, '/data/media/movies/Paddington/p.mkv', 1, 'Paddington.2014.720p.HDTV.x264-OLD', -50, '2026-10-01T00:00:00Z')`, s.hd); err != nil {
+		t.Fatal(err)
+	}
+	s.publish(t, goodRelease)
+	s.pauseGrabs(t, true)
+	s.pass(t, jobs.Search)
+
+	s.pauseGrabs(t, false)
+	s.pass(t, jobs.Search)
+
+	if q := s.queue(t); len(q) != 1 || q[0].ReleaseName != goodRelease || !q[0].IsUpgrade {
+		t.Errorf("queue = %+v, want the Upgrade of the Standard Version grabbed", q)
 	}
 }
 

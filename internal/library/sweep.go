@@ -397,6 +397,19 @@ func (s *Service) SearchAllWanted(ctx context.Context) (int, error) {
 	return n, nil
 }
 
+// SearchAfterPause makes due now what the sweep searched while Grabs were
+// paused, since `since`, so the next sweep can grab it: every Wanted row and
+// every Upgrade search made since then. The caller kicks the sweep.
+func (s *Service) SearchAfterPause(ctx context.Context, since time.Time) error {
+	if _, err := s.SearchAllWanted(ctx); err != nil {
+		return err
+	}
+	return db.New(s.st.Write()).SetUpgradesDueSince(ctx, db.SetUpgradesDueSinceParams{
+		NextUpgradeAt: sql.NullString{String: ts(s.clock()), Valid: true},
+		LastUpgradeAt: sql.NullString{String: ts(since), Valid: true},
+	})
+}
+
 // SearchWanted makes the Wanted rows of the given Titles due now and returns,
 // per Title, how many of its Versions that is; a Title with nothing Wanted is
 // left out. The caller kicks the sweep.

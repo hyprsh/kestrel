@@ -1704,6 +1704,20 @@ func (q *Queries) SetTitleMonitored(ctx context.Context, arg SetTitleMonitoredPa
 	return err
 }
 
+const setUpgradesDueSince = `-- name: SetUpgradesDueSince :exec
+UPDATE search_state SET next_upgrade_at = ? WHERE last_upgrade_at >= ?
+`
+
+type SetUpgradesDueSinceParams struct {
+	NextUpgradeAt sql.NullString
+	LastUpgradeAt sql.NullString
+}
+
+func (q *Queries) SetUpgradesDueSince(ctx context.Context, arg SetUpgradesDueSinceParams) error {
+	_, err := q.db.ExecContext(ctx, setUpgradesDueSince, arg.NextUpgradeAt, arg.LastUpgradeAt)
+	return err
+}
+
 const setVersionProfile = `-- name: SetVersionProfile :exec
 UPDATE versions SET profile_key = ? WHERE id = ?
 `

@@ -1625,7 +1625,8 @@ export interface components {
              *     add and the retry after a failed download still search and score Releases, so Wanted and
              *     Upgrade candidates still show up, but send nothing to the download client. A Grab started
              *     by hand from a Version's Releases still goes through. Turning it off makes every Wanted
-             *     Version due a search now, so the next sweep grabs as usual. The health strip shows it as
+             *     Version, and every Upgrade search made while paused, due a search now, so the next sweep
+             *     grabs as usual. The health strip shows it as
              *     `grabs_paused`.
              */
             pause_grabs: boolean;
