@@ -295,10 +295,7 @@ func (s *Service) rssSeries(ctx context.Context, sub subject, items []feedItem) 
 		in.Candidates = append(in.Candidates, e.cand)
 	}
 
-	idOf := map[EpisodeRef]int64{}
-	for _, ep := range episodes {
-		idOf[EpisodeRef{ep.Season, ep.Number}] = ep.ID
-	}
+	planUnlisted(&in, d, episodes, now, library.Scope{})
 	var out []Grab
 	plans, err := s.decide(ctx, in)
 	if err != nil {
@@ -307,9 +304,15 @@ func (s *Service) rssSeries(ctx context.Context, sub subject, items []feedItem) 
 	var errs []error
 	for _, plan := range plans {
 		e := entries[entryKey(plan.Candidate)]
+		eps, err := s.placeholdersFor(ctx, d.ID, plan.Covers, episodes)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		episodes = eps
 		var covers []int64
 		for _, ref := range plan.Covers {
-			covers = append(covers, idOf[ref])
+			covers = append(covers, episodeID(episodes, ref))
 		}
 		g, err := s.send(ctx, outgoing{
 			titleID: d.ID, versionID: versionOf[plan.Slot], e: e, slot: plan.Slot, media: downloads.Series,

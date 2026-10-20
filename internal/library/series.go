@@ -77,6 +77,9 @@ type Episode struct {
 	// an undated episode when a later one was first out. nil while it is not.
 	Released  *time.Time
 	Monitored bool
+	// Placeholder is set for a Placeholder Episode: one Kestrel added because a
+	// Release named it before TheTVDB listed it.
+	Placeholder bool
 	// Cells is indexed by slot.Slot; nil where the Title has no Version.
 	Cells [slot.Count]*EpisodeCell
 }
@@ -352,7 +355,8 @@ func (s *Service) Episodes(ctx context.Context, titleID int64, view View) ([]Epi
 	}
 	out := make([]Episode, 0, len(eps))
 	for _, e := range eps {
-		ep := Episode{ID: e.ID, Season: int(e.Season), Number: int(e.Number), Name: e.Name, PrimaryName: e.PrimaryName, AirDate: parseDate(e.AirDate), Released: released[e.ID], Monitored: e.Monitored == 1}
+		ep := Episode{ID: e.ID, Season: int(e.Season), Number: int(e.Number), Name: e.Name, PrimaryName: e.PrimaryName, AirDate: parseDate(e.AirDate), Released: released[e.ID], Monitored: e.Monitored == 1,
+			Placeholder: e.PlaceholderAt.Valid}
 		if ep.PrimaryName == "" {
 			ep.PrimaryName = ep.Name
 		}

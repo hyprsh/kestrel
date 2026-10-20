@@ -149,7 +149,10 @@ func (s *Service) RefreshMovie(ctx context.Context, id int64, r MovieRefresh) (R
 // brings its episodes up to date: an episode is matched by its TheTVDB id (else
 // by season and number), takes the new name, air date and place, and an episode
 // TheTVDB has added is monitored by the Series' mode. Episodes TheTVDB no
-// longer lists stay, so files they hold are never orphaned.
+// longer lists stay, so files they hold are never orphaned. A Placeholder
+// Episode TheTVDB now lists is adopted; one a listed episode moves onto yields
+// to it (yieldPlaceholders); one that holds no file and that no active Grab is
+// fetching is removed.
 func (s *Service) RefreshSeries(ctx context.Context, id int64, r SeriesRefresh) (Refreshed, error) {
 	d := r.TMDB
 	primary := d.TitleIn(r.PrimaryLanguage)
@@ -202,17 +205,33 @@ func (s *Service) refreshEpisodes(ctx context.Context, q *db.Queries, id int64, 
 	var changes []change
 	var added []metadata.Episode
 	seen := map[int64]bool{}
-	for _, f := range fresh {
-		e, ok := byTVDB[int64(f.ID)]
-		if !ok || f.ID == 0 {
+	// TheTVDB ids first, so an episode that moves is not taken by another that
+	// arrives at its old place.
+	byID := map[int]db.Episode{}
+	for i, f := range fresh {
+		if e, ok := byTVDB[int64(f.ID)]; ok && f.ID != 0 && !seen[e.ID] {
+			seen[e.ID] = true
+			byID[i] = e
+		}
+	}
+	for i, f := range fresh {
+		e, ok := byID[i]
+		if !ok {
 			e, ok = byRef[[2]int64{int64(f.Season), int64(f.Number)}]
+			if !ok || seen[e.ID] {
+				added = append(added, f)
+				continue
+			}
+			seen[e.ID] = true
 		}
-		if !ok || seen[e.ID] {
-			added = append(added, f)
-			continue
-		}
-		seen[e.ID] = true
 		changes = append(changes, change{e, f})
+	}
+	moves := map[[2]int64]int64{}
+	for _, c := range changes {
+		moves[[2]int64{int64(c.fresh.Season), int64(c.fresh.Number)}] = c.ep.ID
+	}
+	if err := yieldPlaceholders(ctx, q, have, seen, moves); err != nil {
+		return err
 	}
 	airOf := func(f metadata.Episode) sql.NullString {
 		if f.Aired == nil {
@@ -285,6 +304,9 @@ func (s *Service) refreshEpisodes(ctx context.Context, q *db.Queries, id int64, 
 				return err
 			}
 		}
+	}
+	if err := q.DeleteStrayPlaceholders(ctx, id); err != nil {
+		return err
 	}
 	return q.RefreshSeasonsMonitored(ctx, id)
 }

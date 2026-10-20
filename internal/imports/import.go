@@ -104,6 +104,8 @@ type Library interface {
 	// GetVersion and RemoveFiles delete files and keep their Version.
 	GetVersion(ctx context.Context, id int64) (library.VersionRef, error)
 	RemoveFiles(ctx context.Context, versionID int64, fileIDs []int64) ([]library.File, error)
+	// AddPlaceholders adds Placeholder Episodes for files naming episodes TheTVDB does not list yet.
+	AddPlaceholders(ctx context.Context, titleID int64, refs []library.EpisodeRef) error
 }
 
 // Profiles is what imports needs of the Profiles.
