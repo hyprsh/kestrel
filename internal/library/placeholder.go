@@ -24,9 +24,9 @@ type Unlisted int
 const (
 	// Qualifies: every one of them may (or there are none).
 	Qualifies Unlisted = iota
-	// EpisodeNotListed: one is in a season TheTVDB lists but does not qualify,
-	// for instance because it is beyond PlaceholderLimit or its season is not
-	// monitored. A Grab by hand may override it.
+	// EpisodeNotListed: one is in a season TheTVDB lists but does not qualify:
+	// it is beyond PlaceholderLimit, a gap at or below the last listed episode,
+	// or its season is not monitored. A Grab by hand may override it.
 	EpisodeNotListed
 	// SeasonNotListed: one is in a season TheTVDB does not list. Nothing
 	// overrides it.
@@ -39,7 +39,9 @@ const (
 // monitored, of a Series whose mode monitors a new episode of it, and its
 // number past the last listed episode of the season by at most
 // PlaceholderLimit. The limit counts from listed episodes only, never from
-// Placeholder Episodes. A Release qualifies only when every one does.
+// Placeholder Episodes. A number at or below the last listed one, a gap in
+// what TheTVDB lists, does not qualify: TheTVDB is behind only on episodes
+// after its last. A Release qualifies only when every one does.
 func UnlistedOf(d Detail, eps []Episode, season int, numbers []int, now time.Time) ([]EpisodeRef, Unlisted) {
 	have := map[EpisodeRef]bool{}
 	last, listed := 0, false

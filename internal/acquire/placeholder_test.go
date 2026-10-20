@@ -226,3 +226,34 @@ func TestAManualSearchMarksUnlistedEpisodesAndAnOverrideAddsThePlaceholderEpisod
 		t.Errorf("placeholder %v, overridden %v", p, g.Overridden)
 	}
 }
+
+func TestAManualSearchMarksAnUnlistedEpisodeOfAnUnmonitoredSeasonAndAnOverrideGrabsIt(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	id, ver := r.nightShow(t, library.MonitorAll)
+	if err := r.lib.SetSeasonMonitored(ctx, id, 1, false); err != nil {
+		t.Fatal(err)
+	}
+	const next = "Night.Show.S01E03.1080p.WEB-DL.H264-GRP"
+	r.publishShow(t, next, "1", "3")
+
+	res, err := r.svc.Search(ctx, ver)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := r.found(t, res, next)
+	if len(f.Rejections) != 1 || f.Rejections[0] != (acquire.Reason{Code: acquire.RejectEpisodeNotListed, Overridable: true}) {
+		t.Fatalf("S01E03 rejections = %+v", f.Rejections)
+	}
+	g, err := r.svc.Grab(ctx, ver, f.ID, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, ok := r.placeholderAt(t, id, 1, 3)
+	if !ok {
+		t.Fatal("no Placeholder Episode S01E03")
+	}
+	if got, _ := r.svc.GrabEpisodes(ctx, g.ID); !slices.Equal(got, []int64{p.ID}) {
+		t.Errorf("the Grab covers %v, want the placeholder %d", got, p.ID)
+	}
+}
