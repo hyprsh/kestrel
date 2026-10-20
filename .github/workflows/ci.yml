@@ -134,22 +134,6 @@ jobs:
           install-only: true
       - run: make dry-run-assets GORELEASER_CMD=goreleaser
 
-  commitlint:
-    name: Conventional Commit PR title
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 26
-          cache: npm
-      - run: npm ci
-      - name: Lint the PR title
-        env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        run: printf '%s\n' "$PR_TITLE" | npx --no-install commitlint
-
   commitlint-main:
     name: Conventional Commit messages on main
     if: github.event_name == 'push'
