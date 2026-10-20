@@ -105,7 +105,7 @@ export function DeleteFile({ versionId, file }: { versionId: number; file: FileS
       },
     )
   return (
-    <div className="mt-2">
+    <div>
       {file && !asking && (
         <Button variant="secondary" className="h-7 w-full" onClick={() => setAsking(true)}>
           Delete file

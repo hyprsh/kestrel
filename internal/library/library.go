@@ -149,6 +149,37 @@ type Version struct {
 	WantedSince *time.Time
 	File        *File // Movies; nil until an Import fills it
 	AddedAt     time.Time
+	Coverage    *Coverage // Series only
+}
+
+// Coverage is how far a Series Version is filled. Episodes counts those it
+// holds a file for and those it Wants, so a Version is Wanted exactly when
+// Wanted is above zero.
+type Coverage struct {
+	Episodes    int
+	Filled      int
+	Wanted      int
+	LongMissing int
+	Size        int64 // bytes of all the Version's files
+}
+
+// coverageOf counts one Series Version's Units at now; size is the bytes of its files.
+func coverageOf(units []Unit, size int64, now time.Time) *Coverage {
+	c := &Coverage{Size: size}
+	for _, u := range units {
+		st, since := StateAt(u, now)
+		switch st {
+		case Filled:
+			c.Filled++
+		case Wanted:
+			c.Wanted++
+			if IsLongMissing(st, since, now) {
+				c.LongMissing++
+			}
+		}
+	}
+	c.Episodes = c.Filled + c.Wanted
+	return c
 }
 
 // Alias is an alternative title or translation.
@@ -521,7 +552,9 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 		return Detail{}, err
 	}
 	fileOf := map[int64]*File{}
+	versionSize := map[int64]int64{}
 	for _, f := range files {
+		versionSize[f.VersionID] += f.Size
 		fl := &File{Misfit: misfits[f.ID], ID: f.ID, Path: f.Path, Size: f.Size, ReleaseName: f.ReleaseName, ParsedRelease: f.ParsedRelease.String, Probe: f.Probe.String, ImportedAt: parseTime(f.ImportedAt)}
 		if f.Score.Valid {
 			n := int(f.Score.Int64)
@@ -558,14 +591,17 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 		fl := fileOf[v.ID]
 		var st State
 		var since *time.Time
+		var cov *Coverage
 		if d.Kind == Series {
-			st, since = SeriesState(unitsOf(epsOf, heldBy[v.ID], parseTime(v.AddedAt)), view.Now)
+			units := unitsOf(epsOf, heldBy[v.ID], parseTime(v.AddedAt))
+			st, since = SeriesState(units, view.Now)
+			cov = coverageOf(units, versionSize[v.ID], view.Now)
 		} else {
 			st, since = stateOf(d.Monitored, fl != nil && !fl.Misfit, d.ReleaseDates, parseTime(v.AddedAt), view)
 		}
 		d.Versions = append(d.Versions, Version{
 			ID: v.ID, Slot: slotOf(v.Slot), Profile: v.ProfileKey, State: st, LongMissing: IsLongMissing(st, since, view.Now),
-			WantedSince: since, File: fl, AddedAt: parseTime(v.AddedAt),
+			WantedSince: since, File: fl, AddedAt: parseTime(v.AddedAt), Coverage: cov,
 		})
 	}
 	sort.SliceStable(d.Versions, func(i, j int) bool { return d.Versions[i].Slot < d.Versions[j].Slot })

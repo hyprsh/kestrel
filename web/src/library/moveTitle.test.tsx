@@ -44,7 +44,8 @@ function fakeMovie(refuse?: { status: 409 | 422; code: string; detail: string })
 
 async function openPicker() {
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-  await userEvent.click(await screen.findByRole('button', { name: 'Move' }))
+  await userEvent.click(await screen.findByRole('button', { name: 'More Title actions' }))
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Move' }))
   return screen.findByRole('group', { name: 'Move Title' })
 }
 

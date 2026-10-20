@@ -1,20 +1,15 @@
-import { forwardRef } from 'react'
+import { forwardRef, useRef } from 'react'
 import { apiBaseUrl } from '../api/client'
 import type { ReleaseScope } from '../api/grabs'
-import { ApiError, useProfiles, useSetMovieMonitored, useTitle, type Profile, type TitleDetail as Detail, type TitleRow } from '../api/queries'
-import { useOpenCleanup } from '../cleanup/launch'
-import { Button, ErrorText } from '../forms'
-import { cx } from '../ui'
-import { size, slotKeys, slotLabel, StatusBadge, type SlotKey } from './bits'
-import { DeleteFile } from './DeleteFiles'
+import { useProfiles, useTitle, type TitleDetail as Detail, type TitleRow } from '../api/queries'
+import { slotKeys, type SlotKey } from './bits'
 import { ExternalIds } from './ExternalIds'
 import { Scores } from './Score'
-import { AddVersion, RemoveTitle, VersionControls } from './ManageVersion'
-import { MoveTitle } from './MoveTitle'
 import { SeriesSection } from './SeriesSection'
-import { VersionSearch } from './VersionSearch'
+import { SlotCard } from './SlotCard'
+import { TitleActions } from './TitleActions'
 
-/** The right pane of the Library: the selected Title's header and its Standard | 4K Versions strip. */
+/** The right pane of the Library: the selected Title's header, its actions row and its Standard | 4K Slot cards. */
 export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: () => void; onManualSearch: (search: ManualSearchTarget) => void }>(function TitleDetail(
   { row, onEscape, onManualSearch },
   ref,
@@ -51,8 +46,9 @@ export type ManualSearchTarget = { versionId: number; slot: SlotKey; profileName
 
 function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (search: ManualSearchTarget) => void }) {
   const profiles = useProfiles()
-  const openCleanup = useOpenCleanup()
+  const episodes = useRef<HTMLDivElement>(null)
   const names = new Map((profiles.data ?? []).map((p) => [p.key, p.name]))
+  const profileName = (key: string) => names.get(key) ?? key
   const meta = [
     title.year,
     title.runtime ? `${title.runtime} min` : null,
@@ -79,97 +75,26 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
             </div>
           ))}
           {title.overview && <p className="mt-3 max-w-prose text-gray-900">{title.overview}</p>}
-          {title.kind === 'movie' && <MovieMonitored title={title} />}
         </div>
       </div>
+      <TitleActions title={title} profileName={profileName} onManualSearch={onManualSearch} />
 
-      <div className="mt-6 grid grid-cols-3 gap-3">
+      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {slotKeys.map((k) => (
-          <VersionColumn key={k} slot={k} title={title} profiles={profiles.data ?? []} profileName={(key) => names.get(key) ?? key} onManualSearch={onManualSearch} />
+          <SlotCard
+            key={k}
+            slot={k}
+            title={title}
+            profiles={profiles.data ?? []}
+            profileName={profileName}
+            onCoverage={() => episodes.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })}
+          />
         ))}
       </div>
 
-      {title.kind === 'series' && <SeriesSection title={title} onManualSearch={onManualSearch} />}
-      <div className="mt-6 flex items-center gap-3">
-        <Button variant="secondary" onClick={() => openCleanup([title.id])}>
-          Clean up this Title
-        </Button>
-      </div>
-      <MoveTitle title={title} />
-      <RemoveTitle titleId={title.id} />
-    </div>
-  )
-}
-
-/** A Movie's Monitored switch: off, the Movie is never searched, grabbed or upgraded automatically. */
-function MovieMonitored({ title }: { title: Detail }) {
-  const set = useSetMovieMonitored(title.id)
-  const hint = `title-${title.id}-monitored-hint`
-  return (
-    <div className="mt-3">
-      <label className="flex items-center gap-2 text-[13px]">
-        <input
-          type="checkbox"
-          checked={title.monitored}
-          disabled={set.isPending}
-          aria-describedby={hint}
-          onChange={(e) => set.mutate(e.target.checked)}
-        />
-        Monitored
-      </label>
-      <p id={hint} className="mt-0.5 pl-5 text-[12px] text-gray-900">
-        {title.monitored ? 'Kestrel searches for this Movie and upgrades its files.' : 'Kestrel leaves this Movie as it is: no searches, Grabs or Upgrades.'}
-      </p>
-      {set.isError && <ErrorText>{set.error instanceof ApiError ? set.error.message : 'Could not change monitoring.'}</ErrorText>}
-    </div>
-  )
-}
-
-function VersionColumn({
-  slot,
-  title,
-  profiles,
-  profileName,
-  onManualSearch,
-}: {
-  slot: SlotKey
-  title: Detail
-  profiles: Profile[]
-  profileName: (key: string) => string
-  onManualSearch: (search: ManualSearchTarget) => void
-}) {
-  const v = title.versions.find((x) => x.slot === slot)
-  return (
-    <div role="group" aria-label={slotLabel[slot]} className={cx('rounded-lg border p-3', v ? 'border-gray-alpha-400' : 'border-dashed border-gray-alpha-400')}>
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[11px] font-medium text-gray-900">{slotLabel[slot]}</span>
-        {v && <StatusBadge state={v.state} longMissing={v.long_missing} />}
-      </div>
-      {v ? (
-        <div className="mt-2">
-          <div className="text-[13px] font-medium">{profileName(v.profile)}</div>
-          {v.file ? (
-            <div className="mt-1 text-[12px] text-gray-900">
-              <div className="truncate font-mono text-[11px]" title={v.file.release_name}>
-                {v.file.release_name}
-              </div>
-              <div>
-                {[v.file.quality, v.file.languages?.join(' + '), size(v.file.size)].filter(Boolean).join(' · ')}
-                {v.file.score !== null && ` · Score ${v.file.score}`}
-              </div>
-              {v.file.misfit && <div className="text-red-900">No longer fits this Profile</div>}
-            </div>
-          ) : (
-            <div className="mt-1 text-[12px] text-gray-900">No file yet</div>
-          )}
-          <VersionSearch versionId={v.id} wanted={v.state === 'wanted'} onManualSearch={() => onManualSearch({ versionId: v.id, slot, profileName: profileName(v.profile) })} />
-          <DeleteFile versionId={v.id} file={v.file} />
-          <VersionControls versionId={v.id} slot={slot} profile={v.profile} profiles={profiles} />
-        </div>
-      ) : (
-        <div className="mt-2 text-gray-900">
-          No Version
-          <AddVersion titleId={title.id} slot={slot} profiles={profiles} />
+      {title.kind === 'series' && (
+        <div ref={episodes} className="scroll-mt-4">
+          <SeriesSection title={title} onManualSearch={onManualSearch} />
         </div>
       )}
     </div>

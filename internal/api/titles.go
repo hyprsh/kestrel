@@ -352,6 +352,9 @@ func detailToAPI(d library.Detail, country string) oapi.TitleDetail {
 				Quality: strPtr(quality), Languages: &languages, Misfit: &f.Misfit,
 			}
 		}
+		if c := v.Coverage; c != nil {
+			ov.Coverage = &oapi.VersionCoverage{Episodes: c.Episodes, Filled: c.Filled, Wanted: c.Wanted, LongMissing: c.LongMissing, Size: c.Size}
+		}
 		out.Versions = append(out.Versions, ov)
 	}
 	return out

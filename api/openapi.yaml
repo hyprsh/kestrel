@@ -3262,6 +3262,33 @@ components:
         added_at:
           type: string
           format: date-time
+        coverage:
+          $ref: "#/components/schemas/VersionCoverage"
+    VersionCoverage:
+      type: object
+      description: |
+        How far a Series Version is filled, in episodes and bytes; present only for a Series
+        Version. It agrees with the Version's `state`: Wanted while `wanted` is above zero.
+      required: [episodes, filled, wanted, long_missing, size]
+      properties:
+        episodes:
+          type: integer
+          description: |
+            The episodes the Version counts: those it holds a file for and those it Wants. Unmonitored
+            and unreleased episodes without a file are left out.
+        filled:
+          type: integer
+          description: Episodes the Version holds a file for.
+        wanted:
+          type: integer
+          description: Episodes that are Wanted.
+        long_missing:
+          type: integer
+          description: The Wanted episodes that are Long Missing.
+        size:
+          type: integer
+          format: int64
+          description: Bytes of all the Version's files.
     DeletedFiles:
       type: object
       required: [files]

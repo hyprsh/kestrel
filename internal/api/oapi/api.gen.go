@@ -2712,14 +2712,38 @@ type UpdateAvailable struct {
 	Version string `json:"version"`
 }
 
+// VersionCoverage How far a Series Version is filled, in episodes and bytes; present only for a Series
+// Version. It agrees with the Version's `state`: Wanted while `wanted` is above zero.
+type VersionCoverage struct {
+	// Episodes The episodes the Version counts: those it holds a file for and those it Wants. Unmonitored
+	// and unreleased episodes without a file are left out.
+	Episodes int `json:"episodes"`
+
+	// Filled Episodes the Version holds a file for.
+	Filled int `json:"filled"`
+
+	// LongMissing The Wanted episodes that are Long Missing.
+	LongMissing int `json:"long_missing"`
+
+	// Size Bytes of all the Version's files.
+	Size int64 `json:"size"`
+
+	// Wanted Episodes that are Wanted.
+	Wanted int `json:"wanted"`
+}
+
 // VersionDetail defines model for VersionDetail.
 type VersionDetail struct {
-	AddedAt     time.Time    `json:"added_at"`
-	File        *FileSummary `json:"file"`
-	Id          int64        `json:"id"`
-	LongMissing bool         `json:"long_missing"`
-	Profile     string       `json:"profile"`
-	Slot        Slot         `json:"slot"`
+	AddedAt time.Time `json:"added_at"`
+
+	// Coverage How far a Series Version is filled, in episodes and bytes; present only for a Series
+	// Version. It agrees with the Version's `state`: Wanted while `wanted` is above zero.
+	Coverage    *VersionCoverage `json:"coverage,omitempty"`
+	File        *FileSummary     `json:"file"`
+	Id          int64            `json:"id"`
+	LongMissing bool             `json:"long_missing"`
+	Profile     string           `json:"profile"`
+	Slot        Slot             `json:"slot"`
 
 	// State `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
 	// Clients tolerate new values.
