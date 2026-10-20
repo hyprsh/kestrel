@@ -249,3 +249,6 @@ UPDATE titles SET monitored = ? WHERE id = ? AND kind = 'movie';
 
 -- name: SetUpgradesDueSince :exec
 UPDATE search_state SET next_upgrade_at = ? WHERE last_upgrade_at >= ?;
+
+-- name: SetTitleRootFolder :exec
+UPDATE titles SET root_folder = ? WHERE id = ?;
