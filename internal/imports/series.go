@@ -342,7 +342,9 @@ func (in *seriesImport) file(ctx context.Context, video string, out *Result) {
 		scoring.Release{Parsed: fileParsed, IndexerLanguages: languagesOf(languages, inconclusive), Size: info.Size, Filename: fileName},
 		scoring.Title{Name: in.d.Title, Year: in.d.Year, OriginalLanguage: release.LanguageByISO(in.d.OriginalLanguage), EpisodeTitles: epTitles}, in.profile,
 	)
-	if languageRejected(verdict, in.g) {
+	// The resolution class passed above, so a misfit is in the wrong language.
+	misfit, asOriginal := fitOf(in.profile, info, verdict, in.g.Overridden)
+	if misfit {
 		reject(ReasonLanguage)
 		return
 	}
@@ -439,7 +441,7 @@ func (in *seriesImport) file(ctx context.Context, video string, out *Result) {
 	replaced, err := s.lib.ReplaceEpisodeFile(ctx, in.g.TitleID, in.folder, library.NewFile{
 		VersionID: in.g.VersionID, Path: target, Size: info.Size, ReleaseName: in.g.ReleaseName,
 		ParsedRelease: string(parsedJSON), Probe: string(probeJSON), Score: verdict.Score, GrabID: in.g.ID,
-		Original: verdict.Rejected(scoring.RejectOriginalOnly),
+		Original: asOriginal,
 	}, ids)
 	if err != nil {
 		_ = os.Remove(partial)
