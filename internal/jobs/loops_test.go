@@ -29,6 +29,8 @@ type fakeAcquire struct {
 	rssPasses int
 
 	outcome func(titleID int64, versionIDs []int64) (acquire.Outcome, error)
+	// searchesStopped says StopSearches was called.
+	searchesStopped bool
 }
 
 func (f *fakeAcquire) Poll(context.Context) (acquire.PollResult, error) {
@@ -57,6 +59,18 @@ func (f *fakeAcquire) SearchWanted(_ context.Context, titleID int64, versionIDs 
 	defer f.mu.Unlock()
 	f.searched = append(f.searched, append([]int64{titleID}, versionIDs...))
 	return f.outcome(titleID, versionIDs)
+}
+
+func (f *fakeAcquire) StopSearches() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.searchesStopped = true
+}
+
+func (f *fakeAcquire) stopped() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.searchesStopped
 }
 
 func (f *fakeAcquire) SearchNew(ctx context.Context, titleID int64, versionIDs []int64) (acquire.Outcome, error) {
@@ -113,6 +127,25 @@ func (f *fakeLibrary) MarkUpgradeSearched(_ context.Context, versionID int64, _ 
 
 func standard(a *fakeAcquire, l *fakeLibrary) *jobs.Runner {
 	return jobs.Standard(jobs.Deps{Acquire: a, Library: l, Clock: func() time.Time { return now }})
+}
+
+func TestTheSearchesStartedByHandStopWithTheLoops(t *testing.T) {
+	a := &fakeAcquire{}
+	r := standard(a, &fakeLibrary{marked: map[int64]bool{}, upgraded: map[int64]bool{}})
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error)
+	go func() { done <- r.Run(ctx) }()
+
+	waitFor(t, "the first poll", func() bool { a.mu.Lock(); defer a.mu.Unlock(); return a.polls > 0 })
+	if a.stopped() {
+		t.Fatal("the searches stopped while the loops run")
+	}
+	cancel()
+	<-done
+
+	if !a.stopped() {
+		t.Error("the loops stopped, the searches started by hand did not")
+	}
 }
 
 func TestTheDownloadPollRunsEveryTenSecondsWhileAGrabIsActiveAndEveryFiveMinutesOtherwise(t *testing.T) {

@@ -63,6 +63,29 @@ func TestStartupReconciliationFinishesBeforeAnyLoopStarts(t *testing.T) {
 	}
 }
 
+func TestShutdownWorkRunsOnceEveryLoopHasStopped(t *testing.T) {
+	var tr trace
+	r := jobs.New(nil)
+	r.OnStop(func() { tr.add("stop") })
+	r.Add(jobs.Loop{Name: "a", Every: hourly, Run: func(ctx context.Context) error {
+		tr.add("loop")
+		<-ctx.Done()
+		tr.add("loop done")
+		return nil
+	}})
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error)
+	go func() { done <- r.Run(ctx) }()
+
+	waitFor(t, "the first loop pass", func() bool { return len(tr.all()) == 1 })
+	cancel()
+	<-done
+
+	if got := tr.all(); len(got) != 3 || got[2] != "stop" {
+		t.Fatalf("order = %v, want the shutdown work last, once", got)
+	}
+}
+
 func TestKickWakesALoopBeforeItsInterval(t *testing.T) {
 	passes := make(chan struct{}, 10)
 	r := jobs.New(nil)

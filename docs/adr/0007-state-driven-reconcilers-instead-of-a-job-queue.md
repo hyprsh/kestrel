@@ -12,3 +12,7 @@ Kestrel has no jobs table. All of its background work follows from domain state:
 - Retry and backoff live in the rows: `next_*_at`, the Grab state and indexer pause times. There are no per-job attempt counters.
 - The "running now" list in the UI comes from memory. Past work shows in the `events` table.
 - Work not tied to a row, such as a delayed webhook with retries, has no home. If it ever appears (notifications are out of scope for v1), a small queue for just that work can be added.
+
+## Exception: Search now
+
+Search now (#127) runs in a small in-memory pool in acquire, two searches at a time, and not through the sweep. It searches a Version narrowed to a season or to episodes, and `search_state` holds one due time per Version, so the scope has no row to live in. The pool lives as long as Kestrel does: when the loops stop, the runner cancels the searches still running and waits for them before the store closes. A restart forgets a search that had not finished, and the Log shows no `search` event for it. That is acceptable because the person can start it again, and the regular sweep still finds anything that is Wanted.

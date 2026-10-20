@@ -53,6 +53,7 @@ type Runner struct {
 	loops   map[string]*loop
 	order   []string
 	startup []startup
+	stop    []func()
 	running []string
 }
 
@@ -82,6 +83,15 @@ func (r *Runner) OnStart(name string, f func(ctx context.Context) error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.startup = append(r.startup, startup{name, f})
+}
+
+// OnStop registers shutdown work: it runs once, in registration order, after
+// Run's loops have stopped, and Run returns when it is done. Background work
+// that is not a loop (Search now) stops there.
+func (r *Runner) OnStop(f func()) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.stop = append(r.stop, f)
 }
 
 // Reconcile runs the startup reconciliation now.
@@ -146,8 +156,9 @@ func (r *Runner) Running() []string {
 	return slices.Clone(r.running)
 }
 
-// Run does the startup reconciliation, then runs every loop until ctx ends.
-// Each loop passes once at once, then again after Every or when kicked.
+// Run does the startup reconciliation, then runs every loop until ctx ends,
+// then the shutdown work. Each loop passes once at once, then again after
+// Every or when kicked.
 func (r *Runner) Run(ctx context.Context) error {
 	r.Reconcile(ctx)
 	r.mu.Lock()
@@ -166,6 +177,12 @@ func (r *Runner) Run(ctx context.Context) error {
 		}()
 	}
 	wg.Wait()
+	r.mu.Lock()
+	stop := slices.Clone(r.stop)
+	r.mu.Unlock()
+	for _, f := range stop {
+		f()
+	}
 	return ctx.Err()
 }
 
