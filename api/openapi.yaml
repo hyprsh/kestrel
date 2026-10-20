@@ -897,6 +897,39 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /versions/{id}/search:
+    parameters:
+      - $ref: "#/components/parameters/VersionId"
+    post:
+      operationId: searchVersion
+      summary: Search now for a Version
+      description: |
+        The automatic search for what the Version is missing, started by hand and run at once in the
+        background: it grabs the best Release as the sweep would. Unlike the sweep it is not held back
+        by the 80 % daily search budget stop; indexer pauses, backoff and Pause Grabs still apply.
+        Only Wanted Movies and episodes without an active Grab are searched. A Series Version is
+        searched once per season with a Wanted episode, narrowed by `season` and `episode_ids` in the
+        body (none searches the whole Series; `episode_ids` may span seasons). A Movie ignores both.
+        The answer comes at once; when the search is done, a `search` event in the Log says what it
+        grabbed, and Grabs record their own events.
+        A `season` the Series lacks, or an episode that is not the Series' (or not of `season`), is a
+        `422` naming that field with the code `unknown`.
+      tags: [grabs]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReleaseSearch"
+      responses:
+        "202":
+          description: The search started.
+        "404":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /grabs:
     post:
       operationId: createGrab
@@ -3760,7 +3793,7 @@ components:
         at: { type: string, format: date-time }
         kind:
           type: string
-          description: "A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed."
+          description: "A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search."
         routine: { type: boolean }
         title_id: { type: integer, format: int64, nullable: true }
         version_id: { type: integer, format: int64, nullable: true }

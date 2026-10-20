@@ -205,14 +205,14 @@ func (s *Service) SearchWanted(ctx context.Context, titleID int64, versionIDs []
 	if !s.idx.CanSweep(ctx) {
 		return Outcome{}, nil // nothing was searched: the Versions stay due
 	}
-	return s.searchTitle(ctx, titleID, versionIDs, false, false)
+	return s.searchTitle(ctx, titleID, versionIDs, Scope{}, false, false)
 }
 
 // SearchNew is the search on add: the first search of a new Version (added by
 // hand or by a Request). It does what SearchWanted does but is not a sweep, so
 // the 80 % budget stop does not apply to it.
 func (s *Service) SearchNew(ctx context.Context, titleID int64, versionIDs []int64) (Outcome, error) {
-	return s.searchTitle(ctx, titleID, versionIDs, false, false)
+	return s.searchTitle(ctx, titleID, versionIDs, Scope{}, false, false)
 }
 
 // SearchUpgrades is the Upgrade sweep's search: the same as SearchWanted for
@@ -224,12 +224,12 @@ func (s *Service) SearchUpgrades(ctx context.Context, titleID int64, versionIDs 
 	if !s.idx.CanSweep(ctx) {
 		return Outcome{}, nil
 	}
-	return s.searchTitle(ctx, titleID, versionIDs, false, true)
+	return s.searchTitle(ctx, titleID, versionIDs, Scope{}, false, true)
 }
 
 // searchTitle searches a Title for its Wanted Versions, or with upgrade for its
-// Filled ones.
-func (s *Service) searchTitle(ctx context.Context, titleID int64, versionIDs []int64, fromCache, upgrade bool) (Outcome, error) {
+// Filled ones. A Series is searched within scope; a Movie ignores it.
+func (s *Service) searchTitle(ctx context.Context, titleID int64, versionIDs []int64, scope Scope, fromCache, upgrade bool) (Outcome, error) {
 	defer s.snap.Hold()()
 	sub, err := s.subjectOf(ctx, titleID)
 	if err != nil {
@@ -240,7 +240,7 @@ func (s *Service) searchTitle(ctx context.Context, titleID int64, versionIDs []i
 		want = library.Filled
 	}
 	if sub.detail.Kind == library.Series {
-		return s.searchSeries(ctx, sub, versionIDs, fromCache, upgrade)
+		return s.searchSeries(ctx, sub, versionIDs, scope, fromCache, upgrade)
 	}
 	busy, err := s.busyVersions(ctx)
 	if err != nil {

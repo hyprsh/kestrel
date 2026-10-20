@@ -64,9 +64,11 @@ const (
 	HealthRaised Kind = "health_raised"
 	// HealthCleared: a Needs attention row cleared itself.
 	HealthCleared Kind = "health_cleared"
+	// Searched: a search started by hand (Search now) finished; the message says what it found (routine).
+	Searched Kind = "search"
 )
 
-var routine = map[Kind]bool{GrabDownloading: true, GrabCompleted: true, AdoptionScanned: true, TitleRefreshed: true}
+var routine = map[Kind]bool{GrabDownloading: true, GrabCompleted: true, AdoptionScanned: true, TitleRefreshed: true, Searched: true}
 
 // IsRoutine reports whether events of this kind are pruned after 30 days.
 func IsRoutine(k Kind) bool { return routine[k] }

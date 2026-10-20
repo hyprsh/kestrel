@@ -1399,7 +1399,7 @@ type Event struct {
 	GrabId    *int64                  `json:"grab_id"`
 	Id        int64                   `json:"id"`
 
-	// Kind A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed.
+	// Kind A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search.
 	Kind      string `json:"kind"`
 	Message   string `json:"message"`
 	RequestId *int64 `json:"request_id"`
@@ -2831,6 +2831,9 @@ type PatchVersionJSONRequestBody = VersionPatch
 // SearchVersionReleasesJSONRequestBody defines body for SearchVersionReleases for application/json ContentType.
 type SearchVersionReleasesJSONRequestBody = ReleaseSearch
 
+// SearchVersionJSONRequestBody defines body for SearchVersion for application/json ContentType.
+type SearchVersionJSONRequestBody = ReleaseSearch
+
 // AsTitlesBulkMonitor returns the union data inside the TitlesBulk as a TitlesBulkMonitor
 func (t TitlesBulk) AsTitlesBulkMonitor() (TitlesBulkMonitor, error) {
 	var body TitlesBulkMonitor
@@ -3372,6 +3375,9 @@ type ServerInterface interface {
 	// SearchVersionReleases Manual search for a Version
 	// (POST /versions/{id}/releases)
 	SearchVersionReleases(w http.ResponseWriter, r *http.Request, id VersionId)
+	// SearchVersion Search now for a Version
+	// (POST /versions/{id}/search)
+	SearchVersion(w http.ResponseWriter, r *http.Request, id VersionId)
 	// SearchAllWanted Search all Wanted
 	// (POST /wanted/search)
 	SearchAllWanted(w http.ResponseWriter, r *http.Request)
@@ -5159,6 +5165,32 @@ func (siw *ServerInterfaceWrapper) SearchVersionReleases(w http.ResponseWriter, 
 	handler.ServeHTTP(w, r)
 }
 
+// SearchVersion operation middleware
+func (siw *ServerInterfaceWrapper) SearchVersion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id VersionId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SearchVersion(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SearchAllWanted operation middleware
 func (siw *ServerInterfaceWrapper) SearchAllWanted(w http.ResponseWriter, r *http.Request) {
 
@@ -5327,6 +5359,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/titles/{id}/seasons/{season}", wrapper.PatchSeason)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/{id}/poster", wrapper.GetTitlePoster)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/versions/{id}/releases", wrapper.SearchVersionReleases)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/versions/{id}/search", wrapper.SearchVersion)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs", wrapper.CreateGrab)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grabs/{id}", wrapper.GetGrab)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs/{id}/cancel", wrapper.CancelGrab)
@@ -9526,6 +9559,70 @@ func (response SearchVersionReleasesdefaultApplicationProblemPlusJSONResponse) V
 	return err
 }
 
+type SearchVersionRequestObject struct {
+	Id   VersionId `json:"id"`
+	Body *SearchVersionJSONRequestBody
+}
+
+type SearchVersionResponseObject interface {
+	VisitSearchVersionResponse(w http.ResponseWriter) error
+}
+
+type SearchVersion202Response struct {
+}
+
+func (response SearchVersion202Response) VisitSearchVersionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(202)
+	return nil
+}
+
+type SearchVersion404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SearchVersion404ApplicationProblemPlusJSONResponse) VisitSearchVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchVersion422ApplicationProblemPlusJSONResponse Problem
+
+func (response SearchVersion422ApplicationProblemPlusJSONResponse) VisitSearchVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchVersiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response SearchVersiondefaultApplicationProblemPlusJSONResponse) VisitSearchVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type SearchAllWantedRequestObject struct {
 }
 
@@ -9788,6 +9885,9 @@ type StrictServerInterface interface {
 	// SearchVersionReleases Manual search for a Version
 	// (POST /versions/{id}/releases)
 	SearchVersionReleases(ctx context.Context, request SearchVersionReleasesRequestObject) (SearchVersionReleasesResponseObject, error)
+	// SearchVersion Search now for a Version
+	// (POST /versions/{id}/search)
+	SearchVersion(ctx context.Context, request SearchVersionRequestObject) (SearchVersionResponseObject, error)
 	// SearchAllWanted Search all Wanted
 	// (POST /wanted/search)
 	SearchAllWanted(ctx context.Context, request SearchAllWantedRequestObject) (SearchAllWantedResponseObject, error)
@@ -11898,6 +11998,42 @@ func (sh *strictHandler) SearchVersionReleases(w http.ResponseWriter, r *http.Re
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SearchVersionReleasesResponseObject); ok {
 		if err := validResponse.VisitSearchVersionReleasesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SearchVersion operation middleware
+func (sh *strictHandler) SearchVersion(w http.ResponseWriter, r *http.Request, id VersionId) {
+	var request SearchVersionRequestObject
+
+	request.Id = id
+
+	var body SearchVersionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SearchVersion(ctx, request.(SearchVersionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SearchVersion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SearchVersionResponseObject); ok {
+		if err := validResponse.VisitSearchVersionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -142,14 +142,38 @@ func coveredBy(p release.ParsedRelease, eps []library.Episode, slot Slot) (ids [
 	return ids, upgrade
 }
 
+// holds says whether the scope takes in the episode.
+func (sc Scope) holds(ep library.Episode) bool {
+	if sc.Season != nil && ep.Season != *sc.Season {
+		return false
+	}
+	return len(sc.EpisodeIDs) == 0 || slices.Contains(sc.EpisodeIDs, ep.ID)
+}
+
+// narrow says whether the scope names a season or episodes.
+func (sc Scope) narrow() bool { return sc.Season != nil || len(sc.EpisodeIDs) > 0 }
+
+// inSeason is the scope's search of one season: the season, with the scope's
+// episodes of it.
+func (sc Scope) inSeason(season int, eps []library.Episode) Scope {
+	out := Scope{Season: &season}
+	for _, ep := range eps {
+		if ep.Season == season && slices.Contains(sc.EpisodeIDs, ep.ID) {
+			out.EpisodeIDs = append(out.EpisodeIDs, ep.ID)
+		}
+	}
+	return out
+}
+
 // searchSeries is SearchWanted for a Series: one search per season that has a
 // Wanted episode in a requested Version (Specials are never searched on their
-// own), then one Decide over everything found, so a finished season takes its
-// pack and a running one its episodes.
+// own unless the scope names them), then one Decide over everything found, so
+// a finished season takes its pack and a running one its episodes. Only the
+// episodes within scope count.
 //
 // With upgrade it is the Upgrade sweep: the Filled Versions, with their files as
 // the bar to clear, season by season.
-func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []int64, fromCache, upgrade bool) (Outcome, error) {
+func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []int64, scope Scope, fromCache, upgrade bool) (Outcome, error) {
 	d := sub.detail
 	var out Outcome
 	now := s.clock()
@@ -177,7 +201,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 		ver := Version{Slot: v.Slot}
 		for _, ep := range episodes {
 			cell := ep.Cells[v.Slot]
-			if cell == nil || cell.State != want || covered[[2]int64{v.ID, ep.ID}] || (upgrade && !ep.Monitored) {
+			if cell == nil || cell.State != want || covered[[2]int64{v.ID, ep.ID}] || (upgrade && !ep.Monitored) || !scope.holds(ep) {
 				continue
 			}
 			u := Unit{Ref: EpisodeRef{ep.Season, ep.Number}}
@@ -189,7 +213,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 				u.Held = &h
 			}
 			ver.Units = append(ver.Units, u)
-			if ep.Season != 0 {
+			if ep.Season != 0 || scope.narrow() {
 				wantedSeasons[ep.Season] = true
 			}
 		}
@@ -229,7 +253,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 	} else {
 		for _, n := range seasons {
 			n := n
-			found, failures, err := s.gather(ctx, sub, Scope{Season: &n})
+			found, failures, err := s.gather(ctx, sub, scope.inSeason(n, episodes))
 			if err != nil {
 				return out, err
 			}
