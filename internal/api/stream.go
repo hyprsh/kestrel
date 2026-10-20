@@ -137,7 +137,7 @@ func (h *hub) publish(hs ...hint) {
 var apiHints = map[string][]hint{
 	"CreateTitle":           {hintOf(resTitle, 0)},
 	"PatchTitle":            {hintOf(resTitle, 0)},
-	"BulkTitles":            {hintOf(resTitle, 0)},
+	"BulkTitles":            {hintOf(resTitle, 0), hintOf(resQueue, 0)}, // remove and remove_version cancel Grabs
 	"PatchSeason":           {hintOf(resTitle, 0)},
 	"MonitorEpisodes":       {hintOf(resTitle, 0)},
 	"AddVersion":            {hintOf(resTitle, 0)},

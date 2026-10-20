@@ -417,6 +417,24 @@ export interface paths {
          *       same rule through its monitoring mode: `monitored: false` sets `series_monitor: none` and
          *       unmonitors every episode, so an unmonitored Series behaves like an unmonitored Movie;
          *       `monitored: true` applies `series_monitor` (default `all`).
+         *     - `switch_profile` moves each Title's Version in `slot` to `profile`, as
+         *       `PATCH /versions/{id}` does: the file is re-scored and the Version searched. A Title with no
+         *       Version in that Slot is skipped as `no_version`.
+         *     - `add_version` adds a Version in `slot` under `profile`, as `POST /titles/{id}/versions`
+         *       does. A Title whose Slot already holds a Version is skipped as `slot_taken`.
+         *     - `remove_version` removes each Title's Version in `slot`, as `DELETE /versions/{id}` does;
+         *       files stay on disk unless `delete_files` is true. No Version there: skipped as `no_version`.
+         *     - `search` makes every Wanted Version of the Titles due a search now and starts the sweep,
+         *       as "Search all Wanted" does for the whole Library; the indexers' daily budgets apply. A
+         *       Title with nothing Wanted is skipped as `nothing_wanted`.
+         *     - `refresh` starts a metadata refresh of each Title, as `POST /titles/{id}/refresh` does. A
+         *       Title with `metadata_frozen` is skipped as `frozen`.
+         *     - `freeze` sets `metadata_frozen` to `frozen`, as `PATCH /titles/{id}` does.
+         *     - `remove` removes the Titles from the Library, as `DELETE /titles/{id}` does; files stay on
+         *       disk unless `delete_files` is true.
+         *
+         *     `search` and `refresh` act on every call; the other actions skip a Title already as asked.
+         *     A wrong or disabled Profile for the Slot refuses the whole call with 422.
          */
         post: operations["bulkTitles"];
         delete?: never;
@@ -1951,20 +1969,95 @@ export interface components {
             metadata_frozen?: boolean;
         };
         /** @description One action over many Titles. `action` says which, and picks the parameters that go with it. */
-        TitlesBulk: components["schemas"]["TitlesBulkMonitor"];
+        TitlesBulk: components["schemas"]["TitlesBulkMonitor"] | components["schemas"]["TitlesBulkSwitchProfile"] | components["schemas"]["TitlesBulkAddVersion"] | components["schemas"]["TitlesBulkRemoveVersion"] | components["schemas"]["TitlesBulkSearch"] | components["schemas"]["TitlesBulkRefresh"] | components["schemas"]["TitlesBulkFreeze"] | components["schemas"]["TitlesBulkRemove"];
+        TitleIds: number[];
         TitlesBulkMonitor: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             action: "monitor";
-            title_ids: number[];
+            title_ids: components["schemas"]["TitleIds"];
             monitored: boolean;
             /**
              * @description The mode monitored Series get; left out, `all`. With `monitored: false` it can only be
              *     `none`.
              */
             series_monitor?: components["schemas"]["SeriesMonitor"];
+        };
+        TitlesBulkSwitchProfile: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "switch_profile";
+            title_ids: components["schemas"]["TitleIds"];
+            slot: components["schemas"]["Slot"];
+            /** @description The Profile key. It must be an enabled Profile of that Slot. */
+            profile: string;
+        };
+        TitlesBulkAddVersion: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "add_version";
+            title_ids: components["schemas"]["TitleIds"];
+            slot: components["schemas"]["Slot"];
+            /** @description The Profile key. It must be an enabled Profile of that Slot. */
+            profile: string;
+        };
+        TitlesBulkRemoveVersion: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "remove_version";
+            title_ids: components["schemas"]["TitleIds"];
+            slot: components["schemas"]["Slot"];
+            /**
+             * @description Delete the files from disk too.
+             * @default false
+             */
+            delete_files: boolean;
+        };
+        TitlesBulkSearch: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "search";
+            title_ids: components["schemas"]["TitleIds"];
+        };
+        TitlesBulkRefresh: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "refresh";
+            title_ids: components["schemas"]["TitleIds"];
+        };
+        TitlesBulkFreeze: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "freeze";
+            title_ids: components["schemas"]["TitleIds"];
+            frozen: boolean;
+        };
+        TitlesBulkRemove: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "remove";
+            title_ids: components["schemas"]["TitleIds"];
+            /**
+             * @description Delete the files from disk too.
+             * @default false
+             */
+            delete_files: boolean;
         };
         TitlesBulkResult: {
             items: components["schemas"]["TitleBulkOutcome"][];
@@ -1976,8 +2069,10 @@ export interface components {
             outcome: "changed" | "skipped" | "failed";
             /**
              * @description Why the Title was skipped or failed, `null` when it changed. `unchanged`: it already is as
-             *     asked. `not_found`: there is no such Title. `internal`: the change failed. More reasons
-             *     come with more actions; clients must tolerate unknown ones.
+             *     asked. `not_found`: there is no such Title. `no_version`: it has no Version in the Slot.
+             *     `slot_taken`: the Slot already holds a Version. `nothing_wanted`: none of its Versions is
+             *     Wanted. `frozen`: its metadata is frozen. `internal`: the change failed. More reasons
+             *     may come; clients must tolerate unknown ones.
              */
             reason: string | null;
             /** @description The reason in a sentence. */
@@ -2014,6 +2109,11 @@ export interface components {
             wanted_since: string | null;
             /** Format: date-time */
             added_at: string;
+            /**
+             * Format: int64
+             * @description Bytes the files of its Versions take on disk, 0 when it holds none.
+             */
+            size: number;
         };
         TitleList: {
             items: components["schemas"]["TitleRow"][];
