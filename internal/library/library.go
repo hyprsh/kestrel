@@ -551,16 +551,13 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 	if err != nil {
 		return Detail{}, err
 	}
-	fileOf := map[int64]*File{}
+	fileOfVersion := map[int64]*File{}
 	versionSize := map[int64]int64{}
 	for _, f := range files {
 		versionSize[f.VersionID] += f.Size
-		fl := &File{Misfit: misfits[f.ID], ID: f.ID, Path: f.Path, Size: f.Size, ReleaseName: f.ReleaseName, ParsedRelease: f.ParsedRelease.String, Probe: f.Probe.String, ImportedAt: parseTime(f.ImportedAt)}
-		if f.Score.Valid {
-			n := int(f.Score.Int64)
-			fl.Score = &n
-		}
-		fileOf[f.VersionID] = fl
+		fl := fileOf(f)
+		fl.Misfit = misfits[f.ID]
+		fileOfVersion[f.VersionID] = &fl
 	}
 	var epsOf []db.Episode
 	heldBy := heldMap{}
@@ -585,10 +582,10 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 			fe = append(fe, fileEp{r.VersionID, r.EpisodeID, r.Score})
 		}
 		heldBy = heldOf(fe)
-		fileOf = map[int64]*File{} // a Series Version holds a file per episode; the heat map shows them
+		fileOfVersion = map[int64]*File{} // a Series Version holds a file per episode; the heat map shows them
 	}
 	for _, v := range versions {
-		fl := fileOf[v.ID]
+		fl := fileOfVersion[v.ID]
 		var st State
 		var since *time.Time
 		var cov *Coverage
