@@ -52,18 +52,27 @@ type Router struct {
 // NewRouter returns a Router.
 func NewRouter(o Options) *Router { return &Router{opts: o} }
 
+// defaultOption is the value of the "Kestrel default" entry in each dropdown.
+// Silo's admin UI crashes on an option whose value is empty, so the default
+// gets a value of its own. No Profile key or absolute Root folder can be it.
+const defaultOption = "default"
+
 // settings is the connection's config blob. Silo request routes can override
-// any key per tier; an empty value means Kestrel's default.
+// any key per tier; an empty value or defaultOption means Kestrel's default.
 type settings struct {
 	standardProfile, fourKProfile, rootFolder string
 }
 
 func settingsOf(c *pluginv1.RouterConnection) settings {
 	m := c.GetConfig().AsMap()
-	s, _ := m["standard_profile"].(string)
-	u, _ := m["4k_profile"].(string)
-	f, _ := m["root_folder"].(string)
-	return settings{standardProfile: s, fourKProfile: u, rootFolder: f}
+	get := func(key string) string {
+		v, _ := m[key].(string)
+		if v == defaultOption {
+			return ""
+		}
+		return v
+	}
+	return settings{standardProfile: get("standard_profile"), fourKProfile: get("4k_profile"), rootFolder: get("root_folder")}
 }
 
 // slotOf maps a Silo tier to a Kestrel Slot. An unknown tier falls back to
@@ -367,12 +376,12 @@ func (r *Router) ListConfigOptions(ctx context.Context, in *pluginv1.ListConfigO
 	if err != nil {
 		return nil, err
 	}
-	folders := &pluginv1.ConfigOptionList{Options: []*pluginv1.ConfigOption{{Value: "", Label: "Kestrel default"}}}
+	folders := &pluginv1.ConfigOptionList{Options: []*pluginv1.ConfigOption{{Value: defaultOption, Label: "Kestrel default"}}}
 	for _, p := range roots {
 		folders.Options = append(folders.Options, &pluginv1.ConfigOption{Value: p, Label: p})
 	}
 	list := func(sl slot.Slot) *pluginv1.ConfigOptionList {
-		out := &pluginv1.ConfigOptionList{Options: []*pluginv1.ConfigOption{{Value: "", Label: "Kestrel default"}}}
+		out := &pluginv1.ConfigOptionList{Options: []*pluginv1.ConfigOption{{Value: defaultOption, Label: "Kestrel default"}}}
 		for _, p := range profiles {
 			if p.Slot == sl.Key() && p.Enabled {
 				out.Options = append(out.Options, &pluginv1.ConfigOption{Value: p.Key, Label: p.Name})

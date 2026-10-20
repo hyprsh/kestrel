@@ -176,7 +176,7 @@ func TestConfiguredProfilesAreRequestedPerSlotAndListedAsOptions(t *testing.T) {
 	}
 	std := opts.OptionsByField["standard_profile"].GetOptions()
 	uhd := opts.OptionsByField["4k_profile"].GetOptions()
-	if len(std) < 2 || std[0].Value != "" || std[0].Label != "Kestrel default" || len(uhd) < 2 {
+	if len(std) < 2 || std[0].Value != "default" || std[0].Label != "Kestrel default" || uhd[0].Value != "default" || len(uhd) < 2 {
 		t.Fatalf("standard = %v, 4k = %v, want Kestrel default first and the Slot's Profiles after", std, uhd)
 	}
 	roots := opts.OptionsByField["root_folder"].GetOptions()
@@ -184,7 +184,7 @@ func TestConfiguredProfilesAreRequestedPerSlotAndListedAsOptions(t *testing.T) {
 	for _, o := range roots {
 		paths = append(paths, o.Value)
 	}
-	if len(roots) < 2 || roots[0].Value != "" || roots[0].Label != "Kestrel default" || !slices.Contains(paths, more) {
+	if len(roots) < 2 || roots[0].Value != "default" || roots[0].Label != "Kestrel default" || !slices.Contains(paths, more) {
 		t.Errorf("root folders = %v, want Kestrel default first and the folders Kestrel has, including %s", paths, more)
 	}
 	pick := std[len(std)-1].Value
@@ -197,6 +197,27 @@ func TestConfiguredProfilesAreRequestedPerSlotAndListedAsOptions(t *testing.T) {
 	}
 	if got["standard"] != pick || got["4k"] != uhdPick {
 		t.Errorf("profiles = %v, want standard=%s 4k=%s", got, pick, uhdPick)
+	}
+}
+
+// Silo's admin UI refuses an empty option value, so "Kestrel default" is
+// listed as "default", and a connection or route that picks it asks Kestrel
+// for its defaults exactly like one that leaves the field unset.
+func TestPickingKestrelDefaultRequestsWhatAnUnsetFieldDoes(t *testing.T) {
+	r := silo.NewRouter(silo.Options{})
+	sent := func(cfg map[string]any) (string, string) {
+		k := newKestrel(t)
+		res := fulfil(t, r, conn(t, k.URL(), k.Key, cfg), movie(7), "1080p")
+		req := requestOf(t, k, res.Targets[0])
+		if len(req.Slots) != 1 || req.Slots[0].Profile == nil {
+			t.Fatalf("slots = %+v, want one standard Version with a Profile", req.Slots)
+		}
+		return *req.Slots[0].Profile, strings.TrimPrefix(k.rootFolderOf(req), k.Data)
+	}
+	wantProfile, wantRoot := sent(nil)
+	gotProfile, gotRoot := sent(map[string]any{"standard_profile": "default", "4k_profile": "default", "root_folder": "default"})
+	if gotProfile != wantProfile || gotRoot != wantRoot {
+		t.Errorf("with default picked: profile %q in %q, want %q in %q as when unset", gotProfile, gotRoot, wantProfile, wantRoot)
 	}
 }
 
