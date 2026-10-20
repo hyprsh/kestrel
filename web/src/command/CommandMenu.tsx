@@ -2,6 +2,7 @@ import { CornerDownLeft, Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ApiError, useLookup, useTitles, type LookupResult } from '../api/queries'
 import { KindIcon } from '../library/bits'
+import { scoreText } from '../library/Score'
 import { Badge, cx, Kbd } from '../ui'
 import { AddConfirm } from './AddConfirm'
 
@@ -75,7 +76,7 @@ export function CommandMenu({
         id: `${r.kind}-${r.tmdb_id}`,
         group: 'Titles' as const,
         label: r.title,
-        sub: r.year ? String(r.year) : undefined,
+        sub: [r.year, scoreText(r.ratings)].filter(Boolean).join(' · ') || undefined,
         disabled: !r.addable,
         keepOpen: true,
         right: (

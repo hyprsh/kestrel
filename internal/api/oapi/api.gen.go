@@ -1540,6 +1540,9 @@ type LookupDetail struct {
 	Kind                 TitleKind `json:"kind"`
 	Overview             string    `json:"overview"`
 
+	// Ratings Scores for the Title from ratings sources; empty when none has one.
+	Ratings []Rating `json:"ratings"`
+
 	// Slots Every Slot with a default Profile for the kind, in Slot order.
 	Slots  []SuggestedSlot `json:"slots"`
 	Title  string          `json:"title"`
@@ -1566,10 +1569,13 @@ type LookupResult struct {
 
 	// Poster A small TMDB poster URL.
 	Poster *string `json:"poster"`
-	Title  string  `json:"title"`
-	TmdbId int     `json:"tmdb_id"`
-	TvdbId *int    `json:"tvdb_id"`
-	Year   *int    `json:"year"`
+
+	// Ratings Scores for the Title from ratings sources; empty when none has one.
+	Ratings []Rating `json:"ratings"`
+	Title   string   `json:"title"`
+	TmdbId  int      `json:"tmdb_id"`
+	TvdbId  *int     `json:"tvdb_id"`
+	Year    *int     `json:"year"`
 }
 
 // Me defines model for Me.
@@ -1833,6 +1839,34 @@ type QueueItemPhase string
 // QueueList defines model for QueueList.
 type QueueList struct {
 	Items []QueueItem `json:"items"`
+}
+
+// Rating One score for a Title from a ratings source. Today only TMDB's audience score.
+type Rating struct {
+	// Scale The best score on the source's scale, such as 10.
+	//
+	// Example: 10
+	Scale *float64 `json:"scale"`
+
+	// Source Where the score is from: `tmdb`. Clients tolerate new values.
+	//
+	// Example: tmdb
+	Source string `json:"source"`
+
+	// Url The Title's page at the source.
+	//
+	// Example: https://www.themoviedb.org/movie/116149
+	Url *string `json:"url"`
+
+	// Value The score on the source's scale; `null` when the source has none yet.
+	//
+	// Example: 8.4
+	Value *float64 `json:"value"`
+
+	// Votes How many votes the score averages.
+	//
+	// Example: 21000
+	Votes *int `json:"votes"`
 }
 
 // RecentItem defines model for RecentItem.
@@ -2337,11 +2371,14 @@ type TitleDetail struct {
 	Monitored      bool      `json:"monitored"`
 
 	// OriginalLanguage ISO 639-1; empty when unknown.
-	OriginalLanguage string    `json:"original_language"`
-	OriginalTitle    string    `json:"original_title"`
-	Overview         string    `json:"overview"`
-	PrimaryTitle     string    `json:"primary_title"`
-	RefreshedAt      time.Time `json:"refreshed_at"`
+	OriginalLanguage string `json:"original_language"`
+	OriginalTitle    string `json:"original_title"`
+	Overview         string `json:"overview"`
+	PrimaryTitle     string `json:"primary_title"`
+
+	// Ratings Scores for the Title from ratings sources; empty when none has one.
+	Ratings     []Rating  `json:"ratings"`
+	RefreshedAt time.Time `json:"refreshed_at"`
 
 	// ReleaseDates Every dated release TMDB lists, in any country.
 	ReleaseDates []ReleaseDateEntry `json:"release_dates"`

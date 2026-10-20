@@ -242,6 +242,8 @@ type Title struct {
 	Folder           sql.NullString
 	AddedAt          string
 	RefreshedAt      string
+	TmdbVoteAverage  sql.NullFloat64
+	TmdbVoteCount    sql.NullInt64
 }
 
 type TitleAlias struct {
