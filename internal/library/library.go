@@ -418,6 +418,11 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 		fe = append(fe, fileEp{r.VersionID, r.EpisodeID, r.Score})
 	}
 	heldBy := heldOf(fe)
+	firstFiled, err := q.ListFirstFiled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	filed := filedOf(firstFiled)
 	var aliases []db.ListAliasesForSearchRow
 	if f.Text != "" {
 		if aliases, err = q.ListAliasesForSearch(ctx); err != nil {
@@ -463,12 +468,16 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 		}
 		rel := releaseDatesOf(datesOf[t.ID])
 		row := Row{ID: t.ID, Kind: Kind(t.Kind), Title: t.Title, PrimaryTitle: t.PrimaryTitle, Year: int(t.Year.Int64), AddedAt: parseTime(t.AddedAt)}
+		var released map[int64]*time.Time
+		if row.Kind == Series {
+			released = releasedOf(epsOf[t.ID], filed)
+		}
 		for _, v := range byTitle[t.ID] {
 			row.Size += versionSize[v.ID]
 			var st State
 			var since *time.Time
 			if row.Kind == Series {
-				st, since = SeriesState(unitsOf(epsOf[t.ID], heldBy[v.ID], parseTime(v.AddedAt)), view.Now)
+				st, since = SeriesState(unitsOf(epsOf[t.ID], released, heldBy[v.ID], parseTime(v.AddedAt)), view.Now)
 			} else {
 				st, since = stateOf(t.Monitored == 1, hasFile[v.ID], rel, t.ReleaseSeenAt, parseTime(v.AddedAt), view)
 			}
@@ -559,6 +568,7 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 		fileOfVersion[f.VersionID] = &fl
 	}
 	var epsOf []db.Episode
+	var released map[int64]*time.Time
 	heldBy := heldMap{}
 	if d.Kind == Series {
 		d.SeriesMonitor = Monitor(t.SeriesMonitor.String)
@@ -581,6 +591,11 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 			fe = append(fe, fileEp{r.VersionID, r.EpisodeID, r.Score})
 		}
 		heldBy = heldOf(fe)
+		filed, err := filedOfTitle(ctx, q, id)
+		if err != nil {
+			return Detail{}, err
+		}
+		released = releasedOf(epsOf, filed)
 		fileOfVersion = map[int64]*File{} // a Series Version holds a file per episode; the heat map shows them
 	}
 	for _, v := range versions {
@@ -589,7 +604,7 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 		var since *time.Time
 		var cov *Coverage
 		if d.Kind == Series {
-			units := unitsOf(epsOf, heldBy[v.ID], parseTime(v.AddedAt))
+			units := unitsOf(epsOf, released, heldBy[v.ID], parseTime(v.AddedAt))
 			st, since = SeriesState(units, view.Now)
 			cov = coverageOf(units, versionSize[v.ID], view.Now)
 		} else {

@@ -337,11 +337,12 @@ func (s *Service) coveredEpisodes(ctx context.Context) (map[[2]int64]bool, error
 	return out, nil
 }
 
-// seasonsFinished marks the seasons whose every episode has aired.
+// seasonsFinished marks the seasons whose every episode is released (the
+// Library's rule: aired, or for an undated episode a later one out).
 func seasonsFinished(eps []library.Episode, now time.Time) map[int]bool {
 	finished := map[int]bool{}
 	for _, ep := range eps {
-		done := ep.AirDate != nil && !ep.AirDate.After(now)
+		done := ep.Released != nil && !ep.Released.After(now)
 		if prev, seen := finished[ep.Season]; !seen {
 			finished[ep.Season] = done
 		} else {

@@ -86,6 +86,16 @@ WHERE v.title_id = ? AND f.id NOT IN (SELECT file_id FROM file_misfits);
 SELECT f.version_id, fe.episode_id, f.id AS file_id, f.path, f.size, f.parsed_release
 FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id WHERE v.title_id = ?;
 
+-- When each episode's earliest file in any Version was imported, misfits included: a file shows the episode is out.
+-- name: ListFirstFiled :many
+SELECT fe.episode_id, CAST(MIN(f.imported_at) AS TEXT) AS imported_at
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id GROUP BY fe.episode_id;
+
+-- name: ListFirstFiledOfTitle :many
+SELECT fe.episode_id, CAST(MIN(f.imported_at) AS TEXT) AS imported_at
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id
+WHERE v.title_id = ? GROUP BY fe.episode_id;
+
 -- name: SetSeriesMonitor :exec
 UPDATE titles SET series_monitor = ? WHERE id = ? AND kind = 'series';
 
