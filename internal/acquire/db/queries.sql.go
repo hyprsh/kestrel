@@ -40,27 +40,12 @@ func (q *Queries) DeleteOriginalOffer(ctx context.Context, id int64) error {
 	return err
 }
 
-const deleteOriginalOffersOfRelease = `-- name: DeleteOriginalOffersOfRelease :exec
-DELETE FROM original_offers WHERE version_id = ? AND indexer_id = ? AND release_guid = ?
+const dismissOriginalOffer = `-- name: DismissOriginalOffer :exec
+UPDATE original_offers SET dismissed = 1 WHERE id = ?
 `
 
-type DeleteOriginalOffersOfReleaseParams struct {
-	VersionID   int64
-	IndexerID   int64
-	ReleaseGuid string
-}
-
-func (q *Queries) DeleteOriginalOffersOfRelease(ctx context.Context, arg DeleteOriginalOffersOfReleaseParams) error {
-	_, err := q.db.ExecContext(ctx, deleteOriginalOffersOfRelease, arg.VersionID, arg.IndexerID, arg.ReleaseGuid)
-	return err
-}
-
-const dismissOriginalOffers = `-- name: DismissOriginalOffers :exec
-UPDATE original_offers SET dismissed = 1 WHERE version_id = ?
-`
-
-func (q *Queries) DismissOriginalOffers(ctx context.Context, versionID int64) error {
-	_, err := q.db.ExecContext(ctx, dismissOriginalOffers, versionID)
+func (q *Queries) DismissOriginalOffer(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, dismissOriginalOffer, id)
 	return err
 }
 

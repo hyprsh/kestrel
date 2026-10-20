@@ -103,8 +103,5 @@ SELECT * FROM original_offers ORDER BY version_id, id;
 -- name: ListOriginalOffersOfVersion :many
 SELECT * FROM original_offers WHERE version_id = ? ORDER BY id;
 
--- name: DismissOriginalOffers :exec
-UPDATE original_offers SET dismissed = 1 WHERE version_id = ?;
-
--- name: DeleteOriginalOffersOfRelease :exec
-DELETE FROM original_offers WHERE version_id = ? AND indexer_id = ? AND release_guid = ?;
+-- name: DismissOriginalOffer :exec
+UPDATE original_offers SET dismissed = 1 WHERE id = ?;

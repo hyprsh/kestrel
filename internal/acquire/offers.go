@@ -37,8 +37,10 @@ type Offer struct {
 	Releases []OfferedRelease
 	// FoundAt is when the newest of them was offered.
 	FoundAt time.Time
-	// Dismissed is true while every Release was dismissed: the admin waits
-	// for a Primary-Language Release. A higher-scoring Release undoes it.
+	// Dismissed is true while every unit was dismissed: the admin waits for a
+	// Primary-Language Release. Dismissal is per unit: a unit stays dismissed
+	// until a higher-scoring Release is found for it, and while any unit is
+	// not dismissed, Releases holds those units alone.
 	Dismissed bool
 }
 
@@ -56,6 +58,7 @@ type OfferedRelease struct {
 	Episodes []int
 
 	row        db.OriginalOffer
+	rowIDs     []int64 // one per unit
 	episodeIDs []int64
 	upgrade    bool
 	series     bool
@@ -293,14 +296,10 @@ func (s *Service) titleOffers(ctx context.Context, rd offerReader, d library.Det
 		if !rd.offering[v.Profile] {
 			continue
 		}
-		o := Offer{TitleID: d.ID, Title: d.Title, VersionID: v.ID, Slot: v.Slot, Profile: v.Profile, Dismissed: true}
-		byRelease := map[string]*OfferedRelease{}
-		var order []string
+		var live []db.OriginalOffer
 		for _, r := range rows[v.ID] {
-			var ep library.Episode
 			if d.Kind == library.Series {
-				var ok bool
-				ep, ok = episodes[r.EpisodeID.Int64]
+				ep, ok := episodes[r.EpisodeID.Int64]
 				c := ep.Cells[v.Slot]
 				if !ok || c == nil || c.State != library.Wanted || rd.covered[[2]int64{v.ID, ep.ID}] {
 					continue
@@ -308,6 +307,16 @@ func (s *Service) titleOffers(ctx context.Context, rd offerReader, d library.Det
 			} else if v.State != library.Wanted || rd.busy[v.ID] {
 				continue
 			}
+			live = append(live, r)
+		}
+		dismissed := !slices.ContainsFunc(live, func(r db.OriginalOffer) bool { return r.Dismissed == 0 })
+		if !dismissed {
+			live = slices.DeleteFunc(live, func(r db.OriginalOffer) bool { return r.Dismissed == 1 })
+		}
+		o := Offer{TitleID: d.ID, Title: d.Title, VersionID: v.ID, Slot: v.Slot, Profile: v.Profile, Dismissed: dismissed}
+		byRelease := map[string]*OfferedRelease{}
+		var order []string
+		for _, r := range live {
 			key := strconv.FormatInt(r.IndexerID, 10) + "\x00" + r.ReleaseGuid
 			rel := byRelease[key]
 			if rel == nil {
@@ -318,7 +327,9 @@ func (s *Service) titleOffers(ctx context.Context, rd offerReader, d library.Det
 				byRelease[key] = rel
 				order = append(order, key)
 			}
+			rel.rowIDs = append(rel.rowIDs, r.ID)
 			if d.Kind == library.Series {
+				ep := episodes[r.EpisodeID.Int64]
 				season := ep.Season
 				rel.Season = &season
 				rel.Episodes = append(rel.Episodes, ep.Number)
@@ -328,7 +339,6 @@ func (s *Service) titleOffers(ctx context.Context, rd offerReader, d library.Det
 			if at := parseTime(r.FoundAt); at.After(o.FoundAt) {
 				o.FoundAt = at
 			}
-			o.Dismissed = o.Dismissed && r.Dismissed == 1
 		}
 		if len(order) == 0 {
 			continue
@@ -385,8 +395,9 @@ type Accepted struct {
 	Failed int
 }
 
-// AcceptOffer grabs every Release of the Version's Offer, the same as "Grab
-// anyway": exactly the Release offered, from what the offer stored, however
+// AcceptOffer grabs every Release of the Version's Offer, for the units it
+// shows (see Offer.Dismissed), the same as "Grab anyway": exactly the Release
+// offered, from what the offer stored, however
 // old it is. A Release that is grabbed, or that its indexer no longer has or
 // the Blocklist holds, leaves the offer; one that fails for another reason
 // (the download client is down, a spent budget) stays offered. When nothing
@@ -403,9 +414,7 @@ func (s *Service) AcceptOffer(ctx context.Context, versionID int64) (Accepted, e
 		g, err := s.acceptRelease(ctx, o, rel)
 		var rej *RejectedError
 		if err == nil || errors.Is(err, ErrReleaseGone) || errors.As(err, &rej) {
-			if derr := db.New(s.st.Write()).DeleteOriginalOffersOfRelease(ctx, db.DeleteOriginalOffersOfReleaseParams{
-				VersionID: versionID, IndexerID: rel.row.IndexerID, ReleaseGuid: rel.row.ReleaseGuid,
-			}); derr != nil {
+			if derr := s.eachOfferRow(ctx, rel.rowIDs, (*db.Queries).DeleteOriginalOffer); derr != nil {
 				return out, derr
 			}
 		}
@@ -457,11 +466,33 @@ func (s *Service) acceptRelease(ctx context.Context, o Offer, rel OfferedRelease
 	return s.send(ctx, out)
 }
 
-// DismissOffer hides the Version's Offer until a higher-scoring Release is
-// offered. A Version without an Offer is ErrNoOffer.
+// DismissOffer dismisses the units the Version's Offer shows: each stays
+// dismissed until a higher-scoring Release is offered for it. A Version
+// without an Offer is ErrNoOffer.
 func (s *Service) DismissOffer(ctx context.Context, versionID int64) error {
-	if _, err := s.offerOf(ctx, versionID); err != nil {
+	o, err := s.offerOf(ctx, versionID)
+	if err != nil {
 		return err
 	}
-	return db.New(s.st.Write()).DismissOriginalOffers(ctx, versionID)
+	var ids []int64
+	for _, rel := range o.Releases {
+		ids = append(ids, rel.rowIDs...)
+	}
+	return s.eachOfferRow(ctx, ids, (*db.Queries).DismissOriginalOffer)
+}
+
+// eachOfferRow applies do to each offer row in one transaction.
+func (s *Service) eachOfferRow(ctx context.Context, ids []int64, do func(*db.Queries, context.Context, int64) error) error {
+	tx, err := s.st.Write().BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	q := db.New(tx)
+	for _, id := range ids {
+		if err := do(q, ctx, id); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
