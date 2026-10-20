@@ -79,3 +79,26 @@ SELECT * FROM blocklist WHERE (sqlc.narg(title_id) IS NULL OR title_id = sqlc.na
 
 -- name: DeleteBlocklist :execrows
 DELETE FROM blocklist WHERE id = ?;
+
+-- name: GetOriginalOffer :one
+SELECT * FROM original_offers WHERE version_id = ? AND coalesce(episode_id, 0) = ?;
+
+-- name: InsertOriginalOffer :exec
+INSERT INTO original_offers (version_id, episode_id, release_guid, release_name, indexer_id, indexer_name, download_url,
+    size, published_at, score, parsed, verdict, pack, found_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: DeleteOriginalOffer :exec
+DELETE FROM original_offers WHERE id = ?;
+
+-- name: ListOriginalOffers :many
+SELECT o.id, o.version_id, o.episode_id, o.release_guid, o.release_name, o.indexer_id, o.indexer_name, o.download_url,
+    o.size, o.published_at, o.score, o.parsed, o.verdict, o.pack, o.found_at, o.dismissed, v.title_id
+FROM original_offers o JOIN versions v ON v.id = o.version_id
+ORDER BY o.version_id, o.id;
+
+-- name: DismissOriginalOffers :exec
+UPDATE original_offers SET dismissed = 1 WHERE version_id = ?;
+
+-- name: DeleteOriginalOffersOfRelease :exec
+DELETE FROM original_offers WHERE version_id = ? AND indexer_id = ? AND release_guid = ?;

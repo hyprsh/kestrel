@@ -89,7 +89,8 @@ func hintsOf(ev history.Event) []hint {
 	if strings.HasPrefix(string(ev.Kind), "adoption") {
 		out = append(out, hintOf(resAdoption, 0))
 	}
-	if strings.HasPrefix(string(ev.Kind), "health") || strings.HasPrefix(string(ev.Kind), "import") || ev.Kind == history.TitleRefreshed {
+	if strings.HasPrefix(string(ev.Kind), "health") || strings.HasPrefix(string(ev.Kind), "import") || ev.Kind == history.TitleRefreshed ||
+		ev.Kind == history.OriginalOffered {
 		// Stalled Imports are Needs attention rows too.
 		out = append(out, hintOf(resAttention, 0))
 	}
@@ -156,6 +157,8 @@ var apiHints = map[string][]hint{
 	"CommitAdoption":        {hintOf(resAdoption, 0)},
 	"DiscardAdoption":       {hintOf(resAdoption, 0)},
 	"DismissAttention":      {hintOf(resAttention, 0)},
+	"AcceptOriginalOffer":   {hintOf(resGrab, 0), hintOf(resQueue, 0), hintOf(resTitle, 0), hintOf(resAttention, 0)},
+	"DismissOriginalOffer":  {hintOf(resTitle, 0), hintOf(resAttention, 0)},
 	"DeleteBlocklistEntry":  {hintOf(resBlocklist, 0)},
 }
 

@@ -7,13 +7,14 @@ import (
 )
 
 // declaredProfiles moves both Standard defaults off HD, which is switched off,
-// and makes 4K the 4K default for movies.
+// and makes 4K the 4K default for movies, offering originals (the others still
+// say it the deprecated way).
 const declaredProfiles = `profiles:
   hd-primary:   {enabled: false, original_fallback: false, default_movies: false, default_series: false}
   hd-original:  {enabled: true,  original_fallback: false, default_movies: false, default_series: true}
   any-primary:  {enabled: true,  original_fallback: true,  default_movies: true,  default_series: false}
   any-original: {enabled: false, original_fallback: false, default_movies: false, default_series: false}
-  4k-primary:   {enabled: true,  original_fallback: false, default_movies: true,  default_series: false}
+  4k-primary:   {enabled: true,  original_language: offer, default_movies: true,  default_series: false}
   4k-original:  {enabled: true,  original_fallback: false, default_movies: false, default_series: false}
 `
 
@@ -36,6 +37,9 @@ func TestDeclaredProfilesAreAppliedAsAWhole(t *testing.T) {
 		if g := [4]bool{p.Enabled, p.OriginalFallback, p.DefaultMovies, p.DefaultSeries}; g != w {
 			t.Errorf("%s = %v, want %v", key, g, w)
 		}
+	}
+	if got["4k-primary"].OriginalLanguage != "offer" || got["any-primary"].OriginalLanguage != "accept" {
+		t.Errorf("original_language: 4k-primary %q, any-primary %q", got["4k-primary"].OriginalLanguage, got["any-primary"].OriginalLanguage)
 	}
 }
 

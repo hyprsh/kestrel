@@ -40,6 +40,9 @@ type Held struct {
 	Fits bool
 	// Score is the file's Score under the Version's Profile. Unused when !Fits.
 	Score int
+	// Original is a fitting file from an accepted Original Offer: any
+	// acceptable Release replaces it whatever the Scores.
+	Original bool
 }
 
 // Unit is something a Version wants a file for: the Movie, or a monitored,
@@ -257,6 +260,9 @@ func gains(score int, refs []EpisodeRef, units map[EpisodeRef]*Unit) (improved [
 		case h == nil || !h.Fits:
 			improved = append(improved, r)
 			fills = true
+		case h.Original:
+			improved = append(improved, r)
+			upgrade = true
 		case score >= h.Score+MinUpgradeFormatScore:
 			improved = append(improved, r)
 			upgrade = true

@@ -64,7 +64,7 @@ type RegionPatch struct {
 // Patch changes one Profile's settings; nil fields stay.
 type Patch struct {
 	Enabled          *bool
-	OriginalFallback *bool
+	OriginalLanguage *scoring.OriginalChoice
 	DefaultMovies    *bool
 	DefaultSeries    *bool
 }
@@ -129,7 +129,7 @@ func fromRow(r db.Profile) (Profile, error) {
 	return Profile{
 		Key: r.Key, Name: r.Name, Slot: sl, Any: r.Any == 1, Rule: rule,
 		MinHeight: int(r.MinHeight), MaxHeight: int(r.MaxHeight),
-		Enabled: r.Enabled == 1, OriginalFallback: r.OriginalFallback == 1,
+		Enabled: r.Enabled == 1, OriginalLanguage: scoring.OriginalChoice(r.OriginalLanguage),
 		DefaultMovies: r.DefaultMovies == 1, DefaultSeries: r.DefaultSeries == 1,
 		TrashMovies: r.TrashProfileMovies, TrashSeries: r.TrashProfileSeries,
 	}, nil
@@ -180,8 +180,8 @@ func b2i(b bool) int64 {
 }
 
 // Patch changes one Profile. A rejected patch changes nothing. The rules
-// (PRD Settled 1 and 8): Original-Language Profiles never take
-// original_fallback; a Slot has at most one default per kind, so a new default
+// (PRD Settled 1 and 8, #103): Original-Language Profiles always reject
+// Original-only Releases; a Slot has at most one default per kind, so a new default
 // replaces the old; the Standard Slot always keeps exactly one default per kind, so unsetting
 // or disabling it is refused until another Standard Profile is the default; a
 // disabled Profile is no default, and disabling clears its flags.
@@ -209,8 +209,8 @@ func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, erro
 		if p.Enabled != nil {
 			next.Enabled = *p.Enabled
 		}
-		if p.OriginalFallback != nil {
-			next.OriginalFallback = *p.OriginalFallback
+		if p.OriginalLanguage != nil {
+			next.OriginalLanguage = *p.OriginalLanguage
 		}
 		if p.DefaultMovies != nil {
 			next.DefaultMovies = *p.DefaultMovies
@@ -220,7 +220,7 @@ func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, erro
 		}
 		// Disabling clears the flags, unless the patch itself sets one on a disabled Profile.
 		sets := func(b *bool) bool { return b != nil && *b }
-		own := State{Enabled: next.Enabled, OriginalFallback: next.OriginalFallback, DefaultMovies: sets(p.DefaultMovies), DefaultSeries: sets(p.DefaultSeries)}
+		own := State{Enabled: next.Enabled, OriginalLanguage: next.OriginalLanguage, DefaultMovies: sets(p.DefaultMovies), DefaultSeries: sets(p.DefaultSeries)}
 		if err := checkOwn(next.Rule, own, ""); err != nil {
 			return err
 		}
@@ -250,7 +250,7 @@ func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, erro
 		if err := q.SetProfileEnabled(ctx, db.SetProfileEnabledParams{Enabled: b2i(next.Enabled), Key: key}); err != nil {
 			return err
 		}
-		if err := q.SetProfileOriginalFallback(ctx, db.SetProfileOriginalFallbackParams{OriginalFallback: b2i(next.OriginalFallback), Key: key}); err != nil {
+		if err := q.SetProfileOriginalLanguage(ctx, db.SetProfileOriginalLanguageParams{OriginalLanguage: string(next.OriginalLanguage), Key: key}); err != nil {
 			return err
 		}
 		if err := q.SetProfileDefaultMovies(ctx, db.SetProfileDefaultMoviesParams{DefaultMovies: b2i(next.DefaultMovies), Key: key}); err != nil {
@@ -266,11 +266,15 @@ func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, erro
 }
 
 // checkOwn applies the rules that hold within one Profile, for Patch and
-// CheckAll: an Original-Language Profile takes no original_fallback, and a
-// default is enabled. prefix goes before each field.
+// CheckAll: original_language is reject, offer or accept, an
+// Original-Language Profile always rejects (it already requires the Original
+// Language), and a default is enabled. prefix goes before each field.
 func checkOwn(rule scoring.LanguageRule, s State, prefix string) error {
-	if s.OriginalFallback && rule == scoring.OriginalLanguage {
-		return invalid(prefix+"original_fallback", "An Original-Language Profile already requires the Original Language, so it has no fallback")
+	if !s.OriginalLanguage.Valid() {
+		return invalid(prefix+"original_language", "Choose reject, offer or accept")
+	}
+	if s.OriginalLanguage != scoring.OriginalReject && rule == scoring.OriginalLanguage {
+		return invalid(prefix+"original_language", "An Original-Language Profile already requires the Original Language, so it has no Original-Language choice")
 	}
 	if s.Enabled {
 		return nil

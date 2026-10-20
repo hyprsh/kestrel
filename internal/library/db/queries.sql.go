@@ -19,6 +19,15 @@ func (q *Queries) ClearMisfit(ctx context.Context, fileID int64) error {
 	return err
 }
 
+const clearOriginal = `-- name: ClearOriginal :exec
+DELETE FROM file_originals WHERE file_id = ?
+`
+
+func (q *Queries) ClearOriginal(ctx context.Context, fileID int64) error {
+	_, err := q.db.ExecContext(ctx, clearOriginal, fileID)
+	return err
+}
+
 const countFileEpisodes = `-- name: CountFileEpisodes :one
 SELECT COUNT(*) FROM file_episodes WHERE file_id = ?
 `
@@ -1271,6 +1280,33 @@ func (q *Queries) ListMisfitFileIDs(ctx context.Context) ([]int64, error) {
 	return items, nil
 }
 
+const listOriginalFileIDs = `-- name: ListOriginalFileIDs :many
+SELECT file_id FROM file_originals
+`
+
+func (q *Queries) ListOriginalFileIDs(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listOriginalFileIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var file_id int64
+		if err := rows.Scan(&file_id); err != nil {
+			return nil, err
+		}
+		items = append(items, file_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRecentFiles = `-- name: ListRecentFiles :many
 SELECT f.id, f.version_id, v.title_id, v.slot, f.release_name, f.score, f.grab_id, f.imported_at, COALESCE(g.is_upgrade, 0) AS is_upgrade, r.score AS replaced_score
 FROM files f JOIN versions v ON v.id = f.version_id LEFT JOIN grabs g ON g.id = f.grab_id LEFT JOIN file_replaced_scores r ON r.file_id = f.id
@@ -1791,6 +1827,15 @@ type SetNextSearchesAllParams struct {
 
 func (q *Queries) SetNextSearchesAll(ctx context.Context, arg SetNextSearchesAllParams) error {
 	_, err := q.db.ExecContext(ctx, setNextSearchesAll, arg.NextMissingAt, arg.NextUpgradeAt, arg.VersionID)
+	return err
+}
+
+const setOriginal = `-- name: SetOriginal :exec
+INSERT OR IGNORE INTO file_originals (file_id) VALUES (?)
+`
+
+func (q *Queries) SetOriginal(ctx context.Context, fileID int64) error {
+	_, err := q.db.ExecContext(ctx, setOriginal, fileID)
 	return err
 }
 

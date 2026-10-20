@@ -29,6 +29,7 @@ var rejectionMessages = map[scoring.Rejection]string{
 	acquire.RejectOtherSlot:               "Fits another Slot",
 	acquire.RejectEpisodeNotListed:        "Names an episode TheTVDB does not list yet",
 	acquire.RejectSeasonNotListed:         "Names a season TheTVDB does not list",
+	scoring.RejectOriginalOnly:            "Only in the Title's Original Language: the Profile offers it instead of grabbing it",
 }
 
 func rejectionMessage(r scoring.Rejection) string {

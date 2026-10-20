@@ -191,7 +191,7 @@ func (s *Service) rssMovie(ctx context.Context, sub subject, items []feedItem) (
 		}
 		u := Unit{}
 		if v.File != nil {
-			h := Held{Fits: !v.File.Misfit}
+			h := Held{Fits: !v.File.Misfit, Original: v.File.Original}
 			if v.File.Score != nil {
 				h.Score = *v.File.Score
 			}
@@ -231,6 +231,7 @@ func (s *Service) rssMovie(ctx context.Context, sub subject, items []feedItem) (
 		}
 		out = append(out, g)
 	}
+	errs = append(errs, s.noteOffers(ctx, d, versionOf, in, entries, nil))
 	return out, errors.Join(errs...)
 }
 
@@ -260,7 +261,7 @@ func (s *Service) rssSeries(ctx context.Context, sub subject, items []feedItem) 
 			}
 			u := Unit{Ref: EpisodeRef{ep.Season, ep.Number}}
 			if cell.State == library.Filled {
-				h := Held{Fits: true}
+				h := Held{Fits: true, Original: cell.File != nil && cell.File.Original}
 				if cell.Score != nil {
 					h.Score = *cell.Score
 				}
@@ -324,6 +325,7 @@ func (s *Service) rssSeries(ctx context.Context, sub subject, items []feedItem) 
 		}
 		out = append(out, g)
 	}
+	errs = append(errs, s.noteOffers(ctx, d, versionOf, in, entries, episodes))
 	return out, errors.Join(errs...)
 }
 

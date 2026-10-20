@@ -55,6 +55,7 @@ func good() probe.Info {
 }
 
 type rig struct {
+	st       *store.Store
 	svc      *imports.Service
 	health   *health.Service
 	lib      *library.Service
@@ -115,7 +116,7 @@ func newRig(t *testing.T) *rig {
 	}
 	t.Cleanup(func() { st.Close() })
 	now := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
-	r := &rig{prober: &fakeProber{info: map[string]probe.Info{}}, root: t.TempDir(), downs: t.TempDir(), versions: map[slot.Slot]int64{}}
+	r := &rig{st: st, prober: &fakeProber{info: map[string]probe.Info{}}, root: t.TempDir(), downs: t.TempDir(), versions: map[slot.Slot]int64{}}
 	r.lib = library.New(st, func() time.Time { return now })
 	r.titleID, err = r.lib.AddMovie(ctx, library.AddMovie{
 		Details: metadata.MovieDetails{

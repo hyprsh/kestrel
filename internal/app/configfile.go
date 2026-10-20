@@ -15,6 +15,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/plugin"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
+	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 	"github.com/hyprsh/kestrel/internal/updates"
@@ -98,10 +99,12 @@ func (d declarer) sections() []section {
 	if f.Profiles != nil {
 		want := map[string]profiles.State{}
 		for key, p := range f.Profiles {
-			want[key] = profiles.State{Enabled: *p.Enabled, OriginalFallback: *p.OriginalFallback, DefaultMovies: *p.DefaultMovies, DefaultSeries: *p.DefaultSeries}
+			want[key] = profiles.State{Enabled: *p.Enabled, OriginalLanguage: scoring.OriginalChoice(p.OriginalChoice()), DefaultMovies: *p.DefaultMovies, DefaultSeries: *p.DefaultSeries}
 		}
 		out = append(out, section{
-			check: func(context.Context) error { return validation("profiles", profiles.CheckAll(want)) },
+			check: func(context.Context) error {
+				return validation("profiles", fallbackField(f.Profiles, profiles.CheckAll(want)))
+			},
 			apply: func(ctx context.Context) error { return d.profiles.SetAll(ctx, want) },
 		})
 	}
@@ -248,6 +251,19 @@ func instanceError(err error) error {
 }
 
 // validation words a module's rejected field under its Config File section.
+// fallbackField names original_fallback instead of original_language in a
+// Profile's error when the file declared only the deprecated field.
+func fallbackField(declared map[string]configfile.Profile, err error) error {
+	var pe *profiles.ValidationError
+	if !errors.As(err, &pe) {
+		return err
+	}
+	if key, ok := strings.CutSuffix(pe.Field, ".original_language"); ok && declared[key].OriginalLanguage == nil {
+		pe.Field = key + ".original_fallback"
+	}
+	return err
+}
+
 func validation(section string, err error) error {
 	field, msg := "", ""
 	var pe *profiles.ValidationError

@@ -5,6 +5,7 @@ import { useAttention, useRunAction, type Attention, type AttentionAction, type 
 import { Button, ErrorText } from '../forms'
 import { slotLabel } from '../library/bits'
 import { Badge, NavRow } from '../ui'
+import { OriginalsRow } from './OriginalsRow'
 import type { OverviewNav } from './nav'
 
 export function NeedsAttention({ onOpen, nav }: { onOpen: (path: string) => void; nav: OverviewNav }) {
@@ -28,6 +29,7 @@ export function NeedsAttention({ onOpen, nav }: { onOpen: (path: string) => void
         )
       )}
       {longMissing && longMissing.count > 0 && <LongMissingRow group={longMissing} onOpen={onOpen} />}
+      {attention.data?.originals && attention.data.originals.count > 0 && <OriginalsRow group={attention.data.originals} />}
     </section>
   )
 }

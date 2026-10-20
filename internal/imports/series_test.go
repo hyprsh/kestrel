@@ -46,7 +46,7 @@ func newSeriesRig(t *testing.T) *seriesRig {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
-	r := &rig{prober: &fakeProber{info: map[string]probe.Info{}}, root: t.TempDir(), downs: t.TempDir(), versions: map[slot.Slot]int64{}}
+	r := &rig{st: st, prober: &fakeProber{info: map[string]probe.Info{}}, root: t.TempDir(), downs: t.TempDir(), versions: map[slot.Slot]int64{}}
 	r.lib = library.New(st, func() time.Time { return seriesNow })
 	aired := func(m time.Month, d int) *time.Time { x := time.Date(2026, m, d, 0, 0, 0, 0, time.UTC); return &x }
 	id, err := r.lib.AddSeries(ctx, library.AddSeries{

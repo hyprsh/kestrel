@@ -464,6 +464,7 @@ func (a *Adoption) planSeriesFile(e *env, m seriesFacts, title Title, en entry, 
 	pf := PlanFile{
 		Path: f.path, To: to, Size: f.info.Size, Slot: slot, Profile: profileKey, Score: verdict.Score, Action: ActionCreate, Ticked: true,
 		Misfit:      !slices.Contains(profile.Classes(), f.info.Class()) || verdict.Rejected(scoring.RejectLanguage),
+		Original:    verdict.Rejected(scoring.RejectOriginalOnly),
 		ReleaseName: base, Parsed: parsedJSON, Probe: probeJSON, Episodes: refs,
 	}
 	if ver != nil {
@@ -584,7 +585,7 @@ func (a *Adoption) adoptSeriesRow(ctx context.Context, e *env, row Row) (err err
 			Replace:  f.Action == ActionReplace,
 			Episodes: f.Episodes,
 			File: library.NewFile{
-				Path: f.To, Size: f.Size, ReleaseName: f.ReleaseName, ParsedRelease: string(f.Parsed), Probe: string(f.Probe), Score: f.Score, Misfit: f.Misfit,
+				Path: f.To, Size: f.Size, ReleaseName: f.ReleaseName, ParsedRelease: string(f.Parsed), Probe: string(f.Probe), Score: f.Score, Misfit: f.Misfit, Original: f.Original,
 			},
 		})
 	}

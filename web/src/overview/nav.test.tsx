@@ -68,6 +68,7 @@ describe('Overview rows', () => {
             },
           ],
           long_missing: { count: 0, items: [] },
+          originals: { count: 0, items: [] },
         }),
       ),
       http.get('/queue', ({ response }) =>

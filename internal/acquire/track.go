@@ -257,7 +257,7 @@ func (s *Service) searchTitle(ctx context.Context, titleID int64, versionIDs []i
 		slotVersion[v.Slot] = v.ID
 		u := Unit{}
 		if upgrade && v.File != nil {
-			h := Held{Fits: true}
+			h := Held{Fits: true, Original: v.File.Original}
 			if v.File.Score != nil {
 				h.Score = *v.File.Score
 			}
@@ -295,5 +295,6 @@ func (s *Service) searchTitle(ctx context.Context, titleID int64, versionIDs []i
 		}
 		out.Grabbed = append(out.Grabbed, g)
 	}
+	errs = append(errs, s.noteOffers(ctx, sub.detail, slotVersion, in, byRelease, nil))
 	return out, errors.Join(errs...)
 }

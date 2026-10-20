@@ -29,6 +29,11 @@ const (
 	RejectLanguage                Rejection = "language"
 	RejectOriginalLanguageUnknown Rejection = "original_language_unknown"
 	RejectBlocklisted             Rejection = "blocklisted"
+	// RejectOriginalOnly is a Release with the Title's Original Language but no
+	// Primary-Language audio under a Profile that offers such Releases (#103):
+	// it is never grabbed on its own, but Accept or "Grab anyway" may take it,
+	// and an Import lets it in.
+	RejectOriginalOnly Rejection = "original_only"
 )
 
 // Release is a candidate to score: the parsed name plus what only the
@@ -170,8 +175,9 @@ func rejections(rel Release, title Title, p *Profile, v Verdict) []Rejection {
 }
 
 // languageGate checks the Profile's language rule against the Release's
-// languages. A Primary-Language Profile needs the Primary Language, or with
-// original_fallback the Title's Original Language; an Original-Language
+// languages. A Primary-Language Profile needs the Primary Language; the
+// Title's Original Language alone is accepted or, under offer, held back as
+// original_only, depending on the Profile's choice. An Original-Language
 // Profile needs the Original Language and rejects a Title whose Original
 // Language is unknown.
 func languageGate(spec ProfileSpec, title Title, languages []release.Language) []Rejection {
@@ -191,8 +197,13 @@ func languageGate(spec ProfileSpec, title Title, languages []release.Language) [
 		if has(spec.Primary) {
 			return nil
 		}
-		if spec.OriginalFallback && originalKnown && has(title.OriginalLanguage) {
-			return nil
+		if originalKnown && has(title.OriginalLanguage) {
+			switch spec.Original {
+			case OriginalAccept:
+				return nil
+			case OriginalOffer:
+				return []Rejection{RejectOriginalOnly}
+			}
 		}
 		return []Rejection{RejectLanguage}
 	}

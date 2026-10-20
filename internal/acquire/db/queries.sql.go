@@ -31,6 +31,39 @@ func (q *Queries) DeleteGrab(ctx context.Context, id int64) error {
 	return err
 }
 
+const deleteOriginalOffer = `-- name: DeleteOriginalOffer :exec
+DELETE FROM original_offers WHERE id = ?
+`
+
+func (q *Queries) DeleteOriginalOffer(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteOriginalOffer, id)
+	return err
+}
+
+const deleteOriginalOffersOfRelease = `-- name: DeleteOriginalOffersOfRelease :exec
+DELETE FROM original_offers WHERE version_id = ? AND indexer_id = ? AND release_guid = ?
+`
+
+type DeleteOriginalOffersOfReleaseParams struct {
+	VersionID   int64
+	IndexerID   int64
+	ReleaseGuid string
+}
+
+func (q *Queries) DeleteOriginalOffersOfRelease(ctx context.Context, arg DeleteOriginalOffersOfReleaseParams) error {
+	_, err := q.db.ExecContext(ctx, deleteOriginalOffersOfRelease, arg.VersionID, arg.IndexerID, arg.ReleaseGuid)
+	return err
+}
+
+const dismissOriginalOffers = `-- name: DismissOriginalOffers :exec
+UPDATE original_offers SET dismissed = 1 WHERE version_id = ?
+`
+
+func (q *Queries) DismissOriginalOffers(ctx context.Context, versionID int64) error {
+	_, err := q.db.ExecContext(ctx, dismissOriginalOffers, versionID)
+	return err
+}
+
 const findBlocklisted = `-- name: FindBlocklisted :many
 SELECT id, release_name, indexer_id, guid, published_at, size, reason, title_id, grab_id, created_at FROM blocklist WHERE (indexer_id = ? AND guid = ?) OR release_name = ?
 `
@@ -128,6 +161,39 @@ func (q *Queries) GetGrab(ctx context.Context, id int64) (Grab, error) {
 		&i.NextImportAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getOriginalOffer = `-- name: GetOriginalOffer :one
+SELECT id, version_id, episode_id, release_guid, release_name, indexer_id, indexer_name, download_url, size, published_at, score, parsed, verdict, pack, found_at, dismissed FROM original_offers WHERE version_id = ? AND coalesce(episode_id, 0) = ?
+`
+
+type GetOriginalOfferParams struct {
+	VersionID int64
+	EpisodeID sql.NullInt64
+}
+
+func (q *Queries) GetOriginalOffer(ctx context.Context, arg GetOriginalOfferParams) (OriginalOffer, error) {
+	row := q.db.QueryRowContext(ctx, getOriginalOffer, arg.VersionID, arg.EpisodeID)
+	var i OriginalOffer
+	err := row.Scan(
+		&i.ID,
+		&i.VersionID,
+		&i.EpisodeID,
+		&i.ReleaseGuid,
+		&i.ReleaseName,
+		&i.IndexerID,
+		&i.IndexerName,
+		&i.DownloadUrl,
+		&i.Size,
+		&i.PublishedAt,
+		&i.Score,
+		&i.Parsed,
+		&i.Verdict,
+		&i.Pack,
+		&i.FoundAt,
+		&i.Dismissed,
 	)
 	return i, err
 }
@@ -266,6 +332,49 @@ type InsertGrabEpisodeParams struct {
 
 func (q *Queries) InsertGrabEpisode(ctx context.Context, arg InsertGrabEpisodeParams) error {
 	_, err := q.db.ExecContext(ctx, insertGrabEpisode, arg.GrabID, arg.EpisodeID)
+	return err
+}
+
+const insertOriginalOffer = `-- name: InsertOriginalOffer :exec
+INSERT INTO original_offers (version_id, episode_id, release_guid, release_name, indexer_id, indexer_name, download_url,
+    size, published_at, score, parsed, verdict, pack, found_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertOriginalOfferParams struct {
+	VersionID   int64
+	EpisodeID   sql.NullInt64
+	ReleaseGuid string
+	ReleaseName string
+	IndexerID   int64
+	IndexerName string
+	DownloadUrl string
+	Size        int64
+	PublishedAt string
+	Score       int64
+	Parsed      string
+	Verdict     string
+	Pack        int64
+	FoundAt     string
+}
+
+func (q *Queries) InsertOriginalOffer(ctx context.Context, arg InsertOriginalOfferParams) error {
+	_, err := q.db.ExecContext(ctx, insertOriginalOffer,
+		arg.VersionID,
+		arg.EpisodeID,
+		arg.ReleaseGuid,
+		arg.ReleaseName,
+		arg.IndexerID,
+		arg.IndexerName,
+		arg.DownloadUrl,
+		arg.Size,
+		arg.PublishedAt,
+		arg.Score,
+		arg.Parsed,
+		arg.Verdict,
+		arg.Pack,
+		arg.FoundAt,
+	)
 	return err
 }
 
@@ -552,6 +661,74 @@ func (q *Queries) ListLastFailures(ctx context.Context) ([]ListLastFailuresRow, 
 	for rows.Next() {
 		var i ListLastFailuresRow
 		if err := rows.Scan(&i.VersionID, &i.Failure); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOriginalOffers = `-- name: ListOriginalOffers :many
+SELECT o.id, o.version_id, o.episode_id, o.release_guid, o.release_name, o.indexer_id, o.indexer_name, o.download_url,
+    o.size, o.published_at, o.score, o.parsed, o.verdict, o.pack, o.found_at, o.dismissed, v.title_id
+FROM original_offers o JOIN versions v ON v.id = o.version_id
+ORDER BY o.version_id, o.id
+`
+
+type ListOriginalOffersRow struct {
+	ID          int64
+	VersionID   int64
+	EpisodeID   sql.NullInt64
+	ReleaseGuid string
+	ReleaseName string
+	IndexerID   int64
+	IndexerName string
+	DownloadUrl string
+	Size        int64
+	PublishedAt string
+	Score       int64
+	Parsed      string
+	Verdict     string
+	Pack        int64
+	FoundAt     string
+	Dismissed   int64
+	TitleID     int64
+}
+
+func (q *Queries) ListOriginalOffers(ctx context.Context) ([]ListOriginalOffersRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOriginalOffers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOriginalOffersRow
+	for rows.Next() {
+		var i ListOriginalOffersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.VersionID,
+			&i.EpisodeID,
+			&i.ReleaseGuid,
+			&i.ReleaseName,
+			&i.IndexerID,
+			&i.IndexerName,
+			&i.DownloadUrl,
+			&i.Size,
+			&i.PublishedAt,
+			&i.Score,
+			&i.Parsed,
+			&i.Verdict,
+			&i.Pack,
+			&i.FoundAt,
+			&i.Dismissed,
+			&i.TitleID,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

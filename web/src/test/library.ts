@@ -88,6 +88,7 @@ export function fakeLibrary(initial: TitleRow[]) {
           name,
           slot: key.startsWith('4k') ? '4k' : 'standard',
           language_rule: 'primary',
+          original_language: 'reject',
           original_fallback: false,
           from_config_file: false,
           enabled: true,
