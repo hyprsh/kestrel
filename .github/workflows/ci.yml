@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [api, domain, rest, parity]
+        shard: [api-1, api-2, domain, rest, parity]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
