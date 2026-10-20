@@ -250,7 +250,7 @@ func (s *Service) searchTitle(ctx context.Context, titleID int64, versionIDs []i
 	var in Input
 	slotVersion := map[Slot]int64{}
 	for _, v := range sub.detail.Versions {
-		if !slices.Contains(versionIDs, v.ID) || !searchable(sub.detail, v, want) || busy[v.ID] {
+		if !slices.Contains(versionIDs, v.ID) || !searchable(sub.detail, v, want, s.clock()) || busy[v.ID] {
 			continue
 		}
 		out.Searched = append(out.Searched, v.ID)
