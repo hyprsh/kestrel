@@ -223,7 +223,7 @@ func (q *Queries) GetFileOfVersionEpisode(ctx context.Context, arg GetFileOfVers
 }
 
 const getTitle = `-- name: GetTitle :one
-SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count FROM titles WHERE id = ?
+SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count, release_seen_at FROM titles WHERE id = ?
 `
 
 func (q *Queries) GetTitle(ctx context.Context, id int64) (Title, error) {
@@ -252,6 +252,7 @@ func (q *Queries) GetTitle(ctx context.Context, id int64) (Title, error) {
 		&i.RefreshedAt,
 		&i.TmdbVoteAverage,
 		&i.TmdbVoteCount,
+		&i.ReleaseSeenAt,
 	)
 	return i, err
 }
@@ -1340,7 +1341,7 @@ func (q *Queries) ListSeasonsOfTitle(ctx context.Context, titleID int64) ([]Seas
 }
 
 const listTitles = `-- name: ListTitles :many
-SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count FROM titles ORDER BY added_at DESC, id DESC
+SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count, release_seen_at FROM titles ORDER BY added_at DESC, id DESC
 `
 
 func (q *Queries) ListTitles(ctx context.Context) ([]Title, error) {
@@ -1375,6 +1376,7 @@ func (q *Queries) ListTitles(ctx context.Context) ([]Title, error) {
 			&i.RefreshedAt,
 			&i.TmdbVoteAverage,
 			&i.TmdbVoteCount,
+			&i.ReleaseSeenAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1453,6 +1455,20 @@ func (q *Queries) ListVersionsOfTitle(ctx context.Context, titleID int64) ([]Ver
 		return nil, err
 	}
 	return items, nil
+}
+
+const markReleaseSeen = `-- name: MarkReleaseSeen :exec
+UPDATE titles SET release_seen_at = COALESCE(release_seen_at, ?) WHERE id = ? AND kind = 'movie'
+`
+
+type MarkReleaseSeenParams struct {
+	ReleaseSeenAt sql.NullString
+	ID            int64
+}
+
+func (q *Queries) MarkReleaseSeen(ctx context.Context, arg MarkReleaseSeenParams) error {
+	_, err := q.db.ExecContext(ctx, markReleaseSeen, arg.ReleaseSeenAt, arg.ID)
+	return err
 }
 
 const markSearchStateMissing = `-- name: MarkSearchStateMissing :exec

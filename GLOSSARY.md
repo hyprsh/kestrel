@@ -50,7 +50,7 @@ _Avoid_: Multi-audio, DL or MULTi (unexpanded)
 Replacing a Version's file with a better-scoring Release. Monitored Versions never stop upgrading; there is no cutoff. An unmonitored Title, or an unmonitored episode of a Series, is not Upgraded.
 
 **Wanted**:
-A monitored, released Version, or episode of a Series Version, that has no file or whose file no longer fits its Profile. An episode counts as released once it has aired, once it is a Placeholder Episode, or, without an air date, once a later episode of its Series is out. Unmonitored and unreleased ones are not Wanted, and a filled Version waiting for an Upgrade is not Wanted either.
+A monitored, released Version, or episode of a Series Version, that has no file or whose file no longer fits its Profile. An episode counts as released once it has aired, once it is a Placeholder Episode, or, without an air date, once a later episode of its Series is out. A Movie with no release date anywhere counts as released once a Release for it has been seen. Unmonitored and unreleased ones are not Wanted, and a filled Version waiting for an Upgrade is not Wanted either.
 _Avoid_: Missing (for the whole set), cutoff unmet
 
 **Long Missing**:

@@ -65,6 +65,8 @@ type Library interface {
 	// Names and Episodes serve RSS: the Titles to match a feed to and a Series' episodes.
 	Names(ctx context.Context) ([]library.Named, error)
 	Episodes(ctx context.Context, titleID int64, view library.View) ([]library.Episode, error)
+	// MarkReleaseSeen records a Release seen for a Movie with no release date anywhere.
+	MarkReleaseSeen(ctx context.Context, titleID int64, at time.Time) error
 }
 
 // Profiles is what acquire reads from the scoring module's settings.
@@ -385,6 +387,9 @@ func (s *Service) gather(ctx context.Context, sub subject, scope library.Scope) 
 			return nil, nil, err
 		}
 		out = append(out, e)
+	}
+	if err := s.releaseSeen(ctx, d, len(out)); err != nil {
+		return nil, nil, err
 	}
 	s.cache.put(now, out)
 	return out, res.Failures, nil

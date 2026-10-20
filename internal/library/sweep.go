@@ -53,6 +53,7 @@ type sweepRow struct {
 	fresh                    bool // added in the UI or by a Request and not searched yet
 	nextUpgrade, lastUpgrade *time.Time
 	wanted                   bool
+	dateless                 bool      // a Movie with no release date anywhere not yet counting as released: searched weekly
 	since                    time.Time // when it became Wanted: the latest among a season's Wanted episodes
 	released                 time.Time // when a Movie came out in the household's country; zero if unknown or a Series
 	versionFilled            bool      // the Version as a whole is Filled: it is up for Upgrades
@@ -155,15 +156,17 @@ func (s *Service) sweepRows(ctx context.Context, now time.Time) ([]sweepRow, err
 		added := parseTime(v.AddedAt)
 		if Kind(t.Kind) == Movie {
 			u := Unit{Monitored: true, HasFile: hasFile[v.ID], AddedAt: added}
-			if released, ok := releaseDatesOf(datesOf[t.ID]).Released(country); ok {
-				u.Released = &released
-				r.released = released
+			rel := releaseDatesOf(datesOf[t.ID])
+			if u.Released = movieReleased(rel, country, t.ReleaseSeenAt); u.Released != nil {
+				r.released = *u.Released
 			}
 			state, since := StateAt(u, now)
 			r.versionFilled = state == Filled
 			if state == Wanted {
 				r.wanted, r.since = true, *since
 			}
+			_, dated := rel.Released(country)
+			r.dateless = state == Unreleased && !dated
 		} else {
 			var season []db.Episode
 			for _, e := range epsOf[t.ID] {
@@ -196,11 +199,12 @@ func (r sweepRow) recency() time.Time {
 	return r.since
 }
 
-// dueAt is when a Wanted row is next searched. A Wanted episode that appeared
-// after the last search (one just aired) restarts the early cadence: the row is
-// searched a day after it became Wanted, whatever was scheduled.
+// dueAt is when a Wanted (or dateless) row is next searched. A Wanted episode
+// that appeared after the last search (one just aired) restarts the early
+// cadence: the row is searched a day after it became Wanted, whatever was
+// scheduled.
 func (r sweepRow) dueAt() (time.Time, bool) {
-	if !r.wanted || r.nextMissing == nil {
+	if !(r.wanted || r.dateless) || r.nextMissing == nil {
 		return time.Time{}, false
 	}
 	at := *r.nextMissing
@@ -286,7 +290,7 @@ func (s *Service) requestAdded(ctx context.Context) (map[int64]bool, error) {
 
 // MarkMissingSearched records that a Version was searched for what it is missing
 // at `at` and schedules each of its Wanted rows (a Series Version has one per
-// season) by the cadence. A search that could not finish (failed) is tried again
+// season) by the cadence, a dateless Movie's row DatelessEvery later. A search that could not finish (failed) is tried again
 // after RetryAfter. A completed search also counts as the Version's Upgrade
 // search: its next one is UpgradeEvery away.
 func (s *Service) MarkMissingSearched(ctx context.Context, versionID int64, at time.Time, failed bool) error {
@@ -296,11 +300,15 @@ func (s *Service) MarkMissingSearched(ctx context.Context, versionID int64, at t
 	}
 	q := db.New(s.st.Write())
 	for _, r := range rows {
-		if r.versionID != versionID || !r.wanted {
+		if r.versionID != versionID || !(r.wanted || r.dateless) {
 			continue
 		}
 		next := at.Add(RetryAfter)
-		if !failed {
+		switch {
+		case failed:
+		case r.dateless:
+			next = at.Add(DatelessEvery)
+		default:
 			next = NextMissing(r.since, at)
 		}
 		if err := q.MarkSearchStateMissing(ctx, db.MarkSearchStateMissingParams{
