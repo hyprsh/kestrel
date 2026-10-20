@@ -6,6 +6,7 @@ import (
 )
 
 func TestTheSlotLabelWinsOverTheProbeAndAProfileMisfitIsStillAdopted(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	// A 1080p file that Kestrel's own label puts in 4K: the 4K Profile does not take
 	// 1080p, but gates never block Adoption.
@@ -24,6 +25,7 @@ func TestTheSlotLabelWinsOverTheProbeAndAProfileMisfitIsStillAdopted(t *testing.
 }
 
 func TestDiscardingThePlanForgetsItWithoutTouchingAnyFile(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	a.put(t, "Paddington (2014) {tmdb-116149}/Paddington.2014.1080p.BluRay.x264-GRP.mkv", "x")
 	a.scan(t)
@@ -40,6 +42,7 @@ func TestDiscardingThePlanForgetsItWithoutTouchingAnyFile(t *testing.T) {
 }
 
 func TestAFileOnlyAnyAcceptsGetsTheAnyProfile(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	// An unlabelled 576p file goes to Standard: HD takes 720-1080 only, Any takes it.
 	a.put(t, "Paddington (2014) {tmdb-116149}/Paddington.2014.576p.BluRay.x264-GRP.mkv", "x")
@@ -66,6 +69,7 @@ func TestAFileOnlyAnyAcceptsGetsTheAnyProfile(t *testing.T) {
 }
 
 func TestTheOldSDHDAndUHDLabelsAreNotRecognised(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	// A 1080p file labelled with the retired UHD label: the label is ignored, so the
 	// probe decides and it goes to Standard.

@@ -174,6 +174,7 @@ func (in *instance) login() *browser {
 }
 
 func TestFreshInstanceAnswersOnlySetupEndpoints(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.browser()
 
@@ -197,6 +198,7 @@ func TestFreshInstanceAnswersOnlySetupEndpoints(t *testing.T) {
 }
 
 func TestSetupCreatesTheAccountAndLogsIn(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.browser()
 
@@ -228,6 +230,7 @@ func TestSetupCreatesTheAccountAndLogsIn(t *testing.T) {
 }
 
 func TestSetupRejectsWeakCredentials(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "")
 	b := in.browser()
 	for _, body := range []string{`{"username":"admin","password":"short"}`, `{"username":" ","password":"long enough pw"}`} {

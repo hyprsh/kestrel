@@ -7,6 +7,7 @@ import (
 )
 
 func TestTwoFilesForOneSlotGoToTheHigherScoreThenTheLargerAndTheRestAreLeftUntouched(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	name := "Paddington.2014.1080p.BluRay.x264-GRP.mkv"
 	big := a.put(t, "Paddington (2014)/"+name, "big copy")
@@ -41,6 +42,7 @@ func TestTwoFilesForOneSlotGoToTheHigherScoreThenTheLargerAndTheRestAreLeftUntou
 }
 
 func TestADuplicateIsPromotedWhenItsRivalCannotBeAdopted(t *testing.T) {
+	t.Parallel()
 	a := newAdopting(t)
 	a.put(t, "Paddington (2014) a/Paddington.2014.1080p.BluRay.x264-GRP.mkv", "copy a")
 	a.put(t, "Paddington (2014) b/Paddington.2014.720p.BluRay.x264-GRP.mkv", "copy b")

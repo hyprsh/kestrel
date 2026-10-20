@@ -62,6 +62,7 @@ func requestBody(sourceID, kind string, tmdb int, slots, seasons string) string 
 const dualSlots = `[{"slot":"standard","profile":null},{"slot":"4k"}]`
 
 func TestARequestAddsAMovieInHDAndUHDAndSearchesBothAtOnce(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	s.publish(t, goodRelease)
 	s.publish(t, uhdRelease)
@@ -95,6 +96,7 @@ func TestARequestAddsAMovieInHDAndUHDAndSearchesBothAtOnce(t *testing.T) {
 }
 
 func TestRepeatingARequestCreatesNothingNew(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	first := decode[requestJSON](t, s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, dualSlots, "null")))
 
@@ -119,6 +121,7 @@ func TestRepeatingARequestCreatesNothingNew(t *testing.T) {
 }
 
 func TestARequestNamingAnExistingSlotLeavesItUnchangedAndReportsIt(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	created := decode[titleJSON](t, s.valid("POST", "/titles", `{"kind":"movie","tmdb_id":116149,"versions":[{"slot":"standard","profile":"hd-original"}]}`))
 
@@ -139,6 +142,7 @@ func TestARequestNamingAnExistingSlotLeavesItUnchangedAndReportsIt(t *testing.T)
 }
 
 func TestASlotWithNoEnabledProfileRejectsTheRequestAndAddsNothing(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	for _, k := range []string{"4k-primary", "4k-original"} {
 		s.valid("PATCH", "/profiles/"+k, `{"enabled":false}`)
@@ -164,6 +168,7 @@ func TestASlotWithNoEnabledProfileRejectsTheRequestAndAddsNothing(t *testing.T) 
 }
 
 func TestRetryingARejectedRequestEvaluatesItAgain(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	for _, k := range []string{"4k-primary", "4k-original"} {
 		s.valid("PATCH", "/profiles/"+k, `{"enabled":false}`)
@@ -194,6 +199,7 @@ func TestRetryingARejectedRequestEvaluatesItAgain(t *testing.T) {
 }
 
 func TestAnUnknownTitleIsRejected(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	req := decode[requestJSON](t, s.valid("POST", "/requests", requestBody("r-1", "movie", 999999999, `[{"slot":"standard"}]`, "null")))
 	if req.Outcome != "rejected" || req.RejectReason == nil || *req.RejectReason != "unknown_title" {
@@ -202,6 +208,7 @@ func TestAnUnknownTitleIsRejected(t *testing.T) {
 }
 
 func TestMalformedRequestsAre422(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	for name, body := range map[string]string{
 		"no slots":       requestBody("a", "movie", 116149, `[]`, "null"),
@@ -217,6 +224,7 @@ func TestMalformedRequestsAre422(t *testing.T) {
 }
 
 func TestStatusFollowsTheFileAndALaterRemovedVersionFails(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	req := decode[requestJSON](t, s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, dualSlots, "null")))
 	_, _, _, hd := req.slot(t, "standard")
@@ -239,6 +247,7 @@ func TestStatusFollowsTheFileAndALaterRemovedVersionFails(t *testing.T) {
 }
 
 func TestACompletedRequestStaysCompletedWhenALaterProfileChangeMakesItsFileAMisfit(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	req := decode[requestJSON](t, s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, `[{"slot":"standard"}]`, "null")))
 	_, _, _, hd := req.slot(t, "standard")
@@ -262,6 +271,7 @@ func TestACompletedRequestStaysCompletedWhenALaterProfileChangeMakesItsFileAMisf
 }
 
 func TestARequestForAVersionHoldingAMisfitFileIsNotCompleted(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	first := decode[requestJSON](t, s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, `[{"slot":"standard"}]`, "null")))
 	_, _, _, hd := first.slot(t, "standard")
@@ -282,6 +292,7 @@ func TestARequestForAVersionHoldingAMisfitFileIsNotCompleted(t *testing.T) {
 }
 
 func TestTheTitleDetailSaysWhoRequestedItFromWhere(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	req := decode[requestJSON](t, s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, dualSlots, "null")))
 
@@ -299,6 +310,7 @@ func TestTheTitleDetailSaysWhoRequestedItFromWhere(t *testing.T) {
 }
 
 func TestBulkReadReturnsTheNamedRequests(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	a := decode[requestJSON](t, s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, dualSlots, "null")))
 	b := decode[requestJSON](t, s.valid("POST", "/requests", requestBody("r-2", "movie", 116149, `[{"slot":"standard"}]`, "null")))
@@ -317,6 +329,7 @@ func TestBulkReadReturnsTheNamedRequests(t *testing.T) {
 }
 
 func TestASeasonRequestMonitorsOnlyThoseSeasonsAndNeverUnmonitors(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 
 	req := decode[requestJSON](t, l.valid("POST", "/requests", requestBody("s-1", "series", 1396, `[{"slot":"standard"}]`, "[1]")))
@@ -348,6 +361,7 @@ func TestASeasonRequestMonitorsOnlyThoseSeasonsAndNeverUnmonitors(t *testing.T) 
 }
 
 func TestARequestForAChildrensTitleGoesInTheFirstRootFolderWithTheSlotDefault(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		name, kind string
 		tmdb       int
@@ -356,6 +370,7 @@ func TestARequestForAChildrensTitleGoesInTheFirstRootFolderWithTheSlotDefault(t 
 		{"series", "series", 7001}, // TV-Y7
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
 			l := newLibraryInstance(t, metadatatest.Key)
 			l.moreFolders(t)
 
@@ -379,6 +394,7 @@ func requestBodyIn(sourceID, kind string, tmdb int, root string) string {
 }
 
 func TestARequestMayNameTheRootFolderOfANewTitle(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	movies, _ := l.moreFolders(t)
 
@@ -392,6 +408,7 @@ func TestARequestMayNameTheRootFolderOfANewTitle(t *testing.T) {
 }
 
 func TestARequestWithARootFolderOfTheWrongKindOrUnknownIsRefused(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	_, series := l.moreFolders(t)
 
@@ -404,6 +421,7 @@ func TestARequestWithARootFolderOfTheWrongKindOrUnknownIsRefused(t *testing.T) {
 }
 
 func TestARequestForATitleInTheLibraryIgnoresTheRootFolder(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	movies, _ := l.moreFolders(t)
 
@@ -421,6 +439,7 @@ func TestARequestForATitleInTheLibraryIgnoresTheRootFolder(t *testing.T) {
 }
 
 func TestARequestMayNameAnAnyProfile(t *testing.T) {
+	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	req := decode[requestJSON](t, l.valid("POST", "/requests", requestBody("r-1", "movie", 116149, `[{"slot":"standard","profile":"any-original"}]`, "null")))
 	if _, _, profile, _ := req.slot(t, "standard"); profile != "any-original" {

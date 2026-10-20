@@ -64,6 +64,7 @@ func instancesByName(t *testing.T, b *browser) map[string]instanceJSON {
 }
 
 func TestAFreshStartWithACompleteFileNeedsNoAPICall(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "", withFakes(t))
 	data := t.TempDir()
 	mkdirs(t, data+"/movies", data+"/movies-4k", data+"/tv")
@@ -83,6 +84,7 @@ func TestAFreshStartWithACompleteFileNeedsNoAPICall(t *testing.T) {
 }
 
 func TestASecondStartWithTheSameInstancesWritesNothing(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "", withFakes(t))
 	in.mustDeclare(declaredAccount+declaredProfiles+declaredInstances, fakeEnv...)
 
@@ -107,6 +109,7 @@ func uiClient(t *testing.T, b *browser, name string, enabled bool) instanceJSON 
 }
 
 func TestAChangedInstanceIsUpdatedInPlaceAndARemovedOneDeleted(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "", withFakes(t))
 	in.mustDeclare(declaredAccount+declaredInstances, fakeEnv...)
 	b := in.login()
@@ -138,6 +141,7 @@ func TestAChangedInstanceIsUpdatedInPlaceAndARemovedOneDeleted(t *testing.T) {
 }
 
 func TestARenamedInstanceIsANewOne(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "", withFakes(t))
 	in.mustDeclare(declaredAccount+declaredInstances, fakeEnv...)
 	b := in.login()
@@ -155,6 +159,7 @@ func TestARenamedInstanceIsANewOne(t *testing.T) {
 }
 
 func TestTwoDeclaredDownloadClientsSwapWhichIsEnabled(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "", withFakes(t))
 	backup := "  - name: Backup\n    plugin_id: fake\n    enabled: %v\n    config:\n      api_key_env: CLIENT_KEY\n"
 	in.mustDeclare(declaredAccount+declaredInstances+fmt.Sprintf(backup, false), fakeEnv...)
@@ -168,6 +173,7 @@ func TestTwoDeclaredDownloadClientsSwapWhichIsEnabled(t *testing.T) {
 }
 
 func TestAUIInstanceWithADeclaredNameIsTakenOver(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "", withFakes(t))
 	b := in.setUp()
 	ui := uiClient(t, b, "SABnzbd", true)
@@ -189,6 +195,7 @@ func TestAUIInstanceWithADeclaredNameIsTakenOver(t *testing.T) {
 }
 
 func TestAnAmbiguousTakeoverFailsStartup(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		name string
 		ui   func(*testing.T, *browser)
@@ -205,6 +212,7 @@ func TestAnAmbiguousTakeoverFailsStartup(t *testing.T) {
 		}, `plugin_instances "SABnzbd": plugin_id`},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
 			in := newInstance(t, "", withFakes(t))
 			b := in.setUp()
 			c.ui(t, b)
@@ -222,6 +230,7 @@ func TestAnAmbiguousTakeoverFailsStartup(t *testing.T) {
 }
 
 func TestADeclaredClientOverTheEnabledCapFailsStartupNamingBoth(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "", withFakes(t))
 	b := in.setUp()
 	uiClient(t, b, "Old SAB", true)
@@ -240,6 +249,7 @@ func TestADeclaredClientOverTheEnabledCapFailsStartupNamingBoth(t *testing.T) {
 }
 
 func TestAnInvalidInstanceFailsStartupWithoutItsSecret(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		name, body string
 		env        []string
@@ -259,6 +269,7 @@ func TestAnInvalidInstanceFailsStartupWithoutItsSecret(t *testing.T) {
 			[]string{`"SABnzbd"`, `"Backup"`, "enabled"}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
 			in := newInstance(t, "", withFakes(t))
 			err := in.declare(declaredAccount+declaredProfiles+c.body, c.env...)
 			if err == nil {
@@ -280,6 +291,7 @@ func TestAnInvalidInstanceFailsStartupWithoutItsSecret(t *testing.T) {
 }
 
 func TestADeclaredInstanceThatFailsItsTestIsOnlyLogged(t *testing.T) {
+	t.Parallel()
 	var log bytes.Buffer
 	in := newInstance(t, "", withFakes(t), func(o *app.Options) {
 		o.Logger = slog.New(slog.NewTextHandler(&log, nil))
@@ -297,6 +309,7 @@ func TestADeclaredInstanceThatFailsItsTestIsOnlyLogged(t *testing.T) {
 }
 
 func TestAnInstanceTheUIRenamedWhileUndeclaredIsKeptWhenTheSectionReturns(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		name  string
 		leave func(*instance)
@@ -304,7 +317,10 @@ func TestAnInstanceTheUIRenamedWhileUndeclaredIsKeptWhenTheSectionReturns(t *tes
 		{"a file without the section", func(in *instance) { in.mustDeclare(declaredRegion) }},
 		{"no file", func(in *instance) { in.opts.ConfigFile = nil; in.restart() }},
 	} {
-		t.Run(c.name, func(t *testing.T) { renameWhileUndeclared(t, c.leave) })
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			renameWhileUndeclared(t, c.leave)
+		})
 	}
 }
 
@@ -338,6 +354,7 @@ func renameWhileUndeclared(t *testing.T, leave func(*instance)) {
 }
 
 func TestASecondInstanceTheUIGaveADeclaredNameWhileUndeclaredMakesTheReturnAmbiguous(t *testing.T) {
+	t.Parallel()
 	in := newInstance(t, "", withFakes(t))
 	b := in.setUp()
 	in.mustDeclare(declaredInstances, fakeEnv...)

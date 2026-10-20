@@ -170,6 +170,7 @@ const (
 )
 
 func TestAManualSearchListsEveryReleaseAndGrabbingOneSendsItToTheDownloadClient(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.publish(t, goodRelease)
 	s.publish(t, uhdRelease)
@@ -205,6 +206,7 @@ func TestAManualSearchListsEveryReleaseAndGrabbingOneSendsItToTheDownloadClient(
 }
 
 func TestGrabAnywayWorksForOverridableRejectionsAndIsRefusedForOtherSlotAndBlocklisted(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.publish(t, frenchBluray)
 	s.publish(t, uhdRelease)
@@ -240,6 +242,7 @@ func TestGrabAnywayWorksForOverridableRejectionsAndIsRefusedForOtherSlotAndBlock
 }
 
 func TestAReleaseOnTheBlocklistIsRejectedAndNeverGrabbable(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.publish(t, goodRelease)
 	// Nothing adds Blocklist entries yet (failures do, later), so put one in the table by hand.
@@ -263,6 +266,7 @@ func TestAReleaseOnTheBlocklistIsRejectedAndNeverGrabbable(t *testing.T) {
 }
 
 func TestAGrabNeedsAFreshReleaseAndKnownVersion(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.publish(t, goodRelease)
 	s.releases(t, s.hd)
@@ -277,6 +281,7 @@ func TestAGrabNeedsAFreshReleaseAndKnownVersion(t *testing.T) {
 }
 
 func TestAnIndexerThatCannotAnswerIsReportedNextToTheOthersResults(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.publish(t, goodRelease)
 	s.idx.Exhaust(plugin.LimitSearch, 90*time.Second)
@@ -293,6 +298,7 @@ func TestAnIndexerThatCannotAnswerIsReportedNextToTheOthersResults(t *testing.T)
 }
 
 func TestSearchAndGrabNeedALogin(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	anon := s.in.browser()
 	for _, p := range []struct{ method, path string }{{"POST", "/versions/1/releases"}, {"POST", "/grabs"}, {"GET", "/grabs/1"}} {

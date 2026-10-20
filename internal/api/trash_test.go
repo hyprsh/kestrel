@@ -54,6 +54,7 @@ type trashStatus struct {
 }
 
 func TestUpdateFromTrashLoadsAValidSnapshotAndRejectsABrokenOneWhole(t *testing.T) {
+	t.Parallel()
 	src := &trashSource{}
 	s := newSearchBare(t, func(o *app.Options) { o.TrashSource = src })
 	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
@@ -93,6 +94,7 @@ func TestUpdateFromTrashLoadsAValidSnapshotAndRejectsABrokenOneWhole(t *testing.
 }
 
 func TestChangingThePrimaryLanguageRescoresFilesWithoutRenamingOrSearching(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
 	s.prober.set(goodProbe(), nil)
@@ -122,6 +124,7 @@ func TestChangingThePrimaryLanguageRescoresFilesWithoutRenamingOrSearching(t *te
 }
 
 func TestTheTrashSwitchIsSavedWithTheSettings(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	if r := s.valid("PATCH", "/settings", `{"trash":{"auto_update":false}}`); r.Status != 200 {
 		t.Fatalf("PATCH /settings = %d %s", r.Status, r.Body)

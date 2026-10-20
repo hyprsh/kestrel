@@ -38,6 +38,7 @@ func (s *search) events(t *testing.T, query string) eventsJSON {
 }
 
 func TestTheLogFiltersByKindTitleAndSlotAndHidesRoutineEventsUnlessAsked(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.publish(t, goodRelease)
 	s.publish(t, uhdRelease)
@@ -101,6 +102,7 @@ type blocklistJSON struct {
 }
 
 func TestRemovingABlocklistEntryLetsTheReleaseBeGrabbedAgain(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.publish(t, goodRelease)
 	s.pass(t, jobs.Search)

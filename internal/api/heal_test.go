@@ -13,6 +13,7 @@ import (
 const secondRelease = "Paddington.2014.1080p.WEB-DL.x264-GRP"
 
 func TestAnImportTheProbeContradictsIsRejectedBlocklistedAndTheNextReleaseGrabbed(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	german := goodProbe()
 	german.Audio = []probe.AudioTrack{{Index: 1, Codec: "eac3", Channels: 6, Language: "deu", Default: true}}
@@ -43,6 +44,7 @@ func TestAnImportTheProbeContradictsIsRejectedBlocklistedAndTheNextReleaseGrabbe
 }
 
 func TestAStalledImportIsAWarningRowWithRetryNowAndDiscard(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.finishSetup(t)
 	s.prober.set(probe.Info{}, probe.ErrNotInstalled)
@@ -74,6 +76,7 @@ func TestAStalledImportIsAWarningRowWithRetryNowAndDiscard(t *testing.T) {
 }
 
 func TestDiscardingAStalledImportFreesTheVersionWithoutBlocklisting(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.finishSetup(t)
 	s.prober.set(probe.Info{}, probe.ErrNotInstalled)
@@ -105,6 +108,7 @@ func TestDiscardingAStalledImportFreesTheVersionWithoutBlocklisting(t *testing.T
 }
 
 func TestStalledImportsOfOneReasonAreOneRowWithRetryAll(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.finishSetup(t)
 	s.prober.set(probe.Info{}, probe.ErrNotInstalled)
@@ -142,6 +146,7 @@ func TestStalledImportsOfOneReasonAreOneRowWithRetryAll(t *testing.T) {
 }
 
 func TestAnImportingGrabIsImportedAgainAfterARestart(t *testing.T) {
+	t.Parallel()
 	s := newSearch(t)
 	s.prober.set(goodProbe(), nil)
 	grab, _ := s.download(t, map[string]string{"paddington.mkv": "the movie"})

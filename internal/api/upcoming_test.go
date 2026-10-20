@@ -50,6 +50,7 @@ func (w wantedRig) setDates(t *testing.T, titleID int64, dates map[int]string) {
 
 // The fake clock stands at 2026-10-17, so the default window is 10-17 to 11-16.
 func TestUpcomingListsMonitoredEpisodesAndTypedMovieDatesInTheWindow(t *testing.T) {
+	t.Parallel()
 	w := newWantedRig(t)
 	movie := decode[titleJSON](t, w.valid("POST", "/titles", fmt.Sprintf(addHD, 116149)))
 	w.setDates(t, movie.ID, map[int]string{
@@ -95,6 +96,7 @@ func TestUpcomingListsMonitoredEpisodesAndTypedMovieDatesInTheWindow(t *testing.
 }
 
 func TestUpcomingSkipsMoviesThatAreFilledOrUnmonitoredAndSaysWhenAnUnreleasedOneIsSearchable(t *testing.T) {
+	t.Parallel()
 	w := newWantedRig(t)
 	filled := decode[titleJSON](t, w.valid("POST", "/titles", fmt.Sprintf(addHD, 116149)))
 	other := decode[titleJSON](t, w.valid("POST", "/titles", fmt.Sprintf(addHD, 77)))
@@ -126,6 +128,7 @@ func TestUpcomingSkipsMoviesThatAreFilledOrUnmonitoredAndSaysWhenAnUnreleasedOne
 }
 
 func TestUpcomingRejectsAnInvertedWindow(t *testing.T) {
+	t.Parallel()
 	w := newWantedRig(t)
 	if r := w.do("GET", "/upcoming?from=2026-10-20&to=2026-10-19", ""); r.Status != 422 {
 		t.Errorf("status = %d, want 422", r.Status)
@@ -133,6 +136,7 @@ func TestUpcomingRejectsAnInvertedWindow(t *testing.T) {
 }
 
 func TestRecentlyAddedListsTheLatestImportsNewestFirst(t *testing.T) {
+	t.Parallel()
 	w := newWantedRig(t)
 	a := decode[titleJSON](t, w.valid("POST", "/titles", fmt.Sprintf(addHD, 116149)))
 	b := decode[titleJSON](t, w.valid("POST", "/titles", fmt.Sprintf(addHD, 77)))

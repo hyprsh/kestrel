@@ -75,6 +75,7 @@ func ids(rows []titleRowJSON) []int64 {
 const addHD = `{"kind":"movie","tmdb_id":%d,"versions":[{"slot":"standard","profile":"hd-primary"}]}`
 
 func TestTheWantedFilterListsWantedTitlesLongestWantedFirstAndTheLongMissingChipKeepsTheOldOnes(t *testing.T) {
+	t.Parallel()
 	w := newWantedRig(t)
 	first := decode[titleJSON](t, w.valid("POST", "/titles", fmt.Sprintf(addHD, 116149)))
 	second := decode[titleJSON](t, w.valid("POST", "/titles", fmt.Sprintf(addHD, 77)))
@@ -101,6 +102,7 @@ func TestTheWantedFilterListsWantedTitlesLongestWantedFirstAndTheLongMissingChip
 }
 
 func TestLongMissingIsAGroupedRowOutsideTheBadgeCount(t *testing.T) {
+	t.Parallel()
 	w := newWantedRig(t)
 	first := decode[titleJSON](t, w.valid("POST", "/titles", fmt.Sprintf(addHD, 116149)))
 	if got := w.attention(t).LongMissing.Count; got != 0 {
@@ -139,6 +141,7 @@ func TestLongMissingIsAGroupedRowOutsideTheBadgeCount(t *testing.T) {
 }
 
 func TestPostWantedSearchMakesEveryWantedSearchStateDueNowAndWakesTheSweep(t *testing.T) {
+	t.Parallel()
 	w := newWantedRig(t)
 	decode[titleJSON](t, w.valid("POST", "/titles", fmt.Sprintf(addHD, 116149)))
 	decode[titleJSON](t, w.valid("POST", "/titles", fmt.Sprintf(addHD, 77)))

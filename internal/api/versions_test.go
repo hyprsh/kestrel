@@ -69,6 +69,7 @@ func (s search) searchState(t *testing.T, version int64) searchStateRow {
 }
 
 func TestAddingUHDToATitleWithHDCreatesAVersionAndSearchesItAtOnce(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
 	s.publish(t, uhdRelease)
@@ -93,6 +94,7 @@ func TestAddingUHDToATitleWithHDCreatesAVersionAndSearchesItAtOnce(t *testing.T)
 }
 
 func TestAddingToATakenSlotOrWithAWrongProfileIsRefused(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
 	path := fmt.Sprintf("/titles/%d/versions", s.title)
@@ -109,6 +111,7 @@ func TestAddingToATakenSlotOrWithAWrongProfileIsRefused(t *testing.T) {
 }
 
 func TestSwitchingHDToAnyAndBackRescoresTheFileWithoutRenamingAndSearchesAtOnce(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
 	s.prober.set(goodProbe(), nil)
@@ -150,6 +153,7 @@ func TestSwitchingHDToAnyAndBackRescoresTheFileWithoutRenamingAndSearchesAtOnce(
 }
 
 func TestAFileThatNoLongerFitsAfterASwitchMakesTheVersionWantedAndAnyFittingReleaseReplacesIt(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	s.addMovie(t, `{"slot":"standard","profile":"hd-original"}`)
 	s.prober.set(goodProbe(), nil)
@@ -209,11 +213,13 @@ func TestAFileThatNoLongerFitsAfterASwitchMakesTheVersionWantedAndAnyFittingRele
 }
 
 func TestRemovingAVersionLeavesTheFileUnlessAskedToDeleteIt(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		query      string
 		wantOnDisk bool
 	}{{"", true}, {"?delete_files=false", true}, {"?delete_files=true", false}} {
 		t.Run("delete"+tc.query, func(t *testing.T) {
+			t.Parallel()
 			s := newSearchBare(t)
 			s.addMovie(t, `{"slot":"standard","profile":"hd-primary"},{"slot":"4k","profile":"4k-primary"}`)
 			s.prober.set(goodProbe(), nil)
@@ -242,8 +248,10 @@ func TestRemovingAVersionLeavesTheFileUnlessAskedToDeleteIt(t *testing.T) {
 }
 
 func TestRemovingATitleLeavesItsFilesUnlessAskedToDeleteThem(t *testing.T) {
+	t.Parallel()
 	for _, deleteFiles := range []bool{false, true} {
 		t.Run(fmt.Sprintf("delete_files=%v", deleteFiles), func(t *testing.T) {
+			t.Parallel()
 			s := newSearchBare(t)
 			s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
 			s.prober.set(goodProbe(), nil)
@@ -274,6 +282,7 @@ func TestRemovingATitleLeavesItsFilesUnlessAskedToDeleteThem(t *testing.T) {
 }
 
 func TestRemovingAVersionCancelsItsActiveDownload(t *testing.T) {
+	t.Parallel()
 	s := newSearchBare(t)
 	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
 	s.publish(t, goodRelease)

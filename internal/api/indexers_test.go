@@ -59,6 +59,7 @@ func newznabBody(name, srvURL, key, extra string) string {
 }
 
 func TestConnectingNewznabIndexersEndToEnd(t *testing.T) {
+	t.Parallel()
 	idx := fakeIndexer(t)
 	b := newInstance(t, "", withSABAndNewznab(t)).setUp()
 
@@ -130,6 +131,7 @@ func TestConnectingNewznabIndexersEndToEnd(t *testing.T) {
 }
 
 func TestNewznabConfigIsValidated(t *testing.T) {
+	t.Parallel()
 	idx := fakeIndexer(t)
 	b := newInstance(t, "", withSABAndNewznab(t)).setUp()
 	r := b.valid("POST", "/plugin-instances", newznabBody("Bad", "not-a-url", nzbKey, ""))

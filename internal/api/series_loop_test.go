@@ -83,6 +83,7 @@ func (s seriesSearch) heat(t *testing.T) []episodeJSON {
 }
 
 func TestTheSeriesLoopAddsAGrabsASingleEpisodeImportsItAndFillsTheHeatMap(t *testing.T) {
+	t.Parallel()
 	s := newSeriesSearch(t)
 	s.prober.set(goodProbe(), nil)
 	s.publishEpisode(t, badEp1, "1", "1")
@@ -119,6 +120,7 @@ func TestTheSeriesLoopAddsAGrabsASingleEpisodeImportsItAndFillsTheHeatMap(t *tes
 }
 
 func TestASeasonPackIsGrabbedAndImportedForEveryEpisodeItHolds(t *testing.T) {
+	t.Parallel()
 	s := newSeriesSearch(t)
 	s.prober.set(goodProbe(), nil)
 	s.publishEpisode(t, badPack, "1", "")
@@ -145,6 +147,7 @@ func TestASeasonPackIsGrabbedAndImportedForEveryEpisodeItHolds(t *testing.T) {
 }
 
 func TestAManualSearchOfASeriesVersionListsEpisodeAndPackReleases(t *testing.T) {
+	t.Parallel()
 	s := newSeriesSearch(t)
 	s.publishEpisode(t, badEp1, "1", "1")
 	s.publishEpisode(t, badPack, "1", "")

@@ -41,6 +41,7 @@ func mkdirs(t *testing.T, paths ...string) {
 }
 
 func TestRootFoldersArePrefilledFromTheDataDir(t *testing.T) {
+	t.Parallel()
 	b, data := dataDirInstance(t)
 	got := decode[rootFoldersJSON](t, b.valid("GET", "/settings", ""))
 	if len(got.RootFolders.Movies) != 1 || got.RootFolders.Movies[0] != data+"/media/movies" {
@@ -55,6 +56,7 @@ func TestRootFoldersArePrefilledFromTheDataDir(t *testing.T) {
 }
 
 func TestRootFoldersSaveAndMarkTheSectionDone(t *testing.T) {
+	t.Parallel()
 	b, data := dataDirInstance(t)
 	mkdirs(t, data+"/media/movies", data+"/media/movies2", data+"/media/tv")
 	body := fmt.Sprintf(`{"root_folders":{"movies":[%q,%q],"series":[%q]}}`, data+"/media/movies", data+"/media/movies2", data+"/media/tv")
@@ -72,6 +74,7 @@ func TestRootFoldersSaveAndMarkTheSectionDone(t *testing.T) {
 }
 
 func TestRootFoldersAreCheckedWhenSaved(t *testing.T) {
+	t.Parallel()
 	b, data := dataDirInstance(t)
 	file := filepath.Join(data, "afile")
 	if err := os.WriteFile(file, nil, 0o644); err != nil {
@@ -113,10 +116,12 @@ func TestRootFoldersAreCheckedWhenSaved(t *testing.T) {
 }
 
 func TestARejectedSettingsPatchSavesNothing(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct{ name, rest string }{
 		{"language", `"language_region":{"primary_language":"de","release_date_country":"nope"}`},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
 			b, data := dataDirInstance(t)
 			mkdirs(t, data+"/films")
 			before := decode[settingsJSON](t, b.valid("GET", "/settings", ""))
@@ -139,6 +144,7 @@ func TestARejectedSettingsPatchSavesNothing(t *testing.T) {
 }
 
 func TestFinishSetupNamesEveryMissingSection(t *testing.T) {
+	t.Parallel()
 	b, _ := dataDirInstance(t)
 	if s := decode[setupJSON](t, b.valid("GET", "/setup", "")); s.Completed {
 		t.Fatal("fresh instance reports completed")
@@ -161,6 +167,7 @@ func TestFinishSetupNamesEveryMissingSection(t *testing.T) {
 }
 
 func TestFinishSetupWhenEverySectionIsDone(t *testing.T) {
+	t.Parallel()
 	sab, idx := fakeSAB(t), fakeIndexer(t)
 	data := t.TempDir()
 	b := newInstance(t, "", withSABAndNewznab(t), func(o *app.Options) { o.DataDir = data }).setUp()
@@ -179,6 +186,7 @@ func TestFinishSetupWhenEverySectionIsDone(t *testing.T) {
 }
 
 func TestRootFoldersHaveOnlyMoviesAndSeries(t *testing.T) {
+	t.Parallel()
 	b, data := dataDirInstance(t)
 	movies, more, tv := data+"/media/movies", data+"/media/more-movies", data+"/media/tv"
 	mkdirs(t, movies, more, tv)
