@@ -111,7 +111,7 @@ export function VersionControls({ versionId, slot, profile, profiles }: { versio
     return <RemoveConfirm what="Version" busy={rm.isPending} error={rm.error?.message} onCancel={() => setMode(null)} onConfirm={(d) => rm.mutate(d)} />
   }
   return (
-    <div className="mt-2 flex gap-2">
+    <div className="mt-2 flex flex-wrap gap-2">
       <Button variant="secondary" className="h-7 flex-1 whitespace-nowrap" onClick={() => setMode('switch')}>
         Change Profile
       </Button>
