@@ -1,0 +1,9 @@
+{
+  "name": "kestrel-demo",
+  "private": true,
+  "type": "module",
+  "description": "The demo's headless browser driver (lib.mjs, shot.mjs, posters.mjs). See .claude/skills/demo.",
+  "dependencies": {
+    "playwright-core": "1.63.0"
+  }
+}
