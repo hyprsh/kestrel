@@ -10,8 +10,15 @@ import (
 	"github.com/hyprsh/kestrel/internal/library/db"
 )
 
-// ErrNotAMovie rejects a Movie-only operation on a Series.
-var ErrNotAMovie = errors.New("not a Movie")
+var (
+	// ErrNotAMovie rejects a Movie-only operation on a Series.
+	ErrNotAMovie = errors.New("not a Movie")
+	// ErrUnknownMode rejects a monitoring mode that is not one of the three.
+	ErrUnknownMode = errors.New("unknown monitoring mode")
+	// ErrModeContradicts rejects monitoring with MonitorNone, or unmonitoring
+	// with a mode other than MonitorNone.
+	ErrModeContradicts = errors.New("the monitoring mode contradicts monitored")
+)
 
 // MonitorResult is what SetMonitored did to one Title.
 type MonitorResult struct {
@@ -27,16 +34,19 @@ type MonitorResult struct {
 // flag is set: an unmonitored Movie is never Wanted, searched or Upgraded, and
 // keeps its Versions and files. A Series follows the same rule through its
 // mode: unmonitoring sets MonitorNone, which unmonitors every episode, and
-// monitoring applies mode (MonitorAll when empty). A Title monitored again has
-// its Versions due a search now; the caller kicks the sweep.
+// monitoring applies mode. With mode empty a monitored Series keeps its mode
+// and an unmonitored one gets MonitorAll. A Title monitored again has its
+// Versions due a search now; the caller kicks the sweep. A mode that is not
+// one of the three is ErrUnknownMode; MonitorNone when monitoring, or another
+// mode when unmonitoring, is ErrModeContradicts.
 func (s *Service) SetMonitored(ctx context.Context, ids []int64, monitored bool, mode Monitor) ([]MonitorResult, error) {
-	if !monitored {
+	switch {
+	case mode != "" && !mode.Valid():
+		return nil, fmt.Errorf("library: %w %q", ErrUnknownMode, mode)
+	case monitored && mode == MonitorNone, !monitored && mode != "" && mode != MonitorNone:
+		return nil, ErrModeContradicts
+	case !monitored:
 		mode = MonitorNone
-	} else if mode == "" {
-		mode = MonitorAll
-	}
-	if !mode.Valid() {
-		return nil, fmt.Errorf("library: unknown monitoring mode %q", mode)
 	}
 	now := s.clock()
 	tx, err := s.st.Write().BeginTx(ctx, nil)
@@ -97,6 +107,12 @@ func setMonitored(ctx context.Context, q *db.Queries, id int64, monitored bool, 
 		return r, err
 	}
 	if Kind(t.Kind) == Series {
+		if mode == "" {
+			if Monitor(t.SeriesMonitor.String) != MonitorNone {
+				return r, nil // monitored already: its mode stays
+			}
+			mode = MonitorAll
+		}
 		if r.Changed, err = applySeriesMode(ctx, q, id, mode, now); err != nil {
 			return r, err
 		}

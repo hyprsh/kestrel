@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
-	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
@@ -116,14 +115,8 @@ func (s *server) PatchTitle(ctx context.Context, r oapi.PatchTitleRequestObject)
 		return nil, invalid("body", "required", "a body is required")
 	}
 	if r.Body.MetadataFrozen != nil {
-		if err := s.library.SetMetadataFrozen(ctx, r.Id, *r.Body.MetadataFrozen); err != nil {
+		if err := s.refresher.SetFrozen(ctx, r.Id, *r.Body.MetadataFrozen); err != nil {
 			return nil, seriesProblem(err)
-		}
-		if *r.Body.MetadataFrozen {
-			// "Keep as is" settles the Title gone upstream row.
-			if err := s.health.Clear(ctx, health.GoneUpstreamKey(r.Id)); err != nil {
-				return nil, err
-			}
 		}
 	}
 	if r.Body.Monitored != nil {

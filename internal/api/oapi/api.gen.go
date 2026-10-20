@@ -724,6 +724,42 @@ func (e TitleBulkOutcomeOutcome) Valid() bool {
 	}
 }
 
+// Defines values for TitleBulkOutcomeReason.
+const (
+	DownloadClient TitleBulkOutcomeReason = "download_client"
+	Frozen         TitleBulkOutcomeReason = "frozen"
+	Internal       TitleBulkOutcomeReason = "internal"
+	NoVersion      TitleBulkOutcomeReason = "no_version"
+	NotFound       TitleBulkOutcomeReason = "not_found"
+	NothingWanted  TitleBulkOutcomeReason = "nothing_wanted"
+	SlotTaken      TitleBulkOutcomeReason = "slot_taken"
+	Unchanged      TitleBulkOutcomeReason = "unchanged"
+)
+
+// Valid indicates whether the value is a known member of the TitleBulkOutcomeReason enum.
+func (e TitleBulkOutcomeReason) Valid() bool {
+	switch e {
+	case DownloadClient:
+		return true
+	case Frozen:
+		return true
+	case Internal:
+		return true
+	case NoVersion:
+		return true
+	case NotFound:
+		return true
+	case NothingWanted:
+		return true
+	case SlotTaken:
+		return true
+	case Unchanged:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TitleKind.
 const (
 	Movie  TitleKind = "movie"
@@ -2250,17 +2286,26 @@ type TitleBulkOutcome struct {
 	Message *string                 `json:"message"`
 	Outcome TitleBulkOutcomeOutcome `json:"outcome"`
 
-	// Reason Why the Title was skipped or failed, `null` when it changed. `unchanged`: it already is as
-	// asked. `not_found`: there is no such Title. `no_version`: it has no Version in the Slot.
-	// `slot_taken`: the Slot already holds a Version. `nothing_wanted`: none of its Versions is
-	// Wanted. `frozen`: its metadata is frozen. `internal`: the change failed. More reasons
-	// may come; clients must tolerate unknown ones.
-	Reason  *string `json:"reason"`
-	TitleId int64   `json:"title_id"`
+	// Reason Why the Title was skipped or failed, `null` when it changed. Skipped: `unchanged`, it
+	// already is as asked; `not_found`, there is no such Title; `no_version`, it has no Version
+	// in the Slot; `slot_taken`, the Slot already holds a Version; `nothing_wanted`, none of its
+	// Versions is Wanted; `frozen`, its metadata is frozen. Failed: `download_client`, the
+	// download client could not cancel the Title's download (`message` has what it said);
+	// `internal`, an unexpected error, which the log has.
+	Reason  *TitleBulkOutcomeReason `json:"reason"`
+	TitleId int64                   `json:"title_id"`
 }
 
 // TitleBulkOutcomeOutcome defines model for TitleBulkOutcome.Outcome.
 type TitleBulkOutcomeOutcome string
+
+// TitleBulkOutcomeReason Why the Title was skipped or failed, `null` when it changed. Skipped: `unchanged`, it
+// already is as asked; `not_found`, there is no such Title; `no_version`, it has no Version
+// in the Slot; `slot_taken`, the Slot already holds a Version; `nothing_wanted`, none of its
+// Versions is Wanted; `frozen`, its metadata is frozen. Failed: `download_client`, the
+// download client could not cancel the Title's download (`message` has what it said);
+// `internal`, an unexpected error, which the log has.
+type TitleBulkOutcomeReason string
 
 // TitleCreate defines model for TitleCreate.
 type TitleCreate struct {
@@ -2402,8 +2447,9 @@ type TitlesBulkMonitor struct {
 	Action    TitlesBulkMonitorAction `json:"action"`
 	Monitored bool                    `json:"monitored"`
 
-	// SeriesMonitor The mode monitored Series get; left out, `all`. With `monitored: false` it can only be
-	// `none`.
+	// SeriesMonitor The mode monitored Series get. Left out, a Series already monitored keeps its mode and
+	// an unmonitored one gets `all`. With `monitored: true` it cannot be `none`, and with
+	// `monitored: false` it can only be `none`.
 	SeriesMonitor *SeriesMonitor `json:"series_monitor,omitempty"`
 	TitleIds      TitleIds       `json:"title_ids"`
 }

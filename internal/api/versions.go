@@ -95,10 +95,7 @@ func (s *server) PatchVersion(ctx context.Context, r oapi.PatchVersionRequestObj
 	if err := s.checkProfile(ctx, r.Body.Profile, ref.Slot); err != nil {
 		return nil, err
 	}
-	if err := s.library.SetProfile(ctx, ref.ID, r.Body.Profile); err != nil {
-		return nil, err
-	}
-	if err := s.imports.Rescore(ctx, ref.TitleID, ref.ID); err != nil {
+	if err := s.imports.SwitchProfile(ctx, ref.TitleID, ref.ID, r.Body.Profile); err != nil {
 		return nil, err
 	}
 	s.jobs.Kick(jobs.Search) // search at once under the new Profile

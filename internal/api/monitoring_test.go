@@ -343,6 +343,7 @@ func TestABulkCallIsRefusedForAnUnknownActionOrAModeThatContradictsIt(t *testing
 	l := newLibraryInstance(t, metadatatest.Key)
 	for _, body := range []string{
 		`{"action":"monitor","monitored":false,"series_monitor":"all","title_ids":[1]}`,
+		`{"action":"monitor","monitored":true,"series_monitor":"none","title_ids":[1]}`,
 		`{"action":"monitor","monitored":true,"series_monitor":"sometimes","title_ids":[1]}`,
 		`{"action":"explode","title_ids":[1]}`,
 		`{"action":"monitor","monitored":true,"title_ids":[]}`,
@@ -350,5 +351,36 @@ func TestABulkCallIsRefusedForAnUnknownActionOrAModeThatContradictsIt(t *testing
 		if r := l.do("POST", "/titles/bulk", body); r.Status != 422 {
 			t.Errorf("%s = %d %s, want 422", body, r.Status, r.Body)
 		}
+	}
+}
+
+func TestBulkMonitoringWithoutAModeKeepsAMonitoredSeriesModeAndMonitorsAnUnmonitoredOneAll(t *testing.T) {
+	t.Parallel()
+	l := newLibraryInstance(t, metadatatest.Key)
+	future := decode[seriesTitleJSON](t, l.valid("POST", "/titles", addBreakingBad+`}`)).ID
+	if r := l.valid("PATCH", fmt.Sprintf("/titles/%d", future), `{"series_monitor":"future"}`); r.Status != 200 {
+		t.Fatalf("PATCH = %d %s", r.Status, r.Body)
+	}
+	before := episodesOf(t, l, future)
+	none := decode[seriesTitleJSON](t, l.valid("POST", "/titles", `{"kind":"series","tmdb_id":7001,"versions":[{"slot":"standard","profile":"hd-primary"}]}`)).ID
+	if r := l.valid("PATCH", fmt.Sprintf("/titles/%d", none), `{"series_monitor":"none"}`); r.Status != 200 {
+		t.Fatalf("PATCH = %d %s", r.Status, r.Body)
+	}
+
+	got := decode[bulkJSON](t, l.valid("POST", "/titles/bulk", fmt.Sprintf(`{"action":"monitor","monitored":true,"title_ids":[%d,%d]}`, future, none)))
+
+	if len(got.Items) != 2 || got.Items[0].Outcome != "skipped" || got.Items[0].Reason == nil || *got.Items[0].Reason != "unchanged" || got.Items[1].Outcome != "changed" {
+		t.Fatalf("items = %+v", got.Items)
+	}
+	if d := decode[seriesTitleJSON](t, l.valid("GET", fmt.Sprintf("/titles/%d", future), "")); d.SeriesMonitor == nil || *d.SeriesMonitor != "future" {
+		t.Errorf("series_monitor = %v, want future kept", d.SeriesMonitor)
+	}
+	for i, e := range episodesOf(t, l, future) {
+		if e.Monitored != before[i].Monitored {
+			t.Errorf("S%02dE%02d monitored = %v, was %v", e.Season, e.Number, e.Monitored, before[i].Monitored)
+		}
+	}
+	if d := decode[seriesTitleJSON](t, l.valid("GET", fmt.Sprintf("/titles/%d", none), "")); d.SeriesMonitor == nil || *d.SeriesMonitor != "all" {
+		t.Errorf("series_monitor = %v, want all", d.SeriesMonitor)
 	}
 }

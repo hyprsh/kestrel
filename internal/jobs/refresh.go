@@ -41,6 +41,7 @@ type RefreshLibrary interface {
 	Get(ctx context.Context, id int64, view library.View) (library.Detail, error)
 	RefreshMovie(ctx context.Context, id int64, r library.MovieRefresh) (library.Refreshed, error)
 	RefreshSeries(ctx context.Context, id int64, r library.SeriesRefresh) (library.Refreshed, error)
+	SetMetadataFrozen(ctx context.Context, id int64, frozen bool) error
 }
 
 // TitleRenamer is the imports module's Rename.
@@ -101,6 +102,19 @@ func NewRefresher(d RefresherDeps) *Refresher {
 func goneUpstream(err error) bool {
 	var me *metadata.Error
 	return errors.As(err, &me) && me.Code == metadata.CodeNotFound
+}
+
+// SetFrozen freezes a Title's metadata, so a refresh leaves it alone, or
+// unfreezes it. Freezing is "Keep as is": it settles the Title gone upstream
+// row. It returns library.ErrNotFound for a Title that does not exist.
+func (r *Refresher) SetFrozen(ctx context.Context, id int64, frozen bool) error {
+	if err := r.d.Library.SetMetadataFrozen(ctx, id, frozen); err != nil {
+		return err
+	}
+	if !frozen || r.d.Health == nil {
+		return nil
+	}
+	return r.d.Health.Clear(ctx, health.GoneUpstreamKey(id))
 }
 
 // Refresh refreshes one Title. A frozen Title is left alone. When the English
