@@ -66,12 +66,8 @@ type OfferedRelease struct {
 // a higher-scoring one replaces. Units that hold a fitting file lose theirs.
 // Each Release newly offered records an original_offered event.
 func (s *Service) noteOffers(ctx context.Context, d library.Detail, versionOf map[Slot]int64, in Input, entries map[string]*entry, episodes []library.Episode) error {
-	idOf := map[EpisodeRef]int64{}
-	for _, ep := range episodes {
-		idOf[EpisodeRef{ep.Season, ep.Number}] = ep.ID
-	}
 	unit := func(versionID int64, ref EpisodeRef) db.GetOriginalOfferParams {
-		return db.GetOriginalOfferParams{VersionID: versionID, EpisodeID: sql.NullInt64{Int64: idOf[ref], Valid: true}}
+		return db.GetOriginalOfferParams{VersionID: versionID, EpisodeID: sql.NullInt64{Int64: episodeID(episodes, ref), Valid: true}}
 	}
 	offers := OriginalOffers(in)
 	tx, err := s.st.Write().BeginTx(ctx, nil)
@@ -133,7 +129,7 @@ func (s *Service) noteOffers(ctx context.Context, d library.Detail, versionOf ma
 			}
 			episode := sql.NullInt64{}
 			if d.Kind == library.Series {
-				episode = sql.NullInt64{Int64: idOf[ref], Valid: true}
+				episode = sql.NullInt64{Int64: episodeID(episodes, ref), Valid: true}
 			}
 			if err := q.InsertOriginalOffer(ctx, db.InsertOriginalOfferParams{
 				VersionID: vid, EpisodeID: episode, ReleaseGuid: e.raw.GUID, ReleaseName: e.raw.Title, IndexerID: e.raw.IndexerID,

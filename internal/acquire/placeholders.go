@@ -90,7 +90,7 @@ func planUnlisted(in *Input, d library.Detail, eps []library.Episode, now time.T
 func (s *Service) placeholdersFor(ctx context.Context, titleID int64, refs []EpisodeRef, eps []library.Episode) ([]library.Episode, error) {
 	var add []library.EpisodeRef
 	for _, r := range refs {
-		if !slices.ContainsFunc(eps, func(ep library.Episode) bool { return ep.Season == r.Season && ep.Number == r.Episode }) {
+		if episodeID(eps, r) == 0 {
 			add = append(add, library.EpisodeRef{Season: r.Season, Number: r.Episode})
 		}
 	}
