@@ -17,7 +17,10 @@ function age(iso: string): string {
   return hours < 48 ? `${Math.floor(hours)}h` : `${Math.floor(hours / 24)}d`
 }
 
-/** What the Grab button does for a Release: refused for blocklisted and other-Slot ones, "Grab anyway" for the rest that are rejected. */
+/**
+ * What the Grab button does for a Release: refused for an other-Slot one or one with a rejection that is not
+ * overridable (blocklisted, a season TheTVDB does not list), "Grab anyway" for the rest that are rejected.
+ */
 function grabState(r: Release): { label: string; disabled: boolean; override: boolean; reason?: string } {
   const reason = r.rejections.map((x) => x.message).join(' · ') || undefined
   if (r.fits === 'other_slot' || r.rejections.some((x) => !x.overridable)) return { label: 'Grab', disabled: true, override: false, reason }
