@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"path/filepath"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/jobs"
@@ -138,17 +137,4 @@ func (s *server) RefreshTitle(ctx context.Context, r oapi.RefreshTitleRequestObj
 	}
 	s.refresher.Enqueue(r.Id)
 	return oapi.RefreshTitle202Response{}, nil
-}
-
-// titleFolder is the Title's folder on disk, or "" while it has none yet.
-func (s *server) titleFolder(ctx context.Context, titleID int64) string {
-	view, err := s.view(ctx)
-	if err != nil {
-		return ""
-	}
-	d, err := s.library.Get(ctx, titleID, view)
-	if err != nil || d.Folder == "" {
-		return ""
-	}
-	return filepath.Join(d.RootFolder, d.Folder)
 }

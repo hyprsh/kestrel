@@ -29,7 +29,6 @@ var (
 	// duneFolder is the Movie folder for duneTitle; every Movie file starts with it.
 	duneFolder = "Dune (2021) {tmdb-438631}"
 	plain      = rel("Bluray-1080p", release.Revision{Version: 1}, "", "GRP")
-	germanEAC3 = []probe.AudioTrack{{Codec: "eac3", Channels: 6, Language: "deu", Default: true}}
 )
 
 func TestFolders(t *testing.T) {

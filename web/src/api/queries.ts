@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
 import type { components } from './schema.gen'
 
-export type Me = components['schemas']['Me']
+type Me = components['schemas']['Me']
 
 /** What the server says about this browser: no account yet, not logged in, or logged in. */
 export type Auth = { state: 'setup_required' } | { state: 'unauthenticated' } | { state: 'ok'; me: Me }
@@ -141,7 +141,6 @@ export type PluginManifest = components['schemas']['PluginManifest']
 export type PluginField = components['schemas']['PluginField']
 export type PluginInstance = components['schemas']['PluginInstance']
 export type PluginOption = components['schemas']['PluginOption']
-export type PluginTestResult = components['schemas']['PluginTestResult']
 /** Settings by manifest field key; `null` clears a field and a secret left out is kept. */
 export type PluginConfig = { [key: string]: unknown }
 
@@ -236,7 +235,6 @@ export type Settings = components['schemas']['Settings']
 export type SettingsPatch = components['schemas']['SettingsPatch']
 export type Profile = components['schemas']['Profile']
 export type ProfilePatch = components['schemas']['ProfilePatch']
-export type Slot = components['schemas']['Slot']
 
 export function useSettings() {
   return useQuery({
@@ -439,8 +437,6 @@ export const useMonitorEpisodes = (titleId: number) =>
 
 
 // ---- setup progress ----
-
-export type Setup = components['schemas']['Setup']
 
 /** Where each wizard section stands. */
 export function useSetup(enabled = true) {

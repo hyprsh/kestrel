@@ -368,7 +368,6 @@ type statefulSAB struct {
 
 type job struct {
 	id, name, cat, state, storage, msg string
-	failure                            downloadclient.Failure
 }
 
 func newStatefulSAB(key string) *statefulSAB { return &statefulSAB{key: key} }

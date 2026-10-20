@@ -7,7 +7,7 @@ import { SeasonList, type LookupSeries } from './SeriesOverview'
  * How a Series starts: a monitoring mode alone, or seasons monitored at add
  * with the mode for what arrives later.
  */
-export type Preset = 'all' | 'future' | 'none' | 'first' | 'latest' | 'pick'
+type Preset = 'all' | 'future' | 'none' | 'first' | 'latest' | 'pick'
 
 /** A preset with the seasons ticked under Pick… and whether new seasons are followed. */
 export type SeasonChoice = { preset: Preset; picked: number[]; follow: boolean }
@@ -15,7 +15,7 @@ export type SeasonChoice = { preset: Preset; picked: number[]; follow: boolean }
 export const allEpisodes: SeasonChoice = { preset: 'all', picked: [], follow: true }
 
 /** The seasons a choice monitors at add; null when the mode alone decides. */
-export function seasonsOf(c: SeasonChoice, series: LookupSeries | null): number[] | null {
+function seasonsOf(c: SeasonChoice, series: LookupSeries | null): number[] | null {
   switch (c.preset) {
     case 'first':
       return [1]

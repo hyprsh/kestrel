@@ -13,7 +13,7 @@ const EVENTS = ['changed', 'queue', 'activity', 'attention'] as const
 /** A frame as relayed between tabs; `reset` means "refetch everything you show". */
 type Frame = { event: (typeof EVENTS)[number] | 'reset'; data?: unknown }
 
-export type ChangedHint = { resource: string; id: number | null }
+type ChangedHint = { resource: string; id: number | null }
 
 /** The browser pieces the stream needs; tests substitute fakes. */
 export type LiveDeps = {
@@ -23,7 +23,7 @@ export type LiveDeps = {
   locks: Pick<LockManager, 'request'> | undefined
 }
 
-export function browserDeps(): LiveDeps | null {
+function browserDeps(): LiveDeps | null {
   if (typeof EventSource === 'undefined' || typeof BroadcastChannel === 'undefined') return null
   return {
     url: `${apiBaseUrl}/stream`,
@@ -46,7 +46,7 @@ function keysOf(h: ChangedHint): string[][] {
 }
 
 /** Applies a frame to this tab's caches. */
-export function applyFrame(qc: QueryClient, f: Frame) {
+function applyFrame(qc: QueryClient, f: Frame) {
   switch (f.event) {
     case 'changed':
       for (const queryKey of keysOf(f.data as ChangedHint)) void qc.invalidateQueries({ queryKey })

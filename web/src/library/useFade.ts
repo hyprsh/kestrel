@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent } from 'react'
 
 /** How long a notice that something started in the background stays up. */
-export const fadeMs = 8000
+const fadeMs = 8000
 
 /**
  * Clears a notice a few seconds after it shows, such as "Searching… The Log

@@ -3,7 +3,7 @@ import { ApiError, useLogin } from '../api/queries'
 import { Button, ErrorText, Field, TextInput } from '../forms'
 import { KestrelLogo } from '../ui'
 
-export function loginErrorText(error: unknown): string {
+function loginErrorText(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === 'rate_limited') return `Too many attempts. Try again in ${error.retryAfter ?? 60} s`
     if (error.code === 'unauthenticated') return 'Wrong username or password'

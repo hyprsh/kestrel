@@ -64,7 +64,7 @@ export const detail = (r: TitleRow, over: Partial<TitleDetail> = {}): TitleDetai
   ...over,
 })
 
-export const profileNames: Record<string, string> = {
+const profileNames: Record<string, string> = {
   'hd-primary': 'HD',
   'any-primary': 'Any',
   '4k-primary': '4K',

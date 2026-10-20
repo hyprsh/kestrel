@@ -33,7 +33,7 @@ function deletedText(res: DeletedFiles, blocklist: boolean, label?: string) {
  * takes the focus and scrolls into view when it opens, Escape cancels, and the
  * focus goes back where it was when it closes.
  */
-export function DeleteFilesConfirm({
+function DeleteFilesConfirm({
   paths,
   bytes,
   episodes = [],

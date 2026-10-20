@@ -29,7 +29,7 @@ function percent(i: QueueItem): number | null {
 }
 
 /** "45 s", "2 min" or "1 h 5 min" left. */
-export function formatEta(seconds: number): string {
+function formatEta(seconds: number): string {
   if (seconds < 60) return `${seconds} s left`
   const mins = Math.round(seconds / 60)
   if (mins < 60) return `${mins} min left`
