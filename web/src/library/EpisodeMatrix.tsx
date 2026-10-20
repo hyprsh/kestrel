@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ApiError, useEpisodes, useMonitorEpisodes, usePatchSeason, type Episode } from '../api/queries'
 import { cx } from '../ui'
 import { slotLabel, versionStatus, type SlotKey } from './bits'
+import { EpisodeMenu, EpisodeTick, SeasonMenu, type EpisodeActions } from './EpisodeActions'
 
 type Row = { kind: 'season'; season: number; episodes: Episode[] } | { kind: 'episode'; episode: Episode }
 
@@ -27,9 +28,10 @@ const seasonName = (n: number) => (n === 0 ? 'Specials' : `Season ${n}`)
  * season and a row per episode with its monitoring toggle and one cell per
  * Slot that has a Version. It is one grid with a roving focus: arrows (or
  * h/j/k/l) move between cells, Space or Enter toggles monitoring, Home and End
- * jump to the first and last row.
+ * jump to the first and last row. With `actions`, each row has a menu (Shift+F10
+ * or the menu key opens it) and x ticks an episode for the actions on several.
  */
-export function EpisodeMatrix({ titleId, slots }: { titleId: number; slots: SlotKey[] }) {
+export function EpisodeMatrix({ titleId, slots, actions }: { titleId: number; slots: SlotKey[]; actions?: EpisodeActions }) {
   const episodes = useEpisodes(titleId)
   const patchSeason = usePatchSeason(titleId)
   const monitor = useMonitorEpisodes(titleId)
@@ -76,6 +78,8 @@ export function EpisodeMatrix({ titleId, slots }: { titleId: number; slots: Slot
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return
     const { row, col } = pos
+    const at = rows[row]
+    if (actions?.onKey(e, at?.kind === 'episode' ? at.episode : null)) return
     const go = (r: number, c: number) => {
       e.preventDefault()
       e.stopPropagation() // the Library's own j/k/Enter must not also fire
@@ -142,6 +146,7 @@ export function EpisodeMatrix({ titleId, slots }: { titleId: number; slots: Slot
             tabIndex={tab(i, 0)}
             onFocus={() => setPos({ row: i, col: 0 })}
             onToggle={(monitored) => patchSeason.mutate({ season: r.season, monitored })}
+            menu={actions && <SeasonMenu actions={actions} season={r.season} episodes={r.episodes} />}
           />
         ) : (
           <EpisodeRow
@@ -152,6 +157,8 @@ export function EpisodeMatrix({ titleId, slots }: { titleId: number; slots: Slot
             tab={tab}
             onFocus={(col) => setPos({ row: i, col })}
             onToggle={() => monitor.mutate({ ids: [r.episode.id], monitored: !r.episode.monitored })}
+            tick={actions && <EpisodeTick actions={actions} episode={r.episode} />}
+            menu={actions && <EpisodeMenu actions={actions} episode={r.episode} />}
           />
         ),
       )}
@@ -165,12 +172,14 @@ function SeasonRow({
   tabIndex,
   onFocus,
   onToggle,
+  menu,
 }: {
   row: Extract<Row, { kind: 'season' }>
   index: number
   tabIndex: number
   onFocus: () => void
   onToggle: (monitored: boolean) => void
+  menu?: ReactNode
 }) {
   const on = row.episodes.filter((e) => e.monitored).length
   const checked = on === 0 ? 'false' : on === row.episodes.length ? 'true' : 'mixed'
@@ -192,6 +201,7 @@ function SeasonRow({
         <span className="text-[12px] text-gray-900">
           {on} of {row.episodes.length} monitored
         </span>
+        {menu && <span className="ml-auto">{menu}</span>}
       </div>
     </div>
   )
@@ -204,6 +214,8 @@ function EpisodeRow({
   tab,
   onFocus,
   onToggle,
+  tick,
+  menu,
 }: {
   episode: Episode
   slots: SlotKey[]
@@ -211,11 +223,14 @@ function EpisodeRow({
   tab: (row: number, col: number) => number
   onFocus: (col: number) => void
   onToggle: () => void
+  tick?: ReactNode
+  menu?: ReactNode
 }) {
   const label = `Season ${episode.season} episode ${episode.number}`
   return (
     <div role="row" aria-rowindex={index + 2} className="flex items-center gap-3 px-3 py-1 hover:bg-gray-alpha-100">
       <div role="gridcell" className="flex min-w-0 flex-1 items-center gap-2">
+        {tick}
         <button
           type="button"
           role="checkbox"
@@ -232,6 +247,7 @@ function EpisodeRow({
         </span>
         <span className="truncate">{episode.name || 'TBA'}</span>
         <span className="ml-auto shrink-0 text-[12px] text-gray-900">{episode.air_date ?? 'no air date'}</span>
+        {menu}
       </div>
       {slots.map((s, c) => {
         const cell = episode.cells[s]

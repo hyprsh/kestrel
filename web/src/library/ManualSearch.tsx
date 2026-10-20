@@ -1,7 +1,7 @@
 import { ArrowLeft, Download } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { ApiError } from '../api/queries'
-import { useGrab, useReleases, type Release } from '../api/grabs'
+import { useGrab, useReleases, type Release, type ReleaseScope } from '../api/grabs'
 import { Button } from '../forms'
 import { useKey, useListNav } from '../keys'
 import { Badge, cx, Kbd } from '../ui'
@@ -29,22 +29,25 @@ const rejectionBlocked = (r: Release) => r.fits === 'other_slot' || r.rejections
 /**
  * Manual search for one Version: every Release the indexers offered, scored
  * against the Version's Profile, in a keyboard table. j/k select, Enter grabs,
- * Escape goes back.
+ * Escape goes back. A Series search can be narrowed to a season or episodes
+ * (`scope`), named in the header by `scope.label`.
  */
 export function ManualSearch({
   titleName,
   slotLabel,
   profileName,
   versionId,
+  scope,
   onBack,
 }: {
   titleName: string
   slotLabel: string
   profileName: string
   versionId: number
+  scope?: { body: ReleaseScope; label: string }
   onBack: () => void
 }) {
-  const search = useReleases(versionId)
+  const search = useReleases(versionId, scope?.body)
   const grabbing = useGrab()
   const [hideRejected, setHideRejected] = useState(false)
   const [sel, setSel] = useState(0)
@@ -89,6 +92,7 @@ export function ManualSearch({
         </Button>
         <span className="font-semibold tracking-tight">Manual search</span>
         <span className="rounded border border-gray-alpha-400 px-1 font-mono text-[11px]">{slotLabel}</span>
+        {scope && <span className="rounded border border-gray-alpha-400 px-1 font-mono text-[11px]">{scope.label}</span>}
         <span className="text-gray-900">
           Profile {profileName} · {rows.length} Releases · best first
         </span>

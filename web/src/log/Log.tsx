@@ -22,6 +22,7 @@ const kinds: Record<string, { label: string; tone: Tone }> = {
   request: { label: 'Requested', tone: 'teal' },
   rename: { label: 'Renamed', tone: 'gray' },
   title_refreshed: { label: 'Refreshed', tone: 'gray' },
+  search: { label: 'Searched', tone: 'gray' },
   adoption: { label: 'Adopted', tone: 'teal' },
   adoption_scanned: { label: 'Scanned', tone: 'gray' },
   cleanup: { label: 'Cleaned up', tone: 'gray' },

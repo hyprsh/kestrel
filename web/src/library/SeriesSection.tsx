@@ -1,12 +1,18 @@
-import { ApiError, useSetSeriesMonitor, type SeriesMonitor, type TitleDetail } from '../api/queries'
+import { ApiError, useEpisodes, useSetSeriesMonitor, type Episode, type SeriesMonitor, type TitleDetail } from '../api/queries'
 import { ErrorText, Select } from '../forms'
 import { slotKeys } from './bits'
+import { EpisodeToolbar, useEpisodeActions } from './EpisodeActions'
 import { EpisodeMatrix } from './EpisodeMatrix'
+import type { ManualSearchTarget } from './TitleDetail'
+
+const noEpisodes: Episode[] = []
 
 /** What a Series adds to its detail pane: the monitoring mode and the episodes × Slots heat map. */
-export function SeriesSection({ title }: { title: TitleDetail }) {
+export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; onManualSearch?: (t: ManualSearchTarget) => void }) {
   const setMode = useSetSeriesMonitor(title.id)
   const slots = slotKeys.filter((k) => title.versions.some((v) => v.slot === k))
+  const episodes = useEpisodes(title.id).data ?? noEpisodes
+  const actions = useEpisodeActions(title, episodes, slots, onManualSearch)
   return (
     <section aria-label="Episodes" className="mt-6">
       <div className="mb-3 flex items-center gap-3">
@@ -27,7 +33,8 @@ export function SeriesSection({ title }: { title: TitleDetail }) {
         </label>
       </div>
       {setMode.isError && <ErrorText>{setMode.error instanceof ApiError ? setMode.error.message : 'Could not change monitoring.'}</ErrorText>}
-      <EpisodeMatrix titleId={title.id} slots={slots} />
+      <EpisodeToolbar actions={actions} episodes={episodes} />
+      <EpisodeMatrix titleId={title.id} slots={slots} actions={actions} />
     </section>
   )
 }
