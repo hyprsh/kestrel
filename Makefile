@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: typecheck release-dry-run notices build-silo help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet compose-check commitlint hooks docker check
+.PHONY: typecheck release-dry-run dry-run-assets test-go-shard test-go-race test-parity notices build-silo help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet compose-check commitlint hooks docker check
 
 VERSION ?= dev
 # The project's TMDB and TVDB keys are injected at link time; the default build embeds none.
@@ -22,8 +22,33 @@ generate-check: generate ## Fail if generated code differs from what is committe
 
 test: test-go test-web ## Run all tests
 
-test-go: ## Go tests with the race detector
-	go test -race -timeout 30m ./...
+test-go: test-go-race test-parity ## Go tests: the race detector on all but the Radarr and Sonarr parity suites
+
+# The Radarr and Sonarr parity suites (every test named after them) replay thousands
+# of fixtures through read-only parsing and scoring tables: seconds without the race
+# detector, minutes with it. holder_test and gate_test keep the shared scoring
+# snapshot under -race.
+PARITY_TESTS := Radarr|Sonarr
+
+test-go-race: ## Go tests with the race detector, minus the parity suites
+	go test -race -timeout 30m -skip '$(PARITY_TESTS)' ./...
+
+test-parity: ## The Radarr and Sonarr parity suites, without the race detector
+	go test -run '$(PARITY_TESTS)' ./...
+
+# CI splits test-go across parallel jobs: api (the largest package), domain (the
+# heaviest after it), rest (every other package) and parity.
+HEAVY_PKGS := ./internal/scoring/... ./internal/acquire/... ./internal/release/...
+
+test-go-shard: ## One CI shard of test-go: GO_SHARD=api|domain|rest|parity
+	@case "$(GO_SHARD)" in \
+	  api) set -- -race -skip '$(PARITY_TESTS)' ./internal/api/... ;; \
+	  domain) set -- -race -skip '$(PARITY_TESTS)' $(HEAVY_PKGS) ;; \
+	  rest) set -- -race -skip '$(PARITY_TESTS)' $$(go list ./... | grep -v -E '/internal/(api|scoring|acquire|release)(/|$$)') ;; \
+	  parity) set -- -run '$(PARITY_TESTS)' ./... ;; \
+	  *) echo "GO_SHARD must be api, domain, rest or parity"; exit 1 ;; \
+	esac; \
+	go test -timeout 30m "$$@"
 
 test-ffprobe: ## Real-ffprobe suite on ffmpeg-generated MKVs (needs ffmpeg and ffprobe on PATH; CI runs it)
 	go test -race -tags ffprobe ./internal/probe/
@@ -70,10 +95,14 @@ hooks: ## Install the commit-msg hook (commitlint via lefthook)
 docker: ## Build the image as kestrel:dev
 	docker build --build-arg VERSION=$(VERSION) --build-arg TMDB_API_KEY=$(TMDB_API_KEY) --build-arg TVDB_API_KEY=$(TVDB_API_KEY) -t kestrel:dev .
 
+# CI installs this version's prebuilt binary and passes GORELEASER_CMD=goreleaser.
 GORELEASER ?= github.com/goreleaser/goreleaser/v2@v2.18.3
+GORELEASER_CMD ?= go run $(GORELEASER)
 
-release-dry-run: docker ## Run the release without publishing: the image, Silo plugin binaries, silo-repository.json, checksums (needs Docker)
-	go run $(GORELEASER) release --snapshot --clean --skip=publish,announce,validate
+release-dry-run: docker dry-run-assets ## Run the release without publishing: the image, Silo plugin binaries, silo-repository.json, checksums (needs Docker)
+
+dry-run-assets: ## The release's Silo plugin binaries, silo-repository.json and checksums, without publishing (CI runs this)
+	$(GORELEASER_CMD) release --snapshot --clean --skip=publish,announce,validate
 	scripts/check-release-dist.sh dist release-assets
 
 notices: ## Regenerate internal/notices/THIRD_PARTY_NOTICES.md (needs network and `npm --prefix web ci`)

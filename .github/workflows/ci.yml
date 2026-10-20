@@ -13,8 +13,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  go:
-    name: Go tests (race detector)
+  go-vet:
+    name: Go format and vet
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -22,9 +22,47 @@ jobs:
         with:
           go-version-file: go.mod
       - run: make fmt-check vet
-      - run: make test-go
+
+  go:
+    # make test-go, split across parallel jobs (see test-go-shard in the Makefile).
+    name: Go tests (${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [api, domain, rest, parity]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      # Each shard keeps its own build cache, because race builds share nothing with
+      # setup-go's default one. Pushes to main save it; PRs restore main's latest.
+      - id: go-env
+        run: |
+          echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+          echo "mod=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v6
+        with:
+          path: |
+            ${{ steps.go-env.outputs.build }}
+            ${{ steps.go-env.outputs.mod }}
+          key: go-test-${{ runner.os }}-${{ matrix.shard }}-${{ hashFiles('go.mod', 'go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            go-test-${{ runner.os }}-${{ matrix.shard }}-${{ hashFiles('go.mod', 'go.sum') }}-
+            go-test-${{ runner.os }}-${{ matrix.shard }}-
+      - run: make test-go-shard GO_SHARD=${{ matrix.shard }}
       - name: Real ffprobe suite (ubuntu-latest ships ffmpeg)
+        if: matrix.shard == 'rest'
         run: make test-ffprobe
+      - if: github.event_name == 'push'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ${{ steps.go-env.outputs.build }}
+            ${{ steps.go-env.outputs.mod }}
+          key: go-test-${{ runner.os }}-${{ matrix.shard }}-${{ hashFiles('go.mod', 'go.sum') }}-${{ github.sha }}
 
   generated:
     name: OpenAPI drift check
@@ -82,14 +120,19 @@ jobs:
           exit 1
 
   release-dry-run:
-    name: Release dry run (plugin binaries, silo-repository.json, checksums, image)
+    # The image job builds the image, so this one only checks the release assets.
+    name: Release dry run (plugin binaries, silo-repository.json, checksums)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - run: make release-dry-run
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: v2.18.3 # GORELEASER in the Makefile
+          install-only: true
+      - run: make dry-run-assets GORELEASER_CMD=goreleaser
 
   commitlint:
     name: Conventional Commit PR title
