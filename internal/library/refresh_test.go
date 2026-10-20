@@ -103,3 +103,38 @@ func TestRefreshingASeriesUpdatesEpisodesAndAddsNewOnes(t *testing.T) {
 		t.Errorf("seasons = %+v", d.Seasons)
 	}
 }
+
+func TestARefreshWithoutTranslatedTitlesKeepsTheStoredOnes(t *testing.T) {
+	ctx := context.Background()
+	lib, _ := newLibrary(t)
+	tmdb := metadata.SeriesDetails{TMDBID: 7001, TVDBID: 5001, Title: "Night Show", OriginalTitle: "Night Show", OriginalLanguage: "en", Year: 2024}
+	id, err := lib.AddSeries(ctx, library.AddSeries{
+		TMDB: tmdb,
+		TVDB: metadata.TVDBSeries{ID: 5001, Episodes: []metadata.Episode{
+			{ID: 1, Season: 1, Number: 1, Name: "Dusk", PrimaryName: "Abenddämmerung"},
+		}},
+		PrimaryLanguage: "de", Monitor: library.MonitorAll, RootFolder: "/data/media/tv",
+		Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// TheTVDB's German titles could not be fetched: no PrimaryName, and a new episode.
+	_, err = lib.RefreshSeries(ctx, id, library.SeriesRefresh{
+		TMDB: tmdb,
+		TVDB: metadata.TVDBSeries{ID: 5001, Episodes: []metadata.Episode{
+			{ID: 1, Season: 1, Number: 1, Name: "Dusk"},
+			{ID: 2, Season: 1, Number: 2, Name: "Midnight"},
+		}},
+		PrimaryLanguage: "de",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	eps, _ := lib.Episodes(ctx, id, library.View{Country: "DE", Now: now})
+	if len(eps) != 2 || eps[0].PrimaryName != "Abenddämmerung" || eps[1].PrimaryName != "Midnight" {
+		t.Errorf("episodes = %+v, want the stored German title kept and the original standing in for the new one", eps)
+	}
+}

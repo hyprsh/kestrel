@@ -234,9 +234,13 @@ func (s *Service) refreshEpisodes(ctx context.Context, q *db.Queries, id int64, 
 		if c.fresh.ID != 0 {
 			tvdb = nullInt(c.fresh.ID)
 		}
+		primary := c.fresh.PrimaryName
+		if primary == "" {
+			primary = c.ep.PrimaryName // the translated titles could not be fetched: keep the stored one
+		}
 		if err := q.UpdateEpisode(ctx, db.UpdateEpisodeParams{
 			Season: int64(c.fresh.Season), Number: int64(c.fresh.Number), TvdbID: tvdb, Name: c.fresh.Name, AirDate: airOf(c.fresh),
-			PrimaryName: c.fresh.PrimaryName, ID: c.ep.ID,
+			PrimaryName: primary, ID: c.ep.ID,
 		}); err != nil {
 			return err
 		}
