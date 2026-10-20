@@ -13,15 +13,19 @@ const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { 
 
 type Deleted = { version: number; query: string }
 
-/** Answers DELETE /versions/{id}/files and records each call's query; `adopted` files cannot be blocklisted. */
-function recordDeletes({ adopted = false } = {}) {
+/**
+ * Answers DELETE /versions/{id}/files and records each call's query; `adopted`
+ * files cannot be blocklisted, and an `undeletable` file stays on disk.
+ */
+function recordDeletes({ adopted = false, undeletable = false } = {}) {
   const sent: Deleted[] = []
   server.use(
     http.delete('/versions/{id}/files', ({ params, request, response }) => {
       const query = new URL(request.url).searchParams
       sent.push({ version: Number(params.id), query: query.toString() })
       const blocklisted = query.get('blocklist') === 'true' && !adopted
-      return response(200).json({ files: [{ path: '/m/Paddington.mkv', size: 1 << 30, release_name: 'Paddington.2014', episode_ids: [], blocklisted }] })
+      if (undeletable) return response(200).json({ files: [], not_deleted: [{ path: '/m/Paddington.mkv', episode_ids: [], reason: 'permission denied' }] })
+      return response(200).json({ files: [{ path: '/m/Paddington.mkv', size: 1 << 30, release_name: 'Paddington.2014', episode_ids: [], blocklisted }], not_deleted: [] })
     }),
   )
   return sent
@@ -74,6 +78,18 @@ describe("deleting a Movie's file", () => {
 
     await waitFor(() => expect(sent).toEqual([{ version: 11, query: 'blocklist=true' }]))
     expect(await within(hd).findByRole('status')).toHaveTextContent(/not blocklisted/)
+  })
+
+  it('says when the file could not be deleted, and why', async () => {
+    recordDeletes({ undeletable: true })
+    const hd = await openFilledMovie()
+
+    await userEvent.click(within(hd).getByRole('button', { name: 'Delete file' }))
+    await userEvent.click(within(hd).getByRole('button', { name: 'Delete' }))
+
+    const status = await within(hd).findByRole('status')
+    expect(status).toHaveTextContent('Could not delete Paddington.mkv: permission denied.')
+    expect(status).not.toHaveTextContent('Nothing to delete')
   })
 
   it('cancels without deleting', async () => {

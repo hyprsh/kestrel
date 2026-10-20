@@ -2,7 +2,9 @@ package imports
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -20,15 +22,28 @@ type DeletedFile struct {
 	Blocklisted bool
 }
 
+// KeptFile is a file DeleteFiles could not take off disk: it stays the
+// Version's, so disk and database agree.
+type KeptFile struct {
+	library.File
+	// EpisodeIDs are every episode the file holds, in aired order; nil for a Movie.
+	EpisodeIDs []int64
+	// Reason is why, as the filesystem said it ("permission denied").
+	Reason string
+}
+
 // Deleted is what DeleteFiles did.
 type Deleted struct {
 	TitleID int64
 	Files   []DeletedFile
+	// NotDeleted are the files in scope that could not be deleted.
+	NotDeleted []KeptFile
 }
 
 // DeleteFiles deletes files of a Version from disk, with their text
-// subtitles, and drops their rows; the Version and its monitoring stay, so a
-// monitored Movie or episode is Wanted again. With blocklist the Release of
+// subtitles, and then drops the rows of those that went; the Version and its
+// monitoring stay, so a monitored Movie or episode is Wanted again. A file that
+// cannot be deleted keeps its row and is reported in NotDeleted. With blocklist the Release of
 // each file's Grab goes on the Blocklist too; a file without one (adopted), or
 // whose Grab cannot be blocklisted, is deleted all the same and says so. A
 // delete event in the Log names the files and what was blocklisted. A Movie
@@ -61,13 +76,6 @@ func (s *Service) DeleteFiles(ctx context.Context, versionID int64, scope librar
 		if len(scope.EpisodeIDs) > 0 {
 			return Deleted{}, &library.ScopeError{Field: "episode_ids", Code: "not_a_series", Message: "A Movie has no episodes"}
 		}
-		files, err := s.lib.FilesOfVersion(ctx, versionID)
-		if err != nil {
-			return Deleted{}, err
-		}
-		for _, f := range files {
-			ids = append(ids, f.ID)
-		}
 	} else {
 		eps, err := s.lib.Episodes(ctx, ref.TitleID, view)
 		if err != nil {
@@ -88,25 +96,57 @@ func (s *Service) DeleteFiles(ctx context.Context, versionID int64, scope librar
 			}
 		}
 	}
-	if len(ids) == 0 {
-		return out, nil
-	}
-	gone, err := s.lib.RemoveFiles(ctx, versionID, ids)
+	files, err := s.lib.FilesOfVersion(ctx, versionID)
 	if err != nil {
 		return Deleted{}, err
 	}
-	for _, f := range gone {
-		removeWithSidecars(f.Path)
-		out.Files = append(out.Files, DeletedFile{File: f, EpisodeIDs: held[f.ID]})
+	var removed []int64
+	for _, f := range files {
+		if d.Kind != library.Movie && !slices.Contains(ids, f.ID) {
+			continue
+		}
+		if err := s.removeWithSidecars(f.Path); err != nil {
+			out.NotDeleted = append(out.NotDeleted, KeptFile{File: f, EpisodeIDs: held[f.ID], Reason: reasonOf(err)})
+			continue
+		}
+		removed = append(removed, f.ID)
 	}
-	if len(gone) > 0 && d.Folder != "" && s.folderChanged != nil {
-		s.folderChanged(ctx, filepath.Join(d.RootFolder, d.Folder))
+	if len(removed) > 0 {
+		gone, err := s.lib.RemoveFiles(ctx, versionID, removed)
+		if err != nil {
+			return Deleted{}, err
+		}
+		for _, f := range gone {
+			out.Files = append(out.Files, DeletedFile{File: f, EpisodeIDs: held[f.ID]})
+		}
+		if d.Folder != "" && s.folderChanged != nil {
+			s.folderChanged(ctx, filepath.Join(d.RootFolder, d.Folder))
+		}
 	}
 	if blocklist {
 		s.blocklistDeleted(ctx, out.Files)
 	}
-	s.recordDeleted(ctx, ref.TitleID, versionID, out.Files, blocklist, code)
+	s.recordDeleted(ctx, versionID, out, blocklist, code)
 	return out, nil
+}
+
+// removeWithSidecars deletes a video, then the text subtitles named after it.
+// A video that is already gone counts as deleted.
+func (s *Service) removeWithSidecars(video string) error {
+	if err := s.remove(video); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	removeSidecars(video)
+	return nil
+}
+
+// reasonOf is a filesystem error without the path it names.
+func reasonOf(err error) string {
+	var pe *fs.PathError
+	if errors.As(err, &pe) {
+		return pe.Err.Error()
+	}
+	return err.Error()
 }
 
 // blocklistDeleted puts the Releases of the deleted files on the Blocklist,
@@ -131,9 +171,11 @@ func (s *Service) blocklistDeleted(ctx context.Context, files []DeletedFile) {
 }
 
 // recordDeleted records the delete event: the files, the episodes that lost
-// them and, when asked to blocklist, the Releases that went on the Blocklist.
-func (s *Service) recordDeleted(ctx context.Context, titleID, versionID int64, files []DeletedFile, blocklist bool, code map[int64]string) {
-	if len(files) == 0 {
+// them, when asked to blocklist the Releases that went on the Blocklist, and
+// the files that could not be deleted.
+func (s *Service) recordDeleted(ctx context.Context, versionID int64, out Deleted, blocklist bool, code map[int64]string) {
+	files := out.Files
+	if len(files) == 0 && len(out.NotDeleted) == 0 {
 		return
 	}
 	paths, episodes, blocked := make([]string, 0, len(files)), []int64{}, []string{}
@@ -148,15 +190,26 @@ func (s *Service) recordDeleted(ctx context.Context, titleID, versionID int64, f
 			missed = append(missed, f.ReleaseName)
 		}
 	}
-	msg := deletedMessage(files, code)
+	var parts []string
+	if len(files) > 0 {
+		parts = append(parts, deletedMessage(files, code))
+	}
 	if len(blocked) > 0 {
-		msg += "; blocklisted " + strings.Join(blocked, ", ")
+		parts = append(parts, "blocklisted "+strings.Join(blocked, ", "))
 	}
 	if len(missed) > 0 {
-		msg += "; not blocklisted " + strings.Join(missed, ", ")
+		parts = append(parts, "not blocklisted "+strings.Join(missed, ", "))
 	}
+	for _, f := range out.NotDeleted {
+		could := "Could"
+		if len(parts) > 0 {
+			could = "could"
+		}
+		parts = append(parts, fmt.Sprintf("%s not delete %s (%s)", could, filepath.Base(f.Path), f.Reason))
+	}
+	msg := strings.Join(parts, "; ")
 	s.record(ctx, history.Event{
-		Kind: history.FilesDeleted, TitleID: titleID, VersionID: versionID, Message: msg,
+		Kind: history.FilesDeleted, TitleID: out.TitleID, VersionID: versionID, Message: msg,
 		Data: jsonOf(map[string]any{"paths": paths, "episode_ids": episodes, "blocklisted": blocked}),
 	})
 }

@@ -805,6 +805,8 @@ paths:
         `episode_ids` to those episodes (within `season` when both are given); neither deletes every
         file of the Version. A file holding several episodes (a season pack, a double episode) is
         deleted whole, so every episode it holds loses its file, also those outside the scope.
+        A file that cannot be deleted from disk stays the Version's (its Release is not blocklisted)
+        and is listed in `not_deleted` with the reason; the others go all the same.
         With `blocklist` each file's Release goes on the Blocklist, so it is not grabbed again; a file
         Kestrel did not grab (an adopted one) cannot be, and says so in `blocklisted`, as does one
         whose Release could not be blocklisted: the file is deleted all the same.
@@ -3302,12 +3304,19 @@ components:
           description: Bytes of all the Version's files.
     DeletedFiles:
       type: object
-      required: [files]
+      required: [files, not_deleted]
       properties:
         files:
           type: array
           items:
             $ref: "#/components/schemas/DeletedFile"
+        not_deleted:
+          type: array
+          description: |
+            The files in scope that could not be deleted from disk (a read-only disk, missing
+            permissions). They stay the Version's; nothing else about them changed.
+          items:
+            $ref: "#/components/schemas/NotDeletedFile"
     DeletedFile:
       type: object
       required: [path, size, release_name, episode_ids, blocklisted]
@@ -3328,6 +3337,21 @@ components:
         blocklisted:
           type: boolean
           description: The Release went on the Blocklist. False unless asked, for a file Kestrel did not grab and when blocklisting failed.
+    NotDeletedFile:
+      type: object
+      required: [path, episode_ids, reason]
+      properties:
+        path:
+          type: string
+        episode_ids:
+          type: array
+          description: Every episode the file holds, in aired order; empty for a Movie.
+          items:
+            type: integer
+            format: int64
+        reason:
+          type: string
+          description: Why, as the filesystem said it, e.g. `permission denied`.
     ReleaseSearch:
       type: object
       description: |

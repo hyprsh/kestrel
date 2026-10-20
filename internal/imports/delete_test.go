@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/hyprsh/kestrel/internal/history"
+	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/slot"
 )
@@ -114,5 +115,57 @@ func TestADeleteWhoseBlocklistingFailsStillDeletesTheFile(t *testing.T) {
 	}
 	if data := deleteData(t, evs[0]); len(data.Blocklisted) != 0 {
 		t.Errorf("event data = %+v, want nothing blocklisted", data)
+	}
+}
+
+func TestAFileThatCannotBeDeletedStaysTheVersionsFile(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	f := r.importPaddington(t)
+	r.undeletable = map[string]bool{f.Path: true}
+
+	d, err := r.svc.DeleteFiles(ctx, r.versions[slot.Standard], library.Scope{}, true)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(d.Files) != 0 || len(d.NotDeleted) != 1 || d.NotDeleted[0].Path != f.Path || !strings.Contains(d.NotDeleted[0].Reason, "read-only") {
+		t.Errorf("delete = %+v, want the file reported as not deleted, with why", d)
+	}
+	if _, err := os.Stat(f.Path); err != nil {
+		t.Errorf("the file is not on disk: %v", err)
+	}
+	if v := r.version(t); v.File == nil || v.File.Path != f.Path {
+		t.Errorf("Version = %+v, want it to keep the file that is still on disk", v)
+	}
+	if len(r.blocks.grabs) != 0 {
+		t.Errorf("blocklisted %v, want nothing for a file that stays", r.blocks.grabs)
+	}
+	if evs := r.log.of(history.FilesDeleted); len(evs) != 1 || !strings.Contains(evs[0].Message, "Could not delete") {
+		t.Errorf("delete events = %+v, want one saying the file could not be deleted", evs)
+	}
+}
+
+func TestDeletingASeasonKeepsOnlyTheFilesThatCouldNotBeDeleted(t *testing.T) {
+	ctx := context.Background()
+	s := newSeriesRig(t)
+	for i, e := range []string{"Night.Show.S01E01.1080p.WEB-DL.H264-GRP", "Night.Show.S01E02.1080p.WEB-DL.H264-GRP"} {
+		if res := s.svc.Import(ctx, s.download(t, e, int64(i+1), []string{strings.ToLower(e) + ".mkv"})); res.Status != imports.Imported {
+			t.Fatalf("import = %+v", res)
+		}
+	}
+	eps := s.episodes(t)
+	stuck := eps[1].Cells[slot.Standard].File.Path
+	s.undeletable = map[string]bool{stuck: true}
+	season := 1
+
+	d, err := s.svc.DeleteFiles(ctx, s.version, library.Scope{Season: &season}, false)
+
+	if err != nil || len(d.Files) != 1 || len(d.NotDeleted) != 1 || d.NotDeleted[0].Path != stuck {
+		t.Fatalf("delete = %+v, %v; want S01E01's file deleted and S01E02's kept", d, err)
+	}
+	eps = s.episodes(t)
+	if eps[0].Cells[slot.Standard].File != nil || eps[1].Cells[slot.Standard].File == nil {
+		t.Errorf("cells = %+v / %+v, want S01E01 without a file and S01E02 with it", eps[0].Cells[slot.Standard], eps[1].Cells[slot.Standard])
 	}
 }

@@ -601,6 +601,8 @@ export interface paths {
          *     `episode_ids` to those episodes (within `season` when both are given); neither deletes every
          *     file of the Version. A file holding several episodes (a season pack, a double episode) is
          *     deleted whole, so every episode it holds loses its file, also those outside the scope.
+         *     A file that cannot be deleted from disk stays the Version's (its Release is not blocklisted)
+         *     and is listed in `not_deleted` with the reason; the others go all the same.
          *     With `blocklist` each file's Release goes on the Blocklist, so it is not grabbed again; a file
          *     Kestrel did not grab (an adopted one) cannot be, and says so in `blocklisted`, as does one
          *     whose Release could not be blocklisted: the file is deleted all the same.
@@ -2364,6 +2366,11 @@ export interface components {
         };
         DeletedFiles: {
             files: components["schemas"]["DeletedFile"][];
+            /**
+             * @description The files in scope that could not be deleted from disk (a read-only disk, missing
+             *     permissions). They stay the Version's; nothing else about them changed.
+             */
+            not_deleted: components["schemas"]["NotDeletedFile"][];
         };
         DeletedFile: {
             path: string;
@@ -2374,6 +2381,13 @@ export interface components {
             episode_ids: number[];
             /** @description The Release went on the Blocklist. False unless asked, for a file Kestrel did not grab and when blocklisting failed. */
             blocklisted: boolean;
+        };
+        NotDeletedFile: {
+            path: string;
+            /** @description Every episode the file holds, in aired order; empty for a Movie. */
+            episode_ids: number[];
+            /** @description Why, as the filesystem said it, e.g. `permission denied`. */
+            reason: string;
         };
         /**
          * @description Narrows the search of a Series Version to a season and, within it, episodes. Movie searches

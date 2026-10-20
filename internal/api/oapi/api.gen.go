@@ -1359,6 +1359,10 @@ type DeletedFile struct {
 // DeletedFiles defines model for DeletedFiles.
 type DeletedFiles struct {
 	Files []DeletedFile `json:"files"`
+
+	// NotDeleted The files in scope that could not be deleted from disk (a read-only disk, missing
+	// permissions). They stay the Version's; nothing else about them changed.
+	NotDeleted []NotDeletedFile `json:"not_deleted"`
 }
 
 // DiskStatus defines model for DiskStatus.
@@ -1692,6 +1696,16 @@ type MeMethod string
 type NewApiKey struct {
 	// Key The whole key, `kst_` plus 52 base32 characters.
 	Key string `json:"key"`
+}
+
+// NotDeletedFile defines model for NotDeletedFile.
+type NotDeletedFile struct {
+	// EpisodeIds Every episode the file holds, in aired order; empty for a Movie.
+	EpisodeIds []int64 `json:"episode_ids"`
+	Path       string  `json:"path"`
+
+	// Reason Why, as the filesystem said it, e.g. `permission denied`.
+	Reason string `json:"reason"`
 }
 
 // PluginConfigPatch Plugin settings by manifest field key. Secret fields are write-only: they are accepted
