@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
+import { fakeLibrary, row } from '../test/library'
 import { server } from '../test/server'
 
 type QueueItem = components['schemas']['QueueItem']
@@ -60,6 +61,57 @@ describe('Overview', () => {
     expect(row).toHaveTextContent('75%')
     expect(row).toHaveTextContent('2 min left')
     expect(within(row).queryByText('Upgrade')).not.toBeInTheDocument()
+  })
+
+  it("shows the Title's poster as a small lazy thumbnail", async () => {
+    fakeQueue([item({ has_poster: true })])
+    renderApp()
+
+    const row = await screen.findByRole('listitem')
+    const poster = row.querySelector('img')
+    expect(poster).toHaveAttribute('src', expect.stringContaining('/titles/5/poster'))
+    expect(poster).toHaveAttribute('loading', 'lazy')
+  })
+
+  it('shows the placeholder for a Title without a poster, and no poster for a deleted Title', async () => {
+    fakeQueue([item({ grab_id: 1 }), item({ grab_id: 2, title_id: null, title: '', year: null, release_name: 'Gone.2001-GRP' })])
+    renderApp()
+
+    const [plain, deleted] = await screen.findAllByRole('listitem')
+    expect(plain.querySelector('[data-poster]')).toBeInTheDocument()
+    expect(plain.querySelector('img')).not.toBeInTheDocument()
+    expect(deleted).toHaveTextContent('Deleted Title')
+    expect(deleted.querySelector('[data-poster]')).not.toBeInTheDocument()
+  })
+
+  it('opens the Title from its name', async () => {
+    fakeQueue([item({ title_id: 1 })])
+    fakeLibrary([row(1, 'Paddington', 'Paddington')])
+    renderApp()
+
+    const section = await screen.findByRole('region', { name: /downloading now/i })
+    await userEvent.click(await within(section).findByRole('button', { name: 'Paddington' }))
+
+    expect(await screen.findByRole('region', { name: /paddington/i })).toBeInTheDocument()
+  })
+
+  it('opens the Title from its poster', async () => {
+    fakeQueue([item({ title_id: 1, has_poster: true })])
+    fakeLibrary([row(1, 'Paddington', 'Paddington')])
+    renderApp()
+
+    const listItem = await screen.findByRole('listitem')
+    await userEvent.click(listItem.querySelector('img')!)
+
+    expect(await screen.findByRole('region', { name: /paddington/i })).toBeInTheDocument()
+  })
+
+  it('does not open a deleted Title', async () => {
+    fakeQueue([item({ title_id: null, title: '' })])
+    renderApp()
+
+    const listItem = await screen.findByRole('listitem')
+    expect(within(listItem).queryByRole('button', { name: 'Deleted Title' })).not.toBeInTheDocument()
   })
 
   it('badges an Upgrade with how many points it gains', async () => {
