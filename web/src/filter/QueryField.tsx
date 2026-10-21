@@ -13,6 +13,7 @@ export function QueryField({
   onChange,
   qualifiers,
   placeholder,
+  onKeyDown: onOwnKey,
 }: {
   id: string
   label: string
@@ -20,6 +21,8 @@ export function QueryField({
   onChange: (value: string) => void
   qualifiers: readonly Qualifier[]
   placeholder?: string
+  /** Keys the field leaves alone (it owns the arrows, Enter, Tab and Escape while suggestions are open); preventDefault keeps Enter and Escape from leaving the field. */
+  onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void
 }) {
   const input = useRef<HTMLInputElement>(null)
   const [caret, setCaret] = useState<number | null>(null)
@@ -63,7 +66,10 @@ export function QueryField({
     } else if (open && e.key === 'Escape') {
       e.preventDefault()
       setDismissed(true)
-    } else if (e.key === 'Escape' || e.key === 'Enter') e.currentTarget.blur()
+    } else {
+      onOwnKey?.(e)
+      if (!e.defaultPrevented && (e.key === 'Escape' || e.key === 'Enter')) e.currentTarget.blur()
+    }
   }
 
   const parsed = parse(value, qualifiers)
