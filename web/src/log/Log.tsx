@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react'
 import { useBlocklist, useEvents, useUnblock, type LogEvent } from '../api/log'
 import { useTitles } from '../api/queries'
 import { matchText } from '../filter/match'
-import { parse } from '../filter/query'
+import { parse, termText, withValue } from '../filter/query'
 import { QueryField } from '../filter/QueryField'
 import { Button, ErrorText } from '../forms'
 import { useKey, useListNav } from '../keys'
@@ -97,7 +97,15 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
         {events.data && shown.length === 0 && <div className="p-6 text-center text-gray-900">Nothing in the Log matches.</div>}
         <ul aria-label="Events">
           {shown.map((e, i) => (
-            <EventRow key={e.id} e={e} index={i} selected={i === sel} title={names.get(e.title_id ?? -1)} onSelect={() => setSel(i)} />
+            <EventRow
+              key={e.id}
+              e={e}
+              index={i}
+              selected={i === sel}
+              title={names.get(e.title_id ?? -1)}
+              onSelect={() => setSel(i)}
+              onFilter={(name, value) => onQuery(withValue(query, name, value, qualifiers))}
+            />
           ))}
         </ul>
       </div>
@@ -105,7 +113,21 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
   )
 }
 
-function EventRow({ e, index, selected, title, onSelect }: { e: LogEvent; index: number; selected: boolean; title?: string; onSelect: () => void }) {
+function EventRow({
+  e,
+  index,
+  selected,
+  title,
+  onSelect,
+  onFilter,
+}: {
+  e: LogEvent
+  index: number
+  selected: boolean
+  title?: string
+  onSelect: () => void
+  onFilter: (name: 'kind' | 'title', value: string) => void
+}) {
   return (
     <li
       data-nav={`log-${index}`}
@@ -114,10 +136,18 @@ function EventRow({ e, index, selected, title, onSelect }: { e: LogEvent; index:
     >
       <span className="w-36 shrink-0 text-[12px] text-gray-900 tabular">{when(e.at)}</span>
       <span className="w-28 shrink-0">
-        <Badge tone={kinds[e.kind]?.tone ?? 'gray'}>{kinds[e.kind]?.label ?? e.kind}</Badge>
+        <button aria-label={`Filter by kind:${e.kind}`} title={`kind:${e.kind}`} onClick={() => onFilter('kind', e.kind)} className="rounded-full hover:opacity-80">
+          <Badge tone={kinds[e.kind]?.tone ?? 'gray'}>{kinds[e.kind]?.label ?? e.kind}</Badge>
+        </button>
       </span>
       <span className="min-w-0 flex-1 break-words">
-        {title && <span className="font-medium">{title} </span>}
+        {title && (
+          <>
+            <button aria-label={`Filter by ${termText({ name: 'title', values: [title], negated: false })}`} onClick={() => onFilter('title', title)} className="font-medium hover:underline">
+              {title}
+            </button>{' '}
+          </>
+        )}
         <span className="text-gray-900">{e.message}</span>
       </span>
     </li>

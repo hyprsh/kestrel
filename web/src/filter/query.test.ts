@@ -37,7 +37,11 @@ describe('parsing a filter', () => {
       { name: 'slot', values: ['4k'], negated: false },
       { name: 'title', values: ['anything'], negated: false },
     ])
-    expect(q.problems).toEqual(['slot: takes standard or 4k, not “xl”', 'slot: cannot be excluded', 'kind: takes grab, grab_failed, import_rejected or health_raised, not “nope”'])
+    expect(q.problems).toEqual([
+      { message: 'slot: takes standard or 4k, not “xl”', span: [0, 10] },
+      { message: 'slot: cannot be excluded', span: [11, 25] },
+      { message: 'kind: takes grab, grab_failed, import_rejected or health_raised, not “nope”', span: [26, 35] },
+    ])
   })
 })
 

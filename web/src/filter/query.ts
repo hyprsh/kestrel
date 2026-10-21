@@ -18,7 +18,10 @@ export type Qualifier = {
 /** A qualifier as typed; `span` is where it sits in the input. */
 export type Term = { name: string; values: string[]; negated: boolean; span: [number, number] }
 
-export type Query = { terms: Term[]; text: string; problems: string[] }
+/** Why part of the filter at `span` was left out. */
+export type Problem = { message: string; span: [number, number] }
+
+export type Query = { terms: Term[]; text: string; problems: Problem[] }
 
 type Token = { raw: string; start: number; end: number }
 
@@ -75,7 +78,7 @@ const either = (v: readonly string[]) => (v.length < 2 ? v.join('') : `${v.slice
 export function parse(input: string, qualifiers: readonly Qualifier[]): Query {
   const terms: Term[] = []
   const text: string[] = []
-  const problems: string[] = []
+  const problems: Problem[] = []
   for (const t of tokens(input)) {
     const term = termOf(t, qualifiers)
     if (!term) {
@@ -84,12 +87,12 @@ export function parse(input: string, qualifiers: readonly Qualifier[]): Query {
     }
     const q = qualifiers.find((q) => q.name === term.name)!
     if (term.negated && !q.negatable) {
-      problems.push(`${q.name}: cannot be excluded`)
+      problems.push({ message: `${q.name}: cannot be excluded`, span: term.span })
       continue
     }
     const known = q.values
     if (known) {
-      for (const v of term.values.filter((v) => !known.includes(v))) problems.push(`${q.name}: takes ${either(known)}, not “${v}”`)
+      for (const v of term.values.filter((v) => !known.includes(v))) problems.push({ message: `${q.name}: takes ${either(known)}, not “${v}”`, span: term.span })
       term.values = term.values.filter((v) => known.includes(v))
     }
     if (term.values.length > 0) terms.push(term)
@@ -131,15 +134,16 @@ export function suggest(input: string, caret: number, qualifiers: readonly Quali
 
 const quoted = (v: string) => (/[\s,]/.test(v) ? `"${v.replaceAll('"', '')}"` : v)
 
-const typed = (t: Pick<Term, 'name' | 'values' | 'negated'>) => `${t.negated ? '-' : ''}${t.name}:${t.values.map(quoted).join(',')}`
+/** A term as it would be typed, such as `-kind:grab,import` or `title:"Breaking Bad"`. */
+export const termText = (t: Pick<Term, 'name' | 'values' | 'negated'>) => `${t.negated ? '-' : ''}${t.name}:${t.values.map(quoted).join(',')}`
 
 /** The filter with `value` added: OR-ed into the qualifier already there, or as a new one at the end. */
 export function withValue(input: string, name: string, value: string, qualifiers: readonly Qualifier[]): string {
   const term = parse(input, qualifiers).terms.find((t) => t.name === name && !t.negated)
-  if (!term) return `${input.trimEnd()} ${typed({ name, values: [value], negated: false })}`.trimStart()
+  if (!term) return `${input.trimEnd()} ${termText({ name, values: [value], negated: false })}`.trimStart()
   if (term.values.includes(value)) return input
   const [start, end] = term.span
-  return input.slice(0, start) + typed({ ...term, values: [...term.values, value] }) + input.slice(end)
+  return input.slice(0, start) + termText({ ...term, values: [...term.values, value] }) + input.slice(end)
 }
 
 /** The filter without its `index`th term, and the space before it (or else after it). */

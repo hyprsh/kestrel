@@ -138,6 +138,50 @@ describe('Log', () => {
     expect(filter()).toHaveFocus()
   })
 
+  it('shows each qualifier as a removable chip, and adds a kind or a Title clicked in the list', async () => {
+    fakeLibrary([row(3, 'Paddington', 'Paddington')])
+    const sent = events([{ ...event(2, 'grab_failed', 'The download failed'), title_id: 3 }, event(1, 'import', 'Imported Heat')])
+    const user = await openLog()
+    const list = await screen.findByRole('list', { name: 'Events' })
+
+    await user.click(within(list).getByRole('button', { name: 'Filter by kind:grab_failed' }))
+    await user.click(await within(list).findByRole('button', { name: 'Filter by title:Paddington' }))
+    await user.click(within(list).getByRole('button', { name: 'Filter by kind:import' }))
+    expect(filter()).toHaveValue('kind:grab_failed,import title:Paddington')
+
+    const chips = screen.getByRole('list', { name: 'Active filters' })
+    expect(within(chips).getAllByRole('listitem').map((c) => c.textContent)).toEqual(['kind:grab_failed,import', 'title:Paddington'])
+    await user.click(within(chips).getByRole('button', { name: 'Remove kind:grab_failed,import' }))
+    expect(filter()).toHaveValue('title:Paddington')
+    await expect.poll(() => sent.at(-1)?.getAll('kind')).toEqual([])
+  })
+
+  it('says why a qualifier was left out, once it is typed', async () => {
+    events()
+    const user = await openLog()
+    await screen.findByRole('list', { name: 'Events' })
+
+    await user.type(filter(), 'slot:xl')
+    expect(screen.queryByText('slot: takes standard or 4k, not “xl”')).not.toBeInTheDocument()
+    await user.type(filter(), ' heat')
+    expect(screen.getByRole('status')).toHaveTextContent('slot: takes standard or 4k, not “xl”')
+  })
+
+  it('lists the qualifiers in a help popover', async () => {
+    events()
+    const user = await openLog()
+    await screen.findByRole('list', { name: 'Events' })
+
+    await user.click(screen.getByRole('button', { name: 'Filter help' }))
+    const help = screen.getByRole('dialog', { name: 'Filter help' })
+    expect(within(help).getByText('kind:')).toBeInTheDocument()
+    expect(within(help).getByText('slot:')).toBeInTheDocument()
+    expect(within(help).getByText('title:')).toBeInTheDocument()
+    expect(within(help).getByText('routine:')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Filter help' })).not.toBeInTheDocument()
+  })
+
   it('removes a Blocklist entry from the Blocklist view', async () => {
     let items = [blocked]
     server.use(
