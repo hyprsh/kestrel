@@ -111,6 +111,25 @@ describe('Log', () => {
     expect(within(list).getByText('Sent a Release to SABnzbd')).toBeInTheDocument()
   })
 
+  it('matches free text fuzzily, per word, newest first', async () => {
+    fakeLibrary([row(3, 'Amélie', 'Amélie')])
+    events([
+      { ...event(3, 'import_rejected', 'Import rejected: no video file'), title_id: 3 },
+      event(2, 'health_raised', 'The indexer is down'),
+      { ...event(1, 'import_rejected', 'Import rejected: sample'), title_id: 3 },
+    ])
+    const user = await openLog()
+    const list = await screen.findByRole('list', { name: 'Events' })
+
+    await user.type(filter(), 'rejcted amelie')
+
+    await expect.poll(() => within(list).getAllByRole('listitem')).toHaveLength(2)
+    expect(within(list).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      expect.stringContaining('no video file'),
+      expect.stringContaining('sample'),
+    ])
+  })
+
   it('suggests the values of the qualifier being typed, and Library Titles for title:', async () => {
     fakeLibrary([row(1, 'Breaking Bad', 'Breaking Bad'), row(3, 'Paddington', 'Paddington')])
     events()

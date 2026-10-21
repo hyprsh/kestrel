@@ -112,6 +112,8 @@ type Row struct {
 	Title        string
 	PrimaryTitle string
 	Year         int // 0 when unknown
+	// HasPoster is whether TMDB gave the Title a poster, so its poster can be served.
+	HasPoster bool
 	// Slots is indexed by slot.Slot; nil where the Title has no Version.
 	Slots [slot.Count]*SlotState
 	// WantedSince is the earliest Wanted-since of its Wanted Versions.
@@ -472,7 +474,7 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 			continue
 		}
 		rel := releaseDatesOf(datesOf[t.ID])
-		row := Row{ID: t.ID, Kind: Kind(t.Kind), Title: t.Title, PrimaryTitle: t.PrimaryTitle, Year: int(t.Year.Int64), AddedAt: parseTime(t.AddedAt)}
+		row := Row{ID: t.ID, Kind: Kind(t.Kind), Title: t.Title, PrimaryTitle: t.PrimaryTitle, Year: int(t.Year.Int64), HasPoster: t.PosterPath.String != "", AddedAt: parseTime(t.AddedAt)}
 		var released map[int64]*time.Time
 		if row.Kind == Series {
 			released = releasedOf(epsOf[t.ID], filed)

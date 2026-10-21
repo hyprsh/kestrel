@@ -48,7 +48,7 @@ describe("TMDB's audience rating", () => {
     })
     server.use(
       http.get('/lookup', ({ response }) =>
-        response(200).json({ items: [result(116149, 'Paddington', [tmdb(7.3, 4912)]), result(5, 'Paddington Unrated', [])], next_cursor: null }),
+        response(200).json({ items: [result(116149, 'Paddington', [tmdb(7.3, 4912)]), result(5, 'Paddington Unrated', [])], next_cursor: null, did_you_mean: null }),
       ),
       http.get('/lookup/{kind}/{tmdb_id}', ({ response }) =>
         response(200).json({

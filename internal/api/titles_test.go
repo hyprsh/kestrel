@@ -26,6 +26,7 @@ type rowJSON struct {
 	Title        string `json:"title"`
 	PrimaryTitle string `json:"primary_title"`
 	Year         *int   `json:"year"`
+	HasPoster    bool   `json:"has_poster"`
 	Slots        struct {
 		Standard *slotJSON `json:"standard"`
 		FourK    *slotJSON `json:"4k"`
@@ -361,6 +362,18 @@ func TestThePosterIsCachedUnderTheConfigDirAndServed(t *testing.T) {
 	}
 	if r := l.valid("GET", fmt.Sprintf("/titles/%d/poster", noPoster.ID), ""); r.Status != 404 {
 		t.Errorf("no poster = %d %s", r.Status, r.Body)
+	}
+
+	// The Library's rows say so too, so a list of them requests only posters that exist.
+	list := decode[struct {
+		Items []rowJSON `json:"items"`
+	}](t, l.valid("GET", "/titles?limit=10000", ""))
+	has := map[int64]bool{}
+	for _, row := range list.Items {
+		has[row.ID] = row.HasPoster
+	}
+	if len(has) != 2 || !has[created.ID] || has[noPoster.ID] {
+		t.Errorf("has_poster of the rows = %v, want %d true and %d false", has, created.ID, noPoster.ID)
 	}
 }
 

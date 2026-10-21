@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,19 +32,32 @@ type Server struct {
 	keys     []string
 }
 
+// searches maps what a query contains to the search fixture that answers it.
+var searches = map[string]string{
+	"paddington": "search_multi.json",
+	"breaking":   "search_tv.json",
+	"dune":       "search_dune.json",
+	"amelie":     "search_amelie.json",
+	"jurassic":   "search_jurassic.json",
+	"jurrasic":   "search_jurassic.json",
+}
+
+var yearIn = regexp.MustCompile(`\b(19|20)\d\d\b`)
+
 // New starts the fake and stops it with the test.
 func New(t testing.TB) *Server {
 	t.Helper()
 	s := &Server{}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /3/search/multi", s.handle(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(strings.ToLower(r.URL.Query().Get("query")), "paddington") {
-			s.file(w, "search_multi.json", http.StatusOK)
-			return
-		}
-		if strings.Contains(strings.ToLower(r.URL.Query().Get("query")), "breaking") {
-			s.file(w, "search_tv.json", http.StatusOK)
-			return
+		// Like TMDB, a year in the query finds nothing, and so does an accent the
+		// fixture's title lacks ("amélie" for "Amelie"); a typo in "jurrasic" is forgiven.
+		q := strings.ToLower(r.URL.Query().Get("query"))
+		for name, file := range searches {
+			if strings.Contains(q, name) && !yearIn.MatchString(q) {
+				s.file(w, file, http.StatusOK)
+				return
+			}
 		}
 		_, _ = w.Write([]byte(`{"page":1,"results":[],"total_pages":0,"total_results":0}`))
 	}))

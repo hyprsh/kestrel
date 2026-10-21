@@ -1,7 +1,7 @@
 // The Library's qualifiers (kind:, is:, slot:, profile:, sort:) and what a parsed filter keeps
 // of GET /titles. The grammar itself lives in filter/query.ts; all of it runs in the SPA.
 import type { TitleRow } from '../api/queries'
-import { matchText } from '../filter/match'
+import { matchText } from '../fuzzy'
 import type { Qualifier, Query, Term } from '../filter/query'
 import { slotKeys } from './bits'
 
