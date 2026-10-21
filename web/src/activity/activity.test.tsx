@@ -230,7 +230,7 @@ describe('Activity', () => {
   })
 
   it('lists a Release canceled and blocklisted, which leaves no Grab, under Failed', async () => {
-    fakeLibrary([row(5, 'Paddington', 'Paddington')])
+    fakeLibrary([row(5, 'Paddington', 'Paddington', { has_poster: true })])
     fakeGrabs([], [blockedEntry({ title_id: 5 }), blockedEntry({ id: 8, release_name: 'Old.Release-GRP', created_at: new Date(Date.now() - 8 * 86_400_000).toISOString() })])
     await openActivity()
 
@@ -238,6 +238,7 @@ describe('Activity', () => {
     expect(li).toHaveTextContent('Paddington')
     expect(li).toHaveTextContent('Paddington.2014.1080p.BluRay.x264-BAD')
     expect(li).toHaveTextContent('Blocklisted 10 min ago: canceled and blocklisted')
+    expect(li.querySelector('[data-poster] img')).toHaveAttribute('src', expect.stringMatching(/\/titles\/5\/poster$/))
   })
 
   it('follows the stream: a Grab moves on as the queue frames say', async () => {

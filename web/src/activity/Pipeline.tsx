@@ -173,7 +173,7 @@ function EntryRow({ entry: e, now, nav, onOpenTitle }: { entry: Entry; now: numb
       const t = e.title
       const subject = {
         title_id: e.entry.title_id,
-        has_poster: false,
+        has_poster: t?.has_poster ?? false,
         title: t?.title ?? '',
         year: t?.year ?? null,
         slot: null,
