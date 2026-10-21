@@ -40,6 +40,9 @@ function keysOf(h: ChangedHint): string[][] {
       return [['titles'], ['releases']]
     case 'attention':
       return [['attention'], ['status']]
+    case 'grab':
+      // Activity's lists of stalled and finished Grabs (GET /grabs).
+      return [['grabs']]
     default:
       return [[h.resource]]
   }

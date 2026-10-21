@@ -21,67 +21,96 @@ func (s *server) ListQueue(ctx context.Context, _ oapi.ListQueueRequestObject) (
 	if err != nil {
 		return nil, err
 	}
-	view, err := s.view(ctx)
+	titles, err := s.grabTitles(ctx)
 	if err != nil {
 		return nil, err
 	}
-	titles := map[int64]*library.Detail{}
-	detail := func(id int64) *library.Detail {
-		if id == 0 {
-			return nil
-		}
-		if d, ok := titles[id]; ok {
-			return d
-		}
-		d, err := s.library.Get(ctx, id, view)
-		if err != nil {
-			titles[id] = nil
-			return nil
-		}
-		titles[id] = &d
-		return &d
-	}
-
 	out := oapi.QueueList{Items: make([]oapi.QueueItem, 0, len(active))}
 	for _, a := range active {
+		about := titles.about(a.Grab)
 		it := oapi.QueueItem{
-			GrabId: a.ID, ReleaseName: a.ReleaseName, Phase: oapi.QueueItemPhase(a.Phase), Episodes: []string{},
-			BytesTotal: a.BytesTotal, BytesLeft: a.BytesLeft, IsUpgrade: a.IsUpgrade,
-		}
-		if a.TitleID != 0 {
-			it.TitleId = &a.TitleID
-		}
-		if a.VersionID != 0 {
-			it.VersionId = &a.VersionID
+			GrabId: a.ID, TitleId: idPtr(a.TitleID), VersionId: idPtr(a.VersionID), ReleaseName: a.ReleaseName, Phase: oapi.QueueItemPhase(a.Phase),
+			PhaseSince: a.Since, BytesTotal: a.BytesTotal, BytesLeft: a.BytesLeft, IsUpgrade: a.IsUpgrade,
+			Indexer: a.IndexerName, Size: a.Size, Score: a.Score, GrabbedAt: a.CreatedAt,
+			Title: about.title, HasPoster: about.hasPoster, Year: about.year, Kind: about.kind, Slot: about.slot, Episodes: about.episodes,
 		}
 		if a.ETA > 0 {
 			secs := int(a.ETA.Seconds())
 			it.Eta = &secs
 		}
-		if d := detail(a.TitleID); d != nil {
-			if d.Kind == library.Series {
-				if labels, err := s.episodeLabels(ctx, a.ID, a.TitleID, view); err == nil {
-					it.Episodes = labels
-				}
-			}
-			it.Title = d.Title
-			it.HasPoster = d.PosterPath != ""
-			it.Year = intPtr(d.Year)
-			for _, v := range d.Versions {
-				if v.ID != a.VersionID {
-					continue
-				}
-				slot := slotToAPI(v.Slot)
-				it.Slot = &slot
-				if a.IsUpgrade && v.File != nil && v.File.Score != nil {
-					delta := a.Score - *v.File.Score
-					it.ScoreDelta = &delta
-				}
-			}
+		if v := about.version; a.IsUpgrade && v != nil && v.File != nil && v.File.Score != nil {
+			delta := a.Score - *v.File.Score
+			it.ScoreDelta = &delta
 		}
 		out.Items = append(out.Items, it)
 	}
 	return oapi.ListQueue200JSONResponse(out), nil
+}
+
+// grabTitles looks up the Titles of a list of Grabs, each once per request.
+type grabTitles struct {
+	s      *server
+	ctx    context.Context
+	view   library.View
+	titles map[int64]*library.Detail
+}
+
+func (s *server) grabTitles(ctx context.Context) (*grabTitles, error) {
+	view, err := s.view(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &grabTitles{s: s, ctx: ctx, view: view, titles: map[int64]*library.Detail{}}, nil
+}
+
+// grabAbout is what a Grab's row shows of its Title; empty when the Title was deleted.
+type grabAbout struct {
+	title     string
+	hasPoster bool
+	year      *int
+	kind      *oapi.TitleKind
+	slot      *oapi.Slot
+	episodes  []string
+	// version is the Grab's Version, nil when it is gone.
+	version *library.Version
+}
+
+func (c *grabTitles) detail(id int64) *library.Detail {
+	if id == 0 {
+		return nil
+	}
+	if d, ok := c.titles[id]; ok {
+		return d
+	}
+	d, err := c.s.library.Get(c.ctx, id, c.view)
+	if err != nil {
+		c.titles[id] = nil
+		return nil
+	}
+	c.titles[id] = &d
+	return &d
+}
+
+func (c *grabTitles) about(g acquire.Grab) grabAbout {
+	out := grabAbout{episodes: []string{}}
+	d := c.detail(g.TitleID)
+	if d == nil {
+		return out
+	}
+	kind := oapi.TitleKind(d.Kind)
+	out.title, out.hasPoster, out.year, out.kind = d.Title, d.PosterPath != "", intPtr(d.Year), &kind
+	if d.Kind == library.Series {
+		if labels, err := c.s.episodeLabels(c.ctx, g.ID, g.TitleID, c.view); err == nil {
+			out.episodes = labels
+		}
+	}
+	for i, v := range d.Versions {
+		if v.ID == g.VersionID {
+			slot := slotToAPI(v.Slot)
+			out.slot, out.version = &slot, &d.Versions[i]
+		}
+	}
+	return out
 }
 
 func (s *server) CancelGrab(ctx context.Context, r oapi.CancelGrabRequestObject) (oapi.CancelGrabResponseObject, error) {

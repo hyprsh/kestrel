@@ -36,6 +36,8 @@ type Live struct {
 	BytesLeft  int64
 	// ETA is 0 when the client does not know.
 	ETA time.Duration
+	// Since is when the Grab entered Phase, as far as this process saw it.
+	Since time.Time
 }
 
 // Active is a Grab that shows in "Downloading now".
@@ -56,9 +58,16 @@ func (l *liveSet) get(id int64) (Live, bool) {
 	return v, ok
 }
 
-func (l *liveSet) set(id int64, v Live) {
+// set records what the client said. While the phase stays the same its start
+// carries over; a new phase starts at from.
+func (l *liveSet) set(id int64, v Live, from time.Time) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	if prev, ok := l.m[id]; ok && prev.Phase == v.Phase {
+		v.Since = prev.Since
+	} else {
+		v.Since = from
+	}
 	l.m[id] = v
 }
 
@@ -81,7 +90,11 @@ func (s *Service) Active(ctx context.Context) ([]Active, error) {
 		g := grabOf(r)
 		live, ok := s.live.get(g.ID)
 		if !ok || g.State == "completed" || g.State == "importing" {
-			live = Live{Phase: phaseOfState(g.State), BytesTotal: live.BytesTotal}
+			phase, since := phaseOfState(g.State), g.UpdatedAt
+			if ok && live.Phase == phase {
+				since = live.Since
+			}
+			live = Live{Phase: phase, BytesTotal: live.BytesTotal, Since: since}
 		}
 		out = append(out, Active{Grab: g, Live: live})
 	}

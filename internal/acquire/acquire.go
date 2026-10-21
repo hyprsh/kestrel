@@ -556,13 +556,15 @@ type Grab struct {
 	// IsUpgrade is true when the Version already held a file.
 	IsUpgrade bool
 	CreatedAt time.Time
+	// UpdatedAt is when the state last changed; for a finished Grab, when it finished.
+	UpdatedAt time.Time
 }
 
 func grabOf(r db.Grab) Grab {
 	return Grab{
 		ID: r.ID, TitleID: r.TitleID.Int64, VersionID: r.VersionID.Int64, ReleaseName: r.ReleaseName, IndexerName: r.IndexerName,
 		Size: r.Size, PublishedAt: parseTime(r.PublishedAt), Score: int(r.Score), ClientID: r.ClientID, ClientInstanceID: r.ClientInstanceID, State: r.State, Failure: r.Failure.String,
-		Overridden: r.Overridden == 1, IsUpgrade: r.IsUpgrade == 1, CreatedAt: parseTime(r.CreatedAt),
+		Overridden: r.Overridden == 1, IsUpgrade: r.IsUpgrade == 1, CreatedAt: parseTime(r.CreatedAt), UpdatedAt: parseTime(r.UpdatedAt),
 	}
 }
 

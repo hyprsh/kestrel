@@ -144,6 +144,8 @@ type Acquire interface {
 	GrabEpisodes(ctx context.Context, grabID int64) ([]int64, error)
 	Grab(ctx context.Context, versionID int64, releaseID string, override bool) (acquire.Grab, error)
 	GetGrab(ctx context.Context, id int64) (acquire.Grab, error)
+	// Grabs lists Grabs newest first, for GET /grabs.
+	Grabs(ctx context.Context, f acquire.GrabFilter) ([]acquire.Record, error)
 	DiscardStalled(ctx context.Context, reason string) (int, error)
 	Discard(ctx context.Context, grabID int64) error
 	Blocklist(ctx context.Context, titleID int64) ([]acquire.Blocked, error)
