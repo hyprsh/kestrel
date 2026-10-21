@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 import type { QueueItem } from '../api/queue'
 import { Button } from '../forms'
 import { cx } from '../ui'
-import { GrabRow, type RowNav } from './GrabRow'
+import type { RowNav } from '../keys'
+import { GrabRow } from './GrabRow'
 import { phases } from './phase'
 
 /** Percent done, or null when the client has not said how big the job is. */

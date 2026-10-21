@@ -3,7 +3,7 @@
 import type { QueueItem } from '../api/queue'
 import { useQueue } from '../api/queue'
 import type { Request } from '../api/requests'
-import type { RowNav } from '../grabs/GrabRow'
+import type { RowNav } from '../keys'
 import { slotLabel, type SlotKey } from '../library/bits'
 import { useOpenPlace } from '../place'
 import { Poster, TitlePoster } from '../poster'
