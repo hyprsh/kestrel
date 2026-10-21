@@ -2,7 +2,7 @@
 // structured GET /events parameters. The grammar itself lives in filter/query.ts.
 import type { LogFilter } from '../api/log'
 import type { TitleRow } from '../api/queries'
-import type { Qualifier, Query } from '../filter/query'
+import { valuesOf, type Qualifier, type Query } from '../filter/query'
 import { slotKeys, type SlotKey } from '../library/bits'
 
 /** Named sets of kinds: `kind:failures` is every kind that means something went wrong. */
@@ -30,8 +30,6 @@ export function logQualifiers(kinds: readonly string[], titles: readonly string[
   ]
 }
 
-const intersect = <T,>(sets: T[][]): T[] | null => (sets.length === 0 ? null : sets.reduce((a, b) => a.filter((x) => b.includes(x))))
-
 /** The Titles a `title:` value names: those with exactly that name, or else those containing it. */
 function titlesNamed(value: string, titles: readonly TitleRow[]): number[] {
   const v = value.toLowerCase()
@@ -45,18 +43,17 @@ function titlesNamed(value: string, titles: readonly TitleRow[]): number[] {
  * qualifier typed twice must match both, so an empty list means nothing can match.
  */
 export function logFilter(q: Query, titles: readonly TitleRow[]): LogFilter {
-  const positive = (name: string) => q.terms.filter((t) => t.name === name && !t.negated)
   const negated = (name: string) => q.terms.filter((t) => t.name === name && t.negated).flatMap((t) => t.values)
   const expand = (values: string[]) => [...new Set(values.flatMap((v) => groups[v] ?? [v]))]
   const named = (values: string[]) => [...new Set(values.flatMap((v) => titlesNamed(v, titles)))]
   // The last routine: term decides, and -routine:yes means routine:no.
   const routine = q.terms.filter((t) => t.name === 'routine').at(-1)
   return {
-    kinds: intersect(positive('kind').map((t) => expand(t.values))),
+    kinds: valuesOf(q, 'kind', expand),
     excludeKinds: expand(negated('kind')),
-    slots: intersect(positive('slot').map((t) => t.values as SlotKey[])),
+    slots: valuesOf(q, 'slot') as SlotKey[] | null,
     excludeSlots: [...new Set(negated('slot'))] as SlotKey[],
-    titleIds: intersect(positive('title').map((t) => named(t.values))),
+    titleIds: valuesOf(q, 'title', named),
     excludeTitleIds: named(negated('title')),
     routine: routine ? (routine.values.at(-1) === 'yes') !== routine.negated : false,
   }

@@ -1,6 +1,7 @@
 // The filter language of the Log's filter field, GitHub-style: `name:a,b` qualifiers next to free
 // text. Commas mean OR, different qualifiers AND, and a leading `-` excludes. Each screen brings
-// its own qualifier table; this module only knows the grammar.
+// its own qualifier table; this module knows the grammar, how to read a qualifier's values and the
+// `kind:` qualifier the Title screens share.
 
 /** One qualifier a screen understands. */
 export type Qualifier = {
@@ -44,7 +45,7 @@ function tokens(input: string): Token[] {
 }
 
 /** Splits a qualifier's value on commas outside quotes, and drops the quotes. */
-function values(raw: string): string[] {
+function split(raw: string): string[] {
   const out: string[] = []
   let cur = ''
   let quoted = false
@@ -65,7 +66,7 @@ function termOf(t: Token, qualifiers: readonly Qualifier[]): Term | null {
   if (!m) return null
   const name = m[2].toLowerCase()
   if (!qualifiers.some((q) => q.name === name)) return null
-  return { name, values: values(m[3]), negated: m[1] === '-', span: [t.start, t.end] }
+  return { name, values: split(m[3]), negated: m[1] === '-', span: [t.start, t.end] }
 }
 
 const either = (v: readonly string[]) => (v.length < 2 ? v.join('') : `${v.slice(0, -1).join(', ')} or ${v.at(-1)}`)
@@ -100,6 +101,19 @@ export function parse(input: string, qualifiers: readonly Qualifier[]): Query {
   return { terms, text: text.join(' '), problems }
 }
 
+/** `kind:` as the screens that list Titles take it: Movies or Series. */
+export const kindQualifier = (negatable = false): Qualifier => ({ name: 'kind', help: 'Movies or Series', values: ['movie', 'series'], negatable })
+
+/**
+ * What the `name:` terms that are not excluded ask for: a term's values are OR-ed and the same
+ * qualifier typed twice must match both, so an empty list means nothing can match. Null when
+ * there is no such term. `each` maps a term's values first, such as a group to its members.
+ */
+export function valuesOf<T = string>(q: Query, name: string, each: (values: string[]) => T[] = (v) => v as T[]): T[] | null {
+  const sets = q.terms.filter((t) => t.name === name && !t.negated).map((t) => [...new Set(each(t.values))])
+  return sets.length === 0 ? null : sets.reduce((a, b) => a.filter((x) => b.includes(x)))
+}
+
 /** A value to complete the qualifier under the caret with: the filter and caret after taking it. */
 export type Suggestion = { value: string; input: string; caret: number }
 
@@ -121,7 +135,7 @@ export function suggest(input: string, caret: number, qualifiers: readonly Quali
     else if (rest[i] === ',' && !open) from = i + 1
   }
   const typedSoFar = rest.slice(from).replace(/^"/, '').toLowerCase()
-  const chosen = values(rest.slice(0, from))
+  const chosen = split(rest.slice(0, from))
   const start = token.start + m[1].length + from
   const end = caret + /^[^\s,]*/.exec(input.slice(caret))![0].length
   const pool = (q.values ?? q.suggestions ?? []).filter((v) => !chosen.includes(v) && v.toLowerCase().includes(typedSoFar))

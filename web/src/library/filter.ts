@@ -2,7 +2,7 @@
 // of GET /titles. The grammar itself lives in filter/query.ts; all of it runs in the SPA.
 import type { TitleRow } from '../api/queries'
 import { matchText } from '../fuzzy'
-import type { Qualifier, Query, Term } from '../filter/query'
+import { kindQualifier, type Qualifier, type Query, type Term } from '../filter/query'
 import { slotKeys } from './bits'
 
 type Version = NonNullable<TitleRow['slots']['standard']>
@@ -15,7 +15,7 @@ const states = ['wanted', 'filled', 'downloading', 'unmonitored', 'unreleased'] 
 /** The Library's qualifiers, given the Profiles' names to offer. */
 export function libraryQualifiers(profiles: readonly string[]): Qualifier[] {
   return [
-    { name: 'kind', help: 'Movies or Series', values: ['movie', 'series'], negatable: true },
+    kindQualifier(true),
     { name: 'is', help: 'Titles with a Version in that state, or Long Missing', values: [...states, 'long_missing'], negatable: true },
     { name: 'slot', help: 'Titles with a Version in that Slot', values: slotKeys, negatable: true },
     { name: 'profile', help: 'Titles with a Version under that Profile, by name; quote names with spaces', suggestions: profiles, negatable: true },
