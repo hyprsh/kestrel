@@ -245,7 +245,7 @@ func rowToAPI(r library.Row) oapi.TitleRow {
 	}
 	out := oapi.TitleRow{
 		Id: r.ID, Kind: oapi.TitleKind(r.Kind), Title: r.Title, PrimaryTitle: r.PrimaryTitle, Year: intPtr(r.Year),
-		WantedSince: r.WantedSince, AddedAt: r.AddedAt, Size: r.Size,
+		HasPoster: r.HasPoster, WantedSince: r.WantedSince, AddedAt: r.AddedAt, Size: r.Size,
 	}
 	out.Slots.Standard, out.Slots.N4k = summary(r.Slots[slot.Standard]), summary(r.Slots[slot.FourK])
 	return out

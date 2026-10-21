@@ -514,12 +514,12 @@ paths:
             type: string
         - name: wanted
           in: query
-          description: "`true` keeps the Titles with a Wanted Version (the Library's Wanted filter)."
+          description: "`true` keeps the Titles with a Wanted Version (the Library filter's `is:wanted`)."
           schema:
             type: boolean
         - name: long_missing
           in: query
-          description: "`true` keeps the Titles with a Long Missing Version (the Long Missing chip)."
+          description: "`true` keeps the Titles with a Long Missing Version (the Library filter's `is:long_missing`)."
           schema:
             type: boolean
         - name: sort
@@ -3310,7 +3310,7 @@ components:
           type: boolean
     TitleRow:
       type: object
-      required: [id, kind, title, primary_title, year, slots, wanted_since, added_at, size]
+      required: [id, kind, title, primary_title, year, has_poster, slots, wanted_since, added_at, size]
       properties:
         id:
           type: integer
@@ -3326,6 +3326,9 @@ components:
         year:
           type: integer
           nullable: true
+        has_poster:
+          type: boolean
+          description: Whether `GET /titles/{id}/poster` has an image.
         slots:
           type: object
           required: [standard, 4k]

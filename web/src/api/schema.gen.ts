@@ -2439,6 +2439,8 @@ export interface components {
             /** @description The title in the Primary Language; the English title when TMDB has no translation. */
             primary_title: string;
             year: number | null;
+            /** @description Whether `GET /titles/{id}/poster` has an image. */
+            has_poster: boolean;
             slots: {
                 standard: components["schemas"]["SlotSummary"] | null;
                 "4k": components["schemas"]["SlotSummary"] | null;
@@ -3962,9 +3964,9 @@ export interface operations {
             query?: {
                 kind?: components["schemas"]["TitleKind"];
                 q?: string;
-                /** @description `true` keeps the Titles with a Wanted Version (the Library's Wanted filter). */
+                /** @description `true` keeps the Titles with a Wanted Version (the Library filter's `is:wanted`). */
                 wanted?: boolean;
-                /** @description `true` keeps the Titles with a Long Missing Version (the Long Missing chip). */
+                /** @description `true` keeps the Titles with a Long Missing Version (the Library filter's `is:long_missing`). */
                 long_missing?: boolean;
                 /**
                  * @description `added_at` (default) is newest first. `wanted_since` puts the Titles that have been Wanted
