@@ -2,12 +2,10 @@ package api
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -256,15 +254,11 @@ func (s *server) ListTitles(ctx context.Context, r oapi.ListTitlesRequestObject)
 	if limit < 1 || limit > 10000 {
 		return nil, invalid("limit", "invalid", "limit is between 1 and 10000")
 	}
-	offset := 0
-	if r.Params.Cursor != nil && *r.Params.Cursor != "" {
-		raw, err := base64.RawURLEncoding.DecodeString(*r.Params.Cursor)
-		n, convErr := strconv.Atoi(string(raw))
-		if err != nil || convErr != nil || n < 0 {
-			return nil, invalid("cursor", "invalid", "The cursor is not one this server gave out")
-		}
-		offset = n
+	at, err := readCursor(r.Params.Cursor, 0)
+	if err != nil {
+		return nil, err
 	}
+	offset := int(at)
 	var f library.Filter
 	if r.Params.Kind != nil {
 		f.Kind = library.Kind(*r.Params.Kind)
@@ -297,8 +291,7 @@ func (s *server) ListTitles(ctx context.Context, r oapi.ListTitlesRequestObject)
 	}
 	end := offset + limit
 	if end < len(rows) {
-		cursor := base64.RawURLEncoding.EncodeToString([]byte(strconv.Itoa(end)))
-		out.NextCursor = &cursor
+		out.NextCursor = cursorOf(int64(end))
 	} else {
 		end = len(rows)
 	}
