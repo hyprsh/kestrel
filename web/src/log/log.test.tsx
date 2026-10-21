@@ -111,6 +111,33 @@ describe('Log', () => {
     expect(within(list).getByText('Sent a Release to SABnzbd')).toBeInTheDocument()
   })
 
+  it('suggests the values of the qualifier being typed, and Library Titles for title:', async () => {
+    fakeLibrary([row(1, 'Breaking Bad', 'Breaking Bad'), row(3, 'Paddington', 'Paddington')])
+    events()
+    const user = await openLog()
+    await screen.findByRole('list', { name: 'Events' })
+
+    await user.type(filter(), 'slot:')
+    const options = screen.getByRole('listbox', { name: 'Suggestions' })
+    expect(within(options).getAllByRole('option').map((o) => o.textContent)).toEqual(['standard', '4k'])
+    expect(filter()).toHaveAttribute('aria-expanded', 'true')
+
+    await user.keyboard('{ArrowDown}{Enter}')
+    expect(filter()).toHaveValue('slot:4k')
+    expect(screen.queryByRole('listbox', { name: 'Suggestions' })).not.toBeInTheDocument()
+
+    await user.type(filter(), ' title:bre')
+    await user.click(screen.getByRole('option', { name: 'Breaking Bad' }))
+    expect(filter()).toHaveValue('slot:4k title:"Breaking Bad"')
+    expect(filter()).toHaveFocus()
+
+    await user.type(filter(), ' kind:gr')
+    expect(screen.getByRole('listbox', { name: 'Suggestions' })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('listbox', { name: 'Suggestions' })).not.toBeInTheDocument()
+    expect(filter()).toHaveFocus()
+  })
+
   it('removes a Blocklist entry from the Blocklist view', async () => {
     let items = [blocked]
     server.use(
