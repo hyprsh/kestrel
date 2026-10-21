@@ -1,4 +1,4 @@
-// Overview, the home screen: Needs attention, the health strip, Downloading now,
+// Overview, the home screen: Needs attention, the health strip, Searching, Downloading now,
 // Coming this week and Recently added.
 import { useState } from 'react'
 import { useAttention } from '../api/attention'
@@ -11,6 +11,7 @@ import { Badge, cx, NavRow } from '../ui'
 import { ComingRecent } from './ComingRecent'
 import { HealthStrip } from './HealthStrip'
 import { NeedsAttention } from './NeedsAttention'
+import { Searching } from './Searching'
 import type { OverviewNav } from './nav'
 
 const phaseLabel: Record<QueueItem['phase'], string> = {
@@ -62,6 +63,7 @@ export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen
     <div className="flex-1 overflow-y-auto p-6">
       <NeedsAttention onOpen={onOpen} onOpenTitle={onOpenTitle} nav={nav(0)} />
       <HealthStrip />
+      <Searching />
       <section aria-labelledby="downloading-now" className="mx-auto max-w-3xl">
         <h2 id="downloading-now" className="mb-3 text-sm font-medium">
           Downloading now

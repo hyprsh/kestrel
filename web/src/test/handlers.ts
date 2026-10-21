@@ -69,6 +69,9 @@ export const handlers = [
     return response(200).json({ from: q.get('from') ?? '', to: q.get('to') ?? '', items: [] })
   }),
   http.get('/recent', ({ response }) => response(200).json({ items: [] })),
+  http.get('/search/status', ({ response }) =>
+    response(200).json({ due: { versions: 0, episodes: 0, upgrades: 0 }, pass: null, next_pass_at: null, last_pass: null, upgrades_per_pass: 5, indexers: [] }),
+  ),
   http.get('/attention', ({ response }) =>
     response(200).json({ count: 0, severity: null, rows: [], long_missing: { count: 0, items: [] }, originals: { count: 0, items: [] } }),
   ),
