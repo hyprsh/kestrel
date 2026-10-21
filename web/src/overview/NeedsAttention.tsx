@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useAttention, useRunAction, type Attention, type AttentionAction, type AttentionRow } from '../api/attention'
 import { Button, ErrorText } from '../forms'
 import { slotLabel } from '../library/bits'
+import { placePath } from '../place'
 import { Badge, NavRow } from '../ui'
 import { OriginalsRow } from './OriginalsRow'
 import type { OverviewNav } from './nav'
@@ -64,7 +65,7 @@ function LongMissingRow({ group, onOpen }: { group: Attention['long_missing']; o
         <Button variant="secondary" aria-expanded={open} onClick={() => setOpen(!open)}>
           {open ? 'Hide' : 'Show'}
         </Button>
-        <Button variant="secondary" onClick={() => onOpen('/library/long-missing')}>
+        <Button variant="secondary" onClick={() => onOpen(placePath('library', 'is:long_missing sort:wanted_since'))}>
           Open in Library
         </Button>
       </div>

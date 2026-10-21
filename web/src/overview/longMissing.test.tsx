@@ -69,7 +69,7 @@ describe('the Long Missing row in Needs attention', () => {
     expect(await screen.findByRole('button', { name: 'Overview' })).toBeInTheDocument() // no "N need attention" in its name
   })
 
-  it('links to the Library on its Wanted filter with the Long Missing chip', async () => {
+  it('links to the Library filtered to is:long_missing, the longest Wanted first', async () => {
     fakeLongMissing()
     fakeLibrary([
       row(3, 'Ancient Film', 'Ancient Film', { slots: { standard: { version_id: 31, profile: 'hd-primary', state: 'wanted', long_missing: true }, '4k': null } }),
@@ -82,6 +82,8 @@ describe('the Long Missing row in Needs attention', () => {
     const list = await screen.findByRole('listbox', { name: /library/i })
     expect(await within(list).findByRole('option', { name: /ancient film/i })).toBeInTheDocument()
     expect(within(list).queryByRole('option', { name: /recent film/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Long Missing' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('combobox', { name: 'Filter the Library' })).toHaveValue('is:long_missing sort:wanted_since')
+    expect(location.pathname).toBe('/library')
+    expect(new URLSearchParams(location.search).get('q')).toBe('is:long_missing sort:wanted_since')
   })
 })
