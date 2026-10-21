@@ -1,0 +1,57 @@
+// "Running now": the background work that has been running for over a second, the same
+// list the top bar's indicator counts. Always rendered, so "/activity/running" can scroll to it.
+import { Loader2 } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { useQueue } from '../api/queue'
+import type { Running } from './running'
+
+const link = 'underline decoration-gray-alpha-400 underline-offset-2 hover:decoration-gray-1000'
+
+export function RunningNow({ running, onOpenAdoption, onOpenTitle }: { running: Running[]; onOpenAdoption: () => void; onOpenTitle: (id: number) => void }) {
+  const queue = useQueue().data ?? []
+  // The Import loop does not say which Grab it is importing; the queue's Grabs waiting to be imported are what it works on.
+  const importing = queue.filter((q) => q.phase === 'importing' && q.title_id !== null)
+  const details = (r: Running): ReactNode => {
+    if (r.key.startsWith('adoption-'))
+      return (
+        <button className={link} onClick={onOpenAdoption}>
+          {r.name}
+        </button>
+      )
+    if (r.key === 'import' && importing.length > 0)
+      return (
+        <>
+          {`${r.name} · `}
+          {importing.map((q, i) => (
+            <span key={q.grab_id}>
+              {i > 0 && ', '}
+              <button className={link} onClick={() => onOpenTitle(q.title_id!)}>
+                {q.title}
+              </button>
+            </span>
+          ))}
+        </>
+      )
+    return r.name
+  }
+  return (
+    <section id="activity-running" aria-labelledby="activity-running-heading" className="border-b border-gray-alpha-400 px-4 py-3">
+      <h2 id="activity-running-heading" className="mb-2 text-sm font-medium">
+        Running now
+      </h2>
+      {running.length === 0 ? (
+        <p className="text-[12px] text-gray-900">Nothing is running right now.</p>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {running.map((r) => (
+            <li key={r.key} className="flex items-center gap-2">
+              <Loader2 aria-hidden className="size-3.5 shrink-0 animate-spin text-gray-900" />
+              <span>{details(r)}</span>
+              {r.progress && r.progress.total > 0 && <span className="text-gray-900 tabular-nums">{` ${r.progress.done}/${r.progress.total}`}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}

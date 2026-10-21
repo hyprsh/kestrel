@@ -164,7 +164,13 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           ) : screen === 'log' ? (
             <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} />
           ) : screen === 'activity' ? (
-            <Activity query={query} onQuery={(q) => setFilter({ screen: 'activity', q })} onOpenTitle={openTitle} />
+            <Activity
+              query={query}
+              onQuery={(q) => setFilter({ screen: 'activity', q })}
+              onOpenTitle={openTitle}
+              running={running}
+              onOpenAdoption={() => setScreen('adoption')}
+            />
           ) : screen === 'upcoming' ? (
             <Upcoming onOpenTitle={openTitle} />
           ) : (

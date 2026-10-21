@@ -4,12 +4,30 @@
 // "/activity/running" scrolls to it (Shell's goPath). The pipeline's filter is the screen's
 // `?q=`: "/activity?q=stage:done" opens it on the Done stage.
 import { Pipeline } from './Pipeline'
+import type { Running } from './running'
+import { RunningNow } from './RunningNow'
 
-/** `query` is the pipeline's filter text, kept by the Shell so it can live in the address bar. */
-export function Activity({ query, onQuery, onOpenTitle }: { query: string; onQuery: (query: string) => void; onOpenTitle: (id: number) => void }) {
+/**
+ * `query` is the pipeline's filter text, kept by the Shell so it can live in the address bar;
+ * `running` is the work running now, which the Shell's top bar shows too.
+ */
+export function Activity({
+  query,
+  onQuery,
+  onOpenTitle,
+  running,
+  onOpenAdoption,
+}: {
+  query: string
+  onQuery: (query: string) => void
+  onOpenTitle: (id: number) => void
+  running: Running[]
+  onOpenAdoption: () => void
+}) {
   return (
     <div className="min-h-0 flex-1 overflow-auto">
-      {/* "Running now" (activity-running) goes above the pipeline, "Background jobs" (activity-jobs) below it. */}
+      <RunningNow running={running} onOpenAdoption={onOpenAdoption} onOpenTitle={onOpenTitle} />
+      {/* "Background jobs" (activity-jobs) goes below the pipeline. */}
       <Pipeline query={query} onQuery={onQuery} onOpenTitle={onOpenTitle} />
     </div>
   )
