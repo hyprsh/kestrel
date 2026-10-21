@@ -123,15 +123,17 @@ func TestALoopRunsAgainAfterItsIntervalAndTheIntervalIsReadEveryTime(t *testing.
 	<-passes
 }
 
-func TestPassesOfOneLoopNeverOverlapAndRunningListsWhatIsInFlight(t *testing.T) {
+func TestPassesOfOneLoopNeverOverlapAndRunningSaysWhenThePassStarted(t *testing.T) {
 	enter, release := make(chan struct{}), make(chan struct{})
 	r := jobs.New(nil)
 	r.Add(jobs.Loop{Name: "slow", Every: hourly, Run: func(context.Context) error { enter <- struct{}{}; <-release; return nil }})
+	r.Add(jobs.Loop{Name: "idle", Every: hourly, Run: func(context.Context) error { return nil }})
 	done := make(chan error, 2)
+	before := time.Now()
 	go func() { done <- r.Pass(context.Background(), "slow") }()
 	<-enter
-	if got := r.Running(); len(got) != 1 || got[0] != "slow" {
-		t.Errorf("Running = %v, want [slow]", got)
+	if got := r.Running(); len(got) != 1 || got[0].Name != "slow" || got[0].Since.Before(before) || got[0].Since.After(time.Now()) {
+		t.Errorf("Running = %+v, want slow, started since the Pass call", got)
 	}
 	go func() { done <- r.Pass(context.Background(), "slow") }()
 	select {

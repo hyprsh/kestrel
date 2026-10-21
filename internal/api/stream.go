@@ -333,13 +333,16 @@ func ptrEq(a, b *int64) bool {
 
 // activity is the background work running now: the loops mid-pass, from
 // memory, and an Adoption scan or commit, from the plan's one row.
-func (s *server) activity(ctx context.Context) oapi.ActivitySnapshot {
-	return oapi.ActivitySnapshot{Running: nonNil(s.jobs.Running()), Adoption: s.adoptionActivity(ctx)}
+// GetActivity is the `activity` frame's snapshot, for a client that has no stream yet.
+func (s *server) GetActivity(ctx context.Context, _ oapi.GetActivityRequestObject) (oapi.GetActivityResponseObject, error) {
+	return oapi.GetActivity200JSONResponse(s.activity(ctx)), nil
 }
 
-func nonNil(s []string) []string {
-	if s == nil {
-		return []string{}
+func (s *server) activity(ctx context.Context) oapi.ActivitySnapshot {
+	out := oapi.ActivitySnapshot{Running: []string{}, Passes: []oapi.RunningPass{}, Adoption: s.adoptionActivity(ctx)}
+	for _, r := range s.jobs.Running() {
+		out.Running = append(out.Running, r.Name)
+		out.Passes = append(out.Passes, oapi.RunningPass{Name: r.Name, StartedAt: r.Since})
 	}
-	return s
+	return out
 }

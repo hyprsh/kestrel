@@ -209,7 +209,7 @@ type TitleFiles interface {
 // Jobs is the loop runner.
 type Jobs interface {
 	Kick(name string)
-	Running() []string
+	Running() []jobs.Run
 	// Search is the search pipeline, as the Search loop keeps it.
 	Search() jobs.SearchStatus
 	// Jobs lists the loops with their last pass and next due time.

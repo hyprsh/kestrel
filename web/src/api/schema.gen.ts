@@ -1426,6 +1426,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The background work running now
+         * @description The loops mid-pass and an Adoption scan or commit, as the stream's `activity` frames carry
+         *     them. All in memory: it starts empty at every start.
+         */
+        get: operations["getActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/jobs": {
         parameters: {
             query?: never;
@@ -1581,8 +1602,9 @@ export interface paths {
          *       They come from the events log, so an Import landing in a background loop reaches an open
          *       tab within about a second, and from handlers for changes made through this API.
          *     - `queue`: the `QueueList` snapshot (same as `GET /queue`), on connect and whenever it changes.
-         *     - `activity`: the background work running now (`ActivitySnapshot`): the loops mid-pass and an
-         *       Adoption scan or commit with its progress, on connect and whenever it changes.
+         *     - `activity`: the background work running now (`ActivitySnapshot`, same as `GET /activity`):
+         *       the loops mid-pass with when each pass started, and an Adoption scan or commit with its
+         *       progress, on connect and whenever it changes.
          *     - `attention`: the Needs attention count and worst severity (`AttentionSnapshot`), on connect
          *       and whenever it changes.
          *     - `search`: the search pipeline (`SearchStatus`, same as `GET /search/status`), on connect and
@@ -2936,8 +2958,16 @@ export interface components {
         ActivitySnapshot: {
             /** @description Names of the background loops mid-pass right now. */
             running: string[];
+            /** @description The same loops' passes, the longest-running first, with when each started. */
+            passes: components["schemas"]["RunningPass"][];
             /** @description The Adoption scan or commit running now; null when neither runs. */
             adoption: components["schemas"]["AdoptionActivity"] | null;
+        };
+        RunningPass: {
+            /** @description The loop, as in `GET /jobs`. */
+            name: string;
+            /** Format: date-time */
+            started_at: string;
         };
         /** @description An Adoption scan or commit and how far it has got, as `GET /adoption` reports it. */
         AdoptionActivity: {
@@ -5329,6 +5359,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SearchStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getActivity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What runs now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivitySnapshot"];
                 };
             };
             default: components["responses"]["Problem"];

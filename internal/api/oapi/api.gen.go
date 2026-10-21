@@ -1208,6 +1208,9 @@ type ActivitySnapshot struct {
 	// Adoption The Adoption scan or commit running now; null when neither runs.
 	Adoption *AdoptionActivity `json:"adoption"`
 
+	// Passes The same loops' passes, the longest-running first, with when each started.
+	Passes []RunningPass `json:"passes"`
+
 	// Running Names of the background loops mid-pass right now.
 	Running []string `json:"running"`
 }
@@ -2661,6 +2664,13 @@ type RootFolders struct {
 	Series []string `json:"series"`
 }
 
+// RunningPass defines model for RunningPass.
+type RunningPass struct {
+	// Name The loop, as in `GET /jobs`.
+	Name      string    `json:"name"`
+	StartedAt time.Time `json:"started_at"`
+}
+
 // SearchIndexer defines model for SearchIndexer.
 type SearchIndexer struct {
 	// Held Why sweeps leave the indexer alone now, null when they don't: `request_limit` (it said its
@@ -3903,6 +3913,9 @@ type ServerInterface interface {
 	// ChangePassword Change the admin password
 	// (POST /account/password)
 	ChangePassword(w http.ResponseWriter, r *http.Request)
+	// GetActivity The background work running now
+	// (GET /activity)
+	GetActivity(w http.ResponseWriter, r *http.Request)
 	// DiscardAdoption Throw the plan away
 	// (DELETE /adoption)
 	DiscardAdoption(w http.ResponseWriter, r *http.Request)
@@ -4190,6 +4203,20 @@ func (siw *ServerInterfaceWrapper) ChangePassword(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ChangePassword(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetActivity operation middleware
+func (siw *ServerInterfaceWrapper) GetActivity(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetActivity(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -6518,6 +6545,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/cleanup/run", wrapper.RunCleanup)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/wanted/search", wrapper.SearchAllWanted)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/search/status", wrapper.GetSearchStatus)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/activity", wrapper.GetActivity)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/jobs", wrapper.ListJobs)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/jobs/{name}/run", wrapper.RunJob)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/system/status", wrapper.GetSystemStatus)
@@ -6651,6 +6679,44 @@ type ChangePassworddefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response ChangePassworddefaultApplicationProblemPlusJSONResponse) VisitChangePasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetActivityRequestObject struct {
+}
+
+type GetActivityResponseObject interface {
+	VisitGetActivityResponse(w http.ResponseWriter) error
+}
+
+type GetActivity200JSONResponse ActivitySnapshot
+
+func (response GetActivity200JSONResponse) VisitGetActivityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetActivitydefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetActivitydefaultApplicationProblemPlusJSONResponse) VisitGetActivityResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -11315,6 +11381,9 @@ type StrictServerInterface interface {
 	// ChangePassword Change the admin password
 	// (POST /account/password)
 	ChangePassword(ctx context.Context, request ChangePasswordRequestObject) (ChangePasswordResponseObject, error)
+	// GetActivity The background work running now
+	// (GET /activity)
+	GetActivity(ctx context.Context, request GetActivityRequestObject) (GetActivityResponseObject, error)
 	// DiscardAdoption Throw the plan away
 	// (DELETE /adoption)
 	DiscardAdoption(ctx context.Context, request DiscardAdoptionRequestObject) (DiscardAdoptionResponseObject, error)
@@ -11671,6 +11740,30 @@ func (sh *strictHandler) ChangePassword(w http.ResponseWriter, r *http.Request) 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ChangePasswordResponseObject); ok {
 		if err := validResponse.VisitChangePasswordResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetActivity operation middleware
+func (sh *strictHandler) GetActivity(w http.ResponseWriter, r *http.Request) {
+	var request GetActivityRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetActivity(ctx, request.(GetActivityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetActivity")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetActivityResponseObject); ok {
+		if err := validResponse.VisitGetActivityResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

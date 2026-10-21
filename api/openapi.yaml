@@ -1759,6 +1759,23 @@ paths:
                 $ref: "#/components/schemas/SearchStatus"
         default:
           $ref: "#/components/responses/Problem"
+  /activity:
+    get:
+      operationId: getActivity
+      summary: The background work running now
+      description: |
+        The loops mid-pass and an Adoption scan or commit, as the stream's `activity` frames carry
+        them. All in memory: it starts empty at every start.
+      tags: [system]
+      responses:
+        "200":
+          description: What runs now.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivitySnapshot"
+        default:
+          $ref: "#/components/responses/Problem"
   /jobs:
     get:
       operationId: listJobs
@@ -1894,8 +1911,9 @@ paths:
           They come from the events log, so an Import landing in a background loop reaches an open
           tab within about a second, and from handlers for changes made through this API.
         - `queue`: the `QueueList` snapshot (same as `GET /queue`), on connect and whenever it changes.
-        - `activity`: the background work running now (`ActivitySnapshot`): the loops mid-pass and an
-          Adoption scan or commit with its progress, on connect and whenever it changes.
+        - `activity`: the background work running now (`ActivitySnapshot`, same as `GET /activity`):
+          the loops mid-pass with when each pass started, and an Adoption scan or commit with its
+          progress, on connect and whenever it changes.
         - `attention`: the Needs attention count and worst severity (`AttentionSnapshot`), on connect
           and whenever it changes.
         - `search`: the search pipeline (`SearchStatus`, same as `GET /search/status`), on connect and
@@ -4192,18 +4210,33 @@ components:
           description: Why the pass failed; `null` when it succeeded.
     ActivitySnapshot:
       type: object
-      required: [running, adoption]
+      required: [running, passes, adoption]
       properties:
         running:
           type: array
           description: Names of the background loops mid-pass right now.
           items:
             type: string
+        passes:
+          type: array
+          description: The same loops' passes, the longest-running first, with when each started.
+          items:
+            $ref: "#/components/schemas/RunningPass"
         adoption:
           allOf:
             - $ref: "#/components/schemas/AdoptionActivity"
           nullable: true
           description: The Adoption scan or commit running now; null when neither runs.
+    RunningPass:
+      type: object
+      required: [name, started_at]
+      properties:
+        name:
+          type: string
+          description: The loop, as in `GET /jobs`.
+        started_at:
+          type: string
+          format: date-time
     AdoptionActivity:
       type: object
       description: An Adoption scan or commit and how far it has got, as `GET /adoption` reports it.

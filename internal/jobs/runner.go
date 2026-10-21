@@ -45,6 +45,8 @@ type loop struct {
 // loopState is what the runner remembers of a loop between passes, in memory
 // only (ADR 0007): the UI reads it to say what runs when.
 type loopState struct {
+	// started is when the pass running now started; zero between passes.
+	started time.Time
 	// next is when the next pass is due: zero while one runs and before Run.
 	next time.Time
 	// last is the last pass that finished; nil until the first does.
@@ -86,7 +88,6 @@ type Runner struct {
 	order   []string
 	startup []startup
 	stop    []func()
-	running []string
 	search  *searchTracker
 }
 
@@ -165,9 +166,10 @@ func (r *Runner) Pass(ctx context.Context, name string) error {
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	r.mark(name, true)
-	defer r.mark(name, false)
 	start := r.clock()
+	r.mu.Lock()
+	l.state.started = start
+	r.mu.Unlock()
 	err := l.Run(ctx)
 	end := r.clock()
 	p := &PassResult{StartedAt: start, FinishedAt: end, Took: end.Sub(start)}
@@ -175,28 +177,30 @@ func (r *Runner) Pass(ctx context.Context, name string) error {
 		p.Err = err.Error()
 	}
 	r.mu.Lock()
-	l.state.last = p
+	l.state.started, l.state.last = time.Time{}, p
 	r.mu.Unlock()
 	return err
 }
 
-func (r *Runner) mark(name string, on bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if on {
-		r.running = append(r.running, name)
-		return
-	}
-	if i := slices.Index(r.running, name); i >= 0 {
-		r.running = slices.Delete(r.running, i, i+1)
-	}
+// Run is a pass in flight: its loop and when it started.
+type Run struct {
+	Name  string
+	Since time.Time
 }
 
-// Running lists the loops that are mid-pass right now (the UI's "running now").
-func (r *Runner) Running() []string {
+// Running lists the loops that are mid-pass right now (the UI's "running now"),
+// the longest-running first.
+func (r *Runner) Running() []Run {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return slices.Clone(r.running)
+	var out []Run
+	for _, n := range r.order {
+		if s := r.loops[n].state.started; !s.IsZero() {
+			out = append(out, Run{n, s})
+		}
+	}
+	slices.SortStableFunc(out, func(a, b Run) int { return a.Since.Compare(b.Since) })
+	return out
 }
 
 // Jobs lists the loops in registration order, each with its last pass and
@@ -207,7 +211,7 @@ func (r *Runner) Jobs() []Job {
 	out := make([]Job, 0, len(r.order))
 	for _, n := range r.order {
 		l := r.loops[n]
-		j := Job{Name: n, Running: slices.Contains(r.running, n), Next: l.state.next}
+		j := Job{Name: n, Running: !l.state.started.IsZero(), Next: l.state.next}
 		if l.state.last != nil {
 			p := *l.state.last
 			j.Last = &p
