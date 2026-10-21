@@ -3470,6 +3470,14 @@ export interface components {
             reject_reason: "not_on_tvdb" | "unknown_title" | "no_enabled_profile" | null;
             /** Format: int64 */
             title_id: number | null;
+            /**
+             * @description The Title's name: the Library's while the Title is there, else the name it had when the
+             *     Request was made (a rejected Request, or a Title removed since). `null` when Kestrel never
+             *     learnt one, such as for `unknown_title`.
+             */
+            title: string | null;
+            /** @description Whether `GET /titles/{title_id}/poster` serves a poster; false without a Title in the Library. */
+            has_poster: boolean;
             /** @description The seasons asked for; empty for a Movie or the whole Series. */
             seasons: number[];
             /** Format: date-time */

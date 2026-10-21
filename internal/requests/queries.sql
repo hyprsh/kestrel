@@ -1,6 +1,6 @@
 -- name: InsertRequest :one
-INSERT INTO requests (source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO requests (source, source_request_id, requester_id, requester_name, title_id, title_name, outcome, reject_reason, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id;
 
 -- name: DeleteRequest :exec

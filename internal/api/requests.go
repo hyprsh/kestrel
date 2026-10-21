@@ -20,6 +20,7 @@ func requestToAPI(r requests.Request) oapi.Request {
 		Id: r.ID, Source: r.Source, SourceRequestId: r.SourceRequestID, Outcome: oapi.RequestOutcome(r.Outcome),
 		Requester: oapi.Requester{Id: r.RequesterID, Name: r.RequesterName}, CreatedAt: r.CreatedAt,
 		Seasons: append([]int{}, r.Seasons...), Slots: make([]oapi.RequestSlot, 0, len(r.Slots)),
+		Title: strPtr(r.TitleName), HasPoster: r.HasPoster,
 	}
 	if r.TitleID != 0 {
 		out.TitleId = &r.TitleID

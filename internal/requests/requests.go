@@ -115,11 +115,16 @@ type Request struct {
 	RequesterID     string
 	RequesterName   string
 	TitleID         int64 // 0 when rejected
-	Outcome         Outcome
-	Reason          Reason
-	CreatedAt       time.Time
-	Seasons         []int
-	Slots           []SlotStatus
+	// TitleName is the Library's name for the Title while it is there, else
+	// the one stored when the Request came in; "" when Kestrel never learnt one.
+	TitleName string
+	// HasPoster is whether the Library holds a poster for the Title.
+	HasPoster bool
+	Outcome   Outcome
+	Reason    Reason
+	CreatedAt time.Time
+	Seasons   []int
+	Slots     []SlotStatus
 }
 
 // Result is what Submit did.
@@ -187,6 +192,17 @@ type target struct {
 	seasons  map[int]bool
 }
 
+// name is the Title's name as far as Kestrel learnt it; "" when it did not.
+func (t target) name() string {
+	switch {
+	case t.existing != nil:
+		return t.existing.Title
+	case t.movie.Title != "":
+		return t.movie.Title
+	}
+	return t.series.Title
+}
+
 // Submit takes a Request on. A retry of a stored (source, source_request_id)
 // returns the stored one. A Request Kestrel cannot serve is stored as rejected.
 func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
@@ -218,7 +234,7 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 		return Result{}, err
 	}
 	if reason != "" {
-		return s.store(ctx, in, prior, 0, nil, reason)
+		return s.store(ctx, in, prior, tgt.name(), 0, nil, reason)
 	}
 	if in.Seasons != nil {
 		for _, n := range in.Seasons {
@@ -253,14 +269,14 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 		if key == "" {
 			r, err := profiles.Resolve(all, kind, sl.Slot)
 			if errors.Is(err, profiles.ErrNoEnabledProfile) {
-				return s.store(ctx, in, prior, 0, nil, NoEnabledProfile)
+				return s.store(ctx, in, prior, tgt.name(), 0, nil, NoEnabledProfile)
 			}
 			if err != nil {
 				return Result{}, err
 			}
 			key = r.Key
 		} else if p := profileByKey(all, key); !p.Enabled {
-			return s.store(ctx, in, prior, 0, nil, NoEnabledProfile)
+			return s.store(ctx, in, prior, tgt.name(), 0, nil, NoEnabledProfile)
 		}
 		chosen[sl.Slot] = key
 		specs = append(specs, library.VersionSpec{Slot: sl.Slot, Profile: key})
@@ -283,7 +299,7 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 		v := versionOf[sl.Slot]
 		slots = append(slots, slotRow{slot: sl.Slot, profile: v.Profile, versionID: v.ID})
 	}
-	res, err := s.store(ctx, in, prior, titleID, slots, "")
+	res, err := s.store(ctx, in, prior, d.Title, titleID, slots, "")
 	res.SearchDue = searchDue
 	return res, err
 }
@@ -398,6 +414,7 @@ func (s *Service) resolveTitle(ctx context.Context, in Input) (target, Reason, e
 	if err != nil {
 		return t, "", err
 	}
+	t.series = sd // named even when rejected
 	if tvdbID == 0 {
 		return t, NotOnTVDB, nil
 	}
@@ -535,7 +552,7 @@ type slotRow struct {
 // one wins on the unique key and its stored Request is returned instead. prior
 // is the stored rejection this one re-evaluates: it stands while the Request is
 // rejected again, and gives way to an accepted one.
-func (s *Service) store(ctx context.Context, in Input, prior *db.Request, titleID int64, slots []slotRow, reason Reason) (Result, error) {
+func (s *Service) store(ctx context.Context, in Input, prior *db.Request, name string, titleID int64, slots []slotRow, reason Reason) (Result, error) {
 	accepted := reason == ""
 	if prior != nil && !accepted {
 		r, err := s.view(ctx, *prior)
@@ -564,7 +581,7 @@ func (s *Service) store(ctx context.Context, in Input, prior *db.Request, titleI
 	}
 	id, err := q.InsertRequest(ctx, db.InsertRequestParams{
 		Source: in.Source, SourceRequestID: in.SourceRequestID, RequesterID: in.RequesterID, RequesterName: in.RequesterName,
-		TitleID: sql.NullInt64{Int64: titleID, Valid: titleID != 0}, Outcome: outcome, RejectReason: rr, CreatedAt: ts(s.d.Clock()),
+		TitleID: sql.NullInt64{Int64: titleID, Valid: titleID != 0}, TitleName: name, Outcome: outcome, RejectReason: rr, CreatedAt: ts(s.d.Clock()),
 	})
 	if err != nil {
 		tx.Rollback()
@@ -688,6 +705,27 @@ func (s *Service) cache() *cache {
 	return &cache{details: map[int64]*library.Detail{}, eps: map[int64][]library.Episode{}}
 }
 
+// detail is the Library's Title, loaded once per read; nil when it is gone.
+func (s *Service) detail(ctx context.Context, id int64, c *cache) (*library.Detail, error) {
+	if d, ok := c.details[id]; ok {
+		return d, nil
+	}
+	region, _, err := s.d.Profiles.Region(ctx)
+	if err != nil {
+		return nil, err
+	}
+	got, err := s.d.Library.Get(ctx, id, library.View{Country: region.Country, Now: s.d.Clock()})
+	if errors.Is(err, library.ErrNotFound) {
+		c.details[id] = nil
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	c.details[id] = &got
+	return &got, nil
+}
+
 func (s *Service) view(ctx context.Context, row db.Request) (Request, error) {
 	return s.viewWith(ctx, row, s.cache())
 }
@@ -697,7 +735,16 @@ func (s *Service) viewWith(ctx context.Context, row db.Request, c *cache) (Reque
 	created, _ := time.Parse(time.RFC3339, row.CreatedAt)
 	r := Request{
 		ID: row.ID, Source: row.Source, SourceRequestID: row.SourceRequestID, RequesterID: row.RequesterID, RequesterName: row.RequesterName,
-		TitleID: row.TitleID.Int64, Outcome: Outcome(row.Outcome), Reason: Reason(row.RejectReason.String), CreatedAt: created,
+		TitleID: row.TitleID.Int64, TitleName: row.TitleName, Outcome: Outcome(row.Outcome), Reason: Reason(row.RejectReason.String), CreatedAt: created,
+	}
+	if r.TitleID != 0 {
+		d, err := s.detail(ctx, r.TitleID, c)
+		if err != nil {
+			return r, err
+		}
+		if d != nil {
+			r.TitleName, r.HasPoster = d.Title, d.PosterPath != ""
+		}
 	}
 	seasons, err := q.ListSeasonsOfRequest(ctx, row.ID)
 	if err != nil {
@@ -741,23 +788,14 @@ func (s *Service) derive(ctx context.Context, r *Request, st *SlotStatus, wasFil
 		st.Status, st.Label = Failed, "Removed"
 		return nil
 	}
-	d := c.details[r.TitleID]
+	d, err := s.detail(ctx, r.TitleID, c)
+	if err != nil {
+		return err
+	}
 	if d == nil {
-		region, _, err := s.d.Profiles.Region(ctx)
-		if err != nil {
-			return err
-		}
-		got, err := s.d.Library.Get(ctx, r.TitleID, library.View{Country: region.Country, Now: s.d.Clock()})
-		if errors.Is(err, library.ErrNotFound) {
-			st.VersionID = 0
-			st.Status, st.Label = Failed, "Removed"
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		d = &got
-		c.details[r.TitleID] = d
+		st.VersionID = 0
+		st.Status, st.Label = Failed, "Removed"
+		return nil
 	}
 	var v *library.Version
 	for i := range d.Versions {

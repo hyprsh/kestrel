@@ -20,7 +20,7 @@ func (q *Queries) DeleteRequest(ctx context.Context, id int64) error {
 }
 
 const getRequest = `-- name: GetRequest :one
-SELECT id, source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at FROM requests WHERE id = ?
+SELECT id, source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at, title_name FROM requests WHERE id = ?
 `
 
 func (q *Queries) GetRequest(ctx context.Context, id int64) (Request, error) {
@@ -36,12 +36,13 @@ func (q *Queries) GetRequest(ctx context.Context, id int64) (Request, error) {
 		&i.Outcome,
 		&i.RejectReason,
 		&i.CreatedAt,
+		&i.TitleName,
 	)
 	return i, err
 }
 
 const getRequestBySource = `-- name: GetRequestBySource :one
-SELECT id, source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at FROM requests WHERE source = ? AND source_request_id = ?
+SELECT id, source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at, title_name FROM requests WHERE source = ? AND source_request_id = ?
 `
 
 type GetRequestBySourceParams struct {
@@ -62,13 +63,14 @@ func (q *Queries) GetRequestBySource(ctx context.Context, arg GetRequestBySource
 		&i.Outcome,
 		&i.RejectReason,
 		&i.CreatedAt,
+		&i.TitleName,
 	)
 	return i, err
 }
 
 const insertRequest = `-- name: InsertRequest :one
-INSERT INTO requests (source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO requests (source, source_request_id, requester_id, requester_name, title_id, title_name, outcome, reject_reason, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id
 `
 
@@ -78,6 +80,7 @@ type InsertRequestParams struct {
 	RequesterID     string
 	RequesterName   string
 	TitleID         sql.NullInt64
+	TitleName       string
 	Outcome         string
 	RejectReason    sql.NullString
 	CreatedAt       string
@@ -90,6 +93,7 @@ func (q *Queries) InsertRequest(ctx context.Context, arg InsertRequestParams) (i
 		arg.RequesterID,
 		arg.RequesterName,
 		arg.TitleID,
+		arg.TitleName,
 		arg.Outcome,
 		arg.RejectReason,
 		arg.CreatedAt,
@@ -135,7 +139,7 @@ func (q *Queries) InsertRequestSlot(ctx context.Context, arg InsertRequestSlotPa
 }
 
 const listRequests = `-- name: ListRequests :many
-SELECT id, source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at FROM requests
+SELECT id, source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at, title_name FROM requests
 WHERE id < ?1
   AND (?2 = '' OR source = ?2)
   AND (?3 = 0 OR title_id = ?3)
@@ -174,6 +178,7 @@ func (q *Queries) ListRequests(ctx context.Context, arg ListRequestsParams) ([]R
 			&i.Outcome,
 			&i.RejectReason,
 			&i.CreatedAt,
+			&i.TitleName,
 		); err != nil {
 			return nil, err
 		}
@@ -189,7 +194,7 @@ func (q *Queries) ListRequests(ctx context.Context, arg ListRequestsParams) ([]R
 }
 
 const listRequestsByTitle = `-- name: ListRequestsByTitle :many
-SELECT id, source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at FROM requests WHERE title_id = ? ORDER BY id
+SELECT id, source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at, title_name FROM requests WHERE title_id = ? ORDER BY id
 `
 
 func (q *Queries) ListRequestsByTitle(ctx context.Context, titleID sql.NullInt64) ([]Request, error) {
@@ -211,6 +216,7 @@ func (q *Queries) ListRequestsByTitle(ctx context.Context, titleID sql.NullInt64
 			&i.Outcome,
 			&i.RejectReason,
 			&i.CreatedAt,
+			&i.TitleName,
 		); err != nil {
 			return nil, err
 		}

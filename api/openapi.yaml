@@ -5042,7 +5042,7 @@ components:
           nullable: true
     Request:
       type: object
-      required: [id, source, source_request_id, requester, outcome, reject_reason, title_id, seasons, created_at, slots]
+      required: [id, source, source_request_id, requester, outcome, reject_reason, title_id, title, has_poster, seasons, created_at, slots]
       properties:
         id:
           type: integer
@@ -5064,6 +5064,16 @@ components:
           type: integer
           format: int64
           nullable: true
+        title:
+          type: string
+          nullable: true
+          description: |
+            The Title's name: the Library's while the Title is there, else the name it had when the
+            Request was made (a rejected Request, or a Title removed since). `null` when Kestrel never
+            learnt one, such as for `unknown_title`.
+        has_poster:
+          type: boolean
+          description: Whether `GET /titles/{title_id}/poster` serves a poster; false without a Title in the Library.
         seasons:
           type: array
           description: The seasons asked for; empty for a Movie or the whole Series.

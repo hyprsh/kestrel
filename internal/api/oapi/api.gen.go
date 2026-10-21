@@ -2356,7 +2356,10 @@ type ReleaseSearch struct {
 
 // Request defines model for Request.
 type Request struct {
-	CreatedAt    time.Time            `json:"created_at"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// HasPoster Whether `GET /titles/{title_id}/poster` serves a poster; false without a Title in the Library.
+	HasPoster    bool                 `json:"has_poster"`
 	Id           int64                `json:"id"`
 	Outcome      RequestOutcome       `json:"outcome"`
 	RejectReason *RequestRejectReason `json:"reject_reason"`
@@ -2367,7 +2370,12 @@ type Request struct {
 	Slots           []RequestSlot `json:"slots"`
 	Source          string        `json:"source"`
 	SourceRequestId string        `json:"source_request_id"`
-	TitleId         *int64        `json:"title_id"`
+
+	// Title The Title's name: the Library's while the Title is there, else the name it had when the
+	// Request was made (a rejected Request, or a Title removed since). `null` when Kestrel never
+	// learnt one, such as for `unknown_title`.
+	Title   *string `json:"title"`
+	TitleId *int64  `json:"title_id"`
 }
 
 // RequestOutcome defines model for Request.Outcome.
