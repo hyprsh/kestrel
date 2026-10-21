@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git fetch *)",
+      "Bash(gh run watch *)",
+      "Bash(git grep *)",
+      "Bash(go vet *)",
+      "Bash(gh search *)",
+      "Bash(git merge-base *)",
+      "Bash(make check)",
+      "Bash(npm view *)"
+    ]
+  }
+}
