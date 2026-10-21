@@ -171,6 +171,8 @@ type Requests interface {
 // Adoption takes over an existing on-disk library.
 type Adoption interface {
 	Get(ctx context.Context) (imports.Plan, error)
+	// Progress is the plan's state without its rows, for the stream's every tick.
+	Progress(ctx context.Context) (imports.Progress, error)
 	Scan(ctx context.Context, roots []string) error
 	Rows(ctx context.Context, f imports.Filter) ([]imports.Row, error)
 	PatchRow(ctx context.Context, id int64, p imports.RowPatch) (imports.Row, error)
