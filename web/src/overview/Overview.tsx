@@ -9,7 +9,7 @@ import { DownloadRow } from '../grabs/DownloadRow'
 import { useListNav } from '../keys'
 import { ComingRecent } from './ComingRecent'
 import { HealthStrip } from './HealthStrip'
-import { NeedsAttention } from './NeedsAttention'
+import { NeedsAttention, shownRows } from './NeedsAttention'
 import { Searching } from './Searching'
 import { firstFive, Section, ViewAll } from './Section'
 import type { OverviewNav } from './nav'
@@ -20,7 +20,8 @@ export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen
   const cancel = useCancelGrab()
   const all = queue.data ?? []
   const items = firstFive(all)
-  const rows = useAttention().data?.rows ?? []
+  const [allAttention, setAllAttention] = useState(false)
+  const rows = shownRows(useAttention().data?.rows ?? [], allAttention)
   const coming = firstFive(useUpcoming(6).data ?? [])
   const recentItems = firstFive(useRecent().data ?? [])
 
@@ -39,7 +40,7 @@ export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen
   useListNav('ov', enter.length, sel, setSel, (i) => enter[i]?.())
   return (
     <div className="flex-1 overflow-y-auto p-6">
-      <NeedsAttention onOpen={onOpen} onOpenTitle={onOpenTitle} nav={nav(0)} />
+      <NeedsAttention onOpen={onOpen} onOpenTitle={onOpenTitle} nav={nav(0)} all={allAttention} onAll={setAllAttention} />
       <HealthStrip />
       <Searching />
       <Section id="downloading-now" title="Downloading now" count={queue.data ? all.length : undefined}>

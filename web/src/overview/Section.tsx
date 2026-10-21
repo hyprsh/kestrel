@@ -7,12 +7,16 @@ import { cx } from '../ui'
 const LIMIT = 5
 
 /**
- * The rows a section shows. The Overview's j/k list is built from the same call, so the
- * selection runs through exactly the rows on screen.
+ * The rows a section shows: the first five, in order, plus every row `keep` holds on to
+ * (those count towards the five). The Overview's j/k list is built from the same call, so
+ * the selection runs through exactly the rows on screen.
  */
-export const firstFive = <T,>(items: T[]): T[] => items.slice(0, LIMIT)
+export function firstFive<T>(items: T[], keep: (item: T) => boolean = () => false): T[] {
+  let room = LIMIT - items.filter(keep).length
+  return items.filter((item) => keep(item) || room-- > 0)
+}
 
-/** `count` is how many there are in all, shown after the title ("Downloading now · 23"). */
+/** `count` is how many there are in all, shown after the title once there are any ("Downloading now · 23"). */
 export function Section({
   id,
   title,
@@ -29,19 +33,30 @@ export function Section({
   return (
     <section aria-labelledby={id} className={cx('mx-auto max-w-3xl', className)}>
       <h2 id={id} className="mb-3 text-sm font-medium">
-        {count != null ? `${title} · ${count}` : title}
+        {count ? `${title} · ${count}` : title}
       </h2>
       {children}
     </section>
   )
 }
 
+const more = 'mt-2 text-[12px] text-gray-900 hover:text-gray-1000 hover:underline'
+
 /** "View all 23 →": opens the screen with the full list (a place path, such as "/activity"). */
 export function ViewAll({ path, count }: { path: string; count?: number }) {
   const openPlace = useOpenPlace()
   return (
-    <button type="button" className="mt-2 text-[12px] text-gray-900 hover:text-gray-1000 hover:underline" onClick={() => openPlace(path)}>
+    <button type="button" className={more} onClick={() => openPlace(path)}>
       {count != null ? `View all ${count} →` : 'View all →'}
+    </button>
+  )
+}
+
+/** "View all 7" for a section with no screen of its own: it expands the section in place. */
+export function ViewAllHere({ count, open, onToggle }: { count: number; open: boolean; onToggle: () => void }) {
+  return (
+    <button type="button" className={more} aria-expanded={open} onClick={onToggle}>
+      {open ? 'Show fewer' : `View all ${count}`}
     </button>
   )
 }
