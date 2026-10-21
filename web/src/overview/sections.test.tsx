@@ -60,7 +60,7 @@ describe('Overview sections', () => {
     expect(await screen.findByRole('list', { name: 'Agenda' })).toBeInTheDocument()
   })
 
-  it('shows the five latest Imports and links to the Done stage of Activity', async () => {
+  it("shows the five latest Imports, the week's count in the heading and a link to the Done stage of Activity", async () => {
     const recent = Array.from({ length: 8 }, (_, i) => ({
       title_id: 40 + i,
       title: `Imported ${i + 1}`,
@@ -74,16 +74,16 @@ describe('Overview sections', () => {
       is_upgrade: false,
       imported_at: '2026-10-17T12:00:00Z',
     }))
-    server.use(http.get('/recent', ({ response }) => response(200).json({ items: recent })))
+    server.use(http.get('/recent', ({ response }) => response(200).json({ items: recent, total: 12 })))
     renderApp()
 
     await screen.findByText('Imported.1-GRP')
-    // GET /recent returns only the latest few, so there is no total to show.
-    const section = screen.getByRole('region', { name: 'Recently added' })
+    // GET /recent lists the latest few and counts the week's, which the Done stage lists.
+    const section = screen.getByRole('region', { name: 'Recently added · 12' })
     const rows = within(section).getAllByRole('listitem')
     expect(rows.map((r) => r.textContent)).toEqual([1, 2, 3, 4, 5].map((n) => expect.stringContaining(`Imported.${n}-GRP`)))
 
-    await userEvent.click(within(section).getByRole('button', { name: 'View all →' }))
+    await userEvent.click(within(section).getByRole('button', { name: 'View all 12 →' }))
     expect(await screen.findByRole('combobox', { name: 'Filter Activity' })).toHaveValue('stage:done')
   })
 

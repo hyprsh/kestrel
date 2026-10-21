@@ -125,6 +125,7 @@ type Library interface {
 	LongMissing(ctx context.Context, view library.View) ([]library.LongMissingItem, error)
 	Upcoming(ctx context.Context, view library.View, from, to time.Time) ([]library.UpcomingEntry, error)
 	RecentImports(ctx context.Context, n int) ([]library.RecentImport, error)
+	CountRecentImports(ctx context.Context, now time.Time) (int, error)
 	List(ctx context.Context, view library.View, f library.Filter) ([]library.Row, error)
 	AddVersion(ctx context.Context, titleID int64, v library.VersionSpec) (int64, error)
 	AddSeries(ctx context.Context, a library.AddSeries) (int64, error)

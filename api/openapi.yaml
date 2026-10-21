@@ -1364,7 +1364,8 @@ paths:
       summary: Recently added
       description: |
         The ten most recent Imports, newest first. An Import of several files at once (a season pack)
-        is one row with `files` set to how many it brought.
+        is one row with `files` set to how many it brought. `total` counts the Imports of the last
+        7 days, the window Activity's Done stage lists, so it may be more or fewer than `items`.
       tags: [titles]
       responses:
         "200":
@@ -4820,12 +4821,15 @@ components:
           description: For a Movie, whether it is already searchable (false means "searchable from `searchable_from`"). Always true for an episode.
     RecentList:
       type: object
-      required: [items]
+      required: [items, total]
       properties:
         items:
           type: array
           items:
             $ref: "#/components/schemas/RecentItem"
+        total:
+          type: integer
+          description: How many Imports the last 7 days brought, a pack counting once.
     RecentItem:
       type: object
       required: [title_id, title, year, kind, slot, release_name, score, score_delta, files, is_upgrade, imported_at]

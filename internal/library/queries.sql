@@ -286,6 +286,9 @@ FROM files f JOIN versions v ON v.id = f.version_id LEFT JOIN grabs g ON g.id = 
 WHERE f.grab_id IS NOT NULL
 ORDER BY f.imported_at DESC, f.id DESC LIMIT ?;
 
+-- name: CountImportsSince :one
+SELECT COUNT(DISTINCT grab_id) FROM files WHERE grab_id IS NOT NULL AND imported_at >= ?;
+
 -- name: SetTitleMonitored :exec
 UPDATE titles SET monitored = ? WHERE id = ? AND kind = 'movie';
 

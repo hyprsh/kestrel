@@ -39,6 +39,17 @@ func (q *Queries) CountFileEpisodes(ctx context.Context, fileID int64) (int64, e
 	return count, err
 }
 
+const countImportsSince = `-- name: CountImportsSince :one
+SELECT COUNT(DISTINCT grab_id) FROM files WHERE grab_id IS NOT NULL AND imported_at >= ?
+`
+
+func (q *Queries) CountImportsSince(ctx context.Context, importedAt string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countImportsSince, importedAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteAliasesOfTitle = `-- name: DeleteAliasesOfTitle :exec
 DELETE FROM title_aliases WHERE title_id = ?
 `

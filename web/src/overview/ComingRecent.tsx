@@ -13,7 +13,7 @@ export function ComingRecent({ onOpenTitle, nav }: { onOpenTitle: (id: number) =
   const recent = useRecent()
   const comingAll = coming.data ?? []
   const comingItems = firstFive(comingAll)
-  const recentItems = firstFive(recent.data ?? [])
+  const recentItems = firstFive(recent.data?.items ?? [])
   const open = (index: number, id: number) => {
     nav.select(index)
     onOpenTitle(id)
@@ -39,8 +39,8 @@ export function ComingRecent({ onOpenTitle, nav }: { onOpenTitle: (id: number) =
         )}
         {comingAll.length > 0 && <ViewAll path="/upcoming" count={comingAll.length} />}
       </Section>
-      {/* No count: GET /recent returns only the latest few Imports. */}
-      <Section id="recently-added" title="Recently added" className="mt-6">
+      {/* The count is the week's Imports, which the Done stage lists; the rows are the latest few. */}
+      <Section id="recently-added" title="Recently added" count={recent.data?.total} className="mt-6">
         {recent.data && recentItems.length === 0 ? (
           <p className="text-gray-900">Nothing has been imported yet.</p>
         ) : (
@@ -55,7 +55,7 @@ export function ComingRecent({ onOpenTitle, nav }: { onOpenTitle: (id: number) =
             })}
           </ul>
         )}
-        {recentItems.length > 0 && <ViewAll path={placePath('activity', 'stage:done')} />}
+        {recentItems.length > 0 && <ViewAll path={placePath('activity', 'stage:done')} count={recent.data?.total || undefined} />}
       </Section>
     </>
   )

@@ -1083,7 +1083,8 @@ export interface paths {
         /**
          * Recently added
          * @description The ten most recent Imports, newest first. An Import of several files at once (a season pack)
-         *     is one row with `files` set to how many it brought.
+         *     is one row with `files` set to how many it brought. `total` counts the Imports of the last
+         *     7 days, the window Activity's Done stage lists, so it may be more or fewer than `items`.
          */
         get: operations["listRecentlyAdded"];
         put?: never;
@@ -3352,6 +3353,8 @@ export interface components {
         };
         RecentList: {
             items: components["schemas"]["RecentItem"][];
+            /** @description How many Imports the last 7 days brought, a pack counting once. */
+            total: number;
         };
         RecentItem: {
             /** Format: int64 */

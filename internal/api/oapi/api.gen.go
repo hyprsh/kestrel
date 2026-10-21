@@ -2415,6 +2415,9 @@ type RecentItem struct {
 // RecentList defines model for RecentList.
 type RecentList struct {
 	Items []RecentItem `json:"items"`
+
+	// Total How many Imports the last 7 days brought, a pack counting once.
+	Total int `json:"total"`
 }
 
 // Rejection defines model for Rejection.

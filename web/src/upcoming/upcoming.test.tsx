@@ -65,7 +65,7 @@ function fakeAgenda(items: Upcoming[], imports: Recent[] = []) {
       asked.push(`${q.get('from')}..${q.get('to')}`)
       return response(200).json({ from: q.get('from') ?? '', to: q.get('to') ?? '', items })
     }),
-    http.get('/recent', ({ response }) => response(200).json({ items: imports })),
+    http.get('/recent', ({ response }) => response(200).json({ items: imports, total: imports.length })),
   )
   return asked
 }

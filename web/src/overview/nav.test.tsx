@@ -36,6 +36,7 @@ describe('Overview rows', () => {
             recent({ is_upgrade: true, score_delta: 150 }),
             recent({ title_id: 8, title: 'Arrival', release_name: 'Arrival.2016.2160p-GRP', slot: '4k' }),
           ],
+          total: 2,
         }),
       ),
     )
@@ -121,7 +122,7 @@ describe('Overview rows', () => {
           ],
         }),
       ),
-      http.get('/recent', ({ response }) => response(200).json({ items: [recent({})] })),
+      http.get('/recent', ({ response }) => response(200).json({ items: [recent({})], total: 1 })),
     )
     renderApp()
     await screen.findByText('Imports copy instead of moving')

@@ -161,3 +161,25 @@ func TestRecentlyAddedListsTheLatestImportsNewestFirst(t *testing.T) {
 		t.Errorf("recent = %+v, want the newer Import first", got.Items)
 	}
 }
+
+func TestRecentlyAddedCountsTheWeeksImports(t *testing.T) {
+	t.Parallel()
+	w := newWantedRig(t)
+	a := decode[titleJSON](t, w.valid("POST", "/titles", fmt.Sprintf(addHD, 116149)))
+	// The clock reads 2026-10-17 12:00: the week reaches back to 10-10 12:00.
+	for i, f := range []struct {
+		grab int
+		at   string
+	}{{1, "2026-10-01T00:00:00Z"}, {2, "2026-10-10T11:00:00Z"}, {3, "2026-10-12T00:00:00Z"}, {3, "2026-10-12T00:00:00Z"}, {4, "2026-10-16T00:00:00Z"}} {
+		w.exec(t, `INSERT INTO files (version_id, path, size, release_name, grab_id, imported_at) SELECT id, ?, 1, 'r', ?, ? FROM versions WHERE title_id = ?`,
+			fmt.Sprintf("f%d.mkv", i), f.grab, f.at, a.ID)
+	}
+	got := decode[struct {
+		Items []struct{} `json:"items"`
+		Total int        `json:"total"`
+	}](t, w.valid("GET", "/recent", ""))
+	// Grab 3 is a pack, one Import; Grabs 1 and 2 are older than the week.
+	if len(got.Items) != 4 || got.Total != 2 {
+		t.Errorf("recent = %d items, total %d; want 4 and 2", len(got.Items), got.Total)
+	}
+}
