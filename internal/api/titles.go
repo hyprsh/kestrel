@@ -83,7 +83,7 @@ func (s *server) Lookup(ctx context.Context, r oapi.LookupRequestObject) (oapi.L
 	if q == "" {
 		return nil, invalid("q", "required", "Say what to search for")
 	}
-	found, err := s.meta.Search(ctx, q)
+	found, _, err := s.findTitles(ctx, q)
 	if err != nil {
 		return nil, metaProblem(err)
 	}
