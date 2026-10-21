@@ -1,6 +1,7 @@
 import { CornerDownLeft, Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { ApiError, useLookup, useTitles, type LookupResult } from '../api/queries'
+import { ApiError, useLookup, useTitles, type LookupResult, type TitleRow } from '../api/queries'
+import { rank, type Match } from '../fuzzy'
 import { KindIcon } from '../library/bits'
 import { ratingsText } from '../library/Ratings'
 import { Badge, cx, Kbd } from '../ui'
@@ -23,6 +24,8 @@ type Item = {
   /** Items that change the menu itself, or close it on their own, leave it open when run. */
   keepOpen?: boolean
   run: () => void
+  /** The parts of the label the query matched, marked. */
+  marks?: [number, number][]
   /** A Title's poster thumbnail, drawn in the taller row. */
   thumb?: ReactNode
 }
@@ -104,8 +107,7 @@ export function CommandMenu({
         },
       }))
     }
-    const q = query.trim().toLowerCase()
-    const hit = (i: { label: string; keywords?: string }) => q === '' || `${i.label} ${i.keywords ?? ''}`.toLowerCase().includes(q)
+    const q = query.trim()
     const addAction: Item = {
       id: 'action-add',
       group: 'Actions',
@@ -117,30 +119,30 @@ export function CommandMenu({
         setMode('add')
       },
     }
-    const act: Item[] = [addAction, ...actions.map((a) => ({ id: `action-${a.id}`, group: 'Actions' as const, label: a.label, keywords: a.keywords, run: a.run }))].filter(hit)
-    const go: Item[] = places
-      .map((p) => ({ id: `go-${p.id}`, group: 'Go to' as const, label: p.label, run: () => onGo(p.id) }))
-      .filter(hit)
-    const own: Item[] =
-      q === ''
-        ? []
-        : (titles.data ?? [])
-            .filter((t) => `${t.title} ${t.primary_title}`.toLowerCase().includes(q))
-            .slice(0, 6)
-            .map((t) => ({
-              id: `title-${t.id}`,
-              group: 'Titles' as const,
-              label: t.title,
-              sub: t.year ? String(t.year) : undefined,
-              thumb: <TitlePoster id={t.id} hasPoster={t.has_poster} className={thumbSize} />,
-              right: <KindIcon kind={t.kind} className="text-gray-900" />,
-              run: () => onOpenTitle(t.id),
-            }))
-    const add: Item[] =
-      q === ''
-        ? []
-        : [{ id: 'add-query', group: 'Add', label: `Add "${query.trim()}"…`, keepOpen: true, run: () => setMode('add') }]
-    return q === '' ? [...act, ...go] : [...own, ...go, ...act, ...add]
+    const act: Item[] = [addAction, ...actions.map((a) => ({ id: `action-${a.id}`, group: 'Actions' as const, label: a.label, keywords: a.keywords, run: a.run }))]
+    const go: Item[] = places.map((p) => ({ id: `go-${p.id}`, group: 'Go to' as const, label: p.label, run: () => onGo(p.id) }))
+    if (q === '') return [...act, ...go]
+    const title = (t: TitleRow): Item => ({
+      id: `title-${t.id}`,
+      group: 'Titles',
+      label: t.title,
+      sub: t.year ? String(t.year) : undefined,
+      thumb: <TitlePoster id={t.id} hasPoster={t.has_poster} className={thumbSize} />,
+      right: <KindIcon kind={t.kind} className="text-gray-900" />,
+      run: () => onOpenTitle(t.id),
+    })
+    // Marks show only where the label itself matched, not an alias or a keyword.
+    const marked = <T,>(hits: { item: T; field: number; match: Match }[], toItem: (t: T) => Item) =>
+      hits.map((h) => ({ score: h.match.score, item: { ...toItem(h.item), marks: h.field === 0 ? h.match.ranges : undefined } }))
+    const groups = [
+      marked(rank(q, titles.data ?? [], (t) => [t.title, t.primary_title]).slice(0, 6), title),
+      marked(rank(q, go, (i) => [i.label]), (i) => i),
+      marked(rank(q, act, (i) => [i.label, i.keywords ?? '']), (i) => i),
+    ]
+      .filter((g) => g.length > 0)
+      .sort((a, b) => b[0].score - a[0].score) // the group holding the best match first; ties keep this order
+    const add: Item = { id: 'add-query', group: 'Add', label: `Add "${q}"…`, keepOpen: true, run: () => setMode('add') }
+    return [...groups.flatMap((g) => g.map((h) => h.item)), add]
   }, [mode, query, lookup.data, actions, places, titles.data, onGo, onOpenTitle, onClose])
 
   const index = Math.min(sel, Math.max(items.length - 1, 0))
@@ -228,7 +230,9 @@ export function CommandMenu({
               {items.map((item, i) => (
                 <div key={item.id}>
                   {(i === 0 || items[i - 1].group !== item.group) && mode === 'root' && (
-                    <div className="px-2 pt-2 pb-1 text-[11px] font-medium text-gray-900">{item.group === 'Add' ? 'Add' : item.group}</div>
+                    <div data-group className="px-2 pt-2 pb-1 text-[11px] font-medium text-gray-900">
+                      {item.group}
+                    </div>
                   )}
                   <div
                     role="option"
@@ -245,7 +249,9 @@ export function CommandMenu({
                   >
                     {item.thumb}
                     {item.group === 'Add' && <Plus className="size-3.5 text-gray-900" />}
-                    <span className="truncate text-[13px]">{item.label}</span>{' '}
+                    <span className="truncate text-[13px]">
+                      <Marked text={item.label} ranges={item.marks ?? []} />
+                    </span>{' '}
                     {item.sub && <span className="text-[12px] text-gray-900">{item.sub}</span>}{' '}
                     <span className="ml-auto">{item.right}</span>
                   </div>
@@ -277,6 +283,18 @@ export function CommandMenu({
       </div>
     </div>
   )
+}
+
+/** A label with the matched parts in a mark. */
+function Marked({ text, ranges }: { text: string; ranges: [number, number][] }) {
+  const parts: ReactNode[] = []
+  let at = 0
+  for (const [a, b] of ranges) {
+    parts.push(text.slice(at, a), <mark key={a} className="bg-transparent font-semibold text-gray-1000">{text.slice(a, b)}</mark>)
+    at = b
+  }
+  parts.push(text.slice(at))
+  return parts
 }
 
 function Hint({ children }: { children: ReactNode }) {
