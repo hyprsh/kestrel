@@ -31,6 +31,20 @@ function heldLine(i: Indexer): string | null {
   }
 }
 
+/** "30 of 500 searches left today", or null when the indexer's limit is not known. */
+function budgetLeft(i: Indexer): string | null {
+  return i.search_max == null ? null : `${Math.max(0, i.search_max - i.search_used)} of ${i.search_max} searches left today`
+}
+
+/** One line per indexer worth a word: what holds its sweeps back, and its budget left when known. */
+function indexerLine(i: Indexer): { text: string; held: boolean } | null {
+  const held = heldLine(i)
+  // The budget hold already counts the searches.
+  const left = i.held === 'budget' ? null : budgetLeft(i)
+  if (held) return { text: left ? `${held} · ${left}` : held, held: true }
+  return left ? { text: `${i.name}: ${left}`, held: false } : null
+}
+
 export function Searching() {
   const s = useSearchStatus().data
   const openPlace = useOpenPlace()
@@ -51,7 +65,7 @@ export function Searching() {
   )
 }
 
-/** The search pipeline in a few lines: what waits, the pass, the last pass and held indexers. Activity's Searching stage shows it too. */
+/** The search pipeline in a few lines: what waits, the pass, the last pass and the indexers' budgets. Activity's Searching stage shows it too. */
 export function SearchSummary({ status: s }: { status: SearchStatus }) {
   const now = useNow()
   const main = [
@@ -59,7 +73,7 @@ export function SearchSummary({ status: s }: { status: SearchStatus }) {
     s.pass ? `searching ${s.pass.done} of ${s.pass.total}` : null,
     s.next_pass_at ? `next pass ${startsIn(s.next_pass_at, now)}` : null,
   ].filter(Boolean)
-  const held = s.indexers.map(heldLine).filter((l): l is string => l !== null)
+  const indexers = s.indexers.map(indexerLine).filter((l) => l !== null)
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-gray-alpha-400 px-4 py-3">
       <p className="font-medium">{main.join(' · ')}</p>
@@ -74,9 +88,9 @@ export function SearchSummary({ status: s }: { status: SearchStatus }) {
           {`Last pass at ${clockTime(s.last_pass.finished_at)} searched ${plural(s.last_pass.searched, 'Wanted Version')} and made ${plural(s.last_pass.grabbed, 'Grab')}`}
         </p>
       )}
-      {held.map((l) => (
-        <p key={l} className="text-[12px] text-amber-900">
-          {l}
+      {indexers.map((l) => (
+        <p key={l.text} className={l.held ? 'text-[12px] text-amber-900' : 'text-[12px] text-gray-900'}>
+          {l.text}
         </p>
       ))}
     </div>

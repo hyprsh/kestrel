@@ -80,4 +80,22 @@ describe('the Searching card on the Overview', () => {
     expect(c).toHaveTextContent('Beta out of budget for sweeps: 400 of 500 searches today')
     expect(c).toHaveTextContent(/Gamma backing off after errors until \d{1,2}:\d{2}/)
   })
+
+  it("shows each indexer's searches left today when its limit is known", async () => {
+    fakeStatus(
+      status({
+        indexers: [
+          indexer({ search_used: 30, search_max: 500 }),
+          indexer({ instance_id: 2, name: 'Alpha', search_used: 100, search_max: 100, held: 'request_limit', held_until: new Date(Date.now() + 3_600_000).toISOString() }),
+          indexer({ instance_id: 3, name: 'Unknown' }),
+        ],
+      }),
+    )
+
+    const c = await card()
+
+    expect(c).toHaveTextContent('NZBgeek: 470 of 500 searches left today')
+    expect(c).toHaveTextContent(/Alpha paused until \d{1,2}:\d{2}.* \(request limit\) · 0 of 100 searches left today/)
+    expect(c).not.toHaveTextContent('Unknown')
+  })
 })
