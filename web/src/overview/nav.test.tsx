@@ -42,8 +42,13 @@ describe('Overview rows', () => {
     )
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /recently added/i })
-    const [upgrade, first] = await within(section).findAllByRole('listitem')
+    // This is the first App render in its worker: on a loaded machine the cold boot (sign-in
+    // check, setup, then the Overview's queries) alone takes most of findBy's one second, and a
+    // role query over the whole App polled meanwhile costs hundreds of milliseconds a try. So
+    // wait once, on the row's text, with room for the boot, and look inside its section only.
+    await screen.findByText('Arrival.2016.2160p-GRP', undefined, { timeout: 4000 })
+    const section = screen.getByText(/^Recently added/).closest('section')!
+    const [upgrade, first] = within(section).getAllByRole('listitem')
     expect(upgrade).toHaveTextContent('Paddington.2014.1080p.BluRay-GRP')
     expect(upgrade).toHaveTextContent('+150')
     expect(first).toHaveTextContent('Arrival.2016.2160p-GRP')
