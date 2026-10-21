@@ -1,4 +1,6 @@
-// Times for live screens: "5 min ago", "for 2 h 5 min", "14:05", re-rendered as the clock moves.
+// Times for live screens: "5 min ago", "for 2 h 5 min", "14:05", re-rendered as the clock moves. A live
+// time counts in whole minutes, as the screen re-renders twice a minute: "just now" and "for under a
+// minute" agree, where "58 s" would already be stale. `span` is for lengths that do not move ("took 2 s").
 import { useEffect, useState } from 'react'
 
 /** Re-renders every half minute, so relative times count on between frames. */
@@ -26,6 +28,12 @@ export function span(ms: number): string {
 export function ago(iso: string, now: number): string {
   const ms = now - Date.parse(iso)
   return ms < 60_000 ? 'just now' : `${span(ms)} ago`
+}
+
+/** How long something has lasted since iso, in the grain of `ago`: "for under a minute", "for 5 min". */
+export function lasting(iso: string, now: number): string {
+  const ms = now - Date.parse(iso)
+  return ms < 60_000 ? 'for under a minute' : `for ${span(ms)}`
 }
 
 /** "14:05": the time of day, in the browser's locale. */

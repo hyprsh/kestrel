@@ -10,6 +10,7 @@ import { useOpenPlace } from '../place'
 import { Poster, TitlePoster } from '../poster'
 import { ago, useNow } from '../time'
 import { Badge, NavRow, type Tone } from '../ui'
+import { sourceName } from './source'
 
 type Slot = Request['slots'][number]
 
@@ -19,9 +20,6 @@ const reasons: Record<NonNullable<Request['reject_reason']>, { text: string; fix
   unknown_title: { text: 'TMDB does not know this Title' },
   no_enabled_profile: { text: 'No Profile is enabled for the Slot', fix: { label: 'Enable a Profile', path: '/settings/profiles' } },
 }
-
-/** "Silo" for the source "silo". */
-const sourceName = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
 /**
  * Where a Slot stands. The Request's own `download` is as of its last fetch; the live queue

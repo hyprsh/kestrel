@@ -81,6 +81,15 @@ describe('Activity', () => {
     expect(row).toHaveTextContent('1 min left')
   })
 
+  it('tells the times of a fresh Grab in one vocabulary, so grabbed and in-stage agree', async () => {
+    const now = new Date(Date.now() - 58_000).toISOString()
+    fakeQueue([queueItem({ phase: 'downloading', indexer: 'NZBgeek', grabbed_at: now, phase_since: now })])
+    await openActivity()
+
+    const row = within(await screen.findByRole('region', { name: 'Downloading · 1' })).getByRole('listitem')
+    expect(row).toHaveTextContent('grabbed just now · in this stage for under a minute')
+  })
+
   it('filters to one or more stages with the stage chips, each with its count, and keeps them in the address bar', async () => {
     fakeQueue([queueItem({ grab_id: 1, phase: 'downloading' })])
     fakeGrabs([grabEntry({ grab_id: 7, state: 'imported' }), grabEntry({ grab_id: 8, state: 'failed', failure: 'download_failed' })])

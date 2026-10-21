@@ -26,11 +26,11 @@ func (s *server) jobList(ctx context.Context) oapi.JobList {
 	out := oapi.JobList{Items: []oapi.Job{}}
 	for _, j := range s.jobs.Jobs() {
 		row := oapi.Job{Name: j.Name, Status: oapi.JobStatusIdle, Runnable: slices.Contains(byHand, j.Name)}
-		switch {
+		switch by := s.disabledBy(ctx, j.Name); {
 		case j.Running:
 			row.Status = oapi.JobStatusRunning
-		case s.disabled(ctx, j.Name):
-			row.Status = oapi.JobStatusDisabled
+		case by != nil:
+			row.Status, row.DisabledBy = oapi.JobStatusDisabled, by
 		}
 		if p := j.Last; p != nil {
 			row.LastRun = &oapi.JobRun{StartedAt: p.StartedAt, FinishedAt: p.FinishedAt, DurationMs: p.Took.Milliseconds()}
@@ -58,17 +58,25 @@ func msPtr(d time.Duration) *int64 {
 	return &ms
 }
 
-// disabled says whether a setting turns a loop's work off: it still checks
-// hourly, but does nothing.
-func (s *server) disabled(ctx context.Context, name string) bool {
+// disabledBy is the setting that turns a loop's work off, nil while none
+// does: the loop still checks hourly, but does nothing. The daily TRaSH check
+// asks GitHub too, so the GitHub switch turns it off before its own does.
+func (s *server) disabledBy(ctx context.Context, name string) *oapi.JobDisabledBy {
+	by := func(v oapi.JobDisabledBy) *oapi.JobDisabledBy { return &v }
 	switch name {
 	case jobs.Updates:
-		return !s.updates.Enabled(ctx)
+		if !s.updates.Enabled(ctx) {
+			return by(oapi.GithubCheck)
+		}
 	case jobs.Trash:
-		on, err := s.trash.AutoUpdate(ctx)
-		return err == nil && !on
+		if !s.updates.Enabled(ctx) {
+			return by(oapi.GithubCheck)
+		}
+		if on, err := s.trash.AutoUpdate(ctx); err == nil && !on {
+			return by(oapi.TrashAutoUpdate)
+		}
 	}
-	return false
+	return nil
 }
 
 func (s *server) RunJob(_ context.Context, r oapi.RunJobRequestObject) (oapi.RunJobResponseObject, error) {

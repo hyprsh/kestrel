@@ -172,3 +172,19 @@ func TestAStatusFilterPagesThroughTheMatchingRequestsOnly(t *testing.T) {
 		t.Errorf("next page = %v cursor %v total %d, want %v and no cursor", next.ids(), next.NextCursor, next.Total, open[2:])
 	}
 }
+
+func TestTheLogNamesARequestsSourceAsTheScreensDo(t *testing.T) {
+	t.Parallel()
+	s := newSearchBare(t)
+	s.valid("POST", "/requests", askedBy("r-1", "jellyseerr", "Ben", 116149, "standard"))
+
+	var got []string
+	for _, e := range s.events(t, "").Items {
+		if e.Kind == "request" {
+			got = append(got, e.Message)
+		}
+	}
+	if len(got) != 1 || got[0] != "Request from Ben via Jellyseerr" {
+		t.Errorf("Log = %q, want the Request from Ben via Jellyseerr", got)
+	}
+}

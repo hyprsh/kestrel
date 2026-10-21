@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/jobs"
 )
 
@@ -20,8 +21,9 @@ type jobJSON struct {
 		DurationMs int64     `json:"duration_ms"`
 		Error      *string   `json:"error"`
 	} `json:"last_run"`
-	NextAt   *time.Time `json:"next_at"`
-	Schedule struct {
+	NextAt     *time.Time `json:"next_at"`
+	DisabledBy *string    `json:"disabled_by"`
+	Schedule   struct {
 		EveryMs     int64  `json:"every_ms"`
 		BusyEveryMs *int64 `json:"busy_every_ms"`
 		RunsEveryMs *int64 `json:"runs_every_ms"`
@@ -106,8 +108,40 @@ func TestTheUpdatesJobIsDisabledWhenGitHubIsNotChecked(t *testing.T) {
 		t.Fatalf("PATCH /settings = %d %s", r.Status, r.Body)
 	}
 
-	if j := s.jobList(t)[jobs.Updates]; j.Status != "disabled" {
-		t.Errorf("updates = %+v, want disabled", j)
+	if j := s.jobList(t)[jobs.Updates]; j.Status != "disabled" || j.DisabledBy == nil || *j.DisabledBy != "github_check" {
+		t.Errorf("updates = %+v, want disabled by the GitHub check", j)
+	}
+}
+
+func TestTheTrashJobSaysWhichSwitchTurnsItOff(t *testing.T) {
+	t.Parallel()
+	s := newSearchBare(t, func(o *app.Options) { o.TrashSource = &trashSource{} })
+	patch := func(body string) {
+		t.Helper()
+		if r := s.valid("PATCH", "/settings", body); r.Status != 200 {
+			t.Fatalf("PATCH /settings %s = %d %s", body, r.Status, r.Body)
+		}
+	}
+	by := func() string {
+		t.Helper()
+		j := s.jobList(t)[jobs.Trash]
+		if j.DisabledBy == nil {
+			return j.Status
+		}
+		return j.Status + " by " + *j.DisabledBy
+	}
+
+	if got := by(); got != "idle" {
+		t.Errorf("trash with both switches on = %s, want idle", got)
+	}
+	patch(`{"trash":{"auto_update":false}}`)
+	if got := by(); got != "disabled by trash_auto_update" {
+		t.Errorf("trash without auto-update = %s, want disabled by trash_auto_update", got)
+	}
+	// The daily TRaSH check asks GitHub too, so the GitHub switch turns it off first.
+	patch(`{"trash":{"auto_update":true},"check_github_updates":false}`)
+	if got := by(); got != "disabled by github_check" {
+		t.Errorf("trash without the GitHub check = %s, want disabled by github_check", got)
 	}
 }
 

@@ -2936,6 +2936,13 @@ export interface components {
              * @enum {string}
              */
             status: "idle" | "running" | "disabled";
+            /**
+             * @description The setting that turns a `disabled` loop's work off: `github_check` ("Check GitHub for
+             *     updates", which `updates` and `trash` both need) or `trash_auto_update` (TRaSH's own daily
+             *     update switch). `null` unless `status` is `disabled`; later versions may add settings.
+             * @enum {string|null}
+             */
+            disabled_by: "github_check" | "trash_auto_update" | null;
             /** @description Whether `POST /jobs/{name}/run` runs it. */
             runnable: boolean;
             /** @description The last pass that finished since start; `null` before the first. */

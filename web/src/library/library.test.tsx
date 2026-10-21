@@ -210,7 +210,7 @@ describe('the Library detail pane', () => {
     )
     await openLibrary()
     const pane = await screen.findByRole('region', { name: /paddington/i })
-    expect(await within(pane).findByText('Requested by Anna via silo')).toBeInTheDocument()
+    expect(await within(pane).findByText('Requested by Anna via Silo')).toBeInTheDocument()
   })
 
   it('shows the poster when the Title has one', async () => {

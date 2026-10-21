@@ -12,7 +12,16 @@ type Job = components['schemas']['Job']
 const min = 60_000
 const at = (ms: number) => new Date(Date.now() + ms).toISOString()
 const every = (ms: number, more: Partial<Job['schedule']> = {}): Job['schedule'] => ({ every_ms: ms, busy_every_ms: null, runs_every_ms: null, ...more })
-const job = (over: Partial<Job>): Job => ({ name: 'rss', status: 'idle', runnable: true, last_run: null, next_at: null, schedule: every(5 * min), ...over })
+const job = (over: Partial<Job>): Job => ({
+  name: 'rss',
+  status: 'idle',
+  disabled_by: null,
+  runnable: true,
+  last_run: null,
+  next_at: null,
+  schedule: every(5 * min),
+  ...over,
+})
 const ran = (over: Partial<NonNullable<Job['last_run']>> = {}): Job['last_run'] => ({
   started_at: at(-5 * min - 2000),
   finished_at: at(-5 * min),
@@ -61,14 +70,30 @@ describe('Background jobs', () => {
       job({ name: 'search' }),
       job({ name: 'health', last_run: ran({ error: 'disk check: no such directory' }), next_at: at(3 * min) }),
       job({ name: 'refresh', status: 'running', last_run: ran() }),
-      job({ name: 'updates', status: 'disabled', runnable: false, last_run: ran(), next_at: at(40 * min) }),
     ])
     const section = await openJobs()
 
     expect(await rowOf(section, 'Search')).toHaveTextContent('Not run since start')
     expect(await rowOf(section, 'Health')).toHaveTextContent('Last run failed 5 min ago: disk check: no such directory')
     expect(await rowOf(section, 'Refresh')).toHaveTextContent('Running now')
-    expect(await rowOf(section, 'Updates')).toHaveTextContent('Disabled')
+  })
+
+  it('says which setting turns a disabled loop off, and promises no next run', async () => {
+    const daily = every(60 * min, { runs_every_ms: 24 * 60 * min })
+    fakeJobs([
+      job({ name: 'updates', status: 'disabled', disabled_by: 'github_check', runnable: false, last_run: ran(), next_at: at(40 * min), schedule: daily }),
+      job({ name: 'trash', status: 'disabled', disabled_by: 'trash_auto_update', runnable: false, last_run: ran(), next_at: at(40 * min), schedule: daily }),
+    ])
+    const section = await openJobs()
+
+    const updates = await rowOf(section, 'Updates')
+    expect(updates).toHaveTextContent('Disabled')
+    expect(updates).toHaveTextContent('Off while “Check GitHub for updates” is off in Settings › Updates')
+    const trash = await rowOf(section, 'TRaSH')
+    expect(trash).toHaveTextContent('Off while “Check TRaSH daily and update automatically” is off in Settings › TRaSH')
+    for (const row of [updates, trash]) {
+      expect(row).not.toHaveTextContent(/Next in|Last run|runs daily/)
+    }
   })
 
   it('runs the loops that are safe to run by hand', async () => {
