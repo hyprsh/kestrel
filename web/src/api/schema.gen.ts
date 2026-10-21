@@ -1612,6 +1612,12 @@ export interface paths {
          * Requests, newest first, or the named ones
          * @description `id` may repeat (at most 100) to read those Requests in one call, as the Silo plugin does; the
          *     other filters and the cursor are ignored then.
+         *
+         *     `source`, `status`, `outcome` and `requester` may each repeat: a Request matches any one of a
+         *     filter's values, and every filter given. `status` is derived on read like each Slot's: `rejected`
+         *     is a rejected Request, `completed` an accepted one whose every Slot is completed, and `open` an
+         *     accepted one with a Slot still queued or downloading. An accepted Request with a Slot whose
+         *     Version was removed since, and none still on its way, is neither open nor completed.
          */
         get: operations["listRequests"];
         put?: never;
@@ -3569,6 +3575,14 @@ export interface components {
             reject_reason: "not_on_tvdb" | "unknown_title" | "no_enabled_profile" | null;
             /** Format: int64 */
             title_id: number | null;
+            /**
+             * @description The Title's name: the Library's while the Title is there, else the name it had when the
+             *     Request was made (a rejected Request, or a Title removed since). `null` when Kestrel never
+             *     learnt one, such as for `unknown_title`.
+             */
+            title: string | null;
+            /** @description Whether `GET /titles/{title_id}/poster` serves a poster; false without a Title in the Library. */
+            has_poster: boolean;
             /** @description The seasons asked for; empty for a Movie or the whole Series. */
             seasons: number[];
             /** Format: date-time */
@@ -3578,6 +3592,8 @@ export interface components {
         RequestList: {
             items: components["schemas"]["Request"][];
             next_cursor: string | null;
+            /** @description How many Requests match the filters, across every page. */
+            total: number;
         };
         /** @description Who asked for a Title and from where, for "Requested by Anna via Silo". */
         RequestOrigin: {
@@ -5465,7 +5481,12 @@ export interface operations {
     listRequests: {
         parameters: {
             query?: {
-                source?: string;
+                /** @description Where the Request came from, such as `silo`. */
+                source?: string[];
+                status?: ("open" | "completed" | "rejected")[];
+                outcome?: ("accepted" | "rejected")[];
+                /** @description Who asked, by the requester's `id`, or `name` ignoring case. */
+                requester?: string[];
                 title_id?: number;
                 id?: number[];
                 limit?: number;

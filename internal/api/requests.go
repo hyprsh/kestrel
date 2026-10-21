@@ -20,6 +20,7 @@ func requestToAPI(r requests.Request) oapi.Request {
 		Id: r.ID, Source: r.Source, SourceRequestId: r.SourceRequestID, Outcome: oapi.RequestOutcome(r.Outcome),
 		Requester: oapi.Requester{Id: r.RequesterID, Name: r.RequesterName}, CreatedAt: r.CreatedAt,
 		Seasons: append([]int{}, r.Seasons...), Slots: make([]oapi.RequestSlot, 0, len(r.Slots)),
+		Title: strPtr(r.TitleName), HasPoster: r.HasPoster,
 	}
 	if r.TitleID != 0 {
 		out.TitleId = &r.TitleID
@@ -130,7 +131,26 @@ func (s *server) ListRequests(ctx context.Context, r oapi.ListRequestsRequestObj
 		f.IDs = *p.Id
 	}
 	if p.Source != nil {
-		f.Source = *p.Source
+		f.Sources = *p.Source
+	}
+	if p.Requester != nil {
+		f.Requesters = *p.Requester
+	}
+	if p.Outcome != nil {
+		for _, o := range *p.Outcome {
+			if !o.Valid() {
+				return nil, invalid("outcome", "invalid", "outcome is accepted or rejected")
+			}
+			f.Outcomes = append(f.Outcomes, requests.Outcome(o))
+		}
+	}
+	if p.Status != nil {
+		for _, st := range *p.Status {
+			if !st.Valid() {
+				return nil, invalid("status", "invalid", "status is open, completed or rejected")
+			}
+			f.States = append(f.States, requests.State(st))
+		}
 	}
 	if p.TitleId != nil {
 		f.TitleID = *p.TitleId
@@ -147,7 +167,12 @@ func (s *server) ListRequests(ctx context.Context, r oapi.ListRequestsRequestObj
 	if err != nil {
 		return nil, err
 	}
-	out := oapi.RequestList{Items: []oapi.Request{}}
+	out := oapi.RequestList{Items: []oapi.Request{}, Total: len(list)}
+	if len(f.IDs) == 0 {
+		if out.Total, err = s.requests.Count(ctx, f); err != nil {
+			return nil, err
+		}
+	}
 	if len(f.IDs) == 0 && len(list) > limit {
 		list = list[:limit]
 		cursor := base64.RawURLEncoding.EncodeToString([]byte(strconv.FormatInt(list[limit-1].ID, 10)))

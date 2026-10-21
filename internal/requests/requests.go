@@ -14,6 +14,7 @@ package requests
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -115,11 +116,16 @@ type Request struct {
 	RequesterID     string
 	RequesterName   string
 	TitleID         int64 // 0 when rejected
-	Outcome         Outcome
-	Reason          Reason
-	CreatedAt       time.Time
-	Seasons         []int
-	Slots           []SlotStatus
+	// TitleName is the Library's name for the Title while it is there, else
+	// the one stored when the Request came in; "" when Kestrel never learnt one.
+	TitleName string
+	// HasPoster is whether the Library holds a poster for the Title.
+	HasPoster bool
+	Outcome   Outcome
+	Reason    Reason
+	CreatedAt time.Time
+	Seasons   []int
+	Slots     []SlotStatus
 }
 
 // Result is what Submit did.
@@ -187,6 +193,17 @@ type target struct {
 	seasons  map[int]bool
 }
 
+// name is the Title's name as far as Kestrel learnt it; "" when it did not.
+func (t target) name() string {
+	switch {
+	case t.existing != nil:
+		return t.existing.Title
+	case t.movie.Title != "":
+		return t.movie.Title
+	}
+	return t.series.Title
+}
+
 // Submit takes a Request on. A retry of a stored (source, source_request_id)
 // returns the stored one. A Request Kestrel cannot serve is stored as rejected.
 func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
@@ -218,7 +235,7 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 		return Result{}, err
 	}
 	if reason != "" {
-		return s.store(ctx, in, prior, 0, nil, reason)
+		return s.store(ctx, in, prior, tgt.name(), 0, nil, reason)
 	}
 	if in.Seasons != nil {
 		for _, n := range in.Seasons {
@@ -253,14 +270,14 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 		if key == "" {
 			r, err := profiles.Resolve(all, kind, sl.Slot)
 			if errors.Is(err, profiles.ErrNoEnabledProfile) {
-				return s.store(ctx, in, prior, 0, nil, NoEnabledProfile)
+				return s.store(ctx, in, prior, tgt.name(), 0, nil, NoEnabledProfile)
 			}
 			if err != nil {
 				return Result{}, err
 			}
 			key = r.Key
 		} else if p := profileByKey(all, key); !p.Enabled {
-			return s.store(ctx, in, prior, 0, nil, NoEnabledProfile)
+			return s.store(ctx, in, prior, tgt.name(), 0, nil, NoEnabledProfile)
 		}
 		chosen[sl.Slot] = key
 		specs = append(specs, library.VersionSpec{Slot: sl.Slot, Profile: key})
@@ -283,7 +300,7 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 		v := versionOf[sl.Slot]
 		slots = append(slots, slotRow{slot: sl.Slot, profile: v.Profile, versionID: v.ID})
 	}
-	res, err := s.store(ctx, in, prior, titleID, slots, "")
+	res, err := s.store(ctx, in, prior, d.Title, titleID, slots, "")
 	res.SearchDue = searchDue
 	return res, err
 }
@@ -398,6 +415,7 @@ func (s *Service) resolveTitle(ctx context.Context, in Input) (target, Reason, e
 	if err != nil {
 		return t, "", err
 	}
+	t.series = sd // named even when rejected
 	if tvdbID == 0 {
 		return t, NotOnTVDB, nil
 	}
@@ -535,7 +553,7 @@ type slotRow struct {
 // one wins on the unique key and its stored Request is returned instead. prior
 // is the stored rejection this one re-evaluates: it stands while the Request is
 // rejected again, and gives way to an accepted one.
-func (s *Service) store(ctx context.Context, in Input, prior *db.Request, titleID int64, slots []slotRow, reason Reason) (Result, error) {
+func (s *Service) store(ctx context.Context, in Input, prior *db.Request, name string, titleID int64, slots []slotRow, reason Reason) (Result, error) {
 	accepted := reason == ""
 	if prior != nil && !accepted {
 		r, err := s.view(ctx, *prior)
@@ -564,7 +582,7 @@ func (s *Service) store(ctx context.Context, in Input, prior *db.Request, titleI
 	}
 	id, err := q.InsertRequest(ctx, db.InsertRequestParams{
 		Source: in.Source, SourceRequestID: in.SourceRequestID, RequesterID: in.RequesterID, RequesterName: in.RequesterName,
-		TitleID: sql.NullInt64{Int64: titleID, Valid: titleID != 0}, Outcome: outcome, RejectReason: rr, CreatedAt: ts(s.d.Clock()),
+		TitleID: sql.NullInt64{Int64: titleID, Valid: titleID != 0}, TitleName: name, Outcome: outcome, RejectReason: rr, CreatedAt: ts(s.d.Clock()),
 	})
 	if err != nil {
 		tx.Rollback()
@@ -606,52 +624,168 @@ func (s *Service) Get(ctx context.Context, id int64) (Request, error) {
 	return s.view(ctx, row)
 }
 
-// Filter narrows List.
+// State is where a whole Request stands, derived from its Slots on every read.
+type State string
+
+const (
+	// StateOpen is an accepted Request with a Slot still queued or downloading.
+	StateOpen State = "open"
+	// StateCompleted is an accepted Request whose every Slot is completed.
+	StateCompleted State = "completed"
+	// StateRejected is a rejected Request.
+	StateRejected State = "rejected"
+)
+
+// State is the Request's State; "" for an accepted Request with nothing on its
+// way and a Slot whose Version was removed since, which is neither.
+func (r Request) State() State {
+	if r.Outcome == Rejected {
+		return StateRejected
+	}
+	done := len(r.Slots) > 0
+	for _, sl := range r.Slots {
+		switch sl.Status {
+		case Queued, Downloading:
+			return StateOpen
+		case Completed:
+		default:
+			done = false
+		}
+	}
+	if done {
+		return StateCompleted
+	}
+	return ""
+}
+
+// Filter narrows List. A Request matches any one value of a list, and every
+// list given.
 type Filter struct {
-	Source  string
-	TitleID int64
+	Sources  []string
+	TitleID  int64
+	Outcomes []Outcome
+	// Requesters match a requester's id, or name ignoring case.
+	Requesters []string
+	States     []State
 	// IDs, when set, are the only Requests returned (a bulk read).
 	IDs []int64
 	// Before is a keyset cursor: only Requests with a smaller id.
 	Before int64
-	Limit  int
+	// Limit caps the Requests returned; 0 returns all.
+	Limit int
+}
+
+// derived reports whether matching needs each Request's derived State: the
+// database cannot tell open from completed.
+func (f Filter) derived() bool {
+	return slices.Contains(f.States, StateOpen) || slices.Contains(f.States, StateCompleted)
+}
+
+// params is the query for f; false when nothing can match.
+func (f Filter) params() (db.ListRequestsParams, bool) {
+	outcomes := f.Outcomes
+	if len(f.States) > 0 {
+		var allowed []Outcome
+		if slices.Contains(f.States, StateRejected) {
+			allowed = append(allowed, Rejected)
+		}
+		if f.derived() {
+			allowed = append(allowed, Accepted)
+		}
+		if len(outcomes) > 0 {
+			allowed = slices.DeleteFunc(allowed, func(o Outcome) bool { return !slices.Contains(outcomes, o) })
+		}
+		if len(allowed) == 0 {
+			return db.ListRequestsParams{}, false
+		}
+		outcomes = allowed
+	}
+	return db.ListRequestsParams{Sources: jsonList(f.Sources), TitleID: f.TitleID, Outcomes: jsonList(outcomes), Requesters: jsonList(f.Requesters)}, true
+}
+
+// jsonList is a list filter's query argument: a JSON array for json_each, or
+// NULL (no filter) when the list is empty.
+func jsonList[T any](v []T) any {
+	if len(v) == 0 {
+		return nil
+	}
+	b, _ := json.Marshal(v)
+	return string(b)
 }
 
 // List returns Requests newest first.
 func (s *Service) List(ctx context.Context, f Filter) ([]Request, error) {
-	var rows []db.Request
+	q := db.New(s.d.Store.Read())
+	c := s.cache()
+	out := []Request{}
 	if len(f.IDs) > 0 {
 		for _, id := range f.IDs {
-			row, err := db.New(s.d.Store.Read()).GetRequest(ctx, id)
+			row, err := q.GetRequest(ctx, id)
 			if errors.Is(err, sql.ErrNoRows) {
 				continue
 			}
 			if err != nil {
 				return nil, err
 			}
-			rows = append(rows, row)
+			r, err := s.viewWith(ctx, row, c)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, r)
 		}
-	} else {
-		before := f.Before
-		if before == 0 {
-			before = 1 << 62
-		}
-		var err error
-		rows, err = db.New(s.d.Store.Read()).ListRequests(ctx, db.ListRequestsParams{Before: before, Source: f.Source, TitleID: f.TitleID, Max: int64(f.Limit)})
+		return out, nil
+	}
+	p, ok := f.params()
+	if !ok {
+		return out, nil
+	}
+	p.Before = f.Before
+	if p.Before == 0 {
+		p.Before = 1 << 62
+	}
+	// A State filter reads on past the Requests it drops, a batch at a time.
+	batch := f.Limit
+	if f.derived() || batch <= 0 {
+		batch = max(batch, 100)
+	}
+	p.Max = int64(batch)
+	for {
+		rows, err := q.ListRequests(ctx, p)
 		if err != nil {
 			return nil, err
 		}
-	}
-	out := make([]Request, 0, len(rows))
-	c := s.cache()
-	for _, row := range rows {
-		r, err := s.viewWith(ctx, row, c)
-		if err != nil {
-			return nil, err
+		for _, row := range rows {
+			r, err := s.viewWith(ctx, row, c)
+			if err != nil {
+				return nil, err
+			}
+			if len(f.States) > 0 && !slices.Contains(f.States, r.State()) {
+				continue
+			}
+			if out = append(out, r); len(out) == f.Limit {
+				return out, nil
+			}
 		}
-		out = append(out, r)
+		if len(rows) < batch {
+			return out, nil
+		}
+		p.Before = rows[len(rows)-1].ID
 	}
-	return out, nil
+}
+
+// Count is how many Requests match f, across every page.
+func (s *Service) Count(ctx context.Context, f Filter) (int, error) {
+	if f.derived() {
+		f.Before, f.Limit = 0, 0
+		all, err := s.List(ctx, f)
+		return len(all), err
+	}
+	p, ok := f.params()
+	if !ok {
+		return 0, nil
+	}
+	n, err := db.New(s.d.Store.Read()).CountRequests(ctx, db.CountRequestsParams{Sources: p.Sources, TitleID: p.TitleID, Outcomes: p.Outcomes, Requesters: p.Requesters})
+	return int(n), err
 }
 
 // Origin is who asked for a Title and from where.
@@ -688,6 +822,27 @@ func (s *Service) cache() *cache {
 	return &cache{details: map[int64]*library.Detail{}, eps: map[int64][]library.Episode{}}
 }
 
+// detail is the Library's Title, loaded once per read; nil when it is gone.
+func (s *Service) detail(ctx context.Context, id int64, c *cache) (*library.Detail, error) {
+	if d, ok := c.details[id]; ok {
+		return d, nil
+	}
+	region, _, err := s.d.Profiles.Region(ctx)
+	if err != nil {
+		return nil, err
+	}
+	got, err := s.d.Library.Get(ctx, id, library.View{Country: region.Country, Now: s.d.Clock()})
+	if errors.Is(err, library.ErrNotFound) {
+		c.details[id] = nil
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	c.details[id] = &got
+	return &got, nil
+}
+
 func (s *Service) view(ctx context.Context, row db.Request) (Request, error) {
 	return s.viewWith(ctx, row, s.cache())
 }
@@ -697,7 +852,16 @@ func (s *Service) viewWith(ctx context.Context, row db.Request, c *cache) (Reque
 	created, _ := time.Parse(time.RFC3339, row.CreatedAt)
 	r := Request{
 		ID: row.ID, Source: row.Source, SourceRequestID: row.SourceRequestID, RequesterID: row.RequesterID, RequesterName: row.RequesterName,
-		TitleID: row.TitleID.Int64, Outcome: Outcome(row.Outcome), Reason: Reason(row.RejectReason.String), CreatedAt: created,
+		TitleID: row.TitleID.Int64, TitleName: row.TitleName, Outcome: Outcome(row.Outcome), Reason: Reason(row.RejectReason.String), CreatedAt: created,
+	}
+	if r.TitleID != 0 {
+		d, err := s.detail(ctx, r.TitleID, c)
+		if err != nil {
+			return r, err
+		}
+		if d != nil {
+			r.TitleName, r.HasPoster = d.Title, d.PosterPath != ""
+		}
 	}
 	seasons, err := q.ListSeasonsOfRequest(ctx, row.ID)
 	if err != nil {
@@ -741,23 +905,14 @@ func (s *Service) derive(ctx context.Context, r *Request, st *SlotStatus, wasFil
 		st.Status, st.Label = Failed, "Removed"
 		return nil
 	}
-	d := c.details[r.TitleID]
+	d, err := s.detail(ctx, r.TitleID, c)
+	if err != nil {
+		return err
+	}
 	if d == nil {
-		region, _, err := s.d.Profiles.Region(ctx)
-		if err != nil {
-			return err
-		}
-		got, err := s.d.Library.Get(ctx, r.TitleID, library.View{Country: region.Country, Now: s.d.Clock()})
-		if errors.Is(err, library.ErrNotFound) {
-			st.VersionID = 0
-			st.Status, st.Label = Failed, "Removed"
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		d = &got
-		c.details[r.TitleID] = d
+		st.VersionID = 0
+		st.Status, st.Label = Failed, "Removed"
+		return nil
 	}
 	var v *library.Version
 	for i := range d.Versions {

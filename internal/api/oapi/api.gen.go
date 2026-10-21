@@ -642,16 +642,16 @@ func (e ReleaseDateEntryType) Valid() bool {
 
 // Defines values for RequestOutcome.
 const (
-	Accepted RequestOutcome = "accepted"
-	Rejected RequestOutcome = "rejected"
+	RequestOutcomeAccepted RequestOutcome = "accepted"
+	RequestOutcomeRejected RequestOutcome = "rejected"
 )
 
 // Valid indicates whether the value is a known member of the RequestOutcome enum.
 func (e RequestOutcome) Valid() bool {
 	switch e {
-	case Accepted:
+	case RequestOutcomeAccepted:
 		return true
-	case Rejected:
+	case RequestOutcomeRejected:
 		return true
 	default:
 		return false
@@ -1120,6 +1120,45 @@ func (e ListGrabsParamsState) Valid() bool {
 	case ListGrabsParamsStateImporting:
 		return true
 	case ListGrabsParamsStateSent:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListRequestsParamsStatus.
+const (
+	ListRequestsParamsStatusCompleted ListRequestsParamsStatus = "completed"
+	ListRequestsParamsStatusOpen      ListRequestsParamsStatus = "open"
+	ListRequestsParamsStatusRejected  ListRequestsParamsStatus = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the ListRequestsParamsStatus enum.
+func (e ListRequestsParamsStatus) Valid() bool {
+	switch e {
+	case ListRequestsParamsStatusCompleted:
+		return true
+	case ListRequestsParamsStatusOpen:
+		return true
+	case ListRequestsParamsStatusRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListRequestsParamsOutcome.
+const (
+	ListRequestsParamsOutcomeAccepted ListRequestsParamsOutcome = "accepted"
+	ListRequestsParamsOutcomeRejected ListRequestsParamsOutcome = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the ListRequestsParamsOutcome enum.
+func (e ListRequestsParamsOutcome) Valid() bool {
+	switch e {
+	case ListRequestsParamsOutcomeAccepted:
+		return true
+	case ListRequestsParamsOutcomeRejected:
 		return true
 	default:
 		return false
@@ -2452,7 +2491,10 @@ type ReleaseSearch struct {
 
 // Request defines model for Request.
 type Request struct {
-	CreatedAt    time.Time            `json:"created_at"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// HasPoster Whether `GET /titles/{title_id}/poster` serves a poster; false without a Title in the Library.
+	HasPoster    bool                 `json:"has_poster"`
 	Id           int64                `json:"id"`
 	Outcome      RequestOutcome       `json:"outcome"`
 	RejectReason *RequestRejectReason `json:"reject_reason"`
@@ -2463,7 +2505,12 @@ type Request struct {
 	Slots           []RequestSlot `json:"slots"`
 	Source          string        `json:"source"`
 	SourceRequestId string        `json:"source_request_id"`
-	TitleId         *int64        `json:"title_id"`
+
+	// Title The Title's name: the Library's while the Title is there, else the name it had when the
+	// Request was made (a rejected Request, or a Title removed since). `null` when Kestrel never
+	// learnt one, such as for `unknown_title`.
+	Title   *string `json:"title"`
+	TitleId *int64  `json:"title_id"`
 }
 
 // RequestOutcome defines model for Request.Outcome.
@@ -2511,6 +2558,9 @@ type RequestDownload struct {
 type RequestList struct {
 	Items      []Request `json:"items"`
 	NextCursor *string   `json:"next_cursor"`
+
+	// Total How many Requests match the filters, across every page.
+	Total int `json:"total"`
 }
 
 // RequestOrigin Who asked for a Title and from where, for "Requested by Anna via Silo".
@@ -3357,12 +3407,24 @@ type TestPluginInstanceJSONBody struct {
 
 // ListRequestsParams defines parameters for ListRequests.
 type ListRequestsParams struct {
-	Source  *string  `form:"source,omitempty" json:"source,omitempty"`
-	TitleId *int64   `form:"title_id,omitempty" json:"title_id,omitempty"`
-	Id      *[]int64 `form:"id,omitempty" json:"id,omitempty"`
-	Limit   *int     `form:"limit,omitempty" json:"limit,omitempty"`
-	Cursor  *string  `form:"cursor,omitempty" json:"cursor,omitempty"`
+	// Source Where the Request came from, such as `silo`.
+	Source  *[]string                    `form:"source,omitempty" json:"source,omitempty"`
+	Status  *[]ListRequestsParamsStatus  `form:"status,omitempty" json:"status,omitempty"`
+	Outcome *[]ListRequestsParamsOutcome `form:"outcome,omitempty" json:"outcome,omitempty"`
+
+	// Requester Who asked, by the requester's `id`, or `name` ignoring case.
+	Requester *[]string `form:"requester,omitempty" json:"requester,omitempty"`
+	TitleId   *int64    `form:"title_id,omitempty" json:"title_id,omitempty"`
+	Id        *[]int64  `form:"id,omitempty" json:"id,omitempty"`
+	Limit     *int      `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor    *string   `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
+
+// ListRequestsParamsStatus defines parameters for ListRequests.
+type ListRequestsParamsStatus string
+
+// ListRequestsParamsOutcome defines parameters for ListRequests.
+type ListRequestsParamsOutcome string
 
 // ListTitlesParams defines parameters for ListTitles.
 type ListTitlesParams struct {
@@ -5193,13 +5255,52 @@ func (siw *ServerInterfaceWrapper) ListRequests(w http.ResponseWriter, r *http.R
 
 	// ------------- Optional query parameter "source" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "source", r.URL.Query(), &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "source", r.URL.Query(), &params.Source, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "source"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "source", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "outcome" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "outcome", r.URL.Query(), &params.Outcome, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "outcome"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "outcome", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "requester" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "requester", r.URL.Query(), &params.Requester, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "requester"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "requester", Err: err})
 		}
 		return
 	}
