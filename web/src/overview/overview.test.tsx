@@ -3,47 +3,10 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
-import type { components } from '../api/schema.gen'
-import { http } from '../test/handlers'
 import { fakeLibrary, row } from '../test/library'
-import { server } from '../test/server'
-
-type QueueItem = components['schemas']['QueueItem']
+import { fakeQueue, queueItem as item } from '../test/queue'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
-
-const item = (over: Partial<QueueItem> = {}): QueueItem => ({
-  grab_id: 1,
-  title_id: 5,
-  has_poster: false,
-  version_id: 11,
-  title: 'Paddington',
-  year: 2014,
-  slot: 'standard',
-  episodes: [],
-  release_name: 'Paddington.2014.1080p.BluRay.x264-GRP',
-  phase: 'downloading',
-  bytes_total: 8000,
-  bytes_left: 2000,
-  eta: 125,
-  is_upgrade: false,
-  score_delta: null,
-  ...over,
-})
-
-function fakeQueue(items: QueueItem[]) {
-  const state = { items, cancels: [] as { id: string; body: unknown }[] }
-  server.use(
-    http.get('/queue', ({ response }) => response(200).json({ items: state.items })),
-    http.post('/grabs/{id}/cancel', async ({ params, request, response }) => {
-      const text = await request.clone().text()
-      state.cancels.push({ id: String(params.id), body: text ? JSON.parse(text) : null })
-      state.items = state.items.filter((i) => String(i.grab_id) !== String(params.id))
-      return response(204).empty()
-    }),
-  )
-  return state
-}
 
 describe('Overview', () => {
   it('is the home screen and shows "Downloading now" with phase, progress, ETA and Slot', async () => {
