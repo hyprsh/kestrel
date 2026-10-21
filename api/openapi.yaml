@@ -1914,12 +1914,42 @@ paths:
       description: |
         `id` may repeat (at most 100) to read those Requests in one call, as the Silo plugin does; the
         other filters and the cursor are ignored then.
+
+        `source`, `status`, `outcome` and `requester` may each repeat: a Request matches any one of a
+        filter's values, and every filter given. `status` is derived on read like each Slot's: `rejected`
+        is a rejected Request, `completed` an accepted one whose every Slot is completed, and `open` an
+        accepted one with a Slot still queued or downloading. An accepted Request with a Slot whose
+        Version was removed since, and none still on its way, is neither open nor completed.
       tags: [requests]
       parameters:
         - name: source
           in: query
+          description: Where the Request came from, such as `silo`.
           schema:
-            type: string
+            type: array
+            items:
+              type: string
+        - name: status
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [open, completed, rejected]
+        - name: outcome
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [accepted, rejected]
+        - name: requester
+          in: query
+          description: Who asked, by the requester's `id`, or `name` ignoring case.
+          schema:
+            type: array
+            items:
+              type: string
         - name: title_id
           in: query
           schema:
@@ -5088,7 +5118,7 @@ components:
             $ref: "#/components/schemas/RequestSlot"
     RequestList:
       type: object
-      required: [items, next_cursor]
+      required: [items, next_cursor, total]
       properties:
         items:
           type: array
@@ -5097,6 +5127,9 @@ components:
         next_cursor:
           type: string
           nullable: true
+        total:
+          type: integer
+          description: How many Requests match the filters, across every page.
     RequestOrigin:
       type: object
       required: [id, source, requester_name, created_at]

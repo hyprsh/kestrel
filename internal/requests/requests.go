@@ -14,6 +14,7 @@ package requests
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -623,52 +624,168 @@ func (s *Service) Get(ctx context.Context, id int64) (Request, error) {
 	return s.view(ctx, row)
 }
 
-// Filter narrows List.
+// State is where a whole Request stands, derived from its Slots on every read.
+type State string
+
+const (
+	// StateOpen is an accepted Request with a Slot still queued or downloading.
+	StateOpen State = "open"
+	// StateCompleted is an accepted Request whose every Slot is completed.
+	StateCompleted State = "completed"
+	// StateRejected is a rejected Request.
+	StateRejected State = "rejected"
+)
+
+// State is the Request's State; "" for an accepted Request with nothing on its
+// way and a Slot whose Version was removed since, which is neither.
+func (r Request) State() State {
+	if r.Outcome == Rejected {
+		return StateRejected
+	}
+	done := len(r.Slots) > 0
+	for _, sl := range r.Slots {
+		switch sl.Status {
+		case Queued, Downloading:
+			return StateOpen
+		case Completed:
+		default:
+			done = false
+		}
+	}
+	if done {
+		return StateCompleted
+	}
+	return ""
+}
+
+// Filter narrows List. A Request matches any one value of a list, and every
+// list given.
 type Filter struct {
-	Source  string
-	TitleID int64
+	Sources  []string
+	TitleID  int64
+	Outcomes []Outcome
+	// Requesters match a requester's id, or name ignoring case.
+	Requesters []string
+	States     []State
 	// IDs, when set, are the only Requests returned (a bulk read).
 	IDs []int64
 	// Before is a keyset cursor: only Requests with a smaller id.
 	Before int64
-	Limit  int
+	// Limit caps the Requests returned; 0 returns all.
+	Limit int
+}
+
+// derived reports whether matching needs each Request's derived State: the
+// database cannot tell open from completed.
+func (f Filter) derived() bool {
+	return slices.Contains(f.States, StateOpen) || slices.Contains(f.States, StateCompleted)
+}
+
+// params is the query for f; false when nothing can match.
+func (f Filter) params() (db.ListRequestsParams, bool) {
+	outcomes := f.Outcomes
+	if len(f.States) > 0 {
+		var allowed []Outcome
+		if slices.Contains(f.States, StateRejected) {
+			allowed = append(allowed, Rejected)
+		}
+		if f.derived() {
+			allowed = append(allowed, Accepted)
+		}
+		if len(outcomes) > 0 {
+			allowed = slices.DeleteFunc(allowed, func(o Outcome) bool { return !slices.Contains(outcomes, o) })
+		}
+		if len(allowed) == 0 {
+			return db.ListRequestsParams{}, false
+		}
+		outcomes = allowed
+	}
+	return db.ListRequestsParams{Sources: jsonList(f.Sources), TitleID: f.TitleID, Outcomes: jsonList(outcomes), Requesters: jsonList(f.Requesters)}, true
+}
+
+// jsonList is a list filter's query argument: a JSON array for json_each, or
+// NULL (no filter) when the list is empty.
+func jsonList[T any](v []T) any {
+	if len(v) == 0 {
+		return nil
+	}
+	b, _ := json.Marshal(v)
+	return string(b)
 }
 
 // List returns Requests newest first.
 func (s *Service) List(ctx context.Context, f Filter) ([]Request, error) {
-	var rows []db.Request
+	q := db.New(s.d.Store.Read())
+	c := s.cache()
+	out := []Request{}
 	if len(f.IDs) > 0 {
 		for _, id := range f.IDs {
-			row, err := db.New(s.d.Store.Read()).GetRequest(ctx, id)
+			row, err := q.GetRequest(ctx, id)
 			if errors.Is(err, sql.ErrNoRows) {
 				continue
 			}
 			if err != nil {
 				return nil, err
 			}
-			rows = append(rows, row)
+			r, err := s.viewWith(ctx, row, c)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, r)
 		}
-	} else {
-		before := f.Before
-		if before == 0 {
-			before = 1 << 62
-		}
-		var err error
-		rows, err = db.New(s.d.Store.Read()).ListRequests(ctx, db.ListRequestsParams{Before: before, Source: f.Source, TitleID: f.TitleID, Max: int64(f.Limit)})
+		return out, nil
+	}
+	p, ok := f.params()
+	if !ok {
+		return out, nil
+	}
+	p.Before = f.Before
+	if p.Before == 0 {
+		p.Before = 1 << 62
+	}
+	// A State filter reads on past the Requests it drops, a batch at a time.
+	batch := f.Limit
+	if f.derived() || batch <= 0 {
+		batch = max(batch, 100)
+	}
+	p.Max = int64(batch)
+	for {
+		rows, err := q.ListRequests(ctx, p)
 		if err != nil {
 			return nil, err
 		}
-	}
-	out := make([]Request, 0, len(rows))
-	c := s.cache()
-	for _, row := range rows {
-		r, err := s.viewWith(ctx, row, c)
-		if err != nil {
-			return nil, err
+		for _, row := range rows {
+			r, err := s.viewWith(ctx, row, c)
+			if err != nil {
+				return nil, err
+			}
+			if len(f.States) > 0 && !slices.Contains(f.States, r.State()) {
+				continue
+			}
+			if out = append(out, r); len(out) == f.Limit {
+				return out, nil
+			}
 		}
-		out = append(out, r)
+		if len(rows) < batch {
+			return out, nil
+		}
+		p.Before = rows[len(rows)-1].ID
 	}
-	return out, nil
+}
+
+// Count is how many Requests match f, across every page.
+func (s *Service) Count(ctx context.Context, f Filter) (int, error) {
+	if f.derived() {
+		f.Before, f.Limit = 0, 0
+		all, err := s.List(ctx, f)
+		return len(all), err
+	}
+	p, ok := f.params()
+	if !ok {
+		return 0, nil
+	}
+	n, err := db.New(s.d.Store.Read()).CountRequests(ctx, db.CountRequestsParams{Sources: p.Sources, TitleID: p.TitleID, Outcomes: p.Outcomes, Requesters: p.Requesters})
+	return int(n), err
 }
 
 // Origin is who asked for a Title and from where.

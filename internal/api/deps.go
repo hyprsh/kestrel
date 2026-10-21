@@ -165,6 +165,7 @@ type Requests interface {
 	Submit(ctx context.Context, in requests.Input) (requests.Result, error)
 	OriginsOf(ctx context.Context, titleID int64) ([]requests.Origin, error)
 	List(ctx context.Context, f requests.Filter) ([]requests.Request, error)
+	Count(ctx context.Context, f requests.Filter) (int, error)
 	Get(ctx context.Context, id int64) (requests.Request, error)
 }
 

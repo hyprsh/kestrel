@@ -10,6 +10,34 @@ import (
 	"database/sql"
 )
 
+const countRequests = `-- name: CountRequests :one
+SELECT count(*) FROM requests
+WHERE (?1 IS NULL OR source IN (SELECT value FROM json_each(?1)))
+  AND (?2 = 0 OR title_id = ?2)
+  AND (?3 IS NULL OR outcome IN (SELECT value FROM json_each(?3)))
+  AND (?4 IS NULL OR requester_id IN (SELECT value FROM json_each(?4))
+       OR lower(requester_name) IN (SELECT lower(value) FROM json_each(?4)))
+`
+
+type CountRequestsParams struct {
+	Sources    interface{}
+	TitleID    interface{}
+	Outcomes   interface{}
+	Requesters interface{}
+}
+
+func (q *Queries) CountRequests(ctx context.Context, arg CountRequestsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRequests,
+		arg.Sources,
+		arg.TitleID,
+		arg.Outcomes,
+		arg.Requesters,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteRequest = `-- name: DeleteRequest :exec
 DELETE FROM requests WHERE id = ?
 `
@@ -141,24 +169,32 @@ func (q *Queries) InsertRequestSlot(ctx context.Context, arg InsertRequestSlotPa
 const listRequests = `-- name: ListRequests :many
 SELECT id, source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at, title_name FROM requests
 WHERE id < ?1
-  AND (?2 = '' OR source = ?2)
+  AND (?2 IS NULL OR source IN (SELECT value FROM json_each(?2)))
   AND (?3 = 0 OR title_id = ?3)
+  AND (?4 IS NULL OR outcome IN (SELECT value FROM json_each(?4)))
+  AND (?5 IS NULL OR requester_id IN (SELECT value FROM json_each(?5))
+       OR lower(requester_name) IN (SELECT lower(value) FROM json_each(?5)))
 ORDER BY id DESC
-LIMIT ?4
+LIMIT ?6
 `
 
 type ListRequestsParams struct {
-	Before  int64
-	Source  interface{}
-	TitleID interface{}
-	Max     int64
+	Before     int64
+	Sources    interface{}
+	TitleID    interface{}
+	Outcomes   interface{}
+	Requesters interface{}
+	Max        int64
 }
 
+// A list filter is a JSON array of the values to match any of, or NULL for none.
 func (q *Queries) ListRequests(ctx context.Context, arg ListRequestsParams) ([]Request, error) {
 	rows, err := q.db.QueryContext(ctx, listRequests,
 		arg.Before,
-		arg.Source,
+		arg.Sources,
 		arg.TitleID,
+		arg.Outcomes,
+		arg.Requesters,
 		arg.Max,
 	)
 	if err != nil {
