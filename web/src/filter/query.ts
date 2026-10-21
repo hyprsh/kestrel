@@ -146,6 +146,20 @@ export function withValue(input: string, name: string, value: string, qualifiers
   return input.slice(0, start) + termText({ ...term, values: [...term.values, value] }) + input.slice(end)
 }
 
+/** The filter with `value` taken out of each `name:` that has it; a qualifier left with no value goes. */
+export function withoutValue(input: string, name: string, value: string, qualifiers: readonly Qualifier[]): string {
+  const terms = parse(input, qualifiers).terms
+  let out = input
+  // Right to left, so the spans of the terms still to edit stay where they were.
+  for (let i = terms.length - 1; i >= 0; i--) {
+    const t = terms[i]
+    if (t.name !== name || t.negated || !t.values.includes(value)) continue
+    if (t.values.length === 1) out = withoutTerm(out, i, qualifiers)
+    else out = out.slice(0, t.span[0]) + termText({ ...t, values: t.values.filter((v) => v !== value) }) + out.slice(t.span[1])
+  }
+  return out
+}
+
 /** The filter without its `index`th term, and the space before it (or else after it). */
 export function withoutTerm(input: string, index: number, qualifiers: readonly Qualifier[]): string {
   const term = parse(input, qualifiers).terms[index]

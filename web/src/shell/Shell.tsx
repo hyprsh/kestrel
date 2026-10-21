@@ -1,7 +1,8 @@
 // The Geist shell: a thin icon rail plus a top bar with the command-menu entry.
 // Ported from the prototype's variant C; screens arrive with later tickets.
 import { About } from '../about/About'
-import { CalendarClock, Inbox, Info, LibraryBig, LogOut, Monitor, Moon, Plus, ScrollText, Search, Settings, Sun } from 'lucide-react'
+import { Activity } from '../activity/Activity'
+import { Activity as ActivityIcon, CalendarClock, Inbox, Info, LibraryBig, LogOut, Monitor, Moon, Plus, ScrollText, Search, Settings, Sun } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAttention } from '../api/attention'
@@ -28,6 +29,7 @@ const screens = [
   { key: 'overview', label: 'Overview', icon: <Inbox className={icon} /> },
   { key: 'library', label: 'Library', icon: <LibraryBig className={icon} /> },
   { key: 'upcoming', label: 'Upcoming', icon: <CalendarClock className={icon} /> },
+  { key: 'activity', label: 'Activity', icon: <ActivityIcon className={icon} /> },
   { key: 'log', label: 'Log', icon: <ScrollText className={icon} /> },
   { key: 'settings', label: 'Settings', icon: <Settings className={icon} /> },
 ]
@@ -166,6 +168,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
             <About />
           ) : screen === 'log' ? (
             <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} />
+          ) : screen === 'activity' ? (
+            <Activity query={query} onQuery={(q) => setFilter({ screen: 'activity', q })} onOpenTitle={openTitle} />
           ) : screen === 'upcoming' ? (
             <Upcoming onOpenTitle={openTitle} />
           ) : (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parse, suggest, withoutTerm, withValue, type Qualifier } from './query'
+import { parse, suggest, withoutTerm, withoutValue, withValue, type Qualifier } from './query'
 
 const qualifiers: Qualifier[] = [
   { name: 'kind', help: 'what happened', values: ['grab', 'grab_failed', 'import_rejected', 'health_raised'], negatable: true },
@@ -79,5 +79,13 @@ describe('editing a filter', () => {
     expect(withoutTerm(input, 1, qualifiers)).toBe('kind:grab heat title:"Breaking Bad"')
     expect(withoutTerm(input, 0, qualifiers)).toBe('heat  slot:4k title:"Breaking Bad"')
     expect(withoutTerm(input, 2, qualifiers)).toBe('kind:grab heat  slot:4k')
+  })
+
+  it('takes one value out of every qualifier of that name that has it, and the qualifier with its last value', () => {
+    expect(withoutValue('kind:grab,grab_failed heat', 'kind', 'grab', qualifiers)).toBe('kind:grab_failed heat')
+    expect(withoutValue('heat kind:grab slot:4k', 'kind', 'grab', qualifiers)).toBe('heat slot:4k')
+    expect(withoutValue('kind:grab kind:grab,health_raised', 'kind', 'grab', qualifiers)).toBe('kind:health_raised')
+    expect(withoutValue('-kind:grab heat', 'kind', 'grab', qualifiers)).toBe('-kind:grab heat')
+    expect(withoutValue('heat', 'kind', 'grab', qualifiers)).toBe('heat')
   })
 })
