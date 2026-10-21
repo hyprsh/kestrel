@@ -210,6 +210,8 @@ type Jobs interface {
 	Running() []string
 	// Search is the search pipeline, as the Search loop keeps it.
 	Search() jobs.SearchStatus
+	// Jobs lists the loops with their last pass and next due time.
+	Jobs() []jobs.Job
 }
 
 // Refresher refreshes a Title from the metadata providers in the background.

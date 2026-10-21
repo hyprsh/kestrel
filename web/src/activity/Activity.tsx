@@ -3,6 +3,7 @@
 // file in activity/ with an element id `activity-<section>`, so a place such as
 // "/activity/running" scrolls to it (Shell's goPath). The pipeline's filter is the screen's
 // `?q=`: "/activity?q=stage:done" opens it on the Done stage.
+import { BackgroundJobs } from './BackgroundJobs'
 import { Pipeline } from './Pipeline'
 import type { Running } from './running'
 import { RunningNow } from './RunningNow'
@@ -27,8 +28,8 @@ export function Activity({
   return (
     <div className="min-h-0 flex-1 overflow-auto">
       <RunningNow running={running} onOpenAdoption={onOpenAdoption} onOpenTitle={onOpenTitle} />
-      {/* "Background jobs" (activity-jobs) goes below the pipeline. */}
       <Pipeline query={query} onQuery={onQuery} onOpenTitle={onOpenTitle} />
+      <BackgroundJobs />
     </div>
   )
 }

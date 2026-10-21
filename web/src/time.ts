@@ -27,3 +27,9 @@ export function ago(iso: string, now: number): string {
   const ms = now - Date.parse(iso)
   return ms < 60_000 ? 'just now' : `${span(ms)} ago`
 }
+
+/** "in 3 min", or "any moment" once it is due. */
+export function until(iso: string, now: number): string {
+  const ms = Date.parse(iso) - now
+  return ms <= 0 ? 'any moment' : `in ${span(ms)}`
+}

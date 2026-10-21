@@ -152,6 +152,18 @@ describe('the live stream', () => {
     expect(a.getQueryData(['search'])).toEqual({ due: { versions: 120, episodes: 0, upgrades: 3 }, pass: null })
   })
 
+  it('keeps the background jobs from their frames', async () => {
+    const deps = fakeBrowser()
+    const a = tab()
+    startLiveStream(a, deps)
+    await flush()
+
+    open()[0].emit('jobs', { items: [{ name: 'rss', status: 'running' }] })
+    await flush()
+
+    expect(a.getQueryData(['jobs'])).toEqual({ items: [{ name: 'rss', status: 'running' }] })
+  })
+
   it('does nothing where there is no EventSource', () => {
     const stop = startLiveStream(tab(), null)
     stop()

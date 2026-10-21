@@ -388,6 +388,27 @@ func (e IndexerStatusState) Valid() bool {
 	}
 }
 
+// Defines values for JobStatus.
+const (
+	JobStatusDisabled JobStatus = "disabled"
+	JobStatusIdle     JobStatus = "idle"
+	JobStatusRunning  JobStatus = "running"
+)
+
+// Valid indicates whether the value is a known member of the JobStatus enum.
+func (e JobStatus) Valid() bool {
+	switch e {
+	case JobStatusDisabled:
+		return true
+	case JobStatusIdle:
+		return true
+	case JobStatusRunning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MeMethod.
 const (
 	ApiKey  MeMethod = "api_key"
@@ -1762,6 +1783,47 @@ type IndexerStatus struct {
 
 // IndexerStatusState defines model for IndexerStatus.State.
 type IndexerStatusState string
+
+// Job defines model for Job.
+type Job struct {
+	// LastRun The last pass that finished since start; `null` before the first.
+	LastRun *JobRun `json:"last_run"`
+
+	// Name The loop: `poll`, `search`, `import`, `prune`, `health`, `refresh`, `trash`, `updates`
+	// or `rss`. A loop whose module is not configured is not listed; later versions may add loops.
+	Name string `json:"name"`
+
+	// NextAt When the next pass is due; `null` while one runs and before the loops start.
+	NextAt *time.Time `json:"next_at"`
+
+	// Runnable Whether `POST /jobs/{name}/run` runs it.
+	Runnable bool `json:"runnable"`
+
+	// Status `running` while a pass is in flight; `disabled` when a setting turns its work off (`updates`
+	// without "Check GitHub for updates", `trash` without TRaSH auto-update), though it still checks
+	// hourly; otherwise `idle`.
+	Status JobStatus `json:"status"`
+}
+
+// JobStatus `running` while a pass is in flight; `disabled` when a setting turns its work off (`updates`
+// without "Check GitHub for updates", `trash` without TRaSH auto-update), though it still checks
+// hourly; otherwise `idle`.
+type JobStatus string
+
+// JobList defines model for JobList.
+type JobList struct {
+	Items []Job `json:"items"`
+}
+
+// JobRun defines model for JobRun.
+type JobRun struct {
+	DurationMs int64 `json:"duration_ms"`
+
+	// Error Why the pass failed; `null` when it succeeded.
+	Error      *string   `json:"error"`
+	FinishedAt time.Time `json:"finished_at"`
+	StartedAt  time.Time `json:"started_at"`
+}
 
 // LongMissing defines model for LongMissing.
 type LongMissing struct {
@@ -3849,6 +3911,12 @@ type ServerInterface interface {
 	// RetryGrabImport Retry a stalled Import now
 	// (POST /grabs/{id}/retry-import)
 	RetryGrabImport(w http.ResponseWriter, r *http.Request, id GrabId)
+	// ListJobs The background jobs
+	// (GET /jobs)
+	ListJobs(w http.ResponseWriter, r *http.Request)
+	// RunJob Run a background job now
+	// (POST /jobs/{name}/run)
+	RunJob(w http.ResponseWriter, r *http.Request, name string)
 	// Lookup Search the metadata provider for Titles to add
 	// (GET /lookup)
 	Lookup(w http.ResponseWriter, r *http.Request, params LookupParams)
@@ -4695,6 +4763,46 @@ func (siw *ServerInterfaceWrapper) RetryGrabImport(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RetryGrabImport(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListJobs operation middleware
+func (siw *ServerInterfaceWrapper) ListJobs(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListJobs(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RunJob operation middleware
+func (siw *ServerInterfaceWrapper) RunJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RunJob(w, r, name)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -6278,6 +6386,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/cleanup/run", wrapper.RunCleanup)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/wanted/search", wrapper.SearchAllWanted)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/search/status", wrapper.GetSearchStatus)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/jobs", wrapper.ListJobs)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/jobs/{name}/run", wrapper.RunJob)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/system/status", wrapper.GetSystemStatus)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/about", wrapper.GetAbout)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/about/notices", wrapper.GetNotices)
@@ -7755,6 +7865,107 @@ type RetryGrabImportdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response RetryGrabImportdefaultApplicationProblemPlusJSONResponse) VisitRetryGrabImportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListJobsRequestObject struct {
+}
+
+type ListJobsResponseObject interface {
+	VisitListJobsResponse(w http.ResponseWriter) error
+}
+
+type ListJobs200JSONResponse JobList
+
+func (response ListJobs200JSONResponse) VisitListJobsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListJobsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListJobsdefaultApplicationProblemPlusJSONResponse) VisitListJobsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RunJobRequestObject struct {
+	Name string `json:"name"`
+}
+
+type RunJobResponseObject interface {
+	VisitRunJobResponse(w http.ResponseWriter) error
+}
+
+type RunJob202Response struct {
+}
+
+func (response RunJob202Response) VisitRunJobResponse(w http.ResponseWriter) error {
+	w.WriteHeader(202)
+	return nil
+}
+
+type RunJob404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RunJob404ApplicationProblemPlusJSONResponse) VisitRunJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RunJob409ApplicationProblemPlusJSONResponse Problem
+
+func (response RunJob409ApplicationProblemPlusJSONResponse) VisitRunJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RunJobdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response RunJobdefaultApplicationProblemPlusJSONResponse) VisitRunJobResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -11047,6 +11258,12 @@ type StrictServerInterface interface {
 	// RetryGrabImport Retry a stalled Import now
 	// (POST /grabs/{id}/retry-import)
 	RetryGrabImport(ctx context.Context, request RetryGrabImportRequestObject) (RetryGrabImportResponseObject, error)
+	// ListJobs The background jobs
+	// (GET /jobs)
+	ListJobs(ctx context.Context, request ListJobsRequestObject) (ListJobsResponseObject, error)
+	// RunJob Run a background job now
+	// (POST /jobs/{name}/run)
+	RunJob(ctx context.Context, request RunJobRequestObject) (RunJobResponseObject, error)
 	// Lookup Search the metadata provider for Titles to add
 	// (GET /lookup)
 	Lookup(ctx context.Context, request LookupRequestObject) (LookupResponseObject, error)
@@ -12009,6 +12226,56 @@ func (sh *strictHandler) RetryGrabImport(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RetryGrabImportResponseObject); ok {
 		if err := validResponse.VisitRetryGrabImportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListJobs operation middleware
+func (sh *strictHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
+	var request ListJobsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListJobs(ctx, request.(ListJobsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListJobs")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListJobsResponseObject); ok {
+		if err := validResponse.VisitListJobsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RunJob operation middleware
+func (sh *strictHandler) RunJob(w http.ResponseWriter, r *http.Request, name string) {
+	var request RunJobRequestObject
+
+	request.Name = name
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RunJob(ctx, request.(RunJobRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RunJob")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RunJobResponseObject); ok {
+		if err := validResponse.VisitRunJobResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
