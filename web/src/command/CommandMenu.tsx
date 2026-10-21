@@ -5,7 +5,7 @@ import { KindIcon } from '../library/bits'
 import { ratingsText } from '../library/Ratings'
 import { Badge, cx, Kbd } from '../ui'
 import { AddConfirm } from './AddConfirm'
-import { Poster } from '../poster'
+import { Poster, TitlePoster } from '../poster'
 
 export type MenuMode = 'root' | 'add'
 
@@ -23,9 +23,12 @@ type Item = {
   /** Items that change the menu itself, or close it on their own, leave it open when run. */
   keepOpen?: boolean
   run: () => void
-  /** A search result's poster thumbnail; null draws an empty frame. */
-  thumb?: string | null
+  /** A Title's poster thumbnail, drawn in the taller row. */
+  thumb?: ReactNode
 }
+
+/** The size of a row's poster thumbnail. */
+const thumbSize = 'h-10 w-7 rounded-sm'
 
 /** Waits for typing to pause before a value is used, so a search is not sent per keystroke. */
 function useDebounced<T>(value: T, ms: number): T {
@@ -82,7 +85,7 @@ export function CommandMenu({
         sub: [r.year, ratingsText(r.ratings)].filter(Boolean).join(' · ') || undefined,
         disabled: !r.addable,
         keepOpen: true,
-        thumb: r.poster,
+        thumb: <Poster src={r.poster} className={thumbSize} />,
         right: (
           <span className="flex items-center gap-1.5">
             {r.in_library !== null && <Badge tone="green">In library</Badge>}
@@ -129,6 +132,7 @@ export function CommandMenu({
               group: 'Titles' as const,
               label: t.title,
               sub: t.year ? String(t.year) : undefined,
+              thumb: <TitlePoster id={t.id} hasPoster={t.has_poster} className={thumbSize} />,
               right: <KindIcon kind={t.kind} className="text-gray-900" />,
               run: () => onOpenTitle(t.id),
             }))
@@ -239,7 +243,7 @@ export function CommandMenu({
                       item.disabled && 'opacity-50',
                     )}
                   >
-                    {item.thumb !== undefined && <Poster src={item.thumb} className="h-10 w-7 rounded-sm" />}
+                    {item.thumb}
                     {item.group === 'Add' && <Plus className="size-3.5 text-gray-900" />}
                     <span className="truncate text-[13px]">{item.label}</span>{' '}
                     {item.sub && <span className="text-[12px] text-gray-900">{item.sub}</span>}{' '}

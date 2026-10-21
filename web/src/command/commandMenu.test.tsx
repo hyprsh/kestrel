@@ -109,6 +109,19 @@ describe('the command menu', () => {
     expect(await screen.findByRole('option', { name: /zodiac/i, selected: true })).toBeInTheDocument()
   })
 
+  it('shows a Library Title with its poster, or an empty frame when it has none', async () => {
+    fakeLibrary([row(1, 'Heat', 'Heat', { has_poster: true }), row(2, 'Heatwave', 'Heatwave')])
+    renderApp()
+    const menu = await openMenu()
+    await userEvent.keyboard('heat')
+
+    const withPoster = await within(menu).findByRole('option', { name: /^heat\b(?!wave)/i })
+    expect(withPoster.querySelector('[data-poster] img')).toHaveAttribute('src', expect.stringMatching(/\/titles\/1\/poster$/))
+    const without = within(menu).getByRole('option', { name: /heatwave/i })
+    expect(without.querySelector('[data-poster]')).toBeInTheDocument()
+    expect(without.querySelector('[data-poster] img')).toBeNull() // no request that would 404
+  })
+
   it('searches once across both kinds, marking a Movie already in the Library', async () => {
     const f = fakeLookup()
     renderApp()
