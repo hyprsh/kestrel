@@ -49,6 +49,9 @@ const (
 	// one pass; the oldest-searched Versions go first and the rest follow on later passes.
 	UpgradesPerPass = 5
 	importEvery     = time.Minute
+	// dueRecount is how often the Search status recounts what is due between
+	// passes: one scan of the due Versions, shared by every open stream.
+	dueRecount = time.Minute
 	// importWorkers is how many Imports run at once.
 	importWorkers = 2
 	pruneCheck    = time.Hour
@@ -177,6 +180,19 @@ func Standard(d Deps) *Runner {
 		return err
 	})
 
+	r.recount = func(ctx context.Context) error {
+		now := d.Clock()
+		missing, err := d.Library.DueMissing(ctx, now)
+		if err != nil {
+			return err
+		}
+		upgrades, err := d.Library.DueUpgrades(ctx, now, 0)
+		if err != nil {
+			return err
+		}
+		r.search.recount(missing, upgrades)
+		return nil
+	}
 	r.Add(Loop{
 		Name:     Search,
 		Run:      func(ctx context.Context) error { return searchDue(ctx, r, d) },

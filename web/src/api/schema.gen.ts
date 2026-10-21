@@ -3079,7 +3079,10 @@ export interface components {
             versions: number;
         };
         SearchStatus: {
-            /** @description What waits for a search, as the last pass found it less what it has searched since. */
+            /**
+             * @description What waits for a search: as the running pass found it less what it has searched since, and
+             *     between passes recounted about once a minute.
+             */
             due: {
                 /** @description Wanted Versions due a missing search. A Series Version counts once. */
                 versions: number;

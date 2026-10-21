@@ -41,6 +41,33 @@ func TestAfterAPassTheSearchStatusSaysWhatItSearchedAndGrabbedAndWhatIsStillWait
 	}
 }
 
+func TestBetweenPassesARecountKeepsWhatIsDueCurrent(t *testing.T) {
+	a := &fakeAcquire{outcome: func(_ int64, v []int64) (acquire.Outcome, error) { return acquire.Outcome{Searched: v}, nil }}
+	l := &fakeLibrary{marked: map[int64]bool{}, upgraded: map[int64]bool{}, due: []library.Due{{VersionID: 11, TitleID: 1}}}
+	r := standard(a, l)
+	if err := r.Pass(context.Background(), jobs.Search); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.Search().Due; got != (jobs.SearchDue{}) {
+		t.Fatalf("due after the pass = %+v, want nothing", got)
+	}
+
+	// A Version comes due, and another is due an Upgrade, after the pass.
+	l.due = append(l.due, library.Due{VersionID: 21, TitleID: 2, Episodes: 4})
+	l.upgrades = []library.Due{{VersionID: 31, TitleID: 3}}
+	if err := r.RecountDue(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	got := r.Search()
+	if got.Due != (jobs.SearchDue{Versions: 1, Episodes: 4, Upgrades: 1}) {
+		t.Errorf("due after a recount = %+v, want the new Version with its 4 episodes and the Upgrade", got.Due)
+	}
+	if got.Last == nil || got.Last.Searched != 1 {
+		t.Errorf("last pass = %+v, want it kept", got.Last)
+	}
+}
+
 func TestTheSearchStatusSaysWhenTheNextPassStarts(t *testing.T) {
 	a := &fakeAcquire{outcome: func(_ int64, v []int64) (acquire.Outcome, error) { return acquire.Outcome{Searched: v}, nil }}
 	r := standard(a, &fakeLibrary{marked: map[int64]bool{}, upgraded: map[int64]bool{}})

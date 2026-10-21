@@ -2736,7 +2736,8 @@ type SearchPassResult struct {
 
 // SearchStatus defines model for SearchStatus.
 type SearchStatus struct {
-	// Due What waits for a search, as the last pass found it less what it has searched since.
+	// Due What waits for a search: as the running pass found it less what it has searched since, and
+	// between passes recounted about once a minute.
 	Due struct {
 		// Episodes The Wanted episodes of the Series Versions among them.
 		Episodes int `json:"episodes"`

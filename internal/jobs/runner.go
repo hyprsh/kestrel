@@ -104,6 +104,8 @@ type Runner struct {
 	startup []startup
 	stop    []func()
 	search  *searchTracker
+	// recount refreshes the Search status's due counts; nil without a Search loop.
+	recount func(ctx context.Context) error
 }
 
 // New returns a Runner. A nil logger means slog.Default().
@@ -260,6 +262,13 @@ func (r *Runner) Run(ctx context.Context) error {
 			r.drive(ctx, l)
 		}()
 	}
+	if r.recount != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			r.recountEvery(ctx, dueRecount)
+		}()
+	}
 	wg.Wait()
 	r.mu.Lock()
 	stop := slices.Clone(r.stop)
@@ -268,6 +277,35 @@ func (r *Runner) Run(ctx context.Context) error {
 		f()
 	}
 	return ctx.Err()
+}
+
+// RecountDue recounts what waits for the Search loop, so the Search status
+// stays current between passes. A pass running now keeps its own count, so it
+// does nothing then.
+func (r *Runner) RecountDue(ctx context.Context) error {
+	r.mu.Lock()
+	l := r.loops[Search]
+	r.mu.Unlock()
+	if r.recount == nil || l == nil || !l.mu.TryLock() {
+		return nil
+	}
+	defer l.mu.Unlock()
+	return r.recount(ctx)
+}
+
+func (r *Runner) recountEvery(ctx context.Context, every time.Duration) {
+	t := time.NewTicker(every)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if err := r.RecountDue(ctx); err != nil && ctx.Err() == nil {
+				r.log.Warn("recounting what is due a search failed", "err", err)
+			}
+		}
+	}
 }
 
 func (r *Runner) drive(ctx context.Context, l *loop) {

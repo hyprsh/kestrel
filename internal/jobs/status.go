@@ -12,8 +12,8 @@ import (
 // how the last one went.
 type SearchStatus struct {
 	// Due is what waits for a search: what the last pass found due, less what
-	// it has searched since. Versions that come due between passes show at the
-	// next pass, at most searchEvery later ("Search all Wanted" kicks one at once).
+	// it has searched since. Between passes a recount every dueRecount brings
+	// in the Versions that came due since ("Search all Wanted" kicks a pass at once).
 	Due SearchDue
 	// Pass is the pass running now; nil between passes.
 	Pass *SearchPass
@@ -70,7 +70,25 @@ func (t *searchTracker) begin(at time.Time, missing []library.Due) {
 	}
 	t.st.Pass = &SearchPass{StartedAt: at, Total: len(missing)}
 	t.cur = SearchPassResult{}
-	t.recount()
+	t.count()
+}
+
+// recount replaces what is due with a fresh count, between passes only: a
+// pass keeps its own as it goes.
+func (t *searchTracker) recount(missing, upgrades []library.Due) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.st.Pass != nil {
+		return
+	}
+	t.missing, t.upgrades = map[int64]int{}, map[int64]int{}
+	for _, d := range missing {
+		t.missing[d.VersionID] = d.Episodes
+	}
+	for _, d := range upgrades {
+		t.upgrades[d.VersionID] = 0
+	}
+	t.count()
 }
 
 // upgradesDue records the Versions due an Upgrade search now.
@@ -81,7 +99,7 @@ func (t *searchTracker) upgradesDue(upgrades []library.Due) {
 	for _, d := range upgrades {
 		t.upgrades[d.VersionID] = 0
 	}
-	t.recount()
+	t.count()
 }
 
 // searched records one search's outcome: of the Versions it was asked for
@@ -104,10 +122,10 @@ func (t *searchTracker) searched(upgrade bool, tried, versions []int64, grabs in
 		}
 	}
 	t.cur.Grabbed += grabs
-	t.recount()
+	t.count()
 }
 
-func (t *searchTracker) recount() {
+func (t *searchTracker) count() {
 	d := SearchDue{Versions: len(t.missing), Upgrades: len(t.upgrades)}
 	for _, n := range t.missing {
 		d.Episodes += n

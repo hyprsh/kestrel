@@ -4399,7 +4399,9 @@ components:
       properties:
         due:
           type: object
-          description: What waits for a search, as the last pass found it less what it has searched since.
+          description: |
+            What waits for a search: as the running pass found it less what it has searched since, and
+            between passes recounted about once a minute.
           required: [versions, episodes, upgrades]
           properties:
             versions:
