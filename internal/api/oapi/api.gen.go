@@ -319,6 +319,36 @@ func (e GrabState) Valid() bool {
 	}
 }
 
+// Defines values for GrabEntryState.
+const (
+	GrabEntryStateCompleted   GrabEntryState = "completed"
+	GrabEntryStateDownloading GrabEntryState = "downloading"
+	GrabEntryStateFailed      GrabEntryState = "failed"
+	GrabEntryStateImported    GrabEntryState = "imported"
+	GrabEntryStateImporting   GrabEntryState = "importing"
+	GrabEntryStateSent        GrabEntryState = "sent"
+)
+
+// Valid indicates whether the value is a known member of the GrabEntryState enum.
+func (e GrabEntryState) Valid() bool {
+	switch e {
+	case GrabEntryStateCompleted:
+		return true
+	case GrabEntryStateDownloading:
+		return true
+	case GrabEntryStateFailed:
+		return true
+	case GrabEntryStateImported:
+		return true
+	case GrabEntryStateImporting:
+		return true
+	case GrabEntryStateSent:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for IndexerStatusState.
 const (
 	IndexerStatusStateDisabled IndexerStatusState = "disabled"
@@ -1027,6 +1057,36 @@ func (e ListAdoptionRowsParamsFilter) Valid() bool {
 	}
 }
 
+// Defines values for ListGrabsParamsState.
+const (
+	ListGrabsParamsStateCompleted   ListGrabsParamsState = "completed"
+	ListGrabsParamsStateDownloading ListGrabsParamsState = "downloading"
+	ListGrabsParamsStateFailed      ListGrabsParamsState = "failed"
+	ListGrabsParamsStateImported    ListGrabsParamsState = "imported"
+	ListGrabsParamsStateImporting   ListGrabsParamsState = "importing"
+	ListGrabsParamsStateSent        ListGrabsParamsState = "sent"
+)
+
+// Valid indicates whether the value is a known member of the ListGrabsParamsState enum.
+func (e ListGrabsParamsState) Valid() bool {
+	switch e {
+	case ListGrabsParamsStateCompleted:
+		return true
+	case ListGrabsParamsStateDownloading:
+		return true
+	case ListGrabsParamsStateFailed:
+		return true
+	case ListGrabsParamsStateImported:
+		return true
+	case ListGrabsParamsStateImporting:
+		return true
+	case ListGrabsParamsStateSent:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListTitlesParamsSort.
 const (
 	AddedAt     ListTitlesParamsSort = "added_at"
@@ -1569,6 +1629,62 @@ type GrabCreate struct {
 	VersionId int64  `json:"version_id"`
 }
 
+// GrabEntry A Grab as the Activity screen shows it, joined with its Title and Slot.
+type GrabEntry struct {
+	// BlocklistReason The reason of the Blocklist entry the Grab's Release got, null when it is not blocklisted.
+	BlocklistReason *string `json:"blocklist_reason"`
+
+	// Episodes The episodes a Series Grab covers (`S01E02`); empty for a Movie.
+	Episodes []string `json:"episodes"`
+
+	// Failure Why a failed Grab failed, such as `download_failed`, `encrypted`, `discarded` or what the Import rejected.
+	Failure   *string   `json:"failure"`
+	GrabId    int64     `json:"grab_id"`
+	GrabbedAt time.Time `json:"grabbed_at"`
+
+	// HasPoster Whether `GET /titles/{id}/poster` serves a poster for the Title; false when the Title was deleted.
+	HasPoster   bool       `json:"has_poster"`
+	Indexer     string     `json:"indexer"`
+	IsUpgrade   bool       `json:"is_upgrade"`
+	Kind        *TitleKind `json:"kind"`
+	ReleaseName string     `json:"release_name"`
+	Score       int        `json:"score"`
+	Size        int64      `json:"size"`
+	Slot        *Slot      `json:"slot"`
+
+	// Stalled Set while the Import waits for the environment to be fixed.
+	Stalled *GrabStall     `json:"stalled"`
+	State   GrabEntryState `json:"state"`
+
+	// Title The Title's name, empty when the Title was deleted.
+	Title   string `json:"title"`
+	TitleId *int64 `json:"title_id"`
+
+	// UpdatedAt When the Grab's state last changed; for a finished Grab, when it finished.
+	UpdatedAt time.Time `json:"updated_at"`
+	VersionId *int64    `json:"version_id"`
+	Year      *int      `json:"year"`
+}
+
+// GrabEntryState defines model for GrabEntry.State.
+type GrabEntryState string
+
+// GrabList defines model for GrabList.
+type GrabList struct {
+	Items      []GrabEntry `json:"items"`
+	NextCursor *string     `json:"next_cursor"`
+}
+
+// GrabStall defines model for GrabStall.
+type GrabStall struct {
+	// NextAt When the Import is tried again on its own.
+	NextAt time.Time `json:"next_at"`
+
+	// Reason What is wrong, such as `disk full`.
+	Reason string    `json:"reason"`
+	Since  time.Time `json:"since"`
+}
+
 // IndexerError defines model for IndexerError.
 type IndexerError struct {
 	// Code The plugin error code (`auth`, `unavailable`, `rate_limited`, `invalid`, `not_found`).
@@ -2066,18 +2182,34 @@ type QueueItem struct {
 	Episodes []string `json:"episodes"`
 
 	// Eta Seconds left, null when the client does not know.
-	Eta    *int  `json:"eta"`
-	GrabId int64 `json:"grab_id"`
+	Eta       *int      `json:"eta"`
+	GrabId    int64     `json:"grab_id"`
+	GrabbedAt time.Time `json:"grabbed_at"`
 
 	// HasPoster Whether `GET /titles/{id}/poster` serves a poster for the Title; false when the Title was deleted.
-	HasPoster   bool           `json:"has_poster"`
-	IsUpgrade   bool           `json:"is_upgrade"`
-	Phase       QueueItemPhase `json:"phase"`
-	ReleaseName string         `json:"release_name"`
+	HasPoster bool `json:"has_poster"`
+
+	// Indexer The indexer the Release came from.
+	Indexer   string `json:"indexer"`
+	IsUpgrade bool   `json:"is_upgrade"`
+
+	// Kind The Title's kind, null when the Title was deleted.
+	Kind  *TitleKind     `json:"kind"`
+	Phase QueueItemPhase `json:"phase"`
+
+	// PhaseSince When the Grab entered its `phase`, as far as Kestrel knows. A phase only the download client
+	// reports (`paused`, `post_processing`, `queued` after `downloading`) counts from the poll that
+	// first saw it, and after a restart from the Grab's last change of state.
+	PhaseSince  time.Time `json:"phase_since"`
+	ReleaseName string    `json:"release_name"`
+	Score       int       `json:"score"`
 
 	// ScoreDelta For an Upgrade, how many points the Release scores above the file it replaces.
-	ScoreDelta *int  `json:"score_delta"`
-	Slot       *Slot `json:"slot"`
+	ScoreDelta *int `json:"score_delta"`
+
+	// Size The Release's size as the indexer gave it; `bytes_total` is the client's.
+	Size int64 `json:"size"`
+	Slot *Slot `json:"slot"`
 
 	// Title The Title's name, empty when the Title was deleted.
 	Title     string `json:"title"`
@@ -3094,6 +3226,18 @@ type ListEventsParams struct {
 	Limit       *int      `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListGrabsParams defines parameters for ListGrabs.
+type ListGrabsParams struct {
+	State   *[]ListGrabsParamsState `form:"state,omitempty" json:"state,omitempty"`
+	Stalled *bool                   `form:"stalled,omitempty" json:"stalled,omitempty"`
+	Since   *time.Time              `form:"since,omitempty" json:"since,omitempty"`
+	Limit   *int                    `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor  *string                 `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListGrabsParamsState defines parameters for ListGrabs.
+type ListGrabsParamsState string
+
 // LookupParams defines parameters for Lookup.
 type LookupParams struct {
 	Q    string     `form:"q" json:"q"`
@@ -3645,6 +3789,9 @@ type ServerInterface interface {
 	// ListEvents The Log
 	// (GET /events)
 	ListEvents(w http.ResponseWriter, r *http.Request, params ListEventsParams)
+	// ListGrabs Grabs, newest first, with how they ended
+	// (GET /grabs)
+	ListGrabs(w http.ResponseWriter, r *http.Request, params ListGrabsParams)
 	// CreateGrab Grab a Release into the download client
 	// (POST /grabs)
 	CreateGrab(w http.ResponseWriter, r *http.Request)
@@ -4303,6 +4450,91 @@ func (siw *ServerInterfaceWrapper) ListEvents(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListEvents(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListGrabs operation middleware
+func (siw *ServerInterfaceWrapper) ListGrabs(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListGrabsParams
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "stalled" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "stalled", r.URL.Query(), &params.Stalled, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "stalled"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "stalled", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "since" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "since", r.URL.Query(), &params.Since, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "since"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "since", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListGrabs(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5978,6 +6210,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/versions/{id}/search", wrapper.SearchVersion)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/versions/{id}/original-offer/accept", wrapper.AcceptOriginalOffer)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/versions/{id}/original-offer/dismiss", wrapper.DismissOriginalOffer)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grabs", wrapper.ListGrabs)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs", wrapper.CreateGrab)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grabs/{id}", wrapper.GetGrab)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs/{id}/cancel", wrapper.CancelGrab)
@@ -7083,6 +7316,61 @@ type ListEventsdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response ListEventsdefaultApplicationProblemPlusJSONResponse) VisitListEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListGrabsRequestObject struct {
+	Params ListGrabsParams
+}
+
+type ListGrabsResponseObject interface {
+	VisitListGrabsResponse(w http.ResponseWriter) error
+}
+
+type ListGrabs200JSONResponse GrabList
+
+func (response ListGrabs200JSONResponse) VisitListGrabsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListGrabs422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListGrabs422ApplicationProblemPlusJSONResponse) VisitListGrabsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListGrabsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListGrabsdefaultApplicationProblemPlusJSONResponse) VisitListGrabsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -10699,6 +10987,9 @@ type StrictServerInterface interface {
 	// ListEvents The Log
 	// (GET /events)
 	ListEvents(ctx context.Context, request ListEventsRequestObject) (ListEventsResponseObject, error)
+	// ListGrabs Grabs, newest first, with how they ended
+	// (GET /grabs)
+	ListGrabs(ctx context.Context, request ListGrabsRequestObject) (ListGrabsResponseObject, error)
 	// CreateGrab Grab a Release into the download client
 	// (POST /grabs)
 	CreateGrab(ctx context.Context, request CreateGrabRequestObject) (CreateGrabResponseObject, error)
@@ -11505,6 +11796,32 @@ func (sh *strictHandler) ListEvents(w http.ResponseWriter, r *http.Request, para
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListEventsResponseObject); ok {
 		if err := validResponse.VisitListEventsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListGrabs operation middleware
+func (sh *strictHandler) ListGrabs(w http.ResponseWriter, r *http.Request, params ListGrabsParams) {
+	var request ListGrabsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListGrabs(ctx, request.(ListGrabsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListGrabs")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListGrabsResponseObject); ok {
+		if err := validResponse.VisitListGrabsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
