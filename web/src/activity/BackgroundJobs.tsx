@@ -1,7 +1,7 @@
 // Activity's Background jobs section: Kestrel's fixed set of loops (ADR 0007), each with what it
 // does, how often it runs, how its last pass went and when the next is due. The runner keeps this
-// in memory only, so after a restart a loop reads "Not run since start" until its first pass. It
-// stays live through the stream's `jobs` frames.
+// in memory only, so after a restart a loop reads "Not run since start" until its first pass. A loop a
+// setting turns off says which one instead. It stays live through the stream's `jobs` frames.
 import { useJobs, useRunJob, type Job } from '../api/jobs'
 import { Button, ErrorText } from '../forms'
 import { ago, span, until, useNow } from '../time'
@@ -12,6 +12,12 @@ const statusBadge: Record<Job['status'], { tone: Tone; text: string }> = {
   idle: { tone: 'gray', text: 'Idle' },
   running: { tone: 'blue', text: 'Running now' },
   disabled: { tone: 'amber', text: 'Disabled' },
+}
+
+/** Why a disabled loop does nothing: the switch that turns it off, and where that switch lives. */
+const offBecause: Record<NonNullable<Job['disabled_by']>, string> = {
+  github_check: 'Off while “Check GitHub for updates” is off in Settings › Updates',
+  trash_auto_update: 'Off while “Check TRaSH daily and update automatically” is off in Settings › TRaSH',
 }
 
 const hour = 3_600_000
@@ -55,7 +61,7 @@ export function BackgroundJobs() {
           const about = jobWords(j.name)
           const last = lastRun(j, now)
           const badge = statusBadge[j.status] ?? statusBadge.idle
-          const next = j.status !== 'running' && j.next_at ? `Next ${until(j.next_at, now)}` : null
+          const next = j.status === 'idle' && j.next_at ? `Next ${until(j.next_at, now)}` : null
           return (
             <li key={j.name} className="flex items-start gap-3 border-b border-gray-alpha-200 px-4 py-2">
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -64,8 +70,15 @@ export function BackgroundJobs() {
                   <Badge tone={badge.tone}>{badge.text}</Badge>
                 </div>
                 {about.does && <div className="text-[12px] text-gray-900">{about.does}</div>}
-                <div className="text-[12px] text-gray-900">{[schedule(j.schedule, about.busy ?? 'while busy'), next].filter(Boolean).join(' · ')}</div>
-                <div className={last.failed ? 'text-[12px] text-red-900' : 'text-[12px] text-gray-900'}>{last.text}</div>
+                {j.status === 'disabled' ? (
+                  // Its hourly check does nothing, so no schedule, next run or last run to promise.
+                  <div className="text-[12px] text-gray-900">{(j.disabled_by && offBecause[j.disabled_by]) ?? 'Off while a setting turns it off'}</div>
+                ) : (
+                  <>
+                    <div className="text-[12px] text-gray-900">{[schedule(j.schedule, about.busy ?? 'while busy'), next].filter(Boolean).join(' · ')}</div>
+                    <div className={last.failed ? 'text-[12px] text-red-900' : 'text-[12px] text-gray-900'}>{last.text}</div>
+                  </>
+                )}
                 {run.isError && run.variables === j.name && <ErrorText>{run.error.message}</ErrorText>}
               </div>
               {j.runnable && (
