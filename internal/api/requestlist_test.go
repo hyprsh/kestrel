@@ -121,6 +121,36 @@ func TestRequestsFilterByStatusOutcomeRequesterAndSource(t *testing.T) {
 	}
 }
 
+func TestEveryRequestHasExactlyOneStatus(t *testing.T) {
+	t.Parallel()
+	s := newSearchBare(t)
+	// One Slot completed, the other's Version removed: nothing is on its way any more.
+	both := decode[requestJSON](t, s.valid("POST", "/requests",
+		`{"source":"silo","source_request_id":"r-1","requester":{"id":"u-anna","name":"Anna"},"title":{"kind":"movie","tmdb_id":116149},"slots":[{"slot":"standard"},{"slot":"4k"}]}`))
+	_, _, _, hd := both.slot(t, "standard")
+	_, _, _, uhd := both.slot(t, "4k")
+	s.fill(t, hd)
+	// This one's only Slot is the 4K Version, removed since.
+	gone := decode[requestJSON](t, s.valid("POST", "/requests", askedBy("r-2", "silo", "Anna", 116149, "4k")))
+	if r := s.valid("DELETE", fmt.Sprintf("/versions/%d", uhd), ""); r.Status != 204 {
+		t.Fatalf("delete the 4K Version = %d", r.Status)
+	}
+
+	all := decode[listedPage](t, s.valid("GET", "/requests", "")).ids()
+	var each []int64
+	for _, st := range []string{"open", "completed", "rejected"} {
+		each = append(each, decode[listedPage](t, s.valid("GET", "/requests?status="+st, "")).ids()...)
+	}
+	slices.Sort(all)
+	slices.Sort(each)
+	if !slices.Equal(all, each) {
+		t.Errorf("open, completed and rejected list %v, want each Request once: %v", each, all)
+	}
+	if got := decode[listedPage](t, s.valid("GET", "/requests?status=completed", "")).ids(); !slices.Equal(got, []int64{gone.ID, both.ID}) {
+		t.Errorf("completed = %v, want both Requests: nothing of either is on its way", got)
+	}
+}
+
 func TestAStatusFilterPagesThroughTheMatchingRequestsOnly(t *testing.T) {
 	t.Parallel()
 	s := newSearchBare(t)

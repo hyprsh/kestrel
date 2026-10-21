@@ -1615,10 +1615,10 @@ export interface paths {
          *     other filters and the cursor are ignored then.
          *
          *     `source`, `status`, `outcome` and `requester` may each repeat: a Request matches any one of a
-         *     filter's values, and every filter given. `status` is derived on read like each Slot's: `rejected`
-         *     is a rejected Request, `completed` an accepted one whose every Slot is completed, and `open` an
-         *     accepted one with a Slot still queued or downloading. An accepted Request with a Slot whose
-         *     Version was removed since, and none still on its way, is neither open nor completed.
+         *     filter's values, and every filter given. `status` is derived on read like each Slot's, and every
+         *     Request has exactly one: `rejected` is a rejected Request, `open` an accepted one with a Slot
+         *     still queued or downloading, and `completed` every other accepted one, with nothing on its way
+         *     any more (each Slot completed, or its Version removed since).
          */
         get: operations["listRequests"];
         put?: never;
