@@ -298,13 +298,14 @@ function Rail({
   )
 }
 
+/** Three columns with equal side tracks, so the command box stays centred whatever the right side holds. */
 function TopBar({ title, onOpenMenu, running, onOpenRunning }: { title: string; onOpenMenu: () => void; running: Running[]; onOpenRunning: () => void }) {
   return (
-    <header className="flex h-12 shrink-0 items-center gap-4 border-b border-gray-alpha-400 px-4">
-      <div className="w-40 text-[13px] font-medium">{title}</div>
+    <header className="grid h-12 shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,460px)_minmax(0,1fr)] items-center gap-4 border-b border-gray-alpha-400 px-4">
+      <div className="truncate text-[13px] font-medium">{title}</div>
       <button
         onClick={onOpenMenu}
-        className="mx-auto flex h-8 w-full max-w-[460px] items-center gap-2 rounded-md border border-gray-alpha-400 bg-background-200 px-2.5 text-gray-900 transition-colors hover:border-gray-500 hover:text-gray-1000"
+        className="flex h-8 w-full min-w-0 items-center gap-2 rounded-md border border-gray-alpha-400 bg-background-200 px-2.5 text-gray-900 transition-colors hover:border-gray-500 hover:text-gray-1000"
       >
         <Search className="size-3.5" />
         <span className="text-[13px]">Search or run a command…</span>
@@ -313,8 +314,10 @@ function TopBar({ title, onOpenMenu, running, onOpenRunning }: { title: string; 
           <Kbd>K</Kbd>
         </span>
       </button>
-      <RunningIndicator running={running} onOpen={onOpenRunning} />
-      <ServerStatus />
+      <div className="flex min-w-0 items-center justify-end gap-4">
+        <RunningIndicator running={running} onOpen={onOpenRunning} />
+        <ServerStatus />
+      </div>
     </header>
   )
 }
@@ -351,7 +354,7 @@ function RunningIndicator({ running, onOpen }: { running: Running[]; onOpen: () 
     <button
       onClick={onOpen}
       title={running.map((r) => r.name).join('\n')}
-      className="flex max-w-56 shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-gray-900 transition-colors hover:bg-gray-alpha-100 hover:text-gray-1000"
+      className="flex min-w-0 max-w-56 items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-gray-900 transition-colors hover:bg-gray-alpha-100 hover:text-gray-1000"
     >
       <Loader2 aria-hidden className="size-3.5 shrink-0 animate-spin" />
       <span className="truncate">{label}</span>
@@ -362,7 +365,7 @@ function RunningIndicator({ running, onOpen }: { running: Running[]; onOpen: () 
 function ServerStatus() {
   const { data, isError } = useSystem()
   return (
-    <div className="flex w-40 items-center justify-end gap-2 text-[12px] text-gray-900">
+    <div className="flex shrink-0 items-center justify-end gap-2 text-[12px] text-gray-900">
       <span className={cx('size-1.5 rounded-full', isError ? 'bg-red-700' : data ? 'bg-green-700' : 'bg-gray-600')} />
       {isError ? 'Offline' : data ? `Kestrel ${data.version}` : 'Connecting…'}
     </div>
