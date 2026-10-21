@@ -204,6 +204,7 @@ type Request struct {
 	Outcome         string
 	RejectReason    sql.NullString
 	CreatedAt       string
+	TitleName       string
 }
 
 type RequestSeason struct {

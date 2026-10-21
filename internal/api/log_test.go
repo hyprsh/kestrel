@@ -92,6 +92,76 @@ func TestTheLogFiltersByKindTitleAndSlotAndHidesRoutineEventsUnlessAsked(t *test
 	}
 }
 
+func TestTheLogMatchesAnyOfSeveralKindsTitlesAndSlotsAndLeavesOutExcludedKinds(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	s.publish(t, goodRelease)
+	s.publish(t, uhdRelease)
+	if r := s.grab(s.hd, s.releases(t, s.hd).find(t, goodRelease).ReleaseID, false); r.Status != 201 {
+		t.Fatalf("grab = %d %s", r.Status, r.Body)
+	}
+	if r := s.grab(s.uhd, s.releases(t, s.uhd).find(t, uhdRelease).ReleaseID, false); r.Status != 201 {
+		t.Fatalf("grab = %d %s", r.Status, r.Body)
+	}
+	for _, kind := range []string{"health_raised", "import_rejected"} {
+		if _, err := s.in.st.Write().Exec(`INSERT INTO events (at, kind, routine, message) VALUES ('2026-10-17T12:00:00Z', ?, 0, 'unrelated')`, kind); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if got := s.events(t, "?kind=grab&kind=health_raised").kinds(); len(got) != 3 {
+		t.Errorf("kind=grab or health_raised = %v, want the two grabs and the warning", got)
+	}
+	if got := s.events(t, "?exclude_kind=grab&exclude_kind=health_raised").kinds(); len(got) != 1 || got[0] != "import_rejected" {
+		t.Errorf("without grab and health_raised = %v, want the rejected import only", got)
+	}
+	if got := s.events(t, "?kind=grab&kind=import_rejected&exclude_kind=grab").kinds(); len(got) != 1 || got[0] != "import_rejected" {
+		t.Errorf("an excluded kind wins over an included one: %v", got)
+	}
+	if got := s.events(t, "?slot=standard&slot=4k").Items; len(got) != 2 {
+		t.Errorf("slot=standard or 4k = %+v, want both grabs", got)
+	}
+	if got := s.events(t, fmt.Sprintf("?title_id=9999&title_id=%d", s.title)).Items; len(got) != 2 {
+		t.Errorf("title_id=9999 or the Title = %+v, want both grabs", got)
+	}
+	if r := s.valid("GET", "/events?slot=standard&slot=xl", ""); r.Status != 422 && r.Status != 400 {
+		t.Errorf("a bad slot among good ones = %d", r.Status)
+	}
+}
+
+func TestTheLogLeavesOutExcludedSlotsAndTitles(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	s.publish(t, goodRelease)
+	s.publish(t, uhdRelease)
+	if r := s.grab(s.hd, s.releases(t, s.hd).find(t, goodRelease).ReleaseID, false); r.Status != 201 {
+		t.Fatalf("grab = %d %s", r.Status, r.Body)
+	}
+	if r := s.grab(s.uhd, s.releases(t, s.uhd).find(t, uhdRelease).ReleaseID, false); r.Status != 201 {
+		t.Fatalf("grab = %d %s", r.Status, r.Body)
+	}
+	// About no Title or Version: neither exclusion leaves it out.
+	if _, err := s.in.st.Write().Exec(`INSERT INTO events (at, kind, routine, message) VALUES ('2026-10-17T12:00:00Z', 'health_raised', 0, 'unrelated')`); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := s.events(t, "?exclude_slot=4k").Items; len(got) != 2 || got[0].Kind != "health_raised" || got[1].Kind != "grab" {
+		t.Errorf("exclude_slot=4k = %+v, want the warning and the Standard grab", got)
+	}
+	if got := s.events(t, "?exclude_slot=standard&exclude_slot=4k").kinds(); len(got) != 1 || got[0] != "health_raised" {
+		t.Errorf("exclude_slot=standard,4k = %v, want the warning only", got)
+	}
+	if got := s.events(t, fmt.Sprintf("?exclude_title_id=%d", s.title)).kinds(); len(got) != 1 || got[0] != "health_raised" {
+		t.Errorf("exclude_title_id = %v, want the warning only", got)
+	}
+	if got := s.events(t, fmt.Sprintf("?title_id=%d&exclude_title_id=%d", s.title, s.title)).Items; len(got) != 0 {
+		t.Errorf("an excluded Title wins over an included one: %+v", got)
+	}
+	if r := s.valid("GET", "/events?exclude_slot=xl", ""); r.Status != 422 && r.Status != 400 {
+		t.Errorf("a bad excluded slot = %d", r.Status)
+	}
+}
+
 type blocklistJSON struct {
 	Items []struct {
 		ID          int64  `json:"id"`

@@ -49,8 +49,9 @@ func (s *server) stalledRows(ctx context.Context) ([]oapi.AttentionRow, error) {
 				{Key: "retry", Label: "Retry now", Method: oapi.POST, Path: fmt.Sprintf("/grabs/%d/retry-import", g.ID)},
 				{
 					Key: "discard", Label: "Discard", Method: oapi.POST, Path: fmt.Sprintf("/grabs/%d/discard", g.ID),
-					Confirm: ptr("Discard this download? Its files are deleted and the Version is searched for again."),
+					Confirm: ptr("Discard this Grab? Its downloaded files are deleted and the Version is searched for again."),
 				},
+				stalledLog,
 			}
 		} else {
 			row.Message = fmt.Sprintf("%d Imports stalled · %s", len(group), reason)
@@ -59,14 +60,18 @@ func (s *server) stalledRows(ctx context.Context) ([]oapi.AttentionRow, error) {
 				{Key: "retry", Label: "Retry all", Method: oapi.POST, Path: "/stalled-imports/retry", Body: &body},
 				{
 					Key: "discard", Label: "Discard all", Method: oapi.POST, Path: "/stalled-imports/discard", Body: &body,
-					Confirm: ptr(fmt.Sprintf("Discard %d downloads? Their files are deleted and the Versions are searched for again.", len(group))),
+					Confirm: ptr(fmt.Sprintf("Discard %d Grabs? Their downloaded files are deleted and the Versions are searched for again.", len(group))),
 				},
+				stalledLog,
 			}
 		}
 		rows = append(rows, row)
 	}
 	return rows, nil
 }
+
+// stalledLog shows each time an Import stalled, with why.
+var stalledLog = showInLog("kind:import_stalled")
 
 func ptr[T any](v T) *T { return &v }
 

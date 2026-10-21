@@ -21,22 +21,40 @@ import (
 
 // Defines values for AdoptionState.
 const (
-	Committing AdoptionState = "committing"
-	Idle       AdoptionState = "idle"
-	Planned    AdoptionState = "planned"
-	Scanning   AdoptionState = "scanning"
+	AdoptionStateCommitting AdoptionState = "committing"
+	AdoptionStateIdle       AdoptionState = "idle"
+	AdoptionStatePlanned    AdoptionState = "planned"
+	AdoptionStateScanning   AdoptionState = "scanning"
 )
 
 // Valid indicates whether the value is a known member of the AdoptionState enum.
 func (e AdoptionState) Valid() bool {
 	switch e {
-	case Committing:
+	case AdoptionStateCommitting:
 		return true
-	case Idle:
+	case AdoptionStateIdle:
 		return true
-	case Planned:
+	case AdoptionStatePlanned:
 		return true
-	case Scanning:
+	case AdoptionStateScanning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdoptionActivityState.
+const (
+	AdoptionActivityStateCommitting AdoptionActivityState = "committing"
+	AdoptionActivityStateScanning   AdoptionActivityState = "scanning"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionActivityState enum.
+func (e AdoptionActivityState) Valid() bool {
+	switch e {
+	case AdoptionActivityStateCommitting:
+		return true
+	case AdoptionActivityStateScanning:
 		return true
 	default:
 		return false
@@ -319,6 +337,36 @@ func (e GrabState) Valid() bool {
 	}
 }
 
+// Defines values for GrabEntryState.
+const (
+	GrabEntryStateCompleted   GrabEntryState = "completed"
+	GrabEntryStateDownloading GrabEntryState = "downloading"
+	GrabEntryStateFailed      GrabEntryState = "failed"
+	GrabEntryStateImported    GrabEntryState = "imported"
+	GrabEntryStateImporting   GrabEntryState = "importing"
+	GrabEntryStateSent        GrabEntryState = "sent"
+)
+
+// Valid indicates whether the value is a known member of the GrabEntryState enum.
+func (e GrabEntryState) Valid() bool {
+	switch e {
+	case GrabEntryStateCompleted:
+		return true
+	case GrabEntryStateDownloading:
+		return true
+	case GrabEntryStateFailed:
+		return true
+	case GrabEntryStateImported:
+		return true
+	case GrabEntryStateImporting:
+		return true
+	case GrabEntryStateSent:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for IndexerStatusState.
 const (
 	IndexerStatusStateDisabled IndexerStatusState = "disabled"
@@ -334,6 +382,45 @@ func (e IndexerStatusState) Valid() bool {
 	case IndexerStatusStateFailing:
 		return true
 	case IndexerStatusStateOk:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobDisabledBy.
+const (
+	GithubCheck     JobDisabledBy = "github_check"
+	TrashAutoUpdate JobDisabledBy = "trash_auto_update"
+)
+
+// Valid indicates whether the value is a known member of the JobDisabledBy enum.
+func (e JobDisabledBy) Valid() bool {
+	switch e {
+	case GithubCheck:
+		return true
+	case TrashAutoUpdate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobStatus.
+const (
+	JobStatusDisabled JobStatus = "disabled"
+	JobStatusIdle     JobStatus = "idle"
+	JobStatusRunning  JobStatus = "running"
+)
+
+// Valid indicates whether the value is a known member of the JobStatus enum.
+func (e JobStatus) Valid() bool {
+	switch e {
+	case JobStatusDisabled:
+		return true
+	case JobStatusIdle:
+		return true
+	case JobStatusRunning:
 		return true
 	default:
 		return false
@@ -573,16 +660,16 @@ func (e ReleaseDateEntryType) Valid() bool {
 
 // Defines values for RequestOutcome.
 const (
-	Accepted RequestOutcome = "accepted"
-	Rejected RequestOutcome = "rejected"
+	RequestOutcomeAccepted RequestOutcome = "accepted"
+	RequestOutcomeRejected RequestOutcome = "rejected"
 )
 
 // Valid indicates whether the value is a known member of the RequestOutcome enum.
 func (e RequestOutcome) Valid() bool {
 	switch e {
-	case Accepted:
+	case RequestOutcomeAccepted:
 		return true
-	case Rejected:
+	case RequestOutcomeRejected:
 		return true
 	default:
 		return false
@@ -628,6 +715,27 @@ func (e RequestSlotStatus) Valid() bool {
 	case RequestSlotStatusFailed:
 		return true
 	case RequestSlotStatusQueued:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchIndexerHeld.
+const (
+	BackingOff   SearchIndexerHeld = "backing_off"
+	Budget       SearchIndexerHeld = "budget"
+	RequestLimit SearchIndexerHeld = "request_limit"
+)
+
+// Valid indicates whether the value is a known member of the SearchIndexerHeld enum.
+func (e SearchIndexerHeld) Valid() bool {
+	switch e {
+	case BackingOff:
+		return true
+	case Budget:
+		return true
+	case RequestLimit:
 		return true
 	default:
 		return false
@@ -1006,6 +1114,75 @@ func (e ListAdoptionRowsParamsFilter) Valid() bool {
 	}
 }
 
+// Defines values for ListGrabsParamsState.
+const (
+	ListGrabsParamsStateCompleted   ListGrabsParamsState = "completed"
+	ListGrabsParamsStateDownloading ListGrabsParamsState = "downloading"
+	ListGrabsParamsStateFailed      ListGrabsParamsState = "failed"
+	ListGrabsParamsStateImported    ListGrabsParamsState = "imported"
+	ListGrabsParamsStateImporting   ListGrabsParamsState = "importing"
+	ListGrabsParamsStateSent        ListGrabsParamsState = "sent"
+)
+
+// Valid indicates whether the value is a known member of the ListGrabsParamsState enum.
+func (e ListGrabsParamsState) Valid() bool {
+	switch e {
+	case ListGrabsParamsStateCompleted:
+		return true
+	case ListGrabsParamsStateDownloading:
+		return true
+	case ListGrabsParamsStateFailed:
+		return true
+	case ListGrabsParamsStateImported:
+		return true
+	case ListGrabsParamsStateImporting:
+		return true
+	case ListGrabsParamsStateSent:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListRequestsParamsStatus.
+const (
+	ListRequestsParamsStatusCompleted ListRequestsParamsStatus = "completed"
+	ListRequestsParamsStatusOpen      ListRequestsParamsStatus = "open"
+	ListRequestsParamsStatusRejected  ListRequestsParamsStatus = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the ListRequestsParamsStatus enum.
+func (e ListRequestsParamsStatus) Valid() bool {
+	switch e {
+	case ListRequestsParamsStatusCompleted:
+		return true
+	case ListRequestsParamsStatusOpen:
+		return true
+	case ListRequestsParamsStatusRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListRequestsParamsOutcome.
+const (
+	ListRequestsParamsOutcomeAccepted ListRequestsParamsOutcome = "accepted"
+	ListRequestsParamsOutcomeRejected ListRequestsParamsOutcome = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the ListRequestsParamsOutcome enum.
+func (e ListRequestsParamsOutcome) Valid() bool {
+	switch e {
+	case ListRequestsParamsOutcomeAccepted:
+		return true
+	case ListRequestsParamsOutcomeRejected:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListTitlesParamsSort.
 const (
 	AddedAt     ListTitlesParamsSort = "added_at"
@@ -1046,6 +1223,12 @@ type About struct {
 
 // ActivitySnapshot defines model for ActivitySnapshot.
 type ActivitySnapshot struct {
+	// Adoption The Adoption scan or commit running now; null when neither runs.
+	Adoption *AdoptionActivity `json:"adoption"`
+
+	// Passes The same loops' passes, the longest-running first, with when each started.
+	Passes []RunningPass `json:"passes"`
+
 	// Running Names of the background loops mid-pass right now.
 	Running []string `json:"running"`
 }
@@ -1083,6 +1266,19 @@ type Adoption struct {
 
 // AdoptionState defines model for Adoption.State.
 type AdoptionState string
+
+// AdoptionActivity An Adoption scan or commit and how far it has got, as `GET /adoption` reports it.
+type AdoptionActivity struct {
+	// Done Entries scanned, or rows adopted, so far.
+	Done  int                   `json:"done"`
+	State AdoptionActivityState `json:"state"`
+
+	// Total Entries to scan, or rows to adopt; 0 until a scan has listed them.
+	Total int `json:"total"`
+}
+
+// AdoptionActivityState defines model for AdoptionActivity.State.
+type AdoptionActivityState string
 
 // AdoptionCandidate defines model for AdoptionCandidate.
 type AdoptionCandidate struct {
@@ -1548,6 +1744,62 @@ type GrabCreate struct {
 	VersionId int64  `json:"version_id"`
 }
 
+// GrabEntry A Grab as the Activity screen shows it, joined with its Title and Slot.
+type GrabEntry struct {
+	// BlocklistReason The reason of the Blocklist entry the Grab's Release got, null when it is not blocklisted.
+	BlocklistReason *string `json:"blocklist_reason"`
+
+	// Episodes The episodes a Series Grab covers (`S01E02`); empty for a Movie.
+	Episodes []string `json:"episodes"`
+
+	// Failure Why a failed Grab failed, such as `download_failed`, `encrypted`, `discarded` or what the Import rejected.
+	Failure   *string   `json:"failure"`
+	GrabId    int64     `json:"grab_id"`
+	GrabbedAt time.Time `json:"grabbed_at"`
+
+	// HasPoster Whether `GET /titles/{id}/poster` serves a poster for the Title; false when the Title was deleted.
+	HasPoster   bool       `json:"has_poster"`
+	Indexer     string     `json:"indexer"`
+	IsUpgrade   bool       `json:"is_upgrade"`
+	Kind        *TitleKind `json:"kind"`
+	ReleaseName string     `json:"release_name"`
+	Score       int        `json:"score"`
+	Size        int64      `json:"size"`
+	Slot        *Slot      `json:"slot"`
+
+	// Stalled Set while the Import waits for the environment to be fixed.
+	Stalled *GrabStall     `json:"stalled"`
+	State   GrabEntryState `json:"state"`
+
+	// Title The Title's name, empty when the Title was deleted.
+	Title   string `json:"title"`
+	TitleId *int64 `json:"title_id"`
+
+	// UpdatedAt When the Grab's state last changed; for a finished Grab, when it finished.
+	UpdatedAt time.Time `json:"updated_at"`
+	VersionId *int64    `json:"version_id"`
+	Year      *int      `json:"year"`
+}
+
+// GrabEntryState defines model for GrabEntry.State.
+type GrabEntryState string
+
+// GrabList defines model for GrabList.
+type GrabList struct {
+	Items      []GrabEntry `json:"items"`
+	NextCursor *string     `json:"next_cursor"`
+}
+
+// GrabStall defines model for GrabStall.
+type GrabStall struct {
+	// NextAt When the Import is tried again on its own.
+	NextAt time.Time `json:"next_at"`
+
+	// Reason What is wrong, such as `disk full`.
+	Reason string    `json:"reason"`
+	Since  time.Time `json:"since"`
+}
+
 // IndexerError defines model for IndexerError.
 type IndexerError struct {
 	// Code The plugin error code (`auth`, `unavailable`, `rate_limited`, `invalid`, `not_found`).
@@ -1591,6 +1843,73 @@ type IndexerStatus struct {
 
 // IndexerStatusState defines model for IndexerStatus.State.
 type IndexerStatusState string
+
+// Job defines model for Job.
+type Job struct {
+	// DisabledBy The setting that turns a `disabled` loop's work off: `github_check` ("Check GitHub for
+	// updates", which `updates` and `trash` both need) or `trash_auto_update` (TRaSH's own daily
+	// update switch). `null` unless `status` is `disabled`; later versions may add settings.
+	DisabledBy *JobDisabledBy `json:"disabled_by"`
+
+	// LastRun The last pass that finished since start; `null` before the first.
+	LastRun *JobRun `json:"last_run"`
+
+	// Name The loop: `poll`, `search`, `import`, `prune`, `health`, `refresh`, `trash`, `updates`
+	// or `rss`. A loop whose module is not configured is not listed; later versions may add loops.
+	Name string `json:"name"`
+
+	// NextAt When the next pass is due; `null` while one runs and before the loops start.
+	NextAt *time.Time `json:"next_at"`
+
+	// Runnable Whether `POST /jobs/{name}/run` runs it.
+	Runnable bool `json:"runnable"`
+
+	// Schedule How often a loop runs.
+	Schedule JobSchedule `json:"schedule"`
+
+	// Status `running` while a pass is in flight; `disabled` when a setting turns its work off (`updates`
+	// without "Check GitHub for updates", `trash` without TRaSH auto-update), though it still checks
+	// hourly; otherwise `idle`.
+	Status JobStatus `json:"status"`
+}
+
+// JobDisabledBy The setting that turns a `disabled` loop's work off: `github_check` ("Check GitHub for
+// updates", which `updates` and `trash` both need) or `trash_auto_update` (TRaSH's own daily
+// update switch). `null` unless `status` is `disabled`; later versions may add settings.
+type JobDisabledBy string
+
+// JobStatus `running` while a pass is in flight; `disabled` when a setting turns its work off (`updates`
+// without "Check GitHub for updates", `trash` without TRaSH auto-update), though it still checks
+// hourly; otherwise `idle`.
+type JobStatus string
+
+// JobList defines model for JobList.
+type JobList struct {
+	Items []Job `json:"items"`
+}
+
+// JobRun defines model for JobRun.
+type JobRun struct {
+	DurationMs int64 `json:"duration_ms"`
+
+	// Error Why the pass failed; `null` when it succeeded.
+	Error      *string   `json:"error"`
+	FinishedAt time.Time `json:"finished_at"`
+	StartedAt  time.Time `json:"started_at"`
+}
+
+// JobSchedule How often a loop runs.
+type JobSchedule struct {
+	// BusyEveryMs The shorter wait while there is work (`poll` while a Grab downloads); `null` for none.
+	BusyEveryMs *int64 `json:"busy_every_ms"`
+
+	// EveryMs The wait between passes.
+	EveryMs int64 `json:"every_ms"`
+
+	// RunsEveryMs For a loop that checks every `every_ms` whether its work is due: how often it does it (the
+	// daily loops); `null` when every pass does the work.
+	RunsEveryMs *int64 `json:"runs_every_ms"`
+}
 
 // LongMissing defines model for LongMissing.
 type LongMissing struct {
@@ -1645,6 +1964,11 @@ type LookupDetail struct {
 
 // LookupList defines model for LookupList.
 type LookupList struct {
+	// DidYouMean The best result's title when it differs a lot from the query, to search for instead; `null` otherwise.
+	DidYouMean *string `json:"did_you_mean"`
+
+	// Items Best match first: TMDB's results ranked by how well they match the query, then by a
+	// year typed after it (`dune 2021`, searched as `dune`).
 	Items      []LookupResult `json:"items"`
 	NextCursor *string        `json:"next_cursor"`
 }
@@ -2045,15 +2369,34 @@ type QueueItem struct {
 	Episodes []string `json:"episodes"`
 
 	// Eta Seconds left, null when the client does not know.
-	Eta         *int           `json:"eta"`
-	GrabId      int64          `json:"grab_id"`
-	IsUpgrade   bool           `json:"is_upgrade"`
-	Phase       QueueItemPhase `json:"phase"`
-	ReleaseName string         `json:"release_name"`
+	Eta       *int      `json:"eta"`
+	GrabId    int64     `json:"grab_id"`
+	GrabbedAt time.Time `json:"grabbed_at"`
+
+	// HasPoster Whether `GET /titles/{id}/poster` serves a poster for the Title; false when the Title was deleted.
+	HasPoster bool `json:"has_poster"`
+
+	// Indexer The indexer the Release came from.
+	Indexer   string `json:"indexer"`
+	IsUpgrade bool   `json:"is_upgrade"`
+
+	// Kind The Title's kind, null when the Title was deleted.
+	Kind  *TitleKind     `json:"kind"`
+	Phase QueueItemPhase `json:"phase"`
+
+	// PhaseSince When the Grab entered its `phase`, as far as Kestrel knows. A phase only the download client
+	// reports (`paused`, `post_processing`, `queued` after `downloading`) counts from the poll that
+	// first saw it, and after a restart from the Grab's last change of state.
+	PhaseSince  time.Time `json:"phase_since"`
+	ReleaseName string    `json:"release_name"`
+	Score       int       `json:"score"`
 
 	// ScoreDelta For an Upgrade, how many points the Release scores above the file it replaces.
-	ScoreDelta *int  `json:"score_delta"`
-	Slot       *Slot `json:"slot"`
+	ScoreDelta *int `json:"score_delta"`
+
+	// Size The Release's size as the indexer gave it; `bytes_total` is the client's.
+	Size int64 `json:"size"`
+	Slot *Slot `json:"slot"`
 
 	// Title The Title's name, empty when the Title was deleted.
 	Title     string `json:"title"`
@@ -2119,6 +2462,9 @@ type RecentItem struct {
 // RecentList defines model for RecentList.
 type RecentList struct {
 	Items []RecentItem `json:"items"`
+
+	// Total How many Imports the last 7 days brought, a pack counting once.
+	Total int `json:"total"`
 }
 
 // Rejection defines model for Rejection.
@@ -2195,7 +2541,10 @@ type ReleaseSearch struct {
 
 // Request defines model for Request.
 type Request struct {
-	CreatedAt    time.Time            `json:"created_at"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// HasPoster Whether `GET /titles/{title_id}/poster` serves a poster; false without a Title in the Library.
+	HasPoster    bool                 `json:"has_poster"`
 	Id           int64                `json:"id"`
 	Outcome      RequestOutcome       `json:"outcome"`
 	RejectReason *RequestRejectReason `json:"reject_reason"`
@@ -2206,7 +2555,12 @@ type Request struct {
 	Slots           []RequestSlot `json:"slots"`
 	Source          string        `json:"source"`
 	SourceRequestId string        `json:"source_request_id"`
-	TitleId         *int64        `json:"title_id"`
+
+	// Title The Title's name: the Library's while the Title is there, else the name it had when the
+	// Request was made (a rejected Request, or a Title removed since). `null` when Kestrel never
+	// learnt one, such as for `unknown_title`.
+	Title   *string `json:"title"`
+	TitleId *int64  `json:"title_id"`
 }
 
 // RequestOutcome defines model for Request.Outcome.
@@ -2254,6 +2608,9 @@ type RequestDownload struct {
 type RequestList struct {
 	Items      []Request `json:"items"`
 	NextCursor *string   `json:"next_cursor"`
+
+	// Total How many Requests match the filters, across every page.
+	Total int `json:"total"`
 }
 
 // RequestOrigin Who asked for a Title and from where, for "Requested by Anna via Silo".
@@ -2349,6 +2706,91 @@ type ReverseProxySettings struct {
 type RootFolders struct {
 	Movies []string `json:"movies"`
 	Series []string `json:"series"`
+}
+
+// RunningPass defines model for RunningPass.
+type RunningPass struct {
+	// Name The loop, as in `GET /jobs`.
+	Name      string    `json:"name"`
+	StartedAt time.Time `json:"started_at"`
+}
+
+// SearchIndexer defines model for SearchIndexer.
+type SearchIndexer struct {
+	// Held Why sweeps leave the indexer alone now, null when they don't: `request_limit` (it said its
+	// request limit was reached, or a bare 429), `backing_off` (it keeps failing) or `budget` (the
+	// sweeps have used their 80 % of today's budget).
+	Held *SearchIndexerHeld `json:"held"`
+
+	// HeldUntil When a `request_limit` pause or a backoff ends; null otherwise.
+	HeldUntil  *time.Time `json:"held_until"`
+	InstanceId int64      `json:"instance_id"`
+	Name       string     `json:"name"`
+
+	// SearchMax The daily search budget, from the indexer's `apilimits` (believed for an hour) or the
+	// instance's `api_requests_per_day`; null when neither is known. Sweeps stop at 80 % of it.
+	SearchMax *int `json:"search_max"`
+
+	// SearchUsed Search requests made today (the indexer's own count when it reports one).
+	SearchUsed int `json:"search_used"`
+}
+
+// SearchIndexerHeld Why sweeps leave the indexer alone now, null when they don't: `request_limit` (it said its
+// request limit was reached, or a bare 429), `backing_off` (it keeps failing) or `budget` (the
+// sweeps have used their 80 % of today's budget).
+type SearchIndexerHeld string
+
+// SearchPass defines model for SearchPass.
+type SearchPass struct {
+	// Done The Wanted Versions it has got through: searched, or passed over because no indexer could
+	// take a sweep search (those stay due). Its Upgrade searches come after them and are not counted.
+	Done      int       `json:"done"`
+	StartedAt time.Time `json:"started_at"`
+
+	// Total The Wanted Versions it found due.
+	Total int `json:"total"`
+}
+
+// SearchPassResult defines model for SearchPassResult.
+type SearchPassResult struct {
+	FinishedAt time.Time `json:"finished_at"`
+
+	// Grabbed The Grabs it made, Upgrades included.
+	Grabbed int `json:"grabbed"`
+
+	// Searched The Wanted Versions it searched.
+	Searched int `json:"searched"`
+}
+
+// SearchStatus defines model for SearchStatus.
+type SearchStatus struct {
+	// Due What waits for a search: as the running pass found it less what it has searched since, and
+	// between passes recounted about once a minute.
+	Due struct {
+		// Episodes The Wanted episodes of the Series Versions among them.
+		Episodes int `json:"episodes"`
+
+		// Upgrades Filled Versions due an Upgrade search; each pass searches `upgrades_per_pass` of them.
+		Upgrades int `json:"upgrades"`
+
+		// Versions Wanted Versions due a missing search. A Series Version counts once.
+		Versions int `json:"versions"`
+	} `json:"due"`
+
+	// Indexers The enabled indexers.
+	Indexers []SearchIndexer `json:"indexers"`
+
+	// LastPass The last pass that finished; null before the first since Kestrel started.
+	LastPass *SearchPassResult `json:"last_pass"`
+
+	// NextPassAt When the next pass starts; null while one runs and before the first.
+	NextPassAt *time.Time `json:"next_pass_at"`
+
+	// Pass The pass running now; null between passes.
+	Pass *SearchPass `json:"pass"`
+
+	// UpgradesPerPass How many Upgrade searches a pass makes at most, after its Wanted Versions.
+	UpgradesPerPass int `json:"upgrades_per_pass"`
 }
 
 // Season defines model for Season.
@@ -2680,8 +3122,11 @@ type TitlePatch struct {
 // TitleRow defines model for TitleRow.
 type TitleRow struct {
 	AddedAt time.Time `json:"added_at"`
-	Id      int64     `json:"id"`
-	Kind    TitleKind `json:"kind"`
+
+	// HasPoster Whether `GET /titles/{id}/poster` has an image.
+	HasPoster bool      `json:"has_poster"`
+	Id        int64     `json:"id"`
+	Kind      TitleKind `json:"kind"`
 
 	// PrimaryTitle The title in the Primary Language; the English title when TMDB has no translation.
 	PrimaryTitle string `json:"primary_title"`
@@ -2984,13 +3429,28 @@ type RunCleanupJSONBody struct {
 
 // ListEventsParams defines parameters for ListEvents.
 type ListEventsParams struct {
-	Kind    *string `form:"kind,omitempty" json:"kind,omitempty"`
-	TitleId *int64  `form:"title_id,omitempty" json:"title_id,omitempty"`
-	Slot    *Slot   `form:"slot,omitempty" json:"slot,omitempty"`
-	Routine *bool   `form:"routine,omitempty" json:"routine,omitempty"`
-	Before  *int64  `form:"before,omitempty" json:"before,omitempty"`
-	Limit   *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Kind           *[]string `form:"kind,omitempty" json:"kind,omitempty"`
+	ExcludeKind    *[]string `form:"exclude_kind,omitempty" json:"exclude_kind,omitempty"`
+	TitleId        *[]int64  `form:"title_id,omitempty" json:"title_id,omitempty"`
+	ExcludeTitleId *[]int64  `form:"exclude_title_id,omitempty" json:"exclude_title_id,omitempty"`
+	Slot           *[]Slot   `form:"slot,omitempty" json:"slot,omitempty"`
+	ExcludeSlot    *[]Slot   `form:"exclude_slot,omitempty" json:"exclude_slot,omitempty"`
+	Routine        *bool     `form:"routine,omitempty" json:"routine,omitempty"`
+	Before         *int64    `form:"before,omitempty" json:"before,omitempty"`
+	Limit          *int      `form:"limit,omitempty" json:"limit,omitempty"`
 }
+
+// ListGrabsParams defines parameters for ListGrabs.
+type ListGrabsParams struct {
+	State   *[]ListGrabsParamsState `form:"state,omitempty" json:"state,omitempty"`
+	Stalled *bool                   `form:"stalled,omitempty" json:"stalled,omitempty"`
+	Since   *time.Time              `form:"since,omitempty" json:"since,omitempty"`
+	Limit   *int                    `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor  *string                 `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListGrabsParamsState defines parameters for ListGrabs.
+type ListGrabsParamsState string
 
 // LookupParams defines parameters for Lookup.
 type LookupParams struct {
@@ -3007,22 +3467,34 @@ type TestPluginInstanceJSONBody struct {
 
 // ListRequestsParams defines parameters for ListRequests.
 type ListRequestsParams struct {
-	Source  *string  `form:"source,omitempty" json:"source,omitempty"`
-	TitleId *int64   `form:"title_id,omitempty" json:"title_id,omitempty"`
-	Id      *[]int64 `form:"id,omitempty" json:"id,omitempty"`
-	Limit   *int     `form:"limit,omitempty" json:"limit,omitempty"`
-	Cursor  *string  `form:"cursor,omitempty" json:"cursor,omitempty"`
+	// Source Where the Request came from, such as `silo`.
+	Source  *[]string                    `form:"source,omitempty" json:"source,omitempty"`
+	Status  *[]ListRequestsParamsStatus  `form:"status,omitempty" json:"status,omitempty"`
+	Outcome *[]ListRequestsParamsOutcome `form:"outcome,omitempty" json:"outcome,omitempty"`
+
+	// Requester Who asked, by the requester's `id`, or `name` ignoring case.
+	Requester *[]string `form:"requester,omitempty" json:"requester,omitempty"`
+	TitleId   *int64    `form:"title_id,omitempty" json:"title_id,omitempty"`
+	Id        *[]int64  `form:"id,omitempty" json:"id,omitempty"`
+	Limit     *int      `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor    *string   `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
+
+// ListRequestsParamsStatus defines parameters for ListRequests.
+type ListRequestsParamsStatus string
+
+// ListRequestsParamsOutcome defines parameters for ListRequests.
+type ListRequestsParamsOutcome string
 
 // ListTitlesParams defines parameters for ListTitles.
 type ListTitlesParams struct {
 	Kind *TitleKind `form:"kind,omitempty" json:"kind,omitempty"`
 	Q    *string    `form:"q,omitempty" json:"q,omitempty"`
 
-	// Wanted `true` keeps the Titles with a Wanted Version (the Library's Wanted filter).
+	// Wanted `true` keeps the Titles with a Wanted Version (the Library filter's `is:wanted`).
 	Wanted *bool `form:"wanted,omitempty" json:"wanted,omitempty"`
 
-	// LongMissing `true` keeps the Titles with a Long Missing Version (the Long Missing chip).
+	// LongMissing `true` keeps the Titles with a Long Missing Version (the Library filter's `is:long_missing`).
 	LongMissing *bool `form:"long_missing,omitempty" json:"long_missing,omitempty"`
 
 	// Sort `added_at` (default) is newest first. `wanted_since` puts the Titles that have been Wanted
@@ -3486,6 +3958,9 @@ type ServerInterface interface {
 	// ChangePassword Change the admin password
 	// (POST /account/password)
 	ChangePassword(w http.ResponseWriter, r *http.Request)
+	// GetActivity The background work running now
+	// (GET /activity)
+	GetActivity(w http.ResponseWriter, r *http.Request)
 	// DiscardAdoption Throw the plan away
 	// (DELETE /adoption)
 	DiscardAdoption(w http.ResponseWriter, r *http.Request)
@@ -3543,6 +4018,9 @@ type ServerInterface interface {
 	// ListEvents The Log
 	// (GET /events)
 	ListEvents(w http.ResponseWriter, r *http.Request, params ListEventsParams)
+	// ListGrabs Grabs, newest first, with how they ended
+	// (GET /grabs)
+	ListGrabs(w http.ResponseWriter, r *http.Request, params ListGrabsParams)
 	// CreateGrab Grab a Release into the download client
 	// (POST /grabs)
 	CreateGrab(w http.ResponseWriter, r *http.Request)
@@ -3558,6 +4036,12 @@ type ServerInterface interface {
 	// RetryGrabImport Retry a stalled Import now
 	// (POST /grabs/{id}/retry-import)
 	RetryGrabImport(w http.ResponseWriter, r *http.Request, id GrabId)
+	// ListJobs The background jobs
+	// (GET /jobs)
+	ListJobs(w http.ResponseWriter, r *http.Request)
+	// RunJob Run a background job now
+	// (POST /jobs/{name}/run)
+	RunJob(w http.ResponseWriter, r *http.Request, name string)
 	// Lookup Search the metadata provider for Titles to add
 	// (GET /lookup)
 	Lookup(w http.ResponseWriter, r *http.Request, params LookupParams)
@@ -3615,6 +4099,9 @@ type ServerInterface interface {
 	// GetRequest One Request with its current per-Slot status
 	// (GET /requests/{id})
 	GetRequest(w http.ResponseWriter, r *http.Request, id int64)
+	// GetSearchStatus The search pipeline
+	// (GET /search/status)
+	GetSearchStatus(w http.ResponseWriter, r *http.Request)
 	// GetSettings App settings
 	// (GET /settings)
 	GetSettings(w http.ResponseWriter, r *http.Request)
@@ -3761,6 +4248,20 @@ func (siw *ServerInterfaceWrapper) ChangePassword(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ChangePassword(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetActivity operation middleware
+func (siw *ServerInterfaceWrapper) GetActivity(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetActivity(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4107,7 +4608,7 @@ func (siw *ServerInterfaceWrapper) ListEvents(w http.ResponseWriter, r *http.Req
 
 	// ------------- Optional query parameter "kind" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {
@@ -4118,9 +4619,22 @@ func (siw *ServerInterfaceWrapper) ListEvents(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// ------------- Optional query parameter "exclude_kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "exclude_kind", r.URL.Query(), &params.ExcludeKind, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "exclude_kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "exclude_kind", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "title_id" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "title_id", r.URL.Query(), &params.TitleId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "title_id", r.URL.Query(), &params.TitleId, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {
@@ -4131,15 +4645,41 @@ func (siw *ServerInterfaceWrapper) ListEvents(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// ------------- Optional query parameter "exclude_title_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "exclude_title_id", r.URL.Query(), &params.ExcludeTitleId, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "exclude_title_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "exclude_title_id", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "slot" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "slot", r.URL.Query(), &params.Slot, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "slot", r.URL.Query(), &params.Slot, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "slot"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slot", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "exclude_slot" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "exclude_slot", r.URL.Query(), &params.ExcludeSlot, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "exclude_slot"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "exclude_slot", Err: err})
 		}
 		return
 	}
@@ -4185,6 +4725,91 @@ func (siw *ServerInterfaceWrapper) ListEvents(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListEvents(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListGrabs operation middleware
+func (siw *ServerInterfaceWrapper) ListGrabs(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListGrabsParams
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "stalled" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "stalled", r.URL.Query(), &params.Stalled, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "stalled"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "stalled", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "since" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "since", r.URL.Query(), &params.Since, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "since"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "since", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListGrabs(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4303,6 +4928,46 @@ func (siw *ServerInterfaceWrapper) RetryGrabImport(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RetryGrabImport(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListJobs operation middleware
+func (siw *ServerInterfaceWrapper) ListJobs(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListJobs(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RunJob operation middleware
+func (siw *ServerInterfaceWrapper) RunJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RunJob(w, r, name)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4693,13 +5358,52 @@ func (siw *ServerInterfaceWrapper) ListRequests(w http.ResponseWriter, r *http.R
 
 	// ------------- Optional query parameter "source" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "source", r.URL.Query(), &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "source", r.URL.Query(), &params.Source, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "source"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "source", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "outcome" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "outcome", r.URL.Query(), &params.Outcome, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "outcome"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "outcome", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "requester" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "requester", r.URL.Query(), &params.Requester, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "requester"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "requester", Err: err})
 		}
 		return
 	}
@@ -4798,6 +5502,20 @@ func (siw *ServerInterfaceWrapper) GetRequest(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetRequest(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSearchStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetSearchStatus(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSearchStatus(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5846,6 +6564,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/versions/{id}/search", wrapper.SearchVersion)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/versions/{id}/original-offer/accept", wrapper.AcceptOriginalOffer)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/versions/{id}/original-offer/dismiss", wrapper.DismissOriginalOffer)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grabs", wrapper.ListGrabs)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs", wrapper.CreateGrab)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grabs/{id}", wrapper.GetGrab)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs/{id}/cancel", wrapper.CancelGrab)
@@ -5870,6 +6589,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/cleanup/preview", wrapper.PreviewCleanup)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/cleanup/run", wrapper.RunCleanup)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/wanted/search", wrapper.SearchAllWanted)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/search/status", wrapper.GetSearchStatus)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/activity", wrapper.GetActivity)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/jobs", wrapper.ListJobs)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/jobs/{name}/run", wrapper.RunJob)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/system/status", wrapper.GetSystemStatus)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/about", wrapper.GetAbout)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/about/notices", wrapper.GetNotices)
@@ -6001,6 +6724,44 @@ type ChangePassworddefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response ChangePassworddefaultApplicationProblemPlusJSONResponse) VisitChangePasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetActivityRequestObject struct {
+}
+
+type GetActivityResponseObject interface {
+	VisitGetActivityResponse(w http.ResponseWriter) error
+}
+
+type GetActivity200JSONResponse ActivitySnapshot
+
+func (response GetActivity200JSONResponse) VisitGetActivityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetActivitydefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetActivitydefaultApplicationProblemPlusJSONResponse) VisitGetActivityResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -6961,6 +7722,61 @@ func (response ListEventsdefaultApplicationProblemPlusJSONResponse) VisitListEve
 	return err
 }
 
+type ListGrabsRequestObject struct {
+	Params ListGrabsParams
+}
+
+type ListGrabsResponseObject interface {
+	VisitListGrabsResponse(w http.ResponseWriter) error
+}
+
+type ListGrabs200JSONResponse GrabList
+
+func (response ListGrabs200JSONResponse) VisitListGrabsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListGrabs422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListGrabs422ApplicationProblemPlusJSONResponse) VisitListGrabsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListGrabsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListGrabsdefaultApplicationProblemPlusJSONResponse) VisitListGrabsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type CreateGrabRequestObject struct {
 	Body *CreateGrabJSONRequestBody
 }
@@ -7292,6 +8108,107 @@ type RetryGrabImportdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response RetryGrabImportdefaultApplicationProblemPlusJSONResponse) VisitRetryGrabImportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListJobsRequestObject struct {
+}
+
+type ListJobsResponseObject interface {
+	VisitListJobsResponse(w http.ResponseWriter) error
+}
+
+type ListJobs200JSONResponse JobList
+
+func (response ListJobs200JSONResponse) VisitListJobsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListJobsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListJobsdefaultApplicationProblemPlusJSONResponse) VisitListJobsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RunJobRequestObject struct {
+	Name string `json:"name"`
+}
+
+type RunJobResponseObject interface {
+	VisitRunJobResponse(w http.ResponseWriter) error
+}
+
+type RunJob202Response struct {
+}
+
+func (response RunJob202Response) VisitRunJobResponse(w http.ResponseWriter) error {
+	w.WriteHeader(202)
+	return nil
+}
+
+type RunJob404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RunJob404ApplicationProblemPlusJSONResponse) VisitRunJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RunJob409ApplicationProblemPlusJSONResponse Problem
+
+func (response RunJob409ApplicationProblemPlusJSONResponse) VisitRunJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RunJobdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response RunJobdefaultApplicationProblemPlusJSONResponse) VisitRunJobResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -8448,6 +9365,44 @@ type GetRequestdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetRequestdefaultApplicationProblemPlusJSONResponse) VisitGetRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSearchStatusRequestObject struct {
+}
+
+type GetSearchStatusResponseObject interface {
+	VisitGetSearchStatusResponse(w http.ResponseWriter) error
+}
+
+type GetSearchStatus200JSONResponse SearchStatus
+
+func (response GetSearchStatus200JSONResponse) VisitGetSearchStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSearchStatusdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetSearchStatusdefaultApplicationProblemPlusJSONResponse) VisitGetSearchStatusResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -10471,6 +11426,9 @@ type StrictServerInterface interface {
 	// ChangePassword Change the admin password
 	// (POST /account/password)
 	ChangePassword(ctx context.Context, request ChangePasswordRequestObject) (ChangePasswordResponseObject, error)
+	// GetActivity The background work running now
+	// (GET /activity)
+	GetActivity(ctx context.Context, request GetActivityRequestObject) (GetActivityResponseObject, error)
 	// DiscardAdoption Throw the plan away
 	// (DELETE /adoption)
 	DiscardAdoption(ctx context.Context, request DiscardAdoptionRequestObject) (DiscardAdoptionResponseObject, error)
@@ -10528,6 +11486,9 @@ type StrictServerInterface interface {
 	// ListEvents The Log
 	// (GET /events)
 	ListEvents(ctx context.Context, request ListEventsRequestObject) (ListEventsResponseObject, error)
+	// ListGrabs Grabs, newest first, with how they ended
+	// (GET /grabs)
+	ListGrabs(ctx context.Context, request ListGrabsRequestObject) (ListGrabsResponseObject, error)
 	// CreateGrab Grab a Release into the download client
 	// (POST /grabs)
 	CreateGrab(ctx context.Context, request CreateGrabRequestObject) (CreateGrabResponseObject, error)
@@ -10543,6 +11504,12 @@ type StrictServerInterface interface {
 	// RetryGrabImport Retry a stalled Import now
 	// (POST /grabs/{id}/retry-import)
 	RetryGrabImport(ctx context.Context, request RetryGrabImportRequestObject) (RetryGrabImportResponseObject, error)
+	// ListJobs The background jobs
+	// (GET /jobs)
+	ListJobs(ctx context.Context, request ListJobsRequestObject) (ListJobsResponseObject, error)
+	// RunJob Run a background job now
+	// (POST /jobs/{name}/run)
+	RunJob(ctx context.Context, request RunJobRequestObject) (RunJobResponseObject, error)
 	// Lookup Search the metadata provider for Titles to add
 	// (GET /lookup)
 	Lookup(ctx context.Context, request LookupRequestObject) (LookupResponseObject, error)
@@ -10600,6 +11567,9 @@ type StrictServerInterface interface {
 	// GetRequest One Request with its current per-Slot status
 	// (GET /requests/{id})
 	GetRequest(ctx context.Context, request GetRequestRequestObject) (GetRequestResponseObject, error)
+	// GetSearchStatus The search pipeline
+	// (GET /search/status)
+	GetSearchStatus(ctx context.Context, request GetSearchStatusRequestObject) (GetSearchStatusResponseObject, error)
 	// GetSettings App settings
 	// (GET /settings)
 	GetSettings(ctx context.Context, request GetSettingsRequestObject) (GetSettingsResponseObject, error)
@@ -10815,6 +11785,30 @@ func (sh *strictHandler) ChangePassword(w http.ResponseWriter, r *http.Request) 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ChangePasswordResponseObject); ok {
 		if err := validResponse.VisitChangePasswordResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetActivity operation middleware
+func (sh *strictHandler) GetActivity(w http.ResponseWriter, r *http.Request) {
+	var request GetActivityRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetActivity(ctx, request.(GetActivityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetActivity")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetActivityResponseObject); ok {
+		if err := validResponse.VisitGetActivityResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -11338,6 +12332,32 @@ func (sh *strictHandler) ListEvents(w http.ResponseWriter, r *http.Request, para
 	}
 }
 
+// ListGrabs operation middleware
+func (sh *strictHandler) ListGrabs(w http.ResponseWriter, r *http.Request, params ListGrabsParams) {
+	var request ListGrabsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListGrabs(ctx, request.(ListGrabsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListGrabs")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListGrabsResponseObject); ok {
+		if err := validResponse.VisitListGrabsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // CreateGrab operation middleware
 func (sh *strictHandler) CreateGrab(w http.ResponseWriter, r *http.Request) {
 	var request CreateGrabRequestObject
@@ -11476,6 +12496,56 @@ func (sh *strictHandler) RetryGrabImport(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RetryGrabImportResponseObject); ok {
 		if err := validResponse.VisitRetryGrabImportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListJobs operation middleware
+func (sh *strictHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
+	var request ListJobsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListJobs(ctx, request.(ListJobsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListJobs")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListJobsResponseObject); ok {
+		if err := validResponse.VisitListJobsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RunJob operation middleware
+func (sh *strictHandler) RunJob(w http.ResponseWriter, r *http.Request, name string) {
+	var request RunJobRequestObject
+
+	request.Name = name
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RunJob(ctx, request.(RunJobRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RunJob")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RunJobResponseObject); ok {
+		if err := validResponse.VisitRunJobResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -12008,6 +13078,30 @@ func (sh *strictHandler) GetRequest(w http.ResponseWriter, r *http.Request, id i
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetRequestResponseObject); ok {
 		if err := validResponse.VisitGetRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSearchStatus operation middleware
+func (sh *strictHandler) GetSearchStatus(w http.ResponseWriter, r *http.Request) {
+	var request GetSearchStatusRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSearchStatus(ctx, request.(GetSearchStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSearchStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSearchStatusResponseObject); ok {
+		if err := validResponse.VisitGetSearchStatusResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

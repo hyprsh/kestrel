@@ -2,11 +2,9 @@ package api
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/history"
@@ -20,6 +18,7 @@ func requestToAPI(r requests.Request) oapi.Request {
 		Id: r.ID, Source: r.Source, SourceRequestId: r.SourceRequestID, Outcome: oapi.RequestOutcome(r.Outcome),
 		Requester: oapi.Requester{Id: r.RequesterID, Name: r.RequesterName}, CreatedAt: r.CreatedAt,
 		Seasons: append([]int{}, r.Seasons...), Slots: make([]oapi.RequestSlot, 0, len(r.Slots)),
+		Title: strPtr(r.TitleName), HasPoster: r.HasPoster,
 	}
 	if r.TitleID != 0 {
 		out.TitleId = &r.TitleID
@@ -90,7 +89,7 @@ func (s *server) CreateRequest(ctx context.Context, r oapi.CreateRequestRequestO
 	}
 	s.history.Record(ctx, history.Event{
 		Kind: history.RequestCreated, TitleID: res.Request.TitleID, RequestID: res.Request.ID,
-		Message: "Request from " + res.Request.RequesterName + " via " + res.Request.Source,
+		Message: "Request from " + res.Request.RequesterName + " via " + requests.SourceName(res.Request.Source),
 	})
 	return oapi.CreateRequest201JSONResponse(requestToAPI(res.Request)), nil
 }
@@ -130,28 +129,48 @@ func (s *server) ListRequests(ctx context.Context, r oapi.ListRequestsRequestObj
 		f.IDs = *p.Id
 	}
 	if p.Source != nil {
-		f.Source = *p.Source
+		f.Sources = *p.Source
+	}
+	if p.Requester != nil {
+		f.Requesters = *p.Requester
+	}
+	if p.Outcome != nil {
+		for _, o := range *p.Outcome {
+			if !o.Valid() {
+				return nil, invalid("outcome", "invalid", "outcome is accepted or rejected")
+			}
+			f.Outcomes = append(f.Outcomes, requests.Outcome(o))
+		}
+	}
+	if p.Status != nil {
+		for _, st := range *p.Status {
+			if !st.Valid() {
+				return nil, invalid("status", "invalid", "status is open, completed or rejected")
+			}
+			f.States = append(f.States, requests.State(st))
+		}
 	}
 	if p.TitleId != nil {
 		f.TitleID = *p.TitleId
 	}
-	if p.Cursor != nil && *p.Cursor != "" {
-		raw, err := base64.RawURLEncoding.DecodeString(*p.Cursor)
-		n, convErr := strconv.ParseInt(string(raw), 10, 64)
-		if err != nil || convErr != nil || n <= 0 {
-			return nil, invalid("cursor", "invalid", "The cursor is not one this server gave out")
-		}
-		f.Before = n
+	before, err := readCursor(p.Cursor, 1)
+	if err != nil {
+		return nil, err
 	}
+	f.Before = before
 	list, err := s.requests.List(ctx, f)
 	if err != nil {
 		return nil, err
 	}
-	out := oapi.RequestList{Items: []oapi.Request{}}
+	out := oapi.RequestList{Items: []oapi.Request{}, Total: len(list)}
+	if len(f.IDs) == 0 {
+		if out.Total, err = s.requests.Count(ctx, f); err != nil {
+			return nil, err
+		}
+	}
 	if len(f.IDs) == 0 && len(list) > limit {
 		list = list[:limit]
-		cursor := base64.RawURLEncoding.EncodeToString([]byte(strconv.FormatInt(list[limit-1].ID, 10)))
-		out.NextCursor = &cursor
+		out.NextCursor = cursorOf(list[limit-1].ID)
 	}
 	for _, req := range list {
 		out.Items = append(out.Items, requestToAPI(req))

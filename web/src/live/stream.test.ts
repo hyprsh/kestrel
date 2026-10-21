@@ -126,6 +126,57 @@ describe('the live stream', () => {
     expect(a.getQueryState(['titles'])?.isInvalidated).toBe(true)
   })
 
+  it("refetches Activity's Grab lists when a Grab changes", async () => {
+    const deps = fakeBrowser()
+    const a = tab()
+    startLiveStream(a, deps)
+    await flush()
+    a.setQueryData(['grabs', 'finished'], [])
+    expect(a.getQueryState(['grabs', 'finished'])?.isInvalidated).toBe(false)
+
+    open()[0].emit('changed', { resource: 'grab', id: 9 })
+    await flush()
+
+    expect(a.getQueryState(['grabs', 'finished'])?.isInvalidated).toBe(true)
+  })
+
+  it.each(['request', 'title', 'grab'])('refetches the Requests, whose status is derived, when a %s changes', async (resource) => {
+    const deps = fakeBrowser()
+    const a = tab()
+    startLiveStream(a, deps)
+    await flush()
+    a.setQueryData(['requests', 'recent'], { items: [], next_cursor: null, total: 0 })
+
+    open()[0].emit('changed', { resource, id: 9 })
+    await flush()
+
+    expect(a.getQueryState(['requests', 'recent'])?.isInvalidated).toBe(true)
+  })
+
+  it('keeps the search status from its frames', async () => {
+    const deps = fakeBrowser()
+    const a = tab()
+    startLiveStream(a, deps)
+    await flush()
+
+    open()[0].emit('search', { due: { versions: 120, episodes: 0, upgrades: 3 }, pass: null })
+    await flush()
+
+    expect(a.getQueryData(['search'])).toEqual({ due: { versions: 120, episodes: 0, upgrades: 3 }, pass: null })
+  })
+
+  it('keeps the background jobs from their frames', async () => {
+    const deps = fakeBrowser()
+    const a = tab()
+    startLiveStream(a, deps)
+    await flush()
+
+    open()[0].emit('jobs', { items: [{ name: 'rss', status: 'running' }] })
+    await flush()
+
+    expect(a.getQueryData(['jobs'])).toEqual({ items: [{ name: 'rss', status: 'running' }] })
+  })
+
   it('does nothing where there is no EventSource', () => {
     const stop = startLiveStream(tab(), null)
     stop()

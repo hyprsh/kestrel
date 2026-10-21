@@ -164,12 +164,19 @@ func eventsOf(rows []db.Event) []Event {
 	return out
 }
 
-// Filter narrows the Log. Zero fields match everything.
+// Filter narrows the Log. Empty fields match everything; a list matches any of its values.
 type Filter struct {
-	Kind    Kind
-	TitleID int64
-	// Slot is "standard" or "4k": events about a Version in that Slot.
-	Slot string
+	Kinds []Kind
+	// ExcludeKinds leaves these kinds out, even when Kinds names them.
+	ExcludeKinds []Kind
+	TitleIDs     []int64
+	// Slots are "standard" or "4k": events about a Version in one of them.
+	Slots []string
+	// ExcludeTitleIDs and ExcludeSlots leave out the events about those Titles
+	// and Slots, even when TitleIDs or Slots name them. An event about no Title
+	// or Version stays.
+	ExcludeTitleIDs []int64
+	ExcludeSlots    []string
 	// Routine includes routine events, which the Log hides by default.
 	Routine bool
 	// Before returns only events with a smaller id, for paging.
@@ -184,15 +191,8 @@ func (s *Service) List(ctx context.Context, f Filter) ([]Event, error) {
 	if p.MaxRows <= 0 {
 		p.MaxRows = 200
 	}
-	if f.Kind != "" {
-		p.Kind = string(f.Kind)
-	}
-	if f.TitleID != 0 {
-		p.TitleID = f.TitleID
-	}
-	if f.Slot != "" {
-		p.Slot = f.Slot
-	}
+	p.Kinds, p.ExcludeKinds, p.TitleIds, p.Slots = jsonList(f.Kinds), jsonList(f.ExcludeKinds), jsonList(f.TitleIDs), jsonList(f.Slots)
+	p.ExcludeTitleIds, p.ExcludeSlots = jsonList(f.ExcludeTitleIDs), jsonList(f.ExcludeSlots)
 	if f.Before != 0 {
 		p.Before = f.Before
 	}
@@ -212,6 +212,16 @@ func (s *Service) Last(ctx context.Context) (int64, error) {
 func (s *Service) Prune(ctx context.Context) (int64, error) {
 	cutoff := s.clock().Add(-RoutineLife).UTC().Format(time.RFC3339)
 	return db.New(s.st.Write()).PruneRoutineEvents(ctx, cutoff)
+}
+
+// jsonList is a list filter's query argument: a JSON array for json_each, or NULL (no filter)
+// when the list is empty.
+func jsonList[T any](v []T) any {
+	if len(v) == 0 {
+		return nil
+	}
+	b, _ := json.Marshal(v)
+	return string(b)
 }
 
 func nullID(n int64) sql.NullInt64 { return sql.NullInt64{Int64: n, Valid: n != 0} }

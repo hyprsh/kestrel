@@ -1,4 +1,4 @@
-import { QueryClient } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
@@ -7,6 +7,7 @@ import type { components } from '../api/schema.gen'
 import { dayString } from '../api/upcoming'
 import { http } from '../test/handlers'
 import { server } from '../test/server'
+import { ComingRecent } from './ComingRecent'
 
 type Recent = components['schemas']['RecentItem']
 
@@ -28,21 +29,21 @@ const recent = (over: Partial<Recent>): Recent => ({
 })
 
 describe('Overview rows', () => {
-  it('shows the release name and the score delta of a recent Import, or "new"', async () => {
-    server.use(
-      http.get('/recent', ({ response }) =>
-        response(200).json({
-          items: [
-            recent({ is_upgrade: true, score_delta: 150 }),
-            recent({ title_id: 8, title: 'Arrival', release_name: 'Arrival.2016.2160p-GRP', slot: '4k' }),
-          ],
-        }),
-      ),
+  it('shows the release name and the score delta of a recent Import, or "new"', () => {
+    // The rows alone, from a filled cache: nothing to wait for, so no boot of the whole App
+    // to race on a loaded machine.
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+    client.setQueryData(['titles', 'recent'], {
+      items: [recent({ is_upgrade: true, score_delta: 150 }), recent({ title_id: 8, title: 'Arrival', release_name: 'Arrival.2016.2160p-GRP', slot: '4k' })],
+      total: 2,
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <ComingRecent onOpenTitle={() => {}} nav={{ base: 0, sel: -1, select: () => {} }} />
+      </QueryClientProvider>,
     )
-    renderApp()
 
-    const section = await screen.findByRole('region', { name: /recently added/i })
-    const [upgrade, first] = await within(section).findAllByRole('listitem')
+    const [upgrade, first] = within(screen.getByRole('region', { name: 'Recently added · 2' })).getAllByRole('listitem')
     expect(upgrade).toHaveTextContent('Paddington.2014.1080p.BluRay-GRP')
     expect(upgrade).toHaveTextContent('+150')
     expect(first).toHaveTextContent('Arrival.2016.2160p-GRP')
@@ -77,13 +78,20 @@ describe('Overview rows', () => {
             {
               grab_id: 1,
               title_id: 5,
+              has_poster: false,
               version_id: 11,
               title: 'Heat',
               year: 1995,
+              kind: 'movie',
               slot: 'standard',
               episodes: [],
               release_name: 'Heat.1995-GRP',
+              indexer: 'NZBgeek',
+              size: 10,
+              score: 0,
               phase: 'downloading',
+              phase_since: '2026-10-18T09:30:00Z',
+              grabbed_at: '2026-10-18T09:30:00Z',
               bytes_total: 10,
               bytes_left: 5,
               eta: null,
@@ -114,7 +122,7 @@ describe('Overview rows', () => {
           ],
         }),
       ),
-      http.get('/recent', ({ response }) => response(200).json({ items: [recent({})] })),
+      http.get('/recent', ({ response }) => response(200).json({ items: [recent({})], total: 1 })),
     )
     renderApp()
     await screen.findByText('Imports copy instead of moving')

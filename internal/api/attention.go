@@ -15,7 +15,6 @@ import (
 	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
-	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
 	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
 )
 
@@ -30,16 +29,16 @@ const healthRowPrefix = "health-"
 // generically by the SPA: a GET opens an SPA path, anything else calls the API.
 var attentionActions = map[health.Kind]func(health.Row) []oapi.AttentionAction{
 	health.KindDownloadClient: func(r health.Row) []oapi.AttentionAction {
-		return []oapi.AttentionAction{testInstance(r), openSettings("download-client", "Open in Settings")}
+		return []oapi.AttentionAction{testInstance(r), openSettings("download-client", "Open in Settings"), healthLog}
 	},
 	health.KindNoIndexer: func(health.Row) []oapi.AttentionAction {
 		return []oapi.AttentionAction{openSettings("indexers", "Open Indexers")}
 	},
 	health.KindRootFolder: func(health.Row) []oapi.AttentionAction {
-		return []oapi.AttentionAction{openSettings("root-folders", "Open Root folders")}
+		return []oapi.AttentionAction{openSettings("root-folders", "Open Root folders"), healthLog}
 	},
 	health.KindMetadata: func(health.Row) []oapi.AttentionAction {
-		return []oapi.AttentionAction{openSettings("metadata", "Open provider keys")}
+		return []oapi.AttentionAction{openSettings("metadata", "Open provider keys"), healthLog}
 	},
 	health.KindIndexer: func(r health.Row) []oapi.AttentionAction {
 		return []oapi.AttentionAction{
@@ -49,6 +48,7 @@ var attentionActions = map[health.Kind]func(health.Row) []oapi.AttentionAction{
 				Key: "disable", Label: "Disable", Method: oapi.PATCH,
 				Path: fmt.Sprintf("/plugin-instances/%d", r.Subject.PluginInstanceID), Body: &map[string]any{"enabled": false},
 			},
+			healthLog,
 		}
 	},
 	health.KindGoneUpstream: func(r health.Row) []oapi.AttentionAction {
@@ -62,7 +62,7 @@ var attentionActions = map[health.Kind]func(health.Row) []oapi.AttentionAction{
 		return []oapi.AttentionAction{{Key: "open", Label: "Open About", Method: oapi.GET, Path: "/about"}}
 	},
 	health.KindRefreshFailed: func(r health.Row) []oapi.AttentionAction {
-		return []oapi.AttentionAction{testInstance(r), openSettings("media-servers", "Open Media servers")}
+		return []oapi.AttentionAction{testInstance(r), openSettings("media-servers", "Open Media servers"), healthLog}
 	},
 	health.KindPlexNoSection: func(health.Row) []oapi.AttentionAction {
 		return []oapi.AttentionAction{openSettings("media-servers", "Open Media servers")}
@@ -76,6 +76,14 @@ var attentionActions = map[health.Kind]func(health.Row) []oapi.AttentionAction{
 }
 
 var removeConfirm = "Remove this Title from the Library? Files stay on disk."
+
+// showInLog opens the Log filtered by q, for a row whose history is there.
+func showInLog(q string) oapi.AttentionAction {
+	return oapi.AttentionAction{Key: "log", Label: "Show in the Log", Method: oapi.GET, Path: "/log?q=" + q}
+}
+
+// healthLog is the history of the health rows that come and go: each time one was raised and cleared.
+var healthLog = showInLog("kind:health_raised,health_cleared")
 
 func openSettings(section, label string) oapi.AttentionAction {
 	return oapi.AttentionAction{Key: "open", Label: label, Method: oapi.GET, Path: "/settings/" + section}
@@ -267,17 +275,14 @@ func (s *server) GetSystemStatus(ctx context.Context, _ oapi.GetSystemStatusRequ
 		}
 	}
 
-	all, err := s.plugins.List(ctx)
+	budgets, err := s.indexerBudgets(ctx)
 	if err != nil {
 		return nil, err
 	}
 	states := s.health.IndexerStates()
-	for _, inst := range all {
-		if inst.Contract != indexer.Contract.ID {
-			continue
-		}
+	for _, ib := range budgets {
+		inst, b := ib.inst, ib.status
 		row := oapi.IndexerStatus{InstanceId: inst.ID, Name: inst.Name, State: oapi.IndexerStatusState("ok")}
-		b := s.indexers.Status(inst.ID, inst.Connection().Int("api_requests_per_day"))
 		row.SearchUsed, row.GrabsPaused = b.SearchUsed, b.GrabsPaused
 		if b.SearchMax > 0 {
 			row.SearchMax = &b.SearchMax

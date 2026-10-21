@@ -3,45 +3,10 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
-import type { components } from '../api/schema.gen'
-import { http } from '../test/handlers'
-import { server } from '../test/server'
-
-type QueueItem = components['schemas']['QueueItem']
+import { fakeLibrary, row } from '../test/library'
+import { fakeQueue, queueItem as item } from '../test/queue'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
-
-const item = (over: Partial<QueueItem> = {}): QueueItem => ({
-  grab_id: 1,
-  title_id: 5,
-  version_id: 11,
-  title: 'Paddington',
-  year: 2014,
-  slot: 'standard',
-  episodes: [],
-  release_name: 'Paddington.2014.1080p.BluRay.x264-GRP',
-  phase: 'downloading',
-  bytes_total: 8000,
-  bytes_left: 2000,
-  eta: 125,
-  is_upgrade: false,
-  score_delta: null,
-  ...over,
-})
-
-function fakeQueue(items: QueueItem[]) {
-  const state = { items, cancels: [] as { id: string; body: unknown }[] }
-  server.use(
-    http.get('/queue', ({ response }) => response(200).json({ items: state.items })),
-    http.post('/grabs/{id}/cancel', async ({ params, request, response }) => {
-      const text = await request.clone().text()
-      state.cancels.push({ id: String(params.id), body: text ? JSON.parse(text) : null })
-      state.items = state.items.filter((i) => String(i.grab_id) !== String(params.id))
-      return response(204).empty()
-    }),
-  )
-  return state
-}
 
 describe('Overview', () => {
   it('is the home screen and shows "Downloading now" with phase, progress, ETA and Slot', async () => {
@@ -61,6 +26,57 @@ describe('Overview', () => {
     expect(within(row).queryByText('Upgrade')).not.toBeInTheDocument()
   })
 
+  it("shows the Title's poster as a small lazy thumbnail", async () => {
+    fakeQueue([item({ has_poster: true })])
+    renderApp()
+
+    const row = await screen.findByRole('listitem')
+    const poster = row.querySelector('img')
+    expect(poster).toHaveAttribute('src', expect.stringContaining('/titles/5/poster'))
+    expect(poster).toHaveAttribute('loading', 'lazy')
+  })
+
+  it('shows the placeholder for a Title without a poster, and no poster for a deleted Title', async () => {
+    fakeQueue([item({ grab_id: 1 }), item({ grab_id: 2, title_id: null, title: '', year: null, release_name: 'Gone.2001-GRP' })])
+    renderApp()
+
+    const [plain, deleted] = await screen.findAllByRole('listitem')
+    expect(plain.querySelector('[data-poster]')).toBeInTheDocument()
+    expect(plain.querySelector('img')).not.toBeInTheDocument()
+    expect(deleted).toHaveTextContent('Deleted Title')
+    expect(deleted.querySelector('[data-poster]')).not.toBeInTheDocument()
+  })
+
+  it('opens the Title from its name', async () => {
+    fakeQueue([item({ title_id: 1 })])
+    fakeLibrary([row(1, 'Paddington', 'Paddington')])
+    renderApp()
+
+    const section = await screen.findByRole('region', { name: /downloading now/i })
+    await userEvent.click(await within(section).findByRole('button', { name: 'Paddington' }))
+
+    expect(await screen.findByRole('region', { name: /paddington/i })).toBeInTheDocument()
+  })
+
+  it('opens the Title from its poster', async () => {
+    fakeQueue([item({ title_id: 1, has_poster: true })])
+    fakeLibrary([row(1, 'Paddington', 'Paddington')])
+    renderApp()
+
+    const listItem = await screen.findByRole('listitem')
+    await userEvent.click(listItem.querySelector('img')!)
+
+    expect(await screen.findByRole('region', { name: /paddington/i })).toBeInTheDocument()
+  })
+
+  it('does not open a deleted Title', async () => {
+    fakeQueue([item({ title_id: null, title: '' })])
+    renderApp()
+
+    const listItem = await screen.findByRole('listitem')
+    expect(within(listItem).queryByRole('button', { name: 'Deleted Title' })).not.toBeInTheDocument()
+  })
+
   it('badges an Upgrade with how many points it gains', async () => {
     fakeQueue([item({ is_upgrade: true, score_delta: 120 })])
     renderApp()
@@ -71,11 +87,12 @@ describe('Overview', () => {
     expect(row).toHaveTextContent('+120')
   })
 
-  it('shows a download that finished as importing, and a paused or queued one as such', async () => {
+  it('shows a download that finished as importing, and a paused, queued or post-processing one as such', async () => {
     fakeQueue([
       item({ grab_id: 1, phase: 'importing', bytes_left: 0, eta: null }),
       item({ grab_id: 2, phase: 'paused', release_name: 'B', eta: null }),
       item({ grab_id: 3, phase: 'queued', release_name: 'C', bytes_total: 0, bytes_left: 0, eta: null }),
+      item({ grab_id: 4, phase: 'post_processing', release_name: 'D', bytes_left: 0, eta: null }),
     ])
     renderApp()
 
@@ -85,6 +102,7 @@ describe('Overview', () => {
     expect(rows[1]).toHaveTextContent('Paused')
     expect(rows[2]).toHaveTextContent('Queued')
     expect(within(rows[2]).queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(rows[3]).toHaveTextContent('Post-processing')
   })
 
   it('says so when nothing is downloading', async () => {

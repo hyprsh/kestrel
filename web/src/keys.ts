@@ -31,6 +31,9 @@ export function useKey(key: string, fn: (e: KeyboardEvent) => void, enabled = tr
   }, [key, enabled])
 }
 
+/** Where a row sits in a `useListNav` list (`NavRow`); a row outside one is a plain list item. */
+export type RowNav = { scope: string; index: number; sel: number; onSelect: () => void }
+
 /**
  * Moves a selection through `count` rows with j/ArrowDown and k/ArrowUp
  * (clamped), and calls `onEnter` for Enter unless a button or link has focus.

@@ -599,6 +599,88 @@ func (q *Queries) ListGrabEpisodes(ctx context.Context, grabID int64) ([]int64, 
 	return items, nil
 }
 
+const listGrabs = `-- name: ListGrabs :many
+SELECT g.id, g.title_id, g.version_id, g.release_guid, g.release_name, g.indexer_id, g.indexer_name, g.protocol, g.size, g.published_at, g.score, g.parsed, g.verdict, g.overridden, g.is_upgrade, g.client_instance_id, g.client_id, g.state, g.failure, g.stalled_reason, g.stalled_since, g.next_import_at, g.created_at, g.updated_at,
+       CAST(coalesce((SELECT b.reason FROM blocklist b WHERE b.grab_id = g.id ORDER BY b.id DESC LIMIT 1), '') AS TEXT) AS blocklist_reason
+FROM grabs g
+WHERE (?1 IS NULL OR g.state IN (SELECT value FROM json_each(?1)))
+  AND (?2 IS NULL OR (g.stalled_since IS NOT NULL) = ?2)
+  AND (?3 IS NULL OR g.updated_at >= ?3)
+  AND (?4 IS NULL OR g.id < ?4)
+ORDER BY g.id DESC
+LIMIT ?5
+`
+
+type ListGrabsParams struct {
+	States  interface{}
+	Stalled interface{}
+	Since   interface{}
+	Before  interface{}
+	Max     int64
+}
+
+type ListGrabsRow struct {
+	Grab            Grab
+	BlocklistReason string
+}
+
+// Grabs newest first for GET /grabs, with the reason of the Blocklist entry their Release got (empty when none).
+// `states` is a JSON array or NULL (any state), as in the Log's ListEvents.
+func (q *Queries) ListGrabs(ctx context.Context, arg ListGrabsParams) ([]ListGrabsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listGrabs,
+		arg.States,
+		arg.Stalled,
+		arg.Since,
+		arg.Before,
+		arg.Max,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGrabsRow
+	for rows.Next() {
+		var i ListGrabsRow
+		if err := rows.Scan(
+			&i.Grab.ID,
+			&i.Grab.TitleID,
+			&i.Grab.VersionID,
+			&i.Grab.ReleaseGuid,
+			&i.Grab.ReleaseName,
+			&i.Grab.IndexerID,
+			&i.Grab.IndexerName,
+			&i.Grab.Protocol,
+			&i.Grab.Size,
+			&i.Grab.PublishedAt,
+			&i.Grab.Score,
+			&i.Grab.Parsed,
+			&i.Grab.Verdict,
+			&i.Grab.Overridden,
+			&i.Grab.IsUpgrade,
+			&i.Grab.ClientInstanceID,
+			&i.Grab.ClientID,
+			&i.Grab.State,
+			&i.Grab.Failure,
+			&i.Grab.StalledReason,
+			&i.Grab.StalledSince,
+			&i.Grab.NextImportAt,
+			&i.Grab.CreatedAt,
+			&i.Grab.UpdatedAt,
+			&i.BlocklistReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listImportableGrabs = `-- name: ListImportableGrabs :many
 SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at FROM grabs
 WHERE state = 'completed'

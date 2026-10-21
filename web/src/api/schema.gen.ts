@@ -329,7 +329,10 @@ export interface paths {
         };
         /**
          * Search the metadata provider for Titles to add
-         * @description One TMDB search across both kinds, in English, newest relevance first. Results already in the
+         * @description One TMDB search across both kinds, in English, ranked best match first. The query is searched
+         *     as typed, so a year that is part of a title ("Blade Runner 2049") stays in; when TMDB finds
+         *     nothing, it is asked once more without a trailing year, accents and punctuation, with `&` as
+         *     "and". A year typed after the title also ranks the results by it. Results already in the
          *     Library carry their Title id in `in_library`. A Series needs a TheTVDB id (from TMDB's external
          *     ids, else a TheTVDB remote-id search by IMDb id); one without is `addable: false` with
          *     `not_addable_reason: not_on_tvdb`, and `POST /titles` refuses it.
@@ -859,7 +862,18 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Grabs, newest first, with how they ended
+         * @description Every Grab Kestrel still holds, newest first: active ones, stalled Imports and finished ones
+         *     (`imported`, or `failed` with the `failure` and, when its Release went on the Blocklist, the
+         *     entry's `blocklist_reason`). A canceled Grab is gone; one canceled and blocklisted shows only
+         *     on the Blocklist. `state` may repeat and matches any of its values; `stalled=true` keeps only
+         *     stalled Imports and `false` leaves them out; `since` keeps the Grabs whose state last changed
+         *     then or later (`updated_at`). The Activity screen reads the last 7 days of `imported` and
+         *     `failed` Grabs here, and leaves older ones to the Log. `cursor` is the `next_cursor` of the
+         *     page before.
+         */
+        get: operations["listGrabs"];
         put?: never;
         /**
          * Grab a Release into the download client
@@ -1070,7 +1084,8 @@ export interface paths {
         /**
          * Recently added
          * @description The ten most recent Imports, newest first. An Import of several files at once (a season pack)
-         *     is one row with `files` set to how many it brought.
+         *     is one row with `files` set to how many it brought. `total` counts the Imports of the last
+         *     7 days, the window Activity's Done stage lists, so it may be more or fewer than `items`.
          */
         get: operations["listRecentlyAdded"];
         put?: never;
@@ -1093,7 +1108,11 @@ export interface paths {
          * @description Events newest first. Routine events (a download started or finished, an Adoption scan) are
          *     left out unless `routine=true`; they are pruned after 30 days, the rest are kept forever.
          *     `kind` is a growing set: clients show kinds they do not know. `slot` matches events about a
-         *     Version in that Slot. `before` pages: pass the smallest `id` seen.
+         *     Version in that Slot. `kind`, `title_id` and `slot` may repeat and then match any of their
+         *     values; filters of different names must all match. `exclude_kind`, `exclude_title_id` and
+         *     `exclude_slot` (each repeatable) leave those kinds, Titles and Slots out, even when `kind`,
+         *     `title_id` or `slot` names them; an event about no Title or Version is never left out by the
+         *     last two. `before` pages: pass the smallest `id` seen.
          */
         get: operations["listEvents"];
         put?: never;
@@ -1383,6 +1402,101 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/search/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The search pipeline
+         * @description What waits for a search and how the sweep is getting on: the Wanted Versions due a missing
+         *     search (with their episodes) and the Versions due an Upgrade search, the pass running now,
+         *     when the next one starts, how the last one went, and each enabled indexer's budget and
+         *     pauses. It is kept in memory as the passes go: a Version that comes due between passes is
+         *     counted at the next one, at most 5 minutes later, and "Search all Wanted" starts one at once.
+         *     `/stream` sends it as `search` frames whenever it changes.
+         */
+        get: operations["getSearchStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The background work running now
+         * @description The loops mid-pass and an Adoption scan or commit, as the stream's `activity` frames carry
+         *     them. All in memory: it starts empty at every start.
+         */
+        get: operations["getActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The background jobs
+         * @description Every background loop (ADR 0007) in the order it was registered, with whether it is mid-pass,
+         *     how its last pass went and when the next is due. It is kept in memory, so after a restart
+         *     `last_run` is `null` until each loop's first pass. The daily loops (`prune`, `refresh`,
+         *     `trash`, `updates`) pass hourly and do their work once a day, so their last run is the last
+         *     hourly check. `/stream` sends the same list as `jobs` frames whenever it changes.
+         */
+        get: operations["listJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jobs/{name}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a background job now
+         * @description Wakes the loop for a pass now; a pass already running or queued takes the kick, so it never
+         *     runs twice at once. Only the loops whose `runnable` is `true` (`search`, `rss`, `refresh`,
+         *     `health`) can be run by hand: the others answer `409 not_runnable`, and a loop this
+         *     instance doesn't have `404 not_found`.
+         */
+        post: operations["runJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/status": {
         parameters: {
             query?: never;
@@ -1489,9 +1603,15 @@ export interface paths {
          *       They come from the events log, so an Import landing in a background loop reaches an open
          *       tab within about a second, and from handlers for changes made through this API.
          *     - `queue`: the `QueueList` snapshot (same as `GET /queue`), on connect and whenever it changes.
-         *     - `activity`: the loops running now (`ActivitySnapshot`), on connect and whenever it changes.
+         *     - `activity`: the background work running now (`ActivitySnapshot`, same as `GET /activity`):
+         *       the loops mid-pass with when each pass started, and an Adoption scan or commit with its
+         *       progress, on connect and whenever it changes.
          *     - `attention`: the Needs attention count and worst severity (`AttentionSnapshot`), on connect
          *       and whenever it changes.
+         *     - `search`: the search pipeline (`SearchStatus`, same as `GET /search/status`), on connect and
+         *       whenever it changes.
+         *     - `jobs`: the background loops with their last and next run (`JobList`, same as `GET /jobs`),
+         *       on connect and whenever it changes.
          *
          *     A comment line (`: heartbeat`) every 15 s keeps proxies from closing the connection.
          *     There is no replay: after a reconnect the client refetches whatever it shows, and every
@@ -1518,6 +1638,12 @@ export interface paths {
          * Requests, newest first, or the named ones
          * @description `id` may repeat (at most 100) to read those Requests in one call, as the Silo plugin does; the
          *     other filters and the cursor are ignored then.
+         *
+         *     `source`, `status`, `outcome` and `requester` may each repeat: a Request matches any one of a
+         *     filter's values, and every filter given. `status` is derived on read like each Slot's, and every
+         *     Request has exactly one: `rejected` is a rejected Request, `open` an accepted one with a Slot
+         *     still queued or downloading, and `completed` every other accepted one, with nothing on its way
+         *     any more (each Slot completed, or its Version removed since).
          */
         get: operations["listRequests"];
         put?: never;
@@ -2078,8 +2204,14 @@ export interface components {
             ratings: components["schemas"]["Rating"][];
         };
         LookupList: {
+            /**
+             * @description Best match first: TMDB's results ranked by how well they match the query, then by a
+             *     year typed after it (`dune 2021`, searched as `dune`).
+             */
             items: components["schemas"]["LookupResult"][];
             next_cursor: string | null;
+            /** @description The best result's title when it differs a lot from the query, to search for instead; `null` otherwise. */
+            did_you_mean: string | null;
         };
         SuggestedSlot: {
             slot: components["schemas"]["Slot"];
@@ -2410,6 +2542,8 @@ export interface components {
             /** @description The title in the Primary Language; the English title when TMDB has no translation. */
             primary_title: string;
             year: number | null;
+            /** @description Whether `GET /titles/{id}/poster` has an image. */
+            has_poster: boolean;
             slots: {
                 standard: components["schemas"]["SlotSummary"] | null;
                 "4k": components["schemas"]["SlotSummary"] | null;
@@ -2600,6 +2734,60 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
+        GrabList: {
+            items: components["schemas"]["GrabEntry"][];
+            next_cursor: string | null;
+        };
+        /** @description A Grab as the Activity screen shows it, joined with its Title and Slot. */
+        GrabEntry: {
+            /** Format: int64 */
+            grab_id: number;
+            /** Format: int64 */
+            title_id: number | null;
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title; false when the Title was deleted. */
+            has_poster: boolean;
+            /** Format: int64 */
+            version_id: number | null;
+            /** @description The Title's name, empty when the Title was deleted. */
+            title: string;
+            year: number | null;
+            kind: components["schemas"]["TitleKind"] | null;
+            slot: components["schemas"]["Slot"] | null;
+            /** @description The episodes a Series Grab covers (`S01E02`); empty for a Movie. */
+            episodes: string[];
+            release_name: string;
+            indexer: string;
+            /** Format: int64 */
+            size: number;
+            score: number;
+            is_upgrade: boolean;
+            /** @enum {string} */
+            state: "sent" | "downloading" | "completed" | "importing" | "imported" | "failed";
+            /** @description Why a failed Grab failed, such as `download_failed`, `encrypted`, `discarded` or what the Import rejected. */
+            failure: string | null;
+            /** @description The reason of the Blocklist entry the Grab's Release got, null when it is not blocklisted. */
+            blocklist_reason: string | null;
+            /** @description Set while the Import waits for the environment to be fixed. */
+            stalled: components["schemas"]["GrabStall"] | null;
+            /** Format: date-time */
+            grabbed_at: string;
+            /**
+             * Format: date-time
+             * @description When the Grab's state last changed; for a finished Grab, when it finished.
+             */
+            updated_at: string;
+        };
+        GrabStall: {
+            /** @description What is wrong, such as `disk full`. */
+            reason: string;
+            /** Format: date-time */
+            since: string;
+            /**
+             * Format: date-time
+             * @description When the Import is tried again on its own.
+             */
+            next_at: string;
+        };
         GrabCancel: {
             /** @default false */
             blocklist: boolean;
@@ -2732,9 +2920,91 @@ export interface components {
             /** Format: int64 */
             id: number | null;
         };
+        JobList: {
+            items: components["schemas"]["Job"][];
+        };
+        Job: {
+            /**
+             * @description The loop: `poll`, `search`, `import`, `prune`, `health`, `refresh`, `trash`, `updates`
+             *     or `rss`. A loop whose module is not configured is not listed; later versions may add loops.
+             */
+            name: string;
+            /**
+             * @description `running` while a pass is in flight; `disabled` when a setting turns its work off (`updates`
+             *     without "Check GitHub for updates", `trash` without TRaSH auto-update), though it still checks
+             *     hourly; otherwise `idle`.
+             * @enum {string}
+             */
+            status: "idle" | "running" | "disabled";
+            /**
+             * @description The setting that turns a `disabled` loop's work off: `github_check` ("Check GitHub for
+             *     updates", which `updates` and `trash` both need) or `trash_auto_update` (TRaSH's own daily
+             *     update switch). `null` unless `status` is `disabled`; later versions may add settings.
+             * @enum {string|null}
+             */
+            disabled_by: "github_check" | "trash_auto_update" | null;
+            /** @description Whether `POST /jobs/{name}/run` runs it. */
+            runnable: boolean;
+            /** @description The last pass that finished since start; `null` before the first. */
+            last_run: components["schemas"]["JobRun"] | null;
+            /**
+             * Format: date-time
+             * @description When the next pass is due; `null` while one runs and before the loops start.
+             */
+            next_at: string | null;
+            schedule: components["schemas"]["JobSchedule"];
+        };
+        /** @description How often a loop runs. */
+        JobSchedule: {
+            /**
+             * Format: int64
+             * @description The wait between passes.
+             */
+            every_ms: number;
+            /**
+             * Format: int64
+             * @description The shorter wait while there is work (`poll` while a Grab downloads); `null` for none.
+             */
+            busy_every_ms: number | null;
+            /**
+             * Format: int64
+             * @description For a loop that checks every `every_ms` whether its work is due: how often it does it (the
+             *     daily loops); `null` when every pass does the work.
+             */
+            runs_every_ms: number | null;
+        };
+        JobRun: {
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            finished_at: string;
+            /** Format: int64 */
+            duration_ms: number;
+            /** @description Why the pass failed; `null` when it succeeded. */
+            error: string | null;
+        };
         ActivitySnapshot: {
             /** @description Names of the background loops mid-pass right now. */
             running: string[];
+            /** @description The same loops' passes, the longest-running first, with when each started. */
+            passes: components["schemas"]["RunningPass"][];
+            /** @description The Adoption scan or commit running now; null when neither runs. */
+            adoption: components["schemas"]["AdoptionActivity"] | null;
+        };
+        RunningPass: {
+            /** @description The loop, as in `GET /jobs`. */
+            name: string;
+            /** Format: date-time */
+            started_at: string;
+        };
+        /** @description An Adoption scan or commit and how far it has got, as `GET /adoption` reports it. */
+        AdoptionActivity: {
+            /** @enum {string} */
+            state: "scanning" | "committing";
+            /** @description Entries scanned, or rows adopted, so far. */
+            done: number;
+            /** @description Entries to scan, or rows to adopt; 0 until a scan has listed them. */
+            total: number;
         };
         AttentionSnapshot: {
             /** @description How many Needs attention rows there are. */
@@ -2815,6 +3085,76 @@ export interface components {
         WantedSearch: {
             /** @description How many Wanted Versions were queued for a search. */
             versions: number;
+        };
+        SearchStatus: {
+            /**
+             * @description What waits for a search: as the running pass found it less what it has searched since, and
+             *     between passes recounted about once a minute.
+             */
+            due: {
+                /** @description Wanted Versions due a missing search. A Series Version counts once. */
+                versions: number;
+                /** @description The Wanted episodes of the Series Versions among them. */
+                episodes: number;
+                /** @description Filled Versions due an Upgrade search; each pass searches `upgrades_per_pass` of them. */
+                upgrades: number;
+            };
+            /** @description The pass running now; null between passes. */
+            pass: components["schemas"]["SearchPass"] | null;
+            /**
+             * Format: date-time
+             * @description When the next pass starts; null while one runs and before the first.
+             */
+            next_pass_at: string | null;
+            /** @description The last pass that finished; null before the first since Kestrel started. */
+            last_pass: components["schemas"]["SearchPassResult"] | null;
+            /** @description How many Upgrade searches a pass makes at most, after its Wanted Versions. */
+            upgrades_per_pass: number;
+            /** @description The enabled indexers. */
+            indexers: components["schemas"]["SearchIndexer"][];
+        };
+        SearchPass: {
+            /** Format: date-time */
+            started_at: string;
+            /**
+             * @description The Wanted Versions it has got through: searched, or passed over because no indexer could
+             *     take a sweep search (those stay due). Its Upgrade searches come after them and are not counted.
+             */
+            done: number;
+            /** @description The Wanted Versions it found due. */
+            total: number;
+        };
+        SearchPassResult: {
+            /** Format: date-time */
+            finished_at: string;
+            /** @description The Wanted Versions it searched. */
+            searched: number;
+            /** @description The Grabs it made, Upgrades included. */
+            grabbed: number;
+        };
+        SearchIndexer: {
+            /** Format: int64 */
+            instance_id: number;
+            name: string;
+            /** @description Search requests made today (the indexer's own count when it reports one). */
+            search_used: number;
+            /**
+             * @description The daily search budget, from the indexer's `apilimits` (believed for an hour) or the
+             *     instance's `api_requests_per_day`; null when neither is known. Sweeps stop at 80 % of it.
+             */
+            search_max: number | null;
+            /**
+             * @description Why sweeps leave the indexer alone now, null when they don't: `request_limit` (it said its
+             *     request limit was reached, or a bare 429), `backing_off` (it keeps failing) or `budget` (the
+             *     sweeps have used their 80 % of today's budget).
+             * @enum {string|null}
+             */
+            held: "request_limit" | "backing_off" | "budget" | null;
+            /**
+             * Format: date-time
+             * @description When a `request_limit` pause or a backoff ends; null otherwise.
+             */
+            held_until: string | null;
         };
         LongMissing: {
             /** @description How many Versions are Long Missing. */
@@ -3076,6 +3416,8 @@ export interface components {
         };
         RecentList: {
             items: components["schemas"]["RecentItem"][];
+            /** @description How many Imports the last 7 days brought, a pack counting once. */
+            total: number;
         };
         RecentItem: {
             /** Format: int64 */
@@ -3101,17 +3443,38 @@ export interface components {
             grab_id: number;
             /** Format: int64 */
             title_id: number | null;
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title; false when the Title was deleted. */
+            has_poster: boolean;
             /** Format: int64 */
             version_id: number | null;
             /** @description The Title's name, empty when the Title was deleted. */
             title: string;
             year: number | null;
+            /** @description The Title's kind, null when the Title was deleted. */
+            kind: components["schemas"]["TitleKind"] | null;
             slot: components["schemas"]["Slot"] | null;
             /** @description The episodes a Series Grab covers (`S01E02`); empty for a Movie. */
             episodes: string[];
             release_name: string;
+            /** @description The indexer the Release came from. */
+            indexer: string;
+            /**
+             * Format: int64
+             * @description The Release's size as the indexer gave it; `bytes_total` is the client's.
+             */
+            size: number;
+            score: number;
             /** @enum {string} */
             phase: "queued" | "downloading" | "paused" | "post_processing" | "importing";
+            /**
+             * Format: date-time
+             * @description When the Grab entered its `phase`, as far as Kestrel knows. A phase only the download client
+             *     reports (`paused`, `post_processing`, `queued` after `downloading`) counts from the poll that
+             *     first saw it, and after a restart from the Grab's last change of state.
+             */
+            phase_since: string;
+            /** Format: date-time */
+            grabbed_at: string;
             /** Format: int64 */
             bytes_total: number;
             /** Format: int64 */
@@ -3278,6 +3641,14 @@ export interface components {
             reject_reason: "not_on_tvdb" | "unknown_title" | "no_enabled_profile" | null;
             /** Format: int64 */
             title_id: number | null;
+            /**
+             * @description The Title's name: the Library's while the Title is there, else the name it had when the
+             *     Request was made (a rejected Request, or a Title removed since). `null` when Kestrel never
+             *     learnt one, such as for `unknown_title`.
+             */
+            title: string | null;
+            /** @description Whether `GET /titles/{title_id}/poster` serves a poster; false without a Title in the Library. */
+            has_poster: boolean;
             /** @description The seasons asked for; empty for a Movie or the whole Series. */
             seasons: number[];
             /** Format: date-time */
@@ -3287,6 +3658,8 @@ export interface components {
         RequestList: {
             items: components["schemas"]["Request"][];
             next_cursor: string | null;
+            /** @description How many Requests match the filters, across every page. */
+            total: number;
         };
         /** @description Who asked for a Title and from where, for "Requested by Anna via Silo". */
         RequestOrigin: {
@@ -3864,9 +4237,9 @@ export interface operations {
             query?: {
                 kind?: components["schemas"]["TitleKind"];
                 q?: string;
-                /** @description `true` keeps the Titles with a Wanted Version (the Library's Wanted filter). */
+                /** @description `true` keeps the Titles with a Wanted Version (the Library filter's `is:wanted`). */
                 wanted?: boolean;
-                /** @description `true` keeps the Titles with a Long Missing Version (the Long Missing chip). */
+                /** @description `true` keeps the Titles with a Long Missing Version (the Library filter's `is:long_missing`). */
                 long_missing?: boolean;
                 /**
                  * @description `added_at` (default) is newest first. `wanted_since` puts the Titles that have been Wanted
@@ -4377,6 +4750,34 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
+    listGrabs: {
+        parameters: {
+            query?: {
+                state?: ("sent" | "downloading" | "completed" | "importing" | "imported" | "failed")[];
+                stalled?: boolean;
+                since?: string;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of Grabs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrabList"];
+                };
+            };
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
     createGrab: {
         parameters: {
             query?: never;
@@ -4622,9 +5023,12 @@ export interface operations {
     listEvents: {
         parameters: {
             query?: {
-                kind?: string;
-                title_id?: number;
-                slot?: components["schemas"]["Slot"];
+                kind?: string[];
+                exclude_kind?: string[];
+                title_id?: number[];
+                exclude_title_id?: number[];
+                slot?: components["schemas"]["Slot"][];
+                exclude_slot?: components["schemas"]["Slot"][];
                 routine?: boolean;
                 before?: number;
                 limit?: number;
@@ -4970,6 +5374,92 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
+    getSearchStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The search pipeline now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getActivity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What runs now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivitySnapshot"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listJobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The loops now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    runJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The loop is woken. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
     getSystemStatus: {
         parameters: {
             query?: never;
@@ -5080,7 +5570,12 @@ export interface operations {
     listRequests: {
         parameters: {
             query?: {
-                source?: string;
+                /** @description Where the Request came from, such as `silo`. */
+                source?: string[];
+                status?: ("open" | "completed" | "rejected")[];
+                outcome?: ("accepted" | "rejected")[];
+                /** @description Who asked, by the requester's `id`, or `name` ignoring case. */
+                requester?: string[];
                 title_id?: number;
                 id?: number[];
                 limit?: number;

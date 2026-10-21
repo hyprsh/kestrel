@@ -10,6 +10,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/indexers"
+	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/plugin"
@@ -124,6 +125,7 @@ type Library interface {
 	LongMissing(ctx context.Context, view library.View) ([]library.LongMissingItem, error)
 	Upcoming(ctx context.Context, view library.View, from, to time.Time) ([]library.UpcomingEntry, error)
 	RecentImports(ctx context.Context, n int) ([]library.RecentImport, error)
+	CountRecentImports(ctx context.Context, now time.Time) (int, error)
 	List(ctx context.Context, view library.View, f library.Filter) ([]library.Row, error)
 	AddVersion(ctx context.Context, titleID int64, v library.VersionSpec) (int64, error)
 	AddSeries(ctx context.Context, a library.AddSeries) (int64, error)
@@ -143,6 +145,8 @@ type Acquire interface {
 	GrabEpisodes(ctx context.Context, grabID int64) ([]int64, error)
 	Grab(ctx context.Context, versionID int64, releaseID string, override bool) (acquire.Grab, error)
 	GetGrab(ctx context.Context, id int64) (acquire.Grab, error)
+	// Grabs lists Grabs newest first, for GET /grabs.
+	Grabs(ctx context.Context, f acquire.GrabFilter) ([]acquire.Record, error)
 	DiscardStalled(ctx context.Context, reason string) (int, error)
 	Discard(ctx context.Context, grabID int64) error
 	Blocklist(ctx context.Context, titleID int64) ([]acquire.Blocked, error)
@@ -162,12 +166,15 @@ type Requests interface {
 	Submit(ctx context.Context, in requests.Input) (requests.Result, error)
 	OriginsOf(ctx context.Context, titleID int64) ([]requests.Origin, error)
 	List(ctx context.Context, f requests.Filter) ([]requests.Request, error)
+	Count(ctx context.Context, f requests.Filter) (int, error)
 	Get(ctx context.Context, id int64) (requests.Request, error)
 }
 
 // Adoption takes over an existing on-disk library.
 type Adoption interface {
 	Get(ctx context.Context) (imports.Plan, error)
+	// Progress is the plan's state without its rows, for the stream's every tick.
+	Progress(ctx context.Context) (imports.Progress, error)
 	Scan(ctx context.Context, roots []string) error
 	Rows(ctx context.Context, f imports.Filter) ([]imports.Row, error)
 	PatchRow(ctx context.Context, id int64, p imports.RowPatch) (imports.Row, error)
@@ -202,7 +209,11 @@ type TitleFiles interface {
 // Jobs is the loop runner.
 type Jobs interface {
 	Kick(name string)
-	Running() []string
+	Running() []jobs.Run
+	// Search is the search pipeline, as the Search loop keeps it.
+	Search() jobs.SearchStatus
+	// Jobs lists the loops with their last pass and next due time.
+	Jobs() []jobs.Job
 }
 
 // Refresher refreshes a Title from the metadata providers in the background.

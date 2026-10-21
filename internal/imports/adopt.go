@@ -350,6 +350,22 @@ func (a *Adoption) Get(ctx context.Context) (Plan, error) {
 	return out, nil
 }
 
+// Progress is the plan's state and how far a scan or commit has got.
+type Progress struct {
+	State       PlanState
+	Done, Total int
+}
+
+// Progress reads the plan's state and progress without its rows: cheap enough
+// for the stream to read on every tick.
+func (a *Adoption) Progress(ctx context.Context) (Progress, error) {
+	p, err := db.New(a.d.Store.Read()).GetAdoptionPlan(ctx)
+	if err != nil {
+		return Progress{}, err
+	}
+	return Progress{State: PlanState(p.State), Done: int(p.Done), Total: int(p.Total)}, nil
+}
+
 func summarizeRows(rows []Row) Summary {
 	var s Summary
 	for _, r := range rows {

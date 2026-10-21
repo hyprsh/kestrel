@@ -146,6 +146,28 @@ func TestASeriesVersionIsDueOnceWhateverItsSeasonsAndOneMarkSchedulesAllOfThem(t
 	}
 }
 
+func TestADueSeriesVersionSaysHowManyWantedEpisodesItsSearchCovers(t *testing.T) {
+	ctx := context.Background()
+	lib, _ := newLibrary(t)
+	addShow(t, lib, library.MonitorAll) // Pilot, Cat and Seven have aired; the special is unmonitored
+	addPaddington(t, lib)
+
+	due, err := lib.DueMissing(ctx, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(due) != 2 {
+		t.Fatalf("due = %+v, want the Series Version and the Movie Version", due)
+	}
+	byKind := map[int]int{}
+	for _, d := range due {
+		byKind[d.Episodes]++
+	}
+	if byKind[3] != 1 || byKind[0] != 1 {
+		t.Errorf("due = %+v, want 3 Wanted episodes on the Series Version and none on the Movie's", due)
+	}
+}
+
 func TestAnUnreleasedMovieIsNotDueAndAFailedSearchIsRetriedSoon(t *testing.T) {
 	ctx := context.Background()
 	st, err := store.Open(ctx, store.Options{Dir: storetest.Dir(t)})

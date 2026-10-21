@@ -8,7 +8,7 @@ import { apiBaseUrl } from '../api/client'
 
 const LOCK = 'kestrel-live-stream'
 const CHANNEL = 'kestrel-live'
-const EVENTS = ['changed', 'queue', 'activity', 'attention'] as const
+const EVENTS = ['changed', 'queue', 'activity', 'attention', 'search', 'jobs'] as const
 
 /** A frame as relayed between tabs; `reset` means "refetch everything you show". */
 type Frame = { event: (typeof EVENTS)[number] | 'reset'; data?: unknown }
@@ -33,13 +33,21 @@ function browserDeps(): LiveDeps | null {
   }
 }
 
-/** The query keys a hint invalidates. Titles cover their lists, details and episodes by prefix. */
+/**
+ * The query keys a hint invalidates. Titles cover their lists, details and episodes by prefix.
+ * A Request's status is derived from its Title, Versions and Grabs, so those refetch the Requests.
+ */
 function keysOf(h: ChangedHint): string[][] {
   switch (h.resource) {
     case 'title':
-      return [['titles'], ['releases']]
+      return [['titles'], ['releases'], ['requests']]
     case 'attention':
       return [['attention'], ['status']]
+    case 'grab':
+      // Activity's lists of stalled and finished Grabs (GET /grabs).
+      return [['grabs'], ['requests']]
+    case 'request':
+      return [['requests']]
     default:
       return [[h.resource]]
   }
@@ -55,6 +63,8 @@ function applyFrame(qc: QueryClient, f: Frame) {
       qc.setQueryData(['queue'], (f.data as { items: unknown[] }).items)
       return
     case 'activity':
+    case 'search':
+    case 'jobs':
       qc.setQueryData([f.event], f.data)
       return
     case 'attention':

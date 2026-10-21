@@ -247,7 +247,16 @@ func (r streamResponse) VisitStreamResponse(w http.ResponseWriter) error {
 				return false
 			}
 		}
-		if !snapshot("activity", oapi.ActivitySnapshot{Running: nonNil(s.jobs.Running())}) {
+		if !snapshot("activity", s.activity(ctx)) {
+			return false
+		}
+		// From memory and one small read of the plugin instances: cheap enough for every tick.
+		if st, err := s.searchStatus(ctx); err == nil {
+			if !snapshot("search", st) {
+				return false
+			}
+		}
+		if !snapshot("jobs", s.jobList(ctx)) {
 			return false
 		}
 		if n, sev, err := s.attention(ctx); err == nil {
@@ -322,9 +331,18 @@ func ptrEq(a, b *int64) bool {
 	return *a == *b
 }
 
-func nonNil(s []string) []string {
-	if s == nil {
-		return []string{}
+// activity is the background work running now: the loops mid-pass, from
+// memory, and an Adoption scan or commit, from the plan's one row.
+// GetActivity is the `activity` frame's snapshot, for a client that has no stream yet.
+func (s *server) GetActivity(ctx context.Context, _ oapi.GetActivityRequestObject) (oapi.GetActivityResponseObject, error) {
+	return oapi.GetActivity200JSONResponse(s.activity(ctx)), nil
+}
+
+func (s *server) activity(ctx context.Context) oapi.ActivitySnapshot {
+	out := oapi.ActivitySnapshot{Running: []string{}, Passes: []oapi.RunningPass{}, Adoption: s.adoptionActivity(ctx)}
+	for _, r := range s.jobs.Running() {
+		out.Running = append(out.Running, r.Name)
+		out.Passes = append(out.Passes, oapi.RunningPass{Name: r.Name, StartedAt: r.Since})
 	}
-	return s
+	return out
 }

@@ -110,6 +110,46 @@ describe('Needs attention', () => {
     expect(within(section).queryByRole('listitem')).not.toBeInTheDocument()
   })
 
+  it('shows five rows with the count in the heading, and expands in place to the rest', async () => {
+    const warnings = Array.from({ length: 7 }, (_, i) => exdevRow({ id: `w${i + 1}`, message: `Warning ${i + 1}` }))
+    fakeAttention(warnings)
+    renderApp()
+
+    await screen.findByText('Warning 1')
+    const section = screen.getByRole('region', { name: 'Needs attention · 7' })
+    const messages = () => within(section).getAllByRole('listitem').map((r) => r.textContent)
+    expect(messages()).toEqual([1, 2, 3, 4, 5].map((n) => expect.stringContaining(`Warning ${n}`)))
+
+    const more = within(section).getByRole('button', { name: 'View all 7' })
+    expect(more).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(more)
+    expect(messages()).toEqual([1, 2, 3, 4, 5, 6, 7].map((n) => expect.stringContaining(`Warning ${n}`)))
+
+    await userEvent.click(within(section).getByRole('button', { name: 'Show fewer' }))
+    expect(messages()).toHaveLength(5)
+  })
+
+  it('always shows every Blocking row, even beyond five', async () => {
+    const blocking = Array.from({ length: 6 }, (_, i) => sabRow({ id: `b${i + 1}`, message: `Blocking ${i + 1}` }))
+    fakeAttention([...blocking, exdevRow({ message: 'A warning' })])
+    renderApp()
+
+    await screen.findByText('Blocking 1')
+    const section = screen.getByRole('region', { name: 'Needs attention · 7' })
+    const messages = within(section).getAllByRole('listitem').map((r) => r.textContent)
+    expect(messages).toEqual([1, 2, 3, 4, 5, 6].map((n) => expect.stringContaining(`Blocking ${n}`)))
+    expect(within(section).getByRole('button', { name: 'View all 7' })).toBeInTheDocument()
+  })
+
+  it('has no "View all" when every row is showing', async () => {
+    fakeAttention([sabRow(), exdevRow()])
+    renderApp()
+
+    await screen.findByText('SABnzbd is unreachable: connection refused')
+    const section = screen.getByRole('region', { name: 'Needs attention · 2' })
+    expect(within(section).queryByRole('button', { name: /view all/i })).not.toBeInTheDocument()
+  })
+
   it('draws whatever actions the server built, as buttons, whatever the kind of row', async () => {
     fakeAttention([
       exdevRow({
@@ -165,6 +205,17 @@ describe('Needs attention', () => {
     await userEvent.click(within(row).getByRole('button', { name: 'Open in Settings' }))
 
     expect(await screen.findByRole('region', { name: 'Download client' })).toBeInTheDocument()
+  })
+
+  it('opens the Log filtered to a row', async () => {
+    const log = { key: 'log', label: 'Show in the Log', method: 'GET' as const, path: '/log?q=kind:health_raised,health_cleared', body: null, confirm: null }
+    fakeAttention([sabRow({ actions: [log] })])
+    renderApp()
+
+    const row = await within(await sectionOf(/needs attention/i)).findByRole('listitem')
+    await userEvent.click(within(row).getByRole('button', { name: 'Show in the Log' }))
+
+    expect(await screen.findByRole('combobox', { name: 'Filter the Log' })).toHaveValue('kind:health_raised,health_cleared')
   })
 
   it('dismisses a one-off warning and the row goes away', async () => {

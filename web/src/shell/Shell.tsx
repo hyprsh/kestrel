@@ -1,7 +1,9 @@
 // The Geist shell: a thin icon rail plus a top bar with the command-menu entry.
 // Ported from the prototype's variant C; screens arrive with later tickets.
 import { About } from '../about/About'
-import { CalendarClock, Inbox, Info, LibraryBig, LogOut, Monitor, Moon, Plus, ScrollText, Search, Settings, Sun } from 'lucide-react'
+import { Activity } from '../activity/Activity'
+import { useRunningNow, type Running } from '../activity/running'
+import { Activity as ActivityIcon, CalendarClock, Inbox, Info, LibraryBig, Loader2, LogOut, Monitor, Moon, Plus, ScrollText, Search, Settings, Sun } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAttention } from '../api/attention'
@@ -10,12 +12,15 @@ import { CommandMenu, type MenuAction, type MenuMode } from '../command/CommandM
 import { Adoption } from '../adoption/Adoption'
 import { Cleanup } from '../cleanup/Cleanup'
 import { CleanupLauncher } from '../cleanup/launch'
+import { Button } from '../forms'
 import { MOD } from '../keys'
 import { useSearchAllWanted } from '../api/wanted'
-import { Library, type Preset } from '../library/Library'
+import { Library } from '../library/Library'
 import { startLiveStream } from '../live/stream'
 import { Log } from '../log/Log'
 import { Overview } from '../overview/Overview'
+import { Requests } from '../requests/Requests'
+import { currentPlace, PlaceOpener, placeOf, placePath, showPlace } from '../place'
 import { Upcoming } from '../upcoming/Upcoming'
 import { Settings as SettingsScreen } from '../screens/Settings'
 import { useTheme, type Theme } from '../theme'
@@ -26,6 +31,7 @@ const screens = [
   { key: 'overview', label: 'Overview', icon: <Inbox className={icon} /> },
   { key: 'library', label: 'Library', icon: <LibraryBig className={icon} /> },
   { key: 'upcoming', label: 'Upcoming', icon: <CalendarClock className={icon} /> },
+  { key: 'activity', label: 'Activity', icon: <ActivityIcon className={icon} /> },
   { key: 'log', label: 'Log', icon: <ScrollText className={icon} /> },
   { key: 'settings', label: 'Settings', icon: <Settings className={icon} /> },
 ]
@@ -33,22 +39,32 @@ const about = { key: 'about', label: 'About', icon: <Info className={icon} /> }
 // Reached from Settings and the command menu, not the rail.
 const adoption = { key: 'adoption', label: 'Adopt existing library' }
 const cleanup = { key: 'cleanup', label: 'Clean up Unmanaged files' }
+// Reached from the Overview's Recent requests, not the rail; a place, so "/requests?q=…" opens it.
+const requests = { key: 'requests', label: 'Requests' }
 const themeIcon: Record<Theme, ReactNode> = {
   system: <Monitor className={icon} />,
   light: <Sun className={icon} />,
   dark: <Moon className={icon} />,
 }
 
+const isPlace = (key: string) => [...screens, about, requests].some((s) => s.key === key)
+
 export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
-  const [screen, setScreen] = useState('overview')
+  // A bookmarked address opens its screen with its filter.
+  const [start] = useState(currentPlace)
+  const [screen, setScreen] = useState(isPlace(start.screen) ? start.screen : 'overview')
   const [libraryId, setLibraryId] = useState<number | null>(null)
   const [cleanupTitles, setCleanupTitles] = useState<number[] | undefined>(undefined)
-  const [libraryPreset, setLibraryPreset] = useState<{ preset: Preset; n: number } | null>(null)
   const [menu, setMenu] = useState<{ mode: MenuMode } | null>(null)
+  // The text of a screen's filter field (the Library's or the Log's); another screen starts unfiltered.
+  const [filter, setFilter] = useState({ screen: start.screen, q: start.q })
+  const query = filter.screen === screen ? filter.q : ''
+  useEffect(() => showPlace(placePath(screen, query)), [screen, query])
   const { theme, cycle } = useTheme()
   const auth = useAuth()
   const logout = useLogout()
-  const current = [...screens, about, adoption, cleanup].find((s) => s.key === screen)!
+  const current = [...screens, about, adoption, cleanup, requests].find((s) => s.key === screen)!
+  const running = useRunningNow()
 
   // Every open tab stays live through one shared stream; the cache refetches on its hints.
   const queryClient = useQueryClient()
@@ -73,9 +89,20 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const canLogout = auth.data?.state === 'ok' && auth.data.me.method === 'session'
   const searchAll = useSearchAllWanted()
   const { mutate: searchAllWanted } = searchAll
+  // What "Search all Wanted" queued, until the person follows it to the Searching card or dismisses it.
+  const [searchQueued, setSearchQueued] = useState<{ versions: number } | { error: string } | null>(null)
   const actions: MenuAction[] = useMemo(
     () => [
-      { id: 'search-wanted', label: 'Search all Wanted', keywords: 'missing search catch up', run: () => searchAllWanted() },
+      {
+        id: 'search-wanted',
+        label: 'Search all Wanted',
+        keywords: 'missing search catch up',
+        run: () =>
+          searchAllWanted(undefined, {
+            onSuccess: (versions) => setSearchQueued({ versions }),
+            onError: (e) => setSearchQueued({ error: e.message }),
+          }),
+      },
       { id: 'theme', label: 'Switch theme', keywords: 'dark light mode', run: cycle },
       { id: 'setup', label: 'Run setup again', keywords: 'wizard', run: onRunSetup },
       { id: 'adopt', label: 'Scan for unmanaged files', keywords: 'adopt adoption existing library import', run: () => setScreen('adoption') },
@@ -86,32 +113,39 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   )
   const places = useMemo(() => [...screens, about].map((s) => ({ id: s.key, label: s.label })), [])
   const closeMenu = useCallback(() => setMenu(null), [])
-  // An action that opens a place: "/settings/download-client" is the Settings screen at that section.
+  // An action that opens a place: "/settings/download-client" is the Settings screen at that
+  // section, "/log?q=kind:failures" the Log with that filter.
   const goPath = useCallback((path: string) => {
-    const [key, section] = path.replace(/^\//, '').split('/')
-    if (![...screens, about].some((s) => s.key === key)) return
+    const { screen: key, section, q } = placeOf(path)
+    if (!isPlace(key)) return
     setScreen(key)
-    // "/library/long-missing" opens the Library on the Wanted filter with the Long Missing chip.
-    if (key === 'library') setLibraryPreset(section === 'long-missing' ? { preset: 'long_missing', n: Date.now() } : null)
-    else if (section) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
+    setFilter({ screen: key, q })
+    if (section) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
   }, [])
-  // Going to a screen from the rail or the menu clears a preset left by an earlier link.
-  const select = useCallback((key: string) => {
-    setScreen(key)
-    if (key === 'library') setLibraryPreset(null)
-  }, [])
+  // An opened Title is shown, so the Library's filter must not hide it.
   const openTitle = useCallback((id: number) => {
     setLibraryId(id)
-    setLibraryPreset(null)
+    setFilter({ screen: 'library', q: '' })
     setScreen('library')
   }, [])
 
   return (
     <CleanupLauncher.Provider value={openCleanup}>
+    <PlaceOpener.Provider value={goPath}>
     <div className="flex h-full bg-background-100 text-[13px] text-gray-1000">
-      <Rail screen={screen} onSelect={select} theme={theme} onTheme={cycle} onAdd={() => setMenu({ mode: 'add' })} />
+      <Rail screen={screen} onSelect={setScreen} theme={theme} onTheme={cycle} onAdd={() => setMenu({ mode: 'add' })} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar title={current.label} onOpenMenu={() => setMenu({ mode: 'root' })} />
+        <TopBar title={current.label} onOpenMenu={() => setMenu({ mode: 'root' })} running={running} onOpenRunning={() => goPath('/activity/running')} />
+        {searchQueued && (
+          <SearchQueued
+            queued={searchQueued}
+            onSee={() => {
+              setSearchQueued(null)
+              goPath('/overview/searching')
+            }}
+            onDismiss={() => setSearchQueued(null)}
+          />
+        )}
         <main className="flex min-h-0 flex-1 flex-col">
           {screen === 'settings' ? (
             <SettingsScreen onRunSetup={onRunSetup} onAdopt={() => setScreen('adoption')} />
@@ -121,8 +155,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
             <Cleanup key={cleanupTitles?.join(',') ?? 'all'} titleIds={cleanupTitles} />
           ) : screen === 'library' ? (
             <Library
-              key={libraryPreset?.n ?? 0}
-              preset={libraryPreset?.preset}
+              query={query}
+              onQuery={(q) => setFilter({ screen: 'library', q })}
               selectedId={libraryId}
               onSelect={setLibraryId}
               onAdd={() => setMenu({ mode: 'add' })}
@@ -131,7 +165,17 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           ) : screen === 'about' ? (
             <About />
           ) : screen === 'log' ? (
-            <Log />
+            <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} />
+          ) : screen === 'activity' ? (
+            <Activity
+              query={query}
+              onQuery={(q) => setFilter({ screen: 'activity', q })}
+              onOpenTitle={openTitle}
+              running={running}
+              onOpenAdoption={() => setScreen('adoption')}
+            />
+          ) : screen === 'requests' ? (
+            <Requests query={query} onQuery={(q) => setFilter({ screen: 'requests', q })} onOpenTitle={openTitle} />
           ) : screen === 'upcoming' ? (
             <Upcoming onOpenTitle={openTitle} />
           ) : (
@@ -139,8 +183,9 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           )}
         </main>
       </div>
-      {menu && <CommandMenu initialMode={menu.mode} actions={actions} places={places} onClose={closeMenu} onGo={select} onOpenTitle={openTitle} />}
+      {menu && <CommandMenu initialMode={menu.mode} actions={actions} places={places} onClose={closeMenu} onGo={setScreen} onOpenTitle={openTitle} />}
     </div>
+    </PlaceOpener.Provider>
     </CleanupLauncher.Provider>
   )
 }
@@ -253,13 +298,14 @@ function Rail({
   )
 }
 
-function TopBar({ title, onOpenMenu }: { title: string; onOpenMenu: () => void }) {
+/** Three columns with equal side tracks, so the command box stays centred whatever the right side holds. */
+function TopBar({ title, onOpenMenu, running, onOpenRunning }: { title: string; onOpenMenu: () => void; running: Running[]; onOpenRunning: () => void }) {
   return (
-    <header className="flex h-12 shrink-0 items-center gap-4 border-b border-gray-alpha-400 px-4">
-      <div className="w-40 text-[13px] font-medium">{title}</div>
+    <header className="grid h-12 shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,460px)_minmax(0,1fr)] items-center gap-4 border-b border-gray-alpha-400 px-4">
+      <div className="truncate text-[13px] font-medium">{title}</div>
       <button
         onClick={onOpenMenu}
-        className="mx-auto flex h-8 w-full max-w-[460px] items-center gap-2 rounded-md border border-gray-alpha-400 bg-background-200 px-2.5 text-gray-900 transition-colors hover:border-gray-500 hover:text-gray-1000"
+        className="flex h-8 w-full min-w-0 items-center gap-2 rounded-md border border-gray-alpha-400 bg-background-200 px-2.5 text-gray-900 transition-colors hover:border-gray-500 hover:text-gray-1000"
       >
         <Search className="size-3.5" />
         <span className="text-[13px]">Search or run a command…</span>
@@ -268,15 +314,58 @@ function TopBar({ title, onOpenMenu }: { title: string; onOpenMenu: () => void }
           <Kbd>K</Kbd>
         </span>
       </button>
-      <ServerStatus />
+      <div className="flex min-w-0 items-center justify-end gap-4">
+        <RunningIndicator running={running} onOpen={onOpenRunning} />
+        <ServerStatus />
+      </div>
     </header>
+  )
+}
+
+/** The confirmation of "Search all Wanted", with the way to the Searching card that follows the searches. */
+function SearchQueued({ queued, onSee, onDismiss }: { queued: { versions: number } | { error: string }; onSee: () => void; onDismiss: () => void }) {
+  return (
+    <div role="status" aria-label="Search all Wanted" className="flex shrink-0 items-center gap-3 border-b border-gray-alpha-400 bg-background-200 px-4 py-2 text-[12px]">
+      {'error' in queued ? (
+        <span className="text-red-900">{`Search all Wanted failed: ${queued.error}`}</span>
+      ) : (
+        <>
+          <span>{`${queued.versions} Wanted ${queued.versions === 1 ? 'Version' : 'Versions'} queued for a search`}</span>
+          <Button variant="secondary" onClick={onSee}>
+            See the search
+          </Button>
+        </>
+      )}
+      <Button variant="secondary" className="ml-auto" onClick={onDismiss}>
+        Dismiss
+      </Button>
+    </div>
+  )
+}
+
+/** Quiet while nothing runs; a spinner and what runs, or how many things do, while work does. */
+function RunningIndicator({ running, onOpen }: { running: Running[]; onOpen: () => void }) {
+  if (running.length === 0) return null
+  const [one] = running
+  // The count takes the ellipsis's place: "Searching 15/40".
+  const progress = one.progress?.total ? `${one.short.replace(/…$/, '')} ${one.progress.done}/${one.progress.total}` : null
+  const label = running.length > 1 ? `${running.length} running` : (progress ?? one.short)
+  return (
+    <button
+      onClick={onOpen}
+      title={running.map((r) => r.name).join('\n')}
+      className="flex min-w-0 max-w-56 items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-gray-900 transition-colors hover:bg-gray-alpha-100 hover:text-gray-1000"
+    >
+      <Loader2 aria-hidden className="size-3.5 shrink-0 animate-spin" />
+      <span className="truncate">{label}</span>
+    </button>
   )
 }
 
 function ServerStatus() {
   const { data, isError } = useSystem()
   return (
-    <div className="flex w-40 items-center justify-end gap-2 text-[12px] text-gray-900">
+    <div className="flex shrink-0 items-center justify-end gap-2 text-[12px] text-gray-900">
       <span className={cx('size-1.5 rounded-full', isError ? 'bg-red-700' : data ? 'bg-green-700' : 'bg-gray-600')} />
       {isError ? 'Offline' : data ? `Kestrel ${data.version}` : 'Connecting…'}
     </div>

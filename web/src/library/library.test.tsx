@@ -27,6 +27,9 @@ async function openLibrary() {
 }
 
 const selected = () => screen.getByRole('option', { selected: true })
+const filter = () => screen.getByRole('combobox', { name: 'Filter the Library' })
+const shown = (list: HTMLElement) => within(list).queryAllByRole('option').map((o) => o.querySelector('.truncate')?.firstChild?.textContent)
+
 
 describe('the Library list', () => {
   it('shows the English title, the Primary-Language title and a dot per Slot', async () => {
@@ -79,8 +82,8 @@ describe('the Library list', () => {
     await within(list).findAllByRole('option')
 
     await userEvent.keyboard('/')
-    const filter = screen.getByRole('textbox', { name: /filter/i })
-    expect(filter).toHaveFocus()
+    const field = filter()
+    expect(field).toHaveFocus()
     await userEvent.keyboard('o') // Heat has no o; Paddington and Zodiac do
     expect(within(list).getAllByRole('option')).toHaveLength(2)
     expect(screen.getByText('2 of 3')).toBeInTheDocument()
@@ -88,7 +91,7 @@ describe('the Library list', () => {
     await userEvent.keyboard('{ArrowDown}')
     expect(selected()).toHaveTextContent('Zodiac')
     await userEvent.keyboard('{Escape}')
-    expect(filter).toHaveValue('')
+    expect(field).toHaveValue('')
     expect(within(list).getAllByRole('option')).toHaveLength(3)
     expect(list).toHaveFocus()
   })
@@ -97,7 +100,7 @@ describe('the Library list', () => {
     fakeLibrary(rows())
     const list = await openLibrary()
     await within(list).findAllByRole('option')
-    await userEvent.type(screen.getByRole('textbox', { name: /filter/i }), 'bär')
+    await userEvent.type(filter(), 'bär')
     expect(within(list).getAllByRole('option')).toHaveLength(1)
     expect(selected()).toHaveTextContent('Paddington')
   })
@@ -108,6 +111,69 @@ describe('the Library list', () => {
     expect(await screen.findByText(/nothing here yet/i)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /add a title/i }))
     expect(await screen.findByRole('dialog', { name: /command menu/i })).toBeInTheDocument()
+  })
+})
+
+describe('the Library filter', () => {
+  it('narrows by kind:', async () => {
+    fakeLibrary([...rows(), row(4, 'Breaking Bad', 'Breaking Bad', { kind: 'series' })])
+    const list = await openLibrary()
+    await within(list).findAllByRole('option')
+
+    await userEvent.type(filter(), 'kind:series ')
+    expect(shown(list)).toEqual(['Breaking Bad'])
+  })
+
+  it('gives the arrows and Enter to the suggestions while they are open, and to the list again after', async () => {
+    fakeLibrary(rows())
+    const list = await openLibrary()
+    await within(list).findAllByRole('option')
+    const user = userEvent.setup()
+
+    await user.keyboard('/')
+    await user.keyboard('slot:')
+    const suggestions = await screen.findByRole('listbox', { name: 'Suggestions' })
+    await user.keyboard('{ArrowDown}')
+    expect(within(suggestions).getByRole('option', { selected: true })).toHaveTextContent('4k')
+    expect(within(list).getByRole('option', { selected: true })).toHaveTextContent('Paddington') // the list stays put
+    await user.keyboard('{Enter}')
+    expect(filter()).toHaveValue('slot:4k')
+    expect(filter()).toHaveFocus()
+
+    await user.keyboard(' ')
+    await user.keyboard('{Escape}') // clears the filter and steps back to the list
+    expect(filter()).toHaveValue('')
+    expect(list).toHaveFocus()
+  })
+
+  it('explains its qualifiers behind "?"', async () => {
+    fakeLibrary(rows())
+    await openLibrary()
+    await userEvent.click(screen.getByRole('button', { name: 'Filter help' }))
+    const help = screen.getByRole('dialog', { name: 'Filter help' })
+    for (const q of ['kind:', 'is:', 'slot:', 'profile:', 'sort:']) expect(within(help).getByText(q)).toBeInTheDocument()
+  })
+
+  it('keeps the filter in the address bar', async () => {
+    fakeLibrary(rows())
+    const list = await openLibrary()
+    await within(list).findAllByRole('option')
+
+    await userEvent.type(filter(), 'is:wanted pad')
+    expect(location.pathname).toBe('/library')
+    expect(new URLSearchParams(location.search).get('q')).toBe('is:wanted pad')
+    expect(shown(list)).toEqual(['Paddington'])
+  })
+
+  it('opens a bookmarked, filtered Library', async () => {
+    fakeLibrary(rows())
+    history.replaceState(null, '', '/library?q=slot%3A4k')
+    renderApp()
+
+    const list = await screen.findByRole('listbox', { name: /library/i })
+    expect(await screen.findByRole('combobox', { name: 'Filter the Library' })).toHaveValue('slot:4k')
+    await within(list).findAllByRole('option')
+    expect(shown(list)).toEqual(['Paddington'])
   })
 })
 
@@ -144,7 +210,7 @@ describe('the Library detail pane', () => {
     )
     await openLibrary()
     const pane = await screen.findByRole('region', { name: /paddington/i })
-    expect(await within(pane).findByText('Requested by Anna via silo')).toBeInTheDocument()
+    expect(await within(pane).findByText('Requested by Anna via Silo')).toBeInTheDocument()
   })
 
   it('shows the poster when the Title has one', async () => {

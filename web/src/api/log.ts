@@ -6,7 +6,20 @@ import { ApiError } from './queries'
 import type { components } from './schema.gen'
 
 export type LogEvent = components['schemas']['Event']
-export type LogFilter = { kind: string; slot: string; titleId: number | null; routine: boolean }
+type Slot = components['schemas']['Slot']
+
+/** What GET /events is asked for. A null list is no filter; an empty one matches nothing. */
+export type LogFilter = {
+  kinds: string[] | null
+  excludeKinds: string[]
+  slots: Slot[] | null
+  excludeSlots: Slot[]
+  titleIds: number[] | null
+  excludeTitleIds: number[]
+  routine: boolean
+}
+
+const matchesNothing = (f: LogFilter) => [f.kinds, f.slots, f.titleIds].some((l) => l?.length === 0)
 
 type Problem = { code?: string; detail?: string; title?: string } | undefined
 
@@ -15,14 +28,20 @@ function failure(error: unknown, response: Response): ApiError {
   return new ApiError(p?.code ?? 'internal', response.status, p?.detail ?? p?.title ?? 'Request failed')
 }
 
-export function useEvents(f: LogFilter) {
+/** The Log for `f`; `enabled` false waits, such as for the Titles a `title:` filter names. */
+export function useEvents(f: LogFilter, enabled = true) {
   return useQuery({
     queryKey: ['log', f],
+    enabled,
     queryFn: async () => {
+      if (matchesNothing(f)) return []
       const query = {
-        ...(f.kind && { kind: f.kind }),
-        ...(f.slot && { slot: f.slot as components['schemas']['Slot'] }),
-        ...(f.titleId && { title_id: f.titleId }),
+        ...(f.kinds && { kind: f.kinds }),
+        ...(f.excludeKinds.length > 0 && { exclude_kind: f.excludeKinds }),
+        ...(f.slots && { slot: f.slots }),
+        ...(f.excludeSlots.length > 0 && { exclude_slot: f.excludeSlots }),
+        ...(f.titleIds && { title_id: f.titleIds }),
+        ...(f.excludeTitleIds.length > 0 && { exclude_title_id: f.excludeTitleIds }),
         ...(f.routine && { routine: true }),
       }
       const { data, error, response } = await api.GET('/events', { params: { query } })

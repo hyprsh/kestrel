@@ -2,12 +2,10 @@ package api
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -83,22 +81,19 @@ func (s *server) Lookup(ctx context.Context, r oapi.LookupRequestObject) (oapi.L
 	if q == "" {
 		return nil, invalid("q", "required", "Say what to search for")
 	}
-	found, err := s.meta.Search(ctx, q)
+	hits, didYouMean, err := metadata.Find(ctx, s.meta, q, func(f metadata.SearchResult) bool {
+		return r.Params.Kind == nil || oapi.TitleKind(f.Kind) == *r.Params.Kind
+	})
 	if err != nil {
 		return nil, metaProblem(err)
 	}
-	var hits []metadata.SearchResult
 	var movieIDs, seriesIDs []int
-	for _, f := range found {
-		switch {
-		case f.Kind == metadata.Movie && (r.Params.Kind == nil || *r.Params.Kind == oapi.Movie):
-			movieIDs = append(movieIDs, f.TMDBID)
-		case f.Kind == metadata.Series && (r.Params.Kind == nil || *r.Params.Kind == oapi.Series):
-			seriesIDs = append(seriesIDs, f.TMDBID)
-		default:
-			continue
+	for _, h := range hits {
+		if h.Kind == metadata.Movie {
+			movieIDs = append(movieIDs, h.TMDBID)
+		} else {
+			seriesIDs = append(seriesIDs, h.TMDBID)
 		}
-		hits = append(hits, f)
 	}
 	inMovies, err := s.library.InLibrary(ctx, library.Movie, movieIDs)
 	if err != nil {
@@ -112,7 +107,7 @@ func (s *server) Lookup(ctx context.Context, r oapi.LookupRequestObject) (oapi.L
 	if err != nil {
 		return nil, metaProblem(err)
 	}
-	out := oapi.LookupList{Items: []oapi.LookupResult{}}
+	out := oapi.LookupList{Items: []oapi.LookupResult{}, DidYouMean: strPtr(didYouMean)}
 	for _, h := range hits {
 		res := oapi.LookupResult{
 			TmdbId: h.TMDBID, Title: h.Title, Year: intPtr(h.Year),
@@ -245,7 +240,7 @@ func rowToAPI(r library.Row) oapi.TitleRow {
 	}
 	out := oapi.TitleRow{
 		Id: r.ID, Kind: oapi.TitleKind(r.Kind), Title: r.Title, PrimaryTitle: r.PrimaryTitle, Year: intPtr(r.Year),
-		WantedSince: r.WantedSince, AddedAt: r.AddedAt, Size: r.Size,
+		HasPoster: r.HasPoster, WantedSince: r.WantedSince, AddedAt: r.AddedAt, Size: r.Size,
 	}
 	out.Slots.Standard, out.Slots.N4k = summary(r.Slots[slot.Standard]), summary(r.Slots[slot.FourK])
 	return out
@@ -259,15 +254,11 @@ func (s *server) ListTitles(ctx context.Context, r oapi.ListTitlesRequestObject)
 	if limit < 1 || limit > 10000 {
 		return nil, invalid("limit", "invalid", "limit is between 1 and 10000")
 	}
-	offset := 0
-	if r.Params.Cursor != nil && *r.Params.Cursor != "" {
-		raw, err := base64.RawURLEncoding.DecodeString(*r.Params.Cursor)
-		n, convErr := strconv.Atoi(string(raw))
-		if err != nil || convErr != nil || n < 0 {
-			return nil, invalid("cursor", "invalid", "The cursor is not one this server gave out")
-		}
-		offset = n
+	at, err := readCursor(r.Params.Cursor, 0)
+	if err != nil {
+		return nil, err
 	}
+	offset := int(at)
 	var f library.Filter
 	if r.Params.Kind != nil {
 		f.Kind = library.Kind(*r.Params.Kind)
@@ -300,8 +291,7 @@ func (s *server) ListTitles(ctx context.Context, r oapi.ListTitlesRequestObject)
 	}
 	end := offset + limit
 	if end < len(rows) {
-		cursor := base64.RawURLEncoding.EncodeToString([]byte(strconv.Itoa(end)))
-		out.NextCursor = &cursor
+		out.NextCursor = cursorOf(int64(end))
 	} else {
 		end = len(rows)
 	}

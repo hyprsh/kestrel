@@ -4,44 +4,56 @@ import { useState } from 'react'
 import { useAttention, useRunAction, type Attention, type AttentionAction, type AttentionRow } from '../api/attention'
 import { Button, ErrorText } from '../forms'
 import { slotLabel } from '../library/bits'
+import { placePath } from '../place'
 import { Badge, NavRow } from '../ui'
 import { OriginalsRow } from './OriginalsRow'
 import type { OverviewNav } from './nav'
+import { firstFive, Section, ViewAllHere } from './Section'
 
+/**
+ * The rows on show: five, or all of them once expanded. Blocking rows always show, so a
+ * Blocking row past the fifth is never hidden behind "View all".
+ */
+export const shownRows = (rows: AttentionRow[], all: boolean) => (all ? rows : firstFive(rows, (r) => r.severity === 'blocking'))
+
+/** `all` (kept by the Overview, whose j/k list must match) is whether the section is expanded. */
 export function NeedsAttention({
   onOpen,
   onOpenTitle,
   nav,
+  all,
+  onAll,
 }: {
   onOpen: (path: string) => void
   onOpenTitle: (id: number) => void
   nav: OverviewNav
+  all: boolean
+  onAll: (all: boolean) => void
 }) {
   const attention = useAttention()
   const rows = attention.data?.rows ?? []
+  const shown = shownRows(rows, all)
   const longMissing = attention.data?.long_missing
   const originals = attention.data?.originals
   // Long Missing only waits, so it leaves the section saying nothing needs attention; offers ask for a choice.
   const nothing = rows.length === 0 && !(originals && originals.count > 0)
   return (
-    <section aria-labelledby="needs-attention" className="mx-auto mb-8 max-w-3xl">
-      <h2 id="needs-attention" className="mb-3 text-sm font-medium">
-        Needs attention
-      </h2>
+    <Section id="needs-attention" title="Needs attention" count={rows.length} className="mb-8">
       {attention.data && nothing ? (
         <p className="text-gray-900">Nothing needs attention.</p>
       ) : (
         rows.length > 0 && (
           <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
-            {rows.map((r, i) => (
+            {shown.map((r, i) => (
               <Row key={r.id} row={r} onOpen={onOpen} nav={nav} index={nav.base + i} />
             ))}
           </ul>
         )
       )}
+      {(all || shown.length < rows.length) && <ViewAllHere count={rows.length} open={all} onToggle={() => onAll(!all)} />}
       {longMissing && longMissing.count > 0 && <LongMissingRow group={longMissing} onOpen={onOpen} />}
       {originals && originals.count > 0 && <OriginalsRow group={originals} onOpenTitle={onOpenTitle} />}
-    </section>
+    </Section>
   )
 }
 
@@ -64,7 +76,7 @@ function LongMissingRow({ group, onOpen }: { group: Attention['long_missing']; o
         <Button variant="secondary" aria-expanded={open} onClick={() => setOpen(!open)}>
           {open ? 'Hide' : 'Show'}
         </Button>
-        <Button variant="secondary" onClick={() => onOpen('/library/long-missing')}>
+        <Button variant="secondary" onClick={() => onOpen(placePath('library', 'is:long_missing sort:wanted_since'))}>
           Open in Library
         </Button>
       </div>

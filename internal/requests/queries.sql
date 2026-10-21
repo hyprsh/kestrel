@@ -1,6 +1,6 @@
 -- name: InsertRequest :one
-INSERT INTO requests (source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO requests (source, source_request_id, requester_id, requester_name, title_id, title_name, outcome, reject_reason, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id;
 
 -- name: DeleteRequest :exec
@@ -18,13 +18,25 @@ SELECT * FROM requests WHERE id = ?;
 -- name: GetRequestBySource :one
 SELECT * FROM requests WHERE source = ? AND source_request_id = ?;
 
+-- A list filter is a JSON array of the values to match any of, or NULL for none.
 -- name: ListRequests :many
 SELECT * FROM requests
 WHERE id < sqlc.arg(before)
-  AND (sqlc.arg(source) = '' OR source = sqlc.arg(source))
+  AND (sqlc.narg(sources) IS NULL OR source IN (SELECT value FROM json_each(sqlc.narg(sources))))
   AND (sqlc.arg(title_id) = 0 OR title_id = sqlc.arg(title_id))
+  AND (sqlc.narg(outcomes) IS NULL OR outcome IN (SELECT value FROM json_each(sqlc.narg(outcomes))))
+  AND (sqlc.narg(requesters) IS NULL OR requester_id IN (SELECT value FROM json_each(sqlc.narg(requesters)))
+       OR lower(requester_name) IN (SELECT lower(value) FROM json_each(sqlc.narg(requesters))))
 ORDER BY id DESC
 LIMIT sqlc.arg(max);
+
+-- name: CountRequests :one
+SELECT count(*) FROM requests
+WHERE (sqlc.narg(sources) IS NULL OR source IN (SELECT value FROM json_each(sqlc.narg(sources))))
+  AND (sqlc.arg(title_id) = 0 OR title_id = sqlc.arg(title_id))
+  AND (sqlc.narg(outcomes) IS NULL OR outcome IN (SELECT value FROM json_each(sqlc.narg(outcomes))))
+  AND (sqlc.narg(requesters) IS NULL OR requester_id IN (SELECT value FROM json_each(sqlc.narg(requesters)))
+       OR lower(requester_name) IN (SELECT lower(value) FROM json_each(sqlc.narg(requesters))));
 
 -- name: ListRequestsByTitle :many
 SELECT * FROM requests WHERE title_id = ? ORDER BY id;

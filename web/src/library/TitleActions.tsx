@@ -4,8 +4,10 @@ import { useState } from 'react'
 import { ApiError, type TitleDetail } from '../api/queries'
 import { useRefreshTitle, useSetFrozen, useSetMovieMonitored } from '../api/titleActions'
 import { useOpenCleanup } from '../cleanup/launch'
+import { termText } from '../filter/query'
 import { Button, ErrorText } from '../forms'
 import { Menu, MenuItem } from '../menu'
+import { placePath, useOpenPlace } from '../place'
 import { RemoveTitle } from './ManageVersion'
 import { MoveTitle } from './MoveTitle'
 import type { ManualSearchTarget } from './TitleDetail'
@@ -16,7 +18,7 @@ const message = (err: unknown, fallback: string) => (err instanceof ApiError ? e
 
 /**
  * One row of compact buttons for the whole Title. The rarer and dangerous ones
- * (Move, Clean up this Title, Remove Title) sit in the "…" menu at its end;
+ * (Move, Clean up this Title, Show in the Log, Remove Title) sit in the "…" menu at its end;
  * what they open (the Root folder picker, the removal confirmation) shows
  * right under the row.
  */
@@ -31,6 +33,7 @@ export function TitleActions({
 }) {
   const [panel, setPanel] = useState<'move' | 'remove' | null>(null)
   const openCleanup = useOpenCleanup()
+  const openPlace = useOpenPlace()
   const search = useSearchWanted(title)
   useFade(search.mutation.isSuccess ? search.mutation.submittedAt : null, search.mutation.reset)
   const refresh = useRefreshTitle(title.id)
@@ -62,6 +65,7 @@ export function TitleActions({
         >
           <MenuItem onSelect={() => setPanel('move')}>Move</MenuItem>
           <MenuItem onSelect={() => openCleanup([title.id])}>Clean up this Title</MenuItem>
+          <MenuItem onSelect={() => openPlace(placePath('log', termText({ name: 'title', values: [title.title], negated: false })))}>Show in the Log</MenuItem>
           <MenuItem onSelect={() => setPanel('remove')}>Remove Title</MenuItem>
         </Menu>
       </div>

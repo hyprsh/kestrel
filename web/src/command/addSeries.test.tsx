@@ -67,7 +67,7 @@ function fakeAdd(overview: Promise<'ok' | 'down'> = Promise.resolve('ok')) {
   const lib = fakeLibrary([])
   const sent: Sent[] = []
   server.use(
-    http.get('/lookup', ({ response }) => response(200).json({ items: [result()], next_cursor: null })),
+    http.get('/lookup', ({ response }) => response(200).json({ items: [result()], next_cursor: null, did_you_mean: null })),
     http.get('/lookup/{kind}/{tmdb_id}', ({ response }) => response(200).json(breakingBad)),
     http.get('/lookup/series/{tmdb_id}/overview', async ({ response }) => {
       if ((await overview) === 'down') {

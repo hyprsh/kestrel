@@ -65,7 +65,7 @@ func NewTMDB(o TMDBOptions) *TMDB {
 
 // Provider is what callers need of TMDB; *TMDB satisfies it and tests can swap it.
 type Provider interface {
-	Search(ctx context.Context, query string) ([]SearchResult, error)
+	Searcher
 	Movie(ctx context.Context, id int) (MovieDetails, error)
 	Series(ctx context.Context, id int) (SeriesDetails, error)
 	// SeriesExternalIDs is the cheap TMDB-to-TheTVDB bridge call used per search result.

@@ -1,12 +1,16 @@
-// The Log: what Kestrel did, filterable by kind, Title and Slot, with routine events hidden
-// until asked for; and the Blocklist view, where an entry can be removed.
+// The Log: what Kestrel did, filtered by one field of qualifiers (kind:, slot:, title:,
+// routine:) and free text, with routine events hidden until asked for; and the Blocklist view,
+// where an entry can be removed.
 import { useMemo, useState } from 'react'
 import { useBlocklist, useEvents, useUnblock, type LogEvent } from '../api/log'
 import { useTitles } from '../api/queries'
-import { Button, ErrorText, Select, TextInput } from '../forms'
+import { matchText } from '../fuzzy'
+import { parse, termText, withValue } from '../filter/query'
+import { QueryField } from '../filter/QueryField'
+import { Button, ErrorText } from '../forms'
 import { useKey, useListNav } from '../keys'
-import { slotKeys, slotLabel } from '../library/bits'
 import { Badge, type Tone } from '../ui'
+import { logFilter, logQualifiers } from './filter'
 
 const kinds: Record<string, { label: string; tone: Tone }> = {
   grab: { label: 'Grabbed', tone: 'blue' },
@@ -35,7 +39,8 @@ const kinds: Record<string, { label: string; tone: Tone }> = {
 
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
-export function Log() {
+/** `query` is the filter field's text, kept by the Shell so it can live in the address bar. */
+export function Log({ query, onQuery }: { query: string; onQuery: (query: string) => void }) {
   const [view, setView] = useState<'log' | 'blocklist'>('log')
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -52,30 +57,29 @@ export function Log() {
           </button>
         ))}
       </div>
-      {view === 'log' ? <Events /> : <Blocklist />}
+      {view === 'log' ? <Events query={query} onQuery={onQuery} /> : <Blocklist />}
     </div>
   )
 }
 
 function useTitleNames() {
   const titles = useTitles().data
-  return useMemo(() => ({ list: titles ?? [], names: new Map((titles ?? []).map((t) => [t.id, t.title])) }), [titles])
+  return useMemo(() => ({ list: titles, names: new Map((titles ?? []).map((t) => [t.id, t.title])) }), [titles])
 }
 
-function Events() {
-  const [kind, setKind] = useState('')
-  const [slot, setSlot] = useState('')
-  const [titleId, setTitleId] = useState<number | null>(null)
-  const [routine, setRoutine] = useState(false)
-  const [text, setText] = useState('')
+function Events({ query, onQuery }: { query: string; onQuery: (query: string) => void }) {
   const [sel, setSel] = useState(0)
-  const events = useEvents({ kind, slot, titleId, routine })
   const { list: titles, names } = useTitleNames()
+  const qualifiers = useMemo(() => logQualifiers(Object.keys(kinds), (titles ?? []).map((t) => t.title)), [titles])
+  const parsed = useMemo(() => parse(query, qualifiers), [query, qualifiers])
+  const byTitle = parsed.terms.some((t) => t.name === 'title')
+  // A title: filter names Titles, so it waits for the Library to know which.
+  const events = useEvents(logFilter(parsed, titles ?? []), !byTitle || titles !== undefined)
 
-  const shown = useMemo(() => {
-    const q = text.trim().toLowerCase()
-    return (events.data ?? []).filter((e) => !q || e.message.toLowerCase().includes(q) || (names.get(e.title_id ?? -1) ?? '').toLowerCase().includes(q))
-  }, [events.data, text, names])
+  const shown = useMemo(
+    () => (events.data ?? []).filter((e) => matchText(parsed.text, [e.message, names.get(e.title_id ?? -1) ?? ''])),
+    [events.data, parsed.text, names],
+  )
 
   useListNav('log', shown.length, sel, setSel)
   useKey('/', (e) => {
@@ -86,50 +90,22 @@ function Events() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-gray-alpha-400 px-4 py-2">
-        <TextInput
-          id="log-filter"
-          aria-label="Filter the Log"
-          placeholder="Filter…  /"
-          className="w-56"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => (e.key === 'Escape' || e.key === 'Enter') && e.currentTarget.blur()}
-        />
-        <Select aria-label="Kind" value={kind} onChange={(e) => setKind(e.target.value)} className="w-40">
-          <option value="">All kinds</option>
-          {Object.entries(kinds).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v.label}
-            </option>
-          ))}
-        </Select>
-        <Select aria-label="Title" value={titleId ?? ''} onChange={(e) => setTitleId(e.target.value ? Number(e.target.value) : null)} className="w-48">
-          <option value="">All Titles</option>
-          {titles.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.title}
-            </option>
-          ))}
-        </Select>
-        <Select aria-label="Slot" value={slot} onChange={(e) => setSlot(e.target.value)} className="w-28">
-          <option value="">All Slots</option>
-          {slotKeys.map((k) => (
-            <option key={k} value={k}>
-              {slotLabel[k]}
-            </option>
-          ))}
-        </Select>
-        <label className="flex items-center gap-1.5 text-gray-900">
-          <input type="checkbox" checked={routine} onChange={(e) => setRoutine(e.target.checked)} />
-          Show routine
-        </label>
+        <QueryField id="log-filter" label="Filter the Log" placeholder="Filter, e.g. kind:failures slot:4k …  /" value={query} onChange={onQuery} qualifiers={qualifiers} />
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         {events.isError && <ErrorText>The Log could not be loaded.</ErrorText>}
         {events.data && shown.length === 0 && <div className="p-6 text-center text-gray-900">Nothing in the Log matches.</div>}
         <ul aria-label="Events">
           {shown.map((e, i) => (
-            <EventRow key={e.id} e={e} index={i} selected={i === sel} title={names.get(e.title_id ?? -1)} onSelect={() => setSel(i)} />
+            <EventRow
+              key={e.id}
+              e={e}
+              index={i}
+              selected={i === sel}
+              title={names.get(e.title_id ?? -1)}
+              onSelect={() => setSel(i)}
+              onFilter={(name, value) => onQuery(withValue(query, name, value, qualifiers))}
+            />
           ))}
         </ul>
       </div>
@@ -137,7 +113,21 @@ function Events() {
   )
 }
 
-function EventRow({ e, index, selected, title, onSelect }: { e: LogEvent; index: number; selected: boolean; title?: string; onSelect: () => void }) {
+function EventRow({
+  e,
+  index,
+  selected,
+  title,
+  onSelect,
+  onFilter,
+}: {
+  e: LogEvent
+  index: number
+  selected: boolean
+  title?: string
+  onSelect: () => void
+  onFilter: (name: 'kind' | 'title', value: string) => void
+}) {
   return (
     <li
       data-nav={`log-${index}`}
@@ -146,10 +136,18 @@ function EventRow({ e, index, selected, title, onSelect }: { e: LogEvent; index:
     >
       <span className="w-36 shrink-0 text-[12px] text-gray-900 tabular">{when(e.at)}</span>
       <span className="w-28 shrink-0">
-        <Badge tone={kinds[e.kind]?.tone ?? 'gray'}>{kinds[e.kind]?.label ?? e.kind}</Badge>
+        <button aria-label={`Filter by kind:${e.kind}`} title={`kind:${e.kind}`} onClick={() => onFilter('kind', e.kind)} className="rounded-full hover:opacity-80">
+          <Badge tone={kinds[e.kind]?.tone ?? 'gray'}>{kinds[e.kind]?.label ?? e.kind}</Badge>
+        </button>
       </span>
       <span className="min-w-0 flex-1 break-words">
-        {title && <span className="font-medium">{title} </span>}
+        {title && (
+          <>
+            <button aria-label={`Filter by ${termText({ name: 'title', values: [title], negated: false })}`} onClick={() => onFilter('title', title)} className="font-medium hover:underline">
+              {title}
+            </button>{' '}
+          </>
+        )}
         <span className="text-gray-900">{e.message}</span>
       </span>
     </li>

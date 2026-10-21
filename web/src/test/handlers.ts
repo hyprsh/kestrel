@@ -64,11 +64,18 @@ export const handlers = [
   http.get('/profiles', ({ response }) => response(200).json({ items: [] })),
   http.get('/titles', ({ response }) => response(200).json({ items: [], next_cursor: null })),
   http.get('/queue', ({ response }) => response(200).json({ items: [] })),
+  http.get('/grabs', ({ response }) => response(200).json({ items: [], next_cursor: null })),
+  http.get('/blocklist', ({ response }) => response(200).json({ items: [] })),
   http.get('/upcoming', ({ request, response }) => {
     const q = new URL(request.url).searchParams
     return response(200).json({ from: q.get('from') ?? '', to: q.get('to') ?? '', items: [] })
   }),
-  http.get('/recent', ({ response }) => response(200).json({ items: [] })),
+  http.get('/recent', ({ response }) => response(200).json({ items: [], total: 0 })),
+  http.get('/requests', ({ response }) => response(200).json({ items: [], next_cursor: null, total: 0 })),
+  http.get('/search/status', ({ response }) =>
+    response(200).json({ due: { versions: 0, episodes: 0, upgrades: 0 }, pass: null, next_pass_at: null, last_pass: null, upgrades_per_pass: 5, indexers: [] }),
+  ),
+  http.get('/jobs', ({ response }) => response(200).json({ items: [] })),
   http.get('/attention', ({ response }) =>
     response(200).json({ count: 0, severity: null, rows: [], long_missing: { count: 0, items: [] }, originals: { count: 0, items: [] } }),
   ),
