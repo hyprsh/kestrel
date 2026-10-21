@@ -86,4 +86,44 @@ describe('Overview sections', () => {
     await userEvent.click(within(section).getByRole('button', { name: 'View all →' }))
     expect(await screen.findByRole('combobox', { name: 'Filter Activity' })).toHaveValue('stage:done')
   })
+
+  it('moves j through the rows on show only, and through the rest once Needs attention is expanded', async () => {
+    const warnings = Array.from({ length: 6 }, (_, i) => ({
+      id: `w${i + 1}`,
+      severity: 'warning' as const,
+      kind: 'exdev',
+      subject: { title_id: null, version_id: null, grab_id: null, plugin_instance_id: null },
+      message: `Warning ${i + 1}`,
+      since: '2026-10-18T09:30:00Z',
+      count: 1,
+      actions: [],
+    }))
+    server.use(
+      http.get('/attention', ({ response }) =>
+        response(200).json({ count: 6, severity: 'warning', rows: warnings, long_missing: { count: 0, items: [] }, originals: { count: 0, items: [] } }),
+      ),
+    )
+    fakeQueue(downloads(6))
+    fakeUpcoming(upcoming(1))
+    renderApp()
+    await screen.findByText('Warning 1')
+    await screen.findByText('Grab.1-GRP')
+    await screen.findByText('Movie 1')
+
+    const current = () => document.querySelector('[aria-current="true"]')
+    const press = async (n: number) => {
+      for (let i = 0; i < n; i++) await userEvent.keyboard('j')
+    }
+    expect(current()).toHaveTextContent('Warning 1')
+    await press(5)
+    expect(current()).toHaveTextContent('Grab.1-GRP')
+    await press(5)
+    expect(current()).toHaveTextContent('Movie 1')
+
+    await userEvent.click(screen.getByRole('button', { name: 'View all 6' }))
+    await press(1)
+    expect(current()).toHaveTextContent('Movie 1')
+    for (let i = 0; i < 6; i++) await userEvent.keyboard('k')
+    expect(current()).toHaveTextContent('Warning 6')
+  })
 })
