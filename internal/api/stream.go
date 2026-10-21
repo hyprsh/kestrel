@@ -256,6 +256,9 @@ func (r streamResponse) VisitStreamResponse(w http.ResponseWriter) error {
 				return false
 			}
 		}
+		if !snapshot("jobs", s.jobList(ctx)) {
+			return false
+		}
 		if n, sev, err := s.attention(ctx); err == nil {
 			var severity *oapi.AttentionSnapshotSeverity
 			if sev != nil {
