@@ -24,7 +24,8 @@ describe('Recent requests on the Overview', () => {
     expect(within(s).getAllByRole('listitem').map((r) => r.textContent)).toEqual([1, 2, 3, 4, 5].map((n) => expect.stringContaining(`Movie ${n}`)))
     expect(queries[0].get('limit')).toBe('5')
 
-    expect(within(s).getByRole('button', { name: 'View all 12 →' })).toBeInTheDocument()
+    await userEvent.click(within(s).getByRole('button', { name: 'View all 12 →' }))
+    expect(await screen.findByRole('combobox', { name: 'Filter Requests' })).toHaveValue('')
   })
 
   it('says who asked through what and when, and the seasons asked for', async () => {

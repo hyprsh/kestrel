@@ -18,6 +18,7 @@ import { Library } from '../library/Library'
 import { startLiveStream } from '../live/stream'
 import { Log } from '../log/Log'
 import { Overview } from '../overview/Overview'
+import { Requests } from '../requests/Requests'
 import { currentPlace, PlaceOpener, placeOf, placePath, showPlace } from '../place'
 import { Upcoming } from '../upcoming/Upcoming'
 import { Settings as SettingsScreen } from '../screens/Settings'
@@ -37,13 +38,15 @@ const about = { key: 'about', label: 'About', icon: <Info className={icon} /> }
 // Reached from Settings and the command menu, not the rail.
 const adoption = { key: 'adoption', label: 'Adopt existing library' }
 const cleanup = { key: 'cleanup', label: 'Clean up Unmanaged files' }
+// Reached from the Overview's Recent requests, not the rail; a place, so "/requests?q=…" opens it.
+const requests = { key: 'requests', label: 'Requests' }
 const themeIcon: Record<Theme, ReactNode> = {
   system: <Monitor className={icon} />,
   light: <Sun className={icon} />,
   dark: <Moon className={icon} />,
 }
 
-const isPlace = (key: string) => [...screens, about].some((s) => s.key === key)
+const isPlace = (key: string) => [...screens, about, requests].some((s) => s.key === key)
 
 export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   // A bookmarked address opens its screen with its filter.
@@ -59,7 +62,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const { theme, cycle } = useTheme()
   const auth = useAuth()
   const logout = useLogout()
-  const current = [...screens, about, adoption, cleanup].find((s) => s.key === screen)!
+  const current = [...screens, about, adoption, cleanup, requests].find((s) => s.key === screen)!
 
   // Every open tab stays live through one shared stream; the cache refetches on its hints.
   const queryClient = useQueryClient()
@@ -163,6 +166,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
             <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} />
           ) : screen === 'activity' ? (
             <Activity query={query} onQuery={(q) => setFilter({ screen: 'activity', q })} onOpenTitle={openTitle} />
+          ) : screen === 'requests' ? (
+            <Requests query={query} onQuery={(q) => setFilter({ screen: 'requests', q })} onOpenTitle={openTitle} />
           ) : screen === 'upcoming' ? (
             <Upcoming onOpenTitle={openTitle} />
           ) : (
