@@ -20,9 +20,9 @@ export function useEvents(f: LogFilter) {
     queryKey: ['log', f],
     queryFn: async () => {
       const query = {
-        ...(f.kind && { kind: f.kind }),
-        ...(f.slot && { slot: f.slot as components['schemas']['Slot'] }),
-        ...(f.titleId && { title_id: f.titleId }),
+        ...(f.kind && { kind: [f.kind] }),
+        ...(f.slot && { slot: [f.slot as components['schemas']['Slot']] }),
+        ...(f.titleId && { title_id: [f.titleId] }),
         ...(f.routine && { routine: true }),
       }
       const { data, error, response } = await api.GET('/events', { params: { query } })

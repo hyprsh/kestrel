@@ -16,18 +16,23 @@ func (s *server) ListEvents(ctx context.Context, r oapi.ListEventsRequestObject)
 	p := r.Params
 	f := history.Filter{}
 	if p.Kind != nil {
-		f.Kind = history.Kind(*p.Kind)
+		f.Kinds = kindsOf(*p.Kind)
+	}
+	if p.ExcludeKind != nil {
+		f.ExcludeKinds = kindsOf(*p.ExcludeKind)
 	}
 	if p.TitleId != nil {
-		f.TitleID = *p.TitleId
+		f.TitleIDs = *p.TitleId
 	}
 	if p.Slot != nil {
-		switch *p.Slot {
-		case oapi.Standard, oapi.N4k:
-		default:
-			return nil, invalid("slot", "invalid", "slot must be standard or 4k")
+		for _, slot := range *p.Slot {
+			switch slot {
+			case oapi.Standard, oapi.N4k:
+			default:
+				return nil, invalid("slot", "invalid", "slot must be standard or 4k")
+			}
+			f.Slots = append(f.Slots, string(slot))
 		}
-		f.Slot = string(*p.Slot)
 	}
 	if p.Routine != nil {
 		f.Routine = *p.Routine
@@ -58,6 +63,14 @@ func (s *server) ListEvents(ctx context.Context, r oapi.ListEventsRequestObject)
 		out.Items = append(out.Items, item)
 	}
 	return oapi.ListEvents200JSONResponse(out), nil
+}
+
+func kindsOf(names []string) []history.Kind {
+	out := make([]history.Kind, len(names))
+	for i, n := range names {
+		out[i] = history.Kind(n)
+	}
+	return out
 }
 
 // ListBlocklist lists the Releases that will never be grabbed again.

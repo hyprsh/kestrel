@@ -1093,7 +1093,9 @@ export interface paths {
          * @description Events newest first. Routine events (a download started or finished, an Adoption scan) are
          *     left out unless `routine=true`; they are pruned after 30 days, the rest are kept forever.
          *     `kind` is a growing set: clients show kinds they do not know. `slot` matches events about a
-         *     Version in that Slot. `before` pages: pass the smallest `id` seen.
+         *     Version in that Slot. `kind`, `title_id` and `slot` may repeat and then match any of their
+         *     values; filters of different names must all match. `exclude_kind` (repeatable) leaves those
+         *     kinds out, even when `kind` names them. `before` pages: pass the smallest `id` seen.
          */
         get: operations["listEvents"];
         put?: never;
@@ -4622,9 +4624,10 @@ export interface operations {
     listEvents: {
         parameters: {
             query?: {
-                kind?: string;
-                title_id?: number;
-                slot?: components["schemas"]["Slot"];
+                kind?: string[];
+                exclude_kind?: string[];
+                title_id?: number[];
+                slot?: components["schemas"]["Slot"][];
                 routine?: boolean;
                 before?: number;
                 limit?: number;
