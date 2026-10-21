@@ -1,21 +1,10 @@
 // The Searching card: the search pipeline at a glance, beside Downloading now.
 import { useSearchStatus, type SearchStatus } from '../api/search'
+import { plural } from '../format'
 import { useOpenPlace } from '../place'
-import { useNow } from '../time'
+import { clockTime, until, useNow } from '../time'
 
 type Indexer = SearchStatus['indexers'][number]
-
-const clockTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-
-/** "in 3 min", "in 1 h 5 min"; "any moment" once it is due. */
-function startsIn(iso: string, now: number): string {
-  const mins = Math.round((Date.parse(iso) - now) / 60_000)
-  if (mins < 1) return 'any moment'
-  if (mins < 60) return `in ${mins} min`
-  return `in ${Math.floor(mins / 60)} h ${mins % 60} min`
-}
-
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 
 /** Why sweeps leave an indexer alone, or null when they don't. */
 function heldLine(i: Indexer): string | null {
@@ -71,7 +60,7 @@ export function SearchSummary({ status: s }: { status: SearchStatus }) {
   const main = [
     s.due.versions > 0 ? `${s.due.versions} Wanted waiting` : 'Nothing waiting',
     s.pass ? `searching ${s.pass.done} of ${s.pass.total}` : null,
-    s.next_pass_at ? `next pass ${startsIn(s.next_pass_at, now)}` : null,
+    s.next_pass_at ? `next pass ${until(s.next_pass_at, now)}` : null,
   ].filter(Boolean)
   const indexers = s.indexers.map(indexerLine).filter((l) => l !== null)
   return (

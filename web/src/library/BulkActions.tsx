@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useBulkTitles, type TitleBulkOutcome, type TitleBulkReason, type TitlesBulk } from '../api/bulk'
 import { useProfiles, type Profile, type TitleRow } from '../api/queries'
+import { plural } from '../format'
 import { Button, ErrorText, Select } from '../forms'
 import { size, slotKeys, slotLabel, type SlotKey } from './bits'
 import { RemoveConfirm } from './ManageVersion'
@@ -46,8 +47,6 @@ function summarize(items: TitleBulkOutcome[], slot: string | null): { changed: n
 
 type Result = { label: string; items: TitleBulkOutcome[]; slot: string | null }
 type Form = 'monitor' | 'switch_profile' | 'add_version' | 'remove_version' | 'remove'
-
-const plural = (n: number, one: string) => `${n} ${n === 1 ? one : `${one}s`}`
 
 /** The right pane while Titles are checked: the actions for all of them at once and what the last one did. */
 export function BulkActions({ rows }: { rows: TitleRow[] }) {
