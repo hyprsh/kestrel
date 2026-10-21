@@ -126,6 +126,18 @@ describe('the live stream', () => {
     expect(a.getQueryState(['titles'])?.isInvalidated).toBe(true)
   })
 
+  it('keeps the search status from its frames', async () => {
+    const deps = fakeBrowser()
+    const a = tab()
+    startLiveStream(a, deps)
+    await flush()
+
+    open()[0].emit('search', { due: { versions: 120, episodes: 0, upgrades: 3 }, pass: null })
+    await flush()
+
+    expect(a.getQueryData(['search'])).toEqual({ due: { versions: 120, episodes: 0, upgrades: 3 }, pass: null })
+  })
+
   it('does nothing where there is no EventSource', () => {
     const stop = startLiveStream(tab(), null)
     stop()

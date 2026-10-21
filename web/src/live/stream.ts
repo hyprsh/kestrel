@@ -8,7 +8,7 @@ import { apiBaseUrl } from '../api/client'
 
 const LOCK = 'kestrel-live-stream'
 const CHANNEL = 'kestrel-live'
-const EVENTS = ['changed', 'queue', 'activity', 'attention'] as const
+const EVENTS = ['changed', 'queue', 'activity', 'attention', 'search'] as const
 
 /** A frame as relayed between tabs; `reset` means "refetch everything you show". */
 type Frame = { event: (typeof EVENTS)[number] | 'reset'; data?: unknown }
@@ -55,6 +55,7 @@ function applyFrame(qc: QueryClient, f: Frame) {
       qc.setQueryData(['queue'], (f.data as { items: unknown[] }).items)
       return
     case 'activity':
+    case 'search':
       qc.setQueryData([f.event], f.data)
       return
     case 'attention':
