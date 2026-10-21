@@ -1106,6 +1106,43 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
   /grabs:
+    get:
+      operationId: listGrabs
+      summary: Grabs, newest first, with how they ended
+      description: |
+        Every Grab Kestrel still holds, newest first: active ones, stalled Imports and finished ones
+        (`imported`, or `failed` with the `failure` and, when its Release went on the Blocklist, the
+        entry's `blocklist_reason`). A canceled Grab is gone; one canceled and blocklisted shows only
+        on the Blocklist. `state` may repeat and matches any of its values; `stalled=true` keeps only
+        stalled Imports and `false` leaves them out; `since` keeps the Grabs whose state last changed
+        then or later (`updated_at`). The Activity screen reads the last 7 days of `imported` and
+        `failed` Grabs here, and leaves older ones to the Log. `cursor` is the `next_cursor` of the
+        page before.
+      tags: [grabs]
+      parameters:
+        - name: state
+          in: query
+          schema:
+            type: array
+            maxItems: 6
+            items:
+              type: string
+              enum: [sent, downloading, completed, importing, imported, failed]
+        - { name: stalled, in: query, schema: { type: boolean } }
+        - { name: since, in: query, schema: { type: string, format: date-time } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: A page of Grabs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GrabList"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
     post:
       operationId: createGrab
       summary: Grab a Release into the download client
@@ -3681,6 +3718,104 @@ components:
         created_at:
           type: string
           format: date-time
+    GrabList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/GrabEntry"
+        next_cursor:
+          type: string
+          nullable: true
+    GrabEntry:
+      type: object
+      description: A Grab as the Activity screen shows it, joined with its Title and Slot.
+      required: [grab_id, title_id, has_poster, version_id, title, year, kind, slot, episodes, release_name, indexer, size, score,
+        is_upgrade, state, failure, blocklist_reason, stalled, grabbed_at, updated_at]
+      properties:
+        grab_id:
+          type: integer
+          format: int64
+        title_id:
+          type: integer
+          format: int64
+          nullable: true
+        has_poster:
+          type: boolean
+          description: Whether `GET /titles/{id}/poster` serves a poster for the Title; false when the Title was deleted.
+        version_id:
+          type: integer
+          format: int64
+          nullable: true
+        title:
+          type: string
+          description: The Title's name, empty when the Title was deleted.
+        year:
+          type: integer
+          nullable: true
+        kind:
+          allOf:
+            - $ref: "#/components/schemas/TitleKind"
+          nullable: true
+        slot:
+          allOf:
+            - $ref: "#/components/schemas/Slot"
+          nullable: true
+        episodes:
+          type: array
+          description: The episodes a Series Grab covers (`S01E02`); empty for a Movie.
+          items:
+            type: string
+        release_name:
+          type: string
+        indexer:
+          type: string
+        size:
+          type: integer
+          format: int64
+        score:
+          type: integer
+        is_upgrade:
+          type: boolean
+        state:
+          type: string
+          enum: [sent, downloading, completed, importing, imported, failed]
+        failure:
+          type: string
+          nullable: true
+          description: Why a failed Grab failed, such as `download_failed`, `encrypted`, `discarded` or what the Import rejected.
+        blocklist_reason:
+          type: string
+          nullable: true
+          description: The reason of the Blocklist entry the Grab's Release got, null when it is not blocklisted.
+        stalled:
+          allOf:
+            - $ref: "#/components/schemas/GrabStall"
+          nullable: true
+          description: Set while the Import waits for the environment to be fixed.
+        grabbed_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+          description: When the Grab's state last changed; for a finished Grab, when it finished.
+    GrabStall:
+      type: object
+      required: [reason, since, next_at]
+      properties:
+        reason:
+          type: string
+          description: What is wrong, such as `disk full`.
+        since:
+          type: string
+          format: date-time
+        next_at:
+          type: string
+          format: date-time
+          description: When the Import is tried again on its own.
     GrabCancel:
       type: object
       properties:
@@ -4582,7 +4717,8 @@ components:
             $ref: "#/components/schemas/QueueItem"
     QueueItem:
       type: object
-      required: [grab_id, title_id, has_poster, version_id, title, year, slot, episodes, release_name, phase, bytes_total, bytes_left, eta, is_upgrade, score_delta]
+      required: [grab_id, title_id, has_poster, version_id, title, year, kind, slot, episodes, release_name, indexer, size, score, phase, phase_since,
+        bytes_total, bytes_left, eta, is_upgrade, score_delta, grabbed_at]
       properties:
         grab_id:
           type: integer
@@ -4604,6 +4740,11 @@ components:
         year:
           type: integer
           nullable: true
+        kind:
+          allOf:
+            - $ref: "#/components/schemas/TitleKind"
+          nullable: true
+          description: The Title's kind, null when the Title was deleted.
         slot:
           allOf:
             - $ref: "#/components/schemas/Slot"
@@ -4615,9 +4756,28 @@ components:
             type: string
         release_name:
           type: string
+        indexer:
+          type: string
+          description: The indexer the Release came from.
+        size:
+          type: integer
+          format: int64
+          description: The Release's size as the indexer gave it; `bytes_total` is the client's.
+        score:
+          type: integer
         phase:
           type: string
           enum: [queued, downloading, paused, post_processing, importing]
+        phase_since:
+          type: string
+          format: date-time
+          description: |
+            When the Grab entered its `phase`, as far as Kestrel knows. A phase only the download client
+            reports (`paused`, `post_processing`, `queued` after `downloading`) counts from the poll that
+            first saw it, and after a restart from the Grab's last change of state.
+        grabbed_at:
+          type: string
+          format: date-time
         bytes_total:
           type: integer
           format: int64

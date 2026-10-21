@@ -126,6 +126,20 @@ describe('the live stream', () => {
     expect(a.getQueryState(['titles'])?.isInvalidated).toBe(true)
   })
 
+  it("refetches Activity's Grab lists when a Grab changes", async () => {
+    const deps = fakeBrowser()
+    const a = tab()
+    startLiveStream(a, deps)
+    await flush()
+    a.setQueryData(['grabs', 'finished'], [])
+    expect(a.getQueryState(['grabs', 'finished'])?.isInvalidated).toBe(false)
+
+    open()[0].emit('changed', { resource: 'grab', id: 9 })
+    await flush()
+
+    expect(a.getQueryState(['grabs', 'finished'])?.isInvalidated).toBe(true)
+  })
+
   it('keeps the search status from its frames', async () => {
     const deps = fakeBrowser()
     const a = tab()

@@ -861,7 +861,18 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Grabs, newest first, with how they ended
+         * @description Every Grab Kestrel still holds, newest first: active ones, stalled Imports and finished ones
+         *     (`imported`, or `failed` with the `failure` and, when its Release went on the Blocklist, the
+         *     entry's `blocklist_reason`). A canceled Grab is gone; one canceled and blocklisted shows only
+         *     on the Blocklist. `state` may repeat and matches any of its values; `stalled=true` keeps only
+         *     stalled Imports and `false` leaves them out; `since` keeps the Grabs whose state last changed
+         *     then or later (`updated_at`). The Activity screen reads the last 7 days of `imported` and
+         *     `failed` Grabs here, and leaves older ones to the Log. `cursor` is the `next_cursor` of the
+         *     page before.
+         */
+        get: operations["listGrabs"];
         put?: never;
         /**
          * Grab a Release into the download client
@@ -2639,6 +2650,60 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
+        GrabList: {
+            items: components["schemas"]["GrabEntry"][];
+            next_cursor: string | null;
+        };
+        /** @description A Grab as the Activity screen shows it, joined with its Title and Slot. */
+        GrabEntry: {
+            /** Format: int64 */
+            grab_id: number;
+            /** Format: int64 */
+            title_id: number | null;
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title; false when the Title was deleted. */
+            has_poster: boolean;
+            /** Format: int64 */
+            version_id: number | null;
+            /** @description The Title's name, empty when the Title was deleted. */
+            title: string;
+            year: number | null;
+            kind: components["schemas"]["TitleKind"] | null;
+            slot: components["schemas"]["Slot"] | null;
+            /** @description The episodes a Series Grab covers (`S01E02`); empty for a Movie. */
+            episodes: string[];
+            release_name: string;
+            indexer: string;
+            /** Format: int64 */
+            size: number;
+            score: number;
+            is_upgrade: boolean;
+            /** @enum {string} */
+            state: "sent" | "downloading" | "completed" | "importing" | "imported" | "failed";
+            /** @description Why a failed Grab failed, such as `download_failed`, `encrypted`, `discarded` or what the Import rejected. */
+            failure: string | null;
+            /** @description The reason of the Blocklist entry the Grab's Release got, null when it is not blocklisted. */
+            blocklist_reason: string | null;
+            /** @description Set while the Import waits for the environment to be fixed. */
+            stalled: components["schemas"]["GrabStall"] | null;
+            /** Format: date-time */
+            grabbed_at: string;
+            /**
+             * Format: date-time
+             * @description When the Grab's state last changed; for a finished Grab, when it finished.
+             */
+            updated_at: string;
+        };
+        GrabStall: {
+            /** @description What is wrong, such as `disk full`. */
+            reason: string;
+            /** Format: date-time */
+            since: string;
+            /**
+             * Format: date-time
+             * @description When the Import is tried again on its own.
+             */
+            next_at: string;
+        };
         GrabCancel: {
             /** @default false */
             blocklist: boolean;
@@ -3214,12 +3279,31 @@ export interface components {
             /** @description The Title's name, empty when the Title was deleted. */
             title: string;
             year: number | null;
+            /** @description The Title's kind, null when the Title was deleted. */
+            kind: components["schemas"]["TitleKind"] | null;
             slot: components["schemas"]["Slot"] | null;
             /** @description The episodes a Series Grab covers (`S01E02`); empty for a Movie. */
             episodes: string[];
             release_name: string;
+            /** @description The indexer the Release came from. */
+            indexer: string;
+            /**
+             * Format: int64
+             * @description The Release's size as the indexer gave it; `bytes_total` is the client's.
+             */
+            size: number;
+            score: number;
             /** @enum {string} */
             phase: "queued" | "downloading" | "paused" | "post_processing" | "importing";
+            /**
+             * Format: date-time
+             * @description When the Grab entered its `phase`, as far as Kestrel knows. A phase only the download client
+             *     reports (`paused`, `post_processing`, `queued` after `downloading`) counts from the poll that
+             *     first saw it, and after a restart from the Grab's last change of state.
+             */
+            phase_since: string;
+            /** Format: date-time */
+            grabbed_at: string;
             /** Format: int64 */
             bytes_total: number;
             /** Format: int64 */
@@ -4482,6 +4566,34 @@ export interface operations {
                 content?: never;
             };
             404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listGrabs: {
+        parameters: {
+            query?: {
+                state?: ("sent" | "downloading" | "completed" | "importing" | "imported" | "failed")[];
+                stalled?: boolean;
+                since?: string;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of Grabs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrabList"];
+                };
+            };
+            422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

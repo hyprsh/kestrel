@@ -1,9 +1,9 @@
-// One active Grab as "Downloading now" draws it, shared by the Overview and the Title page.
+// One active Grab as "Downloading now" draws it, shared by the Overview, the Title page and Activity.
+import type { ReactNode } from 'react'
 import type { QueueItem } from '../api/queue'
 import { Button } from '../forms'
-import { slotLabel, type SlotKey } from '../library/bits'
-import { TitlePoster } from '../poster'
-import { Badge, cx, NavRow } from '../ui'
+import { cx } from '../ui'
+import { GrabRow, type RowNav } from './GrabRow'
 
 const phaseLabel: Record<QueueItem['phase'], string> = {
   queued: 'Queued',
@@ -28,13 +28,9 @@ function formatEta(seconds: number): string {
   return `${Math.floor(mins / 60)} h ${mins % 60} min left`
 }
 
-/** Where a row sits in a j/k list (`NavRow`); a row outside one is a plain list item. */
-type RowNav = { scope: string; index: number; sel: number; onSelect: () => void }
-
 /**
- * A Grab's row: its Title's poster and name (left out with `withTitle={false}`,
- * on the Title's own page), Slot, episodes, Release, phase, progress and the
- * Cancel actions. Clicking the poster or the name opens the Title.
+ * An active Grab's row: the Grab, its phase, progress and the Cancel actions, with
+ * `detail` (Activity's indexer, Score and times) above the progress.
  */
 export function DownloadRow({
   item: i,
@@ -43,6 +39,7 @@ export function DownloadRow({
   busy,
   onCancel,
   onOpenTitle,
+  detail,
 }: {
   item: QueueItem
   nav?: RowNav
@@ -50,78 +47,46 @@ export function DownloadRow({
   busy: boolean
   onCancel: (blocklist: boolean) => void
   onOpenTitle?: (id: number) => void
+  detail?: ReactNode
 }) {
   const pct = percent(i)
-  const id = i.title_id
-  const open = id != null && onOpenTitle ? () => onOpenTitle(id) : undefined
-  const className = 'flex gap-3 px-4 py-3'
-  const body = (
-    <>
-      {withTitle &&
-        (id != null ? (
-          // The name is the keyboard way in; the poster is a bigger mouse target for the same thing.
-          <span onClick={open} className="shrink-0">
-            <TitlePoster id={id} hasPoster={i.has_poster} className="h-15 w-10 rounded-sm" />
-          </span>
-        ) : (
-          <span className="w-10 shrink-0" />
-        ))}
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <div className="flex items-center gap-2">
-          {withTitle &&
-            (open ? (
-              <button type="button" onClick={open} className="cursor-pointer font-medium hover:underline">
-                {i.title || 'Deleted Title'}
-              </button>
-            ) : (
-              <span className="font-medium">{i.title || 'Deleted Title'}</span>
-            ))}
-          {withTitle && i.year ? <span className="text-gray-900">{i.year}</span> : null}
-          {i.slot && <Badge>{slotLabel[i.slot as SlotKey]}</Badge>}
-          {i.episodes.length > 0 && <span className="text-gray-900">{i.episodes.join(', ')}</span>}
-          {i.is_upgrade && (
-            <Badge tone="purple">
-              Upgrade
-              {i.score_delta != null && <span className="ml-1">{`+${i.score_delta}`}</span>}
-            </Badge>
-          )}
-          <span className="ml-auto flex gap-2">
-            <Button variant="secondary" disabled={busy} onClick={() => onCancel(false)}>
-              Cancel
-            </Button>
-            <Button variant="secondary" disabled={busy} onClick={() => onCancel(true)}>
-              Cancel and blocklist
-            </Button>
-          </span>
-        </div>
-        <div className="truncate font-mono text-[12px] text-gray-900">{i.release_name}</div>
-        <div className="flex items-center gap-3 text-[12px] text-gray-900">
-          <span className={cx('w-24', i.phase === 'paused' && 'text-amber-900')}>{phaseLabel[i.phase]}</span>
-          {pct !== null && (
-            <>
-              <div
-                role="progressbar"
-                aria-label={`${i.release_name} progress`}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={pct}
-                className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-alpha-200"
-              >
-                <div className="h-full bg-blue-700" style={{ width: `${pct}%` }} />
-              </div>
-              <span className="w-10 text-right tabular-nums">{pct}%</span>
-            </>
-          )}
-          {i.eta != null && <span>{formatEta(i.eta)}</span>}
-        </div>
+  return (
+    <GrabRow
+      grab={i}
+      nav={nav}
+      withTitle={withTitle}
+      onOpenTitle={onOpenTitle}
+      actions={
+        <>
+          <Button variant="secondary" disabled={busy} onClick={() => onCancel(false)}>
+            Cancel
+          </Button>
+          <Button variant="secondary" disabled={busy} onClick={() => onCancel(true)}>
+            Cancel and blocklist
+          </Button>
+        </>
+      }
+    >
+      {detail}
+      <div className="flex items-center gap-3 text-[12px] text-gray-900">
+        <span className={cx('w-24', i.phase === 'paused' && 'text-amber-900')}>{phaseLabel[i.phase]}</span>
+        {pct !== null && (
+          <>
+            <div
+              role="progressbar"
+              aria-label={`${i.release_name} progress`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={pct}
+              className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-alpha-200"
+            >
+              <div className="h-full bg-blue-700" style={{ width: `${pct}%` }} />
+            </div>
+            <span className="w-10 text-right tabular-nums">{pct}%</span>
+          </>
+        )}
+        {i.eta != null && <span>{formatEta(i.eta)}</span>}
       </div>
-    </>
-  )
-  return nav ? (
-    <NavRow scope={nav.scope} index={nav.index} sel={nav.sel} onSelect={nav.onSelect} className={className}>
-      {body}
-    </NavRow>
-  ) : (
-    <li className={className}>{body}</li>
+    </GrabRow>
   )
 }

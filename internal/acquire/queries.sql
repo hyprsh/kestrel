@@ -80,6 +80,19 @@ SELECT episode_id FROM grab_episodes WHERE grab_id = ? ORDER BY episode_id;
 -- name: ListLastFailures :many
 SELECT version_id, failure FROM grabs WHERE state = 'failed' AND version_id IS NOT NULL AND failure IS NOT NULL ORDER BY id;
 
+-- Grabs newest first for GET /grabs, with the reason of the Blocklist entry their Release got (empty when none).
+-- `states` is a JSON array or NULL (any state), as in the Log's ListEvents.
+-- name: ListGrabs :many
+SELECT sqlc.embed(g),
+       CAST(coalesce((SELECT b.reason FROM blocklist b WHERE b.grab_id = g.id ORDER BY b.id DESC LIMIT 1), '') AS TEXT) AS blocklist_reason
+FROM grabs g
+WHERE (sqlc.narg(states) IS NULL OR g.state IN (SELECT value FROM json_each(sqlc.narg(states))))
+  AND (sqlc.narg(stalled) IS NULL OR (g.stalled_since IS NOT NULL) = sqlc.narg(stalled))
+  AND (sqlc.narg(since) IS NULL OR g.updated_at >= sqlc.narg(since))
+  AND (sqlc.narg(before) IS NULL OR g.id < sqlc.narg(before))
+ORDER BY g.id DESC
+LIMIT sqlc.arg(max);
+
 -- name: ListBlocklist :many
 SELECT * FROM blocklist WHERE (sqlc.narg(title_id) IS NULL OR title_id = sqlc.narg(title_id)) ORDER BY id DESC;
 
