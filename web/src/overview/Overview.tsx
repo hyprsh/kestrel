@@ -22,7 +22,7 @@ export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen
   const items = firstFive(all)
   const rows = useAttention().data?.rows ?? []
   const coming = firstFive(useUpcoming(6).data ?? [])
-  const recentItems = useRecent().data ?? []
+  const recentItems = firstFive(useRecent().data ?? [])
 
   // One selection runs through every section; Enter does what clicking the row would.
   const [sel, setSel] = useState(0)

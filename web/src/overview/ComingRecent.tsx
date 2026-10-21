@@ -2,6 +2,7 @@
 // Their rows are part of the Overview's one j/k selection (see OverviewNav).
 import { useRecent, useUpcoming, type RecentItem } from '../api/upcoming'
 import { slotLabel, type SlotKey } from '../library/bits'
+import { placePath } from '../place'
 import { Badge, NavRow } from '../ui'
 import { dayLabel, UpcomingLine, upcomingKey } from '../upcoming/bits'
 import type { OverviewNav } from './nav'
@@ -12,7 +13,7 @@ export function ComingRecent({ onOpenTitle, nav }: { onOpenTitle: (id: number) =
   const recent = useRecent()
   const comingAll = coming.data ?? []
   const comingItems = firstFive(comingAll)
-  const recentItems = recent.data ?? []
+  const recentItems = firstFive(recent.data ?? [])
   const open = (index: number, id: number) => {
     nav.select(index)
     onOpenTitle(id)
@@ -38,10 +39,8 @@ export function ComingRecent({ onOpenTitle, nav }: { onOpenTitle: (id: number) =
         )}
         {comingAll.length > 0 && <ViewAll path="/upcoming" count={comingAll.length} />}
       </Section>
-      <section aria-labelledby="recently-added" className="mx-auto mt-6 max-w-3xl">
-        <h2 id="recently-added" className="mb-3 text-sm font-medium">
-          Recently added
-        </h2>
+      {/* No count: GET /recent returns only the latest few Imports. */}
+      <Section id="recently-added" title="Recently added" className="mt-6">
         {recent.data && recentItems.length === 0 ? (
           <p className="text-gray-900">Nothing has been imported yet.</p>
         ) : (
@@ -56,7 +55,8 @@ export function ComingRecent({ onOpenTitle, nav }: { onOpenTitle: (id: number) =
             })}
           </ul>
         )}
-      </section>
+        {recentItems.length > 0 && <ViewAll path={placePath('activity', 'stage:done')} />}
+      </Section>
     </>
   )
 }
