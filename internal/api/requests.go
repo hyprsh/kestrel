@@ -89,7 +89,7 @@ func (s *server) CreateRequest(ctx context.Context, r oapi.CreateRequestRequestO
 	}
 	s.history.Record(ctx, history.Event{
 		Kind: history.RequestCreated, TitleID: res.Request.TitleID, RequestID: res.Request.ID,
-		Message: "Request from " + res.Request.RequesterName + " via " + res.Request.Source,
+		Message: "Request from " + res.Request.RequesterName + " via " + requests.SourceName(res.Request.Source),
 	})
 	return oapi.CreateRequest201JSONResponse(requestToAPI(res.Request)), nil
 }

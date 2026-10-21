@@ -1,6 +1,7 @@
 import { forwardRef, useRef } from 'react'
 import { useProfiles, useTitle, type EpisodeScope, type TitleDetail as Detail, type TitleRow } from '../api/queries'
 import { TitlePoster } from '../poster'
+import { sourceName } from '../requests/source'
 import { slotKeys, type SlotKey } from './bits'
 import { ExternalIds } from './ExternalIds'
 import { Ratings } from './Ratings'
@@ -67,7 +68,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
           <ExternalIds title={title} />
           {title.requests.map((r) => (
             <div key={r.id} className="mt-1 text-[13px] text-gray-900">
-              Requested by {r.requester_name} via {r.source}
+              Requested by {r.requester_name} via {sourceName(r.source)}
             </div>
           ))}
           {title.overview && <p className="mt-3 max-w-prose text-gray-900">{title.overview}</p>}
