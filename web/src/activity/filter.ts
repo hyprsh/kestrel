@@ -1,7 +1,7 @@
 // Activity's qualifiers (stage:, kind:, slot:) and how a parsed filter narrows the pipeline.
 // The grammar lives in filter/query.ts; the stage chips edit the same `stage:` qualifier, so a
 // path such as "/activity?q=stage:done" opens the screen on one stage.
-import { matchText } from '../filter/match'
+import { matchText } from '../fuzzy'
 import { parse, withoutValue, withValue, type Qualifier, type Query } from '../filter/query'
 import { slotKeys } from '../library/bits'
 import { facetsOf, stages, type Entry, type Stage } from './stages'

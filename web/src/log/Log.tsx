@@ -4,7 +4,7 @@
 import { useMemo, useState } from 'react'
 import { useBlocklist, useEvents, useUnblock, type LogEvent } from '../api/log'
 import { useTitles } from '../api/queries'
-import { matchText } from '../filter/match'
+import { matchText } from '../fuzzy'
 import { parse, termText, withValue } from '../filter/query'
 import { QueryField } from '../filter/QueryField'
 import { Button, ErrorText } from '../forms'

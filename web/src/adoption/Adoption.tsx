@@ -270,7 +270,7 @@ function NeedsChoice({ row }: { row: AdoptionRow }) {
     e.preventDefault()
     setQuery(q.trim())
   }
-  const found = (search.data ?? []).filter((r) => r.kind === row.kind)
+  const found = (search.data?.items ?? []).filter((r) => r.kind === row.kind)
   return (
     <div>
       <div className="flex items-center gap-2 font-medium">

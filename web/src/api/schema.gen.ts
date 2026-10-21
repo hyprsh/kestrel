@@ -329,7 +329,9 @@ export interface paths {
         };
         /**
          * Search the metadata provider for Titles to add
-         * @description One TMDB search across both kinds, in English, newest relevance first. Results already in the
+         * @description One TMDB search across both kinds, in English, ranked best match first. A year typed after
+         *     the title is searched without and ranks by it; when TMDB finds nothing, the query is asked
+         *     once more without accents and punctuation, with `&` as "and". Results already in the
          *     Library carry their Title id in `in_library`. A Series needs a TheTVDB id (from TMDB's external
          *     ids, else a TheTVDB remote-id search by IMDb id); one without is `addable: false` with
          *     `not_addable_reason: not_on_tvdb`, and `POST /titles` refuses it.
@@ -2169,8 +2171,14 @@ export interface components {
             ratings: components["schemas"]["Rating"][];
         };
         LookupList: {
+            /**
+             * @description Best match first: TMDB's results ranked by how well they match the query, then by a
+             *     year typed after it (`dune 2021`, searched as `dune`).
+             */
             items: components["schemas"]["LookupResult"][];
             next_cursor: string | null;
+            /** @description The best result's title when it differs a lot from the query, to search for instead; `null` otherwise. */
+            did_you_mean: string | null;
         };
         SuggestedSlot: {
             slot: components["schemas"]["Slot"];
@@ -2501,6 +2509,8 @@ export interface components {
             /** @description The title in the Primary Language; the English title when TMDB has no translation. */
             primary_title: string;
             year: number | null;
+            /** @description Whether `GET /titles/{id}/poster` has an image. */
+            has_poster: boolean;
             slots: {
                 standard: components["schemas"]["SlotSummary"] | null;
                 "4k": components["schemas"]["SlotSummary"] | null;
@@ -4133,9 +4143,9 @@ export interface operations {
             query?: {
                 kind?: components["schemas"]["TitleKind"];
                 q?: string;
-                /** @description `true` keeps the Titles with a Wanted Version (the Library's Wanted filter). */
+                /** @description `true` keeps the Titles with a Wanted Version (the Library filter's `is:wanted`). */
                 wanted?: boolean;
-                /** @description `true` keeps the Titles with a Long Missing Version (the Long Missing chip). */
+                /** @description `true` keeps the Titles with a Long Missing Version (the Library filter's `is:long_missing`). */
                 long_missing?: boolean;
                 /**
                  * @description `added_at` (default) is newest first. `wanted_since` puts the Titles that have been Wanted
