@@ -53,6 +53,7 @@ type sweepRow struct {
 	fresh                    bool // added in the UI or by a Request and not searched yet
 	nextUpgrade, lastUpgrade *time.Time
 	wanted                   bool
+	wantedEps                int       // a Series season's Wanted episodes
 	dateless                 bool      // a Movie with no release date anywhere not yet counting as released: searched weekly
 	since                    time.Time // when it became Wanted: the latest among a season's Wanted episodes
 	released                 time.Time // when a Movie came out in the household's country; zero if unknown or a Series
@@ -190,6 +191,7 @@ func (s *Service) sweepRows(ctx context.Context, now time.Time) ([]sweepRow, err
 						r.since = *since
 					}
 					r.wanted = true
+					r.wantedEps++
 				}
 			}
 			state, _ := SeriesState(unitsOf(epsOf[t.ID], released, heldBy[v.ID], added), now)
@@ -246,6 +248,11 @@ func (s *Service) DueMissing(ctx context.Context, now time.Time) ([]Due, error) 
 		requested bool
 		fresh     bool
 	}
+	// A Series Version's search covers every Wanted episode it has, due season or not.
+	episodes := map[int64]int{}
+	for _, r := range rows {
+		episodes[r.versionID] += r.wantedEps
+	}
 	var found []entry
 	index := map[int64]int{}
 	for _, r := range rows {
@@ -261,7 +268,7 @@ func (s *Service) DueMissing(ctx context.Context, now time.Time) ([]Due, error) 
 			continue
 		}
 		index[r.versionID] = len(found)
-		found = append(found, entry{Due{VersionID: r.versionID, TitleID: r.titleID}, r.recency(), requested[r.versionID], r.fresh})
+		found = append(found, entry{Due{VersionID: r.versionID, TitleID: r.titleID, Episodes: episodes[r.versionID]}, r.recency(), requested[r.versionID], r.fresh})
 	}
 	slices.SortStableFunc(found, func(a, b entry) int {
 		if a.requested != b.requested {

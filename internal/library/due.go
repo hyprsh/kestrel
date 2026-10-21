@@ -14,6 +14,9 @@ type Due struct {
 	// Fresh is true when the Version was never searched: its search is the
 	// search on add (or after a Request), not a sweep.
 	Fresh bool
+	// Episodes is how many Wanted episodes a Series Version's search covers
+	// (0 for a Movie), for the search status's "12 Versions · 340 episodes".
+	Episodes int
 }
 
 // RequestSearch makes a Version due a missing search now; the caller
