@@ -12,7 +12,7 @@ import { Cleanup } from '../cleanup/Cleanup'
 import { CleanupLauncher } from '../cleanup/launch'
 import { MOD } from '../keys'
 import { useSearchAllWanted } from '../api/wanted'
-import { Library, type Preset } from '../library/Library'
+import { Library } from '../library/Library'
 import { startLiveStream } from '../live/stream'
 import { Log } from '../log/Log'
 import { Overview } from '../overview/Overview'
@@ -48,9 +48,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const [screen, setScreen] = useState(isPlace(start.screen) ? start.screen : 'overview')
   const [libraryId, setLibraryId] = useState<number | null>(null)
   const [cleanupTitles, setCleanupTitles] = useState<number[] | undefined>(undefined)
-  const [libraryPreset, setLibraryPreset] = useState<{ preset: Preset; n: number } | null>(null)
   const [menu, setMenu] = useState<{ mode: MenuMode } | null>(null)
-  // The text of a screen's filter field (the Log's); another screen starts unfiltered.
+  // The text of a screen's filter field (the Library's or the Log's); another screen starts unfiltered.
   const [filter, setFilter] = useState({ screen: start.screen, q: start.q })
   const query = filter.screen === screen ? filter.q : ''
   useEffect(() => showPlace(placePath(screen, query)), [screen, query])
@@ -102,18 +101,12 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     if (!isPlace(key)) return
     setScreen(key)
     setFilter({ screen: key, q })
-    // "/library/long-missing" opens the Library on the Wanted filter with the Long Missing chip.
-    if (key === 'library') setLibraryPreset(section === 'long-missing' ? { preset: 'long_missing', n: Date.now() } : null)
-    else if (section) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
+    if (section) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
   }, [])
-  // Going to a screen from the rail or the menu clears a preset left by an earlier link.
-  const select = useCallback((key: string) => {
-    setScreen(key)
-    if (key === 'library') setLibraryPreset(null)
-  }, [])
+  // An opened Title is shown, so the Library's filter must not hide it.
   const openTitle = useCallback((id: number) => {
     setLibraryId(id)
-    setLibraryPreset(null)
+    setFilter({ screen: 'library', q: '' })
     setScreen('library')
   }, [])
 
@@ -121,7 +114,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     <CleanupLauncher.Provider value={openCleanup}>
     <PlaceOpener.Provider value={goPath}>
     <div className="flex h-full bg-background-100 text-[13px] text-gray-1000">
-      <Rail screen={screen} onSelect={select} theme={theme} onTheme={cycle} onAdd={() => setMenu({ mode: 'add' })} />
+      <Rail screen={screen} onSelect={setScreen} theme={theme} onTheme={cycle} onAdd={() => setMenu({ mode: 'add' })} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar title={current.label} onOpenMenu={() => setMenu({ mode: 'root' })} />
         <main className="flex min-h-0 flex-1 flex-col">
@@ -133,8 +126,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
             <Cleanup key={cleanupTitles?.join(',') ?? 'all'} titleIds={cleanupTitles} />
           ) : screen === 'library' ? (
             <Library
-              key={libraryPreset?.n ?? 0}
-              preset={libraryPreset?.preset}
+              query={query}
+              onQuery={(q) => setFilter({ screen: 'library', q })}
               selectedId={libraryId}
               onSelect={setLibraryId}
               onAdd={() => setMenu({ mode: 'add' })}
@@ -151,7 +144,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           )}
         </main>
       </div>
-      {menu && <CommandMenu initialMode={menu.mode} actions={actions} places={places} onClose={closeMenu} onGo={select} onOpenTitle={openTitle} />}
+      {menu && <CommandMenu initialMode={menu.mode} actions={actions} places={places} onClose={closeMenu} onGo={setScreen} onOpenTitle={openTitle} />}
     </div>
     </PlaceOpener.Provider>
     </CleanupLauncher.Provider>

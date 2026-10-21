@@ -1,42 +1,25 @@
 import { CheckSquare, Eraser, FolderInput, Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useTitles, type TitleRow } from '../api/queries'
+import { useProfiles, useTitles, type TitleRow } from '../api/queries'
 import { useOpenCleanup } from '../cleanup/launch'
 import { Button } from '../forms'
 import { useKey, useListNav } from '../keys'
 import { SelectBox, SelectionBar, useSelection } from '../selection'
+import { parse } from '../filter/query'
+import { QueryField } from '../filter/QueryField'
 import { cx, Kbd } from '../ui'
 import { KindIcon, SlotDots } from './bits'
 import { BulkActions } from './BulkActions'
+import { filterLibrary, libraryQualifiers } from './filter'
 import { ManualSearch } from './ManualSearch'
 import { slotLabel } from './bits'
 import { TitleDetail, type ManualSearchTarget } from './TitleDetail'
 
-type Kind = 'all' | 'movie' | 'series'
-const kinds: { key: Kind; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'movie', label: 'Movies' },
-  { key: 'series', label: 'Series' },
-]
-
-/** What the Library list is narrowed to besides text and kind. */
-export type Preset = 'wanted' | 'long_missing'
-
-/** A Title is Wanted when any of its Versions is; Long Missing when any is long missing. */
-const hasSlot = (r: TitleRow, test: (s: NonNullable<TitleRow['slots']['standard']>) => boolean) =>
-  [r.slots.standard, r.slots['4k']].some((s) => s !== null && test(s))
-
-const norm = (s: string) => s.toLowerCase()
-
-function matches(r: TitleRow, text: string): boolean {
-  const t = norm(text.trim())
-  return t === '' || norm(r.title).includes(t) || norm(r.primary_title).includes(t)
-}
-
 /**
  * The Library: a filterable list on the left and the selected Title on the
  * right. Everything is reachable from the keyboard: j/k and the arrows move,
- * Enter steps into the detail, Escape steps back, `/` filters, x ticks the
+ * Enter steps into the detail, Escape steps back, `/` filters (with qualifiers
+ * such as is:wanted, see ./filter.ts, kept in the address bar), x ticks the
  * Title under the cursor. While Titles are ticked, the right pane holds the
  * actions that change them together, and Escape clears the ticks.
  */
@@ -47,42 +30,26 @@ export function Library({
   onSelect,
   onAdd,
   onAdopt,
-  preset,
+  query,
+  onQuery,
 }: {
   selectedId: number | null
   onSelect: (id: number) => void
   onAdd: () => void
   onAdopt: () => void
-  /** Opens with the Wanted filter on, and the Long Missing chip too for 'long_missing'. */
-  preset?: Preset
+  /** The filter field's text, kept by the Shell so it can live in the address bar. */
+  query: string
+  onQuery: (query: string) => void
 }) {
   const titles = useTitles()
   const openCleanup = useOpenCleanup()
-  const [text, setText] = useState('')
-  const [kind, setKind] = useState<Kind>('all')
-  const [wanted, setWanted] = useState(preset !== undefined)
-  const [longMissing, setLongMissing] = useState(preset === 'long_missing')
-  const [byWantedSince, setByWantedSince] = useState(preset !== undefined)
+  const profiles = useProfiles().data
+  const qualifiers = useMemo(() => libraryQualifiers((profiles ?? []).map((p) => p.name)), [profiles])
   const listRef = useRef<HTMLDivElement>(null)
   const paneRef = useRef<HTMLElement>(null)
-  const filterRef = useRef<HTMLInputElement>(null)
 
   const all = titles.data ?? []
-  const rows = useMemo(() => {
-    const kept = all.filter(
-      (r) =>
-        (kind === 'all' || r.kind === kind) &&
-        matches(r, text) &&
-        (!wanted || hasSlot(r, (s) => s.state === 'wanted')) &&
-        (!longMissing || hasSlot(r, (s) => s.long_missing)),
-    )
-    if (!byWantedSince) return kept
-    // Wanted longest first; Titles that are not Wanted keep their order, last.
-    return [...kept].sort((a, b) => {
-      if (a.wanted_since === null || b.wanted_since === null) return a.wanted_since === b.wanted_since ? 0 : a.wanted_since === null ? 1 : -1
-      return a.wanted_since.localeCompare(b.wanted_since)
-    })
-  }, [all, kind, text, wanted, longMissing, byWantedSince])
+  const rows = useMemo(() => filterLibrary(all, parse(query, qualifiers), profiles ?? []), [all, query, qualifiers, profiles])
   const ids = useMemo(() => rows.map((r) => r.id), [rows])
   const selection = useSelection(ids)
   const index = Math.max(0, rows.findIndex((r) => r.id === selectedId)) // the first row until something is picked
@@ -98,7 +65,7 @@ export function Library({
     '/',
     (e) => {
       e.preventDefault()
-      filterRef.current?.focus()
+      document.getElementById('library-filter')?.focus()
     },
     !searching,
   )
@@ -128,86 +95,28 @@ export function Library({
               Tick
             </button>
           </div>
-          <div className="relative">
-            <input
-              ref={filterRef}
-              type="text"
-              aria-label="Filter the Library"
-              placeholder="Filter"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-                  e.preventDefault()
-                  const next = Math.min(Math.max(index + (e.key === 'ArrowDown' ? 1 : -1), 0), rows.length - 1)
-                  if (rows[next]) onSelect(rows[next].id)
-                } else if (e.key === 'Escape') {
-                  e.preventDefault()
-                  setText('')
-                  focusList()
-                } else if (e.key === 'Enter') {
-                  e.preventDefault()
-                  focusList()
-                }
-              }}
-              className="h-8 w-full rounded-md border border-gray-alpha-400 bg-background-100 px-2.5 pr-8 text-[13px] outline-none focus:border-gray-700"
-            />
-            <span className="pointer-events-none absolute top-1.5 right-2">
-              <Kbd>/</Kbd>
-            </span>
-          </div>
-          <div role="group" aria-label="Kind" className="flex gap-1">
-            {kinds.map((k) => (
-              <button
-                key={k.key}
-                aria-pressed={kind === k.key}
-                onClick={() => setKind(k.key)}
-                className={cx(
-                  'h-6 rounded-md px-2 text-[12px] font-medium',
-                  kind === k.key ? 'bg-gray-alpha-200 text-gray-1000' : 'text-gray-900 hover:bg-gray-alpha-100',
-                )}
-              >
-                {k.label}
-              </button>
-            ))}
-          </div>
-          <div role="group" aria-label="Filters" className="flex flex-wrap gap-1">
-            <button
-              aria-pressed={wanted}
-              onClick={() => {
-                setWanted(!wanted)
-                if (wanted) setLongMissing(false) // Long Missing is a narrowing of Wanted
-              }}
-              className={cx(
-                'h-6 rounded-md px-2 text-[12px] font-medium',
-                wanted ? 'bg-gray-alpha-200 text-gray-1000' : 'text-gray-900 hover:bg-gray-alpha-100',
-              )}
-            >
-              Wanted
-            </button>
-            {wanted && (
-              <button
-                aria-pressed={longMissing}
-                onClick={() => setLongMissing(!longMissing)}
-                className={cx(
-                  'h-6 rounded-md px-2 text-[12px] font-medium',
-                  longMissing ? 'bg-red-200 text-red-900' : 'text-gray-900 hover:bg-gray-alpha-100',
-                )}
-              >
-                Long Missing
-              </button>
-            )}
-            <button
-              aria-pressed={byWantedSince}
-              onClick={() => setByWantedSince(!byWantedSince)}
-              className={cx(
-                'h-6 rounded-md px-2 text-[12px] font-medium',
-                byWantedSince ? 'bg-gray-alpha-200 text-gray-1000' : 'text-gray-900 hover:bg-gray-alpha-100',
-              )}
-            >
-              Sort by Wanted since
-            </button>
-          </div>
+          <QueryField
+            id="library-filter"
+            label="Filter the Library"
+            placeholder="Filter, e.g. is:wanted  /"
+            value={query}
+            onChange={onQuery}
+            qualifiers={qualifiers}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault()
+                const next = Math.min(Math.max(index + (e.key === 'ArrowDown' ? 1 : -1), 0), rows.length - 1)
+                if (rows[next]) onSelect(rows[next].id)
+              } else if (e.key === 'Escape') {
+                e.preventDefault()
+                onQuery('')
+                focusList()
+              } else if (e.key === 'Enter') {
+                e.preventDefault()
+                focusList()
+              }
+            }}
+          />
           <SelectionBar selection={selection} shown={rows.length} />
         </div>
 

@@ -76,14 +76,16 @@ describe('selecting Titles in the Library', () => {
   it('selects all the Titles the filter shows, and only those', async () => {
     fakeLibrary(rows())
     await openLibrary()
-    await userEvent.click(screen.getByRole('button', { name: 'Series' }))
+    const filter = screen.getByRole('combobox', { name: 'Filter the Library' })
+    await userEvent.type(filter, 'kind:series')
     await userEvent.click(screen.getByRole('button', { name: 'Tick' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Movies' }))
+    await userEvent.clear(filter)
+    await userEvent.type(filter, 'kind:movie')
 
     await userEvent.click(screen.getByRole('button', { name: 'Tick all 3 shown' }))
 
     expect(screen.getByText('3 ticked')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'All' }))
+    await userEvent.clear(filter)
     expect(box('Breaking Bad')).not.toBeChecked()
     expect(screen.getByText('3 ticked')).toBeInTheDocument()
   })
