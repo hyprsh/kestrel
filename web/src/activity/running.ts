@@ -4,6 +4,7 @@
 import { useEffect, useReducer, useRef } from 'react'
 import { useActivity } from '../api/activity'
 import { useSearchStatus } from '../api/search'
+import { jobWords } from './jobNames'
 
 /** One piece of background work: `name` for a list, `short` for the top bar. */
 export type Running = {
@@ -11,19 +12,6 @@ export type Running = {
   name: string
   short: string
   progress?: { done: number; total: number }
-}
-
-/** Readable names of the background loops, by the server's loop name. */
-const loops: Record<string, { name: string; short: string }> = {
-  poll: { name: 'Polling the download client', short: 'Polling…' },
-  search: { name: 'Searching for Wanted and Upgrades', short: 'Searching…' },
-  import: { name: 'Importing finished Grabs', short: 'Importing…' },
-  rss: { name: "Reading the indexers' RSS feeds", short: 'Reading RSS feeds…' },
-  health: { name: 'Running the health checks', short: 'Checking health…' },
-  prune: { name: 'Pruning old Log entries', short: 'Pruning the Log…' },
-  refresh: { name: 'Refreshing metadata', short: 'Refreshing metadata…' },
-  trash: { name: 'Updating the TRaSH snapshot', short: 'Updating TRaSH…' },
-  updates: { name: 'Checking for a new Kestrel release', short: 'Checking for updates…' },
 }
 
 /** Many passes take milliseconds; only work running this long shows, so nothing flickers. */
@@ -35,7 +23,8 @@ export function useRunningNow(): Running[] {
   const pass = useSearchStatus().data?.pass
   const all: Running[] = (activity?.running ?? []).map((name) => ({
     key: name,
-    ...(loops[name] ?? { name, short: `${name}…` }),
+    name: jobWords(name).running,
+    short: jobWords(name).short,
     // The search pass counts the Versions it has got through (the `search` frame).
     ...(name === 'search' && pass ? { progress: { done: pass.done, total: pass.total } } : {}),
   }))
