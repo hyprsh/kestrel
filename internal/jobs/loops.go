@@ -166,6 +166,7 @@ func Standard(d Deps) *Runner {
 			}
 			return pollIdle
 		},
+		Schedule: Schedule{Every: pollIdle, Busy: pollBusy},
 	})
 	// A restart finds in-flight Grabs in their rows; one poll before the loops
 	// start brings their state and progress up to date, and fails (and retries)
@@ -177,53 +178,53 @@ func Standard(d Deps) *Runner {
 	})
 
 	r.Add(Loop{
-		Name:  Search,
-		Run:   func(ctx context.Context) error { return searchDue(ctx, r, d) },
-		Every: func() time.Duration { return searchEvery },
+		Name:     Search,
+		Run:      func(ctx context.Context) error { return searchDue(ctx, r, d) },
+		Schedule: Schedule{Every: searchEvery},
 	})
 	if d.Importer != nil && d.ImportSource != nil {
 		r.Add(Loop{
-			Name:  Import,
-			Run:   func(ctx context.Context) error { return importDue(ctx, r, d) },
-			Every: func() time.Duration { return importEvery },
+			Name:     Import,
+			Run:      func(ctx context.Context) error { return importDue(ctx, r, d) },
+			Schedule: Schedule{Every: importEvery},
 		})
 	}
 	if d.History != nil {
 		r.Add(Loop{
-			Name:  Prune,
-			Run:   func(ctx context.Context) error { return prune(ctx, d) },
-			Every: func() time.Duration { return pruneCheck },
+			Name:     Prune,
+			Run:      func(ctx context.Context) error { return prune(ctx, d) },
+			Schedule: Schedule{Every: pruneCheck, Runs: dailyEvery},
 		})
 	}
 
 	if d.Health != nil {
 		r.Add(Loop{
-			Name:  Health,
-			Run:   d.Health.RunChecks,
-			Every: func() time.Duration { return healthEvery },
+			Name:     Health,
+			Run:      d.Health.RunChecks,
+			Schedule: Schedule{Every: healthEvery},
 		})
 	}
 
 	if d.Refresher != nil {
 		r.Add(Loop{
-			Name:  Refresh,
-			Run:   d.Refresher.Daily,
-			Every: func() time.Duration { return refreshCheckEvery },
+			Name:     Refresh,
+			Run:      d.Refresher.Daily,
+			Schedule: Schedule{Every: refreshCheckEvery, Runs: refreshEvery},
 		})
 	}
 	if d.Trash != nil {
 		r.Add(Loop{
-			Name:  Trash,
-			Run:   daily(d.LastRun, trashStateKey, d.Clock, d.Trash.Check),
-			Every: func() time.Duration { return dailyCheck },
+			Name:     Trash,
+			Run:      daily(d.LastRun, trashStateKey, d.Clock, d.Trash.Check),
+			Schedule: Schedule{Every: dailyCheck, Runs: dailyEvery},
 		})
 	}
 
 	if d.Updates != nil {
 		r.Add(Loop{
-			Name:  Updates,
-			Run:   daily(d.LastRun, updatesStateKey, d.Clock, d.Updates.Check),
-			Every: func() time.Duration { return dailyCheck },
+			Name:     Updates,
+			Run:      daily(d.LastRun, updatesStateKey, d.Clock, d.Updates.Check),
+			Schedule: Schedule{Every: dailyCheck, Runs: dailyEvery},
 		})
 	}
 
@@ -239,7 +240,7 @@ func Standard(d Deps) *Runner {
 			}
 			return err
 		},
-		Every: func() time.Duration { return rssEvery },
+		Schedule: Schedule{Every: rssEvery},
 	})
 	return r
 }

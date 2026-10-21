@@ -1841,6 +1841,9 @@ type Job struct {
 	// Runnable Whether `POST /jobs/{name}/run` runs it.
 	Runnable bool `json:"runnable"`
 
+	// Schedule How often a loop runs.
+	Schedule JobSchedule `json:"schedule"`
+
 	// Status `running` while a pass is in flight; `disabled` when a setting turns its work off (`updates`
 	// without "Check GitHub for updates", `trash` without TRaSH auto-update), though it still checks
 	// hourly; otherwise `idle`.
@@ -1865,6 +1868,19 @@ type JobRun struct {
 	Error      *string   `json:"error"`
 	FinishedAt time.Time `json:"finished_at"`
 	StartedAt  time.Time `json:"started_at"`
+}
+
+// JobSchedule How often a loop runs.
+type JobSchedule struct {
+	// BusyEveryMs The shorter wait while there is work (`poll` while a Grab downloads); `null` for none.
+	BusyEveryMs *int64 `json:"busy_every_ms"`
+
+	// EveryMs The wait between passes.
+	EveryMs int64 `json:"every_ms"`
+
+	// RunsEveryMs For a loop that checks every `every_ms` whether its work is due: how often it does it (the
+	// daily loops); `null` when every pass does the work.
+	RunsEveryMs *int64 `json:"runs_every_ms"`
 }
 
 // LongMissing defines model for LongMissing.

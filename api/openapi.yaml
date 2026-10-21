@@ -4164,7 +4164,7 @@ components:
             $ref: "#/components/schemas/Job"
     Job:
       type: object
-      required: [name, status, runnable, last_run, next_at]
+      required: [name, status, runnable, last_run, next_at, schedule]
       properties:
         name:
           type: string
@@ -4191,6 +4191,29 @@ components:
           format: date-time
           nullable: true
           description: When the next pass is due; `null` while one runs and before the loops start.
+        schedule:
+          $ref: "#/components/schemas/JobSchedule"
+    JobSchedule:
+      type: object
+      description: How often a loop runs.
+      required: [every_ms, busy_every_ms, runs_every_ms]
+      properties:
+        every_ms:
+          type: integer
+          format: int64
+          description: The wait between passes.
+        busy_every_ms:
+          type: integer
+          format: int64
+          nullable: true
+          description: The shorter wait while there is work (`poll` while a Grab downloads); `null` for none.
+        runs_every_ms:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            For a loop that checks every `every_ms` whether its work is due: how often it does it (the
+            daily loops); `null` when every pass does the work.
     JobRun:
       type: object
       required: [started_at, finished_at, duration_ms, error]

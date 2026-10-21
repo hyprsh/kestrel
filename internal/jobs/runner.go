@@ -30,8 +30,22 @@ type Loop struct {
 	// changed does nothing.
 	Run func(ctx context.Context) error
 	// Every is how long to wait after a pass before the next one. It is read
-	// after every pass, so a loop can run faster while there is work.
+	// after every pass, so a loop can run faster while there is work. Nil
+	// means Schedule.Every.
 	Every func() time.Duration
+	// Schedule is how often the loop runs, in words the UI can show.
+	Schedule Schedule
+}
+
+// Schedule is a loop's cadence as the UI shows it.
+type Schedule struct {
+	// Every is the wait between passes.
+	Every time.Duration
+	// Busy, when set, is the shorter wait while there is work (Poll while a Grab downloads).
+	Busy time.Duration
+	// Runs, when set, is how often a pass does its work: one checked Every
+	// does it once the last run is Runs old (the daily loops).
+	Runs time.Duration
 }
 
 type loop struct {
@@ -70,7 +84,8 @@ type Job struct {
 	// Last is nil until the first pass since start ends.
 	Last *PassResult
 	// Next is zero while a pass runs and before the loops start; a kick starts one sooner.
-	Next time.Time
+	Next     time.Time
+	Schedule Schedule
 }
 
 type startup struct {
@@ -105,6 +120,10 @@ func (r *Runner) Add(l Loop) {
 	defer r.mu.Unlock()
 	if _, dup := r.loops[l.Name]; dup {
 		panic("jobs: duplicate loop " + l.Name)
+	}
+	if l.Every == nil {
+		every := l.Schedule.Every
+		l.Every = func() time.Duration { return every }
 	}
 	r.loops[l.Name] = &loop{Loop: l, kick: make(chan struct{}, 1)}
 	r.order = append(r.order, l.Name)
@@ -211,7 +230,7 @@ func (r *Runner) Jobs() []Job {
 	out := make([]Job, 0, len(r.order))
 	for _, n := range r.order {
 		l := r.loops[n]
-		j := Job{Name: n, Running: !l.state.started.IsZero(), Next: l.state.next}
+		j := Job{Name: n, Running: !l.state.started.IsZero(), Next: l.state.next, Schedule: l.Schedule}
 		if l.state.last != nil {
 			p := *l.state.last
 			j.Last = &p

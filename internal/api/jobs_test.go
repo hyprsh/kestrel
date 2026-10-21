@@ -20,7 +20,12 @@ type jobJSON struct {
 		DurationMs int64     `json:"duration_ms"`
 		Error      *string   `json:"error"`
 	} `json:"last_run"`
-	NextAt *time.Time `json:"next_at"`
+	NextAt   *time.Time `json:"next_at"`
+	Schedule struct {
+		EveryMs     int64  `json:"every_ms"`
+		BusyEveryMs *int64 `json:"busy_every_ms"`
+		RunsEveryMs *int64 `json:"runs_every_ms"`
+	} `json:"schedule"`
 }
 
 func (s search) jobList(t *testing.T) map[string]jobJSON {
@@ -65,6 +70,32 @@ func TestTheJobsListEveryLoopWithItsLastRun(t *testing.T) {
 	j := s.jobList(t)[jobs.Search]
 	if j.LastRun == nil || !j.LastRun.FinishedAt.Equal(s.in.clock.Now()) || j.LastRun.Error != nil || j.LastRun.DurationMs != 0 {
 		t.Errorf("search after a pass = %+v, want it finished now without an error", j.LastRun)
+	}
+}
+
+func TestTheJobsSayHowOftenEachLoopRuns(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	ms := func(d time.Duration) *int64 { v := d.Milliseconds(); return &v }
+	list := s.jobList(t)
+	for name, want := range map[string]struct {
+		every      time.Duration
+		busy, runs *int64
+	}{
+		jobs.Poll:    {5 * time.Minute, ms(10 * time.Second), nil},
+		jobs.Search:  {5 * time.Minute, nil, nil},
+		jobs.Import:  {time.Minute, nil, nil},
+		jobs.RSS:     {15 * time.Minute, nil, nil},
+		jobs.Health:  {5 * time.Minute, nil, nil},
+		jobs.Prune:   {time.Hour, nil, ms(24 * time.Hour)},
+		jobs.Refresh: {time.Hour, nil, ms(24 * time.Hour)},
+		jobs.Updates: {time.Hour, nil, ms(24 * time.Hour)},
+	} {
+		got := list[name].Schedule
+		eq := func(a, b *int64) bool { return a == nil && b == nil || a != nil && b != nil && *a == *b }
+		if got.EveryMs != want.every.Milliseconds() || !eq(got.BusyEveryMs, want.busy) || !eq(got.RunsEveryMs, want.runs) {
+			t.Errorf("%s schedule = %+v, want every %v, busy %v, runs %v", name, got, want.every, want.busy, want.runs)
+		}
 	}
 }
 

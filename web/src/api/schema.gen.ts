@@ -2944,6 +2944,26 @@ export interface components {
              * @description When the next pass is due; `null` while one runs and before the loops start.
              */
             next_at: string | null;
+            schedule: components["schemas"]["JobSchedule"];
+        };
+        /** @description How often a loop runs. */
+        JobSchedule: {
+            /**
+             * Format: int64
+             * @description The wait between passes.
+             */
+            every_ms: number;
+            /**
+             * Format: int64
+             * @description The shorter wait while there is work (`poll` while a Grab downloads); `null` for none.
+             */
+            busy_every_ms: number | null;
+            /**
+             * Format: int64
+             * @description For a loop that checks every `every_ms` whether its work is due: how often it does it (the
+             *     daily loops); `null` when every pass does the work.
+             */
+            runs_every_ms: number | null;
         };
         JobRun: {
             /** Format: date-time */
