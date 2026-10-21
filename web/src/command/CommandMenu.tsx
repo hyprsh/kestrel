@@ -5,7 +5,7 @@ import { KindIcon } from '../library/bits'
 import { ratingsText } from '../library/Ratings'
 import { Badge, cx, Kbd } from '../ui'
 import { AddConfirm } from './AddConfirm'
-import { Poster } from './LookupSummary'
+import { Poster } from '../poster'
 
 export type MenuMode = 'root' | 'add'
 
@@ -239,7 +239,7 @@ export function CommandMenu({
                       item.disabled && 'opacity-50',
                     )}
                   >
-                    {item.thumb !== undefined && <Poster src={item.thumb} className="h-10 w-7" />}
+                    {item.thumb !== undefined && <Poster src={item.thumb} className="h-10 w-7 rounded-sm" />}
                     {item.group === 'Add' && <Plus className="size-3.5 text-gray-900" />}
                     <span className="truncate text-[13px]">{item.label}</span>{' '}
                     {item.sub && <span className="text-[12px] text-gray-900">{item.sub}</span>}{' '}

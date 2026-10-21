@@ -2066,8 +2066,11 @@ type QueueItem struct {
 	Episodes []string `json:"episodes"`
 
 	// Eta Seconds left, null when the client does not know.
-	Eta         *int           `json:"eta"`
-	GrabId      int64          `json:"grab_id"`
+	Eta    *int  `json:"eta"`
+	GrabId int64 `json:"grab_id"`
+
+	// HasPoster Whether `GET /titles/{id}/poster` serves a poster for the Title; false when the Title was deleted.
+	HasPoster   bool           `json:"has_poster"`
 	IsUpgrade   bool           `json:"is_upgrade"`
 	Phase       QueueItemPhase `json:"phase"`
 	ReleaseName string         `json:"release_name"`
