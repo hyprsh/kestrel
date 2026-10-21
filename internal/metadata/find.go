@@ -1,4 +1,4 @@
-package api
+package metadata
 
 import (
 	"cmp"
@@ -10,8 +10,6 @@ import (
 	"unicode"
 
 	"golang.org/x/text/unicode/norm"
-
-	"github.com/hyprsh/kestrel/internal/metadata"
 )
 
 // The add-search is TMDB's: Kestrel only makes it forgiving. It searches without a
@@ -26,16 +24,22 @@ var trailingYear = regexp.MustCompile(`^(.*\S)\s+\(?((?:18|19|20)\d\d)\)?$`)
 // "Did you mean …?": below it, the result differs a lot from what was typed.
 const unlike = 0.8
 
-// findTitles runs the add-search for q, keeping the results `keep` wants, best first,
-// with at most one extra TMDB request.
-func (s *server) findTitles(ctx context.Context, q string, keep func(metadata.SearchResult) bool) (ranked []metadata.SearchResult, didYouMean string, err error) {
+// Searcher is the provider search Find makes forgiving.
+type Searcher interface {
+	Search(ctx context.Context, query string) ([]SearchResult, error)
+}
+
+// Find runs the add-search for q, keeping the results `keep` wants, best first,
+// with at most one extra request to p. didYouMean names the best result when it
+// differs a lot from q.
+func Find(ctx context.Context, p Searcher, q string, keep func(SearchResult) bool) (ranked []SearchResult, didYouMean string, err error) {
 	query, year := q, 0
 	if m := trailingYear.FindStringSubmatch(q); m != nil {
 		query, year = m[1], atoi(m[2])
 	}
-	search := func(query string) ([]metadata.SearchResult, error) {
-		found, err := s.meta.Search(ctx, query)
-		return slices.DeleteFunc(found, func(f metadata.SearchResult) bool { return !keep(f) }), err
+	search := func(query string) ([]SearchResult, error) {
+		found, err := p.Search(ctx, query)
+		return slices.DeleteFunc(found, func(f SearchResult) bool { return !keep(f) }), err
 	}
 	found, err := search(query)
 	if err != nil {
@@ -51,7 +55,7 @@ func (s *server) findTitles(ctx context.Context, q string, keep func(metadata.Se
 	}
 	typed := []string{fold(q), fold(query)}
 	type hit struct {
-		metadata.SearchResult
+		SearchResult
 		key rankKey
 	}
 	hits := make([]hit, len(found))
@@ -95,7 +99,7 @@ func (k rankKey) compare(o rankKey) int {
 }
 
 // keyOf is the best key of a result's title and original title against any typed form.
-func keyOf(typed []string, year int, f metadata.SearchResult) rankKey {
+func keyOf(typed []string, year int, f SearchResult) rankKey {
 	k := rankKey{year: year != 0 && f.Year == year}
 	for _, title := range []string{f.Title, f.OriginalTitle} {
 		t := fold(title)
