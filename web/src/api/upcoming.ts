@@ -34,7 +34,7 @@ export function useRecent() {
     queryFn: async () => {
       const { data, error } = await api.GET('/recent')
       if (!data) throw error
-      return data.items
+      return data
     },
   })
 }

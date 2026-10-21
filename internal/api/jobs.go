@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/jobs"
@@ -40,9 +41,21 @@ func (s *server) jobList(ctx context.Context) oapi.JobList {
 		if !j.Next.IsZero() {
 			row.NextAt = &j.Next
 		}
+		row.Schedule.EveryMs = j.Schedule.Every.Milliseconds()
+		row.Schedule.BusyEveryMs = msPtr(j.Schedule.Busy)
+		row.Schedule.RunsEveryMs = msPtr(j.Schedule.Runs)
 		out.Items = append(out.Items, row)
 	}
 	return out
+}
+
+// msPtr is d in milliseconds, nil for none.
+func msPtr(d time.Duration) *int64 {
+	if d == 0 {
+		return nil
+	}
+	ms := d.Milliseconds()
+	return &ms
 }
 
 // disabled says whether a setting turns a loop's work off: it still checks

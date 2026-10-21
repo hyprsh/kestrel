@@ -12,6 +12,8 @@ export type Running = {
   name: string
   short: string
   progress?: { done: number; total: number }
+  /** When the work started, in ms, when the server says. */
+  since?: number
 }
 
 /** Many passes take milliseconds; only work running this long shows, so nothing flickers. */
@@ -21,10 +23,12 @@ const SETTLE_MS = 1000
 export function useRunningNow(): Running[] {
   const activity = useActivity()
   const pass = useSearchStatus().data?.pass
+  const started = new Map((activity?.passes ?? []).map((p) => [p.name, Date.parse(p.started_at)]))
   const all: Running[] = (activity?.running ?? []).map((name) => ({
     key: name,
     name: jobWords(name).running,
     short: jobWords(name).short,
+    since: started.get(name),
     // The search pass counts the Versions it has got through (the `search` frame).
     ...(name === 'search' && pass ? { progress: { done: pass.done, total: pass.total } } : {}),
   }))
@@ -37,17 +41,18 @@ export function useRunningNow(): Running[] {
 }
 
 /**
- * The items that have been in the list for SETTLE_MS, re-rendering when the next one gets
- * there. An item counts from the render that first sees it.
+ * The items that have been running for SETTLE_MS, re-rendering when the next one gets there.
+ * An item counts from its `since`, or from the render that first sees it when that is
+ * earlier (no `since`, or a browser clock behind the server's).
  */
-function useSettled<T extends { key: string }>(items: T[]): T[] {
+function useSettled<T extends { key: string; since?: number }>(items: T[]): T[] {
   const seen = useRef(new Map<string, number>())
   const [, wake] = useReducer((n: number) => n + 1, 0)
   const now = Date.now()
   const keys = new Set(items.map((i) => i.key))
   for (const key of seen.current.keys()) if (!keys.has(key)) seen.current.delete(key)
   for (const key of keys) if (!seen.current.has(key)) seen.current.set(key, now)
-  const due = (i: T) => seen.current.get(i.key)! + SETTLE_MS
+  const due = (i: T) => Math.min(seen.current.get(i.key)!, i.since ?? Infinity) + SETTLE_MS
   const waiting = items.filter((i) => due(i) > now)
   const next = waiting.length ? Math.min(...waiting.map(due)) : null
   useEffect(() => {

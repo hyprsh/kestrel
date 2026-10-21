@@ -30,8 +30,22 @@ type Loop struct {
 	// changed does nothing.
 	Run func(ctx context.Context) error
 	// Every is how long to wait after a pass before the next one. It is read
-	// after every pass, so a loop can run faster while there is work.
+	// after every pass, so a loop can run faster while there is work. Nil
+	// means Schedule.Every.
 	Every func() time.Duration
+	// Schedule is how often the loop runs, in words the UI can show.
+	Schedule Schedule
+}
+
+// Schedule is a loop's cadence as the UI shows it.
+type Schedule struct {
+	// Every is the wait between passes.
+	Every time.Duration
+	// Busy, when set, is the shorter wait while there is work (Poll while a Grab downloads).
+	Busy time.Duration
+	// Runs, when set, is how often a pass does its work: one checked Every
+	// does it once the last run is Runs old (the daily loops).
+	Runs time.Duration
 }
 
 type loop struct {
@@ -45,6 +59,8 @@ type loop struct {
 // loopState is what the runner remembers of a loop between passes, in memory
 // only (ADR 0007): the UI reads it to say what runs when.
 type loopState struct {
+	// started is when the pass running now started; zero between passes.
+	started time.Time
 	// next is when the next pass is due: zero while one runs and before Run.
 	next time.Time
 	// last is the last pass that finished; nil until the first does.
@@ -68,7 +84,8 @@ type Job struct {
 	// Last is nil until the first pass since start ends.
 	Last *PassResult
 	// Next is zero while a pass runs and before the loops start; a kick starts one sooner.
-	Next time.Time
+	Next     time.Time
+	Schedule Schedule
 }
 
 type startup struct {
@@ -86,8 +103,9 @@ type Runner struct {
 	order   []string
 	startup []startup
 	stop    []func()
-	running []string
 	search  *searchTracker
+	// recount refreshes the Search status's due counts; nil without a Search loop.
+	recount func(ctx context.Context) error
 }
 
 // New returns a Runner. A nil logger means slog.Default().
@@ -104,6 +122,10 @@ func (r *Runner) Add(l Loop) {
 	defer r.mu.Unlock()
 	if _, dup := r.loops[l.Name]; dup {
 		panic("jobs: duplicate loop " + l.Name)
+	}
+	if l.Every == nil {
+		every := l.Schedule.Every
+		l.Every = func() time.Duration { return every }
 	}
 	r.loops[l.Name] = &loop{Loop: l, kick: make(chan struct{}, 1)}
 	r.order = append(r.order, l.Name)
@@ -165,9 +187,10 @@ func (r *Runner) Pass(ctx context.Context, name string) error {
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	r.mark(name, true)
-	defer r.mark(name, false)
 	start := r.clock()
+	r.mu.Lock()
+	l.state.started = start
+	r.mu.Unlock()
 	err := l.Run(ctx)
 	end := r.clock()
 	p := &PassResult{StartedAt: start, FinishedAt: end, Took: end.Sub(start)}
@@ -175,28 +198,30 @@ func (r *Runner) Pass(ctx context.Context, name string) error {
 		p.Err = err.Error()
 	}
 	r.mu.Lock()
-	l.state.last = p
+	l.state.started, l.state.last = time.Time{}, p
 	r.mu.Unlock()
 	return err
 }
 
-func (r *Runner) mark(name string, on bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if on {
-		r.running = append(r.running, name)
-		return
-	}
-	if i := slices.Index(r.running, name); i >= 0 {
-		r.running = slices.Delete(r.running, i, i+1)
-	}
+// Run is a pass in flight: its loop and when it started.
+type Run struct {
+	Name  string
+	Since time.Time
 }
 
-// Running lists the loops that are mid-pass right now (the UI's "running now").
-func (r *Runner) Running() []string {
+// Running lists the loops that are mid-pass right now (the UI's "running now"),
+// the longest-running first.
+func (r *Runner) Running() []Run {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return slices.Clone(r.running)
+	var out []Run
+	for _, n := range r.order {
+		if s := r.loops[n].state.started; !s.IsZero() {
+			out = append(out, Run{n, s})
+		}
+	}
+	slices.SortStableFunc(out, func(a, b Run) int { return a.Since.Compare(b.Since) })
+	return out
 }
 
 // Jobs lists the loops in registration order, each with its last pass and
@@ -207,7 +232,7 @@ func (r *Runner) Jobs() []Job {
 	out := make([]Job, 0, len(r.order))
 	for _, n := range r.order {
 		l := r.loops[n]
-		j := Job{Name: n, Running: slices.Contains(r.running, n), Next: l.state.next}
+		j := Job{Name: n, Running: !l.state.started.IsZero(), Next: l.state.next, Schedule: l.Schedule}
 		if l.state.last != nil {
 			p := *l.state.last
 			j.Last = &p
@@ -237,6 +262,13 @@ func (r *Runner) Run(ctx context.Context) error {
 			r.drive(ctx, l)
 		}()
 	}
+	if r.recount != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			r.recountEvery(ctx, dueRecount)
+		}()
+	}
 	wg.Wait()
 	r.mu.Lock()
 	stop := slices.Clone(r.stop)
@@ -245,6 +277,35 @@ func (r *Runner) Run(ctx context.Context) error {
 		f()
 	}
 	return ctx.Err()
+}
+
+// RecountDue recounts what waits for the Search loop, so the Search status
+// stays current between passes. A pass running now keeps its own count, so it
+// does nothing then.
+func (r *Runner) RecountDue(ctx context.Context) error {
+	r.mu.Lock()
+	l := r.loops[Search]
+	r.mu.Unlock()
+	if r.recount == nil || l == nil || !l.mu.TryLock() {
+		return nil
+	}
+	defer l.mu.Unlock()
+	return r.recount(ctx)
+}
+
+func (r *Runner) recountEvery(ctx context.Context, every time.Duration) {
+	t := time.NewTicker(every)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if err := r.RecountDue(ctx); err != nil && ctx.Err() == nil {
+				r.log.Warn("recounting what is due a search failed", "err", err)
+			}
+		}
+	}
 }
 
 func (r *Runner) drive(ctx context.Context, l *loop) {

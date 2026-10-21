@@ -14,6 +14,24 @@ const statusBadge: Record<Job['status'], { tone: Tone; text: string }> = {
   disabled: { tone: 'amber', text: 'Disabled' },
 }
 
+const hour = 3_600_000
+
+/** "every 5 min", "every minute", "hourly", "daily". */
+function often(ms: number): string {
+  if (ms === hour) return 'hourly'
+  if (ms === 24 * hour) return 'daily'
+  return ms === 60_000 ? 'every minute' : `every ${span(ms)}`
+}
+
+const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
+/** The server's schedule in words: "Every 15 min", "Every 10 s while downloading, else 5 min", "Checked hourly, runs daily". */
+function schedule(s: Job['schedule'], busy: string): string {
+  if (s.runs_every_ms) return `Checked ${often(s.every_ms)}, runs ${often(s.runs_every_ms)}`
+  if (s.busy_every_ms) return `${capital(often(s.busy_every_ms))} ${busy}, else ${span(s.every_ms)}`
+  return capital(often(s.every_ms))
+}
+
 /** "Last run 5 min ago, took 2 s" or "Last run failed 5 min ago: why". */
 function lastRun(j: Job, now: number): { text: string; failed: boolean } {
   const r = j.last_run
@@ -46,7 +64,7 @@ export function BackgroundJobs() {
                   <Badge tone={badge.tone}>{badge.text}</Badge>
                 </div>
                 {about.does && <div className="text-[12px] text-gray-900">{about.does}</div>}
-                <div className="text-[12px] text-gray-900">{[about.every, next].filter(Boolean).join(' · ')}</div>
+                <div className="text-[12px] text-gray-900">{[schedule(j.schedule, about.busy ?? 'while busy'), next].filter(Boolean).join(' · ')}</div>
                 <div className={last.failed ? 'text-[12px] text-red-900' : 'text-[12px] text-gray-900'}>{last.text}</div>
                 {run.isError && run.variables === j.name && <ErrorText>{run.error.message}</ErrorText>}
               </div>

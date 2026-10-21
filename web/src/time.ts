@@ -1,4 +1,4 @@
-// Relative times for live screens: "5 min ago", "for 2 h 5 min", re-rendered as the clock moves.
+// Times for live screens: "5 min ago", "for 2 h 5 min", "14:05", re-rendered as the clock moves.
 import { useEffect, useState } from 'react'
 
 /** Re-renders every half minute, so relative times count on between frames. */
@@ -27,6 +27,9 @@ export function ago(iso: string, now: number): string {
   const ms = now - Date.parse(iso)
   return ms < 60_000 ? 'just now' : `${span(ms)} ago`
 }
+
+/** "14:05": the time of day, in the browser's locale. */
+export const clockTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
 /** "in 3 min", or "any moment" once it is due. */
 export function until(iso: string, now: number): string {

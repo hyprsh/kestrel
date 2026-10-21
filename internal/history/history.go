@@ -172,6 +172,11 @@ type Filter struct {
 	TitleIDs     []int64
 	// Slots are "standard" or "4k": events about a Version in one of them.
 	Slots []string
+	// ExcludeTitleIDs and ExcludeSlots leave out the events about those Titles
+	// and Slots, even when TitleIDs or Slots name them. An event about no Title
+	// or Version stays.
+	ExcludeTitleIDs []int64
+	ExcludeSlots    []string
 	// Routine includes routine events, which the Log hides by default.
 	Routine bool
 	// Before returns only events with a smaller id, for paging.
@@ -187,6 +192,7 @@ func (s *Service) List(ctx context.Context, f Filter) ([]Event, error) {
 		p.MaxRows = 200
 	}
 	p.Kinds, p.ExcludeKinds, p.TitleIds, p.Slots = jsonList(f.Kinds), jsonList(f.ExcludeKinds), jsonList(f.TitleIDs), jsonList(f.Slots)
+	p.ExcludeTitleIds, p.ExcludeSlots = jsonList(f.ExcludeTitleIDs), jsonList(f.ExcludeSlots)
 	if f.Before != 0 {
 		p.Before = f.Before
 	}

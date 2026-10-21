@@ -1,32 +1,13 @@
 // One active Grab as "Downloading now" draws it, shared by the Overview, the Title page and Activity.
 import type { ReactNode } from 'react'
 import type { QueueItem } from '../api/queue'
+import { percent } from '../format'
 import { Button } from '../forms'
+import { span } from '../time'
 import { cx } from '../ui'
-import { GrabRow, type RowNav } from './GrabRow'
-
-const phaseLabel: Record<QueueItem['phase'], string> = {
-  queued: 'Queued',
-  downloading: 'Downloading',
-  paused: 'Paused',
-  post_processing: 'Processing',
-  importing: 'Importing',
-}
-
-/** Percent done, or null when the client has not said how big the job is. */
-function percent(i: QueueItem): number | null {
-  if (i.phase === 'importing') return 100
-  if (i.bytes_total <= 0) return null
-  return Math.min(100, Math.max(0, Math.round(((i.bytes_total - i.bytes_left) / i.bytes_total) * 100)))
-}
-
-/** "45 s", "2 min" or "1 h 5 min" left. */
-function formatEta(seconds: number): string {
-  if (seconds < 60) return `${seconds} s left`
-  const mins = Math.round(seconds / 60)
-  if (mins < 60) return `${mins} min left`
-  return `${Math.floor(mins / 60)} h ${mins % 60} min left`
-}
+import type { RowNav } from '../keys'
+import { GrabRow } from './GrabRow'
+import { phases } from './phase'
 
 /**
  * An active Grab's row: the Grab, its phase, progress and the Cancel actions, with
@@ -49,7 +30,8 @@ export function DownloadRow({
   onOpenTitle?: (id: number) => void
   detail?: ReactNode
 }) {
-  const pct = percent(i)
+  // An importing Grab is all downloaded; null when the client has not said how big the job is.
+  const pct = i.phase === 'importing' ? 100 : percent(i.bytes_total, i.bytes_left)
   return (
     <GrabRow
       grab={i}
@@ -69,7 +51,7 @@ export function DownloadRow({
     >
       {detail}
       <div className="flex items-center gap-3 text-[12px] text-gray-900">
-        <span className={cx('w-24', i.phase === 'paused' && 'text-amber-900')}>{phaseLabel[i.phase]}</span>
+        <span className={cx('w-24', i.phase === 'paused' && 'text-amber-900')}>{phases[i.phase].label}</span>
         {pct !== null && (
           <>
             <div
@@ -85,7 +67,7 @@ export function DownloadRow({
             <span className="w-10 text-right tabular-nums">{pct}%</span>
           </>
         )}
-        {i.eta != null && <span>{formatEta(i.eta)}</span>}
+        {i.eta != null && <span>{`${span(i.eta * 1000)} left`}</span>}
       </div>
     </GrabRow>
   )

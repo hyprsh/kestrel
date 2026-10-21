@@ -11,7 +11,8 @@ type Job = components['schemas']['Job']
 
 const min = 60_000
 const at = (ms: number) => new Date(Date.now() + ms).toISOString()
-const job = (over: Partial<Job>): Job => ({ name: 'rss', status: 'idle', runnable: true, last_run: null, next_at: null, ...over })
+const every = (ms: number, more: Partial<Job['schedule']> = {}): Job['schedule'] => ({ every_ms: ms, busy_every_ms: null, runs_every_ms: null, ...more })
+const job = (over: Partial<Job>): Job => ({ name: 'rss', status: 'idle', runnable: true, last_run: null, next_at: null, schedule: every(5 * min), ...over })
 const ran = (over: Partial<NonNullable<Job['last_run']>> = {}): Job['last_run'] => ({
   started_at: at(-5 * min - 2000),
   finished_at: at(-5 * min),
@@ -36,18 +37,23 @@ const rowOf = async (section: HTMLElement, name: string) =>
 describe('Background jobs', () => {
   it('lists each loop with what it does, its schedule, its last run and when it runs next', async () => {
     fakeJobs([
-      job({ name: 'rss', last_run: ran(), next_at: at(10 * min) }),
-      job({ name: 'poll', runnable: false, last_run: ran({ duration_ms: 300 }), next_at: at(5 * min) }),
+      job({ name: 'rss', last_run: ran(), next_at: at(10 * min), schedule: every(20 * min) }),
+      job({ name: 'poll', runnable: false, last_run: ran({ duration_ms: 300 }), next_at: at(5 * min), schedule: every(5 * min, { busy_every_ms: 10_000 }) }),
+      job({ name: 'refresh', schedule: every(60 * min, { runs_every_ms: 24 * 60 * min }) }),
+      job({ name: 'import', schedule: every(min) }),
     ])
     const section = await openJobs()
 
     const rss = await rowOf(section, 'RSS')
     expect(rss).toHaveTextContent("Checks indexers' new Releases")
-    expect(rss).toHaveTextContent('Every 15 min')
+    expect(rss).toHaveTextContent('Every 20 min')
     expect(rss).toHaveTextContent('Last run 5 min ago, took 2 s')
     expect(rss).toHaveTextContent('Next in 10 min')
     expect(rss).toHaveTextContent('Idle')
+    // The schedule is the server's: the cadences live with the loops.
     expect(await rowOf(section, 'Poll')).toHaveTextContent('Every 10 s while downloading, else 5 min')
+    expect(await rowOf(section, 'Refresh')).toHaveTextContent('Checked hourly, runs daily')
+    expect(await rowOf(section, 'Import')).toHaveTextContent('Every minute')
   })
 
   it('says when a loop has not run since start, failed, is running now or is turned off', async () => {

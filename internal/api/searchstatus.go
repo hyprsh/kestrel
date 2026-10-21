@@ -71,16 +71,16 @@ func (s *server) searchStatus(ctx context.Context) (oapi.SearchStatus, error) {
 			row.SearchMax = &b.SearchMax
 		}
 		// The worst first: a pause outlasts a backoff, and both outlast the 80 % stop's day.
-		held := func(h string) { v := oapi.SearchIndexerHeld(h); row.Held = &v }
+		held := func(h oapi.SearchIndexerHeld) { row.Held = &h }
 		switch {
 		case !b.SearchPausedUntil.IsZero():
-			held("request_limit")
+			held(oapi.RequestLimit)
 			row.HeldUntil = &b.SearchPausedUntil
 		case !b.BackoffUntil.IsZero():
-			held("backing_off")
+			held(oapi.BackingOff)
 			row.HeldUntil = &b.BackoffUntil
 		case b.SweepsStopped:
-			held("budget")
+			held(oapi.Budget)
 		}
 		out.Indexers = append(out.Indexers, row)
 	}

@@ -1,21 +1,10 @@
 // The Searching card: the search pipeline at a glance, beside Downloading now.
 import { useSearchStatus, type SearchStatus } from '../api/search'
+import { plural } from '../format'
 import { useOpenPlace } from '../place'
-import { useNow } from '../time'
+import { clockTime, until, useNow } from '../time'
 
 type Indexer = SearchStatus['indexers'][number]
-
-const clockTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-
-/** "in 3 min", "in 1 h 5 min"; "any moment" once it is due. */
-function startsIn(iso: string, now: number): string {
-  const mins = Math.round((Date.parse(iso) - now) / 60_000)
-  if (mins < 1) return 'any moment'
-  if (mins < 60) return `in ${mins} min`
-  return `in ${Math.floor(mins / 60)} h ${mins % 60} min`
-}
-
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 
 /** Why sweeps leave an indexer alone, or null when they don't. */
 function heldLine(i: Indexer): string | null {
@@ -29,6 +18,20 @@ function heldLine(i: Indexer): string | null {
     default:
       return null
   }
+}
+
+/** "30 of 500 searches left today", or null when the indexer's limit is not known. */
+function budgetLeft(i: Indexer): string | null {
+  return i.search_max == null ? null : `${Math.max(0, i.search_max - i.search_used)} of ${i.search_max} searches left today`
+}
+
+/** One line per indexer worth a word: what holds its sweeps back, and its budget left when known. */
+function indexerLine(i: Indexer): { text: string; held: boolean } | null {
+  const held = heldLine(i)
+  // The budget hold already counts the searches.
+  const left = i.held === 'budget' ? null : budgetLeft(i)
+  if (held) return { text: left ? `${held} · ${left}` : held, held: true }
+  return left ? { text: `${i.name}: ${left}`, held: false } : null
 }
 
 export function Searching() {
@@ -51,15 +54,15 @@ export function Searching() {
   )
 }
 
-/** The search pipeline in a few lines: what waits, the pass, the last pass and held indexers. Activity's Searching stage shows it too. */
+/** The search pipeline in a few lines: what waits, the pass, the last pass and the indexers' budgets. Activity's Searching stage shows it too. */
 export function SearchSummary({ status: s }: { status: SearchStatus }) {
   const now = useNow()
   const main = [
     s.due.versions > 0 ? `${s.due.versions} Wanted waiting` : 'Nothing waiting',
     s.pass ? `searching ${s.pass.done} of ${s.pass.total}` : null,
-    s.next_pass_at ? `next pass ${startsIn(s.next_pass_at, now)}` : null,
+    s.next_pass_at ? `next pass ${until(s.next_pass_at, now)}` : null,
   ].filter(Boolean)
-  const held = s.indexers.map(heldLine).filter((l): l is string => l !== null)
+  const indexers = s.indexers.map(indexerLine).filter((l) => l !== null)
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-gray-alpha-400 px-4 py-3">
       <p className="font-medium">{main.join(' · ')}</p>
@@ -74,9 +77,9 @@ export function SearchSummary({ status: s }: { status: SearchStatus }) {
           {`Last pass at ${clockTime(s.last_pass.finished_at)} searched ${plural(s.last_pass.searched, 'Wanted Version')} and made ${plural(s.last_pass.grabbed, 'Grab')}`}
         </p>
       )}
-      {held.map((l) => (
-        <p key={l} className="text-[12px] text-amber-900">
-          {l}
+      {indexers.map((l) => (
+        <p key={l.text} className={l.held ? 'text-[12px] text-amber-900' : 'text-[12px] text-gray-900'}>
+          {l.text}
         </p>
       ))}
     </div>

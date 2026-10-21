@@ -2,11 +2,9 @@ package api
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/history"
@@ -155,14 +153,11 @@ func (s *server) ListRequests(ctx context.Context, r oapi.ListRequestsRequestObj
 	if p.TitleId != nil {
 		f.TitleID = *p.TitleId
 	}
-	if p.Cursor != nil && *p.Cursor != "" {
-		raw, err := base64.RawURLEncoding.DecodeString(*p.Cursor)
-		n, convErr := strconv.ParseInt(string(raw), 10, 64)
-		if err != nil || convErr != nil || n <= 0 {
-			return nil, invalid("cursor", "invalid", "The cursor is not one this server gave out")
-		}
-		f.Before = n
+	before, err := readCursor(p.Cursor, 1)
+	if err != nil {
+		return nil, err
 	}
+	f.Before = before
 	list, err := s.requests.List(ctx, f)
 	if err != nil {
 		return nil, err
@@ -175,8 +170,7 @@ func (s *server) ListRequests(ctx context.Context, r oapi.ListRequestsRequestObj
 	}
 	if len(f.IDs) == 0 && len(list) > limit {
 		list = list[:limit]
-		cursor := base64.RawURLEncoding.EncodeToString([]byte(strconv.FormatInt(list[limit-1].ID, 10)))
-		out.NextCursor = &cursor
+		out.NextCursor = cursorOf(list[limit-1].ID)
 	}
 	for _, req := range list {
 		out.Items = append(out.Items, requestToAPI(req))

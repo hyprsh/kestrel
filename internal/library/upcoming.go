@@ -195,6 +195,17 @@ type RecentImport struct {
 	ImportedAt time.Time
 }
 
+// RecentWindow is how far back "recently" reaches: the Imports Recently added
+// counts and the week Activity's Done stage lists.
+const RecentWindow = 7 * 24 * time.Hour
+
+// CountRecentImports is how many Imports the RecentWindow before now brought;
+// the files of one Grab count as one.
+func (s *Service) CountRecentImports(ctx context.Context, now time.Time) (int, error) {
+	n, err := db.New(s.st.Read()).CountImportsSince(ctx, ts(now.Add(-RecentWindow)))
+	return int(n), err
+}
+
 // RecentImports is the last n Imports, newest first; the files of one Grab
 // count as one.
 func (s *Service) RecentImports(ctx context.Context, n int) ([]RecentImport, error) {

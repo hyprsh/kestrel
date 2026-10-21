@@ -107,21 +107,25 @@ SELECT id, at, kind, routine, title_id, version_id, episode_id, grab_id, request
 WHERE (?1 IS NULL OR kind IN (SELECT value FROM json_each(?1)))
   AND (?2 IS NULL OR kind NOT IN (SELECT value FROM json_each(?2)))
   AND (?3 IS NULL OR title_id IN (SELECT value FROM json_each(?3)))
-  AND (?4 IS NULL OR version_id IN (SELECT v.id FROM versions v WHERE v.slot IN (SELECT value FROM json_each(?4))))
-  AND (?5 = 1 OR routine = 0)
-  AND (?6 IS NULL OR id < ?6)
+  AND (?4 IS NULL OR title_id IS NULL OR title_id NOT IN (SELECT value FROM json_each(?4)))
+  AND (?5 IS NULL OR version_id IN (SELECT v.id FROM versions v WHERE v.slot IN (SELECT value FROM json_each(?5))))
+  AND (?6 IS NULL OR version_id IS NULL OR version_id NOT IN (SELECT v.id FROM versions v WHERE v.slot IN (SELECT value FROM json_each(?6))))
+  AND (?7 = 1 OR routine = 0)
+  AND (?8 IS NULL OR id < ?8)
 ORDER BY id DESC
-LIMIT ?7
+LIMIT ?9
 `
 
 type ListEventsParams struct {
-	Kinds        interface{}
-	ExcludeKinds interface{}
-	TitleIds     interface{}
-	Slots        interface{}
-	WithRoutine  interface{}
-	Before       interface{}
-	MaxRows      int64
+	Kinds           interface{}
+	ExcludeKinds    interface{}
+	TitleIds        interface{}
+	ExcludeTitleIds interface{}
+	Slots           interface{}
+	ExcludeSlots    interface{}
+	WithRoutine     interface{}
+	Before          interface{}
+	MaxRows         int64
 }
 
 // The Log: newest first; each filter is off when its argument is NULL. The list filters take a
@@ -131,7 +135,9 @@ func (q *Queries) ListEvents(ctx context.Context, arg ListEventsParams) ([]Event
 		arg.Kinds,
 		arg.ExcludeKinds,
 		arg.TitleIds,
+		arg.ExcludeTitleIds,
 		arg.Slots,
+		arg.ExcludeSlots,
 		arg.WithRoutine,
 		arg.Before,
 		arg.MaxRows,

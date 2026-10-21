@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parse, suggest, withoutTerm, withoutValue, withValue, type Qualifier } from './query'
+import { parse, suggest, valuesOf, withoutTerm, withoutValue, withValue, type Qualifier } from './query'
 
 const qualifiers: Qualifier[] = [
   { name: 'kind', help: 'what happened', values: ['grab', 'grab_failed', 'import_rejected', 'health_raised'], negatable: true },
@@ -42,6 +42,23 @@ describe('parsing a filter', () => {
       { message: 'slot: cannot be excluded', span: [11, 25] },
       { message: 'kind: takes grab, grab_failed, import_rejected or health_raised, not “nope”', span: [26, 35] },
     ])
+  })
+})
+
+describe('reading what a qualifier asks for', () => {
+  it('ORs the values of one term and ANDs the same qualifier typed twice, leaving exclusions out', () => {
+    const q = parse('kind:grab,grab_failed kind:grab_failed,import_rejected -kind:grab slot:4k', qualifiers)
+
+    expect(valuesOf(q, 'kind')).toEqual(['grab_failed'])
+    expect(valuesOf(q, 'slot')).toEqual(['4k'])
+    expect(valuesOf(q, 'title')).toBeNull()
+  })
+
+  it('says nothing can match when the repeats share no value, and maps each term first when asked', () => {
+    const q = parse('kind:grab kind:import_rejected', qualifiers)
+
+    expect(valuesOf(q, 'kind')).toEqual([])
+    expect(valuesOf(q, 'kind', (vs) => vs.flatMap((v) => (v === 'grab' ? ['grab', 'import_rejected'] : [v])))).toEqual(['import_rejected'])
   })
 })
 

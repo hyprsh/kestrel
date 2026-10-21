@@ -627,35 +627,28 @@ func (s *Service) Get(ctx context.Context, id int64) (Request, error) {
 // State is where a whole Request stands, derived from its Slots on every read.
 type State string
 
+// Every Request is in exactly one State.
 const (
 	// StateOpen is an accepted Request with a Slot still queued or downloading.
 	StateOpen State = "open"
-	// StateCompleted is an accepted Request whose every Slot is completed.
+	// StateCompleted is an accepted Request with nothing on its way any more:
+	// each Slot is completed, or its Version was removed since.
 	StateCompleted State = "completed"
 	// StateRejected is a rejected Request.
 	StateRejected State = "rejected"
 )
 
-// State is the Request's State; "" for an accepted Request with nothing on its
-// way and a Slot whose Version was removed since, which is neither.
+// State is the Request's State.
 func (r Request) State() State {
 	if r.Outcome == Rejected {
 		return StateRejected
 	}
-	done := len(r.Slots) > 0
 	for _, sl := range r.Slots {
-		switch sl.Status {
-		case Queued, Downloading:
+		if sl.Status == Queued || sl.Status == Downloading {
 			return StateOpen
-		case Completed:
-		default:
-			done = false
 		}
 	}
-	if done {
-		return StateCompleted
-	}
-	return ""
+	return StateCompleted
 }
 
 // Filter narrows List. A Request matches any one value of a list, and every

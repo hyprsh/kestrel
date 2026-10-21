@@ -29,16 +29,16 @@ const healthRowPrefix = "health-"
 // generically by the SPA: a GET opens an SPA path, anything else calls the API.
 var attentionActions = map[health.Kind]func(health.Row) []oapi.AttentionAction{
 	health.KindDownloadClient: func(r health.Row) []oapi.AttentionAction {
-		return []oapi.AttentionAction{testInstance(r), openSettings("download-client", "Open in Settings")}
+		return []oapi.AttentionAction{testInstance(r), openSettings("download-client", "Open in Settings"), healthLog}
 	},
 	health.KindNoIndexer: func(health.Row) []oapi.AttentionAction {
 		return []oapi.AttentionAction{openSettings("indexers", "Open Indexers")}
 	},
 	health.KindRootFolder: func(health.Row) []oapi.AttentionAction {
-		return []oapi.AttentionAction{openSettings("root-folders", "Open Root folders")}
+		return []oapi.AttentionAction{openSettings("root-folders", "Open Root folders"), healthLog}
 	},
 	health.KindMetadata: func(health.Row) []oapi.AttentionAction {
-		return []oapi.AttentionAction{openSettings("metadata", "Open provider keys")}
+		return []oapi.AttentionAction{openSettings("metadata", "Open provider keys"), healthLog}
 	},
 	health.KindIndexer: func(r health.Row) []oapi.AttentionAction {
 		return []oapi.AttentionAction{
@@ -48,6 +48,7 @@ var attentionActions = map[health.Kind]func(health.Row) []oapi.AttentionAction{
 				Key: "disable", Label: "Disable", Method: oapi.PATCH,
 				Path: fmt.Sprintf("/plugin-instances/%d", r.Subject.PluginInstanceID), Body: &map[string]any{"enabled": false},
 			},
+			healthLog,
 		}
 	},
 	health.KindGoneUpstream: func(r health.Row) []oapi.AttentionAction {
@@ -61,7 +62,7 @@ var attentionActions = map[health.Kind]func(health.Row) []oapi.AttentionAction{
 		return []oapi.AttentionAction{{Key: "open", Label: "Open About", Method: oapi.GET, Path: "/about"}}
 	},
 	health.KindRefreshFailed: func(r health.Row) []oapi.AttentionAction {
-		return []oapi.AttentionAction{testInstance(r), openSettings("media-servers", "Open Media servers")}
+		return []oapi.AttentionAction{testInstance(r), openSettings("media-servers", "Open Media servers"), healthLog}
 	},
 	health.KindPlexNoSection: func(health.Row) []oapi.AttentionAction {
 		return []oapi.AttentionAction{openSettings("media-servers", "Open Media servers")}
@@ -75,6 +76,14 @@ var attentionActions = map[health.Kind]func(health.Row) []oapi.AttentionAction{
 }
 
 var removeConfirm = "Remove this Title from the Library? Files stay on disk."
+
+// showInLog opens the Log filtered by q, for a row whose history is there.
+func showInLog(q string) oapi.AttentionAction {
+	return oapi.AttentionAction{Key: "log", Label: "Show in the Log", Method: oapi.GET, Path: "/log?q=" + q}
+}
+
+// healthLog is the history of the health rows that come and go: each time one was raised and cleared.
+var healthLog = showInLog("kind:health_raised,health_cleared")
 
 func openSettings(section, label string) oapi.AttentionAction {
 	return oapi.AttentionAction{Key: "open", Label: label, Method: oapi.GET, Path: "/settings/" + section}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/probe"
@@ -26,7 +27,11 @@ func (p heldProber) Probe(ctx context.Context, path string) (probe.Info, error) 
 }
 
 type activityJSON struct {
-	Running  []string `json:"running"`
+	Running []string `json:"running"`
+	Passes  []struct {
+		Name      string    `json:"name"`
+		StartedAt time.Time `json:"started_at"`
+	} `json:"passes"`
 	Adoption *struct {
 		State string `json:"state"`
 		Done  int    `json:"done"`
@@ -41,6 +46,29 @@ func (s *sseStream) activity(what string, ok func(activityJSON) bool) {
 		var a activityJSON
 		return e.Name == "activity" && json.Unmarshal([]byte(e.Data), &a) == nil && ok(a)
 	})
+}
+
+func TestGetActivityIsTheActivityFramesSnapshot(t *testing.T) {
+	t.Parallel()
+	release := make(chan struct{})
+	defer close(release)
+	a := newAdopting(t, func(o *app.Options) { o.Prober = heldProber{release} })
+	a.put(t, "The Lost Film (2020) [tmdbid-77]/held.mkv", "lost")
+	get := func() activityJSON {
+		r := a.valid("GET", "/activity", "")
+		if r.Status != 200 {
+			t.Fatalf("GET /activity = %d %s", r.Status, r.Body)
+		}
+		return decode[activityJSON](t, r)
+	}
+	if got := get(); got.Adoption != nil || len(got.Running) != 0 || got.Passes == nil || len(got.Passes) != 0 {
+		t.Errorf("idle = %+v, want nothing running", got)
+	}
+
+	if r := a.valid("POST", "/adoption/scan", ""); r.Status != 202 {
+		t.Fatalf("scan = %d %s", r.Status, r.Body)
+	}
+	eventually(t, "the scan in GET /activity", func() bool { s := get(); return s.Adoption != nil && s.Adoption.State == "scanning" })
 }
 
 func TestTheActivityStreamCarriesAnAdoptionScanAndItsProgress(t *testing.T) {

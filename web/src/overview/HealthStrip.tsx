@@ -1,5 +1,6 @@
 // The health strip: capacity at a glance, how old the TRaSH snapshot is, and whether Grabs are paused.
 import { useStatus, type SystemStatus } from '../api/attention'
+import { clockTime } from '../time'
 import { cx } from '../ui'
 
 /** "800 GB", "1 TB": powers of 1024, no decimals once a number is round. */
@@ -30,8 +31,6 @@ function client(s: SystemStatus['download_client']) {
 }
 
 type Indexer = SystemStatus['indexers'][number]
-
-const clockTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
 /** The budget and pauses after the state: "ok · 42 of 100 searches today · searches paused until 14:05". */
 function indexerDetail(i: Indexer): string {

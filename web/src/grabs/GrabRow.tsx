@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import type { QueueItem } from '../api/queue'
 import { slotLabel, type SlotKey } from '../library/bits'
+import type { RowNav } from '../keys'
 import { TitlePoster } from '../poster'
 import { Badge, NavRow } from '../ui'
 
@@ -10,9 +11,6 @@ import { Badge, NavRow } from '../ui'
 type GrabSubject = Pick<QueueItem, 'title_id' | 'has_poster' | 'title' | 'year' | 'slot' | 'episodes' | 'release_name' | 'is_upgrade'> & {
   score_delta?: number | null
 }
-
-/** Where a row sits in a j/k list (`NavRow`); a row outside one is a plain list item. */
-export type RowNav = { scope: string; index: number; sel: number; onSelect: () => void }
 
 /**
  * A Grab's row: its Title's poster and name (left out with `withTitle={false}`, on the

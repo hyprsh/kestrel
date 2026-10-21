@@ -242,6 +242,10 @@ func TestAnIndexerWithBadCredentialsIsAWarningWithTestOpenAndDisableAndBlockingR
 	if dis.Method != "PATCH" || dis.Path != fmt.Sprintf("/plugin-instances/%d", idx) || dis.Body["enabled"] != false {
 		t.Errorf("disable action = %+v", dis)
 	}
+	// Its history, each time it came and went, is in the Log.
+	if log := row.action(t, "log"); log.Method != "GET" || log.Path != "/log?q=kind:health_raised,health_cleared" {
+		t.Errorf("log action = %+v", log)
+	}
 
 	s.setKey(t, idx, "ik")
 	s.releases(t, s.hd)

@@ -125,6 +125,7 @@ type Library interface {
 	LongMissing(ctx context.Context, view library.View) ([]library.LongMissingItem, error)
 	Upcoming(ctx context.Context, view library.View, from, to time.Time) ([]library.UpcomingEntry, error)
 	RecentImports(ctx context.Context, n int) ([]library.RecentImport, error)
+	CountRecentImports(ctx context.Context, now time.Time) (int, error)
 	List(ctx context.Context, view library.View, f library.Filter) ([]library.Row, error)
 	AddVersion(ctx context.Context, titleID int64, v library.VersionSpec) (int64, error)
 	AddSeries(ctx context.Context, a library.AddSeries) (int64, error)
@@ -208,7 +209,7 @@ type TitleFiles interface {
 // Jobs is the loop runner.
 type Jobs interface {
 	Kick(name string)
-	Running() []string
+	Running() []jobs.Run
 	// Search is the search pipeline, as the Search loop keeps it.
 	Search() jobs.SearchStatus
 	// Jobs lists the loops with their last pass and next due time.

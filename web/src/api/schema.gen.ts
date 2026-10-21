@@ -329,9 +329,10 @@ export interface paths {
         };
         /**
          * Search the metadata provider for Titles to add
-         * @description One TMDB search across both kinds, in English, ranked best match first. A year typed after
-         *     the title is searched without and ranks by it; when TMDB finds nothing, the query is asked
-         *     once more without accents and punctuation, with `&` as "and". Results already in the
+         * @description One TMDB search across both kinds, in English, ranked best match first. The query is searched
+         *     as typed, so a year that is part of a title ("Blade Runner 2049") stays in; when TMDB finds
+         *     nothing, it is asked once more without a trailing year, accents and punctuation, with `&` as
+         *     "and". A year typed after the title also ranks the results by it. Results already in the
          *     Library carry their Title id in `in_library`. A Series needs a TheTVDB id (from TMDB's external
          *     ids, else a TheTVDB remote-id search by IMDb id); one without is `addable: false` with
          *     `not_addable_reason: not_on_tvdb`, and `POST /titles` refuses it.
@@ -1083,7 +1084,8 @@ export interface paths {
         /**
          * Recently added
          * @description The ten most recent Imports, newest first. An Import of several files at once (a season pack)
-         *     is one row with `files` set to how many it brought.
+         *     is one row with `files` set to how many it brought. `total` counts the Imports of the last
+         *     7 days, the window Activity's Done stage lists, so it may be more or fewer than `items`.
          */
         get: operations["listRecentlyAdded"];
         put?: never;
@@ -1107,8 +1109,10 @@ export interface paths {
          *     left out unless `routine=true`; they are pruned after 30 days, the rest are kept forever.
          *     `kind` is a growing set: clients show kinds they do not know. `slot` matches events about a
          *     Version in that Slot. `kind`, `title_id` and `slot` may repeat and then match any of their
-         *     values; filters of different names must all match. `exclude_kind` (repeatable) leaves those
-         *     kinds out, even when `kind` names them. `before` pages: pass the smallest `id` seen.
+         *     values; filters of different names must all match. `exclude_kind`, `exclude_title_id` and
+         *     `exclude_slot` (each repeatable) leave those kinds, Titles and Slots out, even when `kind`,
+         *     `title_id` or `slot` names them; an event about no Title or Version is never left out by the
+         *     last two. `before` pages: pass the smallest `id` seen.
          */
         get: operations["listEvents"];
         put?: never;
@@ -1423,6 +1427,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The background work running now
+         * @description The loops mid-pass and an Adoption scan or commit, as the stream's `activity` frames carry
+         *     them. All in memory: it starts empty at every start.
+         */
+        get: operations["getActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/jobs": {
         parameters: {
             query?: never;
@@ -1578,8 +1603,9 @@ export interface paths {
          *       They come from the events log, so an Import landing in a background loop reaches an open
          *       tab within about a second, and from handlers for changes made through this API.
          *     - `queue`: the `QueueList` snapshot (same as `GET /queue`), on connect and whenever it changes.
-         *     - `activity`: the background work running now (`ActivitySnapshot`): the loops mid-pass and an
-         *       Adoption scan or commit with its progress, on connect and whenever it changes.
+         *     - `activity`: the background work running now (`ActivitySnapshot`, same as `GET /activity`):
+         *       the loops mid-pass with when each pass started, and an Adoption scan or commit with its
+         *       progress, on connect and whenever it changes.
          *     - `attention`: the Needs attention count and worst severity (`AttentionSnapshot`), on connect
          *       and whenever it changes.
          *     - `search`: the search pipeline (`SearchStatus`, same as `GET /search/status`), on connect and
@@ -1614,10 +1640,10 @@ export interface paths {
          *     other filters and the cursor are ignored then.
          *
          *     `source`, `status`, `outcome` and `requester` may each repeat: a Request matches any one of a
-         *     filter's values, and every filter given. `status` is derived on read like each Slot's: `rejected`
-         *     is a rejected Request, `completed` an accepted one whose every Slot is completed, and `open` an
-         *     accepted one with a Slot still queued or downloading. An accepted Request with a Slot whose
-         *     Version was removed since, and none still on its way, is neither open nor completed.
+         *     filter's values, and every filter given. `status` is derived on read like each Slot's, and every
+         *     Request has exactly one: `rejected` is a rejected Request, `open` an accepted one with a Slot
+         *     still queued or downloading, and `completed` every other accepted one, with nothing on its way
+         *     any more (each Slot completed, or its Version removed since).
          */
         get: operations["listRequests"];
         put?: never;
@@ -2919,6 +2945,26 @@ export interface components {
              * @description When the next pass is due; `null` while one runs and before the loops start.
              */
             next_at: string | null;
+            schedule: components["schemas"]["JobSchedule"];
+        };
+        /** @description How often a loop runs. */
+        JobSchedule: {
+            /**
+             * Format: int64
+             * @description The wait between passes.
+             */
+            every_ms: number;
+            /**
+             * Format: int64
+             * @description The shorter wait while there is work (`poll` while a Grab downloads); `null` for none.
+             */
+            busy_every_ms: number | null;
+            /**
+             * Format: int64
+             * @description For a loop that checks every `every_ms` whether its work is due: how often it does it (the
+             *     daily loops); `null` when every pass does the work.
+             */
+            runs_every_ms: number | null;
         };
         JobRun: {
             /** Format: date-time */
@@ -2933,8 +2979,16 @@ export interface components {
         ActivitySnapshot: {
             /** @description Names of the background loops mid-pass right now. */
             running: string[];
+            /** @description The same loops' passes, the longest-running first, with when each started. */
+            passes: components["schemas"]["RunningPass"][];
             /** @description The Adoption scan or commit running now; null when neither runs. */
             adoption: components["schemas"]["AdoptionActivity"] | null;
+        };
+        RunningPass: {
+            /** @description The loop, as in `GET /jobs`. */
+            name: string;
+            /** Format: date-time */
+            started_at: string;
         };
         /** @description An Adoption scan or commit and how far it has got, as `GET /adoption` reports it. */
         AdoptionActivity: {
@@ -3026,7 +3080,10 @@ export interface components {
             versions: number;
         };
         SearchStatus: {
-            /** @description What waits for a search, as the last pass found it less what it has searched since. */
+            /**
+             * @description What waits for a search: as the running pass found it less what it has searched since, and
+             *     between passes recounted about once a minute.
+             */
             due: {
                 /** @description Wanted Versions due a missing search. A Series Version counts once. */
                 versions: number;
@@ -3352,6 +3409,8 @@ export interface components {
         };
         RecentList: {
             items: components["schemas"]["RecentItem"][];
+            /** @description How many Imports the last 7 days brought, a pack counting once. */
+            total: number;
         };
         RecentItem: {
             /** Format: int64 */
@@ -4960,7 +5019,9 @@ export interface operations {
                 kind?: string[];
                 exclude_kind?: string[];
                 title_id?: number[];
+                exclude_title_id?: number[];
                 slot?: components["schemas"]["Slot"][];
+                exclude_slot?: components["schemas"]["Slot"][];
                 routine?: boolean;
                 before?: number;
                 limit?: number;
@@ -5322,6 +5383,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SearchStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getActivity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What runs now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivitySnapshot"];
                 };
             };
             default: components["responses"]["Problem"];

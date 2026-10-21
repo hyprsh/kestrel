@@ -3,6 +3,7 @@ import { HISTORY_DAYS, type GrabEntry } from '../api/activity'
 import type { TitleRow } from '../api/queries'
 import type { QueueItem } from '../api/queue'
 import type { components } from '../api/schema.gen'
+import { phases } from '../grabs/phase'
 
 type BlocklistEntry = components['schemas']['BlocklistEntry']
 
@@ -27,14 +28,6 @@ export type Entry =
   | { type: 'grab'; key: string; stage: Stage; grab: GrabEntry }
   | { type: 'blocked'; key: string; stage: Stage; entry: BlocklistEntry; title?: TitleRow }
 
-const activeStage: Record<QueueItem['phase'], Stage> = {
-  queued: 'queued',
-  paused: 'queued',
-  downloading: 'downloading',
-  post_processing: 'processing',
-  importing: 'importing',
-}
-
 /**
  * Every row in stage order: active Grabs as the queue lists them (oldest first), stalled
  * Imports, then Done and Failed newest first. Failed also holds the Blocklist entries of the
@@ -48,7 +41,7 @@ export function entriesOf(
   titles: readonly TitleRow[],
   now: number,
 ): Entry[] {
-  const active: Entry[] = queue.map((item) => ({ type: 'active', key: `g${item.grab_id}`, stage: activeStage[item.phase], item }))
+  const active: Entry[] = queue.map((item) => ({ type: 'active', key: `g${item.grab_id}`, stage: phases[item.phase].stage, item }))
   const held: Entry[] = stalled.map((grab) => ({ type: 'grab', key: `g${grab.grab_id}`, stage: 'stalled', grab }))
   const listed = new Set(finished.map((g) => g.grab_id))
   const since = now - HISTORY_DAYS * 86_400_000

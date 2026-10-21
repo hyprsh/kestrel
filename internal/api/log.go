@@ -24,15 +24,15 @@ func (s *server) ListEvents(ctx context.Context, r oapi.ListEventsRequestObject)
 	if p.TitleId != nil {
 		f.TitleIDs = *p.TitleId
 	}
-	if p.Slot != nil {
-		for _, slot := range *p.Slot {
-			switch slot {
-			case oapi.Standard, oapi.N4k:
-			default:
-				return nil, invalid("slot", "invalid", "slot must be standard or 4k")
-			}
-			f.Slots = append(f.Slots, string(slot))
-		}
+	if p.ExcludeTitleId != nil {
+		f.ExcludeTitleIDs = *p.ExcludeTitleId
+	}
+	var err error
+	if f.Slots, err = slotsOf("slot", p.Slot); err != nil {
+		return nil, err
+	}
+	if f.ExcludeSlots, err = slotsOf("exclude_slot", p.ExcludeSlot); err != nil {
+		return nil, err
 	}
 	if p.Routine != nil {
 		f.Routine = *p.Routine
@@ -63,6 +63,23 @@ func (s *server) ListEvents(ctx context.Context, r oapi.ListEventsRequestObject)
 		out.Items = append(out.Items, item)
 	}
 	return oapi.ListEvents200JSONResponse(out), nil
+}
+
+// slotsOf is a Slot filter's values; field names it in the error.
+func slotsOf(field string, slots *[]oapi.Slot) ([]string, error) {
+	if slots == nil {
+		return nil, nil
+	}
+	var out []string
+	for _, slot := range *slots {
+		switch slot {
+		case oapi.Standard, oapi.N4k:
+		default:
+			return nil, invalid(field, "invalid", field+" must be standard or 4k")
+		}
+		out = append(out, string(slot))
+	}
+	return out, nil
 }
 
 func kindsOf(names []string) []history.Kind {

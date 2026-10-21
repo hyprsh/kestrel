@@ -2,8 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/base64"
-	"strconv"
 
 	"github.com/hyprsh/kestrel/internal/acquire"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
@@ -29,14 +27,11 @@ func (s *server) ListGrabs(ctx context.Context, r oapi.ListGrabsRequestObject) (
 	if p.Since != nil {
 		f.Since = *p.Since
 	}
-	if p.Cursor != nil && *p.Cursor != "" {
-		raw, err := base64.RawURLEncoding.DecodeString(*p.Cursor)
-		n, convErr := strconv.ParseInt(string(raw), 10, 64)
-		if err != nil || convErr != nil || n <= 0 {
-			return nil, invalid("cursor", "invalid", "The cursor is not one this server gave out")
-		}
-		f.Before = n
+	before, err := readCursor(p.Cursor, 1)
+	if err != nil {
+		return nil, err
 	}
+	f.Before = before
 	list, err := s.acquire.Grabs(ctx, f)
 	if err != nil {
 		return nil, err
@@ -44,8 +39,7 @@ func (s *server) ListGrabs(ctx context.Context, r oapi.ListGrabsRequestObject) (
 	out := oapi.GrabList{Items: make([]oapi.GrabEntry, 0, len(list))}
 	if len(list) > limit {
 		list = list[:limit]
-		cursor := base64.RawURLEncoding.EncodeToString([]byte(strconv.FormatInt(list[limit-1].ID, 10)))
-		out.NextCursor = &cursor
+		out.NextCursor = cursorOf(list[limit-1].ID)
 	}
 	titles, err := s.grabTitles(ctx)
 	if err != nil {

@@ -13,8 +13,8 @@ import { parse } from '../filter/query'
 import { QueryField } from '../filter/QueryField'
 import { Button, ErrorText } from '../forms'
 import { DownloadRow } from '../grabs/DownloadRow'
-import { GrabRow, type RowNav } from '../grabs/GrabRow'
-import { useKey, useListNav } from '../keys'
+import { GrabRow } from '../grabs/GrabRow'
+import { useKey, useListNav, type RowNav } from '../keys'
 import { size } from '../library/bits'
 import { SearchSummary } from '../overview/Searching'
 import { useOpenPlace } from '../place'
@@ -173,7 +173,7 @@ function EntryRow({ entry: e, now, nav, onOpenTitle }: { entry: Entry; now: numb
       const t = e.title
       const subject = {
         title_id: e.entry.title_id,
-        has_poster: false,
+        has_poster: t?.has_poster ?? false,
         title: t?.title ?? '',
         year: t?.year ?? null,
         slot: null,
@@ -215,7 +215,7 @@ function StalledRow({ grab: g, now, nav, onOpenTitle }: { grab: GrabEntry; now: 
   const act = useStalledImport()
   const st = g.stalled!
   const discard = () => {
-    if (window.confirm('Discard this download? Its files are deleted and the Version is searched for again.')) act.mutate({ id: g.grab_id, action: 'discard' })
+    if (window.confirm('Discard this Grab? Its downloaded files are deleted and the Version is searched for again.')) act.mutate({ id: g.grab_id, action: 'discard' })
   }
   return (
     <GrabRow

@@ -3,7 +3,8 @@
 import type { QueueItem } from '../api/queue'
 import { useQueue } from '../api/queue'
 import type { Request } from '../api/requests'
-import type { RowNav } from '../grabs/GrabRow'
+import { percent } from '../format'
+import type { RowNav } from '../keys'
 import { slotLabel, type SlotKey } from '../library/bits'
 import { useOpenPlace } from '../place'
 import { Poster, TitlePoster } from '../poster'
@@ -21,8 +22,6 @@ const reasons: Record<NonNullable<Request['reject_reason']>, { text: string; fix
 
 /** "Silo" for the source "silo". */
 const sourceName = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
-
-const percent = (total: number, left: number) => (total > 0 ? Math.min(100, Math.max(0, Math.round(((total - left) / total) * 100))) : null)
 
 /**
  * Where a Slot stands. The Request's own `download` is as of its last fetch; the live queue

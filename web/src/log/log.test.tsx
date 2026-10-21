@@ -87,6 +87,25 @@ describe('Log', () => {
     expect(sent.at(-1)?.getAll('exclude_kind')).toEqual(['health_raised'])
   })
 
+  it('sends excluded Slots and Titles apart, and takes -routine:yes for routine:no', async () => {
+    fakeLibrary([row(1, 'Breaking Bad', 'Breaking Bad'), row(3, 'Paddington', 'Paddington')])
+    const sent = events()
+    const user = await openLog()
+    await screen.findByRole('list', { name: 'Events' })
+
+    await user.type(filter(), '-slot:4k -title:paddington -routine:no')
+
+    await expect.poll(() => sent.at(-1)?.getAll('exclude_title_id')).toEqual(['3'])
+    expect(sent.at(-1)?.getAll('exclude_slot')).toEqual(['4k'])
+    expect(sent.at(-1)?.get('routine')).toBe('true')
+    expect(sent.at(-1)?.has('slot')).toBe(false)
+    expect(sent.at(-1)?.has('title_id')).toBe(false)
+
+    await user.clear(filter())
+    await user.type(filter(), 'routine:yes -routine:yes')
+    await expect.poll(() => sent.at(-1)?.has('routine')).toBe(false)
+  })
+
   it('shows nothing, without asking, for a Title the Library does not have', async () => {
     fakeLibrary([row(3, 'Paddington', 'Paddington')])
     const sent = events()

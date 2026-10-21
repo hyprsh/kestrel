@@ -9,7 +9,15 @@ export type LogEvent = components['schemas']['Event']
 type Slot = components['schemas']['Slot']
 
 /** What GET /events is asked for. A null list is no filter; an empty one matches nothing. */
-export type LogFilter = { kinds: string[] | null; excludeKinds: string[]; slots: Slot[] | null; titleIds: number[] | null; routine: boolean }
+export type LogFilter = {
+  kinds: string[] | null
+  excludeKinds: string[]
+  slots: Slot[] | null
+  excludeSlots: Slot[]
+  titleIds: number[] | null
+  excludeTitleIds: number[]
+  routine: boolean
+}
 
 const matchesNothing = (f: LogFilter) => [f.kinds, f.slots, f.titleIds].some((l) => l?.length === 0)
 
@@ -31,7 +39,9 @@ export function useEvents(f: LogFilter, enabled = true) {
         ...(f.kinds && { kind: f.kinds }),
         ...(f.excludeKinds.length > 0 && { exclude_kind: f.excludeKinds }),
         ...(f.slots && { slot: f.slots }),
+        ...(f.excludeSlots.length > 0 && { exclude_slot: f.excludeSlots }),
         ...(f.titleIds && { title_id: f.titleIds }),
+        ...(f.excludeTitleIds.length > 0 && { exclude_title_id: f.excludeTitleIds }),
         ...(f.routine && { routine: true }),
       }
       const { data, error, response } = await api.GET('/events', { params: { query } })

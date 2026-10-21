@@ -61,7 +61,11 @@ func (s *server) ListRecentlyAdded(ctx context.Context, _ oapi.ListRecentlyAdded
 	if err != nil {
 		return nil, err
 	}
-	out := oapi.RecentList{Items: make([]oapi.RecentItem, 0, len(rows))}
+	total, err := s.library.CountRecentImports(ctx, s.opts.Clock())
+	if err != nil {
+		return nil, err
+	}
+	out := oapi.RecentList{Items: make([]oapi.RecentItem, 0, len(rows)), Total: total}
 	for _, r := range rows {
 		out.Items = append(out.Items, oapi.RecentItem{
 			TitleId: r.TitleID, Title: r.Title, Year: intPtr(r.Year), Kind: oapi.TitleKind(r.Kind), Slot: oapi.Slot(r.Slot),
