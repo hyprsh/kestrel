@@ -398,7 +398,9 @@ paths:
       operationId: lookup
       summary: Search the metadata provider for Titles to add
       description: |
-        One TMDB search across both kinds, in English, newest relevance first. Results already in the
+        One TMDB search across both kinds, in English, ranked best match first. A year typed after
+        the title is searched without and ranks by it; when TMDB finds nothing, the query is asked
+        once more without accents and punctuation, with `&` as "and". Results already in the
         Library carry their Title id in `in_library`. A Series needs a TheTVDB id (from TMDB's external
         ids, else a TheTVDB remote-id search by IMDb id); one without is `addable: false` with
         `not_addable_reason: not_on_tvdb`, and `POST /titles` refuses it.
@@ -514,12 +516,12 @@ paths:
             type: string
         - name: wanted
           in: query
-          description: "`true` keeps the Titles with a Wanted Version (the Library's Wanted filter)."
+          description: "`true` keeps the Titles with a Wanted Version (the Library filter's `is:wanted`)."
           schema:
             type: boolean
         - name: long_missing
           in: query
-          description: "`true` keeps the Titles with a Long Missing Version (the Long Missing chip)."
+          description: "`true` keeps the Titles with a Long Missing Version (the Library filter's `is:long_missing`)."
           schema:
             type: boolean
         - name: sort
@@ -2843,15 +2845,22 @@ components:
             $ref: "#/components/schemas/Rating"
     LookupList:
       type: object
-      required: [items, next_cursor]
+      required: [items, next_cursor, did_you_mean]
       properties:
         items:
           type: array
+          description: |
+            Best match first: TMDB's results ranked by how well they match the query, then by a
+            year typed after it (`dune 2021`, searched as `dune`).
           items:
             $ref: "#/components/schemas/LookupResult"
         next_cursor:
           type: string
           nullable: true
+        did_you_mean:
+          type: string
+          nullable: true
+          description: The best result's title when it differs a lot from the query, to search for instead; `null` otherwise.
     SuggestedSlot:
       type: object
       required: [slot, profile, label, reason]
@@ -3347,7 +3356,7 @@ components:
           type: boolean
     TitleRow:
       type: object
-      required: [id, kind, title, primary_title, year, slots, wanted_since, added_at, size]
+      required: [id, kind, title, primary_title, year, has_poster, slots, wanted_since, added_at, size]
       properties:
         id:
           type: integer
@@ -3363,6 +3372,9 @@ components:
         year:
           type: integer
           nullable: true
+        has_poster:
+          type: boolean
+          description: Whether `GET /titles/{id}/poster` has an image.
         slots:
           type: object
           required: [standard, 4k]

@@ -332,7 +332,7 @@ export function useTitle(id: number | null) {
   })
 }
 
-/** One search across both kinds in the add menu. */
+/** One search across both kinds in the add menu, best match first, with a "Did you mean …?" title when it differs a lot. */
 export function useLookup(q: string) {
   return useQuery({
     queryKey: ['lookup', q],
@@ -341,7 +341,7 @@ export function useLookup(q: string) {
     queryFn: async () => {
       const { data, error, response } = await api.GET('/lookup', { params: { query: { q } } })
       if (!data) throw failure(error, response)
-      return data.items
+      return data
     },
   })
 }
