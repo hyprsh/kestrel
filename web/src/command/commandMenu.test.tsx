@@ -51,6 +51,7 @@ function fakeLookup(suggestion: (id: number, title: string) => Suggestion = defa
       return response(200).json({
         items: [result(116149, 'Paddington'), result(346648, 'Paddington Returns', { in_library: 7 })],
         next_cursor: null,
+        did_you_mean: null,
       })
     }),
     http.get('/lookup/{kind}/{tmdb_id}', ({ params, response }) =>
@@ -107,6 +108,82 @@ describe('the command menu', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByRole('banner')).toHaveTextContent('Library')
     expect(await screen.findByRole('option', { name: /zodiac/i, selected: true })).toBeInTheDocument()
+  })
+
+  it('finds Titles fuzzily, best match first, with the matched letters marked', async () => {
+    fakeLibrary([row(1, 'Bad Boys', 'Bad Boys'), row(2, 'Breaking Bad', 'Breaking Bad'), row(3, 'Amélie', 'Amélie'), row(4, 'Spider-Man', 'Spider-Man')])
+    renderApp()
+    const menu = await openMenu()
+    const input = within(menu).getByRole('combobox', { name: /search/i })
+    const titles = () =>
+      within(menu)
+        .getAllByRole('option')
+        .filter((o) => o.querySelector('[data-poster]'))
+        .map((o) => o.querySelector('.truncate')?.textContent)
+
+    await userEvent.keyboard('bb')
+    await waitFor(() => expect(titles()).toEqual(['Bad Boys', 'Breaking Bad'])) // initials of both, the shorter first
+    const marks = within(menu).getByRole('option', { name: /breaking bad/i }).querySelectorAll('mark')
+    expect([...marks].map((m) => m.textContent)).toEqual(['B', 'B'])
+
+    await userEvent.clear(input)
+    await userEvent.keyboard('bad breaking')
+    await waitFor(() => expect(titles()).toEqual(['Breaking Bad'])) // words in any order
+
+    await userEvent.clear(input)
+    await userEvent.keyboard('amelie')
+    await waitFor(() => expect(titles()).toEqual(['Amélie']))
+
+    await userEvent.clear(input)
+    await userEvent.keyboard('spiderman')
+    await waitFor(() => expect(titles()).toEqual(['Spider-Man']))
+
+    await userEvent.clear(input)
+    await userEvent.keyboard('brekaing')
+    await waitFor(() => expect(titles()).toEqual(['Breaking Bad'])) // a typo
+
+    await userEvent.keyboard('{Enter}') // the best match is selected
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: /breaking bad/i, selected: true })).toBeInTheDocument()
+  })
+
+  it('puts the group with the best match first, and ranks inside each group', async () => {
+    fakeLibrary([row(1, 'Logan', 'Logan'), row(2, 'Overboard Again', 'Overboard Again')])
+    renderApp()
+    const menu = await openMenu()
+    const input = within(menu).getByRole('combobox', { name: /search/i })
+    const groups = () => [...menu.querySelectorAll('[data-group]')].map((g) => g.textContent)
+
+    await userEvent.keyboard('log')
+    await within(menu).findByRole('option', { name: /^logan/i })
+    expect(groups().slice(0, 2)).toEqual(['Go to', 'Titles']) // the place Log is exact, Logan only starts with it
+    expect(within(menu).getAllByRole('option')[0]).toHaveAccessibleName(/^log$/i)
+
+    await userEvent.clear(input)
+    await userEvent.keyboard('logan')
+    await within(menu).findByRole('option', { name: /^logan/i })
+    expect(groups()[0]).toBe('Titles')
+
+    await userEvent.clear(input)
+    await userEvent.keyboard('ov')
+    await within(menu).findByRole('option', { name: /overboard/i })
+    expect(groups().slice(0, 2)).toEqual(['Go to', 'Titles']) // Overview is the shorter
+    await userEvent.keyboard('{ArrowDown}{Enter}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: /overboard/i, selected: true })).toBeInTheDocument()
+  })
+
+  it('shows a Library Title with its poster, or an empty frame when it has none', async () => {
+    fakeLibrary([row(1, 'Heat', 'Heat', { has_poster: true }), row(2, 'Heatwave', 'Heatwave')])
+    renderApp()
+    const menu = await openMenu()
+    await userEvent.keyboard('heat')
+
+    const withPoster = await within(menu).findByRole('option', { name: /^heat\b(?!wave)/i })
+    expect(withPoster.querySelector('[data-poster] img')).toHaveAttribute('src', expect.stringMatching(/\/titles\/1\/poster$/))
+    const without = within(menu).getByRole('option', { name: /heatwave/i })
+    expect(without.querySelector('[data-poster]')).toBeInTheDocument()
+    expect(without.querySelector('[data-poster] img')).toBeNull() // no request that would 404
   })
 
   it('searches once across both kinds, marking a Movie already in the Library', async () => {
@@ -222,6 +299,35 @@ describe('the command menu', () => {
     await userEvent.clear(input)
     await userEvent.keyboard('{Backspace}')
     expect(await within(menu).findByRole('option', { name: /library/i })).toBeInTheDocument() // root again
+  })
+
+  it('offers the best result as the query when it differs a lot from what was typed', async () => {
+    fakeLibrary([])
+    const queries: string[] = []
+    server.use(
+      http.get('/lookup', ({ request, response }) => {
+        const q = new URL(request.url).searchParams.get('q') ?? ''
+        queries.push(q)
+        return response(200).json({
+          items: [result(329, 'Jurassic Park'), result(330, 'The Lost World: Jurassic Park')],
+          next_cursor: null,
+          did_you_mean: q === 'jurrasic prak' ? 'Jurassic Park' : null,
+        })
+      }),
+    )
+    renderApp()
+    const menu = await openMenu()
+    await userEvent.keyboard('jurrasic prak')
+    await userEvent.click(await within(menu).findByRole('option', { name: /add "jurrasic prak"/i }))
+
+    const suggestion = await within(menu).findByRole('option', { name: 'Did you mean Jurassic Park?' })
+    expect(suggestion).toHaveAttribute('aria-selected', 'true') // first, so Enter runs it
+    await userEvent.keyboard('{Enter}')
+
+    expect(within(menu).getByRole('combobox', { name: /search/i })).toHaveValue('Jurassic Park')
+    await waitFor(() => expect(queries.at(-1)).toBe('Jurassic Park'))
+    await waitFor(() => expect(within(menu).queryByRole('option', { name: /did you mean/i })).not.toBeInTheDocument())
+    expect(within(menu).getByRole('option', { name: /^jurassic park/i })).toHaveAttribute('aria-selected', 'true')
   })
 
   it('says why a search failed', async () => {

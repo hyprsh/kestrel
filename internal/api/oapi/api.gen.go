@@ -1816,6 +1816,11 @@ type LookupDetail struct {
 
 // LookupList defines model for LookupList.
 type LookupList struct {
+	// DidYouMean The best result's title when it differs a lot from the query, to search for instead; `null` otherwise.
+	DidYouMean *string `json:"did_you_mean"`
+
+	// Items Best match first: TMDB's results ranked by how well they match the query, then by a
+	// year typed after it (`dune 2021`, searched as `dune`).
 	Items      []LookupResult `json:"items"`
 	NextCursor *string        `json:"next_cursor"`
 }
@@ -2947,8 +2952,11 @@ type TitlePatch struct {
 // TitleRow defines model for TitleRow.
 type TitleRow struct {
 	AddedAt time.Time `json:"added_at"`
-	Id      int64     `json:"id"`
-	Kind    TitleKind `json:"kind"`
+
+	// HasPoster Whether `GET /titles/{id}/poster` has an image.
+	HasPoster bool      `json:"has_poster"`
+	Id        int64     `json:"id"`
+	Kind      TitleKind `json:"kind"`
 
 	// PrimaryTitle The title in the Primary Language; the English title when TMDB has no translation.
 	PrimaryTitle string `json:"primary_title"`
@@ -3299,10 +3307,10 @@ type ListTitlesParams struct {
 	Kind *TitleKind `form:"kind,omitempty" json:"kind,omitempty"`
 	Q    *string    `form:"q,omitempty" json:"q,omitempty"`
 
-	// Wanted `true` keeps the Titles with a Wanted Version (the Library's Wanted filter).
+	// Wanted `true` keeps the Titles with a Wanted Version (the Library filter's `is:wanted`).
 	Wanted *bool `form:"wanted,omitempty" json:"wanted,omitempty"`
 
-	// LongMissing `true` keeps the Titles with a Long Missing Version (the Long Missing chip).
+	// LongMissing `true` keeps the Titles with a Long Missing Version (the Library filter's `is:long_missing`).
 	LongMissing *bool `form:"long_missing,omitempty" json:"long_missing,omitempty"`
 
 	// Sort `added_at` (default) is newest first. `wanted_since` puts the Titles that have been Wanted

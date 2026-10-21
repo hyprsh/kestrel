@@ -57,4 +57,13 @@ describe('the Library filter', () => {
     expect(kept('bär')).toEqual(['Paddington'])
     expect(kept('bad kind:series')).toEqual(['Breaking Bad'])
   })
+
+  it('matches free text fuzzily, per word, keeping the Library order', () => {
+    expect(kept('bar namens')).toEqual(['Paddington']) // no accent needed
+    expect(kept('bad breaking')).toEqual(['Breaking Bad'])
+    expect(kept('paddingtn')).toEqual(['Paddington'])
+    expect(kept('a')).toEqual(['Paddington', 'Heat', 'Zodiac', 'Breaking Bad']) // not best match first
+    expect(kept('bb')).toEqual([]) // no initials across a title
+    expect(kept('paddingtn kind:series')).toEqual([]) // the qualifiers still filter
+  })
 })
