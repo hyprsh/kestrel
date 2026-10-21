@@ -1,5 +1,5 @@
 // The Activity screen: every Grab from search to Import, and (with later sections) the
-// background work Kestrel is doing right now. One scrolling column of sections, each its own
+// background work Kestrel is doing right now. One scrolling, centred column of sections, each its own
 // file in activity/ with an element id `activity-<section>`, so a place such as
 // "/activity/running" scrolls to it (Shell's goPath). The pipeline's filter is the screen's
 // `?q=`: "/activity?q=stage:done" opens it on the Done stage.
@@ -27,9 +27,12 @@ export function Activity({
 }) {
   return (
     <div className="min-h-0 flex-1 overflow-auto">
-      <RunningNow running={running} onOpenAdoption={onOpenAdoption} onOpenTitle={onOpenTitle} />
-      <Pipeline query={query} onQuery={onQuery} onOpenTitle={onOpenTitle} />
-      <BackgroundJobs />
+      {/* A centred column like the Overview's, so rows and progress bars do not stretch across a wide window. */}
+      <div className="mx-auto max-w-3xl pb-6">
+        <RunningNow running={running} onOpenAdoption={onOpenAdoption} onOpenTitle={onOpenTitle} />
+        <Pipeline query={query} onQuery={onQuery} onOpenTitle={onOpenTitle} />
+        <BackgroundJobs />
+      </div>
     </div>
   )
 }
