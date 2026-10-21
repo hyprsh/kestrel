@@ -1666,6 +1666,11 @@ type LookupDetail struct {
 
 // LookupList defines model for LookupList.
 type LookupList struct {
+	// DidYouMean The best result's title when it differs a lot from the query, to search for instead; `null` otherwise.
+	DidYouMean *string `json:"did_you_mean"`
+
+	// Items Best match first: TMDB's results ranked by how well they match the query, then by a
+	// year typed after it (`dune 2021`, searched as `dune`).
 	Items      []LookupResult `json:"items"`
 	NextCursor *string        `json:"next_cursor"`
 }

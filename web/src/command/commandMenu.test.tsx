@@ -51,6 +51,7 @@ function fakeLookup(suggestion: (id: number, title: string) => Suggestion = defa
       return response(200).json({
         items: [result(116149, 'Paddington'), result(346648, 'Paddington Returns', { in_library: 7 })],
         next_cursor: null,
+        did_you_mean: null,
       })
     }),
     http.get('/lookup/{kind}/{tmdb_id}', ({ params, response }) =>

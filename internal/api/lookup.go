@@ -26,40 +26,44 @@ var trailingYear = regexp.MustCompile(`^(.*\S)\s+\(?((?:18|19|20)\d\d)\)?$`)
 // "Did you mean …?": below it, the result differs a lot from what was typed.
 const unlike = 0.8
 
-// findTitles runs the add-search for q, with at most one extra TMDB request.
-func (s *server) findTitles(ctx context.Context, q string) (found []metadata.SearchResult, didYouMean string, err error) {
+// findTitles runs the add-search for q, keeping the results `keep` wants, best first,
+// with at most one extra TMDB request.
+func (s *server) findTitles(ctx context.Context, q string, keep func(metadata.SearchResult) bool) (ranked []metadata.SearchResult, didYouMean string, err error) {
 	query, year := q, 0
 	if m := trailingYear.FindStringSubmatch(q); m != nil {
 		query, year = m[1], atoi(m[2])
 	}
-	found, err = s.meta.Search(ctx, query)
+	search := func(query string) ([]metadata.SearchResult, error) {
+		found, err := s.meta.Search(ctx, query)
+		return slices.DeleteFunc(found, func(f metadata.SearchResult) bool { return !keep(f) }), err
+	}
+	found, err := search(query)
 	if err != nil {
 		return nil, "", err
 	}
 	if folded := fold(query); len(found) == 0 && folded != "" && folded != strings.Join(strings.Fields(strings.ToLower(query)), " ") {
-		if found, err = s.meta.Search(ctx, folded); err != nil {
+		if found, err = search(folded); err != nil {
 			return nil, "", err
 		}
 	}
 	if len(found) == 0 {
-		return found, "", nil
+		return nil, "", nil
 	}
 	typed := []string{fold(q), fold(query)}
-	keys := make(map[int]rankKey, len(found))
+	type hit struct {
+		metadata.SearchResult
+		key rankKey
+	}
+	hits := make([]hit, len(found))
 	for i, f := range found {
-		keys[i] = keyOf(typed, year, f)
+		hits[i] = hit{f, keyOf(typed, year, f)}
 	}
-	order := make([]int, len(found))
-	for i := range order {
-		order[i] = i
+	slices.SortStableFunc(hits, func(a, b hit) int { return b.key.compare(a.key) })
+	for _, h := range hits {
+		ranked = append(ranked, h.SearchResult)
 	}
-	slices.SortStableFunc(order, func(a, b int) int { return keys[b].compare(keys[a]) })
-	ranked := make([]metadata.SearchResult, len(found))
-	for i, j := range order {
-		ranked[i] = found[j]
-	}
-	if keys[order[0]].match < unlike {
-		didYouMean = ranked[0].Title
+	if hits[0].key.match < unlike {
+		didYouMean = hits[0].Title
 	}
 	return ranked, didYouMean, nil
 }

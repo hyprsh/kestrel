@@ -71,6 +71,24 @@ func TestLookupSearchesWithoutATrailingYearAndRanksByIt(t *testing.T) {
 	}
 }
 
+func TestLookupNamesTheBestResultWhenItDiffersALotFromTheQuery(t *testing.T) {
+	t.Parallel()
+	l := newLibraryInstance(t, metadatatest.Key)
+	didYouMean := func(q string) *string {
+		return decode[struct {
+			DidYouMean *string `json:"did_you_mean"`
+		}](t, l.valid("GET", "/lookup?q="+url.QueryEscape(q), "")).DidYouMean
+	}
+	if got := didYouMean("jurrasic prak"); got == nil || *got != "Jurassic Park" {
+		t.Errorf("jurrasic prak: did you mean %v, want Jurassic Park", got)
+	}
+	for _, q := range []string{"jurassic park", "Jurassic", "paddington", "dune 2021", "padington", "casablanca"} {
+		if got := didYouMean(q); got != nil {
+			t.Errorf("%s: did you mean %q, want none", q, *got)
+		}
+	}
+}
+
 func TestLookupAsksOnceMoreWithAFoldedQueryWhenTMDBFindsNothing(t *testing.T) {
 	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
