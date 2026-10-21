@@ -77,6 +77,7 @@ describe('Overview rows', () => {
             {
               grab_id: 1,
               title_id: 5,
+              has_poster: false,
               version_id: 11,
               title: 'Heat',
               year: 1995,

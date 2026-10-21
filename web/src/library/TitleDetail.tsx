@@ -1,12 +1,13 @@
 import { forwardRef, useRef } from 'react'
-import { apiBaseUrl } from '../api/client'
 import { useProfiles, useTitle, type EpisodeScope, type TitleDetail as Detail, type TitleRow } from '../api/queries'
+import { TitlePoster } from '../poster'
 import { slotKeys, type SlotKey } from './bits'
 import { ExternalIds } from './ExternalIds'
 import { Ratings } from './Ratings'
 import { SeriesSection } from './SeriesSection'
 import { SlotCard } from './SlotCard'
 import { TitleActions } from './TitleActions'
+import { TitleDownloads } from './TitleDownloads'
 
 /** The right pane of the Library: the selected Title's header, its actions row and its Standard | 4K Slot cards. */
 export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: () => void; onManualSearch: (search: ManualSearchTarget) => void }>(function TitleDetail(
@@ -58,11 +59,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
   return (
     <div className="@container mx-auto max-w-3xl">
       <div className="flex gap-4">
-        {title.has_poster ? (
-          <img src={`${apiBaseUrl}/titles/${title.id}/poster`} alt={`${title.title} poster`} className="h-36 w-24 shrink-0 rounded-md object-cover" />
-        ) : (
-          <div aria-hidden className="h-36 w-24 shrink-0 rounded-md bg-gradient-to-br from-gray-200 to-gray-300" />
-        )}
+        <TitlePoster id={title.id} hasPoster={title.has_poster} alt={`${title.title} poster`} className="h-36 w-24 rounded-md" />
         <div className="min-w-0">
           <h2 className="text-2xl font-semibold tracking-tight">{title.title}</h2>
           {title.primary_title !== title.title && <div className="text-[15px] text-gray-900">{title.primary_title}</div>}
@@ -77,6 +74,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
         </div>
       </div>
       <TitleActions title={title} profileName={profileName} onManualSearch={onManualSearch} />
+      <TitleDownloads titleId={title.id} />
 
       {/* Side by side only when the pane, not the window, has room for both cards' buttons. */}
       <div className="mt-6 grid grid-cols-1 gap-3 @xl:grid-cols-2">
