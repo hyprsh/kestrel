@@ -30,24 +30,28 @@ async function openLibrary() {
 
 const names = (list: HTMLElement) => within(list).getAllByRole('option').map((o) => o.textContent?.replace(/\d{4}$/, '').trim())
 
-describe('the Wanted filter', () => {
-  it('keeps the Titles with a Wanted Version and shows the Long Missing chip only then', async () => {
+const filter = () => screen.getByRole('combobox', { name: 'Filter the Library' })
+
+describe('the Library filter, typed', () => {
+  it('narrows to Wanted, then Long Missing, with a chip per qualifier that takes it off again', async () => {
     fakeLibrary(rows())
     const list = await openLibrary()
     await within(list).findAllByRole('option')
-    expect(screen.queryByRole('button', { name: 'Long Missing' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Wanted' })).not.toBeInTheDocument() // typed now, not toggled
 
-    await userEvent.click(screen.getByRole('button', { name: 'Wanted' }))
+    await userEvent.type(filter(), 'is:wanted ')
     expect(within(list).getAllByRole('option')).toHaveLength(2)
     expect(within(list).queryByRole('option', { name: /filled film/i })).not.toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Long Missing' }))
+    await userEvent.type(filter(), 'is:long_missing ')
     expect(within(list).getAllByRole('option')).toHaveLength(1)
     expect(within(list).getByRole('option', { name: /ancient film/i })).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Wanted' })) // off again; the chip goes with it
+    const chips = screen.getByRole('list', { name: 'Active filters' })
+    await userEvent.click(within(chips).getByRole('button', { name: 'Remove is:wanted' }))
+    await userEvent.click(within(chips).getByRole('button', { name: 'Remove is:long_missing' }))
+    expect(filter()).toHaveValue('')
     expect(within(list).getAllByRole('option')).toHaveLength(3)
-    expect(screen.queryByRole('button', { name: 'Long Missing' })).not.toBeInTheDocument()
   })
 
   it('sorts by Wanted since, the longest Wanted first and Titles that are not Wanted last', async () => {
@@ -56,9 +60,25 @@ describe('the Wanted filter', () => {
     await within(list).findAllByRole('option')
     expect(names(list)[0]).toMatch(/filled film/i) // the server's order
 
-    await userEvent.click(screen.getByRole('button', { name: /sort by wanted since/i }))
+    await userEvent.type(filter(), 'sort:wanted_since')
 
     expect(names(list).map((n) => n?.replace(/\s*\d*$/, ''))).toEqual(['Ancient Film', 'Recent Film', 'Filled Film'])
+  })
+
+  it('completes Profile names', async () => {
+    fakeLibrary([...rows(), row(4, 'Big Film', 'Big Film', { slots: { standard: null, '4k': { version_id: 4, profile: '4k-primary', state: 'wanted', long_missing: false } } })])
+    const list = await openLibrary()
+    await within(list).findAllByRole('option')
+    const user = userEvent.setup()
+
+    await user.type(filter(), 'profile:4')
+    const suggestions = await screen.findByRole('listbox', { name: 'Suggestions' })
+    expect(within(suggestions).getAllByRole('option').map((o) => o.textContent)).toEqual(['4K'])
+    await user.keyboard('{Enter}')
+
+    expect(filter()).toHaveValue('profile:4K')
+    expect(within(list).getAllByRole('option')).toHaveLength(1)
+    expect(within(list).getByRole('option', { name: /big film/i })).toBeInTheDocument()
   })
 })
 
