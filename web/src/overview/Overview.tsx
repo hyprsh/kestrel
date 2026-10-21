@@ -1,8 +1,9 @@
 // Overview, the home screen: Needs attention, the health strip, Searching, Downloading now,
-// Coming this week and Recently added.
+// Coming this week, Recently added and Recent requests.
 import { useState } from 'react'
 import { useAttention } from '../api/attention'
 import { useQueue, useCancelGrab } from '../api/queue'
+import { useRecentRequests } from '../api/requests'
 import { useRecent, useUpcoming } from '../api/upcoming'
 import { ErrorText } from '../forms'
 import { DownloadRow } from '../grabs/DownloadRow'
@@ -10,6 +11,7 @@ import { useListNav } from '../keys'
 import { ComingRecent } from './ComingRecent'
 import { HealthStrip } from './HealthStrip'
 import { NeedsAttention, shownRows } from './NeedsAttention'
+import { RecentRequests } from './RecentRequests'
 import { Searching } from './Searching'
 import { firstFive, Section, ViewAll } from './Section'
 import type { OverviewNav } from './nav'
@@ -24,6 +26,7 @@ export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen
   const rows = shownRows(useAttention().data?.rows ?? [], allAttention)
   const coming = firstFive(useUpcoming(6).data ?? [])
   const recentItems = firstFive(useRecent().data ?? [])
+  const requests = firstFive(useRecentRequests().data?.items ?? [])
 
   // One selection runs through every section; Enter does what clicking the row would.
   const [sel, setSel] = useState(0)
@@ -35,6 +38,7 @@ export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen
     ...items.map((i) => () => i.title_id != null && onOpenTitle(i.title_id)),
     ...coming.map((c) => () => onOpenTitle(c.title_id)),
     ...recentItems.map((r) => () => onOpenTitle(r.title_id)),
+    ...requests.map((r) => () => r.title_id != null && onOpenTitle(r.title_id)),
   ]
   const nav = (base: number): OverviewNav => ({ base, sel, select: setSel })
   useListNav('ov', enter.length, sel, setSel, (i) => enter[i]?.())
@@ -64,6 +68,7 @@ export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen
         {all.length > 0 && <ViewAll path="/activity" count={all.length} />}
       </Section>
       <ComingRecent onOpenTitle={onOpenTitle} nav={nav(rows.length + items.length)} />
+      <RecentRequests onOpenTitle={onOpenTitle} nav={nav(rows.length + items.length + coming.length + recentItems.length)} />
     </div>
   )
 }

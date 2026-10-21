@@ -33,16 +33,21 @@ function browserDeps(): LiveDeps | null {
   }
 }
 
-/** The query keys a hint invalidates. Titles cover their lists, details and episodes by prefix. */
+/**
+ * The query keys a hint invalidates. Titles cover their lists, details and episodes by prefix.
+ * A Request's status is derived from its Title, Versions and Grabs, so those refetch the Requests.
+ */
 function keysOf(h: ChangedHint): string[][] {
   switch (h.resource) {
     case 'title':
-      return [['titles'], ['releases']]
+      return [['titles'], ['releases'], ['requests']]
     case 'attention':
       return [['attention'], ['status']]
     case 'grab':
       // Activity's lists of stalled and finished Grabs (GET /grabs).
-      return [['grabs']]
+      return [['grabs'], ['requests']]
+    case 'request':
+      return [['requests']]
     default:
       return [[h.resource]]
   }

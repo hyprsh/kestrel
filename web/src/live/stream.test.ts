@@ -140,6 +140,19 @@ describe('the live stream', () => {
     expect(a.getQueryState(['grabs', 'finished'])?.isInvalidated).toBe(true)
   })
 
+  it.each(['request', 'title', 'grab'])('refetches the Requests, whose status is derived, when a %s changes', async (resource) => {
+    const deps = fakeBrowser()
+    const a = tab()
+    startLiveStream(a, deps)
+    await flush()
+    a.setQueryData(['requests', 'recent'], { items: [], next_cursor: null, total: 0 })
+
+    open()[0].emit('changed', { resource, id: 9 })
+    await flush()
+
+    expect(a.getQueryState(['requests', 'recent'])?.isInvalidated).toBe(true)
+  })
+
   it('keeps the search status from its frames', async () => {
     const deps = fakeBrowser()
     const a = tab()
