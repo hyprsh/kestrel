@@ -21,7 +21,7 @@ export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen
   const all = queue.data ?? []
   const items = firstFive(all)
   const rows = useAttention().data?.rows ?? []
-  const coming = useUpcoming(6).data ?? []
+  const coming = firstFive(useUpcoming(6).data ?? [])
   const recentItems = useRecent().data ?? []
 
   // One selection runs through every section; Enter does what clicking the row would.

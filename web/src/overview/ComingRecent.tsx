@@ -5,11 +5,13 @@ import { slotLabel, type SlotKey } from '../library/bits'
 import { Badge, NavRow } from '../ui'
 import { dayLabel, UpcomingLine, upcomingKey } from '../upcoming/bits'
 import type { OverviewNav } from './nav'
+import { firstFive, Section, ViewAll } from './Section'
 
 export function ComingRecent({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void; nav: OverviewNav }) {
   const coming = useUpcoming(6)
   const recent = useRecent()
-  const comingItems = coming.data ?? []
+  const comingAll = coming.data ?? []
+  const comingItems = firstFive(comingAll)
   const recentItems = recent.data ?? []
   const open = (index: number, id: number) => {
     nav.select(index)
@@ -18,10 +20,7 @@ export function ComingRecent({ onOpenTitle, nav }: { onOpenTitle: (id: number) =
 
   return (
     <>
-      <section aria-labelledby="coming-this-week" className="mx-auto mt-6 max-w-3xl">
-        <h2 id="coming-this-week" className="mb-3 text-sm font-medium">
-          Coming this week
-        </h2>
+      <Section id="coming-this-week" title="Coming this week" count={coming.data ? comingAll.length : undefined} className="mt-6">
         {coming.data && comingItems.length === 0 ? (
           <p className="text-gray-900">Nothing is due in the next 7 days.</p>
         ) : (
@@ -37,7 +36,8 @@ export function ComingRecent({ onOpenTitle, nav }: { onOpenTitle: (id: number) =
             })}
           </ul>
         )}
-      </section>
+        {comingAll.length > 0 && <ViewAll path="/upcoming" count={comingAll.length} />}
+      </Section>
       <section aria-labelledby="recently-added" className="mx-auto mt-6 max-w-3xl">
         <h2 id="recently-added" className="mb-3 text-sm font-medium">
           Recently added
