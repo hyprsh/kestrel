@@ -98,6 +98,10 @@ _Avoid_: Blacklist
 **Import**:
 Moving a completed download into the library under its Title's folder and naming scheme.
 
+**Activity**:
+The screen showing every Grab from search to Import, grouped by stage (Searching, Queued, Downloading, Post-processing, Importing, Stalled, Done, Failed), and the background work Kestrel is doing right now. Done and Failed reach back 7 days; older Grabs are left to the Log.
+_Avoid_: Downloads, Queue (for the screen)
+
 ### Requests
 
 **Request**:
