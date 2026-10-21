@@ -388,6 +388,24 @@ func (e IndexerStatusState) Valid() bool {
 	}
 }
 
+// Defines values for JobDisabledBy.
+const (
+	GithubCheck     JobDisabledBy = "github_check"
+	TrashAutoUpdate JobDisabledBy = "trash_auto_update"
+)
+
+// Valid indicates whether the value is a known member of the JobDisabledBy enum.
+func (e JobDisabledBy) Valid() bool {
+	switch e {
+	case GithubCheck:
+		return true
+	case TrashAutoUpdate:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for JobStatus.
 const (
 	JobStatusDisabled JobStatus = "disabled"
@@ -1828,6 +1846,11 @@ type IndexerStatusState string
 
 // Job defines model for Job.
 type Job struct {
+	// DisabledBy The setting that turns a `disabled` loop's work off: `github_check` ("Check GitHub for
+	// updates", which `updates` and `trash` both need) or `trash_auto_update` (TRaSH's own daily
+	// update switch). `null` unless `status` is `disabled`; later versions may add settings.
+	DisabledBy *JobDisabledBy `json:"disabled_by"`
+
 	// LastRun The last pass that finished since start; `null` before the first.
 	LastRun *JobRun `json:"last_run"`
 
@@ -1849,6 +1872,11 @@ type Job struct {
 	// hourly; otherwise `idle`.
 	Status JobStatus `json:"status"`
 }
+
+// JobDisabledBy The setting that turns a `disabled` loop's work off: `github_check` ("Check GitHub for
+// updates", which `updates` and `trash` both need) or `trash_auto_update` (TRaSH's own daily
+// update switch). `null` unless `status` is `disabled`; later versions may add settings.
+type JobDisabledBy string
 
 // JobStatus `running` while a pass is in flight; `disabled` when a setting turns its work off (`updates`
 // without "Check GitHub for updates", `trash` without TRaSH auto-update), though it still checks

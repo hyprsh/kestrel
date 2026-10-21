@@ -4165,7 +4165,7 @@ components:
             $ref: "#/components/schemas/Job"
     Job:
       type: object
-      required: [name, status, runnable, last_run, next_at, schedule]
+      required: [name, status, disabled_by, runnable, last_run, next_at, schedule]
       properties:
         name:
           type: string
@@ -4179,6 +4179,14 @@ components:
             `running` while a pass is in flight; `disabled` when a setting turns its work off (`updates`
             without "Check GitHub for updates", `trash` without TRaSH auto-update), though it still checks
             hourly; otherwise `idle`.
+        disabled_by:
+          type: string
+          enum: [github_check, trash_auto_update]
+          nullable: true
+          description: |
+            The setting that turns a `disabled` loop's work off: `github_check` ("Check GitHub for
+            updates", which `updates` and `trash` both need) or `trash_auto_update` (TRaSH's own daily
+            update switch). `null` unless `status` is `disabled`; later versions may add settings.
         runnable:
           type: boolean
           description: Whether `POST /jobs/{name}/run` runs it.
