@@ -19,7 +19,9 @@ SELECT * FROM events
 WHERE (sqlc.narg(kinds) IS NULL OR kind IN (SELECT value FROM json_each(sqlc.narg(kinds))))
   AND (sqlc.narg(exclude_kinds) IS NULL OR kind NOT IN (SELECT value FROM json_each(sqlc.narg(exclude_kinds))))
   AND (sqlc.narg(title_ids) IS NULL OR title_id IN (SELECT value FROM json_each(sqlc.narg(title_ids))))
+  AND (sqlc.narg(exclude_title_ids) IS NULL OR title_id IS NULL OR title_id NOT IN (SELECT value FROM json_each(sqlc.narg(exclude_title_ids))))
   AND (sqlc.narg(slots) IS NULL OR version_id IN (SELECT v.id FROM versions v WHERE v.slot IN (SELECT value FROM json_each(sqlc.narg(slots)))))
+  AND (sqlc.narg(exclude_slots) IS NULL OR version_id IS NULL OR version_id NOT IN (SELECT v.id FROM versions v WHERE v.slot IN (SELECT value FROM json_each(sqlc.narg(exclude_slots)))))
   AND (sqlc.arg(with_routine) = 1 OR routine = 0)
   AND (sqlc.narg(before) IS NULL OR id < sqlc.narg(before))
 ORDER BY id DESC

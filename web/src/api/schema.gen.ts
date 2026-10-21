@@ -1108,8 +1108,10 @@ export interface paths {
          *     left out unless `routine=true`; they are pruned after 30 days, the rest are kept forever.
          *     `kind` is a growing set: clients show kinds they do not know. `slot` matches events about a
          *     Version in that Slot. `kind`, `title_id` and `slot` may repeat and then match any of their
-         *     values; filters of different names must all match. `exclude_kind` (repeatable) leaves those
-         *     kinds out, even when `kind` names them. `before` pages: pass the smallest `id` seen.
+         *     values; filters of different names must all match. `exclude_kind`, `exclude_title_id` and
+         *     `exclude_slot` (each repeatable) leave those kinds, Titles and Slots out, even when `kind`,
+         *     `title_id` or `slot` names them; an event about no Title or Version is never left out by the
+         *     last two. `before` pages: pass the smallest `id` seen.
          */
         get: operations["listEvents"];
         put?: never;
@@ -4963,7 +4965,9 @@ export interface operations {
                 kind?: string[];
                 exclude_kind?: string[];
                 title_id?: number[];
+                exclude_title_id?: number[];
                 slot?: components["schemas"]["Slot"][];
+                exclude_slot?: components["schemas"]["Slot"][];
                 routine?: boolean;
                 before?: number;
                 limit?: number;

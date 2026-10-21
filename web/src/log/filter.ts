@@ -24,9 +24,9 @@ export function logQualifiers(kinds: readonly string[], titles: readonly string[
       values: [...new Set([...Object.keys(groups), ...kinds])],
       negatable: true,
     },
-    { name: 'slot', help: 'Events about a Version in that Slot', values: slotKeys },
-    { name: 'title', help: 'Events about a Title, by name; quote names with spaces', suggestions: titles },
-    { name: 'routine', help: 'Show routine events, such as a download starting', values: yesNo },
+    { name: 'slot', help: 'Events about a Version in that Slot', values: slotKeys, negatable: true },
+    { name: 'title', help: 'Events about a Title, by name; quote names with spaces', suggestions: titles, negatable: true },
+    { name: 'routine', help: 'Show routine events, such as a download starting', values: yesNo, negatable: true },
   ]
 }
 
@@ -46,13 +46,18 @@ function titlesNamed(value: string, titles: readonly TitleRow[]): number[] {
  */
 export function logFilter(q: Query, titles: readonly TitleRow[]): LogFilter {
   const positive = (name: string) => q.terms.filter((t) => t.name === name && !t.negated)
+  const negated = (name: string) => q.terms.filter((t) => t.name === name && t.negated).flatMap((t) => t.values)
   const expand = (values: string[]) => [...new Set(values.flatMap((v) => groups[v] ?? [v]))]
-  const routine = positive('routine').at(-1)?.values.at(-1)
+  const named = (values: string[]) => [...new Set(values.flatMap((v) => titlesNamed(v, titles)))]
+  // The last routine: term decides, and -routine:yes means routine:no.
+  const routine = q.terms.filter((t) => t.name === 'routine').at(-1)
   return {
     kinds: intersect(positive('kind').map((t) => expand(t.values))),
-    excludeKinds: expand(q.terms.filter((t) => t.name === 'kind' && t.negated).flatMap((t) => t.values)),
+    excludeKinds: expand(negated('kind')),
     slots: intersect(positive('slot').map((t) => t.values as SlotKey[])),
-    titleIds: intersect(positive('title').map((t) => [...new Set(t.values.flatMap((v) => titlesNamed(v, titles)))])),
-    routine: routine === 'yes',
+    excludeSlots: [...new Set(negated('slot'))] as SlotKey[],
+    titleIds: intersect(positive('title').map((t) => named(t.values))),
+    excludeTitleIds: named(negated('title')),
+    routine: routine ? (routine.values.at(-1) === 'yes') !== routine.negated : false,
   }
 }
