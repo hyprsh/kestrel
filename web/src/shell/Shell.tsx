@@ -16,6 +16,7 @@ import { Library, type Preset } from '../library/Library'
 import { startLiveStream } from '../live/stream'
 import { Log } from '../log/Log'
 import { Overview } from '../overview/Overview'
+import { currentPlace, PlaceOpener, placeOf, placePath, showPlace } from '../place'
 import { Upcoming } from '../upcoming/Upcoming'
 import { Settings as SettingsScreen } from '../screens/Settings'
 import { useTheme, type Theme } from '../theme'
@@ -39,12 +40,20 @@ const themeIcon: Record<Theme, ReactNode> = {
   dark: <Moon className={icon} />,
 }
 
+const isPlace = (key: string) => [...screens, about].some((s) => s.key === key)
+
 export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
-  const [screen, setScreen] = useState('overview')
+  // A bookmarked address opens its screen with its filter.
+  const [start] = useState(currentPlace)
+  const [screen, setScreen] = useState(isPlace(start.screen) ? start.screen : 'overview')
   const [libraryId, setLibraryId] = useState<number | null>(null)
   const [cleanupTitles, setCleanupTitles] = useState<number[] | undefined>(undefined)
   const [libraryPreset, setLibraryPreset] = useState<{ preset: Preset; n: number } | null>(null)
   const [menu, setMenu] = useState<{ mode: MenuMode } | null>(null)
+  // The text of a screen's filter field (the Log's); another screen starts unfiltered.
+  const [filter, setFilter] = useState({ screen: start.screen, q: start.q })
+  const query = filter.screen === screen ? filter.q : ''
+  useEffect(() => showPlace(placePath(screen, query)), [screen, query])
   const { theme, cycle } = useTheme()
   const auth = useAuth()
   const logout = useLogout()
@@ -86,11 +95,13 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   )
   const places = useMemo(() => [...screens, about].map((s) => ({ id: s.key, label: s.label })), [])
   const closeMenu = useCallback(() => setMenu(null), [])
-  // An action that opens a place: "/settings/download-client" is the Settings screen at that section.
+  // An action that opens a place: "/settings/download-client" is the Settings screen at that
+  // section, "/log?q=kind:failures" the Log with that filter.
   const goPath = useCallback((path: string) => {
-    const [key, section] = path.replace(/^\//, '').split('/')
-    if (![...screens, about].some((s) => s.key === key)) return
+    const { screen: key, section, q } = placeOf(path)
+    if (!isPlace(key)) return
     setScreen(key)
+    setFilter({ screen: key, q })
     // "/library/long-missing" opens the Library on the Wanted filter with the Long Missing chip.
     if (key === 'library') setLibraryPreset(section === 'long-missing' ? { preset: 'long_missing', n: Date.now() } : null)
     else if (section) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
@@ -108,6 +119,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
 
   return (
     <CleanupLauncher.Provider value={openCleanup}>
+    <PlaceOpener.Provider value={goPath}>
     <div className="flex h-full bg-background-100 text-[13px] text-gray-1000">
       <Rail screen={screen} onSelect={select} theme={theme} onTheme={cycle} onAdd={() => setMenu({ mode: 'add' })} />
       <div className="flex min-w-0 flex-1 flex-col">
@@ -131,7 +143,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           ) : screen === 'about' ? (
             <About />
           ) : screen === 'log' ? (
-            <Log />
+            <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} />
           ) : screen === 'upcoming' ? (
             <Upcoming onOpenTitle={openTitle} />
           ) : (
@@ -141,6 +153,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
       </div>
       {menu && <CommandMenu initialMode={menu.mode} actions={actions} places={places} onClose={closeMenu} onGo={select} onOpenTitle={openTitle} />}
     </div>
+    </PlaceOpener.Provider>
     </CleanupLauncher.Provider>
   )
 }

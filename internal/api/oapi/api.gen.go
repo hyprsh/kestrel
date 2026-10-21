@@ -2987,12 +2987,13 @@ type RunCleanupJSONBody struct {
 
 // ListEventsParams defines parameters for ListEvents.
 type ListEventsParams struct {
-	Kind    *string `form:"kind,omitempty" json:"kind,omitempty"`
-	TitleId *int64  `form:"title_id,omitempty" json:"title_id,omitempty"`
-	Slot    *Slot   `form:"slot,omitempty" json:"slot,omitempty"`
-	Routine *bool   `form:"routine,omitempty" json:"routine,omitempty"`
-	Before  *int64  `form:"before,omitempty" json:"before,omitempty"`
-	Limit   *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Kind        *[]string `form:"kind,omitempty" json:"kind,omitempty"`
+	ExcludeKind *[]string `form:"exclude_kind,omitempty" json:"exclude_kind,omitempty"`
+	TitleId     *[]int64  `form:"title_id,omitempty" json:"title_id,omitempty"`
+	Slot        *[]Slot   `form:"slot,omitempty" json:"slot,omitempty"`
+	Routine     *bool     `form:"routine,omitempty" json:"routine,omitempty"`
+	Before      *int64    `form:"before,omitempty" json:"before,omitempty"`
+	Limit       *int      `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // LookupParams defines parameters for Lookup.
@@ -4110,7 +4111,7 @@ func (siw *ServerInterfaceWrapper) ListEvents(w http.ResponseWriter, r *http.Req
 
 	// ------------- Optional query parameter "kind" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {
@@ -4121,9 +4122,22 @@ func (siw *ServerInterfaceWrapper) ListEvents(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// ------------- Optional query parameter "exclude_kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "exclude_kind", r.URL.Query(), &params.ExcludeKind, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "exclude_kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "exclude_kind", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "title_id" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "title_id", r.URL.Query(), &params.TitleId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "title_id", r.URL.Query(), &params.TitleId, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {
@@ -4136,7 +4150,7 @@ func (siw *ServerInterfaceWrapper) ListEvents(w http.ResponseWriter, r *http.Req
 
 	// ------------- Optional query parameter "slot" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "slot", r.URL.Query(), &params.Slot, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "slot", r.URL.Query(), &params.Slot, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {
