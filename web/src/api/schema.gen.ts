@@ -1385,6 +1385,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/search/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The search pipeline
+         * @description What waits for a search and how the sweep is getting on: the Wanted Versions due a missing
+         *     search (with their episodes) and the Versions due an Upgrade search, the pass running now,
+         *     when the next one starts, how the last one went, and each enabled indexer's budget and
+         *     pauses. It is kept in memory as the passes go: a Version that comes due between passes is
+         *     counted at the next one, at most 5 minutes later, and "Search all Wanted" starts one at once.
+         *     `/stream` sends it as `search` frames whenever it changes.
+         */
+        get: operations["getSearchStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/status": {
         parameters: {
             query?: never;
@@ -1494,6 +1519,8 @@ export interface paths {
          *     - `activity`: the loops running now (`ActivitySnapshot`), on connect and whenever it changes.
          *     - `attention`: the Needs attention count and worst severity (`AttentionSnapshot`), on connect
          *       and whenever it changes.
+         *     - `search`: the search pipeline (`SearchStatus`, same as `GET /search/status`), on connect and
+         *       whenever it changes.
          *
          *     A comment line (`: heartbeat`) every 15 s keeps proxies from closing the connection.
          *     There is no replay: after a reconnect the client refetches whatever it shows, and every
@@ -2817,6 +2844,73 @@ export interface components {
         WantedSearch: {
             /** @description How many Wanted Versions were queued for a search. */
             versions: number;
+        };
+        SearchStatus: {
+            /** @description What waits for a search, as the last pass found it less what it has searched since. */
+            due: {
+                /** @description Wanted Versions due a missing search. A Series Version counts once. */
+                versions: number;
+                /** @description The Wanted episodes of the Series Versions among them. */
+                episodes: number;
+                /** @description Filled Versions due an Upgrade search; each pass searches `upgrades_per_pass` of them. */
+                upgrades: number;
+            };
+            /** @description The pass running now; null between passes. */
+            pass: components["schemas"]["SearchPass"] | null;
+            /**
+             * Format: date-time
+             * @description When the next pass starts; null while one runs and before the first.
+             */
+            next_pass_at: string | null;
+            /** @description The last pass that finished; null before the first since Kestrel started. */
+            last_pass: components["schemas"]["SearchPassResult"] | null;
+            /** @description How many Upgrade searches a pass makes at most, after its Wanted Versions. */
+            upgrades_per_pass: number;
+            /** @description The enabled indexers. */
+            indexers: components["schemas"]["SearchIndexer"][];
+        };
+        SearchPass: {
+            /** Format: date-time */
+            started_at: string;
+            /**
+             * @description The Wanted Versions it has got through: searched, or passed over because no indexer could
+             *     take a sweep search (those stay due). Its Upgrade searches come after them and are not counted.
+             */
+            done: number;
+            /** @description The Wanted Versions it found due. */
+            total: number;
+        };
+        SearchPassResult: {
+            /** Format: date-time */
+            finished_at: string;
+            /** @description The Wanted Versions it searched. */
+            searched: number;
+            /** @description The Grabs it made, Upgrades included. */
+            grabbed: number;
+        };
+        SearchIndexer: {
+            /** Format: int64 */
+            instance_id: number;
+            name: string;
+            /** @description Search requests made today (the indexer's own count when it reports one). */
+            search_used: number;
+            /**
+             * @description The daily search budget, from the indexer's `apilimits` (believed for an hour) or the
+             *     instance's `api_requests_per_day`; null when neither is known. Sweeps stop at 80 % of it.
+             */
+            search_max: number | null;
+            /**
+             * @description Why sweeps leave the indexer alone now, null when they don't: `request_limit` (it said its
+             *     request limit was reached, or a bare 429), `backing_off` (it keeps failing) or `budget` (the
+             *     sweeps have used their 80 % of today's budget).
+             * @enum {string|null}
+             */
+            held: "request_limit" | "backing_off" | "budget" | null;
+            /**
+             * Format: date-time
+             * @description When a `request_limit` pause or a backoff ends; null otherwise.
+             */
+            held_until: string | null;
         };
         LongMissing: {
             /** @description How many Versions are Long Missing. */
@@ -4970,6 +5064,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WantedSearch"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getSearchStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The search pipeline now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchStatus"];
                 };
             };
             default: components["responses"]["Problem"];

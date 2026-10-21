@@ -15,7 +15,6 @@ import (
 	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
-	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
 	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
 )
 
@@ -267,17 +266,14 @@ func (s *server) GetSystemStatus(ctx context.Context, _ oapi.GetSystemStatusRequ
 		}
 	}
 
-	all, err := s.plugins.List(ctx)
+	budgets, err := s.indexerBudgets(ctx)
 	if err != nil {
 		return nil, err
 	}
 	states := s.health.IndexerStates()
-	for _, inst := range all {
-		if inst.Contract != indexer.Contract.ID {
-			continue
-		}
+	for _, ib := range budgets {
+		inst, b := ib.inst, ib.status
 		row := oapi.IndexerStatus{InstanceId: inst.ID, Name: inst.Name, State: oapi.IndexerStatusState("ok")}
-		b := s.indexers.Status(inst.ID, inst.Connection().Int("api_requests_per_day"))
 		row.SearchUsed, row.GrabsPaused = b.SearchUsed, b.GrabsPaused
 		if b.SearchMax > 0 {
 			row.SearchMax = &b.SearchMax

@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
@@ -102,5 +102,35 @@ describe('Search all Wanted in the command menu', () => {
 
     await waitFor(() => expect(posted).toBe(1))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('confirms how many Versions it queued and links to the Searching card', async () => {
+    fakeLibrary([])
+    const scrolled: Element[] = []
+    // jsdom does not scroll: record what is scrolled to instead.
+    const before = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = function (this: Element) {
+      scrolled.push(this)
+    }
+    onTestFinished(() => {
+      Element.prototype.scrollIntoView = before
+    })
+    server.use(http.post('/wanted/search', ({ response }) => response(202).json({ versions: 3 })))
+    await openLibrary()
+    await userEvent.keyboard('{Control>}k{/Control}')
+    const menu = await screen.findByRole('dialog', { name: /command menu/i })
+    await userEvent.type(within(menu).getByRole('combobox'), 'search all')
+    await userEvent.click(await within(menu).findByRole('option', { name: /search all wanted/i }))
+
+    const done = await screen.findByRole('status', { name: /search all wanted/i })
+    expect(done).toHaveTextContent('3 Wanted Versions queued for a search')
+
+    expect(location.pathname).toBe('/library')
+    await userEvent.click(within(done).getByRole('button', { name: /see the search/i }))
+    const card = await screen.findByRole('region', { name: 'Searching' })
+    await waitFor(() => expect(scrolled).toContain(card))
+    // The Overview is the root: the link's section is scrolled to, not kept in the address bar.
+    expect(location.pathname + location.search).toBe('/')
+    expect(screen.queryByRole('status', { name: /search all wanted/i })).not.toBeInTheDocument()
   })
 })

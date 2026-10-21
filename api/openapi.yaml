@@ -1694,6 +1694,27 @@ paths:
                 $ref: "#/components/schemas/WantedSearch"
         default:
           $ref: "#/components/responses/Problem"
+  /search/status:
+    get:
+      operationId: getSearchStatus
+      summary: The search pipeline
+      description: |
+        What waits for a search and how the sweep is getting on: the Wanted Versions due a missing
+        search (with their episodes) and the Versions due an Upgrade search, the pass running now,
+        when the next one starts, how the last one went, and each enabled indexer's budget and
+        pauses. It is kept in memory as the passes go: a Version that comes due between passes is
+        counted at the next one, at most 5 minutes later, and "Search all Wanted" starts one at once.
+        `/stream` sends it as `search` frames whenever it changes.
+      tags: [titles]
+      responses:
+        "200":
+          description: The search pipeline now.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchStatus"
+        default:
+          $ref: "#/components/responses/Problem"
   /system/status:
     get:
       operationId: getSystemStatus
@@ -1787,6 +1808,8 @@ paths:
         - `activity`: the loops running now (`ActivitySnapshot`), on connect and whenever it changes.
         - `attention`: the Needs attention count and worst severity (`AttentionSnapshot`), on connect
           and whenever it changes.
+        - `search`: the search pipeline (`SearchStatus`, same as `GET /search/status`), on connect and
+          whenever it changes.
 
         A comment line (`: heartbeat`) every 15 s keeps proxies from closing the connection.
         There is no replay: after a reconnect the client refetches whatever it shows, and every
@@ -4011,6 +4034,106 @@ components:
         versions:
           type: integer
           description: How many Wanted Versions were queued for a search.
+    SearchStatus:
+      type: object
+      required: [due, pass, next_pass_at, last_pass, upgrades_per_pass, indexers]
+      properties:
+        due:
+          type: object
+          description: What waits for a search, as the last pass found it less what it has searched since.
+          required: [versions, episodes, upgrades]
+          properties:
+            versions:
+              type: integer
+              description: Wanted Versions due a missing search. A Series Version counts once.
+            episodes:
+              type: integer
+              description: The Wanted episodes of the Series Versions among them.
+            upgrades:
+              type: integer
+              description: Filled Versions due an Upgrade search; each pass searches `upgrades_per_pass` of them.
+        pass:
+          description: The pass running now; null between passes.
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/SearchPass"
+        next_pass_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the next pass starts; null while one runs and before the first.
+        last_pass:
+          description: The last pass that finished; null before the first since Kestrel started.
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/SearchPassResult"
+        upgrades_per_pass:
+          type: integer
+          description: How many Upgrade searches a pass makes at most, after its Wanted Versions.
+        indexers:
+          type: array
+          description: The enabled indexers.
+          items:
+            $ref: "#/components/schemas/SearchIndexer"
+    SearchPass:
+      type: object
+      required: [started_at, done, total]
+      properties:
+        started_at:
+          type: string
+          format: date-time
+        done:
+          type: integer
+          description: |
+            The Wanted Versions it has got through: searched, or passed over because no indexer could
+            take a sweep search (those stay due). Its Upgrade searches come after them and are not counted.
+        total:
+          type: integer
+          description: The Wanted Versions it found due.
+    SearchPassResult:
+      type: object
+      required: [finished_at, searched, grabbed]
+      properties:
+        finished_at:
+          type: string
+          format: date-time
+        searched:
+          type: integer
+          description: The Wanted Versions it searched.
+        grabbed:
+          type: integer
+          description: The Grabs it made, Upgrades included.
+    SearchIndexer:
+      type: object
+      required: [instance_id, name, search_used, search_max, held, held_until]
+      properties:
+        instance_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        search_used:
+          type: integer
+          description: Search requests made today (the indexer's own count when it reports one).
+        search_max:
+          type: integer
+          nullable: true
+          description: |
+            The daily search budget, from the indexer's `apilimits` (believed for an hour) or the
+            instance's `api_requests_per_day`; null when neither is known. Sweeps stop at 80 % of it.
+        held:
+          type: string
+          nullable: true
+          enum: [request_limit, backing_off, budget]
+          description: |
+            Why sweeps leave the indexer alone now, null when they don't: `request_limit` (it said its
+            request limit was reached, or a bare 429), `backing_off` (it keeps failing) or `budget` (the
+            sweeps have used their 80 % of today's budget).
+        held_until:
+          type: string
+          format: date-time
+          nullable: true
+          description: When a `request_limit` pause or a backoff ends; null otherwise.
     LongMissing:
       type: object
       required: [count, items]

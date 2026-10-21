@@ -87,11 +87,10 @@ func (f *fakeAcquire) SearchUpgrades(_ context.Context, titleID int64, versionID
 // fakeLibrary has the Versions in due waiting for a missing search; marked
 // records the Versions searched and whether the search failed.
 type fakeLibrary struct {
-	due       []library.Due
-	marked    map[int64]bool
-	upgrades  []library.Due
-	upgraded  map[int64]bool
-	lastLimit int
+	due      []library.Due
+	marked   map[int64]bool
+	upgrades []library.Due
+	upgraded map[int64]bool
 }
 
 func (f *fakeLibrary) DueMissing(context.Context, time.Time) ([]library.Due, error) {
@@ -110,12 +109,14 @@ func (f *fakeLibrary) MarkMissingSearched(_ context.Context, versionID int64, _ 
 }
 
 func (f *fakeLibrary) DueUpgrades(_ context.Context, _ time.Time, limit int) ([]library.Due, error) {
-	f.lastLimit = limit
 	var out []library.Due
 	for _, d := range f.upgrades {
 		if _, done := f.upgraded[d.VersionID]; !done {
 			out = append(out, d)
 		}
+	}
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
 	}
 	return out, nil
 }
@@ -281,9 +282,6 @@ func TestTheSweepSearchesUpgradesAfterTheMissingSearchesAndAtMostAFewPerPass(t *
 	}
 	if len(a.upgraded) != 2 || len(a.upgraded[0]) != 3 || a.upgraded[1][0] != 3 {
 		t.Errorf("upgrade searches = %v, want title 2 with both its Versions, then title 3", a.upgraded)
-	}
-	if l.lastLimit <= 0 {
-		t.Errorf("the Upgrade sweep asked for %d Versions, want a small limit so one pass cannot search a whole library", l.lastLimit)
 	}
 	if len(l.upgraded) != 3 {
 		t.Errorf("upgraded = %v, want each searched Version marked", l.upgraded)
