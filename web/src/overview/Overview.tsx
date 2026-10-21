@@ -9,18 +9,21 @@ import { DownloadRow } from '../grabs/DownloadRow'
 import { useListNav } from '../keys'
 import { ComingRecent } from './ComingRecent'
 import { HealthStrip } from './HealthStrip'
-import { NeedsAttention } from './NeedsAttention'
+import { NeedsAttention, shownRows } from './NeedsAttention'
 import { Searching } from './Searching'
+import { firstFive, Section, ViewAll } from './Section'
 import type { OverviewNav } from './nav'
 
 /** onOpen is how an action that opens a place in the app (a GET action) gets there. */
 export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen?: (path: string) => void; onOpenTitle?: (id: number) => void }) {
   const queue = useQueue()
   const cancel = useCancelGrab()
-  const items = queue.data ?? []
-  const rows = useAttention().data?.rows ?? []
-  const coming = useUpcoming(6).data ?? []
-  const recentItems = useRecent().data ?? []
+  const all = queue.data ?? []
+  const items = firstFive(all)
+  const [allAttention, setAllAttention] = useState(false)
+  const rows = shownRows(useAttention().data?.rows ?? [], allAttention)
+  const coming = firstFive(useUpcoming(6).data ?? [])
+  const recentItems = firstFive(useRecent().data ?? [])
 
   // One selection runs through every section; Enter does what clicking the row would.
   const [sel, setSel] = useState(0)
@@ -37,13 +40,10 @@ export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen
   useListNav('ov', enter.length, sel, setSel, (i) => enter[i]?.())
   return (
     <div className="flex-1 overflow-y-auto p-6">
-      <NeedsAttention onOpen={onOpen} onOpenTitle={onOpenTitle} nav={nav(0)} />
+      <NeedsAttention onOpen={onOpen} onOpenTitle={onOpenTitle} nav={nav(0)} all={allAttention} onAll={setAllAttention} />
       <HealthStrip />
       <Searching />
-      <section aria-labelledby="downloading-now" className="mx-auto max-w-3xl">
-        <h2 id="downloading-now" className="mb-3 text-sm font-medium">
-          Downloading now
-        </h2>
+      <Section id="downloading-now" title="Downloading now" count={queue.data ? all.length : undefined}>
         {cancel.isError && <ErrorText>{cancel.error.message}</ErrorText>}
         {queue.data && items.length === 0 ? (
           <p className="text-gray-900">Nothing is downloading.</p>
@@ -61,7 +61,8 @@ export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen
             ))}
           </ul>
         )}
-      </section>
+        {all.length > 0 && <ViewAll path="/activity" count={all.length} />}
+      </Section>
       <ComingRecent onOpenTitle={onOpenTitle} nav={nav(rows.length + items.length)} />
     </div>
   )
