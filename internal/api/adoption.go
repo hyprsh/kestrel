@@ -30,6 +30,16 @@ func adoptionToAPI(p imports.Plan) oapi.Adoption {
 	return out
 }
 
+// adoptionActivity is the Adoption scan or commit running now, for the
+// stream's `activity` frame; nil when neither runs or the plan cannot be read.
+func (s *server) adoptionActivity(ctx context.Context) *oapi.AdoptionActivity {
+	p, err := s.adoption.Progress(ctx)
+	if err != nil || (p.State != imports.PlanScanning && p.State != imports.PlanCommitting) {
+		return nil
+	}
+	return &oapi.AdoptionActivity{State: oapi.AdoptionActivityState(p.State), Done: p.Done, Total: p.Total}
+}
+
 func adoptionRowToAPI(r imports.Row) oapi.AdoptionRow {
 	out := oapi.AdoptionRow{
 		Id: r.ID, Kind: oapi.Movie, Status: oapi.AdoptionRowStatus(r.Status), Entry: r.Entry, Ticked: r.Ticked,

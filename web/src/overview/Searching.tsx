@@ -1,5 +1,6 @@
 // The Searching card: the search pipeline at a glance, beside Downloading now.
 import { useSearchStatus, type SearchStatus } from '../api/search'
+import { useOpenPlace } from '../place'
 import { useNow } from '../time'
 
 type Indexer = SearchStatus['indexers'][number]
@@ -32,12 +33,19 @@ function heldLine(i: Indexer): string | null {
 
 export function Searching() {
   const s = useSearchStatus().data
+  const openPlace = useOpenPlace()
   if (!s) return null
   return (
     <section id="overview-searching" aria-labelledby="searching" className="mx-auto mb-8 max-w-3xl">
-      <h2 id="searching" className="mb-3 text-sm font-medium">
-        Searching
-      </h2>
+      <div className="mb-3 flex items-baseline justify-between">
+        <h2 id="searching" className="text-sm font-medium">
+          Searching
+        </h2>
+        {/* The Search loop's schedule and last run sit with the other loops on Activity. */}
+        <button type="button" className="text-[12px] text-gray-900 underline hover:text-gray-1000" onClick={() => openPlace('/activity/jobs')}>
+          Background jobs
+        </button>
+      </div>
       <SearchSummary status={s} />
     </section>
   )

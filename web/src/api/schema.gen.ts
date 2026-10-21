@@ -1423,6 +1423,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The background jobs
+         * @description Every background loop (ADR 0007) in the order it was registered, with whether it is mid-pass,
+         *     how its last pass went and when the next is due. It is kept in memory, so after a restart
+         *     `last_run` is `null` until each loop's first pass. The daily loops (`prune`, `refresh`,
+         *     `trash`, `updates`) pass hourly and do their work once a day, so their last run is the last
+         *     hourly check. `/stream` sends the same list as `jobs` frames whenever it changes.
+         */
+        get: operations["listJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jobs/{name}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a background job now
+         * @description Wakes the loop for a pass now; a pass already running or queued takes the kick, so it never
+         *     runs twice at once. Only the loops whose `runnable` is `true` (`search`, `rss`, `refresh`,
+         *     `health`) can be run by hand: the others answer `409 not_runnable`, and a loop this
+         *     instance doesn't have `404 not_found`.
+         */
+        post: operations["runJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/status": {
         parameters: {
             query?: never;
@@ -1529,11 +1578,14 @@ export interface paths {
          *       They come from the events log, so an Import landing in a background loop reaches an open
          *       tab within about a second, and from handlers for changes made through this API.
          *     - `queue`: the `QueueList` snapshot (same as `GET /queue`), on connect and whenever it changes.
-         *     - `activity`: the loops running now (`ActivitySnapshot`), on connect and whenever it changes.
+         *     - `activity`: the background work running now (`ActivitySnapshot`): the loops mid-pass and an
+         *       Adoption scan or commit with its progress, on connect and whenever it changes.
          *     - `attention`: the Needs attention count and worst severity (`AttentionSnapshot`), on connect
          *       and whenever it changes.
          *     - `search`: the search pipeline (`SearchStatus`, same as `GET /search/status`), on connect and
          *       whenever it changes.
+         *     - `jobs`: the background loops with their last and next run (`JobList`, same as `GET /jobs`),
+         *       on connect and whenever it changes.
          *
          *     A comment line (`: heartbeat`) every 15 s keeps proxies from closing the connection.
          *     There is no replay: after a reconnect the client refetches whatever it shows, and every
@@ -2842,9 +2894,56 @@ export interface components {
             /** Format: int64 */
             id: number | null;
         };
+        JobList: {
+            items: components["schemas"]["Job"][];
+        };
+        Job: {
+            /**
+             * @description The loop: `poll`, `search`, `import`, `prune`, `health`, `refresh`, `trash`, `updates`
+             *     or `rss`. A loop whose module is not configured is not listed; later versions may add loops.
+             */
+            name: string;
+            /**
+             * @description `running` while a pass is in flight; `disabled` when a setting turns its work off (`updates`
+             *     without "Check GitHub for updates", `trash` without TRaSH auto-update), though it still checks
+             *     hourly; otherwise `idle`.
+             * @enum {string}
+             */
+            status: "idle" | "running" | "disabled";
+            /** @description Whether `POST /jobs/{name}/run` runs it. */
+            runnable: boolean;
+            /** @description The last pass that finished since start; `null` before the first. */
+            last_run: components["schemas"]["JobRun"] | null;
+            /**
+             * Format: date-time
+             * @description When the next pass is due; `null` while one runs and before the loops start.
+             */
+            next_at: string | null;
+        };
+        JobRun: {
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            finished_at: string;
+            /** Format: int64 */
+            duration_ms: number;
+            /** @description Why the pass failed; `null` when it succeeded. */
+            error: string | null;
+        };
         ActivitySnapshot: {
             /** @description Names of the background loops mid-pass right now. */
             running: string[];
+            /** @description The Adoption scan or commit running now; null when neither runs. */
+            adoption: components["schemas"]["AdoptionActivity"] | null;
+        };
+        /** @description An Adoption scan or commit and how far it has got, as `GET /adoption` reports it. */
+        AdoptionActivity: {
+            /** @enum {string} */
+            state: "scanning" | "committing";
+            /** @description Entries scanned, or rows adopted, so far. */
+            done: number;
+            /** @description Entries to scan, or rows to adopt; 0 until a scan has listed them. */
+            total: number;
         };
         AttentionSnapshot: {
             /** @description How many Needs attention rows there are. */
@@ -5225,6 +5324,50 @@ export interface operations {
                     "application/json": components["schemas"]["SearchStatus"];
                 };
             };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listJobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The loops now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    runJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The loop is woken. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

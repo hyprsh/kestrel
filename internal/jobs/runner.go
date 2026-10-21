@@ -47,6 +47,28 @@ type loop struct {
 type loopState struct {
 	// next is when the next pass is due: zero while one runs and before Run.
 	next time.Time
+	// last is the last pass that finished; nil until the first does.
+	last *PassResult
+}
+
+// PassResult is how one pass of a loop went.
+type PassResult struct {
+	StartedAt, FinishedAt time.Time
+	// Took is FinishedAt less StartedAt.
+	Took time.Duration
+	// Err is the error the pass returned; empty when it succeeded.
+	Err string
+}
+
+// Job is a loop as the runner knows it now: whether it is mid-pass, how its
+// last pass went and when the next is due.
+type Job struct {
+	Name    string
+	Running bool
+	// Last is nil until the first pass since start ends.
+	Last *PassResult
+	// Next is zero while a pass runs and before the loops start; a kick starts one sooner.
+	Next time.Time
 }
 
 type startup struct {
@@ -145,7 +167,17 @@ func (r *Runner) Pass(ctx context.Context, name string) error {
 	defer l.mu.Unlock()
 	r.mark(name, true)
 	defer r.mark(name, false)
-	return l.Run(ctx)
+	start := r.clock()
+	err := l.Run(ctx)
+	end := r.clock()
+	p := &PassResult{StartedAt: start, FinishedAt: end, Took: end.Sub(start)}
+	if err != nil {
+		p.Err = err.Error()
+	}
+	r.mu.Lock()
+	l.state.last = p
+	r.mu.Unlock()
+	return err
 }
 
 func (r *Runner) mark(name string, on bool) {
@@ -165,6 +197,24 @@ func (r *Runner) Running() []string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return slices.Clone(r.running)
+}
+
+// Jobs lists the loops in registration order, each with its last pass and
+// when the next is due. It is in memory only, so it starts empty at every start.
+func (r *Runner) Jobs() []Job {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]Job, 0, len(r.order))
+	for _, n := range r.order {
+		l := r.loops[n]
+		j := Job{Name: n, Running: slices.Contains(r.running, n), Next: l.state.next}
+		if l.state.last != nil {
+			p := *l.state.last
+			j.Last = &p
+		}
+		out = append(out, j)
+	}
+	return out
 }
 
 // Run does the startup reconciliation, then runs every loop until ctx ends,

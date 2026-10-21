@@ -2,7 +2,8 @@
 // Ported from the prototype's variant C; screens arrive with later tickets.
 import { About } from '../about/About'
 import { Activity } from '../activity/Activity'
-import { Activity as ActivityIcon, CalendarClock, Inbox, Info, LibraryBig, LogOut, Monitor, Moon, Plus, ScrollText, Search, Settings, Sun } from 'lucide-react'
+import { useRunningNow, type Running } from '../activity/running'
+import { Activity as ActivityIcon, CalendarClock, Inbox, Info, LibraryBig, Loader2, LogOut, Monitor, Moon, Plus, ScrollText, Search, Settings, Sun } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAttention } from '../api/attention'
@@ -63,6 +64,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const auth = useAuth()
   const logout = useLogout()
   const current = [...screens, about, adoption, cleanup, requests].find((s) => s.key === screen)!
+  const running = useRunningNow()
 
   // Every open tab stays live through one shared stream; the cache refetches on its hints.
   const queryClient = useQueryClient()
@@ -133,7 +135,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     <div className="flex h-full bg-background-100 text-[13px] text-gray-1000">
       <Rail screen={screen} onSelect={setScreen} theme={theme} onTheme={cycle} onAdd={() => setMenu({ mode: 'add' })} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar title={current.label} onOpenMenu={() => setMenu({ mode: 'root' })} />
+        <TopBar title={current.label} onOpenMenu={() => setMenu({ mode: 'root' })} running={running} onOpenRunning={() => goPath('/activity/running')} />
         {searchQueued && (
           <SearchQueued
             queued={searchQueued}
@@ -165,7 +167,13 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           ) : screen === 'log' ? (
             <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} />
           ) : screen === 'activity' ? (
-            <Activity query={query} onQuery={(q) => setFilter({ screen: 'activity', q })} onOpenTitle={openTitle} />
+            <Activity
+              query={query}
+              onQuery={(q) => setFilter({ screen: 'activity', q })}
+              onOpenTitle={openTitle}
+              running={running}
+              onOpenAdoption={() => setScreen('adoption')}
+            />
           ) : screen === 'requests' ? (
             <Requests query={query} onQuery={(q) => setFilter({ screen: 'requests', q })} onOpenTitle={openTitle} />
           ) : screen === 'upcoming' ? (
@@ -290,7 +298,7 @@ function Rail({
   )
 }
 
-function TopBar({ title, onOpenMenu }: { title: string; onOpenMenu: () => void }) {
+function TopBar({ title, onOpenMenu, running, onOpenRunning }: { title: string; onOpenMenu: () => void; running: Running[]; onOpenRunning: () => void }) {
   return (
     <header className="flex h-12 shrink-0 items-center gap-4 border-b border-gray-alpha-400 px-4">
       <div className="w-40 text-[13px] font-medium">{title}</div>
@@ -305,6 +313,7 @@ function TopBar({ title, onOpenMenu }: { title: string; onOpenMenu: () => void }
           <Kbd>K</Kbd>
         </span>
       </button>
+      <RunningIndicator running={running} onOpen={onOpenRunning} />
       <ServerStatus />
     </header>
   )
@@ -328,6 +337,23 @@ function SearchQueued({ queued, onSee, onDismiss }: { queued: { versions: number
         Dismiss
       </Button>
     </div>
+  )
+}
+
+/** Quiet while nothing runs; a spinner and what runs, or how many things do, while work does. */
+function RunningIndicator({ running, onOpen }: { running: Running[]; onOpen: () => void }) {
+  if (running.length === 0) return null
+  const [one] = running
+  const label = running.length > 1 ? `${running.length} running` : one.progress?.total ? `${one.short} ${one.progress.done}/${one.progress.total}` : one.short
+  return (
+    <button
+      onClick={onOpen}
+      title={running.map((r) => r.name).join('\n')}
+      className="flex max-w-56 shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-gray-900 transition-colors hover:bg-gray-alpha-100 hover:text-gray-1000"
+    >
+      <Loader2 aria-hidden className="size-3.5 shrink-0 animate-spin" />
+      <span className="truncate">{label}</span>
+    </button>
   )
 }
 

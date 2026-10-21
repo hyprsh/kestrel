@@ -247,7 +247,7 @@ func (r streamResponse) VisitStreamResponse(w http.ResponseWriter) error {
 				return false
 			}
 		}
-		if !snapshot("activity", oapi.ActivitySnapshot{Running: nonNil(s.jobs.Running())}) {
+		if !snapshot("activity", s.activity(ctx)) {
 			return false
 		}
 		// From memory and one small read of the plugin instances: cheap enough for every tick.
@@ -255,6 +255,9 @@ func (r streamResponse) VisitStreamResponse(w http.ResponseWriter) error {
 			if !snapshot("search", st) {
 				return false
 			}
+		}
+		if !snapshot("jobs", s.jobList(ctx)) {
+			return false
 		}
 		if n, sev, err := s.attention(ctx); err == nil {
 			var severity *oapi.AttentionSnapshotSeverity
@@ -326,6 +329,12 @@ func ptrEq(a, b *int64) bool {
 		return a == b
 	}
 	return *a == *b
+}
+
+// activity is the background work running now: the loops mid-pass, from
+// memory, and an Adoption scan or commit, from the plan's one row.
+func (s *server) activity(ctx context.Context) oapi.ActivitySnapshot {
+	return oapi.ActivitySnapshot{Running: nonNil(s.jobs.Running()), Adoption: s.adoptionActivity(ctx)}
 }
 
 func nonNil(s []string) []string {
