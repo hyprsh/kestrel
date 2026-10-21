@@ -4,14 +4,7 @@ import type { QueueItem } from '../api/queue'
 import { Button } from '../forms'
 import { cx } from '../ui'
 import { GrabRow, type RowNav } from './GrabRow'
-
-const phaseLabel: Record<QueueItem['phase'], string> = {
-  queued: 'Queued',
-  downloading: 'Downloading',
-  paused: 'Paused',
-  post_processing: 'Processing',
-  importing: 'Importing',
-}
+import { phases } from './phase'
 
 /** Percent done, or null when the client has not said how big the job is. */
 function percent(i: QueueItem): number | null {
@@ -69,7 +62,7 @@ export function DownloadRow({
     >
       {detail}
       <div className="flex items-center gap-3 text-[12px] text-gray-900">
-        <span className={cx('w-24', i.phase === 'paused' && 'text-amber-900')}>{phaseLabel[i.phase]}</span>
+        <span className={cx('w-24', i.phase === 'paused' && 'text-amber-900')}>{phases[i.phase].label}</span>
         {pct !== null && (
           <>
             <div

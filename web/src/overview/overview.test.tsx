@@ -87,11 +87,12 @@ describe('Overview', () => {
     expect(row).toHaveTextContent('+120')
   })
 
-  it('shows a download that finished as importing, and a paused or queued one as such', async () => {
+  it('shows a download that finished as importing, and a paused, queued or post-processing one as such', async () => {
     fakeQueue([
       item({ grab_id: 1, phase: 'importing', bytes_left: 0, eta: null }),
       item({ grab_id: 2, phase: 'paused', release_name: 'B', eta: null }),
       item({ grab_id: 3, phase: 'queued', release_name: 'C', bytes_total: 0, bytes_left: 0, eta: null }),
+      item({ grab_id: 4, phase: 'post_processing', release_name: 'D', bytes_left: 0, eta: null }),
     ])
     renderApp()
 
@@ -101,6 +102,7 @@ describe('Overview', () => {
     expect(rows[1]).toHaveTextContent('Paused')
     expect(rows[2]).toHaveTextContent('Queued')
     expect(within(rows[2]).queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(rows[3]).toHaveTextContent('Post-processing')
   })
 
   it('says so when nothing is downloading', async () => {
