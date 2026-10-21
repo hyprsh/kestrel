@@ -28,7 +28,7 @@ async function withActivity(snapshot: Partial<ActivitySnapshot>) {
 /** Another `activity` frame. The cache tells its readers on a zero timeout, so that runs too. */
 async function frame(client: QueryClient, snapshot: Partial<ActivitySnapshot>) {
   await act(async () => {
-    client.setQueryData(['activity'], { running: [], adoption: null, ...snapshot })
+    client.setQueryData(['activity'], { running: [], passes: [], adoption: null, ...snapshot })
     await vi.advanceTimersByTimeAsync(0)
   })
 }
@@ -45,6 +45,21 @@ describe('the top bar', () => {
     expect(topBar().queryByRole('button', { name: /Polling/ })).not.toBeInTheDocument()
     act(() => vi.advanceTimersByTime(1000))
     expect(topBar().getByRole('button', { name: 'Polling…' })).toBeInTheDocument()
+  })
+
+  it('counts the second from when the pass started, not from when the frame came', async () => {
+    const ago = (ms: number) => new Date(Date.now() - ms).toISOString()
+    await withActivity({
+      running: ['poll', 'rss'],
+      passes: [
+        { name: 'poll', started_at: ago(1500) },
+        { name: 'rss', started_at: ago(600) },
+      ],
+    })
+
+    expect(topBar().getByRole('button', { name: 'Polling…' })).toBeInTheDocument()
+    act(() => vi.advanceTimersByTime(400))
+    expect(topBar().getByRole('button', { name: '2 running' })).toBeInTheDocument()
   })
 
   it('never shows a pass that ends within the second', async () => {

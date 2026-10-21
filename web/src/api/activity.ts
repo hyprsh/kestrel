@@ -10,8 +10,8 @@ type ActivitySnapshot = components['schemas']['ActivitySnapshot']
 
 /**
  * The background work running now, as the stream's `activity` frames put it in the cache
- * (live/stream.ts). There is no GET for it: until the first frame it is undefined, and a
- * reconnect sends a fresh one.
+ * (live/stream.ts). The stream sends one on connect and on every reconnect, so this reads no
+ * GET /activity: until the first frame it is undefined.
  */
 export function useActivity() {
   return useQuery<ActivitySnapshot>({ queryKey: ['activity'], queryFn: skipToken }).data
