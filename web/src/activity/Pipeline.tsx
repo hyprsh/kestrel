@@ -18,7 +18,7 @@ import { useKey, useListNav, type RowNav } from '../keys'
 import { size } from '../library/bits'
 import { SearchSummary } from '../overview/Searching'
 import { useOpenPlace } from '../place'
-import { ago, span, useNow } from '../time'
+import { ago, lasting, until, useNow } from '../time'
 import { cx } from '../ui'
 import { activityFilter, activityQualifiers, toggleStage } from './filter'
 import { entriesOf, stageLabel, stages, type Entry, type Stage } from './stages'
@@ -203,7 +203,7 @@ function ActiveRow({ item: i, now, nav, onOpenTitle }: { item: QueueItem; now: n
       onOpenTitle={onOpenTitle}
       detail={
         <>
-          <Line>{`${origin(i, now, rate ? [rate] : [])} · in this stage for ${span(now - Date.parse(i.phase_since))}`}</Line>
+          <Line>{`${origin(i, now, rate ? [rate] : [])} · in this stage ${lasting(i.phase_since, now)}`}</Line>
           {cancel.isError && <Line tone="red">{cancel.error.message}</Line>}
         </>
       }
@@ -233,7 +233,7 @@ function StalledRow({ grab: g, now, nav, onOpenTitle }: { grab: GrabEntry; now: 
         </>
       }
     >
-      <Line tone="amber">{`Import stalled for ${span(now - Date.parse(st.since))}: ${st.reason} · tried again ${Date.parse(st.next_at) > now ? `in ${span(Date.parse(st.next_at) - now)}` : 'any moment'}`}</Line>
+      <Line tone="amber">{`Import stalled ${lasting(st.since, now)}: ${st.reason} · tried again ${until(st.next_at, now)}`}</Line>
       <Line>{origin(g, now)}</Line>
       {act.isError && <Line tone="red">{act.error.message}</Line>}
     </GrabRow>
