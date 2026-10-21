@@ -301,6 +301,35 @@ describe('the command menu', () => {
     expect(await within(menu).findByRole('option', { name: /library/i })).toBeInTheDocument() // root again
   })
 
+  it('offers the best result as the query when it differs a lot from what was typed', async () => {
+    fakeLibrary([])
+    const queries: string[] = []
+    server.use(
+      http.get('/lookup', ({ request, response }) => {
+        const q = new URL(request.url).searchParams.get('q') ?? ''
+        queries.push(q)
+        return response(200).json({
+          items: [result(329, 'Jurassic Park'), result(330, 'The Lost World: Jurassic Park')],
+          next_cursor: null,
+          did_you_mean: q === 'jurrasic prak' ? 'Jurassic Park' : null,
+        })
+      }),
+    )
+    renderApp()
+    const menu = await openMenu()
+    await userEvent.keyboard('jurrasic prak')
+    await userEvent.click(await within(menu).findByRole('option', { name: /add "jurrasic prak"/i }))
+
+    const suggestion = await within(menu).findByRole('option', { name: 'Did you mean Jurassic Park?' })
+    expect(suggestion).toHaveAttribute('aria-selected', 'true') // first, so Enter runs it
+    await userEvent.keyboard('{Enter}')
+
+    expect(within(menu).getByRole('combobox', { name: /search/i })).toHaveValue('Jurassic Park')
+    await waitFor(() => expect(queries.at(-1)).toBe('Jurassic Park'))
+    await waitFor(() => expect(within(menu).queryByRole('option', { name: /did you mean/i })).not.toBeInTheDocument())
+    expect(within(menu).getByRole('option', { name: /^jurassic park/i })).toHaveAttribute('aria-selected', 'true')
+  })
+
   it('says why a search failed', async () => {
     fakeLibrary([])
     server.use(

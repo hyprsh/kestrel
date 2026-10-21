@@ -1,4 +1,4 @@
-import { CornerDownLeft, Plus } from 'lucide-react'
+import { CornerDownLeft, Plus, Search } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ApiError, useLookup, useTitles, type LookupResult, type TitleRow } from '../api/queries'
 import { rank, type Match } from '../fuzzy'
@@ -26,6 +26,8 @@ type Item = {
   run: () => void
   /** The parts of the label the query matched, marked. */
   marks?: [number, number][]
+  /** An icon before the label. */
+  icon?: ReactNode
   /** A Title's poster thumbnail, drawn in the taller row. */
   thumb?: ReactNode
 }
@@ -81,7 +83,7 @@ export function CommandMenu({
 
   const items: Item[] = useMemo(() => {
     if (mode === 'add') {
-      return (lookup.data ?? []).map((r) => ({
+      const found: Item[] = (lookup.data?.items ?? []).map((r) => ({
         id: `${r.kind}-${r.tmdb_id}`,
         group: 'Titles' as const,
         label: r.title,
@@ -106,6 +108,21 @@ export function CommandMenu({
           }
         },
       }))
+      // A best result far from what was typed is offered first as the query to search for instead.
+      const meant = lookup.data?.did_you_mean
+      if (!meant) return found
+      const retry: Item = {
+        id: 'did-you-mean',
+        group: 'Add',
+        label: `Did you mean ${meant}?`,
+        icon: <Search className="size-3.5 text-gray-900" />,
+        keepOpen: true,
+        run: () => {
+          setQuery(meant)
+          setSel(0)
+        },
+      }
+      return [retry, ...found]
     }
     const q = query.trim()
     const addAction: Item = {
@@ -141,7 +158,14 @@ export function CommandMenu({
     ]
       .filter((g) => g.length > 0)
       .sort((a, b) => b[0].score - a[0].score) // the group holding the best match first; ties keep this order
-    const add: Item = { id: 'add-query', group: 'Add', label: `Add "${q}"…`, keepOpen: true, run: () => setMode('add') }
+    const add: Item = {
+      id: 'add-query',
+      group: 'Add',
+      label: `Add "${q}"…`,
+      icon: <Plus className="size-3.5 text-gray-900" />,
+      keepOpen: true,
+      run: () => setMode('add'),
+    }
     return [...groups.flatMap((g) => g.map((h) => h.item)), add]
   }, [mode, query, lookup.data, actions, places, titles.data, onGo, onOpenTitle, onClose])
 
@@ -248,7 +272,7 @@ export function CommandMenu({
                     )}
                   >
                     {item.thumb}
-                    {item.group === 'Add' && <Plus className="size-3.5 text-gray-900" />}
+                    {item.icon}
                     <span className="truncate text-[13px]">
                       <Marked text={item.label} ranges={item.marks ?? []} />
                     </span>{' '}
