@@ -45,6 +45,9 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const [cleanupTitles, setCleanupTitles] = useState<number[] | undefined>(undefined)
   const [libraryPreset, setLibraryPreset] = useState<{ preset: Preset; n: number } | null>(null)
   const [menu, setMenu] = useState<{ mode: MenuMode } | null>(null)
+  // The text of a screen's filter field (the Log's); another screen starts unfiltered.
+  const [filter, setFilter] = useState({ screen: '', q: '' })
+  const query = filter.screen === screen ? filter.q : ''
   const { theme, cycle } = useTheme()
   const auth = useAuth()
   const logout = useLogout()
@@ -131,7 +134,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           ) : screen === 'about' ? (
             <About />
           ) : screen === 'log' ? (
-            <Log />
+            <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} />
           ) : screen === 'upcoming' ? (
             <Upcoming onOpenTitle={openTitle} />
           ) : (

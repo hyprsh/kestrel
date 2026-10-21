@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
+import { fakeLibrary, row } from '../test/library'
 import { server } from '../test/server'
 
 type Event = components['schemas']['Event']
@@ -43,29 +44,71 @@ async function openLog() {
   return user
 }
 
+/** Every query the Log sent, as search params, and the events it answers with. */
+function events(items: Event[] = [event(2, 'grab', 'Sent Paddington to the download client'), event(1, 'import', 'Imported Paddington')]) {
+  const sent: URLSearchParams[] = []
+  server.use(
+    http.get('/events', ({ request, response }) => {
+      sent.push(new URL(request.url).searchParams)
+      return response(200).json({ items })
+    }),
+  )
+  return sent
+}
+
+const filter = () => screen.getByRole('combobox', { name: 'Filter the Log' })
+
 describe('Log', () => {
-  it('asks for the filters chosen and for routine events only when toggled', async () => {
-    const queries: string[] = []
-    server.use(
-      http.get('/events', ({ request, response }) => {
-        queries.push(new URL(request.url).search)
-        return response(200).json({ items: [event(2, 'grab', 'Sent Paddington to the download client'), event(1, 'import', 'Imported Paddington')] })
-      }),
-    )
+  it('sends the qualifiers typed as filters: several kinds, a Slot and routine events', async () => {
+    const sent = events()
     const user = await openLog()
 
     const list = await screen.findByRole('list', { name: 'Events' })
     expect(within(list).getAllByRole('listitem')).toHaveLength(2)
-    expect(queries.at(-1)).toBe('')
+    expect(sent.at(-1)?.toString()).toBe('')
 
-    await user.selectOptions(screen.getByLabelText('Slot'), 'standard')
-    await user.selectOptions(screen.getByLabelText('Kind'), 'grab')
-    await user.click(screen.getByLabelText('Show routine'))
+    await user.type(filter(), 'kind:grab_failed,import_rejected slot:4k routine:yes')
 
+    await expect.poll(() => sent.at(-1)?.get('routine')).toBe('true')
+    expect(sent.at(-1)?.getAll('kind')).toEqual(['grab_failed', 'import_rejected'])
+    expect(sent.at(-1)?.getAll('slot')).toEqual(['4k'])
+  })
+
+  it('expands kind groups, sends excluded kinds apart, and finds Titles by name', async () => {
+    fakeLibrary([row(1, 'Breaking Bad', 'Breaking Bad'), row(2, 'Breaking Bad', 'Breaking Bad (2008)'), row(3, 'Paddington', 'Paddington')])
+    const sent = events()
+    const user = await openLog()
     await screen.findByRole('list', { name: 'Events' })
-    await expect.poll(() => queries.at(-1)).toContain('routine=true')
-    expect(queries.at(-1)).toContain('slot=standard')
-    expect(queries.at(-1)).toContain('kind=grab')
+
+    await user.type(filter(), 'kind:failures -kind:health_raised title:"breaking bad"')
+
+    await expect.poll(() => sent.at(-1)?.getAll('title_id')).toEqual(['1', '2'])
+    expect(sent.at(-1)?.getAll('kind')).toEqual(['grab_failed', 'import_rejected', 'import_stalled', 'blocklist', 'health_raised'])
+    expect(sent.at(-1)?.getAll('exclude_kind')).toEqual(['health_raised'])
+  })
+
+  it('shows nothing, without asking, for a Title the Library does not have', async () => {
+    fakeLibrary([row(3, 'Paddington', 'Paddington')])
+    const sent = events()
+    const user = await openLog()
+    await screen.findByRole('list', { name: 'Events' })
+
+    await user.type(filter(), 'title:Heat')
+
+    expect(await screen.findByText('Nothing in the Log matches.')).toBeInTheDocument()
+    expect(sent.some((p) => p.has('title_id'))).toBe(false)
+  })
+
+  it('matches free text against the message and the Title name', async () => {
+    fakeLibrary([row(3, 'Paddington', 'Paddington')])
+    events([{ ...event(2, 'grab', 'Sent a Release to SABnzbd'), title_id: 3 }, event(1, 'health_raised', 'The indexer is down')])
+    const user = await openLog()
+    const list = await screen.findByRole('list', { name: 'Events' })
+
+    await user.type(filter(), 'paddington sab')
+
+    await expect.poll(() => within(list).getAllByRole('listitem')).toHaveLength(1)
+    expect(within(list).getByText('Sent a Release to SABnzbd')).toBeInTheDocument()
   })
 
   it('removes a Blocklist entry from the Blocklist view', async () => {
