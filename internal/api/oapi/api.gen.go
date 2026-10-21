@@ -43,6 +43,24 @@ func (e AdoptionState) Valid() bool {
 	}
 }
 
+// Defines values for AdoptionActivityState.
+const (
+	AdoptionActivityStateCommitting AdoptionActivityState = "committing"
+	AdoptionActivityStateScanning   AdoptionActivityState = "scanning"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionActivityState enum.
+func (e AdoptionActivityState) Valid() bool {
+	switch e {
+	case AdoptionActivityStateCommitting:
+		return true
+	case AdoptionActivityStateScanning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdoptionFileAction.
 const (
 	Create  AdoptionFileAction = "create"
@@ -1148,6 +1166,9 @@ type About struct {
 
 // ActivitySnapshot defines model for ActivitySnapshot.
 type ActivitySnapshot struct {
+	// Adoption The Adoption scan or commit running now; null when neither runs.
+	Adoption *AdoptionActivity `json:"adoption"`
+
 	// Running Names of the background loops mid-pass right now.
 	Running []string `json:"running"`
 }
@@ -1185,6 +1206,19 @@ type Adoption struct {
 
 // AdoptionState defines model for Adoption.State.
 type AdoptionState string
+
+// AdoptionActivity An Adoption scan or commit and how far it has got, as `GET /adoption` reports it.
+type AdoptionActivity struct {
+	// Done Entries scanned, or rows adopted, so far.
+	Done  int                   `json:"done"`
+	State AdoptionActivityState `json:"state"`
+
+	// Total Entries to scan, or rows to adopt; 0 until a scan has listed them.
+	Total int `json:"total"`
+}
+
+// AdoptionActivityState defines model for AdoptionActivity.State.
+type AdoptionActivityState string
 
 // AdoptionCandidate defines model for AdoptionCandidate.
 type AdoptionCandidate struct {

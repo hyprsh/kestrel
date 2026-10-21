@@ -1,11 +1,21 @@
 // Activity's reads and actions beyond the queue: GET /grabs (stalled and finished Grabs),
-// POST /grabs/{id}/retry-import and POST /grabs/{id}/discard.
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+// POST /grabs/{id}/retry-import and POST /grabs/{id}/discard, and the stream's `activity` frames.
+import { skipToken, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
 import { ApiError } from './queries'
 import type { components } from './schema.gen'
 
 export type GrabEntry = components['schemas']['GrabEntry']
+type ActivitySnapshot = components['schemas']['ActivitySnapshot']
+
+/**
+ * The background work running now, as the stream's `activity` frames put it in the cache
+ * (live/stream.ts). There is no GET for it: until the first frame it is undefined, and a
+ * reconnect sends a fresh one.
+ */
+export function useActivity() {
+  return useQuery<ActivitySnapshot>({ queryKey: ['activity'], queryFn: skipToken }).data
+}
 
 /** How far back Done and Failed reach; older Grabs are left to the Log. */
 export const HISTORY_DAYS = 7

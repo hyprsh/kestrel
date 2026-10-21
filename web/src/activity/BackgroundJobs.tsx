@@ -6,19 +6,7 @@ import { useJobs, useRunJob, type Job } from '../api/jobs'
 import { Button, ErrorText } from '../forms'
 import { ago, span, until, useNow } from '../time'
 import { Badge, type Tone } from '../ui'
-
-/** Each loop in words. The cadences mirror internal/jobs (loops.go, daily.go, refresh.go). */
-const loops: Record<string, { label: string; does: string; every: string }> = {
-  poll: { label: 'Poll', does: "Follows the download client's progress", every: 'Every 10 s while downloading, else 5 min' },
-  import: { label: 'Import', does: 'Imports finished downloads', every: 'Every minute' },
-  search: { label: 'Search', does: 'Searches the Wanted Versions and those due an Upgrade', every: 'Every 5 min' },
-  health: { label: 'Health', does: 'Runs the health checks', every: 'Every 5 min' },
-  rss: { label: 'RSS', does: "Checks indexers' new Releases", every: 'Every 15 min' },
-  prune: { label: 'Prune', does: 'Deletes routine Log events older than 30 days and expired sessions', every: 'Checked hourly, runs daily' },
-  refresh: { label: 'Refresh', does: "Refreshes Titles' metadata", every: 'Checked hourly, runs daily' },
-  trash: { label: 'TRaSH', does: 'Checks for newer TRaSH Custom Formats and profiles', every: 'Checked hourly, runs daily' },
-  updates: { label: 'Updates', does: 'Asks GitHub for a newer Kestrel release', every: 'Checked hourly, runs daily' },
-}
+import { jobWords } from './jobNames'
 
 const statusBadge: Record<Job['status'], { tone: Tone; text: string }> = {
   idle: { tone: 'gray', text: 'Idle' },
@@ -46,7 +34,7 @@ export function BackgroundJobs() {
       </h2>
       <ul>
         {items.map((j) => {
-          const about = loops[j.name] ?? { label: j.name, does: '', every: '' }
+          const about = jobWords(j.name)
           const last = lastRun(j, now)
           const badge = statusBadge[j.status] ?? statusBadge.idle
           const next = j.status !== 'running' && j.next_at ? `Next ${until(j.next_at, now)}` : null

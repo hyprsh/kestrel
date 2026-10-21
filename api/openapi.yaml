@@ -1889,7 +1889,8 @@ paths:
           They come from the events log, so an Import landing in a background loop reaches an open
           tab within about a second, and from handlers for changes made through this API.
         - `queue`: the `QueueList` snapshot (same as `GET /queue`), on connect and whenever it changes.
-        - `activity`: the loops running now (`ActivitySnapshot`), on connect and whenever it changes.
+        - `activity`: the background work running now (`ActivitySnapshot`): the loops mid-pass and an
+          Adoption scan or commit with its progress, on connect and whenever it changes.
         - `attention`: the Needs attention count and worst severity (`AttentionSnapshot`), on connect
           and whenever it changes.
         - `search`: the search pipeline (`SearchStatus`, same as `GET /search/status`), on connect and
@@ -4156,13 +4157,32 @@ components:
           description: Why the pass failed; `null` when it succeeded.
     ActivitySnapshot:
       type: object
-      required: [running]
+      required: [running, adoption]
       properties:
         running:
           type: array
           description: Names of the background loops mid-pass right now.
           items:
             type: string
+        adoption:
+          allOf:
+            - $ref: "#/components/schemas/AdoptionActivity"
+          nullable: true
+          description: The Adoption scan or commit running now; null when neither runs.
+    AdoptionActivity:
+      type: object
+      description: An Adoption scan or commit and how far it has got, as `GET /adoption` reports it.
+      required: [state, done, total]
+      properties:
+        state:
+          type: string
+          enum: [scanning, committing]
+        done:
+          type: integer
+          description: Entries scanned, or rows adopted, so far.
+        total:
+          type: integer
+          description: Entries to scan, or rows to adopt; 0 until a scan has listed them.
     AttentionSnapshot:
       type: object
       required: [count, severity]
