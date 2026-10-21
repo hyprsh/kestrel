@@ -179,6 +179,9 @@ func TestSweepsStopAt80PercentOfTheDailyBudgetWhileRSSAndManualSearchRun(t *test
 	if b.r.svc.CanSweep(context.Background()) {
 		t.Error("CanSweep = true past 80 %")
 	}
+	if !b.r.svc.Status(b.id, 10).SweepsStopped {
+		t.Error("Status does not say the sweeps stopped past 80 %")
+	}
 	if res := b.r.svc.RSS(context.Background()); len(res.Releases) == 0 {
 		t.Error("RSS must still run")
 	}
@@ -192,6 +195,9 @@ func TestSweepsStopAt80PercentOfTheDailyBudgetWhileRSSAndManualSearchRun(t *test
 	}
 	if !b.r.svc.CanSweep(context.Background()) {
 		t.Error("CanSweep = false the next day")
+	}
+	if b.r.svc.Status(b.id, 10).SweepsStopped {
+		t.Error("Status says the sweeps are still stopped the next day")
 	}
 }
 

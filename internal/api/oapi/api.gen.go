@@ -634,6 +634,27 @@ func (e RequestSlotStatus) Valid() bool {
 	}
 }
 
+// Defines values for SearchIndexerHeld.
+const (
+	BackingOff   SearchIndexerHeld = "backing_off"
+	Budget       SearchIndexerHeld = "budget"
+	RequestLimit SearchIndexerHeld = "request_limit"
+)
+
+// Valid indicates whether the value is a known member of the SearchIndexerHeld enum.
+func (e SearchIndexerHeld) Valid() bool {
+	switch e {
+	case BackingOff:
+		return true
+	case Budget:
+		return true
+	case RequestLimit:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SeriesMonitor.
 const (
 	SeriesMonitorAll    SeriesMonitor = "all"
@@ -2354,6 +2375,83 @@ type RootFolders struct {
 	Series []string `json:"series"`
 }
 
+// SearchIndexer defines model for SearchIndexer.
+type SearchIndexer struct {
+	// Held Why sweeps leave the indexer alone now, null when they don't: `request_limit` (it said its
+	// request limit was reached, or a bare 429), `backing_off` (it keeps failing) or `budget` (the
+	// sweeps have used their 80 % of today's budget).
+	Held *SearchIndexerHeld `json:"held"`
+
+	// HeldUntil When a `request_limit` pause or a backoff ends; null otherwise.
+	HeldUntil  *time.Time `json:"held_until"`
+	InstanceId int64      `json:"instance_id"`
+	Name       string     `json:"name"`
+
+	// SearchMax The daily search budget, from the indexer's `apilimits` (believed for an hour) or the
+	// instance's `api_requests_per_day`; null when neither is known. Sweeps stop at 80 % of it.
+	SearchMax *int `json:"search_max"`
+
+	// SearchUsed Search requests made today (the indexer's own count when it reports one).
+	SearchUsed int `json:"search_used"`
+}
+
+// SearchIndexerHeld Why sweeps leave the indexer alone now, null when they don't: `request_limit` (it said its
+// request limit was reached, or a bare 429), `backing_off` (it keeps failing) or `budget` (the
+// sweeps have used their 80 % of today's budget).
+type SearchIndexerHeld string
+
+// SearchPass defines model for SearchPass.
+type SearchPass struct {
+	// Done The Wanted Versions it has got through: searched, or passed over because no indexer could
+	// take a sweep search (those stay due). Its Upgrade searches come after them and are not counted.
+	Done      int       `json:"done"`
+	StartedAt time.Time `json:"started_at"`
+
+	// Total The Wanted Versions it found due.
+	Total int `json:"total"`
+}
+
+// SearchPassResult defines model for SearchPassResult.
+type SearchPassResult struct {
+	FinishedAt time.Time `json:"finished_at"`
+
+	// Grabbed The Grabs it made, Upgrades included.
+	Grabbed int `json:"grabbed"`
+
+	// Searched The Wanted Versions it searched.
+	Searched int `json:"searched"`
+}
+
+// SearchStatus defines model for SearchStatus.
+type SearchStatus struct {
+	// Due What waits for a search, as the last pass found it less what it has searched since.
+	Due struct {
+		// Episodes The Wanted episodes of the Series Versions among them.
+		Episodes int `json:"episodes"`
+
+		// Upgrades Filled Versions due an Upgrade search; each pass searches `upgrades_per_pass` of them.
+		Upgrades int `json:"upgrades"`
+
+		// Versions Wanted Versions due a missing search. A Series Version counts once.
+		Versions int `json:"versions"`
+	} `json:"due"`
+
+	// Indexers The enabled indexers.
+	Indexers []SearchIndexer `json:"indexers"`
+
+	// LastPass The last pass that finished; null before the first since Kestrel started.
+	LastPass *SearchPassResult `json:"last_pass"`
+
+	// NextPassAt When the next pass starts; null while one runs and before the first.
+	NextPassAt *time.Time `json:"next_pass_at"`
+
+	// Pass The pass running now; null between passes.
+	Pass *SearchPass `json:"pass"`
+
+	// UpgradesPerPass How many Upgrade searches a pass makes at most, after its Wanted Versions.
+	UpgradesPerPass int `json:"upgrades_per_pass"`
+}
+
 // Season defines model for Season.
 type Season struct {
 	Monitored bool `json:"monitored"`
@@ -3619,6 +3717,9 @@ type ServerInterface interface {
 	// GetRequest One Request with its current per-Slot status
 	// (GET /requests/{id})
 	GetRequest(w http.ResponseWriter, r *http.Request, id int64)
+	// GetSearchStatus The search pipeline
+	// (GET /search/status)
+	GetSearchStatus(w http.ResponseWriter, r *http.Request)
 	// GetSettings App settings
 	// (GET /settings)
 	GetSettings(w http.ResponseWriter, r *http.Request)
@@ -4824,6 +4925,20 @@ func (siw *ServerInterfaceWrapper) GetRequest(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// GetSearchStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetSearchStatus(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSearchStatus(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetSettings operation middleware
 func (siw *ServerInterfaceWrapper) GetSettings(w http.ResponseWriter, r *http.Request) {
 
@@ -5887,6 +6002,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/cleanup/preview", wrapper.PreviewCleanup)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/cleanup/run", wrapper.RunCleanup)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/wanted/search", wrapper.SearchAllWanted)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/search/status", wrapper.GetSearchStatus)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/system/status", wrapper.GetSystemStatus)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/about", wrapper.GetAbout)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/about/notices", wrapper.GetNotices)
@@ -8476,6 +8592,44 @@ func (response GetRequestdefaultApplicationProblemPlusJSONResponse) VisitGetRequ
 	return err
 }
 
+type GetSearchStatusRequestObject struct {
+}
+
+type GetSearchStatusResponseObject interface {
+	VisitGetSearchStatusResponse(w http.ResponseWriter) error
+}
+
+type GetSearchStatus200JSONResponse SearchStatus
+
+func (response GetSearchStatus200JSONResponse) VisitGetSearchStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSearchStatusdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetSearchStatusdefaultApplicationProblemPlusJSONResponse) VisitGetSearchStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetSettingsRequestObject struct {
 }
 
@@ -10617,6 +10771,9 @@ type StrictServerInterface interface {
 	// GetRequest One Request with its current per-Slot status
 	// (GET /requests/{id})
 	GetRequest(ctx context.Context, request GetRequestRequestObject) (GetRequestResponseObject, error)
+	// GetSearchStatus The search pipeline
+	// (GET /search/status)
+	GetSearchStatus(ctx context.Context, request GetSearchStatusRequestObject) (GetSearchStatusResponseObject, error)
 	// GetSettings App settings
 	// (GET /settings)
 	GetSettings(ctx context.Context, request GetSettingsRequestObject) (GetSettingsResponseObject, error)
@@ -12025,6 +12182,30 @@ func (sh *strictHandler) GetRequest(w http.ResponseWriter, r *http.Request, id i
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetRequestResponseObject); ok {
 		if err := validResponse.VisitGetRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSearchStatus operation middleware
+func (sh *strictHandler) GetSearchStatus(w http.ResponseWriter, r *http.Request) {
+	var request GetSearchStatusRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSearchStatus(ctx, request.(GetSearchStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSearchStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSearchStatusResponseObject); ok {
+		if err := validResponse.VisitGetSearchStatusResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

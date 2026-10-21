@@ -250,6 +250,12 @@ func (r streamResponse) VisitStreamResponse(w http.ResponseWriter) error {
 		if !snapshot("activity", oapi.ActivitySnapshot{Running: nonNil(s.jobs.Running())}) {
 			return false
 		}
+		// From memory and one small read of the plugin instances: cheap enough for every tick.
+		if st, err := s.searchStatus(ctx); err == nil {
+			if !snapshot("search", st) {
+				return false
+			}
+		}
 		if n, sev, err := s.attention(ctx); err == nil {
 			var severity *oapi.AttentionSnapshotSeverity
 			if sev != nil {

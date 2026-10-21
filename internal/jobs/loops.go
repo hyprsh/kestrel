@@ -45,9 +45,9 @@ const (
 	pollIdle    = 5 * time.Minute
 	searchEvery = 5 * time.Minute
 	rssEvery    = 15 * time.Minute
-	// upgradesPerPass keeps the Upgrade sweep from searching a whole library on
+	// UpgradesPerPass keeps the Upgrade sweep from searching a whole library on
 	// one pass; the oldest-searched Versions go first and the rest follow on later passes.
-	upgradesPerPass = 5
+	UpgradesPerPass = 5
 	importEvery     = time.Minute
 	// importWorkers is how many Imports run at once.
 	importWorkers = 2
@@ -146,6 +146,7 @@ func Standard(d Deps) *Runner {
 		d.Clock = time.Now
 	}
 	r := New(d.Logger)
+	r.clock = d.Clock
 	r.OnStop(d.Acquire.StopSearches)
 
 	var downloading atomic.Bool
@@ -291,7 +292,7 @@ func importDue(ctx context.Context, r *Runner, d Deps) error {
 // searchDue is the sweep: each Title with a Wanted Version due is searched once,
 // then the Filled Versions due an Upgrade, the one searched longest ago first.
 // A searched Version moves its next search out, so a second pass finds nothing
-// to do.
+// to do. It keeps the Runner's SearchStatus as it goes.
 func searchDue(ctx context.Context, r *Runner, d Deps) error {
 	now := d.Clock()
 	grabbed := false
@@ -299,6 +300,9 @@ func searchDue(ctx context.Context, r *Runner, d Deps) error {
 	if err != nil {
 		return err
 	}
+	t := r.search
+	t.begin(now, missing)
+	defer func() { t.end(d.Clock()) }()
 	var fresh, due []library.Due
 	for _, m := range missing {
 		if m.Fresh {
@@ -308,14 +312,16 @@ func searchDue(ctx context.Context, r *Runner, d Deps) error {
 		}
 	}
 	// A new Version is searched at once, whatever the budget; the sweep after it obeys the 80 % stop.
-	err = sweep(ctx, r, fresh, d.Acquire.SearchNew, d.Library.MarkMissingSearched, now, &grabbed)
+	err = sweep(ctx, r, fresh, d.Acquire.SearchNew, d.Library.MarkMissingSearched, now, false, &grabbed)
 	if err == nil {
-		err = sweep(ctx, r, due, d.Acquire.SearchWanted, d.Library.MarkMissingSearched, now, &grabbed)
+		err = sweep(ctx, r, due, d.Acquire.SearchWanted, d.Library.MarkMissingSearched, now, false, &grabbed)
 	}
 	if err == nil {
+		// All of them, to count what waits; the pass searches the first few.
 		var upgrades []library.Due
-		if upgrades, err = d.Library.DueUpgrades(ctx, now, upgradesPerPass); err == nil {
-			err = sweep(ctx, r, upgrades, d.Acquire.SearchUpgrades, d.Library.MarkUpgradeSearched, now, &grabbed)
+		if upgrades, err = d.Library.DueUpgrades(ctx, now, 0); err == nil {
+			t.upgradesDue(upgrades)
+			err = sweep(ctx, r, upgrades[:min(len(upgrades), UpgradesPerPass)], d.Acquire.SearchUpgrades, d.Library.MarkUpgradeSearched, now, true, &grabbed)
 		}
 	}
 	if grabbed {
@@ -325,11 +331,12 @@ func searchDue(ctx context.Context, r *Runner, d Deps) error {
 }
 
 // sweep searches each Title of due once, with the Versions of it that are due.
+// upgrade says these are Upgrade searches, for the SearchStatus.
 func sweep(
 	ctx context.Context, r *Runner, due []library.Due,
 	search func(ctx context.Context, titleID int64, versionIDs []int64) (acquire.Outcome, error),
 	mark func(ctx context.Context, versionID int64, at time.Time, failed bool) error,
-	now time.Time, grabbed *bool,
+	now time.Time, upgrade bool, grabbed *bool,
 ) error {
 	var titles []int64
 	byTitle := map[int64][]int64{}
@@ -344,6 +351,7 @@ func sweep(
 		if err != nil {
 			r.log.Warn("search for a Title failed", "title", id, "err", err)
 		}
+		r.search.searched(upgrade, byTitle[id], out.Searched, len(out.Grabbed))
 		*grabbed = *grabbed || len(out.Grabbed) > 0
 		failed := err != nil || len(out.Failures) > 0
 		for _, v := range out.Searched {

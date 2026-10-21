@@ -235,6 +235,9 @@ type Status struct {
 	GrabsPaused                         bool
 	// BackoffUntil is when an indexer that keeps failing is tried again; zero when it is not backing off.
 	BackoffUntil time.Time
+	// SweepsStopped says the sweeps have used their 80 % of the daily search
+	// budget: they leave the indexer alone until the day (UTC) or its own count rolls over.
+	SweepsStopped bool
 }
 
 // Status reads the indexer's budget and pauses. configured is its
@@ -249,6 +252,7 @@ func (s *Service) Status(indexerID int64, configured int) Status {
 	now := s.clock()
 	var out Status
 	out.SearchUsed, out.SearchMax = st.budget(now, configured)
+	out.SweepsStopped = out.SearchMax > 0 && out.SearchUsed*100 >= out.SearchMax*sweepShare
 	if st.reported.Reported && now.Sub(st.reportedAt) < reportTTL {
 		out.GrabUsed, out.GrabMax = st.reported.GrabCurrent, st.reported.GrabMax
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/indexers"
+	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/plugin"
@@ -203,6 +204,8 @@ type TitleFiles interface {
 type Jobs interface {
 	Kick(name string)
 	Running() []string
+	// Search is the search pipeline, as the Search loop keeps it.
+	Search() jobs.SearchStatus
 }
 
 // Refresher refreshes a Title from the metadata providers in the background.
