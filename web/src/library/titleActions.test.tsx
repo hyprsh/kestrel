@@ -43,7 +43,7 @@ describe('the Title actions row', () => {
 
     await userEvent.click(within(actions).getByRole('button', { name: 'More Title actions' }))
     const menu = screen.getByRole('menu', { name: 'More Title actions' })
-    expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Move', 'Clean up this Title', 'Remove Title'])
+    expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Move', 'Clean up this Title', 'Show in the Log', 'Remove Title'])
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Remove Title' }))
 
     const confirm = screen.getByRole('group', { name: 'Remove Title' })

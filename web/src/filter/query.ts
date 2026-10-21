@@ -19,7 +19,7 @@ export type Qualifier = {
 export type Term = { name: string; values: string[]; negated: boolean; span: [number, number] }
 
 /** Why part of the filter at `span` was left out. */
-export type Problem = { message: string; span: [number, number] }
+type Problem = { message: string; span: [number, number] }
 
 export type Query = { terms: Term[]; text: string; problems: Problem[] }
 

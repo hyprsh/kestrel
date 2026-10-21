@@ -182,6 +182,43 @@ describe('Log', () => {
     expect(screen.queryByRole('dialog', { name: 'Filter help' })).not.toBeInTheDocument()
   })
 
+  it('keeps the filter in the address bar, and leaves it there for the Log alone', async () => {
+    events()
+    const user = await openLog()
+    await screen.findByRole('list', { name: 'Events' })
+
+    await user.type(filter(), 'kind:grab heat')
+    expect(location.pathname).toBe('/log')
+    expect(new URLSearchParams(location.search).get('q')).toBe('kind:grab heat')
+
+    await user.click(screen.getByRole('button', { name: 'Overview' }))
+    expect(location.pathname + location.search).toBe('/')
+  })
+
+  it('opens a bookmarked, filtered Log', async () => {
+    const sent = events()
+    history.replaceState(null, '', '/log?q=slot%3A4k+heat')
+    render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
+
+    expect(await screen.findByRole('combobox', { name: 'Filter the Log' })).toHaveValue('slot:4k heat')
+    await expect.poll(() => sent.at(-1)?.getAll('slot')).toEqual(['4k'])
+  })
+
+  it('opens from a Title page, filtered to that Title', async () => {
+    fakeLibrary([row(3, 'Paddington', 'Paddington')])
+    const sent = events()
+    const user = userEvent.setup()
+    render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
+    await user.click(await screen.findByRole('button', { name: 'Library' }))
+    const pane = await screen.findByRole('region', { name: /paddington/i })
+    await user.click(await within(pane).findByRole('button', { name: 'More Title actions' }))
+
+    await user.click(screen.getByRole('menuitem', { name: 'Show in the Log' }))
+
+    expect(await screen.findByRole('combobox', { name: 'Filter the Log' })).toHaveValue('title:Paddington')
+    await expect.poll(() => sent.at(-1)?.getAll('title_id')).toEqual(['3'])
+  })
+
   it('removes a Blocklist entry from the Blocklist view', async () => {
     let items = [blocked]
     server.use(

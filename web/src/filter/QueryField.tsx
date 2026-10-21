@@ -73,49 +73,49 @@ export function QueryField({
   return (
     <div className="flex w-full max-w-xl flex-col gap-1.5">
       <div className="relative flex items-center gap-1.5">
-      <TextInput
-        ref={input}
-        id={id}
-        role="combobox"
-        aria-label={label}
-        aria-expanded={open}
-        aria-controls={open ? listId : undefined}
-        aria-activedescendant={open ? `${listId}-${current}` : undefined}
-        aria-autocomplete="list"
-        autoComplete="off"
-        spellCheck={false}
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => edit(e.target.value, e.target.selectionStart ?? e.target.value.length)}
-        onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
-        onFocus={(e) => setCaret(e.currentTarget.selectionStart)}
-        onBlur={() => setCaret(null)}
-        onKeyDown={onKeyDown}
-      />
-      {open && (
-        <ul
-          id={listId}
-          role="listbox"
-          aria-label="Suggestions"
-          className="absolute top-full left-0 z-40 mt-1 max-h-64 min-w-48 overflow-auto rounded-md border border-gray-alpha-400 bg-background-100 p-1 shadow-lg"
-        >
-          {suggestions.map((s, i) => (
-            <li
-              key={s.value}
-              id={`${listId}-${i}`}
-              role="option"
-              aria-selected={i === current}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => pick(i)}
-              onMouseEnter={() => setActive(i)}
-              className={cx('cursor-pointer rounded px-2 py-1 font-mono text-[12px]', i === current && 'bg-gray-alpha-200')}
-            >
-              {s.value}
-            </li>
-          ))}
-        </ul>
-      )}
-      <Help qualifiers={qualifiers} />
+        <TextInput
+          ref={input}
+          id={id}
+          role="combobox"
+          aria-label={label}
+          aria-expanded={open}
+          aria-controls={open ? listId : undefined}
+          aria-activedescendant={open ? `${listId}-${current}` : undefined}
+          aria-autocomplete="list"
+          autoComplete="off"
+          spellCheck={false}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => edit(e.target.value, e.target.selectionStart ?? e.target.value.length)}
+          onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
+          onFocus={(e) => setCaret(e.currentTarget.selectionStart)}
+          onBlur={() => setCaret(null)}
+          onKeyDown={onKeyDown}
+        />
+        {open && (
+          <ul
+            id={listId}
+            role="listbox"
+            aria-label="Suggestions"
+            className="absolute top-full left-0 z-40 mt-1 max-h-64 min-w-48 overflow-auto rounded-md border border-gray-alpha-400 bg-background-100 p-1 shadow-lg"
+          >
+            {suggestions.map((s, i) => (
+              <li
+                key={s.value}
+                id={`${listId}-${i}`}
+                role="option"
+                aria-selected={i === current}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => pick(i)}
+                onMouseEnter={() => setActive(i)}
+                className={cx('cursor-pointer rounded px-2 py-1 font-mono text-[12px]', i === current && 'bg-gray-alpha-200')}
+              >
+                {s.value}
+              </li>
+            ))}
+          </ul>
+        )}
+        <Help qualifiers={qualifiers} />
       </div>
       {parsed.terms.length > 0 && (
         <ul aria-label="Active filters" className="flex flex-wrap gap-1">
