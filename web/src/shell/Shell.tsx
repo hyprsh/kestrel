@@ -344,7 +344,9 @@ function SearchQueued({ queued, onSee, onDismiss }: { queued: { versions: number
 function RunningIndicator({ running, onOpen }: { running: Running[]; onOpen: () => void }) {
   if (running.length === 0) return null
   const [one] = running
-  const label = running.length > 1 ? `${running.length} running` : one.progress?.total ? `${one.short} ${one.progress.done}/${one.progress.total}` : one.short
+  // The count takes the ellipsis's place: "Searching 15/40".
+  const progress = one.progress?.total ? `${one.short.replace(/…$/, '')} ${one.progress.done}/${one.progress.total}` : null
+  const label = running.length > 1 ? `${running.length} running` : (progress ?? one.short)
   return (
     <button
       onClick={onOpen}

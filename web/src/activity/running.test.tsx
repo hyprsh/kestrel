@@ -94,14 +94,14 @@ describe('the top bar', () => {
     await withActivity({ running: ['search'] })
     act(() => vi.advanceTimersByTime(1000))
 
-    expect(await topBar().findByRole('button', { name: 'Searching… 15/40' })).toBeInTheDocument()
+    expect(await topBar().findByRole('button', { name: 'Searching 15/40' })).toBeInTheDocument()
   })
 
   it('shows an Adoption scan with its progress', async () => {
     await withActivity({ adoption: { state: 'scanning', done: 120, total: 450 } })
     act(() => vi.advanceTimersByTime(1000))
 
-    expect(topBar().getByRole('button', { name: 'Scanning for files to adopt… 120/450' })).toBeInTheDocument()
+    expect(topBar().getByRole('button', { name: 'Scanning for files to adopt 120/450' })).toBeInTheDocument()
   })
 })
 
