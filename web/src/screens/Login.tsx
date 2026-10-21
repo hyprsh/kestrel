@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, useLogin } from '../api/queries'
-import { Button, ErrorText, Field, TextInput } from '../forms'
+import { Button, Input, Note } from '@hyprsh/design'
 import { KestrelLogo } from '../ui'
 
 function loginErrorText(error: unknown): string {
@@ -28,16 +28,20 @@ export function Login() {
         <div className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
           <KestrelLogo /> Kestrel
         </div>
-        <Field label="Username">
-          {(id) => <TextInput id={id} autoComplete="username" autoFocus value={username} onChange={(e) => setUsername(e.target.value)} />}
-        </Field>
-        <Field label="Password">
-          {(id) => (
-            <TextInput id={id} type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          )}
-        </Field>
-        {login.isError && <ErrorText>{loginErrorText(login.error)}</ErrorText>}
-        <Button type="submit" disabled={login.isPending}>
+        <Input label="Username" autoComplete="username" autoFocus value={username} onChange={(e) => setUsername(e.target.value)} />
+        <Input
+          label="Password"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        {login.isError && (
+          <Note variant="error" size="small">
+            {loginErrorText(login.error)}
+          </Note>
+        )}
+        <Button variant="primary" typeName="submit" loading={login.isPending}>
           Log in
         </Button>
         <p className="text-[12px] text-gray-900">
