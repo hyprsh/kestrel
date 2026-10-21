@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: typecheck release-dry-run dry-run-assets test-go-shard test-go-race test-parity notices build-silo help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet lint-go lint-web compose-check commitlint hooks docker check
+.PHONY: typecheck release-dry-run dry-run-assets test-go-shard test-go-race test-parity notices build-silo help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet lint-go lint-web compose-check commit-check hooks docker check
 
 VERSION ?= dev
 # The project's TMDB and TVDB keys are injected at link time; the default build embeds none.
@@ -93,12 +93,12 @@ compose-check: ## Validate the README's reference compose.yaml with `docker comp
 	@test -s $${TMPDIR:-/tmp}/kestrel-compose.yaml || { echo "no compose.yaml block in README.md"; exit 1; }
 	docker compose -f $${TMPDIR:-/tmp}/kestrel-compose.yaml config --quiet
 
-commitlint: ## Lint a message: echo "feat: x" | make commitlint
-	npx --no-install commitlint
+commit-check: ## Check a commit header or PR title: echo "feat: x" | make commit-check
+	@scripts/check-commit-header.sh
 
-hooks: ## Install the commit-msg hook (commitlint via lefthook)
-	npm ci
-	npx --no-install lefthook install
+# core.hooksPath replaces .git/hooks, so hooks installed there (such as lefthook's) stop running.
+hooks: ## Check commit headers on commit (.githooks/commit-msg)
+	git config core.hooksPath .githooks
 
 docker: ## Build the image as kestrel:dev
 	docker build --build-arg VERSION=$(VERSION) --build-arg TMDB_API_KEY=$(TMDB_API_KEY) --build-arg TVDB_API_KEY=$(TVDB_API_KEY) -t kestrel:dev .
@@ -119,4 +119,4 @@ notices: ## Regenerate internal/notices/THIRD_PARTY_NOTICES.md (needs network an
 typecheck: ## TypeScript typecheck of the SPA (tsc --noEmit)
 	npm --prefix web run typecheck
 
-check: fmt-check vet lint-go lint-web typecheck generate-check test compose-check ## Everything CI runs, minus the image build and commitlint
+check: fmt-check vet lint-go lint-web typecheck generate-check test compose-check ## Everything CI runs, minus the image build and the PR-title check

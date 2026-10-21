@@ -11,8 +11,3 @@ node_modules/
 # GoReleaser output
 /dist/
 /release-assets/
-
-# Left by the lefthook commit hook when it falls back to pnpm to find lefthook
-/.build/
-/pnpm-lock.yaml
-/pnpm-workspace.yaml
