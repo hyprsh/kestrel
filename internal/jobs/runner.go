@@ -38,6 +38,15 @@ type loop struct {
 	Loop
 	mu   sync.Mutex // one pass at a time
 	kick chan struct{}
+	// state is guarded by Runner.mu.
+	state loopState
+}
+
+// loopState is what the runner remembers of a loop between passes, in memory
+// only (ADR 0007): the UI reads it to say what runs when.
+type loopState struct {
+	// next is when the next pass is due: zero while one runs and before Run.
+	next time.Time
 }
 
 type startup struct {
@@ -47,7 +56,8 @@ type startup struct {
 
 // Runner owns the loops.
 type Runner struct {
-	log *slog.Logger
+	log   *slog.Logger
+	clock func() time.Time
 
 	mu      sync.Mutex
 	loops   map[string]*loop
@@ -55,6 +65,7 @@ type Runner struct {
 	startup []startup
 	stop    []func()
 	running []string
+	search  *searchTracker
 }
 
 // New returns a Runner. A nil logger means slog.Default().
@@ -62,7 +73,7 @@ func New(log *slog.Logger) *Runner {
 	if log == nil {
 		log = slog.Default()
 	}
-	return &Runner{log: log, loops: map[string]*loop{}}
+	return &Runner{log: log, clock: time.Now, loops: map[string]*loop{}, search: &searchTracker{}}
 }
 
 // Add registers a loop. It panics on a duplicate name: that is a wiring bug.
@@ -202,9 +213,29 @@ func (r *Runner) drive(ctx context.Context, l *loop) {
 				}
 			}
 		}
+		r.setNext(l, time.Time{})
 		if err := r.Pass(ctx, l.Name); err != nil && ctx.Err() == nil {
 			r.log.Error("loop pass failed", "loop", l.Name, "err", err)
 		}
-		timer.Reset(l.Every())
+		every := l.Every()
+		r.setNext(l, r.clock().Add(every))
+		timer.Reset(every)
 	}
+}
+
+func (r *Runner) setNext(l *loop, at time.Time) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	l.state.next = at
+}
+
+// next is when a loop's next pass is due; zero while one runs, before Run and
+// for an unknown loop.
+func (r *Runner) next(name string) time.Time {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if l := r.loops[name]; l != nil {
+		return l.state.next
+	}
+	return time.Time{}
 }
