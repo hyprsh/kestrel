@@ -7,6 +7,7 @@ import { Ratings } from './Ratings'
 import { SeriesSection } from './SeriesSection'
 import { SlotCard } from './SlotCard'
 import { TitleActions } from './TitleActions'
+import { TitleDownloads } from './TitleDownloads'
 
 /** The right pane of the Library: the selected Title's header, its actions row and its Standard | 4K Slot cards. */
 export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: () => void; onManualSearch: (search: ManualSearchTarget) => void }>(function TitleDetail(
@@ -73,6 +74,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
         </div>
       </div>
       <TitleActions title={title} profileName={profileName} onManualSearch={onManualSearch} />
+      <TitleDownloads titleId={title.id} />
 
       {/* Side by side only when the pane, not the window, has room for both cards' buttons. */}
       <div className="mt-6 grid grid-cols-1 gap-3 @xl:grid-cols-2">
