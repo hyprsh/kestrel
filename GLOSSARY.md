@@ -102,6 +102,10 @@ Moving a completed download into the library under its Title's folder and naming
 The screen showing every Grab from search to Import, grouped by stage (Searching, Queued, Downloading, Post-processing, Importing, Stalled, Done, Failed), and the background work Kestrel is doing right now. Done and Failed reach back 7 days; older Grabs are left to the Log.
 _Avoid_: Downloads, Queue (for the screen)
 
+**Background job**:
+One of Kestrel's fixed set of periodic loops (ADR 0007), such as the Search sweep, RSS, Import or the health checks: an idempotent pass over what the domain rows say is due, run on its own schedule or kicked awake. It is not a queued unit of work: there is no job table, and what runs now, the last run and the next are kept in memory. Activity lists them under Background jobs.
+_Avoid_: Task, scheduled job, queue entry
+
 ### Requests
 
 **Request**:
