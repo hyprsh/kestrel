@@ -13,6 +13,7 @@ import (
 type queueItemJSON struct {
 	GrabID      int64    `json:"grab_id"`
 	TitleID     *int64   `json:"title_id"`
+	HasPoster   bool     `json:"has_poster"`
 	VersionID   *int64   `json:"version_id"`
 	Title       string   `json:"title"`
 	Year        *int     `json:"year"`
@@ -117,6 +118,21 @@ func TestAddingAMovieGrabsTheBestReleaseAndFollowsItToCompleted(t *testing.T) {
 
 	if got := s.grabState(t, hd.GrabID); got != "completed" {
 		t.Errorf("state = %s, want completed", got)
+	}
+}
+
+func TestAQueueItemSaysWhetherItsTitleHasAPoster(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	s.publish(t, goodRelease)
+	s.pass(t, jobs.Search)
+
+	q := s.queue(t)
+	if len(q) == 0 {
+		t.Fatal("nothing queued")
+	}
+	if !q[0].HasPoster {
+		t.Errorf("has_poster is false for Paddington, which has a poster: %+v", q[0])
 	}
 }
 

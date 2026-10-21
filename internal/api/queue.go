@@ -65,6 +65,7 @@ func (s *server) ListQueue(ctx context.Context, _ oapi.ListQueueRequestObject) (
 				}
 			}
 			it.Title = d.Title
+			it.HasPoster = d.PosterPath != ""
 			it.Year = intPtr(d.Year)
 			for _, v := range d.Versions {
 				if v.ID != a.VersionID {

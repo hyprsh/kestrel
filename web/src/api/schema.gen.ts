@@ -3101,6 +3101,8 @@ export interface components {
             grab_id: number;
             /** Format: int64 */
             title_id: number | null;
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title; false when the Title was deleted. */
+            has_poster: boolean;
             /** Format: int64 */
             version_id: number | null;
             /** @description The Title's name, empty when the Title was deleted. */
