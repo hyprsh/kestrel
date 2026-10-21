@@ -4444,7 +4444,7 @@ components:
             $ref: "#/components/schemas/QueueItem"
     QueueItem:
       type: object
-      required: [grab_id, title_id, version_id, title, year, slot, episodes, release_name, phase, bytes_total, bytes_left, eta, is_upgrade, score_delta]
+      required: [grab_id, title_id, has_poster, version_id, title, year, slot, episodes, release_name, phase, bytes_total, bytes_left, eta, is_upgrade, score_delta]
       properties:
         grab_id:
           type: integer
@@ -4453,6 +4453,9 @@ components:
           type: integer
           format: int64
           nullable: true
+        has_poster:
+          type: boolean
+          description: Whether `GET /titles/{id}/poster` serves a poster for the Title; false when the Title was deleted.
         version_id:
           type: integer
           format: int64

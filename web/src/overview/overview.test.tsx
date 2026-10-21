@@ -14,6 +14,7 @@ const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { 
 const item = (over: Partial<QueueItem> = {}): QueueItem => ({
   grab_id: 1,
   title_id: 5,
+  has_poster: false,
   version_id: 11,
   title: 'Paddington',
   year: 2014,
