@@ -12,10 +12,12 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// The add-search is TMDB's: Kestrel only makes it forgiving. It searches without a
-// trailing year and ranks by it, asks once more with a folded query when TMDB finds
-// nothing, ranks TMDB's results by how well they match what was typed, and names the
-// best one when it differs a lot, so the SPA can offer it as "Did you mean …?".
+// The add-search is TMDB's: Kestrel only makes it forgiving. It searches what was
+// typed, so a year that is part of a title ("Blade Runner 2049") stays in; when TMDB
+// finds nothing it asks once more with the query folded and any trailing year
+// dropped. It ranks TMDB's results by how well they match what was typed, a trailing
+// year breaking ties, and names the best one when it differs a lot, so the SPA can
+// offer it as "Did you mean …?".
 
 // trailingYear is a release year typed after the title: "dune 2021" or "dune (2021)".
 var trailingYear = regexp.MustCompile(`^(.*\S)\s+\(?((?:18|19|20)\d\d)\)?$`)
@@ -33,27 +35,28 @@ type Searcher interface {
 // with at most one extra request to p. didYouMean names the best result when it
 // differs a lot from q.
 func Find(ctx context.Context, p Searcher, q string, keep func(SearchResult) bool) (ranked []SearchResult, didYouMean string, err error) {
-	query, year := q, 0
+	bare, year := q, 0
 	if m := trailingYear.FindStringSubmatch(q); m != nil {
-		query, year = m[1], atoi(m[2])
+		bare, year = m[1], atoi(m[2])
 	}
 	search := func(query string) ([]SearchResult, error) {
 		found, err := p.Search(ctx, query)
 		return slices.DeleteFunc(found, func(f SearchResult) bool { return !keep(f) }), err
 	}
-	found, err := search(query)
+	found, err := search(q)
 	if err != nil {
 		return nil, "", err
 	}
-	if folded := fold(query); len(found) == 0 && folded != "" && folded != strings.Join(strings.Fields(strings.ToLower(query)), " ") {
-		if found, err = search(folded); err != nil {
+	// The one retry: folded, without the year. Folding that changes nothing but case is no retry.
+	if retry := fold(bare); len(found) == 0 && retry != "" && retry != strings.Join(strings.Fields(strings.ToLower(q)), " ") {
+		if found, err = search(retry); err != nil {
 			return nil, "", err
 		}
 	}
 	if len(found) == 0 {
 		return nil, "", nil
 	}
-	typed := []string{fold(q), fold(query)}
+	typed := []string{fold(q), fold(bare)}
 	type hit struct {
 		SearchResult
 		key rankKey
@@ -77,11 +80,13 @@ func atoi(s string) int {
 	return n
 }
 
-// rankKey orders search results: how well the query is found in the title, then
-// the typed year, then how close the whole title is to the query.
+// rankKey orders search results: how well the query, with or without its year, is
+// found in the title, then the typed year, then how well the query as typed is
+// (Blade Runner 2049 before Blade Runner), then how close the whole title is to it.
 type rankKey struct {
 	match float64
 	year  bool
+	whole float64
 	close float64
 }
 
@@ -95,10 +100,14 @@ func (k rankKey) compare(o rankKey) int {
 		}
 		return -1
 	}
+	if c := cmp.Compare(k.whole, o.whole); c != 0 {
+		return c
+	}
 	return cmp.Compare(k.close, o.close)
 }
 
-// keyOf is the best key of a result's title and original title against any typed form.
+// keyOf is the best key of a result's title and original title against any typed
+// form; typed[0] is the query as typed.
 func keyOf(typed []string, year int, f SearchResult) rankKey {
 	k := rankKey{year: year != 0 && f.Year == year}
 	for _, title := range []string{f.Title, f.OriginalTitle} {
@@ -106,6 +115,7 @@ func keyOf(typed []string, year int, f SearchResult) rankKey {
 		if t == "" {
 			continue
 		}
+		k.whole = max(k.whole, within(typed[0], t))
 		for _, q := range typed {
 			k.match = max(k.match, within(q, t))
 			k.close = max(k.close, closeness(compact(q), compact(t)))

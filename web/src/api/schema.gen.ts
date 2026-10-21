@@ -329,9 +329,10 @@ export interface paths {
         };
         /**
          * Search the metadata provider for Titles to add
-         * @description One TMDB search across both kinds, in English, ranked best match first. A year typed after
-         *     the title is searched without and ranks by it; when TMDB finds nothing, the query is asked
-         *     once more without accents and punctuation, with `&` as "and". Results already in the
+         * @description One TMDB search across both kinds, in English, ranked best match first. The query is searched
+         *     as typed, so a year that is part of a title ("Blade Runner 2049") stays in; when TMDB finds
+         *     nothing, it is asked once more without a trailing year, accents and punctuation, with `&` as
+         *     "and". A year typed after the title also ranks the results by it. Results already in the
          *     Library carry their Title id in `in_library`. A Series needs a TheTVDB id (from TMDB's external
          *     ids, else a TheTVDB remote-id search by IMDb id); one without is `addable: false` with
          *     `not_addable_reason: not_on_tvdb`, and `POST /titles` refuses it.

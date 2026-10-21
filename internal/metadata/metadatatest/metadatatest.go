@@ -40,7 +40,11 @@ var searches = map[string]string{
 	"amelie":     "search_amelie.json",
 	"jurassic":   "search_jurassic.json",
 	"jurrasic":   "search_jurassic.json",
+	"blade":      "search_blade_runner.json",
 }
+
+// titledYears are years that are part of a title: TMDB finds those.
+var titledYears = []string{"blade runner 2049"}
 
 var yearIn = regexp.MustCompile(`\b(19|20)\d\d\b`)
 
@@ -50,11 +54,16 @@ func New(t testing.TB) *Server {
 	s := &Server{}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /3/search/multi", s.handle(func(w http.ResponseWriter, r *http.Request) {
-		// Like TMDB, a year in the query finds nothing, and so does an accent the
-		// fixture's title lacks ("amélie" for "Amelie"); a typo in "jurrasic" is forgiven.
+		// Like TMDB, a year in the query finds nothing unless it is part of the
+		// title ("blade runner 2049"), and nor does an accent the fixture's title
+		// lacks ("amélie" for "Amelie"); a typo in "jurrasic" is forgiven.
 		q := strings.ToLower(r.URL.Query().Get("query"))
+		rest := q
+		for _, t := range titledYears {
+			rest = strings.ReplaceAll(rest, t, "")
+		}
 		for name, file := range searches {
-			if strings.Contains(q, name) && !yearIn.MatchString(q) {
+			if strings.Contains(q, name) && !yearIn.MatchString(rest) {
 				s.file(w, file, http.StatusOK)
 				return
 			}

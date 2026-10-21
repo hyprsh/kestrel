@@ -57,7 +57,7 @@ func TestLookupRanksTheTitlesThatMatchTheQueryFirst(t *testing.T) {
 	}
 }
 
-func TestLookupSearchesWithoutATrailingYearAndRanksByIt(t *testing.T) {
+func TestLookupFallsBackToTheQueryWithoutItsTrailingYearAndRanksByIt(t *testing.T) {
 	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	if got := tmdbIDs(lookup(t, l, "Dune 1984")); len(got) != 4 || got[0] != 841 || got[1] != 438631 {
@@ -66,8 +66,24 @@ func TestLookupSearchesWithoutATrailingYearAndRanksByIt(t *testing.T) {
 	if got := tmdbIDs(lookup(t, l, "dune (2021)")); len(got) != 4 || got[0] != 438631 {
 		t.Errorf("dune (2021) = %v, want the 2021 Dune first", got)
 	}
-	if got := l.searchesSent(t); !slices.Equal(got, []string{"Dune", "dune"}) {
-		t.Errorf("TMDB was asked %q, want the queries without their years, once each", got)
+	// TMDB finds nothing for either as typed; the one retry drops the year.
+	if got, want := l.searchesSent(t), []string{"Dune 1984", "dune", "dune (2021)", "dune"}; !slices.Equal(got, want) {
+		t.Errorf("TMDB was asked %q, want %q", got, want)
+	}
+}
+
+func TestLookupSearchesAYearThatIsPartOfTheTitle(t *testing.T) {
+	t.Parallel()
+	l := newLibraryInstance(t, metadatatest.Key)
+	if got := tmdbIDs(lookup(t, l, "Blade Runner 2049")); !slices.Equal(got, []int{335984, 78}) {
+		t.Errorf("blade runner 2049 = %v, want Blade Runner 2049 first", got)
+	}
+	if got := l.searchesSent(t); !slices.Equal(got, []string{"Blade Runner 2049"}) {
+		t.Errorf("TMDB was asked %q, want the query as typed, once", got)
+	}
+	// A year that is not part of the title only ranks.
+	if got := tmdbIDs(lookup(t, l, "blade runner 1982")); !slices.Equal(got, []int{78, 335984}) {
+		t.Errorf("blade runner 1982 = %v, want the 1982 Blade Runner first", got)
 	}
 }
 

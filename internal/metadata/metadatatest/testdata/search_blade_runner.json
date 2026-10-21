@@ -1,0 +1,35 @@
+{
+  "page": 1,
+  "results": [
+    {
+      "adult": false,
+      "id": 78,
+      "title": "Blade Runner",
+      "original_language": "en",
+      "original_title": "Blade Runner",
+      "overview": "",
+      "poster_path": "/63N9uy8nd9j7Eog2axPQ8lbr3Wj.jpg",
+      "media_type": "movie",
+      "release_date": "1982-06-25",
+      "video": false,
+      "vote_average": 7.9,
+      "vote_count": 14000
+    },
+    {
+      "adult": false,
+      "id": 335984,
+      "title": "Blade Runner 2049",
+      "original_language": "en",
+      "original_title": "Blade Runner 2049",
+      "overview": "",
+      "poster_path": "/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg",
+      "media_type": "movie",
+      "release_date": "2017-10-04",
+      "video": false,
+      "vote_average": 7.6,
+      "vote_count": 13000
+    }
+  ],
+  "total_pages": 1,
+  "total_results": 2
+}
