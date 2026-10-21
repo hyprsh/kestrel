@@ -207,6 +207,17 @@ describe('Needs attention', () => {
     expect(await screen.findByRole('region', { name: 'Download client' })).toBeInTheDocument()
   })
 
+  it('opens the Log filtered to a row', async () => {
+    const log = { key: 'log', label: 'Show in the Log', method: 'GET' as const, path: '/log?q=kind:health_raised,health_cleared', body: null, confirm: null }
+    fakeAttention([sabRow({ actions: [log] })])
+    renderApp()
+
+    const row = await within(await sectionOf(/needs attention/i)).findByRole('listitem')
+    await userEvent.click(within(row).getByRole('button', { name: 'Show in the Log' }))
+
+    expect(await screen.findByRole('combobox', { name: 'Filter the Log' })).toHaveValue('kind:health_raised,health_cleared')
+  })
+
   it('dismisses a one-off warning and the row goes away', async () => {
     const state = fakeAttention([exdevRow()])
     renderApp()

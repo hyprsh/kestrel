@@ -61,6 +61,9 @@ func TestAStalledImportIsAWarningRowWithRetryNowAndDiscard(t *testing.T) {
 	if retry.Method != "POST" || retry.Path != fmt.Sprintf("/grabs/%d/retry-import", grab) || discard.Confirm == nil {
 		t.Errorf("actions = %+v", row.Actions)
 	}
+	if log := row.action(t, "log"); log.Method != "GET" || log.Path != "/log?q=kind:import_stalled" {
+		t.Errorf("log action = %+v", log)
+	}
 
 	s.prober.set(goodProbe(), nil)
 	if r := s.valid("POST", retry.Path, ""); r.Status != 204 {
