@@ -1,5 +1,0 @@
-# Install with `make hooks`. The hook skips itself until `npm ci` has installed commitlint.
-commit-msg:
-  commands:
-    commitlint:
-      run: test -x node_modules/.bin/commitlint || exit 0; node_modules/.bin/commitlint --edit {1}

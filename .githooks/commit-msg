@@ -1,0 +1,3 @@
+#!/bin/sh
+# Turned on by `make hooks`. Git runs hooks from the top of the working tree.
+exec scripts/check-commit-header.sh "$1"

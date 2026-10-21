@@ -12,18 +12,15 @@ concurrency:
   group: pr-title-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+# Squash merges take the PR title as the commit header on main, so this is the check that
+# guards the headers the changelog is read from.
 jobs:
-  commitlint:
+  title:
     name: Conventional Commit PR title
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 26
-          cache: npm
-      - run: npm ci
-      - name: Lint the PR title
+      - name: Check the PR title
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
-        run: printf '%s\n' "$PR_TITLE" | npx --no-install commitlint
+        run: printf '%s\n' "$PR_TITLE" | make commit-check

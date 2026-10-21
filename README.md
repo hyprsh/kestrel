@@ -193,7 +193,7 @@ It refuses an account the [Config File](#the-config-file) declares: change the p
 
 ## Develop
 
-Needs Go, Node and `make`. Docker is only for the image and the compose check. Every other tool is pinned (Go `tool` directives in `go.mod`, devDependencies in `package.json`), so nothing needs a global install.
+Needs Go, Node and `make`. Docker is only for the image and the compose check. Every other tool is pinned (Go `tool` directives in `go.mod`, devDependencies in `web/package.json`), so nothing needs a global install.
 
 ```sh
 make help          # list every command
@@ -201,11 +201,11 @@ make dev-api       # Go server on :7676, config in .dev/config
 make dev-web       # Vite dev server with hot reload; proxies /api to :7676
 make test          # Go tests (race detector) and SPA tests
 make generate      # regenerate code from api/openapi.yaml and the SQL
-make check         # everything CI checks except the image build and commitlint
+make check         # everything CI checks except the image build and the PR-title check
 make build         # bin/kestrel with the SPA embedded
 make build-silo    # bin/kestrel-silo, the Silo request router plugin
 make docker        # build the image as kestrel:dev
-make hooks         # install the commitlint commit-msg hook
+make hooks         # check commit headers on commit (.githooks/commit-msg)
 ```
 
 Run `make dev-api` and `make dev-web` in two terminals, then open the Vite URL.
@@ -248,5 +248,5 @@ Once a day, unless Settings > Updates > "Check GitHub for updates" is off, Kestr
 - **Spec first.** Add an endpoint to `api/openapi.yaml`, run `make generate`, then implement the generated `StrictServerInterface` method. CI fails when generated Go or TypeScript differs from what the spec produces.
 - **Tests at the seams.** Go: the store, and the `api` module through HTTP against a real temp-dir SQLite, with every response validated against the spec (kin-openapi). SPA: Vitest and Testing Library with MSW handlers typed from the spec (`web/src/test/handlers.ts`), so a handler that drifts from the spec does not compile.
 - **Migrations.** Add `internal/store/migrations/NNNNN_name.sql` in goose format. Migrations only go forward.
-- **Commits** are [Conventional Commits](https://www.conventionalcommits.org/) with all types allowed (`feat fix docs style refactor perf test build ci chore revert`), checked by commitlint on PR titles and locally by `make hooks`. Only `feat`, `fix` and `perf` reach the changelog.
+- **Commits** are [Conventional Commits](https://www.conventionalcommits.org/) with all types allowed (`feat fix docs style refactor perf test build ci chore revert`), checked by `scripts/check-commit-header.sh` on PR titles (squash merges take the PR title as the header) and, after `make hooks`, on each commit. Only `feat`, `fix` and `perf` reach the changelog.
 - **Base URL.** `web/index.html` carries `<base href="/" />` and the server rewrites it to `KESTREL_BASE_URL`, so the SPA uses relative URLs and the API client resolves against `document.baseURI`.
