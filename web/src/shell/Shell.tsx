@@ -10,6 +10,7 @@ import { CommandMenu, type MenuAction, type MenuMode } from '../command/CommandM
 import { Adoption } from '../adoption/Adoption'
 import { Cleanup } from '../cleanup/Cleanup'
 import { CleanupLauncher } from '../cleanup/launch'
+import { Button } from '../forms'
 import { MOD } from '../keys'
 import { useSearchAllWanted } from '../api/wanted'
 import { Library, type Preset } from '../library/Library'
@@ -73,9 +74,20 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const canLogout = auth.data?.state === 'ok' && auth.data.me.method === 'session'
   const searchAll = useSearchAllWanted()
   const { mutate: searchAllWanted } = searchAll
+  // What "Search all Wanted" queued, until the person follows it to the Searching card or dismisses it.
+  const [searchQueued, setSearchQueued] = useState<{ versions: number } | { error: string } | null>(null)
   const actions: MenuAction[] = useMemo(
     () => [
-      { id: 'search-wanted', label: 'Search all Wanted', keywords: 'missing search catch up', run: () => searchAllWanted() },
+      {
+        id: 'search-wanted',
+        label: 'Search all Wanted',
+        keywords: 'missing search catch up',
+        run: () =>
+          searchAllWanted(undefined, {
+            onSuccess: (versions) => setSearchQueued({ versions }),
+            onError: (e) => setSearchQueued({ error: e.message }),
+          }),
+      },
       { id: 'theme', label: 'Switch theme', keywords: 'dark light mode', run: cycle },
       { id: 'setup', label: 'Run setup again', keywords: 'wizard', run: onRunSetup },
       { id: 'adopt', label: 'Scan for unmanaged files', keywords: 'adopt adoption existing library import', run: () => setScreen('adoption') },
@@ -112,6 +124,16 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
       <Rail screen={screen} onSelect={select} theme={theme} onTheme={cycle} onAdd={() => setMenu({ mode: 'add' })} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar title={current.label} onOpenMenu={() => setMenu({ mode: 'root' })} />
+        {searchQueued && (
+          <SearchQueued
+            queued={searchQueued}
+            onSee={() => {
+              setSearchQueued(null)
+              goPath('/overview/searching')
+            }}
+            onDismiss={() => setSearchQueued(null)}
+          />
+        )}
         <main className="flex min-h-0 flex-1 flex-col">
           {screen === 'settings' ? (
             <SettingsScreen onRunSetup={onRunSetup} onAdopt={() => setScreen('adoption')} />
@@ -270,6 +292,27 @@ function TopBar({ title, onOpenMenu }: { title: string; onOpenMenu: () => void }
       </button>
       <ServerStatus />
     </header>
+  )
+}
+
+/** The confirmation of "Search all Wanted", with the way to the Searching card that follows the searches. */
+function SearchQueued({ queued, onSee, onDismiss }: { queued: { versions: number } | { error: string }; onSee: () => void; onDismiss: () => void }) {
+  return (
+    <div role="status" aria-label="Search all Wanted" className="flex shrink-0 items-center gap-3 border-b border-gray-alpha-400 bg-background-200 px-4 py-2 text-[12px]">
+      {'error' in queued ? (
+        <span className="text-red-900">{`Search all Wanted failed: ${queued.error}`}</span>
+      ) : (
+        <>
+          <span>{`${queued.versions} Wanted ${queued.versions === 1 ? 'Version' : 'Versions'} queued for a search`}</span>
+          <Button variant="secondary" onClick={onSee}>
+            See the search
+          </Button>
+        </>
+      )}
+      <Button variant="secondary" className="ml-auto" onClick={onDismiss}>
+        Dismiss
+      </Button>
+    </div>
   )
 }
 

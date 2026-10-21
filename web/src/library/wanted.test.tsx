@@ -83,4 +83,21 @@ describe('Search all Wanted in the command menu', () => {
     await waitFor(() => expect(posted).toBe(1))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
+
+  it('confirms how many Versions it queued and links to the Searching card', async () => {
+    fakeLibrary([])
+    server.use(http.post('/wanted/search', ({ response }) => response(202).json({ versions: 3 })))
+    await openLibrary()
+    await userEvent.keyboard('{Control>}k{/Control}')
+    const menu = await screen.findByRole('dialog', { name: /command menu/i })
+    await userEvent.type(within(menu).getByRole('combobox'), 'search all')
+    await userEvent.click(await within(menu).findByRole('option', { name: /search all wanted/i }))
+
+    const done = await screen.findByRole('status', { name: /search all wanted/i })
+    expect(done).toHaveTextContent('3 Wanted Versions queued for a search')
+
+    await userEvent.click(within(done).getByRole('button', { name: /see the search/i }))
+    expect(await screen.findByRole('region', { name: 'Searching' })).toBeInTheDocument()
+    expect(screen.queryByRole('status', { name: /search all wanted/i })).not.toBeInTheDocument()
+  })
 })
