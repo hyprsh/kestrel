@@ -170,6 +170,7 @@ describe('Activity', () => {
 
     await waitFor(() => expect(sent).toEqual(['retry 6', 'discard 6']))
     expect(confirm).toHaveBeenCalledTimes(2)
+    expect(confirm).toHaveBeenCalledWith('Discard this Grab? Its downloaded files are deleted and the Version is searched for again.')
     confirm.mockRestore()
   })
 

@@ -64,6 +64,9 @@ func TestAStalledImportIsAWarningRowWithRetryNowAndDiscard(t *testing.T) {
 	if log := row.action(t, "log"); log.Method != "GET" || log.Path != "/log?q=kind:import_stalled" {
 		t.Errorf("log action = %+v", log)
 	}
+	if want := "Discard this Grab? Its downloaded files are deleted and the Version is searched for again."; discard.Confirm != nil && *discard.Confirm != want {
+		t.Errorf("confirm = %q, want %q", *discard.Confirm, want)
+	}
 
 	s.prober.set(goodProbe(), nil)
 	if r := s.valid("POST", retry.Path, ""); r.Status != 204 {

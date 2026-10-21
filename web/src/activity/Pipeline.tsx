@@ -215,7 +215,7 @@ function StalledRow({ grab: g, now, nav, onOpenTitle }: { grab: GrabEntry; now: 
   const act = useStalledImport()
   const st = g.stalled!
   const discard = () => {
-    if (window.confirm('Discard this download? Its files are deleted and the Version is searched for again.')) act.mutate({ id: g.grab_id, action: 'discard' })
+    if (window.confirm('Discard this Grab? Its downloaded files are deleted and the Version is searched for again.')) act.mutate({ id: g.grab_id, action: 'discard' })
   }
   return (
     <GrabRow
