@@ -1,4 +1,4 @@
-import { Button, Input, Note } from '@hyprsh/design'
+import { Badge, Button, Input, Note } from '@hyprsh/design'
 import { useState, type FormEvent } from 'react'
 import { ApiError, usePatchSettings, useSettings, type Settings } from '../api/queries'
 
@@ -14,8 +14,9 @@ const kinds: { key: Kind; label: string }[] = [
  * The Root folders, shared by the wizard and Settings: one or more per kind,
  * prefilled from the server. The first of each kind is the default when adding
  * a Title. The server checks that each exists, is a directory and is writable.
+ * `compact` (Settings) reads them as a list first and opens the form on Edit.
  */
-export function RootFoldersForm() {
+export function RootFoldersForm({ compact }: { compact?: boolean }) {
   const { data, isError } = useSettings()
   if (isError)
     return (
@@ -24,20 +25,53 @@ export function RootFoldersForm() {
       </Note>
     )
   if (!data) return null
-  return <Form saved={data.root_folders} declared={data.from_config_file.root_folders} />
+  return <Form saved={data.root_folders} declared={data.from_config_file.root_folders} compact={compact} />
 }
 
-function Form({ saved, declared }: { saved: Folders; declared: boolean }) {
+function Form({ saved, declared, compact }: { saved: Folders; declared: boolean; compact?: boolean }) {
   const [folders, setFolders] = useState<Pick<Folders, Kind>>({ movies: saved.movies, series: saved.series })
+  const [editing, setEditing] = useState(!compact)
   const save = usePatchSettings()
 
   const set = (kind: Kind, list: string[]) => setFolders((f) => ({ ...f, [kind]: list }))
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    save.mutate({ root_folders: { movies: folders.movies.map((p) => p.trim()), series: folders.series.map((p) => p.trim()) } })
+    save.mutate({ root_folders: { movies: folders.movies.map((p) => p.trim()), series: folders.series.map((p) => p.trim()) } }, { onSuccess: () => compact && setEditing(false) })
+  }
+  const cancel = () => {
+    setFolders({ movies: saved.movies, series: saved.series })
+    save.reset()
+    setEditing(false)
   }
   const fields = save.error instanceof ApiError ? save.error.fields : []
   const otherError = save.isError && fields.length === 0
+
+  if (!editing)
+    return (
+      <div className="flex max-w-xl flex-col gap-4">
+        {kinds.map(({ key, label }) => (
+          <section key={key} aria-label={label} className="flex flex-col gap-1">
+            <h4 className="label-13 text-gray-900">{label}</h4>
+            <ul className="flex flex-col divide-y divide-gray-alpha-400 rounded-md border border-gray-alpha-400">
+              {saved[key].map((path, i) => (
+                <li key={path} className="flex items-center gap-2 px-3 py-1.5">
+                  <code className="copy-13-mono min-w-0 flex-1 break-all">{path}</code>
+                  {i === 0 && (
+                    <Badge variant="gray-subtle" size="sm" title={`The default ${label} folder`}>
+                      Default
+                    </Badge>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+        <Button size="small" className="self-start" disabled={declared} onClick={() => setEditing(true)}>
+          Edit root folders
+        </Button>
+        {declared && <Note size="small">The Config File sets the root folders, so they cannot be changed here. Change the file and restart Kestrel instead.</Note>}
+      </div>
+    )
 
   return (
     <form onSubmit={submit} className="flex max-w-xl flex-col gap-5">
@@ -109,9 +143,16 @@ function Form({ saved, declared }: { saved: Folders; declared: boolean }) {
           Saved.
         </Note>
       )}
-      <Button size="small" variant="primary" typeName="submit" disabled={save.isPending || declared} className="self-start">
-        Save root folders
-      </Button>
+      <div className="flex gap-2">
+        <Button size="small" variant="primary" typeName="submit" disabled={save.isPending || declared}>
+          Save root folders
+        </Button>
+        {compact && (
+          <Button size="small" onClick={cancel}>
+            Cancel
+          </Button>
+        )}
+      </div>
       {declared && <Note size="small">The Config File sets the root folders, so they cannot be changed here. Change the file and restart Kestrel instead.</Note>}
     </form>
   )
