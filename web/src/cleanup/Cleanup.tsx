@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { usePreviewCleanup, useRunCleanup, type CleanupCategory, type CleanupPreview, type CleanupResult } from '../api/cleanup'
 import { ApiError } from '../api/queries'
-import { Button, ErrorText } from '../forms'
+import { Button, Checkbox, Code, DestructiveActionModal, EmptyState, Note, Spinner } from '@hyprsh/design'
 
 const labels: Record<CleanupCategory['key'], string> = {
   junk: 'Junk (.nfo, .sfv, .txt, .url, .exe, Thumbs.db, .DS_Store)',
@@ -29,15 +29,20 @@ export function Cleanup({ titleIds }: { titleIds?: number[] }) {
   return (
     <div className="min-h-0 flex-1 overflow-auto">
       <div className="mx-auto max-w-4xl p-6">
-        <h1 className="text-[15px] font-semibold tracking-tight">Clean up Unmanaged files</h1>
-        <p className="mt-1 text-gray-900">
+        <h1 className="heading-16">Clean up Unmanaged files</h1>
+        <p className="copy-14 mt-1 text-gray-900">
           Lists the files in your tracked Titles' folders that no Version holds. Deleting is permanent. Nothing is deleted until you confirm.
         </p>
-        {failed instanceof ApiError && <ErrorText>{failed.message}</ErrorText>}
+        {failed instanceof ApiError && (
+          <Note variant="error" size="small" className="mt-2">
+            {failed.message}
+          </Note>
+        )}
         {done && (
-          <div role="status" className="mt-4 rounded-md border border-gray-alpha-400 p-3">
-            Deleted {done.deleted} {done.deleted === 1 ? 'file' : 'files'} ({mb(done.bytes)})
-            {done.failed > 0 && `, ${done.failed} could not be deleted`}.
+          <div role="status" className="mt-4">
+            <Note variant={done.failed > 0 ? 'warning' : 'success'}>
+              {`Deleted ${done.deleted} ${done.deleted === 1 ? 'file' : 'files'} (${mb(done.bytes)})${done.failed > 0 ? `, ${done.failed} could not be deleted` : ''}.`}
+            </Note>
           </div>
         )}
         {preview.data ? (
@@ -45,6 +50,7 @@ export function Cleanup({ titleIds }: { titleIds?: number[] }) {
             key={preview.data.preview_id}
             data={preview.data}
             busy={run.isPending}
+            error={run.error instanceof ApiError ? run.error.message : null}
             onRun={(categories, exclude) =>
               run.mutate({ previewId: preview.data.preview_id, categories, exclude }, { onSuccess: (r) => { setDone(r); preview.reset() } })
             }
@@ -52,7 +58,13 @@ export function Cleanup({ titleIds }: { titleIds?: number[] }) {
           />
         ) : (
           <div className="mt-4">
-            <Button onClick={() => { setDone(null); preview.mutate(titleIds) }} disabled={preview.isPending}>
+            <Button
+              variant="primary"
+              size="small"
+              prefix={preview.isPending ? <Spinner size="sm" /> : undefined}
+              onClick={() => { setDone(null); preview.mutate(titleIds) }}
+              disabled={preview.isPending}
+            >
               Look for Unmanaged files
             </Button>
           </div>
@@ -65,11 +77,13 @@ export function Cleanup({ titleIds }: { titleIds?: number[] }) {
 function Review({
   data,
   busy,
+  error,
   onRun,
   onCancel,
 }: {
   data: CleanupPreview
   busy: boolean
+  error: string | null
   onRun: (categories: CleanupCategory['key'][], exclude: string[]) => void
   onCancel: () => void
 }) {
@@ -86,31 +100,27 @@ function Review({
   const bytes = files.reduce((n, f) => n + f.size, 0)
   const nonEmpty = data.categories.filter((c) => c.count > 0)
 
-  if (nonEmpty.length === 0) return <div className="mt-6 text-gray-900">No Unmanaged files were found.</div>
+  if (nonEmpty.length === 0) return <EmptyState className="mt-6" title="No Unmanaged Files" description="No Unmanaged files were found." />
   return (
     <div className="mt-4">
       <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
         {nonEmpty.map((c) => (
           <li key={c.key} className="p-3">
-            <label className="flex items-center gap-2 font-medium">
-              <input type="checkbox" checked={ticked.has(c.key)} onChange={() => { setConfirming(false); setTicked(toggle(ticked, c.key)) }} aria-label={labels[c.key]} />
-              {labels[c.key]}
-              <span className="text-[12px] font-normal text-gray-900">
+            <div className="flex items-center gap-2">
+              <Checkbox checked={ticked.has(c.key)} onChange={() => setTicked(toggle(ticked, c.key))} aria-label={labels[c.key]}>
+                <span className="label-14">{labels[c.key]}</span>
+              </Checkbox>
+              <span className="copy-13 text-gray-900">
                 {c.count} {c.count === 1 ? 'item' : 'items'}, {mb(c.size)}
               </span>
-            </label>
+            </div>
             <details className="mt-1 pl-6">
-              <summary className="cursor-pointer text-[12px] text-gray-900">Show files</summary>
+              <summary className="label-12 cursor-pointer text-gray-900">Show files</summary>
               <ul className="mt-1 flex flex-col gap-1">
                 {c.files.map((f) => (
-                  <li key={f.path} className="flex items-center gap-2 text-[12px]">
-                    <input
-                      type="checkbox"
-                      checked={!skipped.has(f.path)}
-                      onChange={() => { setConfirming(false); setSkipped(toggle(skipped, f.path)) }}
-                      aria-label={`Delete ${baseName(f.path)}`}
-                    />
-                    <span className="font-mono" title={f.path}>{baseName(f.path)}</span>
+                  <li key={f.path} className="copy-13 flex items-center gap-2">
+                    <Checkbox checked={!skipped.has(f.path)} onChange={() => setSkipped(toggle(skipped, f.path))} aria-label={`Delete ${baseName(f.path)}`} />
+                    <Code title={f.path}>{baseName(f.path)}</Code>
                   </li>
                 ))}
               </ul>
@@ -119,20 +129,24 @@ function Review({
         ))}
       </ul>
       <div className="mt-4 flex items-center gap-2">
-        <Button variant="secondary" onClick={onCancel} disabled={busy}>
+        <Button size="small" onClick={onCancel} disabled={busy}>
           Cancel
         </Button>
-        {confirming ? (
-          <Button onClick={() => onRun(chosen.map((c) => c.key), [...skipped])} disabled={busy}>
-            Delete permanently
-          </Button>
-        ) : (
-          <Button onClick={() => setConfirming(true)} disabled={files.length === 0}>
-            Delete {files.length} {files.length === 1 ? 'item' : 'items'} ({mb(bytes)})
-          </Button>
-        )}
-        {confirming && <span className="text-gray-900">This cannot be undone.</span>}
+        <Button variant="error" size="small" onClick={() => setConfirming(true)} disabled={files.length === 0}>
+          Delete {files.length} {files.length === 1 ? 'item' : 'items'} ({mb(bytes)})
+        </Button>
       </div>
+      <DestructiveActionModal
+        open={confirming}
+        onCancel={() => setConfirming(false)}
+        onConfirm={() => onRun(chosen.map((c) => c.key), [...skipped])}
+        title="Delete Files"
+        description={`Delete ${files.length} ${files.length === 1 ? 'item' : 'items'} (${mb(bytes)}) from your tracked Titles' folders.`}
+        irreversibleDescription="Deleting these files is permanent and cannot be undone."
+        confirmLabel="Delete Files"
+        loading={busy}
+        error={error}
+      />
     </div>
   )
 }
