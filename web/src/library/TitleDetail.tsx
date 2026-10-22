@@ -29,7 +29,7 @@ export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: ()
           onEscape()
         }
       }}
-      className="min-w-0 flex-1 overflow-auto p-6 outline-none"
+      className="min-w-0 flex-1 overflow-auto p-6 outline-none max-sm:p-4"
     >
       {isError ? (
         <Note variant="error" size="small">

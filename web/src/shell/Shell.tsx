@@ -3,12 +3,12 @@
 import { About } from '../about/About'
 import { Activity } from '../activity/Activity'
 import { useRunningNow, type Running } from '../activity/running'
-import { Badge, Button, CommandMenuTrigger, Note, Spinner, StatusDot, ThemeSwitcher, Tooltip } from '@hyprsh/design'
-import { Activity as ActivityIcon, CalendarClock, Inbox, Info, LibraryBig, LogOut, Plus, ScrollText, Settings, X } from 'lucide-react'
+import { Badge, Button, CommandMenuTrigger, Note, Spinner, ThemeSwitcher, Tooltip } from '@hyprsh/design'
+import { Activity as ActivityIcon, CalendarClock, Inbox, Info, LibraryBig, LogOut, Plus, ScrollText, Search, Settings, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAttention } from '../api/attention'
-import { useAuth, useLogout, useSystem } from '../api/queries'
+import { useAuth, useLogout } from '../api/queries'
 import { CommandMenu, type MenuAction, type MenuMode } from '../command/CommandMenu'
 import { Adoption } from '../adoption/Adoption'
 import { Cleanup } from '../cleanup/Cleanup'
@@ -20,11 +20,14 @@ import { startLiveStream } from '../live/stream'
 import { Log } from '../log/Log'
 import { Overview } from '../overview/Overview'
 import { Requests } from '../requests/Requests'
-import { currentPlace, PlaceOpener, placeOf, placePath, showPlace } from '../place'
+import { currentPlace, PlaceOpener, placeOf, placePath, pushedPlace, pushPlace, showPlace } from '../place'
+import { usePhone } from '../responsive'
 import { Upcoming } from '../upcoming/Upcoming'
 import { Settings as SettingsScreen } from '../screens/Settings'
 import { THEME_KEY, useTheme, type Theme } from '../theme'
 import { KestrelLogo } from '../ui'
+import { MoreSheet, TabBar, type Tab } from './PhoneNav'
+import { ServerStatus } from './ServerStatus'
 
 const screens = [
   { key: 'overview', label: 'Overview', icon: <Inbox /> },
@@ -40,19 +43,41 @@ const adoption = { key: 'adoption', label: 'Adopt existing library' }
 const cleanup = { key: 'cleanup', label: 'Clean up Unmanaged files' }
 // Reached from the Overview's Recent requests, not the rail; a place, so "/requests?q=…" opens it.
 const requests = { key: 'requests', label: 'Requests' }
+// The tab bar of a phone; the rest of the screens are behind More.
+const tabKeys = ['overview', 'library', 'upcoming', 'activity']
+const moreKeys = ['settings', 'log', 'about']
+const isTitleId = (section: string) => /^\d+$/.test(section)
 const isPlace = (key: string) => [...screens, about, requests].some((s) => s.key === key)
 
 export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   // A bookmarked address opens its screen with its filter.
   const [start] = useState(currentPlace)
   const [screen, setScreen] = useState(isPlace(start.screen) ? start.screen : 'overview')
-  const [libraryId, setLibraryId] = useState<number | null>(null)
+  // A phone shows the Library's list and an opened Title page as two screens; "/library/42" is the second.
+  const phone = usePhone()
+  const startTitle = start.screen === 'library' && isTitleId(start.section) ? Number(start.section) : null
+  const [libraryId, setLibraryId] = useState<number | null>(startTitle)
+  const [titleOpen, setTitleOpen] = useState(startTitle !== null)
+  const [more, setMore] = useState(false)
   const [cleanupTitles, setCleanupTitles] = useState<number[] | undefined>(undefined)
   const [menu, setMenu] = useState<{ mode: MenuMode } | null>(null)
   // The text of a screen's filter field (the Library's or the Log's); another screen starts unfiltered.
   const [filter, setFilter] = useState({ screen: start.screen, q: start.q })
   const query = filter.screen === screen ? filter.q : ''
-  useEffect(() => showPlace(placePath(screen, query)), [screen, query])
+  const section = phone && screen === 'library' && titleOpen && libraryId !== null ? String(libraryId) : ''
+  useEffect(() => showPlace(placePath(screen, query, section)), [screen, query, section])
+  // Back and Forward step between the list and a Title page (and the screen a Title was opened from).
+  useEffect(() => {
+    const onPop = () => {
+      const place = currentPlace()
+      if (isPlace(place.screen)) setScreen(place.screen)
+      setFilter({ screen: place.screen, q: place.q })
+      setTitleOpen(isTitleId(place.section))
+      if (isTitleId(place.section)) setLibraryId(Number(place.section))
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
   const { theme, setTheme, cycle } = useTheme()
   const auth = useAuth()
   const logout = useLogout()
@@ -104,6 +129,14 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     ],
     [cycle, onRunSetup, canLogout, logout, searchAllWanted, openCleanup],
   )
+  const needs = useAttention().data
+  const tabs: Tab[] = tabKeys
+    .map((k) => screens.find((s) => s.key === k)!)
+    .map((s) => ({
+      ...s,
+      badge: s.key === 'overview' && needs && needs.count > 0 ? <AttentionBadge count={needs.count} blocking={needs.severity === 'blocking'} /> : undefined,
+    }))
+  const moreItems: Tab[] = moreKeys.map((k) => [...screens, about].find((s) => s.key === k)!)
   const places = useMemo(() => [...screens, about].map((s) => ({ id: s.key, label: s.label })), [])
   const closeMenu = useCallback(() => setMenu(null), [])
   // An action that opens a place: "/settings/download-client" is the Settings screen at that
@@ -116,10 +149,33 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     if (section) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
   }, [])
   // An opened Title is shown, so the Library's filter must not hide it.
-  const openTitle = useCallback((id: number) => {
-    setLibraryId(id)
-    setFilter({ screen: 'library', q: '' })
-    setScreen('library')
+  const openTitle = useCallback(
+    (id: number) => {
+      setLibraryId(id)
+      setFilter({ screen: 'library', q: '' })
+      setScreen('library')
+      setTitleOpen(true)
+      if (phone) pushPlace(placePath('library', '', String(id)))
+    },
+    [phone],
+  )
+  // A tap on a Title in the Library's list on a phone.
+  const openLibraryTitle = useCallback(
+    (id: number) => {
+      setLibraryId(id)
+      setTitleOpen(true)
+      pushPlace(placePath('library', query, String(id)))
+    },
+    [query],
+  )
+  const closeLibraryTitle = useCallback(() => {
+    if (pushedPlace()) history.back()
+    else setTitleOpen(false)
+  }, [])
+  // The Library tab always leads to the list, also while a Title page is open.
+  const select = useCallback((key: string) => {
+    setScreen(key)
+    if (key === 'library') setTitleOpen(false)
   }, [])
 
   return (
@@ -127,9 +183,16 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     <PlaceOpener.Provider value={goPath}>
     {/* The 13px base the screens not yet built from the design inherit; they drop it with their own type classes. */}
     <div className="flex h-full bg-background-100 text-[13px] text-gray-1000">
-      <Rail screen={screen} onSelect={setScreen} theme={theme} onTheme={setTheme} onAdd={() => setMenu({ mode: 'add' })} />
+      {!phone && <Rail screen={screen} onSelect={setScreen} theme={theme} onTheme={setTheme} onAdd={() => setMenu({ mode: 'add' })} />}
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar title={current.label} onOpenMenu={() => setMenu({ mode: 'root' })} running={running} onOpenRunning={() => goPath('/activity/running')} />
+        <TopBar
+          title={current.label}
+          phone={phone}
+          onOpenMenu={() => setMenu({ mode: 'root' })}
+          onAdd={() => setMenu({ mode: 'add' })}
+          running={running}
+          onOpenRunning={() => goPath('/activity/running')}
+        />
         {searchQueued && (
           <SearchQueued
             queued={searchQueued}
@@ -153,6 +216,9 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
               onQuery={(q) => setFilter({ screen: 'library', q })}
               selectedId={libraryId}
               onSelect={setLibraryId}
+              titleOpen={titleOpen}
+              onOpenTitle={openLibraryTitle}
+              onCloseTitle={closeLibraryTitle}
               onAdd={() => setMenu({ mode: 'add' })}
               onAdopt={() => setScreen('adoption')}
             />
@@ -176,7 +242,27 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
             <Overview onOpen={goPath} onOpenTitle={openTitle} />
           )}
         </main>
+        {phone && (
+          <TabBar
+            tabs={tabs}
+            screen={screen}
+            moreActive={more || !tabKeys.includes(screen)}
+            onSelect={select}
+            onMore={() => setMore(true)}
+          />
+        )}
       </div>
+      {phone && more && (
+        <MoreSheet
+          items={moreItems}
+          screen={screen}
+          onSelect={select}
+          onClose={() => setMore(false)}
+          theme={theme}
+          onTheme={setTheme}
+          onLogout={canLogout ? () => logout.mutate(undefined) : undefined}
+        />
+      )}
       {menu && <CommandMenu initialMode={menu.mode} actions={actions} places={places} onClose={closeMenu} onGo={setScreen} onOpenTitle={openTitle} />}
     </div>
     </PlaceOpener.Provider>
@@ -274,7 +360,35 @@ function Rail({
 }
 
 /** Three columns with equal side tracks, so the command box stays centred whatever the right side holds. */
-function TopBar({ title, onOpenMenu, running, onOpenRunning }: { title: string; onOpenMenu: () => void; running: Running[]; onOpenRunning: () => void }) {
+function TopBar({
+  title,
+  phone,
+  onOpenMenu,
+  onAdd,
+  running,
+  onOpenRunning,
+}: {
+  title: string
+  phone: boolean
+  onOpenMenu: () => void
+  onAdd: () => void
+  running: Running[]
+  onOpenRunning: () => void
+}) {
+  // A phone has no room for the search box: the title, what runs, and buttons for Add and the menu.
+  if (phone)
+    return (
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-gray-alpha-400 pr-2 pl-4">
+        <div className="heading-14 min-w-0 flex-1 truncate">{title}</div>
+        <RunningIndicator running={running} onOpen={onOpenRunning} />
+        <Button svgOnly variant="tertiary" aria-label="Add Title" onClick={onAdd}>
+          <Plus />
+        </Button>
+        <Button svgOnly variant="tertiary" aria-label="Search or run a command" onClick={onOpenMenu}>
+          <Search />
+        </Button>
+      </header>
+    )
   return (
     <header className="grid h-12 shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,460px)_minmax(0,1fr)] items-center gap-4 border-b border-gray-alpha-400 px-4">
       <div className="heading-14 truncate">{title}</div>
@@ -327,14 +441,5 @@ function RunningIndicator({ running, onOpen }: { running: Running[]; onOpen: () 
     <Button variant="tertiary" size="small" onClick={onOpen} title={running.map((r) => r.name).join('\n')} prefix={<Spinner size="sm" />}>
       {label}
     </Button>
-  )
-}
-
-function ServerStatus() {
-  const { data, isError } = useSystem()
-  return (
-    <span className="label-13 shrink-0 text-gray-900">
-      <StatusDot state={isError ? 'error' : data ? 'success' : 'pending'} label={isError ? 'Offline' : data ? `Kestrel ${data.version}` : 'Connecting…'} />
-    </span>
   )
 }

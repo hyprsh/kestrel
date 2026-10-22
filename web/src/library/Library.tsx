@@ -1,4 +1,4 @@
-import { CheckSquare, Eraser, FolderInput, Plus } from 'lucide-react'
+import { ArrowLeft, CheckSquare, ChevronDown, Eraser, FolderInput, Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useProfiles, useTitles, type TitleRow } from '../api/queries'
 import { useOpenCleanup } from '../cleanup/launch'
@@ -7,6 +7,7 @@ import { useKey, useListNav } from '../keys'
 import { SelectionBar, useSelection } from '../selection'
 import { parse } from '../filter/query'
 import { QueryField } from '../filter/QueryField'
+import { usePhone } from '../responsive'
 import { cx } from '../ui'
 import { KindIcon, SlotDots } from './bits'
 import { BulkActions } from './BulkActions'
@@ -23,10 +24,17 @@ import { TitleDetail, type ManualSearchTarget } from './TitleDetail'
  * such as is:wanted, see ./filter.ts, kept in the address bar), x ticks the
  * Title under the cursor. While Titles are ticked, the right pane holds the
  * actions that change them together, and Escape clears the ticks.
+ *
+ * On a phone the list and the Title page are two screens: tapping a Title opens its page
+ * full screen (`titleOpen`, kept by the Shell in the address bar so Back returns to the list),
+ * and the filters sit in a row that opens and closes.
  */
 export function Library({
   selectedId,
   onSelect,
+  titleOpen,
+  onOpenTitle,
+  onCloseTitle,
   onAdd,
   onAdopt,
   query,
@@ -34,12 +42,17 @@ export function Library({
 }: {
   selectedId: number | null
   onSelect: (id: number) => void
+  /** Phone only: whether the Title page shows instead of the list, and how a tap opens a Title and Back closes it. */
+  titleOpen: boolean
+  onOpenTitle: (id: number) => void
+  onCloseTitle: () => void
   onAdd: () => void
   onAdopt: () => void
   /** The filter field's text, kept by the Shell so it can live in the address bar. */
   query: string
   onQuery: (query: string) => void
 }) {
+  const phone = usePhone()
   const titles = useTitles()
   const openCleanup = useOpenCleanup()
   const profiles = useProfiles().data
@@ -70,52 +83,153 @@ export function Library({
   )
   useKey('x', () => current && selection.toggle(current.id), !searching)
 
+  // Phone: the ticked Titles' actions are a screen of their own, reached from the selection bar.
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(query !== '')
+  useEffect(() => {
+    if (selection.count === 0) setBulkOpen(false)
+  }, [selection.count])
+
   const empty = titles.isSuccess && all.length === 0
+  const tools = (
+    <div className="flex gap-1">
+      <Button variant="tertiary" size="small" prefix={<FolderInput />} onClick={onAdopt} aria-label="Adopt existing library" title="Adopt existing library">
+        Adopt
+      </Button>
+      <Button variant="tertiary" size="small" prefix={<Eraser />} onClick={() => openCleanup()} aria-label="Clean up Unmanaged files" title="Clean up Unmanaged files">
+        Clean up
+      </Button>
+      <Button
+        variant={selection.active ? 'secondary' : 'tertiary'}
+        size="small"
+        prefix={<CheckSquare />}
+        onClick={() => (selection.active ? selection.clear() : selection.setActive(true))}
+        aria-pressed={selection.active}
+        title="Tick Titles to change together (x)"
+      >
+        Tick
+      </Button>
+    </div>
+  )
+  const field = (
+    <QueryField
+      id="library-filter"
+      label="Filter the Library"
+      placeholder="Filter, e.g. is:wanted  /"
+      value={query}
+      onChange={onQuery}
+      qualifiers={qualifiers}
+      onKeyDown={(e) => {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault()
+          const next = Math.min(Math.max(index + (e.key === 'ArrowDown' ? 1 : -1), 0), rows.length - 1)
+          if (rows[next]) onSelect(rows[next].id)
+        } else if (e.key === 'Escape') {
+          e.preventDefault()
+          onQuery('')
+          focusList()
+        } else if (e.key === 'Enter') {
+          e.preventDefault()
+          focusList()
+        }
+      }}
+    />
+  )
+
+  const bulk = selection.count > 0 ? <BulkActions rows={rows.filter((r) => selection.has(r.id))} /> : null
+  const title =
+    current && searching ? (
+      <ManualSearch
+        key={`${search.versionId} ${JSON.stringify(search.scope?.body ?? null)}`}
+        titleName={current.title}
+        slotLabel={slotLabel[search.slot]}
+        profileName={search.profileName}
+        versionId={search.versionId}
+        scope={search.scope}
+        onBack={() => {
+          setSearch(null)
+          requestAnimationFrame(() => paneRef.current?.focus())
+        }}
+      />
+    ) : current ? (
+      <TitleDetail key={current.id} ref={paneRef} row={current} onEscape={focusList} onManualSearch={(s) => setSearch({ ...s, titleId: current.id })} />
+    ) : (
+      <div className="flex flex-1 items-center justify-center text-center">
+        {titles.isError ? (
+          <Note variant="error" size="small">
+            Could not load the Library.
+          </Note>
+        ) : empty ? (
+          <EmptyState title="Nothing here yet" description="Add your first Movie or Series.">
+            <Button variant="primary" size="small" prefix={<Plus />} onClick={onAdd}>
+              Add a title
+            </Button>
+          </EmptyState>
+        ) : titles.isSuccess ? (
+          <EmptyState title="No Title matches." />
+        ) : null}
+      </div>
+    )
+
+  // A phone shows one screen: a Title's page (or the ticked Titles' actions) with a back button, or the list.
+  const showBulk = phone && bulk !== null && bulkOpen
+  if (phone && (showBulk || titleOpen)) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        {!(searching && !showBulk) && (
+          <div className="flex shrink-0 items-center gap-1 border-b border-gray-alpha-400 py-1 pr-3 pl-1">
+            <Button variant="tertiary" prefix={<ArrowLeft />} onClick={showBulk ? () => setBulkOpen(false) : onCloseTitle}>
+              Back
+            </Button>
+            <span className="label-14 min-w-0 flex-1 truncate">{showBulk ? `${selection.count} ticked` : current?.title}</span>
+          </div>
+        )}
+        {showBulk ? bulk : title}
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-0 flex-1">
-      <aside className="flex w-72 shrink-0 flex-col border-r border-gray-alpha-400">
+      <aside className={cx('flex min-w-0 flex-col', phone ? 'flex-1' : 'w-72 shrink-0 border-r border-gray-alpha-400')}>
         <div className="flex flex-col gap-2 border-b border-gray-alpha-400 p-3">
-          <div className="flex gap-1">
-            <Button variant="tertiary" size="small" prefix={<FolderInput />} onClick={onAdopt} aria-label="Adopt existing library" title="Adopt existing library">
-              Adopt
-            </Button>
-            <Button variant="tertiary" size="small" prefix={<Eraser />} onClick={() => openCleanup()} aria-label="Clean up Unmanaged files" title="Clean up Unmanaged files">
-              Clean up
-            </Button>
-            <Button
-              variant={selection.active ? 'secondary' : 'tertiary'}
-              size="small"
-              prefix={<CheckSquare />}
-              onClick={() => (selection.active ? selection.clear() : selection.setActive(true))}
-              aria-pressed={selection.active}
-              title="Tick Titles to change together (x)"
-            >
-              Tick
-            </Button>
-          </div>
-          <QueryField
-            id="library-filter"
-            label="Filter the Library"
-            placeholder="Filter, e.g. is:wanted  /"
-            value={query}
-            onChange={onQuery}
-            qualifiers={qualifiers}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-                e.preventDefault()
-                const next = Math.min(Math.max(index + (e.key === 'ArrowDown' ? 1 : -1), 0), rows.length - 1)
-                if (rows[next]) onSelect(rows[next].id)
-              } else if (e.key === 'Escape') {
-                e.preventDefault()
-                onQuery('')
-                focusList()
-              } else if (e.key === 'Enter') {
-                e.preventDefault()
-                focusList()
-              }
-            }}
-          />
-          <SelectionBar selection={selection} shown={rows.length} />
+          {phone ? (
+            <>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="small"
+                  aria-expanded={filtersOpen}
+                  aria-controls="library-filters"
+                  suffix={<ChevronDown className={cx('transition-transform', filtersOpen && 'rotate-180')} />}
+                  onClick={() => setFiltersOpen(!filtersOpen)}
+                >
+                  {query && !filtersOpen ? `Filter: ${query}` : 'Filter'}
+                </Button>
+                <span className="label-12 ml-auto shrink-0 text-gray-900">
+                  {rows.length} of {all.length}
+                </span>
+              </div>
+              {filtersOpen && (
+                <div id="library-filters" className="flex flex-col gap-2">
+                  {field}
+                  {tools}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              {tools}
+              {field}
+            </>
+          )}
+          <SelectionBar selection={selection} shown={rows.length}>
+            {phone && selection.count > 0 && (
+              <Button variant="primary" size="small" onClick={() => setBulkOpen(true)}>
+                Change {selection.count}
+              </Button>
+            )}
+          </SelectionBar>
         </div>
 
         <div
@@ -135,9 +249,10 @@ export function Library({
               data-nav={`lib-${i}`}
               onClick={() => {
                 onSelect(r.id)
-                focusList()
+                if (phone) onOpenTitle(r.id)
+                else focusList()
               }}
-              className={cx('flex cursor-default items-center gap-2 rounded-md px-2 py-1.5', i === index ? 'bg-gray-alpha-200' : 'hover:bg-gray-alpha-100')}
+              className={cx('flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 max-sm:min-h-12', i === index && !phone ? 'bg-gray-alpha-200' : 'hover:bg-gray-alpha-100')}
             >
               {selection.active && <TickBox selection={selection} id={r.id} name={r.title} />}
               <KindIcon kind={r.kind} className="shrink-0 text-gray-900" />
@@ -157,51 +272,20 @@ export function Library({
           ))}
         </div>
 
-        <footer className="label-12 flex items-center justify-between border-t border-gray-alpha-400 px-3 py-2 text-gray-900">
-          <span className="flex items-center gap-1">
-            <KeyboardInput small>j</KeyboardInput>
-            <KeyboardInput small>k</KeyboardInput> move <KeyboardInput small>x</KeyboardInput> tick
-          </span>
-          <span>
-            {rows.length} of {all.length}
-          </span>
-        </footer>
+        {!phone && (
+          <footer className="label-12 flex items-center justify-between border-t border-gray-alpha-400 px-3 py-2 text-gray-900">
+            <span className="flex items-center gap-1">
+              <KeyboardInput small>j</KeyboardInput>
+              <KeyboardInput small>k</KeyboardInput> move <KeyboardInput small>x</KeyboardInput> tick
+            </span>
+            <span>
+              {rows.length} of {all.length}
+            </span>
+          </footer>
+        )}
       </aside>
 
-      {selection.count > 0 ? (
-        <BulkActions rows={rows.filter((r) => selection.has(r.id))} />
-      ) : current && searching ? (
-        <ManualSearch
-          key={`${search.versionId} ${JSON.stringify(search.scope?.body ?? null)}`}
-          titleName={current.title}
-          slotLabel={slotLabel[search.slot]}
-          profileName={search.profileName}
-          versionId={search.versionId}
-          scope={search.scope}
-          onBack={() => {
-            setSearch(null)
-            requestAnimationFrame(() => paneRef.current?.focus())
-          }}
-        />
-      ) : current ? (
-        <TitleDetail key={current.id} ref={paneRef} row={current} onEscape={focusList} onManualSearch={(s) => setSearch({ ...s, titleId: current.id })} />
-      ) : (
-        <div className="flex flex-1 items-center justify-center text-center">
-          {titles.isError ? (
-            <Note variant="error" size="small">
-              Could not load the Library.
-            </Note>
-          ) : empty ? (
-            <EmptyState title="Nothing here yet" description="Add your first Movie or Series.">
-              <Button variant="primary" size="small" prefix={<Plus />} onClick={onAdd}>
-                Add a title
-              </Button>
-            </EmptyState>
-          ) : titles.isSuccess ? (
-            <EmptyState title="No Title matches." />
-          ) : null}
-        </div>
-      )}
+      {!phone && (bulk ?? title)}
     </div>
   )
 }
