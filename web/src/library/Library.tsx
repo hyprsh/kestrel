@@ -2,18 +2,16 @@ import { ArrowLeft, CheckSquare, ChevronDown, Eraser, FolderInput, Plus } from '
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useProfiles, useTitles, type TitleRow } from '../api/queries'
 import { useOpenCleanup } from '../cleanup/launch'
-import { Button, EmptyState, KeyboardInput, Note } from '@hyprsh/design'
+import { Button, EmptyState, KeyboardInput, Note, QueryBar, parseQuery } from '@hyprsh/design'
 import { useKey, useListNav } from '../keys'
 import { SelectionBar, useSelection } from '../selection'
-import { parse } from '../filter/query'
-import { QueryField } from '../filter/QueryField'
+import { leaveField } from '../filter/query'
 import { usePhone } from '../responsive'
 import { cx } from '../ui'
-import { KindIcon, SlotDots } from './bits'
+import { KindIcon, SlotDots, slotKeys, slotLabel } from './bits'
 import { BulkActions } from './BulkActions'
 import { filterLibrary, libraryQualifiers } from './filter'
 import { ManualSearch } from './ManualSearch'
-import { slotLabel } from './bits'
 import { TickBox } from './TickBox'
 import { TitleDetail, type ManualSearchTarget } from './TitleDetail'
 
@@ -61,7 +59,7 @@ export function Library({
   const paneRef = useRef<HTMLElement>(null)
 
   const all = titles.data ?? []
-  const rows = useMemo(() => filterLibrary(all, parse(query, qualifiers), profiles ?? []), [all, query, qualifiers, profiles])
+  const rows = useMemo(() => filterLibrary(all, parseQuery(query, qualifiers), profiles ?? []), [all, query, qualifiers, profiles])
   const ids = useMemo(() => rows.map((r) => r.id), [rows])
   const selection = useSelection(ids)
   const index = Math.max(0, rows.findIndex((r) => r.id === selectedId)) // the first row until something is picked
@@ -112,9 +110,9 @@ export function Library({
     </div>
   )
   const field = (
-    <QueryField
+    <QueryBar
       id="library-filter"
-      label="Filter the Library"
+      aria-label="Filter the Library"
       placeholder="Filter, e.g. is:wanted  /"
       value={query}
       onChange={onQuery}
@@ -131,9 +129,15 @@ export function Library({
         } else if (e.key === 'Enter') {
           e.preventDefault()
           focusList()
-        }
+        } else leaveField(e)
       }}
-    />
+    >
+      <QueryBar.Menu qualifier="kind" label="Kinds" items={[{ value: 'movie', label: 'Movies' }, { value: 'series', label: 'Series' }]} />
+      <QueryBar.Menu qualifier="is" label="States" items={[...(qualifiers.find((q) => q.name === 'is')?.values ?? [])]} />
+      <QueryBar.Menu qualifier="slot" label="Slots" items={slotKeys.map((k) => ({ value: k, label: slotLabel[k] }))} />
+      <QueryBar.Menu qualifier="profile" label="Profiles" items={(profiles ?? []).map((p) => p.name)} />
+      <QueryBar.Menu qualifier="sort" label="Sort" single defaultOption="default" items={[{ value: 'default', label: 'Default order' }, { value: 'wanted_since', label: 'Wanted longest' }]} />
+    </QueryBar>
   )
 
   const bulk = selection.count > 0 ? <BulkActions rows={rows.filter((r) => selection.has(r.id))} /> : null

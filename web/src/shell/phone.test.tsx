@@ -4,7 +4,9 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
+import { http } from '../test/handlers'
 import { fakeLibrary, row } from '../test/library'
+import { server } from '../test/server'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -24,13 +26,24 @@ describe('the shell on a phone', () => {
   it('replaces the icon rail with a bottom tab bar of Overview, Library, Upcoming, Activity and More', async () => {
     renderApp()
     const tabs = await screen.findByRole('navigation', { name: 'Screens' })
-    expect(within(tabs).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Overview', 'Library', 'Upcoming', 'Activity', 'More'])
+    expect(within(tabs).getAllByRole('button').map((b) => b.textContent)).toEqual(['Overview', 'Library', 'Upcoming', 'Activity', 'More'])
     expect(within(tabs).getByRole('button', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
     expect(screen.queryByRole('button', { name: 'Kestrel, go to Overview' })).not.toBeInTheDocument() // the rail is gone
 
     await userEvent.click(within(tabs).getByRole('button', { name: 'Upcoming' }))
     expect(screen.getByRole('banner')).toHaveTextContent('Upcoming')
     expect(within(tabs).getByRole('button', { name: 'Upcoming' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('counts the rows that need attention on the Overview tab, in its name too', async () => {
+    server.use(
+      http.get('/attention', ({ response }) =>
+        response(200).json({ count: 2, severity: 'blocking', rows: [], long_missing: { count: 0, items: [] }, originals: { count: 0, items: [] } }),
+      ),
+    )
+    renderApp()
+    const tabs = await screen.findByRole('navigation', { name: 'Screens' })
+    expect(await within(tabs).findByRole('button', { name: /Overview.*2 need attention/ })).toBeInTheDocument()
   })
 
   it('opens More with Settings, Log, About, the theme switch, the version and its status dot', async () => {

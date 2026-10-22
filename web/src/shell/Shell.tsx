@@ -26,7 +26,7 @@ import { Upcoming } from '../upcoming/Upcoming'
 import { Settings as SettingsScreen } from '../screens/Settings'
 import { THEME_KEY, useTheme, type Theme } from '../theme'
 import { KestrelLogo } from '../ui'
-import { MoreSheet, TabBar, type Tab } from './PhoneNav'
+import { MoreSheet, PhoneTabBar, type Tab } from './PhoneNav'
 import { ServerStatus } from './ServerStatus'
 
 const screens = [
@@ -140,7 +140,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     .map((k) => screens.find((s) => s.key === k)!)
     .map((s) => ({
       ...s,
-      badge: s.key === 'overview' && needs && needs.count > 0 ? <AttentionBadge count={needs.count} blocking={needs.severity === 'blocking'} /> : undefined,
+      ...(s.key === 'overview' && needs && needs.count > 0 ? { badge: needs.count, badgeLabel: `${needs.count} ${needs.count === 1 ? 'needs' : 'need'} attention` } : {}),
     }))
   const moreItems: Tab[] = moreKeys.map((k) => {
     const s = [...screens, about, adoption, cleanup, requests].find((x) => x.key === k)!
@@ -226,7 +226,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
             onDismiss={() => setSearchQueued(null)}
           />
         )}
-        <main className="flex min-h-0 flex-1 flex-col">
+        {/* The tab bar floats over the bottom of the screen and takes no space: its height is 0 when it is not shown. */}
+        <main className="flex min-h-0 flex-1 flex-col pb-[var(--tab-bar-height)]">
           {screen === 'settings' ? (
             <SettingsScreen onRunSetup={onRunSetup} onAdopt={() => setScreen('adoption')} section={settingsSection} onOpenSection={openSettingsSection} onCloseSection={closeSettingsSection} />
           ) : screen === 'adoption' ? (
@@ -266,7 +267,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           )}
         </main>
         {phone && (
-          <TabBar
+          <PhoneTabBar
             tabs={tabs}
             screen={screen}
             moreActive={more || !tabKeys.includes(screen)}

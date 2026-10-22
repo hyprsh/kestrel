@@ -1,5 +1,5 @@
 import { Film, Tv } from 'lucide-react'
-import { Badge, type BadgeProps } from '@hyprsh/design'
+import { Badge, StatusDot, type BadgeProps, type StatusDotProps } from '@hyprsh/design'
 import { cx } from '../ui'
 
 export type SlotKey = 'standard' | '4k'
@@ -39,38 +39,35 @@ export function StatusBadge({ state, longMissing }: { state: State; longMissing?
   )
 }
 
-function dotClass(state: State | null, longMissing: boolean): string {
-  if (state === null) return 'border border-gray-alpha-400'
-  if (longMissing) return 'border-2 border-red-700'
+type Dot = { state: StatusDotProps['state']; variant: StatusDotProps['variant'] }
+
+/** How a Slot's Version is drawn: solid when a file is there, a ring while Wanted, dashed when the Slot is not kept, pulsing while downloading. */
+function dotOf(state: State | null, longMissing: boolean): Dot {
+  if (state === null) return { state: 'neutral', variant: 'dashed' }
+  if (longMissing) return { state: 'error', variant: 'outline' }
   switch (state) {
     case 'filled':
-      return 'bg-green-700'
+      return { state: 'success', variant: 'filled' }
     case 'downloading':
-      return 'bg-blue-700 animate-pulse'
+      return { state: 'pending', variant: 'filled' }
     case 'wanted':
-      return 'border-2 border-amber-700' // hollow: not there yet
+      return { state: 'warning', variant: 'outline' }
     case 'unreleased':
-      return 'border border-dashed border-gray-700'
+      return { state: 'neutral', variant: 'dashed' }
     default:
-      return 'bg-gray-600'
+      return { state: 'neutral', variant: 'filled' }
   }
 }
 
-/** One dot per Slot: filled green when there is a file, hollow amber while Wanted, red when Long Missing. */
+/** One dot per Slot: solid green when there is a file, a ring while Wanted, red when Long Missing, dashed when not kept. */
 export function SlotDots({ slots }: { slots: Record<SlotKey, { state: string; long_missing: boolean } | null> }) {
+  const text = slotKeys.map((k) => `${slotLabel[k]}: ${slots[k] ? versionStatus(slots[k].state, slots[k].long_missing).label : 'no Version'}`).join(', ')
   return (
-    <span className="flex items-center gap-1">
+    <span role="img" aria-label={text} title={text} className="flex items-center gap-1">
       {slotKeys.map((k) => {
         const s = slots[k]
-        return (
-          <span
-            key={k}
-            role="img"
-            aria-label={`${slotLabel[k]}: ${s ? (s.long_missing ? 'long missing' : s.state) : 'no Version'}`}
-            title={`${slotLabel[k]}: ${s ? versionStatus(s.state, s.long_missing).label : 'no Version'}`}
-            className={cx('size-2 rounded-full', dotClass(s ? s.state : null, !!s?.long_missing))}
-          />
-        )
+        const d = dotOf(s ? s.state : null, !!s?.long_missing)
+        return <StatusDot key={k} state={d.state} variant={d.variant} label={false} aria-hidden />
       })}
     </span>
   )

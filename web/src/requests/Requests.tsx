@@ -1,12 +1,11 @@
 // The Requests screen, behind the Overview's "View all": every Request from outside Kestrel,
 // newest first, filtered by status:, requester: and source: (asked of the server) and free text
 // on the Title and who asked (over the rows loaded). Off the rail; its place is "/requests".
-import { Button, EmptyState, Note } from '@hyprsh/design'
+import { Button, EmptyState, Note, QueryBar, parseQuery } from '@hyprsh/design'
 import { useMemo, useState } from 'react'
 import { useRequestList } from '../api/requests'
 import { matchText } from '../fuzzy'
-import { parse } from '../filter/query'
-import { QueryField } from '../filter/QueryField'
+import { leaveField } from '../filter/query'
 import { useKey, useListNav } from '../keys'
 import { requestFilter, requestQualifiers } from './filter'
 import { RequestRow } from './RequestRow'
@@ -17,7 +16,7 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
   // Requesters and sources are offered from what has been loaded: there is no list of them.
   const [seen, setSeen] = useState<{ requesters: string[]; sources: string[] }>({ requesters: [], sources: [] })
   const qualifiers = useMemo(() => requestQualifiers(seen.requesters, seen.sources), [seen])
-  const parsed = useMemo(() => parse(query, qualifiers), [query, qualifiers])
+  const parsed = useMemo(() => parseQuery(query, qualifiers), [query, qualifiers])
   const list = useRequestList(useMemo(() => requestFilter(parsed), [parsed]))
 
   const loaded = useMemo(() => list.data?.pages.flatMap((p) => p.items) ?? [], [list.data])
@@ -39,14 +38,20 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-gray-alpha-400 px-4 py-2">
-        <QueryField
+        <QueryBar
           id="requests-filter"
-          label="Filter Requests"
+          aria-label="Filter Requests"
           placeholder="Filter, e.g. status:open requester:Anna …  /"
           value={query}
           onChange={onQuery}
           qualifiers={qualifiers}
-        />
+          onKeyDown={leaveField}
+          className="w-full max-w-3xl"
+        >
+          <QueryBar.Menu qualifier="status" label="Statuses" items={['open', 'completed', 'rejected']} />
+          <QueryBar.Menu qualifier="requester" label="Requesters" items={seen.requesters} />
+          <QueryBar.Menu qualifier="source" label="Sources" items={seen.sources} />
+        </QueryBar>
         {list.data && <span className="label-12 text-gray-900 tabular">{list.data.pages[0].total} in all</span>}
       </div>
       <div className="min-h-0 flex-1 overflow-auto">

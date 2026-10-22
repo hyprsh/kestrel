@@ -1,7 +1,7 @@
 // The Requests screen's qualifiers (status:, requester:, source:) and how a parsed filter becomes
-// the GET /requests parameters. The grammar lives in filter/query.ts.
+// the GET /requests parameters. The grammar is the design system's.
 import type { RequestFilter } from '../api/requests'
-import { valuesOf, type Qualifier, type Query } from '../filter/query'
+import { valuesOf, type Qualifier, type Query } from '@hyprsh/design'
 
 const states = ['open', 'completed', 'rejected'] as const
 

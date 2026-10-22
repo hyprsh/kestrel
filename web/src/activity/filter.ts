@@ -1,8 +1,9 @@
 // Activity's qualifiers (stage:, kind:, slot:) and how a parsed filter narrows the pipeline.
-// The grammar lives in filter/query.ts; the stage chips edit the same `stage:` qualifier, so a
+// The grammar is the design system's; the stage chips edit the same `stage:` qualifier, so a
 // path such as "/activity?q=stage:done" opens the screen on one stage.
 import { matchText } from '../fuzzy'
-import { kindQualifier, parse, valuesOf, withoutValue, withValue, type Qualifier, type Query } from '../filter/query'
+import { parseQuery, valuesOf, withoutValue, withValue, type Qualifier, type Query } from '@hyprsh/design'
+import { kindQualifier } from '../filter/query'
 import { slotKeys } from '../library/bits'
 import { facetsOf, stages, type Entry, type Stage } from './stages'
 
@@ -37,6 +38,6 @@ export function activityFilter(q: Query): ActivityFilter {
 
 /** The filter with `stage` chosen when it was not, and dropped when it was: what a stage chip does. */
 export function toggleStage(input: string, stage: Stage): string {
-  const chosen = parse(input, activityQualifiers).terms.some((t) => t.name === 'stage' && t.values.includes(stage))
+  const chosen = parseQuery(input, activityQualifiers).terms.some((t) => t.name === 'stage' && t.values.includes(stage))
   return chosen ? withoutValue(input, 'stage', stage, activityQualifiers) : withValue(input, 'stage', stage, activityQualifiers)
 }

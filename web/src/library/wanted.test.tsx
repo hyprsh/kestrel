@@ -33,7 +33,7 @@ const names = (list: HTMLElement) => within(list).getAllByRole('option').map((o)
 const filter = () => screen.getByRole('combobox', { name: 'Filter the Library' })
 
 describe('the Library filter, typed', () => {
-  it('narrows to Wanted, then Long Missing, with a chip per qualifier that takes it off again', async () => {
+  it('narrows to Wanted, then Long Missing, and the States menu takes them off again', async () => {
     fakeLibrary(rows())
     const list = await openLibrary()
     await within(list).findAllByRole('option')
@@ -47,9 +47,12 @@ describe('the Library filter, typed', () => {
     expect(within(list).getAllByRole('option')).toHaveLength(1)
     expect(within(list).getByRole('option', { name: /ancient film/i })).toBeInTheDocument()
 
-    const chips = screen.getByRole('list', { name: 'Active filters' })
-    await userEvent.click(within(chips).getByRole('button', { name: 'Remove is:wanted' }))
-    await userEvent.click(within(chips).getByRole('button', { name: 'Remove is:long_missing' }))
+    // The States menu is checked from the query, and unchecking a value takes its term out.
+    await userEvent.click(screen.getByRole('button', { name: /States/ }))
+    const menu = screen.getByRole('listbox', { name: 'States' })
+    expect(within(menu).getByRole('option', { name: 'wanted' })).toHaveAttribute('aria-selected', 'true')
+    await userEvent.click(within(menu).getByRole('option', { name: 'wanted' }))
+    await userEvent.click(within(menu).getByRole('option', { name: 'long_missing' }))
     expect(filter()).toHaveValue('')
     expect(within(list).getAllByRole('option')).toHaveLength(3)
   })
@@ -63,6 +66,21 @@ describe('the Library filter, typed', () => {
     await userEvent.type(filter(), 'sort:wanted_since')
 
     expect(names(list).map((n) => n?.replace(/\s*\d*$/, ''))).toEqual(['Ancient Film', 'Recent Film', 'Filled Film'])
+  })
+
+  it('sorts from the Sort menu, and the default order takes the sort: term out again', async () => {
+    fakeLibrary(rows())
+    const list = await openLibrary()
+    await within(list).findAllByRole('option')
+
+    await userEvent.click(screen.getByRole('button', { name: /Sort/ }))
+    await userEvent.click(within(screen.getByRole('listbox', { name: 'Sort' })).getByRole('option', { name: 'Wanted longest' }))
+    expect(filter()).toHaveValue('sort:wanted_since')
+    expect(names(list).map((n) => n?.replace(/\s*\d*$/, ''))).toEqual(['Ancient Film', 'Recent Film', 'Filled Film'])
+
+    await userEvent.click(screen.getByRole('button', { name: /Sort/ }))
+    await userEvent.click(within(screen.getByRole('listbox', { name: 'Sort' })).getByRole('option', { name: 'Default order' }))
+    expect(filter()).toHaveValue('')
   })
 
   it('completes Profile names', async () => {

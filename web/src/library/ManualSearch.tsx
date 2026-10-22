@@ -1,5 +1,5 @@
 import { Badge, Button, Checkbox, EmptyState, KeyboardInput, Note, Pill, Spinner, Table } from '@hyprsh/design'
-import { ArrowDown, ArrowLeft, ArrowUp, Download } from 'lucide-react'
+import { ArrowLeft, Download } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError } from '../api/queries'
 import { useGrab, useReleases, type Release } from '../api/grabs'
@@ -139,6 +139,7 @@ export function ManualSearch({
   const [sent, setSent] = useState<string | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const ref = useRef<HTMLElement>(null)
+  const pointer = useRef(false)
   useEffect(() => ref.current?.focus(), [])
 
   const all = search.data?.items ?? []
@@ -155,8 +156,9 @@ export function ManualSearch({
     setSel(0)
     if (e.detail > 0) ref.current?.focus()
   }
-  const sortBy = (key: SortKey, e: { detail: number }) =>
-    change({ ...view, sort: view.sort.key === key ? { key, dir: view.sort.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' } }, e)
+  // The header's onSort carries no event: whether a pointer pressed it is noted as it goes down.
+  const sortBy = (key: SortKey) =>
+    change({ ...view, sort: view.sort.key === key ? { key, dir: view.sort.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' } }, { detail: pointer.current ? 1 : 0 })
   const isBest = view.sort.key === BEST_FIRST.key && view.sort.dir === BEST_FIRST.dir
 
   const grab = () => {
@@ -181,7 +183,7 @@ export function ManualSearch({
 
   const errors = search.data?.indexer_errors ?? []
   return (
-    <section ref={ref} tabIndex={-1} aria-label="Manual search" className="flex min-w-0 flex-1 flex-col outline-none">
+    <section ref={ref} tabIndex={-1} aria-label="Manual search" onPointerDownCapture={() => (pointer.current = true)} onKeyDownCapture={() => (pointer.current = false)} className="flex min-w-0 flex-1 flex-col outline-none">
       <div className="flex items-center gap-3 border-b border-gray-alpha-400 px-4 py-2.5">
         <Button variant="secondary" size="small" prefix={<ArrowLeft />} onClick={onBack}>
           {titleName}
@@ -252,17 +254,9 @@ export function ManualSearch({
                 <Table.Row>
                   {columns.map((c) => {
                     const active = view.sort.key === c.key
-                    const Arrow = view.sort.dir === 'asc' ? ArrowUp : ArrowDown
                     return (
-                      <Table.Head key={c.key} align={c.align} aria-sort={active ? (view.sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}>
-                        <button
-                          type="button"
-                          onClick={(e) => sortBy(c.key, e)}
-                          className={cx('inline-flex cursor-pointer items-center gap-1 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-blue-700', c.align === 'right' && 'flex-row-reverse')}
-                        >
-                          {c.label}
-                          {active && <Arrow aria-hidden className="size-3" />}
-                        </button>
+                      <Table.Head key={c.key} align={c.align} sort={active ? (view.sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'} onSort={() => sortBy(c.key)}>
+                        {c.label}
                       </Table.Head>
                     )
                   })}

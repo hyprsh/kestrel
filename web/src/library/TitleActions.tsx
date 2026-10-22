@@ -4,8 +4,7 @@ import { useState } from 'react'
 import { ApiError, type SeriesMonitor, type TitleDetail } from '../api/queries'
 import { useRefreshTitle, useSetFrozen, useSetMovieMonitored, useSetSeriesMonitor } from '../api/titleActions'
 import { useOpenCleanup } from '../cleanup/launch'
-import { termText } from '../filter/query'
-import { Menu, Note, Select } from '@hyprsh/design'
+import { Menu, Note, Select, termText } from '@hyprsh/design'
 import { placePath, useOpenPlace } from '../place'
 import { RemoveTitle } from './ManageVersion'
 import { MoveTitle } from './MoveTitle'
@@ -71,7 +70,7 @@ export function TitleActions({
             <Menu.Divider />
             <Menu.Item onSelect={() => setPanel('move')}>Move</Menu.Item>
             <Menu.Item onSelect={() => openCleanup([title.id])}>Clean up this Title</Menu.Item>
-            <Menu.Item onSelect={() => openPlace(placePath('log', termText({ name: 'title', values: [title.title], negated: false })))}>Show in the Log</Menu.Item>
+            <Menu.Item onSelect={() => openPlace(placePath('log', termText({ name: 'title', values: [title.title], excluded: false })))}>Show in the Log</Menu.Item>
             <Menu.Divider />
             <Menu.Item type="error" onSelect={() => setPanel('remove')}>
               Remove Title

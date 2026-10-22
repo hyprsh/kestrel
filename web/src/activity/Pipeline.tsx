@@ -2,7 +2,7 @@
 // with stage chips and one filter field above it. It stays live through the stream: the queue
 // from `queue` frames, the stalled and finished Grabs from the `grab` hints, Searching from
 // `search` frames.
-import { Button, EmptyState, Link, Note, Pill } from '@hyprsh/design'
+import { Button, EmptyState, Link, Note, Pill, QueryBar, parseQuery } from '@hyprsh/design'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useFinishedGrabs, useStalledGrabs, useStalledImport, HISTORY_DAYS, type GrabEntry } from '../api/activity'
 import { useSearchNow } from '../api/grabs'
@@ -10,12 +10,11 @@ import { useBlocklist } from '../api/log'
 import { useTitles } from '../api/queries'
 import { useCancelGrab, useQueue, type QueueItem } from '../api/queue'
 import { useSearchStatus } from '../api/search'
-import { parse } from '../filter/query'
-import { QueryField } from '../filter/QueryField'
+import { leaveField } from '../filter/query'
 import { DownloadRow } from '../grabs/DownloadRow'
 import { GrabRow } from '../grabs/GrabRow'
 import { useKey, useListNav, type RowNav } from '../keys'
-import { size } from '../library/bits'
+import { size, slotKeys, slotLabel } from '../library/bits'
 import { SearchSummary } from '../overview/Searching'
 import { useOpenPlace } from '../place'
 import { ago, lasting, until, useNow } from '../time'
@@ -57,7 +56,7 @@ export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQue
   const now = useNow()
   const [sel, setSel] = useState(0)
 
-  const parsed = useMemo(() => parse(query, activityQualifiers), [query])
+  const parsed = useMemo(() => parseQuery(query, activityQualifiers), [query])
   const filter = useMemo(() => activityFilter(parsed), [parsed])
   const all = useMemo(
     () => entriesOf(queue.data ?? [], stalled.data ?? [], finished.data?.items ?? [], blocked.data ?? [], titles ?? [], now),
@@ -87,14 +86,19 @@ export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQue
   return (
     <section id="activity-pipeline" aria-label="Pipeline" className="flex flex-col">
       <div className="flex flex-col gap-2 border-b border-gray-alpha-400 px-4 py-2">
-        <QueryField
+        <QueryBar
           id="activity-filter"
-          label="Filter Activity"
+          aria-label="Filter Activity"
           placeholder="Filter, e.g. stage:failed kind:series slot:4k …  /"
           value={query}
           onChange={onQuery}
           qualifiers={activityQualifiers}
-        />
+          onKeyDown={leaveField}
+          className="w-full max-w-3xl"
+        >
+          <QueryBar.Menu qualifier="kind" label="Kinds" items={[{ value: 'movie', label: 'Movies' }, { value: 'series', label: 'Series' }]} />
+          <QueryBar.Menu qualifier="slot" label="Slots" items={slotKeys.map((k) => ({ value: k, label: slotLabel[k] }))} />
+        </QueryBar>
         <div role="group" aria-label="Stages" className="flex flex-wrap gap-1.5">
           {stages.map((s) => {
             const on = filter.stages?.includes(s) ?? false

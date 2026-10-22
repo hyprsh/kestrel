@@ -39,8 +39,7 @@ describe('the Library list', () => {
     const first = await within(list).findByRole('option', { name: /paddington/i })
     expect(first).toHaveTextContent('Paddington')
     expect(first).toHaveTextContent('Ein Bär namens Paddington')
-    expect(within(first).getByRole('img', { name: 'Standard: wanted' })).toBeInTheDocument()
-    expect(within(first).getByRole('img', { name: '4K: filled' })).toBeInTheDocument()
+    expect(within(first).getByRole('img', { name: 'Standard: Wanted, 4K: Filled' })).toBeInTheDocument()
 
     // The second line is only for a Primary-Language title that differs.
     const heat = within(list).getByRole('option', { name: /heat/i })
@@ -84,7 +83,7 @@ describe('the Library list', () => {
     await userEvent.keyboard('/')
     const field = filter()
     expect(field).toHaveFocus()
-    await userEvent.keyboard('o') // Heat has no o; Paddington and Zodiac do
+    await userEvent.keyboard('di') // Heat has no di; Paddington and Zodiac do (no qualifier name to suggest, which would own the arrows)
     expect(within(list).getAllByRole('option')).toHaveLength(2)
     expect(screen.getByText('2 of 3')).toBeInTheDocument()
 
@@ -149,8 +148,8 @@ describe('the Library filter', () => {
   it('explains its qualifiers behind "?"', async () => {
     fakeLibrary(rows())
     await openLibrary()
-    await userEvent.click(screen.getByRole('button', { name: 'Filter help' }))
-    const help = screen.getByRole('dialog', { name: 'Filter help' })
+    await userEvent.click(screen.getByRole('button', { name: 'Query Help' }))
+    const help = screen.getByRole('dialog', { name: 'Query Help' })
     for (const q of ['kind:', 'is:', 'slot:', 'profile:', 'sort:']) expect(within(help).getByText(q)).toBeInTheDocument()
   })
 

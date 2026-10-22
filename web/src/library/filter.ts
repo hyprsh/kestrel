@@ -1,8 +1,9 @@
 // The Library's qualifiers (kind:, is:, slot:, profile:, sort:) and what a parsed filter keeps
-// of GET /titles. The grammar itself lives in filter/query.ts; all of it runs in the SPA.
+// of GET /titles. The grammar is the design system's; all of it runs in the SPA.
 import type { TitleRow } from '../api/queries'
 import { matchText } from '../fuzzy'
-import { kindQualifier, type Qualifier, type Query, type Term } from '../filter/query'
+import type { Qualifier, Query, Term } from '@hyprsh/design'
+import { kindQualifier } from '../filter/query'
 import { slotKeys } from './bits'
 
 type Version = NonNullable<TitleRow['slots']['standard']>
@@ -16,9 +17,9 @@ const states = ['wanted', 'filled', 'downloading', 'unmonitored', 'unreleased'] 
 export function libraryQualifiers(profiles: readonly string[]): Qualifier[] {
   return [
     kindQualifier(true),
-    { name: 'is', help: 'Titles with a Version in that state, or Long Missing', values: [...states, 'long_missing'], negatable: true },
-    { name: 'slot', help: 'Titles with a Version in that Slot', values: slotKeys, negatable: true },
-    { name: 'profile', help: 'Titles with a Version under that Profile, by name; quote names with spaces', suggestions: profiles, negatable: true },
+    { name: 'is', help: 'Titles with a Version in that state, or Long Missing', values: [...states, 'long_missing'], excludable: true },
+    { name: 'slot', help: 'Titles with a Version in that Slot', values: slotKeys, excludable: true },
+    { name: 'profile', help: 'Titles with a Version under that Profile, by name; quote names with spaces', suggestions: profiles, excludable: true },
     { name: 'sort', help: 'Order the list: wanted_since puts the longest Wanted first', values: ['wanted_since'] },
   ]
 }
@@ -46,7 +47,7 @@ function has(r: TitleRow, name: string, v: string, profiles: readonly Profile[])
 /** Whether a Title matches one term: any of its values, or none of them when excluded. */
 function test(r: TitleRow, t: Term, profiles: readonly Profile[]): boolean {
   const any = t.values.some((v) => has(r, t.name, v, profiles))
-  return t.negated ? !any : any
+  return t.excluded ? !any : any
 }
 
 /** Wanted longest first; Titles that are not Wanted keep their order, last. */
