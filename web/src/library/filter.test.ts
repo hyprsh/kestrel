@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parse } from '../filter/query'
+import { parseQuery } from '@hyprsh/design'
 import { row } from '../test/library'
 import { filterLibrary, libraryQualifiers } from './filter'
 
@@ -18,7 +18,7 @@ const profiles = [
   { key: 'any-original', name: 'Any (Original)' },
 ]
 
-const kept = (input: string) => filterLibrary(library, parse(input, libraryQualifiers(profiles.map((p) => p.name))), profiles).map((r) => r.title)
+const kept = (input: string) => filterLibrary(library, parseQuery(input, libraryQualifiers(profiles)), profiles).map((r) => r.title)
 
 describe('the Library filter', () => {
   it('keeps Titles with any Slot in a state; commas mean either, - leaves out', () => {
@@ -48,7 +48,7 @@ describe('the Library filter', () => {
       row(3, 'Also Filled', 'Also Filled', { wanted_since: null }),
       row(4, 'Ancient', 'Ancient', { wanted_since: '2026-01-01T00:00:00Z' }),
     ]
-    const sorted = (input: string) => filterLibrary(dated, parse(input, libraryQualifiers([])), []).map((r) => r.title)
+    const sorted = (input: string) => filterLibrary(dated, parseQuery(input, libraryQualifiers([])), []).map((r) => r.title)
     expect(sorted('')).toEqual(['Filled', 'Recent', 'Also Filled', 'Ancient'])
     expect(sorted('sort:wanted_since')).toEqual(['Ancient', 'Recent', 'Filled', 'Also Filled'])
   })

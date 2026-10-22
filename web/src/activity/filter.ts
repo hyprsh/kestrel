@@ -1,13 +1,20 @@
 // Activity's qualifiers (stage:, kind:, slot:) and how a parsed filter narrows the pipeline.
-// The grammar lives in filter/query.ts; the stage chips edit the same `stage:` qualifier, so a
+// The grammar is the design's (parseQuery); the Stage menu edits the `stage:` qualifier, so a
 // path such as "/activity?q=stage:done" opens the screen on one stage.
+import { valuesOf, type Query } from '@hyprsh/design'
 import { matchText } from '../fuzzy'
-import { kindQualifier, parse, valuesOf, withoutValue, withValue, type Qualifier, type Query } from '../filter/query'
+import { kindQualifier, type Facet } from '../filter/qualifiers'
 import { slotKeys } from '../library/bits'
-import { facetsOf, stages, type Entry, type Stage } from './stages'
+import { facetsOf, stageLabel, stages, type Entry, type Stage } from './stages'
 
-export const activityQualifiers: Qualifier[] = [
-  { name: 'stage', help: `Where in the pipeline: ${stages.join(', ')}`, values: stages },
+export const activityQualifiers: Facet[] = [
+  {
+    name: 'stage',
+    label: 'Stage',
+    help: `Where in the pipeline: ${stages.join(', ')}`,
+    values: stages,
+    options: Object.fromEntries(stages.map((s) => [s, { label: stageLabel[s] }])),
+  },
   kindQualifier(),
   { name: 'slot', help: 'Grabs for a Version in that Slot', values: slotKeys },
 ]
@@ -33,10 +40,4 @@ export function activityFilter(q: Query): ActivityFilter {
       return (!kinds || (f.kind !== null && kinds.includes(f.kind))) && (!slots || (f.slot !== null && slots.includes(f.slot))) && matchText(q.text, f.text)
     },
   }
-}
-
-/** The filter with `stage` chosen when it was not, and dropped when it was: what a stage chip does. */
-export function toggleStage(input: string, stage: Stage): string {
-  const chosen = parse(input, activityQualifiers).terms.some((t) => t.name === 'stage' && t.values.includes(stage))
-  return chosen ? withoutValue(input, 'stage', stage, activityQualifiers) : withValue(input, 'stage', stage, activityQualifiers)
 }

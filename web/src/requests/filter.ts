@@ -1,16 +1,17 @@
 // The Requests screen's qualifiers (status:, requester:, source:) and how a parsed filter becomes
-// the GET /requests parameters. The grammar lives in filter/query.ts.
+// the GET /requests parameters. The grammar is the design's (parseQuery).
 import type { RequestFilter } from '../api/requests'
-import { valuesOf, type Qualifier, type Query } from '../filter/query'
+import { valuesOf, type Query } from '@hyprsh/design'
+import type { Facet } from '../filter/qualifiers'
 
 const states = ['open', 'completed', 'rejected'] as const
 
 /** The qualifiers, offering the requesters and sources of the Requests already loaded. */
-export function requestQualifiers(requesters: readonly string[], sources: readonly string[]): Qualifier[] {
+export function requestQualifiers(requesters: readonly string[], sources: readonly string[]): Facet[] {
   return [
     { name: 'status', help: 'open (on its way), completed or rejected', values: states },
-    { name: 'requester', help: 'Who asked, by name; quote names with spaces', suggestions: requesters },
-    { name: 'source', help: 'Where the Request came from, such as silo', suggestions: sources },
+    { name: 'requester', label: 'Requester', help: 'Who asked, by name; quote names with spaces', suggestions: requesters },
+    { name: 'source', label: 'Source', help: 'Where the Request came from, such as silo', suggestions: sources },
   ]
 }
 

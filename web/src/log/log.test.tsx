@@ -179,7 +179,7 @@ describe('Log', () => {
     expect(filter()).toHaveFocus()
   })
 
-  it('shows each qualifier as a removable chip, and adds a kind or a Title clicked in the list', async () => {
+  it('ticks a kind in the Kind menu once it is in the field, and adds a kind or a Title clicked in the list', async () => {
     fakeLibrary([row(3, 'Paddington', 'Paddington')])
     const sent = events([{ ...event(2, 'grab_failed', 'The download failed'), title_id: 3 }, event(1, 'import', 'Imported Heat')])
     const user = await openLog()
@@ -190,9 +190,12 @@ describe('Log', () => {
     await user.click(within(list).getByRole('button', { name: 'Filter by kind:import' }))
     expect(filter()).toHaveValue('kind:grab_failed,import title:Paddington')
 
-    const chips = screen.getByRole('list', { name: 'Active filters' })
-    expect(within(chips).getAllByRole('listitem').map((c) => c.textContent)).toEqual(['kind:grab_failed,import', 'title:Paddington'])
-    await user.click(within(chips).getByRole('button', { name: 'Remove kind:grab_failed,import' }))
+    // The Kind menu has the clicked kinds ticked, and unticking one takes it out of the field.
+    await user.click(screen.getByRole('button', { name: /^Kind/ }))
+    expect(screen.getByRole('option', { name: 'Failed' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('option', { name: 'Imported' })).toHaveAttribute('aria-selected', 'true')
+    await user.click(screen.getByRole('option', { name: 'Failed' }))
+    await user.click(screen.getByRole('option', { name: 'Imported' }))
     expect(filter()).toHaveValue('title:Paddington')
     await expect.poll(() => sent.at(-1)?.getAll('kind')).toEqual([])
   })
@@ -213,14 +216,14 @@ describe('Log', () => {
     const user = await openLog()
     await screen.findByRole('table', { name: 'Events' })
 
-    await user.click(screen.getByRole('button', { name: 'Filter help' }))
-    const help = screen.getByRole('dialog', { name: 'Filter help' })
+    await user.click(screen.getByRole('button', { name: 'Query Help' }))
+    const help = screen.getByRole('dialog', { name: 'Query Help' })
     expect(within(help).getByText('kind:')).toBeInTheDocument()
     expect(within(help).getByText('slot:')).toBeInTheDocument()
     expect(within(help).getByText('title:')).toBeInTheDocument()
     expect(within(help).getByText('routine:')).toBeInTheDocument()
     await user.keyboard('{Escape}')
-    expect(screen.queryByRole('dialog', { name: 'Filter help' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Query Help' })).not.toBeInTheDocument()
   })
 
   it('keeps the filter in the address bar, and leaves it there for the Log alone', async () => {
