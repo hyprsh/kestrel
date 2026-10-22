@@ -2,9 +2,9 @@
 // with Adoption (#112) and the episode grid (#127). "Checked" is the selection
 // in code and "ticked" in the UI; "selected" stays the list's cursor
 // (aria-selected).
+import { Button, KeyboardInput } from '@hyprsh/design'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useKey } from './keys'
-import { Kbd } from './ui'
 
 export type Selection = {
   /** The checked ids, in the order of the list. */
@@ -84,37 +84,20 @@ export function useSelection(ids: number[]): Selection {
   }
 }
 
-/** One row's checkbox; shift-click ticks a range. Clicking it never moves the cursor. */
-export function SelectBox({ selection, id, name }: { selection: Selection; id: number; name: string }) {
-  return (
-    <input
-      type="checkbox"
-      aria-label={`Tick ${name}`}
-      checked={selection.has(id)}
-      onChange={() => {}}
-      onClick={(e) => {
-        e.stopPropagation()
-        selection.toggle(id, { range: e.shiftKey })
-      }}
-      className="shrink-0"
-    />
-  )
-}
-
 /** The count of ticked rows, "Tick all N shown" and Clear, with the actions for the selection beside them. */
 export function SelectionBar({ selection, shown, children }: { selection: Selection; shown: number; children?: ReactNode }) {
   if (!selection.active) return null
   return (
-    <div role="group" aria-label="Selection" className="flex flex-wrap items-center gap-2 text-[12px]">
-      <span className="font-medium">{selection.count} ticked</span>
+    <div role="group" aria-label="Selection" className="flex flex-wrap items-center gap-2 copy-13">
+      <span className="label-13">{selection.count} ticked</span>
       {selection.count < shown && (
-        <button className="text-gray-900 underline hover:text-gray-1000" onClick={selection.checkAll}>
+        <Button variant="tertiary" size="small" onClick={selection.checkAll}>
           Tick all {shown} shown
-        </button>
+        </Button>
       )}
-      <button className="flex items-center gap-1 text-gray-900 hover:text-gray-1000" onClick={selection.clear}>
-        Clear <Kbd>Esc</Kbd>
-      </button>
+      <Button variant="tertiary" size="small" onClick={selection.clear} suffix={<KeyboardInput small>Esc</KeyboardInput>}>
+        Clear
+      </Button>
       {children}
     </div>
   )
