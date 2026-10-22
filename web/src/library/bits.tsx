@@ -1,5 +1,6 @@
 import { Film, Tv } from 'lucide-react'
-import { Badge, cx, type Tone } from '../ui'
+import { Badge, type BadgeProps } from '@hyprsh/design'
+import { cx } from '../ui'
 
 export type SlotKey = 'standard' | '4k'
 export const slotKeys: SlotKey[] = ['standard', '4k']
@@ -13,23 +14,29 @@ export function size(bytes: number): string {
 
 type State = 'wanted' | 'filled' | 'downloading' | 'unmonitored' | 'unreleased' | string
 
-const stateText: Record<string, { tone: Tone; label: string }> = {
-  wanted: { tone: 'amber', label: 'Wanted' },
-  filled: { tone: 'green', label: 'Filled' },
-  downloading: { tone: 'blue', label: 'Downloading' },
-  unmonitored: { tone: 'gray', label: 'Unmonitored' },
-  unreleased: { tone: 'gray', label: 'Unreleased' },
+type Variant = NonNullable<BadgeProps['variant']>
+
+const stateText: Record<string, { variant: Variant; label: string }> = {
+  wanted: { variant: 'amber-subtle', label: 'Wanted' },
+  filled: { variant: 'green-subtle', label: 'Filled' },
+  downloading: { variant: 'blue-subtle', label: 'Downloading' },
+  unmonitored: { variant: 'gray-subtle', label: 'Unmonitored' },
+  unreleased: { variant: 'gray-subtle', label: 'Unreleased' },
 }
 
-/** Tone and label for a Version's state; an unknown future state shows as itself. */
-export function versionStatus(state: State, longMissing = false): { tone: Tone; label: string } {
-  if (longMissing) return { tone: 'red', label: 'Long Missing' }
-  return stateText[state] ?? { tone: 'gray', label: state }
+/** Badge variant and label for a Version's state; an unknown future state shows as itself. */
+export function versionStatus(state: State, longMissing = false): { variant: Variant; label: string } {
+  if (longMissing) return { variant: 'red-subtle', label: 'Long Missing' }
+  return stateText[state] ?? { variant: 'gray-subtle', label: state }
 }
 
 export function StatusBadge({ state, longMissing }: { state: State; longMissing?: boolean }) {
   const s = versionStatus(state, longMissing)
-  return <Badge tone={s.tone}>{s.label}</Badge>
+  return (
+    <Badge variant={s.variant} size="sm">
+      {s.label}
+    </Badge>
+  )
 }
 
 function dotClass(state: State | null, longMissing: boolean): string {

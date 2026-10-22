@@ -1,12 +1,13 @@
+import { Button, Checkbox, DestructiveActionModal, Note, Select } from '@hyprsh/design'
 import { useState, type ReactNode } from 'react'
 import type { Profile } from '../api/queries'
 import { useAddVersion, useRemoveTitle, useRemoveVersion, useSwitchProfile } from '../api/versions'
-import { Button, ErrorText, Select } from '../forms'
 import type { SlotKey } from './bits'
 
 /**
- * "Also delete files" is unticked by default: removing never loses a file by
- * accident. `children` go above it, such as what a bulk removal covers.
+ * Asks before removing, in a modal. "Also delete files" is unticked by default:
+ * removing never loses a file by accident. `children` go above it, such as what
+ * a bulk removal covers. The caller shows it only while it is asked.
  */
 export function RemoveConfirm({
   what,
@@ -25,22 +26,23 @@ export function RemoveConfirm({
 }) {
   const [deleteFiles, setDeleteFiles] = useState(false)
   return (
-    <div role="group" aria-label={`Remove ${what}`} className="mt-2 rounded-md border border-gray-alpha-400 p-2 text-[12px]">
-      {children}
-      <label className="flex items-center gap-2">
-        <input type="checkbox" checked={deleteFiles} onChange={(e) => setDeleteFiles(e.target.checked)} />
-        Also delete files
-      </label>
-      {error && <ErrorText>{error}</ErrorText>}
-      <div className="mt-2 flex gap-2">
-        <Button variant="danger" className="h-7" disabled={busy} onClick={() => onConfirm(deleteFiles)}>
-          Remove
-        </Button>
-        <Button variant="secondary" className="h-7" onClick={onCancel}>
-          Cancel
-        </Button>
-      </div>
-    </div>
+    <DestructiveActionModal
+      open
+      title={`Remove ${what}`}
+      confirmLabel="Remove"
+      description={
+        <div className="flex flex-col gap-3">
+          {children}
+          <Checkbox checked={deleteFiles} onChange={(e) => setDeleteFiles(e.target.checked)}>
+            Also delete files
+          </Checkbox>
+        </div>
+      }
+      loading={busy}
+      error={error}
+      onCancel={onCancel}
+      onConfirm={() => onConfirm(deleteFiles)}
+    />
   )
 }
 
@@ -68,19 +70,25 @@ function ProfilePicker({
   const [choice, setChoice] = useState(options.some((p) => p.key === initial) ? initial : (options[0]?.key ?? ''))
   return (
     <div role="group" aria-label={label} className="mt-2">
-      <Select aria-label="Profile" value={choice} onChange={(e) => setChoice(e.target.value)}>
+      <Select size="small" aria-label="Profile" value={choice} onChange={(e) => setChoice(e.target.value)}>
         {options.map((p) => (
           <option key={p.key} value={p.key}>
             {p.name}
           </option>
         ))}
       </Select>
-      {error && <ErrorText>{error}</ErrorText>}
+      {error && (
+        <div className="mt-2">
+          <Note variant="error" size="small">
+            {error}
+          </Note>
+        </div>
+      )}
       <div className="mt-2 flex gap-2">
-        <Button className="h-7" disabled={busy || !choice} onClick={() => onPick(choice)}>
+        <Button variant="primary" size="small" disabled={busy || !choice} onClick={() => onPick(choice)}>
           {label === 'Add Version' ? 'Add' : 'Switch'}
         </Button>
-        <Button variant="secondary" className="h-7" onClick={onCancel}>
+        <Button variant="secondary" size="small" onClick={onCancel}>
           Cancel
         </Button>
       </div>
@@ -107,17 +115,15 @@ export function VersionControls({ versionId, slot, profile, profiles }: { versio
       />
     )
   }
-  if (mode === 'remove') {
-    return <RemoveConfirm what="Version" busy={rm.isPending} error={rm.error?.message} onCancel={() => setMode(null)} onConfirm={(d) => rm.mutate(d)} />
-  }
   return (
     <div className="mt-2 flex flex-wrap gap-2">
-      <Button variant="secondary" className="h-7 flex-1 whitespace-nowrap" onClick={() => setMode('switch')}>
+      <Button variant="secondary" size="small" className="flex-1" onClick={() => setMode('switch')}>
         Change Profile
       </Button>
-      <Button variant="secondary" className="h-7 flex-1 whitespace-nowrap" onClick={() => setMode('remove')}>
+      <Button variant="secondary" size="small" className="flex-1" onClick={() => setMode('remove')}>
         Remove Version
       </Button>
+      {mode === 'remove' && <RemoveConfirm what="Version" busy={rm.isPending} error={rm.error?.message} onCancel={() => setMode(null)} onConfirm={(d) => rm.mutate(d)} />}
     </div>
   )
 }
@@ -129,7 +135,7 @@ export function AddVersion({ titleId, slot, profiles }: { titleId: number; slot:
   if (!profiles.some((p) => p.slot === slot && p.enabled)) return null
   if (!open) {
     return (
-      <Button variant="secondary" className="mt-2 h-7 w-full" onClick={() => setOpen(true)}>
+      <Button variant="secondary" size="small" className="mt-2 w-full" onClick={() => setOpen(true)}>
         Add Version
       </Button>
     )

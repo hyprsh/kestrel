@@ -194,7 +194,7 @@ describe('changing the ticked Titles together', () => {
     const pane = await withTicked('Paddington', 'Heat')
 
     await userEvent.click(within(pane).getByRole('button', { name: 'Remove Version' }))
-    const form = within(pane).getByRole('group', { name: 'Remove Version' })
+    const form = screen.getByRole('alertdialog', { name: 'Remove Version' })
     await userEvent.selectOptions(within(form).getByRole('combobox', { name: 'Slot' }), '4K')
     expect(within(form).getByRole('checkbox', { name: 'Also delete files' })).not.toBeChecked()
     await userEvent.click(within(form).getByRole('button', { name: 'Remove' }))
@@ -209,7 +209,7 @@ describe('changing the ticked Titles together', () => {
     const pane = await withTicked('Paddington', 'Heat')
 
     await userEvent.click(within(pane).getByRole('button', { name: 'Remove from Library' }))
-    const confirm = within(pane).getByRole('group', { name: 'Remove Titles' })
+    const confirm = screen.getByRole('alertdialog', { name: 'Remove Titles' })
     expect(confirm).toHaveTextContent('Remove 2 Titles from the Library, with 10.0 GB of files.')
     await userEvent.click(within(confirm).getByRole('checkbox', { name: 'Also delete files' }))
     await userEvent.click(within(confirm).getByRole('button', { name: 'Remove' }))
