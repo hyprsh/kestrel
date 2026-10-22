@@ -3343,6 +3343,11 @@ export interface components {
             free_bytes: number;
             /** Format: int64 */
             total_bytes: number;
+            /**
+             * Format: int64
+             * @description Free space under which the low disk space warning fires (the larger of 5 % of the total and 50 GiB).
+             */
+            low_free_bytes: number;
         };
         EventList: {
             items: components["schemas"]["Event"][];

@@ -312,7 +312,7 @@ func (s *server) GetSystemStatus(ctx context.Context, _ oapi.GetSystemStatusRequ
 		return nil, err
 	}
 	for _, d := range disks {
-		out.Disks = append(out.Disks, oapi.DiskStatus{Path: d.Path, FreeBytes: int64(d.Free), TotalBytes: int64(d.Total)})
+		out.Disks = append(out.Disks, oapi.DiskStatus{Path: d.Path, FreeBytes: int64(d.Free), TotalBytes: int64(d.Total), LowFreeBytes: int64(d.Low)})
 	}
 	ts := s.trash.Status(ctx)
 	out.Trash.Commit, out.Trash.AutoUpdate = ts.Commit, ts.AutoUpdate

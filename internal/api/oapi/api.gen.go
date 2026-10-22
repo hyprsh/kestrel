@@ -1683,9 +1683,12 @@ type DeletedFiles struct {
 
 // DiskStatus defines model for DiskStatus.
 type DiskStatus struct {
-	FreeBytes  int64  `json:"free_bytes"`
-	Path       string `json:"path"`
-	TotalBytes int64  `json:"total_bytes"`
+	FreeBytes int64 `json:"free_bytes"`
+
+	// LowFreeBytes Free space under which the low disk space warning fires (the larger of 5 % of the total and 50 GiB).
+	LowFreeBytes int64  `json:"low_free_bytes"`
+	Path         string `json:"path"`
+	TotalBytes   int64  `json:"total_bytes"`
 }
 
 // Episode defines model for Episode.

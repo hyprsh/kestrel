@@ -48,6 +48,13 @@ type Space struct {
 type Disk struct {
 	Path        string
 	Free, Total uint64
+	// Low is the free space under which the low disk space check fires.
+	Low uint64
+}
+
+// lowDiskFloor is the free space under which a mount of this size counts as nearly full.
+func lowDiskFloor(total uint64) uint64 {
+	return max(uint64(float64(total)*lowDiskFraction), lowDiskBytes)
 }
 
 // ChecksDeps are what the periodic checks look at. Every field is optional: a
@@ -429,7 +436,7 @@ func (s *Service) Disks(ctx context.Context) ([]Disk, error) {
 		if err != nil {
 			continue
 		}
-		out = append(out, Disk{Path: p, Free: sp.Free, Total: sp.Total})
+		out = append(out, Disk{Path: p, Free: sp.Free, Total: sp.Total, Low: lowDiskFloor(sp.Total)})
 	}
 	return out, nil
 }
@@ -444,7 +451,7 @@ func (s *Service) checkDisk(ctx context.Context) error {
 	if err != nil {
 		return nil // an unreadable mount is the Root folder check's to report
 	}
-	floor := max(uint64(float64(sp.Total)*lowDiskFraction), lowDiskBytes)
+	floor := lowDiskFloor(sp.Total)
 	if sp.Free >= floor {
 		return s.Clear(ctx, keyLowDisk)
 	}
