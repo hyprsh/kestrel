@@ -1,11 +1,10 @@
 // The Originals available group of Needs attention: one row per Version whose Profile offers a
 // Release with the Title's Original Language only, with Accept and Dismiss and a link to the Title.
+import { Badge, Button, Note } from '@hyprsh/design'
 import { useState } from 'react'
 import { offerUnits, useAcceptOffer, useDismissOffer, type OriginalOffer, type OriginalsAvailable } from '../api/offers'
 import { useProfiles } from '../api/queries'
-import { Button, ErrorText } from '../forms'
 import { slotLabel } from '../library/bits'
-import { Badge } from '../ui'
 
 /**
  * Like Long Missing, one grouped row after the others and outside the rail
@@ -18,11 +17,11 @@ export function OriginalsRow({ group, onOpenTitle }: { group: OriginalsAvailable
   return (
     <div data-originals className="mt-3 rounded-lg border border-gray-alpha-400 px-4 py-3">
       <div className="flex items-center gap-2">
-        <Badge tone="amber">Originals</Badge>
+        <Badge variant="amber-subtle" size="sm">Originals</Badge>
         <span className="min-w-0 flex-1">
           Originals available · {group.count}
         </span>
-        <Button variant="secondary" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Button variant="secondary" size="small" aria-expanded={open} onClick={() => setOpen(!open)}>
           {open ? 'Hide' : 'Show'}
         </Button>
       </div>
@@ -52,18 +51,18 @@ function Offer({ offer: o, profileName, onOpenTitle }: { offer: OriginalOffer; p
           </button>{' '}
           · {slotLabel[o.slot]} · {profileName}
         </span>
-        <Button variant="secondary" disabled={busy} onClick={() => accept.mutate(o.version_id)}>
+        <Button variant="secondary" size="small" disabled={busy} onClick={() => accept.mutate(o.version_id)}>
           Accept
         </Button>
-        <Button variant="secondary" disabled={busy} onClick={() => dismiss.mutate(o.version_id)}>
+        <Button variant="secondary" size="small" disabled={busy} onClick={() => dismiss.mutate(o.version_id)}>
           Dismiss
         </Button>
       </div>
-      <div className="truncate font-mono text-[11px] text-gray-900" title={o.release}>
+      <div className="label-12-mono truncate text-gray-900" title={o.release}>
         {o.release} · Score {o.score}
       </div>
-      {units && <div className="text-[12px] text-gray-900">{units}</div>}
-      {failed && <ErrorText>{failed.message}</ErrorText>}
+      {units && <div className="label-12 text-gray-900">{units}</div>}
+      {failed && <Note variant="error">{failed.message}</Note>}
     </li>
   )
 }

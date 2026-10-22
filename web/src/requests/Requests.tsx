@@ -1,12 +1,12 @@
 // The Requests screen, behind the Overview's "View all": every Request from outside Kestrel,
 // newest first, filtered by status:, requester: and source: (asked of the server) and free text
 // on the Title and who asked (over the rows loaded). Off the rail; its place is "/requests".
+import { Button, EmptyState, Note } from '@hyprsh/design'
 import { useMemo, useState } from 'react'
 import { useRequestList } from '../api/requests'
 import { matchText } from '../fuzzy'
 import { parse } from '../filter/query'
 import { QueryField } from '../filter/QueryField'
-import { Button, ErrorText } from '../forms'
 import { useKey, useListNav } from '../keys'
 import { requestFilter, requestQualifiers } from './filter'
 import { RequestRow } from './RequestRow'
@@ -47,11 +47,11 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
           onChange={onQuery}
           qualifiers={qualifiers}
         />
-        {list.data && <span className="text-[12px] text-gray-900 tabular">{list.data.pages[0].total} in all</span>}
+        {list.data && <span className="label-12 text-gray-900 tabular">{list.data.pages[0].total} in all</span>}
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
-        {list.isError && <ErrorText>The Requests could not be loaded.</ErrorText>}
-        {list.data && shown.length === 0 && <div className="p-6 text-center text-gray-900">No Request matches.</div>}
+        {list.isError && <Note variant="error">The Requests could not be loaded.</Note>}
+        {list.data && shown.length === 0 && <EmptyState className="m-4" description="No Request matches." />}
         <ul aria-label="Requests" className="divide-y divide-gray-alpha-200">
           {shown.map((r, i) => (
             <RequestRow key={r.id} request={r} nav={{ scope: 'req', index: i, sel, onSelect: () => setSel(i) }} onOpenTitle={onOpenTitle} />
@@ -59,7 +59,7 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
         </ul>
         {list.hasNextPage && (
           <div className="p-4 text-center">
-            <Button variant="secondary" disabled={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
+            <Button variant="secondary" size="small" disabled={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
               Show older Requests
             </Button>
           </div>

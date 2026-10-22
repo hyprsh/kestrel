@@ -1,4 +1,5 @@
 // The Searching card: the search pipeline at a glance, beside Downloading now.
+import { Button } from '@hyprsh/design'
 import { useSearchStatus, type SearchStatus } from '../api/search'
 import { plural } from '../format'
 import { useOpenPlace } from '../place'
@@ -41,13 +42,13 @@ export function Searching() {
   return (
     <section id="overview-searching" aria-labelledby="searching" className="mx-auto mb-8 max-w-3xl">
       <div className="mb-3 flex items-baseline justify-between">
-        <h2 id="searching" className="text-sm font-medium">
+        <h2 id="searching" className="heading-14">
           Searching
         </h2>
         {/* The Search loop's schedule and last run sit with the other loops on Activity. */}
-        <button type="button" className="text-[12px] text-gray-900 underline hover:text-gray-1000" onClick={() => openPlace('/activity/jobs')}>
+        <Button variant="tertiary" size="small" className="-mr-3" onClick={() => openPlace('/activity/jobs')}>
           Background jobs
-        </button>
+        </Button>
       </div>
       <SearchSummary status={s} />
     </section>
@@ -66,19 +67,19 @@ export function SearchSummary({ status: s }: { status: SearchStatus }) {
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-gray-alpha-400 px-4 py-3">
       <p className="font-medium">{main.join(' · ')}</p>
-      {s.due.episodes > 0 && <p className="text-[12px] text-gray-900">{`${plural(s.due.episodes, 'Wanted episode')} in the Series among them`}</p>}
+      {s.due.episodes > 0 && <p className="label-12 text-gray-900">{`${plural(s.due.episodes, 'Wanted episode')} in the Series among them`}</p>}
       {s.due.upgrades > 0 && (
-        <p className="text-[12px] text-gray-900">
+        <p className="label-12 text-gray-900">
           {`${plural(s.due.upgrades, 'Version')} due an Upgrade search · ${plural(s.upgrades_per_pass, 'Upgrade search', 'Upgrade searches')} per pass`}
         </p>
       )}
       {s.last_pass && (
-        <p className="text-[12px] text-gray-900">
+        <p className="label-12 text-gray-900">
           {`Last pass at ${clockTime(s.last_pass.finished_at)} searched ${plural(s.last_pass.searched, 'Wanted Version')} and made ${plural(s.last_pass.grabbed, 'Grab')}`}
         </p>
       )}
       {indexers.map((l) => (
-        <p key={l.text} className={l.held ? 'text-[12px] text-amber-900' : 'text-[12px] text-gray-900'}>
+        <p key={l.text} className={l.held ? 'label-12 text-amber-900' : 'label-12 text-gray-900'}>
           {l.text}
         </p>
       ))}
