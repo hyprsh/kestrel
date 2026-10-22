@@ -3,8 +3,8 @@
 import { About } from '../about/About'
 import { Activity } from '../activity/Activity'
 import { useRunningNow, type Running } from '../activity/running'
-import { Badge, Button, CommandMenuTrigger, Note, Spinner, StatusDot, Tooltip } from '@hyprsh/design'
-import { Activity as ActivityIcon, CalendarClock, Inbox, Info, LibraryBig, LogOut, Monitor, Moon, Plus, ScrollText, Settings, Sun, X } from 'lucide-react'
+import { Badge, Button, CommandMenuTrigger, Note, Spinner, StatusDot, ThemeSwitcher, Tooltip } from '@hyprsh/design'
+import { Activity as ActivityIcon, CalendarClock, Inbox, Info, LibraryBig, LogOut, Plus, ScrollText, Settings, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAttention } from '../api/attention'
@@ -23,7 +23,7 @@ import { Requests } from '../requests/Requests'
 import { currentPlace, PlaceOpener, placeOf, placePath, showPlace } from '../place'
 import { Upcoming } from '../upcoming/Upcoming'
 import { Settings as SettingsScreen } from '../screens/Settings'
-import { useTheme, type Theme } from '../theme'
+import { THEME_KEY, useTheme, type Theme } from '../theme'
 import { KestrelLogo } from '../ui'
 
 const icon = 'size-4'
@@ -41,12 +41,6 @@ const adoption = { key: 'adoption', label: 'Adopt existing library' }
 const cleanup = { key: 'cleanup', label: 'Clean up Unmanaged files' }
 // Reached from the Overview's Recent requests, not the rail; a place, so "/requests?q=…" opens it.
 const requests = { key: 'requests', label: 'Requests' }
-const themeIcon: Record<Theme, ReactNode> = {
-  system: <Monitor className={icon} />,
-  light: <Sun className={icon} />,
-  dark: <Moon className={icon} />,
-}
-
 const isPlace = (key: string) => [...screens, about, requests].some((s) => s.key === key)
 
 export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
@@ -60,7 +54,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const [filter, setFilter] = useState({ screen: start.screen, q: start.q })
   const query = filter.screen === screen ? filter.q : ''
   useEffect(() => showPlace(placePath(screen, query)), [screen, query])
-  const { theme, cycle } = useTheme()
+  const { theme, setTheme, cycle } = useTheme()
   const auth = useAuth()
   const logout = useLogout()
   const current = [...screens, about, adoption, cleanup, requests].find((s) => s.key === screen)!
@@ -134,7 +128,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     <PlaceOpener.Provider value={goPath}>
     {/* The 13px base the screens not yet built from the design inherit; they drop it with their own type classes. */}
     <div className="flex h-full bg-background-100 text-[13px] text-gray-1000">
-      <Rail screen={screen} onSelect={setScreen} theme={theme} onTheme={cycle} onAdd={() => setMenu({ mode: 'add' })} />
+      <Rail screen={screen} onSelect={setScreen} theme={theme} onTheme={setTheme} onAdd={() => setMenu({ mode: 'add' })} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar title={current.label} onOpenMenu={() => setMenu({ mode: 'root' })} running={running} onOpenRunning={() => goPath('/activity/running')} />
         {searchQueued && (
@@ -235,7 +229,7 @@ function Rail({
   screen: string
   onSelect: (key: string) => void
   theme: Theme
-  onTheme: () => void
+  onTheme: (theme: Theme) => void
   onAdd: () => void
 }) {
   const logout = useLogout()
@@ -265,9 +259,8 @@ function Rail({
         </RailButton>
       ))}
       <div className="flex-1" />
-      <RailButton label={`Theme: ${theme}`} onClick={onTheme}>
-        {themeIcon[theme]}
-      </RailButton>
+      {/* Applies the choice to <html> and saves it; the command menu's "Switch theme" moves it through the same value. */}
+      <ThemeSwitcher variant="cycle" attribute="class" storageKey={THEME_KEY} value={theme} onChange={onTheme} />
       <RailButton label={about.label} active={screen === about.key} onClick={() => onSelect(about.key)}>
         {about.icon}
       </RailButton>

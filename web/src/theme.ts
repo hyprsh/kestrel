@@ -1,41 +1,27 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
+import type { ThemeSwitcherValue } from '@hyprsh/design'
 
-export type Theme = 'system' | 'light' | 'dark'
+export type Theme = ThemeSwitcherValue
 
-const KEY = 'kestrel.theme'
+/** The key the choice is kept under; the rail's ThemeSwitcher and the pre-paint script in index.html use it too. */
+export const THEME_KEY = 'kestrel.theme'
 const order: Theme[] = ['system', 'light', 'dark']
 
 function stored(): Theme {
-  const v = localStorage.getItem(KEY)
-  return v === 'light' || v === 'dark' ? v : 'system'
+  try {
+    const v = localStorage.getItem(THEME_KEY)
+    return v === 'light' || v === 'dark' ? v : 'system'
+  } catch {
+    return 'system'
+  }
 }
 
-function prefersDark(): boolean {
-  return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches
-}
-
-function apply(theme: Theme) {
-  document.documentElement.classList.toggle('dark', theme === 'dark' || (theme === 'system' && prefersDark()))
-}
-
-/** Light, dark or follow the system. The choice is kept in localStorage; index.html applies it before first paint. */
+/**
+ * The theme choice, held here so the rail's ThemeSwitcher (which applies and saves it) and the
+ * command menu's "Switch theme" action stay in step.
+ */
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(stored)
-
-  useEffect(() => {
-    apply(theme)
-    if (theme !== 'system' || typeof matchMedia !== 'function') return
-    const mq = matchMedia('(prefers-color-scheme: dark)')
-    const onChange = () => apply('system')
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [theme])
-
-  const cycle = useCallback(() => {
-    const next = order[(order.indexOf(theme) + 1) % order.length]
-    localStorage.setItem(KEY, next)
-    setTheme(next)
-  }, [theme])
-
-  return { theme, cycle }
+  const cycle = useCallback(() => setTheme((t) => order[(order.indexOf(t) + 1) % order.length]), [])
+  return { theme, setTheme, cycle }
 }
