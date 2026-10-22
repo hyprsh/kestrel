@@ -1,6 +1,6 @@
-import { Badge, Button, Checkbox, EmptyState, KeyboardInput, Note, Spinner, Table } from '@hyprsh/design'
-import { ArrowLeft, Download } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { Badge, Button, Checkbox, EmptyState, KeyboardInput, Note, Pill, Spinner, Table } from '@hyprsh/design'
+import { ArrowDown, ArrowLeft, ArrowUp, Download } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError } from '../api/queries'
 import { useGrab, useReleases, type Release } from '../api/grabs'
 import type { EpisodeScope } from '../api/queries'
@@ -30,10 +30,90 @@ function grabState(r: Release): { label: string; disabled: boolean; override: bo
 
 const rejectionBlocked = (r: Release) => r.fits === 'other_slot' || r.rejections.some((x) => !x.overridable)
 
+type SortKey = 'score' | 'release' | 'quality' | 'languages' | 'formats' | 'size' | 'age' | 'indexer'
+type Sort = { key: SortKey; dir: 'asc' | 'desc' }
+type View = { sort: Sort; pinned: string | null }
+
+const BEST_FIRST: Sort = { key: 'score', dir: 'desc' }
+
+/** The columns, in order; `text` ones sort alphabetically, the rest numerically. */
+const columns: { key: SortKey; label: string; align?: 'right'; text?: boolean }[] = [
+  { key: 'score', label: 'Score', align: 'right' },
+  { key: 'release', label: 'Release', text: true },
+  { key: 'quality', label: 'Quality', text: true },
+  { key: 'languages', label: 'Languages', text: true },
+  { key: 'formats', label: 'Custom formats' },
+  { key: 'size', label: 'Size', align: 'right' },
+  { key: 'age', label: 'Age', align: 'right' },
+  { key: 'indexer', label: 'Indexer', text: true },
+]
+
+const points = (r: Release) => r.custom_formats.reduce((sum, f) => sum + f.points, 0)
+
+function valueOf(r: Release, key: SortKey): string | number {
+  switch (key) {
+    case 'score': return r.score
+    case 'release': return r.name
+    case 'quality': return r.quality
+    case 'languages': return r.languages.join(', ')
+    case 'formats': return points(r)
+    case 'size': return r.size
+    case 'age': return Date.now() - new Date(r.published_at).getTime()
+    case 'indexer': return r.indexer
+  }
+}
+
+/**
+ * The order of the list: accepted Releases first, rejected ones below, each group sorted on its own; within a
+ * group the Releases with the pinned Custom Format come first. Ties keep best-first order.
+ */
+function arrange(items: Release[], { sort, pinned }: View): Release[] {
+  const sign = sort.dir === 'asc' ? 1 : -1
+  const text = columns.find((c) => c.key === sort.key)?.text
+  const cmp = (a: Release, b: Release) => {
+    const rejected = Number(a.rejections.length > 0) - Number(b.rejections.length > 0)
+    if (rejected !== 0) return rejected
+    if (pinned) {
+      const pin = Number(b.custom_formats.some((f) => f.name === pinned)) - Number(a.custom_formats.some((f) => f.name === pinned))
+      if (pin !== 0) return pin
+    }
+    const x = valueOf(a, sort.key)
+    const y = valueOf(b, sort.key)
+    const by = text ? String(x).localeCompare(String(y), undefined, { sensitivity: 'base', numeric: true }) : Number(x) - Number(y)
+    return by !== 0 ? sign * by : b.score - a.score
+  }
+  return items.slice().sort(cmp)
+}
+
+// The sort and the pinned Custom Format are remembered for the browser session, across manual searches.
+const VIEW_KEY = 'kestrel.manualSearchView'
+
+function loadView(): View {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(VIEW_KEY) ?? 'null') as Partial<View> | null
+    const s = v?.sort
+    if (s && columns.some((c) => c.key === s.key) && (s.dir === 'asc' || s.dir === 'desc')) {
+      return { sort: { key: s.key, dir: s.dir }, pinned: typeof v?.pinned === 'string' ? v.pinned : null }
+    }
+  } catch {
+    // no session storage: nothing is remembered
+  }
+  return { sort: BEST_FIRST, pinned: null }
+}
+
+function saveView(v: View) {
+  try {
+    sessionStorage.setItem(VIEW_KEY, JSON.stringify(v))
+  } catch {
+    // no session storage: nothing is remembered
+  }
+}
+
 /**
  * Manual search for one Version: every Release the indexers offered, scored
  * against the Version's Profile, in a keyboard table. j/k select, Enter grabs,
- * Escape goes back. A Series search can be narrowed to a season or episodes
+ * Escape goes back; the column headers sort (the order j/k and Enter follow), and a Custom Format chip pins
+ * the Releases that match it. Rejected Releases stay below the accepted ones. A Series search can be narrowed to a season or episodes
  * (`scope`), named in the header by `scope.label`.
  */
 export function ManualSearch({
@@ -54,6 +134,7 @@ export function ManualSearch({
   const search = useReleases(versionId, scope?.body)
   const grabbing = useGrab()
   const [hideRejected, setHideRejected] = useState(false)
+  const [view, setView] = useState(loadView)
   const [sel, setSel] = useState(0)
   const [sent, setSent] = useState<string | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
@@ -61,10 +142,22 @@ export function ManualSearch({
   useEffect(() => ref.current?.focus(), [])
 
   const all = search.data?.items ?? []
-  const rows = hideRejected ? all.filter((r) => r.rejections.length === 0) : all
+  const rows = useMemo(() => arrange(hideRejected ? all.filter((r) => r.rejections.length === 0) : all, view), [all, hideRejected, view])
   const index = Math.min(sel, Math.max(rows.length - 1, 0))
   const current = rows[index] as Release | undefined
   const g = current && grabState(current)
+
+  // After a mouse click the section takes the focus back, so Enter grabs rather than pressing the header or chip
+  // again; a keyboard activation (detail 0) keeps the focus where the keyboard user is.
+  const change = (next: View, e: { detail: number }) => {
+    setView(next)
+    saveView(next)
+    setSel(0)
+    if (e.detail > 0) ref.current?.focus()
+  }
+  const sortBy = (key: SortKey, e: { detail: number }) =>
+    change({ ...view, sort: view.sort.key === key ? { key, dir: view.sort.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' } }, e)
+  const isBest = view.sort.key === BEST_FIRST.key && view.sort.dir === BEST_FIRST.dir
 
   const grab = () => {
     if (!current || !g || g.disabled || grabbing.isPending) return
@@ -103,8 +196,13 @@ export function ManualSearch({
           </Badge>
         )}
         <span className="copy-13 text-gray-900">
-          Profile {profileName} · {rows.length} Releases · best first
+          Profile {profileName} · {rows.length} Releases · {isBest ? 'best first' : `sorted by ${columns.find((c) => c.key === view.sort.key)?.label.toLowerCase()}, ${view.sort.dir === 'asc' ? 'ascending' : 'descending'}`}
         </span>
+        {!isBest && (
+          <Button variant="tertiary" size="small" onClick={(e) => change({ ...view, sort: BEST_FIRST }, e)}>
+            Best first
+          </Button>
+        )}
         <span className="ml-auto">
           <Checkbox checked={hideRejected} onChange={(e) => setHideRejected(e.target.checked)}>
             Hide rejected
@@ -152,14 +250,22 @@ export function ManualSearch({
               </Table.Colgroup>
               <Table.Header>
                 <Table.Row>
-                  <Table.Head align="right">Score</Table.Head>
-                  <Table.Head>Release</Table.Head>
-                  <Table.Head>Quality</Table.Head>
-                  <Table.Head>Languages</Table.Head>
-                  <Table.Head>Custom formats</Table.Head>
-                  <Table.Head align="right">Size</Table.Head>
-                  <Table.Head align="right">Age</Table.Head>
-                  <Table.Head>Indexer</Table.Head>
+                  {columns.map((c) => {
+                    const active = view.sort.key === c.key
+                    const Arrow = view.sort.dir === 'asc' ? ArrowUp : ArrowDown
+                    return (
+                      <Table.Head key={c.key} align={c.align} aria-sort={active ? (view.sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}>
+                        <button
+                          type="button"
+                          onClick={(e) => sortBy(c.key, e)}
+                          className={cx('inline-flex cursor-pointer items-center gap-1 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-blue-700', c.align === 'right' && 'flex-row-reverse')}
+                        >
+                          {c.label}
+                          {active && <Arrow aria-hidden className="size-3" />}
+                        </button>
+                      </Table.Head>
+                    )
+                  })}
                 </Table.Row>
               </Table.Header>
               <Table.Body interactive bordered>
@@ -191,12 +297,19 @@ export function ManualSearch({
                               Other Slot
                             </Badge>
                           )}
-                          {scopeLabel(x) && (
+                        </div>
+                        {scopeLabel(x) && (
+                          <div className={cx('mt-1 flex items-center gap-1.5', dim)}>
                             <Badge variant="gray-subtle" size="sm">
                               {scopeLabel(x)}
                             </Badge>
-                          )}
-                        </div>
+                            {episodeTitles(x) && (
+                              <span className="copy-13 min-w-0 truncate text-gray-900" title={x.episode_titles?.join(' · ')}>
+                                · {episodeTitles(x)}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         {rejected && (
                           <div className={cx('label-12 mt-0.5', rejectionBlocked(x) ? 'text-red-900' : 'text-amber-900')}>
                             {x.rejections.map((r) => r.message).join(' · ')}
@@ -208,9 +321,19 @@ export function ManualSearch({
                       <Table.Cell wrap className={dim || undefined}>
                         <div className="flex flex-wrap gap-1">
                           {x.custom_formats.map((f) => (
-                            <Badge key={f.name} variant="gray-subtle" size="sm" title={`${f.points} points`}>
+                            <Pill
+                              key={f.name}
+                              size="sm"
+                              pressed={view.pinned === f.name}
+                              onPressedChange={() => undefined}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                change({ ...view, pinned: view.pinned === f.name ? null : f.name }, e.nativeEvent as MouseEvent)
+                              }}
+                              title={`${f.points} points: pin the Releases with ${f.name} to the top`}
+                            >
                               {f.name}
-                            </Badge>
+                            </Pill>
                           ))}
                         </div>
                       </Table.Cell>
@@ -268,4 +391,11 @@ function scopeLabel(x: Release): string | null {
   const code = (n: number) => String(n).padStart(2, '0')
   const last = eps[eps.length - 1]
   return eps.length > 1 ? `S${code(x.season)}E${code(eps[0])}-E${code(last)}` : `S${code(x.season)}E${code(eps[0])}`
+}
+
+/** The titles of the episodes a Release names: the first two, then "+N more" when it names more. */
+function episodeTitles(x: Release): string | null {
+  const titles = x.episode_titles ?? []
+  if (titles.length === 0) return null
+  return titles.length > 2 ? `${titles.slice(0, 2).join(' / ')} / +${titles.length - 2} more` : titles.join(' / ')
 }
