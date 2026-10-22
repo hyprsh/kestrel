@@ -1,16 +1,7 @@
+import { Badge, Button, Fieldset, Input, Note } from '@hyprsh/design'
 import { Check } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
-import {
-  ApiError,
-  useCompleteSetup,
-  useCreateAccount,
-  usePluginInstances,
-  usePlugins,
-  useProfiles,
-  useSetup,
-  useSettings,
-} from '../api/queries'
-import { Button, ErrorText, Field, TextInput } from '../forms'
+import { ApiError, useCompleteSetup, useCreateAccount, usePluginInstances, usePlugins, useProfiles, useSetup, useSettings } from '../api/queries'
 import { Adoption } from '../adoption/Adoption'
 import { DownloadClient } from '../plugins/DownloadClient'
 import { Indexer } from '../plugins/Indexer'
@@ -45,62 +36,87 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
   }
 
   const serverProblem =
-    create.error instanceof ApiError && create.error.code === 'conflict'
-      ? 'An account already exists. Reload to log in.'
-      : create.isError
-        ? 'Could not create the account. Try again.'
-        : null
+    create.error instanceof ApiError && create.error.code === 'conflict' ? 'An account already exists. Reload to log in.' : create.isError ? 'Could not create the account. Try again.' : null
 
   return (
-    <div className="flex min-h-full justify-center overflow-auto bg-background-200 p-8 text-[13px] text-gray-1000">
+    <div className="flex min-h-full justify-center overflow-auto bg-background-200 p-8 copy-13 text-gray-1000">
       <div className="w-full max-w-2xl">
-        <div className="mb-6 flex items-center gap-2 text-2xl font-semibold tracking-tight">
+        <div className="heading-24 mb-6 flex items-center gap-2">
           <KestrelLogo className="size-6" /> Set up Kestrel
         </div>
-        <section aria-labelledby="wizard-account" className="rounded-lg border border-gray-alpha-400 bg-background-100 p-6">
-          <h2 id="wizard-account" className="mb-1 flex items-center gap-2 text-[15px] font-semibold tracking-tight">
-            <span className="flex size-5 items-center justify-center rounded-full bg-gray-1000 text-[11px] text-background-100">
-              {signedIn ? <Check className="size-3" /> : 1}
-            </span>
-            Account
-          </h2>
-          <p className="mb-4 text-gray-900">
-            {signedIn ? 'The admin account exists and you are logged in.' : 'Create the admin login. Kestrel is never open without one.'}
-          </p>
-          {!signedIn && <form onSubmit={submit} className="flex max-w-sm flex-col gap-3">
-            <Field label="Username">{(id) => <TextInput id={id} autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />}</Field>
-            <Field label="Password">
-              {(id) => <TextInput id={id} type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />}
-            </Field>
-            <Field label="Confirm password">
-              {(id) => <TextInput id={id} type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />}
-            </Field>
-            {(problem ?? serverProblem) && <ErrorText>{problem ?? serverProblem}</ErrorText>}
-            <Button type="submit" disabled={create.isPending} className="self-start">
-              Create account
-            </Button>
-          </form>}
-        </section>
+        <Section
+          n={1}
+          id="account"
+          title="Account"
+          checked={signedIn}
+          description={signedIn ? 'The admin account exists and you are logged in.' : 'Create the admin login. Kestrel is never open without one.'}
+        >
+          {!signedIn && (
+            <form onSubmit={submit} className="flex max-w-sm flex-col gap-3">
+              <Input size="small" label="Username" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />
+              <Input size="small" label="Password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <Input size="small" label="Confirm password" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+              {(problem ?? serverProblem) && (
+                <Note variant="error" size="small">
+                  {problem ?? serverProblem}
+                </Note>
+              )}
+              <Button size="small" variant="primary" typeName="submit" disabled={create.isPending} className="self-start">
+                Create account
+              </Button>
+            </form>
+          )}
+        </Section>
         {signedIn && setup.data && (
           <>
-            <Section n={2} id="language" title="Primary Language" state={sections.language} summary={<LanguageSummary />}>
-              <p className="mb-4 text-gray-900">Choose the language your household watches in. You can change it later in Settings.</p>
+            <Section
+              n={2}
+              id="language"
+              title="Primary Language"
+              state={sections.language}
+              summary={<LanguageSummary />}
+              description="Choose the language your household watches in. You can change it later in Settings."
+            >
               <LanguageForm />
             </Section>
-            <Section n={3} id="download-client" title="Download client" state={sections.download_client} summary={<InstanceSummary contract="download_client.v1" />}>
-              <p className="mb-4 text-gray-900">Connect SABnzbd. Kestrel hands it NZBs and reads its queue and history.</p>
+            <Section
+              n={3}
+              id="download-client"
+              title="Download client"
+              state={sections.download_client}
+              summary={<InstanceSummary contract="download_client.v1" />}
+              description="Connect SABnzbd. Kestrel hands it NZBs and reads its queue and history."
+            >
               <DownloadClient />
             </Section>
-            <Section n={4} id="indexer" title="Indexer" state={sections.indexer} summary={<InstanceSummary contract="indexer.v1" />}>
-              <p className="mb-4 text-gray-900">Add a Newznab indexer. Kestrel searches it for releases and fetches their NZBs. You can add more in Settings.</p>
+            <Section
+              n={4}
+              id="indexer"
+              title="Indexer"
+              state={sections.indexer}
+              summary={<InstanceSummary contract="indexer.v1" />}
+              description="Add a Newznab indexer. Kestrel searches it for releases and fetches their NZBs. You can add more in Settings."
+            >
               <Indexer />
             </Section>
-            <Section n={5} id="root-folders" title="Root folders" state={sections.root_folders} summary={<RootFoldersSummary />}>
-              <p className="mb-4 text-gray-900">Choose where Kestrel puts Movies and Series. The paths are prefilled for the standard /data layout.</p>
+            <Section
+              n={5}
+              id="root-folders"
+              title="Root folders"
+              state={sections.root_folders}
+              summary={<RootFoldersSummary />}
+              description="Choose where Kestrel puts Movies and Series. The paths are prefilled for the standard /data layout."
+            >
               <RootFoldersForm />
             </Section>
-            <Section n={6} id="profiles" title="Profiles" state={sections.profiles} summary={<ProfilesSummary />}>
-              <p className="mb-4 text-gray-900">Pick the Profile each new Title gets per Slot. Standard is preselected; leave 4K empty to add it per Title.</p>
+            <Section
+              n={6}
+              id="profiles"
+              title="Profiles"
+              state={sections.profiles}
+              summary={<ProfilesSummary />}
+              description="Pick the Profile each new Title gets per Slot. Standard is preselected; leave 4K empty to add it per Title."
+            >
               <DefaultsPerSlot />
             </Section>
             <Section n={7} id="adopt" title="Adopt existing library (optional)">
@@ -130,7 +146,7 @@ function Finish({ completed, onLeave }: { completed: boolean; onLeave: () => voi
   return (
     <div className="mt-6 flex flex-col gap-3 border-t border-gray-alpha-400 pt-4">
       {finish.isError && (
-        <div role="alert" className="text-[12px] text-red-900">
+        <Note variant="error" size="small">
           {missing.length > 0 ? (
             <>
               <p className="mb-1 font-medium">Finish these sections first:</p>
@@ -143,14 +159,14 @@ function Finish({ completed, onLeave }: { completed: boolean; onLeave: () => voi
           ) : (
             'Could not finish setup. Try again.'
           )}
-        </div>
+        </Note>
       )}
       <div className="flex gap-2">
-        <Button disabled={finish.isPending} onClick={() => finish.mutate(undefined, { onSuccess: onLeave })}>
+        <Button size="small" variant="primary" disabled={finish.isPending} onClick={() => finish.mutate(undefined, { onSuccess: onLeave })}>
           Finish setup
         </Button>
         {completed && (
-          <Button variant="secondary" onClick={onLeave}>
+          <Button size="small" onClick={onLeave}>
             Back to Kestrel
           </Button>
         )}
@@ -164,15 +180,17 @@ function LanguageSummary() {
   if (!data) return null
   const l = data.language_region
   const name = { en: 'English', de: 'German', fr: 'French' }[l.primary_language]
-  return <>{name}, release dates and ratings for {l.release_date_country}</>
+  return (
+    <>
+      {name}, release dates and ratings for {l.release_date_country}
+    </>
+  )
 }
 
 function InstanceSummary({ contract }: { contract: string }) {
   const { data: instances } = usePluginInstances()
   const { data: plugins } = usePlugins()
-  const names = (instances ?? [])
-    .filter((i) => i.enabled && plugins?.find((p) => p.id === i.plugin_id)?.contract === contract)
-    .map((i) => i.name)
+  const names = (instances ?? []).filter((i) => i.enabled && plugins?.find((p) => p.id === i.plugin_id)?.contract === contract).map((i) => i.name)
   return <>{names.join(', ')}</>
 }
 
@@ -203,43 +221,64 @@ function ProfilesSummary() {
 }
 
 /**
- * A numbered wizard section after Account. A finished one folds to a one-line
- * summary with an Edit button; a section without a state (the optional Adopt
- * step) is always open.
+ * A numbered wizard section. A finished one folds to a one-line summary with an
+ * Edit button; a section without a state (Account, the optional Adopt step) is
+ * always open.
  */
 function Section({
   n,
   id,
   title,
+  description,
   state,
+  checked,
   summary,
   children,
 }: {
   n: number
   id: string
   title: string
+  description?: string
   state?: 'done' | 'todo'
+  /** Shows the check mark without folding, for a step that has no form once done. */
+  checked?: boolean
   summary?: ReactNode
   children: ReactNode
 }) {
   const [editing, setEditing] = useState(false)
   const folded = state === 'done' && !editing
+  const done = state === 'done' || checked
   return (
-    <section aria-labelledby={`wizard-${id}`} className="mt-4 rounded-lg border border-gray-alpha-400 bg-background-100 p-6">
-      <div className="flex items-center justify-between gap-4">
-        <h2 id={`wizard-${id}`} className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
-          <span aria-hidden className="flex size-5 items-center justify-center rounded-full bg-gray-1000 text-[11px] text-background-100">
-            {state === 'done' ? <Check className="size-3" /> : n}
-          </span>
-          {title}
-        </h2>
-        {folded && (
-          <Button variant="secondary" onClick={() => setEditing(true)}>
-            Edit
-          </Button>
-        )}
-      </div>
-      {folded ? <p className="mt-1 text-gray-900">{summary}</p> : <div className="mt-1">{children}</div>}
+    <section aria-labelledby={`wizard-${id}`} className="mt-4 first:mt-0">
+      <Fieldset>
+        <Fieldset.Content>
+          <div className="flex items-center justify-between gap-4">
+            <Fieldset.Title as="h2" id={`wizard-${id}`}>
+              <span className="flex items-center gap-2">
+                <span aria-hidden>
+                  <Badge size="sm" variant={done ? 'green-subtle' : 'gray-subtle'}>
+                    {done ? <Check className="size-3" /> : n}
+                  </Badge>
+                </span>
+                {title}
+              </span>
+            </Fieldset.Title>
+            {folded && (
+              <Button size="small" onClick={() => setEditing(true)}>
+                Edit
+              </Button>
+            )}
+          </div>
+          {folded ? (
+            <Fieldset.Subtitle>{summary}</Fieldset.Subtitle>
+          ) : (
+            <>
+              {description && <Fieldset.Subtitle>{description}</Fieldset.Subtitle>}
+              {children}
+            </>
+          )}
+        </Fieldset.Content>
+      </Fieldset>
     </section>
   )
 }
