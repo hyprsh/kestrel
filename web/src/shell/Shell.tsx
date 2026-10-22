@@ -260,7 +260,7 @@ function Rail({
       ))}
       <div className="flex-1" />
       {/* Applies the choice to <html> and saves it; the command menu's "Switch theme" moves it through the same value. */}
-      <ThemeSwitcher variant="cycle" attribute="class" storageKey={THEME_KEY} value={theme} onChange={onTheme} />
+      <ThemeSwitcher variant="cycle" attribute="class" storageKey={THEME_KEY} value={theme} onChange={onTheme} tooltipPosition="right" />
       <RailButton label={about.label} active={screen === about.key} onClick={() => onSelect(about.key)}>
         {about.icon}
       </RailButton>
