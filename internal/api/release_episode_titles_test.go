@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestAManualSearchNamesTheEpisodesOfAReleaseInThePrimaryLanguageAndTBAForUnlistedOnes(t *testing.T) {
+func TestAManualSearchNamesTheEpisodesOfAReleaseInThePrimaryLanguageAndEmptyForUnlistedOnes(t *testing.T) {
 	t.Parallel()
 	s := newSeriesSearch(t)
 	s.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`)
@@ -38,8 +38,8 @@ func TestAManualSearchNamesTheEpisodesOfAReleaseInThePrimaryLanguageAndTBAForUnl
 		return nil
 	}
 	eventually(t, "the German episode titles", func() bool { return slices.Equal(titles(listed), []string{"Der Einstieg"}) })
-	if got := titles(unlisted); !slices.Equal(got, []string{"TBA"}) {
-		t.Errorf("S02E06 titles = %q, want TBA", got)
+	if got := titles(unlisted); !slices.Equal(got, []string{""}) {
+		t.Errorf("S02E06 titles = %q, want empty", got)
 	}
 
 	// Once a Grab adds S02E06 as a Placeholder Episode it is still TBA.
@@ -52,7 +52,7 @@ func TestAManualSearchNamesTheEpisodesOfAReleaseInThePrimaryLanguageAndTBAForUnl
 	if r := s.grab(s.hdVersion, rel, true); r.Status != 201 {
 		t.Fatalf("grab = %d %s", r.Status, r.Body)
 	}
-	if got := titles(unlisted); !slices.Equal(got, []string{"TBA"}) {
-		t.Errorf("Placeholder Episode titles = %q, want TBA", got)
+	if got := titles(unlisted); !slices.Equal(got, []string{""}) {
+		t.Errorf("Placeholder Episode titles = %q, want empty", got)
 	}
 }

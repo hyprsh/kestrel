@@ -201,7 +201,7 @@ describe('manual search', () => {
       fakeSearch([
         release('p', 'Show.S01.1080p.WEB-DL-GRP', { season: 1, pack: true, episodes: [] }),
         release('e', 'Show.S01E03.1080p.WEB-DL-GRP', { season: 1, pack: false, episodes: [3], episode_titles: ['Der Einstieg'] }),
-        release('t', 'Show.S01E09.1080p.WEB-DL-GRP', { season: 1, pack: false, episodes: [9], episode_titles: ['TBA'] }),
+        release('t', 'Show.S01E09.1080p.WEB-DL-GRP', { season: 1, pack: false, episodes: [9], episode_titles: [''] }),
         release('m', 'Show.S01E01E02E03E04.1080p.WEB-DL-GRP', { season: 1, pack: false, episodes: [1, 2, 3, 4], episode_titles: ['A', 'B', 'C', 'D'] }),
       ])
       const table = await openManualSearch()
@@ -211,6 +211,7 @@ describe('manual search', () => {
       expect(rows[0]).not.toHaveTextContent('·')
       expect(rows[1]).toHaveTextContent('S01E03· Der Einstieg')
       expect(rows[2]).toHaveTextContent('S01E09· TBA')
+      expect(within(rows[2]).getByTitle('TBA')).toBeInTheDocument()
       expect(rows[3]).toHaveTextContent('S01E01-E04· A / B / +2 more')
       expect(within(rows[3]).getByTitle('A · B · C · D')).toBeInTheDocument()
     })

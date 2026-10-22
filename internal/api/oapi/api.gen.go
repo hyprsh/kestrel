@@ -2579,7 +2579,7 @@ type Release struct {
 	CustomFormats []CustomFormatMatch `json:"custom_formats"`
 
 	// EpisodeTitles Series only. The title of each of `episodes`, in the same order and in the Primary Language (as on
-	// the episode grid). `TBA` for an episode without a title: a Placeholder Episode, or one TheTVDB
+	// the episode grid). An empty string for an episode without a title: a Placeholder Episode, or one TheTVDB
 	// does not list. Absent for a pack.
 	EpisodeTitles *[]string `json:"episode_titles,omitempty"`
 

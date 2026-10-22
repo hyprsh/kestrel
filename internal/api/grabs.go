@@ -81,9 +81,7 @@ func (s *server) SearchVersionReleases(ctx context.Context, r oapi.SearchVersion
 			if len(episodes) > 0 {
 				names := make([]string, len(episodes))
 				for i, n := range episodes {
-					if names[i] = titles[[2]int{f.Season, n}]; names[i] == "" {
-						names[i] = episodeTitleUnknown
-					}
+					names[i] = titles[[2]int{f.Season, n}]
 				}
 				rel.EpisodeTitles = &names
 			}
@@ -110,9 +108,6 @@ func (s *server) SearchVersionReleases(ctx context.Context, r oapi.SearchVersion
 	}
 	return oapi.SearchVersionReleases200JSONResponse(out), nil
 }
-
-// episodeTitleUnknown stands for an episode without a title: a Placeholder Episode, or one TheTVDB does not list.
-const episodeTitleUnknown = "TBA"
 
 // episodeTitles maps (season, number) to the Primary Language title of the Version's Series' episodes, for the
 // Releases that name episodes. Nil when none does (a Movie, or only season packs).
