@@ -204,12 +204,32 @@ describe('Root folders', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
     return screen.findByRole('region', { name: 'Root folders' })
   }
+  const edit = async (section: HTMLElement) => {
+    await userEvent.click(await within(section).findByRole('button', { name: 'Edit root folders' }))
+    return section
+  }
+
+  it('read as a list per kind with the default marked, and edit on demand', async () => {
+    fakeSettings(undefined, { movies: ['/data/media/movies', '/data/media/more'] })
+    fakeSetup({}, true)
+    const section = await open()
+    const movies = within(await within(section).findByRole('region', { name: 'Movies' }))
+    expect(movies.getAllByRole('listitem').map((li) => li.textContent)).toEqual(['/data/media/moviesDefault', '/data/media/more'])
+    expect(within(section).getByRole('region', { name: 'Series' })).toHaveTextContent('/data/media/tv')
+    expect(within(section).queryByLabelText('Movies folder 1')).not.toBeInTheDocument()
+
+    await edit(section)
+    expect(within(section).getByLabelText('Movies folder 2')).toHaveValue('/data/media/more')
+    await userEvent.click(within(section).getByRole('button', { name: 'Cancel' }))
+    expect(within(section).queryByLabelText('Movies folder 1')).not.toBeInTheDocument()
+    expect(within(section).getByRole('button', { name: 'Edit root folders' })).toBeInTheDocument()
+  })
 
   it('appear in Settings, prefilled and editable, and save as given', async () => {
     const saved: unknown[] = []
     fakeSettings((b) => saved.push(b))
     fakeSetup({}, true)
-    const section = await open()
+    const section = await edit(await open())
     const nav = await screen.findByRole('navigation', { name: 'Settings sections' })
     expect(within(nav).getByRole('link', { name: 'Root folders' })).toHaveAttribute('href', '/settings#settings-root-folders')
 
@@ -221,7 +241,7 @@ describe('Root folders', () => {
     await userEvent.type(within(section).getByLabelText('Movies folder 2'), '/data/more')
     await userEvent.click(within(section).getByRole('button', { name: 'Save root folders' }))
 
-    expect(await within(section).findByText('Saved.')).toBeInTheDocument()
+    expect(await within(section).findByRole('button', { name: 'Edit root folders' })).toBeInTheDocument() // back to the list
     expect(saved).toEqual([{ root_folders: { movies: ['/data/films', '/data/more'], series: ['/data/media/tv'] } }])
   })
 
@@ -229,7 +249,7 @@ describe('Root folders', () => {
     const saved: unknown[] = []
     fakeSettings((b) => saved.push(b))
     fakeSetup({}, true)
-    const section = await open()
+    const section = await edit(await open())
     await userEvent.click(await within(section).findByRole('button', { name: 'Add Series folder' }))
     await userEvent.type(within(section).getByLabelText('Series folder 2'), '/data/anime')
     expect(within(section).getAllByText('Default')).toHaveLength(2) // first of each kind
@@ -244,7 +264,7 @@ describe('Root folders', () => {
   it('shows what is wrong with a folder next to it', async () => {
     fakeSettings()
     fakeSetup({}, true)
-    const section = await open()
+    const section = await edit(await open())
     const movies = await within(section).findByLabelText('Movies folder 1')
     await userEvent.clear(movies)
     await userEvent.type(movies, '/missing')
@@ -256,7 +276,7 @@ describe('Root folders', () => {
   it('removes a folder but keeps at least one per kind', async () => {
     fakeSettings()
     fakeSetup({}, true)
-    const section = await open()
+    const section = await edit(await open())
     expect(await within(section).findByRole('button', { name: 'Remove Movies folder 1' })).toBeDisabled()
     await userEvent.click(within(section).getByRole('button', { name: 'Add Movies folder' }))
     await userEvent.click(within(section).getByRole('button', { name: 'Remove Movies folder 2' }))

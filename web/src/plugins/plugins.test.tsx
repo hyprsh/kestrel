@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
@@ -135,45 +135,78 @@ describe('Settings download client', () => {
   const open = async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    return within(await screen.findByRole('region', { name: 'Download client' }))
   }
+  const edit = async () => {
+    const section = await open()
+    await userEvent.click(await section.findByRole('button', { name: 'Edit SABnzbd' }))
+    return section
+  }
+
+  it('shows one compact row, with the connection form closed until Edit', async () => {
+    fakePlugins({ saved: true })
+    const section = await open()
+    expect(await section.findByRole('listitem')).toHaveTextContent(/^SABnzbdSABnzbdEdit$/)
+    expect(section.getByLabelText('SABnzbd enabled')).toBeChecked()
+    expect(section.queryByLabelText('URL')).not.toBeInTheDocument()
+    expect(section.queryByRole('button', { name: 'Add download client' })).not.toBeInTheDocument() // v1 runs one
+  })
+
+  it('offers to add one while there is none', async () => {
+    fakePlugins()
+    const section = await open()
+    await userEvent.click(await section.findByRole('button', { name: 'Add download client' }))
+    expect(await section.findByLabelText('URL')).toHaveValue('')
+  })
+
+  it('switches it off from the row, sending only enabled', async () => {
+    const sent = fakePlugins({ saved: true })
+    const section = await open()
+    await userEvent.click(await section.findByLabelText('SABnzbd enabled'))
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'patch', body: { enabled: false } }))
+  })
 
   it('never shows the saved API key and keeps it unless a new one is typed', async () => {
     const sent = fakePlugins({ saved: true })
-    await open()
+    const section = await edit()
 
-    const key = await screen.findByLabelText('API key', { selector: 'input' })
+    const key = await section.findByLabelText('API key', { selector: 'input' })
     expect(key).toHaveValue('')
     expect(key).toHaveAttribute('placeholder', expect.stringMatching(/saved/i))
-    expect(screen.getByLabelText('URL')).toHaveValue('http://sab:8080')
+    expect(section.getByLabelText('URL')).toHaveValue('http://sab:8080')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Test connection' }))
-    expect(await screen.findByRole('status')).toHaveTextContent('Connected: SABnzbd 4.5.1')
+    await userEvent.click(section.getByRole('button', { name: 'Test connection' }))
+    expect(await section.findByRole('status')).toHaveTextContent('Connected: SABnzbd 4.5.1')
     expect(sent.find((s) => s.path === 'test saved')?.body).toEqual({
       config: { url: 'http://sab:8080', movie_category: 'movies', tv_category: 'tv' }, // no api_key: the server uses the stored one
     })
 
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-    expect(await screen.findByText('Saved.')).toBeInTheDocument()
+    await userEvent.click(section.getByRole('button', { name: 'Save' }))
+    await section.findByRole('button', { name: 'Edit SABnzbd' }) // folded back into its row
     expect(sent.at(-1)).toEqual({ path: 'patch', body: { config: { url: 'http://sab:8080', movie_category: 'movies', tv_category: 'tv' } } })
 
-    await userEvent.type(screen.getByLabelText('API key', { selector: 'input' }), 'good-key')
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-    await screen.findByText('Saved.')
+    await userEvent.click(section.getByRole('button', { name: 'Edit SABnzbd' }))
+    await userEvent.type(await section.findByLabelText('API key', { selector: 'input' }), 'good-key')
+    await userEvent.click(section.getByRole('button', { name: 'Save' }))
+    await section.findByRole('button', { name: 'Edit SABnzbd' })
     expect(sent.at(-1)).toMatchObject({ path: 'patch', body: { config: { api_key: 'good-key' } } })
   })
 
   it('shows an instance the Config File declares as read-only, and still tests it', async () => {
     fakePlugins({ saved: true, declared: true })
-    await open()
+    const section = await open()
+    expect(await section.findByText('Declared')).toBeInTheDocument()
+    expect(section.getByLabelText('SABnzbd enabled')).toBeDisabled()
+    await userEvent.click(section.getByRole('button', { name: 'Edit SABnzbd' }))
 
-    expect(await screen.findByLabelText('URL')).toBeDisabled()
-    expect(screen.getByLabelText('API key', { selector: 'input' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Remove' })).toBeDisabled()
-    expect(screen.getByText(/Config File declares this instance/)).toBeInTheDocument()
+    expect(await section.findByLabelText('URL')).toBeDisabled()
+    expect(section.getByLabelText('API key', { selector: 'input' })).toBeDisabled()
+    expect(section.getByRole('button', { name: 'Save' })).toBeDisabled()
+    expect(section.getByRole('button', { name: 'Remove' })).toBeDisabled()
+    expect(section.getByText(/Config File declares this instance/)).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Test connection' }))
-    expect(await screen.findByRole('status')).toHaveTextContent('Connected: SABnzbd 4.5.1')
+    await userEvent.click(section.getByRole('button', { name: 'Test connection' }))
+    expect(await section.findByRole('status')).toHaveTextContent('Connected: SABnzbd 4.5.1')
   })
 
   it('removes the instance', async () => {
@@ -185,9 +218,8 @@ describe('Settings download client', () => {
         return response(204).empty()
       }),
     )
-    await open()
-    await userEvent.click(await screen.findByRole('button', { name: 'Remove' }))
-    await screen.findByRole('button', { name: 'Test connection' })
-    expect(deleted).toBe(true)
+    const section = await edit()
+    await userEvent.click(await section.findByRole('button', { name: 'Remove' }))
+    await waitFor(() => expect(deleted).toBe(true))
   })
 })

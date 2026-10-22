@@ -34,18 +34,31 @@ const stored: Instance = {
 }
 
 describe('Settings media servers', () => {
-  it('lists the configured media servers and offers to add one', async () => {
+  const open = async (items: Instance[]) => {
     server.use(
       http.get('/plugins', ({ response }) => response(200).json({ items: [sabnzbd, jellyfin], next_cursor: null })),
-      http.get('/plugin-instances', ({ response }) => response(200).json({ items: [stored], next_cursor: null })),
+      http.get('/plugin-instances', ({ response }) => response(200).json({ items, next_cursor: null })),
     )
     render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    return within(await screen.findByRole('region', { name: 'Media servers' }))
+  }
 
-    const section = within(await screen.findByRole('region', { name: 'Media servers' }))
+  it('lists the media servers as rows and opens the form only for Edit or Add', async () => {
+    const section = await open([stored, { ...stored, id: 8, name: 'Den', enabled: false, from_config_file: true }])
+    const rows = await section.findAllByRole('listitem')
+    expect(rows.map((r) => r.textContent)).toEqual([expect.stringMatching(/^Living roomJellyfinEdit$/), expect.stringMatching(/^DenJellyfinDeclaredEdit$/)])
+    expect(section.getByLabelText('Living room enabled')).toBeChecked()
+    expect(section.getByLabelText('Den enabled')).toBeDisabled()
+    expect(section.queryByRole('form')).not.toBeInTheDocument()
+
+    await userEvent.click(section.getByRole('button', { name: 'Edit Living room' }))
     const form = within(await section.findByRole('form', { name: 'Living room' }))
     expect(form.getByLabelText('URL')).toHaveValue('http://jellyfin:8096')
     expect(form.getByLabelText('API key')).toHaveValue('')
+    await userEvent.click(form.getByRole('button', { name: 'Cancel' }))
+    expect(section.queryByRole('form')).not.toBeInTheDocument()
+
     await userEvent.click(section.getByRole('button', { name: 'Add media server' }))
     expect(await section.findByRole('form', { name: 'New media server' })).toBeInTheDocument()
   })
