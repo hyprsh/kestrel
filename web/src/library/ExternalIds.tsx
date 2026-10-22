@@ -7,7 +7,7 @@ export function ExternalIds({ title }: { title: Parameters<typeof titleLinks>[0]
   const links = titleLinks(title)
   if (links.length === 0) return null
   return (
-    <div className="mt-0.5 font-mono text-[11px] text-gray-900">
+    <div className="label-12-mono mt-0.5 text-gray-900">
       {links.map((l, i) => (
         <Fragment key={l.href}>
           {i > 0 && ' · '}

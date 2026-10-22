@@ -1,11 +1,11 @@
 // Overview, the home screen: Needs attention, the health strip, Searching, Downloading now,
 // Coming this week, Recently added and Recent requests.
+import { Note } from '@hyprsh/design'
 import { useState } from 'react'
 import { useAttention } from '../api/attention'
 import { useQueue, useCancelGrab } from '../api/queue'
 import { useRecentRequests } from '../api/requests'
 import { useRecent, useUpcoming } from '../api/upcoming'
-import { ErrorText } from '../forms'
 import { DownloadRow } from '../grabs/DownloadRow'
 import { useListNav } from '../keys'
 import { ComingRecent } from './ComingRecent'
@@ -48,9 +48,9 @@ export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen
       <HealthStrip />
       <Searching />
       <Section id="downloading-now" title="Downloading now" count={queue.data ? all.length : undefined}>
-        {cancel.isError && <ErrorText>{cancel.error.message}</ErrorText>}
+        {cancel.isError && <Note variant="error">{cancel.error.message}</Note>}
         {queue.data && items.length === 0 ? (
-          <p className="text-gray-900">Nothing is downloading.</p>
+          <p className="copy-13 text-gray-900">Nothing is downloading.</p>
         ) : (
           <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
             {items.map((i, n) => (

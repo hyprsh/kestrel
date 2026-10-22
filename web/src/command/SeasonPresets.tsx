@@ -1,6 +1,6 @@
 import { useId } from 'react'
 import type { TitleCreate } from '../api/queries'
-import { Select } from '../forms'
+import { Checkbox, Select } from '@hyprsh/design'
 import { SeasonList, type LookupSeries } from './SeriesOverview'
 
 /**
@@ -79,9 +79,10 @@ export function SeasonPresets({ choice, onChange, overview }: { choice: SeasonCh
   }
   return (
     <>
-      <label className="mt-3 flex items-center gap-3 text-[13px]">
-        <span className="w-20 font-medium">Monitor</span>
+      <label className="label-14 mt-3 flex items-center gap-3">
+        <span className="w-20">Monitor</span>
         <Select
+          size="small"
           aria-label="Monitor"
           aria-describedby={why ? hint : undefined}
           value={choice.preset}
@@ -106,15 +107,16 @@ export function SeasonPresets({ choice, onChange, overview }: { choice: SeasonCh
         </Select>
       </label>
       {why && (
-        <p id={hint} className="mt-1 ml-[92px] text-[12px] text-gray-900">
+        <p id={hint} className="label-13 mt-1 ml-[92px] text-gray-900">
           {why}
         </p>
       )}
       {choice.preset === 'pick' && (
-        <label className="mt-2 ml-[92px] flex items-center gap-2 text-[12px]">
-          <input type="checkbox" checked={choice.follow} onChange={(e) => onChange({ ...choice, follow: e.target.checked })} />
-          Follow new seasons
-        </label>
+        <div className="mt-2 ml-[92px]">
+          <Checkbox checked={choice.follow} onChange={(e) => onChange({ ...choice, follow: e.target.checked })}>
+            Follow new seasons
+          </Checkbox>
+        </div>
       )}
       {series && <SeasonList series={series} ticked={seasonsOf(choice, series)} onToggle={toggle} />}
     </>

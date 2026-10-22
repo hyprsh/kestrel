@@ -1,10 +1,9 @@
 // Search now and Manual search for a Title's Versions, in the Title actions row.
 import { useMutation } from '@tanstack/react-query'
-import { ChevronDown } from 'lucide-react'
 import { useSearchNow } from '../api/grabs'
 import type { TitleDetail } from '../api/queries'
-import { Button } from '../forms'
-import { Menu, MenuItem } from '../menu'
+import { Button, Menu } from '@hyprsh/design'
+import { ActionMenu } from './ActionMenu'
 import { slotLabel } from './bits'
 import type { ManualSearchTarget } from './TitleDetail'
 
@@ -25,7 +24,7 @@ export function SearchNow({ search }: { search: ReturnType<typeof useSearchWante
   return (
     <Button
       variant="secondary"
-      className="h-7"
+      size="small"
       disabled={none || search.mutation.isPending}
       title={none ? 'Nothing in this Title is Wanted' : undefined}
       onClick={search.run}
@@ -49,27 +48,18 @@ export function ManualSearch({
   if (title.versions.length === 0) return null
   if (title.versions.length === 1) {
     return (
-      <Button variant="secondary" className="h-7" onClick={() => open(title.versions[0])}>
+      <Button variant="secondary" size="small" onClick={() => open(title.versions[0])}>
         Manual search
       </Button>
     )
   }
   return (
-    <Menu
-      label="Manual search"
-      buttonClassName="h-7 gap-1 rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-[13px] font-medium text-gray-1000 hover:bg-gray-alpha-100"
-      trigger={
-        <>
-          Manual search
-          <ChevronDown size={14} aria-hidden />
-        </>
-      }
-    >
+    <ActionMenu label="Manual search" text="Manual search">
       {title.versions.map((v) => (
-        <MenuItem key={v.id} onSelect={() => open(v)}>
+        <Menu.Item key={v.id} onSelect={() => open(v)}>
           {slotLabel[v.slot]} · {profileName(v.profile)}
-        </MenuItem>
+        </Menu.Item>
       ))}
-    </Menu>
+    </ActionMenu>
   )
 }

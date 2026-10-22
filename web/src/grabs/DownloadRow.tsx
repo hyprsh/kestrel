@@ -1,8 +1,8 @@
 // One active Grab as "Downloading now" draws it, shared by the Overview, the Title page and Activity.
+import { Button, Progress } from '@hyprsh/design'
 import type { ReactNode } from 'react'
 import type { QueueItem } from '../api/queue'
 import { percent } from '../format'
-import { Button } from '../forms'
 import { span } from '../time'
 import { cx } from '../ui'
 import type { RowNav } from '../keys'
@@ -40,30 +40,21 @@ export function DownloadRow({
       onOpenTitle={onOpenTitle}
       actions={
         <>
-          <Button variant="secondary" disabled={busy} onClick={() => onCancel(false)}>
+          <Button variant="secondary" size="small" disabled={busy} onClick={() => onCancel(false)}>
             Cancel
           </Button>
-          <Button variant="secondary" disabled={busy} onClick={() => onCancel(true)}>
+          <Button variant="secondary" size="small" disabled={busy} onClick={() => onCancel(true)}>
             Cancel and blocklist
           </Button>
         </>
       }
     >
       {detail}
-      <div className="flex items-center gap-3 text-[12px] text-gray-900">
+      <div className="label-12 flex items-center gap-3 text-gray-900">
         <span className={cx('w-24', i.phase === 'paused' && 'text-amber-900')}>{phases[i.phase].label}</span>
         {pct !== null && (
           <>
-            <div
-              role="progressbar"
-              aria-label={`${i.release_name} progress`}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={pct}
-              className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-alpha-200"
-            >
-              <div className="h-full bg-blue-700" style={{ width: `${pct}%` }} />
-            </div>
+            <Progress value={pct} type="success" height={6} aria-label={`${i.release_name} progress`} className="flex-1" />
             <span className="w-10 text-right tabular-nums">{pct}%</span>
           </>
         )}

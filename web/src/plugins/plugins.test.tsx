@@ -86,19 +86,19 @@ describe('the wizard SABnzbd section', () => {
 
     // The form comes from the manifest: its fields, defaults and a password-type secret.
     expect(await screen.findByLabelText('URL')).toHaveValue('')
-    expect(screen.getByLabelText('API key')).toHaveAttribute('type', 'password')
+    expect(screen.getByLabelText('API key', { selector: 'input' })).toHaveAttribute('type', 'password')
     expect(screen.getByLabelText('Movie category')).toHaveValue('movies')
 
     // A bad key shows the error.
     await userEvent.type(screen.getByLabelText('URL'), 'http://sab:8080')
-    await userEvent.type(screen.getByLabelText('API key'), 'bad-key')
+    await userEvent.type(screen.getByLabelText('API key', { selector: 'input' }), 'bad-key')
     await userEvent.click(screen.getByRole('button', { name: 'Test connection' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('SABnzbd rejected the API key')
     expect(screen.getByLabelText('Movie category').tagName).toBe('INPUT') // no list without a working connection
 
     // A good key shows the live result and turns the categories into lists.
-    await userEvent.clear(screen.getByLabelText('API key'))
-    await userEvent.type(screen.getByLabelText('API key'), 'good-key')
+    await userEvent.clear(screen.getByLabelText('API key', { selector: 'input' }))
+    await userEvent.type(screen.getByLabelText('API key', { selector: 'input' }), 'good-key')
     await userEvent.click(screen.getByRole('button', { name: 'Test connection' }))
     expect(await screen.findByRole('status')).toHaveTextContent('Connected: SABnzbd 4.5.1')
     const movies = await screen.findByRole('combobox', { name: 'Movie category' })
@@ -125,7 +125,7 @@ describe('the wizard SABnzbd section', () => {
     await userEvent.type(screen.getByLabelText('Confirm password'), 'correct horse')
     await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
     await userEvent.type(await screen.findByLabelText('URL'), 'http://sab:8080')
-    await userEvent.type(screen.getByLabelText('API key'), 'good-key')
+    await userEvent.type(screen.getByLabelText('API key', { selector: 'input' }), 'good-key')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(/only 1 download_client.v1 instance/)
   })
@@ -141,7 +141,7 @@ describe('Settings download client', () => {
     const sent = fakePlugins({ saved: true })
     await open()
 
-    const key = await screen.findByLabelText('API key')
+    const key = await screen.findByLabelText('API key', { selector: 'input' })
     expect(key).toHaveValue('')
     expect(key).toHaveAttribute('placeholder', expect.stringMatching(/saved/i))
     expect(screen.getByLabelText('URL')).toHaveValue('http://sab:8080')
@@ -156,7 +156,7 @@ describe('Settings download client', () => {
     expect(await screen.findByText('Saved.')).toBeInTheDocument()
     expect(sent.at(-1)).toEqual({ path: 'patch', body: { config: { url: 'http://sab:8080', movie_category: 'movies', tv_category: 'tv' } } })
 
-    await userEvent.type(screen.getByLabelText('API key'), 'good-key')
+    await userEvent.type(screen.getByLabelText('API key', { selector: 'input' }), 'good-key')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
     await screen.findByText('Saved.')
     expect(sent.at(-1)).toMatchObject({ path: 'patch', body: { config: { api_key: 'good-key' } } })
@@ -167,7 +167,7 @@ describe('Settings download client', () => {
     await open()
 
     expect(await screen.findByLabelText('URL')).toBeDisabled()
-    expect(screen.getByLabelText('API key')).toBeDisabled()
+    expect(screen.getByLabelText('API key', { selector: 'input' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Remove' })).toBeDisabled()
     expect(screen.getByText(/Config File declares this instance/)).toBeInTheDocument()

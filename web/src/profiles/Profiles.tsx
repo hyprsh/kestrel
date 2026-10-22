@@ -1,12 +1,12 @@
+import { Checkbox, Note, Select } from '@hyprsh/design'
 import { ApiError, usePatchProfile, useProfiles, type Profile } from '../api/queries'
-import { DeclaredNote, ErrorText, Select } from '../forms'
 import { slotKeys, slotLabel } from '../library/bits'
 
 const problemText = (e: unknown) => (e instanceof ApiError && e.status === 422 ? e.message : 'Could not save. Try again.')
 
 /** Profiles are declared together: the Config File sets all of them or none. */
 const declaresProfiles = (profiles: Profile[]) => profiles.some((p) => p.from_config_file)
-const declaredNote = <DeclaredNote>The Config File sets the Profiles, so they cannot be changed here.</DeclaredNote>
+const declaredNote = <Note size="small">The Config File sets the Profiles, so they cannot be changed here. Change the file and restart Kestrel instead.</Note>
 
 /**
  * One default Profile per Slot for Movies and for Series. Standard always has one;
@@ -15,7 +15,12 @@ const declaredNote = <DeclaredNote>The Config File sets the Profiles, so they ca
 export function DefaultsPerSlot() {
   const profiles = useProfiles()
   const patch = usePatchProfile()
-  if (profiles.isError) return <p className="text-[12px] text-red-900">Could not load the Profiles.</p>
+  if (profiles.isError)
+    return (
+      <Note variant="error" size="small">
+        Could not load the Profiles.
+      </Note>
+    )
   if (!profiles.data) return null
   const declared = declaresProfiles(profiles.data)
 
@@ -29,7 +34,7 @@ export function DefaultsPerSlot() {
       <div className="grid max-w-md grid-cols-[3rem_1fr_1fr] items-center gap-x-3 gap-y-2">
         <span />
         {kinds.map((k) => (
-          <span key={k.kind} className="text-[12px] font-medium text-gray-900">
+          <span key={k.kind} className="label-13 text-gray-900">
             {k.kind}
           </span>
         ))}
@@ -42,6 +47,7 @@ export function DefaultsPerSlot() {
                 const current = inSlot.find((p) => p[flag])
                 return (
                   <Select
+                    size="small"
                     key={kind}
                     aria-label={`${label} default for ${kind}`}
                     value={current?.key ?? ''}
@@ -67,7 +73,11 @@ export function DefaultsPerSlot() {
           )
         })}
       </div>
-      {patch.isError && <ErrorText>{problemText(patch.error)}</ErrorText>}
+      {patch.isError && (
+        <Note variant="error" size="small">
+          {problemText(patch.error)}
+        </Note>
+      )}
       {declared && declaredNote}
     </div>
   )
@@ -76,7 +86,7 @@ export function DefaultsPerSlot() {
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <>
-      <span className="font-medium">{label}</span>
+      <span className="label-14">{label}</span>
       {children}
     </>
   )
@@ -93,7 +103,12 @@ const originalChoices: { value: Profile['original_language']; label: string }[] 
 export function ProfileToggles() {
   const profiles = useProfiles()
   const patch = usePatchProfile()
-  if (profiles.isError) return <p className="text-[12px] text-red-900">Could not load the Profiles.</p>
+  if (profiles.isError)
+    return (
+      <Note variant="error" size="small">
+        Could not load the Profiles.
+      </Note>
+    )
   if (!profiles.data) return null
   const declared = declaresProfiles(profiles.data)
 
@@ -104,15 +119,17 @@ export function ProfileToggles() {
       <ul className="flex flex-col divide-y divide-gray-alpha-400">
         {profiles.data.map((p) => (
           <li key={p.key} className="flex items-center gap-4 py-1.5">
-            <label className="flex w-48 items-center gap-2">
-              <input type="checkbox" aria-label={`${p.name} enabled`} checked={p.enabled} disabled={declared} onChange={(e) => toggle(p, { enabled: e.target.checked })} />
-              <span className="font-medium">{p.name}</span>
-              <span className="text-[12px] text-gray-900">{slotLabel[p.slot]}</span>
-            </label>
+            <div className="flex w-48 items-center gap-2">
+              <Checkbox aria-label={`${p.name} enabled`} checked={p.enabled} disabled={declared} onChange={(e) => toggle(p, { enabled: e.target.checked })}>
+                <span className="label-14">{p.name}</span>
+              </Checkbox>
+              <span className="label-12 text-gray-900">{slotLabel[p.slot]}</span>
+            </div>
             {p.language_rule === 'primary' ? (
-              <label className="flex items-center gap-2 text-[12px]">
+              <label className="label-13 flex items-center gap-2">
                 Original Language only
                 <Select
+                  size="small"
                   aria-label={`${p.name} Original Language only`}
                   className="w-auto"
                   value={p.original_language}
@@ -127,12 +144,16 @@ export function ProfileToggles() {
                 </Select>
               </label>
             ) : (
-              <span className="text-[12px] text-gray-900">Requires the Title’s Original Language</span>
+              <span className="label-13 text-gray-900">Requires the Title’s Original Language</span>
             )}
           </li>
         ))}
       </ul>
-      {patch.isError && <ErrorText>{problemText(patch.error)}</ErrorText>}
+      {patch.isError && (
+        <Note variant="error" size="small">
+          {problemText(patch.error)}
+        </Note>
+      )}
       {declared && declaredNote}
     </div>
   )

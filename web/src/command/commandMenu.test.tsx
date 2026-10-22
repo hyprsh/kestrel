@@ -99,6 +99,18 @@ describe('the command menu', () => {
     expect(screen.getByRole('banner')).toHaveTextContent('Upcoming')
   })
 
+  it('moves the highlight with Ctrl+N and Ctrl+P as well as the arrows', async () => {
+    fakeLibrary([])
+    renderApp()
+    const menu = await openMenu()
+    const selected = () => within(menu).getByRole('option', { selected: true })
+    const first = selected()
+    await userEvent.keyboard('{Control>}n{/Control}')
+    expect(selected()).not.toBe(first)
+    await userEvent.keyboard('{Control>}p{/Control}')
+    expect(selected()).toBe(first)
+  })
+
   it('finds Titles already in the Library by name', async () => {
     fakeLibrary([row(1, 'Heat', 'Heat'), row(2, 'Zodiac', 'Zodiac')])
     renderApp()
@@ -152,7 +164,7 @@ describe('the command menu', () => {
     renderApp()
     const menu = await openMenu()
     const input = within(menu).getByRole('combobox', { name: /search/i })
-    const groups = () => [...menu.querySelectorAll('[data-group]')].map((g) => g.textContent)
+    const groups = () => within(menu).getAllByRole('group').map((g) => document.getElementById(g.getAttribute('aria-labelledby')!)?.textContent)
 
     await userEvent.keyboard('log')
     await within(menu).findByRole('option', { name: /^logan/i })

@@ -10,7 +10,7 @@ import {
   type PluginManifest,
   type PluginOption,
 } from '../api/queries'
-import { Button, DeclaredNote, ErrorText, Field, Select, TextInput } from '../forms'
+import { Button, Checkbox, Input, Note, Select } from '@hyprsh/design'
 
 type Values = Record<string, string | boolean>
 
@@ -115,56 +115,78 @@ export function InstanceForm({
       <fieldset disabled={declared} className="contents">
         {managed && (
           <>
-            <Field label="Name">{(id) => <TextInput id={id} value={meta.name} onChange={(e) => setMetaField({ name: e.target.value })} />}</Field>
+            <Input size="small" label="Name" value={meta.name} onChange={(e) => setMetaField({ name: e.target.value })} />
             <div className="flex items-end gap-4">
-              <Field label="Priority">
-                {(id) => <TextInput id={id} type="number" className="w-24" value={meta.priority} onChange={(e) => setMetaField({ priority: e.target.value })} />}
-              </Field>
-              <Field label="Enabled">
-                {(id) => <input id={id} type="checkbox" className="mb-2" checked={meta.enabled} onChange={(e) => setMetaField({ enabled: e.target.checked })} />}
-              </Field>
+              <Input size="small" label="Priority" type="number" className="w-24" value={meta.priority} onChange={(e) => setMetaField({ priority: e.target.value })} />
+              <Checkbox checked={meta.enabled} onChange={(e) => setMetaField({ enabled: e.target.checked })}>
+                Enabled
+              </Checkbox>
             </div>
           </>
         )}
         {manifest.fields.map((f) => (
-          <Field key={f.key} label={f.label}>
-            {(id) => <Control id={id} field={f} instance={instance} value={values[f.key]} secret={secrets[f.key] ?? ''} live={options[f.key]} onValue={(v) => set(f.key, v)} onSecret={(v) => setSecrets((s) => ({ ...s, [f.key]: v }))} />}
-          </Field>
+          <Control
+            key={f.key}
+            field={f}
+            instance={instance}
+            value={values[f.key]}
+            secret={secrets[f.key] ?? ''}
+            live={options[f.key]}
+            onValue={(v) => set(f.key, v)}
+            onSecret={(v) => setSecrets((s) => ({ ...s, [f.key]: v }))}
+          />
         ))}
       </fieldset>
 
-      {test.isError && <ErrorText>Could not run the test. Try again.</ErrorText>}
+      {test.isError && (
+        <Note variant="error" size="small">
+          Could not run the test. Try again.
+        </Note>
+      )}
       {test.data &&
         (test.data.result.ok ? (
-          <p role="status" className="text-[12px] text-green-900">
-            Connected: {test.data.result.message}
-          </p>
+          <div role="status">
+            <Note variant="success" size="small">
+              Connected: {test.data.result.message}
+            </Note>
+          </div>
         ) : (
-          <ErrorText>{test.data.result.message}</ErrorText>
+          <Note variant="error" size="small">
+            {test.data.result.message}
+          </Note>
         ))}
-      {save.isError && <ErrorText>{save.error instanceof ApiError ? save.error.message : 'Could not save. Try again.'}</ErrorText>}
-      {save.isSuccess && <p role="status" className="text-[12px] text-green-900">Saved.</p>}
+      {save.isError && (
+        <Note variant="error" size="small">
+          {save.error instanceof ApiError ? save.error.message : 'Could not save. Try again.'}
+        </Note>
+      )}
+      {save.isSuccess && (
+        <div role="status">
+          <Note variant="success" size="small">
+            Saved.
+          </Note>
+        </div>
+      )}
 
       <div className="flex gap-2">
-        <Button type="button" variant="secondary" disabled={test.isPending} onClick={runTest}>
+        <Button size="small" disabled={test.isPending} onClick={runTest}>
           Test connection
         </Button>
-        <Button type="submit" disabled={save.isPending || declared}>
+        <Button size="small" variant="primary" typeName="submit" disabled={save.isPending || declared}>
           Save
         </Button>
         {instance && (
-          <Button type="button" variant="secondary" disabled={remove.isPending || declared} onClick={() => remove.mutate(instance.id)}>
+          <Button size="small" disabled={remove.isPending || declared} onClick={() => remove.mutate(instance.id)}>
             Remove
           </Button>
         )}
       </div>
-      {declared && <DeclaredNote>The Config File declares this instance, so it can be tested but not changed or removed here.</DeclaredNote>}
+      {declared && <Note size="small">The Config File declares this instance, so it can be tested but not changed or removed here. Change the file and restart Kestrel instead.</Note>}
     </form>
   )
 }
 
 function Control({
-  id,
   field,
   instance,
   value,
@@ -173,7 +195,6 @@ function Control({
   onValue,
   onSecret,
 }: {
-  id: string
   field: PluginField
   instance?: PluginInstance
   value: string | boolean | undefined
@@ -187,8 +208,9 @@ function Control({
     case 'secret': {
       const isSet = instance?.secrets_set.includes(field.key)
       return (
-        <TextInput
-          id={id}
+        <Input
+          size="small"
+          label={field.label}
           type="password"
           autoComplete="off"
           value={secret}
@@ -198,30 +220,18 @@ function Control({
       )
     }
     case 'bool':
-      return <input id={id} type="checkbox" checked={value === true} onChange={(e) => onValue(e.target.checked)} />
-    case 'select':
       return (
-        <Select id={id} value={text} onChange={(e) => onValue(e.target.value)}>
-          {field.options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </Select>
+        <Checkbox checked={value === true} onChange={(e) => onValue(e.target.checked)}>
+          {field.label}
+        </Checkbox>
       )
+    case 'select':
+      return <Select size="small" label={field.label} value={text} onChange={(e) => onValue(e.target.value)} options={field.options.map((o) => ({ value: o.value, label: o.label }))} />
     default:
       if (live) {
         const choices = live.some((o) => o.value === text) || text === '' ? live : [{ value: text, label: text }, ...live]
-        return (
-          <Select id={id} value={text} onChange={(e) => onValue(e.target.value)}>
-            {choices.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
-        )
+        return <Select size="small" label={field.label} value={text} onChange={(e) => onValue(e.target.value)} options={choices.map((o) => ({ value: o.value, label: o.label }))} />
       }
-      return <TextInput id={id} type={field.type === 'int' ? 'number' : 'text'} value={text} onChange={(e) => onValue(e.target.value)} />
+      return <Input size="small" label={field.label} type={field.type === 'int' ? 'number' : 'text'} value={text} onChange={(e) => onValue(e.target.value)} />
   }
 }

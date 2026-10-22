@@ -1,5 +1,6 @@
 // An Overview section: a heading with its count, at most five rows and a way to the rest.
 // The cap is fixed (not fitted to the window), so the sections further down stay in view.
+import { Button } from '@hyprsh/design'
 import type { ReactNode } from 'react'
 import { useOpenPlace } from '../place'
 import { cx } from '../ui'
@@ -32,7 +33,7 @@ export function Section({
 }) {
   return (
     <section aria-labelledby={id} className={cx('mx-auto max-w-3xl', className)}>
-      <h2 id={id} className="mb-3 text-sm font-medium">
+      <h2 id={id} className="heading-14 mb-3">
         {count ? `${title} · ${count}` : title}
       </h2>
       {children}
@@ -40,23 +41,23 @@ export function Section({
   )
 }
 
-const more = 'mt-2 text-[12px] text-gray-900 hover:text-gray-1000 hover:underline'
+const more = 'mt-2 -ml-3'
 
 /** "View all 23 →": opens the screen with the full list (a place path, such as "/activity"). */
 export function ViewAll({ path, count }: { path: string; count?: number }) {
   const openPlace = useOpenPlace()
   return (
-    <button type="button" className={more} onClick={() => openPlace(path)}>
+    <Button variant="tertiary" size="small" className={more} onClick={() => openPlace(path)}>
       {count != null ? `View all ${count} →` : 'View all →'}
-    </button>
+    </Button>
   )
 }
 
 /** "View all 7" for a section with no screen of its own: it expands the section in place. */
 export function ViewAllHere({ count, open, onToggle }: { count: number; open: boolean; onToggle: () => void }) {
   return (
-    <button type="button" className={more} aria-expanded={open} onClick={onToggle}>
+    <Button variant="tertiary" size="small" className={more} aria-expanded={open} onClick={onToggle}>
       {open ? 'Show fewer' : `View all ${count}`}
-    </button>
+    </Button>
   )
 }

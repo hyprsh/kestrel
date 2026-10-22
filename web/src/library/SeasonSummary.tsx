@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { Button } from '@hyprsh/design'
 import type { Episode } from '../api/queries'
-import { Button } from '../forms'
 import { slotLabel, type SlotKey } from './bits'
 import type { SeasonOpen } from './useSeasonOpen'
 
@@ -12,18 +12,9 @@ import type { SeasonOpen } from './useSeasonOpen'
 export function SeasonToggle({ name, open, onToggle, onFocus }: { name: string; open: boolean; onToggle: () => void; onFocus: () => void }) {
   const Chevron = open ? ChevronDown : ChevronRight
   return (
-    <button
-      type="button"
-      aria-expanded={open}
-      aria-label={`${name} episodes`}
-      tabIndex={-1}
-      onFocus={onFocus}
-      onClick={onToggle}
-      className="flex items-center gap-1 rounded font-medium outline-none hover:text-gray-1000 focus-visible:ring-2 focus-visible:ring-blue-700"
-    >
-      <Chevron aria-hidden className="size-3.5 text-gray-900" />
+    <Button variant="tertiary" size="tiny" prefix={<Chevron aria-hidden className="size-4" />} aria-expanded={open} aria-label={`${name} episodes`} tabIndex={-1} onFocus={onFocus} onClick={onToggle}>
       {name}
-    </button>
+    </Button>
   )
 }
 
@@ -39,7 +30,7 @@ export function SeasonSummary({ episodes, slots }: { episodes: Episode[]; slots:
   const aired = years.length === 0 ? '' : from === to ? ` · ${from}` : ` · ${from}–${to}`
   const count = (s: SlotKey, state: string) => episodes.filter((e) => e.cells[s]?.state === state).length
   return (
-    <span className="flex min-w-0 flex-wrap items-center gap-x-3 text-[12px] text-gray-900">
+    <span className="label-12 flex min-w-0 flex-wrap items-center gap-x-3 text-gray-900">
       <span>
         {episodes.length} {episodes.length === 1 ? 'episode' : 'episodes'}
         {aired}
@@ -61,7 +52,7 @@ export function SeasonSummary({ episodes, slots }: { episodes: Episode[]; slots:
 export function SeasonToolbar({ seasons }: { seasons: SeasonOpen }) {
   if (seasons.seasons.length === 0) return null
   const button = (label: string, open: boolean) => (
-    <Button type="button" variant="secondary" onClick={() => seasons.setAll(open)} className="h-7 px-2 text-[12px]">
+    <Button variant="secondary" size="small" onClick={() => seasons.setAll(open)}>
       {label}
     </Button>
   )

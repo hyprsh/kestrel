@@ -1,6 +1,7 @@
 // One Slot of a Title on its page: the Version kept there, or room to add one.
+import { Badge } from '@hyprsh/design'
 import type { Profile, TitleDetail } from '../api/queries'
-import { Badge, cx } from '../ui'
+import { cx } from '../ui'
 import { size, slotLabel, StatusBadge, type SlotKey } from './bits'
 import { DeleteFile } from './DeleteFiles'
 import { AddVersion, VersionControls } from './ManageVersion'
@@ -31,18 +32,24 @@ export function SlotCard({
   return (
     <div role="group" aria-label={slotLabel[slot]} className={cx('flex flex-col rounded-lg border border-gray-alpha-400 p-3', !v && 'border-dashed')}>
       <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-[11px] font-medium text-gray-900">{slotLabel[slot]}</span>
-        {v ? <StatusBadge state={v.state} longMissing={v.long_missing} /> : <Badge>No Version</Badge>}
+        <span className="label-12-mono text-gray-900">{slotLabel[slot]}</span>
+        {v ? (
+          <StatusBadge state={v.state} longMissing={v.long_missing} />
+        ) : (
+          <Badge variant="gray-subtle" size="sm">
+            No Version
+          </Badge>
+        )}
       </div>
       <div className="mt-2 min-w-0 flex-1">
         {v ? (
           <>
-            <div className="text-[13px] font-medium">{profileName(v.profile)}</div>
+            <div className="label-14">{profileName(v.profile)}</div>
             <Holds version={v} kind={title.kind} onCoverage={onCoverage} />
             <OriginalOfferNote offer={v.original_offer} />
           </>
         ) : (
-          <div className="text-[13px] text-gray-900">Not kept in {slotLabel[slot]}</div>
+          <div className="copy-13 text-gray-900">Not kept in {slotLabel[slot]}</div>
         )}
       </div>
       <div className="mt-3 flex flex-col gap-2">
@@ -68,15 +75,15 @@ function Holds({ version: v, kind, onCoverage }: { version: Version; kind: Title
       c.long_missing > 0 ? `${c.long_missing} Long Missing` : null,
     ].filter(Boolean)
     return (
-      <button type="button" title="Show the episodes" onClick={onCoverage} className="mt-1 block text-left text-[12px] text-gray-900 hover:text-gray-1000 hover:underline">
+      <button type="button" title="Show the episodes" onClick={onCoverage} className="label-12 mt-1 block text-left text-gray-900 hover:text-gray-1000 hover:underline">
         {parts.join(' · ')}
       </button>
     )
   }
-  if (!v.file) return <div className="mt-1 text-[12px] text-gray-900">No file yet</div>
+  if (!v.file) return <div className="label-12 mt-1 text-gray-900">No file yet</div>
   return (
-    <div className="mt-1 text-[12px] text-gray-900">
-      <div className="truncate font-mono text-[11px]" title={v.file.release_name}>
+    <div className="label-12 mt-1 text-gray-900">
+      <div className="label-12-mono truncate" title={v.file.release_name}>
         {v.file.release_name}
       </div>
       <div>

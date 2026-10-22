@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { components } from '../api/schema.gen'
-import { Button } from '../forms'
+import { Button } from '@hyprsh/design'
 import { size } from './bits'
 
 type EpisodeCell = components['schemas']['EpisodeCell']
@@ -71,19 +71,19 @@ export function EpisodeFileTip({ label, cell, file, onClose }: { label: string; 
           onClose()
         }
       }}
-      className="absolute top-full right-0 z-20 mt-1 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 rounded-lg border border-gray-alpha-400 bg-background-100 p-3 text-left text-[12px] shadow-lg"
+      className="absolute top-full right-0 z-20 mt-1 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 rounded-lg border border-gray-alpha-400 bg-background-100 p-3 text-left shadow-lg"
     >
-      <p ref={pathRef} className="font-mono text-[11px] break-all text-gray-1000 select-text">
+      <p ref={pathRef} className="label-12-mono break-all text-gray-1000 select-text">
         {file.path}
       </p>
-      <p className="text-gray-900">
+      <p className="label-12 text-gray-900">
         {[...facts(cell), ...(others > 1 ? [`This file holds ${others} episodes`] : [])].join(' · ')}
       </p>
       <div className="flex items-center gap-2">
-        <Button variant="secondary" className="h-7 px-2 text-[12px]" autoFocus onClick={() => void copy()}>
+        <Button variant="secondary" size="small" autoFocus onClick={() => void copy()}>
           {copied === 'copied' ? 'Copied' : 'Copy path'}
         </Button>
-        {copied === 'selected' && <span className="text-gray-900">Path selected: copy it with your keyboard.</span>}
+        {copied === 'selected' && <span className="label-12 text-gray-900">Path selected: copy it with your keyboard.</span>}
       </div>
     </div>
   )

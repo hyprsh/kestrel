@@ -1,8 +1,9 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { QueryClient } from '@tanstack/react-query'
+import { themeScript } from '@hyprsh/design'
 import { App } from './App'
 import { http } from './test/handlers'
 import { server } from './test/server'
@@ -19,7 +20,7 @@ describe('the empty shell', () => {
     renderApp()
     const rail = await screen.findByRole('navigation')
     for (const name of ['Overview', 'Library', 'Upcoming', 'Log', 'Settings', 'About']) {
-      expect(rail).toHaveTextContent(name) // tooltip labels are in the DOM
+      expect(within(rail).getByRole('button', { name })).toBeInTheDocument()
     }
     expect(screen.getByRole('main')).toHaveTextContent(/downloading now/i) // Overview is the home screen
   })
@@ -63,8 +64,19 @@ describe('light and dark mode', () => {
 
     unmount()
     document.documentElement.classList.remove('dark')
-    renderApp()
-    await screen.findByRole('navigation')
+    // A reload: the pre-paint script vite injects into index.html applies the stored choice before React runs.
+    new Function(themeScript({ storageKey: 'kestrel.theme', attribute: 'class' }))()
     expect(document.documentElement).toHaveClass('dark') // restored from storage
+    renderApp()
+    expect(await screen.findByRole('button', { name: 'Theme: Dark' })).toBeInTheDocument()
+  })
+
+  it("keeps the command menu's Switch theme in step with the rail button", async () => {
+    renderApp()
+    await screen.findByRole('button', { name: 'Theme: System' })
+    await userEvent.keyboard('{Meta>}k{/Meta}')
+    await userEvent.click(await screen.findByRole('option', { name: /Switch theme/ }))
+    expect(await screen.findByRole('button', { name: 'Theme: Light' })).toBeInTheDocument()
+    expect(localStorage.getItem('kestrel.theme')).toBe('light')
   })
 })

@@ -1,10 +1,9 @@
+import { Button, Checkbox, KeyboardInput, Note, Select } from '@hyprsh/design'
 import { CornerDownLeft } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { ApiError, useCreateTitle, useLookupDetail, useProfiles, useSeriesOverview, useSettings, type LookupResult, type Profile } from '../api/queries'
-import { Button, ErrorText, Select } from '../forms'
 import { slotKeys, slotLabel, type SlotKey } from '../library/bits'
 import { Ratings } from '../library/Ratings'
-import { Kbd } from '../ui'
 import { LookupSummary } from './LookupSummary'
 import { allEpisodes, seasonBody, SeasonPresets, type SeasonChoice } from './SeasonPresets'
 import { SeriesOverviewLine } from './SeriesOverview'
@@ -79,23 +78,27 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
   return (
     <div ref={panel} tabIndex={-1} onKeyDown={onKeyDown} className="flex min-h-0 flex-col outline-none">
       <div className="border-b border-gray-alpha-400 px-4 py-3">
-        <div className="text-[15px] font-semibold tracking-tight">
+        <div className="heading-16">
           Add {result.title}
-          {result.year ? <span className="ml-1.5 font-normal text-gray-900">{result.year}</span> : null}
+          {result.year ? <span className="label-14 ml-1.5 text-gray-900">{result.year}</span> : null}
         </div>
-        <div className="text-[12px] text-gray-900">{result.kind === 'series' ? 'Series' : 'Movie'}<Ratings ratings={suggestion.data?.ratings ?? result.ratings} lead /></div>
+        <div className="label-13 text-gray-900">{result.kind === 'series' ? 'Series' : 'Movie'}<Ratings ratings={suggestion.data?.ratings ?? result.ratings} lead /></div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
         {suggestion.isError ? (
-          <ErrorText>{suggestion.error instanceof ApiError ? suggestion.error.message : 'Could not load this title.'}</ErrorText>
+          <Note variant="error" size="small">
+            {suggestion.error instanceof ApiError ? suggestion.error.message : 'Could not load this title.'}
+          </Note>
         ) : !suggestion.data ? (
-          <p className="text-gray-900">Loading…</p>
+          <p className="copy-14 text-gray-900">Loading…</p>
         ) : (
           <>
             <LookupSummary detail={suggestion.data} series={result.kind === 'series' && <SeriesOverviewLine overview={overview} />} />
             {reasons.length > 0 && (
-              <p className="rounded-md bg-gray-alpha-100 px-3 py-2 text-[12px] text-gray-900">Preselected: {reasons.join('; ')}</p>
+              <Note variant="secondary" size="small" fill>
+                Preselected: {reasons.join('; ')}
+              </Note>
             )}
             <div className="mt-3 flex flex-col gap-2">
               {slotKeys.map((k) => {
@@ -103,9 +106,8 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
                 const options = all.filter((p) => p.slot === k && p.enabled)
                 return (
                   <div key={k} className="flex h-8 items-center gap-3">
-                    <label className="flex w-20 items-center gap-2 text-[13px] font-medium">
-                      <input
-                        type="checkbox"
+                    <div className="w-20">
+                      <Checkbox
                         checked={on}
                         onChange={(e) =>
                           setPicked((p) => {
@@ -116,11 +118,12 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
                             return next
                           })
                         }
-                      />
-                      {slotLabel[k]}
-                    </label>
+                      >
+                        {slotLabel[k]}
+                      </Checkbox>
+                    </div>
                     {on && (
-                      <Select aria-label={`${slotLabel[k]} Profile`} value={picked[k]} onChange={(e) => setPicked((p) => ({ ...p, [k]: e.target.value }))} className="max-w-56">
+                      <Select size="small" aria-label={`${slotLabel[k]} Profile`} value={picked[k]} onChange={(e) => setPicked((p) => ({ ...p, [k]: e.target.value }))} className="max-w-56">
                         {options.map((p) => (
                           <option key={p.key} value={p.key}>
                             {p.name}
@@ -134,9 +137,9 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
             </div>
             {result.kind === 'series' && <SeasonPresets choice={seasons} onChange={setSeasons} overview={overview} />}
             {roots.length > 1 && (
-              <label className="mt-3 flex items-center gap-3 text-[13px]">
-                <span className="w-20 font-medium">Folder</span>
-                <Select aria-label="Root folder" value={root ?? defaultRoot} onChange={(e) => setRoot(e.target.value)} className="max-w-72">
+              <label className="label-14 mt-3 flex items-center gap-3">
+                <span className="w-20">Folder</span>
+                <Select size="small" aria-label="Root folder" value={root ?? defaultRoot} onChange={(e) => setRoot(e.target.value)} className="max-w-72">
                   {roots.map((r) => (
                     <option key={r}>{r}</option>
                   ))}
@@ -145,7 +148,9 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
             )}
             {create.isError && (
               <div className="mt-3">
-                <ErrorText>{create.error instanceof ApiError ? create.error.message : 'Could not add this title.'}</ErrorText>
+                <Note variant="error" size="small">
+                  {create.error instanceof ApiError ? create.error.message : 'Could not add this title.'}
+                </Note>
               </div>
             )}
           </>
@@ -153,20 +158,22 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
       </div>
 
       <footer className="flex items-center gap-2 border-t border-gray-alpha-400 px-4 py-2.5">
-        <Button variant="secondary" onClick={onBack}>
+        <Button size="small" onClick={onBack} suffix={<KeyboardInput small>Esc</KeyboardInput>}>
           Back
-          <span className="ml-2">
-            <Kbd>Esc</Kbd>
-          </span>
         </Button>
         <div className="flex-1" />
-        <Button onClick={add} disabled={!ready}>
+        <Button
+          size="small"
+          variant="primary"
+          onClick={add}
+          disabled={!ready}
+          suffix={
+            <KeyboardInput small>
+              <CornerDownLeft aria-hidden className="size-3" />
+            </KeyboardInput>
+          }
+        >
           Add
-          <span className="ml-2 flex gap-0.5 text-gray-600">
-            <Kbd>
-              <CornerDownLeft className="size-3" />
-            </Kbd>
-          </span>
         </Button>
       </footer>
     </div>

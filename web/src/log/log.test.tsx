@@ -56,6 +56,9 @@ function events(items: Event[] = [event(2, 'grab', 'Sent Paddington to the downl
   return sent
 }
 
+/** The rows of the Events table without its header row. */
+const eventRows = (table: HTMLElement) => within(table).getAllByRole('row').slice(1)
+
 const filter = () => screen.getByRole('combobox', { name: 'Filter the Log' })
 
 describe('Log', () => {
@@ -63,8 +66,8 @@ describe('Log', () => {
     const sent = events()
     const user = await openLog()
 
-    const list = await screen.findByRole('list', { name: 'Events' })
-    expect(within(list).getAllByRole('listitem')).toHaveLength(2)
+    const list = await screen.findByRole('table', { name: 'Events' })
+    expect(eventRows(list)).toHaveLength(2)
     expect(sent.at(-1)?.toString()).toBe('')
 
     await user.type(filter(), 'kind:grab_failed,import_rejected slot:4k routine:yes')
@@ -78,7 +81,7 @@ describe('Log', () => {
     fakeLibrary([row(1, 'Breaking Bad', 'Breaking Bad'), row(2, 'Breaking Bad', 'Breaking Bad (2008)'), row(3, 'Paddington', 'Paddington')])
     const sent = events()
     const user = await openLog()
-    await screen.findByRole('list', { name: 'Events' })
+    await screen.findByRole('table', { name: 'Events' })
 
     await user.type(filter(), 'kind:failures -kind:health_raised title:"breaking bad"')
 
@@ -91,7 +94,7 @@ describe('Log', () => {
     fakeLibrary([row(1, 'Breaking Bad', 'Breaking Bad'), row(3, 'Paddington', 'Paddington')])
     const sent = events()
     const user = await openLog()
-    await screen.findByRole('list', { name: 'Events' })
+    await screen.findByRole('table', { name: 'Events' })
 
     await user.type(filter(), '-slot:4k -title:paddington -routine:no')
 
@@ -110,7 +113,7 @@ describe('Log', () => {
     fakeLibrary([row(3, 'Paddington', 'Paddington')])
     const sent = events()
     const user = await openLog()
-    await screen.findByRole('list', { name: 'Events' })
+    await screen.findByRole('table', { name: 'Events' })
 
     await user.type(filter(), 'title:Heat')
 
@@ -122,11 +125,11 @@ describe('Log', () => {
     fakeLibrary([row(3, 'Paddington', 'Paddington')])
     events([{ ...event(2, 'grab', 'Sent a Release to SABnzbd'), title_id: 3 }, event(1, 'health_raised', 'The indexer is down')])
     const user = await openLog()
-    const list = await screen.findByRole('list', { name: 'Events' })
+    const list = await screen.findByRole('table', { name: 'Events' })
 
     await user.type(filter(), 'paddington sab')
 
-    await expect.poll(() => within(list).getAllByRole('listitem')).toHaveLength(1)
+    await expect.poll(() => eventRows(list)).toHaveLength(1)
     expect(within(list).getByText('Sent a Release to SABnzbd')).toBeInTheDocument()
   })
 
@@ -138,12 +141,12 @@ describe('Log', () => {
       { ...event(1, 'import_rejected', 'Import rejected: sample'), title_id: 3 },
     ])
     const user = await openLog()
-    const list = await screen.findByRole('list', { name: 'Events' })
+    const list = await screen.findByRole('table', { name: 'Events' })
 
     await user.type(filter(), 'rejcted amelie')
 
-    await expect.poll(() => within(list).getAllByRole('listitem')).toHaveLength(2)
-    expect(within(list).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+    await expect.poll(() => eventRows(list)).toHaveLength(2)
+    expect(eventRows(list).map((row) => row.textContent)).toEqual([
       expect.stringContaining('no video file'),
       expect.stringContaining('sample'),
     ])
@@ -153,7 +156,7 @@ describe('Log', () => {
     fakeLibrary([row(1, 'Breaking Bad', 'Breaking Bad'), row(3, 'Paddington', 'Paddington')])
     events()
     const user = await openLog()
-    await screen.findByRole('list', { name: 'Events' })
+    await screen.findByRole('table', { name: 'Events' })
 
     await user.type(filter(), 'slot:')
     const options = screen.getByRole('listbox', { name: 'Suggestions' })
@@ -180,7 +183,7 @@ describe('Log', () => {
     fakeLibrary([row(3, 'Paddington', 'Paddington')])
     const sent = events([{ ...event(2, 'grab_failed', 'The download failed'), title_id: 3 }, event(1, 'import', 'Imported Heat')])
     const user = await openLog()
-    const list = await screen.findByRole('list', { name: 'Events' })
+    const list = await screen.findByRole('table', { name: 'Events' })
 
     await user.click(within(list).getByRole('button', { name: 'Filter by kind:grab_failed' }))
     await user.click(await within(list).findByRole('button', { name: 'Filter by title:Paddington' }))
@@ -197,7 +200,7 @@ describe('Log', () => {
   it('says why a qualifier was left out, once it is typed', async () => {
     events()
     const user = await openLog()
-    await screen.findByRole('list', { name: 'Events' })
+    await screen.findByRole('table', { name: 'Events' })
 
     await user.type(filter(), 'slot:xl')
     expect(screen.queryByText('slot: takes standard or 4k, not “xl”')).not.toBeInTheDocument()
@@ -208,7 +211,7 @@ describe('Log', () => {
   it('lists the qualifiers in a help popover', async () => {
     events()
     const user = await openLog()
-    await screen.findByRole('list', { name: 'Events' })
+    await screen.findByRole('table', { name: 'Events' })
 
     await user.click(screen.getByRole('button', { name: 'Filter help' }))
     const help = screen.getByRole('dialog', { name: 'Filter help' })
@@ -223,7 +226,7 @@ describe('Log', () => {
   it('keeps the filter in the address bar, and leaves it there for the Log alone', async () => {
     events()
     const user = await openLog()
-    await screen.findByRole('list', { name: 'Events' })
+    await screen.findByRole('table', { name: 'Events' })
 
     await user.type(filter(), 'kind:grab heat')
     expect(location.pathname).toBe('/log')

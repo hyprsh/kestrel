@@ -1,5 +1,6 @@
 // One Request as the Overview's Recent requests and the Requests screen draw it: the Title,
 // who asked through what and when, the seasons asked for, and where each Slot stands.
+import { Badge, Button, type BadgeProps } from '@hyprsh/design'
 import type { QueueItem } from '../api/queue'
 import { useQueue } from '../api/queue'
 import type { Request } from '../api/requests'
@@ -9,7 +10,7 @@ import { slotLabel, type SlotKey } from '../library/bits'
 import { useOpenPlace } from '../place'
 import { Poster, TitlePoster } from '../poster'
 import { ago, useNow } from '../time'
-import { Badge, NavRow, type Tone } from '../ui'
+import { NavRow } from '../ui'
 import { sourceName } from './source'
 
 type Slot = Request['slots'][number]
@@ -25,20 +26,20 @@ const reasons: Record<NonNullable<Request['reject_reason']>, { text: string; fix
  * Where a Slot stands. The Request's own `download` is as of its last fetch; the live queue
  * (`queue` frames) moves the percentage on in between and shows a Grab that started since.
  */
-function slotState(s: Slot, queue: QueueItem[]): { text: string; tone: Tone } {
+function slotState(s: Slot, queue: QueueItem[]): { text: string; tone: NonNullable<BadgeProps['variant']> } {
   const live = s.status === 'queued' || s.status === 'downloading' ? queue.find((q) => s.version_id != null && q.version_id === s.version_id) : undefined
   const d = live ?? (s.status === 'downloading' ? s.download : null)
   if (d) {
     const pct = percent(d.bytes_total, d.bytes_left)
-    return { text: pct == null ? 'Downloading' : `Downloading ${pct}%`, tone: 'blue' }
+    return { text: pct == null ? 'Downloading' : `Downloading ${pct}%`, tone: 'blue-subtle' }
   }
   switch (s.status) {
     case 'completed':
-      return { text: 'Completed', tone: 'green' }
+      return { text: 'Completed', tone: 'green-subtle' }
     case 'failed':
-      return { text: s.status_label, tone: 'gray' }
+      return { text: s.status_label, tone: 'gray-subtle' }
     default:
-      return { text: s.status_label, tone: s.status_label === 'Searching' ? 'amber' : 'gray' }
+      return { text: s.status_label, tone: s.status_label === 'Searching' ? 'amber-subtle' : 'gray-subtle' }
   }
 }
 
@@ -66,25 +67,25 @@ export function RequestRow({ request: r, nav, onOpenTitle }: { request: Request;
           <span className="font-medium">{r.title ?? 'Unknown title'}</span>
           {r.seasons.length > 0 && <span className="text-gray-900"> · {seasonsText(r.seasons)}</span>}
         </span>
-        <span className="block truncate text-[12px] text-gray-900">
+        <span className="label-12 block truncate text-gray-900">
           {r.requester.name} via {sourceName(r.source)} · {ago(r.created_at, now)}
         </span>
       </span>
       {reason ? (
-        <span className="flex shrink-0 items-center gap-2 text-[12px] text-gray-900">
-          <Badge tone="red">Rejected</Badge>
+        <span className="flex label-12 shrink-0 items-center gap-2 text-gray-900">
+          <Badge variant="red-subtle" size="sm">Rejected</Badge>
           <span>{reason.text}</span>
           {reason.fix && (
-            <button
-              type="button"
-              className="text-gray-1000 hover:underline"
+            <Button
+              variant="tertiary"
+              size="small"
               onClick={(e) => {
                 e.stopPropagation()
                 openPlace(reason.fix!.path)
               }}
             >
               {reason.fix.label}
-            </button>
+            </Button>
           )}
         </span>
       ) : (
@@ -92,7 +93,7 @@ export function RequestRow({ request: r, nav, onOpenTitle }: { request: Request;
           {r.slots.map((s) => {
             const st = slotState(s, queue)
             return (
-              <Badge key={s.slot} tone={st.tone}>
+              <Badge key={s.slot} variant={st.tone} size="sm">
                 {`${slotLabel[s.slot as SlotKey]} · ${st.text}`}
               </Badge>
             )

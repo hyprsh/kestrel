@@ -13,10 +13,10 @@ export function LookupSummary({ detail, series }: { detail: LookupDetail; series
   return (
     <div className="mb-3 flex gap-3">
       <Poster src={detail.poster} alt={`${detail.title} poster`} className="h-[120px] w-20 rounded-sm" />
-      <div className="min-w-0 flex-1 text-[12px]">
+      <div className="label-13 min-w-0 flex-1">
         {facts.length > 0 && <p className="text-gray-900">{facts.join(' · ')}</p>}
         {series}
-        {detail.overview && <p className="mt-1.5 line-clamp-5 text-[13px] leading-snug">{detail.overview}</p>}
+        {detail.overview && <p className="copy-13 mt-1.5 line-clamp-5">{detail.overview}</p>}
       </div>
     </div>
   )

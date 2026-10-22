@@ -1,11 +1,11 @@
 // Needs attention: the rows the server raised, with the actions it built. Nothing
 // here knows a kind of row; it draws message, severity and buttons.
+import { Badge, Button, Note } from '@hyprsh/design'
 import { useState } from 'react'
 import { useAttention, useRunAction, type Attention, type AttentionAction, type AttentionRow } from '../api/attention'
-import { Button, ErrorText } from '../forms'
 import { slotLabel } from '../library/bits'
 import { placePath } from '../place'
-import { Badge, NavRow } from '../ui'
+import { NavRow } from '../ui'
 import { OriginalsRow } from './OriginalsRow'
 import type { OverviewNav } from './nav'
 import { firstFive, Section, ViewAllHere } from './Section'
@@ -40,7 +40,7 @@ export function NeedsAttention({
   return (
     <Section id="needs-attention" title="Needs attention" count={rows.length} className="mb-8">
       {attention.data && nothing ? (
-        <p className="text-gray-900">Nothing needs attention.</p>
+        <p className="copy-13 text-gray-900">Nothing needs attention.</p>
       ) : (
         rows.length > 0 && (
           <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
@@ -69,14 +69,14 @@ function LongMissingRow({ group, onOpen }: { group: Attention['long_missing']; o
   return (
     <div data-long-missing className="mt-3 rounded-lg border border-gray-alpha-400 px-4 py-3">
       <div className="flex items-center gap-2">
-        <Badge tone="gray">Long missing</Badge>
+        <Badge variant="gray-subtle" size="sm">Long missing</Badge>
         <span className="min-w-0 flex-1">
           {group.count} {group.count === 1 ? 'Version' : 'Versions'} long missing
         </span>
-        <Button variant="secondary" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Button variant="secondary" size="small" aria-expanded={open} onClick={() => setOpen(!open)}>
           {open ? 'Hide' : 'Show'}
         </Button>
-        <Button variant="secondary" onClick={() => onOpen(placePath('library', 'is:long_missing sort:wanted_since'))}>
+        <Button variant="secondary" size="small" onClick={() => onOpen(placePath('library', 'is:long_missing sort:wanted_since'))}>
           Open in Library
         </Button>
       </div>
@@ -87,7 +87,7 @@ function LongMissingRow({ group, onOpen }: { group: Attention['long_missing']; o
               <div>
                 {i.title} · {slotLabel[i.slot]} · {i.profile}
               </div>
-              <div className="text-[12px] text-gray-900">
+              <div className="label-12 text-gray-900">
                 Wanted since {dateOf(i.wanted_since)}
                 {i.last_failure ? `, last failure: ${i.last_failure.replaceAll('_', ' ')}` : ''}
               </div>
@@ -113,20 +113,20 @@ function Row({ row, onOpen, nav, index }: { row: AttentionRow; onOpen: (path: st
   return (
     <NavRow scope="ov" index={index} sel={nav.sel} onSelect={() => nav.select(index)} className="flex flex-col gap-2 px-4 py-3">
       <div className="flex items-start gap-2">
-        <Badge tone={row.severity === 'blocking' ? 'red' : 'amber'}>{row.severity === 'blocking' ? 'Blocking' : 'Warning'}</Badge>
+        <Badge variant={row.severity === 'blocking' ? 'red-subtle' : 'amber-subtle'} size="sm">{row.severity === 'blocking' ? 'Blocking' : 'Warning'}</Badge>
         <span className="min-w-0 flex-1">{row.message}</span>
       </div>
       {row.actions.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {row.actions.map((a) => (
-            <Button key={a.key} variant="secondary" disabled={run.isPending} onClick={() => act(a)}>
+            <Button key={a.key} variant="secondary" size="small" disabled={run.isPending} onClick={() => act(a)}>
               {a.label}
             </Button>
           ))}
         </div>
       )}
-      {run.isError && <ErrorText>{run.error.message}</ErrorText>}
-      {result && <p className="text-[12px] text-gray-900">{result}</p>}
+      {run.isError && <Note variant="error">{run.error.message}</Note>}
+      {result && <p className="label-12 text-gray-900">{result}</p>}
     </NavRow>
   )
 }
