@@ -109,19 +109,17 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
               </Note>
             )}
             {p.result && (
-              <div role="status">
-                <Note
-                  action={
-                    p.result.adopted > 0 ? (
-                      <Button size="small" onClick={() => openCleanup(p.result?.title_ids)}>
-                        Clean up adopted folders
-                      </Button>
-                    ) : undefined
-                  }
-                >
-                  {`Adopted ${p.result.adopted} ${p.result.adopted === 1 ? 'Title' : 'Titles'}${p.result.failed > 0 ? `, ${p.result.failed} could not be adopted (see the Log)` : ''}.`}
-                </Note>
-              </div>
+              <Note role="status"
+                action={
+                  p.result.adopted > 0 ? (
+                    <Button size="small" onClick={() => openCleanup(p.result?.title_ids)}>
+                      Clean up adopted folders
+                    </Button>
+                  ) : undefined
+                }
+              >
+                {`Adopted ${p.result.adopted} ${p.result.adopted === 1 ? 'Title' : 'Titles'}${p.result.failed > 0 ? `, ${p.result.failed} could not be adopted (see the Log)` : ''}.`}
+              </Note>
             )}
             <div>
               <Button variant="primary" size="small" onClick={() => scan.mutate()} disabled={scan.isPending}>
@@ -132,11 +130,9 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
         )}
 
         {(state === 'scanning' || state === 'committing') && (
-          <div role="status" className="mt-4">
-            <Note icon={<Spinner size="sm" />}>
-              {state === 'scanning' ? 'Scanning' : 'Adopting'}… {p.progress.done} of {p.progress.total}
-            </Note>
-          </div>
+          <Note role="status" className="mt-4" icon={<Spinner size="sm" />}>
+            {state === 'scanning' ? 'Scanning' : 'Adopting'}… {p.progress.done} of {p.progress.total}
+          </Note>
         )}
 
         {state === 'planned' && (

@@ -13,7 +13,7 @@ import { HealthStrip } from './HealthStrip'
 import { NeedsAttention, shownRows } from './NeedsAttention'
 import { RecentRequests } from './RecentRequests'
 import { Searching } from './Searching'
-import { firstFive, Section, ViewAll } from './Section'
+import { EmptyLine, firstFive, Section, ViewAll } from './Section'
 import type { OverviewNav } from './nav'
 
 /** onOpen is how an action that opens a place in the app (a GET action) gets there. */
@@ -50,7 +50,7 @@ export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen
       <Section id="downloading-now" title="Downloading now" count={queue.data ? all.length : undefined}>
         {cancel.isError && <Note variant="error">{cancel.error.message}</Note>}
         {queue.data && items.length === 0 ? (
-          <p className="copy-13 text-gray-900">Nothing is downloading.</p>
+          <EmptyLine title="Nothing is downloading." />
         ) : (
           <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
             {items.map((i, n) => (

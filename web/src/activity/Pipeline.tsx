@@ -2,7 +2,7 @@
 // with stage chips and one filter field above it. It stays live through the stream: the queue
 // from `queue` frames, the stalled and finished Grabs from the `grab` hints, Searching from
 // `search` frames.
-import { Button, EmptyState, Note } from '@hyprsh/design'
+import { Button, EmptyState, Link, Note, Pill } from '@hyprsh/design'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useFinishedGrabs, useStalledGrabs, useStalledImport, HISTORY_DAYS, type GrabEntry } from '../api/activity'
 import { useSearchNow } from '../api/grabs'
@@ -99,16 +99,9 @@ export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQue
           {stages.map((s) => {
             const on = filter.stages?.includes(s) ?? false
             return (
-              <Button
-                key={s}
-                variant={on ? 'primary' : 'secondary'}
-                size="tiny"
-                shape="rounded"
-                aria-pressed={on}
-                onClick={() => onQuery(toggleStage(query, s))}
-              >
+              <Pill key={s} pressed={on} onPressedChange={() => onQuery(toggleStage(query, s))}>
                 {stageLabel[s]} <span className="tabular-nums">{count(s)}</span>
-              </Button>
+              </Pill>
             )
           })}
         </div>
@@ -138,9 +131,9 @@ export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQue
       {(chosen.includes('done') || chosen.includes('failed')) && (
         <p className="label-12 px-4 py-3 text-gray-900">
           {finished.data?.more ? `Done and Failed show the latest ${finished.data.items.length} Grabs. ` : `Done and Failed reach back ${HISTORY_DAYS} days. `}
-          <button type="button" className="underline hover:text-gray-1000" onClick={() => openPlace('/log?q=kind:grabs,imports')}>
+          <Link as="button" onClick={() => openPlace('/log?q=kind:grabs,imports')}>
             Older ones are in the Log
-          </button>
+          </Link>
         </p>
       )}
     </section>
@@ -151,7 +144,7 @@ function Group({ stage, count, children }: { stage: Stage; count: number; childr
   const id = `activity-stage-${stage}`
   return (
     <section aria-labelledby={id} className="border-b border-gray-alpha-200">
-      <h3 id={id} className="label-12 px-4 pt-4 pb-1 font-medium text-gray-900">{`${stageLabel[stage]} · ${count}`}</h3>
+      <h3 id={id} className="label-12-strong px-4 pt-4 pb-1 text-gray-900">{`${stageLabel[stage]} · ${count}`}</h3>
       {children}
     </section>
   )

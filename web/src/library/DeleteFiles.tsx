@@ -259,7 +259,7 @@ export function DeleteMenuItems({
   return versions.map((v) => {
     const has = deletes.has(v, episodes)
     return (
-      <Menu.Item key={`delete-${v.slot}`} disabled={!has} onSelect={() => deletes.ask(v, episodes, label, scope, at)}>
+      <Menu.Item key={`delete-${v.slot}`} disabled={!has} description={has ? undefined : 'No file to delete'} onSelect={() => deletes.ask(v, episodes, label, scope, at)}>
         {versions.length > 1 ? `${text} ${slotLabel[v.slot]}` : text}
       </Menu.Item>
     )

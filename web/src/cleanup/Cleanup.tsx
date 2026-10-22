@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { usePreviewCleanup, useRunCleanup, type CleanupCategory, type CleanupPreview, type CleanupResult } from '../api/cleanup'
 import { ApiError } from '../api/queries'
-import { Button, Checkbox, Code, DestructiveActionModal, EmptyState, Note, Spinner } from '@hyprsh/design'
+import { Button, Checkbox, Code, Collapse, DestructiveActionModal, EmptyState, Note, Spinner } from '@hyprsh/design'
 
 const labels: Record<CleanupCategory['key'], string> = {
   junk: 'Junk (.nfo, .sfv, .txt, .url, .exe, Thumbs.db, .DS_Store)',
@@ -39,11 +39,9 @@ export function Cleanup({ titleIds }: { titleIds?: number[] }) {
           </Note>
         )}
         {done && (
-          <div role="status" className="mt-4">
-            <Note variant={done.failed > 0 ? 'warning' : 'success'}>
-              {`Deleted ${done.deleted} ${done.deleted === 1 ? 'file' : 'files'} (${mb(done.bytes)})${done.failed > 0 ? `, ${done.failed} could not be deleted` : ''}.`}
-            </Note>
-          </div>
+          <Note role="status" className="mt-4" variant={done.failed > 0 ? 'warning' : 'success'}>
+            {`Deleted ${done.deleted} ${done.deleted === 1 ? 'file' : 'files'} (${mb(done.bytes)})${done.failed > 0 ? `, ${done.failed} could not be deleted` : ''}.`}
+          </Note>
         )}
         {preview.data ? (
           <Review
@@ -114,8 +112,7 @@ function Review({
                 {c.count} {c.count === 1 ? 'item' : 'items'}, {mb(c.size)}
               </span>
             </div>
-            <details className="mt-1 pl-6">
-              <summary className="label-12 cursor-pointer text-gray-900">Show files</summary>
+            <Collapse variant="inline" title="Show files" className="mt-1 pl-6">
               <ul className="mt-1 flex flex-col gap-1">
                 {c.files.map((f) => (
                   <li key={f.path} className="copy-13 flex items-center gap-2">
@@ -124,7 +121,7 @@ function Review({
                   </li>
                 ))}
               </ul>
-            </details>
+            </Collapse>
           </li>
         ))}
       </ul>

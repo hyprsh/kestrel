@@ -7,7 +7,7 @@ import { placePath } from '../place'
 import { NavRow } from '../ui'
 import { dayLabel, UpcomingLine, upcomingKey } from '../upcoming/bits'
 import type { OverviewNav } from './nav'
-import { firstFive, Section, ViewAll } from './Section'
+import { EmptyLine, firstFive, Section, ViewAll } from './Section'
 
 export function ComingRecent({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void; nav: OverviewNav }) {
   const coming = useUpcoming(6)
@@ -24,7 +24,7 @@ export function ComingRecent({ onOpenTitle, nav }: { onOpenTitle: (id: number) =
     <>
       <Section id="coming-this-week" title="Coming this week" count={coming.data ? comingAll.length : undefined} className="mt-6">
         {coming.data && comingItems.length === 0 ? (
-          <p className="copy-13 text-gray-900">Nothing is due in the next 7 days.</p>
+          <EmptyLine title="Nothing is due in the next 7 days." />
         ) : (
           <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
             {comingItems.map((item, j) => {
@@ -43,7 +43,7 @@ export function ComingRecent({ onOpenTitle, nav }: { onOpenTitle: (id: number) =
       {/* The count is the week's Imports, which the Done stage lists; the rows are the latest few. */}
       <Section id="recently-added" title="Recently added" count={recent.data?.total} className="mt-6">
         {recent.data && recentItems.length === 0 ? (
-          <p className="copy-13 text-gray-900">Nothing has been imported yet.</p>
+          <EmptyLine title="Nothing has been imported yet." />
         ) : (
           <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
             {recentItems.map((item, j) => {

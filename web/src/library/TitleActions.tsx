@@ -11,7 +11,6 @@ import { RemoveTitle } from './ManageVersion'
 import { MoveTitle } from './MoveTitle'
 import type { ManualSearchTarget } from './TitleDetail'
 import { useFade } from './useFade'
-import { ActionMenu } from './ActionMenu'
 import { ManualSearch, SearchNow, useSearchWanted } from './VersionSearch'
 
 const message = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback)
@@ -66,15 +65,20 @@ export function TitleActions({
           {frozen ? 'Unfreeze metadata' : 'Freeze metadata'}
         </Button>
         {title.kind === 'movie' && <MovieMonitored title={title} />}
-        <ActionMenu label="More Title actions" className="ml-auto" icon={<MoreHorizontal className="size-4" />}>
-          <Menu.Item onSelect={() => setPanel('move')}>Move</Menu.Item>
-          <Menu.Item onSelect={() => openCleanup([title.id])}>Clean up this Title</Menu.Item>
-          <Menu.Item onSelect={() => openPlace(placePath('log', termText({ name: 'title', values: [title.title], negated: false })))}>Show in the Log</Menu.Item>
-          <Menu.Divider />
-          <Menu.Item type="error" onSelect={() => setPanel('remove')}>
-            Remove Title
-          </Menu.Item>
-        </ActionMenu>
+        <Menu.Container position="bottom-end" className="ml-auto">
+          <Menu.Button svgOnly variant="tertiary" size="small" aria-label="More Title actions">
+            <MoreHorizontal />
+          </Menu.Button>
+          <Menu>
+            <Menu.Item onSelect={() => setPanel('move')}>Move</Menu.Item>
+            <Menu.Item onSelect={() => openCleanup([title.id])}>Clean up this Title</Menu.Item>
+            <Menu.Item onSelect={() => openPlace(placePath('log', termText({ name: 'title', values: [title.title], negated: false })))}>Show in the Log</Menu.Item>
+            <Menu.Divider />
+            <Menu.Item type="error" onSelect={() => setPanel('remove')}>
+              Remove Title
+            </Menu.Item>
+          </Menu>
+        </Menu.Container>
       </div>
       {search.mutation.isSuccess && <p className="label-12 mt-1 text-gray-900">Searching… The Log shows what it grabs.</p>}
       {search.mutation.isError && <Problem>{message(search.mutation.error, 'Could not start the search.')}</Problem>}

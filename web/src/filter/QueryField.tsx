@@ -1,9 +1,9 @@
 // The filter field of a list screen, GitHub-style: one input for qualifiers (filter/query.ts)
 // and free text. Each screen passes its qualifier table; the field knows only the grammar.
 import { CircleHelp, X } from 'lucide-react'
-import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { Fragment, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { parse, suggest, termText, withoutTerm, type Qualifier } from './query'
-import { Badge, Button, Input, Note } from '@hyprsh/design'
+import { Badge, Button, Input, Note, Popover } from '@hyprsh/design'
 import { cx } from '../ui'
 
 export function QueryField({
@@ -144,11 +144,9 @@ export function QueryField({
         </ul>
       )}
       {problems.length > 0 && (
-        <div role="status">
-          <Note variant="warning" size="small">
-            {problems.map((p) => p.message).join(' · ')}
-          </Note>
-        </div>
+        <Note role="status" variant="warning" size="small">
+          {problems.map((p) => p.message).join(' · ')}
+        </Note>
       )}
     </div>
   )
@@ -156,46 +154,31 @@ export function QueryField({
 
 /** The "?" popover: what each qualifier does, and the grammar. */
 function Help({ qualifiers }: { qualifiers: readonly Qualifier[] }) {
-  const [open, setOpen] = useState(false)
-  const wrap = useRef<HTMLDivElement>(null)
-  const id = useId()
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: globalThis.KeyboardEvent) => e.key === 'Escape' && (e.stopPropagation(), setOpen(false))
-    const onDown = (e: MouseEvent) => !wrap.current?.contains(e.target as Node) && setOpen(false)
-    window.addEventListener('keydown', onKey, true)
-    window.addEventListener('mousedown', onDown)
-    return () => {
-      window.removeEventListener('keydown', onKey, true)
-      window.removeEventListener('mousedown', onDown)
-    }
-  }, [open])
   return (
-    <div ref={wrap} className="relative shrink-0">
-      <Button svgOnly variant="tertiary" size="small" aria-label="Filter help" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen((o) => !o)}>
-        <CircleHelp aria-hidden className="size-4" />
-      </Button>
-      {open && (
-        <div
-          id={id}
-          role="dialog"
-          aria-label="Filter help"
-          className="label-12 absolute top-full right-0 z-40 mt-1 w-80 rounded-md border border-gray-alpha-400 bg-background-100 p-3 shadow-lg"
-        >
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
-            {qualifiers.map((q) => (
-              <Fragment key={q.name}>
-                <dt className="label-12-mono text-gray-1000">{q.name}:</dt>
-                <dd className="text-gray-900">{q.help}</dd>
-              </Fragment>
-            ))}
-          </dl>
-          <p className="mt-2 border-t border-gray-alpha-200 pt-2 text-gray-900">
-            <code className="label-12-mono">a,b</code> matches either, different qualifiers must all match, and a leading <code className="label-12-mono">-</code> leaves
-            values out. Other words match the text.
-          </p>
-        </div>
-      )}
-    </div>
+    <Popover
+      trigger={
+        <Button svgOnly variant="tertiary" size="small" aria-label="Filter help" className="shrink-0">
+          <CircleHelp aria-hidden />
+        </Button>
+      }
+      label="Filter help"
+      position="bottom-end"
+      width={320}
+    >
+      <div className="label-12">
+        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
+          {qualifiers.map((q) => (
+            <Fragment key={q.name}>
+              <dt className="label-12-mono text-gray-1000">{q.name}:</dt>
+              <dd className="text-gray-900">{q.help}</dd>
+            </Fragment>
+          ))}
+        </dl>
+        <p className="mt-2 border-t border-gray-alpha-200 pt-2 text-gray-900">
+          <code className="label-12-mono">a,b</code> matches either, different qualifiers must all match, and a leading <code className="label-12-mono">-</code> leaves
+          values out. Other words match the text.
+        </p>
+      </div>
+    </Popover>
   )
 }

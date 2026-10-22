@@ -8,7 +8,7 @@ import { placePath } from '../place'
 import { NavRow } from '../ui'
 import { OriginalsRow } from './OriginalsRow'
 import type { OverviewNav } from './nav'
-import { firstFive, Section, ViewAllHere } from './Section'
+import { EmptyLine, firstFive, Section, ViewAllHere } from './Section'
 
 /**
  * The rows on show: five, or all of them once expanded. Blocking rows always show, so a
@@ -40,7 +40,7 @@ export function NeedsAttention({
   return (
     <Section id="needs-attention" title="Needs attention" count={rows.length} className="mb-8">
       {attention.data && nothing ? (
-        <p className="copy-13 text-gray-900">Nothing needs attention.</p>
+        <EmptyLine title="Nothing needs attention." />
       ) : (
         rows.length > 0 && (
           <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">

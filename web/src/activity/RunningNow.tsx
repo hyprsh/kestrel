@@ -1,11 +1,9 @@
 // "Running now": the background work that has been running for over a second, the same
 // list the top bar's indicator counts. Always rendered, so "/activity/running" can scroll to it.
-import { Spinner } from '@hyprsh/design'
+import { Link, Spinner } from '@hyprsh/design'
 import type { ReactNode } from 'react'
 import { useQueue } from '../api/queue'
 import type { Running } from './running'
-
-const link = 'underline decoration-gray-alpha-400 underline-offset-2 hover:decoration-gray-1000'
 
 export function RunningNow({ running, onOpenAdoption, onOpenTitle }: { running: Running[]; onOpenAdoption: () => void; onOpenTitle: (id: number) => void }) {
   const queue = useQueue().data ?? []
@@ -14,9 +12,9 @@ export function RunningNow({ running, onOpenAdoption, onOpenTitle }: { running: 
   const details = (r: Running): ReactNode => {
     if (r.key.startsWith('adoption-'))
       return (
-        <button className={link} onClick={onOpenAdoption}>
+        <Link as="button" onClick={onOpenAdoption}>
           {r.name}
-        </button>
+        </Link>
       )
     if (r.key === 'import' && importing.length > 0)
       return (
@@ -25,9 +23,9 @@ export function RunningNow({ running, onOpenAdoption, onOpenTitle }: { running: 
           {importing.map((q, i) => (
             <span key={q.grab_id}>
               {i > 0 && ', '}
-              <button className={link} onClick={() => onOpenTitle(q.title_id!)}>
+              <Link as="button" onClick={() => onOpenTitle(q.title_id!)}>
                 {q.title}
-              </button>
+              </Link>
             </span>
           ))}
         </>

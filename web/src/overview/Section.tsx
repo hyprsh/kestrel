@@ -1,6 +1,6 @@
 // An Overview section: a heading with its count, at most five rows and a way to the rest.
 // The cap is fixed (not fitted to the window), so the sections further down stay in view.
-import { Button } from '@hyprsh/design'
+import { Button, EmptyState } from '@hyprsh/design'
 import type { ReactNode } from 'react'
 import { useOpenPlace } from '../place'
 import { cx } from '../ui'
@@ -60,4 +60,9 @@ export function ViewAllHere({ count, open, onToggle }: { count: number; open: bo
       {open ? 'Show fewer' : `View all ${count}`}
     </Button>
   )
+}
+
+/** The one line a section shows when it has nothing, trimmed so the section keeps the height its old text line had. */
+export function EmptyLine({ title }: { title: string }) {
+  return <EmptyState size="small" className="-my-px py-0" title={title} />
 }

@@ -13,11 +13,9 @@ export function UpdateCheckSwitch() {
         checked={data.check_github_updates}
         disabled={save.isPending || declared}
         onChange={(e) => save.mutate({ check_github_updates: e.target.checked })}
+        description="Once a day Kestrel asks GitHub for a newer release, security advisories and a newer TRaSH commit. Off means no request to GitHub at all."
       >
-        <span className="label-14">Check GitHub for updates</span>
-        <span className="copy-13 mt-0.5 block text-gray-900">
-          Once a day Kestrel asks GitHub for a newer release, security advisories and a newer TRaSH commit. Off means no request to GitHub at all.
-        </span>
+        Check GitHub for updates
       </Checkbox>
       {declared && (
         <Note size="small" className="mt-2">

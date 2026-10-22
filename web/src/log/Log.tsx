@@ -105,9 +105,9 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
             </Table.Colgroup>
             <Table.Header>
               <Table.Row>
-                <Table.Head className="label-12 font-medium">When</Table.Head>
-                <Table.Head className="label-12 font-medium">Kind</Table.Head>
-                <Table.Head className="label-12 font-medium hy-left">Event</Table.Head>
+                <Table.Head className="label-12-strong">When</Table.Head>
+                <Table.Head className="label-12-strong">Kind</Table.Head>
+                <Table.Head className="label-12-strong">Event</Table.Head>
               </Table.Row>
             </Table.Header>
             <Table.Body bordered interactive>
@@ -146,7 +146,7 @@ function EventRow({
   onFilter: (name: 'kind' | 'title', value: string) => void
 }) {
   return (
-    <Table.Row data-nav={`log-${index}`} aria-current={selected ? 'true' : undefined} onClick={onSelect} className={selected ? 'bg-gray-alpha-200' : undefined}>
+    <Table.Row data-nav={`log-${index}`} current={selected} onClick={onSelect}>
       <Table.Cell className="label-12 tabular">{when(e.at)}</Table.Cell>
       <Table.Cell>
         <button
@@ -160,8 +160,7 @@ function EventRow({
           </Badge>
         </button>
       </Table.Cell>
-      {/* A Table cell clips to one line by default; the Log's message wraps. */}
-      <Table.Cell className="hy-left max-w-none whitespace-normal break-words">
+      <Table.Cell wrap className="break-words">
         {title && (
           <>
             <button
@@ -200,8 +199,8 @@ function Blocklist() {
             </Table.Colgroup>
             <Table.Header>
               <Table.Row>
-                <Table.Head className="label-12 font-medium hy-left">Release</Table.Head>
-                <Table.Head className="label-12 font-medium">
+                <Table.Head className="label-12-strong">Release</Table.Head>
+                <Table.Head align="right" className="label-12-strong">
                   <span className="sr-only">Actions</span>
                 </Table.Head>
               </Table.Row>
@@ -211,18 +210,17 @@ function Blocklist() {
                 <Table.Row
                   key={b.id}
                   data-nav={`block-${i}`}
-                  aria-current={i === sel ? 'true' : undefined}
+                  current={i === sel}
                   onClick={() => setSel(i)}
-                  className={i === sel ? 'bg-gray-alpha-200' : undefined}
                 >
-                  <Table.Cell className="hy-left max-w-0">
+                  <Table.Cell truncate>
                     <div className="label-12-mono truncate">{b.release_name}</div>
                     <div className="label-13 truncate text-gray-900">
                       {b.title_id && names.get(b.title_id) ? `${names.get(b.title_id)} · ` : ''}
                       {b.reason} · {when(b.created_at)}
                     </div>
                   </Table.Cell>
-                  <Table.Cell>
+                  <Table.Cell align="right">
                     <Button
                       variant="secondary"
                       size="small"
