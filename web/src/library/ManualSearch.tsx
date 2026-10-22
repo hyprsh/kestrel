@@ -139,7 +139,7 @@ export function ManualSearch({
           </div>
         ) : (
           // The scroll wrapper is the pane, so the header can stick to it.
-          <Table.Root style={{ overflow: 'visible' }}>
+          <Table.Root className="overflow-visible">
             <Table aria-label="Releases" className="table-fixed">
               <Table.Colgroup>
                 <Table.Col className="w-20" />
@@ -167,7 +167,7 @@ export function ManualSearch({
                 {rows.map((x, i) => {
                   const rejected = x.rejections.length > 0
                   const dim = rejected && 'opacity-50'
-                  const wrap = 'max-w-none! whitespace-normal!'
+                  const wrap = 'max-w-none whitespace-normal'
                   return (
                     <Table.Row
                       key={x.release_id}

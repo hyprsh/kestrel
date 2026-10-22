@@ -38,8 +38,6 @@ const kinds: Record<string, { label: string; tone: Tone }> = {
   original_offered: { label: 'Original offered', tone: 'amber-subtle' },
 }
 
-/** A Table cell clips to one line by default; the Log's message wraps. */
-const cellWraps = { maxWidth: 'none', whiteSpace: 'normal' } as const
 
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
@@ -107,9 +105,9 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
             </Table.Colgroup>
             <Table.Header>
               <Table.Row>
-                <Table.Head className="label-12">When</Table.Head>
-                <Table.Head className="label-12">Kind</Table.Head>
-                <Table.Head className="label-12 hy-left">Event</Table.Head>
+                <Table.Head className="label-12 font-medium">When</Table.Head>
+                <Table.Head className="label-12 font-medium">Kind</Table.Head>
+                <Table.Head className="label-12 font-medium hy-left">Event</Table.Head>
               </Table.Row>
             </Table.Header>
             <Table.Body bordered interactive>
@@ -162,7 +160,8 @@ function EventRow({
           </Badge>
         </button>
       </Table.Cell>
-      <Table.Cell className="hy-left break-words" style={cellWraps}>
+      {/* A Table cell clips to one line by default; the Log's message wraps. */}
+      <Table.Cell className="hy-left max-w-none whitespace-normal break-words">
         {title && (
           <>
             <button
@@ -201,8 +200,8 @@ function Blocklist() {
             </Table.Colgroup>
             <Table.Header>
               <Table.Row>
-                <Table.Head className="label-12 hy-left">Release</Table.Head>
-                <Table.Head className="label-12">
+                <Table.Head className="label-12 font-medium hy-left">Release</Table.Head>
+                <Table.Head className="label-12 font-medium">
                   <span className="sr-only">Actions</span>
                 </Table.Head>
               </Table.Row>
@@ -216,7 +215,7 @@ function Blocklist() {
                   onClick={() => setSel(i)}
                   className={i === sel ? 'bg-gray-alpha-200' : undefined}
                 >
-                  <Table.Cell className="hy-left" style={{ maxWidth: 0 }}>
+                  <Table.Cell className="hy-left max-w-0">
                     <div className="label-12-mono truncate">{b.release_name}</div>
                     <div className="label-13 truncate text-gray-900">
                       {b.title_id && names.get(b.title_id) ? `${names.get(b.title_id)} · ` : ''}
