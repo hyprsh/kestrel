@@ -1,6 +1,6 @@
+import { Note, Select } from '@hyprsh/design'
 import { useState } from 'react'
 import { usePluginInstances, usePlugins } from '../api/queries'
-import { Field, Select } from '../forms'
 import { InstanceForm } from './InstanceForm'
 
 /**
@@ -13,30 +13,30 @@ export function SingleInstance({ contract, noun }: { contract: string; noun: str
   const instances = usePluginInstances()
   const [picked, setPicked] = useState<string>()
 
-  if (plugins.isError || instances.isError) return <p className="text-[12px] text-red-900">Could not load the {noun} settings.</p>
+  if (plugins.isError || instances.isError)
+    return (
+      <Note variant="error" size="small">
+        Could not load the {noun} settings.
+      </Note>
+    )
   if (!plugins.data || !instances.data) return null
 
   const manifests = plugins.data.filter((m) => m.contract === contract)
   const current = instances.data.find((i) => i.contract === contract && i.enabled) ?? instances.data.find((i) => i.contract === contract)
   const manifest = manifests.find((m) => m.id === (current?.plugin_id ?? picked)) ?? manifests[0]
-  if (!manifest) return <p className="text-gray-900">No {noun} is built into this Kestrel.</p>
+  if (!manifest) return <Note size="small">No {noun} is built into this Kestrel.</Note>
 
   return (
     <div className="flex flex-col gap-3">
       {manifests.length > 1 && !current && (
-        <div className="max-w-md">
-          <Field label={noun.charAt(0).toUpperCase() + noun.slice(1)}>
-            {(id) => (
-              <Select id={id} value={manifest.id} onChange={(e) => setPicked(e.target.value)}>
-                {manifests.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
-        </div>
+        <Select
+          size="small"
+          label={noun.charAt(0).toUpperCase() + noun.slice(1)}
+          wrapperClassName="max-w-md"
+          value={manifest.id}
+          onChange={(e) => setPicked(e.target.value)}
+          options={manifests.map((m) => ({ value: m.id, label: m.name }))}
+        />
       )}
       {/* Keyed by adapter only: saving keeps the form (and its "Saved." note) in place. */}
       <InstanceForm key={manifest.id} manifest={manifest} instance={current} />

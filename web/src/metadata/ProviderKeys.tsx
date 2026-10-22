@@ -1,6 +1,6 @@
+import { Button, Input, Note } from '@hyprsh/design'
 import { useState, type FormEvent } from 'react'
 import { ApiError, usePatchSettings, useSettings } from '../api/queries'
-import { Button, ErrorText, Field, TextInput } from '../forms'
 
 /**
  * The metadata provider keys: an override of the TMDB and TheTVDB keys Kestrel
@@ -26,28 +26,40 @@ export function ProviderKeysForm() {
 
   return (
     <form onSubmit={submit} className="flex max-w-sm flex-col gap-3">
-      <Field label="TMDB API key">
-        {(id) => (
-          <TextInput id={id} type="password" autoComplete="off" value={tmdb} onChange={(e) => setTmdb(e.target.value)} placeholder={set.tmdb_api_key_set ? 'Override saved' : 'Using the built-in key'} />
-        )}
-      </Field>
+      <Input
+        size="small"
+        label="TMDB API key"
+        type="password"
+        autoComplete="off"
+        value={tmdb}
+        onChange={(e) => setTmdb(e.target.value)}
+        placeholder={set.tmdb_api_key_set ? 'Override saved' : 'Using the built-in key'}
+      />
       {set.tmdb_api_key_set && (
-        <Button type="button" variant="secondary" disabled={patch.isPending} onClick={() => clear('tmdb_api_key')} className="self-start">
+        <Button size="small" disabled={patch.isPending} onClick={() => clear('tmdb_api_key')} className="self-start">
           Remove TMDB override
         </Button>
       )}
-      <Field label="TheTVDB API key">
-        {(id) => (
-          <TextInput id={id} type="password" autoComplete="off" value={tvdb} onChange={(e) => setTvdb(e.target.value)} placeholder={set.tvdb_api_key_set ? 'Override saved' : 'Using the built-in key'} />
-        )}
-      </Field>
+      <Input
+        size="small"
+        label="TheTVDB API key"
+        type="password"
+        autoComplete="off"
+        value={tvdb}
+        onChange={(e) => setTvdb(e.target.value)}
+        placeholder={set.tvdb_api_key_set ? 'Override saved' : 'Using the built-in key'}
+      />
       {set.tvdb_api_key_set && (
-        <Button type="button" variant="secondary" disabled={patch.isPending} onClick={() => clear('tvdb_api_key')} className="self-start">
+        <Button size="small" disabled={patch.isPending} onClick={() => clear('tvdb_api_key')} className="self-start">
           Remove TheTVDB override
         </Button>
       )}
-      {patch.isError && <ErrorText>{patch.error instanceof ApiError ? patch.error.message : 'Could not save. Try again.'}</ErrorText>}
-      <Button type="submit" disabled={patch.isPending || (!tmdb.trim() && !tvdb.trim())} className="self-start">
+      {patch.isError && (
+        <Note variant="error" size="small">
+          {patch.error instanceof ApiError ? patch.error.message : 'Could not save. Try again.'}
+        </Note>
+      )}
+      <Button size="small" variant="primary" typeName="submit" disabled={patch.isPending || (!tmdb.trim() && !tvdb.trim())} className="self-start">
         Save keys
       </Button>
     </form>

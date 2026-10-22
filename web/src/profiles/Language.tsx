@@ -1,6 +1,6 @@
+import { Button, Input, Note, Select } from '@hyprsh/design'
 import { useState, type FormEvent } from 'react'
 import { ApiError, usePatchSettings, useSettings, type Settings } from '../api/queries'
-import { Button, DeclaredNote, ErrorText, Field, Select, TextInput } from '../forms'
 
 type Language = Settings['language_region']['primary_language']
 
@@ -17,7 +17,12 @@ const languages: { value: Language; label: string; country: string }[] = [
  */
 export function LanguageForm() {
   const { data, isError } = useSettings()
-  if (isError) return <p className="text-[12px] text-red-900">Could not load the language settings.</p>
+  if (isError)
+    return (
+      <Note variant="error" size="small">
+        Could not load the language settings.
+      </Note>
+    )
   if (!data) return null
   return <Form saved={data.language_region} declared={data.from_config_file.language_region} />
 }
@@ -38,37 +43,36 @@ function Form({ saved, declared }: { saved: Settings['language_region']; declare
 
   return (
     <form onSubmit={submit} className="flex max-w-md flex-col gap-3">
-      <p className="text-[12px] text-gray-900">
-        The Primary Language sets the required audio of your Profiles, what DL and MULTi mean in release names, and the language of title search.
-        Changing it later re-scores every file you already have under the new Profiles, without renaming or searching.
+      <p className="copy-13 text-gray-900">
+        The Primary Language sets the required audio of your Profiles, what DL and MULTi mean in release names, and the language of title search. Changing it later re-scores every file you already
+        have under the new Profiles, without renaming or searching.
       </p>
-      <Field label="Primary Language">
-        {(id) => (
-          <Select id={id} value={language} disabled={declared} onChange={(e) => pick(e.target.value as Language)}>
-            {languages.map((l) => (
-              <option key={l.value} value={l.value}>
-                {l.label}
-              </option>
-            ))}
-          </Select>
-        )}
-      </Field>
-      <Field label="Release-date country">
-        {(id) => <TextInput id={id} maxLength={2} value={country} disabled={declared} onChange={(e) => setCountry(e.target.value)} className="w-24 uppercase" />}
-      </Field>
-      <p className="text-[12px] text-gray-900">
-        The country decides when a Title counts as released. It follows the language until you edit it.
-      </p>
-      {save.isError && <ErrorText>{save.error instanceof ApiError && save.error.status === 422 ? save.error.message : 'Could not save. Try again.'}</ErrorText>}
-      {save.isSuccess && (
-        <p role="status" className="text-[12px] text-green-900">
-          Saved.
-        </p>
+      <Select
+        size="small"
+        label="Primary Language"
+        value={language}
+        disabled={declared}
+        onChange={(e) => pick(e.target.value as Language)}
+        options={languages.map((l) => ({ value: l.value, label: l.label }))}
+      />
+      <Input size="small" label="Release-date country" maxLength={2} value={country} disabled={declared} onChange={(e) => setCountry(e.target.value.toUpperCase())} className="w-24" />
+      <p className="copy-13 text-gray-900">The country decides when a Title counts as released. It follows the language until you edit it.</p>
+      {save.isError && (
+        <Note variant="error" size="small">
+          {save.error instanceof ApiError && save.error.status === 422 ? save.error.message : 'Could not save. Try again.'}
+        </Note>
       )}
-      <Button type="submit" disabled={save.isPending || declared} className="self-start">
+      {save.isSuccess && (
+        <div role="status">
+          <Note variant="success" size="small">
+            Saved.
+          </Note>
+        </div>
+      )}
+      <Button size="small" variant="primary" typeName="submit" disabled={save.isPending || declared} className="self-start">
         Save language
       </Button>
-      {declared && <DeclaredNote>The Config File sets the language and country, so they cannot be changed here.</DeclaredNote>}
+      {declared && <Note size="small">The Config File sets the language and country, so they cannot be changed here. Change the file and restart Kestrel instead.</Note>}
     </form>
   )
 }
