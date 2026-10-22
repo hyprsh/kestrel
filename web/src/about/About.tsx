@@ -2,24 +2,28 @@
 // the TRaSH commit scoring Releases now, third-party notices and keyboard shortcuts.
 import { useState, type ReactNode } from 'react'
 import { useAbout, useNotices } from '../api/about'
-import { MOD } from '../keys'
-import { Kbd } from '../ui'
+import { Button, Fieldset, KeyboardInput, Spinner } from '@hyprsh/design'
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section aria-label={title} className="rounded-lg border border-gray-alpha-400 bg-background-100 p-4">
-      <h2 className="mb-2 text-[15px] font-semibold tracking-tight">{title}</h2>
-      {children}
+    <section aria-label={title}>
+      <Fieldset>
+        <Fieldset.Content>
+          <Fieldset.Title as="h2">{title}</Fieldset.Title>
+          <div className="copy-14 pt-3">{children}</div>
+        </Fieldset.Content>
+      </Fieldset>
     </section>
   )
 }
 
-const shortcuts: [string[], string][] = [
-  [[MOD, 'K'], 'Open the command menu: jump to a Title or screen, add a Title, run an action'],
-  [['J', 'K'], 'Move down and up in a list (arrow keys work too)'],
-  [['Enter'], 'Open the selected row'],
-  [['X'], 'Tick the Title under the cursor in the Library, to change several at once (Shift-click ticks a range)'],
-  [['Esc'], 'Close the menu, go back or clear the ticked Titles'],
+// `meta` is the platform's command key (⌘ or Ctrl) held with the one key.
+const shortcuts: [{ meta?: boolean; keys: string[] }, string][] = [
+  [{ meta: true, keys: ['K'] }, 'Open the command menu: jump to a Title or screen, add a Title, run an action'],
+  [{ keys: ['J', 'K'] }, 'Move down and up in a list (arrow keys work too)'],
+  [{ keys: ['Enter'] }, 'Open the selected row'],
+  [{ keys: ['X'] }, 'Tick the Title under the cursor in the Library, to change several at once (Shift-click ticks a range)'],
+  [{ keys: ['Esc'] }, 'Close the menu, go back or clear the ticked Titles'],
 ]
 
 export function About() {
@@ -33,13 +37,13 @@ export function About() {
       <div className="mx-auto flex max-w-3xl flex-col gap-4">
         <Card title="Kestrel">
           {a ? (
-            <dl className="grid grid-cols-[10rem_1fr] gap-y-1.5">
+            <dl className="copy-14 grid grid-cols-[10rem_1fr] gap-y-1.5">
               <dt className="text-gray-900">Version</dt>
-              <dd className="font-mono">{a.version}</dd>
+              <dd className="copy-14-mono">{a.version}</dd>
               <dt className="text-gray-900">Licence</dt>
               <dd>{a.license} (GNU General Public License v3.0)</dd>
               <dt className="text-gray-900">TRaSH commit</dt>
-              <dd className="font-mono" title="The TRaSH Guides commit whose Custom Formats and profiles score Releases now">
+              <dd className="copy-14-mono" title="The TRaSH Guides commit whose Custom Formats and profiles score Releases now">
                 {a.trash_commit ? a.trash_commit.slice(0, 7) : 'unknown'}
               </dd>
               <dt className="text-gray-900">Updates</dt>
@@ -56,7 +60,7 @@ export function About() {
               </dd>
             </dl>
           ) : (
-            <p className="text-gray-900">Loading…</p>
+            <p className="flex items-center gap-2 text-gray-900"><Spinner size="sm" />Loading…</p>
           )}
         </Card>
 
@@ -83,8 +87,10 @@ export function About() {
             {shortcuts.map(([keys, what]) => (
               <li key={what} className="flex items-center gap-3">
                 <span className="flex w-24 shrink-0 gap-1">
-                  {keys.map((k) => (
-                    <Kbd key={k}>{k}</Kbd>
+                  {keys.keys.map((k, i) => (
+                    <KeyboardInput key={k} meta={keys.meta && i === 0}>
+                      {k}
+                    </KeyboardInput>
                   ))}
                 </span>
                 <span>{what}</span>
@@ -97,16 +103,18 @@ export function About() {
           <p className="mb-2 text-gray-900">The ported Radarr and Sonarr code, TRaSH data and every dependency, with their licences.</p>
           {showNotices ? (
             notices.data !== undefined ? (
-              <pre aria-label="Notices text" className="max-h-96 overflow-auto rounded-md bg-background-200 p-3 font-mono text-[11px] whitespace-pre-wrap">
+              <pre aria-label="Notices text" className="copy-13-mono max-h-96 overflow-auto rounded-md bg-background-200 p-3 whitespace-pre-wrap">
                 {notices.data}
               </pre>
             ) : (
-              <p className="text-gray-900">{notices.isError ? 'Could not load the notices.' : 'Loading…'}</p>
+              <p className="flex items-center gap-2 text-gray-900">
+                {notices.isError ? 'Could not load the notices.' : (<><Spinner size="sm" />Loading…</>)}
+              </p>
             )
           ) : (
-            <button type="button" className="text-blue-900 underline" onClick={() => setShowNotices(true)}>
+            <Button size="small" onClick={() => setShowNotices(true)}>
               Show notices
-            </button>
+            </Button>
           )}
         </Card>
       </div>
