@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
@@ -225,5 +225,44 @@ describe('Adoption review', () => {
     await user.click(await screen.findByLabelText('Adopt Paddington (2014)'))
 
     expect(await screen.findByRole('button', { name: 'Adopt 0 Titles' })).toBeDisabled()
+  })
+})
+
+describe('Adoption review on a phone', () => {
+  beforeEach(() => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('max-width: 639'), media: query, addEventListener: () => {}, removeEventListener: () => {} }))
+    history.replaceState(null, '', '/')
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('opens from the Settings section and lays the plan out with its actions reachable', async () => {
+    fakeAdoption()
+    const user = userEvent.setup()
+    renderApp()
+    await user.click(await screen.findByRole('button', { name: 'More' }))
+    await user.click(within(await screen.findByRole('dialog', { name: 'More' })).getByRole('button', { name: 'Settings' }))
+    await user.click(await screen.findByRole('button', { name: 'Existing files' }))
+    await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
+    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+
+    // The filter and both actions are there, and the choices of a doubtful row fill the width.
+    expect(await screen.findByRole('combobox', { name: 'Show' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Discard plan' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Adopt 1 Title' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /Use The Lost Film/ })).toHaveClass('max-sm:w-full')
+    await user.click(screen.getByRole('button', { name: /Use The Lost Film/ }))
+    expect(await screen.findByRole('button', { name: 'Adopt 2 Titles' })).toBeEnabled()
+  })
+
+  it('is one of the More sheet screens, as are Requests and Clean up', async () => {
+    fakeAdoption()
+    const user = userEvent.setup()
+    renderApp()
+    await user.click(await screen.findByRole('button', { name: 'More' }))
+    const sheet = await screen.findByRole('dialog', { name: 'More' })
+    expect(within(sheet).getAllByRole('button').slice(0, 6).map((b) => b.textContent)).toEqual(['Settings', 'Log', 'Requests', 'Adoption', 'Clean up', 'About'])
+    await user.click(within(sheet).getByRole('button', { name: 'Adoption' }))
+    expect(screen.getByRole('banner')).toHaveTextContent('Adopt existing library')
+    expect(await screen.findByRole('button', { name: /scan for existing files/i })).toBeInTheDocument()
   })
 })

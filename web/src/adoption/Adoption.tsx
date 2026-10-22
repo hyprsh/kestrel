@@ -89,7 +89,7 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
 
   return (
     <div className={embedded ? '' : 'min-h-0 flex-1 overflow-auto'}>
-      <div className={embedded ? '' : 'mx-auto max-w-4xl p-6'}>
+      <div className={embedded ? '' : 'mx-auto max-w-4xl p-6 max-sm:p-4'}>
         {!embedded && <h1 className="heading-16">Adopt existing library</h1>}
         <p className="copy-14 mt-1 text-gray-900">
           Kestrel scans your Movie and Series Root folders and plans how to manage the files already there without downloading them again. Nothing changes
@@ -122,7 +122,7 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
               </Note>
             )}
             <div>
-              <Button variant="primary" size="small" onClick={() => scan.mutate()} disabled={scan.isPending}>
+              <Button variant="primary" size="small" className="max-sm:w-full" onClick={() => scan.mutate()} disabled={scan.isPending}>
                 Scan for existing files
               </Button>
             </div>
@@ -172,7 +172,7 @@ function Plan({
   const shown = rows.filter((r) => inFilter(r, filter))
   return (
     <div className="mt-4">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 max-sm:flex-col max-sm:items-stretch">
         <div role="status" className="copy-14 text-gray-900">
           {summary.matched} matched, {summary.needs_choice} need a choice, {summary.skipped} skipped
         </div>
@@ -183,7 +183,7 @@ function Plan({
           onChange={(e) => onFilter(e.target.value as Filter)}
           options={filters.map((f) => ({ value: f.key, label: f.label }))}
         />
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex gap-2 max-sm:ml-0 max-sm:[&>*]:flex-1">
           <Button size="small" onClick={onDiscard} disabled={busy}>
             Discard plan
           </Button>
@@ -231,7 +231,7 @@ function MatchedRow({ row }: { row: AdoptionRow }) {
   const title = `${m.title}${m.year ? ` (${m.year})` : ''}`
   return (
     <div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-2 max-sm:gap-y-1">
         <Checkbox checked={row.ticked} onChange={(e) => patch.mutate({ id: row.id, patch: { ticked: e.target.checked } })} aria-label={`Adopt ${title}`}>
           <span className="label-14">{title}</span>
         </Checkbox>
@@ -240,10 +240,10 @@ function MatchedRow({ row }: { row: AdoptionRow }) {
             In library
           </Badge>
         )}
-        <span className="copy-13 text-gray-900">{baseName(row.entry)}</span>
+        <span className="copy-13 min-w-0 break-all text-gray-900">{baseName(row.entry)}</span>
       </div>
-      {row.kind === 'series' && <div className="label-12 mt-1 pl-6 text-gray-900">{versionsSummary(row)}</div>}
-      <ul className="mt-2 flex flex-col gap-1.5 pl-6">
+      {row.kind === 'series' && <div className="label-12 mt-1 pl-6 text-gray-900 max-sm:pl-0">{versionsSummary(row)}</div>}
+      <ul className="mt-2 flex flex-col gap-1.5 pl-6 max-sm:pl-0">
         {row.files.map((f) => (
           <li key={f.path} className="copy-13 flex flex-wrap items-center gap-2">
             <Checkbox
@@ -260,9 +260,9 @@ function MatchedRow({ row }: { row: AdoptionRow }) {
                 {episodeLabel(f)}
               </Badge>
             )}
-            <span className="copy-13-mono text-gray-900">{baseName(f.path)}</span>
+            <span className="copy-13-mono min-w-0 break-all text-gray-900">{baseName(f.path)}</span>
             <span aria-hidden>→</span>
-            <span className="copy-13-mono">{baseName(f.to)}</span>
+            <span className="copy-13-mono min-w-0 break-all">{baseName(f.to)}</span>
             <span className="text-gray-900">
               {f.profile}, Score {f.score}
             </span>
@@ -307,7 +307,7 @@ function NeedsChoice({ row }: { row: AdoptionRow }) {
   const found = (search.data?.items ?? []).filter((r) => r.kind === row.kind)
   return (
     <div>
-      <div className="label-14 flex items-center gap-2">
+      <div className="label-14 flex flex-wrap items-center gap-2 break-all">
         {baseName(row.entry)}{' '}
         <Badge variant="amber-subtle" size="sm">
           Needs choice
@@ -321,7 +321,7 @@ function NeedsChoice({ row }: { row: AdoptionRow }) {
       {row.candidates.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
           {row.candidates.map((c) => (
-            <Button key={c.tmdb_id} size="small" onClick={() => choose(c.tmdb_id)} disabled={patch.isPending}>
+            <Button key={c.tmdb_id} size="small" className="max-sm:w-full" onClick={() => choose(c.tmdb_id)} disabled={patch.isPending}>
               Use {c.title}
               {c.year ? ` (${c.year})` : ''}
             </Button>
@@ -344,8 +344,8 @@ function NeedsChoice({ row }: { row: AdoptionRow }) {
       {found.length > 0 && (
         <ul className="mt-2 flex flex-wrap gap-2">
           {found.map((r) => (
-            <li key={r.tmdb_id}>
-              <Button size="small" onClick={() => choose(r.tmdb_id)} disabled={patch.isPending}>
+            <li key={r.tmdb_id} className="max-sm:w-full">
+              <Button size="small" className="max-sm:w-full" onClick={() => choose(r.tmdb_id)} disabled={patch.isPending}>
                 Pick {r.title}
                 {r.year ? ` (${r.year})` : ''}
               </Button>

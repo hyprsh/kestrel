@@ -28,7 +28,7 @@ export function Cleanup({ titleIds }: { titleIds?: number[] }) {
 
   return (
     <div className="min-h-0 flex-1 overflow-auto">
-      <div className="mx-auto max-w-4xl p-6">
+      <div className="mx-auto max-w-4xl p-6 max-sm:p-4">
         <h1 className="heading-16">Clean up Unmanaged files</h1>
         <p className="copy-14 mt-1 text-gray-900">
           Lists the files in your tracked Titles' folders that no Version holds. Deleting is permanent. Nothing is deleted until you confirm.
@@ -59,6 +59,7 @@ export function Cleanup({ titleIds }: { titleIds?: number[] }) {
             <Button
               variant="primary"
               size="small"
+              className="max-sm:w-full"
               prefix={preview.isPending ? <Spinner size="sm" /> : undefined}
               onClick={() => { setDone(null); preview.mutate(titleIds) }}
               disabled={preview.isPending}
@@ -104,7 +105,7 @@ function Review({
       <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
         {nonEmpty.map((c) => (
           <li key={c.key} className="p-3">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-2">
               <Checkbox checked={ticked.has(c.key)} onChange={() => setTicked(toggle(ticked, c.key))} aria-label={labels[c.key]}>
                 <span className="label-14">{labels[c.key]}</span>
               </Checkbox>
@@ -112,12 +113,12 @@ function Review({
                 {c.count} {c.count === 1 ? 'item' : 'items'}, {mb(c.size)}
               </span>
             </div>
-            <Collapse variant="inline" title="Show files" className="mt-1 pl-6">
+            <Collapse variant="inline" title="Show files" className="mt-1 pl-6 max-sm:pl-0">
               <ul className="mt-1 flex flex-col gap-1">
                 {c.files.map((f) => (
-                  <li key={f.path} className="copy-13 flex items-center gap-2">
+                  <li key={f.path} className="copy-13 flex min-w-0 items-center gap-2">
                     <Checkbox checked={!skipped.has(f.path)} onChange={() => setSkipped(toggle(skipped, f.path))} aria-label={`Delete ${baseName(f.path)}`} />
-                    <Code title={f.path}>{baseName(f.path)}</Code>
+                    <Code title={f.path} className="min-w-0 break-all">{baseName(f.path)}</Code>
                   </li>
                 ))}
               </ul>
@@ -125,7 +126,7 @@ function Review({
           </li>
         ))}
       </ul>
-      <div className="mt-4 flex items-center gap-2">
+      <div className="mt-4 flex items-center gap-2 max-sm:flex-col-reverse max-sm:items-stretch">
         <Button size="small" onClick={onCancel} disabled={busy}>
           Cancel
         </Button>
