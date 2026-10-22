@@ -4,10 +4,3 @@
 html, body, #root { height: 100%; }
 body { font-feature-settings: "liga" 1, "calt" 1; }
 .tabular { font-variant-numeric: tabular-nums; }
-
-/* Phones: the design's buttons and tick boxes grow to a 44px tap target (the design's own touch rule stops at 40px). Icon buttons keep their look but get the area. */
-@media (max-width: 639.98px) {
-  .hy-btn:not(.hy-btn--tiny) { height: 44px; }
-  .hy-btn--icon:not(.hy-btn--tiny) { width: 44px; }
-  .hy-check { min-height: 44px; }
-}

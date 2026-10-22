@@ -1,5 +1,5 @@
 import { Film, Tv } from 'lucide-react'
-import { Badge, type BadgeProps } from '@hyprsh/design'
+import { Badge, StatusDot, type BadgeProps } from '@hyprsh/design'
 import { cx } from '../ui'
 
 export type SlotKey = 'standard' | '4k'
@@ -39,20 +39,22 @@ export function StatusBadge({ state, longMissing }: { state: State; longMissing?
   )
 }
 
-function dotClass(state: State | null, longMissing: boolean): string {
-  if (state === null) return 'border border-gray-alpha-400'
-  if (longMissing) return 'border-2 border-red-700'
+type Dot = { state: 'success' | 'info' | 'warning' | 'error' | 'neutral'; variant?: 'outline' | 'dashed' }
+
+function dotOf(state: State | null, longMissing: boolean): Dot {
+  if (state === null) return { state: 'neutral', variant: 'outline' } // no Version in the Slot
+  if (longMissing) return { state: 'error', variant: 'outline' }
   switch (state) {
     case 'filled':
-      return 'bg-green-700'
+      return { state: 'success' }
     case 'downloading':
-      return 'bg-blue-700 animate-pulse'
+      return { state: 'info' }
     case 'wanted':
-      return 'border-2 border-amber-700' // hollow: not there yet
+      return { state: 'warning', variant: 'outline' } // hollow: not there yet
     case 'unreleased':
-      return 'border border-dashed border-gray-700'
+      return { state: 'neutral', variant: 'dashed' }
     default:
-      return 'bg-gray-600'
+      return { state: 'neutral' }
   }
 }
 
@@ -62,13 +64,14 @@ export function SlotDots({ slots }: { slots: Record<SlotKey, { state: string; lo
     <span className="flex items-center gap-1">
       {slotKeys.map((k) => {
         const s = slots[k]
+        const dot = dotOf(s ? s.state : null, !!s?.long_missing)
         return (
-          <span
+          <StatusDot
             key={k}
-            role="img"
-            aria-label={`${slotLabel[k]}: ${s ? (s.long_missing ? 'long missing' : s.state) : 'no Version'}`}
+            state={dot.state}
+            variant={dot.variant}
+            label={false}
             title={`${slotLabel[k]}: ${s ? versionStatus(s.state, s.long_missing).label : 'no Version'}`}
-            className={cx('size-2 rounded-full', dotClass(s ? s.state : null, !!s?.long_missing))}
           />
         )
       })}
