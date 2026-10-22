@@ -49,7 +49,7 @@ describe('Clean up', () => {
     await user.click(screen.getByLabelText('Delete b.txt'))
     await user.click(screen.getByRole('button', { name: /delete 1 item/i }))
     expect(runs).toEqual([])
-    await user.click(screen.getByRole('button', { name: 'Delete permanently' }))
+    await user.click(screen.getByRole('button', { name: 'Delete Files' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('Deleted 1 file')
     expect(runs).toEqual([{ preview_id: 'p1', categories: ['junk', 'samples'], exclude: ['/data/media/movies/Paddington (2014)/b.txt'] }])

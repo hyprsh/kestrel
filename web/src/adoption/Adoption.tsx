@@ -13,9 +13,8 @@ import {
 } from '../api/adoption'
 import { ApiError, useLookup } from '../api/queries'
 import { useOpenCleanup } from '../cleanup/launch'
-import { Button, ErrorText, TextInput } from '../forms'
 import { slotKeys, slotLabel } from '../library/bits'
-import { Badge } from '../ui'
+import { Badge, Button, Checkbox, EmptyState, Input, Note, Select, Spinner } from '@hyprsh/design'
 
 type Filter = 'all' | 'matched' | 'needs_choice' | 'skipped' | 'duplicate' | 'replacement'
 
@@ -82,36 +81,50 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
   const state = plan.data?.state
   const rows = useAdoptionRows(state === 'planned')
 
-  if (!plan.data) return <div className="p-6 text-gray-900">{plan.isError ? 'Could not read the Adoption state.' : 'Loading…'}</div>
+  if (!plan.data) return <div className="copy-14 flex items-center gap-2 p-6 text-gray-900">
+        {plan.isError ? 'Could not read the Adoption state.' : (<><Spinner size="sm" />Loading…</>)}
+      </div>
   const p = plan.data
   const failed = scan.error ?? commit.error ?? discard.error
 
   return (
     <div className={embedded ? '' : 'min-h-0 flex-1 overflow-auto'}>
       <div className={embedded ? '' : 'mx-auto max-w-4xl p-6'}>
-        {!embedded && <h1 className="text-[15px] font-semibold tracking-tight">Adopt existing library</h1>}
-        <p className="mt-1 text-gray-900">
+        {!embedded && <h1 className="heading-16">Adopt existing library</h1>}
+        <p className="copy-14 mt-1 text-gray-900">
           Kestrel scans your Movie and Series Root folders and plans how to manage the files already there without downloading them again. Nothing changes
           until you adopt the plan.
         </p>
-        {failed instanceof ApiError && <ErrorText>{failed.message}</ErrorText>}
+        {failed instanceof ApiError && (
+          <Note variant="error" size="small" className="mt-2">
+            {failed.message}
+          </Note>
+        )}
 
         {(state === 'idle' || state === undefined) && (
           <div className="mt-4 flex flex-col gap-3">
-            {p.error && <ErrorText>{p.error}</ErrorText>}
+            {p.error && (
+              <Note variant="error" size="small">
+                {p.error}
+              </Note>
+            )}
             {p.result && (
-              <div role="status" className="rounded-md border border-gray-alpha-400 p-3">
-                Adopted {p.result.adopted} {p.result.adopted === 1 ? 'Title' : 'Titles'}
-                {p.result.failed > 0 && `, ${p.result.failed} could not be adopted (see the Log)`}.
-                {p.result.adopted > 0 && (
-                  <Button variant="secondary" onClick={() => openCleanup(p.result?.title_ids)} className="ml-3">
-                    Clean up adopted folders
-                  </Button>
-                )}
+              <div role="status">
+                <Note
+                  action={
+                    p.result.adopted > 0 ? (
+                      <Button size="small" onClick={() => openCleanup(p.result?.title_ids)}>
+                        Clean up adopted folders
+                      </Button>
+                    ) : undefined
+                  }
+                >
+                  {`Adopted ${p.result.adopted} ${p.result.adopted === 1 ? 'Title' : 'Titles'}${p.result.failed > 0 ? `, ${p.result.failed} could not be adopted (see the Log)` : ''}.`}
+                </Note>
               </div>
             )}
             <div>
-              <Button onClick={() => scan.mutate()} disabled={scan.isPending}>
+              <Button variant="primary" size="small" onClick={() => scan.mutate()} disabled={scan.isPending}>
                 Scan for existing files
               </Button>
             </div>
@@ -119,8 +132,10 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
         )}
 
         {(state === 'scanning' || state === 'committing') && (
-          <div role="status" className="mt-4 rounded-md border border-gray-alpha-400 p-3">
-            {state === 'scanning' ? 'Scanning' : 'Adopting'}… {p.progress.done} of {p.progress.total}
+          <div role="status" className="mt-4">
+            <Note icon={<Spinner size="sm" />}>
+              {state === 'scanning' ? 'Scanning' : 'Adopting'}… {p.progress.done} of {p.progress.total}
+            </Note>
           </div>
         )}
 
@@ -162,32 +177,31 @@ function Plan({
   return (
     <div className="mt-4">
       <div className="flex flex-wrap items-center gap-3">
-        <div role="status" className="text-gray-900">
+        <div role="status" className="copy-14 text-gray-900">
           {summary.matched} matched, {summary.needs_choice} need a choice, {summary.skipped} skipped
         </div>
-        <select
+        <Select
           aria-label="Show"
+          size="small"
           value={filter}
           onChange={(e) => onFilter(e.target.value as Filter)}
-          className="h-8 rounded-md border border-gray-alpha-400 bg-background-100 px-2"
-        >
-          {filters.map((f) => (
-            <option key={f.key} value={f.key}>
-              {f.label}
-            </option>
-          ))}
-        </select>
+          options={filters.map((f) => ({ value: f.key, label: f.label }))}
+        />
         <div className="ml-auto flex gap-2">
-          <Button variant="secondary" onClick={onDiscard} disabled={busy}>
+          <Button size="small" onClick={onDiscard} disabled={busy}>
             Discard plan
           </Button>
-          <Button onClick={onCommit} disabled={busy || ticked === 0}>
+          <Button variant="primary" size="small" onClick={onCommit} disabled={busy || ticked === 0}>
             Adopt {ticked} {ticked === 1 ? 'Title' : 'Titles'}
           </Button>
         </div>
       </div>
       {shown.length === 0 ? (
-        <div className="mt-6 text-gray-900">{rows.length === 0 ? 'No files to adopt were found.' : 'No rows match this filter.'}</div>
+        <EmptyState
+          className="mt-6"
+          title={rows.length === 0 ? 'No Files To Adopt' : 'No Rows Match'}
+          description={rows.length === 0 ? 'No files to adopt were found.' : 'No rows match this filter.'}
+        />
       ) : (
         <ul className="mt-4 divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
           {shown.map((r) => (
@@ -206,9 +220,9 @@ function Row({ row }: { row: AdoptionRow }) {
   if (row.status === 'needs_choice') return <NeedsChoice row={row} />
   return (
     <div>
-      <div className="font-medium">{baseName(row.entry)}</div>
-      <div className="mt-0.5 flex items-center gap-2 text-[12px] text-gray-900">
-        <Badge tone="gray">Skipped</Badge>
+      <div className="label-14">{baseName(row.entry)}</div>
+      <div className="label-12 mt-0.5 flex items-center gap-2 text-gray-900">
+        <Badge variant="gray-subtle" size="sm">Skipped</Badge>
         {skipText[row.skip_reason ?? ''] ?? row.skip_reason}
       </div>
     </div>
@@ -221,38 +235,62 @@ function MatchedRow({ row }: { row: AdoptionRow }) {
   const title = `${m.title}${m.year ? ` (${m.year})` : ''}`
   return (
     <div>
-      <label className="flex items-center gap-2 font-medium">
-        <input type="checkbox" checked={row.ticked} onChange={(e) => patch.mutate({ id: row.id, patch: { ticked: e.target.checked } })} aria-label={`Adopt ${title}`} />
-        {title}
-        {m.title_id !== null && <Badge tone="blue">In library</Badge>}
-        <span className="text-[12px] font-normal text-gray-900">{baseName(row.entry)}</span>
-      </label>
-      {row.kind === 'series' && <div className="mt-1 pl-6 text-[12px] text-gray-900">{versionsSummary(row)}</div>}
+      <div className="flex items-center gap-2">
+        <Checkbox checked={row.ticked} onChange={(e) => patch.mutate({ id: row.id, patch: { ticked: e.target.checked } })} aria-label={`Adopt ${title}`}>
+          <span className="label-14">{title}</span>
+        </Checkbox>
+        {m.title_id !== null && (
+          <Badge variant="blue-subtle" size="sm">
+            In library
+          </Badge>
+        )}
+        <span className="copy-13 text-gray-900">{baseName(row.entry)}</span>
+      </div>
+      {row.kind === 'series' && <div className="label-12 mt-1 pl-6 text-gray-900">{versionsSummary(row)}</div>}
       <ul className="mt-2 flex flex-col gap-1.5 pl-6">
         {row.files.map((f) => (
-          <li key={f.path} className="flex flex-wrap items-center gap-2 text-[12px]">
-            <input
-              type="checkbox"
+          <li key={f.path} className="copy-13 flex flex-wrap items-center gap-2">
+            <Checkbox
               checked={f.ticked && !f.left}
               disabled={!!f.left}
               onChange={(e) => patch.mutate({ id: row.id, patch: { files: [{ path: f.path, ticked: e.target.checked }] } })}
               aria-label={`Adopt ${baseName(f.path)}`}
             />
-            <Badge tone="teal">{slotLabel[f.slot]}</Badge>
-            {episodeLabel(f) && <Badge tone="gray">{episodeLabel(f)}</Badge>}
-            <span className="font-mono text-gray-900">{baseName(f.path)}</span>
+            <Badge variant="teal-subtle" size="sm">
+              {slotLabel[f.slot]}
+            </Badge>
+            {episodeLabel(f) && (
+              <Badge variant="gray-subtle" size="sm">
+                {episodeLabel(f)}
+              </Badge>
+            )}
+            <span className="copy-13-mono text-gray-900">{baseName(f.path)}</span>
             <span aria-hidden>→</span>
-            <span className="font-mono">{baseName(f.to)}</span>
+            <span className="copy-13-mono">{baseName(f.to)}</span>
             <span className="text-gray-900">
               {f.profile}, Score {f.score}
             </span>
             {f.subtitles.length > 0 && <span className="text-gray-900">+ {f.subtitles.length} subtitle{f.subtitles.length === 1 ? '' : 's'}</span>}
             {f.action === 'replace' && !f.left && (
-              <Badge tone="amber">Would replace the current file (Score {f.score} vs {f.held_score ?? 0})</Badge>
+              <Badge variant="amber-subtle" size="sm">
+                Would replace the current file (Score {f.score} vs {f.held_score ?? 0})
+              </Badge>
             )}
-            {f.left === 'duplicate' && <Badge tone="gray">Duplicate, left in place</Badge>}
-            {f.left === 'unmatched' && <Badge tone="gray">No matching episode, left in place</Badge>}
-            {f.left === 'path_occupied' && <Badge tone="gray">Name taken, left in place</Badge>}
+            {f.left === 'duplicate' && (
+              <Badge variant="gray-subtle" size="sm">
+                Duplicate, left in place
+              </Badge>
+            )}
+            {f.left === 'unmatched' && (
+              <Badge variant="gray-subtle" size="sm">
+                No matching episode, left in place
+              </Badge>
+            )}
+            {f.left === 'path_occupied' && (
+              <Badge variant="gray-subtle" size="sm">
+                Name taken, left in place
+              </Badge>
+            )}
           </li>
         ))}
       </ul>
@@ -273,14 +311,21 @@ function NeedsChoice({ row }: { row: AdoptionRow }) {
   const found = (search.data?.items ?? []).filter((r) => r.kind === row.kind)
   return (
     <div>
-      <div className="flex items-center gap-2 font-medium">
-        {baseName(row.entry)} <Badge tone="amber">Needs choice</Badge>
+      <div className="label-14 flex items-center gap-2">
+        {baseName(row.entry)}{' '}
+        <Badge variant="amber-subtle" size="sm">
+          Needs choice
+        </Badge>
       </div>
-      {patch.error instanceof ApiError && <ErrorText>{patch.error.message}</ErrorText>}
+      {patch.error instanceof ApiError && (
+        <Note variant="error" size="small" className="mt-2">
+          {patch.error.message}
+        </Note>
+      )}
       {row.candidates.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
           {row.candidates.map((c) => (
-            <Button key={c.tmdb_id} variant="secondary" onClick={() => choose(c.tmdb_id)} disabled={patch.isPending}>
+            <Button key={c.tmdb_id} size="small" onClick={() => choose(c.tmdb_id)} disabled={patch.isPending}>
               Use {c.title}
               {c.year ? ` (${c.year})` : ''}
             </Button>
@@ -288,8 +333,15 @@ function NeedsChoice({ row }: { row: AdoptionRow }) {
         </div>
       )}
       <form onSubmit={submit} className="mt-2 flex max-w-md gap-2">
-        <TextInput value={q} onChange={(e) => setQ(e.target.value)} placeholder={row.kind === 'series' ? 'Search for the Series' : 'Search for the Movie'} aria-label={`Search for ${baseName(row.entry)}`} />
-        <Button variant="secondary" type="submit">
+        <Input
+          size="small"
+          className="flex-1"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={row.kind === 'series' ? 'Search for the Series' : 'Search for the Movie'}
+          aria-label={`Search for ${baseName(row.entry)}`}
+        />
+        <Button size="small" typeName="submit">
           Search
         </Button>
       </form>
@@ -297,7 +349,7 @@ function NeedsChoice({ row }: { row: AdoptionRow }) {
         <ul className="mt-2 flex flex-wrap gap-2">
           {found.map((r) => (
             <li key={r.tmdb_id}>
-              <Button variant="secondary" onClick={() => choose(r.tmdb_id)} disabled={patch.isPending}>
+              <Button size="small" onClick={() => choose(r.tmdb_id)} disabled={patch.isPending}>
                 Pick {r.title}
                 {r.year ? ` (${r.year})` : ''}
               </Button>
