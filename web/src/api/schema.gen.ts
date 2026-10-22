@@ -2689,6 +2689,12 @@ export interface components {
             season?: number;
             /** @description Series only. The episode numbers of a single or multi-episode Release; empty for a pack. */
             episodes?: number[];
+            /**
+             * @description Series only. The title of each of `episodes`, in the same order and in the Primary Language (as on
+             *     the episode grid). `TBA` for an episode without a title: a Placeholder Episode, or one TheTVDB
+             *     does not list. Absent for a pack.
+             */
+            episode_titles?: string[];
             /** @description Series only. True for a season pack. */
             pack?: boolean;
         };

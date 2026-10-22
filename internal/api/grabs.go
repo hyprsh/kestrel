@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/acquire"
@@ -63,6 +64,10 @@ func (s *server) SearchVersionReleases(ctx context.Context, r oapi.SearchVersion
 	case err != nil:
 		return nil, err
 	}
+	titles, err := s.episodeTitles(ctx, r.Id, res.Items)
+	if err != nil {
+		return nil, err
+	}
 	out := oapi.ReleaseList{Items: make([]oapi.Release, 0, len(res.Items)), IndexerErrors: make([]oapi.IndexerError, 0, len(res.Failures))}
 	for _, f := range res.Items {
 		rel := oapi.Release{
@@ -73,6 +78,15 @@ func (s *server) SearchVersionReleases(ctx context.Context, r oapi.SearchVersion
 		if f.Pack || f.Season != 0 || len(f.Episodes) > 0 {
 			season, episodes, pack := f.Season, append([]int{}, f.Episodes...), f.Pack
 			rel.Season, rel.Episodes, rel.Pack = &season, &episodes, &pack
+			if len(episodes) > 0 {
+				names := make([]string, len(episodes))
+				for i, n := range episodes {
+					if names[i] = titles[[2]int{f.Season, n}]; names[i] == "" {
+						names[i] = episodeTitleUnknown
+					}
+				}
+				rel.EpisodeTitles = &names
+			}
 		}
 		for _, cf := range f.Formats {
 			rel.CustomFormats = append(rel.CustomFormats, oapi.CustomFormatMatch{Name: cf.Name, Points: cf.Score})
@@ -95,6 +109,36 @@ func (s *server) SearchVersionReleases(ctx context.Context, r oapi.SearchVersion
 		out.IndexerErrors = append(out.IndexerErrors, e)
 	}
 	return oapi.SearchVersionReleases200JSONResponse(out), nil
+}
+
+// episodeTitleUnknown stands for an episode without a title: a Placeholder Episode, or one TheTVDB does not list.
+const episodeTitleUnknown = "TBA"
+
+// episodeTitles maps (season, number) to the Primary Language title of the Version's Series' episodes, for the
+// Releases that name episodes. Nil when none does (a Movie, or only season packs).
+func (s *server) episodeTitles(ctx context.Context, versionID int64, items []acquire.Found) (map[[2]int]string, error) {
+	if !slices.ContainsFunc(items, func(f acquire.Found) bool { return len(f.Episodes) > 0 }) {
+		return nil, nil
+	}
+	v, err := s.library.GetVersion(ctx, versionID)
+	if err != nil {
+		return nil, err
+	}
+	view, err := s.view(ctx)
+	if err != nil {
+		return nil, err
+	}
+	eps, err := s.library.Episodes(ctx, v.TitleID, view)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[[2]int]string, len(eps))
+	for _, e := range eps {
+		if !e.Placeholder {
+			out[[2]int{e.Season, e.Number}] = e.PrimaryName
+		}
+	}
+	return out, nil
 }
 
 func grabToAPI(g acquire.Grab) oapi.Grab {
