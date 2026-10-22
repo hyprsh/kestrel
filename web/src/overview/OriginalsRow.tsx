@@ -44,17 +44,17 @@ function Offer({ offer: o, profileName, onOpenTitle }: { offer: OriginalOffer; p
   const failed = accept.error ?? dismiss.error
   return (
     <li className="flex flex-col gap-1 py-2">
-      <div className="flex items-start gap-2">
-        <span className="min-w-0 flex-1">
+      <div className="flex flex-wrap items-start gap-2">
+        <span className="min-w-0 flex-1 max-sm:basis-full">
           <button type="button" title="Open the Title" onClick={() => onOpenTitle(o.title_id)} className="font-medium hover:underline">
             {o.title}
           </button>{' '}
           · {slotLabel[o.slot]} · {profileName}
         </span>
-        <Button variant="secondary" size="small" disabled={busy} onClick={() => accept.mutate(o.version_id)}>
+        <Button variant="secondary" size="small" disabled={busy} onClick={() => accept.mutate(o.version_id)} className="max-sm:flex-1">
           Accept
         </Button>
-        <Button variant="secondary" size="small" disabled={busy} onClick={() => dismiss.mutate(o.version_id)}>
+        <Button variant="secondary" size="small" disabled={busy} onClick={() => dismiss.mutate(o.version_id)} className="max-sm:flex-1">
           Dismiss
         </Button>
       </div>

@@ -87,3 +87,12 @@ export function EpisodeFilePopover({ label, cell, file, trigger }: { label: stri
   const others = file.episode_ids.length
   return <FilePopover label={`${label} file`} path={file.path} note={[...facts(cell), ...(others > 1 ? [`This file holds ${others} episodes`] : [])].join(' · ')} trigger={trigger} />
 }
+
+/** The popover of a cell with no file, for touch where its hover title is out of reach: what its colour says. */
+export function CellPopover({ label, text, trigger }: { label: string; text: string; trigger: ReactElement }) {
+  return (
+    <Popover trigger={trigger} label={`${label} state`} position="bottom-end" width={240}>
+      <p className="label-13 text-gray-1000">{text}</p>
+    </Popover>
+  )
+}
