@@ -53,7 +53,8 @@ function Form({ saved, declared }: { saved: Folders; declared: boolean }) {
                   size="small"
                   aria-label={name}
                   error={problem?.message}
-                  className="min-w-0 flex-1 font-mono"
+                  mono
+                  className="min-w-0 flex-1"
                   value={path}
                   onChange={(e) =>
                     set(
@@ -104,11 +105,9 @@ function Form({ saved, declared }: { saved: Folders; declared: boolean }) {
         </Note>
       )}
       {save.isSuccess && (
-        <div role="status">
-          <Note variant="success" size="small">
-            Saved.
-          </Note>
-        </div>
+        <Note variant="success" size="small">
+          Saved.
+        </Note>
       )}
       <Button size="small" variant="primary" typeName="submit" disabled={save.isPending || declared} className="self-start">
         Save root folders

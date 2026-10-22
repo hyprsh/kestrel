@@ -90,7 +90,7 @@ export function ManualSearch({
   return (
     <section ref={ref} tabIndex={-1} aria-label="Manual search" className="flex min-w-0 flex-1 flex-col outline-none">
       <div className="flex items-center gap-3 border-b border-gray-alpha-400 px-4 py-2.5">
-        <Button variant="secondary" size="small" prefix={<ArrowLeft className="size-4" />} onClick={onBack}>
+        <Button variant="secondary" size="small" prefix={<ArrowLeft />} onClick={onBack}>
           {titleName}
         </Button>
         <h2 className="heading-16">Manual search</h2>
@@ -113,8 +113,8 @@ export function ManualSearch({
       </div>
 
       {errors.length > 0 && (
-        <div role="alert" className="border-b border-gray-alpha-400 px-4 py-2">
-          <Note variant="warning" size="small">
+        <div className="border-b border-gray-alpha-400 px-4 py-2">
+          <Note variant="warning" size="small" role="alert">
             {errors.map((e) => (
               <div key={`${e.indexer_id}-${e.indexer}`}>
                 {e.indexer}: {e.message}
@@ -251,7 +251,7 @@ export function ManualSearch({
           <KeyboardInput small>k</KeyboardInput> select · <KeyboardInput small>↵</KeyboardInput> grab · <KeyboardInput small>esc</KeyboardInput> back
         </span>
         {g && (
-          <Button variant={g.override ? 'secondary' : 'primary'} size="small" prefix={<Download className="size-4" />} disabled={g.disabled || grabbing.isPending} onClick={grab} title={g.reason}>
+          <Button variant={g.override ? 'secondary' : 'primary'} size="small" prefix={<Download />} disabled={g.disabled || grabbing.isPending} onClick={grab} title={g.reason}>
             {g.label}
           </Button>
         )}

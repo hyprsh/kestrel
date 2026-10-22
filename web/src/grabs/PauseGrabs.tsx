@@ -8,12 +8,13 @@ export function PauseGrabsSwitch() {
   if (!data) return null
   return (
     <>
-      <Checkbox checked={data.pause_grabs} disabled={save.isPending} onChange={(e) => save.mutate({ pause_grabs: e.target.checked })}>
+      <Checkbox
+        checked={data.pause_grabs}
+        disabled={save.isPending}
+        onChange={(e) => save.mutate({ pause_grabs: e.target.checked })}
+        description="Searches keep running, so Wanted and Upgrade candidates still show up, but nothing is sent to the download client on its own. A Release you grab by hand still goes through. Turning it off lets the next sweep grab as usual."
+      >
         Pause Grabs
-        <span className="label-12 mt-0.5 block text-gray-900">
-          Searches keep running, so Wanted and Upgrade candidates still show up, but nothing is sent to the download client
-          on its own. A Release you grab by hand still goes through. Turning it off lets the next sweep grab as usual.
-        </span>
       </Checkbox>
       {save.isError && (
         <Note variant="error" size="small">

@@ -225,19 +225,17 @@ function RemoveVersionForm({ busy, error, onApply, onCancel }: { busy: boolean; 
 function Summary({ result }: { result: Result }) {
   const { changed, others } = summarize(result.items, result.slot)
   return (
-    <div role="status" className="mt-4 max-w-xl">
-      <Note size="small">
-        <div>
-          {result.label}: {changed} changed
-        </div>
-        {others.length > 0 && (
-          <ul className="mt-1 list-disc pl-4 text-gray-900">
-            {others.map((o) => (
-              <li key={o}>{o}</li>
-            ))}
-          </ul>
-        )}
-      </Note>
-    </div>
+    <Note role="status" className="mt-4 max-w-xl" size="small">
+      <div>
+        {result.label}: {changed} changed
+      </div>
+      {others.length > 0 && (
+        <ul className="mt-1 list-disc pl-4 text-gray-900">
+          {others.map((o) => (
+            <li key={o}>{o}</li>
+          ))}
+        </ul>
+      )}
+    </Note>
   )
 }

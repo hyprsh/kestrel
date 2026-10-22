@@ -25,6 +25,7 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
         <Select
           size="small"
           label="Monitor"
+          labelPosition="inline"
           value={title.series_monitor ?? 'all'}
           disabled={setMode.isPending}
           onChange={(e) => setMode.mutate(e.target.value as SeriesMonitor)}

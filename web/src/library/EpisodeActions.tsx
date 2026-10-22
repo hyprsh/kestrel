@@ -126,7 +126,7 @@ const rowMenuButton = (label: string) => (
     aria-label={label}
     onFocus={(e) => e.currentTarget.closest('[role="row"]')?.querySelector<HTMLElement>('[data-cell][tabindex="0"]')?.focus()}
   >
-    <MoreHorizontal />
+    <MoreHorizontal className="size-4" />
   </Menu.Button>
 )
 

@@ -63,11 +63,9 @@ function Form({ saved, declared }: { saved: Settings['language_region']; declare
         </Note>
       )}
       {save.isSuccess && (
-        <div role="status">
-          <Note variant="success" size="small">
-            Saved.
-          </Note>
-        </div>
+        <Note variant="success" size="small">
+          Saved.
+        </Note>
       )}
       <Button size="small" variant="primary" typeName="submit" disabled={save.isPending || declared} className="self-start">
         Save language

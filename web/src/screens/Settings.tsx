@@ -156,11 +156,9 @@ function Row({ label, help, children }: { label: string; help: string; children:
 
 function Saved({ children = 'Saved.' }: { children?: ReactNode }) {
   return (
-    <div role="status">
-      <Note variant="success" size="small">
-        {children}
-      </Note>
-    </div>
+    <Note variant="success" size="small">
+      {children}
+    </Note>
   )
 }
 
@@ -310,7 +308,7 @@ function ReverseProxyForm({ saved }: { saved: ReverseProxy }) {
         <Checkbox checked={enabled} onChange={(e) => setEnabled(e.target.checked)}>
           Trust a login header from a reverse proxy
         </Checkbox>
-        <Textarea label="Trusted proxies" rows={3} value={trusted} onChange={(e) => setTrusted(e.target.value)} placeholder={'172.18.0.0/16\n10.0.0.5'} className="font-mono" />
+        <Textarea label="Trusted proxies" rows={3} value={trusted} onChange={(e) => setTrusted(e.target.value)} placeholder={'172.18.0.0/16\n10.0.0.5'} mono />
         <Input size="small" label="Header" value={header} onChange={(e) => setHeader(e.target.value)} />
         {save.isError && (
           <Note variant="error" size="small">

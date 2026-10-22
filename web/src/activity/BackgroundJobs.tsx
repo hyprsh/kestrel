@@ -52,7 +52,7 @@ export function BackgroundJobs() {
   // Rendered with or without data: "/activity/jobs" scrolls here as soon as the screen opens.
   return (
     <section id="activity-jobs" aria-labelledby="activity-jobs-heading" className="flex flex-col">
-      <h2 id="activity-jobs-heading" className="label-12 px-4 pt-4 pb-1 font-medium text-gray-900">
+      <h2 id="activity-jobs-heading" className="label-12-strong px-4 pt-4 pb-1 text-gray-900">
         Background jobs
       </h2>
       <ul>

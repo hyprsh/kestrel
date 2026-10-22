@@ -144,7 +144,7 @@ function Group({ stage, count, children }: { stage: Stage; count: number; childr
   const id = `activity-stage-${stage}`
   return (
     <section aria-labelledby={id} className="border-b border-gray-alpha-200">
-      <h3 id={id} className="label-12 px-4 pt-4 pb-1 font-medium text-gray-900">{`${stageLabel[stage]} · ${count}`}</h3>
+      <h3 id={id} className="label-12-strong px-4 pt-4 pb-1 text-gray-900">{`${stageLabel[stage]} · ${count}`}</h3>
       {children}
     </section>
   )

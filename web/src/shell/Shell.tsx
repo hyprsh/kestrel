@@ -26,16 +26,15 @@ import { Settings as SettingsScreen } from '../screens/Settings'
 import { THEME_KEY, useTheme, type Theme } from '../theme'
 import { KestrelLogo } from '../ui'
 
-const icon = 'size-4'
 const screens = [
-  { key: 'overview', label: 'Overview', icon: <Inbox className={icon} /> },
-  { key: 'library', label: 'Library', icon: <LibraryBig className={icon} /> },
-  { key: 'upcoming', label: 'Upcoming', icon: <CalendarClock className={icon} /> },
-  { key: 'activity', label: 'Activity', icon: <ActivityIcon className={icon} /> },
-  { key: 'log', label: 'Log', icon: <ScrollText className={icon} /> },
-  { key: 'settings', label: 'Settings', icon: <Settings className={icon} /> },
+  { key: 'overview', label: 'Overview', icon: <Inbox /> },
+  { key: 'library', label: 'Library', icon: <LibraryBig /> },
+  { key: 'upcoming', label: 'Upcoming', icon: <CalendarClock /> },
+  { key: 'activity', label: 'Activity', icon: <ActivityIcon /> },
+  { key: 'log', label: 'Log', icon: <ScrollText /> },
+  { key: 'settings', label: 'Settings', icon: <Settings /> },
 ]
-const about = { key: 'about', label: 'About', icon: <Info className={icon} /> }
+const about = { key: 'about', label: 'About', icon: <Info /> }
 // Reached from Settings and the command menu, not the rail.
 const adoption = { key: 'adoption', label: 'Adopt existing library' }
 const cleanup = { key: 'cleanup', label: 'Clean up Unmanaged files' }
@@ -244,7 +243,7 @@ function Rail({
         </Button>
       </span>
       <RailButton label={`Add Title (${MOD} K)`} onClick={onAdd}>
-        <Plus className={icon} />
+        <Plus />
       </RailButton>
       <div className="my-1 h-px w-6 bg-gray-alpha-400" />
       {screens.map((s) => (
@@ -267,7 +266,7 @@ function Rail({
       {/* A proxy-authenticated request has no session to end; the portal owns logging out. */}
       {auth.data?.state === 'ok' && auth.data.me.method === 'session' && (
         <RailButton label="Log out" onClick={() => logout.mutate(undefined)}>
-          <LogOut className={icon} />
+          <LogOut />
         </RailButton>
       )}
     </nav>
@@ -311,7 +310,7 @@ function SearchQueued({ queued, onSee, onDismiss }: { queued: { versions: number
         </Note>
       )}
       <Button svgOnly variant="tertiary" size="small" aria-label="Dismiss" onClick={onDismiss}>
-        <X aria-hidden className="size-4" />
+        <X aria-hidden />
       </Button>
     </div>
   )

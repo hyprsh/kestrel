@@ -76,16 +76,16 @@ export function Library({
       <aside className="flex w-72 shrink-0 flex-col border-r border-gray-alpha-400">
         <div className="flex flex-col gap-2 border-b border-gray-alpha-400 p-3">
           <div className="flex gap-1">
-            <Button variant="tertiary" size="small" prefix={<FolderInput className="size-4" />} onClick={onAdopt} aria-label="Adopt existing library" title="Adopt existing library">
+            <Button variant="tertiary" size="small" prefix={<FolderInput />} onClick={onAdopt} aria-label="Adopt existing library" title="Adopt existing library">
               Adopt
             </Button>
-            <Button variant="tertiary" size="small" prefix={<Eraser className="size-4" />} onClick={() => openCleanup()} aria-label="Clean up Unmanaged files" title="Clean up Unmanaged files">
+            <Button variant="tertiary" size="small" prefix={<Eraser />} onClick={() => openCleanup()} aria-label="Clean up Unmanaged files" title="Clean up Unmanaged files">
               Clean up
             </Button>
             <Button
               variant={selection.active ? 'secondary' : 'tertiary'}
               size="small"
-              prefix={<CheckSquare className="size-4" />}
+              prefix={<CheckSquare />}
               onClick={() => (selection.active ? selection.clear() : selection.setActive(true))}
               aria-pressed={selection.active}
               title="Tick Titles to change together (x)"
@@ -193,7 +193,7 @@ export function Library({
             </Note>
           ) : empty ? (
             <EmptyState title="Nothing here yet" description="Add your first Movie or Series.">
-              <Button variant="primary" size="small" prefix={<Plus className="size-4" />} onClick={onAdd}>
+              <Button variant="primary" size="small" prefix={<Plus />} onClick={onAdd}>
                 Add a title
               </Button>
             </EmptyState>

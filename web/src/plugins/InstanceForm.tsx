@@ -145,11 +145,9 @@ export function InstanceForm({
       )}
       {test.data &&
         (test.data.result.ok ? (
-          <div role="status">
-            <Note variant="success" size="small">
-              Connected: {test.data.result.message}
-            </Note>
-          </div>
+          <Note variant="success" size="small">
+            Connected: {test.data.result.message}
+          </Note>
         ) : (
           <Note variant="error" size="small">
             {test.data.result.message}
@@ -161,11 +159,9 @@ export function InstanceForm({
         </Note>
       )}
       {save.isSuccess && (
-        <div role="status">
-          <Note variant="success" size="small">
-            Saved.
-          </Note>
-        </div>
+        <Note variant="success" size="small">
+          Saved.
+        </Note>
       )}
 
       <div className="flex gap-2">

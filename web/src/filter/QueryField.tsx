@@ -144,11 +144,9 @@ export function QueryField({
         </ul>
       )}
       {problems.length > 0 && (
-        <div role="status">
-          <Note variant="warning" size="small">
-            {problems.map((p) => p.message).join(' · ')}
-          </Note>
-        </div>
+        <Note role="status" variant="warning" size="small">
+          {problems.map((p) => p.message).join(' · ')}
+        </Note>
       )}
     </div>
   )
