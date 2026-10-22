@@ -40,7 +40,7 @@ export function Searching() {
   const openPlace = useOpenPlace()
   if (!s) return null
   return (
-    <section id="overview-searching" aria-labelledby="searching" className="mx-auto mb-8 max-w-3xl">
+    <section id="overview-searching" aria-labelledby="searching">
       <div className="mb-3 flex items-baseline justify-between">
         <h2 id="searching" className="heading-14">
           Searching

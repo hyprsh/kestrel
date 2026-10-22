@@ -1,4 +1,4 @@
-// "Coming this week" (the next 7 days of Upcoming) and "Recently added" (the latest Imports).
+// "Coming this week" (the next 7 days of Upcoming) and "Recently added" (the latest Imports): two sections, in different columns.
 // Their rows are part of the Overview's one j/k selection (see OverviewNav).
 import { Badge } from '@hyprsh/design'
 import { useQueue } from '../api/queue'
@@ -12,58 +12,64 @@ import { dayLabel, upcomingKey } from '../upcoming/state'
 import type { OverviewNav } from './nav'
 import { EmptyLine, firstFive, Section, ViewAll } from './Section'
 
-export function ComingRecent({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void; nav: OverviewNav }) {
+const openRow = (nav: OverviewNav, onOpenTitle: (id: number) => void) => (index: number, id: number) => {
+  nav.select(index)
+  onOpenTitle(id)
+}
+
+/** Its rows come after "Recently added" in the j/k selection: the main column is read before the side column. */
+export function Coming({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void; nav: OverviewNav }) {
   const coming = useUpcoming(6)
-  const recent = useRecent()
   const queue = useQueue().data ?? []
   const now = useNow()
   const comingAll = coming.data ?? []
   const comingItems = firstFive(comingAll)
-  const recentItems = firstFive(recent.data?.items ?? [])
-  const open = (index: number, id: number) => {
-    nav.select(index)
-    onOpenTitle(id)
-  }
-
+  const open = openRow(nav, onOpenTitle)
   return (
-    <>
-      <Section id="coming-this-week" title="Coming this week" count={coming.data ? comingAll.length : undefined} className="mt-6">
-        {coming.data && comingItems.length === 0 ? (
-          <EmptyLine title="Nothing is due in the next 7 days." />
-        ) : (
-          <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
-            {comingItems.map((item, j) => {
-              const i = nav.base + j
-              return (
-                <NavRow key={upcomingKey(item)} scope="ov" index={i} sel={nav.sel} onSelect={() => open(i, item.title_id)} className="flex items-center gap-3 px-4 py-2">
-                  <span className="label-12 w-24 shrink-0 text-gray-900 tabular">{dayLabel(localDay(item))}</span>
-                  <UpcomingLine item={item} queue={queue} now={now} />
-                </NavRow>
-              )
-            })}
-          </ul>
-        )}
-        {comingAll.length > 0 && <ViewAll path="/upcoming" count={comingAll.length} />}
-      </Section>
-      {/* The count is the week's Imports, which the Done stage lists; the rows are the latest few. */}
-      <Section id="recently-added" title="Recently added" count={recent.data?.total} className="mt-6">
-        {recent.data && recentItems.length === 0 ? (
-          <EmptyLine title="Nothing has been imported yet." />
-        ) : (
-          <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
-            {recentItems.map((item, j) => {
-              const i = nav.base + comingItems.length + j
-              return (
-                <NavRow key={`${item.title_id}-${item.slot}-${item.imported_at}`} scope="ov" index={i} sel={nav.sel} onSelect={() => open(i, item.title_id)} className="flex items-center gap-3 px-4 py-2">
-                  <RecentRow item={item} />
-                </NavRow>
-              )
-            })}
-          </ul>
-        )}
-        {recentItems.length > 0 && <ViewAll path={placePath('activity', 'stage:done')} count={recent.data?.total || undefined} />}
-      </Section>
-    </>
+    <Section id="coming-this-week" title="Coming this week" count={coming.data ? comingAll.length : undefined}>
+      {coming.data && comingItems.length === 0 ? (
+        <EmptyLine title="Nothing is due in the next 7 days." />
+      ) : (
+        <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
+          {comingItems.map((item, j) => {
+            const i = nav.base + j
+            return (
+              <NavRow key={upcomingKey(item)} scope="ov" index={i} sel={nav.sel} onSelect={() => open(i, item.title_id)} className="flex items-center gap-3 px-4 py-2">
+                <span className="label-12 w-24 shrink-0 text-gray-900 tabular">{dayLabel(localDay(item))}</span>
+                <UpcomingLine item={item} queue={queue} now={now} />
+              </NavRow>
+            )
+          })}
+        </ul>
+      )}
+      {comingAll.length > 0 && <ViewAll path="/upcoming" count={comingAll.length} />}
+    </Section>
+  )
+}
+
+/** The count is the week's Imports, which the Done stage lists; the rows are the latest few. */
+export function RecentlyAdded({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void; nav: OverviewNav }) {
+  const recent = useRecent()
+  const recentItems = firstFive(recent.data?.items ?? [])
+  const open = openRow(nav, onOpenTitle)
+  return (
+    <Section id="recently-added" title="Recently added" count={recent.data?.total}>
+      {recent.data && recentItems.length === 0 ? (
+        <EmptyLine title="Nothing has been imported yet." />
+      ) : (
+        <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
+          {recentItems.map((item, j) => {
+            const i = nav.base + j
+            return (
+              <NavRow key={`${item.title_id}-${item.slot}-${item.imported_at}`} scope="ov" index={i} sel={nav.sel} onSelect={() => open(i, item.title_id)} className="flex items-center gap-3 px-4 py-2">
+                <RecentRow item={item} />
+              </NavRow>
+            )
+          })}
+        </ul>
+      )}
+      {recentItems.length > 0 && <ViewAll path={placePath('activity', 'stage:done')} count={recent.data?.total || undefined} />}
+    </Section>
   )
 }
 

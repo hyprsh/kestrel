@@ -280,7 +280,7 @@ const status = (over: Partial<Status> = {}): Status => ({
     { instance_id: 11, name: 'Alpha', state: 'ok', message: null, ...idle },
     { instance_id: 12, name: 'Beta', state: 'failing', message: 'API key rejected', ...idle },
   ],
-  disks: [{ path: '/data', free_bytes: 800 * 2 ** 30, total_bytes: 2 ** 40 }],
+  disks: [{ path: '/data', free_bytes: 800 * 2 ** 30, total_bytes: 2 ** 40, low_free_bytes: 50 * 2 ** 30 }],
   trash: { commit: 'abc1234def', committed_at: new Date(Date.now() - 3 * 86_400_000).toISOString(), checked_at: null, auto_update: true },
   grabs_paused: false,
   ...over,
@@ -331,7 +331,7 @@ describe('The health strip', () => {
 
     expect(await within(strip).findByText(/42 of 100 searches today/)).toBeInTheDocument()
     expect(strip).toHaveTextContent(/Beta.*7 searches today/)
-    expect(strip).toHaveTextContent(/Beta.*searches paused until/)
+    expect(strip).toHaveTextContent(/Beta.*Searches paused until/)
     expect(strip).toHaveTextContent(/Beta.*Grabs paused until/)
     expect(strip).toHaveTextContent(/Gamma.*Grabs paused \(5 of 5 downloads used\)/)
     expect(strip).not.toHaveTextContent(/failing/)
@@ -367,5 +367,84 @@ describe('The health strip', () => {
     const strip = await screen.findByRole('region', { name: /health/i })
 
     expect(await within(strip).findByText(/no download client/i)).toBeInTheDocument()
+  })
+  it('says how many items fail in the heading', async () => {
+    server.use(http.get('/system/status', ({ response }) => response(200).json(status())))
+    renderApp()
+    expect(await screen.findByRole('region', { name: 'Health · 1 failing' })).toBeInTheDocument()
+  })
+
+  it('says "all good" in the heading when nothing fails', async () => {
+    server.use(http.get('/system/status', ({ response }) => response(200).json(status({ indexers: [] }))))
+    renderApp()
+    expect(await screen.findByRole('region', { name: 'Health · all good' })).toBeInTheDocument()
+  })
+
+  it('draws one tile per item with the state as text, a failing one first', async () => {
+    server.use(
+      http.get('/system/status', ({ response }) =>
+        response(200).json(
+          status({
+            indexers: [
+              { instance_id: 11, name: 'Alpha', state: 'ok', message: null, ...idle },
+              { instance_id: 12, name: 'Beta', state: 'failing', message: 'API key rejected', ...idle },
+            ],
+          }),
+        ),
+      ),
+    )
+    renderApp()
+
+    const strip = await screen.findByRole('region', { name: /health/i })
+    await within(strip).findByText('Beta')
+    const tiles = within(strip).getAllByRole('listitem')
+    expect(tiles.map((t) => t.querySelector('span')?.textContent)).toEqual(['SABnzbd', 'Beta', 'Alpha', '/data', 'TRaSH'])
+    expect(tiles[1]).toHaveTextContent('failing')
+    expect(tiles[1]).toHaveTextContent('API key rejected')
+    expect(tiles[2]).toHaveTextContent('ok')
+    for (const group of ['Download client', 'Indexers', 'Disks', 'Other']) expect(within(strip).getByRole('heading', { name: group })).toBeInTheDocument()
+  })
+
+  it('draws the search budget and the disk as meters, amber when paused or low', async () => {
+    server.use(
+      http.get('/system/status', ({ response }) =>
+        response(200).json(
+          status({
+            indexers: [
+              { instance_id: 11, name: 'Alpha', state: 'ok', message: null, ...idle, search_used: 42, search_max: 100 },
+              { instance_id: 12, name: 'Beta', state: 'ok', message: null, ...idle, search_used: 100, search_max: 100, search_paused_until: '2026-10-18T14:05:00Z' },
+            ],
+            disks: [
+              { path: '/data', free_bytes: 800 * 2 ** 30, total_bytes: 2 ** 40, low_free_bytes: 50 * 2 ** 30 },
+              { path: '/media', free_bytes: 30 * 2 ** 30, total_bytes: 2 ** 40, low_free_bytes: 50 * 2 ** 30 },
+            ],
+          }),
+        ),
+      ),
+    )
+    renderApp()
+
+    const strip = await screen.findByRole('region', { name: /health/i })
+    const alpha = await within(strip).findByRole('progressbar', { name: 'Alpha searches used today' })
+    expect(alpha).toHaveAttribute('aria-valuenow', '42')
+    expect(alpha).toHaveAttribute('aria-valuemax', '100')
+    expect(within(strip).getByRole('progressbar', { name: '/data space used' })).toBeInTheDocument()
+    expect(within(strip).getByRole('progressbar', { name: '/media space used' })).toBeInTheDocument()
+
+    const tile = (name: string) => within(strip).getByText(name).closest('li')!
+    expect(tile('Beta')).toHaveTextContent('paused')
+    expect(tile('/media')).toHaveTextContent('low')
+    expect(tile('/media')).toHaveTextContent('30 GB free of 1 TB')
+    expect(tile('/data')).not.toHaveTextContent('low')
+  })
+
+  it('shows an available update as a tile that goes to About', async () => {
+    server.use(http.get('/system/status', ({ response }) => response(200).json(status({ update: { version: '0.9.0', url: 'https://example.test/r' } }))))
+    renderApp()
+
+    const strip = await screen.findByRole('region', { name: /health/i })
+    const tile = (await within(strip).findByText('Kestrel 0.9.0 available')).closest('li')!
+    expect(tile).toHaveTextContent('update')
+    expect(within(tile).getByRole('button', { name: 'About' })).toBeInTheDocument()
   })
 })
