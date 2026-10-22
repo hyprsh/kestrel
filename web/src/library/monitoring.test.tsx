@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
@@ -33,25 +33,33 @@ describe('monitoring a Movie', () => {
     const state = fakeMovie()
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    const toggle = await screen.findByRole('checkbox', { name: 'Monitored' })
-    expect(toggle).toBeChecked()
+    const select = await screen.findByRole('combobox', { name: 'Monitor' })
+    expect(select).toHaveValue('monitored')
+    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['Monitored', 'Not monitored'])
 
-    await userEvent.click(toggle)
+    await userEvent.selectOptions(select, 'Not monitored')
 
     await waitFor(() => expect(state.sent).toEqual([{ path: 'titles', body: { monitored: false } }]))
-    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Monitored' })).not.toBeChecked())
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Monitor' })).toHaveValue('unmonitored'))
+    expect(screen.getByText('Kestrel leaves this Movie as it is: no searches, Grabs or Upgrades.')).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Monitored' }))
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Monitor' }), 'Monitored')
 
     await waitFor(() => expect(state.sent[1]).toEqual({ path: 'titles', body: { monitored: true } }))
-    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Monitored' })).toBeChecked())
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Monitor' })).toHaveValue('monitored'))
   })
 
-  it('is not offered for a Series, which has its monitoring mode', async () => {
+})
+
+describe('monitoring a Series', () => {
+  it('sits in the Title actions row, not in the episode section, and offers the three modes', async () => {
     fakeSeries()
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    await screen.findByRole('combobox', { name: 'Monitor' })
+    const select = await screen.findByRole('combobox', { name: 'Monitor' })
+    expect(select.closest('[role=group]')).toHaveAccessibleName('Title actions')
+    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['All episodes', 'Future episodes only', 'None'])
+    expect(within(await screen.findByRole('region', { name: 'Episodes' })).queryByRole('combobox', { name: 'Monitor' })).not.toBeInTheDocument()
     expect(screen.queryByRole('checkbox', { name: 'Monitored' })).not.toBeInTheDocument()
   })
 })

@@ -1,7 +1,7 @@
 import { Button, Checkbox, DestructiveActionModal, Note, Select } from '@hyprsh/design'
 import { useState, type ReactNode } from 'react'
 import type { Profile } from '../api/queries'
-import { useAddVersion, useRemoveTitle, useRemoveVersion, useSwitchProfile } from '../api/versions'
+import { useRemoveTitle } from '../api/versions'
 import type { SlotKey } from './bits'
 
 /**
@@ -47,7 +47,7 @@ export function RemoveConfirm({
 }
 
 /** A Profile picker that only exists while it is open, so closed columns stay plain text. */
-function ProfilePicker({
+export function ProfilePicker({
   profiles,
   slot,
   initial,
@@ -93,65 +93,6 @@ function ProfilePicker({
         </Button>
       </div>
     </div>
-  )
-}
-
-/** Switch Profile and remove, under a filled Slot column. */
-export function VersionControls({ versionId, slot, profile, profiles }: { versionId: number; slot: SlotKey; profile: string; profiles: Profile[] }) {
-  const sw = useSwitchProfile(versionId)
-  const rm = useRemoveVersion(versionId)
-  const [mode, setMode] = useState<'switch' | 'remove' | null>(null)
-  if (mode === 'switch') {
-    return (
-      <ProfilePicker
-        profiles={profiles}
-        slot={slot}
-        initial={profile}
-        label="Switch Profile"
-        busy={sw.isPending}
-        error={sw.error?.message}
-        onCancel={() => setMode(null)}
-        onPick={(p) => sw.mutate(p, { onSuccess: () => setMode(null) })}
-      />
-    )
-  }
-  return (
-    <div className="mt-2 flex flex-wrap gap-2">
-      <Button variant="secondary" size="small" className="flex-1" onClick={() => setMode('switch')}>
-        Change Profile
-      </Button>
-      <Button variant="secondary" size="small" className="flex-1" onClick={() => setMode('remove')}>
-        Remove Version
-      </Button>
-      {mode === 'remove' && <RemoveConfirm what="Version" busy={rm.isPending} error={rm.error?.message} onCancel={() => setMode(null)} onConfirm={(d) => rm.mutate(d)} />}
-    </div>
-  )
-}
-
-/** Add a Version to an empty Slot; it is searched at once. */
-export function AddVersion({ titleId, slot, profiles }: { titleId: number; slot: SlotKey; profiles: Profile[] }) {
-  const add = useAddVersion(titleId)
-  const [open, setOpen] = useState(false)
-  if (!profiles.some((p) => p.slot === slot && p.enabled)) return null
-  if (!open) {
-    return (
-      <Button variant="secondary" size="small" className="mt-2 w-full" onClick={() => setOpen(true)}>
-        Add Version
-      </Button>
-    )
-  }
-  const defaults = profiles.find((p) => p.slot === slot && p.enabled && p.default_movies)
-  return (
-    <ProfilePicker
-      profiles={profiles}
-      slot={slot}
-      initial={defaults?.key ?? ''}
-      label="Add Version"
-      busy={add.isPending}
-      error={add.error?.message}
-      onCancel={() => setOpen(false)}
-      onPick={(p) => add.mutate({ slot, profile: p }, { onSuccess: () => setOpen(false) })}
-    />
   )
 }
 

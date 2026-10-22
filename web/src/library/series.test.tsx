@@ -139,8 +139,8 @@ describe('the episodes heat map', () => {
 
   it('is operated entirely from the keyboard: arrows move, Space toggles an episode or a season', async () => {
     const { state, grid } = await openSeries()
-    // The Version controls above the pane's Series section have their own tab stops: start at the Monitor select.
-    await act(async () => (await screen.findByRole('combobox', { name: 'Monitor' })).focus())
+    // The Version controls above the pane's Series section have their own tab stops: start at the last button before it.
+    await act(async () => (await screen.findByRole('button', { name: 'Collapse all' })).focus())
     await userEvent.tab() // the grid's one tab stop
     const specials = within(grid).getByRole('checkbox', { name: 'Specials' })
     expect(specials).toHaveFocus()

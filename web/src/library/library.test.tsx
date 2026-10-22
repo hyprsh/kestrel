@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
@@ -26,7 +26,7 @@ async function openLibrary() {
   return screen.findByRole('listbox', { name: /library/i })
 }
 
-const selected = () => screen.getByRole('option', { selected: true })
+const selected = () => within(screen.getByRole('listbox', { name: /library/i })).getByRole('option', { selected: true })
 const filter = () => screen.getByRole('combobox', { name: 'Filter the Library' })
 const shown = (list: HTMLElement) => within(list).queryAllByRole('option').map((o) => o.querySelector('.truncate')?.firstChild?.textContent)
 
@@ -178,7 +178,7 @@ describe('the Library filter', () => {
 })
 
 describe('the Library detail pane', () => {
-  it('shows the Standard | 4K Versions strip with Profile and status', async () => {
+  it('shows a Version row per Slot with Profile and status', async () => {
     fakeLibrary(rows())
     await openLibrary()
     const pane = await screen.findByRole('region', { name: /paddington/i })
@@ -239,5 +239,34 @@ describe('the Library detail pane', () => {
     await openLibrary()
     const pane = await screen.findByRole('region', { name: /paddington/i })
     expect(await within(pane).findByText(/Bluray-1080p · English \+ German · .*Score 1750/)).toBeInTheDocument()
+    // The row names the file on disk, not the release it was grabbed as.
+    expect(within(pane).getByRole('button', { name: 'P.mkv' })).toBeInTheDocument()
+    expect(within(pane).queryByText('Paddington.2014.1080p.BluRay.x264-GRP')).not.toBeInTheDocument()
+  })
+
+  it("opens the Movie's file popover from the file name: full path, Copy path and the release name", async () => {
+    fakeLibrary(rows())
+    const d = detail(rows()[0])
+    const hd = d.versions.find((v) => v.slot === 'standard')!
+    hd.state = 'filled'
+    hd.file = {
+      path: '/data/media/movies/P/P.mkv',
+      size: 8 << 30,
+      release_name: 'Paddington.2014.1080p.BluRay.x264-GRP',
+      score: 1750,
+      imported_at: '2026-10-17T12:00:00Z',
+    }
+    server.use(http.get('/titles/{id}', ({ response }) => response(200).json(d)))
+    await openLibrary()
+    const pane = await screen.findByRole('region', { name: /paddington/i })
+
+    await userEvent.click(await within(pane).findByRole('button', { name: 'P.mkv' }))
+
+    const popover = await screen.findByRole('dialog', { name: 'Standard file' })
+    expect(popover).toHaveTextContent('/data/media/movies/P/P.mkv')
+    expect(popover).toHaveTextContent('Grabbed as Paddington.2014.1080p.BluRay.x264-GRP')
+    expect(within(popover).getByRole('button', { name: 'Copy path' })).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Standard file' })).not.toBeInTheDocument())
   })
 })

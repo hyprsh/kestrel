@@ -22,17 +22,32 @@ export function cellTitle(slot: string, state: string, cell: EpisodeCell | null)
 }
 
 /**
- * The popover a click or tap on a filled episode cell opens: the file's path, selectable and with
- * a Copy button, and what else the file holds. `trigger` is the cell itself. Keys pressed in it
- * stay out of the grid, apart from the Escape and Tab the popover handles itself.
+ * The popover a click on a file's name or an episode cell opens: the path, selectable and with a
+ * Copy button, a line of what else the file holds, and for a Movie's file the release it was
+ * grabbed as. `trigger` is the element that opens it. Keys pressed in it stay out of the grid or
+ * the pane, apart from the Escape and Tab the popover handles itself.
  */
-export function EpisodeFilePopover({ label, cell, file, trigger }: { label: string; cell: EpisodeCell; file: EpisodeFile; trigger: ReactElement }) {
+export function FilePopover({
+  label,
+  path,
+  note,
+  grabbedAs,
+  trigger,
+  position = 'bottom-end',
+}: {
+  label: string
+  path: string
+  note?: string
+  grabbedAs?: string
+  trigger: ReactElement
+  position?: 'bottom-start' | 'bottom-end'
+}) {
   const pathRef = useRef<HTMLParagraphElement>(null)
   const [copied, setCopied] = useState<'copied' | 'selected' | null>(null)
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(file.path)
+      await navigator.clipboard.writeText(path)
       setCopied('copied')
     } catch {
       // No clipboard outside a secure context: select the path for a manual copy instead.
@@ -44,18 +59,18 @@ export function EpisodeFilePopover({ label, cell, file, trigger }: { label: stri
     }
   }
 
-  const others = file.episode_ids.length
   return (
-    <Popover trigger={trigger} label={`${label} file`} position="bottom-end" width={320}>
+    <Popover trigger={trigger} label={label} position={position} width={320}>
       <div
         // The grid's arrows and Space, and the detail's Escape, must not fire; the popover keeps Escape and Tab.
         onKeyDown={(e) => e.key !== 'Escape' && e.key !== 'Tab' && e.stopPropagation()}
         className="flex flex-col gap-2"
       >
         <p ref={pathRef} className="label-12-mono break-all text-gray-1000 select-text">
-          {file.path}
+          {path}
         </p>
-        <p className="label-12 text-gray-900">{[...facts(cell), ...(others > 1 ? [`This file holds ${others} episodes`] : [])].join(' · ')}</p>
+        {note && <p className="label-12 text-gray-900">{note}</p>}
+        {grabbedAs && <p className="label-12 break-all text-gray-900">Grabbed as {grabbedAs}</p>}
         <div className="flex items-center gap-2">
           <Button variant="secondary" size="small" onClick={() => void copy()}>
             {copied === 'copied' ? 'Copied' : 'Copy path'}
@@ -65,4 +80,10 @@ export function EpisodeFilePopover({ label, cell, file, trigger }: { label: stri
       </div>
     </Popover>
   )
+}
+
+/** The popover of a filled episode cell: its file's path and facts. `trigger` is the cell itself. */
+export function EpisodeFilePopover({ label, cell, file, trigger }: { label: string; cell: EpisodeCell; file: EpisodeFile; trigger: ReactElement }) {
+  const others = file.episode_ids.length
+  return <FilePopover label={`${label} file`} path={file.path} note={[...facts(cell), ...(others > 1 ? [`This file holds ${others} episodes`] : [])].join(' · ')} trigger={trigger} />
 }
