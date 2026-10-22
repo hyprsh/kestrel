@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -19,7 +19,7 @@ describe('the empty shell', () => {
     renderApp()
     const rail = await screen.findByRole('navigation')
     for (const name of ['Overview', 'Library', 'Upcoming', 'Log', 'Settings', 'About']) {
-      expect(rail).toHaveTextContent(name) // tooltip labels are in the DOM
+      expect(within(rail).getByRole('button', { name })).toBeInTheDocument()
     }
     expect(screen.getByRole('main')).toHaveTextContent(/downloading now/i) // Overview is the home screen
   })

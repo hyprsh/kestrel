@@ -3,7 +3,8 @@
 import { About } from '../about/About'
 import { Activity } from '../activity/Activity'
 import { useRunningNow, type Running } from '../activity/running'
-import { Activity as ActivityIcon, CalendarClock, Inbox, Info, LibraryBig, Loader2, LogOut, Monitor, Moon, Plus, ScrollText, Search, Settings, Sun } from 'lucide-react'
+import { Badge, Button, Input, KeyboardInput, Note, Spinner, StatusDot, Tooltip } from '@hyprsh/design'
+import { Activity as ActivityIcon, CalendarClock, Inbox, Info, LibraryBig, LogOut, Monitor, Moon, Plus, ScrollText, Search, Settings, Sun, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAttention } from '../api/attention'
@@ -12,7 +13,6 @@ import { CommandMenu, type MenuAction, type MenuMode } from '../command/CommandM
 import { Adoption } from '../adoption/Adoption'
 import { Cleanup } from '../cleanup/Cleanup'
 import { CleanupLauncher } from '../cleanup/launch'
-import { Button } from '../forms'
 import { MOD } from '../keys'
 import { useSearchAllWanted } from '../api/wanted'
 import { Library } from '../library/Library'
@@ -24,9 +24,9 @@ import { currentPlace, PlaceOpener, placeOf, placePath, showPlace } from '../pla
 import { Upcoming } from '../upcoming/Upcoming'
 import { Settings as SettingsScreen } from '../screens/Settings'
 import { useTheme, type Theme } from '../theme'
-import { cx, Kbd, KestrelLogo } from '../ui'
+import { KestrelLogo } from '../ui'
 
-const icon = 'size-[18px]'
+const icon = 'size-4'
 const screens = [
   { key: 'overview', label: 'Overview', icon: <Inbox className={icon} /> },
   { key: 'library', label: 'Library', icon: <LibraryBig className={icon} /> },
@@ -132,6 +132,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   return (
     <CleanupLauncher.Provider value={openCleanup}>
     <PlaceOpener.Provider value={goPath}>
+    {/* The 13px base the screens not yet built from the design inherit; they drop it with their own type classes. */}
     <div className="flex h-full bg-background-100 text-[13px] text-gray-1000">
       <Rail screen={screen} onSelect={setScreen} theme={theme} onTheme={cycle} onAdd={() => setMenu({ mode: 'add' })} />
       <div className="flex min-w-0 flex-1 flex-col">
@@ -204,38 +205,22 @@ function RailButton({
   children: ReactNode
 }) {
   return (
-    <button
-      onClick={onClick}
-      aria-label={label}
-      aria-current={active ? 'page' : undefined}
-      className={cx(
-        'group relative flex size-9 items-center justify-center rounded-md transition-colors',
-        active ? 'bg-gray-alpha-200 text-gray-1000' : 'text-gray-900 hover:bg-gray-alpha-100 hover:text-gray-1000',
-      )}
-    >
-      {children}
-      {badge}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute left-full z-50 ml-2 hidden rounded-md bg-gray-1000 px-2 py-1 text-[12px] font-medium whitespace-nowrap text-background-100 shadow-lg group-hover:block"
-      >
-        {label}
-      </span>
-    </button>
+    <Tooltip text={label} position="right">
+      <Button svgOnly variant={active ? 'secondary' : 'tertiary'} aria-label={label} aria-current={active ? 'page' : undefined} onClick={onClick}>
+        {children}
+        {badge}
+      </Button>
+    </Tooltip>
   )
 }
 
 /** How many rows need attention; red while any is Blocking. */
 function AttentionBadge({ count, blocking }: { count: number; blocking: boolean }) {
   return (
-    <span
-      aria-hidden
-      className={cx(
-        'absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white',
-        blocking ? 'bg-red-700' : 'bg-amber-700',
-      )}
-    >
-      {count}
+    <span aria-hidden className="pointer-events-none absolute -top-1 -right-1">
+      <Badge variant={blocking ? 'red' : 'amber'} size="sm">
+        {count}
+      </Badge>
     </span>
   )
 }
@@ -259,13 +244,11 @@ function Rail({
   const needs = attention?.count ?? 0
   return (
     <nav className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-gray-alpha-400 bg-background-200 py-3">
-      <button
-        onClick={() => onSelect('overview')}
-        aria-label="Kestrel, go to Overview"
-        className="mb-2 flex size-9 items-center justify-center rounded-md text-gray-1000 transition-colors hover:bg-gray-alpha-100"
-      >
-        <KestrelLogo />
-      </button>
+      <span className="mb-2 inline-flex">
+        <Button svgOnly variant="tertiary" aria-label="Kestrel, go to Overview" onClick={() => onSelect('overview')}>
+          <KestrelLogo />
+        </Button>
+      </span>
       <RailButton label={`Add Title (${MOD} K)`} onClick={onAdd}>
         <Plus className={icon} />
       </RailButton>
@@ -302,18 +285,32 @@ function Rail({
 function TopBar({ title, onOpenMenu, running, onOpenRunning }: { title: string; onOpenMenu: () => void; running: Running[]; onOpenRunning: () => void }) {
   return (
     <header className="grid h-12 shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,460px)_minmax(0,1fr)] items-center gap-4 border-b border-gray-alpha-400 px-4">
-      <div className="truncate text-[13px] font-medium">{title}</div>
-      <button
+      <div className="heading-14 truncate">{title}</div>
+      {/* A read-only field that opens the menu, so it reads as the search box it stands for. */}
+      <Input
+        readOnly
+        size="small"
+        aria-label="Search or run a command"
+        aria-haspopup="dialog"
+        placeholder="Search or run a command…"
+        prefix={<Search aria-hidden className="size-4" />}
+        prefixStyling={false}
+        suffix={
+          <span aria-hidden className="inline-flex">
+            <KeyboardInput small meta />
+            <KeyboardInput small>K</KeyboardInput>
+          </span>
+        }
+        suffixStyling={false}
+        style={{ cursor: 'pointer' }}
         onClick={onOpenMenu}
-        className="flex h-8 w-full min-w-0 items-center gap-2 rounded-md border border-gray-alpha-400 bg-background-200 px-2.5 text-gray-900 transition-colors hover:border-gray-500 hover:text-gray-1000"
-      >
-        <Search className="size-3.5" />
-        <span className="text-[13px]">Search or run a command…</span>
-        <span className="ml-auto flex gap-0.5">
-          <Kbd>{MOD}</Kbd>
-          <Kbd>K</Kbd>
-        </span>
-      </button>
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+            e.preventDefault()
+            onOpenMenu()
+          }
+        }}
+      />
       <div className="flex min-w-0 items-center justify-end gap-4">
         <RunningIndicator running={running} onOpen={onOpenRunning} />
         <ServerStatus />
@@ -325,19 +322,24 @@ function TopBar({ title, onOpenMenu, running, onOpenRunning }: { title: string; 
 /** The confirmation of "Search all Wanted", with the way to the Searching card that follows the searches. */
 function SearchQueued({ queued, onSee, onDismiss }: { queued: { versions: number } | { error: string }; onSee: () => void; onDismiss: () => void }) {
   return (
-    <div role="status" aria-label="Search all Wanted" className="flex shrink-0 items-center gap-3 border-b border-gray-alpha-400 bg-background-200 px-4 py-2 text-[12px]">
+    <div role="status" aria-label="Search all Wanted" className="flex shrink-0 items-center gap-2 border-b border-gray-alpha-400 bg-background-200 px-4 py-2">
       {'error' in queued ? (
-        <span className="text-red-900">{`Search all Wanted failed: ${queued.error}`}</span>
+        <Note variant="error" size="small" className="flex-1">{`Search all Wanted failed: ${queued.error}`}</Note>
       ) : (
-        <>
-          <span>{`${queued.versions} Wanted ${queued.versions === 1 ? 'Version' : 'Versions'} queued for a search`}</span>
-          <Button variant="secondary" onClick={onSee}>
-            See the search
-          </Button>
-        </>
+        <Note
+          size="small"
+          className="flex-1"
+          action={
+            <Button size="small" onClick={onSee}>
+              See the search
+            </Button>
+          }
+        >
+          {`${queued.versions} Wanted ${queued.versions === 1 ? 'Version' : 'Versions'} queued for a search`}
+        </Note>
       )}
-      <Button variant="secondary" className="ml-auto" onClick={onDismiss}>
-        Dismiss
+      <Button svgOnly variant="tertiary" size="small" aria-label="Dismiss" onClick={onDismiss}>
+        <X aria-hidden className="size-4" />
       </Button>
     </div>
   )
@@ -351,23 +353,17 @@ function RunningIndicator({ running, onOpen }: { running: Running[]; onOpen: () 
   const progress = one.progress?.total ? `${one.short.replace(/…$/, '')} ${one.progress.done}/${one.progress.total}` : null
   const label = running.length > 1 ? `${running.length} running` : (progress ?? one.short)
   return (
-    <button
-      onClick={onOpen}
-      title={running.map((r) => r.name).join('\n')}
-      className="flex min-w-0 max-w-56 items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-gray-900 transition-colors hover:bg-gray-alpha-100 hover:text-gray-1000"
-    >
-      <Loader2 aria-hidden className="size-3.5 shrink-0 animate-spin" />
-      <span className="truncate">{label}</span>
-    </button>
+    <Button variant="tertiary" size="small" onClick={onOpen} title={running.map((r) => r.name).join('\n')} prefix={<Spinner size="sm" />}>
+      {label}
+    </Button>
   )
 }
 
 function ServerStatus() {
   const { data, isError } = useSystem()
   return (
-    <div className="flex shrink-0 items-center justify-end gap-2 text-[12px] text-gray-900">
-      <span className={cx('size-1.5 rounded-full', isError ? 'bg-red-700' : data ? 'bg-green-700' : 'bg-gray-600')} />
-      {isError ? 'Offline' : data ? `Kestrel ${data.version}` : 'Connecting…'}
-    </div>
+    <span className="label-13 shrink-0 text-gray-900">
+      <StatusDot titlePrefix="Kestrel" state={isError ? 'error' : data ? 'ready' : 'queued'} label={isError ? 'Offline' : data ? `Kestrel ${data.version}` : 'Connecting…'} />
+    </span>
   )
 }
