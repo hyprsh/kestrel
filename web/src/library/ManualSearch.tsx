@@ -304,7 +304,7 @@ export function ManualSearch({
                               {scopeLabel(x)}
                             </Badge>
                             {episodeTitles(x) && (
-                              <span className="copy-13 min-w-0 truncate text-gray-900" title={x.episode_titles?.join(' · ')}>
+                              <span className="copy-13 min-w-0 truncate text-gray-900" title={shownTitles(x).join(' · ')}>
                                 · {episodeTitles(x)}
                               </span>
                             )}
@@ -393,9 +393,14 @@ function scopeLabel(x: Release): string | null {
   return eps.length > 1 ? `S${code(x.season)}E${code(eps[0])}-E${code(last)}` : `S${code(x.season)}E${code(eps[0])}`
 }
 
+/** The titles of a Release's episodes; an empty title (an episode without one) shows as TBA, as on the episode grid. */
+function shownTitles(x: Release): string[] {
+  return (x.episode_titles ?? []).map((title) => title || 'TBA')
+}
+
 /** The titles of the episodes a Release names: the first two, then "+N more" when it names more. */
 function episodeTitles(x: Release): string | null {
-  const titles = x.episode_titles ?? []
+  const titles = shownTitles(x)
   if (titles.length === 0) return null
   return titles.length > 2 ? `${titles.slice(0, 2).join(' / ')} / +${titles.length - 2} more` : titles.join(' / ')
 }

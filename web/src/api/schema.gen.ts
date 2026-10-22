@@ -2691,7 +2691,7 @@ export interface components {
             episodes?: number[];
             /**
              * @description Series only. The title of each of `episodes`, in the same order and in the Primary Language (as on
-             *     the episode grid). `TBA` for an episode without a title: a Placeholder Episode, or one TheTVDB
+             *     the episode grid). An empty string for an episode without a title: a Placeholder Episode, or one TheTVDB
              *     does not list. Absent for a pack.
              */
             episode_titles?: string[];
