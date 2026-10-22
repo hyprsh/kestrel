@@ -42,7 +42,7 @@ export async function open({ base = demoURL(), width = 1440, height = 900, theme
   }, theme)
   if (status >= 300) throw new Error(`login as demo answered ${status}: is the demo seeded (demo.sh start)?`)
   await page.goto(base + '/', { waitUntil: 'domcontentloaded' })
-  await page.locator('[aria-label="Library"]').first().waitFor()
+  await page.locator('[aria-label="Search or run a command"]').first().waitFor()
   await wait(600)
 
   const h = {
