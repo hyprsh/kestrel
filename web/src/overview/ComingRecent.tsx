@@ -1,17 +1,22 @@
 // "Coming this week" (the next 7 days of Upcoming) and "Recently added" (the latest Imports).
 // Their rows are part of the Overview's one j/k selection (see OverviewNav).
 import { Badge } from '@hyprsh/design'
-import { useRecent, useUpcoming, type RecentItem } from '../api/upcoming'
+import { useQueue } from '../api/queue'
+import { localDay, useRecent, useUpcoming, type RecentItem } from '../api/upcoming'
 import { slotLabel, type SlotKey } from '../library/bits'
 import { placePath } from '../place'
+import { useNow } from '../time'
 import { NavRow } from '../ui'
-import { dayLabel, UpcomingLine, upcomingKey } from '../upcoming/bits'
+import { UpcomingLine } from '../upcoming/bits'
+import { dayLabel, upcomingKey } from '../upcoming/state'
 import type { OverviewNav } from './nav'
 import { EmptyLine, firstFive, Section, ViewAll } from './Section'
 
 export function ComingRecent({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void; nav: OverviewNav }) {
   const coming = useUpcoming(6)
   const recent = useRecent()
+  const queue = useQueue().data ?? []
+  const now = useNow()
   const comingAll = coming.data ?? []
   const comingItems = firstFive(comingAll)
   const recentItems = firstFive(recent.data?.items ?? [])
@@ -31,8 +36,8 @@ export function ComingRecent({ onOpenTitle, nav }: { onOpenTitle: (id: number) =
               const i = nav.base + j
               return (
                 <NavRow key={upcomingKey(item)} scope="ov" index={i} sel={nav.sel} onSelect={() => open(i, item.title_id)} className="flex items-center gap-3 px-4 py-2">
-                  <span className="label-12 w-24 shrink-0 text-gray-900 tabular">{dayLabel(item.date)}</span>
-                  <UpcomingLine item={item} />
+                  <span className="label-12 w-24 shrink-0 text-gray-900 tabular">{dayLabel(localDay(item))}</span>
+                  <UpcomingLine item={item} queue={queue} now={now} />
                 </NavRow>
               )
             })}
