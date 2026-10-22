@@ -81,7 +81,7 @@ export function InstanceList({
             </ul>
           )}
           {editing === 'new' && newManifest && (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 rounded-md border border-gray-alpha-400 px-3 py-2">
               {manifests.length > 1 && (
                 <Select
                   size="small"
