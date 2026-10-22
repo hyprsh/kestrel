@@ -1,5 +1,7 @@
 import { Button, Checkbox, Fieldset, Input, Note, Textarea } from '@hyprsh/design'
+import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { useState, type FormEvent, type MouseEvent, type ReactNode } from 'react'
+import { usePhone } from '../responsive'
 import { ApiError, useApiKey, useAuth, useChangePassword, useCreateApiKey, useLogoutEverywhere, useReverseProxy, useSaveReverseProxy, type ReverseProxy } from '../api/queries'
 import { UpdateCheckSwitch } from '../about/UpdateCheck'
 import { PauseGrabsSwitch } from '../grabs/PauseGrabs'
@@ -39,8 +41,159 @@ function jumpTo(event: MouseEvent<HTMLAnchorElement>, id: string) {
   history.replaceState(history.state, '', event.currentTarget.href)
 }
 
-/** One page with a jump list on the left; each section is a group of rows. */
-export function Settings({ onRunSetup, onAdopt }: { onRunSetup: () => void; onAdopt: () => void }) {
+/**
+ * One page with a jump list on the left; each section is a group of rows. On a phone the list is a
+ * screen of its own and a section another, full screen with a Back button: `section` is the open
+ * one ("" is the list), kept by the Shell in the address bar so the browser's Back returns to the list.
+ */
+export function Settings({
+  onRunSetup,
+  onAdopt,
+  section = '',
+  onOpenSection,
+  onCloseSection,
+}: {
+  onRunSetup: () => void
+  onAdopt: () => void
+  section?: string
+  onOpenSection?: (id: string) => void
+  onCloseSection?: () => void
+}) {
+  const phone = usePhone()
+  const content: Record<string, ReactNode> = {
+    language: (
+      <>
+        <Row label="Language and country" help="The household's language and the country whose release dates and age ratings Kestrel reads.">
+          <LanguageForm />
+        </Row>
+      </>
+    ),
+    profiles: (
+      <>
+        <Row label="Defaults per Slot" help="The Profile a new Title gets for each Slot. Standard always has one.">
+          <DefaultsPerSlot />
+        </Row>
+        <Row label="Profiles" help="Turn Profiles off or let Primary-Language ones accept the Original Language. Disabling a Profile clears its defaults.">
+          <ProfileToggles />
+        </Row>
+      </>
+    ),
+    trash: (
+      <>
+        <Row label="Custom Formats and profiles" help="Kestrel scores Releases with TRaSH's Custom Formats. It checks daily and takes the newest set whole, after re-scoring every file under it.">
+          <TrashForm />
+        </Row>
+      </>
+    ),
+    metadata: (
+      <>
+        <Row label="TMDB and TheTVDB" help="Kestrel looks Titles up with the project's own keys. Enter your own to use them instead; they are never shown again.">
+          <ProviderKeysForm />
+        </Row>
+      </>
+    ),
+    'download-client': (
+      <>
+        <DownloadClientRow />
+      </>
+    ),
+    indexers: (
+      <>
+        <Indexers />
+      </>
+    ),
+    grabs: (
+      <>
+        <Row label="Automatic Grabs" help="Hold Kestrel back, for example after a large Adoption, without disabling the download client or the indexers.">
+          <PauseGrabsSwitch />
+        </Row>
+      </>
+    ),
+    'root-folders': (
+      <>
+        <Row label="Folders" help="Where Imports put Movies and Series. The first of each kind is the default when adding a Title.">
+          <RootFoldersForm compact />
+        </Row>
+      </>
+    ),
+    adoption: (
+      <>
+        <Row label="Adopt existing library" help="Scan the Movie and Series Root folders for files Kestrel does not manage yet and take them over without downloading again.">
+          <Button size="small" onClick={onAdopt}>
+            Scan for unmanaged files
+          </Button>
+        </Row>
+      </>
+    ),
+    'media-servers': (
+      <>
+        <MediaServers />
+      </>
+    ),
+    account: (
+      <>
+        <ChangePassword />
+        <LogOutEverywhere />
+      </>
+    ),
+    updates: (
+      <>
+        <Row label="GitHub" help="One switch for the daily release, security advisory and TRaSH checks.">
+          <UpdateCheckSwitch />
+        </Row>
+      </>
+    ),
+    security: (
+      <>
+        <ApiKeyRow />
+        <ReverseProxyRow />
+      </>
+    ),
+    setup: (
+      <>
+        <Row label="Setup wizard" help="Walk through the setup sections again. The account stays as it is.">
+          <Button size="small" onClick={onRunSetup}>
+            Run setup again
+          </Button>
+        </Row>
+      </>
+    ),
+  }
+
+  if (phone) {
+    const open = sections.find((s) => s.id === section)
+    if (open)
+      return (
+        <div key={open.id} className="flex min-h-0 flex-1 flex-col">
+          <div className="flex shrink-0 items-center gap-1 border-b border-gray-alpha-400 py-1 pr-3 pl-1">
+            <Button variant="tertiary" prefix={<ArrowLeft />} onClick={onCloseSection}>
+              Back
+            </Button>
+            <span className="label-14 min-w-0 flex-1 truncate">{open.title}</span>
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto p-4">
+            <Group id={open.id} title={open.title} headingHidden>
+              {content[open.id]}
+            </Group>
+          </div>
+        </div>
+      )
+    return (
+      <nav key="list" aria-label="Settings sections" className="min-h-0 flex-1 overflow-auto">
+        <ul className="divide-y divide-gray-alpha-400">
+          {sections.map((s) => (
+            <li key={s.id}>
+              <button type="button" onClick={() => onOpenSection?.(s.id)} className="label-14 flex min-h-12 w-full touch-manipulation items-center justify-between gap-2 px-4 text-left">
+                {s.title}
+                <ChevronRight aria-hidden className="size-4 shrink-0 text-gray-900" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    )
+  }
+
   return (
     <div className="flex min-h-0 flex-1 overflow-auto">
       <nav aria-label="Settings sections" className="sticky top-0 w-48 shrink-0 self-start p-4">
@@ -55,84 +208,20 @@ export function Settings({ onRunSetup, onAdopt }: { onRunSetup: () => void; onAd
         </ul>
       </nav>
       <div className="min-w-0 max-w-3xl flex-1 p-4 pr-8">
-        <Group id="language" title="Primary Language">
-          <Row label="Language and country" help="The household's language and the country whose release dates and age ratings Kestrel reads.">
-            <LanguageForm />
-          </Row>
-        </Group>
-        <Group id="profiles" title="Profiles">
-          <Row label="Defaults per Slot" help="The Profile a new Title gets for each Slot. Standard always has one.">
-            <DefaultsPerSlot />
-          </Row>
-          <Row label="Profiles" help="Turn Profiles off or let Primary-Language ones accept the Original Language. Disabling a Profile clears its defaults.">
-            <ProfileToggles />
-          </Row>
-        </Group>
-        <Group id="trash" title="TRaSH">
-          <Row label="Custom Formats and profiles" help="Kestrel scores Releases with TRaSH's Custom Formats. It checks daily and takes the newest set whole, after re-scoring every file under it.">
-            <TrashForm />
-          </Row>
-        </Group>
-        <Group id="metadata" title="Provider keys">
-          <Row label="TMDB and TheTVDB" help="Kestrel looks Titles up with the project's own keys. Enter your own to use them instead; they are never shown again.">
-            <ProviderKeysForm />
-          </Row>
-        </Group>
-        <Group id="download-client" title="Download client">
-          <DownloadClientRow />
-        </Group>
-        <Group id="indexers" title="Indexers">
-          <Indexers />
-        </Group>
-        <Group id="grabs" title="Grabs">
-          <Row label="Automatic Grabs" help="Hold Kestrel back, for example after a large Adoption, without disabling the download client or the indexers.">
-            <PauseGrabsSwitch />
-          </Row>
-        </Group>
-        <Group id="root-folders" title="Root folders">
-          <Row label="Folders" help="Where Imports put Movies and Series. The first of each kind is the default when adding a Title.">
-            <RootFoldersForm compact />
-          </Row>
-        </Group>
-        <Group id="adoption" title="Existing files">
-          <Row label="Adopt existing library" help="Scan the Movie and Series Root folders for files Kestrel does not manage yet and take them over without downloading again.">
-            <Button size="small" onClick={onAdopt}>
-              Scan for unmanaged files
-            </Button>
-          </Row>
-        </Group>
-        <Group id="media-servers" title="Media servers">
-          <MediaServers />
-        </Group>
-        <Group id="account" title="Account">
-          <ChangePassword />
-          <LogOutEverywhere />
-        </Group>
-        <Group id="updates" title="Updates">
-          <Row label="GitHub" help="One switch for the daily release, security advisory and TRaSH checks.">
-            <UpdateCheckSwitch />
-          </Row>
-        </Group>
-        <Group id="security" title="Security">
-          <ApiKeyRow />
-          <ReverseProxyRow />
-        </Group>
-        <Group id="setup" title="Setup">
-          <Row label="Setup wizard" help="Walk through the setup sections again. The account stays as it is.">
-            <Button size="small" onClick={onRunSetup}>
-              Run setup again
-            </Button>
-          </Row>
-        </Group>
+        {sections.map((s) => (
+          <Group key={s.id} id={s.id} title={s.title}>
+            {content[s.id]}
+          </Group>
+        ))}
       </div>
     </div>
   )
 }
 
-function Group({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+function Group({ id, title, headingHidden, children }: { id: string; title: string; headingHidden?: boolean; children: ReactNode }) {
   return (
     <section id={`settings-${id}`} aria-labelledby={`settings-${id}-title`} className="mb-8">
-      <h2 id={`settings-${id}-title`} tabIndex={-1} className="heading-20 mb-3">
+      <h2 id={`settings-${id}-title`} tabIndex={-1} className={headingHidden ? 'sr-only' : 'heading-20 mb-3'}>
         {title}
       </h2>
       <div className="flex flex-col gap-4">{children}</div>

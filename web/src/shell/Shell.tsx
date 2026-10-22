@@ -4,7 +4,7 @@ import { About } from '../about/About'
 import { Activity } from '../activity/Activity'
 import { useRunningNow, type Running } from '../activity/running'
 import { Badge, Button, CommandMenuTrigger, Note, Spinner, ThemeSwitcher, Tooltip } from '@hyprsh/design'
-import { Activity as ActivityIcon, CalendarClock, Inbox, Info, LibraryBig, LogOut, Plus, ScrollText, Search, Settings, X } from 'lucide-react'
+import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, Inbox, Info, LibraryBig, ListPlus, LogOut, Plus, ScrollText, Search, Settings, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAttention } from '../api/attention'
@@ -39,13 +39,16 @@ const screens = [
 ]
 const about = { key: 'about', label: 'About', icon: <Info /> }
 // Reached from Settings and the command menu, not the rail.
-const adoption = { key: 'adoption', label: 'Adopt existing library' }
-const cleanup = { key: 'cleanup', label: 'Clean up Unmanaged files' }
+const adoption = { key: 'adoption', label: 'Adopt existing library', icon: <FolderInput /> }
+const cleanup = { key: 'cleanup', label: 'Clean up Unmanaged files', icon: <Eraser /> }
 // Reached from the Overview's Recent requests, not the rail; a place, so "/requests?q=…" opens it.
-const requests = { key: 'requests', label: 'Requests' }
+const requests = { key: 'requests', label: 'Requests', icon: <ListPlus /> }
 // The tab bar of a phone; the rest of the screens are behind More.
 const tabKeys = ['overview', 'library', 'upcoming', 'activity']
-const moreKeys = ['settings', 'log', 'about']
+// Settings and Log first, then the screens a phone reaches only from here (Requests also from the Overview), About last.
+const moreKeys = ['settings', 'log', 'requests', 'adoption', 'cleanup', 'about']
+// Short names for the More sheet; the top bar keeps the long ones.
+const moreLabels: Record<string, string> = { adoption: 'Adoption', cleanup: 'Clean up' }
 const isTitleId = (section: string) => /^\d+$/.test(section)
 const isPlace = (key: string) => [...screens, about, requests].some((s) => s.key === key)
 
@@ -58,13 +61,15 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const startTitle = start.screen === 'library' && isTitleId(start.section) ? Number(start.section) : null
   const [libraryId, setLibraryId] = useState<number | null>(startTitle)
   const [titleOpen, setTitleOpen] = useState(startTitle !== null)
+  // On a phone Settings' list and an opened section are two screens; "/settings/indexers" is the second.
+  const [settingsSection, setSettingsSection] = useState(start.screen === 'settings' ? start.section : '')
   const [more, setMore] = useState(false)
   const [cleanupTitles, setCleanupTitles] = useState<number[] | undefined>(undefined)
   const [menu, setMenu] = useState<{ mode: MenuMode } | null>(null)
   // The text of a screen's filter field (the Library's or the Log's); another screen starts unfiltered.
   const [filter, setFilter] = useState({ screen: start.screen, q: start.q })
   const query = filter.screen === screen ? filter.q : ''
-  const section = phone && screen === 'library' && titleOpen && libraryId !== null ? String(libraryId) : ''
+  const section = !phone ? '' : screen === 'library' ? (titleOpen && libraryId !== null ? String(libraryId) : '') : screen === 'settings' ? settingsSection : ''
   useEffect(() => showPlace(placePath(screen, query, section)), [screen, query, section])
   // Back and Forward step between the list and a Title page (and the screen a Title was opened from).
   useEffect(() => {
@@ -73,6 +78,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
       if (isPlace(place.screen)) setScreen(place.screen)
       setFilter({ screen: place.screen, q: place.q })
       setTitleOpen(isTitleId(place.section))
+      setSettingsSection(place.screen === 'settings' ? place.section : '')
       if (isTitleId(place.section)) setLibraryId(Number(place.section))
     }
     window.addEventListener('popstate', onPop)
@@ -136,7 +142,10 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
       ...s,
       badge: s.key === 'overview' && needs && needs.count > 0 ? <AttentionBadge count={needs.count} blocking={needs.severity === 'blocking'} /> : undefined,
     }))
-  const moreItems: Tab[] = moreKeys.map((k) => [...screens, about].find((s) => s.key === k)!)
+  const moreItems: Tab[] = moreKeys.map((k) => {
+    const s = [...screens, about, adoption, cleanup, requests].find((x) => x.key === k)!
+    return { ...s, label: moreLabels[k] ?? s.label }
+  })
   const places = useMemo(() => [...screens, about].map((s) => ({ id: s.key, label: s.label })), [])
   const closeMenu = useCallback(() => setMenu(null), [])
   // An action that opens a place: "/settings/download-client" is the Settings screen at that
@@ -146,8 +155,13 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     if (!isPlace(key)) return
     setScreen(key)
     setFilter({ screen: key, q })
-    if (section) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
-  }, [])
+    if (key === 'settings') {
+      // A phone opens the section as its own screen; elsewhere it is scrolled to.
+      setSettingsSection(section)
+      if (phone && section) pushPlace(placePath('settings', '', section))
+    }
+    if (section && !(phone && key === 'settings')) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
+  }, [phone])
   // An opened Title is shown, so the Library's filter must not hide it.
   const openTitle = useCallback(
     (id: number) => {
@@ -172,10 +186,19 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     if (pushedPlace()) history.back()
     else setTitleOpen(false)
   }, [])
-  // The Library tab always leads to the list, also while a Title page is open.
+  const openSettingsSection = useCallback((id: string) => {
+    setSettingsSection(id)
+    pushPlace(placePath('settings', '', id))
+  }, [])
+  const closeSettingsSection = useCallback(() => {
+    if (pushedPlace()) history.back()
+    else setSettingsSection('')
+  }, [])
+  // The Library tab always leads to the list, also while a Title page is open; Settings to its list of sections.
   const select = useCallback((key: string) => {
     setScreen(key)
     if (key === 'library') setTitleOpen(false)
+    if (key === 'settings') setSettingsSection('')
   }, [])
 
   return (
@@ -205,7 +228,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
         )}
         <main className="flex min-h-0 flex-1 flex-col">
           {screen === 'settings' ? (
-            <SettingsScreen onRunSetup={onRunSetup} onAdopt={() => setScreen('adoption')} />
+            <SettingsScreen onRunSetup={onRunSetup} onAdopt={() => setScreen('adoption')} section={settingsSection} onOpenSection={openSettingsSection} onCloseSection={closeSettingsSection} />
           ) : screen === 'adoption' ? (
             <Adoption />
           ) : screen === 'cleanup' ? (
