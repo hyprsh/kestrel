@@ -2,6 +2,7 @@
 // with stage chips and one filter field above it. It stays live through the stream: the queue
 // from `queue` frames, the stalled and finished Grabs from the `grab` hints, Searching from
 // `search` frames.
+import { Button, EmptyState, Note } from '@hyprsh/design'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useFinishedGrabs, useStalledGrabs, useStalledImport, HISTORY_DAYS, type GrabEntry } from '../api/activity'
 import { useSearchNow } from '../api/grabs'
@@ -11,7 +12,6 @@ import { useCancelGrab, useQueue, type QueueItem } from '../api/queue'
 import { useSearchStatus } from '../api/search'
 import { parse } from '../filter/query'
 import { QueryField } from '../filter/QueryField'
-import { Button, ErrorText } from '../forms'
 import { DownloadRow } from '../grabs/DownloadRow'
 import { GrabRow } from '../grabs/GrabRow'
 import { useKey, useListNav, type RowNav } from '../keys'
@@ -43,7 +43,7 @@ function speed(i: QueueItem): string | null {
 }
 
 function Line({ tone, children }: { tone?: 'amber' | 'red'; children: ReactNode }) {
-  return <div className={cx('text-[12px]', tone === 'amber' ? 'text-amber-900' : tone === 'red' ? 'text-red-900' : 'text-gray-900')}>{children}</div>
+  return <div className={cx('label-12', tone === 'amber' ? 'text-amber-900' : tone === 'red' ? 'text-red-900' : 'text-gray-900')}>{children}</div>
 }
 
 export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQuery: (q: string) => void; onOpenTitle: (id: number) => void }) {
@@ -99,23 +99,21 @@ export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQue
           {stages.map((s) => {
             const on = filter.stages?.includes(s) ?? false
             return (
-              <button
+              <Button
                 key={s}
-                type="button"
+                variant={on ? 'primary' : 'secondary'}
+                size="tiny"
+                shape="rounded"
                 aria-pressed={on}
                 onClick={() => onQuery(toggleStage(query, s))}
-                className={cx(
-                  'flex h-6 items-center gap-1.5 rounded-full border px-2.5 text-[12px]',
-                  on ? 'border-gray-1000 bg-gray-1000 text-background-100' : 'border-gray-alpha-400 text-gray-900 hover:border-gray-500 hover:text-gray-1000',
-                )}
               >
                 {stageLabel[s]} <span className="tabular-nums">{count(s)}</span>
-              </button>
+              </Button>
             )
           })}
         </div>
       </div>
-      {failed && <ErrorText>Activity could not be loaded in full.</ErrorText>}
+      {failed && <Note variant="error">Activity could not be loaded in full.</Note>}
       {searching && (
         <Group stage="searching" count={count('searching')}>
           <div className="px-4 py-3">
@@ -136,9 +134,9 @@ export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQue
             </Group>
           ),
       )}
-      {loaded && rows.length === 0 && !searching && <div className="p-6 text-center text-gray-900">Nothing in Activity matches.</div>}
+      {loaded && rows.length === 0 && !searching && <EmptyState className="m-4" description="Nothing in Activity matches." />}
       {(chosen.includes('done') || chosen.includes('failed')) && (
-        <p className="px-4 py-3 text-[12px] text-gray-900">
+        <p className="label-12 px-4 py-3 text-gray-900">
           {finished.data?.more ? `Done and Failed show the latest ${finished.data.items.length} Grabs. ` : `Done and Failed reach back ${HISTORY_DAYS} days. `}
           <button type="button" className="underline hover:text-gray-1000" onClick={() => openPlace('/log?q=kind:grabs,imports')}>
             Older ones are in the Log
@@ -153,7 +151,7 @@ function Group({ stage, count, children }: { stage: Stage; count: number; childr
   const id = `activity-stage-${stage}`
   return (
     <section aria-labelledby={id} className="border-b border-gray-alpha-200">
-      <h3 id={id} className="px-4 pt-4 pb-1 text-[12px] font-medium text-gray-900">{`${stageLabel[stage]} · ${count}`}</h3>
+      <h3 id={id} className="label-12 px-4 pt-4 pb-1 font-medium text-gray-900">{`${stageLabel[stage]} · ${count}`}</h3>
       {children}
     </section>
   )
@@ -224,10 +222,10 @@ function StalledRow({ grab: g, now, nav, onOpenTitle }: { grab: GrabEntry; now: 
       onOpenTitle={onOpenTitle}
       actions={
         <>
-          <Button variant="secondary" disabled={act.isPending} onClick={() => act.mutate({ id: g.grab_id, action: 'retry' })}>
+          <Button variant="secondary" size="small" disabled={act.isPending} onClick={() => act.mutate({ id: g.grab_id, action: 'retry' })}>
             Retry now
           </Button>
-          <Button variant="secondary" disabled={act.isPending} onClick={discard}>
+          <Button variant="secondary" size="small" disabled={act.isPending} onClick={discard}>
             Discard
           </Button>
         </>
@@ -253,7 +251,7 @@ function FinishedRow({ grab: g, now, nav, onOpenTitle }: { grab: GrabEntry; now:
       actions={
         failed &&
         versionId !== null && (
-          <Button variant="secondary" disabled={search.isPending || search.isSuccess} onClick={() => search.mutate({ versionId })}>
+          <Button variant="secondary" size="small" disabled={search.isPending || search.isSuccess} onClick={() => search.mutate({ versionId })}>
             {search.isSuccess ? 'Searching…' : 'Search again'}
           </Button>
         )
