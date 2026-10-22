@@ -197,6 +197,9 @@ func insertSeries(ctx context.Context, q *db.Queries, a AddSeries, nowT time.Tim
 	if err != nil {
 		return 0, nil, err
 	}
+	if err := setSeriesAiring(ctx, q, id, d, a.TVDB); err != nil {
+		return 0, nil, err
+	}
 	for _, al := range d.Aliases {
 		if err := q.InsertAlias(ctx, db.InsertAliasParams{TitleID: id, Alias: al.Title, Country: al.Country}); err != nil {
 			return 0, nil, err
@@ -246,7 +249,7 @@ func insertSeries(ctx context.Context, q *db.Queries, a AddSeries, nowT time.Tim
 		}
 		if err := q.InsertEpisode(ctx, db.InsertEpisodeParams{
 			TitleID: id, Season: int64(e.Season), Number: int64(e.Number), TvdbID: nullInt(e.ID), Name: e.Name, AirDate: air, Monitored: boolInt(on),
-			PrimaryName: e.PrimaryName,
+			PrimaryName: e.PrimaryName, Overview: e.Overview,
 		}); err != nil {
 			return 0, nil, err
 		}
@@ -257,6 +260,19 @@ func insertSeries(ctx context.Context, q *db.Queries, a AddSeries, nowT time.Tim
 		}
 	}
 	return id, seasons, nil
+}
+
+// setSeriesAiring stores a Series' network (TMDB's, else TheTVDB's), its
+// TheTVDB status and its air time with the zone it is in. What the providers
+// do not say leaves the stored value alone.
+func setSeriesAiring(ctx context.Context, q *db.Queries, id int64, d metadata.SeriesDetails, tv metadata.TVDBSeries) error {
+	network := d.Network
+	if network == "" {
+		network = tv.Network
+	}
+	return q.SetSeriesAiring(ctx, db.SetSeriesAiringParams{
+		Network: network, TvdbStatus: tv.Status, AirTime: tv.AirsTime, AirTimezone: tv.AirsTimezone, ID: id,
+	})
 }
 
 // fileEp is a file covering an episode of a Version.
@@ -331,7 +347,7 @@ func (s *Service) Episodes(ctx context.Context, titleID int64, view View) ([]Epi
 	if err != nil {
 		return nil, err
 	}
-	released := releasedOf(eps, filed)
+	released := releasedOf(eps, filed, airClockOf(t))
 	all, err := q.ListAllFileEpisodesOfTitle(ctx, titleID)
 	if err != nil {
 		return nil, err

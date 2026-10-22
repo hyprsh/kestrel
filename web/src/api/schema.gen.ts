@@ -1059,11 +1059,14 @@ export interface paths {
         };
         /**
          * Upcoming
-         * @description The agenda for a window of days (both ends included; default today to 30 days on, in UTC).
-         *     Monitored episodes airing in the window, and for each monitored Movie with an unfilled Version
-         *     its theatrical, digital and physical dates in the release-date country (falling back to the
-         *     US, then the earliest anywhere) that lie in the window. A Movie that cannot be searched yet
-         *     says from when it can (`searchable_from`). Oldest day first (Settled 18).
+         * @description The timeline for a window of days (both ends included; default today to 30 days on, in UTC).
+         *     Monitored episodes airing in the window, and for each monitored Movie its theatrical, digital
+         *     and physical dates in the release-date country (falling back to the US, then the earliest
+         *     anywhere) that lie in the window. A Movie date that is today or later is listed only while a
+         *     Version holds no file; an earlier one, like an episode, stays once it is filled. Each entry says
+         *     where every Version of its Title stands (`slots`). A Movie that cannot be searched yet says from
+         *     when it can (`searchable_from`). Oldest day first (Settled 18). `undated` lists the monitored Titles
+         *     with something expected but no date yet, whatever the window.
          */
         get: operations["listUpcoming"];
         put?: never;
@@ -3389,8 +3392,87 @@ export interface components {
             /** Format: date */
             to: string;
             items: components["schemas"]["UpcomingItem"][];
+            /** @description Monitored Titles with something expected but no date yet, by name. Always present; clients tolerate its absence. */
+            undated?: components["schemas"]["UndatedItem"][];
         };
+        /** @description Where one Version of a Title stands for an entry. A Grab in flight is live state clients read off `GET /queue` and the stream. */
+        UpcomingSlot: {
+            slot: components["schemas"]["Slot"];
+            /** Format: int64 */
+            version_id: number;
+            /**
+             * @description `not_out`: nothing to do until it airs or is released. `wanted`: out and monitored, with no file.
+             *     `imported`: a file fills it. Clients tolerate new values.
+             * @enum {string}
+             */
+            state: "not_out" | "wanted" | "imported";
+            /**
+             * Format: date-time
+             * @description Since when a `wanted` Version has been Wanted.
+             */
+            wanted_since: string | null;
+            /** @description Whether a `wanted` Version has been Wanted for more than 90 days. */
+            long_missing: boolean;
+            /** @description The quality of an `imported` Version's file ("WEBDL-1080p"), when known. */
+            quality: string | null;
+        };
+        UpcomingDate: {
+            /** @enum {string} */
+            release_type: "theatrical" | "digital" | "physical";
+            /** Format: date */
+            date: string;
+        };
+        /** @description A monitored Title with something expected but no date yet. */
+        UndatedItem: {
+            kind: components["schemas"]["TitleKind"];
+            /** Format: int64 */
+            title_id: number;
+            title: string;
+            year: number | null;
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. */
+            has_poster: boolean;
+            network: string | null;
+            /**
+             * @description `no_air_date`: monitored episodes TheTVDB gives no air date. `no_release_date`: a Movie with no release
+             *     date anywhere. `announced`: a Series TheTVDB marks `upcoming`. Clients tolerate new values.
+             * @enum {string}
+             */
+            reason: "no_air_date" | "no_release_date" | "announced";
+            /** @description How many monitored episodes have no air date; 0 unless `reason` is `no_air_date`. */
+            episodes: number;
+            slots: components["schemas"]["UpcomingSlot"][];
+        };
+        /**
+         * @description An episode airing or one release date of a Movie. Next to the original fields, every entry
+         *     carries the context and state below (all of them present in responses from this version on;
+         *     they are not in `required` because they were added after `v1` shipped, and clients tolerate their absence).
+         */
         UpcomingItem: {
+            /**
+             * Format: int64
+             * @description The episode's id, for Search now narrowed to it (`episode_ids`); null for a Movie.
+             */
+            episode_id?: number | null;
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. */
+            has_poster?: boolean;
+            /** @description A Series' network, stored on refresh; null for a Movie or when unknown. */
+            network?: string | null;
+            /** @description The episode's synopsis, else the Title's; null when there is none. */
+            overview?: string | null;
+            /**
+             * Format: date-time
+             * @description When an episode airs, from its air date and the Series' air time in its network's time zone.
+             *     Null for a Movie, or when no air time is known (the episode then airs on `date`).
+             */
+            air_at?: string | null;
+            /** @description What makes an episode worth a mention; empty for a Movie. Clients tolerate new values. */
+            markers?: ("series_premiere" | "season_premiere" | "season_finale" | "special")[];
+            /** @description One entry per Version of the Title, Standard first. */
+            slots?: components["schemas"]["UpcomingSlot"][];
+            /** @description For a Movie, whether this release is the one that makes it searchable (its digital or physical date on `searchable_from`). */
+            searchable?: boolean;
+            /** @description For a Movie, all its typed release dates in the release-date country, earliest first; empty for an episode. */
+            dates?: components["schemas"]["UpcomingDate"][];
             /** Format: date */
             date: string;
             kind: components["schemas"]["TitleKind"];

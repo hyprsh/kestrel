@@ -3,7 +3,7 @@
     "series": {"id": 81189, "name": "Breaking Bad"},
     "episodes": [
       {"id": 900001, "seriesId": 81189, "name": "Good Cop Bad Cop", "aired": "2009-02-17", "number": 1, "seasonNumber": 0},
-      {"id": 349232, "seriesId": 81189, "name": "Pilot", "aired": "2008-01-20", "number": 1, "seasonNumber": 1},
+      {"id": 349232, "seriesId": 81189, "name": "Pilot", "overview": "  A chemistry teacher cooks.  ", "aired": "2008-01-20", "number": 1, "seasonNumber": 1},
       {"id": 349233, "seriesId": 81189, "name": "Cat's in the Bag...", "aired": "2008-01-27", "number": 2, "seasonNumber": 1},
       {"id": 349234, "seriesId": 81189, "name": "...And the Bag's in the River", "aired": "2008-02-10", "number": 3, "seasonNumber": 1}
     ]

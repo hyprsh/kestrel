@@ -178,6 +178,9 @@ func (s *Service) RefreshSeries(ctx context.Context, id int64, r SeriesRefresh) 
 	if err != nil {
 		return Refreshed{}, err
 	}
+	if err := setSeriesAiring(ctx, q, id, d, r.TVDB); err != nil {
+		return Refreshed{}, err
+	}
 	if err := s.refreshEpisodes(ctx, q, id, r.TVDB.Episodes, r.Fetching); err != nil {
 		return Refreshed{}, err
 	}
@@ -261,9 +264,13 @@ func (s *Service) refreshEpisodes(ctx context.Context, q *db.Queries, id int64, 
 		if primary == "" {
 			primary = c.ep.PrimaryName // the translated titles could not be fetched: keep the stored one
 		}
+		overview := c.fresh.Overview
+		if overview == "" {
+			overview = c.ep.Overview
+		}
 		if err := q.UpdateEpisode(ctx, db.UpdateEpisodeParams{
 			Season: int64(c.fresh.Season), Number: int64(c.fresh.Number), TvdbID: tvdb, Name: c.fresh.Name, AirDate: airOf(c.fresh),
-			PrimaryName: primary, ID: c.ep.ID,
+			PrimaryName: primary, Overview: overview, ID: c.ep.ID,
 		}); err != nil {
 			return err
 		}
@@ -286,7 +293,7 @@ func (s *Service) refreshEpisodes(ctx context.Context, q *db.Queries, id int64, 
 		on := mode.Valid() && mode.MonitorsEpisode(f.Season, f.Aired, now)
 		if err := q.InsertEpisode(ctx, db.InsertEpisodeParams{
 			TitleID: id, Season: int64(f.Season), Number: int64(f.Number), TvdbID: nullInt(f.ID), Name: f.Name, AirDate: airOf(f), Monitored: boolInt(on),
-			PrimaryName: f.PrimaryName,
+			PrimaryName: f.PrimaryName, Overview: f.Overview,
 		}); err != nil {
 			return err
 		}

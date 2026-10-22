@@ -50,7 +50,7 @@ _Avoid_: Multi-audio, DL or MULTi (unexpanded)
 Replacing a Version's file with a better-scoring Release. Monitored Versions never stop upgrading; there is no cutoff. An unmonitored Title, or an unmonitored episode of a Series, is not Upgraded.
 
 **Wanted**:
-A monitored, released Version, or episode of a Series Version, that has no file or whose file no longer fits its Profile. An episode counts as released once it has aired, once it is a Placeholder Episode, or, without an air date, once a later episode of its Series is out. A Movie with no release date anywhere counts as released once a Release for it has been seen. Unmonitored and unreleased ones are not Wanted, and a filled Version waiting for an Upgrade is not Wanted either.
+A monitored, released Version, or episode of a Series Version, that has no file or whose file no longer fits its Profile. An episode counts as released once it has aired (at its air time in its network's time zone, else from the start of its air date), once it is a Placeholder Episode, or, without an air date, once a later episode of its Series is out. A Movie with no release date anywhere counts as released once a Release for it has been seen. Unmonitored and unreleased ones are not Wanted, and a filled Version waiting for an Upgrade is not Wanted either.
 _Avoid_: Missing (for the whole set), cutoff unmet
 
 **Long Missing**:
@@ -113,7 +113,7 @@ An ask from outside Kestrel, such as from a Silo user, for a Title in one or mor
 _Avoid_: Add (for Requests), order
 
 **Upcoming**:
-The list of episodes and movie releases expected soon, standing in for a calendar.
+The timeline around today of episodes and movie releases, from the last two weeks to the next two months, with where each stands (not out yet, Wanted, downloading, Imported) and, after it, the Titles with no date yet. It stands in for a calendar.
 _Avoid_: Calendar
 
 ### Deployment

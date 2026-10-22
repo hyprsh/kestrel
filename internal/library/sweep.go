@@ -176,7 +176,7 @@ func (s *Service) sweepRows(ctx context.Context, now time.Time) ([]sweepRow, err
 		} else {
 			released, ok := releasedBy[t.ID]
 			if !ok {
-				released = releasedOf(epsOf[t.ID], filed)
+				released = releasedOf(epsOf[t.ID], filed, airClockOf(t))
 				releasedBy[t.ID] = released
 			}
 			var season []db.Episode

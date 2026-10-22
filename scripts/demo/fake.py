@@ -100,7 +100,7 @@ SERIES = {
     1396: dict(name="Breaking Bad", tvdb=81189, imdb="tt0903747", date="2008-01-20", last="2013-09-29", status="Ended",
                va=8.9, vc=14523, network="AMC", runtime=47, genres=["Drama", "Crime"], de="Breaking Bad",
                overview="Walter White, a New Mexico chemistry teacher, is diagnosed with Stage III cancer and given a prognosis of only two years left to live. He becomes filled with a sense of fearlessness and an unrelenting desire to secure his family's financial future at any cost as he enters the dangerous world of drugs and crime.",
-               eps=bb_episodes, cert=[("US", "TV-MA"), ("DE", "16")]),
+               eps=bb_episodes, cert=[("US", "TV-MA"), ("DE", "16")], airs="21:00"),
     1668: dict(name="Friends", tvdb=79168, imdb="tt0108778", date="1994-09-22", last="2004-05-06", status="Ended",
                va=8.4, vc=9128, network="NBC", runtime=22, genres=["Comedy", "Drama"], de="Friends",
                overview="Six young people from New York City, on their own and struggling to survive in the real world, find the companionship, comfort and support they get from each other to be the perfect antidote to the pressures of life.",
@@ -113,7 +113,7 @@ SERIES = {
     60059: dict(name="Better Call Saul", tvdb=273181, imdb="tt3032476", date="2015-02-08", last="2022-08-15", status="Ended",
                 va=8.7, vc=5611, network="AMC", runtime=46, genres=["Crime", "Drama"], de="Better Call Saul",
                 overview="Six years before Saul Goodman meets Walter White. We meet him when the man who will become Saul Goodman is known as Jimmy McGill, a small-time lawyer searching for his destiny, and, more immediately, hustling to make ends meet.",
-                eps=lambda: generic_eps(273181, [10, 10, 10, 10, 10, 13], 2015, "Episode"), cert=[("US", "TV-MA")]),
+                eps=lambda: generic_eps(273181, [10, 10, 10, 10, 10, 13], 2015, "Episode"), cert=[("US", "TV-MA")], airs="22:00"),
     61814: dict(name="The Adventures of Paddington Bear", tvdb=76543, imdb="tt0461612", date="1997-09-07", last="2000-03-01",
                 status="Ended", va=6.9, vc=31, network="Teletoon", runtime=22, genres=["Animation", "Family"], de="Die Abenteuer von Paddington Bär",
                 overview="Animated adventures of the bear from darkest Peru who lives with the Brown family in London.",
@@ -348,15 +348,18 @@ class H(BaseHTTPRequestHandler):
                 return self.send(500, {"status": "failure", "message": "Internal Server Error"})
             if s.get("slow"):
                 time.sleep(25)
-            if len(parts) == 2:
+            if len(parts) == 2 or parts[2] == "extended":  # the extended record adds the air time and the network
                 return self.send(200, {"status": "success", "data": {
                     "id": tid, "name": s["name"], "firstAired": s["date"], "lastAired": s["last"],
-                    "status": {"name": s["status"]}, "year": s["date"][:4], "originalLanguage": "eng", "aliases": []}})
+                    "status": {"name": s["status"]}, "year": s["date"][:4], "originalLanguage": "eng", "aliases": [],
+                    "originalCountry": "usa", "airsTime": s.get("airs", ""),
+                    "originalNetwork": {"name": s["network"], "country": "usa"}}})
             eps = s["eps"]()
             lang = parts[4] if len(parts) > 4 else None
             out = []
             for e in eps:
                 d = {k: e[k] for k in ("id", "seriesId", "name", "aired", "number", "seasonNumber")}
+                d["overview"] = f"Season {e['seasonNumber']}, episode {e['number']} of {s['name']}: {e['name']}." if e["name"] else ""
                 if lang == "deu":
                     d["name"] = e["de"]
                 elif lang:

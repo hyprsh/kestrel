@@ -123,7 +123,7 @@ type Library interface {
 	SearchWanted(ctx context.Context, titleIDs []int64) (map[int64]int, error)
 	RequestSearch(ctx context.Context, versionID int64) error
 	LongMissing(ctx context.Context, view library.View) ([]library.LongMissingItem, error)
-	Upcoming(ctx context.Context, view library.View, from, to time.Time) ([]library.UpcomingEntry, error)
+	Upcoming(ctx context.Context, view library.View, from, to time.Time) (library.Agenda, error)
 	RecentImports(ctx context.Context, n int) ([]library.RecentImport, error)
 	CountRecentImports(ctx context.Context, now time.Time) (int, error)
 	List(ctx context.Context, view library.View, f library.Filter) ([]library.Row, error)

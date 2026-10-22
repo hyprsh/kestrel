@@ -32,6 +32,8 @@ type Episode struct {
 	// translated titles could not be fetched: an add then shows Name, and a
 	// refresh keeps the stored title.
 	PrimaryName string
+	// Overview is TheTVDB's synopsis of the episode; "" when it has none.
+	Overview string
 }
 
 // TVDBSeries is a Series on TheTVDB with every episode in aired order.
@@ -43,6 +45,14 @@ type TVDBSeries struct {
 	// OriginalLanguage is TheTVDB's ISO 639-2/T code ("eng"); "" when it has none.
 	OriginalLanguage string
 	Status           string // "continuing", "ended" or "upcoming" as TheTVDB says, lower-cased; "" when unknown
+	// Network is the network TheTVDB lists for the Series; "" when it lists none.
+	Network string
+	// AirsTime is the time of day ("21:00") the Series airs at, in AirsTimezone;
+	// "" when TheTVDB has none. AirsTimezone is the IANA zone of the Series'
+	// network, worked out from the network's (else the Series') country; "" when
+	// that is not one Kestrel knows, in which case AirsTime is no use.
+	AirsTime     string
+	AirsTimezone string
 }
 
 // TVDBProvider is what callers need of TheTVDB; *TVDB satisfies it and tests can swap it.
@@ -199,6 +209,54 @@ func airDate(s string) *time.Time {
 	return &t
 }
 
+// tvdbCompany is a network or other company on a TheTVDB record.
+type tvdbCompany struct {
+	Name    string `json:"name"`
+	Country string `json:"country"`
+}
+
+// airsTime reads TheTVDB's "21:00" as "HH:MM"; ok is false for "" or anything else.
+func airsTime(s string) (string, bool) {
+	t, err := time.Parse("15:04", strings.TrimSpace(s))
+	if err != nil {
+		return "", false
+	}
+	return t.Format("15:04"), true
+}
+
+// networkZones are the IANA time zones of the countries whose networks the
+// household is likely to follow, by the ISO 3166 codes TheTVDB uses (alpha-3,
+// lower-case; alpha-2 is read too). A country with several zones is given its
+// main broadcast one: a US network airs on Eastern time.
+var networkZones = map[string]string{
+	"usa": "America/New_York", "us": "America/New_York",
+	"gbr": "Europe/London", "gb": "Europe/London", "uk": "Europe/London",
+	"can": "America/Toronto", "ca": "America/Toronto",
+	"aus": "Australia/Sydney", "au": "Australia/Sydney",
+	"nzl": "Pacific/Auckland", "nz": "Pacific/Auckland",
+	"irl": "Europe/Dublin", "ie": "Europe/Dublin",
+	"deu": "Europe/Berlin", "de": "Europe/Berlin",
+	"aut": "Europe/Vienna", "at": "Europe/Vienna",
+	"che": "Europe/Zurich", "ch": "Europe/Zurich",
+	"fra": "Europe/Paris", "fr": "Europe/Paris",
+	"esp": "Europe/Madrid", "es": "Europe/Madrid",
+	"ita": "Europe/Rome", "it": "Europe/Rome",
+	"nld": "Europe/Amsterdam", "nl": "Europe/Amsterdam",
+	"bel": "Europe/Brussels", "be": "Europe/Brussels",
+	"swe": "Europe/Stockholm", "se": "Europe/Stockholm",
+	"nor": "Europe/Oslo", "no": "Europe/Oslo",
+	"dnk": "Europe/Copenhagen", "dk": "Europe/Copenhagen",
+	"fin": "Europe/Helsinki", "fi": "Europe/Helsinki",
+	"pol": "Europe/Warsaw", "pl": "Europe/Warsaw",
+	"jpn": "Asia/Tokyo", "jp": "Asia/Tokyo",
+	"kor": "Asia/Seoul", "kr": "Asia/Seoul",
+}
+
+// timezoneOfCountry is the IANA zone of a country's networks; "" when unknown.
+func timezoneOfCountry(code string) string {
+	return networkZones[strings.ToLower(strings.TrimSpace(code))]
+}
+
 // Series fetches the series with its aliases and every episode of the official
 // (aired) order, following the pages.
 func (c *TVDB) Series(ctx context.Context, id int) (TVDBSeries, error) {
@@ -213,15 +271,36 @@ func (c *TVDB) Series(ctx context.Context, id int) (TVDBSeries, error) {
 			Status *struct {
 				Name string `json:"name"`
 			} `json:"status"`
+			AirsTime        string       `json:"airsTime"`
+			OriginalCountry string       `json:"originalCountry"`
+			OriginalNetwork *tvdbCompany `json:"originalNetwork"`
+			LatestNetwork   *tvdbCompany `json:"latestNetwork"`
 		} `json:"data"`
 	}
 	sid := strconv.Itoa(id)
-	if err := c.get(ctx, "/series/"+sid, &head); err != nil {
+	// The extended record is the base one plus the air time and the networks.
+	if err := c.get(ctx, "/series/"+sid+"/extended?short=true", &head); err != nil {
 		return TVDBSeries{}, err
 	}
 	out := TVDBSeries{ID: head.Data.ID, Name: head.Data.Name, OriginalLanguage: head.Data.OriginalLanguage}
 	if head.Data.Status != nil {
 		out.Status = strings.ToLower(head.Data.Status.Name)
+	}
+	network := head.Data.LatestNetwork
+	if network == nil || network.Name == "" {
+		network = head.Data.OriginalNetwork
+	}
+	country := head.Data.OriginalCountry
+	if network != nil {
+		out.Network = network.Name
+		if network.Country != "" {
+			country = network.Country
+		}
+	}
+	if at, ok := airsTime(head.Data.AirsTime); ok {
+		if zone := timezoneOfCountry(country); zone != "" {
+			out.AirsTime, out.AirsTimezone = at, zone
+		}
 	}
 	for _, a := range head.Data.Aliases {
 		if a.Name != "" {
@@ -232,11 +311,12 @@ func (c *TVDB) Series(ctx context.Context, id int) (TVDBSeries, error) {
 		var res struct {
 			Data struct {
 				Episodes []struct {
-					ID     int     `json:"id"`
-					Name   string  `json:"name"`
-					Aired  *string `json:"aired"`
-					Number int     `json:"number"`
-					Season int     `json:"seasonNumber"`
+					ID       int     `json:"id"`
+					Name     string  `json:"name"`
+					Aired    *string `json:"aired"`
+					Number   int     `json:"number"`
+					Season   int     `json:"seasonNumber"`
+					Overview *string `json:"overview"`
 				} `json:"episodes"`
 			} `json:"data"`
 			Links struct {
@@ -249,6 +329,9 @@ func (c *TVDB) Series(ctx context.Context, id int) (TVDBSeries, error) {
 		}
 		for _, e := range res.Data.Episodes {
 			ep := Episode{ID: e.ID, Season: e.Season, Number: e.Number, Name: e.Name}
+			if e.Overview != nil {
+				ep.Overview = strings.TrimSpace(*e.Overview)
+			}
 			if e.Aired != nil {
 				ep.Aired = airDate(*e.Aired)
 			}

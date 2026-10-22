@@ -1036,6 +1036,72 @@ func (e TitlesBulkSwitchProfileAction) Valid() bool {
 	}
 }
 
+// Defines values for UndatedItemReason.
+const (
+	Announced     UndatedItemReason = "announced"
+	NoAirDate     UndatedItemReason = "no_air_date"
+	NoReleaseDate UndatedItemReason = "no_release_date"
+)
+
+// Valid indicates whether the value is a known member of the UndatedItemReason enum.
+func (e UndatedItemReason) Valid() bool {
+	switch e {
+	case Announced:
+		return true
+	case NoAirDate:
+		return true
+	case NoReleaseDate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpcomingDateReleaseType.
+const (
+	UpcomingDateReleaseTypeDigital    UpcomingDateReleaseType = "digital"
+	UpcomingDateReleaseTypePhysical   UpcomingDateReleaseType = "physical"
+	UpcomingDateReleaseTypeTheatrical UpcomingDateReleaseType = "theatrical"
+)
+
+// Valid indicates whether the value is a known member of the UpcomingDateReleaseType enum.
+func (e UpcomingDateReleaseType) Valid() bool {
+	switch e {
+	case UpcomingDateReleaseTypeDigital:
+		return true
+	case UpcomingDateReleaseTypePhysical:
+		return true
+	case UpcomingDateReleaseTypeTheatrical:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpcomingItemMarkers.
+const (
+	SeasonFinale   UpcomingItemMarkers = "season_finale"
+	SeasonPremiere UpcomingItemMarkers = "season_premiere"
+	SeriesPremiere UpcomingItemMarkers = "series_premiere"
+	Special        UpcomingItemMarkers = "special"
+)
+
+// Valid indicates whether the value is a known member of the UpcomingItemMarkers enum.
+func (e UpcomingItemMarkers) Valid() bool {
+	switch e {
+	case SeasonFinale:
+		return true
+	case SeasonPremiere:
+		return true
+	case SeriesPremiere:
+		return true
+	case Special:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UpcomingItemReleaseType.
 const (
 	UpcomingItemReleaseTypeDigital    UpcomingItemReleaseType = "digital"
@@ -1051,6 +1117,27 @@ func (e UpcomingItemReleaseType) Valid() bool {
 	case UpcomingItemReleaseTypePhysical:
 		return true
 	case UpcomingItemReleaseTypeTheatrical:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpcomingSlotState.
+const (
+	UpcomingSlotStateImported UpcomingSlotState = "imported"
+	UpcomingSlotStateNotOut   UpcomingSlotState = "not_out"
+	UpcomingSlotStateWanted   UpcomingSlotState = "wanted"
+)
+
+// Valid indicates whether the value is a known member of the UpcomingSlotState enum.
+func (e UpcomingSlotState) Valid() bool {
+	switch e {
+	case UpcomingSlotStateImported:
+		return true
+	case UpcomingSlotStateNotOut:
+		return true
+	case UpcomingSlotStateWanted:
 		return true
 	default:
 		return false
@@ -3248,6 +3335,29 @@ type TitlesBulkSwitchProfile struct {
 // TitlesBulkSwitchProfileAction defines model for TitlesBulkSwitchProfile.Action.
 type TitlesBulkSwitchProfileAction string
 
+// UndatedItem A monitored Title with something expected but no date yet.
+type UndatedItem struct {
+	// Episodes How many monitored episodes have no air date; 0 unless `reason` is `no_air_date`.
+	Episodes int `json:"episodes"`
+
+	// HasPoster Whether `GET /titles/{id}/poster` serves a poster for the Title.
+	HasPoster bool      `json:"has_poster"`
+	Kind      TitleKind `json:"kind"`
+	Network   *string   `json:"network"`
+
+	// Reason `no_air_date`: monitored episodes TheTVDB gives no air date. `no_release_date`: a Movie with no release
+	// date anywhere. `announced`: a Series TheTVDB marks `upcoming`. Clients tolerate new values.
+	Reason  UndatedItemReason `json:"reason"`
+	Slots   []UpcomingSlot    `json:"slots"`
+	Title   string            `json:"title"`
+	TitleId int64             `json:"title_id"`
+	Year    *int              `json:"year"`
+}
+
+// UndatedItemReason `no_air_date`: monitored episodes TheTVDB gives no air date. `no_release_date`: a Movie with no release
+// date anywhere. `announced`: a Series TheTVDB marks `upcoming`. Clients tolerate new values.
+type UndatedItemReason string
+
 // UntrustedProxyHeader defines model for UntrustedProxyHeader.
 type UntrustedProxyHeader struct {
 	Count    int       `json:"count"`
@@ -3258,12 +3368,44 @@ type UntrustedProxyHeader struct {
 	Value string `json:"value"`
 }
 
-// UpcomingItem defines model for UpcomingItem.
+// UpcomingDate defines model for UpcomingDate.
+type UpcomingDate struct {
+	Date        openapi_types.Date      `json:"date"`
+	ReleaseType UpcomingDateReleaseType `json:"release_type"`
+}
+
+// UpcomingDateReleaseType defines model for UpcomingDate.ReleaseType.
+type UpcomingDateReleaseType string
+
+// UpcomingItem An episode airing or one release date of a Movie. Next to the original fields, every entry
+// carries the context and state below (all of them present in responses from this version on;
+// they are not in `required` because they were added after `v1` shipped, and clients tolerate their absence).
 type UpcomingItem struct {
-	Date        openapi_types.Date `json:"date"`
-	Episode     *int               `json:"episode"`
-	EpisodeName *string            `json:"episode_name"`
-	Kind        TitleKind          `json:"kind"`
+	// AirAt When an episode airs, from its air date and the Series' air time in its network's time zone.
+	// Null for a Movie, or when no air time is known (the episode then airs on `date`).
+	AirAt *time.Time         `json:"air_at,omitempty"`
+	Date  openapi_types.Date `json:"date"`
+
+	// Dates For a Movie, all its typed release dates in the release-date country, earliest first; empty for an episode.
+	Dates   *[]UpcomingDate `json:"dates,omitempty"`
+	Episode *int            `json:"episode"`
+
+	// EpisodeId The episode's id, for Search now narrowed to it (`episode_ids`); null for a Movie.
+	EpisodeId   *int64  `json:"episode_id,omitempty"`
+	EpisodeName *string `json:"episode_name"`
+
+	// HasPoster Whether `GET /titles/{id}/poster` serves a poster for the Title.
+	HasPoster *bool     `json:"has_poster,omitempty"`
+	Kind      TitleKind `json:"kind"`
+
+	// Markers What makes an episode worth a mention; empty for a Movie. Clients tolerate new values.
+	Markers *[]UpcomingItemMarkers `json:"markers,omitempty"`
+
+	// Network A Series' network, stored on refresh; null for a Movie or when unknown.
+	Network *string `json:"network,omitempty"`
+
+	// Overview The episode's synopsis, else the Title's; null when there is none.
+	Overview *string `json:"overview,omitempty"`
 
 	// ReleaseType Which release a Movie's `date` is; null for an episode.
 	ReleaseType *UpcomingItemReleaseType `json:"release_type"`
@@ -3271,13 +3413,22 @@ type UpcomingItem struct {
 	// Released For a Movie, whether it is already searchable (false means "searchable from `searchable_from`"). Always true for an episode.
 	Released bool `json:"released"`
 
+	// Searchable For a Movie, whether this release is the one that makes it searchable (its digital or physical date on `searchable_from`).
+	Searchable *bool `json:"searchable,omitempty"`
+
 	// SearchableFrom For a Movie, the day it becomes searchable in the release-date country; null for an episode or when unknown.
 	SearchableFrom *openapi_types.Date `json:"searchable_from"`
 	Season         *int                `json:"season"`
-	Title          string              `json:"title"`
-	TitleId        int64               `json:"title_id"`
-	Year           *int                `json:"year"`
+
+	// Slots One entry per Version of the Title, Standard first.
+	Slots   *[]UpcomingSlot `json:"slots,omitempty"`
+	Title   string          `json:"title"`
+	TitleId int64           `json:"title_id"`
+	Year    *int            `json:"year"`
 }
+
+// UpcomingItemMarkers defines model for UpcomingItem.Markers.
+type UpcomingItemMarkers string
 
 // UpcomingItemReleaseType Which release a Movie's `date` is; null for an episode.
 type UpcomingItemReleaseType string
@@ -3287,7 +3438,32 @@ type UpcomingList struct {
 	From  openapi_types.Date `json:"from"`
 	Items []UpcomingItem     `json:"items"`
 	To    openapi_types.Date `json:"to"`
+
+	// Undated Monitored Titles with something expected but no date yet, by name. Always present; clients tolerate its absence.
+	Undated *[]UndatedItem `json:"undated,omitempty"`
 }
+
+// UpcomingSlot Where one Version of a Title stands for an entry. A Grab in flight is live state clients read off `GET /queue` and the stream.
+type UpcomingSlot struct {
+	// LongMissing Whether a `wanted` Version has been Wanted for more than 90 days.
+	LongMissing bool `json:"long_missing"`
+
+	// Quality The quality of an `imported` Version's file ("WEBDL-1080p"), when known.
+	Quality *string `json:"quality"`
+	Slot    Slot    `json:"slot"`
+
+	// State `not_out`: nothing to do until it airs or is released. `wanted`: out and monitored, with no file.
+	// `imported`: a file fills it. Clients tolerate new values.
+	State     UpcomingSlotState `json:"state"`
+	VersionId int64             `json:"version_id"`
+
+	// WantedSince Since when a `wanted` Version has been Wanted.
+	WantedSince *time.Time `json:"wanted_since"`
+}
+
+// UpcomingSlotState `not_out`: nothing to do until it airs or is released. `wanted`: out and monitored, with no file.
+// `imported`: a file fills it. Clients tolerate new values.
+type UpcomingSlotState string
 
 // UpdateAvailable defines model for UpdateAvailable.
 type UpdateAvailable struct {

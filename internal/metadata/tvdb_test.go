@@ -41,7 +41,7 @@ func TestTVDBSeriesInAiredOrderAcrossPages(t *testing.T) {
 		t.Errorf("an episode without an air date has none, got %v", s.Episodes[6].Aired)
 	}
 	paths := srv.Requests()
-	want := []string{"POST /v4/login", "GET /v4/series/81189", "GET /v4/series/81189/episodes/official?page=0", "GET /v4/series/81189/episodes/official?page=1"}
+	want := []string{"POST /v4/login", "GET /v4/series/81189/extended?short=true", "GET /v4/series/81189/episodes/official?page=0", "GET /v4/series/81189/episodes/official?page=1"}
 	if len(paths) != len(want) {
 		t.Fatalf("requests = %v, want %v", paths, want)
 	}
@@ -49,6 +49,31 @@ func TestTVDBSeriesInAiredOrderAcrossPages(t *testing.T) {
 		if paths[i] != want[i] {
 			t.Errorf("request %d = %q, want %q", i, paths[i], want[i])
 		}
+	}
+}
+
+func TestTVDBSeriesCarriesTheAirTimeNetworkAndEpisodeOverviews(t *testing.T) {
+	tv, _ := newTVDB(t, metadatatest.TVDBKey)
+	s, err := tv.Series(context.Background(), 81189)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Status != "ended" || s.Network != "AMC" || s.AirsTime != "21:00" || s.AirsTimezone != "America/New_York" {
+		t.Errorf("status %q, network %q, air time %q in %q; want ended, AMC, 21:00 in America/New_York", s.Status, s.Network, s.AirsTime, s.AirsTimezone)
+	}
+	if got := s.Episodes[1].Overview; got != "A chemistry teacher cooks." {
+		t.Errorf("Pilot overview = %q, want it trimmed", got)
+	}
+}
+
+func TestTVDBSeriesWithoutAnAirTimeOrAKnownNetworkCountryHasNone(t *testing.T) {
+	tv, _ := newTVDB(t, metadatatest.TVDBKey)
+	s, err := tv.Series(context.Background(), 300001)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.AirsTime != "" || s.AirsTimezone != "" {
+		t.Errorf("air time %q in %q, want none", s.AirsTime, s.AirsTimezone)
 	}
 }
 

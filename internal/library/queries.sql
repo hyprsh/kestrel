@@ -61,20 +61,26 @@ SELECT id FROM titles WHERE kind = 'series' AND tvdb_id = ?;
 INSERT INTO seasons (title_id, number, monitored) VALUES (?, ?, ?);
 
 -- name: InsertEpisode :exec
-INSERT INTO episodes (title_id, season, number, tvdb_id, name, air_date, monitored, primary_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO episodes (title_id, season, number, tvdb_id, name, air_date, monitored, primary_name, overview) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: ListSeasonsOfTitle :many
 SELECT title_id, number, monitored FROM seasons WHERE title_id = ? ORDER BY number;
 
 -- name: ListEpisodes :many
-SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name, placeholder_at FROM episodes ORDER BY title_id, season, number;
+SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name, placeholder_at, overview FROM episodes ORDER BY title_id, season, number;
 
 -- name: ListEpisodesOfTitle :many
-SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name, placeholder_at FROM episodes WHERE title_id = ? ORDER BY season, number;
+SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name, placeholder_at, overview FROM episodes WHERE title_id = ? ORDER BY season, number;
 
 -- A misfit file (it fails its Profile's gates) does not hold its episodes: they are Wanted again, as a misfit Movie is.
 -- name: ListFileEpisodes :many
 SELECT f.version_id, fe.episode_id, f.score FROM file_episodes fe JOIN files f ON f.id = fe.file_id
+WHERE f.id NOT IN (SELECT file_id FROM file_misfits);
+
+-- The Release each Version's file for an episode was parsed from, misfits left out as above.
+-- name: ListFileEpisodeReleases :many
+SELECT f.version_id, fe.episode_id, f.parsed_release
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id
 WHERE f.id NOT IN (SELECT file_id FROM file_misfits);
 
 -- name: ListFileEpisodesOfTitle :many
@@ -223,6 +229,15 @@ UPDATE titles SET title = ?, original_title = ?, primary_title = ?, year = ?,
     tmdb_vote_average = ?, tmdb_vote_count = ?
 WHERE id = ?;
 
+-- What a refresh learned of a Series' network, status and air time. A value it
+-- could not learn ('') leaves the stored one alone.
+-- name: SetSeriesAiring :exec
+UPDATE titles SET network = COALESCE(NULLIF(sqlc.arg(network), ''), network),
+    tvdb_status = COALESCE(NULLIF(sqlc.arg(tvdb_status), ''), tvdb_status),
+    air_time = COALESCE(NULLIF(sqlc.arg(air_time), ''), air_time),
+    air_timezone = COALESCE(NULLIF(sqlc.arg(air_timezone), ''), air_timezone)
+WHERE id = sqlc.arg(id);
+
 -- name: DeleteAliasesOfTitle :exec
 DELETE FROM title_aliases WHERE title_id = ?;
 
@@ -231,7 +246,7 @@ DELETE FROM title_release_dates WHERE title_id = ?;
 
 -- name: UpdateEpisode :exec
 -- TheTVDB lists every episode it updates, so a Placeholder Episode it matches is adopted.
-UPDATE episodes SET season = ?, number = ?, tvdb_id = ?, name = ?, air_date = ?, primary_name = ?, placeholder_at = NULL
+UPDATE episodes SET season = ?, number = ?, tvdb_id = ?, name = ?, air_date = ?, primary_name = ?, overview = ?, placeholder_at = NULL
 WHERE id = ?;
 
 -- name: InsertPlaceholderEpisode :exec
@@ -274,11 +289,6 @@ UPDATE files SET path = ? WHERE id = ?;
 -- name: ForceTitleFolder :exec
 UPDATE titles SET folder = ? WHERE id = ?;
 
--- name: ListEpisodesAiring :many
-SELECT e.id, e.title_id, e.season, e.number, e.name, e.air_date
-FROM episodes e JOIN titles t ON t.id = e.title_id
-WHERE t.monitored = 1 AND e.monitored = 1 AND e.air_date >= ? AND e.air_date <= ?
-ORDER BY e.air_date, e.title_id, e.season, e.number;
 
 -- name: ListRecentFiles :many
 SELECT f.id, f.version_id, v.title_id, v.slot, f.release_name, f.score, f.grab_id, f.imported_at, COALESCE(g.is_upgrade, 0) AS is_upgrade, r.score AS replaced_score

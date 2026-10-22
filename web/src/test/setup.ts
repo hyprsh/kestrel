@@ -8,6 +8,7 @@ beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
 afterEach(() => {
   cleanup()
   server.resetHandlers()
+  sessionStorage.clear()
   localStorage.clear() // remembered UI state (open seasons, theme) must not leak into the next test
   history.replaceState(null, '', '/') // nor the screen and filter in the address bar
 })

@@ -52,6 +52,7 @@ type Episode struct {
 	Monitored     int64
 	PrimaryName   string
 	PlaceholderAt sql.NullString
+	Overview      string
 }
 
 type Event struct {
@@ -272,6 +273,10 @@ type Title struct {
 	TmdbVoteAverage  sql.NullFloat64
 	TmdbVoteCount    sql.NullInt64
 	ReleaseSeenAt    sql.NullString
+	Network          string
+	TvdbStatus       string
+	AirTime          string
+	AirTimezone      string
 }
 
 type TitleAlias struct {
