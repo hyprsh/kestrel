@@ -1,11 +1,10 @@
-import { Badge, KeyboardInput, Note, Spinner } from '@hyprsh/design'
+import { Badge, CommandMenu as DesignCommandMenu, CommandMenuGroup, CommandMenuInput, CommandMenuItem, CommandMenuList, KeyboardInput, Note } from '@hyprsh/design'
 import { CornerDownLeft, Plus, Search } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ApiError, useLookup, useTitles, type LookupResult, type TitleRow } from '../api/queries'
 import { rank, type Match } from '../fuzzy'
 import { KindIcon } from '../library/bits'
 import { ratingsText } from '../library/Ratings'
-import { cx } from '../ui'
 import { AddConfirm } from './AddConfirm'
 import { Poster, TitlePoster } from '../poster'
 
@@ -68,14 +67,12 @@ export function CommandMenu({
 }) {
   const [mode, setMode] = useState<MenuMode>(initialMode)
   const [query, setQuery] = useState('')
-  const [sel, setSel] = useState(0)
   const [chosen, setChosen] = useState<LookupResult | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const dialogRef = useRef<HTMLDivElement>(null)
   const titles = useTitles()
 
+  // The input is gone while the add panel shows and the menu does not refocus it, and a click on a row takes focus off it.
   useEffect(() => {
-    if (!chosen) inputRef.current?.focus()
+    if (!chosen) document.querySelector<HTMLInputElement>('[role="dialog"] [data-autofocus]')?.focus()
   }, [chosen, mode])
 
   const debounced = useDebounced(query, 250)
@@ -118,10 +115,7 @@ export function CommandMenu({
         label: `Did you mean ${meant}?`,
         icon: <Search aria-hidden className="size-4 text-gray-900" />,
         keepOpen: true,
-        run: () => {
-          setQuery(meant)
-          setSel(0)
-        },
+        run: () => setQuery(meant),
       }
       return [retry, ...found]
     }
@@ -170,52 +164,65 @@ export function CommandMenu({
     return [...groups.flatMap((g) => g.map((h) => h.item)), add]
   }, [mode, query, lookup.data, actions, places, titles.data, onGo, onOpenTitle, onClose])
 
-  const index = Math.min(sel, Math.max(items.length - 1, 0))
-
-  const run = (item: Item | undefined) => {
-    if (!item || item.disabled) return
-    item.run()
-    if (!item.keepOpen) onClose()
-  }
-
   const onKeyDown = (e: KeyboardEvent) => {
-    if (chosen) {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        e.stopPropagation()
-        setChosen(null)
-      }
-      return // the panel handles the rest
+    // Ctrl+N and Ctrl+P move like the arrows; the menu only knows the arrows, so hand them on.
+    if (e.ctrlKey && (e.key === 'n' || e.key === 'p') && !chosen) {
+      e.preventDefault()
+      e.target.dispatchEvent(new KeyboardEvent('keydown', { key: e.key === 'n' ? 'ArrowDown' : 'ArrowUp', bubbles: true, cancelable: true }))
+      return
     }
-    const down = e.key === 'ArrowDown' || (e.ctrlKey && e.key === 'n')
-    const up = e.key === 'ArrowUp' || (e.ctrlKey && e.key === 'p')
-    if (down || up) {
-      e.preventDefault()
-      setSel(Math.min(Math.max(index + (down ? 1 : -1), 0), Math.max(items.length - 1, 0)))
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      run(items[index])
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      onClose()
-    } else if (e.key === 'Backspace' && mode === 'add' && query === '') {
+    // Going back from an empty Add query. preventDefault also tells the menu to leave the key alone.
+    if (e.key === 'Backspace' && mode === 'add' && query === '' && !chosen) {
       e.preventDefault()
       setMode('root')
     }
   }
 
+  // Rows in runs of one group; only the root menu names its groups.
+  const runs: { group: Item['group']; items: Item[] }[] = []
+  for (const item of items) {
+    const last = runs[runs.length - 1]
+    if (last && last.group === item.group) last.items.push(item)
+    else runs.push({ group: item.group, items: [item] })
+  }
+  const row = (item: Item) => (
+    <CommandMenuItem
+      key={item.id}
+      value={item.label}
+      prefix={item.thumb ?? item.icon}
+      suffix={item.right}
+      disabled={item.disabled}
+      keepOpen={item.keepOpen}
+      callback={item.run}
+      className={item.thumb !== undefined ? 'h-12' : undefined}
+    >
+      <span className="truncate">
+        <Marked text={item.label} ranges={item.marks ?? []} />
+      </span>{' '}
+      {item.sub && <span className="label-13 ml-1 text-gray-900">{item.sub}</span>}
+    </CommandMenuItem>
+  )
+
   return (
-    <div className="fixed inset-0 z-(--z-modal) flex items-start justify-center bg-black/40 pt-[12vh]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div
-        ref={dialogRef}
-        data-cmdk
-        role="dialog"
-        aria-modal="true"
-        aria-label="Command menu"
-        onKeyDown={onKeyDown}
-        className="flex max-h-[70vh] w-[640px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-(--radius-xl) bg-background-100 shadow-(--shadow-modal)"
-      >
-        {chosen ? (
+    <DesignCommandMenu
+      open
+      onOpenChange={(open) => !open && onClose()}
+      label="Command menu"
+      hotkey={false} // the Shell owns ⌘K
+      query={query}
+      onQueryChange={setQuery}
+      shouldFilter={false} // items are ranked and marked here
+      onKeyDown={onKeyDown}
+    >
+      {chosen ? (
+        // The panel keeps its own arrows, Enter and Escape (back, not close); only Tab stays with the menu's focus trap.
+        <div
+          className="flex min-h-0 flex-1 flex-col"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setChosen(null)
+            if (e.key !== 'Tab') e.stopPropagation()
+          }}
+        >
           <AddConfirm
             result={chosen}
             onBack={() => setChosen(null)}
@@ -224,89 +231,56 @@ export function CommandMenu({
               onClose()
             }}
           />
-        ) : (
-          <>
-            <div className="flex items-center gap-2 border-b border-gray-alpha-400 px-3">
-              {mode === 'add' && <Badge variant="blue-subtle" size="sm">Add</Badge>}
-              <input
-                ref={inputRef}
-                role="combobox"
-                aria-expanded="true"
-                aria-controls="cmdk-list"
-                aria-label={mode === 'add' ? 'Search a Movie or Series to add' : 'Search or run a command'}
-                placeholder={mode === 'add' ? 'Search a Movie or Series to add…' : 'Search or run a command…'}
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value)
-                  setSel(0)
-                }}
-                className="label-14 pointer-coarse:text-base h-12 min-w-0 flex-1 bg-transparent outline-none placeholder:text-gray-700"
-              />
-            </div>
-            <div id="cmdk-list" role="listbox" aria-label="Results" className="min-h-0 flex-1 overflow-auto p-1.5">
-              {mode === 'add' && query.trim() === '' && <Hint>Type a title to search both Movies and Series.</Hint>}
-              {mode === 'add' && lookup.isError && (
-                <Note variant="error" size="small" className="m-1.5">
+        </div>
+      ) : (
+        <>
+          <CommandMenuInput
+            prefix={mode === 'add' ? <Badge variant="blue-subtle" size="sm">Add</Badge> : undefined}
+            aria-label={mode === 'add' ? 'Search a Movie or Series to add' : 'Search or run a command'}
+            placeholder={mode === 'add' ? 'Search a Movie or Series to add…' : 'Search or run a command…'}
+          />
+          <CommandMenuList
+            loading={searching && items.length === 0 && !lookup.isError}
+            empty={
+              lookup.isError ? (
+                <Note variant="error" size="small">
                   {lookup.error instanceof ApiError ? lookup.error.message : 'The search failed.'}
                 </Note>
-              )}
-              {searching && items.length === 0 && !lookup.isError && <Hint busy>Searching…</Hint>}
-              {mode === 'add' && lookup.isSuccess && items.length === 0 && <Hint>No results.</Hint>}
-              {items.map((item, i) => (
-                <div key={item.id}>
-                  {(i === 0 || items[i - 1].group !== item.group) && mode === 'root' && (
-                    <div data-group className="label-13 px-2 pt-2 pb-1 text-gray-900">
-                      {item.group}
-                    </div>
-                  )}
-                  <div
-                    role="option"
-                    aria-selected={i === index}
-                    aria-disabled={item.disabled || undefined}
-                    onMouseMove={() => setSel(i)}
-                    onClick={() => run(item)}
-                    className={cx(
-                      'label-14 flex cursor-default items-center rounded-md px-2.5',
-                      item.thumb !== undefined ? 'h-12 gap-2.5' : 'h-9 gap-2',
-                      i === index && 'bg-gray-alpha-100',
-                      item.disabled && 'cursor-not-allowed text-gray-700',
-                    )}
-                  >
-                    {item.thumb}
-                    {item.icon}
-                    <span className="truncate">
-                      <Marked text={item.label} ranges={item.marks ?? []} />
-                    </span>{' '}
-                    {item.sub && <span className="label-13 text-gray-900">{item.sub}</span>}{' '}
-                    <span className="ml-auto">{item.right}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <footer className="label-13 flex items-center gap-3 border-t border-gray-alpha-400 px-3 py-2 text-gray-900">
+              ) : (
+                'No results.'
+              )
+            }
+          >
+            {mode === 'add' && query.trim() === '' && <Hint>Type a title to search both Movies and Series.</Hint>}
+            {mode === 'add' ? items.map(row) : runs.map((r, i) => (
+              <CommandMenuGroup key={`${r.group}-${i}`} heading={r.group}>
+                {r.items.map(row)}
+              </CommandMenuGroup>
+            ))}
+          </CommandMenuList>
+          <footer className="label-13 flex items-center gap-3 border-t border-gray-alpha-400 px-3 py-2 text-gray-900">
+            <span className="flex items-center gap-1">
+              <KeyboardInput small>↑</KeyboardInput>
+              <KeyboardInput small>↓</KeyboardInput> move
+            </span>
+            <span className="flex items-center gap-1">
+              <KeyboardInput small>
+                <CornerDownLeft aria-hidden className="size-3" />
+              </KeyboardInput>{' '}
+              select
+            </span>
+            <span className="flex items-center gap-1">
+              <KeyboardInput small>Esc</KeyboardInput> close
+            </span>
+            {mode === 'add' && (
               <span className="flex items-center gap-1">
-                <KeyboardInput small>↑</KeyboardInput>
-                <KeyboardInput small>↓</KeyboardInput> move
+                <KeyboardInput small>⌫</KeyboardInput> back
               </span>
-              <span className="flex items-center gap-1">
-                <KeyboardInput small>
-                  <CornerDownLeft aria-hidden className="size-3" />
-                </KeyboardInput>{' '}
-                select
-              </span>
-              <span className="flex items-center gap-1">
-                <KeyboardInput small>Esc</KeyboardInput> close
-              </span>
-              {mode === 'add' && (
-                <span className="flex items-center gap-1">
-                  <KeyboardInput small>⌫</KeyboardInput> back
-                </span>
-              )}
-            </footer>
-          </>
-        )}
-      </div>
-    </div>
+            )}
+          </footer>
+        </>
+      )}
+    </DesignCommandMenu>
   )
 }
 
@@ -322,11 +296,6 @@ function Marked({ text, ranges }: { text: string; ranges: [number, number][] }) 
   return parts
 }
 
-function Hint({ children, busy }: { children: ReactNode; busy?: boolean }) {
-  return (
-    <p className="label-13 flex items-center gap-2 px-3 py-3 text-gray-900">
-      {busy && <Spinner size="sm" />}
-      {children}
-    </p>
-  )
+function Hint({ children }: { children: ReactNode }) {
+  return <p className="label-13 px-3 py-3 text-gray-900">{children}</p>
 }

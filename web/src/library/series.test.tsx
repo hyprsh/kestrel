@@ -91,9 +91,12 @@ describe('adding a Series from the command menu', () => {
     expect(within(menu).queryByText(/^Add Orphan Show/)).not.toBeInTheDocument()
     expect(f.sent).toHaveLength(0)
 
-    // Arrow to it and press Enter: still nothing.
-    await userEvent.keyboard('{ArrowDown}{Enter}')
-    expect(within(menu).queryByRole('button', { name: /^add/i })).not.toBeInTheDocument()
+    // The arrows skip it, so Enter cannot add it either: the highlight stays on the Series that can be added.
+    await userEvent.keyboard('{ArrowDown}')
+    expect(orphan).not.toHaveAttribute('aria-selected', 'true')
+    await userEvent.keyboard('{Enter}')
+    expect(within(menu).queryByText(/^Add Orphan Show/)).not.toBeInTheDocument()
+    expect(f.sent).toHaveLength(0)
   })
 
   it('adds a Series with a monitoring mode chosen in the panel', async () => {
