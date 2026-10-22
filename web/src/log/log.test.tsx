@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
@@ -274,6 +274,54 @@ describe('Log', () => {
 
     await user.click(await screen.findByRole('button', { name: /remove paddington.*bad/i }))
 
+    expect(await screen.findByText('The Blocklist is empty.')).toBeInTheDocument()
+  })
+})
+
+describe('Log on a phone', () => {
+  beforeEach(() => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('max-width: 639'), media: query, addEventListener: () => {}, removeEventListener: () => {} }))
+    history.replaceState(null, '', '/')
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  async function openPhoneLog() {
+    const user = userEvent.setup()
+    render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
+    await user.click(await screen.findByRole('button', { name: 'More' }))
+    await user.click(within(await screen.findByRole('dialog', { name: 'More' })).getByRole('button', { name: 'Log' }))
+    return user
+  }
+
+  it('stacks each event as a row with its kind, time and message, and the kind still filters', async () => {
+    events()
+    const user = await openPhoneLog()
+
+    const list = await screen.findByRole('list', { name: 'Events' })
+    expect(screen.queryByRole('table', { name: 'Events' })).not.toBeInTheDocument()
+    expect(within(list).getAllByRole('listitem')).toHaveLength(2)
+    expect(within(list).getByText('Imported Paddington')).toBeInTheDocument()
+
+    await user.click(within(list).getAllByRole('button', { name: 'Filter by kind:import' })[0])
+    expect(filter()).toHaveValue('kind:import')
+  })
+
+  it('lists the Blocklist as stacked entries with a button to remove each', async () => {
+    let items = [blocked]
+    server.use(
+      http.get('/blocklist', ({ response }) => response(200).json({ items })),
+      http.delete('/blocklist/{id}', ({ response }) => {
+        items = []
+        return response(204).empty()
+      }),
+    )
+    events()
+    const user = await openPhoneLog()
+    await user.click(screen.getByRole('tab', { name: 'Blocklist' }))
+    const list = await screen.findByRole('list', { name: 'Blocklist' })
+    expect(within(list).getByText(blocked.release_name)).toBeInTheDocument()
+
+    await user.click(within(list).getByRole('button', { name: /remove paddington.*bad/i }))
     expect(await screen.findByText('The Blocklist is empty.')).toBeInTheDocument()
   })
 })

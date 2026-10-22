@@ -9,6 +9,7 @@ import { matchText } from '../fuzzy'
 import { parse, termText, withValue } from '../filter/query'
 import { QueryField } from '../filter/QueryField'
 import { useKey, useListNav } from '../keys'
+import { usePhone } from '../responsive'
 import { logFilter, logQualifiers } from './filter'
 
 type Tone = NonNullable<BadgeProps['variant']>
@@ -69,6 +70,7 @@ function useTitleNames() {
 }
 
 function Events({ query, onQuery }: { query: string; onQuery: (query: string) => void }) {
+  const phone = usePhone()
   const [sel, setSel] = useState(0)
   const { list: titles, names } = useTitleNames()
   const qualifiers = useMemo(() => logQualifiers(Object.keys(kinds), (titles ?? []).map((t) => t.title)), [titles])
@@ -96,37 +98,82 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
       <div className="min-h-0 flex-1 overflow-auto">
         {events.isError && <Note variant="error">The Log could not be loaded.</Note>}
         {events.data && shown.length === 0 && <EmptyState className="m-4" description="Nothing in the Log matches." />}
-        <Table.Root>
-          <Table aria-label="Events">
-            <Table.Colgroup>
-              <Table.Col style={{ width: 160 }} />
-              <Table.Col style={{ width: 128 }} />
-              <Table.Col />
-            </Table.Colgroup>
-            <Table.Header>
-              <Table.Row>
-                <Table.Head className="label-12-strong">When</Table.Head>
-                <Table.Head className="label-12-strong">Kind</Table.Head>
-                <Table.Head className="label-12-strong">Event</Table.Head>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body bordered interactive>
-              {shown.map((e, i) => (
-                <EventRow
-                  key={e.id}
-                  e={e}
-                  index={i}
-                  selected={i === sel}
-                  title={names.get(e.title_id ?? -1)}
-                  onSelect={() => setSel(i)}
-                  onFilter={(name, value) => onQuery(withValue(query, name, value, qualifiers))}
-                />
-              ))}
-            </Table.Body>
-          </Table>
-        </Table.Root>
+        {phone ? (
+          // A phone has no room for three columns: each event is a stacked row, its message wrapping under the kind and the time.
+          <ul aria-label="Events" className="divide-y divide-gray-alpha-400">
+            {shown.map((e, i) => (
+              <PhoneEvent key={e.id} e={e} index={i} title={names.get(e.title_id ?? -1)} onFilter={(name, value) => onQuery(withValue(query, name, value, qualifiers))} />
+            ))}
+          </ul>
+        ) : (
+          <Table.Root>
+            <Table aria-label="Events">
+              <Table.Colgroup>
+                <Table.Col style={{ width: 160 }} />
+                <Table.Col style={{ width: 128 }} />
+                <Table.Col />
+              </Table.Colgroup>
+              <Table.Header>
+                <Table.Row>
+                  <Table.Head className="label-12-strong">When</Table.Head>
+                  <Table.Head className="label-12-strong">Kind</Table.Head>
+                  <Table.Head className="label-12-strong">Event</Table.Head>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body bordered interactive>
+                {shown.map((e, i) => (
+                  <EventRow
+                    key={e.id}
+                    e={e}
+                    index={i}
+                    selected={i === sel}
+                    title={names.get(e.title_id ?? -1)}
+                    onSelect={() => setSel(i)}
+                    onFilter={(name, value) => onQuery(withValue(query, name, value, qualifiers))}
+                  />
+                ))}
+              </Table.Body>
+            </Table>
+          </Table.Root>
+        )}
       </div>
     </div>
+  )
+}
+
+/** The kind of an event as the button that filters the Log by it. */
+function KindButton({ kind, onFilter }: { kind: string; onFilter: (name: 'kind' | 'title', value: string) => void }) {
+  return (
+    <button aria-label={`Filter by kind:${kind}`} title={`kind:${kind}`} onClick={() => onFilter('kind', kind)} className="rounded-full hover:opacity-80 max-sm:-my-2 max-sm:py-2">
+      <Badge variant={kinds[kind]?.tone ?? 'gray-subtle'} size="sm">
+        {kinds[kind]?.label ?? kind}
+      </Badge>
+    </button>
+  )
+}
+
+function PhoneEvent({ e, index, title, onFilter }: { e: LogEvent; index: number; title?: string; onFilter: (name: 'kind' | 'title', value: string) => void }) {
+  return (
+    <li data-nav={`log-${index}`} className="flex flex-col gap-1 px-4 py-3">
+      <div className="flex items-center justify-between gap-2">
+        <KindButton kind={e.kind} onFilter={onFilter} />
+        <span className="label-12 tabular text-gray-900">{when(e.at)}</span>
+      </div>
+      <div className="min-w-0 break-words">
+        {title && (
+          <>
+            <button
+              aria-label={`Filter by ${termText({ name: 'title', values: [title], negated: false })}`}
+              onClick={() => onFilter('title', title)}
+              className="font-medium text-gray-1000 max-sm:py-1"
+            >
+              {title}
+            </button>{' '}
+          </>
+        )}
+        <span className="text-gray-900">{e.message}</span>
+      </div>
+    </li>
   )
 }
 
@@ -149,16 +196,7 @@ function EventRow({
     <Table.Row data-nav={`log-${index}`} current={selected} onClick={onSelect}>
       <Table.Cell className="label-12 tabular">{when(e.at)}</Table.Cell>
       <Table.Cell>
-        <button
-          aria-label={`Filter by kind:${e.kind}`}
-          title={`kind:${e.kind}`}
-          onClick={() => onFilter('kind', e.kind)}
-          className="rounded-full hover:opacity-80"
-        >
-          <Badge variant={kinds[e.kind]?.tone ?? 'gray-subtle'} size="sm">
-            {kinds[e.kind]?.label ?? e.kind}
-          </Badge>
-        </button>
+        <KindButton kind={e.kind} onFilter={onFilter} />
       </Table.Cell>
       <Table.Cell wrap className="break-words">
         {title && (
@@ -179,6 +217,7 @@ function EventRow({
 }
 
 function Blocklist() {
+  const phone = usePhone()
   const list = useBlocklist()
   const unblock = useUnblock()
   const { names } = useTitleNames()
@@ -190,7 +229,25 @@ function Blocklist() {
     <div className="min-h-0 flex-1 overflow-auto">
       {unblock.isError && <Note variant="error">The entry could not be removed.</Note>}
       {list.data && items.length === 0 && <EmptyState className="m-4" description="The Blocklist is empty." />}
-      {items.length > 0 && (
+      {items.length > 0 && phone && (
+        <ul aria-label="Blocklist" className="divide-y divide-gray-alpha-400">
+          {items.map((b) => (
+            <li key={b.id} className="flex flex-col gap-2 px-4 py-3">
+              <div className="min-w-0">
+                <div className="label-12-mono break-all">{b.release_name}</div>
+                <div className="label-13 mt-0.5 text-gray-900">
+                  {b.title_id && names.get(b.title_id) ? `${names.get(b.title_id)} · ` : ''}
+                  {b.reason} · {when(b.created_at)}
+                </div>
+              </div>
+              <Button variant="secondary" size="small" width="100%" aria-label={`Remove ${b.release_name} from the Blocklist`} disabled={unblock.isPending} onClick={() => unblock.mutate(b.id)}>
+                Remove from the Blocklist
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {items.length > 0 && !phone && (
         <Table.Root>
           <Table aria-label="Blocklist">
             <Table.Colgroup>
