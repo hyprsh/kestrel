@@ -2,7 +2,7 @@
 // the TRaSH commit scoring Releases now, third-party notices and keyboard shortcuts.
 import { useState, type ReactNode } from 'react'
 import { useAbout, useNotices } from '../api/about'
-import { Button, Fieldset, KeyboardInput, Spinner } from '@hyprsh/design'
+import { Button, Description, Fieldset, KeyboardInput, Link, Spinner } from '@hyprsh/design'
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -37,28 +37,36 @@ export function About() {
       <div className="mx-auto flex max-w-3xl flex-col gap-4">
         <Card title="Kestrel">
           {a ? (
-            <dl className="copy-14 grid grid-cols-[10rem_1fr] gap-y-1.5">
-              <dt className="text-gray-900">Version</dt>
-              <dd className="copy-14-mono">{a.version}</dd>
-              <dt className="text-gray-900">Licence</dt>
-              <dd>{a.license} (GNU General Public License v3.0)</dd>
-              <dt className="text-gray-900">TRaSH commit</dt>
-              <dd className="copy-14-mono" title="The TRaSH Guides commit whose Custom Formats and profiles score Releases now">
-                {a.trash_commit ? a.trash_commit.slice(0, 7) : 'unknown'}
-              </dd>
-              <dt className="text-gray-900">Updates</dt>
-              <dd>
-                {a.update ? (
-                  <a className="text-blue-900 underline" href={a.update.url} target="_blank" rel="noreferrer">
-                    Kestrel {a.update.version} available
-                  </a>
-                ) : a.check_github_updates ? (
-                  'Up to date'
-                ) : (
-                  'The check is off (Settings, Updates)'
-                )}
-              </dd>
-            </dl>
+            <div className="flex flex-col gap-1.5">
+              <Description layout="horizontal" termWidth="10rem" title="Version" content={<span className="copy-14-mono">{a.version}</span>} />
+              <Description layout="horizontal" termWidth="10rem" title="Licence" content={`${a.license} (GNU General Public License v3.0)`} />
+              <Description
+                layout="horizontal"
+                termWidth="10rem"
+                title="TRaSH commit"
+                content={
+                  <span className="copy-14-mono" title="The TRaSH Guides commit whose Custom Formats and profiles score Releases now">
+                    {a.trash_commit ? a.trash_commit.slice(0, 7) : 'unknown'}
+                  </span>
+                }
+              />
+              <Description
+                layout="horizontal"
+                termWidth="10rem"
+                title="Updates"
+                content={
+                  a.update ? (
+                    <Link href={a.update.url} target="_blank" rel="noreferrer">
+                      Kestrel {a.update.version} available
+                    </Link>
+                  ) : a.check_github_updates ? (
+                    'Up to date'
+                  ) : (
+                    'The check is off (Settings, Updates)'
+                  )
+                }
+              />
+            </div>
           ) : (
             <p className="flex items-center gap-2 text-gray-900"><Spinner size="sm" />Loading…</p>
           )}
@@ -68,16 +76,16 @@ export function About() {
           <p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
           <p className="mt-2">
             Metadata provided by TheTVDB. Please consider adding missing information or{' '}
-            <a className="text-blue-900 underline" href="https://thetvdb.com" target="_blank" rel="noreferrer">
+            <Link href="https://thetvdb.com" target="_blank" rel="noreferrer">
               subscribing
-            </a>
+            </Link>
             .
           </p>
           <p className="mt-2 text-gray-900">
             Custom Formats and quality profiles come from the{' '}
-            <a className="text-blue-900 underline" href="https://github.com/TRaSH-Guides/Guides" target="_blank" rel="noreferrer">
+            <Link href="https://github.com/TRaSH-Guides/Guides" target="_blank" rel="noreferrer">
               TRaSH Guides
-            </a>
+            </Link>
             . Release parsing is ported from Radarr and Sonarr.
           </p>
         </Card>
