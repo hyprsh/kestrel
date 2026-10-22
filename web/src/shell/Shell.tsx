@@ -3,7 +3,7 @@
 import { About } from '../about/About'
 import { Activity } from '../activity/Activity'
 import { useRunningNow, type Running } from '../activity/running'
-import { Badge, Button, Input, KeyboardInput, Note, Spinner, StatusDot, Tooltip } from '@hyprsh/design'
+import { Badge, Button, KeyboardInput, Note, Spinner, StatusDot, Tooltip } from '@hyprsh/design'
 import { Activity as ActivityIcon, CalendarClock, Inbox, Info, LibraryBig, LogOut, Monitor, Moon, Plus, ScrollText, Search, Settings, Sun, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -286,31 +286,21 @@ function TopBar({ title, onOpenMenu, running, onOpenRunning }: { title: string; 
   return (
     <header className="grid h-12 shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,460px)_minmax(0,1fr)] items-center gap-4 border-b border-gray-alpha-400 px-4">
       <div className="heading-14 truncate">{title}</div>
-      {/* A read-only field that opens the menu, so it reads as the search box it stands for. */}
-      <Input
-        readOnly
-        size="small"
+      {/* A button that opens the menu, styled as the search box it stands for. */}
+      <button
+        type="button"
         aria-label="Search or run a command"
         aria-haspopup="dialog"
-        placeholder="Search or run a command…"
-        prefix={<Search aria-hidden className="size-4" />}
-        prefixStyling={false}
-        suffix={
-          <span aria-hidden className="inline-flex">
-            <KeyboardInput small meta />
-            <KeyboardInput small>K</KeyboardInput>
-          </span>
-        }
-        suffixStyling={false}
-        style={{ cursor: 'pointer' }}
         onClick={onOpenMenu}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
-            e.preventDefault()
-            onOpenMenu()
-          }
-        }}
-      />
+        className="copy-14 flex h-8 w-full cursor-pointer items-center gap-2 rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-left text-gray-900 outline-none hover:border-gray-500 focus-visible:ring-2 focus-visible:ring-blue-700"
+      >
+        <Search aria-hidden className="size-4 shrink-0" />
+        <span className="flex-1 truncate">Search or run a command…</span>
+        <span aria-hidden className="inline-flex shrink-0">
+          <KeyboardInput small meta />
+          <KeyboardInput small>K</KeyboardInput>
+        </span>
+      </button>
       <div className="flex min-w-0 items-center justify-end gap-4">
         <RunningIndicator running={running} onOpen={onOpenRunning} />
         <ServerStatus />
