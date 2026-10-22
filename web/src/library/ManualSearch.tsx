@@ -138,9 +138,8 @@ export function ManualSearch({
             </Note>
           </div>
         ) : (
-          // The scroll wrapper is the pane, so the header can stick to it.
-          <Table.Root className="overflow-visible">
-            <Table aria-label="Releases" className="table-fixed">
+          <Table.Root>
+            <Table aria-label="Releases" className="table-fixed" stickyHeader>
               <Table.Colgroup>
                 <Table.Col className="w-20" />
                 <Table.Col />
@@ -151,34 +150,33 @@ export function ManualSearch({
                 <Table.Col className="w-16" />
                 <Table.Col className="w-28" />
               </Table.Colgroup>
-              <Table.Header className="sticky top-0 z-10 bg-background-100">
+              <Table.Header>
                 <Table.Row>
-                  <Table.Head className="hy-right">Score</Table.Head>
-                  <Table.Head className="hy-left">Release</Table.Head>
-                  <Table.Head className="hy-left">Quality</Table.Head>
-                  <Table.Head className="hy-left">Languages</Table.Head>
-                  <Table.Head className="hy-left">Custom formats</Table.Head>
-                  <Table.Head className="hy-right">Size</Table.Head>
-                  <Table.Head className="hy-right">Age</Table.Head>
-                  <Table.Head className="hy-left">Indexer</Table.Head>
+                  <Table.Head align="right">Score</Table.Head>
+                  <Table.Head>Release</Table.Head>
+                  <Table.Head>Quality</Table.Head>
+                  <Table.Head>Languages</Table.Head>
+                  <Table.Head>Custom formats</Table.Head>
+                  <Table.Head align="right">Size</Table.Head>
+                  <Table.Head align="right">Age</Table.Head>
+                  <Table.Head>Indexer</Table.Head>
                 </Table.Row>
               </Table.Header>
               <Table.Body interactive bordered>
                 {rows.map((x, i) => {
                   const rejected = x.rejections.length > 0
                   const dim = rejected && 'opacity-50'
-                  const wrap = 'max-w-none whitespace-normal'
                   return (
                     <Table.Row
                       key={x.release_id}
-                      aria-selected={i === index}
+                      selected={i === index}
                       data-nav={`ms-${i}`}
                       onClick={() => setSel(i)}
                       onDoubleClick={grab}
-                      className={cx('cursor-pointer align-top', i === index && '[&>td]:bg-gray-alpha-200')}
+                      className="cursor-pointer align-top"
                     >
-                      <Table.Cell className={cx('hy-right hy-num hy-mono', dim)}>{x.score.toLocaleString('en-US')}</Table.Cell>
-                      <Table.Cell className={wrap}>
+                      <Table.Cell align="right" className={cx('hy-num hy-mono', dim)}>{x.score.toLocaleString('en-US')}</Table.Cell>
+                      <Table.Cell wrap>
                         <div className={cx('flex items-center gap-1.5', dim)}>
                           <span className="label-12-mono truncate" title={x.name}>
                             {x.name}
@@ -205,9 +203,9 @@ export function ManualSearch({
                           </div>
                         )}
                       </Table.Cell>
-                      <Table.Cell className={cx('hy-left', dim)}>{x.quality}</Table.Cell>
-                      <Table.Cell className={cx('hy-left', dim)}>{x.languages.join(', ')}</Table.Cell>
-                      <Table.Cell className={cx('hy-left', wrap, dim)}>
+                      <Table.Cell className={dim || undefined}>{x.quality}</Table.Cell>
+                      <Table.Cell className={dim || undefined}>{x.languages.join(', ')}</Table.Cell>
+                      <Table.Cell wrap className={dim || undefined}>
                         <div className="flex flex-wrap gap-1">
                           {x.custom_formats.map((f) => (
                             <Badge key={f.name} variant="gray-subtle" size="sm" title={`${f.points} points`}>
@@ -216,9 +214,9 @@ export function ManualSearch({
                           ))}
                         </div>
                       </Table.Cell>
-                      <Table.Cell className={cx('hy-right hy-num hy-mono', dim)}>{size(x.size)}</Table.Cell>
-                      <Table.Cell className={cx('hy-right hy-num hy-mono', dim)}>{age(x.published_at)}</Table.Cell>
-                      <Table.Cell className={cx('hy-left', dim)}>{x.indexer}</Table.Cell>
+                      <Table.Cell align="right" className={cx('hy-num hy-mono', dim)}>{size(x.size)}</Table.Cell>
+                      <Table.Cell align="right" className={cx('hy-num hy-mono', dim)}>{age(x.published_at)}</Table.Cell>
+                      <Table.Cell className={dim || undefined}>{x.indexer}</Table.Cell>
                     </Table.Row>
                   )
                 })}
