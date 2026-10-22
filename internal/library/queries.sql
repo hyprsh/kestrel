@@ -61,16 +61,16 @@ SELECT id FROM titles WHERE kind = 'series' AND tvdb_id = ?;
 INSERT INTO seasons (title_id, number, monitored) VALUES (?, ?, ?);
 
 -- name: InsertEpisode :exec
-INSERT INTO episodes (title_id, season, number, tvdb_id, name, air_date, monitored, primary_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO episodes (title_id, season, number, tvdb_id, name, air_date, monitored, primary_name, overview) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: ListSeasonsOfTitle :many
 SELECT title_id, number, monitored FROM seasons WHERE title_id = ? ORDER BY number;
 
 -- name: ListEpisodes :many
-SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name, placeholder_at FROM episodes ORDER BY title_id, season, number;
+SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name, placeholder_at, overview FROM episodes ORDER BY title_id, season, number;
 
 -- name: ListEpisodesOfTitle :many
-SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name, placeholder_at FROM episodes WHERE title_id = ? ORDER BY season, number;
+SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name, placeholder_at, overview FROM episodes WHERE title_id = ? ORDER BY season, number;
 
 -- A misfit file (it fails its Profile's gates) does not hold its episodes: they are Wanted again, as a misfit Movie is.
 -- name: ListFileEpisodes :many
@@ -223,6 +223,15 @@ UPDATE titles SET title = ?, original_title = ?, primary_title = ?, year = ?,
     tmdb_vote_average = ?, tmdb_vote_count = ?
 WHERE id = ?;
 
+-- What a refresh learned of a Series' network, status and air time. A value it
+-- could not learn ('') leaves the stored one alone.
+-- name: SetSeriesAiring :exec
+UPDATE titles SET network = COALESCE(NULLIF(sqlc.arg(network), ''), network),
+    tvdb_status = COALESCE(NULLIF(sqlc.arg(tvdb_status), ''), tvdb_status),
+    air_time = COALESCE(NULLIF(sqlc.arg(air_time), ''), air_time),
+    air_timezone = COALESCE(NULLIF(sqlc.arg(air_timezone), ''), air_timezone)
+WHERE id = sqlc.arg(id);
+
 -- name: DeleteAliasesOfTitle :exec
 DELETE FROM title_aliases WHERE title_id = ?;
 
@@ -231,7 +240,7 @@ DELETE FROM title_release_dates WHERE title_id = ?;
 
 -- name: UpdateEpisode :exec
 -- TheTVDB lists every episode it updates, so a Placeholder Episode it matches is adopted.
-UPDATE episodes SET season = ?, number = ?, tvdb_id = ?, name = ?, air_date = ?, primary_name = ?, placeholder_at = NULL
+UPDATE episodes SET season = ?, number = ?, tvdb_id = ?, name = ?, air_date = ?, primary_name = ?, overview = ?, placeholder_at = NULL
 WHERE id = ?;
 
 -- name: InsertPlaceholderEpisode :exec

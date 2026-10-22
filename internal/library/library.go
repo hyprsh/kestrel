@@ -477,7 +477,7 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 		row := Row{ID: t.ID, Kind: Kind(t.Kind), Title: t.Title, PrimaryTitle: t.PrimaryTitle, Year: int(t.Year.Int64), HasPoster: t.PosterPath.String != "", AddedAt: parseTime(t.AddedAt)}
 		var released map[int64]*time.Time
 		if row.Kind == Series {
-			released = releasedOf(epsOf[t.ID], filed)
+			released = releasedOf(epsOf[t.ID], filed, airClockOf(t))
 		}
 		for _, v := range byTitle[t.ID] {
 			row.Size += versionSize[v.ID]
@@ -607,7 +607,7 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 		if err != nil {
 			return Detail{}, err
 		}
-		released = releasedOf(epsOf, filed)
+		released = releasedOf(epsOf, filed, airClockOf(t))
 		fileOfVersion = map[int64]*File{} // a Series Version holds a file per episode; the heat map shows them
 	}
 	for _, v := range versions {

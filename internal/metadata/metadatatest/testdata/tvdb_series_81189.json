@@ -8,6 +8,9 @@
     "status": {"id": 2, "name": "Ended", "recordType": "series", "keepUpdated": false},
     "year": "2008",
     "originalLanguage": "eng",
+    "originalCountry": "usa",
+    "airsTime": "21:00",
+    "originalNetwork": {"id": 1, "name": "AMC", "country": "usa"},
     "aliases": [
       {"language": "deu", "name": "Breaking Bad - Total verhext"},
       {"language": "fra", "name": "Breaking Bad : Le Chimiste"}

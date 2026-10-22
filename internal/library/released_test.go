@@ -46,7 +46,7 @@ func TestAnEpisodeIsReleasedByItsAirDateOrOnceALaterEpisodeIsOut(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := releasedOf(c.eps, c.filed)[c.id]; !sameTime(got, c.want) {
+			if got := releasedOf(c.eps, c.filed, airClock{})[c.id]; !sameTime(got, c.want) {
 				t.Fatalf("released %v, want %v", got, c.want)
 			}
 		})
