@@ -5,16 +5,25 @@ import { ApiError, type TitleDetail } from '../api/queries'
 import { useRefreshTitle, useSetFrozen, useSetMovieMonitored } from '../api/titleActions'
 import { useOpenCleanup } from '../cleanup/launch'
 import { termText } from '../filter/query'
-import { Button, ErrorText } from '../forms'
-import { Menu, MenuItem } from '../menu'
+import { Button, Checkbox, Menu, Note } from '@hyprsh/design'
 import { placePath, useOpenPlace } from '../place'
 import { RemoveTitle } from './ManageVersion'
 import { MoveTitle } from './MoveTitle'
 import type { ManualSearchTarget } from './TitleDetail'
 import { useFade } from './useFade'
+import { ActionMenu } from './ActionMenu'
 import { ManualSearch, SearchNow, useSearchWanted } from './VersionSearch'
 
 const message = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback)
+
+/** An error under the actions row. */
+const Problem = ({ children }: { children: string }) => (
+  <div className="mt-2">
+    <Note variant="error" size="small">
+      {children}
+    </Note>
+  </div>
+)
 
 /**
  * One row of compact buttons for the whole Title. The rarer and dangerous ones
@@ -46,34 +55,32 @@ export function TitleActions({
         <ManualSearch title={title} profileName={profileName} onManualSearch={onManualSearch} />
         <Button
           variant="secondary"
-          className="h-7"
+          size="small"
           disabled={frozen || refresh.isPending}
           title={frozen ? 'Metadata is frozen: unfreeze it to refresh' : undefined}
           onClick={() => refresh.mutate()}
         >
           Refresh metadata
         </Button>
-        <Button variant="secondary" className="h-7" disabled={freeze.isPending} onClick={() => freeze.mutate(!frozen)}>
+        <Button variant="secondary" size="small" disabled={freeze.isPending} onClick={() => freeze.mutate(!frozen)}>
           {frozen ? 'Unfreeze metadata' : 'Freeze metadata'}
         </Button>
         {title.kind === 'movie' && <MovieMonitored title={title} />}
-        <Menu
-          label="More Title actions"
-          className="ml-auto"
-          buttonClassName="size-7 rounded-md border border-gray-alpha-400 bg-background-100"
-          trigger={<MoreHorizontal className="size-4" aria-hidden />}
-        >
-          <MenuItem onSelect={() => setPanel('move')}>Move</MenuItem>
-          <MenuItem onSelect={() => openCleanup([title.id])}>Clean up this Title</MenuItem>
-          <MenuItem onSelect={() => openPlace(placePath('log', termText({ name: 'title', values: [title.title], negated: false })))}>Show in the Log</MenuItem>
-          <MenuItem onSelect={() => setPanel('remove')}>Remove Title</MenuItem>
-        </Menu>
+        <ActionMenu label="More Title actions" className="ml-auto" icon={<MoreHorizontal className="size-4" />}>
+          <Menu.Item onSelect={() => setPanel('move')}>Move</Menu.Item>
+          <Menu.Item onSelect={() => openCleanup([title.id])}>Clean up this Title</Menu.Item>
+          <Menu.Item onSelect={() => openPlace(placePath('log', termText({ name: 'title', values: [title.title], negated: false })))}>Show in the Log</Menu.Item>
+          <Menu.Divider />
+          <Menu.Item type="error" onSelect={() => setPanel('remove')}>
+            Remove Title
+          </Menu.Item>
+        </ActionMenu>
       </div>
-      {search.mutation.isSuccess && <p className="mt-1 text-[12px] text-gray-900">Searching… The Log shows what it grabs.</p>}
-      {search.mutation.isError && <ErrorText>{message(search.mutation.error, 'Could not start the search.')}</ErrorText>}
-      {refresh.isSuccess && <p className="mt-1 text-[12px] text-gray-900">Refreshing metadata… The Title updates when it is done.</p>}
-      {refresh.isError && <ErrorText>{message(refresh.error, 'Could not refresh the metadata.')}</ErrorText>}
-      {freeze.isError && <ErrorText>{message(freeze.error, 'Could not change freezing.')}</ErrorText>}
+      {search.mutation.isSuccess && <p className="label-12 mt-1 text-gray-900">Searching… The Log shows what it grabs.</p>}
+      {search.mutation.isError && <Problem>{message(search.mutation.error, 'Could not start the search.')}</Problem>}
+      {refresh.isSuccess && <p className="label-12 mt-1 text-gray-900">Refreshing metadata… The Title updates when it is done.</p>}
+      {refresh.isError && <Problem>{message(refresh.error, 'Could not refresh the metadata.')}</Problem>}
+      {freeze.isError && <Problem>{message(freeze.error, 'Could not change freezing.')}</Problem>}
       {panel === 'move' && <MoveTitle title={title} onClose={() => setPanel(null)} />}
       {panel === 'remove' && <RemoveTitle titleId={title.id} onCancel={() => setPanel(null)} />}
     </div>
@@ -90,16 +97,15 @@ function MovieMonitored({ title }: { title: TitleDetail }) {
   const hint = `title-${title.id}-monitored-hint`
   return (
     <>
-      <label className="flex h-7 items-center gap-2 px-1 text-[13px]">
-        <input type="checkbox" checked={title.monitored} disabled={set.isPending} aria-describedby={hint} onChange={(e) => set.mutate(e.target.checked)} />
+      <Checkbox checked={title.monitored} disabled={set.isPending} aria-describedby={hint} onChange={(e) => set.mutate(e.target.checked)}>
         Monitored
-      </label>
-      <p id={hint} className={title.monitored ? 'sr-only' : 'order-last w-full text-[12px] text-gray-900'}>
+      </Checkbox>
+      <p id={hint} className={title.monitored ? 'sr-only' : 'label-12 order-last w-full text-gray-900'}>
         {title.monitored ? 'Kestrel searches for this Movie and upgrades its files.' : 'Kestrel leaves this Movie as it is: no searches, Grabs or Upgrades.'}
       </p>
       {set.isError && (
         <div className="order-last w-full">
-          <ErrorText>{message(set.error, 'Could not change monitoring.')}</ErrorText>
+          <Problem>{message(set.error, 'Could not change monitoring.')}</Problem>
         </div>
       )}
     </>

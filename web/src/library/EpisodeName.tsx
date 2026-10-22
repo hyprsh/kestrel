@@ -17,7 +17,7 @@ export function EpisodeName({ episode }: { episode: Episode }) {
   return (
     <span className="flex min-w-0 flex-col">
       <span className="truncate">{primary}</span>
-      {original && original !== primary && <span className="truncate text-[12px] text-gray-900">{original}</span>}
+      {original && original !== primary && <span className="label-12 truncate text-gray-900">{original}</span>}
     </span>
   )
 }

@@ -3,7 +3,7 @@
 import { CircleHelp, X } from 'lucide-react'
 import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { parse, suggest, termText, withoutTerm, type Qualifier } from './query'
-import { TextInput } from '../forms'
+import { Badge, Button, Input, Note } from '@hyprsh/design'
 import { cx } from '../ui'
 
 export function QueryField({
@@ -79,8 +79,10 @@ export function QueryField({
   return (
     <div className="flex w-full max-w-xl flex-col gap-1.5">
       <div className="relative flex items-center gap-1.5">
-        <TextInput
+        <Input
           ref={input}
+          size="small"
+          className="min-w-0 flex-1"
           id={id}
           role="combobox"
           aria-label={label}
@@ -114,7 +116,7 @@ export function QueryField({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => pick(i)}
                 onMouseEnter={() => setActive(i)}
-                className={cx('cursor-pointer rounded px-2 py-1 font-mono text-[12px]', i === current && 'bg-gray-alpha-200')}
+                className={cx('label-12-mono cursor-pointer rounded px-2 py-1', i === current && 'bg-gray-alpha-200')}
               >
                 {s.value}
               </li>
@@ -126,23 +128,27 @@ export function QueryField({
       {parsed.terms.length > 0 && (
         <ul aria-label="Active filters" className="flex flex-wrap gap-1">
           {parsed.terms.map((t, i) => (
-            <li key={`${i}-${t.span[0]}`} className="inline-flex h-5 items-center gap-0.5 rounded-full bg-gray-alpha-200 pr-0.5 pl-2 font-mono text-[11px] text-gray-1000">
-              {termText(t)}
-              <button
-                aria-label={`Remove ${termText(t)}`}
-                onClick={() => onChange(withoutTerm(value, i, qualifiers))}
-                className="flex size-4 items-center justify-center rounded-full text-gray-900 hover:bg-gray-alpha-300 hover:text-gray-1000"
-              >
-                <X aria-hidden className="size-3" />
-              </button>
+            <li key={`${i}-${t.span[0]}`}>
+              <Badge variant="gray-subtle" size="sm">
+                <span className="label-12-mono">{termText(t)}</span>
+                <button
+                  aria-label={`Remove ${termText(t)}`}
+                  onClick={() => onChange(withoutTerm(value, i, qualifiers))}
+                  className="ml-1 flex size-4 items-center justify-center rounded-full text-gray-900 hover:bg-gray-alpha-300 hover:text-gray-1000"
+                >
+                  <X aria-hidden className="size-3" />
+                </button>
+              </Badge>
             </li>
           ))}
         </ul>
       )}
       {problems.length > 0 && (
-        <p role="status" className="text-[12px] text-amber-900">
-          {problems.map((p) => p.message).join(' · ')}
-        </p>
+        <div role="status">
+          <Note variant="warning" size="small">
+            {problems.map((p) => p.message).join(' · ')}
+          </Note>
+        </div>
       )}
     </div>
   )
@@ -166,32 +172,26 @@ function Help({ qualifiers }: { qualifiers: readonly Qualifier[] }) {
   }, [open])
   return (
     <div ref={wrap} className="relative shrink-0">
-      <button
-        aria-label="Filter help"
-        aria-expanded={open}
-        aria-controls={open ? id : undefined}
-        onClick={() => setOpen((o) => !o)}
-        className="flex size-8 items-center justify-center rounded-md text-gray-900 hover:bg-gray-alpha-100 hover:text-gray-1000"
-      >
+      <Button svgOnly variant="tertiary" size="small" aria-label="Filter help" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen((o) => !o)}>
         <CircleHelp aria-hidden className="size-4" />
-      </button>
+      </Button>
       {open && (
         <div
           id={id}
           role="dialog"
           aria-label="Filter help"
-          className="absolute top-full right-0 z-40 mt-1 w-80 rounded-md border border-gray-alpha-400 bg-background-100 p-3 text-[12px] shadow-lg"
+          className="label-12 absolute top-full right-0 z-40 mt-1 w-80 rounded-md border border-gray-alpha-400 bg-background-100 p-3 shadow-lg"
         >
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
             {qualifiers.map((q) => (
               <Fragment key={q.name}>
-                <dt className="font-mono text-gray-1000">{q.name}:</dt>
+                <dt className="label-12-mono text-gray-1000">{q.name}:</dt>
                 <dd className="text-gray-900">{q.help}</dd>
               </Fragment>
             ))}
           </dl>
           <p className="mt-2 border-t border-gray-alpha-200 pt-2 text-gray-900">
-            <code className="font-mono">a,b</code> matches either, different qualifiers must all match, and a leading <code className="font-mono">-</code> leaves
+            <code className="label-12-mono">a,b</code> matches either, different qualifiers must all match, and a leading <code className="label-12-mono">-</code> leaves
             values out. Other words match the text.
           </p>
         </div>

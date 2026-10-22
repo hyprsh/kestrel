@@ -2,12 +2,11 @@
 // an episode's, a season's or the ticked episodes' files in the episode grid.
 // Every deletion asks first, naming the files, their total size and every
 // episode that loses its file, those sharing a file with the chosen ones too.
+import { Button, Menu, Note } from '@hyprsh/design'
 import { useEffect, useRef, useState } from 'react'
 import type { Episode, EpisodeScope } from '../api/queries'
 import type { components } from '../api/schema.gen'
 import { useDeleteFiles, type DeletedFiles } from '../api/versions'
-import { Button, ErrorText } from '../forms'
-import { MenuItem } from '../menu'
 import { size, slotLabel } from './bits'
 import { episodeCode, type ActionStatus, type EpisodeVersion } from './episodes'
 
@@ -78,33 +77,41 @@ function DeleteFilesConfirm({
         e.stopPropagation()
         onCancel()
       }}
-      className="mt-2 rounded-md border border-gray-alpha-400 p-2 text-[12px] outline-none"
+      className="label-12 mt-2 rounded-md border border-gray-alpha-400 p-3 outline-none"
     >
       <p>
         Delete {files(paths.length)}, {size(bytes)}, from disk? The Version stays; while monitored it is Wanted again.
       </p>
       <ul className="mt-1">
         {paths.map((p) => (
-          <li key={p} className="truncate font-mono text-[11px]" title={p}>
+          <li key={p} className="label-12-mono truncate" title={p}>
             {base(p)}
           </li>
         ))}
       </ul>
       {episodes.length > 0 && <p className="mt-1">Loses its file: {episodes.join(', ')}</p>}
       {extra.length > 0 && (
-        <p className="mt-1 text-amber-900">
-          {extra.join(', ')} {extra.length === 1 ? 'shares' : 'share'} a file with {episodes.length - extra.length === 1 ? 'it' : 'them'} and {extra.length === 1 ? 'loses its file' : 'lose their files'} too.
-        </p>
+        <div className="mt-2">
+          <Note variant="warning" size="small">
+            {extra.join(', ')} {extra.length === 1 ? 'shares' : 'share'} a file with {episodes.length - extra.length === 1 ? 'it' : 'them'} and {extra.length === 1 ? 'loses its file' : 'lose their files'} too.
+          </Note>
+        </div>
       )}
-      {error && <ErrorText>{error}</ErrorText>}
-      <div className="mt-2 flex flex-wrap gap-2">
-        <Button variant="danger" className="h-7" disabled={busy} onClick={() => onConfirm(false)}>
+      {error && (
+        <div className="mt-2">
+          <Note variant="error" size="small">
+            {error}
+          </Note>
+        </div>
+      )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button variant="error" size="small" disabled={busy} onClick={() => onConfirm(false)}>
           Delete
         </Button>
-        <Button variant="danger" className="h-7" disabled={busy} onClick={() => onConfirm(true)}>
+        <Button variant="error" size="small" disabled={busy} onClick={() => onConfirm(true)}>
           Delete and blocklist {releases}
         </Button>
-        <Button variant="secondary" className="h-7" onClick={onCancel}>
+        <Button variant="secondary" size="small" onClick={onCancel}>
           Cancel
         </Button>
       </div>
@@ -131,7 +138,7 @@ export function DeleteFile({ versionId, file }: { versionId: number; file: FileS
   return (
     <div>
       {file && !asking && (
-        <Button variant="secondary" className="h-7 w-full" onClick={() => setAsking(true)}>
+        <Button variant="secondary" size="small" className="w-full" onClick={() => setAsking(true)}>
           Delete file
         </Button>
       )}
@@ -146,7 +153,7 @@ export function DeleteFile({ versionId, file }: { versionId: number; file: FileS
         />
       )}
       {said && (
-        <p role="status" className="mt-1 text-[12px] text-gray-900">
+        <p role="status" className="label-12 mt-1 text-gray-900">
           {said}
         </p>
       )}
@@ -252,9 +259,9 @@ export function DeleteMenuItems({
   return versions.map((v) => {
     const has = deletes.has(v, episodes)
     return (
-      <MenuItem key={`delete-${v.slot}`} disabled={!has} hint={has ? undefined : 'No file to delete'} onSelect={() => deletes.ask(v, episodes, label, scope, at)}>
+      <Menu.Item key={`delete-${v.slot}`} disabled={!has} onSelect={() => deletes.ask(v, episodes, label, scope, at)}>
         {versions.length > 1 ? `${text} ${slotLabel[v.slot]}` : text}
-      </MenuItem>
+      </Menu.Item>
     )
   })
 }
@@ -267,7 +274,7 @@ export function DeleteTickedButtons({ deletes, versions, ticked, label }: { dele
       <Button
         key={v.slot}
         variant="secondary"
-        className="h-6 px-2 text-[12px]"
+        size="small"
         disabled={!has}
         title={has ? undefined : 'No file to delete'}
         onClick={() => deletes.ask(v, ticked, label, { episode_ids: ticked.map((e) => e.id) }, null)}

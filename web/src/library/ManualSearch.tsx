@@ -1,11 +1,11 @@
+import { Badge, Button, Checkbox, EmptyState, KeyboardInput, Note, Spinner, Table } from '@hyprsh/design'
 import { ArrowLeft, Download } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { ApiError } from '../api/queries'
 import { useGrab, useReleases, type Release } from '../api/grabs'
 import type { EpisodeScope } from '../api/queries'
-import { Button } from '../forms'
 import { useKey, useListNav } from '../keys'
-import { Badge, cx, Kbd } from '../ui'
+import { cx } from '../ui'
 
 function size(bytes: number): string {
   const gb = bytes / 1024 ** 3
@@ -90,135 +90,170 @@ export function ManualSearch({
   return (
     <section ref={ref} tabIndex={-1} aria-label="Manual search" className="flex min-w-0 flex-1 flex-col outline-none">
       <div className="flex items-center gap-3 border-b border-gray-alpha-400 px-4 py-2.5">
-        <Button variant="secondary" className="h-7 px-2" onClick={onBack}>
-          <ArrowLeft className="mr-1 size-3.5" />
+        <Button variant="secondary" size="small" prefix={<ArrowLeft className="size-4" />} onClick={onBack}>
           {titleName}
         </Button>
-        <span className="font-semibold tracking-tight">Manual search</span>
-        <span className="rounded border border-gray-alpha-400 px-1 font-mono text-[11px]">{slotLabel}</span>
-        {scope && <span className="rounded border border-gray-alpha-400 px-1 font-mono text-[11px]">{scope.label}</span>}
-        <span className="text-gray-900">
+        <h2 className="heading-16">Manual search</h2>
+        <Badge variant="gray-subtle" size="sm">
+          {slotLabel}
+        </Badge>
+        {scope && (
+          <Badge variant="gray-subtle" size="sm">
+            {scope.label}
+          </Badge>
+        )}
+        <span className="copy-13 text-gray-900">
           Profile {profileName} · {rows.length} Releases · best first
         </span>
-        <label className="ml-auto flex items-center gap-1.5 text-[12px] text-gray-900">
-          <input type="checkbox" checked={hideRejected} onChange={(e) => setHideRejected(e.target.checked)} />
-          Hide rejected
-        </label>
+        <span className="ml-auto">
+          <Checkbox checked={hideRejected} onChange={(e) => setHideRejected(e.target.checked)}>
+            Hide rejected
+          </Checkbox>
+        </span>
       </div>
 
       {errors.length > 0 && (
-        <div role="alert" className="border-b border-gray-alpha-400 bg-amber-200 px-4 py-1.5 text-[12px] text-amber-900">
-          {errors.map((e) => (
-            <div key={`${e.indexer_id}-${e.indexer}`}>
-              {e.indexer}: {e.message}
-              {e.retry_after ? ` (retry in ${e.retry_after} s)` : ''}
-            </div>
-          ))}
+        <div role="alert" className="border-b border-gray-alpha-400 px-4 py-2">
+          <Note variant="warning" size="small">
+            {errors.map((e) => (
+              <div key={`${e.indexer_id}-${e.indexer}`}>
+                {e.indexer}: {e.message}
+                {e.retry_after ? ` (retry in ${e.retry_after} s)` : ''}
+              </div>
+            ))}
+          </Note>
         </div>
       )}
 
       <div className="min-h-0 flex-1 overflow-auto">
         {search.isPending ? (
-          <div className="p-4 text-gray-900">Searching every indexer…</div>
+          <div className="copy-13 flex items-center gap-2 p-4 text-gray-900">
+            <Spinner size="sm" />
+            Searching every indexer…
+          </div>
         ) : search.isError ? (
-          <p role="alert" className="p-4 text-[12px] text-red-900">
-            {search.error.message}
-          </p>
+          <div className="p-4">
+            <Note variant="error" size="small">
+              {search.error.message}
+            </Note>
+          </div>
         ) : (
-          <table aria-label="Releases" className="w-full table-fixed border-collapse text-left text-[12px]">
-            <thead className="sticky top-0 z-10 bg-background-100">
-              <tr className="border-b border-gray-alpha-400 text-[11px] text-gray-900 [&>th]:px-2 [&>th]:py-1.5 [&>th]:font-medium">
-                <th className="w-16 pl-4 text-right">Score</th>
-                <th>Release</th>
-                <th className="w-28">Quality</th>
-                <th className="w-28">Languages</th>
-                <th className="w-52">Custom formats</th>
-                <th className="w-20 text-right">Size</th>
-                <th className="w-14 text-right">Age</th>
-                <th className="w-28 pr-4">Indexer</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((x, i) => {
-                const rejected = x.rejections.length > 0
-                const dim = rejected && 'opacity-50'
-                return (
-                  <tr
-                    key={x.release_id}
-                    aria-selected={i === index}
-                    data-nav={`ms-${i}`}
-                    onClick={() => setSel(i)}
-                    onDoubleClick={grab}
-                    className={cx(
-                      'cursor-pointer border-b border-gray-alpha-400 align-top [&>td]:px-2 [&>td]:py-1.5',
-                      i === index ? '[&>td]:bg-gray-alpha-200' : 'hover:[&>td]:bg-gray-alpha-100',
-                    )}
-                  >
-                    <td className={cx('pl-4 text-right font-mono tabular-nums', dim)}>{x.score.toLocaleString('en-US')}</td>
-                    <td>
-                      <div className={cx('flex items-center gap-1.5', dim)}>
-                        <span className="truncate font-mono text-[12px]" title={x.name}>
-                          {x.name}
-                        </span>
-                        {x.rejections.some((r) => r.code === 'blocklisted') && <Badge tone="red">Blocklisted</Badge>}
-                        {x.fits === 'other_slot' && <Badge>Other Slot</Badge>}
-                        {scopeLabel(x) && <Badge>{scopeLabel(x)}</Badge>}
-                      </div>
-                      {rejected && (
-                        <div className={cx('mt-0.5 text-[11px]', rejectionBlocked(x) ? 'text-red-900' : 'text-amber-900')}>
-                          {x.rejections.map((r) => r.message).join(' · ')}
-                        </div>
-                      )}
-                    </td>
-                    <td className={cx('whitespace-nowrap', dim)}>{x.quality}</td>
-                    <td className={cx('whitespace-nowrap', dim)}>{x.languages.join(', ')}</td>
-                    <td className={cx(dim)}>
-                      <div className="flex flex-wrap gap-1">
-                        {x.custom_formats.map((f) => (
-                          <span key={f.name} title={`${f.points} points`} className="rounded bg-gray-alpha-200 px-1 text-[11px] whitespace-nowrap">
-                            {f.name}
+          // The scroll wrapper is the pane, so the header can stick to it.
+          <Table.Root style={{ overflow: 'visible' }}>
+            <Table aria-label="Releases" className="table-fixed">
+              <Table.Colgroup>
+                <Table.Col className="w-20" />
+                <Table.Col />
+                <Table.Col className="w-28" />
+                <Table.Col className="w-24" />
+                <Table.Col className="w-44" />
+                <Table.Col className="w-20" />
+                <Table.Col className="w-16" />
+                <Table.Col className="w-28" />
+              </Table.Colgroup>
+              <Table.Header className="sticky top-0 z-10 bg-background-100">
+                <Table.Row>
+                  <Table.Head className="hy-right">Score</Table.Head>
+                  <Table.Head className="hy-left">Release</Table.Head>
+                  <Table.Head className="hy-left">Quality</Table.Head>
+                  <Table.Head className="hy-left">Languages</Table.Head>
+                  <Table.Head className="hy-left">Custom formats</Table.Head>
+                  <Table.Head className="hy-right">Size</Table.Head>
+                  <Table.Head className="hy-right">Age</Table.Head>
+                  <Table.Head className="hy-left">Indexer</Table.Head>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body interactive bordered>
+                {rows.map((x, i) => {
+                  const rejected = x.rejections.length > 0
+                  const dim = rejected && 'opacity-50'
+                  const wrap = 'max-w-none! whitespace-normal!'
+                  return (
+                    <Table.Row
+                      key={x.release_id}
+                      aria-selected={i === index}
+                      data-nav={`ms-${i}`}
+                      onClick={() => setSel(i)}
+                      onDoubleClick={grab}
+                      className={cx('cursor-pointer align-top', i === index && '[&>td]:bg-gray-alpha-200')}
+                    >
+                      <Table.Cell className={cx('hy-right hy-num hy-mono', dim)}>{x.score.toLocaleString('en-US')}</Table.Cell>
+                      <Table.Cell className={wrap}>
+                        <div className={cx('flex items-center gap-1.5', dim)}>
+                          <span className="label-12-mono truncate" title={x.name}>
+                            {x.name}
                           </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className={cx('text-right font-mono whitespace-nowrap tabular-nums', dim)}>{size(x.size)}</td>
-                    <td className={cx('text-right font-mono whitespace-nowrap tabular-nums', dim)}>{age(x.published_at)}</td>
-                    <td className={cx('pr-4 whitespace-nowrap', dim)}>{x.indexer}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                          {x.rejections.some((r) => r.code === 'blocklisted') && (
+                            <Badge variant="red-subtle" size="sm">
+                              Blocklisted
+                            </Badge>
+                          )}
+                          {x.fits === 'other_slot' && (
+                            <Badge variant="gray-subtle" size="sm">
+                              Other Slot
+                            </Badge>
+                          )}
+                          {scopeLabel(x) && (
+                            <Badge variant="gray-subtle" size="sm">
+                              {scopeLabel(x)}
+                            </Badge>
+                          )}
+                        </div>
+                        {rejected && (
+                          <div className={cx('label-12 mt-0.5', rejectionBlocked(x) ? 'text-red-900' : 'text-amber-900')}>
+                            {x.rejections.map((r) => r.message).join(' · ')}
+                          </div>
+                        )}
+                      </Table.Cell>
+                      <Table.Cell className={cx('hy-left', dim)}>{x.quality}</Table.Cell>
+                      <Table.Cell className={cx('hy-left', dim)}>{x.languages.join(', ')}</Table.Cell>
+                      <Table.Cell className={cx('hy-left', wrap, dim)}>
+                        <div className="flex flex-wrap gap-1">
+                          {x.custom_formats.map((f) => (
+                            <Badge key={f.name} variant="gray-subtle" size="sm" title={`${f.points} points`}>
+                              {f.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      </Table.Cell>
+                      <Table.Cell className={cx('hy-right hy-num hy-mono', dim)}>{size(x.size)}</Table.Cell>
+                      <Table.Cell className={cx('hy-right hy-num hy-mono', dim)}>{age(x.published_at)}</Table.Cell>
+                      <Table.Cell className={cx('hy-left', dim)}>{x.indexer}</Table.Cell>
+                    </Table.Row>
+                  )
+                })}
+              </Table.Body>
+            </Table>
+          </Table.Root>
         )}
-        {search.isSuccess && rows.length === 0 && <div className="p-4 text-gray-900">No Releases found.</div>}
+        {search.isSuccess && rows.length === 0 && <EmptyState title="No Releases found." />}
       </div>
 
       <div className="flex items-center gap-3 border-t border-gray-alpha-400 bg-background-200 px-4 py-2.5">
         <div className="min-w-0 flex-1" aria-live="polite">
           {sent ? (
-            <div className="truncate text-[12px] text-green-900">Sent to the download client: {sent}</div>
+            <div className="label-12 truncate text-green-900">Sent to the download client: {sent}</div>
           ) : problem ? (
-            <div role="alert" className="truncate text-[12px] text-red-900">
+            <div role="alert" className="label-12 truncate text-red-900">
               {problem}
             </div>
           ) : current && g ? (
             <>
-              <div className="truncate font-mono text-[12px]">
+              <div className="label-12-mono truncate">
                 {current.name} <span className="text-gray-900">· {current.score.toLocaleString('en-US')} · {size(current.size)} · {current.indexer}</span>
               </div>
-              <div className={cx('truncate text-[12px]', g.disabled ? 'text-red-900' : g.reason ? 'text-amber-900' : 'text-gray-900')}>
+              <div className={cx('label-12 truncate', g.disabled ? 'text-red-900' : g.reason ? 'text-amber-900' : 'text-gray-900')}>
                 {g.reason ?? `Fits the ${slotLabel} Version under Profile ${profileName}`}
               </div>
             </>
           ) : null}
         </div>
-        <span className="flex items-center gap-1 text-[11px] text-gray-900">
-          <Kbd>j</Kbd>
-          <Kbd>k</Kbd> select · <Kbd>↵</Kbd> grab · <Kbd>esc</Kbd> back
+        <span className="label-12 flex items-center gap-1 text-gray-900">
+          <KeyboardInput small>j</KeyboardInput>
+          <KeyboardInput small>k</KeyboardInput> select · <KeyboardInput small>↵</KeyboardInput> grab · <KeyboardInput small>esc</KeyboardInput> back
         </span>
         {g && (
-          <Button variant={g.override ? 'secondary' : 'primary'} disabled={g.disabled || grabbing.isPending} onClick={grab} title={g.reason}>
-            <Download className="mr-1 size-3.5" />
+          <Button variant={g.override ? 'secondary' : 'primary'} size="small" prefix={<Download className="size-4" />} disabled={g.disabled || grabbing.isPending} onClick={grab} title={g.reason}>
             {g.label}
           </Button>
         )}

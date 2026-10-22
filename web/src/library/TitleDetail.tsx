@@ -1,3 +1,4 @@
+import { Note, Skeleton } from '@hyprsh/design'
 import { forwardRef, useRef } from 'react'
 import { useProfiles, useTitle, type EpisodeScope, type TitleDetail as Detail, type TitleRow } from '../api/queries'
 import { TitlePoster } from '../poster'
@@ -30,13 +31,20 @@ export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: ()
       className="min-w-0 flex-1 overflow-auto p-6 outline-none"
     >
       {isError ? (
-        <p role="alert" className="text-[12px] text-red-900">
+        <Note variant="error" size="small">
           Could not load this Title.
-        </p>
+        </Note>
       ) : data ? (
         <Body title={data} onManualSearch={onManualSearch} />
       ) : (
-        <div className="text-gray-900">Loading…</div>
+        <div role="status" aria-label="Loading" className="flex gap-4">
+          <Skeleton width={96} height={144} />
+          <div className="flex flex-1 flex-col gap-2">
+            <Skeleton width="40%" height={32} />
+            <Skeleton width="25%" height={20} />
+            <Skeleton height={60} />
+          </div>
+        </div>
       )}
     </section>
   )
@@ -62,16 +70,16 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
       <div className="flex gap-4">
         <TitlePoster id={title.id} hasPoster={title.has_poster} alt={`${title.title} poster`} className="h-36 w-24 rounded-md" />
         <div className="min-w-0">
-          <h2 className="text-2xl font-semibold tracking-tight">{title.title}</h2>
-          {title.primary_title !== title.title && <div className="text-[15px] text-gray-900">{title.primary_title}</div>}
-          <div className="mt-1 text-gray-900">{meta.join(' · ')}<Ratings ratings={title.ratings} lead={meta.length > 0} /></div>
+          <h2 className="heading-24">{title.title}</h2>
+          {title.primary_title !== title.title && <div className="copy-14 text-gray-900">{title.primary_title}</div>}
+          <div className="copy-14 mt-1 text-gray-900">{meta.join(' · ')}<Ratings ratings={title.ratings} lead={meta.length > 0} /></div>
           <ExternalIds title={title} />
           {title.requests.map((r) => (
-            <div key={r.id} className="mt-1 text-[13px] text-gray-900">
+            <div key={r.id} className="copy-13 mt-1 text-gray-900">
               Requested by {r.requester_name} via {sourceName(r.source)}
             </div>
           ))}
-          {title.overview && <p className="mt-3 max-w-prose text-gray-900">{title.overview}</p>}
+          {title.overview && <p className="copy-14 mt-3 max-w-prose text-gray-900">{title.overview}</p>}
         </div>
       </div>
       <TitleActions title={title} profileName={profileName} onManualSearch={onManualSearch} />

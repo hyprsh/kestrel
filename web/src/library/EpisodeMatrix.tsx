@@ -1,3 +1,4 @@
+import { Checkbox, Note, Spinner } from '@hyprsh/design'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ApiError, useEpisodes, useMonitorEpisodes, usePatchSeason, type Episode } from '../api/queries'
 import { cx } from '../ui'
@@ -5,10 +6,10 @@ import { slotLabel, versionStatus, type SlotKey } from './bits'
 import { EpisodeMenu, EpisodeTick, SeasonMenu, type EpisodeActions } from './EpisodeActions'
 import { SeasonSummary, SeasonToggle } from './SeasonSummary'
 import type { SeasonOpen } from './useSeasonOpen'
+import { RowDeleteConfirm } from './DeleteFiles'
 import { EpisodeFileTip, cellTitle } from './EpisodeFileTip'
 import { EpisodeName } from './EpisodeName'
 import { episodeRow, seasonName, seasonRow } from './episodes'
-import { RowDeleteConfirm } from './DeleteFiles'
 
 type Row = { kind: 'season'; season: number; episodes: Episode[] } | { kind: 'episode'; episode: Episode }
 
@@ -85,13 +86,18 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
 
   if (episodes.isError) {
     return (
-      <p role="alert" className="text-[12px] text-red-900">
+      <Note variant="error" size="small">
         {episodes.error instanceof ApiError ? episodes.error.message : 'Could not load the episodes.'}
-      </p>
+      </Note>
     )
   }
-  if (!episodes.data) return <p className="text-gray-900">Loading episodes…</p>
-  if (rows.length === 0) return <p className="text-gray-900">TheTVDB lists no episodes yet.</p>
+  if (!episodes.data)
+    return (
+      <p className="copy-13 flex items-center gap-2 text-gray-900">
+        <Spinner size="sm" /> Loading episodes…
+      </p>
+    )
+  if (rows.length === 0) return <p className="copy-13 text-gray-900">TheTVDB lists no episodes yet.</p>
 
   const move = (row: number, col: number) => {
     const r = Math.min(Math.max(row, 0), rows.length - 1)
@@ -136,8 +142,9 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
         return go(rows.length - 1, col)
       case 'Enter':
       case ' ': {
-        // On a toggle button the click does it; on a Slot cell the row's monitoring is toggled.
+        // On a button the click does it, and on a checkbox Space does; on a Slot cell, or Enter on a checkbox, the row's monitoring is toggled.
         if (e.target instanceof Element && e.target.closest('button')) return
+        if (e.key === ' ' && e.target instanceof HTMLInputElement) return
         e.preventDefault()
         e.stopPropagation()
         if (at.kind === 'season') patchSeason.mutate({ season: at.season, monitored: !at.episodes.some((x) => x.monitored) })
@@ -156,9 +163,9 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
       aria-label="Episodes"
       aria-colcount={columns}
       onKeyDown={onKeyDown}
-      className="rounded-lg border border-gray-alpha-400 text-[13px]"
+      className="copy-13 rounded-lg border border-gray-alpha-400"
     >
-      <div role="row" className="flex items-center gap-3 border-b border-gray-alpha-400 px-3 py-1.5 font-mono text-[11px] text-gray-900">
+      <div role="row" className="label-12-mono flex items-center gap-3 border-b border-gray-alpha-400 px-3 py-1.5 text-gray-900">
         <span role="columnheader" className="flex-1">
           Episode
         </span>
@@ -227,24 +234,21 @@ function SeasonRow({
   after?: ReactNode
 }) {
   const on = row.episodes.filter((e) => e.monitored).length
-  const checked = on === 0 ? 'false' : on === row.episodes.length ? 'true' : 'mixed'
   return (
     <>
       <div role="row" aria-rowindex={index + 2} className="flex items-center gap-3 border-t border-gray-alpha-400 bg-gray-alpha-100 px-3 py-1.5">
         <div role="gridcell" className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
-          <button
-            type="button"
-            role="checkbox"
-            aria-checked={checked}
+          <Checkbox
             aria-label={seasonName(row.season)}
+            checked={on === row.episodes.length}
+            indeterminate={on > 0 && on < row.episodes.length}
             data-cell={`${index}-0`}
             tabIndex={tabIndex}
             onFocus={onFocus}
             onClick={() => onToggle(on === 0)}
-            className={cx('size-4 shrink-0 rounded border border-gray-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-700', checked !== 'false' && 'bg-gray-1000')}
           />
           <SeasonToggle name={seasonName(row.season)} open={open} onToggle={() => onOpen(!open)} onFocus={onFocus} />
-          <span className="text-[12px] text-gray-900">
+          <span className="label-12 text-gray-900">
             {on} of {row.episodes.length} monitored
           </span>
           {!open && <SeasonSummary episodes={row.episodes} slots={slots} />}
@@ -285,22 +289,19 @@ function EpisodeRow({
       <div role="row" aria-rowindex={index + 2} className="flex items-center gap-3 px-3 py-1 hover:bg-gray-alpha-100">
         <div role="gridcell" className="flex min-w-0 flex-1 items-center gap-2">
           {tick}
-          <button
-            type="button"
-            role="checkbox"
-            aria-checked={episode.monitored}
+          <Checkbox
             aria-label={`${label} monitored`}
+            checked={episode.monitored}
             data-cell={`${index}-0`}
             tabIndex={tab(index, 0)}
             onFocus={() => onFocus(0)}
             onClick={onToggle}
-            className={cx('size-4 shrink-0 rounded border border-gray-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-700', episode.monitored && 'bg-gray-1000')}
           />
-          <span className="w-14 shrink-0 font-mono text-[11px] text-gray-900">
+          <span className="label-12-mono w-14 shrink-0 text-gray-900">
             {episode.season}x{String(episode.number).padStart(2, '0')}
           </span>
           <EpisodeName episode={episode} />
-          <span className="ml-auto shrink-0 text-[12px] text-gray-900">{episode.air_date ?? 'no air date'}</span>
+          <span className="label-12 ml-auto shrink-0 text-gray-900">{episode.air_date ?? 'no air date'}</span>
           {menu}
         </div>
         {slots.map((s, c) => {

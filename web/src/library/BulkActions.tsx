@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useBulkTitles, type TitleBulkOutcome, type TitleBulkReason, type TitlesBulk } from '../api/bulk'
 import { useProfiles, type Profile, type TitleRow } from '../api/queries'
 import { plural } from '../format'
-import { Button, ErrorText, Select } from '../forms'
+import { Button, Note, Select } from '@hyprsh/design'
 import { size, slotKeys, slotLabel, type SlotKey } from './bits'
 import { RemoveConfirm } from './ManageVersion'
 
@@ -66,7 +66,7 @@ export function BulkActions({ rows }: { rows: TitleRow[] }) {
       },
     })
   const action = (label: string, onClick: () => void) => (
-    <Button variant="secondary" className="h-7" disabled={bulk.isPending} onClick={onClick}>
+    <Button variant="secondary" size="small" disabled={bulk.isPending} onClick={onClick}>
       {label}
     </Button>
   )
@@ -76,7 +76,7 @@ export function BulkActions({ rows }: { rows: TitleRow[] }) {
   const name = `${plural(rows.length, 'Title')} ticked`
   return (
     <section aria-label={name} className="min-w-0 flex-1 overflow-auto p-6">
-      <h2 className="text-[15px] font-semibold tracking-tight">{name}</h2>
+      <h2 className="heading-16">{name}</h2>
       <div role="toolbar" aria-label="Change the ticked Titles" className="mt-4 flex flex-wrap gap-2">
         {action('Monitor', () => (hasSeries ? setForm('monitor') : run('Monitor', { action: 'monitor', monitored: true, title_ids: ids })))}
         {action('Unmonitor', () => run('Unmonitor', { action: 'monitor', monitored: false, title_ids: ids }))}
@@ -112,18 +112,26 @@ export function BulkActions({ rows }: { rows: TitleRow[] }) {
           onApply={(slot, profile) => run('Add Version', { action: 'add_version', slot, profile, title_ids: ids }, slot)}
         />
       )}
-      {form === 'remove_version' && <RemoveVersionForm busy={busy} onCancel={close} onApply={(slot, d) => run('Remove Version', { action: 'remove_version', slot, delete_files: d, title_ids: ids }, slot)} />}
+      {form === 'remove_version' && <RemoveVersionForm busy={busy} error={bulk.error?.message} onCancel={close} onApply={(slot, d) => run('Remove Version', { action: 'remove_version', slot, delete_files: d, title_ids: ids }, slot)} />}
       {form === 'remove' && (
-        <div className="max-w-xs">
-          <RemoveConfirm what="Titles" busy={busy} onCancel={close} onConfirm={(d) => run('Remove from Library', { action: 'remove', delete_files: d, title_ids: ids })}>
-            <p className="mb-2">
-              Remove {plural(rows.length, 'Title')} from the Library, with {size(rows.reduce((n, r) => n + r.size, 0))} of files.
-            </p>
-          </RemoveConfirm>
-        </div>
+      <RemoveConfirm
+        what="Titles"
+        busy={busy}
+        error={bulk.error?.message}
+        onCancel={close}
+        onConfirm={(d) => run('Remove from Library', { action: 'remove', delete_files: d, title_ids: ids })}
+      >
+        Remove {plural(rows.length, 'Title')} from the Library, with {size(rows.reduce((n, r) => n + r.size, 0))} of files.
+      </RemoveConfirm>
       )}
 
-      {bulk.error && <ErrorText>{bulk.error.message}</ErrorText>}
+      {bulk.error && form !== 'remove' && form !== 'remove_version' && (
+        <div className="mt-3 max-w-xl">
+          <Note variant="error" size="small">
+            {bulk.error.message}
+          </Note>
+        </div>
+      )}
       {result && <Summary result={result} />}
     </section>
   )
@@ -132,11 +140,11 @@ export function BulkActions({ rows }: { rows: TitleRow[] }) {
 /** Apply and Cancel under an action's options. */
 function FormButtons({ busy, onApply, onCancel }: { busy: boolean; onApply: () => void; onCancel: () => void }) {
   return (
-    <div className="mt-2 flex gap-2">
-      <Button className="h-7" disabled={busy} onClick={onApply}>
+    <div className="mt-3 flex gap-2">
+      <Button variant="primary" size="small" disabled={busy} onClick={onApply}>
         Apply
       </Button>
-      <Button variant="secondary" className="h-7" onClick={onCancel}>
+      <Button variant="secondary" size="small" onClick={onCancel}>
         Cancel
       </Button>
     </div>
@@ -148,13 +156,10 @@ function MonitorForm({ busy, onApply, onCancel }: { busy: boolean; onApply: (mod
   const [mode, setMode] = useState<'all' | 'future'>('all')
   return (
     <div role="group" aria-label="Monitor" className="mt-3 max-w-xs">
-      <label className="text-[12px] font-medium text-gray-900">
-        Series monitor
-        <Select className="mt-1" value={mode} onChange={(e) => setMode(e.target.value as 'all' | 'future')}>
-          <option value="all">All episodes</option>
-          <option value="future">Future episodes</option>
-        </Select>
-      </label>
+      <Select size="small" label="Series monitor" value={mode} onChange={(e) => setMode(e.target.value as 'all' | 'future')}>
+        <option value="all">All episodes</option>
+        <option value="future">Future episodes</option>
+      </Select>
       <FormButtons busy={busy} onCancel={onCancel} onApply={() => onApply(mode)} />
     </div>
   )
@@ -162,16 +167,13 @@ function MonitorForm({ busy, onApply, onCancel }: { busy: boolean; onApply: (mod
 
 function SlotSelect({ slot, onChange }: { slot: SlotKey; onChange: (slot: SlotKey) => void }) {
   return (
-    <label className="text-[12px] font-medium text-gray-900">
-      Slot
-      <Select className="mt-1" value={slot} onChange={(e) => onChange(e.target.value as SlotKey)}>
-        {slotKeys.map((k) => (
-          <option key={k} value={k}>
-            {slotLabel[k]}
-          </option>
-        ))}
-      </Select>
-    </label>
+    <Select size="small" label="Slot" value={slot} onChange={(e) => onChange(e.target.value as SlotKey)}>
+      {slotKeys.map((k) => (
+        <option key={k} value={k}>
+          {slotLabel[k]}
+        </option>
+      ))}
+    </Select>
   )
 }
 
@@ -199,48 +201,43 @@ function SlotForm({
   return (
     <div role="group" aria-label={label} className="mt-3 flex max-w-xs flex-col gap-2">
       <SlotSelect slot={slot} onChange={setSlot} />
-      <label className="text-[12px] font-medium text-gray-900">
-        Profile
-        <Select className="mt-1" value={profile} onChange={(e) => setPicked({ ...picked, [slot]: e.target.value })}>
-          {options.map((p) => (
-            <option key={p.key} value={p.key}>
-              {p.name}
-            </option>
-          ))}
-        </Select>
-      </label>
+      <Select size="small" label="Profile" value={profile} onChange={(e) => setPicked({ ...picked, [slot]: e.target.value })}>
+        {options.map((p) => (
+          <option key={p.key} value={p.key}>
+            {p.name}
+          </option>
+        ))}
+      </Select>
       <FormButtons busy={busy || !profile} onCancel={onCancel} onApply={() => onApply(slot, profile)} />
     </div>
   )
 }
 
-function RemoveVersionForm({ busy, onApply, onCancel }: { busy: boolean; onApply: (slot: SlotKey, deleteFiles: boolean) => void; onCancel: () => void }) {
+function RemoveVersionForm({ busy, error, onApply, onCancel }: { busy: boolean; error?: string; onApply: (slot: SlotKey, deleteFiles: boolean) => void; onCancel: () => void }) {
   const [slot, setSlot] = useState<SlotKey>('standard')
   return (
-    <div className="max-w-xs">
-      <RemoveConfirm what="Version" busy={busy} onCancel={onCancel} onConfirm={(d) => onApply(slot, d)}>
-        <div className="mb-2">
-          <SlotSelect slot={slot} onChange={setSlot} />
-        </div>
-      </RemoveConfirm>
-    </div>
+    <RemoveConfirm what="Version" busy={busy} error={error} onCancel={onCancel} onConfirm={(d) => onApply(slot, d)}>
+      <SlotSelect slot={slot} onChange={setSlot} />
+    </RemoveConfirm>
   )
 }
 
 function Summary({ result }: { result: Result }) {
   const { changed, others } = summarize(result.items, result.slot)
   return (
-    <div role="status" className="mt-4 rounded-md border border-gray-alpha-400 p-3 text-[12px]">
-      <div className="font-medium">
-        {result.label}: {changed} changed
-      </div>
-      {others.length > 0 && (
-        <ul className="mt-1 list-disc pl-4 text-gray-900">
-          {others.map((o) => (
-            <li key={o}>{o}</li>
-          ))}
-        </ul>
-      )}
+    <div role="status" className="mt-4 max-w-xl">
+      <Note size="small">
+        <div>
+          {result.label}: {changed} changed
+        </div>
+        {others.length > 0 && (
+          <ul className="mt-1 list-disc pl-4 text-gray-900">
+            {others.map((o) => (
+              <li key={o}>{o}</li>
+            ))}
+          </ul>
+        )}
+      </Note>
     </div>
   )
 }

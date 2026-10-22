@@ -2,17 +2,18 @@ import { CheckSquare, Eraser, FolderInput, Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useProfiles, useTitles, type TitleRow } from '../api/queries'
 import { useOpenCleanup } from '../cleanup/launch'
-import { Button } from '../forms'
+import { Button, EmptyState, KeyboardInput, Note } from '@hyprsh/design'
 import { useKey, useListNav } from '../keys'
-import { SelectBox, SelectionBar, useSelection } from '../selection'
+import { SelectionBar, useSelection } from '../selection'
 import { parse } from '../filter/query'
 import { QueryField } from '../filter/QueryField'
-import { cx, Kbd } from '../ui'
+import { cx } from '../ui'
 import { KindIcon, SlotDots } from './bits'
 import { BulkActions } from './BulkActions'
 import { filterLibrary, libraryQualifiers } from './filter'
 import { ManualSearch } from './ManualSearch'
 import { slotLabel } from './bits'
+import { TickBox } from './TickBox'
 import { TitleDetail, type ManualSearchTarget } from './TitleDetail'
 
 /**
@@ -23,8 +24,6 @@ import { TitleDetail, type ManualSearchTarget } from './TitleDetail'
  * Title under the cursor. While Titles are ticked, the right pane holds the
  * actions that change them together, and Escape clears the ticks.
  */
-const toolButton = 'flex h-6 items-center gap-1 rounded-md px-2 text-[12px] font-medium text-gray-900 hover:bg-gray-alpha-100 hover:text-gray-1000'
-
 export function Library({
   selectedId,
   onSelect,
@@ -77,23 +76,22 @@ export function Library({
       <aside className="flex w-72 shrink-0 flex-col border-r border-gray-alpha-400">
         <div className="flex flex-col gap-2 border-b border-gray-alpha-400 p-3">
           <div className="flex gap-1">
-            <button onClick={onAdopt} aria-label="Adopt existing library" title="Adopt existing library" className={toolButton}>
-              <FolderInput className="size-3.5" />
+            <Button variant="tertiary" size="small" prefix={<FolderInput className="size-4" />} onClick={onAdopt} aria-label="Adopt existing library" title="Adopt existing library">
               Adopt
-            </button>
-            <button onClick={() => openCleanup()} aria-label="Clean up Unmanaged files" title="Clean up Unmanaged files" className={toolButton}>
-              <Eraser className="size-3.5" />
+            </Button>
+            <Button variant="tertiary" size="small" prefix={<Eraser className="size-4" />} onClick={() => openCleanup()} aria-label="Clean up Unmanaged files" title="Clean up Unmanaged files">
               Clean up
-            </button>
-            <button
+            </Button>
+            <Button
+              variant={selection.active ? 'secondary' : 'tertiary'}
+              size="small"
+              prefix={<CheckSquare className="size-4" />}
               onClick={() => (selection.active ? selection.clear() : selection.setActive(true))}
               aria-pressed={selection.active}
               title="Tick Titles to change together (x)"
-              className={cx(toolButton, selection.active && 'bg-gray-alpha-200 text-gray-1000')}
             >
-              <CheckSquare className="size-3.5" />
               Tick
-            </button>
+            </Button>
           </div>
           <QueryField
             id="library-filter"
@@ -141,15 +139,15 @@ export function Library({
               }}
               className={cx('flex cursor-default items-center gap-2 rounded-md px-2 py-1.5', i === index ? 'bg-gray-alpha-200' : 'hover:bg-gray-alpha-100')}
             >
-              {selection.active && <SelectBox selection={selection} id={r.id} name={r.title} />}
+              {selection.active && <TickBox selection={selection} id={r.id} name={r.title} />}
               <KindIcon kind={r.kind} className="shrink-0 text-gray-900" />
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-medium">
+                <div className="label-14 truncate">
                   {r.title}
-                  {r.year ? <span className="ml-1.5 font-normal text-gray-900">{r.year}</span> : null}
+                  {r.year ? <span className="ml-1.5 text-gray-900">{r.year}</span> : null}
                 </div>
                 {r.primary_title !== r.title && (
-                  <div data-primary-title className="truncate text-[12px] text-gray-900">
+                  <div data-primary-title className="label-12 truncate text-gray-900">
                     {r.primary_title}
                   </div>
                 )}
@@ -159,10 +157,10 @@ export function Library({
           ))}
         </div>
 
-        <footer className="flex items-center justify-between border-t border-gray-alpha-400 px-3 py-2 text-[12px] text-gray-900">
+        <footer className="label-12 flex items-center justify-between border-t border-gray-alpha-400 px-3 py-2 text-gray-900">
           <span className="flex items-center gap-1">
-            <Kbd>j</Kbd>
-            <Kbd>k</Kbd> move <Kbd>x</Kbd> tick
+            <KeyboardInput small>j</KeyboardInput>
+            <KeyboardInput small>k</KeyboardInput> move <KeyboardInput small>x</KeyboardInput> tick
           </span>
           <span>
             {rows.length} of {all.length}
@@ -190,20 +188,17 @@ export function Library({
       ) : (
         <div className="flex flex-1 items-center justify-center text-center">
           {titles.isError ? (
-            <p role="alert" className="text-[12px] text-red-900">
+            <Note variant="error" size="small">
               Could not load the Library.
-            </p>
+            </Note>
           ) : empty ? (
-            <div>
-              <div className="text-sm font-medium">Nothing here yet</div>
-              <div className="mt-1 text-gray-900">Add your first Movie or Series.</div>
-              <Button className="mt-3" onClick={onAdd}>
-                <Plus className="mr-1 size-4" />
+            <EmptyState title="Nothing here yet" description="Add your first Movie or Series.">
+              <Button variant="primary" size="small" prefix={<Plus className="size-4" />} onClick={onAdd}>
                 Add a title
               </Button>
-            </div>
+            </EmptyState>
           ) : titles.isSuccess ? (
-            <div className="text-gray-900">No Title matches.</div>
+            <EmptyState title="No Title matches." />
           ) : null}
         </div>
       )}

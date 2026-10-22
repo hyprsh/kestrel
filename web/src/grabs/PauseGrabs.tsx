@@ -1,6 +1,6 @@
 // The "Pause Grabs" switch (Settings, Grabs).
 import { ApiError, usePatchSettings, useSettings } from '../api/queries'
-import { ErrorText } from '../forms'
+import { Checkbox, Note } from '@hyprsh/design'
 
 export function PauseGrabsSwitch() {
   const { data } = useSettings()
@@ -8,23 +8,18 @@ export function PauseGrabsSwitch() {
   if (!data) return null
   return (
     <>
-      <label className="flex items-start gap-2 text-[13px]">
-        <input
-          type="checkbox"
-          className="mt-0.5"
-          checked={data.pause_grabs}
-          disabled={save.isPending}
-          onChange={(e) => save.mutate({ pause_grabs: e.target.checked })}
-        />
-        <span>
-          Pause Grabs
-          <span className="mt-0.5 block text-[12px] text-gray-900">
-            Searches keep running, so Wanted and Upgrade candidates still show up, but nothing is sent to the download client
-            on its own. A Release you grab by hand still goes through. Turning it off lets the next sweep grab as usual.
-          </span>
+      <Checkbox checked={data.pause_grabs} disabled={save.isPending} onChange={(e) => save.mutate({ pause_grabs: e.target.checked })}>
+        Pause Grabs
+        <span className="label-12 mt-0.5 block text-gray-900">
+          Searches keep running, so Wanted and Upgrade candidates still show up, but nothing is sent to the download client
+          on its own. A Release you grab by hand still goes through. Turning it off lets the next sweep grab as usual.
         </span>
-      </label>
-      {save.isError && <ErrorText>{save.error instanceof ApiError ? save.error.message : 'Could not save.'}</ErrorText>}
+      </Checkbox>
+      {save.isError && (
+        <Note variant="error" size="small">
+          {save.error instanceof ApiError ? save.error.message : 'Could not save.'}
+        </Note>
+      )}
     </>
   )
 }

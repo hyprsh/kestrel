@@ -73,7 +73,7 @@ describe('manage Versions', () => {
     const hd = await within(pane).findByRole('group', { name: 'Standard' })
 
     await userEvent.click(await within(hd).findByRole('button', { name: 'Remove Version' }))
-    const confirm = within(hd).getByRole('group', { name: 'Remove Version' })
+    const confirm = screen.getByRole('alertdialog', { name: 'Remove Version' })
     expect(within(confirm).getByRole('checkbox', { name: 'Also delete files' })).not.toBeChecked()
     await userEvent.click(within(confirm).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(calls).toHaveLength(1))
