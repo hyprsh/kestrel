@@ -1,7 +1,7 @@
 // The health strip: capacity at a glance, how old the TRaSH snapshot is, and whether Grabs are paused.
+import { StatusDot } from '@hyprsh/design'
 import { useStatus, type SystemStatus } from '../api/attention'
 import { clockTime } from '../time'
-import { cx } from '../ui'
 
 /** "800 GB", "1 TB": powers of 1024, no decimals once a number is round. */
 function formatBytes(n: number): string {
@@ -15,10 +15,12 @@ function formatBytes(n: number): string {
   return `${Number.isInteger(v) ? v : v.toFixed(1)} ${units[i]}`
 }
 
+const dot = { ok: 'ready', failing: 'error', idle: 'canceled' } as const
+
 function Item({ label, state, detail }: { label: string; state: 'ok' | 'failing' | 'idle'; detail: string }) {
   return (
     <div className="flex items-center gap-2" title={detail}>
-      <span className={cx('size-1.5 rounded-full', state === 'ok' && 'bg-green-700', state === 'failing' && 'bg-red-700', state === 'idle' && 'bg-gray-600')} />
+      <StatusDot state={dot[state]} label={false} titlePrefix={label} aria-hidden />
       <span className="font-medium">{label}</span>
       <span className="text-gray-900">{detail}</span>
     </div>
@@ -56,11 +58,11 @@ export function HealthStrip() {
   const s = status.data
   return (
     <section aria-labelledby="health-strip" className="mx-auto mb-8 max-w-3xl">
-      <h2 id="health-strip" className="mb-3 text-sm font-medium">
+      <h2 id="health-strip" className="heading-14 mb-3">
         Health
       </h2>
       {s && (
-        <div className="flex flex-wrap gap-x-6 gap-y-2 rounded-lg border border-gray-alpha-400 px-4 py-3 text-[12px]">
+        <div className="flex flex-wrap gap-x-6 gap-y-2 rounded-lg border border-gray-alpha-400 px-4 py-3 label-12">
           {s.grabs_paused && <Item label="Grabs" state="idle" detail="Automatic Grabs are paused" />}
           {client(s.download_client)}
           {s.indexers.map((i) => (
