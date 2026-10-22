@@ -1,6 +1,6 @@
 // Overview, the home screen: Needs attention, the health strip, Searching, Downloading now,
 // Coming this week, Recently added and Recent requests.
-import { EmptyState, Note } from '@hyprsh/design'
+import { Note } from '@hyprsh/design'
 import { useState } from 'react'
 import { useAttention } from '../api/attention'
 import { useQueue, useCancelGrab } from '../api/queue'
@@ -50,7 +50,7 @@ export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen
       <Section id="downloading-now" title="Downloading now" count={queue.data ? all.length : undefined}>
         {cancel.isError && <Note variant="error">{cancel.error.message}</Note>}
         {queue.data && items.length === 0 ? (
-          <EmptyState description="Nothing is downloading." />
+          <p className="copy-13 text-gray-900">Nothing is downloading.</p>
         ) : (
           <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
             {items.map((i, n) => (
