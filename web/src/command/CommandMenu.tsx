@@ -1,10 +1,11 @@
+import { Badge, KeyboardInput, Note, Spinner } from '@hyprsh/design'
 import { CornerDownLeft, Plus, Search } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ApiError, useLookup, useTitles, type LookupResult, type TitleRow } from '../api/queries'
 import { rank, type Match } from '../fuzzy'
 import { KindIcon } from '../library/bits'
 import { ratingsText } from '../library/Ratings'
-import { Badge, cx, Kbd } from '../ui'
+import { cx } from '../ui'
 import { AddConfirm } from './AddConfirm'
 import { Poster, TitlePoster } from '../poster'
 
@@ -93,10 +94,10 @@ export function CommandMenu({
         thumb: <Poster src={r.poster} className={thumbSize} />,
         right: (
           <span className="flex items-center gap-1.5">
-            {r.in_library !== null && <Badge tone="green">In library</Badge>}
-            {!r.addable && r.not_addable_reason === 'not_on_tvdb' && <Badge tone="amber">Not on TheTVDB</Badge>}
-            {!r.addable && r.not_addable_reason === 'tvdb_unavailable' && <Badge tone="amber">TheTVDB unreachable</Badge>}
-            <Badge>{r.kind === 'series' ? 'Series' : 'Movie'}</Badge>
+            {r.in_library !== null && <Badge variant="green-subtle" size="sm">In library</Badge>}
+            {!r.addable && r.not_addable_reason === 'not_on_tvdb' && <Badge variant="amber-subtle" size="sm">Not on TheTVDB</Badge>}
+            {!r.addable && r.not_addable_reason === 'tvdb_unavailable' && <Badge variant="amber-subtle" size="sm">TheTVDB unreachable</Badge>}
+            <Badge variant="gray-subtle" size="sm">{r.kind === 'series' ? 'Series' : 'Movie'}</Badge>
           </span>
         ),
         run: () => {
@@ -115,7 +116,7 @@ export function CommandMenu({
         id: 'did-you-mean',
         group: 'Add',
         label: `Did you mean ${meant}?`,
-        icon: <Search className="size-3.5 text-gray-900" />,
+        icon: <Search aria-hidden className="size-4 text-gray-900" />,
         keepOpen: true,
         run: () => {
           setQuery(meant)
@@ -162,7 +163,7 @@ export function CommandMenu({
       id: 'add-query',
       group: 'Add',
       label: `Add "${q}"…`,
-      icon: <Plus className="size-3.5 text-gray-900" />,
+      icon: <Plus aria-hidden className="size-4 text-gray-900" />,
       keepOpen: true,
       run: () => setMode('add'),
     }
@@ -204,7 +205,7 @@ export function CommandMenu({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[12vh]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-(--z-modal) flex items-start justify-center bg-black/40 pt-[12vh]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div
         ref={dialogRef}
         data-cmdk
@@ -212,7 +213,7 @@ export function CommandMenu({
         aria-modal="true"
         aria-label="Command menu"
         onKeyDown={onKeyDown}
-        className="flex max-h-[70vh] w-[640px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-gray-alpha-400 bg-background-100 shadow-2xl"
+        className="flex max-h-[70vh] w-[640px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-(--radius-xl) bg-background-100 shadow-(--shadow-modal)"
       >
         {chosen ? (
           <AddConfirm
@@ -226,7 +227,7 @@ export function CommandMenu({
         ) : (
           <>
             <div className="flex items-center gap-2 border-b border-gray-alpha-400 px-3">
-              {mode === 'add' && <Badge tone="blue">Add</Badge>}
+              {mode === 'add' && <Badge variant="blue-subtle" size="sm">Add</Badge>}
               <input
                 ref={inputRef}
                 role="combobox"
@@ -239,22 +240,22 @@ export function CommandMenu({
                   setQuery(e.target.value)
                   setSel(0)
                 }}
-                className="h-12 min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-gray-700"
+                className="label-14 pointer-coarse:text-base h-12 min-w-0 flex-1 bg-transparent outline-none placeholder:text-gray-700"
               />
             </div>
             <div id="cmdk-list" role="listbox" aria-label="Results" className="min-h-0 flex-1 overflow-auto p-1.5">
               {mode === 'add' && query.trim() === '' && <Hint>Type a title to search both Movies and Series.</Hint>}
               {mode === 'add' && lookup.isError && (
-                <p role="alert" className="px-3 py-3 text-[12px] text-red-900">
+                <Note variant="error" size="small" className="m-1.5">
                   {lookup.error instanceof ApiError ? lookup.error.message : 'The search failed.'}
-                </p>
+                </Note>
               )}
-              {searching && items.length === 0 && !lookup.isError && <Hint>Searching…</Hint>}
+              {searching && items.length === 0 && !lookup.isError && <Hint busy>Searching…</Hint>}
               {mode === 'add' && lookup.isSuccess && items.length === 0 && <Hint>No results.</Hint>}
               {items.map((item, i) => (
                 <div key={item.id}>
                   {(i === 0 || items[i - 1].group !== item.group) && mode === 'root' && (
-                    <div data-group className="px-2 pt-2 pb-1 text-[11px] font-medium text-gray-900">
+                    <div data-group className="label-13 px-2 pt-2 pb-1 text-gray-900">
                       {item.group}
                     </div>
                   )}
@@ -265,40 +266,40 @@ export function CommandMenu({
                     onMouseMove={() => setSel(i)}
                     onClick={() => run(item)}
                     className={cx(
-                      'flex cursor-default items-center rounded-md px-2.5',
+                      'label-14 flex cursor-default items-center rounded-md px-2.5',
                       item.thumb !== undefined ? 'h-12 gap-2.5' : 'h-9 gap-2',
-                      i === index && 'bg-gray-alpha-200',
-                      item.disabled && 'opacity-50',
+                      i === index && 'bg-gray-alpha-100',
+                      item.disabled && 'cursor-not-allowed text-gray-700',
                     )}
                   >
                     {item.thumb}
                     {item.icon}
-                    <span className="truncate text-[13px]">
+                    <span className="truncate">
                       <Marked text={item.label} ranges={item.marks ?? []} />
                     </span>{' '}
-                    {item.sub && <span className="text-[12px] text-gray-900">{item.sub}</span>}{' '}
+                    {item.sub && <span className="label-13 text-gray-900">{item.sub}</span>}{' '}
                     <span className="ml-auto">{item.right}</span>
                   </div>
                 </div>
               ))}
             </div>
-            <footer className="flex items-center gap-3 border-t border-gray-alpha-400 px-3 py-2 text-[12px] text-gray-900">
+            <footer className="label-13 flex items-center gap-3 border-t border-gray-alpha-400 px-3 py-2 text-gray-900">
               <span className="flex items-center gap-1">
-                <Kbd>↑</Kbd>
-                <Kbd>↓</Kbd> move
+                <KeyboardInput small>↑</KeyboardInput>
+                <KeyboardInput small>↓</KeyboardInput> move
               </span>
               <span className="flex items-center gap-1">
-                <Kbd>
-                  <CornerDownLeft className="size-3" />
-                </Kbd>{' '}
+                <KeyboardInput small>
+                  <CornerDownLeft aria-hidden className="size-3" />
+                </KeyboardInput>{' '}
                 select
               </span>
               <span className="flex items-center gap-1">
-                <Kbd>Esc</Kbd> close
+                <KeyboardInput small>Esc</KeyboardInput> close
               </span>
               {mode === 'add' && (
                 <span className="flex items-center gap-1">
-                  <Kbd>⌫</Kbd> back
+                  <KeyboardInput small>⌫</KeyboardInput> back
                 </span>
               )}
             </footer>
@@ -321,6 +322,11 @@ function Marked({ text, ranges }: { text: string; ranges: [number, number][] }) 
   return parts
 }
 
-function Hint({ children }: { children: ReactNode }) {
-  return <p className="px-3 py-3 text-[12px] text-gray-900">{children}</p>
+function Hint({ children, busy }: { children: ReactNode; busy?: boolean }) {
+  return (
+    <p className="label-13 flex items-center gap-2 px-3 py-3 text-gray-900">
+      {busy && <Spinner size="sm" />}
+      {children}
+    </p>
+  )
 }

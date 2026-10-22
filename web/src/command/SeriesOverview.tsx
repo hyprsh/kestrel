@@ -1,6 +1,6 @@
 import { ApiError } from '../api/queries'
 import type { components } from '../api/schema.gen'
-import { ErrorText } from '../forms'
+import { Checkbox, Note } from '@hyprsh/design'
 import { seasonName } from '../library/episodes'
 
 export type LookupSeries = components['schemas']['LookupSeries']
@@ -18,7 +18,7 @@ function SeriesFacts({ series }: { series: LookupSeries }) {
   const aired = series.first_aired ? (series.last_aired && series.last_aired !== series.first_aired ? `${day(series.first_aired)} – ${day(series.last_aired)}` : `since ${day(series.first_aired)}`) : null
   const facts = [series.status ? (statusLabel[series.status] ?? series.status) : null, series.network, aired].filter(Boolean)
   if (facts.length === 0) return null
-  return <p className="text-gray-900">{facts.join(' · ')}</p>
+  return <p className="label-13 text-gray-900">{facts.join(' · ')}</p>
 }
 
 /**
@@ -28,9 +28,13 @@ function SeriesFacts({ series }: { series: LookupSeries }) {
  */
 export function SeriesOverviewLine({ overview }: { overview: { data?: LookupSeries | null; isPending: boolean; error: Error | null } }) {
   if (overview.error) {
-    return <ErrorText>Could not load the series overview{overview.error instanceof ApiError ? `: ${overview.error.message}` : '.'}</ErrorText>
+    return (
+      <Note variant="error" size="small">
+        Could not load the series overview{overview.error instanceof ApiError ? `: ${overview.error.message}` : '.'}
+      </Note>
+    )
   }
-  if (overview.isPending) return <p className="text-gray-900">Loading the series overview…</p>
+  if (overview.isPending) return <p className="label-13 text-gray-900">Loading the series overview…</p>
   return overview.data ? <SeriesFacts series={overview.data} /> : null
 }
 
@@ -48,10 +52,10 @@ function seasonAired(s: LookupSeason) {
 export function SeasonList({ series, ticked, onToggle }: { series: LookupSeries; ticked: number[] | null; onToggle: (season: number) => void }) {
   if (series.seasons.length === 0) return null
   return (
-    <ul aria-label="Seasons" className="mt-2 flex flex-col rounded-md border border-gray-alpha-400 py-1 text-[12px]">
+    <ul aria-label="Seasons" className="mt-2 flex flex-col rounded-md border border-gray-alpha-400 py-1">
       {series.seasons.map((s) => (
-        <li key={s.number} className="flex h-7 items-center gap-2 px-3">
-          {ticked && <input type="checkbox" aria-label={seasonName(s.number)} checked={ticked.includes(s.number)} onChange={() => onToggle(s.number)} />}
+        <li key={s.number} className="label-13 flex h-7 items-center gap-2 px-3">
+          {ticked && <Checkbox aria-label={seasonName(s.number)} checked={ticked.includes(s.number)} onChange={() => onToggle(s.number)} />}
           <span className="w-20 font-medium">{seasonName(s.number)}</span>
           <span className="w-24 text-gray-900">
             {s.episodes} {s.episodes === 1 ? 'episode' : 'episodes'}
