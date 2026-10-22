@@ -46,7 +46,7 @@ describe('the Title actions row', () => {
     expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Move', 'Clean up this Title', 'Show in the Log', 'Remove Title'])
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Remove Title' }))
 
-    const confirm = screen.getByRole('group', { name: 'Remove Title' })
+    const confirm = screen.getByRole('alertdialog', { name: 'Remove Title' })
     expect(within(confirm).getByRole('checkbox', { name: 'Also delete files' })).not.toBeChecked()
     expect(removed).toEqual([])
     await userEvent.click(within(confirm).getByRole('button', { name: 'Remove' }))

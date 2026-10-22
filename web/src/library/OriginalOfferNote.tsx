@@ -6,7 +6,7 @@ export function OriginalOfferNote({ offer }: { offer?: OriginalOffer | null }) {
   if (!offer) return null
   const units = offerUnits(offer)
   return (
-    <div className="mt-1 text-[12px] text-amber-900" title={`${offer.release} · Score ${offer.score}`}>
+    <div className="label-12 mt-1 text-amber-900" title={`${offer.release} · Score ${offer.score}`}>
       {offer.dismissed ? 'Original available, dismissed' : 'Original available'}
       {units ? `: ${units}` : ''}
     </div>
