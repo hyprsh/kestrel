@@ -1,5 +1,5 @@
 import { Badge, Button, Checkbox, EmptyState, KeyboardInput, Note, Pill, Spinner, Table } from '@hyprsh/design'
-import { ArrowDown, ArrowLeft, ArrowUp, Download } from 'lucide-react'
+import { ArrowLeft, Download } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError } from '../api/queries'
 import { useGrab, useReleases, type Release } from '../api/grabs'
@@ -250,22 +250,16 @@ export function ManualSearch({
               </Table.Colgroup>
               <Table.Header>
                 <Table.Row>
-                  {columns.map((c) => {
-                    const active = view.sort.key === c.key
-                    const Arrow = view.sort.dir === 'asc' ? ArrowUp : ArrowDown
-                    return (
-                      <Table.Head key={c.key} align={c.align} aria-sort={active ? (view.sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}>
-                        <button
-                          type="button"
-                          onClick={(e) => sortBy(c.key, e)}
-                          className={cx('inline-flex cursor-pointer items-center gap-1 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-blue-700', c.align === 'right' && 'flex-row-reverse')}
-                        >
-                          {c.label}
-                          {active && <Arrow aria-hidden className="size-3" />}
-                        </button>
-                      </Table.Head>
-                    )
-                  })}
+                  {columns.map((c) => (
+                    <Table.Head
+                      key={c.key}
+                      align={c.align}
+                      sort={view.sort.key === c.key ? (view.sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                      onSort={(e) => sortBy(c.key, e)}
+                    >
+                      {c.label}
+                    </Table.Head>
+                  ))}
                 </Table.Row>
               </Table.Header>
               <Table.Body interactive bordered>
