@@ -3,7 +3,7 @@ import { useState, type FormEvent, type MouseEvent, type ReactNode } from 'react
 import { ApiError, useApiKey, useAuth, useChangePassword, useCreateApiKey, useLogoutEverywhere, useReverseProxy, useSaveReverseProxy, type ReverseProxy } from '../api/queries'
 import { UpdateCheckSwitch } from '../about/UpdateCheck'
 import { PauseGrabsSwitch } from '../grabs/PauseGrabs'
-import { DownloadClient } from '../plugins/DownloadClient'
+import { DownloadClientRow } from '../plugins/DownloadClient'
 import { Indexers } from '../plugins/Indexers'
 import { MediaServers } from '../plugins/MediaServers'
 import { ProviderKeysForm } from '../metadata/ProviderKeys'
@@ -79,9 +79,7 @@ export function Settings({ onRunSetup, onAdopt }: { onRunSetup: () => void; onAd
           </Row>
         </Group>
         <Group id="download-client" title="Download client">
-          <Row label="Connection" help="Where Kestrel sends NZBs and reads their progress. Test the connection to pick the categories from SABnzbd's own list.">
-            <DownloadClient />
-          </Row>
+          <DownloadClientRow />
         </Group>
         <Group id="indexers" title="Indexers">
           <Indexers />
@@ -93,7 +91,7 @@ export function Settings({ onRunSetup, onAdopt }: { onRunSetup: () => void; onAd
         </Group>
         <Group id="root-folders" title="Root folders">
           <Row label="Folders" help="Where Imports put Movies and Series. The first of each kind is the default when adding a Title.">
-            <RootFoldersForm />
+            <RootFoldersForm compact />
           </Row>
         </Group>
         <Group id="adoption" title="Existing files">

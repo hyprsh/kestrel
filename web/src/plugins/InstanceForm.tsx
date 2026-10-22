@@ -55,6 +55,7 @@ export function InstanceForm({
   managed,
   label,
   onSaved,
+  onCancel,
 }: {
   manifest: PluginManifest
   instance?: PluginInstance
@@ -63,6 +64,8 @@ export function InstanceForm({
   /** The form's accessible name; defaults to the plugin's. */
   label?: string
   onSaved?: () => void
+  /** Adds a Cancel button that calls this, for a form that opens in place. */
+  onCancel?: () => void
 }) {
   const [values, setValues] = useState<Values>(() => initial(manifest, instance))
   const [meta, setMeta] = useState<Meta>(() => ({
@@ -164,13 +167,18 @@ export function InstanceForm({
         </Note>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button size="small" disabled={test.isPending} onClick={runTest}>
           Test connection
         </Button>
         <Button size="small" variant="primary" typeName="submit" disabled={save.isPending || declared}>
           Save
         </Button>
+        {onCancel && (
+          <Button size="small" onClick={onCancel}>
+            Cancel
+          </Button>
+        )}
         {instance && (
           <Button size="small" disabled={remove.isPending || declared} onClick={() => remove.mutate(instance.id)}>
             Remove

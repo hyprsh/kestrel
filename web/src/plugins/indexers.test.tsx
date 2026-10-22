@@ -145,26 +145,56 @@ describe('Settings indexers', () => {
     return within(await screen.findByRole('region', { name: 'Indexers' }))
   }
 
-  it('lists every indexer with its state and never shows a saved key', async () => {
-    fakeIndexers({ indexers: [stored(1, 'Geek', { priority: 1 }), stored(2, 'Slow', { enabled: false, priority: 9 })] })
+  it('lists compact rows sorted by priority, with no form open and no key shown', async () => {
+    fakeIndexers({ indexers: [stored(1, 'Slow', { enabled: false, priority: 9 }), stored(2, 'Geek', { priority: 1 }), stored(3, 'Mirror', { priority: 4, from_config_file: true })] })
     const section = await open()
 
+    const rows = await section.findAllByRole('listitem')
+    expect(rows.map((r) => r.textContent)).toEqual([
+      expect.stringMatching(/^GeekNewznabPriority 1/),
+      expect.stringMatching(/^MirrorNewznabPriority 4Declared/),
+      expect.stringMatching(/^SlowNewznabPriority 9/),
+    ])
+    expect(section.getByLabelText('Geek enabled')).toBeChecked()
+    expect(section.getByLabelText('Slow enabled')).not.toBeChecked()
+    expect(section.queryByRole('form')).not.toBeInTheDocument()
+    expect(section.queryByLabelText('API key')).not.toBeInTheDocument()
+  })
+
+  it('switches an indexer on and off from its row, except one the Config File declares', async () => {
+    const sent = fakeIndexers({ indexers: [stored(1, 'Geek'), stored(2, 'Slow', { enabled: false }), stored(3, 'Mirror', { from_config_file: true })] })
+    const section = await open()
+
+    await userEvent.click(await section.findByLabelText('Slow enabled'))
+    await waitFor(() => expect(section.getByLabelText('Slow enabled')).toBeChecked())
+    expect(sent.at(-1)).toEqual({ path: 'patch', body: { enabled: true } })
+
+    expect(section.getByLabelText('Mirror enabled')).toBeDisabled()
+    expect(section.getByText('Declared')).toBeInTheDocument()
+  })
+
+  it('shows the server problem when a switch is refused', async () => {
+    fakeIndexers({ indexers: [stored(1, 'Geek')] })
+    server.use(
+      http.patch('/plugin-instances/{id}', ({ response }) => response('default').json({ ...problem(409, 'declared'), detail: 'The Config File declares this instance' }, { status: 409 })),
+    )
+    const section = await open()
+    await userEvent.click(await section.findByLabelText('Geek enabled'))
+    expect(await section.findByRole('alert')).toHaveTextContent('The Config File declares this instance')
+  })
+
+  it('edits an indexer in place without sending its key, then folds back into its row', async () => {
+    const sent = fakeIndexers({ indexers: [stored(1, 'Geek'), stored(2, 'Slow')] })
+    const section = await open()
+    await userEvent.click(await section.findByRole('button', { name: 'Edit Geek' }))
     const geek = within(await section.findByRole('form', { name: 'Geek' }))
+    expect(section.queryByRole('form', { name: 'Slow' })).not.toBeInTheDocument()
     expect(geek.getByLabelText('Name')).toHaveValue('Geek')
     expect(geek.getByLabelText('URL')).toHaveValue('https://geek.example')
-    expect(geek.getByLabelText('Priority')).toHaveValue(1)
+    expect(geek.getByLabelText('Priority')).toHaveValue(0)
     expect(geek.getByLabelText('Enabled')).toBeChecked()
     expect(geek.getByLabelText('API key')).toHaveValue('')
     expect(geek.getByLabelText('API key')).toHaveAttribute('placeholder', expect.stringMatching(/saved/i))
-
-    const slow = within(section.getByRole('form', { name: 'Slow' }))
-    expect(slow.getByLabelText('Enabled')).not.toBeChecked()
-  })
-
-  it('edits, disables and removes an indexer without sending its key', async () => {
-    const sent = fakeIndexers({ indexers: [stored(1, 'Geek'), stored(2, 'Slow')] })
-    const section = await open()
-    const geek = within(await section.findByRole('form', { name: 'Geek' }))
 
     await userEvent.click(geek.getByRole('button', { name: 'Test connection' }))
     expect(await geek.findByRole('status')).toHaveTextContent('Connected: NZBgeek')
@@ -177,7 +207,9 @@ describe('Settings indexers', () => {
     await userEvent.type(geek.getByLabelText('Priority'), '3')
     await userEvent.click(geek.getByLabelText('Enabled'))
     await userEvent.click(geek.getByRole('button', { name: 'Save' }))
-    expect(await geek.findByText('Saved.')).toBeInTheDocument()
+    expect(await section.findByRole('button', { name: 'Edit Geek EU' })).toBeInTheDocument()
+    expect(section.queryByRole('form')).not.toBeInTheDocument()
+    expect(section.getByLabelText('Geek EU enabled')).not.toBeChecked()
     expect(sent.at(-1)).toEqual({
       path: 'patch',
       body: {
@@ -187,14 +219,35 @@ describe('Settings indexers', () => {
         config: { url: 'https://geek.example', movie_categories: '2000', tv_categories: '5000', api_requests_per_day: null },
       },
     })
-
-    await userEvent.click(within(section.getByRole('form', { name: 'Slow' })).getByRole('button', { name: 'Remove' }))
-    await waitFor(() => expect(section.queryByRole('form', { name: 'Slow' })).not.toBeInTheDocument())
-    expect(sent).toContainEqual({ path: 'delete 2' })
-    expect(section.getByRole('form', { name: 'Geek EU' })).toBeInTheDocument()
   })
 
-  it('adds another indexer with a name and a priority', async () => {
+  it('cancels an edit and removes an indexer', async () => {
+    const sent = fakeIndexers({ indexers: [stored(1, 'Geek'), stored(2, 'Slow')] })
+    const section = await open()
+    await userEvent.click(await section.findByRole('button', { name: 'Edit Geek' }))
+    await userEvent.click(within(await section.findByRole('form', { name: 'Geek' })).getByRole('button', { name: 'Cancel' }))
+    expect(section.queryByRole('form')).not.toBeInTheDocument()
+
+    await userEvent.click(section.getByRole('button', { name: 'Edit Slow' }))
+    await userEvent.click(within(await section.findByRole('form', { name: 'Slow' })).getByRole('button', { name: 'Remove' }))
+    await waitFor(() => expect(section.queryByRole('button', { name: 'Edit Slow' })).not.toBeInTheDocument())
+    expect(sent).toContainEqual({ path: 'delete 2' })
+    expect(section.getByRole('button', { name: 'Edit Geek' })).toBeInTheDocument()
+  })
+
+  it('shows a declared indexer read-only in its form, and still tests it', async () => {
+    fakeIndexers({ indexers: [stored(1, 'Mirror', { from_config_file: true })] })
+    const section = await open()
+    await userEvent.click(await section.findByRole('button', { name: 'Edit Mirror' }))
+    const form = within(await section.findByRole('form', { name: 'Mirror' }))
+    expect(form.getByLabelText('URL')).toBeDisabled()
+    expect(form.getByRole('button', { name: 'Save' })).toBeDisabled()
+    expect(form.getByRole('button', { name: 'Remove' })).toBeDisabled()
+    await userEvent.click(form.getByRole('button', { name: 'Test connection' }))
+    expect(await form.findByRole('status')).toHaveTextContent('Connected: NZBgeek')
+  })
+
+  it('adds another indexer with a name and a priority, opening the form at the end of the list', async () => {
     const sent = fakeIndexers({ indexers: [stored(1, 'Geek')] })
     const section = await open()
     await userEvent.click(await section.findByRole('button', { name: 'Add indexer' }))
@@ -209,8 +262,8 @@ describe('Settings indexers', () => {
     await userEvent.type(form.getByLabelText('Priority'), '5')
     await userEvent.click(form.getByRole('button', { name: 'Save' }))
 
-    expect(await section.findByRole('form', { name: 'Second' })).toBeInTheDocument()
-    expect(section.queryByRole('form', { name: 'New indexer' })).not.toBeInTheDocument()
+    expect(await section.findByRole('button', { name: 'Edit Second' })).toBeInTheDocument()
+    expect(section.queryByRole('form')).not.toBeInTheDocument()
     expect(sent.at(-1)).toEqual({
       path: 'create',
       body: {
@@ -221,6 +274,16 @@ describe('Settings indexers', () => {
         config: { url: 'https://second.example', api_key: 'good-key', movie_categories: '2000', tv_categories: '5000', api_requests_per_day: 100 },
       },
     })
+  })
+
+  it('cancels adding an indexer', async () => {
+    fakeIndexers({ indexers: [] })
+    const section = await open()
+    expect(await section.findByText(/No indexers yet/)).toBeInTheDocument()
+    await userEvent.click(section.getByRole('button', { name: 'Add indexer' }))
+    await userEvent.click(within(await section.findByRole('form', { name: 'New indexer' })).getByRole('button', { name: 'Cancel' }))
+    expect(section.queryByRole('form')).not.toBeInTheDocument()
+    expect(section.getByRole('button', { name: 'Add indexer' })).toBeInTheDocument()
   })
 
   it('shows the server problem when saving is refused', async () => {

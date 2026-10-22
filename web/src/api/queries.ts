@@ -192,6 +192,19 @@ export function useSavePluginInstance() {
   })
 }
 
+/** Switches an instance on or off from its row, sending only `enabled`. */
+export function useSetInstanceEnabled() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { id: number; enabled: boolean }) => {
+      const res = await api.PATCH('/plugin-instances/{id}', { params: { path: { id: v.id } }, body: { enabled: v.enabled } })
+      if (!res.data) throw failure(res.error, res.response)
+      return res.data
+    },
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['plugin-instances'] }), qc.invalidateQueries({ queryKey: ['setup'] })]),
+  })
+}
+
 export function useDeletePluginInstance() {
   const qc = useQueryClient()
   return useMutation({
