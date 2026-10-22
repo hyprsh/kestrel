@@ -39,8 +39,8 @@ describe('the Library list', () => {
     const first = await within(list).findByRole('option', { name: /paddington/i })
     expect(first).toHaveTextContent('Paddington')
     expect(first).toHaveTextContent('Ein Bär namens Paddington')
-    expect(within(first).getByRole('img', { name: 'Standard: wanted' })).toBeInTheDocument()
-    expect(within(first).getByRole('img', { name: '4K: filled' })).toBeInTheDocument()
+    expect(within(first).getByRole('img', { name: 'Standard: Wanted' })).toBeInTheDocument()
+    expect(within(first).getByRole('img', { name: '4K: Filled' })).toBeInTheDocument()
 
     // The second line is only for a Primary-Language title that differs.
     const heat = within(list).getByRole('option', { name: /heat/i })

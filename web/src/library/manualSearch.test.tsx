@@ -234,7 +234,7 @@ describe('manual search', () => {
 
       expect(order(table)).toEqual(['big', 'mid', 'old', 'bad'])
       expect(screen.getByRole('columnheader', { name: 'Score' })).toHaveAttribute('aria-sort', 'descending')
-      expect(screen.getByRole('columnheader', { name: 'Size' })).not.toHaveAttribute('aria-sort')
+      expect(screen.getByRole('columnheader', { name: 'Size' })).toHaveAttribute('aria-sort', 'none')
     })
 
     it.each([
