@@ -7,7 +7,7 @@ import type { components } from '../api/schema.gen'
 import { dayString } from '../api/upcoming'
 import { http } from '../test/handlers'
 import { server } from '../test/server'
-import { ComingRecent } from './ComingRecent'
+import { RecentlyAdded } from './ComingRecent'
 
 type Recent = components['schemas']['RecentItem']
 
@@ -39,7 +39,7 @@ describe('Overview rows', () => {
     })
     render(
       <QueryClientProvider client={client}>
-        <ComingRecent onOpenTitle={() => {}} nav={{ base: 0, sel: -1, select: () => {} }} />
+        <RecentlyAdded onOpenTitle={() => {}} nav={{ base: 0, sel: -1, select: () => {} }} />
       </QueryClientProvider>,
     )
 
@@ -50,7 +50,7 @@ describe('Overview rows', () => {
     expect(first).toHaveTextContent('new')
   })
 
-  it('moves one selection with j through Needs attention, Downloading now, Coming this week and Recently added', async () => {
+  it('moves one selection with j through Needs attention, Downloading now, Recently added and Coming this week', async () => {
     server.use(
       http.get('/attention', ({ response }) =>
         response(200).json({
@@ -134,8 +134,8 @@ describe('Overview rows', () => {
     await userEvent.keyboard('j')
     expect(current()).toHaveTextContent('Heat')
     await userEvent.keyboard('j')
-    expect(current()).toHaveTextContent('Dune')
-    await userEvent.keyboard('j')
     expect(current()).toHaveTextContent('Paddington')
+    await userEvent.keyboard('j')
+    expect(current()).toHaveTextContent('Dune')
   })
 })

@@ -3,7 +3,6 @@
 import { Button, EmptyState } from '@hyprsh/design'
 import type { ReactNode } from 'react'
 import { useOpenPlace } from '../place'
-import { cx } from '../ui'
 
 const LIMIT = 5
 
@@ -32,7 +31,7 @@ export function Section({
   children: ReactNode
 }) {
   return (
-    <section aria-labelledby={id} className={cx('mx-auto max-w-3xl', className)}>
+    <section aria-labelledby={id} className={className}>
       <h2 id={id} className="heading-14 mb-3">
         {count ? `${title} · ${count}` : title}
       </h2>

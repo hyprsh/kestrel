@@ -462,9 +462,11 @@ describe('Overview: Coming this week and Recently added', () => {
     const added = await screen.findByRole('region', { name: /recently added/i })
     await within(added).findByText('Paddington')
 
-    expect(current()).toHaveTextContent('Bridge Show')
-    await userEvent.keyboard('j')
+    // Recently added is in the main column, read before Coming this week in the side column.
     expect(current()).toHaveTextContent('Paddington')
+    await userEvent.keyboard('j')
+    expect(current()).toHaveTextContent('Bridge Show')
+    await userEvent.keyboard('k')
     await userEvent.keyboard('{Enter}')
     expect(await screen.findByRole('region', { name: /paddington/i })).toBeInTheDocument()
   })

@@ -10,7 +10,7 @@ export function RecentRequests({ onOpenTitle, nav }: { onOpenTitle: (id: number)
   const shown = firstFive(recent.data?.items ?? [])
   const total = recent.data?.total ?? 0
   return (
-    <Section id="recent-requests" title="Recent requests" count={recent.data ? total : undefined} className="mt-6">
+    <Section id="recent-requests" title="Recent requests" count={recent.data ? total : undefined}>
       {recent.data && shown.length === 0 ? (
         <EmptyLine title="Nobody has asked for anything yet." />
       ) : (

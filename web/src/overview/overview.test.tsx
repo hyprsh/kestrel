@@ -30,7 +30,7 @@ describe('Overview', () => {
     fakeQueue([item({ has_poster: true })])
     renderApp()
 
-    const row = await screen.findByRole('listitem')
+    const row = await within(await screen.findByRole('region', { name: /downloading now/i })).findByRole('listitem')
     const poster = row.querySelector('img')
     expect(poster).toHaveAttribute('src', expect.stringContaining('/titles/5/poster'))
     expect(poster).toHaveAttribute('loading', 'lazy')
@@ -40,7 +40,7 @@ describe('Overview', () => {
     fakeQueue([item({ grab_id: 1 }), item({ grab_id: 2, title_id: null, title: '', year: null, release_name: 'Gone.2001-GRP' })])
     renderApp()
 
-    const [plain, deleted] = await screen.findAllByRole('listitem')
+    const [plain, deleted] = await within(await screen.findByRole('region', { name: /downloading now/i })).findAllByRole('listitem')
     expect(plain.querySelector('[data-poster]')).toBeInTheDocument()
     expect(plain.querySelector('img')).not.toBeInTheDocument()
     expect(deleted).toHaveTextContent('Deleted Title')
@@ -63,7 +63,7 @@ describe('Overview', () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     renderApp()
 
-    const listItem = await screen.findByRole('listitem')
+    const listItem = await within(await screen.findByRole('region', { name: /downloading now/i })).findByRole('listitem')
     await userEvent.click(listItem.querySelector('img')!)
 
     expect(await screen.findByRole('region', { name: /paddington/i })).toBeInTheDocument()
@@ -73,7 +73,7 @@ describe('Overview', () => {
     fakeQueue([item({ title_id: null, title: '' })])
     renderApp()
 
-    const listItem = await screen.findByRole('listitem')
+    const listItem = await within(await screen.findByRole('region', { name: /downloading now/i })).findByRole('listitem')
     expect(within(listItem).queryByRole('button', { name: 'Deleted Title' })).not.toBeInTheDocument()
   })
 
@@ -81,7 +81,7 @@ describe('Overview', () => {
     fakeQueue([item({ is_upgrade: true, score_delta: 120 })])
     renderApp()
 
-    const row = await screen.findByRole('listitem')
+    const row = await within(await screen.findByRole('region', { name: /downloading now/i })).findByRole('listitem')
 
     expect(within(row).getByText('Upgrade')).toBeInTheDocument()
     expect(row).toHaveTextContent('+120')
@@ -96,7 +96,7 @@ describe('Overview', () => {
     ])
     renderApp()
 
-    const rows = await screen.findAllByRole('listitem')
+    const rows = await within(await screen.findByRole('region', { name: /downloading now/i })).findAllByRole('listitem')
 
     expect(rows[0]).toHaveTextContent('Importing')
     expect(rows[1]).toHaveTextContent('Paused')

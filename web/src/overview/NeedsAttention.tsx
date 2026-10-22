@@ -38,7 +38,7 @@ export function NeedsAttention({
   // Long Missing only waits, so it leaves the section saying nothing needs attention; offers ask for a choice.
   const nothing = rows.length === 0 && !(originals && originals.count > 0)
   return (
-    <Section id="needs-attention" title="Needs attention" count={rows.length} className="mb-8">
+    <Section id="needs-attention" title="Needs attention" count={rows.length}>
       {attention.data && nothing ? (
         <EmptyLine title="Nothing needs attention." />
       ) : (

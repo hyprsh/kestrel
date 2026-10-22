@@ -4788,7 +4788,7 @@ components:
           description: When the pause ends; null for a spent download quota, which ends when the indexer says so.
     DiskStatus:
       type: object
-      required: [path, free_bytes, total_bytes]
+      required: [path, free_bytes, total_bytes, low_free_bytes]
       properties:
         path:
           type: string
@@ -4798,6 +4798,10 @@ components:
         total_bytes:
           type: integer
           format: int64
+        low_free_bytes:
+          type: integer
+          format: int64
+          description: Free space under which the low disk space warning fires (the larger of 5 % of the total and 50 GiB).
     EventList:
       type: object
       required: [items]
