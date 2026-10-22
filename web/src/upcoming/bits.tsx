@@ -1,4 +1,4 @@
-import { Badge } from '../ui'
+import { Badge } from '@hyprsh/design'
 import type { UpcomingItem } from '../api/upcoming'
 
 const releaseLabel = { theatrical: 'In cinemas', digital: 'Digital', physical: 'Physical' } as const
@@ -29,9 +29,9 @@ export function UpcomingLine({ item }: { item: UpcomingItem }) {
         <span className="font-medium">{item.title}</span>
         {item.year ? <span className="text-gray-900"> {item.year}</span> : null}
       </span>
-      {item.release_type && <Badge tone="blue">{releaseLabel[item.release_type]}</Badge>}
+      {item.release_type && <Badge variant="blue-subtle" size="sm">{releaseLabel[item.release_type]}</Badge>}
       {!item.released && (
-        <span className="text-[12px] text-gray-900">{item.searchable_from ? `searchable from ${item.searchable_from}` : 'no search date yet'}</span>
+        <span className="label-12 text-gray-900">{item.searchable_from ? `searchable from ${item.searchable_from}` : 'no search date yet'}</span>
       )}
     </span>
   )
