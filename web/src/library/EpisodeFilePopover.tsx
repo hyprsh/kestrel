@@ -50,7 +50,7 @@ export function EpisodeFilePopover({ label, cell, file, trigger }: { label: stri
       <div
         // The grid's arrows and Space, and the detail's Escape, must not fire; the popover keeps Escape and Tab.
         onKeyDown={(e) => e.key !== 'Escape' && e.key !== 'Tab' && e.stopPropagation()}
-        className="flex flex-col gap-2 p-3 text-left"
+        className="flex flex-col gap-2"
       >
         <p ref={pathRef} className="label-12-mono break-all text-gray-1000 select-text">
           {file.path}

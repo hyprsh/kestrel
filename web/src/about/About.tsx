@@ -38,11 +38,11 @@ export function About() {
         <Card title="Kestrel">
           {a ? (
             <div className="flex flex-col gap-1.5">
-              <Description layout="horizontal" termWidth="10rem" title="Version" content={<span className="copy-14-mono">{a.version}</span>} />
-              <Description layout="horizontal" termWidth="10rem" title="Licence" content={`${a.license} (GNU General Public License v3.0)`} />
+              <Description layout="horizontal" termWidth="9.25rem" title="Version" content={<span className="copy-14-mono">{a.version}</span>} />
+              <Description layout="horizontal" termWidth="9.25rem" title="Licence" content={`${a.license} (GNU General Public License v3.0)`} />
               <Description
                 layout="horizontal"
-                termWidth="10rem"
+                termWidth="9.25rem"
                 title="TRaSH commit"
                 content={
                   <span className="copy-14-mono" title="The TRaSH Guides commit whose Custom Formats and profiles score Releases now">
@@ -52,7 +52,7 @@ export function About() {
               />
               <Description
                 layout="horizontal"
-                termWidth="10rem"
+                termWidth="9.25rem"
                 title="Updates"
                 content={
                   a.update ? (

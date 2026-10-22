@@ -1,6 +1,6 @@
 // Needs attention: the rows the server raised, with the actions it built. Nothing
 // here knows a kind of row; it draws message, severity and buttons.
-import { Badge, Button, EmptyState, Note } from '@hyprsh/design'
+import { Badge, Button, Note } from '@hyprsh/design'
 import { useState } from 'react'
 import { useAttention, useRunAction, type Attention, type AttentionAction, type AttentionRow } from '../api/attention'
 import { slotLabel } from '../library/bits'
@@ -8,7 +8,7 @@ import { placePath } from '../place'
 import { NavRow } from '../ui'
 import { OriginalsRow } from './OriginalsRow'
 import type { OverviewNav } from './nav'
-import { firstFive, Section, ViewAllHere } from './Section'
+import { EmptyLine, firstFive, Section, ViewAllHere } from './Section'
 
 /**
  * The rows on show: five, or all of them once expanded. Blocking rows always show, so a
@@ -40,7 +40,7 @@ export function NeedsAttention({
   return (
     <Section id="needs-attention" title="Needs attention" count={rows.length} className="mb-8">
       {attention.data && nothing ? (
-        <EmptyState size="small" title="Nothing needs attention." />
+        <EmptyLine title="Nothing needs attention." />
       ) : (
         rows.length > 0 && (
           <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">

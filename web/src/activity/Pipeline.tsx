@@ -99,7 +99,7 @@ export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQue
           {stages.map((s) => {
             const on = filter.stages?.includes(s) ?? false
             return (
-              <Pill key={s} size="sm" pressed={on} onPressedChange={() => onQuery(toggleStage(query, s))}>
+              <Pill key={s} pressed={on} onPressedChange={() => onQuery(toggleStage(query, s))}>
                 {stageLabel[s]} <span className="tabular-nums">{count(s)}</span>
               </Pill>
             )

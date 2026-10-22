@@ -165,7 +165,7 @@ function Help({ qualifiers }: { qualifiers: readonly Qualifier[] }) {
       position="bottom-end"
       width={320}
     >
-      <div className="label-12 p-3">
+      <div className="label-12">
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
           {qualifiers.map((q) => (
             <Fragment key={q.name}>
