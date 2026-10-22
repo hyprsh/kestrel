@@ -211,7 +211,7 @@ describe('Root folders', () => {
     fakeSetup({}, true)
     const section = await open()
     const nav = await screen.findByRole('navigation', { name: 'Settings sections' })
-    expect(within(nav).getByRole('link', { name: 'Root folders' })).toHaveAttribute('href', '#settings-root-folders')
+    expect(within(nav).getByRole('link', { name: 'Root folders' })).toHaveAttribute('href', '/settings#settings-root-folders')
 
     const movies = await within(section).findByLabelText('Movies folder 1')
     expect(movies).toHaveValue('/data/media/movies')
