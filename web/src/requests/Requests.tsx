@@ -1,12 +1,11 @@
 // The Requests screen, behind the Overview's "View all": every Request from outside Kestrel,
 // newest first, filtered by status:, requester: and source: (asked of the server) and free text
 // on the Title and who asked (over the rows loaded). Off the rail; its place is "/requests".
-import { Button, EmptyState, Note } from '@hyprsh/design'
+import { Button, EmptyState, Note, parseQuery } from '@hyprsh/design'
 import { useMemo, useState } from 'react'
 import { useRequestList } from '../api/requests'
 import { matchText } from '../fuzzy'
-import { parse } from '../filter/query'
-import { QueryField } from '../filter/QueryField'
+import { FilterBar } from '../filter/FilterBar'
 import { useKey, useListNav } from '../keys'
 import { requestFilter, requestQualifiers } from './filter'
 import { RequestRow } from './RequestRow'
@@ -17,7 +16,7 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
   // Requesters and sources are offered from what has been loaded: there is no list of them.
   const [seen, setSeen] = useState<{ requesters: string[]; sources: string[] }>({ requesters: [], sources: [] })
   const qualifiers = useMemo(() => requestQualifiers(seen.requesters, seen.sources), [seen])
-  const parsed = useMemo(() => parse(query, qualifiers), [query, qualifiers])
+  const parsed = useMemo(() => parseQuery(query, qualifiers), [query, qualifiers])
   const list = useRequestList(useMemo(() => requestFilter(parsed), [parsed]))
 
   const loaded = useMemo(() => list.data?.pages.flatMap((p) => p.items) ?? [], [list.data])
@@ -39,7 +38,7 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-gray-alpha-400 px-4 py-2">
-        <QueryField
+        <FilterBar
           id="requests-filter"
           label="Filter Requests"
           placeholder="Filter, e.g. status:open requester:Anna …  /"

@@ -1,9 +1,10 @@
 // The Library's qualifiers (kind:, is:, slot:, profile:, sort:) and what a parsed filter keeps
-// of GET /titles. The grammar itself lives in filter/query.ts; all of it runs in the SPA.
+// of GET /titles. The grammar is the design's (parseQuery); all of it runs in the SPA.
 import type { TitleRow } from '../api/queries'
 import { matchText } from '../fuzzy'
-import { kindQualifier, type Qualifier, type Query, type Term } from '../filter/query'
-import { slotKeys } from './bits'
+import type { Query, Term } from '@hyprsh/design'
+import { kindQualifier, type Facet } from '../filter/qualifiers'
+import { slotKeys, slotLabel } from './bits'
 
 type Version = NonNullable<TitleRow['slots']['standard']>
 
@@ -12,14 +13,52 @@ type Profile = { key: string; name: string }
 
 const states = ['wanted', 'filled', 'downloading', 'unmonitored', 'unreleased'] as const
 
-/** The Library's qualifiers, given the Profiles' names to offer. */
-export function libraryQualifiers(profiles: readonly string[]): Qualifier[] {
+/** A Profile as the menu offers it: its name, and a line saying what it takes. */
+type ProfileChoice = { name: string; description?: string }
+
+/** The Library's qualifiers, given the Profiles to offer. */
+export function libraryQualifiers(profiles: readonly ProfileChoice[]): Facet[] {
   return [
     kindQualifier(true),
-    { name: 'is', help: 'Titles with a Version in that state, or Long Missing', values: [...states, 'long_missing'], negatable: true },
-    { name: 'slot', help: 'Titles with a Version in that Slot', values: slotKeys, negatable: true },
-    { name: 'profile', help: 'Titles with a Version under that Profile, by name; quote names with spaces', suggestions: profiles, negatable: true },
-    { name: 'sort', help: 'Order the list: wanted_since puts the longest Wanted first', values: ['wanted_since'] },
+    {
+      name: 'is',
+      label: 'State',
+      help: 'Titles with a Version in that state, or Long Missing',
+      values: [...states, 'long_missing'],
+      excludable: true,
+      options: {
+        wanted: { label: 'Wanted', description: 'No file, or one that no longer fits its Profile' },
+        filled: { label: 'Filled', description: 'Has a file' },
+        downloading: { label: 'Downloading', description: 'A Grab is on its way' },
+        unmonitored: { label: 'Unmonitored', description: 'Not searched for' },
+        unreleased: { label: 'Unreleased', description: 'Not out yet' },
+        long_missing: { label: 'Long Missing', description: 'Wanted for more than 90 days' },
+      },
+    },
+    {
+      name: 'slot',
+      label: 'Slot',
+      help: 'Titles with a Version in that Slot',
+      values: slotKeys,
+      excludable: true,
+      options: Object.fromEntries(slotKeys.map((k) => [k, { label: slotLabel[k] }])),
+    },
+    {
+      name: 'profile',
+      label: 'Profile',
+      help: 'Titles with a Version under that Profile, by name; quote names with spaces',
+      suggestions: profiles.map((p) => p.name),
+      excludable: true,
+      options: Object.fromEntries(profiles.map((p) => [p.name, { description: p.description }])),
+    },
+    {
+      name: 'sort',
+      label: 'Sort',
+      single: 'Default',
+      help: 'Order the list: wanted_since puts the longest Wanted first',
+      values: ['wanted_since'],
+      options: { wanted_since: { label: 'Wanted longest', description: 'The longest Wanted first' } },
+    },
   ]
 }
 
@@ -46,7 +85,7 @@ function has(r: TitleRow, name: string, v: string, profiles: readonly Profile[])
 /** Whether a Title matches one term: any of its values, or none of them when excluded. */
 function test(r: TitleRow, t: Term, profiles: readonly Profile[]): boolean {
   const any = t.values.some((v) => has(r, t.name, v, profiles))
-  return t.negated ? !any : any
+  return t.excluded ? !any : any
 }
 
 /** Wanted longest first; Titles that are not Wanted keep their order, last. */

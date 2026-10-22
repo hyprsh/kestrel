@@ -1,13 +1,12 @@
 // The Log: what Kestrel did, filtered by one field of qualifiers (kind:, slot:, title:,
 // routine:) and free text, with routine events hidden until asked for; and the Blocklist view,
 // where an entry can be removed.
-import { Badge, Button, EmptyState, Note, Table, Tabs, type BadgeProps } from '@hyprsh/design'
+import { Badge, Button, EmptyState, Note, Table, Tabs, parseQuery, termText, withValue, type BadgeProps } from '@hyprsh/design'
 import { useMemo, useState } from 'react'
 import { useBlocklist, useEvents, useUnblock, type LogEvent } from '../api/log'
 import { useTitles } from '../api/queries'
 import { matchText } from '../fuzzy'
-import { parse, termText, withValue } from '../filter/query'
-import { QueryField } from '../filter/QueryField'
+import { FilterBar } from '../filter/FilterBar'
 import { useKey, useListNav } from '../keys'
 import { usePhone } from '../responsive'
 import { logFilter, logQualifiers } from './filter'
@@ -39,6 +38,7 @@ const kinds: Record<string, { label: string; tone: Tone }> = {
   original_offered: { label: 'Original offered', tone: 'amber-subtle' },
 }
 
+const kindLabels = Object.fromEntries(Object.entries(kinds).map(([k, v]) => [k, v.label]))
 
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
@@ -73,8 +73,8 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
   const phone = usePhone()
   const [sel, setSel] = useState(0)
   const { list: titles, names } = useTitleNames()
-  const qualifiers = useMemo(() => logQualifiers(Object.keys(kinds), (titles ?? []).map((t) => t.title)), [titles])
-  const parsed = useMemo(() => parse(query, qualifiers), [query, qualifiers])
+  const qualifiers = useMemo(() => logQualifiers(kindLabels, [...new Set((titles ?? []).map((t) => t.title))]), [titles])
+  const parsed = useMemo(() => parseQuery(query, qualifiers), [query, qualifiers])
   const byTitle = parsed.terms.some((t) => t.name === 'title')
   // A title: filter names Titles, so it waits for the Library to know which.
   const events = useEvents(logFilter(parsed, titles ?? []), !byTitle || titles !== undefined)
@@ -93,7 +93,7 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-gray-alpha-400 px-4 py-2">
-        <QueryField id="log-filter" label="Filter the Log" placeholder="Filter, e.g. kind:failures slot:4k …  /" value={query} onChange={onQuery} qualifiers={qualifiers} />
+        <FilterBar id="log-filter" label="Filter the Log" placeholder="Filter, e.g. kind:failures slot:4k …  /" value={query} onChange={onQuery} qualifiers={qualifiers} />
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         {events.isError && <Note variant="error">The Log could not be loaded.</Note>}
@@ -163,7 +163,7 @@ function PhoneEvent({ e, index, title, onFilter }: { e: LogEvent; index: number;
         {title && (
           <>
             <button
-              aria-label={`Filter by ${termText({ name: 'title', values: [title], negated: false })}`}
+              aria-label={`Filter by ${termText({ name: 'title', values: [title], excluded: false })}`}
               onClick={() => onFilter('title', title)}
               className="font-medium text-gray-1000 max-sm:py-1"
             >
@@ -202,7 +202,7 @@ function EventRow({
         {title && (
           <>
             <button
-              aria-label={`Filter by ${termText({ name: 'title', values: [title], negated: false })}`}
+              aria-label={`Filter by ${termText({ name: 'title', values: [title], excluded: false })}`}
               onClick={() => onFilter('title', title)}
               className="font-medium text-gray-1000 hover:underline"
             >

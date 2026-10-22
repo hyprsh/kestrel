@@ -90,28 +90,30 @@ describe('Activity', () => {
     expect(row).toHaveTextContent('grabbed just now · in this stage for under a minute')
   })
 
-  it('filters to one or more stages with the stage chips, each with its count, and keeps them in the address bar', async () => {
+  it('filters to one or more stages with the Stage menu, each row with its count, and keeps them in the address bar', async () => {
     fakeQueue([queueItem({ grab_id: 1, phase: 'downloading' })])
     fakeGrabs([grabEntry({ grab_id: 7, state: 'imported' }), grabEntry({ grab_id: 8, state: 'failed', failure: 'download_failed' })])
     await openActivity()
 
-    const chips = await screen.findByRole('group', { name: 'Stages' })
-    await within(chips).findByRole('button', { name: 'Done 1' })
-    expect(within(chips).getByRole('button', { name: 'Downloading 1' })).toHaveAttribute('aria-pressed', 'false')
-    expect(within(chips).getByRole('button', { name: 'Stalled 0' })).toBeInTheDocument()
+    await screen.findByRole('region', { name: 'Done · 1' })
+    await userEvent.click(screen.getByRole('button', { name: /^Stage/ }))
+    const stage = (name: string) => screen.getByRole('option', { name })
+    expect(stage('Downloading')).toHaveTextContent('1')
+    expect(stage('Downloading')).toHaveAttribute('aria-selected', 'false')
+    expect(stage('Stalled')).toHaveTextContent('0')
 
-    await userEvent.click(within(chips).getByRole('button', { name: 'Done 1' }))
-    expect(within(chips).getByRole('button', { name: 'Done 1' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(stage('Done'))
+    expect(stage('Done')).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('region', { name: 'Done · 1' })).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Downloading · 1' })).not.toBeInTheDocument()
     expect(location.pathname + location.search).toBe('/activity?q=stage%3Adone')
 
-    await userEvent.click(within(chips).getByRole('button', { name: 'Failed 1' }))
+    await userEvent.click(stage('Failed'))
     expect(screen.getByRole('combobox', { name: 'Filter Activity' })).toHaveValue('stage:done,failed')
     expect(screen.getByRole('region', { name: 'Failed · 1' })).toBeInTheDocument()
 
-    await userEvent.click(within(chips).getByRole('button', { name: 'Done 1' }))
-    await userEvent.click(within(chips).getByRole('button', { name: 'Failed 1' }))
+    await userEvent.click(stage('Done'))
+    await userEvent.click(stage('Failed'))
     expect(screen.getByRole('combobox', { name: 'Filter Activity' })).toHaveValue('')
     expect(screen.getByRole('region', { name: 'Downloading · 1' })).toBeInTheDocument()
   })
@@ -144,7 +146,7 @@ describe('Activity', () => {
     await userEvent.clear(field)
     await userEvent.type(field, 'drunkenslug')
     expect(shown()).toEqual([expect.stringContaining('Heat')])
-    expect(screen.getByRole('button', { name: 'Downloading 1' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Downloading · 1' })).toBeInTheDocument()
   })
 
   it('cancels an active Grab, with or without blocklisting it', async () => {
@@ -157,7 +159,7 @@ describe('Activity', () => {
     await userEvent.click(within(second).getByRole('button', { name: 'Cancel and blocklist' }))
 
     await waitFor(() => expect(queue.cancels).toEqual([{ id: '1', body: { blocklist: false } }, { id: '2', body: { blocklist: true } }]))
-    expect(await screen.findByRole('button', { name: 'Downloading 0' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('region', { name: /^Downloading/ })).not.toBeInTheDocument())
   })
 
   it('retries a stalled Import or discards it after asking', async () => {
@@ -232,7 +234,9 @@ describe('Activity', () => {
 
     const region = await screen.findByRole('region', { name: 'Searching · 12' })
     expect(region).toHaveTextContent('12 Wanted waiting · searching 3 of 12')
-    expect(screen.getByRole('button', { name: 'Searching 12' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /^Stage/ }))
+    expect(screen.getByRole('option', { name: 'Searching' })).toHaveTextContent('12')
+    await userEvent.keyboard('{Escape}')
 
     // A summary cannot be narrowed to a kind, Slot or text.
     await userEvent.type(screen.getByRole('combobox', { name: 'Filter Activity' }), 'kind:series ')

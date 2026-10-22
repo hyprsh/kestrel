@@ -149,8 +149,8 @@ describe('the Library filter', () => {
   it('explains its qualifiers behind "?"', async () => {
     fakeLibrary(rows())
     await openLibrary()
-    await userEvent.click(screen.getByRole('button', { name: 'Filter help' }))
-    const help = screen.getByRole('dialog', { name: 'Filter help' })
+    await userEvent.click(screen.getByRole('button', { name: 'Query Help' }))
+    const help = screen.getByRole('dialog', { name: 'Query Help' })
     for (const q of ['kind:', 'is:', 'slot:', 'profile:', 'sort:']) expect(within(help).getByText(q)).toBeInTheDocument()
   })
 

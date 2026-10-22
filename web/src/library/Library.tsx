@@ -2,11 +2,10 @@ import { ArrowLeft, CheckSquare, ChevronDown, Eraser, FolderInput, Plus } from '
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useProfiles, useTitles, type TitleRow } from '../api/queries'
 import { useOpenCleanup } from '../cleanup/launch'
-import { Button, EmptyState, KeyboardInput, Note } from '@hyprsh/design'
+import { Button, EmptyState, KeyboardInput, Note, parseQuery } from '@hyprsh/design'
 import { useKey, useListNav } from '../keys'
 import { SelectionBar, useSelection } from '../selection'
-import { parse } from '../filter/query'
-import { QueryField } from '../filter/QueryField'
+import { FilterBar } from '../filter/FilterBar'
 import { usePhone } from '../responsive'
 import { cx } from '../ui'
 import { KindIcon, SlotDots } from './bits'
@@ -56,12 +55,12 @@ export function Library({
   const titles = useTitles()
   const openCleanup = useOpenCleanup()
   const profiles = useProfiles().data
-  const qualifiers = useMemo(() => libraryQualifiers((profiles ?? []).map((p) => p.name)), [profiles])
+  const qualifiers = useMemo(() => libraryQualifiers((profiles ?? []).map((p) => ({ name: p.name, description: `${p.min_height}–${p.max_height}p` }))), [profiles])
   const listRef = useRef<HTMLDivElement>(null)
   const paneRef = useRef<HTMLElement>(null)
 
   const all = titles.data ?? []
-  const rows = useMemo(() => filterLibrary(all, parse(query, qualifiers), profiles ?? []), [all, query, qualifiers, profiles])
+  const rows = useMemo(() => filterLibrary(all, parseQuery(query, qualifiers), profiles ?? []), [all, query, qualifiers, profiles])
   const ids = useMemo(() => rows.map((r) => r.id), [rows])
   const selection = useSelection(ids)
   const index = Math.max(0, rows.findIndex((r) => r.id === selectedId)) // the first row until something is picked
@@ -112,7 +111,7 @@ export function Library({
     </div>
   )
   const field = (
-    <QueryField
+    <FilterBar
       id="library-filter"
       label="Filter the Library"
       placeholder="Filter, e.g. is:wanted  /"

@@ -1,8 +1,9 @@
 // The Log's qualifiers (kind:, slot:, title:, routine:) and how a parsed filter becomes the
-// structured GET /events parameters. The grammar itself lives in filter/query.ts.
+// structured GET /events parameters. The grammar is the design's (parseQuery).
 import type { LogFilter } from '../api/log'
 import type { TitleRow } from '../api/queries'
-import { valuesOf, type Qualifier, type Query } from '../filter/query'
+import { valuesOf, type Query } from '@hyprsh/design'
+import type { Facet } from '../filter/qualifiers'
 import { slotKeys, type SlotKey } from '../library/bits'
 
 /** Named sets of kinds: `kind:failures` is every kind that means something went wrong. */
@@ -15,18 +16,27 @@ const groups: Record<string, readonly string[]> = {
 
 const yesNo = ['yes', 'no']
 
-/** The Log's qualifiers, given the kinds it knows and the Library's Title names. */
-export function logQualifiers(kinds: readonly string[], titles: readonly string[]): Qualifier[] {
+const groupText: Record<string, { label: string; description: string }> = {
+  grabs: { label: 'Grabs', description: 'Every step of a Grab, from grabbed to downloaded' },
+  imports: { label: 'Imports', description: 'Imported, rejected or stalled Imports' },
+  adoption: { label: 'Adoption', description: 'Adopted and scanned files' },
+  failures: { label: 'Failures', description: 'Failed Grabs, rejected and stalled Imports, blocklisting and warnings' },
+}
+
+/** The Log's qualifiers, given the kinds it knows (with their labels) and the Library's Title names. */
+export function logQualifiers(kinds: Readonly<Record<string, string>>, titles: readonly string[]): Facet[] {
   return [
     {
       name: 'kind',
+      label: 'Kind',
       help: 'What happened, or a group: grabs, imports, adoption, failures',
-      values: [...new Set([...Object.keys(groups), ...kinds])],
-      negatable: true,
+      values: [...new Set([...Object.keys(groups), ...Object.keys(kinds)])],
+      excludable: true,
+      options: { ...Object.fromEntries(Object.entries(kinds).map(([k, label]) => [k, { label }])), ...groupText },
     },
-    { name: 'slot', help: 'Events about a Version in that Slot', values: slotKeys, negatable: true },
-    { name: 'title', help: 'Events about a Title, by name; quote names with spaces', suggestions: titles, negatable: true },
-    { name: 'routine', help: 'Show routine events, such as a download starting', values: yesNo, negatable: true },
+    { name: 'slot', help: 'Events about a Version in that Slot', values: slotKeys, excludable: true },
+    { name: 'title', label: 'Title', help: 'Events about a Title, by name; quote names with spaces', suggestions: titles, excludable: true },
+    { name: 'routine', help: 'Show routine events, such as a download starting', values: yesNo, excludable: true },
   ]
 }
 
@@ -43,7 +53,7 @@ function titlesNamed(value: string, titles: readonly TitleRow[]): number[] {
  * qualifier typed twice must match both, so an empty list means nothing can match.
  */
 export function logFilter(q: Query, titles: readonly TitleRow[]): LogFilter {
-  const negated = (name: string) => q.terms.filter((t) => t.name === name && t.negated).flatMap((t) => t.values)
+  const negated = (name: string) => q.terms.filter((t) => t.name === name && t.excluded).flatMap((t) => t.values)
   const expand = (values: string[]) => [...new Set(values.flatMap((v) => groups[v] ?? [v]))]
   const named = (values: string[]) => [...new Set(values.flatMap((v) => titlesNamed(v, titles)))]
   // The last routine: term decides, and -routine:yes means routine:no.
@@ -55,6 +65,6 @@ export function logFilter(q: Query, titles: readonly TitleRow[]): LogFilter {
     excludeSlots: [...new Set(negated('slot'))] as SlotKey[],
     titleIds: valuesOf(q, 'title', named),
     excludeTitleIds: named(negated('title')),
-    routine: routine ? (routine.values.at(-1) === 'yes') !== routine.negated : false,
+    routine: routine ? (routine.values.at(-1) === 'yes') !== routine.excluded : false,
   }
 }

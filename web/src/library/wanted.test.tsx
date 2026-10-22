@@ -33,7 +33,7 @@ const names = (list: HTMLElement) => within(list).getAllByRole('option').map((o)
 const filter = () => screen.getByRole('combobox', { name: 'Filter the Library' })
 
 describe('the Library filter, typed', () => {
-  it('narrows to Wanted, then Long Missing, with a chip per qualifier that takes it off again', async () => {
+  it('narrows to Wanted, then Long Missing, with the State menu ticking along and taking it off again', async () => {
     fakeLibrary(rows())
     const list = await openLibrary()
     await within(list).findAllByRole('option')
@@ -47,9 +47,12 @@ describe('the Library filter, typed', () => {
     expect(within(list).getAllByRole('option')).toHaveLength(1)
     expect(within(list).getByRole('option', { name: /ancient film/i })).toBeInTheDocument()
 
-    const chips = screen.getByRole('list', { name: 'Active filters' })
-    await userEvent.click(within(chips).getByRole('button', { name: 'Remove is:wanted' }))
-    await userEvent.click(within(chips).getByRole('button', { name: 'Remove is:long_missing' }))
+    await userEvent.click(screen.getByRole('button', { name: /^State/ }))
+    expect(screen.getByRole('option', { name: 'Wanted' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('option', { name: 'Long Missing' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('option', { name: 'Filled' })).toHaveAttribute('aria-selected', 'false')
+    await userEvent.click(screen.getByRole('option', { name: 'Wanted' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Long Missing' }))
     expect(filter()).toHaveValue('')
     expect(within(list).getAllByRole('option')).toHaveLength(3)
   })
