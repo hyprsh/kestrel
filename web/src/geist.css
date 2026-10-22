@@ -1,140 +1,127 @@
 @import "tailwindcss";
 
-/* Geist tokens (approximation of vercel.com/geist/colors), light + dark.
-   Use them as Tailwind classes: bg-background-100, text-gray-900, border-gray-alpha-400, text-blue-700 ... */
+/* Colours, fonts, radii and shadows come from @hyprsh/design (tokens.css, imported in main.tsx).
+   This file only names them for Tailwind: bg-background-100, text-gray-900, border-gray-alpha-400, text-blue-700 ... */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+  --font-sans: Geist, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, "Liberation Mono", monospace;
 
-  --color-background-100: var(--ds-background-100);
-  --color-background-200: var(--ds-background-200);
-  --color-gray-100: var(--ds-gray-100);
-  --color-gray-200: var(--ds-gray-200);
-  --color-gray-300: var(--ds-gray-300);
-  --color-gray-400: var(--ds-gray-400);
-  --color-gray-500: var(--ds-gray-500);
-  --color-gray-600: var(--ds-gray-600);
-  --color-gray-700: var(--ds-gray-700);
-  --color-gray-800: var(--ds-gray-800);
-  --color-gray-900: var(--ds-gray-900);
-  --color-gray-1000: var(--ds-gray-1000);
-  --color-gray-alpha-100: var(--ds-gray-alpha-100);
-  --color-gray-alpha-200: var(--ds-gray-alpha-200);
-  --color-gray-alpha-400: var(--ds-gray-alpha-400);
-  --color-blue-100: var(--ds-blue-100);
-  --color-blue-200: var(--ds-blue-200);
-  --color-blue-700: var(--ds-blue-700);
-  --color-blue-900: var(--ds-blue-900);
-  --color-green-100: var(--ds-green-100);
-  --color-green-200: var(--ds-green-200);
-  --color-green-700: var(--ds-green-700);
-  --color-green-900: var(--ds-green-900);
-  --color-amber-100: var(--ds-amber-100);
-  --color-amber-200: var(--ds-amber-200);
-  --color-amber-700: var(--ds-amber-700);
-  --color-amber-900: var(--ds-amber-900);
-  --color-red-100: var(--ds-red-100);
-  --color-red-200: var(--ds-red-200);
-  --color-red-700: var(--ds-red-700);
-  --color-red-900: var(--ds-red-900);
-  --color-purple-100: var(--ds-purple-100);
-  --color-purple-700: var(--ds-purple-700);
-  --color-purple-900: var(--ds-purple-900);
-  --color-teal-100: var(--ds-teal-100);
-  --color-teal-700: var(--ds-teal-700);
-  --color-teal-900: var(--ds-teal-900);
-}
+  --color-background-100: var(--background-100);
+  --color-background-200: var(--background-200);
 
-:root {
-  --ds-background-100: #ffffff;
-  --ds-background-200: #fafafa;
-  --ds-gray-100: #f2f2f2;
-  --ds-gray-200: #ebebeb;
-  --ds-gray-300: #e6e6e6;
-  --ds-gray-400: #eaeaea;
-  --ds-gray-500: #c9c9c9;
-  --ds-gray-600: #a8a8a8;
-  --ds-gray-700: #8f8f8f;
-  --ds-gray-800: #7d7d7d;
-  --ds-gray-900: #666666;
-  --ds-gray-1000: #171717;
-  --ds-gray-alpha-100: rgb(0 0 0 / 0.05);
-  --ds-gray-alpha-200: rgb(0 0 0 / 0.08);
-  --ds-gray-alpha-400: rgb(0 0 0 / 0.08);
-  --ds-blue-100: #f0f7ff;
-  --ds-blue-200: #e9f4ff;
-  --ds-blue-700: #0070f3;
-  --ds-blue-900: #0067d6;
-  --ds-green-100: #effbef;
-  --ds-green-200: #e6f9e6;
-  --ds-green-700: #45a557;
-  --ds-green-900: #297a3a;
-  --ds-amber-100: #fff6e5;
-  --ds-amber-200: #fff4cf;
-  --ds-amber-700: #ffb224;
-  --ds-amber-900: #aa4d00;
-  --ds-red-100: #fff0f0;
-  --ds-red-200: #ffebeb;
-  --ds-red-700: #e5484d;
-  --ds-red-900: #cb2a2f;
-  --ds-purple-100: #faf0ff;
-  --ds-purple-700: #8e4ec6;
-  --ds-purple-900: #7820bc;
-  --ds-teal-100: #eefbf8;
-  --ds-teal-700: #12a594;
-  --ds-teal-900: #067a6f;
-  color-scheme: light;
-}
+  --color-gray-100: var(--gray-100);
+  --color-gray-200: var(--gray-200);
+  --color-gray-300: var(--gray-300);
+  --color-gray-400: var(--gray-400);
+  --color-gray-500: var(--gray-500);
+  --color-gray-600: var(--gray-600);
+  --color-gray-700: var(--gray-700);
+  --color-gray-800: var(--gray-800);
+  --color-gray-900: var(--gray-900);
+  --color-gray-1000: var(--gray-1000);
 
-.dark {
-  --ds-background-100: #0a0a0a;
-  --ds-background-200: #000000;
-  --ds-gray-100: #1a1a1a;
-  --ds-gray-200: #1f1f1f;
-  --ds-gray-300: #292929;
-  --ds-gray-400: #2e2e2e;
-  --ds-gray-500: #454545;
-  --ds-gray-600: #878787;
-  --ds-gray-700: #8f8f8f;
-  --ds-gray-800: #7c7c7c;
-  --ds-gray-900: #a1a1a1;
-  --ds-gray-1000: #ededed;
-  --ds-gray-alpha-100: rgb(255 255 255 / 0.06);
-  --ds-gray-alpha-200: rgb(255 255 255 / 0.09);
-  --ds-gray-alpha-400: rgb(255 255 255 / 0.14);
-  --ds-blue-100: #06193a;
-  --ds-blue-200: #022248;
-  --ds-blue-700: #0070f3;
-  --ds-blue-900: #52a8ff;
-  --ds-green-100: #0b2211;
-  --ds-green-200: #0f2e18;
-  --ds-green-700: #46a758;
-  --ds-green-900: #62c073;
-  --ds-amber-100: #271700;
-  --ds-amber-200: #341c00;
-  --ds-amber-700: #ffb224;
-  --ds-amber-900: #f1a10d;
-  --ds-red-100: #2a1314;
-  --ds-red-200: #3c1618;
-  --ds-red-700: #e5484d;
-  --ds-red-900: #ff6166;
-  --ds-purple-100: #2b1336;
-  --ds-purple-700: #8e4ec6;
-  --ds-purple-900: #bf7af0;
-  --ds-teal-100: #04231e;
-  --ds-teal-700: #12a594;
-  --ds-teal-900: #0ac5b3;
-  color-scheme: dark;
+  --color-gray-alpha-100: var(--gray-alpha-100);
+  --color-gray-alpha-200: var(--gray-alpha-200);
+  --color-gray-alpha-300: var(--gray-alpha-300);
+  --color-gray-alpha-400: var(--gray-alpha-400);
+  --color-gray-alpha-500: var(--gray-alpha-500);
+  --color-gray-alpha-600: var(--gray-alpha-600);
+  --color-gray-alpha-700: var(--gray-alpha-700);
+  --color-gray-alpha-800: var(--gray-alpha-800);
+  --color-gray-alpha-900: var(--gray-alpha-900);
+  --color-gray-alpha-1000: var(--gray-alpha-1000);
+
+  --color-blue-100: var(--blue-100);
+  --color-blue-200: var(--blue-200);
+  --color-blue-300: var(--blue-300);
+  --color-blue-400: var(--blue-400);
+  --color-blue-500: var(--blue-500);
+  --color-blue-600: var(--blue-600);
+  --color-blue-700: var(--blue-700);
+  --color-blue-800: var(--blue-800);
+  --color-blue-900: var(--blue-900);
+  --color-blue-1000: var(--blue-1000);
+
+  --color-green-100: var(--green-100);
+  --color-green-200: var(--green-200);
+  --color-green-300: var(--green-300);
+  --color-green-400: var(--green-400);
+  --color-green-500: var(--green-500);
+  --color-green-600: var(--green-600);
+  --color-green-700: var(--green-700);
+  --color-green-800: var(--green-800);
+  --color-green-900: var(--green-900);
+  --color-green-1000: var(--green-1000);
+
+  --color-amber-100: var(--amber-100);
+  --color-amber-200: var(--amber-200);
+  --color-amber-300: var(--amber-300);
+  --color-amber-400: var(--amber-400);
+  --color-amber-500: var(--amber-500);
+  --color-amber-600: var(--amber-600);
+  --color-amber-700: var(--amber-700);
+  --color-amber-800: var(--amber-800);
+  --color-amber-900: var(--amber-900);
+  --color-amber-1000: var(--amber-1000);
+
+  --color-red-100: var(--red-100);
+  --color-red-200: var(--red-200);
+  --color-red-300: var(--red-300);
+  --color-red-400: var(--red-400);
+  --color-red-500: var(--red-500);
+  --color-red-600: var(--red-600);
+  --color-red-700: var(--red-700);
+  --color-red-800: var(--red-800);
+  --color-red-900: var(--red-900);
+  --color-red-1000: var(--red-1000);
+
+  --color-purple-100: var(--purple-100);
+  --color-purple-200: var(--purple-200);
+  --color-purple-300: var(--purple-300);
+  --color-purple-400: var(--purple-400);
+  --color-purple-500: var(--purple-500);
+  --color-purple-600: var(--purple-600);
+  --color-purple-700: var(--purple-700);
+  --color-purple-800: var(--purple-800);
+  --color-purple-900: var(--purple-900);
+  --color-purple-1000: var(--purple-1000);
+
+  --color-pink-100: var(--pink-100);
+  --color-pink-200: var(--pink-200);
+  --color-pink-300: var(--pink-300);
+  --color-pink-400: var(--pink-400);
+  --color-pink-500: var(--pink-500);
+  --color-pink-600: var(--pink-600);
+  --color-pink-700: var(--pink-700);
+  --color-pink-800: var(--pink-800);
+  --color-pink-900: var(--pink-900);
+  --color-pink-1000: var(--pink-1000);
+
+  --color-teal-100: var(--teal-100);
+  --color-teal-200: var(--teal-200);
+  --color-teal-300: var(--teal-300);
+  --color-teal-400: var(--teal-400);
+  --color-teal-500: var(--teal-500);
+  --color-teal-600: var(--teal-600);
+  --color-teal-700: var(--teal-700);
+  --color-teal-800: var(--teal-800);
+  --color-teal-900: var(--teal-900);
+  --color-teal-1000: var(--teal-1000);
+
+  --color-accent-100: var(--accent-100);
+  --color-accent-200: var(--accent-200);
+  --color-accent-300: var(--accent-300);
+  --color-accent-400: var(--accent-400);
+  --color-accent-500: var(--accent-500);
+  --color-accent-600: var(--accent-600);
+  --color-accent-700: var(--accent-700);
+  --color-accent-800: var(--accent-800);
+  --color-accent-900: var(--accent-900);
+  --color-accent-1000: var(--accent-1000);
 }
 
 html, body, #root { height: 100%; }
-body {
-  background: var(--ds-background-100);
-  color: var(--ds-gray-1000);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-  font-feature-settings: "liga" 1, "calt" 1;
-}
+body { font-feature-settings: "liga" 1, "calt" 1; }
 .tabular { font-variant-numeric: tabular-nums; }
