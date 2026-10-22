@@ -7,9 +7,9 @@ import { createContext, useContext } from 'react'
 
 export type Place = { screen: string; section: string; q: string }
 
-/** The path of a screen with its filter text. */
-export function placePath(screen: string, q = ''): string {
-  return `/${screen}${q ? `?${new URLSearchParams({ q })}` : ''}`
+/** The path of a screen with its filter text, and a section of it such as an open Title's id on a phone. */
+export function placePath(screen: string, q = '', section = ''): string {
+  return `/${screen}${section ? `/${section}` : ''}${q ? `?${new URLSearchParams({ q })}` : ''}`
 }
 
 /** Reads a path such as "/settings/download-client" or "/log?q=kind:grab". */
@@ -29,11 +29,22 @@ export function currentPlace(): Place {
   return placeOf(`/${path}${location.search}`)
 }
 
+const placeURL = (path: string) => new URL(path === '/overview' ? '' : path.replace(/^\/+/, ''), new URL(root(), location.origin))
+
 /** Shows `path` in the address bar without adding a history entry; the Overview is the root. */
 export function showPlace(path: string): void {
-  const url = new URL(path === '/overview' ? '' : path.replace(/^\/+/, ''), new URL(root(), location.origin))
+  const url = placeURL(path)
   if (url.href !== location.href) history.replaceState(history.state, '', url)
 }
+
+/** Shows `path` as a new history entry, so the browser's Back returns to where it was (a Title page opened from a list). */
+export function pushPlace(path: string): void {
+  const url = placeURL(path)
+  if (url.href !== location.href) history.pushState({ pushedPlace: true }, '', url)
+}
+
+/** Whether the current history entry was added by `pushPlace`, so Back stays inside the app. */
+export const pushedPlace = (): boolean => history.state?.pushedPlace === true
 
 /**
  * Opens a place by its path. The Shell provides it, so a screen links to another (a Title page

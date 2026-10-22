@@ -45,7 +45,7 @@ export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen
   const nav = (base: number): OverviewNav => ({ base, sel, select: setSel })
   useListNav('ov', enter.length, sel, setSel, (i) => enter[i]?.())
   return (
-    <div className="flex-1 overflow-y-auto p-6">
+    <div className="flex-1 overflow-y-auto p-6 max-sm:p-4">
       {/* One column below 1024px, in reading order; from 1024px Needs attention spans the top and the main column (two thirds) sits beside the side column. */}
       <div className="mx-auto grid max-w-3xl grid-cols-1 gap-8 lg:max-w-7xl lg:grid-cols-3">
         <div className="lg:col-span-3">

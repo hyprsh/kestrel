@@ -4,7 +4,12 @@
     <meta charset="UTF-8" />
     <!-- The Go server rewrites this to KESTREL_BASE_URL. Keep the exact text. -->
     <base href="/" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <!-- These URLs are relative, so they resolve against the <base href> the server rewrites; the manifest's own URLs resolve against the manifest. -->
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
     <title>Kestrel</title>
   </head>
   <body>

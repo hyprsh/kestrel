@@ -68,15 +68,15 @@ function LongMissingRow({ group, onOpen }: { group: Attention['long_missing']; o
   const [open, setOpen] = useState(false)
   return (
     <div data-long-missing className="mt-3 rounded-lg border border-gray-alpha-400 px-4 py-3">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Badge variant="gray-subtle" size="sm">Long missing</Badge>
-        <span className="min-w-0 flex-1">
+        <span className="min-w-0 flex-1 max-sm:basis-full">
           {group.count} {group.count === 1 ? 'Version' : 'Versions'} long missing
         </span>
-        <Button variant="secondary" size="small" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Button variant="secondary" size="small" aria-expanded={open} onClick={() => setOpen(!open)} className="max-sm:flex-1">
           {open ? 'Hide' : 'Show'}
         </Button>
-        <Button variant="secondary" size="small" onClick={() => onOpen(placePath('library', 'is:long_missing sort:wanted_since'))}>
+        <Button variant="secondary" size="small" className="max-sm:flex-1" onClick={() => onOpen(placePath('library', 'is:long_missing sort:wanted_since'))}>
           Open in Library
         </Button>
       </div>
@@ -117,9 +117,9 @@ function Row({ row, onOpen, nav, index }: { row: AttentionRow; onOpen: (path: st
         <span className="min-w-0 flex-1">{row.message}</span>
       </div>
       {row.actions.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 max-sm:flex-col">
           {row.actions.map((a) => (
-            <Button key={a.key} variant="secondary" size="small" disabled={run.isPending} onClick={() => act(a)}>
+            <Button key={a.key} variant="secondary" size="small" disabled={run.isPending} onClick={() => act(a)} className="max-sm:w-full">
               {a.label}
             </Button>
           ))}
