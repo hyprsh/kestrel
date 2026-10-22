@@ -1,44 +1,36 @@
 // The shell on a phone: a bottom tab bar in place of the icon rail, and the More sheet that holds
 // the rest of the rail (Settings, Log, About, the theme, signing out) and the version with its status dot.
-import { Button, Drawer, ThemeSwitcher } from '@hyprsh/design'
-import { Ellipsis, LogOut } from 'lucide-react'
+import { Button, Drawer, TabBar, ThemeSwitcher } from '@hyprsh/design'
+import { Ellipsis, LogOut, Search } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { THEME_KEY, type Theme } from '../theme'
-import { cx } from '../ui'
 import { ServerStatus } from './ServerStatus'
 
-export type Tab = { key: string; label: string; icon: ReactNode; badge?: ReactNode }
+export type Tab = { key: string; label: string; icon: ReactNode; badge?: number; badgeTone?: 'error' | 'warning'; badgeLabel?: string }
 
-function TabButton({ label, icon, badge, active, onClick, haspopup }: { label: string; icon: ReactNode; badge?: ReactNode; active: boolean; onClick: () => void; haspopup?: boolean }) {
+/** Overview, Library, Upcoming, Activity and More, with Search as the accessory; `moreActive` while the screen shown lives in More. */
+export function PhoneTabBar({
+  tabs,
+  screen,
+  moreActive,
+  onSelect,
+  onMore,
+  onSearch,
+}: {
+  tabs: Tab[]
+  screen: string
+  moreActive: boolean
+  onSelect: (key: string) => void
+  onMore: () => void
+  onSearch: () => void
+}) {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-current={active ? 'page' : undefined}
-      aria-haspopup={haspopup ? 'dialog' : undefined}
-      onClick={onClick}
-      className={cx('relative flex min-h-14 min-w-0 flex-1 touch-manipulation flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-medium', active ? 'text-gray-1000' : 'text-gray-900')}
-    >
-      <span className="relative inline-flex [&_svg]:size-5">
-        {icon}
-        {badge}
-      </span>
-      <span className="max-w-full truncate" aria-hidden>
-        {label}
-      </span>
-    </button>
-  )
-}
-
-/** Overview, Library, Upcoming, Activity and More; `moreActive` while the screen shown lives in More. */
-export function TabBar({ tabs, screen, moreActive, onSelect, onMore }: { tabs: Tab[]; screen: string; moreActive: boolean; onSelect: (key: string) => void; onMore: () => void }) {
-  return (
-    <nav aria-label="Screens" className="flex shrink-0 border-t border-gray-alpha-400 bg-background-200 pb-[env(safe-area-inset-bottom)]">
+    <TabBar label="Screens" value={moreActive ? undefined : screen} onChange={onSelect} minimizeOnScroll accessory={{ label: 'Search or run a command', icon: <Search />, onClick: onSearch }}>
       {tabs.map((t) => (
-        <TabButton key={t.key} label={t.label} icon={t.icon} badge={t.badge} active={screen === t.key} onClick={() => onSelect(t.key)} />
+        <TabBar.Item key={t.key} value={t.key} label={t.label} icon={t.icon} badge={t.badge} badgeTone={t.badgeTone} badgeLabel={t.badgeLabel} />
       ))}
-      <TabButton label="More" icon={<Ellipsis />} active={moreActive} onClick={onMore} haspopup />
-    </nav>
+      <TabBar.Item label="More" icon={<Ellipsis />} current={moreActive} haspopup onClick={onMore} />
+    </TabBar>
   )
 }
 

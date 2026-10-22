@@ -4,7 +4,7 @@ import { About } from '../about/About'
 import { Activity } from '../activity/Activity'
 import { useRunningNow, type Running } from '../activity/running'
 import { Badge, Button, CommandMenuTrigger, Note, Spinner, ThemeSwitcher, Tooltip } from '@hyprsh/design'
-import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, Inbox, Info, LibraryBig, ListPlus, LogOut, Plus, ScrollText, Search, Settings, X } from 'lucide-react'
+import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, Inbox, Info, LibraryBig, ListPlus, LogOut, Plus, ScrollText, Settings, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAttention } from '../api/attention'
@@ -26,7 +26,7 @@ import { Upcoming } from '../upcoming/Upcoming'
 import { Settings as SettingsScreen } from '../screens/Settings'
 import { THEME_KEY, useTheme, type Theme } from '../theme'
 import { KestrelLogo } from '../ui'
-import { MoreSheet, TabBar, type Tab } from './PhoneNav'
+import { MoreSheet, PhoneTabBar, type Tab } from './PhoneNav'
 import { ServerStatus } from './ServerStatus'
 
 const screens = [
@@ -140,7 +140,9 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     .map((k) => screens.find((s) => s.key === k)!)
     .map((s) => ({
       ...s,
-      badge: s.key === 'overview' && needs && needs.count > 0 ? <AttentionBadge count={needs.count} blocking={needs.severity === 'blocking'} /> : undefined,
+      ...(s.key === 'overview' && needs && needs.count > 0
+        ? { badge: needs.count, badgeTone: needs.severity === 'blocking' ? ('error' as const) : ('warning' as const), badgeLabel: `${needs.count} ${needs.count === 1 ? 'needs' : 'need'} attention` }
+        : {}),
     }))
   const moreItems: Tab[] = moreKeys.map((k) => {
     const s = [...screens, about, adoption, cleanup, requests].find((x) => x.key === k)!
@@ -226,7 +228,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
             onDismiss={() => setSearchQueued(null)}
           />
         )}
-        <main className="flex min-h-0 flex-1 flex-col">
+        {/* The floating tab bar is out of layout; --tab-bar-height keeps every screen's last row clear of it (0 on a tablet or desktop). */}
+        <main className="flex min-h-0 flex-1 flex-col pb-[var(--tab-bar-height)]">
           {screen === 'settings' ? (
             <SettingsScreen onRunSetup={onRunSetup} onAdopt={() => setScreen('adoption')} section={settingsSection} onOpenSection={openSettingsSection} onCloseSection={closeSettingsSection} />
           ) : screen === 'adoption' ? (
@@ -266,12 +269,13 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           )}
         </main>
         {phone && (
-          <TabBar
+          <PhoneTabBar
             tabs={tabs}
             screen={screen}
             moreActive={more || !tabKeys.includes(screen)}
             onSelect={select}
             onMore={() => setMore(true)}
+            onSearch={() => setMenu({ mode: 'root' })}
           />
         )}
       </div>
@@ -398,7 +402,7 @@ function TopBar({
   running: Running[]
   onOpenRunning: () => void
 }) {
-  // A phone has no room for the search box: the title, what runs, and buttons for Add and the menu.
+  // A phone has no room for the search box: the title, what runs and Add; Search is the tab bar's accessory.
   if (phone)
     return (
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-gray-alpha-400 pr-2 pl-4">
@@ -406,9 +410,6 @@ function TopBar({
         <RunningIndicator running={running} onOpen={onOpenRunning} />
         <Button svgOnly variant="tertiary" aria-label="Add Title" onClick={onAdd}>
           <Plus />
-        </Button>
-        <Button svgOnly variant="tertiary" aria-label="Search or run a command" onClick={onOpenMenu}>
-          <Search />
         </Button>
       </header>
     )
