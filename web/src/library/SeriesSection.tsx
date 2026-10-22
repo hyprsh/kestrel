@@ -1,6 +1,6 @@
 import { ApiError, useEpisodes, type Episode, type SeriesMonitor, type TitleDetail } from '../api/queries'
 import { useSetSeriesMonitor } from '../api/titleActions'
-import { ErrorText, Select } from '../forms'
+import { Note, Select } from '@hyprsh/design'
 import { slotKeys } from './bits'
 import { EpisodeToolbar, useEpisodeActions } from './EpisodeActions'
 import { EpisodeMatrix } from './EpisodeMatrix'
@@ -20,24 +20,28 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
   return (
     <section aria-label="Episodes" className="mt-6">
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h3 className="text-[13px] font-semibold">Episodes</h3>
+        <h3 className="heading-14">Episodes</h3>
         <SeasonToolbar seasons={seasons} />
-        <label className="ml-auto flex items-center gap-2 text-[12px] text-gray-900">
-          Monitor
-          <Select
-            aria-label="Monitor"
-            value={title.series_monitor ?? 'all'}
-            disabled={setMode.isPending}
-            onChange={(e) => setMode.mutate(e.target.value as SeriesMonitor)}
-            className="w-44"
-          >
-            <option value="all">All episodes</option>
-            <option value="future">Future episodes only</option>
-            <option value="none">None</option>
-          </Select>
-        </label>
+        <Select
+          size="small"
+          label="Monitor"
+          value={title.series_monitor ?? 'all'}
+          disabled={setMode.isPending}
+          onChange={(e) => setMode.mutate(e.target.value as SeriesMonitor)}
+          className="ml-auto w-52"
+        >
+          <option value="all">All episodes</option>
+          <option value="future">Future episodes only</option>
+          <option value="none">None</option>
+        </Select>
       </div>
-      {setMode.isError && <ErrorText>{setMode.error instanceof ApiError ? setMode.error.message : 'Could not change monitoring.'}</ErrorText>}
+      {setMode.isError && (
+        <div className="mb-3">
+          <Note variant="error" size="small">
+            {setMode.error instanceof ApiError ? setMode.error.message : 'Could not change monitoring.'}
+          </Note>
+        </div>
+      )}
       <EpisodeToolbar actions={actions} />
       <EpisodeMatrix titleId={title.id} slots={slots} seasons={seasons} actions={actions} />
     </section>

@@ -5,13 +5,14 @@ import { MoreHorizontal } from 'lucide-react'
 import { useMemo, useState, type KeyboardEvent } from 'react'
 import { useSearchNow } from '../api/grabs'
 import { useProfiles, type Episode, type EpisodeScope, type TitleDetail } from '../api/queries'
-import { Button } from '../forms'
-import { Menu, MenuItem } from '../menu'
-import { SelectBox, SelectionBar, useSelection, type Selection } from '../selection'
+import { Button, Menu } from '@hyprsh/design'
+import { SelectionBar, useSelection, type Selection } from '../selection'
 import { cx } from '../ui'
+import { ActionMenu } from './ActionMenu'
 import { slotLabel, type SlotKey } from './bits'
 import { episodeCode, episodeRow, seasonName, seasonRow, type ActionStatus, type EpisodeVersion } from './episodes'
 import { DeleteMenuItems, DeleteTickedButtons, EpisodeDeleteConfirm, useEpisodeDeletes, type EpisodeDeletes } from './DeleteFiles'
+import { TickBox } from './TickBox'
 import type { ManualSearchTarget } from './TitleDetail'
 import { useFade } from './useFade'
 import type { SeasonOpen } from './useSeasonOpen'
@@ -86,7 +87,7 @@ export function useEpisodeActions(
       e.stopPropagation()
       return true
     }
-    if (e.target instanceof HTMLInputElement && (e.key === ' ' || e.key === 'Enter')) {
+    if (e.target instanceof HTMLInputElement && e.target.hasAttribute('data-tick') && (e.key === ' ' || e.key === 'Enter')) {
       e.stopPropagation() // a tick box's own key: it ticks, and the grid does not also toggle monitoring
       return true
     }
@@ -112,7 +113,7 @@ export function useEpisodeActions(
 
 const nothingWanted = 'Nothing here is Wanted'
 const wantedIn = (eps: Episode[], versions: EpisodeVersion[]) => versions.some((v) => eps.some((e) => e.cells[v.slot]?.state === 'wanted'))
-const menuButton = { trigger: <MoreHorizontal className="size-3.5" />, buttonTabIndex: -1, buttonClassName: 'size-5' }
+const menuButton = { icon: <MoreHorizontal className="size-4" />, tabIndex: -1, size: 'tiny' } as const
 
 /** The ⋯ menu of one episode row. */
 export function EpisodeMenu({ actions, episode }: { actions: EpisodeActions; episode: Episode }) {
@@ -120,18 +121,18 @@ export function EpisodeMenu({ actions, episode }: { actions: EpisodeActions; epi
   const code = episodeCode(episode)
   const wanted = wantedIn([episode], versions)
   return (
-    <Menu label={`Actions for ${episodeName(episode)}`} {...menuButton}>
-      <MenuItem disabled={!wanted} hint={wanted ? undefined : nothingWanted} onSelect={() => actions.search([episode], code, (ids) => ({ season: episode.season, episode_ids: ids }))}>
+    <ActionMenu label={`Actions for ${episodeName(episode)}`} {...menuButton}>
+      <Menu.Item disabled={!wanted} onSelect={() => actions.search([episode], code, (ids) => ({ season: episode.season, episode_ids: ids }))}>
         Search
-      </MenuItem>
+      </Menu.Item>
       {versions.map((v) => (
-        <MenuItem key={v.slot} onSelect={() => actions.manual(v, { season: episode.season, episode_ids: [episode.id] }, code)}>
+        <Menu.Item key={v.slot} onSelect={() => actions.manual(v, { season: episode.season, episode_ids: [episode.id] }, code)}>
           {versions.length > 1 ? `Manual search ${slotLabel[v.slot]}` : 'Manual search'}
-        </MenuItem>
+        </Menu.Item>
       ))}
       <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={[episode]} label={code} scope={{ season: episode.season, episode_ids: [episode.id] }} text="Delete file" at={episodeRow(episode.id)} />
-      <MenuItem onSelect={() => selection.toggle(episode.id)}>{selection.has(episode.id) ? 'Untick' : 'Tick'}</MenuItem>
-    </Menu>
+      <Menu.Item onSelect={() => selection.toggle(episode.id)}>{selection.has(episode.id) ? 'Untick' : 'Tick'}</Menu.Item>
+    </ActionMenu>
   )
 }
 
@@ -141,23 +142,23 @@ export function SeasonMenu({ actions, season, episodes }: { actions: EpisodeActi
   const name = seasonName(season)
   const wanted = wantedIn(episodes, versions)
   return (
-    <Menu label={`Actions for ${name}`} {...menuButton}>
-      <MenuItem disabled={!wanted} hint={wanted ? undefined : nothingWanted} onSelect={() => actions.search(episodes, name, () => ({ season }))}>
+    <ActionMenu label={`Actions for ${name}`} {...menuButton}>
+      <Menu.Item disabled={!wanted} onSelect={() => actions.search(episodes, name, () => ({ season }))}>
         Search season
-      </MenuItem>
+      </Menu.Item>
       {versions.map((v) => (
-        <MenuItem key={v.slot} onSelect={() => actions.manual(v, { season }, name)}>
+        <Menu.Item key={v.slot} onSelect={() => actions.manual(v, { season }, name)}>
           {versions.length > 1 ? `Manual search season ${slotLabel[v.slot]}` : 'Manual search season'}
-        </MenuItem>
+        </Menu.Item>
       ))}
       <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={episodes} label={name} scope={{ season }} text="Delete season's files" at={seasonRow(season)} />
-    </Menu>
+    </ActionMenu>
   )
 }
 
 /** An episode row's tick box, shown while episodes are being ticked. */
 export function EpisodeTick({ actions, episode }: { actions: EpisodeActions; episode: Episode }) {
-  return actions.selection.active ? <SelectBox selection={actions.selection} id={episode.id} name={episodeName(episode)} /> : null
+  return actions.selection.active ? <TickBox selection={actions.selection} id={episode.id} name={episodeName(episode)} /> : null
 }
 
 /** Above the grid: the ticked episodes' actions, their deletion's confirmation and what the last Search now or deletion said. */
@@ -171,7 +172,7 @@ export function EpisodeToolbar({ actions }: { actions: EpisodeActions }) {
       <SelectionBar selection={selection} shown={shown.length}>
         <Button
           variant="secondary"
-          className="h-6 px-2 text-[12px]"
+          size="small"
           disabled={!wanted}
           title={wanted ? undefined : nothingWanted}
           onClick={() => actions.search(ticked, label, (ids) => ({ episode_ids: ids }))}
@@ -181,7 +182,7 @@ export function EpisodeToolbar({ actions }: { actions: EpisodeActions }) {
         <DeleteTickedButtons deletes={actions.deletes} versions={actions.versions} ticked={ticked} label={label} />
       </SelectionBar>
       <EpisodeDeleteConfirm deletes={actions.deletes} />
-      <p role="status" className={cx('text-[12px] empty:hidden', status?.error ? 'text-red-900' : 'text-gray-900')}>
+      <p role="status" className={cx('label-12 empty:hidden', status?.error ? 'text-red-900' : 'text-gray-900')}>
         {status?.text}
       </p>
     </div>
