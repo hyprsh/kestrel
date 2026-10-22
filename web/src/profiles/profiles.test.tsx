@@ -181,8 +181,8 @@ describe('Settings', () => {
     fakeProfiles()
     await open()
     const nav = await screen.findByRole('navigation', { name: 'Settings sections' })
-    expect(within(nav).getByRole('link', { name: 'Primary Language' })).toHaveAttribute('href', '#settings-language')
-    expect(within(nav).getByRole('link', { name: 'Profiles' })).toHaveAttribute('href', '#settings-profiles')
+    expect(within(nav).getByRole('link', { name: 'Primary Language' })).toHaveAttribute('href', '/settings#settings-language')
+    expect(within(nav).getByRole('link', { name: 'Profiles' })).toHaveAttribute('href', '/settings#settings-profiles')
     expect(await within(await screen.findByRole('region', { name: 'Primary Language' })).findByLabelText('Primary Language')).toHaveValue('en')
   })
 

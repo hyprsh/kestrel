@@ -1,5 +1,5 @@
 import { Button, Checkbox, Fieldset, Input, Note, Textarea } from '@hyprsh/design'
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useState, type FormEvent, type MouseEvent, type ReactNode } from 'react'
 import { ApiError, useApiKey, useAuth, useChangePassword, useCreateApiKey, useLogoutEverywhere, useReverseProxy, useSaveReverseProxy, type ReverseProxy } from '../api/queries'
 import { UpdateCheckSwitch } from '../about/UpdateCheck'
 import { PauseGrabsSwitch } from '../grabs/PauseGrabs'
@@ -30,6 +30,15 @@ const sections = [
   { id: 'setup', title: 'Setup' },
 ]
 
+/** Scrolls to a section and focuses its heading, keeping the page (and its place) rather than the base URL's Overview. */
+function jumpTo(event: MouseEvent<HTMLAnchorElement>, id: string) {
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+  event.preventDefault()
+  document.getElementById(`settings-${id}`)?.scrollIntoView()
+  document.getElementById(`settings-${id}-title`)?.focus()
+  history.replaceState(history.state, '', event.currentTarget.href)
+}
+
 /** One page with a jump list on the left; each section is a group of rows. */
 export function Settings({ onRunSetup, onAdopt }: { onRunSetup: () => void; onAdopt: () => void }) {
   return (
@@ -38,7 +47,7 @@ export function Settings({ onRunSetup, onAdopt }: { onRunSetup: () => void; onAd
         <ul className="flex flex-col gap-0.5">
           {sections.map((s) => (
             <li key={s.id}>
-              <a href={`#settings-${s.id}`} className="label-14 block rounded-md px-2 py-1 text-gray-900 hover:bg-gray-alpha-100 hover:text-gray-1000">
+              <a href={`${location.pathname}#settings-${s.id}`} onClick={(e) => jumpTo(e, s.id)} className="label-14 block rounded-md px-2 py-1 text-gray-900 hover:bg-gray-alpha-100 hover:text-gray-1000">
                 {s.title}
               </a>
             </li>
@@ -125,7 +134,7 @@ export function Settings({ onRunSetup, onAdopt }: { onRunSetup: () => void; onAd
 function Group({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
     <section id={`settings-${id}`} aria-labelledby={`settings-${id}-title`} className="mb-8">
-      <h2 id={`settings-${id}-title`} className="heading-20 mb-3">
+      <h2 id={`settings-${id}-title`} tabIndex={-1} className="heading-20 mb-3">
         {title}
       </h2>
       <div className="flex flex-col gap-4">{children}</div>
