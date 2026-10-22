@@ -195,4 +195,136 @@ describe('manual search', () => {
     expect(alert).toHaveTextContent('Alpha: Request limit reached')
     expect(alert).toHaveTextContent('retry in 90 s')
   })
+
+  describe('episode titles', () => {
+    it('shows the Primary Language title next to the episode badge, TBA for an unlisted episode and none for a pack', async () => {
+      fakeSearch([
+        release('p', 'Show.S01.1080p.WEB-DL-GRP', { season: 1, pack: true, episodes: [] }),
+        release('e', 'Show.S01E03.1080p.WEB-DL-GRP', { season: 1, pack: false, episodes: [3], episode_titles: ['Der Einstieg'] }),
+        release('t', 'Show.S01E09.1080p.WEB-DL-GRP', { season: 1, pack: false, episodes: [9], episode_titles: ['TBA'] }),
+        release('m', 'Show.S01E01E02E03E04.1080p.WEB-DL-GRP', { season: 1, pack: false, episodes: [1, 2, 3, 4], episode_titles: ['A', 'B', 'C', 'D'] }),
+      ])
+      const table = await openManualSearch()
+
+      const rows = within(table).getAllByRole('row').slice(1)
+      expect(rows[0]).toHaveTextContent('Season 1 pack')
+      expect(rows[0]).not.toHaveTextContent('·')
+      expect(rows[1]).toHaveTextContent('S01E03· Der Einstieg')
+      expect(rows[2]).toHaveTextContent('S01E09· TBA')
+      expect(rows[3]).toHaveTextContent('S01E01-E04· A / B / +2 more')
+      expect(within(rows[3]).getByTitle('A · B · C · D')).toBeInTheDocument()
+    })
+  })
+
+  describe('sorting', () => {
+    const named = (id: string, over: Partial<Release>) => release(id, `Rel.${id}`, over)
+    const sortable = () => [
+      named('mid', { score: 500, quality: 'Bluray-1080p', languages: ['German'], size: 5 * 1024 ** 3, published_at: '2026-10-10T12:00:00Z', indexer: 'Beta', custom_formats: [{ name: 'HDR', points: 100 }, { name: 'Atmos', points: 50 }] }),
+      named('big', { score: 900, quality: 'Remux-1080p', languages: ['English'], size: 30 * 1024 ** 3, published_at: '2026-10-15T12:00:00Z', indexer: 'Alpha', custom_formats: [{ name: 'Atmos', points: 50 }] }),
+      named('old', { score: 100, quality: 'HDTV-720p', languages: ['French'], size: 1 * 1024 ** 3, published_at: '2026-09-01T12:00:00Z', indexer: 'Gamma', custom_formats: [{ name: 'HDR', points: 100 }, { name: 'DV', points: 200 }] }),
+      named('bad', { score: 9999, size: 99 * 1024 ** 3, rejections: [{ code: 'language', message: 'Not in the language the Profile requires', overridable: true }] }),
+    ]
+    const order = (table: HTMLElement) => within(table).getAllByRole('row').slice(1).map((r) => /Rel\.(big|mid|old|bad)/.exec(r.textContent ?? '')?.[1])
+    const header = (name: string) => screen.getByRole('button', { name })
+
+    it('is best first by default, with the Score header marked', async () => {
+      fakeSearch(sortable())
+      const table = await openManualSearch()
+
+      expect(order(table)).toEqual(['big', 'mid', 'old', 'bad'])
+      expect(screen.getByRole('columnheader', { name: 'Score' })).toHaveAttribute('aria-sort', 'descending')
+      expect(screen.getByRole('columnheader', { name: 'Size' })).not.toHaveAttribute('aria-sort')
+    })
+
+    it.each([
+      ['Score', ['old', 'mid', 'big', 'bad'], ['big', 'mid', 'old', 'bad']],
+      ['Release', ['big', 'mid', 'old', 'bad'], ['old', 'mid', 'big', 'bad']],
+      ['Quality', ['mid', 'old', 'big', 'bad'], ['big', 'old', 'mid', 'bad']],
+      ['Languages', ['big', 'old', 'mid', 'bad'], ['mid', 'old', 'big', 'bad']],
+      ['Custom formats', ['big', 'mid', 'old', 'bad'], ['old', 'mid', 'big', 'bad']],
+      ['Size', ['old', 'mid', 'big', 'bad'], ['big', 'mid', 'old', 'bad']],
+      ['Age', ['big', 'mid', 'old', 'bad'], ['old', 'mid', 'big', 'bad']],
+      ['Indexer', ['big', 'mid', 'old', 'bad'], ['old', 'mid', 'big', 'bad']],
+    ] as const)('sorts by %s, ascending then descending, with the rejected Release always last', async (column, asc, desc) => {
+      fakeSearch(sortable())
+      const table = await openManualSearch()
+
+      await userEvent.click(header(column))
+      expect(screen.getByRole('columnheader', { name: column })).toHaveAttribute('aria-sort', 'ascending')
+      expect(order(table)).toEqual(asc)
+
+      await userEvent.click(header(column))
+      expect(screen.getByRole('columnheader', { name: column })).toHaveAttribute('aria-sort', 'descending')
+      expect(order(table)).toEqual(desc)
+    })
+
+    it('brings best first back with one click', async () => {
+      fakeSearch(sortable())
+      const table = await openManualSearch()
+      await userEvent.click(header('Size'))
+
+      await userEvent.click(screen.getByRole('button', { name: 'Best first' }))
+
+      expect(order(table)).toEqual(['big', 'mid', 'old', 'bad'])
+      expect(screen.queryByRole('button', { name: 'Best first' })).not.toBeInTheDocument()
+    })
+
+    it('pins the Releases with a Custom Format to the top, unpins on a second click, and keeps rejected ones last', async () => {
+      const items = sortable()
+      items[3] = { ...items[3], custom_formats: [{ name: 'HDR', points: 100 }] }
+      fakeSearch(items)
+      const table = await openManualSearch()
+      const chip = () => within(table).getAllByRole('button', { name: 'HDR' })[0]
+
+      await userEvent.click(chip())
+      expect(order(table)).toEqual(['mid', 'old', 'big', 'bad'])
+      expect(chip()).toHaveAttribute('aria-pressed', 'true')
+
+      await userEvent.click(chip())
+      expect(order(table)).toEqual(['big', 'mid', 'old', 'bad'])
+      expect(chip()).toHaveAttribute('aria-pressed', 'false')
+    })
+
+    it('remembers the sort and the pinned Custom Format for the next manual search', async () => {
+      fakeSearch(sortable())
+      let table = await openManualSearch()
+      await userEvent.click(header('Size'))
+      await userEvent.click(within(table).getAllByRole('button', { name: 'Atmos' })[0])
+      await userEvent.keyboard('{Escape}')
+      await screen.findByRole('group', { name: 'Standard' })
+
+      const pane = await screen.findByRole('region', { name: /paddington/i })
+      const actions = await within(pane).findByRole('group', { name: 'Title actions' })
+      await userEvent.click(within(actions).getByRole('button', { name: /manual search/i }))
+      table = await screen.findByRole('table', { name: /releases/i })
+
+      expect(screen.getByRole('columnheader', { name: 'Size' })).toHaveAttribute('aria-sort', 'ascending')
+      expect(order(table)).toEqual(['mid', 'big', 'old', 'bad'])
+    })
+
+    it('makes j, k and Enter follow the sorted order', async () => {
+      const state = fakeSearch(sortable())
+      await openManualSearch()
+      await userEvent.click(header('Size')) // old, mid, big, bad
+
+      expect(selected()).toHaveTextContent('Rel.old')
+      await userEvent.keyboard('j')
+      expect(selected()).toHaveTextContent('Rel.mid')
+      await userEvent.keyboard('{Enter}')
+
+      expect(await screen.findByText(/sent to the download client/i)).toBeInTheDocument()
+      expect(state.grabs).toEqual([{ path: '/grabs', body: { version_id: 11, release_id: 'mid', override: false } }])
+    })
+
+    it('sorts from the keyboard: the headers are buttons', async () => {
+      fakeSearch(sortable())
+      const table = await openManualSearch()
+
+      header('Indexer').focus()
+      await userEvent.keyboard('{Enter}')
+
+      expect(order(table)).toEqual(['big', 'mid', 'old', 'bad'])
+      expect(screen.getByRole('columnheader', { name: 'Indexer' })).toHaveAttribute('aria-sort', 'ascending')
+    })
+  })
 })
