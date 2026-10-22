@@ -8,7 +8,6 @@ import { useProfiles, type Episode, type EpisodeScope, type TitleDetail } from '
 import { Button, Menu } from '@hyprsh/design'
 import { SelectionBar, useSelection, type Selection } from '../selection'
 import { cx } from '../ui'
-import { ActionMenu } from './ActionMenu'
 import { slotLabel, type SlotKey } from './bits'
 import { episodeCode, episodeRow, seasonName, seasonRow, type ActionStatus, type EpisodeVersion } from './episodes'
 import { DeleteMenuItems, DeleteTickedButtons, EpisodeDeleteConfirm, useEpisodeDeletes, type EpisodeDeletes } from './DeleteFiles'
@@ -113,7 +112,23 @@ export function useEpisodeActions(
 
 const nothingWanted = 'Nothing here is Wanted'
 const wantedIn = (eps: Episode[], versions: EpisodeVersion[]) => versions.some((v) => eps.some((e) => e.cells[v.slot]?.state === 'wanted'))
-const menuButton = { icon: <MoreHorizontal className="size-4" />, tabIndex: -1, size: 'tiny' } as const
+/**
+ * The ⋯ button of a row menu: out of the Tab order, since the grid has a roving focus. The menu
+ * hands focus back to this button when it closes; it passes it on to the row's cell, where the
+ * keyboard was.
+ */
+const rowMenuButton = (label: string) => (
+  <Menu.Button
+    svgOnly
+    variant="tertiary"
+    size="tiny"
+    tabIndex={-1}
+    aria-label={label}
+    onFocus={(e) => e.currentTarget.closest('[role="row"]')?.querySelector<HTMLElement>('[data-cell][tabindex="0"]')?.focus()}
+  >
+    <MoreHorizontal />
+  </Menu.Button>
+)
 
 /** The ⋯ menu of one episode row. */
 export function EpisodeMenu({ actions, episode }: { actions: EpisodeActions; episode: Episode }) {
@@ -121,18 +136,21 @@ export function EpisodeMenu({ actions, episode }: { actions: EpisodeActions; epi
   const code = episodeCode(episode)
   const wanted = wantedIn([episode], versions)
   return (
-    <ActionMenu label={`Actions for ${episodeName(episode)}`} {...menuButton}>
-      <Menu.Item disabled={!wanted} onSelect={() => actions.search([episode], code, (ids) => ({ season: episode.season, episode_ids: ids }))}>
-        Search
-      </Menu.Item>
-      {versions.map((v) => (
-        <Menu.Item key={v.slot} onSelect={() => actions.manual(v, { season: episode.season, episode_ids: [episode.id] }, code)}>
-          {versions.length > 1 ? `Manual search ${slotLabel[v.slot]}` : 'Manual search'}
+    <Menu.Container position="bottom-end">
+      {rowMenuButton(`Actions for ${episodeName(episode)}`)}
+      <Menu>
+        <Menu.Item disabled={!wanted} description={wanted ? undefined : nothingWanted} onSelect={() => actions.search([episode], code, (ids) => ({ season: episode.season, episode_ids: ids }))}>
+          Search
         </Menu.Item>
-      ))}
-      <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={[episode]} label={code} scope={{ season: episode.season, episode_ids: [episode.id] }} text="Delete file" at={episodeRow(episode.id)} />
-      <Menu.Item onSelect={() => selection.toggle(episode.id)}>{selection.has(episode.id) ? 'Untick' : 'Tick'}</Menu.Item>
-    </ActionMenu>
+        {versions.map((v) => (
+          <Menu.Item key={v.slot} onSelect={() => actions.manual(v, { season: episode.season, episode_ids: [episode.id] }, code)}>
+            {versions.length > 1 ? `Manual search ${slotLabel[v.slot]}` : 'Manual search'}
+          </Menu.Item>
+        ))}
+        <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={[episode]} label={code} scope={{ season: episode.season, episode_ids: [episode.id] }} text="Delete file" at={episodeRow(episode.id)} />
+        <Menu.Item onSelect={() => selection.toggle(episode.id)}>{selection.has(episode.id) ? 'Untick' : 'Tick'}</Menu.Item>
+      </Menu>
+    </Menu.Container>
   )
 }
 
@@ -142,17 +160,20 @@ export function SeasonMenu({ actions, season, episodes }: { actions: EpisodeActi
   const name = seasonName(season)
   const wanted = wantedIn(episodes, versions)
   return (
-    <ActionMenu label={`Actions for ${name}`} {...menuButton}>
-      <Menu.Item disabled={!wanted} onSelect={() => actions.search(episodes, name, () => ({ season }))}>
-        Search season
-      </Menu.Item>
-      {versions.map((v) => (
-        <Menu.Item key={v.slot} onSelect={() => actions.manual(v, { season }, name)}>
-          {versions.length > 1 ? `Manual search season ${slotLabel[v.slot]}` : 'Manual search season'}
+    <Menu.Container position="bottom-end">
+      {rowMenuButton(`Actions for ${name}`)}
+      <Menu>
+        <Menu.Item disabled={!wanted} description={wanted ? undefined : nothingWanted} onSelect={() => actions.search(episodes, name, () => ({ season }))}>
+          Search season
         </Menu.Item>
-      ))}
-      <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={episodes} label={name} scope={{ season }} text="Delete season's files" at={seasonRow(season)} />
-    </ActionMenu>
+        {versions.map((v) => (
+          <Menu.Item key={v.slot} onSelect={() => actions.manual(v, { season }, name)}>
+            {versions.length > 1 ? `Manual search season ${slotLabel[v.slot]}` : 'Manual search season'}
+          </Menu.Item>
+        ))}
+        <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={episodes} label={name} scope={{ season }} text="Delete season's files" at={seasonRow(season)} />
+      </Menu>
+    </Menu.Container>
   )
 }
 
