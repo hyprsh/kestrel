@@ -28,6 +28,8 @@ const indexHTML = `<!doctype html><html><head><base href="/" /></head><body><div
 var webFS = fstest.MapFS{
 	"index.html":    {Data: []byte(indexHTML)},
 	"assets/app.js": {Data: []byte("console.log('kestrel')")},
+
+	"manifest.webmanifest": {Data: []byte(`{"start_url":"./","scope":"./"}`)},
 }
 
 // startServer runs the real handler on a temp-dir SQLite.
@@ -224,6 +226,16 @@ func TestSPAIsServedWithAnIndexFallbackAndTheBaseHref(t *testing.T) {
 	}
 	if res, _ := get(t, srv.URL+"/kestrel/assets/missing.js"); res.StatusCode != 404 {
 		t.Errorf("missing asset = %d, want 404 rather than the index", res.StatusCode)
+	}
+}
+
+func TestWebAppManifestIsServedAsAFileUnderTheBaseURL(t *testing.T) {
+	t.Parallel()
+	srv := startServer(t, "/kestrel", webFS)
+
+	res, body := get(t, srv.URL+"/kestrel/manifest.webmanifest")
+	if res.StatusCode != 200 || res.Header.Get("Content-Type") != "application/manifest+json" || !strings.Contains(body, `"start_url"`) {
+		t.Errorf("manifest = %d %q %q, want the file as application/manifest+json", res.StatusCode, res.Header.Get("Content-Type"), body)
 	}
 }
 
