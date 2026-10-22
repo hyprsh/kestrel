@@ -764,57 +764,6 @@ func (q *Queries) ListEpisodes(ctx context.Context) ([]Episode, error) {
 	return items, nil
 }
 
-const listEpisodesAiring = `-- name: ListEpisodesAiring :many
-SELECT e.id, e.title_id, e.season, e.number, e.name, e.air_date
-FROM episodes e JOIN titles t ON t.id = e.title_id
-WHERE t.monitored = 1 AND e.monitored = 1 AND e.air_date >= ? AND e.air_date <= ?
-ORDER BY e.air_date, e.title_id, e.season, e.number
-`
-
-type ListEpisodesAiringParams struct {
-	AirDate   sql.NullString
-	AirDate_2 sql.NullString
-}
-
-type ListEpisodesAiringRow struct {
-	ID      int64
-	TitleID int64
-	Season  int64
-	Number  int64
-	Name    string
-	AirDate sql.NullString
-}
-
-func (q *Queries) ListEpisodesAiring(ctx context.Context, arg ListEpisodesAiringParams) ([]ListEpisodesAiringRow, error) {
-	rows, err := q.db.QueryContext(ctx, listEpisodesAiring, arg.AirDate, arg.AirDate_2)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListEpisodesAiringRow
-	for rows.Next() {
-		var i ListEpisodesAiringRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.TitleID,
-			&i.Season,
-			&i.Number,
-			&i.Name,
-			&i.AirDate,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listEpisodesOfTitle = `-- name: ListEpisodesOfTitle :many
 SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name, placeholder_at, overview FROM episodes WHERE title_id = ? ORDER BY season, number
 `
@@ -876,6 +825,42 @@ func (q *Queries) ListFileEpisodeRefs(ctx context.Context, titleID int64) ([]Lis
 	for rows.Next() {
 		var i ListFileEpisodeRefsRow
 		if err := rows.Scan(&i.FileID, &i.Season, &i.Number); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFileEpisodeReleases = `-- name: ListFileEpisodeReleases :many
+SELECT f.version_id, fe.episode_id, f.parsed_release
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id
+WHERE f.id NOT IN (SELECT file_id FROM file_misfits)
+`
+
+type ListFileEpisodeReleasesRow struct {
+	VersionID     int64
+	EpisodeID     int64
+	ParsedRelease sql.NullString
+}
+
+// The Release each Version's file for an episode was parsed from, misfits left out as above.
+func (q *Queries) ListFileEpisodeReleases(ctx context.Context) ([]ListFileEpisodeReleasesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFileEpisodeReleases)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFileEpisodeReleasesRow
+	for rows.Next() {
+		var i ListFileEpisodeReleasesRow
+		if err := rows.Scan(&i.VersionID, &i.EpisodeID, &i.ParsedRelease); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

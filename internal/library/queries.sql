@@ -77,6 +77,12 @@ SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary
 SELECT f.version_id, fe.episode_id, f.score FROM file_episodes fe JOIN files f ON f.id = fe.file_id
 WHERE f.id NOT IN (SELECT file_id FROM file_misfits);
 
+-- The Release each Version's file for an episode was parsed from, misfits left out as above.
+-- name: ListFileEpisodeReleases :many
+SELECT f.version_id, fe.episode_id, f.parsed_release
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id
+WHERE f.id NOT IN (SELECT file_id FROM file_misfits);
+
 -- name: ListFileEpisodesOfTitle :many
 SELECT f.version_id, fe.episode_id, f.score
 FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id
@@ -283,11 +289,6 @@ UPDATE files SET path = ? WHERE id = ?;
 -- name: ForceTitleFolder :exec
 UPDATE titles SET folder = ? WHERE id = ?;
 
--- name: ListEpisodesAiring :many
-SELECT e.id, e.title_id, e.season, e.number, e.name, e.air_date
-FROM episodes e JOIN titles t ON t.id = e.title_id
-WHERE t.monitored = 1 AND e.monitored = 1 AND e.air_date >= ? AND e.air_date <= ?
-ORDER BY e.air_date, e.title_id, e.season, e.number;
 
 -- name: ListRecentFiles :many
 SELECT f.id, f.version_id, v.title_id, v.slot, f.release_name, f.score, f.grab_id, f.imported_at, COALESCE(g.is_upgrade, 0) AS is_upgrade, r.score AS replaced_score

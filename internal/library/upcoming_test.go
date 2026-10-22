@@ -87,10 +87,11 @@ func TestUpcomingReadsEveryTypedDateInTheOneReleaseDateCountry(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := lib.Upcoming(ctx, library.View{Country: "DE", Now: now}, day(2026, 10, 17), day(2026, 11, 16))
+	agenda, err := lib.Upcoming(ctx, library.View{Country: "DE", Now: now}, day(2026, 10, 17), day(2026, 11, 16))
 	if err != nil {
 		t.Fatal(err)
 	}
+	got := agenda.Entries
 	if len(got) != 1 || got[0].ReleaseType != library.TheatricalRelease || !got[0].Date.Equal(day(2026, 10, 20)) {
 		t.Errorf("agenda for DE = %+v, want only the German theatrical date, not the US digital one", got)
 	}
