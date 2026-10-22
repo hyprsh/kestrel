@@ -1,6 +1,6 @@
-import { Badge, CommandMenu as DesignCommandMenu, CommandMenuGroup, CommandMenuInput, CommandMenuItem, CommandMenuList, KeyboardInput, Note } from '@hyprsh/design'
+import { Badge, CommandMenu as DesignCommandMenu, CommandMenuGroup, CommandMenuInput, CommandMenuItem, CommandMenuList, KeyboardInput, Note, type CommandMenuKeyEvent } from '@hyprsh/design'
 import { CornerDownLeft, Plus, Search } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ApiError, useLookup, useTitles, type LookupResult, type TitleRow } from '../api/queries'
 import { rank, type Match } from '../fuzzy'
 import { KindIcon } from '../library/bits'
@@ -165,7 +165,7 @@ export function CommandMenu({
     return [...groups.flatMap((g) => g.map((h) => h.item)), add]
   }, [mode, query, lookup.data, actions, places, titles.data, onGo, onOpenTitle, onClose])
 
-  const onKeyDown = (e: KeyboardEvent & { skipMenu: () => void }) => {
+  const onKeyDown = (e: CommandMenuKeyEvent) => {
     // In the add panel Escape goes back to the list; every other key keeps its native behaviour.
     if (chosen) {
       if (e.key === 'Escape') {

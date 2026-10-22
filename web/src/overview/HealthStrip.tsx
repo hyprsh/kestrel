@@ -15,7 +15,7 @@ function formatBytes(n: number): string {
   return `${Number.isInteger(v) ? v : v.toFixed(1)} ${units[i]}`
 }
 
-const dot = { ok: 'ready', failing: 'error', idle: 'canceled' } as const
+const dot = { ok: 'success', failing: 'error', idle: 'neutral' } as const
 
 function Item({ label, state, detail }: { label: string; state: 'ok' | 'failing' | 'idle'; detail: string }) {
   return (
