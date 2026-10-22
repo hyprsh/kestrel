@@ -42,7 +42,7 @@ describe('collapsible seasons in the episode grid', () => {
 
   it('opens and closes seasons from the keyboard and skips the rows of closed seasons', async () => {
     const { state, grid } = await openSeries()
-    await act(async () => (await screen.findByRole('combobox', { name: 'Monitor' })).focus())
+    await act(async () => (await screen.findByRole('button', { name: 'Collapse all' })).focus())
     await userEvent.tab() // the grid's one tab stop: the Specials header
     const specials = within(grid).getByRole('checkbox', { name: 'Specials' })
     expect(specials).toHaveFocus()
@@ -74,7 +74,7 @@ describe('collapsible seasons in the episode grid', () => {
 
   it('carries on from a season header after its toggle is clicked', async () => {
     const { grid } = await openSeries()
-    await act(async () => (await screen.findByRole('combobox', { name: 'Monitor' })).focus())
+    await act(async () => (await screen.findByRole('button', { name: 'Collapse all' })).focus())
     await userEvent.tab()
     await userEvent.keyboard('{End}')
     expect(within(grid).getByRole('checkbox', { name: 'Season 1 episode 2 monitored' })).toHaveFocus()
@@ -85,7 +85,7 @@ describe('collapsible seasons in the episode grid', () => {
 
   it("expands and collapses every season at once and keeps the grid's tab stop on a row still shown", async () => {
     const { grid } = await openSeries()
-    await act(async () => (await screen.findByRole('combobox', { name: 'Monitor' })).focus())
+    await act(async () => (await screen.findByRole('button', { name: 'Collapse all' })).focus())
     await userEvent.tab()
     await userEvent.keyboard('{End}')
     expect(within(grid).getByRole('checkbox', { name: 'Season 1 episode 2 monitored' })).toHaveFocus()
@@ -96,7 +96,7 @@ describe('collapsible seasons in the episode grid', () => {
     }
     expect(within(grid).queryAllByRole('checkbox', { name: /episode/ })).toHaveLength(0)
     // The tab stop moved from the hidden episode to its season's header.
-    await act(async () => screen.getByRole('combobox', { name: 'Monitor' }).focus())
+    await act(async () => screen.getByRole('button', { name: 'Collapse all' }).focus())
     await userEvent.tab()
     expect(within(grid).getByRole('checkbox', { name: 'Season 1' })).toHaveFocus()
 

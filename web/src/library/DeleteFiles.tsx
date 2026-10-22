@@ -12,7 +12,7 @@ import { episodeCode, type ActionStatus, type EpisodeVersion } from './episodes'
 
 type FileSummary = components['schemas']['FileSummary']
 type EpisodeFile = components['schemas']['EpisodeFile']
-const base = (path: string) => path.split(/[\\/]/).pop() ?? path
+export const base = (path: string) => path.split(/[\\/]/).pop() ?? path
 const files = (n: number) => (n === 1 ? '1 file' : `${n} files`)
 
 /** What a deletion did, for the status line: the files, and those whose Release was not blocklisted. */
@@ -119,45 +119,34 @@ function DeleteFilesConfirm({
   )
 }
 
-/** A Movie Version's Delete file: the Version stays, Wanted again while the Movie is monitored. */
-export function DeleteFile({ versionId, file }: { versionId: number; file: FileSummary | null }) {
+/**
+ * A Movie Version's Delete file: the Version stays, Wanted again while the Movie is monitored. The
+ * Version row's "…" menu asks for it (`asking`); this shows the confirmation and what came of it.
+ */
+export function DeleteFile({ versionId, file, asking, onClose }: { versionId: number; file: FileSummary | null; asking: boolean; onClose: () => void }) {
   const del = useDeleteFiles()
-  const [asking, setAsking] = useState(false)
   const [said, setSaid] = useState<string | null>(null)
-  if (!file && !said) return null
   const confirm = (blocklist: boolean) =>
     del.mutate(
       { versionId, blocklist },
       {
         onSuccess: (res) => {
-          setAsking(false)
+          onClose()
           setSaid(deletedText(res, blocklist))
         },
       },
     )
   return (
-    <div>
-      {file && !asking && (
-        <Button variant="secondary" size="small" className="w-full" onClick={() => setAsking(true)}>
-          Delete file
-        </Button>
-      )}
+    <>
       {file && asking && (
-        <DeleteFilesConfirm
-          paths={[file.path]}
-          bytes={file.size}
-          onConfirm={confirm}
-          onCancel={() => setAsking(false)}
-          error={del.error?.message}
-          busy={del.isPending}
-        />
+        <DeleteFilesConfirm paths={[file.path]} bytes={file.size} onConfirm={confirm} onCancel={onClose} error={del.error?.message} busy={del.isPending} focus />
       )}
       {said && (
         <p role="status" className="label-12 mt-1 text-gray-900">
           {said}
         </p>
       )}
-    </div>
+    </>
   )
 }
 

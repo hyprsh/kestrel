@@ -18,19 +18,19 @@ async function openTitle(name: RegExp) {
 }
 
 describe('the Title actions row', () => {
-  it('sits under the description, above the Slot cards and the episode grid', async () => {
+  it('sits under the description, above the Version rows and the episode grid', async () => {
     fakeSeries()
     const { pane, actions } = await openTitle(/breaking bad/i)
 
     const overview = within(pane).getByText('About Breaking Bad.')
-    const card = within(pane).getByRole('group', { name: 'Standard' })
+    const card = within(pane).getByRole('region', { name: 'Versions' })
     const grid = await within(pane).findByRole('grid', { name: 'Episodes' })
     expect(overview.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(actions.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(actions.compareDocumentPosition(grid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('keeps Clean up, Move and Remove Title in its "…" menu, and asks before removing', async () => {
+  it('keeps the metadata, Clean up, Move and Remove Title actions in its "…" menu, and asks before removing', async () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     const removed: string[] = []
     server.use(
@@ -43,7 +43,14 @@ describe('the Title actions row', () => {
 
     await userEvent.click(within(actions).getByRole('button', { name: 'More Title actions' }))
     const menu = screen.getByRole('menu', { name: 'More Title actions' })
-    expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Move', 'Clean up this Title', 'Show in the Log', 'Remove Title'])
+    expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent)).toEqual([
+      'Refresh metadata',
+      'Freeze metadata',
+      'Move',
+      'Clean up this Title',
+      'Show in the Log',
+      'Remove Title',
+    ])
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Remove Title' }))
 
     const confirm = screen.getByRole('alertdialog', { name: 'Remove Title' })
@@ -73,22 +80,32 @@ describe('the Title actions row', () => {
     )
     const { actions } = await openTitle(/paddington/i)
 
-    await userEvent.click(within(actions).getByRole('button', { name: 'Refresh metadata' }))
+    const choose = async (name: string) => {
+      await userEvent.click(within(actions).getByRole('button', { name: 'More Title actions' }))
+      return userEvent.click(screen.getByRole('menuitem', { name }))
+    }
+
+    await choose('Refresh metadata')
     await waitFor(() => expect(state.refreshes).toBe(1))
     expect(await screen.findByText(/Refreshing metadata…/)).toBeInTheDocument()
 
-    await userEvent.click(within(actions).getByRole('button', { name: 'Freeze metadata' }))
+    await choose('Freeze metadata')
     await waitFor(() => expect(state.sent).toEqual([{ metadata_frozen: true }]))
-    expect(await within(actions).findByRole('button', { name: 'Unfreeze metadata' })).toBeInTheDocument()
-    expect(within(actions).getByRole('button', { name: 'Refresh metadata' })).toBeDisabled()
+    await userEvent.click(within(actions).getByRole('button', { name: 'More Title actions' }))
+    expect(await screen.findByRole('menuitem', { name: 'Unfreeze metadata' })).toBeInTheDocument()
+    const refresh = screen.getByRole('menuitem', { name: /Refresh metadata/ })
+    expect(refresh).toHaveAttribute('aria-disabled', 'true')
+    expect(refresh).toHaveAccessibleDescription('Metadata is frozen: unfreeze it to refresh')
+    await userEvent.keyboard('{Escape}')
 
-    await userEvent.click(within(actions).getByRole('button', { name: 'Unfreeze metadata' }))
+    await choose('Unfreeze metadata')
     await waitFor(() => expect(state.sent[1]).toEqual({ metadata_frozen: false }))
-    await waitFor(() => expect(within(actions).getByRole('button', { name: 'Refresh metadata' })).toBeEnabled())
+    await userEvent.click(within(actions).getByRole('button', { name: 'More Title actions' }))
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Refresh metadata' })).not.toHaveAttribute('aria-disabled', 'true'))
   })
 })
 
-describe('the Slot cards', () => {
+describe('the Version rows', () => {
   it('show a Series Version’s episode coverage instead of a file, and scroll to the episodes on a click', async () => {
     const r = seriesRow(5, 'Breaking Bad')
     fakeSeries()
@@ -119,13 +136,67 @@ describe('the Slot cards', () => {
     expect(scrolled[0].contains(grid)).toBe(true)
   })
 
-  it('badge an empty Slot as having no Version, as a filled one shows its state', async () => {
+  it('show an empty Slot as one quiet row with Add Version, and a filled one with its state', async () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     const { pane } = await openTitle(/paddington/i)
 
-    expect(within(within(pane).getByRole('group', { name: 'Standard' })).getByText('Wanted')).toBeInTheDocument()
+    const hd = within(pane).getByRole('group', { name: 'Standard' })
+    expect(within(hd).getByText('Wanted')).toBeInTheDocument()
+    expect(await within(hd).findByText('HD')).toBeInTheDocument() // the Profile's name arrives with GET /profiles
+    expect(within(hd).getByText('No file yet')).toBeInTheDocument()
     const uhd = within(pane).getByRole('group', { name: '4K' })
-    expect(within(uhd).getByText('No Version')).toBeInTheDocument()
+    expect(uhd).toHaveTextContent('4KNot kept')
+    expect(within(uhd).queryByRole('button', { name: /More 4K Version actions/ })).not.toBeInTheDocument()
     expect(await within(uhd).findByRole('button', { name: 'Add Version' })).toBeInTheDocument()
+  })
+
+  it('keep Change Profile, Delete file and Remove Version in a Movie row’s "…" menu, Delete file disabled without a file', async () => {
+    fakeLibrary([row(1, 'Paddington', 'Paddington')])
+    const { pane } = await openTitle(/paddington/i)
+
+    await userEvent.click(within(within(pane).getByRole('group', { name: 'Standard' })).getByRole('button', { name: 'More Standard Version actions' }))
+    const menu = screen.getByRole('menu', { name: 'More Standard Version actions' })
+    expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Change Profile', 'Delete fileNo file to delete', 'Remove Version'])
+    expect(within(menu).getByRole('menuitem', { name: /Delete file/ })).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('keep a Series Version’s menu to Change Profile and Remove Version', async () => {
+    fakeSeries()
+    const { pane } = await openTitle(/breaking bad/i)
+
+    await userEvent.click(within(within(pane).getByRole('group', { name: 'Standard' })).getByRole('button', { name: 'More Standard Version actions' }))
+    const menu = screen.getByRole('menu', { name: 'More Standard Version actions' })
+    expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Change Profile', 'Remove Version'])
+  })
+})
+
+describe('the status line in the header', () => {
+  it('badges each Slot of a Movie with its state, or as not kept', async () => {
+    fakeLibrary([row(1, 'Paddington', 'Paddington')])
+    const { pane } = await openTitle(/paddington/i)
+
+    const status = within(pane).getByRole('list', { name: 'Status' })
+    expect(within(status).getAllByRole('listitem').map((i) => i.textContent)).toEqual(['Standard · Wanted', '4K · Not kept'])
+  })
+
+  it('shows a progress bar for each Series Slot with a Version, with its Wanted and Long Missing counts', async () => {
+    const r = seriesRow(5, 'Breaking Bad')
+    fakeSeries()
+    const coverage = { episodes: 236, filled: 228, wanted: 8, long_missing: 2, size: 412 * 1024 ** 3 }
+    server.use(
+      http.get('/titles/{id}', ({ response }) => {
+        const d = detail(r, { kind: 'series', tvdb_id: 81189, series_monitor: 'all' })
+        return response(200).json({ ...d, versions: d.versions.filter((v) => v.slot === 'standard').map((v) => ({ ...v, coverage })) })
+      }),
+    )
+    const { pane } = await openTitle(/breaking bad/i)
+
+    const status = within(pane).getByRole('list', { name: 'Status' })
+    const bar = within(status).getByRole('progressbar', { name: 'Standard: 228 of 236 episodes' })
+    expect(bar).toHaveAttribute('aria-valuenow', '228')
+    expect(bar).toHaveAttribute('aria-valuemax', '236')
+    expect(status).toHaveTextContent('228 of 236 · 8 Wanted · 2 Long Missing')
+    expect(status).toHaveTextContent('4K · Not kept')
+    expect(within(status).queryByRole('progressbar', { name: /^4K/ })).not.toBeInTheDocument()
   })
 })

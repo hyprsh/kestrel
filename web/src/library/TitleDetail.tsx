@@ -3,15 +3,16 @@ import { forwardRef, useRef } from 'react'
 import { useProfiles, useTitle, type EpisodeScope, type TitleDetail as Detail, type TitleRow } from '../api/queries'
 import { TitlePoster } from '../poster'
 import { sourceName } from '../requests/source'
-import { slotKeys, type SlotKey } from './bits'
+import type { SlotKey } from './bits'
 import { ExternalIds } from './ExternalIds'
 import { Ratings } from './Ratings'
 import { SeriesSection } from './SeriesSection'
-import { SlotCard } from './SlotCard'
 import { TitleActions } from './TitleActions'
 import { TitleDownloads } from './TitleDownloads'
+import { TitleStatus } from './TitleStatus'
+import { VersionRows } from './VersionRows'
 
-/** The right pane of the Library: the selected Title's header, its actions row and its Standard | 4K Slot cards. */
+/** The right pane of the Library: the selected Title's header, its status line, its actions row and its Version rows. */
 export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: () => void; onManualSearch: (search: ManualSearchTarget) => void }>(function TitleDetail(
   { row, onEscape, onManualSearch },
   ref,
@@ -73,6 +74,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
           <h2 className="heading-24">{title.title}</h2>
           {title.primary_title !== title.title && <div className="copy-14 text-gray-900">{title.primary_title}</div>}
           <div className="copy-14 mt-1 text-gray-900">{meta.join(' · ')}<Ratings ratings={title.ratings} lead={meta.length > 0} /></div>
+          <TitleStatus title={title} />
           <ExternalIds title={title} />
           {title.requests.map((r) => (
             <div key={r.id} className="copy-13 mt-1 text-gray-900">
@@ -85,19 +87,12 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
       <TitleActions title={title} profileName={profileName} onManualSearch={onManualSearch} />
       <TitleDownloads titleId={title.id} />
 
-      {/* Side by side only when the pane, not the window, has room for both cards' buttons. */}
-      <div className="mt-6 grid grid-cols-1 gap-3 @xl:grid-cols-2">
-        {slotKeys.map((k) => (
-          <SlotCard
-            key={k}
-            slot={k}
-            title={title}
-            profiles={profiles.data ?? []}
-            profileName={profileName}
-            onCoverage={() => episodes.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })}
-          />
-        ))}
-      </div>
+      <VersionRows
+        title={title}
+        profiles={profiles.data ?? []}
+        profileName={profileName}
+        onCoverage={() => episodes.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })}
+      />
 
       {title.kind === 'series' && (
         <div ref={episodes} className="scroll-mt-4">

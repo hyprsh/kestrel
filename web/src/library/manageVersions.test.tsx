@@ -59,7 +59,8 @@ describe('manage Versions', () => {
     const pane = await openPane()
     const hd = await within(pane).findByRole('group', { name: 'Standard' })
 
-    await userEvent.click(await within(hd).findByRole('button', { name: 'Change Profile' }))
+    await userEvent.click(await within(hd).findByRole('button', { name: 'More Standard Version actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Change Profile' }))
     await userEvent.selectOptions(within(hd).getByRole('combobox', { name: 'Profile' }), 'Any')
     await userEvent.click(within(hd).getByRole('button', { name: 'Switch' }))
 
@@ -72,7 +73,8 @@ describe('manage Versions', () => {
     const pane = await openPane()
     const hd = await within(pane).findByRole('group', { name: 'Standard' })
 
-    await userEvent.click(await within(hd).findByRole('button', { name: 'Remove Version' }))
+    await userEvent.click(await within(hd).findByRole('button', { name: 'More Standard Version actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Remove Version' }))
     const confirm = screen.getByRole('alertdialog', { name: 'Remove Version' })
     expect(within(confirm).getByRole('checkbox', { name: 'Also delete files' })).not.toBeChecked()
     await userEvent.click(within(confirm).getByRole('button', { name: 'Remove' }))
