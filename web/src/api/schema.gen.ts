@@ -1287,7 +1287,9 @@ export interface paths {
          *       that joins a Title Kestrel tracks is left as `tracked` (the Title keeps its monitoring), and
          *       one that already has that choice as `already`. `monitor` is required for this action.
          *
-         *     Planning each accepted row probes its files, so a large selection can take a while.
+         *     Accepting plans each row against the metadata provider, with the probes the scan took, a few rows at
+         *     a time, and does not hold the plan meanwhile: an edit made in the meantime goes through, and the
+         *     accept then answers `409 conflict` and changes nothing, so review the plan and accept again.
          */
         post: operations["bulkAdoptionRows"];
         delete?: never;

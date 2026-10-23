@@ -53,6 +53,8 @@ type entry struct {
 	Path  string
 	Name  string // the folder name, or the file name without extension
 	IsDir bool
+	// Probed are the probes a Needs choice row kept of the entry's files.
+	Probed []probedFile
 }
 
 // env is what planning reads once per scan or edit.
@@ -312,13 +314,49 @@ func findVideos(en entry, held map[string]bool) (videos []string, anyHeld bool, 
 type probed struct {
 	path string
 	info probe.Info
+	// size and mod are the file on disk as it was probed, to tell whether a
+	// probe kept on a row still holds.
+	size, mod int64
+}
+
+// probedFile is a probe a Needs choice row keeps, so that settling the row
+// does not read every file again: an Adoption of thousands of files would
+// otherwise probe them twice.
+type probedFile struct {
+	Path    string     `json:"path"`
+	Info    probe.Info `json:"info"`
+	Size    int64      `json:"size"`
+	ModTime int64      `json:"mod_time"`
+}
+
+// keep is the probes of the files, as a row keeps them.
+func keep(files []probed) []probedFile {
+	out := make([]probedFile, len(files))
+	for i, f := range files {
+		out[i] = probedFile{f.path, f.info, f.size, f.mod}
+	}
+	return out
 }
 
 // probeAll probes the videos; one that is unreadable or has no video stream
-// is left out. An error is the environment's.
-func (a *Adoption) probeAll(ctx context.Context, videos []string) ([]probed, error) {
+// is left out. A video that reuse holds a probe of, which has not changed on
+// disk since, is not probed again. An error is the environment's.
+func (a *Adoption) probeAll(ctx context.Context, videos []string, reuse []probedFile) ([]probed, error) {
 	var files []probed
+	kept := make(map[string]probedFile, len(reuse))
+	for _, r := range reuse {
+		kept[r.Path] = r
+	}
 	for _, v := range videos {
+		var size, mod int64
+		st, statErr := os.Stat(v)
+		if statErr == nil {
+			size, mod = st.Size(), st.ModTime().UnixNano()
+		}
+		if r, ok := kept[v]; ok && statErr == nil && r.Size == size && r.ModTime == mod {
+			files = append(files, probed{v, r.Info, size, mod})
+			continue
+		}
 		info, err := a.d.Prober.Probe(ctx, v)
 		switch {
 		case errors.Is(err, probe.ErrNotInstalled):
@@ -329,11 +367,9 @@ func (a *Adoption) probeAll(ctx context.Context, videos []string) ([]probed, err
 			continue
 		}
 		if info.Size == 0 {
-			if st, err := os.Stat(v); err == nil {
-				info.Size = st.Size()
-			}
+			info.Size = size
 		}
-		files = append(files, probed{v, info})
+		files = append(files, probed{v, info, size, mod})
 	}
 	return files, nil
 }
@@ -372,7 +408,7 @@ func (a *Adoption) planMovie(ctx context.Context, e *env, en entry, force int) (
 		return skip(SkipInvalid)
 	}
 	a.working(e, en.Path, StepProbing, len(videos))
-	files, err := a.probeAll(ctx, videos)
+	files, err := a.probeAll(ctx, videos, en.Probed)
 	if err != nil {
 		return nil, err
 	}
@@ -406,7 +442,7 @@ func (a *Adoption) planMovie(ctx context.Context, e *env, en entry, force int) (
 		if confident != 0 {
 			tmdbID, source = confident, SourceName
 		} else {
-			row.Status, row.Ticked, row.Candidates = NeedsChoice, false, cands
+			row.Status, row.Ticked, row.Candidates, row.Probed = NeedsChoice, false, cands, keep(files)
 			return row, nil
 		}
 	}
@@ -437,7 +473,7 @@ func (a *Adoption) planMovie(ctx context.Context, e *env, en entry, force int) (
 		runtime := facts.runtime()
 		for _, f := range files {
 			if !probe.DurationPlausible(f.info.Duration, runtime, probe.MovieFloor) {
-				row.Status, row.Ticked, row.Match = NeedsChoice, false, nil
+				row.Status, row.Ticked, row.Match, row.Probed = NeedsChoice, false, nil, keep(files)
 				// The name matched the Movie and only the runtime does not fit.
 				row.Candidates = []Candidate{{TMDBID: tmdbID, Title: facts.name(), Year: facts.Year, Suggested: true, Confident: true}}
 				return row, nil

@@ -101,7 +101,7 @@ func (a *Adoption) replan(ctx context.Context, e *env, row *Row, tmdbID int) err
 	if err != nil {
 		return ErrNotSettleable
 	}
-	en := entry{Kind: row.kind(), Root: row.EntryRoot, Path: row.Entry, Name: filepath.Base(row.Entry), IsDir: st.IsDir()}
+	en := entry{Kind: row.kind(), Root: row.EntryRoot, Path: row.Entry, Name: filepath.Base(row.Entry), IsDir: st.IsDir(), Probed: row.Probed}
 	if !en.IsDir {
 		en.Name = strings.TrimSuffix(en.Name, filepath.Ext(en.Name))
 	}

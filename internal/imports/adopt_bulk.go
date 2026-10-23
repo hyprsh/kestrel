@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/hyprsh/kestrel/internal/library"
 )
@@ -78,8 +79,15 @@ type BulkResult struct {
 	Items    []RowResult
 }
 
-// Bulk applies one action to many rows. Like PatchRow it holds the plan, and
-// it settles the rows once and moves the revision once however many it edits.
+// acceptWorkers is how many rows an accept plans at once.
+const acceptWorkers = 8
+
+// Bulk applies one action to many rows. Like PatchRow it settles the rows once
+// and moves the revision once however many it edits. Ticking and monitoring
+// hold the plan while they edit; accepting suggestions plans every row against
+// the metadata provider, which takes long, so it lets the plan go meanwhile and
+// takes it again to write: if the plan changed in the meantime (the revision
+// moved, or a scan began) nothing is written and the answer is ErrStale.
 func (a *Adoption) Bulk(ctx context.Context, req BulkRequest) (BulkResult, error) {
 	switch req.Action {
 	case BulkTick, BulkUntick, BulkAcceptSuggested:
@@ -91,38 +99,53 @@ func (a *Adoption) Bulk(ctx context.Context, req BulkRequest) (BulkResult, error
 		return BulkResult{}, fmt.Errorf("imports: unknown bulk action %q", req.Action)
 	}
 	a.mu.Lock()
-	defer a.mu.Unlock()
+	held := true
+	defer func() {
+		if held {
+			a.mu.Unlock()
+		}
+	}()
 	recs, rows, err := a.editable(ctx)
 	if err != nil {
 		return BulkResult{}, err
 	}
 	targets, res := bulkTargets(rows, req)
 
-	var e *env
-	getEnv := func() (*env, error) { // read once, and only if an accept gets that far
-		var err error
-		if e == nil {
-			e, err = a.env(ctx)
+	var results []RowResult
+	if req.Action == BulkAcceptSuggested {
+		plan, err := a.q.GetAdoptionPlan(ctx)
+		if err != nil {
+			return BulkResult{}, err
 		}
-		return e, err
+		a.mu.Unlock()
+		held = false
+		results, err = a.acceptAll(ctx, rows, targets)
+		if err != nil {
+			return BulkResult{}, err
+		}
+		a.mu.Lock()
+		held = true
+		now, err := a.q.GetAdoptionPlan(ctx)
+		if err != nil {
+			return BulkResult{}, err
+		}
+		if PlanState(now.State) != PlanPlanned || now.Revision != plan.Revision {
+			return BulkResult{}, ErrStale
+		}
+	} else {
+		for _, i := range targets {
+			if req.Action == BulkSetMonitor {
+				results = append(results, monitorRow(&rows[i], req.Monitor))
+			} else {
+				results = append(results, tickRow(&rows[i], req.Action == BulkTick))
+			}
+		}
 	}
 	changed := false
-	for _, i := range targets {
-		var out RowResult
-		switch req.Action {
-		case BulkTick, BulkUntick:
-			out = tickRow(&rows[i], req.Action == BulkTick)
-		case BulkAcceptSuggested:
-			out = a.acceptSuggested(ctx, getEnv, &rows[i])
-		case BulkSetMonitor:
-			out = monitorRow(&rows[i], req.Monitor)
-		}
-		if ctx.Err() != nil {
-			return BulkResult{}, ctx.Err()
-		}
+	for _, out := range results {
 		changed = changed || out.Result == BulkChanged
-		res.Items = append(res.Items, out)
 	}
+	res.Items = append(res.Items, results...)
 	if changed {
 		if err := a.saveEdit(ctx, recs, rows); err != nil {
 			return BulkResult{}, err
@@ -134,6 +157,37 @@ func (a *Adoption) Bulk(ctx context.Context, req BulkRequest) (BulkResult, error
 	}
 	res.Revision = plan.Revision
 	return res, nil
+}
+
+// acceptAll settles the target rows on their suggestions, a few at a time, and
+// answers for each in the order of targets. It changes the rows it settles,
+// which the caller owns.
+func (a *Adoption) acceptAll(ctx context.Context, rows []Row, targets []int) ([]RowResult, error) {
+	out := make([]RowResult, len(targets))
+	var (
+		once   sync.Once
+		e      *env
+		envErr error
+	)
+	getEnv := func() (*env, error) { // read once, and only if an accept gets that far
+		once.Do(func() { e, envErr = a.env(ctx) })
+		return e, envErr
+	}
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, acceptWorkers)
+	for k, i := range targets {
+		if ctx.Err() != nil {
+			break
+		}
+		sem <- struct{}{}
+		wg.Add(1)
+		go func() {
+			defer func() { <-sem; wg.Done() }()
+			out[k] = a.acceptSuggested(ctx, getEnv, &rows[i])
+		}()
+	}
+	wg.Wait()
+	return out, ctx.Err()
 }
 
 // bulkTargets are the indexes into rows of the rows a request names, in the

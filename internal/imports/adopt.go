@@ -247,6 +247,9 @@ type Row struct {
 	Match      *Match      `json:"match,omitempty"`
 	Candidates []Candidate `json:"candidates,omitempty"`
 	Files      []PlanFile  `json:"files,omitempty"`
+	// Probed are the probes of the files of a Needs choice row, kept until it
+	// is settled.
+	Probed []probedFile `json:"probed,omitempty"`
 	// Outcome is what became of the row after a commit, and Error why a failed
 	// row failed. Rows are kept with them until the next scan.
 	Outcome FinalOutcome `json:"outcome,omitempty"`
