@@ -358,7 +358,45 @@ describe('Adoption review of a large plan', () => {
 
     expect(await screen.findByRole('button', { name: 'Adopt 0 Titles' })).toBeDisabled()
     expect(state.bulks).toEqual([{ action: 'untick', filter: 'all' }])
-    expect(screen.queryByRole('group', { name: 'Selection' })).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Selection' })).not.toHaveTextContent('selected') // nothing is selected after the action
+  })
+
+  it('offers both select-all controls before a single row is ticked', async () => {
+    const { state, user } = await openPlan(moreRows(250))
+
+    expect(await screen.findByText('Showing 100 of 250')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Select all 100 shown' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Select all 250 in this filter' }))
+    expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('250 selected')
+    await user.click(screen.getByRole('button', { name: "Don't adopt selected" }))
+
+    expect(state.bulks).toEqual([{ action: 'untick', filter: 'all' }])
+  })
+
+  it('offers no action on a selection before anything is selected', async () => {
+    await openPlan(moreRows(250))
+
+    await screen.findByText('Showing 100 of 250')
+    expect(screen.queryByRole('button', { name: "Don't adopt selected" })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument()
+  })
+
+  it('says so when leaving one row out ends "all in this filter", and then names the rows left by id', async () => {
+    const { state, user } = await openPlan(moreRows(250))
+
+    await user.click(await screen.findByRole('button', { name: 'Select all 250 in this filter' }))
+    await user.click(screen.getByLabelText('Select Film 3'))
+
+    const bar = screen.getByRole('group', { name: 'Selection' })
+    expect(bar).toHaveTextContent('99 selected')
+    expect(bar).toHaveTextContent('No longer all 250 in this filter')
+    expect(within(bar).getByRole('button', { name: 'Select all 250 in this filter' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: "Don't adopt selected" }))
+
+    expect(state.bulks).toHaveLength(1)
+    expect(state.bulks[0].filter).toBeUndefined()
+    expect(state.bulks[0].row_ids).toHaveLength(99)
+    expect(state.bulks[0].row_ids).not.toContain(103)
   })
 
   it('colours the suggested match primary and accepts the confident suggestions of a selection', async () => {

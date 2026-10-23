@@ -297,7 +297,7 @@ function Plan({
         </Note>
       )}
       <div className="mt-3">
-        <SelectionBar selection={selection} shown={rows.length} total={total} verb="select">
+        <SelectionBar selection={selection} shown={rows.length} total={total} verb="select" always>
           <Button size="small" onClick={() => run('tick')} disabled={bulk.isPending}>
             Adopt selected
           </Button>
