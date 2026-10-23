@@ -115,8 +115,8 @@ func TestTheEnabledCapCountsTheStoredEnabledOfADeclaredInstanceTheFileLeavesOut(
 	if r := b.valid("PATCH", backupPath, `{"enabled":true}`); r.Status != 200 {
 		t.Fatalf("PATCH = %d %s", r.Status, r.Body)
 	}
-	if err := in.declare(declaredAccount+declaredInstances+fmt.Sprintf(backup, ""), fakeEnv...); err == nil ||
-		!strings.Contains(err.Error(), `"Backup"`) || !strings.Contains(err.Error(), `"SABnzbd"`) {
-		t.Errorf("err = %v, want the cap to fail startup naming both", err)
+	err := in.declare(declaredAccount+declaredInstances+fmt.Sprintf(backup, ""), fakeEnv...)
+	if err == nil || !strings.Contains(err.Error(), `"SABnzbd" (by the file)`) || !strings.Contains(err.Error(), `"Backup" (in the UI`) {
+		t.Errorf("err = %v, want the cap to fail startup naming both and where each is enabled", err)
 	}
 }
