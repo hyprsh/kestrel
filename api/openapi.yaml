@@ -4217,6 +4217,11 @@ components:
         files:
           type: integer
           description: How many files the step covers, when it is about files.
+        title:
+          type: string
+          description: |
+            The Title the entry is adopted as, with its year ("Paddington (2014)"), once it is matched, which
+            is while a commit moves it; absent while a scan or a Try again is still reading it.
     AdoptionFinalOutcome:
       type: string
       description: |

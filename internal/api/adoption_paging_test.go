@@ -82,16 +82,16 @@ func TestAFilteredPageTotalsTheFilterButCountsTheWholePlan(t *testing.T) {
 	}
 }
 
-func TestWithoutALimitTheFirstHundredRowsComeAndABadLimitOrCursorIsRefused(t *testing.T) {
+func TestWithoutALimitEveryRowComesSoAClientThatIgnoresPagingLosesNoneAndABadLimitOrCursorIsRefused(t *testing.T) {
 	t.Parallel()
 	a := newAdopting(t)
-	a.planOfRows(t, 2)
+	a.planOfRows(t, 120)
 
-	if p := a.page(t, "limit=100"); len(p.Items) != 4 || p.NextCursor != nil {
-		t.Errorf("page = %d items, cursor %v", len(p.Items), p.NextCursor)
+	if p := a.page(t, ""); len(p.Items) != 122 || p.NextCursor != nil || p.Total != 122 {
+		t.Errorf("page without a limit = %d items, cursor %v, total %d; want every row", len(p.Items), p.NextCursor, p.Total)
 	}
-	if got := a.rows(t, ""); len(got) != 4 {
-		t.Errorf("default page = %d rows", len(got))
+	if p := a.page(t, "limit=100"); len(p.Items) != 100 || p.NextCursor == nil {
+		t.Errorf("page = %d items, cursor %v", len(p.Items), p.NextCursor)
 	}
 	for _, q := range []string{"limit=0", "limit=100001", "cursor=nonsense"} {
 		if r := a.do("GET", "/adoption/rows?"+q, ""); r.Status != 422 {

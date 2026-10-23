@@ -42,6 +42,9 @@ func currentToAPI(c *imports.Current) *oapi.AdoptionCurrent {
 	if c.Files > 0 {
 		out.Files = &c.Files
 	}
+	if c.Title != "" {
+		out.Title = &c.Title
+	}
 	return out
 }
 
@@ -275,13 +278,13 @@ func (s *server) BulkAdoptionRows(ctx context.Context, r oapi.BulkAdoptionRowsRe
 		if it.Message != "" {
 			o.Message = &it.Message
 		}
-		if it.Result == imports.BulkChanged {
+		if it.Status != "" { // every row that exists has a status
 			status := oapi.AdoptionBulkRowResultStatus(it.Status)
 			o.Status = &status
-			if it.SkipReason != "" {
-				reason := oapi.AdoptionBulkRowResultSkipReason(it.SkipReason)
-				o.SkipReason = &reason
-			}
+		}
+		if it.SkipReason != "" {
+			reason := oapi.AdoptionBulkRowResultSkipReason(it.SkipReason)
+			o.SkipReason = &reason
 		}
 		out.Items[i] = o
 	}

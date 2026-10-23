@@ -167,6 +167,31 @@ func TestAcceptingASuggestionThatPlansToSkippedStoresTheRowSkippedWithItsReason(
 	}
 }
 
+func TestABulkResultSaysWhereEveryRowThatExistsStandsAndWhyASkippedOneIs(t *testing.T) {
+	t.Parallel()
+	a := newAdopting(t)
+	a.put(t, "Broken Thing (2001)/broken.mkv", "x")
+	a.put(t, "Unknown Thing/thing.mkv", "nobody knows")
+	a.scan(t)
+	broken, unknown := a.rowOf(t, "Broken Thing (2001)"), a.rowOf(t, "Unknown Thing")
+
+	got := a.bulk(t, fmt.Sprintf(`{"action":"tick","row_ids":[%d,%d,999]}`, broken.ID, unknown.ID))
+
+	byRow := map[int64]int{}
+	for i, it := range got.Items {
+		byRow[it.RowID] = i
+	}
+	if it := got.Items[byRow[broken.ID]]; it.Result != "left" || it.Status == nil || *it.Status != "skipped" || it.SkipReason == nil || *it.SkipReason != "invalid" {
+		t.Errorf("a Skipped row left as it was = %+v, want its status and why it is Skipped", it)
+	}
+	if it := got.Items[byRow[unknown.ID]]; it.Result != "left" || it.Status == nil || *it.Status != "needs_choice" || it.SkipReason != nil {
+		t.Errorf("a Needs choice row left as it was = %+v, want its status", it)
+	}
+	if it := got.Items[byRow[999]]; it.Status != nil || it.SkipReason != nil {
+		t.Errorf("a row that does not exist = %+v, want no status", it)
+	}
+}
+
 func TestABulkCallNamesOneActionAndEitherRowsOrAFilter(t *testing.T) {
 	t.Parallel()
 	a := newAdopting(t)

@@ -1665,6 +1665,10 @@ type AdoptionCurrent struct {
 
 	// Step What is happening to the entry. Clients tolerate steps they do not know.
 	Step AdoptionCurrentStep `json:"step"`
+
+	// Title The Title the entry is adopted as, with its year ("Paddington (2014)"), once it is matched, which
+	// is while a commit moves it; absent while a scan or a Try again is still reading it.
+	Title *string `json:"title,omitempty"`
 }
 
 // AdoptionCurrentStep What is happening to the entry. Clients tolerate steps they do not know.

@@ -179,8 +179,14 @@ func filterTargets(rows []Row, f Filter) []int {
 	return out
 }
 
+// leftAs is the result for a row an edit has not touched yet: left as it is,
+// with the status it has and, for a Skipped row, why.
+func leftAs(row *Row) RowResult {
+	return RowResult{RowID: row.ID, Result: BulkLeft, Status: row.Status, SkipReason: row.SkipReason}
+}
+
 func tickRow(row *Row, ticked bool) RowResult {
-	out := RowResult{RowID: row.ID, Result: BulkLeft, Status: row.Status}
+	out := leftAs(row)
 	switch {
 	case row.Status != Matched:
 		out.Reason = ReasonNotMatched
@@ -194,7 +200,7 @@ func tickRow(row *Row, ticked bool) RowResult {
 }
 
 func monitorRow(row *Row, m library.Monitor) RowResult {
-	out := RowResult{RowID: row.ID, Result: BulkLeft, Status: row.Status}
+	out := leftAs(row)
 	switch {
 	case row.Match != nil && row.Match.TitleID != 0:
 		out.Reason = ReasonTracked
@@ -220,7 +226,7 @@ func suggestion(r Row) *Candidate {
 // acceptSuggested settles a Needs choice row on its confident suggestion, the
 // way choosing that candidate by hand does.
 func (a *Adoption) acceptSuggested(ctx context.Context, getEnv func() (*env, error), row *Row) RowResult {
-	out := RowResult{RowID: row.ID, Result: BulkLeft, Status: row.Status}
+	out := leftAs(row)
 	if row.Status != NeedsChoice {
 		out.Reason = ReasonNotNeedsChoice
 		return out

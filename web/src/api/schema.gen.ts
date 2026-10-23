@@ -2982,6 +2982,11 @@ export interface components {
             step: "probing" | "matching" | "moving";
             /** @description How many files the step covers, when it is about files. */
             files?: number;
+            /**
+             * @description The Title the entry is adopted as, with its year ("Paddington (2014)"), once it is matched, which
+             *     is while a commit moves it; absent while a scan or a Try again is still reading it.
+             */
+            title?: string;
         };
         /**
          * @description What became of a row after a commit. `adopted` and `failed` rows were ticked and committed (`failed`
