@@ -1,0 +1,38 @@
+{
+  "adult": false,
+  "id": 90004,
+  "imdb_id": "tt0990004",
+  "original_language": "en",
+  "original_title": "Hamlet",
+  "overview": "",
+  "poster_path": null,
+  "release_date": "2009-01-01",
+  "runtime": 180,
+  "title": "Hamlet",
+  "alternative_titles": {
+    "titles": []
+  },
+  "translations": {
+    "translations": []
+  },
+  "external_ids": {
+    "imdb_id": "tt0990004"
+  },
+  "release_dates": {
+    "results": [
+      {
+        "iso_3166_1": "US",
+        "release_dates": [
+          {
+            "certification": "PG",
+            "descriptors": [],
+            "iso_639_1": "",
+            "note": "",
+            "release_date": "2009-01-01T00:00:00.000Z",
+            "type": 3
+          }
+        ]
+      }
+    ]
+  }
+}

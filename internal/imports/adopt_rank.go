@@ -13,8 +13,11 @@ import (
 // its first pick may be accepted in bulk.
 //
 // A candidate scores on how well its title reads like the name (edit similarity, 0
-// to 1) and how close its year is to the parsed one; the best
-// score is the suggestion. The suggestion is confident when ALL of these hold:
+// to 1), how close its year is to the parsed one and how well its runtime fits
+// the longest file; the best score is the suggestion. Only the few best by
+// title and year (runtimeLookups) cost a metadata lookup for their runtime, the
+// rest score as if it were unknown. The suggestion is confident when ALL of
+// these hold:
 //
 //   - the name states a year and the candidate's is within one of it;
 //   - its title is a near-exact match (similarity of at least nearExactTitle),
@@ -29,29 +32,62 @@ import (
 const (
 	nearExactTitle    = 0.9
 	runtimeTitleFloor = 0.7
-	confidentLead     = 0.15
-	titleWeight       = 0.7
-	yearWeight        = 0.3
+	confidentLead     = 0.12
+	titleWeight       = 0.56
+	yearWeight        = 0.24
+	runtimeWeight     = 0.2
 	// offByOneYear is the year score of a result a year off the parsed one.
 	offByOneYear = 0.6
+	// unknownRuntime is the runtime score of a candidate whose runtime is not
+	// known: neither for nor against it.
+	unknownRuntime = 0.5
+	// runtimeLookups is how many of the best candidates by title and year are
+	// looked up for their runtime.
+	runtimeLookups = 3
+	// runtimeSlack is how far a file's duration may be off the runtime, as a
+	// share of it, before it fits not at all.
+	runtimeSlack = 0.5
 )
+
+// runtimeFit is how a Movie's runtime fits the files of a row.
+type runtimeFit struct {
+	// close is 1 for a longest file as long as the runtime, falling to 0 as it
+	// is runtimeSlack of the runtime shorter or longer.
+	close float64
+	// plausible is whether every file is long enough for the Movie.
+	plausible bool
+}
+
+// runtimeOf looks up a Movie's runtime fit; ok is false when it cannot.
+type runtimeOf func(tmdbID int) (fit runtimeFit, ok bool)
 
 type scored struct {
 	r      metadata.SearchResult
 	title  float64
 	year   float64
 	yearOK bool
-	score  float64
+	// fit is set once the runtime is looked up.
+	fit   runtimeFit
+	fitOK bool
+	score float64
 }
 
 func (s scored) candidate() Candidate {
 	return Candidate{TMDBID: s.r.TMDBID, Title: s.r.Title, Year: s.r.Year}
 }
 
+func (s *scored) rescore() {
+	runtime := unknownRuntime
+	if s.fitOK {
+		runtime = s.fit.close
+	}
+	s.score = titleWeight*s.title + yearWeight*s.year + runtimeWeight*runtime
+}
+
 // rankResults orders the search results best first (equal scores keep the
-// provider's order) and scores them against the parsed titles and year; a year
-// of 0 is unknown.
-func rankResults(titles []string, year int, results []metadata.SearchResult) []scored {
+// provider's order) and scores them against the parsed titles, year and, when
+// runtimes is not nil, the runtimes of the best few; a year of 0 is unknown.
+func rankResults(titles []string, year int, results []metadata.SearchResult, runtimes runtimeOf) []scored {
 	out := make([]scored, 0, len(results))
 	for _, r := range results {
 		s := scored{r: r}
@@ -66,18 +102,28 @@ func rankResults(titles []string, year int, results []metadata.SearchResult) []s
 				s.year, s.yearOK = offByOneYear, true
 			}
 		}
-		s.score = titleWeight*s.title + yearWeight*s.year
+		s.rescore()
 		out = append(out, s)
 	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].score > out[j].score })
+	byScore := func() {
+		sort.SliceStable(out, func(i, j int) bool { return out[i].score > out[j].score })
+	}
+	byScore()
+	if runtimes != nil {
+		for i := range out[:min(runtimeLookups, len(out))] {
+			out[i].fit, out[i].fitOK = runtimes(out[i].r.TMDBID)
+		}
+		for i := range out {
+			out[i].rescore()
+		}
+		byScore()
+	}
 	return out
 }
 
 // suggest turns the ranked results into the candidates of a row, marking the
-// first as suggested and, when the rules above allow, confident. fits says
-// whether the Movie's runtime fits the row's files; nil (a Series has none)
-// means it never helps.
-func suggest(ranked []scored, fits func(tmdbID int) bool) []Candidate {
+// first as suggested and, when the rules above allow, confident.
+func suggest(ranked []scored) []Candidate {
 	var out []Candidate
 	for i, s := range ranked {
 		if i == maxCandidates {
@@ -86,14 +132,14 @@ func suggest(ranked []scored, fits func(tmdbID int) bool) []Candidate {
 		c := s.candidate()
 		if i == 0 {
 			c.Suggested = true
-			c.Confident = confident(ranked, fits)
+			c.Confident = confident(ranked)
 		}
 		out = append(out, c)
 	}
 	return out
 }
 
-func confident(ranked []scored, fits func(int) bool) bool {
+func confident(ranked []scored) bool {
 	top := ranked[0]
 	if !top.yearOK {
 		return false
@@ -104,8 +150,8 @@ func confident(ranked []scored, fits func(int) bool) bool {
 	switch {
 	case top.title >= nearExactTitle:
 		return true
-	case top.title >= runtimeTitleFloor && fits != nil:
-		return fits(top.r.TMDBID)
+	case top.title >= runtimeTitleFloor:
+		return top.fitOK && top.fit.plausible
 	}
 	return false
 }

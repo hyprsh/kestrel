@@ -41,6 +41,7 @@ var searches = map[string]string{
 	"jurassic":   "search_jurassic.json",
 	"jurrasic":   "search_jurassic.json",
 	"blade":      "search_blade_runner.json",
+	"hamlet":     "search_hamlet.json",
 }
 
 // titledYears are years that are part of a title: TMDB finds those.

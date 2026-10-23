@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -542,19 +543,29 @@ func (a *Adoption) byName(ctx context.Context, en entry, files []probed) ([]Cand
 	if len(movies) == 0 {
 		return nil, 0, nil
 	}
-	fits := func(tmdbID int) bool {
+	return suggest(rankResults(parsed.Titles, parsed.Year, movies, a.runtimeFit(ctx, files))), 0, nil
+}
+
+// runtimeFit looks up how a Movie's runtime fits the files of an entry.
+func (a *Adoption) runtimeFit(ctx context.Context, files []probed) runtimeOf {
+	return func(tmdbID int) (runtimeFit, bool) {
 		d, err := a.d.Meta.Movie(ctx, tmdbID)
 		if err != nil {
-			return false
+			return runtimeFit{}, false
 		}
+		runtime := time.Duration(d.Runtime) * time.Minute
+		fit := runtimeFit{close: unknownRuntime, plausible: true}
+		var longest time.Duration
 		for _, f := range files {
-			if !probe.DurationPlausible(f.info.Duration, time.Duration(d.Runtime)*time.Minute, probe.MovieFloor) {
-				return false
-			}
+			longest = max(longest, f.info.Duration)
+			fit.plausible = fit.plausible && probe.DurationPlausible(f.info.Duration, runtime, probe.MovieFloor)
 		}
-		return true
+		if runtime > 0 {
+			off := math.Abs(float64(longest)/float64(runtime) - 1)
+			fit.close = max(0, 1-off/runtimeSlack)
+		}
+		return fit, true
 	}
-	return suggest(rankResults(parsed.Titles, parsed.Year, movies), fits), 0, nil
 }
 
 var (

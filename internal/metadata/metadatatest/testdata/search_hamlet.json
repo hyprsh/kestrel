@@ -1,0 +1,63 @@
+{
+  "page": 1,
+  "results": [
+    {
+      "adult": false,
+      "id": 90001,
+      "title": "Hamlet",
+      "original_language": "en",
+      "original_title": "Hamlet",
+      "overview": "",
+      "poster_path": null,
+      "media_type": "movie",
+      "release_date": "1996-12-25",
+      "video": false,
+      "vote_average": 7.0,
+      "vote_count": 100
+    },
+    {
+      "adult": false,
+      "id": 90002,
+      "title": "Hamlet",
+      "original_language": "en",
+      "original_title": "Hamlet",
+      "overview": "",
+      "poster_path": null,
+      "media_type": "movie",
+      "release_date": "1990-12-19",
+      "video": false,
+      "vote_average": 7.0,
+      "vote_count": 100
+    },
+    {
+      "adult": false,
+      "id": 90003,
+      "title": "Hamlet",
+      "original_language": "en",
+      "original_title": "Hamlet",
+      "overview": "",
+      "poster_path": null,
+      "media_type": "movie",
+      "release_date": "2000-05-12",
+      "video": false,
+      "vote_average": 7.0,
+      "vote_count": 100
+    },
+    {
+      "adult": false,
+      "id": 90004,
+      "title": "Hamlet",
+      "original_language": "en",
+      "original_title": "Hamlet",
+      "overview": "",
+      "poster_path": null,
+      "media_type": "movie",
+      "release_date": "2009-01-01",
+      "video": false,
+      "vote_average": 7.0,
+      "vote_count": 100
+    }
+  ],
+  "total_pages": 1,
+  "total_results": 4
+}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -20,7 +21,14 @@ import (
 // "short" is ten minutes long (also when "uhd"), everything else is a good 1080p file.
 type pathProber struct{}
 
+var minutesRx = regexp.MustCompile(`\.(\d+)min\.`)
+
 func (pathProber) Probe(_ context.Context, path string) (probe.Info, error) {
+	if m := minutesRx.FindStringSubmatch(path); m != nil { // "hamlet.135min.mkv" runs 135 minutes
+		i := goodProbe()
+		i.Duration, _ = time.ParseDuration(m[1] + "m")
+		return i, nil
+	}
 	switch {
 	case strings.Contains(path, "broken"):
 		return probe.Info{}, errors.New("unreadable")

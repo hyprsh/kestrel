@@ -360,7 +360,7 @@ func (a *Adoption) byNameSeries(ctx context.Context, en entry, files []probed) (
 	if len(series) == 0 {
 		return nil, 0, nil
 	}
-	return suggest(rankResults([]string{title}, year, series), nil), 0, nil
+	return suggest(rankResults([]string{title}, year, series, nil)), 0, nil
 }
 
 // slotFor is a file's Slot: Kestrel's own label wins, else a file probed at
