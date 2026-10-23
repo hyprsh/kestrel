@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -368,10 +369,7 @@ func (s *Service) ObserveMediaServer(ctx context.Context, ref Ref, f *Failure) {
 		ws[ref.ID] = w
 	}
 	w.failures++
-	msg := fmt.Sprintf("%s is unreachable: %s", ref.Name, f.Message)
-	if f.Auth {
-		msg = fmt.Sprintf("%s rejected Kestrel's credentials: %s", ref.Name, f.Message)
-	}
+	msg := mediaServerMessage(ref, f)
 	raise := (f.Auth || w.failures >= mediaServerFailures) && w.raised != msg
 	if raise {
 		w.raised = msg
@@ -665,4 +663,17 @@ func (s *Service) logErr(err error) {
 	if err != nil {
 		s.log.Error("health", "err", err)
 	}
+}
+
+// mediaServerMessage words a media server's row. A plugin's message often names
+// the server already ("Jellyfin rejected the credentials"); then it is the row,
+// so the server is not named twice.
+func mediaServerMessage(ref Ref, f *Failure) string {
+	if strings.Contains(f.Message, ref.Name) {
+		return f.Message
+	}
+	if f.Auth {
+		return fmt.Sprintf("%s rejected Kestrel's credentials: %s", ref.Name, f.Message)
+	}
+	return fmt.Sprintf("%s is unreachable: %s", ref.Name, f.Message)
 }

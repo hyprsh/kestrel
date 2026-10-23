@@ -174,3 +174,31 @@ func TestMetadataProviderWithARealCallInTheHourGetsNoProbe(t *testing.T) {
 		t.Errorf("probed = %v, want only TheTVDB the second time", got)
 	}
 }
+
+// A plugin's own message often names the server already ("Jellyfin rejected the
+// credentials", "cannot reach Jellyfin: ..."); the row says that once.
+func TestMediaServerRowDoesNotRepeatWhatThePluginMessageAlreadySays(t *testing.T) {
+	jellyfin := health.Ref{ID: 22, Name: "Jellyfin"}
+	for _, c := range []struct {
+		name string
+		f    *health.Failure
+		want string
+	}{
+		{"rejected", &health.Failure{Auth: true, Message: "Jellyfin rejected the credentials"}, "Jellyfin rejected the credentials"},
+		{"unreachable", &health.Failure{Message: "cannot reach Jellyfin: connection refused"}, "cannot reach Jellyfin: connection refused"},
+		{"timeout", &health.Failure{Message: "cannot reach Jellyfin: context deadline exceeded (timeout)"}, "cannot reach Jellyfin: context deadline exceeded (timeout)"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			ctx := context.Background()
+			s := &servers{enabled: []health.Ref{jellyfin}, result: c.f}
+			e := s.env(t)
+			_ = e.h.RunChecks(ctx)
+			*e.now = e.now.Add(15 * time.Minute)
+			_ = e.h.RunChecks(ctx)
+			r, ok := e.kindsShowing(t)[health.KindMediaServer]
+			if !ok || r.Message != c.want {
+				t.Fatalf("message = %q, want %q (rows %+v)", r.Message, c.want, e.rows(t))
+			}
+		})
+	}
+}
