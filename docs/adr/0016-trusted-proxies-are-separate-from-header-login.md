@@ -12,6 +12,6 @@ So `trusted_proxies` now decides on its own whose `X-Forwarded-For` and `X-Forwa
 
 ## Consequences
 
-- With `trusted_proxies` empty nothing changes: the socket address is the client address.
-- A deployment that sets `trusted_proxies` and relied on `X-Forwarded-Proto` from an address it did not list must now list it, or the session cookie loses `Secure`.
+- With `trusted_proxies` empty the socket address is the client address, as before, but `X-Forwarded-Proto` is no longer believed from anyone. A deployment behind a TLS proxy that left `trusted_proxies` empty used to get the session cookie's `Secure` flag from that header and now silently doesn't. Upgrade note: list the proxy in `trusted_proxies`, with `enabled: false` if no header login is wanted.
+- Likewise a deployment that sets `trusted_proxies` and relied on `X-Forwarded-Proto` from an address it did not list must now list it, or the session cookie loses `Secure`.
 - Untrusted-header sightings are still recorded and warned about only while `enabled` is on, since only then does the header matter.
