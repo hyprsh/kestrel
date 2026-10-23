@@ -12,6 +12,7 @@ export type AdoptionRowPatch = components['schemas']['AdoptionRowPatch']
 export type AdoptionRowsBulk = components['schemas']['AdoptionRowsBulk']
 export type AdoptionRowOutcome = components['schemas']['AdoptionRowOutcome']
 export type AdoptionRowsBulkResult = components['schemas']['AdoptionRowsBulkResult']
+export type AdoptionOutcome = components['schemas']['AdoptionFinalOutcome']
 type AdoptionRowList = components['schemas']['AdoptionRowList']
 /** The filters the rows can be asked for; `all` is every row. */
 export type AdoptionFilter = components['schemas']['AdoptionRowFilter']
@@ -47,6 +48,22 @@ export function useAdoptionRows(filter: AdoptionFilter, enabled: boolean) {
     getNextPageParam: (last: AdoptionRowList) => last.next_cursor,
     queryFn: async ({ pageParam }): Promise<AdoptionRowList> => {
       const query = { limit: PAGE, ...(filter !== 'all' && { filter }), ...(pageParam && { cursor: pageParam }) }
+      const { data, error, response } = await api.GET('/adoption/rows', { params: { query } })
+      if (!data) throw failure(error, response)
+      return data
+    },
+  })
+}
+
+/** The rows a finished commit kept that ended `outcome`, a page at a time. */
+export function useOutcomeRows(outcome: AdoptionOutcome, enabled: boolean) {
+  return useInfiniteQuery({
+    queryKey: ['adoption', 'rows', 'outcome', outcome],
+    enabled,
+    initialPageParam: null as string | null,
+    getNextPageParam: (last: AdoptionRowList) => last.next_cursor,
+    queryFn: async ({ pageParam }): Promise<AdoptionRowList> => {
+      const query = { limit: PAGE, outcome, ...(pageParam && { cursor: pageParam }) }
       const { data, error, response } = await api.GET('/adoption/rows', { params: { query } })
       if (!data) throw failure(error, response)
       return data
@@ -95,6 +112,14 @@ export function useBulkRows() {
 export function useCommit() {
   return useAdoptionMutation<number>(async (revision) => {
     const { error, response } = await api.POST('/adoption/commit', { body: { revision } })
+    if (error) throw failure(error, response)
+  })
+}
+
+/** Plans the failed entries of the last commit again, without a new scan. */
+export function useRetry() {
+  return useAdoptionMutation<void>(async () => {
+    const { error, response } = await api.POST('/adoption/retry')
     if (error) throw failure(error, response)
   })
 }

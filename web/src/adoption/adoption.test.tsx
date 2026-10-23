@@ -249,7 +249,7 @@ describe('Adoption review', () => {
           revision: 3,
           error: null,
           scanned_at: null,
-          result: { adopted: 2, failed: 0, title_ids: [3, 4] },
+          result: { adopted: 2, failed: 0, title_ids: [3, 4], outcomes: { adopted: 2, failed: 0, skipped: 0, not_chosen: 0, unticked: 0 } },
         }),
       ),
       http.post('/cleanup/preview', async ({ request, response }) => {

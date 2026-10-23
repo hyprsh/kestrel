@@ -8,6 +8,7 @@ import {
   useCommit,
   useDiscard,
   usePatchRow,
+  useRetry,
   useScan,
   type AdoptionFile,
   type AdoptionRow,
@@ -20,6 +21,8 @@ import { useOpenCleanup } from '../cleanup/launch'
 import { slotKeys, slotLabel } from '../library/bits'
 import { TickBox } from '../library/TickBox'
 import { SelectionBar, useSelection } from '../selection'
+import { Finished } from './Finished'
+import { currentText, skipText } from './text'
 import { Badge, Button, Checkbox, EmptyState, Input, Note, Select, Spinner } from '@hyprsh/design'
 
 type Adoption = components['schemas']['Adoption']
@@ -33,13 +36,6 @@ const filters: { key: Filter; label: string }[] = [
   { key: 'duplicate', label: 'Duplicates' },
   { key: 'replacement', label: 'Replacements' },
 ]
-
-const skipText: Record<string, string> = {
-  invalid: 'No readable video file',
-  no_video: 'No video file',
-  no_enabled_profile: 'No enabled Profile for its Slot',
-  not_on_tvdb: 'Not on TheTVDB, so Kestrel cannot manage it',
-}
 
 const baseName = (p: string) => p.slice(p.lastIndexOf('/') + 1)
 
@@ -108,6 +104,7 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
   const scan = useScan()
   const commit = useCommit()
   const discard = useDiscard()
+  const retry = useRetry()
   const [filter, setFilter] = useState<Filter>('all')
   const state = plan.data?.state
 
@@ -115,7 +112,7 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
         {plan.isError ? 'Could not read the Adoption state.' : (<><Spinner size="sm" />Loading…</>)}
       </div>
   const p = plan.data
-  const failed = scan.error ?? commit.error ?? discard.error
+  const failed = scan.error ?? commit.error ?? discard.error ?? retry.error
 
   return (
     <div className={embedded ? '' : 'min-h-0 flex-1 overflow-auto'}>
@@ -148,9 +145,10 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
                   ) : undefined
                 }
               >
-                {`Adopted ${p.result.adopted} ${p.result.adopted === 1 ? 'Title' : 'Titles'}${p.result.failed > 0 ? `, ${p.result.failed} could not be adopted (see the Log)` : ''}.`}
+                {`Adopted ${p.result.adopted} ${p.result.adopted === 1 ? 'Title' : 'Titles'}${p.result.failed > 0 ? `, ${p.result.failed} could not be adopted` : ''}.`}
               </Note>
             )}
+            {p.result && <Finished outcomes={p.result.outcomes} onRetry={() => retry.mutate()} onScan={() => scan.mutate()} busy={retry.isPending || scan.isPending} />}
             <div>
               <Button variant="primary" size="small" className="max-sm:w-full" onClick={() => scan.mutate()} disabled={scan.isPending}>
                 Scan for existing files
@@ -161,7 +159,10 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
 
         {(state === 'scanning' || state === 'committing') && (
           <Note role="status" className="mt-4" icon={<Spinner size="sm" />}>
-            {state === 'scanning' ? 'Scanning' : 'Adopting'}… {p.progress.done} of {p.progress.total}
+            <div>
+              {state === 'scanning' ? 'Scanning' : 'Adopting'}… {p.progress.done} of {p.progress.total}
+            </div>
+            {p.progress.current && <div className="copy-13 break-all text-gray-900">{currentText(p.progress.current)}</div>}
           </Note>
         )}
 
