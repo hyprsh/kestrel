@@ -4259,7 +4259,8 @@ components:
           $ref: "#/components/schemas/AdoptionSummary"
     AdoptionRowFilter:
       type: string
-      enum: [needs_choice, matched, duplicate, replacement, skipped]
+      description: The filters of `GET /adoption/rows`, and `all` for every row of the plan.
+      enum: [all, needs_choice, matched, duplicate, replacement, skipped]
     AdoptionRowsBulk:
       type: object
       required: [action]

@@ -1,21 +1,28 @@
 // The Adoption review screen: scan the Movie and Series Root folders, review the plan of matched,
 // needs-choice and skipped entries, settle the doubtful ones and adopt what is ticked.
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import {
   useAdoption,
   useAdoptionRows,
+  useBulkRows,
   useCommit,
   useDiscard,
   usePatchRow,
   useScan,
   type AdoptionFile,
   type AdoptionRow,
+  type AdoptionRowOutcome,
+  type AdoptionRowsBulk,
 } from '../api/adoption'
+import type { components } from '../api/schema.gen'
 import { ApiError, useLookup } from '../api/queries'
 import { useOpenCleanup } from '../cleanup/launch'
 import { slotKeys, slotLabel } from '../library/bits'
+import { TickBox } from '../library/TickBox'
+import { SelectionBar, useSelection } from '../selection'
 import { Badge, Button, Checkbox, EmptyState, Input, Note, Select, Spinner } from '@hyprsh/design'
 
+type Adoption = components['schemas']['Adoption']
 type Filter = 'all' | 'matched' | 'needs_choice' | 'skipped' | 'duplicate' | 'replacement'
 
 const filters: { key: Filter; label: string }[] = [
@@ -55,20 +62,44 @@ function versionsSummary(row: AdoptionRow) {
     .join(', ')
 }
 
-const adopts = (f: AdoptionFile) => f.ticked && !f.left
-const willAdopt = (r: AdoptionRow) => r.status === 'matched' && r.ticked && r.files.some(adopts)
+/** Why a bulk action left a row alone, as the end of "N left for you because …". */
+const leftText: Record<string, string> = {
+  not_confident: 'the suggestion is not confident enough',
+  no_suggestion: 'there is no suggestion',
+  not_needs_choice: 'the row was not waiting for a choice',
+  not_settleable: 'the suggested Title cannot be matched',
+  not_matched: 'the row is not a Matched one',
+  already: 'the row already was so',
+  no_such_row: 'the row is gone',
+}
 
-function inFilter(r: AdoptionRow, f: Filter) {
-  switch (f) {
-    case 'all':
-      return true
-    case 'duplicate':
-      return r.files.some((x) => x.left === 'duplicate')
-    case 'replacement':
-      return r.files.some((x) => x.action === 'replace' && !x.left)
-    default:
-      return r.status === f
+/** What a bulk action did, in a sentence; "" when there is nothing to say. */
+function bulkReport(action: AdoptionRowsBulk['action'], items: AdoptionRowOutcome[]) {
+  const done = items.filter((i) => i.outcome === 'changed')
+  const left = items.filter((i) => i.outcome !== 'changed')
+  const parts: string[] = []
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+  if (action === 'accept_suggested') {
+    parts.push(`Accepted ${plural(done.length, 'suggested match', 'suggested matches')}.`)
+    const skipped = done.filter((i) => i.status === 'skipped').length
+    if (skipped > 0) parts.push(`${skipped} of them could not be adopted and ${skipped === 1 ? 'is' : 'are'} Skipped.`)
   }
+  if (left.length > 0) {
+    const why = new Map<string, number>()
+    for (const i of left) {
+      const k = i.outcome === 'failed' ? 'failed' : (i.reason ?? '')
+      why.set(k, (why.get(k) ?? 0) + 1)
+    }
+    const clause = (k: string) => (k === 'failed' ? 'Kestrel could not plan it (see the Log)' : (leftText[k] ?? k))
+    const kinds = [...why]
+    const who = action === 'accept_suggested' ? 'for you' : 'as they were'
+    parts.push(
+      kinds.length === 1
+        ? `${left.length} left ${who} because ${clause(kinds[0][0])}.`
+        : `${left.length} left ${who}: ${kinds.map(([k, n]) => `${n} because ${clause(k)}`).join(', ')}.`,
+    )
+  }
+  return parts.join(' ')
 }
 
 export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
@@ -79,7 +110,6 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
   const discard = useDiscard()
   const [filter, setFilter] = useState<Filter>('all')
   const state = plan.data?.state
-  const rows = useAdoptionRows(state === 'planned')
 
   if (!plan.data) return <div className="copy-14 flex items-center gap-2 p-6 text-gray-900">
         {plan.isError ? 'Could not read the Adoption state.' : (<><Spinner size="sm" />Loading…</>)}
@@ -137,7 +167,6 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
 
         {state === 'planned' && (
           <Plan
-            rows={rows.data ?? []}
             filter={filter}
             onFilter={setFilter}
             summary={p.summary}
@@ -152,7 +181,6 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
 }
 
 function Plan({
-  rows,
   filter,
   onFilter,
   summary,
@@ -160,16 +188,35 @@ function Plan({
   onDiscard,
   busy,
 }: {
-  rows: AdoptionRow[]
   filter: Filter
   onFilter: (f: Filter) => void
-  summary: { matched: number; needs_choice: number; skipped: number; duplicate: number; replacement: number }
+  summary: Adoption['summary']
   onCommit: () => void
   onDiscard: () => void
   busy: boolean
 }) {
-  const ticked = rows.filter(willAdopt).length
-  const shown = rows.filter((r) => inFilter(r, filter))
+  const list = useAdoptionRows(filter, true)
+  const bulk = useBulkRows()
+  const [report, setReport] = useState('')
+  const rows = useMemo(() => list.data?.pages.flatMap((pg) => pg.items) ?? [], [list.data])
+  const total = list.data?.pages[0]?.total ?? 0
+  const ids = useMemo(() => rows.map((r) => r.id), [rows])
+  const selection = useSelection(ids, total)
+  const planEmpty = summary.matched + summary.needs_choice + summary.skipped === 0
+  const change = (f: Filter) => {
+    selection.clear()
+    setReport('')
+    onFilter(f)
+  }
+  const run = (action: AdoptionRowsBulk['action']) => {
+    const body: AdoptionRowsBulk = selection.all ? { action, filter } : { action, row_ids: selection.checked }
+    bulk.mutate(body, {
+      onSuccess: (res) => {
+        setReport(bulkReport(action, res.items))
+        selection.clear()
+      },
+    })
+  }
   return (
     <div className="mt-4">
       <div className="flex flex-wrap items-center gap-3 max-sm:flex-col max-sm:items-stretch">
@@ -180,32 +227,75 @@ function Plan({
           aria-label="Show"
           size="small"
           value={filter}
-          onChange={(e) => onFilter(e.target.value as Filter)}
+          onChange={(e) => change(e.target.value as Filter)}
           options={filters.map((f) => ({ value: f.key, label: f.label }))}
         />
         <div className="ml-auto flex gap-2 max-sm:ml-0 max-sm:[&>*]:flex-1">
           <Button size="small" onClick={onDiscard} disabled={busy}>
             Discard plan
           </Button>
-          <Button variant="primary" size="small" onClick={onCommit} disabled={busy || ticked === 0}>
-            Adopt {ticked} {ticked === 1 ? 'Title' : 'Titles'}
+          <Button variant="primary" size="small" onClick={onCommit} disabled={busy || summary.adopting === 0}>
+            Adopt {summary.adopting} {summary.adopting === 1 ? 'Title' : 'Titles'}
           </Button>
         </div>
       </div>
-      {shown.length === 0 ? (
+      {bulk.error instanceof ApiError && (
+        <Note variant="error" size="small" className="mt-2">
+          {bulk.error.message}
+        </Note>
+      )}
+      {report && (
+        <Note size="small" className="mt-2">
+          {report}
+        </Note>
+      )}
+      <div className="mt-3">
+        <SelectionBar selection={selection} shown={rows.length} total={total} verb="select">
+          <Button size="small" onClick={() => run('tick')} disabled={bulk.isPending}>
+            Adopt selected
+          </Button>
+          <Button size="small" onClick={() => run('untick')} disabled={bulk.isPending}>
+            Don't adopt selected
+          </Button>
+          <Button size="small" onClick={() => run('accept_suggested')} disabled={bulk.isPending}>
+            Accept suggested matches
+          </Button>
+        </SelectionBar>
+      </div>
+      {list.isPending ? (
+        <div className="copy-14 mt-6 flex items-center gap-2 text-gray-900">
+          <Spinner size="sm" />
+          Loading…
+        </div>
+      ) : rows.length === 0 ? (
         <EmptyState
           className="mt-6"
-          title={rows.length === 0 ? 'No Files To Adopt' : 'No Rows Match'}
-          description={rows.length === 0 ? 'No files to adopt were found.' : 'No rows match this filter.'}
+          title={planEmpty ? 'No Files To Adopt' : 'No Rows Match'}
+          description={planEmpty ? 'No files to adopt were found.' : 'No rows match this filter.'}
         />
       ) : (
-        <ul className="mt-4 divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
-          {shown.map((r) => (
-            <li key={r.id} className="p-3">
-              <Row row={r} />
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="mt-4 divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
+            {rows.map((r) => (
+              <li key={r.id} className="flex gap-3 p-3">
+                <TickBox selection={selection} id={r.id} name={baseName(r.entry)} verb="Select" />
+                <div className="min-w-0 flex-1">
+                  <Row row={r} />
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className="copy-13 mt-3 flex items-center gap-3 text-gray-900">
+            <span>
+              Showing {rows.length} of {total}
+            </span>
+            {list.hasNextPage && (
+              <Button size="small" disabled={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
+                Show more
+              </Button>
+            )}
+          </div>
+        </>
       )}
     </div>
   )
@@ -321,8 +411,16 @@ function NeedsChoice({ row }: { row: AdoptionRow }) {
       {row.candidates.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
           {row.candidates.map((c) => (
-            <Button key={c.tmdb_id} size="small" className="max-sm:w-full" onClick={() => choose(c.tmdb_id)} disabled={patch.isPending}>
-              Use {c.title}
+            <Button
+              key={c.tmdb_id}
+              variant={c.suggested ? 'primary' : undefined}
+              size="small"
+              className="max-sm:w-full"
+              onClick={() => choose(c.tmdb_id)}
+              disabled={patch.isPending}
+            >
+              {c.suggested ? 'Accept suggested match: ' : 'Use '}
+              {c.title}
               {c.year ? ` (${c.year})` : ''}
             </Button>
           ))}

@@ -2995,8 +2995,11 @@ export interface components {
             total: number;
             counts: components["schemas"]["AdoptionSummary"];
         };
-        /** @enum {string} */
-        AdoptionRowFilter: "needs_choice" | "matched" | "duplicate" | "replacement" | "skipped";
+        /**
+         * @description The filters of `GET /adoption/rows`, and `all` for every row of the plan.
+         * @enum {string}
+         */
+        AdoptionRowFilter: "all" | "needs_choice" | "matched" | "duplicate" | "replacement" | "skipped";
         AdoptionRowsBulk: {
             /** @enum {string} */
             action: "tick" | "untick" | "accept_suggested";

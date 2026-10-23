@@ -171,6 +171,7 @@ func (e AdoptionRowStatus) Valid() bool {
 
 // Defines values for AdoptionRowFilter.
 const (
+	AdoptionRowFilterAll         AdoptionRowFilter = "all"
 	AdoptionRowFilterDuplicate   AdoptionRowFilter = "duplicate"
 	AdoptionRowFilterMatched     AdoptionRowFilter = "matched"
 	AdoptionRowFilterNeedsChoice AdoptionRowFilter = "needs_choice"
@@ -181,6 +182,8 @@ const (
 // Valid indicates whether the value is a known member of the AdoptionRowFilter enum.
 func (e AdoptionRowFilter) Valid() bool {
 	switch e {
+	case AdoptionRowFilterAll:
+		return true
 	case AdoptionRowFilterDuplicate:
 		return true
 	case AdoptionRowFilterMatched:
@@ -1603,7 +1606,7 @@ type AdoptionRowSkipReason string
 // AdoptionRowStatus defines model for AdoptionRow.Status.
 type AdoptionRowStatus string
 
-// AdoptionRowFilter defines model for AdoptionRowFilter.
+// AdoptionRowFilter The filters of `GET /adoption/rows`, and `all` for every row of the plan.
 type AdoptionRowFilter string
 
 // AdoptionRowList defines model for AdoptionRowList.
@@ -1661,8 +1664,10 @@ type AdoptionRowPatch struct {
 // AdoptionRowsBulk defines model for AdoptionRowsBulk.
 type AdoptionRowsBulk struct {
 	Action AdoptionRowsBulkAction `json:"action"`
-	Filter *AdoptionRowFilter     `json:"filter,omitempty"`
-	RowIds *[]int64               `json:"row_ids,omitempty"`
+
+	// Filter The filters of `GET /adoption/rows`, and `all` for every row of the plan.
+	Filter *AdoptionRowFilter `json:"filter,omitempty"`
+	RowIds *[]int64           `json:"row_ids,omitempty"`
 }
 
 // AdoptionRowsBulkAction defines model for AdoptionRowsBulk.Action.

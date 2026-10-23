@@ -89,6 +89,12 @@ func TestUntickingEveryRowOfAFilterNeedsNoIds(t *testing.T) {
 	if len(got.Items) != 2 || a.page(t, "limit=1").Counts.Adopting != 0 {
 		t.Errorf("untick of the filter = %+v", got)
 	}
+
+	every := a.bulk(t, `{"action":"tick","filter":"all"}`)
+
+	if len(every.Items) != 3 || a.page(t, "limit=1").Counts.Adopting != 2 {
+		t.Errorf("tick of every row = %+v", every)
+	}
 }
 
 func TestAcceptingSuggestionsSettlesOnlyTheConfidentRowsAndSaysWhyTheOthersWereLeft(t *testing.T) {

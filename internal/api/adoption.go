@@ -194,11 +194,13 @@ func (s *server) BulkAdoptionRows(ctx context.Context, r oapi.BulkAdoptionRowsRe
 		req.RowIDs = *r.Body.RowIds
 	case r.Body.Filter != nil:
 		switch *r.Body.Filter {
-		case oapi.AdoptionRowFilterNeedsChoice, oapi.AdoptionRowFilterMatched, oapi.AdoptionRowFilterDuplicate, oapi.AdoptionRowFilterReplacement, oapi.AdoptionRowFilterSkipped:
+		case oapi.AdoptionRowFilterAll, oapi.AdoptionRowFilterNeedsChoice, oapi.AdoptionRowFilterMatched, oapi.AdoptionRowFilterDuplicate, oapi.AdoptionRowFilterReplacement, oapi.AdoptionRowFilterSkipped:
 		default:
 			return nil, invalid("filter", "invalid", "Unknown filter")
 		}
-		req.Filter = imports.Filter(*r.Body.Filter)
+		if *r.Body.Filter != oapi.AdoptionRowFilterAll {
+			req.Filter = imports.Filter(*r.Body.Filter)
+		}
 	case r.Body.RowIds != nil:
 		return nil, invalid("row_ids", "required", "Pick at least one row")
 	default:

@@ -56,7 +56,7 @@ function fakeAdoption() {
   const plan = (): Adoption => ({
     state: state.scans > 0 ? 'planned' : 'idle',
     progress: { done: 0, total: 0 },
-    summary: { matched: state.scans > 0 ? 1 : 0, needs_choice: 0, skipped: 0, duplicate: 0, replacement: 0 },
+    summary: { matched: state.scans > 0 ? 1 : 0, needs_choice: 0, skipped: 0, duplicate: 0, replacement: 0, adopting: state.scans > 0 ? 1 : 0 },
     revision: 1,
     error: null,
     scanned_at: null,
@@ -83,6 +83,9 @@ function fakeAdoption() {
             files: [],
           },
         ],
+        next_cursor: null,
+        total: 1,
+        counts: { matched: 1, needs_choice: 0, skipped: 0, duplicate: 0, replacement: 0, adopting: 1 },
       }),
     ),
   )

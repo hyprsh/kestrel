@@ -1,5 +1,6 @@
-// Adoption: GET /adoption, POST /adoption/scan, the plan's rows, PATCH a row and POST /adoption/commit.
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+// Adoption: GET /adoption, POST /adoption/scan, the plan's rows (a page at a time), PATCH a row, bulk edits of rows
+// and POST /adoption/commit.
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
 import { ApiError } from './queries'
 import type { components } from './schema.gen'
@@ -7,6 +8,12 @@ import type { components } from './schema.gen'
 export type AdoptionRow = components['schemas']['AdoptionRow']
 export type AdoptionFile = components['schemas']['AdoptionFile']
 export type AdoptionRowPatch = components['schemas']['AdoptionRowPatch']
+export type AdoptionRowsBulk = components['schemas']['AdoptionRowsBulk']
+export type AdoptionRowOutcome = components['schemas']['AdoptionRowOutcome']
+export type AdoptionRowsBulkResult = components['schemas']['AdoptionRowsBulkResult']
+type AdoptionRowList = components['schemas']['AdoptionRowList']
+/** The filters the rows can be asked for; `all` is every row. */
+export type AdoptionFilter = components['schemas']['AdoptionRowFilter']
 
 type Problem = { code?: string; detail?: string; title?: string } | undefined
 
@@ -28,20 +35,25 @@ export function useAdoption() {
   })
 }
 
-/** Every row of the plan, in the server's Matched, Needs choice, Skipped order. */
-export function useAdoptionRows(enabled: boolean) {
-  return useQuery({
-    queryKey: ['adoption', 'rows'],
+const PAGE = 100
+
+/** The plan's rows that `filter` keeps in the server's Matched, Needs choice, Skipped order, a page at a time. */
+export function useAdoptionRows(filter: AdoptionFilter, enabled: boolean) {
+  return useInfiniteQuery({
+    queryKey: ['adoption', 'rows', filter],
     enabled,
-    queryFn: async () => {
-      const { data, error, response } = await api.GET('/adoption/rows')
+    initialPageParam: null as string | null,
+    getNextPageParam: (last: AdoptionRowList) => last.next_cursor,
+    queryFn: async ({ pageParam }): Promise<AdoptionRowList> => {
+      const query = { limit: PAGE, ...(filter !== 'all' && { filter }), ...(pageParam && { cursor: pageParam }) }
+      const { data, error, response } = await api.GET('/adoption/rows', { params: { query } })
       if (!data) throw failure(error, response)
-      return data.items
+      return data
     },
   })
 }
 
-function useAdoptionMutation<V>(run: (v: V) => Promise<void>) {
+function useAdoptionMutation<V, R = void>(run: (v: V) => Promise<R>) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: run,
@@ -60,6 +72,15 @@ export function usePatchRow() {
   return useAdoptionMutation<{ id: number; patch: AdoptionRowPatch }>(async ({ id, patch }) => {
     const { error, response } = await api.PATCH('/adoption/rows/{id}', { params: { path: { id } }, body: patch })
     if (error) throw failure(error, response)
+  })
+}
+
+/** One action over many rows, by id or as every row of a filter; the answer says what happened to each. */
+export function useBulkRows() {
+  return useAdoptionMutation<AdoptionRowsBulk, AdoptionRowsBulkResult>(async (body) => {
+    const { data, error, response } = await api.POST('/adoption/rows/bulk', { body })
+    if (!data) throw failure(error, response)
+    return data
   })
 }
 
