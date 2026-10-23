@@ -200,19 +200,7 @@ describe('Needs attention', () => {
     expect(within(row).getByText(/blocking/i)).toBeInTheDocument()
   })
 
-  it('says a passing Test passed, in a success note, when the row stays', async () => {
-    const state = fakeAttention([sabRow()])
-    state.test = { ok: true, code: null, message: 'SABnzbd 4.5.1' }
-    state.clears = false
-    renderApp()
-
-    const row = await within(await sectionOf(/needs attention/i)).findByRole('listitem')
-    await userEvent.click(within(row).getByRole('button', { name: 'Test' }))
-
-    expect(await within(row).findByRole('status')).toHaveTextContent('Test passed: SABnzbd 4.5.1')
-  })
-
-  it('keeps a status line at the top when a passing Test clears its row', async () => {
+  it('acknowledges a passing Test with a toast, and the row it cleared goes', async () => {
     const state = fakeAttention([sabRow(), exdevRow()])
     state.test = { ok: true, code: null, message: 'SABnzbd 4.5.1' }
     renderApp()
@@ -221,12 +209,8 @@ describe('Needs attention', () => {
     const row = (await within(section).findAllByRole('listitem'))[0]
     await userEvent.click(within(row).getByRole('button', { name: 'Test' }))
 
-    const status = await within(await sectionOf(/needs attention/i)).findByRole('status')
-    expect(status).toHaveTextContent('Test passed: SABnzbd 4.5.1. The blocking issue cleared.')
+    expect(await screen.findByText('Test passed: SABnzbd 4.5.1')).toBeInTheDocument()
     expect(screen.queryByText('SABnzbd is unreachable: connection refused')).not.toBeInTheDocument()
-
-    await userEvent.click(within(status).getByRole('button', { name: 'Dismiss' }))
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
   it('sends the body an action carries', async () => {

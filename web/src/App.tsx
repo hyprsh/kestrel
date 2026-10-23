@@ -1,3 +1,4 @@
+import { Toast } from '@hyprsh/design'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useAuth, useSetup } from './api/queries'
@@ -10,6 +11,8 @@ export function App({ client }: { client?: QueryClient }) {
   return (
     <QueryClientProvider client={client ?? fallback}>
       <Gate />
+      {/* One host for every screen; useToasts' own fallback host does not mount under React 19. */}
+      <Toast className="max-sm:!bottom-[calc(var(--tab-bar-height)+16px)]" />
     </QueryClientProvider>
   )
 }
