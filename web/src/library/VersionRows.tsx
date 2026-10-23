@@ -1,5 +1,5 @@
 // The Versions of a Title on its page: one compact row per Slot, filled or not kept.
-import { Button, Menu } from '@hyprsh/design'
+import { FilterMenu, Menu, Note } from '@hyprsh/design'
 import { MoreHorizontal } from 'lucide-react'
 import { useState } from 'react'
 import type { Profile, TitleDetail } from '../api/queries'
@@ -40,7 +40,7 @@ export function VersionRows({
           return v ? (
             <VersionRow key={k} version={v} kind={title.kind} profiles={profiles} profileName={profileName} onCoverage={onCoverage} />
           ) : (
-            <EmptyRow key={k} slot={k} titleId={title.id} profiles={profiles} />
+            <EmptyRow key={k} slot={k} titleId={title.id} kind={title.kind} profiles={profiles} />
           )
         })}
       </div>
@@ -115,12 +115,15 @@ function VersionRow({
   )
 }
 
-/** A Slot with no Version: its name, "Not kept" and Add Version, which asks for the Profile below the row. */
-function EmptyRow({ slot, titleId, profiles }: { slot: SlotKey; titleId: number; profiles: Profile[] }) {
+/**
+ * A Slot with no Version: its name, "Not kept" and an Add Version dropdown of the Slot's enabled Profiles,
+ * the default of the Title's kind selected. Choosing a Profile, the selected one too, adds the Version.
+ */
+function EmptyRow({ slot, titleId, kind, profiles }: { slot: SlotKey; titleId: number; kind: TitleDetail['kind']; profiles: Profile[] }) {
   const add = useAddVersion(titleId)
-  const [open, setOpen] = useState(false)
   const options = profiles.filter((p) => p.slot === slot && p.enabled)
-  const defaults = options.find((p) => p.default_movies)
+  const initial = (options.find((p) => (kind === 'series' ? p.default_series : p.default_movies)) ?? options[0])?.key
+  const [choice, setChoice] = useState<string | undefined>(undefined)
   return (
     <div role="group" aria-label={slotLabel[slot]} className="border-b border-gray-alpha-400 last:border-b-0">
       <div className={`${rowClass} !py-2`}>
@@ -128,25 +131,31 @@ function EmptyRow({ slot, titleId, profiles }: { slot: SlotKey; titleId: number;
           <span className="label-12-mono text-gray-900">{slotLabel[slot]}</span>
           <span className="copy-13 text-gray-900 @xl:col-span-2">Not kept</span>
         </div>
-        {options.length > 0 && !open ? (
-          <Button variant="secondary" size="small" className="justify-self-end @xl:col-start-5" onClick={() => setOpen(true)}>
-            Add Version
-          </Button>
+        {options.length > 0 ? (
+          <FilterMenu
+            single
+            label="Add Version"
+            size="small"
+            align="end"
+            className="justify-self-end @xl:col-start-5"
+            disabled={add.isPending}
+            value={choice ?? initial}
+            items={options.map((p: Profile) => ({ value: p.key, label: p.name }))}
+            onChange={(profile: string) => {
+              setChoice(profile)
+              add.mutate({ slot, profile })
+            }}
+          />
         ) : (
           <span />
         )}
       </div>
-      {open && (
-        <ProfilePicker
-          profiles={profiles}
-          slot={slot}
-          initial={defaults?.key ?? ''}
-          label="Add Version"
-          busy={add.isPending}
-          error={add.error?.message}
-          onCancel={() => setOpen(false)}
-          onPick={(p) => add.mutate({ slot, profile: p }, { onSuccess: () => setOpen(false) })}
-        />
+      {add.error && (
+        <div className="pb-2">
+          <Note variant="error" size="small">
+            {add.error.message}
+          </Note>
+        </div>
       )}
     </div>
   )
