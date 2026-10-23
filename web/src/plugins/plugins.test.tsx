@@ -31,6 +31,7 @@ function fakePlugins(opts: { fresh?: boolean; saved?: boolean; declared?: boolea
     secrets_set: ['api_key'],
     from_config_file: !!opts.declared,
     enabled_declared: !!opts.enabledDeclared,
+    last_check: null,
   })
   const result = (config: Record<string, unknown>) =>
     config.api_key === undefined || config.api_key === 'good-key'

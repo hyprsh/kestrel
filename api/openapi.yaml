@@ -2822,7 +2822,7 @@ components:
           description: A saved instance whose stored config, secrets included, lies under `config`.
     PluginInstance:
       type: object
-      required: [id, contract, plugin_id, name, enabled, priority, config, secrets_set, from_config_file, enabled_declared]
+      required: [id, contract, plugin_id, name, enabled, priority, config, secrets_set, from_config_file, enabled_declared, last_check]
       properties:
         from_config_file:
           type: boolean

@@ -32,6 +32,7 @@ const stored: Instance = {
   secrets_set: ['api_key'],
   from_config_file: false,
   enabled_declared: false,
+  last_check: null,
 }
 
 describe('Settings media servers', () => {

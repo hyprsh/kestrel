@@ -31,6 +31,7 @@ const server1: Instance = {
   secrets_set: [],
   from_config_file: false,
   enabled_declared: false,
+  last_check: null,
 }
 
 describe('the last check in a Settings row', () => {

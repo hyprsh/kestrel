@@ -2165,7 +2165,7 @@ export interface components {
              * @description The latest check of the instance, or call Kestrel made to it for its own work.
              *     `null` before the first. Enabled media servers are checked every 15 min.
              */
-            last_check?: components["schemas"]["PluginInstanceCheck"] | null;
+            last_check: components["schemas"]["PluginInstanceCheck"] | null;
         };
         PluginInstanceCheck: {
             /** Format: date-time */

@@ -2286,7 +2286,7 @@ type PluginInstance struct {
 
 	// LastCheck The latest check of the instance, or call Kestrel made to it for its own work.
 	// `null` before the first. Enabled media servers are checked every 15 min.
-	LastCheck *PluginInstanceCheck `json:"last_check,omitempty"`
+	LastCheck *PluginInstanceCheck `json:"last_check"`
 	Name      string               `json:"name"`
 	PluginId  string               `json:"plugin_id"`
 	Priority  int                  `json:"priority"`
