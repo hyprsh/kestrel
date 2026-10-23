@@ -124,6 +124,14 @@ export function useRetry() {
   })
 }
 
+/** Puts the entries a commit left Not chosen back in the plan to settle, without a scan. */
+export function useReopen() {
+  return useAdoptionMutation<void>(async () => {
+    const { error, response } = await api.POST('/adoption/reopen')
+    if (error) throw failure(error, response)
+  })
+}
+
 export function useDiscard() {
   return useAdoptionMutation<void>(async () => {
     const { error, response } = await api.DELETE('/adoption')

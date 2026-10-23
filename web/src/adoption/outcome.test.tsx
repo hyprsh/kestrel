@@ -38,29 +38,35 @@ const rows: Row[] = [
 ]
 
 function finished() {
-  const state = { retries: 0, scans: 0, plan: 'idle' as Adoption['state'], cleanups: [] as unknown[] }
-  const counts = { adopted: 1, failed: 1, skipped: 1, not_chosen: 1, unticked: 1 }
+  const state = { retries: 0, scans: 0, reopens: 0, plan: 'idle' as Adoption['state'], error: null as string | null, cleanups: [] as unknown[] }
+  /** The kept rows: a Try again or a reopen puts one back under review, the rest and the result stay. */
+  const counts = () => ({ adopted: 1, failed: state.plan === 'planned' ? 0 : 1, skipped: 1, not_chosen: state.plan === 'planned' ? 0 : 1, unticked: 1 })
   const plan = (): Adoption => ({
     state: state.plan,
     progress: { done: 0, total: 0 },
-    summary: none,
+    summary: state.plan === 'planned' ? { ...none, needs_choice: 1 } : none,
     monitor: 'all',
     revision: 5,
-    error: null,
+    error: state.error,
     scanned_at: null,
-    result: state.plan === 'idle' ? { adopted: 1, failed: 1, title_ids: [9], outcomes: counts } : null,
+    result: state.plan === 'idle' || state.plan === 'planned' ? { adopted: 1, failed: 1, title_ids: [9], outcomes: counts() } : null,
   })
   server.use(
     http.get('/adoption', ({ response }) => response(200).json(plan())),
     http.get('/adoption/rows', ({ request, response }) => {
       const outcome = new URL(request.url).searchParams.get('outcome')
-      const items = rows.filter((r) => r.outcome === outcome)
+      const items = rows.filter((r) => (outcome ? r.outcome === outcome : state.plan === 'planned' && r.outcome === 'not_chosen'))
       return response(200).json({ items, next_cursor: null, total: items.length, counts: none })
     }),
     http.post('/adoption/retry', ({ response }) => {
       state.retries++
       state.plan = 'planned'
       return response(202).json(plan())
+    }),
+    http.post('/adoption/reopen', ({ response }) => {
+      state.reopens++
+      state.plan = 'planned'
+      return response(200).json(plan())
     }),
     http.post('/adoption/scan', ({ response }) => {
       state.scans++
@@ -111,14 +117,32 @@ describe('The Adoption summary after a commit', () => {
     expect(state.scans).toBe(0)
   })
 
-  it('offers a new scan to settle the entries nobody chose', async () => {
+  it('reopens the entries nobody chose in the plan without scanning, keeping the rest of the summary', async () => {
     const state = finished()
     const user = await openAdoption()
 
     const notChosen = await screen.findByRole('region', { name: 'Not chosen (1)' })
-    await user.click(within(notChosen).getByRole('button', { name: 'Scan again to choose' }))
+    await user.click(within(notChosen).getByRole('button', { name: 'Reopen to choose' }))
 
-    expect(state.scans).toBe(1)
+    expect(state.reopens).toBe(1)
+    expect(state.scans).toBe(0)
+    expect(await screen.findByText('0 matched, 1 need a choice, 0 skipped')).toBeInTheDocument()
+    // The previous result and the other groups are still there, the reopened entry is under review.
+    expect(screen.getByText('Adopted 1 Title, 1 could not be adopted.')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Skipped (1)' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Left out (1)' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: /Not chosen/ })).not.toBeInTheDocument()
+  })
+
+  it('keeps the rows and the result on show when Try again could not plan', async () => {
+    const state = finished()
+    state.error = 'ffprobe is not installed, so files cannot be checked'
+    await openAdoption()
+
+    expect(await screen.findByText('ffprobe is not installed, so files cannot be checked')).toBeInTheDocument()
+    expect(screen.getByText('Adopted 1 Title, 1 could not be adopted.')).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'Failed (1)' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Skipped (1)' })).toBeInTheDocument()
   })
 
   it('links to Clean up for the files left behind', async () => {
@@ -168,20 +192,21 @@ describe('The current item of a running scan or commit', () => {
     await openAdoption()
 
     expect(await screen.findByText('Scanning… 120 of 450')).toBeInTheDocument()
-    expect(screen.getByText('/data/media/tv/Breaking Bad — probing 62 files')).toBeInTheDocument()
+    expect(screen.getByText('Reading 62 files of /data/media/tv/Breaking Bad')).toBeInTheDocument()
   })
 
-  it('names the entry being adopted', async () => {
-    running('committing', { entry: '/data/media/movies/Paddington (2014)', step: 'moving', files: 1 })
+  it('names the Title being adopted, not its folder, and what is happening to its files', async () => {
+    running('committing', { entry: '/data/media/movies/Paddington.2014.1080p', step: 'moving', files: 2, title: 'Paddington (2014)' })
     await openAdoption()
 
-    expect(await screen.findByText('/data/media/movies/Paddington (2014) — moving 1 file')).toBeInTheDocument()
+    expect(await screen.findByText('Adopting Paddington (2014) — moving 2 files')).toBeInTheDocument()
+    expect(screen.queryByText(/Paddington\.2014\.1080p/)).not.toBeInTheDocument()
   })
 
-  it('says only the step when it covers no files', async () => {
+  it('says what it is doing in plain words when the step covers no files', async () => {
     running('scanning', { entry: '/data/media/movies/Dune', step: 'matching' })
     await openAdoption()
 
-    expect(await screen.findByText('/data/media/movies/Dune — matching')).toBeInTheDocument()
+    expect(await screen.findByText('Finding the Title for /data/media/movies/Dune')).toBeInTheDocument()
   })
 })

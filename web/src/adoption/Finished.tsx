@@ -11,17 +11,21 @@ const groups: { outcome: AdoptionOutcome; title: string; why: string }[] = [
   { outcome: 'unticked', title: 'Left out', why: 'Left unticked' },
 ]
 
-export function Finished({ outcomes, onRetry, onScan, busy }: { outcomes: AdoptionOutcomes; onRetry: () => void; onScan: () => void; busy: boolean }) {
+/** What Try again and Reopen do, offered while no plan is under review. */
+export type FinishedActions = { onRetry: () => void; onReopen: () => void; busy: boolean }
+
+export function Finished({ outcomes, actions }: { outcomes: AdoptionOutcomes; actions?: FinishedActions }) {
   const openCleanup = useOpenCleanup()
   const open = groups.filter((g) => outcomes[g.outcome] > 0)
   if (open.length === 0) return null
   return (
     <div className="flex flex-col gap-4">
       <p className="copy-14 text-gray-900">
-        These entries were not adopted. Their files stay where they are as Unmanaged files, and the next scan finds them again.
+        These entries were not adopted. Their files stay where they are as Unmanaged files, and the next scan finds them again. The summary stays until the
+        next scan.
       </p>
       {open.map((g) => (
-        <Group key={g.outcome} outcome={g.outcome} title={g.title} why={g.why} count={outcomes[g.outcome]} onRetry={onRetry} onScan={onScan} busy={busy} />
+        <Group key={g.outcome} outcome={g.outcome} title={g.title} why={g.why} count={outcomes[g.outcome]} actions={actions} />
       ))}
       <div>
         <Button size="small" onClick={() => openCleanup()}>
@@ -37,17 +41,13 @@ function Group({
   title,
   why,
   count,
-  onRetry,
-  onScan,
-  busy,
+  actions,
 }: {
   outcome: AdoptionOutcome
   title: string
   why: string
   count: number
-  onRetry: () => void
-  onScan: () => void
-  busy: boolean
+  actions?: FinishedActions
 }) {
   const list = useAdoptionRows({ outcome }, true)
   const rows = list.data?.pages.flatMap((pg) => pg.items) ?? []
@@ -56,14 +56,14 @@ function Group({
     <section aria-label={label}>
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="label-14">{label}</h2>
-        {outcome === 'failed' && (
-          <Button size="small" onClick={onRetry} disabled={busy}>
+        {outcome === 'failed' && actions && (
+          <Button size="small" onClick={actions.onRetry} disabled={actions.busy}>
             Try again
           </Button>
         )}
-        {outcome === 'not_chosen' && (
-          <Button size="small" onClick={onScan} disabled={busy}>
-            Scan again to choose
+        {outcome === 'not_chosen' && actions && (
+          <Button size="small" onClick={actions.onReopen} disabled={actions.busy}>
+            Reopen to choose
           </Button>
         )}
       </div>

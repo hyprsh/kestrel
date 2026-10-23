@@ -9,6 +9,7 @@ import {
   useDiscard,
   usePatchPlan,
   usePatchRow,
+  useReopen,
   useRetry,
   useScan,
   type Adoption as AdoptionPlan,
@@ -23,7 +24,7 @@ import { useOpenCleanup } from '../cleanup/launch'
 import { slotKeys, slotLabel } from '../library/bits'
 import { TickBox } from '../library/TickBox'
 import { SelectionBar, useSelection } from '../selection'
-import { Finished } from './Finished'
+import { Finished, type FinishedActions } from './Finished'
 import { currentText, skipText } from './text'
 import { Badge, Button, Checkbox, EmptyState, Input, Note, Select, Spinner } from '@hyprsh/design'
 
@@ -118,11 +119,11 @@ function bulkReport(action: AdoptionRowsBulk['action'], items: AdoptionBulkRowRe
 
 export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
   const plan = useAdoption()
-  const openCleanup = useOpenCleanup()
   const scan = useScan()
   const commit = useCommit()
   const discard = useDiscard()
   const retry = useRetry()
+  const reopen = useReopen()
   const [filter, setFilter] = useState<Filter>('all')
   const state = plan.data?.state
 
@@ -130,7 +131,7 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
         {plan.isError ? 'Could not read the Adoption state.' : (<><Spinner size="sm" />Loading…</>)}
       </div>
   const p = plan.data
-  const failed = scan.error ?? commit.error ?? discard.error ?? retry.error
+  const failed = scan.error ?? commit.error ?? discard.error ?? retry.error ?? reopen.error
 
   return (
     <div className={embedded ? '' : 'min-h-0 flex-1 overflow-auto'}>
@@ -153,20 +154,7 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
                 {p.error}
               </Note>
             )}
-            {p.result && (
-              <Note role="status"
-                action={
-                  p.result.adopted > 0 ? (
-                    <Button size="small" onClick={() => openCleanup(p.result?.title_ids)}>
-                      Clean up adopted folders
-                    </Button>
-                  ) : undefined
-                }
-              >
-                {`Adopted ${p.result.adopted} ${p.result.adopted === 1 ? 'Title' : 'Titles'}${p.result.failed > 0 ? `, ${p.result.failed} could not be adopted` : ''}.`}
-              </Note>
-            )}
-            {p.result && <Finished outcomes={p.result.outcomes} onRetry={() => retry.mutate()} onScan={() => scan.mutate()} busy={retry.isPending || scan.isPending} />}
+            {p.result && <Kept result={p.result} actions={{ onRetry: () => retry.mutate(), onReopen: () => reopen.mutate(), busy: retry.isPending || reopen.isPending }} />}
             <div>
               <Button variant="primary" size="small" className="max-sm:w-full" onClick={() => scan.mutate()} disabled={scan.isPending}>
                 Scan for existing files
@@ -184,6 +172,7 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
           </Note>
         )}
 
+        {state === 'planned' && p.result && <Kept result={p.result} />}
         {state === 'planned' && (
           <Plan
             filter={filter}
@@ -196,6 +185,28 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
           />
         )}
       </div>
+    </div>
+  )
+}
+
+/** What the last commit did and the rows it kept, which stay until the next scan whatever happens to the plan. */
+function Kept({ result, actions }: { result: NonNullable<AdoptionPlan['result']>; actions?: FinishedActions }) {
+  const openCleanup = useOpenCleanup()
+  return (
+    <div className="mt-4 flex flex-col gap-3">
+      <Note
+        role="status"
+        action={
+          result.adopted > 0 ? (
+            <Button size="small" onClick={() => openCleanup(result.title_ids)}>
+              Clean up adopted folders
+            </Button>
+          ) : undefined
+        }
+      >
+        {`Adopted ${result.adopted} ${result.adopted === 1 ? 'Title' : 'Titles'}${result.failed > 0 ? `, ${result.failed} could not be adopted` : ''}.`}
+      </Note>
+      <Finished outcomes={result.outcomes} actions={actions} />
     </div>
   )
 }
