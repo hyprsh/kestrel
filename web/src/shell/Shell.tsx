@@ -11,6 +11,7 @@ import { useAttention } from '../api/attention'
 import { useAuth, useLogout } from '../api/queries'
 import { CommandMenu, type MenuAction, type MenuMode } from '../command/CommandMenu'
 import { Adoption } from '../adoption/Adoption'
+import { adoptionLabel, useAdoption } from '../api/adoption'
 import { Cleanup } from '../cleanup/Cleanup'
 import { CleanupLauncher } from '../cleanup/launch'
 import { MOD } from '../keys'
@@ -115,6 +116,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const { mutate: searchAllWanted } = searchAll
   // What "Search all Wanted" queued, until the person follows it to the Searching card or dismisses it.
   const [searchQueued, setSearchQueued] = useState<{ versions: number } | { error: string } | null>(null)
+  const adoptionState = useAdoption().data?.state
   const actions: MenuAction[] = useMemo(
     () => [
       {
@@ -129,11 +131,11 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
       },
       { id: 'theme', label: 'Switch theme', keywords: 'dark light mode', run: cycle },
       { id: 'setup', label: 'Run setup again', keywords: 'wizard', run: onRunSetup },
-      { id: 'adopt', label: 'Scan for unmanaged files', keywords: 'adopt adoption existing library import', run: () => setScreen('adoption') },
+      { id: 'adopt', label: adoptionLabel(adoptionState), keywords: 'adopt adoption existing library import', run: () => setScreen('adoption') },
       { id: 'cleanup', label: 'Clean up Unmanaged files', keywords: 'junk samples subtitles delete tidy', run: () => openCleanup() },
       ...(canLogout ? [{ id: 'logout', label: 'Log out', keywords: 'sign out', run: () => logout.mutate(undefined) }] : []),
     ],
-    [cycle, onRunSetup, canLogout, logout, searchAllWanted, openCleanup],
+    [cycle, onRunSetup, canLogout, logout, searchAllWanted, openCleanup, adoptionState],
   )
   const needs = useAttention().data
   const tabs: Tab[] = tabKeys
@@ -265,7 +267,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           ) : screen === 'upcoming' ? (
             <Upcoming onOpenTitle={openTitle} />
           ) : (
-            <Overview onOpen={goPath} onOpenTitle={openTitle} />
+            <Overview onOpen={goPath} onOpenTitle={openTitle} onOpenAdoption={() => setScreen('adoption')} />
           )}
         </main>
         {phone && (
