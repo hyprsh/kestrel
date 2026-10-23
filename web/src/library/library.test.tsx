@@ -112,6 +112,17 @@ describe('the Library list', () => {
     await userEvent.click(screen.getByRole('button', { name: /add a title/i }))
     expect(await screen.findByRole('dialog', { name: /command menu/i })).toBeInTheDocument()
   })
+
+  it('hides the key hints on touch screens but keeps the count', async () => {
+    fakeLibrary(rows())
+    await openLibrary()
+
+    const count = await screen.findByText('3 of 3')
+    const footer = count.closest('footer')
+    expect(footer).toBeInTheDocument()
+    expect(within(footer!).getByText('j').closest('.pointer-coarse\\:hidden')).toBeInTheDocument()
+    expect(count).not.toHaveClass('pointer-coarse:hidden')
+  })
 })
 
 describe('the Library filter', () => {

@@ -273,11 +273,11 @@ export function Library({
 
         {!phone && (
           <footer className="label-12 flex items-center justify-between border-t border-gray-alpha-400 px-3 py-2 text-gray-900">
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-1 pointer-coarse:hidden">
               <KeyboardInput small>j</KeyboardInput>
               <KeyboardInput small>k</KeyboardInput> move <KeyboardInput small>x</KeyboardInput> tick
             </span>
-            <span>
+            <span className="ml-auto">
               {rows.length} of {all.length}
             </span>
           </footer>
