@@ -249,7 +249,7 @@ func (a *Adoption) planSeries(ctx context.Context, e *env, en entry, force int) 
 		for _, f := range files {
 			if !probe.DurationPlausible(f.info.Duration, facts.runtime(), probe.EpisodeFloor) {
 				row.Status, row.Ticked, row.Match = NeedsChoice, false, nil
-				row.Candidates = []Candidate{{TMDBID: tmdbID, Title: facts.name(), Year: facts.Year}}
+				row.Candidates = []Candidate{{TMDBID: tmdbID, Title: facts.name(), Year: facts.Year, Suggested: true, Confident: true}}
 				return row, nil
 			}
 		}
@@ -355,14 +355,10 @@ func (a *Adoption) byNameSeries(ctx context.Context, en entry, files []probed) (
 	if len(exact) == 1 {
 		return nil, exact[0].TMDBID, nil
 	}
-	var cands []Candidate
-	for _, r := range series {
-		if len(cands) == maxCandidates {
-			break
-		}
-		cands = append(cands, Candidate{TMDBID: r.TMDBID, Title: r.Title, Year: r.Year})
+	if len(series) == 0 {
+		return nil, 0, nil
 	}
-	return cands, 0, nil
+	return suggest(rankResults([]string{title}, year, series), nil), 0, nil
 }
 
 // slotFor is a file's Slot: Kestrel's own label wins, else a file probed at

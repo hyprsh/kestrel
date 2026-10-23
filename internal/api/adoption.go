@@ -65,7 +65,7 @@ func adoptionRowToAPI(r imports.Row) oapi.AdoptionRow {
 		}
 	}
 	for _, c := range r.Candidates {
-		out.Candidates = append(out.Candidates, oapi.AdoptionCandidate{TmdbId: c.TMDBID, Title: c.Title, Year: intPtr(c.Year)})
+		out.Candidates = append(out.Candidates, oapi.AdoptionCandidate{TmdbId: c.TMDBID, Title: c.Title, Year: intPtr(c.Year), Suggested: c.Suggested, Confident: c.Confident})
 	}
 	for _, f := range r.Files {
 		af := oapi.AdoptionFile{

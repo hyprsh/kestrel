@@ -2862,10 +2862,21 @@ export interface components {
                 title_ids: number[];
             } | null;
         };
+        /**
+         * @description A likely match of a Needs choice row. Candidates come best first: Kestrel ranks them on title
+         *     similarity, year and runtime fit, and marks the first one it would pick `suggested`. The
+         *     suggestion is `confident` when its year is within one of the name's and its title is a
+         *     near-exact match (or a close one whose runtime fits the files), and no other candidate fits
+         *     about as well. A selection accepts only confident suggestions in bulk.
+         */
         AdoptionCandidate: {
             tmdb_id: number;
             title: string;
             year: number | null;
+            /** @description Kestrel's pick; at most one candidate of a row has it. */
+            suggested: boolean;
+            /** @description The suggestion is safe to accept without a look. Only a suggested candidate can be. */
+            confident: boolean;
         };
         AdoptionMatch: {
             tmdb_id: number;

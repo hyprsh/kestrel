@@ -61,12 +61,17 @@ type adoptionRowJSON struct {
 		Source  string `json:"source"`
 		Folder  string `json:"folder"`
 	} `json:"match"`
-	Candidates []struct {
-		TMDBID int    `json:"tmdb_id"`
-		Title  string `json:"title"`
-	} `json:"candidates"`
+	Candidates []adoptionCandidateJSON `json:"candidates"`
 	Kind  string             `json:"kind"`
 	Files []adoptionFileJSON `json:"files"`
+}
+
+type adoptionCandidateJSON struct {
+	TMDBID    int    `json:"tmdb_id"`
+	Title     string `json:"title"`
+	Year      *int   `json:"year"`
+	Suggested bool   `json:"suggested"`
+	Confident bool   `json:"confident"`
 }
 
 type adoptionFileJSON struct {

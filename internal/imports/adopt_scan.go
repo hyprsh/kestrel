@@ -417,7 +417,8 @@ func (a *Adoption) planMovie(ctx context.Context, e *env, en entry, force int) (
 		for _, f := range files {
 			if !probe.DurationPlausible(f.info.Duration, runtime, probe.MovieFloor) {
 				row.Status, row.Ticked, row.Match = NeedsChoice, false, nil
-				row.Candidates = []Candidate{{TMDBID: tmdbID, Title: facts.name(), Year: facts.Year}}
+				// The name matched the Movie and only the runtime does not fit.
+				row.Candidates = []Candidate{{TMDBID: tmdbID, Title: facts.name(), Year: facts.Year, Suggested: true, Confident: true}}
 				return row, nil
 			}
 		}
@@ -518,14 +519,22 @@ func (a *Adoption) byName(ctx context.Context, en entry, files []probed) ([]Cand
 	if len(exact) == 1 {
 		return nil, exact[0].TMDBID, nil
 	}
-	var cands []Candidate
-	for _, r := range movies {
-		if len(cands) == maxCandidates {
-			break
-		}
-		cands = append(cands, Candidate{TMDBID: r.TMDBID, Title: r.Title, Year: r.Year})
+	if len(movies) == 0 {
+		return nil, 0, nil
 	}
-	return cands, 0, nil
+	fits := func(tmdbID int) bool {
+		d, err := a.d.Meta.Movie(ctx, tmdbID)
+		if err != nil {
+			return false
+		}
+		for _, f := range files {
+			if !probe.DurationPlausible(f.info.Duration, time.Duration(d.Runtime)*time.Minute, probe.MovieFloor) {
+				return false
+			}
+		}
+		return true
+	}
+	return suggest(rankResults(parsed.Titles, parsed.Year, movies), fits), 0, nil
 }
 
 var (

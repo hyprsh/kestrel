@@ -133,11 +133,15 @@ type Match struct {
 	Folder string `json:"folder"`
 }
 
-// Candidate is a likely Movie for a Needs choice row.
+// Candidate is a likely Movie for a Needs choice row. Candidates come best
+// first: the first is Suggested, and Confident when a selection may accept it
+// without a look (see adopt_rank.go).
 type Candidate struct {
-	TMDBID int    `json:"tmdb_id"`
-	Title  string `json:"title"`
-	Year   int    `json:"year"`
+	TMDBID    int    `json:"tmdb_id"`
+	Title     string `json:"title"`
+	Year      int    `json:"year"`
+	Suggested bool   `json:"suggested,omitempty"`
+	Confident bool   `json:"confident,omitempty"`
 }
 
 // PlanSub is a sidecar subtitle that moves with its video.

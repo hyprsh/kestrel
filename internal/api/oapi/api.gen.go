@@ -1367,11 +1367,20 @@ type AdoptionActivity struct {
 // AdoptionActivityState defines model for AdoptionActivity.State.
 type AdoptionActivityState string
 
-// AdoptionCandidate defines model for AdoptionCandidate.
+// AdoptionCandidate A likely match of a Needs choice row. Candidates come best first: Kestrel ranks them on title
+// similarity, year and runtime fit, and marks the first one it would pick `suggested`. The
+// suggestion is `confident` when its year is within one of the name's and its title is a
+// near-exact match (or a close one whose runtime fits the files), and no other candidate fits
+// about as well. A selection accepts only confident suggestions in bulk.
 type AdoptionCandidate struct {
-	Title  string `json:"title"`
-	TmdbId int    `json:"tmdb_id"`
-	Year   *int   `json:"year"`
+	// Confident The suggestion is safe to accept without a look. Only a suggested candidate can be.
+	Confident bool `json:"confident"`
+
+	// Suggested Kestrel's pick; at most one candidate of a row has it.
+	Suggested bool   `json:"suggested"`
+	Title     string `json:"title"`
+	TmdbId    int    `json:"tmdb_id"`
+	Year      *int   `json:"year"`
 }
 
 // AdoptionFile defines model for AdoptionFile.
