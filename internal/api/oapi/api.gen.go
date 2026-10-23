@@ -1540,6 +1540,7 @@ type AttentionRow struct {
 
 	// Kind What sort of condition, such as `download_client_unreachable`, `no_indexer`,
 	// `root_folder_unavailable`, `metadata_provider_failing`, `indexer_failing`,
+	// `media_server_unreachable`,
 	// `stalled_imports` (one row per stall reason),
 	// `low_disk_space`, `untrusted_proxy_header` or a one-off health warning (`exdev`,
 	// `refresh_failed`, `plex_no_section`). The set grows; clients tolerate unknown kinds.
@@ -2270,14 +2271,31 @@ type PluginInstance struct {
 
 	// FromConfigFile `true` for an instance the Config File declares. It can't be changed or removed here,
 	// and its name can't be given to another instance.
-	FromConfigFile bool   `json:"from_config_file"`
-	Id             int64  `json:"id"`
-	Name           string `json:"name"`
-	PluginId       string `json:"plugin_id"`
-	Priority       int    `json:"priority"`
+	FromConfigFile bool  `json:"from_config_file"`
+	Id             int64 `json:"id"`
+
+	// LastCheck The latest check of the instance, or call Kestrel made to it for its own work.
+	// `null` before the first. Enabled media servers are checked every 15 min.
+	LastCheck *PluginInstanceCheck `json:"last_check,omitempty"`
+	Name      string               `json:"name"`
+	PluginId  string               `json:"plugin_id"`
+	Priority  int                  `json:"priority"`
 
 	// SecretsSet Keys of the secret fields that have a value. The values are never returned.
 	SecretsSet []string `json:"secrets_set"`
+}
+
+// PluginInstanceCheck defines model for PluginInstanceCheck.
+type PluginInstanceCheck struct {
+	At time.Time `json:"at"`
+
+	// Code Why the call failed, `null` when it worked: `auth`, `unavailable`, `rate_limited`,
+	// `invalid` or `not_found`. Clients tolerate new values.
+	Code *string `json:"code"`
+
+	// Message The error's text, `null` when the call worked.
+	Message *string `json:"message"`
+	Ok      bool    `json:"ok"`
 }
 
 // PluginInstanceCreate defines model for PluginInstanceCreate.

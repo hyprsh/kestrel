@@ -133,11 +133,17 @@ func (s *server) runTest(ctx context.Context, pluginID string, instanceID int64,
 	ctx, cancel := context.WithTimeout(ctx, pluginCallTimeout)
 	defer cancel()
 	res, err := p.Test(ctx, conn)
+	if err != nil && ctx.Err() != nil && errors.Is(err, ctx.Err()) {
+		err = plugin.Errorf(plugin.CodeUnavailable, "the plugin did not answer in time")
+	}
+	if instanceID != 0 && len(edits) == 0 {
+		// A test of the saved connection is a check of it; one of edits is of the form.
+		if rerr := s.plugins.RecordCheck(context.WithoutCancel(ctx), instanceID, s.opts.Clock(), err); rerr != nil {
+			s.opts.Logger.Warn("recording a plugin instance check failed", "instance", instanceID, "err", rerr)
+		}
+	}
 	if err == nil {
 		return oapi.PluginTestResult{Ok: true, Message: res.Message}, nil
-	}
-	if ctx.Err() != nil && errors.Is(err, ctx.Err()) {
-		err = plugin.Errorf(plugin.CodeUnavailable, "the plugin did not answer in time")
 	}
 	pe := plugin.AsError(err)
 	code := string(pe.Code)
@@ -197,7 +203,8 @@ func pluginProblem(err error) error {
 func (s *server) instanceToAPI(i instances.Instance) oapi.PluginInstance {
 	cfg, set := s.plugins.Public(i)
 	return oapi.PluginInstance{
-		Id: i.ID, Contract: i.Contract, PluginId: i.PluginID, Name: i.Name,
+		LastCheck: checkToAPI(i.LastCheck),
+		Id:        i.ID, Contract: i.Contract, PluginId: i.PluginID, Name: i.Name,
 		Enabled: i.Enabled, Priority: i.Priority, Config: cfg, SecretsSet: set, FromConfigFile: s.instanceDeclared(i),
 	}
 }
@@ -234,4 +241,15 @@ func manifestToAPI(m plugin.Manifest) oapi.PluginManifest {
 		}
 	}
 	return out
+}
+
+func checkToAPI(c *instances.Check) *oapi.PluginInstanceCheck {
+	if c == nil {
+		return nil
+	}
+	out := oapi.PluginInstanceCheck{At: c.At, Ok: c.OK}
+	if !c.OK {
+		out.Code, out.Message = &c.Code, &c.Message
+	}
+	return &out
 }
