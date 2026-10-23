@@ -5,6 +5,7 @@ import { api } from './client'
 import { ApiError } from './queries'
 import type { components } from './schema.gen'
 
+export type Adoption = components['schemas']['Adoption']
 export type AdoptionRow = components['schemas']['AdoptionRow']
 export type AdoptionFile = components['schemas']['AdoptionFile']
 export type AdoptionRowPatch = components['schemas']['AdoptionRowPatch']
@@ -52,6 +53,13 @@ export function useAdoptionRows(filter: AdoptionFilter, enabled: boolean) {
     },
   })
 }
+
+/** A plan exists: scanning, waiting for review or committing. */
+export const planWaiting = (state: components['schemas']['Adoption']['state'] | undefined) => state !== undefined && state !== 'idle'
+
+/** What the Settings button and the command menu say: a new scan replaces a stored plan, so a plan reads as one to review. */
+export const adoptionLabel = (state: components['schemas']['Adoption']['state'] | undefined) =>
+  planWaiting(state) ? 'Review the Adoption plan' : 'Scan for unmanaged files'
 
 function useAdoptionMutation<V, R = void>(run: (v: V) => Promise<R>) {
   const qc = useQueryClient()
