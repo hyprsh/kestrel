@@ -1,6 +1,7 @@
 import { Badge, Button, Fieldset, Note, Select, Toggle } from '@hyprsh/design'
 import { useState, type ReactNode } from 'react'
 import { ApiError, usePluginInstances, usePlugins, useSetInstanceEnabled, type PluginInstance, type PluginManifest } from '../api/queries'
+import { ago, useNow } from '../time'
 import { InstanceForm } from './InstanceForm'
 
 /**
@@ -129,6 +130,7 @@ function Row({ instance: i, manifest, showPriority, onEdit }: { instance: Plugin
           Edit
         </Button>
       </div>
+      {i.last_check && <LastCheck check={i.last_check} />}
       {!manifest && <Note size="small">{i.name} uses a plugin that is no longer built into Kestrel.</Note>}
       {toggle.isError && (
         <Note variant="error" size="small">
@@ -137,6 +139,13 @@ function Row({ instance: i, manifest, showPriority, onEdit }: { instance: Plugin
       )}
     </div>
   )
+}
+
+/** The latest check of the instance, under its row. It wraps rather than widens, so a long error fits a phone. */
+function LastCheck({ check }: { check: NonNullable<PluginInstance['last_check']> }) {
+  const when = ago(check.at, useNow())
+  const text = check.ok ? `Checked ${when}: OK` : `Check failed ${when}: ${check.message || check.code || 'unknown error'}`
+  return <div className={`label-12 min-w-0 break-words ${check.ok ? 'text-gray-900' : 'text-red-900'}`}>{text}</div>
 }
 
 function Meta({ children }: { children: ReactNode }) {

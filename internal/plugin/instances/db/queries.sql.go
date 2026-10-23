@@ -64,7 +64,7 @@ func (q *Queries) DeleteInstance(ctx context.Context, id int64) (int64, error) {
 }
 
 const getInstance = `-- name: GetInstance :one
-SELECT id, contract, plugin_id, name, enabled, priority, config, declared FROM plugin_instances WHERE id = ?
+SELECT id, contract, plugin_id, name, enabled, priority, config, declared, checked_at, check_ok, check_code, check_message FROM plugin_instances WHERE id = ?
 `
 
 func (q *Queries) GetInstance(ctx context.Context, id int64) (PluginInstance, error) {
@@ -79,6 +79,10 @@ func (q *Queries) GetInstance(ctx context.Context, id int64) (PluginInstance, er
 		&i.Priority,
 		&i.Config,
 		&i.Declared,
+		&i.CheckedAt,
+		&i.CheckOk,
+		&i.CheckCode,
+		&i.CheckMessage,
 	)
 	return i, err
 }
@@ -115,7 +119,7 @@ func (q *Queries) InsertInstance(ctx context.Context, arg InsertInstanceParams) 
 }
 
 const listEnabledInstances = `-- name: ListEnabledInstances :many
-SELECT id, contract, plugin_id, name, enabled, priority, config, declared FROM plugin_instances
+SELECT id, contract, plugin_id, name, enabled, priority, config, declared, checked_at, check_ok, check_code, check_message FROM plugin_instances
 WHERE contract = ? AND enabled = 1
 ORDER BY priority, id
 `
@@ -138,6 +142,10 @@ func (q *Queries) ListEnabledInstances(ctx context.Context, contract string) ([]
 			&i.Priority,
 			&i.Config,
 			&i.Declared,
+			&i.CheckedAt,
+			&i.CheckOk,
+			&i.CheckCode,
+			&i.CheckMessage,
 		); err != nil {
 			return nil, err
 		}
@@ -153,7 +161,7 @@ func (q *Queries) ListEnabledInstances(ctx context.Context, contract string) ([]
 }
 
 const listInstances = `-- name: ListInstances :many
-SELECT id, contract, plugin_id, name, enabled, priority, config, declared FROM plugin_instances
+SELECT id, contract, plugin_id, name, enabled, priority, config, declared, checked_at, check_ok, check_code, check_message FROM plugin_instances
 ORDER BY contract, priority, id
 `
 
@@ -175,6 +183,10 @@ func (q *Queries) ListInstances(ctx context.Context) ([]PluginInstance, error) {
 			&i.Priority,
 			&i.Config,
 			&i.Declared,
+			&i.CheckedAt,
+			&i.CheckOk,
+			&i.CheckCode,
+			&i.CheckMessage,
 		); err != nil {
 			return nil, err
 		}
@@ -187,6 +199,29 @@ func (q *Queries) ListInstances(ctx context.Context) ([]PluginInstance, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const recordCheck = `-- name: RecordCheck :exec
+UPDATE plugin_instances SET checked_at = ?, check_ok = ?, check_code = ?, check_message = ? WHERE id = ?
+`
+
+type RecordCheckParams struct {
+	CheckedAt    string
+	CheckOk      int64
+	CheckCode    string
+	CheckMessage string
+	ID           int64
+}
+
+func (q *Queries) RecordCheck(ctx context.Context, arg RecordCheckParams) error {
+	_, err := q.db.ExecContext(ctx, recordCheck,
+		arg.CheckedAt,
+		arg.CheckOk,
+		arg.CheckCode,
+		arg.CheckMessage,
+		arg.ID,
+	)
+	return err
 }
 
 const undeclareInstances = `-- name: UndeclareInstances :execrows

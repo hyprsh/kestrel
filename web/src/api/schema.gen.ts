@@ -2155,6 +2155,23 @@ export interface components {
             };
             /** @description Keys of the secret fields that have a value. The values are never returned. */
             secrets_set: string[];
+            /**
+             * @description The latest check of the instance, or call Kestrel made to it for its own work.
+             *     `null` before the first. Enabled media servers are checked every 15 min.
+             */
+            last_check?: components["schemas"]["PluginInstanceCheck"] | null;
+        };
+        PluginInstanceCheck: {
+            /** Format: date-time */
+            at: string;
+            ok: boolean;
+            /**
+             * @description Why the call failed, `null` when it worked: `auth`, `unavailable`, `rate_limited`,
+             *     `invalid` or `not_found`. Clients tolerate new values.
+             */
+            code: string | null;
+            /** @description The error's text, `null` when the call worked. */
+            message: string | null;
         };
         PluginInstanceList: {
             items: components["schemas"]["PluginInstance"][];
@@ -3053,6 +3070,7 @@ export interface components {
             /**
              * @description What sort of condition, such as `download_client_unreachable`, `no_indexer`,
              *     `root_folder_unavailable`, `metadata_provider_failing`, `indexer_failing`,
+             *     `media_server_unreachable`,
              *     `stalled_imports` (one row per stall reason),
              *     `low_disk_space`, `untrusted_proxy_header` or a one-off health warning (`exdev`,
              *     `refresh_failed`, `plex_no_section`). The set grows; clients tolerate unknown kinds.
@@ -3329,8 +3347,15 @@ export interface components {
              *     null when neither is known. Sweeps stop at 80 % of it; RSS, Grabs and manual searches go on.
              */
             search_max: number | null;
-            /** @description Downloads used today, when the indexer reports its download quota. */
+            /**
+             * @description Downloads used today: the indexer's own count when it reports its download quota, else Kestrel's
+             *     count of NZB Fetches when the instance has a `grabs_per_day`; null when neither is known.
+             */
             grab_used: number | null;
+            /**
+             * @description The daily download limit: the indexer's own `grabmax` when it reports one, else the instance's
+             *     `grabs_per_day`; null when neither is known.
+             */
             grab_max: number | null;
             /**
              * Format: date-time
@@ -3342,7 +3367,8 @@ export interface components {
             grabs_paused: boolean;
             /**
              * Format: date-time
-             * @description When the pause ends; null for a spent download quota, which ends when the indexer says so.
+             * @description When the pause ends: the next UTC midnight for a spent `grabs_per_day`. Null for a spent download
+             *     quota the indexer reports, which ends when the indexer says so.
              */
             grabs_paused_until: string | null;
         };

@@ -1540,6 +1540,7 @@ type AttentionRow struct {
 
 	// Kind What sort of condition, such as `download_client_unreachable`, `no_indexer`,
 	// `root_folder_unavailable`, `metadata_provider_failing`, `indexer_failing`,
+	// `media_server_unreachable`,
 	// `stalled_imports` (one row per stall reason),
 	// `low_disk_space`, `untrusted_proxy_header` or a one-off health warning (`exdev`,
 	// `refresh_failed`, `plex_no_section`). The set grows; clients tolerate unknown kinds.
@@ -1904,15 +1905,19 @@ type IndexerError struct {
 
 // IndexerStatus defines model for IndexerStatus.
 type IndexerStatus struct {
+	// GrabMax The daily download limit: the indexer's own `grabmax` when it reports one, else the instance's
+	// `grabs_per_day`; null when neither is known.
 	GrabMax *int `json:"grab_max"`
 
-	// GrabUsed Downloads used today, when the indexer reports its download quota.
+	// GrabUsed Downloads used today: the indexer's own count when it reports its download quota, else Kestrel's
+	// count of NZB Fetches when the instance has a `grabs_per_day`; null when neither is known.
 	GrabUsed *int `json:"grab_used"`
 
 	// GrabsPaused Grabs are paused (code 501, a bare 429 or a spent download quota). Not a failure.
 	GrabsPaused bool `json:"grabs_paused"`
 
-	// GrabsPausedUntil When the pause ends; null for a spent download quota, which ends when the indexer says so.
+	// GrabsPausedUntil When the pause ends: the next UTC midnight for a spent `grabs_per_day`. Null for a spent download
+	// quota the indexer reports, which ends when the indexer says so.
 	GrabsPausedUntil *time.Time `json:"grabs_paused_until"`
 	InstanceId       int64      `json:"instance_id"`
 	Message          *string    `json:"message"`
@@ -2276,14 +2281,31 @@ type PluginInstance struct {
 	// FromConfigFile `true` for an instance the Config File declares. It can't be changed or removed here,
 	// and its name can't be given to another instance. Only `enabled` can be changed, and only
 	// while `enabled_declared` is `false`.
-	FromConfigFile bool   `json:"from_config_file"`
-	Id             int64  `json:"id"`
-	Name           string `json:"name"`
-	PluginId       string `json:"plugin_id"`
-	Priority       int    `json:"priority"`
+	FromConfigFile bool  `json:"from_config_file"`
+	Id             int64 `json:"id"`
+
+	// LastCheck The latest check of the instance, or call Kestrel made to it for its own work.
+	// `null` before the first. Enabled media servers are checked every 15 min.
+	LastCheck *PluginInstanceCheck `json:"last_check,omitempty"`
+	Name      string               `json:"name"`
+	PluginId  string               `json:"plugin_id"`
+	Priority  int                  `json:"priority"`
 
 	// SecretsSet Keys of the secret fields that have a value. The values are never returned.
 	SecretsSet []string `json:"secrets_set"`
+}
+
+// PluginInstanceCheck defines model for PluginInstanceCheck.
+type PluginInstanceCheck struct {
+	At time.Time `json:"at"`
+
+	// Code Why the call failed, `null` when it worked: `auth`, `unavailable`, `rate_limited`,
+	// `invalid` or `not_found`. Clients tolerate new values.
+	Code *string `json:"code"`
+
+	// Message The error's text, `null` when the call worked.
+	Message *string `json:"message"`
+	Ok      bool    `json:"ok"`
 }
 
 // PluginInstanceCreate defines model for PluginInstanceCreate.

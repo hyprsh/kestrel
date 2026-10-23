@@ -116,7 +116,7 @@ func TestManifestMatchesTheTicket(t *testing.T) {
 	}{
 		"url": {plugin.FieldURL, nil, true}, "api_key": {plugin.FieldSecret, nil, true},
 		"movie_categories": {plugin.FieldText, "2000", false}, "tv_categories": {plugin.FieldText, "5000", false},
-		"api_requests_per_day": {plugin.FieldInt, nil, false},
+		"api_requests_per_day": {plugin.FieldInt, nil, false}, "grabs_per_day": {plugin.FieldInt, nil, false},
 	}
 	if len(m.Fields) != len(want) {
 		t.Fatalf("fields %+v", m.Fields)

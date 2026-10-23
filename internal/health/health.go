@@ -55,6 +55,8 @@ const (
 	KindMetadata Kind = "metadata_provider_failing"
 	// KindIndexer: one indexer fails (Warning).
 	KindIndexer Kind = "indexer_failing"
+	// KindMediaServer: a media server fails its regular check (Warning).
+	KindMediaServer Kind = "media_server_unreachable"
 	// KindLowDisk: the data mount is nearly full (Warning).
 	KindLowDisk Kind = "low_disk_space"
 	// KindProxyHeader: the reverse-proxy user header came from an address that is not a trusted proxy (Warning).

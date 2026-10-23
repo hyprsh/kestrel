@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/hyprsh/kestrel/internal/plugin"
 	"github.com/hyprsh/kestrel/internal/plugin/instances/db"
@@ -52,6 +53,19 @@ type Instance struct {
 	Config   map[string]any
 	// Declared marks an instance the Config File declares (ADR 0014).
 	Declared bool
+	// LastCheck is the latest check or observed call, nil before the first.
+	LastCheck *Check
+}
+
+// Check is the outcome of one call to an instance: a periodic check, a test
+// from Settings or a call the app made for its own work.
+type Check struct {
+	At time.Time
+	OK bool
+	// Code and Message say what failed (a plugin error code and its text); both
+	// are empty when OK.
+	Code    string
+	Message string
 }
 
 // Connection is what a plugin call receives for this instance.
@@ -97,10 +111,25 @@ func fromRow(r db.PluginInstance) (Instance, error) {
 	if err := json.Unmarshal([]byte(r.Config), &cfg); err != nil || cfg == nil {
 		cfg = map[string]any{}
 	}
-	return Instance{
+	inst := Instance{
 		ID: r.ID, Contract: r.Contract, PluginID: r.PluginID, Name: r.Name,
 		Enabled: r.Enabled == 1, Priority: int(r.Priority), Config: cfg, Declared: r.Declared == 1,
-	}, nil
+	}
+	if at, err := time.Parse(time.RFC3339, r.CheckedAt); err == nil {
+		inst.LastCheck = &Check{At: at, OK: r.CheckOk == 1, Code: r.CheckCode, Message: r.CheckMessage}
+	}
+	return inst, nil
+}
+
+// RecordCheck stores the outcome of a call to an instance as its last check: err
+// nil is a good call. A call to an instance that is gone is ignored.
+func (s *Service) RecordCheck(ctx context.Context, id int64, at time.Time, err error) error {
+	p := db.RecordCheckParams{CheckedAt: at.UTC().Format(time.RFC3339), CheckOk: 1, ID: id}
+	if err != nil {
+		pe := plugin.AsError(err)
+		p.CheckOk, p.CheckCode, p.CheckMessage = 0, string(pe.Code), pe.Message
+	}
+	return db.New(s.st.Write()).RecordCheck(ctx, p)
 }
 
 // List returns every instance, ordered by contract, priority and id.

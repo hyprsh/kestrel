@@ -61,6 +61,8 @@ func (*Client) Describe() plugin.Manifest {
 				Help: "Comma-separated category IDs searched for Series. 5000 covers every TV sub-category."},
 			{Key: "api_requests_per_day", Label: "API requests per day", Type: plugin.FieldInt,
 				Help: "Leave empty for no limit. Kestrel stays under it by pausing searches."},
+			{Key: "grabs_per_day", Label: "Grabs per day", Type: plugin.FieldInt,
+				Help: "Leave empty for no limit. Kestrel stops grabbing from this indexer for the rest of the UTC day once it is reached."},
 		},
 	}
 }

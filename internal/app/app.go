@@ -161,10 +161,13 @@ func New(opts Options) *App {
 		posters = metadata.NewPosters(metadata.PostersOptions{ConfigDir: opts.ConfigDir, ImageBase: opts.TMDBImageURL})
 	}
 
-	indexerHost := indexers.New(pluginInstances, opts.Clock)
+	indexerHost := indexers.New(pluginInstances, st, opts.Clock)
 	downloadHost := downloads.New(pluginInstances)
-	healthSvc := health.New(healthDeps(opts, appSettings, roots, pluginInstances, downloadHost, hist))
-	watchHealth(healthSvc, downloadHost, indexerHost)
+	// The probes read meta and tvdb when they run, which is after the wrappers below
+	// replace them: a probe is a call like any other and reaches health through them.
+	probes := metadataProbes(keys, func() metadata.Provider { return meta }, func() metadata.TVDBProvider { return tvdb })
+	healthSvc := health.New(healthDeps(opts, appSettings, roots, pluginInstances, downloadHost, hist, probes))
+	watchHealth(healthSvc, downloadHost, indexerHost, pluginInstances, opts.Clock)
 	meta = observedMeta{Provider: meta, h: healthSvc}
 	tvdb = observedTVDB{TVDBProvider: tvdb, h: healthSvc}
 

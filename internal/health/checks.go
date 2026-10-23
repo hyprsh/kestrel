@@ -21,6 +21,17 @@ const (
 	// metadataGrace: a provider failing without an auth error is a Warning after this long.
 	metadataGrace = 24 * time.Hour
 
+	// mediaServerEvery: how often every enabled media server is tested.
+	mediaServerEvery = 15 * time.Minute
+	// mediaServerFailures: failed checks in a row before a server that is not
+	// refusing Kestrel's credentials is a row. Two checks is 30 min.
+	mediaServerFailures = 2
+	// metadataEvery: a provider without a real call for this long is probed.
+	metadataEvery = time.Hour
+	// dueSlack lets a timed check run on the loop tick that lands just before its
+	// interval is up, so the loop's jitter does not push it a whole tick later.
+	dueSlack = time.Minute
+
 	// Low disk space: under 5 % or under 50 GB free, whichever is larger.
 	lowDiskFraction = 0.05
 	lowDiskBytes    = 50 << 30
@@ -73,6 +84,13 @@ type ChecksDeps struct {
 	EnabledIndexers func(ctx context.Context) ([]Ref, error)
 	// Ping calls the download client once so the watch sees an idle outage too.
 	Ping func(ctx context.Context) error
+	// MediaServers lists the enabled media server instances.
+	MediaServers func(ctx context.Context) ([]Ref, error)
+	// TestMediaServer runs the plugin's Test on one media server; nil means it worked.
+	TestMediaServer func(ctx context.Context, ref Ref) *Failure
+	// MetadataProbes make one cheap call to each metadata provider, by name. A
+	// probe reports its outcome through ObserveMetadata, as a real call does.
+	MetadataProbes map[string]func(ctx context.Context) error
 }
 
 // Check inspects one condition and raises or clears its rows.
@@ -100,6 +118,8 @@ func (s *Service) addBuiltinChecks() {
 		{"indexers", own(s.checkIndexers)},
 		{"root folders", own(s.checkRootFolders)},
 		{"disk space", own(s.checkDisk)},
+		{"media servers", own(s.checkMediaServers)},
+		{"metadata providers", own(s.checkMetadata)},
 	}
 }
 
@@ -303,6 +323,94 @@ func (s *Service) checkIndexers(ctx context.Context) error {
 	return s.evaluateNoIndexer(ctx)
 }
 
+// due says whether a timed check last ran an interval ago, and if so marks it run now.
+func (s *Service) due(name string, every time.Duration) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := s.clock()
+	if last, ok := s.watches.lastRun[name]; ok && now.Sub(last) < every-dueSlack {
+		return false
+	}
+	s.watches.lastRun[name] = now
+	return true
+}
+
+// ---- media servers ----
+
+func mediaServerKey(id int64) string { return fmt.Sprintf("media_server:%d", id) }
+
+// ObserveMediaServer reports one check of a media server. Rejected credentials
+// make the Warning at once; other failures after two checks in a row, which is
+// 30 min. A good check clears it. Downloads and Imports go on without a media
+// server, so this is never Blocking.
+func (s *Service) ObserveMediaServer(ctx context.Context, ref Ref, f *Failure) {
+	s.mu.Lock()
+	ws := s.watches.mediaServers
+	w, had := ws[ref.ID]
+	if f == nil {
+		delete(ws, ref.ID)
+		s.mu.Unlock()
+		if had {
+			s.logErr(s.Clear(ctx, mediaServerKey(ref.ID)))
+		}
+		return
+	}
+	if !had {
+		w = &mediaServerWatch{}
+		ws[ref.ID] = w
+	}
+	w.failures++
+	msg := fmt.Sprintf("%s is unreachable: %s", ref.Name, f.Message)
+	if f.Auth {
+		msg = fmt.Sprintf("%s rejected Kestrel's credentials: %s", ref.Name, f.Message)
+	}
+	raise := (f.Auth || w.failures >= mediaServerFailures) && w.raised != msg
+	if raise {
+		w.raised = msg
+	}
+	s.mu.Unlock()
+	if raise {
+		s.logErr(s.Raise(ctx, Issue{
+			Key: mediaServerKey(ref.ID), Kind: KindMediaServer, Severity: Warning,
+			Subject: Subject{PluginInstanceID: ref.ID}, Message: msg,
+		}))
+	}
+}
+
+func (s *Service) checkMediaServers(ctx context.Context) error {
+	if s.deps.MediaServers == nil {
+		return nil
+	}
+	enabled, err := s.deps.MediaServers(ctx)
+	if err != nil {
+		return err
+	}
+	// A server that was deleted or disabled takes its failure with it.
+	keep := make([]string, 0, len(enabled))
+	live := map[int64]bool{}
+	for _, ref := range enabled {
+		keep = append(keep, mediaServerKey(ref.ID))
+		live[ref.ID] = true
+	}
+	s.mu.Lock()
+	for id := range s.watches.mediaServers {
+		if !live[id] {
+			delete(s.watches.mediaServers, id)
+		}
+	}
+	s.mu.Unlock()
+	if err := s.ClearExcept(ctx, KindMediaServer, keep...); err != nil {
+		return err
+	}
+	if s.deps.TestMediaServer == nil || len(enabled) == 0 || !s.due("media servers", mediaServerEvery) {
+		return nil
+	}
+	for _, ref := range enabled {
+		s.ObserveMediaServer(ctx, ref, s.deps.TestMediaServer(ctx, ref))
+	}
+	return nil
+}
+
 // ---- metadata providers ----
 
 func metadataKey(provider string) string { return "metadata:" + provider }
@@ -312,6 +420,7 @@ func metadataKey(provider string) string { return "metadata:" + provider }
 // once they have lasted a day. A good call clears the row.
 func (s *Service) ObserveMetadata(ctx context.Context, provider string, f *Failure) {
 	s.mu.Lock()
+	s.watches.metadataCall[provider] = s.clock()
 	w, had := s.watches.metadata[provider]
 	if f == nil {
 		delete(s.watches.metadata, provider)
@@ -337,6 +446,25 @@ func (s *Service) ObserveMetadata(ctx context.Context, provider string, f *Failu
 	if raise {
 		s.logErr(s.Raise(ctx, Issue{Key: metadataKey(provider), Kind: KindMetadata, Severity: sev, Message: msg}))
 	}
+}
+
+// checkMetadata makes one cheap call to each provider that had no call, real or
+// probed, in the last hour. The probe reports through ObserveMetadata, so the
+// row and its thresholds are the ones a real call gets.
+func (s *Service) checkMetadata(ctx context.Context) error {
+	for name, probe := range s.deps.MetadataProbes {
+		s.mu.Lock()
+		last, ok := s.watches.metadataCall[name]
+		skip := ok && s.clock().Sub(last) < metadataEvery-dueSlack
+		if !skip {
+			s.watches.metadataCall[name] = s.clock() // a probe that counts for nothing (rate limited) waits an hour too
+		}
+		s.mu.Unlock()
+		if !skip {
+			_ = probe(ctx)
+		}
+	}
+	return nil
 }
 
 // ---- Root folders ----
@@ -490,14 +618,27 @@ type indexerWatch struct {
 	raised  string
 }
 
+type mediaServerWatch struct {
+	failures int // failed checks in a row
+	raised   string
+}
+
 type watches struct {
 	downloadClient watch
 	indexers       map[int64]*indexerWatch
 	metadata       map[string]*watch
+	mediaServers   map[int64]*mediaServerWatch
+	// metadataCall is when each provider last had a call, real or probed.
+	metadataCall map[string]time.Time
+	// lastRun is when each timed check last ran.
+	lastRun map[string]time.Time
 }
 
 func newWatches() watches {
-	return watches{indexers: map[int64]*indexerWatch{}, metadata: map[string]*watch{}}
+	return watches{
+		indexers: map[int64]*indexerWatch{}, metadata: map[string]*watch{}, mediaServers: map[int64]*mediaServerWatch{},
+		metadataCall: map[string]time.Time{}, lastRun: map[string]time.Time{},
+	}
 }
 
 func (s *Service) logErr(err error) {
