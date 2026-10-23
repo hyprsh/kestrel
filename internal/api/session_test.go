@@ -33,7 +33,7 @@ func TestLoginSetsAnHttpOnlyLaxCookieScopedToTheBaseURL(t *testing.T) {
 func TestCookieIsSecureBehindATLSTerminatingProxy(t *testing.T) {
 	t.Parallel()
 	in := newInstance(t, "")
-	in.setUp()
+	trustForAddresses(t, in.setUp(), "127.0.0.1")
 	req, _ := http.NewRequest("POST", in.srv.URL+"/api/v1/auth/login", strings.NewReader(adminJSON))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Forwarded-Proto", "https")

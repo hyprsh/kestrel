@@ -12,6 +12,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/plugin"
 	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
+	mediaserver "github.com/hyprsh/kestrel/internal/plugin/mediaserver/v1"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 )
@@ -32,7 +33,7 @@ func failureOf(err error) *health.Failure {
 
 // healthDeps wires the health module to this instance's services. Everything
 // that raises a row on a timer or on observation hangs off here.
-func healthDeps(opts Options, appSettings *settings.Settings, roots *rootfolders.Service, plugins *instances.Service, dl *downloads.Service, hist *history.Service) health.Deps {
+func healthDeps(opts Options, appSettings *settings.Settings, roots *rootfolders.Service, plugins *instances.Service, dl *downloads.Service, hist *history.Service, probes map[string]func(context.Context) error) health.Deps {
 	return health.Deps{
 		Store: opts.Store, Clock: opts.Clock, History: hist, Logger: opts.Logger,
 		Checks: health.ChecksDeps{
@@ -58,23 +59,91 @@ func healthDeps(opts Options, appSettings *settings.Settings, roots *rootfolders
 				_, err := dl.Ping(ctx)
 				return err
 			},
+			MediaServers: func(ctx context.Context) ([]health.Ref, error) {
+				enabled, err := plugins.Enabled(ctx, mediaserver.Contract.ID)
+				refs := make([]health.Ref, len(enabled))
+				for i, e := range enabled {
+					refs[i] = health.Ref{ID: e.ID, Name: e.Name}
+				}
+				return refs, err
+			},
+			MetadataProbes: probes,
 		},
 	}
 }
 
+// testInstance runs the plugin's Test on a stored instance, which records the
+// outcome as the instance's last check, and returns what health watches of it.
+func testInstance(ctx context.Context, plugins *instances.Service, id int64) *health.Failure {
+	inst, err := plugins.Get(ctx, id)
+	if err != nil {
+		return nil // gone since the list was read; the next check retires its row
+	}
+	p, _, ok := plugins.Registry().Lookup(inst.PluginID)
+	if !ok {
+		return nil
+	}
+	_, err = plugins.Test(ctx, p, inst.Connection(), true)
+	return failureOf(err)
+}
+
 // watchHealth lets health hear how calls to the download client, the indexers
-// and the metadata providers go.
-func watchHealth(h *health.Service, dl *downloads.Service, ix *indexers.Service) {
+// and the metadata providers go, keeps each instance's last check, and tests
+// the media servers on their own interval.
+func watchHealth(h *health.Service, dl *downloads.Service, ix *indexers.Service, plugins *instances.Service) {
+	h.AddCheckEvery("media servers", health.MediaServerEvery, health.TestMediaServers(func(ctx context.Context, ref health.Ref) *health.Failure {
+		return testInstance(ctx, plugins, ref.ID)
+	}))
 	dl.SetObserver(func(ctx context.Context, id int64, name string, err error) {
+		plugins.Observe(ctx, id, err)
 		h.ObserveDownloadClient(ctx, health.Ref{ID: id, Name: name}, failureOf(err))
 	})
 	ix.SetObserver(func(ctx context.Context, id int64, name string, f *indexers.Failure) {
 		var hf *health.Failure
+		var err error
 		if f != nil {
 			hf = failure(f.Code, f.Message)
+			err = plugin.Errorf(f.Code, "%s", f.Message)
 		}
+		plugins.Observe(ctx, id, err)
 		h.ObserveIndexer(ctx, health.Ref{ID: id, Name: name}, hf)
 	})
+}
+
+// ---- probes ----
+
+// The metadata providers as health names them, for the probes and the observed calls alike.
+const (
+	providerTMDB = "TMDB"
+	providerTVDB = "TheTVDB"
+)
+
+// A probe is one cheap lookup of a title that has always existed. It goes
+// through the observed provider, so health hears the outcome as for any call.
+const (
+	probeTMDBMovie = 603   // The Matrix
+	probeTVDBShow  = 81189 // Breaking Bad
+)
+
+// metadataProbes makes a probe of each provider that has a key. A provider with
+// none is not in use, and a call would only raise a row for it.
+func metadataProbes(keys metadata.Keys, meta func() metadata.Provider, tvdb func() metadata.TVDBProvider) map[string]func(context.Context) error {
+	return map[string]func(context.Context) error{
+		providerTMDB: func(ctx context.Context) error {
+			if k, err := keys.TMDB(ctx); err != nil || k == "" {
+				return err
+			}
+			_, err := meta().Movie(ctx, probeTMDBMovie)
+			return err
+		},
+		providerTVDB: func(ctx context.Context) error {
+			if k, err := keys.TVDB(ctx); err != nil || k == "" {
+				return err
+			}
+			_, err := tvdb().Series(ctx, probeTVDBShow)
+			return err
+		},
+	}
 }
 
 // ---- metadata providers ----
@@ -100,25 +169,25 @@ type observedMeta struct {
 
 func (o observedMeta) Search(ctx context.Context, q string) ([]metadata.SearchResult, error) {
 	r, err := o.Provider.Search(ctx, q)
-	observe(ctx, o.h, "TMDB", err)
+	observe(ctx, o.h, providerTMDB, err)
 	return r, err
 }
 
 func (o observedMeta) Movie(ctx context.Context, id int) (metadata.MovieDetails, error) {
 	r, err := o.Provider.Movie(ctx, id)
-	observe(ctx, o.h, "TMDB", err)
+	observe(ctx, o.h, providerTMDB, err)
 	return r, err
 }
 
 func (o observedMeta) Series(ctx context.Context, id int) (metadata.SeriesDetails, error) {
 	r, err := o.Provider.Series(ctx, id)
-	observe(ctx, o.h, "TMDB", err)
+	observe(ctx, o.h, providerTMDB, err)
 	return r, err
 }
 
 func (o observedMeta) SeriesExternalIDs(ctx context.Context, id int) (metadata.ExternalIDs, error) {
 	r, err := o.Provider.SeriesExternalIDs(ctx, id)
-	observe(ctx, o.h, "TMDB", err)
+	observe(ctx, o.h, providerTMDB, err)
 	return r, err
 }
 
@@ -129,30 +198,30 @@ type observedTVDB struct {
 
 func (o observedTVDB) Series(ctx context.Context, id int) (metadata.TVDBSeries, error) {
 	r, err := o.TVDBProvider.Series(ctx, id)
-	observe(ctx, o.h, "TheTVDB", err)
+	observe(ctx, o.h, providerTVDB, err)
 	return r, err
 }
 
 func (o observedTVDB) EpisodeNames(ctx context.Context, id int, lang string) (map[int]string, error) {
 	r, err := o.TVDBProvider.EpisodeNames(ctx, id, lang)
-	observe(ctx, o.h, "TheTVDB", err)
+	observe(ctx, o.h, providerTVDB, err)
 	return r, err
 }
 
 func (o observedTVDB) SeriesByIMDb(ctx context.Context, imdbID string) (int, bool, error) {
 	id, ok, err := o.TVDBProvider.SeriesByIMDb(ctx, imdbID)
-	observe(ctx, o.h, "TheTVDB", err)
+	observe(ctx, o.h, providerTVDB, err)
 	return id, ok, err
 }
 
 func (o observedMeta) Changes(ctx context.Context, kind metadata.Kind, since time.Time) ([]int, error) {
 	r, err := o.Provider.Changes(ctx, kind, since)
-	observe(ctx, o.h, "TMDB", err)
+	observe(ctx, o.h, providerTMDB, err)
 	return r, err
 }
 
 func (o observedTVDB) Updates(ctx context.Context, since time.Time) ([]int, error) {
 	r, err := o.TVDBProvider.Updates(ctx, since)
-	observe(ctx, o.h, "TheTVDB", err)
+	observe(ctx, o.h, providerTVDB, err)
 	return r, err
 }

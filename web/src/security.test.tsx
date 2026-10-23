@@ -90,7 +90,7 @@ describe('Settings > Security', () => {
     const saved = fakeSecurity()
     await openSecurity()
 
-    await userEvent.click(await screen.findByRole('checkbox', { name: /trust a login header/i }))
+    await userEvent.click(await screen.findByRole('checkbox', { name: /log in from the header/i }))
     await userEvent.type(screen.getByLabelText('Trusted proxies'), '172.18.0.0/16{Enter}10.0.0.5')
     await userEvent.click(screen.getByRole('button', { name: 'Save reverse proxy' }))
 
@@ -102,7 +102,7 @@ describe('Settings > Security', () => {
     fakeSecurity({ proxy: { enabled: true, trusted_proxies: ['10.0.0.5'] }, proxyDeclared: true })
     await openSecurity()
 
-    expect(await screen.findByRole('checkbox', { name: /trust a login header/i })).toBeDisabled()
+    expect(await screen.findByRole('checkbox', { name: /log in from the header/i })).toBeDisabled()
     expect(screen.getByLabelText('Trusted proxies')).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Save reverse proxy' })).toBeDisabled()
     expect(screen.getByText(/Config File/)).toBeInTheDocument()

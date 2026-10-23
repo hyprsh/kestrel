@@ -3,6 +3,7 @@ import {
   ApiError,
   useDeletePluginInstance,
   useSavePluginInstance,
+  useSetInstanceEnabled,
   useTestPlugin,
   type PluginConfig,
   type PluginField,
@@ -76,16 +77,24 @@ export function InstanceForm({
   const [secrets, setSecrets] = useState<Record<string, string>>({})
   const test = useTestPlugin()
   const save = useSavePluginInstance()
+  const toggle = useSetInstanceEnabled()
   const remove = useDeletePluginInstance()
 
   // The Config File declares the instance: it can be tested but not changed here.
   const declared = !!instance?.from_config_file
+  // Unless the file leaves `enabled` out (ADR 0015): the form then saves that alone, as the row's switch does.
+  const enabledOnly = !!managed && declared && !instance?.enabled_declared
+  const saving = enabledOnly ? toggle : save
   const config = () => toConfig(manifest, values, secrets)
   const options: Record<string, PluginOption[]> = test.data?.result.ok ? test.data.options : {}
 
   const runTest = () => test.mutate({ manifest, config: config(), instance })
   const submit = (e: FormEvent) => {
     e.preventDefault()
+    if (enabledOnly && instance) {
+      toggle.mutate({ id: instance.id, enabled: meta.enabled }, { onSuccess: () => onSaved?.() })
+      return
+    }
     save.mutate(
       {
         pluginId: manifest.id,
@@ -106,6 +115,7 @@ export function InstanceForm({
   const setMetaField = (patch: Partial<Meta>) => {
     setMeta((m) => ({ ...m, ...patch }))
     save.reset()
+    toggle.reset()
   }
 
   const set = (key: string, value: string | boolean) => {
@@ -115,18 +125,18 @@ export function InstanceForm({
 
   return (
     <form onSubmit={submit} className="flex max-w-md flex-col gap-3" aria-label={label ?? `${manifest.name} settings`}>
+      {managed && (
+        <>
+          <Input size="small" label="Name" disabled={declared} value={meta.name} onChange={(e) => setMetaField({ name: e.target.value })} />
+          <div className="flex items-end gap-4">
+            <Input size="small" label="Priority" type="number" className="w-24" disabled={declared} value={meta.priority} onChange={(e) => setMetaField({ priority: e.target.value })} />
+            <Checkbox checked={meta.enabled} disabled={declared && !enabledOnly} onChange={(e) => setMetaField({ enabled: e.target.checked })}>
+              Enabled
+            </Checkbox>
+          </div>
+        </>
+      )}
       <fieldset disabled={declared} className="contents">
-        {managed && (
-          <>
-            <Input size="small" label="Name" value={meta.name} onChange={(e) => setMetaField({ name: e.target.value })} />
-            <div className="flex items-end gap-4">
-              <Input size="small" label="Priority" type="number" className="w-24" value={meta.priority} onChange={(e) => setMetaField({ priority: e.target.value })} />
-              <Checkbox checked={meta.enabled} onChange={(e) => setMetaField({ enabled: e.target.checked })}>
-                Enabled
-              </Checkbox>
-            </div>
-          </>
-        )}
         {manifest.fields.map((f) => (
           <Control
             key={f.key}
@@ -156,12 +166,12 @@ export function InstanceForm({
             {test.data.result.message}
           </Note>
         ))}
-      {save.isError && (
+      {saving.isError && (
         <Note variant="error" size="small">
-          {save.error instanceof ApiError ? save.error.message : 'Could not save. Try again.'}
+          {saving.error instanceof ApiError ? saving.error.message : 'Could not save. Try again.'}
         </Note>
       )}
-      {save.isSuccess && (
+      {saving.isSuccess && (
         <Note variant="success" size="small">
           Saved.
         </Note>
@@ -171,7 +181,7 @@ export function InstanceForm({
         <Button size="small" disabled={test.isPending} onClick={runTest}>
           Test connection
         </Button>
-        <Button size="small" variant="primary" typeName="submit" disabled={save.isPending || declared}>
+        <Button size="small" variant="primary" typeName="submit" disabled={saving.isPending || (declared && !enabledOnly)}>
           Save
         </Button>
         {onCancel && (
@@ -185,7 +195,7 @@ export function InstanceForm({
           </Button>
         )}
       </div>
-      {declared && <Note size="small">The Config File declares this instance, so it can be tested but not changed or removed here. Change the file and restart Kestrel instead.</Note>}
+      {declared && <Note size="small">The Config File declares this instance, so it can be tested but not changed or removed here{enabledOnly ? ', except for switching it on or off' : ''}. Change the file and restart Kestrel instead.</Note>}
     </form>
   )
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	idb "github.com/hyprsh/kestrel/internal/indexers/db"
 	"github.com/hyprsh/kestrel/internal/plugin"
 	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
@@ -17,17 +18,27 @@ import (
 //   - 500 (a plugin.Error with Limit "search") pauses searches, RSS included;
 //     501 (Limit "grab") pauses Grabs; a bare 429 pauses both. A pause lasts
 //     until the Retry-After the indexer gave, else an hour.
+//
 //   - An indexer that reports grabcurrent >= grabmax has its Grabs paused.
+//
 //   - A sweep (see WithSweep) stops at 80 % of the daily search budget: the
 //     indexer's own apilimits when it reports them, else the instance's
 //     api_requests_per_day. With neither, sweeps pace themselves to one
 //     request per 10 s. RSS, Grabs and manual searches ignore the 80 % rule.
+//
 //   - Any other error backs the indexer off, escalating with each failure in
 //     a row.
 //
-// State lives in memory: a restart forgets pauses (the indexer simply says so
-// again) and the local request count (the indexer's own report, when it gives
-// one, takes over at its next answer).
+//   - An instance's grabs_per_day (Grabs per day) caps the Grabs whose NZB the
+//     indexer handed over per UTC day. Kestrel counts them itself, in the
+//     indexer_grab_counts table, so the count survives a restart and a
+//     cancelled Grab still counts. At the limit Grabs pause until the next UTC
+//     midnight. A current reported grabmax decides on its own and the
+//     configured limit is ignored.
+//
+// Apart from that count, state lives in memory: a restart forgets pauses (the
+// indexer simply says so again) and the local request count (the indexer's
+// own report, when it gives one, takes over at its next answer).
 const (
 	// sweepShare is the share of the daily search budget a sweep may use, in percent.
 	sweepShare = 80
@@ -38,6 +49,10 @@ const (
 	// reportTTL is how long an indexer's reported quota is believed; RSS refreshes it every 15 min.
 	reportTTL = time.Hour
 )
+
+// GrabsPerDayKey is the indexer instance setting that caps its Grabs per UTC
+// day; blank or 0 means no cap.
+const GrabsPerDayKey = "grabs_per_day"
 
 // errorBackoff is how long an indexer is left alone after its n-th failure in
 // a row (Radarr's escalation).
@@ -103,6 +118,53 @@ func (st *state) budget(now time.Time, configured int) (used, max int) {
 func (st *state) grabQuotaSpent(now time.Time) bool {
 	l := st.reported
 	return l.Reported && l.GrabMax > 0 && l.GrabCurrent >= l.GrabMax && now.Sub(st.reportedAt) < reportTTL
+}
+
+// reportedGrabQuota says the indexer's own download quota is current and
+// decides on its own: the configured Grabs per day is then ignored.
+func (st *state) reportedGrabQuota(now time.Time) bool {
+	l := st.reported
+	return l.Reported && l.GrabMax > 0 && now.Sub(st.reportedAt) < reportTTL
+}
+
+// utcDay is the UTC day of t, counted from the Unix epoch.
+func utcDay(t time.Time) int64 { return t.UTC().Unix() / 86400 }
+
+// nextUTCMidnight is the start of the UTC day after t's.
+func nextUTCMidnight(t time.Time) time.Time { return time.Unix((utcDay(t)+1)*86400, 0).UTC() }
+
+// grabsToday is how many Grabs the indexer has handed an NZB for today (UTC).
+// A store that cannot answer counts as none, so a broken table never blocks
+// Grabs. It reads the store: call it without s.mu.
+func (s *Service) grabsToday(ctx context.Context, indexerID int64, now time.Time) int {
+	n, err := idb.New(s.st.Read()).GrabCount(ctx, idb.GrabCountParams{IndexerID: indexerID, Day: utcDay(now)})
+	if err != nil {
+		s.log.Warn("indexers: cannot read today's Grab count; the Grabs per day are not applied", "indexer_id", indexerID, "err", err)
+		return 0
+	}
+	return int(n)
+}
+
+// configuredGrabLimit is the Grabs per day in force for an indexer: its
+// grabs_per_day, or 0 when that is blank or a current download quota the
+// indexer reports decides instead. st is nil when nothing has been learned of
+// the indexer since the start.
+func configuredGrabLimit(st *state, grabsPerDay int, now time.Time) int {
+	if grabsPerDay <= 0 || (st != nil && st.reportedGrabQuota(now)) {
+		return 0
+	}
+	return grabsPerDay
+}
+
+// grabLimitSpent reads today's Grab count against limit, a configuredGrabLimit:
+// spent once the count has reached it, never when limit is 0. It reads the
+// store: call it without s.mu.
+func (s *Service) grabLimitSpent(ctx context.Context, indexerID int64, limit int, now time.Time) (count int, spent bool) {
+	if limit <= 0 {
+		return 0, false
+	}
+	count = s.grabsToday(ctx, indexerID, now)
+	return count, count >= limit
 }
 
 func pausedErr(limit string, until, now time.Time, msg string) *plugin.Error {
@@ -210,16 +272,25 @@ func (s *Service) CanSweep(ctx context.Context) bool {
 }
 
 // GrabsPaused reports whether the indexer's Grabs are paused now: by a 501 or
-// a bare 429 that has not run out, or by a spent download quota it reported.
+// a bare 429 that has not run out, by a spent download quota it reported, or,
+// when it reports none, by its configured Grabs per day being used up.
 func (s *Service) GrabsPaused(indexerID int64) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	st := s.states[indexerID]
-	if st == nil {
-		return false
+	ctx := context.Background()
+	grabsPerDay := 0
+	if inst, err := s.inst.Get(ctx, indexerID); err == nil {
+		grabsPerDay = inst.Connection().Int(GrabsPerDayKey)
 	}
+	s.mu.Lock()
 	now := s.clock()
-	return st.grabUntil.After(now) || st.grabQuotaSpent(now)
+	st := s.states[indexerID]
+	if st != nil && (st.grabUntil.After(now) || st.grabQuotaSpent(now)) {
+		s.mu.Unlock()
+		return true
+	}
+	limit := configuredGrabLimit(st, grabsPerDay, now)
+	s.mu.Unlock()
+	_, spent := s.grabLimitSpent(ctx, indexerID, limit, now)
+	return spent
 }
 
 // Status is an indexer's budget and pauses, for the health strip.
@@ -227,10 +298,12 @@ type Status struct {
 	// SearchUsed is the search requests made today and SearchMax the daily
 	// budget; SearchMax is 0 when there is none to know.
 	SearchUsed, SearchMax int
-	// GrabUsed and GrabMax are the indexer's own download quota, 0 when it reports none.
+	// GrabUsed and GrabMax are the indexer's own download quota or, when it
+	// reports none, the configured Grabs per day and today's count; 0 when neither.
 	GrabUsed, GrabMax int
 	// SearchPausedUntil and GrabsPausedUntil are zero when not paused. A spent
-	// download quota reports GrabsPaused with no end.
+	// download quota reported by the indexer reports GrabsPaused with no end; a
+	// spent configured limit ends at the next UTC midnight.
 	SearchPausedUntil, GrabsPausedUntil time.Time
 	GrabsPaused                         bool
 	// BackoffUntil is when an indexer that keeps failing is tried again; zero when it is not backing off.
@@ -240,18 +313,18 @@ type Status struct {
 	SweepsStopped bool
 }
 
-// Status reads the indexer's budget and pauses. configured is its
-// api_requests_per_day setting, 0 when blank.
-func (s *Service) Status(indexerID int64, configured int) Status {
+// Status reads the indexer's budget and pauses. apiRequestsPerDay and
+// grabsPerDay are its api_requests_per_day and grabs_per_day settings, 0 when
+// blank. Both apply before the indexer has been asked anything since the start.
+func (s *Service) Status(indexerID int64, apiRequestsPerDay, grabsPerDay int) Status {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	now := s.clock()
 	st := s.states[indexerID]
 	if st == nil {
-		return Status{SearchMax: configured}
+		st = &state{} // nothing learned yet; not kept, so the first contact starts afresh
 	}
-	now := s.clock()
 	var out Status
-	out.SearchUsed, out.SearchMax = st.budget(now, configured)
+	out.SearchUsed, out.SearchMax = st.budget(now, apiRequestsPerDay)
 	out.SweepsStopped = out.SearchMax > 0 && out.SearchUsed*100 >= out.SearchMax*sweepShare
 	if st.reported.Reported && now.Sub(st.reportedAt) < reportTTL {
 		out.GrabUsed, out.GrabMax = st.reported.GrabCurrent, st.reported.GrabMax
@@ -262,10 +335,21 @@ func (s *Service) Status(indexerID int64, configured int) Status {
 	if st.grabUntil.After(now) {
 		out.GrabsPausedUntil = st.grabUntil
 	}
-	out.GrabsPaused = !out.GrabsPausedUntil.IsZero() || st.grabQuotaSpent(now)
+	quotaSpent := st.grabQuotaSpent(now)
 	if st.backoffUntil.After(now) {
 		out.BackoffUntil = st.backoffUntil
 	}
+	limit := configuredGrabLimit(st, grabsPerDay, now)
+	s.mu.Unlock()
+
+	if limit > 0 {
+		count, spent := s.grabLimitSpent(context.Background(), indexerID, limit, now)
+		out.GrabUsed, out.GrabMax = count, limit
+		if spent && out.GrabsPausedUntil.IsZero() {
+			out.GrabsPausedUntil = nextUTCMidnight(now)
+		}
+	}
+	out.GrabsPaused = !out.GrabsPausedUntil.IsZero() || quotaSpent
 	return out
 }
 

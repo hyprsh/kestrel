@@ -82,3 +82,11 @@ sql:
         package: db
         out: internal/health/db
         emit_json_tags: false
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/indexers/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/indexers/db
+        emit_json_tags: false

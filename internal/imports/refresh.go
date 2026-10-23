@@ -62,11 +62,19 @@ type RefresherHealth interface {
 	Clear(ctx context.Context, key string) error
 }
 
+// RefresherChecks keeps each media server's last check: a refresh is an
+// observed call, so its outcome is the server's latest check.
+type RefresherChecks interface {
+	Observe(ctx context.Context, instanceID int64, err error)
+}
+
 // RefresherDeps are what NewRefresher needs.
 type RefresherDeps struct {
 	Servers MediaServers
 	// Health is optional; without it failures are only logged.
 	Health RefresherHealth
+	// Checks is optional; without it a refresh is not kept as a check.
+	Checks RefresherChecks
 	// Delay defaults to RefreshDelay.
 	Delay  time.Duration
 	Logger *slog.Logger
@@ -77,6 +85,7 @@ type RefresherDeps struct {
 type Refresher struct {
 	servers MediaServers
 	hl      RefresherHealth
+	checks  RefresherChecks
 	delay   time.Duration
 	log     *slog.Logger
 
@@ -101,7 +110,7 @@ func NewRefresher(d RefresherDeps) *Refresher {
 		d.Logger = slog.Default()
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Refresher{servers: d.Servers, hl: d.Health, delay: d.Delay, log: d.Logger, ctx: ctx, cancel: cancel, pending: map[string]*pendingRefresh{}}
+	return &Refresher{servers: d.Servers, hl: d.Health, checks: d.Checks, delay: d.Delay, log: d.Logger, ctx: ctx, cancel: cancel, pending: map[string]*pendingRefresh{}}
 }
 
 // FolderChanged records that a Title folder changed: after an Import or Upgrade,
@@ -187,6 +196,9 @@ func (r *Refresher) tell(ctx context.Context, s MediaServer, c mediaserver.Chang
 	err := s.Server.Refresh(ctx, s.Conn, []mediaserver.Change{c})
 	failKey := fmt.Sprintf("%s:%s", health.KindRefreshFailed, s.PluginID)
 	sectionKey := fmt.Sprintf("%s:%s", health.KindPlexNoSection, c.Path)
+	if r.checks != nil && ctx.Err() == nil {
+		r.checks.Observe(ctx, s.InstanceID, err)
+	}
 	var pe *plugin.Error
 	switch {
 	case err == nil:

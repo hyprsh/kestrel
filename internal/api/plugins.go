@@ -5,15 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
+	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/plugin"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
+	mediaserver "github.com/hyprsh/kestrel/internal/plugin/mediaserver/v1"
 )
-
-// pluginCallTimeout bounds one live call into a plugin (test, dropdown values).
-const pluginCallTimeout = 30 * time.Second
 
 func (s *server) ListPlugins(_ context.Context, _ oapi.ListPluginsRequestObject) (oapi.ListPluginsResponseObject, error) {
 	ms := s.plugins.Registry().Manifests()
@@ -67,10 +65,11 @@ func (s *server) UpdatePluginInstance(ctx context.Context, r oapi.UpdatePluginIn
 	if r.Body == nil {
 		return nil, invalid("body", "required", "a body is required")
 	}
-	if err := s.refuseDeclaredInstance(ctx, r.Id); err != nil {
+	b := r.Body
+	onlyEnabled := b.Enabled != nil && b.Name == nil && b.Priority == nil && b.Config == nil
+	if err := s.refuseDeclaredInstance(ctx, r.Id, onlyEnabled); err != nil {
 		return nil, err
 	}
-	b := r.Body
 	if b.Name != nil {
 		if err := s.refuseDeclaredName(*b.Name); err != nil {
 			return nil, err
@@ -88,7 +87,7 @@ func (s *server) UpdatePluginInstance(ctx context.Context, r oapi.UpdatePluginIn
 }
 
 func (s *server) DeletePluginInstance(ctx context.Context, r oapi.DeletePluginInstanceRequestObject) (oapi.DeletePluginInstanceResponseObject, error) {
-	if err := s.refuseDeclaredInstance(ctx, r.Id); err != nil {
+	if err := s.refuseDeclaredInstance(ctx, r.Id, false); err != nil {
 		return nil, err
 	}
 	if err := s.plugins.Delete(ctx, r.Id); err != nil {
@@ -130,14 +129,14 @@ func (s *server) runTest(ctx context.Context, pluginID string, instanceID int64,
 	if err != nil {
 		return oapi.PluginTestResult{}, pluginProblem(err)
 	}
-	ctx, cancel := context.WithTimeout(ctx, pluginCallTimeout)
-	defer cancel()
-	res, err := p.Test(ctx, conn)
+	// A test of the saved connection is a check of it; one of edits is of the form.
+	check := instanceID != 0 && len(edits) == 0
+	res, err := s.plugins.Test(ctx, p, conn, check)
+	if check && p.Describe().Contract == mediaserver.Contract.ID {
+		s.observeMediaServer(ctx, instanceID, err)
+	}
 	if err == nil {
 		return oapi.PluginTestResult{Ok: true, Message: res.Message}, nil
-	}
-	if ctx.Err() != nil && errors.Is(err, ctx.Err()) {
-		err = plugin.Errorf(plugin.CodeUnavailable, "the plugin did not answer in time")
 	}
 	pe := plugin.AsError(err)
 	code := string(pe.Code)
@@ -159,7 +158,7 @@ func (s *server) ListPluginOptions(ctx context.Context, r oapi.ListPluginOptions
 		}
 		return nil, pluginProblem(err)
 	}
-	ctx, cancel := context.WithTimeout(ctx, pluginCallTimeout)
+	ctx, cancel := context.WithTimeout(ctx, instances.CallTimeout)
 	defer cancel()
 	opts, err := p.ListOptions(ctx, conn, r.Field)
 	if err != nil {
@@ -197,19 +196,21 @@ func pluginProblem(err error) error {
 func (s *server) instanceToAPI(i instances.Instance) oapi.PluginInstance {
 	cfg, set := s.plugins.Public(i)
 	return oapi.PluginInstance{
-		Id: i.ID, Contract: i.Contract, PluginId: i.PluginID, Name: i.Name,
-		Enabled: i.Enabled, Priority: i.Priority, Config: cfg, SecretsSet: set, FromConfigFile: s.instanceDeclared(i),
+		LastCheck: checkToAPI(i.LastCheck),
+		Id:        i.ID, Contract: i.Contract, PluginId: i.PluginID, Name: i.Name,
+		Enabled: i.Enabled, Priority: i.Priority, Config: cfg, SecretsSet: set, FromConfigFile: s.instanceDeclared(i), EnabledDeclared: s.enabledDeclared(i),
 	}
 }
 
 // refuseDeclaredInstance answers 409 when the Config File declares the
-// instance, and 404 when there is none.
-func (s *server) refuseDeclaredInstance(ctx context.Context, id int64) error {
+// instance, and 404 when there is none. A change to only enabled (onlyEnabled)
+// goes through while the file leaves the instance's enabled out.
+func (s *server) refuseDeclaredInstance(ctx context.Context, id int64, onlyEnabled bool) error {
 	inst, err := s.plugins.Get(ctx, id)
 	if err != nil {
 		return pluginProblem(err)
 	}
-	if s.instanceDeclared(inst) {
+	if s.instanceDeclared(inst) && !(onlyEnabled && !s.enabledDeclared(inst)) {
 		return s.declaredConflict(fmt.Sprintf("the plugin instance %q", inst.Name), changeTheFile)
 	}
 	return nil
@@ -234,4 +235,31 @@ func manifestToAPI(m plugin.Manifest) oapi.PluginManifest {
 		}
 	}
 	return out
+}
+
+// observeMediaServer tells health how a Test of a media server's saved
+// connection went: it is a check like the scheduled one, so a good Test clears
+// the server's row at once.
+func (s *server) observeMediaServer(ctx context.Context, id int64, err error) {
+	inst, gerr := s.plugins.Get(ctx, id)
+	if gerr != nil {
+		return
+	}
+	var f *health.Failure
+	if err != nil {
+		pe := plugin.AsError(err)
+		f = &health.Failure{Auth: pe.Code == plugin.CodeAuth, Message: pe.Message}
+	}
+	s.health.ObserveMediaServer(context.WithoutCancel(ctx), health.Ref{ID: inst.ID, Name: inst.Name}, f)
+}
+
+func checkToAPI(c *instances.Check) *oapi.PluginInstanceCheck {
+	if c == nil {
+		return nil
+	}
+	out := oapi.PluginInstanceCheck{At: c.At, Ok: c.OK}
+	if !c.OK {
+		out.Code, out.Message = &c.Code, &c.Message
+	}
+	return &out
 }

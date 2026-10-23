@@ -64,6 +64,9 @@ var attentionActions = map[health.Kind]func(health.Row) []oapi.AttentionAction{
 	health.KindRefreshFailed: func(r health.Row) []oapi.AttentionAction {
 		return []oapi.AttentionAction{testInstance(r), openSettings("media-servers", "Open Media servers"), healthLog}
 	},
+	health.KindMediaServer: func(r health.Row) []oapi.AttentionAction {
+		return []oapi.AttentionAction{testInstance(r), openSettings("media-servers", "Open Media servers"), healthLog}
+	},
 	health.KindPlexNoSection: func(health.Row) []oapi.AttentionAction {
 		return []oapi.AttentionAction{openSettings("media-servers", "Open Media servers")}
 	},
@@ -96,15 +99,28 @@ func testInstance(r health.Row) oapi.AttentionAction {
 	}
 }
 
-// attentionRowOf builds a health row. declared reports whether the Config
-// File declares the row's plugin instance: an action that would change it is
-// left out, as the API refuses it.
-func attentionRowOf(r health.Row, declared bool) oapi.AttentionRow {
+// instanceLock is how much of a plugin instance the Config File holds.
+type instanceLock struct {
+	// declared: the file declares the instance, so the API refuses changes to it.
+	declared bool
+	// enabled: the file sets its enabled too. Without it, a change to enabled
+	// alone still goes through.
+	enabled bool
+}
+
+// refuses reports whether the API refuses action a on the locked instance id.
+func (l instanceLock) refuses(a oapi.AttentionAction, id int64) bool {
+	return l.declared && changesInstance(a, id) && (l.enabled || !onlyEnabled(a))
+}
+
+// attentionRowOf builds a health row. lock is what the Config File holds of
+// the row's plugin instance: an action the API would refuse is left out.
+func attentionRowOf(r health.Row, lock instanceLock) oapi.AttentionRow {
 	id := healthRowPrefix + strconv.FormatInt(r.ID, 10)
 	actions := []oapi.AttentionAction{}
 	if build := attentionActions[r.Kind]; build != nil {
 		for _, a := range build(r) {
-			if !declared || !changesInstance(a, r.Subject.PluginInstanceID) {
+			if !lock.refuses(a, r.Subject.PluginInstanceID) {
 				actions = append(actions, a)
 			}
 		}
@@ -127,6 +143,15 @@ func attentionRowOf(r health.Row, declared bool) oapi.AttentionRow {
 // changesInstance reports whether a writes to the plugin instance id.
 func changesInstance(a oapi.AttentionAction, id int64) bool {
 	return (a.Method == oapi.PATCH || a.Method == oapi.DELETE) && a.Path == fmt.Sprintf("/plugin-instances/%d", id)
+}
+
+// onlyEnabled reports whether a is a PATCH of enabled and nothing else.
+func onlyEnabled(a oapi.AttentionAction) bool {
+	if a.Method != oapi.PATCH || a.Body == nil || len(*a.Body) != 1 {
+		return false
+	}
+	_, ok := (*a.Body)["enabled"]
+	return ok
 }
 
 func idPtr(n int64) *int64 {
@@ -155,13 +180,13 @@ func (s *server) attentionRows(ctx context.Context) ([]oapi.AttentionRow, error)
 		}
 		return int(b.ID - a.ID)
 	})
-	declared, err := s.declaredInstanceIDs(ctx)
+	locks, err := s.instanceLocks(ctx)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]oapi.AttentionRow, len(rows))
 	for i, r := range rows {
-		out[i] = attentionRowOf(r, declared[r.Subject.PluginInstanceID])
+		out[i] = attentionRowOf(r, locks[r.Subject.PluginInstanceID])
 	}
 	stalled, err := s.stalledRows(ctx)
 	if err != nil {
@@ -181,10 +206,9 @@ func (s *server) attentionRows(ctx context.Context) ([]oapi.AttentionRow, error)
 	return out, nil
 }
 
-// declaredInstanceIDs holds the ids of the plugin instances the Config File
-// declares.
-func (s *server) declaredInstanceIDs(ctx context.Context) (map[int64]bool, error) {
-	out := map[int64]bool{}
+// instanceLocks holds what the Config File holds of each plugin instance, by id.
+func (s *server) instanceLocks(ctx context.Context) (map[int64]instanceLock, error) {
+	out := map[int64]instanceLock{}
 	if !s.declares(configfile.SectionPluginInstances) {
 		return out, nil
 	}
@@ -193,7 +217,7 @@ func (s *server) declaredInstanceIDs(ctx context.Context) (map[int64]bool, error
 		return nil, err
 	}
 	for _, i := range all {
-		out[i.ID] = s.instanceDeclared(i)
+		out[i.ID] = instanceLock{declared: s.instanceDeclared(i), enabled: s.enabledDeclared(i)}
 	}
 	return out, nil
 }

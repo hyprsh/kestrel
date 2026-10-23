@@ -136,6 +136,47 @@ func TestAFailingServerRaisesAWarningAndTheOthersAreStillTold(t *testing.T) {
 	}
 }
 
+// stubChecks keeps the last check observed of each instance: "" for a good one,
+// else the error's code.
+type stubChecks struct {
+	mu   sync.Mutex
+	last map[int64]string
+}
+
+func (c *stubChecks) Observe(_ context.Context, id int64, err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.last == nil {
+		c.last = map[int64]string{}
+	}
+	c.last[id] = ""
+	if err != nil {
+		c.last[id] = string(plugin.AsError(err).Code)
+	}
+}
+
+func TestEachRefreshIsTheServersLastCheck(t *testing.T) {
+	bad, good := fake.New("k"), fake.New("k")
+	bad.FailWith(plugin.Errorf(plugin.CodeUnavailable, "down"))
+	checks := &stubChecks{}
+	r := imports.NewRefresher(imports.RefresherDeps{
+		Servers: stubServers{fakeServer(bad, 1, "Jelly"), fakeServer(good, 2, "Silo")}, Checks: checks, Delay: time.Hour,
+	})
+	t.Cleanup(r.Close)
+
+	r.FolderChanged(context.Background(), "/x")
+	r.Flush(context.Background())
+
+	checks.mu.Lock()
+	defer checks.mu.Unlock()
+	if got, ok := checks.last[1]; !ok || got != "unavailable" {
+		t.Errorf("Jelly's last check = %q (%v), want unavailable", got, ok)
+	}
+	if got, ok := checks.last[2]; !ok || got != "" {
+		t.Errorf("Silo's last check = %q (%v), want a good one", got, ok)
+	}
+}
+
 func TestAFolderInNoPlexSectionRaisesPerFolder(t *testing.T) {
 	f := fake.New("k")
 	r, h := refresher(t, time.Hour, imports.MediaServer{InstanceID: 1, Name: "Plex", PluginID: "plex", Server: f, Conn: f.Conn(1)})

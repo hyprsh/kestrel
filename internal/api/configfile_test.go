@@ -311,3 +311,14 @@ func TestAShortDeclaredPasswordFailsStartupWithoutEchoingIt(t *testing.T) {
 		t.Errorf("setup = %s", s.Body)
 	}
 }
+
+func TestTheFileAcceptsTrustedProxiesWithHeaderLoginOff(t *testing.T) {
+	t.Parallel()
+	in := newInstance(t, "")
+	in.setUp()
+	in.mustDeclare("reverse_proxy:\n  enabled: false\n  trusted_proxies: [127.0.0.1]\n  header: Remote-User\n")
+	r := in.login().get("/settings/reverse-proxy")
+	if r.Status != 200 || !strings.Contains(r.Body, `"enabled":false`) || !strings.Contains(r.Body, `"trusted_proxies":["127.0.0.1"]`) {
+		t.Errorf("GET /settings/reverse-proxy = %d %s", r.Status, r.Body)
+	}
+}

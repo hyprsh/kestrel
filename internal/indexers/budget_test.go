@@ -47,7 +47,7 @@ func newBudgetRig(t *testing.T, cfg map[string]any) *budgetRig {
 		t.Fatal(err)
 	}
 	b := &budgetRig{r: r, f: f, clk: &clock{t: time.Date(2026, 3, 1, 10, 0, 0, 0, time.UTC)}, id: i.ID}
-	b.r.svc = indexers.New(r.inst, b.clk.now)
+	b.r.svc = indexers.New(r.inst, r.st, b.clk.now)
 	b.r.svc.SetSleep(func(_ context.Context, d time.Duration) error {
 		b.nap = append(b.nap, d)
 		b.clk.advance(d)
@@ -179,7 +179,7 @@ func TestSweepsStopAt80PercentOfTheDailyBudgetWhileRSSAndManualSearchRun(t *test
 	if b.r.svc.CanSweep(context.Background()) {
 		t.Error("CanSweep = true past 80 %")
 	}
-	if !b.r.svc.Status(b.id, 10).SweepsStopped {
+	if !b.r.svc.Status(b.id, 10, 0).SweepsStopped {
 		t.Error("Status does not say the sweeps stopped past 80 %")
 	}
 	if res := b.r.svc.RSS(context.Background()); len(res.Releases) == 0 {
@@ -196,7 +196,7 @@ func TestSweepsStopAt80PercentOfTheDailyBudgetWhileRSSAndManualSearchRun(t *test
 	if !b.r.svc.CanSweep(context.Background()) {
 		t.Error("CanSweep = false the next day")
 	}
-	if b.r.svc.Status(b.id, 10).SweepsStopped {
+	if b.r.svc.Status(b.id, 10, 0).SweepsStopped {
 		t.Error("Status says the sweeps are still stopped the next day")
 	}
 }
@@ -236,11 +236,11 @@ func TestErrorsBackOffEscalatinglyAndAConfigChangeLiftsIt(t *testing.T) {
 	if f := b.search(ctx).Failures; len(f) != 1 || f[0].Code != plugin.CodeAuth {
 		t.Fatalf("first failure = %+v", f)
 	}
-	if st := b.r.svc.Status(b.id, 0); st.BackoffUntil.After(b.clk.now()) {
+	if st := b.r.svc.Status(b.id, 0, 0); st.BackoffUntil.After(b.clk.now()) {
 		t.Errorf("the first failure retries at once: %+v", st)
 	}
 	b.search(ctx)
-	if st := b.r.svc.Status(b.id, 0); !st.BackoffUntil.Equal(b.clk.now().Add(time.Minute)) {
+	if st := b.r.svc.Status(b.id, 0, 0); !st.BackoffUntil.Equal(b.clk.now().Add(time.Minute)) {
 		t.Errorf("the second failure waits a minute: %+v", st)
 	}
 	if f := b.search(ctx).Failures; len(f) != 1 || f[0].Code != plugin.CodeAuth {
@@ -259,7 +259,7 @@ func TestStatusReportsPausesAndBudget(t *testing.T) {
 	b.search(context.Background())
 	b.f.Exhaust(plugin.LimitSearch, 10*time.Minute)
 	b.search(context.Background())
-	st := b.r.svc.Status(b.id, 100)
+	st := b.r.svc.Status(b.id, 100, 0)
 	if st.SearchUsed != 2 || st.SearchMax != 100 {
 		t.Errorf("budget = %+v", st)
 	}
@@ -268,5 +268,182 @@ func TestStatusReportsPausesAndBudget(t *testing.T) {
 	}
 	if !st.GrabsPausedUntil.IsZero() {
 		t.Errorf("GrabsPausedUntil = %v", st.GrabsPausedUntil)
+	}
+}
+
+// newGrabRig is a budgetRig with Grabs per day = limit, and one release to fetch.
+func newGrabRig(t *testing.T, limit int) (*budgetRig, indexers.Release) {
+	t.Helper()
+	b := newBudgetRig(t, map[string]any{"grabs_per_day": float64(limit)})
+	return b, b.search(context.Background()).Releases[0]
+}
+
+func (b *budgetRig) fetch(rel indexers.Release) error {
+	_, err := b.r.svc.Fetch(context.Background(), b.id, rel.DownloadURL)
+	return err
+}
+
+func nextMidnight(t time.Time) time.Time {
+	y, m, d := t.UTC().Date()
+	return time.Date(y, m, d+1, 0, 0, 0, 0, time.UTC)
+}
+
+func TestTheConfiguredGrabLimitRefusesTheNextFetchWithoutAskingThePlugin(t *testing.T) {
+	b, rel := newGrabRig(t, 2)
+	for i := range 2 {
+		if err := b.fetch(rel); err != nil {
+			t.Fatalf("fetch %d: %v", i+1, err)
+		}
+	}
+	if !b.r.svc.GrabsPaused(b.id) {
+		t.Error("GrabsPaused = false at the limit")
+	}
+	b.f.Exhaust(plugin.LimitGrab, time.Hour) // would answer 501 if asked
+	err := b.fetch(rel)
+	pe := plugin.AsError(err)
+	if pe.Code != plugin.CodeRateLimited || pe.Limit != plugin.LimitGrab {
+		t.Fatalf("third fetch = %v", err)
+	}
+	if want := nextMidnight(b.clk.now()).Sub(b.clk.now()); pe.RetryAfter != want {
+		t.Errorf("RetryAfter = %v, want %v", pe.RetryAfter, want)
+	}
+	// the refusal came from the host: the plugin's 501 pause was not taken
+	b.f.Replenish()
+	b.clk.advance(nextMidnight(b.clk.now()).Sub(b.clk.now()))
+	if err := b.fetch(rel); err != nil {
+		t.Errorf("first fetch after midnight: %v", err)
+	}
+}
+
+func TestAFetchThatErrorsDoesNotCountTowardsTheGrabLimit(t *testing.T) {
+	b, rel := newGrabRig(t, 1)
+	if err := b.fetch(indexers.Release{Release: indexer.Release{DownloadURL: "nope"}}); plugin.AsError(err).Code != plugin.CodeNotFound {
+		t.Fatalf("unknown release = %v", err)
+	}
+	if st := b.r.svc.Status(b.id, 0, 1); st.GrabUsed != 0 {
+		t.Errorf("GrabUsed after a failed fetch = %d", st.GrabUsed)
+	}
+	if err := b.fetch(rel); err != nil {
+		t.Errorf("fetch after the failed one: %v", err)
+	}
+}
+
+func TestTheGrabCountSurvivesARestart(t *testing.T) {
+	b, rel := newGrabRig(t, 2)
+	b.fetch(rel)
+	b.fetch(rel)
+	b.r.svc = indexers.New(b.r.inst, b.r.st, b.clk.now)
+	if plugin.AsError(b.fetch(rel)).Limit != plugin.LimitGrab {
+		t.Error("a new Service forgot the count")
+	}
+}
+
+func TestStatusShowsTheConfiguredGrabLimit(t *testing.T) {
+	b, rel := newGrabRig(t, 2)
+	b.fetch(rel)
+	st := b.r.svc.Status(b.id, 0, 2)
+	if st.GrabUsed != 1 || st.GrabMax != 2 || st.GrabsPaused || !st.GrabsPausedUntil.IsZero() {
+		t.Errorf("status below the limit = %+v", st)
+	}
+	b.fetch(rel)
+	st = b.r.svc.Status(b.id, 0, 2)
+	if st.GrabUsed != 2 || st.GrabMax != 2 || !st.GrabsPaused || !st.GrabsPausedUntil.Equal(nextMidnight(b.clk.now())) {
+		t.Errorf("status at the limit = %+v", st)
+	}
+}
+
+func TestChangingTheGrabLimitAppliesAtOnceAgainstTodaysCount(t *testing.T) {
+	b, rel := newGrabRig(t, 1)
+	b.fetch(rel)
+	if plugin.AsError(b.fetch(rel)).Limit != plugin.LimitGrab {
+		t.Fatal("not at the limit")
+	}
+	if _, err := b.r.inst.Update(context.Background(), b.id, instances.Patch{Config: map[string]any{"api_key": "k", "grabs_per_day": float64(2)}}); err != nil {
+		t.Fatal(err)
+	}
+	if b.r.svc.GrabsPaused(b.id) {
+		t.Error("still paused after raising the limit")
+	}
+	if err := b.fetch(rel); err != nil {
+		t.Errorf("fetch after raising the limit: %v", err)
+	}
+	if err := b.fetch(rel); plugin.AsError(err).Limit != plugin.LimitGrab {
+		t.Errorf("count was reset: %v", err)
+	}
+}
+
+func TestAReportedGrabQuotaBeatsTheConfiguredLimitInBothDirections(t *testing.T) {
+	b, rel := newGrabRig(t, 1)
+	ctx := context.Background()
+	b.f.Report(indexer.Limits{Reported: true, GrabCurrent: 3, GrabMax: 10})
+	b.search(ctx) // the report arrives
+	for i := range 3 {
+		if err := b.fetch(rel); err != nil {
+			t.Fatalf("fetch %d past the configured limit: %v", i+1, err)
+		}
+	}
+	if st := b.r.svc.Status(b.id, 0, 1); st.GrabUsed != 3 || st.GrabMax != 10 || st.GrabsPaused {
+		t.Errorf("status = %+v, want the reported 3 of 10", st)
+	}
+	b.f.Report(indexer.Limits{Reported: true, GrabCurrent: 10, GrabMax: 10})
+	b.search(ctx)
+	if plugin.AsError(b.fetch(rel)).Limit != plugin.LimitGrab || !b.r.svc.GrabsPaused(b.id) {
+		t.Error("a spent reported quota must pause Grabs below the configured limit")
+	}
+}
+
+func TestSearchesAndRSSGoOutWhileGrabsArePausedByTheConfiguredLimit(t *testing.T) {
+	b, rel := newGrabRig(t, 1)
+	b.fetch(rel)
+	if !b.r.svc.GrabsPaused(b.id) {
+		t.Fatal("not paused")
+	}
+	if res := b.search(context.Background()); len(res.Releases) != 1 || len(res.Failures) != 0 {
+		t.Errorf("search = %+v", res)
+	}
+	if res := b.r.svc.RSS(context.Background()); len(res.Releases) == 0 || len(res.Failures) != 0 {
+		t.Errorf("RSS = %+v", res)
+	}
+}
+
+func TestConcurrentFetchesAtLimitMinusOneLetExactlyOneThrough(t *testing.T) {
+	b, rel := newGrabRig(t, 3)
+	b.fetch(rel)
+	b.fetch(rel)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	ok := 0
+	for range 8 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if b.fetch(rel) == nil {
+				mu.Lock()
+				ok++
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	if ok != 1 {
+		t.Errorf("%d fetches got through the last slot", ok)
+	}
+}
+
+func TestAfterARestartStatusShowsTheSpentGrabLimitBeforeTheIndexerIsAsked(t *testing.T) {
+	b, rel := newGrabRig(t, 2)
+	b.fetch(rel)
+	b.fetch(rel)
+	b.r.svc = indexers.New(b.r.inst, b.r.st, b.clk.now)
+
+	st := b.r.svc.Status(b.id, 100, 2)
+	if st.GrabUsed != 2 || st.GrabMax != 2 || !st.GrabsPaused || !st.GrabsPausedUntil.Equal(nextMidnight(b.clk.now())) {
+		t.Errorf("status after a restart = %+v", st)
+	}
+	if st.SearchMax != 100 {
+		t.Errorf("SearchMax = %d, want the configured 100", st.SearchMax)
+	}
+	if !b.r.svc.GrabsPaused(b.id) {
+		t.Error("GrabsPaused = false after a restart at the limit")
 	}
 }

@@ -15,11 +15,12 @@ import (
 
 // Declared is one plugin instance as the Config File declares it (ADR 0014).
 // Config holds the values the file gives, secrets resolved; the manifest's
-// defaults fill the rest, as on Create.
+// defaults fill the rest, as on Create. A nil Enabled is one the file leaves
+// out: a stored instance keeps its value and a new one starts enabled (ADR 0015).
 type Declared struct {
 	Name     string
 	PluginID string
-	Enabled  bool
+	Enabled  *bool
 	Priority int
 	Config   map[string]any
 }
@@ -41,6 +42,8 @@ type step struct {
 	want     Instance
 	cur      *Instance // nil: create it
 	contract plugin.Contract
+	// enabledDeclared: the file sets enabled; else want.Enabled is the stored value.
+	enabledDeclared bool
 }
 
 // plan is what Declare does: delete the declared instances that left the
@@ -156,7 +159,7 @@ func (s *Service) plan(ctx context.Context, q *db.Queries, want []Declared) (pla
 		if probs := configProblems(m, cfg); len(probs) > 0 {
 			return reject(probs[0].Field, "%s", probs[0].Message)
 		}
-		inst := Instance{Contract: contract.ID, PluginID: m.ID, Name: name, Enabled: w.Enabled, Priority: w.Priority, Config: cfg, Declared: true}
+		inst := Instance{Contract: contract.ID, PluginID: m.ID, Name: name, Priority: w.Priority, Config: cfg, Declared: true}
 
 		var cur *Instance
 		var named []*Instance // undeclared rows with the name
@@ -179,11 +182,19 @@ func (s *Service) plan(ctx context.Context, q *db.Queries, want []Declared) (pla
 			}
 			cur = named[0]
 		}
+		switch {
+		case w.Enabled != nil:
+			inst.Enabled = *w.Enabled
+		case cur != nil:
+			inst.Enabled = cur.Enabled
+		default:
+			inst.Enabled = true
+		}
 		if cur != nil {
 			inst.ID = cur.ID
 			kept[cur.ID] = true
 		}
-		p.steps = append(p.steps, step{want: inst, cur: cur, contract: contract})
+		p.steps = append(p.steps, step{want: inst, cur: cur, contract: contract, enabledDeclared: w.Enabled != nil})
 	}
 	for _, r := range stored {
 		if r.Declared && !kept[r.ID] {
@@ -204,7 +215,11 @@ func (s *Service) capCheckDeclared(p plan, stored []Instance, kept map[int64]boo
 		var declared, ui []string
 		for _, o := range p.steps {
 			if o.contract.ID == c.ID && o.want.Enabled {
-				declared = append(declared, fmt.Sprintf("%q", o.want.Name))
+				where := "by the file"
+				if !o.enabledDeclared {
+					where = "in the UI, as the file leaves its enabled out"
+				}
+				declared = append(declared, fmt.Sprintf("%q (%s)", o.want.Name, where))
 			}
 		}
 		for _, r := range stored {
@@ -214,7 +229,7 @@ func (s *Service) capCheckDeclared(p plan, stored []Instance, kept map[int64]boo
 		}
 		if len(declared) > c.MaxEnabled {
 			return &DeclaredError{Instance: st.want.Name, Field: "enabled", Message: fmt.Sprintf(
-				"only %d %s instance can be enabled at a time, and the file enables %s", c.MaxEnabled, c.ID, strings.Join(declared, ", "))}
+				"only %d %s instance can be enabled at a time, and these declared ones are enabled: %s", c.MaxEnabled, c.ID, strings.Join(declared, ", "))}
 		}
 		if len(declared)+len(ui) > c.MaxEnabled {
 			return &DeclaredError{Instance: st.want.Name, Field: "enabled", Message: fmt.Sprintf(

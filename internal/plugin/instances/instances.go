@@ -12,7 +12,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/hyprsh/kestrel/internal/plugin"
 	"github.com/hyprsh/kestrel/internal/plugin/instances/db"
@@ -52,6 +54,19 @@ type Instance struct {
 	Config   map[string]any
 	// Declared marks an instance the Config File declares (ADR 0014).
 	Declared bool
+	// LastCheck is the latest check or observed call, nil before the first.
+	LastCheck *Check
+}
+
+// Check is the outcome of one call to an instance: a periodic check, a test
+// from Settings or a call the app made for its own work.
+type Check struct {
+	At time.Time
+	OK bool
+	// Code and Message say what failed (a plugin error code and its text); both
+	// are empty when OK.
+	Code    string
+	Message string
 }
 
 // Connection is what a plugin call receives for this instance.
@@ -82,11 +97,29 @@ type Patch struct {
 type Service struct {
 	st  *store.Store
 	reg *plugin.Registry
+	// clock stamps the checks Observe and Test record; log reports one that
+	// cannot be stored.
+	clock func() time.Time
+	log   *slog.Logger
 }
 
 // NewService returns a Service over st for the plugins in reg.
 func NewService(st *store.Store, reg *plugin.Registry) *Service {
-	return &Service{st: st, reg: reg}
+	return &Service{st: st, reg: reg, clock: time.Now, log: slog.Default()}
+}
+
+// SetClock sets what stamps the checks Observe and Test record; nil keeps time.Now.
+func (s *Service) SetClock(clock func() time.Time) {
+	if clock != nil {
+		s.clock = clock
+	}
+}
+
+// SetLogger sets where a check that cannot be stored is logged; nil keeps slog.Default.
+func (s *Service) SetLogger(l *slog.Logger) {
+	if l != nil {
+		s.log = l
+	}
 }
 
 // Registry returns the plugins this service validates against.
@@ -97,10 +130,53 @@ func fromRow(r db.PluginInstance) (Instance, error) {
 	if err := json.Unmarshal([]byte(r.Config), &cfg); err != nil || cfg == nil {
 		cfg = map[string]any{}
 	}
-	return Instance{
+	inst := Instance{
 		ID: r.ID, Contract: r.Contract, PluginID: r.PluginID, Name: r.Name,
 		Enabled: r.Enabled == 1, Priority: int(r.Priority), Config: cfg, Declared: r.Declared == 1,
-	}, nil
+	}
+	if at, err := time.Parse(time.RFC3339, r.CheckedAt); err == nil {
+		inst.LastCheck = &Check{At: at, OK: r.CheckOk == 1, Code: r.CheckCode, Message: r.CheckMessage}
+	}
+	return inst, nil
+}
+
+// RecordCheck stores the outcome of a call to an instance as its last check: err
+// nil is a good call. A call to an instance that is gone is ignored.
+func (s *Service) RecordCheck(ctx context.Context, id int64, at time.Time, err error) error {
+	p := db.RecordCheckParams{CheckedAt: at.UTC().Format(time.RFC3339), CheckOk: 1, ID: id}
+	if err != nil {
+		pe := plugin.AsError(err)
+		p.CheckOk, p.CheckCode, p.CheckMessage = 0, string(pe.Code), pe.Message
+	}
+	return db.New(s.st.Write()).RecordCheck(ctx, p)
+}
+
+// Observe records the outcome of a call to an instance as its last check, now.
+// A check that cannot be stored is logged: it is not worth failing the call for.
+func (s *Service) Observe(ctx context.Context, id int64, err error) {
+	if rerr := s.RecordCheck(context.WithoutCancel(ctx), id, s.clock(), err); rerr != nil {
+		s.log.Warn("recording a plugin instance check failed", "instance", id, "err", rerr)
+	}
+}
+
+// CallTimeout bounds one live call into a plugin: a Test, or a dropdown's values.
+const CallTimeout = 30 * time.Second
+
+// Test runs the plugin's live Test on conn, bounded by CallTimeout; a plugin
+// that does not answer in time is unavailable. A Test of a stored instance's
+// saved connection (check set) is a check of it, and Observe records it; a Test
+// of edits on a form is not.
+func (s *Service) Test(ctx context.Context, p plugin.Plugin, conn plugin.Connection, check bool) (plugin.TestResult, error) {
+	tctx, cancel := context.WithTimeout(ctx, CallTimeout)
+	defer cancel()
+	res, err := p.Test(tctx, conn)
+	if err != nil && tctx.Err() != nil && errors.Is(err, tctx.Err()) {
+		err = plugin.Errorf(plugin.CodeUnavailable, "the plugin did not answer in time")
+	}
+	if check {
+		s.Observe(ctx, conn.ID, err)
+	}
+	return res, err
 }
 
 // List returns every instance, ordered by contract, priority and id.

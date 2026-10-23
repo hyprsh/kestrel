@@ -31,6 +31,8 @@ const stored: Instance = {
   config: { url: 'http://jellyfin:8096' },
   secrets_set: ['api_key'],
   from_config_file: false,
+  enabled_declared: false,
+  last_check: null,
 }
 
 describe('Settings media servers', () => {
@@ -45,7 +47,7 @@ describe('Settings media servers', () => {
   }
 
   it('lists the media servers as rows and opens the form only for Edit or Add', async () => {
-    const section = await open([stored, { ...stored, id: 8, name: 'Den', enabled: false, from_config_file: true }])
+    const section = await open([stored, { ...stored, id: 8, name: 'Den', enabled: false, from_config_file: true, enabled_declared: true }])
     const rows = await section.findAllByRole('listitem')
     expect(rows.map((r) => r.textContent)).toEqual([expect.stringMatching(/^Living roomJellyfinEdit$/), expect.stringMatching(/^DenJellyfinDeclaredEdit$/)])
     expect(section.getByLabelText('Living room enabled')).toBeChecked()

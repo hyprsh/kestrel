@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -20,6 +21,17 @@ const (
 	indexerGrace = 6 * time.Hour
 	// metadataGrace: a provider failing without an auth error is a Warning after this long.
 	metadataGrace = 24 * time.Hour
+
+	// MediaServerEvery: how often every enabled media server is tested (see TestMediaServers).
+	MediaServerEvery = 15 * time.Minute
+	// mediaServerFailures: failed checks in a row before a server that is not
+	// refusing Kestrel's credentials is a row. Two checks is 30 min.
+	mediaServerFailures = 2
+	// metadataEvery: a provider without a real call for this long is probed.
+	metadataEvery = time.Hour
+	// dueSlack lets a timed check run on the loop tick that lands just before its
+	// interval is up, so the loop's jitter does not push it a whole tick later.
+	dueSlack = time.Minute
 
 	// Low disk space: under 5 % or under 50 GB free, whichever is larger.
 	lowDiskFraction = 0.05
@@ -73,6 +85,11 @@ type ChecksDeps struct {
 	EnabledIndexers func(ctx context.Context) ([]Ref, error)
 	// Ping calls the download client once so the watch sees an idle outage too.
 	Ping func(ctx context.Context) error
+	// MediaServers lists the enabled media server instances.
+	MediaServers func(ctx context.Context) ([]Ref, error)
+	// MetadataProbes make one cheap call to each metadata provider, by name. A
+	// probe reports its outcome through ObserveMetadata, as a real call does.
+	MetadataProbes map[string]func(ctx context.Context) error
 }
 
 // Check inspects one condition and raises or clears its rows.
@@ -81,14 +98,21 @@ type Check func(ctx context.Context, h *Service) error
 type namedCheck struct {
 	name string
 	run  Check
+	// every is the check's own interval; 0 runs it on every RunChecks.
+	every time.Duration
 }
 
 // AddCheck registers a check for RunChecks: the way a module that owns a
 // condition (the api's proxy header table) keeps its rows current every 5 min.
-func (s *Service) AddCheck(name string, c Check) {
+func (s *Service) AddCheck(name string, c Check) { s.AddCheckEvery(name, 0, c) }
+
+// AddCheckEvery is AddCheck for a check with its own interval, longer than
+// the health loop's: RunChecks runs it only once every has passed since its
+// last run. Its name must be unique, as it keys the last run.
+func (s *Service) AddCheckEvery(name string, every time.Duration, c Check) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.checks = append(s.checks, namedCheck{name, c})
+	s.checks = append(s.checks, namedCheck{name: name, run: c, every: every})
 }
 
 func (s *Service) addBuiltinChecks() {
@@ -96,10 +120,12 @@ func (s *Service) addBuiltinChecks() {
 		return func(ctx context.Context, _ *Service) error { return f(ctx) }
 	}
 	s.checks = []namedCheck{
-		{"download client", own(s.checkDownloadClient)},
-		{"indexers", own(s.checkIndexers)},
-		{"root folders", own(s.checkRootFolders)},
-		{"disk space", own(s.checkDisk)},
+		{name: "download client", run: own(s.checkDownloadClient)},
+		{name: "indexers", run: own(s.checkIndexers)},
+		{name: "root folders", run: own(s.checkRootFolders)},
+		{name: "disk space", run: own(s.checkDisk)},
+		{name: "media server rows", run: own(s.retireMediaServers)},
+		{name: "metadata providers", run: own(s.checkMetadata)},
 	}
 }
 
@@ -111,6 +137,9 @@ func (s *Service) RunChecks(ctx context.Context) error {
 	s.mu.Unlock()
 	var errs []error
 	for _, c := range checks {
+		if c.every > 0 && !s.due(c.name, c.every) {
+			continue
+		}
 		if err := c.run(ctx, s); err != nil {
 			errs = append(errs, fmt.Errorf("health check %s: %w", c.name, err))
 		}
@@ -142,10 +171,7 @@ func (s *Service) ObserveDownloadClient(ctx context.Context, ref Ref, f *Failure
 		w.since = s.clock()
 	}
 	w.auth, w.message = f.Auth, f.Message
-	msg := fmt.Sprintf("%s is unreachable: %s", ref.Name, f.Message)
-	if f.Auth {
-		msg = fmt.Sprintf("%s rejected Kestrel's credentials: %s", ref.Name, f.Message)
-	}
+	msg := failureMessage(ref.Name, f, "rejected Kestrel's credentials", "is unreachable")
 	raise := s.clock().Sub(w.since) >= downloadClientGrace && w.raised != msg
 	if raise {
 		w.raised = msg
@@ -224,10 +250,7 @@ func (s *Service) ObserveIndexer(ctx context.Context, ref Ref, f *Failure) {
 		ws[ref.ID] = w
 	}
 	w.auth, w.message = f.Auth, f.Message
-	msg := fmt.Sprintf("%s keeps failing: %s", ref.Name, f.Message)
-	if f.Auth {
-		msg = fmt.Sprintf("%s rejected its credentials: %s", ref.Name, f.Message)
-	}
+	msg := failureMessage(ref.Name, f, "rejected its credentials", "keeps failing")
 	raise := (f.Auth || s.clock().Sub(w.since) >= indexerGrace) && w.raised != msg
 	if raise {
 		w.raised = msg
@@ -303,6 +326,103 @@ func (s *Service) checkIndexers(ctx context.Context) error {
 	return s.evaluateNoIndexer(ctx)
 }
 
+// due says whether a timed check last ran an interval ago, and if so marks it run now.
+func (s *Service) due(name string, every time.Duration) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := s.clock()
+	if last, ok := s.watches.lastRun[name]; ok && now.Sub(last) < every-dueSlack {
+		return false
+	}
+	s.watches.lastRun[name] = now
+	return true
+}
+
+// ---- media servers ----
+
+func mediaServerKey(id int64) string { return fmt.Sprintf("media_server:%d", id) }
+
+// ObserveMediaServer reports one check of a media server. Rejected credentials
+// make the Warning at once; other failures after two checks in a row, which is
+// 30 min. A good check clears it. Downloads and Imports go on without a media
+// server, so this is never Blocking.
+func (s *Service) ObserveMediaServer(ctx context.Context, ref Ref, f *Failure) {
+	s.mu.Lock()
+	ws := s.watches.mediaServers
+	w, had := ws[ref.ID]
+	if f == nil {
+		delete(ws, ref.ID)
+		s.mu.Unlock()
+		if had {
+			s.logErr(s.Clear(ctx, mediaServerKey(ref.ID)))
+		}
+		return
+	}
+	if !had {
+		w = &mediaServerWatch{}
+		ws[ref.ID] = w
+	}
+	w.failures++
+	msg := failureMessage(ref.Name, f, "rejected Kestrel's credentials", "is unreachable")
+	raise := (f.Auth || w.failures >= mediaServerFailures) && w.raised != msg
+	if raise {
+		w.raised = msg
+	}
+	s.mu.Unlock()
+	if raise {
+		s.logErr(s.Raise(ctx, Issue{
+			Key: mediaServerKey(ref.ID), Kind: KindMediaServer, Severity: Warning,
+			Subject: Subject{PluginInstanceID: ref.ID}, Message: msg,
+		}))
+	}
+}
+
+// retireMediaServers drops the row and watch of a media server that was
+// deleted or disabled. It runs every loop, so the row goes at once, not at the
+// next test.
+func (s *Service) retireMediaServers(ctx context.Context) error {
+	if s.deps.MediaServers == nil {
+		return nil
+	}
+	enabled, err := s.deps.MediaServers(ctx)
+	if err != nil {
+		return err
+	}
+	keep := make([]string, 0, len(enabled))
+	live := map[int64]bool{}
+	for _, ref := range enabled {
+		keep = append(keep, mediaServerKey(ref.ID))
+		live[ref.ID] = true
+	}
+	s.mu.Lock()
+	for id := range s.watches.mediaServers {
+		if !live[id] {
+			delete(s.watches.mediaServers, id)
+		}
+	}
+	s.mu.Unlock()
+	return s.ClearExcept(ctx, KindMediaServer, keep...)
+}
+
+// TestMediaServers is the check that runs test on every enabled media server
+// and reports each outcome through ObserveMediaServer; nil means it worked.
+// Register it with AddCheckEvery and MediaServerEvery.
+func TestMediaServers(test func(ctx context.Context, ref Ref) *Failure) Check {
+	return func(ctx context.Context, h *Service) error {
+		if h.deps.MediaServers == nil {
+			return nil
+		}
+		enabled, err := h.deps.MediaServers(ctx)
+		if err != nil {
+			return err
+		}
+		for _, ref := range enabled {
+			h.ObserveMediaServer(ctx, ref, test(ctx, ref))
+		}
+		return nil
+	}
+}
+
 // ---- metadata providers ----
 
 func metadataKey(provider string) string { return "metadata:" + provider }
@@ -312,6 +432,7 @@ func metadataKey(provider string) string { return "metadata:" + provider }
 // once they have lasted a day. A good call clears the row.
 func (s *Service) ObserveMetadata(ctx context.Context, provider string, f *Failure) {
 	s.mu.Lock()
+	s.watches.metadataCall[provider] = s.clock()
 	w, had := s.watches.metadata[provider]
 	if f == nil {
 		delete(s.watches.metadata, provider)
@@ -337,6 +458,25 @@ func (s *Service) ObserveMetadata(ctx context.Context, provider string, f *Failu
 	if raise {
 		s.logErr(s.Raise(ctx, Issue{Key: metadataKey(provider), Kind: KindMetadata, Severity: sev, Message: msg}))
 	}
+}
+
+// checkMetadata makes one cheap call to each provider that had no call, real or
+// probed, in the last hour. The probe reports through ObserveMetadata, so the
+// row and its thresholds are the ones a real call gets.
+func (s *Service) checkMetadata(ctx context.Context) error {
+	for name, probe := range s.deps.MetadataProbes {
+		s.mu.Lock()
+		last, ok := s.watches.metadataCall[name]
+		skip := ok && s.clock().Sub(last) < metadataEvery-dueSlack
+		if !skip {
+			s.watches.metadataCall[name] = s.clock() // a probe that counts for nothing (rate limited) waits an hour too
+		}
+		s.mu.Unlock()
+		if !skip {
+			_ = probe(ctx)
+		}
+	}
+	return nil
 }
 
 // ---- Root folders ----
@@ -490,18 +630,45 @@ type indexerWatch struct {
 	raised  string
 }
 
+type mediaServerWatch struct {
+	failures int // failed checks in a row
+	raised   string
+}
+
 type watches struct {
 	downloadClient watch
 	indexers       map[int64]*indexerWatch
 	metadata       map[string]*watch
+	mediaServers   map[int64]*mediaServerWatch
+	// metadataCall is when each provider last had a call, real or probed.
+	metadataCall map[string]time.Time
+	// lastRun is when each timed check last ran.
+	lastRun map[string]time.Time
 }
 
 func newWatches() watches {
-	return watches{indexers: map[int64]*indexerWatch{}, metadata: map[string]*watch{}}
+	return watches{
+		indexers: map[int64]*indexerWatch{}, metadata: map[string]*watch{}, mediaServers: map[int64]*mediaServerWatch{},
+		metadataCall: map[string]time.Time{}, lastRun: map[string]time.Time{},
+	}
 }
 
 func (s *Service) logErr(err error) {
 	if err != nil {
 		s.log.Error("health", "err", err)
 	}
+}
+
+// failureMessage words an instance's row from a plugin failure. A plugin's message
+// often names the instance already ("Jellyfin rejected the credentials"); then it is
+// the row, so the instance is not named twice. Otherwise the row leads with
+// "<name> <authLead>" for bad credentials or "<name> <lead>" for anything else.
+func failureMessage(name string, f *Failure, authLead, lead string) string {
+	if strings.Contains(f.Message, name) {
+		return f.Message
+	}
+	if f.Auth {
+		return fmt.Sprintf("%s %s: %s", name, authLead, f.Message)
+	}
+	return fmt.Sprintf("%s %s: %s", name, lead, f.Message)
 }

@@ -75,6 +75,8 @@ function fakeAttention(rows: Row[]) {
         config: {},
         secrets_set: [],
         from_config_file: false,
+        enabled_declared: false,
+        last_check: null,
       })
     }),
   )

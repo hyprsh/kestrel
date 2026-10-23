@@ -377,3 +377,21 @@ func TestDisksListsTheDataMountAndEveryRootFolder(t *testing.T) {
 		t.Errorf("Disks = %+v", disks)
 	}
 }
+
+// A plugin's message that already names the instance is the whole row.
+func TestDownloadClientAndIndexerRowsDoNotNameTheInstanceTwice(t *testing.T) {
+	ctx := context.Background()
+	e := newEnv(t, enabledIndexers(alpha))
+
+	e.h.ObserveDownloadClient(ctx, sab, &health.Failure{Auth: true, Message: "SABnzbd rejected the API key"})
+	*e.now = e.now.Add(3 * time.Minute)
+	e.h.ObserveDownloadClient(ctx, sab, &health.Failure{Auth: true, Message: "SABnzbd rejected the API key"})
+	if r := e.kindsShowing(t)[health.KindDownloadClient]; r.Message != "SABnzbd rejected the API key" {
+		t.Errorf("download client message = %q", r.Message)
+	}
+
+	e.h.ObserveIndexer(ctx, alpha, &health.Failure{Auth: true, Message: "Alpha rejected the API key"})
+	if r := e.kindsShowing(t)[health.KindIndexer]; r.Message != "Alpha rejected the API key" {
+		t.Errorf("indexer message = %q", r.Message)
+	}
+}

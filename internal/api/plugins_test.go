@@ -72,6 +72,8 @@ type instanceJSON struct {
 	SecretsSet []string       `json:"secrets_set"`
 	// FromConfigFile is true for an instance the Config File declares.
 	FromConfigFile bool `json:"from_config_file"`
+	// EnabledDeclared is true when the Config File sets the instance's enabled.
+	EnabledDeclared bool `json:"enabled_declared"`
 }
 
 type testJSON struct {

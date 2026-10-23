@@ -1,6 +1,7 @@
 import { Badge, Button, Fieldset, Note, Select, Toggle } from '@hyprsh/design'
 import { useState, type ReactNode } from 'react'
 import { ApiError, usePluginInstances, usePlugins, useSetInstanceEnabled, type PluginInstance, type PluginManifest } from '../api/queries'
+import { ago, useNow } from '../time'
 import { InstanceForm } from './InstanceForm'
 
 /**
@@ -109,6 +110,8 @@ export function InstanceList({
 function Row({ instance: i, manifest, showPriority, onEdit }: { instance: PluginInstance; manifest?: PluginManifest; showPriority?: boolean; onEdit: () => void }) {
   const toggle = useSetInstanceEnabled()
   const declared = i.from_config_file
+  // The Config File owns enabled only when it sets it (ADR 0015).
+  const enabledLocked = i.enabled_declared
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-3">
@@ -122,11 +125,12 @@ function Row({ instance: i, manifest, showPriority, onEdit }: { instance: Plugin
             </Badge>
           )}
         </div>
-        <Toggle aria-label={`${i.name} enabled`} checked={i.enabled} disabled={declared || toggle.isPending} onChange={(enabled) => toggle.mutate({ id: i.id, enabled })} />
+        <Toggle aria-label={`${i.name} enabled`} checked={i.enabled} disabled={enabledLocked || toggle.isPending} onChange={(enabled) => toggle.mutate({ id: i.id, enabled })} />
         <Button size="small" aria-label={`Edit ${i.name}`} disabled={!manifest} onClick={onEdit}>
           Edit
         </Button>
       </div>
+      {i.last_check && <LastCheck check={i.last_check} />}
       {!manifest && <Note size="small">{i.name} uses a plugin that is no longer built into Kestrel.</Note>}
       {toggle.isError && (
         <Note variant="error" size="small">
@@ -135,6 +139,13 @@ function Row({ instance: i, manifest, showPriority, onEdit }: { instance: Plugin
       )}
     </div>
   )
+}
+
+/** The latest check of the instance, under its row. It wraps rather than widens, so a long error fits a phone. */
+function LastCheck({ check }: { check: NonNullable<PluginInstance['last_check']> }) {
+  const when = ago(check.at, useNow())
+  const text = check.ok ? `Checked ${when}: OK` : `Check failed ${when}: ${check.message || check.code || 'unknown error'}`
+  return <div className={`label-12 min-w-0 break-words ${check.ok ? 'text-gray-900' : 'text-red-900'}`}>{text}</div>
 }
 
 function Meta({ children }: { children: ReactNode }) {

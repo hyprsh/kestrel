@@ -66,6 +66,7 @@ type PluginInstances interface {
 	Public(i instances.Instance) (config map[string]any, secretsSet []string)
 	Delete(ctx context.Context, id int64) error
 	Create(ctx context.Context, in instances.New) (instances.Instance, error)
+	Test(ctx context.Context, p plugin.Plugin, conn plugin.Connection, check bool) (plugin.TestResult, error)
 }
 
 // Profiles is the household's language settings and the Profiles.
@@ -224,7 +225,7 @@ type Refresher interface {
 
 // IndexerStatus reports an indexer's budget.
 type IndexerStatus interface {
-	Status(indexerID int64, configured int) indexers.Status
+	Status(indexerID int64, apiRequestsPerDay, grabsPerDay int) indexers.Status
 }
 
 // Health is Needs attention and the system status.
@@ -235,6 +236,7 @@ type Health interface {
 	Disks(ctx context.Context) ([]health.Disk, error)
 	ClientState() health.State
 	AddCheck(name string, c health.Check)
+	ObserveMediaServer(ctx context.Context, ref health.Ref, f *health.Failure)
 }
 
 // History is the events log.

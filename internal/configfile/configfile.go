@@ -156,6 +156,19 @@ func (f *File) DeclaresInstance(name string) bool {
 	return slices.ContainsFunc(f.PluginInstances, func(p PluginInstance) bool { return strings.TrimSpace(p.Name) == name })
 }
 
+// DeclaresInstanceEnabled reports whether the file sets enabled on the plugin
+// instance named name, as DeclaresInstance matches names. An instance whose
+// enabled the file leaves out keeps the value the UI gave it (ADR 0015).
+func (f *File) DeclaresInstanceEnabled(name string) bool {
+	if f == nil {
+		return false
+	}
+	name = strings.TrimSpace(name)
+	return slices.ContainsFunc(f.PluginInstances, func(p PluginInstance) bool {
+		return strings.TrimSpace(p.Name) == name && p.Enabled != nil
+	})
+}
+
 // Secret is a value resolved from the environment. It prints as a mask, so a
 // logged or wrapped File never shows it.
 type Secret string

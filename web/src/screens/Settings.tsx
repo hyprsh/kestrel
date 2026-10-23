@@ -365,7 +365,7 @@ function ApiKeyRow() {
 function ReverseProxyRow() {
   const { data } = useReverseProxy()
   return (
-    <Row label="Reverse proxy" help="Let an SSO portal in front of Kestrel log the admin in with a header. Off by default; the login form stays as a fallback.">
+    <Row label="Reverse proxy" help="Name the proxies in front of Kestrel so it sees each client's own address, for the login throttle and the Secure cookie. Header login for an SSO portal is a separate switch, off by default; the login form stays as a fallback.">
       {data ? <ReverseProxyForm saved={data} /> : null}
     </Row>
   )
@@ -393,7 +393,7 @@ function ReverseProxyForm({ saved }: { saved: ReverseProxy }) {
     <form onSubmit={submit} className="flex max-w-sm flex-col gap-3">
       <fieldset disabled={saved.from_config_file} className="contents">
         <Checkbox checked={enabled} onChange={(e) => setEnabled(e.target.checked)}>
-          Trust a login header from a reverse proxy
+          Log in from the header below, from a trusted proxy (needs one)
         </Checkbox>
         <Textarea label="Trusted proxies" rows={3} value={trusted} onChange={(e) => setTrusted(e.target.value)} placeholder={'172.18.0.0/16\n10.0.0.5'} mono />
         <Input size="small" label="Header" value={header} onChange={(e) => setHeader(e.target.value)} />
