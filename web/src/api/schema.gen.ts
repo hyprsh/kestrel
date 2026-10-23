@@ -1270,21 +1270,21 @@ export interface paths {
          * Change many rows of the plan at once
          * @description Applies one `action` to the rows named in `row_ids`, or to every row `filter` keeps (the server
          *     resolves it, so "all N in this filter" is one call across pages). Name `row_ids` or `filter`,
-         *     not both. Answers per row, in the order named: `changed`, `skipped` with a `reason`, or `failed`.
-         *     The plan's `revision` moves once, and only when a row changed; a skipped row is left as it was.
+         *     not both. Answers per row, in the order named: `changed`, `left` with a `reason`, or `failed`.
+         *     The plan's `revision` moves once, and only when a row changed; a left row is as it was.
          *
          *     - `tick` and `untick` include or leave out Matched rows, as `PATCH` with `ticked` does. Another
-         *       kind of row is skipped as `not_matched`, and one already so as `already`.
+         *       kind of row is left as `not_matched`, and one already so as `already`.
          *     - `accept_suggested` settles Needs choice rows on their suggested candidate (see
          *       `AdoptionCandidate`), only when it is `confident`: the row is planned again exactly as choosing
          *       that candidate with `PATCH` does, so it can come back `matched`, or `skipped` with the
          *       `skip_reason` it would have (no enabled Profile, for example); it is `changed` either way and
-         *       the item says which. A row that is not Needs choice is skipped as `not_needs_choice`, one
+         *       the item says which. A row that is not Needs choice is left as `not_needs_choice`, one
          *       with no candidates as `no_suggestion`, one whose suggestion is not confident as
          *       `not_confident`, and one that cannot be matched to the suggested Title as `not_settleable`.
          *
          *     - `set_monitor` gives the rows their own `monitor` (see `PATCH /adoption`), over the plan's. A row
-         *       that joins a Title Kestrel tracks is skipped as `tracked` (the Title keeps its monitoring), and
+         *       that joins a Title Kestrel tracks is left as `tracked` (the Title keeps its monitoring), and
          *       one that already has that choice as `already`. `monitor` is required for this action.
          *
          *     Planning each accepted row probes its files, so a large selection can take a while.
@@ -3093,21 +3093,24 @@ export interface components {
             row_ids?: number[];
             filter?: components["schemas"]["AdoptionRowFilter"];
         };
-        AdoptionRowsBulkResult: {
+        AdoptionBulkResult: {
             /**
              * Format: int64
              * @description The plan's revision after the call.
              */
             revision: number;
-            items: components["schemas"]["AdoptionRowOutcome"][];
+            items: components["schemas"]["AdoptionBulkRowResult"][];
         };
-        AdoptionRowOutcome: {
+        AdoptionBulkRowResult: {
             /** Format: int64 */
             row_id: number;
-            /** @enum {string} */
-            outcome: "changed" | "skipped" | "failed";
             /**
-             * @description Why the row was skipped.
+             * @description What the edit did to the row, not to be confused with a row's final `outcome` after a commit.
+             * @enum {string}
+             */
+            result: "changed" | "left" | "failed";
+            /**
+             * @description Why the row was left as it was.
              * @enum {string}
              */
             reason?: "already" | "no_such_row" | "not_matched" | "not_needs_choice" | "no_suggestion" | "not_confident" | "not_settleable" | "tracked";
@@ -5572,7 +5575,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdoptionRowsBulkResult"];
+                    "application/json": components["schemas"]["AdoptionBulkResult"];
                 };
             };
             404: components["responses"]["Problem"];

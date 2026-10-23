@@ -14,7 +14,7 @@ import {
   type AdoptionFile,
   type AdoptionMonitor,
   type AdoptionRow,
-  type AdoptionRowOutcome,
+  type AdoptionBulkRowResult,
   type AdoptionRowsBulk,
 } from '../api/adoption'
 import type { components } from '../api/schema.gen'
@@ -88,9 +88,9 @@ const leftText: Record<string, string> = {
 }
 
 /** What a bulk action did, in a sentence; "" when there is nothing to say. */
-function bulkReport(action: AdoptionRowsBulk['action'], items: AdoptionRowOutcome[], monitor?: AdoptionMonitor) {
-  const done = items.filter((i) => i.outcome === 'changed')
-  const left = items.filter((i) => i.outcome !== 'changed')
+function bulkReport(action: AdoptionRowsBulk['action'], items: AdoptionBulkRowResult[], monitor?: AdoptionMonitor) {
+  const done = items.filter((i) => i.result === 'changed')
+  const left = items.filter((i) => i.result !== 'changed')
   const parts: string[] = []
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
   if (action === 'accept_suggested') {
@@ -102,7 +102,7 @@ function bulkReport(action: AdoptionRowsBulk['action'], items: AdoptionRowOutcom
   if (left.length > 0) {
     const why = new Map<string, number>()
     for (const i of left) {
-      const k = i.outcome === 'failed' ? 'failed' : (i.reason ?? '')
+      const k = i.result === 'failed' ? 'failed' : (i.reason ?? '')
       why.set(k, (why.get(k) ?? 0) + 1)
     }
     const clause = (k: string) => (k === 'failed' ? 'Kestrel could not plan it (see the Log)' : (leftText[k] ?? k))

@@ -10,8 +10,8 @@ export type AdoptionRow = components['schemas']['AdoptionRow']
 export type AdoptionFile = components['schemas']['AdoptionFile']
 export type AdoptionRowPatch = components['schemas']['AdoptionRowPatch']
 export type AdoptionRowsBulk = components['schemas']['AdoptionRowsBulk']
-export type AdoptionRowOutcome = components['schemas']['AdoptionRowOutcome']
-export type AdoptionRowsBulkResult = components['schemas']['AdoptionRowsBulkResult']
+export type AdoptionBulkRowResult = components['schemas']['AdoptionBulkRowResult']
+export type AdoptionBulkResult = components['schemas']['AdoptionBulkResult']
 export type AdoptionOutcome = components['schemas']['AdoptionFinalOutcome']
 /** How an Adoption adds a Title: monitored, a Series from its future episodes on, or unmonitored. */
 export type AdoptionMonitor = components['schemas']['AdoptionMonitor']
@@ -112,7 +112,7 @@ export function usePatchRow() {
 
 /** One action over many rows, by id or as every row of a filter; the answer says what happened to each. */
 export function useBulkRows() {
-  return useAdoptionMutation<AdoptionRowsBulk, AdoptionRowsBulkResult>(async (body) => {
+  return useAdoptionMutation<AdoptionRowsBulk, AdoptionBulkResult>(async (body) => {
     const { data, error, response } = await api.POST('/adoption/rows/bulk', { body })
     if (!data) throw failure(error, response)
     return data

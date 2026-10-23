@@ -10,18 +10,18 @@ type adoptionBulkJSON struct {
 	Revision int64 `json:"revision"`
 	Items    []struct {
 		RowID      int64   `json:"row_id"`
-		Outcome    string  `json:"outcome"`
+		Result     string  `json:"result"`
 		Reason     *string `json:"reason"`
 		Status     *string `json:"status"`
 		SkipReason *string `json:"skip_reason"`
 	} `json:"items"`
 }
 
-// outcomes maps a row id to "outcome" or "outcome:reason".
+// outcomes maps a row id to "result" or "result:reason".
 func (b adoptionBulkJSON) outcomes() map[int64]string {
 	out := map[int64]string{}
 	for _, it := range b.Items {
-		out[it.RowID] = it.Outcome
+		out[it.RowID] = it.Result
 		if it.Reason != nil {
 			out[it.RowID] += ":" + *it.Reason
 		}
@@ -57,7 +57,7 @@ func TestUntickingAndTickingASelectionMovesTheRevisionOnceAndSaysWhatHappenedToE
 
 	got := a.bulk(t, fmt.Sprintf(`{"action":"untick","row_ids":[%d,%d,%d,999]}`, lost.ID, pad.ID, unknown.ID))
 
-	want := map[int64]string{lost.ID: "changed", pad.ID: "changed", unknown.ID: "skipped:not_matched", 999: "skipped:no_such_row"}
+	want := map[int64]string{lost.ID: "changed", pad.ID: "changed", unknown.ID: "left:not_matched", 999: "left:no_such_row"}
 	if fmt.Sprint(got.outcomes()) != fmt.Sprint(want) || got.Revision != plan.Revision+1 {
 		t.Fatalf("untick = %+v (revision %d -> %d), want %v", got, plan.Revision, got.Revision, want)
 	}
@@ -67,7 +67,7 @@ func TestUntickingAndTickingASelectionMovesTheRevisionOnceAndSaysWhatHappenedToE
 	}
 
 	again := a.bulk(t, fmt.Sprintf(`{"action":"untick","row_ids":%s}`, rowIDs(lost)))
-	if again.outcomes()[lost.ID] != "skipped:already" || again.Revision != got.Revision {
+	if again.outcomes()[lost.ID] != "left:already" || again.Revision != got.Revision {
 		t.Errorf("unticking an unticked row = %+v", again)
 	}
 	a.bulk(t, fmt.Sprintf(`{"action":"tick","row_ids":%s}`, rowIDs(lost, pad)))
@@ -110,7 +110,7 @@ func TestAcceptingSuggestionsSettlesOnlyTheConfidentRowsAndSaysWhyTheOthersWereL
 
 	got := a.bulk(t, `{"action":"accept_suggested","filter":"needs_choice"}`)
 	byRow := got.outcomes()
-	if len(got.Items) != 4 || byRow[pad.ID] != "changed" || byRow[duneYear.ID] != "skipped:not_settleable" || byRow[dune.ID] != "skipped:not_confident" || byRow[unknown.ID] != "skipped:no_suggestion" {
+	if len(got.Items) != 4 || byRow[pad.ID] != "changed" || byRow[duneYear.ID] != "left:not_settleable" || byRow[dune.ID] != "left:not_confident" || byRow[unknown.ID] != "left:no_suggestion" {
 		t.Fatalf("accept over the filter = %v", byRow)
 	}
 	if got.Revision != plan.Revision+1 {
@@ -130,7 +130,7 @@ func TestAcceptingSuggestionsSettlesOnlyTheConfidentRowsAndSaysWhyTheOthersWereL
 	}
 
 	byIDs := a.bulk(t, fmt.Sprintf(`{"action":"accept_suggested","row_ids":%s}`, rowIDs(lost)))
-	if byIDs.outcomes()[lost.ID] != "skipped:not_needs_choice" || byIDs.Revision != got.Revision {
+	if byIDs.outcomes()[lost.ID] != "left:not_needs_choice" || byIDs.Revision != got.Revision {
 		t.Errorf("accepting a Matched row = %+v", byIDs)
 	}
 	a.commit(t, got.Revision)
@@ -155,7 +155,7 @@ func TestAcceptingASuggestionThatPlansToSkippedStoresTheRowSkippedWithItsReason(
 
 	got := a.bulk(t, fmt.Sprintf(`{"action":"accept_suggested","row_ids":%s}`, rowIDs(pad)))
 
-	if it := got.Items[0]; it.Outcome != "changed" || it.Status == nil || *it.Status != "skipped" || it.SkipReason == nil || *it.SkipReason != "no_enabled_profile" {
+	if it := got.Items[0]; it.Result != "changed" || it.Status == nil || *it.Status != "skipped" || it.SkipReason == nil || *it.SkipReason != "no_enabled_profile" {
 		t.Errorf("accept = %+v", it)
 	}
 	if row := a.rowOf(t, "Paddington (2014)"); row.Status != "skipped" || row.SkipReason == nil || *row.SkipReason != "no_enabled_profile" {

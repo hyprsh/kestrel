@@ -264,21 +264,21 @@ func (s *server) BulkAdoptionRows(ctx context.Context, r oapi.BulkAdoptionRowsRe
 	if err != nil {
 		return nil, adoptionProblem(err)
 	}
-	out := oapi.AdoptionRowsBulkResult{Revision: res.Revision, Items: make([]oapi.AdoptionRowOutcome, len(res.Items))}
+	out := oapi.AdoptionBulkResult{Revision: res.Revision, Items: make([]oapi.AdoptionBulkRowResult, len(res.Items))}
 	for i, it := range res.Items {
-		o := oapi.AdoptionRowOutcome{RowId: it.RowID, Outcome: oapi.AdoptionRowOutcomeOutcome(it.Outcome)}
+		o := oapi.AdoptionBulkRowResult{RowId: it.RowID, Result: oapi.AdoptionBulkRowResultResult(it.Result)}
 		if it.Reason != "" {
-			reason := oapi.AdoptionRowOutcomeReason(it.Reason)
+			reason := oapi.AdoptionBulkRowResultReason(it.Reason)
 			o.Reason = &reason
 		}
 		if it.Message != "" {
 			o.Message = &it.Message
 		}
-		if it.Outcome == imports.OutcomeChanged {
-			status := oapi.AdoptionRowOutcomeStatus(it.Status)
+		if it.Result == imports.BulkChanged {
+			status := oapi.AdoptionBulkRowResultStatus(it.Status)
 			o.Status = &status
 			if it.SkipReason != "" {
-				reason := oapi.AdoptionRowOutcomeSkipReason(it.SkipReason)
+				reason := oapi.AdoptionBulkRowResultSkipReason(it.SkipReason)
 				o.SkipReason = &reason
 			}
 		}

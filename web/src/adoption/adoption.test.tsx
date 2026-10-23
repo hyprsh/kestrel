@@ -162,26 +162,26 @@ export function fakeAdoption(rows: Row[] = [matched, doubtful, broken]) {
       const body = (await request.clone().json()) as Bulk
       state.bulks.push(body)
       const targets = state.rows.filter((r) => (body.row_ids ? body.row_ids.includes(r.id) : inFilter(r, body.filter)))
-      const items: components['schemas']['AdoptionRowOutcome'][] = []
+      const items: components['schemas']['AdoptionBulkRowResult'][] = []
       for (const r of targets) {
         const pick = r.candidates.find((c) => c.suggested)
         if (body.action === 'accept_suggested') {
-          if (r.status !== 'needs_choice') items.push({ row_id: r.id, outcome: 'skipped', reason: 'not_needs_choice' })
-          else if (!pick?.confident) items.push({ row_id: r.id, outcome: 'skipped', reason: pick ? 'not_confident' : 'no_suggestion' })
+          if (r.status !== 'needs_choice') items.push({ row_id: r.id, result: 'left', reason: 'not_needs_choice' })
+          else if (!pick?.confident) items.push({ row_id: r.id, result: 'left', reason: pick ? 'not_confident' : 'no_suggestion' })
           else {
             Object.assign(r, { status: 'matched', ticked: true, match: { tmdb_id: pick.tmdb_id, title: pick.title, year: pick.year, title_id: null, source: 'chosen', folder: 'x' }, files: [file('x')] })
-            items.push({ row_id: r.id, outcome: 'changed', status: 'matched' })
+            items.push({ row_id: r.id, result: 'changed', status: 'matched' })
           }
         } else if (body.action === 'set_monitor') {
-          if (r.match?.title_id) items.push({ row_id: r.id, outcome: 'skipped', reason: 'tracked' })
+          if (r.match?.title_id) items.push({ row_id: r.id, result: 'left', reason: 'tracked' })
           else {
             r.monitor = body.monitor
-            items.push({ row_id: r.id, outcome: 'changed', status: r.status })
+            items.push({ row_id: r.id, result: 'changed', status: r.status })
           }
-        } else if (r.status !== 'matched') items.push({ row_id: r.id, outcome: 'skipped', reason: 'not_matched' })
+        } else if (r.status !== 'matched') items.push({ row_id: r.id, result: 'left', reason: 'not_matched' })
         else {
           r.ticked = body.action === 'tick'
-          items.push({ row_id: r.id, outcome: 'changed', status: 'matched' })
+          items.push({ row_id: r.id, result: 'changed', status: 'matched' })
         }
       }
       state.revision++

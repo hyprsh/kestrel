@@ -61,6 +61,108 @@ func (e AdoptionActivityState) Valid() bool {
 	}
 }
 
+// Defines values for AdoptionBulkRowResultReason.
+const (
+	Already        AdoptionBulkRowResultReason = "already"
+	NoSuchRow      AdoptionBulkRowResultReason = "no_such_row"
+	NoSuggestion   AdoptionBulkRowResultReason = "no_suggestion"
+	NotConfident   AdoptionBulkRowResultReason = "not_confident"
+	NotMatched     AdoptionBulkRowResultReason = "not_matched"
+	NotNeedsChoice AdoptionBulkRowResultReason = "not_needs_choice"
+	NotSettleable  AdoptionBulkRowResultReason = "not_settleable"
+	Tracked        AdoptionBulkRowResultReason = "tracked"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionBulkRowResultReason enum.
+func (e AdoptionBulkRowResultReason) Valid() bool {
+	switch e {
+	case Already:
+		return true
+	case NoSuchRow:
+		return true
+	case NoSuggestion:
+		return true
+	case NotConfident:
+		return true
+	case NotMatched:
+		return true
+	case NotNeedsChoice:
+		return true
+	case NotSettleable:
+		return true
+	case Tracked:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdoptionBulkRowResultResult.
+const (
+	AdoptionBulkRowResultResultChanged AdoptionBulkRowResultResult = "changed"
+	AdoptionBulkRowResultResultFailed  AdoptionBulkRowResultResult = "failed"
+	AdoptionBulkRowResultResultLeft    AdoptionBulkRowResultResult = "left"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionBulkRowResultResult enum.
+func (e AdoptionBulkRowResultResult) Valid() bool {
+	switch e {
+	case AdoptionBulkRowResultResultChanged:
+		return true
+	case AdoptionBulkRowResultResultFailed:
+		return true
+	case AdoptionBulkRowResultResultLeft:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdoptionBulkRowResultSkipReason.
+const (
+	AdoptionBulkRowResultSkipReasonInvalid          AdoptionBulkRowResultSkipReason = "invalid"
+	AdoptionBulkRowResultSkipReasonNoEnabledProfile AdoptionBulkRowResultSkipReason = "no_enabled_profile"
+	AdoptionBulkRowResultSkipReasonNoVideo          AdoptionBulkRowResultSkipReason = "no_video"
+	AdoptionBulkRowResultSkipReasonNotOnTvdb        AdoptionBulkRowResultSkipReason = "not_on_tvdb"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionBulkRowResultSkipReason enum.
+func (e AdoptionBulkRowResultSkipReason) Valid() bool {
+	switch e {
+	case AdoptionBulkRowResultSkipReasonInvalid:
+		return true
+	case AdoptionBulkRowResultSkipReasonNoEnabledProfile:
+		return true
+	case AdoptionBulkRowResultSkipReasonNoVideo:
+		return true
+	case AdoptionBulkRowResultSkipReasonNotOnTvdb:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdoptionBulkRowResultStatus.
+const (
+	AdoptionBulkRowResultStatusMatched     AdoptionBulkRowResultStatus = "matched"
+	AdoptionBulkRowResultStatusNeedsChoice AdoptionBulkRowResultStatus = "needs_choice"
+	AdoptionBulkRowResultStatusSkipped     AdoptionBulkRowResultStatus = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionBulkRowResultStatus enum.
+func (e AdoptionBulkRowResultStatus) Valid() bool {
+	switch e {
+	case AdoptionBulkRowResultStatusMatched:
+		return true
+	case AdoptionBulkRowResultStatusNeedsChoice:
+		return true
+	case AdoptionBulkRowResultStatusSkipped:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdoptionCurrentStep.
 const (
 	Matching AdoptionCurrentStep = "matching"
@@ -262,108 +364,6 @@ func (e AdoptionRowFilter) Valid() bool {
 	case AdoptionRowFilterReplacement:
 		return true
 	case AdoptionRowFilterSkipped:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for AdoptionRowOutcomeOutcome.
-const (
-	AdoptionRowOutcomeOutcomeChanged AdoptionRowOutcomeOutcome = "changed"
-	AdoptionRowOutcomeOutcomeFailed  AdoptionRowOutcomeOutcome = "failed"
-	AdoptionRowOutcomeOutcomeSkipped AdoptionRowOutcomeOutcome = "skipped"
-)
-
-// Valid indicates whether the value is a known member of the AdoptionRowOutcomeOutcome enum.
-func (e AdoptionRowOutcomeOutcome) Valid() bool {
-	switch e {
-	case AdoptionRowOutcomeOutcomeChanged:
-		return true
-	case AdoptionRowOutcomeOutcomeFailed:
-		return true
-	case AdoptionRowOutcomeOutcomeSkipped:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for AdoptionRowOutcomeReason.
-const (
-	Already        AdoptionRowOutcomeReason = "already"
-	NoSuchRow      AdoptionRowOutcomeReason = "no_such_row"
-	NoSuggestion   AdoptionRowOutcomeReason = "no_suggestion"
-	NotConfident   AdoptionRowOutcomeReason = "not_confident"
-	NotMatched     AdoptionRowOutcomeReason = "not_matched"
-	NotNeedsChoice AdoptionRowOutcomeReason = "not_needs_choice"
-	NotSettleable  AdoptionRowOutcomeReason = "not_settleable"
-	Tracked        AdoptionRowOutcomeReason = "tracked"
-)
-
-// Valid indicates whether the value is a known member of the AdoptionRowOutcomeReason enum.
-func (e AdoptionRowOutcomeReason) Valid() bool {
-	switch e {
-	case Already:
-		return true
-	case NoSuchRow:
-		return true
-	case NoSuggestion:
-		return true
-	case NotConfident:
-		return true
-	case NotMatched:
-		return true
-	case NotNeedsChoice:
-		return true
-	case NotSettleable:
-		return true
-	case Tracked:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for AdoptionRowOutcomeSkipReason.
-const (
-	AdoptionRowOutcomeSkipReasonInvalid          AdoptionRowOutcomeSkipReason = "invalid"
-	AdoptionRowOutcomeSkipReasonNoEnabledProfile AdoptionRowOutcomeSkipReason = "no_enabled_profile"
-	AdoptionRowOutcomeSkipReasonNoVideo          AdoptionRowOutcomeSkipReason = "no_video"
-	AdoptionRowOutcomeSkipReasonNotOnTvdb        AdoptionRowOutcomeSkipReason = "not_on_tvdb"
-)
-
-// Valid indicates whether the value is a known member of the AdoptionRowOutcomeSkipReason enum.
-func (e AdoptionRowOutcomeSkipReason) Valid() bool {
-	switch e {
-	case AdoptionRowOutcomeSkipReasonInvalid:
-		return true
-	case AdoptionRowOutcomeSkipReasonNoEnabledProfile:
-		return true
-	case AdoptionRowOutcomeSkipReasonNoVideo:
-		return true
-	case AdoptionRowOutcomeSkipReasonNotOnTvdb:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for AdoptionRowOutcomeStatus.
-const (
-	AdoptionRowOutcomeStatusMatched     AdoptionRowOutcomeStatus = "matched"
-	AdoptionRowOutcomeStatusNeedsChoice AdoptionRowOutcomeStatus = "needs_choice"
-	AdoptionRowOutcomeStatusSkipped     AdoptionRowOutcomeStatus = "skipped"
-)
-
-// Valid indicates whether the value is a known member of the AdoptionRowOutcomeStatus enum.
-func (e AdoptionRowOutcomeStatus) Valid() bool {
-	switch e {
-	case AdoptionRowOutcomeStatusMatched:
-		return true
-	case AdoptionRowOutcomeStatusNeedsChoice:
-		return true
-	case AdoptionRowOutcomeStatusSkipped:
 		return true
 	default:
 		return false
@@ -1599,6 +1599,45 @@ type AdoptionActivity struct {
 // AdoptionActivityState defines model for AdoptionActivity.State.
 type AdoptionActivityState string
 
+// AdoptionBulkResult defines model for AdoptionBulkResult.
+type AdoptionBulkResult struct {
+	Items []AdoptionBulkRowResult `json:"items"`
+
+	// Revision The plan's revision after the call.
+	Revision int64 `json:"revision"`
+}
+
+// AdoptionBulkRowResult defines model for AdoptionBulkRowResult.
+type AdoptionBulkRowResult struct {
+	// Message Why the row failed.
+	Message *string `json:"message,omitempty"`
+
+	// Reason Why the row was left as it was.
+	Reason *AdoptionBulkRowResultReason `json:"reason,omitempty"`
+
+	// Result What the edit did to the row, not to be confused with a row's final `outcome` after a commit.
+	Result AdoptionBulkRowResultResult `json:"result"`
+	RowId  int64                       `json:"row_id"`
+
+	// SkipReason Why a row that ended up `skipped` is.
+	SkipReason *AdoptionBulkRowResultSkipReason `json:"skip_reason,omitempty"`
+
+	// Status The row's status afterwards, when the row exists.
+	Status *AdoptionBulkRowResultStatus `json:"status,omitempty"`
+}
+
+// AdoptionBulkRowResultReason Why the row was left as it was.
+type AdoptionBulkRowResultReason string
+
+// AdoptionBulkRowResultResult What the edit did to the row, not to be confused with a row's final `outcome` after a commit.
+type AdoptionBulkRowResultResult string
+
+// AdoptionBulkRowResultSkipReason Why a row that ended up `skipped` is.
+type AdoptionBulkRowResultSkipReason string
+
+// AdoptionBulkRowResultStatus The row's status afterwards, when the row exists.
+type AdoptionBulkRowResultStatus string
+
 // AdoptionCandidate A likely match of a Needs choice row. Candidates come best first: Kestrel ranks them on title
 // similarity, year and runtime fit, and marks the first one it would pick `suggested`. The
 // suggestion is `confident` when its year is within one of the name's and its title is a
@@ -1756,35 +1795,6 @@ type AdoptionRowList struct {
 	Total int `json:"total"`
 }
 
-// AdoptionRowOutcome defines model for AdoptionRowOutcome.
-type AdoptionRowOutcome struct {
-	// Message Why the row failed.
-	Message *string                   `json:"message,omitempty"`
-	Outcome AdoptionRowOutcomeOutcome `json:"outcome"`
-
-	// Reason Why the row was skipped.
-	Reason *AdoptionRowOutcomeReason `json:"reason,omitempty"`
-	RowId  int64                     `json:"row_id"`
-
-	// SkipReason Why a row that ended up `skipped` is.
-	SkipReason *AdoptionRowOutcomeSkipReason `json:"skip_reason,omitempty"`
-
-	// Status The row's status afterwards, when the row exists.
-	Status *AdoptionRowOutcomeStatus `json:"status,omitempty"`
-}
-
-// AdoptionRowOutcomeOutcome defines model for AdoptionRowOutcome.Outcome.
-type AdoptionRowOutcomeOutcome string
-
-// AdoptionRowOutcomeReason Why the row was skipped.
-type AdoptionRowOutcomeReason string
-
-// AdoptionRowOutcomeSkipReason Why a row that ended up `skipped` is.
-type AdoptionRowOutcomeSkipReason string
-
-// AdoptionRowOutcomeStatus The row's status afterwards, when the row exists.
-type AdoptionRowOutcomeStatus string
-
 // AdoptionRowPatch defines model for AdoptionRowPatch.
 type AdoptionRowPatch struct {
 	Files *[]struct {
@@ -1816,14 +1826,6 @@ type AdoptionRowsBulk struct {
 
 // AdoptionRowsBulkAction defines model for AdoptionRowsBulk.Action.
 type AdoptionRowsBulkAction string
-
-// AdoptionRowsBulkResult defines model for AdoptionRowsBulkResult.
-type AdoptionRowsBulkResult struct {
-	Items []AdoptionRowOutcome `json:"items"`
-
-	// Revision The plan's revision after the call.
-	Revision int64 `json:"revision"`
-}
 
 // AdoptionSubtitle defines model for AdoptionSubtitle.
 type AdoptionSubtitle struct {
@@ -7840,7 +7842,7 @@ type BulkAdoptionRowsResponseObject interface {
 	VisitBulkAdoptionRowsResponse(w http.ResponseWriter) error
 }
 
-type BulkAdoptionRows200JSONResponse AdoptionRowsBulkResult
+type BulkAdoptionRows200JSONResponse AdoptionBulkResult
 
 func (response BulkAdoptionRows200JSONResponse) VisitBulkAdoptionRowsResponse(w http.ResponseWriter) error {
 

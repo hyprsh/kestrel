@@ -102,7 +102,7 @@ func TestARowOrASelectionCanOverrideThePlanWideChoice(t *testing.T) {
 		t.Fatalf("row monitor = %v", got.Monitor)
 	}
 	got := a.bulk(t, fmt.Sprintf(`{"action":"set_monitor","monitor":"none","row_ids":%s}`, rowIDs(lost, pad)))
-	if want := map[int64]string{lost.ID: "skipped:already", pad.ID: "changed"}; fmt.Sprint(got.outcomes()) != fmt.Sprint(want) {
+	if want := map[int64]string{lost.ID: "left:already", pad.ID: "changed"}; fmt.Sprint(got.outcomes()) != fmt.Sprint(want) {
 		t.Errorf("outcomes = %v, want %v", got.outcomes(), want)
 	}
 	a.bulk(t, fmt.Sprintf(`{"action":"set_monitor","monitor":"all","row_ids":%s}`, rowIDs(pad)))
@@ -187,8 +187,8 @@ func TestATitleKestrelAlreadyTracksKeepsItsOwnMonitoring(t *testing.T) {
 	row := a.rowOf(t, "Paddington (2014)")
 
 	got := a.bulk(t, fmt.Sprintf(`{"action":"set_monitor","monitor":"none","row_ids":%s}`, rowIDs(row)))
-	if o := got.outcomes()[row.ID]; o != "skipped:tracked" {
-		t.Errorf("set_monitor on a tracked Title = %q, want skipped:tracked", o)
+	if o := got.outcomes()[row.ID]; o != "left:tracked" {
+		t.Errorf("set_monitor on a tracked Title = %q, want left:tracked", o)
 	}
 	if r := a.valid("POST", "/adoption/commit", fmt.Sprintf(`{"revision":%d,"monitor":"none"}`, got.Revision)); r.Status != 202 {
 		t.Fatalf("commit = %d %s", r.Status, r.Body)

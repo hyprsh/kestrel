@@ -38,16 +38,16 @@ type BulkRequest struct {
 
 // What became of a row in a bulk edit.
 type (
-	// BulkOutcome: the row changed, was left as it was, or could not be done.
-	BulkOutcome string
-	// BulkReason says why a row was skipped.
+	// BulkEffect: the row changed, was left as it was, or could not be done.
+	BulkEffect string
+	// BulkReason says why a row was left.
 	BulkReason string
 )
 
 const (
-	OutcomeChanged BulkOutcome = "changed"
-	OutcomeSkipped BulkOutcome = "skipped"
-	OutcomeFailed  BulkOutcome = "failed"
+	BulkChanged BulkEffect = "changed"
+	BulkLeft    BulkEffect = "left"
+	BulkFailed  BulkEffect = "failed"
 
 	ReasonAlready        BulkReason = "already"
 	ReasonNoSuchRow      BulkReason = "no_such_row"
@@ -60,11 +60,11 @@ const (
 	ReasonTracked BulkReason = "tracked"
 )
 
-// RowOutcome is one row's result.
-type RowOutcome struct {
-	RowID   int64
-	Outcome BulkOutcome
-	Reason  BulkReason
+// RowResult is what a bulk edit did to one row.
+type RowResult struct {
+	RowID  int64
+	Result BulkEffect
+	Reason BulkReason
 	// Message says why a row failed.
 	Message string
 	// Status and SkipReason are the row's after a change.
@@ -76,7 +76,7 @@ type RowOutcome struct {
 type BulkResult struct {
 	// Revision is the plan's revision afterwards: moved once if any row changed.
 	Revision int64
-	Items    []RowOutcome
+	Items    []RowResult
 }
 
 // Bulk applies one action to many rows. Like PatchRow it holds the plan, and
@@ -109,7 +109,7 @@ func (a *Adoption) Bulk(ctx context.Context, req BulkRequest) (BulkResult, error
 			if i := slices.IndexFunc(rows, func(r Row) bool { return r.ID == id }); i >= 0 {
 				targets = append(targets, i)
 			} else {
-				res.Items = append(res.Items, RowOutcome{RowID: id, Outcome: OutcomeSkipped, Reason: ReasonNoSuchRow})
+				res.Items = append(res.Items, RowResult{RowID: id, Result: BulkLeft, Reason: ReasonNoSuchRow})
 			}
 		}
 	} else {
@@ -130,7 +130,7 @@ func (a *Adoption) Bulk(ctx context.Context, req BulkRequest) (BulkResult, error
 	}
 	changed := false
 	for _, i := range targets {
-		var out RowOutcome
+		var out RowResult
 		switch req.Action {
 		case BulkTick, BulkUntick:
 			out = tickRow(&rows[i], req.Action == BulkTick)
@@ -142,7 +142,7 @@ func (a *Adoption) Bulk(ctx context.Context, req BulkRequest) (BulkResult, error
 		if ctx.Err() != nil {
 			return BulkResult{}, ctx.Err()
 		}
-		changed = changed || out.Outcome == OutcomeChanged
+		changed = changed || out.Result == BulkChanged
 		res.Items = append(res.Items, out)
 	}
 	if changed {
@@ -158,8 +158,8 @@ func (a *Adoption) Bulk(ctx context.Context, req BulkRequest) (BulkResult, error
 	return res, nil
 }
 
-func tickRow(row *Row, ticked bool) RowOutcome {
-	out := RowOutcome{RowID: row.ID, Outcome: OutcomeSkipped, Status: row.Status}
+func tickRow(row *Row, ticked bool) RowResult {
+	out := RowResult{RowID: row.ID, Result: BulkLeft, Status: row.Status}
 	switch {
 	case row.Status != Matched:
 		out.Reason = ReasonNotMatched
@@ -167,13 +167,13 @@ func tickRow(row *Row, ticked bool) RowOutcome {
 		out.Reason = ReasonAlready
 	default:
 		row.Ticked = ticked
-		out.Outcome = OutcomeChanged
+		out.Result = BulkChanged
 	}
 	return out
 }
 
-func monitorRow(row *Row, m library.Monitor) RowOutcome {
-	out := RowOutcome{RowID: row.ID, Outcome: OutcomeSkipped, Status: row.Status}
+func monitorRow(row *Row, m library.Monitor) RowResult {
+	out := RowResult{RowID: row.ID, Result: BulkLeft, Status: row.Status}
 	switch {
 	case row.Match != nil && row.Match.TitleID != 0:
 		out.Reason = ReasonTracked
@@ -181,7 +181,7 @@ func monitorRow(row *Row, m library.Monitor) RowOutcome {
 		out.Reason = ReasonAlready
 	default:
 		row.Monitor = m
-		out.Outcome = OutcomeChanged
+		out.Result = BulkChanged
 	}
 	return out
 }
@@ -198,8 +198,8 @@ func suggestion(r Row) *Candidate {
 
 // acceptSuggested settles a Needs choice row on its confident suggestion, the
 // way choosing that candidate by hand does.
-func (a *Adoption) acceptSuggested(ctx context.Context, getEnv func() (*env, error), row *Row) RowOutcome {
-	out := RowOutcome{RowID: row.ID, Outcome: OutcomeSkipped, Status: row.Status}
+func (a *Adoption) acceptSuggested(ctx context.Context, getEnv func() (*env, error), row *Row) RowResult {
+	out := RowResult{RowID: row.ID, Result: BulkLeft, Status: row.Status}
 	if row.Status != NeedsChoice {
 		out.Reason = ReasonNotNeedsChoice
 		return out
@@ -215,7 +215,7 @@ func (a *Adoption) acceptSuggested(ctx context.Context, getEnv func() (*env, err
 	}
 	e, err := getEnv()
 	if err != nil {
-		out.Outcome, out.Message = OutcomeFailed, err.Error()
+		out.Result, out.Message = BulkFailed, err.Error()
 		return out
 	}
 	planned := *row
@@ -223,10 +223,10 @@ func (a *Adoption) acceptSuggested(ctx context.Context, getEnv func() (*env, err
 	case errors.Is(err, ErrNotSettleable):
 		out.Reason = ReasonNotSettleable
 	case err != nil:
-		out.Outcome, out.Message = OutcomeFailed, err.Error()
+		out.Result, out.Message = BulkFailed, err.Error()
 	default:
 		*row = planned
-		out.Outcome, out.Status, out.SkipReason = OutcomeChanged, row.Status, row.SkipReason
+		out.Result, out.Status, out.SkipReason = BulkChanged, row.Status, row.SkipReason
 	}
 	return out
 }
