@@ -14,3 +14,4 @@ ADR 0014 made a declared plugin instance read-only as a whole, `enabled` include
 - Startup applies `enabled` only when the file sets it. A stored declared instance keeps its stored `enabled` across restarts, and a taken-over UI instance keeps the one it had. A newly declared instance still starts enabled.
 - The startup check of a contract's cap on enabled instances (one download client) counts the stored `enabled` for a declared instance whose `enabled` the file leaves out. A toggle in the UI goes through the usual cap check.
 - Taking `enabled` out of the file leaves the last value the file set, as for any declared value that leaves the file.
+- In the SPA the Enabled switch of such an instance's row and the Enabled checkbox of its edit form are both editable; saving the form sends a patch with only `enabled`, and the rest of the form stays locked with the declared note.

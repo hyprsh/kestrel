@@ -251,7 +251,7 @@ describe('Settings indexers', () => {
   })
 
   it('shows a declared indexer read-only in its form, and still tests it', async () => {
-    fakeIndexers({ indexers: [stored(1, 'Mirror', { from_config_file: true })] })
+    fakeIndexers({ indexers: [stored(1, 'Mirror', { from_config_file: true, enabled_declared: true })] })
     const section = await open()
     await userEvent.click(await section.findByRole('button', { name: 'Edit Mirror' }))
     const form = within(await section.findByRole('form', { name: 'Mirror' }))
@@ -260,6 +260,32 @@ describe('Settings indexers', () => {
     expect(form.getByRole('button', { name: 'Remove' })).toBeDisabled()
     await userEvent.click(form.getByRole('button', { name: 'Test connection' }))
     expect(await form.findByRole('status')).toHaveTextContent('Connected: NZBgeek')
+  })
+
+  it('lets the form of a declared indexer switch enabled when the Config File leaves it out, and sends only that', async () => {
+    const sent = fakeIndexers({ indexers: [stored(1, 'Relay', { from_config_file: true })] })
+    const section = await open()
+    await userEvent.click(await section.findByRole('button', { name: 'Edit Relay' }))
+    const form = within(await section.findByRole('form', { name: 'Relay' }))
+    expect(form.getByLabelText('Name')).toBeDisabled()
+    expect(form.getByLabelText('URL')).toBeDisabled()
+    expect(form.getByLabelText('Priority')).toBeDisabled()
+    expect(form.getByRole('button', { name: 'Remove' })).toBeDisabled()
+    expect(form.getByText(/Config File declares this instance/)).toBeInTheDocument()
+    expect(form.getByLabelText('Enabled')).toBeEnabled()
+
+    await userEvent.click(form.getByLabelText('Enabled'))
+    await userEvent.click(form.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'patch', body: { enabled: false } }))
+  })
+
+  it('keeps the form of a declared indexer locked when the Config File sets enabled', async () => {
+    fakeIndexers({ indexers: [stored(1, 'Mirror', { from_config_file: true, enabled_declared: true })] })
+    const section = await open()
+    await userEvent.click(await section.findByRole('button', { name: 'Edit Mirror' }))
+    const form = within(await section.findByRole('form', { name: 'Mirror' }))
+    expect(form.getByLabelText('Enabled')).toBeDisabled()
+    expect(form.getByRole('button', { name: 'Save' })).toBeDisabled()
   })
 
   it('adds another indexer with a name and a priority, opening the form at the end of the list', async () => {
