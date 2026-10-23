@@ -4812,7 +4812,7 @@ components:
           nullable: true
           description: |
             Downloads used today: the indexer's own count when it reports its download quota, else Kestrel's
-            count of NZB Fetches when the instance has a `grabs_per_day`; null when neither is known.
+            count of Grabs when the instance has a `grabs_per_day`; null when neither is known.
         grab_max:
           type: integer
           nullable: true

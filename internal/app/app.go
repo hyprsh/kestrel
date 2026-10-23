@@ -162,6 +162,7 @@ func New(opts Options) *App {
 	}
 
 	indexerHost := indexers.New(pluginInstances, st, opts.Clock)
+	indexerHost.SetLogger(opts.Logger)
 	downloadHost := downloads.New(pluginInstances)
 	// The probes read meta and tvdb when they run, which is after the wrappers below
 	// replace them: a probe is a call like any other and reaches health through them.

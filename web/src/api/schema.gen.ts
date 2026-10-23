@@ -3355,7 +3355,7 @@ export interface components {
             search_max: number | null;
             /**
              * @description Downloads used today: the indexer's own count when it reports its download quota, else Kestrel's
-             *     count of NZB Fetches when the instance has a `grabs_per_day`; null when neither is known.
+             *     count of Grabs when the instance has a `grabs_per_day`; null when neither is known.
              */
             grab_used: number | null;
             /**

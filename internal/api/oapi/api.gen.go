@@ -1910,7 +1910,7 @@ type IndexerStatus struct {
 	GrabMax *int `json:"grab_max"`
 
 	// GrabUsed Downloads used today: the indexer's own count when it reports its download quota, else Kestrel's
-	// count of NZB Fetches when the instance has a `grabs_per_day`; null when neither is known.
+	// count of Grabs when the instance has a `grabs_per_day`; null when neither is known.
 	GrabUsed *int `json:"grab_used"`
 
 	// GrabsPaused Grabs are paused (code 501, a bare 429 or a spent download quota). Not a failure.

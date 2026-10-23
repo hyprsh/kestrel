@@ -429,3 +429,21 @@ func TestConcurrentFetchesAtLimitMinusOneLetExactlyOneThrough(t *testing.T) {
 		t.Errorf("%d fetches got through the last slot", ok)
 	}
 }
+
+func TestAfterARestartStatusShowsTheSpentGrabLimitBeforeTheIndexerIsAsked(t *testing.T) {
+	b, rel := newGrabRig(t, 2)
+	b.fetch(rel)
+	b.fetch(rel)
+	b.r.svc = indexers.New(b.r.inst, b.r.st, b.clk.now)
+
+	st := b.r.svc.Status(b.id, 100, 2)
+	if st.GrabUsed != 2 || st.GrabMax != 2 || !st.GrabsPaused || !st.GrabsPausedUntil.Equal(nextMidnight(b.clk.now())) {
+		t.Errorf("status after a restart = %+v", st)
+	}
+	if st.SearchMax != 100 {
+		t.Errorf("SearchMax = %d, want the configured 100", st.SearchMax)
+	}
+	if !b.r.svc.GrabsPaused(b.id) {
+		t.Error("GrabsPaused = false after a restart at the limit")
+	}
+}

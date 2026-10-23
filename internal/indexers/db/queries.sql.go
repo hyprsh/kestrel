@@ -9,23 +9,8 @@ import (
 	"context"
 )
 
-const countGrab = `-- name: CountGrab :exec
-INSERT INTO indexer_grab_counts (indexer_id, day, fetches) VALUES (?, ?, 1)
-ON CONFLICT (indexer_id, day) DO UPDATE SET fetches = fetches + 1
-`
-
-type CountGrabParams struct {
-	IndexerID int64
-	Day       int64
-}
-
-func (q *Queries) CountGrab(ctx context.Context, arg CountGrabParams) error {
-	_, err := q.db.ExecContext(ctx, countGrab, arg.IndexerID, arg.Day)
-	return err
-}
-
 const grabCount = `-- name: GrabCount :one
-SELECT CAST(COALESCE(SUM(fetches), 0) AS INTEGER) FROM indexer_grab_counts WHERE indexer_id = ? AND day = ?
+SELECT CAST(COALESCE(SUM(grabs), 0) AS INTEGER) FROM indexer_grab_counts WHERE indexer_id = ? AND day = ?
 `
 
 type GrabCountParams struct {
@@ -54,8 +39,32 @@ func (q *Queries) PruneGrabCounts(ctx context.Context, arg PruneGrabCountsParams
 	return err
 }
 
+const takeGrab = `-- name: TakeGrab :execrows
+INSERT INTO indexer_grab_counts (indexer_id, day, grabs)
+SELECT ?1, ?2, 1
+WHERE COALESCE((SELECT c.grabs FROM indexer_grab_counts c WHERE c.indexer_id = ?1 AND c.day = ?2), 0) < ?3
+ON CONFLICT (indexer_id, day) DO UPDATE SET grabs = grabs + 1
+`
+
+type TakeGrabParams struct {
+	IndexerID int64
+	Day       int64
+	MaxGrabs  int64
+}
+
+// Counts one Grab for the day while the day's count is below max_grabs, in one
+// statement so SQLite alone decides who gets the last slot: no row changes
+// (0 rows affected) once the count has reached it.
+func (q *Queries) TakeGrab(ctx context.Context, arg TakeGrabParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, takeGrab, arg.IndexerID, arg.Day, arg.MaxGrabs)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const uncountGrab = `-- name: UncountGrab :exec
-UPDATE indexer_grab_counts SET fetches = MAX(fetches - 1, 0) WHERE indexer_id = ? AND day = ?
+UPDATE indexer_grab_counts SET grabs = MAX(grabs - 1, 0) WHERE indexer_id = ? AND day = ?
 `
 
 type UncountGrabParams struct {

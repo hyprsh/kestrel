@@ -150,7 +150,7 @@ type HealthIssue struct {
 type IndexerGrabCount struct {
 	IndexerID int64
 	Day       int64
-	Fetches   int64
+	Grabs     int64
 }
 
 type OriginalOffer struct {
