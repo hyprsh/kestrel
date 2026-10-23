@@ -173,14 +173,18 @@ type OriginalOffer struct {
 }
 
 type PluginInstance struct {
-	ID       int64
-	Contract string
-	PluginID string
-	Name     string
-	Enabled  int64
-	Priority int64
-	Config   string
-	Declared int64
+	ID           int64
+	Contract     string
+	PluginID     string
+	Name         string
+	Enabled      int64
+	Priority     int64
+	Config       string
+	Declared     int64
+	CheckedAt    string
+	CheckOk      int64
+	CheckCode    string
+	CheckMessage string
 }
 
 type Profile struct {

@@ -66,6 +66,7 @@ type PluginInstances interface {
 	Public(i instances.Instance) (config map[string]any, secretsSet []string)
 	Delete(ctx context.Context, id int64) error
 	Create(ctx context.Context, in instances.New) (instances.Instance, error)
+	RecordCheck(ctx context.Context, id int64, at time.Time, err error) error
 }
 
 // Profiles is the household's language settings and the Profiles.

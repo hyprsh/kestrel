@@ -64,6 +64,9 @@ var attentionActions = map[health.Kind]func(health.Row) []oapi.AttentionAction{
 	health.KindRefreshFailed: func(r health.Row) []oapi.AttentionAction {
 		return []oapi.AttentionAction{testInstance(r), openSettings("media-servers", "Open Media servers"), healthLog}
 	},
+	health.KindMediaServer: func(r health.Row) []oapi.AttentionAction {
+		return []oapi.AttentionAction{testInstance(r), openSettings("media-servers", "Open Media servers"), healthLog}
+	},
 	health.KindPlexNoSection: func(health.Row) []oapi.AttentionAction {
 		return []oapi.AttentionAction{openSettings("media-servers", "Open Media servers")}
 	},
