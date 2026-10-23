@@ -30,6 +30,7 @@ const server1: Instance = {
   config: { url: 'http://jellyfin:8096' },
   secrets_set: [],
   from_config_file: false,
+  enabled_declared: false,
 }
 
 describe('the last check in a Settings row', () => {
