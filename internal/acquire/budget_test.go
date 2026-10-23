@@ -34,6 +34,66 @@ func TestDecideSkipsAnIndexerWhoseGrabQuotaIsSpent(t *testing.T) {
 	}
 }
 
+// withBeta adds a second indexer, Beta, with an older copy of hd1080, and sets
+// Alpha's Grabs per day to grabsPerDay.
+func (r *rig) withBeta(t *testing.T, grabsPerDay int) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := r.inst.Create(ctx, instances.New{PluginID: "fake_indexer_2", Name: "Beta", Priority: 2, Config: map[string]any{"api_key": "k"}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.inst.Update(ctx, r.idxID, instances.Patch{Config: map[string]any{"api_key": "k", "grabs_per_day": float64(grabsPerDay)}}); err != nil {
+		t.Fatal(err)
+	}
+	r.publish(t, hd1080, time.Hour) // Alpha's is newer and wins on its own
+	err := r.idx2.Publish(indexer.Release{
+		Title: hd1080, IMDBID: "tt1109624", TMDBID: 116149, Size: 8 << 30, PublishDate: r.clock.now.Add(-10 * time.Hour), Categories: []int{2040},
+	}, []byte("<nzb/>"))
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestACancelledGrabStillCountsAgainstTheGrabsPerDay(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	r.withBeta(t, 1)
+	out, err := r.svc.SearchWanted(ctx, r.titleID, []int64{r.versions[slot.Standard]})
+	if err != nil || len(out.Grabbed) != 1 || out.Grabbed[0].IndexerName != "Alpha" {
+		t.Fatalf("first grab = %+v, %v", out, err)
+	}
+
+	if _, err := r.svc.Cancel(ctx, out.Grabbed[0].ID, false); err != nil {
+		t.Fatal(err)
+	}
+
+	if !r.deps.Indexers.GrabsPaused(r.idxID) {
+		t.Error("Alpha's Grabs are not paused: the cancelled Grab was not counted")
+	}
+}
+
+func TestDecidePicksAnotherIndexerWhenOnesGrabsPerDayAreSpent(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	r.withBeta(t, 1)
+	out, err := r.svc.SearchWanted(ctx, r.titleID, []int64{r.versions[slot.Standard]})
+	if err != nil || len(out.Grabbed) != 1 || out.Grabbed[0].IndexerName != "Alpha" {
+		t.Fatalf("first grab = %+v, %v", out, err)
+	}
+	if _, err := r.svc.Cancel(ctx, out.Grabbed[0].ID, false); err != nil {
+		t.Fatal(err)
+	}
+	r.clock.now = r.clock.now.Add(time.Minute) // past the sweep pacing, same UTC day
+
+	out, err = r.svc.SearchWanted(ctx, r.titleID, []int64{r.versions[slot.Standard]})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Grabbed) != 1 || out.Grabbed[0].IndexerName != "Beta" {
+		t.Fatalf("grabbed = %+v, want the Release from Beta", out.Grabbed)
+	}
+}
+
 func TestSweepsStopAt80PercentOfTheBudgetButManualSearchRuns(t *testing.T) {
 	ctx := context.Background()
 	r := newRig(t)
