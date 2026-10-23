@@ -67,10 +67,11 @@ func (s *server) UpdatePluginInstance(ctx context.Context, r oapi.UpdatePluginIn
 	if r.Body == nil {
 		return nil, invalid("body", "required", "a body is required")
 	}
-	if err := s.refuseDeclaredInstance(ctx, r.Id); err != nil {
+	b := r.Body
+	onlyEnabled := b.Enabled != nil && b.Name == nil && b.Priority == nil && b.Config == nil
+	if err := s.refuseDeclaredInstance(ctx, r.Id, onlyEnabled); err != nil {
 		return nil, err
 	}
-	b := r.Body
 	if b.Name != nil {
 		if err := s.refuseDeclaredName(*b.Name); err != nil {
 			return nil, err
@@ -88,7 +89,7 @@ func (s *server) UpdatePluginInstance(ctx context.Context, r oapi.UpdatePluginIn
 }
 
 func (s *server) DeletePluginInstance(ctx context.Context, r oapi.DeletePluginInstanceRequestObject) (oapi.DeletePluginInstanceResponseObject, error) {
-	if err := s.refuseDeclaredInstance(ctx, r.Id); err != nil {
+	if err := s.refuseDeclaredInstance(ctx, r.Id, false); err != nil {
 		return nil, err
 	}
 	if err := s.plugins.Delete(ctx, r.Id); err != nil {
@@ -205,18 +206,19 @@ func (s *server) instanceToAPI(i instances.Instance) oapi.PluginInstance {
 	return oapi.PluginInstance{
 		LastCheck: checkToAPI(i.LastCheck),
 		Id:        i.ID, Contract: i.Contract, PluginId: i.PluginID, Name: i.Name,
-		Enabled: i.Enabled, Priority: i.Priority, Config: cfg, SecretsSet: set, FromConfigFile: s.instanceDeclared(i),
+		Enabled: i.Enabled, Priority: i.Priority, Config: cfg, SecretsSet: set, FromConfigFile: s.instanceDeclared(i), EnabledDeclared: s.enabledDeclared(i),
 	}
 }
 
 // refuseDeclaredInstance answers 409 when the Config File declares the
-// instance, and 404 when there is none.
-func (s *server) refuseDeclaredInstance(ctx context.Context, id int64) error {
+// instance, and 404 when there is none. A change to only enabled (onlyEnabled)
+// goes through while the file leaves the instance's enabled out.
+func (s *server) refuseDeclaredInstance(ctx context.Context, id int64, onlyEnabled bool) error {
 	inst, err := s.plugins.Get(ctx, id)
 	if err != nil {
 		return pluginProblem(err)
 	}
-	if s.instanceDeclared(inst) {
+	if s.instanceDeclared(inst) && !(onlyEnabled && !s.enabledDeclared(inst)) {
 		return s.declaredConflict(fmt.Sprintf("the plugin instance %q", inst.Name), changeTheFile)
 	}
 	return nil

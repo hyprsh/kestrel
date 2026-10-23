@@ -15,7 +15,7 @@ const problem = (status: number, code: string) => ({ type: 'about:blank', title:
 type Sent = { path: string; body?: unknown }
 
 /** A SABnzbd that accepts one key, and the plugin API in front of it. */
-function fakePlugins(opts: { fresh?: boolean; saved?: boolean; declared?: boolean } = {}) {
+function fakePlugins(opts: { fresh?: boolean; saved?: boolean; declared?: boolean; enabledDeclared?: boolean } = {}) {
   const sent: Sent[] = []
   let signedIn = !opts.fresh
   if (opts.fresh) fakeSetup()
@@ -30,6 +30,7 @@ function fakePlugins(opts: { fresh?: boolean; saved?: boolean; declared?: boolea
     config: { url: 'http://sab:8080', movie_category: 'movies', tv_category: 'tv' },
     secrets_set: ['api_key'],
     from_config_file: !!opts.declared,
+    enabled_declared: !!opts.enabledDeclared,
   })
   const result = (config: Record<string, unknown>) =>
     config.api_key === undefined || config.api_key === 'good-key'
@@ -193,7 +194,7 @@ describe('Settings download client', () => {
   })
 
   it('shows an instance the Config File declares as read-only, and still tests it', async () => {
-    fakePlugins({ saved: true, declared: true })
+    fakePlugins({ saved: true, declared: true, enabledDeclared: true })
     const section = await open()
     expect(await section.findByText('Declared')).toBeInTheDocument()
     expect(section.getByLabelText('SABnzbd enabled')).toBeDisabled()
@@ -207,6 +208,13 @@ describe('Settings download client', () => {
 
     await userEvent.click(section.getByRole('button', { name: 'Test connection' }))
     expect(await section.findByRole('status')).toHaveTextContent('Connected: SABnzbd 4.5.1')
+  })
+
+  it('lets the row switch a declared instance whose enabled the Config File leaves out', async () => {
+    fakePlugins({ saved: true, declared: true })
+    const section = await open()
+    expect(await section.findByText('Declared')).toBeInTheDocument()
+    expect(section.getByLabelText('SABnzbd enabled')).toBeEnabled()
   })
 
   it('removes the instance', async () => {

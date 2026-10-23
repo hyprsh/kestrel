@@ -10,7 +10,7 @@ Kestrel still takes its bootstrap settings from environment variables and keeps 
 
 ## Consequences
 
-- A section is declared or not as a whole: there are no read-only fields inside a section the UI otherwise manages. A declared plugin instance is read-only as a whole, `enabled` included, so switching one off means a file change and a restart.
+- A section is declared or not as a whole: there are no read-only fields inside a section the UI otherwise manages. A declared plugin instance is read-only as a whole, `enabled` included, so switching one off means a file change and a restart. ADR 0015 amends this: the file owns a declared instance's `enabled` only when it sets it.
 - Profiles are declared together or not at all, because rules such as one default per Slot span Profiles.
 - Plugin instances are known by name. Kestrel records which instances the file declared, deletes a declared instance once it leaves the file, and never touches instances created in the UI. Renaming a declared instance in the file deletes it and creates a new one. Declared names can't be taken in the UI.
 - On the first start, a UI-created instance with a declared name and the same plugin is taken over rather than duplicated. Anything ambiguous fails startup.

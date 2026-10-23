@@ -1807,6 +1807,8 @@ export interface paths {
          * @description `config` merges key by key. A secret that is omitted stays as it is, a string replaces it
          *     and `null` clears it; clearing any other field returns it to its default. `409 conflict` for
          *     an instance the Config File declares (`from_config_file`), or a rename to a declared name.
+         *     The exception is a patch that changes only `enabled` on a declared instance whose `enabled`
+         *     the file leaves out (`enabled_declared` is `false`): the UI manages that value.
          */
         patch: operations["updatePluginInstance"];
         trace?: never;
@@ -2136,9 +2138,16 @@ export interface components {
         PluginInstance: {
             /**
              * @description `true` for an instance the Config File declares. It can't be changed or removed here,
-             *     and its name can't be given to another instance.
+             *     and its name can't be given to another instance. Only `enabled` can be changed, and only
+             *     while `enabled_declared` is `false`.
              */
             from_config_file: boolean;
+            /**
+             * @description `true` while the Config File sets this instance's `enabled`, which can't be changed
+             *     here then. `false` for an instance created here, and for a declared instance whose
+             *     file leaves `enabled` out: `enabled` is changed here and kept across restarts.
+             */
+            enabled_declared: boolean;
             /** Format: int64 */
             id: number;
             contract: string;

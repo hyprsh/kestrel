@@ -26,6 +26,7 @@ const stored = (id: number, name: string, over: Partial<Instance> = {}): Instanc
   config: { url: `https://${name.toLowerCase()}.example`, movie_categories: '2000', tv_categories: '5000', api_requests_per_day: null },
   secrets_set: ['api_key'],
   from_config_file: false,
+  enabled_declared: false,
   ...over,
 })
 
@@ -161,8 +162,15 @@ describe('Settings indexers', () => {
     expect(section.queryByLabelText('API key')).not.toBeInTheDocument()
   })
 
-  it('switches an indexer on and off from its row, except one the Config File declares', async () => {
-    const sent = fakeIndexers({ indexers: [stored(1, 'Geek'), stored(2, 'Slow', { enabled: false }), stored(3, 'Mirror', { from_config_file: true })] })
+  it('switches an indexer on and off from its row, except one whose enabled the Config File declares', async () => {
+    const sent = fakeIndexers({
+      indexers: [
+        stored(1, 'Geek'),
+        stored(2, 'Slow', { enabled: false }),
+        stored(3, 'Mirror', { from_config_file: true, enabled_declared: true }),
+        stored(4, 'Relay', { enabled: false, from_config_file: true }),
+      ],
+    })
     const section = await open()
 
     await userEvent.click(await section.findByLabelText('Slow enabled'))
@@ -170,7 +178,13 @@ describe('Settings indexers', () => {
     expect(sent.at(-1)).toEqual({ path: 'patch', body: { enabled: true } })
 
     expect(section.getByLabelText('Mirror enabled')).toBeDisabled()
-    expect(section.getByText('Declared')).toBeInTheDocument()
+
+    // Declared, but the file leaves its enabled out: the row's switch works.
+    expect(section.getByLabelText('Relay enabled')).toBeEnabled()
+    await userEvent.click(section.getByLabelText('Relay enabled'))
+    await waitFor(() => expect(section.getByLabelText('Relay enabled')).toBeChecked())
+    expect(sent.at(-1)).toEqual({ path: 'patch', body: { enabled: true } })
+    expect(section.getAllByText('Declared')).toHaveLength(2)
   })
 
   it('shows the server problem when a switch is refused', async () => {

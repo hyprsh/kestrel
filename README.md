@@ -97,6 +97,7 @@ profiles: # all six or none, each with all four fields
 plugin_instances: # known by name
   - name: SABnzbd
     plugin_id: sabnzbd
+    enabled: true # optional: leave it out and the UI switches the instance on and off
     config:
       url: http://sabnzbd:8080
       api_key_env: SABNZBD_API_KEY
@@ -151,13 +152,13 @@ How it behaves:
 - **`language_region`**: `primary_language` is `en`, `de` or `fr`, and `release_date_country` a two-letter uppercase code. A new Primary Language re-scores the files, as it does in Settings.
 - **`root_folders`**: `movies` and `series`, each a list whose first folder is the default. Every folder must exist and be writable.
 - **`profiles`** must list every Profile: `hd-primary`, `hd-original`, `any-primary`, `any-original`, `4k-primary` and `4k-original`, each with `enabled`, `original_language`, `default_movies` and `default_series`. `original_language` says what a Profile does with a Release that has the Title's Original Language but no Primary-Language audio: `reject` it, `offer` it for approval in Needs attention, or `accept` it. The older `original_fallback` still works in its place (`true` is `accept`, `false` is `reject`). The rules of Settings > Profiles hold across the six: an Original-Language Profile (`*-original`) always rejects, a default must be enabled, a Slot has at most one default per kind, and the Standard Slot has exactly one for Movies and one for Series. The 4K Slot may have none.
-- **`plugin_instances`**: each has a `name` and a `plugin_id`, and may set `enabled` (default `true`), `priority` (default `0`) and `config`. The plugin's defaults fill the config fields left out.
+- **`plugin_instances`**: each has a `name` and a `plugin_id`, and may set `enabled`, `priority` (default `0`) and `config`. A new instance starts enabled when the file leaves `enabled` out. The plugin's defaults fill the config fields left out.
   - Instances are known by name, and a name is declared once. A declared instance is created when missing and updated in place when it differs.
   - Renaming an instance in the file (or changing its `plugin_id`) deletes it and creates a new one. Don't rename a download client while Grabs are in flight: a Grab belongs to the instance it was sent to, and the new one is a different instance.
   - An instance removed from the file is deleted on the next start. `plugin_instances: []` declares none, and deletes the instances the file declared before. Leaving `plugin_instances` out instead hands its instances back to the UI, and once the section returns they count as instances created in the UI.
   - Instances created in the UI are never touched. On the first start that declares a name, an instance created in the UI with that exact name and the same plugin is taken over instead of duplicated. A name the UI uses for another plugin, or for two instances, fails startup.
-  - A declared instance can be tested in the UI but not changed or removed, and its name can't be given to an instance in the UI: creating or renaming one to it answers `409 conflict`. Instances created in the UI may still share names with each other.
-  - `enabled` is enforced, so switching a declared instance off is a file change and a restart. A file that would exceed a contract's cap on enabled instances (one download client), counting the enabled instances created in the UI, fails startup.
+  - A declared instance can be tested in the UI but not changed or removed, except that the UI can switch it on and off when the file leaves its `enabled` out (Kestrel keeps that value across restarts), and its name can't be given to an instance in the UI: creating or renaming one to it answers `409 conflict`. Instances created in the UI may still share names with each other.
+  - An `enabled` the file sets is enforced, so switching that instance off is a file change and a restart, and a toggle in the UI answers `409 conflict`. A file that would exceed a contract's cap on enabled instances (one download client) fails startup, counting the enabled instances created in the UI and the stored `enabled` of declared instances whose `enabled` the file leaves out.
   - After applying the file, Kestrel tests the connection of each enabled declared instance. An instance that can't connect at startup is only logged as a warning, and Kestrel starts anyway.
 - **`reverse_proxy`**: `enabled`, `trusted_proxies` and `header`, all three, checked as in Settings > Security. `trusted_proxies` alone makes Kestrel believe `X-Forwarded-For` and `X-Forwarded-Proto` from those addresses, so the login throttle counts each client behind the proxy on its own; `enabled` only adds login from `header`, and needs at least one trusted proxy. Keep `enabled: false` unless an SSO portal sets the header.
 - **`check_github_updates`**: `true` or `false`.

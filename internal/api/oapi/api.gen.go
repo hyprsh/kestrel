@@ -2273,8 +2273,14 @@ type PluginInstance struct {
 	Contract string                 `json:"contract"`
 	Enabled  bool                   `json:"enabled"`
 
+	// EnabledDeclared `true` while the Config File sets this instance's `enabled`, which can't be changed
+	// here then. `false` for an instance created here, and for a declared instance whose
+	// file leaves `enabled` out: `enabled` is changed here and kept across restarts.
+	EnabledDeclared bool `json:"enabled_declared"`
+
 	// FromConfigFile `true` for an instance the Config File declares. It can't be changed or removed here,
-	// and its name can't be given to another instance.
+	// and its name can't be given to another instance. Only `enabled` can be changed, and only
+	// while `enabled_declared` is `false`.
 	FromConfigFile bool  `json:"from_config_file"`
 	Id             int64 `json:"id"`
 
