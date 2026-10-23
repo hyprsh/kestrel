@@ -13,6 +13,9 @@ export type AdoptionRowsBulk = components['schemas']['AdoptionRowsBulk']
 export type AdoptionBulkRowResult = components['schemas']['AdoptionBulkRowResult']
 export type AdoptionBulkResult = components['schemas']['AdoptionBulkResult']
 export type AdoptionOutcome = components['schemas']['AdoptionFinalOutcome']
+export type AdoptionOutcomes = components['schemas']['AdoptionOutcomes']
+/** The entry a running scan or commit is working on. */
+export type AdoptionCurrent = components['schemas']['AdoptionCurrent']
 /** How an Adoption adds a Title: monitored, a Series from its future episodes on, or unmonitored. */
 export type AdoptionMonitor = components['schemas']['AdoptionMonitor']
 type AdoptionRowList = components['schemas']['AdoptionRowList']
@@ -41,31 +44,18 @@ export function useAdoption() {
 
 const PAGE = 100
 
-/** The plan's rows that `filter` keeps in the server's Matched, Needs choice, Skipped order, a page at a time. */
-export function useAdoptionRows(filter: AdoptionFilter, enabled: boolean) {
+/**
+ * The plan's rows a page at a time, in the server's Matched, Needs choice, Skipped order: the rows under review
+ * that `filter` keeps, or, with `outcome`, the rows a finished commit kept that ended that way.
+ */
+export function useAdoptionRows({ filter = 'all', outcome }: { filter?: AdoptionFilter; outcome?: AdoptionOutcome }, enabled: boolean) {
   return useInfiniteQuery({
-    queryKey: ['adoption', 'rows', filter],
+    queryKey: ['adoption', 'rows', filter, outcome ?? 'plan'],
     enabled,
     initialPageParam: null as string | null,
     getNextPageParam: (last: AdoptionRowList) => last.next_cursor,
     queryFn: async ({ pageParam }): Promise<AdoptionRowList> => {
-      const query = { limit: PAGE, ...(filter !== 'all' && { filter }), ...(pageParam && { cursor: pageParam }) }
-      const { data, error, response } = await api.GET('/adoption/rows', { params: { query } })
-      if (!data) throw failure(error, response)
-      return data
-    },
-  })
-}
-
-/** The rows a finished commit kept that ended `outcome`, a page at a time. */
-export function useOutcomeRows(outcome: AdoptionOutcome, enabled: boolean) {
-  return useInfiniteQuery({
-    queryKey: ['adoption', 'rows', 'outcome', outcome],
-    enabled,
-    initialPageParam: null as string | null,
-    getNextPageParam: (last: AdoptionRowList) => last.next_cursor,
-    queryFn: async ({ pageParam }): Promise<AdoptionRowList> => {
-      const query = { limit: PAGE, outcome, ...(pageParam && { cursor: pageParam }) }
+      const query = { limit: PAGE, ...(filter !== 'all' && { filter }), ...(outcome && { outcome }), ...(pageParam && { cursor: pageParam }) }
       const { data, error, response } = await api.GET('/adoption/rows', { params: { query } })
       if (!data) throw failure(error, response)
       return data

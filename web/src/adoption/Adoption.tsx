@@ -11,13 +11,13 @@ import {
   usePatchRow,
   useRetry,
   useScan,
+  type Adoption as AdoptionPlan,
   type AdoptionFile,
   type AdoptionMonitor,
   type AdoptionRow,
   type AdoptionBulkRowResult,
   type AdoptionRowsBulk,
 } from '../api/adoption'
-import type { components } from '../api/schema.gen'
 import { ApiError, useLookup } from '../api/queries'
 import { useOpenCleanup } from '../cleanup/launch'
 import { slotKeys, slotLabel } from '../library/bits'
@@ -27,7 +27,6 @@ import { Finished } from './Finished'
 import { currentText, skipText } from './text'
 import { Badge, Button, Checkbox, EmptyState, Input, Note, Select, Spinner } from '@hyprsh/design'
 
-type Adoption = components['schemas']['Adoption']
 type Filter = 'all' | 'matched' | 'needs_choice' | 'skipped' | 'duplicate' | 'replacement'
 
 const filters: { key: Filter; label: string }[] = [
@@ -212,13 +211,13 @@ function Plan({
 }: {
   filter: Filter
   onFilter: (f: Filter) => void
-  summary: Adoption['summary']
+  summary: AdoptionPlan['summary']
   monitor: AdoptionMonitor
   onCommit: () => void
   onDiscard: () => void
   busy: boolean
 }) {
-  const list = useAdoptionRows(filter, true)
+  const list = useAdoptionRows({ filter }, true)
   const bulk = useBulkRows()
   const patchPlan = usePatchPlan()
   const [report, setReport] = useState('')

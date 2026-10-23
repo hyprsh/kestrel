@@ -1,11 +1,8 @@
 // The Adoption summary after a commit: what was not adopted, grouped, each entry with its folder and reason.
-import { useOutcomeRows, type AdoptionOutcome } from '../api/adoption'
-import type { components } from '../api/schema.gen'
+import { useAdoptionRows, type AdoptionOutcome, type AdoptionOutcomes } from '../api/adoption'
 import { useOpenCleanup } from '../cleanup/launch'
 import { Button, Spinner } from '@hyprsh/design'
 import { skipText } from './text'
-
-type Outcomes = components['schemas']['AdoptionOutcomes']
 
 const groups: { outcome: AdoptionOutcome; title: string; why: string }[] = [
   { outcome: 'failed', title: 'Failed', why: '' },
@@ -14,7 +11,7 @@ const groups: { outcome: AdoptionOutcome; title: string; why: string }[] = [
   { outcome: 'unticked', title: 'Left out', why: 'Left unticked' },
 ]
 
-export function Finished({ outcomes, onRetry, onScan, busy }: { outcomes: Outcomes; onRetry: () => void; onScan: () => void; busy: boolean }) {
+export function Finished({ outcomes, onRetry, onScan, busy }: { outcomes: AdoptionOutcomes; onRetry: () => void; onScan: () => void; busy: boolean }) {
   const openCleanup = useOpenCleanup()
   const open = groups.filter((g) => outcomes[g.outcome] > 0)
   if (open.length === 0) return null
@@ -52,7 +49,7 @@ function Group({
   onScan: () => void
   busy: boolean
 }) {
-  const list = useOutcomeRows(outcome, true)
+  const list = useAdoptionRows({ outcome }, true)
   const rows = list.data?.pages.flatMap((pg) => pg.items) ?? []
   const label = `${title} (${count})`
   return (
