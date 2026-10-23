@@ -18,13 +18,29 @@ func (s *server) adoptionLocation() *string {
 func adoptionToAPI(p imports.Plan) oapi.Adoption {
 	out := oapi.Adoption{State: oapi.AdoptionState(p.State), Revision: p.Revision, ScannedAt: p.ScannedAt, Error: strPtr(p.Error)}
 	out.Progress.Done, out.Progress.Total = p.Done, p.Total
+	out.Progress.Current = currentToAPI(p.Current)
 	out.Summary = summaryToAPI(p.Summary)
 	if p.Result != nil {
+		o := p.Result.Outcomes
 		out.Result = &struct {
-			Adopted  int     `json:"adopted"`
-			Failed   int     `json:"failed"`
-			TitleIds []int64 `json:"title_ids"`
-		}{p.Result.Adopted, p.Result.Failed, p.Result.TitleIDs}
+			Adopted  int                   `json:"adopted"`
+			Failed   int                   `json:"failed"`
+			Outcomes oapi.AdoptionOutcomes `json:"outcomes"`
+			TitleIds []int64               `json:"title_ids"`
+		}{p.Result.Adopted, p.Result.Failed, oapi.AdoptionOutcomes{
+			Adopted: o.Adopted, Failed: o.Failed, Skipped: o.Skipped, NotChosen: o.NotChosen, Unticked: o.Unticked,
+		}, p.Result.TitleIDs}
+	}
+	return out
+}
+
+func currentToAPI(c *imports.Current) *oapi.AdoptionCurrent {
+	if c == nil {
+		return nil
+	}
+	out := &oapi.AdoptionCurrent{Entry: c.Entry, Step: oapi.AdoptionCurrentStep(c.Step)}
+	if c.Files > 0 {
+		out.Files = &c.Files
 	}
 	return out
 }
@@ -36,7 +52,7 @@ func (s *server) adoptionActivity(ctx context.Context) *oapi.AdoptionActivity {
 	if err != nil || (p.State != imports.PlanScanning && p.State != imports.PlanCommitting) {
 		return nil
 	}
-	return &oapi.AdoptionActivity{State: oapi.AdoptionActivityState(p.State), Done: p.Done, Total: p.Total}
+	return &oapi.AdoptionActivity{State: oapi.AdoptionActivityState(p.State), Done: p.Done, Total: p.Total, Current: currentToAPI(p.Current)}
 }
 
 func adoptionRowToAPI(r imports.Row) oapi.AdoptionRow {
@@ -62,6 +78,13 @@ func adoptionRowToAPI(r imports.Row) oapi.AdoptionRow {
 			id := m.TitleID
 			out.Match.TitleId = &id
 		}
+	}
+	if r.Outcome != "" {
+		outcome := oapi.AdoptionFinalOutcome(r.Outcome)
+		out.Outcome = &outcome
+	}
+	if r.Error != "" {
+		out.Error = &r.Error
 	}
 	for _, c := range r.Candidates {
 		out.Candidates = append(out.Candidates, oapi.AdoptionCandidate{TmdbId: c.TMDBID, Title: c.Title, Year: intPtr(c.Year), Suggested: c.Suggested, Confident: c.Confident})
@@ -96,6 +119,8 @@ func adoptionProblem(err error) error {
 		return problem(http.StatusConflict, "conflict", "An Adoption scan or commit is already running")
 	case errors.Is(err, imports.ErrStale):
 		return problem(http.StatusConflict, "conflict", "The Adoption plan changed since you reviewed it; review it again")
+	case errors.Is(err, imports.ErrNothingToRetry):
+		return problem(http.StatusConflict, "conflict", "No entry failed in the last commit, so there is nothing to try again")
 	case errors.Is(err, imports.ErrNoRow):
 		return problem(http.StatusNotFound, "not_found", "no such Adoption row")
 	case errors.Is(err, imports.ErrNoRoot):
@@ -160,7 +185,11 @@ func (s *server) ListAdoptionRows(ctx context.Context, r oapi.ListAdoptionRowsRe
 	if err != nil {
 		return nil, err
 	}
-	page, err := s.adoption.Rows(ctx, f, int(at), limit)
+	var outcome imports.OutcomeFilter
+	if r.Params.Outcome != nil {
+		outcome = imports.OutcomeFilter(*r.Params.Outcome)
+	}
+	page, err := s.adoption.Rows(ctx, f, outcome, int(at), limit)
 	if err != nil {
 		return nil, err
 	}
@@ -248,6 +277,19 @@ func (s *server) PatchAdoptionRow(ctx context.Context, r oapi.PatchAdoptionRowRe
 		return nil, adoptionProblem(err)
 	}
 	return oapi.PatchAdoptionRow200JSONResponse(adoptionRowToAPI(row)), nil
+}
+
+// RetryAdoption is POST /adoption/retry: the failed entries of the last
+// commit are planned again, without a new scan.
+func (s *server) RetryAdoption(ctx context.Context, _ oapi.RetryAdoptionRequestObject) (oapi.RetryAdoptionResponseObject, error) {
+	if err := s.adoption.Retry(ctx); err != nil {
+		return nil, adoptionProblem(err)
+	}
+	p, err := s.adoption.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return oapi.RetryAdoption202JSONResponse{Body: adoptionToAPI(p), Headers: oapi.RetryAdoption202ResponseHeaders{Location: s.adoptionLocation()}}, nil
 }
 
 func (s *server) CommitAdoption(ctx context.Context, r oapi.CommitAdoptionRequestObject) (oapi.CommitAdoptionResponseObject, error) {

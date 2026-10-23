@@ -169,7 +169,7 @@ func (a *Adoption) Commit(ctx context.Context, revision int64) error {
 	}
 	var todo []Row
 	for _, r := range rows {
-		if r.Status == Matched && r.Ticked && r.has(PlanFile.adopts) {
+		if r.willAdopt() {
 			todo = append(todo, r)
 		}
 	}
@@ -179,27 +179,38 @@ func (a *Adoption) Commit(ctx context.Context, revision int64) error {
 	a.wg.Add(1)
 	go func() {
 		defer a.wg.Done()
-		a.runCommit(context.WithoutCancel(ctx), todo)
+		a.runCommit(context.WithoutCancel(ctx), rows, todo)
 	}()
 	return nil
 }
 
-func (a *Adoption) runCommit(ctx context.Context, todo []Row) {
+// runCommit adopts the todo rows (a subset of rows) and then keeps every row
+// with what became of it.
+func (a *Adoption) runCommit(ctx context.Context, rows, todo []Row) {
 	defer a.snap.Hold()() // no TRaSH update lands between a row's Scores and the re-score after it
+	defer a.clearCurrent()
 	var res CommitResult
+	outcome := map[int64]FinalOutcome{}
+	failure := map[int64]string{}
 	e, err := a.env(ctx)
 	if err != nil {
 		a.d.Logger.Error("adoption commit failed", "err", err)
 		res.Failed = len(todo)
+		for _, row := range todo {
+			outcome[row.ID], failure[row.ID] = EndedFailed, errorText(err)
+		}
 		todo = nil
 	}
 	total := int64(len(todo))
 	for i, row := range todo {
+		a.setCurrent(row.Entry, StepMoving, row.countFiles(PlanFile.adopts))
 		if err := a.adoptRow(ctx, e, row); err != nil {
 			a.d.Logger.Error("adoption of an entry failed", "entry", row.Entry, "err", err)
 			res.Failed++
+			outcome[row.ID], failure[row.ID] = EndedFailed, errorText(err)
 		} else {
 			res.Adopted++
+			outcome[row.ID] = EndedAdopted
 			if id, ok, err := a.d.Library.Find(ctx, row.kind(), row.Match.TMDBID, row.Match.TVDBID); err == nil && ok {
 				res.TitleIDs = append(res.TitleIDs, id)
 			}
@@ -208,12 +219,134 @@ func (a *Adoption) runCommit(ctx context.Context, todo []Row) {
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	_ = a.q.DeleteAdoptionRows(ctx)
+	a.keepRows(ctx, rows, outcome, failure)
 	titles, _ := json.Marshal(append([]int64{}, res.TitleIDs...))
 	_ = a.q.FinishAdoptionCommit(ctx, db.FinishAdoptionCommitParams{
 		Adopted: sql.NullInt64{Int64: int64(res.Adopted), Valid: true}, Failed: sql.NullInt64{Int64: int64(res.Failed), Valid: true},
 		AdoptedTitles: sql.NullString{String: string(titles), Valid: true},
 	})
+}
+
+// keepRows stores every row with its final outcome: adopted or failed as the
+// commit says, and the rows it did not try as skipped, not chosen or unticked.
+func (a *Adoption) keepRows(ctx context.Context, rows []Row, outcome map[int64]FinalOutcome, failure map[int64]string) {
+	tx, err := a.d.Store.Write().BeginTx(ctx, nil)
+	if err != nil {
+		a.d.Logger.Error("adoption: keeping the rows failed", "err", err)
+		return
+	}
+	defer tx.Rollback()
+	q := db.New(tx)
+	for _, r := range rows {
+		o, ok := outcome[r.ID]
+		if !ok {
+			switch r.Status {
+			case Skipped:
+				o = EndedSkipped
+			case NeedsChoice:
+				o = EndedNotChosen
+			default:
+				o = EndedUnticked
+			}
+		}
+		r.Outcome, r.Error = o, failure[r.ID]
+		data, err := json.Marshal(r)
+		if err == nil {
+			err = q.UpdateAdoptionRow(ctx, db.UpdateAdoptionRowParams{Status: string(r.Status), Ticked: b2i(r.Ticked), Data: string(data), ID: r.ID})
+		}
+		if err != nil {
+			a.d.Logger.Error("adoption: keeping a row failed", "entry", r.Entry, "err", err)
+			return
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		a.d.Logger.Error("adoption: keeping the rows failed", "err", err)
+	}
+}
+
+// ErrNothingToRetry means no row of the last commit failed.
+var ErrNothingToRetry = errors.New("no Adoption entry failed")
+
+// Retry plans the failed entries of the last commit again, in the background
+// and without a new scan: the other rows are dropped, and the plan is
+// planned again for review.
+func (a *Adoption) Retry(ctx context.Context) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	plan, err := a.q.GetAdoptionPlan(ctx)
+	if err != nil {
+		return err
+	}
+	switch PlanState(plan.State) {
+	case PlanScanning, PlanCommitting:
+		return ErrBusy
+	case PlanPlanned:
+		return ErrNothingToRetry
+	}
+	rows, err := a.rows(ctx)
+	if err != nil {
+		return err
+	}
+	var failed []Row
+	for _, r := range rows {
+		if r.Outcome == EndedFailed && r.Match != nil {
+			failed = append(failed, r)
+		}
+	}
+	if len(failed) == 0 {
+		return ErrNothingToRetry
+	}
+	if err := a.q.StartAdoptionScan(ctx); err != nil {
+		return err
+	}
+	a.wg.Add(1)
+	go func() {
+		defer a.wg.Done()
+		a.runRetry(context.WithoutCancel(ctx), failed)
+	}()
+	return nil
+}
+
+func (a *Adoption) runRetry(ctx context.Context, failed []Row) {
+	defer a.clearCurrent()
+	planned, err := a.replanFailed(ctx, failed)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if err == nil {
+		settle(planned)
+		err = a.save(ctx, planned)
+	}
+	if err != nil {
+		a.d.Logger.Error("adoption retry failed", "err", err)
+		_ = a.q.FailAdoptionScan(ctx, sql.NullString{String: errorText(err), Valid: true})
+		return
+	}
+	_ = a.q.FinishAdoptionScan(ctx, sql.NullString{String: a.d.Clock().UTC().Format("2006-01-02T15:04:05Z07:00"), Valid: true})
+}
+
+// replanFailed plans each failed row again against the Title it was matched
+// to. An entry whose folder is gone is dropped.
+func (a *Adoption) replanFailed(ctx context.Context, failed []Row) ([]Row, error) {
+	e, err := a.env(ctx)
+	if err != nil {
+		return nil, err
+	}
+	_ = a.q.SetAdoptionProgress(ctx, db.SetAdoptionProgressParams{Done: 0, Total: int64(len(failed))})
+	var out []Row
+	for i, row := range failed {
+		a.setCurrent(row.Entry, StepProbing, 0)
+		row.Outcome, row.Error = "", ""
+		switch err := a.replan(ctx, e, &row, row.Match.TMDBID); {
+		case errors.Is(err, ErrNotSettleable):
+			a.d.Logger.Warn("adoption retry: the entry is gone", "entry", row.Entry)
+		case err != nil:
+			return nil, err
+		default:
+			out = append(out, row)
+		}
+		_ = a.q.SetAdoptionProgress(ctx, db.SetAdoptionProgressParams{Done: int64(i + 1), Total: int64(len(failed))})
+	}
+	return out, nil
 }
 
 // move is one rename done on disk, kept to undo it.

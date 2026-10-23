@@ -17,14 +17,14 @@ function planIs(state: Adoption['state'], needsChoice = 0) {
       response(200).json({
         state,
         progress: { done: 0, total: 0 },
-        summary: { matched: 3, needs_choice: needsChoice, skipped: 0, duplicate: 0, replacement: 0 },
+        summary: { matched: 3, needs_choice: needsChoice, skipped: 0, duplicate: 0, replacement: 0, adopting: 0 },
         revision: 2,
         error: null,
         scanned_at: null,
         result: null,
       }),
     ),
-    http.get('/adoption/rows', ({ response }) => response(200).json({ items: [] })),
+    http.get('/adoption/rows', ({ response }) => response(200).json({ items: [], next_cursor: null, total: 0, counts: { matched: 0, needs_choice: 0, skipped: 0, duplicate: 0, replacement: 0, adopting: 0 } })),
   )
 }
 

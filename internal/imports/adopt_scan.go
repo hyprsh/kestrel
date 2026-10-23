@@ -240,6 +240,7 @@ func (a *Adoption) scan(ctx context.Context, roots scanRoots) ([]Row, error) {
 		return nil, err
 	}
 	_ = a.q.SetAdoptionProgress(ctx, db.SetAdoptionProgressParams{Done: 0, Total: int64(len(list))})
+	defer a.clearCurrent()
 	var rows []Row
 	for i, en := range list {
 		row, err := a.planEntry(ctx, e, en, 0)
@@ -352,6 +353,7 @@ func (a *Adoption) planMovie(ctx context.Context, e *env, en entry, force int) (
 	if multiPart(videos) {
 		return skip(SkipInvalid)
 	}
+	a.setCurrent(en.Path, StepProbing, len(videos))
 	files, err := a.probeAll(ctx, videos)
 	if err != nil {
 		return nil, err
@@ -359,6 +361,7 @@ func (a *Adoption) planMovie(ctx context.Context, e *env, en entry, force int) (
 	if len(files) == 0 {
 		return skip(SkipInvalid)
 	}
+	a.setCurrent(en.Path, StepMatching, 0)
 
 	// Which Movie is it?
 	var tmdbID int

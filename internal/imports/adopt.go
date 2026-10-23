@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/history"
@@ -107,7 +108,46 @@ type CommitResult struct {
 	Adopted, Failed int
 	// TitleIDs are the Titles the commit adopted.
 	TitleIDs []int64
+	// Outcomes counts the kept rows by how they ended.
+	Outcomes Outcomes
 }
+
+// FinalOutcome is what became of a row after a commit; "" for a row of a plan
+// that has not been committed.
+type FinalOutcome string
+
+// The final outcomes of a row.
+const (
+	// EndedAdopted: the row was committed and its files adopted.
+	EndedAdopted FinalOutcome = "adopted"
+	// EndedFailed: the row was committed and adopting it failed (see Row.Error).
+	EndedFailed FinalOutcome = "failed"
+	// EndedSkipped: the entry could not be adopted (see Row.SkipReason).
+	EndedSkipped FinalOutcome = "skipped"
+	// EndedNotChosen: a Needs choice row nobody settled.
+	EndedNotChosen FinalOutcome = "not_chosen"
+	// EndedUnticked: a Matched row that was left out.
+	EndedUnticked FinalOutcome = "unticked"
+)
+
+// Outcomes counts rows by final outcome.
+type Outcomes struct{ Adopted, Failed, Skipped, NotChosen, Unticked int }
+
+// Current is the entry a running scan or commit is working on.
+type Current struct {
+	Entry string
+	// Step is "probing", "matching" or "moving".
+	Step string
+	// Files is how many files the step covers; 0 when it is not about files.
+	Files int
+}
+
+// The steps of Current.
+const (
+	StepProbing  = "probing"
+	StepMatching = "matching"
+	StepMoving   = "moving"
+)
 
 // Plan is the Adoption plan's state.
 type Plan struct {
@@ -120,6 +160,8 @@ type Plan struct {
 	ScannedAt *time.Time
 	Summary   Summary
 	Result    *CommitResult
+	// Current is what a running scan or commit is working on; nil when none.
+	Current *Current
 }
 
 // Match is the Movie or Series a row's files are adopted as.
@@ -194,6 +236,10 @@ type Row struct {
 	Match      *Match      `json:"match,omitempty"`
 	Candidates []Candidate `json:"candidates,omitempty"`
 	Files      []PlanFile  `json:"files,omitempty"`
+	// Outcome is what became of the row after a commit, and Error why a failed
+	// row failed. Rows are kept with them until the next scan.
+	Outcome FinalOutcome `json:"outcome,omitempty"`
+	Error   string       `json:"error,omitempty"`
 }
 
 // kind is the row's kind, a Movie when the plan was stored before Series.
@@ -285,7 +331,15 @@ type Adoption struct {
 	q    *db.Queries
 	mu   sync.Mutex // serialises the plan's state changes and row edits
 	wg   sync.WaitGroup
+	cur  atomic.Pointer[Current] // what a running scan or commit works on, for Progress
 }
+
+// setCurrent says what the running scan or commit is working on.
+func (a *Adoption) setCurrent(entry, step string, files int) {
+	a.cur.Store(&Current{Entry: entry, Step: step, Files: files})
+}
+
+func (a *Adoption) clearCurrent() { a.cur.Store(nil) }
 
 // NewAdoption returns the service. A scan or commit that a restart cut short
 // is undone: the scan's plan is dropped, the commit's rows stay for review.
@@ -353,14 +407,52 @@ func (a *Adoption) Get(ctx context.Context) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
-	out.Summary = summarizeRows(rows)
+	out.Summary = summarizeRows(planRows(rows))
+	if out.Result != nil {
+		out.Result.Outcomes = countOutcomes(rows)
+	}
+	if out.State == PlanScanning || out.State == PlanCommitting {
+		out.Current = a.cur.Load()
+	}
 	return out, nil
+}
+
+// planRows are the rows of a plan under review, not those a commit kept.
+func planRows(rows []Row) []Row {
+	out := make([]Row, 0, len(rows))
+	for _, r := range rows {
+		if r.Outcome == "" {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+func countOutcomes(rows []Row) Outcomes {
+	var o Outcomes
+	for _, r := range rows {
+		switch r.Outcome {
+		case EndedAdopted:
+			o.Adopted++
+		case EndedFailed:
+			o.Failed++
+		case EndedSkipped:
+			o.Skipped++
+		case EndedNotChosen:
+			o.NotChosen++
+		case EndedUnticked:
+			o.Unticked++
+		}
+	}
+	return o
 }
 
 // Progress is the plan's state and how far a scan or commit has got.
 type Progress struct {
 	State       PlanState
 	Done, Total int
+	// Current is what the running scan or commit works on; nil when none runs.
+	Current *Current
 }
 
 // Progress reads the plan's state and progress without its rows: cheap enough
@@ -370,7 +462,11 @@ func (a *Adoption) Progress(ctx context.Context) (Progress, error) {
 	if err != nil {
 		return Progress{}, err
 	}
-	return Progress{State: PlanState(p.State), Done: int(p.Done), Total: int(p.Total)}, nil
+	out := Progress{State: PlanState(p.State), Done: int(p.Done), Total: int(p.Total)}
+	if out.State == PlanScanning || out.State == PlanCommitting {
+		out.Current = a.cur.Load()
+	}
+	return out, nil
 }
 
 func summarizeRows(rows []Row) Summary {
@@ -399,6 +495,17 @@ func summarizeRows(rows []Row) Summary {
 
 // willAdopt reports whether a commit would adopt the row.
 func (r Row) willAdopt() bool { return r.Status == Matched && r.Ticked && r.has(PlanFile.adopts) }
+
+// countFiles counts the row's files the predicate holds for.
+func (r Row) countFiles(pred func(PlanFile) bool) int {
+	n := 0
+	for _, f := range r.Files {
+		if pred(f) {
+			n++
+		}
+	}
+	return n
+}
 
 func (r Row) has(pred func(PlanFile) bool) bool {
 	for _, f := range r.Files {
@@ -448,6 +555,9 @@ func grouped(all []Row) []Row {
 	return out
 }
 
+// OutcomeFilter narrows Rows to the rows a commit ended one way; "" keeps all.
+type OutcomeFilter FinalOutcome
+
 // RowPage is one page of the plan's rows.
 type RowPage struct {
 	Rows []Row
@@ -457,17 +567,17 @@ type RowPage struct {
 	Summary Summary
 }
 
-// Rows returns the rows the filter keeps, Matched first, then Needs choice,
-// then Skipped, from offset on and at most limit of them.
-func (a *Adoption) Rows(ctx context.Context, f Filter, offset, limit int) (RowPage, error) {
+// Rows returns the rows the filter and the outcome keep, Matched first, then
+// Needs choice, then Skipped, from offset on and at most limit of them.
+func (a *Adoption) Rows(ctx context.Context, f Filter, o OutcomeFilter, offset, limit int) (RowPage, error) {
 	all, err := a.rows(ctx)
 	if err != nil {
 		return RowPage{}, err
 	}
-	page := RowPage{Summary: summarizeRows(all)}
+	page := RowPage{Summary: summarizeRows(planRows(all))}
 	var kept []Row
 	for _, r := range grouped(all) {
-		if f.keeps(r) {
+		if f.keeps(r) && (o == "" || FinalOutcome(o) == r.Outcome) {
 			kept = append(kept, r)
 		}
 	}

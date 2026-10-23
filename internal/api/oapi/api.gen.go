@@ -61,6 +61,27 @@ func (e AdoptionActivityState) Valid() bool {
 	}
 }
 
+// Defines values for AdoptionCurrentStep.
+const (
+	Matching AdoptionCurrentStep = "matching"
+	Moving   AdoptionCurrentStep = "moving"
+	Probing  AdoptionCurrentStep = "probing"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionCurrentStep enum.
+func (e AdoptionCurrentStep) Valid() bool {
+	switch e {
+	case Matching:
+		return true
+	case Moving:
+		return true
+	case Probing:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdoptionFileAction.
 const (
 	Create  AdoptionFileAction = "create"
@@ -97,6 +118,33 @@ func (e AdoptionFileLeft) Valid() bool {
 	case AdoptionFileLeftPathOccupied:
 		return true
 	case AdoptionFileLeftUnmatched:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdoptionFinalOutcome.
+const (
+	AdoptionFinalOutcomeAdopted   AdoptionFinalOutcome = "adopted"
+	AdoptionFinalOutcomeFailed    AdoptionFinalOutcome = "failed"
+	AdoptionFinalOutcomeNotChosen AdoptionFinalOutcome = "not_chosen"
+	AdoptionFinalOutcomeSkipped   AdoptionFinalOutcome = "skipped"
+	AdoptionFinalOutcomeUnticked  AdoptionFinalOutcome = "unticked"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionFinalOutcome enum.
+func (e AdoptionFinalOutcome) Valid() bool {
+	switch e {
+	case AdoptionFinalOutcomeAdopted:
+		return true
+	case AdoptionFinalOutcomeFailed:
+		return true
+	case AdoptionFinalOutcomeNotChosen:
+		return true
+	case AdoptionFinalOutcomeSkipped:
+		return true
+	case AdoptionFinalOutcomeUnticked:
 		return true
 	default:
 		return false
@@ -1475,14 +1523,20 @@ type Adoption struct {
 	// Error Why the last scan could not finish, if it could not.
 	Error    *string `json:"error"`
 	Progress struct {
-		Done  int `json:"done"`
-		Total int `json:"total"`
+		// Current The entry a running scan or commit is working on and what is happening to it; absent when nothing runs.
+		// There is no per-file progress: `files` is how many files the step covers.
+		Current *AdoptionCurrent `json:"current,omitempty"`
+		Done    int              `json:"done"`
+		Total   int              `json:"total"`
 	} `json:"progress"`
 
 	// Result What the last commit did; kept until the next scan.
 	Result *struct {
 		Adopted int `json:"adopted"`
 		Failed  int `json:"failed"`
+
+		// Outcomes How many rows ended each way, after the last commit.
+		Outcomes AdoptionOutcomes `json:"outcomes"`
 
 		// TitleIds The Titles the commit adopted.
 		TitleIds []int64 `json:"title_ids"`
@@ -1500,6 +1554,10 @@ type AdoptionState string
 
 // AdoptionActivity An Adoption scan or commit and how far it has got, as `GET /adoption` reports it.
 type AdoptionActivity struct {
+	// Current The entry a running scan or commit is working on and what is happening to it; absent when nothing runs.
+	// There is no per-file progress: `files` is how many files the step covers.
+	Current *AdoptionCurrent `json:"current,omitempty"`
+
 	// Done Entries scanned, or rows adopted, so far.
 	Done  int                   `json:"done"`
 	State AdoptionActivityState `json:"state"`
@@ -1526,6 +1584,22 @@ type AdoptionCandidate struct {
 	TmdbId    int    `json:"tmdb_id"`
 	Year      *int   `json:"year"`
 }
+
+// AdoptionCurrent The entry a running scan or commit is working on and what is happening to it; absent when nothing runs.
+// There is no per-file progress: `files` is how many files the step covers.
+type AdoptionCurrent struct {
+	// Entry The folder or loose file in the Root folder.
+	Entry string `json:"entry"`
+
+	// Files How many files the step covers, when it is about files.
+	Files *int `json:"files,omitempty"`
+
+	// Step What is happening to the entry. Clients tolerate steps they do not know.
+	Step AdoptionCurrentStep `json:"step"`
+}
+
+// AdoptionCurrentStep What is happening to the entry. Clients tolerate steps they do not know.
+type AdoptionCurrentStep string
 
 // AdoptionFile defines model for AdoptionFile.
 type AdoptionFile struct {
@@ -1563,6 +1637,11 @@ type AdoptionFileAction string
 // AdoptionFileLeft Why the file stays untouched; null when it is adopted if ticked.
 type AdoptionFileLeft string
 
+// AdoptionFinalOutcome What became of a row after a commit. `adopted` and `failed` rows were ticked and committed (`failed`
+// carries the row's `error`); `skipped` rows could not be adopted; `not_chosen` rows needed a choice
+// nobody made; `unticked` rows were Matched but left out.
+type AdoptionFinalOutcome string
+
 // AdoptionMatch defines model for AdoptionMatch.
 type AdoptionMatch struct {
 	// Folder The Title folder the files are renamed into.
@@ -1584,17 +1663,34 @@ type AdoptionMatch struct {
 // AdoptionMatchSource ID tag, confident name match, or picked by the admin.
 type AdoptionMatchSource string
 
+// AdoptionOutcomes How many rows ended each way, after the last commit.
+type AdoptionOutcomes struct {
+	Adopted   int `json:"adopted"`
+	Failed    int `json:"failed"`
+	NotChosen int `json:"not_chosen"`
+	Skipped   int `json:"skipped"`
+	Unticked  int `json:"unticked"`
+}
+
 // AdoptionRow defines model for AdoptionRow.
 type AdoptionRow struct {
 	// Candidates Likely Movies or Series for a Needs choice row.
 	Candidates []AdoptionCandidate `json:"candidates"`
 
 	// Entry The folder or loose file in the Root folder.
-	Entry      string                 `json:"entry"`
-	Files      []AdoptionFile         `json:"files"`
-	Id         int64                  `json:"id"`
-	Kind       TitleKind              `json:"kind"`
-	Match      *AdoptionMatch         `json:"match"`
+	Entry string `json:"entry"`
+
+	// Error Why a `failed` row could not be adopted.
+	Error *string        `json:"error,omitempty"`
+	Files []AdoptionFile `json:"files"`
+	Id    int64          `json:"id"`
+	Kind  TitleKind      `json:"kind"`
+	Match *AdoptionMatch `json:"match"`
+
+	// Outcome What became of a row after a commit. `adopted` and `failed` rows were ticked and committed (`failed`
+	// carries the row's `error`); `skipped` rows could not be adopted; `not_chosen` rows needed a choice
+	// nobody made; `unticked` rows were Matched but left out.
+	Outcome    *AdoptionFinalOutcome  `json:"outcome,omitempty"`
 	SkipReason *AdoptionRowSkipReason `json:"skip_reason"`
 	Status     AdoptionRowStatus      `json:"status"`
 	Ticked     bool                   `json:"ticked"`
@@ -3840,6 +3936,11 @@ type CommitAdoptionJSONBody struct {
 type ListAdoptionRowsParams struct {
 	Filter *ListAdoptionRowsParamsFilter `form:"filter,omitempty" json:"filter,omitempty"`
 
+	// Outcome Keep the rows that ended this way in the last commit (see `AdoptionFinalOutcome`), which are kept
+	// until the next scan. Only rows of a finished commit have an outcome, so no row matches before one.
+	// Combines with `filter`.
+	Outcome *AdoptionFinalOutcome `form:"outcome,omitempty" json:"outcome,omitempty"`
+
 	// Limit Page size.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -4421,6 +4522,9 @@ type ServerInterface interface {
 	// CommitAdoption Adopt the ticked rows
 	// (POST /adoption/commit)
 	CommitAdoption(w http.ResponseWriter, r *http.Request)
+	// RetryAdoption Plan the entries that failed again
+	// (POST /adoption/retry)
+	RetryAdoption(w http.ResponseWriter, r *http.Request)
 	// ListAdoptionRows The rows of the plan
 	// (GET /adoption/rows)
 	ListAdoptionRows(w http.ResponseWriter, r *http.Request, params ListAdoptionRowsParams)
@@ -4767,6 +4871,20 @@ func (siw *ServerInterfaceWrapper) CommitAdoption(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// RetryAdoption operation middleware
+func (siw *ServerInterfaceWrapper) RetryAdoption(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RetryAdoption(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListAdoptionRows operation middleware
 func (siw *ServerInterfaceWrapper) ListAdoptionRows(w http.ResponseWriter, r *http.Request) {
 
@@ -4785,6 +4903,19 @@ func (siw *ServerInterfaceWrapper) ListAdoptionRows(w http.ResponseWriter, r *ht
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "filter"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filter", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "outcome" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "outcome", r.URL.Query(), &params.Outcome, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "outcome"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "outcome", Err: err})
 		}
 		return
 	}
@@ -7081,6 +7212,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/attention", wrapper.GetAttention)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/attention/{id}/dismiss", wrapper.DismissAttention)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/adoption/commit", wrapper.CommitAdoption)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/adoption/retry", wrapper.RetryAdoption)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/cleanup/preview", wrapper.PreviewCleanup)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/cleanup/run", wrapper.RunCleanup)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/wanted/search", wrapper.SearchAllWanted)
@@ -7408,6 +7540,70 @@ type CommitAdoptiondefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response CommitAdoptiondefaultApplicationProblemPlusJSONResponse) VisitCommitAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetryAdoptionRequestObject struct {
+}
+
+type RetryAdoptionResponseObject interface {
+	VisitRetryAdoptionResponse(w http.ResponseWriter) error
+}
+
+type RetryAdoption202ResponseHeaders struct {
+	Location *string
+}
+
+type RetryAdoption202JSONResponse struct {
+	Body    Adoption
+	Headers RetryAdoption202ResponseHeaders
+}
+
+func (response RetryAdoption202JSONResponse) VisitRetryAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.Location != nil {
+		w.Header().Set("Location", fmt.Sprint(*response.Headers.Location))
+	}
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetryAdoption409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RetryAdoption409ApplicationProblemPlusJSONResponse) VisitRetryAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetryAdoptiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response RetryAdoptiondefaultApplicationProblemPlusJSONResponse) VisitRetryAdoptionResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -12032,6 +12228,9 @@ type StrictServerInterface interface {
 	// CommitAdoption Adopt the ticked rows
 	// (POST /adoption/commit)
 	CommitAdoption(ctx context.Context, request CommitAdoptionRequestObject) (CommitAdoptionResponseObject, error)
+	// RetryAdoption Plan the entries that failed again
+	// (POST /adoption/retry)
+	RetryAdoption(ctx context.Context, request RetryAdoptionRequestObject) (RetryAdoptionResponseObject, error)
 	// ListAdoptionRows The rows of the plan
 	// (GET /adoption/rows)
 	ListAdoptionRows(ctx context.Context, request ListAdoptionRowsRequestObject) (ListAdoptionRowsResponseObject, error)
@@ -12485,6 +12684,30 @@ func (sh *strictHandler) CommitAdoption(w http.ResponseWriter, r *http.Request) 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CommitAdoptionResponseObject); ok {
 		if err := validResponse.VisitCommitAdoptionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RetryAdoption operation middleware
+func (sh *strictHandler) RetryAdoption(w http.ResponseWriter, r *http.Request) {
+	var request RetryAdoptionRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RetryAdoption(ctx, request.(RetryAdoptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RetryAdoption")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RetryAdoptionResponseObject); ok {
+		if err := validResponse.VisitRetryAdoptionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

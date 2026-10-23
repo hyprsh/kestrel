@@ -1184,7 +1184,9 @@ export interface paths {
          * @description Adoption takes over an existing on-disk library without downloading it again. There is at most one
          *     plan, stored until it is committed or discarded: `idle` (no plan), `scanning` (building one in the
          *     background, with `progress`), `planned` (waiting for review) or `committing`. `revision` changes with
-         *     every edit of the plan; `POST /adoption/commit` must name the one it reviewed.
+         *     every edit of the plan; `POST /adoption/commit` must name the one it reviewed. After a commit the
+         *     state is `idle` but the rows are kept, each with its final `outcome`, until the next scan or a
+         *     discard; `result.outcomes` counts them.
          */
         get: operations["getAdoption"];
         put?: never;
@@ -1368,9 +1370,34 @@ export interface paths {
          * @description Answers `202`; the work runs in the background, one transaction per Title. Files are renamed in
          *     place into the naming scheme together with their sidecar subtitles, and each Title is logged as it is
          *     adopted. `409 conflict` when `revision` is not the plan's current one (a row changed since it was
-         *     reviewed) or the plan is not `planned`. The plan is cleared once committed.
+         *     reviewed) or the plan is not `planned`. Once committed the rows are kept with their final `outcome` (see
+         *     `GET /adoption/rows`) until the next scan or a discard.
          */
         post: operations["commitAdoption"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adoption/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan the entries that failed again
+         * @description After a commit, plans again only the entries whose `outcome` is `failed`, from their folders as they
+         *     are now and against the Title each was matched to, with no new scan. The other kept rows are dropped
+         *     and the plan is `planned` again for review and a commit. Answers `202` with `Location: /adoption`;
+         *     the planning runs in the background (`scanning`), as a scan's does. `409 conflict` while a scan or
+         *     commit runs, or when there is no failed entry to try again.
+         */
+        post: operations["retryAdoption"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2876,6 +2903,7 @@ export interface components {
             progress: {
                 done: number;
                 total: number;
+                current?: components["schemas"]["AdoptionCurrent"];
             };
             summary: components["schemas"]["AdoptionSummary"];
             /** Format: int64 */
@@ -2890,7 +2918,38 @@ export interface components {
                 failed: number;
                 /** @description The Titles the commit adopted. */
                 title_ids: number[];
+                outcomes: components["schemas"]["AdoptionOutcomes"];
             } | null;
+        };
+        /**
+         * @description The entry a running scan or commit is working on and what is happening to it; absent when nothing runs.
+         *     There is no per-file progress: `files` is how many files the step covers.
+         */
+        AdoptionCurrent: {
+            /** @description The folder or loose file in the Root folder. */
+            entry: string;
+            /**
+             * @description What is happening to the entry. Clients tolerate steps they do not know.
+             * @enum {string}
+             */
+            step: "probing" | "matching" | "moving";
+            /** @description How many files the step covers, when it is about files. */
+            files?: number;
+        };
+        /**
+         * @description What became of a row after a commit. `adopted` and `failed` rows were ticked and committed (`failed`
+         *     carries the row's `error`); `skipped` rows could not be adopted; `not_chosen` rows needed a choice
+         *     nobody made; `unticked` rows were Matched but left out.
+         * @enum {string}
+         */
+        AdoptionFinalOutcome: "adopted" | "failed" | "skipped" | "not_chosen" | "unticked";
+        /** @description How many rows ended each way, after the last commit. */
+        AdoptionOutcomes: {
+            adopted: number;
+            failed: number;
+            skipped: number;
+            not_chosen: number;
+            unticked: number;
         };
         /**
          * @description A likely match of a Needs choice row. Candidates come best first: Kestrel ranks them on title
@@ -2976,6 +3035,9 @@ export interface components {
             /** @description Likely Movies or Series for a Needs choice row. */
             candidates: components["schemas"]["AdoptionCandidate"][];
             files: components["schemas"]["AdoptionFile"][];
+            outcome?: components["schemas"]["AdoptionFinalOutcome"];
+            /** @description Why a `failed` row could not be adopted. */
+            error?: string;
         };
         /** @description Row counts of the plan; all zero when there is none. */
         AdoptionSummary: {
@@ -3144,6 +3206,7 @@ export interface components {
             done: number;
             /** @description Entries to scan, or rows to adopt; 0 until a scan has listed them. */
             total: number;
+            current?: components["schemas"]["AdoptionCurrent"];
         };
         AttentionSnapshot: {
             /** @description How many Needs attention rows there are. */
@@ -5404,6 +5467,12 @@ export interface operations {
         parameters: {
             query?: {
                 filter?: "needs_choice" | "matched" | "duplicate" | "replacement" | "skipped";
+                /**
+                 * @description Keep the rows that ended this way in the last commit (see `AdoptionFinalOutcome`), which are kept
+                 *     until the next scan. Only rows of a finished commit have an outcome, so no row matches before one.
+                 *     Combines with `filter`.
+                 */
+                outcome?: components["schemas"]["AdoptionFinalOutcome"];
                 /** @description Page size. */
                 limit?: number;
                 /** @description The `next_cursor` of the previous page. */
@@ -5545,6 +5614,29 @@ export interface operations {
         };
         responses: {
             /** @description The commit started. */
+            202: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Adoption"];
+                };
+            };
+            409: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    retryAdoption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The planning started. */
             202: {
                 headers: {
                     Location?: string;

@@ -1457,7 +1457,9 @@ paths:
         Adoption takes over an existing on-disk library without downloading it again. There is at most one
         plan, stored until it is committed or discarded: `idle` (no plan), `scanning` (building one in the
         background, with `progress`), `planned` (waiting for review) or `committing`. `revision` changes with
-        every edit of the plan; `POST /adoption/commit` must name the one it reviewed.
+        every edit of the plan; `POST /adoption/commit` must name the one it reviewed. After a commit the
+        state is `idle` but the rows are kept, each with its final `outcome`, until the next scan or a
+        discard; `result.outcomes` counts them.
       tags: [adoption]
       responses:
         "200":
@@ -1538,6 +1540,15 @@ paths:
           schema:
             type: string
             enum: [needs_choice, matched, duplicate, replacement, skipped]
+        - name: outcome
+          in: query
+          required: false
+          description: |
+            Keep the rows that ended this way in the last commit (see `AdoptionFinalOutcome`), which are kept
+            until the next scan. Only rows of a finished commit have an outcome, so no row matches before one.
+            Combines with `filter`.
+          schema:
+            $ref: "#/components/schemas/AdoptionFinalOutcome"
         - name: limit
           in: query
           description: Page size.
@@ -1684,7 +1695,8 @@ paths:
         Answers `202`; the work runs in the background, one transaction per Title. Files are renamed in
         place into the naming scheme together with their sidecar subtitles, and each Title is logged as it is
         adopted. `409 conflict` when `revision` is not the plan's current one (a row changed since it was
-        reviewed) or the plan is not `planned`. The plan is cleared once committed.
+        reviewed) or the plan is not `planned`. Once committed the rows are kept with their final `outcome` (see
+        `GET /adoption/rows`) until the next scan or a discard.
       tags: [adoption]
       requestBody:
         required: true
@@ -1700,6 +1712,32 @@ paths:
       responses:
         "202":
           description: The commit started.
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Adoption"
+        "409":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /adoption/retry:
+    post:
+      operationId: retryAdoption
+      summary: Plan the entries that failed again
+      description: |
+        After a commit, plans again only the entries whose `outcome` is `failed`, from their folders as they
+        are now and against the Title each was matched to, with no new scan. The other kept rows are dropped
+        and the plan is `planned` again for review and a commit. Answers `202` with `Location: /adoption`;
+        the planning runs in the background (`scanning`), as a scan's does. `409 conflict` while a scan or
+        commit runs, or when there is no failed entry to try again.
+      tags: [adoption]
+      responses:
+        "202":
+          description: The planning started.
           headers:
             Location:
               schema:
@@ -4052,6 +4090,8 @@ components:
               type: integer
             total:
               type: integer
+            current:
+              $ref: "#/components/schemas/AdoptionCurrent"
         summary:
           $ref: "#/components/schemas/AdoptionSummary"
         revision:
@@ -4069,7 +4109,7 @@ components:
           type: object
           nullable: true
           description: What the last commit did; kept until the next scan.
-          required: [adopted, failed, title_ids]
+          required: [adopted, failed, title_ids, outcomes]
           properties:
             adopted:
               type: integer
@@ -4081,6 +4121,47 @@ components:
               items:
                 type: integer
                 format: int64
+            outcomes:
+              $ref: "#/components/schemas/AdoptionOutcomes"
+    AdoptionCurrent:
+      type: object
+      description: |
+        The entry a running scan or commit is working on and what is happening to it; absent when nothing runs.
+        There is no per-file progress: `files` is how many files the step covers.
+      required: [entry, step]
+      properties:
+        entry:
+          type: string
+          description: The folder or loose file in the Root folder.
+        step:
+          type: string
+          description: What is happening to the entry. Clients tolerate steps they do not know.
+          enum: [probing, matching, moving]
+        files:
+          type: integer
+          description: How many files the step covers, when it is about files.
+    AdoptionFinalOutcome:
+      type: string
+      description: |
+        What became of a row after a commit. `adopted` and `failed` rows were ticked and committed (`failed`
+        carries the row's `error`); `skipped` rows could not be adopted; `not_chosen` rows needed a choice
+        nobody made; `unticked` rows were Matched but left out.
+      enum: [adopted, failed, skipped, not_chosen, unticked]
+    AdoptionOutcomes:
+      type: object
+      description: How many rows ended each way, after the last commit.
+      required: [adopted, failed, skipped, not_chosen, unticked]
+      properties:
+        adopted:
+          type: integer
+        failed:
+          type: integer
+        skipped:
+          type: integer
+        not_chosen:
+          type: integer
+        unticked:
+          type: integer
     AdoptionCandidate:
       type: object
       description: |
@@ -4222,6 +4303,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdoptionFile"
+        outcome:
+          $ref: "#/components/schemas/AdoptionFinalOutcome"
+        error:
+          type: string
+          description: Why a `failed` row could not be adopted.
     AdoptionSummary:
       type: object
       description: Row counts of the plan; all zero when there is none.
@@ -4478,6 +4564,8 @@ components:
         total:
           type: integer
           description: Entries to scan, or rows to adopt; 0 until a scan has listed them.
+        current:
+          $ref: "#/components/schemas/AdoptionCurrent"
     AttentionSnapshot:
       type: object
       required: [count, severity]

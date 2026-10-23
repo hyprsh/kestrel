@@ -190,6 +190,7 @@ func (a *Adoption) planSeries(ctx context.Context, e *env, en entry, force int) 
 		return skip(SkipNoVideo)
 	}
 	slices.Sort(videos)
+	a.setCurrent(en.Path, StepProbing, len(videos))
 	files, err := a.probeAll(ctx, videos)
 	if err != nil {
 		return nil, err
@@ -197,6 +198,7 @@ func (a *Adoption) planSeries(ctx context.Context, e *env, en entry, force int) 
 	if len(files) == 0 {
 		return skip(SkipInvalid)
 	}
+	a.setCurrent(en.Path, StepMatching, 0)
 
 	var tmdbID int
 	var source string

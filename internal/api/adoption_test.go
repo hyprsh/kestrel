@@ -67,6 +67,8 @@ type adoptionRowJSON struct {
 	Candidates []adoptionCandidateJSON `json:"candidates"`
 	Kind       string                  `json:"kind"`
 	Files      []adoptionFileJSON      `json:"files"`
+	Outcome    *string                 `json:"outcome"`
+	Error      *string                 `json:"error"`
 }
 
 type adoptionCandidateJSON struct {
@@ -112,6 +114,13 @@ type adoptionJSON struct {
 		Adopted  int     `json:"adopted"`
 		Failed   int     `json:"failed"`
 		TitleIDs []int64 `json:"title_ids"`
+		Outcomes struct {
+			Adopted   int `json:"adopted"`
+			Failed    int `json:"failed"`
+			Skipped   int `json:"skipped"`
+			NotChosen int `json:"not_chosen"`
+			Unticked  int `json:"unticked"`
+		} `json:"outcomes"`
 	} `json:"result"`
 }
 
