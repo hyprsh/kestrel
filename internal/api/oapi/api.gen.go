@@ -1904,15 +1904,19 @@ type IndexerError struct {
 
 // IndexerStatus defines model for IndexerStatus.
 type IndexerStatus struct {
+	// GrabMax The daily download limit: the indexer's own `grabmax` when it reports one, else the instance's
+	// `grabs_per_day`; null when neither is known.
 	GrabMax *int `json:"grab_max"`
 
-	// GrabUsed Downloads used today, when the indexer reports its download quota.
+	// GrabUsed Downloads used today: the indexer's own count when it reports its download quota, else Kestrel's
+	// count of NZB Fetches when the instance has a `grabs_per_day`; null when neither is known.
 	GrabUsed *int `json:"grab_used"`
 
 	// GrabsPaused Grabs are paused (code 501, a bare 429 or a spent download quota). Not a failure.
 	GrabsPaused bool `json:"grabs_paused"`
 
-	// GrabsPausedUntil When the pause ends; null for a spent download quota, which ends when the indexer says so.
+	// GrabsPausedUntil When the pause ends: the next UTC midnight for a spent `grabs_per_day`. Null for a spent download
+	// quota the indexer reports, which ends when the indexer says so.
 	GrabsPausedUntil *time.Time `json:"grabs_paused_until"`
 	InstanceId       int64      `json:"instance_id"`
 	Message          *string    `json:"message"`

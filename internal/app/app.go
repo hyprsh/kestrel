@@ -161,7 +161,7 @@ func New(opts Options) *App {
 		posters = metadata.NewPosters(metadata.PostersOptions{ConfigDir: opts.ConfigDir, ImageBase: opts.TMDBImageURL})
 	}
 
-	indexerHost := indexers.New(pluginInstances, opts.Clock)
+	indexerHost := indexers.New(pluginInstances, st, opts.Clock)
 	downloadHost := downloads.New(pluginInstances)
 	healthSvc := health.New(healthDeps(opts, appSettings, roots, pluginInstances, downloadHost, hist))
 	watchHealth(healthSvc, downloadHost, indexerHost)

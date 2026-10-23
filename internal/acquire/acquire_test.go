@@ -120,7 +120,7 @@ func newRigOf(t *testing.T, details metadata.MovieDetails, specs ...library.Vers
 
 	deps := acquire.Deps{
 		Store: st, Clock: clk.Now, Library: lib, Profiles: profiles.New(st, settings.New(st)),
-		Indexers: indexers.New(inst, clk.Now), Downloads: downloads.New(inst),
+		Indexers: indexers.New(inst, st, clk.Now), Downloads: downloads.New(inst),
 	}
 	svc, err := acquire.New(deps)
 	if err != nil {

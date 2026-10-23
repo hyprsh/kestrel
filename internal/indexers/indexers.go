@@ -15,9 +15,11 @@ import (
 	"sync"
 	"time"
 
+	idb "github.com/hyprsh/kestrel/internal/indexers/db"
 	"github.com/hyprsh/kestrel/internal/plugin"
 	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
+	"github.com/hyprsh/kestrel/internal/store"
 )
 
 // ErrNoSuchIndexer means the id names no enabled indexer instance.
@@ -32,6 +34,7 @@ const (
 // Service searches the enabled indexers.
 type Service struct {
 	inst  *instances.Service
+	st    *store.Store
 	clock func() time.Time
 
 	mu       sync.Mutex
@@ -60,11 +63,11 @@ type cachedCaps struct {
 }
 
 // New returns a Service over the plugin instances. clock is time.Now in production.
-func New(inst *instances.Service, clock func() time.Time) *Service {
+func New(inst *instances.Service, st *store.Store, clock func() time.Time) *Service {
 	if clock == nil {
 		clock = time.Now
 	}
-	return &Service{inst: inst, clock: clock, caps: map[int64]cachedCaps{}, states: map[int64]*state{}, sleep: sleepFor}
+	return &Service{inst: inst, st: st, clock: clock, caps: map[int64]cachedCaps{}, states: map[int64]*state{}, sleep: sleepFor}
 }
 
 // Query is what to look for, whichever way each indexer can be asked.
@@ -207,7 +210,8 @@ func (s *Service) Fetch(ctx context.Context, indexerID int64, downloadURL string
 	}
 	s.mu.Lock()
 	now := s.clock()
-	if st := s.stateOf(inst); st.grabUntil.After(now) {
+	st := s.stateOf(inst)
+	if st.grabUntil.After(now) {
 		until := st.grabUntil
 		s.mu.Unlock()
 		return nil, pausedErr(plugin.LimitGrab, until, now, "Grabs are paused: the indexer's download limit was reached")
@@ -215,8 +219,23 @@ func (s *Service) Fetch(ctx context.Context, indexerID int64, downloadURL string
 		s.mu.Unlock()
 		return nil, pausedErr(plugin.LimitGrab, now, now, "Grabs are paused: the indexer's download quota is spent")
 	}
+	// The slot is taken before the plugin is asked, so two Fetches cannot both
+	// take the last one; it is given back if the Fetch returns no NZB.
+	day := utcDay(now)
+	if limit := inst.Connection().Int("grabs_per_day"); limit > 0 && !st.reportedGrabQuota(now) && s.grabsToday(ctx, inst.ID, now) >= limit {
+		s.mu.Unlock()
+		return nil, pausedErr(plugin.LimitGrab, nextUTCMidnight(now), now, "Grabs are paused: the indexer's Grabs per day are used up")
+	}
+	w := idb.New(s.st.Write())
+	counted := w.CountGrab(ctx, idb.CountGrabParams{IndexerID: inst.ID, Day: day}) == nil
+	if counted {
+		_ = w.PruneGrabCounts(ctx, idb.PruneGrabCountsParams{IndexerID: inst.ID, Day: day})
+	}
 	s.mu.Unlock()
 	nzb, err := p.Fetch(ctx, inst.Connection(), downloadURL)
+	if err != nil && counted {
+		_ = idb.New(s.st.Write()).UncountGrab(context.WithoutCancel(ctx), idb.UncountGrabParams{IndexerID: inst.ID, Day: day})
+	}
 	if pe := plugin.AsError(err); err != nil && ctx.Err() == nil && pe.Code == plugin.CodeRateLimited {
 		s.mu.Lock()
 		s.pause(s.stateOf(inst), pe, s.clock())

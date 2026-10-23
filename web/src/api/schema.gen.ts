@@ -3320,8 +3320,15 @@ export interface components {
              *     null when neither is known. Sweeps stop at 80 % of it; RSS, Grabs and manual searches go on.
              */
             search_max: number | null;
-            /** @description Downloads used today, when the indexer reports its download quota. */
+            /**
+             * @description Downloads used today: the indexer's own count when it reports its download quota, else Kestrel's
+             *     count of NZB Fetches when the instance has a `grabs_per_day`; null when neither is known.
+             */
             grab_used: number | null;
+            /**
+             * @description The daily download limit: the indexer's own `grabmax` when it reports one, else the instance's
+             *     `grabs_per_day`; null when neither is known.
+             */
             grab_max: number | null;
             /**
              * Format: date-time
@@ -3333,7 +3340,8 @@ export interface components {
             grabs_paused: boolean;
             /**
              * Format: date-time
-             * @description When the pause ends; null for a spent download quota, which ends when the indexer says so.
+             * @description When the pause ends: the next UTC midnight for a spent `grabs_per_day`. Null for a spent download
+             *     quota the indexer reports, which ends when the indexer says so.
              */
             grabs_paused_until: string | null;
         };

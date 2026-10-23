@@ -147,6 +147,12 @@ type HealthIssue struct {
 	DismissedAt sql.NullString
 }
 
+type IndexerGrabCount struct {
+	IndexerID int64
+	Day       int64
+	Fetches   int64
+}
+
 type OriginalOffer struct {
 	ID          int64
 	VersionID   int64

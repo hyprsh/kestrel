@@ -28,7 +28,7 @@ func (s *server) indexerBudgets(ctx context.Context) ([]indexerBudget, error) {
 		if inst.Contract != indexer.Contract.ID {
 			continue
 		}
-		out = append(out, indexerBudget{inst, s.indexers.Status(inst.ID, inst.Connection().Int("api_requests_per_day"))})
+		out = append(out, indexerBudget{inst, s.indexers.Status(inst.ID, inst.Connection().Int("api_requests_per_day"), inst.Connection().Int("grabs_per_day"))})
 	}
 	return out, nil
 }

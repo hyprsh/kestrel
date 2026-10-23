@@ -73,7 +73,7 @@ func TestTheRSSLoopGrabsAMatchingReleaseSkipsAnUnmonitoredTitleAndIsANoOpWhenRer
 
 	acq, err := acquire.New(acquire.Deps{
 		Store: st, Clock: func() time.Time { return now }, Library: lib, Profiles: profiles.New(st, settings.New(st)),
-		Indexers: indexers.New(inst, func() time.Time { return now }), Downloads: downloads.New(inst),
+		Indexers: indexers.New(inst, st, func() time.Time { return now }), Downloads: downloads.New(inst),
 	})
 	if err != nil {
 		t.Fatal(err)

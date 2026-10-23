@@ -4767,10 +4767,15 @@ components:
         grab_used:
           type: integer
           nullable: true
-          description: Downloads used today, when the indexer reports its download quota.
+          description: |
+            Downloads used today: the indexer's own count when it reports its download quota, else Kestrel's
+            count of NZB Fetches when the instance has a `grabs_per_day`; null when neither is known.
         grab_max:
           type: integer
           nullable: true
+          description: |
+            The daily download limit: the indexer's own `grabmax` when it reports one, else the instance's
+            `grabs_per_day`; null when neither is known.
         search_paused_until:
           type: string
           format: date-time
@@ -4785,7 +4790,9 @@ components:
           type: string
           format: date-time
           nullable: true
-          description: When the pause ends; null for a spent download quota, which ends when the indexer says so.
+          description: |
+            When the pause ends: the next UTC midnight for a spent `grabs_per_day`. Null for a spent download
+            quota the indexer reports, which ends when the indexer says so.
     DiskStatus:
       type: object
       required: [path, free_bytes, total_bytes, low_free_bytes]

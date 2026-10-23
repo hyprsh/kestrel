@@ -17,6 +17,7 @@ import (
 )
 
 type rig struct {
+	st   *store.Store
 	svc  *indexers.Service
 	inst *instances.Service
 	reg  *plugin.Registry
@@ -36,7 +37,7 @@ func newRig(t *testing.T, plugins ...plugin.Plugin) rig {
 		}
 	}
 	inst := instances.NewService(st, reg)
-	return rig{svc: indexers.New(inst, time.Now), inst: inst, reg: reg}
+	return rig{st: st, svc: indexers.New(inst, st, time.Now), inst: inst, reg: reg}
 }
 
 func (r rig) add(t *testing.T, pluginID, name string, priority int) int64 {
