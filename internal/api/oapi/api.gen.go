@@ -124,6 +124,27 @@ func (e AdoptionMatchSource) Valid() bool {
 	}
 }
 
+// Defines values for AdoptionMonitor.
+const (
+	AdoptionMonitorAll    AdoptionMonitor = "all"
+	AdoptionMonitorFuture AdoptionMonitor = "future"
+	AdoptionMonitorNone   AdoptionMonitor = "none"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionMonitor enum.
+func (e AdoptionMonitor) Valid() bool {
+	switch e {
+	case AdoptionMonitorAll:
+		return true
+	case AdoptionMonitorFuture:
+		return true
+	case AdoptionMonitorNone:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdoptionRowSkipReason.
 const (
 	AdoptionRowSkipReasonInvalid          AdoptionRowSkipReason = "invalid"
@@ -229,6 +250,7 @@ const (
 	NotMatched     AdoptionRowOutcomeReason = "not_matched"
 	NotNeedsChoice AdoptionRowOutcomeReason = "not_needs_choice"
 	NotSettleable  AdoptionRowOutcomeReason = "not_settleable"
+	Tracked        AdoptionRowOutcomeReason = "tracked"
 )
 
 // Valid indicates whether the value is a known member of the AdoptionRowOutcomeReason enum.
@@ -247,6 +269,8 @@ func (e AdoptionRowOutcomeReason) Valid() bool {
 	case NotNeedsChoice:
 		return true
 	case NotSettleable:
+		return true
+	case Tracked:
 		return true
 	default:
 		return false
@@ -301,6 +325,7 @@ func (e AdoptionRowOutcomeStatus) Valid() bool {
 // Defines values for AdoptionRowsBulkAction.
 const (
 	AcceptSuggested AdoptionRowsBulkAction = "accept_suggested"
+	SetMonitor      AdoptionRowsBulkAction = "set_monitor"
 	Tick            AdoptionRowsBulkAction = "tick"
 	Untick          AdoptionRowsBulkAction = "untick"
 )
@@ -309,6 +334,8 @@ const (
 func (e AdoptionRowsBulkAction) Valid() bool {
 	switch e {
 	case AcceptSuggested:
+		return true
+	case SetMonitor:
 		return true
 	case Tick:
 		return true
@@ -1473,7 +1500,10 @@ type ActivitySnapshot struct {
 // Adoption defines model for Adoption.
 type Adoption struct {
 	// Error Why the last scan could not finish, if it could not.
-	Error    *string `json:"error"`
+	Error *string `json:"error"`
+
+	// Monitor How the Titles the plan adds are monitored unless a row has its own choice; `all` for a new plan.
+	Monitor  AdoptionMonitor `json:"monitor"`
 	Progress struct {
 		Done  int `json:"done"`
 		Total int `json:"total"`
@@ -1584,17 +1614,25 @@ type AdoptionMatch struct {
 // AdoptionMatchSource ID tag, confident name match, or picked by the admin.
 type AdoptionMatchSource string
 
+// AdoptionMonitor How an Adoption adds a Title: `all` monitors it (a Series follows every episode), `future` follows
+// a Series' episodes from today on (a Movie is monitored), `none` leaves it unmonitored. These are
+// Add Title's choices that need no season list; a Title Kestrel tracks keeps its own monitoring.
+type AdoptionMonitor string
+
 // AdoptionRow defines model for AdoptionRow.
 type AdoptionRow struct {
 	// Candidates Likely Movies or Series for a Needs choice row.
 	Candidates []AdoptionCandidate `json:"candidates"`
 
 	// Entry The folder or loose file in the Root folder.
-	Entry      string                 `json:"entry"`
-	Files      []AdoptionFile         `json:"files"`
-	Id         int64                  `json:"id"`
-	Kind       TitleKind              `json:"kind"`
-	Match      *AdoptionMatch         `json:"match"`
+	Entry string         `json:"entry"`
+	Files []AdoptionFile `json:"files"`
+	Id    int64          `json:"id"`
+	Kind  TitleKind      `json:"kind"`
+	Match *AdoptionMatch `json:"match"`
+
+	// Monitor The row's own choice of how the Title it adds is monitored; absent when it follows the plan's.
+	Monitor    *AdoptionMonitor       `json:"monitor,omitempty"`
 	SkipReason *AdoptionRowSkipReason `json:"skip_reason"`
 	Status     AdoptionRowStatus      `json:"status"`
 	Ticked     bool                   `json:"ticked"`
@@ -1657,8 +1695,13 @@ type AdoptionRowPatch struct {
 		Path   string `json:"path"`
 		Ticked bool   `json:"ticked"`
 	} `json:"files,omitempty"`
-	Ticked *bool `json:"ticked,omitempty"`
-	TmdbId *int  `json:"tmdb_id,omitempty"`
+
+	// Monitor How an Adoption adds a Title: `all` monitors it (a Series follows every episode), `future` follows
+	// a Series' episodes from today on (a Movie is monitored), `none` leaves it unmonitored. These are
+	// Add Title's choices that need no season list; a Title Kestrel tracks keeps its own monitoring.
+	Monitor *AdoptionMonitor `json:"monitor,omitempty"`
+	Ticked  *bool            `json:"ticked,omitempty"`
+	TmdbId  *int             `json:"tmdb_id,omitempty"`
 }
 
 // AdoptionRowsBulk defines model for AdoptionRowsBulk.
@@ -1667,7 +1710,12 @@ type AdoptionRowsBulk struct {
 
 	// Filter The filters of `GET /adoption/rows`, and `all` for every row of the plan.
 	Filter *AdoptionRowFilter `json:"filter,omitempty"`
-	RowIds *[]int64           `json:"row_ids,omitempty"`
+
+	// Monitor How an Adoption adds a Title: `all` monitors it (a Series follows every episode), `future` follows
+	// a Series' episodes from today on (a Movie is monitored), `none` leaves it unmonitored. These are
+	// Add Title's choices that need no season list; a Title Kestrel tracks keeps its own monitoring.
+	Monitor *AdoptionMonitor `json:"monitor,omitempty"`
+	RowIds  *[]int64         `json:"row_ids,omitempty"`
 }
 
 // AdoptionRowsBulkAction defines model for AdoptionRowsBulk.Action.
@@ -3831,9 +3879,19 @@ type ChangePasswordJSONBody struct {
 	NewPassword     *string `json:"new_password,omitempty"`
 }
 
+// PatchAdoptionJSONBody defines parameters for PatchAdoption.
+type PatchAdoptionJSONBody struct {
+	// Monitor How an Adoption adds a Title: `all` monitors it (a Series follows every episode), `future` follows
+	// a Series' episodes from today on (a Movie is monitored), `none` leaves it unmonitored. These are
+	// Add Title's choices that need no season list; a Title Kestrel tracks keeps its own monitoring.
+	Monitor AdoptionMonitor `json:"monitor"`
+}
+
 // CommitAdoptionJSONBody defines parameters for CommitAdoption.
 type CommitAdoptionJSONBody struct {
-	Revision int64 `json:"revision"`
+	// Monitor Replaces the plan's choice of how the Titles it adds are monitored (see `PATCH /adoption`).
+	Monitor  *AdoptionMonitor `json:"monitor,omitempty"`
+	Revision int64            `json:"revision"`
 }
 
 // ListAdoptionRowsParams defines parameters for ListAdoptionRows.
@@ -3990,6 +4048,9 @@ type DeleteVersionFilesParams struct {
 
 // ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
 type ChangePasswordJSONRequestBody ChangePasswordJSONBody
+
+// PatchAdoptionJSONRequestBody defines body for PatchAdoption for application/json ContentType.
+type PatchAdoptionJSONRequestBody PatchAdoptionJSONBody
 
 // CommitAdoptionJSONRequestBody defines body for CommitAdoption for application/json ContentType.
 type CommitAdoptionJSONRequestBody CommitAdoptionJSONBody
@@ -4418,6 +4479,9 @@ type ServerInterface interface {
 	// GetAdoption The Adoption scan and plan
 	// (GET /adoption)
 	GetAdoption(w http.ResponseWriter, r *http.Request)
+	// PatchAdoption Choose how the plan's Titles are monitored
+	// (PATCH /adoption)
+	PatchAdoption(w http.ResponseWriter, r *http.Request)
 	// CommitAdoption Adopt the ticked rows
 	// (POST /adoption/commit)
 	CommitAdoption(w http.ResponseWriter, r *http.Request)
@@ -4744,6 +4808,20 @@ func (siw *ServerInterfaceWrapper) GetAdoption(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAdoption(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PatchAdoption operation middleware
+func (siw *ServerInterfaceWrapper) PatchAdoption(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchAdoption(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7074,6 +7152,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/blocklist/{id}", wrapper.DeleteBlocklistEntry)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/adoption", wrapper.DiscardAdoption)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/adoption", wrapper.GetAdoption)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/adoption", wrapper.PatchAdoption)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/adoption/scan", wrapper.ScanAdoption)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/adoption/rows", wrapper.ListAdoptionRows)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/adoption/rows/bulk", wrapper.BulkAdoptionRows)
@@ -7343,6 +7422,89 @@ type GetAdoptiondefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetAdoptiondefaultApplicationProblemPlusJSONResponse) VisitGetAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdoptionRequestObject struct {
+	Body *PatchAdoptionJSONRequestBody
+}
+
+type PatchAdoptionResponseObject interface {
+	VisitPatchAdoptionResponse(w http.ResponseWriter) error
+}
+
+type PatchAdoption200JSONResponse Adoption
+
+func (response PatchAdoption200JSONResponse) VisitPatchAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdoption404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PatchAdoption404ApplicationProblemPlusJSONResponse) VisitPatchAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdoption409ApplicationProblemPlusJSONResponse Problem
+
+func (response PatchAdoption409ApplicationProblemPlusJSONResponse) VisitPatchAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdoption422ApplicationProblemPlusJSONResponse Problem
+
+func (response PatchAdoption422ApplicationProblemPlusJSONResponse) VisitPatchAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdoptiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response PatchAdoptiondefaultApplicationProblemPlusJSONResponse) VisitPatchAdoptionResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -12029,6 +12191,9 @@ type StrictServerInterface interface {
 	// GetAdoption The Adoption scan and plan
 	// (GET /adoption)
 	GetAdoption(ctx context.Context, request GetAdoptionRequestObject) (GetAdoptionResponseObject, error)
+	// PatchAdoption Choose how the plan's Titles are monitored
+	// (PATCH /adoption)
+	PatchAdoption(ctx context.Context, request PatchAdoptionRequestObject) (PatchAdoptionResponseObject, error)
 	// CommitAdoption Adopt the ticked rows
 	// (POST /adoption/commit)
 	CommitAdoption(ctx context.Context, request CommitAdoptionRequestObject) (CommitAdoptionResponseObject, error)
@@ -12454,6 +12619,37 @@ func (sh *strictHandler) GetAdoption(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAdoptionResponseObject); ok {
 		if err := validResponse.VisitGetAdoptionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PatchAdoption operation middleware
+func (sh *strictHandler) PatchAdoption(w http.ResponseWriter, r *http.Request) {
+	var request PatchAdoptionRequestObject
+
+	var body PatchAdoptionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PatchAdoption(ctx, request.(PatchAdoptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PatchAdoption")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PatchAdoptionResponseObject); ok {
+		if err := validResponse.VisitPatchAdoptionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

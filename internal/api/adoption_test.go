@@ -57,6 +57,7 @@ type adoptionRowJSON struct {
 	SkipReason *string `json:"skip_reason"`
 	Entry      string  `json:"entry"`
 	Ticked     bool    `json:"ticked"`
+	Monitor    *string `json:"monitor"`
 	Match      *struct {
 		TMDBID  int    `json:"tmdb_id"`
 		Title   string `json:"title"`
@@ -99,6 +100,7 @@ type adoptionFileJSON struct {
 
 type adoptionJSON struct {
 	State    string  `json:"state"`
+	Monitor  string  `json:"monitor"`
 	Revision int64   `json:"revision"`
 	Error    *string `json:"error"`
 	Summary  struct {

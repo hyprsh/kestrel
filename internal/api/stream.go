@@ -153,6 +153,7 @@ var apiHints = map[string][]hint{
 	"RetryStalledImports":   {hintOf(resGrab, 0), hintOf(resQueue, 0), hintOf(resAttention, 0)},
 	"DiscardStalledImports": {hintOf(resGrab, 0), hintOf(resQueue, 0), hintOf(resTitle, 0), hintOf(resAttention, 0)},
 	"ScanAdoption":          {hintOf(resAdoption, 0)},
+	"PatchAdoption":         {hintOf(resAdoption, 0)},
 	"PatchAdoptionRow":      {hintOf(resAdoption, 0)},
 	"BulkAdoptionRows":      {hintOf(resAdoption, 0)},
 	"CommitAdoption":        {hintOf(resAdoption, 0)},

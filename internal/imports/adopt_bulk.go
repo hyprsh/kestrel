@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+
+	"github.com/hyprsh/kestrel/internal/library"
 )
 
 // BulkAction is what a bulk edit does to each row it names. More actions can
@@ -18,6 +20,8 @@ const (
 	BulkUntick BulkAction = "untick"
 	// BulkAcceptSuggested settles Needs choice rows on Kestrel's confident suggestion.
 	BulkAcceptSuggested BulkAction = "accept_suggested"
+	// BulkSetMonitor gives rows their own choice of how the Title they add is monitored.
+	BulkSetMonitor BulkAction = "set_monitor"
 )
 
 // BulkRequest names the rows of a bulk edit either one by one or as every row
@@ -28,6 +32,8 @@ type BulkRequest struct {
 	RowIDs []int64
 	// Filter is used when RowIDs is empty.
 	Filter Filter
+	// Monitor is what BulkSetMonitor sets.
+	Monitor library.Monitor
 }
 
 // What became of a row in a bulk edit.
@@ -50,6 +56,8 @@ const (
 	ReasonNoSuggestion   BulkReason = "no_suggestion"
 	ReasonNotConfident   BulkReason = "not_confident"
 	ReasonNotSettleable  BulkReason = "not_settleable"
+	// ReasonTracked: the row joins a Title Kestrel tracks, which keeps its monitoring.
+	ReasonTracked BulkReason = "tracked"
 )
 
 // RowOutcome is one row's result.
@@ -76,6 +84,10 @@ type BulkResult struct {
 func (a *Adoption) Bulk(ctx context.Context, req BulkRequest) (BulkResult, error) {
 	switch req.Action {
 	case BulkTick, BulkUntick, BulkAcceptSuggested:
+	case BulkSetMonitor:
+		if !req.Monitor.Valid() {
+			return BulkResult{}, ErrBadMonitor
+		}
 	default:
 		return BulkResult{}, fmt.Errorf("imports: unknown bulk action %q", req.Action)
 	}
@@ -124,6 +136,8 @@ func (a *Adoption) Bulk(ctx context.Context, req BulkRequest) (BulkResult, error
 			out = tickRow(&rows[i], req.Action == BulkTick)
 		case BulkAcceptSuggested:
 			out = a.acceptSuggested(ctx, getEnv, &rows[i])
+		case BulkSetMonitor:
+			out = monitorRow(&rows[i], req.Monitor)
 		}
 		if ctx.Err() != nil {
 			return BulkResult{}, ctx.Err()
@@ -153,6 +167,20 @@ func tickRow(row *Row, ticked bool) RowOutcome {
 		out.Reason = ReasonAlready
 	default:
 		row.Ticked = ticked
+		out.Outcome = OutcomeChanged
+	}
+	return out
+}
+
+func monitorRow(row *Row, m library.Monitor) RowOutcome {
+	out := RowOutcome{RowID: row.ID, Outcome: OutcomeSkipped, Status: row.Status}
+	switch {
+	case row.Match != nil && row.Match.TitleID != 0:
+		out.Reason = ReasonTracked
+	case row.Monitor == m:
+		out.Reason = ReasonAlready
+	default:
+		row.Monitor = m
 		out.Outcome = OutcomeChanged
 	}
 	return out

@@ -25,6 +25,8 @@ type RowPatch struct {
 	TMDBID *int
 	// Files ticks or unticks single files by path.
 	Files []FileTick
+	// Monitor is the row's own choice of how the Title it adds is monitored.
+	Monitor *library.Monitor
 }
 
 // FileTick is one file's tick.
@@ -100,7 +102,7 @@ func (a *Adoption) replan(ctx context.Context, e *env, row *Row, tmdbID int) err
 	if planned == nil || (planned.Status != Matched && planned.Status != Skipped) {
 		return ErrNotSettleable
 	}
-	planned.ID = row.ID
+	planned.ID, planned.Monitor = row.ID, row.Monitor
 	*row = *planned
 	return nil
 }
@@ -128,6 +130,12 @@ func (a *Adoption) PatchRow(ctx context.Context, id int64, p RowPatch) (Row, err
 			return Row{}, err
 		}
 	}
+	if p.Monitor != nil {
+		if !p.Monitor.Valid() {
+			return Row{}, ErrBadMonitor
+		}
+		row.Monitor = *p.Monitor
+	}
 	if p.Ticked != nil {
 		row.Ticked = *p.Ticked
 	}
@@ -144,10 +152,28 @@ func (a *Adoption) PatchRow(ctx context.Context, id int64, p RowPatch) (Row, err
 	return rows[at], nil
 }
 
+// SetMonitor sets how the Titles the plan adds are monitored, unless a row
+// says otherwise. It moves the plan's revision.
+func (a *Adoption) SetMonitor(ctx context.Context, m library.Monitor) error {
+	if !m.Valid() {
+		return ErrBadMonitor
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if _, _, err := a.editable(ctx); err != nil {
+		return err
+	}
+	return a.q.SetAdoptionMonitor(ctx, string(m))
+}
+
 // Commit adopts the ticked rows in the background, one transaction per Title.
 // revision is the plan's revision the caller reviewed; a plan that changed
-// since is ErrStale.
-func (a *Adoption) Commit(ctx context.Context, revision int64) error {
+// since is ErrStale. A non-empty monitor first replaces the plan's choice of
+// how the Titles it adds are monitored.
+func (a *Adoption) Commit(ctx context.Context, revision int64, monitor library.Monitor) error {
+	if monitor != "" && !monitor.Valid() {
+		return ErrBadMonitor
+	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	plan, err := a.q.GetAdoptionPlan(ctx)
@@ -163,6 +189,13 @@ func (a *Adoption) Commit(ctx context.Context, revision int64) error {
 	if plan.Revision != revision {
 		return ErrStale
 	}
+	chosen := library.Monitor(plan.Monitor)
+	if monitor != "" {
+		chosen = monitor
+		if err := a.q.SetAdoptionMonitor(ctx, string(chosen)); err != nil {
+			return err
+		}
+	}
 	rows, err := a.rows(ctx)
 	if err != nil {
 		return err
@@ -170,6 +203,9 @@ func (a *Adoption) Commit(ctx context.Context, revision int64) error {
 	var todo []Row
 	for _, r := range rows {
 		if r.Status == Matched && r.Ticked && r.has(PlanFile.adopts) {
+			if r.Monitor == "" {
+				r.Monitor = chosen
+			}
 			todo = append(todo, r)
 		}
 	}
@@ -307,7 +343,7 @@ func (a *Adoption) adoptRow(ctx context.Context, e *env, row Row) (err error) {
 		return errors.New("none of the files could be adopted")
 	}
 
-	adopt := library.AdoptMovie{TitleID: titleID, RootFolder: root, Folder: folder, Versions: versions, PrimaryLanguage: string(e.region.Primary)}
+	adopt := library.AdoptMovie{TitleID: titleID, RootFolder: root, Folder: folder, Versions: versions, PrimaryLanguage: string(e.region.Primary), Monitor: row.Monitor}
 	if !tracked {
 		if adopt.Details, err = a.d.Meta.Movie(ctx, m.TMDBID); err != nil {
 			return err

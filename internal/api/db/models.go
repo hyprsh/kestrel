@@ -19,6 +19,7 @@ type AdoptionPlan struct {
 	Adopted       sql.NullInt64
 	Failed        sql.NullInt64
 	AdoptedTitles sql.NullString
+	Monitor       string
 }
 
 type AdoptionRow struct {

@@ -16,7 +16,7 @@ func (s *server) adoptionLocation() *string {
 }
 
 func adoptionToAPI(p imports.Plan) oapi.Adoption {
-	out := oapi.Adoption{State: oapi.AdoptionState(p.State), Revision: p.Revision, ScannedAt: p.ScannedAt, Error: strPtr(p.Error)}
+	out := oapi.Adoption{State: oapi.AdoptionState(p.State), Revision: p.Revision, ScannedAt: p.ScannedAt, Error: strPtr(p.Error), Monitor: oapi.AdoptionMonitor(p.Monitor)}
 	out.Progress.Done, out.Progress.Total = p.Done, p.Total
 	out.Summary = summaryToAPI(p.Summary)
 	if p.Result != nil {
@@ -46,6 +46,10 @@ func adoptionRowToAPI(r imports.Row) oapi.AdoptionRow {
 	}
 	if r.Kind == library.Series {
 		out.Kind = oapi.Series
+	}
+	if r.Monitor != "" {
+		m := oapi.AdoptionMonitor(r.Monitor)
+		out.Monitor = &m
 	}
 	if r.SkipReason != "" {
 		reason := oapi.AdoptionRowSkipReason(r.SkipReason)
@@ -100,6 +104,8 @@ func adoptionProblem(err error) error {
 		return problem(http.StatusNotFound, "not_found", "no such Adoption row")
 	case errors.Is(err, imports.ErrNoRoot):
 		return invalid("root_folders", "invalid", err.Error())
+	case errors.Is(err, imports.ErrBadMonitor):
+		return invalid("monitor", "invalid", "monitor is all, future or none")
 	case errors.Is(err, imports.ErrNotSettleable):
 		return invalid("tmdb_id", "invalid", "The row's files cannot be matched to that Title")
 	}
@@ -112,6 +118,20 @@ func (s *server) GetAdoption(ctx context.Context, _ oapi.GetAdoptionRequestObjec
 		return nil, err
 	}
 	return oapi.GetAdoption200JSONResponse(adoptionToAPI(p)), nil
+}
+
+func (s *server) PatchAdoption(ctx context.Context, r oapi.PatchAdoptionRequestObject) (oapi.PatchAdoptionResponseObject, error) {
+	if r.Body == nil {
+		return nil, invalid("monitor", "required", "Name how the Titles are monitored")
+	}
+	if err := s.adoption.SetMonitor(ctx, library.Monitor(r.Body.Monitor)); err != nil {
+		return nil, adoptionProblem(err)
+	}
+	p, err := s.adoption.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return oapi.PatchAdoption200JSONResponse(adoptionToAPI(p)), nil
 }
 
 func (s *server) DiscardAdoption(ctx context.Context, _ oapi.DiscardAdoptionRequestObject) (oapi.DiscardAdoptionResponseObject, error) {
@@ -183,8 +203,13 @@ func (s *server) BulkAdoptionRows(ctx context.Context, r oapi.BulkAdoptionRowsRe
 	req := imports.BulkRequest{Action: imports.BulkAction(r.Body.Action)}
 	switch r.Body.Action {
 	case oapi.Tick, oapi.Untick, oapi.AcceptSuggested:
+	case oapi.SetMonitor:
+		if r.Body.Monitor == nil {
+			return nil, invalid("monitor", "required", "set_monitor names the monitor to set")
+		}
+		req.Monitor = library.Monitor(*r.Body.Monitor)
 	default:
-		return nil, invalid("action", "invalid", "action is tick, untick or accept_suggested")
+		return nil, invalid("action", "invalid", "action is tick, untick, accept_suggested or set_monitor")
 	}
 	hasIDs := r.Body.RowIds != nil && len(*r.Body.RowIds) > 0
 	switch {
@@ -238,6 +263,10 @@ func (s *server) PatchAdoptionRow(ctx context.Context, r oapi.PatchAdoptionRowRe
 		return nil, invalid("body", "required", "a body is required")
 	}
 	p := imports.RowPatch{Ticked: r.Body.Ticked, TMDBID: r.Body.TmdbId}
+	if r.Body.Monitor != nil {
+		m := library.Monitor(*r.Body.Monitor)
+		p.Monitor = &m
+	}
 	if r.Body.Files != nil {
 		for _, f := range *r.Body.Files {
 			p.Files = append(p.Files, imports.FileTick{Path: f.Path, Ticked: f.Ticked})
@@ -254,7 +283,11 @@ func (s *server) CommitAdoption(ctx context.Context, r oapi.CommitAdoptionReques
 	if r.Body == nil {
 		return nil, invalid("revision", "required", "Name the revision of the plan you reviewed")
 	}
-	if err := s.adoption.Commit(ctx, r.Body.Revision); err != nil {
+	var monitor library.Monitor
+	if r.Body.Monitor != nil {
+		monitor = library.Monitor(*r.Body.Monitor)
+	}
+	if err := s.adoption.Commit(ctx, r.Body.Revision, monitor); err != nil {
 		return nil, adoptionProblem(err)
 	}
 	p, err := s.adoption.Get(ctx)
