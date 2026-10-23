@@ -251,7 +251,7 @@ export function CommandMenu({
               </CommandMenuGroup>
             ))}
           </CommandMenuList>
-          <footer className="label-13 flex items-center gap-3 border-t border-gray-alpha-400 px-3 py-2 text-gray-900">
+          <footer className="label-13 flex items-center gap-3 border-t border-gray-alpha-400 px-3 py-2 text-gray-900 pointer-coarse:hidden">
             <span className="flex items-center gap-1">
               <KeyboardInput small>↑</KeyboardInput>
               <KeyboardInput small>↓</KeyboardInput> move

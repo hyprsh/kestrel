@@ -99,6 +99,14 @@ describe('the command menu', () => {
     expect(screen.getByRole('banner')).toHaveTextContent('Upcoming')
   })
 
+  it('hides the key hints on touch screens (the class; jsdom cannot evaluate the media query)', async () => {
+    fakeLibrary([])
+    renderApp()
+    const menu = await openMenu()
+    const footer = within(menu).getByText('↑').closest('footer')
+    expect(footer).toHaveClass('pointer-coarse:hidden')
+  })
+
   it('moves the highlight with Ctrl+N and Ctrl+P as well as the arrows', async () => {
     fakeLibrary([])
     renderApp()
