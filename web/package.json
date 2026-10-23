@@ -12,7 +12,7 @@
     "generate": "openapi-typescript ../api/openapi.yaml -o src/api/schema.gen.ts"
   },
   "dependencies": {
-    "@hyprsh/design": "github:hyprsh/design#v0.9.0",
+    "@hyprsh/design": "github:hyprsh/design#v0.11.0",
     "@tanstack/react-query": "^5.104.4",
     "lucide-react": "^1.59.0",
     "openapi-fetch": "^0.17.0",

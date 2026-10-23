@@ -50,7 +50,7 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         {list.isError && <Note variant="error">The Requests could not be loaded.</Note>}
-        {list.data && shown.length === 0 && <EmptyState className="m-4" description="No Request matches." />}
+        {list.data && shown.length === 0 && <EmptyState className="m-4 w-auto" description="No Request matches." />}
         <ul aria-label="Requests" className="divide-y divide-gray-alpha-200">
           {shown.map((r, i) => (
             <RequestRow key={r.id} request={r} nav={{ scope: 'req', index: i, sel, onSelect: () => setSel(i) }} onOpenTitle={onOpenTitle} />
