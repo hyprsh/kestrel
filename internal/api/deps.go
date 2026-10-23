@@ -237,6 +237,9 @@ type Health interface {
 	ClientState() health.State
 	AddCheck(name string, c health.Check)
 	ObserveMediaServer(ctx context.Context, ref health.Ref, f *health.Failure)
+	ObserveDownloadClient(ctx context.Context, ref health.Ref, f *health.Failure)
+	ObserveIndexer(ctx context.Context, ref health.Ref, f *health.Failure)
+	Clear(ctx context.Context, key string) error
 }
 
 // History is the events log.

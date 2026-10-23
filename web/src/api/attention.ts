@@ -33,8 +33,11 @@ export function useStatus() {
   })
 }
 
-/** What an action answered: a plugin test reports `message`, most others answer 204. */
-export type ActionResult = { message: string | null; ok: boolean }
+/**
+ * What an action answered: a plugin test reports `ok` and `message`; most others
+ * answer 204 or an object without them, and `ok` is then null (there was no verdict).
+ */
+export type ActionResult = { message: string | null; ok: boolean | null }
 
 /**
  * Runs an API action the server built. The path is relative to the API root and
@@ -55,7 +58,7 @@ export function useRunAction() {
         throw new ApiError(p.code ?? 'internal', res.status, p.detail ?? 'The action failed')
       }
       const body = (await res.json().catch(() => null)) as { ok?: boolean; message?: string } | null
-      return { message: body?.message ?? null, ok: body?.ok ?? true }
+      return { message: body?.message ?? null, ok: typeof body?.ok === 'boolean' ? body.ok : null }
     },
     // An action can change anything the screen shows; refetch the lot.
     onSettled: () => qc.invalidateQueries(),

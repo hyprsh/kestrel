@@ -120,7 +120,7 @@ func TestAFailingServerRaisesAWarningAndTheOthersAreStillTold(t *testing.T) {
 		fakeServer(good, 2, "Silo"))
 	r.FolderChanged(context.Background(), "/x")
 	r.Flush(context.Background())
-	is, ok := h.keys()["refresh_failed:jellyfin"]
+	is, ok := h.keys()["refresh_failed:1"]
 	if !ok || is.Kind != health.KindRefreshFailed || is.Severity != health.Warning || !is.Dismissible || is.Subject.PluginInstanceID != 1 {
 		t.Fatalf("health %+v", h.keys())
 	}
@@ -187,7 +187,7 @@ func TestAFolderInNoPlexSectionRaisesPerFolder(t *testing.T) {
 	if !ok || is.Kind != health.KindPlexNoSection || is.Severity != health.Warning {
 		t.Fatalf("health %+v", h.keys())
 	}
-	if _, bad := h.keys()["refresh_failed:plex"]; bad {
+	if _, bad := h.keys()["refresh_failed:1"]; bad {
 		t.Fatal("a missing section is not a failed refresh")
 	}
 }

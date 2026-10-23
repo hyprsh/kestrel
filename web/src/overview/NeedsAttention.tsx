@@ -1,8 +1,8 @@
 // Needs attention: the rows the server raised, with the actions it built. Nothing
 // here knows a kind of row; it draws message, severity and buttons.
-import { Badge, Button, Note } from '@hyprsh/design'
+import { Badge, Button, Note, useToasts } from '@hyprsh/design'
 import { useState } from 'react'
-import { useAttention, useRunAction, type Attention, type AttentionAction, type AttentionRow } from '../api/attention'
+import { useAttention, useRunAction, type ActionResult, type Attention, type AttentionAction, type AttentionRow } from '../api/attention'
 import { slotLabel } from '../library/bits'
 import { placePath } from '../place'
 import { NavRow } from '../ui'
@@ -45,7 +45,13 @@ export function NeedsAttention({
         rows.length > 0 && (
           <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
             {shown.map((r, i) => (
-              <Row key={r.id} row={r} onOpen={onOpen} nav={nav} index={nav.base + i} />
+              <Row
+                key={r.id}
+                row={r}
+                onOpen={onOpen}
+                nav={nav}
+                index={nav.base + i}
+              />
             ))}
           </ul>
         )
@@ -101,13 +107,20 @@ function LongMissingRow({ group, onOpen }: { group: Attention['long_missing']; o
 
 function Row({ row, onOpen, nav, index }: { row: AttentionRow; onOpen: (path: string) => void; nav: OverviewNav; index: number }) {
   const run = useRunAction()
-  const [result, setResult] = useState<string | null>(null)
+  const toasts = useToasts()
+  // Local, so a row that a passing action clears takes its result with it; a pass is a toast instead.
+  const [result, setResult] = useState<(ActionResult & { label: string }) | null>(null)
 
   const act = (a: AttentionAction) => {
     if (a.confirm && !window.confirm(a.confirm)) return
     if (a.method === 'GET') return onOpen(a.path) // GET opens an SPA path
     setResult(null)
-    run.mutate(a, { onSuccess: (r) => setResult(r.message) })
+    // mutateAsync, not mutate's onSuccess: a passing Test clears this row, and a per-call callback dies with it.
+    // A failure shows on the row through run.error, so the rejection is not handled here.
+    run.mutateAsync(a).then((r) => {
+      if (r.ok === true) toasts.success(`${a.label} passed${r.message ? `: ${r.message}` : ''}`)
+      else setResult({ ...r, label: a.label })
+    }, () => {})
   }
 
   return (
@@ -126,7 +139,17 @@ function Row({ row, onOpen, nav, index }: { row: AttentionRow; onOpen: (path: st
         </div>
       )}
       {run.isError && <Note variant="error">{run.error.message}</Note>}
-      {result && <p className="label-12 text-gray-900">{result}</p>}
+      {result && <Result {...result} />}
     </NavRow>
+  )
+}
+
+/** A failure is an error Note; an answer without a verdict (`ok` null) is just its message. A pass is a toast, so it never gets here. */
+function Result({ label, ok, message }: ActionResult & { label: string }) {
+  if (ok === null) return message ? <p className="label-12 text-gray-900">{message}</p> : null
+  return (
+    <Note variant="error" size="small">
+      {label} failed{message ? `: ${message}` : ''}
+    </Note>
   )
 }

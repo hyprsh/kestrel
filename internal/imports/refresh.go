@@ -194,7 +194,7 @@ func (r *Refresher) fire(ctx context.Context, folder string) {
 
 func (r *Refresher) tell(ctx context.Context, s MediaServer, c mediaserver.Change) {
 	err := s.Server.Refresh(ctx, s.Conn, []mediaserver.Change{c})
-	failKey := fmt.Sprintf("%s:%s", health.KindRefreshFailed, s.PluginID)
+	failKey := health.RefreshFailedKey(s.InstanceID)
 	sectionKey := fmt.Sprintf("%s:%s", health.KindPlexNoSection, c.Path)
 	if r.checks != nil && ctx.Err() == nil {
 		r.checks.Observe(ctx, s.InstanceID, err)
