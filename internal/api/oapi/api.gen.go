@@ -2762,6 +2762,7 @@ type Requester struct {
 
 // ReverseProxy defines model for ReverseProxy.
 type ReverseProxy struct {
+	// Enabled Whether the `header` from a trusted proxy logs the admin in. Needs a trusted proxy.
 	Enabled bool `json:"enabled"`
 
 	// FromConfigFile `true` while the Config File declares `reverse_proxy`, which can't be changed here then.
@@ -2772,7 +2773,9 @@ type ReverseProxy struct {
 	// Example: Remote-User
 	Header string `json:"header"`
 
-	// TrustedProxies Addresses or CIDR ranges of the proxies whose header is believed.
+	// TrustedProxies Addresses or CIDR ranges of the proxies whose `X-Forwarded-For` and
+	// `X-Forwarded-Proto` are believed, and, with `enabled`, whose `header` is.
+	//
 	//
 	// Example: ["172.18.0.0/16","10.0.0.5"]
 	TrustedProxies []string `json:"trusted_proxies"`
@@ -2783,6 +2786,7 @@ type ReverseProxy struct {
 
 // ReverseProxySettings defines model for ReverseProxySettings.
 type ReverseProxySettings struct {
+	// Enabled Whether the `header` from a trusted proxy logs the admin in. Needs a trusted proxy.
 	Enabled bool `json:"enabled"`
 
 	// Header The header carrying the user name.
@@ -2790,7 +2794,9 @@ type ReverseProxySettings struct {
 	// Example: Remote-User
 	Header string `json:"header"`
 
-	// TrustedProxies Addresses or CIDR ranges of the proxies whose header is believed.
+	// TrustedProxies Addresses or CIDR ranges of the proxies whose `X-Forwarded-For` and
+	// `X-Forwarded-Proto` are believed, and, with `enabled`, whose `header` is.
+	//
 	//
 	// Example: ["172.18.0.0/16","10.0.0.5"]
 	TrustedProxies []string `json:"trusted_proxies"`

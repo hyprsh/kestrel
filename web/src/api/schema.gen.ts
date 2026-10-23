@@ -228,9 +228,13 @@ export interface paths {
         get: operations["getReverseProxy"];
         /**
          * Change reverse-proxy login settings
-         * @description Off by default. When enabled, a non-empty `header` from a trusted proxy address logs the
-         *     admin in for that request. The same header from any other address is ignored and
-         *     recorded under `untrusted`. `409 conflict` while the Config File declares `reverse_proxy`.
+         * @description `trusted_proxies` decides, whether or not `enabled` is on, whose `X-Forwarded-For` and
+         *     `X-Forwarded-Proto` Kestrel believes: from a trusted address the client address is the
+         *     right-most `X-Forwarded-For` hop that is not itself trusted, and the login throttle is
+         *     keyed on it. From any other address both headers are ignored. `enabled` only switches
+         *     header login, off by default, and needs at least one trusted proxy: when on, a non-empty
+         *     `header` from a trusted proxy address logs the admin in for that request. The same
+         *     header from any other address is ignored and recorded under `untrusted`. `409 conflict` while the Config File declares `reverse_proxy`.
          */
         put: operations["putReverseProxy"];
         post?: never;
@@ -1870,9 +1874,11 @@ export interface components {
             key: string;
         };
         ReverseProxySettings: {
+            /** @description Whether the `header` from a trusted proxy logs the admin in. Needs a trusted proxy. */
             enabled: boolean;
             /**
-             * @description Addresses or CIDR ranges of the proxies whose header is believed.
+             * @description Addresses or CIDR ranges of the proxies whose `X-Forwarded-For` and
+             *     `X-Forwarded-Proto` are believed, and, with `enabled`, whose `header` is.
              * @example [
              *       "172.18.0.0/16",
              *       "10.0.0.5"
