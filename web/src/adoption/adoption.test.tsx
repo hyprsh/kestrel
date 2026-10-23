@@ -115,6 +115,9 @@ export function fakeAdoption(rows: Row[] = [matched, doubtful, broken]) {
     patches: [] as { id: string; body: unknown }[],
     commits: [] as unknown[],
     bulks: [] as Bulk[],
+    monitor: 'all' as Adoption['monitor'],
+    /** The bodies of every PATCH /adoption. */
+    planPatches: [] as unknown[],
     /** The `limit`, `cursor` and `filter` of every GET /adoption/rows. */
     pages: [] as { limit: string | null; cursor: string | null; filter: string | null }[],
   }
@@ -126,9 +129,17 @@ export function fakeAdoption(rows: Row[] = [matched, doubtful, broken]) {
     error: null,
     scanned_at: null,
     result: null,
+    monitor: state.monitor,
   })
   server.use(
     http.get('/adoption', ({ response }) => response(200).json(adoption())),
+    http.patch('/adoption', async ({ request, response }) => {
+      const body = (await request.clone().json()) as { monitor: Adoption['monitor'] }
+      state.planPatches.push(body)
+      state.monitor = body.monitor
+      state.revision++
+      return response(200).json(adoption())
+    }),
     http.post('/adoption/scan', ({ response }) => {
       state.plan = 'planned'
       state.revision++
@@ -161,6 +172,12 @@ export function fakeAdoption(rows: Row[] = [matched, doubtful, broken]) {
             Object.assign(r, { status: 'matched', ticked: true, match: { tmdb_id: pick.tmdb_id, title: pick.title, year: pick.year, title_id: null, source: 'chosen', folder: 'x' }, files: [file('x')] })
             items.push({ row_id: r.id, outcome: 'changed', status: 'matched' })
           }
+        } else if (body.action === 'set_monitor') {
+          if (r.match?.title_id) items.push({ row_id: r.id, outcome: 'skipped', reason: 'tracked' })
+          else {
+            r.monitor = body.monitor
+            items.push({ row_id: r.id, outcome: 'changed', status: r.status })
+          }
         } else if (r.status !== 'matched') items.push({ row_id: r.id, outcome: 'skipped', reason: 'not_matched' })
         else {
           r.ticked = body.action === 'tick'
@@ -174,6 +191,7 @@ export function fakeAdoption(rows: Row[] = [matched, doubtful, broken]) {
       const body = await request.clone().json()
       state.patches.push({ id: String(params.id), body })
       state.revision++
+      if ('monitor' in body) state.rows = state.rows.map((r) => (String(r.id) === String(params.id) ? { ...r, monitor: body.monitor as Row['monitor'] } : r))
       if ('ticked' in body) state.rows = state.rows.map((r) => (String(r.id) === String(params.id) ? { ...r, ticked: body.ticked as boolean } : r))
       if ('tmdb_id' in body) {
         state.rows = state.rows.map((r) =>
@@ -249,6 +267,7 @@ describe('Adoption review', () => {
           revision: 3,
           error: null,
           scanned_at: null,
+          monitor: 'all',
           result: { adopted: 2, failed: 0, title_ids: [3, 4] },
         }),
       ),
@@ -373,6 +392,60 @@ describe('Adoption review of a large plan', () => {
     await user.click(await screen.findByRole('button', { name: 'Accept suggested match: The Lost Film (2020)' }))
 
     expect(state.patches).toEqual([{ id: '2', body: { tmdb_id: 77 } }])
+  })
+})
+
+describe('Adoption monitoring', () => {
+  async function openPlan(rows: Row[]) {
+    const state = fakeAdoption(rows)
+    const user = await openAdoption()
+    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+    return { state, user }
+  }
+  const tracked: Row = { ...matched, id: 6, entry: '/data/media/movies/Tracked', match: { ...matched.match!, title: 'Tracked', title_id: 9 } }
+
+  it('chooses how the whole plan is monitored and stores it on the plan', async () => {
+    const { state, user } = await openPlan([matched, series])
+
+    const choice = await screen.findByRole('combobox', { name: 'Monitoring' })
+    expect(choice).toHaveValue('all')
+    expect(within(choice).getAllByRole('option').map((o) => o.textContent)).toEqual(['Monitored', 'Series: future episodes only', 'Unmonitored'])
+    await user.selectOptions(choice, 'none')
+
+    expect(state.planPatches).toEqual([{ monitor: 'none' }])
+    expect(await screen.findByRole('combobox', { name: 'Monitoring' })).toHaveValue('none')
+  })
+
+  it('lets a row choose for itself, a Series with its future episodes choice and a Movie without', async () => {
+    const { state, user } = await openPlan([matched, series])
+
+    const movie = await screen.findByRole('combobox', { name: 'Monitoring of Paddington (2014)' })
+    expect(within(movie).getAllByRole('option').map((o) => o.textContent)).toEqual(['Monitored', 'Unmonitored'])
+    const show = screen.getByRole('combobox', { name: 'Monitoring of Breaking Bad (2008)' })
+    expect(within(show).getAllByRole('option').map((o) => o.textContent)).toEqual(['All episodes', 'Future episodes only', 'Unmonitored'])
+    await user.selectOptions(show, 'future')
+
+    expect(state.patches).toEqual([{ id: '4', body: { monitor: 'future' } }])
+    expect(await screen.findByRole('combobox', { name: 'Monitoring of Breaking Bad (2008)' })).toHaveValue('future')
+  })
+
+  it('offers no choice on a row for a Title Kestrel already tracks', async () => {
+    await openPlan([tracked])
+
+    await screen.findByLabelText('Adopt Tracked (2014)')
+    expect(screen.queryByRole('combobox', { name: /Monitoring of/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Keeps its own monitoring')).toBeInTheDocument()
+  })
+
+  it('sets the monitoring of a selection and says which rows kept their own', async () => {
+    const { state, user } = await openPlan([matched, series, tracked])
+
+    await user.click(await screen.findByLabelText('Select Paddington.2014.1080p'))
+    await user.click(screen.getByLabelText('Select Tracked'))
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Set monitoring of selected' }), 'none')
+
+    expect(state.bulks).toEqual([{ action: 'set_monitor', monitor: 'none', row_ids: [1, 6] }])
+    expect(await screen.findByText('Set 1 row to Unmonitored. 1 left as they were because the Title is in the Library and keeps its monitoring.')).toBeInTheDocument()
   })
 })
 

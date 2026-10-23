@@ -21,6 +21,7 @@ function planIs(state: Adoption['state'], needsChoice = 0) {
         revision: 2,
         error: null,
         scanned_at: null,
+        monitor: 'all',
         result: null,
       }),
     ),

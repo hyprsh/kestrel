@@ -7,9 +7,11 @@ import {
   useBulkRows,
   useCommit,
   useDiscard,
+  usePatchPlan,
   usePatchRow,
   useScan,
   type AdoptionFile,
+  type AdoptionMonitor,
   type AdoptionRow,
   type AdoptionRowOutcome,
   type AdoptionRowsBulk,
@@ -41,6 +43,21 @@ const skipText: Record<string, string> = {
   not_on_tvdb: 'Not on TheTVDB, so Kestrel cannot manage it',
 }
 
+const monitorLabel: Record<AdoptionMonitor, string> = { all: 'Monitored', future: 'Series: future episodes only', none: 'Unmonitored' }
+const planMonitorOptions = (['all', 'future', 'none'] as const).map((value) => ({ value, label: monitorLabel[value] }))
+/** A row's choices: a Series has Add Title's three that need no season list, a Movie is monitored or not. */
+const rowMonitorOptions = (kind: AdoptionRow['kind']) =>
+  kind === 'series'
+    ? [
+        { value: 'all', label: 'All episodes' },
+        { value: 'future', label: 'Future episodes only' },
+        { value: 'none', label: 'Unmonitored' },
+      ]
+    : [
+        { value: 'all', label: 'Monitored' },
+        { value: 'none', label: 'Unmonitored' },
+      ]
+
 const baseName = (p: string) => p.slice(p.lastIndexOf('/') + 1)
 
 /** "S01E02" or "S01E02-E03" for a Series file, "" for a Movie file. */
@@ -70,11 +87,12 @@ const leftText: Record<string, string> = {
   not_settleable: 'the suggested Title cannot be matched',
   not_matched: 'the row is not a Matched one',
   already: 'the row already was so',
+  tracked: 'the Title is in the Library and keeps its monitoring',
   no_such_row: 'the row is gone',
 }
 
 /** What a bulk action did, in a sentence; "" when there is nothing to say. */
-function bulkReport(action: AdoptionRowsBulk['action'], items: AdoptionRowOutcome[]) {
+function bulkReport(action: AdoptionRowsBulk['action'], items: AdoptionRowOutcome[], monitor?: AdoptionMonitor) {
   const done = items.filter((i) => i.outcome === 'changed')
   const left = items.filter((i) => i.outcome !== 'changed')
   const parts: string[] = []
@@ -84,6 +102,7 @@ function bulkReport(action: AdoptionRowsBulk['action'], items: AdoptionRowOutcom
     const skipped = done.filter((i) => i.status === 'skipped').length
     if (skipped > 0) parts.push(`${skipped} of them could not be adopted and ${skipped === 1 ? 'is' : 'are'} Skipped.`)
   }
+  if (action === 'set_monitor') parts.push(`Set ${plural(done.length, 'row', 'rows')} to ${monitorLabel[monitor ?? 'all']}.`)
   if (left.length > 0) {
     const why = new Map<string, number>()
     for (const i of left) {
@@ -170,6 +189,7 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
             filter={filter}
             onFilter={setFilter}
             summary={p.summary}
+            monitor={p.monitor}
             onCommit={() => commit.mutate(p.revision)}
             onDiscard={() => discard.mutate()}
             busy={commit.isPending || discard.isPending}
@@ -184,6 +204,7 @@ function Plan({
   filter,
   onFilter,
   summary,
+  monitor,
   onCommit,
   onDiscard,
   busy,
@@ -191,12 +212,14 @@ function Plan({
   filter: Filter
   onFilter: (f: Filter) => void
   summary: Adoption['summary']
+  monitor: AdoptionMonitor
   onCommit: () => void
   onDiscard: () => void
   busy: boolean
 }) {
   const list = useAdoptionRows(filter, true)
   const bulk = useBulkRows()
+  const patchPlan = usePatchPlan()
   const [report, setReport] = useState('')
   const rows = useMemo(() => list.data?.pages.flatMap((pg) => pg.items) ?? [], [list.data])
   const total = list.data?.pages[0]?.total ?? 0
@@ -208,11 +231,11 @@ function Plan({
     setReport('')
     onFilter(f)
   }
-  const run = (action: AdoptionRowsBulk['action']) => {
-    const body: AdoptionRowsBulk = selection.all ? { action, filter } : { action, row_ids: selection.checked }
+  const run = (action: AdoptionRowsBulk['action'], setTo?: AdoptionMonitor) => {
+    const body: AdoptionRowsBulk = { action, ...(setTo && { monitor: setTo }), ...(selection.all ? { filter } : { row_ids: selection.checked }) }
     bulk.mutate(body, {
       onSuccess: (res) => {
-        setReport(bulkReport(action, res.items))
+        setReport(bulkReport(action, res.items, setTo))
         selection.clear()
       },
     })
@@ -230,6 +253,14 @@ function Plan({
           onChange={(e) => change(e.target.value as Filter)}
           options={filters.map((f) => ({ value: f.key, label: f.label }))}
         />
+        <Select
+          aria-label="Monitoring"
+          size="small"
+          value={monitor}
+          onChange={(e) => patchPlan.mutate(e.target.value as AdoptionMonitor)}
+          disabled={patchPlan.isPending}
+          options={planMonitorOptions}
+        />
         <div className="ml-auto flex gap-2 max-sm:ml-0 max-sm:[&>*]:flex-1">
           <Button size="small" onClick={onDiscard} disabled={busy}>
             Discard plan
@@ -239,6 +270,11 @@ function Plan({
           </Button>
         </div>
       </div>
+      {patchPlan.error instanceof ApiError && (
+        <Note variant="error" size="small" className="mt-2">
+          {patchPlan.error.message}
+        </Note>
+      )}
       {bulk.error instanceof ApiError && (
         <Note variant="error" size="small" className="mt-2">
           {bulk.error.message}
@@ -260,6 +296,14 @@ function Plan({
           <Button size="small" onClick={() => run('accept_suggested')} disabled={bulk.isPending}>
             Accept suggested matches
           </Button>
+          <Select
+            aria-label="Set monitoring of selected"
+            size="small"
+            value=""
+            onChange={(e) => e.target.value && run('set_monitor', e.target.value as AdoptionMonitor)}
+            disabled={bulk.isPending}
+            options={[{ value: '', label: 'Set monitoring…' }, ...planMonitorOptions]}
+          />
         </SelectionBar>
       </div>
       {list.isPending ? (
@@ -280,7 +324,7 @@ function Plan({
               <li key={r.id} className="flex gap-3 p-3">
                 <TickBox selection={selection} id={r.id} name={baseName(r.entry)} verb="Select" />
                 <div className="min-w-0 flex-1">
-                  <Row row={r} />
+                  <Row row={r} planMonitor={monitor} />
                 </div>
               </li>
             ))}
@@ -301,8 +345,8 @@ function Plan({
   )
 }
 
-function Row({ row }: { row: AdoptionRow }) {
-  if (row.status === 'matched') return <MatchedRow row={row} />
+function Row({ row, planMonitor }: { row: AdoptionRow; planMonitor: AdoptionMonitor }) {
+  if (row.status === 'matched') return <MatchedRow row={row} planMonitor={planMonitor} />
   if (row.status === 'needs_choice') return <NeedsChoice row={row} />
   return (
     <div>
@@ -315,7 +359,7 @@ function Row({ row }: { row: AdoptionRow }) {
   )
 }
 
-function MatchedRow({ row }: { row: AdoptionRow }) {
+function MatchedRow({ row, planMonitor }: { row: AdoptionRow; planMonitor: AdoptionMonitor }) {
   const patch = usePatchRow()
   const m = row.match!
   const title = `${m.title}${m.year ? ` (${m.year})` : ''}`
@@ -331,6 +375,18 @@ function MatchedRow({ row }: { row: AdoptionRow }) {
           </Badge>
         )}
         <span className="copy-13 min-w-0 break-all text-gray-900">{baseName(row.entry)}</span>
+        {m.title_id !== null ? (
+          <span className="copy-13 text-gray-900">Keeps its own monitoring</span>
+        ) : (
+          <Select
+            aria-label={`Monitoring of ${title}`}
+            size="small"
+            // A Movie has no future episodes: the plan's choice of them reads as monitored.
+            value={row.monitor ?? (row.kind === 'movie' && planMonitor === 'future' ? 'all' : planMonitor)}
+            onChange={(e) => patch.mutate({ id: row.id, patch: { monitor: e.target.value as AdoptionMonitor } })}
+            options={rowMonitorOptions(row.kind)}
+          />
+        )}
       </div>
       {row.kind === 'series' && <div className="label-12 mt-1 pl-6 text-gray-900 max-sm:pl-0">{versionsSummary(row)}</div>}
       <ul className="mt-2 flex flex-col gap-1.5 pl-6 max-sm:pl-0">

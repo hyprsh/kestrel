@@ -132,6 +132,7 @@ describe('Running now', () => {
           revision: 1,
           error: null,
           scanned_at: null,
+          monitor: 'all',
           result: null,
         }),
       ),

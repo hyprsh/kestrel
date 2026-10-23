@@ -1,5 +1,5 @@
-// Adoption: GET /adoption, POST /adoption/scan, the plan's rows (a page at a time), PATCH a row, bulk edits of rows
-// and POST /adoption/commit.
+// Adoption: GET /adoption, POST /adoption/scan, PATCH /adoption (how its Titles are monitored), the plan's rows
+// (a page at a time), PATCH a row, bulk edits of rows and POST /adoption/commit.
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
 import { ApiError } from './queries'
@@ -12,6 +12,8 @@ export type AdoptionRowPatch = components['schemas']['AdoptionRowPatch']
 export type AdoptionRowsBulk = components['schemas']['AdoptionRowsBulk']
 export type AdoptionRowOutcome = components['schemas']['AdoptionRowOutcome']
 export type AdoptionRowsBulkResult = components['schemas']['AdoptionRowsBulkResult']
+/** How an Adoption adds a Title: monitored, a Series from its future episodes on, or unmonitored. */
+export type AdoptionMonitor = components['schemas']['AdoptionMonitor']
 type AdoptionRowList = components['schemas']['AdoptionRowList']
 /** The filters the rows can be asked for; `all` is every row. */
 export type AdoptionFilter = components['schemas']['AdoptionRowFilter']
@@ -72,6 +74,14 @@ function useAdoptionMutation<V, R = void>(run: (v: V) => Promise<R>) {
 export function useScan() {
   return useAdoptionMutation<void>(async () => {
     const { error, response } = await api.POST('/adoption/scan', { body: {} })
+    if (error) throw failure(error, response)
+  })
+}
+
+/** Chooses how the Titles the plan adds are monitored, unless a row has its own choice. */
+export function usePatchPlan() {
+  return useAdoptionMutation<AdoptionMonitor>(async (monitor) => {
+    const { error, response } = await api.PATCH('/adoption', { body: { monitor } })
     if (error) throw failure(error, response)
   })
 }
