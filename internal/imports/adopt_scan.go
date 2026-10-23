@@ -132,6 +132,9 @@ func (a *Adoption) Scan(ctx context.Context, roots []string) error {
 	if err := a.q.StartAdoptionScan(ctx); err != nil {
 		return err
 	}
+	if err := a.q.SetAdoptionMonitor(ctx, string(library.MonitorAll)); err != nil {
+		return err
+	}
 	a.wg.Add(1)
 	go func() {
 		defer a.wg.Done()

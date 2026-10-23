@@ -180,8 +180,9 @@ type Adoption interface {
 	Rows(ctx context.Context, f imports.Filter, o imports.OutcomeFilter, offset, limit int) (imports.RowPage, error)
 	PatchRow(ctx context.Context, id int64, p imports.RowPatch) (imports.Row, error)
 	Bulk(ctx context.Context, req imports.BulkRequest) (imports.BulkResult, error)
+	SetMonitor(ctx context.Context, m library.Monitor) error
 	Discard(ctx context.Context) error
-	Commit(ctx context.Context, revision int64) error
+	Commit(ctx context.Context, revision int64, monitor library.Monitor) error
 	Retry(ctx context.Context) error
 }
 

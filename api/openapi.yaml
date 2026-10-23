@@ -1470,6 +1470,42 @@ paths:
                 $ref: "#/components/schemas/Adoption"
         default:
           $ref: "#/components/responses/Problem"
+    patch:
+      operationId: patchAdoption
+      summary: Choose how the plan's Titles are monitored
+      description: |
+        `monitor` is how the Titles the plan adds are monitored unless a row has its own choice: `all`
+        (today's behaviour: a Movie is monitored, a Series follows every episode), `future` (a Series
+        follows episodes that air from today; a Movie is monitored) or `none` (unmonitored: not Wanted,
+        no missing searches and no Upgrade searches for the files it already has, see #70). A Title Kestrel
+        already tracks keeps its own monitoring. Moves the plan's `revision`. `409 conflict` while scanning
+        or committing, `404` with no plan.
+      tags: [adoption]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [monitor]
+              properties:
+                monitor:
+                  $ref: "#/components/schemas/AdoptionMonitor"
+      responses:
+        "200":
+          description: The Adoption state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Adoption"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
     delete:
       operationId: discardAdoption
       summary: Throw the plan away
@@ -1593,6 +1629,10 @@ paths:
           with no candidates as `no_suggestion`, one whose suggestion is not confident as
           `not_confident`, and one that cannot be matched to the suggested Title as `not_settleable`.
 
+        - `set_monitor` gives the rows their own `monitor` (see `PATCH /adoption`), over the plan's. A row
+          that joins a Title Kestrel tracks is skipped as `tracked` (the Title keeps its monitoring), and
+          one that already has that choice as `already`. `monitor` is required for this action.
+
         Planning each accepted row probes its files, so a large selection can take a while.
       tags: [adoption]
       requestBody:
@@ -1709,6 +1749,10 @@ paths:
                 revision:
                   type: integer
                   format: int64
+                monitor:
+                  allOf:
+                    - $ref: "#/components/schemas/AdoptionMonitor"
+                  description: Replaces the plan's choice of how the Titles it adds are monitored (see `PATCH /adoption`).
       responses:
         "202":
           description: The commit started.
@@ -4075,13 +4119,24 @@ components:
         blocklist:
           type: boolean
           default: false
+    AdoptionMonitor:
+      type: string
+      description: |
+        How an Adoption adds a Title: `all` monitors it (a Series follows every episode), `future` follows
+        a Series' episodes from today on (a Movie is monitored), `none` leaves it unmonitored. These are
+        Add Title's choices that need no season list; a Title Kestrel tracks keeps its own monitoring.
+      enum: [all, future, none]
     Adoption:
       type: object
-      required: [state, progress, summary, revision, error, scanned_at, result]
+      required: [state, progress, summary, revision, error, scanned_at, result, monitor]
       properties:
         state:
           type: string
           enum: [idle, scanning, planned, committing]
+        monitor:
+          allOf:
+            - $ref: "#/components/schemas/AdoptionMonitor"
+          description: How the Titles the plan adds are monitored unless a row has its own choice; `all` for a new plan.
         progress:
           type: object
           required: [done, total]
@@ -4273,6 +4328,10 @@ components:
       type: object
       required: [id, kind, status, skip_reason, entry, ticked, match, candidates, files]
       properties:
+        monitor:
+          allOf:
+            - $ref: "#/components/schemas/AdoptionMonitor"
+          description: The row's own choice of how the Title it adds is monitored; absent when it follows the plan's.
         id:
           type: integer
           format: int64
@@ -4353,7 +4412,9 @@ components:
       properties:
         action:
           type: string
-          enum: [tick, untick, accept_suggested]
+          enum: [tick, untick, accept_suggested, set_monitor]
+        monitor:
+          $ref: "#/components/schemas/AdoptionMonitor"
         row_ids:
           type: array
           maxItems: 10000
@@ -4387,7 +4448,7 @@ components:
         reason:
           type: string
           description: Why the row was skipped.
-          enum: [already, no_such_row, not_matched, not_needs_choice, no_suggestion, not_confident, not_settleable]
+          enum: [already, no_such_row, not_matched, not_needs_choice, no_suggestion, not_confident, not_settleable, tracked]
         message:
           type: string
           description: Why the row failed.
@@ -4404,6 +4465,8 @@ components:
       properties:
         ticked:
           type: boolean
+        monitor:
+          $ref: "#/components/schemas/AdoptionMonitor"
         tmdb_id:
           type: integer
         files:

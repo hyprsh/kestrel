@@ -590,7 +590,7 @@ func (a *Adoption) adoptSeriesRow(ctx context.Context, e *env, row Row) (err err
 		return errors.New("none of the files could be adopted")
 	}
 
-	adopt := library.AdoptSeries{TitleID: titleID, PrimaryLanguage: string(e.region.Primary), RootFolder: root, Folder: folder, Versions: versions}
+	adopt := library.AdoptSeries{TitleID: titleID, PrimaryLanguage: string(e.region.Primary), RootFolder: root, Folder: folder, Versions: versions, Monitor: row.Monitor}
 	if !tracked {
 		if adopt.TMDB, err = a.d.Meta.Series(ctx, m.TMDBID); err != nil {
 			return err

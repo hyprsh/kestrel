@@ -92,6 +92,8 @@ var (
 	ErrNoRoot = errors.New("not a configured Root folder")
 	// ErrNotSettleable means the row cannot be matched to the Movie asked for.
 	ErrNotSettleable = errors.New("the row cannot be matched to that Movie")
+	// ErrBadMonitor means a monitoring choice is not all, future or none.
+	ErrBadMonitor = errors.New("monitor is all, future or none")
 )
 
 // Summary counts the rows of a plan. Duplicate and Replacement count rows
@@ -162,6 +164,9 @@ type Plan struct {
 	Result    *CommitResult
 	// Current is what a running scan or commit is working on; nil when none.
 	Current *Current
+	// Monitor is how the Titles the plan adds are monitored unless a row
+	// says otherwise.
+	Monitor library.Monitor
 }
 
 // Match is the Movie or Series a row's files are adopted as.
@@ -240,6 +245,9 @@ type Row struct {
 	// row failed. Rows are kept with them until the next scan.
 	Outcome FinalOutcome `json:"outcome,omitempty"`
 	Error   string       `json:"error,omitempty"`
+	// Monitor is the row's own choice of how the Title it adds is monitored;
+	// "" follows the plan's. A tracked Title keeps its own monitoring.
+	Monitor library.Monitor `json:"monitor,omitempty"`
 }
 
 // kind is the row's kind, a Movie when the plan was stored before Series.
@@ -391,7 +399,7 @@ func (a *Adoption) Get(ctx context.Context) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
-	out := Plan{State: PlanState(p.State), Revision: p.Revision, Done: int(p.Done), Total: int(p.Total), Error: p.Error.String}
+	out := Plan{State: PlanState(p.State), Revision: p.Revision, Done: int(p.Done), Total: int(p.Total), Error: p.Error.String, Monitor: library.Monitor(p.Monitor)}
 	if p.ScannedAt.Valid {
 		if t, err := time.Parse(time.RFC3339, p.ScannedAt.String); err == nil {
 			out.ScannedAt = &t
@@ -633,5 +641,8 @@ func (a *Adoption) Discard(ctx context.Context) error {
 	if err := a.q.DeleteAdoptionRows(ctx); err != nil {
 		return err
 	}
-	return a.q.ResetAdoption(ctx)
+	if err := a.q.ResetAdoption(ctx); err != nil {
+		return err
+	}
+	return a.q.SetAdoptionMonitor(ctx, string(library.MonitorAll))
 }

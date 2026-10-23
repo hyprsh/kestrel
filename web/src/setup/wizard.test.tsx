@@ -60,6 +60,7 @@ function fakeAdoption() {
     revision: 1,
     error: null,
     scanned_at: null,
+    monitor: 'all',
     result: null,
   })
   server.use(

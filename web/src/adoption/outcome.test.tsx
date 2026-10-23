@@ -44,6 +44,7 @@ function finished() {
     state: state.plan,
     progress: { done: 0, total: 0 },
     summary: none,
+    monitor: 'all',
     revision: 5,
     error: null,
     scanned_at: null,
@@ -138,6 +139,7 @@ describe('The Adoption summary after a commit', () => {
           state: 'idle',
           progress: { done: 0, total: 0 },
           summary: none,
+          monitor: 'all',
           revision: 5,
           error: null,
           scanned_at: null,
@@ -157,7 +159,7 @@ describe('The current item of a running scan or commit', () => {
   const running = (state: 'scanning' | 'committing', current: components['schemas']['AdoptionCurrent']) =>
     server.use(
       http.get('/adoption', ({ response }) =>
-        response(200).json({ state, progress: { done: 120, total: 450, current }, summary: none, revision: 2, error: null, scanned_at: null, result: null }),
+        response(200).json({ state, monitor: 'all', progress: { done: 120, total: 450, current }, summary: none, revision: 2, error: null, scanned_at: null, result: null }),
       ),
     )
 

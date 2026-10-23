@@ -1198,7 +1198,16 @@ export interface paths {
         delete: operations["discardAdoption"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Choose how the plan's Titles are monitored
+         * @description `monitor` is how the Titles the plan adds are monitored unless a row has its own choice: `all`
+         *     (today's behaviour: a Movie is monitored, a Series follows every episode), `future` (a Series
+         *     follows episodes that air from today; a Movie is monitored) or `none` (unmonitored: not Wanted,
+         *     no missing searches and no Upgrade searches for the files it already has, see #70). A Title Kestrel
+         *     already tracks keeps its own monitoring. Moves the plan's `revision`. `409 conflict` while scanning
+         *     or committing, `404` with no plan.
+         */
+        patch: operations["patchAdoption"];
         trace?: never;
     };
     "/adoption/scan": {
@@ -1273,6 +1282,10 @@ export interface paths {
          *       the item says which. A row that is not Needs choice is skipped as `not_needs_choice`, one
          *       with no candidates as `no_suggestion`, one whose suggestion is not confident as
          *       `not_confident`, and one that cannot be matched to the suggested Title as `not_settleable`.
+         *
+         *     - `set_monitor` gives the rows their own `monitor` (see `PATCH /adoption`), over the plan's. A row
+         *       that joins a Title Kestrel tracks is skipped as `tracked` (the Title keeps its monitoring), and
+         *       one that already has that choice as `already`. `monitor` is required for this action.
          *
          *     Planning each accepted row probes its files, so a large selection can take a while.
          */
@@ -2897,9 +2910,18 @@ export interface components {
             /** @default false */
             blocklist: boolean;
         };
+        /**
+         * @description How an Adoption adds a Title: `all` monitors it (a Series follows every episode), `future` follows
+         *     a Series' episodes from today on (a Movie is monitored), `none` leaves it unmonitored. These are
+         *     Add Title's choices that need no season list; a Title Kestrel tracks keeps its own monitoring.
+         * @enum {string}
+         */
+        AdoptionMonitor: "all" | "future" | "none";
         Adoption: {
             /** @enum {string} */
             state: "idle" | "scanning" | "planned" | "committing";
+            /** @description How the Titles the plan adds are monitored unless a row has its own choice; `all` for a new plan. */
+            monitor: components["schemas"]["AdoptionMonitor"];
             progress: {
                 done: number;
                 total: number;
@@ -3021,6 +3043,8 @@ export interface components {
             subtitles: components["schemas"]["AdoptionSubtitle"][];
         };
         AdoptionRow: {
+            /** @description The row's own choice of how the Title it adds is monitored; absent when it follows the plan's. */
+            monitor?: components["schemas"]["AdoptionMonitor"];
             /** Format: int64 */
             id: number;
             kind: components["schemas"]["TitleKind"];
@@ -3064,7 +3088,8 @@ export interface components {
         AdoptionRowFilter: "all" | "needs_choice" | "matched" | "duplicate" | "replacement" | "skipped";
         AdoptionRowsBulk: {
             /** @enum {string} */
-            action: "tick" | "untick" | "accept_suggested";
+            action: "tick" | "untick" | "accept_suggested" | "set_monitor";
+            monitor?: components["schemas"]["AdoptionMonitor"];
             row_ids?: number[];
             filter?: components["schemas"]["AdoptionRowFilter"];
         };
@@ -3085,7 +3110,7 @@ export interface components {
              * @description Why the row was skipped.
              * @enum {string}
              */
-            reason?: "already" | "no_such_row" | "not_matched" | "not_needs_choice" | "no_suggestion" | "not_confident" | "not_settleable";
+            reason?: "already" | "no_such_row" | "not_matched" | "not_needs_choice" | "no_suggestion" | "not_confident" | "not_settleable" | "tracked";
             /** @description Why the row failed. */
             message?: string;
             /**
@@ -3101,6 +3126,7 @@ export interface components {
         };
         AdoptionRowPatch: {
             ticked?: boolean;
+            monitor?: components["schemas"]["AdoptionMonitor"];
             tmdb_id?: number;
             files?: {
                 path: string;
@@ -5432,6 +5458,36 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
+    patchAdoption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    monitor: components["schemas"]["AdoptionMonitor"];
+                };
+            };
+        };
+        responses: {
+            /** @description The Adoption state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Adoption"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
     scanAdoption: {
         parameters: {
             query?: never;
@@ -5609,6 +5665,8 @@ export interface operations {
                 "application/json": {
                     /** Format: int64 */
                     revision: number;
+                    /** @description Replaces the plan's choice of how the Titles it adds are monitored (see `PATCH /adoption`). */
+                    monitor?: components["schemas"]["AdoptionMonitor"];
                 };
             };
         };
