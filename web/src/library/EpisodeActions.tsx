@@ -124,6 +124,7 @@ const rowMenuButton = (label: string) => (
     size="tiny"
     tabIndex={-1}
     aria-label={label}
+    className="aria-expanded:bg-gray-alpha-200"
     onFocus={(e) => e.currentTarget.closest('[role="row"]')?.querySelector<HTMLElement>('[data-cell][tabindex="0"]')?.focus()}
   >
     <MoreHorizontal className="size-4" />
@@ -131,12 +132,13 @@ const rowMenuButton = (label: string) => (
 )
 
 /** The ⋯ menu of one episode row. */
-export function EpisodeMenu({ actions, episode }: { actions: EpisodeActions; episode: Episode }) {
+/** `onOpenChange` tells the row the menu belongs to when it opens and closes, so the row can show whose menu it is. */
+export function EpisodeMenu({ actions, episode, onOpenChange }: { actions: EpisodeActions; episode: Episode; onOpenChange?: (open: boolean) => void }) {
   const { selection, versions } = actions
   const code = episodeCode(episode)
   const wanted = wantedIn([episode], versions)
   return (
-    <Menu.Container position="bottom-end">
+    <Menu.Container position="bottom-end" onOpenChange={onOpenChange}>
       {rowMenuButton(`Actions for ${episodeName(episode)}`)}
       <Menu>
         <Menu.Item disabled={!wanted} description={wanted ? undefined : nothingWanted} onSelect={() => actions.search([episode], code, (ids) => ({ season: episode.season, episode_ids: ids }))}>
@@ -155,12 +157,12 @@ export function EpisodeMenu({ actions, episode }: { actions: EpisodeActions; epi
 }
 
 /** The ⋯ menu of a season row. */
-export function SeasonMenu({ actions, season, episodes }: { actions: EpisodeActions; season: number; episodes: Episode[] }) {
+export function SeasonMenu({ actions, season, episodes, onOpenChange }: { actions: EpisodeActions; season: number; episodes: Episode[]; onOpenChange?: (open: boolean) => void }) {
   const { versions } = actions
   const name = seasonName(season)
   const wanted = wantedIn(episodes, versions)
   return (
-    <Menu.Container position="bottom-end">
+    <Menu.Container position="bottom-end" onOpenChange={onOpenChange}>
       {rowMenuButton(`Actions for ${name}`)}
       <Menu>
         <Menu.Item disabled={!wanted} description={wanted ? undefined : nothingWanted} onSelect={() => actions.search(episodes, name, () => ({ season }))}>

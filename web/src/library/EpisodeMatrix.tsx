@@ -59,6 +59,9 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
   const monitor = useMonitorEpisodes(titleId)
   const grid = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ row: 0, col: 0 })
+  // The row whose "…" menu is open: a menu can open upwards over other rows, so its own row is marked.
+  const [menuRow, setMenuRow] = useState<string | null>(null)
+  const menuOf = (key: string) => (open: boolean) => setMenuRow((cur) => (open ? key : cur === key ? null : cur))
   const columns = 1 + slots.length
 
   const rows = useMemo<Row[]>(() => {
@@ -193,7 +196,8 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
             open={seasons.isOpen(r.season)}
             onOpen={(open) => seasons.set(r.season, open)}
             slots={slots}
-            menu={actions && <SeasonMenu actions={actions} season={r.season} episodes={r.episodes} />}
+            menuOpen={menuRow === seasonRow(r.season)}
+            menu={actions && <SeasonMenu actions={actions} season={r.season} episodes={r.episodes} onOpenChange={menuOf(seasonRow(r.season))} />}
             after={actions && <RowDeleteConfirm deletes={actions.deletes} at={seasonRow(r.season)} columns={columns} />}
           />
         ) : (
@@ -206,7 +210,8 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
             onFocus={(col) => setPos({ row: i, col })}
             onToggle={() => monitor.mutate({ ids: [r.episode.id], monitored: !r.episode.monitored })}
             tick={actions && <EpisodeTick actions={actions} episode={r.episode} />}
-            menu={actions && <EpisodeMenu actions={actions} episode={r.episode} />}
+            menuOpen={menuRow === episodeRow(r.episode.id)}
+            menu={actions && <EpisodeMenu actions={actions} episode={r.episode} onOpenChange={menuOf(episodeRow(r.episode.id))} />}
             after={actions && <RowDeleteConfirm deletes={actions.deletes} at={episodeRow(r.episode.id)} columns={columns} />}
           />
         ),
@@ -224,6 +229,7 @@ function SeasonRow({
   open,
   onOpen,
   slots,
+  menuOpen,
   menu,
   after,
 }: {
@@ -235,6 +241,8 @@ function SeasonRow({
   open: boolean
   onOpen: (open: boolean) => void
   slots: SlotKey[]
+  /** Whether the row's own "…" menu is open. */
+  menuOpen?: boolean
   menu?: ReactNode
   /** What shows right under the row, such as a question asked from its menu. */
   after?: ReactNode
@@ -242,7 +250,7 @@ function SeasonRow({
   const on = row.episodes.filter((e) => e.monitored).length
   return (
     <>
-      <div role="row" aria-rowindex={index + 2} className="flex items-center gap-3 border-t border-gray-alpha-400 bg-gray-alpha-100 px-3 py-1.5 max-sm:sticky max-sm:left-0 max-sm:min-h-11">
+      <div role="row" aria-rowindex={index + 2} data-menu-open={menuOpen ? '' : undefined} className="flex items-center gap-3 border-t border-gray-alpha-400 bg-gray-alpha-100 px-3 py-1.5 data-[menu-open]:bg-gray-alpha-200 max-sm:sticky max-sm:left-0 max-sm:min-h-11">
         <div role="gridcell" className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
           <Checkbox
             aria-label={seasonName(row.season)}
@@ -274,6 +282,7 @@ function EpisodeRow({
   onFocus,
   onToggle,
   tick,
+  menuOpen,
   menu,
   after,
 }: {
@@ -284,6 +293,8 @@ function EpisodeRow({
   onFocus: (col: number) => void
   onToggle: () => void
   tick?: ReactNode
+  /** Whether the row's own "…" menu is open. */
+  menuOpen?: boolean
   menu?: ReactNode
   /** What shows right under the row, such as a question asked from its menu. */
   after?: ReactNode
@@ -292,7 +303,7 @@ function EpisodeRow({
   const phone = usePhone()
   return (
     <>
-      <div role="row" aria-rowindex={index + 2} className={cx('flex items-center gap-3 px-3 py-1 hover:bg-gray-alpha-100 max-sm:min-h-11', rowMin)}>
+      <div role="row" aria-rowindex={index + 2} data-menu-open={menuOpen ? '' : undefined} className={cx('flex items-center gap-3 px-3 py-1 hover:bg-gray-alpha-100 data-[menu-open]:bg-gray-alpha-200 max-sm:min-h-11', rowMin)}>
         <div role="gridcell" className={cx('flex min-w-0 flex-1 items-center gap-2', pin)}>
           {tick}
           <Checkbox

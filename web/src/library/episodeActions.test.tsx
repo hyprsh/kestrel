@@ -41,6 +41,34 @@ async function choose(grid: HTMLElement, menu: string, item: string) {
   await userEvent.click(screen.getByRole('menuitem', { name: item }))
 }
 
+describe('whose menu is open', () => {
+  afterEach(() => localStorage.clear())
+
+  it('marks the episode row while its menu is open, and not after it closes', async () => {
+    const { grid } = await openSeries()
+    const row = (name: string) => within(grid).getByRole('button', { name }).closest('[role="row"]')
+
+    await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 2' }))
+    expect(row('Actions for Season 1 episode 2')).toHaveAttribute('data-menu-open')
+    expect(row('Actions for Season 1 episode 1')).not.toHaveAttribute('data-menu-open')
+
+    await userEvent.keyboard('{Escape}')
+    expect(row('Actions for Season 1 episode 2')).not.toHaveAttribute('data-menu-open')
+  })
+
+  it('marks the season row while its menu is open, and moves the mark when another menu opens', async () => {
+    const { grid } = await openSeries()
+    const row = (name: string) => within(grid).getByRole('button', { name }).closest('[role="row"]')
+
+    await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1' }))
+    expect(row('Actions for Season 1')).toHaveAttribute('data-menu-open')
+
+    await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 1' }))
+    expect(row('Actions for Season 1 episode 1')).toHaveAttribute('data-menu-open')
+    expect(row('Actions for Season 1')).not.toHaveAttribute('data-menu-open')
+  })
+})
+
 describe('searching from the episodes heat map', () => {
   afterEach(() => localStorage.clear()) // opened seasons are remembered per Title
 
