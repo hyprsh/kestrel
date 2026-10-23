@@ -15,6 +15,23 @@ func enableProxy(t *testing.T, b *browser, trusted string) {
 	}
 }
 
+// trustForAddresses trusts the proxy addresses for X-Forwarded-* only, with header login off.
+func trustForAddresses(t *testing.T, b *browser, trusted string) {
+	t.Helper()
+	body := `{"enabled":false,"trusted_proxies":["` + trusted + `"],"header":"Remote-User"}`
+	if r := b.do("PUT", "/settings/reverse-proxy", body); r.Status != 200 {
+		t.Fatalf("PUT /settings/reverse-proxy = %d %s", r.Status, r.Body)
+	}
+}
+
+func (in *instance) loginFrom(forwardedFor, password string) reply {
+	h := map[string]string{"Content-Type": "application/json"}
+	if forwardedFor != "" {
+		h["X-Forwarded-For"] = forwardedFor
+	}
+	return in.call("POST", "/auth/login", `{"username":"admin","password":"`+password+`"}`, h)
+}
+
 func TestReverseProxyAuthIsOffByDefault(t *testing.T) {
 	t.Parallel()
 	in := newInstance(t, "")
@@ -109,5 +126,90 @@ func TestBehindATrustedProxyTheClientIsTheRightmostUntrustedForwardedAddress(t *
 	other := map[string]string{"X-Api-Key": "kst_nope", "X-Forwarded-For": "192.0.2.1"}
 	if r := in.call("GET", "/auth/me", "", other); r.Status != 401 {
 		t.Errorf("a different client behind the proxy = %d, want 401", r.Status)
+	}
+}
+
+func TestTrustedProxiesGiveTheClientAddressWithoutTurningOnHeaderLogin(t *testing.T) {
+	t.Parallel()
+	in := newInstance(t, "")
+	trustForAddresses(t, in.setUp(), "127.0.0.1")
+
+	if r := in.call("GET", "/auth/me", "", map[string]string{"Remote-User": "mallory"}); r.Status != 401 {
+		t.Errorf("Remote-User with enabled=false = %d, want 401", r.Status)
+	}
+	bad := map[string]string{"X-Api-Key": "kst_nope", "X-Forwarded-For": "203.0.113.9, 127.0.0.1"}
+	for i := 0; i < 5; i++ {
+		in.call("GET", "/auth/me", "", bad)
+	}
+	if r := in.call("GET", "/auth/me", "", bad); r.Status != 429 {
+		t.Fatalf("6th bad key from one client = %d, want 429", r.Status)
+	}
+	other := map[string]string{"X-Api-Key": "kst_nope", "X-Forwarded-For": "192.0.2.1"}
+	if r := in.call("GET", "/auth/me", "", other); r.Status != 401 {
+		t.Errorf("second client's bad key = %d, want 401", r.Status)
+	}
+	good := map[string]string{"X-Api-Key": newKey(t, in.login()), "X-Forwarded-For": "192.0.2.1"}
+	if r := in.call("GET", "/auth/me", "", good); r.Status != 200 {
+		t.Errorf("second client's good key = %d, want 200", r.Status)
+	}
+}
+
+func TestPasswordFailuresAreCountedPerClientBehindATrustedProxy(t *testing.T) {
+	t.Parallel()
+	in := newInstance(t, "")
+	trustForAddresses(t, in.setUp(), "127.0.0.1")
+
+	for i := 0; i < 5; i++ {
+		if r := in.loginFrom("203.0.113.9", "wrong password"); r.Status != 401 {
+			t.Fatalf("bad login %d = %d", i, r.Status)
+		}
+	}
+	if r := in.loginFrom("203.0.113.9", "wrong password"); r.Status != 429 {
+		t.Fatalf("6th bad login = %d, want 429", r.Status)
+	}
+	if r := in.loginFrom("192.0.2.1", "correct horse"); r.Status != 204 {
+		t.Errorf("other client's good login = %d, want 204", r.Status)
+	}
+}
+
+func TestOneClientsSuccessDoesNotResetAnothersFailures(t *testing.T) {
+	t.Parallel()
+	in := newInstance(t, "")
+	trustForAddresses(t, in.setUp(), "127.0.0.1")
+
+	for i := 0; i < 5; i++ {
+		in.loginFrom("203.0.113.9", "wrong password")
+	}
+	if r := in.loginFrom("192.0.2.1", "correct horse"); r.Status != 204 {
+		t.Fatalf("other client's login = %d, want 204", r.Status)
+	}
+	if r := in.loginFrom("203.0.113.9", "correct horse"); r.Status != 429 {
+		t.Errorf("guesser after another client's success = %d, want 429", r.Status)
+	}
+}
+
+func TestForwardedForFromAnUntrustedAddressIsNotBelieved(t *testing.T) {
+	t.Parallel()
+	in := newInstance(t, "")
+	trustForAddresses(t, in.setUp(), "10.0.0.0/8")
+	// The socket (127.0.0.1) is not trusted, so every spoofed address is the same client.
+	for i := 0; i < 5; i++ {
+		in.loginFrom("198.51.100."+string(rune('1'+i)), "wrong password")
+	}
+	if r := in.loginFrom("192.0.2.77", "wrong password"); r.Status != 429 {
+		t.Errorf("rotating X-Forwarded-For escaped the throttle: %d, want 429", r.Status)
+	}
+}
+
+func TestForwardedProtoIsOnlyBelievedFromATrustedProxy(t *testing.T) {
+	t.Parallel()
+	for trusted, wantSecure := range map[string]bool{"127.0.0.1": true, "10.0.0.0/8": false} {
+		in := newInstance(t, "")
+		trustForAddresses(t, in.setUp(), trusted)
+		r := in.call("POST", "/auth/login", adminJSON, map[string]string{
+			"Content-Type": "application/json", "X-Forwarded-Proto": "https"})
+		if len(r.Cookie) != 1 || r.Cookie[0].Secure != wantSecure {
+			t.Errorf("trusted %s: cookies %v, want Secure=%v", trusted, r.Cookie, wantSecure)
+		}
 	}
 }
