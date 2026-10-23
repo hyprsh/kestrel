@@ -117,7 +117,7 @@ export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQue
             </Group>
           ),
       )}
-      {loaded && rows.length === 0 && !searching && <EmptyState className="m-4" description="Nothing in Activity matches." />}
+      {loaded && rows.length === 0 && !searching && <EmptyState className="m-4 w-auto" description="Nothing in Activity matches." />}
       {(chosen.includes('done') || chosen.includes('failed')) && (
         <p className="label-12 px-4 py-3 text-gray-900">
           {finished.data?.more ? `Done and Failed show the latest ${finished.data.items.length} Grabs. ` : `Done and Failed reach back ${HISTORY_DAYS} days. `}

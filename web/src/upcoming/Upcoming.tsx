@@ -151,7 +151,7 @@ export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void })
               Show earlier
             </LoadMoreButton>
           )}
-          {empty && <EmptyState className="m-4" description="Nothing is due in this window." />}
+          {empty && <EmptyState className="m-4 w-auto" description="Nothing is due in this window." />}
           <ul aria-label="Agenda" className="relative mt-2">
             <span aria-hidden className="absolute top-0 bottom-0 left-3 w-px bg-gray-alpha-400" />
             {days.map((d) => {

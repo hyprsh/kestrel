@@ -97,7 +97,7 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         {events.isError && <Note variant="error">The Log could not be loaded.</Note>}
-        {events.data && shown.length === 0 && <EmptyState className="m-4" description="Nothing in the Log matches." />}
+        {events.data && shown.length === 0 && <EmptyState className="m-4 w-auto" description="Nothing in the Log matches." />}
         {phone ? (
           // A phone has no room for three columns: each event is a stacked row, its message wrapping under the kind and the time.
           <ul aria-label="Events" className="divide-y divide-gray-alpha-400">
@@ -228,7 +228,7 @@ function Blocklist() {
   return (
     <div className="min-h-0 flex-1 overflow-auto">
       {unblock.isError && <Note variant="error">The entry could not be removed.</Note>}
-      {list.data && items.length === 0 && <EmptyState className="m-4" description="The Blocklist is empty." />}
+      {list.data && items.length === 0 && <EmptyState className="m-4 w-auto" description="The Blocklist is empty." />}
       {items.length > 0 && phone && (
         <ul aria-label="Blocklist" className="divide-y divide-gray-alpha-400">
           {items.map((b) => (
