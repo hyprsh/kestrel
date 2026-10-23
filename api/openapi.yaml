@@ -1525,7 +1525,9 @@ paths:
       operationId: listAdoptionRows
       summary: The rows of the plan
       description: |
-        Rows are grouped Matched, Needs choice and Skipped. `duplicate` keeps rows with a file left in place
+        Paged like `GET /titles` (`limit`, `next_cursor`). Rows are grouped Matched, Needs choice and Skipped. `total`
+        counts the rows the filter keeps and `counts` the rows of the whole plan, so the SPA can say "all N in this
+        filter" and show every filter's count from one page. `duplicate` keeps rows with a file left in place
         because another file holds its Slot; `replacement` keeps rows that would replace a file a Version
         holds (unticked by default).
       tags: [adoption]
@@ -1536,13 +1538,28 @@ paths:
           schema:
             type: string
             enum: [needs_choice, matched, duplicate, replacement, skipped]
+        - name: limit
+          in: query
+          description: Page size.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10000
+            default: 100
+        - name: cursor
+          in: query
+          description: The `next_cursor` of the previous page.
+          schema:
+            type: string
       responses:
         "200":
-          description: The rows.
+          description: A page of rows, with the counts of the whole plan.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdoptionRowList"
+        "422":
+          $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
   /adoption/rows/{id}:
@@ -3993,20 +4010,7 @@ components:
             total:
               type: integer
         summary:
-          type: object
-          description: Row counts of the plan; all zero when there is none.
-          required: [matched, needs_choice, skipped, duplicate, replacement]
-          properties:
-            matched:
-              type: integer
-            needs_choice:
-              type: integer
-            skipped:
-              type: integer
-            duplicate:
-              type: integer
-            replacement:
-              type: integer
+          $ref: "#/components/schemas/AdoptionSummary"
         revision:
           type: integer
           format: int64
@@ -4175,14 +4179,41 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdoptionFile"
+    AdoptionSummary:
+      type: object
+      description: Row counts of the plan; all zero when there is none.
+      required: [matched, needs_choice, skipped, duplicate, replacement, adopting]
+      properties:
+        matched:
+          type: integer
+        needs_choice:
+          type: integer
+        skipped:
+          type: integer
+        duplicate:
+          type: integer
+        replacement:
+          type: integer
+        adopting:
+          type: integer
+          description: How many rows a commit would adopt now (Matched, ticked, with a file that is not left in place).
     AdoptionRowList:
       type: object
-      required: [items]
+      required: [items, next_cursor, total, counts]
       properties:
         items:
           type: array
           items:
             $ref: "#/components/schemas/AdoptionRow"
+        next_cursor:
+          type: string
+          nullable: true
+          description: Pass it as `cursor` for the next page; `null` on the last page.
+        total:
+          type: integer
+          description: How many rows the `filter` keeps, over all pages.
+        counts:
+          $ref: "#/components/schemas/AdoptionSummary"
     AdoptionRowPatch:
       type: object
       properties:

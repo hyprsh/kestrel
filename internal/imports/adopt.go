@@ -97,6 +97,9 @@ var (
 // that also sit in Matched.
 type Summary struct {
 	Matched, NeedsChoice, Skipped, Duplicate, Replacement int
+	// Adopting counts the rows a commit would adopt: Matched, ticked, with a
+	// file that is not left in place.
+	Adopting int
 }
 
 // CommitResult is what the last commit did.
@@ -376,6 +379,9 @@ func summarizeRows(rows []Row) Summary {
 		switch r.Status {
 		case Matched:
 			s.Matched++
+			if r.willAdopt() {
+				s.Adopting++
+			}
 		case NeedsChoice:
 			s.NeedsChoice++
 		case Skipped:
@@ -390,6 +396,9 @@ func summarizeRows(rows []Row) Summary {
 	}
 	return s
 }
+
+// willAdopt reports whether a commit would adopt the row.
+func (r Row) willAdopt() bool { return r.Status == Matched && r.Ticked && r.has(PlanFile.adopts) }
 
 func (r Row) has(pred func(PlanFile) bool) bool {
 	for _, f := range r.Files {
@@ -412,36 +421,60 @@ const (
 	FilterSkipped     Filter = "skipped"
 )
 
-// Rows returns the plan's rows, Matched first, then Needs choice, then Skipped.
-func (a *Adoption) Rows(ctx context.Context, f Filter) ([]Row, error) {
-	all, err := a.rows(ctx)
-	if err != nil {
-		return nil, err
+// keeps reports whether the row is one the filter keeps.
+func (f Filter) keeps(r Row) bool {
+	switch f {
+	case FilterNeedsChoice, FilterMatched, FilterSkipped:
+		return string(r.Status) == string(f)
+	case FilterDuplicate:
+		return r.has(func(f PlanFile) bool { return f.Left == LeftDuplicate })
+	case FilterReplacement:
+		return r.has(func(f PlanFile) bool { return f.Action == ActionReplace && f.Left == "" })
 	}
-	var out []Row
+	return true
+}
+
+// grouped orders rows Matched first, then Needs choice, then Skipped, each
+// group in the order of the scan.
+func grouped(all []Row) []Row {
+	out := make([]Row, 0, len(all))
 	for _, status := range []RowStatus{Matched, NeedsChoice, Skipped} {
 		for _, r := range all {
-			if r.Status != status {
-				continue
+			if r.Status == status {
+				out = append(out, r)
 			}
-			switch f {
-			case FilterNeedsChoice, FilterMatched, FilterSkipped:
-				if string(r.Status) != string(f) {
-					continue
-				}
-			case FilterDuplicate:
-				if !r.has(func(f PlanFile) bool { return f.Left == LeftDuplicate }) {
-					continue
-				}
-			case FilterReplacement:
-				if !r.has(func(f PlanFile) bool { return f.Action == ActionReplace && f.Left == "" }) {
-					continue
-				}
-			}
-			out = append(out, r)
 		}
 	}
-	return out, nil
+	return out
+}
+
+// RowPage is one page of the plan's rows.
+type RowPage struct {
+	Rows []Row
+	// Total is how many rows the filter keeps, over all pages.
+	Total int
+	// Summary counts the whole plan, whatever the filter.
+	Summary Summary
+}
+
+// Rows returns the rows the filter keeps, Matched first, then Needs choice,
+// then Skipped, from offset on and at most limit of them.
+func (a *Adoption) Rows(ctx context.Context, f Filter, offset, limit int) (RowPage, error) {
+	all, err := a.rows(ctx)
+	if err != nil {
+		return RowPage{}, err
+	}
+	page := RowPage{Summary: summarizeRows(all)}
+	var kept []Row
+	for _, r := range grouped(all) {
+		if f.keeps(r) {
+			kept = append(kept, r)
+		}
+	}
+	page.Total = len(kept)
+	offset = min(max(offset, 0), len(kept))
+	page.Rows = kept[offset:min(offset+limit, len(kept))]
+	return page, nil
 }
 
 func (a *Adoption) rows(ctx context.Context) ([]Row, error) {

@@ -1342,13 +1342,7 @@ type Adoption struct {
 	State     AdoptionState `json:"state"`
 
 	// Summary Row counts of the plan; all zero when there is none.
-	Summary struct {
-		Duplicate   int `json:"duplicate"`
-		Matched     int `json:"matched"`
-		NeedsChoice int `json:"needs_choice"`
-		Replacement int `json:"replacement"`
-		Skipped     int `json:"skipped"`
-	} `json:"summary"`
+	Summary AdoptionSummary `json:"summary"`
 }
 
 // AdoptionState defines model for Adoption.State.
@@ -1464,7 +1458,15 @@ type AdoptionRowStatus string
 
 // AdoptionRowList defines model for AdoptionRowList.
 type AdoptionRowList struct {
-	Items []AdoptionRow `json:"items"`
+	// Counts Row counts of the plan; all zero when there is none.
+	Counts AdoptionSummary `json:"counts"`
+	Items  []AdoptionRow   `json:"items"`
+
+	// NextCursor Pass it as `cursor` for the next page; `null` on the last page.
+	NextCursor *string `json:"next_cursor"`
+
+	// Total How many rows the `filter` keeps, over all pages.
+	Total int `json:"total"`
 }
 
 // AdoptionRowPatch defines model for AdoptionRowPatch.
@@ -1481,6 +1483,17 @@ type AdoptionRowPatch struct {
 type AdoptionSubtitle struct {
 	From string `json:"from"`
 	To   string `json:"to"`
+}
+
+// AdoptionSummary Row counts of the plan; all zero when there is none.
+type AdoptionSummary struct {
+	// Adopting How many rows a commit would adopt now (Matched, ticked, with a file that is not left in place).
+	Adopting    int `json:"adopting"`
+	Duplicate   int `json:"duplicate"`
+	Matched     int `json:"matched"`
+	NeedsChoice int `json:"needs_choice"`
+	Replacement int `json:"replacement"`
+	Skipped     int `json:"skipped"`
 }
 
 // ApiKeyInfo defines model for ApiKeyInfo.
@@ -3624,6 +3637,12 @@ type CommitAdoptionJSONBody struct {
 // ListAdoptionRowsParams defines parameters for ListAdoptionRows.
 type ListAdoptionRowsParams struct {
 	Filter *ListAdoptionRowsParamsFilter `form:"filter,omitempty" json:"filter,omitempty"`
+
+	// Limit Page size.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor The `next_cursor` of the previous page.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
 // ListAdoptionRowsParamsFilter defines parameters for ListAdoptionRows.
@@ -4558,6 +4577,32 @@ func (siw *ServerInterfaceWrapper) ListAdoptionRows(w http.ResponseWriter, r *ht
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "filter"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filter", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
 		}
 		return
 	}
@@ -7169,6 +7214,22 @@ func (response ListAdoptionRows200JSONResponse) VisitListAdoptionRowsResponse(w 
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAdoptionRows422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListAdoptionRows422ApplicationProblemPlusJSONResponse) VisitListAdoptionRowsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }

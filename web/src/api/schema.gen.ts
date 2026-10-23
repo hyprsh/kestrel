@@ -1231,7 +1231,9 @@ export interface paths {
         };
         /**
          * The rows of the plan
-         * @description Rows are grouped Matched, Needs choice and Skipped. `duplicate` keeps rows with a file left in place
+         * @description Paged like `GET /titles` (`limit`, `next_cursor`). Rows are grouped Matched, Needs choice and Skipped. `total`
+         *     counts the rows the filter keeps and `counts` the rows of the whole plan, so the SPA can say "all N in this
+         *     filter" and show every filter's count from one page. `duplicate` keeps rows with a file left in place
          *     because another file holds its Slot; `replacement` keeps rows that would replace a file a Version
          *     holds (unticked by default).
          */
@@ -2840,14 +2842,7 @@ export interface components {
                 done: number;
                 total: number;
             };
-            /** @description Row counts of the plan; all zero when there is none. */
-            summary: {
-                matched: number;
-                needs_choice: number;
-                skipped: number;
-                duplicate: number;
-                replacement: number;
-            };
+            summary: components["schemas"]["AdoptionSummary"];
             /** Format: int64 */
             revision: number;
             /** @description Why the last scan could not finish, if it could not. */
@@ -2947,8 +2942,23 @@ export interface components {
             candidates: components["schemas"]["AdoptionCandidate"][];
             files: components["schemas"]["AdoptionFile"][];
         };
+        /** @description Row counts of the plan; all zero when there is none. */
+        AdoptionSummary: {
+            matched: number;
+            needs_choice: number;
+            skipped: number;
+            duplicate: number;
+            replacement: number;
+            /** @description How many rows a commit would adopt now (Matched, ticked, with a file that is not left in place). */
+            adopting: number;
+        };
         AdoptionRowList: {
             items: components["schemas"]["AdoptionRow"][];
+            /** @description Pass it as `cursor` for the next page; `null` on the last page. */
+            next_cursor: string | null;
+            /** @description How many rows the `filter` keeps, over all pages. */
+            total: number;
+            counts: components["schemas"]["AdoptionSummary"];
         };
         AdoptionRowPatch: {
             ticked?: boolean;
@@ -5317,6 +5327,10 @@ export interface operations {
         parameters: {
             query?: {
                 filter?: "needs_choice" | "matched" | "duplicate" | "replacement" | "skipped";
+                /** @description Page size. */
+                limit?: number;
+                /** @description The `next_cursor` of the previous page. */
+                cursor?: string;
             };
             header?: never;
             path?: never;
@@ -5324,7 +5338,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The rows. */
+            /** @description A page of rows, with the counts of the whole plan. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5333,6 +5347,7 @@ export interface operations {
                     "application/json": components["schemas"]["AdoptionRowList"];
                 };
             };
+            422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

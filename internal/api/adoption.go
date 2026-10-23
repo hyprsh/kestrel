@@ -18,8 +18,7 @@ func (s *server) adoptionLocation() *string {
 func adoptionToAPI(p imports.Plan) oapi.Adoption {
 	out := oapi.Adoption{State: oapi.AdoptionState(p.State), Revision: p.Revision, ScannedAt: p.ScannedAt, Error: strPtr(p.Error)}
 	out.Progress.Done, out.Progress.Total = p.Done, p.Total
-	out.Summary.Matched, out.Summary.NeedsChoice, out.Summary.Skipped = p.Summary.Matched, p.Summary.NeedsChoice, p.Summary.Skipped
-	out.Summary.Duplicate, out.Summary.Replacement = p.Summary.Duplicate, p.Summary.Replacement
+	out.Summary = summaryToAPI(p.Summary)
 	if p.Result != nil {
 		out.Result = &struct {
 			Adopted  int     `json:"adopted"`
@@ -137,18 +136,40 @@ func (s *server) ScanAdoption(ctx context.Context, r oapi.ScanAdoptionRequestObj
 	return oapi.ScanAdoption202JSONResponse{Body: adoptionToAPI(p), Headers: oapi.ScanAdoption202ResponseHeaders{Location: s.adoptionLocation()}}, nil
 }
 
+// summaryToAPI is the counts of a plan's rows, as the list and the plan carry them.
+func summaryToAPI(m imports.Summary) oapi.AdoptionSummary {
+	return oapi.AdoptionSummary{
+		Matched: m.Matched, NeedsChoice: m.NeedsChoice, Skipped: m.Skipped, Duplicate: m.Duplicate, Replacement: m.Replacement,
+		Adopting: m.Adopting,
+	}
+}
+
 func (s *server) ListAdoptionRows(ctx context.Context, r oapi.ListAdoptionRowsRequestObject) (oapi.ListAdoptionRowsResponseObject, error) {
 	var f imports.Filter
 	if r.Params.Filter != nil {
 		f = imports.Filter(*r.Params.Filter)
 	}
-	rows, err := s.adoption.Rows(ctx, f)
+	limit := 100
+	if r.Params.Limit != nil {
+		limit = *r.Params.Limit
+	}
+	if limit < 1 || limit > 10000 {
+		return nil, invalid("limit", "invalid", "limit is between 1 and 10000")
+	}
+	at, err := readCursor(r.Params.Cursor, 0)
 	if err != nil {
 		return nil, err
 	}
-	out := oapi.AdoptionRowList{Items: make([]oapi.AdoptionRow, len(rows))}
-	for i, row := range rows {
+	page, err := s.adoption.Rows(ctx, f, int(at), limit)
+	if err != nil {
+		return nil, err
+	}
+	out := oapi.AdoptionRowList{Items: make([]oapi.AdoptionRow, len(page.Rows)), Total: page.Total, Counts: summaryToAPI(page.Summary)}
+	for i, row := range page.Rows {
 		out.Items[i] = adoptionRowToAPI(row)
+	}
+	if end := int(at) + len(page.Rows); end < page.Total {
+		out.NextCursor = cursorOf(int64(end))
 	}
 	return oapi.ListAdoptionRows200JSONResponse(out), nil
 }
