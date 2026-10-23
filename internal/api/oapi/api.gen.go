@@ -169,6 +169,153 @@ func (e AdoptionRowStatus) Valid() bool {
 	}
 }
 
+// Defines values for AdoptionRowFilter.
+const (
+	AdoptionRowFilterDuplicate   AdoptionRowFilter = "duplicate"
+	AdoptionRowFilterMatched     AdoptionRowFilter = "matched"
+	AdoptionRowFilterNeedsChoice AdoptionRowFilter = "needs_choice"
+	AdoptionRowFilterReplacement AdoptionRowFilter = "replacement"
+	AdoptionRowFilterSkipped     AdoptionRowFilter = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionRowFilter enum.
+func (e AdoptionRowFilter) Valid() bool {
+	switch e {
+	case AdoptionRowFilterDuplicate:
+		return true
+	case AdoptionRowFilterMatched:
+		return true
+	case AdoptionRowFilterNeedsChoice:
+		return true
+	case AdoptionRowFilterReplacement:
+		return true
+	case AdoptionRowFilterSkipped:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdoptionRowOutcomeOutcome.
+const (
+	AdoptionRowOutcomeOutcomeChanged AdoptionRowOutcomeOutcome = "changed"
+	AdoptionRowOutcomeOutcomeFailed  AdoptionRowOutcomeOutcome = "failed"
+	AdoptionRowOutcomeOutcomeSkipped AdoptionRowOutcomeOutcome = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionRowOutcomeOutcome enum.
+func (e AdoptionRowOutcomeOutcome) Valid() bool {
+	switch e {
+	case AdoptionRowOutcomeOutcomeChanged:
+		return true
+	case AdoptionRowOutcomeOutcomeFailed:
+		return true
+	case AdoptionRowOutcomeOutcomeSkipped:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdoptionRowOutcomeReason.
+const (
+	Already        AdoptionRowOutcomeReason = "already"
+	NoSuchRow      AdoptionRowOutcomeReason = "no_such_row"
+	NoSuggestion   AdoptionRowOutcomeReason = "no_suggestion"
+	NotConfident   AdoptionRowOutcomeReason = "not_confident"
+	NotMatched     AdoptionRowOutcomeReason = "not_matched"
+	NotNeedsChoice AdoptionRowOutcomeReason = "not_needs_choice"
+	NotSettleable  AdoptionRowOutcomeReason = "not_settleable"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionRowOutcomeReason enum.
+func (e AdoptionRowOutcomeReason) Valid() bool {
+	switch e {
+	case Already:
+		return true
+	case NoSuchRow:
+		return true
+	case NoSuggestion:
+		return true
+	case NotConfident:
+		return true
+	case NotMatched:
+		return true
+	case NotNeedsChoice:
+		return true
+	case NotSettleable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdoptionRowOutcomeSkipReason.
+const (
+	AdoptionRowOutcomeSkipReasonInvalid          AdoptionRowOutcomeSkipReason = "invalid"
+	AdoptionRowOutcomeSkipReasonNoEnabledProfile AdoptionRowOutcomeSkipReason = "no_enabled_profile"
+	AdoptionRowOutcomeSkipReasonNoVideo          AdoptionRowOutcomeSkipReason = "no_video"
+	AdoptionRowOutcomeSkipReasonNotOnTvdb        AdoptionRowOutcomeSkipReason = "not_on_tvdb"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionRowOutcomeSkipReason enum.
+func (e AdoptionRowOutcomeSkipReason) Valid() bool {
+	switch e {
+	case AdoptionRowOutcomeSkipReasonInvalid:
+		return true
+	case AdoptionRowOutcomeSkipReasonNoEnabledProfile:
+		return true
+	case AdoptionRowOutcomeSkipReasonNoVideo:
+		return true
+	case AdoptionRowOutcomeSkipReasonNotOnTvdb:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdoptionRowOutcomeStatus.
+const (
+	AdoptionRowOutcomeStatusMatched     AdoptionRowOutcomeStatus = "matched"
+	AdoptionRowOutcomeStatusNeedsChoice AdoptionRowOutcomeStatus = "needs_choice"
+	AdoptionRowOutcomeStatusSkipped     AdoptionRowOutcomeStatus = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionRowOutcomeStatus enum.
+func (e AdoptionRowOutcomeStatus) Valid() bool {
+	switch e {
+	case AdoptionRowOutcomeStatusMatched:
+		return true
+	case AdoptionRowOutcomeStatusNeedsChoice:
+		return true
+	case AdoptionRowOutcomeStatusSkipped:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdoptionRowsBulkAction.
+const (
+	AcceptSuggested AdoptionRowsBulkAction = "accept_suggested"
+	Tick            AdoptionRowsBulkAction = "tick"
+	Untick          AdoptionRowsBulkAction = "untick"
+)
+
+// Valid indicates whether the value is a known member of the AdoptionRowsBulkAction enum.
+func (e AdoptionRowsBulkAction) Valid() bool {
+	switch e {
+	case AcceptSuggested:
+		return true
+	case Tick:
+		return true
+	case Untick:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AttentionSeverity.
 const (
 	AttentionSeverityBlocking AttentionSeverity = "blocking"
@@ -1456,6 +1603,9 @@ type AdoptionRowSkipReason string
 // AdoptionRowStatus defines model for AdoptionRow.Status.
 type AdoptionRowStatus string
 
+// AdoptionRowFilter defines model for AdoptionRowFilter.
+type AdoptionRowFilter string
+
 // AdoptionRowList defines model for AdoptionRowList.
 type AdoptionRowList struct {
 	// Counts Row counts of the plan; all zero when there is none.
@@ -1469,6 +1619,35 @@ type AdoptionRowList struct {
 	Total int `json:"total"`
 }
 
+// AdoptionRowOutcome defines model for AdoptionRowOutcome.
+type AdoptionRowOutcome struct {
+	// Message Why the row failed.
+	Message *string                   `json:"message,omitempty"`
+	Outcome AdoptionRowOutcomeOutcome `json:"outcome"`
+
+	// Reason Why the row was skipped.
+	Reason *AdoptionRowOutcomeReason `json:"reason,omitempty"`
+	RowId  int64                     `json:"row_id"`
+
+	// SkipReason Why a row that ended up `skipped` is.
+	SkipReason *AdoptionRowOutcomeSkipReason `json:"skip_reason,omitempty"`
+
+	// Status The row's status afterwards, when the row exists.
+	Status *AdoptionRowOutcomeStatus `json:"status,omitempty"`
+}
+
+// AdoptionRowOutcomeOutcome defines model for AdoptionRowOutcome.Outcome.
+type AdoptionRowOutcomeOutcome string
+
+// AdoptionRowOutcomeReason Why the row was skipped.
+type AdoptionRowOutcomeReason string
+
+// AdoptionRowOutcomeSkipReason Why a row that ended up `skipped` is.
+type AdoptionRowOutcomeSkipReason string
+
+// AdoptionRowOutcomeStatus The row's status afterwards, when the row exists.
+type AdoptionRowOutcomeStatus string
+
 // AdoptionRowPatch defines model for AdoptionRowPatch.
 type AdoptionRowPatch struct {
 	Files *[]struct {
@@ -1477,6 +1656,24 @@ type AdoptionRowPatch struct {
 	} `json:"files,omitempty"`
 	Ticked *bool `json:"ticked,omitempty"`
 	TmdbId *int  `json:"tmdb_id,omitempty"`
+}
+
+// AdoptionRowsBulk defines model for AdoptionRowsBulk.
+type AdoptionRowsBulk struct {
+	Action AdoptionRowsBulkAction `json:"action"`
+	Filter *AdoptionRowFilter     `json:"filter,omitempty"`
+	RowIds *[]int64               `json:"row_ids,omitempty"`
+}
+
+// AdoptionRowsBulkAction defines model for AdoptionRowsBulk.Action.
+type AdoptionRowsBulkAction string
+
+// AdoptionRowsBulkResult defines model for AdoptionRowsBulkResult.
+type AdoptionRowsBulkResult struct {
+	Items []AdoptionRowOutcome `json:"items"`
+
+	// Revision The plan's revision after the call.
+	Revision int64 `json:"revision"`
 }
 
 // AdoptionSubtitle defines model for AdoptionSubtitle.
@@ -3792,6 +3989,9 @@ type ChangePasswordJSONRequestBody ChangePasswordJSONBody
 // CommitAdoptionJSONRequestBody defines body for CommitAdoption for application/json ContentType.
 type CommitAdoptionJSONRequestBody CommitAdoptionJSONBody
 
+// BulkAdoptionRowsJSONRequestBody defines body for BulkAdoptionRows for application/json ContentType.
+type BulkAdoptionRowsJSONRequestBody = AdoptionRowsBulk
+
 // PatchAdoptionRowJSONRequestBody defines body for PatchAdoptionRow for application/json ContentType.
 type PatchAdoptionRowJSONRequestBody = AdoptionRowPatch
 
@@ -4219,6 +4419,9 @@ type ServerInterface interface {
 	// ListAdoptionRows The rows of the plan
 	// (GET /adoption/rows)
 	ListAdoptionRows(w http.ResponseWriter, r *http.Request, params ListAdoptionRowsParams)
+	// BulkAdoptionRows Change many rows of the plan at once
+	// (POST /adoption/rows/bulk)
+	BulkAdoptionRows(w http.ResponseWriter, r *http.Request)
 	// PatchAdoptionRow Tick a row or settle its match
 	// (PATCH /adoption/rows/{id})
 	PatchAdoptionRow(w http.ResponseWriter, r *http.Request, id int64)
@@ -4609,6 +4812,20 @@ func (siw *ServerInterfaceWrapper) ListAdoptionRows(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListAdoptionRows(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BulkAdoptionRows operation middleware
+func (siw *ServerInterfaceWrapper) BulkAdoptionRows(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BulkAdoptionRows(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -6854,6 +7071,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/adoption", wrapper.GetAdoption)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/adoption/scan", wrapper.ScanAdoption)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/adoption/rows", wrapper.ListAdoptionRows)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/adoption/rows/bulk", wrapper.BulkAdoptionRows)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/adoption/rows/{id}", wrapper.PatchAdoptionRow)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/attention", wrapper.GetAttention)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/attention/{id}/dismiss", wrapper.DismissAttention)
@@ -7240,6 +7458,89 @@ type ListAdoptionRowsdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response ListAdoptionRowsdefaultApplicationProblemPlusJSONResponse) VisitListAdoptionRowsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BulkAdoptionRowsRequestObject struct {
+	Body *BulkAdoptionRowsJSONRequestBody
+}
+
+type BulkAdoptionRowsResponseObject interface {
+	VisitBulkAdoptionRowsResponse(w http.ResponseWriter) error
+}
+
+type BulkAdoptionRows200JSONResponse AdoptionRowsBulkResult
+
+func (response BulkAdoptionRows200JSONResponse) VisitBulkAdoptionRowsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BulkAdoptionRows404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response BulkAdoptionRows404ApplicationProblemPlusJSONResponse) VisitBulkAdoptionRowsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BulkAdoptionRows409ApplicationProblemPlusJSONResponse Problem
+
+func (response BulkAdoptionRows409ApplicationProblemPlusJSONResponse) VisitBulkAdoptionRowsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BulkAdoptionRows422ApplicationProblemPlusJSONResponse Problem
+
+func (response BulkAdoptionRows422ApplicationProblemPlusJSONResponse) VisitBulkAdoptionRowsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BulkAdoptionRowsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response BulkAdoptionRowsdefaultApplicationProblemPlusJSONResponse) VisitBulkAdoptionRowsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -11729,6 +12030,9 @@ type StrictServerInterface interface {
 	// ListAdoptionRows The rows of the plan
 	// (GET /adoption/rows)
 	ListAdoptionRows(ctx context.Context, request ListAdoptionRowsRequestObject) (ListAdoptionRowsResponseObject, error)
+	// BulkAdoptionRows Change many rows of the plan at once
+	// (POST /adoption/rows/bulk)
+	BulkAdoptionRows(ctx context.Context, request BulkAdoptionRowsRequestObject) (BulkAdoptionRowsResponseObject, error)
 	// PatchAdoptionRow Tick a row or settle its match
 	// (PATCH /adoption/rows/{id})
 	PatchAdoptionRow(ctx context.Context, request PatchAdoptionRowRequestObject) (PatchAdoptionRowResponseObject, error)
@@ -12202,6 +12506,37 @@ func (sh *strictHandler) ListAdoptionRows(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListAdoptionRowsResponseObject); ok {
 		if err := validResponse.VisitListAdoptionRowsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// BulkAdoptionRows operation middleware
+func (sh *strictHandler) BulkAdoptionRows(w http.ResponseWriter, r *http.Request) {
+	var request BulkAdoptionRowsRequestObject
+
+	var body BulkAdoptionRowsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.BulkAdoptionRows(ctx, request.(BulkAdoptionRowsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "BulkAdoptionRows")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(BulkAdoptionRowsResponseObject); ok {
+		if err := validResponse.VisitBulkAdoptionRowsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

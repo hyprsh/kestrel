@@ -174,6 +174,63 @@ func (s *server) ListAdoptionRows(ctx context.Context, r oapi.ListAdoptionRowsRe
 	return oapi.ListAdoptionRows200JSONResponse(out), nil
 }
 
+// BulkAdoptionRows is POST /adoption/rows/bulk: one action over many rows,
+// answered per row.
+func (s *server) BulkAdoptionRows(ctx context.Context, r oapi.BulkAdoptionRowsRequestObject) (oapi.BulkAdoptionRowsResponseObject, error) {
+	if r.Body == nil {
+		return nil, invalid("body", "required", "a body is required")
+	}
+	req := imports.BulkRequest{Action: imports.BulkAction(r.Body.Action)}
+	switch r.Body.Action {
+	case oapi.Tick, oapi.Untick, oapi.AcceptSuggested:
+	default:
+		return nil, invalid("action", "invalid", "action is tick, untick or accept_suggested")
+	}
+	hasIDs := r.Body.RowIds != nil && len(*r.Body.RowIds) > 0
+	switch {
+	case hasIDs && r.Body.Filter != nil:
+		return nil, invalid("filter", "invalid", "Name row_ids or a filter, not both")
+	case hasIDs:
+		req.RowIDs = *r.Body.RowIds
+	case r.Body.Filter != nil:
+		switch *r.Body.Filter {
+		case oapi.AdoptionRowFilterNeedsChoice, oapi.AdoptionRowFilterMatched, oapi.AdoptionRowFilterDuplicate, oapi.AdoptionRowFilterReplacement, oapi.AdoptionRowFilterSkipped:
+		default:
+			return nil, invalid("filter", "invalid", "Unknown filter")
+		}
+		req.Filter = imports.Filter(*r.Body.Filter)
+	case r.Body.RowIds != nil:
+		return nil, invalid("row_ids", "required", "Pick at least one row")
+	default:
+		return nil, invalid("row_ids", "required", "Name the rows with row_ids or a filter")
+	}
+	res, err := s.adoption.Bulk(ctx, req)
+	if err != nil {
+		return nil, adoptionProblem(err)
+	}
+	out := oapi.AdoptionRowsBulkResult{Revision: res.Revision, Items: make([]oapi.AdoptionRowOutcome, len(res.Items))}
+	for i, it := range res.Items {
+		o := oapi.AdoptionRowOutcome{RowId: it.RowID, Outcome: oapi.AdoptionRowOutcomeOutcome(it.Outcome)}
+		if it.Reason != "" {
+			reason := oapi.AdoptionRowOutcomeReason(it.Reason)
+			o.Reason = &reason
+		}
+		if it.Message != "" {
+			o.Message = &it.Message
+		}
+		if it.Outcome == imports.OutcomeChanged {
+			status := oapi.AdoptionRowOutcomeStatus(it.Status)
+			o.Status = &status
+			if it.SkipReason != "" {
+				reason := oapi.AdoptionRowOutcomeSkipReason(it.SkipReason)
+				o.SkipReason = &reason
+			}
+		}
+		out.Items[i] = o
+	}
+	return oapi.BulkAdoptionRows200JSONResponse(out), nil
+}
+
 func (s *server) PatchAdoptionRow(ctx context.Context, r oapi.PatchAdoptionRowRequestObject) (oapi.PatchAdoptionRowResponseObject, error) {
 	if r.Body == nil {
 		return nil, invalid("body", "required", "a body is required")

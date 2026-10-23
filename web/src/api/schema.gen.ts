@@ -1246,6 +1246,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/adoption/rows/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change many rows of the plan at once
+         * @description Applies one `action` to the rows named in `row_ids`, or to every row `filter` keeps (the server
+         *     resolves it, so "all N in this filter" is one call across pages). Name `row_ids` or `filter`,
+         *     not both. Answers per row, in the order named: `changed`, `skipped` with a `reason`, or `failed`.
+         *     The plan's `revision` moves once, and only when a row changed; a skipped row is left as it was.
+         *
+         *     - `tick` and `untick` include or leave out Matched rows, as `PATCH` with `ticked` does. Another
+         *       kind of row is skipped as `not_matched`, and one already so as `already`.
+         *     - `accept_suggested` settles Needs choice rows on their suggested candidate (see
+         *       `AdoptionCandidate`), only when it is `confident`: the row is planned again exactly as choosing
+         *       that candidate with `PATCH` does, so it can come back `matched`, or `skipped` with the
+         *       `skip_reason` it would have (no enabled Profile, for example); it is `changed` either way and
+         *       the item says which. A row that is not Needs choice is skipped as `not_needs_choice`, one
+         *       with no candidates as `no_suggestion`, one whose suggestion is not confident as
+         *       `not_confident`, and one that cannot be matched to the suggested Title as `not_settleable`.
+         *
+         *     Planning each accepted row probes its files, so a large selection can take a while.
+         */
+        post: operations["bulkAdoptionRows"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/adoption/rows/{id}": {
         parameters: {
             query?: never;
@@ -2959,6 +2994,45 @@ export interface components {
             /** @description How many rows the `filter` keeps, over all pages. */
             total: number;
             counts: components["schemas"]["AdoptionSummary"];
+        };
+        /** @enum {string} */
+        AdoptionRowFilter: "needs_choice" | "matched" | "duplicate" | "replacement" | "skipped";
+        AdoptionRowsBulk: {
+            /** @enum {string} */
+            action: "tick" | "untick" | "accept_suggested";
+            row_ids?: number[];
+            filter?: components["schemas"]["AdoptionRowFilter"];
+        };
+        AdoptionRowsBulkResult: {
+            /**
+             * Format: int64
+             * @description The plan's revision after the call.
+             */
+            revision: number;
+            items: components["schemas"]["AdoptionRowOutcome"][];
+        };
+        AdoptionRowOutcome: {
+            /** Format: int64 */
+            row_id: number;
+            /** @enum {string} */
+            outcome: "changed" | "skipped" | "failed";
+            /**
+             * @description Why the row was skipped.
+             * @enum {string}
+             */
+            reason?: "already" | "no_such_row" | "not_matched" | "not_needs_choice" | "no_suggestion" | "not_confident" | "not_settleable";
+            /** @description Why the row failed. */
+            message?: string;
+            /**
+             * @description The row's status afterwards, when the row exists.
+             * @enum {string}
+             */
+            status?: "matched" | "needs_choice" | "skipped";
+            /**
+             * @description Why a row that ended up `skipped` is.
+             * @enum {string}
+             */
+            skip_reason?: "invalid" | "no_video" | "no_enabled_profile" | "not_on_tvdb";
         };
         AdoptionRowPatch: {
             ticked?: boolean;
@@ -5347,6 +5421,34 @@ export interface operations {
                     "application/json": components["schemas"]["AdoptionRowList"];
                 };
             };
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    bulkAdoptionRows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdoptionRowsBulk"];
+            };
+        };
+        responses: {
+            /** @description What happened to each row. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdoptionRowsBulkResult"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/hyprsh/kestrel/internal/history"
@@ -32,35 +33,88 @@ type FileTick struct {
 	Ticked bool
 }
 
+// editable is the plan's stored rows, read for an edit: ErrBusy while a scan
+// or a commit runs, ErrNoRow when there is no plan.
+func (a *Adoption) editable(ctx context.Context) ([]db.AdoptionRow, []Row, error) {
+	plan, err := a.q.GetAdoptionPlan(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	switch PlanState(plan.State) {
+	case PlanScanning, PlanCommitting:
+		return nil, nil, ErrBusy
+	case PlanIdle:
+		return nil, nil, ErrNoRow
+	}
+	recs, err := a.q.ListAdoptionRows(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	rows := make([]Row, len(recs))
+	for i, rec := range recs {
+		if rows[i], err = rowOf(rec); err != nil {
+			return nil, nil, err
+		}
+	}
+	return recs, rows, nil
+}
+
+// saveEdit settles the rows (an edit can flip another row's files to or from
+// duplicate), writes every row that differs from what was read, and moves the
+// plan's revision once.
+func (a *Adoption) saveEdit(ctx context.Context, recs []db.AdoptionRow, rows []Row) error {
+	settle(rows)
+	for i := range rows {
+		data, err := json.Marshal(rows[i])
+		if err != nil {
+			return err
+		}
+		if string(data) == recs[i].Data && b2i(rows[i].Ticked) == recs[i].Ticked && string(rows[i].Status) == recs[i].Status {
+			continue
+		}
+		if err := a.q.UpdateAdoptionRow(ctx, db.UpdateAdoptionRowParams{
+			Status: string(rows[i].Status), Ticked: b2i(rows[i].Ticked), Data: string(data), ID: rows[i].ID,
+		}); err != nil {
+			return err
+		}
+	}
+	return a.q.BumpAdoptionRevision(ctx)
+}
+
+// replan plans the row again against the Movie or Series chosen, as choosing
+// it by hand does and as accepting a suggestion does. The row may come back
+// Skipped (no enabled Profile, say): it is stored as that, with its reason.
+func (a *Adoption) replan(ctx context.Context, e *env, row *Row, tmdbID int) error {
+	st, err := os.Stat(row.Entry)
+	if err != nil {
+		return ErrNotSettleable
+	}
+	en := entry{Kind: row.kind(), Root: row.EntryRoot, Path: row.Entry, Name: filepath.Base(row.Entry), IsDir: st.IsDir()}
+	if !en.IsDir {
+		en.Name = strings.TrimSuffix(en.Name, filepath.Ext(en.Name))
+	}
+	planned, err := a.planEntry(ctx, e, en, tmdbID)
+	if err != nil {
+		return err
+	}
+	if planned == nil || (planned.Status != Matched && planned.Status != Skipped) {
+		return ErrNotSettleable
+	}
+	planned.ID = row.ID
+	*row = *planned
+	return nil
+}
+
 // PatchRow applies an edit to a row of the plan and returns the row as it is
 // afterwards. Every edit moves the plan's revision.
 func (a *Adoption) PatchRow(ctx context.Context, id int64, p RowPatch) (Row, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	plan, err := a.q.GetAdoptionPlan(ctx)
+	recs, rows, err := a.editable(ctx)
 	if err != nil {
 		return Row{}, err
 	}
-	switch PlanState(plan.State) {
-	case PlanScanning, PlanCommitting:
-		return Row{}, ErrBusy
-	case PlanIdle:
-		return Row{}, ErrNoRow
-	}
-	recs, err := a.q.ListAdoptionRows(ctx)
-	if err != nil {
-		return Row{}, err
-	}
-	rows := make([]Row, len(recs))
-	at := -1
-	for i, rec := range recs {
-		if rows[i], err = rowOf(rec); err != nil {
-			return Row{}, err
-		}
-		if rec.ID == id {
-			at = i
-		}
-	}
+	at := slices.IndexFunc(recs, func(r db.AdoptionRow) bool { return r.ID == id })
 	if at < 0 {
 		return Row{}, ErrNoRow
 	}
@@ -70,23 +124,9 @@ func (a *Adoption) PatchRow(ctx context.Context, id int64, p RowPatch) (Row, err
 		if err != nil {
 			return Row{}, err
 		}
-		st, err := os.Stat(row.Entry)
-		if err != nil {
-			return Row{}, ErrNotSettleable
-		}
-		en := entry{Kind: row.kind(), Root: row.EntryRoot, Path: row.Entry, Name: filepath.Base(row.Entry), IsDir: st.IsDir()}
-		if !en.IsDir {
-			en.Name = strings.TrimSuffix(en.Name, filepath.Ext(en.Name))
-		}
-		planned, err := a.planEntry(ctx, e, en, *p.TMDBID)
-		if err != nil {
+		if err := a.replan(ctx, e, row, *p.TMDBID); err != nil {
 			return Row{}, err
 		}
-		if planned == nil || planned.Status != Matched {
-			return Row{}, ErrNotSettleable
-		}
-		planned.ID = row.ID
-		*row = *planned
 	}
 	if p.Ticked != nil {
 		row.Ticked = *p.Ticked
@@ -98,22 +138,7 @@ func (a *Adoption) PatchRow(ctx context.Context, id int64, p RowPatch) (Row, err
 			}
 		}
 	}
-	settle(rows)
-	for i := range rows {
-		data, err := json.Marshal(rows[i])
-		if err != nil {
-			return Row{}, err
-		}
-		if i != at && string(data) == recs[i].Data && b2i(rows[i].Ticked) == recs[i].Ticked {
-			continue
-		}
-		if err := a.q.UpdateAdoptionRow(ctx, db.UpdateAdoptionRowParams{
-			Status: string(rows[i].Status), Ticked: b2i(rows[i].Ticked), Data: string(data), ID: rows[i].ID,
-		}); err != nil {
-			return Row{}, err
-		}
-	}
-	if err := a.q.BumpAdoptionRevision(ctx); err != nil {
+	if err := a.saveEdit(ctx, recs, rows); err != nil {
 		return Row{}, err
 	}
 	return rows[at], nil

@@ -179,6 +179,7 @@ type Adoption interface {
 	Scan(ctx context.Context, roots []string) error
 	Rows(ctx context.Context, f imports.Filter, offset, limit int) (imports.RowPage, error)
 	PatchRow(ctx context.Context, id int64, p imports.RowPatch) (imports.Row, error)
+	Bulk(ctx context.Context, req imports.BulkRequest) (imports.BulkResult, error)
 	Discard(ctx context.Context) error
 	Commit(ctx context.Context, revision int64) error
 }

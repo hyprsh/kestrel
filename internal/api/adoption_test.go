@@ -17,7 +17,7 @@ import (
 )
 
 // pathProber answers by file path: "broken" is unreadable, "uhd" is 2160p,
-// "short" is ten minutes long, everything else is a good 1080p file.
+// "short" is ten minutes long (also when "uhd"), everything else is a good 1080p file.
 type pathProber struct{}
 
 func (pathProber) Probe(_ context.Context, path string) (probe.Info, error) {
@@ -27,6 +27,9 @@ func (pathProber) Probe(_ context.Context, path string) (probe.Info, error) {
 	case strings.Contains(path, "uhd"):
 		i := goodProbe()
 		i.Width, i.Height = 3840, 2160
+		if strings.Contains(path, "short") {
+			i.Duration = 10 * time.Minute
+		}
 		return i, nil
 	case strings.Contains(path, "576p"):
 		i := goodProbe()

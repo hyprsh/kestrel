@@ -1562,6 +1562,49 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /adoption/rows/bulk:
+    post:
+      operationId: bulkAdoptionRows
+      summary: Change many rows of the plan at once
+      description: |
+        Applies one `action` to the rows named in `row_ids`, or to every row `filter` keeps (the server
+        resolves it, so "all N in this filter" is one call across pages). Name `row_ids` or `filter`,
+        not both. Answers per row, in the order named: `changed`, `skipped` with a `reason`, or `failed`.
+        The plan's `revision` moves once, and only when a row changed; a skipped row is left as it was.
+
+        - `tick` and `untick` include or leave out Matched rows, as `PATCH` with `ticked` does. Another
+          kind of row is skipped as `not_matched`, and one already so as `already`.
+        - `accept_suggested` settles Needs choice rows on their suggested candidate (see
+          `AdoptionCandidate`), only when it is `confident`: the row is planned again exactly as choosing
+          that candidate with `PATCH` does, so it can come back `matched`, or `skipped` with the
+          `skip_reason` it would have (no enabled Profile, for example); it is `changed` either way and
+          the item says which. A row that is not Needs choice is skipped as `not_needs_choice`, one
+          with no candidates as `no_suggestion`, one whose suggestion is not confident as
+          `not_confident`, and one that cannot be matched to the suggested Title as `not_settleable`.
+
+        Planning each accepted row probes its files, so a large selection can take a while.
+      tags: [adoption]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdoptionRowsBulk"
+      responses:
+        "200":
+          description: What happened to each row.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdoptionRowsBulkResult"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /adoption/rows/{id}:
     parameters:
       - name: id
@@ -4214,6 +4257,61 @@ components:
           description: How many rows the `filter` keeps, over all pages.
         counts:
           $ref: "#/components/schemas/AdoptionSummary"
+    AdoptionRowFilter:
+      type: string
+      enum: [needs_choice, matched, duplicate, replacement, skipped]
+    AdoptionRowsBulk:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [tick, untick, accept_suggested]
+        row_ids:
+          type: array
+          maxItems: 10000
+          items:
+            type: integer
+            format: int64
+        filter:
+          $ref: "#/components/schemas/AdoptionRowFilter"
+    AdoptionRowsBulkResult:
+      type: object
+      required: [revision, items]
+      properties:
+        revision:
+          type: integer
+          format: int64
+          description: The plan's revision after the call.
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdoptionRowOutcome"
+    AdoptionRowOutcome:
+      type: object
+      required: [row_id, outcome]
+      properties:
+        row_id:
+          type: integer
+          format: int64
+        outcome:
+          type: string
+          enum: [changed, skipped, failed]
+        reason:
+          type: string
+          description: Why the row was skipped.
+          enum: [already, no_such_row, not_matched, not_needs_choice, no_suggestion, not_confident, not_settleable]
+        message:
+          type: string
+          description: Why the row failed.
+        status:
+          type: string
+          description: The row's status afterwards, when the row exists.
+          enum: [matched, needs_choice, skipped]
+        skip_reason:
+          type: string
+          description: Why a row that ended up `skipped` is.
+          enum: [invalid, no_video, no_enabled_profile, not_on_tvdb]
     AdoptionRowPatch:
       type: object
       properties:
