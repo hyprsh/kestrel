@@ -109,6 +109,8 @@ export function InstanceList({
 function Row({ instance: i, manifest, showPriority, onEdit }: { instance: PluginInstance; manifest?: PluginManifest; showPriority?: boolean; onEdit: () => void }) {
   const toggle = useSetInstanceEnabled()
   const declared = i.from_config_file
+  // The Config File owns enabled only when it sets it (ADR 0015).
+  const enabledLocked = i.enabled_declared
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-3">
@@ -122,7 +124,7 @@ function Row({ instance: i, manifest, showPriority, onEdit }: { instance: Plugin
             </Badge>
           )}
         </div>
-        <Toggle aria-label={`${i.name} enabled`} checked={i.enabled} disabled={declared || toggle.isPending} onChange={(enabled) => toggle.mutate({ id: i.id, enabled })} />
+        <Toggle aria-label={`${i.name} enabled`} checked={i.enabled} disabled={enabledLocked || toggle.isPending} onChange={(enabled) => toggle.mutate({ id: i.id, enabled })} />
         <Button size="small" aria-label={`Edit ${i.name}`} disabled={!manifest} onClick={onEdit}>
           Edit
         </Button>

@@ -202,10 +202,7 @@ func (d declarer) declaredInstances() ([]instances.Declared, error) {
 		if err != nil {
 			return nil, err
 		}
-		in := instances.Declared{Name: p.Name, PluginID: p.PluginID, Enabled: true, Config: cfg}
-		if p.Enabled != nil {
-			in.Enabled = *p.Enabled
-		}
+		in := instances.Declared{Name: p.Name, PluginID: p.PluginID, Enabled: p.Enabled, Config: cfg}
 		if p.Priority != nil {
 			in.Priority = *p.Priority
 		}

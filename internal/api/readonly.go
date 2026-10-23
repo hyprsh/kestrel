@@ -31,6 +31,12 @@ func (s *server) instanceDeclared(i instances.Instance) bool {
 	return i.Declared && s.declares(configfile.SectionPluginInstances)
 }
 
+// enabledDeclared reports whether the Config File sets the enabled of i. The
+// file owns it only when it sets it; otherwise the UI manages it (ADR 0015).
+func (s *server) enabledDeclared(i instances.Instance) bool {
+	return s.instanceDeclared(i) && s.opts.ConfigFile.DeclaresInstanceEnabled(i.Name)
+}
+
 // refuseDeclaredName answers 409 when name is one the Config File declares:
 // an instance created or renamed here can't take it.
 func (s *server) refuseDeclaredName(name string) error {

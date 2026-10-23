@@ -15,11 +15,12 @@ import (
 
 // Declared is one plugin instance as the Config File declares it (ADR 0014).
 // Config holds the values the file gives, secrets resolved; the manifest's
-// defaults fill the rest, as on Create.
+// defaults fill the rest, as on Create. A nil Enabled is one the file leaves
+// out: a stored instance keeps its value and a new one starts enabled (ADR 0015).
 type Declared struct {
 	Name     string
 	PluginID string
-	Enabled  bool
+	Enabled  *bool
 	Priority int
 	Config   map[string]any
 }
@@ -156,7 +157,7 @@ func (s *Service) plan(ctx context.Context, q *db.Queries, want []Declared) (pla
 		if probs := configProblems(m, cfg); len(probs) > 0 {
 			return reject(probs[0].Field, "%s", probs[0].Message)
 		}
-		inst := Instance{Contract: contract.ID, PluginID: m.ID, Name: name, Enabled: w.Enabled, Priority: w.Priority, Config: cfg, Declared: true}
+		inst := Instance{Contract: contract.ID, PluginID: m.ID, Name: name, Priority: w.Priority, Config: cfg, Declared: true}
 
 		var cur *Instance
 		var named []*Instance // undeclared rows with the name
@@ -178,6 +179,14 @@ func (s *Service) plan(ctx context.Context, q *db.Queries, want []Declared) (pla
 				return reject("plugin_id", "an instance created in the UI has this name but is a %s instance: rename or delete it", named[0].PluginID)
 			}
 			cur = named[0]
+		}
+		switch {
+		case w.Enabled != nil:
+			inst.Enabled = *w.Enabled
+		case cur != nil:
+			inst.Enabled = cur.Enabled
+		default:
+			inst.Enabled = true
 		}
 		if cur != nil {
 			inst.ID = cur.ID
