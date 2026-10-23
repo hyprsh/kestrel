@@ -17,20 +17,24 @@ type servers struct {
 	tested  []int64
 }
 
-func (s *servers) mod() func(*health.Deps) {
-	return func(d *health.Deps) {
+// env is a health Service that lists s.enabled and tests them with s.result,
+// registered as the app does.
+func (s *servers) env(t *testing.T) env {
+	t.Helper()
+	e := newEnv(t, func(d *health.Deps) {
 		d.Checks.MediaServers = func(context.Context) ([]health.Ref, error) { return s.enabled, nil }
-		d.Checks.TestMediaServer = func(_ context.Context, r health.Ref) *health.Failure {
-			s.tested = append(s.tested, r.ID)
-			return s.result
-		}
-	}
+	})
+	e.h.AddCheckEvery("media servers", health.MediaServerEvery, health.TestMediaServers(func(_ context.Context, r health.Ref) *health.Failure {
+		s.tested = append(s.tested, r.ID)
+		return s.result
+	}))
+	return e
 }
 
 func TestMediaServerRowComesAfterTwoFailedChecksInARowAndClearsOnAGoodOne(t *testing.T) {
 	ctx := context.Background()
 	s := &servers{enabled: []health.Ref{plex}, result: &health.Failure{Message: "connection refused"}}
-	e := newEnv(t, s.mod())
+	e := s.env(t)
 
 	_ = e.h.RunChecks(ctx)
 	if len(e.rows(t)) != 0 {
@@ -65,7 +69,7 @@ func TestMediaServerRowComesAfterTwoFailedChecksInARowAndClearsOnAGoodOne(t *tes
 func TestMediaServerAuthFailureRaisesAtTheFirstCheck(t *testing.T) {
 	ctx := context.Background()
 	s := &servers{enabled: []health.Ref{plex}, result: &health.Failure{Auth: true, Message: "token revoked"}}
-	e := newEnv(t, s.mod())
+	e := s.env(t)
 
 	_ = e.h.RunChecks(ctx)
 	r, ok := e.kindsShowing(t)[health.KindMediaServer]
@@ -77,7 +81,7 @@ func TestMediaServerAuthFailureRaisesAtTheFirstCheck(t *testing.T) {
 func TestMediaServersAreCheckedEveryFifteenMinutesNotEveryLoop(t *testing.T) {
 	ctx := context.Background()
 	s := &servers{enabled: []health.Ref{plex}}
-	e := newEnv(t, s.mod())
+	e := s.env(t)
 
 	_ = e.h.RunChecks(ctx)
 	for range 2 {
@@ -97,7 +101,7 @@ func TestMediaServersAreCheckedEveryFifteenMinutesNotEveryLoop(t *testing.T) {
 func TestMediaServerRowGoesWhenTheServerIsDisabledOrDeleted(t *testing.T) {
 	ctx := context.Background()
 	s := &servers{enabled: []health.Ref{plex}, result: &health.Failure{Auth: true, Message: "token revoked"}}
-	e := newEnv(t, s.mod())
+	e := s.env(t)
 	_ = e.h.RunChecks(ctx)
 	if len(e.rows(t)) != 1 {
 		t.Fatalf("rows = %+v", e.rows(t))

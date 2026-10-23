@@ -129,6 +129,8 @@ func New(opts Options) *App {
 	st := opts.Store
 	appSettings := settings.New(st)
 	pluginInstances := instances.NewService(st, opts.Plugins)
+	pluginInstances.SetClock(opts.Clock)
+	pluginInstances.SetLogger(opts.Logger)
 	hist := history.New(st, opts.Clock, opts.Logger)
 
 	embedded, err := scoring.Embedded()
@@ -168,7 +170,7 @@ func New(opts Options) *App {
 	// replace them: a probe is a call like any other and reaches health through them.
 	probes := metadataProbes(keys, func() metadata.Provider { return meta }, func() metadata.TVDBProvider { return tvdb })
 	healthSvc := health.New(healthDeps(opts, appSettings, roots, pluginInstances, downloadHost, hist, probes))
-	watchHealth(healthSvc, downloadHost, indexerHost, pluginInstances, opts.Clock)
+	watchHealth(healthSvc, downloadHost, indexerHost, pluginInstances)
 	meta = observedMeta{Provider: meta, h: healthSvc}
 	tvdb = observedTVDB{TVDBProvider: tvdb, h: healthSvc}
 
@@ -185,7 +187,7 @@ func New(opts Options) *App {
 		prober = probe.Default()
 	}
 	mediaRefresh := imports.NewRefresher(imports.RefresherDeps{
-		Servers: imports.InstanceServers(pluginInstances), Health: healthSvc, Logger: opts.Logger, Delay: opts.MediaRefreshDelay,
+		Servers: imports.InstanceServers(pluginInstances), Health: healthSvc, Checks: pluginInstances, Logger: opts.Logger, Delay: opts.MediaRefreshDelay,
 	})
 	imp, err := imports.New(imports.Deps{
 		Library: lib, Renames: lib, Profiles: profs, Prober: prober, Clock: opts.Clock, Health: healthSvc,

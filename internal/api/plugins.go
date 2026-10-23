@@ -5,15 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
+	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/plugin"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
+	mediaserver "github.com/hyprsh/kestrel/internal/plugin/mediaserver/v1"
 )
-
-// pluginCallTimeout bounds one live call into a plugin (test, dropdown values).
-const pluginCallTimeout = 30 * time.Second
 
 func (s *server) ListPlugins(_ context.Context, _ oapi.ListPluginsRequestObject) (oapi.ListPluginsResponseObject, error) {
 	ms := s.plugins.Registry().Manifests()
@@ -131,17 +129,11 @@ func (s *server) runTest(ctx context.Context, pluginID string, instanceID int64,
 	if err != nil {
 		return oapi.PluginTestResult{}, pluginProblem(err)
 	}
-	ctx, cancel := context.WithTimeout(ctx, pluginCallTimeout)
-	defer cancel()
-	res, err := p.Test(ctx, conn)
-	if err != nil && ctx.Err() != nil && errors.Is(err, ctx.Err()) {
-		err = plugin.Errorf(plugin.CodeUnavailable, "the plugin did not answer in time")
-	}
-	if instanceID != 0 && len(edits) == 0 {
-		// A test of the saved connection is a check of it; one of edits is of the form.
-		if rerr := s.plugins.RecordCheck(context.WithoutCancel(ctx), instanceID, s.opts.Clock(), err); rerr != nil {
-			s.opts.Logger.Warn("recording a plugin instance check failed", "instance", instanceID, "err", rerr)
-		}
+	// A test of the saved connection is a check of it; one of edits is of the form.
+	check := instanceID != 0 && len(edits) == 0
+	res, err := s.plugins.Test(ctx, p, conn, check)
+	if check && p.Describe().Contract == mediaserver.Contract.ID {
+		s.observeMediaServer(ctx, instanceID, err)
 	}
 	if err == nil {
 		return oapi.PluginTestResult{Ok: true, Message: res.Message}, nil
@@ -166,7 +158,7 @@ func (s *server) ListPluginOptions(ctx context.Context, r oapi.ListPluginOptions
 		}
 		return nil, pluginProblem(err)
 	}
-	ctx, cancel := context.WithTimeout(ctx, pluginCallTimeout)
+	ctx, cancel := context.WithTimeout(ctx, instances.CallTimeout)
 	defer cancel()
 	opts, err := p.ListOptions(ctx, conn, r.Field)
 	if err != nil {
@@ -243,6 +235,22 @@ func manifestToAPI(m plugin.Manifest) oapi.PluginManifest {
 		}
 	}
 	return out
+}
+
+// observeMediaServer tells health how a Test of a media server's saved
+// connection went: it is a check like the scheduled one, so a good Test clears
+// the server's row at once.
+func (s *server) observeMediaServer(ctx context.Context, id int64, err error) {
+	inst, gerr := s.plugins.Get(ctx, id)
+	if gerr != nil {
+		return
+	}
+	var f *health.Failure
+	if err != nil {
+		pe := plugin.AsError(err)
+		f = &health.Failure{Auth: pe.Code == plugin.CodeAuth, Message: pe.Message}
+	}
+	s.health.ObserveMediaServer(context.WithoutCancel(ctx), health.Ref{ID: inst.ID, Name: inst.Name}, f)
 }
 
 func checkToAPI(c *instances.Check) *oapi.PluginInstanceCheck {

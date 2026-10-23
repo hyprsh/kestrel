@@ -21,8 +21,8 @@ const (
 	// metadataGrace: a provider failing without an auth error is a Warning after this long.
 	metadataGrace = 24 * time.Hour
 
-	// mediaServerEvery: how often every enabled media server is tested.
-	mediaServerEvery = 15 * time.Minute
+	// MediaServerEvery: how often every enabled media server is tested (see TestMediaServers).
+	MediaServerEvery = 15 * time.Minute
 	// mediaServerFailures: failed checks in a row before a server that is not
 	// refusing Kestrel's credentials is a row. Two checks is 30 min.
 	mediaServerFailures = 2
@@ -86,8 +86,6 @@ type ChecksDeps struct {
 	Ping func(ctx context.Context) error
 	// MediaServers lists the enabled media server instances.
 	MediaServers func(ctx context.Context) ([]Ref, error)
-	// TestMediaServer runs the plugin's Test on one media server; nil means it worked.
-	TestMediaServer func(ctx context.Context, ref Ref) *Failure
 	// MetadataProbes make one cheap call to each metadata provider, by name. A
 	// probe reports its outcome through ObserveMetadata, as a real call does.
 	MetadataProbes map[string]func(ctx context.Context) error
@@ -99,14 +97,21 @@ type Check func(ctx context.Context, h *Service) error
 type namedCheck struct {
 	name string
 	run  Check
+	// every is the check's own interval; 0 runs it on every RunChecks.
+	every time.Duration
 }
 
 // AddCheck registers a check for RunChecks: the way a module that owns a
 // condition (the api's proxy header table) keeps its rows current every 5 min.
-func (s *Service) AddCheck(name string, c Check) {
+func (s *Service) AddCheck(name string, c Check) { s.AddCheckEvery(name, 0, c) }
+
+// AddCheckEvery is AddCheck for a check with its own interval, longer than
+// the health loop's: RunChecks runs it only once every has passed since its
+// last run. Its name must be unique, as it keys the last run.
+func (s *Service) AddCheckEvery(name string, every time.Duration, c Check) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.checks = append(s.checks, namedCheck{name, c})
+	s.checks = append(s.checks, namedCheck{name: name, run: c, every: every})
 }
 
 func (s *Service) addBuiltinChecks() {
@@ -114,12 +119,12 @@ func (s *Service) addBuiltinChecks() {
 		return func(ctx context.Context, _ *Service) error { return f(ctx) }
 	}
 	s.checks = []namedCheck{
-		{"download client", own(s.checkDownloadClient)},
-		{"indexers", own(s.checkIndexers)},
-		{"root folders", own(s.checkRootFolders)},
-		{"disk space", own(s.checkDisk)},
-		{"media servers", own(s.checkMediaServers)},
-		{"metadata providers", own(s.checkMetadata)},
+		{name: "download client", run: own(s.checkDownloadClient)},
+		{name: "indexers", run: own(s.checkIndexers)},
+		{name: "root folders", run: own(s.checkRootFolders)},
+		{name: "disk space", run: own(s.checkDisk)},
+		{name: "media server rows", run: own(s.retireMediaServers)},
+		{name: "metadata providers", run: own(s.checkMetadata)},
 	}
 }
 
@@ -131,6 +136,9 @@ func (s *Service) RunChecks(ctx context.Context) error {
 	s.mu.Unlock()
 	var errs []error
 	for _, c := range checks {
+		if c.every > 0 && !s.due(c.name, c.every) {
+			continue
+		}
 		if err := c.run(ctx, s); err != nil {
 			errs = append(errs, fmt.Errorf("health check %s: %w", c.name, err))
 		}
@@ -377,7 +385,10 @@ func (s *Service) ObserveMediaServer(ctx context.Context, ref Ref, f *Failure) {
 	}
 }
 
-func (s *Service) checkMediaServers(ctx context.Context) error {
+// retireMediaServers drops the row and watch of a media server that was
+// deleted or disabled. It runs every loop, so the row goes at once, not at the
+// next test.
+func (s *Service) retireMediaServers(ctx context.Context) error {
 	if s.deps.MediaServers == nil {
 		return nil
 	}
@@ -385,7 +396,6 @@ func (s *Service) checkMediaServers(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// A server that was deleted or disabled takes its failure with it.
 	keep := make([]string, 0, len(enabled))
 	live := map[int64]bool{}
 	for _, ref := range enabled {
@@ -399,16 +409,26 @@ func (s *Service) checkMediaServers(ctx context.Context) error {
 		}
 	}
 	s.mu.Unlock()
-	if err := s.ClearExcept(ctx, KindMediaServer, keep...); err != nil {
-		return err
-	}
-	if s.deps.TestMediaServer == nil || len(enabled) == 0 || !s.due("media servers", mediaServerEvery) {
+	return s.ClearExcept(ctx, KindMediaServer, keep...)
+}
+
+// TestMediaServers is the check that runs test on every enabled media server
+// and reports each outcome through ObserveMediaServer; nil means it worked.
+// Register it with AddCheckEvery and MediaServerEvery.
+func TestMediaServers(test func(ctx context.Context, ref Ref) *Failure) Check {
+	return func(ctx context.Context, h *Service) error {
+		if h.deps.MediaServers == nil {
+			return nil
+		}
+		enabled, err := h.deps.MediaServers(ctx)
+		if err != nil {
+			return err
+		}
+		for _, ref := range enabled {
+			h.ObserveMediaServer(ctx, ref, test(ctx, ref))
+		}
 		return nil
 	}
-	for _, ref := range enabled {
-		s.ObserveMediaServer(ctx, ref, s.deps.TestMediaServer(ctx, ref))
-	}
-	return nil
 }
 
 // ---- metadata providers ----
