@@ -134,6 +134,10 @@ func adoptionProblem(err error) error {
 		return problem(http.StatusNotFound, "not_found", "no such Adoption row")
 	case errors.Is(err, imports.ErrNoRoot):
 		return invalid("root_folders", "invalid", err.Error())
+	case errors.Is(err, imports.ErrBadAction):
+		return invalid("action", "invalid", err.Error())
+	case errors.Is(err, imports.ErrBadFilter):
+		return invalid("filter", "invalid", err.Error())
 	case errors.Is(err, imports.ErrBadMonitor):
 		return invalid("monitor", "invalid", "monitor is all, future or none")
 	case errors.Is(err, imports.ErrNotSettleable):
@@ -234,15 +238,8 @@ func (s *server) BulkAdoptionRows(ctx context.Context, r oapi.BulkAdoptionRowsRe
 		return nil, invalid("body", "required", "a body is required")
 	}
 	req := imports.BulkRequest{Action: imports.BulkAction(r.Body.Action)}
-	switch r.Body.Action {
-	case oapi.Tick, oapi.Untick, oapi.AcceptSuggested:
-	case oapi.SetMonitor:
-		if r.Body.Monitor == nil {
-			return nil, invalid("monitor", "required", "set_monitor names the monitor to set")
-		}
+	if r.Body.Monitor != nil {
 		req.Monitor = library.Monitor(*r.Body.Monitor)
-	default:
-		return nil, invalid("action", "invalid", "action is tick, untick, accept_suggested or set_monitor")
 	}
 	hasIDs := r.Body.RowIds != nil && len(*r.Body.RowIds) > 0
 	switch {
@@ -251,14 +248,7 @@ func (s *server) BulkAdoptionRows(ctx context.Context, r oapi.BulkAdoptionRowsRe
 	case hasIDs:
 		req.RowIDs = *r.Body.RowIds
 	case r.Body.Filter != nil:
-		switch *r.Body.Filter {
-		case oapi.AdoptionRowFilterAll, oapi.AdoptionRowFilterNeedsChoice, oapi.AdoptionRowFilterMatched, oapi.AdoptionRowFilterDuplicate, oapi.AdoptionRowFilterReplacement, oapi.AdoptionRowFilterSkipped:
-		default:
-			return nil, invalid("filter", "invalid", "Unknown filter")
-		}
-		if *r.Body.Filter != oapi.AdoptionRowFilterAll {
-			req.Filter = imports.Filter(*r.Body.Filter)
-		}
+		req.Filter = imports.Filter(*r.Body.Filter)
 	case r.Body.RowIds != nil:
 		return nil, invalid("row_ids", "required", "Pick at least one row")
 	default:

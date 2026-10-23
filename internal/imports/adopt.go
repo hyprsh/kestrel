@@ -94,6 +94,10 @@ var (
 	ErrNotSettleable = errors.New("the row cannot be matched to that Movie")
 	// ErrBadMonitor means a monitoring choice is not all, future or none.
 	ErrBadMonitor = errors.New("monitor is all, future or none")
+	// ErrBadAction means a bulk action is not one Bulk does.
+	ErrBadAction = errors.New("action is tick, untick, accept_suggested or set_monitor")
+	// ErrBadFilter means a filter is not one Rows or Bulk know.
+	ErrBadFilter = errors.New("filter is all, needs_choice, matched, duplicate, replacement or skipped")
 )
 
 // Summary counts the rows of a plan. Duplicate and Replacement count rows
@@ -556,14 +560,24 @@ func (r Row) has(pred func(PlanFile) bool) bool {
 // Filter narrows Rows.
 type Filter string
 
-// The filters of Rows; "" keeps every row.
+// The filters of Rows; "" and FilterAll keep every row.
 const (
+	FilterAll         Filter = "all"
 	FilterNeedsChoice Filter = "needs_choice"
 	FilterMatched     Filter = "matched"
 	FilterDuplicate   Filter = "duplicate"
 	FilterReplacement Filter = "replacement"
 	FilterSkipped     Filter = "skipped"
 )
+
+// Valid reports whether the filter is one of those above or empty.
+func (f Filter) Valid() bool {
+	switch f {
+	case "", FilterAll, FilterNeedsChoice, FilterMatched, FilterDuplicate, FilterReplacement, FilterSkipped:
+		return true
+	}
+	return false
+}
 
 // keeps reports whether the row is one the filter keeps.
 func (f Filter) keeps(r Row) bool {

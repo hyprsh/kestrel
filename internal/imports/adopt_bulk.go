@@ -3,7 +3,6 @@ package imports
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/hyprsh/kestrel/internal/library"
@@ -96,7 +95,10 @@ func (a *Adoption) Bulk(ctx context.Context, req BulkRequest) (BulkResult, error
 			return BulkResult{}, ErrBadMonitor
 		}
 	default:
-		return BulkResult{}, fmt.Errorf("imports: unknown bulk action %q", req.Action)
+		return BulkResult{}, ErrBadAction
+	}
+	if !req.Filter.Valid() {
+		return BulkResult{}, ErrBadFilter
 	}
 	a.mu.Lock()
 	held := true
