@@ -184,6 +184,7 @@ type Adoption interface {
 	Discard(ctx context.Context) error
 	Commit(ctx context.Context, revision int64, monitor library.Monitor) error
 	Retry(ctx context.Context) error
+	Reopen(ctx context.Context) error
 }
 
 // Cleanup deletes Unmanaged files.

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 
 	"github.com/hyprsh/kestrel/internal/library"
 )
@@ -97,28 +96,7 @@ func (a *Adoption) Bulk(ctx context.Context, req BulkRequest) (BulkResult, error
 	if err != nil {
 		return BulkResult{}, err
 	}
-	var targets []int // indexes into rows, in the order the call names them
-	var res BulkResult
-	if len(req.RowIDs) > 0 {
-		seen := map[int64]bool{}
-		for _, id := range req.RowIDs {
-			if seen[id] {
-				continue
-			}
-			seen[id] = true
-			if i := slices.IndexFunc(rows, func(r Row) bool { return r.ID == id }); i >= 0 {
-				targets = append(targets, i)
-			} else {
-				res.Items = append(res.Items, RowResult{RowID: id, Result: BulkLeft, Reason: ReasonNoSuchRow})
-			}
-		}
-	} else {
-		for _, r := range grouped(rows) {
-			if req.Filter.keeps(r) {
-				targets = append(targets, slices.IndexFunc(rows, func(o Row) bool { return o.ID == r.ID }))
-			}
-		}
-	}
+	targets, res := bulkTargets(rows, req)
 
 	var e *env
 	getEnv := func() (*env, error) { // read once, and only if an accept gets that far
@@ -156,6 +134,49 @@ func (a *Adoption) Bulk(ctx context.Context, req BulkRequest) (BulkResult, error
 	}
 	res.Revision = plan.Revision
 	return res, nil
+}
+
+// bulkTargets are the indexes into rows of the rows a request names, in the
+// order it names them or the order Rows lists them, and a left result for every
+// id that names no row of the plan under review. The plan's rows are indexed
+// once, so naming many rows costs no more than reading them.
+func bulkTargets(rows []Row, req BulkRequest) ([]int, BulkResult) {
+	var res BulkResult
+	if len(req.RowIDs) == 0 {
+		return filterTargets(rows, req.Filter), res
+	}
+	at := make(map[int64]int, len(rows))
+	for i, r := range rows {
+		at[r.ID] = i
+	}
+	var targets []int
+	seen := map[int64]bool{}
+	for _, id := range req.RowIDs {
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		if i, ok := at[id]; ok && rows[i].Outcome == "" { // a kept row is not under review
+			targets = append(targets, i)
+		} else {
+			res.Items = append(res.Items, RowResult{RowID: id, Result: BulkLeft, Reason: ReasonNoSuchRow})
+		}
+	}
+	return targets, res
+}
+
+// filterTargets are the indexes into rows of the rows of the plan under review
+// the filter keeps, Matched first, then Needs choice, then Skipped.
+func filterTargets(rows []Row, f Filter) []int {
+	var out []int
+	for _, status := range []RowStatus{Matched, NeedsChoice, Skipped} {
+		for i, r := range rows {
+			if r.Status == status && r.Outcome == "" && f.keeps(r) {
+				out = append(out, i)
+			}
+		}
+	}
+	return out
 }
 
 func tickRow(row *Row, ticked bool) RowResult {

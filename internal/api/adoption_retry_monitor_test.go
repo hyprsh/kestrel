@@ -25,7 +25,7 @@ func TestKeptRowsKeepTheirMonitoringAndATryAgainKeepsThePlansAndTheRowsOwn(t *te
 	a.settled(t, "committing")
 
 	kept := map[string]string{}
-	for _, r := range a.rows(t, "") {
+	for _, r := range a.kept(t) {
 		if r.Monitor != nil {
 			kept[r.Entry[strings.LastIndex(r.Entry, "/")+1:]] = *r.Monitor
 		}

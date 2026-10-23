@@ -141,6 +141,10 @@ type Current struct {
 	Step  Step
 	// Files is how many files the step covers; 0 when it is not about files.
 	Files int
+	// Title names the Movie or Series the entry is adopted as, "Paddington
+	// (2014)", once it is matched: a commit's; "" while a scan is still
+	// looking for it.
+	Title string
 }
 
 // Step is what a running scan or commit is doing to its current entry.
@@ -345,14 +349,24 @@ type Adoption struct {
 }
 
 // setCurrent says what the running scan or commit is working on.
-func (a *Adoption) setCurrent(entry string, step Step, files int) {
-	a.cur.Store(&Current{Entry: entry, Step: step, Files: files})
+func (a *Adoption) setCurrent(entry string, step Step, files int, title string) {
+	a.cur.Store(&Current{Entry: entry, Step: step, Files: files, Title: title})
+}
+
+// working says what a scan, a Try again or a commit is doing; an edit that
+// plans a row by hand (e.running is false) runs outside any of them and says
+// nothing.
+func (a *Adoption) working(e *env, entry string, step Step, files int) {
+	if e.running {
+		a.setCurrent(entry, step, files, "")
+	}
 }
 
 func (a *Adoption) clearCurrent() { a.cur.Store(nil) }
 
 // NewAdoption returns the service. A scan or commit that a restart cut short
-// is undone: the scan's plan is dropped, the commit's rows stay for review.
+// is undone: the scan's plan is dropped, the commit's rows stay for review, and
+// the rows a Try again was planning again stay as the commit left them.
 func NewAdoption(d AdoptionDeps) (*Adoption, error) {
 	if d.Clock == nil {
 		d.Clock = time.Now
@@ -379,6 +393,13 @@ func NewAdoption(d AdoptionDeps) (*Adoption, error) {
 	}
 	switch PlanState(p.State) {
 	case PlanScanning:
+		// A scan clears the last commit's result and a Try again keeps it, which
+		// tells them apart: the rows a Try again was planning again are the ones
+		// the commit kept, with their choices, and stay.
+		if p.Adopted.Valid {
+			err = a.q.FailAdoptionScan(ctx, sql.NullString{String: "Try again was interrupted by a restart", Valid: true})
+			break
+		}
 		if err := a.q.DeleteAdoptionRows(ctx); err != nil {
 			return nil, err
 		}
@@ -503,8 +524,11 @@ func summarizeRows(rows []Row) Summary {
 	return s
 }
 
-// willAdopt reports whether a commit would adopt the row.
-func (r Row) willAdopt() bool { return r.Status == Matched && r.Ticked && r.has(PlanFile.adopts) }
+// willAdopt reports whether a commit would adopt the row: a row of the plan
+// under review (a kept row has been through a commit already).
+func (r Row) willAdopt() bool {
+	return r.Outcome == "" && r.Status == Matched && r.Ticked && r.has(PlanFile.adopts)
+}
 
 // countFiles counts the row's files the predicate holds for.
 func (r Row) countFiles(pred func(PlanFile) bool) int {
@@ -574,9 +598,11 @@ type RowPage struct {
 	Summary Summary
 }
 
-// Rows returns the rows the filter and the final outcome keep ("" keeps rows of
-// every outcome), Matched first, then Needs choice, then Skipped, from offset
-// on and at most limit of them.
+// Rows returns the rows the filter and the final outcome keep, Matched first,
+// then Needs choice, then Skipped, from offset on and at most limit of them (0
+// is no limit).
+// An outcome of "" asks for the rows of the plan under review, not the rows a
+// commit kept.
 func (a *Adoption) Rows(ctx context.Context, f Filter, o FinalOutcome, offset, limit int) (RowPage, error) {
 	all, err := a.rows(ctx)
 	if err != nil {
@@ -585,13 +611,17 @@ func (a *Adoption) Rows(ctx context.Context, f Filter, o FinalOutcome, offset, l
 	page := RowPage{Summary: summarizeRows(planRows(all))}
 	var kept []Row
 	for _, r := range grouped(all) {
-		if f.keeps(r) && (o == "" || o == r.Outcome) {
+		if f.keeps(r) && o == r.Outcome {
 			kept = append(kept, r)
 		}
 	}
 	page.Total = len(kept)
 	offset = min(max(offset, 0), len(kept))
-	page.Rows = kept[offset:min(offset+limit, len(kept))]
+	end := len(kept)
+	if limit > 0 {
+		end = min(offset+limit, end)
+	}
+	page.Rows = kept[offset:end]
 	return page, nil
 }
 

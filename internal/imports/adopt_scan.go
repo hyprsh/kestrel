@@ -64,6 +64,9 @@ type env struct {
 	byTMDB  map[int]library.Tracked
 	// seriesByTMDB are the tracked Series.
 	seriesByTMDB map[int]library.Tracked
+	// running is set when a scan, a Try again or a commit reads the env: only
+	// those say what they are working on.
+	running bool
 }
 
 func (a *Adoption) env(ctx context.Context) (*env, error) {
@@ -151,22 +154,33 @@ func (a *Adoption) runScan(ctx context.Context, roots scanRoots) {
 	rows, err := a.scan(ctx, roots)
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if err != nil {
-		a.d.Logger.Error("adoption scan failed", "err", err)
-		_ = a.q.DeleteAdoptionRows(ctx)
-		_ = a.q.FailAdoptionScan(ctx, sql.NullString{String: errorText(err), Valid: true})
+	if !a.finishRun(ctx, "adoption scan", err, func() error { return a.save(ctx, rows) }) {
 		return
 	}
-	if err := a.save(ctx, rows); err != nil {
-		a.d.Logger.Error("adoption: storing the plan failed", "err", err)
-		_ = a.q.FailAdoptionScan(ctx, sql.NullString{String: errorText(err), Valid: true})
-		return
-	}
-	_ = a.q.FinishAdoptionScan(ctx, sql.NullString{String: a.d.Clock().UTC().Format("2006-01-02T15:04:05Z07:00"), Valid: true})
 	s := summarizeRows(rows)
 	a.d.History.Record(ctx, history.Event{
 		Kind: history.AdoptionScanned, Message: fmt.Sprintf("Adoption scan: %d matched, %d need a choice, %d skipped", s.Matched, s.NeedsChoice, s.Skipped),
 	})
+}
+
+// finishRun ends a background scan or Try again, with a.mu held: it stores the
+// rows it planned with store, or fails the run with the error of planning or
+// storing them. It clears what the run worked on before the plan is let go, so
+// it cannot wipe that of a run that starts next. It reports whether the plan
+// was stored.
+func (a *Adoption) finishRun(ctx context.Context, what string, planErr error, store func() error) bool {
+	a.clearCurrent()
+	err := planErr
+	if err == nil {
+		err = store()
+	}
+	if err != nil {
+		a.d.Logger.Error(what+" failed", "err", err)
+		_ = a.q.FailAdoptionScan(ctx, sql.NullString{String: errorText(err), Valid: true})
+		return false
+	}
+	_ = a.q.FinishAdoptionScan(ctx, sql.NullString{String: a.d.Clock().UTC().Format(time.RFC3339), Valid: true})
+	return true
 }
 
 func errorText(err error) string {
@@ -242,8 +256,8 @@ func (a *Adoption) scan(ctx context.Context, roots scanRoots) ([]Row, error) {
 	if err != nil {
 		return nil, err
 	}
+	e.running = true
 	_ = a.q.SetAdoptionProgress(ctx, db.SetAdoptionProgressParams{Done: 0, Total: int64(len(list))})
-	defer a.clearCurrent()
 	var rows []Row
 	for i, en := range list {
 		row, err := a.planEntry(ctx, e, en, 0)
@@ -356,7 +370,7 @@ func (a *Adoption) planMovie(ctx context.Context, e *env, en entry, force int) (
 	if multiPart(videos) {
 		return skip(SkipInvalid)
 	}
-	a.setCurrent(en.Path, StepProbing, len(videos))
+	a.working(e, en.Path, StepProbing, len(videos))
 	files, err := a.probeAll(ctx, videos)
 	if err != nil {
 		return nil, err
@@ -364,7 +378,7 @@ func (a *Adoption) planMovie(ctx context.Context, e *env, en entry, force int) (
 	if len(files) == 0 {
 		return skip(SkipInvalid)
 	}
-	a.setCurrent(en.Path, StepMatching, 0)
+	a.working(e, en.Path, StepMatching, 0)
 
 	// Which Movie is it?
 	var tmdbID int
@@ -777,8 +791,8 @@ func settle(rows []Row) {
 	var contenders []ref
 	for i := range rows {
 		r := &rows[i]
-		if r.Status != Matched || r.Match == nil {
-			continue
+		if r.Status != Matched || r.Match == nil || r.Outcome != "" {
+			continue // a kept row has been through a commit: its files hold no Slot
 		}
 		for j := range r.Files {
 			f := &r.Files[j]

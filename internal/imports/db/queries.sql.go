@@ -149,6 +149,15 @@ func (q *Queries) ListAdoptionRows(ctx context.Context) ([]AdoptionRow, error) {
 	return items, nil
 }
 
+const reopenAdoptionRun = `-- name: ReopenAdoptionRun :exec
+UPDATE adoption_plan SET state = 'scanning', revision = revision + 1, done = 0, total = ?, error = NULL WHERE id = 1
+`
+
+func (q *Queries) ReopenAdoptionRun(ctx context.Context, total int64) error {
+	_, err := q.db.ExecContext(ctx, reopenAdoptionRun, total)
+	return err
+}
+
 const resetAdoption = `-- name: ResetAdoption :exec
 UPDATE adoption_plan SET state = 'idle', revision = revision + 1, done = 0, total = 0, error = NULL, scanned_at = NULL, adopted = NULL, failed = NULL, adopted_titles = NULL WHERE id = 1
 `

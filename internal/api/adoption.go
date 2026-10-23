@@ -123,6 +123,8 @@ func adoptionProblem(err error) error {
 		return problem(http.StatusConflict, "conflict", "An Adoption scan or commit is already running")
 	case errors.Is(err, imports.ErrStale):
 		return problem(http.StatusConflict, "conflict", "The Adoption plan changed since you reviewed it; review it again")
+	case errors.Is(err, imports.ErrNothingToReopen):
+		return problem(http.StatusConflict, "conflict", "No entry was left without a choice, so there is nothing to reopen")
 	case errors.Is(err, imports.ErrNothingToRetry):
 		return problem(http.StatusConflict, "conflict", "No entry failed in the last commit, so there is nothing to try again")
 	case errors.Is(err, imports.ErrNoRow):
@@ -194,12 +196,11 @@ func (s *server) ListAdoptionRows(ctx context.Context, r oapi.ListAdoptionRowsRe
 	if r.Params.Filter != nil {
 		f = imports.Filter(*r.Params.Filter)
 	}
-	limit := 100
+	limit := 0 // every row, for a client that predates paging
 	if r.Params.Limit != nil {
-		limit = *r.Params.Limit
-	}
-	if limit < 1 || limit > 10000 {
-		return nil, invalid("limit", "invalid", "limit is between 1 and 10000")
+		if limit = *r.Params.Limit; limit < 1 || limit > 10000 {
+			return nil, invalid("limit", "invalid", "limit is between 1 and 10000")
+		}
 	}
 	at, err := readCursor(r.Params.Cursor, 0)
 	if err != nil {
@@ -306,6 +307,19 @@ func (s *server) PatchAdoptionRow(ctx context.Context, r oapi.PatchAdoptionRowRe
 		return nil, adoptionProblem(err)
 	}
 	return oapi.PatchAdoptionRow200JSONResponse(adoptionRowToAPI(row)), nil
+}
+
+// ReopenAdoption is POST /adoption/reopen: the entries nobody chose go back in
+// the plan, without a scan.
+func (s *server) ReopenAdoption(ctx context.Context, _ oapi.ReopenAdoptionRequestObject) (oapi.ReopenAdoptionResponseObject, error) {
+	if err := s.adoption.Reopen(ctx); err != nil {
+		return nil, adoptionProblem(err)
+	}
+	p, err := s.adoption.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return oapi.ReopenAdoption200JSONResponse(adoptionToAPI(p)), nil
 }
 
 // RetryAdoption is POST /adoption/retry: the failed entries of the last

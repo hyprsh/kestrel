@@ -1405,12 +1405,37 @@ export interface paths {
         /**
          * Plan the entries that failed again
          * @description After a commit, plans again only the entries whose `outcome` is `failed`, from their folders as they
-         *     are now and against the Title each was matched to, with no new scan. The other kept rows are dropped
-         *     and the plan is `planned` again for review and a commit. Answers `202` with `Location: /adoption`;
-         *     the planning runs in the background (`scanning`), as a scan's does. `409 conflict` while a scan or
-         *     commit runs, or when there is no failed entry to try again.
+         *     are now and against the Title each was matched to, with no new scan. The plan is `planned` again for
+         *     review and a commit, with those entries as rows under review. The other kept rows stay, as does the
+         *     last commit's `result`: the next commit adds to it. Answers `202` with `Location: /adoption`; the
+         *     planning runs in the background (`scanning`), as a scan's does. If it cannot finish, the plan is
+         *     `idle` with its `error` and everything the commit kept. An entry whose folder is gone stays `failed`.
+         *     `409 conflict` while a scan or commit runs, or when there is no failed entry to try again.
          */
         post: operations["retryAdoption"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adoption/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put the entries nobody chose back in the plan
+         * @description After a commit, puts the kept rows whose `outcome` is `not_chosen` back in the plan as Needs choice
+         *     rows under review, with no scan, so they can be settled and committed. The plan is `planned` again.
+         *     The other kept rows stay, as does the last commit's `result`: the next commit adds to it.
+         *     `409 conflict` while a scan or commit runs, or when no entry was left without a choice.
+         */
+        post: operations["reopenAdoption"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5529,10 +5554,10 @@ export interface operations {
                 /**
                  * @description Keep the rows that ended this way in the last commit (see `AdoptionFinalOutcome`), which are kept
                  *     until the next scan. Only rows of a finished commit have an outcome, so no row matches before one.
-                 *     Combines with `filter`.
+                 *     Combines with `filter`. Without it the list is the rows under review, not the kept ones.
                  */
                 outcome?: components["schemas"]["AdoptionFinalOutcome"];
-                /** @description Page size. */
+                /** @description Page size. Without it every row is returned, as before paging existed. */
                 limit?: number;
                 /** @description The `next_cursor` of the previous page. */
                 cursor?: string;
@@ -5701,6 +5726,28 @@ export interface operations {
             202: {
                 headers: {
                     Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Adoption"];
+                };
+            };
+            409: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    reopenAdoption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The plan, planned again. */
+            200: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {

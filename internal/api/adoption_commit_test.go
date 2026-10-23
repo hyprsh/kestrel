@@ -114,7 +114,7 @@ func TestCommittingRenamesFilesInPlaceWithTheirSubtitlesAndFillsTheVersions(t *t
 	if !exists(t, filepath.Join(a.movies, old, old+".nfo")) {
 		t.Error("the .nfo was touched")
 	}
-	if rows := a.rows(t, ""); len(rows) != 1 || rows[0].Outcome == nil || *rows[0].Outcome != "adopted" {
+	if rows := a.kept(t); len(rows) != 1 || rows[0].Outcome == nil || *rows[0].Outcome != "adopted" {
 		t.Errorf("rows after the commit = %+v, want the one row kept as adopted", rows)
 	}
 }

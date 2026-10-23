@@ -3998,10 +3998,10 @@ type ListAdoptionRowsParams struct {
 
 	// Outcome Keep the rows that ended this way in the last commit (see `AdoptionFinalOutcome`), which are kept
 	// until the next scan. Only rows of a finished commit have an outcome, so no row matches before one.
-	// Combines with `filter`.
+	// Combines with `filter`. Without it the list is the rows under review, not the kept ones.
 	Outcome *AdoptionFinalOutcome `form:"outcome,omitempty" json:"outcome,omitempty"`
 
-	// Limit Page size.
+	// Limit Page size. Without it every row is returned, as before paging existed.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
 	// Cursor The `next_cursor` of the previous page.
@@ -4588,6 +4588,9 @@ type ServerInterface interface {
 	// CommitAdoption Adopt the ticked rows
 	// (POST /adoption/commit)
 	CommitAdoption(w http.ResponseWriter, r *http.Request)
+	// ReopenAdoption Put the entries nobody chose back in the plan
+	// (POST /adoption/reopen)
+	ReopenAdoption(w http.ResponseWriter, r *http.Request)
 	// RetryAdoption Plan the entries that failed again
 	// (POST /adoption/retry)
 	RetryAdoption(w http.ResponseWriter, r *http.Request)
@@ -4942,6 +4945,20 @@ func (siw *ServerInterfaceWrapper) CommitAdoption(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CommitAdoption(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReopenAdoption operation middleware
+func (siw *ServerInterfaceWrapper) ReopenAdoption(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReopenAdoption(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7294,6 +7311,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/attention/{id}/dismiss", wrapper.DismissAttention)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/adoption/commit", wrapper.CommitAdoption)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/adoption/retry", wrapper.RetryAdoption)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/adoption/reopen", wrapper.ReopenAdoption)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/cleanup/preview", wrapper.PreviewCleanup)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/cleanup/run", wrapper.RunCleanup)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/wanted/search", wrapper.SearchAllWanted)
@@ -7704,6 +7722,60 @@ type CommitAdoptiondefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response CommitAdoptiondefaultApplicationProblemPlusJSONResponse) VisitCommitAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReopenAdoptionRequestObject struct {
+}
+
+type ReopenAdoptionResponseObject interface {
+	VisitReopenAdoptionResponse(w http.ResponseWriter) error
+}
+
+type ReopenAdoption200JSONResponse Adoption
+
+func (response ReopenAdoption200JSONResponse) VisitReopenAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReopenAdoption409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ReopenAdoption409ApplicationProblemPlusJSONResponse) VisitReopenAdoptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReopenAdoptiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ReopenAdoptiondefaultApplicationProblemPlusJSONResponse) VisitReopenAdoptionResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -12395,6 +12467,9 @@ type StrictServerInterface interface {
 	// CommitAdoption Adopt the ticked rows
 	// (POST /adoption/commit)
 	CommitAdoption(ctx context.Context, request CommitAdoptionRequestObject) (CommitAdoptionResponseObject, error)
+	// ReopenAdoption Put the entries nobody chose back in the plan
+	// (POST /adoption/reopen)
+	ReopenAdoption(ctx context.Context, request ReopenAdoptionRequestObject) (ReopenAdoptionResponseObject, error)
 	// RetryAdoption Plan the entries that failed again
 	// (POST /adoption/retry)
 	RetryAdoption(ctx context.Context, request RetryAdoptionRequestObject) (RetryAdoptionResponseObject, error)
@@ -12882,6 +12957,30 @@ func (sh *strictHandler) CommitAdoption(w http.ResponseWriter, r *http.Request) 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CommitAdoptionResponseObject); ok {
 		if err := validResponse.VisitCommitAdoptionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReopenAdoption operation middleware
+func (sh *strictHandler) ReopenAdoption(w http.ResponseWriter, r *http.Request) {
+	var request ReopenAdoptionRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReopenAdoption(ctx, request.(ReopenAdoptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReopenAdoption")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReopenAdoptionResponseObject); ok {
+		if err := validResponse.VisitReopenAdoptionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

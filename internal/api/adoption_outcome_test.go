@@ -67,7 +67,7 @@ func TestACommitKeepsTheRowsEachWithItsFinalOutcome(t *testing.T) {
 	if failed := a.outcomes(t, "failed")[0]; failed.Error == nil || *failed.Error == "" {
 		t.Errorf("the failed row names no error: %+v", failed)
 	}
-	if all := a.rows(t, ""); len(all) != 5 {
+	if all := a.kept(t); len(all) != 5 {
 		t.Errorf("rows after the commit = %d, want all 5 kept", len(all))
 	}
 }
@@ -113,7 +113,7 @@ func TestTryAgainPlansOnlyTheFailedEntriesWithoutScanningAgain(t *testing.T) {
 		t.Fatalf("rows after retry = %+v", rows)
 	}
 	done := a.commit(t, plan.Revision)
-	if done.Result == nil || done.Result.Adopted != 1 || done.Result.Failed != 0 {
+	if done.Result == nil || done.Result.Adopted != 2 || done.Result.Failed != 0 {
 		t.Errorf("after the second commit = %+v", done)
 	}
 }
