@@ -147,7 +147,7 @@ describe('the Version rows', () => {
     const uhd = within(pane).getByRole('group', { name: '4K' })
     expect(uhd).toHaveTextContent('4KNot kept')
     expect(within(uhd).queryByRole('button', { name: /More 4K Version actions/ })).not.toBeInTheDocument()
-    expect(await within(uhd).findByRole('button', { name: 'Add Version' })).toBeInTheDocument()
+    expect(await within(uhd).findByRole('button', { name: 'Add Version: 4K' })).toBeInTheDocument()
   })
 
   it('keep Change Profile, Delete file and Remove Version in a Movie row’s "…" menu, Delete file disabled without a file', async () => {

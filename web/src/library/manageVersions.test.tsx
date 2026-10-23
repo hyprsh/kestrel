@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
-import { fakeLibrary, row } from '../test/library'
+import { detail, fakeLibrary, row } from '../test/library'
 import { server } from '../test/server'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
@@ -41,17 +41,56 @@ async function openPane() {
 }
 
 describe('manage Versions', () => {
-  it('adds a Version to an empty Slot', async () => {
+  it('adds a Version to an empty Slot from a dropdown with the default Profile selected', async () => {
     const calls = fakeManage()
     const pane = await openPane()
     const uhd = await within(pane).findByRole('group', { name: '4K' })
 
-    await userEvent.click(await within(uhd).findByRole('button', { name: 'Add Version' }))
-    await userEvent.click(within(uhd).getByRole('button', { name: 'Add' }))
+    await userEvent.click(await within(uhd).findByRole('button', { name: 'Add Version: 4K' }))
+    expect(screen.getByRole('option', { name: '4K', selected: true })).toBeInTheDocument()
+    expect(within(uhd).queryByRole('button', { name: 'Add' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('option', { name: '4K' }))
 
     await screen.findByRole('region', { name: /paddington/i })
-    expect(calls).toHaveLength(1)
+    await waitFor(() => expect(calls).toHaveLength(1))
     expect(calls[0].body).toEqual({ slot: '4k', profile: '4k-primary' })
+  })
+
+  const fourK = ['4k-movies', '4k-series'].map((key, i) => ({
+    key,
+    name: key === '4k-movies' ? '4K movies' : '4K series',
+    slot: '4k' as const,
+    language_rule: 'primary' as const,
+    original_language: 'reject' as const,
+    original_fallback: false,
+    from_config_file: false,
+    enabled: true,
+    default_movies: i === 0,
+    default_series: i === 1,
+    min_height: 0,
+    max_height: 2160,
+    trash_profile_movies: 'uhd-bluray-web',
+    trash_profile_series: 'uhd-bluray-web',
+  }))
+
+  it("selects a Movie's default Profile in the Add Version dropdown", async () => {
+    fakeManage()
+    server.use(http.get('/profiles', ({ response }) => response(200).json({ items: fourK })))
+    const pane = await openPane()
+    expect(await within(pane).findByRole('button', { name: 'Add Version: 4K movies' })).toBeInTheDocument()
+  })
+
+  it("selects a Series' own default Profile in the Add Version dropdown", async () => {
+    const series = row(7, 'Dark', 'Dark', { kind: 'series', slots: { standard: null, '4k': null } })
+    fakeLibrary([series])
+    server.use(
+      http.get('/profiles', ({ response }) => response(200).json({ items: fourK })),
+      http.get('/titles/{id}', ({ response }) => response(200).json(detail(series, { kind: 'series', series_monitor: 'all' }))),
+      http.get('/titles/{id}/episodes', ({ response }) => response(200).json({ items: [] })),
+    )
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    expect(await screen.findByRole('button', { name: 'Add Version: 4K series' })).toBeInTheDocument()
   })
 
   it('switches a Version to another Profile of its Slot', async () => {

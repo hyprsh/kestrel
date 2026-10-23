@@ -8,6 +8,9 @@ import { detail, fakeLibrary, row, type Sent } from '../test/library'
 import { fakeSeries } from '../test/series'
 import { server } from '../test/server'
 
+/** The options of the dropdown a trigger opened. */
+const optionsOf = (trigger: HTMLElement) => within(document.getElementById(trigger.getAttribute('aria-controls')!)!).getAllByRole('option').map((o) => o.textContent)
+
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
 /** A Library with one Movie whose PATCH /titles/{id} records the body and applies `monitored`. */
@@ -33,20 +36,22 @@ describe('monitoring a Movie', () => {
     const state = fakeMovie()
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    const select = await screen.findByRole('combobox', { name: 'Monitor' })
-    expect(select).toHaveValue('monitored')
-    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['Monitored', 'Not monitored'])
+    const menu = await screen.findByRole('button', { name: 'Monitor: Monitored' })
+    await userEvent.click(menu)
+    expect(optionsOf(menu)).toEqual(['Monitored', 'Not monitored'])
+    expect(screen.getByRole('option', { name: 'Monitored' })).toHaveAttribute('aria-selected', 'true')
 
-    await userEvent.selectOptions(select, 'Not monitored')
+    await userEvent.click(screen.getByRole('option', { name: 'Not monitored' }))
 
     await waitFor(() => expect(state.sent).toEqual([{ path: 'titles', body: { monitored: false } }]))
-    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Monitor' })).toHaveValue('unmonitored'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Monitor: Not monitored' })).toBeInTheDocument())
     expect(screen.getByText('Kestrel leaves this Movie as it is: no searches, Grabs or Upgrades.')).toBeInTheDocument()
 
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Monitor' }), 'Monitored')
+    await userEvent.click(screen.getByRole('button', { name: 'Monitor: Not monitored' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Monitored' }))
 
     await waitFor(() => expect(state.sent[1]).toEqual({ path: 'titles', body: { monitored: true } }))
-    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Monitor' })).toHaveValue('monitored'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Monitor: Monitored' })).toBeInTheDocument())
   })
 
 })
@@ -56,10 +61,11 @@ describe('monitoring a Series', () => {
     fakeSeries()
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    const select = await screen.findByRole('combobox', { name: 'Monitor' })
+    const select = await screen.findByRole('button', { name: 'Monitor: All episodes' })
     expect(select.closest('[role=group]')).toHaveAccessibleName('Title actions')
-    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['All episodes', 'Future episodes only', 'None'])
-    expect(within(await screen.findByRole('region', { name: 'Episodes' })).queryByRole('combobox', { name: 'Monitor' })).not.toBeInTheDocument()
+    await userEvent.click(select)
+    expect(optionsOf(select)).toEqual(['All episodes', 'Future episodes only', 'None'])
+    expect(within(await screen.findByRole('region', { name: 'Episodes' })).queryByRole('button', { name: /^Monitor:/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('checkbox', { name: 'Monitored' })).not.toBeInTheDocument()
   })
 })

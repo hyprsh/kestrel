@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { ApiError, type SeriesMonitor, type TitleDetail } from '../api/queries'
 import { useRefreshTitle, useSetFrozen, useSetMovieMonitored, useSetSeriesMonitor } from '../api/titleActions'
 import { useOpenCleanup } from '../cleanup/launch'
-import { Menu, Note, Select, termText } from '@hyprsh/design'
+import { FilterMenu, Menu, Note, termText } from '@hyprsh/design'
 import { placePath, useOpenPlace } from '../place'
 import { RemoveTitle } from './ManageVersion'
 import { MoveTitle } from './MoveTitle'
@@ -89,25 +89,25 @@ export function TitleActions({
   )
 }
 
-/** The monitoring select of a Movie: Not monitored, it is never searched, grabbed or upgraded automatically, which a line under the row says. */
+/** The monitoring dropdown of a Movie: Not monitored, it is never searched, grabbed or upgraded automatically, which a line under the row says. */
 function MovieMonitoring({ title }: { title: TitleDetail }) {
   const set = useSetMovieMonitored(title.id)
   const hint = `title-${title.id}-monitored-hint`
   return (
     <>
-      <Select
-        size="small"
+      <FilterMenu
+        single
         label="Monitor"
-        labelPosition="inline"
-        aria-describedby={hint}
+        size="small"
+        defaultOption="monitored"
         value={title.monitored ? 'monitored' : 'unmonitored'}
         disabled={set.isPending}
-        onChange={(e) => set.mutate(e.target.value === 'monitored')}
-        className="w-56"
-      >
-        <option value="monitored">Monitored</option>
-        <option value="unmonitored">Not monitored</option>
-      </Select>
+        onChange={(v: string) => set.mutate(v === 'monitored')}
+        items={[
+          { value: 'monitored', label: 'Monitored' },
+          { value: 'unmonitored', label: 'Not monitored' },
+        ]}
+      />
       <p id={hint} className={title.monitored ? 'sr-only' : 'label-12 order-last w-full text-gray-900'}>
         {title.monitored ? 'Kestrel searches for this Movie and upgrades its files.' : 'Kestrel leaves this Movie as it is: no searches, Grabs or Upgrades.'}
       </p>
@@ -120,24 +120,25 @@ function MovieMonitoring({ title }: { title: TitleDetail }) {
   )
 }
 
-/** The monitoring select of a Series: which episodes it wants. */
+/** The monitoring dropdown of a Series: which episodes it wants. */
 function SeriesMonitoring({ title }: { title: TitleDetail }) {
   const set = useSetSeriesMonitor(title.id)
   return (
     <>
-      <Select
-        size="small"
+      <FilterMenu
+        single
         label="Monitor"
-        labelPosition="inline"
+        size="small"
+        defaultOption="all"
         value={title.series_monitor ?? 'all'}
         disabled={set.isPending}
-        onChange={(e) => set.mutate(e.target.value as SeriesMonitor)}
-        className="w-64"
-      >
-        <option value="all">All episodes</option>
-        <option value="future">Future episodes only</option>
-        <option value="none">None</option>
-      </Select>
+        onChange={(v: string) => set.mutate(v as SeriesMonitor)}
+        items={[
+          { value: 'all', label: 'All episodes' },
+          { value: 'future', label: 'Future episodes only' },
+          { value: 'none', label: 'None' },
+        ]}
+      />
       {set.isError && (
         <div className="order-last w-full">
           <Problem>{message(set.error, 'Could not change monitoring.')}</Problem>

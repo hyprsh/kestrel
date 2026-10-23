@@ -6,7 +6,7 @@ import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { detail, fakeLibrary, row } from '../test/library'
-import { cell, episode, fakeSeries } from '../test/series'
+import { cell, episode, fakeSeries, seriesRow } from '../test/series'
 import { server } from '../test/server'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
@@ -186,6 +186,33 @@ describe('deleting files from the episodes heat map', () => {
     const { grid } = await openSeriesWithFiles()
     await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 1' }))
     expect(screen.getByRole('menuitem', { name: 'Delete file 4K' })).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('offers Delete file wherever the Slot dot is filled, in a Series kept in 4K only', async () => {
+    const state = fakeSeries()
+    const file = (id: number, n: number): components['schemas']['EpisodeFile'] => ({ id, path: `/data/media/tv/Breaking Bad/Season 01/Breaking Bad - S01E0${n} - [4K].mkv`, size: 2 ** 30, quality: 'WEBDL-2160p', episode_ids: [n + 1] })
+    state.get().episodes = [
+      episode(2, 1, 1, 'Pilot', { cells: { standard: null, '4k': cell('filled', 120, file(80, 1)) } }),
+      episode(3, 1, 2, "Cat's in the Bag...", { cells: { standard: null, '4k': cell('wanted') } }),
+    ]
+    const r = seriesRow(5, 'Breaking Bad')
+    server.use(
+      http.get('/titles/{id}', ({ response }) =>
+        response(200).json(detail(r, { kind: 'series', series_monitor: 'all', versions: [{ id: 52, slot: '4k', profile: '4k-primary', state: 'wanted', long_missing: false, wanted_since: null, file: null, added_at: r.added_at }] })),
+      ),
+    )
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    const grid = await screen.findByRole('grid', { name: 'Episodes' })
+
+    expect(within(grid).getByRole('img', { name: 'Season 1 episode 1 4K: Filled' })).toBeInTheDocument()
+    await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 1' }))
+    expect(screen.getByRole('menuitem', { name: 'Delete file' })).not.toHaveAttribute('aria-disabled', 'true')
+    await userEvent.keyboard('{Escape}')
+
+    expect(within(grid).getByRole('img', { name: 'Season 1 episode 2 4K: Wanted' })).toBeInTheDocument()
+    await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 2' }))
+    expect(screen.getByRole('menuitem', { name: 'Delete file' })).toHaveAttribute('aria-disabled', 'true')
   })
 
   it("deletes a season's files from the season row, blocklisting their Release", async () => {
