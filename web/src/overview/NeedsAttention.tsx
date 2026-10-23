@@ -2,7 +2,7 @@
 // here knows a kind of row; it draws message, severity and buttons.
 import { Badge, Button, Note } from '@hyprsh/design'
 import { useState } from 'react'
-import { useAttention, useRunAction, type Attention, type AttentionAction, type AttentionRow } from '../api/attention'
+import { useAttention, useRunAction, type ActionResult, type Attention, type AttentionAction, type AttentionRow } from '../api/attention'
 import { slotLabel } from '../library/bits'
 import { placePath } from '../place'
 import { NavRow } from '../ui'
@@ -15,6 +15,9 @@ import { EmptyLine, firstFive, Section, ViewAllHere } from './Section'
  * Blocking row past the fifth is never hidden behind "View all".
  */
 export const shownRows = (rows: AttentionRow[], all: boolean) => (all ? rows : firstFive(rows, (r) => r.severity === 'blocking'))
+
+/** What the last action of a row answered, kept above the rows so it outlives a row the action cleared. */
+type Outcome = ActionResult & { rowId: string; label: string; severity: AttentionRow['severity'] }
 
 /** `all` (kept by the Overview, whose j/k list must match) is whether the section is expanded. */
 export function NeedsAttention({
@@ -37,15 +40,40 @@ export function NeedsAttention({
   const originals = attention.data?.originals
   // Long Missing only waits, so it leaves the section saying nothing needs attention; offers ask for a choice.
   const nothing = rows.length === 0 && !(originals && originals.count > 0)
+  const [outcome, setOutcome] = useState<Outcome | null>(null)
+  // A passing Test can clear its own row; the refetch takes the row, and its result, with it.
+  const cleared = outcome && outcome.ok === true && attention.data && !rows.some((r) => r.id === outcome.rowId) ? outcome : null
   return (
     <Section id="needs-attention" title="Needs attention" count={rows.length}>
+      {cleared && (
+        <Note
+          variant="success"
+          size="small"
+          className="mb-3"
+          action={
+            <Button variant="secondary" size="small" onClick={() => setOutcome(null)}>
+              Dismiss
+            </Button>
+          }
+        >
+          {cleared.label} passed{cleared.message ? `: ${cleared.message}` : ''}. The {cleared.severity === 'blocking' ? 'blocking issue' : 'warning'} cleared.
+        </Note>
+      )}
       {attention.data && nothing ? (
         <EmptyLine title="Nothing needs attention." />
       ) : (
         rows.length > 0 && (
           <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
             {shown.map((r, i) => (
-              <Row key={r.id} row={r} onOpen={onOpen} nav={nav} index={nav.base + i} />
+              <Row
+                key={r.id}
+                row={r}
+                onOpen={onOpen}
+                nav={nav}
+                index={nav.base + i}
+                outcome={outcome?.rowId === r.id ? outcome : null}
+                onOutcome={setOutcome}
+              />
             ))}
           </ul>
         )
@@ -99,15 +127,28 @@ function LongMissingRow({ group, onOpen }: { group: Attention['long_missing']; o
   )
 }
 
-function Row({ row, onOpen, nav, index }: { row: AttentionRow; onOpen: (path: string) => void; nav: OverviewNav; index: number }) {
+function Row({
+  row,
+  onOpen,
+  nav,
+  index,
+  outcome,
+  onOutcome,
+}: {
+  row: AttentionRow
+  onOpen: (path: string) => void
+  nav: OverviewNav
+  index: number
+  outcome: Outcome | null
+  onOutcome: (o: Outcome | null) => void
+}) {
   const run = useRunAction()
-  const [result, setResult] = useState<string | null>(null)
 
   const act = (a: AttentionAction) => {
     if (a.confirm && !window.confirm(a.confirm)) return
     if (a.method === 'GET') return onOpen(a.path) // GET opens an SPA path
-    setResult(null)
-    run.mutate(a, { onSuccess: (r) => setResult(r.message) })
+    onOutcome(null)
+    run.mutate(a, { onSuccess: (r) => onOutcome({ ...r, rowId: row.id, label: a.label, severity: row.severity }) })
   }
 
   return (
@@ -126,7 +167,19 @@ function Row({ row, onOpen, nav, index }: { row: AttentionRow; onOpen: (path: st
         </div>
       )}
       {run.isError && <Note variant="error">{run.error.message}</Note>}
-      {result && <p className="label-12 text-gray-900">{result}</p>}
+      {outcome && <Result outcome={outcome} />}
     </NavRow>
+  )
+}
+
+/** A verdict (`ok`) is a Note that says passed or failed; an answer without one is just its message. */
+function Result({ outcome }: { outcome: Outcome }) {
+  const { ok, label, message } = outcome
+  if (ok === null) return message ? <p className="label-12 text-gray-900">{message}</p> : null
+  return (
+    <Note variant={ok ? 'success' : 'error'} size="small">
+      {label} {ok ? 'passed' : 'failed'}
+      {message ? `: ${message}` : ''}
+    </Note>
   )
 }

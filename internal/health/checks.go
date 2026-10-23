@@ -154,17 +154,16 @@ func (s *Service) setupDone(ctx context.Context) bool {
 // ---- download client ----
 
 // ObserveDownloadClient reports one call to the download client. Failures that
-// last two minutes make the Blocking "unreachable" row; a good call clears it.
+// last two minutes make the Blocking "unreachable" row; a good call clears it,
+// whether or not this run of the process saw the row raised.
 func (s *Service) ObserveDownloadClient(ctx context.Context, ref Ref, f *Failure) {
 	s.mu.Lock()
 	w := &s.watches.downloadClient
 	if f == nil {
-		wasRaised := w.raised != ""
 		*w = watch{}
 		s.mu.Unlock()
-		if wasRaised {
-			s.logErr(s.Clear(ctx, keyDownloadClient))
-		}
+		// The row is stored and the watch is not: after a restart there is a row and no watch.
+		s.logErr(s.Clear(ctx, keyDownloadClient))
 		return
 	}
 	if w.since.IsZero() {
@@ -239,9 +238,8 @@ func (s *Service) ObserveIndexer(ctx context.Context, ref Ref, f *Failure) {
 	if f == nil {
 		delete(ws, ref.ID)
 		s.mu.Unlock()
-		if had {
-			s.logErr(s.Clear(ctx, indexerKey(ref.ID)))
-		}
+		// The row is stored and the watch is not: after a restart there is a row and no watch.
+		s.logErr(s.Clear(ctx, indexerKey(ref.ID)))
 		s.logErr(s.evaluateNoIndexer(ctx))
 		return
 	}
@@ -342,6 +340,10 @@ func (s *Service) due(name string, every time.Duration) bool {
 
 func mediaServerKey(id int64) string { return fmt.Sprintf("media_server:%d", id) }
 
+// RefreshFailedKey is the key of a media server's failed-refresh row: one per
+// instance, so one Plex server's recovery cannot hide another's failure.
+func RefreshFailedKey(id int64) string { return fmt.Sprintf("%s:%d", KindRefreshFailed, id) }
+
 // ObserveMediaServer reports one check of a media server. Rejected credentials
 // make the Warning at once; other failures after two checks in a row, which is
 // 30 min. A good check clears it. Downloads and Imports go on without a media
@@ -353,9 +355,8 @@ func (s *Service) ObserveMediaServer(ctx context.Context, ref Ref, f *Failure) {
 	if f == nil {
 		delete(ws, ref.ID)
 		s.mu.Unlock()
-		if had {
-			s.logErr(s.Clear(ctx, mediaServerKey(ref.ID)))
-		}
+		// The row is stored and the watch is not: after a restart there is a row and no watch.
+		s.logErr(s.Clear(ctx, mediaServerKey(ref.ID)))
 		return
 	}
 	if !had {
@@ -401,7 +402,14 @@ func (s *Service) retireMediaServers(ctx context.Context) error {
 		}
 	}
 	s.mu.Unlock()
-	return s.ClearExcept(ctx, KindMediaServer, keep...)
+	if err := s.ClearExcept(ctx, KindMediaServer, keep...); err != nil {
+		return err
+	}
+	refresh := make([]string, len(enabled))
+	for i, ref := range enabled {
+		refresh[i] = RefreshFailedKey(ref.ID)
+	}
+	return s.ClearExcept(ctx, KindRefreshFailed, refresh...)
 }
 
 // TestMediaServers is the check that runs test on every enabled media server

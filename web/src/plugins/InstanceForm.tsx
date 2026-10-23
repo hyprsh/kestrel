@@ -163,7 +163,7 @@ export function InstanceForm({
           </Note>
         ) : (
           <Note variant="error" size="small">
-            {test.data.result.message}
+            Test failed: {test.data.result.message}
           </Note>
         ))}
       {saving.isError && (

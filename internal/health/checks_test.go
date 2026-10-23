@@ -395,3 +395,36 @@ func TestDownloadClientAndIndexerRowsDoNotNameTheInstanceTwice(t *testing.T) {
 		t.Errorf("indexer message = %q", r.Message)
 	}
 }
+
+func TestAGoodCallClearsAStoredRowThatNoWatchBacks(t *testing.T) {
+	// After a restart the row is stored and the in-memory watch is gone.
+	ctx := context.Background()
+	for name, tc := range map[string]struct {
+		issue   health.Issue
+		observe func(h *health.Service)
+	}{
+		"download client": {
+			health.Issue{Key: "download_client", Kind: health.KindDownloadClient, Severity: health.Blocking, Message: "x"},
+			func(h *health.Service) { h.ObserveDownloadClient(ctx, sab, nil) },
+		},
+		"indexer": {
+			health.Issue{Key: "indexer:11", Kind: health.KindIndexer, Severity: health.Warning, Message: "x"},
+			func(h *health.Service) { h.ObserveIndexer(ctx, alpha, nil) },
+		},
+		"media server": {
+			health.Issue{Key: "media_server:5", Kind: health.KindMediaServer, Severity: health.Warning, Message: "x"},
+			func(h *health.Service) { h.ObserveMediaServer(ctx, health.Ref{ID: 5, Name: "Plex"}, nil) },
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			e := newEnv(t)
+			if err := e.h.Raise(ctx, tc.issue); err != nil {
+				t.Fatal(err)
+			}
+			tc.observe(e.h)
+			if rows := e.rows(t); len(rows) != 0 {
+				t.Errorf("the stored row should go: %+v", rows)
+			}
+		})
+	}
+}

@@ -8,7 +8,7 @@
 //  1. Declare a Kind constant here.
 //  2. Call Raise(ctx, Issue{Key, Kind, Severity, Message, ...}) where the
 //     condition is noticed, and Clear(ctx, key) where it ends. The Key names the
-//     condition (kind plus subject, e.g. "refresh_failed:jellyfin"), so a repeat
+//     condition (kind plus subject, e.g. "refresh_failed:7"), so a repeat
 //     bumps one row instead of adding another. Condition checks that run on a
 //     timer register themselves with AddCheck instead.
 //  3. Give the kind its actions in internal/api/attention.go (attentionActions).

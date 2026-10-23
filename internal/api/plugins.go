@@ -9,6 +9,8 @@ import (
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/plugin"
+	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
+	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
 	mediaserver "github.com/hyprsh/kestrel/internal/plugin/mediaserver/v1"
 )
@@ -132,8 +134,8 @@ func (s *server) runTest(ctx context.Context, pluginID string, instanceID int64,
 	// A test of the saved connection is a check of it; one of edits is of the form.
 	check := instanceID != 0 && len(edits) == 0
 	res, err := s.plugins.Test(ctx, p, conn, check)
-	if check && p.Describe().Contract == mediaserver.Contract.ID {
-		s.observeMediaServer(ctx, instanceID, err)
+	if check {
+		s.observeCheck(ctx, p.Describe().Contract, instanceID, err)
 	}
 	if err == nil {
 		return oapi.PluginTestResult{Ok: true, Message: res.Message}, nil
@@ -237,10 +239,15 @@ func manifestToAPI(m plugin.Manifest) oapi.PluginManifest {
 	return out
 }
 
-// observeMediaServer tells health how a Test of a media server's saved
-// connection went: it is a check like the scheduled one, so a good Test clears
-// the server's row at once.
-func (s *server) observeMediaServer(ctx context.Context, id int64, err error) {
+// observeCheck tells health how a Test of an instance's saved connection went:
+// it is a check like the scheduled ones, so a good Test clears the instance's
+// row at once. A media server also reports a failed Test, as its scheduled
+// check does. A failed Test of an indexer or the download client changes
+// nothing: its rows and grace timers follow real calls.
+func (s *server) observeCheck(ctx context.Context, contract string, id int64, err error) {
+	if err != nil && contract != mediaserver.Contract.ID {
+		return
+	}
 	inst, gerr := s.plugins.Get(ctx, id)
 	if gerr != nil {
 		return
@@ -250,7 +257,20 @@ func (s *server) observeMediaServer(ctx context.Context, id int64, err error) {
 		pe := plugin.AsError(err)
 		f = &health.Failure{Auth: pe.Code == plugin.CodeAuth, Message: pe.Message}
 	}
-	s.health.ObserveMediaServer(context.WithoutCancel(ctx), health.Ref{ID: inst.ID, Name: inst.Name}, f)
+	ref := health.Ref{ID: inst.ID, Name: inst.Name}
+	ctx = context.WithoutCancel(ctx)
+	switch contract {
+	case mediaserver.Contract.ID:
+		s.health.ObserveMediaServer(ctx, ref, f)
+		if f == nil {
+			// Only this instance's row: another server of the same plugin keeps its own.
+			_ = s.health.Clear(ctx, health.RefreshFailedKey(id)) // the next refresh raises it again if still broken
+		}
+	case downloadclient.Contract.ID:
+		s.health.ObserveDownloadClient(ctx, ref, nil)
+	case indexer.Contract.ID:
+		s.health.ObserveIndexer(ctx, ref, nil)
+	}
 }
 
 func checkToAPI(c *instances.Check) *oapi.PluginInstanceCheck {

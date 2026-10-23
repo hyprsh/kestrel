@@ -42,7 +42,14 @@ const exdevRow = (over: Partial<Row> = {}): Row => ({
 })
 
 function fakeAttention(rows: Row[]) {
-  const state = { rows, calls: [] as string[], bodies: [] as unknown[] }
+  const state = {
+    rows,
+    calls: [] as string[],
+    bodies: [] as unknown[],
+    // What a Test answers; a passing one clears the row it was run from, as the server does.
+    clears: true,
+    test: { ok: false, code: 'unavailable', message: 'SABnzbd did not answer' } as { ok: boolean; code: string | null; message: string },
+  }
   server.use(
     http.get('/attention', ({ response }) =>
       response(200).json({
@@ -60,7 +67,8 @@ function fakeAttention(rows: Row[]) {
     }),
     http.post('/plugin-instances/{id}/test', ({ params, response }) => {
       state.calls.push(`POST test ${params.id}`)
-      return response(200).json({ ok: false, code: 'unavailable', message: 'SABnzbd did not answer' })
+      if (state.test.ok && state.clears) state.rows = state.rows.filter((r) => !r.actions.some((a) => a.path === `/plugin-instances/${params.id}/test`))
+      return response(200).json(state.test)
     }),
     http.patch('/plugin-instances/{id}', async ({ params, request, response }) => {
       state.calls.push(`PATCH instance ${params.id}`)
@@ -177,8 +185,48 @@ describe('Needs attention', () => {
     const row = await within(await sectionOf(/needs attention/i)).findByRole('listitem')
     await userEvent.click(within(row).getByRole('button', { name: 'Test' }))
 
-    expect(await within(row).findByText('SABnzbd did not answer')).toBeInTheDocument()
+    expect(await within(row).findByText('Test failed: SABnzbd did not answer')).toBeInTheDocument()
     expect(state.calls).toEqual(['POST test 3'])
+  })
+
+  it('says a failing Test failed, in an error note with the message', async () => {
+    fakeAttention([sabRow()])
+    renderApp()
+
+    const row = await within(await sectionOf(/needs attention/i)).findByRole('listitem')
+    await userEvent.click(within(row).getByRole('button', { name: 'Test' }))
+
+    expect(await within(row).findByRole('alert')).toHaveTextContent('Test failed: SABnzbd did not answer')
+    expect(within(row).getByText(/blocking/i)).toBeInTheDocument()
+  })
+
+  it('says a passing Test passed, in a success note, when the row stays', async () => {
+    const state = fakeAttention([sabRow()])
+    state.test = { ok: true, code: null, message: 'SABnzbd 4.5.1' }
+    state.clears = false
+    renderApp()
+
+    const row = await within(await sectionOf(/needs attention/i)).findByRole('listitem')
+    await userEvent.click(within(row).getByRole('button', { name: 'Test' }))
+
+    expect(await within(row).findByRole('status')).toHaveTextContent('Test passed: SABnzbd 4.5.1')
+  })
+
+  it('keeps a status line at the top when a passing Test clears its row', async () => {
+    const state = fakeAttention([sabRow(), exdevRow()])
+    state.test = { ok: true, code: null, message: 'SABnzbd 4.5.1' }
+    renderApp()
+
+    const section = await sectionOf(/needs attention/i)
+    const row = (await within(section).findAllByRole('listitem'))[0]
+    await userEvent.click(within(row).getByRole('button', { name: 'Test' }))
+
+    const status = await within(await sectionOf(/needs attention/i)).findByRole('status')
+    expect(status).toHaveTextContent('Test passed: SABnzbd 4.5.1. The blocking issue cleared.')
+    expect(screen.queryByText('SABnzbd is unreachable: connection refused')).not.toBeInTheDocument()
+
+    await userEvent.click(within(status).getByRole('button', { name: 'Dismiss' }))
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
   it('sends the body an action carries', async () => {
