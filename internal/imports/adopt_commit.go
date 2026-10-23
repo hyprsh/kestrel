@@ -226,14 +226,13 @@ func (a *Adoption) runCommit(ctx context.Context, rows, todo []Row) {
 	defer a.snap.Hold()() // no TRaSH update lands between a row's Scores and the re-score after it
 	defer a.clearCurrent()
 	var res CommitResult
-	outcome := map[int64]FinalOutcome{}
-	failure := map[int64]string{}
+	ended := map[int64]ending{}
 	e, err := a.env(ctx)
 	if err != nil {
 		a.d.Logger.Error("adoption commit failed", "err", err)
 		res.Failed = len(todo)
 		for _, row := range todo {
-			outcome[row.ID], failure[row.ID] = EndedFailed, errorText(err)
+			ended[row.ID] = ending{EndedFailed, errorText(err)}
 		}
 		todo = nil
 	}
@@ -243,10 +242,10 @@ func (a *Adoption) runCommit(ctx context.Context, rows, todo []Row) {
 		if err := a.adoptRow(ctx, e, row); err != nil {
 			a.d.Logger.Error("adoption of an entry failed", "entry", row.Entry, "err", err)
 			res.Failed++
-			outcome[row.ID], failure[row.ID] = EndedFailed, errorText(err)
+			ended[row.ID] = ending{EndedFailed, errorText(err)}
 		} else {
 			res.Adopted++
-			outcome[row.ID] = EndedAdopted
+			ended[row.ID] = ending{Outcome: EndedAdopted}
 			if id, ok, err := a.d.Library.Find(ctx, row.kind(), row.Match.TMDBID, row.Match.TVDBID); err == nil && ok {
 				res.TitleIDs = append(res.TitleIDs, id)
 			}
@@ -255,7 +254,7 @@ func (a *Adoption) runCommit(ctx context.Context, rows, todo []Row) {
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.keepRows(ctx, rows, outcome, failure)
+	a.keepRows(ctx, rows, ended)
 	titles, _ := json.Marshal(append([]int64{}, res.TitleIDs...))
 	_ = a.q.FinishAdoptionCommit(ctx, db.FinishAdoptionCommitParams{
 		Adopted: sql.NullInt64{Int64: int64(res.Adopted), Valid: true}, Failed: sql.NullInt64{Int64: int64(res.Failed), Valid: true},
@@ -263,9 +262,16 @@ func (a *Adoption) runCommit(ctx context.Context, rows, todo []Row) {
 	})
 }
 
+// ending is how a row the commit tried ended: its final outcome and, for a
+// failed row, why.
+type ending struct {
+	Outcome FinalOutcome
+	Error   string
+}
+
 // keepRows stores every row with its final outcome: adopted or failed as the
 // commit says, and the rows it did not try as skipped, not chosen or unticked.
-func (a *Adoption) keepRows(ctx context.Context, rows []Row, outcome map[int64]FinalOutcome, failure map[int64]string) {
+func (a *Adoption) keepRows(ctx context.Context, rows []Row, ended map[int64]ending) {
 	tx, err := a.d.Store.Write().BeginTx(ctx, nil)
 	if err != nil {
 		a.d.Logger.Error("adoption: keeping the rows failed", "err", err)
@@ -274,18 +280,18 @@ func (a *Adoption) keepRows(ctx context.Context, rows []Row, outcome map[int64]F
 	defer tx.Rollback()
 	q := db.New(tx)
 	for _, r := range rows {
-		o, ok := outcome[r.ID]
+		end, ok := ended[r.ID]
 		if !ok {
 			switch r.Status {
 			case Skipped:
-				o = EndedSkipped
+				end.Outcome = EndedSkipped
 			case NeedsChoice:
-				o = EndedNotChosen
+				end.Outcome = EndedNotChosen
 			default:
-				o = EndedUnticked
+				end.Outcome = EndedUnticked
 			}
 		}
-		r.Outcome, r.Error = o, failure[r.ID]
+		r.Outcome, r.Error = end.Outcome, end.Error
 		data, err := json.Marshal(r)
 		if err == nil {
 			err = q.UpdateAdoptionRow(ctx, db.UpdateAdoptionRowParams{Status: string(r.Status), Ticked: b2i(r.Ticked), Data: string(data), ID: r.ID})

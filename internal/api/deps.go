@@ -177,7 +177,7 @@ type Adoption interface {
 	// Progress is the plan's state without its rows, for the stream's every tick.
 	Progress(ctx context.Context) (imports.Progress, error)
 	Scan(ctx context.Context, roots []string) error
-	Rows(ctx context.Context, f imports.Filter, o imports.OutcomeFilter, offset, limit int) (imports.RowPage, error)
+	Rows(ctx context.Context, f imports.Filter, o imports.FinalOutcome, offset, limit int) (imports.RowPage, error)
 	PatchRow(ctx context.Context, id int64, p imports.RowPatch) (imports.Row, error)
 	Bulk(ctx context.Context, req imports.BulkRequest) (imports.BulkResult, error)
 	SetMonitor(ctx context.Context, m library.Monitor) error

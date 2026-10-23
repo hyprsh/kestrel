@@ -116,7 +116,7 @@ func (s *Service) AdoptMovie(ctx context.Context, a AdoptMovie) (int64, []File, 
 		if primary == "" {
 			primary = d.Title
 		}
-		if id, err = insertMovie(ctx, q, AddMovie{Details: d, RootFolder: a.RootFolder, Unmonitored: a.Monitor == MonitorNone}, primary, ts(now)); err != nil {
+		if id, err = insertMovie(ctx, q, AddMovie{Details: d, RootFolder: a.RootFolder, Monitor: a.Monitor}, primary, ts(now)); err != nil {
 			return 0, nil, err
 		}
 	} else if _, err := q.GetTitle(ctx, id); errors.Is(err, sql.ErrNoRows) {

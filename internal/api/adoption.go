@@ -205,9 +205,9 @@ func (s *server) ListAdoptionRows(ctx context.Context, r oapi.ListAdoptionRowsRe
 	if err != nil {
 		return nil, err
 	}
-	var outcome imports.OutcomeFilter
+	var outcome imports.FinalOutcome
 	if r.Params.Outcome != nil {
-		outcome = imports.OutcomeFilter(*r.Params.Outcome)
+		outcome = imports.FinalOutcome(*r.Params.Outcome)
 	}
 	page, err := s.adoption.Rows(ctx, f, outcome, int(at), limit)
 	if err != nil {

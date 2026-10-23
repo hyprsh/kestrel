@@ -138,17 +138,19 @@ type Outcomes struct{ Adopted, Failed, Skipped, NotChosen, Unticked int }
 // Current is the entry a running scan or commit is working on.
 type Current struct {
 	Entry string
-	// Step is "probing", "matching" or "moving".
-	Step string
+	Step  Step
 	// Files is how many files the step covers; 0 when it is not about files.
 	Files int
 }
 
+// Step is what a running scan or commit is doing to its current entry.
+type Step string
+
 // The steps of Current.
 const (
-	StepProbing  = "probing"
-	StepMatching = "matching"
-	StepMoving   = "moving"
+	StepProbing  Step = "probing"
+	StepMatching Step = "matching"
+	StepMoving   Step = "moving"
 )
 
 // Plan is the Adoption plan's state.
@@ -343,7 +345,7 @@ type Adoption struct {
 }
 
 // setCurrent says what the running scan or commit is working on.
-func (a *Adoption) setCurrent(entry, step string, files int) {
+func (a *Adoption) setCurrent(entry string, step Step, files int) {
 	a.cur.Store(&Current{Entry: entry, Step: step, Files: files})
 }
 
@@ -563,9 +565,6 @@ func grouped(all []Row) []Row {
 	return out
 }
 
-// OutcomeFilter narrows Rows to the rows a commit ended one way; "" keeps all.
-type OutcomeFilter FinalOutcome
-
 // RowPage is one page of the plan's rows.
 type RowPage struct {
 	Rows []Row
@@ -575,9 +574,10 @@ type RowPage struct {
 	Summary Summary
 }
 
-// Rows returns the rows the filter and the outcome keep, Matched first, then
-// Needs choice, then Skipped, from offset on and at most limit of them.
-func (a *Adoption) Rows(ctx context.Context, f Filter, o OutcomeFilter, offset, limit int) (RowPage, error) {
+// Rows returns the rows the filter and the final outcome keep ("" keeps rows of
+// every outcome), Matched first, then Needs choice, then Skipped, from offset
+// on and at most limit of them.
+func (a *Adoption) Rows(ctx context.Context, f Filter, o FinalOutcome, offset, limit int) (RowPage, error) {
 	all, err := a.rows(ctx)
 	if err != nil {
 		return RowPage{}, err
@@ -585,7 +585,7 @@ func (a *Adoption) Rows(ctx context.Context, f Filter, o OutcomeFilter, offset, 
 	page := RowPage{Summary: summarizeRows(planRows(all))}
 	var kept []Row
 	for _, r := range grouped(all) {
-		if f.keeps(r) && (o == "" || FinalOutcome(o) == r.Outcome) {
+		if f.keeps(r) && (o == "" || o == r.Outcome) {
 			kept = append(kept, r)
 		}
 	}
