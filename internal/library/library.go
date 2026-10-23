@@ -93,6 +93,9 @@ type AddMovie struct {
 	PrimaryLanguage string
 	Versions        []VersionSpec
 	RootFolder      string
+	// Monitor is how the Movie is monitored: MonitorNone adds it unmonitored,
+	// anything else (the zero value too) monitored.
+	Monitor Monitor
 }
 
 // SlotState is one Slot of a listed Title.
@@ -325,7 +328,7 @@ func insertMovie(ctx context.Context, q *db.Queries, a AddMovie, primary, now st
 		Kind: string(Movie), TmdbID: nullInt(d.TMDBID), ImdbID: nullStr(d.IMDbID),
 		Title: d.Title, OriginalTitle: d.OriginalTitle, PrimaryTitle: primary,
 		Year: nullInt(d.Year), OriginalLanguage: d.OriginalLanguage, Overview: d.Overview,
-		Runtime: nullInt(d.Runtime), PosterPath: nullStr(d.PosterPath), Monitored: 1,
+		Runtime: nullInt(d.Runtime), PosterPath: nullStr(d.PosterPath), Monitored: boolInt(a.Monitor != MonitorNone),
 		RootFolder: a.RootFolder, AddedAt: now, RefreshedAt: now,
 		TmdbVoteAverage: voteAverage, TmdbVoteCount: voteCount,
 	})

@@ -128,14 +128,15 @@ describe('Running now', () => {
         response(200).json({
           state: 'scanning',
           progress: { done: 120, total: 450 },
-          summary: { matched: 0, needs_choice: 0, skipped: 0, duplicate: 0, replacement: 0 },
+          summary: { matched: 0, needs_choice: 0, skipped: 0, duplicate: 0, replacement: 0, adopting: 0 },
           revision: 1,
           error: null,
           scanned_at: null,
+          monitor: 'all',
           result: null,
         }),
       ),
-      http.get('/adoption/rows', ({ response }) => response(200).json({ items: [] })),
+      http.get('/adoption/rows', ({ response }) => response(200).json({ items: [], next_cursor: null, total: 0, counts: { matched: 0, needs_choice: 0, skipped: 0, duplicate: 0, replacement: 0, adopting: 0 } })),
     )
     await withActivity({ adoption: { state: 'scanning', done: 120, total: 450 } })
     act(() => vi.advanceTimersByTime(1000))

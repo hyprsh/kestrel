@@ -190,13 +190,15 @@ func (a *Adoption) planSeries(ctx context.Context, e *env, en entry, force int) 
 		return skip(SkipNoVideo)
 	}
 	slices.Sort(videos)
-	files, err := a.probeAll(ctx, videos)
+	a.working(e, en.Path, StepProbing, len(videos))
+	files, err := a.probeAll(ctx, videos, en.Probed)
 	if err != nil {
 		return nil, err
 	}
 	if len(files) == 0 {
 		return skip(SkipInvalid)
 	}
+	a.working(e, en.Path, StepMatching, 0)
 
 	var tmdbID int
 	var source string
@@ -217,7 +219,7 @@ func (a *Adoption) planSeries(ctx context.Context, e *env, en entry, force int) 
 			return nil, err
 		}
 		if confident == 0 {
-			row.Status, row.Ticked, row.Candidates = NeedsChoice, false, cands
+			row.Status, row.Ticked, row.Candidates, row.Probed = NeedsChoice, false, cands, keep(files)
 			return row, nil
 		}
 		tmdbID, source = confident, SourceName
@@ -248,8 +250,8 @@ func (a *Adoption) planSeries(ctx context.Context, e *env, en entry, force int) 
 	if force == 0 {
 		for _, f := range files {
 			if !probe.DurationPlausible(f.info.Duration, facts.runtime(), probe.EpisodeFloor) {
-				row.Status, row.Ticked, row.Match = NeedsChoice, false, nil
-				row.Candidates = []Candidate{{TMDBID: tmdbID, Title: facts.name(), Year: facts.Year}}
+				row.Status, row.Ticked, row.Match, row.Probed = NeedsChoice, false, nil, keep(files)
+				row.Candidates = []Candidate{{TMDBID: tmdbID, Title: facts.name(), Year: facts.Year, Suggested: true, Confident: true}}
 				return row, nil
 			}
 		}
@@ -355,14 +357,10 @@ func (a *Adoption) byNameSeries(ctx context.Context, en entry, files []probed) (
 	if len(exact) == 1 {
 		return nil, exact[0].TMDBID, nil
 	}
-	var cands []Candidate
-	for _, r := range series {
-		if len(cands) == maxCandidates {
-			break
-		}
-		cands = append(cands, Candidate{TMDBID: r.TMDBID, Title: r.Title, Year: r.Year})
+	if len(series) == 0 {
+		return nil, 0, nil
 	}
-	return cands, 0, nil
+	return suggest(rankResults([]string{title}, year, series, nil)), 0, nil
 }
 
 // slotFor is a file's Slot: Kestrel's own label wins, else a file probed at
@@ -592,7 +590,7 @@ func (a *Adoption) adoptSeriesRow(ctx context.Context, e *env, row Row) (err err
 		return errors.New("none of the files could be adopted")
 	}
 
-	adopt := library.AdoptSeries{TitleID: titleID, PrimaryLanguage: string(e.region.Primary), RootFolder: root, Folder: folder, Versions: versions}
+	adopt := library.AdoptSeries{TitleID: titleID, PrimaryLanguage: string(e.region.Primary), RootFolder: root, Folder: folder, Versions: versions, Monitor: row.Monitor}
 	if !tracked {
 		if adopt.TMDB, err = a.d.Meta.Series(ctx, m.TMDBID); err != nil {
 			return err

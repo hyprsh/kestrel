@@ -42,3 +42,9 @@ UPDATE adoption_rows SET status = ?, ticked = ?, data = ? WHERE id = ?;
 
 -- name: DeleteAdoptionRows :exec
 DELETE FROM adoption_rows;
+
+-- name: SetAdoptionMonitor :exec
+UPDATE adoption_plan SET monitor = ?, revision = revision + 1 WHERE id = 1;
+
+-- name: ReopenAdoptionRun :exec
+UPDATE adoption_plan SET state = 'scanning', revision = revision + 1, done = 0, total = ?, error = NULL WHERE id = 1;

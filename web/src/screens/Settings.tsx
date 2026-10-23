@@ -2,6 +2,7 @@ import { Button, Checkbox, Fieldset, Input, Note, Textarea } from '@hyprsh/desig
 import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { useState, type FormEvent, type MouseEvent, type ReactNode } from 'react'
 import { usePhone } from '../responsive'
+import { adoptionLabel, useAdoption } from '../api/adoption'
 import { ApiError, useApiKey, useAuth, useChangePassword, useCreateApiKey, useLogoutEverywhere, useReverseProxy, useSaveReverseProxy, type ReverseProxy } from '../api/queries'
 import { UpdateCheckSwitch } from '../about/UpdateCheck'
 import { PauseGrabsSwitch } from '../grabs/PauseGrabs'
@@ -60,6 +61,7 @@ export function Settings({
   onCloseSection?: () => void
 }) {
   const phone = usePhone()
+  const adoption = useAdoption()
   const content: Record<string, ReactNode> = {
     language: (
       <>
@@ -120,7 +122,7 @@ export function Settings({
       <>
         <Row label="Adopt existing library" help="Scan the Movie and Series Root folders for files Kestrel does not manage yet and take them over without downloading again.">
           <Button size="small" onClick={onAdopt}>
-            Scan for unmanaged files
+            {adoptionLabel(adoption.data?.state)}
           </Button>
         </Row>
       </>

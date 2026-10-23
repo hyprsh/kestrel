@@ -16,16 +16,34 @@ func (s *server) adoptionLocation() *string {
 }
 
 func adoptionToAPI(p imports.Plan) oapi.Adoption {
-	out := oapi.Adoption{State: oapi.AdoptionState(p.State), Revision: p.Revision, ScannedAt: p.ScannedAt, Error: strPtr(p.Error)}
+	out := oapi.Adoption{State: oapi.AdoptionState(p.State), Revision: p.Revision, ScannedAt: p.ScannedAt, Error: strPtr(p.Error), Monitor: oapi.AdoptionMonitor(p.Monitor)}
 	out.Progress.Done, out.Progress.Total = p.Done, p.Total
-	out.Summary.Matched, out.Summary.NeedsChoice, out.Summary.Skipped = p.Summary.Matched, p.Summary.NeedsChoice, p.Summary.Skipped
-	out.Summary.Duplicate, out.Summary.Replacement = p.Summary.Duplicate, p.Summary.Replacement
+	out.Progress.Current = currentToAPI(p.Current)
+	out.Summary = summaryToAPI(p.Summary)
 	if p.Result != nil {
+		o := p.Result.Outcomes
 		out.Result = &struct {
-			Adopted  int     `json:"adopted"`
-			Failed   int     `json:"failed"`
-			TitleIds []int64 `json:"title_ids"`
-		}{p.Result.Adopted, p.Result.Failed, p.Result.TitleIDs}
+			Adopted  int                   `json:"adopted"`
+			Failed   int                   `json:"failed"`
+			Outcomes oapi.AdoptionOutcomes `json:"outcomes"`
+			TitleIds []int64               `json:"title_ids"`
+		}{p.Result.Adopted, p.Result.Failed, oapi.AdoptionOutcomes{
+			Adopted: o.Adopted, Failed: o.Failed, Skipped: o.Skipped, NotChosen: o.NotChosen, Unticked: o.Unticked,
+		}, p.Result.TitleIDs}
+	}
+	return out
+}
+
+func currentToAPI(c *imports.Current) *oapi.AdoptionCurrent {
+	if c == nil {
+		return nil
+	}
+	out := &oapi.AdoptionCurrent{Entry: c.Entry, Step: oapi.AdoptionCurrentStep(c.Step)}
+	if c.Files > 0 {
+		out.Files = &c.Files
+	}
+	if c.Title != "" {
+		out.Title = &c.Title
 	}
 	return out
 }
@@ -37,7 +55,7 @@ func (s *server) adoptionActivity(ctx context.Context) *oapi.AdoptionActivity {
 	if err != nil || (p.State != imports.PlanScanning && p.State != imports.PlanCommitting) {
 		return nil
 	}
-	return &oapi.AdoptionActivity{State: oapi.AdoptionActivityState(p.State), Done: p.Done, Total: p.Total}
+	return &oapi.AdoptionActivity{State: oapi.AdoptionActivityState(p.State), Done: p.Done, Total: p.Total, Current: currentToAPI(p.Current)}
 }
 
 func adoptionRowToAPI(r imports.Row) oapi.AdoptionRow {
@@ -47,6 +65,10 @@ func adoptionRowToAPI(r imports.Row) oapi.AdoptionRow {
 	}
 	if r.Kind == library.Series {
 		out.Kind = oapi.Series
+	}
+	if r.Monitor != "" {
+		m := oapi.AdoptionMonitor(r.Monitor)
+		out.Monitor = &m
 	}
 	if r.SkipReason != "" {
 		reason := oapi.AdoptionRowSkipReason(r.SkipReason)
@@ -64,8 +86,15 @@ func adoptionRowToAPI(r imports.Row) oapi.AdoptionRow {
 			out.Match.TitleId = &id
 		}
 	}
+	if r.Outcome != "" {
+		outcome := oapi.AdoptionFinalOutcome(r.Outcome)
+		out.Outcome = &outcome
+	}
+	if r.Error != "" {
+		out.Error = &r.Error
+	}
 	for _, c := range r.Candidates {
-		out.Candidates = append(out.Candidates, oapi.AdoptionCandidate{TmdbId: c.TMDBID, Title: c.Title, Year: intPtr(c.Year)})
+		out.Candidates = append(out.Candidates, oapi.AdoptionCandidate{TmdbId: c.TMDBID, Title: c.Title, Year: intPtr(c.Year), Suggested: c.Suggested, Confident: c.Confident})
 	}
 	for _, f := range r.Files {
 		af := oapi.AdoptionFile{
@@ -97,10 +126,20 @@ func adoptionProblem(err error) error {
 		return problem(http.StatusConflict, "conflict", "An Adoption scan or commit is already running")
 	case errors.Is(err, imports.ErrStale):
 		return problem(http.StatusConflict, "conflict", "The Adoption plan changed since you reviewed it; review it again")
+	case errors.Is(err, imports.ErrNothingToReopen):
+		return problem(http.StatusConflict, "conflict", "No entry was left without a choice, so there is nothing to reopen")
+	case errors.Is(err, imports.ErrNothingToRetry):
+		return problem(http.StatusConflict, "conflict", "No entry failed in the last commit, so there is nothing to try again")
 	case errors.Is(err, imports.ErrNoRow):
 		return problem(http.StatusNotFound, "not_found", "no such Adoption row")
 	case errors.Is(err, imports.ErrNoRoot):
 		return invalid("root_folders", "invalid", err.Error())
+	case errors.Is(err, imports.ErrBadAction):
+		return invalid("action", "invalid", err.Error())
+	case errors.Is(err, imports.ErrBadFilter):
+		return invalid("filter", "invalid", err.Error())
+	case errors.Is(err, imports.ErrBadMonitor):
+		return invalid("monitor", "invalid", "monitor is all, future or none")
 	case errors.Is(err, imports.ErrNotSettleable):
 		return invalid("tmdb_id", "invalid", "The row's files cannot be matched to that Title")
 	}
@@ -113,6 +152,20 @@ func (s *server) GetAdoption(ctx context.Context, _ oapi.GetAdoptionRequestObjec
 		return nil, err
 	}
 	return oapi.GetAdoption200JSONResponse(adoptionToAPI(p)), nil
+}
+
+func (s *server) PatchAdoption(ctx context.Context, r oapi.PatchAdoptionRequestObject) (oapi.PatchAdoptionResponseObject, error) {
+	if r.Body == nil {
+		return nil, invalid("monitor", "required", "Name how the Titles are monitored")
+	}
+	if err := s.adoption.SetMonitor(ctx, library.Monitor(r.Body.Monitor)); err != nil {
+		return nil, adoptionProblem(err)
+	}
+	p, err := s.adoption.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return oapi.PatchAdoption200JSONResponse(adoptionToAPI(p)), nil
 }
 
 func (s *server) DiscardAdoption(ctx context.Context, _ oapi.DiscardAdoptionRequestObject) (oapi.DiscardAdoptionResponseObject, error) {
@@ -137,20 +190,95 @@ func (s *server) ScanAdoption(ctx context.Context, r oapi.ScanAdoptionRequestObj
 	return oapi.ScanAdoption202JSONResponse{Body: adoptionToAPI(p), Headers: oapi.ScanAdoption202ResponseHeaders{Location: s.adoptionLocation()}}, nil
 }
 
+// summaryToAPI is the counts of a plan's rows, as the list and the plan carry them.
+func summaryToAPI(m imports.Summary) oapi.AdoptionSummary {
+	return oapi.AdoptionSummary{
+		Matched: m.Matched, NeedsChoice: m.NeedsChoice, Skipped: m.Skipped, Duplicate: m.Duplicate, Replacement: m.Replacement,
+		Adopting: m.Adopting,
+	}
+}
+
 func (s *server) ListAdoptionRows(ctx context.Context, r oapi.ListAdoptionRowsRequestObject) (oapi.ListAdoptionRowsResponseObject, error) {
 	var f imports.Filter
 	if r.Params.Filter != nil {
 		f = imports.Filter(*r.Params.Filter)
 	}
-	rows, err := s.adoption.Rows(ctx, f)
+	limit := 0 // every row, for a client that predates paging
+	if r.Params.Limit != nil {
+		if limit = *r.Params.Limit; limit < 1 || limit > 10000 {
+			return nil, invalid("limit", "invalid", "limit is between 1 and 10000")
+		}
+	}
+	at, err := readCursor(r.Params.Cursor, 0)
 	if err != nil {
 		return nil, err
 	}
-	out := oapi.AdoptionRowList{Items: make([]oapi.AdoptionRow, len(rows))}
-	for i, row := range rows {
+	var outcome imports.FinalOutcome
+	if r.Params.Outcome != nil {
+		outcome = imports.FinalOutcome(*r.Params.Outcome)
+	}
+	page, err := s.adoption.Rows(ctx, f, outcome, int(at), limit)
+	if err != nil {
+		return nil, err
+	}
+	out := oapi.AdoptionRowList{Items: make([]oapi.AdoptionRow, len(page.Rows)), Total: page.Total, Counts: summaryToAPI(page.Summary)}
+	for i, row := range page.Rows {
 		out.Items[i] = adoptionRowToAPI(row)
 	}
+	if end := int(at) + len(page.Rows); end < page.Total {
+		out.NextCursor = cursorOf(int64(end))
+	}
 	return oapi.ListAdoptionRows200JSONResponse(out), nil
+}
+
+// BulkAdoptionRows is POST /adoption/rows/bulk: one action over many rows,
+// answered per row.
+func (s *server) BulkAdoptionRows(ctx context.Context, r oapi.BulkAdoptionRowsRequestObject) (oapi.BulkAdoptionRowsResponseObject, error) {
+	if r.Body == nil {
+		return nil, invalid("body", "required", "a body is required")
+	}
+	req := imports.BulkRequest{Action: imports.BulkAction(r.Body.Action)}
+	if r.Body.Monitor != nil {
+		req.Monitor = library.Monitor(*r.Body.Monitor)
+	}
+	hasIDs := r.Body.RowIds != nil && len(*r.Body.RowIds) > 0
+	switch {
+	case hasIDs && r.Body.Filter != nil:
+		return nil, invalid("filter", "invalid", "Name row_ids or a filter, not both")
+	case hasIDs:
+		req.RowIDs = *r.Body.RowIds
+	case r.Body.Filter != nil:
+		req.Filter = imports.Filter(*r.Body.Filter)
+	case r.Body.RowIds != nil:
+		return nil, invalid("row_ids", "required", "Pick at least one row")
+	default:
+		return nil, invalid("row_ids", "required", "Name the rows with row_ids or a filter")
+	}
+	res, err := s.adoption.Bulk(ctx, req)
+	if err != nil {
+		return nil, adoptionProblem(err)
+	}
+	out := oapi.AdoptionBulkResult{Revision: res.Revision, Items: make([]oapi.AdoptionBulkRowResult, len(res.Items))}
+	for i, it := range res.Items {
+		o := oapi.AdoptionBulkRowResult{RowId: it.RowID, Result: oapi.AdoptionBulkRowResultResult(it.Result)}
+		if it.Reason != "" {
+			reason := oapi.AdoptionBulkRowResultReason(it.Reason)
+			o.Reason = &reason
+		}
+		if it.Message != "" {
+			o.Message = &it.Message
+		}
+		if it.Status != "" { // every row that exists has a status
+			status := oapi.AdoptionBulkRowResultStatus(it.Status)
+			o.Status = &status
+		}
+		if it.SkipReason != "" {
+			reason := oapi.AdoptionBulkRowResultSkipReason(it.SkipReason)
+			o.SkipReason = &reason
+		}
+		out.Items[i] = o
+	}
+	return oapi.BulkAdoptionRows200JSONResponse(out), nil
 }
 
 func (s *server) PatchAdoptionRow(ctx context.Context, r oapi.PatchAdoptionRowRequestObject) (oapi.PatchAdoptionRowResponseObject, error) {
@@ -158,6 +286,10 @@ func (s *server) PatchAdoptionRow(ctx context.Context, r oapi.PatchAdoptionRowRe
 		return nil, invalid("body", "required", "a body is required")
 	}
 	p := imports.RowPatch{Ticked: r.Body.Ticked, TMDBID: r.Body.TmdbId}
+	if r.Body.Monitor != nil {
+		m := library.Monitor(*r.Body.Monitor)
+		p.Monitor = &m
+	}
 	if r.Body.Files != nil {
 		for _, f := range *r.Body.Files {
 			p.Files = append(p.Files, imports.FileTick{Path: f.Path, Ticked: f.Ticked})
@@ -170,11 +302,41 @@ func (s *server) PatchAdoptionRow(ctx context.Context, r oapi.PatchAdoptionRowRe
 	return oapi.PatchAdoptionRow200JSONResponse(adoptionRowToAPI(row)), nil
 }
 
+// ReopenAdoption is POST /adoption/reopen: the entries nobody chose go back in
+// the plan, without a scan.
+func (s *server) ReopenAdoption(ctx context.Context, _ oapi.ReopenAdoptionRequestObject) (oapi.ReopenAdoptionResponseObject, error) {
+	if err := s.adoption.Reopen(ctx); err != nil {
+		return nil, adoptionProblem(err)
+	}
+	p, err := s.adoption.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return oapi.ReopenAdoption200JSONResponse(adoptionToAPI(p)), nil
+}
+
+// RetryAdoption is POST /adoption/retry: the failed entries of the last
+// commit are planned again, without a new scan.
+func (s *server) RetryAdoption(ctx context.Context, _ oapi.RetryAdoptionRequestObject) (oapi.RetryAdoptionResponseObject, error) {
+	if err := s.adoption.Retry(ctx); err != nil {
+		return nil, adoptionProblem(err)
+	}
+	p, err := s.adoption.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return oapi.RetryAdoption202JSONResponse{Body: adoptionToAPI(p), Headers: oapi.RetryAdoption202ResponseHeaders{Location: s.adoptionLocation()}}, nil
+}
+
 func (s *server) CommitAdoption(ctx context.Context, r oapi.CommitAdoptionRequestObject) (oapi.CommitAdoptionResponseObject, error) {
 	if r.Body == nil {
 		return nil, invalid("revision", "required", "Name the revision of the plan you reviewed")
 	}
-	if err := s.adoption.Commit(ctx, r.Body.Revision); err != nil {
+	var monitor library.Monitor
+	if r.Body.Monitor != nil {
+		monitor = library.Monitor(*r.Body.Monitor)
+	}
+	if err := s.adoption.Commit(ctx, r.Body.Revision, monitor); err != nil {
 		return nil, adoptionProblem(err)
 	}
 	p, err := s.adoption.Get(ctx)

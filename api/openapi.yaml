@@ -1457,7 +1457,9 @@ paths:
         Adoption takes over an existing on-disk library without downloading it again. There is at most one
         plan, stored until it is committed or discarded: `idle` (no plan), `scanning` (building one in the
         background, with `progress`), `planned` (waiting for review) or `committing`. `revision` changes with
-        every edit of the plan; `POST /adoption/commit` must name the one it reviewed.
+        every edit of the plan; `POST /adoption/commit` must name the one it reviewed. After a commit the
+        state is `idle` but the rows are kept, each with its final `outcome`, until the next scan or a
+        discard; `result.outcomes` counts them.
       tags: [adoption]
       responses:
         "200":
@@ -1466,6 +1468,42 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Adoption"
+        default:
+          $ref: "#/components/responses/Problem"
+    patch:
+      operationId: patchAdoption
+      summary: Choose how the plan's Titles are monitored
+      description: |
+        `monitor` is how the Titles the plan adds are monitored unless a row has its own choice: `all`
+        (today's behaviour: a Movie is monitored, a Series follows every episode), `future` (a Series
+        follows episodes that air from today; a Movie is monitored) or `none` (unmonitored: not Wanted,
+        no missing searches and no Upgrade searches for the files it already has, see #70). A Title Kestrel
+        already tracks keeps its own monitoring. Moves the plan's `revision`. `409 conflict` while scanning
+        or committing, `404` with no plan.
+      tags: [adoption]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [monitor]
+              properties:
+                monitor:
+                  $ref: "#/components/schemas/AdoptionMonitor"
+      responses:
+        "200":
+          description: The Adoption state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Adoption"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
     delete:
@@ -1525,7 +1563,9 @@ paths:
       operationId: listAdoptionRows
       summary: The rows of the plan
       description: |
-        Rows are grouped Matched, Needs choice and Skipped. `duplicate` keeps rows with a file left in place
+        Paged like `GET /titles` (`limit`, `next_cursor`). Rows are grouped Matched, Needs choice and Skipped. `total`
+        counts the rows the filter keeps and `counts` the rows of the whole plan, so the SPA can say "all N in this
+        filter" and show every filter's count from one page. `duplicate` keeps rows with a file left in place
         because another file holds its Slot; `replacement` keeps rows that would replace a file a Version
         holds (unticked by default).
       tags: [adoption]
@@ -1536,13 +1576,85 @@ paths:
           schema:
             type: string
             enum: [needs_choice, matched, duplicate, replacement, skipped]
+        - name: outcome
+          in: query
+          required: false
+          description: |
+            Keep the rows that ended this way in the last commit (see `AdoptionFinalOutcome`), which are kept
+            until the next scan. Only rows of a finished commit have an outcome, so no row matches before one.
+            Combines with `filter`. Without it the list is the rows under review, not the kept ones.
+          schema:
+            $ref: "#/components/schemas/AdoptionFinalOutcome"
+        - name: limit
+          in: query
+          description: Page size. Without it every row is returned, as before paging existed.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10000
+        - name: cursor
+          in: query
+          description: The `next_cursor` of the previous page.
+          schema:
+            type: string
       responses:
         "200":
-          description: The rows.
+          description: A page of rows, with the counts of the whole plan.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdoptionRowList"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /adoption/rows/bulk:
+    post:
+      operationId: bulkAdoptionRows
+      summary: Change many rows of the plan at once
+      description: |
+        Applies one `action` to the rows named in `row_ids`, or to every row `filter` keeps (the server
+        resolves it, so "all N in this filter" is one call across pages). Name `row_ids` or `filter`,
+        not both. Answers per row, in the order named: `changed`, `left` with a `reason`, or `failed`.
+        The plan's `revision` moves once, and only when a row changed; a left row is as it was.
+
+        - `tick` and `untick` include or leave out Matched rows, as `PATCH` with `ticked` does. Another
+          kind of row is left as `not_matched`, and one already so as `already`.
+        - `accept_suggested` settles Needs choice rows on their suggested candidate (see
+          `AdoptionCandidate`), only when it is `confident`: the row is planned again exactly as choosing
+          that candidate with `PATCH` does, so it can come back `matched`, or `skipped` with the
+          `skip_reason` it would have (no enabled Profile, for example); it is `changed` either way and
+          the item says which. A row that is not Needs choice is left as `not_needs_choice`, one
+          with no candidates as `no_suggestion`, one whose suggestion is not confident as
+          `not_confident`, and one that cannot be matched to the suggested Title as `not_settleable`.
+
+        - `set_monitor` gives the rows their own `monitor` (see `PATCH /adoption`), over the plan's. A row
+          that joins a Title Kestrel tracks is left as `tracked` (the Title keeps its monitoring), and
+          one that already has that choice as `already`. `monitor` is required for this action.
+
+        Accepting plans each row against the metadata provider, with the probes the scan took, a few rows at
+        a time, and does not hold the plan meanwhile: an edit made in the meantime goes through, and the
+        accept then answers `409 conflict` and changes nothing, so review the plan and accept again.
+      tags: [adoption]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdoptionRowsBulk"
+      responses:
+        "200":
+          description: What happened to each row.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdoptionBulkResult"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
   /adoption/rows/{id}:
@@ -1624,7 +1736,8 @@ paths:
         Answers `202`; the work runs in the background, one transaction per Title. Files are renamed in
         place into the naming scheme together with their sidecar subtitles, and each Title is logged as it is
         adopted. `409 conflict` when `revision` is not the plan's current one (a row changed since it was
-        reviewed) or the plan is not `planned`. The plan is cleared once committed.
+        reviewed) or the plan is not `planned`. Once committed the rows are kept with their final `outcome` (see
+        `GET /adoption/rows`) until the next scan or a discard.
       tags: [adoption]
       requestBody:
         required: true
@@ -1637,6 +1750,10 @@ paths:
                 revision:
                   type: integer
                   format: int64
+                monitor:
+                  allOf:
+                    - $ref: "#/components/schemas/AdoptionMonitor"
+                  description: Replaces the plan's choice of how the Titles it adds are monitored (see `PATCH /adoption`).
       responses:
         "202":
           description: The commit started.
@@ -1644,6 +1761,55 @@ paths:
             Location:
               schema:
                 type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Adoption"
+        "409":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /adoption/retry:
+    post:
+      operationId: retryAdoption
+      summary: Plan the entries that failed again
+      description: |
+        After a commit, plans again only the entries whose `outcome` is `failed`, from their folders as they
+        are now and against the Title each was matched to, with no new scan. The plan is `planned` again for
+        review and a commit, with those entries as rows under review. The other kept rows stay, as does the
+        last commit's `result`: the next commit adds to it. Answers `202` with `Location: /adoption`; the
+        planning runs in the background (`scanning`), as a scan's does. If it cannot finish, the plan is
+        `idle` with its `error` and everything the commit kept. An entry whose folder is gone stays `failed`.
+        `409 conflict` while a scan or commit runs, or when there is no failed entry to try again.
+      tags: [adoption]
+      responses:
+        "202":
+          description: The planning started.
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Adoption"
+        "409":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /adoption/reopen:
+    post:
+      operationId: reopenAdoption
+      summary: Put the entries nobody chose back in the plan
+      description: |
+        After a commit, puts the kept rows whose `outcome` is `not_chosen` back in the plan as Needs choice
+        rows under review, with no scan, so they can be settled and committed. The plan is `planned` again.
+        The other kept rows stay, as does the last commit's `result`: the next commit adds to it.
+        `409 conflict` while a scan or commit runs, or when no entry was left without a choice.
+      tags: [adoption]
+      responses:
+        "200":
+          description: The plan, planned again.
           content:
             application/json:
               schema:
@@ -3977,13 +4143,24 @@ components:
         blocklist:
           type: boolean
           default: false
+    AdoptionMonitor:
+      type: string
+      description: |
+        How an Adoption adds a Title: `all` monitors it (a Series follows every episode), `future` follows
+        a Series' episodes from today on (a Movie is monitored), `none` leaves it unmonitored. These are
+        Add Title's choices that need no season list; a Title Kestrel tracks keeps its own monitoring.
+      enum: [all, future, none]
     Adoption:
       type: object
-      required: [state, progress, summary, revision, error, scanned_at, result]
+      required: [state, progress, summary, revision, error, scanned_at, result, monitor]
       properties:
         state:
           type: string
           enum: [idle, scanning, planned, committing]
+        monitor:
+          allOf:
+            - $ref: "#/components/schemas/AdoptionMonitor"
+          description: How the Titles the plan adds are monitored unless a row has its own choice; `all` for a new plan.
         progress:
           type: object
           required: [done, total]
@@ -3992,21 +4169,10 @@ components:
               type: integer
             total:
               type: integer
+            current:
+              $ref: "#/components/schemas/AdoptionCurrent"
         summary:
-          type: object
-          description: Row counts of the plan; all zero when there is none.
-          required: [matched, needs_choice, skipped, duplicate, replacement]
-          properties:
-            matched:
-              type: integer
-            needs_choice:
-              type: integer
-            skipped:
-              type: integer
-            duplicate:
-              type: integer
-            replacement:
-              type: integer
+          $ref: "#/components/schemas/AdoptionSummary"
         revision:
           type: integer
           format: int64
@@ -4022,7 +4188,7 @@ components:
           type: object
           nullable: true
           description: What the last commit did; kept until the next scan.
-          required: [adopted, failed, title_ids]
+          required: [adopted, failed, title_ids, outcomes]
           properties:
             adopted:
               type: integer
@@ -4034,9 +4200,61 @@ components:
               items:
                 type: integer
                 format: int64
+            outcomes:
+              $ref: "#/components/schemas/AdoptionOutcomes"
+    AdoptionCurrent:
+      type: object
+      description: |
+        The entry a running scan or commit is working on and what is happening to it; absent when nothing runs.
+        There is no per-file progress: `files` is how many files the step covers.
+      required: [entry, step]
+      properties:
+        entry:
+          type: string
+          description: The folder or loose file in the Root folder.
+        step:
+          type: string
+          description: What is happening to the entry. Clients tolerate steps they do not know.
+          enum: [probing, matching, moving]
+        files:
+          type: integer
+          description: How many files the step covers, when it is about files.
+        title:
+          type: string
+          description: |
+            The Title the entry is adopted as, with its year ("Paddington (2014)"), once it is matched, which
+            is while a commit moves it; absent while a scan or a Try again is still reading it.
+    AdoptionFinalOutcome:
+      type: string
+      description: |
+        What became of a row after a commit. `adopted` and `failed` rows were ticked and committed (`failed`
+        carries the row's `error`); `skipped` rows could not be adopted; `not_chosen` rows needed a choice
+        nobody made; `unticked` rows were Matched but left out.
+      enum: [adopted, failed, skipped, not_chosen, unticked]
+    AdoptionOutcomes:
+      type: object
+      description: How many rows ended each way, after the last commit.
+      required: [adopted, failed, skipped, not_chosen, unticked]
+      properties:
+        adopted:
+          type: integer
+        failed:
+          type: integer
+        skipped:
+          type: integer
+        not_chosen:
+          type: integer
+        unticked:
+          type: integer
     AdoptionCandidate:
       type: object
-      required: [tmdb_id, title, year]
+      description: |
+        A likely match of a Needs choice row. Candidates come best first: Kestrel ranks them on title
+        similarity, year and runtime fit, and marks the first one it would pick `suggested`. The
+        suggestion is `confident` when its year is within one of the name's and its title is a
+        near-exact match (or a close one whose runtime fits the files), and no other candidate fits
+        about as well. A selection accepts only confident suggestions in bulk.
+      required: [tmdb_id, title, year, suggested, confident]
       properties:
         tmdb_id:
           type: integer
@@ -4045,6 +4263,12 @@ components:
         year:
           type: integer
           nullable: true
+        suggested:
+          type: boolean
+          description: Kestrel's pick; at most one candidate of a row has it.
+        confident:
+          type: boolean
+          description: The suggestion is safe to accept without a look. Only a suggested candidate can be.
     AdoptionMatch:
       type: object
       required: [tmdb_id, title, year, title_id, source, folder]
@@ -4133,6 +4357,10 @@ components:
       type: object
       required: [id, kind, status, skip_reason, entry, ticked, match, candidates, files]
       properties:
+        monitor:
+          allOf:
+            - $ref: "#/components/schemas/AdoptionMonitor"
+          description: The row's own choice of how the Title it adds is monitored; absent when it follows the plan's.
         id:
           type: integer
           format: int64
@@ -4163,19 +4391,112 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdoptionFile"
+        outcome:
+          $ref: "#/components/schemas/AdoptionFinalOutcome"
+        error:
+          type: string
+          description: Why a `failed` row could not be adopted.
+    AdoptionSummary:
+      type: object
+      description: Row counts of the plan; all zero when there is none.
+      required: [matched, needs_choice, skipped, duplicate, replacement, adopting]
+      properties:
+        matched:
+          type: integer
+        needs_choice:
+          type: integer
+        skipped:
+          type: integer
+        duplicate:
+          type: integer
+        replacement:
+          type: integer
+        adopting:
+          type: integer
+          description: How many rows a commit would adopt now (Matched, ticked, with a file that is not left in place).
     AdoptionRowList:
       type: object
-      required: [items]
+      required: [items, next_cursor, total, counts]
       properties:
         items:
           type: array
           items:
             $ref: "#/components/schemas/AdoptionRow"
+        next_cursor:
+          type: string
+          nullable: true
+          description: Pass it as `cursor` for the next page; `null` on the last page.
+        total:
+          type: integer
+          description: How many rows the `filter` keeps, over all pages.
+        counts:
+          $ref: "#/components/schemas/AdoptionSummary"
+    AdoptionRowFilter:
+      type: string
+      description: The filters of `GET /adoption/rows`, and `all` for every row of the plan.
+      enum: [all, needs_choice, matched, duplicate, replacement, skipped]
+    AdoptionRowsBulk:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [tick, untick, accept_suggested, set_monitor]
+        monitor:
+          $ref: "#/components/schemas/AdoptionMonitor"
+        row_ids:
+          type: array
+          maxItems: 10000
+          items:
+            type: integer
+            format: int64
+        filter:
+          $ref: "#/components/schemas/AdoptionRowFilter"
+    AdoptionBulkResult:
+      type: object
+      required: [revision, items]
+      properties:
+        revision:
+          type: integer
+          format: int64
+          description: The plan's revision after the call.
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdoptionBulkRowResult"
+    AdoptionBulkRowResult:
+      type: object
+      required: [row_id, result]
+      properties:
+        row_id:
+          type: integer
+          format: int64
+        result:
+          type: string
+          description: What the edit did to the row, not to be confused with a row's final `outcome` after a commit.
+          enum: [changed, left, failed]
+        reason:
+          type: string
+          description: Why the row was left as it was.
+          enum: [already, no_such_row, not_matched, not_needs_choice, no_suggestion, not_confident, not_settleable, tracked]
+        message:
+          type: string
+          description: Why the row failed.
+        status:
+          type: string
+          description: The row's status afterwards, when the row exists.
+          enum: [matched, needs_choice, skipped]
+        skip_reason:
+          type: string
+          description: Why a row that ended up `skipped` is.
+          enum: [invalid, no_video, no_enabled_profile, not_on_tvdb]
     AdoptionRowPatch:
       type: object
       properties:
         ticked:
           type: boolean
+        monitor:
+          $ref: "#/components/schemas/AdoptionMonitor"
         tmdb_id:
           type: integer
         files:
@@ -4336,6 +4657,8 @@ components:
         total:
           type: integer
           description: Entries to scan, or rows to adopt; 0 until a scan has listed them.
+        current:
+          $ref: "#/components/schemas/AdoptionCurrent"
     AttentionSnapshot:
       type: object
       required: [count, severity]

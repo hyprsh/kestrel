@@ -3,6 +3,7 @@
 import { Badge, Button, Note, useToasts } from '@hyprsh/design'
 import { useState } from 'react'
 import { useAttention, useRunAction, type ActionResult, type Attention, type AttentionAction, type AttentionRow } from '../api/attention'
+import { planWaiting, useAdoption, type Adoption } from '../api/adoption'
 import { slotLabel } from '../library/bits'
 import { placePath } from '../place'
 import { NavRow } from '../ui'
@@ -20,12 +21,14 @@ export const shownRows = (rows: AttentionRow[], all: boolean) => (all ? rows : f
 export function NeedsAttention({
   onOpen,
   onOpenTitle,
+  onOpenAdoption,
   nav,
   all,
   onAll,
 }: {
   onOpen: (path: string) => void
   onOpenTitle: (id: number) => void
+  onOpenAdoption: () => void
   nav: OverviewNav
   all: boolean
   onAll: (all: boolean) => void
@@ -36,7 +39,8 @@ export function NeedsAttention({
   const longMissing = attention.data?.long_missing
   const originals = attention.data?.originals
   // Long Missing only waits, so it leaves the section saying nothing needs attention; offers ask for a choice.
-  const nothing = rows.length === 0 && !(originals && originals.count > 0)
+  const adoption = useAdoption().data
+  const nothing = rows.length === 0 && !(originals && originals.count > 0) && !planWaiting(adoption?.state)
   return (
     <Section id="needs-attention" title="Needs attention" count={rows.length}>
       {attention.data && nothing ? (
@@ -57,9 +61,30 @@ export function NeedsAttention({
         )
       )}
       {(all || shown.length < rows.length) && <ViewAllHere count={rows.length} open={all} onToggle={() => onAll(!all)} />}
+      {adoption && planWaiting(adoption.state) && <AdoptionPlanRow adoption={adoption} onOpen={onOpenAdoption} />}
       {longMissing && longMissing.count > 0 && <LongMissingRow group={longMissing} onOpen={onOpen} />}
       {originals && originals.count > 0 && <OriginalsRow group={originals} onOpenTitle={onOpenTitle} />}
     </Section>
+  )
+}
+
+const adoptionMessage = (a: Adoption) =>
+  a.state === 'scanning'
+    ? 'An Adoption scan is running'
+    : a.state === 'committing'
+      ? 'An Adoption plan is being committed'
+      : `An Adoption plan is waiting for review${a.summary.needs_choice > 0 ? ` (${a.summary.needs_choice} need a choice)` : ''}`
+
+/** A stored Adoption plan, as one row outside the rail badge: a new scan replaces it, so this points back to it. */
+function AdoptionPlanRow({ adoption, onOpen }: { adoption: Adoption; onOpen: () => void }) {
+  return (
+    <div data-adoption-plan className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-gray-alpha-400 px-4 py-3">
+      <Badge variant="amber-subtle" size="sm">Adoption</Badge>
+      <span className="min-w-0 flex-1 max-sm:basis-full">{adoptionMessage(adoption)}</span>
+      <Button variant="secondary" size="small" className="max-sm:flex-1" onClick={onOpen}>
+        Review the Adoption plan
+      </Button>
+    </div>
   )
 }
 

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -52,6 +53,8 @@ type entry struct {
 	Path  string
 	Name  string // the folder name, or the file name without extension
 	IsDir bool
+	// Probed are the probes a Needs choice row kept of the entry's files.
+	Probed []probedFile
 }
 
 // env is what planning reads once per scan or edit.
@@ -64,6 +67,9 @@ type env struct {
 	byTMDB  map[int]library.Tracked
 	// seriesByTMDB are the tracked Series.
 	seriesByTMDB map[int]library.Tracked
+	// running is set when a scan, a Try again or a commit reads the env: only
+	// those say what they are working on.
+	running bool
 }
 
 func (a *Adoption) env(ctx context.Context) (*env, error) {
@@ -132,6 +138,9 @@ func (a *Adoption) Scan(ctx context.Context, roots []string) error {
 	if err := a.q.StartAdoptionScan(ctx); err != nil {
 		return err
 	}
+	if err := a.q.SetAdoptionMonitor(ctx, string(library.MonitorAll)); err != nil {
+		return err
+	}
 	a.wg.Add(1)
 	go func() {
 		defer a.wg.Done()
@@ -148,22 +157,33 @@ func (a *Adoption) runScan(ctx context.Context, roots scanRoots) {
 	rows, err := a.scan(ctx, roots)
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if err != nil {
-		a.d.Logger.Error("adoption scan failed", "err", err)
-		_ = a.q.DeleteAdoptionRows(ctx)
-		_ = a.q.FailAdoptionScan(ctx, sql.NullString{String: errorText(err), Valid: true})
+	if !a.finishRun(ctx, "adoption scan", err, func() error { return a.save(ctx, rows) }) {
 		return
 	}
-	if err := a.save(ctx, rows); err != nil {
-		a.d.Logger.Error("adoption: storing the plan failed", "err", err)
-		_ = a.q.FailAdoptionScan(ctx, sql.NullString{String: errorText(err), Valid: true})
-		return
-	}
-	_ = a.q.FinishAdoptionScan(ctx, sql.NullString{String: a.d.Clock().UTC().Format("2006-01-02T15:04:05Z07:00"), Valid: true})
 	s := summarizeRows(rows)
 	a.d.History.Record(ctx, history.Event{
 		Kind: history.AdoptionScanned, Message: fmt.Sprintf("Adoption scan: %d matched, %d need a choice, %d skipped", s.Matched, s.NeedsChoice, s.Skipped),
 	})
+}
+
+// finishRun ends a background scan or Try again, with a.mu held: it stores the
+// rows it planned with store, or fails the run with the error of planning or
+// storing them. It clears what the run worked on before the plan is let go, so
+// it cannot wipe that of a run that starts next. It reports whether the plan
+// was stored.
+func (a *Adoption) finishRun(ctx context.Context, what string, planErr error, store func() error) bool {
+	a.clearCurrent()
+	err := planErr
+	if err == nil {
+		err = store()
+	}
+	if err != nil {
+		a.d.Logger.Error(what+" failed", "err", err)
+		_ = a.q.FailAdoptionScan(ctx, sql.NullString{String: errorText(err), Valid: true})
+		return false
+	}
+	_ = a.q.FinishAdoptionScan(ctx, sql.NullString{String: a.d.Clock().UTC().Format(time.RFC3339), Valid: true})
+	return true
 }
 
 func errorText(err error) string {
@@ -239,6 +259,7 @@ func (a *Adoption) scan(ctx context.Context, roots scanRoots) ([]Row, error) {
 	if err != nil {
 		return nil, err
 	}
+	e.running = true
 	_ = a.q.SetAdoptionProgress(ctx, db.SetAdoptionProgressParams{Done: 0, Total: int64(len(list))})
 	var rows []Row
 	for i, en := range list {
@@ -293,13 +314,49 @@ func findVideos(en entry, held map[string]bool) (videos []string, anyHeld bool, 
 type probed struct {
 	path string
 	info probe.Info
+	// size and mod are the file on disk as it was probed, to tell whether a
+	// probe kept on a row still holds.
+	size, mod int64
+}
+
+// probedFile is a probe a Needs choice row keeps, so that settling the row
+// does not read every file again: an Adoption of thousands of files would
+// otherwise probe them twice.
+type probedFile struct {
+	Path    string     `json:"path"`
+	Info    probe.Info `json:"info"`
+	Size    int64      `json:"size"`
+	ModTime int64      `json:"mod_time"`
+}
+
+// keep is the probes of the files, as a row keeps them.
+func keep(files []probed) []probedFile {
+	out := make([]probedFile, len(files))
+	for i, f := range files {
+		out[i] = probedFile{f.path, f.info, f.size, f.mod}
+	}
+	return out
 }
 
 // probeAll probes the videos; one that is unreadable or has no video stream
-// is left out. An error is the environment's.
-func (a *Adoption) probeAll(ctx context.Context, videos []string) ([]probed, error) {
+// is left out. A video that reuse holds a probe of, which has not changed on
+// disk since, is not probed again. An error is the environment's.
+func (a *Adoption) probeAll(ctx context.Context, videos []string, reuse []probedFile) ([]probed, error) {
 	var files []probed
+	kept := make(map[string]probedFile, len(reuse))
+	for _, r := range reuse {
+		kept[r.Path] = r
+	}
 	for _, v := range videos {
+		var size, mod int64
+		st, statErr := os.Stat(v)
+		if statErr == nil {
+			size, mod = st.Size(), st.ModTime().UnixNano()
+		}
+		if r, ok := kept[v]; ok && statErr == nil && r.Size == size && r.ModTime == mod {
+			files = append(files, probed{v, r.Info, size, mod})
+			continue
+		}
 		info, err := a.d.Prober.Probe(ctx, v)
 		switch {
 		case errors.Is(err, probe.ErrNotInstalled):
@@ -310,11 +367,9 @@ func (a *Adoption) probeAll(ctx context.Context, videos []string) ([]probed, err
 			continue
 		}
 		if info.Size == 0 {
-			if st, err := os.Stat(v); err == nil {
-				info.Size = st.Size()
-			}
+			info.Size = size
 		}
-		files = append(files, probed{v, info})
+		files = append(files, probed{v, info, size, mod})
 	}
 	return files, nil
 }
@@ -352,13 +407,15 @@ func (a *Adoption) planMovie(ctx context.Context, e *env, en entry, force int) (
 	if multiPart(videos) {
 		return skip(SkipInvalid)
 	}
-	files, err := a.probeAll(ctx, videos)
+	a.working(e, en.Path, StepProbing, len(videos))
+	files, err := a.probeAll(ctx, videos, en.Probed)
 	if err != nil {
 		return nil, err
 	}
 	if len(files) == 0 {
 		return skip(SkipInvalid)
 	}
+	a.working(e, en.Path, StepMatching, 0)
 
 	// Which Movie is it?
 	var tmdbID int
@@ -385,7 +442,7 @@ func (a *Adoption) planMovie(ctx context.Context, e *env, en entry, force int) (
 		if confident != 0 {
 			tmdbID, source = confident, SourceName
 		} else {
-			row.Status, row.Ticked, row.Candidates = NeedsChoice, false, cands
+			row.Status, row.Ticked, row.Candidates, row.Probed = NeedsChoice, false, cands, keep(files)
 			return row, nil
 		}
 	}
@@ -416,8 +473,9 @@ func (a *Adoption) planMovie(ctx context.Context, e *env, en entry, force int) (
 		runtime := facts.runtime()
 		for _, f := range files {
 			if !probe.DurationPlausible(f.info.Duration, runtime, probe.MovieFloor) {
-				row.Status, row.Ticked, row.Match = NeedsChoice, false, nil
-				row.Candidates = []Candidate{{TMDBID: tmdbID, Title: facts.name(), Year: facts.Year}}
+				row.Status, row.Ticked, row.Match, row.Probed = NeedsChoice, false, nil, keep(files)
+				// The name matched the Movie and only the runtime does not fit.
+				row.Candidates = []Candidate{{TMDBID: tmdbID, Title: facts.name(), Year: facts.Year, Suggested: true, Confident: true}}
 				return row, nil
 			}
 		}
@@ -518,14 +576,32 @@ func (a *Adoption) byName(ctx context.Context, en entry, files []probed) ([]Cand
 	if len(exact) == 1 {
 		return nil, exact[0].TMDBID, nil
 	}
-	var cands []Candidate
-	for _, r := range movies {
-		if len(cands) == maxCandidates {
-			break
-		}
-		cands = append(cands, Candidate{TMDBID: r.TMDBID, Title: r.Title, Year: r.Year})
+	if len(movies) == 0 {
+		return nil, 0, nil
 	}
-	return cands, 0, nil
+	return suggest(rankResults(parsed.Titles, parsed.Year, movies, a.runtimeFit(ctx, files))), 0, nil
+}
+
+// runtimeFit looks up how a Movie's runtime fits the files of an entry.
+func (a *Adoption) runtimeFit(ctx context.Context, files []probed) runtimeOf {
+	return func(tmdbID int) (runtimeFit, bool) {
+		d, err := a.d.Meta.Movie(ctx, tmdbID)
+		if err != nil {
+			return runtimeFit{}, false
+		}
+		runtime := time.Duration(d.Runtime) * time.Minute
+		fit := runtimeFit{close: unknownRuntime, plausible: true}
+		var longest time.Duration
+		for _, f := range files {
+			longest = max(longest, f.info.Duration)
+			fit.plausible = fit.plausible && probe.DurationPlausible(f.info.Duration, runtime, probe.MovieFloor)
+		}
+		if runtime > 0 {
+			off := math.Abs(float64(longest)/float64(runtime) - 1)
+			fit.close = max(0, 1-off/runtimeSlack)
+		}
+		return fit, true
+	}
 }
 
 var (
@@ -762,8 +838,8 @@ func settle(rows []Row) {
 	var contenders []ref
 	for i := range rows {
 		r := &rows[i]
-		if r.Status != Matched || r.Match == nil {
-			continue
+		if r.Status != Matched || r.Match == nil || r.Outcome != "" {
+			continue // a kept row has been through a commit: its files hold no Slot
 		}
 		for j := range r.Files {
 			f := &r.Files[j]

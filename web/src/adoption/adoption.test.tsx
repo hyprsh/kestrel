@@ -12,7 +12,10 @@ type Row = components['schemas']['AdoptionRow']
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
+const willAdopt = (r: Row) => r.status === 'matched' && r.ticked && r.files.some((f) => f.ticked && !f.left)
+
 const summary = (rows: Row[]): Adoption['summary'] => ({
+  adopting: rows.filter(willAdopt).length,
   matched: rows.filter((r) => r.status === 'matched').length,
   needs_choice: rows.filter((r) => r.status === 'needs_choice').length,
   skipped: rows.filter((r) => r.status === 'skipped').length,
@@ -55,7 +58,7 @@ const doubtful: Row = {
   entry: '/data/media/movies/The Lost',
   ticked: false,
   match: null,
-  candidates: [{ tmdb_id: 77, title: 'The Lost Film', year: 2020 }],
+  candidates: [{ tmdb_id: 77, title: 'The Lost Film', year: 2020, suggested: false, confident: false }],
   files: [],
 }
 const broken: Row = {
@@ -88,6 +91,22 @@ const series: Row = {
 }
 const orphan: Row = { ...broken, id: 5, kind: 'series', skip_reason: 'not_on_tvdb', entry: '/data/media/tv/Orphan Show' }
 
+const inFilter = (r: Row, f: string | undefined) => {
+  switch (f) {
+    case undefined:
+    case 'all':
+      return true
+    case 'duplicate':
+      return r.files.some((x) => x.left === 'duplicate')
+    case 'replacement':
+      return r.files.some((x) => x.action === 'replace' && !x.left)
+    default:
+      return r.status === f
+  }
+}
+
+type Bulk = components['schemas']['AdoptionRowsBulk']
+
 export function fakeAdoption(rows: Row[] = [matched, doubtful, broken]) {
   const state = {
     plan: 'idle' as Adoption['state'],
@@ -95,6 +114,12 @@ export function fakeAdoption(rows: Row[] = [matched, doubtful, broken]) {
     rows,
     patches: [] as { id: string; body: unknown }[],
     commits: [] as unknown[],
+    bulks: [] as Bulk[],
+    monitor: 'all' as Adoption['monitor'],
+    /** The bodies of every PATCH /adoption. */
+    planPatches: [] as unknown[],
+    /** The `limit`, `cursor` and `filter` of every GET /adoption/rows. */
+    pages: [] as { limit: string | null; cursor: string | null; filter: string | null }[],
   }
   const adoption = (): Adoption => ({
     state: state.plan,
@@ -104,19 +129,69 @@ export function fakeAdoption(rows: Row[] = [matched, doubtful, broken]) {
     error: null,
     scanned_at: null,
     result: null,
+    monitor: state.monitor,
   })
   server.use(
     http.get('/adoption', ({ response }) => response(200).json(adoption())),
+    http.patch('/adoption', async ({ request, response }) => {
+      const body = (await request.clone().json()) as { monitor: Adoption['monitor'] }
+      state.planPatches.push(body)
+      state.monitor = body.monitor
+      state.revision++
+      return response(200).json(adoption())
+    }),
     http.post('/adoption/scan', ({ response }) => {
       state.plan = 'planned'
       state.revision++
       return response(202).json(adoption())
     }),
-    http.get('/adoption/rows', ({ response }) => response(200).json({ items: state.rows })),
+    http.get('/adoption/rows', ({ request, response }) => {
+      const q = new URL(request.url).searchParams
+      state.pages.push({ limit: q.get('limit'), cursor: q.get('cursor'), filter: q.get('filter') })
+      const kept = state.rows.filter((r) => inFilter(r, q.get('filter') ?? undefined))
+      const at = Number(q.get('cursor') ?? 0)
+      const end = at + Number(q.get('limit') ?? 100)
+      return response(200).json({
+        items: kept.slice(at, end),
+        next_cursor: end < kept.length ? String(end) : null,
+        total: kept.length,
+        counts: summary(state.rows),
+      })
+    }),
+    http.post('/adoption/rows/bulk', async ({ request, response }) => {
+      const body = (await request.clone().json()) as Bulk
+      state.bulks.push(body)
+      const targets = state.rows.filter((r) => (body.row_ids ? body.row_ids.includes(r.id) : inFilter(r, body.filter)))
+      const items: components['schemas']['AdoptionBulkRowResult'][] = []
+      for (const r of targets) {
+        const pick = r.candidates.find((c) => c.suggested)
+        if (body.action === 'accept_suggested') {
+          if (r.status !== 'needs_choice') items.push({ row_id: r.id, result: 'left', reason: 'not_needs_choice' })
+          else if (!pick?.confident) items.push({ row_id: r.id, result: 'left', reason: pick ? 'not_confident' : 'no_suggestion' })
+          else {
+            Object.assign(r, { status: 'matched', ticked: true, match: { tmdb_id: pick.tmdb_id, title: pick.title, year: pick.year, title_id: null, source: 'chosen', folder: 'x' }, files: [file('x')] })
+            items.push({ row_id: r.id, result: 'changed', status: 'matched' })
+          }
+        } else if (body.action === 'set_monitor') {
+          if (r.match?.title_id) items.push({ row_id: r.id, result: 'left', reason: 'tracked' })
+          else {
+            r.monitor = body.monitor
+            items.push({ row_id: r.id, result: 'changed', status: r.status })
+          }
+        } else if (r.status !== 'matched') items.push({ row_id: r.id, result: 'left', reason: 'not_matched' })
+        else {
+          r.ticked = body.action === 'tick'
+          items.push({ row_id: r.id, result: 'changed', status: 'matched' })
+        }
+      }
+      state.revision++
+      return response(200).json({ revision: state.revision, items })
+    }),
     http.patch('/adoption/rows/{id}', async ({ params, request, response }) => {
       const body = await request.clone().json()
       state.patches.push({ id: String(params.id), body })
       state.revision++
+      if ('monitor' in body) state.rows = state.rows.map((r) => (String(r.id) === String(params.id) ? { ...r, monitor: body.monitor as Row['monitor'] } : r))
       if ('ticked' in body) state.rows = state.rows.map((r) => (String(r.id) === String(params.id) ? { ...r, ticked: body.ticked as boolean } : r))
       if ('tmdb_id' in body) {
         state.rows = state.rows.map((r) =>
@@ -188,11 +263,12 @@ describe('Adoption review', () => {
         response(200).json({
           state: 'idle',
           progress: { done: 0, total: 0 },
-          summary: { matched: 0, needs_choice: 0, skipped: 0, duplicate: 0, replacement: 0 },
+          summary: { matched: 0, needs_choice: 0, skipped: 0, duplicate: 0, replacement: 0, adopting: 0 },
           revision: 3,
           error: null,
           scanned_at: null,
-          result: { adopted: 2, failed: 0, title_ids: [3, 4] },
+          monitor: 'all',
+          result: { adopted: 2, failed: 0, title_ids: [3, 4], outcomes: { adopted: 2, failed: 0, skipped: 0, not_chosen: 0, unticked: 0 } },
         }),
       ),
       http.post('/cleanup/preview', async ({ request, response }) => {
@@ -225,6 +301,189 @@ describe('Adoption review', () => {
     await user.click(await screen.findByLabelText('Adopt Paddington (2014)'))
 
     expect(await screen.findByRole('button', { name: 'Adopt 0 Titles' })).toBeDisabled()
+  })
+})
+
+const moreRows = (n: number, over: Partial<Row> = {}): Row[] =>
+  Array.from({ length: n }, (_, i) => ({ ...matched, id: 100 + i, entry: `/data/media/movies/Film ${i}`, match: { ...matched.match!, title: `Film ${i}`, year: 2000 }, files: [file(`f${i}`)], ...over }))
+
+describe('Adoption review of a large plan', () => {
+  async function openPlan(rows: Row[]) {
+    const state = fakeAdoption(rows)
+    const user = await openAdoption()
+    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+    return { state, user }
+  }
+
+  it('shows the rows a page at a time and loads the next page on request', async () => {
+    const { state, user } = await openPlan(moreRows(250))
+
+    expect(await screen.findByText('Showing 100 of 250')).toBeInTheDocument()
+    expect(screen.getAllByRole('listitem').filter((li) => li.textContent?.includes('Film '))).toHaveLength(100)
+    await user.click(screen.getByRole('button', { name: 'Show more' }))
+    expect(await screen.findByText('Showing 200 of 250')).toBeInTheDocument()
+    expect(state.pages.at(-1)).toEqual({ limit: '100', cursor: '100', filter: null })
+    expect(screen.getByRole('button', { name: 'Adopt 250 Titles' })).toBeInTheDocument()
+  })
+
+  it('asks the server for the chosen filter', async () => {
+    const { state, user } = await openPlan([...moreRows(3), doubtful])
+
+    await user.selectOptions(await screen.findByRole('combobox', { name: 'Show' }), 'needs_choice')
+
+    expect(await screen.findByText('Showing 1 of 1')).toBeInTheDocument()
+    expect(state.pages.at(-1)?.filter).toBe('needs_choice')
+  })
+
+  it('leaves out the selected rows by id', async () => {
+    const { state, user } = await openPlan(moreRows(3))
+
+    await user.click(await screen.findByLabelText('Select Film 0'))
+    await user.click(screen.getByLabelText('Select Film 1'))
+    expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('2 selected')
+    await user.click(screen.getByRole('button', { name: "Don't adopt selected" }))
+
+    expect(await screen.findByRole('button', { name: 'Adopt 1 Title' })).toBeInTheDocument()
+    expect(state.bulks).toEqual([{ action: 'untick', row_ids: [100, 101] }])
+  })
+
+  it('selects every row of the filter across pages and sends the filter, not the ids', async () => {
+    const { state, user } = await openPlan(moreRows(250))
+
+    await user.click(await screen.findByLabelText('Select Film 0'))
+    await user.click(screen.getByRole('button', { name: 'Select all 100 shown' }))
+    await user.click(screen.getByRole('button', { name: 'Select all 250 in this filter' }))
+    expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('250 selected')
+    await user.click(screen.getByRole('button', { name: "Don't adopt selected" }))
+
+    expect(await screen.findByRole('button', { name: 'Adopt 0 Titles' })).toBeDisabled()
+    expect(state.bulks).toEqual([{ action: 'untick', filter: 'all' }])
+    expect(screen.getByRole('group', { name: 'Selection' })).not.toHaveTextContent('selected') // nothing is selected after the action
+  })
+
+  it('offers both select-all controls before a single row is ticked', async () => {
+    const { state, user } = await openPlan(moreRows(250))
+
+    expect(await screen.findByText('Showing 100 of 250')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Select all 100 shown' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Select all 250 in this filter' }))
+    expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('250 selected')
+    await user.click(screen.getByRole('button', { name: "Don't adopt selected" }))
+
+    expect(state.bulks).toEqual([{ action: 'untick', filter: 'all' }])
+  })
+
+  it('offers no action on a selection before anything is selected', async () => {
+    await openPlan(moreRows(250))
+
+    await screen.findByText('Showing 100 of 250')
+    expect(screen.queryByRole('button', { name: "Don't adopt selected" })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument()
+  })
+
+  it('says so when leaving one row out ends "all in this filter", and then names the rows left by id', async () => {
+    const { state, user } = await openPlan(moreRows(250))
+
+    await user.click(await screen.findByRole('button', { name: 'Select all 250 in this filter' }))
+    await user.click(screen.getByLabelText('Select Film 3'))
+
+    const bar = screen.getByRole('group', { name: 'Selection' })
+    expect(bar).toHaveTextContent('99 selected')
+    expect(bar).toHaveTextContent('No longer all 250 in this filter')
+    expect(within(bar).getByRole('button', { name: 'Select all 250 in this filter' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: "Don't adopt selected" }))
+
+    expect(state.bulks).toHaveLength(1)
+    expect(state.bulks[0].filter).toBeUndefined()
+    expect(state.bulks[0].row_ids).toHaveLength(99)
+    expect(state.bulks[0].row_ids).not.toContain(103)
+  })
+
+  it('colours the suggested match primary and accepts the confident suggestions of a selection', async () => {
+    const hesitant: Row = { ...doubtful, id: 20, entry: '/data/media/movies/Hesitant', candidates: [{ tmdb_id: 9, title: 'Maybe', year: 2001, suggested: true, confident: false }] }
+    const sure: Row = {
+      ...doubtful,
+      id: 21,
+      entry: '/data/media/movies/Sure',
+      candidates: [
+        { tmdb_id: 77, title: 'The Lost Film', year: 2020, suggested: true, confident: true },
+        { tmdb_id: 78, title: 'Another Lost Film', year: 2019, suggested: false, confident: false },
+      ],
+    }
+    const { state, user } = await openPlan([sure, hesitant])
+
+    const pick = await screen.findByRole('button', { name: 'Accept suggested match: The Lost Film (2020)' })
+    expect(pick.className).not.toBe(screen.getByRole('button', { name: 'Use Another Lost Film (2019)' }).className)
+    await user.click(screen.getByLabelText('Select Sure'))
+    await user.click(screen.getByLabelText('Select Hesitant'))
+    await user.click(screen.getByRole('button', { name: 'Accept suggested matches' }))
+
+    expect(state.bulks).toEqual([{ action: 'accept_suggested', row_ids: [21, 20] }])
+    expect(await screen.findByText('Accepted 1 suggested match. 1 left for you because the suggestion is not confident enough.')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Adopt The Lost Film (2020)')).toBeChecked()
+  })
+
+  it('accepts one row from its own suggested button', async () => {
+    const sure: Row = { ...doubtful, candidates: [{ tmdb_id: 77, title: 'The Lost Film', year: 2020, suggested: true, confident: true }] }
+    const { state, user } = await openPlan([sure])
+
+    await user.click(await screen.findByRole('button', { name: 'Accept suggested match: The Lost Film (2020)' }))
+
+    expect(state.patches).toEqual([{ id: '2', body: { tmdb_id: 77 } }])
+  })
+})
+
+describe('Adoption monitoring', () => {
+  async function openPlan(rows: Row[]) {
+    const state = fakeAdoption(rows)
+    const user = await openAdoption()
+    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+    return { state, user }
+  }
+  const tracked: Row = { ...matched, id: 6, entry: '/data/media/movies/Tracked', match: { ...matched.match!, title: 'Tracked', title_id: 9 } }
+
+  it('chooses how the whole plan is monitored and stores it on the plan', async () => {
+    const { state, user } = await openPlan([matched, series])
+
+    const choice = await screen.findByRole('combobox', { name: 'Monitoring' })
+    expect(choice).toHaveValue('all')
+    expect(within(choice).getAllByRole('option').map((o) => o.textContent)).toEqual(['Monitored', 'Series: future episodes only', 'Unmonitored'])
+    await user.selectOptions(choice, 'none')
+
+    expect(state.planPatches).toEqual([{ monitor: 'none' }])
+    expect(await screen.findByRole('combobox', { name: 'Monitoring' })).toHaveValue('none')
+  })
+
+  it('lets a row choose for itself, a Series with its future episodes choice and a Movie without', async () => {
+    const { state, user } = await openPlan([matched, series])
+
+    const movie = await screen.findByRole('combobox', { name: 'Monitoring of Paddington (2014)' })
+    expect(within(movie).getAllByRole('option').map((o) => o.textContent)).toEqual(['Monitored', 'Unmonitored'])
+    const show = screen.getByRole('combobox', { name: 'Monitoring of Breaking Bad (2008)' })
+    expect(within(show).getAllByRole('option').map((o) => o.textContent)).toEqual(['All episodes', 'Future episodes only', 'Unmonitored'])
+    await user.selectOptions(show, 'future')
+
+    expect(state.patches).toEqual([{ id: '4', body: { monitor: 'future' } }])
+    expect(await screen.findByRole('combobox', { name: 'Monitoring of Breaking Bad (2008)' })).toHaveValue('future')
+  })
+
+  it('offers no choice on a row for a Title Kestrel already tracks', async () => {
+    await openPlan([tracked])
+
+    await screen.findByLabelText('Adopt Tracked (2014)')
+    expect(screen.queryByRole('combobox', { name: /Monitoring of/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Keeps its own monitoring')).toBeInTheDocument()
+  })
+
+  it('sets the monitoring of a selection and says which rows kept their own', async () => {
+    const { state, user } = await openPlan([matched, series, tracked])
+
+    await user.click(await screen.findByLabelText('Select Paddington.2014.1080p'))
+    await user.click(screen.getByLabelText('Select Tracked'))
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Set monitoring of selected' }), 'none')
+
+    expect(state.bulks).toEqual([{ action: 'set_monitor', monitor: 'none', row_ids: [1, 6] }])
+    expect(await screen.findByText('Set 1 row to Unmonitored. 1 left as they were because the Title is in the Library and keeps its monitoring.')).toBeInTheDocument()
   })
 })
 

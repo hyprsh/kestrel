@@ -78,6 +78,9 @@ type AdoptMovie struct {
 	// Folder is the Title folder; it is only set if the Title has none yet.
 	Folder   string
 	Versions []AdoptVersion
+	// Monitor is how a Movie the Adoption adds is monitored: MonitorNone adds
+	// it unmonitored, anything else monitored. A tracked Title keeps its own.
+	Monitor Monitor
 }
 
 // AdoptMovie writes an Adoption of one Movie in a single transaction: the
@@ -113,7 +116,7 @@ func (s *Service) AdoptMovie(ctx context.Context, a AdoptMovie) (int64, []File, 
 		if primary == "" {
 			primary = d.Title
 		}
-		if id, err = insertMovie(ctx, q, AddMovie{Details: d, RootFolder: a.RootFolder}, primary, ts(now)); err != nil {
+		if id, err = insertMovie(ctx, q, AddMovie{Details: d, RootFolder: a.RootFolder, Monitor: a.Monitor}, primary, ts(now)); err != nil {
 			return 0, nil, err
 		}
 	} else if _, err := q.GetTitle(ctx, id); errors.Is(err, sql.ErrNoRows) {
@@ -206,10 +209,13 @@ type AdoptSeries struct {
 	// Folder is the Title folder.
 	Folder   string
 	Versions []AdoptSeriesVersion
+	// Monitor is the monitoring mode of a Series the Adoption adds; "" is
+	// MonitorAll. A tracked Series keeps its own.
+	Monitor Monitor
 }
 
 // AdoptSeries writes an Adoption of one Series in a single transaction: the
-// Title if it is new (monitoring All), the missing Versions, and the episode
+// Title if it is new (monitoring All unless the caller says otherwise), the missing Versions, and the episode
 // files. An episode that already has a file in the Version keeps it unless the
 // file says Replace. It returns the Title's id and the files that no longer
 // hold any episode, which the caller deletes from disk. Like AdoptMovie, a new
@@ -237,8 +243,12 @@ func (s *Service) AdoptSeries(ctx context.Context, a AdoptSeries) (int64, []File
 		}
 	}
 	if id == 0 {
+		mode := a.Monitor
+		if mode == "" {
+			mode = MonitorAll
+		}
 		if id, _, err = insertSeries(ctx, q, AddSeries{
-			TMDB: a.TMDB, TVDB: a.TVDB, PrimaryLanguage: a.PrimaryLanguage, Monitor: MonitorAll, RootFolder: a.RootFolder,
+			TMDB: a.TMDB, TVDB: a.TVDB, PrimaryLanguage: a.PrimaryLanguage, Monitor: mode, RootFolder: a.RootFolder,
 		}, now); err != nil {
 			return 0, nil, err
 		}

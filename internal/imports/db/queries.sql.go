@@ -62,7 +62,7 @@ func (q *Queries) FinishAdoptionScan(ctx context.Context, scannedAt sql.NullStri
 }
 
 const getAdoptionPlan = `-- name: GetAdoptionPlan :one
-SELECT id, state, revision, done, total, error, scanned_at, adopted, failed, adopted_titles FROM adoption_plan WHERE id = 1
+SELECT id, state, revision, done, total, error, scanned_at, adopted, failed, adopted_titles, monitor FROM adoption_plan WHERE id = 1
 `
 
 func (q *Queries) GetAdoptionPlan(ctx context.Context) (AdoptionPlan, error) {
@@ -79,6 +79,7 @@ func (q *Queries) GetAdoptionPlan(ctx context.Context) (AdoptionPlan, error) {
 		&i.Adopted,
 		&i.Failed,
 		&i.AdoptedTitles,
+		&i.Monitor,
 	)
 	return i, err
 }
@@ -148,12 +149,30 @@ func (q *Queries) ListAdoptionRows(ctx context.Context) ([]AdoptionRow, error) {
 	return items, nil
 }
 
+const reopenAdoptionRun = `-- name: ReopenAdoptionRun :exec
+UPDATE adoption_plan SET state = 'scanning', revision = revision + 1, done = 0, total = ?, error = NULL WHERE id = 1
+`
+
+func (q *Queries) ReopenAdoptionRun(ctx context.Context, total int64) error {
+	_, err := q.db.ExecContext(ctx, reopenAdoptionRun, total)
+	return err
+}
+
 const resetAdoption = `-- name: ResetAdoption :exec
 UPDATE adoption_plan SET state = 'idle', revision = revision + 1, done = 0, total = 0, error = NULL, scanned_at = NULL, adopted = NULL, failed = NULL, adopted_titles = NULL WHERE id = 1
 `
 
 func (q *Queries) ResetAdoption(ctx context.Context) error {
 	_, err := q.db.ExecContext(ctx, resetAdoption)
+	return err
+}
+
+const setAdoptionMonitor = `-- name: SetAdoptionMonitor :exec
+UPDATE adoption_plan SET monitor = ?, revision = revision + 1 WHERE id = 1
+`
+
+func (q *Queries) SetAdoptionMonitor(ctx context.Context, monitor string) error {
+	_, err := q.db.ExecContext(ctx, setAdoptionMonitor, monitor)
 	return err
 }
 

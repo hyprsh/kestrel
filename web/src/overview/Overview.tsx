@@ -17,7 +17,15 @@ import { EmptyLine, firstFive, Section, ViewAll } from './Section'
 import type { OverviewNav } from './nav'
 
 /** onOpen is how an action that opens a place in the app (a GET action) gets there. */
-export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen?: (path: string) => void; onOpenTitle?: (id: number) => void }) {
+export function Overview({
+  onOpen = () => {},
+  onOpenTitle = () => {},
+  onOpenAdoption = () => {},
+}: {
+  onOpen?: (path: string) => void
+  onOpenTitle?: (id: number) => void
+  onOpenAdoption?: () => void
+}) {
   const queue = useQueue()
   const cancel = useCancelGrab()
   const all = queue.data ?? []
@@ -49,7 +57,7 @@ export function Overview({ onOpen = () => {}, onOpenTitle = () => {} }: { onOpen
       {/* One column below 1024px, in reading order; from 1024px Needs attention spans the top and the main column (two thirds) sits beside the side column. */}
       <div className="mx-auto grid max-w-3xl grid-cols-1 gap-8 lg:max-w-7xl lg:grid-cols-3">
         <div className="lg:col-span-3">
-          <NeedsAttention onOpen={onOpen} onOpenTitle={onOpenTitle} nav={nav(0)} all={allAttention} onAll={setAllAttention} />
+          <NeedsAttention onOpen={onOpen} onOpenTitle={onOpenTitle} onOpenAdoption={onOpenAdoption} nav={nav(0)} all={allAttention} onAll={setAllAttention} />
         </div>
         <div className="flex min-w-0 flex-col gap-8 lg:col-span-2">
           <Section id="downloading-now" title="Downloading now" count={queue.data ? all.length : undefined}>

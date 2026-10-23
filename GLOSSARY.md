@@ -65,6 +65,18 @@ _Avoid_: Score, audience score, vote (for the average)
 Scanning files already on disk and matching them to Titles and Versions, so Kestrel manages them without downloading again.
 _Avoid_: Import (reserved for completed downloads)
 
+**Ticked / Selected (in Adoption)**:
+A row of the plan is ticked when it is included in the commit; ticking is the plan's own choice and what a commit adopts. A row is selected when the admin has picked it, with the others, for a bulk action (tick, untick, accept suggested matches, set monitoring), which acts on the selection and never changes what is selected. Selecting "all in this filter" names the filter, not the rows loaded.
+_Avoid_: Checked, picked (for either)
+
+**Suggested match / Confident**:
+For a Needs choice row, the candidate Kestrel ranks first by how its title, year and runtime fit the entry: the Suggested match. It is Confident when the year is within one of the name's, the title is a near-exact match (or close, with a runtime that fits every file) and no other candidate scores close; accepting suggested matches in bulk settles only the Confident ones, the way choosing them by hand does.
+_Avoid_: Best match, auto-match, guess
+
+**Outcome (of an Adoption row)**:
+What became of a row after a commit: adopted, failed, skipped, not chosen (a Needs choice row nobody settled) or left out (a Matched row left unticked). The rows are kept with their outcomes, with the commit's result, until the next scan; Try again and Reopen put failed and not chosen rows back under review without one. A bulk edit's per-row answer (changed, left or failed) is its result, not an outcome.
+_Avoid_: Status (a row's status is Matched, Needs choice or Skipped, before a commit), result (the whole commit's counts)
+
 **Unmanaged file**:
 A file under a root folder that no Version holds. Adoption can take it in, and Clean up can delete it.
 _Avoid_: Untracked, orphaned, stray (file)

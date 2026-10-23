@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -17,16 +18,26 @@ import (
 )
 
 // pathProber answers by file path: "broken" is unreadable, "uhd" is 2160p,
-// "short" is ten minutes long, everything else is a good 1080p file.
+// "short" is ten minutes long (also when "uhd"), everything else is a good 1080p file.
 type pathProber struct{}
 
+var minutesRx = regexp.MustCompile(`\.(\d+)min\.`)
+
 func (pathProber) Probe(_ context.Context, path string) (probe.Info, error) {
+	if m := minutesRx.FindStringSubmatch(path); m != nil { // "hamlet.135min.mkv" runs 135 minutes
+		i := goodProbe()
+		i.Duration, _ = time.ParseDuration(m[1] + "m")
+		return i, nil
+	}
 	switch {
 	case strings.Contains(path, "broken"):
 		return probe.Info{}, errors.New("unreadable")
 	case strings.Contains(path, "uhd"):
 		i := goodProbe()
 		i.Width, i.Height = 3840, 2160
+		if strings.Contains(path, "short") {
+			i.Duration = 10 * time.Minute
+		}
 		return i, nil
 	case strings.Contains(path, "576p"):
 		i := goodProbe()
@@ -54,6 +65,7 @@ type adoptionRowJSON struct {
 	SkipReason *string `json:"skip_reason"`
 	Entry      string  `json:"entry"`
 	Ticked     bool    `json:"ticked"`
+	Monitor    *string `json:"monitor"`
 	Match      *struct {
 		TMDBID  int    `json:"tmdb_id"`
 		Title   string `json:"title"`
@@ -61,12 +73,19 @@ type adoptionRowJSON struct {
 		Source  string `json:"source"`
 		Folder  string `json:"folder"`
 	} `json:"match"`
-	Candidates []struct {
-		TMDBID int    `json:"tmdb_id"`
-		Title  string `json:"title"`
-	} `json:"candidates"`
-	Kind  string             `json:"kind"`
-	Files []adoptionFileJSON `json:"files"`
+	Candidates []adoptionCandidateJSON `json:"candidates"`
+	Kind       string                  `json:"kind"`
+	Files      []adoptionFileJSON      `json:"files"`
+	Outcome    *string                 `json:"outcome"`
+	Error      *string                 `json:"error"`
+}
+
+type adoptionCandidateJSON struct {
+	TMDBID    int    `json:"tmdb_id"`
+	Title     string `json:"title"`
+	Year      *int   `json:"year"`
+	Suggested bool   `json:"suggested"`
+	Confident bool   `json:"confident"`
 }
 
 type adoptionFileJSON struct {
@@ -91,6 +110,7 @@ type adoptionFileJSON struct {
 
 type adoptionJSON struct {
 	State    string  `json:"state"`
+	Monitor  string  `json:"monitor"`
 	Revision int64   `json:"revision"`
 	Error    *string `json:"error"`
 	Summary  struct {
@@ -104,6 +124,13 @@ type adoptionJSON struct {
 		Adopted  int     `json:"adopted"`
 		Failed   int     `json:"failed"`
 		TitleIDs []int64 `json:"title_ids"`
+		Outcomes struct {
+			Adopted   int `json:"adopted"`
+			Failed    int `json:"failed"`
+			Skipped   int `json:"skipped"`
+			NotChosen int `json:"not_chosen"`
+			Unticked  int `json:"unticked"`
+		} `json:"outcomes"`
 	} `json:"result"`
 }
 
