@@ -171,10 +171,7 @@ func (s *Service) ObserveDownloadClient(ctx context.Context, ref Ref, f *Failure
 		w.since = s.clock()
 	}
 	w.auth, w.message = f.Auth, f.Message
-	msg := fmt.Sprintf("%s is unreachable: %s", ref.Name, f.Message)
-	if f.Auth {
-		msg = fmt.Sprintf("%s rejected Kestrel's credentials: %s", ref.Name, f.Message)
-	}
+	msg := failureMessage(ref.Name, f, "rejected Kestrel's credentials", "is unreachable")
 	raise := s.clock().Sub(w.since) >= downloadClientGrace && w.raised != msg
 	if raise {
 		w.raised = msg
@@ -253,10 +250,7 @@ func (s *Service) ObserveIndexer(ctx context.Context, ref Ref, f *Failure) {
 		ws[ref.ID] = w
 	}
 	w.auth, w.message = f.Auth, f.Message
-	msg := fmt.Sprintf("%s keeps failing: %s", ref.Name, f.Message)
-	if f.Auth {
-		msg = fmt.Sprintf("%s rejected its credentials: %s", ref.Name, f.Message)
-	}
+	msg := failureMessage(ref.Name, f, "rejected its credentials", "keeps failing")
 	raise := (f.Auth || s.clock().Sub(w.since) >= indexerGrace) && w.raised != msg
 	if raise {
 		w.raised = msg
@@ -369,7 +363,7 @@ func (s *Service) ObserveMediaServer(ctx context.Context, ref Ref, f *Failure) {
 		ws[ref.ID] = w
 	}
 	w.failures++
-	msg := mediaServerMessage(ref, f)
+	msg := failureMessage(ref.Name, f, "rejected Kestrel's credentials", "is unreachable")
 	raise := (f.Auth || w.failures >= mediaServerFailures) && w.raised != msg
 	if raise {
 		w.raised = msg
@@ -665,15 +659,16 @@ func (s *Service) logErr(err error) {
 	}
 }
 
-// mediaServerMessage words a media server's row. A plugin's message often names
-// the server already ("Jellyfin rejected the credentials"); then it is the row,
-// so the server is not named twice.
-func mediaServerMessage(ref Ref, f *Failure) string {
-	if strings.Contains(f.Message, ref.Name) {
+// failureMessage words an instance's row from a plugin failure. A plugin's message
+// often names the instance already ("Jellyfin rejected the credentials"); then it is
+// the row, so the instance is not named twice. Otherwise the row leads with
+// "<name> <authLead>" for bad credentials or "<name> <lead>" for anything else.
+func failureMessage(name string, f *Failure, authLead, lead string) string {
+	if strings.Contains(f.Message, name) {
 		return f.Message
 	}
 	if f.Auth {
-		return fmt.Sprintf("%s rejected Kestrel's credentials: %s", ref.Name, f.Message)
+		return fmt.Sprintf("%s %s: %s", name, authLead, f.Message)
 	}
-	return fmt.Sprintf("%s is unreachable: %s", ref.Name, f.Message)
+	return fmt.Sprintf("%s %s: %s", name, lead, f.Message)
 }
