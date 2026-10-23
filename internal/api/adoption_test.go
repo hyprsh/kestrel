@@ -62,8 +62,8 @@ type adoptionRowJSON struct {
 		Folder  string `json:"folder"`
 	} `json:"match"`
 	Candidates []adoptionCandidateJSON `json:"candidates"`
-	Kind  string             `json:"kind"`
-	Files []adoptionFileJSON `json:"files"`
+	Kind       string                  `json:"kind"`
+	Files      []adoptionFileJSON      `json:"files"`
 }
 
 type adoptionCandidateJSON struct {
