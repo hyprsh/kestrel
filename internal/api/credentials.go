@@ -145,9 +145,10 @@ func (c proxyConfig) trusts(ip string) bool {
 }
 
 // clientIP is the socket address, except behind a trusted proxy, where it is the
-// right-most X-Forwarded-For address that is not itself a trusted proxy.
+// right-most X-Forwarded-For address that is not itself a trusted proxy. It
+// does not depend on Enabled, which only switches header login (ADR 0016).
 func (c proxyConfig) clientIP(socket string, forwardedFor []string) string {
-	if !c.Enabled || !c.trusts(socket) {
+	if !c.trusts(socket) {
 		return socket
 	}
 	var hops []string

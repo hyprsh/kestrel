@@ -163,7 +163,7 @@ func (a *auth) guard(next http.Handler) http.Handler {
 		}
 		info := &request{
 			ip:     proxy.clientIP(socket, r.Header.Values("X-Forwarded-For")),
-			secure: r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https"),
+			secure: r.TLS != nil || (proxy.trusts(socket) && strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")),
 			method: oapi.Session,
 		}
 		r = r.WithContext(context.WithValue(r.Context(), ctxKey{}, info))
