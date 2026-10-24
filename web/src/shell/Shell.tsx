@@ -29,7 +29,6 @@ import { THEME_KEY, useTheme, type Theme } from '../theme'
 import { KestrelLogo } from '../ui'
 import { Rail as RailFrame, RailSpacer } from '../layout/Rail'
 import { PhoneTopBar, TopBar as TopBarFrame } from '../layout/TopBar'
-import { AttentionBadge } from './AttentionBadge'
 import { MoreSheet, PhoneTabBar, type Tab } from './PhoneNav'
 import { ServerStatus } from './ServerStatus'
 
@@ -300,14 +299,13 @@ function RailButton({
   label: string
   active?: boolean
   onClick: () => void
-  badge?: ReactNode
+  badge?: { count: number; tone: 'error' | 'warning'; label: string }
   children: ReactNode
 }) {
   return (
     <Tooltip text={label} position="right">
-      <Button svgOnly variant={active ? 'secondary' : 'tertiary'} aria-label={label} aria-current={active ? 'page' : undefined} onClick={onClick}>
+      <Button svgOnly variant={active ? 'secondary' : 'tertiary'} aria-label={label} aria-current={active ? 'page' : undefined} onClick={onClick} badge={badge?.count} badgeTone={badge?.tone} badgeLabel={badge?.label}>
         {children}
-        {badge}
       </Button>
     </Tooltip>
   )
@@ -344,10 +342,14 @@ function Rail({
       {screens.map((s) => (
         <RailButton
           key={s.key}
-          label={s.key === 'overview' && needs > 0 ? `${s.label}, ${needs} ${needs === 1 ? 'needs' : 'need'} attention` : s.label}
+          label={s.label}
           active={screen === s.key}
           onClick={() => onSelect(s.key)}
-          badge={s.key === 'overview' && needs > 0 ? <AttentionBadge count={needs} blocking={attention?.severity === 'blocking'} /> : undefined}
+          badge={
+            s.key === 'overview' && needs > 0
+              ? { count: needs, tone: attention?.severity === 'blocking' ? 'error' : 'warning', label: `${needs} ${needs === 1 ? 'needs' : 'need'} attention` }
+              : undefined
+          }
         >
           {s.icon}
         </RailButton>
