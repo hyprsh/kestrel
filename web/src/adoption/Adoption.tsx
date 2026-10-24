@@ -383,7 +383,7 @@ function MatchedRow({ row, planMonitor }: { row: AdoptionRow; planMonitor: Adopt
           <span className="label-14">{title}</span>
         </Checkbox>
         {m.title_id !== null && (
-          <Badge variant="accent" contrast="low" size="sm">
+          <Badge variant="blue" contrast="low" size="sm">
             In library
           </Badge>
         )}
