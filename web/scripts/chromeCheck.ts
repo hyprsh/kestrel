@@ -25,7 +25,7 @@ function isChrome(token: string): boolean {
   if (token.includes('[') && token.includes('.hy-')) return true
   const utility = utilityOf(token)
   if (/^!(?=[a-z[@-])/.test(utility)) return true
-  return /^-?(rounded|border|shadow|ring|bg)(-|$)/.test(utility)
+  return /^-?(rounded|border|shadow|ring|bg|divide)(-|$)/.test(utility)
 }
 
 /** The `// chrome: ...` marker in the comment block that opens the file, if any. */

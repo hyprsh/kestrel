@@ -20,7 +20,7 @@
 // `make lint-web` runs `npm --prefix web run chrome` (web/scripts/chromeCheck.ts) over the SPA source, tests
 // excluded. In any string in a .ts or .tsx file, outside this module, these class tokens fail, with any
 // variant prefix (`hover:`, `max-sm:`, `[&_.x]:`):
-//   rounded-*  border-*  shadow-*  ring-*  bg-*   (and the bare `rounded`, `border`, `shadow`, `ring`)
+//   rounded-*  border-*  shadow-*  ring-*  bg-*  divide-*   (and the bare `rounded`, `border`, `shadow`, `ring`, `divide`)
 //   !-important utilities (`!w-full`, `max-sm:!bottom-4`)
 //   arbitrary `.hy-*` selectors (`[&_.hy-scroller__content]:w-full`)
 // Layout utilities (flex, gap, p-*, w-*, text-*, label-*) are fine anywhere. The message names the file,

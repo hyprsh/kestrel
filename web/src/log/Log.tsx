@@ -107,7 +107,7 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
         {phone ? (
           // A phone has no room for three columns: each event is a stacked row, its message wrapping under the kind and the time.
           <div className="p-4">
-            <Entity.List aria-label="Events" className="divide-y divide-gray-alpha-400">
+            <Entity.List aria-label="Events">
               {shown.map((e, i) => (
                 <PhoneEvent key={e.id} e={e} index={i} sel={sel} onSelect={() => setSel(i)} title={names.get(e.title_id ?? -1)} onFilter={(name, value) => onQuery(withValue(query, name, value, qualifiers))} />
               ))}
@@ -250,7 +250,7 @@ function Blocklist() {
       )}
       {items.length > 0 && phone && (
         <div className="p-4">
-          <Entity.List aria-label="Blocklist" className="divide-y divide-gray-alpha-400">
+          <Entity.List aria-label="Blocklist">
             {items.map((b, i) => (
               <NavRow key={b.id} scope="block" index={i} sel={sel} onSelect={() => setSel(i)}>
                 <Entity

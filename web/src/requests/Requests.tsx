@@ -54,7 +54,7 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
         <div className="p-4">
           {list.data && shown.length === 0 && <EmptyState description="No Request matches." />}
           {shown.length > 0 && (
-            <Entity.List aria-label="Requests" className="divide-y divide-gray-alpha-400">
+            <Entity.List aria-label="Requests">
               {shown.map((r, i) => (
                 <RequestRow key={r.id} request={r} nav={{ scope: 'req', index: i, sel, onSelect: () => setSel(i) }} onOpenTitle={onOpenTitle} />
               ))}

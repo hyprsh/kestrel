@@ -16,6 +16,7 @@ describe('the chrome check', () => {
     const classes = (s: string) => checkSource('src/a.tsx', `const c = "${s}"\n`).map((v) => v.class)
     expect(classes('border-b border-gray-alpha-400')).toEqual(['border-b', 'border-gray-alpha-400'])
     expect(classes('hover:bg-gray-alpha-100 max-sm:shadow-menu ring-4 rounded')).toEqual(['hover:bg-gray-alpha-100', 'max-sm:shadow-menu', 'ring-4', 'rounded'])
+    expect(classes('divide-y divide-gray-alpha-400')).toEqual(['divide-y', 'divide-gray-alpha-400'])
     expect(classes('max-sm:!bottom-4 !w-full')).toEqual(['max-sm:!bottom-4', '!w-full'])
     expect(classes('[&_.hy-querybar\\_\\_row]:flex-wrap')).toEqual(['[&_.hy-querybar\\_\\_row]:flex-wrap'])
     expect(classes('flex items-center gap-2 px-4 max-sm:ml-0 text-gray-900 [&>*]:flex-1 w-full')).toEqual([])
