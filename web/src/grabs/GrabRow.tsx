@@ -1,6 +1,7 @@
 // The frame of every Grab's row: the Title's poster and name, Slot, episodes and Release, with
 // the lines and actions the caller brings. Downloading now, the Title page and Activity share it.
 import { Badge, Entity, Link } from '@hyprsh/design'
+import { stackedRow, stackedRight } from '../layout/RowList'
 import type { ReactNode } from 'react'
 import type { QueueItem } from '../api/queue'
 import { slotLabel, type SlotKey } from '../library/bits'
@@ -79,7 +80,8 @@ export function GrabRow({
       onClick={nav?.onSelect}
       left={left}
       right={actions}
-      className="max-sm:flex-col max-sm:items-stretch"
+      className={stackedRow}
+      rightClassName={stackedRight}
     >
       <Entity.Content fill title={title} description={<span className="label-12-mono">{g.release_name}</span>}>
         {children}

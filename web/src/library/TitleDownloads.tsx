@@ -1,5 +1,6 @@
 import { useCancelGrab, useQueue } from '../api/queue'
-import { Entity, Note } from '@hyprsh/design'
+import { Note } from '@hyprsh/design'
+import { RowList } from '../layout/RowList'
 import { DownloadRow } from '../grabs/DownloadRow'
 
 /**
@@ -23,11 +24,11 @@ export function TitleDownloads({ titleId }: { titleId: number }) {
           </Note>
         </div>
       )}
-      <Entity.List aria-labelledby="title-downloading">
+      <RowList aria-labelledby="title-downloading">
         {items.map((i) => (
           <DownloadRow key={i.grab_id} item={i} withTitle={false} busy={cancel.isPending} onCancel={(blocklist) => cancel.mutate({ id: i.grab_id, blocklist })} />
         ))}
-      </Entity.List>
+      </RowList>
     </section>
   )
 }

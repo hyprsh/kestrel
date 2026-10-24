@@ -1,6 +1,7 @@
 // "Coming this week" (the next 7 days of Upcoming) and "Recently added" (the latest Imports): two sections, in different columns.
 // Their rows are part of the Overview's one j/k selection (see OverviewNav).
 import { Badge, Entity } from '@hyprsh/design'
+import { RowList, stackedRow, stackedRight } from '../layout/RowList'
 import { useQueue } from '../api/queue'
 import { localDay, useRecent, useUpcoming, type RecentItem } from '../api/upcoming'
 import { slotLabel, type SlotKey } from '../library/bits'
@@ -64,12 +65,12 @@ export function RecentlyAdded({ onOpenTitle, nav }: { onOpenTitle: (id: number) 
       {recent.data && recentItems.length === 0 ? (
         <EmptyLine title="Nothing has been imported yet." />
       ) : (
-        <Entity.List>
+        <RowList>
           {recentItems.map((item, j) => {
             const i = nav.base + j
             return <RecentRow key={`${item.title_id}-${item.slot}-${item.imported_at}`} item={item} index={i} sel={nav.sel} onSelect={() => open(i, item.title_id)} />
           })}
-        </Entity.List>
+        </RowList>
       )}
       {recentItems.length > 0 && <ViewAll path={placePath('activity', 'stage:done')} count={recent.data?.total || undefined} />}
     </Section>
@@ -83,6 +84,8 @@ function RecentRow({ item, index, sel, onSelect }: { item: RecentItem; index: nu
       current={index === sel}
       data-nav={`ov-${index}`}
       onClick={onSelect}
+      className={stackedRow}
+      rightClassName={stackedRight}
       right={
         <>
           <Badge variant="gray" contrast="low" size="sm">{slotLabel[item.slot as SlotKey]}</Badge>

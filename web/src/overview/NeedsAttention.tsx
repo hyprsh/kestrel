@@ -1,6 +1,7 @@
 // Needs attention: the rows the server raised, with the actions it built. Nothing
 // here knows a kind of row; it draws message, severity and buttons.
 import { Badge, Button, Collapse, DestructiveActionModal, DotsMenu, Entity, MenuItem, Note, useToasts } from '@hyprsh/design'
+import { RowList, stackedRow, stackedRight } from '../layout/RowList'
 import { useState } from 'react'
 import { useAttention, useRunAction, type ActionResult, type Attention, type AttentionAction, type AttentionRow } from '../api/attention'
 import { planWaiting, useAdoption, type Adoption } from '../api/adoption'
@@ -46,7 +47,7 @@ export function NeedsAttention({
         <EmptyLine title="Nothing needs attention." />
       ) : (
         rows.length > 0 && (
-          <Entity.List>
+          <RowList>
             {shown.map((r, i) => (
               <Row
                 key={r.id}
@@ -56,7 +57,7 @@ export function NeedsAttention({
                 index={nav.base + i}
               />
             ))}
-          </Entity.List>
+          </RowList>
         )
       )}
       {(all || shown.length < rows.length) && <ViewAllHere count={rows.length} open={all} onToggle={() => onAll(!all)} />}
@@ -180,7 +181,8 @@ function Row({ row, onOpen, nav, index }: { row: AttentionRow; onOpen: (path: st
         current={index === nav.sel}
         data-nav={`ov-${index}`}
         onClick={() => nav.select(index)}
-        className="max-sm:flex-col max-sm:items-stretch"
+        className={stackedRow}
+        rightClassName={stackedRight}
         left={<Badge variant={row.severity === 'blocking' ? 'red' : 'amber'} contrast="low" size="sm">{row.severity === 'blocking' ? 'Blocking' : 'Warning'}</Badge>}
         right={actions}
       >

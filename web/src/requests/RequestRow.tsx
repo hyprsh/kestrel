@@ -1,6 +1,7 @@
 // One Request as the Overview's Recent requests and the Requests screen draw it: the Title,
 // who asked through what and when, the seasons asked for, and where each Slot stands.
 import { Badge, Button, Entity, type BadgeProps } from '@hyprsh/design'
+import { stackedRow, stackedRight } from '../layout/RowList'
 import type { QueueItem } from '../api/queue'
 import { useQueue } from '../api/queue'
 import type { Request } from '../api/requests'
@@ -60,8 +61,8 @@ export function RequestRow({ request: r, nav, onOpenTitle }: { request: Request;
       current={nav.index === nav.sel}
       data-nav={`${nav.scope}-${nav.index}`}
       onClick={select}
-      className="max-sm:flex-col max-sm:items-stretch"
-      rightClassName="flex-wrap justify-end max-sm:justify-start"
+      className={stackedRow}
+      rightClassName={stackedRight}
       left={r.title_id != null ? <TitlePoster id={r.title_id} hasPoster={r.has_poster} size="sm" /> : <Poster src={null} size="sm" />}
       right={
         reason ? (

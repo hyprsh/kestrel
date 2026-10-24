@@ -11,6 +11,7 @@ import { dayString, useTimeline, type UndatedItem, type UpcomingItem, type Upcom
 import { plural } from '../format'
 import { useKey, useListNav } from '../keys'
 import { FilterStrip } from '../layout/FilterStrip'
+import { stackedRow, stackedRight } from '../layout/RowList'
 import { useNow } from '../time'
 import { cx } from '../ui'
 import { EntryName, Markers, MovieNotes, otherDates, StateBadges, Standings, TallyBadges } from './bits'
@@ -273,7 +274,7 @@ function DayBlock({
           <p className="label-12 pb-2 pl-9 text-gray-900">Nothing else is due today.</p>
         ) : (
           <div className="pr-3 pb-2 pl-9">
-            <Entity.List aria-label={label} className="overflow-visible">{day.blocks.map((b) => rowFor(b))}</Entity.List>
+            <Entity.List aria-label={label} className="@container overflow-visible">{day.blocks.map((b) => rowFor(b))}</Entity.List>
           </div>
         )}
       </li>
@@ -309,6 +310,8 @@ function BlockRows({ block, ...p }: { block: Block } & RowProps) {
         as="button"
         current={p.sel === index}
         data-nav={`up-${index}`}
+        className={stackedRow}
+        rightClassName={stackedRight}
         onClick={() => p.onSelect(index)}
         left={<TitlePoster id={first.title_id} hasPoster={first.has_poster} size="sm" />}
         right={
@@ -364,7 +367,8 @@ function Entry({ item, id, child, ...p }: { item: UpcomingItem; id: string; chil
       current={p.sel === index}
       data-nav={`up-${index}`}
       data-imported={imported || undefined}
-      className={cx(imported && 'opacity-60', child && 'pl-10')}
+      className={cx(stackedRow, imported && 'opacity-60', child && 'pl-10')}
+      rightClassName={stackedRight}
       onClick={() => p.onSelect(index)}
       left={child ? undefined : <TitlePoster id={item.title_id} hasPoster={item.has_poster} size="sm" />}
       right={<StateBadges item={item} queue={p.queue} now={p.now} onSearch={search} />}
