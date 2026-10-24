@@ -75,10 +75,7 @@ export function useSeasonOpen(titleId: number): SeasonOpen {
   const seasons = useMemo(() => [...bySeason.keys()], [bySeason])
   const latest = Math.max(0, ...seasons)
 
-  const isOpen = useCallback(
-    (season: number) => overrides[season] ?? openByDefault(season, latest, bySeason.get(season) ?? []),
-    [overrides, latest, bySeason],
-  )
+  const isOpen = useCallback((season: number) => overrides[season] ?? openByDefault(season, latest, bySeason.get(season) ?? []), [overrides, latest, bySeason])
   const set = useCallback((season: number, open: boolean) => change((o) => ({ ...o, [season]: open })), [change])
   const setAll = useCallback((open: boolean) => change(() => Object.fromEntries(seasons.map((s) => [s, open]))), [change, seasons])
 

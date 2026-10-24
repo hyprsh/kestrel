@@ -40,14 +40,7 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <FilterStrip>
-        <FilterBar
-          id="requests-filter"
-          label="Filter Requests"
-          placeholder="Filter, e.g. status:open requester:Anna …  /"
-          value={query}
-          onChange={onQuery}
-          qualifiers={qualifiers}
-        />
+        <FilterBar id="requests-filter" label="Filter Requests" placeholder="Filter, e.g. status:open requester:Anna …  /" value={query} onChange={onQuery} qualifiers={qualifiers} />
         {list.data && <span className="label-12 text-gray-900 tabular">{list.data.pages[0].total} in all</span>}
       </FilterStrip>
       <div className="min-h-0 flex-1 overflow-auto">

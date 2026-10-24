@@ -155,18 +155,21 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const closeMenu = useCallback(() => setMenu(null), [])
   // An action that opens a place: "/settings/download-client" is the Settings screen at that
   // section, "/log?q=kind:failures" the Log with that filter.
-  const goPath = useCallback((path: string) => {
-    const { screen: key, section, q } = placeOf(path)
-    if (!isPlace(key)) return
-    setScreen(key)
-    setFilter({ screen: key, q })
-    if (key === 'settings') {
-      // A phone opens the section as its own screen; elsewhere it is scrolled to.
-      setSettingsSection(section)
-      if (phone && section) pushPlace(placePath('settings', '', section))
-    }
-    if (section && !(phone && key === 'settings')) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
-  }, [phone])
+  const goPath = useCallback(
+    (path: string) => {
+      const { screen: key, section, q } = placeOf(path)
+      if (!isPlace(key)) return
+      setScreen(key)
+      setFilter({ screen: key, q })
+      if (key === 'settings') {
+        // A phone opens the section as its own screen; elsewhere it is scrolled to.
+        setSettingsSection(section)
+        if (phone && section) pushPlace(placePath('settings', '', section))
+      }
+      if (section && !(phone && key === 'settings')) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
+    },
+    [phone],
+  )
   // An opened Title is shown, so the Library's filter must not hide it.
   const openTitle = useCallback(
     (id: number) => {
@@ -208,83 +211,70 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
 
   return (
     <CleanupLauncher.Provider value={openCleanup}>
-    <PlaceOpener.Provider value={goPath}>
-    <div className="flex h-full">
-      {!phone && <Rail screen={screen} onSelect={setScreen} theme={theme} onTheme={setTheme} onAdd={() => setMenu({ mode: 'add' })} />}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar
-          title={current.label}
-          phone={phone}
-          onOpenMenu={() => setMenu({ mode: 'root' })}
-          onAdd={() => setMenu({ mode: 'add' })}
-          running={running}
-          onOpenRunning={() => goPath('/activity/running')}
-        />
-        {/* The floating tab bar is out of layout; --tab-bar-height keeps every screen's last row clear of it (0 on a tablet or desktop). */}
-        <main className="flex min-h-0 flex-1 flex-col pb-[var(--tab-bar-height)]">
-          {screen === 'settings' ? (
-            <SettingsScreen onRunSetup={onRunSetup} onAdopt={() => setScreen('adoption')} section={settingsSection} onOpenSection={openSettingsSection} onCloseSection={closeSettingsSection} />
-          ) : screen === 'adoption' ? (
-            <Adoption />
-          ) : screen === 'cleanup' ? (
-            <Cleanup key={cleanupTitles?.join(',') ?? 'all'} titleIds={cleanupTitles} />
-          ) : screen === 'library' ? (
-            <Library
-              query={query}
-              onQuery={(q) => setFilter({ screen: 'library', q })}
-              selectedId={libraryId}
-              onSelect={setLibraryId}
-              titleOpen={titleOpen}
-              onOpenTitle={openLibraryTitle}
-              onCloseTitle={closeLibraryTitle}
+      <PlaceOpener.Provider value={goPath}>
+        <div className="flex h-full">
+          {!phone && <Rail screen={screen} onSelect={setScreen} theme={theme} onTheme={setTheme} onAdd={() => setMenu({ mode: 'add' })} />}
+          <div className="flex min-w-0 flex-1 flex-col">
+            <TopBar
+              title={current.label}
+              phone={phone}
+              onOpenMenu={() => setMenu({ mode: 'root' })}
               onAdd={() => setMenu({ mode: 'add' })}
-              onAdopt={() => setScreen('adoption')}
-            />
-          ) : screen === 'about' ? (
-            <About />
-          ) : screen === 'log' ? (
-            <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} />
-          ) : screen === 'activity' ? (
-            <Activity
-              query={query}
-              onQuery={(q) => setFilter({ screen: 'activity', q })}
-              onOpenTitle={openTitle}
               running={running}
-              onOpenAdoption={() => setScreen('adoption')}
+              onOpenRunning={() => goPath('/activity/running')}
             />
-          ) : screen === 'requests' ? (
-            <Requests query={query} onQuery={(q) => setFilter({ screen: 'requests', q })} onOpenTitle={openTitle} />
-          ) : screen === 'upcoming' ? (
-            <Upcoming onOpenTitle={openTitle} />
-          ) : (
-            <Overview onOpen={goPath} onOpenTitle={openTitle} onOpenAdoption={() => setScreen('adoption')} />
+            {/* The floating tab bar is out of layout; --tab-bar-height keeps every screen's last row clear of it (0 on a tablet or desktop). */}
+            <main className="flex min-h-0 flex-1 flex-col pb-[var(--tab-bar-height)]">
+              {screen === 'settings' ? (
+                <SettingsScreen onRunSetup={onRunSetup} onAdopt={() => setScreen('adoption')} section={settingsSection} onOpenSection={openSettingsSection} onCloseSection={closeSettingsSection} />
+              ) : screen === 'adoption' ? (
+                <Adoption />
+              ) : screen === 'cleanup' ? (
+                <Cleanup key={cleanupTitles?.join(',') ?? 'all'} titleIds={cleanupTitles} />
+              ) : screen === 'library' ? (
+                <Library
+                  query={query}
+                  onQuery={(q) => setFilter({ screen: 'library', q })}
+                  selectedId={libraryId}
+                  onSelect={setLibraryId}
+                  titleOpen={titleOpen}
+                  onOpenTitle={openLibraryTitle}
+                  onCloseTitle={closeLibraryTitle}
+                  onAdd={() => setMenu({ mode: 'add' })}
+                  onAdopt={() => setScreen('adoption')}
+                />
+              ) : screen === 'about' ? (
+                <About />
+              ) : screen === 'log' ? (
+                <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} />
+              ) : screen === 'activity' ? (
+                <Activity query={query} onQuery={(q) => setFilter({ screen: 'activity', q })} onOpenTitle={openTitle} running={running} onOpenAdoption={() => setScreen('adoption')} />
+              ) : screen === 'requests' ? (
+                <Requests query={query} onQuery={(q) => setFilter({ screen: 'requests', q })} onOpenTitle={openTitle} />
+              ) : screen === 'upcoming' ? (
+                <Upcoming onOpenTitle={openTitle} />
+              ) : (
+                <Overview onOpen={goPath} onOpenTitle={openTitle} onOpenAdoption={() => setScreen('adoption')} />
+              )}
+            </main>
+            {phone && (
+              <PhoneTabBar tabs={tabs} screen={screen} moreActive={more || !tabKeys.includes(screen)} onSelect={select} onMore={() => setMore(true)} onSearch={() => setMenu({ mode: 'root' })} />
+            )}
+          </div>
+          {phone && more && (
+            <MoreSheet
+              items={moreItems}
+              screen={screen}
+              onSelect={select}
+              onClose={() => setMore(false)}
+              theme={theme}
+              onTheme={setTheme}
+              onLogout={canLogout ? () => logout.mutate(undefined) : undefined}
+            />
           )}
-        </main>
-        {phone && (
-          <PhoneTabBar
-            tabs={tabs}
-            screen={screen}
-            moreActive={more || !tabKeys.includes(screen)}
-            onSelect={select}
-            onMore={() => setMore(true)}
-            onSearch={() => setMenu({ mode: 'root' })}
-          />
-        )}
-      </div>
-      {phone && more && (
-        <MoreSheet
-          items={moreItems}
-          screen={screen}
-          onSelect={select}
-          onClose={() => setMore(false)}
-          theme={theme}
-          onTheme={setTheme}
-          onLogout={canLogout ? () => logout.mutate(undefined) : undefined}
-        />
-      )}
-      {menu && <CommandMenu initialMode={menu.mode} actions={actions} places={places} onClose={closeMenu} onGo={setScreen} onOpenTitle={openTitle} />}
-    </div>
-    </PlaceOpener.Provider>
+          {menu && <CommandMenu initialMode={menu.mode} actions={actions} places={places} onClose={closeMenu} onGo={setScreen} onOpenTitle={openTitle} />}
+        </div>
+      </PlaceOpener.Provider>
     </CleanupLauncher.Provider>
   )
 }
@@ -310,26 +300,23 @@ function RailButton({
 }) {
   return (
     <Tooltip text={label} position="right">
-      <Button svgOnly variant={active ? 'secondary' : 'tertiary'} aria-label={label} aria-current={active ? 'page' : undefined} onClick={onClick} badge={badge?.count} badgeTone={badge?.tone} badgeLabel={badge?.label}>
+      <Button
+        svgOnly
+        variant={active ? 'secondary' : 'tertiary'}
+        aria-label={label}
+        aria-current={active ? 'page' : undefined}
+        onClick={onClick}
+        badge={badge?.count}
+        badgeTone={badge?.tone}
+        badgeLabel={badge?.label}
+      >
         {children}
       </Button>
     </Tooltip>
   )
 }
 
-function Rail({
-  screen,
-  onSelect,
-  theme,
-  onTheme,
-  onAdd,
-}: {
-  screen: string
-  onSelect: (key: string) => void
-  theme: Theme
-  onTheme: (theme: Theme) => void
-  onAdd: () => void
-}) {
+function Rail({ screen, onSelect, theme, onTheme, onAdd }: { screen: string; onSelect: (key: string) => void; theme: Theme; onTheme: (theme: Theme) => void; onAdd: () => void }) {
   const logout = useLogout()
   const auth = useAuth()
   const attention = useAttention().data
@@ -351,11 +338,7 @@ function Rail({
           label={s.label}
           active={screen === s.key}
           onClick={() => onSelect(s.key)}
-          badge={
-            s.key === 'overview' && needs > 0
-              ? { count: needs, tone: attention?.severity === 'blocking' ? 'error' : 'warning', label: attentionLabel(attention!) }
-              : undefined
-          }
+          badge={s.key === 'overview' && needs > 0 ? { count: needs, tone: attention?.severity === 'blocking' ? 'error' : 'warning', label: attentionLabel(attention!) } : undefined}
         >
           {s.icon}
         </RailButton>

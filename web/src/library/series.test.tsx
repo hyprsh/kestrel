@@ -30,10 +30,7 @@ function fakeSeriesLookup() {
   server.use(
     http.get('/lookup', ({ response }) =>
       response(200).json({
-        items: [
-          result(1396, 'Breaking Bad'),
-          result(9001, 'Orphan Show', { tvdb_id: null, addable: false, not_addable_reason: 'not_on_tvdb' }),
-        ],
+        items: [result(1396, 'Breaking Bad'), result(9001, 'Orphan Show', { tvdb_id: null, addable: false, not_addable_reason: 'not_on_tvdb' })],
         next_cursor: null,
         did_you_mean: null,
       }),

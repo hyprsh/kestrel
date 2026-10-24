@@ -31,9 +31,7 @@ function fakeLongMissing(rows: Attention['rows'] = []) {
       { title_id: 4, title: 'Older Film', version_id: 41, slot: '4k', profile: '4k-primary', wanted_since: '2025-12-01T00:00:00Z', last_failure: null },
     ],
   }
-  server.use(
-    http.get('/attention', ({ response }) => response(200).json({ count: rows.length, severity: rows.length ? 'warning' : null, rows, long_missing, originals: { count: 0, items: [] } })),
-  )
+  server.use(http.get('/attention', ({ response }) => response(200).json({ count: rows.length, severity: rows.length ? 'warning' : null, rows, long_missing, originals: { count: 0, items: [] } })))
 }
 
 describe('the Long Missing row in Needs attention', () => {

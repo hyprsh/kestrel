@@ -16,9 +16,7 @@ const renderForm = () =>
 describe('Update from TRaSH', () => {
   it('reports a rejected update and keeps the old snapshot', async () => {
     server.use(
-      http.post('/trash/update', ({ response }) =>
-        response('default').json({ type: 'about:blank', title: 'validation', status: 422, code: 'validation', detail: 'rejected' }, { status: 422 }),
-      ),
+      http.post('/trash/update', ({ response }) => response('default').json({ type: 'about:blank', title: 'validation', status: 422, code: 'validation', detail: 'rejected' }, { status: 422 })),
     )
     renderForm()
 

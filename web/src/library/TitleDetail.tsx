@@ -91,12 +91,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
   const episodes = useRef<HTMLDivElement>(null)
   const names = new Map((profiles.data ?? []).map((p) => [p.key, p.name]))
   const profileName = (key: string) => names.get(key) ?? key
-  const meta = [
-    title.year,
-    title.runtime ? `${title.runtime} min` : null,
-    title.certification,
-    title.original_language ? `Original ${title.original_language.toUpperCase()}` : null,
-  ].filter(Boolean)
+  const meta = [title.year, title.runtime ? `${title.runtime} min` : null, title.certification, title.original_language ? `Original ${title.original_language.toUpperCase()}` : null].filter(Boolean)
 
   return (
     <div className="@container mx-auto max-w-3xl">
@@ -105,7 +100,10 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
         <div className="min-w-0">
           <h2 className="heading-24">{title.title}</h2>
           {title.primary_title !== title.title && <div className="copy-14 text-gray-900">{title.primary_title}</div>}
-          <div className="copy-14 mt-1 text-gray-900">{meta.join(' · ')}<Ratings ratings={title.ratings} lead={meta.length > 0} /></div>
+          <div className="copy-14 mt-1 text-gray-900">
+            {meta.join(' · ')}
+            <Ratings ratings={title.ratings} lead={meta.length > 0} />
+          </div>
           <TitleStatus title={title} />
           <ExternalIds title={title} />
           {title.requests.map((r) => (
@@ -119,12 +117,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
       <TitleActions title={title} profileName={profileName} onManualSearch={onManualSearch} />
       <TitleDownloads titleId={title.id} />
 
-      <VersionRows
-        title={title}
-        profiles={profiles.data ?? []}
-        profileName={profileName}
-        onCoverage={() => episodes.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })}
-      />
+      <VersionRows title={title} profiles={profiles.data ?? []} profileName={profileName} onCoverage={() => episodes.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })} />
 
       {title.kind === 'series' && (
         <div ref={episodes} className="scroll-mt-4">

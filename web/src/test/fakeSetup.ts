@@ -24,9 +24,7 @@ export function fakeSetup(over: Partial<Record<SectionKey, 'done' | 'todo'>> = {
     sections: { account: 'done', language: 'todo', download_client: 'todo', indexer: 'todo', root_folders: 'todo', profiles: 'todo', ...over },
   }
   server.use(
-    http.get('/setup', ({ response }) =>
-      response(200).json({ account_exists: true, completed: state.completed, sections: state.sections }),
-    ),
+    http.get('/setup', ({ response }) => response(200).json({ account_exists: true, completed: state.completed, sections: state.sections })),
     http.post('/setup/complete', ({ response }) => {
       state.finishCalls++
       const missing = (Object.keys(state.sections) as SectionKey[]).filter((k) => state.sections[k] !== 'done')

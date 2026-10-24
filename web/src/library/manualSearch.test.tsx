@@ -58,11 +58,25 @@ function fakeSearch(items: Release[], opts: { grabStatus?: number } = {}) {
       const body = await request.clone().json()
       state.grabs.push({ path: '/grabs', body })
       if (opts.grabStatus === 409) {
-        return response('default').json({ type: 'about:blank', title: 'conflict', status: 409, code: 'release_expired', detail: 'That Release is no longer in the search results; search again' }, { status: 409 })
+        return response('default').json(
+          { type: 'about:blank', title: 'conflict', status: 409, code: 'release_expired', detail: 'That Release is no longer in the search results; search again' },
+          { status: 409 },
+        )
       }
       return response(201).json({
-        id: 7, title_id: 1, version_id: 11, release_name: 'x', indexer: 'Alpha', size: 1, published_at: '2026-10-16T12:00:00Z', score: 0,
-        client_id: 'SABnzbd_nzo_1', state: 'sent', overridden: false, is_upgrade: false, created_at: '2026-10-17T12:00:00Z',
+        id: 7,
+        title_id: 1,
+        version_id: 11,
+        release_name: 'x',
+        indexer: 'Alpha',
+        size: 1,
+        published_at: '2026-10-16T12:00:00Z',
+        score: 0,
+        client_id: 'SABnzbd_nzo_1',
+        state: 'sent',
+        overridden: false,
+        is_upgrade: false,
+        created_at: '2026-10-17T12:00:00Z',
       })
     }),
   )
@@ -98,10 +112,7 @@ describe('manual search', () => {
   })
 
   it('labels Series Releases as a pack or by their episodes', async () => {
-    fakeSearch([
-      release('p', 'Show.S01.1080p.WEB-DL-GRP', { season: 1, pack: true, episodes: [] }),
-      release('e', 'Show.S01E03E04.1080p.WEB-DL-GRP', { season: 1, pack: false, episodes: [3, 4] }),
-    ])
+    fakeSearch([release('p', 'Show.S01.1080p.WEB-DL-GRP', { season: 1, pack: true, episodes: [] }), release('e', 'Show.S01E03E04.1080p.WEB-DL-GRP', { season: 1, pack: false, episodes: [3, 4] })])
     const table = await openManualSearch()
 
     const rows = within(table).getAllByRole('row').slice(1)
@@ -245,12 +256,46 @@ describe('manual search', () => {
   describe('sorting', () => {
     const named = (id: string, over: Partial<Release>) => release(id, `Rel.${id}`, over)
     const sortable = () => [
-      named('mid', { score: 500, quality: 'Bluray-1080p', languages: ['German'], size: 5 * 1024 ** 3, published_at: '2026-10-10T12:00:00Z', indexer: 'Beta', custom_formats: [{ name: 'HDR', points: 100 }, { name: 'Atmos', points: 50 }] }),
-      named('big', { score: 900, quality: 'Remux-1080p', languages: ['English'], size: 30 * 1024 ** 3, published_at: '2026-10-15T12:00:00Z', indexer: 'Alpha', custom_formats: [{ name: 'Atmos', points: 50 }] }),
-      named('old', { score: 100, quality: 'HDTV-720p', languages: ['French'], size: 1 * 1024 ** 3, published_at: '2026-09-01T12:00:00Z', indexer: 'Gamma', custom_formats: [{ name: 'HDR', points: 100 }, { name: 'DV', points: 200 }] }),
+      named('mid', {
+        score: 500,
+        quality: 'Bluray-1080p',
+        languages: ['German'],
+        size: 5 * 1024 ** 3,
+        published_at: '2026-10-10T12:00:00Z',
+        indexer: 'Beta',
+        custom_formats: [
+          { name: 'HDR', points: 100 },
+          { name: 'Atmos', points: 50 },
+        ],
+      }),
+      named('big', {
+        score: 900,
+        quality: 'Remux-1080p',
+        languages: ['English'],
+        size: 30 * 1024 ** 3,
+        published_at: '2026-10-15T12:00:00Z',
+        indexer: 'Alpha',
+        custom_formats: [{ name: 'Atmos', points: 50 }],
+      }),
+      named('old', {
+        score: 100,
+        quality: 'HDTV-720p',
+        languages: ['French'],
+        size: 1 * 1024 ** 3,
+        published_at: '2026-09-01T12:00:00Z',
+        indexer: 'Gamma',
+        custom_formats: [
+          { name: 'HDR', points: 100 },
+          { name: 'DV', points: 200 },
+        ],
+      }),
       named('bad', { score: 9999, size: 99 * 1024 ** 3, rejections: [{ code: 'language', message: 'Not in the language the Profile requires', overridable: true }] }),
     ]
-    const order = (table: HTMLElement) => within(table).getAllByRole('row').slice(1).map((r) => /Rel\.(big|mid|old|bad)/.exec(r.textContent ?? '')?.[1])
+    const order = (table: HTMLElement) =>
+      within(table)
+        .getAllByRole('row')
+        .slice(1)
+        .map((r) => /Rel\.(big|mid|old|bad)/.exec(r.textContent ?? '')?.[1])
     const header = (name: string) => screen.getByRole('button', { name })
 
     it('is best first by default, with the Score header marked', async () => {

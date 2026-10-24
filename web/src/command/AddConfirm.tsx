@@ -73,9 +73,7 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
     add()
   }
 
-  const reasons = (suggestion.data?.slots ?? []).map(
-    (s) => `${slotLabel[s.slot]} · ${s.label} (default)`,
-  )
+  const reasons = (suggestion.data?.slots ?? []).map((s) => `${slotLabel[s.slot]} · ${s.label} (default)`)
 
   return (
     <div ref={panel} tabIndex={-1} onKeyDown={onKeyDown} className="flex min-h-0 flex-col outline-none">
@@ -85,7 +83,10 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
             Add {result.title}
             {result.year ? <span className="label-14 ml-1.5 text-gray-900">{result.year}</span> : null}
           </div>
-          <div className="label-13 text-gray-900">{result.kind === 'series' ? 'Series' : 'Movie'}<Ratings ratings={suggestion.data?.ratings ?? result.ratings} lead /></div>
+          <div className="label-13 text-gray-900">
+            {result.kind === 'series' ? 'Series' : 'Movie'}
+            <Ratings ratings={suggestion.data?.ratings ?? result.ratings} lead />
+          </div>
         </div>
       </PaneHeader>
 

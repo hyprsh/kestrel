@@ -27,7 +27,10 @@ async function openSeries() {
   return { user, grid }
 }
 
-const rowOf = (grid: HTMLElement, monitored: string) => within(grid).getByRole('checkbox', { name: `${monitored} monitored` }).closest<HTMLElement>('[role=row]')!
+const rowOf = (grid: HTMLElement, monitored: string) =>
+  within(grid)
+    .getByRole('checkbox', { name: `${monitored} monitored` })
+    .closest<HTMLElement>('[role=row]')!
 
 describe('episode titles', () => {
   it('shows the Primary-Language title with the original beneath only when they differ', async () => {
@@ -113,7 +116,7 @@ describe('the file of an episode cell', () => {
     expect(await within(pop).findByText(/copy it manually/)).toBeInTheDocument()
   })
 
-  it('toggles the row\'s monitoring on Space and does not open the popover', async () => {
+  it("toggles the row's monitoring on Space and does not open the popover", async () => {
     const { user, grid } = await openSeries()
     within(grid).getByRole('button', { name: 'Season 1 episode 1 Standard: Filled' }).focus()
     expect(within(grid).getByRole('checkbox', { name: 'Season 1 episode 1 monitored' })).toBeChecked()

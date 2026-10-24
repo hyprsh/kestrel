@@ -14,11 +14,7 @@ export function TrashForm() {
 
   return (
     <div className="flex max-w-md flex-col gap-3">
-      <Checkbox
-        checked={settings.data.trash.auto_update}
-        disabled={patch.isPending}
-        onChange={(e) => patch.mutate({ trash: { auto_update: e.target.checked } })}
-      >
+      <Checkbox checked={settings.data.trash.auto_update} disabled={patch.isPending} onChange={(e) => patch.mutate({ trash: { auto_update: e.target.checked } })}>
         Check TRaSH daily and update automatically
       </Checkbox>
       {snapshot && (
@@ -28,9 +24,7 @@ export function TrashForm() {
       )}
       {update.isError && (
         <Note variant="error" size="small">
-          {update.error instanceof ApiError && update.error.status === 422
-            ? 'TRaSH’s newest set was rejected. The previous one stays in use.'
-            : 'Could not reach TRaSH. Try again later.'}
+          {update.error instanceof ApiError && update.error.status === 422 ? 'TRaSH’s newest set was rejected. The previous one stays in use.' : 'Could not reach TRaSH. Try again later.'}
         </Note>
       )}
       {update.isSuccess && (

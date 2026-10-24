@@ -157,10 +157,7 @@ function applyExemptions(source: string, hits: Hit[]): Hit[] {
   return [...hits.filter((h) => !exempt.has(h.line)), ...out]
 }
 
-const toViolations = (file: string, hits: Hit[]): Violation[] =>
-  hits
-    .sort((a, b) => a.line - b.line)
-    .map((h) => ({ file, line: h.line, class: h.class, message: `${file}:${h.line}: ${h.message}` }))
+const toViolations = (file: string, hits: Hit[]): Violation[] => hits.sort((a, b) => a.line - b.line).map((h) => ({ file, line: h.line, class: h.class, message: `${file}:${h.line}: ${h.message}` }))
 
 /** Checks one SPA source file. `file` is its path from the web directory, such as `src/log/Log.tsx`. */
 export function checkSource(file: string, source: string): Violation[] {

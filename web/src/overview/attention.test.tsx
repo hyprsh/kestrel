@@ -127,7 +127,10 @@ describe('Needs attention', () => {
 
     await screen.findByText('Warning 1')
     const section = screen.getByRole('region', { name: 'Needs attention · 7' })
-    const messages = () => within(section).getAllByRole('listitem').map((r) => r.textContent)
+    const messages = () =>
+      within(section)
+        .getAllByRole('listitem')
+        .map((r) => r.textContent)
     expect(messages()).toEqual([1, 2, 3, 4, 5].map((n) => expect.stringContaining(`Warning ${n}`)))
 
     const more = within(section).getByRole('button', { name: 'View all 7' })
@@ -146,7 +149,9 @@ describe('Needs attention', () => {
 
     await screen.findByText('Blocking 1')
     const section = screen.getByRole('region', { name: 'Needs attention · 7' })
-    const messages = within(section).getAllByRole('listitem').map((r) => r.textContent)
+    const messages = within(section)
+      .getAllByRole('listitem')
+      .map((r) => r.textContent)
     expect(messages).toEqual([1, 2, 3, 4, 5, 6].map((n) => expect.stringContaining(`Blocking ${n}`)))
     expect(within(section).getByRole('button', { name: 'View all 7' })).toBeInTheDocument()
   })
@@ -276,8 +281,7 @@ describe('Needs attention', () => {
     expect(state.calls).toEqual(['POST dismiss health-2'])
   })
 
-  const confirmRow = () =>
-    exdevRow({ actions: [{ key: 'dismiss', label: 'Dismiss', method: 'POST', path: '/attention/health-2/dismiss', body: null, confirm: 'Hide this warning?' }] })
+  const confirmRow = () => exdevRow({ actions: [{ key: 'dismiss', label: 'Dismiss', method: 'POST', path: '/attention/health-2/dismiss', body: null, confirm: 'Hide this warning?' }] })
 
   it('asks in a dialog before an action that wants confirmation, and does nothing when cancelled', async () => {
     const confirm = vi.spyOn(window, 'confirm')
@@ -383,7 +387,17 @@ describe('The health strip', () => {
           status({
             indexers: [
               { instance_id: 11, name: 'Alpha', state: 'ok', message: null, ...idle, search_used: 42, search_max: 100 },
-              { instance_id: 12, name: 'Beta', state: 'ok', message: null, ...idle, search_used: 7, search_paused_until: '2026-10-18T14:05:00Z', grabs_paused: true, grabs_paused_until: '2026-10-18T14:05:00Z' },
+              {
+                instance_id: 12,
+                name: 'Beta',
+                state: 'ok',
+                message: null,
+                ...idle,
+                search_used: 7,
+                search_paused_until: '2026-10-18T14:05:00Z',
+                grabs_paused: true,
+                grabs_paused_until: '2026-10-18T14:05:00Z',
+              },
               { instance_id: 13, name: 'Gamma', state: 'ok', message: null, ...idle, grab_used: 5, grab_max: 5, grabs_paused: true },
             ],
           }),
@@ -422,11 +436,7 @@ describe('The health strip', () => {
   })
 
   it('says when no download client is set up', async () => {
-    server.use(
-      http.get('/system/status', ({ response }) =>
-        response(200).json(status({ download_client: { state: 'none', name: null, instance_id: null, message: null }, indexers: [] })),
-      ),
-    )
+    server.use(http.get('/system/status', ({ response }) => response(200).json(status({ download_client: { state: 'none', name: null, instance_id: null, message: null }, indexers: [] }))))
     renderApp()
 
     const strip = await screen.findByRole('region', { name: /health/i })

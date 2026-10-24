@@ -23,9 +23,7 @@ const movieOffer: OriginalOffer = {
   score: 50,
   found_at: '2026-10-18T09:30:00Z',
   dismissed: false,
-  releases: [
-    { name: 'Paddington.2014.1080p.BluRay.x264-GRP', indexer: 'Alpha', score: 50, size: 8 << 20, published_at: '2026-10-18T08:00:00Z', season: null, pack: false, episodes: [] },
-  ],
+  releases: [{ name: 'Paddington.2014.1080p.BluRay.x264-GRP', indexer: 'Alpha', score: 50, size: 8 << 20, published_at: '2026-10-18T08:00:00Z', season: null, pack: false, episodes: [] }],
 }
 
 const seriesOffer: OriginalOffer = {
@@ -60,7 +58,7 @@ function fakeOffers(items: OriginalOffer[]) {
 }
 
 describe('the Originals available group in Needs attention', () => {
-  it('names the Version\'s Profile by its name, not its key', async () => {
+  it("names the Version's Profile by its name, not its key", async () => {
     fakeOffers([movieOffer])
     renderApp()
 

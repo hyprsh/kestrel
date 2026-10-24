@@ -44,7 +44,16 @@ describe("TMDB's audience rating", () => {
   it('shows in the Add Title results and the add panel', async () => {
     fakeLibrary([])
     const result = (id: number, title: string, ratings: Rating[]): LookupResult => ({
-      kind: 'movie', tmdb_id: id, tvdb_id: null, title, year: 2014, poster: null, in_library: null, addable: true, not_addable_reason: null, ratings,
+      kind: 'movie',
+      tmdb_id: id,
+      tvdb_id: null,
+      title,
+      year: 2014,
+      poster: null,
+      in_library: null,
+      addable: true,
+      not_addable_reason: null,
+      ratings,
     })
     server.use(
       http.get('/lookup', ({ response }) =>
@@ -52,10 +61,19 @@ describe("TMDB's audience rating", () => {
       ),
       http.get('/lookup/{kind}/{tmdb_id}', ({ response }) =>
         response(200).json({
-          kind: 'movie', tmdb_id: 116149, title: 'Paddington', year: 2014, overview: '', in_library: null, certification: null, certification_country: null,
+          kind: 'movie',
+          tmdb_id: 116149,
+          title: 'Paddington',
+          year: 2014,
+          overview: '',
+          in_library: null,
+          certification: null,
+          certification_country: null,
           slots: [{ slot: 'standard', profile: 'hd-primary', label: 'HD', reason: 'default' }],
           ratings: [tmdb(7.3, 4912)],
-          poster: null, runtime: null, genres: [],
+          poster: null,
+          runtime: null,
+          genres: [],
         }),
       ),
     )

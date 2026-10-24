@@ -17,15 +17,14 @@ const slots = (standard: 'wanted' | 'filled', fourK: 'wanted' | 'filled' | null 
   standard: { version_id: 1, profile: 'hd-primary', state: standard, long_missing: false },
   '4k': fourK && { version_id: 2, profile: '4k-primary', state: fourK, long_missing: false },
 })
-const library = () => [
-  row(1, 'Heat', 'Heat', { slots: slots('wanted') }),
-  row(2, 'Zodiac', 'Zodiac', { slots: slots('filled', 'wanted') }),
-  row(3, 'Alien', 'Alien', { slots: slots('filled') }),
-]
+const library = () => [row(1, 'Heat', 'Heat', { slots: slots('wanted') }), row(2, 'Zodiac', 'Zodiac', { slots: slots('filled', 'wanted') }), row(3, 'Alien', 'Alien', { slots: slots('filled') })]
 
 const menu = (name: RegExp) => screen.getByRole('button', { name })
 const option = (name: string) => screen.getByRole('option', { name: new RegExp(`^${name}(, excluded)?$`) })
-const titles = (list: HTMLElement) => within(list).getAllByRole('option').map((o) => o.textContent?.replace(/\d{4}$/, '').trim())
+const titles = (list: HTMLElement) =>
+  within(list)
+    .getAllByRole('option')
+    .map((o) => o.textContent?.replace(/\d{4}$/, '').trim())
 
 describe('the Library filter menus', () => {
   async function open() {

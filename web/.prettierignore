@@ -1,0 +1,3 @@
+src/api/schema.gen.ts
+dist
+node_modules

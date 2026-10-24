@@ -72,7 +72,8 @@ function DeleteFilesConfirm({
         {extra.length > 0 && (
           <div className="mt-2">
             <Note variant="warning" size="small">
-              {extra.join(', ')} {extra.length === 1 ? 'shares' : 'share'} a file with {episodes.length - extra.length === 1 ? 'it' : 'them'} and {extra.length === 1 ? 'loses its file' : 'lose their files'} too.
+              {extra.join(', ')} {extra.length === 1 ? 'shares' : 'share'} a file with {episodes.length - extra.length === 1 ? 'it' : 'them'} and{' '}
+              {extra.length === 1 ? 'loses its file' : 'lose their files'} too.
             </Note>
           </div>
         )}
@@ -118,9 +119,7 @@ export function DeleteFile({ versionId, file, asking, onClose }: { versionId: nu
     )
   return (
     <>
-      {file && asking && (
-        <DeleteFilesConfirm paths={[file.path]} bytes={file.size} onConfirm={confirm} onCancel={onClose} error={del.error?.message} busy={del.isPending} />
-      )}
+      {file && asking && <DeleteFilesConfirm paths={[file.path]} bytes={file.size} onConfirm={confirm} onCancel={onClose} error={del.error?.message} busy={del.isPending} />}
       {said && (
         <p role="status" className="label-12 mt-1 text-gray-900">
           {said}

@@ -28,8 +28,10 @@ async function openLibrary() {
 
 const selected = () => within(screen.getByRole('listbox', { name: /library/i })).getByRole('option', { selected: true })
 const filter = () => screen.getByRole('combobox', { name: 'Filter the Library' })
-const shown = (list: HTMLElement) => within(list).queryAllByRole('option').map((o) => o.textContent)
-
+const shown = (list: HTMLElement) =>
+  within(list)
+    .queryAllByRole('option')
+    .map((o) => o.textContent)
 
 describe('the Library list', () => {
   it('shows the English title, the Primary-Language title and a dot per Slot', async () => {
@@ -246,11 +248,7 @@ describe('the Library detail pane', () => {
 
   it('says who requested the Title and from where', async () => {
     fakeLibrary(rows())
-    server.use(
-      http.get('/titles/{id}', ({ response }) =>
-        response(200).json(detail(rows()[0], { requests: [{ id: 5, source: 'silo', requester_name: 'Anna', created_at: '2026-10-01T10:00:00Z' }] })),
-      ),
-    )
+    server.use(http.get('/titles/{id}', ({ response }) => response(200).json(detail(rows()[0], { requests: [{ id: 5, source: 'silo', requester_name: 'Anna', created_at: '2026-10-01T10:00:00Z' }] }))))
     await openLibrary()
     const pane = await screen.findByRole('region', { name: /paddington/i })
     expect(await within(pane).findByText('Requested by Anna via Silo')).toBeInTheDocument()

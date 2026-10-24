@@ -1,6 +1,16 @@
-@import "tailwindcss";
-@import "@hyprsh/design/tailwind.css";
+@import 'tailwindcss';
+@import '@hyprsh/design/tailwind.css';
 
-html, body, #root { height: 100%; }
-body { font-feature-settings: "liga" 1, "calt" 1; }
-.tabular { font-variant-numeric: tabular-nums; }
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  font-feature-settings:
+    'liga' 1,
+    'calt' 1;
+}
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

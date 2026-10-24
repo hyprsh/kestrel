@@ -54,9 +54,7 @@ function fakeLookup(suggestion: (id: number, title: string) => Suggestion = defa
         did_you_mean: null,
       })
     }),
-    http.get('/lookup/{kind}/{tmdb_id}', ({ params, response }) =>
-      response(200).json(suggestion(Number(params.tmdb_id), Number(params.tmdb_id) === 116149 ? 'Paddington' : 'Paddington Returns')),
-    ),
+    http.get('/lookup/{kind}/{tmdb_id}', ({ params, response }) => response(200).json(suggestion(Number(params.tmdb_id), Number(params.tmdb_id) === 116149 ? 'Paddington' : 'Paddington Returns'))),
     http.post('/titles', async ({ request, response }) => {
       const body = await request.json()
       sent.push({ path: 'titles', body })
@@ -199,7 +197,10 @@ describe('the command menu', () => {
     renderApp()
     const menu = await openMenu()
     const input = within(menu).getByRole('combobox', { name: /search/i })
-    const groups = () => within(menu).getAllByRole('group').map((g) => document.getElementById(g.getAttribute('aria-labelledby')!)?.textContent)
+    const groups = () =>
+      within(menu)
+        .getAllByRole('group')
+        .map((g) => document.getElementById(g.getAttribute('aria-labelledby')!)?.textContent)
 
     await userEvent.keyboard('log')
     await within(menu).findByRole('option', { name: /^logan/i })
@@ -381,7 +382,10 @@ describe('the command menu', () => {
     fakeLibrary([])
     server.use(
       http.get('/lookup', ({ response }) =>
-        response('default').json({ type: 'about:blank', title: 'bad gateway', status: 502, code: 'upstream_unavailable', detail: 'The metadata provider refused or lacks an API key' }, { status: 502 }),
+        response('default').json(
+          { type: 'about:blank', title: 'bad gateway', status: 502, code: 'upstream_unavailable', detail: 'The metadata provider refused or lacks an API key' },
+          { status: 502 },
+        ),
       ),
     )
     renderApp()

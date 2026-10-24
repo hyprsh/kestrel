@@ -110,11 +110,7 @@ function bulkReport(action: AdoptionRowsBulk['action'], items: AdoptionBulkRowRe
     const clause = (k: string) => (k === 'failed' ? 'Kestrel could not plan it (see the Log)' : (leftText[k] ?? k))
     const kinds = [...why]
     const who = action === 'accept_suggested' ? 'for you' : 'as they were'
-    parts.push(
-      kinds.length === 1
-        ? `${left.length} left ${who} because ${clause(kinds[0][0])}.`
-        : `${left.length} left ${who}: ${kinds.map(([k, n]) => `${n} because ${clause(k)}`).join(', ')}.`,
-    )
+    parts.push(kinds.length === 1 ? `${left.length} left ${who} because ${clause(kinds[0][0])}.` : `${left.length} left ${who}: ${kinds.map(([k, n]) => `${n} because ${clause(k)}`).join(', ')}.`)
   }
   return parts.join(' ')
 }
@@ -129,12 +125,7 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
   const [filter, setFilter] = useState<Filter>('all')
   const state = plan.data?.state
 
-  if (!plan.data)
-    return (
-      <div className="copy-14 p-6 text-gray-900">
-        {plan.isError ? 'Could not read the Adoption state.' : <LoadingLine>Loading…</LoadingLine>}
-      </div>
-    )
+  if (!plan.data) return <div className="copy-14 p-6 text-gray-900">{plan.isError ? 'Could not read the Adoption state.' : <LoadingLine>Loading…</LoadingLine>}</div>
   const p = plan.data
   const failed = scan.error ?? commit.error ?? discard.error ?? retry.error ?? reopen.error
 
@@ -143,8 +134,7 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
       <div className={embedded ? '' : 'mx-auto max-w-4xl p-6 max-sm:p-4'}>
         {!embedded && <h1 className="heading-16">Adopt existing library</h1>}
         <p className="copy-14 mt-1 text-gray-900">
-          Kestrel scans your Movie and Series Root folders and plans how to manage the files already there without downloading them again. Nothing changes
-          until you adopt the plan.
+          Kestrel scans your Movie and Series Root folders and plans how to manage the files already there without downloading them again. Nothing changes until you adopt the plan.
         </p>
         {failed instanceof ApiError && (
           <Note variant="error" size="small" className="mt-2">
@@ -262,13 +252,7 @@ function Plan({
         <div role="status" className="copy-14 text-gray-900">
           {summary.matched} matched, {summary.needs_choice} need a choice, {summary.skipped} skipped
         </div>
-        <Select
-          aria-label="Show"
-          size="small"
-          value={filter}
-          onChange={(e) => change(e.target.value as Filter)}
-          options={filters.map((f) => ({ value: f.key, label: f.label }))}
-        />
+        <Select aria-label="Show" size="small" value={filter} onChange={(e) => change(e.target.value as Filter)} options={filters.map((f) => ({ value: f.key, label: f.label }))} />
         <Select
           aria-label="Monitoring"
           size="small"
@@ -331,11 +315,7 @@ function Plan({
           ))}
         </Entity.List>
       ) : rows.length === 0 ? (
-        <EmptyState
-          className="mt-6"
-          title={planEmpty ? 'No Files To Adopt' : 'No Rows Match'}
-          description={planEmpty ? 'No files to adopt were found.' : 'No rows match this filter.'}
-        />
+        <EmptyState className="mt-6" title={planEmpty ? 'No Files To Adopt' : 'No Rows Match'} description={planEmpty ? 'No files to adopt were found.' : 'No rows match this filter.'} />
       ) : (
         <>
           <Entity.List className="mt-4" aria-label="Adoption plan">
@@ -370,7 +350,9 @@ function Row({ row, planMonitor }: { row: AdoptionRow; planMonitor: AdoptionMoni
     <div>
       <div className="label-14">{baseName(row.entry)}</div>
       <div className="label-12 mt-0.5 flex items-center gap-2 text-gray-900">
-        <Badge variant="gray" contrast="low" size="sm">Skipped</Badge>
+        <Badge variant="gray" contrast="low" size="sm">
+          Skipped
+        </Badge>
         {skipText[row.skip_reason ?? ''] ?? row.skip_reason}
       </div>
     </div>
@@ -430,7 +412,11 @@ function MatchedRow({ row, planMonitor }: { row: AdoptionRow; planMonitor: Adopt
             <span className="text-gray-900">
               {f.profile}, Score {f.score}
             </span>
-            {f.subtitles.length > 0 && <span className="text-gray-900">+ {f.subtitles.length} subtitle{f.subtitles.length === 1 ? '' : 's'}</span>}
+            {f.subtitles.length > 0 && (
+              <span className="text-gray-900">
+                + {f.subtitles.length} subtitle{f.subtitles.length === 1 ? '' : 's'}
+              </span>
+            )}
             {f.action === 'replace' && !f.left && (
               <Badge variant="amber" contrast="low" size="sm">
                 Would replace the current file (Score {f.score} vs {f.held_score ?? 0})
@@ -485,13 +471,7 @@ function NeedsChoice({ row }: { row: AdoptionRow }) {
       {row.candidates.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
           {row.candidates.map((c) => (
-            <Button
-              key={c.tmdb_id}
-              variant={c.suggested ? 'primary' : undefined}
-              size="small"
-              onClick={() => choose(c.tmdb_id)}
-              disabled={patch.isPending}
-            >
+            <Button key={c.tmdb_id} variant={c.suggested ? 'primary' : undefined} size="small" onClick={() => choose(c.tmdb_id)} disabled={patch.isPending}>
               {c.suggested ? 'Accept suggested match: ' : 'Use '}
               {c.title}
               {c.year ? ` (${c.year})` : ''}
