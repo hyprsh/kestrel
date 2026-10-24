@@ -40,9 +40,10 @@ export function StatusBadge({ state, longMissing }: { state: State; longMissing?
   )
 }
 
-type Dot = { state: 'success' | 'info' | 'warning' | 'error' | 'neutral'; variant?: 'outline' | 'dashed' }
+export type Dot = { state: 'success' | 'info' | 'warning' | 'error' | 'neutral'; variant?: 'outline' | 'dashed' }
 
-function dotOf(state: State | null, longMissing: boolean): Dot {
+/** The StatusDot of a Slot's Version (null: no Version in the Slot). */
+export function dotOf(state: State | null, longMissing: boolean): Dot {
   if (state === null) return { state: 'neutral', variant: 'outline' } // no Version in the Slot
   if (longMissing) return { state: 'error', variant: 'outline' }
   switch (state) {

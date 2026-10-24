@@ -26,7 +26,7 @@ export function SelectionBar({
 }) {
   if (!selection.active && !always) return null
   const did = verb === 'tick' ? 'ticked' : 'selected'
-  const Do = verb === 'tick' ? 'Tick' : 'Select'
+  const action = verb === 'tick' ? 'Tick' : 'Select'
   return (
     <div role="group" aria-label="Selection" className="flex flex-wrap items-center gap-2 copy-13">
       {selection.active && (
@@ -36,12 +36,12 @@ export function SelectionBar({
       )}
       {!selection.all && selection.count < shown && (
         <Button variant="tertiary" size="small" onClick={selection.checkAll}>
-          {Do} all {shown} shown
+          {action} all {shown} shown
         </Button>
       )}
       {!selection.all && total !== undefined && total > shown && (
         <Button variant="tertiary" size="small" onClick={selection.checkMatching}>
-          {Do} all {total} in this filter
+          {action} all {total} in this filter
         </Button>
       )}
       {selection.narrowed && total !== undefined && <span>No longer all {total} in this filter</span>}

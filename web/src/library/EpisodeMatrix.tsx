@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNod
 import { ApiError, useEpisodes, useMonitorEpisodes, usePatchSeason, type Episode } from '../api/queries'
 import { useAfter } from '../loading'
 import { cx } from '../ui'
-import { slotLabel, versionStatus, type SlotKey } from './bits'
+import { dotOf, slotLabel, versionStatus, type SlotKey } from './bits'
 import { EpisodeMenu, EpisodeTick, SeasonMenu, type EpisodeActions } from './EpisodeActions'
 import { SeasonSummary, SeasonToggle } from './SeasonSummary'
 import type { SeasonOpen } from './useSeasonOpen'
@@ -19,26 +19,6 @@ type Row = { kind: 'season'; season: number; episodes: Episode[] } | { kind: 'ep
 // On a phone the grid keeps its layout and scrolls sideways only when a row does not fit: a row has a
 // minimum width. No column is pinned.
 const rowMin = 'max-sm:min-w-[20rem]'
-
-type Dot = { state: 'success' | 'info' | 'warning' | 'error' | 'neutral'; variant?: 'outline' | 'dashed' }
-
-/** The StatusDot of a Slot cell, as the Library list's SlotDots draws the same states. */
-function dotOf(state: string | null): Dot {
-  switch (state) {
-    case null:
-      return { state: 'neutral', variant: 'outline' } // no Version in the Slot
-    case 'filled':
-      return { state: 'success' }
-    case 'downloading':
-      return { state: 'info' }
-    case 'wanted':
-      return { state: 'warning', variant: 'outline' }
-    case 'unreleased':
-      return { state: 'neutral', variant: 'dashed' }
-    default:
-      return { state: 'neutral' }
-  }
-}
 
 /** Where a row is now: its own index if it is still shown, or else its season's header. */
 function followRow(rows: Row[], was: Row): { row: number; same: boolean } {
@@ -336,7 +316,7 @@ function EpisodeRow({
         {slots.map((s, c) => {
           const cell = episode.cells[s]
           const state = cell ? versionStatus(cell.state).label : 'no Version'
-          const dot = dotOf(cell ? cell.state : null)
+          const dot = dotOf(cell ? cell.state : null, false)
           const square = (
             <button
               type="button"
