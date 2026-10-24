@@ -139,7 +139,7 @@ describe('the Original Offer indicator on the Title page', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     const pane = await screen.findByRole('region', { name: /paddington/i })
-    return within(pane).findByRole('group', { name: 'Standard' })
+    return within(pane).findByRole('listitem', { name: 'Standard' })
   }
 
   it('says an original is available on the Version', async () => {
