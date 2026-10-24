@@ -91,10 +91,10 @@ export function CommandMenu({
         thumb: <PosterThumb src={r.poster} />,
         right: (
           <span className="flex items-center gap-1.5">
-            {r.in_library !== null && <Badge variant="green-subtle" size="sm">In library</Badge>}
-            {!r.addable && r.not_addable_reason === 'not_on_tvdb' && <Badge variant="amber-subtle" size="sm">Not on TheTVDB</Badge>}
-            {!r.addable && r.not_addable_reason === 'tvdb_unavailable' && <Badge variant="amber-subtle" size="sm">TheTVDB unreachable</Badge>}
-            <Badge variant="gray-subtle" size="sm">{r.kind === 'series' ? 'Series' : 'Movie'}</Badge>
+            {r.in_library !== null && <Badge variant="green" contrast="low" size="sm">In library</Badge>}
+            {!r.addable && r.not_addable_reason === 'not_on_tvdb' && <Badge variant="amber" contrast="low" size="sm">Not on TheTVDB</Badge>}
+            {!r.addable && r.not_addable_reason === 'tvdb_unavailable' && <Badge variant="amber" contrast="low" size="sm">TheTVDB unreachable</Badge>}
+            <Badge variant="gray" contrast="low" size="sm">{r.kind === 'series' ? 'Series' : 'Movie'}</Badge>
           </span>
         ),
         run: () => {
@@ -224,7 +224,7 @@ export function CommandMenu({
       ) : (
         <>
           <CommandMenuInput
-            prefix={mode === 'add' ? <Badge variant="blue-subtle" size="sm">Add</Badge> : undefined}
+            prefix={mode === 'add' ? <Badge variant="blue" contrast="low" size="sm">Add</Badge> : undefined}
             aria-label={mode === 'add' ? 'Search a Movie or Series to add' : 'Search or run a command'}
             placeholder={mode === 'add' ? 'Type a title to search both Movies and Series…' : 'Search or run a command…'}
           />

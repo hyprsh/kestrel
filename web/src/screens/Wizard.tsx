@@ -280,7 +280,7 @@ function Section({
             <Fieldset.Title as="h2" id={`wizard-${id}`}>
               <span className="flex items-center gap-2">
                 <span aria-hidden>
-                  <Badge size="sm" variant={done ? 'green-subtle' : 'gray-subtle'}>
+                  <Badge size="sm" contrast="low" variant={done ? 'green' : 'gray'}>
                     {done ? <Check className="size-3" /> : n}
                   </Badge>
                 </span>

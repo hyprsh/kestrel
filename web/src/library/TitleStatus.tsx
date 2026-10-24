@@ -21,6 +21,15 @@ function NotKept({ slot }: { slot: SlotKey }) {
   )
 }
 
+function MovieSlot({ slot, version: v }: { slot: SlotKey; version: Version }) {
+  const s = versionStatus(v.state, v.long_missing)
+  return (
+    <Badge variant={s.variant} contrast={s.contrast} size="sm">
+      {slotLabel[slot]} · {s.label}
+    </Badge>
+  )
+}
+
 function SeriesSlot({ slot, version: v }: { slot: SlotKey; version: Version }) {
   const c = v.coverage
   const counts = c
@@ -57,9 +66,7 @@ export function TitleStatus({ title }: { title: TitleDetail }) {
             ) : series ? (
               <SeriesSlot slot={k} version={v} />
             ) : (
-              <Badge variant={versionStatus(v.state, v.long_missing).variant} size="sm">
-                {slotLabel[k]} · {versionStatus(v.state, v.long_missing).label}
-              </Badge>
+              <MovieSlot slot={k} version={v} />
             )}
           </li>
         )
