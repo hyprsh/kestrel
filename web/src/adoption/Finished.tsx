@@ -1,8 +1,7 @@
-// chrome: pending
 // The Adoption summary after a commit: what was not adopted, grouped, each entry with its folder and reason.
 import { useAdoptionRows, type AdoptionOutcome, type AdoptionOutcomes } from '../api/adoption'
 import { useOpenCleanup } from '../cleanup/launch'
-import { Button, Spinner } from '@hyprsh/design'
+import { Button, Entity, LoadMoreButton, Skeleton } from '@hyprsh/design'
 import { skipText } from './text'
 
 const groups: { outcome: AdoptionOutcome; title: string; why: string }[] = [
@@ -69,26 +68,34 @@ function Group({
         )}
       </div>
       {list.isPending ? (
-        <div className="copy-13 mt-2 flex items-center gap-2 text-gray-900">
-          <Spinner size="sm" />
-          Loading…
-        </div>
-      ) : (
-        <ul className="mt-2 divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
-          {rows.map((r) => (
-            <li key={r.id} className="p-3">
-              <div className="copy-13-mono break-all">{r.entry}</div>
-              <div className="copy-13 mt-0.5 text-gray-900">
-                {outcome === 'failed' ? (r.error ?? 'It could not be adopted') : outcome === 'skipped' ? (skipText[r.skip_reason ?? ''] ?? r.skip_reason) : why}
-              </div>
-            </li>
+        <Entity.List className="mt-2" aria-busy="true" aria-label={`${label}, loading`}>
+          {[0, 1].map((i) => (
+            <Entity key={i} left={<Skeleton width={16} height={16} />}>
+              <Entity.Content fill title={<Skeleton width="60%" height={16} />} description={<Skeleton width="40%" height={16} />} />
+            </Entity>
           ))}
-        </ul>
+        </Entity.List>
+      ) : (
+        <Entity.List className="mt-2" aria-label={`${label} entries`}>
+          {rows.map((r) => (
+            <Entity key={r.id}>
+              <Entity.Content
+                fill
+                title={<span className="copy-13-mono break-all whitespace-normal">{r.entry}</span>}
+                description={
+                  <span className="copy-13 whitespace-normal">
+                    {outcome === 'failed' ? (r.error ?? 'It could not be adopted') : outcome === 'skipped' ? (skipText[r.skip_reason ?? ''] ?? r.skip_reason) : why}
+                  </span>
+                }
+              />
+            </Entity>
+          ))}
+        </Entity.List>
       )}
       {list.hasNextPage && (
-        <Button size="small" className="mt-2" disabled={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
+        <LoadMoreButton size="small" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
           Show more
-        </Button>
+        </LoadMoreButton>
       )}
     </section>
   )
