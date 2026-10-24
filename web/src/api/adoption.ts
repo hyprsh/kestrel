@@ -67,8 +67,7 @@ export function useAdoptionRows({ filter = 'all', outcome }: { filter?: Adoption
 export const planWaiting = (state: components['schemas']['Adoption']['state'] | undefined) => state !== undefined && state !== 'idle'
 
 /** What the Settings button and the command menu say: a new scan replaces a stored plan, so a plan reads as one to review. */
-export const adoptionLabel = (state: components['schemas']['Adoption']['state'] | undefined) =>
-  planWaiting(state) ? 'Review the Adoption plan' : 'Scan for unmanaged files'
+export const adoptionLabel = (state: components['schemas']['Adoption']['state'] | undefined) => (planWaiting(state) ? 'Review the Adoption plan' : 'Scan for unmanaged files')
 
 function useAdoptionMutation<V, R = void>(run: (v: V) => Promise<R>) {
   const qc = useQueryClient()

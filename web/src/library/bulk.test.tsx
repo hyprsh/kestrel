@@ -221,9 +221,7 @@ describe('changing the ticked Titles together', () => {
   it('says why the call failed', async () => {
     fakeLibrary(rows())
     server.use(
-      http.post('/titles/bulk', ({ response }) =>
-        response(422).json({ type: 'about:blank', title: 'unprocessable entity', status: 422, code: 'validation', detail: 'That Profile is disabled' }),
-      ),
+      http.post('/titles/bulk', ({ response }) => response(422).json({ type: 'about:blank', title: 'unprocessable entity', status: 422, code: 'validation', detail: 'That Profile is disabled' })),
     )
     const pane = await withTicked('Heat')
 

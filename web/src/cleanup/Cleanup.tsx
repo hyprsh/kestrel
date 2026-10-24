@@ -30,9 +30,7 @@ export function Cleanup({ titleIds }: { titleIds?: number[] }) {
     <div className="min-h-0 flex-1 overflow-auto">
       <div className="mx-auto max-w-4xl p-6 max-sm:p-4">
         <h1 className="heading-16">Clean up Unmanaged files</h1>
-        <p className="copy-14 mt-1 text-gray-900">
-          Lists the files in your tracked Titles' folders that no Version holds. Deleting is permanent. Nothing is deleted until you confirm.
-        </p>
+        <p className="copy-14 mt-1 text-gray-900">Lists the files in your tracked Titles' folders that no Version holds. Deleting is permanent. Nothing is deleted until you confirm.</p>
         {failed instanceof ApiError && (
           <Note variant="error" size="small" className="mt-2">
             {failed.message}
@@ -50,7 +48,15 @@ export function Cleanup({ titleIds }: { titleIds?: number[] }) {
             busy={run.isPending}
             error={run.error instanceof ApiError ? run.error.message : null}
             onRun={(categories, exclude) =>
-              run.mutate({ previewId: preview.data.preview_id, categories, exclude }, { onSuccess: (r) => { setDone(r); preview.reset() } })
+              run.mutate(
+                { previewId: preview.data.preview_id, categories, exclude },
+                {
+                  onSuccess: (r) => {
+                    setDone(r)
+                    preview.reset()
+                  },
+                },
+              )
             }
             onCancel={() => preview.reset()}
           />
@@ -60,7 +66,10 @@ export function Cleanup({ titleIds }: { titleIds?: number[] }) {
               variant="primary"
               size="small"
               loading={preview.isPending}
-              onClick={() => { setDone(null); preview.mutate(titleIds) }}
+              onClick={() => {
+                setDone(null)
+                preview.mutate(titleIds)
+              }}
             >
               Look for Unmanaged files
             </Button>
@@ -102,22 +111,16 @@ function Review({
     <div className="mt-4">
       <Entity.List aria-label="Unmanaged files by category">
         {nonEmpty.map((c) => (
-          <Entity
-            key={c.key}
-            className="items-start"
-            left={<Checkbox checked={ticked.has(c.key)} onChange={() => setTicked(toggle(ticked, c.key))} aria-label={labels[c.key]} />}
-          >
-            <Entity.Content
-              fill
-              title={labels[c.key]}
-              description={`${c.count} ${c.count === 1 ? 'item' : 'items'}, ${mb(c.size)}`}
-            >
+          <Entity key={c.key} className="items-start" left={<Checkbox checked={ticked.has(c.key)} onChange={() => setTicked(toggle(ticked, c.key))} aria-label={labels[c.key]} />}>
+            <Entity.Content fill title={labels[c.key]} description={`${c.count} ${c.count === 1 ? 'item' : 'items'}, ${mb(c.size)}`}>
               <Collapse variant="inline" title="Show files">
                 <ul className="flex flex-col gap-1">
                   {c.files.map((f) => (
                     <li key={f.path} className="copy-13 flex min-w-0 items-center gap-2">
                       <Checkbox checked={!skipped.has(f.path)} onChange={() => setSkipped(toggle(skipped, f.path))} aria-label={`Delete ${baseName(f.path)}`} />
-                      <Code title={f.path} className="min-w-0 break-all">{baseName(f.path)}</Code>
+                      <Code title={f.path} className="min-w-0 break-all">
+                        {baseName(f.path)}
+                      </Code>
                     </li>
                   ))}
                 </ul>
@@ -137,7 +140,12 @@ function Review({
       <DestructiveActionModal
         open={confirming}
         onCancel={() => setConfirming(false)}
-        onConfirm={() => onRun(chosen.map((c) => c.key), [...skipped])}
+        onConfirm={() =>
+          onRun(
+            chosen.map((c) => c.key),
+            [...skipped],
+          )
+        }
         title="Delete Files"
         description={`Delete ${files.length} ${files.length === 1 ? 'item' : 'items'} (${mb(bytes)}) from your tracked Titles' folders.`}
         irreversibleDescription="Deleting these files is permanent and cannot be undone."

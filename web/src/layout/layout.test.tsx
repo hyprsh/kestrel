@@ -68,7 +68,11 @@ describe('the layout pieces', () => {
         <button>About</button>
       </Rail>,
     )
-    expect(within(screen.getByRole('navigation')).getAllByRole('button').map((b) => b.textContent)).toEqual(['Add', 'About'])
+    expect(
+      within(screen.getByRole('navigation'))
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['Add', 'About'])
   })
 
   it('TopBar and PhoneTopBar show the title, the middle and the end', () => {

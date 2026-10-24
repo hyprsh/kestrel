@@ -17,19 +17,7 @@ export function firstFive<T>(items: T[], keep: (item: T) => boolean = () => fals
 }
 
 /** `count` is how many there are in all, shown after the title once there are any ("Downloading now · 23"). */
-export function Section({
-  id,
-  title,
-  count,
-  className,
-  children,
-}: {
-  id: string
-  title: string
-  count?: number
-  className?: string
-  children: ReactNode
-}) {
+export function Section({ id, title, count, className, children }: { id: string; title: string; count?: number; className?: string; children: ReactNode }) {
   return (
     <section aria-labelledby={id} className={className}>
       <h2 id={id} className="heading-14 mb-3">

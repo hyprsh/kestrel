@@ -9,7 +9,10 @@ import { fakeSeries } from '../test/series'
 import { server } from '../test/server'
 
 /** The options of the dropdown a trigger opened. */
-const optionsOf = (trigger: HTMLElement) => within(document.getElementById(trigger.getAttribute('aria-controls')!)!).getAllByRole('option').map((o) => o.textContent)
+const optionsOf = (trigger: HTMLElement) =>
+  within(document.getElementById(trigger.getAttribute('aria-controls')!)!)
+    .getAllByRole('option')
+    .map((o) => o.textContent)
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -53,7 +56,6 @@ describe('monitoring a Movie', () => {
     await waitFor(() => expect(state.sent[1]).toEqual({ path: 'titles', body: { monitored: true } }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Monitor: Monitored' })).toBeInTheDocument())
   })
-
 })
 
 describe('monitoring a Series', () => {

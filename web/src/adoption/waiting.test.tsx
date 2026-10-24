@@ -25,7 +25,9 @@ function planIs(state: Adoption['state'], needsChoice = 0) {
         result: null,
       }),
     ),
-    http.get('/adoption/rows', ({ response }) => response(200).json({ items: [], next_cursor: null, total: 0, counts: { matched: 0, needs_choice: 0, skipped: 0, duplicate: 0, replacement: 0, adopting: 0 } })),
+    http.get('/adoption/rows', ({ response }) =>
+      response(200).json({ items: [], next_cursor: null, total: 0, counts: { matched: 0, needs_choice: 0, skipped: 0, duplicate: 0, replacement: 0, adopting: 0 } }),
+    ),
   )
 }
 

@@ -16,21 +16,7 @@ import { useNow } from '../time'
 import { cx } from '../ui'
 import { EntryName, Markers, MovieNotes, otherDates, StateBadges, Standings, TallyBadges } from './bits'
 import { useUpcomingFilters } from './filters'
-import {
-  airTime,
-  buildDays,
-  dayLabel,
-  episodeRange,
-  navRows,
-  passes,
-  relativeDay,
-  tally,
-  undatedKey,
-  upcomingKey,
-  weekOf,
-  type Block,
-  type Day,
-} from './state'
+import { airTime, buildDays, dayLabel, episodeRange, navRows, passes, relativeDay, tally, undatedKey, upcomingKey, weekOf, type Block, type Day } from './state'
 import { AgendaTimeline, DayHeading, RowDot, WeekLabel } from './Timeline'
 import { TitlePoster } from '../poster'
 import { UndatedList, UndatedRow } from './UndatedList'
@@ -68,7 +54,10 @@ export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void })
 
   // The cursor starts on the first row of today or later, and stays on its row as rows come and go.
   const [selKey, setSelKey] = useState<string | null>(null)
-  const start = Math.max(0, rows.findIndex((r) => r.day >= today))
+  const start = Math.max(
+    0,
+    rows.findIndex((r) => r.day >= today),
+  )
   const found = selKey === null ? -1 : (indexOf.get(selKey) ?? -1)
   const sel = found >= 0 ? found : Math.min(start, Math.max(0, rows.length - 1))
   const select = (i: number) => rows[i] && setSelKey(rows[i].key)
@@ -274,7 +263,9 @@ function DayBlock({
           <p className="label-12 pb-2 pl-9 text-gray-900">Nothing else is due today.</p>
         ) : (
           <div className="pr-3 pb-2 pl-9">
-            <Entity.List aria-label={label} className="@container overflow-visible">{day.blocks.map((b) => rowFor(b))}</Entity.List>
+            <Entity.List aria-label={label} className="@container overflow-visible">
+              {day.blocks.map((b) => rowFor(b))}
+            </Entity.List>
           </div>
         )}
       </li>
@@ -334,7 +325,10 @@ function BlockRows({ block, ...p }: { block: Block } & RowProps) {
           fill
           title={
             <>
-              <span className="font-medium">{first.title}</span> <span className="font-normal text-gray-900">{episodeRange(block.items)} · {plural(block.items.length, 'episode')}</span>
+              <span className="font-medium">{first.title}</span>{' '}
+              <span className="font-normal text-gray-900">
+                {episodeRange(block.items)} · {plural(block.items.length, 'episode')}
+              </span>
             </>
           }
           description={

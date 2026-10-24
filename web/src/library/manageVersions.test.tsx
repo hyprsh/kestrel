@@ -15,7 +15,14 @@ function fakeManage() {
   const calls: Call[] = []
   fakeLibrary([row(1, 'Paddington', 'Paddington')])
   const version = (slot: 'standard' | '4k', profile: string) => ({
-    id: 11, slot, profile, state: 'wanted' as const, long_missing: false, wanted_since: null, file: null, added_at: '2026-10-17T12:00:00Z',
+    id: 11,
+    slot,
+    profile,
+    state: 'wanted' as const,
+    long_missing: false,
+    wanted_since: null,
+    file: null,
+    added_at: '2026-10-17T12:00:00Z',
   })
   server.use(
     http.post('/titles/{id}/versions', async ({ request, response }) => {

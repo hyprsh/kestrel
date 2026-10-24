@@ -88,8 +88,14 @@ function RecentRow({ item, index, sel, onSelect }: { item: RecentItem; index: nu
       rightClassName={stackedRight}
       right={
         <>
-          <Badge variant="gray" contrast="low" size="sm">{slotLabel[item.slot as SlotKey]}</Badge>
-          {item.is_upgrade && <Badge variant="purple" contrast="low" size="sm">Upgrade</Badge>}
+          <Badge variant="gray" contrast="low" size="sm">
+            {slotLabel[item.slot as SlotKey]}
+          </Badge>
+          {item.is_upgrade && (
+            <Badge variant="purple" contrast="low" size="sm">
+              Upgrade
+            </Badge>
+          )}
           {item.score != null && <span className="label-12 text-gray-900 tabular">{item.score}</span>}
           <span className="label-12 w-10 shrink-0 text-right tabular">{item.score_delta != null ? `+${item.score_delta}` : 'new'}</span>
           <span className="label-12 w-28 shrink-0 text-right text-gray-900">{new Date(item.imported_at).toLocaleDateString(undefined, { dateStyle: 'medium' })}</span>

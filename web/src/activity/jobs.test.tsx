@@ -40,8 +40,7 @@ async function openJobs(client = new QueryClient({ defaultOptions: { queries: { 
   return screen.findByRole('region', { name: /^Background jobs/ })
 }
 
-const rowOf = async (section: HTMLElement, name: string) =>
-  (await within(section).findAllByRole('listitem')).find((li) => within(li).queryByText(name, { selector: 'span' }))!
+const rowOf = async (section: HTMLElement, name: string) => (await within(section).findAllByRole('listitem')).find((li) => within(li).queryByText(name, { selector: 'span' }))!
 
 describe('Background jobs', () => {
   it('lists each loop with what it does, its schedule, its last run and when it runs next', async () => {

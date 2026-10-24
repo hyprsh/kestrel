@@ -58,9 +58,7 @@ export const detail = (r: TitleRow, over: Partial<TitleDetail> = {}): TitleDetai
   ratings: [],
   versions: (['standard', '4k'] as const).flatMap((s) => {
     const sl = r.slots[s]
-    return sl
-      ? [{ id: sl.version_id, slot: s, profile: sl.profile, state: sl.state, long_missing: false, wanted_since: r.wanted_since, file: null, added_at: r.added_at }]
-      : []
+    return sl ? [{ id: sl.version_id, slot: s, profile: sl.profile, state: sl.state, long_missing: false, wanted_since: r.wanted_since, file: null, added_at: r.added_at }] : []
   }),
   ...over,
 })
@@ -78,9 +76,7 @@ export function fakeLibrary(initial: TitleRow[]) {
     http.get('/titles', ({ response }) => response(200).json({ items: state.rows, next_cursor: null })),
     http.get('/titles/{id}', ({ params, response }) => {
       const r = state.rows.find((x) => x.id === Number(params.id))
-      return r
-        ? response(200).json(detail(r))
-        : response('default').json({ type: 'about:blank', title: 'not found', status: 404, code: 'not_found' }, { status: 404 })
+      return r ? response(200).json(detail(r)) : response('default').json({ type: 'about:blank', title: 'not found', status: 404, code: 'not_found' }, { status: 404 })
     }),
     http.get('/profiles', ({ response }) =>
       response(200).json({

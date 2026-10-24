@@ -11,16 +11,12 @@ const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { 
 type Proxy = { enabled: boolean; trusted_proxies: string[]; header: string }
 
 /** A logged-in instance whose API key and reverse-proxy settings the test controls. */
-function fakeSecurity(
-  opts: { key?: { prefix: string; created_at: string; from_environment?: boolean }; proxy?: Partial<Proxy>; untrusted?: boolean; proxyDeclared?: boolean } = {},
-) {
+function fakeSecurity(opts: { key?: { prefix: string; created_at: string; from_environment?: boolean }; proxy?: Partial<Proxy>; untrusted?: boolean; proxyDeclared?: boolean } = {}) {
   let key = opts.key ?? null
   let proxy: Proxy = { enabled: false, trusted_proxies: [], header: 'Remote-User', ...opts.proxy }
   const saved: Proxy[] = []
   server.use(
-    http.get('/api-key', ({ response }) =>
-      response(200).json({ prefix: key?.prefix ?? null, created_at: key?.created_at ?? null, from_environment: key?.from_environment ?? false }),
-    ),
+    http.get('/api-key', ({ response }) => response(200).json({ prefix: key?.prefix ?? null, created_at: key?.created_at ?? null, from_environment: key?.from_environment ?? false })),
     http.post('/api-key', ({ response }) => {
       key = { prefix: 'kst_NEWK', created_at: '2026-10-17T12:00:00Z' }
       return response(201).json({ key: 'kst_NEWKEYSHOWNONCE' })

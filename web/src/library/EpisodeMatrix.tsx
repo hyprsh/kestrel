@@ -24,7 +24,13 @@ function followRow(rows: Row[], was: Row): { row: number; same: boolean } {
   const season = was.kind === 'season' ? was.season : was.episode.season
   const same = rows.findIndex((r) => (r.kind === 'season' ? was.kind === 'season' && r.season === season : was.kind === 'episode' && r.episode.id === was.episode.id))
   if (same >= 0) return { row: same, same: true }
-  return { row: Math.max(0, rows.findIndex((r) => r.kind === 'season' && r.season === season)), same: false }
+  return {
+    row: Math.max(
+      0,
+      rows.findIndex((r) => r.kind === 'season' && r.season === season),
+    ),
+    same: false,
+  }
 }
 
 /**
@@ -235,8 +241,13 @@ function SeasonRow({
   const on = row.episodes.filter((e) => e.monitored).length
   return (
     <>
-      {/* chrome-ok: episode grid (domain visual, ADR 0017) */}
-      <div role="row" aria-rowindex={index + 2} data-menu-open={menuOpen ? '' : undefined} className="flex items-center gap-3 border-t border-gray-alpha-400 bg-gray-alpha-100 px-3 py-1.5 data-[menu-open]:bg-gray-alpha-200 max-sm:min-h-11">
+      <div
+        role="row"
+        aria-rowindex={index + 2}
+        data-menu-open={menuOpen ? '' : undefined}
+        // chrome-ok: episode grid (domain visual, ADR 0017)
+        className="flex items-center gap-3 border-t border-gray-alpha-400 bg-gray-alpha-100 px-3 py-1.5 data-[menu-open]:bg-gray-alpha-200 max-sm:min-h-11"
+      >
         <div role="gridcell" className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
           <Checkbox
             aria-label={seasonName(row.season)}
@@ -289,18 +300,16 @@ function EpisodeRow({
   const phone = usePhone()
   return (
     <>
-      {/* chrome-ok: episode grid (domain visual, ADR 0017) */}
-      <div role="row" aria-rowindex={index + 2} data-menu-open={menuOpen ? '' : undefined} className={cx('flex items-center gap-3 px-3 py-1 hover:bg-gray-alpha-100 data-[menu-open]:bg-gray-alpha-200 max-sm:min-h-11', rowMin)}>
-        <div role="gridcell" className={"flex min-w-0 flex-1 items-center gap-2"}>
+      <div
+        role="row"
+        aria-rowindex={index + 2}
+        data-menu-open={menuOpen ? '' : undefined}
+        // chrome-ok: episode grid (domain visual, ADR 0017)
+        className={cx('flex items-center gap-3 px-3 py-1 hover:bg-gray-alpha-100 data-[menu-open]:bg-gray-alpha-200 max-sm:min-h-11', rowMin)}
+      >
+        <div role="gridcell" className={'flex min-w-0 flex-1 items-center gap-2'}>
           {tick}
-          <Checkbox
-            aria-label={`${label} monitored`}
-            checked={episode.monitored}
-            data-cell={`${index}-0`}
-            tabIndex={tab(index, 0)}
-            onFocus={() => onFocus(0)}
-            onClick={onToggle}
-          />
+          <Checkbox aria-label={`${label} monitored`} checked={episode.monitored} data-cell={`${index}-0`} tabIndex={tab(index, 0)} onFocus={() => onFocus(0)} onClick={onToggle} />
           <span className="label-12-mono w-14 shrink-0 text-gray-900 max-sm:w-11">
             {episode.season}x{String(episode.number).padStart(2, '0')}
           </span>

@@ -56,9 +56,7 @@ export function fakeGrabs(grabs: GrabEntry[], blocked: Blocked[] = []) {
       state.queries.push(q)
       const states = q.getAll('state')
       const stalled = q.get('stalled')
-      const items = state.grabs.filter(
-        (g) => (states.length === 0 || states.includes(g.state)) && (stalled === null || (g.stalled !== null) === (stalled === 'true')),
-      )
+      const items = state.grabs.filter((g) => (states.length === 0 || states.includes(g.state)) && (stalled === null || (g.stalled !== null) === (stalled === 'true')))
       return response(200).json({ items, next_cursor: null })
     }),
     http.get('/blocklist', ({ response }) => response(200).json({ items: blocked })),

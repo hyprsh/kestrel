@@ -57,14 +57,22 @@ const points = (r: Release) => r.custom_formats.reduce((sum, f) => sum + f.point
 
 function valueOf(r: Release, key: SortKey): string | number {
   switch (key) {
-    case 'score': return r.score
-    case 'release': return r.name
-    case 'quality': return r.quality
-    case 'languages': return r.languages.join(', ')
-    case 'formats': return points(r)
-    case 'size': return r.size
-    case 'age': return Date.now() - new Date(r.published_at).getTime()
-    case 'indexer': return r.indexer
+    case 'score':
+      return r.score
+    case 'release':
+      return r.name
+    case 'quality':
+      return r.quality
+    case 'languages':
+      return r.languages.join(', ')
+    case 'formats':
+      return points(r)
+    case 'size':
+      return r.size
+    case 'age':
+      return Date.now() - new Date(r.published_at).getTime()
+    case 'indexer':
+      return r.indexer
   }
 }
 
@@ -160,8 +168,7 @@ export function ManualSearch({
     setSel(0)
     if (e.detail > 0) ref.current?.focus()
   }
-  const sortBy = (key: SortKey, e: { detail: number }) =>
-    change({ ...view, sort: view.sort.key === key ? { key, dir: view.sort.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' } }, e)
+  const sortBy = (key: SortKey, e: { detail: number }) => change({ ...view, sort: view.sort.key === key ? { key, dir: view.sort.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' } }, e)
   const isBest = view.sort.key === BEST_FIRST.key && view.sort.dir === BEST_FIRST.dir
 
   const grab = () => {
@@ -202,7 +209,8 @@ export function ManualSearch({
           </Badge>
         )}
         <span className="copy-13 text-gray-900">
-          Profile {profileName} · {rows.length} Releases · {isBest ? 'best first' : `sorted by ${columns.find((c) => c.key === view.sort.key)?.label.toLowerCase()}, ${view.sort.dir === 'asc' ? 'ascending' : 'descending'}`}
+          Profile {profileName} · {rows.length} Releases ·{' '}
+          {isBest ? 'best first' : `sorted by ${columns.find((c) => c.key === view.sort.key)?.label.toLowerCase()}, ${view.sort.dir === 'asc' ? 'ascending' : 'descending'}`}
         </span>
         {!isBest && (
           <Button variant="tertiary" size="small" onClick={(e) => change({ ...view, sort: BEST_FIRST }, e)}>
@@ -252,12 +260,7 @@ export function ManualSearch({
               <Table.Header>
                 <Table.Row>
                   {columns.map((c) => (
-                    <Table.Head
-                      key={c.key}
-                      align={c.align}
-                      sort={view.sort.key === c.key ? (view.sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                      onSort={(e) => sortBy(c.key, e)}
-                    >
+                    <Table.Head key={c.key} align={c.align} sort={view.sort.key === c.key ? (view.sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'} onSort={(e) => sortBy(c.key, e)}>
                       {c.label}
                     </Table.Head>
                   ))}
@@ -269,15 +272,10 @@ export function ManualSearch({
                   const rejected = x.rejections.length > 0
                   const dim = rejected && 'opacity-50'
                   return (
-                    <Table.Row
-                      key={x.release_id}
-                      selected={i === index}
-                      data-nav={`ms-${i}`}
-                      onClick={() => setSel(i)}
-                      onDoubleClick={grab}
-                      className="cursor-pointer align-top"
-                    >
-                      <Table.Cell align="right" className={cx('hy-num hy-mono', dim)}>{x.score.toLocaleString('en-US')}</Table.Cell>
+                    <Table.Row key={x.release_id} selected={i === index} data-nav={`ms-${i}`} onClick={() => setSel(i)} onDoubleClick={grab} className="cursor-pointer align-top">
+                      <Table.Cell align="right" className={cx('hy-num hy-mono', dim)}>
+                        {x.score.toLocaleString('en-US')}
+                      </Table.Cell>
                       <Table.Cell truncate>
                         <div className={cx('flex items-center gap-1.5', dim)}>
                           <span className="label-12-mono truncate" title={x.name}>
@@ -306,11 +304,7 @@ export function ManualSearch({
                             )}
                           </div>
                         )}
-                        {rejected && (
-                          <div className={cx('label-12 mt-0.5', rejectionBlocked(x) ? 'text-red-900' : 'text-amber-900')}>
-                            {x.rejections.map((r) => r.message).join(' · ')}
-                          </div>
-                        )}
+                        {rejected && <div className={cx('label-12 mt-0.5', rejectionBlocked(x) ? 'text-red-900' : 'text-amber-900')}>{x.rejections.map((r) => r.message).join(' · ')}</div>}
                       </Table.Cell>
                       <Table.Cell className={dim || undefined}>{x.quality}</Table.Cell>
                       <Table.Cell className={dim || undefined}>{x.languages.join(', ')}</Table.Cell>
@@ -333,8 +327,12 @@ export function ManualSearch({
                           ))}
                         </div>
                       </Table.Cell>
-                      <Table.Cell align="right" className={cx('hy-num hy-mono', dim)}>{size(x.size)}</Table.Cell>
-                      <Table.Cell align="right" className={cx('hy-num hy-mono', dim)}>{age(x.published_at)}</Table.Cell>
+                      <Table.Cell align="right" className={cx('hy-num hy-mono', dim)}>
+                        {size(x.size)}
+                      </Table.Cell>
+                      <Table.Cell align="right" className={cx('hy-num hy-mono', dim)}>
+                        {age(x.published_at)}
+                      </Table.Cell>
                       <Table.Cell className={dim || undefined}>{x.indexer}</Table.Cell>
                     </Table.Row>
                   )
@@ -357,7 +355,10 @@ export function ManualSearch({
           ) : current && g ? (
             <>
               <div className="label-12-mono truncate">
-                {current.name} <span className="text-gray-900">· {current.score.toLocaleString('en-US')} · {size(current.size)} · {current.indexer}</span>
+                {current.name}{' '}
+                <span className="text-gray-900">
+                  · {current.score.toLocaleString('en-US')} · {size(current.size)} · {current.indexer}
+                </span>
               </div>
               <div className={cx('label-12 truncate', g.disabled ? 'text-red-900' : g.reason ? 'text-amber-900' : 'text-gray-900')}>
                 {g.reason ?? `Fits the ${slotLabel} Version under Profile ${profileName}`}

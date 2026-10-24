@@ -34,14 +34,10 @@ function fakePlugins(opts: { fresh?: boolean; saved?: boolean; declared?: boolea
     last_check: null,
   })
   const result = (config: Record<string, unknown>) =>
-    config.api_key === undefined || config.api_key === 'good-key'
-      ? { ok: true, code: null, message: 'SABnzbd 4.5.1' }
-      : { ok: false, code: 'auth', message: 'SABnzbd rejected the API key' }
+    config.api_key === undefined || config.api_key === 'good-key' ? { ok: true, code: null, message: 'SABnzbd 4.5.1' } : { ok: false, code: 'auth', message: 'SABnzbd rejected the API key' }
 
   server.use(
-    http.get('/auth/me', ({ response }) =>
-      signedIn ? response(200).json(me) : response('default').json(problem(401, 'setup_required'), { status: 401 }),
-    ),
+    http.get('/auth/me', ({ response }) => (signedIn ? response(200).json(me) : response('default').json(problem(401, 'setup_required'), { status: 401 }))),
     http.post('/setup/account', ({ response }) => {
       signedIn = true
       return response(201).json(me)
@@ -59,7 +55,13 @@ function fakePlugins(opts: { fresh?: boolean; saved?: boolean; declared?: boolea
     }),
     http.post('/plugins/{plugin_id}/options/{field}', async ({ request, params, response }) => {
       sent.push({ path: `options ${params.field}`, body: await request.json() })
-      return response(200).json({ items: [{ value: 'movies', label: 'movies' }, { value: 'tv', label: 'tv' }, { value: 'films', label: 'films' }] })
+      return response(200).json({
+        items: [
+          { value: 'movies', label: 'movies' },
+          { value: 'tv', label: 'tv' },
+          { value: 'films', label: 'films' },
+        ],
+      })
     }),
     http.post('/plugin-instances', async ({ request, response }) => {
       sent.push({ path: 'create', body: await request.json() })
@@ -104,7 +106,11 @@ describe('the wizard SABnzbd section', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Test connection' }))
     expect(await screen.findByRole('status')).toHaveTextContent('Connected: SABnzbd 4.5.1')
     const movies = await screen.findByRole('combobox', { name: 'Movie category' })
-    expect(within(movies).getAllByRole('option').map((o) => o.textContent)).toEqual(['movies', 'tv', 'films'])
+    expect(
+      within(movies)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['movies', 'tv', 'films'])
     await userEvent.selectOptions(movies, 'films')
 
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))

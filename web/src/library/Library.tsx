@@ -67,7 +67,10 @@ export function Library({
   const rows = useMemo(() => filterLibrary(all, parseQuery(query, qualifiers), profiles ?? []), [all, query, qualifiers, profiles])
   const ids = useMemo(() => rows.map((r) => r.id), [rows])
   const selection = useSelection(ids)
-  const index = Math.max(0, rows.findIndex((r) => r.id === selectedId)) // the first row until something is picked
+  const index = Math.max(
+    0,
+    rows.findIndex((r) => r.id === selectedId),
+  ) // the first row until something is picked
   const current = rows[index] as TitleRow | undefined
   // A manual search replaces the detail pane; picking another Title in the list closes it.
   const [search, setSearch] = useState<(ManualSearchTarget & { titleId: number }) | null>(null)
@@ -76,7 +79,14 @@ export function Library({
   // EntityList takes no ref, so the scroller holds it and the listbox is its one list.
   const focusList = () => listRef.current?.querySelector<HTMLElement>('[role=listbox]')?.focus()
   useEffect(focusList, [])
-  useListNav('lib', rows.length, index, (i) => onSelect(rows[i].id), () => paneRef.current?.focus(), !searching)
+  useListNav(
+    'lib',
+    rows.length,
+    index,
+    (i) => onSelect(rows[i].id),
+    () => paneRef.current?.focus(),
+    !searching,
+  )
   useKey(
     '/',
     (e) => {
@@ -180,9 +190,7 @@ export function Library({
   if (phone && (showBulk || titleOpen)) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
-        {!(searching && !showBulk) && (
-          <PhoneBackHeader onBack={showBulk ? () => setBulkOpen(false) : onCloseTitle}>{showBulk ? `${selection.count} ticked` : current?.title}</PhoneBackHeader>
-        )}
+        {!(searching && !showBulk) && <PhoneBackHeader onBack={showBulk ? () => setBulkOpen(false) : onCloseTitle}>{showBulk ? `${selection.count} ticked` : current?.title}</PhoneBackHeader>}
         {showBulk ? bulk : title}
       </div>
     )

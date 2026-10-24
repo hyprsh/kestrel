@@ -30,13 +30,7 @@ export function Login() {
           <KestrelLogo className="size-6" /> Kestrel
         </div>
         <Input label="Username" autoComplete="username" autoFocus value={username} onChange={(e) => setUsername(e.target.value)} />
-        <Input
-          label="Password"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <Input label="Password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
         {login.isError && (
           <Note variant="error" size="small">
             {loginErrorText(login.error)}

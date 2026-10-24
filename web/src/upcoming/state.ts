@@ -12,11 +12,7 @@ export const episodeCode = (season: number, episode: number) => `S${String(seaso
 /** A stable React key for a timeline line. */
 export const upcomingKey = (item: UpcomingItem) => `${item.kind}-${item.title_id}-${item.season ?? ''}-${item.episode ?? ''}-${item.release_type ?? ''}`
 
-export type Standing =
-  | { kind: 'not_out' }
-  | { kind: 'wanted'; since: string | null; long: boolean }
-  | { kind: 'grabbed'; grab: QueueItem }
-  | { kind: 'imported'; quality: string | null }
+export type Standing = { kind: 'not_out' } | { kind: 'wanted'; since: string | null; long: boolean } | { kind: 'grabbed'; grab: QueueItem } | { kind: 'imported'; quality: string | null }
 
 type Titled = Pick<UpcomingItem, 'kind' | 'title_id' | 'season' | 'episode'>
 
@@ -125,8 +121,7 @@ export function episodeRange(items: UpcomingItem[]): string {
 }
 
 /** A row the j/k selection can land on; `day` is the day it sits under ("" for a Title with no date). */
-export type NavRow =
-  { key: string; type: 'entry' | 'group' | 'child' | 'undated'; titleId: number; day: string }
+export type NavRow = { key: string; type: 'entry' | 'group' | 'child' | 'undated'; titleId: number; day: string }
 
 /** The rows of the timeline in order, a group's episodes after it while it is open, then the undated Titles. */
 export function navRows(days: Day[], undated: UndatedItem[], open: ReadonlySet<string>): NavRow[] {

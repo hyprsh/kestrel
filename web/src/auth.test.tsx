@@ -52,9 +52,7 @@ function fakeServer(initial: 'fresh' | 'logged-out' | 'logged-in') {
     http.post('/account/password', async ({ request, response }) => {
       const sent = (await request.json()) as { current_password: string }
       calls.push({ path: 'password', body: sent })
-      return sent.current_password === 'correct horse'
-        ? response(204).empty()
-        : response('default').json(body(422, 'validation'), { status: 422 })
+      return sent.current_password === 'correct horse' ? response(204).empty() : response('default').json(body(422, 'validation'), { status: 422 })
     }),
   )
   return calls

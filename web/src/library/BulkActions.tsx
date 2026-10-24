@@ -90,9 +90,7 @@ export function BulkActions({ rows }: { rows: TitleRow[] }) {
         {action('Remove from Library', () => setForm('remove'))}
       </div>
 
-      {form === 'monitor' && (
-        <MonitorForm busy={busy} onCancel={close} onApply={(mode) => run('Monitor', { action: 'monitor', monitored: true, series_monitor: mode, title_ids: ids })} />
-      )}
+      {form === 'monitor' && <MonitorForm busy={busy} onCancel={close} onApply={(mode) => run('Monitor', { action: 'monitor', monitored: true, series_monitor: mode, title_ids: ids })} />}
       {form === 'switch_profile' && (
         <SlotForm
           label="Switch Profile"
@@ -112,17 +110,18 @@ export function BulkActions({ rows }: { rows: TitleRow[] }) {
           onApply={(slot, profile) => run('Add Version', { action: 'add_version', slot, profile, title_ids: ids }, slot)}
         />
       )}
-      {form === 'remove_version' && <RemoveVersionForm busy={busy} error={bulk.error?.message} onCancel={close} onApply={(slot, d) => run('Remove Version', { action: 'remove_version', slot, delete_files: d, title_ids: ids }, slot)} />}
+      {form === 'remove_version' && (
+        <RemoveVersionForm
+          busy={busy}
+          error={bulk.error?.message}
+          onCancel={close}
+          onApply={(slot, d) => run('Remove Version', { action: 'remove_version', slot, delete_files: d, title_ids: ids }, slot)}
+        />
+      )}
       {form === 'remove' && (
-      <RemoveConfirm
-        what="Titles"
-        busy={busy}
-        error={bulk.error?.message}
-        onCancel={close}
-        onConfirm={(d) => run('Remove from Library', { action: 'remove', delete_files: d, title_ids: ids })}
-      >
-        Remove {plural(rows.length, 'Title')} from the Library, with {size(rows.reduce((n, r) => n + r.size, 0))} of files.
-      </RemoveConfirm>
+        <RemoveConfirm what="Titles" busy={busy} error={bulk.error?.message} onCancel={close} onConfirm={(d) => run('Remove from Library', { action: 'remove', delete_files: d, title_ids: ids })}>
+          Remove {plural(rows.length, 'Title')} from the Library, with {size(rows.reduce((n, r) => n + r.size, 0))} of files.
+        </RemoveConfirm>
       )}
 
       {bulk.error && form !== 'remove' && form !== 'remove_version' && (

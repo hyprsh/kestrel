@@ -45,9 +45,7 @@ function fakeIndexers(opts: { fresh?: boolean; indexers?: Instance[] } = {}) {
 
   server.use(
     http.get('/plugins', ({ response }) => response(200).json({ items: [sabnzbd, newznab], next_cursor: null })),
-    http.get('/auth/me', ({ response }) =>
-      signedIn ? response(200).json(me) : response('default').json(problem(401, 'setup_required'), { status: 401 }),
-    ),
+    http.get('/auth/me', ({ response }) => (signedIn ? response(200).json(me) : response('default').json(problem(401, 'setup_required'), { status: 401 }))),
     http.post('/setup/account', ({ response }) => {
       signedIn = true
       return response(201).json(me)
@@ -190,9 +188,7 @@ describe('Settings indexers', () => {
 
   it('shows the server problem when a switch is refused', async () => {
     fakeIndexers({ indexers: [stored(1, 'Geek')] })
-    server.use(
-      http.patch('/plugin-instances/{id}', ({ response }) => response('default').json({ ...problem(409, 'declared'), detail: 'The Config File declares this instance' }, { status: 409 })),
-    )
+    server.use(http.patch('/plugin-instances/{id}', ({ response }) => response('default').json({ ...problem(409, 'declared'), detail: 'The Config File declares this instance' }, { status: 409 })))
     const section = await open()
     await userEvent.click(await section.findByLabelText('Geek enabled'))
     expect(await section.findByRole('alert')).toHaveTextContent('The Config File declares this instance')
@@ -329,11 +325,7 @@ describe('Settings indexers', () => {
 
   it('shows the server problem when saving is refused', async () => {
     fakeIndexers({ indexers: [] })
-    server.use(
-      http.post('/plugin-instances', ({ response }) =>
-        response('default').json({ ...problem(422, 'validation'), detail: 'URL must be an http(s) URL' }, { status: 422 }),
-      ),
-    )
+    server.use(http.post('/plugin-instances', ({ response }) => response('default').json({ ...problem(422, 'validation'), detail: 'URL must be an http(s) URL' }, { status: 422 })))
     const section = await open()
     await userEvent.click(await section.findByRole('button', { name: 'Add indexer' }))
     const form = within(await section.findByRole('form', { name: 'New indexer' }))
