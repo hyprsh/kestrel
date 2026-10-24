@@ -1,17 +1,20 @@
-// chrome: pending
-import { ArrowLeft, CheckSquare, ChevronDown, Eraser, FolderInput, Plus } from 'lucide-react'
+import { CheckSquare, Eraser, FolderInput, Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useProfiles, useTitles, type TitleRow } from '../api/queries'
 import { useOpenCleanup } from '../cleanup/launch'
-import { Button, EmptyState, KeyboardInput, Note, parseQuery } from '@hyprsh/design'
+import { Button, Collapse, EmptyState, KeyboardInput, Note, parseQuery } from '@hyprsh/design'
 import { useKey, useListNav } from '../keys'
 import { SelectionBar, useSelection } from '../selection'
 import { FilterBar } from '../filter/FilterBar'
 import { usePhone } from '../responsive'
-import { cx } from '../ui'
+import { FilterStrip } from '../layout/FilterStrip'
+import { ListPane } from '../layout/ListPane'
+import { PaneFooter, PaneHeader } from '../layout/Pane'
+import { PhoneBackHeader } from '../layout/PhoneBackHeader'
 import { KindIcon, SlotDots } from './bits'
 import { BulkActions } from './BulkActions'
 import { filterLibrary, libraryQualifiers } from './filter'
+import { LibraryRow } from './LibraryRow'
 import { ManualSearch } from './ManualSearch'
 import { slotLabel } from './bits'
 import { TickBox } from './TickBox'
@@ -177,52 +180,40 @@ export function Library({
     return (
       <div className="flex min-h-0 flex-1 flex-col">
         {!(searching && !showBulk) && (
-          <div className="flex shrink-0 items-center gap-1 border-b border-gray-alpha-400 py-1 pr-3 pl-1">
-            <Button variant="tertiary" prefix={<ArrowLeft />} onClick={showBulk ? () => setBulkOpen(false) : onCloseTitle}>
-              Back
-            </Button>
-            <span className="label-14 min-w-0 flex-1 truncate">{showBulk ? `${selection.count} ticked` : current?.title}</span>
-          </div>
+          <PhoneBackHeader onBack={showBulk ? () => setBulkOpen(false) : onCloseTitle}>{showBulk ? `${selection.count} ticked` : current?.title}</PhoneBackHeader>
         )}
         {showBulk ? bulk : title}
       </div>
     )
   }
 
-  return (
-    <div className="flex min-h-0 flex-1">
-      <aside className={cx('flex min-w-0 flex-col', phone ? 'flex-1' : 'w-72 shrink-0 border-r border-gray-alpha-400')}>
-        <div className="flex flex-col gap-2 border-b border-gray-alpha-400 p-3">
-          {phone ? (
-            <>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="secondary"
-                  size="small"
-                  aria-expanded={filtersOpen}
-                  aria-controls="library-filters"
-                  suffix={<ChevronDown className={cx('transition-transform', filtersOpen && 'rotate-180')} />}
-                  onClick={() => setFiltersOpen(!filtersOpen)}
-                >
-                  {query && !filtersOpen ? `Filter: ${query}` : 'Filter'}
-                </Button>
-                <span className="label-12 ml-auto shrink-0 text-gray-900">
-                  {rows.length} of {all.length}
-                </span>
+  const count = (
+    <span className="label-12 ml-auto shrink-0 text-gray-900">
+      {rows.length} of {all.length}
+    </span>
+  )
+  const list = (
+    <>
+      {phone ? (
+        <FilterStrip>
+          <div className="min-w-0 flex-1">
+            <Collapse size="small" title={query && !filtersOpen ? `Filter: ${query}` : 'Filter'} expanded={filtersOpen} onChange={setFiltersOpen}>
+              <div className="flex flex-col gap-2 pt-2">
+                {field}
+                {tools}
               </div>
-              {filtersOpen && (
-                <div id="library-filters" className="flex flex-col gap-2">
-                  {field}
-                  {tools}
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              {tools}
-              {field}
-            </>
-          )}
+            </Collapse>
+          </div>
+          {count}
+        </FilterStrip>
+      ) : (
+        <>
+          <PaneHeader>{tools}</PaneHeader>
+          <FilterStrip>{field}</FilterStrip>
+        </>
+      )}
+      {selection.active && (
+        <FilterStrip>
           <SelectionBar selection={selection} shown={rows.length}>
             {phone && selection.count > 0 && (
               <Button variant="primary" size="small" onClick={() => setBulkOpen(true)}>
@@ -230,60 +221,63 @@ export function Library({
               </Button>
             )}
           </SelectionBar>
-        </div>
+        </FilterStrip>
+      )}
 
-        <div
-          ref={listRef}
-          role="listbox"
-          aria-label="Library"
-          aria-activedescendant={current ? `title-${current.id}` : undefined}
-          tabIndex={0}
-          className="min-h-0 flex-1 overflow-auto p-1.5 outline-none"
-        >
-          {rows.map((r, i) => (
-            <div
-              key={r.id}
-              id={`title-${r.id}`}
-              role="option"
-              aria-selected={i === index}
-              data-nav={`lib-${i}`}
-              onClick={() => {
-                onSelect(r.id)
-                if (phone) onOpenTitle(r.id)
-                else focusList()
-              }}
-              className={cx('flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 max-sm:min-h-12', i === index && !phone ? 'bg-gray-alpha-200' : 'hover:bg-gray-alpha-100')}
-            >
-              {selection.active && <TickBox selection={selection} id={r.id} name={r.title} />}
-              <KindIcon kind={r.kind} className="shrink-0 text-gray-900" />
-              <div className="min-w-0 flex-1">
-                <div className="label-14 truncate">
-                  {r.title}
-                  {r.year ? <span className="ml-1.5 text-gray-900">{r.year}</span> : null}
-                </div>
-                {r.primary_title !== r.title && (
-                  <div data-primary-title className="label-12 truncate text-gray-900">
-                    {r.primary_title}
-                  </div>
-                )}
+      <div
+        ref={listRef}
+        role="listbox"
+        aria-label="Library"
+        aria-activedescendant={current ? `title-${current.id}` : undefined}
+        tabIndex={0}
+        className="min-h-0 flex-1 overflow-auto p-1.5 outline-none"
+      >
+        {rows.map((r, i) => (
+          <LibraryRow
+            key={r.id}
+            id={r.id}
+            index={i}
+            selected={i === index}
+            phone={phone}
+            onClick={() => {
+              onSelect(r.id)
+              if (phone) onOpenTitle(r.id)
+              else focusList()
+            }}
+          >
+            {selection.active && <TickBox selection={selection} id={r.id} name={r.title} />}
+            <KindIcon kind={r.kind} className="shrink-0 text-gray-900" />
+            <div className="min-w-0 flex-1">
+              <div className="label-14 truncate">
+                {r.title}
+                {r.year ? <span className="ml-1.5 text-gray-900">{r.year}</span> : null}
               </div>
-              <SlotDots slots={r.slots} />
+              {r.primary_title !== r.title && (
+                <div data-primary-title className="label-12 truncate text-gray-900">
+                  {r.primary_title}
+                </div>
+              )}
             </div>
-          ))}
-        </div>
+            <SlotDots slots={r.slots} />
+          </LibraryRow>
+        ))}
+      </div>
 
-        {!phone && (
-          <footer className="label-12 flex items-center justify-between border-t border-gray-alpha-400 px-3 py-2 text-gray-900">
-            <span className="flex items-center gap-1 pointer-coarse:hidden">
-              <KeyboardInput small>j</KeyboardInput>
-              <KeyboardInput small>k</KeyboardInput> move <KeyboardInput small>x</KeyboardInput> tick
-            </span>
-            <span className="ml-auto">
-              {rows.length} of {all.length}
-            </span>
-          </footer>
-        )}
-      </aside>
+      {!phone && (
+        <PaneFooter>
+          <span className="label-12 flex items-center gap-1 text-gray-900 pointer-coarse:hidden">
+            <KeyboardInput small>j</KeyboardInput>
+            <KeyboardInput small>k</KeyboardInput> move <KeyboardInput small>x</KeyboardInput> tick
+          </span>
+          {count}
+        </PaneFooter>
+      )}
+    </>
+  )
+
+  return (
+    <div className="flex min-h-0 flex-1">
+      {phone ? <aside className="flex min-w-0 flex-1 flex-col">{list}</aside> : <ListPane>{list}</ListPane>}
 
       {!phone && (bulk ?? title)}
     </div>
