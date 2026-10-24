@@ -228,6 +228,7 @@ export function Library({
 
       <div ref={listRef} className="min-h-0 flex-1 overflow-auto p-1.5">
         <Entity.List
+          // chrome-ok: a cursor listbox (aria-activedescendant) over Entity rows; no design component is one, Select and Combobox are pickers
           role="listbox"
           aria-label="Library"
           aria-activedescendant={current ? `title-${current.id}` : undefined}
@@ -248,6 +249,7 @@ export function Library({
               key={r.id}
               as="li"
               id={`title-${r.id}`}
+              // chrome-ok: a row of the cursor listbox above; Select and Combobox are pickers
               role="option"
               aria-selected={i === index}
               current={i === index && !phone}

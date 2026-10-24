@@ -1,8 +1,7 @@
-// chrome: domain-visual
-import { Checkbox, Note, Spinner, StatusDot } from '@hyprsh/design'
+import { Checkbox, Note, StatusDot } from '@hyprsh/design'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ApiError, useEpisodes, useMonitorEpisodes, usePatchSeason, type Episode } from '../api/queries'
-import { useAfter } from '../loading'
+import { LoadingLine } from '../loading'
 import { cx } from '../ui'
 import { dotOf, slotLabel, versionStatus, type SlotKey } from './bits'
 import { EpisodeMenu, EpisodeTick, SeasonMenu, type EpisodeActions } from './EpisodeActions'
@@ -49,7 +48,6 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
   const [menuRow, setMenuRow] = useState<string | null>(null)
   const menuOf = (key: string) => (open: boolean) => setMenuRow((cur) => (open ? key : cur === key ? null : cur))
   const columns = 1 + slots.length
-  const slow = useAfter(300, !episodes.data && !episodes.isError)
 
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = []
@@ -87,12 +85,7 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
       </Note>
     )
   }
-  if (!episodes.data)
-    return slow ? (
-      <p className="copy-13 flex items-center gap-2 text-gray-900">
-        <Spinner size="sm" /> Loading episodes…
-      </p>
-    ) : null
+  if (!episodes.data) return <LoadingLine>Loading episodes…</LoadingLine>
   if (rows.length === 0) return <p className="copy-13 text-gray-900">TheTVDB lists no episodes yet.</p>
 
   const move = (row: number, col: number) => {
@@ -162,8 +155,10 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
       onKeyDown={onKeyDown}
       // Space on a Slot cell button would click it on key-up: the grid has already used the key.
       onKeyUp={(e) => e.key === ' ' && e.target instanceof Element && e.target.matches('button[data-cell]') && e.preventDefault()}
+      // chrome-ok: episode grid (domain visual, ADR 0017)
       className="copy-13 rounded-lg max-sm:overflow-x-auto border border-gray-alpha-400"
     >
+      {/* chrome-ok: episode grid (domain visual, ADR 0017) */}
       <div role="row" className={cx('label-12-mono flex items-center gap-3 border-b border-gray-alpha-400 px-3 py-1.5 text-gray-900', rowMin)}>
         <span role="columnheader" className="flex-1">
           Episode
@@ -240,6 +235,7 @@ function SeasonRow({
   const on = row.episodes.filter((e) => e.monitored).length
   return (
     <>
+      {/* chrome-ok: episode grid (domain visual, ADR 0017) */}
       <div role="row" aria-rowindex={index + 2} data-menu-open={menuOpen ? '' : undefined} className="flex items-center gap-3 border-t border-gray-alpha-400 bg-gray-alpha-100 px-3 py-1.5 data-[menu-open]:bg-gray-alpha-200 max-sm:min-h-11">
         <div role="gridcell" className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
           <Checkbox
@@ -293,6 +289,7 @@ function EpisodeRow({
   const phone = usePhone()
   return (
     <>
+      {/* chrome-ok: episode grid (domain visual, ADR 0017) */}
       <div role="row" aria-rowindex={index + 2} data-menu-open={menuOpen ? '' : undefined} className={cx('flex items-center gap-3 px-3 py-1 hover:bg-gray-alpha-100 data-[menu-open]:bg-gray-alpha-200 max-sm:min-h-11', rowMin)}>
         <div role="gridcell" className={"flex min-w-0 flex-1 items-center gap-2"}>
           {tick}
@@ -318,6 +315,7 @@ function EpisodeRow({
           const state = cell ? versionStatus(cell.state).label : 'no Version'
           const dot = dotOf(cell ? cell.state : null, false)
           const square = (
+            // chrome-ok: episode grid (domain visual, ADR 0017): a grid cell button around the dot
             <button
               type="button"
               aria-label={`${label} ${slotLabel[s]}: ${state}`}
@@ -326,6 +324,7 @@ function EpisodeRow({
               tabIndex={tab(index, c + 1)}
               onFocus={() => onFocus(c + 1)}
               // A 44px hit area around the dot.
+              // chrome-ok: episode grid (domain visual, ADR 0017); the cell button is the dot with a 44px hit area
               className='relative flex size-5 items-center justify-center rounded-full outline-none after:absolute after:-inset-3 after:content-[""] focus-visible:ring-2 focus-visible:ring-accent-700 max-sm:size-6'
             >
               <StatusDot state={dot.state} variant={dot.variant} label={false} aria-hidden />
