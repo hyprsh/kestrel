@@ -6,7 +6,7 @@ import type { QueueItem } from '../api/queue'
 import { slotLabel, type SlotKey } from '../library/bits'
 import type { RowNav } from '../keys'
 import { NavRow } from '../NavRow'
-import { GrabPoster } from './GrabPoster'
+import { TitlePoster } from '../poster'
 
 /** What a row shows of the Grab's Title and Release: a queue item or a listed Grab. */
 type GrabSubject = Pick<QueueItem, 'title_id' | 'has_poster' | 'title' | 'year' | 'slot' | 'episodes' | 'release_name' | 'is_upgrade'> & {
@@ -66,7 +66,7 @@ export function GrabRow({
   const left = withTitle ? (
     id != null ? (
       <span onClick={open}>
-        <GrabPoster id={id} hasPoster={g.has_poster} />
+        <TitlePoster id={id} hasPoster={g.has_poster} size="md" />
       </span>
     ) : (
       <span className="w-10" />

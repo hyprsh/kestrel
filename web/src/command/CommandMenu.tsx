@@ -6,7 +6,7 @@ import { rank } from '../fuzzy'
 import { KindIcon } from '../library/bits'
 import { ratingsText } from '../library/Ratings'
 import { AddConfirm } from './AddConfirm'
-import { PosterThumb, TitlePosterThumb } from './PosterThumb'
+import { Poster, TitlePoster } from '../poster'
 import { useAfter } from '../loading'
 
 export type MenuMode = 'root' | 'add'
@@ -88,7 +88,7 @@ export function CommandMenu({
         sub: [r.year, ratingsText(r.ratings)].filter(Boolean).join(' · ') || undefined,
         disabled: !r.addable,
         keepOpen: true,
-        thumb: <PosterThumb src={r.poster} />,
+        thumb: <Poster src={r.poster} size="xs" />,
         right: (
           <span className="flex items-center gap-1.5">
             {r.in_library !== null && <Badge variant="green" contrast="low" size="sm">In library</Badge>}
@@ -139,7 +139,7 @@ export function CommandMenu({
       group: 'Titles',
       label: t.title,
       sub: t.year ? String(t.year) : undefined,
-      thumb: <TitlePosterThumb id={t.id} hasPoster={t.has_poster} />,
+      thumb: <TitlePoster id={t.id} hasPoster={t.has_poster} size="xs" />,
       right: <KindIcon kind={t.kind} className="text-gray-900" />,
       run: () => onOpenTitle(t.id),
     })

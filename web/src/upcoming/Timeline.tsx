@@ -3,7 +3,6 @@
 // today in the accent colour, the week label and the poster thumbnail beside a row. No component of the
 // design library draws a timeline (ADR 0017); everything else in Upcoming is design components and layout.
 import type { ReactNode, Ref } from 'react'
-import { TitlePoster } from '../poster'
 import { cx } from '../ui'
 
 /** The Agenda: a list of days with the rail running down its left edge. */
@@ -44,9 +43,4 @@ export function DayHeading({ label, date, isToday, headingRef }: { label: string
 /** The rail's dot for a row, drawn inside the row it belongs to. Its halo blends into the cursor row's tint. */
 export function RowDot({ current }: { current: boolean }) {
   return <span aria-hidden className={cx('absolute top-5 left-2 size-2 rounded-full bg-gray-600 ring-4', current ? 'ring-transparent' : 'ring-background-100')} />
-}
-
-/** A Title's poster as a thumbnail beside a row. */
-export function RowPoster({ id, hasPoster }: { id: number; hasPoster: boolean }) {
-  return <TitlePoster id={id} hasPoster={hasPoster} className="h-12 w-8 rounded" />
 }
