@@ -312,7 +312,7 @@ describe('Needs attention', () => {
 
     const button = await screen.findByRole('button', { name: /overview.*2 need attention/i })
 
-    expect(within(button).getByText('2')).toHaveClass('hy-badge--red')
+    expect(within(button).getByText('2')).toHaveClass('hy-btn__badge--error')
   })
 
   it('shows an amber badge when only Warnings are left, and none when there is nothing', async () => {
@@ -320,7 +320,7 @@ describe('Needs attention', () => {
     renderApp()
 
     const button = await screen.findByRole('button', { name: /overview.*1 needs? attention/i })
-    expect(within(button).getByText('1')).toHaveClass('hy-badge--amber')
+    expect(within(button).getByText('1')).toHaveClass('hy-btn__badge--warning')
 
     await userEvent.click(await screen.findByRole('button', { name: 'Dismiss' }))
     expect(await screen.findByRole('button', { name: 'Overview' })).toBeInTheDocument()
