@@ -1,7 +1,6 @@
-// chrome: pending
 // Needs attention: the rows the server raised, with the actions it built. Nothing
 // here knows a kind of row; it draws message, severity and buttons.
-import { Badge, Button, Note, useToasts } from '@hyprsh/design'
+import { Badge, Button, Collapse, DestructiveActionModal, DotsMenu, Entity, MenuItem, Note, useToasts } from '@hyprsh/design'
 import { useState } from 'react'
 import { useAttention, useRunAction, type ActionResult, type Attention, type AttentionAction, type AttentionRow } from '../api/attention'
 import { planWaiting, useAdoption, type Adoption } from '../api/adoption'
@@ -48,7 +47,7 @@ export function NeedsAttention({
         <EmptyLine title="Nothing needs attention." />
       ) : (
         rows.length > 0 && (
-          <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
+          <Entity.List>
             {shown.map((r, i) => (
               <Row
                 key={r.id}
@@ -58,7 +57,7 @@ export function NeedsAttention({
                 index={nav.base + i}
               />
             ))}
-          </ul>
+          </Entity.List>
         )
       )}
       {(all || shown.length < rows.length) && <ViewAllHere count={rows.length} open={all} onToggle={() => onAll(!all)} />}
@@ -79,12 +78,19 @@ const adoptionMessage = (a: Adoption) =>
 /** A stored Adoption plan, as one row outside the rail badge: a new scan replaces it, so this points back to it. */
 function AdoptionPlanRow({ adoption, onOpen }: { adoption: Adoption; onOpen: () => void }) {
   return (
-    <div data-adoption-plan className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-gray-alpha-400 px-4 py-3">
-      <Badge variant="amber-subtle" size="sm">Adoption</Badge>
-      <span className="min-w-0 flex-1 max-sm:basis-full">{adoptionMessage(adoption)}</span>
-      <Button variant="secondary" size="small" className="max-sm:flex-1" onClick={onOpen}>
-        Review the Adoption plan
-      </Button>
+    <div className="mt-3">
+      <Note
+        data-adoption-plan
+        variant="warning"
+        label="Adoption"
+        action={
+          <Button variant="secondary" size="small" onClick={onOpen}>
+            Review the Adoption plan
+          </Button>
+        }
+      >
+        {adoptionMessage(adoption)}
+      </Note>
     </div>
   )
 }
@@ -99,34 +105,33 @@ const dateOf = (iso: string) => iso.slice(0, 10)
 function LongMissingRow({ group, onOpen }: { group: Attention['long_missing']; onOpen: (path: string) => void }) {
   const [open, setOpen] = useState(false)
   return (
-    <div data-long-missing className="mt-3 rounded-lg border border-gray-alpha-400 px-4 py-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="gray-subtle" size="sm">Long missing</Badge>
-        <span className="min-w-0 flex-1 max-sm:basis-full">
-          {group.count} {group.count === 1 ? 'Version' : 'Versions'} long missing
-        </span>
-        <Button variant="secondary" size="small" aria-expanded={open} onClick={() => setOpen(!open)} className="max-sm:flex-1">
-          {open ? 'Hide' : 'Show'}
-        </Button>
-        <Button variant="secondary" size="small" className="max-sm:flex-1" onClick={() => onOpen(placePath('library', 'is:long_missing sort:wanted_since'))}>
-          Open in Library
-        </Button>
-      </div>
-      {open && (
-        <ul className="mt-2 divide-y divide-gray-alpha-400">
-          {group.items.map((i) => (
-            <li key={i.version_id} className="py-2">
-              <div>
-                {i.title} · {slotLabel[i.slot]} · {i.profile}
-              </div>
-              <div className="label-12 text-gray-900">
-                Wanted since {dateOf(i.wanted_since)}
-                {i.last_failure ? `, last failure: ${i.last_failure.replaceAll('_', ' ')}` : ''}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div data-long-missing className="mt-3">
+      <Collapse size="small" headingLevel={4} expanded={open} onChange={setOpen} title={`${group.count} ${group.count === 1 ? 'Version' : 'Versions'} long missing`}>
+        {open && (
+          <div className="flex flex-col gap-3">
+            <Entity.List>
+              {group.items.map((i) => (
+                <Entity key={i.version_id}>
+                  <div className="flex min-w-0 flex-col">
+                    <span>
+                      {i.title} · {slotLabel[i.slot]} · {i.profile}
+                    </span>
+                    <span className="label-12 text-gray-900">
+                      Wanted since {dateOf(i.wanted_since)}
+                      {i.last_failure ? `, last failure: ${i.last_failure.replaceAll('_', ' ')}` : ''}
+                    </span>
+                  </div>
+                </Entity>
+              ))}
+            </Entity.List>
+            <div>
+              <Button variant="secondary" size="small" onClick={() => onOpen(placePath('library', 'is:long_missing sort:wanted_since'))}>
+                Open in Library
+              </Button>
+            </div>
+          </div>
+        )}
+      </Collapse>
     </div>
   )
 }
@@ -136,9 +141,10 @@ function Row({ row, onOpen, nav, index }: { row: AttentionRow; onOpen: (path: st
   const toasts = useToasts()
   // Local, so a row that a passing action clears takes its result with it; a pass is a toast instead.
   const [result, setResult] = useState<(ActionResult & { label: string }) | null>(null)
+  // The action waiting for a yes in the dialog.
+  const [asking, setAsking] = useState<AttentionAction | null>(null)
 
-  const act = (a: AttentionAction) => {
-    if (a.confirm && !window.confirm(a.confirm)) return
+  const go = (a: AttentionAction) => {
     if (a.method === 'GET') return onOpen(a.path) // GET opens an SPA path
     setResult(null)
     // mutateAsync, not mutate's onSuccess: a passing Test clears this row, and a per-call callback dies with it.
@@ -148,24 +154,54 @@ function Row({ row, onOpen, nav, index }: { row: AttentionRow; onOpen: (path: st
       else setResult({ ...r, label: a.label })
     }, () => {})
   }
+  const act = (a: AttentionAction) => (a.confirm ? setAsking(a) : go(a))
+
+  const [first, ...rest] = row.actions
+  const actions = first && (
+    <>
+      <Button variant="secondary" size="small" disabled={run.isPending} onClick={() => act(first)}>
+        {first.label}
+      </Button>
+      {rest.length > 0 && (
+        <DotsMenu aria-label="More Actions" disabled={run.isPending}>
+          {rest.map((a) => (
+            <MenuItem key={a.key} onClick={() => act(a)}>
+              {a.label}
+            </MenuItem>
+          ))}
+        </DotsMenu>
+      )}
+    </>
+  )
 
   return (
-    <NavRow scope="ov" index={index} sel={nav.sel} onSelect={() => nav.select(index)} className="flex flex-col gap-2 px-4 py-3">
-      <div className="flex items-start gap-2">
-        <Badge variant={row.severity === 'blocking' ? 'red-subtle' : 'amber-subtle'} size="sm">{row.severity === 'blocking' ? 'Blocking' : 'Warning'}</Badge>
-        <span className="min-w-0 flex-1">{row.message}</span>
-      </div>
-      {row.actions.length > 0 && (
-        <div className="flex flex-wrap gap-2 max-sm:flex-col">
-          {row.actions.map((a) => (
-            <Button key={a.key} variant="secondary" size="small" disabled={run.isPending} onClick={() => act(a)} className="max-sm:w-full">
-              {a.label}
-            </Button>
-          ))}
+    <NavRow scope="ov" index={index} sel={nav.sel} onSelect={() => nav.select(index)}>
+      <Entity
+        as="div"
+        className="max-sm:flex-col max-sm:items-stretch"
+        left={<Badge variant={row.severity === 'blocking' ? 'red' : 'amber'} contrast="low" size="sm">{row.severity === 'blocking' ? 'Blocking' : 'Warning'}</Badge>}
+        right={actions}
+      >
+        <div className="flex min-w-0 flex-col gap-2">
+          <span>{row.message}</span>
+          {run.isError && <Note variant="error">{run.error.message}</Note>}
+          {result && <Result {...result} />}
         </div>
+      </Entity>
+      {asking && (
+        <DestructiveActionModal
+          open
+          title={asking.label}
+          description={asking.confirm}
+          confirmLabel={asking.label}
+          onCancel={() => setAsking(null)}
+          onConfirm={() => {
+            const a = asking
+            setAsking(null)
+            go(a)
+          }}
+        />
       )}
-      {run.isError && <Note variant="error">{run.error.message}</Note>}
-      {result && <Result {...result} />}
     </NavRow>
   )
 }

@@ -1,6 +1,5 @@
-// chrome: pending
 // The Searching card: the search pipeline at a glance, beside Downloading now.
-import { Button } from '@hyprsh/design'
+import { Description, Pill } from '@hyprsh/design'
 import { useSearchStatus, type SearchStatus } from '../api/search'
 import { plural } from '../format'
 import { useOpenPlace } from '../place'
@@ -47,9 +46,7 @@ export function Searching() {
           Searching
         </h2>
         {/* The Search loop's schedule and last run sit with the other loops on Activity. */}
-        <Button variant="tertiary" size="small" className="-mr-3" onClick={() => openPlace('/activity/jobs')}>
-          Background jobs
-        </Button>
+        <Pill onClick={() => openPlace('/activity/jobs')}>Background jobs</Pill>
       </div>
       <SearchSummary status={s} />
     </section>
@@ -66,24 +63,41 @@ export function SearchSummary({ status: s }: { status: SearchStatus }) {
   ].filter(Boolean)
   const indexers = s.indexers.map(indexerLine).filter((l) => l !== null)
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-gray-alpha-400 px-4 py-3">
-      <p className="font-medium">{main.join(' · ')}</p>
-      {s.due.episodes > 0 && <p className="label-12 text-gray-900">{`${plural(s.due.episodes, 'Wanted episode')} in the Series among them`}</p>}
+    <div className="flex flex-col gap-3">
+      <Description layout="horizontal" termWidth={96} title="Waiting" content={main.join(' · ')} />
+      {s.due.episodes > 0 && <Description layout="horizontal" termWidth={96} title="Episodes" content={`${plural(s.due.episodes, 'Wanted episode')} in the Series among them`} />}
       {s.due.upgrades > 0 && (
-        <p className="label-12 text-gray-900">
-          {`${plural(s.due.upgrades, 'Version')} due an Upgrade search · ${plural(s.upgrades_per_pass, 'Upgrade search', 'Upgrade searches')} per pass`}
-        </p>
+        <Description
+          layout="horizontal"
+          termWidth={96}
+          title="Upgrades"
+          content={`${plural(s.due.upgrades, 'Version')} due an Upgrade search · ${plural(s.upgrades_per_pass, 'Upgrade search', 'Upgrade searches')} per pass`}
+        />
       )}
       {s.last_pass && (
-        <p className="label-12 text-gray-900">
-          {`Last pass at ${clockTime(s.last_pass.finished_at)} searched ${plural(s.last_pass.searched, 'Wanted Version')} and made ${plural(s.last_pass.grabbed, 'Grab')}`}
-        </p>
+        <Description
+          layout="horizontal"
+          termWidth={96}
+          title="Last Pass"
+          content={`Last pass at ${clockTime(s.last_pass.finished_at)} searched ${plural(s.last_pass.searched, 'Wanted Version')} and made ${plural(s.last_pass.grabbed, 'Grab')}`}
+        />
       )}
-      {indexers.map((l) => (
-        <p key={l.text} className={l.held ? 'label-12 text-amber-900' : 'label-12 text-gray-900'}>
-          {l.text}
-        </p>
-      ))}
+      {indexers.length > 0 && (
+        <Description
+          layout="horizontal"
+          termWidth={96}
+          title="Indexers"
+          content={
+            <span className="flex flex-col gap-1">
+              {indexers.map((l) => (
+                <span key={l.text} className={l.held ? 'text-amber-900' : undefined}>
+                  {l.text}
+                </span>
+              ))}
+            </span>
+          }
+        />
+      )}
     </div>
-    )
-  }
+  )
+}

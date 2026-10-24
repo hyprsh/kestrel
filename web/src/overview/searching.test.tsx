@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
@@ -48,6 +48,16 @@ describe('the Searching card on the Overview', () => {
     expect(c).toHaveTextContent('120 Wanted waiting · searching 15 of 40')
     expect(c).toHaveTextContent('340 Wanted episodes in the Series among them')
     expect(c).toHaveTextContent('8 Versions due an Upgrade search · 5 Upgrade searches per pass')
+  })
+
+  it('lays the summary out as terms and values', async () => {
+    fakeStatus(status({ due: { versions: 120, episodes: 340, upgrades: 8 }, last_pass: { finished_at: new Date().toISOString(), searched: 40, grabbed: 3 } }))
+
+    const c = await card()
+
+    const term = await within(c).findByText('Last Pass')
+    expect(term.closest('dl')).toHaveTextContent(/searched 40 Wanted Versions/)
+    expect(within(c).getByText('Waiting').closest('dl')).toHaveTextContent('120 Wanted waiting')
   })
 
   it('says when the next pass starts and how the last one went', async () => {

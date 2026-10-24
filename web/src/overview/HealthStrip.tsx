@@ -1,12 +1,8 @@
-// chrome: pending
 // The Health section: one tile per item (download client, indexers, disks, the rest), failing
-// first, each with its state as an icon and a word, never colour alone.
-import { Button, Progress } from '@hyprsh/design'
-import { CircleAlert, CircleArrowUp, CircleCheck, CircleMinus, CirclePause, type LucideIcon } from 'lucide-react'
+// first, each with its state as a status dot and a word, never colour alone.
 import { useStatus, type SystemStatus } from '../api/attention'
-import { useOpenPlace } from '../place'
 import { clockTime } from '../time'
-import { cx } from '../ui'
+import { Tile, type TileData, type Tone } from './HealthTile'
 
 /** "800 GB", "1 TB": powers of 1024, no decimals once a number is round. */
 function formatBytes(n: number): string {
@@ -18,61 +14,6 @@ function formatBytes(n: number): string {
     i++
   }
   return `${Number.isInteger(v) ? v : v.toFixed(1)} ${units[i]}`
-}
-
-type Tone = 'ok' | 'failing' | 'paused' | 'low' | 'idle' | 'update'
-
-const toneUi: Record<Tone, { icon: LucideIcon; text: string; tile: string; word: string }> = {
-  ok: { icon: CircleCheck, text: 'text-gray-900', tile: 'border-gray-alpha-400', word: 'ok' },
-  failing: { icon: CircleAlert, text: 'text-red-900', tile: 'border-red-700 bg-red-100', word: 'failing' },
-  paused: { icon: CirclePause, text: 'text-amber-900', tile: 'border-amber-700 bg-amber-100', word: 'paused' },
-  low: { icon: CircleAlert, text: 'text-amber-900', tile: 'border-amber-700 bg-amber-100', word: 'low' },
-  idle: { icon: CircleMinus, text: 'text-gray-900', tile: 'border-gray-alpha-400', word: 'off' },
-  update: { icon: CircleArrowUp, text: 'text-blue-900', tile: 'border-blue-700 bg-blue-100', word: 'update' },
-}
-
-type TileData = {
-  key: string
-  name: string
-  tone: Tone
-  /** Replaces the tone's word ("low" for a disk, "not set up"). */
-  word?: string
-  details: string[]
-  meter?: { value: number; max: number; warn: boolean; label: string }
-  /** Opens a place, such as About for an update. */
-  link?: { path: string; label: string }
-}
-
-function Tile({ tile }: { tile: TileData }) {
-  const openPlace = useOpenPlace()
-  const ui = toneUi[tile.tone]
-  const Icon = ui.icon
-  return (
-    <li className={cx('rounded-lg border px-3 py-2', ui.tile)}>
-      <div className="flex items-center justify-between gap-2">
-        <span className="truncate font-medium">{tile.name}</span>
-        <span className={cx('label-12 flex shrink-0 items-center gap-1', ui.text)}>
-          <Icon size={14} aria-hidden />
-          {tile.word ?? ui.word}
-        </span>
-      </div>
-      {tile.details.map((d) => (
-        <p key={d} className="label-12 mt-0.5 text-gray-900">
-          {d}
-        </p>
-      ))}
-      {tile.meter && (
-        <div className="mt-1.5">
-          <Progress value={tile.meter.value} max={tile.meter.max} type={tile.meter.warn ? 'warning' : 'default'} height={6} aria-label={tile.meter.label} />
-        </div>
-      )}
-      {tile.link && (
-        <Button variant="tertiary" size="small" className="mt-1 -ml-3" onClick={() => openPlace(tile.link!.path)}>
-          {tile.link.label}
-        </Button>
-      )}
-    </li>
-  )
 }
 
 function clientTile(s: SystemStatus['download_client']): TileData {

@@ -160,7 +160,7 @@ describe('Needs attention', () => {
     expect(within(section).queryByRole('button', { name: /view all/i })).not.toBeInTheDocument()
   })
 
-  it('draws whatever actions the server built, as buttons, whatever the kind of row', async () => {
+  it('draws whatever actions the server built, the first as a button and the rest in a menu, whatever the kind of row', async () => {
     fakeAttention([
       exdevRow({
         kind: 'a_kind_the_spa_has_never_heard_of',
@@ -175,7 +175,19 @@ describe('Needs attention', () => {
     const row = await within(await sectionOf(/needs attention/i)).findByRole('listitem')
 
     expect(within(row).getByRole('button', { name: 'Frobnicate' })).toBeInTheDocument()
-    expect(within(row).getByRole('button', { name: 'Take a look' })).toBeInTheDocument()
+    expect(within(row).queryByRole('button', { name: 'Take a look' })).not.toBeInTheDocument()
+    await userEvent.click(within(row).getByRole('button', { name: 'More Actions' }))
+    expect(await screen.findByRole('menuitem', { name: 'Take a look' })).toBeInTheDocument()
+  })
+
+  it('has no menu when a row has one action', async () => {
+    fakeAttention([exdevRow()])
+    renderApp()
+
+    const row = await within(await sectionOf(/needs attention/i)).findByRole('listitem')
+
+    expect(within(row).getByRole('button', { name: 'Dismiss' })).toBeInTheDocument()
+    expect(within(row).queryByRole('button', { name: 'More Actions' })).not.toBeInTheDocument()
   })
 
   it('runs an API action from the row and shows what came back', async () => {
@@ -236,7 +248,8 @@ describe('Needs attention', () => {
     renderApp()
 
     const row = await within(await sectionOf(/needs attention/i)).findByRole('listitem')
-    await userEvent.click(within(row).getByRole('button', { name: 'Open in Settings' }))
+    await userEvent.click(within(row).getByRole('button', { name: 'More Actions' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Open in Settings' }))
 
     expect(await screen.findByRole('region', { name: 'Download client' })).toBeInTheDocument()
   })
@@ -263,17 +276,34 @@ describe('Needs attention', () => {
     expect(state.calls).toEqual(['POST dismiss health-2'])
   })
 
-  it('asks before an action that wants confirmation, and does nothing when declined', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
-    const state = fakeAttention([
-      exdevRow({ actions: [{ key: 'dismiss', label: 'Dismiss', method: 'POST', path: '/attention/health-2/dismiss', body: null, confirm: 'Hide this warning?' }] }),
-    ])
+  const confirmRow = () =>
+    exdevRow({ actions: [{ key: 'dismiss', label: 'Dismiss', method: 'POST', path: '/attention/health-2/dismiss', body: null, confirm: 'Hide this warning?' }] })
+
+  it('asks in a dialog before an action that wants confirmation, and does nothing when cancelled', async () => {
+    const confirm = vi.spyOn(window, 'confirm')
+    const state = fakeAttention([confirmRow()])
     renderApp()
 
     await userEvent.click(await screen.findByRole('button', { name: 'Dismiss' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveTextContent('Hide this warning?')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
 
-    expect(confirm).toHaveBeenCalledWith('Hide this warning?')
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     expect(state.calls).toEqual([])
+    expect(confirm).not.toHaveBeenCalled()
+  })
+
+  it('runs the action once the dialog is confirmed', async () => {
+    const state = fakeAttention([confirmRow()])
+    renderApp()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Dismiss' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Dismiss' }))
+
+    await vi.waitFor(() => expect(state.calls).toEqual(['POST dismiss health-2']))
+    expect(await screen.findByText(/nothing needs attention/i)).toBeInTheDocument()
   })
 
   it('counts the rows on the rail, red while any is Blocking', async () => {
@@ -467,6 +497,8 @@ describe('The health strip', () => {
 
     const tile = (name: string) => within(strip).getByText(name).closest('li')!
     expect(tile('Beta')).toHaveTextContent('paused')
+    expect(within(tile('Beta')).getByTitle('paused')).toHaveClass('hy-status--warning')
+    expect(within(tile('/data')).getByTitle('ok')).toHaveClass('hy-status--success')
     expect(tile('/media')).toHaveTextContent('low')
     expect(tile('/media')).toHaveTextContent('30 GB free of 1 TB')
     expect(tile('/data')).not.toHaveTextContent('low')
