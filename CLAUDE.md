@@ -14,7 +14,7 @@ Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/ag
 
 ## Checks
 
-The check command is `make check` (gofmt, vet, the dead-code checks in `make lint-go` and `make lint-web`, the generated-code drift check, Go tests with the race detector, SPA tests and the compose check). In a fresh worktree run `npm --prefix web ci` first. Commit generated output before running it: the drift check fails on uncommitted changes. `make help` lists the narrower targets, such as `make test` and `make generate`.
+The check command is `make check` (gofmt, vet, the dead-code, prettier and chrome checks in `make lint-go` and `make lint-web`, the generated-code drift check, Go tests with the race detector, SPA tests and the compose check). In a fresh worktree run `npm --prefix web ci` first. Commit generated output before running it: the drift check fails on uncommitted changes. `make help` lists the narrower targets, such as `make test` and `make generate`.
 
 A change under `web/src` also runs the demo sweep for the screens it touches; see the demo skill.
 
