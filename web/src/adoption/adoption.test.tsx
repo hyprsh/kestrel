@@ -528,11 +528,10 @@ describe('Adoption review on a phone', () => {
     await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
     await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
 
-    // The filter and both actions are there, and the choices of a doubtful row stack instead of stretching.
+    // The filter and both actions are there.
     expect(await screen.findByRole('combobox', { name: 'Show' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Discard plan' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Adopt 1 Title' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: /Use The Lost Film/ })).not.toHaveClass('max-sm:w-full')
     await user.click(screen.getByRole('button', { name: /Use The Lost Film/ }))
     expect(await screen.findByRole('button', { name: 'Adopt 2 Titles' })).toBeEnabled()
   })

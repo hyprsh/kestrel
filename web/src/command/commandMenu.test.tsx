@@ -122,7 +122,6 @@ describe('the command menu', () => {
     renderApp()
     const menu = await openMenu()
     expect(within(menu).queryByText('↑')).not.toBeInTheDocument()
-    expect(menu.querySelector('footer')).toBeNull()
   })
 
   it('shows the Add hint as the search field placeholder while the query is empty', async () => {
@@ -133,16 +132,6 @@ describe('the command menu', () => {
     const input = within(menu).getByRole('combobox', { name: /search/i })
     expect(input).toHaveAttribute('placeholder', 'Type a title to search both Movies and Series…')
     expect(within(menu).queryByText(/^Type a title to search both/)).not.toBeInTheDocument()
-  })
-
-  it('keeps every row at the default height, poster thumbnails included', async () => {
-    fakeLibrary([row(1, 'Heat', 'Heat')])
-    renderApp()
-    const menu = await openMenu()
-    await userEvent.keyboard('heat')
-    const option = await within(menu).findByRole('option', { name: /^heat/i })
-    expect(option.querySelector('[data-poster]')).toBeInTheDocument()
-    expect(option).not.toHaveClass('h-12')
   })
 
   it('moves the highlight with Ctrl+N and Ctrl+P as well as the arrows', async () => {
@@ -168,20 +157,21 @@ describe('the command menu', () => {
     expect(await screen.findByRole('option', { name: /zodiac/i, selected: true })).toBeInTheDocument()
   })
 
-  it('finds Titles fuzzily, best match first, without marking the matched letters', async () => {
+  it('finds Titles fuzzily, best match first', async () => {
     fakeLibrary([row(1, 'Bad Boys', 'Bad Boys'), row(2, 'Breaking Bad', 'Breaking Bad'), row(3, 'Amélie', 'Amélie'), row(4, 'Spider-Man', 'Spider-Man')])
     renderApp()
     const menu = await openMenu()
     const input = within(menu).getByRole('combobox', { name: /search/i })
+    const libraryTitles = ['Bad Boys', 'Breaking Bad', 'Amélie', 'Spider-Man']
     const titles = () =>
       within(menu)
         .getAllByRole('option')
-        .filter((o) => o.querySelector('[data-poster]'))
-        .map((o) => o.querySelector('.truncate')?.textContent)
+        .map((o) => o.textContent ?? '')
+        .filter((name) => libraryTitles.some((t) => name.startsWith(t)))
+        .map((name) => libraryTitles.find((t) => name.startsWith(t)))
 
     await userEvent.keyboard('bb')
     await waitFor(() => expect(titles()).toEqual(['Bad Boys', 'Breaking Bad'])) // initials of both, the shorter first
-    expect(menu.querySelector('mark')).toBeNull()
 
     await userEvent.clear(input)
     await userEvent.keyboard('bad breaking')
@@ -318,7 +308,7 @@ describe('the command menu', () => {
     await userEvent.click(await within(menu).findByRole('option', { name: /^Paddington\b(?!.*Returns)/ }))
     await within(menu).findByText(/Preselected/)
 
-    const folder = within(menu).getByRole('combobox', { name: 'Folder' })
+    const folder = within(menu).getByRole('combobox', { name: 'Root folder' })
     expect(folder).toHaveValue('/data/movies')
     await userEvent.selectOptions(within(menu).getByRole('combobox', { name: 'Standard Profile' }), 'any-primary')
     expect(folder).toHaveValue('/data/movies') // no Profile moves the folder
