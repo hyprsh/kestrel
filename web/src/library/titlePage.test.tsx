@@ -36,6 +36,10 @@ describe('the Title page', () => {
     const pane = await screen.findByRole('region', { name: /paddington/i })
 
     const versions = await within(pane).findByRole('list', { name: 'Versions' })
-    expect(within(versions).getAllByRole('listitem').map((li) => li.getAttribute('aria-label'))).toEqual(['Standard', '4K'])
+    expect(
+      within(versions)
+        .getAllByRole('listitem')
+        .map((li) => li.getAttribute('aria-label')),
+    ).toEqual(['Standard', '4K'])
   })
 })

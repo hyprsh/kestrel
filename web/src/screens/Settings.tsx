@@ -352,7 +352,10 @@ function ApiKeyRow() {
 function ReverseProxyRow() {
   const { data } = useReverseProxy()
   return (
-    <Row label="Reverse proxy" help="Name the proxies in front of Kestrel so it sees each client's own address, for the login throttle and the Secure cookie. Header login for an SSO portal is a separate switch, off by default; the login form stays as a fallback.">
+    <Row
+      label="Reverse proxy"
+      help="Name the proxies in front of Kestrel so it sees each client's own address, for the login throttle and the Secure cookie. Header login for an SSO portal is a separate switch, off by default; the login form stays as a fallback."
+    >
       {data ? <ReverseProxyForm saved={data} /> : null}
     </Row>
   )

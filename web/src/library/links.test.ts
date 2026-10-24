@@ -21,9 +21,7 @@ describe('external Title links', () => {
   })
 
   it('leaves out ids the Title does not have, and TheTVDB for a Movie', () => {
-    expect(titleLinks({ kind: 'movie', tmdb_id: 949, imdb_id: null, tvdb_id: 1234 })).toEqual([
-      { label: 'TMDB 949', href: 'https://www.themoviedb.org/movie/949' },
-    ])
+    expect(titleLinks({ kind: 'movie', tmdb_id: 949, imdb_id: null, tvdb_id: 1234 })).toEqual([{ label: 'TMDB 949', href: 'https://www.themoviedb.org/movie/949' }])
     expect(titleLinks({ kind: 'series', tmdb_id: null, imdb_id: null, tvdb_id: null })).toEqual([])
   })
 })

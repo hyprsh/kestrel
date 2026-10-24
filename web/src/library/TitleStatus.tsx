@@ -59,17 +59,7 @@ export function TitleStatus({ title }: { title: TitleDetail }) {
     <ul aria-label="Status" className={series ? 'mt-2 flex flex-col gap-1.5' : 'mt-2 flex flex-wrap gap-2'}>
       {slotKeys.map((k) => {
         const v = title.versions.find((x) => x.slot === k)
-        return (
-          <li key={k}>
-            {!v ? (
-              <NotKept slot={k} />
-            ) : series ? (
-              <SeriesSlot slot={k} version={v} />
-            ) : (
-              <MovieSlot slot={k} version={v} />
-            )}
-          </li>
-        )
+        return <li key={k}>{!v ? <NotKept slot={k} /> : series ? <SeriesSlot slot={k} version={v} /> : <MovieSlot slot={k} version={v} />}</li>
       })}
     </ul>
   )

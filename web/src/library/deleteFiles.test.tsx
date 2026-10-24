@@ -45,7 +45,9 @@ async function openFilledMovie() {
   fakeLibrary([r])
   server.use(
     http.get('/titles/{id}', ({ response }) =>
-      response(200).json(detail(r, { versions: [{ id: 11, slot: 'standard', profile: 'hd-primary', state: 'filled', long_missing: false, wanted_since: null, file: movieFile, added_at: r.added_at }] })),
+      response(200).json(
+        detail(r, { versions: [{ id: 11, slot: 'standard', profile: 'hd-primary', state: 'filled', long_missing: false, wanted_since: null, file: movieFile, added_at: r.added_at }] }),
+      ),
     ),
   )
   renderApp()
@@ -190,7 +192,13 @@ describe('deleting files from the episodes heat map', () => {
 
   it('offers Delete file wherever the Slot dot is filled, in a Series kept in 4K only', async () => {
     const state = fakeSeries()
-    const file = (id: number, n: number): components['schemas']['EpisodeFile'] => ({ id, path: `/data/media/tv/Breaking Bad/Season 01/Breaking Bad - S01E0${n} - [4K].mkv`, size: 2 ** 30, quality: 'WEBDL-2160p', episode_ids: [n + 1] })
+    const file = (id: number, n: number): components['schemas']['EpisodeFile'] => ({
+      id,
+      path: `/data/media/tv/Breaking Bad/Season 01/Breaking Bad - S01E0${n} - [4K].mkv`,
+      size: 2 ** 30,
+      quality: 'WEBDL-2160p',
+      episode_ids: [n + 1],
+    })
     state.get().episodes = [
       episode(2, 1, 1, 'Pilot', { cells: { standard: null, '4k': cell('filled', 120, file(80, 1)) } }),
       episode(3, 1, 2, "Cat's in the Bag...", { cells: { standard: null, '4k': cell('wanted') } }),
@@ -198,7 +206,13 @@ describe('deleting files from the episodes heat map', () => {
     const r = seriesRow(5, 'Breaking Bad')
     server.use(
       http.get('/titles/{id}', ({ response }) =>
-        response(200).json(detail(r, { kind: 'series', series_monitor: 'all', versions: [{ id: 52, slot: '4k', profile: '4k-primary', state: 'wanted', long_missing: false, wanted_since: null, file: null, added_at: r.added_at }] })),
+        response(200).json(
+          detail(r, {
+            kind: 'series',
+            series_monitor: 'all',
+            versions: [{ id: 52, slot: '4k', profile: '4k-primary', state: 'wanted', long_missing: false, wanted_since: null, file: null, added_at: r.added_at }],
+          }),
+        ),
       ),
     )
     renderApp()

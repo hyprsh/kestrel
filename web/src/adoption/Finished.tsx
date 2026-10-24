@@ -21,8 +21,7 @@ export function Finished({ outcomes, actions }: { outcomes: AdoptionOutcomes; ac
   return (
     <div className="flex flex-col gap-4">
       <p className="copy-14 text-gray-900">
-        These entries were not adopted. Their files stay where they are as Unmanaged files, and the next scan finds them again. The summary stays until the
-        next scan.
+        These entries were not adopted. Their files stay where they are as Unmanaged files, and the next scan finds them again. The summary stays until the next scan.
       </p>
       {open.map((g) => (
         <Group key={g.outcome} outcome={g.outcome} title={g.title} why={g.why} count={outcomes[g.outcome]} actions={actions} />
@@ -36,19 +35,7 @@ export function Finished({ outcomes, actions }: { outcomes: AdoptionOutcomes; ac
   )
 }
 
-function Group({
-  outcome,
-  title,
-  why,
-  count,
-  actions,
-}: {
-  outcome: AdoptionOutcome
-  title: string
-  why: string
-  count: number
-  actions?: FinishedActions
-}) {
+function Group({ outcome, title, why, count, actions }: { outcome: AdoptionOutcome; title: string; why: string; count: number; actions?: FinishedActions }) {
   const list = useAdoptionRows({ outcome }, true)
   const rows = list.data?.pages.flatMap((pg) => pg.items) ?? []
   const label = `${title} (${count})`

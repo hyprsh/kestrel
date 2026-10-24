@@ -133,15 +133,7 @@ describe('the wizard', () => {
     renderApp()
     await screen.findByRole('region', { name: 'Root folders' })
     const titles = () => screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent?.replace(/^\d+/, ''))
-    await waitFor(() => expect(titles()).toEqual([
-      'Account',
-      'Primary Language',
-      'Download client',
-      'Indexer',
-      'Root folders',
-      'Profiles',
-      'Adopt existing library (optional)',
-    ]))
+    await waitFor(() => expect(titles()).toEqual(['Account', 'Primary Language', 'Download client', 'Indexer', 'Root folders', 'Profiles', 'Adopt existing library (optional)']))
   })
 
   it('folds a section once it is saved', async () => {
@@ -164,7 +156,11 @@ describe('the wizard', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Finish setup' }))
     expect(screen.getByRole('separator')).toBeInTheDocument() // divides the sections from Finish
     const missing = await screen.findByRole('alert')
-    expect(within(missing).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Download client', 'Indexer', 'Root folders'])
+    expect(
+      within(missing)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['Download client', 'Indexer', 'Root folders'])
     expect(screen.queryByRole('button', { name: 'Overview' })).not.toBeInTheDocument() // still in the wizard
 
     setup.sections.download_client = setup.sections.indexer = setup.sections.root_folders = 'done'
@@ -184,10 +180,7 @@ describe('the wizard', () => {
 describe('running setup again', () => {
   it('opens from Settings with the account already done and every other section as a summary', async () => {
     fakeSettings()
-    const setup = fakeSetup(
-      { language: 'done', download_client: 'done', indexer: 'done', root_folders: 'done', profiles: 'done' },
-      true,
-    )
+    const setup = fakeSetup({ language: 'done', download_client: 'done', indexer: 'done', root_folders: 'done', profiles: 'done' }, true)
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Run setup again' }))

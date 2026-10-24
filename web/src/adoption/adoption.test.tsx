@@ -84,7 +84,12 @@ const series: Row = {
   candidates: [],
   files: [
     file('e1', { episodes: [{ season: 1, number: 1 }] }),
-    file('e23', { episodes: [{ season: 1, number: 2 }, { season: 1, number: 3 }] }),
+    file('e23', {
+      episodes: [
+        { season: 1, number: 2 },
+        { season: 1, number: 3 },
+      ],
+    }),
     file('4k', { slot: '4k', episodes: [{ season: 2, number: 1 }] }),
     file('stray', { left: 'unmatched', ticked: false }),
   ],
@@ -169,7 +174,12 @@ export function fakeAdoption(rows: Row[] = [matched, doubtful, broken]) {
           if (r.status !== 'needs_choice') items.push({ row_id: r.id, result: 'left', reason: 'not_needs_choice' })
           else if (!pick?.confident) items.push({ row_id: r.id, result: 'left', reason: pick ? 'not_confident' : 'no_suggestion' })
           else {
-            Object.assign(r, { status: 'matched', ticked: true, match: { tmdb_id: pick.tmdb_id, title: pick.title, year: pick.year, title_id: null, source: 'chosen', folder: 'x' }, files: [file('x')] })
+            Object.assign(r, {
+              status: 'matched',
+              ticked: true,
+              match: { tmdb_id: pick.tmdb_id, title: pick.title, year: pick.year, title_id: null, source: 'chosen', folder: 'x' },
+              files: [file('x')],
+            })
             items.push({ row_id: r.id, result: 'changed', status: 'matched' })
           }
         } else if (body.action === 'set_monitor') {
@@ -196,7 +206,13 @@ export function fakeAdoption(rows: Row[] = [matched, doubtful, broken]) {
       if ('tmdb_id' in body) {
         state.rows = state.rows.map((r) =>
           r.id === 2
-            ? { ...r, status: 'matched', ticked: true, match: { tmdb_id: 77, title: 'The Lost Film', year: 2020, title_id: null, source: 'chosen', folder: 'The Lost Film (2020) {tmdb-77}' }, files: [file('lost')] }
+            ? {
+                ...r,
+                status: 'matched',
+                ticked: true,
+                match: { tmdb_id: 77, title: 'The Lost Film', year: 2020, title_id: null, source: 'chosen', folder: 'The Lost Film (2020) {tmdb-77}' },
+                files: [file('lost')],
+              }
             : r,
         )
       }
@@ -329,7 +345,14 @@ describe('Adoption review', () => {
 })
 
 const moreRows = (n: number, over: Partial<Row> = {}): Row[] =>
-  Array.from({ length: n }, (_, i) => ({ ...matched, id: 100 + i, entry: `/data/media/movies/Film ${i}`, match: { ...matched.match!, title: `Film ${i}`, year: 2000 }, files: [file(`f${i}`)], ...over }))
+  Array.from({ length: n }, (_, i) => ({
+    ...matched,
+    id: 100 + i,
+    entry: `/data/media/movies/Film ${i}`,
+    match: { ...matched.match!, title: `Film ${i}`, year: 2000 },
+    files: [file(`f${i}`)],
+    ...over,
+  }))
 
 describe('Adoption review of a large plan', () => {
   async function openPlan(rows: Row[]) {
@@ -470,7 +493,11 @@ describe('Adoption monitoring', () => {
 
     const choice = await screen.findByRole('combobox', { name: 'Monitoring' })
     expect(choice).toHaveValue('all')
-    expect(within(choice).getAllByRole('option').map((o) => o.textContent)).toEqual(['Monitored', 'Series: future episodes only', 'Unmonitored'])
+    expect(
+      within(choice)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Monitored', 'Series: future episodes only', 'Unmonitored'])
     await user.selectOptions(choice, 'none')
 
     expect(state.planPatches).toEqual([{ monitor: 'none' }])
@@ -481,9 +508,17 @@ describe('Adoption monitoring', () => {
     const { state, user } = await openPlan([matched, series])
 
     const movie = await screen.findByRole('combobox', { name: 'Monitoring of Paddington (2014)' })
-    expect(within(movie).getAllByRole('option').map((o) => o.textContent)).toEqual(['Monitored', 'Unmonitored'])
+    expect(
+      within(movie)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Monitored', 'Unmonitored'])
     const show = screen.getByRole('combobox', { name: 'Monitoring of Breaking Bad (2008)' })
-    expect(within(show).getAllByRole('option').map((o) => o.textContent)).toEqual(['All episodes', 'Future episodes only', 'Unmonitored'])
+    expect(
+      within(show)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['All episodes', 'Future episodes only', 'Unmonitored'])
     await user.selectOptions(show, 'future')
 
     expect(state.patches).toEqual([{ id: '4', body: { monitor: 'future' } }])

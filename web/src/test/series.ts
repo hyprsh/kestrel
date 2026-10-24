@@ -49,8 +49,7 @@ export function fakeSeries() {
     ],
     sent: [] as Sent[],
   }
-  const seasons = () =>
-    [0, 1].map((n) => ({ number: n, monitored: state.episodes.some((e) => e.season === n && e.monitored) }))
+  const seasons = () => [0, 1].map((n) => ({ number: n, monitored: state.episodes.some((e) => e.season === n && e.monitored) }))
   server.use(
     http.get('/titles/{id}', ({ response }) => response(200).json(detail(r, { kind: 'series', tvdb_id: 81189, series_monitor: state.mode, seasons: seasons() }))),
     http.get('/titles/{id}/episodes', ({ response }) => response(200).json({ items: state.episodes })),

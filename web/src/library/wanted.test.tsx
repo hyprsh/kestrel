@@ -28,7 +28,10 @@ async function openLibrary() {
   return screen.findByRole('listbox', { name: /library/i })
 }
 
-const names = (list: HTMLElement) => within(list).getAllByRole('option').map((o) => o.textContent?.replace(/\d{4}$/, '').trim())
+const names = (list: HTMLElement) =>
+  within(list)
+    .getAllByRole('option')
+    .map((o) => o.textContent?.replace(/\d{4}$/, '').trim())
 
 const filter = () => screen.getByRole('combobox', { name: 'Filter the Library' })
 
@@ -76,7 +79,11 @@ describe('the Library filter, typed', () => {
 
     await user.type(filter(), 'profile:4')
     const suggestions = await screen.findByRole('listbox', { name: 'Suggestions' })
-    expect(within(suggestions).getAllByRole('option').map((o) => o.textContent)).toEqual(['4K'])
+    expect(
+      within(suggestions)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['4K'])
     await user.keyboard('{Enter}')
 
     expect(filter()).toHaveValue('profile:4K')

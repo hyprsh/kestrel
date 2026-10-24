@@ -119,7 +119,11 @@ describe('Running now', () => {
     await user().click(topBar().getByRole('button', { name: '2 running' }))
 
     expect(topBar().getByText('Activity')).toBeInTheDocument()
-    expect(runningNow().getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Polling the download client', 'Updating the TRaSH snapshot'])
+    expect(
+      runningNow()
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['Polling the download client', 'Updating the TRaSH snapshot'])
   })
 
   it('leads from an Adoption scan to the Adoption screen', async () => {
@@ -136,7 +140,9 @@ describe('Running now', () => {
           result: null,
         }),
       ),
-      http.get('/adoption/rows', ({ response }) => response(200).json({ items: [], next_cursor: null, total: 0, counts: { matched: 0, needs_choice: 0, skipped: 0, duplicate: 0, replacement: 0, adopting: 0 } })),
+      http.get('/adoption/rows', ({ response }) =>
+        response(200).json({ items: [], next_cursor: null, total: 0, counts: { matched: 0, needs_choice: 0, skipped: 0, duplicate: 0, replacement: 0, adopting: 0 } }),
+      ),
     )
     await withActivity({ adoption: { state: 'scanning', done: 120, total: 450 } })
     act(() => vi.advanceTimersByTime(1000))

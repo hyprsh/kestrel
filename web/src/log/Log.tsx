@@ -80,10 +80,7 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
   // A title: filter names Titles, so it waits for the Library to know which.
   const events = useEvents(logFilter(parsed, titles ?? []), !byTitle || titles !== undefined)
 
-  const shown = useMemo(
-    () => (events.data ?? []).filter((e) => matchText(parsed.text, [e.message, names.get(e.title_id ?? -1) ?? ''])),
-    [events.data, parsed.text, names],
-  )
+  const shown = useMemo(() => (events.data ?? []).filter((e) => matchText(parsed.text, [e.message, names.get(e.title_id ?? -1) ?? ''])), [events.data, parsed.text, names])
 
   useListNav('log', shown.length, sel, setSel)
   useKey('/', (e) => {
@@ -108,7 +105,15 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
           <div className="p-4">
             <Entity.List aria-label="Events">
               {shown.map((e, i) => (
-                <PhoneEvent key={e.id} e={e} index={i} sel={sel} onSelect={() => setSel(i)} title={names.get(e.title_id ?? -1)} onFilter={(name, value) => onQuery(withValue(query, name, value, qualifiers))} />
+                <PhoneEvent
+                  key={e.id}
+                  e={e}
+                  index={i}
+                  sel={sel}
+                  onSelect={() => setSel(i)}
+                  title={names.get(e.title_id ?? -1)}
+                  onFilter={(name, value) => onQuery(withValue(query, name, value, qualifiers))}
+                />
               ))}
             </Entity.List>
           </div>
@@ -168,33 +173,19 @@ function TitleLink({ title, onFilter }: { title: string; onFilter: (name: 'title
   )
 }
 
-function PhoneEvent({
-  e,
-  index,
-  sel,
-  onSelect,
-  title,
-  onFilter,
-}: {
-  e: LogEvent
-  index: number
-  sel: number
-  onSelect: () => void
-  title?: string
-  onFilter: (name: 'title', value: string) => void
-}) {
+function PhoneEvent({ e, index, sel, onSelect, title, onFilter }: { e: LogEvent; index: number; sel: number; onSelect: () => void; title?: string; onFilter: (name: 'title', value: string) => void }) {
   return (
     <Entity as="button" current={index === sel} data-nav={`log-${index}`} onClick={onSelect}>
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex items-center justify-between gap-2">
-            <KindLabel kind={e.kind} />
-            <span className="label-12 tabular text-gray-900">{when(e.at)}</span>
-          </div>
-          <div className="min-w-0 break-words">
-            {title && <TitleLink title={title} onFilter={onFilter} />}
-            <span className="text-gray-900">{e.message}</span>
-          </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex items-center justify-between gap-2">
+          <KindLabel kind={e.kind} />
+          <span className="label-12 tabular text-gray-900">{when(e.at)}</span>
         </div>
+        <div className="min-w-0 break-words">
+          {title && <TitleLink title={title} onFilter={onFilter} />}
+          <span className="text-gray-900">{e.message}</span>
+        </div>
+      </div>
     </Entity>
   )
 }
@@ -249,28 +240,28 @@ function Blocklist() {
         <div className="p-4">
           <Entity.List aria-label="Blocklist">
             {items.map((b, i) => (
-                <Entity
-                  key={b.id}
-                  as="button"
-                  current={i === sel}
-                  data-nav={`block-${i}`}
-                  onClick={() => setSel(i)}
-                  className="flex-col items-stretch"
-                  rightClassName="flex-col items-stretch"
-                  right={
-                    <Button variant="secondary" size="small" width="100%" aria-label={`Remove ${b.release_name} from the Blocklist`} disabled={unblock.isPending} onClick={() => unblock.mutate(b.id)}>
-                      Remove from the Blocklist
-                    </Button>
-                  }
-                >
-                  <div className="min-w-0">
-                    <div className="label-12-mono break-all">{b.release_name}</div>
-                    <div className="label-13 mt-0.5 text-gray-900">
-                      {b.title_id && names.get(b.title_id) ? `${names.get(b.title_id)} · ` : ''}
-                      {b.reason} · {when(b.created_at)}
-                    </div>
+              <Entity
+                key={b.id}
+                as="button"
+                current={i === sel}
+                data-nav={`block-${i}`}
+                onClick={() => setSel(i)}
+                className="flex-col items-stretch"
+                rightClassName="flex-col items-stretch"
+                right={
+                  <Button variant="secondary" size="small" width="100%" aria-label={`Remove ${b.release_name} from the Blocklist`} disabled={unblock.isPending} onClick={() => unblock.mutate(b.id)}>
+                    Remove from the Blocklist
+                  </Button>
+                }
+              >
+                <div className="min-w-0">
+                  <div className="label-12-mono break-all">{b.release_name}</div>
+                  <div className="label-13 mt-0.5 text-gray-900">
+                    {b.title_id && names.get(b.title_id) ? `${names.get(b.title_id)} · ` : ''}
+                    {b.reason} · {when(b.created_at)}
                   </div>
-                </Entity>
+                </div>
+              </Entity>
             ))}
           </Entity.List>
         </div>
@@ -292,12 +283,7 @@ function Blocklist() {
             </Table.Header>
             <Table.Body bordered interactive>
               {items.map((b, i) => (
-                <Table.Row
-                  key={b.id}
-                  data-nav={`block-${i}`}
-                  current={i === sel}
-                  onClick={() => setSel(i)}
-                >
+                <Table.Row key={b.id} data-nav={`block-${i}`} current={i === sel} onClick={() => setSel(i)}>
                   <Table.Cell truncate>
                     <div className="label-12-mono truncate">{b.release_name}</div>
                     <div className="label-13 truncate text-gray-900">
@@ -306,13 +292,7 @@ function Blocklist() {
                     </div>
                   </Table.Cell>
                   <Table.Cell align="right">
-                    <Button
-                      variant="secondary"
-                      size="small"
-                      aria-label={`Remove ${b.release_name} from the Blocklist`}
-                      disabled={unblock.isPending}
-                      onClick={() => unblock.mutate(b.id)}
-                    >
+                    <Button variant="secondary" size="small" aria-label={`Remove ${b.release_name} from the Blocklist`} disabled={unblock.isPending} onClick={() => unblock.mutate(b.id)}>
                       Remove
                     </Button>
                   </Table.Cell>

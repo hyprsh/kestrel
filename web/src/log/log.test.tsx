@@ -146,10 +146,7 @@ describe('Log', () => {
     await user.type(filter(), 'rejcted amelie')
 
     await expect.poll(() => eventRows(list)).toHaveLength(2)
-    expect(eventRows(list).map((row) => row.textContent)).toEqual([
-      expect.stringContaining('no video file'),
-      expect.stringContaining('sample'),
-    ])
+    expect(eventRows(list).map((row) => row.textContent)).toEqual([expect.stringContaining('no video file'), expect.stringContaining('sample')])
   })
 
   it('suggests the values of the qualifier being typed, and Library Titles for title:', async () => {
@@ -160,7 +157,11 @@ describe('Log', () => {
 
     await user.type(filter(), 'slot:')
     const options = screen.getByRole('listbox', { name: 'Suggestions' })
-    expect(within(options).getAllByRole('option').map((o) => o.textContent)).toEqual(['standard', '4k'])
+    expect(
+      within(options)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['standard', '4k'])
     expect(filter()).toHaveAttribute('aria-expanded', 'true')
 
     await user.keyboard('{ArrowDown}{Enter}')

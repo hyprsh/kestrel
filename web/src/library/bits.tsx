@@ -67,15 +67,7 @@ export function SlotDots({ slots }: { slots: Record<SlotKey, { state: string; lo
       {slotKeys.map((k) => {
         const s = slots[k]
         const dot = dotOf(s ? s.state : null, !!s?.long_missing)
-        return (
-          <StatusDot
-            key={k}
-            state={dot.state}
-            variant={dot.variant}
-            label={false}
-            title={`${slotLabel[k]}: ${s ? versionStatus(s.state, s.long_missing).label : 'no Version'}`}
-          />
-        )
+        return <StatusDot key={k} state={dot.state} variant={dot.variant} label={false} title={`${slotLabel[k]}: ${s ? versionStatus(s.state, s.long_missing).label : 'no Version'}`} />
       })}
     </span>
   )
