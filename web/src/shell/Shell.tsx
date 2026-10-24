@@ -144,7 +144,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     .map((s) => ({
       ...s,
       ...(s.key === 'overview' && needs && needs.count > 0
-        ? { badge: needs.count, badgeTone: needs.severity === 'blocking' ? ('error' as const) : ('warning' as const), badgeLabel: `${needs.count} ${needs.count === 1 ? 'needs' : 'need'} attention` }
+        ? { badge: needs.count, badgeTone: needs.severity === 'blocking' ? ('error' as const) : ('warning' as const), badgeLabel: attentionLabel(needs) }
         : {}),
     }))
   const moreItems: Tab[] = moreKeys.map((k) => {
@@ -289,6 +289,12 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   )
 }
 
+/** The badge's words, shared by the rail and the phone tab bar; the tone is visual only, so Blocking is said here. */
+function attentionLabel(a: { count: number; rows: { severity: string }[] }) {
+  const blocking = a.rows.filter((r) => r.severity === 'blocking').length
+  return `${a.count} ${a.count === 1 ? 'needs' : 'need'} attention${blocking > 0 ? `, ${blocking} blocking` : ''}`
+}
+
 function RailButton({
   label,
   active,
@@ -347,7 +353,7 @@ function Rail({
           onClick={() => onSelect(s.key)}
           badge={
             s.key === 'overview' && needs > 0
-              ? { count: needs, tone: attention?.severity === 'blocking' ? 'error' : 'warning', label: `${needs} ${needs === 1 ? 'needs' : 'need'} attention` }
+              ? { count: needs, tone: attention?.severity === 'blocking' ? 'error' : 'warning', label: attentionLabel(attention!) }
               : undefined
           }
         >

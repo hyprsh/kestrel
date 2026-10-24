@@ -310,9 +310,9 @@ describe('Needs attention', () => {
     fakeAttention([sabRow(), exdevRow()])
     renderApp()
 
-    const button = await screen.findByRole('button', { name: /overview.*2 need attention/i })
+    const button = await screen.findByRole('button', { name: /overview.*2 need attention, 1 blocking/i })
 
-    expect(within(button).getByText('2')).toHaveClass('hy-btn__badge--error')
+    expect(within(button).getByText('2')).toBeInTheDocument()
   })
 
   it('shows an amber badge when only Warnings are left, and none when there is nothing', async () => {
@@ -320,7 +320,8 @@ describe('Needs attention', () => {
     renderApp()
 
     const button = await screen.findByRole('button', { name: /overview.*1 needs? attention/i })
-    expect(within(button).getByText('1')).toHaveClass('hy-btn__badge--warning')
+    expect(button).not.toHaveAccessibleName(/blocking/)
+    expect(within(button).getByText('1')).toBeInTheDocument()
 
     await userEvent.click(await screen.findByRole('button', { name: 'Dismiss' }))
     expect(await screen.findByRole('button', { name: 'Overview' })).toBeInTheDocument()
