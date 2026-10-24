@@ -1,17 +1,16 @@
 // What the episode grid can do beyond monitoring: Search now and Manual search
 // for an episode, a season or the ticked episodes, from each row's menu and
 // the selection bar, and Delete files (DeleteFiles.tsx) in the same menus and bar.
-import { useMemo, useState, type KeyboardEvent } from 'react'
+import { useMemo, useState, type FocusEvent, type KeyboardEvent } from 'react'
 import { useSearchNow } from '../api/grabs'
 import { useProfiles, type Episode, type EpisodeScope, type TitleDetail } from '../api/queries'
-import { Button, Menu } from '@hyprsh/design'
+import { Button, DotsMenu, MenuItem } from '@hyprsh/design'
 import { SelectionBar } from '../layout/SelectionBar'
 import { useSelection, type Selection } from '../selection'
 import { cx } from '../ui'
 import { slotLabel, type SlotKey } from './bits'
 import { episodeCode, episodeRow, seasonName, seasonRow, type ActionStatus, type EpisodeVersion } from './episodes'
 import { DeleteMenuItems, DeleteTickedButtons, EpisodeDeleteConfirm, useEpisodeDeletes, type EpisodeDeletes } from './DeleteFiles'
-import { EpisodeRowMenuButton } from './EpisodeRowMenuButton'
 import { TickBox } from './TickBox'
 import type { ManualSearchTarget } from './TitleDetail'
 import { useFade } from './useFade'
@@ -114,6 +113,9 @@ export function useEpisodeActions(
 const nothingWanted = 'Nothing here is Wanted'
 const wantedIn = (eps: Episode[], versions: EpisodeVersion[]) => versions.some((v) => eps.some((e) => e.cells[v.slot]?.state === 'wanted'))
 
+/** The grid has a roving focus: a row menu's button stays out of the Tab order and passes focus on to the row's cell, where the keyboard was. */
+const toRowCell = (e: FocusEvent<HTMLButtonElement>) => e.currentTarget.closest('[role="row"]')?.querySelector<HTMLElement>('[data-cell][tabindex="0"]')?.focus()
+
 /** The ⋯ menu of one episode row. */
 /** `onOpenChange` tells the row the menu belongs to when it opens and closes, so the row can show whose menu it is. */
 export function EpisodeMenu({ actions, episode, onOpenChange }: { actions: EpisodeActions; episode: Episode; onOpenChange?: (open: boolean) => void }) {
@@ -121,21 +123,18 @@ export function EpisodeMenu({ actions, episode, onOpenChange }: { actions: Episo
   const code = episodeCode(episode)
   const wanted = wantedIn([episode], versions)
   return (
-    <Menu.Container position="bottom-end" onOpenChange={onOpenChange}>
-      <EpisodeRowMenuButton label={`Actions for ${episodeName(episode)}`} />
-      <Menu>
-        <Menu.Item disabled={!wanted} description={wanted ? undefined : nothingWanted} onSelect={() => actions.search([episode], code, (ids) => ({ season: episode.season, episode_ids: ids }))}>
-          Search
-        </Menu.Item>
-        {versions.map((v) => (
-          <Menu.Item key={v.slot} onSelect={() => actions.manual(v, { season: episode.season, episode_ids: [episode.id] }, code)}>
-            {versions.length > 1 ? `Manual search ${slotLabel[v.slot]}` : 'Manual search'}
-          </Menu.Item>
-        ))}
-        <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={[episode]} label={code} scope={{ season: episode.season, episode_ids: [episode.id] }} text="Delete file" at={episodeRow(episode.id)} />
-        <Menu.Item onSelect={() => selection.toggle(episode.id)}>{selection.has(episode.id) ? 'Untick' : 'Tick'}</Menu.Item>
-      </Menu>
-    </Menu.Container>
+    <DotsMenu aria-label={`Actions for ${episodeName(episode)}`} size="tiny" iconSize={12} tabIndex={-1} onFocus={toRowCell} onOpenChange={onOpenChange}>
+      <MenuItem disabled={!wanted} description={wanted ? undefined : nothingWanted} onSelect={() => actions.search([episode], code, (ids) => ({ season: episode.season, episode_ids: ids }))}>
+        Search
+      </MenuItem>
+      {versions.map((v) => (
+        <MenuItem key={v.slot} onSelect={() => actions.manual(v, { season: episode.season, episode_ids: [episode.id] }, code)}>
+          {versions.length > 1 ? `Manual search ${slotLabel[v.slot]}` : 'Manual search'}
+        </MenuItem>
+      ))}
+      <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={[episode]} label={code} scope={{ season: episode.season, episode_ids: [episode.id] }} text="Delete file" at={episodeRow(episode.id)} />
+      <MenuItem onSelect={() => selection.toggle(episode.id)}>{selection.has(episode.id) ? 'Untick' : 'Tick'}</MenuItem>
+    </DotsMenu>
   )
 }
 
@@ -145,20 +144,17 @@ export function SeasonMenu({ actions, season, episodes, onOpenChange }: { action
   const name = seasonName(season)
   const wanted = wantedIn(episodes, versions)
   return (
-    <Menu.Container position="bottom-end" onOpenChange={onOpenChange}>
-      <EpisodeRowMenuButton label={`Actions for ${name}`} />
-      <Menu>
-        <Menu.Item disabled={!wanted} description={wanted ? undefined : nothingWanted} onSelect={() => actions.search(episodes, name, () => ({ season }))}>
-          Search season
-        </Menu.Item>
-        {versions.map((v) => (
-          <Menu.Item key={v.slot} onSelect={() => actions.manual(v, { season }, name)}>
-            {versions.length > 1 ? `Manual search season ${slotLabel[v.slot]}` : 'Manual search season'}
-          </Menu.Item>
-        ))}
-        <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={episodes} label={name} scope={{ season }} text="Delete season's files" at={seasonRow(season)} />
-      </Menu>
-    </Menu.Container>
+    <DotsMenu aria-label={`Actions for ${name}`} size="tiny" iconSize={12} tabIndex={-1} onFocus={toRowCell} onOpenChange={onOpenChange}>
+      <MenuItem disabled={!wanted} description={wanted ? undefined : nothingWanted} onSelect={() => actions.search(episodes, name, () => ({ season }))}>
+        Search season
+      </MenuItem>
+      {versions.map((v) => (
+        <MenuItem key={v.slot} onSelect={() => actions.manual(v, { season }, name)}>
+          {versions.length > 1 ? `Manual search season ${slotLabel[v.slot]}` : 'Manual search season'}
+        </MenuItem>
+      ))}
+      <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={episodes} label={name} scope={{ season }} text="Delete season's files" at={seasonRow(season)} />
+    </DotsMenu>
   )
 }
 
