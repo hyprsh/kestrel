@@ -49,7 +49,7 @@ async function openPicker() {
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
   await userEvent.click(await screen.findByRole('button', { name: 'More Title actions' }))
   await userEvent.click(screen.getByRole('menuitem', { name: 'Move' }))
-  return screen.findByRole('group', { name: 'Move Title' })
+  return screen.findByRole('dialog', { name: 'Move Title' })
 }
 
 describe('moving a Title to another Root folder', () => {
@@ -67,7 +67,7 @@ describe('moving a Title to another Root folder', () => {
     await userEvent.click(within(picker).getByRole('button', { name: 'Move here' }))
 
     await waitFor(() => expect(state.sent).toEqual([{ path: 'titles', body: { root_folder: '/data/media/more-movies' } }]))
-    await waitFor(() => expect(screen.queryByRole('group', { name: 'Move Title' })).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Move Title' })).not.toBeInTheDocument())
     const again = await openPicker()
     expect(await within(again).findByRole('radio', { name: '/data/media/more-movies (current)' })).toBeChecked()
   })
@@ -102,7 +102,7 @@ describe('moving a Title to another Root folder', () => {
 
     await userEvent.click(within(picker).getByRole('button', { name: 'Cancel' }))
 
-    expect(screen.queryByRole('group', { name: 'Move Title' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Move Title' })).not.toBeInTheDocument()
     expect(state.sent).toEqual([])
   })
 })

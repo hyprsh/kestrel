@@ -36,7 +36,7 @@ describe('collapsible seasons in the episode grid', () => {
     expect(within(grid).getByRole('checkbox', { name: 'Season 0 episode 1 monitored' })).toBeInTheDocument()
 
     await userEvent.click(season1)
-    expect(within(grid).getByRole('img', { name: 'Season 1 episode 2 Standard: Unreleased' })).toBeInTheDocument()
+    expect(within(grid).getByRole('button', { name: 'Season 1 episode 2 Standard: Unreleased' })).toBeInTheDocument()
     expect(state.get().sent).toEqual([])
   })
 

@@ -127,7 +127,7 @@ describe('the Version rows', () => {
     })
     const { pane } = await openTitle(/breaking bad/i)
 
-    const hd = within(pane).getByRole('group', { name: 'Standard' })
+    const hd = within(pane).getByRole('listitem', { name: 'Standard' })
     expect(within(hd).queryByText('No file yet')).not.toBeInTheDocument()
     const summary = within(hd).getByRole('button', { name: '230 of 236 episodes · 412.0 GB · 6 Wanted · 2 Long Missing' })
     await userEvent.click(summary)
@@ -140,11 +140,11 @@ describe('the Version rows', () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     const { pane } = await openTitle(/paddington/i)
 
-    const hd = within(pane).getByRole('group', { name: 'Standard' })
+    const hd = within(pane).getByRole('listitem', { name: 'Standard' })
     expect(within(hd).getByText('Wanted')).toBeInTheDocument()
     expect(await within(hd).findByText('HD')).toBeInTheDocument() // the Profile's name arrives with GET /profiles
     expect(within(hd).getByText('No file yet')).toBeInTheDocument()
-    const uhd = within(pane).getByRole('group', { name: '4K' })
+    const uhd = within(pane).getByRole('listitem', { name: '4K' })
     expect(uhd).toHaveTextContent('4KNot kept')
     expect(within(uhd).queryByRole('button', { name: /More 4K Version actions/ })).not.toBeInTheDocument()
     expect(await within(uhd).findByRole('button', { name: 'Add Version: 4K' })).toBeInTheDocument()
@@ -154,7 +154,7 @@ describe('the Version rows', () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     const { pane } = await openTitle(/paddington/i)
 
-    await userEvent.click(within(within(pane).getByRole('group', { name: 'Standard' })).getByRole('button', { name: 'More Standard Version actions' }))
+    await userEvent.click(within(within(pane).getByRole('listitem', { name: 'Standard' })).getByRole('button', { name: 'More Standard Version actions' }))
     const menu = screen.getByRole('menu', { name: 'More Standard Version actions' })
     expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Change Profile', 'Delete fileNo file to delete', 'Remove Version'])
     expect(within(menu).getByRole('menuitem', { name: /Delete file/ })).toHaveAttribute('aria-disabled', 'true')
@@ -164,7 +164,7 @@ describe('the Version rows', () => {
     fakeSeries()
     const { pane } = await openTitle(/breaking bad/i)
 
-    await userEvent.click(within(within(pane).getByRole('group', { name: 'Standard' })).getByRole('button', { name: 'More Standard Version actions' }))
+    await userEvent.click(within(within(pane).getByRole('listitem', { name: 'Standard' })).getByRole('button', { name: 'More Standard Version actions' }))
     const menu = screen.getByRole('menu', { name: 'More Standard Version actions' })
     expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Change Profile', 'Remove Version'])
   })

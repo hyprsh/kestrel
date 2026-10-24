@@ -17,23 +17,23 @@ type State = 'wanted' | 'filled' | 'downloading' | 'unmonitored' | 'unreleased' 
 type Variant = NonNullable<BadgeProps['variant']>
 
 const stateText: Record<string, { variant: Variant; label: string }> = {
-  wanted: { variant: 'amber-subtle', label: 'Wanted' },
-  filled: { variant: 'green-subtle', label: 'Filled' },
-  downloading: { variant: 'blue-subtle', label: 'Downloading' },
-  unmonitored: { variant: 'gray-subtle', label: 'Unmonitored' },
-  unreleased: { variant: 'gray-subtle', label: 'Unreleased' },
+  wanted: { variant: 'amber', label: 'Wanted' },
+  filled: { variant: 'green', label: 'Filled' },
+  downloading: { variant: 'blue', label: 'Downloading' },
+  unmonitored: { variant: 'gray', label: 'Unmonitored' },
+  unreleased: { variant: 'gray', label: 'Unreleased' },
 }
 
 /** Badge variant and label for a Version's state; an unknown future state shows as itself. */
 export function versionStatus(state: State, longMissing = false): { variant: Variant; label: string } {
-  if (longMissing) return { variant: 'red-subtle', label: 'Long Missing' }
-  return stateText[state] ?? { variant: 'gray-subtle', label: state }
+  if (longMissing) return { variant: 'red', label: 'Long Missing' }
+  return stateText[state] ?? { variant: 'gray', label: state }
 }
 
 export function StatusBadge({ state, longMissing }: { state: State; longMissing?: boolean }) {
   const s = versionStatus(state, longMissing)
   return (
-    <Badge variant={s.variant} size="sm">
+    <Badge variant={s.variant} contrast="low" size="sm">
       {s.label}
     </Badge>
   )

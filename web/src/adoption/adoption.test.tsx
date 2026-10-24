@@ -225,7 +225,8 @@ describe('Adoption review', () => {
     const user = await openAdoption()
     await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
 
-    const row = (await screen.findAllByRole('listitem')).find((li) => li.textContent?.includes('Breaking Bad (2008)'))!
+    expect(await screen.findByText('Not on TheTVDB, so Kestrel cannot manage it')).toBeInTheDocument()
+    const row = screen.getAllByRole('listitem').find((li) => li.textContent?.includes('Breaking Bad (2008)'))!
     expect(row).toHaveTextContent('Standard: 3 episodes, 4K: 1 episode')
     expect(row).toHaveTextContent('S01E02-E03')
     expect(row).toHaveTextContent('No matching episode, left in place')
@@ -504,11 +505,11 @@ describe('Adoption review on a phone', () => {
     await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
     await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
 
-    // The filter and both actions are there, and the choices of a doubtful row fill the width.
+    // The filter and both actions are there, and the choices of a doubtful row stack instead of stretching.
     expect(await screen.findByRole('combobox', { name: 'Show' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Discard plan' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Adopt 1 Title' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: /Use The Lost Film/ })).toHaveClass('max-sm:w-full')
+    expect(screen.getByRole('button', { name: /Use The Lost Film/ })).not.toHaveClass('max-sm:w-full')
     await user.click(screen.getByRole('button', { name: /Use The Lost Film/ }))
     expect(await screen.findByRole('button', { name: 'Adopt 2 Titles' })).toBeEnabled()
   })
@@ -519,7 +520,9 @@ describe('Adoption review on a phone', () => {
     renderApp()
     await user.click(await screen.findByRole('button', { name: 'More' }))
     const sheet = await screen.findByRole('dialog', { name: 'More' })
-    expect(within(sheet).getAllByRole('button').slice(0, 6).map((b) => b.textContent)).toEqual(['Settings', 'Log', 'Requests', 'Adoption', 'Clean up', 'About'])
+    const names = ['Settings', 'Log', 'Requests', 'Adoption', 'Clean up', 'About']
+    // A row's button is a cover over its content, named by it, so the names are read as accessible names, not text.
+    names.forEach((name, i) => expect(within(sheet).getAllByRole('button')[i]).toHaveAccessibleName(name))
     await user.click(within(sheet).getByRole('button', { name: 'Adoption' }))
     expect(screen.getByRole('banner')).toHaveTextContent('Adopt existing library')
     expect(await screen.findByRole('button', { name: /scan for existing files/i })).toBeInTheDocument()

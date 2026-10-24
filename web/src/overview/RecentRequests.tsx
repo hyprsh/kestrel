@@ -1,6 +1,6 @@
-// chrome: pending
 // "Recent requests": the newest five Requests from outside Kestrel, with no time cutoff, and a
 // way to the Requests screen for the rest. Its rows are part of the Overview's j/k selection.
+import { Entity } from '@hyprsh/design'
 import { useRecentRequests } from '../api/requests'
 import { RequestRow } from '../requests/RequestRow'
 import type { OverviewNav } from './nav'
@@ -15,12 +15,12 @@ export function RecentRequests({ onOpenTitle, nav }: { onOpenTitle: (id: number)
       {recent.data && shown.length === 0 ? (
         <EmptyLine title="Nobody has asked for anything yet." />
       ) : (
-        <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
+        <Entity.List>
           {shown.map((r, j) => {
             const i = nav.base + j
             return <RequestRow key={r.id} request={r} nav={{ scope: 'ov', index: i, sel: nav.sel, onSelect: () => nav.select(i) }} onOpenTitle={onOpenTitle} />
           })}
-        </ul>
+        </Entity.List>
       )}
       {total > 0 && <ViewAll path="/requests" count={total} />}
     </Section>

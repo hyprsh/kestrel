@@ -1,7 +1,7 @@
 import { ApiError, usePatchSettings, useSettings, useUpdateTrash } from '../api/queries'
 import { useStatus } from '../api/attention'
 import { snapshotAge } from '../overview/HealthStrip'
-import { Button, Checkbox, Note } from '@hyprsh/design'
+import { Button, Checkbox, Code, Note } from '@hyprsh/design'
 
 /** The daily TRaSH check's switch, the active snapshot and "Update from TRaSH". */
 export function TrashForm() {
@@ -23,7 +23,7 @@ export function TrashForm() {
       </Checkbox>
       {snapshot && (
         <p className="label-12 text-gray-900">
-          Using TRaSH commit <code className="label-12-mono">{snapshot.commit.slice(0, 7)}</code>, {snapshotAge(snapshot.committed_at)}.
+          Using TRaSH commit <Code>{snapshot.commit.slice(0, 7)}</Code>, {snapshotAge(snapshot.committed_at)}.
         </p>
       )}
       {update.isError && (

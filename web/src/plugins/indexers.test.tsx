@@ -153,9 +153,9 @@ describe('Settings indexers', () => {
 
     const rows = await section.findAllByRole('listitem')
     expect(rows.map((r) => r.textContent)).toEqual([
-      expect.stringMatching(/^GeekNewznabPriority 1/),
-      expect.stringMatching(/^MirrorNewznabPriority 4Declared/),
-      expect.stringMatching(/^SlowNewznabPriority 9/),
+      expect.stringMatching(/^GeekNewznab · Priority 1/),
+      expect.stringMatching(/^Mirror DeclaredNewznab · Priority 4/),
+      expect.stringMatching(/^SlowNewznab · Priority 9/),
     ])
     expect(section.getByLabelText('Geek enabled')).toBeChecked()
     expect(section.getByLabelText('Slow enabled')).not.toBeChecked()

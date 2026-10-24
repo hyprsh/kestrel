@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
@@ -107,33 +107,32 @@ describe('Search all Wanted in the command menu', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('confirms how many Versions it queued and links to the Searching card', async () => {
+  it('confirms how many Versions it queued in a Toast, with no link and no strip', async () => {
     fakeLibrary([])
-    const scrolled: Element[] = []
-    // jsdom does not scroll: record what is scrolled to instead.
-    const before = Element.prototype.scrollIntoView
-    Element.prototype.scrollIntoView = function (this: Element) {
-      scrolled.push(this)
-    }
-    onTestFinished(() => {
-      Element.prototype.scrollIntoView = before
-    })
-    server.use(http.post('/wanted/search', ({ response }) => response(202).json({ versions: 3 })))
+    server.use(http.post('/wanted/search', ({ response }) => response(202).json({ versions: 2 })))
     await openLibrary()
     await userEvent.keyboard('{Control>}k{/Control}')
     const menu = await screen.findByRole('dialog', { name: /command menu/i })
     await userEvent.type(within(menu).getByRole('combobox'), 'search all')
     await userEvent.click(await within(menu).findByRole('option', { name: /search all wanted/i }))
 
-    const done = await screen.findByRole('status', { name: /search all wanted/i })
-    expect(done).toHaveTextContent('3 Wanted Versions queued for a search')
-
-    expect(location.pathname).toBe('/library')
-    await userEvent.click(within(done).getByRole('button', { name: /see the search/i }))
-    const card = await screen.findByRole('region', { name: 'Searching' })
-    await waitFor(() => expect(scrolled).toContain(card))
-    // The Overview is the root: the link's section is scrolled to, not kept in the address bar.
-    expect(location.pathname + location.search).toBe('/')
+    const toasts = await screen.findByRole('region', { name: 'Notifications' })
+    expect(await within(toasts).findByText('2 Wanted Versions queued for a search')).toBeInTheDocument()
+    expect(within(toasts).queryByRole('button', { name: /see the search/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('status', { name: /search all wanted/i })).not.toBeInTheDocument()
+    expect(location.pathname).toBe('/library')
+  })
+
+  it('says in a Toast when the search could not be queued', async () => {
+    fakeLibrary([])
+    server.use(http.post('/wanted/search', ({ response }) => response('default').json({ type: 'about:blank', title: 'x', status: 500, code: 'boom', detail: 'the indexer is down' }, { status: 500 })))
+    await openLibrary()
+    await userEvent.keyboard('{Control>}k{/Control}')
+    const menu = await screen.findByRole('dialog', { name: /command menu/i })
+    await userEvent.type(within(menu).getByRole('combobox'), 'search all')
+    await userEvent.click(await within(menu).findByRole('option', { name: /search all wanted/i }))
+
+    const toasts = await screen.findByRole('region', { name: 'Notifications' })
+    expect(await within(toasts).findByText(/search all wanted failed: the indexer is down/i)).toBeInTheDocument()
   })
 })

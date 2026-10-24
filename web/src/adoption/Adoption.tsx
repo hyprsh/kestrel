@@ -1,4 +1,3 @@
-// chrome: pending
 // The Adoption review screen: scan the Movie and Series Root folders, review the plan of matched,
 // needs-choice and skipped entries, settle the doubtful ones and adopt what is ticked.
 import { useMemo, useState, type FormEvent } from 'react'
@@ -24,10 +23,11 @@ import { ApiError, useLookup } from '../api/queries'
 import { useOpenCleanup } from '../cleanup/launch'
 import { slotKeys, slotLabel } from '../library/bits'
 import { TickBox } from '../library/TickBox'
-import { SelectionBar, useSelection } from '../selection'
+import { SelectionBar } from '../layout/SelectionBar'
+import { useSelection } from '../selection'
 import { Finished, type FinishedActions } from './Finished'
 import { currentText, skipText } from './text'
-import { Badge, Button, Checkbox, EmptyState, Input, Note, Select, Spinner } from '@hyprsh/design'
+import { Badge, Button, Checkbox, EmptyState, Entity, Input, LoadMoreButton, Note, Select, Skeleton, Spinner } from '@hyprsh/design'
 
 type Filter = 'all' | 'matched' | 'needs_choice' | 'skipped' | 'duplicate' | 'replacement'
 
@@ -157,7 +157,7 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
             )}
             {p.result && <Kept result={p.result} actions={{ onRetry: () => retry.mutate(), onReopen: () => reopen.mutate(), busy: retry.isPending || reopen.isPending }} />}
             <div>
-              <Button variant="primary" size="small" className="max-sm:w-full" onClick={() => scan.mutate()} disabled={scan.isPending}>
+              <Button variant="primary" size="small" onClick={() => scan.mutate()} disabled={scan.isPending}>
                 Scan for existing files
               </Button>
             </div>
@@ -319,10 +319,13 @@ function Plan({
         </SelectionBar>
       </div>
       {list.isPending ? (
-        <div className="copy-14 mt-6 flex items-center gap-2 text-gray-900">
-          <Spinner size="sm" />
-          Loading…
-        </div>
+        <Entity.List className="mt-4" aria-busy="true" aria-label="Loading the plan">
+          {[0, 1, 2].map((i) => (
+            <Entity key={i} left={<Skeleton width={16} height={16} />}>
+              <Entity.Content fill title={<Skeleton width="50%" height={16} />} description={<Skeleton width="30%" height={16} />} />
+            </Entity>
+          ))}
+        </Entity.List>
       ) : rows.length === 0 ? (
         <EmptyState
           className="mt-6"
@@ -331,24 +334,23 @@ function Plan({
         />
       ) : (
         <>
-          <ul className="mt-4 divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
+          <Entity.List className="mt-4" aria-label="Adoption plan">
             {rows.map((r) => (
-              <li key={r.id} className="flex gap-3 p-3">
-                <TickBox selection={selection} id={r.id} name={baseName(r.entry)} verb="Select" />
-                <div className="min-w-0 flex-1">
+              <Entity key={r.id} leftClassName="items-start" left={<TickBox selection={selection} id={r.id} name={baseName(r.entry)} verb="Select" />}>
+                <Entity.Content fill>
                   <Row row={r} planMonitor={monitor} />
-                </div>
-              </li>
+                </Entity.Content>
+              </Entity>
             ))}
-          </ul>
+          </Entity.List>
           <div className="copy-13 mt-3 flex items-center gap-3 text-gray-900">
             <span>
               Showing {rows.length} of {total}
             </span>
             {list.hasNextPage && (
-              <Button size="small" disabled={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
+              <LoadMoreButton size="small" noGap loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
                 Show more
-              </Button>
+              </LoadMoreButton>
             )}
           </div>
         </>
@@ -364,7 +366,7 @@ function Row({ row, planMonitor }: { row: AdoptionRow; planMonitor: AdoptionMoni
     <div>
       <div className="label-14">{baseName(row.entry)}</div>
       <div className="label-12 mt-0.5 flex items-center gap-2 text-gray-900">
-        <Badge variant="gray-subtle" size="sm">Skipped</Badge>
+        <Badge variant="gray" contrast="low" size="sm">Skipped</Badge>
         {skipText[row.skip_reason ?? ''] ?? row.skip_reason}
       </div>
     </div>
@@ -382,7 +384,7 @@ function MatchedRow({ row, planMonitor }: { row: AdoptionRow; planMonitor: Adopt
           <span className="label-14">{title}</span>
         </Checkbox>
         {m.title_id !== null && (
-          <Badge variant="blue-subtle" size="sm">
+          <Badge variant="blue" contrast="low" size="sm">
             In library
           </Badge>
         )}
@@ -410,11 +412,11 @@ function MatchedRow({ row, planMonitor }: { row: AdoptionRow; planMonitor: Adopt
               onChange={(e) => patch.mutate({ id: row.id, patch: { files: [{ path: f.path, ticked: e.target.checked }] } })}
               aria-label={`Adopt ${baseName(f.path)}`}
             />
-            <Badge variant="teal-subtle" size="sm">
+            <Badge variant="teal" contrast="low" size="sm">
               {slotLabel[f.slot]}
             </Badge>
             {episodeLabel(f) && (
-              <Badge variant="gray-subtle" size="sm">
+              <Badge variant="gray" contrast="low" size="sm">
                 {episodeLabel(f)}
               </Badge>
             )}
@@ -426,22 +428,22 @@ function MatchedRow({ row, planMonitor }: { row: AdoptionRow; planMonitor: Adopt
             </span>
             {f.subtitles.length > 0 && <span className="text-gray-900">+ {f.subtitles.length} subtitle{f.subtitles.length === 1 ? '' : 's'}</span>}
             {f.action === 'replace' && !f.left && (
-              <Badge variant="amber-subtle" size="sm">
+              <Badge variant="amber" contrast="low" size="sm">
                 Would replace the current file (Score {f.score} vs {f.held_score ?? 0})
               </Badge>
             )}
             {f.left === 'duplicate' && (
-              <Badge variant="gray-subtle" size="sm">
+              <Badge variant="gray" contrast="low" size="sm">
                 Duplicate, left in place
               </Badge>
             )}
             {f.left === 'unmatched' && (
-              <Badge variant="gray-subtle" size="sm">
+              <Badge variant="gray" contrast="low" size="sm">
                 No matching episode, left in place
               </Badge>
             )}
             {f.left === 'path_occupied' && (
-              <Badge variant="gray-subtle" size="sm">
+              <Badge variant="gray" contrast="low" size="sm">
                 Name taken, left in place
               </Badge>
             )}
@@ -467,7 +469,7 @@ function NeedsChoice({ row }: { row: AdoptionRow }) {
     <div>
       <div className="label-14 flex flex-wrap items-center gap-2 break-all">
         {baseName(row.entry)}{' '}
-        <Badge variant="amber-subtle" size="sm">
+        <Badge variant="amber" contrast="low" size="sm">
           Needs choice
         </Badge>
       </div>
@@ -483,7 +485,6 @@ function NeedsChoice({ row }: { row: AdoptionRow }) {
               key={c.tmdb_id}
               variant={c.suggested ? 'primary' : undefined}
               size="small"
-              className="max-sm:w-full"
               onClick={() => choose(c.tmdb_id)}
               disabled={patch.isPending}
             >
@@ -510,8 +511,8 @@ function NeedsChoice({ row }: { row: AdoptionRow }) {
       {found.length > 0 && (
         <ul className="mt-2 flex flex-wrap gap-2">
           {found.map((r) => (
-            <li key={r.tmdb_id} className="max-sm:w-full">
-              <Button size="small" className="max-sm:w-full" onClick={() => choose(r.tmdb_id)} disabled={patch.isPending}>
+            <li key={r.tmdb_id}>
+              <Button size="small" onClick={() => choose(r.tmdb_id)} disabled={patch.isPending}>
                 Pick {r.title}
                 {r.year ? ` (${r.year})` : ''}
               </Button>

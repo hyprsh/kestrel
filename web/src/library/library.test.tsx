@@ -196,8 +196,8 @@ describe('the Library detail pane', () => {
 
     expect(await within(pane).findByRole('heading', { name: 'Paddington' })).toBeInTheDocument()
     expect(pane).toHaveTextContent('Ein Bär namens Paddington')
-    const hd = within(pane).getByRole('group', { name: 'Standard' })
-    const uhd = within(pane).getByRole('group', { name: '4K' })
+    const hd = within(pane).getByRole('listitem', { name: 'Standard' })
+    const uhd = within(pane).getByRole('listitem', { name: '4K' })
     expect(await within(hd).findByText('Any')).toBeInTheDocument() // the Profile's name arrives with GET /profiles
     expect(hd).toHaveTextContent('Wanted')
     expect(uhd).toHaveTextContent('4K')
@@ -276,7 +276,7 @@ describe('the Library detail pane', () => {
     const popover = await screen.findByRole('dialog', { name: 'Standard file' })
     expect(popover).toHaveTextContent('/data/media/movies/P/P.mkv')
     expect(popover).toHaveTextContent('Grabbed as Paddington.2014.1080p.BluRay.x264-GRP')
-    expect(within(popover).getByRole('button', { name: 'Copy path' })).toBeInTheDocument()
+    expect(within(popover).getByRole('button', { name: 'Copy to Clipboard' })).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Standard file' })).not.toBeInTheDocument())
   })

@@ -1,8 +1,9 @@
-// chrome: pending
-import { Button, Checkbox, Fieldset, Input, Note, Textarea } from '@hyprsh/design'
-import { ArrowLeft, ChevronRight } from 'lucide-react'
+import { Button, Checkbox, Code, Entity, Fieldset, Input, Note, Snippet, Textarea } from '@hyprsh/design'
+import { ChevronRight } from 'lucide-react'
 import { useState, type FormEvent, type MouseEvent, type ReactNode } from 'react'
 import { usePhone } from '../responsive'
+import { JumpLink, JumpNav } from '../layout/JumpNav'
+import { PhoneBackHeader } from '../layout/PhoneBackHeader'
 import { adoptionLabel, useAdoption } from '../api/adoption'
 import { ApiError, useApiKey, useAuth, useChangePassword, useCreateApiKey, useLogoutEverywhere, useReverseProxy, useSaveReverseProxy, type ReverseProxy } from '../api/queries'
 import { UpdateCheckSwitch } from '../about/UpdateCheck'
@@ -168,12 +169,7 @@ export function Settings({
     if (open)
       return (
         <div key={open.id} className="flex min-h-0 flex-1 flex-col">
-          <div className="flex shrink-0 items-center gap-1 border-b border-gray-alpha-400 py-1 pr-3 pl-1">
-            <Button variant="tertiary" prefix={<ArrowLeft />} onClick={onCloseSection}>
-              Back
-            </Button>
-            <span className="label-14 min-w-0 flex-1 truncate">{open.title}</span>
-          </div>
+          <PhoneBackHeader onBack={() => onCloseSection?.()}>{open.title}</PhoneBackHeader>
           <div className="min-h-0 flex-1 overflow-auto p-4">
             <Group id={open.id} title={open.title} headingHidden>
               {content[open.id]}
@@ -183,33 +179,26 @@ export function Settings({
       )
     return (
       <nav key="list" aria-label="Settings sections" className="min-h-0 flex-1 overflow-auto">
-        <ul className="divide-y divide-gray-alpha-400">
+        <Entity.List>
           {sections.map((s) => (
-            <li key={s.id}>
-              <button type="button" onClick={() => onOpenSection?.(s.id)} className="label-14 flex min-h-12 w-full touch-manipulation items-center justify-between gap-2 px-4 text-left">
-                {s.title}
-                <ChevronRight aria-hidden className="size-4 shrink-0 text-gray-900" />
-              </button>
-            </li>
+            <Entity key={s.id} as="button" right={<ChevronRight aria-hidden className="size-4 text-gray-900" />} onClick={() => onOpenSection?.(s.id)}>
+              <Entity.Content fill title={s.title} />
+            </Entity>
           ))}
-        </ul>
+        </Entity.List>
       </nav>
     )
   }
 
   return (
     <div className="flex min-h-0 flex-1 overflow-auto">
-      <nav aria-label="Settings sections" className="sticky top-0 w-48 shrink-0 self-start p-4">
-        <ul className="flex flex-col gap-0.5">
-          {sections.map((s) => (
-            <li key={s.id}>
-              <a href={`${location.pathname}#settings-${s.id}`} onClick={(e) => jumpTo(e, s.id)} className="label-14 block rounded-md px-2 py-1 text-gray-900 hover:bg-gray-alpha-100 hover:text-gray-1000">
-                {s.title}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      <JumpNav label="Settings sections">
+        {sections.map((s) => (
+          <JumpLink key={s.id} href={`${location.pathname}#settings-${s.id}`} onClick={(e) => jumpTo(e, s.id)}>
+            {s.title}
+          </JumpLink>
+        ))}
+      </JumpNav>
       <div className="min-w-0 max-w-3xl flex-1 p-4 pr-8">
         {sections.map((s) => (
           <Group key={s.id} id={s.id} title={s.title}>
@@ -318,17 +307,12 @@ function ApiKeyRow() {
     <Row label="API key" help="One full-access key for scripts and the Silo plugin, sent as the X-Api-Key header. Kestrel keeps only a hash of it.">
       <div className="flex max-w-lg flex-col gap-3">
         {shown ? (
-          <div className="flex flex-col gap-2 rounded-md border border-gray-alpha-400 bg-background-200 p-3">
+          <div className="flex flex-col gap-2">
             <p className="copy-13 text-gray-900">This is the only time the key is shown. Copy it now.</p>
-            <code className="copy-13-mono break-all">{shown}</code>
-            <div className="flex gap-2">
-              <Button size="small" onClick={() => void navigator.clipboard?.writeText(shown)}>
-                Copy
-              </Button>
-              <Button size="small" variant="primary" onClick={() => setShown(null)}>
-                Done
-              </Button>
-            </div>
+            <Snippet prompt={false} text={shown} />
+            <Button size="small" variant="primary" onClick={() => setShown(null)} className="self-start">
+              Done
+            </Button>
           </div>
         ) : (
           <>
@@ -336,7 +320,7 @@ function ApiKeyRow() {
               <p className="copy-13">
                 {exists ? (
                   <>
-                    <code className="copy-13-mono">{info.data.prefix}…</code>, {fromEnv ? 'set from the environment' : `created ${new Date(info.data.created_at ?? '').toLocaleDateString()}`}
+                    <Code>{info.data.prefix}…</Code>, {fromEnv ? 'set from the environment' : `created ${new Date(info.data.created_at ?? '').toLocaleDateString()}`}
                   </>
                 ) : (
                   <span className="text-gray-900">No API key yet.</span>
@@ -353,7 +337,7 @@ function ApiKeyRow() {
             </Button>
             {fromEnv ? (
               <p className="copy-13 text-gray-900">
-                The <code className="copy-13-mono">KESTREL_API_KEY</code> environment variable sets this key, so it cannot be rotated here. Change the variable and restart Kestrel instead.
+                The <Code>KESTREL_API_KEY</Code> environment variable sets this key, so it cannot be rotated here. Change the variable and restart Kestrel instead.
               </p>
             ) : (
               exists && <p className="copy-13 text-gray-900">Rotating stops the old key at once.</p>

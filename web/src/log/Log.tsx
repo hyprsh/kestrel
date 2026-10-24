@@ -1,42 +1,43 @@
-// chrome: pending
 // The Log: what Kestrel did, filtered by one field of qualifiers (kind:, slot:, title:,
 // routine:) and free text, with routine events hidden until asked for; and the Blocklist view,
 // where an entry can be removed.
-import { Badge, Button, EmptyState, Note, Table, Tabs, parseQuery, termText, withValue, type BadgeProps } from '@hyprsh/design'
+import { Badge, Button, EmptyState, Entity, Link, Note, Table, Tabs, parseQuery, termText, withValue, type BadgeProps } from '@hyprsh/design'
 import { useMemo, useState } from 'react'
 import { useBlocklist, useEvents, useUnblock, type LogEvent } from '../api/log'
 import { useTitles } from '../api/queries'
 import { matchText } from '../fuzzy'
 import { FilterBar } from '../filter/FilterBar'
+import { FilterStrip } from '../layout/FilterStrip'
 import { useKey, useListNav } from '../keys'
 import { usePhone } from '../responsive'
+import { NavRow } from '../NavRow'
 import { logFilter, logQualifiers } from './filter'
 
 type Tone = NonNullable<BadgeProps['variant']>
 
 const kinds: Record<string, { label: string; tone: Tone }> = {
-  grab: { label: 'Grabbed', tone: 'blue-subtle' },
-  grab_failed: { label: 'Failed', tone: 'red-subtle' },
-  grab_canceled: { label: 'Canceled', tone: 'gray-subtle' },
-  grab_downloading: { label: 'Downloading', tone: 'gray-subtle' },
-  grab_completed: { label: 'Downloaded', tone: 'gray-subtle' },
-  import: { label: 'Imported', tone: 'green-subtle' },
-  import_episode: { label: 'Episode', tone: 'green-subtle' },
-  import_rejected: { label: 'Import rejected', tone: 'red-subtle' },
-  import_stalled: { label: 'Import stalled', tone: 'amber-subtle' },
-  blocklist: { label: 'Blocklisted', tone: 'red-subtle' },
-  request: { label: 'Requested', tone: 'teal-subtle' },
-  rename: { label: 'Renamed', tone: 'gray-subtle' },
-  move: { label: 'Moved', tone: 'gray-subtle' },
-  delete: { label: 'Deleted', tone: 'gray-subtle' },
-  title_refreshed: { label: 'Refreshed', tone: 'gray-subtle' },
-  search: { label: 'Searched', tone: 'gray-subtle' },
-  adoption: { label: 'Adopted', tone: 'teal-subtle' },
-  adoption_scanned: { label: 'Scanned', tone: 'gray-subtle' },
-  cleanup: { label: 'Cleaned up', tone: 'gray-subtle' },
-  health_raised: { label: 'Warning', tone: 'amber-subtle' },
-  health_cleared: { label: 'Cleared', tone: 'green-subtle' },
-  original_offered: { label: 'Original offered', tone: 'amber-subtle' },
+  grab: { label: 'Grabbed', tone: 'blue' },
+  grab_failed: { label: 'Failed', tone: 'red' },
+  grab_canceled: { label: 'Canceled', tone: 'gray' },
+  grab_downloading: { label: 'Downloading', tone: 'gray' },
+  grab_completed: { label: 'Downloaded', tone: 'gray' },
+  import: { label: 'Imported', tone: 'green' },
+  import_episode: { label: 'Episode', tone: 'green' },
+  import_rejected: { label: 'Import rejected', tone: 'red' },
+  import_stalled: { label: 'Import stalled', tone: 'amber' },
+  blocklist: { label: 'Blocklisted', tone: 'red' },
+  request: { label: 'Requested', tone: 'teal' },
+  rename: { label: 'Renamed', tone: 'gray' },
+  move: { label: 'Moved', tone: 'gray' },
+  delete: { label: 'Deleted', tone: 'gray' },
+  title_refreshed: { label: 'Refreshed', tone: 'gray' },
+  search: { label: 'Searched', tone: 'gray' },
+  adoption: { label: 'Adopted', tone: 'teal' },
+  adoption_scanned: { label: 'Scanned', tone: 'gray' },
+  cleanup: { label: 'Cleaned up', tone: 'gray' },
+  health_raised: { label: 'Warning', tone: 'amber' },
+  health_cleared: { label: 'Cleared', tone: 'green' },
+  original_offered: { label: 'Original offered', tone: 'amber' },
 }
 
 const kindLabels = Object.fromEntries(Object.entries(kinds).map(([k, v]) => [k, v.label]))
@@ -48,7 +49,7 @@ export function Log({ query, onQuery }: { query: string; onQuery: (query: string
   const [view, setView] = useState<'log' | 'blocklist'>('log')
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b border-gray-alpha-400 px-4 py-2">
+      <FilterStrip>
         <Tabs
           variant="secondary"
           aria-label="Log views"
@@ -59,7 +60,7 @@ export function Log({ query, onQuery }: { query: string; onQuery: (query: string
             { value: 'blocklist', title: 'Blocklist' },
           ]}
         />
-      </div>
+      </FilterStrip>
       {view === 'log' ? <Events query={query} onQuery={onQuery} /> : <Blocklist />}
     </div>
   )
@@ -93,19 +94,25 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex flex-wrap items-center gap-2 border-b border-gray-alpha-400 px-4 py-2">
+      <FilterStrip>
         <FilterBar id="log-filter" label="Filter the Log" placeholder="Filter, e.g. kind:failures slot:4k …  /" value={query} onChange={onQuery} qualifiers={qualifiers} />
-      </div>
+      </FilterStrip>
       <div className="min-h-0 flex-1 overflow-auto">
         {events.isError && <Note variant="error">The Log could not be loaded.</Note>}
-        {events.data && shown.length === 0 && <EmptyState className="m-4 w-auto" description="Nothing in the Log matches." />}
+        {events.data && shown.length === 0 && (
+          <div className="p-4">
+            <EmptyState description="Nothing in the Log matches." />
+          </div>
+        )}
         {phone ? (
           // A phone has no room for three columns: each event is a stacked row, its message wrapping under the kind and the time.
-          <ul aria-label="Events" className="divide-y divide-gray-alpha-400">
-            {shown.map((e, i) => (
-              <PhoneEvent key={e.id} e={e} index={i} title={names.get(e.title_id ?? -1)} onFilter={(name, value) => onQuery(withValue(query, name, value, qualifiers))} />
-            ))}
-          </ul>
+          <div className="p-4">
+            <Entity.List aria-label="Events" className="divide-y divide-gray-alpha-400">
+              {shown.map((e, i) => (
+                <PhoneEvent key={e.id} e={e} index={i} sel={sel} onSelect={() => setSel(i)} title={names.get(e.title_id ?? -1)} onFilter={(name, value) => onQuery(withValue(query, name, value, qualifiers))} />
+              ))}
+            </Entity.List>
+          </div>
         ) : (
           <Table.Root>
             <Table aria-label="Events">
@@ -142,39 +149,56 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
   )
 }
 
-/** The kind of an event as the button that filters the Log by it. */
-function KindButton({ kind, onFilter }: { kind: string; onFilter: (name: 'kind' | 'title', value: string) => void }) {
+/** The kind of an event as a plain label: the Kind filter menu is where the Log is filtered by it. */
+function KindLabel({ kind }: { kind: string }) {
   return (
-    <button aria-label={`Filter by kind:${kind}`} title={`kind:${kind}`} onClick={() => onFilter('kind', kind)} className="rounded-full hover:opacity-80 max-sm:-my-2 max-sm:py-2">
-      <Badge variant={kinds[kind]?.tone ?? 'gray-subtle'} size="sm">
-        {kinds[kind]?.label ?? kind}
-      </Badge>
-    </button>
+    <Badge variant={kinds[kind]?.tone ?? 'gray'} contrast="low" size="sm">
+      {kinds[kind]?.label ?? kind}
+    </Badge>
   )
 }
 
-function PhoneEvent({ e, index, title, onFilter }: { e: LogEvent; index: number; title?: string; onFilter: (name: 'kind' | 'title', value: string) => void }) {
+/** A Title's name in an event, as the link that adds it to the filter. */
+function TitleLink({ title, onFilter }: { title: string; onFilter: (name: 'title', value: string) => void }) {
   return (
-    <li data-nav={`log-${index}`} className="flex flex-col gap-1 px-4 py-3">
-      <div className="flex items-center justify-between gap-2">
-        <KindButton kind={e.kind} onFilter={onFilter} />
-        <span className="label-12 tabular text-gray-900">{when(e.at)}</span>
-      </div>
-      <div className="min-w-0 break-words">
-        {title && (
-          <>
-            <button
-              aria-label={`Filter by ${termText({ name: 'title', values: [title], excluded: false })}`}
-              onClick={() => onFilter('title', title)}
-              className="font-medium text-gray-1000 max-sm:py-1"
-            >
-              {title}
-            </button>{' '}
-          </>
-        )}
-        <span className="text-gray-900">{e.message}</span>
-      </div>
-    </li>
+    <>
+      <Link as="button" aria-label={`Filter by ${termText({ name: 'title', values: [title], excluded: false })}`} onClick={() => onFilter('title', title)}>
+        {title}
+      </Link>{' '}
+    </>
+  )
+}
+
+function PhoneEvent({
+  e,
+  index,
+  sel,
+  onSelect,
+  title,
+  onFilter,
+}: {
+  e: LogEvent
+  index: number
+  sel: number
+  onSelect: () => void
+  title?: string
+  onFilter: (name: 'title', value: string) => void
+}) {
+  return (
+    <NavRow scope="log" index={index} sel={sel} onSelect={onSelect}>
+      <Entity as="div">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex items-center justify-between gap-2">
+            <KindLabel kind={e.kind} />
+            <span className="label-12 tabular text-gray-900">{when(e.at)}</span>
+          </div>
+          <div className="min-w-0 break-words">
+            {title && <TitleLink title={title} onFilter={onFilter} />}
+            <span className="text-gray-900">{e.message}</span>
+          </div>
+        </div>
+      </Entity>
+    </NavRow>
   )
 }
 
@@ -191,26 +215,16 @@ function EventRow({
   selected: boolean
   title?: string
   onSelect: () => void
-  onFilter: (name: 'kind' | 'title', value: string) => void
+  onFilter: (name: 'title', value: string) => void
 }) {
   return (
     <Table.Row data-nav={`log-${index}`} current={selected} onClick={onSelect}>
       <Table.Cell className="label-12 tabular">{when(e.at)}</Table.Cell>
       <Table.Cell>
-        <KindButton kind={e.kind} onFilter={onFilter} />
+        <KindLabel kind={e.kind} />
       </Table.Cell>
       <Table.Cell wrap className="break-words">
-        {title && (
-          <>
-            <button
-              aria-label={`Filter by ${termText({ name: 'title', values: [title], excluded: false })}`}
-              onClick={() => onFilter('title', title)}
-              className="font-medium text-gray-1000 hover:underline"
-            >
-              {title}
-            </button>{' '}
-          </>
-        )}
+        {title && <TitleLink title={title} onFilter={onFilter} />}
         <span className="text-gray-900">{e.message}</span>
       </Table.Cell>
     </Table.Row>
@@ -229,24 +243,38 @@ function Blocklist() {
   return (
     <div className="min-h-0 flex-1 overflow-auto">
       {unblock.isError && <Note variant="error">The entry could not be removed.</Note>}
-      {list.data && items.length === 0 && <EmptyState className="m-4 w-auto" description="The Blocklist is empty." />}
+      {list.data && items.length === 0 && (
+        <div className="p-4">
+          <EmptyState description="The Blocklist is empty." />
+        </div>
+      )}
       {items.length > 0 && phone && (
-        <ul aria-label="Blocklist" className="divide-y divide-gray-alpha-400">
-          {items.map((b) => (
-            <li key={b.id} className="flex flex-col gap-2 px-4 py-3">
-              <div className="min-w-0">
-                <div className="label-12-mono break-all">{b.release_name}</div>
-                <div className="label-13 mt-0.5 text-gray-900">
-                  {b.title_id && names.get(b.title_id) ? `${names.get(b.title_id)} · ` : ''}
-                  {b.reason} · {when(b.created_at)}
-                </div>
-              </div>
-              <Button variant="secondary" size="small" width="100%" aria-label={`Remove ${b.release_name} from the Blocklist`} disabled={unblock.isPending} onClick={() => unblock.mutate(b.id)}>
-                Remove from the Blocklist
-              </Button>
-            </li>
-          ))}
-        </ul>
+        <div className="p-4">
+          <Entity.List aria-label="Blocklist" className="divide-y divide-gray-alpha-400">
+            {items.map((b, i) => (
+              <NavRow key={b.id} scope="block" index={i} sel={sel} onSelect={() => setSel(i)}>
+                <Entity
+                  as="div"
+                  className="flex-col items-stretch"
+                  rightClassName="flex-col items-stretch"
+                  right={
+                    <Button variant="secondary" size="small" width="100%" aria-label={`Remove ${b.release_name} from the Blocklist`} disabled={unblock.isPending} onClick={() => unblock.mutate(b.id)}>
+                      Remove from the Blocklist
+                    </Button>
+                  }
+                >
+                  <div className="min-w-0">
+                    <div className="label-12-mono break-all">{b.release_name}</div>
+                    <div className="label-13 mt-0.5 text-gray-900">
+                      {b.title_id && names.get(b.title_id) ? `${names.get(b.title_id)} · ` : ''}
+                      {b.reason} · {when(b.created_at)}
+                    </div>
+                  </div>
+                </Entity>
+              </NavRow>
+            ))}
+          </Entity.List>
+        </div>
       )}
       {items.length > 0 && !phone && (
         <Table.Root>

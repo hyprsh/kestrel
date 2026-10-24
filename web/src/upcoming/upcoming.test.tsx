@@ -274,12 +274,17 @@ describe('Upcoming: context and grouping', () => {
     expect(within(screen.getByRole('list', { name: weekday })).getByText(/The Handover/)).toBeInTheDocument()
   })
 
-  it('shows the overview on expand', async () => {
+  it('opens and closes an entry overview as an inline disclosure that keeps its label', async () => {
     fakeAgenda([episode()])
     await openUpcoming()
-    expect(screen.queryByText('Two detectives, one bridge.')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /show the overview of bridge show/i }))
-    expect(screen.getByText('Two detectives, one bridge.')).toBeInTheDocument()
+    const toggle = within(rowOf(/Bridge Show/)).getByRole('button', { name: 'Show overview' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(toggle)
+    expect(screen.getByText('Two detectives, one bridge.')).toBeVisible()
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    await userEvent.click(toggle)
+    expect(screen.getByText('Two detectives, one bridge.')).not.toBeVisible()
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('collapses episodes of one Series on one day into an entry that expands', async () => {
@@ -431,7 +436,7 @@ describe('Upcoming: keyboard', () => {
     await openUpcoming()
     ;(document.activeElement as HTMLElement).blur()
     await userEvent.keyboard('o')
-    expect(screen.getByText('A bear in London.')).toBeInTheDocument()
+    expect(screen.getByText('A bear in London.')).toBeVisible()
   })
 })
 

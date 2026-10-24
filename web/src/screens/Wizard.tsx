@@ -1,5 +1,4 @@
-// chrome: pending
-import { Badge, Button, Fieldset, Input, Note } from '@hyprsh/design'
+import { Badge, Button, Fieldset, Input, Note, Separator } from '@hyprsh/design'
 import { Check } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { ApiError, useCompleteSetup, useCreateAccount, usePluginInstances, usePlugins, useProfiles, useSetup, useSettings } from '../api/queries'
@@ -9,6 +8,7 @@ import { Indexer } from '../plugins/Indexer'
 import { LanguageForm } from '../profiles/Language'
 import { DefaultsPerSlot } from '../profiles/Profiles'
 import { RootFoldersForm } from '../rootfolders/RootFolders'
+import { WidePage } from '../layout/WidePage'
 import { KestrelLogo } from '../ui'
 
 const MIN_PASSWORD = 8
@@ -20,7 +20,13 @@ const MIN_PASSWORD = 8
  */
 export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () => void }) {
   const setup = useSetup(signedIn)
-  const sections = setup.data?.sections ?? { language: 'todo', download_client: 'todo', indexer: 'todo', root_folders: 'todo', profiles: 'todo' }
+  const sections = setup.data?.sections ?? {
+    language: 'todo',
+    download_client: 'todo',
+    indexer: 'todo',
+    root_folders: 'todo',
+    profiles: 'todo',
+  }
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -37,97 +43,113 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
   }
 
   const serverProblem =
-    create.error instanceof ApiError && create.error.code === 'conflict' ? 'An account already exists. Reload to log in.' : create.isError ? 'Could not create the account. Try again.' : null
+    create.error instanceof ApiError && create.error.code === 'conflict'
+      ? 'An account already exists. Reload to log in.'
+      : create.isError
+        ? 'Could not create the account. Try again.'
+        : null
 
   return (
-    <div className="flex min-h-full justify-center overflow-auto bg-background-200 p-8 copy-13 text-gray-1000">
-      <div className="w-full max-w-2xl">
-        <div className="heading-24 mb-6 flex items-center gap-2">
-          <KestrelLogo className="size-6" /> Set up Kestrel
-        </div>
-        <Section
-          n={1}
-          id="account"
-          title="Account"
-          checked={signedIn}
-          description={signedIn ? 'The admin account exists and you are logged in.' : 'Create the admin login. Kestrel is never open without one.'}
-        >
-          {!signedIn && (
-            <form onSubmit={submit} className="flex max-w-sm flex-col gap-3">
-              <Input size="small" label="Username" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />
-              <Input size="small" label="Password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-              <Input size="small" label="Confirm password" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-              {(problem ?? serverProblem) && (
-                <Note variant="error" size="small">
-                  {problem ?? serverProblem}
-                </Note>
-              )}
-              <Button size="small" variant="primary" typeName="submit" disabled={create.isPending} className="self-start">
-                Create account
-              </Button>
-            </form>
-          )}
-        </Section>
-        {signedIn && setup.data && (
-          <>
-            <Section
-              n={2}
-              id="language"
-              title="Primary Language"
-              state={sections.language}
-              summary={<LanguageSummary />}
-              description="Choose the language your household watches in. You can change it later in Settings."
-            >
-              <LanguageForm />
-            </Section>
-            <Section
-              n={3}
-              id="download-client"
-              title="Download client"
-              state={sections.download_client}
-              summary={<InstanceSummary contract="download_client.v1" />}
-              description="Connect SABnzbd. Kestrel hands it NZBs and reads its queue and history."
-            >
-              <DownloadClient />
-            </Section>
-            <Section
-              n={4}
-              id="indexer"
-              title="Indexer"
-              state={sections.indexer}
-              summary={<InstanceSummary contract="indexer.v1" />}
-              description="Add a Newznab indexer. Kestrel searches it for releases and fetches their NZBs. You can add more in Settings."
-            >
-              <Indexer />
-            </Section>
-            <Section
-              n={5}
-              id="root-folders"
-              title="Root folders"
-              state={sections.root_folders}
-              summary={<RootFoldersSummary />}
-              description="Choose where Kestrel puts Movies and Series. The paths are prefilled for the standard /data layout."
-            >
-              <RootFoldersForm />
-            </Section>
-            <Section
-              n={6}
-              id="profiles"
-              title="Profiles"
-              state={sections.profiles}
-              summary={<ProfilesSummary />}
-              description="Pick the Profile each new Title gets per Slot. Standard is preselected; leave 4K empty to add it per Title."
-            >
-              <DefaultsPerSlot />
-            </Section>
-            <Section n={7} id="adopt" title="Adopt existing library (optional)">
-              <Adoption embedded />
-            </Section>
-            <Finish completed={setup.data.completed} onLeave={onLeave} />
-          </>
-        )}
+    <WidePage>
+      <div className="heading-24 mb-6 flex items-center gap-2">
+        <KestrelLogo className="size-6" /> Set up Kestrel
       </div>
-    </div>
+      <Section
+        n={1}
+        id="account"
+        title="Account"
+        checked={signedIn}
+        description={signedIn ? 'The admin account exists and you are logged in.' : 'Create the admin login. Kestrel is never open without one.'}
+      >
+        {!signedIn && (
+          <form onSubmit={submit} className="flex max-w-sm flex-col gap-3">
+            <Input size="small" label="Username" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />
+            <Input
+              size="small"
+              label="Password"
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <Input
+              size="small"
+              label="Confirm password"
+              type="password"
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
+            {(problem ?? serverProblem) && (
+              <Note variant="error" size="small">
+                {problem ?? serverProblem}
+              </Note>
+            )}
+            <Button size="small" variant="primary" typeName="submit" disabled={create.isPending} className="self-start">
+              Create account
+            </Button>
+          </form>
+        )}
+      </Section>
+      {signedIn && setup.data && (
+        <>
+          <Section
+            n={2}
+            id="language"
+            title="Primary Language"
+            state={sections.language}
+            summary={<LanguageSummary />}
+            description="Choose the language your household watches in. You can change it later in Settings."
+          >
+            <LanguageForm />
+          </Section>
+          <Section
+            n={3}
+            id="download-client"
+            title="Download client"
+            state={sections.download_client}
+            summary={<InstanceSummary contract="download_client.v1" />}
+            description="Connect SABnzbd. Kestrel hands it NZBs and reads its queue and history."
+          >
+            <DownloadClient />
+          </Section>
+          <Section
+            n={4}
+            id="indexer"
+            title="Indexer"
+            state={sections.indexer}
+            summary={<InstanceSummary contract="indexer.v1" />}
+            description="Add a Newznab indexer. Kestrel searches it for releases and fetches their NZBs. You can add more in Settings."
+          >
+            <Indexer />
+          </Section>
+          <Section
+            n={5}
+            id="root-folders"
+            title="Root folders"
+            state={sections.root_folders}
+            summary={<RootFoldersSummary />}
+            description="Choose where Kestrel puts Movies and Series. The paths are prefilled for the standard /data layout."
+          >
+            <RootFoldersForm />
+          </Section>
+          <Section
+            n={6}
+            id="profiles"
+            title="Profiles"
+            state={sections.profiles}
+            summary={<ProfilesSummary />}
+            description="Pick the Profile each new Title gets per Slot. Standard is preselected; leave 4K empty to add it per Title."
+          >
+            <DefaultsPerSlot />
+          </Section>
+          <Section n={7} id="adopt" title="Adopt existing library (optional)">
+            <Adoption embedded />
+          </Section>
+          <Finish completed={setup.data.completed} onLeave={onLeave} />
+        </>
+      )}
+    </WidePage>
   )
 }
 
@@ -145,7 +167,8 @@ function Finish({ completed, onLeave }: { completed: boolean; onLeave: () => voi
   const finish = useCompleteSetup()
   const missing = finish.error instanceof ApiError ? finish.error.fields.filter((f) => f.field.startsWith('sections.')) : []
   return (
-    <div className="mt-6 flex flex-col gap-3 border-t border-gray-alpha-400 pt-4">
+    <div className="mt-6 flex flex-col gap-3">
+      <Separator />
       {finish.isError && (
         <Note variant="error" size="small">
           {missing.length > 0 ? (
