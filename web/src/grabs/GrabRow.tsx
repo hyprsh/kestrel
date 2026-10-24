@@ -73,8 +73,8 @@ export function GrabRow({
     )
   ) : undefined
   const row = (
-    <Entity as={nav ? 'div' : 'li'} left={left} right={actions} className="max-sm:flex-col max-sm:items-start">
-      <Entity.Content fill title={title} description={<span className="font-mono">{g.release_name}</span>}>
+    <Entity as={nav ? 'div' : 'li'} left={left} right={actions} className="max-sm:flex-col max-sm:items-stretch">
+      <Entity.Content fill title={title} description={<span className="label-12-mono">{g.release_name}</span>}>
         {children}
       </Entity.Content>
     </Entity>
