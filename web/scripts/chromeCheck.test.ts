@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkSource } from './chromeCheck'
+import { checkSource, checkTestSource } from './chromeCheck'
 
 const card = `export const Card = () => <div className="flex gap-2 rounded-lg p-4" />\n`
 
@@ -56,5 +56,107 @@ describe('the chrome check', () => {
 
   it('fails an unmarked file in the layout module that has chrome', () => {
     expect(checkSource('src/layout/Card.tsx', card)).toHaveLength(1)
+  })
+
+  describe('the element check', () => {
+    const messages = (code: string) => checkSource('src/a.tsx', code).map((v) => v.message)
+
+    it('flags a hand-built element, naming it and the component to use', () => {
+      const [m, ...rest] = messages(`const a = <button type="button">Go</button>\n`)
+      expect(rest).toEqual([])
+      expect(m).toContain('src/a.tsx:1')
+      expect(m).toContain('<button>')
+      expect(m).toContain('Button')
+      const tags = ['a', 'input', 'select', 'textarea', 'label', 'table', 'hr', 'dialog', 'progress', 'kbd', 'code', 'pre', 'svg']
+      for (const tag of tags) expect(messages(`const a = <${tag} />\n`), tag).toHaveLength(1)
+    })
+
+    it('passes design components and the elements it leaves to judgement', () => {
+      expect(messages(`const a = <><Button /><Link /><Code /><ul><li>a</li></ul><ol /><img /><nav /><header /><div /><span /></>\n`)).toEqual([])
+    })
+
+    it('flags a role on an intrinsic element, not on a design component', () => {
+      const [m, ...rest] = messages(`const a = <div role="alert">x</div>\n`)
+      expect(rest).toEqual([])
+      expect(m).toContain('role="alert"')
+      expect(m).toContain('Error')
+      expect(messages(`const a = <div role="tablist" />\n`)).toHaveLength(1)
+      expect(messages(`const a = <Note role="alert">x</Note>\n`)).toEqual([])
+      expect(messages(`const a = <div role="grid" />\n`)).toEqual([])
+      expect(messages(`const a = <div role="valueOf" />\n`)).toEqual([])
+    })
+
+    it('flags window.confirm, alert and prompt and createPortal', () => {
+      expect(messages(`window.confirm('Sure?')\n`)[0]).toContain('DestructiveActionModal')
+      expect(messages(`window.alert('x')\nwindow.prompt('y')\n`)).toHaveLength(2)
+      expect(messages(`createPortal(<Note />, document.body)\n`)[0]).toContain('Toast, Popover or Sheet')
+      expect(messages(`confirm('x')\n`)).toEqual([])
+    })
+
+    it('flags a -subtle class, pointing to contrast="low"', () => {
+      const [m, ...rest] = messages(`const c = "flex bg-amber-subtle"\nconst d = "text-subtle"\n`)
+      expect(m).toContain('contrast="low"')
+      expect(rest).toHaveLength(1)
+      expect(messages(`const c = "Not subtle at all"\n`)).toEqual([])
+    })
+
+    it('leaves a marked file alone', () => {
+      expect(checkSource('src/ui.tsx', `// chrome: domain-visual\nconst a = <svg />\n`)).toEqual([])
+    })
+  })
+
+  describe('the chrome-ok exemption', () => {
+    const messages = (code: string) => checkSource('src/a.tsx', code).map((v) => v.message)
+
+    it('exempts the line below it, for a class and for an element', () => {
+      expect(messages(`// chrome-ok: a grid cell\nconst c = "rounded-lg"\n`)).toEqual([])
+      expect(messages(`const a = (\n  <>\n    {/* chrome-ok: a grid cell */}\n    <button />\n  </>\n)\n`)).toEqual([])
+    })
+
+    it('exempts only that line', () => {
+      expect(messages(`// chrome-ok: one\nconst a = "rounded"\nconst b = "rounded"\n`)).toEqual([expect.stringContaining('src/a.tsx:3')])
+    })
+
+    it('fails an empty reason', () => {
+      const m = messages(`// chrome-ok:\nconst c = "rounded-lg"\n`)
+      expect(m).toHaveLength(2)
+      expect(m.join('\n')).toContain('needs a reason')
+      expect(messages(`{/* chrome-ok:   */}\n<button />\n`).join('\n')).toContain('needs a reason')
+    })
+
+    it('fails a stale exemption', () => {
+      const [m, ...rest] = messages(`// chrome-ok: nothing here\nconst c = "p-4"\n`)
+      expect(rest).toEqual([])
+      expect(m).toContain('src/a.tsx:1')
+      expect(m).toContain('stale')
+    })
+  })
+
+  describe('the test-file check', () => {
+    const messages = (code: string) => checkTestSource('src/a.test.tsx', code).map((v) => v.message)
+
+    it('flags class assertions and class queries', () => {
+      const code = [
+        `expect(el).toHaveClass('x')`,
+        `expect(el.className).toBe('x')`,
+        `document.documentElement.classList.add('x')`,
+        `document.querySelector('.truncate')`,
+        `document.querySelectorAll('[class~="x"]')`,
+      ].join('\n')
+      const found = messages(code)
+      expect(found).toHaveLength(5)
+      expect(found[0]).toContain('src/a.test.tsx:1')
+      expect(found[0]).toContain('tests assert what the user sees (role, name, text), not classes')
+    })
+
+    it('passes queries by role, name, text and attribute', () => {
+      expect(messages(`screen.getByRole('button', { name: 'Go' })\ndocument.querySelector('[aria-current="true"]')\n`)).toEqual([])
+    })
+
+    it('honours chrome-ok, rejects an empty reason and a stale exemption', () => {
+      expect(messages(`// chrome-ok: the theme class is the behaviour\nexpect(html).toHaveClass('dark')\n`)).toEqual([])
+      expect(messages(`// chrome-ok:\nexpect(html).toHaveClass('dark')\n`).join('\n')).toContain('needs a reason')
+      expect(messages(`// chrome-ok: x\nexpect(1).toBe(1)\n`).join('\n')).toContain('stale')
+    })
   })
 })

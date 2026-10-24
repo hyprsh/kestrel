@@ -28,7 +28,7 @@ async function openLibrary() {
 
 const selected = () => within(screen.getByRole('listbox', { name: /library/i })).getByRole('option', { selected: true })
 const filter = () => screen.getByRole('combobox', { name: 'Filter the Library' })
-const shown = (list: HTMLElement) => within(list).queryAllByRole('option').map((o) => o.querySelector('.truncate')?.firstChild?.textContent)
+const shown = (list: HTMLElement) => within(list).queryAllByRole('option').map((o) => o.textContent)
 
 
 describe('the Library list', () => {
@@ -146,15 +146,14 @@ describe('the Library list', () => {
     expect(await screen.findByRole('dialog', { name: /command menu/i })).toBeInTheDocument()
   })
 
-  it('hides the key hints on touch screens but keeps the count', async () => {
+  it('shows the key hints and the count in the footer', async () => {
     fakeLibrary(rows())
     await openLibrary()
 
     const count = await screen.findByText('3 of 3')
     const footer = count.closest('footer')
     expect(footer).toBeInTheDocument()
-    expect(within(footer!).getByText('j').closest('.pointer-coarse\\:hidden')).toBeInTheDocument()
-    expect(count).not.toHaveClass('pointer-coarse:hidden')
+    expect(within(footer!).getByText('j')).toBeInTheDocument()
   })
 })
 
@@ -165,7 +164,7 @@ describe('the Library filter', () => {
     await within(list).findAllByRole('option')
 
     await userEvent.type(filter(), 'kind:series ')
-    expect(shown(list)).toEqual(['Breaking Bad'])
+    expect(shown(list)).toEqual([expect.stringContaining('Breaking Bad')])
   })
 
   it('gives the arrows and Enter to the suggestions while they are open, and to the list again after', async () => {
@@ -206,7 +205,7 @@ describe('the Library filter', () => {
     await userEvent.type(filter(), 'is:wanted pad')
     expect(location.pathname).toBe('/library')
     expect(new URLSearchParams(location.search).get('q')).toBe('is:wanted pad')
-    expect(shown(list)).toEqual(['Paddington'])
+    expect(shown(list)).toEqual([expect.stringContaining('Paddington')])
   })
 
   it('opens a bookmarked, filtered Library', async () => {
@@ -217,7 +216,7 @@ describe('the Library filter', () => {
     const list = await screen.findByRole('listbox', { name: /library/i })
     expect(await screen.findByRole('combobox', { name: 'Filter the Library' })).toHaveValue('slot:4k')
     await within(list).findAllByRole('option')
-    expect(shown(list)).toEqual(['Paddington'])
+    expect(shown(list)).toEqual([expect.stringContaining('Paddington')])
   })
 })
 

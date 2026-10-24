@@ -1,4 +1,4 @@
-import { Badge, Button, Checkbox, EmptyState, KeyboardInput, Note, Pill, Table } from '@hyprsh/design'
+import { Badge, Button, Checkbox, EmptyState, Error as ErrorMessage, KeyboardInput, Note, Pill, Table } from '@hyprsh/design'
 import { ArrowLeft, Download } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError } from '../api/queries'
@@ -351,9 +351,9 @@ export function ManualSearch({
           {sent ? (
             <div className="label-12 truncate text-green-900">Sent to the download client: {sent}</div>
           ) : problem ? (
-            <div role="alert" className="label-12 truncate text-red-900">
+            <ErrorMessage size="small" label={false} role="alert">
               {problem}
-            </div>
+            </ErrorMessage>
           ) : current && g ? (
             <>
               <div className="label-12-mono truncate">

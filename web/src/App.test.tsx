@@ -12,6 +12,7 @@ const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { 
 
 beforeEach(() => {
   localStorage.clear()
+  // chrome-ok: the dark class on <html> is the theme behaviour
   document.documentElement.classList.remove('dark')
 })
 
@@ -59,13 +60,16 @@ describe('light and dark mode', () => {
 
     await userEvent.click(toggle) // system -> light
     await userEvent.click(toggle) // light -> dark
+    // chrome-ok: the dark class on <html> is the theme behaviour
     expect(document.documentElement).toHaveClass('dark')
     expect(localStorage.getItem('kestrel.theme')).toBe('dark')
 
     unmount()
+    // chrome-ok: the dark class on <html> is the theme behaviour
     document.documentElement.classList.remove('dark')
     // A reload: the pre-paint script vite injects into index.html applies the stored choice before React runs.
     new Function(themeScript({ storageKey: 'kestrel.theme', attribute: 'class' }))()
+    // chrome-ok: the dark class on <html> is the theme behaviour
     expect(document.documentElement).toHaveClass('dark') // restored from storage
     renderApp()
     expect(await screen.findByRole('button', { name: 'Theme: Dark' })).toBeInTheDocument()

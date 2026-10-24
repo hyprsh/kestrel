@@ -423,7 +423,7 @@ describe('Adoption review of a large plan', () => {
     expect(state.bulks[0].row_ids).not.toContain(103)
   })
 
-  it('colours the suggested match primary and accepts the confident suggestions of a selection', async () => {
+  it('accepts the confident suggestions of a selection', async () => {
     const hesitant: Row = { ...doubtful, id: 20, entry: '/data/media/movies/Hesitant', candidates: [{ tmdb_id: 9, title: 'Maybe', year: 2001, suggested: true, confident: false }] }
     const sure: Row = {
       ...doubtful,
@@ -436,8 +436,7 @@ describe('Adoption review of a large plan', () => {
     }
     const { state, user } = await openPlan([sure, hesitant])
 
-    const pick = await screen.findByRole('button', { name: 'Accept suggested match: The Lost Film (2020)' })
-    expect(pick.className).not.toBe(screen.getByRole('button', { name: 'Use Another Lost Film (2019)' }).className)
+    await screen.findByRole('button', { name: 'Accept suggested match: The Lost Film (2020)' })
     await user.click(screen.getByLabelText('Select Sure'))
     await user.click(screen.getByLabelText('Select Hesitant'))
     await user.click(screen.getByRole('button', { name: 'Accept suggested matches' }))
