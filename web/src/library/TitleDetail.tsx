@@ -1,4 +1,4 @@
-import { Note, Skeleton } from '@hyprsh/design'
+import { Entity, Note, Skeleton } from '@hyprsh/design'
 import { forwardRef, useRef } from 'react'
 import { useProfiles, useTitle, type EpisodeScope, type TitleDetail as Detail, type TitleRow } from '../api/queries'
 import { TitlePoster } from '../poster'
@@ -38,18 +38,50 @@ export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: ()
       ) : data ? (
         <Body title={data} onManualSearch={onManualSearch} />
       ) : (
-        <div role="status" aria-label="Loading" className="flex gap-4">
-          <Skeleton width={96} height={144} />
-          <div className="flex flex-1 flex-col gap-2">
-            <Skeleton width="40%" height={32} />
-            <Skeleton width="25%" height={20} />
-            <Skeleton height={60} />
-          </div>
-        </div>
+        <>
+          <p role="status" className="sr-only">
+            Loading
+          </p>
+          <TitleSkeleton />
+        </>
       )}
     </section>
   )
 })
+
+/** What the Title page will hold, sized like it: the header (poster, name, meta, status), the actions row and a card of Version rows. Silent: the page announces loading itself. */
+function TitleSkeleton() {
+  return (
+    <div className="@container mx-auto max-w-3xl">
+      <div className="flex gap-4">
+        <Skeleton width={96} height={144} />
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <Skeleton width="40%" height={32} />
+          <Skeleton width="25%" height={20} />
+          <Skeleton width="50%" height={24} />
+          <Skeleton height={60} />
+        </div>
+      </div>
+      <div className="mt-4 flex gap-2">
+        <Skeleton width={96} height={32} />
+        <Skeleton width={120} height={32} />
+        <Skeleton width={120} height={32} />
+      </div>
+      <div className="mt-6">
+        <Skeleton width={64} height={20} />
+        <div className="mt-2">
+          <Entity.List aria-hidden>
+            {[0, 1].map((i) => (
+              <Entity key={i} left={<Skeleton width={56} height={16} />}>
+                <Entity.Content title={<Skeleton width={140} height={16} />} description={<Skeleton width={220} height={16} />} />
+              </Entity>
+            ))}
+          </Entity.List>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 /** The Version a manual search is opened for, of a Series maybe narrowed to a season or episodes. */
 export type ManualSearchTarget = { versionId: number; slot: SlotKey; profileName: string; scope?: { body: EpisodeScope; label: string } }
@@ -69,7 +101,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
   return (
     <div className="@container mx-auto max-w-3xl">
       <div className="flex gap-4">
-        <TitlePoster id={title.id} hasPoster={title.has_poster} alt={`${title.title} poster`} className="h-36 w-24 rounded-md" />
+        <TitlePoster id={title.id} hasPoster={title.has_poster} alt={`${title.title} poster`} size="xl" />
         <div className="min-w-0">
           <h2 className="heading-24">{title.title}</h2>
           {title.primary_title !== title.title && <div className="copy-14 text-gray-900">{title.primary_title}</div>}

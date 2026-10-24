@@ -31,7 +31,7 @@ export function useKey(key: string, fn: (e: KeyboardEvent) => void, enabled = tr
   }, [key, enabled])
 }
 
-/** Where a row sits in a `useListNav` list (`NavRow`); a row outside one is a plain list item. */
+/** Where a row sits in a `useListNav` list (an Entity row with `current`); a row outside one is a plain list item. */
 export type RowNav = { scope: string; index: number; sel: number; onSelect: () => void }
 
 /**

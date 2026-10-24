@@ -1,10 +1,12 @@
-import { Badge, Button, Checkbox, EmptyState, KeyboardInput, Note, Pill, Spinner, Table } from '@hyprsh/design'
+import { Badge, Button, Checkbox, EmptyState, KeyboardInput, Note, Pill, Table } from '@hyprsh/design'
 import { ArrowLeft, Download } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError } from '../api/queries'
 import { useGrab, useReleases, type Release } from '../api/grabs'
 import type { EpisodeScope } from '../api/queries'
 import { useKey, useListNav } from '../keys'
+import { FilterStrip } from '../layout/FilterStrip'
+import { PaneFooter, PaneHeader } from '../layout/Pane'
 import { cx } from '../ui'
 
 function size(bytes: number): string {
@@ -47,6 +49,9 @@ const columns: { key: SortKey; label: string; align?: 'right'; text?: boolean }[
   { key: 'age', label: 'Age', align: 'right' },
   { key: 'indexer', label: 'Indexer', text: true },
 ]
+
+/** What a skeleton row sizes its cells by: the Releases columns, the number ones right-aligned. */
+const skeletonColumns = columns.map((c) => ({ key: c.key, header: c.label, numeric: c.align === 'right', mono: c.key === 'release', truncate: c.key === 'release' }))
 
 const points = (r: Release) => r.custom_formats.reduce((sum, f) => sum + f.points, 0)
 
@@ -179,19 +184,20 @@ export function ManualSearch({
   useListNav('ms', rows.length, index, setSel, grab)
   useKey('Escape', onBack)
 
+  const skeleton = [0, 1, 2, 3, 4, 5].map((i) => <Table.SkeletonRow key={i} index={i} columns={skeletonColumns} />)
   const errors = search.data?.indexer_errors ?? []
   return (
     <section ref={ref} tabIndex={-1} aria-label="Manual search" className="flex min-w-0 flex-1 flex-col outline-none">
-      <div className="flex items-center gap-3 border-b border-gray-alpha-400 px-4 py-2.5">
+      <PaneHeader>
         <Button variant="secondary" size="small" prefix={<ArrowLeft />} onClick={onBack}>
           {titleName}
         </Button>
         <h2 className="heading-16">Manual search</h2>
-        <Badge variant="gray-subtle" size="sm">
+        <Badge variant="gray" contrast="low" size="sm">
           {slotLabel}
         </Badge>
         {scope && (
-          <Badge variant="gray-subtle" size="sm">
+          <Badge variant="gray" contrast="low" size="sm">
             {scope.label}
           </Badge>
         )}
@@ -208,10 +214,10 @@ export function ManualSearch({
             Hide rejected
           </Checkbox>
         </span>
-      </div>
+      </PaneHeader>
 
       {errors.length > 0 && (
-        <div className="border-b border-gray-alpha-400 px-4 py-2">
+        <FilterStrip>
           <Note variant="warning" size="small" role="alert">
             {errors.map((e) => (
               <div key={`${e.indexer_id}-${e.indexer}`}>
@@ -220,16 +226,11 @@ export function ManualSearch({
               </div>
             ))}
           </Note>
-        </div>
+        </FilterStrip>
       )}
 
       <div className="min-h-0 flex-1 overflow-auto">
-        {search.isPending ? (
-          <div className="copy-13 flex items-center gap-2 p-4 text-gray-900">
-            <Spinner size="sm" />
-            Searching every indexer…
-          </div>
-        ) : search.isError ? (
+        {search.isError ? (
           <div className="p-4">
             <Note variant="error" size="small">
               {search.error.message}
@@ -237,7 +238,7 @@ export function ManualSearch({
           </div>
         ) : (
           <Table.Root>
-            <Table aria-label="Releases" className="table-fixed" stickyHeader>
+            <Table aria-label="Releases" aria-busy={search.isPending || undefined} stickyHeader>
               <Table.Colgroup>
                 <Table.Col className="w-20" />
                 <Table.Col />
@@ -263,6 +264,7 @@ export function ManualSearch({
                 </Table.Row>
               </Table.Header>
               <Table.Body interactive bordered>
+                {search.isPending && skeleton}
                 {rows.map((x, i) => {
                   const rejected = x.rejections.length > 0
                   const dim = rejected && 'opacity-50'
@@ -276,25 +278,25 @@ export function ManualSearch({
                       className="cursor-pointer align-top"
                     >
                       <Table.Cell align="right" className={cx('hy-num hy-mono', dim)}>{x.score.toLocaleString('en-US')}</Table.Cell>
-                      <Table.Cell wrap>
+                      <Table.Cell truncate>
                         <div className={cx('flex items-center gap-1.5', dim)}>
                           <span className="label-12-mono truncate" title={x.name}>
                             {x.name}
                           </span>
                           {x.rejections.some((r) => r.code === 'blocklisted') && (
-                            <Badge variant="red-subtle" size="sm">
+                            <Badge variant="red" contrast="low" size="sm">
                               Blocklisted
                             </Badge>
                           )}
                           {x.fits === 'other_slot' && (
-                            <Badge variant="gray-subtle" size="sm">
+                            <Badge variant="gray" contrast="low" size="sm">
                               Other Slot
                             </Badge>
                           )}
                         </div>
                         {scopeLabel(x) && (
                           <div className={cx('mt-1 flex items-center gap-1.5', dim)}>
-                            <Badge variant="gray-subtle" size="sm">
+                            <Badge variant="gray" contrast="low" size="sm">
                               {scopeLabel(x)}
                             </Badge>
                             {episodeTitles(x) && (
@@ -344,7 +346,7 @@ export function ManualSearch({
         {search.isSuccess && rows.length === 0 && <EmptyState title="No Releases found." />}
       </div>
 
-      <div className="flex items-center gap-3 border-t border-gray-alpha-400 bg-background-200 px-4 py-2.5">
+      <PaneFooter>
         <div className="min-w-0 flex-1" aria-live="polite">
           {sent ? (
             <div className="label-12 truncate text-green-900">Sent to the download client: {sent}</div>
@@ -372,7 +374,7 @@ export function ManualSearch({
             {g.label}
           </Button>
         )}
-      </div>
+      </PaneFooter>
     </section>
   )
 }

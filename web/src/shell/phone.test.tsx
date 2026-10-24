@@ -42,6 +42,8 @@ describe('the shell on a phone', () => {
     expect(within(sheet).getByRole('radio', { name: /dark/i })).toBeInTheDocument()
     expect(await within(sheet).findByText(/Kestrel \d/)).toBeInTheDocument()
 
+    // Each row is a full-width button named by its screen, in order, ahead of Log out.
+    ;['Settings', 'Log', 'Requests'].forEach((name, i) => expect(within(sheet).getAllByRole('button')[i]).toHaveAccessibleName(name))
     await userEvent.click(within(sheet).getByRole('button', { name: 'Log' }))
     expect(screen.getByRole('banner')).toHaveTextContent('Log')
     expect(screen.queryByRole('dialog', { name: 'More' })).not.toBeInTheDocument()
@@ -109,5 +111,23 @@ describe('the Library on a phone', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Filter' }))
     await userEvent.type(screen.getByRole('combobox', { name: 'Filter the Library' }), 'heat')
     expect(within(screen.getByRole('listbox', { name: /library/i })).getAllByRole('option')).toHaveLength(1)
+  })
+
+  it('shows the query in the Filter title while the filters are closed, and opens and closes them', async () => {
+    fakeLibrary(rows())
+    await openLibrary()
+    const filterButton = screen.getByRole('button', { name: 'Filter' })
+    expect(filterButton).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(filterButton)
+    expect(screen.getByRole('button', { name: 'Filter' })).toHaveAttribute('aria-expanded', 'true')
+    await userEvent.type(screen.getByRole('combobox', { name: 'Filter the Library' }), 'heat')
+    await userEvent.click(screen.getByRole('button', { name: 'Filter' }))
+    const closed = screen.getByRole('button', { name: 'Filter: heat' })
+    expect(closed).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('combobox', { name: 'Filter the Library' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Adopt existing library' })).not.toBeInTheDocument()
+    await userEvent.click(closed)
+    expect(screen.getByRole('combobox', { name: 'Filter the Library' })).toHaveValue('heat')
+    expect(screen.getByRole('button', { name: 'Filter' })).toHaveAttribute('aria-expanded', 'true')
   })
 })

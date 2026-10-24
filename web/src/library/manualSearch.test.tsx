@@ -178,8 +178,33 @@ describe('manual search', () => {
 
     await userEvent.keyboard('{Escape}')
 
-    expect(await screen.findByRole('group', { name: 'Standard' })).toBeInTheDocument()
+    expect(await screen.findByRole('listitem', { name: 'Standard' })).toBeInTheDocument()
     expect(screen.queryByRole('table', { name: /releases/i })).not.toBeInTheDocument()
+  })
+
+  it('keeps the Releases table, busy and with its columns, while every indexer is searched', async () => {
+    fakeSearch(releases())
+    let release: () => void = () => undefined
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    server.use(
+      http.post('/versions/{id}/releases', async ({ response }) => {
+        await gate
+        return response(200).json({ items: releases(), indexer_errors: [] })
+      }),
+    )
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    const pane = await screen.findByRole('region', { name: /paddington/i })
+    const actions = await within(pane).findByRole('group', { name: 'Title actions' })
+    await userEvent.click(within(actions).getByRole('button', { name: /manual search/i }))
+
+    const table = await screen.findByRole('table', { name: /releases/i })
+    expect(table).toHaveAttribute('aria-busy', 'true')
+    expect(within(table).getByRole('columnheader', { name: /release/i })).toBeInTheDocument()
+
+    release()
+    await screen.findByRole('row', { name: /Paddington.2014.1080p.BluRay.x264-GRP/ })
+    expect(screen.getByRole('table', { name: /releases/i })).not.toHaveAttribute('aria-busy', 'true')
   })
 
   it('says when an indexer could not answer', async () => {
@@ -292,7 +317,7 @@ describe('manual search', () => {
       await userEvent.click(header('Size'))
       await userEvent.click(within(table).getAllByRole('button', { name: 'Atmos' })[0])
       await userEvent.keyboard('{Escape}')
-      await screen.findByRole('group', { name: 'Standard' })
+      await screen.findByRole('listitem', { name: 'Standard' })
 
       const pane = await screen.findByRole('region', { name: /paddington/i })
       const actions = await within(pane).findByRole('group', { name: 'Title actions' })

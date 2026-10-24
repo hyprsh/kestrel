@@ -1,11 +1,13 @@
 // The Requests screen, behind the Overview's "View all": every Request from outside Kestrel,
 // newest first, filtered by status:, requester: and source: (asked of the server) and free text
 // on the Title and who asked (over the rows loaded). Off the rail; its place is "/requests".
-import { Button, EmptyState, Note, parseQuery } from '@hyprsh/design'
+import { EmptyState, LoadMoreButton, Note, parseQuery } from '@hyprsh/design'
+import { RowList } from '../layout/RowList'
 import { useMemo, useState } from 'react'
 import { useRequestList } from '../api/requests'
 import { matchText } from '../fuzzy'
 import { FilterBar } from '../filter/FilterBar'
+import { FilterStrip } from '../layout/FilterStrip'
 import { useKey, useListNav } from '../keys'
 import { requestFilter, requestQualifiers } from './filter'
 import { RequestRow } from './RequestRow'
@@ -37,7 +39,7 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex flex-wrap items-center gap-2 border-b border-gray-alpha-400 px-4 py-2">
+      <FilterStrip>
         <FilterBar
           id="requests-filter"
           label="Filter Requests"
@@ -47,22 +49,24 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
           qualifiers={qualifiers}
         />
         {list.data && <span className="label-12 text-gray-900 tabular">{list.data.pages[0].total} in all</span>}
-      </div>
+      </FilterStrip>
       <div className="min-h-0 flex-1 overflow-auto">
         {list.isError && <Note variant="error">The Requests could not be loaded.</Note>}
-        {list.data && shown.length === 0 && <EmptyState className="m-4 w-auto" description="No Request matches." />}
-        <ul aria-label="Requests" className="divide-y divide-gray-alpha-200">
-          {shown.map((r, i) => (
-            <RequestRow key={r.id} request={r} nav={{ scope: 'req', index: i, sel, onSelect: () => setSel(i) }} onOpenTitle={onOpenTitle} />
-          ))}
-        </ul>
-        {list.hasNextPage && (
-          <div className="p-4 text-center">
-            <Button variant="secondary" size="small" disabled={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
+        <div className="p-4">
+          {list.data && shown.length === 0 && <EmptyState description="No Request matches." />}
+          {shown.length > 0 && (
+            <RowList aria-label="Requests">
+              {shown.map((r, i) => (
+                <RequestRow key={r.id} request={r} nav={{ scope: 'req', index: i, sel, onSelect: () => setSel(i) }} onOpenTitle={onOpenTitle} />
+              ))}
+            </RowList>
+          )}
+          {list.hasNextPage && (
+            <LoadMoreButton variant="secondary" size="small" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
               Show older Requests
-            </Button>
-          </div>
-        )}
+            </LoadMoreButton>
+          )}
+        </div>
       </div>
     </div>
   )

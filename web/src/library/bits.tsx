@@ -17,31 +17,33 @@ type State = 'wanted' | 'filled' | 'downloading' | 'unmonitored' | 'unreleased' 
 type Variant = NonNullable<BadgeProps['variant']>
 
 const stateText: Record<string, { variant: Variant; label: string }> = {
-  wanted: { variant: 'amber-subtle', label: 'Wanted' },
-  filled: { variant: 'green-subtle', label: 'Filled' },
-  downloading: { variant: 'blue-subtle', label: 'Downloading' },
-  unmonitored: { variant: 'gray-subtle', label: 'Unmonitored' },
-  unreleased: { variant: 'gray-subtle', label: 'Unreleased' },
+  wanted: { variant: 'amber', label: 'Wanted' },
+  filled: { variant: 'green', label: 'Filled' },
+  downloading: { variant: 'blue', label: 'Downloading' },
+  unmonitored: { variant: 'gray', label: 'Unmonitored' },
+  unreleased: { variant: 'gray', label: 'Unreleased' },
 }
 
-/** Badge variant and label for a Version's state; an unknown future state shows as itself. */
-export function versionStatus(state: State, longMissing = false): { variant: Variant; label: string } {
-  if (longMissing) return { variant: 'red-subtle', label: 'Long Missing' }
-  return stateText[state] ?? { variant: 'gray-subtle', label: state }
+/** Badge variant, contrast and label for a Version's state; an unknown future state shows as itself. Spread the first two onto the Badge. */
+export function versionStatus(state: State, longMissing = false): { variant: Variant; contrast: 'low'; label: string } {
+  if (longMissing) return { variant: 'red', contrast: 'low', label: 'Long Missing' }
+  const s = stateText[state] ?? { variant: 'gray', label: state }
+  return { ...s, contrast: 'low' }
 }
 
 export function StatusBadge({ state, longMissing }: { state: State; longMissing?: boolean }) {
   const s = versionStatus(state, longMissing)
   return (
-    <Badge variant={s.variant} size="sm">
+    <Badge variant={s.variant} contrast={s.contrast} size="sm">
       {s.label}
     </Badge>
   )
 }
 
-type Dot = { state: 'success' | 'info' | 'warning' | 'error' | 'neutral'; variant?: 'outline' | 'dashed' }
+export type Dot = { state: 'success' | 'info' | 'warning' | 'error' | 'neutral'; variant?: 'outline' | 'dashed' }
 
-function dotOf(state: State | null, longMissing: boolean): Dot {
+/** The StatusDot of a Slot's Version (null: no Version in the Slot). */
+export function dotOf(state: State | null, longMissing: boolean): Dot {
   if (state === null) return { state: 'neutral', variant: 'outline' } // no Version in the Slot
   if (longMissing) return { state: 'error', variant: 'outline' }
   switch (state) {

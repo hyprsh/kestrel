@@ -98,7 +98,7 @@ describe('Recent requests on the Overview', () => {
     renderApp()
 
     const [item] = await rows()
-    await userEvent.click(item)
+    await userEvent.click(within(item).getAllByRole('button', { hidden: true })[0]) // the row's whole-row button
 
     expect(await screen.findByRole('region', { name: /paddington/i })).toBeInTheDocument()
   })

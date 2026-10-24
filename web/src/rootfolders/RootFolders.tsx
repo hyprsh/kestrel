@@ -1,4 +1,4 @@
-import { Badge, Button, Input, Note } from '@hyprsh/design'
+import { Badge, Button, Code, Entity, Input, Note } from '@hyprsh/design'
 import { useState, type FormEvent } from 'react'
 import { ApiError, usePatchSettings, useSettings, type Settings } from '../api/queries'
 
@@ -52,18 +52,22 @@ function Form({ saved, declared, compact }: { saved: Folders; declared: boolean;
         {kinds.map(({ key, label }) => (
           <section key={key} aria-label={label} className="flex flex-col gap-1">
             <h4 className="label-13 text-gray-900">{label}</h4>
-            <ul className="flex flex-col divide-y divide-gray-alpha-400 rounded-md border border-gray-alpha-400">
+            <Entity.List aria-label={`${label} folders`}>
               {saved[key].map((path, i) => (
-                <li key={path} className="flex items-center gap-2 px-3 py-1.5">
-                  <code className="copy-13-mono min-w-0 flex-1 break-all">{path}</code>
-                  {i === 0 && (
-                    <Badge variant="gray-subtle" size="sm" title={`The default ${label} folder`}>
-                      Default
-                    </Badge>
-                  )}
-                </li>
+                <Entity
+                  key={path}
+                  right={
+                    i === 0 && (
+                      <Badge contrast="low" size="sm" title={`The default ${label} folder`}>
+                        Default
+                      </Badge>
+                    )
+                  }
+                >
+                  <Entity.Content fill title={<Code>{path}</Code>} />
+                </Entity>
               ))}
-            </ul>
+            </Entity.List>
           </section>
         ))}
         <Button size="small" className="self-start" disabled={declared} onClick={() => setEditing(true)}>

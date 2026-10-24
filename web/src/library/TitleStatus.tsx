@@ -5,18 +5,27 @@ import { slotKeys, slotLabel, versionStatus, type SlotKey } from './bits'
 
 type Version = TitleDetail['versions'][number]
 
-/** The fill of a Series Slot's bar: red when something is Long Missing, amber while Wanted, blue while downloading, else green. */
+/** The fill of a Series Slot's bar: red when something is Long Missing, amber while Wanted, accent while downloading, else green. */
 function fill(v: Version): string {
   if (v.long_missing || (v.coverage?.long_missing ?? 0) > 0) return 'var(--red-700)'
   if (v.state === 'wanted' || (v.coverage?.wanted ?? 0) > 0) return 'var(--amber-700)'
-  if (v.state === 'downloading') return 'var(--blue-700)'
+  if (v.state === 'downloading') return 'var(--accent-700)'
   return 'var(--green-700)'
 }
 
 function NotKept({ slot }: { slot: SlotKey }) {
   return (
-    <Badge variant="gray-subtle" size="sm">
+    <Badge variant="gray" contrast="low" size="sm">
       {slotLabel[slot]} · Not kept
+    </Badge>
+  )
+}
+
+function MovieSlot({ slot, version: v }: { slot: SlotKey; version: Version }) {
+  const s = versionStatus(v.state, v.long_missing)
+  return (
+    <Badge variant={s.variant} contrast={s.contrast} size="sm">
+      {slotLabel[slot]} · {s.label}
     </Badge>
   )
 }
@@ -57,9 +66,7 @@ export function TitleStatus({ title }: { title: TitleDetail }) {
             ) : series ? (
               <SeriesSlot slot={k} version={v} />
             ) : (
-              <Badge variant={versionStatus(v.state, v.long_missing).variant} size="sm">
-                {slotLabel[k]} · {versionStatus(v.state, v.long_missing).label}
-              </Badge>
+              <MovieSlot slot={k} version={v} />
             )}
           </li>
         )

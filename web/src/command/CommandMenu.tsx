@@ -1,12 +1,13 @@
-import { Badge, CommandMenu as DesignCommandMenu, CommandMenuGroup, CommandMenuInput, CommandMenuItem, CommandMenuList, KeyboardInput, Note, type CommandMenuKeyEvent } from '@hyprsh/design'
-import { CornerDownLeft, Plus, Search } from 'lucide-react'
+import { Badge, CommandMenu as DesignCommandMenu, CommandMenuGroup, CommandMenuInput, CommandMenuItem, CommandMenuList, Note, type CommandMenuKeyEvent } from '@hyprsh/design'
+import { Plus, Search } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ApiError, useLookup, useTitles, type LookupResult, type TitleRow } from '../api/queries'
-import { rank, type Match } from '../fuzzy'
+import { rank } from '../fuzzy'
 import { KindIcon } from '../library/bits'
 import { ratingsText } from '../library/Ratings'
 import { AddConfirm } from './AddConfirm'
 import { Poster, TitlePoster } from '../poster'
+import { useAfter } from '../loading'
 
 export type MenuMode = 'root' | 'add'
 
@@ -24,16 +25,11 @@ type Item = {
   /** Items that change the menu itself, or close it on their own, leave it open when run. */
   keepOpen?: boolean
   run: () => void
-  /** The parts of the label the query matched, marked. */
-  marks?: [number, number][]
   /** An icon before the label. */
   icon?: ReactNode
   /** A Title's poster thumbnail, drawn in the taller row. */
   thumb?: ReactNode
 }
-
-/** The size of a row's poster thumbnail. */
-const thumbSize = 'h-10 w-7 rounded-sm'
 
 /** Waits for typing to pause before a value is used, so a search is not sent per keystroke. */
 function useDebounced<T>(value: T, ms: number): T {
@@ -80,6 +76,9 @@ export function CommandMenu({
   const lookup = useLookup(mode === 'add' ? debounced : '')
   const searching = mode === 'add' && query.trim() !== '' && !lookup.isError && (query !== debounced || lookup.isFetching)
 
+  // A quick answer shows no loading line at all.
+  const showLoading = useAfter(300, searching)
+
   const items: Item[] = useMemo(() => {
     if (mode === 'add') {
       const found: Item[] = (lookup.data?.items ?? []).map((r) => ({
@@ -89,13 +88,13 @@ export function CommandMenu({
         sub: [r.year, ratingsText(r.ratings)].filter(Boolean).join(' · ') || undefined,
         disabled: !r.addable,
         keepOpen: true,
-        thumb: <Poster src={r.poster} className={thumbSize} />,
+        thumb: <Poster src={r.poster} size="xs" />,
         right: (
           <span className="flex items-center gap-1.5">
-            {r.in_library !== null && <Badge variant="green-subtle" size="sm">In library</Badge>}
-            {!r.addable && r.not_addable_reason === 'not_on_tvdb' && <Badge variant="amber-subtle" size="sm">Not on TheTVDB</Badge>}
-            {!r.addable && r.not_addable_reason === 'tvdb_unavailable' && <Badge variant="amber-subtle" size="sm">TheTVDB unreachable</Badge>}
-            <Badge variant="gray-subtle" size="sm">{r.kind === 'series' ? 'Series' : 'Movie'}</Badge>
+            {r.in_library !== null && <Badge variant="green" contrast="low" size="sm">In library</Badge>}
+            {!r.addable && r.not_addable_reason === 'not_on_tvdb' && <Badge variant="amber" contrast="low" size="sm">Not on TheTVDB</Badge>}
+            {!r.addable && r.not_addable_reason === 'tvdb_unavailable' && <Badge variant="amber" contrast="low" size="sm">TheTVDB unreachable</Badge>}
+            <Badge variant="gray" contrast="low" size="sm">{r.kind === 'series' ? 'Series' : 'Movie'}</Badge>
           </span>
         ),
         run: () => {
@@ -140,17 +139,15 @@ export function CommandMenu({
       group: 'Titles',
       label: t.title,
       sub: t.year ? String(t.year) : undefined,
-      thumb: <TitlePoster id={t.id} hasPoster={t.has_poster} className={thumbSize} />,
+      thumb: <TitlePoster id={t.id} hasPoster={t.has_poster} size="xs" />,
       right: <KindIcon kind={t.kind} className="text-gray-900" />,
       run: () => onOpenTitle(t.id),
     })
-    // Marks show only where the label itself matched, not an alias or a keyword.
-    const marked = <T,>(hits: { item: T; field: number; match: Match }[], toItem: (t: T) => Item) =>
-      hits.map((h) => ({ score: h.match.score, item: { ...toItem(h.item), marks: h.field === 0 ? h.match.ranges : undefined } }))
+    const scored = <T,>(hits: { item: T; match: { score: number } }[], toItem: (t: T) => Item) => hits.map((h) => ({ score: h.match.score, item: toItem(h.item) }))
     const groups = [
-      marked(rank(q, titles.data ?? [], (t) => [t.title, t.primary_title]).slice(0, 6), title),
-      marked(rank(q, go, (i) => [i.label]), (i) => i),
-      marked(rank(q, act, (i) => [i.label, i.keywords ?? '']), (i) => i),
+      scored(rank(q, titles.data ?? [], (t) => [t.title, t.primary_title]).slice(0, 6), title),
+      scored(rank(q, go, (i) => [i.label]), (i) => i),
+      scored(rank(q, act, (i) => [i.label, i.keywords ?? '']), (i) => i),
     ]
       .filter((g) => g.length > 0)
       .sort((a, b) => b[0].score - a[0].score) // the group holding the best match first; ties keep this order
@@ -197,11 +194,8 @@ export function CommandMenu({
       disabled={item.disabled}
       keepOpen={item.keepOpen}
       callback={item.run}
-      className={item.thumb !== undefined ? 'h-12' : undefined}
     >
-      <span className="truncate">
-        <Marked text={item.label} ranges={item.marks ?? []} />
-      </span>{' '}
+      <span className="truncate">{item.label}</span>{' '}
       {item.sub && <span className="label-13 ml-1 text-gray-900">{item.sub}</span>}
     </CommandMenuItem>
   )
@@ -230,12 +224,12 @@ export function CommandMenu({
       ) : (
         <>
           <CommandMenuInput
-            prefix={mode === 'add' ? <Badge variant="blue-subtle" size="sm">Add</Badge> : undefined}
+            prefix={mode === 'add' ? <Badge variant="blue" contrast="low" size="sm">Add</Badge> : undefined}
             aria-label={mode === 'add' ? 'Search a Movie or Series to add' : 'Search or run a command'}
-            placeholder={mode === 'add' ? 'Search a Movie or Series to add…' : 'Search or run a command…'}
+            placeholder={mode === 'add' ? 'Type a title to search both Movies and Series…' : 'Search or run a command…'}
           />
           <CommandMenuList
-            loading={searching && items.length === 0 && !lookup.isError}
+            loading={showLoading && searching && items.length === 0 && !lookup.isError}
             empty={
               lookup.isError ? (
                 <Note variant="error" size="small">
@@ -244,51 +238,14 @@ export function CommandMenu({
               ) : undefined
             }
           >
-            {mode === 'add' && query.trim() === '' && <Hint>Type a title to search both Movies and Series.</Hint>}
             {mode === 'add' ? items.map(row) : runs.map((r, i) => (
               <CommandMenuGroup key={`${r.group}-${i}`} heading={r.group}>
                 {r.items.map(row)}
               </CommandMenuGroup>
             ))}
           </CommandMenuList>
-          <footer className="label-13 flex items-center gap-3 border-t border-gray-alpha-400 px-3 py-2 text-gray-900 pointer-coarse:hidden">
-            <span className="flex items-center gap-1">
-              <KeyboardInput small>↑</KeyboardInput>
-              <KeyboardInput small>↓</KeyboardInput> move
-            </span>
-            <span className="flex items-center gap-1">
-              <KeyboardInput small>
-                <CornerDownLeft aria-hidden className="size-3" />
-              </KeyboardInput>{' '}
-              select
-            </span>
-            <span className="flex items-center gap-1">
-              <KeyboardInput small>Esc</KeyboardInput> close
-            </span>
-            {mode === 'add' && (
-              <span className="flex items-center gap-1">
-                <KeyboardInput small>⌫</KeyboardInput> back
-              </span>
-            )}
-          </footer>
         </>
       )}
     </DesignCommandMenu>
   )
-}
-
-/** A label with the matched parts in a mark. */
-function Marked({ text, ranges }: { text: string; ranges: [number, number][] }) {
-  const parts: ReactNode[] = []
-  let at = 0
-  for (const [a, b] of ranges) {
-    parts.push(text.slice(at, a), <mark key={a} className="bg-transparent font-semibold text-gray-1000">{text.slice(a, b)}</mark>)
-    at = b
-  }
-  parts.push(text.slice(at))
-  return parts
-}
-
-function Hint({ children }: { children: ReactNode }) {
-  return <p className="label-13 px-3 py-3 text-gray-900">{children}</p>
 }

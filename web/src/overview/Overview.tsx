@@ -1,6 +1,7 @@
 // Overview, the home screen: Needs attention, the health strip, Searching, Downloading now,
 // Coming this week, Recently added and Recent requests.
 import { Note } from '@hyprsh/design'
+import { RowList } from '../layout/RowList'
 import { useState } from 'react'
 import { useAttention } from '../api/attention'
 import { useQueue, useCancelGrab } from '../api/queue'
@@ -65,7 +66,7 @@ export function Overview({
             {queue.data && items.length === 0 ? (
               <EmptyLine title="Nothing is downloading." />
             ) : (
-              <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
+              <RowList>
                 {items.map((i, n) => (
                   <DownloadRow
                     key={i.grab_id}
@@ -76,7 +77,7 @@ export function Overview({
                     onOpenTitle={onOpenTitle}
                   />
                 ))}
-              </ul>
+              </RowList>
             )}
             {all.length > 0 && <ViewAll path="/activity" count={all.length} />}
           </Section>

@@ -162,6 +162,7 @@ describe('the wizard', () => {
     renderApp()
 
     await userEvent.click(await screen.findByRole('button', { name: 'Finish setup' }))
+    expect(screen.getByRole('separator')).toBeInTheDocument() // divides the sections from Finish
     const missing = await screen.findByRole('alert')
     expect(within(missing).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Download client', 'Indexer', 'Root folders'])
     expect(screen.queryByRole('button', { name: 'Overview' })).not.toBeInTheDocument() // still in the wizard

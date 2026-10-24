@@ -1,7 +1,8 @@
 import { ApiError } from '../api/queries'
 import type { components } from '../api/schema.gen'
-import { Checkbox, Note } from '@hyprsh/design'
+import { Checkbox, Note, Table, type TableColumn } from '@hyprsh/design'
 import { seasonName } from '../library/episodes'
+import { LoadingLine } from '../loading'
 
 export type LookupSeries = components['schemas']['LookupSeries']
 type LookupSeason = components['schemas']['LookupSeason']
@@ -34,7 +35,7 @@ export function SeriesOverviewLine({ overview }: { overview: { data?: LookupSeri
       </Note>
     )
   }
-  if (overview.isPending) return <p className="label-13 text-gray-900">Loading the series overview…</p>
+  if (overview.isPending) return <LoadingLine>Loading the series overview…</LoadingLine>
   return overview.data ? <SeriesFacts series={overview.data} /> : null
 }
 
@@ -51,18 +52,17 @@ function seasonAired(s: LookupSeason) {
  */
 export function SeasonList({ series, ticked, onToggle }: { series: LookupSeries; ticked: number[] | null; onToggle: (season: number) => void }) {
   if (series.seasons.length === 0) return null
+  const columns: TableColumn<LookupSeason & { id: number }>[] = [
+    ...(ticked
+      ? [{ key: 'monitored', header: 'Monitored', render: (s: LookupSeason) => <Checkbox aria-label={seasonName(s.number)} checked={ticked.includes(s.number)} onChange={() => onToggle(s.number)} /> }]
+      : []),
+    { key: 'season', header: 'Season', render: (s) => seasonName(s.number) },
+    { key: 'episodes', header: 'Episodes', render: (s) => `${s.episodes} ${s.episodes === 1 ? 'episode' : 'episodes'}` },
+    { key: 'aired', header: 'Aired', render: seasonAired },
+  ]
   return (
-    <ul aria-label="Seasons" className="mt-2 flex flex-col rounded-md border border-gray-alpha-400 py-1">
-      {series.seasons.map((s) => (
-        <li key={s.number} className="label-13 flex h-7 items-center gap-2 px-3">
-          {ticked && <Checkbox aria-label={seasonName(s.number)} checked={ticked.includes(s.number)} onChange={() => onToggle(s.number)} />}
-          <span className="w-20 font-medium">{seasonName(s.number)}</span>
-          <span className="w-24 text-gray-900">
-            {s.episodes} {s.episodes === 1 ? 'episode' : 'episodes'}
-          </span>
-          <span className="text-gray-900">{seasonAired(s)}</span>
-        </li>
-      ))}
-    </ul>
+    <div className="mt-2">
+      <Table caption="Seasons" columns={columns} rows={series.seasons.map((s) => ({ ...s, id: s.number }))} />
+    </div>
   )
 }

@@ -168,7 +168,7 @@ describe('Activity', () => {
       http.post('/grabs/{id}/retry-import', ({ params, response }) => (sent.push(`retry ${params.id}`), response(204).empty())),
       http.post('/grabs/{id}/discard', ({ params, response }) => (sent.push(`discard ${params.id}`), response(204).empty())),
     )
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
+    const confirm = vi.spyOn(window, 'confirm')
     fakeGrabs([grabEntry({ grab_id: 6, state: 'importing', stalled })])
     await openActivity()
 
@@ -177,11 +177,16 @@ describe('Activity', () => {
     await userEvent.click(within(row).getByRole('button', { name: 'Retry now' }))
     await waitFor(() => expect(sent).toEqual(['retry 6']))
     await userEvent.click(within(row).getByRole('button', { name: 'Discard' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Discard this Grab' })
+    expect(dialog).toHaveTextContent('Its downloaded files are deleted and the Version is searched for again.')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(sent).toEqual(['retry 6'])
     await userEvent.click(within(row).getByRole('button', { name: 'Discard' }))
+    await userEvent.click(within(await screen.findByRole('alertdialog', { name: 'Discard this Grab' })).getByRole('button', { name: 'Discard' }))
 
     await waitFor(() => expect(sent).toEqual(['retry 6', 'discard 6']))
-    expect(confirm).toHaveBeenCalledTimes(2)
-    expect(confirm).toHaveBeenCalledWith('Discard this Grab? Its downloaded files are deleted and the Version is searched for again.')
+    expect(confirm).not.toHaveBeenCalled()
     confirm.mockRestore()
   })
 
@@ -215,6 +220,24 @@ describe('Activity', () => {
     await userEvent.keyboard('j')
     await userEvent.keyboard('{Enter}')
     expect(await screen.findByRole('region', { name: /heat/i })).toBeInTheDocument()
+  })
+
+  it('marks the cursor row with aria-current and moves it, scrolled into view, with j and k', async () => {
+    const scroll = vi.fn()
+    Element.prototype.scrollIntoView = scroll
+    fakeLibrary([row(5, 'Paddington', 'Paddington'), row(6, 'Heat', 'Heat')])
+    fakeGrabs([grabEntry({ grab_id: 1, title_id: 5 }), grabEntry({ grab_id: 2, title_id: 6, title: 'Heat', updated_at: new Date(Date.now() - 2 * 3600_000).toISOString() })])
+    await openActivity()
+    const rows = within(await screen.findByRole('region', { name: 'Done · 2' })).getAllByRole('listitem')
+    ;(document.activeElement as HTMLElement).blur()
+    const current = () => document.querySelector('[aria-current="true"]')
+
+    expect(current()).toBe(rows[0])
+    await userEvent.keyboard('j')
+    expect(current()).toBe(rows[1])
+    expect(scroll.mock.contexts.at(-1)).toBe(rows[1])
+    await userEvent.keyboard('k')
+    expect(current()).toBe(rows[0])
   })
 
   it('shows what waits for a search or is being searched as the Searching stage', async () => {

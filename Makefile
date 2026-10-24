@@ -85,8 +85,9 @@ lint-go: ## staticcheck, deadcode (code not even a test reaches) and go.mod drif
 	@out=$$(go tool deadcode -test ./...) || exit 1; test -z "$$out" || { echo "unreachable code:"; echo "$$out"; exit 1; }
 	go mod tidy -diff
 
-lint-web: ## knip: unused files, exports and dependencies in the SPA
+lint-web: ## knip (unused files, exports, dependencies) and the chrome check (no hand-built chrome outside src/layout) in the SPA
 	npm --prefix web run knip
+	npm --prefix web run chrome
 
 compose-check: ## Validate the README's reference compose.yaml with `docker compose config`
 	@awk '/^```yaml compose.yaml/{f=1;next} /^```/{f=0} f' README.md > $${TMPDIR:-/tmp}/kestrel-compose.yaml

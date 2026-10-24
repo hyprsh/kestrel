@@ -1,9 +1,9 @@
-import { Toast } from '@hyprsh/design'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useAuth, useSetup } from './api/queries'
 import { Login } from './screens/Login'
 import { Wizard } from './screens/Wizard'
+import { Toast } from '@hyprsh/design'
 import { Shell } from './shell/Shell'
 
 export function App({ client }: { client?: QueryClient }) {
@@ -12,7 +12,7 @@ export function App({ client }: { client?: QueryClient }) {
     <QueryClientProvider client={client ?? fallback}>
       <Gate />
       {/* One host for every screen; useToasts' own fallback host does not mount under React 19. */}
-      <Toast className="max-sm:!bottom-[calc(var(--tab-bar-height)+16px)]" />
+      <Toast />
     </QueryClientProvider>
   )
 }
@@ -27,7 +27,7 @@ function Gate() {
   const { data, isError } = useAuth()
   const setup = useSetup(data?.state === 'ok')
   const [rerun, setRerun] = useState(false)
-  if (isError) return <div className="flex h-full items-center justify-center text-[13px] text-gray-900">Offline: cannot reach Kestrel.</div>
+  if (isError) return <div className="flex h-full items-center justify-center text-gray-900">Offline: cannot reach Kestrel.</div>
   if (!data) return null
   switch (data.state) {
     case 'setup_required':

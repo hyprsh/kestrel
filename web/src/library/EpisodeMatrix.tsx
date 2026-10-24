@@ -1,8 +1,10 @@
-import { Checkbox, Note, Spinner } from '@hyprsh/design'
+// chrome: domain-visual
+import { Checkbox, Note, Spinner, StatusDot } from '@hyprsh/design'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ApiError, useEpisodes, useMonitorEpisodes, usePatchSeason, type Episode } from '../api/queries'
+import { useAfter } from '../loading'
 import { cx } from '../ui'
-import { slotLabel, versionStatus, type SlotKey } from './bits'
+import { dotOf, slotLabel, versionStatus, type SlotKey } from './bits'
 import { EpisodeMenu, EpisodeTick, SeasonMenu, type EpisodeActions } from './EpisodeActions'
 import { SeasonSummary, SeasonToggle } from './SeasonSummary'
 import type { SeasonOpen } from './useSeasonOpen'
@@ -15,24 +17,8 @@ import { episodeRow, seasonName, seasonRow } from './episodes'
 type Row = { kind: 'season'; season: number; episodes: Episode[] } | { kind: 'episode'; episode: Episode }
 
 // On a phone the grid keeps its layout and scrolls sideways only when a row does not fit: a row has a
-// minimum width, and its episode column stays pinned at the left edge over the Slot columns.
+// minimum width. No column is pinned.
 const rowMin = 'max-sm:min-w-[20rem]'
-const pin = 'max-sm:sticky max-sm:left-0 max-sm:z-10 max-sm:bg-background-100'
-
-function cellClass(state: string): string {
-  switch (state) {
-    case 'filled':
-      return 'bg-green-700'
-    case 'downloading':
-      return 'bg-blue-700'
-    case 'wanted':
-      return 'border-2 border-amber-700'
-    case 'unreleased':
-      return 'border border-dashed border-gray-700'
-    default:
-      return 'bg-gray-400'
-  }
-}
 
 /** Where a row is now: its own index if it is still shown, or else its season's header. */
 function followRow(rows: Row[], was: Row): { row: number; same: boolean } {
@@ -63,6 +49,7 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
   const [menuRow, setMenuRow] = useState<string | null>(null)
   const menuOf = (key: string) => (open: boolean) => setMenuRow((cur) => (open ? key : cur === key ? null : cur))
   const columns = 1 + slots.length
+  const slow = useAfter(300, !episodes.data && !episodes.isError)
 
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = []
@@ -101,11 +88,11 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
     )
   }
   if (!episodes.data)
-    return (
+    return slow ? (
       <p className="copy-13 flex items-center gap-2 text-gray-900">
         <Spinner size="sm" /> Loading episodes…
       </p>
-    )
+    ) : null
   if (rows.length === 0) return <p className="copy-13 text-gray-900">TheTVDB lists no episodes yet.</p>
 
   const move = (row: number, col: number) => {
@@ -151,8 +138,9 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
         return go(rows.length - 1, col)
       case 'Enter':
       case ' ': {
-        // On a button the click does it, and on a checkbox Space does; on a Slot cell, or Enter on a checkbox, the row's monitoring is toggled.
-        if (e.target instanceof Element && e.target.closest('button')) return
+        // On a button the click does it, and on a checkbox Space does; Enter on a checkbox, or Space on a Slot cell (whose Enter opens its popover), toggles the row's monitoring.
+        const onCell = e.key === ' ' && e.target instanceof Element && e.target.matches('button[data-cell]')
+        if (e.target instanceof Element && e.target.closest('button') && !onCell) return
         if (e.key === ' ' && e.target instanceof HTMLInputElement) return
         e.preventDefault()
         e.stopPropagation()
@@ -172,10 +160,12 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
       aria-label="Episodes"
       aria-colcount={columns}
       onKeyDown={onKeyDown}
+      // Space on a Slot cell button would click it on key-up: the grid has already used the key.
+      onKeyUp={(e) => e.key === ' ' && e.target instanceof Element && e.target.matches('button[data-cell]') && e.preventDefault()}
       className="copy-13 rounded-lg max-sm:overflow-x-auto border border-gray-alpha-400"
     >
       <div role="row" className={cx('label-12-mono flex items-center gap-3 border-b border-gray-alpha-400 px-3 py-1.5 text-gray-900', rowMin)}>
-        <span role="columnheader" className={cx('flex-1', pin)}>
+        <span role="columnheader" className="flex-1">
           Episode
         </span>
         {slots.map((s) => (
@@ -250,7 +240,7 @@ function SeasonRow({
   const on = row.episodes.filter((e) => e.monitored).length
   return (
     <>
-      <div role="row" aria-rowindex={index + 2} data-menu-open={menuOpen ? '' : undefined} className="flex items-center gap-3 border-t border-gray-alpha-400 bg-gray-alpha-100 px-3 py-1.5 data-[menu-open]:bg-gray-alpha-200 max-sm:sticky max-sm:left-0 max-sm:min-h-11">
+      <div role="row" aria-rowindex={index + 2} data-menu-open={menuOpen ? '' : undefined} className="flex items-center gap-3 border-t border-gray-alpha-400 bg-gray-alpha-100 px-3 py-1.5 data-[menu-open]:bg-gray-alpha-200 max-sm:min-h-11">
         <div role="gridcell" className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
           <Checkbox
             aria-label={seasonName(row.season)}
@@ -304,7 +294,7 @@ function EpisodeRow({
   return (
     <>
       <div role="row" aria-rowindex={index + 2} data-menu-open={menuOpen ? '' : undefined} className={cx('flex items-center gap-3 px-3 py-1 hover:bg-gray-alpha-100 data-[menu-open]:bg-gray-alpha-200 max-sm:min-h-11', rowMin)}>
-        <div role="gridcell" className={cx('flex min-w-0 flex-1 items-center gap-2', pin)}>
+        <div role="gridcell" className={"flex min-w-0 flex-1 items-center gap-2"}>
           {tick}
           <Checkbox
             aria-label={`${label} monitored`}
@@ -326,27 +316,27 @@ function EpisodeRow({
         {slots.map((s, c) => {
           const cell = episode.cells[s]
           const state = cell ? versionStatus(cell.state).label : 'no Version'
+          const dot = dotOf(cell ? cell.state : null, false)
           const square = (
-            <span
-              role="img"
+            <button
+              type="button"
               aria-label={`${label} ${slotLabel[s]}: ${state}`}
               title={cellTitle(slotLabel[s], state, cell)}
               data-cell={`${index}-${c + 1}`}
               tabIndex={tab(index, c + 1)}
               onFocus={() => onFocus(c + 1)}
-              className={cx(
-                // A 44px hit area around the square on a phone.
-                'relative size-4 rounded-sm outline-none after:absolute after:-inset-3 after:content-[""] focus-visible:ring-2 focus-visible:ring-blue-700 max-sm:size-5',
-                cell ? cellClass(cell.state) : 'border border-gray-alpha-400',
-              )}
-            />
+              // A 44px hit area around the dot.
+              className='relative flex size-5 items-center justify-center rounded-full outline-none after:absolute after:-inset-3 after:content-[""] focus-visible:ring-2 focus-visible:ring-accent-700 max-sm:size-6'
+            >
+              <StatusDot state={dot.state} variant={dot.variant} label={false} aria-hidden />
+            </button>
           )
           return (
             <div key={s} role="gridcell" className="flex w-10 justify-center">
               {cell?.file ? (
                 <EpisodeFilePopover label={`${label} ${slotLabel[s]}`} cell={cell} file={cell.file} trigger={square} />
               ) : phone ? (
-                // No hover on a phone: a tap says what the colour means.
+                // No hover on a phone: a tap says what the dot means.
                 <CellPopover label={`${label} ${slotLabel[s]}`} text={cellTitle(slotLabel[s], state, cell)} trigger={square} />
               ) : (
                 square

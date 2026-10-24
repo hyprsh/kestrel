@@ -1,6 +1,7 @@
 // The Originals available group of Needs attention: one row per Version whose Profile offers a
 // Release with the Title's Original Language only, with Accept and Dismiss and a link to the Title.
-import { Badge, Button, Note } from '@hyprsh/design'
+import { Button, Collapse, Entity, Link, Note } from '@hyprsh/design'
+import { RowList, stackedRow, stackedRight } from '../layout/RowList'
 import { useState } from 'react'
 import { offerUnits, useAcceptOffer, useDismissOffer, type OriginalOffer, type OriginalsAvailable } from '../api/offers'
 import { useProfiles } from '../api/queries'
@@ -15,23 +16,16 @@ export function OriginalsRow({ group, onOpenTitle }: { group: OriginalsAvailable
   const profiles = useProfiles()
   const names = new Map((profiles.data ?? []).map((p) => [p.key, p.name]))
   return (
-    <div data-originals className="mt-3 rounded-lg border border-gray-alpha-400 px-4 py-3">
-      <div className="flex items-center gap-2">
-        <Badge variant="amber-subtle" size="sm">Originals</Badge>
-        <span className="min-w-0 flex-1">
-          Originals available · {group.count}
-        </span>
-        <Button variant="secondary" size="small" aria-expanded={open} onClick={() => setOpen(!open)}>
-          {open ? 'Hide' : 'Show'}
-        </Button>
-      </div>
-      {open && (
-        <ul className="mt-2 divide-y divide-gray-alpha-400">
-          {group.items.map((o) => (
-            <Offer key={o.version_id} offer={o} profileName={names.get(o.profile) ?? o.profile} onOpenTitle={onOpenTitle} />
-          ))}
-        </ul>
-      )}
+    <div data-originals className="mt-3">
+      <Collapse size="small" headingLevel={4} expanded={open} onChange={setOpen} title={`Originals available · ${group.count}`}>
+        {open && (
+          <RowList>
+            {group.items.map((o) => (
+              <Offer key={o.version_id} offer={o} profileName={names.get(o.profile) ?? o.profile} onOpenTitle={onOpenTitle} />
+            ))}
+          </RowList>
+        )}
+      </Collapse>
     </div>
   )
 }
@@ -43,26 +37,33 @@ function Offer({ offer: o, profileName, onOpenTitle }: { offer: OriginalOffer; p
   const busy = accept.isPending || dismiss.isPending
   const failed = accept.error ?? dismiss.error
   return (
-    <li className="flex flex-col gap-1 py-2">
-      <div className="flex flex-wrap items-start gap-2">
-        <span className="min-w-0 flex-1 max-sm:basis-full">
-          <button type="button" title="Open the Title" onClick={() => onOpenTitle(o.title_id)} className="font-medium hover:underline">
+    <Entity
+      className={stackedRow}
+      rightClassName={stackedRight}
+      right={
+        <>
+          <Button variant="secondary" size="small" disabled={busy} onClick={() => accept.mutate(o.version_id)}>
+            Accept
+          </Button>
+          <Button variant="secondary" size="small" disabled={busy} onClick={() => dismiss.mutate(o.version_id)}>
+            Dismiss
+          </Button>
+        </>
+      }
+    >
+      <div className="flex min-w-0 flex-col gap-1">
+        <span>
+          <Link as="button" title="Open the Title" onClick={() => onOpenTitle(o.title_id)}>
             {o.title}
-          </button>{' '}
+          </Link>{' '}
           · {slotLabel[o.slot]} · {profileName}
         </span>
-        <Button variant="secondary" size="small" disabled={busy} onClick={() => accept.mutate(o.version_id)} className="max-sm:flex-1">
-          Accept
-        </Button>
-        <Button variant="secondary" size="small" disabled={busy} onClick={() => dismiss.mutate(o.version_id)} className="max-sm:flex-1">
-          Dismiss
-        </Button>
+        <span className="label-12-mono truncate text-gray-900" title={o.release}>
+          {o.release} · Score {o.score}
+        </span>
+        {units && <span className="label-12 text-gray-900">{units}</span>}
+        {failed && <Note variant="error">{failed.message}</Note>}
       </div>
-      <div className="label-12-mono truncate text-gray-900" title={o.release}>
-        {o.release} · Score {o.score}
-      </div>
-      {units && <div className="label-12 text-gray-900">{units}</div>}
-      {failed && <Note variant="error">{failed.message}</Note>}
-    </li>
+    </Entity>
   )
 }

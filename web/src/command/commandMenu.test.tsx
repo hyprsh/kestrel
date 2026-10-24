@@ -83,6 +83,24 @@ async function searchForPaddington() {
 }
 
 describe('the command menu', () => {
+  it('shows a loading line with a spinner only after a short wait', async () => {
+    fakeLibrary([])
+    let answer: () => void = () => {}
+    const gate = new Promise<void>((resolve) => (answer = resolve))
+    server.use(
+      http.get('/lookup', async ({ response }) => {
+        await gate
+        return response(200).json({ items: [], next_cursor: null, did_you_mean: null })
+      }),
+    )
+    renderApp()
+    await searchForPaddington()
+    const menu = screen.getByRole('dialog', { name: /command menu/i })
+    expect(within(menu).queryByText('Searching…')).not.toBeInTheDocument()
+    expect(await within(menu).findByText('Searching…', {}, { timeout: 2000 })).toBeInTheDocument()
+    answer()
+  })
+
   it('opens with the shortcut, navigates anywhere and closes with Escape', async () => {
     fakeLibrary([])
     renderApp()
@@ -99,12 +117,21 @@ describe('the command menu', () => {
     expect(screen.getByRole('banner')).toHaveTextContent('Upcoming')
   })
 
-  it('hides the key hints on touch screens (the class; jsdom cannot evaluate the media query)', async () => {
+  it('has no footer of key hints', async () => {
     fakeLibrary([])
     renderApp()
     const menu = await openMenu()
-    const footer = within(menu).getByText('↑').closest('footer')
-    expect(footer).toHaveClass('pointer-coarse:hidden')
+    expect(within(menu).queryByText('↑')).not.toBeInTheDocument()
+  })
+
+  it('shows the Add hint as the search field placeholder while the query is empty', async () => {
+    fakeLookup()
+    renderApp()
+    const menu = await openMenu()
+    await userEvent.click(within(menu).getByRole('option', { name: /add title/i }))
+    const input = within(menu).getByRole('combobox', { name: /search/i })
+    expect(input).toHaveAttribute('placeholder', 'Type a title to search both Movies and Series…')
+    expect(within(menu).queryByText(/^Type a title to search both/)).not.toBeInTheDocument()
   })
 
   it('moves the highlight with Ctrl+N and Ctrl+P as well as the arrows', async () => {
@@ -130,21 +157,21 @@ describe('the command menu', () => {
     expect(await screen.findByRole('option', { name: /zodiac/i, selected: true })).toBeInTheDocument()
   })
 
-  it('finds Titles fuzzily, best match first, with the matched letters marked', async () => {
+  it('finds Titles fuzzily, best match first', async () => {
     fakeLibrary([row(1, 'Bad Boys', 'Bad Boys'), row(2, 'Breaking Bad', 'Breaking Bad'), row(3, 'Amélie', 'Amélie'), row(4, 'Spider-Man', 'Spider-Man')])
     renderApp()
     const menu = await openMenu()
     const input = within(menu).getByRole('combobox', { name: /search/i })
+    const libraryTitles = ['Bad Boys', 'Breaking Bad', 'Amélie', 'Spider-Man']
     const titles = () =>
       within(menu)
         .getAllByRole('option')
-        .filter((o) => o.querySelector('[data-poster]'))
-        .map((o) => o.querySelector('.truncate')?.textContent)
+        .map((o) => o.textContent ?? '')
+        .filter((name) => libraryTitles.some((t) => name.startsWith(t)))
+        .map((name) => libraryTitles.find((t) => name.startsWith(t)))
 
     await userEvent.keyboard('bb')
     await waitFor(() => expect(titles()).toEqual(['Bad Boys', 'Breaking Bad'])) // initials of both, the shorter first
-    const marks = within(menu).getByRole('option', { name: /breaking bad/i }).querySelectorAll('mark')
-    expect([...marks].map((m) => m.textContent)).toEqual(['B', 'B'])
 
     await userEvent.clear(input)
     await userEvent.keyboard('bad breaking')

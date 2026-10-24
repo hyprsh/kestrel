@@ -49,8 +49,6 @@ export function FilterBar({
       id={id}
       aria-label={label}
       size="small"
-      // The menus wrap onto more rows instead of scrolling; remove once hyprsh/design#26 ships a prop for it.
-      className="[&_.hy-querybar\_\_row]:flex-wrap [&_.hy-querybar\_\_row]:!w-full [&_.hy-scroller\_\_content]:!w-full [&_.hy-scroller\_\_content]:!min-w-0"
       placeholder={placeholder}
       value={value}
       onChange={onChange}

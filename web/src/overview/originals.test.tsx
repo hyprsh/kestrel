@@ -65,7 +65,7 @@ describe('the Originals available group in Needs attention', () => {
     renderApp()
 
     const section = await screen.findByRole('region', { name: /needs attention/i })
-    await userEvent.click(await within(section).findByRole('button', { name: 'Show' }))
+    await userEvent.click(await within(section).findByRole('button', { name: 'Originals available · 1' }))
     expect(await within(section).findByText(/Standard · HD$/)).toBeInTheDocument()
     expect(within(section).queryByText(/hd-primary/)).not.toBeInTheDocument()
   })
@@ -78,7 +78,7 @@ describe('the Originals available group in Needs attention', () => {
     expect(await within(section).findByText('Originals available · 2')).toBeInTheDocument()
     expect(within(section).queryByText(/paddington/i)).not.toBeInTheDocument()
 
-    await userEvent.click(within(section).getByRole('button', { name: 'Show' }))
+    await userEvent.click(within(section).getByRole('button', { name: 'Originals available · 2' }))
     const items = within(section).getAllByRole('listitem')
     expect(items[0]).toHaveTextContent('Paddington · Standard · HD')
     expect(items[0]).toHaveTextContent('Paddington.2014.1080p.BluRay.x264-GRP · Score 50')
@@ -89,6 +89,9 @@ describe('the Originals available group in Needs attention', () => {
     await waitFor(() => expect(sent).toEqual(['accept 11']))
     await userEvent.click(within(items[1]).getByRole('button', { name: 'Dismiss' }))
     await waitFor(() => expect(sent).toEqual(['accept 11', 'dismiss 21']))
+
+    await userEvent.click(within(section).getByRole('button', { name: 'Originals available · 2' }))
+    expect(within(section).queryByText(/paddington/i)).not.toBeInTheDocument()
   })
 
   it('does not say nothing needs attention while it shows', async () => {
@@ -106,7 +109,7 @@ describe('the Originals available group in Needs attention', () => {
     renderApp()
 
     const section = await screen.findByRole('region', { name: /needs attention/i })
-    await userEvent.click(await within(section).findByRole('button', { name: 'Show' }))
+    await userEvent.click(await within(section).findByRole('button', { name: 'Originals available · 1' }))
     await userEvent.click(within(section).getByRole('button', { name: 'Paddington' }))
 
     expect(await screen.findByRole('region', { name: /paddington/i })).toBeInTheDocument()
@@ -139,7 +142,7 @@ describe('the Original Offer indicator on the Title page', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     const pane = await screen.findByRole('region', { name: /paddington/i })
-    return within(pane).findByRole('group', { name: 'Standard' })
+    return within(pane).findByRole('listitem', { name: 'Standard' })
   }
 
   it('says an original is available on the Version', async () => {

@@ -126,6 +126,7 @@ const daysBetween = (range: string) => {
 
 const timeline = () => screen.getByRole('list', { name: 'Agenda' })
 const current = () => document.querySelector('[aria-current="true"]')
+const cover = (row: HTMLElement) => within(row).getAllByRole('button', { hidden: true })[0] // the row's whole-row button, which a click lands on
 const rowOf = (text: string | RegExp) => within(timeline()).getByText(text).closest('li')!
 
 describe('Upcoming timeline', () => {
@@ -185,7 +186,7 @@ describe('Upcoming: where each entry stands', () => {
     expect(within(rowOf('Forgotten')).getByText('Long missing 120 days')).toBeInTheDocument()
     const done = rowOf('Done')
     expect(within(done).getByText('1080p · Standard')).toBeInTheDocument()
-    expect(done.querySelector('[data-imported]')).not.toBeNull() // dimmed
+    expect(done).toHaveAttribute('data-imported') // dimmed
   })
 
   it('shows each Slot of a Title with two', async () => {
@@ -274,12 +275,17 @@ describe('Upcoming: context and grouping', () => {
     expect(within(screen.getByRole('list', { name: weekday })).getByText(/The Handover/)).toBeInTheDocument()
   })
 
-  it('shows the overview on expand', async () => {
+  it('opens and closes an entry overview as an inline disclosure that keeps its label', async () => {
     fakeAgenda([episode()])
     await openUpcoming()
-    expect(screen.queryByText('Two detectives, one bridge.')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /show the overview of bridge show/i }))
-    expect(screen.getByText('Two detectives, one bridge.')).toBeInTheDocument()
+    const toggle = within(rowOf(/Bridge Show/)).getByRole('button', { name: 'Show overview' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(toggle)
+    expect(screen.getByText('Two detectives, one bridge.')).toBeVisible()
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    await userEvent.click(toggle)
+    expect(screen.getByText('Two detectives, one bridge.')).not.toBeVisible()
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('collapses episodes of one Series on one day into an entry that expands', async () => {
@@ -288,9 +294,9 @@ describe('Upcoming: context and grouping', () => {
     const group = rowOf(/S02E01–E03/)
     expect(group).toHaveTextContent('3 episodes')
     expect(screen.queryByText(/Ep 2/)).not.toBeInTheDocument()
-    await userEvent.click(group)
+    await userEvent.click(cover(group))
     expect(screen.getByText(/Ep 2/)).toBeInTheDocument()
-    await userEvent.click(rowOf(/S02E01–E03/))
+    await userEvent.click(cover(rowOf(/S02E01–E03/)))
     expect(screen.queryByText(/Ep 2/)).not.toBeInTheDocument()
   })
 
@@ -431,7 +437,7 @@ describe('Upcoming: keyboard', () => {
     await openUpcoming()
     ;(document.activeElement as HTMLElement).blur()
     await userEvent.keyboard('o')
-    expect(screen.getByText('A bear in London.')).toBeInTheDocument()
+    expect(screen.getByText('A bear in London.')).toBeVisible()
   })
 })
 

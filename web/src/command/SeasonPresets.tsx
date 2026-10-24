@@ -79,11 +79,11 @@ export function SeasonPresets({ choice, onChange, overview }: { choice: SeasonCh
   }
   return (
     <>
-      <label className="label-14 mt-3 flex items-center gap-3">
-        <span className="w-20">Monitor</span>
+      <div className="mt-3">
         <Select
           size="small"
-          aria-label="Monitor"
+          label="Monitor"
+          labelPosition="inline"
           aria-describedby={why ? hint : undefined}
           value={choice.preset}
           onChange={(e) => {
@@ -105,14 +105,14 @@ export function SeasonPresets({ choice, onChange, overview }: { choice: SeasonCh
             Pick seasons…
           </option>
         </Select>
-      </label>
+      </div>
       {why && (
-        <p id={hint} className="label-13 mt-1 ml-[92px] text-gray-900">
+        <p id={hint} className="label-13 mt-1 text-gray-900">
           {why}
         </p>
       )}
       {choice.preset === 'pick' && (
-        <div className="mt-2 ml-[92px]">
+        <div className="mt-2">
           <Checkbox checked={choice.follow} onChange={(e) => onChange({ ...choice, follow: e.target.checked })}>
             Follow new seasons
           </Checkbox>

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, useLogin } from '../api/queries'
-import { Button, Input, Note } from '@hyprsh/design'
+import { Button, Code, Input, Note } from '@hyprsh/design'
+import { PageSurface } from '../layout/PageSurface'
 import { KestrelLogo } from '../ui'
 
 function loginErrorText(error: unknown): string {
@@ -23,10 +24,10 @@ export function Login() {
   }
 
   return (
-    <div className="flex h-full items-center justify-center bg-background-200 text-[13px] text-gray-1000">
-      <form onSubmit={submit} className="flex w-80 flex-col gap-4 rounded-lg border border-gray-alpha-400 bg-background-100 p-6 shadow-sm">
-        <div className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
-          <KestrelLogo /> Kestrel
+    <PageSurface>
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <div className="heading-16 flex items-center gap-2">
+          <KestrelLogo className="size-6" /> Kestrel
         </div>
         <Input label="Username" autoComplete="username" autoFocus value={username} onChange={(e) => setUsername(e.target.value)} />
         <Input
@@ -44,10 +45,10 @@ export function Login() {
         <Button variant="primary" typeName="submit" loading={login.isPending}>
           Log in
         </Button>
-        <p className="text-[12px] text-gray-900">
-          Forgot your password? Run <code className="font-mono">kestrel reset-password</code> in the container.
+        <p className="copy-13 text-gray-900">
+          Forgot your password? Run <Code>kestrel reset-password</Code> in the container.
         </p>
       </form>
-    </div>
+    </PageSurface>
   )
 }

@@ -1,5 +1,5 @@
-import { Badge, Button, Fieldset, Note, Select, Toggle } from '@hyprsh/design'
-import { useState, type ReactNode } from 'react'
+import { Badge, Button, Entity, Fieldset, Note, Select, Toggle } from '@hyprsh/design'
+import { useState } from 'react'
 import { ApiError, usePluginInstances, usePlugins, useSetInstanceEnabled, type PluginInstance, type PluginManifest } from '../api/queries'
 import { ago, useNow } from '../time'
 import { InstanceForm } from './InstanceForm'
@@ -66,23 +66,23 @@ export function InstanceList({
         <div className="flex flex-col gap-3">
           {rows.length === 0 && editing !== 'new' && <Note size="small">{empty}</Note>}
           {rows.length > 0 && (
-            <ul className="flex flex-col divide-y divide-gray-alpha-400 rounded-md border border-gray-alpha-400">
+            <Entity.List aria-label={`${noun}s`}>
               {rows.map((i) => {
                 const manifest = manifests.find((m) => m.id === i.plugin_id)
-                return (
-                  <li key={i.id} className="px-3 py-2">
-                    {editing === i.id && manifest ? (
+                return editing === i.id && manifest ? (
+                  <Entity key={i.id}>
+                    <div className="min-w-0 flex-1">
                       <InstanceForm manifest={manifest} instance={i} managed={managed} label={i.name} onSaved={done} onCancel={done} />
-                    ) : (
-                      <Row instance={i} manifest={manifest} showPriority={showPriority} onEdit={() => setEditing(i.id)} />
-                    )}
-                  </li>
+                    </div>
+                  </Entity>
+                ) : (
+                  <Row key={i.id} instance={i} manifest={manifest} showPriority={showPriority} onEdit={() => setEditing(i.id)} />
                 )
               })}
-            </ul>
+            </Entity.List>
           )}
           {editing === 'new' && newManifest && (
-            <div className="flex flex-col gap-3 rounded-md border border-gray-alpha-400 px-3 py-2">
+            <>
               {manifests.length > 1 && (
                 <Select
                   size="small"
@@ -94,7 +94,7 @@ export function InstanceList({
                 />
               )}
               <InstanceForm key={newManifest.id} manifest={newManifest} managed={managed} label={newLabel} onSaved={done} onCancel={done} />
-            </div>
+            </>
           )}
           {editing !== 'new' && !(single && rows.length > 0) && (
             <Button size="small" className="self-start" disabled={!newManifest} onClick={() => setEditing('new')}>
@@ -112,32 +112,47 @@ function Row({ instance: i, manifest, showPriority, onEdit }: { instance: Plugin
   const declared = i.from_config_file
   // The Config File owns enabled only when it sets it (ADR 0015).
   const enabledLocked = i.enabled_declared
+  const meta = [manifest?.name ?? i.plugin_id, showPriority ? `Priority ${i.priority}` : null].filter(Boolean).join(' · ')
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-3">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
-          <span className="label-14 min-w-0 truncate text-gray-1000">{i.name}</span>
-          <Meta>{manifest?.name ?? i.plugin_id}</Meta>
-          {showPriority && <Meta>Priority {i.priority}</Meta>}
-          {declared && (
-            <Badge variant="gray-subtle" size="sm" title="Declared in the Config File">
-              Declared
-            </Badge>
-          )}
-        </div>
-        <Toggle aria-label={`${i.name} enabled`} checked={i.enabled} disabled={enabledLocked || toggle.isPending} onChange={(enabled) => toggle.mutate({ id: i.id, enabled })} />
-        <Button size="small" aria-label={`Edit ${i.name}`} disabled={!manifest} onClick={onEdit}>
-          Edit
-        </Button>
-      </div>
-      {i.last_check && <LastCheck check={i.last_check} />}
-      {!manifest && <Note size="small">{i.name} uses a plugin that is no longer built into Kestrel.</Note>}
-      {toggle.isError && (
-        <Note variant="error" size="small">
-          {toggle.error instanceof ApiError ? toggle.error.message : 'Could not save. Try again.'}
-        </Note>
-      )}
-    </div>
+    <Entity
+      right={
+        <>
+          <Toggle aria-label={`${i.name} enabled`} checked={i.enabled} disabled={enabledLocked || toggle.isPending} onChange={(enabled) => toggle.mutate({ id: i.id, enabled })} />
+          <Button size="small" aria-label={`Edit ${i.name}`} disabled={!manifest} onClick={onEdit}>
+            Edit
+          </Button>
+        </>
+      }
+    >
+      <Entity.Content
+        fill
+        title={
+          <>
+            {i.name}
+            {declared && (
+              <>
+                {' '}
+                <Badge contrast="low" size="sm" title="Declared in the Config File">
+                  Declared
+                </Badge>
+              </>
+            )}
+          </>
+        }
+        description={
+          <>
+            <span className="block truncate">{meta}</span>
+            {i.last_check && <LastCheck check={i.last_check} />}
+            {!manifest && <Note size="small">{i.name} uses a plugin that is no longer built into Kestrel.</Note>}
+            {toggle.isError && (
+              <Note variant="error" size="small">
+                {toggle.error instanceof ApiError ? toggle.error.message : 'Could not save. Try again.'}
+              </Note>
+            )}
+          </>
+        }
+      />
+    </Entity>
   )
 }
 
@@ -145,9 +160,5 @@ function Row({ instance: i, manifest, showPriority, onEdit }: { instance: Plugin
 function LastCheck({ check }: { check: NonNullable<PluginInstance['last_check']> }) {
   const when = ago(check.at, useNow())
   const text = check.ok ? `Checked ${when}: OK` : `Check failed ${when}: ${check.message || check.code || 'unknown error'}`
-  return <div className={`label-12 min-w-0 break-words ${check.ok ? 'text-gray-900' : 'text-red-900'}`}>{text}</div>
-}
-
-function Meta({ children }: { children: ReactNode }) {
-  return <span className="copy-13 text-gray-900">{children}</span>
+  return <div className={`label-12 min-w-0 whitespace-normal break-words ${check.ok ? 'text-gray-900' : 'text-red-900'}`}>{text}</div>
 }

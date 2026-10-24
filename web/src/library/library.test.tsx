@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
 import { detail, fakeLibrary, row } from '../test/library'
@@ -74,6 +74,39 @@ describe('the Library list', () => {
     expect(list).toHaveFocus()
     await userEvent.keyboard('j')
     expect(selected()).toHaveTextContent('Heat')
+  })
+
+  it('marks the cursor option with aria-current and scrolls it into view as j and k move it', async () => {
+    const scroll = vi.fn()
+    Element.prototype.scrollIntoView = scroll
+    fakeLibrary(rows())
+    const list = await openLibrary()
+    const options = await within(list).findAllByRole('option')
+    const current = () => document.querySelector('[aria-current="true"]')
+
+    expect(current()).toBe(options[0])
+    await userEvent.keyboard('j')
+    expect(current()).toBe(options[1])
+    expect(current()).toBe(selected())
+    expect(scroll.mock.contexts.at(-1)).toBe(options[1])
+    await userEvent.keyboard('k')
+    expect(current()).toBe(options[0])
+  })
+
+  it('is one Tab stop, and a click on a row selects it', async () => {
+    fakeLibrary(rows())
+    const list = await openLibrary()
+    const options = await within(list).findAllByRole('option')
+    expect(list).toHaveFocus()
+    expect(within(list).queryAllByRole('button')).toHaveLength(0)
+
+    await userEvent.tab()
+    expect(list).not.toHaveFocus()
+    expect(list.contains(document.activeElement)).toBe(false)
+
+    await userEvent.click(options[2])
+    expect(selected()).toHaveTextContent('Zodiac')
+    expect(list).toHaveFocus()
   })
 
   it('filters from the keyboard: / focuses the filter, arrows keep moving, Escape clears it', async () => {
@@ -196,8 +229,8 @@ describe('the Library detail pane', () => {
 
     expect(await within(pane).findByRole('heading', { name: 'Paddington' })).toBeInTheDocument()
     expect(pane).toHaveTextContent('Ein Bär namens Paddington')
-    const hd = within(pane).getByRole('group', { name: 'Standard' })
-    const uhd = within(pane).getByRole('group', { name: '4K' })
+    const hd = within(pane).getByRole('listitem', { name: 'Standard' })
+    const uhd = within(pane).getByRole('listitem', { name: '4K' })
     expect(await within(hd).findByText('Any')).toBeInTheDocument() // the Profile's name arrives with GET /profiles
     expect(hd).toHaveTextContent('Wanted')
     expect(uhd).toHaveTextContent('4K')
@@ -276,7 +309,7 @@ describe('the Library detail pane', () => {
     const popover = await screen.findByRole('dialog', { name: 'Standard file' })
     expect(popover).toHaveTextContent('/data/media/movies/P/P.mkv')
     expect(popover).toHaveTextContent('Grabbed as Paddington.2014.1080p.BluRay.x264-GRP')
-    expect(within(popover).getByRole('button', { name: 'Copy path' })).toBeInTheDocument()
+    expect(within(popover).getByRole('button', { name: 'Copy to Clipboard' })).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Standard file' })).not.toBeInTheDocument())
   })

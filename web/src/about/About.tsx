@@ -2,7 +2,8 @@
 // the TRaSH commit scoring Releases now, third-party notices and keyboard shortcuts.
 import { useState, type ReactNode } from 'react'
 import { useAbout, useNotices } from '../api/about'
-import { Button, Description, Fieldset, KeyboardInput, Link, Spinner } from '@hyprsh/design'
+import { Button, Code, Description, Fieldset, KeyboardInput, Link } from '@hyprsh/design'
+import { LoadingLine } from '../loading'
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -68,7 +69,7 @@ export function About() {
               />
             </div>
           ) : (
-            <p className="flex items-center gap-2 text-gray-900"><Spinner size="sm" />Loading…</p>
+            <LoadingLine>Loading…</LoadingLine>
           )}
         </Card>
 
@@ -91,33 +92,38 @@ export function About() {
         </Card>
 
         <Card title="Keyboard shortcuts">
-          <ul className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5">
             {shortcuts.map(([keys, what]) => (
-              <li key={what} className="flex items-center gap-3">
-                <span className="flex w-24 shrink-0 gap-1">
-                  {keys.keys.map((k, i) => (
-                    <KeyboardInput key={k} meta={keys.meta && i === 0}>
-                      {k}
-                    </KeyboardInput>
-                  ))}
-                </span>
-                <span>{what}</span>
-              </li>
+              <Description
+                key={what}
+                layout="horizontal"
+                termWidth="6rem"
+                title={
+                  <span className="flex gap-1">
+                    {keys.keys.map((k, i) => (
+                      <KeyboardInput key={k} meta={keys.meta && i === 0}>
+                        {k}
+                      </KeyboardInput>
+                    ))}
+                  </span>
+                }
+                content={what}
+              />
             ))}
-          </ul>
+          </div>
         </Card>
 
         <Card title="Third-party notices">
           <p className="mb-2 text-gray-900">The ported Radarr and Sonarr code, TRaSH data and every dependency, with their licences.</p>
           {showNotices ? (
             notices.data !== undefined ? (
-              <pre aria-label="Notices text" className="copy-13-mono max-h-96 overflow-auto rounded-md bg-background-200 p-3 whitespace-pre-wrap">
+              <Code block aria-label="Notices text">
                 {notices.data}
-              </pre>
+              </Code>
+            ) : notices.isError ? (
+              <p className="text-gray-900">Could not load the notices.</p>
             ) : (
-              <p className="flex items-center gap-2 text-gray-900">
-                {notices.isError ? 'Could not load the notices.' : (<><Spinner size="sm" />Loading…</>)}
-              </p>
+              <LoadingLine>Loading…</LoadingLine>
             )
           ) : (
             <Button size="small" onClick={() => setShowNotices(true)}>

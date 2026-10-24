@@ -1,6 +1,6 @@
 // The shell on a phone: a bottom tab bar in place of the icon rail, and the More sheet that holds
 // the rest of the rail (Settings, Log, About, the theme, signing out) and the version with its status dot.
-import { Button, Drawer, TabBar, ThemeSwitcher } from '@hyprsh/design'
+import { Drawer, Entity, Separator, TabBar, ThemeSwitcher } from '@hyprsh/design'
 import { Ellipsis, LogOut, Search } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { THEME_KEY, type Theme } from '../theme'
@@ -57,30 +57,28 @@ export function MoreSheet({
     <Drawer show onDismiss={onClose} aria-label="More">
       <div className="flex flex-col gap-1 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         {items.map((t) => (
-          <Button
+          <Entity
             key={t.key}
-            variant={screen === t.key ? 'secondary' : 'tertiary'}
+            as="button"
+            left={t.icon}
             aria-current={screen === t.key ? 'page' : undefined}
-            prefix={t.icon}
-            width="100%"
-            className="justify-start"
             onClick={() => {
               onSelect(t.key)
               onClose()
             }}
           >
-            {t.label}
-          </Button>
+            <Entity.Content title={t.label} fill />
+          </Entity>
         ))}
-        <div className="my-1 h-px bg-gray-alpha-400" />
+        <Separator />
         <div className="flex items-center justify-between gap-3 px-2 py-1">
           <span className="label-14">Theme</span>
           <ThemeSwitcher variant="radios" attribute="class" storageKey={THEME_KEY} value={theme} onChange={onTheme} />
         </div>
         {onLogout && (
-          <Button variant="tertiary" prefix={<LogOut />} width="100%" className="justify-start" onClick={onLogout}>
-            Log out
-          </Button>
+          <Entity as="button" left={<LogOut />} onClick={onLogout}>
+            <Entity.Content title="Log out" fill />
+          </Entity>
         )}
         <div className="flex px-2 pt-2">
           <ServerStatus />

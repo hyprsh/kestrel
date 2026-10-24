@@ -1,4 +1,5 @@
-import { Checkbox, Note, Select } from '@hyprsh/design'
+import { Checkbox, Entity, Note, Select } from '@hyprsh/design'
+import { RowList, stackedRow, stackedRight } from '../layout/RowList'
 import { ApiError, usePatchProfile, useProfiles, type Profile } from '../api/queries'
 import { slotKeys, slotLabel } from '../library/bits'
 
@@ -116,20 +117,19 @@ export function ProfileToggles() {
 
   return (
     <div className="flex flex-col gap-2">
-      <ul className="flex flex-col divide-y divide-gray-alpha-400">
+      <RowList aria-label="Profiles">
         {profiles.data.map((p) => (
-          <li key={p.key} className="flex items-center gap-4 py-1.5">
-            <div className="flex w-48 items-center gap-2">
-              <Checkbox aria-label={`${p.name} enabled`} checked={p.enabled} disabled={declared} onChange={(e) => toggle(p, { enabled: e.target.checked })}>
-                <span className="label-14">{p.name}</span>
-              </Checkbox>
-              <span className="label-12 text-gray-900">{slotLabel[p.slot]}</span>
-            </div>
-            {p.language_rule === 'primary' ? (
-              <label className="label-13 flex items-center gap-2">
-                Original Language only
+          <Entity
+            key={p.key}
+            className={stackedRow}
+            rightClassName={stackedRight}
+            left={<Checkbox aria-label={`${p.name} enabled`} checked={p.enabled} disabled={declared} onChange={(e) => toggle(p, { enabled: e.target.checked })} />}
+            right={
+              p.language_rule === 'primary' ? (
                 <Select
                   size="small"
+                  label="Original Language only"
+                  labelPosition="inline"
                   aria-label={`${p.name} Original Language only`}
                   className="w-auto"
                   value={p.original_language}
@@ -142,13 +142,15 @@ export function ProfileToggles() {
                     </option>
                   ))}
                 </Select>
-              </label>
-            ) : (
-              <span className="label-13 text-gray-900">Requires the Title’s Original Language</span>
-            )}
-          </li>
+              ) : (
+                <span className="label-13 text-gray-900">Requires the Title’s Original Language</span>
+              )
+            }
+          >
+            <Entity.Content fill title={p.name} description={slotLabel[p.slot]} />
+          </Entity>
         ))}
-      </ul>
+      </RowList>
       {patch.isError && (
         <Note variant="error" size="small">
           {problemText(patch.error)}

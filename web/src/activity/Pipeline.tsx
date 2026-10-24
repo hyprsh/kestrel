@@ -2,7 +2,8 @@
 // with stage chips and one filter field above it. It stays live through the stream: the queue
 // from `queue` frames, the stalled and finished Grabs from the `grab` hints, Searching from
 // `search` frames.
-import { Button, EmptyState, Link, Note, parseQuery } from '@hyprsh/design'
+import { Button, DestructiveActionModal, EmptyState, Link, Note, parseQuery } from '@hyprsh/design'
+import { RowList } from '../layout/RowList'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useFinishedGrabs, useStalledGrabs, useStalledImport, HISTORY_DAYS, type GrabEntry } from '../api/activity'
 import { useSearchNow } from '../api/grabs'
@@ -11,6 +12,8 @@ import { useTitles } from '../api/queries'
 import { useCancelGrab, useQueue, type QueueItem } from '../api/queue'
 import { useSearchStatus } from '../api/search'
 import { FilterBar } from '../filter/FilterBar'
+import { FilterStrip } from '../layout/FilterStrip'
+import { SectionBlock } from '../layout/SectionBlock'
 import { DownloadRow } from '../grabs/DownloadRow'
 import { GrabRow } from '../grabs/GrabRow'
 import { useKey, useListNav, type RowNav } from '../keys'
@@ -85,7 +88,7 @@ export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQue
   let index = 0
   return (
     <section id="activity-pipeline" aria-label="Pipeline" className="flex flex-col">
-      <div className="flex flex-col gap-2 border-b border-gray-alpha-400 px-4 py-2">
+      <FilterStrip>
         <FilterBar
           id="activity-filter"
           label="Filter Activity"
@@ -95,29 +98,35 @@ export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQue
           qualifiers={activityQualifiers}
           suffix={(name, value) => (name === 'stage' ? <span className="tabular-nums">{count(value as Stage)}</span> : null)}
         />
-      </div>
+      </FilterStrip>
       {failed && <Note variant="error">Activity could not be loaded in full.</Note>}
       {searching && (
-        <Group stage="searching" count={count('searching')}>
+        <SectionBlock title={stageLabel.searching} count={count('searching')}>
           <div className="px-4 py-3">
             <SearchSummary status={search} />
           </div>
-        </Group>
+        </SectionBlock>
       )}
       {groups.map(
         (g) =>
           g.entries.length > 0 && (
-            <Group key={g.stage} stage={g.stage} count={g.entries.length}>
-              <ul aria-label={stageLabel[g.stage]}>
-                {g.entries.map((e) => {
-                  const i = index++
-                  return <EntryRow key={e.key} entry={e} now={now} nav={{ scope: 'act', index: i, sel, onSelect: () => setSel(i) }} onOpenTitle={onOpenTitle} />
-                })}
-              </ul>
-            </Group>
+            <SectionBlock key={g.stage} title={stageLabel[g.stage]} count={g.entries.length}>
+              <div className="px-4 pt-1 pb-4">
+                <RowList aria-label={stageLabel[g.stage]}>
+                  {g.entries.map((e) => {
+                    const i = index++
+                    return <EntryRow key={e.key} entry={e} now={now} nav={{ scope: 'act', index: i, sel, onSelect: () => setSel(i) }} onOpenTitle={onOpenTitle} />
+                  })}
+                </RowList>
+              </div>
+            </SectionBlock>
           ),
       )}
-      {loaded && rows.length === 0 && !searching && <EmptyState className="m-4 w-auto" description="Nothing in Activity matches." />}
+      {loaded && rows.length === 0 && !searching && (
+        <div className="p-4">
+          <EmptyState description="Nothing in Activity matches." />
+        </div>
+      )}
       {(chosen.includes('done') || chosen.includes('failed')) && (
         <p className="label-12 px-4 py-3 text-gray-900">
           {finished.data?.more ? `Done and Failed show the latest ${finished.data.items.length} Grabs. ` : `Done and Failed reach back ${HISTORY_DAYS} days. `}
@@ -126,16 +135,6 @@ export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQue
           </Link>
         </p>
       )}
-    </section>
-  )
-}
-
-function Group({ stage, count, children }: { stage: Stage; count: number; children: ReactNode }) {
-  const id = `activity-stage-${stage}`
-  return (
-    <section aria-labelledby={id} className="border-b border-gray-alpha-200">
-      <h3 id={id} className="label-12-strong px-4 pt-4 pb-1 text-gray-900">{`${stageLabel[stage]} · ${count}`}</h3>
-      {children}
     </section>
   )
 }
@@ -195,10 +194,9 @@ function ActiveRow({ item: i, now, nav, onOpenTitle }: { item: QueueItem; now: n
 function StalledRow({ grab: g, now, nav, onOpenTitle }: { grab: GrabEntry; now: number; nav: RowNav; onOpenTitle: (id: number) => void }) {
   const act = useStalledImport()
   const st = g.stalled!
-  const discard = () => {
-    if (window.confirm('Discard this Grab? Its downloaded files are deleted and the Version is searched for again.')) act.mutate({ id: g.grab_id, action: 'discard' })
-  }
+  const [asking, setAsking] = useState(false)
   return (
+    <>
     <GrabRow
       grab={g}
       nav={nav}
@@ -208,7 +206,7 @@ function StalledRow({ grab: g, now, nav, onOpenTitle }: { grab: GrabEntry; now: 
           <Button variant="secondary" size="small" disabled={act.isPending} onClick={() => act.mutate({ id: g.grab_id, action: 'retry' })}>
             Retry now
           </Button>
-          <Button variant="secondary" size="small" disabled={act.isPending} onClick={discard}>
+          <Button variant="secondary" size="small" disabled={act.isPending} onClick={() => setAsking(true)}>
             Discard
           </Button>
         </>
@@ -218,6 +216,19 @@ function StalledRow({ grab: g, now, nav, onOpenTitle }: { grab: GrabEntry; now: 
       <Line>{origin(g, now)}</Line>
       {act.isError && <Line tone="red">{act.error.message}</Line>}
     </GrabRow>
+    <DestructiveActionModal
+      open={asking}
+      title="Discard this Grab"
+      confirmLabel="Discard"
+      description="Its downloaded files are deleted and the Version is searched for again."
+      loading={act.isPending}
+      onCancel={() => setAsking(false)}
+      onConfirm={() => {
+        setAsking(false)
+        act.mutate({ id: g.grab_id, action: 'discard' })
+      }}
+    />
+    </>
   )
 }
 

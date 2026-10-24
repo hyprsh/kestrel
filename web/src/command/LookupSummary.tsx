@@ -12,7 +12,7 @@ export function LookupSummary({ detail, series }: { detail: LookupDetail; series
   ].filter(Boolean)
   return (
     <div className="mb-3 flex gap-3">
-      <Poster src={detail.poster} alt={`${detail.title} poster`} className="h-[120px] w-20 rounded-sm" />
+      <Poster src={detail.poster} alt={`${detail.title} poster`} size="lg" />
       <div className="label-13 min-w-0 flex-1">
         {facts.length > 0 && <p className="text-gray-900">{facts.join(' · ')}</p>}
         {series}
