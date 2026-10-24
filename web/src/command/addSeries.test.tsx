@@ -100,7 +100,7 @@ async function openPanel(overview?: Promise<'ok' | 'down'>) {
   const menu = await search()
   await userEvent.click(await within(menu).findByRole('option', { name: /breaking bad/i }))
   await within(menu).findByText(/Preselected/)
-  if (!overview) await within(menu).findByRole('list', { name: 'Seasons' })
+  if (!overview) await within(menu).findByRole('table', { name: 'Seasons' })
   return { ...f, menu }
 }
 
@@ -133,8 +133,8 @@ describe('the add panel', () => {
     expect(facts).toHaveTextContent('Ended')
     expect(facts).toHaveTextContent('2008')
     expect(facts).toHaveTextContent('2009')
-    const seasons = within(menu).getByRole('list', { name: 'Seasons' })
-    const rows = within(seasons).getAllByRole('listitem')
+    const seasons = within(menu).getByRole('table', { name: 'Seasons' })
+    const rows = within(seasons).getAllByRole('row').slice(1) // under the header
     expect(rows.map((r) => r.textContent)).toEqual([
       expect.stringMatching(/Specials.*1 episode.*2009/),
       expect.stringMatching(/Season 1.*3 episodes.*2008/),
@@ -147,12 +147,12 @@ describe('the add panel', () => {
     let answer: (v: 'ok') => void = () => {}
     const { menu } = await openPanel(new Promise((resolve) => (answer = resolve)))
     expect(within(menu).getByText('A teacher turns to crime.')).toBeInTheDocument()
-    expect(within(menu).getByText('Loading the series overview…')).toBeInTheDocument()
-    expect(within(menu).queryByRole('list', { name: 'Seasons' })).not.toBeInTheDocument()
+    expect(await within(menu).findByText('Loading the series overview…', {}, { timeout: 2000 })).toBeInTheDocument()
+    expect(within(menu).queryByRole('table', { name: 'Seasons' })).not.toBeInTheDocument()
 
     answer('ok')
 
-    expect(await within(menu).findByRole('list', { name: 'Seasons' })).toBeInTheDocument()
+    expect(await within(menu).findByRole('table', { name: 'Seasons' })).toBeInTheDocument()
     expect(within(menu).queryByText('Loading the series overview…')).not.toBeInTheDocument()
   })
 

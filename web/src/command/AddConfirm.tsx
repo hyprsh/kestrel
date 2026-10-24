@@ -1,10 +1,11 @@
-// chrome: pending
 import { Button, Checkbox, KeyboardInput, Note, Select } from '@hyprsh/design'
 import { CornerDownLeft } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { ApiError, useCreateTitle, useLookupDetail, useProfiles, useSeriesOverview, useSettings, type LookupResult, type Profile } from '../api/queries'
 import { slotKeys, slotLabel, type SlotKey } from '../library/bits'
 import { Ratings } from '../library/Ratings'
+import { PaneFooter, PaneHeader } from '../layout/Pane'
+import { Loading } from './Loading'
 import { LookupSummary } from './LookupSummary'
 import { allEpisodes, seasonBody, SeasonPresets, type SeasonChoice } from './SeasonPresets'
 import { SeriesOverviewLine } from './SeriesOverview'
@@ -78,13 +79,15 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
 
   return (
     <div ref={panel} tabIndex={-1} onKeyDown={onKeyDown} className="flex min-h-0 flex-col outline-none">
-      <div className="border-b border-gray-alpha-400 px-4 py-3">
-        <div className="heading-16">
-          Add {result.title}
-          {result.year ? <span className="label-14 ml-1.5 text-gray-900">{result.year}</span> : null}
+      <PaneHeader>
+        <div>
+          <div className="heading-16">
+            Add {result.title}
+            {result.year ? <span className="label-14 ml-1.5 text-gray-900">{result.year}</span> : null}
+          </div>
+          <div className="label-13 text-gray-900">{result.kind === 'series' ? 'Series' : 'Movie'}<Ratings ratings={suggestion.data?.ratings ?? result.ratings} lead /></div>
         </div>
-        <div className="label-13 text-gray-900">{result.kind === 'series' ? 'Series' : 'Movie'}<Ratings ratings={suggestion.data?.ratings ?? result.ratings} lead /></div>
-      </div>
+      </PaneHeader>
 
       <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
         {suggestion.isError ? (
@@ -92,7 +95,7 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
             {suggestion.error instanceof ApiError ? suggestion.error.message : 'Could not load this title.'}
           </Note>
         ) : !suggestion.data ? (
-          <p className="copy-14 text-gray-900">Loading…</p>
+          <Loading>Loading…</Loading>
         ) : (
           <>
             <LookupSummary detail={suggestion.data} series={result.kind === 'series' && <SeriesOverviewLine overview={overview} />} />
@@ -138,14 +141,13 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
             </div>
             {result.kind === 'series' && <SeasonPresets choice={seasons} onChange={setSeasons} overview={overview} />}
             {roots.length > 1 && (
-              <label className="label-14 mt-3 flex items-center gap-3">
-                <span className="w-20">Folder</span>
-                <Select size="small" aria-label="Root folder" value={root ?? defaultRoot} onChange={(e) => setRoot(e.target.value)} className="max-w-72">
+              <div className="mt-3">
+                <Select size="small" label="Folder" labelPosition="inline" value={root ?? defaultRoot} onChange={(e) => setRoot(e.target.value)} className="max-w-72">
                   {roots.map((r) => (
                     <option key={r}>{r}</option>
                   ))}
                 </Select>
-              </label>
+              </div>
             )}
             {create.isError && (
               <div className="mt-3">
@@ -158,7 +160,7 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
         )}
       </div>
 
-      <footer className="flex items-center gap-2 border-t border-gray-alpha-400 px-4 py-2.5">
+      <PaneFooter>
         <Button size="small" onClick={onBack} suffix={<KeyboardInput small>Esc</KeyboardInput>}>
           Back
         </Button>
@@ -176,7 +178,7 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
         >
           Add
         </Button>
-      </footer>
+      </PaneFooter>
     </div>
   )
 }

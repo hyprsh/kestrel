@@ -1,7 +1,6 @@
-// chrome: pending
 import type { ReactNode } from 'react'
 import type { LookupDetail } from '../api/queries'
-import { Poster } from '../poster'
+import { SummaryPoster } from './PosterThumb'
 
 /** The add panel's description of a Title: poster, year, age rating, runtime, genres and overview, and a Series' status line (`series`). */
 export function LookupSummary({ detail, series }: { detail: LookupDetail; series?: ReactNode }) {
@@ -13,7 +12,7 @@ export function LookupSummary({ detail, series }: { detail: LookupDetail; series
   ].filter(Boolean)
   return (
     <div className="mb-3 flex gap-3">
-      <Poster src={detail.poster} alt={`${detail.title} poster`} className="h-[120px] w-20 rounded-sm" />
+      <SummaryPoster src={detail.poster} alt={`${detail.title} poster`} />
       <div className="label-13 min-w-0 flex-1">
         {facts.length > 0 && <p className="text-gray-900">{facts.join(' · ')}</p>}
         {series}
