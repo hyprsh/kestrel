@@ -1,6 +1,7 @@
 // The Originals available group of Needs attention: one row per Version whose Profile offers a
 // Release with the Title's Original Language only, with Accept and Dismiss and a link to the Title.
 import { Button, Collapse, Entity, Link, Note } from '@hyprsh/design'
+import { RowList, stackedRow, stackedRight } from '../layout/RowList'
 import { useState } from 'react'
 import { offerUnits, useAcceptOffer, useDismissOffer, type OriginalOffer, type OriginalsAvailable } from '../api/offers'
 import { useProfiles } from '../api/queries'
@@ -18,11 +19,11 @@ export function OriginalsRow({ group, onOpenTitle }: { group: OriginalsAvailable
     <div data-originals className="mt-3">
       <Collapse size="small" headingLevel={4} expanded={open} onChange={setOpen} title={`Originals available · ${group.count}`}>
         {open && (
-          <Entity.List>
+          <RowList>
             {group.items.map((o) => (
               <Offer key={o.version_id} offer={o} profileName={names.get(o.profile) ?? o.profile} onOpenTitle={onOpenTitle} />
             ))}
-          </Entity.List>
+          </RowList>
         )}
       </Collapse>
     </div>
@@ -37,7 +38,8 @@ function Offer({ offer: o, profileName, onOpenTitle }: { offer: OriginalOffer; p
   const failed = accept.error ?? dismiss.error
   return (
     <Entity
-      className="max-sm:flex-col max-sm:items-stretch"
+      className={stackedRow}
+      rightClassName={stackedRight}
       right={
         <>
           <Button variant="secondary" size="small" disabled={busy} onClick={() => accept.mutate(o.version_id)}>

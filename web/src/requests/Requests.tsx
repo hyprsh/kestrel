@@ -1,7 +1,8 @@
 // The Requests screen, behind the Overview's "View all": every Request from outside Kestrel,
 // newest first, filtered by status:, requester: and source: (asked of the server) and free text
 // on the Title and who asked (over the rows loaded). Off the rail; its place is "/requests".
-import { EmptyState, Entity, LoadMoreButton, Note, parseQuery } from '@hyprsh/design'
+import { EmptyState, LoadMoreButton, Note, parseQuery } from '@hyprsh/design'
+import { RowList } from '../layout/RowList'
 import { useMemo, useState } from 'react'
 import { useRequestList } from '../api/requests'
 import { matchText } from '../fuzzy'
@@ -54,11 +55,11 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
         <div className="p-4">
           {list.data && shown.length === 0 && <EmptyState description="No Request matches." />}
           {shown.length > 0 && (
-            <Entity.List aria-label="Requests">
+            <RowList aria-label="Requests">
               {shown.map((r, i) => (
                 <RequestRow key={r.id} request={r} nav={{ scope: 'req', index: i, sel, onSelect: () => setSel(i) }} onOpenTitle={onOpenTitle} />
               ))}
-            </Entity.List>
+            </RowList>
           )}
           {list.hasNextPage && (
             <LoadMoreButton variant="secondary" size="small" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>

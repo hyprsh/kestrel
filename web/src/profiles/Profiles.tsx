@@ -1,4 +1,5 @@
 import { Checkbox, Entity, Note, Select } from '@hyprsh/design'
+import { RowList, stackedRow, stackedRight } from '../layout/RowList'
 import { ApiError, usePatchProfile, useProfiles, type Profile } from '../api/queries'
 import { slotKeys, slotLabel } from '../library/bits'
 
@@ -116,10 +117,12 @@ export function ProfileToggles() {
 
   return (
     <div className="flex flex-col gap-2">
-      <Entity.List aria-label="Profiles">
+      <RowList aria-label="Profiles">
         {profiles.data.map((p) => (
           <Entity
             key={p.key}
+            className={stackedRow}
+            rightClassName={stackedRight}
             left={<Checkbox aria-label={`${p.name} enabled`} checked={p.enabled} disabled={declared} onChange={(e) => toggle(p, { enabled: e.target.checked })} />}
             right={
               p.language_rule === 'primary' ? (
@@ -147,7 +150,7 @@ export function ProfileToggles() {
             <Entity.Content fill title={p.name} description={slotLabel[p.slot]} />
           </Entity>
         ))}
-      </Entity.List>
+      </RowList>
       {patch.isError && (
         <Note variant="error" size="small">
           {problemText(patch.error)}

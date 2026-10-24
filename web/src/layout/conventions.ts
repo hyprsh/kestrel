@@ -19,6 +19,8 @@
 //                         bottom of a pane                       <PaneFooter>{status, actions}</PaneFooter>
 //   PhoneBackHeader.tsx   Back button and title over a phone     <PhoneBackHeader onBack={...}>{title}</PhoneBackHeader>
 //                         screen
+//   RowList.tsx           RowList, stackedRow, stackedRight: a    <RowList>{<Entity className={stackedRow} rightClassName={stackedRight} />}</RowList>
+//                         list whose rows stack their right content when the list is narrow (container query)
 //   Rail.tsx              Rail and RailSpacer: the desktop       <Rail>{icon buttons}<RailSpacer /></Rail>
 //                         navigation rail and its gap
 //   SectionBlock.tsx      static section with a title and count  <SectionBlock title="Downloading" count={3}>{rows}</SectionBlock>
