@@ -1,4 +1,3 @@
-// chrome: pending
 // The filter field of a list screen with a dropdown per qualifier that has a `label`, GitHub-style.
 // The query text is the only state: the menus read their rows off it and write back to it. On a
 // phone they flow onto rows under the field.
@@ -50,8 +49,6 @@ export function FilterBar({
       id={id}
       aria-label={label}
       size="small"
-      // The menus wrap onto more rows instead of scrolling; remove once hyprsh/design#26 ships a prop for it.
-      className="[&_.hy-querybar\_\_row]:flex-wrap [&_.hy-querybar\_\_row]:!w-full [&_.hy-scroller\_\_content]:!w-full [&_.hy-scroller\_\_content]:!min-w-0"
       placeholder={placeholder}
       value={value}
       onChange={onChange}

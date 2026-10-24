@@ -9,7 +9,7 @@ import type { RowNav } from '../keys'
 import { slotLabel, type SlotKey } from '../library/bits'
 import { useOpenPlace } from '../place'
 import { ago, useNow } from '../time'
-import { NavRow } from '../ui'
+import { NavRow } from '../NavRow'
 import { RequestPoster } from './RequestPoster'
 import { sourceName } from './source'
 

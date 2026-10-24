@@ -1,4 +1,4 @@
-// chrome: pending
+// chrome: domain-visual
 // The one poster frame the SPA draws: a lazy image, or the same-size placeholder when there is none.
 import { apiBaseUrl } from './api/client'
 import { cx } from './ui'

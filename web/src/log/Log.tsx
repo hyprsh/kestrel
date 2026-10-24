@@ -10,7 +10,7 @@ import { FilterBar } from '../filter/FilterBar'
 import { FilterStrip } from '../layout/FilterStrip'
 import { useKey, useListNav } from '../keys'
 import { usePhone } from '../responsive'
-import { NavRow } from '../ui'
+import { NavRow } from '../NavRow'
 import { logFilter, logQualifiers } from './filter'
 
 type Tone = NonNullable<BadgeProps['variant']>

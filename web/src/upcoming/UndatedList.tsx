@@ -4,7 +4,7 @@
 // Entity `current` state lands (hyprsh/design#36).
 import { Entity } from '@hyprsh/design'
 import type { ReactNode } from 'react'
-import { NavRow } from '../ui'
+import { NavRow } from '../NavRow'
 
 export function UndatedList({ children }: { children: ReactNode }) {
   return (
