@@ -1,3 +1,4 @@
+// chrome: pending
 // The Clean up screen: review the Unmanaged files inside tracked Titles' folders by category,
 // untick what to keep, confirm, and delete permanently.
 import { useState } from 'react'

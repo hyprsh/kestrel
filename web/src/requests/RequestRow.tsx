@@ -1,3 +1,4 @@
+// chrome: pending
 // One Request as the Overview's Recent requests and the Requests screen draw it: the Title,
 // who asked through what and when, the seasons asked for, and where each Slot stands.
 import { Badge, Button, type BadgeProps } from '@hyprsh/design'

@@ -1,3 +1,4 @@
+// chrome: pending
 // The Adoption review screen: scan the Movie and Series Root folders, review the plan of matched,
 // needs-choice and skipped entries, settle the doubtful ones and adopt what is ticked.
 import { useMemo, useState, type FormEvent } from 'react'

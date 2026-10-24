@@ -1,3 +1,4 @@
+// chrome: pending
 import { Badge, CommandMenu as DesignCommandMenu, CommandMenuGroup, CommandMenuInput, CommandMenuItem, CommandMenuList, KeyboardInput, Note, type CommandMenuKeyEvent } from '@hyprsh/design'
 import { CornerDownLeft, Plus, Search } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'

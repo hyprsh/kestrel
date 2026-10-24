@@ -1,3 +1,4 @@
+// chrome: pending
 // The Log: what Kestrel did, filtered by one field of qualifiers (kind:, slot:, title:,
 // routine:) and free text, with routine events hidden until asked for; and the Blocklist view,
 // where an entry can be removed.

@@ -1,3 +1,4 @@
+// chrome: pending
 import { ArrowLeft, CheckSquare, ChevronDown, Eraser, FolderInput, Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useProfiles, useTitles, type TitleRow } from '../api/queries'

@@ -1,3 +1,4 @@
+// chrome: pending
 // Small Geist-style primitives. Ported from the design prototype (wayfinder #13, variant C).
 import type { ReactNode } from 'react'
 

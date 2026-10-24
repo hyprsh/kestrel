@@ -1,3 +1,4 @@
+// chrome: pending
 // Needs attention: the rows the server raised, with the actions it built. Nothing
 // here knows a kind of row; it draws message, severity and buttons.
 import { Badge, Button, Note, useToasts } from '@hyprsh/design'

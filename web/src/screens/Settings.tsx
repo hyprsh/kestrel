@@ -1,3 +1,4 @@
+// chrome: pending
 import { Button, Checkbox, Fieldset, Input, Note, Textarea } from '@hyprsh/design'
 import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { useState, type FormEvent, type MouseEvent, type ReactNode } from 'react'

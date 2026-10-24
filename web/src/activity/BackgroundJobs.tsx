@@ -1,3 +1,4 @@
+// chrome: pending
 // Activity's Background jobs section: Kestrel's fixed set of loops (ADR 0007), each with what it
 // does, how often it runs, how its last pass went and when the next is due. The runner keeps this
 // in memory only, so after a restart a loop reads "Not run since start" until its first pass. A loop a

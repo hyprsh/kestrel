@@ -1,3 +1,4 @@
+// chrome: pending
 // The shell on a phone: a bottom tab bar in place of the icon rail, and the More sheet that holds
 // the rest of the rail (Settings, Log, About, the theme, signing out) and the version with its status dot.
 import { Button, Drawer, TabBar, ThemeSwitcher } from '@hyprsh/design'

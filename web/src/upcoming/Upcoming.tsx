@@ -1,3 +1,4 @@
+// chrome: pending
 // Upcoming: a timeline around today. Days run from 14 back to 60 ahead (Show more in both directions),
 // the view opens at the Today marker, and every entry says where it stands: not out, Wanted, downloading
 // or Imported. j/k and Enter move and open (a group opens or closes), `o` shows an entry's overview, and

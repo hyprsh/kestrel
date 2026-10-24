@@ -1,3 +1,4 @@
+// chrome: pending
 import { Badge, Button, Fieldset, Note, Select, Toggle } from '@hyprsh/design'
 import { useState, type ReactNode } from 'react'
 import { ApiError, usePluginInstances, usePlugins, useSetInstanceEnabled, type PluginInstance, type PluginManifest } from '../api/queries'

@@ -1,3 +1,4 @@
+// chrome: pending
 // The Searching card: the search pipeline at a glance, beside Downloading now.
 import { Button } from '@hyprsh/design'
 import { useSearchStatus, type SearchStatus } from '../api/search'

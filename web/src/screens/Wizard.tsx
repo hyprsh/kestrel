@@ -1,3 +1,4 @@
+// chrome: pending
 import { Badge, Button, Fieldset, Input, Note } from '@hyprsh/design'
 import { Check } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'

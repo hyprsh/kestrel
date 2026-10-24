@@ -1,3 +1,4 @@
+// chrome: pending
 import { Checkbox, Note, Spinner } from '@hyprsh/design'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ApiError, useEpisodes, useMonitorEpisodes, usePatchSeason, type Episode } from '../api/queries'

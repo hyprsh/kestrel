@@ -1,3 +1,4 @@
+// chrome: pending
 // The filter field of a list screen with a dropdown per qualifier that has a `label`, GitHub-style.
 // The query text is the only state: the menus read their rows off it and write back to it. On a
 // phone they flow onto rows under the field.

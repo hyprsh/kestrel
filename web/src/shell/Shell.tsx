@@ -1,3 +1,4 @@
+// chrome: pending
 // The Geist shell: a thin icon rail plus a top bar with the command-menu entry.
 // Ported from the prototype's variant C; screens arrive with later tickets.
 import { About } from '../about/About'

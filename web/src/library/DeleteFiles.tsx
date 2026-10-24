@@ -1,3 +1,4 @@
+// chrome: pending
 // Delete files and keep the Version (#130): a Movie's file on the Title page,
 // an episode's, a season's or the ticked episodes' files in the episode grid.
 // Every deletion asks first, naming the files, their total size and every

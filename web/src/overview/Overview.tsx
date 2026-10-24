@@ -1,3 +1,4 @@
+// chrome: pending
 // Overview, the home screen: Needs attention, the health strip, Searching, Downloading now,
 // Coming this week, Recently added and Recent requests.
 import { Note } from '@hyprsh/design'

@@ -1,3 +1,4 @@
+// chrome: pending
 import { Badge, Button, Input, Note } from '@hyprsh/design'
 import { useState, type FormEvent } from 'react'
 import { ApiError, usePatchSettings, useSettings, type Settings } from '../api/queries'

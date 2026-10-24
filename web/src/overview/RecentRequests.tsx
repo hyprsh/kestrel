@@ -1,3 +1,4 @@
+// chrome: pending
 // "Recent requests": the newest five Requests from outside Kestrel, with no time cutoff, and a
 // way to the Requests screen for the rest. Its rows are part of the Overview's j/k selection.
 import { useRecentRequests } from '../api/requests'

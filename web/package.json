@@ -7,6 +7,7 @@
     "build": "tsc --noEmit && vite build && touch dist/.keep",
     "typecheck": "tsc --noEmit",
     "knip": "knip",
+    "chrome": "node scripts/chrome-check.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "generate": "openapi-typescript ../api/openapi.yaml -o src/api/schema.gen.ts"
