@@ -179,25 +179,38 @@ describe('Log', () => {
     expect(filter()).toHaveFocus()
   })
 
-  it('ticks a kind in the Kind menu once it is in the field, and adds a kind or a Title clicked in the list', async () => {
+  it('shows an event\u2019s kind as a plain label, and filters by kind only from the Kind menu', async () => {
     fakeLibrary([row(3, 'Paddington', 'Paddington')])
     const sent = events([{ ...event(2, 'grab_failed', 'The download failed'), title_id: 3 }, event(1, 'import', 'Imported Heat')])
     const user = await openLog()
     const list = await screen.findByRole('table', { name: 'Events' })
 
-    await user.click(within(list).getByRole('button', { name: 'Filter by kind:grab_failed' }))
-    await user.click(await within(list).findByRole('button', { name: 'Filter by title:Paddington' }))
-    await user.click(within(list).getByRole('button', { name: 'Filter by kind:import' }))
-    expect(filter()).toHaveValue('kind:grab_failed,import title:Paddington')
+    expect(within(list).getByText('Failed')).toBeInTheDocument()
+    expect(within(list).queryByRole('button', { name: /^Filter by kind:/ })).not.toBeInTheDocument()
 
-    // The Kind menu has the clicked kinds ticked, and unticking one takes it out of the field.
     await user.click(screen.getByRole('button', { name: /^Kind/ }))
-    expect(screen.getByRole('option', { name: 'Failed' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('option', { name: 'Imported' })).toHaveAttribute('aria-selected', 'true')
     await user.click(screen.getByRole('option', { name: 'Failed' }))
     await user.click(screen.getByRole('option', { name: 'Imported' }))
+    expect(filter()).toHaveValue('kind:grab_failed,import')
+    await expect.poll(() => sent.at(-1)?.getAll('kind')).toEqual(['grab_failed', 'import'])
+
+    // Unticking a kind takes it out of the field.
+    expect(screen.getByRole('option', { name: 'Failed' })).toHaveAttribute('aria-selected', 'true')
+    await user.click(screen.getByRole('option', { name: 'Failed' }))
+    await user.click(screen.getByRole('option', { name: 'Imported' }))
+    expect(filter()).toHaveValue('')
+  })
+
+  it('adds the title filter when a Title name in an event is clicked', async () => {
+    fakeLibrary([row(3, 'Paddington', 'Paddington')])
+    const sent = events([{ ...event(2, 'grab_failed', 'The download failed'), title_id: 3 }])
+    const user = await openLog()
+    const list = await screen.findByRole('table', { name: 'Events' })
+
+    await user.click(await within(list).findByRole('button', { name: 'Filter by title:Paddington' }))
+
     expect(filter()).toHaveValue('title:Paddington')
-    await expect.poll(() => sent.at(-1)?.getAll('kind')).toEqual([])
+    await expect.poll(() => sent.at(-1)?.getAll('title_id')).toEqual(['3'])
   })
 
   it('says why a qualifier was left out, once it is typed', async () => {
@@ -296,17 +309,17 @@ describe('Log on a phone', () => {
     return user
   }
 
-  it('stacks each event as a row with its kind, time and message, and the kind still filters', async () => {
+  it('stacks each event as a row with its kind, time and message, and the kind is a label', async () => {
     events()
-    const user = await openPhoneLog()
+    await openPhoneLog()
 
     const list = await screen.findByRole('list', { name: 'Events' })
     expect(screen.queryByRole('table', { name: 'Events' })).not.toBeInTheDocument()
     expect(within(list).getAllByRole('listitem')).toHaveLength(2)
     expect(within(list).getByText('Imported Paddington')).toBeInTheDocument()
 
-    await user.click(within(list).getAllByRole('button', { name: 'Filter by kind:import' })[0])
-    expect(filter()).toHaveValue('kind:import')
+    expect(within(list).getByText('Imported')).toBeInTheDocument()
+    expect(within(list).queryByRole('button', { name: /^Filter by kind:/ })).not.toBeInTheDocument()
   })
 
   it('lists the Blocklist as stacked entries with a button to remove each', async () => {
