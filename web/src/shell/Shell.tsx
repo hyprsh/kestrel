@@ -1,11 +1,10 @@
-// chrome: pending
 // The Geist shell: a thin icon rail plus a top bar with the command-menu entry.
 // Ported from the prototype's variant C; screens arrive with later tickets.
 import { About } from '../about/About'
 import { Activity } from '../activity/Activity'
 import { useRunningNow, type Running } from '../activity/running'
-import { Badge, Button, CommandMenuTrigger, Note, Spinner, ThemeSwitcher, Tooltip } from '@hyprsh/design'
-import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, Inbox, Info, LibraryBig, ListPlus, LogOut, Plus, ScrollText, Settings, X } from 'lucide-react'
+import { Button, CommandMenuTrigger, Separator, StatusDot, ThemeSwitcher, Tooltip, useToasts } from '@hyprsh/design'
+import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, Inbox, Info, LibraryBig, ListPlus, LogOut, Plus, ScrollText, Settings } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAttention } from '../api/attention'
@@ -28,6 +27,9 @@ import { Upcoming } from '../upcoming/Upcoming'
 import { Settings as SettingsScreen } from '../screens/Settings'
 import { THEME_KEY, useTheme, type Theme } from '../theme'
 import { KestrelLogo } from '../ui'
+import { Rail as RailFrame, RailSpacer } from '../layout/Rail'
+import { PhoneTopBar, TopBar as TopBarFrame } from '../layout/TopBar'
+import { AttentionBadge } from './AttentionBadge'
 import { MoreSheet, PhoneTabBar, type Tab } from './PhoneNav'
 import { ServerStatus } from './ServerStatus'
 
@@ -115,8 +117,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const canLogout = auth.data?.state === 'ok' && auth.data.me.method === 'session'
   const searchAll = useSearchAllWanted()
   const { mutate: searchAllWanted } = searchAll
-  // What "Search all Wanted" queued, until the person follows it to the Searching card or dismisses it.
-  const [searchQueued, setSearchQueued] = useState<{ versions: number } | { error: string } | null>(null)
+  const toasts = useToasts()
   const adoptionState = useAdoption().data?.state
   const actions: MenuAction[] = useMemo(
     () => [
@@ -126,8 +127,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
         keywords: 'missing search catch up',
         run: () =>
           searchAllWanted(undefined, {
-            onSuccess: (versions) => setSearchQueued({ versions }),
-            onError: (e) => setSearchQueued({ error: e.message }),
+            onSuccess: (versions) => toasts.success(`${versions} Wanted ${versions === 1 ? 'Version' : 'Versions'} queued for a search`),
+            onError: (e) => toasts.error(`Search all Wanted failed: ${e.message}`),
           }),
       },
       { id: 'theme', label: 'Switch theme', keywords: 'dark light mode', run: cycle },
@@ -136,7 +137,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
       { id: 'cleanup', label: 'Clean up Unmanaged files', keywords: 'junk samples subtitles delete tidy', run: () => openCleanup() },
       ...(canLogout ? [{ id: 'logout', label: 'Log out', keywords: 'sign out', run: () => logout.mutate(undefined) }] : []),
     ],
-    [cycle, onRunSetup, canLogout, logout, searchAllWanted, openCleanup, adoptionState],
+    [cycle, onRunSetup, canLogout, logout, searchAllWanted, toasts, openCleanup, adoptionState],
   )
   const needs = useAttention().data
   const tabs: Tab[] = tabKeys
@@ -209,8 +210,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   return (
     <CleanupLauncher.Provider value={openCleanup}>
     <PlaceOpener.Provider value={goPath}>
-    {/* The 13px base the screens not yet built from the design inherit; they drop it with their own type classes. */}
-    <div className="flex h-full bg-background-100 text-[13px] text-gray-1000">
+    <div className="flex h-full">
       {!phone && <Rail screen={screen} onSelect={setScreen} theme={theme} onTheme={setTheme} onAdd={() => setMenu({ mode: 'add' })} />}
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
@@ -221,16 +221,6 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           running={running}
           onOpenRunning={() => goPath('/activity/running')}
         />
-        {searchQueued && (
-          <SearchQueued
-            queued={searchQueued}
-            onSee={() => {
-              setSearchQueued(null)
-              goPath('/overview/searching')
-            }}
-            onDismiss={() => setSearchQueued(null)}
-          />
-        )}
         {/* The floating tab bar is out of layout; --tab-bar-height keeps every screen's last row clear of it (0 on a tablet or desktop). */}
         <main className="flex min-h-0 flex-1 flex-col pb-[var(--tab-bar-height)]">
           {screen === 'settings' ? (
@@ -323,17 +313,6 @@ function RailButton({
   )
 }
 
-/** How many rows need attention; red while any is Blocking. */
-function AttentionBadge({ count, blocking }: { count: number; blocking: boolean }) {
-  return (
-    <span aria-hidden className="pointer-events-none absolute -top-1 -right-1">
-      <Badge variant={blocking ? 'red' : 'amber'} size="sm">
-        {count}
-      </Badge>
-    </span>
-  )
-}
-
 function Rail({
   screen,
   onSelect,
@@ -352,7 +331,7 @@ function Rail({
   const attention = useAttention().data
   const needs = attention?.count ?? 0
   return (
-    <nav className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-gray-alpha-400 bg-background-200 py-3">
+    <RailFrame>
       <span className="mb-2 inline-flex">
         <Button svgOnly variant="tertiary" aria-label="Kestrel, go to Overview" onClick={() => onSelect('overview')}>
           <KestrelLogo />
@@ -361,7 +340,7 @@ function Rail({
       <RailButton label={`Add Title (${MOD} K)`} onClick={onAdd}>
         <Plus />
       </RailButton>
-      <div className="my-1 h-px w-6 bg-gray-alpha-400" />
+      <Separator className="my-1 w-6" />
       {screens.map((s) => (
         <RailButton
           key={s.key}
@@ -373,7 +352,7 @@ function Rail({
           {s.icon}
         </RailButton>
       ))}
-      <div className="flex-1" />
+      <RailSpacer />
       {/* Applies the choice to <html> and saves it; the command menu's "Switch theme" moves it through the same value. */}
       <ThemeSwitcher variant="cycle" attribute="class" storageKey={THEME_KEY} value={theme} onChange={onTheme} tooltipPosition="right" />
       <RailButton label={about.label} active={screen === about.key} onClick={() => onSelect(about.key)}>
@@ -385,7 +364,7 @@ function Rail({
           <LogOut />
         </RailButton>
       )}
-    </nav>
+    </RailFrame>
   )
 }
 
@@ -408,56 +387,32 @@ function TopBar({
   // A phone has no room for the search box: the title, what runs and Add; Search is the tab bar's accessory.
   if (phone)
     return (
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-gray-alpha-400 pr-2 pl-4">
-        <div className="heading-14 min-w-0 flex-1 truncate">{title}</div>
+      <PhoneTopBar title={title}>
         <RunningIndicator running={running} onOpen={onOpenRunning} />
         <Button svgOnly variant="tertiary" aria-label="Add Title" onClick={onAdd}>
           <Plus />
         </Button>
-      </header>
+      </PhoneTopBar>
     )
   return (
-    <header className="grid h-12 shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,460px)_minmax(0,1fr)] items-center gap-4 border-b border-gray-alpha-400 px-4">
-      <div className="heading-14 truncate">{title}</div>
+    <TopBarFrame
+      title={title}
+      end={
+        <>
+          <RunningIndicator running={running} onOpen={onOpenRunning} />
+          <ServerStatus />
+        </>
+      }
+    >
       {/* A button that opens the menu, styled as the search box it stands for. */}
       <CommandMenuTrigger size="small" aria-label="Search or run a command" onClick={onOpenMenu} className="w-full">
         Search or run a command…
       </CommandMenuTrigger>
-      <div className="flex min-w-0 items-center justify-end gap-4">
-        <RunningIndicator running={running} onOpen={onOpenRunning} />
-        <ServerStatus />
-      </div>
-    </header>
+    </TopBarFrame>
   )
 }
 
-/** The confirmation of "Search all Wanted", with the way to the Searching card that follows the searches. */
-function SearchQueued({ queued, onSee, onDismiss }: { queued: { versions: number } | { error: string }; onSee: () => void; onDismiss: () => void }) {
-  return (
-    <div role="status" aria-label="Search all Wanted" className="flex shrink-0 items-center gap-2 border-b border-gray-alpha-400 bg-background-200 px-4 py-2">
-      {'error' in queued ? (
-        <Note variant="error" size="small" className="flex-1">{`Search all Wanted failed: ${queued.error}`}</Note>
-      ) : (
-        <Note
-          size="small"
-          className="flex-1"
-          action={
-            <Button size="small" onClick={onSee}>
-              See the search
-            </Button>
-          }
-        >
-          {`${queued.versions} Wanted ${queued.versions === 1 ? 'Version' : 'Versions'} queued for a search`}
-        </Note>
-      )}
-      <Button svgOnly variant="tertiary" size="small" aria-label="Dismiss" onClick={onDismiss}>
-        <X aria-hidden />
-      </Button>
-    </div>
-  )
-}
-
-/** Quiet while nothing runs; a spinner and what runs, or how many things do, while work does. */
+/** Quiet while nothing runs; a dot and what runs, or how many things do, while work does. */
 function RunningIndicator({ running, onOpen }: { running: Running[]; onOpen: () => void }) {
   if (running.length === 0) return null
   const [one] = running
@@ -465,7 +420,7 @@ function RunningIndicator({ running, onOpen }: { running: Running[]; onOpen: () 
   const progress = one.progress?.total ? `${one.short.replace(/…$/, '')} ${one.progress.done}/${one.progress.total}` : null
   const label = running.length > 1 ? `${running.length} running` : (progress ?? one.short)
   return (
-    <Button variant="tertiary" size="small" onClick={onOpen} title={running.map((r) => r.name).join('\n')} prefix={<Spinner size="sm" />}>
+    <Button variant="tertiary" size="small" onClick={onOpen} title={running.map((r) => r.name).join('\n')} prefix={<StatusDot state="info" label={false} aria-hidden />}>
       {label}
     </Button>
   )
