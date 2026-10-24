@@ -55,6 +55,32 @@ describe('Clean up', () => {
     expect(runs).toEqual([{ preview_id: 'p1', categories: ['junk', 'samples'], exclude: ['/data/media/movies/Paddington (2014)/b.txt'] }])
   })
 
+  it('marks Look for Unmanaged files busy while the preview runs, so it cannot be pressed twice', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    let previews = 0
+    server.use(
+      http.post('/cleanup/preview', async ({ response }) => {
+        previews++
+        await gate
+        return response(200).json(preview)
+      }),
+    )
+    const user = userEvent.setup()
+    render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
+    await screen.findByRole('navigation')
+    await user.keyboard('{Control>}k{/Control}')
+    await user.click(await within(await screen.findByRole('dialog', { name: /command menu/i })).findByRole('option', { name: /clean up unmanaged files/i }))
+
+    const look = await screen.findByRole('button', { name: /look for unmanaged files/i })
+    await user.click(look)
+    expect(await screen.findByRole('button', { name: /look for unmanaged files/i })).toHaveAttribute('aria-busy', 'true')
+    await user.click(screen.getByRole('button', { name: /look for unmanaged files/i }))
+    release()
+    expect(await screen.findByLabelText(/^Junk/)).toBeChecked()
+    expect(previews).toBe(1)
+  })
+
   it('opens from the Library header for every Title and from a Title for that Title alone', async () => {
     const previews: unknown[] = []
     fakeLibrary([row(7, 'Paddington', 'Paddington'), row(8, 'Heat', 'Heat', { year: 1995 })])

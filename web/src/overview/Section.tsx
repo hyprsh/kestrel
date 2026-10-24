@@ -1,6 +1,6 @@
 // An Overview section: a heading with its count, at most five rows and a way to the rest.
 // The cap is fixed (not fitted to the window), so the sections further down stay in view.
-import { Button, EmptyState } from '@hyprsh/design'
+import { EmptyState, Pill, ShowMore } from '@hyprsh/design'
 import type { ReactNode } from 'react'
 import { useOpenPlace } from '../place'
 
@@ -40,28 +40,26 @@ export function Section({
   )
 }
 
-const more = 'mt-2 -ml-3'
-
 /** "View all 23 →": opens the screen with the full list (a place path, such as "/activity"). */
 export function ViewAll({ path, count }: { path: string; count?: number }) {
   const openPlace = useOpenPlace()
   return (
-    <Button variant="tertiary" size="small" className={more} onClick={() => openPlace(path)}>
-      {count != null ? `View all ${count} →` : 'View all →'}
-    </Button>
+    <div className="mt-2">
+      <Pill onClick={() => openPlace(path)}>{count != null ? `View all ${count} →` : 'View all →'}</Pill>
+    </div>
   )
 }
 
 /** "View all 7" for a section with no screen of its own: it expands the section in place. */
 export function ViewAllHere({ count, open, onToggle }: { count: number; open: boolean; onToggle: () => void }) {
   return (
-    <Button variant="tertiary" size="small" className={more} aria-expanded={open} onClick={onToggle}>
-      {open ? 'Show fewer' : `View all ${count}`}
-    </Button>
+    <div className="mt-2">
+      <ShowMore noBorder expanded={open} moreLabel={`View all ${count}`} lessLabel="Show fewer" onClick={onToggle} />
+    </div>
   )
 }
 
-/** The one line a section shows when it has nothing, trimmed so the section keeps the height its old text line had. */
+/** The one line a section shows when it has nothing. */
 export function EmptyLine({ title }: { title: string }) {
-  return <EmptyState size="small" className="-my-px py-0" title={title} />
+  return <EmptyState size="small" title={title} />
 }

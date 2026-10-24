@@ -1,9 +1,8 @@
-// chrome: pending
 // Upcoming: a timeline around today. Days run from 14 back to 60 ahead (Show more in both directions),
 // the view opens at the Today marker, and every entry says where it stands: not out, Wanted, downloading
 // or Imported. j/k and Enter move and open (a group opens or closes), `o` shows an entry's overview, and
 // `t` goes back to today.
-import { Button, EmptyState, LoadMoreButton, Note, Tabs, Toggle } from '@hyprsh/design'
+import { Button, Collapse, EmptyState, EntityContent, LoadMoreButton, Note, Tabs, Toggle } from '@hyprsh/design'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchNow } from '../api/grabs'
@@ -11,7 +10,7 @@ import { useQueue, type QueueItem } from '../api/queue'
 import { dayString, useTimeline, type UndatedItem, type UpcomingItem, type UpcomingSlot } from '../api/upcoming'
 import { plural } from '../format'
 import { useKey, useListNav } from '../keys'
-import { TitlePoster } from '../poster'
+import { FilterStrip } from '../layout/FilterStrip'
 import { useNow } from '../time'
 import { cx, NavRow } from '../ui'
 import { EntryName, Markers, MovieNotes, otherDates, StateBadges, Standings, TallyBadges } from './bits'
@@ -31,6 +30,8 @@ import {
   type Block,
   type Day,
 } from './state'
+import { AgendaTimeline, DayHeading, RowDot, RowPoster, WeekLabel } from './Timeline'
+import { UndatedList, UndatedRow } from './UndatedList'
 
 const BACK = 14
 const AHEAD = 60
@@ -120,7 +121,7 @@ export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void })
   let lastWeek = ''
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-gray-alpha-400 px-4 py-2">
+      <FilterStrip>
         <Tabs
           variant="secondary"
           aria-label="Show"
@@ -141,7 +142,7 @@ export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void })
         <Button variant="tertiary" size="small" className="ml-auto" onClick={jumpToday} title="Jump to today (t)">
           Today
         </Button>
-      </div>
+      </FilterStrip>
 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
         <div className="mx-auto max-w-3xl px-3 pb-8 sm:px-4">
@@ -152,9 +153,12 @@ export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void })
               Show earlier
             </LoadMoreButton>
           )}
-          {empty && <EmptyState className="m-4 w-auto" description="Nothing is due in this window." />}
-          <ul aria-label="Agenda" className="relative mt-2">
-            <span aria-hidden className="absolute top-0 bottom-0 left-3 w-px bg-gray-alpha-400" />
+          {empty && (
+            <div className="my-4">
+              <EmptyState description="Nothing is due in this window." />
+            </div>
+          )}
+          <AgendaTimeline>
             {days.map((d) => {
               const week = weekOf(today, d.day)
               const header = week !== lastWeek
@@ -189,7 +193,7 @@ export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void })
                 />
               )
             })}
-          </ul>
+          </AgendaTimeline>
           {timeline.data && (
             <LoadMoreButton variant="tertiary" size="small" loading={timeline.isFetching} onClick={() => setAhead((a) => a + MORE_AHEAD)}>
               Show later
@@ -201,29 +205,32 @@ export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void })
               <h2 id="no-date-yet" className="heading-14 mb-2">
                 {`No date yet · ${undated.length}`}
               </h2>
-              <ul aria-label="No date yet" className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
+              <UndatedList>
                 {undated.map((u) => {
                   const i = indexOf.get(undatedKey(u)) ?? 0
                   return (
-                    <NavRow key={undatedKey(u)} scope="up" index={i} sel={sel} onSelect={() => (select(i), openRow(i))} className="relative px-3 py-2">
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                        <TitlePoster id={u.title_id} hasPoster={u.has_poster} className="h-12 w-8 rounded" />
-                        <div className="min-w-0 flex-1 basis-40">
-                          <div className="label-14 truncate">
-                            <span className="font-medium">{u.title}</span>
-                            {u.year ? <span className="text-gray-900"> {u.year}</span> : null}
-                          </div>
-                          <div className="label-12 text-gray-900">
-                            {u.network ? `${u.network} · ` : ''}
-                            {reasonText[u.reason](u)}
-                          </div>
-                        </div>
-                        <Standings title={{ kind: u.kind, title_id: u.title_id, season: null, episode: null }} slots={u.slots} queue={queue} now={now} />
-                      </div>
-                    </NavRow>
+                    <UndatedRow
+                      key={undatedKey(u)}
+                      index={i}
+                      sel={sel}
+                      onSelect={() => (select(i), openRow(i))}
+                      left={<RowPoster id={u.title_id} hasPoster={u.has_poster} />}
+                      right={<Standings title={{ kind: u.kind, title_id: u.title_id, season: null, episode: null }} slots={u.slots} queue={queue} now={now} />}
+                    >
+                      <EntityContent
+                        fill
+                        title={
+                          <>
+                            {u.title}
+                            {u.year ? <span className="font-normal text-gray-900"> {u.year}</span> : null}
+                          </>
+                        }
+                        description={`${u.network ? `${u.network} · ` : ''}${reasonText[u.reason](u)}`}
+                      />
+                    </UndatedRow>
                   )
                 })}
-              </ul>
+              </UndatedList>
             </section>
           )}
         </div>
@@ -258,22 +265,9 @@ function DayBlock({
   const date = dayLabel(day.day)
   return (
     <>
-      {week && (
-        <li role="presentation" className="label-12 relative pt-4 pb-1 pl-9 font-medium tracking-wide text-gray-900 uppercase">
-          {week}
-        </li>
-      )}
+      {week && <WeekLabel week={week} />}
       <li className="relative">
-        <h3
-          ref={headingRef}
-          aria-current={isToday ? 'date' : undefined}
-          className={cx('sticky top-0 z-10 flex items-center gap-2 bg-background-100 py-1.5 pl-9 label-14 font-medium', isToday && 'text-blue-900')}
-        >
-          <span aria-hidden className={cx('absolute top-1/2 left-[7px] -translate-y-1/2 rounded-full', isToday ? 'size-3 bg-blue-700 ring-4 ring-blue-700/20' : 'size-2 bg-gray-600')} />
-          {label}
-          {label !== date && <span className="label-12 font-normal text-gray-900">{date}</span>}
-          {isToday && <span aria-hidden className="h-px flex-1 bg-blue-700/50" />}
-        </h3>
+        <DayHeading headingRef={headingRef} label={label} date={date} isToday={isToday} />
         {day.blocks.length === 0 ? (
           <p className="label-12 pb-2 pl-9 text-gray-900">Nothing else is due today.</p>
         ) : (
@@ -301,7 +295,7 @@ type RowProps = {
 function BlockRows({ block, ...p }: { block: Block } & RowProps) {
   if (block.type === 'entry') {
     return (
-      <NavRow key={block.key} scope="up" index={p.indexOf.get(block.key) ?? 0} sel={p.sel} onSelect={() => p.onSelect(p.indexOf.get(block.key) ?? 0)} className="relative py-2 pr-3 pl-9 [&[aria-current=true]_.rail-dot]:ring-transparent">
+      <NavRow key={block.key} scope="up" index={p.indexOf.get(block.key) ?? 0} sel={p.sel} onSelect={() => p.onSelect(p.indexOf.get(block.key) ?? 0)} className="relative py-2 pr-3 pl-9">
         <Entry item={block.item} id={block.key} {...p} />
       </NavRow>
     )
@@ -312,10 +306,10 @@ function BlockRows({ block, ...p }: { block: Block } & RowProps) {
   const at = airTime(first)
   return (
     <>
-      <NavRow key={block.key} scope="up" index={index} sel={p.sel} onSelect={() => p.onSelect(index)} className="relative py-2 pr-3 pl-9 [&[aria-current=true]_.rail-dot]:ring-transparent">
-        <Dot />
+      <NavRow key={block.key} scope="up" index={index} sel={p.sel} onSelect={() => p.onSelect(index)} className="relative py-2 pr-3 pl-9">
+        <RowDot current={p.sel === index} />
         <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5">
-          <TitlePoster id={first.title_id} hasPoster={first.has_poster} className="h-12 w-8 rounded" />
+          <RowPoster id={first.title_id} hasPoster={first.has_poster} />
           <div className="min-w-0 flex-1 basis-40">
             <div className="label-14 truncate">
               <span className="font-medium">{first.title}</span> <span className="text-gray-900">{episodeRange(block.items)} · {plural(block.items.length, 'episode')}</span>
@@ -358,11 +352,6 @@ function BlockRows({ block, ...p }: { block: Block } & RowProps) {
   )
 }
 
-/** The rail's dot, drawn inside the row it belongs to. */
-function Dot() {
-  return <span aria-hidden className="rail-dot absolute top-5 left-2 size-2 rounded-full bg-gray-600 ring-4 ring-background-100" />
-}
-
 /** One entry: poster, name, context, state badges and a way to open its overview. */
 function Entry({ item, id, child, ...p }: { item: UpcomingItem; id: string; child?: boolean } & RowProps) {
   const expanded = p.shown.has(id)
@@ -372,9 +361,9 @@ function Entry({ item, id, child, ...p }: { item: UpcomingItem; id: string; chil
   const search = p.onSearch(item)
   return (
     <div data-imported={imported || undefined} className={cx(imported && 'opacity-60')}>
-      {!child && <Dot />}
+      {!child && <RowDot current={p.sel === p.indexOf.get(id)} />}
       <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5">
-        {!child && <TitlePoster id={item.title_id} hasPoster={item.has_poster} className="h-12 w-8 rounded" />}
+        {!child && <RowPoster id={item.title_id} hasPoster={item.has_poster} />}
         <div className="min-w-0 flex-1 basis-40">
           <div className="label-14 truncate">
             <EntryName item={item} />
@@ -388,22 +377,14 @@ function Entry({ item, id, child, ...p }: { item: UpcomingItem; id: string; chil
         </div>
         <div className="flex items-center gap-2">
           <StateBadges item={item} queue={p.queue} now={p.now} onSearch={search} />
-          <Button
-            variant="tertiary"
-            size="tiny"
-            svgOnly
-            aria-expanded={expanded}
-            aria-label={`${expanded ? 'Hide' : 'Show'} the overview of ${item.title}${item.kind === 'series' ? ` ${item.episode_name ?? ''}` : ''}`.trim()}
-            onClick={(e) => {
-              e.stopPropagation()
-              p.onToggleShown(id)
-            }}
-          >
-            {expanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-          </Button>
         </div>
       </div>
-      {expanded && <p className="copy-13 mt-1.5 max-w-prose text-gray-900">{item.overview ?? 'No overview yet.'}</p>}
+      {/* The disclosure sits inside a row that opens the Title on click; a click on it only toggles. */}
+      <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
+        <Collapse variant="inline" title="Show overview" expanded={expanded} onChange={() => p.onToggleShown(id)}>
+          <p className="copy-13 max-w-prose text-gray-900">{item.overview ?? 'No overview yet.'}</p>
+        </Collapse>
+      </div>
     </div>
   )
 }

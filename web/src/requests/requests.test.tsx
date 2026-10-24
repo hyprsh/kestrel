@@ -4,7 +4,9 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { fakeLibrary, row } from '../test/library'
+import { http } from '../test/handlers'
 import { fakeRequests, request } from '../test/requests'
+import { server } from '../test/server'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -67,6 +69,29 @@ describe('the Requests screen', () => {
 
     await waitFor(() => expect(within(screen.getByRole('list', { name: 'Requests' })).getAllByRole('listitem')).toHaveLength(60))
     expect(screen.queryByRole('button', { name: 'Show older Requests' })).not.toBeInTheDocument()
+  })
+
+  it('shows a busy state on Show older Requests while the next page loads', async () => {
+    const items = Array.from({ length: 60 }, (_, i) => request({ id: 100 - i, title: `Movie ${i + 1}` }))
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    server.use(
+      http.get('/requests', async ({ request: r, response }) => {
+        const from = Number(new URL(r.url).searchParams.get('cursor') ?? 0)
+        if (from > 0) await gate
+        const to = from + 50
+        return response(200).json({ items: items.slice(from, to), next_cursor: to < items.length ? String(to) : null, total: items.length })
+      }),
+    )
+    renderApp()
+    await openRequests()
+    await within(await list()).findAllByRole('listitem')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Show older Requests' }))
+
+    expect(await screen.findByRole('button', { name: 'Show older Requests' })).toHaveAttribute('aria-busy', 'true')
+    release()
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Show older Requests' })).not.toBeInTheDocument())
   })
 
   it('opens the Title from a row', async () => {
