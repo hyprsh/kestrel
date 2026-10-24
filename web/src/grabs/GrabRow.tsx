@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 import type { QueueItem } from '../api/queue'
 import { slotLabel, type SlotKey } from '../library/bits'
 import type { RowNav } from '../keys'
-import { NavRow } from '../ui'
+import { NavRow } from '../NavRow'
 import { GrabPoster } from './GrabPoster'
 
 /** What a row shows of the Grab's Title and Release: a queue item or a listed Grab. */

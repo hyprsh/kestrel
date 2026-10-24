@@ -1,10 +1,9 @@
 // The Title actions row under a Title's header: searches, monitoring and a "…" menu.
-import { MoreHorizontal } from 'lucide-react'
 import { useState } from 'react'
 import { ApiError, type SeriesMonitor, type TitleDetail } from '../api/queries'
 import { useRefreshTitle, useSetFrozen, useSetMovieMonitored, useSetSeriesMonitor } from '../api/titleActions'
 import { useOpenCleanup } from '../cleanup/launch'
-import { FilterMenu, Menu, Note, termText } from '@hyprsh/design'
+import { DotsMenu, FilterMenu, MenuDivider, MenuItem, Note, termText } from '@hyprsh/design'
 import { placePath, useOpenPlace } from '../place'
 import { RemoveTitle } from './ManageVersion'
 import { MoveTitle } from './MoveTitle'
@@ -52,31 +51,26 @@ export function TitleActions({
         <SearchNow search={search} />
         <ManualSearch title={title} profileName={profileName} onManualSearch={onManualSearch} />
         {title.kind === 'movie' ? <MovieMonitoring title={title} /> : <SeriesMonitoring title={title} />}
-        <Menu.Container position="bottom-end" className="ml-auto">
-          <Menu.Button svgOnly variant="tertiary" size="small" aria-label="More Title actions">
-            <MoreHorizontal />
-          </Menu.Button>
-          <Menu>
-            <Menu.Item
-              disabled={frozen || refresh.isPending}
-              description={frozen ? 'Metadata is frozen: unfreeze it to refresh' : undefined}
-              onSelect={() => refresh.mutate()}
-            >
-              Refresh metadata
-            </Menu.Item>
-            <Menu.Item disabled={freeze.isPending} onSelect={() => freeze.mutate(!frozen)}>
-              {frozen ? 'Unfreeze metadata' : 'Freeze metadata'}
-            </Menu.Item>
-            <Menu.Divider />
-            <Menu.Item onSelect={() => setPanel('move')}>Move</Menu.Item>
-            <Menu.Item onSelect={() => openCleanup([title.id])}>Clean up this Title</Menu.Item>
-            <Menu.Item onSelect={() => openPlace(placePath('log', termText({ name: 'title', values: [title.title], excluded: false })))}>Show in the Log</Menu.Item>
-            <Menu.Divider />
-            <Menu.Item type="error" onSelect={() => setPanel('remove')}>
-              Remove Title
-            </Menu.Item>
-          </Menu>
-        </Menu.Container>
+        <DotsMenu className="ml-auto" aria-label="More Title actions">
+          <MenuItem
+            disabled={frozen || refresh.isPending}
+            description={frozen ? 'Metadata is frozen: unfreeze it to refresh' : undefined}
+            onSelect={() => refresh.mutate()}
+          >
+            Refresh metadata
+          </MenuItem>
+          <MenuItem disabled={freeze.isPending} onSelect={() => freeze.mutate(!frozen)}>
+            {frozen ? 'Unfreeze metadata' : 'Freeze metadata'}
+          </MenuItem>
+          <MenuDivider />
+          <MenuItem onSelect={() => setPanel('move')}>Move</MenuItem>
+          <MenuItem onSelect={() => openCleanup([title.id])}>Clean up this Title</MenuItem>
+          <MenuItem onSelect={() => openPlace(placePath('log', termText({ name: 'title', values: [title.title], excluded: false })))}>Show in the Log</MenuItem>
+          <MenuDivider />
+          <MenuItem type="error" onSelect={() => setPanel('remove')}>
+            Remove Title
+          </MenuItem>
+        </DotsMenu>
       </div>
       {search.mutation.isSuccess && <p className="label-12 mt-1 text-gray-900">Searching… The Log shows what it grabs.</p>}
       {search.mutation.isError && <Problem>{message(search.mutation.error, 'Could not start the search.')}</Problem>}

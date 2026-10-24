@@ -178,7 +178,7 @@ describe('manual search', () => {
 
     await userEvent.keyboard('{Escape}')
 
-    expect(await screen.findByRole('group', { name: 'Standard' })).toBeInTheDocument()
+    expect(await screen.findByRole('listitem', { name: 'Standard' })).toBeInTheDocument()
     expect(screen.queryByRole('table', { name: /releases/i })).not.toBeInTheDocument()
   })
 
@@ -317,7 +317,7 @@ describe('manual search', () => {
       await userEvent.click(header('Size'))
       await userEvent.click(within(table).getAllByRole('button', { name: 'Atmos' })[0])
       await userEvent.keyboard('{Escape}')
-      await screen.findByRole('group', { name: 'Standard' })
+      await screen.findByRole('listitem', { name: 'Standard' })
 
       const pane = await screen.findByRole('region', { name: /paddington/i })
       const actions = await within(pane).findByRole('group', { name: 'Title actions' })

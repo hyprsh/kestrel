@@ -1,5 +1,6 @@
 /** A Title's audience ratings from ratings sources (today TMDB's), as "TMDB 8.4 (21k)". */
 
+import { Link } from '@hyprsh/design'
 import { Fragment } from 'react'
 import type { components } from '../api/schema.gen'
 
@@ -39,9 +40,9 @@ export function Ratings({ ratings, lead = false }: { ratings: Rating[]; lead?: b
     <Fragment key={r.source}>
       {(lead || i > 0) && ' · '}
       {r.url ? (
-        <a href={r.url} target="_blank" rel="noopener noreferrer" title={tooltip(r)} className="hover:underline">
+        <Link href={r.url} target="_blank" rel="noopener noreferrer" title={tooltip(r)}>
           {label(r)}
-        </a>
+        </Link>
       ) : (
         <span title={tooltip(r)}>{label(r)}</span>
       )}

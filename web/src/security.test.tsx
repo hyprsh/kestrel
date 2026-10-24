@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { App } from './App'
 import { http } from './test/handlers'
 import { server } from './test/server'
@@ -55,18 +55,31 @@ describe('Settings > Security', () => {
   })
 
   it('generates an API key, shows it once, and then only its prefix', async () => {
+    const user = userEvent.setup()
     fakeSecurity()
     await openSecurity()
     expect(await screen.findByText(/no api key yet/i)).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Generate API key' }))
     expect(await screen.findByText('kst_NEWKEYSHOWNONCE')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Copy to Clipboard' }))
+    expect(await navigator.clipboard.readText()).toBe('kst_NEWKEYSHOWNONCE')
     expect(screen.getByText(/only time/i)).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Done' }))
     expect(screen.queryByText('kst_NEWKEYSHOWNONCE')).not.toBeInTheDocument()
     expect(await screen.findByText(/kst_NEWK/)).toBeInTheDocument()
+  })
+
+  it('tells the admin to copy a new key by hand when the clipboard fails', async () => {
+    const user = userEvent.setup()
+    fakeSecurity()
+    await openSecurity()
+    await userEvent.click(await screen.findByRole('button', { name: 'Generate API key' }))
+    expect(await screen.findByText('kst_NEWKEYSHOWNONCE')).toBeInTheDocument()
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'))
+    await user.click(screen.getByRole('button', { name: 'Copy to Clipboard' }))
+    expect(await screen.findByText(/copy it manually/i)).toBeInTheDocument()
   })
 
   it('rotates an existing key', async () => {
