@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useAuth, useSetup } from './api/queries'
 import { Login } from './screens/Login'
 import { Wizard } from './screens/Wizard'
-import { PhoneToastHost } from './shell/PhoneToastHost'
+import { Toast } from '@hyprsh/design'
 import { Shell } from './shell/Shell'
 
 export function App({ client }: { client?: QueryClient }) {
@@ -12,7 +12,7 @@ export function App({ client }: { client?: QueryClient }) {
     <QueryClientProvider client={client ?? fallback}>
       <Gate />
       {/* One host for every screen; useToasts' own fallback host does not mount under React 19. */}
-      <PhoneToastHost />
+      <Toast />
     </QueryClientProvider>
   )
 }
