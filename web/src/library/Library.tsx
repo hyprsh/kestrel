@@ -197,7 +197,7 @@ export function Library({
       {phone ? (
         <FilterStrip>
           <div className="min-w-0 flex-1">
-            <Collapse size="small" title={query && !filtersOpen ? `Filter: ${query}` : 'Filter'} expanded={filtersOpen} onChange={setFiltersOpen}>
+            <Collapse variant="inline" title={query && !filtersOpen ? `Filter: ${query}` : 'Filter'} expanded={filtersOpen} onChange={setFiltersOpen}>
               <div className="flex flex-col gap-2 pt-2">
                 {field}
                 {tools}
