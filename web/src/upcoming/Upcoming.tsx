@@ -30,7 +30,7 @@ import {
   type Block,
   type Day,
 } from './state'
-import { AgendaTimeline, DayHeading, WeekLabel } from './Timeline'
+import { AgendaTimeline, DayHeading, RowDot, WeekLabel } from './Timeline'
 import { TitlePoster } from '../poster'
 import { UndatedList, UndatedRow } from './UndatedList'
 
@@ -273,7 +273,7 @@ function DayBlock({
           <p className="label-12 pb-2 pl-9 text-gray-900">Nothing else is due today.</p>
         ) : (
           <div className="pr-3 pb-2 pl-9">
-            <Entity.List aria-label={label}>{day.blocks.map((b) => rowFor(b))}</Entity.List>
+            <Entity.List aria-label={label} className="overflow-visible">{day.blocks.map((b) => rowFor(b))}</Entity.List>
           </div>
         )}
       </li>
@@ -341,7 +341,9 @@ function BlockRows({ block, ...p }: { block: Block } & RowProps) {
               <Markers markers={[...new Set(block.items.flatMap((i) => i.markers))]} />
             </span>
           }
-        />
+        >
+          <RowDot />
+        </Entity.Content>
       </Entity>
       {expanded && block.items.map((item) => <Entry key={upcomingKey(item)} item={item} id={upcomingKey(item)} child {...p} />)}
     </>
@@ -378,6 +380,7 @@ function Entry({ item, id, child, ...p }: { item: UpcomingItem; id: string; chil
           </span>
         }
       >
+        {!child && <RowDot />}
         {others && <div className="label-12 text-gray-900">{others}</div>}
         <Collapse variant="inline" title="Show overview" expanded={expanded} onChange={() => p.onToggleShown(id)}>
           <p className="copy-13 max-w-prose text-gray-900">{item.overview ?? 'No overview yet.'}</p>

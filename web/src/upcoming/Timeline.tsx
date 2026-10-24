@@ -39,3 +39,8 @@ export function DayHeading({ label, date, isToday, headingRef }: { label: string
     </h3>
   )
 }
+
+/** The rail's dot for a row: a child of the row's Entity, drawn left of the day card (the list lets it overflow). */
+export function RowDot() {
+  return <span aria-hidden className="absolute top-5 -left-7 size-2 rounded-full bg-gray-600 ring-4 ring-background-100" />
+}

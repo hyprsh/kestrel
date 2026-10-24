@@ -93,6 +93,22 @@ describe('the Library list', () => {
     expect(current()).toBe(options[0])
   })
 
+  it('is one Tab stop, and a click on a row selects it', async () => {
+    fakeLibrary(rows())
+    const list = await openLibrary()
+    const options = await within(list).findAllByRole('option')
+    expect(list).toHaveFocus()
+    expect(within(list).queryAllByRole('button')).toHaveLength(0)
+
+    await userEvent.tab()
+    expect(list).not.toHaveFocus()
+    expect(list.contains(document.activeElement)).toBe(false)
+
+    await userEvent.click(options[2])
+    expect(selected()).toHaveTextContent('Zodiac')
+    expect(list).toHaveFocus()
+  })
+
   it('filters from the keyboard: / focuses the filter, arrows keep moving, Escape clears it', async () => {
     fakeLibrary(rows())
     const list = await openLibrary()
