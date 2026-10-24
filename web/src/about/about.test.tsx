@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
@@ -26,7 +26,14 @@ describe('About', () => {
   it('shows the version, licence, TRaSH commit, attribution, shortcuts and the update', async () => {
     server.use(
       http.get('/about', ({ response }) =>
-        response(200).json(about({ update: { version: '0.3.0', url: 'https://github.com/hyprsh/kestrel/releases/tag/v0.3.0' } })),
+        response(200).json(
+          about({
+            update: {
+              version: '0.3.0',
+              url: 'https://github.com/hyprsh/kestrel/releases/tag/v0.3.0',
+            },
+          }),
+        ),
       ),
       http.get('/about/notices', () => HttpResponse.text('# Third-party notices\n\nRadarr and Sonarr')),
     )
@@ -45,7 +52,15 @@ describe('About', () => {
     const attribution = screen.getByRole('region', { name: 'Attribution' })
     expect(attribution).toHaveTextContent('This product uses the TMDB API but is not endorsed or certified by TMDB.')
     expect(attribution).toHaveTextContent('Metadata provided by TheTVDB.')
-    expect(screen.getByRole('region', { name: 'Keyboard shortcuts' })).toHaveTextContent('command menu')
+    const shortcuts = screen.getByRole('region', {
+      name: 'Keyboard shortcuts',
+    })
+    expect(
+      within(shortcuts)
+        .getAllByRole('definition')
+        .map((d) => d.textContent),
+    ).toContain('Open the command menu: jump to a Title or screen, add a Title, run an action')
+    expect(within(shortcuts).getAllByRole('term')).toHaveLength(5)
 
     await userEvent.click(screen.getByRole('button', { name: 'Show notices' }))
     expect(await screen.findByLabelText('Notices text')).toHaveTextContent('Radarr and Sonarr')
@@ -61,15 +76,47 @@ describe('About', () => {
   })
 })
 
+describe('About while loading', () => {
+  it('shows a Loading line only after about 300ms', async () => {
+    let release: () => void = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
+    server.use(
+      http.get('/about', async ({ response }) => {
+        await held
+        return response(200).json(about())
+      }),
+    )
+    renderApp()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'About' }))
+    const kestrel = await screen.findByRole('region', { name: 'Kestrel' })
+    expect(within(kestrel).queryByText('Loading…')).not.toBeInTheDocument()
+    expect(await within(kestrel).findByText('Loading…')).toBeInTheDocument()
+
+    await act(async () => release())
+    expect(await within(kestrel).findByText('0.2.0')).toBeInTheDocument()
+  })
+})
+
 describe('the health strip', () => {
   it('lists an available update', async () => {
     server.use(
       http.get('/system/status', ({ response }) =>
         response(200).json({
-          download_client: { state: 'none', name: null, instance_id: null, message: null },
+          download_client: {
+            state: 'none',
+            name: null,
+            instance_id: null,
+            message: null,
+          },
           indexers: [],
           disks: [],
-          trash: { commit: 'abc1234', committed_at: null, checked_at: null, auto_update: true },
+          trash: {
+            commit: 'abc1234',
+            committed_at: null,
+            checked_at: null,
+            auto_update: true,
+          },
           grabs_paused: false,
           update: { version: '0.3.0', url: 'https://example.test/r' },
         }),

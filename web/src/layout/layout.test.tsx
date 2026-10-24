@@ -6,6 +6,7 @@ import { PageSurface } from './PageSurface'
 import { PaneFooter, PaneHeader } from './Pane'
 import { PhoneBackHeader } from './PhoneBackHeader'
 import { SectionBlock } from './SectionBlock'
+import { WidePage } from './WidePage'
 
 describe('the layout pieces', () => {
   it('FilterStrip holds its children', () => {
@@ -55,5 +56,14 @@ describe('the layout pieces', () => {
       </PageSurface>,
     )
     expect(screen.getByRole('heading', { name: 'Log in' })).toBeInTheDocument()
+  })
+
+  it('WidePage holds its children', () => {
+    render(
+      <WidePage>
+        <h1>Set up Kestrel</h1>
+      </WidePage>,
+    )
+    expect(screen.getByRole('heading', { name: 'Set up Kestrel' })).toBeInTheDocument()
   })
 })
