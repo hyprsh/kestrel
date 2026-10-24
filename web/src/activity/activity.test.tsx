@@ -168,7 +168,7 @@ describe('Activity', () => {
       http.post('/grabs/{id}/retry-import', ({ params, response }) => (sent.push(`retry ${params.id}`), response(204).empty())),
       http.post('/grabs/{id}/discard', ({ params, response }) => (sent.push(`discard ${params.id}`), response(204).empty())),
     )
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
+    const confirm = vi.spyOn(window, 'confirm')
     fakeGrabs([grabEntry({ grab_id: 6, state: 'importing', stalled })])
     await openActivity()
 
@@ -177,11 +177,16 @@ describe('Activity', () => {
     await userEvent.click(within(row).getByRole('button', { name: 'Retry now' }))
     await waitFor(() => expect(sent).toEqual(['retry 6']))
     await userEvent.click(within(row).getByRole('button', { name: 'Discard' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Discard this Grab' })
+    expect(dialog).toHaveTextContent('Its downloaded files are deleted and the Version is searched for again.')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(sent).toEqual(['retry 6'])
     await userEvent.click(within(row).getByRole('button', { name: 'Discard' }))
+    await userEvent.click(within(await screen.findByRole('alertdialog', { name: 'Discard this Grab' })).getByRole('button', { name: 'Discard' }))
 
     await waitFor(() => expect(sent).toEqual(['retry 6', 'discard 6']))
-    expect(confirm).toHaveBeenCalledTimes(2)
-    expect(confirm).toHaveBeenCalledWith('Discard this Grab? Its downloaded files are deleted and the Version is searched for again.')
+    expect(confirm).not.toHaveBeenCalled()
     confirm.mockRestore()
   })
 

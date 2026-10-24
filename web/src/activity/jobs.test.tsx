@@ -37,11 +37,11 @@ function fakeJobs(items: Job[]) {
 async function openJobs(client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   render(<App client={client} />)
   await userEvent.click(await screen.findByRole('button', { name: 'Activity' }))
-  return screen.findByRole('region', { name: 'Background jobs' })
+  return screen.findByRole('region', { name: /^Background jobs/ })
 }
 
 const rowOf = async (section: HTMLElement, name: string) =>
-  (await within(section).findAllByRole('listitem')).find((li) => within(li).queryByRole('heading', { name }))!
+  (await within(section).findAllByRole('listitem')).find((li) => within(li).queryByText(name, { selector: 'span' }))!
 
 describe('Background jobs', () => {
   it('lists each loop with what it does, its schedule, its last run and when it runs next', async () => {
@@ -133,7 +133,7 @@ describe('Background jobs', () => {
     const card = await screen.findByRole('region', { name: 'Searching' })
     await userEvent.click(within(card).getByRole('button', { name: 'Background jobs' }))
 
-    const section = await screen.findByRole('region', { name: 'Background jobs' })
-    await waitFor(() => expect(scrolled).toContain(section))
+    const section = await screen.findByRole('region', { name: /^Background jobs/ })
+    await waitFor(() => expect(scrolled.some((el) => el.contains(section))).toBe(true))
   })
 })

@@ -1,17 +1,17 @@
-// chrome: pending
 // Activity's Background jobs section: Kestrel's fixed set of loops (ADR 0007), each with what it
 // does, how often it runs, how its last pass went and when the next is due. The runner keeps this
 // in memory only, so after a restart a loop reads "Not run since start" until its first pass. A loop a
 // setting turns off says which one instead. It stays live through the stream's `jobs` frames.
-import { Badge, Button, Note, type BadgeProps } from '@hyprsh/design'
+import { Badge, Button, Entity, Note, type BadgeProps } from '@hyprsh/design'
 import { useJobs, useRunJob, type Job } from '../api/jobs'
+import { SectionBlock } from '../layout/SectionBlock'
 import { ago, span, until, useNow } from '../time'
 import { jobWords } from './jobNames'
 
 const statusBadge: Record<Job['status'], { tone: NonNullable<BadgeProps['variant']>; text: string }> = {
-  idle: { tone: 'gray-subtle', text: 'Idle' },
-  running: { tone: 'blue-subtle', text: 'Running now' },
-  disabled: { tone: 'amber-subtle', text: 'Disabled' },
+  idle: { tone: 'gray', text: 'Idle' },
+  running: { tone: 'blue', text: 'Running now' },
+  disabled: { tone: 'amber', text: 'Disabled' },
 }
 
 /** Why a disabled loop does nothing: the switch that turns it off, and where that switch lives. */
@@ -52,44 +52,56 @@ export function BackgroundJobs() {
   const now = useNow()
   // Rendered with or without data: "/activity/jobs" scrolls here as soon as the screen opens.
   return (
-    <section id="activity-jobs" aria-labelledby="activity-jobs-heading" className="flex flex-col">
-      <h2 id="activity-jobs-heading" className="label-12-strong px-4 pt-4 pb-1 text-gray-900">
-        Background jobs
-      </h2>
-      <ul>
-        {items.map((j) => {
-          const about = jobWords(j.name)
-          const last = lastRun(j, now)
-          const badge = statusBadge[j.status] ?? statusBadge.idle
-          const next = j.status === 'idle' && j.next_at ? `Next ${until(j.next_at, now)}` : null
-          return (
-            <li key={j.name} className="flex items-start gap-3 border-b border-gray-alpha-200 px-4 py-2">
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-medium">{about.label}</h3>
-                  <Badge variant={badge.tone} size="sm">{badge.text}</Badge>
-                </div>
-                {about.does && <div className="label-12 text-gray-900">{about.does}</div>}
-                {j.status === 'disabled' ? (
-                  // Its hourly check does nothing, so no schedule, next run or last run to promise.
-                  <div className="label-12 text-gray-900">{(j.disabled_by && offBecause[j.disabled_by]) ?? 'Off while a setting turns it off'}</div>
-                ) : (
-                  <>
-                    <div className="label-12 text-gray-900">{[schedule(j.schedule, about.busy ?? 'while busy'), next].filter(Boolean).join(' · ')}</div>
-                    <div className={last.failed ? 'label-12 text-red-900' : 'label-12 text-gray-900'}>{last.text}</div>
-                  </>
-                )}
-                {run.isError && run.variables === j.name && <Note variant="error">{run.error.message}</Note>}
-              </div>
-              {j.runnable && (
-                <Button variant="secondary" size="small" aria-label={`Run ${about.label} now`} disabled={j.status === 'running'} onClick={() => run.mutate(j.name)}>
-                  Run now
-                </Button>
-              )}
-            </li>
-          )
-        })}
-      </ul>
-    </section>
+    <div id="activity-jobs">
+      <SectionBlock title="Background jobs" count={items.length}>
+        <Entity.List aria-label="Background jobs">
+          {items.map((j) => {
+            const about = jobWords(j.name)
+            const last = lastRun(j, now)
+            const badge = statusBadge[j.status] ?? statusBadge.idle
+            const next = j.status === 'idle' && j.next_at ? `Next ${until(j.next_at, now)}` : null
+            return (
+              <Entity
+                key={j.name}
+                right={
+                  j.runnable && (
+                    <Button variant="secondary" size="small" aria-label={`Run ${about.label} now`} disabled={j.status === 'running'} onClick={() => run.mutate(j.name)}>
+                      Run now
+                    </Button>
+                  )
+                }
+              >
+                <Entity.Content
+                  fill
+                  title={
+                    <span className="flex items-center gap-2">
+                      {about.label}
+                      <Badge variant={badge.tone} contrast="low" size="sm">
+                        {badge.text}
+                      </Badge>
+                    </span>
+                  }
+                  description={
+                    <>
+                      {about.does && <div>{about.does}</div>}
+                      {j.status === 'disabled' ? (
+                        // Its hourly check does nothing, so no schedule, next run or last run to promise.
+                        <div>{(j.disabled_by && offBecause[j.disabled_by]) ?? 'Off while a setting turns it off'}</div>
+                      ) : (
+                        <>
+                          <div>{[schedule(j.schedule, about.busy ?? 'while busy'), next].filter(Boolean).join(' · ')}</div>
+                          <div className={last.failed ? 'text-red-900' : undefined}>{last.text}</div>
+                        </>
+                      )}
+                      {run.isError && run.variables === j.name && <Note variant="error">{run.error.message}</Note>}
+                    </>
+                  }
+                />
+              </Entity>
+            )
+          })}
+        </Entity.List>
+      </SectionBlock>
+    </div>
   )
 }

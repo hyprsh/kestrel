@@ -110,7 +110,7 @@ describe('Running now', () => {
   afterEach(() => vi.useRealTimers())
 
   const user = () => userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-  const runningNow = () => within(screen.getByRole('region', { name: 'Running now' }))
+  const runningNow = () => within(screen.getByRole('region', { name: /^Running now/ }))
 
   it('opens from the top bar and lists everything running by a readable name', async () => {
     await withActivity({ running: ['poll', 'trash'] })
