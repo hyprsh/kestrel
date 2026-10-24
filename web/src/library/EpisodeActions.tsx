@@ -1,3 +1,4 @@
+// chrome: pending
 // What the episode grid can do beyond monitoring: Search now and Manual search
 // for an episode, a season or the ticked episodes, from each row's menu and
 // the selection bar, and Delete files (DeleteFiles.tsx) in the same menus and bar.

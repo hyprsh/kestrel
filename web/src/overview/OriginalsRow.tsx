@@ -1,3 +1,4 @@
+// chrome: pending
 // The Originals available group of Needs attention: one row per Version whose Profile offers a
 // Release with the Title's Original Language only, with Accept and Dismiss and a link to the Title.
 import { Badge, Button, Note } from '@hyprsh/design'

@@ -1,3 +1,4 @@
+// chrome: pending
 // The Adoption summary after a commit: what was not adopted, grouped, each entry with its folder and reason.
 import { useAdoptionRows, type AdoptionOutcome, type AdoptionOutcomes } from '../api/adoption'
 import { useOpenCleanup } from '../cleanup/launch'

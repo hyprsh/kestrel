@@ -1,3 +1,4 @@
+// chrome: pending
 // "Running now": the background work that has been running for over a second, the same
 // list the top bar's indicator counts. Always rendered, so "/activity/running" can scroll to it.
 import { Link, Spinner } from '@hyprsh/design'

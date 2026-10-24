@@ -1,3 +1,4 @@
+// chrome: pending
 import { Toast } from '@hyprsh/design'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'

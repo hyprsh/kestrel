@@ -1,3 +1,4 @@
+// chrome: pending
 import { Note, Skeleton } from '@hyprsh/design'
 import { forwardRef, useRef } from 'react'
 import { useProfiles, useTitle, type EpisodeScope, type TitleDetail as Detail, type TitleRow } from '../api/queries'

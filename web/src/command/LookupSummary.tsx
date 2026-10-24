@@ -1,3 +1,4 @@
+// chrome: pending
 import type { ReactNode } from 'react'
 import type { LookupDetail } from '../api/queries'
 import { Poster } from '../poster'

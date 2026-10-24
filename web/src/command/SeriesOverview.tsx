@@ -1,3 +1,4 @@
+// chrome: pending
 import { ApiError } from '../api/queries'
 import type { components } from '../api/schema.gen'
 import { Checkbox, Note } from '@hyprsh/design'

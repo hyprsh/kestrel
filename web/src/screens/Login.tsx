@@ -1,3 +1,4 @@
+// chrome: pending
 import { useState, type FormEvent } from 'react'
 import { ApiError, useLogin } from '../api/queries'
 import { Button, Input, Note } from '@hyprsh/design'

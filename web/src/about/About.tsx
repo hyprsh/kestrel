@@ -1,3 +1,4 @@
+// chrome: pending
 // About: version, licence, the update the daily GitHub check found, metadata attribution,
 // the TRaSH commit scoring Releases now, third-party notices and keyboard shortcuts.
 import { useState, type ReactNode } from 'react'

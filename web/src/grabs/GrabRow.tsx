@@ -1,3 +1,4 @@
+// chrome: pending
 // The frame of every Grab's row: the Title's poster and name, Slot, episodes and Release, with
 // the lines and actions the caller brings. Downloading now, the Title page and Activity share it.
 import { Badge } from '@hyprsh/design'

@@ -1,3 +1,4 @@
+// chrome: pending
 import { Button, Checkbox, KeyboardInput, Note, Select } from '@hyprsh/design'
 import { CornerDownLeft } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'

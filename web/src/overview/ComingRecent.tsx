@@ -1,3 +1,4 @@
+// chrome: pending
 // "Coming this week" (the next 7 days of Upcoming) and "Recently added" (the latest Imports): two sections, in different columns.
 // Their rows are part of the Overview's one j/k selection (see OverviewNav).
 import { Badge } from '@hyprsh/design'

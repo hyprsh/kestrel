@@ -1,3 +1,4 @@
+// chrome: pending
 // Activity's pipeline section: every Grab from search to Import in one list grouped by stage,
 // with stage chips and one filter field above it. It stays live through the stream: the queue
 // from `queue` frames, the stalled and finished Grabs from the `grab` hints, Searching from

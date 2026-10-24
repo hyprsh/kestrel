@@ -1,3 +1,4 @@
+// chrome: pending
 import { useState } from 'react'
 import { useMoveTitle } from '../api/titleActions'
 import { ApiError, useSettings, type TitleDetail } from '../api/queries'

@@ -1,3 +1,4 @@
+// chrome: pending
 // The Requests screen, behind the Overview's "View all": every Request from outside Kestrel,
 // newest first, filtered by status:, requester: and source: (asked of the server) and free text
 // on the Title and who asked (over the rows loaded). Off the rail; its place is "/requests".

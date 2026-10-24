@@ -1,3 +1,4 @@
+// chrome: pending
 // The Health section: one tile per item (download client, indexers, disks, the rest), failing
 // first, each with its state as an icon and a word, never colour alone.
 import { Button, Progress } from '@hyprsh/design'

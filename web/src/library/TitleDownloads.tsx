@@ -1,3 +1,4 @@
+// chrome: pending
 import { useCancelGrab, useQueue } from '../api/queue'
 import { Note } from '@hyprsh/design'
 import { DownloadRow } from '../grabs/DownloadRow'

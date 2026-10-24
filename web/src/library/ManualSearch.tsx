@@ -1,3 +1,4 @@
+// chrome: pending
 import { Badge, Button, Checkbox, EmptyState, KeyboardInput, Note, Pill, Spinner, Table } from '@hyprsh/design'
 import { ArrowLeft, Download } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'

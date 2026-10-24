@@ -1,3 +1,4 @@
+// chrome: pending
 // The Versions of a Title on its page: one compact row per Slot, filled or not kept.
 import { FilterMenu, Menu, Note } from '@hyprsh/design'
 import { MoreHorizontal } from 'lucide-react'
