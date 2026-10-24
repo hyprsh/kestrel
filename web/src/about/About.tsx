@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from 'react'
 import { useAbout, useNotices } from '../api/about'
 import { Button, Code, Description, Fieldset, KeyboardInput, Link } from '@hyprsh/design'
-import { LoadingLine } from '../layout/LoadingLine'
+import { LoadingLine } from '../loading'
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (

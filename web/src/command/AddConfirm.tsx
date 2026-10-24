@@ -5,7 +5,7 @@ import { ApiError, useCreateTitle, useLookupDetail, useProfiles, useSeriesOvervi
 import { slotKeys, slotLabel, type SlotKey } from '../library/bits'
 import { Ratings } from '../library/Ratings'
 import { PaneFooter, PaneHeader } from '../layout/Pane'
-import { Loading } from './Loading'
+import { LoadingLine } from '../loading'
 import { LookupSummary } from './LookupSummary'
 import { allEpisodes, seasonBody, SeasonPresets, type SeasonChoice } from './SeasonPresets'
 import { SeriesOverviewLine } from './SeriesOverview'
@@ -95,7 +95,7 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
             {suggestion.error instanceof ApiError ? suggestion.error.message : 'Could not load this title.'}
           </Note>
         ) : !suggestion.data ? (
-          <Loading>Loading…</Loading>
+          <LoadingLine>Loading…</LoadingLine>
         ) : (
           <>
             <LookupSummary detail={suggestion.data} series={result.kind === 'series' && <SeriesOverviewLine overview={overview} />} />

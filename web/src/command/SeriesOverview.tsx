@@ -2,7 +2,7 @@ import { ApiError } from '../api/queries'
 import type { components } from '../api/schema.gen'
 import { Checkbox, Note, Table, type TableColumn } from '@hyprsh/design'
 import { seasonName } from '../library/episodes'
-import { Loading } from './Loading'
+import { LoadingLine } from '../loading'
 
 export type LookupSeries = components['schemas']['LookupSeries']
 type LookupSeason = components['schemas']['LookupSeason']
@@ -35,7 +35,7 @@ export function SeriesOverviewLine({ overview }: { overview: { data?: LookupSeri
       </Note>
     )
   }
-  if (overview.isPending) return <Loading>Loading the series overview…</Loading>
+  if (overview.isPending) return <LoadingLine>Loading the series overview…</LoadingLine>
   return overview.data ? <SeriesFacts series={overview.data} /> : null
 }
 

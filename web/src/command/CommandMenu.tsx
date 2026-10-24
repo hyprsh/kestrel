@@ -7,7 +7,7 @@ import { KindIcon } from '../library/bits'
 import { ratingsText } from '../library/Ratings'
 import { AddConfirm } from './AddConfirm'
 import { PosterThumb, TitlePosterThumb } from './PosterThumb'
-import { useAfter } from './useAfter'
+import { useAfter } from '../loading'
 
 export type MenuMode = 'root' | 'add'
 
@@ -77,7 +77,7 @@ export function CommandMenu({
   const searching = mode === 'add' && query.trim() !== '' && !lookup.isError && (query !== debounced || lookup.isFetching)
 
   // A quick answer shows no loading line at all.
-  const showLoading = useAfter(searching, 300)
+  const showLoading = useAfter(300, searching)
 
   const items: Item[] = useMemo(() => {
     if (mode === 'add') {

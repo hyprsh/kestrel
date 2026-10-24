@@ -2,6 +2,7 @@
 import { Checkbox, Note, Spinner, StatusDot } from '@hyprsh/design'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ApiError, useEpisodes, useMonitorEpisodes, usePatchSeason, type Episode } from '../api/queries'
+import { useAfter } from '../loading'
 import { cx } from '../ui'
 import { slotLabel, versionStatus, type SlotKey } from './bits'
 import { EpisodeMenu, EpisodeTick, SeasonMenu, type EpisodeActions } from './EpisodeActions'
@@ -39,20 +40,6 @@ function dotOf(state: string | null): Dot {
   }
 }
 
-/** True once `wait` has been true for `ms`: a loading line that does not flash for a fast answer. */
-function useAfter(wait: boolean, ms: number): boolean {
-  const [late, setLate] = useState(false)
-  useEffect(() => {
-    if (!wait) {
-      setLate(false)
-      return
-    }
-    const t = setTimeout(() => setLate(true), ms)
-    return () => clearTimeout(t)
-  }, [wait, ms])
-  return late
-}
-
 /** Where a row is now: its own index if it is still shown, or else its season's header. */
 function followRow(rows: Row[], was: Row): { row: number; same: boolean } {
   const season = was.kind === 'season' ? was.season : was.episode.season
@@ -82,7 +69,7 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
   const [menuRow, setMenuRow] = useState<string | null>(null)
   const menuOf = (key: string) => (open: boolean) => setMenuRow((cur) => (open ? key : cur === key ? null : cur))
   const columns = 1 + slots.length
-  const slow = useAfter(!episodes.data && !episodes.isError, 300)
+  const slow = useAfter(300, !episodes.data && !episodes.isError)
 
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = []
