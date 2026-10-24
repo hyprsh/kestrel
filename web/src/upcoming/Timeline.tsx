@@ -39,8 +39,3 @@ export function DayHeading({ label, date, isToday, headingRef }: { label: string
     </h3>
   )
 }
-
-/** The rail's dot for a row, drawn inside the row it belongs to. Its halo blends into the cursor row's tint. */
-export function RowDot({ current }: { current: boolean }) {
-  return <span aria-hidden className={cx('absolute top-5 left-2 size-2 rounded-full bg-gray-600 ring-4', current ? 'ring-transparent' : 'ring-background-100')} />
-}

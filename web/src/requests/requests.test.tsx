@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import { fakeLibrary, row } from '../test/library'
 import { http } from '../test/handlers'
@@ -94,13 +94,31 @@ describe('the Requests screen', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Show older Requests' })).not.toBeInTheDocument())
   })
 
+  it('marks the cursor row with aria-current and moves it, scrolled into view, with j and k', async () => {
+    const scroll = vi.fn()
+    Element.prototype.scrollIntoView = scroll
+    fakeRequests([request({ id: 2, title: 'Dune' }), request({ id: 1, title: 'Paddington' })])
+    renderApp()
+    await openRequests()
+    const rows = await within(await list()).findAllByRole('listitem')
+    ;(document.activeElement as HTMLElement).blur()
+    const current = () => document.querySelector('[aria-current="true"]')
+
+    expect(current()).toBe(rows[0])
+    await userEvent.keyboard('j')
+    expect(current()).toBe(rows[1])
+    expect(scroll.mock.contexts.at(-1)).toBe(rows[1])
+    await userEvent.keyboard('k')
+    expect(current()).toBe(rows[0])
+  })
+
   it('opens the Title from a row', async () => {
     fakeRequests([request({ title_id: 1 })])
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     renderApp()
     await openRequests()
 
-    await userEvent.click((await within(await list()).findAllByRole('listitem'))[0])
+    await userEvent.click(within((await within(await list()).findAllByRole('listitem'))[0]).getAllByRole('button', { hidden: true })[0]) // the row's whole-row button
 
     expect(await screen.findByRole('region', { name: /paddington/i })).toBeInTheDocument()
   })

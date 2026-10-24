@@ -10,7 +10,6 @@ import { FilterBar } from '../filter/FilterBar'
 import { FilterStrip } from '../layout/FilterStrip'
 import { useKey, useListNav } from '../keys'
 import { usePhone } from '../responsive'
-import { NavRow } from '../NavRow'
 import { logFilter, logQualifiers } from './filter'
 
 type Tone = NonNullable<BadgeProps['variant']>
@@ -185,8 +184,7 @@ function PhoneEvent({
   onFilter: (name: 'title', value: string) => void
 }) {
   return (
-    <NavRow scope="log" index={index} sel={sel} onSelect={onSelect}>
-      <Entity as="div">
+    <Entity as="button" current={index === sel} data-nav={`log-${index}`} onClick={onSelect}>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex items-center justify-between gap-2">
             <KindLabel kind={e.kind} />
@@ -197,8 +195,7 @@ function PhoneEvent({
             <span className="text-gray-900">{e.message}</span>
           </div>
         </div>
-      </Entity>
-    </NavRow>
+    </Entity>
   )
 }
 
@@ -252,9 +249,12 @@ function Blocklist() {
         <div className="p-4">
           <Entity.List aria-label="Blocklist">
             {items.map((b, i) => (
-              <NavRow key={b.id} scope="block" index={i} sel={sel} onSelect={() => setSel(i)}>
                 <Entity
-                  as="div"
+                  key={b.id}
+                  as="button"
+                  current={i === sel}
+                  data-nav={`block-${i}`}
+                  onClick={() => setSel(i)}
                   className="flex-col items-stretch"
                   rightClassName="flex-col items-stretch"
                   right={
@@ -271,7 +271,6 @@ function Blocklist() {
                     </div>
                   </div>
                 </Entity>
-              </NavRow>
             ))}
           </Entity.List>
         </div>

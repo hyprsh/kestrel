@@ -2,7 +2,7 @@
 // the view opens at the Today marker, and every entry says where it stands: not out, Wanted, downloading
 // or Imported. j/k and Enter move and open (a group opens or closes), `o` shows an entry's overview, and
 // `t` goes back to today.
-import { Button, Collapse, EmptyState, EntityContent, LoadMoreButton, Note, Tabs, Toggle } from '@hyprsh/design'
+import { Button, Collapse, EmptyState, Entity, LoadMoreButton, Note, Tabs, Toggle } from '@hyprsh/design'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchNow } from '../api/grabs'
@@ -12,7 +12,6 @@ import { plural } from '../format'
 import { useKey, useListNav } from '../keys'
 import { FilterStrip } from '../layout/FilterStrip'
 import { useNow } from '../time'
-import { NavRow } from '../NavRow'
 import { cx } from '../ui'
 import { EntryName, Markers, MovieNotes, otherDates, StateBadges, Standings, TallyBadges } from './bits'
 import { useUpcomingFilters } from './filters'
@@ -31,7 +30,7 @@ import {
   type Block,
   type Day,
 } from './state'
-import { AgendaTimeline, DayHeading, RowDot, WeekLabel } from './Timeline'
+import { AgendaTimeline, DayHeading, WeekLabel } from './Timeline'
 import { TitlePoster } from '../poster'
 import { UndatedList, UndatedRow } from './UndatedList'
 
@@ -219,7 +218,7 @@ export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void })
                       left={<TitlePoster id={u.title_id} hasPoster={u.has_poster} size="sm" />}
                       right={<Standings title={{ kind: u.kind, title_id: u.title_id, season: null, episode: null }} slots={u.slots} queue={queue} now={now} />}
                     >
-                      <EntityContent
+                      <Entity.Content
                         fill
                         title={
                           <>
@@ -273,7 +272,9 @@ function DayBlock({
         {day.blocks.length === 0 ? (
           <p className="label-12 pb-2 pl-9 text-gray-900">Nothing else is due today.</p>
         ) : (
-          <ul aria-label={label}>{day.blocks.map((b) => rowFor(b))}</ul>
+          <div className="pr-3 pb-2 pl-9">
+            <Entity.List aria-label={label}>{day.blocks.map((b) => rowFor(b))}</Entity.List>
+          </div>
         )}
       </li>
     </>
@@ -296,11 +297,7 @@ type RowProps = {
 
 function BlockRows({ block, ...p }: { block: Block } & RowProps) {
   if (block.type === 'entry') {
-    return (
-      <NavRow key={block.key} scope="up" index={p.indexOf.get(block.key) ?? 0} sel={p.sel} onSelect={() => p.onSelect(p.indexOf.get(block.key) ?? 0)} className="relative py-2 pr-3 pl-9">
-        <Entry item={block.item} id={block.key} {...p} />
-      </NavRow>
-    )
+    return <Entry item={block.item} id={block.key} {...p} />
   }
   const first = block.items[0]
   const expanded = p.open.has(block.key)
@@ -308,21 +305,14 @@ function BlockRows({ block, ...p }: { block: Block } & RowProps) {
   const at = airTime(first)
   return (
     <>
-      <NavRow key={block.key} scope="up" index={index} sel={p.sel} onSelect={() => p.onSelect(index)} className="relative py-2 pr-3 pl-9">
-        <RowDot current={p.sel === index} />
-        <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5">
-          <TitlePoster id={first.title_id} hasPoster={first.has_poster} size="sm" />
-          <div className="min-w-0 flex-1 basis-40">
-            <div className="label-14 truncate">
-              <span className="font-medium">{first.title}</span> <span className="text-gray-900">{episodeRange(block.items)} · {plural(block.items.length, 'episode')}</span>
-            </div>
-            <div className="label-12 flex flex-wrap items-center gap-x-2 gap-y-1 text-gray-900">
-              {first.network && <span>{first.network}</span>}
-              {at && <span className="tabular">{at}</span>}
-              <Markers markers={[...new Set(block.items.flatMap((i) => i.markers))]} />
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
+      <Entity
+        as="button"
+        current={p.sel === index}
+        data-nav={`up-${index}`}
+        onClick={() => p.onSelect(index)}
+        left={<TitlePoster id={first.title_id} hasPoster={first.has_poster} size="sm" />}
+        right={
+          <>
             <TallyBadges tallies={tally(block.items, p.queue)} now={p.now} />
             <Button
               variant="tertiary"
@@ -330,26 +320,30 @@ function BlockRows({ block, ...p }: { block: Block } & RowProps) {
               svgOnly
               aria-expanded={expanded}
               aria-label={`${expanded ? 'Hide' : 'Show'} the ${plural(block.items.length, 'episode')} of ${first.title}`}
-              onClick={(e) => {
-                e.stopPropagation()
-                p.onToggleOpen(block.key)
-              }}
+              onClick={() => p.onToggleOpen(block.key)}
             >
               {expanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
             </Button>
-          </div>
-        </div>
-      </NavRow>
-      {expanded &&
-        block.items.map((item) => {
-          const key = upcomingKey(item)
-          const i = p.indexOf.get(key) ?? 0
-          return (
-            <NavRow key={key} scope="up" index={i} sel={p.sel} onSelect={() => p.onSelect(i)} className="relative py-1.5 pr-3 pl-16">
-              <Entry item={item} id={key} child {...p} />
-            </NavRow>
-          )
-        })}
+          </>
+        }
+      >
+        <Entity.Content
+          fill
+          title={
+            <>
+              <span className="font-medium">{first.title}</span> <span className="font-normal text-gray-900">{episodeRange(block.items)} · {plural(block.items.length, 'episode')}</span>
+            </>
+          }
+          description={
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              {first.network && <span>{first.network}</span>}
+              {at && <span className="tabular">{at}</span>}
+              <Markers markers={[...new Set(block.items.flatMap((i) => i.markers))]} />
+            </span>
+          }
+        />
+      </Entity>
+      {expanded && block.items.map((item) => <Entry key={upcomingKey(item)} item={item} id={upcomingKey(item)} child {...p} />)}
     </>
   )
 }
@@ -361,32 +355,34 @@ function Entry({ item, id, child, ...p }: { item: UpcomingItem; id: string; chil
   const others = item.kind === 'movie' ? otherDates(item, p.today) : ''
   const imported = item.slots.length > 0 && item.slots.every((s) => s.state === 'imported')
   const search = p.onSearch(item)
+  const index = p.indexOf.get(id) ?? 0
   return (
-    <div data-imported={imported || undefined} className={cx(imported && 'opacity-60')}>
-      {!child && <RowDot current={p.sel === p.indexOf.get(id)} />}
-      <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5">
-        {!child && <TitlePoster id={item.title_id} hasPoster={item.has_poster} size="sm" />}
-        <div className="min-w-0 flex-1 basis-40">
-          <div className="label-14 truncate">
-            <EntryName item={item} />
-          </div>
-          <div className="label-12 flex flex-wrap items-center gap-x-2 gap-y-1 text-gray-900">
+    <Entity
+      as="button"
+      current={p.sel === index}
+      data-nav={`up-${index}`}
+      data-imported={imported || undefined}
+      className={cx(imported && 'opacity-60', child && 'pl-10')}
+      onClick={() => p.onSelect(index)}
+      left={child ? undefined : <TitlePoster id={item.title_id} hasPoster={item.has_poster} size="sm" />}
+      right={<StateBadges item={item} queue={p.queue} now={p.now} onSearch={search} />}
+    >
+      <Entity.Content
+        fill
+        title={<EntryName item={item} />}
+        description={
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
             {item.network && <span>{item.network}</span>}
             {at && <span className="tabular">{at}</span>}
             {item.kind === 'movie' ? <MovieNotes item={item} /> : <Markers markers={item.markers} />}
-          </div>
-          {others && <div className="label-12 text-gray-900">{others}</div>}
-        </div>
-        <div className="flex items-center gap-2">
-          <StateBadges item={item} queue={p.queue} now={p.now} onSearch={search} />
-        </div>
-      </div>
-      {/* The disclosure sits inside a row that opens the Title on click; a click on it only toggles. */}
-      <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
+          </span>
+        }
+      >
+        {others && <div className="label-12 text-gray-900">{others}</div>}
         <Collapse variant="inline" title="Show overview" expanded={expanded} onChange={() => p.onToggleShown(id)}>
           <p className="copy-13 max-w-prose text-gray-900">{item.overview ?? 'No overview yet.'}</p>
         </Collapse>
-      </div>
-    </div>
+      </Entity.Content>
+    </Entity>
   )
 }

@@ -222,6 +222,24 @@ describe('Activity', () => {
     expect(await screen.findByRole('region', { name: /heat/i })).toBeInTheDocument()
   })
 
+  it('marks the cursor row with aria-current and moves it, scrolled into view, with j and k', async () => {
+    const scroll = vi.fn()
+    Element.prototype.scrollIntoView = scroll
+    fakeLibrary([row(5, 'Paddington', 'Paddington'), row(6, 'Heat', 'Heat')])
+    fakeGrabs([grabEntry({ grab_id: 1, title_id: 5 }), grabEntry({ grab_id: 2, title_id: 6, title: 'Heat', updated_at: new Date(Date.now() - 2 * 3600_000).toISOString() })])
+    await openActivity()
+    const rows = within(await screen.findByRole('region', { name: 'Done · 2' })).getAllByRole('listitem')
+    ;(document.activeElement as HTMLElement).blur()
+    const current = () => document.querySelector('[aria-current="true"]')
+
+    expect(current()).toBe(rows[0])
+    await userEvent.keyboard('j')
+    expect(current()).toBe(rows[1])
+    expect(scroll.mock.contexts.at(-1)).toBe(rows[1])
+    await userEvent.keyboard('k')
+    expect(current()).toBe(rows[0])
+  })
+
   it('shows what waits for a search or is being searched as the Searching stage', async () => {
     server.use(
       http.get('/search/status', ({ response }) =>
