@@ -75,7 +75,7 @@ describe('the Library on a phone', () => {
     const list = await openLibrary()
     expect(screen.queryByRole('region', { name: 'Paddington' })).not.toBeInTheDocument() // no side-by-side pane
 
-    await userEvent.click(within(await within(list).findByRole('option', { name: /heat/i })).getAllByRole('button', { hidden: true })[0]) // the row's whole-row button
+    await userEvent.click(await within(list).findByRole('option', { name: /heat/i }))
     expect(await screen.findByRole('heading', { name: 'Heat' })).toBeInTheDocument()
     expect(screen.queryByRole('listbox', { name: /library/i })).not.toBeInTheDocument()
     expect(location.pathname).toBe('/library/2')
@@ -89,7 +89,7 @@ describe('the Library on a phone', () => {
   it('goes back to the list with the browser Back', async () => {
     fakeLibrary(rows())
     const list = await openLibrary()
-    await userEvent.click(within(await within(list).findByRole('option', { name: /paddington/i })).getAllByRole('button', { hidden: true })[0]) // the row's whole-row button
+    await userEvent.click(await within(list).findByRole('option', { name: /paddington/i }))
     expect(await screen.findByRole('heading', { name: 'Paddington' })).toBeInTheDocument()
 
     history.back()

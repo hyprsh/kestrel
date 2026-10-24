@@ -233,22 +233,26 @@ export function Library({
           aria-activedescendant={current ? `title-${current.id}` : undefined}
           tabIndex={0}
           className="outline-none"
+          onClick={(e) => {
+            // One handler for the listbox: rows are plain options, so Tab has one stop and aria-activedescendant stays valid.
+            const id = (e.target as Element).closest('[role="option"]')?.id
+            const r = rows.find((x) => `title-${x.id}` === id)
+            if (!r) return
+            onSelect(r.id)
+            if (phone) onOpenTitle(r.id)
+            else focusList()
+          }}
         >
           {rows.map((r, i) => (
             <Entity
               key={r.id}
-              as="button"
+              as="li"
               id={`title-${r.id}`}
               role="option"
               aria-selected={i === index}
               current={i === index && !phone}
               data-nav={`lib-${i}`}
               className="max-sm:min-h-12"
-              onClick={() => {
-                onSelect(r.id)
-                if (phone) onOpenTitle(r.id)
-                else focusList()
-              }}
               left={
                 <>
                   {selection.active && <TickBox selection={selection} id={r.id} name={r.title} />}
