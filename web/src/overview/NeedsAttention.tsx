@@ -6,7 +6,6 @@ import { useAttention, useRunAction, type ActionResult, type Attention, type Att
 import { planWaiting, useAdoption, type Adoption } from '../api/adoption'
 import { slotLabel } from '../library/bits'
 import { placePath } from '../place'
-import { NavRow } from '../NavRow'
 import { OriginalsRow } from './OriginalsRow'
 import type { OverviewNav } from './nav'
 import { EmptyLine, firstFive, Section, ViewAllHere } from './Section'
@@ -175,9 +174,12 @@ function Row({ row, onOpen, nav, index }: { row: AttentionRow; onOpen: (path: st
   )
 
   return (
-    <NavRow scope="ov" index={index} sel={nav.sel} onSelect={() => nav.select(index)}>
+    <>
       <Entity
-        as="div"
+        as="button"
+        current={index === nav.sel}
+        data-nav={`ov-${index}`}
+        onClick={() => nav.select(index)}
         className="max-sm:flex-col max-sm:items-stretch"
         left={<Badge variant={row.severity === 'blocking' ? 'red' : 'amber'} contrast="low" size="sm">{row.severity === 'blocking' ? 'Blocking' : 'Warning'}</Badge>}
         right={actions}
@@ -202,7 +204,7 @@ function Row({ row, onOpen, nav, index }: { row: AttentionRow; onOpen: (path: st
           }}
         />
       )}
-    </NavRow>
+    </>
   )
 }
 

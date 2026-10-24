@@ -6,7 +6,6 @@ import { localDay, useRecent, useUpcoming, type RecentItem } from '../api/upcomi
 import { slotLabel, type SlotKey } from '../library/bits'
 import { placePath } from '../place'
 import { useNow } from '../time'
-import { NavRow } from '../NavRow'
 import { UpcomingLine } from '../upcoming/bits'
 import { dayLabel, upcomingKey } from '../upcoming/state'
 import type { OverviewNav } from './nav'
@@ -34,10 +33,18 @@ export function Coming({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void
           {comingItems.map((item, j) => {
             const i = nav.base + j
             return (
-              <NavRow key={upcomingKey(item)} scope="ov" index={i} sel={nav.sel} onSelect={() => open(i, item.title_id)} className="flex items-center gap-3 px-4 py-2">
-                <span className="label-12 w-24 shrink-0 text-gray-900 tabular">{dayLabel(localDay(item))}</span>
-                <UpcomingLine item={item} queue={queue} now={now} />
-              </NavRow>
+              <Entity
+                key={upcomingKey(item)}
+                as="button"
+                current={i === nav.sel}
+                data-nav={`ov-${i}`}
+                onClick={() => open(i, item.title_id)}
+                left={<span className="label-12 w-24 shrink-0 text-gray-900 tabular">{dayLabel(localDay(item))}</span>}
+              >
+                <Entity.Content fill>
+                  <UpcomingLine item={item} queue={queue} now={now} />
+                </Entity.Content>
+              </Entity>
             )
           })}
         </Entity.List>
@@ -60,11 +67,7 @@ export function RecentlyAdded({ onOpenTitle, nav }: { onOpenTitle: (id: number) 
         <Entity.List>
           {recentItems.map((item, j) => {
             const i = nav.base + j
-            return (
-              <NavRow key={`${item.title_id}-${item.slot}-${item.imported_at}`} scope="ov" index={i} sel={nav.sel} onSelect={() => open(i, item.title_id)} className="flex items-center gap-3 px-4 py-2">
-                <RecentRow item={item} />
-              </NavRow>
-            )
+            return <RecentRow key={`${item.title_id}-${item.slot}-${item.imported_at}`} item={item} index={i} sel={nav.sel} onSelect={() => open(i, item.title_id)} />
           })}
         </Entity.List>
       )}
@@ -73,22 +76,34 @@ export function RecentlyAdded({ onOpenTitle, nav }: { onOpenTitle: (id: number) 
   )
 }
 
-function RecentRow({ item }: { item: RecentItem }) {
+function RecentRow({ item, index, sel, onSelect }: { item: RecentItem; index: number; sel: number; onSelect: () => void }) {
   return (
-    <>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate">
-          <span className="font-medium">{item.title}</span>
-          {item.year ? <span className="text-gray-900"> {item.year}</span> : null}
-          {item.files > 1 ? <span className="text-gray-900"> · {item.files} files</span> : null}
-        </span>
-        <span className="label-12-mono block truncate text-gray-900">{item.release_name}</span>
-      </span>
-      <Badge variant="gray" contrast="low" size="sm">{slotLabel[item.slot as SlotKey]}</Badge>
-      {item.is_upgrade && <Badge variant="purple" contrast="low" size="sm">Upgrade</Badge>}
-      {item.score != null && <span className="label-12 text-gray-900 tabular">{item.score}</span>}
-      <span className="label-12 w-10 shrink-0 text-right tabular">{item.score_delta != null ? `+${item.score_delta}` : 'new'}</span>
-      <span className="label-12 w-28 shrink-0 text-right text-gray-900">{new Date(item.imported_at).toLocaleDateString(undefined, { dateStyle: 'medium' })}</span>
-    </>
+    <Entity
+      as="button"
+      current={index === sel}
+      data-nav={`ov-${index}`}
+      onClick={onSelect}
+      right={
+        <>
+          <Badge variant="gray" contrast="low" size="sm">{slotLabel[item.slot as SlotKey]}</Badge>
+          {item.is_upgrade && <Badge variant="purple" contrast="low" size="sm">Upgrade</Badge>}
+          {item.score != null && <span className="label-12 text-gray-900 tabular">{item.score}</span>}
+          <span className="label-12 w-10 shrink-0 text-right tabular">{item.score_delta != null ? `+${item.score_delta}` : 'new'}</span>
+          <span className="label-12 w-28 shrink-0 text-right text-gray-900">{new Date(item.imported_at).toLocaleDateString(undefined, { dateStyle: 'medium' })}</span>
+        </>
+      }
+    >
+      <Entity.Content
+        fill
+        title={
+          <>
+            <span className="font-medium">{item.title}</span>
+            {item.year ? <span className="font-normal text-gray-900"> {item.year}</span> : null}
+            {item.files > 1 ? <span className="font-normal text-gray-900"> · {item.files} files</span> : null}
+          </>
+        }
+        description={<span className="label-12-mono">{item.release_name}</span>}
+      />
+    </Entity>
   )
 }

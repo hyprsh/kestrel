@@ -2,7 +2,7 @@ import { CheckSquare, Eraser, FolderInput, Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useProfiles, useTitles, type TitleRow } from '../api/queries'
 import { useOpenCleanup } from '../cleanup/launch'
-import { Button, Collapse, EmptyState, KeyboardInput, Note, parseQuery } from '@hyprsh/design'
+import { Button, Collapse, EmptyState, Entity, KeyboardInput, Note, parseQuery } from '@hyprsh/design'
 import { useKey, useListNav } from '../keys'
 import { SelectionBar } from '../layout/SelectionBar'
 import { useSelection } from '../selection'
@@ -15,7 +15,6 @@ import { PhoneBackHeader } from '../layout/PhoneBackHeader'
 import { KindIcon, SlotDots } from './bits'
 import { BulkActions } from './BulkActions'
 import { filterLibrary, libraryQualifiers } from './filter'
-import { LibraryRow } from './LibraryRow'
 import { ManualSearch } from './ManualSearch'
 import { slotLabel } from './bits'
 import { TickBox } from './TickBox'
@@ -74,7 +73,8 @@ export function Library({
   const [search, setSearch] = useState<(ManualSearchTarget & { titleId: number }) | null>(null)
   const searching = search !== null && search.titleId === current?.id
 
-  const focusList = () => listRef.current?.focus()
+  // EntityList takes no ref, so the scroller holds it and the listbox is its one list.
+  const focusList = () => listRef.current?.querySelector<HTMLElement>('[role=listbox]')?.focus()
   useEffect(focusList, [])
   useListNav('lib', rows.length, index, (i) => onSelect(rows[i].id), () => paneRef.current?.focus(), !searching)
   useKey(
@@ -226,43 +226,50 @@ export function Library({
         </FilterStrip>
       )}
 
-      <div
-        ref={listRef}
-        role="listbox"
-        aria-label="Library"
-        aria-activedescendant={current ? `title-${current.id}` : undefined}
-        tabIndex={0}
-        className="min-h-0 flex-1 overflow-auto p-1.5 outline-none"
-      >
-        {rows.map((r, i) => (
-          <LibraryRow
-            key={r.id}
-            id={r.id}
-            index={i}
-            selected={i === index}
-            phone={phone}
-            onClick={() => {
-              onSelect(r.id)
-              if (phone) onOpenTitle(r.id)
-              else focusList()
-            }}
-          >
-            {selection.active && <TickBox selection={selection} id={r.id} name={r.title} />}
-            <KindIcon kind={r.kind} className="shrink-0 text-gray-900" />
-            <div className="min-w-0 flex-1">
-              <div className="label-14 truncate">
-                {r.title}
-                {r.year ? <span className="ml-1.5 text-gray-900">{r.year}</span> : null}
-              </div>
-              {r.primary_title !== r.title && (
-                <div data-primary-title className="label-12 truncate text-gray-900">
-                  {r.primary_title}
-                </div>
-              )}
-            </div>
-            <SlotDots slots={r.slots} />
-          </LibraryRow>
-        ))}
+      <div ref={listRef} className="min-h-0 flex-1 overflow-auto p-1.5">
+        <Entity.List
+          role="listbox"
+          aria-label="Library"
+          aria-activedescendant={current ? `title-${current.id}` : undefined}
+          tabIndex={0}
+          className="outline-none"
+        >
+          {rows.map((r, i) => (
+            <Entity
+              key={r.id}
+              as="button"
+              id={`title-${r.id}`}
+              role="option"
+              aria-selected={i === index}
+              current={i === index && !phone}
+              data-nav={`lib-${i}`}
+              className="max-sm:min-h-12"
+              onClick={() => {
+                onSelect(r.id)
+                if (phone) onOpenTitle(r.id)
+                else focusList()
+              }}
+              left={
+                <>
+                  {selection.active && <TickBox selection={selection} id={r.id} name={r.title} />}
+                  <KindIcon kind={r.kind} className="shrink-0 text-gray-900" />
+                </>
+              }
+              right={<SlotDots slots={r.slots} />}
+            >
+              <Entity.Content
+                fill
+                title={
+                  <span className="truncate">
+                    {r.title}
+                    {r.year ? <span className="ml-1.5 font-normal text-gray-900">{r.year}</span> : null}
+                  </span>
+                }
+                description={r.primary_title !== r.title ? <span data-primary-title>{r.primary_title}</span> : undefined}
+              />
+            </Entity>
+          ))}
+        </Entity.List>
       </div>
 
       {!phone && (

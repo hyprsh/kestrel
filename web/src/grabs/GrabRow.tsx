@@ -5,7 +5,6 @@ import type { ReactNode } from 'react'
 import type { QueueItem } from '../api/queue'
 import { slotLabel, type SlotKey } from '../library/bits'
 import type { RowNav } from '../keys'
-import { NavRow } from '../NavRow'
 import { TitlePoster } from '../poster'
 
 /** What a row shows of the Grab's Title and Release: a queue item or a listed Grab. */
@@ -16,8 +15,8 @@ type GrabSubject = Pick<QueueItem, 'title_id' | 'has_poster' | 'title' | 'year' 
 /**
  * A Grab's row: its Title's poster and name (left out with `withTitle={false}`, on the
  * Title's own page), Slot, episodes, Release, then `children` and the `actions`.
- * Clicking the poster or the name opens the Title. With `nav` the row is a NavRow (the j/k
- * cursor) around the Entity; without it the Entity is the list item.
+ * Clicking the poster or the name opens the Title. With `nav` the row is the j/k cursor: an Entity with `current`
+ * that selects on click; without it the Entity is a plain list item.
  */
 export function GrabRow({
   grab: g,
@@ -72,18 +71,19 @@ export function GrabRow({
       <span className="w-10" />
     )
   ) : undefined
-  const row = (
-    <Entity as={nav ? 'div' : 'li'} left={left} right={actions} className="max-sm:flex-col max-sm:items-stretch">
+  return (
+    <Entity
+      as={nav ? 'button' : 'li'}
+      current={nav ? nav.index === nav.sel : undefined}
+      data-nav={nav ? `${nav.scope}-${nav.index}` : undefined}
+      onClick={nav?.onSelect}
+      left={left}
+      right={actions}
+      className="max-sm:flex-col max-sm:items-stretch"
+    >
       <Entity.Content fill title={title} description={<span className="label-12-mono">{g.release_name}</span>}>
         {children}
       </Entity.Content>
     </Entity>
-  )
-  return nav ? (
-    <NavRow scope={nav.scope} index={nav.index} sel={nav.sel} onSelect={nav.onSelect}>
-      {row}
-    </NavRow>
-  ) : (
-    row
   )
 }

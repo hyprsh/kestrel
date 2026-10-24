@@ -2,7 +2,7 @@
 // with stage chips and one filter field above it. It stays live through the stream: the queue
 // from `queue` frames, the stalled and finished Grabs from the `grab` hints, Searching from
 // `search` frames.
-import { Button, DestructiveActionModal, EmptyState, Link, Note, parseQuery } from '@hyprsh/design'
+import { Button, DestructiveActionModal, EmptyState, Entity, Link, Note, parseQuery } from '@hyprsh/design'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useFinishedGrabs, useStalledGrabs, useStalledImport, HISTORY_DAYS, type GrabEntry } from '../api/activity'
 import { useSearchNow } from '../api/grabs'
@@ -110,12 +110,14 @@ export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQue
         (g) =>
           g.entries.length > 0 && (
             <SectionBlock key={g.stage} title={stageLabel[g.stage]} count={g.entries.length}>
-              <ul aria-label={stageLabel[g.stage]}>
-                {g.entries.map((e) => {
-                  const i = index++
-                  return <EntryRow key={e.key} entry={e} now={now} nav={{ scope: 'act', index: i, sel, onSelect: () => setSel(i) }} onOpenTitle={onOpenTitle} />
-                })}
-              </ul>
+              <div className="px-4 pt-1 pb-4">
+                <Entity.List aria-label={stageLabel[g.stage]}>
+                  {g.entries.map((e) => {
+                    const i = index++
+                    return <EntryRow key={e.key} entry={e} now={now} nav={{ scope: 'act', index: i, sel, onSelect: () => setSel(i) }} onOpenTitle={onOpenTitle} />
+                  })}
+                </Entity.List>
+              </div>
             </SectionBlock>
           ),
       )}

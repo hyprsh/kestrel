@@ -126,6 +126,7 @@ const daysBetween = (range: string) => {
 
 const timeline = () => screen.getByRole('list', { name: 'Agenda' })
 const current = () => document.querySelector('[aria-current="true"]')
+const cover = (row: HTMLElement) => within(row).getAllByRole('button', { hidden: true })[0] // the row's whole-row button, which a click lands on
 const rowOf = (text: string | RegExp) => within(timeline()).getByText(text).closest('li')!
 
 describe('Upcoming timeline', () => {
@@ -185,7 +186,7 @@ describe('Upcoming: where each entry stands', () => {
     expect(within(rowOf('Forgotten')).getByText('Long missing 120 days')).toBeInTheDocument()
     const done = rowOf('Done')
     expect(within(done).getByText('1080p · Standard')).toBeInTheDocument()
-    expect(done.querySelector('[data-imported]')).not.toBeNull() // dimmed
+    expect(done).toHaveAttribute('data-imported') // dimmed
   })
 
   it('shows each Slot of a Title with two', async () => {
@@ -293,9 +294,9 @@ describe('Upcoming: context and grouping', () => {
     const group = rowOf(/S02E01–E03/)
     expect(group).toHaveTextContent('3 episodes')
     expect(screen.queryByText(/Ep 2/)).not.toBeInTheDocument()
-    await userEvent.click(group)
+    await userEvent.click(cover(group))
     expect(screen.getByText(/Ep 2/)).toBeInTheDocument()
-    await userEvent.click(rowOf(/S02E01–E03/))
+    await userEvent.click(cover(rowOf(/S02E01–E03/)))
     expect(screen.queryByText(/Ep 2/)).not.toBeInTheDocument()
   })
 

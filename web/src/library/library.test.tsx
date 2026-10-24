@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
 import { detail, fakeLibrary, row } from '../test/library'
@@ -74,6 +74,23 @@ describe('the Library list', () => {
     expect(list).toHaveFocus()
     await userEvent.keyboard('j')
     expect(selected()).toHaveTextContent('Heat')
+  })
+
+  it('marks the cursor option with aria-current and scrolls it into view as j and k move it', async () => {
+    const scroll = vi.fn()
+    Element.prototype.scrollIntoView = scroll
+    fakeLibrary(rows())
+    const list = await openLibrary()
+    const options = await within(list).findAllByRole('option')
+    const current = () => document.querySelector('[aria-current="true"]')
+
+    expect(current()).toBe(options[0])
+    await userEvent.keyboard('j')
+    expect(current()).toBe(options[1])
+    expect(current()).toBe(selected())
+    expect(scroll.mock.contexts.at(-1)).toBe(options[1])
+    await userEvent.keyboard('k')
+    expect(current()).toBe(options[0])
   })
 
   it('filters from the keyboard: / focuses the filter, arrows keep moving, Escape clears it', async () => {
