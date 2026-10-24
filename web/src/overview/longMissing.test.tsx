@@ -49,13 +49,19 @@ describe('the Long Missing row in Needs attention', () => {
     expect(within(section).queryByText(/ancient film/i)).not.toBeInTheDocument()
     expect(await screen.findByRole('button', { name: /overview.*1 needs? attention/i })).toBeInTheDocument()
 
-    await userEvent.click(within(section).getByRole('button', { name: 'Show' }))
+    const toggle = within(section).getByRole('button', { name: '7 Versions long missing' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
 
     const items = within(section).getAllByRole('listitem')
     expect(items[1]).toHaveTextContent('Ancient Film · Standard · hd-primary')
     expect(items[1]).toHaveTextContent('Wanted since 2026-01-01, last failure: download failed')
     expect(items[2]).toHaveTextContent('Older Film · 4K')
     expect(items[2]).not.toHaveTextContent(/last failure/i)
+
+    await userEvent.click(toggle)
+    expect(within(section).queryByText(/ancient film/i)).not.toBeInTheDocument()
   })
 
   it('shows alone, with nothing else needing attention and no badge', async () => {
@@ -77,6 +83,7 @@ describe('the Long Missing row in Needs attention', () => {
     ])
     renderApp()
 
+    await userEvent.click(await screen.findByRole('button', { name: '7 Versions long missing' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Open in Library' }))
 
     const list = await screen.findByRole('listbox', { name: /library/i })

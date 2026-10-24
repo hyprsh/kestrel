@@ -5,7 +5,9 @@ import { FilterStrip } from './FilterStrip'
 import { PageSurface } from './PageSurface'
 import { PaneFooter, PaneHeader } from './Pane'
 import { PhoneBackHeader } from './PhoneBackHeader'
+import { Rail, RailSpacer } from './Rail'
 import { SectionBlock } from './SectionBlock'
+import { PhoneTopBar, TopBar } from './TopBar'
 
 describe('the layout pieces', () => {
   it('FilterStrip holds its children', () => {
@@ -55,5 +57,34 @@ describe('the layout pieces', () => {
       </PageSurface>,
     )
     expect(screen.getByRole('heading', { name: 'Log in' })).toBeInTheDocument()
+  })
+
+  it('Rail is a navigation landmark around its children', () => {
+    render(
+      <Rail>
+        <button>Add</button>
+        <RailSpacer />
+        <button>About</button>
+      </Rail>,
+    )
+    expect(within(screen.getByRole('navigation')).getAllByRole('button').map((b) => b.textContent)).toEqual(['Add', 'About'])
+  })
+
+  it('TopBar and PhoneTopBar show the title, the middle and the end', () => {
+    render(
+      <>
+        <TopBar title="Library" end={<span>status</span>}>
+          <button>Search</button>
+        </TopBar>
+        <PhoneTopBar title="Log">
+          <button>Add</button>
+        </PhoneTopBar>
+      </>,
+    )
+    const [desktop, phone] = screen.getAllByRole('banner')
+    expect(desktop).toHaveTextContent('LibrarySearchstatus')
+    expect(within(desktop).getByRole('button', { name: 'Search' })).toBeInTheDocument()
+    expect(phone).toHaveTextContent('Log')
+    expect(within(phone).getByRole('button', { name: 'Add' })).toBeInTheDocument()
   })
 })
