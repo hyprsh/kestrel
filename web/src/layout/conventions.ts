@@ -9,12 +9,24 @@
 // needs a piece to look different, change the piece or add another; do not pass styling in.
 //
 // THE PIECES
-//   FilterStrip      filter/tab strip above a list              <FilterStrip>{tabs, filter field}</FilterStrip>
-//   PaneHeader       top of a pane                              <PaneHeader>{title, controls}</PaneHeader>
-//   PaneFooter       bottom of a pane                           <PaneFooter>{status, actions}</PaneFooter>
-//   PhoneBackHeader  Back button and title over a phone screen  <PhoneBackHeader onBack={...}>{title}</PhoneBackHeader>
-//   SectionBlock     static section with a title and count     <SectionBlock title="Downloading" count={3}>{rows}</SectionBlock>
-//   PageSurface      centred card page (Login, setup wizard)    <PageSurface>{form}</PageSurface>
+// One file per piece, except where noted: a file that exports two pieces lists both.
+//   FilterStrip.tsx       filter/tab strip above a list          <FilterStrip>{tabs, filter field}</FilterStrip>
+//   JumpNav.tsx           JumpNav and JumpLink: sticky links     <JumpNav label="Sections"><JumpLink href onClick>{name}</JumpLink></JumpNav>
+//                         that jump to sections of the page
+//   ListPane.tsx          list column beside a detail pane       <ListPane>{list}</ListPane>
+//   PageSurface.tsx       centred card page (Login)              <PageSurface>{form}</PageSurface>
+//   Pane.tsx              PaneHeader and PaneFooter: top and     <PaneHeader>{title, controls}</PaneHeader>
+//                         bottom of a pane                       <PaneFooter>{status, actions}</PaneFooter>
+//   PhoneBackHeader.tsx   Back button and title over a phone     <PhoneBackHeader onBack={...}>{title}</PhoneBackHeader>
+//                         screen
+//   Rail.tsx              Rail and RailSpacer: the desktop       <Rail>{icon buttons}<RailSpacer /></Rail>
+//                         navigation rail and its gap
+//   SectionBlock.tsx      static section with a title and count  <SectionBlock title="Downloading" count={3}>{rows}</SectionBlock>
+//   SelectionBar.tsx      count, select-all, Clear and actions  <SelectionBar selection={...} shown={n}>{actions}</SelectionBar>
+//                         for a ticked selection
+//   TopBar.tsx            TopBar and PhoneTopBar: the app        <TopBar title end>{command box}</TopBar>
+//                         header on a desktop and on a phone     <PhoneTopBar title>{actions}</PhoneTopBar>
+//   WidePage.tsx          wide, long page of cards (setup)       <WidePage>{cards}</WidePage>
 //
 // WHAT THE CHECK FORBIDS
 // `make lint-web` runs `npm --prefix web run chrome` (web/scripts/chromeCheck.ts) over the SPA source, tests
