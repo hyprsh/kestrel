@@ -50,11 +50,12 @@
 //      pre -> CodeBlock      svg -> Icon
 //    `ul`, `ol`, `li`, `img`, `nav` and `header` are not flagged: CODING_STANDARDS.md says when a list is an
 //    Entity.List.
-// 3. Hand-built roles. A `role` attribute on an intrinsic element (a design component may take a role, as in
-//    `<Note role="alert">`):
+// 3. Hand-built roles. A `role` attribute for a widget, on any JSX tag, intrinsic or a design component
+//    (giving a component a widget role is hand-building that widget):
 //      dialog -> Modal      alertdialog -> DestructiveActionModal      switch -> Toggle
 //      tab, tablist -> Tabs      menu, menuitem -> Menu      listbox, option -> Select or Combobox
-//      progressbar -> Progress      tooltip -> Tooltip      alert -> Error
+//      progressbar -> Progress      tooltip -> Tooltip
+//    `alert -> Error` is flagged on an intrinsic element only: `<Note role="alert">` and `<Error role="alert">` pass.
 // 4. Hand-built overlays. `window.confirm`, `window.alert` and `window.prompt` -> Modal or
 //    DestructiveActionModal; `createPortal` -> Toast, Popover or Sheet.
 // 5. Tests. In `*.test.ts(x)` and src/test/, `toHaveClass(`, `.className`, `classList` and

@@ -81,9 +81,18 @@ describe('the chrome check', () => {
       expect(m).toContain('role="alert"')
       expect(m).toContain('Error')
       expect(messages(`const a = <div role="tablist" />\n`)).toHaveLength(1)
-      expect(messages(`const a = <Note role="alert">x</Note>\n`)).toEqual([])
+      expect(messages(`const a = <Note role="alert">x</Note>\n<Error role="alert">x</Error>\n`)).toEqual([])
       expect(messages(`const a = <div role="grid" />\n`)).toEqual([])
       expect(messages(`const a = <div role="valueOf" />\n`)).toEqual([])
+    })
+
+    it('flags a widget role on a design component too, but not alert', () => {
+      const [m, ...rest] = messages(`const a = <Entity.List role="listbox" />\n`)
+      expect(rest).toEqual([])
+      expect(m).toContain('role="listbox" on <Entity.List>')
+      expect(messages(`const a = <Entity role="option" />\n`)).toHaveLength(1)
+      expect(messages(`const a = <Panel role="dialog" />\n`)).toHaveLength(1)
+      expect(messages(`const a = <Note role="alert">x</Note>\n`)).toEqual([])
     })
 
     it('flags window.confirm, alert and prompt and createPortal', () => {

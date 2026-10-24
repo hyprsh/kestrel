@@ -116,16 +116,14 @@ function hitsIn(file: string, source: string): Hit[] {
     else if (ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) scan(node, node.rawText ?? '')
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
       const tag = node.tagName
-      if (ts.isIdentifier(tag) && /^[a-z]/.test(tag.text)) {
-        const line = lineOf(node.getStart(sf))
-        if (Object.hasOwn(TAGS, tag.text)) found.push({ line, message: `<${tag.text}> is hand-built markup. Use ${TAGS[tag.text]}` })
-        for (const attr of node.attributes.properties) {
-          if (!ts.isJsxAttribute(attr) || attr.name.getText(sf) !== 'role') continue
-          const role = roleOf(attr)
-          if (role !== undefined && Object.hasOwn(ROLES, role)) {
-            found.push({ line: lineOf(attr.getStart(sf)), message: `role="${role}" on <${tag.text}> is hand-built. Use ${ROLES[role]}` })
-          }
-        }
+      const intrinsic = ts.isIdentifier(tag) && /^[a-z]/.test(tag.text)
+      if (intrinsic && Object.hasOwn(TAGS, tag.text)) found.push({ line: lineOf(node.getStart(sf)), message: `<${tag.text}> is hand-built markup. Use ${TAGS[tag.text]}` })
+      for (const attr of node.attributes.properties) {
+        if (!ts.isJsxAttribute(attr) || attr.name.getText(sf) !== 'role') continue
+        const role = roleOf(attr)
+        // A widget role is hand-building that widget on any tag; `alert` is only flagged on an intrinsic element.
+        if (role === undefined || !Object.hasOwn(ROLES, role) || (role === 'alert' && !intrinsic)) continue
+        found.push({ line: lineOf(attr.getStart(sf)), message: `role="${role}" on <${tag.getText(sf)}> is hand-built. Use ${ROLES[role]}` })
       }
     }
     if (ts.isCallExpression(node)) {
