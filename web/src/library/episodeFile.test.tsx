@@ -1,8 +1,11 @@
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { delay } from 'msw'
+import { describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
+import { http } from '../test/handlers'
+import { server } from '../test/server'
 import { cell, episode, fakeSeries } from '../test/series'
 
 const pilotPath = '/media/tv/Breaking Bad (2008) {tvdb-81189}/Season 01/Breaking Bad (2008) - S01E01-E02 - [Standard][WEBDL-1080p].mkv'
@@ -51,27 +54,46 @@ describe('episode titles', () => {
   })
 })
 
+describe('the episodes loading line', () => {
+  it('shows only after about 300ms', async () => {
+    const state = fakeSeries()
+    state.get().episodes = [episode(2, 1, 1, 'Pilot')]
+    server.use(
+      http.get('/titles/{id}/episodes', async ({ response }) => {
+        await delay(900)
+        return response(200).json({ items: state.get().episodes })
+      }),
+    )
+    render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    await screen.findByRole('region', { name: 'Episodes' })
+    expect(screen.queryByText('Loading episodes…')).not.toBeInTheDocument()
+    expect(await screen.findByText('Loading episodes…')).toBeInTheDocument()
+    expect(await screen.findByRole('grid', { name: 'Episodes' })).toBeInTheDocument()
+  })
+})
+
 describe('the file of an episode cell', () => {
   it('names the path, Score, quality and size in the tooltip', async () => {
     const { grid } = await openSeries()
-    const tip = within(grid).getByRole('img', { name: 'Season 1 episode 1 Standard: Filled' }).getAttribute('title')
+    const tip = within(grid).getByRole('button', { name: 'Season 1 episode 1 Standard: Filled' }).getAttribute('title')
     expect(tip).toContain('Score 120')
     expect(tip).toContain('WEBDL-1080p')
     expect(tip).toContain('2.0 GB')
     expect(tip).toContain(pilotPath)
-    expect(within(grid).getByRole('img', { name: 'Season 1 episode 3 Standard: Wanted' }).getAttribute('title')).toBe('Standard: Wanted')
+    expect(within(grid).getByRole('button', { name: 'Season 1 episode 3 Standard: Wanted' }).getAttribute('title')).toBe('Standard: Wanted')
   })
 
   it('opens a popover on click whose Copy button copies the path', async () => {
     const { user, grid } = await openSeries()
-    await user.click(within(grid).getByRole('img', { name: 'Season 1 episode 1 Standard: Filled' }))
+    await user.click(within(grid).getByRole('button', { name: 'Season 1 episode 1 Standard: Filled' }))
 
     const pop = await screen.findByRole('dialog', { name: 'Season 1 episode 1 Standard file' })
     expect(within(pop).getByText(pilotPath)).toBeInTheDocument()
     expect(within(pop).getByText(/holds 2 episodes/)).toBeInTheDocument()
-    await user.click(within(pop).getByRole('button', { name: 'Copy path' }))
+    await user.click(within(pop).getByRole('button', { name: 'Copy to Clipboard' }))
     expect(await navigator.clipboard.readText()).toBe(pilotPath)
-    expect(within(pop).getByRole('button', { name: 'Copied' })).toBeInTheDocument()
+    expect(within(pop).getByText('Copied to clipboard')).toBeInTheDocument()
 
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -79,12 +101,24 @@ describe('the file of an episode cell', () => {
     expect(screen.getByRole('grid', { name: 'Episodes' })).toBeInTheDocument()
   })
 
+  it('opens the popover from the keyboard and tells the user to copy by hand when the clipboard fails', async () => {
+    const { user, grid } = await openSeries()
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'))
+    const cell = within(grid).getByRole('button', { name: 'Season 1 episode 1 Standard: Filled' })
+    cell.focus()
+    await user.keyboard('{Enter}')
+
+    const pop = await screen.findByRole('dialog', { name: 'Season 1 episode 1 Standard file' })
+    await user.click(within(pop).getByRole('button', { name: 'Copy to Clipboard' }))
+    expect(await within(pop).findByText(/copy it manually/)).toBeInTheDocument()
+  })
+
   it('closes the popover on a click elsewhere and opens none for a cell without a file', async () => {
     const { user, grid } = await openSeries()
-    await user.click(within(grid).getByRole('img', { name: 'Season 1 episode 2 Standard: Filled' }))
+    await user.click(within(grid).getByRole('button', { name: 'Season 1 episode 2 Standard: Filled' }))
     expect(await screen.findByRole('dialog', { name: 'Season 1 episode 2 Standard file' })).toBeInTheDocument()
 
-    await user.click(within(grid).getByRole('img', { name: 'Season 1 episode 3 Standard: Wanted' }))
+    await user.click(within(grid).getByRole('button', { name: 'Season 1 episode 3 Standard: Wanted' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 })

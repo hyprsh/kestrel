@@ -129,9 +129,9 @@ describe('the episodes heat map', () => {
     const { grid } = await openSeries()
     expect(within(grid).getByRole('checkbox', { name: 'Specials' })).toBeInTheDocument()
     expect(within(grid).getByRole('checkbox', { name: 'Season 1' })).toBeChecked()
-    expect(within(grid).getByRole('img', { name: 'Season 1 episode 1 Standard: Filled' })).toBeInTheDocument()
-    expect(within(grid).getByRole('img', { name: 'Season 1 episode 1 4K: Wanted' })).toBeInTheDocument()
-    expect(within(grid).getByRole('img', { name: 'Season 1 episode 2 Standard: Unreleased' })).toBeInTheDocument()
+    expect(within(grid).getByRole('button', { name: 'Season 1 episode 1 Standard: Filled' })).toBeInTheDocument()
+    expect(within(grid).getByRole('button', { name: 'Season 1 episode 1 4K: Wanted' })).toBeInTheDocument()
+    expect(within(grid).getByRole('button', { name: 'Season 1 episode 2 Standard: Unreleased' })).toBeInTheDocument()
     await userEvent.click(within(grid).getByRole('button', { name: 'Specials episodes' })) // Specials start closed
     expect(within(grid).getByRole('checkbox', { name: 'Season 0 episode 1 monitored' })).not.toBeChecked()
     expect(within(grid).getByText('no air date')).toBeInTheDocument()
@@ -154,7 +154,7 @@ describe('the episodes heat map', () => {
 
     // Right moves along the row onto the Standard cell; Space there toggles the same episode.
     await userEvent.keyboard('{ArrowRight}')
-    expect(within(grid).getByRole('img', { name: 'Season 0 episode 1 Standard: Unmonitored' })).toHaveFocus()
+    expect(within(grid).getByRole('button', { name: 'Season 0 episode 1 Standard: Unmonitored' })).toHaveFocus()
 
     // Down to the Season 1 row; Space unmonitors the whole season.
     await userEvent.keyboard('{ArrowLeft}{ArrowDown}')

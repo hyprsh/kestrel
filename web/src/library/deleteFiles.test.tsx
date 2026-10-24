@@ -205,12 +205,12 @@ describe('deleting files from the episodes heat map', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     const grid = await screen.findByRole('grid', { name: 'Episodes' })
 
-    expect(within(grid).getByRole('img', { name: 'Season 1 episode 1 4K: Filled' })).toBeInTheDocument()
+    expect(within(grid).getByRole('button', { name: 'Season 1 episode 1 4K: Filled' })).toBeInTheDocument()
     await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 1' }))
     expect(screen.getByRole('menuitem', { name: 'Delete file' })).not.toHaveAttribute('aria-disabled', 'true')
     await userEvent.keyboard('{Escape}')
 
-    expect(within(grid).getByRole('img', { name: 'Season 1 episode 2 4K: Wanted' })).toBeInTheDocument()
+    expect(within(grid).getByRole('button', { name: 'Season 1 episode 2 4K: Wanted' })).toBeInTheDocument()
     await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 2' }))
     expect(screen.getByRole('menuitem', { name: 'Delete file' })).toHaveAttribute('aria-disabled', 'true')
   })

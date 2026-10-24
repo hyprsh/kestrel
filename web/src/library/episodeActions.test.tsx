@@ -144,7 +144,7 @@ describe('searching from the episodes heat map', () => {
 
   it('ticks all of only the episodes shown, not those of a closed season', async () => {
     const { grid } = await openSeries() // Specials start closed
-    within(grid).getByRole('img', { name: 'Season 1 episode 1 Standard: Filled' }).focus()
+    within(grid).getByRole('button', { name: 'Season 1 episode 1 Standard: Filled' }).focus()
     await userEvent.keyboard('x')
     const bar = screen.getByRole('group', { name: 'Selection' })
 
@@ -190,7 +190,7 @@ describe('searching from the episodes heat map', () => {
 
   it('opens a row menu from the keyboard and Escape closes it, back on the cell', async () => {
     const { grid } = await openSeries()
-    const cell = within(grid).getByRole('img', { name: 'Season 1 episode 1 4K: Wanted' })
+    const cell = within(grid).getByRole('button', { name: 'Season 1 episode 1 4K: Wanted' })
     cell.focus()
 
     await userEvent.keyboard('{Shift>}{F10}{/Shift}')
@@ -206,7 +206,7 @@ describe('searching from the episodes heat map', () => {
 
   it('ticks the focused episode with x and Escape clears the ticks first', async () => {
     const { grid } = await openSeries()
-    within(grid).getByRole('img', { name: 'Season 1 episode 1 Standard: Filled' }).focus()
+    within(grid).getByRole('button', { name: 'Season 1 episode 1 Standard: Filled' }).focus()
 
     await userEvent.keyboard('x')
     expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('1 ticked')

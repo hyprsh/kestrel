@@ -1,8 +1,6 @@
-// chrome: pending
 // What the episode grid can do beyond monitoring: Search now and Manual search
 // for an episode, a season or the ticked episodes, from each row's menu and
 // the selection bar, and Delete files (DeleteFiles.tsx) in the same menus and bar.
-import { MoreHorizontal } from 'lucide-react'
 import { useMemo, useState, type KeyboardEvent } from 'react'
 import { useSearchNow } from '../api/grabs'
 import { useProfiles, type Episode, type EpisodeScope, type TitleDetail } from '../api/queries'
@@ -12,6 +10,7 @@ import { cx } from '../ui'
 import { slotLabel, type SlotKey } from './bits'
 import { episodeCode, episodeRow, seasonName, seasonRow, type ActionStatus, type EpisodeVersion } from './episodes'
 import { DeleteMenuItems, DeleteTickedButtons, EpisodeDeleteConfirm, useEpisodeDeletes, type EpisodeDeletes } from './DeleteFiles'
+import { EpisodeRowMenuButton } from './EpisodeRowMenuButton'
 import { TickBox } from './TickBox'
 import type { ManualSearchTarget } from './TitleDetail'
 import { useFade } from './useFade'
@@ -113,24 +112,6 @@ export function useEpisodeActions(
 
 const nothingWanted = 'Nothing here is Wanted'
 const wantedIn = (eps: Episode[], versions: EpisodeVersion[]) => versions.some((v) => eps.some((e) => e.cells[v.slot]?.state === 'wanted'))
-/**
- * The ⋯ button of a row menu: out of the Tab order, since the grid has a roving focus. The menu
- * hands focus back to this button when it closes; it passes it on to the row's cell, where the
- * keyboard was.
- */
-const rowMenuButton = (label: string) => (
-  <Menu.Button
-    svgOnly
-    variant="tertiary"
-    size="tiny"
-    tabIndex={-1}
-    aria-label={label}
-    className="aria-expanded:bg-gray-alpha-200"
-    onFocus={(e) => e.currentTarget.closest('[role="row"]')?.querySelector<HTMLElement>('[data-cell][tabindex="0"]')?.focus()}
-  >
-    <MoreHorizontal className="size-4" />
-  </Menu.Button>
-)
 
 /** The ⋯ menu of one episode row. */
 /** `onOpenChange` tells the row the menu belongs to when it opens and closes, so the row can show whose menu it is. */
@@ -140,7 +121,7 @@ export function EpisodeMenu({ actions, episode, onOpenChange }: { actions: Episo
   const wanted = wantedIn([episode], versions)
   return (
     <Menu.Container position="bottom-end" onOpenChange={onOpenChange}>
-      {rowMenuButton(`Actions for ${episodeName(episode)}`)}
+      <EpisodeRowMenuButton label={`Actions for ${episodeName(episode)}`} />
       <Menu>
         <Menu.Item disabled={!wanted} description={wanted ? undefined : nothingWanted} onSelect={() => actions.search([episode], code, (ids) => ({ season: episode.season, episode_ids: ids }))}>
           Search
@@ -164,7 +145,7 @@ export function SeasonMenu({ actions, season, episodes, onOpenChange }: { action
   const wanted = wantedIn(episodes, versions)
   return (
     <Menu.Container position="bottom-end" onOpenChange={onOpenChange}>
-      {rowMenuButton(`Actions for ${name}`)}
+      <EpisodeRowMenuButton label={`Actions for ${name}`} />
       <Menu>
         <Menu.Item disabled={!wanted} description={wanted ? undefined : nothingWanted} onSelect={() => actions.search(episodes, name, () => ({ season }))}>
           Search season
