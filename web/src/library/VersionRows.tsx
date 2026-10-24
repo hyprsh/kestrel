@@ -16,17 +16,7 @@ type Version = TitleDetail['versions'][number]
  * Version holds and a "…" menu with its actions; it stacks on a narrow pane. A Slot with no Version
  * is one quiet row with Add Version.
  */
-export function VersionRows({
-  title,
-  profiles,
-  profileName,
-  onCoverage,
-}: {
-  title: TitleDetail
-  profiles: Profile[]
-  profileName: (key: string) => string
-  onCoverage: () => void
-}) {
+export function VersionRows({ title, profiles, profileName, onCoverage }: { title: TitleDetail; profiles: Profile[]; profileName: (key: string) => string; onCoverage: () => void }) {
   return (
     <section aria-label="Versions" className="mt-6">
       <h3 className="heading-14 mb-1">Versions</h3>

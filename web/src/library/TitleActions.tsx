@@ -28,15 +28,7 @@ const Problem = ({ children }: { children: string }) => (
  * what they open (the Root folder picker, the removal confirmation) shows
  * right under the row.
  */
-export function TitleActions({
-  title,
-  profileName,
-  onManualSearch,
-}: {
-  title: TitleDetail
-  profileName: (key: string) => string
-  onManualSearch: (target: ManualSearchTarget) => void
-}) {
+export function TitleActions({ title, profileName, onManualSearch }: { title: TitleDetail; profileName: (key: string) => string; onManualSearch: (target: ManualSearchTarget) => void }) {
   const [panel, setPanel] = useState<'move' | 'remove' | null>(null)
   const openCleanup = useOpenCleanup()
   const openPlace = useOpenPlace()
@@ -52,11 +44,7 @@ export function TitleActions({
         <ManualSearch title={title} profileName={profileName} onManualSearch={onManualSearch} />
         {title.kind === 'movie' ? <MovieMonitoring title={title} /> : <SeriesMonitoring title={title} />}
         <DotsMenu className="ml-auto" aria-label="More Title actions">
-          <MenuItem
-            disabled={frozen || refresh.isPending}
-            description={frozen ? 'Metadata is frozen: unfreeze it to refresh' : undefined}
-            onSelect={() => refresh.mutate()}
-          >
+          <MenuItem disabled={frozen || refresh.isPending} description={frozen ? 'Metadata is frozen: unfreeze it to refresh' : undefined} onSelect={() => refresh.mutate()}>
             Refresh metadata
           </MenuItem>
           <MenuItem disabled={freeze.isPending} onSelect={() => freeze.mutate(!frozen)}>

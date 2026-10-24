@@ -148,11 +148,15 @@ describe('Upcoming timeline', () => {
   it('labels the days relatively and separates the weeks', async () => {
     fakeAgenda([episode({ date: day(-1), title_id: 5, title: 'Yest' }), episode({ date: day(1), title_id: 6, title: 'Tomo' }), movie({ date: day(40) })])
     await openUpcoming()
-    const headings = within(timeline()).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
+    const headings = within(timeline())
+      .getAllByRole('heading', { level: 3 })
+      .map((h) => h.textContent)
     expect(headings[0]).toMatch(/^Yesterday/)
     expect(headings[1]).toMatch(/^Today/)
     expect(headings[2]).toMatch(/^Tomorrow/)
-    const weeks = within(timeline()).getAllByRole('presentation').map((w) => w.textContent)
+    const weeks = within(timeline())
+      .getAllByRole('presentation')
+      .map((w) => w.textContent)
     expect(weeks).toEqual(['This week', 'Later'])
   })
 

@@ -68,8 +68,7 @@ function useAuthMutation<V>(call: (v: V) => Promise<{ error?: unknown; response:
   })
 }
 
-export const useCreateAccount = () =>
-  useAuthMutation((body: { username: string; password: string }) => api.POST('/setup/account', { body }))
+export const useCreateAccount = () => useAuthMutation((body: { username: string; password: string }) => api.POST('/setup/account', { body }))
 
 export const useLogin = () => useAuthMutation((body: { username: string; password: string }) => api.POST('/auth/login', { body }))
 
@@ -175,13 +174,7 @@ export function usePluginInstances() {
 export function useSavePluginInstance() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (v: {
-      pluginId: string
-      name: string
-      config: PluginConfig
-      instance?: PluginInstance
-      managed?: { name: string; enabled: boolean; priority: number }
-    }) => {
+    mutationFn: async (v: { pluginId: string; name: string; config: PluginConfig; instance?: PluginInstance; managed?: { name: string; enabled: boolean; priority: number } }) => {
       const res = v.instance
         ? await api.PATCH('/plugin-instances/{id}', { params: { path: { id: v.instance.id } }, body: { ...v.managed, config: v.config } })
         : await api.POST('/plugin-instances', { body: { plugin_id: v.pluginId, name: v.name, ...v.managed, config: v.config } })
@@ -439,15 +432,12 @@ function useMonitorMutation<V>(run: (v: V) => Promise<{ error?: unknown; respons
 }
 
 export const usePatchSeason = (titleId: number) =>
-  useMonitorMutation(({ season, monitored }: { season: number; monitored: boolean }) =>
-    api.PATCH('/titles/{id}/seasons/{season}', { params: { path: { id: titleId, season } }, body: { monitored } }),
-  )
+  useMonitorMutation(({ season, monitored }: { season: number; monitored: boolean }) => api.PATCH('/titles/{id}/seasons/{season}', { params: { path: { id: titleId, season } }, body: { monitored } }))
 
 export const useMonitorEpisodes = (titleId: number) =>
   useMonitorMutation(({ ids, monitored }: { ids: number[]; monitored: boolean }) =>
     api.POST('/titles/{id}/episodes/monitor', { params: { path: { id: titleId } }, body: { episode_ids: ids, monitored } }),
   )
-
 
 // ---- setup progress ----
 

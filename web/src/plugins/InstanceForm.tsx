@@ -195,7 +195,12 @@ export function InstanceForm({
           </Button>
         )}
       </div>
-      {declared && <Note size="small">The Config File declares this instance, so it can be tested but not changed or removed here{enabledOnly ? ', except for switching it on or off' : ''}. Change the file and restart Kestrel instead.</Note>}
+      {declared && (
+        <Note size="small">
+          The Config File declares this instance, so it can be tested but not changed or removed here{enabledOnly ? ', except for switching it on or off' : ''}. Change the file and restart Kestrel
+          instead.
+        </Note>
+      )}
     </form>
   )
 }

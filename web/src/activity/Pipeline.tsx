@@ -144,11 +144,7 @@ function EntryRow({ entry: e, now, nav, onOpenTitle }: { entry: Entry; now: numb
     case 'active':
       return <ActiveRow item={e.item} now={now} nav={nav} onOpenTitle={onOpenTitle} />
     case 'grab':
-      return e.stage === 'stalled' ? (
-        <StalledRow grab={e.grab} now={now} nav={nav} onOpenTitle={onOpenTitle} />
-      ) : (
-        <FinishedRow grab={e.grab} now={now} nav={nav} onOpenTitle={onOpenTitle} />
-      )
+      return e.stage === 'stalled' ? <StalledRow grab={e.grab} now={now} nav={nav} onOpenTitle={onOpenTitle} /> : <FinishedRow grab={e.grab} now={now} nav={nav} onOpenTitle={onOpenTitle} />
     case 'blocked': {
       const t = e.title
       const subject = {
@@ -197,37 +193,37 @@ function StalledRow({ grab: g, now, nav, onOpenTitle }: { grab: GrabEntry; now: 
   const [asking, setAsking] = useState(false)
   return (
     <>
-    <GrabRow
-      grab={g}
-      nav={nav}
-      onOpenTitle={onOpenTitle}
-      actions={
-        <>
-          <Button variant="secondary" size="small" disabled={act.isPending} onClick={() => act.mutate({ id: g.grab_id, action: 'retry' })}>
-            Retry now
-          </Button>
-          <Button variant="secondary" size="small" disabled={act.isPending} onClick={() => setAsking(true)}>
-            Discard
-          </Button>
-        </>
-      }
-    >
-      <Line tone="amber">{`Import stalled ${lasting(st.since, now)}: ${st.reason} · tried again ${until(st.next_at, now)}`}</Line>
-      <Line>{origin(g, now)}</Line>
-      {act.isError && <Line tone="red">{act.error.message}</Line>}
-    </GrabRow>
-    <DestructiveActionModal
-      open={asking}
-      title="Discard this Grab"
-      confirmLabel="Discard"
-      description="Its downloaded files are deleted and the Version is searched for again."
-      loading={act.isPending}
-      onCancel={() => setAsking(false)}
-      onConfirm={() => {
-        setAsking(false)
-        act.mutate({ id: g.grab_id, action: 'discard' })
-      }}
-    />
+      <GrabRow
+        grab={g}
+        nav={nav}
+        onOpenTitle={onOpenTitle}
+        actions={
+          <>
+            <Button variant="secondary" size="small" disabled={act.isPending} onClick={() => act.mutate({ id: g.grab_id, action: 'retry' })}>
+              Retry now
+            </Button>
+            <Button variant="secondary" size="small" disabled={act.isPending} onClick={() => setAsking(true)}>
+              Discard
+            </Button>
+          </>
+        }
+      >
+        <Line tone="amber">{`Import stalled ${lasting(st.since, now)}: ${st.reason} · tried again ${until(st.next_at, now)}`}</Line>
+        <Line>{origin(g, now)}</Line>
+        {act.isError && <Line tone="red">{act.error.message}</Line>}
+      </GrabRow>
+      <DestructiveActionModal
+        open={asking}
+        title="Discard this Grab"
+        confirmLabel="Discard"
+        description="Its downloaded files are deleted and the Version is searched for again."
+        loading={act.isPending}
+        onCancel={() => setAsking(false)}
+        onConfirm={() => {
+          setAsking(false)
+          act.mutate({ id: g.grab_id, action: 'discard' })
+        }}
+      />
     </>
   )
 }

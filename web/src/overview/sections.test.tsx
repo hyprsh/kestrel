@@ -99,9 +99,7 @@ describe('Overview sections', () => {
       actions: [],
     }))
     server.use(
-      http.get('/attention', ({ response }) =>
-        response(200).json({ count: 6, severity: 'warning', rows: warnings, long_missing: { count: 0, items: [] }, originals: { count: 0, items: [] } }),
-      ),
+      http.get('/attention', ({ response }) => response(200).json({ count: 6, severity: 'warning', rows: warnings, long_missing: { count: 0, items: [] }, originals: { count: 0, items: [] } })),
     )
     fakeQueue(downloads(6))
     fakeUpcoming(upcoming(1))

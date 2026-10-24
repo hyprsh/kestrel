@@ -76,13 +76,15 @@ export const handlers = [
     response(200).json({ due: { versions: 0, episodes: 0, upgrades: 0 }, pass: null, next_pass_at: null, last_pass: null, upgrades_per_pass: 5, indexers: [] }),
   ),
   http.get('/jobs', ({ response }) => response(200).json({ items: [] })),
-  http.get('/attention', ({ response }) =>
-    response(200).json({ count: 0, severity: null, rows: [], long_missing: { count: 0, items: [] }, originals: { count: 0, items: [] } }),
-  ),
+  http.get('/attention', ({ response }) => response(200).json({ count: 0, severity: null, rows: [], long_missing: { count: 0, items: [] }, originals: { count: 0, items: [] } })),
   http.get('/system/status', ({ response }) =>
-    response(200).json({ download_client: { state: 'none', name: null, instance_id: null, message: null }, indexers: [], disks: [], trash: { commit: 'abc1234', committed_at: null, checked_at: null, auto_update: true }, grabs_paused: false }),
+    response(200).json({
+      download_client: { state: 'none', name: null, instance_id: null, message: null },
+      indexers: [],
+      disks: [],
+      trash: { commit: 'abc1234', committed_at: null, checked_at: null, auto_update: true },
+      grabs_paused: false,
+    }),
   ),
-  http.get('/settings/reverse-proxy', ({ response }) =>
-    response(200).json({ enabled: false, trusted_proxies: [], header: 'Remote-User', untrusted: [], from_config_file: false }),
-  ),
+  http.get('/settings/reverse-proxy', ({ response }) => response(200).json({ enabled: false, trusted_proxies: [], header: 'Remote-User', untrusted: [], from_config_file: false })),
 ]

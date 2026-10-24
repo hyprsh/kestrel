@@ -16,7 +16,11 @@ const year = (d: string) => d.slice(0, 4)
 
 /** A Series' status, network and air dates on one line. */
 function SeriesFacts({ series }: { series: LookupSeries }) {
-  const aired = series.first_aired ? (series.last_aired && series.last_aired !== series.first_aired ? `${day(series.first_aired)} – ${day(series.last_aired)}` : `since ${day(series.first_aired)}`) : null
+  const aired = series.first_aired
+    ? series.last_aired && series.last_aired !== series.first_aired
+      ? `${day(series.first_aired)} – ${day(series.last_aired)}`
+      : `since ${day(series.first_aired)}`
+    : null
   const facts = [series.status ? (statusLabel[series.status] ?? series.status) : null, series.network, aired].filter(Boolean)
   if (facts.length === 0) return null
   return <p className="label-13 text-gray-900">{facts.join(' · ')}</p>

@@ -60,9 +60,7 @@ function fakeProfiles(opts: { fresh?: boolean } = {}) {
   }
   if (opts.fresh) fakeSetup()
   server.use(
-    http.get('/auth/me', ({ response }) =>
-      signedIn ? response(200).json(me) : response('default').json({ ...problem(401, 'setup_required', 'x') }, { status: 401 }),
-    ),
+    http.get('/auth/me', ({ response }) => (signedIn ? response(200).json(me) : response('default').json({ ...problem(401, 'setup_required', 'x') }, { status: 401 }))),
     http.post('/setup/account', ({ response }) => {
       signedIn = true
       return response(201).json(me)
@@ -161,11 +159,7 @@ describe('the wizard Profiles section', () => {
     await createAccount()
     const section = await screen.findByRole('region', { name: 'Profiles' })
     // The server refuses to leave HD without a default; the message reaches the admin.
-    server.use(
-      http.patch('/profiles/{key}', ({ response }) =>
-        response('default').json(problem(422, 'validation', 'HD always has a default for movies'), { status: 422 }),
-      ),
-    )
+    server.use(http.patch('/profiles/{key}', ({ response }) => response('default').json(problem(422, 'validation', 'HD always has a default for movies'), { status: 422 })))
     await userEvent.selectOptions(await within(section).findByLabelText('Standard default for Movies'), 'hd-original')
     expect(await within(section).findByRole('alert')).toHaveTextContent('HD always has a default for movies')
   })
@@ -194,15 +188,17 @@ describe('Settings', () => {
     await userEvent.click(await within(section).findByLabelText('4K enabled'))
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile 4k-primary', body: { enabled: false } }))
     // A disabled Profile cannot be a default, so it leaves the choices.
-    await waitFor(() =>
-      expect(within(within(section).getByLabelText('4K default for Movies')).queryByRole('option', { name: '4K' })).not.toBeInTheDocument(),
-    )
+    await waitFor(() => expect(within(within(section).getByLabelText('4K default for Movies')).queryByRole('option', { name: '4K' })).not.toBeInTheDocument())
 
     // Original-Language Profiles have no choice; Primary-Language ones reject, offer or grab.
     expect(within(section).queryByLabelText('HD Original Original Language only')).not.toBeInTheDocument()
     const choice = within(section).getByLabelText('HD Original Language only')
     expect(choice).toHaveValue('reject')
-    expect(within(choice).getAllByRole('option').map((o) => o.textContent)).toEqual(['Reject', 'Offer for approval', 'Grab'])
+    expect(
+      within(choice)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Reject', 'Offer for approval', 'Grab'])
     await userEvent.selectOptions(choice, 'offer')
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile hd-primary', body: { original_language: 'offer' } }))
   })

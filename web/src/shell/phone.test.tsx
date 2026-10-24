@@ -24,7 +24,11 @@ describe('the shell on a phone', () => {
   it('replaces the icon rail with a bottom tab bar of Overview, Library, Upcoming, Activity and More', async () => {
     renderApp()
     const tabs = await screen.findByRole('navigation', { name: 'Screens' })
-    expect(within(tabs).getAllByRole('button').map((b) => b.textContent)).toEqual(['Overview', 'Library', 'Upcoming', 'Activity', 'More', ''])
+    expect(
+      within(tabs)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['Overview', 'Library', 'Upcoming', 'Activity', 'More', ''])
     expect(within(tabs).getByRole('button', { name: 'Search or run a command' })).toBeInTheDocument() // the accessory
     expect(within(tabs).getByRole('button', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
     expect(screen.queryByRole('button', { name: 'Kestrel, go to Overview' })).not.toBeInTheDocument() // the rail is gone

@@ -120,7 +120,7 @@ describe('collapsible seasons in the episode grid', () => {
     const state = fakeSeries()
     const eps = state.get().episodes
     eps[1] = { ...eps[1], cells: { standard: cell('filled', 120), '4k': cell('wanted') } }
-    eps.push(episode(4, 1, 3, '...And the Bag\'s in the River', { air_date: '2009-02-03' }))
+    eps.push(episode(4, 1, 3, "...And the Bag's in the River", { air_date: '2009-02-03' }))
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     const grid = await screen.findByRole('grid', { name: 'Episodes' })
@@ -150,7 +150,10 @@ describe('collapsible seasons in the episode grid', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     const grid = await screen.findByRole('grid', { name: 'Episodes' })
-    const expanded = (name: string) => within(grid).getByRole('button', { name: `${name} episodes` }).getAttribute('aria-expanded')
+    const expanded = (name: string) =>
+      within(grid)
+        .getByRole('button', { name: `${name} episodes` })
+        .getAttribute('aria-expanded')
     expect(['Specials', 'Season 1', 'Season 2', 'Season 3'].map(expanded)).toEqual(['false', 'false', 'true', 'true'])
   })
 })

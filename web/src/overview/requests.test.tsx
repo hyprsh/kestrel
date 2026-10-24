@@ -21,7 +21,11 @@ describe('Recent requests on the Overview', () => {
     renderApp()
 
     const s = await screen.findByRole('region', { name: 'Recent requests · 12' })
-    expect(within(s).getAllByRole('listitem').map((r) => r.textContent)).toEqual([1, 2, 3, 4, 5].map((n) => expect.stringContaining(`Movie ${n}`)))
+    expect(
+      within(s)
+        .getAllByRole('listitem')
+        .map((r) => r.textContent),
+    ).toEqual([1, 2, 3, 4, 5].map((n) => expect.stringContaining(`Movie ${n}`)))
     expect(queries[0].get('limit')).toBe('5')
 
     await userEvent.click(within(s).getByRole('button', { name: 'View all 12 →' }))
@@ -42,10 +46,7 @@ describe('Recent requests on the Overview', () => {
   it('badges each Slot with where it stands', async () => {
     fakeRequests([
       request({
-        slots: [
-          requestSlot({ status: 'queued', status_label: 'Not released yet' }),
-          requestSlot({ slot: '4k', version_id: 12, status: 'completed', status_label: 'Completed' }),
-        ],
+        slots: [requestSlot({ status: 'queued', status_label: 'Not released yet' }), requestSlot({ slot: '4k', version_id: 12, status: 'completed', status_label: 'Completed' })],
       }),
       request({
         id: 2,
@@ -73,7 +74,14 @@ describe('Recent requests on the Overview', () => {
 
   it('names a rejected Request by what was asked for, says why in words and links to the fix', async () => {
     fakeRequests([
-      request({ id: 3, outcome: 'rejected', reject_reason: 'no_enabled_profile', title_id: null, title: 'Dune', slots: [requestSlot({ slot: '4k', version_id: null, status: 'failed', status_label: 'No enabled Profile' })] }),
+      request({
+        id: 3,
+        outcome: 'rejected',
+        reject_reason: 'no_enabled_profile',
+        title_id: null,
+        title: 'Dune',
+        slots: [requestSlot({ slot: '4k', version_id: null, status: 'failed', status_label: 'No enabled Profile' })],
+      }),
       request({ id: 2, outcome: 'rejected', reject_reason: 'not_on_tvdb', title_id: null, title: 'Obscure Show', slots: [requestSlot({ version_id: null, status: 'failed' })] }),
       request({ id: 1, outcome: 'rejected', reject_reason: 'unknown_title', title_id: null, title: null, slots: [requestSlot({ version_id: null, status: 'failed' })] }),
     ])

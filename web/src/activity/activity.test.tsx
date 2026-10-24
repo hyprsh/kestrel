@@ -34,7 +34,10 @@ describe('Activity', () => {
     ])
     await openActivity()
 
-    const stage = async (name: string) => within(await screen.findByRole('region', { name })).getAllByRole('listitem').map((li) => li.textContent)
+    const stage = async (name: string) =>
+      within(await screen.findByRole('region', { name }))
+        .getAllByRole('listitem')
+        .map((li) => li.textContent)
     expect(await stage('Queued · 2')).toEqual([expect.stringContaining('A.Queued-GRP'), expect.stringContaining('B.Paused-GRP')])
     expect(await stage('Downloading · 1')).toEqual([expect.stringContaining('C.Downloading-GRP')])
     expect(await stage('Post-processing · 1')).toEqual([expect.stringContaining('D.Processing-GRP')])
@@ -137,7 +140,10 @@ describe('Activity', () => {
     ])
     await openActivity()
     const field = await screen.findByRole('combobox', { name: 'Filter Activity' })
-    const shown = () => within(screen.getByRole('region', { name: /^Downloading/ })).getAllByRole('listitem').map((li) => li.textContent)
+    const shown = () =>
+      within(screen.getByRole('region', { name: /^Downloading/ }))
+        .getAllByRole('listitem')
+        .map((li) => li.textContent)
 
     await userEvent.type(field, 'kind:movie ')
     expect(shown()).toEqual([expect.stringContaining('Paddington'), expect.stringContaining('Heat')])
@@ -158,7 +164,12 @@ describe('Activity', () => {
     await userEvent.click(within(first).getByRole('button', { name: 'Cancel' }))
     await userEvent.click(within(second).getByRole('button', { name: 'Cancel and blocklist' }))
 
-    await waitFor(() => expect(queue.cancels).toEqual([{ id: '1', body: { blocklist: false } }, { id: '2', body: { blocklist: true } }]))
+    await waitFor(() =>
+      expect(queue.cancels).toEqual([
+        { id: '1', body: { blocklist: false } },
+        { id: '2', body: { blocklist: true } },
+      ]),
+    )
     await waitFor(() => expect(screen.queryByRole('region', { name: /^Downloading/ })).not.toBeInTheDocument())
   })
 

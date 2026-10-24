@@ -21,28 +21,14 @@ export function useSearchWanted(title: TitleDetail) {
 export function SearchNow({ search }: { search: ReturnType<typeof useSearchWanted> }) {
   const none = search.wanted.length === 0
   return (
-    <Button
-      variant="secondary"
-      size="small"
-      disabled={none || search.mutation.isPending}
-      title={none ? 'Nothing in this Title is Wanted' : undefined}
-      onClick={search.run}
-    >
+    <Button variant="secondary" size="small" disabled={none || search.mutation.isPending} title={none ? 'Nothing in this Title is Wanted' : undefined} onClick={search.run}>
       Search now
     </Button>
   )
 }
 
 /** Manual search lists every Release for a Version to pick from; with two Versions it asks which. */
-export function ManualSearch({
-  title,
-  profileName,
-  onManualSearch,
-}: {
-  title: TitleDetail
-  profileName: (key: string) => string
-  onManualSearch: (target: ManualSearchTarget) => void
-}) {
+export function ManualSearch({ title, profileName, onManualSearch }: { title: TitleDetail; profileName: (key: string) => string; onManualSearch: (target: ManualSearchTarget) => void }) {
   const open = (v: TitleDetail['versions'][number]) => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })
   if (title.versions.length === 0) return null
   if (title.versions.length === 1) {

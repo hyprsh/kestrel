@@ -43,13 +43,7 @@ export type EpisodeActions = {
  * shown: closing a season drops its ticks, as the Library drops the ticks a
  * filter hides.
  */
-export function useEpisodeActions(
-  title: TitleDetail,
-  episodes: Episode[],
-  seasons: SeasonOpen,
-  slots: SlotKey[],
-  onManualSearch?: (t: ManualSearchTarget) => void,
-): EpisodeActions {
+export function useEpisodeActions(title: TitleDetail, episodes: Episode[], seasons: SeasonOpen, slots: SlotKey[], onManualSearch?: (t: ManualSearchTarget) => void): EpisodeActions {
   const shown = useMemo(() => episodes.filter((e) => seasons.isOpen(e.season)), [episodes, seasons])
   const ids = useMemo(() => shown.map((e) => e.id), [shown])
   const selection = useSelection(ids)
@@ -73,9 +67,7 @@ export function useEpisodeActions(
     if (runs.length === 0) return
     const where = runs.map((r) => slotLabel[r.v.slot]).join(' and ')
     setStatus({ text: `Searching ${label} in ${where}… The Log shows what it grabs.`, error: false, fades: true })
-    Promise.all(runs.map((r) => searchNow.mutateAsync({ versionId: r.v.id, scope: r.scope }))).catch((err: Error) =>
-      setStatus({ text: `Could not search ${label}: ${err.message}`, error: true }),
-    )
+    Promise.all(runs.map((r) => searchNow.mutateAsync({ versionId: r.v.id, scope: r.scope }))).catch((err: Error) => setStatus({ text: `Could not search ${label}: ${err.message}`, error: true }))
   }
 
   const manual: EpisodeActions['manual'] = (v, body, label) => onManualSearch?.({ versionId: v.id, slot: v.slot, profileName: v.profileName, scope: { body, label } })
@@ -132,7 +124,15 @@ export function EpisodeMenu({ actions, episode, onOpenChange }: { actions: Episo
           {versions.length > 1 ? `Manual search ${slotLabel[v.slot]}` : 'Manual search'}
         </MenuItem>
       ))}
-      <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={[episode]} label={code} scope={{ season: episode.season, episode_ids: [episode.id] }} text="Delete file" at={episodeRow(episode.id)} />
+      <DeleteMenuItems
+        deletes={actions.deletes}
+        versions={versions}
+        episodes={[episode]}
+        label={code}
+        scope={{ season: episode.season, episode_ids: [episode.id] }}
+        text="Delete file"
+        at={episodeRow(episode.id)}
+      />
       <MenuItem onSelect={() => selection.toggle(episode.id)}>{selection.has(episode.id) ? 'Untick' : 'Tick'}</MenuItem>
     </DotsMenu>
   )
@@ -172,13 +172,7 @@ export function EpisodeToolbar({ actions }: { actions: EpisodeActions }) {
   return (
     <div className={cx('flex flex-col gap-1', (selection.active || status || actions.deletes.pending?.at === null) && 'mb-2')}>
       <SelectionBar selection={selection} shown={shown.length}>
-        <Button
-          variant="secondary"
-          size="small"
-          disabled={!wanted}
-          title={wanted ? undefined : nothingWanted}
-          onClick={() => actions.search(ticked, label, (ids) => ({ episode_ids: ids }))}
-        >
+        <Button variant="secondary" size="small" disabled={!wanted} title={wanted ? undefined : nothingWanted} onClick={() => actions.search(ticked, label, (ids) => ({ episode_ids: ids }))}>
           Search
         </Button>
         <DeleteTickedButtons deletes={actions.deletes} versions={actions.versions} ticked={ticked} label={label} />

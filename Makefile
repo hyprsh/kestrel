@@ -71,8 +71,9 @@ dev-api: ## Run the Go server on :7676 with a local config dir in .dev/config
 dev-web: ## Run the Vite dev server (proxies /api to :7676, so run `make dev-api` too)
 	npm --prefix web run dev
 
-fmt: ## Format Go code
+fmt: ## Format Go code (gofmt) and the SPA (prettier)
 	gofmt -w .
+	npm --prefix web run fmt
 
 fmt-check: ## Fail if Go code is not gofmt-clean
 	@test -z "$$(gofmt -l .)" || { echo "gofmt needed:"; gofmt -l .; exit 1; }
@@ -85,7 +86,8 @@ lint-go: ## staticcheck, deadcode (code not even a test reaches) and go.mod drif
 	@out=$$(go tool deadcode -test ./...) || exit 1; test -z "$$out" || { echo "unreachable code:"; echo "$$out"; exit 1; }
 	go mod tidy -diff
 
-lint-web: ## knip (unused files, exports, dependencies) and the chrome check (no hand-built chrome outside src/layout) in the SPA
+lint-web: ## prettier check, knip (unused files, exports, dependencies) and the chrome check (no hand-built chrome outside src/layout) in the SPA
+	npm --prefix web run fmt:check
 	npm --prefix web run knip
 	npm --prefix web run chrome
 

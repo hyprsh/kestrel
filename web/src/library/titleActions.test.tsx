@@ -43,14 +43,11 @@ describe('the Title actions row', () => {
 
     await userEvent.click(within(actions).getByRole('button', { name: 'More Title actions' }))
     const menu = screen.getByRole('menu', { name: 'More Title actions' })
-    expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent)).toEqual([
-      'Refresh metadata',
-      'Freeze metadata',
-      'Move',
-      'Clean up this Title',
-      'Show in the Log',
-      'Remove Title',
-    ])
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((i) => i.textContent),
+    ).toEqual(['Refresh metadata', 'Freeze metadata', 'Move', 'Clean up this Title', 'Show in the Log', 'Remove Title'])
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Remove Title' }))
 
     const confirm = screen.getByRole('alertdialog', { name: 'Remove Title' })
@@ -156,7 +153,11 @@ describe('the Version rows', () => {
 
     await userEvent.click(within(within(pane).getByRole('listitem', { name: 'Standard' })).getByRole('button', { name: 'More Standard Version actions' }))
     const menu = screen.getByRole('menu', { name: 'More Standard Version actions' })
-    expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Change Profile', 'Delete fileNo file to delete', 'Remove Version'])
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((i) => i.textContent),
+    ).toEqual(['Change Profile', 'Delete fileNo file to delete', 'Remove Version'])
     expect(within(menu).getByRole('menuitem', { name: /Delete file/ })).toHaveAttribute('aria-disabled', 'true')
   })
 
@@ -166,7 +167,11 @@ describe('the Version rows', () => {
 
     await userEvent.click(within(within(pane).getByRole('listitem', { name: 'Standard' })).getByRole('button', { name: 'More Standard Version actions' }))
     const menu = screen.getByRole('menu', { name: 'More Standard Version actions' })
-    expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Change Profile', 'Remove Version'])
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((i) => i.textContent),
+    ).toEqual(['Change Profile', 'Remove Version'])
   })
 })
 
@@ -176,7 +181,11 @@ describe('the status line in the header', () => {
     const { pane } = await openTitle(/paddington/i)
 
     const status = within(pane).getByRole('list', { name: 'Status' })
-    expect(within(status).getAllByRole('listitem').map((i) => i.textContent)).toEqual(['Standard · Wanted', '4K · Not kept'])
+    expect(
+      within(status)
+        .getAllByRole('listitem')
+        .map((i) => i.textContent),
+    ).toEqual(['Standard · Wanted', '4K · Not kept'])
   })
 
   it('shows a progress bar for each Series Slot with a Version, with its Wanted and Long Missing counts', async () => {

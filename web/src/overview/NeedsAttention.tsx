@@ -49,13 +49,7 @@ export function NeedsAttention({
         rows.length > 0 && (
           <RowList>
             {shown.map((r, i) => (
-              <Row
-                key={r.id}
-                row={r}
-                onOpen={onOpen}
-                nav={nav}
-                index={nav.base + i}
-              />
+              <Row key={r.id} row={r} onOpen={onOpen} nav={nav} index={nav.base + i} />
             ))}
           </RowList>
         )
@@ -149,10 +143,13 @@ function Row({ row, onOpen, nav, index }: { row: AttentionRow; onOpen: (path: st
     setResult(null)
     // mutateAsync, not mutate's onSuccess: a passing Test clears this row, and a per-call callback dies with it.
     // A failure shows on the row through run.error, so the rejection is not handled here.
-    run.mutateAsync(a).then((r) => {
-      if (r.ok === true) toasts.success(`${a.label} passed${r.message ? `: ${r.message}` : ''}`)
-      else setResult({ ...r, label: a.label })
-    }, () => {})
+    run.mutateAsync(a).then(
+      (r) => {
+        if (r.ok === true) toasts.success(`${a.label} passed${r.message ? `: ${r.message}` : ''}`)
+        else setResult({ ...r, label: a.label })
+      },
+      () => {},
+    )
   }
   const act = (a: AttentionAction) => (a.confirm ? setAsking(a) : go(a))
 
@@ -183,7 +180,11 @@ function Row({ row, onOpen, nav, index }: { row: AttentionRow; onOpen: (path: st
         onClick={() => nav.select(index)}
         className={stackedRow}
         rightClassName={stackedRight}
-        left={<Badge variant={row.severity === 'blocking' ? 'red' : 'amber'} contrast="low" size="sm">{row.severity === 'blocking' ? 'Blocking' : 'Warning'}</Badge>}
+        left={
+          <Badge variant={row.severity === 'blocking' ? 'red' : 'amber'} contrast="low" size="sm">
+            {row.severity === 'blocking' ? 'Blocking' : 'Warning'}
+          </Badge>
+        }
         right={actions}
       >
         <div className="flex min-w-0 flex-col gap-2">
