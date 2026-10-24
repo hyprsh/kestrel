@@ -7,7 +7,7 @@ import { localDay, useRecent, useUpcoming, type RecentItem } from '../api/upcomi
 import { slotLabel, type SlotKey } from '../library/bits'
 import { placePath } from '../place'
 import { useNow } from '../time'
-import { NavRow } from '../ui'
+import { NavRow } from '../NavRow'
 import { UpcomingLine } from '../upcoming/bits'
 import { dayLabel, upcomingKey } from '../upcoming/state'
 import type { OverviewNav } from './nav'

@@ -7,7 +7,7 @@ import type { QueueItem } from '../api/queue'
 import { slotLabel, type SlotKey } from '../library/bits'
 import type { RowNav } from '../keys'
 import { TitlePoster } from '../poster'
-import { NavRow } from '../ui'
+import { NavRow } from '../NavRow'
 
 /** What a row shows of the Grab's Title and Release: a queue item or a listed Grab. */
 type GrabSubject = Pick<QueueItem, 'title_id' | 'has_poster' | 'title' | 'year' | 'slot' | 'episodes' | 'release_name' | 'is_upgrade'> & {

@@ -7,7 +7,7 @@ import { useAttention, useRunAction, type ActionResult, type Attention, type Att
 import { planWaiting, useAdoption, type Adoption } from '../api/adoption'
 import { slotLabel } from '../library/bits'
 import { placePath } from '../place'
-import { NavRow } from '../ui'
+import { NavRow } from '../NavRow'
 import { OriginalsRow } from './OriginalsRow'
 import type { OverviewNav } from './nav'
 import { EmptyLine, firstFive, Section, ViewAllHere } from './Section'

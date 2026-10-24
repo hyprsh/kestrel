@@ -11,7 +11,7 @@ import { slotLabel, type SlotKey } from '../library/bits'
 import { useOpenPlace } from '../place'
 import { Poster, TitlePoster } from '../poster'
 import { ago, useNow } from '../time'
-import { NavRow } from '../ui'
+import { NavRow } from '../NavRow'
 import { sourceName } from './source'
 
 type Slot = Request['slots'][number]
