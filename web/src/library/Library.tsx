@@ -9,7 +9,7 @@ import { FilterBar } from '../filter/FilterBar'
 import { usePhone } from '../responsive'
 import { FilterStrip } from '../layout/FilterStrip'
 import { ListPane } from '../layout/ListPane'
-import { PaneFooter, PaneHeader } from '../layout/Pane'
+import { PaneFooter } from '../layout/Pane'
 import { PhoneBackHeader } from '../layout/PhoneBackHeader'
 import { KindIcon, SlotDots } from './bits'
 import { BulkActions } from './BulkActions'
@@ -207,10 +207,11 @@ export function Library({
           {count}
         </FilterStrip>
       ) : (
-        <>
-          <PaneHeader>{tools}</PaneHeader>
-          <FilterStrip>{field}</FilterStrip>
-        </>
+        // Not PaneHeader: it is a <header>, a second banner landmark that the shell's own tests (and a screen reader) count.
+        <FilterStrip>
+          {tools}
+          <div className="w-full">{field}</div>
+        </FilterStrip>
       )}
       {selection.active && (
         <FilterStrip>
