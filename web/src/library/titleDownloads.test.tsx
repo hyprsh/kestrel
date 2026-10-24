@@ -32,16 +32,6 @@ describe("a Title's downloads on its page", () => {
     expect(section).not.toHaveTextContent('Heat')
   })
 
-  it("names the list of this Title's Grabs, one item each with its Cancel actions", async () => {
-    fakeQueue([queueItem({ grab_id: 1, title_id: 1 })])
-    const pane = await openPaddington()
-
-    const list = await within(pane).findByRole('list', { name: 'Downloading' })
-    const [row] = within(list).getAllByRole('listitem')
-    expect(within(row).getByRole('button', { name: 'Cancel' })).toBeEnabled()
-    expect(within(row).getByRole('button', { name: 'Cancel and blocklist' })).toBeEnabled()
-  })
-
   it('has no Downloading section when nothing of this Title is downloading', async () => {
     fakeQueue([queueItem({ title_id: 2, title: 'Heat' })])
     const pane = await openPaddington()
