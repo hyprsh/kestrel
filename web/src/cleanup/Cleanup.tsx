@@ -1,10 +1,9 @@
-// chrome: pending
 // The Clean up screen: review the Unmanaged files inside tracked Titles' folders by category,
 // untick what to keep, confirm, and delete permanently.
 import { useState } from 'react'
 import { usePreviewCleanup, useRunCleanup, type CleanupCategory, type CleanupPreview, type CleanupResult } from '../api/cleanup'
 import { ApiError } from '../api/queries'
-import { Button, Checkbox, Code, Collapse, DestructiveActionModal, EmptyState, Note, Spinner } from '@hyprsh/design'
+import { Button, Checkbox, Code, Collapse, DestructiveActionModal, Entity, EmptyState, Note } from '@hyprsh/design'
 
 const labels: Record<CleanupCategory['key'], string> = {
   junk: 'Junk (.nfo, .sfv, .txt, .url, .exe, Thumbs.db, .DS_Store)',
@@ -60,10 +59,8 @@ export function Cleanup({ titleIds }: { titleIds?: number[] }) {
             <Button
               variant="primary"
               size="small"
-              className="max-sm:w-full"
-              prefix={preview.isPending ? <Spinner size="sm" /> : undefined}
+              loading={preview.isPending}
               onClick={() => { setDone(null); preview.mutate(titleIds) }}
-              disabled={preview.isPending}
             >
               Look for Unmanaged files
             </Button>
@@ -103,30 +100,32 @@ function Review({
   if (nonEmpty.length === 0) return <EmptyState className="mt-6" title="No Unmanaged Files" description="No Unmanaged files were found." />
   return (
     <div className="mt-4">
-      <ul className="divide-y divide-gray-alpha-400 rounded-lg border border-gray-alpha-400">
+      <Entity.List aria-label="Unmanaged files by category">
         {nonEmpty.map((c) => (
-          <li key={c.key} className="p-3">
-            <div className="flex flex-wrap items-center gap-x-2">
-              <Checkbox checked={ticked.has(c.key)} onChange={() => setTicked(toggle(ticked, c.key))} aria-label={labels[c.key]}>
-                <span className="label-14">{labels[c.key]}</span>
-              </Checkbox>
-              <span className="copy-13 text-gray-900">
-                {c.count} {c.count === 1 ? 'item' : 'items'}, {mb(c.size)}
-              </span>
-            </div>
-            <Collapse variant="inline" title="Show files" className="mt-1 pl-6 max-sm:pl-0">
-              <ul className="mt-1 flex flex-col gap-1">
-                {c.files.map((f) => (
-                  <li key={f.path} className="copy-13 flex min-w-0 items-center gap-2">
-                    <Checkbox checked={!skipped.has(f.path)} onChange={() => setSkipped(toggle(skipped, f.path))} aria-label={`Delete ${baseName(f.path)}`} />
-                    <Code title={f.path} className="min-w-0 break-all">{baseName(f.path)}</Code>
-                  </li>
-                ))}
-              </ul>
-            </Collapse>
-          </li>
+          <Entity
+            key={c.key}
+            className="items-start"
+            left={<Checkbox checked={ticked.has(c.key)} onChange={() => setTicked(toggle(ticked, c.key))} aria-label={labels[c.key]} />}
+          >
+            <Entity.Content
+              fill
+              title={labels[c.key]}
+              description={`${c.count} ${c.count === 1 ? 'item' : 'items'}, ${mb(c.size)}`}
+            >
+              <Collapse variant="inline" title="Show files">
+                <ul className="flex flex-col gap-1">
+                  {c.files.map((f) => (
+                    <li key={f.path} className="copy-13 flex min-w-0 items-center gap-2">
+                      <Checkbox checked={!skipped.has(f.path)} onChange={() => setSkipped(toggle(skipped, f.path))} aria-label={`Delete ${baseName(f.path)}`} />
+                      <Code title={f.path} className="min-w-0 break-all">{baseName(f.path)}</Code>
+                    </li>
+                  ))}
+                </ul>
+              </Collapse>
+            </Entity.Content>
+          </Entity>
         ))}
-      </ul>
+      </Entity.List>
       <div className="mt-4 flex items-center gap-2 max-sm:flex-col-reverse max-sm:items-stretch">
         <Button size="small" onClick={onCancel} disabled={busy}>
           Cancel
