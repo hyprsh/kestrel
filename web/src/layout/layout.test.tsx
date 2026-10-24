@@ -8,6 +8,7 @@ import { PhoneBackHeader } from './PhoneBackHeader'
 import { Rail, RailSpacer } from './Rail'
 import { SectionBlock } from './SectionBlock'
 import { PhoneTopBar, TopBar } from './TopBar'
+import { WidePage } from './WidePage'
 
 describe('the layout pieces', () => {
   it('FilterStrip holds its children', () => {
@@ -86,5 +87,14 @@ describe('the layout pieces', () => {
     expect(within(desktop).getByRole('button', { name: 'Search' })).toBeInTheDocument()
     expect(phone).toHaveTextContent('Log')
     expect(within(phone).getByRole('button', { name: 'Add' })).toBeInTheDocument()
+  })
+
+  it('WidePage holds its children', () => {
+    render(
+      <WidePage>
+        <h1>Set up Kestrel</h1>
+      </WidePage>,
+    )
+    expect(screen.getByRole('heading', { name: 'Set up Kestrel' })).toBeInTheDocument()
   })
 })
