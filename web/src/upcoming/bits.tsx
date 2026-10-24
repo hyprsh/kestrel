@@ -25,7 +25,7 @@ function StandingBadge({ slot, st, prefix, now }: { slot: UpcomingSlot; st: Stan
     case 'imported': {
       const quality = st.quality ? `${resolutionOf(st.quality)} · ${slotName(slot.slot)}` : slotName(slot.slot)
       return (
-        <Badge variant="green-subtle" size="sm" icon={<Check />}>
+        <Badge variant="green" contrast="low" size="sm" icon={<Check />}>
           {quality}
         </Badge>
       )
@@ -35,7 +35,7 @@ function StandingBadge({ slot, st, prefix, now }: { slot: UpcomingSlot; st: Stan
       const pct = g.phase === 'importing' ? 100 : percent(g.bytes_total, g.bytes_left)
       return (
         <span className="inline-flex items-center gap-1.5">
-          <Badge variant="blue-subtle" size="sm">
+          <Badge variant="blue" contrast="low" size="sm">
             {lead}
             {phases[g.phase].label}
             {pct !== null && g.phase === 'downloading' ? ` ${pct}%` : ''}
@@ -47,7 +47,7 @@ function StandingBadge({ slot, st, prefix, now }: { slot: UpcomingSlot; st: Stan
     case 'wanted': {
       const how = st.since ? ` ${wantedFor(st.since, now)}` : ''
       return (
-        <Badge variant={st.long ? 'red-subtle' : 'amber-subtle'} size="sm">
+        <Badge variant={st.long ? 'red' : 'amber'} contrast="low" size="sm">
           {lead}
           {st.long ? 'Long missing' : 'Wanted'}
           {how}
@@ -56,7 +56,7 @@ function StandingBadge({ slot, st, prefix, now }: { slot: UpcomingSlot; st: Stan
     }
     default:
       return (
-        <Badge variant="gray-subtle" size="sm">
+        <Badge variant="gray" contrast="low" size="sm">
           {lead}Not out yet
         </Badge>
       )
@@ -89,7 +89,7 @@ export function Standings({
   const all = slots.map((slot) => ({ slot, st: standing(title, slot, queue) }))
   if (all.length > 0 && all.every((x) => x.st.kind === 'not_out')) {
     return (
-      <Badge variant="gray-subtle" size="sm">
+      <Badge variant="gray" contrast="low" size="sm">
         Not out yet
       </Badge>
     )
@@ -124,7 +124,7 @@ export function TallyBadges({ tallies, now }: { tallies: Tally[]; now: number })
     const lead = prefix ? `${slotName(t.slot)} · ` : ''
     if (t.imported) {
       badges.push(
-        <Badge key={`${t.slot}-i`} variant="green-subtle" size="sm" icon={<Check />}>
+        <Badge key={`${t.slot}-i`} variant="green" contrast="low" size="sm" icon={<Check />}>
           {lead}
           {t.imported} Imported
         </Badge>,
@@ -132,7 +132,7 @@ export function TallyBadges({ tallies, now }: { tallies: Tally[]; now: number })
     }
     if (t.grabbed) {
       badges.push(
-        <Badge key={`${t.slot}-g`} variant="blue-subtle" size="sm">
+        <Badge key={`${t.slot}-g`} variant="blue" contrast="low" size="sm">
           {lead}
           {t.grabbed} Downloading
         </Badge>,
@@ -140,7 +140,7 @@ export function TallyBadges({ tallies, now }: { tallies: Tally[]; now: number })
     }
     if (t.wanted - t.long > 0) {
       badges.push(
-        <Badge key={`${t.slot}-w`} variant="amber-subtle" size="sm">
+        <Badge key={`${t.slot}-w`} variant="amber" contrast="low" size="sm">
           {lead}
           {t.wanted - t.long} Wanted{t.since && t.long === 0 ? ` ${wantedFor(t.since, now)}` : ''}
         </Badge>,
@@ -148,7 +148,7 @@ export function TallyBadges({ tallies, now }: { tallies: Tally[]; now: number })
     }
     if (t.long) {
       badges.push(
-        <Badge key={`${t.slot}-l`} variant="red-subtle" size="sm">
+        <Badge key={`${t.slot}-l`} variant="red" contrast="low" size="sm">
           {lead}
           {t.long} Long missing
         </Badge>,
@@ -156,7 +156,7 @@ export function TallyBadges({ tallies, now }: { tallies: Tally[]; now: number })
     }
     if (t.notOut) {
       badges.push(
-        <Badge key={`${t.slot}-n`} variant="gray-subtle" size="sm">
+        <Badge key={`${t.slot}-n`} variant="gray" contrast="low" size="sm">
           {lead}
           {t.notOut} Not out yet
         </Badge>,
@@ -171,7 +171,7 @@ export function Markers({ markers }: { markers: UpcomingItem['markers'] }) {
   return (
     <>
       {markers.map((m) => (
-        <Badge key={m} variant={m === 'special' ? 'gray-subtle' : 'purple-subtle'} size="sm">
+        <Badge key={m} variant={m === 'special' ? 'gray' : 'purple'} contrast="low" size="sm">
           {markerLabel[m] ?? m}
         </Badge>
       ))}
@@ -184,12 +184,12 @@ export function MovieNotes({ item }: { item: UpcomingItem }) {
   return (
     <>
       {item.release_type && (
-        <Badge variant="blue-subtle" size="sm">
+        <Badge variant="blue" contrast="low" size="sm">
           {releaseLabel[item.release_type]}
         </Badge>
       )}
       {item.searchable && (
-        <Badge variant="teal-subtle" size="sm" title="This release makes the Movie searchable">
+        <Badge variant="teal" contrast="low" size="sm" title="This release makes the Movie searchable">
           Searchable
         </Badge>
       )}
