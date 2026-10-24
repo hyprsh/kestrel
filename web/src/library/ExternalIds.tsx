@@ -1,3 +1,4 @@
+import { Link } from '@hyprsh/design'
 import { ExternalLink } from 'lucide-react'
 import { Fragment } from 'react'
 import { titleLinks } from './links'
@@ -11,10 +12,10 @@ export function ExternalIds({ title }: { title: Parameters<typeof titleLinks>[0]
       {links.map((l, i) => (
         <Fragment key={l.href}>
           {i > 0 && ' · '}
-          <a href={l.href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 hover:underline">
+          <Link href={l.href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5">
             {l.label}
             <ExternalLink aria-hidden className="size-2.5" />
-          </a>
+          </Link>
         </Fragment>
       ))}
     </div>

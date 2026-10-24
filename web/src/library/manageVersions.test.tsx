@@ -44,7 +44,7 @@ describe('manage Versions', () => {
   it('adds a Version to an empty Slot from a dropdown with the default Profile selected', async () => {
     const calls = fakeManage()
     const pane = await openPane()
-    const uhd = await within(pane).findByRole('group', { name: '4K' })
+    const uhd = await within(pane).findByRole('listitem', { name: '4K' })
 
     await userEvent.click(await within(uhd).findByRole('button', { name: 'Add Version: 4K' }))
     expect(screen.getByRole('option', { name: '4K', selected: true })).toBeInTheDocument()
@@ -96,7 +96,7 @@ describe('manage Versions', () => {
   it('switches a Version to another Profile of its Slot', async () => {
     const calls = fakeManage()
     const pane = await openPane()
-    const hd = await within(pane).findByRole('group', { name: 'Standard' })
+    const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
 
     await userEvent.click(await within(hd).findByRole('button', { name: 'More Standard Version actions' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Change Profile' }))
@@ -110,7 +110,7 @@ describe('manage Versions', () => {
   it('removes a Version without deleting files unless ticked', async () => {
     const calls = fakeManage()
     const pane = await openPane()
-    const hd = await within(pane).findByRole('group', { name: 'Standard' })
+    const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
 
     await userEvent.click(await within(hd).findByRole('button', { name: 'More Standard Version actions' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Remove Version' }))
