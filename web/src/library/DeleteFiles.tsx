@@ -1,10 +1,9 @@
-// chrome: pending
 // Delete files and keep the Version (#130): a Movie's file on the Title page,
 // an episode's, a season's or the ticked episodes' files in the episode grid.
 // Every deletion asks first, naming the files, their total size and every
 // episode that loses its file, those sharing a file with the chosen ones too.
-import { Button, Menu, Note } from '@hyprsh/design'
-import { useEffect, useRef, useState } from 'react'
+import { Button, Menu, Modal, ModalAction, ModalActions, ModalBody, ModalHeader, ModalSubtitle, ModalTitle, Note } from '@hyprsh/design'
+import { useState } from 'react'
 import type { Episode, EpisodeScope } from '../api/queries'
 import type { components } from '../api/schema.gen'
 import { useDeleteFiles, type DeletedFiles } from '../api/versions'
@@ -29,9 +28,9 @@ function deletedText(res: DeletedFiles, blocklist: boolean, label?: string) {
 /**
  * The confirmation of a deletion: the files with their total size, the
  * episodes that lose their file (`extra` are those outside the choice that
- * share a file with it), and Delete or Delete and blocklist. With `focus` it
- * takes the focus and scrolls into view when it opens, Escape cancels, and the
- * focus goes back where it was when it closes.
+ * share a file with it), and Delete or Delete and blocklist. An inline Modal:
+ * it opens in place, takes the focus, Escape cancels, and the focus goes back
+ * where it was when it closes.
  */
 function DeleteFilesConfirm({
   paths,
@@ -42,7 +41,6 @@ function DeleteFilesConfirm({
   onCancel,
   error,
   busy,
-  focus = false,
 }: {
   paths: string[]
   bytes: number
@@ -52,71 +50,52 @@ function DeleteFilesConfirm({
   onCancel: () => void
   error?: string
   busy: boolean
-  focus?: boolean
 }) {
   const releases = paths.length === 1 ? 'this Release' : 'these Releases'
-  const group = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!focus) return
-    const back = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    group.current?.focus({ preventScroll: true })
-    group.current?.scrollIntoView?.({ block: 'nearest' })
-    return () => {
-      const lost = !document.activeElement || document.activeElement === document.body
-      if (lost && back?.isConnected) back.focus()
-    }
-  }, [focus])
   return (
-    <div
-      ref={group}
-      role="group"
-      aria-label="Delete files"
-      tabIndex={focus ? -1 : undefined}
-      onKeyDown={(e) => {
-        if (!focus || e.key !== 'Escape') return
-        e.preventDefault()
-        e.stopPropagation()
-        onCancel()
-      }}
-      className="label-12 mt-2 rounded-md border border-gray-alpha-400 p-3 outline-none"
-    >
-      <p>
-        Delete {files(paths.length)}, {size(bytes)}, from disk? The Version stays; while monitored it is Wanted again.
-      </p>
-      <ul className="mt-1">
-        {paths.map((p) => (
-          <li key={p} className="label-12-mono truncate" title={p}>
-            {base(p)}
-          </li>
-        ))}
-      </ul>
-      {episodes.length > 0 && <p className="mt-1">Loses its file: {episodes.join(', ')}</p>}
-      {extra.length > 0 && (
-        <div className="mt-2">
-          <Note variant="warning" size="small">
-            {extra.join(', ')} {extra.length === 1 ? 'shares' : 'share'} a file with {episodes.length - extra.length === 1 ? 'it' : 'them'} and {extra.length === 1 ? 'loses its file' : 'lose their files'} too.
-          </Note>
-        </div>
-      )}
-      {error && (
-        <div className="mt-2">
-          <Note variant="error" size="small">
-            {error}
-          </Note>
-        </div>
-      )}
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button variant="error" size="small" disabled={busy} onClick={() => onConfirm(false)}>
-          Delete
-        </Button>
-        <Button variant="error" size="small" disabled={busy} onClick={() => onConfirm(true)}>
-          Delete and blocklist {releases}
-        </Button>
-        <Button variant="secondary" size="small" onClick={onCancel}>
+    <Modal inline open onClose={onCancel}>
+      <ModalBody>
+        <ModalHeader>
+          <ModalTitle>Delete files</ModalTitle>
+          <ModalSubtitle>
+            Delete {files(paths.length)}, {size(bytes)}, from disk? The Version stays; while monitored it is Wanted again.
+          </ModalSubtitle>
+        </ModalHeader>
+        <ul className="label-12">
+          {paths.map((p) => (
+            <li key={p} className="label-12-mono truncate" title={p}>
+              {base(p)}
+            </li>
+          ))}
+        </ul>
+        {episodes.length > 0 && <p className="label-12 mt-1">Loses its file: {episodes.join(', ')}</p>}
+        {extra.length > 0 && (
+          <div className="mt-2">
+            <Note variant="warning" size="small">
+              {extra.join(', ')} {extra.length === 1 ? 'shares' : 'share'} a file with {episodes.length - extra.length === 1 ? 'it' : 'them'} and {extra.length === 1 ? 'loses its file' : 'lose their files'} too.
+            </Note>
+          </div>
+        )}
+        {error && (
+          <div className="mt-2">
+            <Note variant="error" size="small">
+              {error}
+            </Note>
+          </div>
+        )}
+      </ModalBody>
+      <ModalActions>
+        <ModalAction variant="secondary" onClick={onCancel}>
           Cancel
-        </Button>
-      </div>
-    </div>
+        </ModalAction>
+        <ModalAction variant="error" disabled={busy} onClick={() => onConfirm(false)}>
+          Delete
+        </ModalAction>
+        <ModalAction variant="error" disabled={busy} onClick={() => onConfirm(true)}>
+          Delete and blocklist {releases}
+        </ModalAction>
+      </ModalActions>
+    </Modal>
   )
 }
 
@@ -140,7 +119,7 @@ export function DeleteFile({ versionId, file, asking, onClose }: { versionId: nu
   return (
     <>
       {file && asking && (
-        <DeleteFilesConfirm paths={[file.path]} bytes={file.size} onConfirm={confirm} onCancel={onClose} error={del.error?.message} busy={del.isPending} focus />
+        <DeleteFilesConfirm paths={[file.path]} bytes={file.size} onConfirm={confirm} onCancel={onClose} error={del.error?.message} busy={del.isPending} />
       )}
       {said && (
         <p role="status" className="label-12 mt-1 text-gray-900">
@@ -289,7 +268,6 @@ export function EpisodeDeleteConfirm({ deletes, at = null }: { deletes: EpisodeD
       onCancel={deletes.cancel}
       error={deletes.error}
       busy={deletes.busy}
-      focus
     />
   )
 }

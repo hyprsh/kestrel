@@ -51,7 +51,7 @@ async function openFilledMovie() {
   renderApp()
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
   const pane = await screen.findByRole('region', { name: /paddington/i })
-  return within(pane).findByRole('group', { name: 'Standard' })
+  return within(pane).findByRole('listitem', { name: 'Standard' })
 }
 
 describe("deleting a Movie's file", () => {
@@ -61,7 +61,7 @@ describe("deleting a Movie's file", () => {
 
     await userEvent.click(within(hd).getByRole('button', { name: 'More Standard Version actions' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Delete file' }))
-    const confirm = within(hd).getByRole('group', { name: 'Delete files' })
+    const confirm = within(hd).getByRole('dialog', { name: 'Delete files' })
     expect(confirm).toHaveTextContent('Paddington (2014) - [Standard].mkv')
     expect(confirm).toHaveTextContent('4.0 GB')
     await userEvent.click(within(confirm).getByRole('button', { name: 'Delete' }))
@@ -103,7 +103,7 @@ describe("deleting a Movie's file", () => {
     await userEvent.click(screen.getByRole('menuitem', { name: 'Delete file' }))
     await userEvent.click(within(hd).getByRole('button', { name: 'Cancel' }))
 
-    expect(within(hd).queryByRole('group', { name: 'Delete files' })).not.toBeInTheDocument()
+    expect(within(hd).queryByRole('dialog', { name: 'Delete files' })).not.toBeInTheDocument()
     expect(sent).toEqual([])
   })
 })
@@ -143,7 +143,7 @@ describe('deleting files from the episodes heat map', () => {
     const { grid, sent } = await openSeriesWithFiles()
 
     await choose(grid, 'Actions for Season 1 episode 1', 'Delete file Standard')
-    const confirm = screen.getByRole('group', { name: 'Delete files' })
+    const confirm = screen.getByRole('dialog', { name: 'Delete files' })
     expect(confirm).toHaveTextContent('Breaking Bad - S01E01-E02 - [Standard].mkv')
     expect(confirm).toHaveTextContent('3.0 GB')
     expect(confirm).toHaveTextContent('Loses its file: S01E01, S01E02')
@@ -152,7 +152,7 @@ describe('deleting files from the episodes heat map', () => {
 
     await waitFor(() => expect(sent).toEqual([{ version: 51, query: 'season=1&episode_ids=2' }]))
     expect(await screen.findByText(/Deleted 1 file of S01E01/)).toBeInTheDocument()
-    expect(screen.queryByRole('group', { name: 'Delete files' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Delete files' })).not.toBeInTheDocument()
   })
 
   it("asks right under the episode's row, with focus on the question, and Escape takes it back to the row", async () => {
@@ -161,13 +161,13 @@ describe('deleting files from the episodes heat map', () => {
 
     await choose(grid, 'Actions for Season 1 episode 1', 'Delete file Standard')
 
-    const confirm = within(grid).getByRole('group', { name: 'Delete files' })
+    const confirm = within(grid).getByRole('dialog', { name: 'Delete files' })
     expect(confirm.closest('[role="row"]')?.previousElementSibling).toContainElement(pilot)
     expect(confirm).toHaveFocus()
 
     await userEvent.keyboard('{Escape}')
 
-    expect(within(grid).queryByRole('group', { name: 'Delete files' })).not.toBeInTheDocument()
+    expect(within(grid).queryByRole('dialog', { name: 'Delete files' })).not.toBeInTheDocument()
     expect(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 1' }).closest('[role="row"]')).toContainElement(document.activeElement as HTMLElement)
     expect(sent).toEqual([])
   })
@@ -177,7 +177,7 @@ describe('deleting files from the episodes heat map', () => {
 
     await choose(grid, 'Actions for Season 1', "Delete season's files Standard")
 
-    const confirm = within(grid).getByRole('group', { name: 'Delete files' })
+    const confirm = within(grid).getByRole('dialog', { name: 'Delete files' })
     expect(confirm.closest('[role="row"]')?.previousElementSibling).toContainElement(within(grid).getByRole('checkbox', { name: 'Season 1' }))
     expect(confirm).toHaveFocus()
   })
@@ -219,7 +219,7 @@ describe('deleting files from the episodes heat map', () => {
     const { grid, sent } = await openSeriesWithFiles()
 
     await choose(grid, 'Actions for Season 1', "Delete season's files Standard")
-    await userEvent.click(within(screen.getByRole('group', { name: 'Delete files' })).getByRole('button', { name: 'Delete and blocklist this Release' }))
+    await userEvent.click(within(screen.getByRole('dialog', { name: 'Delete files' })).getByRole('button', { name: 'Delete and blocklist this Release' }))
 
     await waitFor(() => expect(sent).toEqual([{ version: 51, query: 'season=1&blocklist=true' }]))
   })
@@ -230,9 +230,9 @@ describe('deleting files from the episodes heat map', () => {
     await choose(grid, 'Actions for Season 1 episode 2', 'Tick')
     const bar = screen.getByRole('group', { name: 'Selection' })
     await userEvent.click(within(bar).getByRole('button', { name: 'Delete files Standard' }))
-    expect(screen.getByRole('group', { name: 'Delete files' })).toHaveTextContent('S01E01 shares a file with it')
-    expect(within(grid).queryByRole('group', { name: 'Delete files' })).not.toBeInTheDocument() // above the grid, by the selection bar
-    await userEvent.click(within(screen.getByRole('group', { name: 'Delete files' })).getByRole('button', { name: 'Delete' }))
+    expect(screen.getByRole('dialog', { name: 'Delete files' })).toHaveTextContent('S01E01 shares a file with it')
+    expect(within(grid).queryByRole('dialog', { name: 'Delete files' })).not.toBeInTheDocument() // above the grid, by the selection bar
+    await userEvent.click(within(screen.getByRole('dialog', { name: 'Delete files' })).getByRole('button', { name: 'Delete' }))
 
     await waitFor(() => expect(sent).toEqual([{ version: 51, query: 'episode_ids=3' }]))
   })
