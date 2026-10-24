@@ -31,7 +31,8 @@ import {
   type Block,
   type Day,
 } from './state'
-import { AgendaTimeline, DayHeading, RowDot, RowPoster, WeekLabel } from './Timeline'
+import { AgendaTimeline, DayHeading, RowDot, WeekLabel } from './Timeline'
+import { TitlePoster } from '../poster'
 import { UndatedList, UndatedRow } from './UndatedList'
 
 const BACK = 14
@@ -215,7 +216,7 @@ export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void })
                       index={i}
                       sel={sel}
                       onSelect={() => (select(i), openRow(i))}
-                      left={<RowPoster id={u.title_id} hasPoster={u.has_poster} />}
+                      left={<TitlePoster id={u.title_id} hasPoster={u.has_poster} size="sm" />}
                       right={<Standings title={{ kind: u.kind, title_id: u.title_id, season: null, episode: null }} slots={u.slots} queue={queue} now={now} />}
                     >
                       <EntityContent
@@ -310,7 +311,7 @@ function BlockRows({ block, ...p }: { block: Block } & RowProps) {
       <NavRow key={block.key} scope="up" index={index} sel={p.sel} onSelect={() => p.onSelect(index)} className="relative py-2 pr-3 pl-9">
         <RowDot current={p.sel === index} />
         <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5">
-          <RowPoster id={first.title_id} hasPoster={first.has_poster} />
+          <TitlePoster id={first.title_id} hasPoster={first.has_poster} size="sm" />
           <div className="min-w-0 flex-1 basis-40">
             <div className="label-14 truncate">
               <span className="font-medium">{first.title}</span> <span className="text-gray-900">{episodeRange(block.items)} · {plural(block.items.length, 'episode')}</span>
@@ -364,7 +365,7 @@ function Entry({ item, id, child, ...p }: { item: UpcomingItem; id: string; chil
     <div data-imported={imported || undefined} className={cx(imported && 'opacity-60')}>
       {!child && <RowDot current={p.sel === p.indexOf.get(id)} />}
       <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5">
-        {!child && <RowPoster id={item.title_id} hasPoster={item.has_poster} />}
+        {!child && <TitlePoster id={item.title_id} hasPoster={item.has_poster} size="sm" />}
         <div className="min-w-0 flex-1 basis-40">
           <div className="label-14 truncate">
             <EntryName item={item} />

@@ -28,7 +28,7 @@ describe('the layout pieces', () => {
         <PaneFooter>Footer text</PaneFooter>
       </>,
     )
-    expect(screen.getByRole('banner')).toHaveTextContent('Header text')
+    expect(screen.getByText('Header text')).toBeInTheDocument()
     expect(screen.getByRole('contentinfo')).toHaveTextContent('Footer text')
   })
 

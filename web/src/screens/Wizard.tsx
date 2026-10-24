@@ -3,12 +3,12 @@ import { Check } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { ApiError, useCompleteSetup, useCreateAccount, usePluginInstances, usePlugins, useProfiles, useSetup, useSettings } from '../api/queries'
 import { Adoption } from '../adoption/Adoption'
+import { WidePage } from '../layout/WidePage'
 import { DownloadClient } from '../plugins/DownloadClient'
 import { Indexer } from '../plugins/Indexer'
 import { LanguageForm } from '../profiles/Language'
 import { DefaultsPerSlot } from '../profiles/Profiles'
 import { RootFoldersForm } from '../rootfolders/RootFolders'
-import { WidePage } from '../layout/WidePage'
 import { KestrelLogo } from '../ui'
 
 const MIN_PASSWORD = 8
@@ -20,13 +20,7 @@ const MIN_PASSWORD = 8
  */
 export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () => void }) {
   const setup = useSetup(signedIn)
-  const sections = setup.data?.sections ?? {
-    language: 'todo',
-    download_client: 'todo',
-    indexer: 'todo',
-    root_folders: 'todo',
-    profiles: 'todo',
-  }
+  const sections = setup.data?.sections ?? { language: 'todo', download_client: 'todo', indexer: 'todo', root_folders: 'todo', profiles: 'todo' }
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -43,11 +37,7 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
   }
 
   const serverProblem =
-    create.error instanceof ApiError && create.error.code === 'conflict'
-      ? 'An account already exists. Reload to log in.'
-      : create.isError
-        ? 'Could not create the account. Try again.'
-        : null
+    create.error instanceof ApiError && create.error.code === 'conflict' ? 'An account already exists. Reload to log in.' : create.isError ? 'Could not create the account. Try again.' : null
 
   return (
     <WidePage>
@@ -64,22 +54,8 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
         {!signedIn && (
           <form onSubmit={submit} className="flex max-w-sm flex-col gap-3">
             <Input size="small" label="Username" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />
-            <Input
-              size="small"
-              label="Password"
-              type="password"
-              autoComplete="new-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <Input
-              size="small"
-              label="Confirm password"
-              type="password"
-              autoComplete="new-password"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-            />
+            <Input size="small" label="Password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <Input size="small" label="Confirm password" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
             {(problem ?? serverProblem) && (
               <Note variant="error" size="small">
                 {problem ?? serverProblem}
@@ -280,7 +256,7 @@ function Section({
             <Fieldset.Title as="h2" id={`wizard-${id}`}>
               <span className="flex items-center gap-2">
                 <span aria-hidden>
-                  <Badge size="sm" variant={done ? 'green-subtle' : 'gray-subtle'}>
+                  <Badge size="sm" contrast="low" variant={done ? 'green' : 'gray'}>
                     {done ? <Check className="size-3" /> : n}
                   </Badge>
                 </span>

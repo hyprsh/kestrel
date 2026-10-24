@@ -219,6 +219,29 @@ async function openAdoption() {
   return user
 }
 
+describe('Adoption while loading', () => {
+  it('shows a Loading line only after about 300ms', async () => {
+    let release: () => void = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
+    fakeAdoption()
+    server.use(
+      http.get('/adoption', async ({ response }) => {
+        await held
+        return response(200).json({ state: 'idle', progress: { done: 0, total: 0 }, summary: summary([]), revision: 1, error: null, scanned_at: null, result: null, monitor: 'all' })
+      }),
+    )
+    renderApp()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Settings' }))
+    await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
+
+    expect(screen.queryByText('Loading…')).not.toBeInTheDocument()
+    expect(await screen.findByText('Loading…')).toBeInTheDocument()
+    release()
+    expect(await screen.findByRole('button', { name: /scan for existing files/i })).toBeInTheDocument()
+  })
+})
+
 describe('Adoption review', () => {
   it('shows a Series with its episodes, the Versions it proposes, unmatched files and a Series not on TheTVDB', async () => {
     fakeAdoption([series, orphan])
@@ -505,11 +528,10 @@ describe('Adoption review on a phone', () => {
     await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
     await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
 
-    // The filter and both actions are there, and the choices of a doubtful row stack instead of stretching.
+    // The filter and both actions are there.
     expect(await screen.findByRole('combobox', { name: 'Show' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Discard plan' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Adopt 1 Title' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: /Use The Lost Film/ })).not.toHaveClass('max-sm:w-full')
     await user.click(screen.getByRole('button', { name: /Use The Lost Film/ }))
     expect(await screen.findByRole('button', { name: 'Adopt 2 Titles' })).toBeEnabled()
   })

@@ -6,8 +6,8 @@ import { rank } from '../fuzzy'
 import { KindIcon } from '../library/bits'
 import { ratingsText } from '../library/Ratings'
 import { AddConfirm } from './AddConfirm'
-import { PosterThumb, TitlePosterThumb } from './PosterThumb'
-import { useAfter } from './useAfter'
+import { Poster, TitlePoster } from '../poster'
+import { useAfter } from '../loading'
 
 export type MenuMode = 'root' | 'add'
 
@@ -77,7 +77,7 @@ export function CommandMenu({
   const searching = mode === 'add' && query.trim() !== '' && !lookup.isError && (query !== debounced || lookup.isFetching)
 
   // A quick answer shows no loading line at all.
-  const showLoading = useAfter(searching, 300)
+  const showLoading = useAfter(300, searching)
 
   const items: Item[] = useMemo(() => {
     if (mode === 'add') {
@@ -88,13 +88,13 @@ export function CommandMenu({
         sub: [r.year, ratingsText(r.ratings)].filter(Boolean).join(' · ') || undefined,
         disabled: !r.addable,
         keepOpen: true,
-        thumb: <PosterThumb src={r.poster} />,
+        thumb: <Poster src={r.poster} size="xs" />,
         right: (
           <span className="flex items-center gap-1.5">
-            {r.in_library !== null && <Badge variant="green-subtle" size="sm">In library</Badge>}
-            {!r.addable && r.not_addable_reason === 'not_on_tvdb' && <Badge variant="amber-subtle" size="sm">Not on TheTVDB</Badge>}
-            {!r.addable && r.not_addable_reason === 'tvdb_unavailable' && <Badge variant="amber-subtle" size="sm">TheTVDB unreachable</Badge>}
-            <Badge variant="gray-subtle" size="sm">{r.kind === 'series' ? 'Series' : 'Movie'}</Badge>
+            {r.in_library !== null && <Badge variant="green" contrast="low" size="sm">In library</Badge>}
+            {!r.addable && r.not_addable_reason === 'not_on_tvdb' && <Badge variant="amber" contrast="low" size="sm">Not on TheTVDB</Badge>}
+            {!r.addable && r.not_addable_reason === 'tvdb_unavailable' && <Badge variant="amber" contrast="low" size="sm">TheTVDB unreachable</Badge>}
+            <Badge variant="gray" contrast="low" size="sm">{r.kind === 'series' ? 'Series' : 'Movie'}</Badge>
           </span>
         ),
         run: () => {
@@ -139,7 +139,7 @@ export function CommandMenu({
       group: 'Titles',
       label: t.title,
       sub: t.year ? String(t.year) : undefined,
-      thumb: <TitlePosterThumb id={t.id} hasPoster={t.has_poster} />,
+      thumb: <TitlePoster id={t.id} hasPoster={t.has_poster} size="xs" />,
       right: <KindIcon kind={t.kind} className="text-gray-900" />,
       run: () => onOpenTitle(t.id),
     })
@@ -224,7 +224,7 @@ export function CommandMenu({
       ) : (
         <>
           <CommandMenuInput
-            prefix={mode === 'add' ? <Badge variant="blue-subtle" size="sm">Add</Badge> : undefined}
+            prefix={mode === 'add' ? <Badge variant="blue" contrast="low" size="sm">Add</Badge> : undefined}
             aria-label={mode === 'add' ? 'Search a Movie or Series to add' : 'Search or run a command'}
             placeholder={mode === 'add' ? 'Type a title to search both Movies and Series…' : 'Search or run a command…'}
           />

@@ -1,7 +1,7 @@
 import { Entity, Note, Skeleton } from '@hyprsh/design'
 import { forwardRef, useRef } from 'react'
 import { useProfiles, useTitle, type EpisodeScope, type TitleDetail as Detail, type TitleRow } from '../api/queries'
-import { TitlePagePoster } from '../layout/TitlePage'
+import { TitlePoster } from '../poster'
 import { sourceName } from '../requests/source'
 import type { SlotKey } from './bits'
 import { ExternalIds } from './ExternalIds'
@@ -101,7 +101,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
   return (
     <div className="@container mx-auto max-w-3xl">
       <div className="flex gap-4">
-        <TitlePagePoster id={title.id} hasPoster={title.has_poster} title={title.title} />
+        <TitlePoster id={title.id} hasPoster={title.has_poster} alt={`${title.title} poster`} size="xl" />
         <div className="min-w-0">
           <h2 className="heading-24">{title.title}</h2>
           {title.primary_title !== title.title && <div className="copy-14 text-gray-900">{title.primary_title}</div>}

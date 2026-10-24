@@ -10,7 +10,7 @@ import { slotLabel, type SlotKey } from '../library/bits'
 import { useOpenPlace } from '../place'
 import { ago, useNow } from '../time'
 import { NavRow } from '../NavRow'
-import { RequestPoster } from './RequestPoster'
+import { Poster, TitlePoster } from '../poster'
 import { sourceName } from './source'
 
 type Slot = Request['slots'][number]
@@ -61,7 +61,7 @@ export function RequestRow({ request: r, nav, onOpenTitle }: { request: Request;
         as="div"
         className="max-sm:flex-col max-sm:items-stretch"
         rightClassName="flex-wrap justify-end max-sm:justify-start"
-        left={<RequestPoster titleId={r.title_id} hasPoster={r.has_poster} />}
+        left={r.title_id != null ? <TitlePoster id={r.title_id} hasPoster={r.has_poster} size="sm" /> : <Poster src={null} size="sm" />}
         right={
           reason ? (
             <>

@@ -21,6 +21,7 @@ import {
 } from '../api/adoption'
 import { ApiError, useLookup } from '../api/queries'
 import { useOpenCleanup } from '../cleanup/launch'
+import { LoadingLine } from '../loading'
 import { slotKeys, slotLabel } from '../library/bits'
 import { TickBox } from '../library/TickBox'
 import { SelectionBar } from '../layout/SelectionBar'
@@ -128,9 +129,12 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
   const [filter, setFilter] = useState<Filter>('all')
   const state = plan.data?.state
 
-  if (!plan.data) return <div className="copy-14 flex items-center gap-2 p-6 text-gray-900">
-        {plan.isError ? 'Could not read the Adoption state.' : (<><Spinner size="sm" />Loading…</>)}
+  if (!plan.data)
+    return (
+      <div className="copy-14 p-6 text-gray-900">
+        {plan.isError ? 'Could not read the Adoption state.' : <LoadingLine>Loading…</LoadingLine>}
       </div>
+    )
   const p = plan.data
   const failed = scan.error ?? commit.error ?? discard.error ?? retry.error ?? reopen.error
 
