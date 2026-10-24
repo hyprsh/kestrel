@@ -171,8 +171,9 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
         return go(rows.length - 1, col)
       case 'Enter':
       case ' ': {
-        // On a button the click does it, and on a checkbox Space does; on a Slot cell, or Enter on a checkbox, the row's monitoring is toggled.
-        if (e.target instanceof Element && e.target.closest('button')) return
+        // On a button the click does it, and on a checkbox Space does; Enter on a checkbox, or Space on a Slot cell (whose Enter opens its popover), toggles the row's monitoring.
+        const onCell = e.key === ' ' && e.target instanceof Element && e.target.matches('button[data-cell]')
+        if (e.target instanceof Element && e.target.closest('button') && !onCell) return
         if (e.key === ' ' && e.target instanceof HTMLInputElement) return
         e.preventDefault()
         e.stopPropagation()
@@ -192,6 +193,8 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
       aria-label="Episodes"
       aria-colcount={columns}
       onKeyDown={onKeyDown}
+      // Space on a Slot cell button would click it on key-up: the grid has already used the key.
+      onKeyUp={(e) => e.key === ' ' && e.target instanceof Element && e.target.matches('button[data-cell]') && e.preventDefault()}
       className="copy-13 rounded-lg max-sm:overflow-x-auto border border-gray-alpha-400"
     >
       <div role="row" className={cx('label-12-mono flex items-center gap-3 border-b border-gray-alpha-400 px-3 py-1.5 text-gray-900', rowMin)}>

@@ -113,6 +113,15 @@ describe('the file of an episode cell', () => {
     expect(await within(pop).findByText(/copy it manually/)).toBeInTheDocument()
   })
 
+  it('toggles the row\'s monitoring on Space and does not open the popover', async () => {
+    const { user, grid } = await openSeries()
+    within(grid).getByRole('button', { name: 'Season 1 episode 1 Standard: Filled' }).focus()
+    expect(within(grid).getByRole('checkbox', { name: 'Season 1 episode 1 monitored' })).toBeChecked()
+    await user.keyboard(' ')
+    await waitFor(() => expect(within(grid).getByRole('checkbox', { name: 'Season 1 episode 1 monitored' })).not.toBeChecked())
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
   it('closes the popover on a click elsewhere and opens none for a cell without a file', async () => {
     const { user, grid } = await openSeries()
     await user.click(within(grid).getByRole('button', { name: 'Season 1 episode 2 Standard: Filled' }))
