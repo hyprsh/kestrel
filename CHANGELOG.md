@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.0](https://github.com/hyprsh/kestrel/compare/v0.5.0...v0.6.0) (2026-10-26)
+
+> The people you share your Plex server with can now sign in to Kestrel with their Plex account and ask for Movies and Series themselves, from the browser or the installed app, with no Seerr in between ([ADR 0018](https://github.com/hyprsh/kestrel/blob/main/docs/adr/0018-requesters-sign-in-with-plex.md)).
+
+### Upgrade Steps
+
+* **[ACTION REQUIRED]** To offer Plex sign-in, set up a Plex plugin instance whose token is the Plex server owner's. Then switch sign-in on in Settings > Security > Plex sign-in, or declare `plex_sign_in` in the Config File (see "Requesters (Plex sign-in)" in the README). Kestrel must reach plex.tv over HTTPS. Behind a proxy that terminates TLS, list the proxy in `trusted_proxies` so the session cookie gets its `Secure` flag ([#234](https://github.com/hyprsh/kestrel/pull/234))
+* Changing the admin password now logs out only the admin's other sessions. Requesters stay signed in. Log out everywhere and `kestrel reset-password` still end every session ([#234](https://github.com/hyprsh/kestrel/pull/234))
+
+### New Features
+
+* **requests:** Requesters sign in with their Plex account and can search Titles, make Requests and follow their own Requests, and nothing else. Kestrel lets in the Plex server's owner, its Plex Home members and the friends it is shared with. You can narrow that to a list of `users`, and someone who loses access is signed out within the hour. A Requester's Request asks for the Standard Slot with the default Profile. It goes into the Root folder you set for that user, such as a kids' folder, or else the first one. The Requests screen and the Log show who asked ([#234](https://github.com/hyprsh/kestrel/pull/234))
+
 ## [0.5.0](https://github.com/hyprsh/kestrel/compare/v0.4.0...v0.5.0) (2026-10-24)
 
 > Kestrel now works on a phone, with a tab bar and an app you can add to the home screen, and a new Activity screen shows every Grab from search to Import alongside what Kestrel is running right now. It also grabs episodes and Movies before their metadata is complete, can hold an Original-Language Release back for your approval, handles Adoption of large libraries, and builds every screen from @hyprsh/design ([ADR 0017](https://github.com/hyprsh/kestrel/blob/main/docs/adr/0017-kestrel-adapts-to-hyprsh-design.md)).
