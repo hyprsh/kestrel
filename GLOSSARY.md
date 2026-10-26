@@ -121,8 +121,12 @@ _Avoid_: Task, scheduled job, queue entry
 ### Requests
 
 **Request**:
-An ask from outside Kestrel, such as from a Silo user, for a Title in one or more Slots, each optionally under a named Profile. It adds the Title or its missing Versions, never changes existing ones, and carries who asked. Adding a Title or Version in Kestrel's own UI is not a Request.
+An ask from someone other than the admin, such as a Silo user or a Requester, for a Title in one or more Slots, each optionally under a named Profile. It adds the Title or its missing Versions, never changes existing ones, and carries who asked. The admin adding a Title or Version is not a Request.
 _Avoid_: Add (for Requests), order
+
+**Requester**:
+Someone who signs in to Kestrel with their Plex account, allowed while that account has access to the household's Plex server, to search Titles, make Requests and follow their own. A Requester reaches nothing else; the admin is not a Requester.
+_Avoid_: User, guest, Plex user (for the login)
 
 **Upcoming**:
 The timeline around today of episodes and movie releases, from the last two weeks to the next two months, with where each stands (not out yet, Wanted, downloading, Imported) and, after it, the Titles with no date yet. It stands in for a calendar.
