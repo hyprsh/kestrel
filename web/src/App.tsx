@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useAuth, useSetup } from './api/queries'
+import { RequesterApp } from './requester/RequesterApp'
 import { Login } from './screens/Login'
 import { Wizard } from './screens/Wizard'
 import { Toast } from '@hyprsh/design'
@@ -20,13 +21,11 @@ export function App({ client }: { client?: QueryClient }) {
 /**
  * The instance is never open without a login: a fresh one shows the wizard's
  * Account section for every page, an existing one shows the login card until
- * the session is valid. Until setup is finished, a logged-in admin gets the
- * wizard; Settings can run it again later.
+ * the session is valid. A logged-in admin gets the Shell; a Requester (signed in
+ * with Plex) gets the Requester app and nothing else.
  */
 function Gate() {
   const { data, isError } = useAuth()
-  const setup = useSetup(data?.state === 'ok')
-  const [rerun, setRerun] = useState(false)
   if (isError) return <div className="flex h-full items-center justify-center text-gray-900">Offline: cannot reach Kestrel.</div>
   if (!data) return null
   switch (data.state) {
@@ -35,7 +34,14 @@ function Gate() {
     case 'unauthenticated':
       return <Login />
     case 'ok':
-      if (!setup.data) return null
-      return !setup.data.completed || rerun ? <Wizard signedIn onLeave={() => setRerun(false)} /> : <Shell onRunSetup={() => setRerun(true)} />
+      return data.me.role === 'requester' ? <RequesterApp name={data.me.username} /> : <AdminGate />
   }
+}
+
+/** Until setup is finished, a logged-in admin gets the wizard; Settings can run it again later. */
+function AdminGate() {
+  const setup = useSetup()
+  const [rerun, setRerun] = useState(false)
+  if (!setup.data) return null
+  return !setup.data.completed || rerun ? <Wizard signedIn onLeave={() => setRerun(false)} /> : <Shell onRunSetup={() => setRerun(true)} />
 }
