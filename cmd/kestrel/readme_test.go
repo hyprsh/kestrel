@@ -90,7 +90,7 @@ func TestTheReadmesExampleConfigFileStartsAFreshKestrel(t *testing.T) {
 		t.Fatal(err)
 	}
 	if f.Account == nil || f.LanguageRegion == nil || f.RootFolders == nil || f.Profiles == nil ||
-		f.PluginInstances == nil || f.ReverseProxy == nil || f.CheckGitHubUpdates == nil {
+		f.PluginInstances == nil || f.ReverseProxy == nil || f.PlexSignIn == nil || f.CheckGitHubUpdates == nil {
 		t.Fatalf("the example leaves a section out: %+v", f)
 	}
 	for _, dir := range slices.Concat(f.RootFolders.Movies, f.RootFolders.Series) {
