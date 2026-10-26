@@ -15,6 +15,7 @@ import { ProviderKeysForm } from '../metadata/ProviderKeys'
 import { TrashForm } from '../trash/Trash'
 import { LanguageForm } from '../profiles/Language'
 import { RootFoldersForm } from '../rootfolders/RootFolders'
+import { PlexSignInForm } from './PlexSignIn'
 import { DefaultsPerSlot, ProfileToggles } from '../profiles/Profiles'
 
 /** Settings sections, in page order. Later tickets add theirs here. */
@@ -151,6 +152,7 @@ export function Settings({
       <>
         <ApiKeyRow />
         <ReverseProxyRow />
+        <PlexSignInRow />
       </>
     ),
     setup: (
@@ -357,6 +359,17 @@ function ReverseProxyRow() {
       help="Name the proxies in front of Kestrel so it sees each client's own address, for the login throttle and the Secure cookie. Header login for an SSO portal is a separate switch, off by default; the login form stays as a fallback."
     >
       {data ? <ReverseProxyForm saved={data} /> : null}
+    </Row>
+  )
+}
+
+function PlexSignInRow() {
+  return (
+    <Row
+      label="Plex sign-in"
+      help="Let the people you share your Plex server with sign in with their Plex account to search for Titles, make Requests and follow their own. They can reach nothing else."
+    >
+      <PlexSignInForm />
     </Row>
   )
 }
