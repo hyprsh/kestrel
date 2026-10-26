@@ -46,6 +46,14 @@ reverse_proxy:
   enabled: true
   trusted_proxies: [10.0.0.0/8]
   header: X-Remote-User
+plex_sign_in:
+  enabled: true
+  instance: Plex
+  users: [anna, Ben Smith]
+  user_root_folders:
+    anna: {movies: /data/kids/movies}
+    ben:
+      series: /data/kids/tv
 check_github_updates: false
 `)
 	f, err := configfile.Load(path, env("KESTREL_ADMIN_PASSWORD", "correct horse"))
@@ -69,8 +77,44 @@ check_github_updates: false
 	if !reflect.DeepEqual(f.ReverseProxy, wantProxy) {
 		t.Errorf("reverse_proxy = %+v", f.ReverseProxy)
 	}
+	wantPlex := &configfile.PlexSignIn{
+		Enabled: ptr(true), Instance: "Plex", Users: []string{"anna", "Ben Smith"},
+		UserRootFolders: map[string]configfile.PlexUserRootFolders{
+			"anna": {Movies: ptr("/data/kids/movies")},
+			"ben":  {Series: ptr("/data/kids/tv")},
+		},
+	}
+	if !reflect.DeepEqual(f.PlexSignIn, wantPlex) || !f.Declares(configfile.SectionPlexSignIn) {
+		t.Errorf("plex_sign_in = %+v", f.PlexSignIn)
+	}
 	if f.CheckGitHubUpdates == nil || *f.CheckGitHubUpdates {
 		t.Errorf("check_github_updates = %v", f.CheckGitHubUpdates)
+	}
+}
+
+func TestPlexSignInNeedsOnlyEnabled(t *testing.T) {
+	f, err := configfile.Load(write(t, "plex_sign_in:\n  enabled: false\n"), env())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p := f.PlexSignIn; p == nil || p.Enabled == nil || *p.Enabled || p.Instance != "" || p.Users != nil || p.UserRootFolders != nil {
+		t.Errorf("plex_sign_in = %+v", p)
+	}
+}
+
+func TestAPlexUserIsDeclaredOnceAndItsKindsAreKnown(t *testing.T) {
+	for _, c := range []struct{ body, want string }{
+		{"plex_sign_in:\n  enabled: true\n  user_root_folders:\n    anna: {movies: /a}\n    anna: {movies: /b}\n", "line 5"},
+		{"plex_sign_in:\n  enabled: true\n  user_root_folders:\n    anna: {anime: /a}\n", "line 4: unknown key plex_sign_in.user_root_folders.anna.anime"},
+		{"plex_sign_in:\n  enabled: true\n  token: secret-token\n", "line 3: unknown key plex_sign_in.token"},
+		{"plex_sign_in:\n  enabled: true\n  users: anna\n", "line 3"},
+	} {
+		_, err := configfile.Load(write(t, c.body), env())
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%q: err = %v, want one with %q", c.body, err, c.want)
+		} else if strings.Contains(err.Error(), "secret-token") {
+			t.Errorf("the error repeats a value: %v", err)
+		}
 	}
 }
 
@@ -81,7 +125,7 @@ func TestEverySectionIsOptional(t *testing.T) {
 			t.Fatalf("%q: %v", body, err)
 		}
 		if f.Account != nil || f.LanguageRegion != nil || f.RootFolders != nil || f.Profiles != nil ||
-			f.PluginInstances != nil || f.ReverseProxy != nil || f.CheckGitHubUpdates != nil {
+			f.PluginInstances != nil || f.ReverseProxy != nil || f.PlexSignIn != nil || f.CheckGitHubUpdates != nil {
 			t.Errorf("%q declares %+v", body, f)
 		}
 	}
@@ -142,6 +186,7 @@ func TestADeclaredSectionNamesEveryField(t *testing.T) {
 		{"reverse_proxy:\n  trusted_proxies: []\n  header: Remote-User\n", "reverse_proxy.enabled"},
 		{"reverse_proxy:\n  enabled: false\n  header: Remote-User\n", "reverse_proxy.trusted_proxies"},
 		{"reverse_proxy:\n  enabled: false\n  trusted_proxies: []\n", "reverse_proxy.header"},
+		{"plex_sign_in:\n  instance: Plex\n", "plex_sign_in.enabled"},
 		{"check_github_updates:\n", "check_github_updates"},
 		{"profiles:\n  hd-primary:\n    enabled: true\n    original_fallback: false\n    default_movies: true\n", "profiles.hd-primary.default_series"},
 		{"profiles:\n  4k-primary:\n", "profiles.4k-primary.enabled"},
