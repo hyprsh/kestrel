@@ -9,7 +9,7 @@ import { fakeSetup } from '../test/fakeSetup'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
-const me = { username: 'admin', method: 'session', proxy_user: null, from_config_file: false } as const
+const me = { username: 'admin', role: 'admin', method: 'session', proxy_user: null, from_config_file: false } as const
 const problem = (status: number, code: string) => ({ type: 'about:blank', title: 'x', status, code, detail: code })
 
 type Sent = { path: string; body?: unknown }
