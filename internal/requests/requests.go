@@ -659,7 +659,10 @@ type Filter struct {
 	Outcomes []Outcome
 	// Requesters match a requester's id, or name ignoring case.
 	Requesters []string
-	States     []State
+	// RequesterIDs match a requester's id exactly, and nothing else: a
+	// Requester's own Requests, which another account's name must not reach.
+	RequesterIDs []string
+	States       []State
 	// IDs, when set, are the only Requests returned (a bulk read).
 	IDs []int64
 	// Before is a keyset cursor: only Requests with a smaller id.
@@ -693,7 +696,7 @@ func (f Filter) params() (db.ListRequestsParams, bool) {
 		}
 		outcomes = allowed
 	}
-	return db.ListRequestsParams{Sources: jsonList(f.Sources), TitleID: f.TitleID, Outcomes: jsonList(outcomes), Requesters: jsonList(f.Requesters)}, true
+	return db.ListRequestsParams{Sources: jsonList(f.Sources), TitleID: f.TitleID, Outcomes: jsonList(outcomes), Requesters: jsonList(f.Requesters), RequesterIds: jsonList(f.RequesterIDs)}, true
 }
 
 // jsonList is a list filter's query argument: a JSON array for json_each, or
@@ -777,7 +780,7 @@ func (s *Service) Count(ctx context.Context, f Filter) (int, error) {
 	if !ok {
 		return 0, nil
 	}
-	n, err := db.New(s.d.Store.Read()).CountRequests(ctx, db.CountRequestsParams{Sources: p.Sources, TitleID: p.TitleID, Outcomes: p.Outcomes, Requesters: p.Requesters})
+	n, err := db.New(s.d.Store.Read()).CountRequests(ctx, db.CountRequestsParams{Sources: p.Sources, TitleID: p.TitleID, Outcomes: p.Outcomes, Requesters: p.Requesters, RequesterIds: p.RequesterIds})
 	return int(n), err
 }
 

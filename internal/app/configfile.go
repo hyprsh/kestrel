@@ -131,6 +131,18 @@ func (d declarer) sections() []section {
 			apply: d.plugins.Undeclare,
 		})
 	}
+	if p := f.PlexSignIn; p != nil {
+		out = append(out, section{
+			check: func(ctx context.Context) error {
+				kinds, roots, err := d.plexSignInContext(ctx)
+				if err != nil {
+					return err
+				}
+				return d.api.CheckPlexSignIn(*p, kinds, roots)
+			},
+			apply: func(ctx context.Context) error { return d.api.DeclarePlexSignIn(ctx, *p) },
+		})
+	}
 	if p := f.ReverseProxy; p != nil {
 		out = append(out, section{
 			check: func(context.Context) error { return d.api.CheckReverseProxy(*p) },
@@ -144,6 +156,32 @@ func (d declarer) sections() []section {
 		})
 	}
 	return out
+}
+
+// plexSignInContext is what plex_sign_in is checked against: the plugin
+// instances and Root folders as they will stand once the file is applied,
+// which is before it is, because every section is checked before any is
+// written. A declared instance that leaves the file is deleted, so only the
+// ones the UI made count besides the file's own.
+func (d declarer) plexSignInContext(ctx context.Context) (kinds map[string]string, roots rootfolders.Folders, err error) {
+	stored, err := d.plugins.List(ctx)
+	if err != nil {
+		return nil, roots, err
+	}
+	kinds = map[string]string{}
+	for _, i := range stored {
+		if !i.Declared || d.file.PluginInstances == nil {
+			kinds[i.Name] = i.PluginID
+		}
+	}
+	for _, p := range d.file.PluginInstances {
+		kinds[strings.TrimSpace(p.Name)] = p.PluginID
+	}
+	if r := d.file.RootFolders; r != nil {
+		return kinds, rootfolders.Folders{Movies: r.Movies, Series: r.Series}, nil
+	}
+	roots, _, err = d.roots.Get(ctx)
+	return kinds, roots, err
 }
 
 // declareRegion saves the Primary Language and country when they differ. A

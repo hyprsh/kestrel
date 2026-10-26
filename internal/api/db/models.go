@@ -250,9 +250,13 @@ type Season struct {
 }
 
 type Session struct {
-	ID        string
-	CreatedAt int64
-	ExpiresAt int64
+	ID              string
+	CreatedAt       int64
+	ExpiresAt       int64
+	RequesterID     sql.NullString
+	RequesterName   sql.NullString
+	RequesterTitle  sql.NullString
+	AccessCheckedAt sql.NullInt64
 }
 
 type Setting struct {
