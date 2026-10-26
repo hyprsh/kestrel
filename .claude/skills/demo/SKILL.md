@@ -3,7 +3,7 @@ name: demo
 description: Run Kestrel with a seeded Library against fake TMDB, TheTVDB, indexer and SABnzbd, drive it in a headless browser, and publish before/after screenshots for a PR. Use when a PR needs screenshots, or to see a UI change in the running app with realistic data.
 ---
 
-`scripts/demo` runs a real Kestrel binary against `fake.py`, one local server standing in for TMDB, TheTVDB, a Newznab indexer and SABnzbd, and seeds it with Paddington and a Breaking Bad with files in both Slots. `demo.sh` builds, starts and stops; `lib.mjs` drives the SPA through Playwright; `publish.sh` puts the screenshots on GitHub. Kestrel reaches the fake through `KESTREL_TMDB_API_URL`, `KESTREL_TMDB_IMAGE_URL` and `KESTREL_TVDB_API_URL`.
+`scripts/demo` runs a real Kestrel binary against `fake.py`, one local server standing in for TMDB, TheTVDB, a Newznab indexer, SABnzbd, plex.tv and a Plex server, and seeds it with Paddington and a Breaking Bad with files in both Slots. `demo.sh` builds, starts and stops; `lib.mjs` drives the SPA through Playwright; `publish.sh` puts the screenshots on GitHub. Kestrel reaches the fake through `KESTREL_TMDB_API_URL`, `KESTREL_TMDB_IMAGE_URL`, `KESTREL_TVDB_API_URL`, `KESTREL_PLEX_TV_URL` and `KESTREL_PLEX_APP_URL`.
 
 Keep every binary, scenario and screenshot in your scratchpad (`$S` below). Run the scripts from the repo root.
 
@@ -57,7 +57,7 @@ When a change touches `web/src`, start the demo on the working tree (steps 1, 2 
 
 ## Demo data
 
-The fake's catalogue (titles, which searches match, the slow and the broken Series) is in `fake.py`'s docstring; what the seed adds is in `seed.py`'s. Anything else a shot needs, the scenario sets up first, through the API with the page's session (`h.page.evaluate(() => fetch('api/v1/...'))`) or by clicking.
+The fake's catalogue (titles, which searches match, the slow and the broken Series) is in `fake.py`'s docstring; what the seed adds is in `seed.py`'s. Plex sign-in is on, with the fake's friend Ellie: log out and "Sign in with Plex" on the login page signs in as her (the fake's sign-in page authorises the PIN as Ellie and sends the browser back), and her Requests show as source `plex`. A ref without `KESTREL_PLEX_TV_URL` (`git grep -q KESTREL_PLEX_TV_URL <ref> -- internal/config` fails) has no Plex sign-in and the seed fails on it. Anything else a shot needs, the scenario sets up first, through the API with the page's session (`h.page.evaluate(() => fetch('api/v1/...'))`) or by clicking.
 
 - **Indexer releases:** none until `scripts/demo/demo.sh releases on`; `start` turns them off again.
 - **Login:** `demo` / `demo-password-123`.

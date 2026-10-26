@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""The demo's stand-ins for TMDB, TheTVDB, a Newznab indexer and SABnzbd, on one port.
+"""The demo's stand-ins for TMDB, TheTVDB, a Newznab indexer, SABnzbd, plex.tv and a Plex server, on one port.
 
     python3 -I fake.py --port 7690 --posters <dir>   serve
     python3 -I fake.py --titles                      list "kind<TAB>tmdb id<TAB>title<TAB>year" for posters.mjs
 
 Routes: TMDB API /3, TMDB images /t/p (files <kind>-<tmdb id>.jpg from --posters),
-TheTVDB /v4, Newznab /nzb/api, SABnzbd /sab/api.
+TheTVDB /v4, Newznab /nzb/api, SABnzbd /sab/api, plex.tv /plextv and the Plex server /plex.
 
 What it knows (MOVIES and SERIES below):
 - Movies: Paddington, Paddington 2, Paddington in Peru, El Camino.
@@ -17,13 +17,31 @@ What it knows (MOVIES and SERIES below):
 - The indexer has no releases until GET /_ctl?releases=1 (=0 empties it again).
   Then it offers releases for every Movie and for Breaking Bad, never other Series.
 - SABnzbd accepts every NZB into a queue at 40 %; nothing ever completes.
+- plex.tv (/plextv, KESTREL_PLEX_TV_URL) knows the owner (token DEMO_OWNER_TOKEN, the one
+  seeded into the Plex instance) and Ellie, a friend whose share includes the Plex server
+  (/plex, whose /identity answers DEMO_MACHINE). Its sign-in page (/plextv/auth,
+  KESTREL_PLEX_APP_URL) authorises the PIN in the URL as Ellie the moment it is visited and
+  sends the browser on to the forwardUrl, so a Requester signs in with one click.
 """
 import argparse, json, os, sys, time, datetime, hashlib
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from xml.sax.saxutils import escape
 
-STATE = {"releases": False, "queue": []}
+STATE = {"releases": False, "queue": [], "pins": {}}
+DEMO_OWNER_TOKEN = "demo-owner-token"
+DEMO_REQUESTER_TOKEN = "demo-requester-token"
+DEMO_MACHINE = "demo-plex-machine"
+PLEX_ACCOUNTS = {
+    DEMO_OWNER_TOKEN: dict(id=1, uuid="demo-owner", username="owner", title="owner", thumb=""),
+    DEMO_REQUESTER_TOKEN: dict(id=2, uuid="demo-ellie", username="ellie", title="Ellie", thumb=""),
+}
+PLEX_AUTH_PAGE = """<!doctype html><meta charset="utf-8"><title>Plex (demo)</title>
+<p>Signing in with the demo Plex account...</p>
+<script>
+const p = new URLSearchParams(location.hash.replace(/^#\\??/, ''))
+fetch('_authorise?code=' + encodeURIComponent(p.get('code') || '')).then(() => location.replace(p.get('forwardUrl') || '/'))
+</script>"""
 POSTERS = "."
 PORT = 7690
 
@@ -281,6 +299,11 @@ class H(BaseHTTPRequestHandler):
             return self.send(200, {"data": {"token": "tok"}, "status": "success"})
         if u.path == "/sab/api":
             return self.sab(parse_qs(u.query), body)
+        if u.path == "/plextv/api/v2/pins":
+            pid = len(STATE["pins"]) + 1
+            code = "demo%03dabcdefghijklmnopq" % pid
+            STATE["pins"][pid] = {"code": code, "token": None}
+            return self.send(201, {"id": pid, "code": code, "authToken": None})
         self.send(404, {"status": "failure"})
 
     def do_GET(self):
@@ -307,7 +330,43 @@ class H(BaseHTTPRequestHandler):
             return self.send(200, NZB, "application/x-nzb")
         if p == "/sab/api":
             return self.sab(qs, b"")
+        if p.startswith("/plextv/"):
+            return self.plextv(p[len("/plextv"):], qs)
+        if p.startswith("/plex/"):
+            return self.plex(p[len("/plex"):])
         self.send(404, {"status_code": 34})
+
+    def plextv(self, p, qs):
+        if p == "/auth":
+            return self.send(200, PLEX_AUTH_PAGE, "text/html; charset=utf-8")
+        if p == "/_authorise":  # what the sign-in page does for the account that visits it
+            for pin in STATE["pins"].values():
+                if pin["code"] == qs.get("code", [""])[0]:
+                    pin["token"] = DEMO_REQUESTER_TOKEN
+            return self.send(200, {"ok": True})
+        parts = p.strip("/").split("/")
+        if parts[:3] == ["api", "v2", "pins"] and len(parts) == 4 and parts[3].isdigit():
+            pin = STATE["pins"].get(int(parts[3]))
+            if not pin or pin["code"] != qs.get("code", [""])[0]:
+                return self.send(404, {"errors": [{"code": 1020, "message": "Code not found or expired"}]})
+            return self.send(200, {"id": int(parts[3]), "code": pin["code"], "authToken": pin["token"]})
+        acct = PLEX_ACCOUNTS.get(self.headers.get("X-Plex-Token", ""))
+        if parts == ["api", "v2", "user"] and acct:
+            return self.send(200, acct)
+        if parts == ["api", "users"] and self.headers.get("X-Plex-Token") == DEMO_OWNER_TOKEN:
+            e = PLEX_ACCOUNTS[DEMO_REQUESTER_TOKEN]
+            return self.send(200, '<?xml version="1.0" encoding="UTF-8"?><MediaContainer size="1">'
+                             '<User id="%d" title="%s" username="%s" home="0" restricted="0">'
+                             '<Server id="1" name="Plex" machineIdentifier="%s"/></User></MediaContainer>'
+                             % (e["id"], e["title"], e["username"], DEMO_MACHINE), "application/xml")
+        self.send(401 if parts[:2] == ["api", "v2"] or parts[:1] == ["api"] else 404, {"errors": [{"code": 1001, "message": "User could not be authenticated"}]})
+
+    def plex(self, p):
+        if p == "/identity":
+            return self.send(200, {"MediaContainer": {"size": 0, "claimed": True, "machineIdentifier": DEMO_MACHINE, "version": "1.41.0"}})
+        if p == "/library/sections":
+            return self.send(200, {"MediaContainer": {"size": 0, "Directory": []}})
+        self.send(404, {})
 
     def tmdb(self, p, qs):
         parts = p.strip("/").split("/")
@@ -396,7 +455,7 @@ class H(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(description="Fake TMDB, TheTVDB, Newznab and SABnzbd for the Kestrel demo.")
+    ap = argparse.ArgumentParser(description="Fake TMDB, TheTVDB, Newznab, SABnzbd, plex.tv and Plex for the Kestrel demo.")
     ap.add_argument("--port", type=int, default=PORT)
     ap.add_argument("--posters", default=POSTERS, help="directory of <kind>-<tmdb id>.jpg posters")
     ap.add_argument("--titles", action="store_true", help="list the titles for posters.mjs and exit")

@@ -4,7 +4,8 @@
     python3 -I seed.py --kestrel URL --db <config>/kestrel.db --media DIR --fake URL --parse BIN
 
 Through the API: the account demo / demo-password-123, English and US, Root folders
-<media>/movies, <media>/movies-family and <media>/tv, the fake indexer and SABnzbd,
+<media>/movies, <media>/movies-family and <media>/tv, the fake indexer, SABnzbd and Plex,
+Plex sign-in on for Requesters (the fake's Ellie signs in with one click),
 setup completed, then Paddington (Standard) and Breaking Bad (Standard and 4K), and without
 files Paddington 2, Paddington in Peru, El Camino and Better Call Saul.
 
@@ -52,6 +53,9 @@ call("POST", "/plugin-instances", {"plugin_id": "newznab", "name": "Demo Indexer
                                    "config": {"url": FAKE + "/nzb", "api_key": "demo-key"}})
 call("POST", "/plugin-instances", {"plugin_id": "sabnzbd", "name": "SABnzbd",
                                    "config": {"url": FAKE + "/sab", "api_key": "demo-key", "movie_category": "movies", "tv_category": "tv"}})
+call("POST", "/plugin-instances", {"plugin_id": "plex", "name": "Plex",
+                                   "config": {"url": FAKE + "/plex", "token": "demo-owner-token"}})
+call("PUT", "/settings/plex-sign-in", {"enabled": True, "instance": "Plex", "users": [], "user_root_folders": []})
 call("POST", "/setup/complete")
 
 profiles = call("GET", "/profiles")
