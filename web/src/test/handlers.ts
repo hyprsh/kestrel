@@ -41,7 +41,9 @@ export const handlers = [
   http.get('/system', ({ response }) => response(200).json({ version: '0.0.0-test', api_major: 1, base_url: '' })),
   http.get('/plugins', ({ response }) => response(200).json({ items: [sabnzbd], next_cursor: null })),
   http.get('/plugin-instances', ({ response }) => response(200).json({ items: [], next_cursor: null })),
-  http.get('/auth/me', ({ response }) => response(200).json({ username: 'admin', method: 'session', proxy_user: null, from_config_file: false })),
+  http.get('/auth/me', ({ response }) => response(200).json({ username: 'admin', role: 'admin', method: 'session', proxy_user: null, from_config_file: false })),
+  http.get('/auth/plex', ({ response }) => response(200).json({ enabled: false })),
+  http.get('/settings/plex-sign-in', ({ response }) => response(200).json({ enabled: false, instance: null, users: [], user_root_folders: [], from_config_file: false })),
   http.get('/api-key', ({ response }) => response(200).json({ prefix: null, created_at: null, from_environment: false })),
   http.get('/setup', ({ response }) =>
     response(200).json({

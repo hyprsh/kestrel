@@ -7,7 +7,7 @@ import { KindIcon } from '../library/bits'
 import { ratingsText } from '../library/Ratings'
 import { AddConfirm } from './AddConfirm'
 import { Poster, TitlePoster } from '../poster'
-import { useAfter } from '../loading'
+import { useAfter, useDebounced } from '../loading'
 
 export type MenuMode = 'root' | 'add'
 
@@ -29,16 +29,6 @@ type Item = {
   icon?: ReactNode
   /** A Title's poster thumbnail, drawn in the taller row. */
   thumb?: ReactNode
-}
-
-/** Waits for typing to pause before a value is used, so a search is not sent per keystroke. */
-function useDebounced<T>(value: T, ms: number): T {
-  const [v, setV] = useState(value)
-  useEffect(() => {
-    const t = setTimeout(() => setV(value), ms)
-    return () => clearTimeout(t)
-  }, [value, ms])
-  return v
 }
 
 /**
