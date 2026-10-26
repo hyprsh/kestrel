@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -45,6 +46,7 @@ type auth struct {
 	clock    func() time.Time
 	basePath string
 	throttle *throttle
+	plex     *plexSignIn
 	cost     hashCost
 	dummy    string    // a hash to verify against when the username is wrong, so timing does not reveal it
 	fixedKey storedKey // the hashed KESTREL_API_KEY key; its Hash is empty when the variable is unset
@@ -87,9 +89,15 @@ type ctxKey struct{}
 type request struct {
 	ip        string
 	secure    bool
+	host      string // the Host header, which Plex sends the browser back to
 	sessionID string // set when the request carries a live session
 	method    oapi.MeMethod
-	proxyUser string // the Remote-User value when method is proxy
+	proxyUser string     // the Remote-User value when method is proxy
+	requester *requester // set when the session is a Requester's (method is plex)
+	plexPin   string     // the kestrel_plex_pin cookie's value
+	// cookies are Set-Cookie values to add to the answer of the Plex sign-in
+	// routes, whose generated responses carry only one.
+	cookies []string
 }
 
 func requestFrom(ctx context.Context) *request {
@@ -121,6 +129,29 @@ func (a *auth) startSession(ctx context.Context, secure bool) (string, error) {
 	}
 	return a.cookie(token, secure, now.Add(sessionLife)), nil
 }
+
+// startRequesterSession stores a new session for a Requester who just signed
+// in with Plex and returns the cookie that carries it.
+func (a *auth) startRequesterSession(ctx context.Context, secure bool, who requester) (string, error) {
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return "", err
+	}
+	token := base64.RawURLEncoding.EncodeToString(raw)
+	now := a.clock()
+	err := a.write.CreateRequesterSession(ctx, db.CreateRequesterSessionParams{
+		ID: hashToken(token), CreatedAt: now.Unix(), ExpiresAt: now.Add(sessionLife).Unix(),
+		RequesterID: nullString(who.id), RequesterName: nullString(who.name), RequesterTitle: nullString(who.title),
+		AccessCheckedAt: nullInt(now.Unix()),
+	})
+	if err != nil {
+		return "", err
+	}
+	return a.cookie(token, secure, now.Add(sessionLife)), nil
+}
+
+func nullString(s string) sql.NullString { return sql.NullString{String: s, Valid: true} }
+func nullInt(n int64) sql.NullInt64      { return sql.NullInt64{Int64: n, Valid: true} }
 
 func (a *auth) cookie(token string, secure bool, expires time.Time) string {
 	c := &http.Cookie{
@@ -164,7 +195,11 @@ func (a *auth) guard(next http.Handler) http.Handler {
 		info := &request{
 			ip:     proxy.clientIP(socket, r.Header.Values("X-Forwarded-For")),
 			secure: r.TLS != nil || (proxy.trusts(socket) && strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")),
+			host:   r.Host,
 			method: oapi.Session,
+		}
+		if c, err := r.Cookie(plexPinCookie); err == nil {
+			info.plexPin = c.Value
 		}
 		r = r.WithContext(context.WithValue(r.Context(), ctxKey{}, info))
 
@@ -210,6 +245,16 @@ func (a *auth) guard(next http.Handler) http.Handler {
 			return
 		}
 
+		// Plex sign-in is for people who have no session yet. Its two POSTs add
+		// cookies the generated responses cannot carry.
+		if plexPublic[route] {
+			if route != "GET /auth/plex" {
+				w = &cookieWriter{ResponseWriter: w, info: info}
+			}
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// Reverse-proxy login: believed per request from a trusted address only.
 		// The same header from anywhere else is ignored and recorded.
 		authed := false
@@ -225,10 +270,33 @@ func (a *auth) guard(next http.Handler) http.Handler {
 		if !authed {
 			if c, err := r.Cookie(cookieName); err == nil && c.Value != "" {
 				id := hashToken(c.Value)
-				if a.slide(r.Context(), id) {
+				if sess, live := a.slide(r.Context(), id); live {
 					info.sessionID = id
 					w.Header().Set("Set-Cookie", a.cookie(c.Value, info.secure, a.clock().Add(sessionLife)))
 					authed = true
+					if sess.RequesterID.Valid {
+						who := requester{id: sess.RequesterID.String, name: sess.RequesterName.String, title: sess.RequesterTitle.String}
+						checked := time.Unix(sess.AccessCheckedAt.Int64, 0)
+						if !sess.AccessCheckedAt.Valid {
+							checked = time.Time{}
+						}
+						keep, err := a.plex.stillAllowed(r.Context(), id, who, checked)
+						if err != nil {
+							internal()
+							return
+						}
+						if !keep {
+							_ = a.write.DeleteSession(r.Context(), id)
+							w.Header().Set("Set-Cookie", a.cookie("", info.secure, time.Time{}))
+							fail(problem(http.StatusUnauthorized, "unauthenticated", "log in first"))
+							return
+						}
+						info.requester, info.method = &who, oapi.Plex
+						if !requesterMayCall(route) {
+							fail(problem(http.StatusForbidden, "forbidden", "a Requester may only search, request and see their own Requests"))
+							return
+						}
+					}
 				}
 			}
 		}
@@ -241,12 +309,54 @@ func (a *auth) guard(next http.Handler) http.Handler {
 }
 
 // slide extends a live session by another 30 days and reports whether it was live.
-func (a *auth) slide(ctx context.Context, id string) bool {
+func (a *auth) slide(ctx context.Context, id string) (db.LiveSessionRow, bool) {
 	now := a.clock()
-	if _, err := a.read.LiveSession(ctx, db.LiveSessionParams{ID: id, ExpiresAt: now.Unix()}); err != nil {
-		return false
+	row, err := a.read.LiveSession(ctx, db.LiveSessionParams{ID: id, ExpiresAt: now.Unix()})
+	if err != nil {
+		return row, false
 	}
-	return a.write.SlideSession(ctx, db.SlideSessionParams{ID: id, ExpiresAt: now.Add(sessionLife).Unix()}) == nil
+	return row, a.write.SlideSession(ctx, db.SlideSessionParams{ID: id, ExpiresAt: now.Add(sessionLife).Unix()}) == nil
+}
+
+// plexPublic are the routes of Plex sign-in, which need no session.
+var plexPublic = map[string]bool{"GET /auth/plex": true, "POST /auth/plex/pin": true, "POST /auth/plex/login": true}
+
+// requesterMayCall reports whether a Requester's session may call route: only
+// what searching, requesting and following one's own Requests needs. Anything
+// not listed here is refused, so a new route is closed to Requesters until it
+// is added.
+func requesterMayCall(route string) bool {
+	switch route {
+	case "GET /auth/me", "POST /auth/logout", "GET /system", "GET /lookup", "GET /my/requests", "POST /my/requests":
+		return true
+	}
+	id, ok := strings.CutPrefix(route, "GET /titles/")
+	id, poster := strings.CutSuffix(id, "/poster")
+	return ok && poster && id != "" && !strings.Contains(id, "/")
+}
+
+// cookieWriter adds the request's extra Set-Cookie values when the answer's
+// header is written.
+type cookieWriter struct {
+	http.ResponseWriter
+	info  *request
+	wrote bool
+}
+
+func (w *cookieWriter) WriteHeader(status int) {
+	if w.wrote {
+		return
+	}
+	w.wrote = true
+	for _, c := range w.info.cookies {
+		w.Header().Add("Set-Cookie", c)
+	}
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *cookieWriter) Write(b []byte) (int, error) {
+	w.WriteHeader(http.StatusOK)
+	return w.ResponseWriter.Write(b)
 }
 
 // csrfCheck refuses state-changing requests that are not JSON or that come
@@ -412,7 +522,7 @@ func (s *server) CreateAccount(ctx context.Context, req oapi.CreateAccountReques
 		return nil, err
 	}
 	return oapi.CreateAccount201JSONResponse{
-		Body:    oapi.Me{Username: username, Method: oapi.Session, FromConfigFile: s.declares(configfile.SectionAccount)},
+		Body:    oapi.Me{Username: username, Role: oapi.MeRoleAdmin, Method: oapi.Session, FromConfigFile: s.declares(configfile.SectionAccount)},
 		Headers: oapi.CreateAccount201ResponseHeaders{SetCookie: &cookie},
 	}, nil
 }
@@ -471,12 +581,15 @@ func (s *server) LogoutEverywhere(ctx context.Context, _ oapi.LogoutEverywhereRe
 }
 
 func (s *server) GetMe(ctx context.Context, _ oapi.GetMeRequestObject) (oapi.GetMeResponseObject, error) {
+	info := requestFrom(ctx)
+	if who := info.requester; who != nil {
+		return oapi.GetMe200JSONResponse(oapi.Me{Username: who.name, Role: oapi.MeRoleRequester, Method: oapi.Plex}), nil
+	}
 	acc, _, err := loadAccount(ctx, s.auth.settings)
 	if err != nil {
 		return nil, err
 	}
-	info := requestFrom(ctx)
-	out := oapi.Me{Username: acc.Username, Method: info.method, FromConfigFile: s.declares(configfile.SectionAccount)}
+	out := oapi.Me{Username: acc.Username, Role: oapi.MeRoleAdmin, Method: info.method, FromConfigFile: s.declares(configfile.SectionAccount)}
 	if info.method == oapi.Proxy {
 		out.ProxyUser = &info.proxyUser
 	}
@@ -514,7 +627,7 @@ func (s *server) ChangePassword(ctx context.Context, req oapi.ChangePasswordRequ
 	if err := s.auth.settings.Put(ctx, accountKey, raw); err != nil {
 		return nil, err
 	}
-	if err := s.auth.write.DeleteOtherSessions(ctx, requestFrom(ctx).sessionID); err != nil {
+	if err := s.auth.write.DeleteOtherAdminSessions(ctx, requestFrom(ctx).sessionID); err != nil {
 		return nil, err
 	}
 	return oapi.ChangePassword204Response{}, nil

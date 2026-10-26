@@ -53,6 +53,7 @@ type Deps struct {
 	TVDB        metadata.TVDBProvider
 	Bridge      Bridge
 	Posters     Posters
+	PlexTV      PlexTV
 }
 
 // PluginInstances is the plugin instance store.

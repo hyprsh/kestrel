@@ -40,6 +40,7 @@ type File struct {
 	// instances to the UI; an empty list declares none.
 	PluginInstances    []PluginInstance `yaml:"plugin_instances"`
 	ReverseProxy       *ReverseProxy    `yaml:"reverse_proxy"`
+	PlexSignIn         *PlexSignIn      `yaml:"plex_sign_in"`
 	CheckGitHubUpdates *bool            `yaml:"check_github_updates"`
 }
 
@@ -106,6 +107,25 @@ type ReverseProxy struct {
 	Header         string   `yaml:"header"`
 }
 
+// PlexSignIn is Plex sign-in for Requesters, declared as a whole like
+// PUT /settings/plex-sign-in. Only enabled is required: the instance is needed
+// once enabled is true, and the users and Root folders default to none.
+type PlexSignIn struct {
+	Enabled *bool `yaml:"enabled"`
+	// Instance names the declared or UI-made `plex` plugin instance.
+	Instance string `yaml:"instance"`
+	// Users narrows who may request, by Plex username or name; empty lets everyone with access.
+	Users []string `yaml:"users"`
+	// UserRootFolders maps a Plex user to the Root folders that user's Requests go to.
+	UserRootFolders map[string]PlexUserRootFolders `yaml:"user_root_folders"`
+}
+
+// PlexUserRootFolders are one user's Root folders. A nil field keeps the kind's first.
+type PlexUserRootFolders struct {
+	Movies *string `yaml:"movies"`
+	Series *string `yaml:"series"`
+}
+
 // Section is one of the File's top-level keys.
 type Section string
 
@@ -117,6 +137,7 @@ const (
 	SectionProfiles           Section = "profiles"
 	SectionPluginInstances    Section = "plugin_instances"
 	SectionReverseProxy       Section = "reverse_proxy"
+	SectionPlexSignIn         Section = "plex_sign_in"
 	SectionCheckGitHubUpdates Section = "check_github_updates"
 )
 
@@ -139,6 +160,8 @@ func (f *File) Declares(s Section) bool {
 		return f.PluginInstances != nil
 	case SectionReverseProxy:
 		return f.ReverseProxy != nil
+	case SectionPlexSignIn:
+		return f.PlexSignIn != nil
 	case SectionCheckGitHubUpdates:
 		return f.CheckGitHubUpdates != nil
 	}
@@ -259,6 +282,9 @@ func (f *File) complete() error {
 		need(p.Enabled != nil, "reverse_proxy.enabled")
 		need(p.TrustedProxies != nil, "reverse_proxy.trusted_proxies")
 		need(p.Header != "", "reverse_proxy.header")
+	}
+	if p := f.PlexSignIn; p != nil {
+		need(p.Enabled != nil, "plex_sign_in.enabled")
 	}
 	for _, key := range slices.Sorted(maps.Keys(f.Profiles)) {
 		p, field := f.Profiles[key], "profiles."+key+"."

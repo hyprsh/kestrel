@@ -56,8 +56,8 @@ func (d *Declared) CheckAccount(a configfile.Account) error {
 }
 
 // DeclareAccount creates the account, or renames it and sets its password
-// where they differ from the file. A changed password ends every session, as
-// `kestrel reset-password` does.
+// where they differ from the file. A changed password ends the admin's sessions, as
+// changing it in the UI does, and leaves the Requesters' alone.
 func (d *Declared) DeclareAccount(ctx context.Context, a configfile.Account) error {
 	username, password := strings.TrimSpace(a.Username), string(a.Password)
 	acc, exists, err := loadAccount(ctx, d.settings)
@@ -79,7 +79,7 @@ func (d *Declared) DeclareAccount(ctx context.Context, a configfile.Account) err
 		return err
 	}
 	if exists && passwordChanged {
-		return d.write.DeleteAllSessions(ctx)
+		return d.write.DeleteAdminSessions(ctx)
 	}
 	return nil
 }

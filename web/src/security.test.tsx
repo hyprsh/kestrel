@@ -128,7 +128,7 @@ describe('Settings > Security', () => {
 
 describe('a proxy-authenticated session', () => {
   it('has no Log out button', async () => {
-    server.use(http.get('/auth/me', ({ response }) => response(200).json({ username: 'admin', method: 'proxy', proxy_user: 'alice', from_config_file: false })))
+    server.use(http.get('/auth/me', ({ response }) => response(200).json({ username: 'admin', role: 'admin', method: 'proxy', proxy_user: 'alice', from_config_file: false })))
     renderApp()
     await screen.findByRole('button', { name: 'Settings' })
     expect(screen.queryByRole('button', { name: 'Log out' })).not.toBeInTheDocument()

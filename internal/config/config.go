@@ -30,6 +30,11 @@ type Config struct {
 	TMDBAPIURL   string // KESTREL_TMDB_API_URL
 	TMDBImageURL string // KESTREL_TMDB_IMAGE_URL
 	TVDBAPIURL   string // KESTREL_TVDB_API_URL
+	// PlexTVURL and PlexAppURL are KESTREL_PLEX_TV_URL and KESTREL_PLEX_APP_URL:
+	// plex.tv's API and the Plex web app's sign-in page, which Requesters sign
+	// in through. Empty means the real ones.
+	PlexTVURL  string // KESTREL_PLEX_TV_URL
+	PlexAppURL string // KESTREL_PLEX_APP_URL
 	// APIKey is Kestrel's own full-access key when set: it replaces the one
 	// generated in the UI.
 	APIKey string // KESTREL_API_KEY
@@ -87,6 +92,8 @@ func Load(getenv func(string) string) (Config, error) {
 		{"KESTREL_TMDB_API_URL", &c.TMDBAPIURL},
 		{"KESTREL_TMDB_IMAGE_URL", &c.TMDBImageURL},
 		{"KESTREL_TVDB_API_URL", &c.TVDBAPIURL},
+		{"KESTREL_PLEX_TV_URL", &c.PlexTVURL},
+		{"KESTREL_PLEX_APP_URL", &c.PlexAppURL},
 	} {
 		v := strings.TrimSpace(getenv(u.key))
 		if v == "" {

@@ -83,6 +83,8 @@ func run(ctx context.Context) error {
 		TMDBAPIURL:   cfg.TMDBAPIURL,
 		TMDBImageURL: cfg.TMDBImageURL,
 		TVDBAPIURL:   cfg.TVDBAPIURL,
+		PlexTVURL:    cfg.PlexTVURL,
+		PlexAppURL:   cfg.PlexAppURL,
 	})
 	defer func() { // after the server and the loops, before the store closes
 		flush, cancel := context.WithTimeout(context.Background(), 5*time.Second)

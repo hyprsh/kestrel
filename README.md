@@ -68,7 +68,7 @@ Before each schema migration of an existing database Kestrel copies it to `backu
 
 ### The Config File
 
-For a deployment that wants Kestrel set up the same way every time. `KESTREL_CONFIG_FILE` names a YAML file that declares sections: the account, the language and region, the root folders, the Profiles, plugin instances, the reverse proxy and the GitHub update check. On every start, after the database opens and before Kestrel serves or runs its loops, Kestrel checks the whole file with the rules the API uses and then brings each declared section to the file's state, writing only what differs. A file that fails a check stops startup before anything is written. The error names the file, the field and, where it can, the line, and never carries a secret.
+For a deployment that wants Kestrel set up the same way every time. `KESTREL_CONFIG_FILE` names a YAML file that declares sections: the account, the language and region, the root folders, the Profiles, plugin instances, the reverse proxy, Plex sign-in for Requesters and the GitHub update check. On every start, after the database opens and before Kestrel serves or runs its loops, Kestrel checks the whole file with the rules the API uses and then brings each declared section to the file's state, writing only what differs. A file that fails a check stops startup before anything is written. The error names the file, the field and, where it can, the line, and never carries a secret.
 
 This file declares every section:
 
@@ -116,11 +116,24 @@ plugin_instances: # known by name
     config:
       url: http://jellyfin:8096
       api_key_env: JELLYFIN_API_KEY
+  - name: Plex
+    plugin_id: plex
+    config:
+      url: http://plex:32400
+      token_env: PLEX_TOKEN
 
 reverse_proxy: # all three fields, as in Settings > Security
   enabled: false
   trusted_proxies: [172.16.0.0/12]
   header: Remote-User
+
+plex_sign_in: # Requesters sign in with Plex; see "Requesters (Plex sign-in)"
+  enabled: true
+  instance: Plex # the name of a plex plugin instance, which holds the server and its owner's token
+  users: [anna, ben] # optional: only these Plex users may request; leave it out or empty for everyone with access
+  user_root_folders: # optional: where a user's Requests for new Titles go, instead of the first Root folder
+    anna: { movies: /data/media/movies-kids }
+    ben: { series: /data/media/tv }
 
 check_github_updates: true
 ```
@@ -136,6 +149,7 @@ services:
       - SABNZBD_API_KEY=${SABNZBD_API_KEY}
       - INDEXER_API_KEY=${INDEXER_API_KEY}
       - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
+      - PLEX_TOKEN=${PLEX_TOKEN}
     volumes:
       - ./kestrel.yaml:/kestrel.yaml:ro
 ```
@@ -148,7 +162,7 @@ How it behaves:
 - **Declared sections are read-only.** The UI shows them disabled, and the API answers `409 conflict` naming the file to every write to a declared section, a declared instance or the declared account, including the password change and `POST /setup/account`. GET responses report `from_config_file`. `kestrel reset-password` refuses a declared account. To change a declared value, change the file and restart.
 - **A section dropped from the file keeps its last value** and is the UI's to change again.
 - **Secrets are never in the file.** A secret field is given only as `<field>_env`, naming the environment variable that holds it. A secret written inline, an unset or empty variable, or a value that isn't a variable name fails startup.
-- **`account`**: created when there is none. The username is set from the file, and the password from its variable on every start. A password that changes logs every session out.
+- **`account`**: created when there is none. The username is set from the file, and the password from its variable on every start. A password that changes ends the admin's sessions, and leaves the Requesters' alone.
 - **`language_region`**: `primary_language` is `en`, `de` or `fr`, and `release_date_country` a two-letter uppercase code. A new Primary Language re-scores the files, as it does in Settings.
 - **`root_folders`**: `movies` and `series`, each a list whose first folder is the default. Every folder must exist and be writable.
 - **`profiles`** must list every Profile: `hd-primary`, `hd-original`, `any-primary`, `any-original`, `4k-primary` and `4k-original`, each with `enabled`, `original_language`, `default_movies` and `default_series`. `original_language` says what a Profile does with a Release that has the Title's Original Language but no Primary-Language audio: `reject` it, `offer` it for approval in Needs attention, or `accept` it. The older `original_fallback` still works in its place (`true` is `accept`, `false` is `reject`). The rules of Settings > Profiles hold across the six: an Original-Language Profile (`*-original`) always rejects, a default must be enabled, a Slot has at most one default per kind, and the Standard Slot has exactly one for Movies and one for Series. The 4K Slot may have none.
@@ -162,6 +176,7 @@ How it behaves:
   - After applying the file, Kestrel tests the connection of each enabled declared instance. An instance that can't connect at startup is only logged as a warning, and Kestrel starts anyway.
 - **`reverse_proxy`**: `enabled`, `trusted_proxies` and `header`, all three, checked as in Settings > Security. `trusted_proxies` alone makes Kestrel believe `X-Forwarded-For` and `X-Forwarded-Proto` from those addresses, so the login throttle counts each client behind the proxy on its own; `enabled` only adds login from `header`, and needs at least one trusted proxy. Keep `enabled: false` unless an SSO portal sets the header.
   - **Upgrading:** Kestrel no longer believes `X-Forwarded-Proto` from an address outside `trusted_proxies`. Behind a proxy that terminates TLS with `trusted_proxies` empty, the session cookie used to get its `Secure` flag from that header and now silently doesn't. List the proxy in `trusted_proxies` (in Settings > Security or here), with `enabled: false` if you want no header login.
+- **`plex_sign_in`**: `enabled`, and when it is `true` the `instance` (the name of a `plex` plugin instance, declared in the same file or made in the UI). `users` and `user_root_folders` are optional and default to none. `user_root_folders` is a map from a Plex user to `movies` and `series`, each optional and one of that kind's Root folders. Users are unique ignoring case, in both `users` and the map's keys. Checked with the rules of `PUT /settings/plex-sign-in`, against the instances and Root folders the file declares. Applied after the plugin instances and the Root folders.
 - **`check_github_updates`**: `true` or `false`.
 - **Not in the file:** TRaSH's daily update (`trash.auto_update`) and the TMDB and TheTVDB key overrides stay in the UI. Use `KESTREL_TMDB_API_KEY` and `KESTREL_TVDB_API_KEY` for your own keys, and `KESTREL_API_KEY` for the API key.
 
@@ -174,6 +189,16 @@ The plugins' config fields (secrets are given as `<field>_env`):
 | `jellyfin` | `url`, `api_key` (secret) |
 | `plex` | `url`, `token` (secret) |
 | `silo` | `url`, `api_key` (secret, the admin API key) |
+
+### Requesters (Plex sign-in)
+
+People who share your Plex server can ask for Movies and Series in Kestrel without an app like Seerr in front of it ([ADR 0018](docs/adr/0018-requesters-sign-in-with-plex.md)). Switch it on in Settings (or declare `plex_sign_in` in the Config File) and pick the Plex instance whose server and owner token decide who may sign in. The login page then offers "Sign in with Plex": Kestrel sends the browser to plex.tv, plex.tv sends it back to Kestrel's login page with `?plex=1`, and Kestrel finishes the sign-in there. The browser that started a sign-in is the only one that can finish it.
+
+- **Who may sign in:** the server's owner, members of the owner's Plex Home, and friends whose share includes this server, read with the owner's token from the Plex instance. A list of `users` narrows that to those Plex usernames (or names, for a Home user without one), ignoring case. The Requester's own Plex token is used once, to learn who they are, and never stored.
+- **What a Requester can do:** search Titles, make a Request and see their own Requests, and nothing else; every other route answers `403 forbidden`. A Request asks for the Standard Slot under Profile resolution, goes in the kind's first Root folder unless `user_root_folders` names another for that user, and shows up in the Requests screen and the Log like any other, with the source `plex`.
+- **Sessions:** a Requester's session lasts 30 days from the last use, like the admin's. At most once an hour it is checked again against the owner's list, and it ends when the account lost access, left `users`, or Plex sign-in was switched off. A plex.tv outage does not end sessions. Changing the admin password ends the other admin sessions only; Log out everywhere ends every session.
+- **Network:** Kestrel calls plex.tv (`https://plex.tv`) to create and read PINs, learn an account and read the owner's shared users, and it identifies itself with a client identifier it generates once per instance. It needs outbound access to plex.tv, and the browser needs to reach `https://app.plex.tv`.
+- **Behind a TLS proxy:** the redirect back to Kestrel is built from the request: `https` when the request is secure, the `Host` header and the base URL. List the proxy in `trusted_proxies` (Settings > Security, or `reverse_proxy` in the Config File), so Kestrel believes its `X-Forwarded-Proto` and `X-Forwarded-For`, the session and PIN cookies get `Secure`, and the proxy passes the `Host` header on unchanged.
 
 ### The API
 
@@ -222,11 +247,12 @@ To see a change with realistic data, no keys and no network, run Kestrel against
 |---|---|
 | `cmd/kestrel` | `main`: reads config, opens the store, starts `internal/app`, serves HTTP and runs the loops. |
 | `internal/app` | The composition root: builds every module, wires them through their interfaces and hands the API the ones it calls. `cmd/kestrel` and the API tests both start Kestrel through it. |
-| `internal/<module>` | One package per module of the architecture (PRD #22). Calls only go downwards and only `jobs` strings modules together. The modules: `store`, `settings`, `history`, `health`, `metadata`, `release`, `scoring` (with `profiles` and the TRaSH snapshot service `trashsync`), `library`, `indexers`, `downloads`, `acquire`, `imports` (Import, Adoption, Clean up, naming, renames, media-server refresh), `requests`, `jobs`, `api` and `plugin/...`; plus the leaf packages `resolution`, `probe`, `updates`, `silo`, `notices`, `config` and `version`. |
+| `internal/<module>` | One package per module of the architecture (PRD #22). Calls only go downwards and only `jobs` strings modules together. The modules: `store`, `settings`, `history`, `health`, `metadata`, `release`, `scoring` (with `profiles` and the TRaSH snapshot service `trashsync`), `library`, `indexers`, `downloads`, `acquire`, `imports` (Import, Adoption, Clean up, naming, renames, media-server refresh), `requests`, `jobs`, `api` and `plugin/...`; plus the leaf packages `resolution`, `probe`, `updates`, `silo`, `notices`, `plextv`, `config` and `version`. |
 | `internal/release` | Release name parsing: a Go port of Radarr's (Movies) and Sonarr's (Series) parsers, with the upstream commit recorded in each ported file. Its tests replay Radarr's and Sonarr's own fixtures and golden `/api/v3/parse` files from `testdata/`, see its README. |
 | `internal/scoring` | `Evaluate`: scores a Release with TRaSH's Custom Formats and applies the Profile's language, resolution and minimum-Score rules. The TRaSH snapshot (MIT, with its licence and commit) is embedded from `trash/`; refresh it with `scripts/update-trash-snapshot.sh`. Its tests replay golden matched-Custom-Format sets recorded from pinned Radarr and Sonarr (`testdata/`, `scripts/regen-cf-golden.sh`). |
 | `internal/resolution` | The SD/HD/UHD resolution classes shared by scoring and probe (a Slot is its own type in `internal/slot`). |
 | `internal/metadata` | The TMDB and TheTVDB clients (search, Movie and Series details, release dates, certifications and aliases), the TMDB to TheTVDB bridge, provider key precedence and the poster cache. `metadatatest` is a fake TMDB serving hand-written fixtures; no key is needed to run the tests. |
+| `internal/plextv` | The plex.tv client behind Requesters' Plex sign-in: PINs, the account behind a token, the owner's shared users, the Plex server's identity, and the access rule built from them. `plextvtest` is a fake plex.tv and Plex server for tests. |
 | `internal/library` | Titles (Movies and Series with seasons and episodes), Versions, files, monitoring and search state, plus the add panel's preselection (`Suggest`). |
 | `scripts/` | Dev-only tools: fixture extraction, golden-file regeneration for the parser port and the Custom Format parity harness, TRaSH snapshot refresh (Docker, never run in CI), and the demo: fake providers, seed data and a headless-browser driver (`scripts/demo`). |
 | `api/openapi.yaml` | The hand-written API contract and the source of truth. |

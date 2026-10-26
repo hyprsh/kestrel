@@ -24,6 +24,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
+	"github.com/hyprsh/kestrel/internal/plextv"
 	"github.com/hyprsh/kestrel/internal/plugin"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
 	"github.com/hyprsh/kestrel/internal/probe"
@@ -61,6 +62,10 @@ type Options struct {
 	TMDBAPIURL   string
 	TMDBImageURL string
 	TVDBAPIURL   string
+	// PlexTVURL and PlexAppURL are KESTREL_PLEX_TV_URL and KESTREL_PLEX_APP_URL:
+	// plex.tv's API and the Plex web app's sign-in page. Empty means the real ones.
+	PlexTVURL  string
+	PlexAppURL string
 	// TVDB is the TheTVDB client; nil means the real one, with the key chosen by
 	// the same precedence as TMDB's. Tests inject a client pointed at fixtures.
 	TVDB metadata.TVDBProvider
@@ -163,6 +168,8 @@ func New(opts Options) *App {
 		posters = metadata.NewPosters(metadata.PostersOptions{ConfigDir: opts.ConfigDir, ImageBase: opts.TMDBImageURL})
 	}
 
+	plexTV := plextv.New(plextv.Options{BaseURL: opts.PlexTVURL, AppURL: opts.PlexAppURL, Version: opts.Version})
+
 	indexerHost := indexers.New(pluginInstances, st, opts.Clock)
 	indexerHost.SetLogger(opts.Logger)
 	downloadHost := downloads.New(pluginInstances)
@@ -245,7 +252,7 @@ func New(opts Options) *App {
 		Plugins: pluginInstances, Profiles: profs, RootFolders: roots, Settings: settingsTx{roots, profs, trash, pause}, Pause: pause, Updates: upd,
 		Library: lib, Acquire: acq, Requests: reqs, Adoption: adoption, Cleanup: cleanup, Remover: remover, Imports: imp, Files: imp,
 		Jobs: runner, Refresher: refresher, Indexers: indexerHost, Health: healthSvc, History: hist, Scoring: live, Trash: trashAPI{trash, trashUpdates}, Keys: keys,
-		Meta: meta, TVDB: tvdb, Bridge: &metadata.Bridge{Meta: meta, TVDB: tvdb, Log: opts.Logger}, Posters: posters,
+		Meta: meta, TVDB: tvdb, Bridge: &metadata.Bridge{Meta: meta, TVDB: tvdb, Log: opts.Logger}, Posters: posters, PlexTV: plexTV,
 	}
 	handler := api.New(opts.Options, deps)
 	return &App{Handler: handler, Jobs: runner, Health: healthSvc, mediaRefresh: mediaRefresh, declarer: declarer{

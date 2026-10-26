@@ -183,6 +183,104 @@ paths:
                 $ref: "#/components/schemas/Me"
         default:
           $ref: "#/components/responses/Problem"
+  /auth/plex:
+    get:
+      operationId: getPlexSignIn
+      summary: Whether the login card offers Plex sign-in
+      description: |
+        Unauthenticated. `enabled` is `true` while Plex sign-in is switched on and names a Plex
+        instance, so a Requester can sign in with their Plex account.
+      tags: [auth]
+      responses:
+        "200":
+          description: Whether Plex sign-in is offered.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlexSignInAvailability"
+        default:
+          $ref: "#/components/responses/Problem"
+  /auth/plex/pin:
+    post:
+      operationId: startPlexSignIn
+      summary: Start a Requester's Plex sign-in
+      description: |
+        Unauthenticated. Creates a Plex PIN and answers the plex.tv URL to send the browser to. Plex
+        sends the browser back to Kestrel's login page with `?plex=1` once the account has
+        authorised it, and the SPA then calls `POST /auth/plex/login`. The PIN is bound to this
+        browser by the `kestrel_plex_pin` cookie (HttpOnly, SameSite=Lax, 15 minutes), so only the
+        browser that started a sign-in can finish it. `403 plex_sign_in_off` while Plex sign-in is
+        off; `502 upstream_unavailable` when plex.tv can't be reached.
+      tags: [auth]
+      responses:
+        "200":
+          description: Where to send the browser.
+          headers:
+            Set-Cookie:
+              description: The `kestrel_plex_pin` cookie.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlexPin"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "502":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /auth/plex/login:
+    post:
+      operationId: finishPlexSignIn
+      summary: Finish a Requester's Plex sign-in
+      description: |
+        Unauthenticated. Reads the PIN from the `kestrel_plex_pin` cookie, asks plex.tv whether it
+        was authorised, learns the account with the token it carries (which is never stored), and
+        checks with the Plex instance's owner token that the account has access to that server:
+        the owner, a Plex Home member, or a friend whose share includes the server. When
+        `users` is not empty the account must also be on it. Then sets a 30-day sliding Requester
+        session cookie and clears the PIN cookie.
+
+        A Requester's session may call only `GET /auth/me`, `POST /auth/logout`, `GET /system`,
+        `GET /lookup`, `GET /titles/{id}/poster` and `/my/requests`; every other route answers
+        `403 forbidden`. It is re-checked against the owner's list at most once an hour and ends
+        (`401 unauthenticated`) when the account lost access, left `users`, or Plex sign-in was
+        switched off.
+
+        `409 pending` while Plex has not been authorised yet (try again shortly). `401 unauthenticated`
+        without a PIN cookie or once the PIN expired: start again. `403 plex_no_access` when the
+        account may not request; it counts as a failed login for the throttle (`429 rate_limited`).
+        `403 plex_sign_in_off` while Plex sign-in is off. `502 upstream_unavailable` when plex.tv or the
+        Plex server can't be reached.
+      tags: [auth]
+      responses:
+        "204":
+          description: Signed in as a Requester; the PIN cookie is cleared.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SetCookie"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "429":
+          description: Too many failed attempts.
+          headers:
+            Retry-After:
+              description: Seconds until the next attempt is accepted.
+              schema:
+                type: integer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "502":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /account/password:
     post:
       operationId: changePassword
@@ -291,6 +389,51 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReverseProxy"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /settings/plex-sign-in:
+    get:
+      operationId: getPlexSignInSettings
+      summary: Plex sign-in for Requesters
+      tags: [settings]
+      responses:
+        "200":
+          description: The settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlexSignIn"
+        default:
+          $ref: "#/components/responses/Problem"
+    put:
+      operationId: putPlexSignInSettings
+      summary: Change Plex sign-in for Requesters
+      description: |
+        `enabled` needs `instance`, the name of a `plex` plugin instance: its server and its owner's
+        token decide who may sign in. `users` narrows who may request to those Plex accounts, by
+        username or, for a Plex Home user without one, by name, ignoring case; empty lets everyone
+        with access request. `user_root_folders` sends a user's Requests for new Titles to one of the
+        kind's Root folders instead of the first; each folder must be one of that kind's Root folders.
+        Switching sign-in off, or taking a user off `users`, ends the affected Requester sessions on
+        their next call. `409 conflict` while the Config File declares `plex_sign_in`.
+      tags: [settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlexSignInSettings"
+      responses:
+        "200":
+          description: The settings as saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlexSignIn"
         "409":
           $ref: "#/components/responses/Problem"
         "422":
@@ -2253,6 +2396,76 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /my/requests:
+    get:
+      operationId: listMyRequests
+      summary: The signed-in Requester's own Requests, newest first
+      description: |
+        Only for a Requester's session; any other caller gets `403 forbidden`. The Requests whose
+        source is `plex` and whose requester is this Plex account.
+      tags: [requests]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A page of the Requester's Requests with their current status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequestList"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createMyRequest
+      summary: Request a Title as the signed-in Requester
+      description: |
+        Only for a Requester's session; any other caller gets `403 forbidden`. Makes a Request as
+        `POST /requests` does, with the source `plex`, this Plex account as the requester, the
+        Standard Slot under Profile resolution, the whole Series for a Series, and the Requester's
+        Root folder from `user_root_folders` (else the kind's first) for a Title the Request creates.
+        Asking for the same Title again returns the Requester's stored Request with `200`.
+      tags: [requests]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MyRequestCreate"
+      responses:
+        "200":
+          description: The Requester's Request for this Title, made earlier.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Request"
+        "201":
+          description: The new Request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Request"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "502":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /plugins:
     get:
       operationId: listPlugins
@@ -2615,6 +2828,72 @@ components:
               description: Addresses that sent the header without being trusted, newest first.
               items:
                 $ref: "#/components/schemas/UntrustedProxyHeader"
+    PlexSignInAvailability:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+    PlexPin:
+      type: object
+      required: [auth_url]
+      properties:
+        auth_url:
+          type: string
+          description: The plex.tv page to send the browser to; it sends the browser back to Kestrel's login page.
+    PlexUserRootFolders:
+      type: object
+      required: [user, movies, series]
+      properties:
+        user:
+          type: string
+          minLength: 1
+          description: A Plex username, or a Plex Home user's name, ignoring case.
+        movies:
+          type: string
+          nullable: true
+          description: One of the Movie Root folders; `null` keeps the first.
+        series:
+          type: string
+          nullable: true
+          description: One of the Series Root folders; `null` keeps the first.
+    PlexSignInSettings:
+      type: object
+      required: [enabled, instance, users, user_root_folders]
+      properties:
+        enabled:
+          type: boolean
+        instance:
+          type: string
+          nullable: true
+          description: The name of the `plex` plugin instance whose server and owner token decide who may sign in.
+        users:
+          type: array
+          description: Who may request, by Plex username or Plex Home user name; empty for everyone with access to the server.
+          items:
+            type: string
+            minLength: 1
+        user_root_folders:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlexUserRootFolders"
+    PlexSignIn:
+      allOf:
+        - $ref: "#/components/schemas/PlexSignInSettings"
+        - type: object
+          required: [from_config_file]
+          properties:
+            from_config_file:
+              type: boolean
+              description: "`true` while the Config File declares `plex_sign_in`, which can't be changed here then."
+    MyRequestCreate:
+      type: object
+      required: [kind, tmdb_id]
+      properties:
+        kind:
+          $ref: "#/components/schemas/TitleKind"
+        tmdb_id:
+          type: integer
     UntrustedProxyHeader:
       type: object
       required: [ip, value, count, last_seen]
@@ -2642,17 +2921,22 @@ components:
           minLength: 8
     Me:
       type: object
-      required: [username, method, proxy_user, from_config_file]
+      required: [username, role, method, proxy_user, from_config_file]
       properties:
         username:
           type: string
+          description: The admin's username, or a Requester's Plex username (a Plex Home user's name when it has none).
+        role:
+          type: string
+          enum: [admin, requester]
+          description: "`requester` for someone signed in with Plex, who may only search, request and see their own Requests."
         from_config_file:
           type: boolean
-          description: "`true` while the Config File declares the account, whose password can't be changed here then."
+          description: "`true` while the Config File declares the account, whose password can't be changed here then. Always `false` for a Requester."
         method:
           type: string
-          enum: [session, proxy, api_key]
-          description: How this request was authenticated.
+          enum: [session, proxy, api_key, plex]
+          description: How this request was authenticated; `plex` for a Requester's session.
         proxy_user:
           type: string
           nullable: true

@@ -71,27 +71,42 @@ func (s *server) CreateRequest(ctx context.Context, r oapi.CreateRequestRequestO
 	if b.Seasons != nil {
 		in.Seasons = append([]int{}, *b.Seasons...)
 	}
+	req, created, err := s.submitRequest(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	if !created {
+		return oapi.CreateRequest200JSONResponse(requestToAPI(req)), nil
+	}
+	return oapi.CreateRequest201JSONResponse(requestToAPI(req)), nil
+}
+
+// submitRequest takes a Request on through the Request module, as every way of
+// making one does: a problem for a malformed Request, the search kicked when
+// Versions were added, and the Log's entry for a new one. created is false for
+// the stored Request of a retry.
+func (s *server) submitRequest(ctx context.Context, in requests.Input) (req requests.Request, created bool, err error) {
 	res, err := s.requests.Submit(ctx, in)
 	var ve *requests.ValidationError
 	switch {
 	case errors.As(err, &ve):
-		return nil, invalid(ve.Field, ve.Code, ve.Message)
+		return req, false, invalid(ve.Field, ve.Code, ve.Message)
 	case errors.Is(err, requests.ErrNoRootFolder):
-		return nil, problem(http.StatusUnprocessableEntity, "validation", "Set a Root folder in Settings first")
+		return req, false, problem(http.StatusUnprocessableEntity, "validation", "Set a Root folder in Settings first")
 	case err != nil:
-		return nil, metaProblem(err)
+		return req, false, metaProblem(err)
 	}
 	if res.SearchDue {
 		s.jobs.Kick(jobs.Search) // search at once: the new Versions are due now
 	}
 	if !res.Created {
-		return oapi.CreateRequest200JSONResponse(requestToAPI(res.Request)), nil
+		return res.Request, false, nil
 	}
 	s.history.Record(ctx, history.Event{
 		Kind: history.RequestCreated, TitleID: res.Request.TitleID, RequestID: res.Request.ID,
 		Message: "Request from " + res.Request.RequesterName + " via " + requests.SourceName(res.Request.Source),
 	})
-	return oapi.CreateRequest201JSONResponse(requestToAPI(res.Request)), nil
+	return res.Request, true, nil
 }
 
 func deref(p *string) string {
@@ -114,14 +129,7 @@ func (s *server) GetRequest(ctx context.Context, r oapi.GetRequestRequestObject)
 
 func (s *server) ListRequests(ctx context.Context, r oapi.ListRequestsRequestObject) (oapi.ListRequestsResponseObject, error) {
 	p := r.Params
-	limit := 100
-	if p.Limit != nil {
-		limit = *p.Limit
-	}
-	if limit < 1 || limit > 500 {
-		return nil, invalid("limit", "invalid", "limit is between 1 and 500")
-	}
-	f := requests.Filter{Limit: limit + 1}
+	f := requests.Filter{}
 	if p.Id != nil && len(*p.Id) > 0 {
 		if len(*p.Id) > 100 {
 			return nil, invalid("id", "too_many", "Read at most 100 Requests at once")
@@ -153,19 +161,36 @@ func (s *server) ListRequests(ctx context.Context, r oapi.ListRequestsRequestObj
 	if p.TitleId != nil {
 		f.TitleID = *p.TitleId
 	}
-	before, err := readCursor(p.Cursor, 1)
+	page, err := s.requestPage(ctx, f, p.Limit, p.Cursor)
 	if err != nil {
 		return nil, err
+	}
+	return oapi.ListRequests200JSONResponse(page), nil
+}
+
+// requestPage reads one page of the Requests f selects, newest first.
+func (s *server) requestPage(ctx context.Context, f requests.Filter, limitParam *int, cursor *string) (oapi.RequestList, error) {
+	limit := 100
+	if limitParam != nil {
+		limit = *limitParam
+	}
+	if limit < 1 || limit > 500 {
+		return oapi.RequestList{}, invalid("limit", "invalid", "limit is between 1 and 500")
+	}
+	f.Limit = limit + 1
+	before, err := readCursor(cursor, 1)
+	if err != nil {
+		return oapi.RequestList{}, err
 	}
 	f.Before = before
 	list, err := s.requests.List(ctx, f)
 	if err != nil {
-		return nil, err
+		return oapi.RequestList{}, err
 	}
 	out := oapi.RequestList{Items: []oapi.Request{}, Total: len(list)}
 	if len(f.IDs) == 0 {
 		if out.Total, err = s.requests.Count(ctx, f); err != nil {
-			return nil, err
+			return out, err
 		}
 	}
 	if len(f.IDs) == 0 && len(list) > limit {
@@ -175,7 +200,7 @@ func (s *server) ListRequests(ctx context.Context, r oapi.ListRequestsRequestObj
 	for _, req := range list {
 		out.Items = append(out.Items, requestToAPI(req))
 	}
-	return oapi.ListRequests200JSONResponse(out), nil
+	return out, nil
 }
 
 // origins fills a Title detail's "Requested by <name> via <source>" rows.

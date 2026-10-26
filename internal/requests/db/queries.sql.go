@@ -17,13 +17,15 @@ WHERE (?1 IS NULL OR source IN (SELECT value FROM json_each(?1)))
   AND (?3 IS NULL OR outcome IN (SELECT value FROM json_each(?3)))
   AND (?4 IS NULL OR requester_id IN (SELECT value FROM json_each(?4))
        OR lower(requester_name) IN (SELECT lower(value) FROM json_each(?4)))
+  AND (?5 IS NULL OR requester_id IN (SELECT value FROM json_each(?5)))
 `
 
 type CountRequestsParams struct {
-	Sources    interface{}
-	TitleID    interface{}
-	Outcomes   interface{}
-	Requesters interface{}
+	Sources      interface{}
+	TitleID      interface{}
+	Outcomes     interface{}
+	Requesters   interface{}
+	RequesterIds interface{}
 }
 
 func (q *Queries) CountRequests(ctx context.Context, arg CountRequestsParams) (int64, error) {
@@ -32,6 +34,7 @@ func (q *Queries) CountRequests(ctx context.Context, arg CountRequestsParams) (i
 		arg.TitleID,
 		arg.Outcomes,
 		arg.Requesters,
+		arg.RequesterIds,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -174,17 +177,19 @@ WHERE id < ?1
   AND (?4 IS NULL OR outcome IN (SELECT value FROM json_each(?4)))
   AND (?5 IS NULL OR requester_id IN (SELECT value FROM json_each(?5))
        OR lower(requester_name) IN (SELECT lower(value) FROM json_each(?5)))
+  AND (?6 IS NULL OR requester_id IN (SELECT value FROM json_each(?6)))
 ORDER BY id DESC
-LIMIT ?6
+LIMIT ?7
 `
 
 type ListRequestsParams struct {
-	Before     int64
-	Sources    interface{}
-	TitleID    interface{}
-	Outcomes   interface{}
-	Requesters interface{}
-	Max        int64
+	Before       int64
+	Sources      interface{}
+	TitleID      interface{}
+	Outcomes     interface{}
+	Requesters   interface{}
+	RequesterIds interface{}
+	Max          int64
 }
 
 // A list filter is a JSON array of the values to match any of, or NULL for none.
@@ -195,6 +200,7 @@ func (q *Queries) ListRequests(ctx context.Context, arg ListRequestsParams) ([]R
 		arg.TitleID,
 		arg.Outcomes,
 		arg.Requesters,
+		arg.RequesterIds,
 		arg.Max,
 	)
 	if err != nil {

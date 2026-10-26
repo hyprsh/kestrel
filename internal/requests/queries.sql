@@ -27,6 +27,7 @@ WHERE id < sqlc.arg(before)
   AND (sqlc.narg(outcomes) IS NULL OR outcome IN (SELECT value FROM json_each(sqlc.narg(outcomes))))
   AND (sqlc.narg(requesters) IS NULL OR requester_id IN (SELECT value FROM json_each(sqlc.narg(requesters)))
        OR lower(requester_name) IN (SELECT lower(value) FROM json_each(sqlc.narg(requesters))))
+  AND (sqlc.narg(requester_ids) IS NULL OR requester_id IN (SELECT value FROM json_each(sqlc.narg(requester_ids))))
 ORDER BY id DESC
 LIMIT sqlc.arg(max);
 
@@ -36,7 +37,8 @@ WHERE (sqlc.narg(sources) IS NULL OR source IN (SELECT value FROM json_each(sqlc
   AND (sqlc.arg(title_id) = 0 OR title_id = sqlc.arg(title_id))
   AND (sqlc.narg(outcomes) IS NULL OR outcome IN (SELECT value FROM json_each(sqlc.narg(outcomes))))
   AND (sqlc.narg(requesters) IS NULL OR requester_id IN (SELECT value FROM json_each(sqlc.narg(requesters)))
-       OR lower(requester_name) IN (SELECT lower(value) FROM json_each(sqlc.narg(requesters))));
+       OR lower(requester_name) IN (SELECT lower(value) FROM json_each(sqlc.narg(requesters))))
+  AND (sqlc.narg(requester_ids) IS NULL OR requester_id IN (SELECT value FROM json_each(sqlc.narg(requester_ids))));
 
 -- name: ListRequestsByTitle :many
 SELECT * FROM requests WHERE title_id = ? ORDER BY id;

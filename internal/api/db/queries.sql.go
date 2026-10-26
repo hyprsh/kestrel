@@ -7,7 +7,36 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
+
+const createRequesterSession = `-- name: CreateRequesterSession :exec
+INSERT INTO sessions (id, created_at, expires_at, requester_id, requester_name, requester_title, access_checked_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateRequesterSessionParams struct {
+	ID              string
+	CreatedAt       int64
+	ExpiresAt       int64
+	RequesterID     sql.NullString
+	RequesterName   sql.NullString
+	RequesterTitle  sql.NullString
+	AccessCheckedAt sql.NullInt64
+}
+
+func (q *Queries) CreateRequesterSession(ctx context.Context, arg CreateRequesterSessionParams) error {
+	_, err := q.db.ExecContext(ctx, createRequesterSession,
+		arg.ID,
+		arg.CreatedAt,
+		arg.ExpiresAt,
+		arg.RequesterID,
+		arg.RequesterName,
+		arg.RequesterTitle,
+		arg.AccessCheckedAt,
+	)
+	return err
+}
 
 const createSession = `-- name: CreateSession :exec
 INSERT INTO sessions (id, created_at, expires_at) VALUES (?, ?, ?)
@@ -24,6 +53,15 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 	return err
 }
 
+const deleteAdminSessions = `-- name: DeleteAdminSessions :exec
+DELETE FROM sessions WHERE requester_id IS NULL
+`
+
+func (q *Queries) DeleteAdminSessions(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAdminSessions)
+	return err
+}
+
 const deleteAllSessions = `-- name: DeleteAllSessions :exec
 DELETE FROM sessions
 `
@@ -33,12 +71,13 @@ func (q *Queries) DeleteAllSessions(ctx context.Context) error {
 	return err
 }
 
-const deleteOtherSessions = `-- name: DeleteOtherSessions :exec
-DELETE FROM sessions WHERE id <> ?
+const deleteOtherAdminSessions = `-- name: DeleteOtherAdminSessions :exec
+DELETE FROM sessions WHERE id <> ? AND requester_id IS NULL
 `
 
-func (q *Queries) DeleteOtherSessions(ctx context.Context, id string) error {
-	_, err := q.db.ExecContext(ctx, deleteOtherSessions, id)
+// Changing the admin password ends the admin's sessions, not the Requesters'.
+func (q *Queries) DeleteOtherAdminSessions(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteOtherAdminSessions, id)
 	return err
 }
 
@@ -91,7 +130,8 @@ func (q *Queries) ListUntrustedProxyHeaders(ctx context.Context) ([]ListUntruste
 }
 
 const liveSession = `-- name: LiveSession :one
-SELECT expires_at FROM sessions WHERE id = ? AND expires_at > ?
+SELECT expires_at, requester_id, requester_name, requester_title, access_checked_at
+FROM sessions WHERE id = ? AND expires_at > ?
 `
 
 type LiveSessionParams struct {
@@ -99,11 +139,39 @@ type LiveSessionParams struct {
 	ExpiresAt int64
 }
 
-func (q *Queries) LiveSession(ctx context.Context, arg LiveSessionParams) (int64, error) {
+type LiveSessionRow struct {
+	ExpiresAt       int64
+	RequesterID     sql.NullString
+	RequesterName   sql.NullString
+	RequesterTitle  sql.NullString
+	AccessCheckedAt sql.NullInt64
+}
+
+func (q *Queries) LiveSession(ctx context.Context, arg LiveSessionParams) (LiveSessionRow, error) {
 	row := q.db.QueryRowContext(ctx, liveSession, arg.ID, arg.ExpiresAt)
-	var expires_at int64
-	err := row.Scan(&expires_at)
-	return expires_at, err
+	var i LiveSessionRow
+	err := row.Scan(
+		&i.ExpiresAt,
+		&i.RequesterID,
+		&i.RequesterName,
+		&i.RequesterTitle,
+		&i.AccessCheckedAt,
+	)
+	return i, err
+}
+
+const markAccessChecked = `-- name: MarkAccessChecked :exec
+UPDATE sessions SET access_checked_at = ? WHERE id = ?
+`
+
+type MarkAccessCheckedParams struct {
+	AccessCheckedAt sql.NullInt64
+	ID              string
+}
+
+func (q *Queries) MarkAccessChecked(ctx context.Context, arg MarkAccessCheckedParams) error {
+	_, err := q.db.ExecContext(ctx, markAccessChecked, arg.AccessCheckedAt, arg.ID)
+	return err
 }
 
 const pruneSessions = `-- name: PruneSessions :execrows

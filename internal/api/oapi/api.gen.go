@@ -655,6 +655,7 @@ func (e JobStatus) Valid() bool {
 // Defines values for MeMethod.
 const (
 	ApiKey  MeMethod = "api_key"
+	Plex    MeMethod = "plex"
 	Proxy   MeMethod = "proxy"
 	Session MeMethod = "session"
 )
@@ -664,9 +665,29 @@ func (e MeMethod) Valid() bool {
 	switch e {
 	case ApiKey:
 		return true
+	case Plex:
+		return true
 	case Proxy:
 		return true
 	case Session:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MeRole.
+const (
+	MeRoleAdmin     MeRole = "admin"
+	MeRoleRequester MeRole = "requester"
+)
+
+// Valid indicates whether the value is a known member of the MeRole enum.
+func (e MeRole) Valid() bool {
+	switch e {
+	case MeRoleAdmin:
+		return true
+	case MeRoleRequester:
 		return true
 	default:
 		return false
@@ -2507,19 +2528,33 @@ type LookupSeries struct {
 
 // Me defines model for Me.
 type Me struct {
-	// FromConfigFile `true` while the Config File declares the account, whose password can't be changed here then.
+	// FromConfigFile `true` while the Config File declares the account, whose password can't be changed here then. Always `false` for a Requester.
 	FromConfigFile bool `json:"from_config_file"`
 
-	// Method How this request was authenticated.
+	// Method How this request was authenticated; `plex` for a Requester's session.
 	Method MeMethod `json:"method"`
 
 	// ProxyUser The reverse-proxy header value, when `method` is `proxy`.
 	ProxyUser *string `json:"proxy_user"`
-	Username  string  `json:"username"`
+
+	// Role `requester` for someone signed in with Plex, who may only search, request and see their own Requests.
+	Role MeRole `json:"role"`
+
+	// Username The admin's username, or a Requester's Plex username (a Plex Home user's name when it has none).
+	Username string `json:"username"`
 }
 
-// MeMethod How this request was authenticated.
+// MeMethod How this request was authenticated; `plex` for a Requester's session.
 type MeMethod string
+
+// MeRole `requester` for someone signed in with Plex, who may only search, request and see their own Requests.
+type MeRole string
+
+// MyRequestCreate defines model for MyRequestCreate.
+type MyRequestCreate struct {
+	Kind   TitleKind `json:"kind"`
+	TmdbId int       `json:"tmdb_id"`
+}
 
 // NewApiKey defines model for NewApiKey.
 type NewApiKey struct {
@@ -2603,6 +2638,56 @@ type OriginalsAvailable struct {
 
 	// Items Those offers, newest first.
 	Items []OriginalOffer `json:"items"`
+}
+
+// PlexPin defines model for PlexPin.
+type PlexPin struct {
+	// AuthUrl The plex.tv page to send the browser to; it sends the browser back to Kestrel's login page.
+	AuthUrl string `json:"auth_url"`
+}
+
+// PlexSignIn defines model for PlexSignIn.
+type PlexSignIn struct {
+	Enabled bool `json:"enabled"`
+
+	// FromConfigFile `true` while the Config File declares `plex_sign_in`, which can't be changed here then.
+	FromConfigFile bool `json:"from_config_file"`
+
+	// Instance The name of the `plex` plugin instance whose server and owner token decide who may sign in.
+	Instance        *string               `json:"instance"`
+	UserRootFolders []PlexUserRootFolders `json:"user_root_folders"`
+
+	// Users Who may request, by Plex username or Plex Home user name; empty for everyone with access to the server.
+	Users []string `json:"users"`
+}
+
+// PlexSignInAvailability defines model for PlexSignInAvailability.
+type PlexSignInAvailability struct {
+	Enabled bool `json:"enabled"`
+}
+
+// PlexSignInSettings defines model for PlexSignInSettings.
+type PlexSignInSettings struct {
+	Enabled bool `json:"enabled"`
+
+	// Instance The name of the `plex` plugin instance whose server and owner token decide who may sign in.
+	Instance        *string               `json:"instance"`
+	UserRootFolders []PlexUserRootFolders `json:"user_root_folders"`
+
+	// Users Who may request, by Plex username or Plex Home user name; empty for everyone with access to the server.
+	Users []string `json:"users"`
+}
+
+// PlexUserRootFolders defines model for PlexUserRootFolders.
+type PlexUserRootFolders struct {
+	// Movies One of the Movie Root folders; `null` keeps the first.
+	Movies *string `json:"movies"`
+
+	// Series One of the Series Root folders; `null` keeps the first.
+	Series *string `json:"series"`
+
+	// User A Plex username, or a Plex Home user's name, ignoring case.
+	User string `json:"user"`
 }
 
 // PluginConfigPatch Plugin settings by manifest field key. Secret fields are write-only: they are accepted
@@ -4071,6 +4156,12 @@ type LookupParams struct {
 	Kind *TitleKind `form:"kind,omitempty" json:"kind,omitempty"`
 }
 
+// ListMyRequestsParams defines parameters for ListMyRequests.
+type ListMyRequestsParams struct {
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // TestPluginInstanceJSONBody defines parameters for TestPluginInstance.
 type TestPluginInstanceJSONBody struct {
 	// Config Plugin settings by manifest field key. Secret fields are write-only: they are accepted
@@ -4186,6 +4277,9 @@ type CreateGrabJSONRequestBody = GrabCreate
 // CancelGrabJSONRequestBody defines body for CancelGrab for application/json ContentType.
 type CancelGrabJSONRequestBody = GrabCancel
 
+// CreateMyRequestJSONRequestBody defines body for CreateMyRequest for application/json ContentType.
+type CreateMyRequestJSONRequestBody = MyRequestCreate
+
 // CreatePluginInstanceJSONRequestBody defines body for CreatePluginInstance for application/json ContentType.
 type CreatePluginInstanceJSONRequestBody = PluginInstanceCreate
 
@@ -4209,6 +4303,9 @@ type CreateRequestJSONRequestBody = RequestCreate
 
 // PatchSettingsJSONRequestBody defines body for PatchSettings for application/json ContentType.
 type PatchSettingsJSONRequestBody = SettingsPatch
+
+// PutPlexSignInSettingsJSONRequestBody defines body for PutPlexSignInSettings for application/json ContentType.
+type PutPlexSignInSettingsJSONRequestBody = PlexSignInSettings
 
 // PutReverseProxyJSONRequestBody defines body for PutReverseProxy for application/json ContentType.
 type PutReverseProxyJSONRequestBody = ReverseProxySettings
@@ -4634,6 +4731,15 @@ type ServerInterface interface {
 	// GetMe Who is logged in
 	// (GET /auth/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// GetPlexSignIn Whether the login card offers Plex sign-in
+	// (GET /auth/plex)
+	GetPlexSignIn(w http.ResponseWriter, r *http.Request)
+	// FinishPlexSignIn Finish a Requester's Plex sign-in
+	// (POST /auth/plex/login)
+	FinishPlexSignIn(w http.ResponseWriter, r *http.Request)
+	// StartPlexSignIn Start a Requester's Plex sign-in
+	// (POST /auth/plex/pin)
+	StartPlexSignIn(w http.ResponseWriter, r *http.Request)
 	// ListBlocklist The Blocklist
 	// (GET /blocklist)
 	ListBlocklist(w http.ResponseWriter, r *http.Request, params ListBlocklistParams)
@@ -4682,6 +4788,12 @@ type ServerInterface interface {
 	// LookupTitle One search result with the add panel's suggested Slots and Profiles
 	// (GET /lookup/{kind}/{tmdb_id})
 	LookupTitle(w http.ResponseWriter, r *http.Request, kind TitleKind, tmdbId int)
+	// ListMyRequests The signed-in Requester's own Requests, newest first
+	// (GET /my/requests)
+	ListMyRequests(w http.ResponseWriter, r *http.Request, params ListMyRequestsParams)
+	// CreateMyRequest Request a Title as the signed-in Requester
+	// (POST /my/requests)
+	CreateMyRequest(w http.ResponseWriter, r *http.Request)
 	// ListPluginInstances Configured plugin instances
 	// (GET /plugin-instances)
 	ListPluginInstances(w http.ResponseWriter, r *http.Request)
@@ -4739,6 +4851,12 @@ type ServerInterface interface {
 	// PatchSettings Change settings
 	// (PATCH /settings)
 	PatchSettings(w http.ResponseWriter, r *http.Request)
+	// GetPlexSignInSettings Plex sign-in for Requesters
+	// (GET /settings/plex-sign-in)
+	GetPlexSignInSettings(w http.ResponseWriter, r *http.Request)
+	// PutPlexSignInSettings Change Plex sign-in for Requesters
+	// (PUT /settings/plex-sign-in)
+	PutPlexSignInSettings(w http.ResponseWriter, r *http.Request)
 	// GetReverseProxy Reverse-proxy login settings
 	// (GET /settings/reverse-proxy)
 	GetReverseProxy(w http.ResponseWriter, r *http.Request)
@@ -5227,6 +5345,48 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPlexSignIn operation middleware
+func (siw *ServerInterfaceWrapper) GetPlexSignIn(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPlexSignIn(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FinishPlexSignIn operation middleware
+func (siw *ServerInterfaceWrapper) FinishPlexSignIn(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FinishPlexSignIn(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartPlexSignIn operation middleware
+func (siw *ServerInterfaceWrapper) StartPlexSignIn(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartPlexSignIn(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5810,6 +5970,66 @@ func (siw *ServerInterfaceWrapper) LookupTitle(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// ListMyRequests operation middleware
+func (siw *ServerInterfaceWrapper) ListMyRequests(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListMyRequestsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMyRequests(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateMyRequest operation middleware
+func (siw *ServerInterfaceWrapper) CreateMyRequest(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateMyRequest(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPluginInstances operation middleware
 func (siw *ServerInterfaceWrapper) ListPluginInstances(w http.ResponseWriter, r *http.Request) {
 
@@ -6270,6 +6490,34 @@ func (siw *ServerInterfaceWrapper) PatchSettings(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PatchSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPlexSignInSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetPlexSignInSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPlexSignInSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutPlexSignInSettings operation middleware
+func (siw *ServerInterfaceWrapper) PutPlexSignInSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutPlexSignInSettings(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7259,11 +7507,16 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout", wrapper.Logout)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout-everywhere", wrapper.LogoutEverywhere)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/me", wrapper.GetMe)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/plex", wrapper.GetPlexSignIn)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/plex/pin", wrapper.StartPlexSignIn)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/plex/login", wrapper.FinishPlexSignIn)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/account/password", wrapper.ChangePassword)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api-key", wrapper.GetApiKey)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api-key", wrapper.CreateApiKey)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/settings/reverse-proxy", wrapper.GetReverseProxy)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/settings/reverse-proxy", wrapper.PutReverseProxy)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/settings/plex-sign-in", wrapper.GetPlexSignInSettings)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/settings/plex-sign-in", wrapper.PutPlexSignInSettings)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/settings", wrapper.GetSettings)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/settings", wrapper.PatchSettings)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/profiles", wrapper.ListProfiles)
@@ -7331,6 +7584,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/requests", wrapper.ListRequests)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/requests", wrapper.CreateRequest)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/requests/{id}", wrapper.GetRequest)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/my/requests", wrapper.ListMyRequests)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/my/requests", wrapper.CreateMyRequest)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugins", wrapper.ListPlugins)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/plugins/{plugin_id}/options/{field}", wrapper.ListPluginOptions)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugin-instances", wrapper.ListPluginInstances)
@@ -8501,6 +8756,244 @@ func (response GetMedefaultApplicationProblemPlusJSONResponse) VisitGetMeRespons
 	return err
 }
 
+type GetPlexSignInRequestObject struct {
+}
+
+type GetPlexSignInResponseObject interface {
+	VisitGetPlexSignInResponse(w http.ResponseWriter) error
+}
+
+type GetPlexSignIn200JSONResponse PlexSignInAvailability
+
+func (response GetPlexSignIn200JSONResponse) VisitGetPlexSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPlexSignIndefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetPlexSignIndefaultApplicationProblemPlusJSONResponse) VisitGetPlexSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishPlexSignInRequestObject struct {
+}
+
+type FinishPlexSignInResponseObject interface {
+	VisitFinishPlexSignInResponse(w http.ResponseWriter) error
+}
+
+type FinishPlexSignIn204ResponseHeaders struct {
+	SetCookie *string
+}
+
+type FinishPlexSignIn204Response struct {
+	Headers FinishPlexSignIn204ResponseHeaders
+}
+
+func (response FinishPlexSignIn204Response) VisitFinishPlexSignInResponse(w http.ResponseWriter) error {
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(204)
+	return nil
+}
+
+type FinishPlexSignIn401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response FinishPlexSignIn401ApplicationProblemPlusJSONResponse) VisitFinishPlexSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishPlexSignIn403ApplicationProblemPlusJSONResponse Problem
+
+func (response FinishPlexSignIn403ApplicationProblemPlusJSONResponse) VisitFinishPlexSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishPlexSignIn409ApplicationProblemPlusJSONResponse Problem
+
+func (response FinishPlexSignIn409ApplicationProblemPlusJSONResponse) VisitFinishPlexSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishPlexSignIn429ResponseHeaders struct {
+	RetryAfter *int
+}
+
+type FinishPlexSignIn429ApplicationProblemPlusJSONResponse struct {
+	Body    Problem
+	Headers FinishPlexSignIn429ResponseHeaders
+}
+
+func (response FinishPlexSignIn429ApplicationProblemPlusJSONResponse) VisitFinishPlexSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishPlexSignIn502ApplicationProblemPlusJSONResponse Problem
+
+func (response FinishPlexSignIn502ApplicationProblemPlusJSONResponse) VisitFinishPlexSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishPlexSignIndefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response FinishPlexSignIndefaultApplicationProblemPlusJSONResponse) VisitFinishPlexSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartPlexSignInRequestObject struct {
+}
+
+type StartPlexSignInResponseObject interface {
+	VisitStartPlexSignInResponse(w http.ResponseWriter) error
+}
+
+type StartPlexSignIn200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type StartPlexSignIn200JSONResponse struct {
+	Body    PlexPin
+	Headers StartPlexSignIn200ResponseHeaders
+}
+
+func (response StartPlexSignIn200JSONResponse) VisitStartPlexSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartPlexSignIn403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response StartPlexSignIn403ApplicationProblemPlusJSONResponse) VisitStartPlexSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartPlexSignIn502ApplicationProblemPlusJSONResponse Problem
+
+func (response StartPlexSignIn502ApplicationProblemPlusJSONResponse) VisitStartPlexSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartPlexSignIndefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response StartPlexSignIndefaultApplicationProblemPlusJSONResponse) VisitStartPlexSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListBlocklistRequestObject struct {
 	Params ListBlocklistParams
 }
@@ -9447,6 +9940,172 @@ type LookupTitledefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response LookupTitledefaultApplicationProblemPlusJSONResponse) VisitLookupTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMyRequestsRequestObject struct {
+	Params ListMyRequestsParams
+}
+
+type ListMyRequestsResponseObject interface {
+	VisitListMyRequestsResponse(w http.ResponseWriter) error
+}
+
+type ListMyRequests200JSONResponse RequestList
+
+func (response ListMyRequests200JSONResponse) VisitListMyRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMyRequests403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListMyRequests403ApplicationProblemPlusJSONResponse) VisitListMyRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMyRequests422ApplicationProblemPlusJSONResponse Problem
+
+func (response ListMyRequests422ApplicationProblemPlusJSONResponse) VisitListMyRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMyRequestsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListMyRequestsdefaultApplicationProblemPlusJSONResponse) VisitListMyRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMyRequestRequestObject struct {
+	Body *CreateMyRequestJSONRequestBody
+}
+
+type CreateMyRequestResponseObject interface {
+	VisitCreateMyRequestResponse(w http.ResponseWriter) error
+}
+
+type CreateMyRequest200JSONResponse Request
+
+func (response CreateMyRequest200JSONResponse) VisitCreateMyRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMyRequest201JSONResponse Request
+
+func (response CreateMyRequest201JSONResponse) VisitCreateMyRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMyRequest403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateMyRequest403ApplicationProblemPlusJSONResponse) VisitCreateMyRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMyRequest422ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateMyRequest422ApplicationProblemPlusJSONResponse) VisitCreateMyRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMyRequest502ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateMyRequest502ApplicationProblemPlusJSONResponse) VisitCreateMyRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMyRequestdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateMyRequestdefaultApplicationProblemPlusJSONResponse) VisitCreateMyRequestResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -10540,6 +11199,113 @@ type PatchSettingsdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response PatchSettingsdefaultApplicationProblemPlusJSONResponse) VisitPatchSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPlexSignInSettingsRequestObject struct {
+}
+
+type GetPlexSignInSettingsResponseObject interface {
+	VisitGetPlexSignInSettingsResponse(w http.ResponseWriter) error
+}
+
+type GetPlexSignInSettings200JSONResponse PlexSignIn
+
+func (response GetPlexSignInSettings200JSONResponse) VisitGetPlexSignInSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPlexSignInSettingsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetPlexSignInSettingsdefaultApplicationProblemPlusJSONResponse) VisitGetPlexSignInSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutPlexSignInSettingsRequestObject struct {
+	Body *PutPlexSignInSettingsJSONRequestBody
+}
+
+type PutPlexSignInSettingsResponseObject interface {
+	VisitPutPlexSignInSettingsResponse(w http.ResponseWriter) error
+}
+
+type PutPlexSignInSettings200JSONResponse PlexSignIn
+
+func (response PutPlexSignInSettings200JSONResponse) VisitPutPlexSignInSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutPlexSignInSettings409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PutPlexSignInSettings409ApplicationProblemPlusJSONResponse) VisitPutPlexSignInSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutPlexSignInSettings422ApplicationProblemPlusJSONResponse Problem
+
+func (response PutPlexSignInSettings422ApplicationProblemPlusJSONResponse) VisitPutPlexSignInSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutPlexSignInSettingsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response PutPlexSignInSettingsdefaultApplicationProblemPlusJSONResponse) VisitPutPlexSignInSettingsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -12513,6 +13279,15 @@ type StrictServerInterface interface {
 	// GetMe Who is logged in
 	// (GET /auth/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// GetPlexSignIn Whether the login card offers Plex sign-in
+	// (GET /auth/plex)
+	GetPlexSignIn(ctx context.Context, request GetPlexSignInRequestObject) (GetPlexSignInResponseObject, error)
+	// FinishPlexSignIn Finish a Requester's Plex sign-in
+	// (POST /auth/plex/login)
+	FinishPlexSignIn(ctx context.Context, request FinishPlexSignInRequestObject) (FinishPlexSignInResponseObject, error)
+	// StartPlexSignIn Start a Requester's Plex sign-in
+	// (POST /auth/plex/pin)
+	StartPlexSignIn(ctx context.Context, request StartPlexSignInRequestObject) (StartPlexSignInResponseObject, error)
 	// ListBlocklist The Blocklist
 	// (GET /blocklist)
 	ListBlocklist(ctx context.Context, request ListBlocklistRequestObject) (ListBlocklistResponseObject, error)
@@ -12561,6 +13336,12 @@ type StrictServerInterface interface {
 	// LookupTitle One search result with the add panel's suggested Slots and Profiles
 	// (GET /lookup/{kind}/{tmdb_id})
 	LookupTitle(ctx context.Context, request LookupTitleRequestObject) (LookupTitleResponseObject, error)
+	// ListMyRequests The signed-in Requester's own Requests, newest first
+	// (GET /my/requests)
+	ListMyRequests(ctx context.Context, request ListMyRequestsRequestObject) (ListMyRequestsResponseObject, error)
+	// CreateMyRequest Request a Title as the signed-in Requester
+	// (POST /my/requests)
+	CreateMyRequest(ctx context.Context, request CreateMyRequestRequestObject) (CreateMyRequestResponseObject, error)
 	// ListPluginInstances Configured plugin instances
 	// (GET /plugin-instances)
 	ListPluginInstances(ctx context.Context, request ListPluginInstancesRequestObject) (ListPluginInstancesResponseObject, error)
@@ -12618,6 +13399,12 @@ type StrictServerInterface interface {
 	// PatchSettings Change settings
 	// (PATCH /settings)
 	PatchSettings(ctx context.Context, request PatchSettingsRequestObject) (PatchSettingsResponseObject, error)
+	// GetPlexSignInSettings Plex sign-in for Requesters
+	// (GET /settings/plex-sign-in)
+	GetPlexSignInSettings(ctx context.Context, request GetPlexSignInSettingsRequestObject) (GetPlexSignInSettingsResponseObject, error)
+	// PutPlexSignInSettings Change Plex sign-in for Requesters
+	// (PUT /settings/plex-sign-in)
+	PutPlexSignInSettings(ctx context.Context, request PutPlexSignInSettingsRequestObject) (PutPlexSignInSettingsResponseObject, error)
 	// GetReverseProxy Reverse-proxy login settings
 	// (GET /settings/reverse-proxy)
 	GetReverseProxy(ctx context.Context, request GetReverseProxyRequestObject) (GetReverseProxyResponseObject, error)
@@ -13341,6 +14128,78 @@ func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetPlexSignIn operation middleware
+func (sh *strictHandler) GetPlexSignIn(w http.ResponseWriter, r *http.Request) {
+	var request GetPlexSignInRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPlexSignIn(ctx, request.(GetPlexSignInRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPlexSignIn")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPlexSignInResponseObject); ok {
+		if err := validResponse.VisitGetPlexSignInResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// FinishPlexSignIn operation middleware
+func (sh *strictHandler) FinishPlexSignIn(w http.ResponseWriter, r *http.Request) {
+	var request FinishPlexSignInRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.FinishPlexSignIn(ctx, request.(FinishPlexSignInRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FinishPlexSignIn")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(FinishPlexSignInResponseObject); ok {
+		if err := validResponse.VisitFinishPlexSignInResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartPlexSignIn operation middleware
+func (sh *strictHandler) StartPlexSignIn(w http.ResponseWriter, r *http.Request) {
+	var request StartPlexSignInRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartPlexSignIn(ctx, request.(StartPlexSignInRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartPlexSignIn")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartPlexSignInResponseObject); ok {
+		if err := validResponse.VisitStartPlexSignInResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListBlocklist operation middleware
 func (sh *strictHandler) ListBlocklist(w http.ResponseWriter, r *http.Request, params ListBlocklistParams) {
 	var request ListBlocklistRequestObject
@@ -13777,6 +14636,63 @@ func (sh *strictHandler) LookupTitle(w http.ResponseWriter, r *http.Request, kin
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(LookupTitleResponseObject); ok {
 		if err := validResponse.VisitLookupTitleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListMyRequests operation middleware
+func (sh *strictHandler) ListMyRequests(w http.ResponseWriter, r *http.Request, params ListMyRequestsParams) {
+	var request ListMyRequestsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMyRequests(ctx, request.(ListMyRequestsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMyRequests")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListMyRequestsResponseObject); ok {
+		if err := validResponse.VisitListMyRequestsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateMyRequest operation middleware
+func (sh *strictHandler) CreateMyRequest(w http.ResponseWriter, r *http.Request) {
+	var request CreateMyRequestRequestObject
+
+	var body CreateMyRequestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateMyRequest(ctx, request.(CreateMyRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateMyRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateMyRequestResponseObject); ok {
+		if err := validResponse.VisitCreateMyRequestResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -14309,6 +15225,61 @@ func (sh *strictHandler) PatchSettings(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PatchSettingsResponseObject); ok {
 		if err := validResponse.VisitPatchSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPlexSignInSettings operation middleware
+func (sh *strictHandler) GetPlexSignInSettings(w http.ResponseWriter, r *http.Request) {
+	var request GetPlexSignInSettingsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPlexSignInSettings(ctx, request.(GetPlexSignInSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPlexSignInSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPlexSignInSettingsResponseObject); ok {
+		if err := validResponse.VisitGetPlexSignInSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutPlexSignInSettings operation middleware
+func (sh *strictHandler) PutPlexSignInSettings(w http.ResponseWriter, r *http.Request) {
+	var request PutPlexSignInSettingsRequestObject
+
+	var body PutPlexSignInSettingsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutPlexSignInSettings(ctx, request.(PutPlexSignInSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutPlexSignInSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutPlexSignInSettingsResponseObject); ok {
+		if err := validResponse.VisitPutPlexSignInSettingsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

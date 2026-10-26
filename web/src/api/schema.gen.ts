@@ -168,6 +168,89 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/plex": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether the login card offers Plex sign-in
+         * @description Unauthenticated. `enabled` is `true` while Plex sign-in is switched on and names a Plex
+         *     instance, so a Requester can sign in with their Plex account.
+         */
+        get: operations["getPlexSignIn"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/plex/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a Requester's Plex sign-in
+         * @description Unauthenticated. Creates a Plex PIN and answers the plex.tv URL to send the browser to. Plex
+         *     sends the browser back to Kestrel's login page with `?plex=1` once the account has
+         *     authorised it, and the SPA then calls `POST /auth/plex/login`. The PIN is bound to this
+         *     browser by the `kestrel_plex_pin` cookie (HttpOnly, SameSite=Lax, 15 minutes), so only the
+         *     browser that started a sign-in can finish it. `403 plex_sign_in_off` while Plex sign-in is
+         *     off; `502 upstream_unavailable` when plex.tv can't be reached.
+         */
+        post: operations["startPlexSignIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/plex/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish a Requester's Plex sign-in
+         * @description Unauthenticated. Reads the PIN from the `kestrel_plex_pin` cookie, asks plex.tv whether it
+         *     was authorised, learns the account with the token it carries (which is never stored), and
+         *     checks with the Plex instance's owner token that the account has access to that server:
+         *     the owner, a Plex Home member, or a friend whose share includes the server. When
+         *     `users` is not empty the account must also be on it. Then sets a 30-day sliding Requester
+         *     session cookie and clears the PIN cookie.
+         *
+         *     A Requester's session may call only `GET /auth/me`, `POST /auth/logout`, `GET /system`,
+         *     `GET /lookup`, `GET /titles/{id}/poster` and `/my/requests`; every other route answers
+         *     `403 forbidden`. It is re-checked against the owner's list at most once an hour and ends
+         *     (`401 unauthenticated`) when the account lost access, left `users`, or Plex sign-in was
+         *     switched off.
+         *
+         *     `409 pending` while Plex has not been authorised yet (try again shortly). `401 unauthenticated`
+         *     without a PIN cookie or once the PIN expired: start again. `403 plex_no_access` when the
+         *     account may not request; it counts as a failed login for the throttle (`429 rate_limited`).
+         *     `403 plex_sign_in_off` while Plex sign-in is off. `502 upstream_unavailable` when plex.tv or the
+         *     Plex server can't be reached.
+         */
+        post: operations["finishPlexSignIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/account/password": {
         parameters: {
             query?: never;
@@ -237,6 +320,33 @@ export interface paths {
          *     header from any other address is ignored and recorded under `untrusted`. `409 conflict` while the Config File declares `reverse_proxy`.
          */
         put: operations["putReverseProxy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/plex-sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Plex sign-in for Requesters */
+        get: operations["getPlexSignInSettings"];
+        /**
+         * Change Plex sign-in for Requesters
+         * @description `enabled` needs `instance`, the name of a `plex` plugin instance: its server and its owner's
+         *     token decide who may sign in. `users` narrows who may request to those Plex accounts, by
+         *     username or, for a Plex Home user without one, by name, ignoring case; empty lets everyone
+         *     with access request. `user_root_folders` sends a user's Requests for new Titles to one of the
+         *     kind's Root folders instead of the first; each folder must be one of that kind's Root folders.
+         *     Switching sign-in off, or taking a user off `users`, ends the affected Requester sessions on
+         *     their next call. `409 conflict` while the Config File declares `plex_sign_in`.
+         */
+        put: operations["putPlexSignInSettings"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1797,6 +1907,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/my/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The signed-in Requester's own Requests, newest first
+         * @description Only for a Requester's session; any other caller gets `403 forbidden`. The Requests whose
+         *     source is `plex` and whose requester is this Plex account.
+         */
+        get: operations["listMyRequests"];
+        put?: never;
+        /**
+         * Request a Title as the signed-in Requester
+         * @description Only for a Requester's session; any other caller gets `403 forbidden`. Makes a Request as
+         *     `POST /requests` does, with the source `plex`, this Plex account as the requester, the
+         *     Standard Slot under Profile resolution, the whole Series for a Series, and the Requester's
+         *     Root folder from `user_root_folders` (else the kind's first) for a Title the Request creates.
+         *     Asking for the same Title again returns the Requester's stored Request with `200`.
+         */
+        post: operations["createMyRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/plugins": {
         parameters: {
             query?: never;
@@ -2003,6 +2142,37 @@ export interface components {
             /** @description Addresses that sent the header without being trusted, newest first. */
             readonly untrusted: components["schemas"]["UntrustedProxyHeader"][];
         };
+        PlexSignInAvailability: {
+            enabled: boolean;
+        };
+        PlexPin: {
+            /** @description The plex.tv page to send the browser to; it sends the browser back to Kestrel's login page. */
+            auth_url: string;
+        };
+        PlexUserRootFolders: {
+            /** @description A Plex username, or a Plex Home user's name, ignoring case. */
+            user: string;
+            /** @description One of the Movie Root folders; `null` keeps the first. */
+            movies: string | null;
+            /** @description One of the Series Root folders; `null` keeps the first. */
+            series: string | null;
+        };
+        PlexSignInSettings: {
+            enabled: boolean;
+            /** @description The name of the `plex` plugin instance whose server and owner token decide who may sign in. */
+            instance: string | null;
+            /** @description Who may request, by Plex username or Plex Home user name; empty for everyone with access to the server. */
+            users: string[];
+            user_root_folders: components["schemas"]["PlexUserRootFolders"][];
+        };
+        PlexSignIn: components["schemas"]["PlexSignInSettings"] & {
+            /** @description `true` while the Config File declares `plex_sign_in`, which can't be changed here then. */
+            from_config_file: boolean;
+        };
+        MyRequestCreate: {
+            kind: components["schemas"]["TitleKind"];
+            tmdb_id: number;
+        };
         UntrustedProxyHeader: {
             ip: string;
             /** @description The header value from the latest request. */
@@ -2016,14 +2186,20 @@ export interface components {
             password: string;
         };
         Me: {
+            /** @description The admin's username, or a Requester's Plex username (a Plex Home user's name when it has none). */
             username: string;
-            /** @description `true` while the Config File declares the account, whose password can't be changed here then. */
-            from_config_file: boolean;
             /**
-             * @description How this request was authenticated.
+             * @description `requester` for someone signed in with Plex, who may only search, request and see their own Requests.
              * @enum {string}
              */
-            method: "session" | "proxy" | "api_key";
+            role: "admin" | "requester";
+            /** @description `true` while the Config File declares the account, whose password can't be changed here then. Always `false` for a Requester. */
+            from_config_file: boolean;
+            /**
+             * @description How this request was authenticated; `plex` for a Requester's session.
+             * @enum {string}
+             */
+            method: "session" | "proxy" | "api_key" | "plex";
             /** @description The reverse-proxy header value, when `method` is `proxy`. */
             proxy_user: string | null;
         };
@@ -4293,6 +4469,87 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
+    getPlexSignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Whether Plex sign-in is offered. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlexSignInAvailability"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    startPlexSignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Where to send the browser. */
+            200: {
+                headers: {
+                    /** @description The `kestrel_plex_pin` cookie. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlexPin"];
+                };
+            };
+            403: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    finishPlexSignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed in as a Requester; the PIN cookie is cleared. */
+            204: {
+                headers: {
+                    "Set-Cookie": components["headers"]["SetCookie"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            /** @description Too many failed attempts. */
+            429: {
+                headers: {
+                    /** @description Seconds until the next attempt is accepted. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
     changePassword: {
         parameters: {
             query?: never;
@@ -4405,6 +4662,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReverseProxy"];
+                };
+            };
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getPlexSignInSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlexSignIn"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    putPlexSignInSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlexSignInSettings"];
+            };
+        };
+        responses: {
+            /** @description The settings as saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlexSignIn"];
                 };
             };
             409: components["responses"]["Problem"];
@@ -6129,6 +6434,69 @@ export interface operations {
                 };
             };
             404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listMyRequests: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of the Requester's Requests with their current status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestList"];
+                };
+            };
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    createMyRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MyRequestCreate"];
+            };
+        };
+        responses: {
+            /** @description The Requester's Request for this Title, made earlier. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Request"];
+                };
+            };
+            /** @description The new Request. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Request"];
+                };
+            };
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

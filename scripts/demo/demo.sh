@@ -88,6 +88,7 @@ start() {
   KESTREL_PORT=$port KESTREL_CONFIG_DIR=$dir/config KESTREL_DATA_DIR=$dir/data \
     KESTREL_TMDB_API_KEY=demo KESTREL_TVDB_API_KEY=demo \
     KESTREL_TMDB_API_URL=$fake/3 KESTREL_TMDB_IMAGE_URL=$fake/t/p KESTREL_TVDB_API_URL=$fake/v4 \
+    KESTREL_PLEX_TV_URL=$fake/plextv KESTREL_PLEX_APP_URL=$fake/plextv/auth \
     nohup "$bin" </dev/null >"$dir/logs/kestrel.log" 2>&1 &
   echo $! >"$dir/kestrel.pid"
   wait_for "http://127.0.0.1:$port/ping" "Kestrel"
