@@ -245,7 +245,7 @@ func New(opts Options) *App {
 	runner := jobs.Standard(jobs.Deps{
 		Refresher: refresher, Updates: upd, Acquire: acq, Library: lib, History: hist, LastRun: appSettings,
 		Sessions: func(ctx context.Context) error { _, err := api.PruneSessions(ctx, st, opts.Clock()); return err },
-		Health:   healthSvc, Importer: imp, ImportSource: acq, Trash: trashLoop(trashUpdates, opts.TrashSource), Clock: opts.Clock, Logger: opts.Logger,
+		Health:   healthSvc, Marks: newPlexMarks(st, reqs, appSettings, pluginInstances, opts.Clock, opts.Logger), Importer: imp, ImportSource: acq, Trash: trashLoop(trashUpdates, opts.TrashSource), Clock: opts.Clock, Logger: opts.Logger,
 	})
 
 	deps := api.Deps{

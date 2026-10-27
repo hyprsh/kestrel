@@ -173,6 +173,20 @@ type OriginalOffer struct {
 	Dismissed   int64
 }
 
+type PlexMark struct {
+	TitleID        int64
+	InstanceID     int64
+	SectionKey     string
+	ItemID         string
+	ItemKind       string
+	Labels         string
+	LabelledAt     sql.NullString
+	BadgeAt        sql.NullString
+	BadgeUntil     sql.NullString
+	OriginalPoster sql.NullString
+	BadgePoster    sql.NullString
+}
+
 type PluginInstance struct {
 	ID           int64
 	Contract     string

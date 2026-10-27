@@ -135,6 +135,8 @@ type Deps struct {
 	Updates UpdateChecker
 	// Trash is optional; without it there is no daily TRaSH check.
 	Trash TrashChecker
+	// Marks is optional; without it there is no marks in Plex loop.
+	Marks MarksRunner
 	// Importer and ImportSource enable the Import loop; leave both nil for none.
 	Importer     Importer
 	ImportSource ImportSource
@@ -242,6 +244,10 @@ func Standard(d Deps) *Runner {
 			Run:      daily(d.LastRun, updatesStateKey, d.Clock, d.Updates.Check),
 			Schedule: Schedule{Every: dailyCheck, Runs: dailyEvery},
 		})
+	}
+
+	if d.Marks != nil {
+		r.Add(Loop{Name: Marks, Run: d.Marks.Run, Schedule: Schedule{Every: marksEvery}})
 	}
 
 	r.Add(Loop{

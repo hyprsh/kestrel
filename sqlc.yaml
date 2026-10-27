@@ -90,3 +90,11 @@ sql:
         package: db
         out: internal/indexers/db
         emit_json_tags: false
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/plexmarks/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/plexmarks/db
+        emit_json_tags: false
