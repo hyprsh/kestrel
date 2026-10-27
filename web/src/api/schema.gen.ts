@@ -3806,7 +3806,7 @@ export interface components {
             id: number;
             /** Format: date-time */
             at: string;
-            /** @description A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered. */
+            /** @description A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered. */
             kind: string;
             routine: boolean;
             /** Format: int64 */

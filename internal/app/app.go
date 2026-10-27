@@ -35,6 +35,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 	"github.com/hyprsh/kestrel/internal/updates"
+	"github.com/hyprsh/kestrel/internal/watchahead"
 )
 
 // Options configures a Kestrel. The embedded api.Options is the HTTP side: the
@@ -241,11 +242,19 @@ func New(opts Options) *App {
 		},
 		History: hist, Health: healthSvc, Clock: opts.Clock, Logger: opts.Logger,
 	})
+	watchAhead := watchahead.New(watchahead.Deps{
+		Store: st, Clock: opts.Clock, Instances: pluginInstances, Requests: reqs, Library: lib, History: hist, Logger: opts.Logger,
+		Config: func(ctx context.Context) (watchahead.Config, error) {
+			on, instance, err := api.LoadWatchAhead(ctx, appSettings)
+			return watchahead.Config{Enabled: on, Instance: instance}, err
+		},
+	})
 	upd = updates.New(updates.Deps{Settings: appSettings, Health: healthSvc, Version: opts.Version, APIBase: opts.GitHubAPI, Clock: opts.Clock})
 	runner := jobs.Standard(jobs.Deps{
 		Refresher: refresher, Updates: upd, Acquire: acq, Library: lib, History: hist, LastRun: appSettings,
 		Sessions: func(ctx context.Context) error { _, err := api.PruneSessions(ctx, st, opts.Clock()); return err },
 		Health:   healthSvc, Importer: imp, ImportSource: acq, Trash: trashLoop(trashUpdates, opts.TrashSource), Clock: opts.Clock, Logger: opts.Logger,
+		WatchAhead: watchAhead,
 	})
 
 	deps := api.Deps{

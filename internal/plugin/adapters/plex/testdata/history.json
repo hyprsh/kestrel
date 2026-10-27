@@ -1,0 +1,6 @@
+{"MediaContainer":{"size":4,"totalSize":4,"offset":0,"Metadata":[
+{"historyKey":"/status/sessions/history/101","key":"/library/metadata/9001","ratingKey":"9001","title":"Pilot","type":"episode","grandparentKey":"/library/metadata/456","grandparentTitle":"Breaking Bad","parentIndex":1,"index":1,"viewedAt":1760000000,"accountID":1},
+{"historyKey":"/status/sessions/history/102","key":"/library/metadata/700","ratingKey":"700","title":"Paddington","type":"movie","viewedAt":1760000100,"accountID":2},
+{"historyKey":"/status/sessions/history/103","key":"/library/metadata/9002","ratingKey":"9002","title":"Cat's in the Bag...","type":"episode","grandparentKey":"/library/metadata/456","grandparentTitle":"Breaking Bad","parentIndex":1,"index":2,"viewedAt":1760000200,"accountID":2},
+{"historyKey":"/status/sessions/history/104","key":"/library/metadata/9002","ratingKey":"9002","title":"Cat's in the Bag...","type":"episode","grandparentKey":"/library/metadata/456","grandparentTitle":"Breaking Bad","parentIndex":1,"index":2,"viewedAt":1760000300,"accountID":1}
+]}}
