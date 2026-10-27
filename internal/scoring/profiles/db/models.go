@@ -178,6 +178,20 @@ type PlexHistoryPosition struct {
 	ViewedAt   int64
 }
 
+type PlexMark struct {
+	TitleID        int64
+	InstanceID     int64
+	SectionKey     string
+	ItemID         string
+	ItemKind       string
+	Labels         string
+	LabelledAt     sql.NullString
+	BadgeAt        sql.NullString
+	BadgeUntil     sql.NullString
+	OriginalPoster sql.NullString
+	BadgePoster    sql.NullString
+}
+
 type PlexShow struct {
 	InstanceID int64
 	ShowKey    string

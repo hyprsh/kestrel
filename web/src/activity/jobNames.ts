@@ -38,6 +38,12 @@ const jobs: Record<string, JobWords> = {
     short: 'Pruning the Log…',
   },
   refresh: { label: 'Refresh', does: "Refreshes Titles' metadata", running: 'Refreshing metadata', short: 'Refreshing metadata…' },
+  marks: {
+    label: 'Marks in Plex',
+    does: 'Labels requested Titles in Plex and badges their posters',
+    running: 'Marking requested Titles in Plex',
+    short: 'Marking in Plex…',
+  },
   trash: {
     label: 'TRaSH',
     does: 'Checks for newer TRaSH Custom Formats and profiles',

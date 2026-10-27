@@ -169,6 +169,60 @@ func (q *Queries) InsertRequestSlot(ctx context.Context, arg InsertRequestSlotPa
 	return err
 }
 
+const listCompletedTitles = `-- name: ListCompletedTitles :many
+SELECT DISTINCT t.id AS title_id, t.kind, t.tmdb_id, t.tvdb_id, t.root_folder, t.folder AS title_folder,
+       r.id AS request_id, r.requester_name
+FROM request_slots s
+JOIN requests r ON r.id = s.request_id
+JOIN titles t ON t.id = r.title_id
+WHERE s.filled_at IS NOT NULL AND r.outcome = 'accepted' AND t.folder IS NOT NULL
+ORDER BY t.id, r.id
+`
+
+type ListCompletedTitlesRow struct {
+	TitleID       int64
+	Kind          string
+	TmdbID        sql.NullInt64
+	TvdbID        sql.NullInt64
+	RootFolder    string
+	TitleFolder   sql.NullString
+	RequestID     int64
+	RequesterName string
+}
+
+// The Titles with a Completed Slot, one row per Request that asked for it, with who asked.
+func (q *Queries) ListCompletedTitles(ctx context.Context) ([]ListCompletedTitlesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCompletedTitles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCompletedTitlesRow
+	for rows.Next() {
+		var i ListCompletedTitlesRow
+		if err := rows.Scan(
+			&i.TitleID,
+			&i.Kind,
+			&i.TmdbID,
+			&i.TvdbID,
+			&i.RootFolder,
+			&i.TitleFolder,
+			&i.RequestID,
+			&i.RequesterName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRequests = `-- name: ListRequests :many
 SELECT id, source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at, title_name FROM requests
 WHERE id < ?1
