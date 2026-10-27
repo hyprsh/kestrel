@@ -173,6 +173,18 @@ type OriginalOffer struct {
 	Dismissed   int64
 }
 
+type PlexHistoryPosition struct {
+	InstanceID int64
+	ViewedAt   int64
+}
+
+type PlexShow struct {
+	InstanceID int64
+	ShowKey    string
+	TvdbID     int64
+	ResolvedAt string
+}
+
 type PluginInstance struct {
 	ID           int64
 	Contract     string
@@ -230,6 +242,10 @@ type RequestSlot struct {
 	ProfileKey sql.NullString
 	VersionID  sql.NullInt64
 	FilledAt   sql.NullString
+}
+
+type RequestWatchAhead struct {
+	RequestID int64
 }
 
 type SearchState struct {
@@ -324,4 +340,11 @@ type Version struct {
 	Slot       string
 	ProfileKey string
 	AddedAt    string
+}
+
+type WatchAheadPlay struct {
+	TvdbID      int64
+	Season      int64
+	Episode     int64
+	FirstSeenAt string
 }

@@ -59,12 +59,16 @@ func (s *server) CreateMyRequest(ctx context.Context, r oapi.CreateMyRequestRequ
 	if err != nil {
 		return nil, err
 	}
+	switches, err := LoadPlexSwitches(ctx, s.plex.settings)
+	if err != nil {
+		return nil, err
+	}
 	req, created, err := s.submitRequest(ctx, requests.Input{
 		Source: plexSource, SourceRequestID: fmt.Sprintf("%s-%s-%d", who.id, kind, r.Body.TmdbId),
 		RequesterID: who.id, RequesterName: who.name,
 		Kind: kind, TMDBID: r.Body.TmdbId,
 		Slots:      []requests.SlotInput{{Slot: slot.Standard}},
-		RootFolder: root,
+		RootFolder: root, WatchAhead: switches.WatchAhead,
 	})
 	if err != nil {
 		return nil, err
