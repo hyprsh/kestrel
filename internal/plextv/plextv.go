@@ -7,6 +7,7 @@
 package plextv
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"encoding/xml"
@@ -23,6 +24,10 @@ import (
 const (
 	// DefaultURL is plex.tv.
 	DefaultURL = "https://plex.tv"
+	// DefaultDiscoverURL serves Watchlists and Plex's metadata about them.
+	DefaultDiscoverURL = "https://discover.provider.plex.tv"
+	// DefaultCommunityURL is plex.tv's community GraphQL API, which lists friends and their Watchlists.
+	DefaultCommunityURL = "https://community.plex.tv/api"
 	// DefaultAppURL is the Plex web app's sign-in page.
 	DefaultAppURL = "https://app.plex.tv/auth"
 
@@ -48,26 +53,47 @@ type Options struct {
 	BaseURL string
 	// AppURL is the Plex web app's sign-in page; empty means DefaultAppURL.
 	AppURL string
+	// DiscoverURL and CommunityURL are the Watchlist hosts (discover.provider.plex.tv
+	// and community.plex.tv/api). Empty means the real ones, or, when BaseURL is
+	// set, "/discover" and "/community/api" under it, so one fake serves all three.
+	DiscoverURL, CommunityURL string
 	// Version is Kestrel's version, sent as X-Plex-Version.
 	Version string
+	// PageDelay is the pause between two pages of a friend's Watchlist; Plex asks for one.
+	PageDelay time.Duration
 	// HTTP is the HTTP client; nil means one with a 15 s timeout.
 	HTTP *http.Client
 }
 
 // Client talks to plex.tv.
 type Client struct {
-	base, app, version string
-	http               *http.Client
+	base, app, version  string
+	discover, community string
+	pageDelay           time.Duration
+	http                *http.Client
 }
 
 // New returns a Client.
 func New(o Options) *Client {
-	c := &Client{base: strings.TrimRight(o.BaseURL, "/"), app: o.AppURL, version: o.Version, http: o.HTTP}
+	c := &Client{base: strings.TrimRight(o.BaseURL, "/"), app: o.AppURL, version: o.Version, http: o.HTTP, pageDelay: o.PageDelay}
 	if c.base == "" {
 		c.base = DefaultURL
 	}
 	if c.app == "" {
 		c.app = DefaultAppURL
+	}
+	c.discover, c.community = strings.TrimRight(o.DiscoverURL, "/"), strings.TrimRight(o.CommunityURL, "/")
+	if c.discover == "" {
+		c.discover = DefaultDiscoverURL
+		if c.base != DefaultURL {
+			c.discover = c.base + "/discover"
+		}
+	}
+	if c.community == "" {
+		c.community = DefaultCommunityURL
+		if c.base != DefaultURL {
+			c.community = c.base + "/community/api"
+		}
 	}
 	if c.http == nil {
 		c.http = &http.Client{Timeout: 15 * time.Second}
@@ -119,9 +145,21 @@ func NameMatches(username, title string, names []string) bool {
 // request sends one call and returns the body of a 2xx answer. A 404 is
 // ErrPinGone only where the caller says so; 401 is ErrTokenRejected.
 func (c *Client) request(ctx context.Context, method, rawURL, clientID, token string, accept string) (int, []byte, error) {
-	req, err := http.NewRequestWithContext(ctx, method, rawURL, nil)
+	return c.requestBody(ctx, method, rawURL, clientID, token, accept, nil)
+}
+
+// requestBody is request with a JSON body (nil for none).
+func (c *Client) requestBody(ctx context.Context, method, rawURL, clientID, token string, accept string, body []byte) (int, []byte, error) {
+	var rd io.Reader
+	if body != nil {
+		rd = bytes.NewReader(body)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, rawURL, rd)
 	if err != nil {
 		return 0, nil, fmt.Errorf("%w: bad URL", ErrUnavailable)
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("Accept", accept)
 	req.Header.Set("X-Plex-Product", product)
@@ -227,6 +265,8 @@ type SharedUser struct {
 	Username string
 	Title    string
 	Home     bool
+	// UUID is the account's uuid when plex.tv gives it; usually it does not.
+	UUID string
 	// Servers are the machine identifiers of the servers shared with the user.
 	Servers []string
 }
@@ -243,6 +283,7 @@ func (c *Client) SharedUsers(ctx context.Context, clientID, ownerToken string) (
 			Username string `xml:"username,attr"`
 			Title    string `xml:"title,attr"`
 			Home     string `xml:"home,attr"`
+			UUID     string `xml:"uuid,attr"`
 			Servers  []struct {
 				MachineIdentifier string `xml:"machineIdentifier,attr"`
 			} `xml:"Server"`
@@ -253,7 +294,7 @@ func (c *Client) SharedUsers(ctx context.Context, clientID, ownerToken string) (
 	}
 	out := make([]SharedUser, 0, len(doc.Users))
 	for _, u := range doc.Users {
-		su := SharedUser{ID: u.ID, Username: u.Username, Title: u.Title, Home: u.Home == "1"}
+		su := SharedUser{ID: u.ID, Username: u.Username, Title: u.Title, Home: u.Home == "1", UUID: u.UUID}
 		for _, s := range u.Servers {
 			su.Servers = append(su.Servers, s.MachineIdentifier)
 		}

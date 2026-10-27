@@ -31,6 +31,14 @@ describe('the Requests screen', () => {
     expect(location.pathname).toBe('/requests')
   })
 
+  it('names the source of a Watchlist Request "Watchlist"', async () => {
+    fakeRequests([request({ id: 5, source: 'plex_watchlist', title: 'Dune' })])
+    renderApp()
+
+    await openRequests()
+    expect(await within(await list()).findByRole('listitem')).toHaveTextContent('Anna via Watchlist')
+  })
+
   it('asks the server for the status, requester and source the filter names', async () => {
     const queries = fakeRequests([request()])
     renderApp()

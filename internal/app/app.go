@@ -36,7 +36,11 @@ import (
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 	"github.com/hyprsh/kestrel/internal/updates"
 	"github.com/hyprsh/kestrel/internal/watchahead"
+	"github.com/hyprsh/kestrel/internal/watchlist"
 )
+
+// plexPageDelay is the pause between two pages of a friend's Watchlist, which Plex asks for.
+const plexPageDelay = 5 * time.Second
 
 // Options configures a Kestrel. The embedded api.Options is the HTTP side: the
 // version, the routing prefix, the store, the SPA, the logger, the clock and
@@ -169,7 +173,7 @@ func New(opts Options) *App {
 		posters = metadata.NewPosters(metadata.PostersOptions{ConfigDir: opts.ConfigDir, ImageBase: opts.TMDBImageURL})
 	}
 
-	plexTV := plextv.New(plextv.Options{BaseURL: opts.PlexTVURL, AppURL: opts.PlexAppURL, Version: opts.Version})
+	plexTV := plextv.New(plextv.Options{BaseURL: opts.PlexTVURL, AppURL: opts.PlexAppURL, Version: opts.Version, PageDelay: plexPageDelay})
 
 	indexerHost := indexers.New(pluginInstances, st, opts.Clock)
 	indexerHost.SetLogger(opts.Logger)
@@ -263,6 +267,8 @@ func New(opts Options) *App {
 		Jobs: runner, Refresher: refresher, Indexers: indexerHost, Health: healthSvc, History: hist, Scoring: live, Trash: trashAPI{trash, trashUpdates}, Keys: keys,
 		Meta: meta, TVDB: tvdb, Bridge: &metadata.Bridge{Meta: meta, TVDB: tvdb, Log: opts.Logger}, Posters: posters, PlexTV: plexTV,
 	}
+	watchlistSync := watchlist.New(watchlist.Deps{Store: st, TV: plexTV, Host: api.NewWatchlistHost(opts.Options, deps), Clock: opts.Clock, Logger: opts.Logger})
+	runner.Add(jobs.WatchlistLoop(watchlistSync.Run))
 	handler := api.New(opts.Options, deps)
 	return &App{Handler: handler, Jobs: runner, Health: healthSvc, mediaRefresh: mediaRefresh, declarer: declarer{
 		file: opts.ConfigFile, api: api.NewDeclared(opts.Options, deps),

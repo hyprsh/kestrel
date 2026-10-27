@@ -50,6 +50,12 @@ const jobs: Record<string, JobWords> = {
     running: 'Updating the TRaSH snapshot',
     short: 'Updating TRaSH…',
   },
+  watchlist: {
+    label: 'Watchlist',
+    does: 'Requests titles newly added to Plex Watchlists',
+    running: 'Reading Plex Watchlists',
+    short: 'Reading Watchlists…',
+  },
   updates: {
     label: 'Updates',
     does: 'Asks GitHub for a newer Kestrel release',

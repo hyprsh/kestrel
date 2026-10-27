@@ -362,3 +362,20 @@ type WatchAheadPlay struct {
 	Episode     int64
 	FirstSeenAt string
 }
+
+type WatchlistAccount struct {
+	AccountID  string
+	Uuid       string
+	BaselineAt string
+}
+
+type WatchlistEntry struct {
+	AccountID   string
+	PlexGuid    string
+	Kind        string
+	Title       string
+	TmdbID      sql.NullInt64
+	TvdbID      sql.NullInt64
+	FirstSeenAt string
+	RequestID   sql.NullInt64
+}

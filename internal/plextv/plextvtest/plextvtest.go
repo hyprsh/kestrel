@@ -45,6 +45,7 @@ type Server struct {
 	down     bool
 	calls    []Call
 	machine  string
+	wl       watchlists
 }
 
 type pin struct {
@@ -123,6 +124,7 @@ func New(t testing.TB) *Server {
 		}
 		writeJSON(w, map[string]any{"MediaContainer": map[string]any{"size": 0, "Directory": []any{}}})
 	}))
+	s.watchlistRoutes(mux)
 	s.Server = httptest.NewServer(mux)
 	t.Cleanup(s.Server.Close)
 	return s
