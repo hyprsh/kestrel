@@ -145,13 +145,13 @@ func TestATitleWithNoIdIsKeptAndNotLookedUpAgain(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	owner := plextvtest.Owner.UUID
-	e.tv.SetWatchlist(owner)
+	e.tv.SetWatchlist(owner, movie("m0", "Dune", 1))
 	_ = e.run()
-	e.tv.SetWatchlist(owner, plextvtest.WatchItem{Key: "x1", Type: "movie", Title: "Obscure"})
+	e.tv.SetWatchlist(owner, movie("m0", "Dune", 1), plextvtest.WatchItem{Key: "x1", Type: "movie", Title: "Obscure"})
 	_ = e.run()
 	_ = e.run()
-	if len(e.host.requests) != 0 || e.entries() != 1 || e.tv.MetadataReads("x1") != 1 {
-		t.Errorf("%d Requests, %d entries, %d reads, want none, 1 and 1", len(e.host.requests), e.entries(), e.tv.MetadataReads("x1"))
+	if len(e.host.requests) != 0 || e.entries() != 2 || e.tv.MetadataReads("x1") != 1 {
+		t.Errorf("%d Requests, %d entries, %d reads, want none, 2 and 1", len(e.host.requests), e.entries(), e.tv.MetadataReads("x1"))
 	}
 }
 
@@ -202,7 +202,7 @@ func TestTheUsersListNarrowsWhoIsRead(t *testing.T) {
 	e.friend(10, "uuid-anna", "anna")
 	e.friend(11, "uuid-ben", "ben")
 	e.host.users = []string{"ANNA"}
-	e.tv.SetWatchlist("uuid-anna")
+	e.tv.SetWatchlist("uuid-anna", movie("a0", "Old for Anna", 9))
 	e.tv.SetWatchlist("uuid-ben")
 	e.tv.SetWatchlist(plextvtest.Owner.UUID)
 	_ = e.run()
@@ -219,12 +219,12 @@ func TestWhenPlexTVMakesNoSenseNothingIsRecordedAndTheNextPassRetries(t *testing
 	t.Parallel()
 	e := newEnv(t)
 	owner := plextvtest.Owner.UUID
-	e.tv.SetWatchlist(owner)
+	e.tv.SetWatchlist(owner, movie("m0", "Old", 2))
 	_ = e.run()
-	e.tv.SetWatchlist(owner, movie("m1", "Dune", 1))
+	e.tv.SetWatchlist(owner, movie("m0", "Old", 2), movie("m1", "Dune", 1))
 	e.tv.BreakWatchlists(true)
-	if err := e.run(); !errors.Is(err, plextv.ErrUnavailable) || e.entries() != 0 {
-		t.Fatalf("err %v, %d entries, want ErrUnavailable and none", err, e.entries())
+	if err := e.run(); !errors.Is(err, plextv.ErrUnavailable) || e.entries() != 1 {
+		t.Fatalf("err %v, %d entries, want ErrUnavailable and only the baseline", err, e.entries())
 	}
 	e.tv.BreakWatchlists(false)
 	if err := e.run(); err != nil || len(e.host.requests) != 1 {
@@ -249,12 +249,12 @@ func TestATitleWhoseRequestFailsIsTriedAgainAndTheOthersAreNot(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	owner := plextvtest.Owner.UUID
-	e.tv.SetWatchlist(owner)
+	e.tv.SetWatchlist(owner, movie("m0", "Old", 3))
 	_ = e.run()
-	e.tv.SetWatchlist(owner, movie("m1", "Broken", 1), movie("m2", "Fine", 2))
+	e.tv.SetWatchlist(owner, movie("m0", "Old", 3), movie("m1", "Broken", 1), movie("m2", "Fine", 2))
 	e.host.failFor = "Broken"
-	if err := e.run(); err == nil || len(e.host.requests) != 1 || e.entries() != 1 {
-		t.Fatalf("err %v, %d Requests, %d entries, want an error, 1 and 1", err, len(e.host.requests), e.entries())
+	if err := e.run(); err == nil || len(e.host.requests) != 1 || e.entries() != 2 {
+		t.Fatalf("err %v, %d Requests, %d entries, want an error, 1 and 2", err, len(e.host.requests), e.entries())
 	}
 	e.host.failFor = ""
 	if err := e.run(); err != nil || len(e.host.requests) != 2 || e.host.requests[1].E.Title != "Broken" {
@@ -265,9 +265,9 @@ func TestATitleWhoseRequestFailsIsTriedAgainAndTheOthersAreNot(t *testing.T) {
 func TestEntriesRecordTheTimeTheyWereFirstSeen(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	e.tv.SetWatchlist(plextvtest.Owner.UUID)
+	e.tv.SetWatchlist(plextvtest.Owner.UUID, movie("m0", "Old", 2))
 	_ = e.run()
-	e.tv.SetWatchlist(plextvtest.Owner.UUID, movie("m1", "Dune", 1))
+	e.tv.SetWatchlist(plextvtest.Owner.UUID, movie("m0", "Old", 2), movie("m1", "Dune", 1))
 	_ = e.run()
 	var seen string
 	var tmdb, reqID int
@@ -302,5 +302,79 @@ func TestAFriendWithAPrivateWatchlistIsSkippedThenBaselinedOnceVisible(t *testin
 	e.tv.SetWatchlist("uuid-anna", movie("a1", "Old for Anna", 1), movie("a2", "New for Anna", 2))
 	if err := e.run(); err != nil || len(e.host.requests) != 1 || e.host.requests[0].E.Title != "New for Anna" {
 		t.Errorf("after the baseline: err %v, Requests %+v, want New for Anna", err, e.host.requests)
+	}
+}
+
+func TestAMovieIsRequestedByTMDBOnlyAndStoresNoTVDBID(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	owner := plextvtest.Owner.UUID
+	e.tv.SetWatchlist(owner, movie("m0", "Old", 2))
+	_ = e.run()
+	e.tv.SetWatchlist(owner, movie("m0", "Old", 2), plextvtest.WatchItem{Key: "odyssey", Type: "movie", Title: "The Odyssey", Guids: []string{"tmdb://1368337", "tvdb://362547"}})
+	if err := e.run(); err != nil || len(e.host.requests) != 1 {
+		t.Fatalf("err %v, %d Requests, want 1", err, len(e.host.requests))
+	}
+	if got := e.host.requests[0].E.Ids; got.TMDB != 1368337 || got.TVDB != 0 {
+		t.Errorf("Request ids = %+v, want TMDB 1368337 and no TVDB", got)
+	}
+	var withTVDB int
+	if err := e.st.Read().QueryRow("SELECT count(*) FROM watchlist_entries WHERE plex_guid = 'plex://movie/odyssey' AND tvdb_id IS NOT NULL").Scan(&withTVDB); err != nil {
+		t.Fatal(err)
+	}
+	if withTVDB != 0 {
+		t.Errorf("the movie stored a tvdb_id, want none")
+	}
+}
+
+func TestAMovieWithOnlyATVDBIDIsRecordedAndNotRequested(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	owner := plextvtest.Owner.UUID
+	e.tv.SetWatchlist(owner, movie("m0", "Old", 2))
+	_ = e.run()
+	e.tv.SetWatchlist(owner, movie("m0", "Old", 2), plextvtest.WatchItem{Key: "tv1", Type: "movie", Title: "Only TVDB", Guids: []string{"tvdb://362547"}})
+	_ = e.run()
+	_ = e.run()
+	var withTVDB int
+	if err := e.st.Read().QueryRow("SELECT count(*) FROM watchlist_entries WHERE plex_guid = 'plex://movie/tv1' AND tvdb_id IS NOT NULL").Scan(&withTVDB); err != nil {
+		t.Fatal(err)
+	}
+	if len(e.host.requests) != 0 || e.entries() != 2 || withTVDB != 0 {
+		t.Errorf("%d Requests, %d entries, %d with a tvdb_id, want none, 2 and 0", len(e.host.requests), e.entries(), withTVDB)
+	}
+}
+
+func TestAnEmptyFirstReadTakesNoBaselineAndALaterNonEmptyReadDoes(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	owner := plextvtest.Owner.UUID
+	e.tv.SetWatchlist(owner)
+	if err := e.run(); err != nil || e.entries() != 0 {
+		t.Fatalf("empty first read: err %v, %d entries, want none", err, e.entries())
+	}
+	e.tv.SetWatchlist(owner, movie("m1", "Dune", 1))
+	if err := e.run(); err != nil || len(e.host.requests) != 0 || e.entries() != 1 {
+		t.Fatalf("first non-empty read: err %v, %d Requests, %d entries, want a baseline of 1 and no Requests", err, len(e.host.requests), e.entries())
+	}
+	e.tv.SetWatchlist(owner, movie("m1", "Dune", 1), movie("m2", "Arrival", 2))
+	if err := e.run(); err != nil || len(e.host.requests) != 1 || e.host.requests[0].E.Title != "Arrival" {
+		t.Errorf("after the baseline: err %v, Requests %+v, want Arrival", err, e.host.requests)
+	}
+}
+
+func TestAnAccountWithABaselineWhoseWatchlistEmptiesThenGetsATitleRequestsIt(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	owner := plextvtest.Owner.UUID
+	e.tv.SetWatchlist(owner, movie("m1", "Dune", 1))
+	_ = e.run()
+	e.tv.SetWatchlist(owner)
+	if err := e.run(); err != nil || len(e.host.requests) != 0 || e.entries() != 1 {
+		t.Fatalf("emptied Watchlist: err %v, %d Requests, %d entries, want none and 1", err, len(e.host.requests), e.entries())
+	}
+	e.tv.SetWatchlist(owner, movie("m2", "Arrival", 2))
+	if err := e.run(); err != nil || len(e.host.requests) != 1 || e.host.requests[0].E.Title != "Arrival" {
+		t.Errorf("after a title is added: err %v, Requests %+v, want Arrival", err, e.host.requests)
 	}
 }

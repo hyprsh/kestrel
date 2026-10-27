@@ -233,6 +233,11 @@ func (s *Sync) person(ctx context.Context, cfg Config, p who) error {
 	q := db.New(s.d.Store.Write())
 	now := s.d.Clock()
 	if _, err := q.GetAccount(ctx, p.ID); errors.Is(err, sql.ErrNoRows) {
+		if len(entries) == 0 {
+			// plex.tv answers some private Watchlists with an empty list, so an empty
+			// first read is no baseline: the first read with a title on it is.
+			return nil
+		}
 		return s.baseline(ctx, p, entries, now)
 	} else if err != nil {
 		return err
@@ -293,6 +298,9 @@ func (s *Sync) newEntry(ctx context.Context, cfg Config, p Person, e plextv.Watc
 		if ids, err = s.d.TV.Resolve(ctx, cfg.ClientID, cfg.OwnerToken, e.Key); err != nil {
 			return err
 		}
+	}
+	if e.Kind == plextv.Movie {
+		ids.TVDB = 0 // a Movie is Requested by its TMDB id only (ADR 0002)
 	}
 	row := db.InsertEntryParams{AccountID: p.ID, PlexGuid: e.Guid, Kind: string(e.Kind), Title: e.Title, FirstSeenAt: ts(now)}
 	if ids.TMDB > 0 {

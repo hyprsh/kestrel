@@ -6,7 +6,7 @@ People who share the household's Plex server already keep a Plex Watchlist of wh
 
 Kestrel reads Watchlists with the server owner's token, which it already holds (ADR 0018). That token reads the owner's own Watchlist and the Watchlist of every Plex friend whose Watchlist is visible to friends in their Plex privacy settings. Only the owner and friends who may request under `plex_sign_in` (access, then the users list) are read. A Watchlist Request is an ordinary Request with the source `plex_watchlist` and the Plex account as the requester. It asks for what a Requester's Request from the UI asks for: the Standard Slot under Profile resolution, into the person's Root folder when one is set, and for a Series what Watch-ahead says below. So deduplication, My Requests, the admin's Requests screen and the Log treat it like any other.
 
-Watchlist sync is a Background job (ADR 0007), every 10 minutes. Its state is one row per Watchlist entry: the Plex account, the Plex guid, the TMDB or TVDB id it resolved to, when Kestrel first saw it, and the Request it became. The first time sync sees an account, it records that account's Watchlist as a baseline and requests nothing: only titles added after that become Requests.
+Watchlist sync is a Background job (ADR 0007), every 10 minutes. Its state is one row per Watchlist entry: the Plex account, the Plex guid, the TMDB or TVDB id it resolved to, when Kestrel first saw it, and the Request it became. The first time sync sees an account with something on its Watchlist, it records that account's Watchlist as a baseline and requests nothing: only titles added after that become Requests.
 
 Marking in Plex is a second Background job. Once a requested Slot is Completed, Kestrel finds the Title's item in Plex and:
 
@@ -40,7 +40,7 @@ All of it is switched in the `plex_sign_in` section: `watchlist` turns Watchlist
 ## Consequences
 
 - The friends' Watchlist call is not a documented Plex API, so Kestrel keeps it in `plextv` behind one function and treats an unexpected answer as plex.tv being unavailable, not as an empty Watchlist.
-- A friend whose Watchlist is private, and a managed Plex Home member, gets no Watchlist Requests. Kestrel skips them quietly and takes their baseline the first time it can see the Watchlist.
+- A friend whose Watchlist is private, and a managed Plex Home member, gets no Watchlist Requests. plex.tv answers a private Watchlist either with nothing, which Kestrel skips, or with an empty list. Kestrel takes no baseline from an empty Watchlist, so a friend's titles are not all requested when they make it visible. The cost is that the first title added to a Watchlist that really was empty becomes part of the baseline and is not requested.
 - A Plex guid is resolved to a TMDB id for a Movie and a TVDB id for a Series through Plex's metadata. An entry that resolves to neither is kept and not requested, so it is not looked up again on every pass.
 - Kestrel now writes to the Plex server: labels, a collection and posters. Switching `labels` or `poster_badge` off takes back what Kestrel added on the next pass, and only that.
 - A poster Kestrel replaced is put back only if the item still shows Kestrel's badge, so a poster someone chose by hand in the meantime is kept.

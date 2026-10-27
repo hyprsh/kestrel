@@ -133,7 +133,7 @@ A person's Plex Watchlist: the titles they marked to watch some day, kept at ple
 _Avoid_: Wishlist, watch list
 
 **Watchlist Request**:
-A Request Kestrel makes itself for a title newly added to a Watchlist, on behalf of that person, with the source `plex_watchlist`. Titles already on a Watchlist when Kestrel first reads it are not requested.
+A Request Kestrel makes itself for a title newly added to a Watchlist, on behalf of that person, with the source `plex_watchlist`. Titles already on a Watchlist when Kestrel takes its baseline are not requested; the baseline is the first read that finds a title on it.
 _Avoid_: Auto-request, watchlist sync (that is the Background job)
 
 **Watch-ahead**:
