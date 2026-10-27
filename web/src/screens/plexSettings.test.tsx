@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import type { PlexSignInSettings } from '../api/plex'
 import { http } from '../test/handlers'
@@ -14,7 +14,19 @@ type Saved = PlexSignInSettings & { from_config_file: boolean }
 
 /** A Security section with two Plex instances (and a Jellyfin one that must not be offered), two Movie Root folders and the given Plex sign-in. */
 function fakePlexSettings(initial: Partial<Saved> = {}, rejects?: { field: string; message: string }[]) {
-  let saved: Saved = { enabled: false, instance: null, users: [], user_root_folders: [], from_config_file: false, ...initial }
+  let saved: Saved = {
+    enabled: false,
+    instance: null,
+    users: [],
+    user_root_folders: [],
+    watchlist: false,
+    watch_ahead: false,
+    labels: false,
+    poster_badge: false,
+    poster_badge_days: null,
+    from_config_file: false,
+    ...initial,
+  }
   const sent: PlexSignInSettings[] = []
   server.use(
     http.get('/plugin-instances', ({ response }) =>
@@ -79,7 +91,56 @@ describe('Settings > Security > Plex sign-in', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save Plex sign-in' }))
 
     expect(await screen.findByText('Saved.')).toBeInTheDocument()
-    expect(sent).toEqual([{ enabled: true, instance: 'Garage Plex', users: ['anna', 'Ben Kids'], user_root_folders: [{ user: 'Ben Kids', movies: '/data/kids-movies', series: null }] }])
+    expect(sent).toEqual([
+      {
+        enabled: true,
+        instance: 'Garage Plex',
+        users: ['anna', 'Ben Kids'],
+        user_root_folders: [{ user: 'Ben Kids', movies: '/data/kids-movies', series: null }],
+        watchlist: false,
+        watch_ahead: false,
+        labels: false,
+        poster_badge: false,
+        poster_badge_days: null,
+      },
+    ])
+  })
+
+  it('saves the Watchlist, Watch-ahead, label and poster badge switches and the badge days', async () => {
+    const sent = fakePlexSettings({ enabled: true, instance: 'Living room Plex' })
+    await openCard()
+
+    for (const name of ['Make Requests from Watchlists', 'Watch-ahead for Series', 'Requested labels in Plex', 'Requested poster badge in Plex'])
+      expect(await screen.findByRole('switch', { name })).not.toBeChecked()
+    const days = screen.getByRole('spinbutton', { name: 'Poster badge days' })
+    expect(days).toHaveValue(null)
+    expect(days).toHaveAttribute('placeholder', '30')
+
+    for (const name of ['Make Requests from Watchlists', 'Watch-ahead for Series', 'Requested labels in Plex', 'Requested poster badge in Plex'])
+      await userEvent.click(screen.getByRole('switch', { name }))
+    await userEvent.type(days, '14')
+    await userEvent.click(screen.getByRole('button', { name: 'Save Plex sign-in' }))
+
+    await screen.findByText('Saved.')
+    expect(sent[0]).toMatchObject({ watchlist: true, watch_ahead: true, labels: true, poster_badge: true, poster_badge_days: 14 })
+
+    await userEvent.clear(days)
+    await userEvent.click(screen.getByRole('button', { name: 'Save Plex sign-in' }))
+    await vi.waitFor(() => expect(sent).toHaveLength(2))
+    expect(sent[1].poster_badge_days).toBeNull()
+  })
+
+  it('shows what is saved of the switches and the server’s error on the badge days', async () => {
+    fakePlexSettings({ enabled: true, instance: 'Living room Plex', watch_ahead: true, poster_badge: true, poster_badge_days: 0 }, [
+      { field: 'poster_badge_days', message: 'Keep the badge for at least 1 day' },
+    ])
+    await openCard()
+
+    expect(await screen.findByRole('switch', { name: 'Watch-ahead for Series' })).toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Requested poster badge in Plex' })).toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Make Requests from Watchlists' })).not.toBeChecked()
+    await userEvent.click(screen.getByRole('button', { name: 'Save Plex sign-in' }))
+    expect(await screen.findByText('Keep the badge for at least 1 day')).toBeInTheDocument()
   })
 
   it('shows what is saved and removes a user’s Root folders', async () => {
@@ -125,6 +186,8 @@ describe('Settings > Security > Plex sign-in', () => {
     expect(await screen.findByRole('switch', { name: 'Let people sign in with Plex' })).toBeDisabled()
     expect(screen.getByRole('combobox', { name: 'Plex instance' })).toBeDisabled()
     expect(screen.getByRole('textbox', { name: 'Users' })).toBeDisabled()
+    expect(screen.getByRole('switch', { name: 'Watch-ahead for Series' })).toBeDisabled()
+    expect(screen.getByRole('spinbutton', { name: 'Poster badge days' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Add user' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Save Plex sign-in' })).toBeDisabled()
     expect(screen.getByText(/Config File sets Plex sign-in/)).toBeInTheDocument()

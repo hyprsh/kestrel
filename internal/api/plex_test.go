@@ -69,7 +69,7 @@ func householdOf(t *testing.T, in *instance, tv *plextvtest.Server, admin *brows
 	tv.Share(plextv.SharedUser{ID: ben.ID, Username: ben.Username, Title: ben.Title, Servers: []string{plextvtest.Machine}})
 	tv.Share(plextv.SharedUser{ID: kim.ID, Title: kim.Title, Home: true})
 	h.addPlex("Plex")
-	h.putSignIn(`{"enabled":true,"instance":"Plex","users":[],"user_root_folders":[]}`)
+	h.putSignIn(`{"enabled":true,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":"Plex","users":[],"user_root_folders":[]}`)
 	return h
 }
 
@@ -167,7 +167,7 @@ func TestPlexAvailabilityFollowsTheSettingsWithoutALogin(t *testing.T) {
 	if r := anon.valid("GET", "/auth/plex", ""); !strings.Contains(r.Body, `"enabled":true`) {
 		t.Errorf("availability = %s, want it on", r.Body)
 	}
-	h.putSignIn(`{"enabled":false,"instance":"Plex","users":[],"user_root_folders":[]}`)
+	h.putSignIn(`{"enabled":false,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":"Plex","users":[],"user_root_folders":[]}`)
 	if r := anon.valid("GET", "/auth/plex", ""); !strings.Contains(r.Body, `"enabled":false`) {
 		t.Errorf("availability = %s, want it off", r.Body)
 	}
@@ -336,7 +336,7 @@ func TestWhoHasAccessToTheServer(t *testing.T) {
 func TestTheListOfUsersNarrowsWhoMayRequestIgnoringCase(t *testing.T) {
 	t.Parallel()
 	h := newHousehold(t, "")
-	h.putSignIn(`{"enabled":true,"instance":"Plex","users":["ANNA","kim"],"user_root_folders":[]}`)
+	h.putSignIn(`{"enabled":true,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":"Plex","users":["ANNA","kim"],"user_root_folders":[]}`)
 
 	if r := h.signIn(h.browser(), "anna-token"); r.Status != 204 {
 		t.Errorf("anna, by username = %d %s", r.Status, r.Body)
@@ -348,7 +348,7 @@ func TestTheListOfUsersNarrowsWhoMayRequestIgnoringCase(t *testing.T) {
 		t.Errorf("ben, with access but not listed = %d %s", r.Status, r.Body)
 	}
 	// A user is also named by the account's display name.
-	h.putSignIn(`{"enabled":true,"instance":"Plex","users":["anna smith"],"user_root_folders":[]}`)
+	h.putSignIn(`{"enabled":true,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":"Plex","users":["anna smith"],"user_root_folders":[]}`)
 	if r := h.signIn(h.browser(), "anna-token"); r.Status != 204 {
 		t.Errorf("anna, by title = %d %s", r.Status, r.Body)
 	}
@@ -387,7 +387,7 @@ func TestPlexRequesterIsConfinedToSearchingAndRequesting(t *testing.T) {
 		{"POST", "/requests", "{}"},
 		{"GET", "/settings", ""},
 		{"GET", "/settings/plex-sign-in", ""},
-		{"PUT", "/settings/plex-sign-in", `{"enabled":false,"instance":null,"users":[],"user_root_folders":[]}`},
+		{"PUT", "/settings/plex-sign-in", `{"enabled":false,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":null,"users":[],"user_root_folders":[]}`},
 		{"GET", "/plugin-instances", ""},
 		{"GET", "/api-key", ""},
 		{"POST", "/api-key", ""},
@@ -521,7 +521,7 @@ func TestSwitchingPlexSignInOffEndsRequesterSessionsOnTheirNextCall(t *testing.T
 	t.Parallel()
 	h := newHousehold(t, "")
 	b := h.requester("anna-token")
-	h.putSignIn(`{"enabled":false,"instance":"Plex","users":[],"user_root_folders":[]}`)
+	h.putSignIn(`{"enabled":false,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":"Plex","users":[],"user_root_folders":[]}`)
 	if r := b.get("/auth/me"); r.Status != 401 {
 		t.Errorf("after switching off = %d, want 401", r.Status)
 	}
@@ -529,7 +529,7 @@ func TestSwitchingPlexSignInOffEndsRequesterSessionsOnTheirNextCall(t *testing.T
 		t.Errorf("the admin = %d", r.Status)
 	}
 	// Switched on again, the ended session stays ended.
-	h.putSignIn(`{"enabled":true,"instance":"Plex","users":[],"user_root_folders":[]}`)
+	h.putSignIn(`{"enabled":true,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":"Plex","users":[],"user_root_folders":[]}`)
 	if r := b.get("/auth/me"); r.Status != 401 {
 		t.Errorf("after switching on again = %d, want the session gone", r.Status)
 	}
@@ -555,7 +555,7 @@ func TestTakingARequesterOffTheListOfUsersEndsTheirSession(t *testing.T) {
 	t.Parallel()
 	h := newHousehold(t, "")
 	anna, ben := h.requester("anna-token"), h.requester("ben-token")
-	h.putSignIn(`{"enabled":true,"instance":"Plex","users":["Ben"],"user_root_folders":[]}`)
+	h.putSignIn(`{"enabled":true,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":"Plex","users":["Ben"],"user_root_folders":[]}`)
 	if r := anna.get("/auth/me"); r.Status != 401 {
 		t.Errorf("anna, off the list = %d, want 401", r.Status)
 	}

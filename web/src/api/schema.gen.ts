@@ -2159,6 +2159,16 @@ export interface components {
         };
         PlexSignInSettings: {
             enabled: boolean;
+            /** @description Turns Watchlist sync on, which makes a Watchlist Request for each title newly added to a Watchlist (ADR 0019). */
+            watchlist: boolean;
+            /** @description Turns Watch-ahead on, so a Requester's Series Request starts with season 1 and adds the next season as people watch (ADR 0019). */
+            watch_ahead: boolean;
+            /** @description Turns the `Requested` labels and collection in Plex on (ADR 0019). */
+            labels: boolean;
+            /** @description Turns the "Requested" badge on posters in Plex on (ADR 0019). */
+            poster_badge: boolean;
+            /** @description How many days the poster badge stays; `null` keeps the default, 30. */
+            poster_badge_days: number | null;
             /** @description The name of the `plex` plugin instance whose server and owner token decide who may sign in. */
             instance: string | null;
             /** @description Who may request, by Plex username or Plex Home user name; empty for everyone with access to the server. */

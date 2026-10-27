@@ -50,6 +50,11 @@ plex_sign_in:
   enabled: true
   instance: Plex
   users: [anna, Ben Smith]
+  watchlist: true
+  watch_ahead: true
+  labels: true
+  poster_badge: true
+  poster_badge_days: 14
   user_root_folders:
     anna: {movies: /data/kids/movies}
     ben:
@@ -79,6 +84,7 @@ check_github_updates: false
 	}
 	wantPlex := &configfile.PlexSignIn{
 		Enabled: ptr(true), Instance: "Plex", Users: []string{"anna", "Ben Smith"},
+		Watchlist: true, WatchAhead: true, Labels: true, PosterBadge: true, PosterBadgeDays: ptr(14),
 		UserRootFolders: map[string]configfile.PlexUserRootFolders{
 			"anna": {Movies: ptr("/data/kids/movies")},
 			"ben":  {Series: ptr("/data/kids/tv")},
@@ -97,8 +103,28 @@ func TestPlexSignInNeedsOnlyEnabled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p := f.PlexSignIn; p == nil || p.Enabled == nil || *p.Enabled || p.Instance != "" || p.Users != nil || p.UserRootFolders != nil {
+	if p := f.PlexSignIn; p == nil || p.Enabled == nil || *p.Enabled || p.Instance != "" || p.Users != nil || p.UserRootFolders != nil ||
+		p.Watchlist || p.WatchAhead || p.Labels || p.PosterBadge || p.PosterBadgeDays != nil {
 		t.Errorf("plex_sign_in = %+v", p)
+	}
+}
+
+func TestPlexSwitchesAreBoolsAndABadgeLifeOfAtLeastADay(t *testing.T) {
+	for _, c := range []struct{ body, want string }{
+		{"plex_sign_in:\n  enabled: true\n  poster_badge_days: 0\n", "plex_sign_in.poster_badge_days: must be at least 1"},
+		{"plex_sign_in:\n  enabled: true\n  poster_badge_days: -3\n", "plex_sign_in.poster_badge_days: must be at least 1"},
+		{"plex_sign_in:\n  enabled: true\n  poster_badge_days: soon\n", "line 3"},
+		{"plex_sign_in:\n  enabled: true\n  watchlist: maybe\n", "line 3"},
+		{"plex_sign_in:\n  enabled: true\n  watch_ahead: 1\n", "line 3"},
+	} {
+		_, err := configfile.Load(write(t, c.body), env())
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%q: err = %v, want one with %q", c.body, err, c.want)
+		}
+	}
+	f, err := configfile.Load(write(t, "plex_sign_in:\n  enabled: false\n  poster_badge_days: 1\n"), env())
+	if err != nil || f.PlexSignIn.PosterBadgeDays == nil || *f.PlexSignIn.PosterBadgeDays != 1 {
+		t.Errorf("a day: %+v, %v", f, err)
 	}
 }
 

@@ -5,7 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hyprsh/kestrel/internal/api"
 	"github.com/hyprsh/kestrel/internal/plextv/plextvtest"
+	"github.com/hyprsh/kestrel/internal/settings"
 )
 
 type plexSignInJSON struct {
@@ -13,6 +15,11 @@ type plexSignInJSON struct {
 	Instance        *string  `json:"instance"`
 	Users           []string `json:"users"`
 	FromConfigFile  bool     `json:"from_config_file"`
+	Watchlist       bool     `json:"watchlist"`
+	WatchAhead      bool     `json:"watch_ahead"`
+	Labels          bool     `json:"labels"`
+	PosterBadge     bool     `json:"poster_badge"`
+	PosterBadgeDays *int     `json:"poster_badge_days"`
 	UserRootFolders []struct {
 		User   string  `json:"user"`
 		Movies *string `json:"movies"`
@@ -38,7 +45,7 @@ func TestPlexSignInSettingsAreSavedAndReadBack(t *testing.T) {
 	h := newHousehold(t, "")
 	_, kids, _ := plexRoots(t, h.admin)
 
-	body := `{"enabled":true,"instance":" Plex ","users":[" anna ","Kim"],"user_root_folders":[{"user":"Anna","movies":"` + kids + `","series":null}]}`
+	body := `{"enabled":true,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":" Plex ","users":[" anna ","Kim"],"user_root_folders":[{"user":"Anna","movies":"` + kids + `","series":null}]}`
 	r := h.admin.valid("PUT", "/settings/plex-sign-in", body)
 	if r.Status != 200 {
 		t.Fatalf("PUT = %d %s", r.Status, r.Body)
@@ -49,6 +56,53 @@ func TestPlexSignInSettingsAreSavedAndReadBack(t *testing.T) {
 	}
 	if len(got.UserRootFolders) != 1 || got.UserRootFolders[0].User != "Anna" || *got.UserRootFolders[0].Movies != kids || got.UserRootFolders[0].Series != nil {
 		t.Errorf("user_root_folders = %+v", got.UserRootFolders)
+	}
+}
+
+func switches(h *plexHousehold) (api.PlexSwitches, error) {
+	return api.LoadPlexSwitches(context.Background(), settings.New(h.st))
+}
+
+func TestPlexSwitchesAreOffUntilSetAndTheBadgeLastsAMonthUnlessSaid(t *testing.T) {
+	t.Parallel()
+	h := newHousehold(t, "")
+
+	got := decode[plexSignInJSON](t, h.admin.valid("GET", "/settings/plex-sign-in", ""))
+	if got.Watchlist || got.WatchAhead || got.Labels || got.PosterBadge || got.PosterBadgeDays != nil {
+		t.Errorf("with none set: %+v", got)
+	}
+	if sw, err := switches(h); err != nil || sw != (api.PlexSwitches{PosterBadgeDays: 30}) {
+		t.Errorf("switches with none set = %+v, %v", sw, err)
+	}
+
+	r := h.admin.valid("PUT", "/settings/plex-sign-in", `{"enabled":true,"watchlist":true,"watch_ahead":true,"labels":true,"poster_badge":true,"poster_badge_days":7,"instance":"Plex","users":[],"user_root_folders":[]}`)
+	if r.Status != 200 {
+		t.Fatalf("PUT = %d %s", r.Status, r.Body)
+	}
+	got = decode[plexSignInJSON](t, h.admin.valid("GET", "/settings/plex-sign-in", ""))
+	if !got.Watchlist || !got.WatchAhead || !got.Labels || !got.PosterBadge || got.PosterBadgeDays == nil || *got.PosterBadgeDays != 7 {
+		t.Errorf("read back: %+v", got)
+	}
+	if sw, err := switches(h); err != nil || sw != (api.PlexSwitches{Watchlist: true, WatchAhead: true, Labels: true, PosterBadge: true, PosterBadgeDays: 7}) {
+		t.Errorf("switches = %+v, %v", sw, err)
+	}
+
+	// Unset days read back as 30, and a day count below 1 is refused.
+	h.admin.valid("PUT", "/settings/plex-sign-in", `{"enabled":true,"watchlist":true,"watch_ahead":false,"labels":false,"poster_badge":true,"poster_badge_days":null,"instance":"Plex","users":[],"user_root_folders":[]}`)
+	if sw, _ := switches(h); sw != (api.PlexSwitches{Watchlist: true, PosterBadge: true, PosterBadgeDays: 30}) {
+		t.Errorf("switches with no days = %+v", sw)
+	}
+	for _, days := range []string{"0", "-1"} {
+		r := h.admin.valid("PUT", "/settings/plex-sign-in", `{"enabled":true,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":`+days+`,"instance":"Plex","users":[],"user_root_folders":[]}`)
+		if r.Status != 422 || !strings.Contains(r.Body, `"field":"poster_badge_days"`) {
+			t.Errorf("days %s = %d %s, want 422 on poster_badge_days", days, r.Status, r.Body)
+		}
+	}
+
+	// Plex sign-in off means the features are off, whatever their switches say.
+	h.admin.valid("PUT", "/settings/plex-sign-in", `{"enabled":false,"watchlist":true,"watch_ahead":true,"labels":true,"poster_badge":true,"poster_badge_days":9,"instance":"Plex","users":[],"user_root_folders":[]}`)
+	if sw, _ := switches(h); sw != (api.PlexSwitches{PosterBadgeDays: 9}) {
+		t.Errorf("switches with sign-in off = %+v", sw)
 	}
 }
 
@@ -64,16 +118,16 @@ func TestPlexSignInSettingsAreValidated(t *testing.T) {
 	other := "/somewhere/else"
 
 	for _, c := range []struct{ name, body, field, code string }{
-		{"enabled without an instance", `{"enabled":true,"instance":null,"users":[],"user_root_folders":[]}`, "instance", "required"},
-		{"enabled with a blank instance", `{"enabled":true,"instance":"  ","users":[],"user_root_folders":[]}`, "instance", "required"},
-		{"an instance that does not exist", `{"enabled":true,"instance":"Nope","users":[],"user_root_folders":[]}`, "instance", "not_found"},
-		{"an instance of another plugin", `{"enabled":true,"instance":"SABnzbd","users":[],"user_root_folders":[]}`, "instance", "wrong_plugin"},
-		{"a blank user", `{"enabled":true,"instance":"Plex","users":["anna"," "],"user_root_folders":[]}`, "users[1]", "required"},
-		{"a user twice, ignoring case", `{"enabled":true,"instance":"Plex","users":["Anna","kim","ANNA"],"user_root_folders":[]}`, "users[2]", "duplicate"},
-		{"a blank folder user", `{"enabled":true,"instance":"Plex","users":[],"user_root_folders":[{"user":"","movies":null,"series":null}]}`, "user_root_folders[0].user", "required"},
-		{"a folder user twice, ignoring case", `{"enabled":true,"instance":"Plex","users":[],"user_root_folders":[{"user":"anna","movies":null,"series":null},{"user":"ANNA","movies":null,"series":null}]}`, "user_root_folders[1].user", "duplicate"},
-		{"a Movie folder that is not a Movie Root folder", `{"enabled":true,"instance":"Plex","users":[],"user_root_folders":[{"user":"anna","movies":"` + other + `","series":null}]}`, "user_root_folders[0].movies", "not_found"},
-		{"a Series folder that is a Movie Root folder", `{"enabled":true,"instance":"Plex","users":[],"user_root_folders":[{"user":"anna","movies":null,"series":"` + movies + `"}]}`, "user_root_folders[0].series", "not_found"},
+		{"enabled without an instance", `{"enabled":true,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":null,"users":[],"user_root_folders":[]}`, "instance", "required"},
+		{"enabled with a blank instance", `{"enabled":true,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":"  ","users":[],"user_root_folders":[]}`, "instance", "required"},
+		{"an instance that does not exist", `{"enabled":true,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":"Nope","users":[],"user_root_folders":[]}`, "instance", "not_found"},
+		{"an instance of another plugin", `{"enabled":true,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":"SABnzbd","users":[],"user_root_folders":[]}`, "instance", "wrong_plugin"},
+		{"a blank user", `{"enabled":true,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":"Plex","users":["anna"," "],"user_root_folders":[]}`, "users[1]", "required"},
+		{"a user twice, ignoring case", `{"enabled":true,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":"Plex","users":["Anna","kim","ANNA"],"user_root_folders":[]}`, "users[2]", "duplicate"},
+		{"a blank folder user", `{"enabled":true,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":"Plex","users":[],"user_root_folders":[{"user":"","movies":null,"series":null}]}`, "user_root_folders[0].user", "required"},
+		{"a folder user twice, ignoring case", `{"enabled":true,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":"Plex","users":[],"user_root_folders":[{"user":"anna","movies":null,"series":null},{"user":"ANNA","movies":null,"series":null}]}`, "user_root_folders[1].user", "duplicate"},
+		{"a Movie folder that is not a Movie Root folder", `{"enabled":true,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":"Plex","users":[],"user_root_folders":[{"user":"anna","movies":"` + other + `","series":null}]}`, "user_root_folders[0].movies", "not_found"},
+		{"a Series folder that is a Movie Root folder", `{"enabled":true,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":"Plex","users":[],"user_root_folders":[{"user":"anna","movies":null,"series":"` + movies + `"}]}`, "user_root_folders[0].series", "not_found"},
 	} {
 		r := h.admin.valid("PUT", "/settings/plex-sign-in", c.body)
 		if r.Status != 422 || !strings.Contains(r.Body, `"field":"`+c.field+`"`) || !strings.Contains(r.Body, `"code":"`+c.code+`"`) {
@@ -87,9 +141,9 @@ func TestPlexSignInSettingsAreValidated(t *testing.T) {
 
 	// Switched off, the instance is not needed, and good folders pass.
 	for _, body := range []string{
-		`{"enabled":false,"instance":null,"users":[],"user_root_folders":[]}`,
-		`{"enabled":false,"instance":"Gone","users":[],"user_root_folders":[]}`,
-		`{"enabled":true,"instance":"Plex","users":["anna"],"user_root_folders":[{"user":"anna","movies":"` + kids + `","series":"` + series + `"},{"user":"ben","movies":null,"series":null}]}`,
+		`{"enabled":false,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":null,"users":[],"user_root_folders":[]}`,
+		`{"enabled":false,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":"Gone","users":[],"user_root_folders":[]}`,
+		`{"enabled":true,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":"Plex","users":["anna"],"user_root_folders":[{"user":"anna","movies":"` + kids + `","series":"` + series + `"},{"user":"ben","movies":null,"series":null}]}`,
 	} {
 		if r := h.admin.valid("PUT", "/settings/plex-sign-in", body); r.Status != 200 {
 			t.Errorf("PUT %s = %d %s", body, r.Status, r.Body)
@@ -127,6 +181,9 @@ plex_sign_in:
   enabled: true
   instance: Plex
   users: [Anna, kim]
+  watchlist: true
+  labels: true
+  poster_badge_days: 14
   user_root_folders:
     ANNA: {movies: "`+kids+`"}
     kim: {}
@@ -143,7 +200,10 @@ plex_sign_in:
 	if f := got.UserRootFolders; f[0].User != "ANNA" || *f[0].Movies != kids || f[0].Series != nil || f[1].User != "kim" || f[1].Movies != nil {
 		t.Errorf("user_root_folders = %+v, want them sorted by user", f)
 	}
-	in.conflictNamingTheFile("PUT /settings/plex-sign-in", b.valid("PUT", "/settings/plex-sign-in", `{"enabled":false,"instance":null,"users":[],"user_root_folders":[]}`))
+	if !got.Watchlist || got.WatchAhead || !got.Labels || got.PosterBadge || got.PosterBadgeDays == nil || *got.PosterBadgeDays != 14 {
+		t.Errorf("declared switches = %+v", got)
+	}
+	in.conflictNamingTheFile("PUT /settings/plex-sign-in", b.valid("PUT", "/settings/plex-sign-in", `{"enabled":false,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":null,"users":[],"user_root_folders":[]}`))
 
 	// Requesters sign in under the declared rules.
 	if r := h.signIn(in.browser(), "anna-token"); r.Status != 204 {
@@ -170,7 +230,7 @@ plex_sign_in:
 	if got.FromConfigFile || !got.Enabled {
 		t.Errorf("after leaving the section out: %+v", got)
 	}
-	if r := b.valid("PUT", "/settings/plex-sign-in", `{"enabled":false,"instance":null,"users":[],"user_root_folders":[]}`); r.Status != 200 {
+	if r := b.valid("PUT", "/settings/plex-sign-in", `{"enabled":false,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":null,"users":[],"user_root_folders":[]}`); r.Status != 200 {
 		t.Errorf("PUT once the file leaves it out = %d %s", r.Status, r.Body)
 	}
 }

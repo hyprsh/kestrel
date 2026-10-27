@@ -2654,11 +2654,26 @@ type PlexSignIn struct {
 	FromConfigFile bool `json:"from_config_file"`
 
 	// Instance The name of the `plex` plugin instance whose server and owner token decide who may sign in.
-	Instance        *string               `json:"instance"`
+	Instance *string `json:"instance"`
+
+	// Labels Turns the `Requested` labels and collection in Plex on (ADR 0019).
+	Labels bool `json:"labels"`
+
+	// PosterBadge Turns the "Requested" badge on posters in Plex on (ADR 0019).
+	PosterBadge bool `json:"poster_badge"`
+
+	// PosterBadgeDays How many days the poster badge stays; `null` keeps the default, 30.
+	PosterBadgeDays *int                  `json:"poster_badge_days"`
 	UserRootFolders []PlexUserRootFolders `json:"user_root_folders"`
 
 	// Users Who may request, by Plex username or Plex Home user name; empty for everyone with access to the server.
 	Users []string `json:"users"`
+
+	// WatchAhead Turns Watch-ahead on, so a Requester's Series Request starts with season 1 and adds the next season as people watch (ADR 0019).
+	WatchAhead bool `json:"watch_ahead"`
+
+	// Watchlist Turns Watchlist sync on, which makes a Watchlist Request for each title newly added to a Watchlist (ADR 0019).
+	Watchlist bool `json:"watchlist"`
 }
 
 // PlexSignInAvailability defines model for PlexSignInAvailability.
@@ -2671,11 +2686,26 @@ type PlexSignInSettings struct {
 	Enabled bool `json:"enabled"`
 
 	// Instance The name of the `plex` plugin instance whose server and owner token decide who may sign in.
-	Instance        *string               `json:"instance"`
+	Instance *string `json:"instance"`
+
+	// Labels Turns the `Requested` labels and collection in Plex on (ADR 0019).
+	Labels bool `json:"labels"`
+
+	// PosterBadge Turns the "Requested" badge on posters in Plex on (ADR 0019).
+	PosterBadge bool `json:"poster_badge"`
+
+	// PosterBadgeDays How many days the poster badge stays; `null` keeps the default, 30.
+	PosterBadgeDays *int                  `json:"poster_badge_days"`
 	UserRootFolders []PlexUserRootFolders `json:"user_root_folders"`
 
 	// Users Who may request, by Plex username or Plex Home user name; empty for everyone with access to the server.
 	Users []string `json:"users"`
+
+	// WatchAhead Turns Watch-ahead on, so a Requester's Series Request starts with season 1 and adds the next season as people watch (ADR 0019).
+	WatchAhead bool `json:"watch_ahead"`
+
+	// Watchlist Turns Watchlist sync on, which makes a Watchlist Request for each title newly added to a Watchlist (ADR 0019).
+	Watchlist bool `json:"watchlist"`
 }
 
 // PlexUserRootFolders defines model for PlexUserRootFolders.

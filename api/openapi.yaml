@@ -2859,10 +2859,27 @@ components:
           description: One of the Series Root folders; `null` keeps the first.
     PlexSignInSettings:
       type: object
-      required: [enabled, instance, users, user_root_folders]
+      required: [enabled, instance, users, user_root_folders, watchlist, watch_ahead, labels, poster_badge, poster_badge_days]
       properties:
         enabled:
           type: boolean
+        watchlist:
+          type: boolean
+          description: Turns Watchlist sync on, which makes a Watchlist Request for each title newly added to a Watchlist (ADR 0019).
+        watch_ahead:
+          type: boolean
+          description: Turns Watch-ahead on, so a Requester's Series Request starts with season 1 and adds the next season as people watch (ADR 0019).
+        labels:
+          type: boolean
+          description: Turns the `Requested` labels and collection in Plex on (ADR 0019).
+        poster_badge:
+          type: boolean
+          description: Turns the "Requested" badge on posters in Plex on (ADR 0019).
+        poster_badge_days:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: How many days the poster badge stays; `null` keeps the default, 30.
         instance:
           type: string
           nullable: true

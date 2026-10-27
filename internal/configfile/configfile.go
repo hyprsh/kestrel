@@ -109,7 +109,7 @@ type ReverseProxy struct {
 
 // PlexSignIn is Plex sign-in for Requesters, declared as a whole like
 // PUT /settings/plex-sign-in. Only enabled is required: the instance is needed
-// once enabled is true, and the users and Root folders default to none.
+// once enabled is true, and the users, Root folders and switches default to none.
 type PlexSignIn struct {
 	Enabled *bool `yaml:"enabled"`
 	// Instance names the declared or UI-made `plex` plugin instance.
@@ -118,6 +118,13 @@ type PlexSignIn struct {
 	Users []string `yaml:"users"`
 	// UserRootFolders maps a Plex user to the Root folders that user's Requests go to.
 	UserRootFolders map[string]PlexUserRootFolders `yaml:"user_root_folders"`
+	// Watchlist, WatchAhead, Labels and PosterBadge switch the features of ADR 0019, each off until set.
+	Watchlist   bool `yaml:"watchlist"`
+	WatchAhead  bool `yaml:"watch_ahead"`
+	Labels      bool `yaml:"labels"`
+	PosterBadge bool `yaml:"poster_badge"`
+	// PosterBadgeDays is how long the badge stays, at least 1; unset means 30.
+	PosterBadgeDays *int `yaml:"poster_badge_days"`
 }
 
 // PlexUserRootFolders are one user's Root folders. A nil field keeps the kind's first.
@@ -306,6 +313,9 @@ func (f *File) complete() error {
 		if _, err := scoring.OriginalChoiceOf(p.OriginalChoice, p.OriginalFallback); err != nil {
 			return fmt.Errorf("profiles.%s.original_language: %w; declare original_language only", key, err)
 		}
+	}
+	if p := f.PlexSignIn; p != nil && p.PosterBadgeDays != nil && *p.PosterBadgeDays < 1 {
+		return errors.New("plex_sign_in.poster_badge_days: must be at least 1")
 	}
 	seen := map[string]bool{}
 	for i, p := range f.PluginInstances {

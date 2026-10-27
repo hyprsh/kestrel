@@ -156,7 +156,7 @@ func TestARequestersRequestsGoToTheirRootFolderWhenTheyHaveOne(t *testing.T) {
 	t.Parallel()
 	h, l := requesterLibrary(t)
 	movies, series := l.moreFolders(t)
-	h.putSignIn(fmt.Sprintf(`{"enabled":true,"instance":"Plex","users":[],"user_root_folders":[`+
+	h.putSignIn(fmt.Sprintf(`{"enabled":true,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":"Plex","users":[],"user_root_folders":[`+
 		`{"user":"ANNA","movies":%q,"series":null},{"user":"Kim","movies":%q,"series":%q}]}`, movies, movies, series))
 
 	for _, c := range []struct {
@@ -189,7 +189,7 @@ func TestARequestersFolderThatLeftTheRootFoldersFallsBackToTheFirst(t *testing.T
 	t.Parallel()
 	h, l := requesterLibrary(t)
 	movies, series := l.moreFolders(t)
-	h.putSignIn(fmt.Sprintf(`{"enabled":true,"instance":"Plex","users":[],"user_root_folders":[{"user":"anna","movies":%q,"series":null}]}`, movies))
+	h.putSignIn(fmt.Sprintf(`{"enabled":true,"watchlist":false,"watch_ahead":false,"labels":false,"poster_badge":false,"poster_badge_days":null,"instance":"Plex","users":[],"user_root_folders":[{"user":"anna","movies":%q,"series":null}]}`, movies))
 	l.valid("PATCH", "/settings", fmt.Sprintf(`{"root_folders":{"movies":[%q],"series":[%q]}}`, l.data+"/media/movies", series))
 
 	r := h.requester("anna-token").valid("POST", "/my/requests", paddington)
