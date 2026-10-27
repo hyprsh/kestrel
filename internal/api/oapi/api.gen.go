@@ -616,6 +616,7 @@ func (e IndexerStatusState) Valid() bool {
 // Defines values for JobDisabledBy.
 const (
 	GithubCheck     JobDisabledBy = "github_check"
+	PlexWatchlist   JobDisabledBy = "plex_watchlist"
 	TrashAutoUpdate JobDisabledBy = "trash_auto_update"
 )
 
@@ -623,6 +624,8 @@ const (
 func (e JobDisabledBy) Valid() bool {
 	switch e {
 	case GithubCheck:
+		return true
+	case PlexWatchlist:
 		return true
 	case TrashAutoUpdate:
 		return true
@@ -2338,14 +2341,15 @@ type IndexerStatusState string
 type Job struct {
 	// DisabledBy The setting that turns a `disabled` loop's work off: `github_check` ("Check GitHub for
 	// updates", which `updates` and `trash` both need) or `trash_auto_update` (TRaSH's own daily
-	// update switch). `null` unless `status` is `disabled`; later versions may add settings.
+	// update switch) or `plex_watchlist` (Plex sign-in's "Make Requests from Watchlists", which
+	// `watchlist` needs). `null` unless `status` is `disabled`; later versions may add settings.
 	DisabledBy *JobDisabledBy `json:"disabled_by"`
 
 	// LastRun The last pass that finished since start; `null` before the first.
 	LastRun *JobRun `json:"last_run"`
 
-	// Name The loop: `poll`, `search`, `import`, `prune`, `health`, `refresh`, `trash`, `updates`
-	// or `rss`. A loop whose module is not configured is not listed; later versions may add loops.
+	// Name The loop: `poll`, `search`, `import`, `prune`, `health`, `refresh`, `trash`, `updates`,
+	// `rss` or `watchlist`. A loop whose module is not configured is not listed; later versions may add loops.
 	Name string `json:"name"`
 
 	// NextAt When the next pass is due; `null` while one runs and before the loops start.
@@ -2358,18 +2362,21 @@ type Job struct {
 	Schedule JobSchedule `json:"schedule"`
 
 	// Status `running` while a pass is in flight; `disabled` when a setting turns its work off (`updates`
-	// without "Check GitHub for updates", `trash` without TRaSH auto-update), though it still checks
+	// without "Check GitHub for updates", `trash` without TRaSH auto-update, `watchlist` without
+	// Watchlist Requests), though it still checks
 	// hourly; otherwise `idle`.
 	Status JobStatus `json:"status"`
 }
 
 // JobDisabledBy The setting that turns a `disabled` loop's work off: `github_check` ("Check GitHub for
 // updates", which `updates` and `trash` both need) or `trash_auto_update` (TRaSH's own daily
-// update switch). `null` unless `status` is `disabled`; later versions may add settings.
+// update switch) or `plex_watchlist` (Plex sign-in's "Make Requests from Watchlists", which
+// `watchlist` needs). `null` unless `status` is `disabled`; later versions may add settings.
 type JobDisabledBy string
 
 // JobStatus `running` while a pass is in flight; `disabled` when a setting turns its work off (`updates`
-// without "Check GitHub for updates", `trash` without TRaSH auto-update), though it still checks
+// without "Check GitHub for updates", `trash` without TRaSH auto-update, `watchlist` without
+// Watchlist Requests), though it still checks
 // hourly; otherwise `idle`.
 type JobStatus string
 

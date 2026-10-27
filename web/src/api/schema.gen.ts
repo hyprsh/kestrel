@@ -3373,13 +3373,14 @@ export interface components {
         };
         Job: {
             /**
-             * @description The loop: `poll`, `search`, `import`, `prune`, `health`, `refresh`, `trash`, `updates`
-             *     or `rss`. A loop whose module is not configured is not listed; later versions may add loops.
+             * @description The loop: `poll`, `search`, `import`, `prune`, `health`, `refresh`, `trash`, `updates`,
+             *     `rss` or `watchlist`. A loop whose module is not configured is not listed; later versions may add loops.
              */
             name: string;
             /**
              * @description `running` while a pass is in flight; `disabled` when a setting turns its work off (`updates`
-             *     without "Check GitHub for updates", `trash` without TRaSH auto-update), though it still checks
+             *     without "Check GitHub for updates", `trash` without TRaSH auto-update, `watchlist` without
+             *     Watchlist Requests), though it still checks
              *     hourly; otherwise `idle`.
              * @enum {string}
              */
@@ -3387,10 +3388,11 @@ export interface components {
             /**
              * @description The setting that turns a `disabled` loop's work off: `github_check` ("Check GitHub for
              *     updates", which `updates` and `trash` both need) or `trash_auto_update` (TRaSH's own daily
-             *     update switch). `null` unless `status` is `disabled`; later versions may add settings.
+             *     update switch) or `plex_watchlist` (Plex sign-in's "Make Requests from Watchlists", which
+             *     `watchlist` needs). `null` unless `status` is `disabled`; later versions may add settings.
              * @enum {string|null}
              */
-            disabled_by: "github_check" | "trash_auto_update" | null;
+            disabled_by: "github_check" | "trash_auto_update" | "plex_watchlist" | null;
             /** @description Whether `POST /jobs/{name}/run` runs it. */
             runnable: boolean;
             /** @description The last pass that finished since start; `null` before the first. */

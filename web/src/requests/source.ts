@@ -2,5 +2,5 @@
 // the Requests screen and a Title's "Requested by". The server writes the Log's line by the same rule
 // (requests.SourceName), so all of them say "via Silo".
 
-/** "Silo" for the source "silo", "Jellyseerr" for "jellyseerr". */
-export const sourceName = (source: string) => source.charAt(0).toUpperCase() + source.slice(1)
+/** "Silo" for the source "silo", "Jellyseerr" for "jellyseerr", "Watchlist" for "plex_watchlist". */
+export const sourceName = (source: string) => (source === 'plex_watchlist' ? 'Watchlist' : source.charAt(0).toUpperCase() + source.slice(1))

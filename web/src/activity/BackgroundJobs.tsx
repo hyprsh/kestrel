@@ -18,6 +18,7 @@ const statusBadge: Record<Job['status'], { tone: NonNullable<BadgeProps['variant
 const offBecause: Record<NonNullable<Job['disabled_by']>, string> = {
   github_check: 'Off while “Check GitHub for updates” is off in Settings › Updates',
   trash_auto_update: 'Off while “Check TRaSH daily and update automatically” is off in Settings › TRaSH',
+  plex_watchlist: 'Off while “Make Requests from Watchlists” is off in Settings › Security',
 }
 
 const hour = 3_600_000
