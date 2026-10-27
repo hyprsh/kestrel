@@ -35,6 +35,9 @@ const (
 	Updates = "updates"
 	// Trash checks for newer TRaSH Custom Formats and profiles once a day (a Settings switch turns the updating off).
 	Trash = "trash"
+	// WatchAhead adds the next season to a Watch-ahead Request once anyone on
+	// the Plex server has played 2 episodes of its newest season (ADR 0019).
+	WatchAhead = "watch_ahead"
 )
 
 // Cadences. How long a Version waits between missing and Upgrade searches is
@@ -56,6 +59,8 @@ const (
 	importWorkers = 2
 	pruneCheck    = time.Hour
 	healthEvery   = 5 * time.Minute
+	// watchAheadEvery is how often Watch-ahead reads the Plex server's play history.
+	watchAheadEvery = 15 * time.Minute
 )
 
 // HealthChecker is what the loops need of the health module.
@@ -117,6 +122,12 @@ type DailyRefresher interface {
 	Daily(ctx context.Context) error
 }
 
+// WatchAheader is what the loops need of Watch-ahead: one pass, which reports
+// how many seasons it added.
+type WatchAheader interface {
+	Pass(ctx context.Context) (added int, err error)
+}
+
 // Deps are the modules Standard strings together.
 type Deps struct {
 	// Refresher is optional; without it there is no metadata refresh loop.
@@ -135,6 +146,8 @@ type Deps struct {
 	Updates UpdateChecker
 	// Trash is optional; without it there is no daily TRaSH check.
 	Trash TrashChecker
+	// WatchAhead is optional; without it there is no Watch-ahead loop.
+	WatchAhead WatchAheader
 	// Importer and ImportSource enable the Import loop; leave both nil for none.
 	Importer     Importer
 	ImportSource ImportSource
@@ -233,6 +246,20 @@ func Standard(d Deps) *Runner {
 			Name:     Trash,
 			Run:      daily(d.LastRun, trashStateKey, d.Clock, d.Trash.Check),
 			Schedule: Schedule{Every: dailyCheck, Runs: dailyEvery},
+		})
+	}
+
+	if d.WatchAhead != nil {
+		r.Add(Loop{
+			Name: WatchAhead,
+			Run: func(ctx context.Context) error {
+				added, err := d.WatchAhead.Pass(ctx)
+				if added > 0 {
+					r.Kick(Search) // the seasons added are due a search now
+				}
+				return err
+			},
+			Schedule: Schedule{Every: watchAheadEvery},
 		})
 	}
 

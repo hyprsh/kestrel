@@ -22,6 +22,9 @@ What it knows (MOVIES and SERIES below):
   (/plex, whose /identity answers DEMO_MACHINE). Its sign-in page (/plextv/auth,
   KESTREL_PLEX_APP_URL) authorises the PIN in the URL as Ellie the moment it is visited and
   sends the browser on to the forwardUrl, so a Requester signs in with one click.
+- The Plex server also keeps a play history for Watch-ahead (see the PLEX PLAY HISTORY block):
+  GET /plex/_play?season=1&episode=2 records a play of Breaking Bad now, and
+  /plex/status/sessions/history/all lists the plays.
 """
 import argparse, json, os, sys, time, datetime, hashlib
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
@@ -32,6 +35,8 @@ STATE = {"releases": False, "queue": [], "pins": {}}
 DEMO_OWNER_TOKEN = "demo-owner-token"
 DEMO_REQUESTER_TOKEN = "demo-requester-token"
 DEMO_MACHINE = "demo-plex-machine"
+PLEX_SHOW_KEY = "/library/metadata/456"
+PLEX_PLAYS = []  # the Plex server's play history, oldest first
 PLEX_ACCOUNTS = {
     DEMO_OWNER_TOKEN: dict(id=1, uuid="demo-owner", username="owner", title="owner", thumb=""),
     DEMO_REQUESTER_TOKEN: dict(id=2, uuid="demo-ellie", username="ellie", title="Ellie", thumb=""),
@@ -362,11 +367,37 @@ class H(BaseHTTPRequestHandler):
         self.send(401 if parts[:2] == ["api", "v2"] or parts[:1] == ["api"] else 404, {"errors": [{"code": 1001, "message": "User could not be authenticated"}]})
 
     def plex(self, p):
+        if self.plex_history(p):
+            return
         if p == "/identity":
             return self.send(200, {"MediaContainer": {"size": 0, "claimed": True, "machineIdentifier": DEMO_MACHINE, "version": "1.41.0"}})
         if p == "/library/sections":
             return self.send(200, {"MediaContainer": {"size": 0, "Directory": []}})
         self.send(404, {})
+
+    # --- PLEX PLAY HISTORY (Watch-ahead) -------------------------------------------------
+    # The Plex server's play history of every account and the show metadata Kestrel reads to
+    # map a play to a TheTVDB id. All plays are of Breaking Bad (Plex key PLEX_SHOW_KEY).
+
+    def plex_history(self, p):
+        """Answers the history calls; False for any other Plex path."""
+        qs = parse_qs(urlparse(self.path).query)
+        if p == "/_play":
+            at = int(time.time())
+            PLEX_PLAYS.append(dict(type="episode", grandparentKey=PLEX_SHOW_KEY, parentIndex=int(qs.get("season", ["1"])[0]),
+                                   index=int(qs.get("episode", ["1"])[0]), viewedAt=at, accountID=1))
+            self.send(200, {"plays": len(PLEX_PLAYS)})
+        elif p == "/status/sessions/history/all":
+            lo = int((qs.get("viewedAt>") or ["0"])[0])
+            start, size = int((qs.get("X-Plex-Container-Start") or ["0"])[0]), int((qs.get("X-Plex-Container-Size") or ["200"])[0])
+            rows = [x for x in PLEX_PLAYS if x["viewedAt"] >= lo][start:start + size]
+            self.send(200, {"MediaContainer": {"size": len(rows), "Metadata": rows}})
+        elif p == PLEX_SHOW_KEY:
+            self.send(200, {"MediaContainer": {"size": 1, "Metadata": [dict(type="show", title="Breaking Bad", guid="plex://show/demo",
+                                                                          Guid=[dict(id="tvdb://81189"), dict(id="imdb://tt0903747")])]}})
+        else:
+            return False
+        return True
 
     def tmdb(self, p, qs):
         parts = p.strip("/").split("/")
