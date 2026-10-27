@@ -1,5 +1,5 @@
 {"MediaContainer":{"size":3,"totalSize":3,"offset":0,"Metadata":[
-{"ratingKey":"101","type":"movie","title":"Dune","year":2021,"thumb":"/library/metadata/101/thumb/1700000000","Guid":[{"id":"imdb://tt1160419"},{"id":"tmdb://438631"}],"Media":[{"Part":[{"file":"/data/media/movies/Dune (2021) {tmdb-438631}/Dune (2021) - Bluray-1080p.mkv"}]}]},
-{"ratingKey":"102","type":"movie","title":"Arrival","year":2016,"thumb":"/library/metadata/102/thumb/1700000001","Guid":[{"id":"tmdb://329865"}],"Media":[{"Part":[{"file":"/mnt/plex/movies/Arrival (2016)/Arrival (2016).mkv"}]}]},
-{"ratingKey":"103","type":"movie","title":"Dune: Part Two","year":2024,"thumb":"/library/metadata/103/thumb/1700000002","Guid":[{"id":"tmdb://693134"}],"Media":[{"Part":[{"file":"/data/media/movies/Dune Part Two (2024)/Dune Part Two (2024).mkv"}]}]}
+{"guid":"plex://movie/5d77683c2e5e2d001f8a1c01","ratingKey":"101","type":"movie","title":"Dune","year":2021,"thumb":"/library/metadata/101/thumb/1700000000","Guid":[{"id":"imdb://tt1160419"},{"id":"tmdb://438631"}],"Media":[{"Part":[{"file":"/data/media/movies/Dune (2021) {tmdb-438631}/Dune (2021) - Bluray-1080p.mkv"}]}]},
+{"guid":"plex://movie/5d77683d4f2b6a001e3c9a02","ratingKey":"102","type":"movie","title":"Arrival","year":2016,"thumb":"/library/metadata/102/thumb/1700000001","Guid":[{"id":"tmdb://329865"}],"Media":[{"Part":[{"file":"/mnt/plex/movies/Arrival (2016)/Arrival (2016).mkv"}]}]},
+{"guid":"plex://movie/5d7768405c2a4b001f2e7d03","ratingKey":"103","type":"movie","title":"Dune: Part Two","year":2024,"thumb":"/library/metadata/103/thumb/1700000002","Guid":[{"id":"tmdb://693134"}],"Media":[{"Part":[{"file":"/data/media/movies/Dune Part Two (2024)/Dune Part Two (2024).mkv"}]}]}
 ]}}

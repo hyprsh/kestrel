@@ -78,14 +78,18 @@ func (c *Client) getJSON(ctx context.Context, conn plugin.Connection, p string, 
 
 type guid struct{ ID string }
 
+// Plex sends both "guid" (a string, the agent's own id) and "Guid" (the list of
+// external ids); encoding/json matches keys case-insensitively, so the tags keep
+// the list from taking the string.
 type metadata struct {
-	RatingKey string
-	Type      string
-	Thumb     string
-	Guid      []guid
-	Label     []struct{ Tag string }
-	Location  []struct{ Path string }
-	Media     []struct{ Part []struct{ File string } }
+	RatingKey string                                   `json:"ratingKey"`
+	Type      string                                   `json:"type"`
+	Thumb     string                                   `json:"thumb"`
+	PlexGuid  string                                   `json:"guid"`
+	Guid      []guid                                   `json:"Guid"`
+	Label     []struct{ Tag string }                   `json:"Label"`
+	Location  []struct{ Path string }                  `json:"Location"`
+	Media     []struct{ Part []struct{ File string } } `json:"Media"`
 }
 
 type metadataContainer struct {

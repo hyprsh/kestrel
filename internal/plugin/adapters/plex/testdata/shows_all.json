@@ -1,4 +1,4 @@
 {"MediaContainer":{"size":2,"totalSize":2,"offset":0,"Metadata":[
-{"ratingKey":"201","type":"show","title":"Frieren","thumb":"/library/metadata/201/thumb/1700000010","Guid":[{"id":"tvdb://424536"}],"Location":[{"path":"/data/media/anime/Frieren {tvdb-424536}"}]},
-{"ratingKey":"202","type":"show","title":"Severance","thumb":"/library/metadata/202/thumb/1700000011","Guid":[{"id":"tvdb://371980"}],"Location":[{"path":"/mnt/plex/tv/Severance"}]}
+{"guid":"plex://show/5d9c086c46115600200aa201","ratingKey":"201","type":"show","title":"Frieren","thumb":"/library/metadata/201/thumb/1700000010","Guid":[{"id":"tvdb://424536"}],"Location":[{"path":"/data/media/anime/Frieren {tvdb-424536}"}]},
+{"guid":"plex://show/5d9c086d1e3a5a001f7b3c02","ratingKey":"202","type":"show","title":"Severance","thumb":"/library/metadata/202/thumb/1700000011","Guid":[{"id":"tvdb://371980"}],"Location":[{"path":"/mnt/plex/tv/Severance"}]}
 ]}}
