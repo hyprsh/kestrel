@@ -55,17 +55,7 @@ func (s *server) CreateMyRequest(ctx context.Context, r oapi.CreateMyRequestRequ
 	if r.Body.TmdbId <= 0 {
 		return nil, invalid("tmdb_id", "required", "Name the Title by its tmdb_id")
 	}
-	root, err := s.requesterRoot(ctx, *who, kind)
-	if err != nil {
-		return nil, err
-	}
-	req, created, err := s.submitRequest(ctx, requests.Input{
-		Source: plexSource, SourceRequestID: fmt.Sprintf("%s-%s-%d", who.id, kind, r.Body.TmdbId),
-		RequesterID: who.id, RequesterName: who.name,
-		Kind: kind, TMDBID: r.Body.TmdbId,
-		Slots:      []requests.SlotInput{{Slot: slot.Standard}},
-		RootFolder: root,
-	})
+	req, created, err := s.submitRequesterRequest(ctx, *who, plexSource, fmt.Sprintf("%s-%s-%d", who.id, kind, r.Body.TmdbId), kind, r.Body.TmdbId, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -73,6 +63,28 @@ func (s *server) CreateMyRequest(ctx context.Context, r oapi.CreateMyRequestRequ
 		return oapi.CreateMyRequest200JSONResponse(requestToAPI(req)), nil
 	}
 	return oapi.CreateMyRequest201JSONResponse(requestToAPI(req)), nil
+}
+
+// submitRequesterRequest is a Requester's Request for a Title, whichever way it
+// comes in (their own in the UI, or Watchlist sync's for a title they added to
+// their Watchlist): the Standard Slot under Profile resolution, into the
+// person's Root folder when one is set. One function, so the two cannot drift.
+func (s *server) submitRequesterRequest(ctx context.Context, who requester, source, sourceRequestID string, kind library.Kind, tmdbID, tvdbID int) (requests.Request, bool, error) {
+	root, err := s.requesterRoot(ctx, who, kind)
+	if err != nil {
+		return requests.Request{}, false, err
+	}
+	switches, err := LoadPlexSwitches(ctx, s.plex.settings)
+	if err != nil {
+		return requests.Request{}, false, err
+	}
+	return s.submitRequest(ctx, requests.Input{
+		Source: source, SourceRequestID: sourceRequestID,
+		RequesterID: who.id, RequesterName: who.name,
+		Kind: kind, TMDBID: tmdbID, TVDBID: tvdbID,
+		Slots:      []requests.SlotInput{{Slot: slot.Standard}},
+		RootFolder: root, WatchAhead: switches.WatchAhead,
+	})
 }
 
 // requesterRoot is the Root folder a Title the Requester's Request creates

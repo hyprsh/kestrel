@@ -60,11 +60,19 @@ sql:
         emit_json_tags: false
   - engine: sqlite
     schema: internal/store/migrations
-    queries: internal/requests/queries.sql
+    queries: [internal/requests/queries.sql, internal/requests/watchahead.sql]
     gen:
       go:
         package: db
         out: internal/requests/db
+        emit_json_tags: false
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/watchahead/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/watchahead/db
         emit_json_tags: false
   - engine: sqlite
     schema: internal/store/migrations
@@ -89,4 +97,20 @@ sql:
       go:
         package: db
         out: internal/indexers/db
+        emit_json_tags: false
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/plexmarks/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/plexmarks/db
+        emit_json_tags: false
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/watchlist/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/watchlist/db
         emit_json_tags: false

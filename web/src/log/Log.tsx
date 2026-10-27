@@ -26,6 +26,7 @@ const kinds: Record<string, { label: string; tone: Tone }> = {
   import_stalled: { label: 'Import stalled', tone: 'amber' },
   blocklist: { label: 'Blocklisted', tone: 'red' },
   request: { label: 'Requested', tone: 'teal' },
+  watch_ahead: { label: 'Watch-ahead', tone: 'teal' },
   rename: { label: 'Renamed', tone: 'gray' },
   move: { label: 'Moved', tone: 'gray' },
   delete: { label: 'Deleted', tone: 'gray' },

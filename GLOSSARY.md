@@ -128,6 +128,18 @@ _Avoid_: Add (for Requests), order
 Someone who signs in to Kestrel with their Plex account, allowed while that account has access to the household's Plex server, to search Titles, make Requests and follow their own. A Requester reaches nothing else; the admin is not a Requester.
 _Avoid_: User, guest, Plex user (for the login)
 
+**Watchlist**:
+A person's Plex Watchlist: the titles they marked to watch some day, kept at plex.tv. Kestrel reads the owner's and those of friends who may request and who let friends see it (ADR 0019).
+_Avoid_: Wishlist, watch list
+
+**Watchlist Request**:
+A Request Kestrel makes itself for a title newly added to a Watchlist, on behalf of that person, with the source `plex_watchlist`. Titles already on a Watchlist when Kestrel takes its baseline are not requested; the baseline is the first read that finds a title on it.
+_Avoid_: Auto-request, watchlist sync (that is the Background job)
+
+**Watch-ahead**:
+Requesting a Series one season at a time: a Requester's Series Request starts with season 1, and Kestrel adds the next season to it once anyone on the Plex server has watched 2 episodes of the newest season it holds (ADR 0019).
+_Avoid_: Auto-season, progressive download
+
 **Upcoming**:
 The timeline around today of episodes and movie releases, from the last two weeks to the next two months, with where each stands (not out yet, Wanted, downloading, Imported) and, after it, the Titles with no date yet. It stands in for a calendar.
 _Avoid_: Calendar

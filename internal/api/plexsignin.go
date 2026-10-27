@@ -91,9 +91,43 @@ func loadPlexSignIn(ctx context.Context, s *settings.Settings) (oapi.PlexSignInS
 	return normalizePlexSignIn(cfg), nil
 }
 
+// defaultPosterBadgeDays is how long the poster badge stays when the settings
+// do not say.
+const defaultPosterBadgeDays = 30
+
+// PlexSwitches are the effective switches of the features ADR 0019 adds to
+// Plex sign-in. All are off while Plex sign-in itself is off.
+type PlexSwitches struct {
+	Watchlist       bool // Watchlist sync makes Watchlist Requests
+	WatchAhead      bool // a Requester's Series Request starts with season 1
+	Labels          bool // the Requested labels and collection
+	PosterBadge     bool // the "Requested" poster badge
+	PosterBadgeDays int  // how long the badge stays, at least 1; 30 when unset
+}
+
+// LoadPlexSwitches reads the effective Plex switches from the settings, which
+// hold what Settings > Security saved or the Config File declared.
+func LoadPlexSwitches(ctx context.Context, s *settings.Settings) (PlexSwitches, error) {
+	cfg, err := loadPlexSignIn(ctx, s)
+	if err != nil {
+		return PlexSwitches{}, err
+	}
+	days := defaultPosterBadgeDays
+	if cfg.PosterBadgeDays != nil && *cfg.PosterBadgeDays >= 1 {
+		days = *cfg.PosterBadgeDays
+	}
+	if !cfg.Enabled {
+		return PlexSwitches{PosterBadgeDays: days}, nil
+	}
+	return PlexSwitches{Watchlist: cfg.Watchlist, WatchAhead: cfg.WatchAhead, Labels: cfg.Labels, PosterBadge: cfg.PosterBadge, PosterBadgeDays: days}, nil
+}
+
 // normalizePlexSignIn trims what people type and makes the lists lists.
 func normalizePlexSignIn(in oapi.PlexSignInSettings) oapi.PlexSignInSettings {
-	out := oapi.PlexSignInSettings{Enabled: in.Enabled, Users: []string{}, UserRootFolders: []oapi.PlexUserRootFolders{}}
+	out := oapi.PlexSignInSettings{
+		Enabled: in.Enabled, Users: []string{}, UserRootFolders: []oapi.PlexUserRootFolders{},
+		Watchlist: in.Watchlist, WatchAhead: in.WatchAhead, Labels: in.Labels, PosterBadge: in.PosterBadge, PosterBadgeDays: in.PosterBadgeDays,
+	}
 	if in.Instance != nil {
 		if name := strings.TrimSpace(*in.Instance); name != "" {
 			out.Instance = &name
@@ -122,6 +156,9 @@ func validatePlexSignIn(in oapi.PlexSignInSettings, kinds map[string]string, roo
 		case kinds[*in.Instance] != plexPluginID:
 			return invalid("instance", "wrong_plugin", "That plugin instance is not a Plex server")
 		}
+	}
+	if in.PosterBadgeDays != nil && *in.PosterBadgeDays < 1 {
+		return invalid("poster_badge_days", "invalid", "Keep the badge for at least 1 day")
 	}
 	seen := map[string]bool{}
 	for i, u := range in.Users {
@@ -167,7 +204,10 @@ func instanceKinds(list []instances.Instance) map[string]string {
 
 // plexFromFile is the Config File's plex_sign_in as the settings hold it.
 func plexFromFile(p configfile.PlexSignIn) oapi.PlexSignInSettings {
-	in := oapi.PlexSignInSettings{Enabled: p.Enabled != nil && *p.Enabled, Users: p.Users}
+	in := oapi.PlexSignInSettings{
+		Enabled: p.Enabled != nil && *p.Enabled, Users: p.Users,
+		Watchlist: p.Watchlist, WatchAhead: p.WatchAhead, Labels: p.Labels, PosterBadge: p.PosterBadge, PosterBadgeDays: p.PosterBadgeDays,
+	}
 	if p.Instance != "" {
 		in.Instance = &p.Instance
 	}
@@ -439,6 +479,7 @@ func (s *server) plexSignInBody(ctx context.Context) (oapi.PlexSignIn, error) {
 	}
 	return oapi.PlexSignIn{
 		Enabled: cfg.Enabled, Instance: cfg.Instance, Users: cfg.Users, UserRootFolders: cfg.UserRootFolders,
+		Watchlist: cfg.Watchlist, WatchAhead: cfg.WatchAhead, Labels: cfg.Labels, PosterBadge: cfg.PosterBadge, PosterBadgeDays: cfg.PosterBadgeDays,
 		FromConfigFile: s.declares(configfile.SectionPlexSignIn),
 	}, nil
 }

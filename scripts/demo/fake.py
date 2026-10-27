@@ -22,6 +22,12 @@ What it knows (MOVIES and SERIES below):
   (/plex, whose /identity answers DEMO_MACHINE). Its sign-in page (/plextv/auth,
   KESTREL_PLEX_APP_URL) authorises the PIN in the URL as Ellie the moment it is visited and
   sends the browser on to the forwardUrl, so a Requester signs in with one click.
+- The Plex server also keeps a play history for Watch-ahead (see the PLEX PLAY HISTORY block):
+  GET /plex/_play?season=1&episode=2 records a play of Breaking Bad now, and
+  /plex/status/sessions/history/all lists the plays.
+- plex.tv's Watchlists (discover and community APIs, see the Watchlist block below): the owner
+  has Breaking Bad on theirs and Ellie Paddington; GET /_ctl?watchlist=1 adds two more titles
+  that Watchlist sync requests on its next pass (=0 removes them).
 """
 import argparse, json, os, sys, time, datetime, hashlib
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
@@ -32,6 +38,8 @@ STATE = {"releases": False, "queue": [], "pins": {}}
 DEMO_OWNER_TOKEN = "demo-owner-token"
 DEMO_REQUESTER_TOKEN = "demo-requester-token"
 DEMO_MACHINE = "demo-plex-machine"
+PLEX_SHOW_KEY = "/library/metadata/456"
+PLEX_PLAYS = []  # the Plex server's play history, oldest first
 PLEX_ACCOUNTS = {
     DEMO_OWNER_TOKEN: dict(id=1, uuid="demo-owner", username="owner", title="owner", thumb=""),
     DEMO_REQUESTER_TOKEN: dict(id=2, uuid="demo-ellie", username="ellie", title="Ellie", thumb=""),
@@ -274,7 +282,84 @@ NZB = b"""<?xml version="1.0" encoding="iso-8859-1" ?>
 <nzb xmlns="http://www.newzbin.com/DTD/2003/nzb"><file poster="demo" date="1700000000" subject="demo"><groups><group>alt.binaries.demo</group></groups><segments><segment bytes="100" number="1">demo@demo</segment></segments></file></nzb>"""
 
 
-class H(BaseHTTPRequestHandler):
+# ---- Watchlist stand-in (ADR 0019): plex.tv's discover and community APIs -------------------------
+# A separate block: discover (/plextv/discover) serves the owner's Watchlist and the metadata of every
+# entry, and the community GraphQL API (/plextv/community/api) lists friends and their Watchlists.
+# The owner has Breaking Bad on theirs and Ellie, the friend, has Paddington. GET /_ctl?watchlist=1
+# adds Paddington in Peru to Ellie's and El Camino to the owner's, which Watchlist sync requests on its
+# next pass; =0 takes them off again. The first pass only records what is there (the baseline).
+WATCH = {"added": False}
+WATCH_KEYS = {  # rating key -> (Plex type, kind, TMDB id)
+    "demo-bb": ("show", "series", 1396),
+    "demo-pad": ("movie", "movie", 116149),
+    "demo-peru": ("movie", "movie", 516729),
+    "demo-camino": ("movie", "movie", 559969),
+}
+WATCH_FRIEND = dict(uuid="demo-ellie", username="ellie", displayName="Ellie")
+
+
+def watch_title(key):
+    typ, kind, tid = WATCH_KEYS[key]
+    return typ, (MOVIES if kind == "movie" else SERIES)[tid]
+
+
+def watchlist_of(who):
+    keys = {"owner": ["demo-bb"] + (["demo-camino"] if WATCH["added"] else []),
+            WATCH_FRIEND["uuid"]: ["demo-pad"] + (["demo-peru"] if WATCH["added"] else [])}.get(who)
+    return keys
+
+
+def watch_node(key):
+    typ, m = watch_title(key)
+    return dict(ratingKey=key, id=key, guid="plex://%s/%s" % (typ, key), type=typ, title=m.get("title") or m.get("name"))
+
+
+def watch_guids(key):
+    typ, kind, tid = WATCH_KEYS[key]
+    if kind == "movie":
+        return [{"id": "tmdb://%d" % tid}, {"id": "imdb://" + MOVIES[tid]["imdb"]}]
+    return [{"id": "tmdb://%d" % tid}, {"id": "tvdb://%d" % SERIES[tid]["tvdb"]}]
+
+
+class WatchlistStandIn:
+    def watchlist_ctl(self, qs):
+        WATCH["added"] = qs["watchlist"][0] == "1"
+        return self.send(200, {"watchlist_added": WATCH["added"]})
+
+    def watchlist_discover(self, p, qs):  # GET /plextv/discover/...
+        if self.headers.get("X-Plex-Token") not in PLEX_ACCOUNTS:
+            return self.send(401, {})
+        if p == "/plextv/discover/library/sections/watchlist/all":
+            keys = watchlist_of("owner")
+            start = int(qs.get("X-Plex-Container-Start", ["0"])[0])
+            size = int(qs.get("X-Plex-Container-Size", ["50"])[0])
+            page = keys[start:start + size]
+            mc = {"size": len(page), "totalSize": len(keys), "offset": start}
+            if page:
+                mc["Metadata"] = [watch_node(k) for k in page]
+            return self.send(200, {"MediaContainer": mc})
+        key = p.rsplit("/", 1)[-1]
+        if p.startswith("/plextv/discover/library/metadata/") and key in WATCH_KEYS:
+            node = watch_node(key)
+            node["Guid"] = watch_guids(key)
+            return self.send(200, {"MediaContainer": {"size": 1, "Metadata": [node]}})
+        return self.send(404, {})
+
+    def watchlist_graphql(self, body):  # POST /plextv/community/api
+        if self.headers.get("X-Plex-Token") != DEMO_OWNER_TOKEN:
+            return self.send(401, {})
+        q = json.loads(body or b"{}")
+        if "allFriendsV2" in q.get("query", ""):
+            user = dict(id=WATCH_FRIEND["uuid"], username=WATCH_FRIEND["username"], displayName=WATCH_FRIEND["displayName"], avatar="")
+            return self.send(200, {"data": {"allFriendsV2": [{"user": user, "createdAt": "2024-01-01T00:00:00Z"}]}})
+        keys = watchlist_of(q.get("variables", {}).get("user", {}).get("id", ""))
+        if "watchlist(" in q.get("query", "") and keys is not None:
+            nodes = [dict(id=k, title=watch_node(k)["title"], type=watch_node(k)["type"].upper()) for k in keys]
+            return self.send(200, {"data": {"userV2": {"watchlist": {"nodes": nodes, "pageInfo": {"hasNextPage": False, "endCursor": None}}}}})
+        return self.send(200, {"errors": [{"message": "unknown query"}]})
+
+
+class H(WatchlistStandIn, BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def log_message(self, fmt, *a):
@@ -299,6 +384,8 @@ class H(BaseHTTPRequestHandler):
             return self.send(200, {"data": {"token": "tok"}, "status": "success"})
         if u.path == "/sab/api":
             return self.sab(parse_qs(u.query), body)
+        if u.path == "/plextv/community/api":
+            return self.watchlist_graphql(body)
         if u.path == "/plextv/api/v2/pins":
             pid = len(STATE["pins"]) + 1
             code = "demo%03dabcdefghijklmnopq" % pid
@@ -309,6 +396,10 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         u = urlparse(self.path)
         p, qs = u.path, parse_qs(u.query)
+        if p == "/_ctl" and "watchlist" in qs:
+            return self.watchlist_ctl(qs)
+        if p.startswith("/plextv/discover/"):
+            return self.watchlist_discover(p, qs)
         if p == "/_ctl":
             if "releases" in qs:
                 STATE["releases"] = qs["releases"][0] == "1"
@@ -362,11 +453,37 @@ class H(BaseHTTPRequestHandler):
         self.send(401 if parts[:2] == ["api", "v2"] or parts[:1] == ["api"] else 404, {"errors": [{"code": 1001, "message": "User could not be authenticated"}]})
 
     def plex(self, p):
+        if self.plex_history(p):
+            return
         if p == "/identity":
             return self.send(200, {"MediaContainer": {"size": 0, "claimed": True, "machineIdentifier": DEMO_MACHINE, "version": "1.41.0"}})
         if p == "/library/sections":
             return self.send(200, {"MediaContainer": {"size": 0, "Directory": []}})
         self.send(404, {})
+
+    # --- PLEX PLAY HISTORY (Watch-ahead) -------------------------------------------------
+    # The Plex server's play history of every account and the show metadata Kestrel reads to
+    # map a play to a TheTVDB id. All plays are of Breaking Bad (Plex key PLEX_SHOW_KEY).
+
+    def plex_history(self, p):
+        """Answers the history calls; False for any other Plex path."""
+        qs = parse_qs(urlparse(self.path).query)
+        if p == "/_play":
+            at = int(time.time())
+            PLEX_PLAYS.append(dict(type="episode", grandparentKey=PLEX_SHOW_KEY, parentIndex=int(qs.get("season", ["1"])[0]),
+                                   index=int(qs.get("episode", ["1"])[0]), viewedAt=at, accountID=1))
+            self.send(200, {"plays": len(PLEX_PLAYS)})
+        elif p == "/status/sessions/history/all":
+            lo = int((qs.get("viewedAt>") or ["0"])[0])
+            start, size = int((qs.get("X-Plex-Container-Start") or ["0"])[0]), int((qs.get("X-Plex-Container-Size") or ["200"])[0])
+            rows = [x for x in PLEX_PLAYS if x["viewedAt"] >= lo][start:start + size]
+            self.send(200, {"MediaContainer": {"size": len(rows), "Metadata": rows}})
+        elif p == PLEX_SHOW_KEY:
+            self.send(200, {"MediaContainer": {"size": 1, "Metadata": [dict(type="show", title="Breaking Bad", guid="plex://show/demo",
+                                                                          Guid=[dict(id="tvdb://81189"), dict(id="imdb://tt0903747")])]}})
+        else:
+            return False
+        return True
 
     def tmdb(self, p, qs):
         parts = p.strip("/").split("/")

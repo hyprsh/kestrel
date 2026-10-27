@@ -75,6 +75,10 @@ func (s *server) disabledBy(ctx context.Context, name string) *oapi.JobDisabledB
 		if on, err := s.trash.AutoUpdate(ctx); err == nil && !on {
 			return by(oapi.TrashAutoUpdate)
 		}
+	case jobs.Watchlist:
+		if sw, err := LoadPlexSwitches(ctx, s.plex.settings); err == nil && !sw.Watchlist {
+			return by(oapi.PlexWatchlist)
+		}
 	}
 	return nil
 }

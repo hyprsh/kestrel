@@ -2159,6 +2159,16 @@ export interface components {
         };
         PlexSignInSettings: {
             enabled: boolean;
+            /** @description Turns Watchlist sync on, which makes a Watchlist Request for each title newly added to a Watchlist (ADR 0019). */
+            watchlist: boolean;
+            /** @description Turns Watch-ahead on, so a Requester's Series Request starts with season 1 and adds the next season as people watch (ADR 0019). */
+            watch_ahead: boolean;
+            /** @description Turns the `Requested` labels and collection in Plex on (ADR 0019). */
+            labels: boolean;
+            /** @description Turns the "Requested" badge on posters in Plex on (ADR 0019). */
+            poster_badge: boolean;
+            /** @description How many days the poster badge stays; `null` keeps the default, 30. */
+            poster_badge_days: number | null;
             /** @description The name of the `plex` plugin instance whose server and owner token decide who may sign in. */
             instance: string | null;
             /** @description Who may request, by Plex username or Plex Home user name; empty for everyone with access to the server. */
@@ -3363,13 +3373,14 @@ export interface components {
         };
         Job: {
             /**
-             * @description The loop: `poll`, `search`, `import`, `prune`, `health`, `refresh`, `trash`, `updates`
-             *     or `rss`. A loop whose module is not configured is not listed; later versions may add loops.
+             * @description The loop: `poll`, `search`, `import`, `prune`, `health`, `refresh`, `trash`, `updates`,
+             *     `rss` or `watchlist`. A loop whose module is not configured is not listed; later versions may add loops.
              */
             name: string;
             /**
              * @description `running` while a pass is in flight; `disabled` when a setting turns its work off (`updates`
-             *     without "Check GitHub for updates", `trash` without TRaSH auto-update), though it still checks
+             *     without "Check GitHub for updates", `trash` without TRaSH auto-update, `watchlist` without
+             *     Watchlist Requests), though it still checks
              *     hourly; otherwise `idle`.
              * @enum {string}
              */
@@ -3377,10 +3388,11 @@ export interface components {
             /**
              * @description The setting that turns a `disabled` loop's work off: `github_check` ("Check GitHub for
              *     updates", which `updates` and `trash` both need) or `trash_auto_update` (TRaSH's own daily
-             *     update switch). `null` unless `status` is `disabled`; later versions may add settings.
+             *     update switch) or `plex_watchlist` (Plex sign-in's "Make Requests from Watchlists", which
+             *     `watchlist` needs). `null` unless `status` is `disabled`; later versions may add settings.
              * @enum {string|null}
              */
-            disabled_by: "github_check" | "trash_auto_update" | null;
+            disabled_by: "github_check" | "trash_auto_update" | "plex_watchlist" | null;
             /** @description Whether `POST /jobs/{name}/run` runs it. */
             runnable: boolean;
             /** @description The last pass that finished since start; `null` before the first. */
@@ -3796,7 +3808,7 @@ export interface components {
             id: number;
             /** Format: date-time */
             at: string;
-            /** @description A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered. */
+            /** @description A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered. */
             kind: string;
             routine: boolean;
             /** Format: int64 */

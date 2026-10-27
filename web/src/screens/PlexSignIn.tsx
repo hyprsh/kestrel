@@ -37,6 +37,11 @@ function Form({ saved, instances, folders }: { saved: PlexSignIn; instances: str
   const [instance, setInstance] = useState(saved.instance ?? '')
   const [users, setUsers] = useState(saved.users.join('\n'))
   const [rows, setRows] = useState<Row[]>(saved.user_root_folders)
+  const [watchlist, setWatchlist] = useState(saved.watchlist)
+  const [watchAhead, setWatchAhead] = useState(saved.watch_ahead)
+  const [labels, setLabels] = useState(saved.labels)
+  const [posterBadge, setPosterBadge] = useState(saved.poster_badge)
+  const [badgeDays, setBadgeDays] = useState(saved.poster_badge_days === null ? '' : String(saved.poster_badge_days))
   const save = useSavePlexSignIn()
   const declared = saved.from_config_file
 
@@ -52,12 +57,18 @@ function Form({ saved, instances, folders }: { saved: PlexSignIn; instances: str
         .map((u) => u.trim())
         .filter(Boolean),
       user_root_folders: rows.map((r) => ({ ...r, user: r.user.trim() })).filter((r) => r.user),
+      watchlist,
+      watch_ahead: watchAhead,
+      labels,
+      poster_badge: posterBadge,
+      poster_badge_days: badgeDays.trim() === '' ? null : Number(badgeDays),
     })
   }
 
+  const badgeError = problems(save.error, 'poster_badge_days')[0]
   const unmatched =
     save.error instanceof ApiError && save.error.status === 422
-      ? save.error.fields.filter((f) => !['instance', 'users', 'user_root_folders'].some((k) => problems(save.error, k).includes(f.message)))
+      ? save.error.fields.filter((f) => !['instance', 'users', 'user_root_folders', 'poster_badge_days'].some((k) => problems(save.error, k).includes(f.message)))
       : []
 
   return (
@@ -115,6 +126,32 @@ function Form({ saved, instances, folders }: { saved: PlexSignIn; instances: str
           <Button size="small" className="self-start" onClick={() => setRows((all) => [...all, { user: '', movies: null, series: null }])}>
             Add user
           </Button>
+        </div>
+        <div className="flex flex-col gap-3">
+          <h4 className="label-13 text-gray-900">Watchlists and marks in Plex</h4>
+          <Toggle checked={watchlist} onChange={setWatchlist} labelCasing="normal">
+            Make Requests from Watchlists
+          </Toggle>
+          <Toggle checked={watchAhead} onChange={setWatchAhead} labelCasing="normal">
+            Watch-ahead for Series
+          </Toggle>
+          <Toggle checked={labels} onChange={setLabels} labelCasing="normal">
+            Requested labels in Plex
+          </Toggle>
+          <Toggle checked={posterBadge} onChange={setPosterBadge} labelCasing="normal">
+            Requested poster badge in Plex
+          </Toggle>
+          <Input
+            size="small"
+            label="Poster badge days"
+            type="number"
+            className="w-24"
+            placeholder="30"
+            value={badgeDays}
+            onChange={(e) => setBadgeDays(e.target.value)}
+            hint={badgeError ? undefined : 'How long the badge stays on a poster. Leave empty for 30 days.'}
+            error={badgeError}
+          />
         </div>
         {unmatched.map((f) => (
           <Note key={`${f.field}-${f.message}`} variant="error" size="small">

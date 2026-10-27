@@ -2859,10 +2859,27 @@ components:
           description: One of the Series Root folders; `null` keeps the first.
     PlexSignInSettings:
       type: object
-      required: [enabled, instance, users, user_root_folders]
+      required: [enabled, instance, users, user_root_folders, watchlist, watch_ahead, labels, poster_badge, poster_badge_days]
       properties:
         enabled:
           type: boolean
+        watchlist:
+          type: boolean
+          description: Turns Watchlist sync on, which makes a Watchlist Request for each title newly added to a Watchlist (ADR 0019).
+        watch_ahead:
+          type: boolean
+          description: Turns Watch-ahead on, so a Requester's Series Request starts with season 1 and adds the next season as people watch (ADR 0019).
+        labels:
+          type: boolean
+          description: Turns the `Requested` labels and collection in Plex on (ADR 0019).
+        poster_badge:
+          type: boolean
+          description: Turns the "Requested" badge on posters in Plex on (ADR 0019).
+        poster_badge_days:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: How many days the poster badge stays; `null` keeps the default, 30.
         instance:
           type: string
           nullable: true
@@ -4828,23 +4845,25 @@ components:
         name:
           type: string
           description: |
-            The loop: `poll`, `search`, `import`, `prune`, `health`, `refresh`, `trash`, `updates`
-            or `rss`. A loop whose module is not configured is not listed; later versions may add loops.
+            The loop: `poll`, `search`, `import`, `prune`, `health`, `refresh`, `trash`, `updates`,
+            `rss` or `watchlist`. A loop whose module is not configured is not listed; later versions may add loops.
         status:
           type: string
           enum: [idle, running, disabled]
           description: |
             `running` while a pass is in flight; `disabled` when a setting turns its work off (`updates`
-            without "Check GitHub for updates", `trash` without TRaSH auto-update), though it still checks
+            without "Check GitHub for updates", `trash` without TRaSH auto-update, `watchlist` without
+            Watchlist Requests), though it still checks
             hourly; otherwise `idle`.
         disabled_by:
           type: string
-          enum: [github_check, trash_auto_update]
+          enum: [github_check, trash_auto_update, plex_watchlist]
           nullable: true
           description: |
             The setting that turns a `disabled` loop's work off: `github_check` ("Check GitHub for
             updates", which `updates` and `trash` both need) or `trash_auto_update` (TRaSH's own daily
-            update switch). `null` unless `status` is `disabled`; later versions may add settings.
+            update switch) or `plex_watchlist` (Plex sign-in's "Make Requests from Watchlists", which
+            `watchlist` needs). `null` unless `status` is `disabled`; later versions may add settings.
         runnable:
           type: boolean
           description: Whether `POST /jobs/{name}/run` runs it.
@@ -5475,7 +5494,7 @@ components:
         at: { type: string, format: date-time }
         kind:
           type: string
-          description: "A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered."
+          description: "A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered."
         routine: { type: boolean }
         title_id: { type: integer, format: int64, nullable: true }
         version_id: { type: integer, format: int64, nullable: true }

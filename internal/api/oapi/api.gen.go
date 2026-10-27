@@ -616,6 +616,7 @@ func (e IndexerStatusState) Valid() bool {
 // Defines values for JobDisabledBy.
 const (
 	GithubCheck     JobDisabledBy = "github_check"
+	PlexWatchlist   JobDisabledBy = "plex_watchlist"
 	TrashAutoUpdate JobDisabledBy = "trash_auto_update"
 )
 
@@ -623,6 +624,8 @@ const (
 func (e JobDisabledBy) Valid() bool {
 	switch e {
 	case GithubCheck:
+		return true
+	case PlexWatchlist:
 		return true
 	case TrashAutoUpdate:
 		return true
@@ -2163,7 +2166,7 @@ type Event struct {
 	GrabId    *int64                  `json:"grab_id"`
 	Id        int64                   `json:"id"`
 
-	// Kind A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered.
+	// Kind A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered.
 	Kind      string `json:"kind"`
 	Message   string `json:"message"`
 	RequestId *int64 `json:"request_id"`
@@ -2338,14 +2341,15 @@ type IndexerStatusState string
 type Job struct {
 	// DisabledBy The setting that turns a `disabled` loop's work off: `github_check` ("Check GitHub for
 	// updates", which `updates` and `trash` both need) or `trash_auto_update` (TRaSH's own daily
-	// update switch). `null` unless `status` is `disabled`; later versions may add settings.
+	// update switch) or `plex_watchlist` (Plex sign-in's "Make Requests from Watchlists", which
+	// `watchlist` needs). `null` unless `status` is `disabled`; later versions may add settings.
 	DisabledBy *JobDisabledBy `json:"disabled_by"`
 
 	// LastRun The last pass that finished since start; `null` before the first.
 	LastRun *JobRun `json:"last_run"`
 
-	// Name The loop: `poll`, `search`, `import`, `prune`, `health`, `refresh`, `trash`, `updates`
-	// or `rss`. A loop whose module is not configured is not listed; later versions may add loops.
+	// Name The loop: `poll`, `search`, `import`, `prune`, `health`, `refresh`, `trash`, `updates`,
+	// `rss` or `watchlist`. A loop whose module is not configured is not listed; later versions may add loops.
 	Name string `json:"name"`
 
 	// NextAt When the next pass is due; `null` while one runs and before the loops start.
@@ -2358,18 +2362,21 @@ type Job struct {
 	Schedule JobSchedule `json:"schedule"`
 
 	// Status `running` while a pass is in flight; `disabled` when a setting turns its work off (`updates`
-	// without "Check GitHub for updates", `trash` without TRaSH auto-update), though it still checks
+	// without "Check GitHub for updates", `trash` without TRaSH auto-update, `watchlist` without
+	// Watchlist Requests), though it still checks
 	// hourly; otherwise `idle`.
 	Status JobStatus `json:"status"`
 }
 
 // JobDisabledBy The setting that turns a `disabled` loop's work off: `github_check` ("Check GitHub for
 // updates", which `updates` and `trash` both need) or `trash_auto_update` (TRaSH's own daily
-// update switch). `null` unless `status` is `disabled`; later versions may add settings.
+// update switch) or `plex_watchlist` (Plex sign-in's "Make Requests from Watchlists", which
+// `watchlist` needs). `null` unless `status` is `disabled`; later versions may add settings.
 type JobDisabledBy string
 
 // JobStatus `running` while a pass is in flight; `disabled` when a setting turns its work off (`updates`
-// without "Check GitHub for updates", `trash` without TRaSH auto-update), though it still checks
+// without "Check GitHub for updates", `trash` without TRaSH auto-update, `watchlist` without
+// Watchlist Requests), though it still checks
 // hourly; otherwise `idle`.
 type JobStatus string
 
@@ -2654,11 +2661,26 @@ type PlexSignIn struct {
 	FromConfigFile bool `json:"from_config_file"`
 
 	// Instance The name of the `plex` plugin instance whose server and owner token decide who may sign in.
-	Instance        *string               `json:"instance"`
+	Instance *string `json:"instance"`
+
+	// Labels Turns the `Requested` labels and collection in Plex on (ADR 0019).
+	Labels bool `json:"labels"`
+
+	// PosterBadge Turns the "Requested" badge on posters in Plex on (ADR 0019).
+	PosterBadge bool `json:"poster_badge"`
+
+	// PosterBadgeDays How many days the poster badge stays; `null` keeps the default, 30.
+	PosterBadgeDays *int                  `json:"poster_badge_days"`
 	UserRootFolders []PlexUserRootFolders `json:"user_root_folders"`
 
 	// Users Who may request, by Plex username or Plex Home user name; empty for everyone with access to the server.
 	Users []string `json:"users"`
+
+	// WatchAhead Turns Watch-ahead on, so a Requester's Series Request starts with season 1 and adds the next season as people watch (ADR 0019).
+	WatchAhead bool `json:"watch_ahead"`
+
+	// Watchlist Turns Watchlist sync on, which makes a Watchlist Request for each title newly added to a Watchlist (ADR 0019).
+	Watchlist bool `json:"watchlist"`
 }
 
 // PlexSignInAvailability defines model for PlexSignInAvailability.
@@ -2671,11 +2693,26 @@ type PlexSignInSettings struct {
 	Enabled bool `json:"enabled"`
 
 	// Instance The name of the `plex` plugin instance whose server and owner token decide who may sign in.
-	Instance        *string               `json:"instance"`
+	Instance *string `json:"instance"`
+
+	// Labels Turns the `Requested` labels and collection in Plex on (ADR 0019).
+	Labels bool `json:"labels"`
+
+	// PosterBadge Turns the "Requested" badge on posters in Plex on (ADR 0019).
+	PosterBadge bool `json:"poster_badge"`
+
+	// PosterBadgeDays How many days the poster badge stays; `null` keeps the default, 30.
+	PosterBadgeDays *int                  `json:"poster_badge_days"`
 	UserRootFolders []PlexUserRootFolders `json:"user_root_folders"`
 
 	// Users Who may request, by Plex username or Plex Home user name; empty for everyone with access to the server.
 	Users []string `json:"users"`
+
+	// WatchAhead Turns Watch-ahead on, so a Requester's Series Request starts with season 1 and adds the next season as people watch (ADR 0019).
+	WatchAhead bool `json:"watch_ahead"`
+
+	// Watchlist Turns Watchlist sync on, which makes a Watchlist Request for each title newly added to a Watchlist (ADR 0019).
+	Watchlist bool `json:"watchlist"`
 }
 
 // PlexUserRootFolders defines model for PlexUserRootFolders.

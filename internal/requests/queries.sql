@@ -51,3 +51,13 @@ SELECT season FROM request_seasons WHERE request_id = ? ORDER BY season;
 
 -- name: MarkSlotFilled :exec
 UPDATE request_slots SET filled_at = ? WHERE request_id = ? AND slot = ? AND filled_at IS NULL;
+
+-- The Titles with a Completed Slot, one row per Request that asked for it, with who asked.
+-- name: ListCompletedTitles :many
+SELECT DISTINCT t.id AS title_id, t.kind, t.tmdb_id, t.tvdb_id, t.root_folder, t.folder AS title_folder,
+       r.id AS request_id, r.requester_name
+FROM request_slots s
+JOIN requests r ON r.id = s.request_id
+JOIN titles t ON t.id = r.title_id
+WHERE s.filled_at IS NOT NULL AND r.outcome = 'accepted' AND t.folder IS NOT NULL
+ORDER BY t.id, r.id;

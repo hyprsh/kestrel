@@ -86,6 +86,10 @@ type Input struct {
 	RootFolder string
 	// Seasons is the Series seasons asked for; nil asks for the whole Series.
 	Seasons []int
+	// WatchAhead asks for a Series one season at a time (ADR 0019): with no
+	// Seasons given, the Request asks for season 1 only and remembers that it
+	// is a Watch-ahead Request, so that AddSeason can add the next seasons.
+	WatchAhead bool
 }
 
 // Download is the live progress of a Slot's active Grab.
@@ -236,6 +240,12 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 	}
 	if reason != "" {
 		return s.store(ctx, in, prior, tgt.name(), 0, nil, reason)
+	}
+	in.WatchAhead = in.WatchAhead && in.Kind == library.Series && in.Seasons == nil
+	if in.WatchAhead {
+		if in.Seasons = firstSeason(tgt.seasons); in.Seasons == nil {
+			in.WatchAhead = false // nothing but specials: the whole Series
+		}
 	}
 	if in.Seasons != nil {
 		for _, n := range in.Seasons {
@@ -602,6 +612,11 @@ func (s *Service) store(ctx context.Context, in Input, prior *db.Request, name s
 	}
 	for _, n := range in.Seasons {
 		if err := q.InsertRequestSeason(ctx, db.InsertRequestSeasonParams{RequestID: id, Season: int64(n)}); err != nil {
+			return Result{}, err
+		}
+	}
+	if in.WatchAhead && accepted {
+		if err := q.MarkWatchAhead(ctx, id); err != nil {
 			return Result{}, err
 		}
 	}
