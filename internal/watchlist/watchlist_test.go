@@ -278,3 +278,29 @@ func TestEntriesRecordTheTimeTheyWereFirstSeen(t *testing.T) {
 		t.Errorf("first_seen_at %s tmdb_id %d request_id %d", seen, tmdb, reqID)
 	}
 }
+
+func TestAFriendWithAPrivateWatchlistIsSkippedThenBaselinedOnceVisible(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.friend(10, "uuid-anna", "anna")
+	e.tv.SetWatchlist(plextvtest.Owner.UUID)
+	e.tv.SetWatchlist("uuid-anna", movie("a1", "Old for Anna", 1))
+	e.tv.HideWatchlist("uuid-anna", true)
+
+	if err := e.run(); err != nil {
+		t.Fatalf("a private Watchlist failed the pass: %v", err)
+	}
+	if e.entries() != 0 {
+		t.Fatalf("%d entries while the Watchlist is private, want none (no baseline)", e.entries())
+	}
+
+	e.tv.HideWatchlist("uuid-anna", false)
+	if err := e.run(); err != nil || len(e.host.requests) != 0 || e.entries() != 1 {
+		t.Fatalf("first visible pass: err %v, %d Requests, %d entries, want a baseline of 1 and no Requests", err, len(e.host.requests), e.entries())
+	}
+
+	e.tv.SetWatchlist("uuid-anna", movie("a1", "Old for Anna", 1), movie("a2", "New for Anna", 2))
+	if err := e.run(); err != nil || len(e.host.requests) != 1 || e.host.requests[0].E.Title != "New for Anna" {
+		t.Errorf("after the baseline: err %v, Requests %+v, want New for Anna", err, e.host.requests)
+	}
+}

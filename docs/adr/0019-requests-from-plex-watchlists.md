@@ -40,7 +40,7 @@ All of it is switched in the `plex_sign_in` section: `watchlist` turns Watchlist
 ## Consequences
 
 - The friends' Watchlist call is not a documented Plex API, so Kestrel keeps it in `plextv` behind one function and treats an unexpected answer as plex.tv being unavailable, not as an empty Watchlist.
-- A friend whose Watchlist is private, and a managed Plex Home member, gets no Watchlist Requests. Kestrel cannot tell a private Watchlist from an empty one.
+- A friend whose Watchlist is private, and a managed Plex Home member, gets no Watchlist Requests. Kestrel skips them quietly and takes their baseline the first time it can see the Watchlist.
 - A Plex guid is resolved to a TMDB id for a Movie and a TVDB id for a Series through Plex's metadata. An entry that resolves to neither is kept and not requested, so it is not looked up again on every pass.
 - Kestrel now writes to the Plex server: labels, a collection and posters. Switching `labels` or `poster_badge` off takes back what Kestrel added on the next pass, and only that.
 - A poster Kestrel replaced is put back only if the item still shows Kestrel's badge, so a poster someone chose by hand in the meantime is kept.

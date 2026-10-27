@@ -45,6 +45,9 @@ var (
 	ErrPinGone = errors.New("the PIN is unknown or has expired")
 	// ErrTokenRejected means plex.tv does not accept the token.
 	ErrTokenRejected = errors.New("plex.tv rejected the token")
+	// ErrWatchlistHidden means the friend does not let the owner see their Watchlist: plex.tv
+	// answered for the friend with no Watchlist at all. It is not an outage.
+	ErrWatchlistHidden = errors.New("the friend does not let the owner see their Watchlist")
 )
 
 // Options configures a Client.

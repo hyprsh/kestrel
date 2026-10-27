@@ -223,6 +223,10 @@ func sharedUserOf(shared []plextv.SharedUser, f plextv.Friend) *plextv.SharedUse
 // person reads one Watchlist and acts on what is new on it.
 func (s *Sync) person(ctx context.Context, cfg Config, p who) error {
 	entries, err := p.read(ctx)
+	if errors.Is(err, plextv.ErrWatchlistHidden) {
+		s.d.Logger.Debug("skipping a Watchlist the friend keeps private", "person", p.Name)
+		return nil
+	}
 	if err != nil {
 		return err
 	}

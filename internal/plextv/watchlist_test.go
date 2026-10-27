@@ -76,7 +76,7 @@ func TestFriendsAndTheirWatchlistsAreReadByUUID(t *testing.T) {
 	if err != nil || len(got) != 250 || got[0].Kind != plextv.Series || got[0].Guid != "plex://show/f000" {
 		t.Fatalf("FriendWatchlist = %d entries (%+v), %v, want 250 Series", len(got), got[:1], err)
 	}
-	// A friend plex.tv does not know, or whose Watchlist is private, is not an empty one.
+	// A friend plex.tv does not know is not an empty one.
 	if _, err := c.FriendWatchlist(ctx, "cid", plextvtest.OwnerToken, "uuid-nobody"); !errors.Is(err, plextv.ErrUnavailable) {
 		t.Errorf("an unknown friend: err = %v, want ErrUnavailable", err)
 	}
@@ -124,5 +124,37 @@ func TestNoWatchlistCallLeaksAToken(t *testing.T) {
 		if call.Product != "Kestrel" || call.ClientID != "cid" {
 			t.Errorf("call %+v lacks Kestrel's headers", call)
 		}
+	}
+}
+
+func TestAFriendWhoKeepsTheirWatchlistPrivateIsErrWatchlistHidden(t *testing.T) {
+	t.Parallel()
+	c, tv := newClient(t)
+	ctx := context.Background()
+	tv.AddFriend(plextvtest.Friend{UUID: "uuid-anna", Username: "anna"})
+	tv.SetWatchlist("uuid-anna", plextvtest.WatchItem{Key: "m1", Type: "movie", Title: "Dune"})
+	tv.HideWatchlist("uuid-anna", true)
+
+	_, err := c.FriendWatchlist(ctx, "cid", plextvtest.OwnerToken, "uuid-anna")
+	if err != plextv.ErrWatchlistHidden {
+		t.Fatalf("hidden friend Watchlist: err = %v, want ErrWatchlistHidden unwrapped", err)
+	}
+	if strings.Contains(err.Error(), plextvtest.OwnerToken) {
+		t.Errorf("err %q holds the token", err)
+	}
+
+	tv.HideWatchlist("uuid-anna", false)
+	got, err := c.FriendWatchlist(ctx, "cid", plextvtest.OwnerToken, "uuid-anna")
+	if err != nil || len(got) != 1 || got[0].Title != "Dune" {
+		t.Errorf("visible again: %+v, %v, want Dune", got, err)
+	}
+}
+
+func TestAMissingUserV2IsUnavailableNotHidden(t *testing.T) {
+	t.Parallel()
+	c, _ := newClient(t)
+	_, err := c.FriendWatchlist(context.Background(), "cid", plextvtest.OwnerToken, "uuid-nobody")
+	if !errors.Is(err, plextv.ErrUnavailable) || errors.Is(err, plextv.ErrWatchlistHidden) {
+		t.Errorf("a friend plex.tv does not know: err = %v, want ErrUnavailable and not ErrWatchlistHidden", err)
 	}
 }

@@ -183,9 +183,11 @@ func (c *Client) Friends(ctx context.Context, clientID, ownerToken string) ([]Fr
 	return out, nil
 }
 
-// FriendWatchlist reads the Watchlist of the friend with the plex.tv uuid. A
-// private Watchlist cannot be told from an empty one by the answer, which is
-// why plex.tv sending nothing for a friend is ErrUnavailable and an empty list is empty.
+// FriendWatchlist reads the Watchlist of the friend with the plex.tv uuid. When
+// the answer has userV2 but a null watchlist, the friend keeps their Watchlist
+// from the owner: that is ErrWatchlistHidden, unwrapped. Any other answer that
+// is not the shape below, a missing userV2 included, is ErrUnavailable. An empty
+// Watchlist is an empty list.
 func (c *Client) FriendWatchlist(ctx context.Context, clientID, ownerToken, uuid string) ([]WatchlistEntry, error) {
 	const query = `query GetWatchlistHub ($user: UserInput!, $first: PaginationInt!, $after: String) {
   userV2(user: $user) { ... on User { watchlist(first: $first, after: $after) { nodes { id title type } pageInfo { hasNextPage endCursor } } } }
@@ -207,23 +209,29 @@ func (c *Client) FriendWatchlist(ctx context.Context, clientID, ownerToken, uuid
 		}
 		var d struct {
 			UserV2 *struct {
-				Watchlist *struct {
-					Nodes []struct {
-						ID    string `json:"id"`
-						Title string `json:"title"`
-						Type  string `json:"type"`
-					} `json:"nodes"`
-					PageInfo struct {
-						HasNextPage bool    `json:"hasNextPage"`
-						EndCursor   *string `json:"endCursor"`
-					} `json:"pageInfo"`
-				} `json:"watchlist"`
+				Watchlist json.RawMessage `json:"watchlist"`
 			} `json:"userV2"`
 		}
-		if json.Unmarshal(data, &d) != nil || d.UserV2 == nil || d.UserV2.Watchlist == nil {
+		if json.Unmarshal(data, &d) != nil || d.UserV2 == nil {
 			return nil, fmt.Errorf("%w: plex.tv sent no Watchlist for the friend", ErrUnavailable)
 		}
-		w := d.UserV2.Watchlist
+		if string(d.UserV2.Watchlist) == "null" {
+			return nil, ErrWatchlistHidden
+		}
+		var w struct {
+			Nodes []struct {
+				ID    string `json:"id"`
+				Title string `json:"title"`
+				Type  string `json:"type"`
+			} `json:"nodes"`
+			PageInfo struct {
+				HasNextPage bool    `json:"hasNextPage"`
+				EndCursor   *string `json:"endCursor"`
+			} `json:"pageInfo"`
+		}
+		if json.Unmarshal(d.UserV2.Watchlist, &w) != nil {
+			return nil, fmt.Errorf("%w: plex.tv sent no Watchlist for the friend", ErrUnavailable)
+		}
 		for _, n := range w.Nodes {
 			e, err := entryOf(n.ID, n.Type, n.Title)
 			if err != nil {

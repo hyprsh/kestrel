@@ -27,6 +27,8 @@ type watchlists struct {
 	lists   map[string][]WatchItem // by account uuid
 	meta    map[string]WatchItem   // by rating key
 	broken  bool
+	// hidden are the friends whose Watchlist they keep private: plex.tv answers userV2 with a null watchlist.
+	hidden map[string]bool
 	// metaCalls counts the metadata reads by rating key.
 	metaCalls map[string]int
 }
@@ -50,6 +52,16 @@ func (s *Server) SetWatchlist(uuid string, items ...WatchItem) {
 	for _, it := range items {
 		s.wl.meta[it.Key] = it
 	}
+}
+
+// HideWatchlist makes the friend with uuid keep their Watchlist private (hidden true) or show it again.
+func (s *Server) HideWatchlist(uuid string, hidden bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.wl.hidden == nil {
+		s.wl.hidden = map[string]bool{}
+	}
+	s.wl.hidden[uuid] = hidden
 }
 
 // BreakWatchlists makes the Watchlist and metadata calls answer 200 with something that is not
@@ -158,6 +170,10 @@ func (s *Server) watchlistRoutes(mux *http.ServeMux) {
 			}
 			if !known {
 				writeJSON(w, map[string]any{"data": map[string]any{"userV2": nil}})
+				return
+			}
+			if s.wl.hidden[q.Variables.User.ID] {
+				writeJSON(w, map[string]any{"data": map[string]any{"userV2": map[string]any{"watchlist": nil}}})
 				return
 			}
 			start := 0
