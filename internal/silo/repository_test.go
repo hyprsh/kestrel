@@ -41,6 +41,7 @@ func TestSiloCanReadTheRepository(t *testing.T) {
 		"standard_profile": pluginv1.AdminFormControl_ADMIN_FORM_CONTROL_SELECT,
 		"4k_profile":       pluginv1.AdminFormControl_ADMIN_FORM_CONTROL_SELECT,
 		"root_folder":      pluginv1.AdminFormControl_ADMIN_FORM_CONTROL_SELECT,
+		"watch_ahead":      pluginv1.AdminFormControl_ADMIN_FORM_CONTROL_SELECT,
 	}
 	for _, f := range fields {
 		if f.GetControl() != want[f.GetKey()] {

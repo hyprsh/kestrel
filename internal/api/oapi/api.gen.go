@@ -3207,6 +3207,11 @@ type RequestCreate struct {
 
 	// Title The Title asked for. Kestrel needs `tmdb_id`, or a `tvdb_id` of a Series already in the Library.
 	Title RequestTitle `json:"title"`
+
+	// WatchAhead Series naming no `seasons` only. `true` asks for the Series one season at a time (Watch-ahead,
+	// ADR 0019), `false` for the whole Series; `null` or left out takes the source's default: for
+	// `silo` the `watch_ahead` of `PUT /settings/silo`, for any other source `false`.
+	WatchAhead *bool `json:"watch_ahead,omitempty"`
 }
 
 // RequestDownload defines model for RequestDownload.
@@ -3528,6 +3533,27 @@ type Setup struct {
 
 // SetupSectionState defines model for SetupSectionState.
 type SetupSectionState string
+
+// Silo defines model for Silo.
+type Silo struct {
+	// FromConfigFile `true` while the Config File declares `silo`, which can't be changed here then.
+	FromConfigFile bool `json:"from_config_file"`
+
+	// Instance The name of the `silo` plugin instance whose playback history Watch-ahead reads; needed once `watch_ahead` is on.
+	Instance *string `json:"instance"`
+
+	// WatchAhead Makes a Silo Series Request that names no seasons start with season 1 and add the next as people watch, unless the Request says otherwise (ADR 0020).
+	WatchAhead bool `json:"watch_ahead"`
+}
+
+// SiloSettings defines model for SiloSettings.
+type SiloSettings struct {
+	// Instance The name of the `silo` plugin instance whose playback history Watch-ahead reads; needed once `watch_ahead` is on.
+	Instance *string `json:"instance"`
+
+	// WatchAhead Makes a Silo Series Request that names no seasons start with season 1 and add the next as people watch, unless the Request says otherwise (ADR 0020).
+	WatchAhead bool `json:"watch_ahead"`
+}
 
 // Slot defines model for Slot.
 type Slot string
@@ -4347,6 +4373,9 @@ type PutPlexSignInSettingsJSONRequestBody = PlexSignInSettings
 // PutReverseProxyJSONRequestBody defines body for PutReverseProxy for application/json ContentType.
 type PutReverseProxyJSONRequestBody = ReverseProxySettings
 
+// PutSiloSettingsJSONRequestBody defines body for PutSiloSettings for application/json ContentType.
+type PutSiloSettingsJSONRequestBody = SiloSettings
+
 // CreateAccountJSONRequestBody defines body for CreateAccount for application/json ContentType.
 type CreateAccountJSONRequestBody = Credentials
 
@@ -4900,6 +4929,12 @@ type ServerInterface interface {
 	// PutReverseProxy Change reverse-proxy login settings
 	// (PUT /settings/reverse-proxy)
 	PutReverseProxy(w http.ResponseWriter, r *http.Request)
+	// GetSiloSettings Watch-ahead for Silo
+	// (GET /settings/silo)
+	GetSiloSettings(w http.ResponseWriter, r *http.Request)
+	// PutSiloSettings Change Watch-ahead for Silo
+	// (PUT /settings/silo)
+	PutSiloSettings(w http.ResponseWriter, r *http.Request)
 	// GetSetup Setup progress
 	// (GET /setup)
 	GetSetup(w http.ResponseWriter, r *http.Request)
@@ -6592,6 +6627,34 @@ func (siw *ServerInterfaceWrapper) PutReverseProxy(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// GetSiloSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetSiloSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSiloSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutSiloSettings operation middleware
+func (siw *ServerInterfaceWrapper) PutSiloSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutSiloSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetSetup operation middleware
 func (siw *ServerInterfaceWrapper) GetSetup(w http.ResponseWriter, r *http.Request) {
 
@@ -7552,6 +7615,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api-key", wrapper.CreateApiKey)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/settings/reverse-proxy", wrapper.GetReverseProxy)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/settings/reverse-proxy", wrapper.PutReverseProxy)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/settings/silo", wrapper.GetSiloSettings)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/settings/silo", wrapper.PutSiloSettings)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/settings/plex-sign-in", wrapper.GetPlexSignInSettings)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/settings/plex-sign-in", wrapper.PutPlexSignInSettings)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/settings", wrapper.GetSettings)
@@ -11461,6 +11526,113 @@ func (response PutReverseProxydefaultApplicationProblemPlusJSONResponse) VisitPu
 	return err
 }
 
+type GetSiloSettingsRequestObject struct {
+}
+
+type GetSiloSettingsResponseObject interface {
+	VisitGetSiloSettingsResponse(w http.ResponseWriter) error
+}
+
+type GetSiloSettings200JSONResponse Silo
+
+func (response GetSiloSettings200JSONResponse) VisitGetSiloSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSiloSettingsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetSiloSettingsdefaultApplicationProblemPlusJSONResponse) VisitGetSiloSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutSiloSettingsRequestObject struct {
+	Body *PutSiloSettingsJSONRequestBody
+}
+
+type PutSiloSettingsResponseObject interface {
+	VisitPutSiloSettingsResponse(w http.ResponseWriter) error
+}
+
+type PutSiloSettings200JSONResponse Silo
+
+func (response PutSiloSettings200JSONResponse) VisitPutSiloSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutSiloSettings409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PutSiloSettings409ApplicationProblemPlusJSONResponse) VisitPutSiloSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutSiloSettings422ApplicationProblemPlusJSONResponse Problem
+
+func (response PutSiloSettings422ApplicationProblemPlusJSONResponse) VisitPutSiloSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutSiloSettingsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response PutSiloSettingsdefaultApplicationProblemPlusJSONResponse) VisitPutSiloSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetSetupRequestObject struct {
 }
 
@@ -13448,6 +13620,12 @@ type StrictServerInterface interface {
 	// PutReverseProxy Change reverse-proxy login settings
 	// (PUT /settings/reverse-proxy)
 	PutReverseProxy(ctx context.Context, request PutReverseProxyRequestObject) (PutReverseProxyResponseObject, error)
+	// GetSiloSettings Watch-ahead for Silo
+	// (GET /settings/silo)
+	GetSiloSettings(ctx context.Context, request GetSiloSettingsRequestObject) (GetSiloSettingsResponseObject, error)
+	// PutSiloSettings Change Watch-ahead for Silo
+	// (PUT /settings/silo)
+	PutSiloSettings(ctx context.Context, request PutSiloSettingsRequestObject) (PutSiloSettingsResponseObject, error)
 	// GetSetup Setup progress
 	// (GET /setup)
 	GetSetup(ctx context.Context, request GetSetupRequestObject) (GetSetupResponseObject, error)
@@ -15372,6 +15550,61 @@ func (sh *strictHandler) PutReverseProxy(w http.ResponseWriter, r *http.Request)
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PutReverseProxyResponseObject); ok {
 		if err := validResponse.VisitPutReverseProxyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSiloSettings operation middleware
+func (sh *strictHandler) GetSiloSettings(w http.ResponseWriter, r *http.Request) {
+	var request GetSiloSettingsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSiloSettings(ctx, request.(GetSiloSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSiloSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSiloSettingsResponseObject); ok {
+		if err := validResponse.VisitGetSiloSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutSiloSettings operation middleware
+func (sh *strictHandler) PutSiloSettings(w http.ResponseWriter, r *http.Request) {
+	var request PutSiloSettingsRequestObject
+
+	var body PutSiloSettingsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutSiloSettings(ctx, request.(PutSiloSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutSiloSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutSiloSettingsResponseObject); ok {
+		if err := validResponse.VisitPutSiloSettingsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

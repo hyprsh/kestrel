@@ -59,6 +59,9 @@ plex_sign_in:
     anna: {movies: /data/kids/movies}
     ben:
       series: /data/kids/tv
+silo:
+  watch_ahead: true
+  instance: Silo
 check_github_updates: false
 `)
 	f, err := configfile.Load(path, env("KESTREL_ADMIN_PASSWORD", "correct horse"))
@@ -93,8 +96,34 @@ check_github_updates: false
 	if !reflect.DeepEqual(f.PlexSignIn, wantPlex) || !f.Declares(configfile.SectionPlexSignIn) {
 		t.Errorf("plex_sign_in = %+v", f.PlexSignIn)
 	}
+	if wantSilo := (&configfile.Silo{WatchAhead: true, Instance: "Silo"}); !reflect.DeepEqual(f.Silo, wantSilo) || !f.Declares(configfile.SectionSilo) {
+		t.Errorf("silo = %+v", f.Silo)
+	}
 	if f.CheckGitHubUpdates == nil || *f.CheckGitHubUpdates {
 		t.Errorf("check_github_updates = %v", f.CheckGitHubUpdates)
+	}
+}
+
+func TestSiloNeedsNothingAndTakesOnlyItsKeys(t *testing.T) {
+	f, err := configfile.Load(write(t, "silo: {}\n"), env())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Silo == nil || f.Silo.WatchAhead || f.Silo.Instance != "" || !f.Declares(configfile.SectionSilo) {
+		t.Errorf("silo = %+v, want an empty declared section", f.Silo)
+	}
+	for _, c := range []struct{ body, want string }{
+		{"silo:\n  watch_ahead: 1\n", "line 2"},
+		{"silo:\n  watch_ahead: maybe\n", "line 2"},
+		{"silo:\n  instance: [Silo]\n", "line 2"},
+		{"silo:\n  token: secret-token\n", "line 2: unknown key silo.token"},
+	} {
+		_, err := configfile.Load(write(t, c.body), env())
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%q: err = %v, want one with %q", c.body, err, c.want)
+		} else if strings.Contains(err.Error(), "secret-token") {
+			t.Errorf("the error repeats a value: %v", err)
+		}
 	}
 }
 
@@ -151,7 +180,7 @@ func TestEverySectionIsOptional(t *testing.T) {
 			t.Fatalf("%q: %v", body, err)
 		}
 		if f.Account != nil || f.LanguageRegion != nil || f.RootFolders != nil || f.Profiles != nil ||
-			f.PluginInstances != nil || f.ReverseProxy != nil || f.PlexSignIn != nil || f.CheckGitHubUpdates != nil {
+			f.PluginInstances != nil || f.ReverseProxy != nil || f.PlexSignIn != nil || f.Silo != nil || f.CheckGitHubUpdates != nil {
 			t.Errorf("%q declares %+v", body, f)
 		}
 	}

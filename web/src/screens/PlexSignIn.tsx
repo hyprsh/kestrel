@@ -16,7 +16,7 @@ function problems(error: unknown, field: string): string[] {
     .map((f) => f.message)
 }
 
-/** The Plex sign-in card of Settings > Security: who may sign in as a Requester, and where their Requests go. */
+/** The Plex sign-in card of Settings > Plex: who may sign in as a Requester, and where their Requests go. */
 export function PlexSignInForm() {
   const { data, isError } = usePlexSignIn()
   const instances = usePluginInstances()

@@ -36,7 +36,7 @@ const (
 	// Trash checks for newer TRaSH Custom Formats and profiles once a day (a Settings switch turns the updating off).
 	Trash = "trash"
 	// WatchAhead adds the next season to a Watch-ahead Request once anyone on
-	// the Plex server has played 2 episodes of its newest season (ADR 0019).
+	// the Plex or Silo server has played 2 episodes of its newest season (ADR 0019, ADR 0020).
 	WatchAhead = "watch_ahead"
 )
 
@@ -59,7 +59,7 @@ const (
 	importWorkers = 2
 	pruneCheck    = time.Hour
 	healthEvery   = 5 * time.Minute
-	// watchAheadEvery is how often Watch-ahead reads the Plex server's play history.
+	// watchAheadEvery is how often Watch-ahead reads the Plex and Silo servers' play history.
 	watchAheadEvery = 15 * time.Minute
 )
 

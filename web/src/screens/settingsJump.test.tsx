@@ -43,4 +43,19 @@ describe('Settings jump list', () => {
     expect(screen.getByRole('heading', { name: 'TRaSH' })).toHaveFocus()
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
   })
+
+  it('has Plex and Reverse proxy links that jump to their own sections', async () => {
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    const jump = await screen.findByRole('navigation', { name: 'Settings sections' })
+
+    await userEvent.click(within(jump).getByRole('link', { name: 'Plex' }))
+    expect(location.hash).toBe('#settings-plex')
+    expect(screen.getByRole('heading', { name: 'Plex', level: 2 })).toHaveFocus()
+    expect(screen.getByRole('heading', { name: 'Plex sign-in' })).toBeInTheDocument()
+
+    await userEvent.click(within(jump).getByRole('link', { name: 'Reverse proxy' }))
+    expect(location.hash).toBe('#settings-reverse-proxy')
+    expect(screen.getByRole('heading', { name: 'Reverse proxy', level: 2 })).toHaveFocus()
+  })
 })

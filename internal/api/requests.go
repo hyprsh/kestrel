@@ -71,6 +71,17 @@ func (s *server) CreateRequest(ctx context.Context, r oapi.CreateRequestRequestO
 	if b.Seasons != nil {
 		in.Seasons = append([]int{}, *b.Seasons...)
 	}
+	// Watch-ahead is the Request's own say, else the source's default (ADR 0020).
+	switch {
+	case b.WatchAhead != nil:
+		in.WatchAhead = *b.WatchAhead
+	case b.Source == siloSource:
+		on, err := siloWatchAhead(ctx, s.plex.settings)
+		if err != nil {
+			return nil, err
+		}
+		in.WatchAhead = on
+	}
 	req, created, err := s.submitRequest(ctx, in)
 	if err != nil {
 		return nil, err

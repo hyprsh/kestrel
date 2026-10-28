@@ -1,5 +1,6 @@
 // Package silo is the Silo adapter for media_server.v1: one POST /api/v2/scan
-// per changed folder, authorised with a Silo admin API key.
+// per changed folder, authorised with a Silo admin API key. The same key reads
+// the playback history of every account for Watch-ahead (mediaserver.PlayHistory).
 //
 // Silo documents no cheap authenticated check, so Test scans a path that is in
 // no library: Silo checks the key first, so a 401/403 means a bad key and any
@@ -38,7 +39,7 @@ func (*Client) Describe() plugin.Manifest {
 			{Key: "url", Label: "URL", Type: plugin.FieldURL, Required: true,
 				Help: "Where Kestrel reaches Silo, e.g. http://silo:8080."},
 			{Key: "api_key", Label: "Admin API key", Type: plugin.FieldSecret, Required: true,
-				Help: "A Silo admin API key (starts with sa_)."},
+				Help: "A Silo admin API key (starts with sa_). It scans folders and reads every account's playback history for Watch-ahead."},
 		},
 	}
 }

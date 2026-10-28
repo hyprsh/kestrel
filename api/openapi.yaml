@@ -395,6 +395,48 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /settings/silo:
+    get:
+      operationId: getSiloSettings
+      summary: Watch-ahead for Silo
+      tags: [settings]
+      responses:
+        "200":
+          description: The settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Silo"
+        default:
+          $ref: "#/components/responses/Problem"
+    put:
+      operationId: putSiloSettings
+      summary: Change Watch-ahead for Silo
+      description: |
+        `instance` names the `silo` plugin instance whose playback history Watch-ahead reads (ADR 0020);
+        `watch_ahead` needs it. `watch_ahead` is the default for a Silo Series Request that names no
+        seasons, which the Request's own `watch_ahead` overrides. `409 conflict` while the Config File
+        declares `silo`.
+      tags: [settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SiloSettings"
+      responses:
+        "200":
+          description: The settings as saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Silo"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /settings/plex-sign-in:
     get:
       operationId: getPlexSignInSettings
@@ -2903,6 +2945,26 @@ components:
             from_config_file:
               type: boolean
               description: "`true` while the Config File declares `plex_sign_in`, which can't be changed here then."
+    SiloSettings:
+      type: object
+      required: [watch_ahead, instance]
+      properties:
+        watch_ahead:
+          type: boolean
+          description: Makes a Silo Series Request that names no seasons start with season 1 and add the next as people watch, unless the Request says otherwise (ADR 0020).
+        instance:
+          type: string
+          nullable: true
+          description: The name of the `silo` plugin instance whose playback history Watch-ahead reads; needed once `watch_ahead` is on.
+    Silo:
+      allOf:
+        - $ref: "#/components/schemas/SiloSettings"
+        - type: object
+          required: [from_config_file]
+          properties:
+            from_config_file:
+              type: boolean
+              description: "`true` while the Config File declares `silo`, which can't be changed here then."
     MyRequestCreate:
       type: object
       required: [kind, tmdb_id]
@@ -6034,6 +6096,13 @@ components:
           description: Series only; `null` or left out asks for the whole Series.
           items:
             type: integer
+        watch_ahead:
+          type: boolean
+          nullable: true
+          description: |
+            Series naming no `seasons` only. `true` asks for the Series one season at a time (Watch-ahead,
+            ADR 0019), `false` for the whole Series; `null` or left out takes the source's default: for
+            `silo` the `watch_ahead` of `PUT /settings/silo`, for any other source `false`.
     RequestDownload:
       type: object
       required: [phase, bytes_total, bytes_left, eta]

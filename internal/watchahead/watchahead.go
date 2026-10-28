@@ -1,12 +1,14 @@
-// Package watchahead is Watch-ahead (ADR 0019): a Requester's Series Request
-// asks for season 1 only, and once anyone on the household's Plex server has
-// played 2 episodes of the newest season the Request holds, the next season is
-// added to that same Request.
+// Package watchahead is Watch-ahead (ADR 0019, ADR 0020): a Series Request
+// asks for season 1 only, and once anyone on the household's Plex or Silo
+// server has played 2 episodes of the newest season the Request holds, the next
+// season is added to that same Request.
 //
 // watchahead owns the plex_history_position, watch_ahead_plays and plex_shows
-// tables. It reads the play history of the Plex instance `plex_sign_in` names
-// through the media_server.v1 PlayHistory contract, and asks the Request module
-// to add seasons. Every pass decides from the Request's seasons and the plays
+// tables. They keep their names from when only Plex was read; each row is keyed
+// by plugin instance, so a Silo instance has its own. It reads the play history
+// of every instance in Config through the media_server.v1 PlayHistory contract,
+// all into the same plays by TheTVDB id, and asks the Request module to add
+// seasons. Every pass decides from the Request's seasons and the plays
 // stored, so a pass that missed or failed loses nothing.
 package watchahead
 
@@ -35,11 +37,11 @@ import (
 // played before the next season is added.
 const Watched = 2
 
-// Config is Watch-ahead's switch and the Plex instance it reads.
+// Config is the instances Watch-ahead reads.
 type Config struct {
-	Enabled bool
-	// Instance is the name of the Plex plugin instance.
-	Instance string
+	// Instances are the names of the media-server plugin instances (Plex or
+	// Silo) whose play history counts. None switches Watch-ahead off.
+	Instances []string
 }
 
 // Requests is what Watch-ahead needs of the Request module.
@@ -91,21 +93,24 @@ func ts(t time.Time) string { return t.UTC().Format(time.RFC3339) }
 // Pass is one pass of the Background job: it stores the plays since the last
 // pass, then adds the next season to each Watch-ahead Request whose newest
 // season has been played enough. It returns how many seasons it added; the
-// caller kicks the search sweep when that is above 0. Switched off, it does
-// nothing.
+// caller kicks the search sweep when that is above 0. With no instances to
+// read, it does nothing. An instance that cannot be read does not stop the
+// others or the Requests: the first error is returned after the pass.
 func (s *Service) Pass(ctx context.Context) (added int, err error) {
 	cfg, err := s.d.Config(ctx)
-	if err != nil || !cfg.Enabled {
+	if err != nil || len(cfg.Instances) == 0 {
 		return 0, err
 	}
 	asks, err := s.d.Requests.WatchAheads(ctx)
 	if err != nil || len(asks) == 0 {
 		return 0, err
 	}
-	if err := s.readPlays(ctx, cfg, asks); err != nil {
-		return 0, err
-	}
 	var first error
+	for _, name := range cfg.Instances {
+		if err := s.readPlays(ctx, name, asks); err != nil && first == nil {
+			first = fmt.Errorf("instance %q: %w", name, err)
+		}
+	}
 	for _, ask := range asks {
 		n, err := s.advance(ctx, ask)
 		added += n
@@ -116,7 +121,7 @@ func (s *Service) Pass(ctx context.Context) (added int, err error) {
 	return added, first
 }
 
-// server finds the Plex instance and the plugin behind it.
+// server finds a media-server instance and the plugin behind it.
 func (s *Service) server(ctx context.Context, name string) (instances.Instance, mediaserver.PlayHistory, error) {
 	list, err := s.d.Instances.List(ctx)
 	if err != nil {
@@ -138,8 +143,8 @@ func (s *Service) server(ctx context.Context, name string) (instances.Instance, 
 // readPlays stores the episodes played since the remembered point and moves
 // the point on, in one write, after every show is resolved. A read that fails
 // part way changes nothing, so the next pass reads the same plays again.
-func (s *Service) readPlays(ctx context.Context, cfg Config, asks []requests.WatchAhead) error {
-	inst, srv, err := s.server(ctx, cfg.Instance)
+func (s *Service) readPlays(ctx context.Context, name string, asks []requests.WatchAhead) error {
+	inst, srv, err := s.server(ctx, name)
 	if err != nil {
 		return err
 	}

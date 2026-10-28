@@ -143,6 +143,18 @@ func (d declarer) sections() []section {
 			apply: func(ctx context.Context) error { return d.api.DeclarePlexSignIn(ctx, *p) },
 		})
 	}
+	if p := f.Silo; p != nil {
+		out = append(out, section{
+			check: func(ctx context.Context) error {
+				kinds, _, err := d.plexSignInContext(ctx)
+				if err != nil {
+					return err
+				}
+				return d.api.CheckSilo(*p, kinds)
+			},
+			apply: func(ctx context.Context) error { return d.api.DeclareSilo(ctx, *p) },
+		})
+	}
 	if p := f.ReverseProxy; p != nil {
 		out = append(out, section{
 			check: func(context.Context) error { return d.api.CheckReverseProxy(*p) },
@@ -158,7 +170,7 @@ func (d declarer) sections() []section {
 	return out
 }
 
-// plexSignInContext is what plex_sign_in is checked against: the plugin
+// plexSignInContext is what plex_sign_in and silo are checked against: the plugin
 // instances and Root folders as they will stand once the file is applied,
 // which is before it is, because every section is checked before any is
 // written. A declared instance that leaves the file is deleted, so only the
