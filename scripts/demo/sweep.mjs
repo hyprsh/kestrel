@@ -6,7 +6,7 @@
 import { mkdirSync } from 'node:fs'
 import { open, wait } from './lib.mjs'
 
-const settings = ['language', 'profiles', 'trash', 'metadata', 'download-client', 'indexers', 'grabs', 'root-folders', 'adoption', 'media-servers', 'account', 'updates', 'security', 'setup']
+const settings = ['language', 'profiles', 'trash', 'metadata', 'download-client', 'indexers', 'grabs', 'root-folders', 'adoption', 'media-servers', 'plex', 'silo', 'account', 'updates', 'security', 'reverse-proxy', 'setup']
 const widths = [
   { w: 390, h: 844 },
   { w: 1440, h: 900 },
