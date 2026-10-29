@@ -57,6 +57,7 @@ export const handlers = [
       from_config_file: false,
     }),
   ),
+  http.get('/settings/silo', ({ response }) => response(200).json({ watch_ahead: false, instance: null, from_config_file: false })),
   http.get('/api-key', ({ response }) => response(200).json({ prefix: null, created_at: null, from_environment: false })),
   http.get('/setup', ({ response }) =>
     response(200).json({

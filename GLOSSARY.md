@@ -137,7 +137,7 @@ A Request Kestrel makes itself for a title newly added to a Watchlist, on behalf
 _Avoid_: Auto-request, watchlist sync (that is the Background job)
 
 **Watch-ahead**:
-Requesting a Series one season at a time: a Requester's Series Request starts with season 1, and Kestrel adds the next season to it once anyone on the Plex server has watched 2 episodes of the newest season it holds (ADR 0019).
+Requesting a Series one season at a time: a Series Request that names no seasons (a Requester's, or one from Silo) starts with season 1, and Kestrel adds the next season to it once anyone on the Plex server or on Silo has watched 2 episodes of the newest season it holds (ADR 0019, ADR 0020).
 _Avoid_: Auto-season, progressive download
 
 **Upcoming**:

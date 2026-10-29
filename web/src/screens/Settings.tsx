@@ -16,6 +16,7 @@ import { TrashForm } from '../trash/Trash'
 import { LanguageForm } from '../profiles/Language'
 import { RootFoldersForm } from '../rootfolders/RootFolders'
 import { PlexSignInForm } from './PlexSignIn'
+import { SiloSettingsForm } from './SiloSettings'
 import { DefaultsPerSlot, ProfileToggles } from '../profiles/Profiles'
 
 /** Settings sections, in page order. Later tickets add theirs here. */
@@ -30,9 +31,12 @@ const sections = [
   { id: 'root-folders', title: 'Root folders' },
   { id: 'adoption', title: 'Existing files' },
   { id: 'media-servers', title: 'Media servers' },
+  { id: 'plex', title: 'Plex' },
+  { id: 'silo', title: 'Silo' },
   { id: 'account', title: 'Account' },
   { id: 'updates', title: 'Updates' },
   { id: 'security', title: 'Security' },
+  { id: 'reverse-proxy', title: 'Reverse proxy' },
   { id: 'setup', title: 'Setup' },
 ]
 
@@ -135,6 +139,21 @@ export function Settings({
         <MediaServers />
       </>
     ),
+    plex: (
+      <>
+        <PlexSignInRow />
+      </>
+    ),
+    silo: (
+      <>
+        <Row
+          label="Watch-ahead"
+          help="Series requested whole in Silo start with season 1, and Kestrel adds the next season once 2 episodes of the newest one have been watched in Plex or Silo. The Kestrel plugin in Silo can override this per request route."
+        >
+          <SiloSettingsForm />
+        </Row>
+      </>
+    ),
     account: (
       <>
         <ChangePassword />
@@ -151,8 +170,11 @@ export function Settings({
     security: (
       <>
         <ApiKeyRow />
+      </>
+    ),
+    'reverse-proxy': (
+      <>
         <ReverseProxyRow />
-        <PlexSignInRow />
       </>
     ),
     setup: (

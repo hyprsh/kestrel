@@ -327,6 +327,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings/silo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Watch-ahead for Silo */
+        get: operations["getSiloSettings"];
+        /**
+         * Change Watch-ahead for Silo
+         * @description `instance` names the `silo` plugin instance whose playback history Watch-ahead reads (ADR 0020);
+         *     `watch_ahead` needs it. `watch_ahead` is the default for a Silo Series Request that names no
+         *     seasons, which the Request's own `watch_ahead` overrides. `409 conflict` while the Config File
+         *     declares `silo`.
+         */
+        put: operations["putSiloSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/settings/plex-sign-in": {
         parameters: {
             query?: never;
@@ -2177,6 +2201,16 @@ export interface components {
         };
         PlexSignIn: components["schemas"]["PlexSignInSettings"] & {
             /** @description `true` while the Config File declares `plex_sign_in`, which can't be changed here then. */
+            from_config_file: boolean;
+        };
+        SiloSettings: {
+            /** @description Makes a Silo Series Request that names no seasons start with season 1 and add the next as people watch, unless the Request says otherwise (ADR 0020). */
+            watch_ahead: boolean;
+            /** @description The name of the `silo` plugin instance whose playback history Watch-ahead reads; needed once `watch_ahead` is on. */
+            instance: string | null;
+        };
+        Silo: components["schemas"]["SiloSettings"] & {
+            /** @description `true` while the Config File declares `silo`, which can't be changed here then. */
             from_config_file: boolean;
         };
         MyRequestCreate: {
@@ -4140,6 +4174,12 @@ export interface components {
             root_folder?: string;
             /** @description Series only; `null` or left out asks for the whole Series. */
             seasons?: number[] | null;
+            /**
+             * @description Series naming no `seasons` only. `true` asks for the Series one season at a time (Watch-ahead,
+             *     ADR 0019), `false` for the whole Series; `null` or left out takes the source's default: for
+             *     `silo` the `watch_ahead` of `PUT /settings/silo`, for any other source `false`.
+             */
+            watch_ahead?: boolean | null;
         };
         RequestDownload: {
             /** @description `queued`, `downloading`, `paused`, `post_processing` or `importing`. */
@@ -4674,6 +4714,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReverseProxy"];
+                };
+            };
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getSiloSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Silo"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    putSiloSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiloSettings"];
+            };
+        };
+        responses: {
+            /** @description The settings as saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Silo"];
                 };
             };
             409: components["responses"]["Problem"];

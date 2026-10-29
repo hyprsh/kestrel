@@ -121,8 +121,13 @@ plugin_instances: # known by name
     config:
       url: http://plex:32400
       token_env: PLEX_TOKEN
+  - name: Silo
+    plugin_id: silo
+    config:
+      url: http://silo:8090
+      api_key_env: SILO_API_KEY
 
-reverse_proxy: # all three fields, as in Settings > Security
+reverse_proxy: # all three fields, as in Settings > Reverse proxy
   enabled: false
   trusted_proxies: [172.16.0.0/12]
   header: Remote-User
@@ -140,6 +145,10 @@ plex_sign_in: # Requesters sign in with Plex; see "Requesters (Plex sign-in)"
   poster_badge: true # optional, off until set: a "Requested" badge on posters in Plex
   poster_badge_days: 30 # optional: how long the badge stays, at least 1; 30 when left out
 
+silo: # Watch-ahead for Silo; see "Watch-ahead for Silo"
+  watch_ahead: true # optional, off until set: the default for a Silo Series Request that names no seasons
+  instance: Silo # the name of a silo plugin instance, whose playback history Watch-ahead reads; needed once watch_ahead is true
+
 check_github_updates: true
 ```
 
@@ -155,6 +164,7 @@ services:
       - INDEXER_API_KEY=${INDEXER_API_KEY}
       - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
       - PLEX_TOKEN=${PLEX_TOKEN}
+      - SILO_API_KEY=${SILO_API_KEY}
     volumes:
       - ./kestrel.yaml:/kestrel.yaml:ro
 ```
@@ -179,9 +189,10 @@ How it behaves:
   - A declared instance can be tested in the UI but not changed or removed, except that the UI can switch it on and off when the file leaves its `enabled` out (Kestrel keeps that value across restarts), and its name can't be given to an instance in the UI: creating or renaming one to it answers `409 conflict`. Instances created in the UI may still share names with each other.
   - An `enabled` the file sets is enforced, so switching that instance off is a file change and a restart, and a toggle in the UI answers `409 conflict`. A file that would exceed a contract's cap on enabled instances (one download client) fails startup, counting the enabled instances created in the UI and the stored `enabled` of declared instances whose `enabled` the file leaves out.
   - After applying the file, Kestrel tests the connection of each enabled declared instance. An instance that can't connect at startup is only logged as a warning, and Kestrel starts anyway.
-- **`reverse_proxy`**: `enabled`, `trusted_proxies` and `header`, all three, checked as in Settings > Security. `trusted_proxies` alone makes Kestrel believe `X-Forwarded-For` and `X-Forwarded-Proto` from those addresses, so the login throttle counts each client behind the proxy on its own; `enabled` only adds login from `header`, and needs at least one trusted proxy. Keep `enabled: false` unless an SSO portal sets the header.
-  - **Upgrading:** Kestrel no longer believes `X-Forwarded-Proto` from an address outside `trusted_proxies`. Behind a proxy that terminates TLS with `trusted_proxies` empty, the session cookie used to get its `Secure` flag from that header and now silently doesn't. List the proxy in `trusted_proxies` (in Settings > Security or here), with `enabled: false` if you want no header login.
+- **`reverse_proxy`**: `enabled`, `trusted_proxies` and `header`, all three, checked as in Settings > Reverse proxy. `trusted_proxies` alone makes Kestrel believe `X-Forwarded-For` and `X-Forwarded-Proto` from those addresses, so the login throttle counts each client behind the proxy on its own; `enabled` only adds login from `header`, and needs at least one trusted proxy. Keep `enabled: false` unless an SSO portal sets the header.
+  - **Upgrading:** Kestrel no longer believes `X-Forwarded-Proto` from an address outside `trusted_proxies`. Behind a proxy that terminates TLS with `trusted_proxies` empty, the session cookie used to get its `Secure` flag from that header and now silently doesn't. List the proxy in `trusted_proxies` (in Settings > Reverse proxy or here), with `enabled: false` if you want no header login.
 - **`plex_sign_in`**: `enabled`, and when it is `true` the `instance` (the name of a `plex` plugin instance, declared in the same file or made in the UI). `users` and `user_root_folders` are optional and default to none. `user_root_folders` is a map from a Plex user to `movies` and `series`, each optional and one of that kind's Root folders. `watchlist`, `watch_ahead`, `labels` and `poster_badge` are optional booleans, each off until set, and `poster_badge_days` is an optional whole number of at least 1 that defaults to 30 ([ADR 0019](docs/adr/0019-requests-from-plex-watchlists.md)). Users are unique ignoring case, in both `users` and the map's keys. Checked with the rules of `PUT /settings/plex-sign-in`, against the instances and Root folders the file declares. Applied after the plugin instances and the Root folders.
+- **`silo`**: `watch_ahead` (off until set) and `instance`, the name of a `silo` plugin instance, declared in the same file or made in the UI, which is needed once `watch_ahead` is `true` ([ADR 0020](docs/adr/0020-watch-ahead-for-silo.md)). Checked with the rules of `PUT /settings/silo`, against the instances the file declares. Applied after the plugin instances.
 - **`check_github_updates`**: `true` or `false`.
 - **Not in the file:** TRaSH's daily update (`trash.auto_update`) and the TMDB and TheTVDB key overrides stay in the UI. Use `KESTREL_TMDB_API_KEY` and `KESTREL_TVDB_API_KEY` for your own keys, and `KESTREL_API_KEY` for the API key.
 
@@ -201,10 +212,17 @@ People who share your Plex server can ask for Movies and Series in Kestrel witho
 
 - **Who may sign in:** the server's owner, members of the owner's Plex Home, and friends whose share includes this server, read with the owner's token from the Plex instance. A list of `users` narrows that to those Plex usernames (or names, for a Home user without one), ignoring case. The Requester's own Plex token is used once, to learn who they are, and never stored.
 - **What a Requester can do:** search Titles, make a Request and see their own Requests, and nothing else; every other route answers `403 forbidden`. A Request asks for the Standard Slot under Profile resolution, goes in the kind's first Root folder unless `user_root_folders` names another for that user, and shows up in the Requests screen and the Log like any other, with the source `plex`.
-- **Switches:** Settings > Security (or `plex_sign_in` in the Config File) also holds four switches for what Kestrel does with the Plex server, each off until set and each working only while Plex sign-in is on: `watchlist` makes Requests from the Watchlists of the owner and of friends who may request, `watch_ahead` makes a Requester's Series Request start with season 1 and adds the next season once anyone has watched 2 episodes of the newest, `labels` marks requested Titles in Plex with labels and a collection, and `poster_badge` stamps a "Requested" badge on their posters for `poster_badge_days` days (30 unless set).
+- **Switches:** Settings > Plex (or `plex_sign_in` in the Config File) also holds four switches for what Kestrel does with the Plex server, each off until set and each working only while Plex sign-in is on: `watchlist` makes Requests from the Watchlists of the owner and of friends who may request, `watch_ahead` makes a Requester's Series Request start with season 1 and adds the next season once anyone has watched 2 episodes of the newest (on the Plex server, or on Silo too, see below), `labels` marks requested Titles in Plex with labels and a collection, and `poster_badge` stamps a "Requested" badge on their posters for `poster_badge_days` days (30 unless set).
 - **Sessions:** a Requester's session lasts 30 days from the last use, like the admin's. At most once an hour it is checked again against the owner's list, and it ends when the account lost access, left `users`, or Plex sign-in was switched off. A plex.tv outage does not end sessions. Changing the admin password ends the other admin sessions only; Log out everywhere ends every session.
 - **Network:** Kestrel calls plex.tv (`https://plex.tv`) to create and read PINs, learn an account and read the owner's shared users, and it identifies itself with a client identifier it generates once per instance. It needs outbound access to plex.tv, and the browser needs to reach `https://app.plex.tv`.
-- **Behind a TLS proxy:** the redirect back to Kestrel is built from the request: `https` when the request is secure, the `Host` header and the base URL. List the proxy in `trusted_proxies` (Settings > Security, or `reverse_proxy` in the Config File), so Kestrel believes its `X-Forwarded-Proto` and `X-Forwarded-For`, the session and PIN cookies get `Secure`, and the proxy passes the `Host` header on unchanged.
+- **Behind a TLS proxy:** the redirect back to Kestrel is built from the request: `https` when the request is secure, the `Host` header and the base URL. List the proxy in `trusted_proxies` (Settings > Reverse proxy, or `reverse_proxy` in the Config File), so Kestrel believes its `X-Forwarded-Proto` and `X-Forwarded-For`, the session and PIN cookies get `Secure`, and the proxy passes the `Host` header on unchanged.
+
+### Watch-ahead for Silo
+
+A Series requested in Silo can come one season at a time too ([ADR 0020](docs/adr/0020-watch-ahead-for-silo.md)). Switch Watch-ahead on in Settings > Silo (or declare `silo` in the Config File) and pick the Silo instance whose playback history Kestrel reads, with that media server's admin API key. A Silo Series Request that names no seasons then starts with season 1, and Kestrel adds the next season once anyone, on any Silo account or profile, has watched 2 episodes of the newest one it holds. Plays on the Plex server (when `plex_sign_in` has `watch_ahead` on) and on Silo count together.
+
+- **Per request:** `watch_ahead` is the default. The Silo plugin's Watch-ahead option (Kestrel default, On or Off, also per Silo request route) sends `watch_ahead` with the Request and overrides it. The same field in `POST /requests` works for any source; left out, every source but Silo asks for the whole Series.
+- **Seasons asked for in Silo:** a Silo user who requests the remaining seasons themselves gets them at once.
 
 ### The API
 

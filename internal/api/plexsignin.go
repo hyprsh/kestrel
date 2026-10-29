@@ -106,7 +106,7 @@ type PlexSwitches struct {
 }
 
 // LoadPlexSwitches reads the effective Plex switches from the settings, which
-// hold what Settings > Security saved or the Config File declared.
+// hold what Settings > Plex saved or the Config File declared.
 func LoadPlexSwitches(ctx context.Context, s *settings.Settings) (PlexSwitches, error) {
 	cfg, err := loadPlexSignIn(ctx, s)
 	if err != nil {

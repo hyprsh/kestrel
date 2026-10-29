@@ -249,8 +249,8 @@ func New(opts Options) *App {
 	watchAhead := watchahead.New(watchahead.Deps{
 		Store: st, Clock: opts.Clock, Instances: pluginInstances, Requests: reqs, Library: lib, History: hist, Logger: opts.Logger,
 		Config: func(ctx context.Context) (watchahead.Config, error) {
-			on, instance, err := api.LoadWatchAhead(ctx, appSettings)
-			return watchahead.Config{Enabled: on, Instance: instance}, err
+			names, err := api.LoadWatchAhead(ctx, appSettings)
+			return watchahead.Config{Instances: names}, err
 		},
 	})
 	upd = updates.New(updates.Deps{Settings: appSettings, Health: healthSvc, Version: opts.Version, APIBase: opts.GitHubAPI, Clock: opts.Clock})

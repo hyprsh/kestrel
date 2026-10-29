@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -31,8 +32,10 @@ type clock struct{ now time.Time }
 func (c *clock) Now() time.Time          { return c.now }
 func (c *clock) Advance(d time.Duration) { c.now = c.now.Add(d) }
 
-// plex is a Plex server with a play history, as far as Watch-ahead reads it.
+// plex is a media server (Plex, or Silo under another id) with a play history,
+// as far as Watch-ahead reads it.
 type plex struct {
+	id        string
 	mu        sync.Mutex
 	plays     []mediaserver.Play
 	guids     map[string][]string
@@ -42,7 +45,7 @@ type plex struct {
 }
 
 func (p *plex) Describe() plugin.Manifest {
-	return plugin.Manifest{ID: "plex", Name: "Plex", Contract: mediaserver.Contract.ID, Version: "1"}
+	return plugin.Manifest{ID: p.id, Name: p.id, Contract: mediaserver.Contract.ID, Version: "1"}
 }
 func (*plex) Test(context.Context, plugin.Connection) (plugin.TestResult, error) {
 	return plugin.TestResult{}, nil
@@ -141,11 +144,13 @@ type world struct {
 	clk  *clock
 	st   *store.Store
 	plex *plex
+	silo *plex
 	reqs *reqs
 	lib  *lib
 	hist *history.Service
-	on   bool
-	svc  *watchahead.Service
+	// names are the instances Watch-ahead reads; none switches it off.
+	names []string
+	svc   *watchahead.Service
 }
 
 // newWorld is a household with Watch-ahead on, a Request for the Series made at
@@ -158,19 +163,27 @@ func newWorld(t *testing.T) *world {
 	}
 	t.Cleanup(func() { st.Close() })
 	clk := &clock{now: time.Date(2026, 10, 27, 12, 0, 0, 0, time.UTC)}
-	w := &world{t: t, clk: clk, st: st, on: true,
-		plex: &plex{guids: map[string][]string{showKey: {"imdb://tt0903747", "tvdb://81189"}}},
+	w := &world{t: t, clk: clk, st: st, names: []string{"Plex"},
+		plex: &plex{id: "plex", guids: map[string][]string{showKey: {"imdb://tt0903747", "tvdb://81189"}}},
+		silo: &plex{id: "silo", guids: map[string][]string{"series-9": {"tvdb://81189"}}},
 		reqs: &reqs{ask: requests.WatchAhead{RequestID: 3, TitleID: titleID, Seasons: []int{1}, CreatedAt: clk.now}},
 		lib:  &lib{seasons: []int{0, 1, 2}},
 		hist: history.New(st, clk.Now, nil),
 	}
 	reg := plugin.NewRegistry()
-	if err := reg.Register(mediaserver.Contract, w.plex); err != nil {
-		t.Fatal(err)
+	for _, srv := range []*plex{w.plex, w.silo} {
+		if err := reg.Register(mediaserver.Contract, srv); err != nil {
+			t.Fatal(err)
+		}
 	}
-	// The plugin instance row, which the history position and the show mapping refer to.
-	if _, err := st.Write().Exec(`INSERT INTO plugin_instances (id, contract, plugin_id, name, enabled, priority, config, declared) VALUES (1, 'media_server.v1', 'plex', 'Plex', 1, 0, '{}', 0)`); err != nil {
-		t.Fatal(err)
+	// The plugin instance rows, which the history position and the show mapping refer to.
+	for _, q := range []string{
+		`INSERT INTO plugin_instances (id, contract, plugin_id, name, enabled, priority, config, declared) VALUES (1, 'media_server.v1', 'plex', 'Plex', 1, 0, '{}', 0)`,
+		`INSERT INTO plugin_instances (id, contract, plugin_id, name, enabled, priority, config, declared) VALUES (2, 'media_server.v1', 'silo', 'Silo', 1, 1, '{}', 0)`,
+	} {
+		if _, err := st.Write().Exec(q); err != nil {
+			t.Fatal(err)
+		}
 	}
 	// The Title and Request that the Log's entry refers to.
 	for _, q := range []string{
@@ -182,10 +195,13 @@ func newWorld(t *testing.T) *world {
 		}
 	}
 	w.svc = watchahead.New(watchahead.Deps{
-		Store: st, Clock: clk.Now, Instances: insts{reg: reg, list: []instances.Instance{{ID: 1, Name: "Plex", PluginID: "plex", Contract: mediaserver.Contract.ID}}},
+		Store: st, Clock: clk.Now, Instances: insts{reg: reg, list: []instances.Instance{
+			{ID: 1, Name: "Plex", PluginID: "plex", Contract: mediaserver.Contract.ID},
+			{ID: 2, Name: "Silo", PluginID: "silo", Contract: mediaserver.Contract.ID},
+		}},
 		Requests: w.reqs, Library: w.lib, History: w.hist,
 		Config: func(context.Context) (watchahead.Config, error) {
-			return watchahead.Config{Enabled: w.on, Instance: "Plex"}, nil
+			return watchahead.Config{Instances: w.names}, nil
 		},
 	})
 	return w
@@ -375,12 +391,71 @@ func TestWatchAheadDoesNothingWhileSwitchedOff(t *testing.T) {
 	w := newWorld(t)
 	w.watch(1, 1)
 	w.watch(1, 2)
-	w.on = false
+	w.names = nil
 	if n := w.pass(); n != 0 || len(w.plex.reads) != 0 || len(w.seasons()) != 1 {
 		t.Fatalf("added %d, read %d times, seasons %v: want nothing done", n, len(w.plex.reads), w.seasons())
 	}
-	w.on = true // the plays were not lost
+	w.names = []string{"Plex"} // the plays were not lost
 	if n := w.pass(); n != 1 {
 		t.Fatalf("added %d after switching on, want 1", n)
+	}
+}
+
+// watchSilo plays an episode on the Silo server a minute after the last.
+func (w *world) watchSilo(season, episode int) {
+	w.clk.Advance(time.Minute)
+	w.silo.play(w.clk.now, "series-9", season, episode)
+}
+
+func TestPlaysOnPlexAndOnSiloCountTogether(t *testing.T) {
+	w := newWorld(t)
+	w.names = []string{"Plex", "Silo"}
+	w.watch(1, 1)
+	w.watchSilo(1, 2)
+	if n := w.pass(); n != 1 || !slices.Equal(w.seasons(), []int{1, 2}) {
+		t.Fatalf("added %d, seasons %v, want season 2 from one episode on each server", n, w.seasons())
+	}
+	w.watchSilo(2, 1)
+	w.watchSilo(2, 1) // the same episode again counts once
+	if n := w.pass(); n != 0 || len(w.plex.reads) != 2 || len(w.silo.reads) != 2 {
+		t.Fatalf("added %d, reads %d and %d: want each server read on both passes", n, len(w.plex.reads), len(w.silo.reads))
+	}
+}
+
+func TestEachInstanceKeepsItsOwnPlaceInItsHistory(t *testing.T) {
+	w := newWorld(t)
+	w.names = []string{"Plex", "Silo"}
+	start := w.clk.now
+	w.watch(1, 1)
+	w.pass() // Plex has read up to its play, and Silo has no play to read up to
+	w.watchSilo(1, 2)
+	w.pass()
+	if got := w.silo.reads; len(got) != 2 || !got[0].Equal(start) || !got[1].Equal(start) {
+		t.Errorf("Silo read from %v, want the Request's time twice: it had no play before", got)
+	}
+	if got := w.plex.reads; len(got) != 2 || !got[1].Equal(start.Add(time.Minute)) {
+		t.Errorf("Plex read from %v, want the newest play it read the second time", got)
+	}
+}
+
+func TestAnInstanceThatFailsDoesNotStopTheOthers(t *testing.T) {
+	w := newWorld(t)
+	w.names = []string{"Silo", "Plex"}
+	w.silo.failPlays = errors.New("Silo is down")
+	w.watch(1, 1)
+	w.watch(1, 2)
+	n, err := w.svc.Pass(context.Background())
+	if err == nil || !strings.Contains(err.Error(), `"Silo"`) {
+		t.Fatalf("err = %v, want the failure of Silo", err)
+	}
+	if n != 1 || !slices.Equal(w.seasons(), []int{1, 2}) {
+		t.Fatalf("added %d, seasons %v, want season 2 from the Plex plays anyway", n, w.seasons())
+	}
+	w.silo.failPlays = nil
+	w.watchSilo(2, 1)
+	w.watchSilo(2, 2)
+	w.lib.seasons = []int{0, 1, 2, 3}
+	if n := w.pass(); n != 1 || !slices.Equal(w.seasons(), []int{1, 2, 3}) {
+		t.Fatalf("added %d, seasons %v, want season 3 once Silo answers again", n, w.seasons())
 	}
 }

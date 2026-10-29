@@ -50,6 +50,9 @@ type requestCreate struct {
 	Slots           []slotCreate `json:"slots"`
 	RootFolder      *string      `json:"root_folder,omitempty"`
 	Seasons         *[]int       `json:"seasons,omitempty"`
+	// WatchAhead is set only for a Series Request naming no seasons, and only
+	// when the connection chose on or off; nil leaves it to Kestrel's default.
+	WatchAhead *bool `json:"watch_ahead,omitempty"`
 }
 
 type download struct {

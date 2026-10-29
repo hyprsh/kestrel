@@ -157,12 +157,42 @@ func TestAWatchAheadRequestIsTheWholeSeriesWhileTheSwitchIsOff(t *testing.T) {
 	}
 }
 
-func TestASiloRequestIsNotWatchAhead(t *testing.T) {
+func TestASeriesRequestFromASourceTakesItsWatchAheadDefaultAndTheRequestMayOverrideIt(t *testing.T) {
 	t.Parallel()
-	_, l, _ := watchAheadHousehold(t, true)
-	siloRequest := `{"source":"silo","source_request_id":"s-1","requester":{"id":"1","name":"kim"},"title":{"kind":"series","tmdb_id":1396},"slots":[{"slot":"standard"}]}`
-	req := decode[requestJSON](t, l.valid("POST", "/requests", siloRequest))
-	if len(req.Seasons) != 0 {
-		t.Errorf("a Silo Request has seasons %v, want the whole Series", req.Seasons)
+	for _, c := range []struct {
+		name, source, watchAhead string
+		siloOn                   bool
+		wantSeasons              []int
+	}{
+		{"Silo, switch on", "silo", "", true, []int{1}},
+		{"Silo, switch off", "silo", "", false, nil},
+		{"Silo, switch on, asked for the whole Series", "silo", `,"watch_ahead":false`, true, nil},
+		{"Silo, switch on, null", "silo", `,"watch_ahead":null`, true, []int{1}},
+		{"Silo, switch off, asked for Watch-ahead", "silo", `,"watch_ahead":true`, false, []int{1}},
+		{"another source, Silo switch on", "seerr", "", true, nil},
+		{"another source, asked for Watch-ahead", "seerr", `,"watch_ahead":true`, false, []int{1}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			h, l, _ := watchAheadHousehold(t, true)
+			h.addSilo("Silo")
+			h.putSilo(fmt.Sprintf(`{"watch_ahead":%t,"instance":"Silo"}`, c.siloOn))
+			body := `{"source":"` + c.source + `","source_request_id":"s-1","requester":{"id":"1","name":"kim"},"title":{"kind":"series","tmdb_id":1396},"slots":[{"slot":"standard"}]` + c.watchAhead + `}`
+			req := decode[requestJSON](t, l.valid("POST", "/requests", body))
+			if !reflect.DeepEqual(req.Seasons, c.wantSeasons) && (len(req.Seasons) != 0 || len(c.wantSeasons) != 0) {
+				t.Errorf("seasons = %v, want %v", req.Seasons, c.wantSeasons)
+			}
+		})
+	}
+}
+
+func TestASilosWatchAheadRequestNamingSeasonsAsksForThem(t *testing.T) {
+	t.Parallel()
+	h, l, _ := watchAheadHousehold(t, false)
+	h.addSilo("Silo")
+	h.putSilo(`{"watch_ahead":true,"instance":"Silo"}`)
+	body := `{"source":"silo","source_request_id":"s-1","requester":{"id":"1","name":"kim"},"title":{"kind":"series","tmdb_id":1396},"slots":[{"slot":"standard"}],"seasons":[2],"watch_ahead":true}`
+	if req := decode[requestJSON](t, l.valid("POST", "/requests", body)); !reflect.DeepEqual(req.Seasons, []int{2}) {
+		t.Errorf("seasons = %v, want the season asked for", req.Seasons)
 	}
 }

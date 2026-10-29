@@ -41,6 +41,7 @@ type File struct {
 	PluginInstances    []PluginInstance `yaml:"plugin_instances"`
 	ReverseProxy       *ReverseProxy    `yaml:"reverse_proxy"`
 	PlexSignIn         *PlexSignIn      `yaml:"plex_sign_in"`
+	Silo               *Silo            `yaml:"silo"`
 	CheckGitHubUpdates *bool            `yaml:"check_github_updates"`
 }
 
@@ -127,6 +128,16 @@ type PlexSignIn struct {
 	PosterBadgeDays *int `yaml:"poster_badge_days"`
 }
 
+// Silo is Watch-ahead for Silo (ADR 0020), declared as a whole like
+// PUT /settings/silo. Nothing is required: the instance is needed once
+// watch_ahead is true, and watch_ahead is off until set.
+type Silo struct {
+	// WatchAhead is the default for a Silo Series Request that names no seasons.
+	WatchAhead bool `yaml:"watch_ahead"`
+	// Instance names the declared or UI-made `silo` plugin instance whose playback history is read.
+	Instance string `yaml:"instance"`
+}
+
 // PlexUserRootFolders are one user's Root folders. A nil field keeps the kind's first.
 type PlexUserRootFolders struct {
 	Movies *string `yaml:"movies"`
@@ -145,6 +156,7 @@ const (
 	SectionPluginInstances    Section = "plugin_instances"
 	SectionReverseProxy       Section = "reverse_proxy"
 	SectionPlexSignIn         Section = "plex_sign_in"
+	SectionSilo               Section = "silo"
 	SectionCheckGitHubUpdates Section = "check_github_updates"
 )
 
@@ -169,6 +181,8 @@ func (f *File) Declares(s Section) bool {
 		return f.ReverseProxy != nil
 	case SectionPlexSignIn:
 		return f.PlexSignIn != nil
+	case SectionSilo:
+		return f.Silo != nil
 	case SectionCheckGitHubUpdates:
 		return f.CheckGitHubUpdates != nil
 	}

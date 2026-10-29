@@ -61,6 +61,8 @@ const defaultOption = "default"
 // any key per tier; an empty value or defaultOption means Kestrel's default.
 type settings struct {
 	standardProfile, fourKProfile, rootFolder string
+	// watchAhead is nil for Kestrel's default, else the chosen on or off.
+	watchAhead *bool
 }
 
 func settingsOf(c *pluginv1.RouterConnection) settings {
@@ -72,7 +74,14 @@ func settingsOf(c *pluginv1.RouterConnection) settings {
 		}
 		return v
 	}
-	return settings{standardProfile: get("standard_profile"), fourKProfile: get("4k_profile"), rootFolder: get("root_folder")}
+	out := settings{standardProfile: get("standard_profile"), fourKProfile: get("4k_profile"), rootFolder: get("root_folder")}
+	switch get("watch_ahead") {
+	case "on":
+		out.watchAhead = new(true)
+	case "off":
+		out.watchAhead = new(false)
+	}
+	return out
 }
 
 // slotOf maps a Silo tier to a Kestrel Slot. An unknown tier falls back to
@@ -163,6 +172,8 @@ func (r *Router) Fulfill(ctx context.Context, in *pluginv1.FulfillRequest) (*plu
 		slots = append(slots, sc)
 	}
 
+	// The watch-ahead choice is left out of the key on purpose: a retry after
+	// the setting changed must land on the same Kestrel Request.
 	body := requestCreate{
 		Source:          "silo",
 		SourceRequestID: idempotencyKey(d, slots, cfg.rootFolder),
@@ -187,6 +198,8 @@ func (r *Router) Fulfill(ctx context.Context, in *pluginv1.FulfillRequest) (*plu
 				seasons[i] = int(s)
 			}
 			body.Seasons = &seasons
+		} else {
+			body.WatchAhead = cfg.watchAhead
 		}
 	}
 

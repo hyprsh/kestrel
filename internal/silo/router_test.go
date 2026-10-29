@@ -492,3 +492,66 @@ func TestTheManifestDeclaresSeasonsAndProgress(t *testing.T) {
 		t.Errorf("descriptor = %+v", d)
 	}
 }
+
+func TestWatchAheadIsSentOnlyForAWholeSeriesWhenChosen(t *testing.T) {
+	var body map[string]any
+	stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body = nil
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.WriteHeader(201)
+		fmt.Fprint(w, `{"id":5,"outcome":"accepted","reject_reason":null,"slots":[{"slot":"standard","profile":"hd-primary","status":"queued","status_label":"Searching","download":null}]}`)
+	}))
+	defer stub.Close()
+	r := silo.NewRouter(silo.Options{})
+	series := func(seasons ...int32) *pluginv1.RequestDescriptor {
+		return &pluginv1.RequestDescriptor{
+			MediaType: "series", Title: "Bluey", RequesterUserId: 3, RequesterUsername: "ben", Seasons: seasons,
+			ExternalIds: map[string]string{"tvdb": "81189", "tmdb": "1396"},
+		}
+	}
+	cases := []struct {
+		name   string
+		config map[string]any
+		d      *pluginv1.RequestDescriptor
+		want   any // nil: the field is omitted
+	}{
+		{"on", map[string]any{"watch_ahead": "on"}, series(), true},
+		{"off", map[string]any{"watch_ahead": "off"}, series(), false},
+		{"default", map[string]any{"watch_ahead": "default"}, series(), nil},
+		{"unset", nil, series(), nil},
+		{"unknown value", map[string]any{"watch_ahead": "sometimes"}, series(), nil},
+		{"seasons named", map[string]any{"watch_ahead": "on"}, series(1, 2), nil},
+		{"movie", map[string]any{"watch_ahead": "on"}, movie(3), nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fulfil(t, r, conn(t, stub.URL, "kst_x", tc.config), tc.d, "1080p")
+			got, present := body["watch_ahead"]
+			if tc.want == nil && present {
+				t.Errorf("watch_ahead = %v, want it omitted", got)
+			}
+			if tc.want != nil && got != tc.want {
+				t.Errorf("watch_ahead = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestTheManifestOffersWatchAheadAsASelect(t *testing.T) {
+	m, err := silo.Manifest("1.2.3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var values []string
+	for _, f := range m.GetCapabilities()[0].GetConfigSchema()[0].GetAdminForm().GetFields() {
+		if f.GetKey() != "watch_ahead" {
+			continue
+		}
+		for _, o := range f.GetOptions() {
+			values = append(values, o.GetValue())
+		}
+	}
+	if fmt.Sprint(values) != "[default on off]" {
+		t.Errorf("watch_ahead options = %v", values)
+	}
+}

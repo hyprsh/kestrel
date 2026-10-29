@@ -12,7 +12,7 @@ const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { 
 
 type Saved = PlexSignInSettings & { from_config_file: boolean }
 
-/** A Security section with two Plex instances (and a Jellyfin one that must not be offered), two Movie Root folders and the given Plex sign-in. */
+/** A Plex section with two Plex instances (and a Jellyfin one that must not be offered), two Movie Root folders and the given Plex sign-in. */
 function fakePlexSettings(initial: Partial<Saved> = {}, rejects?: { field: string; message: string }[]) {
   let saved: Saved = {
     enabled: false,
@@ -61,11 +61,11 @@ function fakePlexSettings(initial: Partial<Saved> = {}, rejects?: { field: strin
 const openCard = async () => {
   renderApp()
   await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
-  await screen.findByRole('heading', { name: 'Security' })
+  await screen.findByRole('heading', { name: 'Plex' })
   return screen.findByRole('heading', { name: 'Plex sign-in' })
 }
 
-describe('Settings > Security > Plex sign-in', () => {
+describe('Settings > Plex > Plex sign-in', () => {
   it('saves the switch, the Plex instance, the users and a user’s Root folders', async () => {
     const sent = fakePlexSettings()
     await openCard()
