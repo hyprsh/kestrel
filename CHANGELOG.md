@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.1](https://github.com/hyprsh/kestrel/compare/v0.8.0...v0.8.1) (2026-10-29)
+
+> Watch-ahead for Silo now counts Silo plays. In 0.8.0 every Silo catalog lookup was refused, so a Silo play never advanced a Request.
+
+### Bug Fixes
+
+* **silo:** Watch-ahead reads Silo's catalog as the API key's account's primary profile, or else one without parental limits, as Silo requires. Upgrading is all it takes ([#241](https://github.com/hyprsh/kestrel/pull/241))
+
 ## [0.8.0](https://github.com/hyprsh/kestrel/compare/v0.7.0...v0.8.0) (2026-10-29)
 
 > A Series requested in Silo can now come one season at a time as it is watched, the way Watch-ahead already works for Plex Requesters, with plays on Plex and Silo counted together. It is off until you switch it on ([ADR 0020](https://github.com/hyprsh/kestrel/blob/main/docs/adr/0020-watch-ahead-for-silo.md)).
