@@ -16,13 +16,16 @@ import (
 )
 
 type seen struct {
-	mu      sync.Mutex
-	history []string // raw queries of the history reads
-	items   []string // catalog item ids asked for
+	mu       sync.Mutex
+	history  []string // raw queries of the history reads
+	items    []string // catalog item ids asked for
+	profiles int      // reads of the profile list
 }
 
-// historyServer serves the fixture history in two pages by cursor, and the
-// catalog items the plays and the show lookups need.
+// historyServer serves the fixture history in two pages by cursor, the
+// account's profiles, and the catalog items the plays and the show lookups
+// need. Like Silo, it answers a catalog lookup only for a profile of the
+// account, named in X-Profile-Id.
 func historyServer(t *testing.T) (*httptest.Server, *seen) {
 	t.Helper()
 	read := func(name string) string {
@@ -49,7 +52,17 @@ func historyServer(t *testing.T) (*httptest.Server, *seen) {
 				return
 			}
 			_, _ = w.Write([]byte(read("history_page1.json")))
+		case r.URL.Path == "/api/v2/profiles":
+			s.mu.Lock()
+			s.profiles++
+			s.mu.Unlock()
+			_, _ = w.Write([]byte(read("profiles.json")))
 		case strings.HasPrefix(r.URL.Path, "/api/v2/catalog/items/"):
+			if r.Header.Get("X-Profile-Id") != "p-main" {
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				_, _ = w.Write([]byte(`{"status":422,"errors":[{"location":"header.x-profile-id","code":"required"}]}`))
+				return
+			}
 			id := strings.TrimPrefix(r.URL.Path, "/api/v2/catalog/items/")
 			s.mu.Lock()
 			s.items = append(s.items, id)
@@ -106,9 +119,51 @@ func TestPlaysPagesByCursorAndListsEpisodePlaysOldestFirst(t *testing.T) {
 	if strings.Contains(s.history[0], "cursor") || !strings.Contains(s.history[1], "cursor=c2") {
 		t.Errorf("reads %v, want no cursor first and c2 second", s.history)
 	}
-	// Each distinct episode is looked up once: ep-3, ep-2 and ep-gone.
+	// Each distinct episode is looked up once: ep-3, ep-2 and ep-gone, as
+	// the primary profile, which is read once.
 	if len(s.items) != 3 {
 		t.Errorf("catalog lookups = %v, want one per distinct episode", s.items)
+	}
+	if s.profiles != 1 {
+		t.Errorf("profile list reads = %d, want 1", s.profiles)
+	}
+}
+
+func TestCatalogLookupsFallBackToAProfileThatSeesEverything(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.URL.Path == "/api/v2/profiles":
+			_, _ = w.Write([]byte(`{"items":[
+				{"id":"p-kids","is_child":true,"library_restrictions_enabled":true},
+				{"id":"p-pin","has_pin":true},
+				{"id":"p-adult"}]}`))
+		case r.URL.Path == "/api/v2/catalog/items/show-1" && r.Header.Get("X-Profile-Id") == "p-adult":
+			_, _ = w.Write([]byte(`{"tvdb_id":"81189"}`))
+		default:
+			w.WriteHeader(http.StatusUnprocessableEntity)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	got, err := silo.New(nil).ShowGuids(t.Context(), conn(srv.URL, key), "show-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(got, " ") != "tvdb://81189" {
+		t.Errorf("guids = %v, want the lookup made as the unrestricted profile", got)
+	}
+}
+
+func TestCatalogLookupsNeedAProfileThatSeesEverything(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"items":[{"id":"p-kids","is_child":true,"max_content_rating":"PG"}]}`))
+	}))
+	t.Cleanup(srv.Close)
+	_, err := silo.New(nil).ShowGuids(t.Context(), conn(srv.URL, key), "show-1")
+	var pe *plugin.Error
+	if !errors.As(err, &pe) || pe.Code != plugin.CodeUnavailable {
+		t.Fatalf("err = %v, want unavailable for an account with only a restricted profile", err)
 	}
 }
 
