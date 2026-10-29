@@ -26,8 +26,9 @@ type historyEntry struct {
 	EpisodeNumber *int   `json:"episode_number"`
 }
 
-// get reads one Silo path with the admin key; a 404 comes back as found=false.
-func (c *Client) get(ctx context.Context, conn plugin.Connection, path string, q url.Values) (raw []byte, found bool, err error) {
+// get reads one Silo path with the admin key, acting as profile when it is set;
+// a 404 comes back as found=false.
+func (c *Client) get(ctx context.Context, conn plugin.Connection, path string, q url.Values, profile string) (raw []byte, found bool, err error) {
 	base, err := mediahttp.BaseURL(conn)
 	if err != nil {
 		return nil, false, err
@@ -37,9 +38,12 @@ func (c *Client) get(ctx context.Context, conn plugin.Connection, path string, q
 	if len(q) > 0 {
 		u += "?" + q.Encode()
 	}
+	header := map[string]string{"Authorization": "Bearer " + key, "Accept": "application/json"}
+	if profile != "" {
+		header["X-Profile-Id"] = profile
+	}
 	status, raw, err := mediahttp.Do(ctx, c.http, mediahttp.Request{
-		Method: http.MethodGet, URL: u, Name: "Silo", Secret: key, OKCodes: []int{http.StatusNotFound},
-		Header: map[string]string{"Authorization": "Bearer " + key, "Accept": "application/json"},
+		Method: http.MethodGet, URL: u, Name: "Silo", Secret: key, OKCodes: []int{http.StatusNotFound}, Header: header,
 	})
 	if err != nil {
 		return nil, false, err
@@ -56,6 +60,7 @@ func (c *Client) get(ctx context.Context, conn plugin.Connection, path string, q
 // Request, which keeps that short.
 func (c *Client) Plays(ctx context.Context, conn plugin.Connection, since time.Time) (mediaserver.Plays, error) {
 	var out mediaserver.Plays
+	profile := ""                 // read at the first catalog lookup
 	series := map[string]string{} // episode item id -> its show's id, "" when unknown
 	var newestFirst []mediaserver.Play
 	cursor := ""
@@ -67,7 +72,7 @@ func (c *Client) Plays(ctx context.Context, conn plugin.Connection, since time.T
 		if cursor != "" {
 			q.Set("cursor", cursor)
 		}
-		raw, _, err := c.get(ctx, conn, "/api/v2/admin/playback-history", q)
+		raw, _, err := c.get(ctx, conn, "/api/v2/admin/playback-history", q, "")
 		if err != nil {
 			return mediaserver.Plays{}, err
 		}
@@ -95,7 +100,12 @@ func (c *Client) Plays(ctx context.Context, conn plugin.Connection, since time.T
 			}
 			show, ok := series[e.MediaItemID]
 			if !ok {
-				if show, err = c.seriesOf(ctx, conn, e.MediaItemID); err != nil {
+				if profile == "" {
+					if profile, err = c.profile(ctx, conn); err != nil {
+						return mediaserver.Plays{}, err
+					}
+				}
+				if show, err = c.seriesOf(ctx, conn, profile, e.MediaItemID); err != nil {
 					return mediaserver.Plays{}, err
 				}
 				series[e.MediaItemID] = show
@@ -124,8 +134,42 @@ type catalogItem struct {
 	ImdbID   string `json:"imdb_id"`
 }
 
-func (c *Client) item(ctx context.Context, conn plugin.Connection, id string) (catalogItem, bool, error) {
-	raw, found, err := c.get(ctx, conn, "/api/v2/catalog/items/"+url.PathEscape(id), nil)
+// profile is the id of the profile catalog lookups act as. Silo's catalog
+// answers only for a profile of the key's account: its primary profile, or
+// else one that sees every library, so no parental limit hides an item.
+func (c *Client) profile(ctx context.Context, conn plugin.Connection) (string, error) {
+	raw, _, err := c.get(ctx, conn, "/api/v2/profiles", nil, "")
+	if err != nil {
+		return "", err
+	}
+	var body struct {
+		Items []struct {
+			ID                string `json:"id"`
+			IsPrimary         bool   `json:"is_primary"`
+			IsChild           bool   `json:"is_child"`
+			HasPin            bool   `json:"has_pin"`
+			LibraryRestricted bool   `json:"library_restrictions_enabled"`
+			MaxContentRating  string `json:"max_content_rating"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(raw, &body); err != nil {
+		return "", plugin.Errorf(plugin.CodeUnavailable, "that is not a Silo server (is the URL right?)")
+	}
+	for _, p := range body.Items {
+		if p.IsPrimary && p.ID != "" {
+			return p.ID, nil
+		}
+	}
+	for _, p := range body.Items {
+		if p.ID != "" && !p.IsChild && !p.HasPin && !p.LibraryRestricted && p.MaxContentRating == "" {
+			return p.ID, nil
+		}
+	}
+	return "", plugin.Errorf(plugin.CodeUnavailable, "the Silo API key's account has no profile that sees every library")
+}
+
+func (c *Client) item(ctx context.Context, conn plugin.Connection, profile, id string) (catalogItem, bool, error) {
+	raw, found, err := c.get(ctx, conn, "/api/v2/catalog/items/"+url.PathEscape(id), nil, profile)
 	if err != nil || !found {
 		return catalogItem{}, false, err
 	}
@@ -138,15 +182,19 @@ func (c *Client) item(ctx context.Context, conn plugin.Connection, id string) (c
 
 // seriesOf is the id of the show an episode belongs to; "" when Silo no longer
 // has the episode or it has no show.
-func (c *Client) seriesOf(ctx context.Context, conn plugin.Connection, episodeID string) (string, error) {
-	it, _, err := c.item(ctx, conn, episodeID)
+func (c *Client) seriesOf(ctx context.Context, conn plugin.Connection, profile, episodeID string) (string, error) {
+	it, _, err := c.item(ctx, conn, profile, episodeID)
 	return it.SeriesID, err
 }
 
 // ShowGuids reads a show's catalog item for its external ids, written the way
 // Plex writes them.
 func (c *Client) ShowGuids(ctx context.Context, conn plugin.Connection, showKey string) ([]string, error) {
-	it, found, err := c.item(ctx, conn, showKey)
+	profile, err := c.profile(ctx, conn)
+	if err != nil {
+		return nil, err
+	}
+	it, found, err := c.item(ctx, conn, profile, showKey)
 	if err != nil {
 		return nil, err
 	}

@@ -1,0 +1,7 @@
+{
+  "items": [
+    {"id": "p-kids", "name": "Kids", "is_primary": false, "is_child": true, "has_pin": false, "library_restrictions_enabled": true, "max_content_rating": "PG"},
+    {"id": "p-main", "name": "nd", "is_primary": true, "is_child": false, "has_pin": false, "library_restrictions_enabled": false, "max_content_rating": ""}
+  ],
+  "avatar_upload_enabled": true
+}
