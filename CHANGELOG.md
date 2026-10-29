@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/hyprsh/kestrel/compare/v0.6.0...v0.7.0) (2026-10-29)
+
+> Kestrel can now turn what people add to their Plex Watchlist into Requests, fetch a requested Series one season at a time as it is watched, and mark requested Titles in Plex. Each of these is off until you switch it on ([ADR 0019](https://github.com/hyprsh/kestrel/blob/main/docs/adr/0019-requests-from-plex-watchlists.md)).
+
+### New Features
+
+* **plex:** Four new switches in Settings > Security, or under `plex_sign_in` in the Config File, each off until set and each working only while Plex sign-in is on ([Requesters (Plex sign-in)](https://github.com/hyprsh/kestrel#requesters-plex-sign-in)). `watchlist` turns new entries on the Watchlists of the server owner and of friends who may request into Requests. A friend's Watchlist is read only once they make it visible, and nothing already on a Watchlist is requested. `watch_ahead` makes a Requester's Series Request start with season 1, then adds the next season once anyone has watched 2 episodes of the newest one. `labels` marks requested Titles in Plex with "Requested" and "Requested by <name>" labels and a "Requested" smart collection per section. `poster_badge` puts a "Requested" badge on their posters for `poster_badge_days` days (30 unless set), then restores the original poster. Turning a switch off takes back what Kestrel added in Plex. Plex keeps an uploaded badge image in the item's poster list, unselected, because it has no API to delete it ([#236](https://github.com/hyprsh/kestrel/pull/236))
+
 ## [0.6.0](https://github.com/hyprsh/kestrel/compare/v0.5.0...v0.6.0) (2026-10-26)
 
 > The people you share your Plex server with can now sign in to Kestrel with their Plex account and ask for Movies and Series themselves, from the browser or the installed app, with no Seerr in between ([ADR 0018](https://github.com/hyprsh/kestrel/blob/main/docs/adr/0018-requesters-sign-in-with-plex.md)).
