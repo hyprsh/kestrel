@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.8.0](https://github.com/hyprsh/kestrel/compare/v0.7.0...v0.8.0) (2026-10-29)
+
+> A Series requested in Silo can now come one season at a time as it is watched, the way Watch-ahead already works for Plex Requesters, with plays on Plex and Silo counted together. It is off until you switch it on ([ADR 0020](https://github.com/hyprsh/kestrel/blob/main/docs/adr/0020-watch-ahead-for-silo.md)).
+
+### Upgrade Steps
+
+* **[ACTION REQUIRED]** To use Watch-ahead for Silo, switch it on in Settings > Silo or declare `silo` in the Config File, and name the Silo media server instance whose playback history Kestrel reads. Its API key must be a Silo admin key (`sa_...`). Update the Kestrel plugin in Silo to get its Watch-ahead option ([#238](https://github.com/hyprsh/kestrel/pull/238))
+
+### New Features
+
+* **silo:** Watch-ahead for Silo. A Silo Series Request that names no seasons starts with season 1, and Kestrel adds the next season once anyone, on any Silo account or profile, has watched 2 episodes of the newest one. Plays on Plex count too while `plex_sign_in` has `watch_ahead` on. The Kestrel plugin in Silo has a Watch-ahead option (Kestrel default, On or Off) that Silo request routes can override, and a Silo user who asks for specific seasons gets them at once. `POST /requests` takes an optional `watch_ahead` for any source ([Watch-ahead for Silo](https://github.com/hyprsh/kestrel#watch-ahead-for-silo), [#238](https://github.com/hyprsh/kestrel/pull/238))
+
+### Other Changes
+
+* **web:** Plex sign-in and its switches moved from Settings > Security to their own Settings > Plex section, and the reverse proxy to Settings > Reverse proxy. Both, and the new Silo section, are in the Settings jump list and the phone's Settings list ([#238](https://github.com/hyprsh/kestrel/pull/238))
+
 ## [0.7.0](https://github.com/hyprsh/kestrel/compare/v0.6.0...v0.7.0) (2026-10-29)
 
 > Kestrel can now turn what people add to their Plex Watchlist into Requests, fetch a requested Series one season at a time as it is watched, and mark requested Titles in Plex. Each of these is off until you switch it on ([ADR 0019](https://github.com/hyprsh/kestrel/blob/main/docs/adr/0019-requests-from-plex-watchlists.md)).
