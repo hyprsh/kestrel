@@ -1,15 +1,18 @@
 // The Log: what Kestrel did, filtered by one field of qualifiers (kind:, slot:, title:,
 // routine:) and free text, with routine events hidden until asked for; and the Blocklist view,
 // where an entry can be removed.
-import { Badge, Button, EmptyState, Entity, Link, Note, Table, Tabs, parseQuery, termText, withValue, type BadgeProps } from '@hyprsh/design'
+import { Badge, Button, EmptyState, Entity, Link, Note, Pager, Table, Tabs, parseQuery, termText, withValue, type BadgeProps } from '@hyprsh/design'
 import { useMemo, useState } from 'react'
 import { useBlocklist, useEvents, useUnblock, type LogEvent } from '../api/log'
 import { useTitles } from '../api/queries'
 import { matchText } from '../fuzzy'
 import { FilterBar } from '../filter/FilterBar'
 import { FilterStrip } from '../layout/FilterStrip'
+import { PagerStrip } from '../layout/PagerStrip'
 import { useKey, useListNav } from '../keys'
-import { SkeletonRow, SkeletonRows } from '../loading'
+import { ResetColumnWidths, useColumnWidths } from '../layout/columnWidths'
+import { SkeletonRow, SkeletonRows, TableSkeletonRows } from '../loading'
+import { usePageParam } from '../place'
 import { usePhone } from '../responsive'
 import { useReport } from '../toasts'
 import { logFilter, logQualifiers } from './filter'
@@ -49,7 +52,10 @@ const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyl
 
 /** `query` is the filter field's text, kept by the Shell so it can live in the address bar. */
 export function Log({ query, onQuery }: { query: string; onQuery: (query: string) => void }) {
+  const phone = usePhone()
   const [view, setView] = useState<'log' | 'blocklist'>('log')
+  const [, setPage] = usePageParam()
+  const widths = useColumnWidths('log')
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <FilterStrip>
@@ -57,14 +63,22 @@ export function Log({ query, onQuery }: { query: string; onQuery: (query: string
           variant="secondary"
           aria-label="Log views"
           selected={view}
-          onChange={(v) => setView(v as 'log' | 'blocklist')}
+          onChange={(v) => {
+            setView(v as 'log' | 'blocklist')
+            setPage(1)
+          }}
           tabs={[
             { value: 'log', title: 'Log' },
             { value: 'blocklist', title: 'Blocklist' },
           ]}
         />
+        {view === 'log' && !phone && (
+          <span className="ml-auto">
+            <ResetColumnWidths columns={widths} />
+          </span>
+        )}
       </FilterStrip>
-      {view === 'log' ? <Events query={query} onQuery={onQuery} /> : <Blocklist />}
+      {view === 'log' ? <Events query={query} onQuery={onQuery} widths={widths} /> : <Blocklist />}
     </div>
   )
 }
@@ -75,6 +89,9 @@ const eventColumns = [
   { key: 'kind', header: 'Kind' },
   { key: 'event', header: 'Event' },
 ]
+
+/** Events per page. */
+const PAGE_SIZE = 50
 
 /** The Blocklist's two columns. */
 const blockColumns = [
@@ -87,7 +104,7 @@ function useTitleNames() {
   return useMemo(() => ({ list: titles, names: new Map((titles ?? []).map((t) => [t.id, t.title])) }), [titles])
 }
 
-function Events({ query, onQuery }: { query: string; onQuery: (query: string) => void }) {
+function Events({ query, onQuery, widths }: { query: string; onQuery: (query: string) => void; widths: ReturnType<typeof useColumnWidths> }) {
   const phone = usePhone()
   const [sel, setSel] = useState(0)
   const { list: titles, names } = useTitleNames()
@@ -97,10 +114,24 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
   // A title: filter names Titles, so it waits for the Library to know which.
   const events = useEvents(logFilter(parsed, titles ?? []), !byTitle || titles !== undefined)
 
-  const eventSkeleton = [0, 1, 2, 3, 4, 5].map((i) => <Table.SkeletonRow key={i} index={i} columns={eventColumns} />)
+  const [page, setPage] = usePageParam()
   const shown = useMemo(() => (events.data ?? []).filter((e) => matchText(parsed.text, [e.message, names.get(e.title_id ?? -1) ?? ''])), [events.data, parsed.text, names])
 
-  useListNav('log', shown.length, sel, setSel)
+  // A page past the last one (a filter that shrank the list, a stale address) shows the last page.
+  const shownPage = Math.min(page, Math.max(1, Math.ceil(shown.length / PAGE_SIZE)))
+  const pageRows = useMemo(() => shown.slice((shownPage - 1) * PAGE_SIZE, shownPage * PAGE_SIZE), [shown, shownPage])
+  const toPage = (next: number) => {
+    setPage(next)
+    setSel(0)
+  }
+  // A new filter starts at the first page.
+  const filterTo = (q: string) => {
+    setPage(1)
+    setSel(0)
+    onQuery(q)
+  }
+
+  useListNav('log', pageRows.length, Math.min(sel, Math.max(pageRows.length - 1, 0)), setSel)
   useKey('/', (e) => {
     e.preventDefault()
     document.getElementById('log-filter')?.focus()
@@ -109,7 +140,7 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <FilterStrip>
-        <FilterBar id="log-filter" label="Filter the Log" placeholder="Filter, e.g. kind:failures slot:4k …  /" value={query} onChange={onQuery} qualifiers={qualifiers} />
+        <FilterBar id="log-filter" label="Filter the Log" placeholder="Filter, e.g. kind:failures slot:4k …  /" value={query} onChange={filterTo} qualifiers={qualifiers} />
       </FilterStrip>
       <div className="min-h-0 flex-1 overflow-auto">
         {events.isError && <Note variant="error">The Log could not be loaded.</Note>}
@@ -123,7 +154,7 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
           <div className="p-4">
             <Entity.List aria-label="Events" aria-busy={events.isPending || undefined}>
               {events.isPending && [0, 1, 2, 3, 4, 5].map((i) => <SkeletonRow key={i} index={i} />)}
-              {shown.map((e, i) => (
+              {pageRows.map((e, i) => (
                 <PhoneEvent
                   key={e.id}
                   e={e}
@@ -131,29 +162,39 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
                   sel={sel}
                   onSelect={() => setSel(i)}
                   title={names.get(e.title_id ?? -1)}
-                  onFilter={(name, value) => onQuery(withValue(query, name, value, qualifiers))}
+                  onFilter={(name, value) => filterTo(withValue(query, name, value, qualifiers))}
                 />
               ))}
             </Entity.List>
           </div>
         ) : (
           <Table.Root>
-            <Table aria-label="Events" aria-busy={events.isPending || undefined}>
-              <Table.Colgroup>
-                <Table.Col style={{ width: 160 }} />
-                <Table.Col style={{ width: 128 }} />
-                <Table.Col />
-              </Table.Colgroup>
+            {/* The widths are measured from the first rows, so the loading table (skeleton rows) is a table of its own. */}
+            <Table
+              key={events.isPending ? 'loading' : 'ready'}
+              aria-label="Events"
+              aria-busy={events.isPending || undefined}
+              stickyHeader
+              columnWidths={widths.widths}
+              onColumnWidthsChange={widths.onChange}
+            >
               <Table.Header>
                 <Table.Row>
-                  <Table.Head className="label-12-strong">When</Table.Head>
-                  <Table.Head className="label-12-strong">Kind</Table.Head>
-                  <Table.Head className="label-12-strong">Event</Table.Head>
+                  <Table.Head className="label-12-strong" resizable={!events.isPending} columnKey="when" width={176} minWidth={120} maxWidth={320}>
+                    When
+                  </Table.Head>
+                  <Table.Head className="label-12-strong" resizable={!events.isPending} columnKey="kind" width={128} minWidth={96} maxWidth={240}>
+                    Kind
+                  </Table.Head>
+                  {/* The message column takes the rest of the row, so When and Kind are what resize it; its text still wraps. */}
+                  <Table.Head className="label-12-strong" truncate>
+                    Event
+                  </Table.Head>
                 </Table.Row>
               </Table.Header>
               <Table.Body bordered interactive>
-                {events.isPending && eventSkeleton}
-                {shown.map((e, i) => (
+                {events.isPending && <TableSkeletonRows columns={eventColumns} />}
+                {pageRows.map((e, i) => (
                   <EventRow
                     key={e.id}
                     e={e}
@@ -161,7 +202,7 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
                     selected={i === sel}
                     title={names.get(e.title_id ?? -1)}
                     onSelect={() => setSel(i)}
-                    onFilter={(name, value) => onQuery(withValue(query, name, value, qualifiers))}
+                    onFilter={(name, value) => filterTo(withValue(query, name, value, qualifiers))}
                   />
                 ))}
               </Table.Body>
@@ -169,6 +210,11 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
           </Table.Root>
         )}
       </div>
+      {shown.length > PAGE_SIZE && (
+        <PagerStrip>
+          <Pager aria-label="Log pages" page={shownPage} pageSize={PAGE_SIZE} total={shown.length} onPageChange={toPage} />
+        </PagerStrip>
+      )}
     </div>
   )
 }
@@ -249,7 +295,6 @@ function Blocklist() {
   const [sel, setSel] = useState(0)
   const items = list.data ?? []
   useListNav('block', items.length, sel, setSel)
-  const skeleton = [0, 1, 2, 3, 4].map((i) => <Table.SkeletonRow key={i} index={i} columns={blockColumns} />)
 
   return (
     <div className="min-h-0 flex-1 overflow-auto">
@@ -309,7 +354,7 @@ function Blocklist() {
               </Table.Row>
             </Table.Header>
             <Table.Body bordered interactive>
-              {list.isPending && skeleton}
+              {list.isPending && <TableSkeletonRows columns={blockColumns} count={5} />}
               {items.map((b, i) => (
                 <Table.Row key={b.id} data-nav={`block-${i}`} current={i === sel} onClick={() => setSel(i)}>
                   <Table.Cell truncate>
