@@ -80,11 +80,11 @@ describe('Settings, Display', () => {
     return heading.closest('section') as HTMLElement
   }
 
-  it('shows the four settings at their defaults', async () => {
+  it('shows the three settings it offers at their defaults', async () => {
     serveDisplay()
     const section = await openDisplay()
     expect(within(section).getByRole('combobox', { name: 'Season order' })).toHaveValue('oldest_first')
-    expect(within(section).getByRole('combobox', { name: 'Seasons open by default' })).toHaveValue('latest_and_wanted')
+    expect(within(section).queryByRole('combobox', { name: 'Seasons open by default' })).not.toBeInTheDocument()
     expect(within(section).getByRole('combobox', { name: 'Manual search sort' })).toHaveValue('best_first')
     expect(within(section).getByRole('combobox', { name: 'Show' })).toHaveValue('all')
     expect(within(section).getByRole('checkbox', { name: 'Wanted only' })).not.toBeChecked()
@@ -132,7 +132,7 @@ describe('Settings, Display', () => {
     const section = await openDisplay()
     expect(within(section).getByRole('combobox', { name: 'Season order' })).toBeDisabled()
     expect(within(section).getByRole('combobox', { name: 'Season order' })).toHaveValue('newest_first')
-    expect(within(section).getByRole('combobox', { name: 'Seasons open by default' })).toBeEnabled()
+    expect(within(section).getByRole('combobox', { name: 'Manual search sort' })).toBeEnabled()
     expect(within(section).getByText(/The Config File sets/)).toBeInTheDocument()
   })
 })

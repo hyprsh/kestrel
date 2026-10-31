@@ -57,9 +57,10 @@ type UpcomingFilters struct {
 	HideImported bool   `json:"hide_imported"`
 }
 
-// Display is the four settings.
+// Display is the four settings (three the UI offers; see SeasonsOpen).
 type Display struct {
-	SeasonOrder      string          `json:"season_order"`
+	SeasonOrder string `json:"season_order"`
+	// SeasonsOpen is kept for the Config File and API, which still accept it, but nothing reads it: the Title page has season tabs.
 	SeasonsOpen      string          `json:"seasons_open"`
 	ManualSearchSort string          `json:"manual_search_sort"`
 	UpcomingFilters  UpcomingFilters `json:"upcoming_filters"`
