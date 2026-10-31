@@ -8,6 +8,7 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/library"
+	"github.com/hyprsh/kestrel/internal/metadata"
 )
 
 // RemoverLibrary is the part of the Library a Remover needs; *library.Service
@@ -32,6 +33,10 @@ type RemoverDeps struct {
 	// Health clears the Title gone upstream row of a removed Title; may be nil.
 	Health interface {
 		Clear(ctx context.Context, key string) error
+	}
+	// Posters drops the cached poster of a removed Title; may be nil.
+	Posters interface {
+		Remove(kind metadata.Kind, tmdbID int)
 	}
 	// FolderChanged is told the Title folder files were deleted from; may be nil.
 	FolderChanged func(ctx context.Context, folder string)
@@ -103,6 +108,13 @@ func (r *Remover) DeleteTitle(ctx context.Context, titleID int64, deleteFiles bo
 		if err := r.d.Health.Clear(ctx, health.GoneUpstreamKey(titleID)); err != nil {
 			return err
 		}
+	}
+	if r.d.Posters != nil {
+		kind := metadata.Movie
+		if d.Kind == library.Series {
+			kind = metadata.Series
+		}
+		r.d.Posters.Remove(kind, d.TMDBID)
 	}
 	if deleteFiles {
 		for _, f := range gone.Files {
