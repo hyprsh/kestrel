@@ -40,11 +40,11 @@ export function StatusBadge({ state, longMissing }: { state: State; longMissing?
   )
 }
 
-export type Dot = { state: 'success' | 'info' | 'warning' | 'error' | 'neutral'; variant?: 'outline' | 'dashed' }
+export type Dot = { state: 'success' | 'info' | 'warning' | 'error' | 'neutral'; variant?: 'outline' | 'dashed'; faint?: boolean }
 
 /** The StatusDot of a Slot's Version (null: no Version in the Slot). */
 export function dotOf(state: State | null, longMissing: boolean): Dot {
-  if (state === null) return { state: 'neutral', variant: 'outline' } // no Version in the Slot
+  if (state === null) return { state: 'neutral', faint: true } // no Version in the Slot: the quietest mark, so it never competes with Wanted
   if (longMissing) return { state: 'error', variant: 'outline' }
   switch (state) {
     case 'filled':
@@ -60,14 +60,18 @@ export function dotOf(state: State | null, longMissing: boolean): Dot {
   }
 }
 
-/** One dot per Slot: filled green when there is a file, hollow amber while Wanted, red when Long Missing. */
+/** The faint dot of a Slot with no Version is dimmed with this class. */
+export const faintDot = 'opacity-40'
+
+/** One dot per Slot: filled green when there is a file, hollow amber while Wanted, red when Long Missing, a faint dot with no Version. The row is one image named for every Slot. */
 export function SlotDots({ slots }: { slots: Record<SlotKey, { state: string; long_missing: boolean } | null> }) {
+  const name = slotKeys.map((k) => `${slotLabel[k]}: ${slots[k] ? versionStatus(slots[k].state, slots[k].long_missing).label : 'no Version'}`).join(', ')
   return (
-    <span className="flex items-center gap-1">
+    <span role="img" aria-label={name} className="flex items-center gap-1">
       {slotKeys.map((k) => {
         const s = slots[k]
         const dot = dotOf(s ? s.state : null, !!s?.long_missing)
-        return <StatusDot key={k} state={dot.state} variant={dot.variant} label={false} title={`${slotLabel[k]}: ${s ? versionStatus(s.state, s.long_missing).label : 'no Version'}`} />
+        return <StatusDot key={k} state={dot.state} variant={dot.variant} label={false} aria-hidden className={dot.faint ? faintDot : undefined} />
       })}
     </span>
   )
