@@ -1,14 +1,9 @@
-import { QueryClient } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { App } from '../App'
 import type { components } from '../api/schema.gen'
-import { http } from '../test/handlers'
-import { server } from '../test/server'
+import { SearchSummary } from './SearchSummary'
 
 type SearchStatus = components['schemas']['SearchStatus']
-
-const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
 const status = (over: Partial<SearchStatus> = {}): SearchStatus => ({
   due: { versions: 0, episodes: 0, upgrades: 0 },
@@ -30,50 +25,43 @@ const indexer = (over: Partial<SearchStatus['indexers'][number]> = {}): SearchSt
   ...over,
 })
 
-function fakeStatus(s: SearchStatus) {
-  server.use(http.get('/search/status', ({ response }) => response(200).json(s)))
+/** The summary of `s`, in a region of its own. */
+function card(s: SearchStatus) {
+  render(
+    <section aria-label="Searching">
+      <SearchSummary status={s} />
+    </section>,
+  )
+  return screen.getByRole('region', { name: 'Searching' })
 }
 
-async function card() {
-  renderApp()
-  const region = await screen.findByRole('region', { name: 'Searching' })
-  await waitFor(() => expect(region.querySelector('[aria-busy]')).toBeNull()) // a Skeleton stands in until the status arrives
-  return region
-}
-
-describe('the Searching card on the Overview', () => {
-  it('shows what waits, how far the pass has got, the episodes and the Upgrade searches', async () => {
-    fakeStatus(status({ due: { versions: 120, episodes: 340, upgrades: 8 }, pass: { started_at: new Date().toISOString(), done: 15, total: 40 } }))
-
-    const c = await card()
+describe('the search summary in the Searching stage of Activity', () => {
+  it('shows what waits, how far the pass has got, the episodes and the Upgrade searches', () => {
+    const c = card(status({ due: { versions: 120, episodes: 340, upgrades: 8 }, pass: { started_at: new Date().toISOString(), done: 15, total: 40 } }))
 
     expect(c).toHaveTextContent('120 Wanted waiting · searching 15 of 40')
     expect(c).toHaveTextContent('340 Wanted episodes in the Series among them')
     expect(c).toHaveTextContent('8 Versions due an Upgrade search · 5 Upgrade searches per pass')
   })
 
-  it('lays the summary out as terms and values', async () => {
-    fakeStatus(status({ due: { versions: 120, episodes: 340, upgrades: 8 }, last_pass: { finished_at: new Date().toISOString(), searched: 40, grabbed: 3 } }))
+  it('lays the summary out as terms and values', () => {
+    const c = card(status({ due: { versions: 120, episodes: 340, upgrades: 8 }, last_pass: { finished_at: new Date().toISOString(), searched: 40, grabbed: 3 } }))
 
-    const c = await card()
-
-    const term = await within(c).findByText('Last Pass')
+    const term = within(c).getByText('Last Pass')
     expect(term.closest('dl')).toHaveTextContent(/searched 40 Wanted Versions/)
     expect(within(c).getByText('Waiting').closest('dl')).toHaveTextContent('120 Wanted waiting')
   })
 
-  it('says when the next pass starts and how the last one went', async () => {
+  it('says when the next pass starts and how the last one went', () => {
     const finished = new Date(Date.now() - 2 * 60_000).toISOString()
-    fakeStatus(status({ next_pass_at: new Date(Date.now() + 3 * 60_000).toISOString(), last_pass: { finished_at: finished, searched: 40, grabbed: 3 } }))
-
-    const c = await card()
+    const c = card(status({ next_pass_at: new Date(Date.now() + 3 * 60_000).toISOString(), last_pass: { finished_at: finished, searched: 40, grabbed: 3 } }))
 
     expect(c).toHaveTextContent('Nothing waiting · next pass in 3 min')
     expect(c).toHaveTextContent(/Last pass at \d{1,2}:\d{2}.*searched 40 Wanted Versions and made 3 Grabs/)
   })
 
-  it('names an indexer that holds the sweeps back, and until when', async () => {
-    fakeStatus(
+  it('names an indexer that holds the sweeps back, and until when', () => {
+    const c = card(
       status({
         due: { versions: 25, episodes: 0, upgrades: 0 },
         indexers: [
@@ -85,16 +73,14 @@ describe('the Searching card on the Overview', () => {
       }),
     )
 
-    const c = await card()
-
     expect(c).not.toHaveTextContent('NZBgeek')
     expect(c).toHaveTextContent(/Alpha paused until \d{1,2}:\d{2}.* \(request limit\)/)
     expect(c).toHaveTextContent('Beta out of budget for sweeps: 400 of 500 searches today')
     expect(c).toHaveTextContent(/Gamma backing off after errors until \d{1,2}:\d{2}/)
   })
 
-  it("shows each indexer's searches left today when its limit is known", async () => {
-    fakeStatus(
+  it("shows each indexer's searches left today when its limit is known", () => {
+    const c = card(
       status({
         indexers: [
           indexer({ search_used: 30, search_max: 500 }),
@@ -103,8 +89,6 @@ describe('the Searching card on the Overview', () => {
         ],
       }),
     )
-
-    const c = await card()
 
     expect(c).toHaveTextContent('NZBgeek: 470 of 500 searches left today')
     expect(c).toHaveTextContent(/Alpha paused until \d{1,2}:\d{2}.* \(request limit\) · 0 of 100 searches left today/)

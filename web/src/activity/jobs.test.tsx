@@ -135,11 +135,12 @@ describe('Background jobs', () => {
     await waitFor(async () => expect(await rowOf(section, 'RSS')).toHaveTextContent('Running now'))
   })
 
-  it('is where the Overview’s Searching card points', async () => {
+  it('is where the Overview’s Searching chip points', async () => {
+    history.replaceState(null, '', '/')
     render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
-    const card = await screen.findByRole('region', { name: 'Searching' })
-    await userEvent.click(within(card).getByRole('button', { name: 'Background jobs' }))
+    const chips = await screen.findByRole('group', { name: 'Status' })
+    await userEvent.click(await within(chips).findByRole('button', { name: /waiting|Searching/ }))
 
     expect(await screen.findByRole('region', { name: /^Background jobs/ })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /^Background Jobs/ })).toHaveAttribute('aria-selected', 'true')

@@ -28,19 +28,22 @@ describe('Recent requests on the Overview', () => {
     ).toEqual([1, 2, 3, 4, 5].map((n) => expect.stringContaining(`Movie ${n}`)))
     expect(queries[0].get('limit')).toBe('5')
 
-    await userEvent.click(within(s).getByRole('button', { name: 'View all 12 →' }))
+    await userEvent.click(within(s).getByRole('button', { name: 'All requests →' }))
     expect(await screen.findByRole('combobox', { name: 'Filter Requests' })).toHaveValue('')
   })
 
-  it('says who asked through what and when, and the seasons asked for', async () => {
-    fakeRequests([request({ title: 'Severance', seasons: [1, 2], requester: { id: 'u-2', name: 'Ben' }, source: 'jellyseerr' }), request({ id: 2 })])
+  it('is a compact row: the poster, the Title and who asked, without the source, time or seasons', async () => {
+    fakeRequests([request({ title: 'Severance', title_id: 7, has_poster: true, seasons: [1, 2], requester: { id: 'u-2', name: 'Ben' }, source: 'jellyseerr' }), request({ id: 2, title_id: null })])
     renderApp()
 
     const [series, movie] = await rows()
-    expect(series).toHaveTextContent('Ben via Jellyseerr · 2 h ago')
-    expect(series).toHaveTextContent('Seasons 1, 2')
-    expect(movie).toHaveTextContent('Anna via Silo · 2 h ago')
-    expect(movie).not.toHaveTextContent('Season')
+    expect(series).toHaveTextContent('Severance')
+    expect(series).toHaveTextContent('Ben')
+    expect(series).not.toHaveTextContent('Jellyseerr')
+    expect(series).not.toHaveTextContent('Seasons')
+    expect(series.querySelector('img')).toHaveAttribute('src', expect.stringContaining('/titles/7/poster'))
+    expect(movie).toHaveTextContent('Anna')
+    expect(movie.querySelector('[data-poster]')).toBeInTheDocument()
   })
 
   it('badges each Slot with where it stands', async () => {
@@ -72,7 +75,7 @@ describe('Recent requests on the Overview', () => {
     expect(await within(item).findByText('Standard · Downloading 75%')).toBeInTheDocument()
   })
 
-  it('names a rejected Request by what was asked for, says why in words and links to the fix', async () => {
+  it('names a rejected Request by what was asked for and says why in words', async () => {
     fakeRequests([
       request({
         id: 3,
@@ -95,9 +98,6 @@ describe('Recent requests on the Overview', () => {
     expect(tvdb).toHaveTextContent('TheTVDB does not list this Series')
     expect(unknown).toHaveTextContent('Unknown title')
     expect(unknown).toHaveTextContent('TMDB does not know this Title')
-
-    await userEvent.click(within(profile).getByRole('button', { name: 'Enable a Profile' }))
-    expect(await screen.findByRole('region', { name: 'Profiles' })).toBeInTheDocument()
   })
 
   it('opens the Title from its row', async () => {
@@ -118,7 +118,7 @@ describe('Recent requests on the Overview', () => {
     await rows()
 
     await userEvent.keyboard('j')
-    expect(document.querySelector('[aria-current="true"]')).toHaveTextContent('Anna via Silo')
+    expect(document.querySelector('[aria-current="true"]')).toHaveTextContent('Anna')
     await userEvent.keyboard('{Enter}')
     expect(await screen.findByRole('region', { name: /paddington/i })).toBeInTheDocument()
   })

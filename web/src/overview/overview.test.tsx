@@ -11,22 +11,44 @@ import { findToast } from '../test/toasts'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
+/** Cancel is in the row's menu. */
+async function cancel(label: string) {
+  await userEvent.click(await screen.findByRole('button', { name: /^Actions for / }))
+  await userEvent.click(await screen.findByRole('menuitem', { name: label }))
+}
+
 describe('Overview', () => {
-  it('is the home screen and shows "Downloading now" with phase, progress, ETA and Slot', async () => {
+  it('is the home screen and shows "Downloading now" as one line per Grab: the Title, a progress bar, the percentage and the time left', async () => {
     fakeQueue([item()])
     renderApp()
 
     const section = await screen.findByRole('region', { name: /downloading now/i })
     const row = await within(section).findByRole('listitem')
     expect(row).toHaveTextContent('Paddington')
-    expect(row).toHaveTextContent('2014')
-    expect(row).toHaveTextContent('Standard')
-    expect(row).toHaveTextContent('Downloading')
-    expect(row).toHaveTextContent('Paddington.2014.1080p.BluRay.x264-GRP')
     expect(within(row).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '75')
-    expect(row).toHaveTextContent('75%')
-    expect(row).toHaveTextContent('2 min left')
+    expect(row).toHaveTextContent('75% · 2 min')
+    // The release name, byte counts and Slot are on Activity.
+    expect(row).not.toHaveTextContent('Paddington.2014.1080p.BluRay.x264-GRP')
+    expect(row).not.toHaveTextContent('Standard')
     expect(within(row).queryByText('Upgrade')).not.toBeInTheDocument()
+  })
+
+  it('names the episodes of a Series Grab after the Title', async () => {
+    fakeQueue([item({ title: 'Severance', kind: 'series', episodes: ['S02E04'] })])
+    renderApp()
+
+    const row = await within(await screen.findByRole('region', { name: /downloading now/i })).findByRole('listitem')
+    expect(row).toHaveTextContent('Severance S02E04')
+  })
+
+  it('links "All activity" to Activity', async () => {
+    fakeQueue([item()])
+    renderApp()
+
+    const section = await screen.findByRole('region', { name: /downloading now/i })
+    await userEvent.click(await within(section).findByRole('button', { name: 'All activity →' }))
+
+    expect(location.pathname).toBe('/activity')
   })
 
   it("shows the Title's poster as a small lazy thumbnail", async () => {
@@ -50,24 +72,14 @@ describe('Overview', () => {
     expect(deleted.querySelector('[data-poster]')).not.toBeInTheDocument()
   })
 
-  it('opens the Title from its name', async () => {
+  it('opens the Title from its row', async () => {
     fakeQueue([item({ title_id: 1 })])
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     renderApp()
 
     const section = await screen.findByRole('region', { name: /downloading now/i })
-    await userEvent.click(await within(section).findByRole('button', { name: 'Paddington' }))
-
-    expect(await screen.findByRole('region', { name: /paddington/i })).toBeInTheDocument()
-  })
-
-  it('opens the Title from its poster', async () => {
-    fakeQueue([item({ title_id: 1, has_poster: true })])
-    fakeLibrary([row(1, 'Paddington', 'Paddington')])
-    renderApp()
-
-    const listItem = await within(await screen.findByRole('region', { name: /downloading now/i })).findByRole('listitem')
-    await userEvent.click(listItem.querySelector('img')!)
+    const [listItem] = await within(section).findAllByRole('listitem')
+    await userEvent.click(within(listItem).getAllByRole('button', { hidden: true })[0]) // the row's whole-row button
 
     expect(await screen.findByRole('region', { name: /paddington/i })).toBeInTheDocument()
   })
@@ -77,20 +89,11 @@ describe('Overview', () => {
     renderApp()
 
     const listItem = await within(await screen.findByRole('region', { name: /downloading now/i })).findByRole('listitem')
-    expect(within(listItem).queryByRole('button', { name: 'Deleted Title' })).not.toBeInTheDocument()
+    await userEvent.click(within(listItem).getAllByRole('button', { hidden: true })[0])
+    expect(screen.queryByRole('region', { name: /deleted title/i })).not.toBeInTheDocument()
   })
 
-  it('badges an Upgrade with how many points it gains', async () => {
-    fakeQueue([item({ is_upgrade: true, score_delta: 120 })])
-    renderApp()
-
-    const row = await within(await screen.findByRole('region', { name: /downloading now/i })).findByRole('listitem')
-
-    expect(within(row).getByText('Upgrade')).toBeInTheDocument()
-    expect(row).toHaveTextContent('+120')
-  })
-
-  it('shows a download that finished as importing, and a paused, queued or post-processing one as such', async () => {
+  it('shows a download that finished as importing, and a paused, queued or post-processing one as such, without a bar when the size is unknown', async () => {
     fakeQueue([
       item({ grab_id: 1, phase: 'importing', bytes_left: 0, eta: null }),
       item({ grab_id: 2, phase: 'paused', release_name: 'B', eta: null }),
@@ -119,7 +122,7 @@ describe('Overview', () => {
     const state = fakeQueue([item()])
     renderApp()
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+    await cancel('Cancel')
 
     expect(await screen.findByText(/nothing is downloading/i)).toBeInTheDocument()
     expect(state.cancels).toEqual([{ id: '1', body: { blocklist: false } }])
@@ -130,7 +133,7 @@ describe('Overview', () => {
     const state = fakeQueue([item()])
     renderApp()
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Cancel and blocklist' }))
+    await cancel('Cancel and blocklist')
 
     expect(await screen.findByText(/nothing is downloading/i)).toBeInTheDocument()
     expect(state.cancels).toEqual([{ id: '1', body: { blocklist: true } }])
@@ -144,9 +147,9 @@ describe('Overview', () => {
     )
     renderApp()
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+    await cancel('Cancel')
 
     expect(await findToast('Could not cancel the Grab: client offline')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Actions for Paddington/ })).toBeInTheDocument()
   })
 })
