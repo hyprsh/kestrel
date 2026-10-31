@@ -3,7 +3,8 @@
 -- row per Title folder change that settled (see imports.Refresher), read by
 -- `GET /folder-changes` through a marker `fc1:<id>`. The daily prune deletes a
 -- prefix of ids older than 30 days and never the newest row, so a marker's
--- answerability is decided by the id range alone.
+-- answerability is decided by the id range alone. `at` is RFC 3339, UTC, whole
+-- seconds.
 CREATE TABLE folder_changes (
     id   INTEGER PRIMARY KEY AUTOINCREMENT,
     at   TEXT NOT NULL,

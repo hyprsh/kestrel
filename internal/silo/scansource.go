@@ -65,7 +65,7 @@ func (s *ScanSource) PollChanges(ctx context.Context, req *pluginv1.PollChangesR
 	defer cancel()
 
 	marker := req.GetMarker()
-	var kinds []folderChange // one per path, in first-seen order, the last kind winning
+	var changes []folderChange // one per path, in first-seen order, the last kind winning
 	index := map[string]int{}
 	for page := 1; ; page++ {
 		got, err := cl.folderChanges(ctx, marker)
@@ -89,11 +89,11 @@ func (s *ScanSource) PollChanges(ctx context.Context, req *pluginv1.PollChangesR
 				continue
 			}
 			if i, ok := index[p]; ok {
-				kinds[i].Kind = c.Kind
+				changes[i].Kind = c.Kind
 				continue
 			}
-			index[p] = len(kinds)
-			kinds = append(kinds, folderChange{Path: p, Kind: c.Kind})
+			index[p] = len(changes)
+			changes = append(changes, folderChange{Path: p, Kind: c.Kind})
 		}
 		marker = got.NextMarker
 		if !got.More || page == maxPollPages {
@@ -102,7 +102,7 @@ func (s *ScanSource) PollChanges(ctx context.Context, req *pluginv1.PollChangesR
 	}
 
 	resp := &pluginv1.PollChangesResponse{NextMarker: marker}
-	for _, c := range kinds {
+	for _, c := range changes {
 		resp.Changes = append(resp.Changes, changeFor(c))
 	}
 	return resp, nil
