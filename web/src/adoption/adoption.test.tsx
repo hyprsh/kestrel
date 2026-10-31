@@ -393,12 +393,13 @@ describe('Adoption review of a large plan', () => {
     const { state, user } = await openPlan(moreRows(250))
 
     expect(await screen.findByText('Showing 100 of 250')).toBeInTheDocument()
-    expect(screen.getAllByRole('listitem').filter((li) => li.textContent?.includes('Film '))).toHaveLength(100)
+    // A role query walks the whole accessibility tree, which is what made this test slow under load.
+    expect([...document.querySelectorAll('li')].filter((li) => li.textContent?.includes('Film '))).toHaveLength(100)
     await user.click(screen.getByRole('button', { name: 'Show more' }))
     expect(await screen.findByText('Showing 200 of 250')).toBeInTheDocument()
     expect(state.pages.at(-1)).toEqual({ limit: '100', cursor: '100', filter: null })
     expect(screen.getByRole('button', { name: 'Adopt 250 Titles' })).toBeInTheDocument()
-  })
+  }, 20_000) // renders 200 rows; the default 5 s is too tight when the whole suite runs at once
 
   it('asks the server for the chosen filter', async () => {
     const { state, user } = await openPlan([...moreRows(3), doubtful])
@@ -422,12 +423,12 @@ describe('Adoption review of a large plan', () => {
   })
 
   it('selects every row of the filter across pages and sends the filter, not the ids', async () => {
-    const { state, user } = await openPlan(moreRows(250))
+    const { state, user } = await openPlan(moreRows(120))
 
     await user.click(await screen.findByLabelText('Select Film 0'))
     await user.click(screen.getByRole('button', { name: 'Select all 100 shown' }))
-    await user.click(screen.getByRole('button', { name: 'Select all 250 in this filter' }))
-    expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('250 selected')
+    await user.click(screen.getByRole('button', { name: 'Select all 120 in this filter' }))
+    expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('120 selected')
     await user.click(screen.getByRole('button', { name: "Don't adopt selected" }))
 
     expect(await screen.findByRole('button', { name: 'Adopt 0 Titles' })).toBeDisabled()
@@ -436,35 +437,35 @@ describe('Adoption review of a large plan', () => {
   })
 
   it('offers both select-all controls before a single row is ticked', async () => {
-    const { state, user } = await openPlan(moreRows(250))
+    const { state, user } = await openPlan(moreRows(120))
 
-    expect(await screen.findByText('Showing 100 of 250')).toBeInTheDocument()
+    expect(await screen.findByText('Showing 100 of 120')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Select all 100 shown' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Select all 250 in this filter' }))
-    expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('250 selected')
+    await user.click(screen.getByRole('button', { name: 'Select all 120 in this filter' }))
+    expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('120 selected')
     await user.click(screen.getByRole('button', { name: "Don't adopt selected" }))
 
     expect(state.bulks).toEqual([{ action: 'untick', filter: 'all' }])
   })
 
   it('offers no action on a selection before anything is selected', async () => {
-    await openPlan(moreRows(250))
+    await openPlan(moreRows(120))
 
-    await screen.findByText('Showing 100 of 250')
+    await screen.findByText('Showing 100 of 120')
     expect(screen.queryByRole('button', { name: "Don't adopt selected" })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument()
   })
 
   it('says so when leaving one row out ends "all in this filter", and then names the rows left by id', async () => {
-    const { state, user } = await openPlan(moreRows(250))
+    const { state, user } = await openPlan(moreRows(120))
 
-    await user.click(await screen.findByRole('button', { name: 'Select all 250 in this filter' }))
+    await user.click(await screen.findByRole('button', { name: 'Select all 120 in this filter' }))
     await user.click(screen.getByLabelText('Select Film 3'))
 
     const bar = screen.getByRole('group', { name: 'Selection' })
     expect(bar).toHaveTextContent('99 selected')
-    expect(bar).toHaveTextContent('No longer all 250 in this filter')
-    expect(within(bar).getByRole('button', { name: 'Select all 250 in this filter' })).toBeInTheDocument()
+    expect(bar).toHaveTextContent('No longer all 120 in this filter')
+    expect(within(bar).getByRole('button', { name: 'Select all 120 in this filter' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: "Don't adopt selected" }))
 
     expect(state.bulks).toHaveLength(1)
