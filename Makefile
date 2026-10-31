@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: typecheck release-dry-run dry-run-assets test-go-shard test-go-race test-parity notices build-silo help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet lint-go lint-web compose-check commit-check hooks docker check
+.PHONY: typecheck release-dry-run dry-run-assets test-go-shard test-go-race test-parity notices build-silo help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet lint-go lint-web compose-check commit-check hooks docker docs-shots check
 
 VERSION ?= dev
 # The project's TMDB and TVDB keys are injected at link time; the default build embeds none.
@@ -115,6 +115,9 @@ release-dry-run: docker dry-run-assets ## Run the release without publishing: th
 dry-run-assets: ## The release's Silo plugin binaries, silo-repository.json and checksums, without publishing (CI runs this)
 	$(GORELEASER_CMD) release --snapshot --clean --skip=publish,announce,validate
 	scripts/check-release-dist.sh dist release-assets
+
+docs-shots: ## Regenerate the screenshots in docs/guide/images from the demo fakes, light and dark (needs Chrome, node, python3)
+	scripts/demo/docs-shots.sh
 
 notices: ## Regenerate internal/notices/THIRD_PARTY_NOTICES.md (needs network and `npm --prefix web ci`)
 	scripts/gen-notices.sh

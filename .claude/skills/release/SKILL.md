@@ -13,15 +13,17 @@ Publishing a `vX.Y.Z` GitHub release starts `.github/workflows/release.yml`, whi
 
 2. **Pick the version.** A version the user names wins. Otherwise bump the last tag: while Kestrel is 0.x, a breaking change or a `feat` bumps the minor (0.3.0 → 0.4.0), and `fix` or `perf` alone bumps the patch (0.3.0 → 0.3.1). From 1.0 on, a breaking change bumps the major.
 
-3. **Write the notes** by the rules under [Notes](#notes), into a file outside the repo. Done when every `feat`, `fix`, `perf` and breaking commit is covered by a bullet or left out by one of those rules.
+3. **Refresh the guide screenshots when the UI changed.** Run `git log --oneline <tag>..origin/main -- web/src` and compare with the last commit that touched `docs/guide/images`. If `web/src` changed since the shots were last refreshed, run `make docs-shots` on a branch from `origin/main`, look at every image in `docs/guide/images/`, and add them to the changelog PR (step 6) as their own commit, `docs(guide): refresh the screenshots`. Done when the images show the current UI, or `web/src` hasn't changed.
 
-4. **Preview.** Show the user the version and the notes exactly as they will be published, and say which commits you left out and why. Then wait. Edits they ask for go into the notes, and you show the result again. Done when the user approves. A user who asked only for a preview stops here.
+4. **Write the notes** by the rules under [Notes](#notes), into a file outside the repo. Done when every `feat`, `fix`, `perf` and breaking commit is covered by a bullet or left out by one of those rules.
 
-5. **Merge the changelog.** On a branch `chore/release-X.Y.Z` from `origin/main`, put the notes at the top of `CHANGELOG.md`, above the newest `## [` entry. Commit as `chore(release): X.Y.Z`, push, and open a PR with that title and the notes as its description. Wait for its checks (`gh pr checks <n> --watch`) and merge with `gh pr merge <n> --squash --subject "chore(release): X.Y.Z" --body ""`. Done when the PR is merged and you have the merge commit's SHA.
+5. **Preview.** Show the user the version and the notes exactly as they will be published, and say which commits you left out and why. Then wait. Edits they ask for go into the notes, and you show the result again. Done when the user approves. A user who asked only for a preview stops here.
 
-6. **Publish.** `gh release create vX.Y.Z --target <merge SHA> --title vX.Y.Z --notes-file <notes>`. This creates the tag and starts the Release workflow.
+6. **Merge the changelog.** On a branch `chore/release-X.Y.Z` from `origin/main`, put the notes at the top of `CHANGELOG.md`, above the newest `## [` entry. Commit as `chore(release): X.Y.Z`, push, and open a PR with that title and the notes as its description. Wait for its checks (`gh pr checks <n> --watch`) and merge with `gh pr merge <n> --squash --subject "chore(release): X.Y.Z" --body ""`. Done when the PR is merged and you have the merge commit's SHA.
 
-7. **Verify.** Watch the Release workflow's run for the tag (`gh run list --workflow release.yml`, then `gh run watch`). Done when its `publish` job is green and `gh release view vX.Y.Z` shows your notes and six assets: the three `kestrel-silo-*` binaries, `checksums.txt`, `silo-repository.json` and `THIRD_PARTY_NOTICES.md`.
+7. **Publish.** `gh release create vX.Y.Z --target <merge SHA> --title vX.Y.Z --notes-file <notes>`. This creates the tag and starts the Release workflow.
+
+8. **Verify.** Watch the Release workflow's run for the tag (`gh run list --workflow release.yml`, then `gh run watch`). Done when its `publish` job is green and `gh release view vX.Y.Z` shows your notes and six assets: the three `kestrel-silo-*` binaries, `checksums.txt`, `silo-repository.json` and `THIRD_PARTY_NOTICES.md`.
 
 Report the version, the release URL and the description.
 

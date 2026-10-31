@@ -9,7 +9,8 @@
 #
 # Environment: DEMO_DIR (default /tmp/kestrel-demo, wiped by start; when that is taken,
 # start uses a short /tmp/kd.XXXXXX and prints it, so export it for the other commands), DEMO_PORT
-# (Kestrel, default 7677), DEMO_FAKE_PORT (fake.py, default 7690). Logs are in
+# (Kestrel, default 7677), DEMO_FAKE_PORT (fake.py, default 7690), DEMO_SEED=0 to
+# start without the seed, on a fresh instance that shows the setup wizard. Logs are in
 # $DEMO_DIR/logs. Needs go, node, npm, python3 and curl, and `npm ci --prefix
 # scripts/demo` once for the posters.
 set -euo pipefail
@@ -100,6 +101,10 @@ start() {
   echo $! >"$dir/kestrel.pid"
   wait_for "http://127.0.0.1:$port/ping" "Kestrel"
 
+  if [ "${DEMO_SEED:-1}" = 0 ]; then
+    echo "Kestrel on http://127.0.0.1:$port, not seeded (setup wizard), fake on $fake, logs in $dir/logs"
+    return
+  fi
   python3 -I "$here/seed.py" --kestrel "http://127.0.0.1:$port" --db "$dir/config/kestrel.db" \
     --media "$dir/data/media" --fake "$fake" --parse "$dir/bin/parse"
   echo "Kestrel on http://127.0.0.1:$port (demo / demo-password-123), fake on $fake, logs in $dir/logs"
