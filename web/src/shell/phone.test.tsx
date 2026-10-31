@@ -21,6 +21,12 @@ afterEach(() => vi.unstubAllGlobals())
 const rows = () => [row(1, 'Paddington', 'Paddington'), row(2, 'Heat', 'Heat', { year: 1995 })]
 
 describe('the shell on a phone', () => {
+  it('keeps the Health pill out of the top bar and at the top of the Overview', async () => {
+    renderApp()
+    expect(await screen.findByRole('button', { name: /^Health/ })).toBeInTheDocument()
+    expect(within(screen.getByRole('banner')).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
+  })
+
   it('replaces the icon rail with a bottom tab bar of Overview, Library, Upcoming, Activity and More', async () => {
     renderApp()
     const tabs = await screen.findByRole('navigation', { name: 'Screens' })

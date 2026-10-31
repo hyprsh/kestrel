@@ -23,7 +23,7 @@ describe('the empty shell', () => {
     for (const name of ['Overview', 'Library', 'Upcoming', 'Log', 'Settings', 'About']) {
       expect(within(rail).getByRole('button', { name })).toBeInTheDocument()
     }
-    expect(screen.getByRole('main')).toHaveTextContent(/downloading now/i) // Overview is the home screen
+    expect(screen.getByRole('main')).toHaveTextContent(/happening now/i) // Overview is the home screen
   })
 
   it('switches the screen title when a rail item is chosen', async () => {
@@ -37,19 +37,23 @@ describe('the empty shell', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     await userEvent.click(screen.getByRole('button', { name: 'Kestrel, go to Overview' }))
     expect(screen.getByRole('banner')).toHaveTextContent('Overview')
-    expect(screen.getByRole('main')).toHaveTextContent(/downloading now/i)
+    expect(screen.getByRole('main')).toHaveTextContent(/happening now/i)
   })
 
-  it('shows the server version read through the generated client', async () => {
+  it('shows the Health pill in the top bar, linking to Health, and not the version', async () => {
     server.use(http.get('/system', ({ response }) => response(200).json({ version: '9.9.9', api_major: 1, base_url: '' })))
     renderApp()
-    expect(await screen.findByText(/9\.9\.9/)).toBeInTheDocument()
+    const pill = await within(await screen.findByRole('banner')).findByRole('button', { name: /health · all checks ok/i })
+    await userEvent.click(pill)
+    expect(location.pathname).toBe('/activity/health')
+    expect(screen.queryByText(/9\.9\.9/)).not.toBeInTheDocument()
   })
 
   it('says so when the server cannot be reached', async () => {
     server.use(http.get('/system', () => HttpResponse.error()))
     renderApp()
-    expect(await screen.findByText(/offline/i)).toBeInTheDocument()
+    const pill = await within(await screen.findByRole('banner')).findByRole('button', { name: /offline/i })
+    expect(pill).not.toHaveTextContent(/health/i)
   })
 })
 

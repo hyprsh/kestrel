@@ -173,7 +173,7 @@ The Title page shows each Version and what it still lacks. **Search now** search
 
 ## The Overview and Activity
 
-The **Overview** is the home screen. Under its header, **status chips** sum up the state in a line each: Health ("All checks OK", or how many Blocking issues and Warnings), what the search is doing, your indexers and how many searches they have left today, and a disk that is running low. Choose a chip to open the page behind it. **Needs attention** lists what wants a decision, one compact row per item with its poster and buttons. **Downloading now** and **Recent requests** are short lists, and **Recently added** and **Coming this week** are shelves of posters. Press `j` and `k` to move through the rows and posters.
+The **Overview** is the home screen. The **Health** pill at the top right of the window says "All checks OK" or how many Blocking issues and Warnings there are, and opens Activity > Health; it reads "Offline" when Kestrel can't be reached, and a Blocking issue also puts a banner across every screen. (On a phone the Health pill sits at the top of the Overview instead, because the phone's top bar has no room for it.) A disk that is running low shows as a Health check and a row in **Happening now**. **Happening now** is one list of what wants a decision (Needs attention, one compact row per item with its poster and buttons, plus an Adoption plan waiting for review, versions that have been missing for a long time and Originals on offer) and what is downloading. Below it, **Recently added**, **Recent requests** and **Coming this week** are three short lists side by side, each with a link to its screen. Press `j` and `k` to move through the rows.
 
 **Activity** has three tabs, each with its own address:
 

@@ -37,7 +37,7 @@ describe('A waiting Adoption plan', () => {
     const user = userEvent.setup()
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /needs attention/i })
+    const section = await screen.findByRole('region', { name: /happening now/i })
     expect(await within(section).findByText('An Adoption plan is waiting for review (2 need a choice)')).toBeInTheDocument()
     await user.click(within(section).getByRole('button', { name: 'Review the Adoption plan' }))
 
@@ -65,7 +65,7 @@ describe('A waiting Adoption plan', () => {
   it('is not in Needs attention when there is no plan', async () => {
     planIs('idle')
     renderApp()
-    expect(await screen.findByText('Nothing needs attention.')).toBeInTheDocument()
+    expect(await screen.findByText('Nothing needs attention and nothing is downloading.')).toBeInTheDocument()
     expect(screen.queryByText(/Adoption plan/)).not.toBeInTheDocument()
   })
 

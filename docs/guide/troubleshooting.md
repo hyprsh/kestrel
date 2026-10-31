@@ -1,6 +1,6 @@
 # Troubleshooting and FAQ
 
-Start with the Overview. Its **Needs attention** list and the **Health** chip, which opens Activity > Health, name most problems in plain words, and the [Log](#where-are-the-logs-and-backups) says what Kestrel did and why. This page covers the ones that come up most.
+Start with the Overview. Its **Happening now** list (which holds Needs attention) and the **Health** pill, which opens Activity > Health, name most problems in plain words, and the [Log](#where-are-the-logs-and-backups) says what Kestrel did and why. This page covers the ones that come up most.
 
 ## A download is stuck
 

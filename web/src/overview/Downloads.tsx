@@ -1,8 +1,7 @@
-// "Downloading now" on the Overview: one line per Grab, with its poster, the Title (and episode), a
+// The download rows of "Happening now" on the Overview: one line per Grab, with its poster, the Title (and episode), a
 // Progress bar and "64% · 6 min". The release name, byte counts and Slot are on Activity's Grabs tab;
 // Cancel is in the row's menu. Its rows are part of the Overview's one j/k selection.
 import { DotsMenu, Entity, MenuItem, Progress } from '@hyprsh/design'
-import { RowList } from '../layout/RowList'
 import type { QueueItem } from '../api/queue'
 import { percent } from '../format'
 import { phases } from '../grabs/phase'
@@ -16,6 +15,7 @@ function progressLine(i: QueueItem): { pct: number | null; text: string } {
   return { pct, text: [pct !== null && `${pct}%`, i.eta != null && span(i.eta * 1000)].filter(Boolean).join(' · ') || phases.downloading.label }
 }
 
+/** Rows for a list the caller draws (`RowList`), so they share its card with the rows before them. */
 export function Downloads({
   items,
   firstIndex,
@@ -35,7 +35,7 @@ export function Downloads({
   onOpenTitle: (id: number) => void
 }) {
   return (
-    <RowList>
+    <>
       {items.map((g, n) => {
         const index = firstIndex + n
         const { pct, text } = progressLine(g)
@@ -76,6 +76,6 @@ export function Downloads({
           </Entity>
         )
       })}
-    </RowList>
+    </>
   )
 }

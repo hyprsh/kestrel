@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
@@ -57,26 +57,41 @@ const fakeAttention = (rows: ReturnType<typeof row>[]) =>
     ),
   )
 
-const chips = () => screen.findByRole('group', { name: 'Status' })
+// A low disk and a busy search, which the status pills used to show: neither shows on the Overview now.
+const lowDiskAndBusySearch = () => {
+  fakeStatus(status({ disks: [{ path: '/media', free_bytes: 6 * GB, total_bytes: 100 * GB, low_free_bytes: 50 * GB }] }))
+  fakeSearch(
+    searchStatus({
+      due: { versions: 12, episodes: 0, upgrades: 0 },
+      pass: { started_at: new Date().toISOString(), done: 3, total: 12 },
+      next_pass_at: new Date(Date.now() + 14 * 60_000 + 5000).toISOString(),
+    }),
+  )
+}
+
+const topBar = () => screen.findByRole('banner')
 
 beforeEach(() => history.replaceState(null, '', '/'))
 
-describe('Overview status chips', () => {
-  it('replaces the Health and Searching sections', async () => {
-    fakeStatus(status())
+describe('the Overview on a desktop', () => {
+  it('has no status pills: the Health pill is in the top bar, and the search, indexers and low disk are not repeated', async () => {
+    lowDiskAndBusySearch()
+    fakeAttention([])
     renderApp()
 
-    await chips()
-    expect(screen.queryByRole('region', { name: /^Health/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: 'Searching' })).not.toBeInTheDocument()
+    await within(await topBar()).findByRole('button', { name: /All checks OK/ })
+    expect(screen.queryByRole('group', { name: 'Status' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Searching|Wanted waiting|Nothing waiting/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /indexers?\b/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /full$/ })).not.toBeInTheDocument()
   })
 
-  it('counts Needs attention rows by severity in the Health chip, and links to Activity Health', async () => {
+  it('counts Needs attention rows by severity in the Health pill, and links to Activity Health', async () => {
     fakeStatus(status())
     fakeAttention([row('health-1', 'blocking'), row('health-2', 'warning')])
     renderApp()
 
-    const chip = await within(await chips()).findByRole('button', { name: /^Health.*1 Blocking, 1 Warning/ })
+    const chip = await within(await topBar()).findByRole('button', { name: /^Health.*1 Blocking, 1 Warning/ })
     await userEvent.click(chip)
     expect(url()).toBe('/activity/health')
   })
@@ -86,7 +101,7 @@ describe('Overview status chips', () => {
     fakeAttention([row('health-1', 'warning'), row('stuck-7', 'warning'), row('silo-silent-3', 'warning'), row('stalled-exdev', 'warning')])
     renderApp()
 
-    const chip = await within(await chips()).findByRole('button', { name: /^Health/ })
+    const chip = await within(await topBar()).findByRole('button', { name: /^Health/ })
     expect(chip).toHaveAccessibleName(expect.stringMatching(/· 1 Warning$/))
   })
 
@@ -95,63 +110,40 @@ describe('Overview status chips', () => {
     fakeAttention([])
     renderApp()
 
-    expect(await within(await chips()).findByRole('button', { name: /All checks OK/ })).toBeInTheDocument()
+    expect(await within(await topBar()).findByRole('button', { name: /All checks OK/ })).toBeInTheDocument()
+  })
+})
+
+describe('the Overview on a phone', () => {
+  beforeEach(() => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('max-width: 639'),
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }))
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('shows the Health pill alone at the top of the Overview, since the phone top bar has no room for it', async () => {
+    lowDiskAndBusySearch()
+    fakeAttention([])
+    renderApp()
+
+    expect(await screen.findByRole('button', { name: /All checks OK/ })).toBeInTheDocument()
+    expect(within(await topBar()).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Status' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Searching|Wanted waiting|Nothing waiting/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /indexers?\b/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /full$/ })).not.toBeInTheDocument()
   })
 
-  it('shows what the search waits on and when the next pass is, and links to Background Jobs', async () => {
+  it('links the Health pill to Activity Health', async () => {
     fakeStatus(status())
-    fakeSearch(
-      searchStatus({
-        due: { versions: 12, episodes: 0, upgrades: 0 },
-        pass: { started_at: new Date().toISOString(), done: 3, total: 12 },
-        next_pass_at: new Date(Date.now() + 14 * 60_000 + 5000).toISOString(),
-      }),
-    )
+    fakeAttention([row('health-1', 'blocking')])
     renderApp()
 
-    const chip = await within(await chips()).findByRole('button', { name: /Searching 3 of 12 Wanted · next pass in 14 min/ })
-    await userEvent.click(chip)
-    expect(url()).toBe('/activity/jobs')
-  })
-
-  it('says nothing is waiting when the search has nothing due', async () => {
-    fakeStatus(status())
-    fakeSearch(searchStatus({ next_pass_at: new Date(Date.now() + 3 * 60_000 + 5000).toISOString() }))
-    renderApp()
-
-    expect(await within(await chips()).findByRole('button', { name: /Nothing waiting · next pass in 3 min/ })).toBeInTheDocument()
-  })
-
-  it('counts the enabled indexers and the searches left today, and links to Activity Health', async () => {
-    fakeStatus(status())
-    renderApp()
-
-    const chip = await within(await chips()).findByRole('button', { name: '2 indexers · 110 searches left today' })
-    await userEvent.click(chip)
-    expect(url()).toBe('/activity/health')
-  })
-
-  it('leaves the searches left out when no indexer reports a limit', async () => {
-    fakeStatus(status({ indexers: [{ instance_id: 11, name: 'Alpha', state: 'ok', message: null, ...idle }] }))
-    renderApp()
-
-    expect(await within(await chips()).findByRole('button', { name: '1 indexer' })).toBeInTheDocument()
-  })
-
-  it('has no Disk chip while every disk has room', async () => {
-    fakeStatus(status())
-    renderApp()
-
-    await within(await chips()).findByRole('button', { name: /indexers/ })
-    expect(within(await chips()).queryByRole('button', { name: /full/ })).not.toBeInTheDocument()
-  })
-
-  it('shows a Disk chip for a low disk, with how full it is, and links to Activity Health', async () => {
-    fakeStatus(status({ disks: [{ path: '/media', free_bytes: 6 * GB, total_bytes: 100 * GB, low_free_bytes: 50 * GB }] }))
-    renderApp()
-
-    const chip = await within(await chips()).findByRole('button', { name: '/media 94% full' })
-    await userEvent.click(chip)
+    await userEvent.click(await screen.findByRole('button', { name: /^Health · 1 Blocking/ }))
     expect(url()).toBe('/activity/health')
   })
 })

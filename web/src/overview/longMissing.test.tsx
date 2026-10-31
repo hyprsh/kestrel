@@ -40,11 +40,12 @@ describe('the Long Missing row in Needs attention', () => {
     fakeLongMissing([warning])
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /needs attention/i })
+    const section = await screen.findByRole('region', { name: /happening now/i })
     const group = await within(section).findByText('7 Versions long missing')
     const rows = within(section).getAllByRole('listitem')
-    expect(rows).toHaveLength(1) // the Warning; the group is not among the rows
-    expect(rows[0].compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy() // and it comes last
+    expect(rows).toHaveLength(2) // the Warning, then the group's own row
+    expect(rows[0].compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy() // after the attention rows
+    expect(section).toHaveTextContent(/happening now · 1$|happening now · 1/i) // the group does not add to the count
     expect(within(section).queryByText(/ancient film/i)).not.toBeInTheDocument()
     expect(await screen.findByRole('button', { name: /overview.*1 needs? attention/i })).toBeInTheDocument()
 
@@ -54,12 +55,12 @@ describe('the Long Missing row in Needs attention', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
 
     const items = within(section).getAllByRole('listitem')
-    await waitFor(() => expect(items[1]).toHaveTextContent('Ancient Film · Standard · HD'))
-    expect(items[1]).not.toHaveTextContent('hd-primary')
-    expect(items[1]).toHaveTextContent('Wanted since 2026-01-01, last failure: download failed')
-    expect(items[2]).toHaveTextContent('Older Film · 4K')
-    expect(items[2]).not.toHaveTextContent('4K · 4K') // the Profile named "4K" in the 4K Slot is left out
-    expect(items[2]).not.toHaveTextContent(/last failure/i)
+    await waitFor(() => expect(items[2]).toHaveTextContent('Ancient Film · Standard · HD'))
+    expect(items[2]).not.toHaveTextContent('hd-primary')
+    expect(items[2]).toHaveTextContent('Wanted since 2026-01-01, last failure: download failed')
+    expect(items[3]).toHaveTextContent('Older Film · 4K')
+    expect(items[3]).not.toHaveTextContent('4K · 4K') // the Profile named "4K" in the 4K Slot is left out
+    expect(items[3]).not.toHaveTextContent(/last failure/i)
 
     await userEvent.click(toggle)
     expect(within(section).queryByText(/ancient film/i)).not.toBeInTheDocument()
@@ -69,10 +70,10 @@ describe('the Long Missing row in Needs attention', () => {
     fakeLongMissing()
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /needs attention/i })
+    const section = await screen.findByRole('region', { name: /happening now/i })
 
     expect(await within(section).findByText('7 Versions long missing')).toBeInTheDocument()
-    expect(within(section).getByText(/nothing needs attention/i)).toBeInTheDocument()
+    expect(within(section).queryByText(/nothing needs attention/i)).not.toBeInTheDocument() // the group is a row of the card
     expect(await screen.findByRole('button', { name: 'Overview' })).toBeInTheDocument() // no "N need attention" in its name
   })
 

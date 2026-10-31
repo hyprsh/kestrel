@@ -63,7 +63,7 @@ describe('the Originals available group in Needs attention', () => {
     fakeOffers([movieOffer])
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /needs attention/i })
+    const section = await screen.findByRole('region', { name: /happening now/i })
     await userEvent.click(await within(section).findByRole('button', { name: 'Originals available · 1' }))
     expect(await within(section).findByText(/Standard · HD$/)).toBeInTheDocument()
     expect(within(section).queryByText(/hd-primary/)).not.toBeInTheDocument()
@@ -73,9 +73,9 @@ describe('the Originals available group in Needs attention', () => {
     fakeOffers([{ ...movieOffer, slot: '4k', profile: '4k-primary' }])
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /needs attention/i })
+    const section = await screen.findByRole('region', { name: /happening now/i })
     await userEvent.click(await within(section).findByRole('button', { name: 'Originals available · 1' }))
-    const item = within(section).getAllByRole('listitem')[0]
+    const item = within(section).getAllByRole('listitem')[1] // after the group's own row
     await waitFor(() => expect(item).toHaveTextContent('Paddington · 4K'))
     expect(item).not.toHaveTextContent('4K · 4K')
   })
@@ -84,12 +84,12 @@ describe('the Originals available group in Needs attention', () => {
     const sent = fakeOffers([movieOffer, seriesOffer])
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /needs attention/i })
+    const section = await screen.findByRole('region', { name: /happening now/i })
     expect(await within(section).findByText('Originals available · 2')).toBeInTheDocument()
     expect(within(section).queryByText(/paddington/i)).not.toBeInTheDocument()
 
     await userEvent.click(within(section).getByRole('button', { name: 'Originals available · 2' }))
-    const items = within(section).getAllByRole('listitem')
+    const items = within(section).getAllByRole('listitem').slice(1) // after the group's own row
     expect(items[0]).toHaveTextContent('Paddington · Standard · HD')
     expect(items[0]).toHaveTextContent('Paddington.2014.1080p.BluRay.x264-GRP · Score 50')
     expect(items[1]).toHaveTextContent('Night Show · Standard')
@@ -113,7 +113,7 @@ describe('the Originals available group in Needs attention', () => {
     server.use(http.post('/versions/{id}/original-offer/accept', refuse as never), http.post('/versions/{id}/original-offer/dismiss', refuse as never))
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /needs attention/i })
+    const section = await screen.findByRole('region', { name: /happening now/i })
     await userEvent.click(await within(section).findByRole('button', { name: 'Originals available · 1' }))
     await userEvent.click(within(section).getByRole('button', { name: 'Accept' }))
     expect(await findToast('Could not accept the original for Paddington: indexer offline')).toBeInTheDocument()
@@ -125,7 +125,7 @@ describe('the Originals available group in Needs attention', () => {
     fakeOffers([movieOffer])
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /needs attention/i })
+    const section = await screen.findByRole('region', { name: /happening now/i })
     expect(await within(section).findByText('Originals available · 1')).toBeInTheDocument()
     expect(within(section).queryByText(/nothing needs attention/i)).not.toBeInTheDocument()
   })
@@ -135,7 +135,7 @@ describe('the Originals available group in Needs attention', () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /needs attention/i })
+    const section = await screen.findByRole('region', { name: /happening now/i })
     await userEvent.click(await within(section).findByRole('button', { name: 'Originals available · 1' }))
     await userEvent.click(within(section).getByRole('button', { name: 'Paddington' }))
 
@@ -149,9 +149,9 @@ describe('the Originals available group in Needs attention', () => {
     ])
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /needs attention/i })
+    const section = await screen.findByRole('region', { name: /happening now/i })
     await userEvent.click(await within(section).findByRole('button', { name: 'Originals available · 2' }))
-    const offers = within(section).getAllByRole('listitem')
+    const offers = within(section).getAllByRole('listitem').slice(1) // after the group's own row
 
     expect(offers[0].querySelector('[data-poster] img')).toHaveAttribute('src', expect.stringMatching(/\/titles\/1\/poster$/))
     expect(offers[1].querySelector('[data-poster]')).toBeInTheDocument()
@@ -161,7 +161,7 @@ describe('the Originals available group in Needs attention', () => {
   it('does not show without offers', async () => {
     fakeOffers([])
     renderApp()
-    const section = await screen.findByRole('region', { name: /needs attention/i })
+    const section = await screen.findByRole('region', { name: /happening now/i })
     expect(await within(section).findByText(/nothing needs attention/i)).toBeInTheDocument()
     expect(within(section).queryByText(/originals available/i)).not.toBeInTheDocument()
   })

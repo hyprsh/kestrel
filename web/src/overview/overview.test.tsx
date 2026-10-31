@@ -18,11 +18,11 @@ async function cancel(label: string) {
 }
 
 describe('Overview', () => {
-  it('is the home screen and shows "Downloading now" as one line per Grab: the Title, a progress bar, the percentage and the time left', async () => {
+  it('is the home screen and shows "Happening now" with a download as one line per Grab: the Title, a progress bar, the percentage and the time left', async () => {
     fakeQueue([item()])
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /downloading now/i })
+    const section = await screen.findByRole('region', { name: /happening now/i })
     const row = await within(section).findByRole('listitem')
     expect(row).toHaveTextContent('Paddington')
     expect(within(row).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '75')
@@ -37,7 +37,7 @@ describe('Overview', () => {
     fakeQueue([item({ title: 'Severance', kind: 'series', episodes: ['S02E04'] })])
     renderApp()
 
-    const row = await within(await screen.findByRole('region', { name: /downloading now/i })).findByRole('listitem')
+    const row = await within(await screen.findByRole('region', { name: /happening now/i })).findByRole('listitem')
     expect(row).toHaveTextContent('Severance S02E04')
   })
 
@@ -45,7 +45,7 @@ describe('Overview', () => {
     fakeQueue([item()])
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /downloading now/i })
+    const section = await screen.findByRole('region', { name: /happening now/i })
     await userEvent.click(await within(section).findByRole('button', { name: 'All activity →' }))
 
     expect(location.pathname).toBe('/activity')
@@ -55,7 +55,7 @@ describe('Overview', () => {
     fakeQueue([item({ has_poster: true })])
     renderApp()
 
-    const row = await within(await screen.findByRole('region', { name: /downloading now/i })).findByRole('listitem')
+    const row = await within(await screen.findByRole('region', { name: /happening now/i })).findByRole('listitem')
     const poster = row.querySelector('img')
     expect(poster).toHaveAttribute('src', expect.stringContaining('/titles/5/poster'))
     expect(poster).toHaveAttribute('loading', 'lazy')
@@ -65,7 +65,7 @@ describe('Overview', () => {
     fakeQueue([item({ grab_id: 1 }), item({ grab_id: 2, title_id: null, title: '', year: null, release_name: 'Gone.2001-GRP' })])
     renderApp()
 
-    const [plain, deleted] = await within(await screen.findByRole('region', { name: /downloading now/i })).findAllByRole('listitem')
+    const [plain, deleted] = await within(await screen.findByRole('region', { name: /happening now/i })).findAllByRole('listitem')
     expect(plain.querySelector('[data-poster]')).toBeInTheDocument()
     expect(plain.querySelector('img')).not.toBeInTheDocument()
     expect(deleted).toHaveTextContent('Deleted Title')
@@ -77,7 +77,7 @@ describe('Overview', () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /downloading now/i })
+    const section = await screen.findByRole('region', { name: /happening now/i })
     const [listItem] = await within(section).findAllByRole('listitem')
     await userEvent.click(within(listItem).getAllByRole('button', { hidden: true })[0]) // the row's whole-row button
 
@@ -88,7 +88,7 @@ describe('Overview', () => {
     fakeQueue([item({ title_id: null, title: '' })])
     renderApp()
 
-    const listItem = await within(await screen.findByRole('region', { name: /downloading now/i })).findByRole('listitem')
+    const listItem = await within(await screen.findByRole('region', { name: /happening now/i })).findByRole('listitem')
     await userEvent.click(within(listItem).getAllByRole('button', { hidden: true })[0])
     expect(screen.queryByRole('region', { name: /deleted title/i })).not.toBeInTheDocument()
   })
@@ -102,7 +102,7 @@ describe('Overview', () => {
     ])
     renderApp()
 
-    const rows = await within(await screen.findByRole('region', { name: /downloading now/i })).findAllByRole('listitem')
+    const rows = await within(await screen.findByRole('region', { name: /happening now/i })).findAllByRole('listitem')
 
     expect(rows[0]).toHaveTextContent('Importing')
     expect(rows[1]).toHaveTextContent('Paused')
