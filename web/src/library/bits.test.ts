@@ -43,12 +43,7 @@ describe('coverageSegments', () => {
   })
 
   it('is one green segment for a fully filled Series, and none without coverage', () => {
-    expect(coverageSegments({ ...base, episodes: 21, filled: 21 })[0]).toEqual({ value: 21, tone: 'success' })
-    expect(
-      coverageSegments({ ...base, episodes: 21, filled: 21 })
-        .slice(1)
-        .every((s) => s.value === 0),
-    ).toBe(true)
+    expect(coverageSegments({ ...base, episodes: 21, filled: 21 })).toEqual([{ value: 21, tone: 'success' }])
     expect(coverageSegments(null)).toEqual([])
   })
 })
