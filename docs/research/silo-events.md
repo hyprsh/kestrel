@@ -1,6 +1,6 @@
 # Silo events: can they tell Kestrel a Request was cancelled or a Title deleted
 
-Answers hyprsh/kestrel issue #90. Short answer: no. Silo publishes no event for a cancelled Request or a deleted Title, and its rules mean a Request cannot be cancelled, declined or deleted once Kestrel has been handed it.
+Answers hyprsh/kestrel issues #90 and #252. Short answer: no. Silo publishes no event for a cancelled Request or a deleted Title, and its rules mean a Request cannot be cancelled, declined or deleted once Kestrel has been handed it.
 
 ## Sources
 
@@ -34,7 +34,7 @@ Silo does not publish Request transitions on the bus or the hub. `silo:internal/
 
 So the cases the ticket describes, a requester cancelling or an admin denying "after approval", are refused by Silo once Kestrel has a target. Before that, Kestrel holds nothing to stop.
 
-One gap is not settled by the source I read: a `Fulfill` call that fails or times out after Kestrel created something, while Silo has no target yet. Silo may then let the request be cancelled, and Kestrel would keep that Request. `silo:internal/requests/service.go` (`submitAfterCommit`) was not traced for this.
+One gap was left open here and is answered in "Cancel after a failed Fulfill" below: it can happen.
 
 ## Title (catalog item) deleted
 
@@ -57,3 +57,68 @@ Only `notification.created` with `type: request.declined` could drive an action,
 ## Conclusion
 
 No usable event exists for the two cases in the ticket. Close #90 as not possible, with the facts above. If Kestrel wants to learn that a Request is gone, the supported way left is polling: `CheckStatus` already runs while a Request runs, and Silo calls it for each target it still tracks.
+
+## Cancel after a failed Fulfill
+
+Answers hyprsh/kestrel issue #252. Short answer: yes, it can happen. Silo commits the approval before it calls `Fulfill`, and a `Fulfill` that errors leaves the request approved with no target, which Silo lets the requester or an admin cancel or decline. Kestrel's side is safe to repeat, but nothing tells Kestrel to stop. Read at `silo:internal/requests` on the same commit as above (`d31eecb8010d1aabba92d55e819c398fd98fc76b`).
+
+### Does Silo commit before it calls Fulfill
+
+Yes. Approval, by an admin or by policy at submit, is committed first. Then `submitAfterCommit` (`service.go`) runs `submitApprovedRequest`. Its comment says the approval stands whatever happens next, so a submission error is only logged and "the reconcile pass retries the submission anyway". Retry (`Service.Retry`, admin) reopens a `failed` request and goes the same way.
+
+The submission claim is a lease. `ClaimSubmission` (`repository.go`) sets `submit_lease_until` 10 minutes ahead (`submitLease`, `service.go`) and counts `submit_attempts`. The Silo request is `approved` and `active` the whole time. `recordTargets` writes the `media_request_targets` rows only after `Fulfill` returns, and `RecordSubmission` (`targets.go`) then releases the lease. There is no state between "claimed" and "has targets" that records that a Kestrel Request may exist.
+
+What `Fulfill` leaves behind:
+
+| Outcome of the call | Silo state afterwards |
+|---|---|
+| Returns targets | Targets stored, status `queued`. Cancel and decline refused. |
+| Returns no targets (Kestrel refuses with 422, or a message only) | `markSubmissionFailed`: outcome `failed`, no targets. Already over for the requester. |
+| Returns an error, or the call times out | `DeferSubmission`: lease cleared, `next_submit_at` set, `last_error` set, still `approved` and `active`, no targets. |
+| Silo dies mid-call | Lease stays until it expires (10 minutes), then reconcile claims it again. No targets. |
+| Kestrel created the Request but Silo failed to store the targets | Same as an error: no targets. |
+
+In a routed setup (`submitRouted`) with more than one tier, an error on a later tier after an earlier one returned targets is recorded as that tier's failure, not retried. The gap is the first call: an error with no targets yet returns the error and retries the whole submission.
+
+### Does Silo retry, and with which id
+
+It retries, and the id does not travel. `ReconcileRequests` runs every 5 minutes and calls `submitApprovedRequest` for each `approved` request. It retries with backoff of 5 minutes doubling to 1 hour (`submitBackoff`), up to 10 claimed attempts (`maxSubmitAttempts`), about six hours. After that the request is `failed` and an admin may retry or close it.
+
+Silo does not send its request id. `routerDescriptor` (`provider.go`) builds the `RequestDescriptor` from the external ids, title, year, anime flag, requester identity and seasons, and `sdk:proto/silo/plugin/v1/request_router.proto` has no request id or idempotency field in `RequestDescriptor` or `FulfillRequest`. So Kestrel cannot be idempotent on Silo's request id.
+
+Kestrel is already idempotent without it. `idempotencyKey` (`internal/silo/router.go`) builds `SourceRequestID` from the requester, media type, Title, seasons, Slots and Root folder, and its comment says a repeated Fulfill must land on the same Kestrel Request. A retry of the same Silo request therefore reuses the Kestrel Request the failed call may have created.
+
+### Can the requester or an admin cancel, decline or delete it
+
+Cancel and decline: yes, in the deferred state. `guardWithdrawable` accepts `approved` and `active` with `UnsentOnly`, and `guardCondition` (`repository.go`) refuses only a row that has a live lease or a target row. After `DeferSubmission` the lease is NULL and there is no target, so `Service.Cancel` (the requester or an admin), `AdminCancel` and `Service.Decline` (admin) all succeed. The types.go comment for the guard names this state: "backing off after a failed attempt". The same holds once a dead server's lease has expired. While an attempt is running its lease blocks them, so a call that hangs for the whole timeout narrows the window but does not remove it.
+
+Delete: no, as in the first section. There is no delete route.
+
+Cancel is Silo-local. `cancel` and `SetOutcome` only set outcome `cancelled`, record the event and forget the title's follows. Nothing calls the router, and `Router` has no cancel method (`provider.go`: `Fulfill` and `CheckStatus`). The reconcile pass skips a request that is no longer `active`, so Silo stops retrying and does not ask Kestrel anything.
+
+### So can the case happen
+
+Yes, with this chain: Kestrel's `createRequest` succeeds but Silo does not get the answer (timeout, dropped connection, Silo restart, or a database error storing the targets). Silo defers. Within the backoff the requester cancels. Kestrel now holds a Request that no Silo request points to. Kestrel is not told, because no event or call exists for it (see above), and `CheckStatus` is only called for stored targets, so there are none to poll.
+
+How likely: it needs a failure after Kestrel has committed, inside a window of at least 5 minutes of backoff, and a cancel in that window. It is a narrow race, not a normal path. The cost is a Kestrel Request nobody wants, which Kestrel would search for and may download. Two softening facts: a later request for the same Title by the same user lands on the same Kestrel Request through the key, and an admin can still end the orphan in Kestrel's own UI.
+
+### Proposed follow-up ticket
+
+Not filed, per the ticket.
+
+**Title:** Silo cancel can orphan a Kestrel Request created by a failed Fulfill
+
+**Body:**
+
+Silo commits an approval before it calls `Fulfill`. When `Fulfill` errors or times out after Kestrel created its Request, Silo keeps the request `approved` with no target and retries with backoff (5 minutes up to 1 hour, 10 attempts). In that state the requester or an admin can cancel or decline it (`guardWithdrawable` in `silo:internal/requests`, commit `d31eecb`), and Silo then neither retries nor tells Kestrel. Kestrel keeps a Request nobody wants. See `docs/research/silo-events.md`, "Cancel after a failed Fulfill".
+
+Silo's `RequestDescriptor` has no request id, so Kestrel cannot key on one. It already repeats safely on its own key (`idempotencyKey`).
+
+Smallest fix on Kestrel's side, with no Silo change: expire a Request that came from Silo and that no `CheckStatus` has asked about. Concretely, when a Request with `Source: "silo"` has had no `CheckStatus` call for longer than Silo's whole retry span (about 6 hours plus the 10-minute lease), treat it as orphaned and end it the way a rejected Request ends. Silo calls `CheckStatus` for each stored target while the request runs, so a Request with a Silo target is polled and never expires. A Request whose targets were never stored is not polled. Open points for the owner: whether Kestrel ends the Request or only flags it for the Operator, and where the "last polled" time is kept.
+
+Silo-side alternatives, for the owner to raise upstream: add a request id (or an idempotency key) to `RequestDescriptor`, and give `Router` a `Cancel` call that `cancel` makes after a deferred submission. Both change the plugin contract.
+
+Acceptance:
+- [ ] A Silo-sourced Request with no `CheckStatus` for the retry span is ended or flagged, with a test using a fake clock.
+- [ ] A Silo-sourced Request that is polled is never expired.
+- [ ] The Request's history says why it was ended.

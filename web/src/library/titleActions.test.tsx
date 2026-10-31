@@ -215,9 +215,7 @@ describe('the status line in the header', () => {
     const { pane } = await openTitle(/breaking bad/i)
 
     const status = within(pane).getByRole('list', { name: 'Status' })
-    const bar = within(status).getByRole('progressbar', { name: 'Standard: 228 of 236 episodes' })
-    expect(bar).toHaveAttribute('aria-valuenow', '228')
-    expect(bar).toHaveAttribute('aria-valuemax', '236')
+    expect(within(status).getByRole('img', { name: 'Standard: 228 of 236 episodes' })).toBeInTheDocument()
     expect(status).toHaveTextContent('228 of 236 · 8 Wanted · 2 Long Missing')
   })
 
@@ -252,8 +250,7 @@ describe('the status line in the header', () => {
     const { pane } = await openTitle(/breaking bad/i)
 
     const status = within(pane).getByRole('list', { name: 'Status' })
-    const bar = within(status).getByRole('progressbar', { name: 'Standard: 21 of 40 episodes, 19 not monitored' })
-    expect(bar).toHaveAttribute('aria-valuemax', '40')
+    expect(within(status).getByRole('img', { name: 'Standard: 21 of 40 episodes, 19 not monitored' })).toBeInTheDocument()
     expect(status).toHaveTextContent('21 of 40 · 19 not monitored')
   })
 })

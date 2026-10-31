@@ -62,14 +62,14 @@ export function entriesOf(
   return [...active, ...held, ...ended]
 }
 
-/** What the filters look at: the Title's kind and the Slot, when known, and the words to match. */
-export function facetsOf(e: Entry): { kind: string | null; slot: string | null; text: string[] } {
+/** What the filters look at: the Grab's id, the Title's kind and the Slot, when known, and the words to match. */
+export function facetsOf(e: Entry): { grab: number | null; kind: string | null; slot: string | null; text: string[] } {
   switch (e.type) {
     case 'active':
-      return { kind: e.item.kind, slot: e.item.slot, text: [e.item.title, e.item.release_name, e.item.indexer] }
+      return { grab: e.item.grab_id, kind: e.item.kind, slot: e.item.slot, text: [e.item.title, e.item.release_name, e.item.indexer] }
     case 'grab':
-      return { kind: e.grab.kind, slot: e.grab.slot, text: [e.grab.title, e.grab.release_name, e.grab.indexer] }
+      return { grab: e.grab.grab_id, kind: e.grab.kind, slot: e.grab.slot, text: [e.grab.title, e.grab.release_name, e.grab.indexer] }
     case 'blocked':
-      return { kind: e.title?.kind ?? null, slot: null, text: [e.title?.title ?? '', e.entry.release_name, e.entry.reason] }
+      return { grab: e.entry.grab_id, kind: e.title?.kind ?? null, slot: null, text: [e.title?.title ?? '', e.entry.release_name, e.entry.reason] }
   }
 }

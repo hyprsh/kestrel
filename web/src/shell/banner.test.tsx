@@ -86,4 +86,29 @@ describe('ProjectBanner for a Blocking row', () => {
     await user.click(within(banner).getByRole('button', { name: 'Test' }))
     expect(await screen.findByText(/Test failed: did not answer/)).toBeInTheDocument()
   })
+
+  it('shows the action pending while its request is open, and ignores a second click', async () => {
+    serve({ rows: [blocking('a', 'SABnzbd is unreachable', [test, open])] })
+    let calls = 0
+    let release = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
+    server.use(
+      http.post('/plugin-instances/{id}/test', async ({ response }) => {
+        calls++
+        await held
+        return response(200).json({ ok: true, code: null, message: '' })
+      }),
+    )
+    const user = userEvent.setup()
+    renderApp()
+    const banner = await screen.findByRole('complementary', { name: 'Error' })
+    const action = within(banner).getByRole('button', { name: 'Test' })
+    expect(action).not.toHaveAttribute('aria-busy')
+    await user.click(action)
+    await waitFor(() => expect(within(banner).getByRole('button', { name: 'Test' })).toHaveAttribute('aria-busy', 'true'))
+    await user.click(within(banner).getByRole('button', { name: 'Test' }))
+    expect(calls).toBe(1)
+    release()
+    await waitFor(() => expect(within(banner).getByRole('button', { name: 'Test' })).not.toHaveAttribute('aria-busy', 'true'))
+  })
 })
