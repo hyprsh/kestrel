@@ -45,8 +45,8 @@ describe('the Library list', () => {
     const dots = within(first).getByRole('img', { name: 'Standard: Wanted, 4K: Filled' })
     expect(dots.children).toHaveLength(2)
     for (const dot of Array.from(dots.children)) expect(dot).toHaveAttribute('aria-hidden', 'true')
-    // StatusDot always sets a hover title; it stays out of the accessibility tree behind aria-hidden.
-    expect(dots.children[0]).toHaveAttribute('title', 'Standard: Wanted')
+    // The row is named once: no dot carries a title of its own.
+    for (const dot of Array.from(dots.children)) expect(dot).not.toHaveAttribute('title')
 
     // The second line is only for a Primary-Language title that differs.
     const heat = within(list).getByRole('option', { name: /heat/i })

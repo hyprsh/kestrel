@@ -27,7 +27,7 @@ export function BlockingBanner({ onOpen }: { onOpen: (path: string) => void }) {
   )
   return (
     <>
-      <ProjectBanner variant="error" label={label} callToAction={first && { label: first.label, onClick: pending ? () => {} : () => act(first) }} />
+      <ProjectBanner variant="error" label={label} callToAction={first && { label: first.label, loading: pending, onClick: () => act(first) }} />
       {dialog}
     </>
   )

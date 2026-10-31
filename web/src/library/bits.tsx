@@ -87,8 +87,8 @@ export function SlotDots({ slots }: { slots: Record<SlotKey, { state: string; lo
       {slotKeys.map((k) => {
         const s = slots[k]
         const dot = dotOf(s ? s.state : null, !!s?.long_missing)
-        // StatusDot always sets a hover title, so give it the Slot's own words; aria-hidden keeps it out of the accessibility tree.
-        return <StatusDot key={k} title={slotName(k, s)} state={dot.state} variant={dot.variant} label={false} aria-hidden className={dot.faint ? faintDot : undefined} />
+        // No title (null): the row is named once, and aria-hidden keeps each dot out of the accessibility tree.
+        return <StatusDot key={k} title={null} state={dot.state} variant={dot.variant} label={false} aria-hidden className={dot.faint ? faintDot : undefined} />
       })}
     </span>
   )
