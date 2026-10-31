@@ -1,8 +1,8 @@
 // Upcoming: a timeline around today. Days run from 14 back to 60 ahead (Show more in both directions),
 // the view opens at the Today marker, and every entry says where it stands: not out, Wanted, downloading
-// or Imported. j/k and Enter move and open (a group opens or closes), `o` shows an entry's overview, and
+// or Imported. j/k and Enter move and open (a group opens or closes), and
 // `t` goes back to today.
-import { Button, Collapse, EmptyState, Entity, LoadMoreButton, Note } from '@hyprsh/design'
+import { Button, EmptyState, Entity, LoadMoreButton, Note } from '@hyprsh/design'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchNow } from '../api/grabs'
@@ -53,7 +53,6 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
   const undated = useMemo(() => (timeline.data?.undated ?? []).filter(passes), [timeline.data, passes])
   const days = useMemo(() => withToday(buildDays(items), today), [items, today])
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
-  const [shown, setShown] = useState<ReadonlySet<string>>(new Set()) // entries whose overview is open
   const rows = useMemo(() => navRows(days, undated, open), [days, undated, open])
   const todayAt = days.findIndex((d) => d.day === today)
   const anchorDay = days[Math.max(0, todayAt - 1)]?.day
@@ -98,12 +97,6 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
     else onOpenTitle(row.titleId)
   }
   useListNav('up', rows.length, sel, select, openRow)
-  useKey('o', () => {
-    const row = rows[sel]
-    if (!row) return
-    if (row.type === 'group') setOpen((o) => toggle(o, row.key))
-    else if (row.type !== 'undated') setShown((s) => toggle(s, row.key))
-  })
   const jumpToday = () => {
     setSelKey(rows[start]?.key ?? null)
     scrollToToday('smooth')
@@ -180,13 +173,11 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
                         sel={sel}
                         indexOf={indexOf}
                         open={open}
-                        shown={shown}
                         onSelect={(i) => {
                           select(i)
                           openRow(i)
                         }}
                         onToggleOpen={(k) => setOpen((o) => toggle(o, k))}
-                        onToggleShown={(k) => setShown((s) => toggle(s, k))}
                         onSearch={onSearch}
                       />
                     )}
@@ -290,10 +281,8 @@ type RowProps = {
   sel: number
   indexOf: ReadonlyMap<string, number>
   open: ReadonlySet<string>
-  shown: ReadonlySet<string>
   onSelect: (index: number) => void
   onToggleOpen: (key: string) => void
-  onToggleShown: (key: string) => void
   onSearch: (item: UpcomingItem) => (slots: UpcomingSlot[]) => void
 }
 
@@ -357,9 +346,8 @@ function BlockRows({ block, ...p }: { block: Block } & RowProps) {
   )
 }
 
-/** One entry: poster, name, context, state badges and a way to open its overview. */
+/** One entry: poster, name, context and state badges. */
 function Entry({ item, id, child, ...p }: { item: UpcomingItem; id: string; child?: boolean } & RowProps) {
-  const expanded = p.shown.has(id)
   const at = airTime(item)
   const others = item.kind === 'movie' ? otherDates(item, p.today) : ''
   const imported = item.slots.length > 0 && item.slots.every((s) => s.state === 'imported')
@@ -390,9 +378,6 @@ function Entry({ item, id, child, ...p }: { item: UpcomingItem; id: string; chil
       >
         {!child && <RowDot />}
         {others && <div className="label-12 text-gray-900">{others}</div>}
-        <Collapse variant="inline" title="Show overview" expanded={expanded} onChange={() => p.onToggleShown(id)}>
-          <p className="copy-13 max-w-prose text-gray-900">{item.overview ?? 'No overview yet.'}</p>
-        </Collapse>
       </Entity.Content>
     </Entity>
   )
