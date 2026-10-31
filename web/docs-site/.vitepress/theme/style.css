@@ -1,0 +1,26 @@
+/* Kestrel's accent: the blue the app uses for links, on VitePress's default theme. */
+:root {
+  --vp-c-brand-1: #0060c7;
+  --vp-c-brand-2: #0070f3;
+  --vp-c-brand-3: #0070f3;
+  --vp-c-brand-soft: rgba(0, 112, 243, 0.14);
+}
+.dark {
+  --vp-c-brand-1: #52a8ff;
+  --vp-c-brand-2: #3291ff;
+  --vp-c-brand-3: #0070f3;
+  --vp-c-brand-soft: rgba(82, 168, 255, 0.16);
+}
+.kestrel-logo {
+  margin-right: 8px;
+}
+.kestrel-logo-dark,
+.dark .kestrel-logo-light {
+  display: none;
+}
+.dark .kestrel-logo-dark {
+  display: inline-block;
+}
+.VPImage.image-src {
+  max-width: 160px;
+}
