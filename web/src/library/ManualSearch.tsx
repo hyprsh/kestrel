@@ -189,8 +189,7 @@ export function ManualSearch({
   const isBest = view.sort.key === BEST_FIRST.key && view.sort.dir === BEST_FIRST.dir
   const summary = (
     <span className="copy-13 text-gray-900">
-      Profile {profileName} · {rows.length} Releases ·{' '}
-      {isBest ? 'best first' : `sorted by ${columns.find((c) => c.key === view.sort.key)?.label.toLowerCase()}, ${view.sort.dir === 'asc' ? 'ascending' : 'descending'}`}
+      Profile {profileName} · {rows.length} Releases · {manualSearchSortLabels[view.sort.key][view.sort.dir].toLowerCase()}
     </span>
   )
   const pin = (name: string, e: { detail: number }) => change({ ...view, pinned: view.pinned === name ? null : name }, e)

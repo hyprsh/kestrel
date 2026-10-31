@@ -559,7 +559,7 @@ describe('manual search on a phone', () => {
 
     expect(names()).toEqual(['big', 'small', 'bad'])
     expect(JSON.parse(sessionStorage.getItem('kestrel.manualSearchView') ?? 'null').sort).toEqual({ key: 'size', dir: 'desc' })
-    expect(screen.getByText(/sorted by size, descending/)).toBeInTheDocument()
+    expect(screen.getByText(/Profile .* · 3 Releases · largest first/)).toBeInTheDocument()
   })
 
   it("starts a new session on the household's default sort, which the Select shows, and a pick still wins", async () => {
@@ -572,7 +572,7 @@ describe('manual search on a phone', () => {
         .map((r) => /Rel\.(small|big)/.exec(r.textContent ?? '')?.[1])
     await waitFor(() => expect(screen.getByRole('combobox', { name: /sort/i })).toHaveValue('size:desc'))
     expect(names()).toEqual(['big', 'small'])
-    expect(screen.getByText(/sorted by size, descending/)).toBeInTheDocument()
+    expect(screen.getByText(/Profile .* · 2 Releases · largest first/)).toBeInTheDocument()
 
     await userEvent.selectOptions(screen.getByRole('combobox', { name: /sort/i }), 'score:desc')
     expect(names()).toEqual(['small', 'big'])
