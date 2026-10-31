@@ -5,18 +5,32 @@
 // There is no router: the Shell switches screens, opens paths and keeps the address bar in step.
 import { createContext, useContext } from 'react'
 
-export type Place = { screen: string; section: string; q: string }
+/** The season tab (0 is Specials) and the found episode's number of a Series' Title page; null: not set. */
+export type EpisodeAt = { season: number | null; episode: number | null }
 
-/** The path of a screen with its filter text, and a section of it such as an open Title's id on a phone. */
-export function placePath(screen: string, q = '', section = ''): string {
-  return `/${screen}${section ? `/${section}` : ''}${q ? `?${new URLSearchParams({ q })}` : ''}`
+export type Place = { screen: string; section: string; q: string } & EpisodeAt
+
+/**
+ * The path of a screen with its filter text, and a section of it such as an open Title's id on a phone. A Series'
+ * season tab and found episode follow as `season` and `episode` ("/library?season=2&episode=5").
+ */
+export function placePath(screen: string, q = '', section = '', at?: EpisodeAt): string {
+  const params = new URLSearchParams()
+  if (q) params.set('q', q)
+  if (at?.season != null) params.set('season', String(at.season))
+  if (at?.season != null && at.episode != null) params.set('episode', String(at.episode))
+  const query = params.toString()
+  return `/${screen}${section ? `/${section}` : ''}${query ? `?${query}` : ''}`
 }
+
+const count = (v: string | null) => (v !== null && /^\d+$/.test(v) ? Number(v) : null)
 
 /** Reads a path such as "/settings/download-client" or "/log?q=kind:grab". */
 export function placeOf(path: string): Place {
   const url = new URL(path.replace(/^\/*/, '/'), 'http://place')
   const [screen = '', section = ''] = url.pathname.slice(1).split('/')
-  return { screen, section, q: url.searchParams.get('q') ?? '' }
+  const season = count(url.searchParams.get('season'))
+  return { screen, section, q: url.searchParams.get('q') ?? '', season, episode: season === null ? null : count(url.searchParams.get('episode')) }
 }
 
 /** The directory the SPA is served under: "/" or the base URL's path. */

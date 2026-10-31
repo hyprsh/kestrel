@@ -23,6 +23,7 @@ import { Log } from '../log/Log'
 import { Overview } from '../overview/Overview'
 import { Requests } from '../requests/Requests'
 import { useTrashOutcomeToasts } from '../trash/toasts'
+import { EpisodeViewContext, noEpisodeView, type EpisodeView } from '../library/episodeView'
 import { currentPlace, PlaceOpener, placeOf, placePath, pushedPlace, pushPlace, showPlace } from '../place'
 import { usePhone } from '../responsive'
 import { Upcoming } from '../upcoming/Upcoming'
@@ -67,6 +68,10 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const startTitle = start.screen === 'library' && isTitleId(start.section) ? Number(start.section) : null
   const [libraryId, setLibraryId] = useState<number | null>(startTitle)
   const [titleOpen, setTitleOpen] = useState(startTitle !== null)
+  // A Series' season tab and found episode ("/library?season=2&episode=5"), kept here so they reach the address bar.
+  const [episodeView, setEpisodeView] = useState<EpisodeView>(() =>
+    start.screen === 'library' && start.season !== null ? { titleId: startTitle, season: start.season, episode: start.episode } : noEpisodeView,
+  )
   // On a phone Settings' list and an opened section are two screens; "/settings/indexers" is the second.
   const [settingsSection, setSettingsSection] = useState(start.screen === 'settings' ? start.section : '')
   const [more, setMore] = useState(false)
@@ -78,8 +83,9 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const section = !phone ? '' : screen === 'library' ? (titleOpen && libraryId !== null ? String(libraryId) : '') : screen === 'settings' ? settingsSection : ''
   // Activity's tab is the place's section ("/activity/health"); only Grabs has a filter.
   const [activityTab, setActivityTab] = useState<ActivityTab>(start.screen === 'activity' ? activityTabOf(start.section) : 'grabs')
+  const shownView = screen === 'library' ? episodeView : noEpisodeView
   const address = screen === 'activity' ? { q: activityTab === 'grabs' ? query : '', section: activityTabSection(activityTab) } : { q: query, section }
-  useEffect(() => showPlace(placePath(screen, address.q, address.section)), [screen, address.q, address.section])
+  useEffect(() => showPlace(placePath(screen, address.q, address.section, shownView)), [screen, address.q, address.section, shownView])
   // A click on a tab is a history entry of its own, so Back returns to the tab before it.
   const openActivityTab = useCallback(
     (tab: ActivityTab) => {
@@ -96,6 +102,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
       if (place.screen === 'activity') setActivityTab(activityTabOf(place.section))
       setFilter({ screen: place.screen, q: place.q })
       setTitleOpen(isTitleId(place.section))
+      setEpisodeView(place.season === null ? noEpisodeView : { titleId: isTitleId(place.section) ? Number(place.section) : null, season: place.season, episode: place.episode })
       setSettingsSection(place.screen === 'settings' ? place.section : '')
       if (isTitleId(place.section)) setLibraryId(Number(place.section))
     }
@@ -230,77 +237,79 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   return (
     <CleanupLauncher.Provider value={openCleanup}>
       <PlaceOpener.Provider value={goPath}>
-        <div className="flex h-full">
-          {!phone && <Rail screen={screen} onSelect={setScreen} theme={theme} onTheme={setTheme} onAdd={() => setMenu({ mode: 'add' })} />}
-          <div className="flex min-w-0 flex-1 flex-col">
-            <TopBar
-              title={current.label}
-              phone={phone}
-              onOpenMenu={() => setMenu({ mode: 'root' })}
-              onAdd={() => setMenu({ mode: 'add' })}
-              running={running}
-              onOpenRunning={() => goPath('/activity/running')}
-            />
-            {/* The floating tab bar is out of layout; --tab-bar-height keeps every screen's last row clear of it (0 on a tablet or desktop). */}
-            <BlockingBanner onOpen={goPath} />
-            <main className="flex min-h-0 flex-1 flex-col pb-[var(--tab-bar-height)]">
-              {screen === 'settings' ? (
-                <SettingsScreen onRunSetup={onRunSetup} onAdopt={() => setScreen('adoption')} section={settingsSection} onOpenSection={openSettingsSection} onCloseSection={closeSettingsSection} />
-              ) : screen === 'adoption' ? (
-                <Adoption />
-              ) : screen === 'cleanup' ? (
-                <Cleanup key={cleanupTitles?.join(',') ?? 'all'} titleIds={cleanupTitles} />
-              ) : screen === 'library' ? (
-                <Library
-                  query={query}
-                  onQuery={(q) => setFilter({ screen: 'library', q })}
-                  selectedId={libraryId}
-                  onSelect={setLibraryId}
-                  titleOpen={titleOpen}
-                  onOpenTitle={openLibraryTitle}
-                  onCloseTitle={closeLibraryTitle}
-                  onAdd={() => setMenu({ mode: 'add' })}
-                  onAdopt={() => setScreen('adoption')}
-                />
-              ) : screen === 'about' ? (
-                <About />
-              ) : screen === 'log' ? (
-                <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} />
-              ) : screen === 'activity' ? (
-                <Activity
-                  tab={activityTab}
-                  onTab={openActivityTab}
-                  query={query}
-                  onQuery={(q) => setFilter({ screen: 'activity', q })}
-                  onOpenTitle={openTitle}
-                  running={running}
-                  onOpenAdoption={() => setScreen('adoption')}
-                />
-              ) : screen === 'requests' ? (
-                <Requests query={query} onQuery={(q) => setFilter({ screen: 'requests', q })} onOpenTitle={openTitle} />
-              ) : screen === 'upcoming' ? (
-                <Upcoming onOpenTitle={openTitle} />
-              ) : (
-                <Overview onOpen={goPath} onOpenTitle={openTitle} onOpenAdoption={() => setScreen('adoption')} />
+        <EpisodeViewContext.Provider value={{ view: episodeView, setView: setEpisodeView }}>
+          <div className="flex h-full">
+            {!phone && <Rail screen={screen} onSelect={setScreen} theme={theme} onTheme={setTheme} onAdd={() => setMenu({ mode: 'add' })} />}
+            <div className="flex min-w-0 flex-1 flex-col">
+              <TopBar
+                title={current.label}
+                phone={phone}
+                onOpenMenu={() => setMenu({ mode: 'root' })}
+                onAdd={() => setMenu({ mode: 'add' })}
+                running={running}
+                onOpenRunning={() => goPath('/activity/running')}
+              />
+              {/* The floating tab bar is out of layout; --tab-bar-height keeps every screen's last row clear of it (0 on a tablet or desktop). */}
+              <BlockingBanner onOpen={goPath} />
+              <main className="flex min-h-0 flex-1 flex-col pb-[var(--tab-bar-height)]">
+                {screen === 'settings' ? (
+                  <SettingsScreen onRunSetup={onRunSetup} onAdopt={() => setScreen('adoption')} section={settingsSection} onOpenSection={openSettingsSection} onCloseSection={closeSettingsSection} />
+                ) : screen === 'adoption' ? (
+                  <Adoption />
+                ) : screen === 'cleanup' ? (
+                  <Cleanup key={cleanupTitles?.join(',') ?? 'all'} titleIds={cleanupTitles} />
+                ) : screen === 'library' ? (
+                  <Library
+                    query={query}
+                    onQuery={(q) => setFilter({ screen: 'library', q })}
+                    selectedId={libraryId}
+                    onSelect={setLibraryId}
+                    titleOpen={titleOpen}
+                    onOpenTitle={openLibraryTitle}
+                    onCloseTitle={closeLibraryTitle}
+                    onAdd={() => setMenu({ mode: 'add' })}
+                    onAdopt={() => setScreen('adoption')}
+                  />
+                ) : screen === 'about' ? (
+                  <About />
+                ) : screen === 'log' ? (
+                  <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} />
+                ) : screen === 'activity' ? (
+                  <Activity
+                    tab={activityTab}
+                    onTab={openActivityTab}
+                    query={query}
+                    onQuery={(q) => setFilter({ screen: 'activity', q })}
+                    onOpenTitle={openTitle}
+                    running={running}
+                    onOpenAdoption={() => setScreen('adoption')}
+                  />
+                ) : screen === 'requests' ? (
+                  <Requests query={query} onQuery={(q) => setFilter({ screen: 'requests', q })} onOpenTitle={openTitle} />
+                ) : screen === 'upcoming' ? (
+                  <Upcoming onOpenTitle={openTitle} />
+                ) : (
+                  <Overview onOpen={goPath} onOpenTitle={openTitle} onOpenAdoption={() => setScreen('adoption')} />
+                )}
+              </main>
+              {phone && (
+                <PhoneTabBar tabs={tabs} screen={screen} moreActive={more || !tabKeys.includes(screen)} onSelect={select} onMore={() => setMore(true)} onSearch={() => setMenu({ mode: 'root' })} />
               )}
-            </main>
-            {phone && (
-              <PhoneTabBar tabs={tabs} screen={screen} moreActive={more || !tabKeys.includes(screen)} onSelect={select} onMore={() => setMore(true)} onSearch={() => setMenu({ mode: 'root' })} />
+            </div>
+            {phone && more && (
+              <MoreSheet
+                items={moreItems}
+                screen={screen}
+                onSelect={select}
+                onClose={() => setMore(false)}
+                theme={theme}
+                onTheme={setTheme}
+                onLogout={canLogout ? () => logout.mutate(undefined) : undefined}
+              />
             )}
+            {menu && <CommandMenu initialMode={menu.mode} actions={actions} places={places} onClose={closeMenu} onGo={setScreen} onOpenTitle={openTitle} />}
           </div>
-          {phone && more && (
-            <MoreSheet
-              items={moreItems}
-              screen={screen}
-              onSelect={select}
-              onClose={() => setMore(false)}
-              theme={theme}
-              onTheme={setTheme}
-              onLogout={canLogout ? () => logout.mutate(undefined) : undefined}
-            />
-          )}
-          {menu && <CommandMenu initialMode={menu.mode} actions={actions} places={places} onClose={closeMenu} onGo={setScreen} onOpenTitle={openTitle} />}
-        </div>
+        </EpisodeViewContext.Provider>
       </PlaceOpener.Provider>
     </CleanupLauncher.Provider>
   )
