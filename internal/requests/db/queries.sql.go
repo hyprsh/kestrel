@@ -50,8 +50,33 @@ func (q *Queries) DeleteRequest(ctx context.Context, id int64) error {
 	return err
 }
 
+const dismissQuietRequest = `-- name: DismissQuietRequest :execrows
+UPDATE requests SET silence_dismissed = 1 WHERE id = ? AND outcome = 'accepted'
+`
+
+func (q *Queries) DismissQuietRequest(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, dismissQuietRequest, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const endRequest = `-- name: EndRequest :execrows
+UPDATE requests SET outcome = 'rejected', reject_reason = NULL WHERE id = ? AND outcome = 'accepted'
+`
+
+// A Request ended by hand ends as a rejected one does, with no reason code.
+func (q *Queries) EndRequest(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, endRequest, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getRequest = `-- name: GetRequest :one
-SELECT id, source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at, title_name FROM requests WHERE id = ?
+SELECT id, source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at, title_name, last_asked_at, silence_dismissed FROM requests WHERE id = ?
 `
 
 func (q *Queries) GetRequest(ctx context.Context, id int64) (Request, error) {
@@ -68,12 +93,14 @@ func (q *Queries) GetRequest(ctx context.Context, id int64) (Request, error) {
 		&i.RejectReason,
 		&i.CreatedAt,
 		&i.TitleName,
+		&i.LastAskedAt,
+		&i.SilenceDismissed,
 	)
 	return i, err
 }
 
 const getRequestBySource = `-- name: GetRequestBySource :one
-SELECT id, source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at, title_name FROM requests WHERE source = ? AND source_request_id = ?
+SELECT id, source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at, title_name, last_asked_at, silence_dismissed FROM requests WHERE source = ? AND source_request_id = ?
 `
 
 type GetRequestBySourceParams struct {
@@ -95,13 +122,15 @@ func (q *Queries) GetRequestBySource(ctx context.Context, arg GetRequestBySource
 		&i.RejectReason,
 		&i.CreatedAt,
 		&i.TitleName,
+		&i.LastAskedAt,
+		&i.SilenceDismissed,
 	)
 	return i, err
 }
 
 const insertRequest = `-- name: InsertRequest :one
-INSERT INTO requests (source, source_request_id, requester_id, requester_name, title_id, title_name, outcome, reject_reason, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO requests (source, source_request_id, requester_id, requester_name, title_id, title_name, outcome, reject_reason, created_at, last_asked_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id
 `
 
@@ -115,6 +144,7 @@ type InsertRequestParams struct {
 	Outcome         string
 	RejectReason    sql.NullString
 	CreatedAt       string
+	LastAskedAt     sql.NullString
 }
 
 func (q *Queries) InsertRequest(ctx context.Context, arg InsertRequestParams) (int64, error) {
@@ -128,6 +158,7 @@ func (q *Queries) InsertRequest(ctx context.Context, arg InsertRequestParams) (i
 		arg.Outcome,
 		arg.RejectReason,
 		arg.CreatedAt,
+		arg.LastAskedAt,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -223,8 +254,58 @@ func (q *Queries) ListCompletedTitles(ctx context.Context) ([]ListCompletedTitle
 	return items, nil
 }
 
+const listQuietRequests = `-- name: ListQuietRequests :many
+SELECT id, source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at, title_name, last_asked_at, silence_dismissed FROM requests
+WHERE source = ?1 AND outcome = 'accepted' AND silence_dismissed = 0
+  AND COALESCE(last_asked_at, created_at) < ?2
+ORDER BY id
+`
+
+type ListQuietRequestsParams struct {
+	Source string
+	Before sql.NullString
+}
+
+// The accepted Requests of a source that were last asked about before a time and not dismissed.
+// A NULL stamp reads as the creation time.
+func (q *Queries) ListQuietRequests(ctx context.Context, arg ListQuietRequestsParams) ([]Request, error) {
+	rows, err := q.db.QueryContext(ctx, listQuietRequests, arg.Source, arg.Before)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Request
+	for rows.Next() {
+		var i Request
+		if err := rows.Scan(
+			&i.ID,
+			&i.Source,
+			&i.SourceRequestID,
+			&i.RequesterID,
+			&i.RequesterName,
+			&i.TitleID,
+			&i.Outcome,
+			&i.RejectReason,
+			&i.CreatedAt,
+			&i.TitleName,
+			&i.LastAskedAt,
+			&i.SilenceDismissed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRequests = `-- name: ListRequests :many
-SELECT id, source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at, title_name FROM requests
+SELECT id, source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at, title_name, last_asked_at, silence_dismissed FROM requests
 WHERE id < ?1
   AND (?2 IS NULL OR source IN (SELECT value FROM json_each(?2)))
   AND (?3 = 0 OR title_id = ?3)
@@ -275,6 +356,8 @@ func (q *Queries) ListRequests(ctx context.Context, arg ListRequestsParams) ([]R
 			&i.RejectReason,
 			&i.CreatedAt,
 			&i.TitleName,
+			&i.LastAskedAt,
+			&i.SilenceDismissed,
 		); err != nil {
 			return nil, err
 		}
@@ -290,7 +373,7 @@ func (q *Queries) ListRequests(ctx context.Context, arg ListRequestsParams) ([]R
 }
 
 const listRequestsByTitle = `-- name: ListRequestsByTitle :many
-SELECT id, source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at, title_name FROM requests WHERE title_id = ? ORDER BY id
+SELECT id, source, source_request_id, requester_id, requester_name, title_id, outcome, reject_reason, created_at, title_name, last_asked_at, silence_dismissed FROM requests WHERE title_id = ? ORDER BY id
 `
 
 func (q *Queries) ListRequestsByTitle(ctx context.Context, titleID sql.NullInt64) ([]Request, error) {
@@ -313,6 +396,8 @@ func (q *Queries) ListRequestsByTitle(ctx context.Context, titleID sql.NullInt64
 			&i.RejectReason,
 			&i.CreatedAt,
 			&i.TitleName,
+			&i.LastAskedAt,
+			&i.SilenceDismissed,
 		); err != nil {
 			return nil, err
 		}
@@ -385,6 +470,23 @@ func (q *Queries) ListSlotsOfRequest(ctx context.Context, requestID int64) ([]Re
 		return nil, err
 	}
 	return items, nil
+}
+
+const markRequestsAsked = `-- name: MarkRequestsAsked :exec
+UPDATE requests SET last_asked_at = ?1, silence_dismissed = 0
+WHERE source = ?2 AND id IN (SELECT value FROM json_each(?3))
+`
+
+type MarkRequestsAskedParams struct {
+	At     sql.NullString
+	Source string
+	Ids    interface{}
+}
+
+// The source read these Requests: stamp them, and let a dismissed silence be flagged again.
+func (q *Queries) MarkRequestsAsked(ctx context.Context, arg MarkRequestsAskedParams) error {
+	_, err := q.db.ExecContext(ctx, markRequestsAsked, arg.At, arg.Source, arg.Ids)
+	return err
 }
 
 const markSlotFilled = `-- name: MarkSlotFilled :exec

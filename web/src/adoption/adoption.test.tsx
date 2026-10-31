@@ -260,6 +260,21 @@ describe('Adoption while loading', () => {
 })
 
 describe('Adoption review', () => {
+  it('shows the poster of an entry matched to a tracked Title, the placeholder without a request when it has none, and nothing for a new Title', async () => {
+    const withPoster: Row = { ...matched, id: 6, entry: '/data/media/movies/Has', match: { ...matched.match!, title: 'Has', title_id: 9, has_poster: true } }
+    const noPoster: Row = { ...matched, id: 7, entry: '/data/media/movies/Lacks', match: { ...matched.match!, title: 'Lacks', title_id: 10, has_poster: false } }
+    fakeAdoption([withPoster, noPoster, matched])
+    const user = await openAdoption()
+    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+
+    const item = async (title: string) => (await screen.findByText(title)).closest('li')!
+    expect((await item('Has (2014)')).querySelector('[data-poster] img')).toHaveAttribute('src', expect.stringMatching(/\/titles\/9\/poster$/))
+    const lacks = await item('Lacks (2014)')
+    expect(lacks.querySelector('[data-poster]')).toBeInTheDocument()
+    expect(lacks.querySelector('[data-poster] img')).not.toBeInTheDocument()
+    expect((await item('Paddington (2014)')).querySelector('[data-poster]')).not.toBeInTheDocument()
+  })
+
   it('shows a Series with its episodes, the Versions it proposes, unmatched files and a Series not on TheTVDB', async () => {
     fakeAdoption([series, orphan])
     const user = await openAdoption()

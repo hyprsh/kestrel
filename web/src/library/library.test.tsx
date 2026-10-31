@@ -315,3 +315,25 @@ describe('the Library detail pane', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Standard file' })).not.toBeInTheDocument())
   })
 })
+
+describe('the Library list posters', () => {
+  it('shows a Title its poster, and the placeholder without a request when it has none', async () => {
+    fakeLibrary([row(1, 'Paddington', 'Paddington', { has_poster: true }), row(2, 'Heat', 'Heat', { has_poster: false })])
+    const list = await openLibrary()
+
+    const withPoster = await within(list).findByRole('option', { name: /paddington/i })
+    const without = within(list).getByRole('option', { name: /heat/i })
+    expect(withPoster.querySelector('[data-poster] img')).toHaveAttribute('src', expect.stringMatching(/\/titles\/1\/poster$/))
+    expect(without.querySelector('[data-poster]')).toBeInTheDocument()
+    expect(without.querySelector('[data-poster] img')).not.toBeInTheDocument()
+  })
+
+  it('reserves a poster box in each loading row', async () => {
+    server.use(http.get('/titles', () => new Promise(() => {})))
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+
+    const list = await screen.findByRole('listbox', { name: /library/i })
+    expect(list.querySelectorAll('[style*="width: 32px"][style*="height: 48px"]')).toHaveLength(8)
+  })
+})

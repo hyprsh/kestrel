@@ -2,7 +2,7 @@
 // with stage chips and one filter field above it. It stays live through the stream: the queue
 // from `queue` frames, the stalled and finished Grabs from the `grab` hints, Searching from
 // `search` frames.
-import { Button, DestructiveActionModal, EmptyState, Link, Note, parseQuery } from '@hyprsh/design'
+import { Button, DestructiveActionModal, EmptyState, Link, Note, StatusDot, parseQuery } from '@hyprsh/design'
 import { RowList } from '../layout/RowList'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useFinishedGrabs, useStalledGrabs, useStalledImport, HISTORY_DAYS, type GrabEntry } from '../api/activity'
@@ -21,9 +21,9 @@ import { GrabRow } from '../grabs/GrabRow'
 import { useKey, useListNav, type RowNav } from '../keys'
 import { size } from '../library/bits'
 import { SkeletonRows } from '../loading'
-import { SearchSummary } from '../overview/Searching'
+import { SearchSummary } from './SearchSummary'
 import { useOpenPlace } from '../place'
-import { ago, lasting, until, useNow } from '../time'
+import { ago, lasting, span, until, useNow } from '../time'
 import { cx } from '../ui'
 import { activityFilter, activityQualifiers } from './filter'
 import { entriesOf, stageLabel, stages, type Entry, type Stage } from './stages'
@@ -45,6 +45,11 @@ function origin(g: { indexer: string; score: number; size: number; grabbed_at: s
 function speed(i: QueueItem): string | null {
   if (i.phase !== 'downloading' || !i.eta || i.bytes_left <= 0) return null
   return `${size(i.bytes_left / i.eta)}/s`
+}
+
+/** Why a Stuck download is stuck, in words. Not a Stalled Import: that is its own stage. */
+function stuckText(s: NonNullable<QueueItem['stuck']>, now: number): string {
+  return s.reason === 'paused' ? 'Stuck: paused in the download client' : `Stuck: no progress for ${span(now - Date.parse(s.since))}`
 }
 
 function Line({ tone, children }: { tone?: 'amber' | 'red'; children: ReactNode }) {
@@ -116,7 +121,7 @@ export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQue
           {[stageLabel.downloading, stageLabel.done].map((title) => (
             <SectionBlock key={title} title={title}>
               <div className="px-4 pt-1 pb-4">
-                <SkeletonRows count={2} poster="sm" />
+                <SkeletonRows count={2} poster="md" />
               </div>
             </SectionBlock>
           ))}
@@ -194,6 +199,11 @@ function ActiveRow({ item: i, now, nav, onOpenTitle }: { item: QueueItem; now: n
       onOpenTitle={onOpenTitle}
       detail={
         <>
+          {i.stuck && (
+            <Line tone="amber">
+              <StatusDot state="warning" label={false} aria-hidden /> {stuckText(i.stuck, now)}
+            </Line>
+          )}
           <Line>{`${origin(i, now, rate ? [rate] : [])} · in this stage ${lasting(i.phase_since, now)}`}</Line>
         </>
       }

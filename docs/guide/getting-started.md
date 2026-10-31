@@ -152,7 +152,7 @@ You don't need to do anything else. Kestrel does this on its own:
 
 1. **Searches.** A new Title is searched straight away. After that, Kestrel searches everything that is [Wanted](concepts.md#wanted) every five minutes.
 2. **Scores and grabs.** From the Releases the indexer lists, Kestrel picks the best one that fits the Version's Profile and sends it to SABnzbd.
-3. **Follows the download.** Activity shows each Grab from Searching to Downloading, with progress.
+3. **Follows the download.** Activity shows each Grab from Searching to Downloading, with progress. A download that makes no progress is flagged as stuck ([Troubleshooting](troubleshooting.md#a-download-is-stuck)).
 4. **Imports.** When SABnzbd is done, Kestrel hardlinks the file into the Title's folder under your root folder and names it by its fixed scheme, such as `Paddington (2014) {tmdb-116149}/Paddington (2014) - [Standard] …`.
 5. **Tells your media server.** If you have connected Jellyfin or Plex in Settings > Media servers, Kestrel asks it to refresh.
 6. **Keeps upgrading.** If a better Release appears later, Kestrel replaces the file.
@@ -170,6 +170,16 @@ The Title page shows each Version and what it still lacks. **Search now** search
   <source media="(prefers-color-scheme: dark)" srcset="images/06-upcoming-dark.png">
   <img alt="Upcoming: a timeline of episodes and Movie releases around today" src="images/06-upcoming-light.png">
 </picture>
+
+## The Overview and Activity
+
+The **Overview** is the home screen. Under its header, **status chips** sum up the state in a line each: Health ("All checks OK", or how many Blocking issues and Warnings), what the search is doing, your indexers and how many searches they have left today, and a disk that is running low. Choose a chip to open the page behind it. **Needs attention** lists what wants a decision, one compact row per item with its poster and buttons. **Downloading now** and **Recent requests** are short lists, and **Recently added** and **Coming this week** are shelves of posters. Press `j` and `k` to move through the rows and posters.
+
+**Activity** has three tabs, each with its own address:
+
+- **Grabs** (`/activity`) shows every Grab from Searching to Done, grouped by stage.
+- **Health** (`/activity/health`) shows every check: the download client, each indexer, each disk and the rest. It counts problems, warnings and OK checks, and the tab carries a dot while anything fails or warns.
+- **Background Jobs** (`/activity/jobs`) shows what Kestrel is running now and when each periodic job last ran and runs next.
 
 ## Where to go next
 

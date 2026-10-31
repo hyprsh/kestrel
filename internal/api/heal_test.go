@@ -57,6 +57,9 @@ func TestAStalledImportIsAWarningRowWithRetryNowAndDiscard(t *testing.T) {
 	if row.Severity != "warning" || row.Count != 1 || row.Subject.GrabID == nil || *row.Subject.GrabID != grab {
 		t.Fatalf("row = %+v", row)
 	}
+	if !row.HasPoster {
+		t.Errorf("row has_poster is false for Paddington, which has a poster: %+v", row)
+	}
 	retry, discard := row.action(t, "retry"), row.action(t, "discard")
 	if retry.Method != "POST" || retry.Path != fmt.Sprintf("/grabs/%d/retry-import", grab) || discard.Confirm == nil {
 		t.Errorf("actions = %+v", row.Actions)

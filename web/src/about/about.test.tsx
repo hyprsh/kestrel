@@ -100,37 +100,3 @@ describe('About while loading', () => {
     expect(within(kestrel).queryByRole('status')).not.toBeInTheDocument()
   })
 })
-
-describe('the health strip', () => {
-  it('lists an available update', async () => {
-    server.use(
-      http.get('/system/status', ({ response }) =>
-        response(200).json({
-          download_client: {
-            state: 'none',
-            name: null,
-            instance_id: null,
-            message: null,
-          },
-          indexers: [],
-          disks: [],
-          trash: {
-            commit: 'abc1234',
-            committed_at: null,
-            checked_at: null,
-            auto_update: true,
-          },
-          grabs_paused: false,
-          update: { version: '0.3.0', url: 'https://example.test/r' },
-        }),
-      ),
-    )
-    renderApp()
-
-    // Health shows its summary line alone while every check is ok: open it, then find its panel.
-    const toggle = await screen.findByRole('button', { name: /^Health ·/ })
-    if (toggle.getAttribute('aria-expanded') === 'false') await userEvent.click(toggle)
-    const strip = await screen.findByRole('region', { name: /^Health/ })
-    expect(await within(strip).findByText('Kestrel 0.3.0 available')).toBeInTheDocument()
-  })
-})

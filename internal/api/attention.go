@@ -192,6 +192,16 @@ func (s *server) attentionRows(ctx context.Context) ([]oapi.AttentionRow, error)
 		return nil, err
 	}
 	out = append(out, stalled...)
+	stuck, err := s.stuckRows(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, stuck...)
+	silent, err := s.siloSilentRows(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, silent...)
 	// Blocking before Warning, newest first; rows of one kind keep their order.
 	slices.SortStableFunc(out, func(a, b oapi.AttentionRow) int {
 		if (a.Severity == oapi.AttentionRowSeverity(health.Blocking)) != (b.Severity == oapi.AttentionRowSeverity(health.Blocking)) {
@@ -252,10 +262,16 @@ func (s *server) GetAttention(ctx context.Context, _ oapi.GetAttentionRequestObj
 	if out.Originals, err = s.originals(ctx); err != nil {
 		return nil, err
 	}
+	if err := s.withAttentionPosters(ctx, &out); err != nil {
+		return nil, err
+	}
 	return oapi.GetAttention200JSONResponse(out), nil
 }
 
 func (s *server) DismissAttention(ctx context.Context, r oapi.DismissAttentionRequestObject) (oapi.DismissAttentionResponseObject, error) {
+	if raw, ok := strings.CutPrefix(r.Id, siloSilentPrefix); ok {
+		return s.dismissSiloSilent(ctx, raw)
+	}
 	raw, ok := strings.CutPrefix(r.Id, healthRowPrefix)
 	id, err := strconv.ParseInt(raw, 10, 64)
 	if !ok || err != nil {
@@ -356,6 +372,7 @@ const longMissingShown = 5
 // (not copied into health) and sits outside the rail badge.
 func (s *server) longMissing(ctx context.Context) (oapi.LongMissing, error) {
 	out := oapi.LongMissing{Items: []struct {
+		HasPoster   *bool     `json:"has_poster,omitempty"`
 		LastFailure *string   `json:"last_failure"`
 		Profile     string    `json:"profile"`
 		Slot        oapi.Slot `json:"slot"`
@@ -379,6 +396,7 @@ func (s *server) longMissing(ctx context.Context) (oapi.LongMissing, error) {
 	out.Count = len(all)
 	for _, it := range all[:min(longMissingShown, len(all))] {
 		item := struct {
+			HasPoster   *bool     `json:"has_poster,omitempty"`
 			LastFailure *string   `json:"last_failure"`
 			Profile     string    `json:"profile"`
 			Slot        oapi.Slot `json:"slot"`

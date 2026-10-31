@@ -4,6 +4,7 @@ import { Button, Collapse, Entity, Link } from '@hyprsh/design'
 import { RowList, stackedRow, stackedRight } from '../layout/RowList'
 import { useState } from 'react'
 import { offerUnits, useAcceptOffer, useDismissOffer, type OriginalOffer, type OriginalsAvailable } from '../api/offers'
+import { TitlePoster } from '../poster'
 import { useReport } from '../toasts'
 import { profileName, slotProfile, useProfileNames } from '../library/slotProfile'
 
@@ -39,6 +40,7 @@ function Offer({ offer: o, slotProfile, onOpenTitle }: { offer: OriginalOffer; s
     <Entity
       className={stackedRow}
       rightClassName={stackedRight}
+      left={<TitlePoster id={o.title_id} hasPoster={o.has_poster ?? false} size="sm" />}
       right={
         <>
           <Button

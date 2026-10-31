@@ -1500,6 +1500,8 @@ export interface paths {
          * Dismiss a one-off health warning
          * @description Hides the row until its condition recurs. Only rows with a `dismiss` action can be dismissed;
          *     any other row is `409 conflict`, and one that is already gone `404`.
+         *     A `silo-silent-{request_id}` row ("Silo stopped asking") is hidden until Silo asks about that
+         *     Request again; the Request itself is kept.
          */
         post: operations["dismissAttention"];
         delete?: never;
@@ -1753,7 +1755,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * The health strip
+         * Every health check (Activity > Health)
          * @description Capacity at a glance: the download client, each indexer with its daily budget and any pause, the
          *     free space on the data mount and every Root folder, the active TRaSH snapshot with its commit
          *     date, and whether "Pause Grabs" is on.
@@ -1930,6 +1932,9 @@ export interface paths {
          * Requests, newest first, or the named ones
          * @description `id` may repeat (at most 100) to read those Requests in one call, as the Silo plugin does; the
          *     other filters and the cursor are ignored then.
+         *     Reading Silo's Requests this way counts as Silo asking about them: Needs attention flags a Silo
+         *     Request that this read has not named for longer than Silo's whole retry span (6 hours and the
+         *     10-minute submission lease).
          *
          *     `source`, `status`, `outcome` and `requester` may each repeat: a Request matches any one of a
          *     filter's values, and every filter given. `status` is derived on read like each Slot's, and every
@@ -1972,6 +1977,32 @@ export interface paths {
         get: operations["getRequest"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/requests/{id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End an open Request
+         * @description Ends the Request the way a rejected one ends: its Title and Versions stay, nothing more is asked
+         *     for it, and it reads as `outcome: rejected` with a `null` `reject_reason`. The reason is written
+         *     into the Log as a `request_ended` event. This is the "End" action of Needs attention's
+         *     "Silo stopped asking" row. `404` for a Request that does not exist; `409 conflict` for one that
+         *     is not open (completed, or already rejected).
+         */
+        post: operations["endRequest"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2318,7 +2349,7 @@ export interface components {
              *     Upgrade candidates still show up, but send nothing to the download client. A Grab started
              *     by hand from a Version's Releases still goes through. Turning it off makes every Wanted
              *     Version, and every Upgrade search made while paused, due a search now, so the next sweep
-             *     grabs as usual. The health strip shows it as
+             *     grabs as usual. Activity > Health shows it as
              *     `grabs_paused`.
              */
             pause_grabs: boolean;
@@ -3263,6 +3294,19 @@ export interface components {
              */
             updated_at: string;
         };
+        StuckDownload: {
+            /**
+             * @description `paused`: the download client has the job paused. `no_progress`: the downloaded amount has
+             *     not grown for an hour.
+             * @enum {string}
+             */
+            reason: "paused" | "no_progress";
+            /**
+             * Format: date-time
+             * @description When the job was paused, or when its downloaded amount last grew. Kept in memory, so after a restart it counts from the first poll.
+             */
+            since: string;
+        };
         GrabStall: {
             /** @description What is wrong, such as `disk full`. */
             reason: string;
@@ -3373,6 +3417,8 @@ export interface components {
              * @description The tracked Title the files join; null when adopting creates the Title.
              */
             title_id: number | null;
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. False when `title_id` is null, as adopting has not created the Title yet. */
+            has_poster?: boolean;
             /**
              * @description ID tag, confident name match, or picked by the admin.
              * @enum {string}
@@ -3673,7 +3719,7 @@ export interface components {
              * @description What sort of condition, such as `download_client_unreachable`, `no_indexer`,
              *     `root_folder_unavailable`, `metadata_provider_failing`, `indexer_failing`,
              *     `media_server_unreachable`,
-             *     `stalled_imports` (one row per stall reason),
+             *     `stalled_imports` (one row per stall reason), `stuck_download` (one row per Stuck download),
              *     `low_disk_space`, `untrusted_proxy_header` or a one-off health warning (`exdev`,
              *     `refresh_failed`, `plex_no_section`). The set grows; clients tolerate unknown kinds.
              */
@@ -3687,6 +3733,8 @@ export interface components {
             since: string;
             /** @description How often it was raised since it first showed. */
             count: number;
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. False when the row has no Title (`subject.title_id` is null). */
+            has_poster?: boolean;
             actions: components["schemas"]["AttentionAction"][];
         };
         AttentionSubject: {
@@ -3802,6 +3850,8 @@ export interface components {
                 /** Format: int64 */
                 title_id: number;
                 title: string;
+                /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. */
+                has_poster?: boolean;
                 /** @description The key of the Version's Profile. */
                 profile: string;
                 /** Format: int64 */
@@ -3829,6 +3879,8 @@ export interface components {
             /** Format: int64 */
             title_id: number;
             title: string;
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. */
+            has_poster?: boolean;
             /** Format: int64 */
             version_id: number;
             slot: components["schemas"]["Slot"];
@@ -4025,7 +4077,7 @@ export interface components {
             id: number;
             /** Format: date-time */
             at: string;
-            /** @description A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered. */
+            /** @description A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, request_ended, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered. */
             kind: string;
             routine: boolean;
             /** Format: int64 */
@@ -4247,6 +4299,11 @@ export interface components {
             is_upgrade: boolean;
             /** @description For an Upgrade, how many points the Release scores above the file it replaces. */
             score_delta: number | null;
+            /**
+             * @description Set while the download is a Stuck download, null otherwise. It is the same judgement Silo's
+             *     requester view reports as "Taking longer than usual". Not to be confused with a Stalled Import.
+             */
+            stuck: components["schemas"]["StuckDownload"] | null;
         };
         ReleaseDateEntry: {
             country: string;
@@ -6746,6 +6803,29 @@ export interface operations {
                 };
             };
             404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    endRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Request is ended. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

@@ -599,6 +599,7 @@ func (s *Service) store(ctx context.Context, in Input, prior *db.Request, name s
 	id, err := q.InsertRequest(ctx, db.InsertRequestParams{
 		Source: in.Source, SourceRequestID: in.SourceRequestID, RequesterID: in.RequesterID, RequesterName: in.RequesterName,
 		TitleID: sql.NullInt64{Int64: titleID, Valid: titleID != 0}, TitleName: name, Outcome: outcome, RejectReason: rr, CreatedAt: ts(s.d.Clock()),
+		LastAskedAt: sql.NullString{String: ts(s.d.Clock()), Valid: true}, // a new Request is the source asking
 	})
 	if err != nil {
 		tx.Rollback()

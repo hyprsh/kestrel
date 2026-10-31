@@ -1,6 +1,23 @@
 # Troubleshooting and FAQ
 
-Start with the Overview. Its **Needs attention** list and the **Health** panel name most problems in plain words, and the [Log](#where-are-the-logs-and-backups) says what Kestrel did and why. This page covers the ones that come up most.
+Start with the Overview. Its **Needs attention** list and the **Health** chip, which opens Activity > Health, name most problems in plain words, and the [Log](#where-are-the-logs-and-backups) says what Kestrel did and why. This page covers the ones that come up most.
+
+## A download is stuck
+
+Needs attention says "Download of … is stuck". Kestrel flags a Grab when the download client has it paused, or when its downloaded amount hasn't grown for an hour. It clears by itself as soon as the download moves again. The row offers two buttons:
+
+- **Search Again** cancels the download, puts the Release on the Blocklist and searches for the next best Release.
+- **Cancel download** cancels it and removes its job and files from the download client, without blocklisting the Release.
+
+Whoever requested the Title sees "Taking longer than usual".
+
+## Silo stopped asking about a Request
+
+Needs attention says "Silo stopped asking about the Request for …. It may have been cancelled in Silo." Silo polls Kestrel for each Request it made, and this one hasn't been polled for over six hours. Choose:
+
+- **Open the Request** to look at it in Requests.
+- **End** to close it as a rejected Request is closed. Kestrel stops asking for it on Silo's behalf, but the Title and its Versions stay Wanted, since someone else may want them too.
+- **Dismiss** to hide the row. It comes back if Silo goes quiet again.
 
 ## Imports are copied, not hardlinked
 
@@ -53,7 +70,7 @@ Many indexers allow only so many API requests, and so many downloads, a day. In 
 - **API requests per day:** Kestrel stays under it by pausing searches. Set it a little under your indexer's limit.
 - **Grabs per day:** once it is reached, Kestrel stops grabbing from that indexer until the UTC day ends.
 
-If the indexer reports its limits, Kestrel shows them on the Overview next to the indexer ("18 searches today"). An indexer that says it is rate limiting Kestrel is left alone for as long as it asks.
+If the indexer reports its limits, Kestrel shows them on Activity > Health next to the indexer ("18 searches today"). An indexer that says it is rate limiting Kestrel is left alone for as long as it asks.
 
 To stop downloads altogether for a while, such as when you reach a monthly cap, switch on **Pause Grabs** in Settings > Grabs. Searches keep running, so Wanted and Upgrade candidates still show up, but nothing is sent to the download client on its own. A Release you grab by hand still goes through. Switch it off and the next search sweep grabs as usual.
 
@@ -65,7 +82,7 @@ Check these in order:
 2. **Is Pause Grabs on?** See above.
 3. **Is Needs attention asking for something?** A Release in your language may have been held back, because the Profile offers Releases that have only the Original Language ([Concepts](concepts.md#profile)). Accept or dismiss it.
 4. **Did the search find a Release that scores well enough?** Open the Title and choose Manual search. It lists every Release with its Score, and says why one was rejected. "Grab anyway" overrides most rejections.
-5. **Are the download client and indexer healthy?** The Health panel on the Overview shows each with a status. Settings > Download client and Settings > Indexers have a Test connection button.
+5. **Are the download client and indexer healthy?** Activity > Health shows each with a status. Settings > Download client and Settings > Indexers have a Test connection button.
 6. **Has the indexer run out of API requests or grabs for today?** See above.
 
 ## I forgot my password

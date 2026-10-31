@@ -20,7 +20,8 @@ What it knows (MOVIES and SERIES below):
   episode after the last listed one of the season asked for (Placeholder Episodes,
   episode_not_listed) and the season after the last (season_not_listed), as a pack and an
   episode 1. It needs releases on, and with it off the indexer offers exactly what it did.
-- SABnzbd accepts every NZB into a queue at 40 %; nothing ever completes.
+- SABnzbd accepts every NZB into a queue at 40 %; nothing ever completes. GET /_ctl?paused=1
+  (=0 resumes) reports every queued job as Paused, which Kestrel counts as a Stuck download at once.
 - plex.tv (/plextv, KESTREL_PLEX_TV_URL) knows the owner (token DEMO_OWNER_TOKEN, the one
   seeded into the Plex instance) and Ellie, a friend whose share includes the Plex server
   (/plex, whose /identity answers DEMO_MACHINE). Its sign-in page (/plextv/auth,
@@ -38,7 +39,7 @@ from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from xml.sax.saxutils import escape
 
-STATE = {"releases": False, "unlisted": False, "queue": [], "pins": {}}
+STATE = {"releases": False, "unlisted": False, "paused": False, "queue": [], "pins": {}}
 DEMO_OWNER_TOKEN = "demo-owner-token"
 DEMO_REQUESTER_TOKEN = "demo-requester-token"
 DEMO_MACHINE = "demo-plex-machine"
@@ -427,7 +428,9 @@ class H(WatchlistStandIn, BaseHTTPRequestHandler):
                 STATE["releases"] = qs["releases"][0] == "1"
             if "unlisted" in qs:
                 STATE["unlisted"] = qs["unlisted"][0] == "1"
-            return self.send(200, {"releases": STATE["releases"], "unlisted": STATE["unlisted"]})
+            if "paused" in qs:
+                STATE["paused"] = qs["paused"][0] == "1"
+            return self.send(200, {"releases": STATE["releases"], "unlisted": STATE["unlisted"], "paused": STATE["paused"]})
         if p.startswith("/t/p/"):
             f = os.path.join(POSTERS, os.path.basename(p))
             if not os.path.exists(f):
@@ -587,7 +590,8 @@ class H(WatchlistStandIn, BaseHTTPRequestHandler):
             if qs.get("name", [""])[0] == "delete":
                 STATE["queue"] = [s for s in STATE["queue"] if s["nzo_id"] != qs.get("value", [""])[0]]
                 return self.send(200, {"status": True})
-            return self.send(200, {"queue": {"version": "4.5.1", "paused": False, "slots": STATE["queue"]}})
+            slots = [dict(s, status="Paused") for s in STATE["queue"]] if STATE["paused"] else STATE["queue"]
+            return self.send(200, {"queue": {"version": "4.5.1", "paused": False, "slots": slots}})
         if mode == "history":
             if qs.get("name", [""])[0] == "delete":
                 return self.send(200, {"status": True})

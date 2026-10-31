@@ -69,6 +69,35 @@ type Active struct {
 	Stalled bool
 }
 
+// StuckReason is why a download is stuck.
+type StuckReason string
+
+const (
+	// StuckPaused: the download client has the job paused.
+	StuckPaused StuckReason = "paused"
+	// StuckNoProgress: the downloaded amount has not grown for StalledDownloadAfter.
+	StuckNoProgress StuckReason = "no_progress"
+)
+
+// Stuck is a Stuck download: why, and since when.
+type Stuck struct {
+	Reason StuckReason
+	// Since is when the job was paused, or when its downloaded amount last grew.
+	Since time.Time
+}
+
+// Stuck says why the download is stuck, if Stalled is set. It reads what
+// Stalled already decided; it does not decide again.
+func (a Active) Stuck() (Stuck, bool) {
+	if !a.Stalled {
+		return Stuck{}, false
+	}
+	if a.Phase == PhasePaused {
+		return Stuck{Reason: StuckPaused, Since: a.Live.Since}, true
+	}
+	return Stuck{Reason: StuckNoProgress, Since: a.ProgressAt}, true
+}
+
 type liveSet struct {
 	mu sync.Mutex
 	m  map[int64]Live

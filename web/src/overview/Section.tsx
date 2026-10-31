@@ -34,12 +34,12 @@ export function Section({ id, title, count, action, className, children }: { id:
   )
 }
 
-/** "View all 23 →": opens the screen with the full list (a place path, such as "/activity"). */
-export function ViewAll({ path, count }: { path: string; count?: number }) {
+/** "View all 23 →", or `label` ("All activity →"): opens the screen with the full list (a place path, such as "/activity"). */
+export function ViewAll({ path, count, label }: { path: string; count?: number; label?: string }) {
   const openPlace = useOpenPlace()
   return (
     <div className="mt-2">
-      <Pill onClick={() => openPlace(path)}>{count != null ? `View all ${count} →` : 'View all →'}</Pill>
+      <Pill onClick={() => openPlace(path)}>{label ?? (count != null ? `View all ${count} →` : 'View all →')}</Pill>
     </div>
   )
 }

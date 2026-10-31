@@ -1,11 +1,8 @@
-// The Health section, last on the Overview: one tile per item (download client, indexers, disks, the
-// rest), failing first, each with its state as a status dot and a word, never colour alone. It shows
-// its summary line alone while every check is ok, and opens when one fails; a click toggles it.
-import { Collapse, Skeleton } from '@hyprsh/design'
-import { useState } from 'react'
-import { useStatus, type SystemStatus } from '../api/attention'
-import { clockTime } from '../time'
-import { Tile, type TileData, type Tone } from './HealthTile'
+// The Health checks as tiles: the download client, each indexer, each disk and the rest, grouped and
+// failing first. Used by Activity's Health tab and its tab dot.
+import type { SystemStatus } from '../../api/attention'
+import { clockTime } from '../../time'
+import type { TileData, Tone } from './HealthTile'
 
 /** "800 GB", "1 TB": powers of 1024, no decimals once a number is round. */
 function formatBytes(n: number): string {
@@ -24,6 +21,7 @@ function clientTile(s: SystemStatus['download_client']): TileData {
   return {
     key: 'client',
     name: s.name ?? 'Download client',
+    instanceId: s.instance_id,
     tone: s.state === 'ok' ? 'ok' : 'failing',
     details: s.state === 'ok' ? [] : [s.message ?? 'Not answering'],
   }
@@ -46,6 +44,7 @@ function indexerTile(i: Indexer): TileData {
   return {
     key: `indexer-${i.instance_id}`,
     name: i.name,
+    instanceId: i.instance_id,
     tone,
     word: i.state === 'disabled' ? 'disabled' : undefined,
     details,
@@ -71,59 +70,28 @@ export function snapshotAge(committedAt: string | null, now = Date.now()): strin
   return days === 0 ? 'from today' : `${days} day${days === 1 ? '' : 's'} old`
 }
 
-const failingFirst = (tiles: TileData[]) => [...tiles].sort((a, b) => Number(b.tone === 'failing') - Number(a.tone === 'failing'))
+export type HealthGroup = { title: string; tiles: TileData[] }
 
-function Group({ title, tiles }: { title: string; tiles: TileData[] }) {
-  if (tiles.length === 0) return null
-  return (
-    <div>
-      <h3 className="label-12 mb-1.5 text-gray-900">{title}</h3>
-      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {failingFirst(tiles).map((t) => (
-          <Tile key={t.key} tile={t} />
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-export function HealthStrip() {
-  const status = useStatus()
-  const s = status.data
-  const [chosen, setChosen] = useState<boolean | null>(null)
+/**
+ * The groups that have a tile in them, each with its failing tiles first, and how many tiles fail, warn or are ok.
+ * Only the download client and the indexers can fail; a low disk or a pause is a warning, not a failure.
+ * Everything else (ok, off, an update to install) is ok, so the three counts add up to the number of tiles.
+ */
+export function healthOf(s: SystemStatus): { groups: HealthGroup[]; failing: number; warnings: number; ok: number } {
   const rest: TileData[] = []
-  if (s) {
-    if (s.grabs_paused) rest.push({ key: 'grabs', name: 'Grabs', tone: 'paused', details: ['Automatic Grabs are paused'] })
-    rest.push({ key: 'trash', name: 'TRaSH', tone: 'ok', details: [snapshotAge(s.trash.committed_at)] })
-    if (s.update) rest.push({ key: 'update', name: 'Update', tone: 'update', details: [`Kestrel ${s.update.version} available`], link: { path: '/about', label: 'About' } })
-  }
-  const clients = s ? [clientTile(s.download_client)] : []
-  const indexers = s ? s.indexers.map(indexerTile) : []
-  const disks = s ? s.disks.map(diskTile) : []
-  const failing = [...clients, ...indexers].filter((t) => t.tone === 'failing').length
-  // While the status loads the summary line is a Skeleton: the section is collapsed, so one inside it would be hidden.
-  const summary = !s ? (
-    <>
-      {' '}
-      <Skeleton width={64} height={16} className="inline-block align-middle" />
-    </>
-  ) : failing > 0 ? (
-    ` · ${failing} failing`
-  ) : (
-    ' · all good'
-  )
-  return (
-    <div>
-      <Collapse size="small" headingLevel={2} title={<>Health{summary}</>} expanded={chosen ?? failing > 0} onChange={setChosen}>
-        {s && (
-          <div className="flex flex-col gap-4 pt-3">
-            <Group title="Download client" tiles={clients} />
-            <Group title="Indexers" tiles={indexers} />
-            <Group title="Disks" tiles={disks} />
-            <Group title="Other" tiles={rest} />
-          </div>
-        )}
-      </Collapse>
-    </div>
-  )
+  if (s.grabs_paused) rest.push({ key: 'grabs', name: 'Grabs', tone: 'paused', details: ['Automatic Grabs are paused'] })
+  rest.push({ key: 'trash', name: 'TRaSH', tone: 'ok', details: [snapshotAge(s.trash.committed_at)] })
+  if (s.update) rest.push({ key: 'update', name: 'Update', tone: 'update', details: [`Kestrel ${s.update.version} available`], link: { path: '/about', label: 'About' } })
+  const groups = [
+    { title: 'Download client', tiles: [clientTile(s.download_client)] },
+    { title: 'Indexers', tiles: s.indexers.map(indexerTile) },
+    { title: 'Disks', tiles: s.disks.map(diskTile) },
+    { title: 'Other', tiles: rest },
+  ]
+    .filter((g) => g.tiles.length > 0)
+    .map((g) => ({ ...g, tiles: [...g.tiles].sort((a, b) => Number(b.tone === 'failing') - Number(a.tone === 'failing')) }))
+  const tiles = groups.flatMap((g) => g.tiles)
+  const failing = tiles.filter((t) => t.tone === 'failing').length
+  const warnings = tiles.filter((t) => t.tone === 'paused' || t.tone === 'low').length
+  return { groups, failing, warnings, ok: tiles.length - failing - warnings }
 }

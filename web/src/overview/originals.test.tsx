@@ -142,6 +142,22 @@ describe('the Originals available group in Needs attention', () => {
     expect(await screen.findByRole('region', { name: /paddington/i })).toBeInTheDocument()
   })
 
+  it('shows each offer its Title poster, and the placeholder without a request when there is none', async () => {
+    fakeOffers([
+      { ...movieOffer, has_poster: true },
+      { ...seriesOffer, has_poster: false },
+    ])
+    renderApp()
+
+    const section = await screen.findByRole('region', { name: /needs attention/i })
+    await userEvent.click(await within(section).findByRole('button', { name: 'Originals available · 2' }))
+    const offers = within(section).getAllByRole('listitem')
+
+    expect(offers[0].querySelector('[data-poster] img')).toHaveAttribute('src', expect.stringMatching(/\/titles\/1\/poster$/))
+    expect(offers[1].querySelector('[data-poster]')).toBeInTheDocument()
+    expect(offers[1].querySelector('[data-poster] img')).not.toBeInTheDocument()
+  })
+
   it('does not show without offers', async () => {
     fakeOffers([])
     renderApp()

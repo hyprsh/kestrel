@@ -1,7 +1,7 @@
 import { usePatchSettings, useSettings, useUpdateTrash } from '../api/queries'
 import { SkeletonForm } from '../loading'
 import { useStatus } from '../api/attention'
-import { snapshotAge } from '../overview/HealthStrip'
+import { snapshotAge } from '../activity/health/tiles'
 import { Button, Checkbox, Code } from '@hyprsh/design'
 import { useReport } from '../toasts'
 import { trashStarted } from './toasts'

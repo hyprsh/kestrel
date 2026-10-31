@@ -1,6 +1,6 @@
 // Needs attention: the rows the server raised, with the actions it built. Nothing
 // here knows a kind of row; it draws message, severity and buttons.
-import { Badge, Button, Collapse, DotsMenu, Entity, MenuItem, Note } from '@hyprsh/design'
+import { Badge, Button, Collapse, DotsMenu, Entity, Icon, MenuItem, Note } from '@hyprsh/design'
 import { RowList, stackedRow, stackedRight } from '../layout/RowList'
 import { useState } from 'react'
 import { useAttention, type ActionResult, type Attention, type AttentionRow } from '../api/attention'
@@ -8,6 +8,7 @@ import { SkeletonRows } from '../loading'
 import { planWaiting, useAdoption, type Adoption } from '../api/adoption'
 import { profileName, slotProfile, useProfileNames } from '../library/slotProfile'
 import { placePath } from '../place'
+import { TitlePoster } from '../poster'
 import { useAttentionAction } from './useAttentionAction'
 import { OriginalsRow } from './OriginalsRow'
 import type { OverviewNav } from './nav'
@@ -46,7 +47,7 @@ export function NeedsAttention({
   return (
     <Section id="needs-attention" title="Needs attention" count={rows.length}>
       {attention.isPending ? (
-        <SkeletonRows />
+        <SkeletonRows poster="sm" />
       ) : attention.data && nothing ? (
         <EmptyLine title="Nothing needs attention." />
       ) : (
@@ -110,7 +111,7 @@ function LongMissingRow({ group, onOpen }: { group: Attention['long_missing']; o
           <div className="flex flex-col gap-3">
             <Entity.List>
               {group.items.map((i) => (
-                <Entity key={i.version_id}>
+                <Entity key={i.version_id} left={<TitlePoster id={i.title_id} hasPoster={i.has_poster ?? false} size="sm" />}>
                   <div className="flex min-w-0 flex-col">
                     <span>
                       {i.title} · {slotProfile(i.slot, profileName(names, i.profile))}
@@ -166,17 +167,29 @@ function Row({ row, onOpen, nav, index }: { row: AttentionRow; onOpen: (path: st
         className={stackedRow}
         rightClassName={stackedRight}
         left={
-          <Badge variant={row.severity === 'blocking' ? 'red' : 'amber'} contrast="low" size="sm">
-            {row.severity === 'blocking' ? 'Blocking' : 'Warning'}
-          </Badge>
+          row.subject.title_id !== null ? (
+            <TitlePoster id={row.subject.title_id} hasPoster={row.has_poster ?? false} size="sm" />
+          ) : (
+            <Icon name={row.severity === 'blocking' ? 'octagon-alert' : 'triangle-alert'} />
+          )
         }
         right={actions}
       >
-        <div className="flex min-w-0 flex-col gap-2">
-          <span>{row.message}</span>
-          {error && <Note variant="error">{error.message}</Note>}
-          {result && <Result {...result} />}
-        </div>
+        <Entity.Content
+          fill
+          title={<span className="whitespace-normal">{row.message}</span>}
+          description={
+            <span className="flex flex-col gap-1">
+              <span>
+                <Badge variant={row.severity === 'blocking' ? 'red' : 'amber'} contrast="low" size="sm">
+                  {row.severity === 'blocking' ? 'Blocking' : 'Warning'}
+                </Badge>
+              </span>
+              {error && <Note variant="error">{error.message}</Note>}
+              {result && <Result {...result} />}
+            </span>
+          }
+        />
       </Entity>
       {dialog}
     </>

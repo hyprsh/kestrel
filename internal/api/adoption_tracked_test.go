@@ -21,6 +21,8 @@ func TestFilesOfATrackedTitleFillItsEmptyVersionAndCreateAMissingOneWithoutAddin
 	}
 	if got := a.rowOf(t, "Paddington (2014)").Match; got == nil || got.TitleID == nil || *got.TitleID != added.ID {
 		t.Errorf("match = %+v, want the tracked Title %d", got, added.ID)
+	} else if !got.HasPoster {
+		t.Errorf("match has_poster is false for Paddington, which has a poster: %+v", got)
 	}
 
 	a.commit(t, plan.Revision)

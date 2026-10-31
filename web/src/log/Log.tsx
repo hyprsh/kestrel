@@ -28,6 +28,7 @@ const kinds: Record<string, { label: string; tone: Tone }> = {
   import_stalled: { label: 'Import stalled', tone: 'amber' },
   blocklist: { label: 'Blocklisted', tone: 'red' },
   request: { label: 'Requested', tone: 'teal' },
+  request_ended: { label: 'Request ended', tone: 'gray' },
   watch_ahead: { label: 'Watch-ahead', tone: 'teal' },
   rename: { label: 'Renamed', tone: 'gray' },
   move: { label: 'Moved', tone: 'gray' },

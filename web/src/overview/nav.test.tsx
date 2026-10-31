@@ -6,6 +6,7 @@ import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { dayString } from '../api/upcoming'
 import { http } from '../test/handlers'
+import { fakeRequests, request } from '../test/requests'
 import { server } from '../test/server'
 import { RecentlyAdded } from './ComingRecent'
 
@@ -30,28 +31,27 @@ const recent = (over: Partial<Recent>): Recent => ({
 })
 
 describe('Overview rows', () => {
-  it('shows the release name and the score delta of a recent Import, or "new"', () => {
-    // The rows alone, from a filled cache: nothing to wait for, so no boot of the whole App
+  it('shows the Slot and age of a recent Import under its poster', () => {
+    // The shelf alone, from a filled cache: nothing to wait for, so no boot of the whole App
     // to race on a loaded machine.
     const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
     client.setQueryData(['titles', 'recent'], {
-      items: [recent({ is_upgrade: true, score_delta: 150 }), recent({ title_id: 8, title: 'Arrival', release_name: 'Arrival.2016.2160p-GRP', slot: '4k' })],
+      items: [recent({ is_upgrade: true, score_delta: 150 }), recent({ title_id: 8, title: 'Arrival', slot: '4k' })],
       total: 2,
     })
     render(
       <QueryClientProvider client={client}>
-        <RecentlyAdded onOpenTitle={() => {}} nav={{ base: 0, sel: -1, select: () => {} }} />
+        <RecentlyAdded onOpenTitle={() => {}} nav={{ base: 0, sel: -1, select: () => {} }} shelf={{ ref: () => {}, count: 8 }} />
       </QueryClientProvider>,
     )
 
-    const [upgrade, first] = within(screen.getByRole('region', { name: 'Recently added · 2' })).getAllByRole('listitem')
-    expect(upgrade).toHaveTextContent('Paddington.2014.1080p.BluRay-GRP')
-    expect(upgrade).toHaveTextContent('+150')
-    expect(first).toHaveTextContent('Arrival.2016.2160p-GRP')
-    expect(first).toHaveTextContent('new')
+    const [first, second] = within(screen.getByRole('region', { name: 'Recently added · 2' })).getAllByRole('listitem')
+    expect(first).toHaveTextContent('Paddington')
+    expect(second).toHaveTextContent('Arrival')
+    expect(second).toHaveTextContent('4K')
   })
 
-  it('moves one selection with j through Needs attention, Downloading now, Recently added and Coming this week', async () => {
+  it('moves one selection with j through Needs attention, Downloading now, Recent requests, Recently added and Coming this week', async () => {
     server.use(
       http.get('/attention', ({ response }) =>
         response(200).json({
@@ -98,6 +98,7 @@ describe('Overview rows', () => {
               eta: null,
               is_upgrade: false,
               score_delta: null,
+              stuck: null,
             },
           ],
         }),
@@ -125,15 +126,19 @@ describe('Overview rows', () => {
       ),
       http.get('/recent', ({ response }) => response(200).json({ items: [recent({})], total: 1 })),
     )
+    fakeRequests([request({ title: 'Severance', title_id: 3 })])
     renderApp()
     await screen.findByText('Imports copy instead of moving')
     await screen.findByText('Dune')
-    await screen.findByText('Paddington.2014.1080p.BluRay-GRP')
+    await screen.findByText('Paddington')
+    await screen.findByText('Severance')
 
     const current = () => document.querySelector('[aria-current="true"]')
     expect(current()).toHaveTextContent('Imports copy instead of moving')
     await userEvent.keyboard('j')
     expect(current()).toHaveTextContent('Heat')
+    await userEvent.keyboard('j')
+    expect(current()).toHaveTextContent('Severance')
     await userEvent.keyboard('j')
     expect(current()).toHaveTextContent('Paddington')
     await userEvent.keyboard('j')

@@ -61,7 +61,7 @@ The Library filter `is:wanted` lists everything Wanted.
 
 A Version that has been Wanted for more than 90 days. A Series Version is Long Missing once any of its episodes is. Kestrel counts from the later of the release and the moment it became Wanted, and shows how many on the Overview.
 
-Example: a rare 4K Release of an old film that no indexer has. After three months the Overview says "1 Version long missing", so you can decide to drop the 4K Version or look elsewhere.
+Example: a rare 4K Release of an old film that no indexer has. After three months Needs attention on the Overview says "1 Version long missing", so you can decide to drop the 4K Version or look elsewhere.
 
 ## Grab
 

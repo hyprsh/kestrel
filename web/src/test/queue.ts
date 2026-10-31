@@ -27,6 +27,7 @@ export const queueItem = (over: Partial<QueueItem> = {}): QueueItem => ({
   eta: 125,
   is_upgrade: false,
   score_delta: null,
+  stuck: null,
   ...over,
 })
 

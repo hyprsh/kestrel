@@ -72,6 +72,8 @@ type adoptionRowJSON struct {
 		TitleID *int64 `json:"title_id"`
 		Source  string `json:"source"`
 		Folder  string `json:"folder"`
+		// HasPoster is on a match to a tracked Title.
+		HasPoster bool `json:"has_poster"`
 	} `json:"match"`
 	Candidates []adoptionCandidateJSON `json:"candidates"`
 	Kind       string                  `json:"kind"`
