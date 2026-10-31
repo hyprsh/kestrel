@@ -60,18 +60,23 @@ export function dotOf(state: State | null, longMissing: boolean): Dot {
   }
 }
 
+function slotName(k: SlotKey, s: { state: string; long_missing: boolean } | null): string {
+  return `${slotLabel[k]}: ${s ? versionStatus(s.state, s.long_missing).label : 'no Version'}`
+}
+
 /** The faint dot of a Slot with no Version is dimmed with this class. */
 export const faintDot = 'opacity-40'
 
 /** One dot per Slot: filled green when there is a file, hollow amber while Wanted, red when Long Missing, a faint dot with no Version. The row is one image named for every Slot. */
 export function SlotDots({ slots }: { slots: Record<SlotKey, { state: string; long_missing: boolean } | null> }) {
-  const name = slotKeys.map((k) => `${slotLabel[k]}: ${slots[k] ? versionStatus(slots[k].state, slots[k].long_missing).label : 'no Version'}`).join(', ')
+  const name = slotKeys.map((k) => slotName(k, slots[k])).join(', ')
   return (
     <span role="img" aria-label={name} className="flex items-center gap-1">
       {slotKeys.map((k) => {
         const s = slots[k]
         const dot = dotOf(s ? s.state : null, !!s?.long_missing)
-        return <StatusDot key={k} state={dot.state} variant={dot.variant} label={false} aria-hidden className={dot.faint ? faintDot : undefined} />
+        // StatusDot always sets a hover title, so give it the Slot's own words; aria-hidden keeps it out of the accessibility tree.
+        return <StatusDot key={k} title={slotName(k, s)} state={dot.state} variant={dot.variant} label={false} aria-hidden className={dot.faint ? faintDot : undefined} />
       })}
     </span>
   )
