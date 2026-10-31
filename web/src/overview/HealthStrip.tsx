@@ -1,7 +1,7 @@
 // The Health section, last on the Overview: one tile per item (download client, indexers, disks, the
 // rest), failing first, each with its state as a status dot and a word, never colour alone. It shows
 // its summary line alone while every check is ok, and opens when one fails; a click toggles it.
-import { Collapse } from '@hyprsh/design'
+import { Collapse, Skeleton } from '@hyprsh/design'
 import { useState } from 'react'
 import { useStatus, type SystemStatus } from '../api/attention'
 import { clockTime } from '../time'
@@ -88,7 +88,8 @@ function Group({ title, tiles }: { title: string; tiles: TileData[] }) {
 }
 
 export function HealthStrip() {
-  const s = useStatus().data
+  const status = useStatus()
+  const s = status.data
   const [chosen, setChosen] = useState<boolean | null>(null)
   const rest: TileData[] = []
   if (s) {
@@ -104,6 +105,18 @@ export function HealthStrip() {
   return (
     <div>
       <Collapse size="small" headingLevel={2} title={`Health${summary}`} expanded={chosen ?? failing > 0} onChange={setChosen}>
+        {status.isPending && (
+          <div aria-busy="true" className="flex flex-col gap-2 pt-3">
+            <Skeleton height={14} width={96} />
+            <ul aria-hidden className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {[0, 1, 2].map((i) => (
+                <li key={i}>
+                  <Skeleton height={64} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {s && (
           <div className="flex flex-col gap-4 pt-3">
             <Group title="Download client" tiles={clients} />

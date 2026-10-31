@@ -11,6 +11,7 @@ import { FilterStrip } from '../layout/FilterStrip'
 import { PaneFooter, PaneHeader } from '../layout/Pane'
 import { usePhone } from '../responsive'
 import { cx } from '../ui'
+import { manualSearchSortLabels } from './bits'
 
 function size(bytes: number): string {
   const gb = bytes / 1024 ** 3
@@ -510,9 +511,7 @@ function episodeTitles(x: Release): string | null {
 const sortOptions = [
   { value: `${BEST_FIRST.key}:${BEST_FIRST.dir}`, label: 'Best first' },
   ...columns.flatMap((c) =>
-    (['asc', 'desc'] as const)
-      .filter((dir) => !(c.key === BEST_FIRST.key && dir === BEST_FIRST.dir))
-      .map((dir) => ({ value: `${c.key}:${dir}`, label: `${c.label}, ${dir === 'asc' ? 'ascending' : 'descending'}` })),
+    (['asc', 'desc'] as const).filter((dir) => !(c.key === BEST_FIRST.key && dir === BEST_FIRST.dir)).map((dir) => ({ value: `${c.key}:${dir}`, label: manualSearchSortLabels[c.key][dir] })),
   ),
 ]
 

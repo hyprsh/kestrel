@@ -2,6 +2,7 @@
 // does, how often it runs, how its last pass went and when the next is due. The runner keeps this
 // in memory only, so after a restart a loop reads "Not run since start" until its first pass. A loop a
 // setting turns off says which one instead. It stays live through the stream's `jobs` frames.
+import { SkeletonRows } from '../loading'
 import { Badge, Button, Entity, Note, type BadgeProps } from '@hyprsh/design'
 import { useJobs, useRunJob, type Job } from '../api/jobs'
 import { SectionBlock } from '../layout/SectionBlock'
@@ -48,13 +49,15 @@ function lastRun(j: Job, now: number): { text: string; failed: boolean } {
 }
 
 export function BackgroundJobs() {
-  const items = useJobs().data?.items ?? []
+  const jobs = useJobs()
+  const items = jobs.data?.items ?? []
   const run = useRunJob()
   const now = useNow()
   // Rendered with or without data: "/activity/jobs" scrolls here as soon as the screen opens.
   return (
     <div id="activity-jobs">
-      <SectionBlock title="Background jobs" count={items.length}>
+      <SectionBlock title="Background jobs" count={jobs.data ? items.length : undefined}>
+        {jobs.isPending && <SkeletonRows count={4} />}
         <Entity.List aria-label="Background jobs">
           {items.map((j) => {
             const about = jobWords(j.name)

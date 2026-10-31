@@ -206,7 +206,7 @@ func TestSpecAndDocsArePublished(t *testing.T) {
 	}
 
 	res, body = get(t, srv.URL+"/kestrel/api/docs")
-	if ct := res.Header.Get("Content-Type"); !strings.HasPrefix(ct, "text/html") || !strings.Contains(body, "openapi.json") {
+	if ct := res.Header.Get("Content-Type"); !strings.HasPrefix(ct, "text/html") || !strings.Contains(body, "openapi.json") || !strings.Contains(body, "https://hyprsh.github.io/kestrel/") {
 		t.Errorf("docs page: %q %q", ct, body)
 	}
 }

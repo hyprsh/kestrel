@@ -236,7 +236,7 @@ async function openAdoption() {
 }
 
 describe('Adoption while loading', () => {
-  it('shows a Loading line only after about 300ms', async () => {
+  it('shows Skeleton rows, announced once, until the plan loads', async () => {
     let release: () => void = () => {}
     const held = new Promise<void>((resolve) => (release = resolve))
     fakeAdoption()
@@ -251,8 +251,8 @@ describe('Adoption while loading', () => {
     await user.click(await screen.findByRole('button', { name: 'Settings' }))
     await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
 
-    expect(screen.queryByText('Loading…')).not.toBeInTheDocument()
-    expect(await screen.findByText('Loading…')).toBeInTheDocument()
+    expect(await screen.findByRole('status')).toHaveTextContent('Loading')
+    expect(screen.queryByRole('button', { name: /scan for existing files/i })).not.toBeInTheDocument()
     release()
     expect(await screen.findByRole('button', { name: /scan for existing files/i })).toBeInTheDocument()
   })

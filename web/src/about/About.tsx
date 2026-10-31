@@ -1,10 +1,13 @@
-// About: version, licence, the update the daily GitHub check found, metadata attribution,
+// About: version, licence, the docs link, the update the daily GitHub check found, metadata attribution,
 // the TRaSH commit scoring Releases now, third-party notices and keyboard shortcuts.
 import { useState, type ReactNode } from 'react'
 import { useAbout, useNotices } from '../api/about'
-import { Button, Code, Description, Fieldset, KeyboardInput, Link } from '@hyprsh/design'
-import { LoadingLine } from '../loading'
+import { Button, Code, Description, Fieldset, KeyboardInput, Link, Skeleton } from '@hyprsh/design'
+import { LoadingRegion } from '../loading'
 import tmdbLogo from '../assets/tmdb-blue-short.svg'
+
+// The docs site (docs.yml publishes it on every release).
+const DOCS_URL = 'https://hyprsh.github.io/kestrel/'
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -45,6 +48,16 @@ export function About() {
               <Description
                 layout="horizontal"
                 termWidth="9.25rem"
+                title="Docs"
+                content={
+                  <Link href={DOCS_URL} target="_blank" rel="noreferrer">
+                    Documentation
+                  </Link>
+                }
+              />
+              <Description
+                layout="horizontal"
+                termWidth="9.25rem"
                 title="TRaSH commit"
                 content={
                   <span className="copy-14-mono" title="The TRaSH Guides commit whose Custom Formats and profiles score Releases now">
@@ -70,7 +83,13 @@ export function About() {
               />
             </div>
           ) : (
-            <LoadingLine>Loading…</LoadingLine>
+            <LoadingRegion label="Loading the version">
+              <div aria-hidden className="flex flex-col gap-1.5">
+                {['Version', 'Licence', 'TRaSH commit', 'Updates'].map((term, i) => (
+                  <Description key={term} layout="horizontal" termWidth="9.25rem" title={term} content={<Skeleton width={`${30 + ((i * 15) % 30)}%`} height={20} />} />
+                ))}
+              </div>
+            </LoadingRegion>
           )}
         </Card>
 
@@ -129,7 +148,9 @@ export function About() {
             ) : notices.isError ? (
               <p className="text-gray-900">Could not load the notices.</p>
             ) : (
-              <LoadingLine>Loading…</LoadingLine>
+              <LoadingRegion label="Loading the notices">
+                <Skeleton height={192} />
+              </LoadingRegion>
             )
           ) : (
             <Button size="small" onClick={() => setShowNotices(true)}>

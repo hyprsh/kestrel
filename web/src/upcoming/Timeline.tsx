@@ -2,7 +2,9 @@
 // The Agenda timeline's drawing: the vertical rail, a dot per day and per row, the sticky day heading with
 // today in the accent colour, the week label and the poster thumbnail beside a row. No component of the
 // design library draws a timeline (ADR 0017); everything else in Upcoming is design components and layout.
+import { Entity, Skeleton } from '@hyprsh/design'
 import type { ReactNode, Ref } from 'react'
+import { PosterSkeleton } from '../poster'
 import { cx } from '../ui'
 
 /** The Agenda: a list of days with the rail running down its left edge. */
@@ -43,4 +45,31 @@ export function DayHeading({ label, date, isToday, headingRef }: { label: string
 /** The rail's dot for a row: a child of the row's Entity, drawn left of the day card (the list lets it overflow). */
 export function RowDot() {
   return <span aria-hidden className="absolute top-5 -left-7 size-2 rounded-full bg-gray-600 ring-4 ring-background-100" />
+}
+
+/** The Agenda while Upcoming loads: three days on the rail, each with a heading and a row or two. */
+export function TimelineSkeleton() {
+  return (
+    <div aria-busy="true">
+      <AgendaTimeline>
+        {[2, 1, 2].map((rows, d) => (
+          <li key={d} aria-hidden className="relative">
+            <div className="flex items-center gap-2 py-1.5 pl-9">
+              <span className="absolute top-3.5 left-[7px] size-2 rounded-full bg-gray-600" />
+              <Skeleton width={96} height={16} />
+            </div>
+            <div className="pr-3 pb-2 pl-9">
+              <Entity.List className="@container overflow-visible">
+                {Array.from({ length: rows }, (_, i) => (
+                  <Entity key={i} left={<PosterSkeleton size="sm" />}>
+                    <Entity.Content fill title={<Skeleton width={`${45 + (((i + d) * 15) % 30)}%`} height={16} />} description={<Skeleton width="30%" height={14} />} />
+                  </Entity>
+                ))}
+              </Entity.List>
+            </div>
+          </li>
+        ))}
+      </AgendaTimeline>
+    </div>
+  )
 }
