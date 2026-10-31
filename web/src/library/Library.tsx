@@ -6,7 +6,7 @@ import { useQueue } from '../api/queue'
 import { useOpenCleanup } from '../cleanup/launch'
 import { FilterBar } from '../filter/FilterBar'
 import { useKey, useListNav } from '../keys'
-import { FacetFilterButton } from '../layout/FilterButton'
+import { FacetFilterButton, SortButton } from '../layout/FilterButton'
 import { PaneFooter } from '../layout/Pane'
 import { PhoneBackHeader } from '../layout/PhoneBackHeader'
 import { ScreenBar } from '../layout/ScreenBar'
@@ -21,24 +21,19 @@ import { episodeCode, seasonName } from './episodes'
 import { useEpisodeSearch, type EpisodeActions } from './EpisodeActions'
 import { EpisodeHitRows, hitDomId } from './EpisodeHitRows'
 import { filterLibrary, libraryQualifiers, tabCounts, tabOf, withTab } from './filter'
-import { AddTitle, DisplayButton, LibraryMenu, StatusSection } from './LibraryBar'
+import { AddTitle, LibraryMenu, StatusSection } from './LibraryBar'
 import { ManualSearch } from './ManualSearch'
 import { grabsByTitle } from './rowState'
 import { TitleDetail, type ManualSearchTarget } from './TitleDetail'
-import { TitleGrid } from './TitleGrid'
 import { TitleRows } from './TitleRows'
-import { TitleSummary } from './TitleSummary'
 import { useEpisodeResults, type EpisodeHit } from './useEpisodeResults'
-import { useLibraryView } from './useLibraryView'
 
 /**
  * The Library. Across the top, one bar, in the top bar of a desktop: the filter field with its Filter button (whose Status section holds the `is:`
- * states, each with its count) and the Display menu (sort and layout), then after Health the Library-wide "…" menu and Add Title. The count is in the footer.
- * The list view (the default) is two panes: the filterable list on the left and
- * the selected Title on the right. The grid view is a wall of posters; picking one opens its summary in a panel on
- * the right, and Open Title shows its whole page. The view is remembered in this browser, and `g` switches it.
+ * states, each with its count) and the Sort button, then after Health the Library-wide "…" menu and Add Title. The count is in the footer.
+ * The list is two panes: the filterable list on the left and the selected Title on the right.
  *
- * Everything is reachable from the keyboard: j/k and the arrows move, Enter steps into the Title (or its summary),
+ * Everything is reachable from the keyboard: j/k and the arrows move, Enter steps into the Title,
  * Escape steps back, `/` filters (with qualifiers such as is:wanted, see ./filter.ts, kept in the address bar), x ticks
  * the Title under the cursor. While Titles are ticked a bar floats over the foot of the list with what can be done to
  * them together, and Escape clears the ticks.
@@ -76,12 +71,9 @@ export function Library({
   const now = useNow()
   const openCleanup = useOpenCleanup()
   const profiles = useProfiles().data
-  const [view, setView] = useLibraryView()
-  const grid = view === 'grid'
   const qualifiers = useMemo(() => libraryQualifiers((profiles ?? []).map((p) => ({ name: p.name, description: `${p.min_height}–${p.max_height}p` }))), [profiles])
   const listRef = useRef<HTMLDivElement>(null)
   const paneRef = useRef<HTMLElement>(null)
-  const summaryRef = useRef<HTMLElement>(null)
 
   const all = titles.data ?? []
   const grabs = useMemo(() => grabsByTitle(queue), [queue])
@@ -96,9 +88,9 @@ export function Library({
     rows.findIndex((r) => r.id === selectedId),
   ) // the first row until something is picked
   const current = rows[index] as TitleRow | undefined
-  // The Episode and Season results above the Titles (list view; a filter such as "harbour s2e5"): the cursor moves
+  // The Episode and Season results above the Titles (a filter such as "harbour s2e5"): the cursor moves
   // through them and then the Titles. `hitKey` is the result it is on, null while it is on a Title.
-  const hits = useEpisodeResults(rows, parsed.text, !grid)
+  const hits = useEpisodeResults(rows, parsed.text, true)
   const [hitKey, setHitKey] = useState<string | null>(null)
   const hitAt = hitKey === null ? -1 : hits.findIndex((h) => h.key === hitKey)
   const hit = hitAt >= 0 ? hits[hitAt] : null
@@ -127,15 +119,10 @@ export function Library({
   // A manual search replaces the Title pane; picking another Title in the list closes it.
   const [search, setSearch] = useState<(ManualSearchTarget & { titleId: number }) | null>(null)
   const searching = search !== null && search.titleId === current?.id
-  // The grid's summary panel, and the whole Title page over the grid that Open Title shows (on a wide screen; a phone opens Titles full screen).
-  const [summary, setSummary] = useState(false)
-  const [opened, setOpened] = useState(false)
-  const gridPage = grid && !phone && opened && current !== undefined
-
   // The listbox (EntityList takes no ref), inside the scroller that holds the ref.
   const focusList = () => listRef.current?.querySelector<HTMLElement>('[role=listbox]')?.focus()
-  useEffect(focusList, [view])
-  const keys = !searching && !gridPage && !(phone && titleOpen)
+  useEffect(focusList, [])
+  const keys = !searching && !(phone && titleOpen)
   useListNav(
     'lib',
     hits.length + rows.length,
@@ -148,9 +135,6 @@ export function Library({
         else paneRef.current?.focus()
       } else if (phone) {
         if (current) onOpenTitle(current.id)
-      } else if (grid) {
-        setSummary(true)
-        requestAnimationFrame(() => summaryRef.current?.focus())
       } else paneRef.current?.focus()
     },
     keys,
@@ -185,17 +169,6 @@ export function Library({
     },
     keys && hit !== null,
   )
-  useKey('g', () => setView(grid ? 'list' : 'grid'), keys)
-  // Escape closes the grid's summary, once there are no ticks for it to clear first.
-  useKey(
-    'Escape',
-    (e) => {
-      if (e.defaultPrevented) return
-      e.preventDefault()
-      setSummary(false)
-    },
-    keys && grid && summary && selection.count === 0,
-  )
 
   const empty = titles.isSuccess && all.length === 0
   const total = rows.reduce((n, r) => n + r.size, 0)
@@ -228,7 +201,6 @@ export function Library({
   )
 
   const status = <StatusSection selected={tabOf(parsed)} counts={counts} onSelect={(tab) => onQuery(withTab(query, tab, qualifiers))} />
-  const display = <DisplayButton phone={phone} view={view} onView={setView} query={query} onQuery={onQuery} qualifiers={qualifiers} />
   const menu = <LibraryMenu onAdopt={onAdopt} onCleanup={() => openCleanup()} onTick={phone ? () => selection.setActive(true) : undefined} />
   const count = <span className="label-12 shrink-0 text-gray-900 tabular-nums">{counted ? counted.filter(Boolean).join(' · ') : <Skeleton width={48} height={14} />}</span>
 
@@ -239,13 +211,10 @@ export function Library({
     onSelect(r.id)
     if (phone) onOpenTitle(r.id)
     else {
-      if (grid) setSummary(true)
       focusList()
     }
   }
-  const items = grid ? (
-    <TitleGrid rows={rows} index={index} loading={titles.isPending} grabs={grabs} now={now} selection={selection} phone={phone} gridRef={listRef} onPick={pick} />
-  ) : (
+  const items = (
     <TitleRows
       rows={rows}
       index={hit ? -1 : index}
@@ -334,7 +303,7 @@ export function Library({
       </div>
     )
 
-  // One bar across the whole screen, above the list and the Title; a Title's page over the grid has no filter to show. On a desktop it sits in the top bar.
+  // One bar across the whole screen, above the list and the Title; On a desktop it sits in the top bar.
   const bar = (filtering: boolean) => (
     <ScreenBar
       menu={menu}
@@ -343,7 +312,7 @@ export function Library({
       controls={
         <>
           <FacetFilterButton query={query} onQuery={onQuery} qualifiers={qualifiers} lead={status} leadActive={parsed.terms.some((t) => t.name === 'is') ? 1 : 0} />
-          {display}
+          <SortButton query={query} onQuery={onQuery} qualifiers={qualifiers} />
         </>
       }
     />
@@ -363,61 +332,9 @@ export function Library({
   const hints = (
     <span className="label-12 flex items-center gap-1 text-gray-900 pointer-coarse:hidden">
       <KeyboardInput small>j</KeyboardInput>
-      <KeyboardInput small>k</KeyboardInput> move <KeyboardInput small>x</KeyboardInput> tick <KeyboardInput small>g</KeyboardInput> {grid ? 'list' : 'grid'}
+      <KeyboardInput small>k</KeyboardInput> move <KeyboardInput small>x</KeyboardInput> tick
     </span>
   )
-  const closePage = () => {
-    setOpened(false)
-    requestAnimationFrame(focusList)
-  }
-
-  if (grid)
-    return (
-      <div className="flex min-h-0 flex-1 flex-col">
-        {bar(!gridPage)}
-        {gridPage ? (
-          <div className="flex min-h-0 flex-1 flex-col">
-            {!searching && <PhoneBackHeader onBack={closePage}>{current.title}</PhoneBackHeader>}
-            {titlePage(closePage)}
-          </div>
-        ) : (
-          <div className="flex min-h-0 flex-1">
-            <div className="flex min-w-0 flex-1 flex-col">
-              <div className="relative flex min-h-0 flex-1 flex-col">
-                {rows.length === 0 && !titles.isPending ? nothing : items}
-                {bulk}
-              </div>
-              <PaneFooter>
-                {hints}
-                <span className="ml-auto">{count}</span>
-              </PaneFooter>
-            </div>
-            {summary && current && (
-              <TitleSummary
-                key={current.id}
-                ref={summaryRef}
-                row={current}
-                grabs={grabs.get(current.id) ?? []}
-                now={now}
-                onOpen={() => {
-                  setOpened(true)
-                  requestAnimationFrame(() => paneRef.current?.focus())
-                }}
-                onClose={() => {
-                  setSummary(false)
-                  focusList()
-                }}
-                onManualSearch={(s) => {
-                  startSearch(s)
-                  setOpened(true)
-                }}
-              />
-            )}
-          </div>
-        )}
-      </div>
-    )
-
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {bar(true)}

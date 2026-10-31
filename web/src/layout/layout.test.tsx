@@ -2,10 +2,10 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { useState } from 'react'
-import { Menu, MenuItem } from '@hyprsh/design'
+import { MenuItem } from '@hyprsh/design'
 import { slotKeys } from '../library/bits'
 import type { Facet } from '../filter/qualifiers'
-import { FacetFilterButton, FilterButton, SortSection } from './FilterButton'
+import { FacetFilterButton, FilterButton, SortButton } from './FilterButton'
 import { FilterStrip } from './FilterStrip'
 import { PageSurface } from './PageSurface'
 import { PaneFooter, PaneHeader } from './Pane'
@@ -187,12 +187,7 @@ function Harness({ start = '' }: { start?: string }) {
     <>
       <output>{query}</output>
       <FacetFilterButton query={query} onQuery={setQuery} qualifiers={facets} />
-      <Menu.Container>
-        <Menu.Button>Display</Menu.Button>
-        <Menu>
-          <SortSection query={query} onQuery={setQuery} qualifiers={facets} />
-        </Menu>
-      </Menu.Container>
+      <SortButton query={query} onQuery={setQuery} qualifiers={facets} />
     </>
   )
 }
@@ -218,14 +213,14 @@ describe('FacetFilterButton', () => {
   })
 })
 
-describe('SortSection', () => {
-  it('marks the sort, replaces its term and takes it out for the default', async () => {
+describe('SortButton', () => {
+  it('names the sort, replaces its term and takes it out for the default', async () => {
     render(<Harness start="heat" />)
-    await userEvent.click(screen.getByRole('button', { name: 'Display' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Sort: Newest added' }))
     expect(screen.getByRole('menuitemradio', { name: 'Newest added' })).toHaveAttribute('aria-checked', 'true')
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Name A–Z' }))
     expect(screen.getByRole('status')).toHaveTextContent('heat sort:name-asc')
-    await userEvent.click(screen.getByRole('button', { name: 'Display' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Sort: Name A–Z' }))
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Newest added' }))
     expect(screen.getByRole('status')).toHaveTextContent(/^heat$/)
   })

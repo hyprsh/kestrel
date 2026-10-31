@@ -116,7 +116,7 @@ describe('the Library on a phone', () => {
     expect(await screen.findByRole('heading', { name: 'Heat' })).toBeInTheDocument()
   })
 
-  it('shows the filter field with icon-only Filter and Display buttons on one line, and no count line', async () => {
+  it('shows the filter field with icon-only Filter and Sort buttons on one line, and no count line', async () => {
     fakeLibrary(rows())
     const list = await openLibrary()
     await userEvent.type(screen.getByRole('combobox', { name: 'Filter the Library' }), 'heat')
@@ -125,7 +125,7 @@ describe('the Library on a phone', () => {
     expect(screen.queryByText(/^1 of \d+/)).not.toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Filter the Library' })).toHaveAttribute('placeholder', 'Filter titles')
     expect(screen.getByRole('button', { name: 'Filter' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Display' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sort' })).toBeInTheDocument()
   })
 
   it("shows tick boxes once asked, and the ticked Titles' actions on a bar over the list", async () => {

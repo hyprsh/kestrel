@@ -21,14 +21,14 @@ describe('the desktop top bar', () => {
     expect(within(bar).queryByRole('combobox')).not.toBeInTheDocument()
   })
 
-  it("holds the Library's filter, Filter and Display, and no command box, on the Library", async () => {
+  it("holds the Library's filter, Filter and Sort, and no command box, on the Library", async () => {
     fakeLibrary([row(1, 'Heat', 'Heat')])
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     const bar = screen.getByRole('banner')
     expect(await within(bar).findByRole('combobox', { name: 'Filter the Library' })).toBeInTheDocument()
     expect(within(bar).getByRole('button', { name: /^Filter/ })).toBeInTheDocument()
-    expect(within(bar).getByRole('button', { name: 'Display' })).toBeInTheDocument()
+    expect(within(bar).getByRole('button', { name: /^Sort/ })).toBeInTheDocument()
     expect(within(bar).getByRole('button', { name: 'Add Title' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Search or run a command' })).not.toBeInTheDocument()
   })

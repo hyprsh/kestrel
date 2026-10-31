@@ -14,7 +14,7 @@ export const ScreenBarPlacesContext = createContext<ScreenBarPlaces | undefined>
 
 /**
  * The bar of Library, Upcoming, Activity and Log. In the top bar of a desktop it is, from the left: `view` (the ViewSwitcher of a
- * screen with several pages), `filter` (the text field, with its `?`), `controls` (a FilterButton, a Display menu), `aside`
+ * screen with several pages), `filter` (the text field, with its `?`), `controls` (a FilterButton, a SortButton), `aside`
  * (a screen's own button, pushed to the right, such as Today); and at the end `menu` (a "…" menu) and `actions` (at
  * most one primary button). On a phone it is one line under the top bar: the field takes the width and the buttons (Filter, Display, a
  * "…" menu) are icons.

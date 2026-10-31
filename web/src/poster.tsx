@@ -7,7 +7,7 @@ import { cx } from './ui'
 
 /**
  * The poster sizes, smallest first: a command menu thumbnail, a list row, a Grab row, the add panel, a Title page's
- * pane, a Title page with room; `fill` takes the width it is given, as in the Library's poster grid.
+ * pane, a Title page with room; `fill` takes the width it is given, as a poster does where it fills a cell.
  */
 const sizes = {
   xs: 'h-10 w-7 rounded-sm',

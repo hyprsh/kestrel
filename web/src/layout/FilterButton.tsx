@@ -1,6 +1,6 @@
 // chrome: layout
 import { Button, Menu, MenuDivider, MenuItem, MenuSection, parseQuery, termText, withoutTerm, withoutValue, withValue, type Term } from '@hyprsh/design'
-import { Funnel, Minus, MinusCircle } from 'lucide-react'
+import { ArrowUpDown, Funnel, Minus, MinusCircle } from 'lucide-react'
 import { useRef, type ReactNode } from 'react'
 import { usePhone } from '../responsive'
 import type { Facet } from '../filter/qualifiers'
@@ -169,12 +169,11 @@ export function FacetFilterButton({
   )
 }
 
-/** The Sort section of a Display menu: one value of a `single` facet, as radio items; the default row takes the term out. */
-export function SortSection({ query, onQuery, qualifiers, name = 'sort' }: { query: string; onQuery: (query: string) => void; qualifiers: readonly Facet[]; name?: string }) {
+/** The rows of a `single` facet (a sort), which one is chosen, and how to choose another: the default row takes the term out. */
+function sortChoice(query: string, onQuery: (query: string) => void, qualifiers: readonly Facet[], name: string) {
   const facet = qualifiers.find((f) => f.name === name && f.single)
   if (!facet) return null
-  const parsed = parseQuery(query, qualifiers)
-  const current = parsed.terms.find((t) => t.name === name)?.values[0]
+  const current = parseQuery(query, qualifiers).terms.find((t) => t.name === name)?.values[0]
   const rows = [{ value: '', label: facet.single! }, ...(facet.values ?? []).map((v) => ({ value: v, label: facet.options?.[v]?.label ?? v }))]
   const chosen = rows.find((r) => r.value === current) ?? rows[0]
   const set = (value: string) => {
@@ -184,13 +183,33 @@ export function SortSection({ query, onQuery, qualifiers, name = 'sort' }: { que
     for (let i = terms.length - 1; i >= 0; i--) if (terms[i].name === name) text = withoutTerm(text, i, qualifiers)
     onQuery(value ? withValue(text, name, value, qualifiers) : text)
   }
+  return { facet, rows, chosen, set }
+}
+
+/** The Sort button: "Sort: Newest added" with its rows as radio items; a phone's one line has an icon button named "Sort". */
+export function SortButton({ query, onQuery, qualifiers, name = 'sort' }: { query: string; onQuery: (query: string) => void; qualifiers: readonly Facet[]; name?: string }) {
+  const phone = usePhone()
+  const choice = sortChoice(query, onQuery, qualifiers, name)
+  if (!choice) return null
+  const { facet, rows, chosen, set } = choice
   return (
-    <MenuSection title={facet.label ?? 'Sort'}>
-      {rows.map((r) => (
-        <MenuItem key={r.value} role="radio" checked={r === chosen} onSelect={() => set(r.value)}>
-          {r.label}
-        </MenuItem>
-      ))}
-    </MenuSection>
+    <Menu.Container position="bottom-start">
+      {phone ? (
+        <Menu.Button variant="secondary" size="small" svgOnly aria-label="Sort">
+          <ArrowUpDown />
+        </Menu.Button>
+      ) : (
+        <Menu.Button variant="secondary" size="small" showChevron>
+          {`${facet.label}: ${chosen.label}`}
+        </Menu.Button>
+      )}
+      <Menu width={220} className="max-h-[min(32rem,70vh)] overflow-y-auto">
+        {rows.map((r) => (
+          <MenuItem key={r.value} role="radio" checked={r === chosen} onSelect={() => set(r.value)}>
+            {r.label}
+          </MenuItem>
+        ))}
+      </Menu>
+    </Menu.Container>
   )
 }
