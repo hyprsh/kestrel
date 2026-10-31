@@ -314,6 +314,20 @@ func (s *Service) Region(ctx context.Context) (Region, bool, error) {
 	return Region{Primary: d.PrimaryLanguage, Country: d.ReleaseDateCountry}, true, nil
 }
 
+// RestoreRegion puts back what Region reported earlier: the old Primary
+// Language and country and the Profiles backed under them, and, if they were
+// never saved (saved is false), no stored language settings at all, so the
+// setup wizard's Primary Language section is to do again.
+func (s *Service) RestoreRegion(ctx context.Context, before Region, saved bool) error {
+	if _, err := s.SetRegion(ctx, RegionPatch{Primary: &before.Primary, Country: &before.Country}); err != nil {
+		return err
+	}
+	if saved {
+		return nil
+	}
+	return s.settings.Delete(ctx, regionKey)
+}
+
 // CheckRegion applies SetRegion's rules to a whole Region without saving it.
 // A rejection is a *ValidationError.
 func CheckRegion(r Region) error {

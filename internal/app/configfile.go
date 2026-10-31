@@ -222,8 +222,7 @@ func (d declarer) declareRegion(ctx context.Context, want profiles.Region) error
 			Language: string(want.Primary),
 			Apply:    set,
 			Undo: func(ctx context.Context) error {
-				_, err := d.profiles.SetRegion(ctx, profiles.RegionPatch{Primary: &cur.Primary, Country: &cur.Country})
-				return err
+				return d.profiles.RestoreRegion(ctx, cur, saved)
 			},
 		})
 	}

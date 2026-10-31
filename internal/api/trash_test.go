@@ -190,3 +190,60 @@ func TestAnInvalidPrimaryLanguageIsRefusedAtOnce(t *testing.T) {
 		t.Errorf("pending = %q after a refused patch", got.PendingLanguage)
 	}
 }
+
+type languageStepJSON struct {
+	Sections struct {
+		Language string `json:"language"`
+	} `json:"sections"`
+}
+
+func storedRegion(t *testing.T, s search) int {
+	t.Helper()
+	var n int
+	if err := s.in.st.Write().QueryRowContext(context.Background(), `SELECT count(*) FROM settings WHERE key = 'language_region'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func TestAFailedLanguageReScoreOnAFreshInstallLeavesTheLanguageStepToDo(t *testing.T) {
+	t.Parallel()
+	s := newSearchBare(t)
+	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
+	s.prober.set(goodProbe(), nil)
+	s.download(t, map[string]string{"paddington.mkv": "the movie"})
+	s.pass(t, jobs.Poll)
+	s.pass(t, jobs.Import)
+	if got := decode[languageStepJSON](t, s.valid("GET", "/setup", "")).Sections.Language; got != "todo" {
+		t.Fatalf("language step = %s on a fresh install, want todo", got)
+	}
+	if _, err := s.in.st.Write().Exec(`CREATE TRIGGER no_rescore BEFORE UPDATE OF score ON files BEGIN SELECT RAISE(ABORT, 'disk full'); END`); err != nil {
+		t.Fatal(err)
+	}
+	if r := s.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`); r.Status != 200 {
+		t.Fatalf("PATCH /settings = %d %s", r.Status, r.Body)
+	}
+	if err := s.in.app.Jobs.Pass(context.Background(), jobs.Trash); err == nil {
+		t.Fatal("the pass succeeded, want the re-score to fail")
+	}
+	if got := decode[languageStepJSON](t, s.valid("GET", "/setup", "")).Sections.Language; got != "todo" {
+		t.Errorf("language step = %s after a failed change, want todo: nothing was saved", got)
+	}
+	if n := storedRegion(t, s); n != 0 {
+		t.Errorf("a stored region remains after the undo")
+	}
+}
+
+func TestASuccessfulLanguageChangeOnAFreshInstallCompletesTheLanguageStep(t *testing.T) {
+	t.Parallel()
+	s := newSearchBare(t)
+	if r := s.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`); r.Status != 200 {
+		t.Fatalf("PATCH /settings = %d %s", r.Status, r.Body)
+	}
+	if err := s.in.app.Jobs.Pass(context.Background(), jobs.Trash); err != nil {
+		t.Fatal(err)
+	}
+	if got := decode[languageStepJSON](t, s.valid("GET", "/setup", "")).Sections.Language; got != "done" {
+		t.Errorf("language step = %s after the pass, want done", got)
+	}
+}

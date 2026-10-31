@@ -78,6 +78,19 @@ func (s *server) PatchProfile(ctx context.Context, r oapi.PatchProfileRequestObj
 	return oapi.PatchProfile200JSONResponse(s.profileToAPI(p)), nil
 }
 
+// restoreRegion undoes setRegion, in a transaction of its own.
+func (s *server) restoreRegion(ctx context.Context, before profiles.Region, saved bool) error {
+	tx, err := s.opts.Store.Write().BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := s.settings.InTx(tx).RestoreRegion(ctx, before, saved); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 // setRegion saves the language settings in a transaction of their own.
 func (s *server) setRegion(ctx context.Context, p profiles.RegionPatch) (profiles.Region, error) {
 	tx, err := s.opts.Store.Write().BeginTx(ctx, nil)
@@ -186,19 +199,19 @@ func (s *server) queueLanguage(ctx context.Context, r oapi.PatchSettingsRequestO
 		return nil, err
 	}
 	var before profiles.Region
+	var wasSaved bool
 	s.trash.ChangeLanguage(ctx, jobs.LanguageChange{
 		Language: string(want),
 		Apply: func(ctx context.Context) error {
 			var err error
-			if before, _, err = s.profiles.Region(ctx); err != nil {
+			if before, wasSaved, err = s.profiles.Region(ctx); err != nil {
 				return err
 			}
 			_, err = s.setRegion(ctx, profiles.RegionPatch{Primary: &want, Country: l.ReleaseDateCountry})
 			return err
 		},
 		Undo: func(ctx context.Context) error {
-			_, err := s.setRegion(ctx, profiles.RegionPatch{Primary: &before.Primary, Country: &before.Country})
-			return err
+			return s.restoreRegion(ctx, before, wasSaved)
 		},
 	})
 	out, err := s.settingsBody(ctx)
