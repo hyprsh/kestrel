@@ -29,7 +29,7 @@ import { useSelection } from '../selection'
 import { useReport } from '../toasts'
 import { Finished, type FinishedActions } from './Finished'
 import { currentText, skipText } from './text'
-import { Badge, Button, Checkbox, EmptyState, Entity, Input, LoadMoreButton, Note, Select, Skeleton, Spinner } from '@hyprsh/design'
+import { Badge, Button, Checkbox, EmptyState, Entity, Input, LoadMoreButton, Note, Select, Skeleton, Spinner, useToasts } from '@hyprsh/design'
 
 type Filter = 'all' | 'matched' | 'needs_choice' | 'skipped' | 'duplicate' | 'replacement'
 
@@ -124,6 +124,14 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
   const retry = useRetry()
   const reopen = useReopen()
   const toast = useReport()
+  const toasts = useToasts()
+  // Adoption shows its progress on its own screen, so its "started" Toasts carry no link to Activity (useReport's `started` would add one).
+  // A failure shows inline on this screen, so there is no error Toast either.
+  const started = (work: Promise<unknown>, text: string) =>
+    void work.then(
+      () => toasts.message(text),
+      () => undefined,
+    )
   const [filter, setFilter] = useState<Filter>('all')
   const state = plan.data?.state
 
@@ -164,7 +172,7 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
             )}
             {p.result && <Kept result={p.result} actions={{ onRetry: () => retry.mutate(), onReopen: () => reopen.mutate(), busy: retry.isPending || reopen.isPending }} />}
             <div>
-              <Button variant="primary" size="small" onClick={() => void toast(scan.mutateAsync(), { started: 'Scan for existing files started' })} disabled={scan.isPending}>
+              <Button variant="primary" size="small" onClick={() => started(scan.mutateAsync(), 'Scan for existing files started')} disabled={scan.isPending}>
                 Scan for existing files
               </Button>
             </div>
@@ -187,7 +195,7 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
             onFilter={setFilter}
             summary={p.summary}
             monitor={p.monitor}
-            onCommit={() => void toast(commit.mutateAsync(p.revision), { started: 'Adopting the plan started' })}
+            onCommit={() => started(commit.mutateAsync(p.revision), 'Adopting the plan started')}
             onDiscard={() => void toast(discard.mutateAsync(), { done: 'Adoption plan discarded' })}
             busy={commit.isPending || discard.isPending}
           />
