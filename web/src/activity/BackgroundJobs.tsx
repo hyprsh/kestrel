@@ -12,6 +12,7 @@ import { SectionBlock } from '../layout/SectionBlock'
 import { ago, span, until, useNow } from '../time'
 import { jobWords } from './jobNames'
 import { SearchProgress } from './SearchProgress'
+import { useWatchSearch } from './searchToast'
 
 const statusBadge: Record<Job['status'], { tone: NonNullable<BadgeProps['variant']>; text: string }> = {
   idle: { tone: 'gray', text: 'Idle' },
@@ -56,6 +57,7 @@ function lastRun(j: Job, now: number): { text: string; failed: boolean } {
 function SearchAllWanted({ status }: { status: SearchStatus }) {
   const searchAll = useSearchAllWanted()
   const toasts = useToasts()
+  const watch = useWatchSearch()
   const running = status.pass !== null
   // Not gated on what is due now: the point is to search the Wanted Versions that are waiting out their back-off too.
   const blocked = running || searchAll.isPending
@@ -70,7 +72,7 @@ function SearchAllWanted({ status }: { status: SearchStatus }) {
         disabled={blocked}
         onClick={() =>
           searchAll.mutate(undefined, {
-            onSuccess: (versions) => toasts.success(`${versions} Wanted ${versions === 1 ? 'Version' : 'Versions'} queued for a search`),
+            onSuccess: (versions) => watch(`${versions} Wanted ${versions === 1 ? 'Version' : 'Versions'} queued for a search`),
             onError: (e) => toasts.error(`Search all Wanted failed: ${e.message}`),
           })
         }
@@ -86,6 +88,7 @@ export function BackgroundJobs({ onOpenTitle }: { onOpenTitle?: (id: number) => 
   const items = jobs.data?.items ?? []
   const run = useRunJob()
   const report = useReport()
+  const watch = useWatchSearch()
   const search = useSearchStatus().data
   const now = useNow()
   // Rendered with or without data, so a place can scroll to it.
@@ -114,7 +117,15 @@ export function BackgroundJobs({ onOpenTitle }: { onOpenTitle?: (id: number) => 
                           size="small"
                           aria-label={`Run ${about.label} now`}
                           disabled={j.status === 'running'}
-                          onClick={() => void report(run.mutateAsync(j.name), { started: `${about.label} started`, failed: `Could not run ${about.label}` })}
+                          onClick={() =>
+                            // A search started here is followed in one live Toast instead of a "started" one.
+                            j.name === 'search'
+                              ? void report(
+                                  run.mutateAsync(j.name).then(() => watch('Search started')),
+                                  { failed: `Could not run ${about.label}` },
+                                )
+                              : void report(run.mutateAsync(j.name), { started: `${about.label} started`, failed: `Could not run ${about.label}` })
+                          }
                         >
                           Run now
                         </Button>

@@ -16,6 +16,7 @@ import { Cleanup } from '../cleanup/Cleanup'
 import { CleanupLauncher } from '../cleanup/launch'
 import { MOD } from '../keys'
 import { useSearchAllWanted } from '../api/wanted'
+import { useSearchPassToast, useWatchSearch } from '../activity/searchToast'
 import { Library } from '../library/Library'
 import { startLiveStream } from '../live/stream'
 import { Health } from '../health/Health'
@@ -148,6 +149,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const searchAll = useSearchAllWanted()
   const { mutate: searchAllWanted } = searchAll
   useTrashOutcomeToasts()
+  useSearchPassToast()
+  const watchSearch = useWatchSearch()
   const toasts = useToasts()
   const adoptionState = useAdoption().data?.state
   const actions: MenuAction[] = useMemo(
@@ -158,7 +161,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
         keywords: 'missing search catch up',
         run: () =>
           searchAllWanted(undefined, {
-            onSuccess: (versions) => toasts.success(`${versions} Wanted ${versions === 1 ? 'Version' : 'Versions'} queued for a search`),
+            onSuccess: (versions) => watchSearch(`${versions} Wanted ${versions === 1 ? 'Version' : 'Versions'} queued for a search`),
             onError: (e) => toasts.error(`Search all Wanted failed: ${e.message}`),
           }),
       },
@@ -168,7 +171,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
       { id: 'cleanup', label: 'Clean up Unmanaged files', keywords: 'junk samples subtitles delete tidy', run: () => openCleanup() },
       ...(canLogout ? [{ id: 'logout', label: 'Log out', keywords: 'sign out', run: () => logout.mutate(undefined) }] : []),
     ],
-    [cycle, onRunSetup, canLogout, logout, searchAllWanted, toasts, openCleanup, adoptionState],
+    [cycle, onRunSetup, canLogout, logout, searchAllWanted, toasts, watchSearch, openCleanup, adoptionState],
   )
   const needs = useAttention().data
   const tabs: Tab[] = tabKeys
