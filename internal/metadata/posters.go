@@ -23,6 +23,8 @@ type PostersOptions struct {
 	// ImageBase defaults to https://image.tmdb.org/t/p.
 	ImageBase string
 	HTTP      *http.Client
+	// Clock defaults to time.Now.
+	Clock func() time.Time
 }
 
 // Posters caches TMDB posters on disk, one file per title.
@@ -30,7 +32,17 @@ type Posters struct {
 	dir  string
 	base string
 	http *http.Client
+	now  func() time.Time
 }
+
+const (
+	// posterMaxAge is how old a poster gets before Ensure downloads it again.
+	posterMaxAge = 30 * 24 * time.Hour
+	// posterKeepLimit is the longest a poster may be kept: TMDB's terms forbid
+	// caching its content for more than six months. Past it a poster is never
+	// served and the sweep deletes it.
+	posterKeepLimit = 180 * 24 * time.Hour
+)
 
 // posterSize is the one width Kestrel caches: sharp at the detail pane's size.
 const posterSize = "w342"
@@ -43,31 +55,93 @@ func NewPosters(o PostersOptions) *Posters {
 	if o.HTTP == nil {
 		o.HTTP = &http.Client{Timeout: 30 * time.Second}
 	}
-	return &Posters{dir: filepath.Join(o.ConfigDir, "cache", "posters"), base: strings.TrimRight(o.ImageBase, "/"), http: o.HTTP}
+	if o.Clock == nil {
+		o.Clock = time.Now
+	}
+	return &Posters{dir: filepath.Join(o.ConfigDir, "cache", "posters"), base: strings.TrimRight(o.ImageBase, "/"), http: o.HTTP, now: o.Clock}
 }
 
 func (p *Posters) path(kind Kind, tmdbID int) string {
 	return filepath.Join(p.dir, string(kind)+"-"+strconv.Itoa(tmdbID)+".jpg")
 }
 
-// Cached returns the file of a poster already on disk.
-func (p *Posters) Cached(kind Kind, tmdbID int) (string, bool) {
-	path := p.path(kind, tmdbID)
-	if _, err := os.Stat(path); err != nil {
-		return "", false
-	}
-	return path, true
+// sourcePath is the sidecar holding the poster_path the file was fetched from.
+func (p *Posters) sourcePath(kind Kind, tmdbID int) string {
+	return strings.TrimSuffix(p.path(kind, tmdbID), ".jpg") + ".src"
 }
 
-// Ensure returns the poster's file, downloading it first if it is not cached.
-// A blank posterPath is ErrNoPoster.
+// age is how old the cached poster is.
+func (p *Posters) age(kind Kind, tmdbID int) (time.Duration, bool) {
+	info, err := os.Stat(p.path(kind, tmdbID))
+	if err != nil {
+		return 0, false
+	}
+	return p.now().Sub(info.ModTime()), true
+}
+
+// Cached returns the file of a poster on disk that is not past the six-month
+// limit. It may be stale: Ensure is what downloads it again.
+func (p *Posters) Cached(kind Kind, tmdbID int) (string, bool) {
+	if age, ok := p.age(kind, tmdbID); !ok || age > posterKeepLimit {
+		return "", false
+	}
+	return p.path(kind, tmdbID), true
+}
+
+// Remove deletes a Title's cached poster, if it has one.
+func (p *Posters) Remove(kind Kind, tmdbID int) {
+	_ = os.Remove(p.path(kind, tmdbID))
+	_ = os.Remove(p.sourcePath(kind, tmdbID))
+}
+
+// Sweep deletes every poster past the six-month limit, asked for or not.
+func (p *Posters) Sweep() error {
+	entries, err := os.ReadDir(p.dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		info, err := e.Info()
+		if err != nil || p.now().Sub(info.ModTime()) <= posterKeepLimit {
+			continue
+		}
+		if err := os.Remove(filepath.Join(p.dir, e.Name())); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
+	return nil
+}
+
+// Ensure returns the poster's file. A poster is downloaded when it is not
+// cached, is older than 30 days or came from another posterPath. If that
+// download fails, a stale poster is still served unless it is past six
+// months. A blank posterPath is ErrNoPoster.
 func (p *Posters) Ensure(ctx context.Context, kind Kind, tmdbID int, posterPath string) (string, error) {
 	if posterPath == "" {
 		return "", ErrNoPoster
 	}
-	if path, ok := p.Cached(kind, tmdbID); ok {
-		return path, nil
+	age, onDisk := p.age(kind, tmdbID)
+	if onDisk && age > posterKeepLimit {
+		p.Remove(kind, tmdbID)
+		onDisk = false
 	}
+	if onDisk {
+		src, _ := os.ReadFile(p.sourcePath(kind, tmdbID))
+		if age <= posterMaxAge && string(src) == posterPath {
+			return p.path(kind, tmdbID), nil
+		}
+	}
+	path, err := p.download(ctx, kind, tmdbID, posterPath)
+	if err != nil && onDisk {
+		return p.path(kind, tmdbID), nil
+	}
+	return path, err
+}
+
+func (p *Posters) download(ctx context.Context, kind Kind, tmdbID int, posterPath string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.base+"/"+posterSize+"/"+strings.TrimLeft(posterPath, "/"), nil)
 	if err != nil {
 		return "", err
@@ -96,7 +170,13 @@ func (p *Posters) Ensure(ctx context.Context, kind Kind, tmdbID int, posterPath 
 	if err := tmp.Close(); err != nil {
 		return "", err
 	}
+	if err := os.WriteFile(p.sourcePath(kind, tmdbID), []byte(posterPath), 0o644); err != nil {
+		return "", err
+	}
 	path := p.path(kind, tmdbID)
+	if err := os.Chtimes(tmp.Name(), p.now(), p.now()); err != nil {
+		return "", err
+	}
 	if err := os.Rename(tmp.Name(), path); err != nil {
 		return "", err
 	}

@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
@@ -46,7 +46,7 @@ const releases = () => [
 
 type Posted = { path: string; body: unknown }
 
-function fakeSearch(items: Release[], opts: { grabStatus?: number } = {}) {
+function fakeSearch(items: Release[], opts: { grabStatus?: number; hold?: Promise<void> } = {}) {
   const state = { searches: 0, grabs: [] as Posted[], items }
   fakeLibrary([row(1, 'Paddington', 'Paddington')])
   server.use(
@@ -57,6 +57,7 @@ function fakeSearch(items: Release[], opts: { grabStatus?: number } = {}) {
     http.post('/grabs', async ({ request, response }) => {
       const body = await request.clone().json()
       state.grabs.push({ path: '/grabs', body })
+      await opts.hold
       if (opts.grabStatus === 409) {
         return response('default').json(
           { type: 'about:blank', title: 'conflict', status: 409, code: 'release_expired', detail: 'That Release is no longer in the search results; search again' },
@@ -397,5 +398,165 @@ describe('manual search', () => {
       expect(order(table)).toEqual(['big', 'mid', 'old', 'bad'])
       expect(screen.getByRole('columnheader', { name: 'Indexer' })).toHaveAttribute('aria-sort', 'ascending')
     })
+  })
+
+  describe('feedback on a Grab', () => {
+    const grabbed = (name: string) =>
+      within(screen.getByRole('table', { name: /releases/i }))
+        .getAllByRole('row')
+        .find((r) => r.textContent?.includes(name))!
+
+    it('shows "Grabbing…" with a spinner from the trigger until the request settles', async () => {
+      let release!: () => void
+      const state = fakeSearch(releases(), { hold: new Promise<void>((r) => (release = r)) })
+      await openManualSearch()
+
+      await userEvent.keyboard('{Enter}')
+      const button = await screen.findByRole('button', { name: /grabbing/i })
+      expect(button).toBeDisabled()
+      expect(button).toHaveTextContent('Grabbing…')
+      await userEvent.keyboard('{Enter}') // a second trigger does nothing
+      expect(state.grabs).toHaveLength(1)
+
+      release()
+      expect(await screen.findByRole('button', { name: 'Grab' })).toBeEnabled()
+    })
+
+    it('confirms the Release in a live region with a link to Activity, and keeps it when the selection moves', async () => {
+      fakeSearch(releases())
+      await openManualSearch()
+      await userEvent.keyboard('{Enter}')
+
+      const confirmation = (await screen.findByText(/sent to the download client/i)).closest('[aria-live]') as HTMLElement
+      expect(confirmation).toHaveTextContent('Paddington.2014.1080p.BluRay.x264-GRP')
+
+      await userEvent.keyboard('j')
+      expect(screen.getByText(/sent to the download client/i)).toBeInTheDocument()
+      expect(confirmation).toHaveTextContent('Paddington.2014.1080p.BluRay.x264-GRP')
+
+      await userEvent.click(within(confirmation).getByRole('button', { name: 'View in Activity' }))
+      expect(location.pathname).toBe('/activity')
+    })
+
+    it('marks the grabbed Release, through selection changes and a sort change', async () => {
+      fakeSearch(releases())
+      await openManualSearch()
+      expect(screen.queryByText('Grabbed')).not.toBeInTheDocument()
+      await userEvent.keyboard('{Enter}')
+      await screen.findByText(/sent to the download client/i)
+      expect(within(grabbed('Paddington.2014.1080p.BluRay.x264-GRP')).getByText('Grabbed')).toBeInTheDocument()
+
+      await userEvent.keyboard('jj')
+      await userEvent.click(screen.getByRole('columnheader', { name: /^size/i }))
+      expect(screen.getAllByText('Grabbed')).toHaveLength(1)
+      expect(within(grabbed('Paddington.2014.1080p.BluRay.x264-GRP')).getByText('Grabbed')).toBeInTheDocument()
+    })
+
+    it('shows the error and marks nothing when the Grab fails', async () => {
+      fakeSearch(releases(), { grabStatus: 409 })
+      await openManualSearch()
+      await userEvent.keyboard('{Enter}')
+
+      expect(await screen.findByText(/no longer in the search results/i)).toBeInTheDocument()
+      expect(screen.queryByText('Grabbed')).not.toBeInTheDocument()
+      expect(screen.queryByText(/sent to the download client/i)).not.toBeInTheDocument()
+    })
+  })
+})
+
+describe('manual search on a phone', () => {
+  beforeEach(() => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('max-width: 639'), media: query, addEventListener: () => {}, removeEventListener: () => {} }))
+    sessionStorage.clear()
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  async function openPhoneSearch() {
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    await userEvent.click(await within(await screen.findByRole('listbox', { name: /library/i })).findByRole('option', { name: /paddington/i }))
+    const actions = await screen.findByRole('group', { name: 'Title actions' })
+    await userEvent.click(within(actions).getByRole('button', { name: /manual search/i }))
+    return screen.findByRole('list', { name: /releases/i })
+  }
+
+  it('stacks each Release: name and Score, then Quality, Size, Age and Indexer as Pills, and why it was rejected', async () => {
+    fakeSearch(releases())
+    const list = await openPhoneSearch()
+
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    const rows = within(list).getAllByRole('listitem')
+    expect(rows).toHaveLength(4)
+    expect(rows[0]).toHaveTextContent('Paddington.2014.1080p.BluRay.x264-GRP')
+    expect(rows[0]).toHaveTextContent('1,750')
+    expect(rows[0]).toHaveTextContent('Bluray-1080p')
+    expect(rows[0]).toHaveTextContent('8.0 GB')
+    expect(rows[0]).toHaveTextContent('Alpha')
+    expect(rows[0]).toHaveTextContent('Remux Tier 1')
+    expect(rows[1]).toHaveTextContent('Not in the language the Profile requires')
+    expect(rows[2]).toHaveTextContent('Fits another Slot')
+    expect(rows[3]).toHaveTextContent('On the Blocklist')
+  })
+
+  it('puts Back on its own line above the title', async () => {
+    fakeSearch(releases())
+    await openPhoneSearch()
+
+    const section = screen.getByRole('region', { name: 'Manual search' })
+    expect(within(section).getByRole('button', { name: /paddington/i })).toBeInTheDocument()
+    expect(within(section).getByText(/Profile .* · 4 Releases · best first/)).toBeInTheDocument()
+  })
+
+  it('hides rejected Releases', async () => {
+    fakeSearch(releases())
+    const list = await openPhoneSearch()
+
+    await userEvent.click(screen.getByRole('checkbox', { name: /hide rejected/i }))
+
+    expect(within(list).getAllByRole('listitem')).toHaveLength(1)
+  })
+
+  it('sorts with a Select, keeps rejected rows last, and remembers the sort', async () => {
+    fakeSearch([
+      release('small', 'Rel.small', { score: 500, size: 1 * 1024 ** 3 }),
+      release('big', 'Rel.big', { score: 100, size: 20 * 1024 ** 3 }),
+      release('bad', 'Rel.bad', { score: 9999, size: 0.5 * 1024 ** 3, rejections: [{ code: 'language', message: 'Nope', overridable: true }] }),
+    ])
+    const list = await openPhoneSearch()
+    const names = () =>
+      within(list)
+        .getAllByRole('listitem')
+        .map((r) => /Rel\.(small|big|bad)/.exec(r.textContent ?? '')?.[1])
+    expect(names()).toEqual(['small', 'big', 'bad'])
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /sort/i }), 'size:desc')
+
+    expect(names()).toEqual(['big', 'small', 'bad'])
+    expect(JSON.parse(sessionStorage.getItem('kestrel.manualSearchView') ?? 'null').sort).toEqual({ key: 'size', dir: 'desc' })
+    expect(screen.getByText(/sorted by size, descending/)).toBeInTheDocument()
+  })
+
+  it('grabs the selected Release from the bottom bar', async () => {
+    const state = fakeSearch(releases())
+    const list = await openPhoneSearch()
+    await userEvent.click(within(list).getByText('Paddington.2014.FRENCH.1080p.BluRay.x264-GRP'))
+
+    const bar = screen.getByRole('contentinfo')
+    expect(bar).toHaveTextContent('Paddington.2014.FRENCH.1080p.BluRay.x264-GRP')
+    await userEvent.click(within(bar).getByRole('button', { name: 'Grab anyway' }))
+
+    expect(await screen.findByText(/sent to the download client/i)).toBeInTheDocument()
+    expect(state.grabs).toEqual([{ path: '/grabs', body: { version_id: 11, release_id: 'b', override: true } }])
+  })
+
+  it('marks the grabbed Release on its stacked row', async () => {
+    fakeSearch(releases())
+    const list = await openPhoneSearch()
+    await userEvent.click(within(list).getByText('Paddington.2014.FRENCH.1080p.BluRay.x264-GRP'))
+    await userEvent.click(within(screen.getByRole('contentinfo')).getByRole('button', { name: 'Grab anyway' }))
+
+    await screen.findByText(/sent to the download client/i)
+    const [row] = within(list).getAllByText('Grabbed')
+    expect(row.closest('li')).toHaveTextContent('FRENCH')
   })
 })

@@ -3253,6 +3253,10 @@ type RequestSlot struct {
 	Profile *string `json:"profile"`
 	Slot    Slot    `json:"slot"`
 
+	// Stalled `true` while the Slot's finished download has an Import that waits for the environment to be
+	// fixed (disk full, a folder not writable). The Slot keeps its `status`.
+	Stalled bool `json:"stalled"`
+
 	// Status Derived on every read. `failed` only when Kestrel rejected the Request or the Version or Title
 	// was removed later; a failed download never shows as failed (it is blocklisted and retried).
 	Status RequestSlotStatus `json:"status"`
@@ -4041,18 +4045,32 @@ type UpdateAvailable struct {
 // VersionCoverage How far a Series Version is filled, in episodes and bytes; present only for a Series
 // Version. It agrees with the Version's `state`: Wanted while `wanted` is above zero.
 type VersionCoverage struct {
+	// Downloading The Wanted episodes a Grab in flight covers, Long Missing or not. A Grab is in flight until
+	// it is Imported or Failed.
+	Downloading int `json:"downloading"`
+
+	// DownloadingLongMissing The `downloading` episodes that are also Long Missing. For a bar of disjoint states, count
+	// `filled`, `downloading`, `long_missing - downloading_long_missing`, the rest of `wanted`
+	// (`wanted - downloading - (long_missing - downloading_long_missing)`) and `unmonitored`:
+	// they add up to the released episodes.
+	DownloadingLongMissing int `json:"downloading_long_missing"`
+
 	// Episodes The episodes the Version counts: those it holds a file for and those it Wants. Unmonitored
-	// and unreleased episodes without a file are left out.
+	// and unreleased episodes without a file are left out; see `unmonitored`.
 	Episodes int `json:"episodes"`
 
 	// Filled Episodes the Version holds a file for.
 	Filled int `json:"filled"`
 
-	// LongMissing The Wanted episodes that are Long Missing.
+	// LongMissing The Wanted episodes that are Long Missing, those with a Grab in flight included.
 	LongMissing int `json:"long_missing"`
 
 	// Size Bytes of all the Version's files.
 	Size int64 `json:"size"`
+
+	// Unmonitored Released episodes without a file that aren't monitored. The released episodes are
+	// `filled + wanted + unmonitored`.
+	Unmonitored int `json:"unmonitored"`
 
 	// Wanted Episodes that are Wanted.
 	Wanted int `json:"wanted"`

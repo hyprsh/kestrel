@@ -8,10 +8,10 @@ import { detail, fakeLibrary, row, type Sent } from '../test/library'
 import { fakeSeries } from '../test/series'
 import { server } from '../test/server'
 
-/** The options of the dropdown a trigger opened. */
-const optionsOf = (trigger: HTMLElement) =>
+/** The items of the menu a trigger opened. */
+const itemsOf = (trigger: HTMLElement) =>
   within(document.getElementById(trigger.getAttribute('aria-controls')!)!)
-    .getAllByRole('option')
+    .getAllByRole('menuitem')
     .map((o) => o.textContent)
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
@@ -39,22 +39,22 @@ describe('monitoring a Movie', () => {
     const state = fakeMovie()
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    const menu = await screen.findByRole('button', { name: 'Monitor: Monitored' })
+    const menu = await screen.findByRole('button', { name: 'Monitoring: Monitored' })
     await userEvent.click(menu)
-    expect(optionsOf(menu)).toEqual(['Monitored', 'Not monitored'])
-    expect(screen.getByRole('option', { name: 'Monitored' })).toHaveAttribute('aria-selected', 'true')
+    expect(itemsOf(menu)).toEqual(['Monitored', 'Not monitored'])
+    expect(screen.queryByText('Monitor')).not.toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('option', { name: 'Not monitored' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Not monitored' }))
 
     await waitFor(() => expect(state.sent).toEqual([{ path: 'titles', body: { monitored: false } }]))
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Monitor: Not monitored' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Monitoring: Not monitored' })).toBeInTheDocument())
     expect(screen.getByText('Kestrel leaves this Movie as it is: no searches, Grabs or Upgrades.')).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Monitor: Not monitored' }))
-    await userEvent.click(screen.getByRole('option', { name: 'Monitored' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Monitoring: Not monitored' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Monitored' }))
 
     await waitFor(() => expect(state.sent[1]).toEqual({ path: 'titles', body: { monitored: true } }))
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Monitor: Monitored' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Monitoring: Monitored' })).toBeInTheDocument())
   })
 })
 
@@ -63,11 +63,26 @@ describe('monitoring a Series', () => {
     fakeSeries()
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    const select = await screen.findByRole('button', { name: 'Monitor: All episodes' })
+    const select = await screen.findByRole('button', { name: 'Monitoring: Monitored: all episodes' })
     expect(select.closest('[role=group]')).toHaveAccessibleName('Title actions')
     await userEvent.click(select)
-    expect(optionsOf(select)).toEqual(['All episodes', 'Future episodes only', 'None'])
-    expect(within(await screen.findByRole('region', { name: 'Episodes' })).queryByRole('button', { name: /^Monitor:/ })).not.toBeInTheDocument()
+    expect(itemsOf(select)).toEqual(['Monitored: all episodes', 'Monitored: future episodes', 'Not monitored'])
+    expect(within(await screen.findByRole('region', { name: 'Episodes' })).queryByRole('button', { name: /^Monitoring/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('checkbox', { name: 'Monitored' })).not.toBeInTheDocument()
+  })
+})
+
+describe('a Series that is not monitored', () => {
+  it('says so in the row control and says why Search now is disabled', async () => {
+    const fake = fakeSeries()
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Monitoring: Monitored: all episodes' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Not monitored' }))
+
+    await waitFor(() => expect(fake.get().sent).toContainEqual({ path: 'titles', body: { series_monitor: 'none' } }))
+    expect(await screen.findByRole('button', { name: 'Monitoring: Not monitored' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Search now' })).toBeDisabled()
+    expect(screen.getByText('Not monitored: turn monitoring on to search')).toBeInTheDocument()
   })
 })

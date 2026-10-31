@@ -2959,15 +2959,32 @@ export interface components {
         VersionCoverage: {
             /**
              * @description The episodes the Version counts: those it holds a file for and those it Wants. Unmonitored
-             *     and unreleased episodes without a file are left out.
+             *     and unreleased episodes without a file are left out; see `unmonitored`.
              */
             episodes: number;
             /** @description Episodes the Version holds a file for. */
             filled: number;
             /** @description Episodes that are Wanted. */
             wanted: number;
-            /** @description The Wanted episodes that are Long Missing. */
+            /** @description The Wanted episodes that are Long Missing, those with a Grab in flight included. */
             long_missing: number;
+            /**
+             * @description Released episodes without a file that aren't monitored. The released episodes are
+             *     `filled + wanted + unmonitored`.
+             */
+            unmonitored: number;
+            /**
+             * @description The Wanted episodes a Grab in flight covers, Long Missing or not. A Grab is in flight until
+             *     it is Imported or Failed.
+             */
+            downloading: number;
+            /**
+             * @description The `downloading` episodes that are also Long Missing. For a bar of disjoint states, count
+             *     `filled`, `downloading`, `long_missing - downloading_long_missing`, the rest of `wanted`
+             *     (`wanted - downloading - (long_missing - downloading_long_missing)`) and `unmonitored`:
+             *     they add up to the released episodes.
+             */
+            downloading_long_missing: number;
             /**
              * Format: int64
              * @description Bytes of all the Version's files.
@@ -4211,6 +4228,11 @@ export interface components {
             status: "queued" | "downloading" | "completed" | "failed";
             /** @description `Not released yet` or `Searching` while queued. */
             status_label: string;
+            /**
+             * @description `true` while the Slot's finished download has an Import that waits for the environment to be
+             *     fixed (disk full, a folder not writable). The Slot keeps its `status`.
+             */
+            stalled: boolean;
             download: components["schemas"]["RequestDownload"] | null;
         };
         Request: {

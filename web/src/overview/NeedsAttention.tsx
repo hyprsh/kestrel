@@ -1,12 +1,13 @@
 // Needs attention: the rows the server raised, with the actions it built. Nothing
 // here knows a kind of row; it draws message, severity and buttons.
-import { Badge, Button, Collapse, DestructiveActionModal, DotsMenu, Entity, MenuItem, Note, useToasts } from '@hyprsh/design'
+import { Badge, Button, Collapse, DotsMenu, Entity, MenuItem, Note } from '@hyprsh/design'
 import { RowList, stackedRow, stackedRight } from '../layout/RowList'
 import { useState } from 'react'
-import { useAttention, useRunAction, type ActionResult, type Attention, type AttentionAction, type AttentionRow } from '../api/attention'
+import { useAttention, type ActionResult, type Attention, type AttentionRow } from '../api/attention'
 import { planWaiting, useAdoption, type Adoption } from '../api/adoption'
-import { slotLabel } from '../library/bits'
+import { profileName, slotProfile, useProfileNames } from '../library/slotProfile'
 import { placePath } from '../place'
+import { useAttentionAction } from './useAttentionAction'
 import { OriginalsRow } from './OriginalsRow'
 import type { OverviewNav } from './nav'
 import { EmptyLine, firstFive, Section, ViewAllHere } from './Section'
@@ -98,6 +99,7 @@ const dateOf = (iso: string) => iso.slice(0, 10)
  */
 function LongMissingRow({ group, onOpen }: { group: Attention['long_missing']; onOpen: (path: string) => void }) {
   const [open, setOpen] = useState(false)
+  const names = useProfileNames()
   return (
     <div data-long-missing className="mt-3">
       <Collapse size="small" headingLevel={4} expanded={open} onChange={setOpen} title={`${group.count} ${group.count === 1 ? 'Version' : 'Versions'} long missing`}>
@@ -108,7 +110,7 @@ function LongMissingRow({ group, onOpen }: { group: Attention['long_missing']; o
                 <Entity key={i.version_id}>
                   <div className="flex min-w-0 flex-col">
                     <span>
-                      {i.title} · {slotLabel[i.slot]} · {i.profile}
+                      {i.title} · {slotProfile(i.slot, profileName(names, i.profile))}
                     </span>
                     <span className="label-12 text-gray-900">
                       Wanted since {dateOf(i.wanted_since)}
@@ -131,36 +133,16 @@ function LongMissingRow({ group, onOpen }: { group: Attention['long_missing']; o
 }
 
 function Row({ row, onOpen, nav, index }: { row: AttentionRow; onOpen: (path: string) => void; nav: OverviewNav; index: number }) {
-  const run = useRunAction()
-  const toasts = useToasts()
-  // Local, so a row that a passing action clears takes its result with it; a pass is a toast instead.
-  const [result, setResult] = useState<(ActionResult & { label: string }) | null>(null)
-  // The action waiting for a yes in the dialog.
-  const [asking, setAsking] = useState<AttentionAction | null>(null)
-
-  const go = (a: AttentionAction) => {
-    if (a.method === 'GET') return onOpen(a.path) // GET opens an SPA path
-    setResult(null)
-    // mutateAsync, not mutate's onSuccess: a passing Test clears this row, and a per-call callback dies with it.
-    // A failure shows on the row through run.error, so the rejection is not handled here.
-    run.mutateAsync(a).then(
-      (r) => {
-        if (r.ok === true) toasts.success(`${a.label} passed${r.message ? `: ${r.message}` : ''}`)
-        else setResult({ ...r, label: a.label })
-      },
-      () => {},
-    )
-  }
-  const act = (a: AttentionAction) => (a.confirm ? setAsking(a) : go(a))
+  const { act, pending, error, result, dialog } = useAttentionAction(onOpen)
 
   const [first, ...rest] = row.actions
   const actions = first && (
     <>
-      <Button variant="secondary" size="small" disabled={run.isPending} onClick={() => act(first)}>
+      <Button variant="secondary" size="small" disabled={pending} onClick={() => act(first)}>
         {first.label}
       </Button>
       {rest.length > 0 && (
-        <DotsMenu aria-label="More Actions" disabled={run.isPending}>
+        <DotsMenu aria-label="More Actions" disabled={pending}>
           {rest.map((a) => (
             <MenuItem key={a.key} onClick={() => act(a)}>
               {a.label}
@@ -189,24 +171,11 @@ function Row({ row, onOpen, nav, index }: { row: AttentionRow; onOpen: (path: st
       >
         <div className="flex min-w-0 flex-col gap-2">
           <span>{row.message}</span>
-          {run.isError && <Note variant="error">{run.error.message}</Note>}
+          {error && <Note variant="error">{error.message}</Note>}
           {result && <Result {...result} />}
         </div>
       </Entity>
-      {asking && (
-        <DestructiveActionModal
-          open
-          title={asking.label}
-          description={asking.confirm}
-          confirmLabel={asking.label}
-          onCancel={() => setAsking(null)}
-          onConfirm={() => {
-            const a = asking
-            setAsking(null)
-            go(a)
-          }}
-        />
-      )}
+      {dialog}
     </>
   )
 }

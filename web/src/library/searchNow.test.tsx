@@ -97,7 +97,7 @@ describe('Search now on the Title page', () => {
     expect(sent.every((s) => s.path === 'search' && s.body === null)).toBe(true)
 
     await userEvent.click(within(actions).getByRole('button', { name: 'Manual search' }))
-    await userEvent.click(within(screen.getByRole('menu', { name: 'Manual search' })).getByRole('menuitem', { name: '4K · 4K' }))
+    await userEvent.click(within(screen.getByRole('menu', { name: 'Manual search' })).getByRole('menuitem', { name: '4K' }))
     await screen.findByRole('region', { name: 'Manual search' })
     await waitFor(() => expect(sent).toContainEqual({ path: 'releases', version: 52, body: null }))
   })

@@ -347,7 +347,7 @@ func detailToAPI(d library.Detail, country string) oapi.TitleDetail {
 			}
 		}
 		if c := v.Coverage; c != nil {
-			ov.Coverage = &oapi.VersionCoverage{Episodes: c.Episodes, Filled: c.Filled, Wanted: c.Wanted, LongMissing: c.LongMissing, Size: c.Size}
+			ov.Coverage = &oapi.VersionCoverage{Episodes: c.Episodes, Filled: c.Filled, Wanted: c.Wanted, LongMissing: c.LongMissing, Unmonitored: c.Unmonitored, Downloading: c.Downloading, DownloadingLongMissing: c.DownloadingLongMissing, Size: c.Size}
 		}
 		out.Versions = append(out.Versions, ov)
 	}

@@ -88,6 +88,12 @@ SELECT f.version_id, fe.episode_id, f.score
 FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id
 WHERE v.title_id = ? AND f.id NOT IN (SELECT file_id FROM file_misfits);
 
+-- The episodes of a Title that a Grab in flight covers, per Version: a Grab not yet Imported or Failed.
+-- name: ListGrabbingEpisodesOfTitle :many
+SELECT DISTINCT g.version_id, ge.episode_id
+FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
+WHERE g.title_id = ? AND g.version_id IS NOT NULL AND g.state NOT IN ('imported', 'failed');
+
 -- name: ListAllFileEpisodesOfTitle :many
 SELECT f.version_id, fe.episode_id, f.id AS file_id, f.path, f.size, f.parsed_release
 FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id WHERE v.title_id = ?;

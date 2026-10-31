@@ -3,13 +3,16 @@ import { useState } from 'react'
 import { ApiError, type SeriesMonitor, type TitleDetail } from '../api/queries'
 import { useRefreshTitle, useSetFrozen, useSetMovieMonitored, useSetSeriesMonitor } from '../api/titleActions'
 import { useOpenCleanup } from '../cleanup/launch'
-import { DotsMenu, FilterMenu, MenuDivider, MenuItem, Note, termText } from '@hyprsh/design'
+import { Check, CircleMinus } from 'lucide-react'
+import { DotsMenu, Menu, MenuDivider, MenuItem, Note, termText } from '@hyprsh/design'
 import { placePath, useOpenPlace } from '../place'
 import { RemoveTitle } from './ManageVersion'
 import { MoveTitle } from './MoveTitle'
 import type { ManualSearchTarget } from './TitleDetail'
 import { useFade } from './useFade'
 import { ManualSearch, SearchNow, useSearchWanted } from './VersionSearch'
+
+const NOT_MONITORED_SEARCH = 'Not monitored: turn monitoring on to search'
 
 const message = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback)
 
@@ -40,7 +43,7 @@ export function TitleActions({ title, profileName, onManualSearch }: { title: Ti
   return (
     <div className="mt-4">
       <div role="group" aria-label="Title actions" className="flex flex-wrap items-center gap-2">
-        <SearchNow search={search} />
+        <SearchNow search={search} unmonitored={title.kind === 'movie' ? !title.monitored : title.series_monitor === 'none'} />
         <ManualSearch title={title} profileName={profileName} onManualSearch={onManualSearch} />
         {title.kind === 'movie' ? <MovieMonitoring title={title} /> : <SeriesMonitoring title={title} />}
         <DotsMenu className="ml-auto" aria-label="More Title actions">
@@ -71,23 +74,41 @@ export function TitleActions({ title, profileName, onManualSearch }: { title: Ti
   )
 }
 
-/** The monitoring dropdown of a Movie: Not monitored, it is never searched, grabbed or upgraded automatically, which a line under the row says. */
+/** The monitoring control of the row: a secondary button showing the whole state, whose menu lists the options with a check on the current one. */
+function MonitoringMenu<V extends string>({ value, options, disabled, onChange }: { value: V; options: { value: V; label: string }[]; disabled: boolean; onChange: (v: V) => void }) {
+  const current = options.find((o) => o.value === value) ?? options[0]
+  const off = current.label === NOT_MONITORED
+  return (
+    <Menu.Container position="bottom-start">
+      <Menu.Button variant="secondary" size="small" showChevron disabled={disabled} aria-label={`Monitoring: ${current.label}`} prefix={off ? <CircleMinus aria-hidden /> : undefined}>
+        {current.label}
+      </Menu.Button>
+      <Menu>
+        {options.map((o) => (
+          <MenuItem key={o.value} prefix={o.value === value ? <Check aria-hidden /> : <span aria-hidden className="size-4" />} onSelect={() => onChange(o.value)}>
+            {o.label}
+          </MenuItem>
+        ))}
+      </Menu>
+    </Menu.Container>
+  )
+}
+
+const NOT_MONITORED = 'Not monitored'
+
+/** The monitoring control of a Movie: Not monitored, it is never searched, grabbed or upgraded automatically, which a line under the row says. */
 function MovieMonitoring({ title }: { title: TitleDetail }) {
   const set = useSetMovieMonitored(title.id)
   const hint = `title-${title.id}-monitored-hint`
   return (
     <>
-      <FilterMenu
-        single
-        label="Monitor"
-        size="small"
-        defaultOption="monitored"
+      <MonitoringMenu
         value={title.monitored ? 'monitored' : 'unmonitored'}
         disabled={set.isPending}
-        onChange={(v: string) => set.mutate(v === 'monitored')}
-        items={[
+        onChange={(v) => set.mutate(v === 'monitored')}
+        options={[
           { value: 'monitored', label: 'Monitored' },
-          { value: 'unmonitored', label: 'Not monitored' },
+          { value: 'unmonitored', label: NOT_MONITORED },
         ]}
       />
       <p id={hint} className={title.monitored ? 'sr-only' : 'label-12 order-last w-full text-gray-900'}>
@@ -102,25 +123,23 @@ function MovieMonitoring({ title }: { title: TitleDetail }) {
   )
 }
 
-/** The monitoring dropdown of a Series: which episodes it wants. */
+/** The monitoring control of a Series: which episodes it wants. */
 function SeriesMonitoring({ title }: { title: TitleDetail }) {
   const set = useSetSeriesMonitor(title.id)
+  const mode = title.series_monitor ?? 'all'
   return (
     <>
-      <FilterMenu
-        single
-        label="Monitor"
-        size="small"
-        defaultOption="all"
-        value={title.series_monitor ?? 'all'}
+      <MonitoringMenu<SeriesMonitor>
+        value={mode}
         disabled={set.isPending}
-        onChange={(v: string) => set.mutate(v as SeriesMonitor)}
-        items={[
-          { value: 'all', label: 'All episodes' },
-          { value: 'future', label: 'Future episodes only' },
-          { value: 'none', label: 'None' },
+        onChange={(v) => set.mutate(v)}
+        options={[
+          { value: 'all', label: 'Monitored: all episodes' },
+          { value: 'future', label: 'Monitored: future episodes' },
+          { value: 'none', label: NOT_MONITORED },
         ]}
       />
+      {mode === 'none' && <p className="label-12 order-last w-full text-gray-900">{NOT_MONITORED_SEARCH}</p>}
       {set.isError && (
         <div className="order-last w-full">
           <Problem>{message(set.error, 'Could not change monitoring.')}</Problem>

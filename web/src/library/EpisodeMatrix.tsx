@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNod
 import { ApiError, useEpisodes, useMonitorEpisodes, usePatchSeason, type Episode } from '../api/queries'
 import { LoadingLine } from '../loading'
 import { cx } from '../ui'
-import { dotOf, slotLabel, versionStatus, type SlotKey } from './bits'
+import { dotOf, faintDot, slotLabel, versionStatus, type SlotKey } from './bits'
 import { EpisodeMenu, EpisodeTick, SeasonMenu, type EpisodeActions } from './EpisodeActions'
 import { SeasonSummary, SeasonToggle } from './SeasonSummary'
 import type { SeasonOpen } from './useSeasonOpen'
@@ -336,7 +336,7 @@ function EpisodeRow({
               // chrome-ok: episode grid (domain visual, ADR 0017); the cell button is the dot with a 44px hit area
               className='relative flex size-5 items-center justify-center rounded-full outline-none after:absolute after:-inset-3 after:content-[""] focus-visible:ring-2 focus-visible:ring-accent-700 max-sm:size-6'
             >
-              <StatusDot state={dot.state} variant={dot.variant} label={false} aria-hidden />
+              <StatusDot state={dot.state} variant={dot.variant} label={false} aria-hidden className={dot.faint ? faintDot : undefined} />
             </button>
           )
           return (
