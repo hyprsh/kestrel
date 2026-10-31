@@ -121,7 +121,7 @@ export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQue
           {[stageLabel.downloading, stageLabel.done].map((title) => (
             <SectionBlock key={title} title={title}>
               <div className="px-4 pt-1 pb-4">
-                <SkeletonRows count={2} poster="sm" />
+                <SkeletonRows count={2} poster="md" />
               </div>
             </SectionBlock>
           ))}

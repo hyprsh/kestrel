@@ -225,6 +225,9 @@ func (s *server) ListAdoptionRows(ctx context.Context, r oapi.ListAdoptionRowsRe
 	for i, row := range page.Rows {
 		out.Items[i] = adoptionRowToAPI(row)
 	}
+	if err := s.withAdoptionPosters(ctx, out.Items); err != nil {
+		return nil, err
+	}
 	if end := int(at) + len(page.Rows); end < page.Total {
 		out.NextCursor = cursorOf(int64(end))
 	}
@@ -299,7 +302,11 @@ func (s *server) PatchAdoptionRow(ctx context.Context, r oapi.PatchAdoptionRowRe
 	if err != nil {
 		return nil, adoptionProblem(err)
 	}
-	return oapi.PatchAdoptionRow200JSONResponse(adoptionRowToAPI(row)), nil
+	out := adoptionRowToAPI(row)
+	if err := s.withAdoptionPosters(ctx, []oapi.AdoptionRow{out}); err != nil {
+		return nil, err
+	}
+	return oapi.PatchAdoptionRow200JSONResponse(out), nil
 }
 
 // ReopenAdoption is POST /adoption/reopen: the entries nobody chose go back in

@@ -14,6 +14,7 @@ type offerJSON struct {
 	Release   string `json:"release"`
 	Score     int    `json:"score"`
 	Dismissed bool   `json:"dismissed"`
+	HasPoster bool   `json:"has_poster"`
 	Releases  []struct {
 		Name     string `json:"name"`
 		Indexer  string `json:"indexer"`
@@ -75,6 +76,10 @@ func TestAnOriginalOfferIsAGroupOfNeedsAttentionAndShowsOnTheVersion(t *testing.
 	if o.TitleID != s.title || o.Title != "Paddington" || o.VersionID != s.hd || o.Slot != "standard" || o.Profile != "hd-primary" ||
 		o.Release != englishOnly || o.Dismissed || len(o.Releases) != 1 || o.Releases[0].Indexer != "Alpha" || o.Releases[0].Season != nil {
 		t.Errorf("offer = %+v", o)
+	}
+
+	if !o.HasPoster {
+		t.Errorf("offer has_poster is false for Paddington, which has a poster: %+v", o)
 	}
 
 	d := decode[titleOffersJSON](t, s.valid("GET", fmt.Sprintf("/titles/%d", s.title), ""))

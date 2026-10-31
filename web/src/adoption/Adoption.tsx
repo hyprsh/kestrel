@@ -23,6 +23,7 @@ import { ApiError, useLookup } from '../api/queries'
 import { useOpenCleanup } from '../cleanup/launch'
 import { LoadingRegion, SkeletonRows } from '../loading'
 import { slotKeys, slotLabel } from '../library/bits'
+import { PosterSkeleton, TitlePoster } from '../poster'
 import { TickBox } from '../library/TickBox'
 import { SelectionBar } from '../layout/SelectionBar'
 import { useSelection } from '../selection'
@@ -330,7 +331,15 @@ function Plan({
       {list.isPending ? (
         <Entity.List className="mt-4" aria-busy="true" aria-label="Loading the plan">
           {[0, 1, 2].map((i) => (
-            <Entity key={i} left={<Skeleton width={16} height={16} />}>
+            <Entity
+              key={i}
+              left={
+                <>
+                  <Skeleton width={16} height={16} />
+                  <PosterSkeleton size="md" />
+                </>
+              }
+            >
               <Entity.Content fill title={<Skeleton width="50%" height={16} />} description={<Skeleton width="30%" height={16} />} />
             </Entity>
           ))}
@@ -341,7 +350,16 @@ function Plan({
         <>
           <Entity.List className="mt-4" aria-label="Adoption plan">
             {rows.map((r) => (
-              <Entity key={r.id} leftClassName="items-start" left={<TickBox selection={selection} id={r.id} name={baseName(r.entry)} verb="Select" />}>
+              <Entity
+                key={r.id}
+                leftClassName="items-start"
+                left={
+                  <>
+                    <TickBox selection={selection} id={r.id} name={baseName(r.entry)} verb="Select" />
+                    {r.status === 'matched' && r.match?.title_id != null && <TitlePoster id={r.match.title_id} hasPoster={r.match.has_poster ?? false} size="md" />}
+                  </>
+                }
+              >
                 <Entity.Content fill>
                   <Row row={r} planMonitor={monitor} />
                 </Entity.Content>
