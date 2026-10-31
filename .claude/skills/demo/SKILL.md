@@ -44,7 +44,7 @@ Keep every binary, scenario and screenshot in your scratchpad (`$S` below). Run 
 
      | Before | After |
      |---|---|
-     | ![Series page before](<url of 01-series-before.png>) | ![Series page with coverage lines](<url of 01-series-after.png>) |
+     | ![Series page before](<url of 01-series-before.png>) | ![Series page with coverage bars in the Versions card](<url of 01-series-after.png>) |
    ```
 
    Done when `gh pr view <PR>` shows every planned shot linked.

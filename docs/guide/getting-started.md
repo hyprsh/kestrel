@@ -159,10 +159,10 @@ You don't need to do anything else. Kestrel does this on its own:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/04-series-dark.png">
-  <img alt="A Series page with a Standard and a 4K Version, each showing how many episodes are filled and how many are Wanted" src="images/04-series-light.png">
+  <img alt="A Series page with a Standard and a 4K Version, each row showing a bar of how many episodes are filled and how many are Wanted" src="images/04-series-light.png">
 </picture>
 
-The Title page shows each Version and what it still lacks. **Search now** searches straight away, and **Manual search** lists every Release, so you can choose one yourself.
+The Title page shows each Version as a row with a bar and a line of counts (a Series' filled, Wanted and not monitored episodes, or a Movie's file or state), with its episodes below, one season at a time: pick the season from the menu next to the Episodes heading. **Search now** searches straight away, and **Manual search** lists every Release, so you can choose one yourself.
 
 **Upcoming** is the timeline of what is airing or being released, from the last two weeks to the next two months, and where each one stands.
 

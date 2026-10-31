@@ -186,7 +186,7 @@ silo: # Watch-ahead for Silo; see "Watch-ahead for Silo"
 
 display: # optional; each key you name is read-only in Settings > Display
   season_order: newest_first # oldest_first (default) or newest_first; Specials come last either way
-  seasons_open: latest_and_wanted # accepted and ignored: the Title page now has a tab per season
+  seasons_open: latest_and_wanted # accepted and ignored: the Title page now has a season menu
   manual_search_sort: best_first # best_first (default), or <column>_asc / <column>_desc
   upcoming_filters:
     kind: all # all (default), movie or series
@@ -340,7 +340,7 @@ The household-wide view defaults. Name any of the keys: each one you name is rea
 | Field                | Value                                                                                                                                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `season_order`       | `oldest_first` or `newest_first`. Newest first reverses the seasons and the episodes in each. Specials come last either way.                                                                     |
-| `seasons_open`       | Accepted and ignored. The Title page opens on a season tab, so no season starts open or closed. Existing files that name it keep loading.                                                        |
+| `seasons_open`       | Accepted and ignored. The Title page opens on one season, chosen from a season menu, so no season starts open or closed. Existing files that name it keep loading.                               |
 | `manual_search_sort` | `best_first`, or a column and a direction such as `size_desc`. The columns are `score`, `release`, `quality`, `languages`, `formats`, `size`, `age` and `indexer`. `score_desc` is `best_first`. |
 | `upcoming_filters`   | `kind` (`all`, `movie` or `series`), `wanted_only` and `hide_imported`. Declared as a whole: a filter you leave out takes its default (`all`, `false`, `false`).                                 |
 
