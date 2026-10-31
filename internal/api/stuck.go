@@ -33,10 +33,14 @@ func (s *server) stuckRows(ctx context.Context) ([]oapi.AttentionRow, error) {
 	if err != nil {
 		return nil, err
 	}
-	var stuck []acquire.Active
+	type stuckGrab struct {
+		acquire.Active
+		why acquire.Stuck
+	}
+	var stuck []stuckGrab
 	for _, a := range active {
-		if _, ok := a.Stuck(); ok {
-			stuck = append(stuck, a)
+		if st, ok := a.Stuck(); ok {
+			stuck = append(stuck, stuckGrab{a, st})
 		}
 	}
 	if len(stuck) == 0 {
@@ -52,8 +56,8 @@ func (s *server) stuckRows(ctx context.Context) ([]oapi.AttentionRow, error) {
 	}
 	now := s.opts.Clock()
 	rows := make([]oapi.AttentionRow, 0, len(stuck))
-	for _, a := range stuck {
-		st, _ := a.Stuck()
+	for _, g := range stuck {
+		a, st := g.Active, g.why
 		about := titles.about(a.Grab)
 		name := about.title
 		if name == "" {
