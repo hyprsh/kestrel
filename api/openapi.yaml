@@ -509,7 +509,7 @@ paths:
         names `release_date_country`, moves the country to the new language's default. It also
         re-scores every stored file under the new Profiles, in the same step; files are not renamed
         and nothing is searched. A patch that names a section the Config File declares
-        (`language_region`, `root_folders`, `check_github_updates`) answers `409 conflict` and saves
+        (`language_region`, `root_folders`, `check_github_updates`, or a `display` setting it declares) answers `409 conflict` and saves
         nothing, not even its other sections.
       tags: [settings]
       requestBody:
@@ -3043,7 +3043,7 @@ components:
       enum: [en, de, fr]
     Settings:
       type: object
-      required: [language_region, root_folders, check_github_updates, trash, metadata, pause_grabs, from_config_file]
+      required: [language_region, root_folders, check_github_updates, trash, metadata, pause_grabs, display, from_config_file]
       properties:
         pause_grabs:
           type: boolean
@@ -3055,13 +3055,28 @@ components:
             Version, and every Upgrade search made while paused, due a search now, so the next sweep
             grabs as usual. The health strip shows it as
             `grabs_paused`.
+        display:
+          $ref: "#/components/schemas/Display"
         from_config_file:
           type: object
-          required: [language_region, root_folders, check_github_updates]
+          required: [language_region, root_folders, check_github_updates, display]
           description: |
             Per section, `true` while the Config File declares it. A declared section can't be
             changed here: a patch naming it answers `409 conflict`.
           properties:
+            display:
+              type: object
+              required: [season_order, seasons_open, manual_search_sort, upcoming_filters]
+              description: Per display setting, `true` while the Config File declares it; a patch naming it answers `409 conflict`.
+              properties:
+                season_order:
+                  type: boolean
+                seasons_open:
+                  type: boolean
+                manual_search_sort:
+                  type: boolean
+                upcoming_filters:
+                  type: boolean
             language_region:
               type: boolean
             root_folders:
@@ -3104,6 +3119,49 @@ components:
               type: string
               description: ISO 3166-1 alpha-2. "Released" follows it.
               example: DE
+    SeasonOrder:
+      type: string
+      enum: [oldest_first, newest_first]
+    SeasonsOpen:
+      type: string
+      enum: [latest_and_wanted, all, none]
+    ManualSearchSort:
+      type: string
+      description: |
+        Best first, or a Manual search column with `_asc` or `_desc`. Score descending is best first, so
+        `score_desc` is not a value.
+      enum: [best_first, score_asc, release_asc, release_desc, quality_asc, quality_desc, languages_asc, languages_desc, formats_asc, formats_desc, size_asc, size_desc, age_asc, age_desc, indexer_asc, indexer_desc]
+    UpcomingKind:
+      type: string
+      description: One of `all`, `movie` or `series`; anything else is `422`.
+    Display:
+      type: object
+      required: [season_order, seasons_open, manual_search_sort, upcoming_filters]
+      description: |
+        The household-wide view defaults. Each is where a browser or session starts: a season the
+        user opened or closed on a Series, a sort picked in Manual search and the Upcoming filters
+        changed in a session keep winning. Never saved, they report today's behavior.
+      properties:
+        season_order:
+          allOf:
+            - $ref: "#/components/schemas/SeasonOrder"
+          description: Newest first reverses the seasons and the episodes in each. Specials come last in both orders.
+        seasons_open:
+          allOf:
+            - $ref: "#/components/schemas/SeasonsOpen"
+          description: Which seasons of a Series start open. `latest_and_wanted` opens the latest season and any with a Wanted episode, never Specials.
+        manual_search_sort:
+          $ref: "#/components/schemas/ManualSearchSort"
+        upcoming_filters:
+          type: object
+          required: [kind, wanted_only, hide_imported]
+          properties:
+            kind:
+              $ref: "#/components/schemas/UpcomingKind"
+            wanted_only:
+              type: boolean
+            hide_imported:
+              type: boolean
     RootFolders:
       type: object
       required: [movies, series]
@@ -3124,6 +3182,27 @@ components:
     SettingsPatch:
       type: object
       properties:
+        display:
+          type: object
+          description: |
+            Changes the named display settings. A setting the Config File declares answers `409 conflict`.
+            An unknown value answers `422` naming `display.<setting>`.
+          properties:
+            season_order:
+              $ref: "#/components/schemas/SeasonOrder"
+            seasons_open:
+              $ref: "#/components/schemas/SeasonsOpen"
+            manual_search_sort:
+              $ref: "#/components/schemas/ManualSearchSort"
+            upcoming_filters:
+              type: object
+              properties:
+                kind:
+                  $ref: "#/components/schemas/UpcomingKind"
+                wanted_only:
+                  type: boolean
+                hide_imported:
+                  type: boolean
         pause_grabs:
           type: boolean
         check_github_updates:

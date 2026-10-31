@@ -6,6 +6,7 @@ import { useGrab, useReleases, type Release } from '../api/grabs'
 import type { EpisodeScope } from '../api/queries'
 import { useKey, useListNav } from '../keys'
 import { placePath, useOpenPlace } from '../place'
+import { useDisplay } from '../display/useDisplay'
 import { FilterStrip } from '../layout/FilterStrip'
 import { PaneFooter, PaneHeader } from '../layout/Pane'
 import { usePhone } from '../responsive'
@@ -103,7 +104,14 @@ function arrange(items: Release[], { sort, pinned }: View): Release[] {
 // The sort and the pinned Custom Format are remembered for the browser session, across manual searches.
 const VIEW_KEY = 'kestrel.manualSearchView'
 
-function loadView(): View {
+/** The sort Settings > Display names: `best_first`, or a column and a direction such as `size_desc`. */
+function defaultSort(value: string): Sort {
+  const [key, dir] = value.split('_')
+  return columns.some((c) => c.key === key) && (dir === 'asc' || dir === 'desc') ? { key: key as SortKey, dir } : BEST_FIRST
+}
+
+/** The view this browser session picked, or null when it has not: then the household's default sort stands. */
+function loadView(): View | null {
   try {
     const v = JSON.parse(sessionStorage.getItem(VIEW_KEY) ?? 'null') as Partial<View> | null
     const s = v?.sort
@@ -113,7 +121,7 @@ function loadView(): View {
   } catch {
     // no session storage: nothing is remembered
   }
-  return { sort: BEST_FIRST, pinned: null }
+  return null
 }
 
 function saveView(v: View) {
@@ -151,7 +159,9 @@ export function ManualSearch({
   const grabbing = useGrab()
   const openPlace = useOpenPlace()
   const [hideRejected, setHideRejected] = useState(false)
-  const [view, setView] = useState(loadView)
+  const { display } = useDisplay()
+  const [picked, setView] = useState(loadView)
+  const view = useMemo<View>(() => picked ?? { sort: defaultSort(display.manual_search_sort), pinned: null }, [picked, display.manual_search_sort])
   const [sel, setSel] = useState(0)
   const [sent, setSent] = useState<string | null>(null)
   // The Releases grabbed in this search, by their id in the result list; they stay marked while the selection or sort moves.
