@@ -30,8 +30,10 @@ export function placeOf(path: string): Place {
   const url = new URL(path.replace(/^\/*/, '/'), 'http://place')
   const [screen = '', section = ''] = url.pathname.slice(1).split('/')
   const season = count(url.searchParams.get('season'))
-  // Health was a view of Activity; old bookmarks and links to "/activity/health" open its own screen.
+  // Health and Background Jobs were views of Activity; old bookmarks and links open the Health screen: "/activity/health" at its top,
+  // "/activity/jobs" and "/activity/running" at its Background jobs.
   if (screen === 'activity' && section === 'health') return { screen: 'health', section: '', q: '', season: null, episode: null }
+  if (screen === 'activity' && (section === 'jobs' || section === 'running')) return { screen: 'health', section: 'jobs', q: '', season: null, episode: null }
   return { screen, section, q: url.searchParams.get('q') ?? '', season, episode: season === null ? null : count(url.searchParams.get('episode')) }
 }
 

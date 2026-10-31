@@ -51,7 +51,7 @@ describe('Search now on the Title page', () => {
 
     await waitFor(() => expect(sent).toEqual([{ path: 'search', version: 11, body: null }]))
     expect(await findToast('Search started for Paddington')).toBeInTheDocument()
-    expect(within(await toastRegion()).getByRole('button', { name: 'Watch in Activity' })).toBeInTheDocument()
+    expect(within(await toastRegion()).getByRole('button', { name: 'Watch in Health' })).toBeInTheDocument()
     expect(screen.queryByText(/Searching…/)).not.toBeInTheDocument()
   })
 

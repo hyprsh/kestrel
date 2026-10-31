@@ -149,6 +149,38 @@ describe('Health screen', () => {
     expect(url()).toBe('/health')
   })
 
+  it('has a Checks section and a Background jobs section, with their own addresses', async () => {
+    fakeStatus(status())
+    const scrolled: string[] = []
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = function (this: Element) {
+      scrolled.push(this.id)
+    }
+    try {
+      history.replaceState(null, '', '/health/jobs')
+      renderApp()
+      const region = await screen.findByRole('region', { name: 'Health' })
+      expect(await within(region).findByRole('region', { name: /^Checks/ })).toBeInTheDocument()
+      expect(within(region).getByRole('region', { name: /^Running now/ })).toBeInTheDocument()
+      expect(await within(region).findByRole('region', { name: /^Background jobs/ })).toBeInTheDocument()
+      expect(scrolled).toContain('health-jobs')
+      expect(url()).toBe('/health/jobs')
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
+  })
+
+  it('takes the old /activity/jobs and /activity/running addresses to the Background jobs section', async () => {
+    fakeStatus(status())
+    for (const old of ['/activity/jobs', '/activity/running']) {
+      history.replaceState(null, '', old)
+      const { unmount } = renderApp()
+      expect(await screen.findByRole('region', { name: /^Background jobs/ })).toBeInTheDocument()
+      expect(url()).toBe('/health/jobs')
+      unmount()
+    }
+  })
+
   it('takes the old /activity/health address to /health', async () => {
     fakeStatus(status())
     history.replaceState(null, '', '/activity/health')

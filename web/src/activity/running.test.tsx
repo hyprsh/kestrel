@@ -118,7 +118,8 @@ describe('Running now', () => {
 
     await user().click(topBar().getByRole('button', { name: '2 running' }))
 
-    expect(topBar().getByText('Activity')).toBeInTheDocument()
+    expect(topBar().getByText('Health')).toBeInTheDocument()
+    expect(location.pathname).toBe('/health/jobs')
     expect(
       runningNow()
         .getAllByRole('listitem')
@@ -167,9 +168,7 @@ describe('Running now', () => {
 
   it('says when nothing is running', async () => {
     await withActivity({})
-    await user().click(screen.getByRole('button', { name: 'Activity' }))
-    await user().click(screen.getByRole('button', { name: /^Activity:/ }))
-    await user().click(await screen.findByRole('menuitemradio', { name: 'Background Jobs' }))
+    await user().click(await screen.findByRole('button', { name: /^Health/ }))
 
     expect(runningNow().getByText('Nothing is running right now.')).toBeInTheDocument()
   })

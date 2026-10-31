@@ -310,7 +310,7 @@ describe('Adoption review', () => {
     await screen.findByRole('button', { name: /scan for existing files/i })
     expect(state.commits).toEqual([{ revision: state.revision }])
     expect(await findToast('Adopting the plan started')).toBeInTheDocument()
-    expect(within(await toastRegion()).queryByRole('button', { name: 'Watch in Activity' })).not.toBeInTheDocument()
+    expect(within(await toastRegion()).queryByRole('button', { name: 'Watch in Health' })).not.toBeInTheDocument()
   })
 
   it('says in a Toast that the scan started, that a plan was discarded, and why a call failed', async () => {

@@ -3,7 +3,6 @@
 import { About } from '../about/About'
 import { Activity } from '../activity/Activity'
 import { useRunningNow, type Running } from '../activity/running'
-import { activityTabOf, activityTabSection, type ActivityTab } from '../activity/tabs'
 import { Button, CommandMenuTrigger, Separator, StatusDot, ThemeSwitcher, Tooltip, useToasts } from '@hyprsh/design'
 import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, HeartPulse, Inbox, Info, LibraryBig, ListPlus, LogOut, Plus, ScrollText, Search, Settings } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
@@ -91,29 +90,25 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const [filter, setFilter] = useState({ screen: start.screen, q: start.q })
   const query = filter.screen === screen ? filter.q : ''
   const section = !phone ? '' : screen === 'library' ? (titleOpen && libraryId !== null ? String(libraryId) : '') : screen === 'settings' ? settingsSection : ''
-  // Activity's tab is the place's section ("/activity/jobs"); only Grabs has a filter.
-  const [activityTab, setActivityTab] = useState<ActivityTab>(start.screen === 'activity' ? activityTabOf(start.section) : 'grabs')
+  // Health's section ("/health/jobs") is scrolled to; the address keeps it until the screen changes.
+  const [healthSection, setHealthSection] = useState(start.screen === 'health' ? start.section : '')
   // Another Title selected: its Series' season and found episode are not the previous Title's (a Movie shows none). A view that names no Title stays for the first Series shown.
   useEffect(() => {
     if (libraryId !== null) setEpisodeView((v) => (v.titleId !== null && v.titleId !== libraryId ? noEpisodeView : v))
   }, [libraryId])
   const shownView = screen === 'library' ? episodeView : noEpisodeView
-  const address = screen === 'activity' ? { q: activityTab === 'grabs' ? query : '', section: activityTabSection(activityTab) } : { q: query, section }
+  const address = { q: query, section: screen === 'health' ? healthSection : section }
   useEffect(() => showPlace(placePath(screen, address.q, address.section, shownView)), [screen, address.q, address.section, shownView])
-  // A click on a tab is a history entry of its own, so Back returns to the tab before it.
-  const openActivityTab = useCallback(
-    (tab: ActivityTab) => {
-      setActivityTab(tab)
-      pushPlace(placePath('activity', tab === 'grabs' ? filter.q : '', activityTabSection(tab)))
-    },
-    [filter.q],
-  )
+  // A first load at "/health/jobs" scrolls to that section.
+  useEffect(() => {
+    if (start.screen === 'health' && start.section) document.getElementById(`health-${start.section}`)?.scrollIntoView?.()
+  }, [start])
   // Back and Forward step between the list and a Title page (and the screen a Title was opened from).
   useEffect(() => {
     const onPop = () => {
       const place = currentPlace()
       if (isPlace(place.screen)) setScreen(place.screen)
-      if (place.screen === 'activity') setActivityTab(activityTabOf(place.section))
+      if (place.screen === 'health') setHealthSection(place.section)
       setFilter({ screen: place.screen, q: place.q })
       setTitleOpen(isTitleId(place.section))
       setEpisodeView(place.season === null ? noEpisodeView : { titleId: isTitleId(place.section) ? Number(place.section) : null, season: place.season, episode: place.episode })
@@ -203,9 +198,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
         setSettingsSection(section)
         if (phone && section) pushPlace(placePath('settings', '', section))
       }
-      // Activity's sections are its tabs, not places to scroll to ("/activity/running" is Background Jobs).
-      if (key === 'activity') setActivityTab(activityTabOf(section))
-      else if (section && !(phone && key === 'settings')) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
+      if (key === 'health') setHealthSection(section)
+      if (section && !(phone && key === 'settings')) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
     },
     [phone],
   )
@@ -265,7 +259,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
                   onOpenMenu={() => setMenu({ mode: 'root' })}
                   onAdd={() => setMenu({ mode: 'add' })}
                   running={running}
-                  onOpenRunning={() => goPath('/activity/running')}
+                  onOpenRunning={() => goPath('/health/jobs')}
                   healthOpen={screen === 'health'}
                 />
                 {/* The floating tab bar is out of layout; --tab-bar-height keeps every screen's last row clear of it (0 on a tablet or desktop). */}
@@ -294,17 +288,9 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
                   ) : screen === 'log' ? (
                     <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} />
                   ) : screen === 'activity' ? (
-                    <Activity
-                      tab={activityTab}
-                      onTab={openActivityTab}
-                      query={query}
-                      onQuery={(q) => setFilter({ screen: 'activity', q })}
-                      onOpenTitle={openTitle}
-                      running={running}
-                      onOpenAdoption={() => setScreen('adoption')}
-                    />
+                    <Activity query={query} onQuery={(q) => setFilter({ screen: 'activity', q })} onOpenTitle={openTitle} />
                   ) : screen === 'health' ? (
-                    <Health />
+                    <Health running={running} onOpenAdoption={() => setScreen('adoption')} onOpenTitle={openTitle} />
                   ) : screen === 'requests' ? (
                     <Requests query={query} onQuery={(q) => setFilter({ screen: 'requests', q })} onOpenTitle={openTitle} />
                   ) : screen === 'upcoming' ? (

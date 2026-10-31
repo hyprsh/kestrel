@@ -57,7 +57,7 @@ export function BackgroundJobs() {
   const now = useNow()
   // Rendered with or without data: the Searching card's "Background jobs" opens the tab it is on.
   return (
-    <div id="activity-jobs">
+    <div>
       <SectionBlock title="Background jobs" count={jobs.data ? items.length : undefined}>
         {jobs.isPending && <SkeletonRows count={4} />}
         <Entity.List aria-label="Background jobs">

@@ -43,10 +43,10 @@ describe('the desktop top bar', () => {
     expect(field).toHaveFocus()
   })
 
-  it("puts Activity's view switcher and Upcoming's Today in the top bar", async () => {
+  it("puts Activity's filter field and Upcoming's Today in the top bar", async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Activity' }))
-    expect(await within(screen.getByRole('banner')).findByRole('button', { name: 'Activity: Grabs' })).toBeInTheDocument()
+    expect(await within(screen.getByRole('banner')).findByRole('combobox', { name: 'Filter Activity' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Upcoming' }))
     expect(await within(screen.getByRole('banner')).findByRole('button', { name: 'Today' })).toBeInTheDocument()
   })

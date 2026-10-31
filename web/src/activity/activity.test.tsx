@@ -20,6 +20,14 @@ async function openActivity() {
 const stalled = { reason: 'disk full', since: new Date(Date.now() - 20 * 60_000).toISOString(), next_at: new Date(Date.now() + 5 * 60_000).toISOString() }
 
 describe('Activity', () => {
+  it('shows only Grabs: the bar starts with the filter field and has no view switcher', async () => {
+    fakeGrabs([grabEntry({ grab_id: 7, state: 'imported', release_name: 'G.Imported-GRP' })])
+    await openActivity()
+    expect(await screen.findByRole('combobox', { name: 'Filter Activity' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Activity:/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: /^Background jobs/ })).not.toBeInTheDocument()
+  })
+
   it('shows every Grab in one list grouped by stage, each heading with its count', async () => {
     fakeQueue([
       queueItem({ grab_id: 1, phase: 'queued', release_name: 'A.Queued-GRP' }),

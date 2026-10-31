@@ -1,5 +1,5 @@
 // "Running now": the background work that has been running for over a second, the same
-// list the top bar's indicator counts. Always rendered, so "/activity/running" can scroll to it.
+// list the top bar's indicator counts. Health shows it in its Background jobs section.
 import { Link, Spinner } from '@hyprsh/design'
 import type { ReactNode } from 'react'
 import { useQueue } from '../api/queue'
@@ -34,7 +34,7 @@ export function RunningNow({ running, onOpenAdoption, onOpenTitle }: { running: 
     return r.name
   }
   return (
-    <div id="activity-running">
+    <div>
       <SectionBlock title="Running now" count={running.length}>
         {running.length === 0 ? (
           <p className="label-12 px-4 py-3 text-gray-900">Nothing is running right now.</p>

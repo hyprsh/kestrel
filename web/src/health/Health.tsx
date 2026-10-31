@@ -6,6 +6,12 @@ import { SkeletonRows } from '../loading'
 import { useAttentionAction } from '../overview/useAttentionAction'
 import { useOpenPlace } from '../place'
 import { clockTime } from '../time'
+import { BackgroundJobs } from '../activity/BackgroundJobs'
+import type { Running } from '../activity/running'
+import { RunningNow } from '../activity/RunningNow'
+import { SearchCard } from '../activity/SearchCard'
+import { useSearchStatus } from '../api/search'
+import { SectionBlock } from '../layout/SectionBlock'
 import { HealthGroups } from './HealthGroups'
 import type { TileData } from './HealthTile'
 import { healthOf } from './tiles'
@@ -49,12 +55,25 @@ function HealthChecks() {
   )
 }
 
-/** The screen has no ScreenBar (nothing to filter): a centred column like the Overview's, so tiles do not stretch across a wide window. */
-export function Health() {
+/**
+ * The screen has no ScreenBar (nothing to filter): a centred column like the Overview's, so tiles do not stretch across a wide window.
+ * Two sections, each with an id so a place can scroll to it: "/health/checks" and "/health/jobs".
+ */
+export function Health({ running, onOpenAdoption, onOpenTitle }: { running: Running[]; onOpenAdoption: () => void; onOpenTitle: (id: number) => void }) {
+  const search = useSearchStatus().data
   return (
     <div className="min-h-0 flex-1 overflow-auto">
       <div role="region" aria-label="Health" className="mx-auto max-w-3xl pb-6 max-sm:px-4">
-        <HealthChecks />
+        <div id="health-checks">
+          <SectionBlock title="Checks">
+            <HealthChecks />
+          </SectionBlock>
+        </div>
+        <div id="health-jobs">
+          <RunningNow running={running} onOpenAdoption={onOpenAdoption} onOpenTitle={onOpenTitle} />
+          {search && <SearchCard status={search} />}
+          <BackgroundJobs />
+        </div>
       </div>
     </div>
   )
