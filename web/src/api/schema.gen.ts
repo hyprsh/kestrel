@@ -1820,11 +1820,14 @@ export interface paths {
         put?: never;
         /**
          * Update from TRaSH
-         * @description Fetches TRaSH's newest Custom Formats and profiles now, whatever the daily check's switch says.
-         *     The load is all-or-nothing: the snapshot must parse and every stored file is re-scored under it
-         *     before it becomes active. A snapshot that fails either is rejected whole (`422 validation`), the
-         *     previous one stays in use and the "TRaSH update rejected" Warning is raised. Nothing is renamed
-         *     or searched. When TRaSH cannot be reached it is `502 upstream_unavailable`.
+         * @description Asks for a pass of the `trash` loop that fetches TRaSH's newest Custom Formats and profiles,
+         *     whatever the daily check's switches say, and answers at once. The pass loads the snapshot
+         *     all-or-nothing: it must parse and every stored file is re-scored under it before it becomes
+         *     active. A snapshot that fails either is rejected whole, the previous one stays in use and the
+         *     "TRaSH update rejected" Warning is raised. Nothing is renamed or searched. `GET /jobs` shows
+         *     the pass's `progress` while it re-scores and its `outcome` when it ends (updated, up to date,
+         *     rejected, TRaSH unreachable). A request while one is already waiting or running starts no
+         *     second pass and is `202` too.
          */
         post: operations["updateTrash"];
         delete?: never;
@@ -3454,6 +3457,37 @@ export interface components {
              */
             next_at: string | null;
             schedule: components["schemas"]["JobSchedule"];
+            /**
+             * @description How far the pass running now has got, for a loop that says (`trash` while it re-scores:
+             *     Titles re-scored of all of them); `null` between passes and for the other loops.
+             */
+            progress: components["schemas"]["JobProgress"] | null;
+            /**
+             * @description How the last pass that had something to say went (`trash`); `null` before one does. A pass
+             *     with nothing to say (the daily check that is not due) leaves it as it was, so tell a new
+             *     outcome by `at`.
+             */
+            outcome: components["schemas"]["JobOutcome"] | null;
+        };
+        JobProgress: {
+            done: number;
+            total: number;
+        };
+        JobOutcome: {
+            /**
+             * @description `updated` (a newer TRaSH snapshot is active), `up_to_date`, `rejected` (refused whole, the
+             *     previous one stays), `unreachable` (TRaSH could not be asked), `rescored` (files re-scored
+             *     after a Primary Language change) or `failed`; later versions may add kinds.
+             * @enum {string}
+             */
+            kind: "updated" | "up_to_date" | "rejected" | "unreachable" | "rescored" | "failed";
+            /** @description The outcome in a sentence, for the UI to show. */
+            text: string;
+            /**
+             * Format: date-time
+             * @description When the pass reported it.
+             */
+            at: string;
         };
         /** @description How often a loop runs. */
         JobSchedule: {
@@ -6430,17 +6464,12 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Done; `changed` is false when TRaSH had nothing newer. */
-            200: {
+            /** @description The pass is requested, or is already waiting or running. */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": {
-                        changed: boolean;
-                        commit: string;
-                    };
-                };
+                content?: never;
             };
             default: components["responses"]["Problem"];
         };

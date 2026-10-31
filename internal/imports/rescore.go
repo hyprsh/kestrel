@@ -52,8 +52,9 @@ func (s *Service) Rescore(ctx context.Context, titleID, versionID int64) error {
 // current Primary Language, in one write: either every file has its new Score or
 // none does. It reads the stored parse and probe, so nothing is re-parsed,
 // renamed or searched. A TRaSH update and a Primary Language change both use it;
-// the caller holds the snapshot gate (scoring.Holder.Exclusive).
-func (s *Service) RescoreTitles(ctx context.Context, snap *scoring.Snapshot, titleIDs []int64) error {
+// the caller holds the snapshot gate (scoring.Holder.Exclusive). progress, if
+// not nil, is told how many Titles are re-scored so far as it goes.
+func (s *Service) RescoreTitles(ctx context.Context, snap *scoring.Snapshot, titleIDs []int64, progress func(done int)) error {
 	region, _, err := s.prof.Region(ctx)
 	if err != nil {
 		return err
@@ -63,7 +64,7 @@ func (s *Service) RescoreTitles(ctx context.Context, snap *scoring.Snapshot, tit
 		return err
 	}
 	var out []library.Rescored
-	for _, id := range titleIDs {
+	for i, id := range titleIDs {
 		d, err := s.lib.Get(ctx, id, library.View{Country: region.Country, Now: s.clock()})
 		if err != nil {
 			return err
@@ -74,6 +75,9 @@ func (s *Service) RescoreTitles(ctx context.Context, snap *scoring.Snapshot, tit
 				return err
 			}
 			out = append(out, rs...)
+		}
+		if progress != nil {
+			progress(i + 1)
 		}
 	}
 	return s.lib.ApplyRescore(ctx, out)

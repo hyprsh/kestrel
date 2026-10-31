@@ -655,6 +655,36 @@ func (e JobStatus) Valid() bool {
 	}
 }
 
+// Defines values for JobOutcomeKind.
+const (
+	JobOutcomeKindFailed      JobOutcomeKind = "failed"
+	JobOutcomeKindRejected    JobOutcomeKind = "rejected"
+	JobOutcomeKindRescored    JobOutcomeKind = "rescored"
+	JobOutcomeKindUnreachable JobOutcomeKind = "unreachable"
+	JobOutcomeKindUpToDate    JobOutcomeKind = "up_to_date"
+	JobOutcomeKindUpdated     JobOutcomeKind = "updated"
+)
+
+// Valid indicates whether the value is a known member of the JobOutcomeKind enum.
+func (e JobOutcomeKind) Valid() bool {
+	switch e {
+	case JobOutcomeKindFailed:
+		return true
+	case JobOutcomeKindRejected:
+		return true
+	case JobOutcomeKindRescored:
+		return true
+	case JobOutcomeKindUnreachable:
+		return true
+	case JobOutcomeKindUpToDate:
+		return true
+	case JobOutcomeKindUpdated:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MeMethod.
 const (
 	ApiKey  MeMethod = "api_key"
@@ -2355,6 +2385,15 @@ type Job struct {
 	// NextAt When the next pass is due; `null` while one runs and before the loops start.
 	NextAt *time.Time `json:"next_at"`
 
+	// Outcome How the last pass that had something to say went (`trash`); `null` before one does. A pass
+	// with nothing to say (the daily check that is not due) leaves it as it was, so tell a new
+	// outcome by `at`.
+	Outcome *JobOutcome `json:"outcome"`
+
+	// Progress How far the pass running now has got, for a loop that says (`trash` while it re-scores:
+	// Titles re-scored of all of them); `null` between passes and for the other loops.
+	Progress *JobProgress `json:"progress"`
+
 	// Runnable Whether `POST /jobs/{name}/run` runs it.
 	Runnable bool `json:"runnable"`
 
@@ -2383,6 +2422,31 @@ type JobStatus string
 // JobList defines model for JobList.
 type JobList struct {
 	Items []Job `json:"items"`
+}
+
+// JobOutcome defines model for JobOutcome.
+type JobOutcome struct {
+	// At When the pass reported it.
+	At time.Time `json:"at"`
+
+	// Kind `updated` (a newer TRaSH snapshot is active), `up_to_date`, `rejected` (refused whole, the
+	// previous one stays), `unreachable` (TRaSH could not be asked), `rescored` (files re-scored
+	// after a Primary Language change) or `failed`; later versions may add kinds.
+	Kind JobOutcomeKind `json:"kind"`
+
+	// Text The outcome in a sentence, for the UI to show.
+	Text string `json:"text"`
+}
+
+// JobOutcomeKind `updated` (a newer TRaSH snapshot is active), `up_to_date`, `rejected` (refused whole, the
+// previous one stays), `unreachable` (TRaSH could not be asked), `rescored` (files re-scored
+// after a Primary Language change) or `failed`; later versions may add kinds.
+type JobOutcomeKind string
+
+// JobProgress defines model for JobProgress.
+type JobProgress struct {
+	Done  int `json:"done"`
+	Total int `json:"total"`
 }
 
 // JobRun defines model for JobRun.
@@ -12827,21 +12891,12 @@ type UpdateTrashResponseObject interface {
 	VisitUpdateTrashResponse(w http.ResponseWriter) error
 }
 
-type UpdateTrash200JSONResponse struct {
-	Changed bool   `json:"changed"`
-	Commit  string `json:"commit"`
+type UpdateTrash202Response struct {
 }
 
-func (response UpdateTrash200JSONResponse) VisitUpdateTrashResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
+func (response UpdateTrash202Response) VisitUpdateTrashResponse(w http.ResponseWriter) error {
+	w.WriteHeader(202)
+	return nil
 }
 
 type UpdateTrashdefaultApplicationProblemPlusJSONResponse struct {

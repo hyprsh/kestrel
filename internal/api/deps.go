@@ -262,7 +262,8 @@ type Scoring interface {
 
 // Trash is the TRaSH update service.
 type Trash interface {
-	Update(ctx context.Context) (trashsync.Result, error)
+	// RequestUpdate asks the trash loop for an update pass; false when one is already waiting or running.
+	RequestUpdate() bool
 	Status(ctx context.Context) trashsync.Status
 	ChangeLanguage(ctx context.Context, change func() error) error
 	AutoUpdate(ctx context.Context) (bool, error)
