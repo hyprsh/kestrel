@@ -168,6 +168,7 @@ describe('Running now', () => {
   it('says when nothing is running', async () => {
     await withActivity({})
     await user().click(screen.getByRole('button', { name: 'Activity' }))
+    await user().click(screen.getByRole('tab', { name: /^Background Jobs/ }))
 
     expect(runningNow().getByText('Nothing is running right now.')).toBeInTheDocument()
   })

@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
@@ -40,6 +40,7 @@ function fakeJobs(items: Job[]) {
 async function openJobs(client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   render(<App client={client} />)
   await userEvent.click(await screen.findByRole('button', { name: 'Activity' }))
+  await userEvent.click(await screen.findByRole('tab', { name: /^Background Jobs/ }))
   return screen.findByRole('region', { name: /^Background jobs/ })
 }
 
@@ -135,21 +136,13 @@ describe('Background jobs', () => {
   })
 
   it('is where the Overview’s Searching card points', async () => {
-    const scrolled: Element[] = []
-    // jsdom does not scroll: record what is scrolled to instead.
-    const before = Element.prototype.scrollIntoView
-    Element.prototype.scrollIntoView = function (this: Element) {
-      scrolled.push(this)
-    }
-    onTestFinished(() => {
-      Element.prototype.scrollIntoView = before
-    })
     render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
     const card = await screen.findByRole('region', { name: 'Searching' })
     await userEvent.click(within(card).getByRole('button', { name: 'Background jobs' }))
 
-    const section = await screen.findByRole('region', { name: /^Background jobs/ })
-    await waitFor(() => expect(scrolled.some((el) => el.contains(section))).toBe(true))
+    expect(await screen.findByRole('region', { name: /^Background jobs/ })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /^Background Jobs/ })).toHaveAttribute('aria-selected', 'true')
+    expect(location.pathname).toBe('/activity/jobs')
   })
 })

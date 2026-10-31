@@ -3,6 +3,7 @@
 import { About } from '../about/About'
 import { Activity } from '../activity/Activity'
 import { useRunningNow, type Running } from '../activity/running'
+import { activityTabOf, activityTabSection, type ActivityTab } from '../activity/tabs'
 import { Button, CommandMenuTrigger, Separator, StatusDot, ThemeSwitcher, Tooltip, useToasts } from '@hyprsh/design'
 import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, Inbox, Info, LibraryBig, ListPlus, LogOut, Plus, ScrollText, Settings } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
@@ -75,12 +76,24 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const [filter, setFilter] = useState({ screen: start.screen, q: start.q })
   const query = filter.screen === screen ? filter.q : ''
   const section = !phone ? '' : screen === 'library' ? (titleOpen && libraryId !== null ? String(libraryId) : '') : screen === 'settings' ? settingsSection : ''
-  useEffect(() => showPlace(placePath(screen, query, section)), [screen, query, section])
+  // Activity's tab is the place's section ("/activity/health"); only Grabs has a filter.
+  const [activityTab, setActivityTab] = useState<ActivityTab>(start.screen === 'activity' ? activityTabOf(start.section) : 'grabs')
+  const address = screen === 'activity' ? { q: activityTab === 'grabs' ? query : '', section: activityTabSection(activityTab) } : { q: query, section }
+  useEffect(() => showPlace(placePath(screen, address.q, address.section)), [screen, address.q, address.section])
+  // A click on a tab is a history entry of its own, so Back returns to the tab before it.
+  const openActivityTab = useCallback(
+    (tab: ActivityTab) => {
+      setActivityTab(tab)
+      pushPlace(placePath('activity', tab === 'grabs' ? filter.q : '', activityTabSection(tab)))
+    },
+    [filter.q],
+  )
   // Back and Forward step between the list and a Title page (and the screen a Title was opened from).
   useEffect(() => {
     const onPop = () => {
       const place = currentPlace()
       if (isPlace(place.screen)) setScreen(place.screen)
+      if (place.screen === 'activity') setActivityTab(activityTabOf(place.section))
       setFilter({ screen: place.screen, q: place.q })
       setTitleOpen(isTitleId(place.section))
       setSettingsSection(place.screen === 'settings' ? place.section : '')
@@ -169,7 +182,9 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
         setSettingsSection(section)
         if (phone && section) pushPlace(placePath('settings', '', section))
       }
-      if (section && !(phone && key === 'settings')) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
+      // Activity's sections are its tabs, not places to scroll to ("/activity/running" is Background Jobs).
+      if (key === 'activity') setActivityTab(activityTabOf(section))
+      else if (section && !(phone && key === 'settings')) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
     },
     [phone],
   )
@@ -252,7 +267,15 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
               ) : screen === 'log' ? (
                 <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} />
               ) : screen === 'activity' ? (
-                <Activity query={query} onQuery={(q) => setFilter({ screen: 'activity', q })} onOpenTitle={openTitle} running={running} onOpenAdoption={() => setScreen('adoption')} />
+                <Activity
+                  tab={activityTab}
+                  onTab={openActivityTab}
+                  query={query}
+                  onQuery={(q) => setFilter({ screen: 'activity', q })}
+                  onOpenTitle={openTitle}
+                  running={running}
+                  onOpenAdoption={() => setScreen('adoption')}
+                />
               ) : screen === 'requests' ? (
                 <Requests query={query} onQuery={(q) => setFilter({ screen: 'requests', q })} onOpenTitle={openTitle} />
               ) : screen === 'upcoming' ? (

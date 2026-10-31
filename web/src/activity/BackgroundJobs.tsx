@@ -55,7 +55,7 @@ export function BackgroundJobs() {
   const run = useRunJob()
   const report = useReport()
   const now = useNow()
-  // Rendered with or without data: "/activity/jobs" scrolls here as soon as the screen opens.
+  // Rendered with or without data: the Searching card's "Background jobs" opens the tab it is on.
   return (
     <div id="activity-jobs">
       <SectionBlock title="Background jobs" count={jobs.data ? items.length : undefined}>
