@@ -227,7 +227,9 @@ describe('changing the ticked Titles together', () => {
 
   it('says why Remove Version and Remove from Library failed, and closes the dialog on confirm', async () => {
     fakeLibrary(rows())
-    server.use(http.post('/titles/bulk', ({ response }) => response(500).json({ type: 'about:blank', title: 'internal', status: 500, code: 'internal', detail: 'database locked' })))
+    server.use(
+      http.post('/titles/bulk', ({ response }) => response('default').json({ type: 'about:blank', title: 'internal', status: 500, code: 'internal', detail: 'database locked' }, { status: 500 })),
+    )
     const pane = await withTicked('Paddington', 'Heat')
 
     await userEvent.click(within(pane).getByRole('button', { name: 'Remove Version' }))
