@@ -1,5 +1,5 @@
 // The Health checks as tiles: the download client, each indexer, each disk and the rest, grouped and
-// failing first. One copy, shared by the Health tab in Activity and the Overview's Health section.
+// failing first. Used by Activity's Health tab and its tab dot.
 import type { SystemStatus } from '../../api/attention'
 import { clockTime } from '../../time'
 import type { TileData, Tone } from './HealthTile'
@@ -73,10 +73,11 @@ export function snapshotAge(committedAt: string | null, now = Date.now()): strin
 export type HealthGroup = { title: string; tiles: TileData[] }
 
 /**
- * The groups that have a tile in them, each with its failing tiles first, and how many tiles fail or are ok.
+ * The groups that have a tile in them, each with its failing tiles first, and how many tiles fail, warn or are ok.
  * Only the download client and the indexers can fail; a low disk or a pause is a warning, not a failure.
+ * Everything else (ok, off, an update to install) is ok, so the three counts add up to the number of tiles.
  */
-export function healthOf(s: SystemStatus): { groups: HealthGroup[]; failing: number; ok: number } {
+export function healthOf(s: SystemStatus): { groups: HealthGroup[]; failing: number; warnings: number; ok: number } {
   const rest: TileData[] = []
   if (s.grabs_paused) rest.push({ key: 'grabs', name: 'Grabs', tone: 'paused', details: ['Automatic Grabs are paused'] })
   rest.push({ key: 'trash', name: 'TRaSH', tone: 'ok', details: [snapshotAge(s.trash.committed_at)] })
@@ -90,5 +91,7 @@ export function healthOf(s: SystemStatus): { groups: HealthGroup[]; failing: num
     .filter((g) => g.tiles.length > 0)
     .map((g) => ({ ...g, tiles: [...g.tiles].sort((a, b) => Number(b.tone === 'failing') - Number(a.tone === 'failing')) }))
   const tiles = groups.flatMap((g) => g.tiles)
-  return { groups, failing: tiles.filter((t) => t.tone === 'failing').length, ok: tiles.filter((t) => t.tone === 'ok').length }
+  const failing = tiles.filter((t) => t.tone === 'failing').length
+  const warnings = tiles.filter((t) => t.tone === 'paused' || t.tone === 'low').length
+  return { groups, failing, warnings, ok: tiles.length - failing - warnings }
 }

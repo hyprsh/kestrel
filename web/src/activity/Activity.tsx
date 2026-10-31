@@ -8,7 +8,7 @@ import { useQueue } from '../api/queue'
 import { useStalledGrabs } from '../api/activity'
 import { BackgroundJobs } from './BackgroundJobs'
 import { HealthTab } from './health/HealthTab'
-import { useFailingChecks } from './health/useFailingChecks'
+import { useHealthCounts } from './health/useHealthCounts'
 import { Pipeline } from './Pipeline'
 import type { Running } from './running'
 import { RunningNow } from './RunningNow'
@@ -46,16 +46,16 @@ export function Activity({
   onOpenAdoption: () => void
 }) {
   const active = (useQueue().data?.length ?? 0) + (useStalledGrabs().data?.length ?? 0)
-  const failing = useFailingChecks()
+  const { failing, warnings } = useHealthCounts()
   const titles: Record<ActivityTab, React.ReactNode> = {
     grabs: <>Grabs{active > 0 && <Count n={active} />}</>,
     health: (
       <>
         Health
-        {failing > 0 && (
+        {failing + warnings > 0 && (
           <>
             {' '}
-            <StatusDot state="error" label="failing" />
+            {failing > 0 ? <StatusDot state="error" label="failing" /> : <StatusDot state="warning" label="warning" />}
           </>
         )}
       </>

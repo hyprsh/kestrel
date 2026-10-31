@@ -32,16 +32,18 @@ export function HealthTab() {
   const rows = useAttention().data?.rows ?? []
   if (status.isPending) return <SkeletonRows count={4} />
   if (!status.data) return <Note variant="error">Health could not be loaded.</Note>
-  const { groups, failing, ok } = healthOf(status.data)
+  const { groups, failing, warnings, ok } = healthOf(status.data)
   const checked = clockTime(new Date(status.dataUpdatedAt).toISOString())
   // A failing check's row is the one raised for its plugin instance.
   const actions = (t: TileData) => {
     const row = t.tone === 'failing' && t.instanceId != null ? rows.find((r) => r.subject.plugin_instance_id === t.instanceId && r.actions.length > 0) : undefined
     return row && <Actions row={row} />
   }
+  const counts = [failing > 0 && `${failing} ${failing === 1 ? 'problem' : 'problems'}`, warnings > 0 && `${warnings} ${warnings === 1 ? 'warning' : 'warnings'}`, `${ok} OK`].filter(Boolean)
+  const summary = failing + warnings > 0 ? `${counts.join(' · ')} · checked ${checked}` : `All checks OK · checked ${checked}`
   return (
     <div className="flex flex-col gap-4 px-4 pt-3 pb-4">
-      <p className="label-12 text-gray-900">{failing > 0 ? `${failing} ${failing === 1 ? 'problem' : 'problems'} · ${ok} OK · checked ${checked}` : `All checks OK · checked ${checked}`}</p>
+      <p className="label-12 text-gray-900">{summary}</p>
       <HealthGroups groups={groups} extra={actions} />
     </div>
   )

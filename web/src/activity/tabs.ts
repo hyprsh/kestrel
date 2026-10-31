@@ -3,11 +3,7 @@
 // Background Jobs too, where Running now is.
 export type ActivityTab = 'grabs' | 'health' | 'jobs'
 
-export const activityTabs: { value: ActivityTab; title: string }[] = [
-  { value: 'grabs', title: 'Grabs' },
-  { value: 'health', title: 'Health' },
-  { value: 'jobs', title: 'Background Jobs' },
-]
+export const activityTabs: { value: ActivityTab }[] = [{ value: 'grabs' }, { value: 'health' }, { value: 'jobs' }]
 
 /** The tab a place's section names; no section, or one Activity does not know, is Grabs. */
 export function activityTabOf(section: string): ActivityTab {

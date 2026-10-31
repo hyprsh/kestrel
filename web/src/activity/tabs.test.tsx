@@ -149,6 +149,25 @@ describe('Activity Health tab', () => {
     expect(await tab(/^Health failing/)).toBeInTheDocument()
   })
 
+  it('counts warnings too, and shows a warning dot when nothing fails', async () => {
+    const lowDisk = { path: '/data', free_bytes: 10 * 2 ** 30, total_bytes: 2 ** 40, low_free_bytes: 50 * 2 ** 30 }
+    fakeStatus(status({ indexers: [alpha], disks: [lowDisk], grabs_paused: true }))
+    const panel = await openHealth()
+
+    expect(await within(panel).findByText(/2 warnings/)).toHaveTextContent(/^2 warnings · 3 OK · checked \d/)
+    expect(panel).not.toHaveTextContent(/All checks OK/)
+    expect(await tab(/^Health warning/)).toBeInTheDocument()
+  })
+
+  it('counts problems and warnings together, and the dot is for the failures', async () => {
+    const lowDisk = { path: '/data', free_bytes: 10 * 2 ** 30, total_bytes: 2 ** 40, low_free_bytes: 50 * 2 ** 30 }
+    fakeStatus(status({ disks: [lowDisk] }))
+    const panel = await openHealth()
+
+    expect(await within(panel).findByText(/1 problem/)).toHaveTextContent(/^1 problem · 1 warning · 3 OK · checked \d/)
+    expect(await tab(/^Health failing/)).toBeInTheDocument()
+  })
+
   it('has no dot and says all checks are OK when every check passes', async () => {
     fakeStatus(status({ indexers: [{ ...alpha, search_max: null }] }))
     const panel = await openHealth()

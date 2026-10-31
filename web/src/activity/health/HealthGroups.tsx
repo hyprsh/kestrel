@@ -1,4 +1,4 @@
-// The health tiles under their group titles, shared by the Overview's Health section and Activity's Health tab.
+// The health tiles under their group titles, in Activity's Health tab.
 import type { ReactNode } from 'react'
 import { Tile, type TileData } from './HealthTile'
 import type { HealthGroup } from './tiles'
