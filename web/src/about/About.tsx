@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react'
 import { useAbout, useNotices } from '../api/about'
 import { Button, Code, Description, Fieldset, KeyboardInput, Link } from '@hyprsh/design'
 import { LoadingLine } from '../loading'
+import tmdbLogo from '../assets/tmdb-blue-short.svg'
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -74,7 +75,12 @@ export function About() {
         </Card>
 
         <Card title="Attribution">
-          <p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
+            <Link href="https://www.themoviedb.org" target="_blank" rel="noreferrer">
+              <img src={tmdbLogo} alt="TMDB" className="h-3.5 w-auto" />
+            </Link>
+          </div>
           <p className="mt-2">
             Metadata provided by TheTVDB. Please consider adding missing information or{' '}
             <Link href="https://thetvdb.com" target="_blank" rel="noreferrer">
