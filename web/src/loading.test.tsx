@@ -8,6 +8,7 @@ import { App } from './App'
 import { Poster } from './poster'
 import { ProviderKeysForm } from './metadata/ProviderKeys'
 import { Requests } from './requests/Requests'
+import { displayDefaults, noDisplayDeclared } from './test/display'
 import { http } from './test/handlers'
 import { fakeLibrary, row } from './test/library'
 import { request } from './test/requests'
@@ -126,6 +127,7 @@ describe('a Settings section while its settings load', () => {
           root_folders: { movies: ['/m'], series: ['/s'] },
           check_github_updates: true,
           pause_grabs: false,
+          display: displayDefaults,
           from_config_file: {
             display: { season_order: false, seasons_open: false, manual_search_sort: false, upcoming_filters: false },
             language_region: false,
