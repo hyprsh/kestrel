@@ -1,6 +1,8 @@
 // chrome: layout
 import { Menu, MenuDivider, MenuItem, MenuSection, parseQuery, termText, withoutTerm, withoutValue, withValue, type Term } from '@hyprsh/design'
+import { Funnel } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { usePhone } from '../responsive'
 import type { Facet } from '../filter/qualifiers'
 
 /** The most rows a facet with only suggestions (Titles, Profiles) lists; the rest are typed into the field. */
@@ -15,11 +17,19 @@ const filterText = (count: number) => (count > 0 ? `Filter · ${count}` : 'Filte
  * FacetFilterButton, which holds that field's facets.
  */
 export function FilterButton({ count, children }: { count: number; children: ReactNode }) {
+  // A phone has one line for the bar, so the button is a funnel with the count as its badge; its name stays "Filter".
+  const phone = usePhone()
   return (
     <Menu.Container position="bottom-start">
-      <Menu.Button variant="secondary" size="small" showChevron>
-        {filterText(count)}
-      </Menu.Button>
+      {phone ? (
+        <Menu.Button variant="secondary" size="small" svgOnly aria-label="Filter" badge={count} badgeLabel={count > 0 ? `${count} active` : undefined}>
+          <Funnel />
+        </Menu.Button>
+      ) : (
+        <Menu.Button variant="secondary" size="small" showChevron>
+          {filterText(count)}
+        </Menu.Button>
+      )}
       <Menu width={260} className="max-h-[min(32rem,70vh)] overflow-y-auto">
         {children}
       </Menu>

@@ -4,7 +4,7 @@
 import { Button, DotsMenu, Menu, MenuDivider, MenuItem, MenuSection } from '@hyprsh/design'
 import type { Facet } from '../filter/qualifiers'
 import { SortSection } from '../layout/FilterButton'
-import { LayoutGrid, List, Plus } from 'lucide-react'
+import { LayoutGrid, List, Plus, SlidersHorizontal } from 'lucide-react'
 import { stateTabs, type StateTab } from './filter'
 import type { LibraryView } from './useLibraryView'
 
@@ -52,9 +52,15 @@ export function DisplayButton({
 }) {
   return (
     <Menu.Container position="bottom-start">
-      <Menu.Button variant="secondary" size="small" showChevron title={phone ? undefined : 'Sort and layout (g switches grid and list)'}>
-        Display
-      </Menu.Button>
+      {phone ? (
+        <Menu.Button variant="secondary" size="small" svgOnly aria-label="Display">
+          <SlidersHorizontal />
+        </Menu.Button>
+      ) : (
+        <Menu.Button variant="secondary" size="small" showChevron title="Sort and layout (g switches grid and list)">
+          Display
+        </Menu.Button>
+      )}
       <Menu width={240} className="max-h-[min(32rem,70vh)] overflow-y-auto">
         <SortSection query={query} onQuery={onQuery} qualifiers={qualifiers} />
         <MenuDivider />

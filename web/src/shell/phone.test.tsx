@@ -114,13 +114,14 @@ describe('the Library on a phone', () => {
     expect(await screen.findByRole('heading', { name: 'Heat' })).toBeInTheDocument()
   })
 
-  it('shows the filter field, the Filter and Display buttons and the count in one wrapping row', async () => {
+  it('shows the filter field with icon-only Filter and Display buttons on one line, and no count line', async () => {
     fakeLibrary(rows())
     const list = await openLibrary()
     await userEvent.type(screen.getByRole('combobox', { name: 'Filter the Library' }), 'heat')
     expect(within(list).getAllByRole('option')).toHaveLength(1)
     expect(screen.queryByRole('tab', { name: /^All/ })).not.toBeInTheDocument() // the states are in the Filter menu
-    expect(screen.getByText(/^1 of \d+/)).toBeInTheDocument()
+    expect(screen.queryByText(/^1 of \d+/)).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Filter the Library' })).toHaveAttribute('placeholder', 'Filter titles')
     expect(screen.getByRole('button', { name: 'Filter' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Display' })).toBeInTheDocument()
   })

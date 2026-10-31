@@ -16,8 +16,8 @@ export const ScreenBarPlacesContext = createContext<ScreenBarPlaces | undefined>
  * The bar of Library, Upcoming, Activity and Log. In the top bar of a desktop it is, from the left: `view` (the ViewSwitcher of a
  * screen with several pages), `filter` (the text field, with its `?`), `controls` (a FilterButton, a Display menu), `aside`
  * (a screen's own button, pushed to the right, such as Today); and after the Health pill `menu` (a "…" menu) and `actions` (at
- * most one primary button). On a phone it is one row under the top bar that wraps: the field takes a full line of its own and
- * the buttons go under it.
+ * most one primary button). On a phone it is one line under the top bar: the field takes the width and the buttons (Filter, Display, a
+ * "…" menu) are icons.
  */
 export function ScreenBar({ view, filter, controls, aside, menu, actions }: { view?: ReactNode; filter?: ReactNode; controls?: ReactNode; aside?: ReactNode; menu?: ReactNode; actions?: ReactNode }) {
   const places = useContext(ScreenBarPlacesContext)
@@ -45,12 +45,12 @@ export function ScreenBar({ view, filter, controls, aside, menu, actions }: { vi
     )
   }
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-2 border-b border-gray-alpha-400 px-4 py-2">
+    <div className="flex shrink-0 items-center gap-2 border-b border-gray-alpha-400 px-4 py-2">
       {view}
-      {filter && <div className="min-w-0 basis-full sm:max-w-md sm:flex-1 sm:basis-64">{filter}</div>}
+      {filter && <div className="min-w-0 flex-1">{filter}</div>}
       {controls}
       {(aside || right) && (
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className={`flex shrink-0 items-center gap-2 ${filter ? '' : 'ml-auto'}`}>
           {aside}
           {right}
         </div>

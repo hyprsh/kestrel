@@ -19,7 +19,7 @@ const slots = (standard: 'wanted' | 'filled', fourK: 'wanted' | 'filled' | null 
 })
 const library = () => [row(1, 'Heat', 'Heat', { slots: slots('wanted') }), row(2, 'Zodiac', 'Zodiac', { slots: slots('filled', 'wanted') }), row(3, 'Alien', 'Alien', { slots: slots('filled') })]
 
-const filterButton = () => screen.getByRole('button', { name: /^Filter( ·|$)/ })
+const filterButton = () => screen.getByRole('button', { name: /^Filter( ·|,|$)/ })
 /** A row of the Filter menu, by its name; a hint such as Excluded may follow it. A Profile named like a Slot comes after the Slot's row, so the first is the Slot's. */
 const item = (name: string) => screen.getAllByRole('menuitemcheckbox', { name: new RegExp(`^${name}(\\s?Excluded)?$`) })[0]
 const titles = (list: HTMLElement) =>
@@ -141,7 +141,7 @@ describe('the Log Filter button', () => {
 })
 
 describe('on a phone', () => {
-  it('keeps the field full width with Filter and Display under it, and the same Filter menu', async () => {
+  it('keeps Filter and Display as icon buttons beside the field, with the same Filter menu', async () => {
     vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('max-width: 639'), media: query, addEventListener: () => {}, removeEventListener: () => {} }))
     fakeLibrary(library())
     renderApp()
@@ -153,6 +153,7 @@ describe('on a phone', () => {
 
     await userEvent.click(item('4K'))
     expect(field).toHaveValue('slot:4k')
-    expect(filterButton()).toHaveTextContent('Filter · 1')
+    expect(filterButton()).toHaveAccessibleName(/^Filter.*1 active/)
+    expect(filterButton()).toHaveTextContent(/^1$/) // the funnel carries the count as its badge
   })
 })

@@ -205,7 +205,7 @@ export function Library({
     <FilterBar
       id="library-filter"
       label="Filter the Library"
-      placeholder={phone ? 'Filter' : 'Filter titles, e.g. slot:4k  /'}
+      placeholder={phone ? 'Filter titles' : 'Filter titles, e.g. slot:4k  /'}
       value={query}
       onChange={onQuery}
       qualifiers={qualifiers}
@@ -353,7 +353,6 @@ export function Library({
     return (
       <div className="flex min-h-0 flex-1 flex-col">
         {bar(true)}
-        <div className="shrink-0 px-4 py-1">{count}</div>
         <div className="relative flex min-h-0 flex-1 flex-col">
           {rows.length === 0 && !titles.isPending ? nothing : items}
           {bulk}
