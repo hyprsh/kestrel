@@ -1,5 +1,5 @@
 import { Entity, Note, Skeleton } from '@hyprsh/design'
-import { forwardRef, useRef } from 'react'
+import { forwardRef } from 'react'
 import { useProfiles, useTitle, type EpisodeScope, type TitleDetail as Detail, type TitleRow } from '../api/queries'
 import { TitlePoster } from '../poster'
 import { usePhone } from '../responsive'
@@ -10,12 +10,11 @@ import { Ratings } from './Ratings'
 import { SeriesSection } from './SeriesSection'
 import { TitleActions } from './TitleActions'
 import { TitleDownloads } from './TitleDownloads'
-import { TitleStatus } from './TitleStatus'
 import { VersionRows } from './VersionRows'
 
 /**
- * The right pane of the Library: the selected Title's header, its status line, its actions row and its Version rows.
- * It takes the width it is given; a Series' Versions sit beside its episodes once there is room for both.
+ * The right pane of the Library: the selected Title's header, its actions row and its Version rows, and a Series' episodes under them.
+ * It takes the width it is given.
  */
 export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: () => void; onManualSearch: (search: ManualSearchTarget) => void }>(function TitleDetail(
   { row, onEscape, onManualSearch },
@@ -53,7 +52,7 @@ export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: ()
   )
 })
 
-/** What the Title page will hold, sized like it: the header (poster, name, meta, status), the actions row and a card of Version rows. Silent: the page announces loading itself. */
+/** What the Title page will hold, sized like it: the header (poster, name, meta), the actions row and a card of Version rows. Silent: the page announces loading itself. */
 function TitleSkeleton() {
   return (
     <div className="@container">
@@ -93,7 +92,6 @@ export type ManualSearchTarget = { versionId: number; slot: SlotKey; profileName
 function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (search: ManualSearchTarget) => void }) {
   const profiles = useProfiles()
   const phone = usePhone()
-  const episodes = useRef<HTMLDivElement>(null)
   const names = new Map((profiles.data ?? []).map((p) => [p.key, p.name]))
   const profileName = (key: string) => names.get(key) ?? key
   const meta = [title.year, title.runtime ? `${title.runtime} min` : null, title.certification, title.original_language ? `Original ${title.original_language.toUpperCase()}` : null].filter(Boolean)
@@ -109,7 +107,6 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
             {meta.join(' · ')}
             <Ratings ratings={title.ratings} lead={meta.length > 0} />
           </div>
-          <TitleStatus title={title} />
           <ExternalIds title={title} />
           {title.requests.map((r) => (
             <div key={r.id} className="copy-13 mt-1 text-gray-900">
@@ -122,16 +119,8 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
       <TitleActions title={title} profileName={profileName} onManualSearch={onManualSearch} />
       <TitleDownloads titleId={title.id} />
 
-      {/* A Series' Versions sit beside its episodes once the pane is wide enough for both, and above them before. */}
-      <div className={title.kind === 'series' ? 'grid grid-cols-1 gap-x-8 @5xl:grid-cols-2' : undefined}>
-        <VersionRows title={title} profiles={profiles.data ?? []} profileName={profileName} onCoverage={() => episodes.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })} />
-
-        {title.kind === 'series' && (
-          <div ref={episodes} className="min-w-0 scroll-mt-4">
-            <SeriesSection title={title} onManualSearch={onManualSearch} />
-          </div>
-        )}
-      </div>
+      <VersionRows title={title} profiles={profiles.data ?? []} profileName={profileName} />
+      {title.kind === 'series' && <SeriesSection title={title} onManualSearch={onManualSearch} />}
     </div>
   )
 }

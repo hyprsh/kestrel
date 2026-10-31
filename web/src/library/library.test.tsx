@@ -303,29 +303,30 @@ describe('the Library detail pane', () => {
     server.use(http.get('/titles/{id}', ({ response }) => response(200).json(d)))
     await openLibrary()
     const pane = await screen.findByRole('region', { name: /paddington/i })
-    expect(await within(pane).findByText(/Bluray-1080p · English \+ German · .*Score 1750/)).toBeInTheDocument()
-    // The row names the file on disk, not the release it was grabbed as.
-    expect(within(pane).getByRole('button', { name: 'P.mkv' })).toBeInTheDocument()
+    // The row says what the file is, as plain text beside a full bar, not the release it was grabbed as.
+    expect(await within(pane).findByRole('button', { name: /Bluray-1080p · English \+ German · .*Score 1750/ })).toBeInTheDocument()
+    expect(within(pane).getByRole('img', { name: 'Standard: filled' })).toBeInTheDocument()
     expect(within(pane).queryByText('Paddington.2014.1080p.BluRay.x264-GRP')).not.toBeInTheDocument()
   })
 
-  it("opens the Movie's file popover from the file name: full path, Copy path and the release name", async () => {
+  it("opens the Movie's file popover from the file's quality and size: full path, Copy path and the release name", async () => {
     fakeLibrary(rows())
     const d = detail(rows()[0])
     const hd = d.versions.find((v) => v.slot === 'standard')!
     hd.state = 'filled'
     hd.file = {
       path: '/data/media/movies/P/P.mkv',
-      size: 8 << 30,
+      size: 8 * 1024 ** 3,
       release_name: 'Paddington.2014.1080p.BluRay.x264-GRP',
-      score: 1750,
+      score: null,
+      quality: 'Bluray-1080p',
       imported_at: '2026-10-17T12:00:00Z',
     }
     server.use(http.get('/titles/{id}', ({ response }) => response(200).json(d)))
     await openLibrary()
     const pane = await screen.findByRole('region', { name: /paddington/i })
 
-    await userEvent.click(await within(pane).findByRole('button', { name: 'P.mkv' }))
+    await userEvent.click(await within(pane).findByRole('button', { name: 'Bluray-1080p · 8.0 GB' }))
 
     const popover = await screen.findByRole('dialog', { name: 'Standard file' })
     expect(popover).toHaveTextContent('/data/media/movies/P/P.mkv')
