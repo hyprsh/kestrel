@@ -5,7 +5,7 @@ import { RowList, stackedRow, stackedRight } from '../layout/RowList'
 import { useState } from 'react'
 import { useAttention, useRunAction, type ActionResult, type Attention, type AttentionAction, type AttentionRow } from '../api/attention'
 import { planWaiting, useAdoption, type Adoption } from '../api/adoption'
-import { slotLabel } from '../library/bits'
+import { profileName, slotProfile, useProfileNames } from '../library/slotProfile'
 import { placePath } from '../place'
 import { OriginalsRow } from './OriginalsRow'
 import type { OverviewNav } from './nav'
@@ -98,6 +98,7 @@ const dateOf = (iso: string) => iso.slice(0, 10)
  */
 function LongMissingRow({ group, onOpen }: { group: Attention['long_missing']; onOpen: (path: string) => void }) {
   const [open, setOpen] = useState(false)
+  const names = useProfileNames()
   return (
     <div data-long-missing className="mt-3">
       <Collapse size="small" headingLevel={4} expanded={open} onChange={setOpen} title={`${group.count} ${group.count === 1 ? 'Version' : 'Versions'} long missing`}>
@@ -108,7 +109,7 @@ function LongMissingRow({ group, onOpen }: { group: Attention['long_missing']; o
                 <Entity key={i.version_id}>
                   <div className="flex min-w-0 flex-col">
                     <span>
-                      {i.title} · {slotLabel[i.slot]} · {i.profile}
+                      {i.title} · {slotProfile(i.slot, profileName(names, i.profile))}
                     </span>
                     <span className="label-12 text-gray-900">
                       Wanted since {dateOf(i.wanted_since)}

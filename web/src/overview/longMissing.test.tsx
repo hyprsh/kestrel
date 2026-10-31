@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
@@ -31,6 +31,7 @@ function fakeLongMissing(rows: Attention['rows'] = []) {
       { title_id: 4, title: 'Older Film', version_id: 41, slot: '4k', profile: '4k-primary', wanted_since: '2025-12-01T00:00:00Z', last_failure: null },
     ],
   }
+  fakeLibrary([]) // serves /profiles with their names
   server.use(http.get('/attention', ({ response }) => response(200).json({ count: rows.length, severity: rows.length ? 'warning' : null, rows, long_missing, originals: { count: 0, items: [] } })))
 }
 
@@ -53,9 +54,11 @@ describe('the Long Missing row in Needs attention', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
 
     const items = within(section).getAllByRole('listitem')
-    expect(items[1]).toHaveTextContent('Ancient Film · Standard · hd-primary')
+    await waitFor(() => expect(items[1]).toHaveTextContent('Ancient Film · Standard · HD'))
+    expect(items[1]).not.toHaveTextContent('hd-primary')
     expect(items[1]).toHaveTextContent('Wanted since 2026-01-01, last failure: download failed')
     expect(items[2]).toHaveTextContent('Older Film · 4K')
+    expect(items[2]).not.toHaveTextContent('4K · 4K') // the Profile named "4K" in the 4K Slot is left out
     expect(items[2]).not.toHaveTextContent(/last failure/i)
 
     await userEvent.click(toggle)

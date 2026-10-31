@@ -68,6 +68,17 @@ describe('the Originals available group in Needs attention', () => {
     expect(within(section).queryByText(/hd-primary/)).not.toBeInTheDocument()
   })
 
+  it('leaves the Profile out of a row when its name is the Slot label', async () => {
+    fakeOffers([{ ...movieOffer, slot: '4k', profile: '4k-primary' }])
+    renderApp()
+
+    const section = await screen.findByRole('region', { name: /needs attention/i })
+    await userEvent.click(await within(section).findByRole('button', { name: 'Originals available · 1' }))
+    const item = within(section).getAllByRole('listitem')[0]
+    await waitFor(() => expect(item).toHaveTextContent('Paddington · 4K'))
+    expect(item).not.toHaveTextContent('4K · 4K')
+  })
+
   it('is one grouped row outside the badge that expands to one row per Version with Accept and Dismiss', async () => {
     const sent = fakeOffers([movieOffer, seriesOffer])
     renderApp()

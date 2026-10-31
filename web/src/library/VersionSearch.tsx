@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import { useSearchNow } from '../api/grabs'
 import type { TitleDetail } from '../api/queries'
 import { Button, Menu } from '@hyprsh/design'
-import { slotLabel } from './bits'
+import { slotProfile } from './slotProfile'
 import type { ManualSearchTarget } from './TitleDetail'
 
 /**
@@ -46,7 +46,7 @@ export function ManualSearch({ title, profileName, onManualSearch }: { title: Ti
       <Menu>
         {title.versions.map((v) => (
           <Menu.Item key={v.id} onSelect={() => open(v)}>
-            {slotLabel[v.slot]} · {profileName(v.profile)}
+            {slotProfile(v.slot, profileName(v.profile))}
           </Menu.Item>
         ))}
       </Menu>
