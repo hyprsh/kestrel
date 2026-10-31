@@ -1,8 +1,10 @@
-import { ApiError, usePatchSettings, useSettings, useUpdateTrash } from '../api/queries'
+import { usePatchSettings, useSettings, useUpdateTrash } from '../api/queries'
 import { SkeletonForm } from '../loading'
 import { useStatus } from '../api/attention'
 import { snapshotAge } from '../overview/HealthStrip'
-import { Button, Checkbox, Code, Note } from '@hyprsh/design'
+import { Button, Checkbox, Code, useToasts } from '@hyprsh/design'
+import { useOpenPlace } from '../place'
+import { trashStarted, watchInActivity } from './toasts'
 
 /** The daily TRaSH check's switch, the active snapshot and "Update from TRaSH". */
 export function TrashForm() {
@@ -10,6 +12,8 @@ export function TrashForm() {
   const status = useStatus()
   const patch = usePatchSettings()
   const update = useUpdateTrash()
+  const toasts = useToasts()
+  const open = useOpenPlace()
   if (!settings.data) return <SkeletonForm rows={2} />
   const snapshot = status.data?.trash
 
@@ -23,17 +27,18 @@ export function TrashForm() {
           Using TRaSH commit <Code>{snapshot.commit.slice(0, 7)}</Code>, {snapshotAge(snapshot.committed_at)}.
         </p>
       )}
-      {update.isError && (
-        <Note variant="error" size="small">
-          {update.error instanceof ApiError && update.error.status === 422 ? 'TRaSH’s newest set was rejected. The previous one stays in use.' : 'Could not reach TRaSH. Try again later.'}
-        </Note>
-      )}
-      {update.isSuccess && (
-        <p role="status" className="label-12 text-green-900">
-          {update.data.changed ? 'Updated.' : 'Already up to date.'}
-        </p>
-      )}
-      <Button variant="secondary" size="small" loading={update.isPending} onClick={() => update.mutate()} className="self-start">
+      <Button
+        variant="secondary"
+        size="small"
+        loading={update.isPending}
+        onClick={() =>
+          update.mutate(undefined, {
+            onSuccess: () => toasts.message({ text: trashStarted, action: watchInActivity(open) }),
+            onError: (e) => toasts.error(`Update from TRaSH failed: ${e.message}`),
+          })
+        }
+        className="self-start"
+      >
         Update from TRaSH
       </Button>
     </div>

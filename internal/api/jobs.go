@@ -38,6 +38,12 @@ func (s *server) jobList(ctx context.Context) oapi.JobList {
 				row.LastRun.Error = &p.Err
 			}
 		}
+		if p := j.Progress; p != nil {
+			row.Progress = &oapi.JobProgress{Done: p.Done, Total: p.Total}
+		}
+		if o := j.Outcome; o != nil {
+			row.Outcome = &oapi.JobOutcome{Kind: oapi.JobOutcomeKind(o.Kind), Text: o.Text, At: o.At}
+		}
 		if !j.Next.IsZero() {
 			row.NextAt = &j.Next
 		}

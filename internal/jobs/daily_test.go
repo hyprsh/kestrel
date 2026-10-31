@@ -12,8 +12,13 @@ type counter struct{ n int }
 
 func (c *counter) Check(context.Context) error { c.n++; return nil }
 
+// trashCounter is a TrashChecker with nothing requested by hand.
+type trashCounter struct{ counter }
+
+func (*trashCounter) RunRequested(context.Context) (bool, error) { return false, nil }
+
 func TestTheUpdateAndTrashChecksAreDailyByTheirLastRunNotByUptime(t *testing.T) {
-	updates, trash := &counter{}, &counter{}
+	updates, trash := &counter{}, &trashCounter{}
 	clock := now
 	state := memState{}
 	build := func() *jobs.Runner {

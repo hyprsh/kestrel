@@ -94,7 +94,9 @@ export function BackgroundJobs() {
                       ) : (
                         <>
                           <div>{[schedule(j.schedule, about.busy ?? 'while busy'), next].filter(Boolean).join(' · ')}</div>
+                          {j.progress && <div>{`Re-scoring: ${j.progress.done} of ${j.progress.total} Titles`}</div>}
                           <div className={last.failed ? 'text-red-900' : undefined}>{last.text}</div>
+                          {j.outcome && <div>{j.outcome.text}</div>}
                         </>
                       )}
                       {run.isError && run.variables === j.name && <Note variant="error">{run.error.message}</Note>}

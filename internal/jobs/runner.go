@@ -65,6 +65,10 @@ type loopState struct {
 	next time.Time
 	// last is the last pass that finished; nil until the first does.
 	last *PassResult
+	// progress is how far the pass running now has got, if it says; nil between passes.
+	progress *Progress
+	// outcome is the last outcome a pass reported; nil until one does.
+	outcome *Outcome
 }
 
 // PassResult is how one pass of a loop went.
@@ -86,6 +90,11 @@ type Job struct {
 	// Next is zero while a pass runs and before the loops start; a kick starts one sooner.
 	Next     time.Time
 	Schedule Schedule
+	// Progress is how far the pass running now has got; nil between passes and for
+	// a loop that does not say.
+	Progress *Progress
+	// Outcome is the last outcome a pass reported; nil until one does.
+	Outcome *Outcome
 }
 
 type startup struct {
@@ -189,16 +198,16 @@ func (r *Runner) Pass(ctx context.Context, name string) error {
 	defer l.mu.Unlock()
 	start := r.clock()
 	r.mu.Lock()
-	l.state.started = start
+	l.state.started, l.state.progress = start, nil
 	r.mu.Unlock()
-	err := l.Run(ctx)
+	err := l.Run(withReporter(ctx, r, l))
 	end := r.clock()
 	p := &PassResult{StartedAt: start, FinishedAt: end, Took: end.Sub(start)}
 	if err != nil {
 		p.Err = err.Error()
 	}
 	r.mu.Lock()
-	l.state.started, l.state.last = time.Time{}, p
+	l.state.started, l.state.last, l.state.progress = time.Time{}, p, nil
 	r.mu.Unlock()
 	return err
 }
@@ -236,6 +245,14 @@ func (r *Runner) Jobs() []Job {
 		if l.state.last != nil {
 			p := *l.state.last
 			j.Last = &p
+		}
+		if p := l.state.progress; p != nil {
+			c := *p
+			j.Progress = &c
+		}
+		if o := l.state.outcome; o != nil {
+			c := *o
+			j.Outcome = &c
 		}
 		out = append(out, j)
 	}

@@ -1,7 +1,10 @@
+import { useMemo } from 'react'
 import { useEpisodes, type Episode, type TitleDetail } from '../api/queries'
+import { useDisplay } from '../display/useDisplay'
 import { slotKeys } from './bits'
 import { EpisodeToolbar, useEpisodeActions } from './EpisodeActions'
 import { EpisodeMatrix } from './EpisodeMatrix'
+import { orderEpisodes } from './episodes'
 import { SeasonToolbar } from './SeasonSummary'
 import type { ManualSearchTarget } from './TitleDetail'
 import { useSeasonOpen } from './useSeasonOpen'
@@ -12,7 +15,9 @@ const noEpisodes: Episode[] = []
 export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; onManualSearch?: (t: ManualSearchTarget) => void }) {
   const seasons = useSeasonOpen(title.id)
   const slots = slotKeys.filter((k) => title.versions.some((v) => v.slot === k))
-  const episodes = useEpisodes(title.id).data ?? noEpisodes
+  const { display } = useDisplay()
+  const loaded = useEpisodes(title.id).data
+  const episodes = useMemo(() => (loaded ? orderEpisodes(loaded, display.season_order) : noEpisodes), [loaded, display.season_order])
   const actions = useEpisodeActions(title, episodes, seasons, slots, onManualSearch)
   return (
     <section aria-label="Episodes" className="mt-6">

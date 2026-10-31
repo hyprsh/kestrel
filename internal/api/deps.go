@@ -19,6 +19,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
+	"github.com/hyprsh/kestrel/internal/settings/display"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 	"github.com/hyprsh/kestrel/internal/updates"
 )
@@ -31,6 +32,7 @@ type Deps struct {
 	Profiles    Profiles
 	RootFolders RootFolders
 	Settings    SettingsTx
+	Display     Display
 	Pause       GrabPause
 	Updates     Updates
 	Library     Library
@@ -82,6 +84,11 @@ type RootFolders interface {
 	Get(ctx context.Context) (rootfolders.Folders, bool, error)
 }
 
+// Display reads the household-wide view defaults.
+type Display interface {
+	Get(ctx context.Context) (display.Display, error)
+}
+
 // SettingsTx opens the settings that PATCH /settings writes in one transaction.
 type SettingsTx interface {
 	InTx(tx *sql.Tx) SettingsWriter
@@ -93,6 +100,7 @@ type SettingsWriter interface {
 	SetRegion(ctx context.Context, p profiles.RegionPatch) (profiles.Region, error)
 	SetTrashAutoUpdate(ctx context.Context, on bool) error
 	SetGrabsPaused(ctx context.Context, on bool) error
+	SetDisplay(ctx context.Context, p display.Patch) (display.Display, error)
 }
 
 // GrabPause reads the Pause Grabs switch.
@@ -262,7 +270,8 @@ type Scoring interface {
 
 // Trash is the TRaSH update service.
 type Trash interface {
-	Update(ctx context.Context) (trashsync.Result, error)
+	// RequestUpdate asks the trash loop for an update pass; false when one is already waiting or running.
+	RequestUpdate() bool
 	Status(ctx context.Context) trashsync.Status
 	ChangeLanguage(ctx context.Context, change func() error) error
 	AutoUpdate(ctx context.Context) (bool, error)

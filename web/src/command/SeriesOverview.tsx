@@ -1,7 +1,8 @@
 import { ApiError } from '../api/queries'
 import type { components } from '../api/schema.gen'
 import { Checkbox, Note, Skeleton, Table, type TableColumn } from '@hyprsh/design'
-import { seasonName } from '../library/episodes'
+import { useDisplay } from '../display/useDisplay'
+import { orderSeasons, seasonName } from '../library/episodes'
 import { LoadingRegion } from '../loading'
 
 export type LookupSeries = components['schemas']['LookupSeries']
@@ -60,7 +61,13 @@ function seasonAired(s: LookupSeason) {
  * each season has a checkbox saying whether it is monitored at add.
  */
 export function SeasonList({ series, ticked, onToggle }: { series: LookupSeries; ticked: number[] | null; onToggle: (season: number) => void }) {
+  const { display } = useDisplay()
   if (series.seasons.length === 0) return null
+  const order = orderSeasons(
+    series.seasons.map((s) => s.number),
+    display.season_order,
+  )
+  const rows = order.flatMap((n) => series.seasons.filter((s) => s.number === n)).map((s) => ({ ...s, id: s.number }))
   const columns: TableColumn<LookupSeason & { id: number }>[] = [
     ...(ticked
       ? [{ key: 'monitored', header: 'Monitored', render: (s: LookupSeason) => <Checkbox aria-label={seasonName(s.number)} checked={ticked.includes(s.number)} onChange={() => onToggle(s.number)} /> }]
@@ -71,7 +78,7 @@ export function SeasonList({ series, ticked, onToggle }: { series: LookupSeries;
   ]
   return (
     <div className="mt-2">
-      <Table caption="Seasons" columns={columns} rows={series.seasons.map((s) => ({ ...s, id: s.number }))} />
+      <Table caption="Seasons" columns={columns} rows={rows} />
     </div>
   )
 }

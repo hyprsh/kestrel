@@ -21,6 +21,7 @@ import { startLiveStream } from '../live/stream'
 import { Log } from '../log/Log'
 import { Overview } from '../overview/Overview'
 import { Requests } from '../requests/Requests'
+import { useTrashOutcomeToasts } from '../trash/toasts'
 import { currentPlace, PlaceOpener, placeOf, placePath, pushedPlace, pushPlace, showPlace } from '../place'
 import { usePhone } from '../responsive'
 import { Upcoming } from '../upcoming/Upcoming'
@@ -117,6 +118,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const canLogout = auth.data?.state === 'ok' && auth.data.me.method === 'session'
   const searchAll = useSearchAllWanted()
   const { mutate: searchAllWanted } = searchAll
+  useTrashOutcomeToasts()
   const toasts = useToasts()
   const adoptionState = useAdoption().data?.state
   const actions: MenuAction[] = useMemo(

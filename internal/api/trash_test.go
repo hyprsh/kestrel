@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"errors"
 	"io/fs"
 	"os"
 	"testing"
@@ -66,8 +67,14 @@ func TestUpdateFromTrashLoadsAValidSnapshotAndRejectsABrokenOneWhole(t *testing.
 
 	src.ref = trashsync.Ref{Commit: "broken", CommittedAt: time.Now()}
 	src.files = fstest.MapFS{"COMMIT": {Data: []byte("broken")}}
-	if r := s.valid("POST", "/trash/update", ``); r.Status != 422 {
-		t.Fatalf("broken update = %d %s, want 422", r.Status, r.Body)
+	if r := s.valid("POST", "/trash/update", ``); r.Status != 202 {
+		t.Fatalf("broken update = %d %s, want 202: the pass reports the rejection", r.Status, r.Body)
+	}
+	if err := s.in.app.Jobs.Pass(context.Background(), jobs.Trash); !errors.Is(err, trashsync.ErrRejected) {
+		t.Fatalf("the pass = %v, want a rejection", err)
+	}
+	if o := s.jobList(t)[jobs.Trash].Outcome; o == nil || o.Kind != "rejected" {
+		t.Errorf("outcome = %+v, want rejected", o)
 	}
 	if got := decode[trashStatus](t, s.valid("GET", "/system/status", "")); got.Trash.Commit == "broken" {
 		t.Error("the broken snapshot is active")
@@ -78,8 +85,14 @@ func TestUpdateFromTrashLoadsAValidSnapshotAndRejectsABrokenOneWhole(t *testing.
 
 	src.ref = trashsync.Ref{Commit: "good", CommittedAt: time.Now()}
 	src.files = trashBundle(t, "good")
-	if r := s.valid("POST", "/trash/update", ``); r.Status != 200 {
+	if r := s.valid("POST", "/trash/update", ``); r.Status != 202 {
 		t.Fatalf("good update = %d %s", r.Status, r.Body)
+	}
+	if got := decode[trashStatus](t, s.valid("GET", "/system/status", "")); got.Trash.Commit == "good" {
+		t.Error("the snapshot is active before the pass ran")
+	}
+	if err := s.in.app.Jobs.Pass(context.Background(), jobs.Trash); err != nil {
+		t.Fatal(err)
 	}
 	if got := decode[trashStatus](t, s.valid("GET", "/system/status", "")); got.Trash.Commit != "good" || !got.Trash.AutoUpdate {
 		t.Errorf("status = %+v, want the good commit and auto update on", got)
@@ -109,6 +122,12 @@ func TestChangingThePrimaryLanguageRescoresFilesWithoutRenamingOrSearching(t *te
 
 	if r := s.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`); r.Status != 200 {
 		t.Fatalf("PATCH /settings = %d %s", r.Status, r.Body)
+	}
+	if got := s.version(t, s.hd); got.File == nil || got.File.Misfit {
+		t.Fatalf("file = %+v: the PATCH re-scored before returning", got.File)
+	}
+	if err := s.in.app.Jobs.Pass(context.Background(), jobs.Trash); err != nil {
+		t.Fatal(err)
 	}
 
 	after := s.version(t, s.hd)

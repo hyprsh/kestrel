@@ -655,6 +655,96 @@ func (e JobStatus) Valid() bool {
 	}
 }
 
+// Defines values for JobOutcomeKind.
+const (
+	JobOutcomeKindFailed      JobOutcomeKind = "failed"
+	JobOutcomeKindRejected    JobOutcomeKind = "rejected"
+	JobOutcomeKindRescored    JobOutcomeKind = "rescored"
+	JobOutcomeKindUnreachable JobOutcomeKind = "unreachable"
+	JobOutcomeKindUpToDate    JobOutcomeKind = "up_to_date"
+	JobOutcomeKindUpdated     JobOutcomeKind = "updated"
+)
+
+// Valid indicates whether the value is a known member of the JobOutcomeKind enum.
+func (e JobOutcomeKind) Valid() bool {
+	switch e {
+	case JobOutcomeKindFailed:
+		return true
+	case JobOutcomeKindRejected:
+		return true
+	case JobOutcomeKindRescored:
+		return true
+	case JobOutcomeKindUnreachable:
+		return true
+	case JobOutcomeKindUpToDate:
+		return true
+	case JobOutcomeKindUpdated:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ManualSearchSort.
+const (
+	AgeAsc        ManualSearchSort = "age_asc"
+	AgeDesc       ManualSearchSort = "age_desc"
+	BestFirst     ManualSearchSort = "best_first"
+	FormatsAsc    ManualSearchSort = "formats_asc"
+	FormatsDesc   ManualSearchSort = "formats_desc"
+	IndexerAsc    ManualSearchSort = "indexer_asc"
+	IndexerDesc   ManualSearchSort = "indexer_desc"
+	LanguagesAsc  ManualSearchSort = "languages_asc"
+	LanguagesDesc ManualSearchSort = "languages_desc"
+	QualityAsc    ManualSearchSort = "quality_asc"
+	QualityDesc   ManualSearchSort = "quality_desc"
+	ReleaseAsc    ManualSearchSort = "release_asc"
+	ReleaseDesc   ManualSearchSort = "release_desc"
+	ScoreAsc      ManualSearchSort = "score_asc"
+	SizeAsc       ManualSearchSort = "size_asc"
+	SizeDesc      ManualSearchSort = "size_desc"
+)
+
+// Valid indicates whether the value is a known member of the ManualSearchSort enum.
+func (e ManualSearchSort) Valid() bool {
+	switch e {
+	case AgeAsc:
+		return true
+	case AgeDesc:
+		return true
+	case BestFirst:
+		return true
+	case FormatsAsc:
+		return true
+	case FormatsDesc:
+		return true
+	case IndexerAsc:
+		return true
+	case IndexerDesc:
+		return true
+	case LanguagesAsc:
+		return true
+	case LanguagesDesc:
+		return true
+	case QualityAsc:
+		return true
+	case QualityDesc:
+		return true
+	case ReleaseAsc:
+		return true
+	case ReleaseDesc:
+		return true
+	case ScoreAsc:
+		return true
+	case SizeAsc:
+		return true
+	case SizeDesc:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MeMethod.
 const (
 	ApiKey  MeMethod = "api_key"
@@ -985,6 +1075,45 @@ func (e SearchIndexerHeld) Valid() bool {
 	case Budget:
 		return true
 	case RequestLimit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SeasonOrder.
+const (
+	NewestFirst SeasonOrder = "newest_first"
+	OldestFirst SeasonOrder = "oldest_first"
+)
+
+// Valid indicates whether the value is a known member of the SeasonOrder enum.
+func (e SeasonOrder) Valid() bool {
+	switch e {
+	case NewestFirst:
+		return true
+	case OldestFirst:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SeasonsOpen.
+const (
+	SeasonsOpenAll             SeasonsOpen = "all"
+	SeasonsOpenLatestAndWanted SeasonsOpen = "latest_and_wanted"
+	SeasonsOpenNone            SeasonsOpen = "none"
+)
+
+// Valid indicates whether the value is a known member of the SeasonsOpen enum.
+func (e SeasonsOpen) Valid() bool {
+	switch e {
+	case SeasonsOpenAll:
+		return true
+	case SeasonsOpenLatestAndWanted:
+		return true
+	case SeasonsOpenNone:
 		return true
 	default:
 		return false
@@ -2090,6 +2219,28 @@ type DiskStatus struct {
 	TotalBytes   int64  `json:"total_bytes"`
 }
 
+// Display The household-wide view defaults. Each is where a browser or session starts: a season the
+// user opened or closed on a Series, a sort picked in Manual search and the Upcoming filters
+// changed in a session keep winning. Never saved, they report today's behavior.
+type Display struct {
+	// ManualSearchSort Best first, or a Manual search column with `_asc` or `_desc`. Score descending is best first, so
+	// `score_desc` is not a value.
+	ManualSearchSort ManualSearchSort `json:"manual_search_sort"`
+
+	// SeasonOrder Newest first reverses the seasons and the episodes in each. Specials come last in both orders.
+	SeasonOrder SeasonOrder `json:"season_order"`
+
+	// SeasonsOpen Which seasons of a Series start open. `latest_and_wanted` opens the latest season and any with a Wanted episode, never Specials.
+	SeasonsOpen     SeasonsOpen `json:"seasons_open"`
+	UpcomingFilters struct {
+		HideImported bool `json:"hide_imported"`
+
+		// Kind One of `all`, `movie` or `series`; anything else is `422`.
+		Kind       UpcomingKind `json:"kind"`
+		WantedOnly bool         `json:"wanted_only"`
+	} `json:"upcoming_filters"`
+}
+
 // Episode defines model for Episode.
 type Episode struct {
 	// AirDate The TheTVDB air date.
@@ -2355,6 +2506,15 @@ type Job struct {
 	// NextAt When the next pass is due; `null` while one runs and before the loops start.
 	NextAt *time.Time `json:"next_at"`
 
+	// Outcome How the last pass that had something to say went (`trash`); `null` before one does. A pass
+	// with nothing to say (the daily check that is not due) leaves it as it was, so tell a new
+	// outcome by `at`.
+	Outcome *JobOutcome `json:"outcome"`
+
+	// Progress How far the pass running now has got, for a loop that says (`trash` while it re-scores:
+	// Titles re-scored of all of them); `null` between passes and for the other loops.
+	Progress *JobProgress `json:"progress"`
+
 	// Runnable Whether `POST /jobs/{name}/run` runs it.
 	Runnable bool `json:"runnable"`
 
@@ -2383,6 +2543,31 @@ type JobStatus string
 // JobList defines model for JobList.
 type JobList struct {
 	Items []Job `json:"items"`
+}
+
+// JobOutcome defines model for JobOutcome.
+type JobOutcome struct {
+	// At When the pass reported it.
+	At time.Time `json:"at"`
+
+	// Kind `updated` (a newer TRaSH snapshot is active), `up_to_date`, `rejected` (refused whole, the
+	// previous one stays), `unreachable` (TRaSH could not be asked), `rescored` (files re-scored
+	// after a Primary Language change) or `failed`; later versions may add kinds.
+	Kind JobOutcomeKind `json:"kind"`
+
+	// Text The outcome in a sentence, for the UI to show.
+	Text string `json:"text"`
+}
+
+// JobOutcomeKind `updated` (a newer TRaSH snapshot is active), `up_to_date`, `rejected` (refused whole, the
+// previous one stays), `unreachable` (TRaSH could not be asked), `rescored` (files re-scored
+// after a Primary Language change) or `failed`; later versions may add kinds.
+type JobOutcomeKind string
+
+// JobProgress defines model for JobProgress.
+type JobProgress struct {
+	Done  int `json:"done"`
+	Total int `json:"total"`
 }
 
 // JobRun defines model for JobRun.
@@ -2532,6 +2717,10 @@ type LookupSeries struct {
 	// Example: ended
 	Status *string `json:"status"`
 }
+
+// ManualSearchSort Best first, or a Manual search column with `_asc` or `_desc`. Score descending is best first, so
+// `score_desc` is not a value.
+type ManualSearchSort string
 
 // Me defines model for Me.
 type Me struct {
@@ -3438,10 +3627,16 @@ type Season struct {
 	Number int `json:"number"`
 }
 
+// SeasonOrder defines model for SeasonOrder.
+type SeasonOrder string
+
 // SeasonPatch defines model for SeasonPatch.
 type SeasonPatch struct {
 	Monitored bool `json:"monitored"`
 }
+
+// SeasonsOpen defines model for SeasonsOpen.
+type SeasonsOpen string
 
 // SeriesMonitor `all` monitors every episode, future ones and new seasons included; `future` the episodes airing
 // today or later or without an air date, and new seasons; `none` nothing. Specials (season 0) are
@@ -3455,12 +3650,25 @@ type Settings struct {
 	// Off means no request to GitHub at all, except a manual "Update from TRaSH".
 	CheckGithubUpdates bool `json:"check_github_updates"`
 
+	// Display The household-wide view defaults. Each is where a browser or session starts: a season the
+	// user opened or closed on a Series, a sort picked in Manual search and the Upcoming filters
+	// changed in a session keep winning. Never saved, they report today's behavior.
+	Display Display `json:"display"`
+
 	// FromConfigFile Per section, `true` while the Config File declares it. A declared section can't be
 	// changed here: a patch naming it answers `409 conflict`.
 	FromConfigFile struct {
 		CheckGithubUpdates bool `json:"check_github_updates"`
-		LanguageRegion     bool `json:"language_region"`
-		RootFolders        bool `json:"root_folders"`
+
+		// Display Per display setting, `true` while the Config File declares it; a patch naming it answers `409 conflict`.
+		Display struct {
+			ManualSearchSort bool `json:"manual_search_sort"`
+			SeasonOrder      bool `json:"season_order"`
+			SeasonsOpen      bool `json:"seasons_open"`
+			UpcomingFilters  bool `json:"upcoming_filters"`
+		} `json:"display"`
+		LanguageRegion bool `json:"language_region"`
+		RootFolders    bool `json:"root_folders"`
 	} `json:"from_config_file"`
 	LanguageRegion struct {
 		// PrimaryLanguage The household's Primary Language as ISO 639-1.
@@ -3500,7 +3708,24 @@ type Settings struct {
 // SettingsPatch defines model for SettingsPatch.
 type SettingsPatch struct {
 	CheckGithubUpdates *bool `json:"check_github_updates,omitempty"`
-	LanguageRegion     *struct {
+
+	// Display Changes the named display settings. A setting the Config File declares answers `409 conflict`.
+	// An unknown value answers `422` naming `display.<setting>`.
+	Display *struct {
+		// ManualSearchSort Best first, or a Manual search column with `_asc` or `_desc`. Score descending is best first, so
+		// `score_desc` is not a value.
+		ManualSearchSort *ManualSearchSort `json:"manual_search_sort,omitempty"`
+		SeasonOrder      *SeasonOrder      `json:"season_order,omitempty"`
+		SeasonsOpen      *SeasonsOpen      `json:"seasons_open,omitempty"`
+		UpcomingFilters  *struct {
+			HideImported *bool `json:"hide_imported,omitempty"`
+
+			// Kind One of `all`, `movie` or `series`; anything else is `422`.
+			Kind       *UpcomingKind `json:"kind,omitempty"`
+			WantedOnly *bool         `json:"wanted_only,omitempty"`
+		} `json:"upcoming_filters,omitempty"`
+	} `json:"display,omitempty"`
+	LanguageRegion *struct {
 		// PrimaryLanguage The household's Primary Language as ISO 639-1.
 		PrimaryLanguage    *PrimaryLanguage `json:"primary_language,omitempty"`
 		ReleaseDateCountry *string          `json:"release_date_country,omitempty"`
@@ -4003,6 +4228,9 @@ type UpcomingItemMarkers string
 
 // UpcomingItemReleaseType Which release a Movie's `date` is; null for an episode.
 type UpcomingItemReleaseType string
+
+// UpcomingKind One of `all`, `movie` or `series`; anything else is `422`.
+type UpcomingKind = string
 
 // UpcomingList defines model for UpcomingList.
 type UpcomingList struct {
@@ -12830,21 +13058,12 @@ type UpdateTrashResponseObject interface {
 	VisitUpdateTrashResponse(w http.ResponseWriter) error
 }
 
-type UpdateTrash200JSONResponse struct {
-	Changed bool   `json:"changed"`
-	Commit  string `json:"commit"`
+type UpdateTrash202Response struct {
 }
 
-func (response UpdateTrash200JSONResponse) VisitUpdateTrashResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
+func (response UpdateTrash202Response) VisitUpdateTrashResponse(w http.ResponseWriter) error {
+	w.WriteHeader(202)
+	return nil
 }
 
 type UpdateTrashdefaultApplicationProblemPlusJSONResponse struct {

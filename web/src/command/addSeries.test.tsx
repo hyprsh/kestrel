@@ -136,10 +136,10 @@ describe('the add panel', () => {
     const seasons = within(menu).getByRole('table', { name: 'Seasons' })
     const rows = within(seasons).getAllByRole('row').slice(1) // under the header
     expect(rows.map((r) => r.textContent)).toEqual([
-      expect.stringMatching(/Specials.*1 episode.*2009/),
       expect.stringMatching(/Season 1.*3 episodes.*2008/),
       expect.stringMatching(/Season 2.*3 episodes.*2009–2010/),
       expect.stringMatching(/Season 3.*1 episode.*not aired/),
+      expect.stringMatching(/Specials.*1 episode.*2009/), // Specials come last
     ])
   })
 
