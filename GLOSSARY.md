@@ -110,6 +110,14 @@ _Avoid_: Blacklist
 **Import**:
 Moving a completed download into the library under its Title's folder and naming scheme.
 
+**Stalled Import**:
+An Import that cannot proceed until something outside Kestrel is fixed, such as a full disk or a missing folder. Activity's Stalled stage holds them.
+_Avoid_: Stuck import, failed import
+
+**Stuck download**:
+A Grab whose download makes no progress: the download client has it paused, or its downloaded amount hasn't grown for an hour. Requesters see it as "Taking longer than usual".
+_Avoid_: Stalled download, slow download
+
 **Activity**:
 The screen showing every Grab from search to Import, grouped by stage (Searching, Queued, Downloading, Post-processing, Importing, Stalled, Done, Failed), and the background work Kestrel is doing right now. Done and Failed reach back 7 days; older Grabs are left to the Log.
 _Avoid_: Downloads, Queue (for the screen)
