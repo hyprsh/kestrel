@@ -184,6 +184,15 @@ silo: # Watch-ahead for Silo; see "Watch-ahead for Silo"
   watch_ahead: true # optional, off until set: the default for a Silo Series Request that names no seasons
   instance: Silo # the name of a silo plugin instance, whose playback history Watch-ahead reads; needed once watch_ahead is true
 
+display: # optional; each key you name is read-only in Settings > Display
+  season_order: newest_first # oldest_first (default) or newest_first; Specials come last either way
+  seasons_open: latest_and_wanted # latest_and_wanted (default), all or none
+  manual_search_sort: best_first # best_first (default), or <column>_asc / <column>_desc
+  upcoming_filters:
+    kind: all # all (default), movie or series
+    wanted_only: false
+    hide_imported: false
+
 check_github_updates: true
 ```
 
@@ -323,6 +332,17 @@ Lets people who share your Plex server make Requests. [Requesters](#requesters-p
 | ------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `watch_ahead` | Optional, off until set.                                                                                                |
 | `instance`    | The name of a `silo` plugin instance, declared in the same file or made in the UI. Needed once `watch_ahead` is `true`. |
+
+#### display
+
+The household-wide view defaults. Name any of the keys: each one you name is read-only in Settings, and each you leave out stays the UI's. They are where a view starts. A season someone opens or closes, a sort picked in Manual search and the Upcoming filters changed in a session still win.
+
+| Field                | Value                                                                                                                                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `season_order`       | `oldest_first` or `newest_first`. Newest first reverses the seasons and the episodes in each. Specials come last either way.                                                                     |
+| `seasons_open`       | `latest_and_wanted`, `all` or `none`. The first opens the latest season and any season with a Wanted episode, never Specials.                                                                    |
+| `manual_search_sort` | `best_first`, or a column and a direction such as `size_desc`. The columns are `score`, `release`, `quality`, `languages`, `formats`, `size`, `age` and `indexer`. `score_desc` is `best_first`. |
+| `upcoming_filters`   | `kind` (`all`, `movie` or `series`), `wanted_only` and `hide_imported`. Declared as a whole: a filter you leave out takes its default (`all`, `false`, `false`).                                 |
 
 #### check_github_updates
 

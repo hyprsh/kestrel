@@ -1,11 +1,12 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { fakeLibrary, row } from '../test/library'
+import { serveDisplay } from '../test/serveDisplay'
 import { server } from '../test/server'
 
 type Release = components['schemas']['Release']
@@ -536,6 +537,23 @@ describe('manual search on a phone', () => {
     expect(screen.getByText(/sorted by size, descending/)).toBeInTheDocument()
   })
 
+  it("starts a new session on the household's default sort, which the Select shows, and a pick still wins", async () => {
+    serveDisplay({ manual_search_sort: 'size_desc' })
+    fakeSearch([release('small', 'Rel.small', { score: 500, size: 1 * 1024 ** 3 }), release('big', 'Rel.big', { score: 100, size: 20 * 1024 ** 3 })])
+    const list = await openPhoneSearch()
+    const names = () =>
+      within(list)
+        .getAllByRole('listitem')
+        .map((r) => /Rel\.(small|big)/.exec(r.textContent ?? '')?.[1])
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /sort/i })).toHaveValue('size:desc'))
+    expect(names()).toEqual(['big', 'small'])
+    expect(screen.getByText(/sorted by size, descending/)).toBeInTheDocument()
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /sort/i }), 'score:desc')
+    expect(names()).toEqual(['small', 'big'])
+    expect(screen.getByText(/best first/)).toBeInTheDocument()
+  })
+
   it('grabs the selected Release from the bottom bar', async () => {
     const state = fakeSearch(releases())
     const list = await openPhoneSearch()
@@ -558,5 +576,30 @@ describe('manual search on a phone', () => {
     await screen.findByText(/sent to the download client/i)
     const [row] = within(list).getAllByText('Grabbed')
     expect(row.closest('li')).toHaveTextContent('FRENCH')
+  })
+})
+
+describe('manual search default sort', () => {
+  beforeEach(() => sessionStorage.clear())
+
+  it("starts on the household's default column and direction", async () => {
+    serveDisplay({ manual_search_sort: 'age_asc' })
+    fakeSearch(releases())
+    await openManualSearch()
+    await waitFor(() => expect(screen.getByRole('columnheader', { name: 'Age' })).toHaveAttribute('aria-sort', 'ascending'))
+    expect(screen.getByRole('columnheader', { name: 'Score' })).toHaveAttribute('aria-sort', 'none')
+  })
+
+  it('keeps a sort picked in the session over the default, for the next search of the session', async () => {
+    serveDisplay({ manual_search_sort: 'age_asc' })
+    fakeSearch(releases())
+    await openManualSearch()
+    await userEvent.click(screen.getByRole('button', { name: 'Size' }))
+    expect(screen.getByRole('columnheader', { name: 'Size' })).toHaveAttribute('aria-sort', 'ascending')
+    cleanup()
+
+    await openManualSearch()
+    expect(screen.getByRole('columnheader', { name: 'Size' })).toHaveAttribute('aria-sort', 'ascending')
+    expect(screen.getByRole('columnheader', { name: 'Age' })).toHaveAttribute('aria-sort', 'none')
   })
 })

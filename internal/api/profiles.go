@@ -10,6 +10,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
+	"github.com/hyprsh/kestrel/internal/settings/display"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 )
 
@@ -103,6 +104,15 @@ func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {
 	if out.PauseGrabs, err = s.pause.Paused(ctx); err != nil {
 		return oapi.Settings{}, err
 	}
+	if d, err := s.display.Get(ctx); err != nil {
+		return oapi.Settings{}, err
+	} else {
+		out.Display = displayToAPI(d)
+	}
+	out.FromConfigFile.Display.SeasonOrder = s.declaresDisplay(configfile.DisplaySeasonOrder)
+	out.FromConfigFile.Display.SeasonsOpen = s.declaresDisplay(configfile.DisplaySeasonsOpen)
+	out.FromConfigFile.Display.ManualSearchSort = s.declaresDisplay(configfile.DisplayManualSearchSort)
+	out.FromConfigFile.Display.UpcomingFilters = s.declaresDisplay(configfile.DisplayUpcomingFilters)
 	out.FromConfigFile.LanguageRegion = s.declares(configfile.SectionLanguageRegion)
 	out.FromConfigFile.RootFolders = s.declares(configfile.SectionRootFolders)
 	out.FromConfigFile.CheckGithubUpdates = s.declares(configfile.SectionCheckGitHubUpdates)
@@ -123,6 +133,9 @@ func (s *server) PatchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 	}
 	if err := s.refuseDeclared(patchedSections(r.Body)...); err != nil {
 		return nil, err // before any write, so the patch's other sections stay unsaved too
+	}
+	if err := s.refuseDeclaredDisplay(r.Body.Display); err != nil {
+		return nil, err
 	}
 	if l := r.Body.LanguageRegion; l != nil && l.PrimaryLanguage != nil {
 		// A new Primary Language re-scores every file in the same step, with no
@@ -174,6 +187,19 @@ func (s *server) patchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 		patch.Country = l.ReleaseDateCountry
 		if _, err := w.SetRegion(ctx, patch); err != nil {
 			return nil, profilesProblem(err)
+		}
+	}
+	if d := r.Body.Display; d != nil {
+		patch := display.Patch{SeasonOrder: enumPtr(d.SeasonOrder), SeasonsOpen: enumPtr(d.SeasonsOpen), ManualSearchSort: enumPtr(d.ManualSearchSort)}
+		if u := d.UpcomingFilters; u != nil {
+			patch.Upcoming = &display.UpcomingPatch{Kind: enumPtr(u.Kind), WantedOnly: u.WantedOnly, HideImported: u.HideImported}
+		}
+		if _, err := w.SetDisplay(ctx, patch); err != nil {
+			var ve *display.ValidationError
+			if errors.As(err, &ve) {
+				return nil, invalid("display."+ve.Field, "invalid", ve.Message)
+			}
+			return nil, err
 		}
 	}
 	if t := r.Body.Trash; t != nil && t.AutoUpdate != nil {

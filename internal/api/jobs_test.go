@@ -23,7 +23,15 @@ type jobJSON struct {
 	} `json:"last_run"`
 	NextAt     *time.Time `json:"next_at"`
 	DisabledBy *string    `json:"disabled_by"`
-	Schedule   struct {
+	Progress   *struct {
+		Done  int `json:"done"`
+		Total int `json:"total"`
+	} `json:"progress"`
+	Outcome *struct {
+		Kind string `json:"kind"`
+		Text string `json:"text"`
+	} `json:"outcome"`
+	Schedule struct {
 		EveryMs     int64  `json:"every_ms"`
 		BusyEveryMs *int64 `json:"busy_every_ms"`
 		RunsEveryMs *int64 `json:"runs_every_ms"`

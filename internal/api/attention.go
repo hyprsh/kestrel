@@ -15,7 +15,6 @@ import (
 	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
-	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
 )
 
 // healthRowPrefix starts the id of every row that comes from the health module.
@@ -407,16 +406,9 @@ func (s *server) SearchAllWanted(ctx context.Context, _ oapi.SearchAllWantedRequ
 	return oapi.SearchAllWanted202JSONResponse(oapi.WantedSearch{Versions: n}), nil
 }
 
-// UpdateTrash is "Update from TRaSH".
-func (s *server) UpdateTrash(ctx context.Context, _ oapi.UpdateTrashRequestObject) (oapi.UpdateTrashResponseObject, error) {
-	res, err := s.trash.Update(ctx)
-	switch {
-	case errors.Is(err, trashsync.ErrUnreachable):
-		return nil, problem(http.StatusBadGateway, "upstream_unavailable", err.Error())
-	case errors.Is(err, trashsync.ErrRejected):
-		return nil, problem(http.StatusUnprocessableEntity, "validation", err.Error())
-	case err != nil:
-		return nil, err
-	}
-	return oapi.UpdateTrash200JSONResponse{Changed: res.Changed, Commit: res.Commit}, nil
+// UpdateTrash is "Update from TRaSH": it asks the trash loop for a pass and
+// answers at once. How the pass goes is its job's outcome (GET /jobs).
+func (s *server) UpdateTrash(_ context.Context, _ oapi.UpdateTrashRequestObject) (oapi.UpdateTrashResponseObject, error) {
+	s.trash.RequestUpdate()
+	return oapi.UpdateTrash202Response{}, nil
 }

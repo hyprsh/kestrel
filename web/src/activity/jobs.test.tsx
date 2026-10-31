@@ -20,6 +20,8 @@ const job = (over: Partial<Job>): Job => ({
   last_run: null,
   next_at: null,
   schedule: every(5 * min),
+  progress: null,
+  outcome: null,
   ...over,
 })
 const ran = (over: Partial<NonNullable<Job['last_run']>> = {}): Job['last_run'] => ({

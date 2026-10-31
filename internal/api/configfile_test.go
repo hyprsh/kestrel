@@ -292,6 +292,7 @@ func TestADeclaredPrimaryLanguageRescoresFilesWhenItChanges(t *testing.T) {
 	}
 
 	s.in.mustDeclare("language_region:\n  primary_language: de\n  release_date_country: DE\n")
+	s.pass(t, jobs.Trash) // the re-score is the trash loop's pass
 	if after := s.version(t, s.hd); after.File == nil || !after.File.Misfit || after.File.Path != before.File.Path {
 		t.Fatalf("file = %+v, want the same path, now a misfit for a German household", after.File)
 	}

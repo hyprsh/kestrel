@@ -11,7 +11,8 @@ import { RowDeleteConfirm } from './DeleteFiles'
 import { CellPopover, EpisodeFilePopover, cellTitle } from './EpisodeFilePopover'
 import { usePhone } from '../responsive'
 import { EpisodeName } from './EpisodeName'
-import { episodeRow, seasonName, seasonRow } from './episodes'
+import { useDisplay } from '../display/useDisplay'
+import { episodeRow, orderEpisodes, seasonName, seasonRow } from './episodes'
 
 type Row = { kind: 'season'; season: number; episodes: Episode[] } | { kind: 'episode'; episode: Episode }
 
@@ -46,6 +47,7 @@ function followRow(rows: Row[], was: Row): { row: number; same: boolean } {
  */
 export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: number; slots: SlotKey[]; seasons: SeasonOpen; actions?: EpisodeActions }) {
   const episodes = useEpisodes(titleId)
+  const { display, ready } = useDisplay()
   const patchSeason = usePatchSeason(titleId)
   const monitor = useMonitorEpisodes(titleId)
   const grid = useRef<HTMLDivElement>(null)
@@ -58,13 +60,13 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = []
     const bySeason = new Map<number, Episode[]>()
-    for (const e of episodes.data ?? []) bySeason.set(e.season, [...(bySeason.get(e.season) ?? []), e])
+    for (const e of orderEpisodes(episodes.data ?? [], display.season_order)) bySeason.set(e.season, [...(bySeason.get(e.season) ?? []), e])
     for (const [season, eps] of bySeason) {
       out.push({ kind: 'season', season, episodes: eps })
       if (seasons.isOpen(season)) for (const e of eps) out.push({ kind: 'episode', episode: e }) // a closed season shows only its header
     }
     return out
-  }, [episodes.data, seasons])
+  }, [episodes.data, seasons, display.season_order])
 
   // Rows come and go as seasons open and close: keep the tab stop on the same row, or on its season's header.
   const shown = useRef(rows)
@@ -91,7 +93,7 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
       </Note>
     )
   }
-  if (!episodes.data) return <LoadingLine>Loading episodes…</LoadingLine>
+  if (!episodes.data || !ready) return <LoadingLine>Loading episodes…</LoadingLine>
   if (rows.length === 0) return <p className="copy-13 text-gray-900">TheTVDB lists no episodes yet.</p>
 
   const move = (row: number, col: number) => {

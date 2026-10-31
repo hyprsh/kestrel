@@ -266,17 +266,17 @@ export function usePatchSettings() {
   })
 }
 
-/** "Update from TRaSH": loads the newest snapshot now. A rejected one is a 422 and the old one stays. */
+/**
+ * "Update from TRaSH": asks for a pass of the `trash` loop and returns at once (202). How it goes is
+ * the job's outcome, which `useTrashOutcomeToasts` reports; the snapshot's age and any Warning are
+ * refreshed when it ends.
+ */
 export function useUpdateTrash() {
-  const qc = useQueryClient()
   return useMutation({
     mutationFn: async () => {
-      const { data, error, response } = await api.POST('/trash/update')
-      if (!data) throw failure(error, response)
-      return data
+      const { error, response } = await api.POST('/trash/update')
+      if (!response.ok) throw failure(error, response)
     },
-    // Success or not, the snapshot's age and any Warning may have changed.
-    onSettled: () => Promise.all(['status', 'attention', 'settings'].map((k) => qc.invalidateQueries({ queryKey: [k] }))),
   })
 }
 

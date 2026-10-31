@@ -76,6 +76,9 @@ type UpdateChecker interface {
 // TrashChecker is what the loops need of the trash module.
 type TrashChecker interface {
 	Check(ctx context.Context) error
+	// RunRequested does the work asked for by hand ("Update from TRaSH", a
+	// Primary Language change) and reports whether there was any.
+	RunRequested(ctx context.Context) (bool, error)
 }
 
 // Acquirer is what the loops need of the acquire module.
@@ -245,8 +248,13 @@ func Standard(d Deps) *Runner {
 	}
 	if d.Trash != nil {
 		r.Add(Loop{
-			Name:     Trash,
-			Run:      daily(d.LastRun, trashStateKey, d.Clock, d.Trash.Check),
+			Name: Trash,
+			Run: func(ctx context.Context) error {
+				if ran, err := d.Trash.RunRequested(ctx); ran {
+					return err
+				}
+				return daily(d.LastRun, trashStateKey, d.Clock, d.Trash.Check)(ctx)
+			},
 			Schedule: Schedule{Every: dailyCheck, Runs: dailyEvery},
 		})
 	}

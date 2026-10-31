@@ -127,12 +127,12 @@ describe('searching from the episodes heat map', () => {
     const { grid, searched } = await openSeries()
     await userEvent.click(within(grid).getByRole('button', { name: 'Specials episodes' })) // open the closed Specials
 
-    await choose(grid, 'Actions for Season 0 episode 1', 'Tick')
+    await choose(grid, 'Actions for Season 1 episode 1', 'Tick')
     const bar = screen.getByRole('group', { name: 'Selection' })
     expect(bar).toHaveTextContent('1 ticked')
     const user = userEvent.setup()
     await user.keyboard('{Shift>}')
-    await user.click(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 2' }))
+    await user.click(within(grid).getByRole('checkbox', { name: 'Tick Season 0 episode 1' })) // Specials are shown last
     await user.keyboard('{/Shift}')
     expect(bar).toHaveTextContent('3 ticked')
 

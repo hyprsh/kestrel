@@ -124,7 +124,10 @@ describe('the health strip', () => {
     )
     renderApp()
 
-    const strip = await screen.findByRole('region', { name: 'Health' })
+    // Health shows its summary line alone while every check is ok: open it, then find its panel.
+    const toggle = await screen.findByRole('button', { name: /^Health ·/ })
+    if (toggle.getAttribute('aria-expanded') === 'false') await userEvent.click(toggle)
+    const strip = await screen.findByRole('region', { name: /^Health/ })
     expect(await within(strip).findByText('Kestrel 0.3.0 available')).toBeInTheDocument()
   })
 })

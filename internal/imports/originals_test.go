@@ -135,7 +135,7 @@ func TestARescoreMakesAnOriginalOnlyFileAMisfitUnlessItIsAlreadyAnOriginal(t *te
 			t.Fatal(err)
 		}
 
-		if err := r.svc.RescoreTitles(ctx, snap, []int64{r.titleID}); err != nil {
+		if err := r.svc.RescoreTitles(ctx, snap, []int64{r.titleID}, nil); err != nil {
 			t.Fatal(err)
 		}
 
