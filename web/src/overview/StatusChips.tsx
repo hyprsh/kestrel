@@ -25,7 +25,9 @@ const ChipSkeleton = () => <Skeleton width={120} height={24} />
 function HealthChip() {
   const attention = useAttention()
   if (!attention.data) return attention.isPending ? <ChipSkeleton /> : null
-  const rows = attention.data.rows
+  // Health issues only (their ids start "health-"): a Stuck download, Stalled Imports or a Silo Request are
+  // Needs attention rows too, but the Health tab this chip opens does not list them.
+  const rows = attention.data.rows.filter((r) => r.id.startsWith('health-'))
   const blocking = rows.filter((r) => r.severity === 'blocking').length
   const warning = rows.length - blocking
   const parts = [blocking > 0 && `${blocking} Blocking`, warning > 0 && `${warning} ${warning === 1 ? 'Warning' : 'Warnings'}`].filter(Boolean)

@@ -73,12 +73,21 @@ describe('Overview status chips', () => {
 
   it('counts Needs attention rows by severity in the Health chip, and links to Activity Health', async () => {
     fakeStatus(status())
-    fakeAttention([row('a', 'blocking'), row('b', 'warning')])
+    fakeAttention([row('health-1', 'blocking'), row('health-2', 'warning')])
     renderApp()
 
     const chip = await within(await chips()).findByRole('button', { name: /^Health.*1 Blocking, 1 Warning/ })
     await userEvent.click(chip)
     expect(url()).toBe('/activity/health')
+  })
+
+  it('counts only health issues, not other Needs attention rows such as a Stuck download', async () => {
+    fakeStatus(status())
+    fakeAttention([row('health-1', 'warning'), row('stuck-7', 'warning'), row('silo-silent-3', 'warning'), row('stalled-exdev', 'warning')])
+    renderApp()
+
+    const chip = await within(await chips()).findByRole('button', { name: /^Health/ })
+    expect(chip).toHaveAccessibleName(expect.stringMatching(/· 1 Warning$/))
   })
 
   it('says all checks are OK when nothing needs attention', async () => {
