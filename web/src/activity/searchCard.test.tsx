@@ -81,8 +81,8 @@ describe('the Searching card on Health', () => {
     expect(button.closest('span[title]')).toHaveAttribute('title', 'A search pass is running')
   })
 
-  it('is disabled when nothing is Wanted', async () => {
+  it('stays enabled when nothing is due now, so Wanted Versions waiting out their back-off can be searched', async () => {
     search(0)
-    expect(await card()).toBeDisabled()
+    expect(await card()).toBeEnabled()
   })
 })

@@ -10,9 +10,9 @@ export function SearchCard({ status }: { status: SearchStatus }) {
   const searchAll = useSearchAllWanted()
   const toasts = useToasts()
   const running = status.pass !== null
-  const nothing = status.due.versions === 0
-  const blocked = running || nothing || searchAll.isPending
-  const why = running ? 'A search pass is running' : nothing ? 'Nothing is Wanted' : undefined
+  // Not gated on what is due now: the point is to search the Wanted Versions that are waiting out their back-off too.
+  const blocked = running || searchAll.isPending
+  const why = running ? 'A search pass is running' : undefined
   return (
     <SectionBlock title="Searching">
       <div className="flex flex-col gap-3 px-4 py-3">
