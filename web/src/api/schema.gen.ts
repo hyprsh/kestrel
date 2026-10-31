@@ -3263,6 +3263,19 @@ export interface components {
              */
             updated_at: string;
         };
+        StuckDownload: {
+            /**
+             * @description `paused`: the download client has the job paused. `no_progress`: the downloaded amount has
+             *     not grown for an hour.
+             * @enum {string}
+             */
+            reason: "paused" | "no_progress";
+            /**
+             * Format: date-time
+             * @description When the job was paused, or when its downloaded amount last grew. Kept in memory, so after a restart it counts from the first poll.
+             */
+            since: string;
+        };
         GrabStall: {
             /** @description What is wrong, such as `disk full`. */
             reason: string;
@@ -3673,7 +3686,7 @@ export interface components {
              * @description What sort of condition, such as `download_client_unreachable`, `no_indexer`,
              *     `root_folder_unavailable`, `metadata_provider_failing`, `indexer_failing`,
              *     `media_server_unreachable`,
-             *     `stalled_imports` (one row per stall reason),
+             *     `stalled_imports` (one row per stall reason), `stuck_download` (one row per Stuck download),
              *     `low_disk_space`, `untrusted_proxy_header` or a one-off health warning (`exdev`,
              *     `refresh_failed`, `plex_no_section`). The set grows; clients tolerate unknown kinds.
              */
@@ -4247,6 +4260,11 @@ export interface components {
             is_upgrade: boolean;
             /** @description For an Upgrade, how many points the Release scores above the file it replaces. */
             score_delta: number | null;
+            /**
+             * @description Set while the download is a Stuck download, null otherwise. It is the same judgement Silo's
+             *     requester view reports as "Taking longer than usual". Not to be confused with a Stalled Import.
+             */
+            stuck: components["schemas"]["StuckDownload"] | null;
         };
         ReleaseDateEntry: {
             country: string;
