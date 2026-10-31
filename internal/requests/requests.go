@@ -110,8 +110,10 @@ type SlotStatus struct {
 	Status    Status
 	Label     string
 	Download  *Download
-	// Stalled is set while a finished download's Import waits for the
-	// environment to be fixed (disk full, a folder not writable).
+	// Stalled is set while the Slot's Grab is a stalled download (the client
+	// has it paused, or it has not grown for an hour) or a finished
+	// download's Import waits for the environment to be fixed (disk full, a
+	// folder not writable).
 	Stalled bool
 }
 
@@ -1001,6 +1003,7 @@ func (s *Service) derive(ctx context.Context, r *Request, st *SlotStatus, wasFil
 		if a.VersionID == st.VersionID {
 			st.Status, st.Label = Downloading, "Downloading"
 			st.Download = &Download{Phase: string(a.Phase), BytesTotal: a.BytesTotal, BytesLeft: a.BytesLeft, ETA: a.ETA}
+			st.Stalled = a.Stalled
 			return nil
 		}
 	}

@@ -47,6 +47,7 @@ describe('About', () => {
     expect(kestrel).toHaveTextContent('GPL-3.0-only')
     expect(kestrel).toHaveTextContent('14a4166')
     expect(within(kestrel).getByRole('link', { name: 'Kestrel 0.3.0 available' })).toHaveAttribute('href', 'https://github.com/hyprsh/kestrel/releases/tag/v0.3.0')
+    expect(within(kestrel).getByRole('link', { name: 'Documentation' })).toHaveAttribute('href', 'https://hyprsh.github.io/kestrel/')
     const attribution = screen.getByRole('region', { name: 'Attribution' })
     expect(attribution).toHaveTextContent('This product uses the TMDB API but is not endorsed or certified by TMDB.')
     expect(attribution).toHaveTextContent('Metadata provided by TheTVDB.')

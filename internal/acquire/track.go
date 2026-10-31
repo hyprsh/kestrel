@@ -28,6 +28,12 @@ const (
 	PhaseImporting Phase = "importing"
 )
 
+// StalledDownloadAfter is how long a downloading Grab's downloaded amount may
+// stay the same before the download counts as stalled. A job the client
+// reports as paused counts at once: Kestrel never pauses a job in the client
+// (Pause Grabs only stops new Grabs), so a pause is someone else's.
+const StalledDownloadAfter = time.Hour
+
 // Live is what the download client last said about a Grab. It lives in memory
 // only and is rebuilt by the next poll after a restart.
 type Live struct {
@@ -38,12 +44,29 @@ type Live struct {
 	ETA time.Duration
 	// Since is when the Grab entered Phase, as far as this process saw it.
 	Since time.Time
+	// ProgressAt is when BytesLeft last fell, or when this process first saw
+	// the Grab downloading.
+	ProgressAt time.Time
+}
+
+// stalled reports whether the client's job is a stalled download at now.
+func (v Live) stalled(now time.Time) bool {
+	switch v.Phase {
+	case PhasePaused:
+		return true
+	case PhaseDownloading:
+		return !v.ProgressAt.IsZero() && now.Sub(v.ProgressAt) >= StalledDownloadAfter
+	}
+	return false
 }
 
 // Active is a Grab that shows in "Downloading now".
 type Active struct {
 	Grab
 	Live
+	// Stalled is set while the download is stalled: the client has it paused,
+	// or its downloaded amount has not grown for StalledDownloadAfter.
+	Stalled bool
 }
 
 type liveSet struct {
@@ -58,15 +81,22 @@ func (l *liveSet) get(id int64) (Live, bool) {
 	return v, ok
 }
 
-// set records what the client said. While the phase stays the same its start
-// carries over; a new phase starts at from.
-func (l *liveSet) set(id int64, v Live, from time.Time) {
+// set records what the client said, at now. While the phase stays the same its
+// start carries over; a new phase starts at from. The progress clock restarts
+// when the downloaded amount grows or the phase changes.
+func (l *liveSet) set(id int64, v Live, from, now time.Time) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if prev, ok := l.m[id]; ok && prev.Phase == v.Phase {
+	prev, ok := l.m[id]
+	if ok && prev.Phase == v.Phase {
 		v.Since = prev.Since
 	} else {
 		v.Since = from
+	}
+	if ok && prev.Phase == v.Phase && v.BytesLeft >= prev.BytesLeft && !prev.ProgressAt.IsZero() {
+		v.ProgressAt = prev.ProgressAt
+	} else {
+		v.ProgressAt = now
 	}
 	l.m[id] = v
 }
@@ -86,6 +116,7 @@ func (s *Service) Active(ctx context.Context) ([]Active, error) {
 		return nil, err
 	}
 	out := make([]Active, 0, len(rows))
+	now := s.clock()
 	for _, r := range rows {
 		g := grabOf(r)
 		live, ok := s.live.get(g.ID)
@@ -96,7 +127,7 @@ func (s *Service) Active(ctx context.Context) ([]Active, error) {
 			}
 			live = Live{Phase: phase, BytesTotal: live.BytesTotal, Since: since}
 		}
-		out = append(out, Active{Grab: g, Live: live})
+		out = append(out, Active{Grab: g, Live: live, Stalled: live.stalled(now)})
 	}
 	return out, nil
 }

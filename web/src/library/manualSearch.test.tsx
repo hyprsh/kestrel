@@ -508,6 +508,31 @@ describe('manual search on a phone', () => {
     expect(within(section).getByText(/Profile .* · 4 Releases · best first/)).toBeInTheDocument()
   })
 
+  it('names each sort in plain words', async () => {
+    fakeSearch(releases())
+    await openPhoneSearch()
+
+    const options = within(screen.getByRole('combobox', { name: /sort/i })).getAllByRole('option')
+    expect(options.map((o) => o.textContent)).toEqual([
+      'Best first',
+      'Worst first',
+      'Release A to Z',
+      'Release Z to A',
+      'Quality A to Z',
+      'Quality Z to A',
+      'Languages A to Z',
+      'Languages Z to A',
+      'Custom formats: fewest points first',
+      'Custom formats: most points first',
+      'Smallest first',
+      'Largest first',
+      'Newest first',
+      'Oldest first',
+      'Indexer A to Z',
+      'Indexer Z to A',
+    ])
+  })
+
   it('hides rejected Releases', async () => {
     fakeSearch(releases())
     const list = await openPhoneSearch()

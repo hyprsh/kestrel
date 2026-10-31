@@ -152,6 +152,30 @@ describe('Settings, Display', () => {
     expect(within(section).getByRole('checkbox', { name: 'Hide imported' })).not.toBeChecked()
   })
 
+  it('names each Manual search sort the way the Manual search Sort menu does', async () => {
+    serveDisplay()
+    const section = await openDisplay()
+    const options = within(within(section).getByRole('combobox', { name: 'Manual search sort' })).getAllByRole('option')
+    expect(options.map((o) => o.textContent)).toEqual([
+      'Best first',
+      'Worst first',
+      'Release A to Z',
+      'Release Z to A',
+      'Quality A to Z',
+      'Quality Z to A',
+      'Languages A to Z',
+      'Languages Z to A',
+      'Custom formats: fewest points first',
+      'Custom formats: most points first',
+      'Smallest first',
+      'Largest first',
+      'Newest first',
+      'Oldest first',
+      'Indexer A to Z',
+      'Indexer Z to A',
+    ])
+  })
+
   it('saves a change to the server, with nothing kept in the browser', async () => {
     const state = serveDisplay()
     const section = await openDisplay()

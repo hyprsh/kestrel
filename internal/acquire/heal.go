@@ -166,7 +166,7 @@ func (s *Service) poll(ctx context.Context, lostThreshold int) (PollResult, erro
 		if state == g.State && phaseOfState(state) == live.Phase {
 			from = parseTime(g.UpdatedAt)
 		}
-		s.live.set(g.ID, live, from)
+		s.live.set(g.ID, live, from, s.clock())
 	}
 	return res, errors.Join(errs...)
 }

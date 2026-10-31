@@ -1,5 +1,6 @@
 import { Checkbox, Note, Select } from '@hyprsh/design'
 import { ApiError, usePatchSettings, useSettings, type SettingsPatch } from '../api/queries'
+import { manualSearchSortLabels } from '../library/bits'
 import type { Display } from './useDisplay'
 
 type Patch = NonNullable<SettingsPatch['display']>
@@ -15,7 +16,7 @@ const seasonsOpen: { value: Display['seasons_open']; label: string }[] = [
   { value: 'none', label: 'None' },
 ]
 
-const columns = [
+const columns: { key: keyof typeof manualSearchSortLabels; label: string }[] = [
   { key: 'score', label: 'Score' },
   { key: 'release', label: 'Release' },
   { key: 'quality', label: 'Quality' },
@@ -32,7 +33,7 @@ const sorts: { value: Display['manual_search_sort']; label: string }[] = [
   ...columns.flatMap((c) =>
     (['asc', 'desc'] as const)
       .filter((dir) => !(c.key === 'score' && dir === 'desc'))
-      .map((dir) => ({ value: `${c.key}_${dir}` as Display['manual_search_sort'], label: `${c.label}, ${dir === 'asc' ? 'ascending' : 'descending'}` })),
+      .map((dir) => ({ value: `${c.key}_${dir}` as Display['manual_search_sort'], label: manualSearchSortLabels[c.key][dir] })),
   ),
 ]
 
