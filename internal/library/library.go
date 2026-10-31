@@ -132,6 +132,20 @@ type Row struct {
 	AddedAt     time.Time
 	// Size is the bytes the files of its Versions take on disk.
 	Size int64
+	// SearchedAt is when any of its Versions was last searched, for what it is
+	// missing or for an Upgrade; nil when none has been.
+	SearchedAt *time.Time
+	// WantedEpisodes counts a Series' Wanted episodes; nil for a Movie.
+	WantedEpisodes *WantedEpisodes
+}
+
+// WantedEpisodes is how many of a Series' episodes are Wanted in any of its
+// Versions (an episode Wanted in two Versions counts once), how many of them
+// are Long Missing, and the seasons they are in, in order.
+type WantedEpisodes struct {
+	Wanted      int
+	LongMissing int
+	Seasons     []int
 }
 
 // File is the file a Version holds.
@@ -471,6 +485,18 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 	if err != nil {
 		return nil, err
 	}
+	searchStates, err := q.ListSearchStates(ctx)
+	if err != nil {
+		return nil, err
+	}
+	searchedAt := map[int64]time.Time{} // by Version
+	for _, st := range searchStates {
+		for _, at := range []sql.NullString{st.LastMissingAt, st.LastUpgradeAt} {
+			if t := optTime(at); t != nil && t.After(searchedAt[st.VersionID]) {
+				searchedAt[st.VersionID] = *t
+			}
+		}
+	}
 	hasFile := map[int64]bool{}
 	versionSize := map[int64]int64{}
 	for _, fl := range files {
@@ -506,15 +532,22 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 		rel := releaseDatesOf(datesOf[t.ID])
 		row := Row{ID: t.ID, Kind: Kind(t.Kind), Title: t.Title, PrimaryTitle: t.PrimaryTitle, Year: int(t.Year.Int64), HasPoster: t.PosterPath.String != "", AddedAt: parseTime(t.AddedAt)}
 		var released map[int64]*time.Time
+		var wantedEps map[int64]bool // Wanted episodes, true when Long Missing in any Version
 		if row.Kind == Series {
 			released = releasedOf(epsOf[t.ID], filed, airClockOf(t))
+			wantedEps = map[int64]bool{}
 		}
 		for _, v := range byTitle[t.ID] {
 			row.Size += versionSize[v.ID]
+			if at, ok := searchedAt[v.ID]; ok && (row.SearchedAt == nil || at.After(*row.SearchedAt)) {
+				row.SearchedAt = &at
+			}
 			var st State
 			var since *time.Time
 			if row.Kind == Series {
-				st, since = SeriesState(unitsOf(epsOf[t.ID], released, heldBy[v.ID], parseTime(v.AddedAt)), view.Now)
+				units := unitsOf(epsOf[t.ID], released, heldBy[v.ID], parseTime(v.AddedAt))
+				st, since = SeriesState(units, view.Now)
+				countWanted(wantedEps, epsOf[t.ID], units, view.Now)
 			} else {
 				st, since = stateOf(t.Monitored == 1, hasFile[v.ID], rel, t.ReleaseSeenAt, parseTime(v.AddedAt), view)
 			}
@@ -522,6 +555,9 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 			if since != nil && (row.WantedSince == nil || since.Before(*row.WantedSince)) {
 				row.WantedSince = since
 			}
+		}
+		if row.Kind == Series {
+			row.WantedEpisodes = wantedEpisodesOf(wantedEps, epsOf[t.ID])
 		}
 		if f.Wanted && !slices.ContainsFunc(row.Slots[:], func(sl *SlotState) bool { return sl != nil && sl.State == Wanted }) {
 			continue
@@ -542,6 +578,36 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 		})
 	}
 	return out, nil
+}
+
+// countWanted marks the episodes one Version of a Series wants in wanted, true
+// once Long Missing in it. units are eps' units for that Version, in order.
+func countWanted(wanted map[int64]bool, eps []db.Episode, units []Unit, now time.Time) {
+	for i, u := range units {
+		st, since := StateAt(u, now)
+		if st == Wanted {
+			wanted[eps[i].ID] = wanted[eps[i].ID] || IsLongMissing(st, since, now)
+		}
+	}
+}
+
+// wantedEpisodesOf counts the episodes countWanted marked and lists their seasons.
+func wantedEpisodesOf(wanted map[int64]bool, eps []db.Episode) *WantedEpisodes {
+	out := &WantedEpisodes{Seasons: []int{}}
+	for _, e := range eps { // in season order
+		long, ok := wanted[e.ID]
+		if !ok {
+			continue
+		}
+		out.Wanted++
+		if long {
+			out.LongMissing++
+		}
+		if n := int(e.Season); len(out.Seasons) == 0 || out.Seasons[len(out.Seasons)-1] != n {
+			out.Seasons = append(out.Seasons, n)
+		}
+	}
+	return out
 }
 
 // TitleOfVersion returns the id of the Title a Version belongs to, or ErrNotFound.

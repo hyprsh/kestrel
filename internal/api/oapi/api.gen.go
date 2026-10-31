@@ -4123,6 +4123,9 @@ type TitleRow struct {
 	// PrimaryTitle The title in the Primary Language; the English title when TMDB has no translation.
 	PrimaryTitle string `json:"primary_title"`
 
+	// SearchedAt When Kestrel last searched for any of its Versions, for what is missing or for an Upgrade; null when it never has.
+	SearchedAt *time.Time `json:"searched_at"`
+
 	// Size Bytes the files of its Versions take on disk, 0 when it holds none.
 	Size  int64 `json:"size"`
 	Slots struct {
@@ -4131,9 +4134,12 @@ type TitleRow struct {
 	} `json:"slots"`
 
 	// Title The English title.
-	Title       string     `json:"title"`
-	WantedSince *time.Time `json:"wanted_since"`
-	Year        *int       `json:"year"`
+	Title string `json:"title"`
+
+	// WantedEpisodes A Series' Wanted episodes; null for a Movie.
+	WantedEpisodes *WantedEpisodes `json:"wanted_episodes"`
+	WantedSince    *time.Time      `json:"wanted_since"`
+	Year           *int            `json:"year"`
 }
 
 // TitlesBulk One action over many Titles. `action` says which, and picks the parameters that go with it.
@@ -4449,6 +4455,17 @@ type VersionRef struct {
 	// Profile The Profile key. It must be an enabled Profile of that Slot.
 	Profile string `json:"profile"`
 	Slot    Slot   `json:"slot"`
+}
+
+// WantedEpisodes A Series' Wanted episodes, counted once however many of its Versions want them. The Library's
+// rows say from it why a Series is Wanted ("S02: 2 Wanted"); the Grabs on their way are in `GET /queue`.
+type WantedEpisodes struct {
+	// LongMissing How many of them are Long Missing in some Version.
+	LongMissing int `json:"long_missing"`
+
+	// Seasons The seasons the Wanted episodes are in, in order.
+	Seasons []int `json:"seasons"`
+	Wanted  int   `json:"wanted"`
 }
 
 // WantedSearch defines model for WantedSearch.

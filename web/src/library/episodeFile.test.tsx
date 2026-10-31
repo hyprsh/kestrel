@@ -24,13 +24,14 @@ async function openSeries() {
   render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
   await user.click(await screen.findByRole('button', { name: 'Library' }))
   const grid = await screen.findByRole('grid', { name: 'Episodes' })
-  return { user, grid }
+  await user.click(screen.getByRole('tab', { name: /^Season 1/ })) // Season 2, the latest, opens first
+  return { user, grid, state }
 }
 
-const rowOf = (grid: HTMLElement, monitored: string) =>
+const rowOf = (grid: HTMLElement, episode: string) =>
   within(grid)
-    .getByRole('checkbox', { name: `${monitored} monitored` })
-    .closest<HTMLElement>('[role=row]')!
+    .getByRole('checkbox', { name: `Tick ${episode}` })
+    .closest('tr')!
 
 describe('episode titles', () => {
   it('shows the Primary-Language title with the original beneath only when they differ', async () => {
@@ -48,11 +49,12 @@ describe('episode titles', () => {
     const placeholder = rowOf(grid, 'Season 1 episode 3')
     expect(within(placeholder).getAllByText('TBA')).toHaveLength(1)
     expect(within(placeholder).getByText('TBA')).toHaveAttribute('title', 'Not listed on TheTVDB yet')
-    expect(within(placeholder).getByText('no air date')).toBeInTheDocument()
+    expect(within(placeholder).getByText('—')).toBeInTheDocument()
   })
 
   it('shows a listed episode without a title as TBA with no tooltip', async () => {
-    const { grid } = await openSeries()
+    const { user, grid } = await openSeries()
+    await user.click(screen.getByRole('tab', { name: /^Season 2/ }))
     expect(within(rowOf(grid, 'Season 2 episode 1')).getByText('TBA')).not.toHaveAttribute('title')
   })
 })
@@ -117,11 +119,10 @@ describe('the file of an episode cell', () => {
   })
 
   it("toggles the row's monitoring on Space and does not open the popover", async () => {
-    const { user, grid } = await openSeries()
+    const { user, grid, state } = await openSeries()
     within(grid).getByRole('button', { name: 'Season 1 episode 1 Standard: Filled' }).focus()
-    expect(within(grid).getByRole('checkbox', { name: 'Season 1 episode 1 monitored' })).toBeChecked()
     await user.keyboard(' ')
-    await waitFor(() => expect(within(grid).getByRole('checkbox', { name: 'Season 1 episode 1 monitored' })).not.toBeChecked())
+    await waitFor(() => expect(state.get().sent).toEqual([{ path: 'episodes/monitor', body: { episode_ids: [2], monitored: false } }]))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 

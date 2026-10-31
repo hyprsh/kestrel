@@ -186,7 +186,7 @@ silo: # Watch-ahead for Silo; see "Watch-ahead for Silo"
 
 display: # optional; each key you name is read-only in Settings > Display
   season_order: newest_first # oldest_first (default) or newest_first; Specials come last either way
-  seasons_open: latest_and_wanted # latest_and_wanted (default), all or none
+  seasons_open: latest_and_wanted # accepted and ignored: the Title page now has a tab per season
   manual_search_sort: best_first # best_first (default), or <column>_asc / <column>_desc
   upcoming_filters:
     kind: all # all (default), movie or series
@@ -335,12 +335,12 @@ Lets people who share your Plex server make Requests. [Requesters](#requesters-p
 
 #### display
 
-The household-wide view defaults. Name any of the keys: each one you name is read-only in Settings, and each you leave out stays the UI's. They are where a view starts. A season someone opens or closes, a sort picked in Manual search and the Upcoming filters changed in a session still win. ([ADR 0022](../adr/0022-declared-display-settings-may-leave-others-to-the-ui.md))
+The household-wide view defaults. Name any of the keys: each one you name is read-only in Settings, and each you leave out stays the UI's. They are where a view starts. A sort picked in Manual search and the Upcoming filters changed in a session still win. ([ADR 0022](../adr/0022-declared-display-settings-may-leave-others-to-the-ui.md))
 
 | Field                | Value                                                                                                                                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `season_order`       | `oldest_first` or `newest_first`. Newest first reverses the seasons and the episodes in each. Specials come last either way.                                                                     |
-| `seasons_open`       | `latest_and_wanted`, `all` or `none`. The first opens the latest season and any season with a Wanted episode, never Specials.                                                                    |
+| `seasons_open`       | Accepted and ignored. The Title page opens on a season tab, so no season starts open or closed. Existing files that name it keep loading.                                                        |
 | `manual_search_sort` | `best_first`, or a column and a direction such as `size_desc`. The columns are `score`, `release`, `quality`, `languages`, `formats`, `size`, `age` and `indexer`. `score_desc` is `best_first`. |
 | `upcoming_filters`   | `kind` (`all`, `movie` or `series`), `wanted_only` and `hide_imported`. Declared as a whole: a filter you leave out takes its default (`all`, `false`, `false`).                                 |
 

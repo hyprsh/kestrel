@@ -397,7 +397,8 @@ describe('Adoption review', () => {
     const user = userEvent.setup()
     renderApp()
     await user.click(await screen.findByRole('button', { name: 'Library' }))
-    await user.click(await screen.findByRole('button', { name: 'Adopt existing library' }))
+    await user.click(await screen.findByRole('button', { name: 'Library actions' }))
+    await user.click(screen.getByRole('menuitem', { name: /^Adopt Existing Library/ }))
     expect(screen.getByRole('banner')).toHaveTextContent('Adopt existing library')
   })
 

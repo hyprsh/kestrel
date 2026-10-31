@@ -11,12 +11,6 @@ const seasonOrders: { value: Display['season_order']; label: string }[] = [
   { value: 'newest_first', label: 'Newest first' },
 ]
 
-const seasonsOpen: { value: Display['seasons_open']; label: string }[] = [
-  { value: 'latest_and_wanted', label: 'Latest and Wanted' },
-  { value: 'all', label: 'All' },
-  { value: 'none', label: 'None' },
-]
-
 const columns: { key: keyof typeof manualSearchSortLabels; label: string }[] = [
   { key: 'score', label: 'Score' },
   { key: 'release', label: 'Release' },
@@ -63,7 +57,8 @@ export function DisplayForm() {
   const declared = data.from_config_file.display
   const set = (display: Patch) => save.mutate({ display })
   const off = (isDeclared: boolean) => isDeclared || save.isPending
-  const anyDeclared = Object.values(declared).some(Boolean)
+  // seasons_open is still accepted in the Config File but does nothing: the Title page opens on a season tab.
+  const anyDeclared = Object.entries(declared).some(([key, on]) => on && key !== 'seasons_open')
   return (
     <div className="flex max-w-md flex-col gap-4">
       <Select
@@ -75,17 +70,6 @@ export function DisplayForm() {
         options={seasonOrders}
       />
       <p className="copy-13 text-gray-900">Newest first reverses the seasons and the episodes in each, so the latest episode is at the top. Specials come last either way.</p>
-      <Select
-        size="small"
-        label="Seasons open by default"
-        value={d.seasons_open}
-        disabled={off(declared.seasons_open)}
-        onChange={(e) => set({ seasons_open: e.target.value as Display['seasons_open'] })}
-        options={seasonsOpen}
-      />
-      <p className="copy-13 text-gray-900">
-        Latest and Wanted opens the latest season and any season with a Wanted episode, never Specials. A season someone opens or closes stays that way for that Series in their browser.
-      </p>
       <Select
         size="small"
         label="Manual search sort"

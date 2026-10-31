@@ -54,14 +54,24 @@ describe('selecting Titles in the Library', () => {
 
     await userEvent.keyboard('{Escape}')
     expect(screen.queryByText(/ticked/)).not.toBeInTheDocument()
-    expect(screen.queryByRole('checkbox', { name: /tick/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('toolbar', { name: /ticked/ })).not.toBeInTheDocument()
+    expect(box('Zodiac')).not.toBeChecked() // the boxes stay, empty
+  })
+
+  it('keeps the Title pane open beside the ticks, with the actions on a bar over the list', async () => {
+    fakeLibrary(rows())
+    await openLibrary()
+    await userEvent.click(box('Heat'))
+    expect(screen.getByRole('toolbar', { name: '1 ticked' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Paddington' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Clear ticks' }))
+    expect(screen.queryByRole('toolbar', { name: /ticked/ })).not.toBeInTheDocument()
   })
 
   it('ticks a range with shift-click without moving the cursor', async () => {
     fakeLibrary(rows())
     await openLibrary()
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: 'Tick' }))
 
     await user.click(box('Heat'))
     await user.keyboard('{Shift>}')
@@ -78,12 +88,11 @@ describe('selecting Titles in the Library', () => {
     fakeLibrary(rows())
     await openLibrary()
     const filter = screen.getByRole('combobox', { name: 'Filter the Library' })
-    await userEvent.type(filter, 'kind:series')
-    await userEvent.click(screen.getByRole('button', { name: 'Tick' }))
-    await userEvent.clear(filter)
     await userEvent.type(filter, 'kind:movie')
+    await userEvent.click(box('Heat'))
 
-    await userEvent.click(screen.getByRole('button', { name: 'Tick all 3 shown' }))
+    await userEvent.click(screen.getByRole('button', { name: 'More…' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Tick All 3 Shown' }))
 
     expect(screen.getByText('3 ticked')).toBeInTheDocument()
     await userEvent.clear(filter)
@@ -110,12 +119,19 @@ function fakeBulk(answer: (body: components['schemas']['TitlesBulk']) => Outcome
 const changed = (id: number): Outcome => ({ title_id: id, outcome: 'changed', reason: null, message: null })
 const skipped = (id: number, reason: Outcome['reason'], message: string): Outcome => ({ title_id: id, outcome: 'skipped', reason, message })
 
-/** Opens the Library with the named Titles ticked and returns the actions pane. */
+/** Opens the Library with the named Titles ticked and returns the bar of their actions. */
 async function withTicked(...names: string[]) {
   await openLibrary()
-  await userEvent.click(screen.getByRole('button', { name: 'Tick' }))
   for (const n of names) await userEvent.click(box(n))
-  return screen.getByRole('region', { name: `${names.length} ${names.length === 1 ? 'Title' : 'Titles'} ticked` })
+  return screen.getByRole('toolbar', { name: `${names.length} ticked` })
+}
+
+/** Runs an action of the bar: one of its buttons, or an item of its More… menu. */
+async function choose(bar: HTMLElement, name: string) {
+  const button = within(bar).queryByRole('button', { name })
+  if (button) return userEvent.click(button)
+  await userEvent.click(within(bar).getByRole('button', { name: 'More…' }))
+  await userEvent.click(screen.getByRole('menuitem', { name }))
 }
 
 describe('changing the ticked Titles together', () => {
@@ -124,7 +140,7 @@ describe('changing the ticked Titles together', () => {
     const sent = fakeBulk((b) => b.title_ids.map(changed))
     const pane = await withTicked('Paddington', 'Breaking Bad')
 
-    await userEvent.click(within(pane).getByRole('button', { name: 'Unmonitor' }))
+    await choose(pane, 'Unmonitor')
 
     expect(await findToast('Unmonitor: 2 changed')).toBeInTheDocument()
     expect(sent).toEqual([{ action: 'monitor', monitored: false, title_ids: [1, 4] }])
@@ -135,9 +151,10 @@ describe('changing the ticked Titles together', () => {
     const sent = fakeBulk(({ title_ids: [movie, series] }) => [changed(movie), skipped(series, 'unchanged', 'Already as asked')])
     const pane = await withTicked('Paddington', 'Breaking Bad')
 
-    await userEvent.click(within(pane).getByRole('button', { name: 'Monitor' }))
-    await userEvent.selectOptions(within(pane).getByRole('combobox', { name: 'Series monitor' }), 'Future episodes')
-    await userEvent.click(within(pane).getByRole('button', { name: 'Apply' }))
+    await choose(pane, 'Monitor…')
+    const dialog = screen.getByRole('dialog', { name: 'Monitor' })
+    await userEvent.selectOptions(within(dialog).getByRole('combobox', { name: 'Series monitor' }), 'Future episodes')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Apply' }))
 
     expect(await findToast('Monitor: 1 changed; 1 already as asked')).toBeInTheDocument()
     expect(sent).toEqual([{ action: 'monitor', monitored: true, series_monitor: 'future', title_ids: [1, 4] }])
@@ -148,7 +165,7 @@ describe('changing the ticked Titles together', () => {
     const sent = fakeBulk((b) => b.title_ids.map(changed))
     const pane = await withTicked('Paddington', 'Heat')
 
-    await userEvent.click(within(pane).getByRole('button', { name: 'Monitor' }))
+    await choose(pane, 'Monitor')
 
     expect(await findToast('Monitor: 2 changed')).toBeInTheDocument()
     expect(sent).toEqual([{ action: 'monitor', monitored: true, title_ids: [1, 2] }])
@@ -159,8 +176,8 @@ describe('changing the ticked Titles together', () => {
     const sent = fakeBulk(({ title_ids: [first, ...rest] }) => [changed(first), ...rest.map((id) => skipped(id, 'no_version', 'Has no 4K Version'))])
     const pane = await withTicked('Paddington', 'Heat', 'Zodiac')
 
-    await userEvent.click(within(pane).getByRole('button', { name: 'Switch Profile' }))
-    const form = within(pane).getByRole('group', { name: 'Switch Profile' })
+    await choose(pane, 'Switch Profile…')
+    const form = screen.getByRole('dialog', { name: 'Switch Profile' })
     await userEvent.selectOptions(within(form).getByRole('combobox', { name: 'Slot' }), '4K')
     await userEvent.selectOptions(await within(form).findByRole('combobox', { name: 'Profile' }), '4K')
     await userEvent.click(within(form).getByRole('button', { name: 'Apply' }))
@@ -174,8 +191,8 @@ describe('changing the ticked Titles together', () => {
     const sent = fakeBulk(({ title_ids: [first, ...rest] }) => [skipped(first, 'slot_taken', 'Already has a Standard Version'), ...rest.map(changed)])
     const pane = await withTicked('Paddington', 'Heat')
 
-    await userEvent.click(within(pane).getByRole('button', { name: 'Add Version' }))
-    const form = within(pane).getByRole('group', { name: 'Add Version' })
+    await choose(pane, 'Add Version…')
+    const form = screen.getByRole('dialog', { name: 'Add Version' })
     expect(await within(form).findByRole('combobox', { name: 'Profile' })).toHaveDisplayValue('HD')
     await userEvent.click(within(form).getByRole('button', { name: 'Apply' }))
 
@@ -188,7 +205,7 @@ describe('changing the ticked Titles together', () => {
     const sent = fakeBulk((b) => b.title_ids.map(changed))
     const pane = await withTicked('Paddington', 'Heat')
 
-    await userEvent.click(within(pane).getByRole('button', { name: 'Remove Version' }))
+    await choose(pane, 'Remove Version…')
     const form = screen.getByRole('alertdialog', { name: 'Remove Version' })
     await userEvent.selectOptions(within(form).getByRole('combobox', { name: 'Slot' }), '4K')
     expect(within(form).getByRole('checkbox', { name: 'Also delete files' })).not.toBeChecked()
@@ -203,7 +220,7 @@ describe('changing the ticked Titles together', () => {
     const sent = fakeBulk((b) => b.title_ids.map(changed))
     const pane = await withTicked('Paddington', 'Heat')
 
-    await userEvent.click(within(pane).getByRole('button', { name: 'Remove from Library' }))
+    await choose(pane, 'Remove from Library…')
     const confirm = screen.getByRole('alertdialog', { name: 'Remove Titles' })
     expect(confirm).toHaveTextContent('Remove 2 Titles from the Library, with 10.0 GB of files.')
     await userEvent.click(within(confirm).getByRole('checkbox', { name: 'Also delete files' }))
@@ -220,7 +237,7 @@ describe('changing the ticked Titles together', () => {
     )
     const pane = await withTicked('Heat')
 
-    await userEvent.click(within(pane).getByRole('button', { name: 'Search now' }))
+    await choose(pane, 'Search Now')
 
     expect(await findToast('Search now failed: That Profile is disabled')).toBeInTheDocument()
   })
@@ -232,12 +249,12 @@ describe('changing the ticked Titles together', () => {
     )
     const pane = await withTicked('Paddington', 'Heat')
 
-    await userEvent.click(within(pane).getByRole('button', { name: 'Remove Version' }))
+    await choose(pane, 'Remove Version…')
     await userEvent.click(within(screen.getByRole('alertdialog', { name: 'Remove Version' })).getByRole('button', { name: 'Remove' }))
     expect(await findToast('Remove Version failed: database locked')).toBeInTheDocument()
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
 
-    await userEvent.click(within(pane).getByRole('button', { name: 'Remove from Library' }))
+    await choose(pane, 'Remove from Library…')
     await userEvent.click(within(screen.getByRole('alertdialog', { name: 'Remove Titles' })).getByRole('button', { name: 'Remove' }))
     expect(await findToast('Remove from Library failed: database locked')).toBeInTheDocument()
   })
@@ -247,23 +264,23 @@ describe('changing the ticked Titles together', () => {
     fakeBulk(({ title_ids: [first, ...rest] }) => [changed(first), ...rest.map((id) => skipped(id, 'nothing_wanted', 'Nothing Wanted'))])
     const pane = await withTicked('Heat', 'Zodiac')
 
-    await userEvent.click(within(pane).getByRole('button', { name: 'Search now' }))
+    await choose(pane, 'Search Now')
 
     const toast = await findToast('Search started for 1 Title; 1 has nothing Wanted')
     expect(toast.closest('li')).toHaveTextContent(/^Warning/)
   })
 
   it.each([
-    ['Search now', { action: 'search' }],
-    ['Refresh metadata', { action: 'refresh' }],
-    ['Freeze metadata', { action: 'freeze', frozen: true }],
-    ['Unfreeze metadata', { action: 'freeze', frozen: false }],
-  ])('runs %s at once', async (label, body) => {
+    ['Search Now', 'Search now', { action: 'search' }],
+    ['Refresh Metadata', 'Refresh metadata', { action: 'refresh' }],
+    ['Freeze Metadata', 'Freeze metadata', { action: 'freeze', frozen: true }],
+    ['Unfreeze Metadata', 'Unfreeze metadata', { action: 'freeze', frozen: false }],
+  ])('runs %s at once', async (menuLabel, label, body) => {
     fakeLibrary(rows())
     const sent = fakeBulk((b) => b.title_ids.map(changed))
     const pane = await withTicked('Heat', 'Zodiac')
 
-    await userEvent.click(within(pane).getByRole('button', { name: label }))
+    await choose(pane, menuLabel)
 
     expect(await findToast(label === 'Search now' ? 'Search started for 2 Titles' : `${label}: 2 changed`)).toBeInTheDocument()
     expect(sent).toEqual([{ ...body, title_ids: [2, 3] }])

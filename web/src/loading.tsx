@@ -1,4 +1,4 @@
-import { Entity, Skeleton, Spinner } from '@hyprsh/design'
+import { Entity, Skeleton, Spinner, Table, type TableColumn } from '@hyprsh/design'
 import { useEffect, useState, type ReactNode } from 'react'
 import { PosterSkeleton, type PosterSize } from './poster'
 
@@ -116,6 +116,14 @@ export function SkeletonRows({ count = 3, label, ...row }: { count?: number; lab
       </Entity.List>
     </div>
   )
+}
+
+/**
+ * `count` skeleton rows for a table built from parts, each cell sized like its column, in the place of the body's rows.
+ * The data form's `loading` prop does the same; set `aria-busy` on the Table yourself.
+ */
+export function TableSkeletonRows({ columns, count = 6 }: { columns: TableColumn<any>[]; count?: number }) {
+  return Array.from({ length: count }, (_, i) => <Table.SkeletonRow key={i} index={i} columns={columns} />)
 }
 
 /** A row of poster Skeletons, in the place of a poster shelf while it loads. The list is `aria-busy`. */
