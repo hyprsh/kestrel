@@ -125,11 +125,11 @@ func TestAPosterPastItsMaxAgeIsDownloadedAgain(t *testing.T) {
 func TestAChangedPosterPathIsDownloadedAgain(t *testing.T) {
 	ctx := context.Background()
 	r := newPosterRig(t)
-	path, err := r.posters.Ensure(ctx, metadata.Movie, 1, "/old.jpg")
+	_, err := r.posters.Ensure(ctx, metadata.Movie, 1, "/old.jpg")
 	if err != nil {
 		t.Fatal(err)
 	}
-	path, err = r.posters.Ensure(ctx, metadata.Movie, 1, "/new.jpg")
+	path, err := r.posters.Ensure(ctx, metadata.Movie, 1, "/new.jpg")
 	if err != nil {
 		t.Fatal(err)
 	}
