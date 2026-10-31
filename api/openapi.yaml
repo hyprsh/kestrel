@@ -4637,6 +4637,20 @@ components:
           type: string
           format: date-time
           description: When the Grab's state last changed; for a finished Grab, when it finished.
+    StuckDownload:
+      type: object
+      required: [reason, since]
+      properties:
+        reason:
+          type: string
+          enum: [paused, no_progress]
+          description: |
+            `paused`: the download client has the job paused. `no_progress`: the downloaded amount has
+            not grown for an hour.
+        since:
+          type: string
+          format: date-time
+          description: When the job was paused, or when its downloaded amount last grew. Kept in memory, so after a restart it counts from the first poll.
     GrabStall:
       type: object
       required: [reason, since, next_at]
@@ -5264,7 +5278,7 @@ components:
             What sort of condition, such as `download_client_unreachable`, `no_indexer`,
             `root_folder_unavailable`, `metadata_provider_failing`, `indexer_failing`,
             `media_server_unreachable`,
-            `stalled_imports` (one row per stall reason),
+            `stalled_imports` (one row per stall reason), `stuck_download` (one row per Stuck download),
             `low_disk_space`, `untrusted_proxy_header` or a one-off health warning (`exdev`,
             `refresh_failed`, `plex_no_section`). The set grows; clients tolerate unknown kinds.
         subject:
@@ -6052,7 +6066,7 @@ components:
     QueueItem:
       type: object
       required: [grab_id, title_id, has_poster, version_id, title, year, kind, slot, episodes, release_name, indexer, size, score, phase, phase_since,
-        bytes_total, bytes_left, eta, is_upgrade, score_delta, grabbed_at]
+        bytes_total, bytes_left, eta, is_upgrade, score_delta, grabbed_at, stuck]
       properties:
         grab_id:
           type: integer
@@ -6128,6 +6142,13 @@ components:
           type: integer
           nullable: true
           description: For an Upgrade, how many points the Release scores above the file it replaces.
+        stuck:
+          allOf:
+            - $ref: "#/components/schemas/StuckDownload"
+          nullable: true
+          description: |
+            Set while the download is a Stuck download, null otherwise. It is the same judgement Silo's
+            requester view reports as "Taking longer than usual". Not to be confused with a Stalled Import.
     ReleaseDateEntry:
       type: object
       required: [country, type, date, certification]

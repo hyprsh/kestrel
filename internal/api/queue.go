@@ -32,6 +32,7 @@ func (s *server) ListQueue(ctx context.Context, _ oapi.ListQueueRequestObject) (
 			GrabId: a.ID, TitleId: idPtr(a.TitleID), VersionId: idPtr(a.VersionID), ReleaseName: a.ReleaseName, Phase: oapi.QueueItemPhase(a.Phase),
 			PhaseSince: a.Since, BytesTotal: a.BytesTotal, BytesLeft: a.BytesLeft, IsUpgrade: a.IsUpgrade,
 			Indexer: a.IndexerName, Size: a.Size, Score: a.Score, GrabbedAt: a.CreatedAt,
+			Stuck: stuckOf(a),
 			Title: about.title, HasPoster: about.hasPoster, Year: about.year, Kind: about.kind, Slot: about.slot, Episodes: about.episodes,
 		}
 		if a.ETA > 0 {

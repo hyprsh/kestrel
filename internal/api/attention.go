@@ -192,6 +192,11 @@ func (s *server) attentionRows(ctx context.Context) ([]oapi.AttentionRow, error)
 		return nil, err
 	}
 	out = append(out, stalled...)
+	stuck, err := s.stuckRows(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, stuck...)
 	// Blocking before Warning, newest first; rows of one kind keep their order.
 	slices.SortStableFunc(out, func(a, b oapi.AttentionRow) int {
 		if (a.Severity == oapi.AttentionRowSeverity(health.Blocking)) != (b.Severity == oapi.AttentionRowSeverity(health.Blocking)) {

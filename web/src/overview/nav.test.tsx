@@ -98,6 +98,7 @@ describe('Overview rows', () => {
               eta: null,
               is_upgrade: false,
               score_delta: null,
+              stuck: null,
             },
           ],
         }),
