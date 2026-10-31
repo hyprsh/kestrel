@@ -5,6 +5,7 @@ import { useOpenCleanup } from '../cleanup/launch'
 import { Button, Collapse, EmptyState, Entity, KeyboardInput, Note, parseQuery, Skeleton } from '@hyprsh/design'
 import { useKey, useListNav } from '../keys'
 import { SkeletonRow } from '../loading'
+import { TitlePoster } from '../poster'
 import { SelectionBar } from '../layout/SelectionBar'
 import { useSelection } from '../selection'
 import { FilterBar } from '../filter/FilterBar'
@@ -250,7 +251,7 @@ export function Library({
             else focusList()
           }}
         >
-          {titles.isPending && Array.from({ length: 8 }, (_, i) => <SkeletonRow key={i} index={i} poster="icon" description={false} />)}
+          {titles.isPending && Array.from({ length: 8 }, (_, i) => <SkeletonRow key={i} index={i} poster="sm" description={false} />)}
           {rows.map((r, i) => (
             <Entity
               key={r.id}
@@ -265,10 +266,15 @@ export function Library({
               left={
                 <>
                   {selection.active && <TickBox selection={selection} id={r.id} name={r.title} />}
-                  <KindIcon kind={r.kind} className="shrink-0 text-gray-900" />
+                  <TitlePoster id={r.id} hasPoster={r.has_poster} size="sm" />
                 </>
               }
-              right={<SlotDots slots={r.slots} />}
+              right={
+                <>
+                  <KindIcon kind={r.kind} className="shrink-0 text-gray-900" />
+                  <SlotDots slots={r.slots} />
+                </>
+              }
             >
               <Entity.Content
                 fill

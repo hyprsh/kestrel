@@ -8,6 +8,7 @@ import { SkeletonRows } from '../loading'
 import { planWaiting, useAdoption, type Adoption } from '../api/adoption'
 import { profileName, slotProfile, useProfileNames } from '../library/slotProfile'
 import { placePath } from '../place'
+import { TitlePoster } from '../poster'
 import { useAttentionAction } from './useAttentionAction'
 import { OriginalsRow } from './OriginalsRow'
 import type { OverviewNav } from './nav'
@@ -46,7 +47,7 @@ export function NeedsAttention({
   return (
     <Section id="needs-attention" title="Needs attention" count={rows.length}>
       {attention.isPending ? (
-        <SkeletonRows />
+        <SkeletonRows poster="md" />
       ) : attention.data && nothing ? (
         <EmptyLine title="Nothing needs attention." />
       ) : (
@@ -110,7 +111,7 @@ function LongMissingRow({ group, onOpen }: { group: Attention['long_missing']; o
           <div className="flex flex-col gap-3">
             <Entity.List>
               {group.items.map((i) => (
-                <Entity key={i.version_id}>
+                <Entity key={i.version_id} left={<TitlePoster id={i.title_id} hasPoster={i.has_poster ?? false} size="md" />}>
                   <div className="flex min-w-0 flex-col">
                     <span>
                       {i.title} · {slotProfile(i.slot, profileName(names, i.profile))}
@@ -166,9 +167,12 @@ function Row({ row, onOpen, nav, index }: { row: AttentionRow; onOpen: (path: st
         className={stackedRow}
         rightClassName={stackedRight}
         left={
-          <Badge variant={row.severity === 'blocking' ? 'red' : 'amber'} contrast="low" size="sm">
-            {row.severity === 'blocking' ? 'Blocking' : 'Warning'}
-          </Badge>
+          <>
+            {row.subject.title_id !== null && <TitlePoster id={row.subject.title_id} hasPoster={row.has_poster ?? false} size="md" />}
+            <Badge variant={row.severity === 'blocking' ? 'red' : 'amber'} contrast="low" size="sm">
+              {row.severity === 'blocking' ? 'Blocking' : 'Warning'}
+            </Badge>
+          </>
         }
         right={actions}
       >

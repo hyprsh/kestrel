@@ -355,6 +355,14 @@ describe('Activity', () => {
     expect(li.querySelector('[data-poster] img')).toHaveAttribute('src', expect.stringMatching(/\/titles\/5\/poster$/))
   })
 
+  it('reserves a poster box in each loading row', async () => {
+    server.use(http.get('/queue', () => new Promise(() => {})))
+    await openActivity()
+
+    const region = await screen.findByRole('region', { name: 'Downloading' })
+    expect(region.querySelectorAll('[style*="width: 40px"][style*="height: 60px"]')).toHaveLength(2)
+  })
+
   it('follows the stream: a Grab moves on as the queue frames say', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     fakeQueue([queueItem({ grab_id: 1, phase: 'queued' })])

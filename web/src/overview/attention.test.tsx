@@ -530,3 +530,36 @@ describe('The health strip', () => {
     expect(within(tile).getByRole('button', { name: 'About' })).toBeInTheDocument()
   })
 })
+
+describe('Needs attention posters', () => {
+  const stalledRow = (over: Partial<Row> = {}): Row =>
+    sabRow({ id: 'stalled-1', kind: 'stalled_imports', severity: 'warning', message: 'Import of Paddington.2014-GRP stalled', subject: { ...subject, title_id: 5, grab_id: 9 }, actions: [], ...over })
+
+  it('shows the poster of the Title a row is about, and the placeholder without a request when it has none', async () => {
+    fakeAttention([stalledRow({ has_poster: true }), stalledRow({ id: 'stalled-2', subject: { ...subject, title_id: 6, grab_id: 10 }, has_poster: false }), exdevRow()])
+    renderApp()
+
+    const rows = await within(await sectionOf(/needs attention/i)).findAllByRole('listitem')
+
+    expect(rows[0].querySelector('[data-poster] img')).toHaveAttribute('src', expect.stringMatching(/\/titles\/5\/poster$/))
+    expect(rows[1].querySelector('[data-poster]')).toBeInTheDocument()
+    expect(rows[1].querySelector('[data-poster] img')).not.toBeInTheDocument()
+  })
+
+  it('reserves a poster box in each loading row', async () => {
+    server.use(http.get('/attention', () => new Promise(() => {})))
+    renderApp()
+
+    const section = await sectionOf(/needs attention/i)
+    expect(section.querySelectorAll('[style*="width: 40px"][style*="height: 60px"]')).toHaveLength(3)
+  })
+
+  it('leaves a row that is not about a Title as it was', async () => {
+    fakeAttention([sabRow(), exdevRow()])
+    renderApp()
+
+    const rows = await within(await sectionOf(/needs attention/i)).findAllByRole('listitem')
+
+    for (const r of rows) expect(r.querySelector('[data-poster]')).not.toBeInTheDocument()
+  })
+})
