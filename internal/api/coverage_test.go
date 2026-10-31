@@ -9,11 +9,15 @@ import (
 )
 
 type coverageJSON struct {
-	Episodes    int   `json:"episodes"`
-	Filled      int   `json:"filled"`
-	Wanted      int   `json:"wanted"`
-	LongMissing int   `json:"long_missing"`
-	Size        int64 `json:"size"`
+	Episodes    int `json:"episodes"`
+	Filled      int `json:"filled"`
+	Wanted      int `json:"wanted"`
+	LongMissing int `json:"long_missing"`
+	Unmonitored int `json:"unmonitored"`
+	Downloading int `json:"downloading"`
+	// DownloadingLongMissing is the Downloading episodes that are also Long Missing.
+	DownloadingLongMissing int   `json:"downloading_long_missing"`
+	Size                   int64 `json:"size"`
 }
 
 // versionCoverage is the first Version's state and coverage.
@@ -39,9 +43,9 @@ func TestASeriesVersionCoverageCountsTheEpisodesItHoldsAndWantsAndTheirSize(t *t
 	t.Parallel()
 	s := newSeriesSearch(t)
 
-	// Monitored and aired: S01E01-E03, S02E01-E02. The Special is unmonitored, S02E03 and S03E01 are still to come.
+	// Monitored and aired: S01E01-E03, S02E01-E02. The Special aired but is unmonitored, S02E03 and S03E01 are still to come.
 	state, c := versionCoverage(t, s.search)
-	if state != "wanted" || c == nil || *c != (coverageJSON{Episodes: 5, Filled: 0, Wanted: 5}) {
+	if state != "wanted" || c == nil || *c != (coverageJSON{Episodes: 5, Filled: 0, Wanted: 5, Unmonitored: 1}) {
 		t.Fatalf("before any Import: state %s, coverage %+v", state, c)
 	}
 
@@ -53,7 +57,7 @@ func TestASeriesVersionCoverageCountsTheEpisodesItHoldsAndWantsAndTheirSize(t *t
 	s.pass(t, jobs.Import)
 
 	state, c = versionCoverage(t, s.search)
-	want := coverageJSON{Episodes: 5, Filled: 1, Wanted: 4, Size: goodProbe().Size}
+	want := coverageJSON{Episodes: 5, Filled: 1, Wanted: 4, Unmonitored: 1, Size: goodProbe().Size}
 	if state != "wanted" || c == nil || *c != want {
 		t.Fatalf("after one Import: state %s, coverage %+v, want %+v", state, c, want)
 	}
@@ -64,6 +68,42 @@ func TestASeriesVersionCoverageCountsTheEpisodesItHoldsAndWantsAndTheirSize(t *t
 	}
 	if want.LongMissing = 4; c == nil || *c != want {
 		t.Fatalf("100 days later: coverage %+v, want %+v", c, want)
+	}
+}
+
+func TestASeriesVersionCoverageCountsAWantedEpisodeWithAGrabInFlightAsDownloadingEvenWhenLongMissing(t *testing.T) {
+	t.Parallel()
+	s := newSeriesSearch(t)
+	s.prober.set(goodProbe(), nil)
+	s.publishEpisode(t, badEp1, "1", "1")
+	s.pass(t, jobs.Search)
+
+	_, c := versionCoverage(t, s.search)
+	want := coverageJSON{Episodes: 5, Wanted: 5, Unmonitored: 1, Downloading: 1}
+	if c == nil || *c != want {
+		t.Fatalf("Grab in flight: coverage %+v, want %+v", c, want)
+	}
+
+	for range 5 {
+		s.in.clock.Advance(20 * 24 * time.Hour)
+		_, c = versionCoverage(t, s.search)
+	}
+	want.LongMissing, want.DownloadingLongMissing = 5, 1
+	if c == nil || *c != want {
+		t.Fatalf("100 days later: coverage %+v, want %+v", c, want)
+	}
+	// The five segments are disjoint and add up to the released episodes.
+	segments := []int{c.Filled, c.Downloading, c.LongMissing - c.DownloadingLongMissing,
+		c.Wanted - c.Downloading - (c.LongMissing - c.DownloadingLongMissing), c.Unmonitored}
+	sum := 0
+	for _, n := range segments {
+		if n < 0 {
+			t.Fatalf("segments %v has a negative count", segments)
+		}
+		sum += n
+	}
+	if sum != 6 {
+		t.Fatalf("segments %v add up to %d, want the 6 released episodes", segments, sum)
 	}
 }
 

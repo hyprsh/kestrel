@@ -4,8 +4,7 @@ import { Button, Collapse, Entity, Link, Note } from '@hyprsh/design'
 import { RowList, stackedRow, stackedRight } from '../layout/RowList'
 import { useState } from 'react'
 import { offerUnits, useAcceptOffer, useDismissOffer, type OriginalOffer, type OriginalsAvailable } from '../api/offers'
-import { useProfiles } from '../api/queries'
-import { slotLabel } from '../library/bits'
+import { profileName, slotProfile, useProfileNames } from '../library/slotProfile'
 
 /**
  * Like Long Missing, one grouped row after the others and outside the rail
@@ -13,15 +12,14 @@ import { slotLabel } from '../library/bits'
  */
 export function OriginalsRow({ group, onOpenTitle }: { group: OriginalsAvailable; onOpenTitle: (id: number) => void }) {
   const [open, setOpen] = useState(false)
-  const profiles = useProfiles()
-  const names = new Map((profiles.data ?? []).map((p) => [p.key, p.name]))
+  const names = useProfileNames()
   return (
     <div data-originals className="mt-3">
       <Collapse size="small" headingLevel={4} expanded={open} onChange={setOpen} title={`Originals available · ${group.count}`}>
         {open && (
           <RowList>
             {group.items.map((o) => (
-              <Offer key={o.version_id} offer={o} profileName={names.get(o.profile) ?? o.profile} onOpenTitle={onOpenTitle} />
+              <Offer key={o.version_id} offer={o} slotProfile={slotProfile(o.slot, profileName(names, o.profile))} onOpenTitle={onOpenTitle} />
             ))}
           </RowList>
         )}
@@ -30,7 +28,7 @@ export function OriginalsRow({ group, onOpenTitle }: { group: OriginalsAvailable
   )
 }
 
-function Offer({ offer: o, profileName, onOpenTitle }: { offer: OriginalOffer; profileName: string; onOpenTitle: (id: number) => void }) {
+function Offer({ offer: o, slotProfile, onOpenTitle }: { offer: OriginalOffer; slotProfile: string; onOpenTitle: (id: number) => void }) {
   const accept = useAcceptOffer()
   const dismiss = useDismissOffer()
   const units = offerUnits(o)
@@ -56,7 +54,7 @@ function Offer({ offer: o, profileName, onOpenTitle }: { offer: OriginalOffer; p
           <Link as="button" title="Open the Title" onClick={() => onOpenTitle(o.title_id)}>
             {o.title}
           </Link>{' '}
-          · {slotLabel[o.slot]} · {profileName}
+          · {slotProfile}
         </span>
         <span className="label-12-mono truncate text-gray-900" title={o.release}>
           {o.release} · Score {o.score}

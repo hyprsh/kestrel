@@ -1271,6 +1271,41 @@ func (q *Queries) ListFirstFiledOfTitle(ctx context.Context, titleID int64) ([]L
 	return items, nil
 }
 
+const listGrabbingEpisodesOfTitle = `-- name: ListGrabbingEpisodesOfTitle :many
+SELECT DISTINCT g.version_id, ge.episode_id
+FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
+WHERE g.title_id = ? AND g.version_id IS NOT NULL AND g.state NOT IN ('imported', 'failed')
+`
+
+type ListGrabbingEpisodesOfTitleRow struct {
+	VersionID sql.NullInt64
+	EpisodeID int64
+}
+
+// The episodes of a Title that a Grab in flight covers, per Version: a Grab not yet Imported or Failed.
+func (q *Queries) ListGrabbingEpisodesOfTitle(ctx context.Context, titleID sql.NullInt64) ([]ListGrabbingEpisodesOfTitleRow, error) {
+	rows, err := q.db.QueryContext(ctx, listGrabbingEpisodesOfTitle, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGrabbingEpisodesOfTitleRow
+	for rows.Next() {
+		var i ListGrabbingEpisodesOfTitleRow
+		if err := rows.Scan(&i.VersionID, &i.EpisodeID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMisfitFileIDs = `-- name: ListMisfitFileIDs :many
 SELECT file_id FROM file_misfits
 `
