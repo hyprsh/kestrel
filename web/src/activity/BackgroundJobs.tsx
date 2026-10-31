@@ -3,12 +3,15 @@
 // in memory only, so after a restart a loop reads "Not run since start" until its first pass. A loop a
 // setting turns off says which one instead. It stays live through the stream's `jobs` frames.
 import { SkeletonRows } from '../loading'
-import { Badge, Button, Entity, type BadgeProps } from '@hyprsh/design'
+import { Badge, Button, Entity, useToasts, type BadgeProps } from '@hyprsh/design'
 import { useJobs, useRunJob, type Job } from '../api/jobs'
+import { useSearchStatus, type SearchStatus } from '../api/search'
+import { useSearchAllWanted } from '../api/wanted'
 import { useReport } from '../toasts'
 import { SectionBlock } from '../layout/SectionBlock'
 import { ago, span, until, useNow } from '../time'
 import { jobWords } from './jobNames'
+import { lastPassLine, waitingLine } from './SearchSummary'
 
 const statusBadge: Record<Job['status'], { tone: NonNullable<BadgeProps['variant']>; text: string }> = {
   idle: { tone: 'gray', text: 'Idle' },
@@ -49,13 +52,43 @@ function lastRun(j: Job, now: number): { text: string; failed: boolean } {
   return { text: `Last run ${ago(r.finished_at, now)}, took ${span(r.duration_ms)}`, failed: false }
 }
 
+/** Queues every Wanted Version for a search now, the same action as the command menu's "Search all Wanted". */
+function SearchAllWanted({ status }: { status: SearchStatus }) {
+  const searchAll = useSearchAllWanted()
+  const toasts = useToasts()
+  const running = status.pass !== null
+  // Not gated on what is due now: the point is to search the Wanted Versions that are waiting out their back-off too.
+  const blocked = running || searchAll.isPending
+  const why = running ? 'A search pass is running' : undefined
+  return (
+    // A disabled button takes no hover, so the reason sits on the wrapper.
+    <span title={why}>
+      <Button
+        variant="secondary"
+        size="small"
+        loading={searchAll.isPending}
+        disabled={blocked}
+        onClick={() =>
+          searchAll.mutate(undefined, {
+            onSuccess: (versions) => toasts.success(`${versions} Wanted ${versions === 1 ? 'Version' : 'Versions'} queued for a search`),
+            onError: (e) => toasts.error(`Search all Wanted failed: ${e.message}`),
+          })
+        }
+      >
+        Search all Wanted
+      </Button>
+    </span>
+  )
+}
+
 export function BackgroundJobs() {
   const jobs = useJobs()
   const items = jobs.data?.items ?? []
   const run = useRunJob()
   const report = useReport()
+  const search = useSearchStatus().data
   const now = useNow()
-  // Rendered with or without data: the Searching card's "Background jobs" opens the tab it is on.
+  // Rendered with or without data, so a place can scroll to it.
   return (
     <div>
       <SectionBlock title="Background jobs" count={jobs.data ? items.length : undefined}>
@@ -66,20 +99,27 @@ export function BackgroundJobs() {
             const last = lastRun(j, now)
             const badge = statusBadge[j.status] ?? statusBadge.idle
             const next = j.status === 'idle' && j.next_at ? `Next ${until(j.next_at, now)}` : null
+            // The Search loop also shows the search pipeline and queues every Wanted Version.
+            const pipeline = j.name === 'search' ? search : undefined
             return (
               <Entity
                 key={j.name}
                 right={
-                  j.runnable && (
-                    <Button
-                      variant="secondary"
-                      size="small"
-                      aria-label={`Run ${about.label} now`}
-                      disabled={j.status === 'running'}
-                      onClick={() => void report(run.mutateAsync(j.name), { started: `${about.label} started`, failed: `Could not run ${about.label}` })}
-                    >
-                      Run now
-                    </Button>
+                  (j.runnable || pipeline) && (
+                    <div className="flex gap-2">
+                      {pipeline && <SearchAllWanted status={pipeline} />}
+                      {j.runnable && (
+                        <Button
+                          variant="secondary"
+                          size="small"
+                          aria-label={`Run ${about.label} now`}
+                          disabled={j.status === 'running'}
+                          onClick={() => void report(run.mutateAsync(j.name), { started: `${about.label} started`, failed: `Could not run ${about.label}` })}
+                        >
+                          Run now
+                        </Button>
+                      )}
+                    </div>
                   )
                 }
               >
@@ -107,6 +147,8 @@ export function BackgroundJobs() {
                           {j.outcome && <div>{j.outcome.text}</div>}
                         </>
                       )}
+                      {pipeline && <div>{waitingLine(pipeline, now)}</div>}
+                      {pipeline && lastPassLine(pipeline) && <div>{lastPassLine(pipeline)}</div>}
                     </>
                   }
                 />

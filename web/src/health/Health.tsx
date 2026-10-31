@@ -9,8 +9,6 @@ import { clockTime } from '../time'
 import { BackgroundJobs } from '../activity/BackgroundJobs'
 import type { Running } from '../activity/running'
 import { RunningNow } from '../activity/RunningNow'
-import { SearchCard } from '../activity/SearchCard'
-import { useSearchStatus } from '../api/search'
 import { SectionBlock } from '../layout/SectionBlock'
 import { HealthGroups } from './HealthGroups'
 import type { TileData } from './HealthTile'
@@ -60,7 +58,6 @@ function HealthChecks() {
  * Two sections, each with an id so a place can scroll to it: "/health/checks" and "/health/jobs".
  */
 export function Health({ running, onOpenAdoption, onOpenTitle }: { running: Running[]; onOpenAdoption: () => void; onOpenTitle: (id: number) => void }) {
-  const search = useSearchStatus().data
   return (
     <div className="min-h-0 flex-1 overflow-auto">
       <div role="region" aria-label="Health" className="mx-auto max-w-3xl pb-6 max-sm:px-4">
@@ -71,7 +68,6 @@ export function Health({ running, onOpenAdoption, onOpenTitle }: { running: Runn
         </div>
         <div id="health-jobs">
           <RunningNow running={running} onOpenAdoption={onOpenAdoption} onOpenTitle={onOpenTitle} />
-          {search && <SearchCard status={search} />}
           <BackgroundJobs />
         </div>
       </div>
