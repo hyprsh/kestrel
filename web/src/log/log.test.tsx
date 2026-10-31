@@ -110,6 +110,35 @@ describe('Log', () => {
     await expect.poll(() => sent.at(-1)?.has('routine')).toBe(false)
   })
 
+  it('pages 50 events at a time, keeps the page in the address bar and goes back to page 1 when the filter changes', async () => {
+    events(Array.from({ length: 120 }, (_, i) => event(i + 1, 'import', `Imported #${i + 1}`)))
+    const user = await openLog()
+    const table = await screen.findByRole('table', { name: 'Events' })
+    expect(eventRows(table)).toHaveLength(50)
+    expect(screen.getByText('1–50 of 120')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Next Page' }))
+    expect(location.search).toBe('?page=2')
+    expect(eventRows(table)[0]).toHaveTextContent('Imported #51')
+    await user.click(screen.getByRole('button', { name: 'Next Page' }))
+    expect(eventRows(table)).toHaveLength(20)
+
+    await user.type(filter(), 'imp')
+    expect(location.search).not.toContain('page=')
+    expect(location.search).toContain('q=imp')
+    expect(await screen.findByText('1–50 of 120')).toBeInTheDocument()
+  })
+
+  it('opens on the page named in the address bar', async () => {
+    history.replaceState(null, '', '/log?page=3')
+    events(Array.from({ length: 120 }, (_, i) => event(i + 1, 'import', `Imported #${i + 1}`)))
+    render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
+
+    expect(await screen.findByText('101–120 of 120')).toBeInTheDocument()
+    expect(eventRows(screen.getByRole('table', { name: 'Events' }))).toHaveLength(20)
+    expect(screen.getByText('101–120 of 120')).toBeInTheDocument()
+  })
+
   it('shows nothing, without asking, for a Title the Library does not have', async () => {
     fakeLibrary([row(3, 'Paddington', 'Paddington')])
     const sent = events()
