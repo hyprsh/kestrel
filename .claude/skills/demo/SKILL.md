@@ -55,6 +55,10 @@ Keep every binary, scenario and screenshot in your scratchpad (`$S` below). Run 
 
 When a change touches `web/src`, start the demo on the working tree (steps 1, 2 and 5), run the sweep for the touched screens (all of them for a shared piece such as `layout/` or `shell/`) with the shots in `$S`, and look at every 390 shot before reporting done. Done when no screen overflows and no 390 shot has clipped text, a cut-off control or a control hidden behind the tab bar.
 
+## Guide screenshots
+
+`make docs-shots` runs this demo for `docs/guide/images/`: `scripts/demo/docs-shots.sh` builds the working tree, shoots the setup screen on an unseeded demo (`DEMO_SEED=0 demo.sh start`) and the Library on a seeded one, in light and dark, with `docs-shots.mjs`, and replaces every PNG there. Each must stay under 200 KB. Add a screen by adding its shot to `docs-shots.mjs`, and reference it from a guide.
+
 ## Demo data
 
 The fake's catalogue (titles, which searches match, the slow and the broken Series) is in `fake.py`'s docstring; what the seed adds is in `seed.py`'s. Plex sign-in is on, with the fake's friend Ellie: log out and "Sign in with Plex" on the login page signs in as her (the fake's sign-in page authorises the PIN as Ellie and sends the browser back), and her Requests show as source `plex`. A ref without `KESTREL_PLEX_TV_URL` (`git grep -q KESTREL_PLEX_TV_URL <ref> -- internal/config` fails) has no Plex sign-in and the seed fails on it. Anything else a shot needs, the scenario sets up first, through the API with the page's session (`h.page.evaluate(() => fetch('api/v1/...'))`) or by clicking.
