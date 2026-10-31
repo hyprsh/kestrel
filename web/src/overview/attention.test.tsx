@@ -147,8 +147,7 @@ describe('Needs attention', () => {
     fakeAttention([...blocking, exdevRow({ message: 'A warning' })])
     renderApp()
 
-    await screen.findByText('Blocking 1')
-    const section = screen.getByRole('region', { name: 'Needs attention · 7' })
+    const section = await screen.findByRole('region', { name: 'Needs attention · 7' })
     const messages = within(section)
       .getAllByRole('listitem')
       .map((r) => r.textContent)
@@ -160,8 +159,7 @@ describe('Needs attention', () => {
     fakeAttention([sabRow(), exdevRow()])
     renderApp()
 
-    await screen.findByText('SABnzbd is unreachable: connection refused')
-    const section = screen.getByRole('region', { name: 'Needs attention · 2' })
+    const section = await screen.findByRole('region', { name: 'Needs attention · 2' })
     expect(within(section).queryByRole('button', { name: /view all/i })).not.toBeInTheDocument()
   })
 
@@ -355,12 +353,19 @@ const status = (over: Partial<Status> = {}): Status => ({
   ...over,
 })
 
+/** Health shows its summary line alone while every check is ok: open it when it is shut, and give its panel. */
+async function healthStrip() {
+  const toggle = await screen.findByRole('button', { name: /^Health ·/ })
+  if (toggle.getAttribute('aria-expanded') === 'false') await userEvent.click(toggle)
+  return screen.findByRole('region', { name: /^Health/ })
+}
+
 describe('The health strip', () => {
   it('shows SABnzbd, each indexer and the free disk space', async () => {
     server.use(http.get('/system/status', ({ response }) => response(200).json(status())))
     renderApp()
 
-    const strip = await screen.findByRole('region', { name: /health/i })
+    const strip = await healthStrip()
 
     expect(await within(strip).findByText(/SABnzbd/)).toBeInTheDocument()
     expect(strip).toHaveTextContent(/SABnzbd.*ok/i)
@@ -374,7 +379,7 @@ describe('The health strip', () => {
     server.use(http.get('/system/status', ({ response }) => response(200).json(status())))
     renderApp()
 
-    const strip = await screen.findByRole('region', { name: /health/i })
+    const strip = await healthStrip()
 
     expect(await within(strip).findByText(/3 days old/)).toBeInTheDocument()
     expect(strip).toHaveTextContent(/TRaSH.*3 days old/)
@@ -406,7 +411,7 @@ describe('The health strip', () => {
     )
     renderApp()
 
-    const strip = await screen.findByRole('region', { name: /health/i })
+    const strip = await healthStrip()
 
     expect(await within(strip).findByText(/42 of 100 searches today/)).toBeInTheDocument()
     expect(strip).toHaveTextContent(/Beta.*7 searches today/)
@@ -420,7 +425,7 @@ describe('The health strip', () => {
     server.use(http.get('/system/status', ({ response }) => response(200).json(status({ grabs_paused: true }))))
     renderApp()
 
-    const strip = await screen.findByRole('region', { name: /health/i })
+    const strip = await healthStrip()
 
     expect(await within(strip).findByText(/automatic Grabs are paused/i)).toBeInTheDocument()
   })
@@ -429,7 +434,7 @@ describe('The health strip', () => {
     server.use(http.get('/system/status', ({ response }) => response(200).json(status())))
     renderApp()
 
-    const strip = await screen.findByRole('region', { name: /health/i })
+    const strip = await healthStrip()
 
     await within(strip).findByText(/SABnzbd/)
     expect(strip).not.toHaveTextContent(/automatic Grabs are paused/i)
@@ -439,20 +444,20 @@ describe('The health strip', () => {
     server.use(http.get('/system/status', ({ response }) => response(200).json(status({ download_client: { state: 'none', name: null, instance_id: null, message: null }, indexers: [] }))))
     renderApp()
 
-    const strip = await screen.findByRole('region', { name: /health/i })
+    const strip = await healthStrip()
 
     expect(await within(strip).findByText(/no download client/i)).toBeInTheDocument()
   })
   it('says how many items fail in the heading', async () => {
     server.use(http.get('/system/status', ({ response }) => response(200).json(status())))
     renderApp()
-    expect(await screen.findByRole('region', { name: 'Health · 1 failing' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Health · 1 failing' })).toBeInTheDocument()
   })
 
   it('says "all good" in the heading when nothing fails', async () => {
     server.use(http.get('/system/status', ({ response }) => response(200).json(status({ indexers: [] }))))
     renderApp()
-    expect(await screen.findByRole('region', { name: 'Health · all good' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Health · all good' })).toBeInTheDocument()
   })
 
   it('draws one tile per item with the state as text, a failing one first', async () => {
@@ -470,7 +475,7 @@ describe('The health strip', () => {
     )
     renderApp()
 
-    const strip = await screen.findByRole('region', { name: /health/i })
+    const strip = await healthStrip()
     await within(strip).findByText('Beta')
     const tiles = within(strip).getAllByRole('listitem')
     expect(tiles.map((t) => t.querySelector('span')?.textContent)).toEqual(['SABnzbd', 'Beta', 'Alpha', '/data', 'TRaSH'])
@@ -499,7 +504,7 @@ describe('The health strip', () => {
     )
     renderApp()
 
-    const strip = await screen.findByRole('region', { name: /health/i })
+    const strip = await healthStrip()
     const alpha = await within(strip).findByRole('progressbar', { name: 'Alpha searches used today' })
     expect(alpha).toHaveAttribute('aria-valuenow', '42')
     expect(alpha).toHaveAttribute('aria-valuemax', '100')
@@ -519,7 +524,7 @@ describe('The health strip', () => {
     server.use(http.get('/system/status', ({ response }) => response(200).json(status({ update: { version: '0.9.0', url: 'https://example.test/r' } }))))
     renderApp()
 
-    const strip = await screen.findByRole('region', { name: /health/i })
+    const strip = await healthStrip()
     const tile = (await within(strip).findByText('Kestrel 0.9.0 available')).closest('li')!
     expect(tile).toHaveTextContent('update')
     expect(within(tile).getByRole('button', { name: 'About' })).toBeInTheDocument()

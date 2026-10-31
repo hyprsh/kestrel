@@ -5875,7 +5875,7 @@ components:
           description: How many Imports the last 7 days brought, a pack counting once.
     RecentItem:
       type: object
-      required: [title_id, title, year, kind, slot, release_name, score, score_delta, files, is_upgrade, imported_at]
+      required: [title_id, title, year, kind, has_poster, slot, release_name, score, score_delta, files, is_upgrade, imported_at]
       properties:
         title_id:
           type: integer
@@ -5887,6 +5887,9 @@ components:
           nullable: true
         kind:
           $ref: "#/components/schemas/TitleKind"
+        has_poster:
+          type: boolean
+          description: Whether `GET /titles/{id}/poster` serves a poster for the Title.
         slot:
           $ref: "#/components/schemas/Slot"
         release_name:
@@ -6219,7 +6222,7 @@ components:
           description: Seconds.
     RequestSlot:
       type: object
-      required: [slot, profile, version_id, status, status_label, download]
+      required: [slot, profile, version_id, status, status_label, stalled, download]
       properties:
         slot:
           $ref: "#/components/schemas/Slot"
@@ -6241,6 +6244,11 @@ components:
         status_label:
           type: string
           description: "`Not released yet` or `Searching` while queued."
+        stalled:
+          type: boolean
+          description: |
+            `true` while the Slot's finished download has an Import that waits for the environment to be
+            fixed (disk full, a folder not writable). The Slot keeps its `status`.
         download:
           allOf:
             - $ref: "#/components/schemas/RequestDownload"

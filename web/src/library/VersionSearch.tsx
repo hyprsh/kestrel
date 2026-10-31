@@ -18,10 +18,11 @@ export function useSearchWanted(title: TitleDetail) {
   return { mutation: all, wanted, run: () => all.mutate(wanted) }
 }
 
-export function SearchNow({ search }: { search: ReturnType<typeof useSearchWanted> }) {
+export function SearchNow({ search, unmonitored }: { search: ReturnType<typeof useSearchWanted>; unmonitored: boolean }) {
   const none = search.wanted.length === 0
+  const why = unmonitored ? 'Not monitored: turn monitoring on to search' : none ? 'Nothing in this Title is Wanted' : undefined
   return (
-    <Button variant="secondary" size="small" disabled={none || search.mutation.isPending} title={none ? 'Nothing in this Title is Wanted' : undefined} onClick={search.run}>
+    <Button variant="secondary" size="small" disabled={unmonitored || none || search.mutation.isPending} title={why} onClick={search.run}>
       Search now
     </Button>
   )

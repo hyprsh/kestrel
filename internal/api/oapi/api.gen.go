@@ -3183,7 +3183,10 @@ type Rating struct {
 
 // RecentItem defines model for RecentItem.
 type RecentItem struct {
-	Files       int       `json:"files"`
+	Files int `json:"files"`
+
+	// HasPoster Whether `GET /titles/{id}/poster` serves a poster for the Title.
+	HasPoster   bool      `json:"has_poster"`
 	ImportedAt  time.Time `json:"imported_at"`
 	IsUpgrade   bool      `json:"is_upgrade"`
 	Kind        TitleKind `json:"kind"`
@@ -3377,6 +3380,10 @@ type RequestSlot struct {
 	// Profile The Version's Profile; `null` for a rejected Request that never resolved one.
 	Profile *string `json:"profile"`
 	Slot    Slot    `json:"slot"`
+
+	// Stalled `true` while the Slot's finished download has an Import that waits for the environment to be
+	// fixed (disk full, a folder not writable). The Slot keeps its `status`.
+	Stalled bool `json:"stalled"`
 
 	// Status Derived on every read. `failed` only when Kestrel rejected the Request or the Version or Title
 	// was removed later; a failed download never shows as failed (it is blocklisted and retried).

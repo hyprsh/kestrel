@@ -45,9 +45,11 @@ type RecentImport struct {
 	Title   string
 	Year    int
 	Kind    Kind
-	Slot    string
-	Release string
-	Score   *int
+	// HasPoster is whether the Library holds a poster for the Title.
+	HasPoster bool
+	Slot      string
+	Release   string
+	Score     *int
 	// ScoreDelta is what an Upgrade gained over the file it replaced; nil for a first Import.
 	ScoreDelta *int
 	Files      int // how many files the Import brought (a season pack brings many)
@@ -92,7 +94,7 @@ func (s *Service) RecentImports(ctx context.Context, n int) ([]RecentImport, err
 			return nil, err
 		}
 		item := RecentImport{
-			TitleID: t.ID, Title: t.Title, Year: int(t.Year.Int64), Kind: Kind(t.Kind), Slot: r.Slot, Release: r.ReleaseName,
+			TitleID: t.ID, Title: t.Title, Year: int(t.Year.Int64), Kind: Kind(t.Kind), HasPoster: t.PosterPath.String != "", Slot: r.Slot, Release: r.ReleaseName,
 			Files: 1, IsUpgrade: r.IsUpgrade == 1, ImportedAt: parseTime(r.ImportedAt),
 		}
 		if r.Score.Valid {

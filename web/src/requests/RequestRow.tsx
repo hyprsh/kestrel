@@ -8,12 +8,13 @@ import type { RowNav } from '../keys'
 import { slotLabel, type SlotKey } from '../library/bits'
 import { useOpenPlace } from '../place'
 import { ago, useNow } from '../time'
-import { Poster, TitlePoster } from '../poster'
+import { Poster, TitlePoster, type PosterSize } from '../poster'
 import { sourceName } from './source'
 import { reasons, seasonsText, slotState } from './status'
 
 /** A Request's row; clicking it, or Enter on it, opens the Title when there is one. */
-export function RequestRow({ request: r, nav, onOpenTitle }: { request: Request; nav: RowNav; onOpenTitle: (id: number) => void }) {
+/** `posterSize` is `sm` on the Requests screen; the Overview's rows are `md`, like its Downloading now rows. */
+export function RequestRow({ request: r, nav, onOpenTitle, posterSize = 'sm' }: { request: Request; nav: RowNav; onOpenTitle: (id: number) => void; posterSize?: PosterSize }) {
   const queue = useQueue().data ?? []
   const now = useNow()
   const openPlace = useOpenPlace()
@@ -30,7 +31,7 @@ export function RequestRow({ request: r, nav, onOpenTitle }: { request: Request;
       onClick={select}
       className={stackedRow}
       rightClassName={stackedRight}
-      left={r.title_id != null ? <TitlePoster id={r.title_id} hasPoster={r.has_poster} size="sm" /> : <Poster src={null} size="sm" />}
+      left={r.title_id != null ? <TitlePoster id={r.title_id} hasPoster={r.has_poster} size={posterSize} /> : <Poster src={null} size={posterSize} />}
       right={
         reason ? (
           <>

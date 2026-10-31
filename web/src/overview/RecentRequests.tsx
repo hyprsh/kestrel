@@ -18,7 +18,7 @@ export function RecentRequests({ onOpenTitle, nav }: { onOpenTitle: (id: number)
         <RowList>
           {shown.map((r, j) => {
             const i = nav.base + j
-            return <RequestRow key={r.id} request={r} nav={{ scope: 'ov', index: i, sel: nav.sel, onSelect: () => nav.select(i) }} onOpenTitle={onOpenTitle} />
+            return <RequestRow key={r.id} request={r} nav={{ scope: 'ov', index: i, sel: nav.sel, onSelect: () => nav.select(i) }} onOpenTitle={onOpenTitle} posterSize="md" />
           })}
         </RowList>
       )}

@@ -9,6 +9,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/metadata/metadatatest"
+	"github.com/hyprsh/kestrel/internal/probe"
 )
 
 type requestJSON struct {
@@ -28,6 +29,7 @@ type requestJSON struct {
 		VersionID   *int64  `json:"version_id"`
 		Status      string  `json:"status"`
 		StatusLabel string  `json:"status_label"`
+		Stalled     bool    `json:"stalled"`
 		Download    *struct {
 			Phase     string `json:"phase"`
 			BytesLeft int64  `json:"bytes_left"`
@@ -499,5 +501,26 @@ func TestARequestMayNameAnAnyProfile(t *testing.T) {
 	req := decode[requestJSON](t, l.valid("POST", "/requests", requestBody("r-1", "movie", 116149, `[{"slot":"standard","profile":"any-original"}]`, "null")))
 	if _, _, profile, _ := req.slot(t, "standard"); profile != "any-original" {
 		t.Errorf("profile = %q, want the named Any Original", profile)
+	}
+}
+
+func TestARequestSlotWhoseImportIsStalledSaysSo(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	s.prober.set(probe.Info{}, probe.ErrNotInstalled)
+	req := decode[requestJSON](t, s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, `[{"slot":"standard"}]`, "null")))
+	s.download(t, map[string]string{"paddington.mkv": "the movie"})
+	s.pass(t, jobs.Poll)
+	get := func() requestJSON {
+		return decode[requestJSON](t, s.valid("GET", fmt.Sprintf("/requests/%d", req.ID), ""))
+	}
+	if got := get(); got.Slots[0].Stalled {
+		t.Fatalf("slot = %+v, want not stalled before the Import runs", got.Slots[0])
+	}
+
+	s.pass(t, jobs.Import)
+
+	if got := get(); !got.Slots[0].Stalled || got.Slots[0].Status == "failed" {
+		t.Errorf("slot = %+v, want a stalled Import and a Request that is not failed", got.Slots[0])
 	}
 }

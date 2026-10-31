@@ -16,13 +16,19 @@ export function firstFive<T>(items: T[], keep: (item: T) => boolean = () => fals
   return items.filter((item) => keep(item) || room-- > 0)
 }
 
-/** `count` is how many there are in all, shown after the title once there are any ("Downloading now · 23"). */
-export function Section({ id, title, count, className, children }: { id: string; title: string; count?: number; className?: string; children: ReactNode }) {
+/**
+ * `count` is how many there are in all, shown after the title once there are any ("Downloading now · 23").
+ * `action` is a link on the heading's far end, for a section whose way on is not "View all" below its rows.
+ */
+export function Section({ id, title, count, action, className, children }: { id: string; title: string; count?: number; action?: ReactNode; className?: string; children: ReactNode }) {
   return (
     <section aria-labelledby={id} className={className}>
-      <h2 id={id} className="heading-14 mb-3">
-        {count ? `${title} · ${count}` : title}
-      </h2>
+      <div className="mb-3 flex min-h-6 items-center justify-between gap-2">
+        <h2 id={id} className="heading-14">
+          {count ? `${title} · ${count}` : title}
+        </h2>
+        {action}
+      </div>
       {children}
     </section>
   )
