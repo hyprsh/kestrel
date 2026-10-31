@@ -67,6 +67,7 @@ type requestSlot struct {
 	Profile     *string   `json:"profile"`
 	Status      string    `json:"status"`
 	StatusLabel string    `json:"status_label"`
+	Stalled     bool      `json:"stalled"`
 	Download    *download `json:"download"`
 }
 

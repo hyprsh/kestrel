@@ -70,4 +70,5 @@ func TestCompletedTitlesListsFilledSlotsWithTheirRequesters(t *testing.T) {
 
 type noGrabs struct{}
 
-func (noGrabs) Active(context.Context) ([]acquire.Active, error) { return nil, nil }
+func (noGrabs) Active(context.Context) ([]acquire.Active, error)         { return nil, nil }
+func (noGrabs) Stalled(context.Context) ([]acquire.StalledImport, error) { return nil, nil }

@@ -4211,6 +4211,11 @@ export interface components {
             status: "queued" | "downloading" | "completed" | "failed";
             /** @description `Not released yet` or `Searching` while queued. */
             status_label: string;
+            /**
+             * @description `true` while the Slot's finished download has an Import that waits for the environment to be
+             *     fixed (disk full, a folder not writable). The Slot keeps its `status`.
+             */
+            stalled: boolean;
             download: components["schemas"]["RequestDownload"] | null;
         };
         Request: {

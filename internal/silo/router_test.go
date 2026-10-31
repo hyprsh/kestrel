@@ -585,3 +585,19 @@ func TestTheManifestNamesKestrelsStepAndStatusesWithinSilosLimits(t *testing.T) 
 		t.Errorf("step is over 24 characters")
 	}
 }
+
+func TestAStalledImportShowsAsTakingLongerThanUsualWithNoDetail(t *testing.T) {
+	stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(201)
+		fmt.Fprint(w, `{"id":5,"outcome":"accepted","reject_reason":null,"slots":[{"slot":"standard","profile":"hd-primary","status":"queued","status_label":"Searching","stalled":true,"download":null}]}`)
+	}))
+	defer stub.Close()
+	r := silo.NewRouter(silo.Options{})
+
+	res := fulfil(t, r, conn(t, stub.URL, "kst_x", nil), movie(3), "1080p")
+
+	w := target(t, res, "1080p").GetWording()
+	if w.GetLabel() != "Taking longer than usual" || w.GetDetail() != "" {
+		t.Errorf("wording = %+v, want Taking longer than usual with no detail", w)
+	}
+}
