@@ -1,6 +1,6 @@
 // The grid's summary of the picked Title, in a panel on the right: its poster, name, meta and state line, then for a
 // Movie its Versions, when it was last searched, its actions and overview, and for a Series how much of each Version
-// is there (its seasons and episodes come with hyprsh/kestrel#268). Open Title shows the whole Title page.
+// is there and its seasons, which open to their episodes. Open Title shows the whole Title page.
 import { Badge, Button, Entity, Note, Skeleton } from '@hyprsh/design'
 import { X } from 'lucide-react'
 import { forwardRef } from 'react'
@@ -12,6 +12,7 @@ import { TitlePoster } from '../poster'
 import { ago, clockTime } from '../time'
 import { slotKeys, slotLabel, versionStatus } from './bits'
 import { stateLine, toneText } from './rowState'
+import { SeasonList } from './SeasonList'
 import { TitleActions } from './TitleActions'
 import type { ManualSearchTarget } from './TitleDetail'
 import { TitleStatus } from './TitleStatus'
@@ -71,7 +72,7 @@ export const TitleSummary = forwardRef<HTMLElement, Props>(function TitleSummary
         ) : data.kind === 'movie' ? (
           <MovieSummary title={data} row={row} now={now} onManualSearch={onManualSearch} />
         ) : (
-          <SeriesSummary title={data} onOpen={onOpen} />
+          <SeriesSummary title={data} onOpen={onOpen} onManualSearch={onManualSearch} />
         )}
       </section>
     </SidePanel>
@@ -125,15 +126,16 @@ function MovieSummary({ title, row, now, onManualSearch }: { title: TitleDetail;
   )
 }
 
-function SeriesSummary({ title, onOpen }: { title: TitleDetail; onOpen: () => void }) {
+function SeriesSummary({ title, onOpen, onManualSearch }: { title: TitleDetail; onOpen: () => void; onManualSearch: (target: ManualSearchTarget) => void }) {
   return (
     <>
       <div className="-mt-2">
         <TitleStatus title={title} />
       </div>
       {title.overview && <p className="copy-14 line-clamp-4 text-gray-900">{title.overview}</p>}
+      <SeasonList title={title} onManualSearch={onManualSearch} />
       <div>
-        <Button variant="secondary" size="small" onClick={onOpen}>
+        <Button variant="tertiary" size="small" onClick={onOpen}>
           Show Episodes
         </Button>
       </div>

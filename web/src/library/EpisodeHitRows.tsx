@@ -11,18 +11,20 @@ import { episodeCode, seasonName, seasonStanding } from './episodes'
 import { toneText, type Tone } from './rowState'
 import { slotKeys, slotLabel } from './bits'
 
+type State = 'wanted' | 'downloading' | 'unreleased' | 'unmonitored' | 'filled'
+
 export const hitDomId = (h: EpisodeHit) => `hit-${h.key}`
 
 /** What the episode's state says, toned: Wanted (in which Slot, when only one is), downloading, or what it holds. */
-function episodeState(e: Episode, slots: readonly string[]): { text: string; tone: Tone } {
+export function episodeState(e: Episode, slots: readonly string[]): { text: string; tone: Tone; state: State } {
   const states = slotKeys.filter((k) => slots.includes(k)).map((k) => ({ k, s: e.cells[k]?.state }))
   const some = (state: string) => states.filter((x) => x.s === state)
   const which = (xs: typeof states) => (slots.length > 1 && xs.length < states.length ? ` in ${slotLabel[xs[0].k]}` : '')
-  if (some('wanted').length > 0) return { text: `Wanted${which(some('wanted'))}`, tone: 'warning' }
-  if (some('downloading').length > 0) return { text: `Downloading${which(some('downloading'))}`, tone: 'info' }
-  if (some('unreleased').length > 0) return { text: 'Not out yet', tone: 'quiet' }
-  if (states.length > 0 && states.every((x) => x.s === 'unmonitored')) return { text: 'Unmonitored', tone: 'quiet' }
-  return { text: 'Filled', tone: 'quiet' }
+  if (some('wanted').length > 0) return { text: `Wanted${which(some('wanted'))}`, tone: 'warning', state: 'wanted' }
+  if (some('downloading').length > 0) return { text: `Downloading${which(some('downloading'))}`, tone: 'info', state: 'downloading' }
+  if (some('unreleased').length > 0) return { text: 'Not out yet', tone: 'quiet', state: 'unreleased' }
+  if (states.length > 0 && states.every((x) => x.s === 'unmonitored')) return { text: 'Unmonitored', tone: 'quiet', state: 'unmonitored' }
+  return { text: 'Filled', tone: 'quiet', state: 'filled' }
 }
 
 type Props = {
