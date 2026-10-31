@@ -210,6 +210,8 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 		seasons = append(seasons, n)
 	}
 	slices.Sort(seasons)
+	obs := ObserverOf(ctx)
+	obs.Searching(targetOf(d, in))
 	entries := map[string]*entry{}
 	add := func(found []*entry) {
 		for _, e := range found {
@@ -228,6 +230,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 	}
 	if usable {
 		add(cached)
+		obs.Releases(len(cached))
 	} else {
 		for _, n := range seasons {
 			n := n
@@ -236,6 +239,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 				return out, err
 			}
 			out.Failures = append(out.Failures, failures...)
+			obs.Releases(len(found))
 			add(found)
 		}
 	}

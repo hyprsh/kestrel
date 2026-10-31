@@ -362,6 +362,7 @@ func searchDue(ctx context.Context, r *Runner, d Deps) error {
 	}
 	t := r.search
 	t.begin(now, missing)
+	ctx = acquire.WithObserver(ctx, t)
 	defer func() { t.end(d.Clock()) }()
 	var fresh, due []library.Due
 	for _, m := range missing {
@@ -381,6 +382,7 @@ func searchDue(ctx context.Context, r *Runner, d Deps) error {
 		var upgrades []library.Due
 		if upgrades, err = d.Library.DueUpgrades(ctx, now, 0); err == nil {
 			t.upgradesDue(upgrades)
+			t.upgradesPlanned(min(len(upgrades), UpgradesPerPass))
 			err = sweep(ctx, r, upgrades[:min(len(upgrades), UpgradesPerPass)], d.Acquire.SearchUpgrades, d.Library.MarkUpgradeSearched, now, true, &grabbed)
 		}
 	}

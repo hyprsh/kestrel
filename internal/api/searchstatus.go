@@ -48,10 +48,18 @@ func (s *server) searchStatus(ctx context.Context) (oapi.SearchStatus, error) {
 	out := oapi.SearchStatus{UpgradesPerPass: jobs.UpgradesPerPass, Indexers: []oapi.SearchIndexer{}}
 	out.Due.Versions, out.Due.Episodes, out.Due.Upgrades = js.Due.Versions, js.Due.Episodes, js.Due.Upgrades
 	if p := js.Pass; p != nil {
-		out.Pass = &oapi.SearchPass{StartedAt: p.StartedAt, Done: p.Done, Total: p.Total}
+		out.Pass = &oapi.SearchPass{
+			StartedAt: p.StartedAt, Done: p.Done, Total: p.Total, ReleasesSeen: p.ReleasesSeen, Grabbed: p.Grabbed,
+			UpgradesDone: p.UpgradesDone, UpgradesTotal: p.UpgradesTotal,
+		}
+		if c := p.Current; c != nil {
+			out.Pass.Current = &oapi.SearchTarget{TitleId: c.TitleID, Title: c.Title, HasPoster: c.HasPoster, Slot: c.Slot, Season: c.Season, Episodes: append([]string{}, c.Episodes...)}
+		}
 	}
 	if l := js.Last; l != nil {
-		out.LastPass = &oapi.SearchPassResult{FinishedAt: l.FinishedAt, Searched: l.Searched, Grabbed: l.Grabbed}
+		out.LastPass = &oapi.SearchPassResult{FinishedAt: l.FinishedAt, Searched: l.Searched, Grabbed: l.Grabbed,
+			ReleasesSeen: l.ReleasesSeen, Upgrades: l.Upgrades, DurationMs: l.Duration.Milliseconds(),
+		}
 	}
 	if !js.Next.IsZero() {
 		out.NextPassAt = &js.Next

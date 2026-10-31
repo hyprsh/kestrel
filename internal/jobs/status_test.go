@@ -135,3 +135,87 @@ func TestWhileAPassRunsTheSearchStatusSaysHowFarItHasGot(t *testing.T) {
 		}
 	}
 }
+
+func TestWhileAPassRunsTheSearchStatusSaysWhatItSearchesAndHowManyReleasesItHasSeen(t *testing.T) {
+	var r *jobs.Runner
+	type seen struct {
+		current  *acquire.Target
+		releases int
+		grabbed  int
+	}
+	var during []seen
+	season := 5
+	a := &fakeAcquire{
+		observed: func(o acquire.Observer, title int64) {
+			o.Searching(acquire.Target{TitleID: title, Title: "Title", Slot: "Standard", Season: &season, Episodes: []string{"S05E01"}})
+			o.Releases(10 * int(title))
+			p := r.Search().Pass
+			during = append(during, seen{p.Current, p.ReleasesSeen, p.Grabbed})
+		},
+		outcome: func(title int64, v []int64) (acquire.Outcome, error) {
+			if title == 1 {
+				return acquire.Outcome{Searched: v, Grabbed: []acquire.Grab{{ID: 1}}}, nil
+			}
+			return acquire.Outcome{Searched: v}, nil
+		},
+	}
+	l := &fakeLibrary{marked: map[int64]bool{}, upgraded: map[int64]bool{}, due: []library.Due{
+		{VersionID: 11, TitleID: 1}, {VersionID: 21, TitleID: 2},
+	}}
+	r = standard(a, l)
+
+	if err := r.Pass(context.Background(), jobs.Search); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(during) != 2 {
+		t.Fatalf("items seen = %d, want 2", len(during))
+	}
+	if c := during[0].current; c == nil || c.TitleID != 1 || c.Slot != "Standard" || c.Season == nil || *c.Season != 5 || len(c.Episodes) != 1 {
+		t.Errorf("current during the first item = %+v, want Title 1, Standard, season 5 and one episode", c)
+	}
+	if during[0].releases != 10 || during[0].grabbed != 0 || during[1].releases != 30 || during[1].grabbed != 1 {
+		t.Errorf("counters seen = %+v, want releases 10 then 30 and the Grab counted once the first item is done", during)
+	}
+	got := r.Search()
+	if got.Pass != nil {
+		t.Errorf("pass after the run = %+v, want none", got.Pass)
+	}
+	if got.Last == nil || got.Last.ReleasesSeen != 30 || got.Last.Grabbed != 1 || got.Last.Searched != 2 {
+		t.Errorf("last pass = %+v, want 30 Releases seen, 1 Grab, 2 searched", got.Last)
+	}
+}
+
+func TestBetweenItemsThereIsNoCurrentSearch(t *testing.T) {
+	var r *jobs.Runner
+	var between []*acquire.Target
+	a := &fakeAcquire{
+		observed: func(o acquire.Observer, title int64) {
+			between = append(between, r.Search().Pass.Current) // before this item reports
+			o.Searching(acquire.Target{TitleID: title, Title: "T"})
+		},
+		outcome: func(_ int64, v []int64) (acquire.Outcome, error) { return acquire.Outcome{Searched: v}, nil },
+	}
+	l := &fakeLibrary{marked: map[int64]bool{}, upgraded: map[int64]bool{}, due: []library.Due{{VersionID: 11, TitleID: 1}, {VersionID: 21, TitleID: 2}}}
+	r = standard(a, l)
+	if err := r.Pass(context.Background(), jobs.Search); err != nil {
+		t.Fatal(err)
+	}
+	if between[0] != nil || between[1] != nil {
+		t.Errorf("current before each item reported = %+v, want none: the last item's is cleared", between)
+	}
+}
+
+func TestAnUpgradePassCountsItsUpgradeSearchesAndTheLastPassKeepsHowLongItTook(t *testing.T) {
+	var r *jobs.Runner
+	a := &fakeAcquire{outcome: func(_ int64, v []int64) (acquire.Outcome, error) { return acquire.Outcome{Searched: v}, nil }}
+	l := &fakeLibrary{marked: map[int64]bool{}, upgraded: map[int64]bool{}, upgrades: []library.Due{{VersionID: 31, TitleID: 3}, {VersionID: 41, TitleID: 4}}}
+	r = standard(a, l)
+	if err := r.Pass(context.Background(), jobs.Search); err != nil {
+		t.Fatal(err)
+	}
+	got := r.Search().Last
+	if got == nil || got.Upgrades != 2 || got.Duration != 0 {
+		t.Errorf("last pass = %+v, want 2 Upgrades searched and the fixed clock's zero duration", got)
+	}
+}

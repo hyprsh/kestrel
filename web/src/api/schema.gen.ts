@@ -3822,11 +3822,35 @@ export interface components {
             started_at: string;
             /**
              * @description The Wanted Versions it has got through: searched, or passed over because no indexer could
-             *     take a sweep search (those stay due). Its Upgrade searches come after them and are not counted.
+             *     take a sweep search (those stay due). Its Upgrade searches come after them and are counted
+             *     in `upgrades_done`.
              */
             done: number;
             /** @description The Wanted Versions it found due. */
             total: number;
+            /** @description What is being searched now; null between items. */
+            current: components["schemas"]["SearchTarget"] | null;
+            /** @description The Releases the indexers returned and the pass has evaluated so far, Upgrade searches included. */
+            releases_seen: number;
+            /** @description The Grabs the pass has made so far, Upgrades included. */
+            grabbed: number;
+            /** @description The Upgrade searches it has got through, after the Wanted ones. */
+            upgrades_done: number;
+            /** @description The Upgrade searches it will make, at most `upgrades_per_pass`; 0 until the Wanted ones are done. */
+            upgrades_total: number;
+        };
+        SearchTarget: {
+            /** Format: int64 */
+            title_id: number;
+            title: string;
+            /** @description Whether `GET /titles/{id}/poster` has a poster for the Title. */
+            has_poster: boolean;
+            /** @description The Slot searched, or the Slots joined with a comma. */
+            slot: string;
+            /** @description The season searched when it is one season of a Series; null for a Movie or several seasons. */
+            season: number | null;
+            /** @description The Wanted episodes searched, as `S05E01` codes (at most 50); empty for a Movie. */
+            episodes: string[];
         };
         SearchPassResult: {
             /** Format: date-time */
@@ -3835,6 +3859,15 @@ export interface components {
             searched: number;
             /** @description The Grabs it made, Upgrades included. */
             grabbed: number;
+            /** @description The Releases the indexers returned and it evaluated. */
+            releases_seen: number;
+            /** @description The Upgrade searches it made. */
+            upgrades: number;
+            /**
+             * Format: int64
+             * @description How long the pass took.
+             */
+            duration_ms: number;
         };
         SearchIndexer: {
             /** Format: int64 */

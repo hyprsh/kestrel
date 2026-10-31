@@ -5460,7 +5460,7 @@ components:
             $ref: "#/components/schemas/SearchIndexer"
     SearchPass:
       type: object
-      required: [started_at, done, total]
+      required: [started_at, done, total, current, releases_seen, grabbed, upgrades_done, upgrades_total]
       properties:
         started_at:
           type: string
@@ -5469,13 +5469,55 @@ components:
           type: integer
           description: |
             The Wanted Versions it has got through: searched, or passed over because no indexer could
-            take a sweep search (those stay due). Its Upgrade searches come after them and are not counted.
+            take a sweep search (those stay due). Its Upgrade searches come after them and are counted
+            in `upgrades_done`.
         total:
           type: integer
           description: The Wanted Versions it found due.
+        current:
+          description: What is being searched now; null between items.
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/SearchTarget"
+        releases_seen:
+          type: integer
+          description: The Releases the indexers returned and the pass has evaluated so far, Upgrade searches included.
+        grabbed:
+          type: integer
+          description: The Grabs the pass has made so far, Upgrades included.
+        upgrades_done:
+          type: integer
+          description: The Upgrade searches it has got through, after the Wanted ones.
+        upgrades_total:
+          type: integer
+          description: The Upgrade searches it will make, at most `upgrades_per_pass`; 0 until the Wanted ones are done.
+    SearchTarget:
+      type: object
+      required: [title_id, title, has_poster, slot, season, episodes]
+      properties:
+        title_id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        has_poster:
+          type: boolean
+          description: Whether `GET /titles/{id}/poster` has a poster for the Title.
+        slot:
+          type: string
+          description: The Slot searched, or the Slots joined with a comma.
+        season:
+          type: integer
+          nullable: true
+          description: The season searched when it is one season of a Series; null for a Movie or several seasons.
+        episodes:
+          type: array
+          description: The Wanted episodes searched, as `S05E01` codes (at most 50); empty for a Movie.
+          items:
+            type: string
     SearchPassResult:
       type: object
-      required: [finished_at, searched, grabbed]
+      required: [finished_at, searched, grabbed, releases_seen, upgrades, duration_ms]
       properties:
         finished_at:
           type: string
@@ -5486,6 +5528,16 @@ components:
         grabbed:
           type: integer
           description: The Grabs it made, Upgrades included.
+        releases_seen:
+          type: integer
+          description: The Releases the indexers returned and it evaluated.
+        upgrades:
+          type: integer
+          description: The Upgrade searches it made.
+        duration_ms:
+          type: integer
+          format: int64
+          description: How long the pass took.
     SearchIndexer:
       type: object
       required: [instance_id, name, search_used, search_max, held, held_until]

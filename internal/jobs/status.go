@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyprsh/kestrel/internal/acquire"
 	"github.com/hyprsh/kestrel/internal/library"
 )
 
@@ -40,6 +41,14 @@ type SearchPass struct {
 	// Done are the Versions it has got through, searched or passed over because
 	// no indexer could take a sweep search, of Total.
 	Done, Total int
+	// Current is what is being searched now; nil between items.
+	Current *acquire.Target
+	// ReleasesSeen are the Releases the indexers returned and the pass has
+	// evaluated so far, and Grabbed the Grabs it has made.
+	ReleasesSeen, Grabbed int
+	// UpgradesDone of UpgradesTotal are the Upgrade searches that follow the
+	// Wanted ones; the total is 0 until the pass has planned them.
+	UpgradesDone, UpgradesTotal int
 }
 
 // SearchPassResult is how a finished pass went.
@@ -47,6 +56,10 @@ type SearchPassResult struct {
 	FinishedAt time.Time
 	// Searched are the Wanted Versions it searched and Grabbed the Grabs it made.
 	Searched, Grabbed int
+	// ReleasesSeen are the Releases it evaluated, Upgrades the Upgrade
+	// searches it made and Duration how long it took.
+	ReleasesSeen, Upgrades int
+	Duration               time.Duration
 }
 
 // searchTracker keeps the SearchStatus while searchDue runs.
@@ -58,6 +71,8 @@ type searchTracker struct {
 	missing, upgrades map[int64]int
 	// cur is the running pass's result so far; it becomes st.Last at its end.
 	cur SearchPassResult
+	// started is when the running pass began.
+	started time.Time
 }
 
 // begin starts a pass at `at` over the Versions due a missing search.
@@ -70,7 +85,35 @@ func (t *searchTracker) begin(at time.Time, missing []library.Due) {
 	}
 	t.st.Pass = &SearchPass{StartedAt: at, Total: len(missing)}
 	t.cur = SearchPassResult{}
+	t.started = at
 	t.count()
+}
+
+// Searching and Releases make the tracker the acquire.Observer of a pass.
+func (t *searchTracker) Searching(target acquire.Target) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.st.Pass != nil {
+		t.st.Pass.Current = &target
+	}
+}
+
+func (t *searchTracker) Releases(n int) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.cur.ReleasesSeen += n
+	if t.st.Pass != nil {
+		t.st.Pass.ReleasesSeen = t.cur.ReleasesSeen
+	}
+}
+
+// upgradesPlanned records how many Upgrade searches the pass will make.
+func (t *searchTracker) upgradesPlanned(n int) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.st.Pass != nil {
+		t.st.Pass.UpgradesTotal = n
+	}
 }
 
 // recount replaces what is due with a fresh count, between passes only: a
@@ -113,15 +156,26 @@ func (t *searchTracker) searched(upgrade bool, tried, versions []int64, grabs in
 	} else if t.st.Pass != nil {
 		t.st.Pass.Done += len(tried)
 	}
+	if p := t.st.Pass; p != nil {
+		p.Current = nil
+		if upgrade {
+			p.UpgradesDone += len(tried)
+		}
+	}
 	for _, v := range versions {
 		if _, ok := due[v]; ok {
 			delete(due, v)
-			if !upgrade {
+			if upgrade {
+				t.cur.Upgrades++
+			} else {
 				t.cur.Searched++
 			}
 		}
 	}
 	t.cur.Grabbed += grabs
+	if t.st.Pass != nil {
+		t.st.Pass.Grabbed = t.cur.Grabbed
+	}
 	t.count()
 }
 
@@ -140,6 +194,7 @@ func (t *searchTracker) end(at time.Time) {
 	t.st.Pass = nil
 	last := t.cur
 	last.FinishedAt = at
+	last.Duration = max(0, at.Sub(t.started))
 	t.st.Last = &last
 }
 
@@ -153,6 +208,10 @@ func (r *Runner) Search() SearchStatus {
 	out.Next = next
 	if out.Pass != nil {
 		p := *out.Pass
+		if p.Current != nil {
+			c := *p.Current
+			p.Current = &c
+		}
 		out.Pass = &p
 	}
 	if out.Last != nil {

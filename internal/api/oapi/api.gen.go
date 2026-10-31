@@ -3658,24 +3658,48 @@ type SearchIndexerHeld string
 
 // SearchPass defines model for SearchPass.
 type SearchPass struct {
+	// Current What is being searched now; null between items.
+	Current *SearchTarget `json:"current"`
+
 	// Done The Wanted Versions it has got through: searched, or passed over because no indexer could
-	// take a sweep search (those stay due). Its Upgrade searches come after them and are not counted.
-	Done      int       `json:"done"`
-	StartedAt time.Time `json:"started_at"`
+	// take a sweep search (those stay due). Its Upgrade searches come after them and are counted
+	// in `upgrades_done`.
+	Done int `json:"done"`
+
+	// Grabbed The Grabs the pass has made so far, Upgrades included.
+	Grabbed int `json:"grabbed"`
+
+	// ReleasesSeen The Releases the indexers returned and the pass has evaluated so far, Upgrade searches included.
+	ReleasesSeen int       `json:"releases_seen"`
+	StartedAt    time.Time `json:"started_at"`
 
 	// Total The Wanted Versions it found due.
 	Total int `json:"total"`
+
+	// UpgradesDone The Upgrade searches it has got through, after the Wanted ones.
+	UpgradesDone int `json:"upgrades_done"`
+
+	// UpgradesTotal The Upgrade searches it will make, at most `upgrades_per_pass`; 0 until the Wanted ones are done.
+	UpgradesTotal int `json:"upgrades_total"`
 }
 
 // SearchPassResult defines model for SearchPassResult.
 type SearchPassResult struct {
+	// DurationMs How long the pass took.
+	DurationMs int64     `json:"duration_ms"`
 	FinishedAt time.Time `json:"finished_at"`
 
 	// Grabbed The Grabs it made, Upgrades included.
 	Grabbed int `json:"grabbed"`
 
+	// ReleasesSeen The Releases the indexers returned and it evaluated.
+	ReleasesSeen int `json:"releases_seen"`
+
 	// Searched The Wanted Versions it searched.
 	Searched int `json:"searched"`
+
+	// Upgrades The Upgrade searches it made.
+	Upgrades int `json:"upgrades"`
 }
 
 // SearchStatus defines model for SearchStatus.
@@ -3707,6 +3731,23 @@ type SearchStatus struct {
 
 	// UpgradesPerPass How many Upgrade searches a pass makes at most, after its Wanted Versions.
 	UpgradesPerPass int `json:"upgrades_per_pass"`
+}
+
+// SearchTarget defines model for SearchTarget.
+type SearchTarget struct {
+	// Episodes The Wanted episodes searched, as `S05E01` codes (at most 50); empty for a Movie.
+	Episodes []string `json:"episodes"`
+
+	// HasPoster Whether `GET /titles/{id}/poster` has a poster for the Title.
+	HasPoster bool `json:"has_poster"`
+
+	// Season The season searched when it is one season of a Series; null for a Movie or several seasons.
+	Season *int `json:"season"`
+
+	// Slot The Slot searched, or the Slots joined with a comma.
+	Slot    string `json:"slot"`
+	Title   string `json:"title"`
+	TitleId int64  `json:"title_id"`
 }
 
 // Season defines model for Season.

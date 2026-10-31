@@ -29,6 +29,8 @@ type fakeAcquire struct {
 	rssPasses int
 
 	outcome func(titleID int64, versionIDs []int64) (acquire.Outcome, error)
+	// observed, when set, plays the part of the search: it reports to the Observer the loop handed in.
+	observed func(o acquire.Observer, titleID int64)
 	// searchesStopped says StopSearches was called.
 	searchesStopped bool
 }
@@ -54,9 +56,12 @@ func (f *fakeAcquire) SyncRSS(context.Context) (acquire.RSSOutcome, error) {
 	return f.rss, f.rssErr
 }
 
-func (f *fakeAcquire) SearchWanted(_ context.Context, titleID int64, versionIDs []int64) (acquire.Outcome, error) {
+func (f *fakeAcquire) SearchWanted(ctx context.Context, titleID int64, versionIDs []int64) (acquire.Outcome, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.observed != nil {
+		f.observed(acquire.ObserverOf(ctx), titleID)
+	}
 	f.searched = append(f.searched, append([]int64{titleID}, versionIDs...))
 	return f.outcome(titleID, versionIDs)
 }

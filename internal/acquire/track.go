@@ -337,10 +337,13 @@ func (s *Service) searchTitle(ctx context.Context, titleID int64, versionIDs []i
 	if len(in.Versions) == 0 {
 		return out, nil
 	}
+	obs := ObserverOf(ctx)
+	obs.Searching(targetOf(sub.detail, in))
 	entries, failures, err := s.candidates(ctx, sub, library.Scope{}, fromCache)
 	if err != nil {
 		return out, err
 	}
+	obs.Releases(len(entries))
 	out.Failures = failures
 	byRelease := map[string]*entry{}
 	for _, e := range entries {
