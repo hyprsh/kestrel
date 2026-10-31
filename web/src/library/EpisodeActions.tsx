@@ -2,7 +2,7 @@
 // the ticked episodes, from visible buttons on each row, above the table and in the bar for ticked episodes;
 // monitoring; and Delete files (DeleteFiles.tsx) in the ⋯ menus and the bar.
 import { Button, DotsMenu, Menu, MenuButton, MenuContainer, MenuDivider, MenuItem } from '@hyprsh/design'
-import { X } from 'lucide-react'
+import { ArrowUpCircle, ListFilter, Search, X, type LucideIcon } from 'lucide-react'
 import { useMemo, type FocusEvent, type KeyboardEvent } from 'react'
 import { useSearchNow } from '../api/grabs'
 import { useMonitorEpisodes, usePatchSeason, useProfiles, type Episode, type EpisodeScope, type TitleDetail } from '../api/queries'
@@ -13,6 +13,7 @@ import { useReport } from '../toasts'
 import { slotLabel, type SlotKey } from './bits'
 import { DeleteMenuItems, EpisodeDeleteConfirm, useEpisodeDeletes, type EpisodeDeletes } from './DeleteFiles'
 import { episodeCode, episodeRow, seasonName, seasonRow, type EpisodeVersion } from './episodes'
+import { IconAction } from './IconAction'
 import { TickBox } from './TickBox'
 import type { ManualSearchTarget } from './TitleDetail'
 
@@ -140,6 +141,7 @@ export function ManualButton({
   keyboard = true,
   variant = 'secondary',
   size = 'small',
+  icon: Icon,
 }: {
   versions: EpisodeVersion[]
   text: string
@@ -150,8 +152,12 @@ export function ManualButton({
   keyboard?: boolean
   variant?: 'secondary' | 'tertiary'
   size?: 'tiny' | 'small'
+  /** Shows this icon instead of `text`; `name` is then the tooltip and the only name. */
+  icon?: LucideIcon
 }) {
   const tab = keyboard ? undefined : -1
+  if (Icon && versions.length === 1)
+    return <IconAction icon={Icon} label={name} size={size} variant={variant} tabIndex={tab} onFocus={keyboard ? undefined : toRowCell} onClick={() => onPick(versions[0])} />
   if (versions.length === 1) {
     return (
       <Button variant={variant} size={size} aria-label={name} tabIndex={tab} onFocus={keyboard ? undefined : toRowCell} onClick={() => onPick(versions[0])}>
@@ -161,8 +167,18 @@ export function ManualButton({
   }
   return (
     <MenuContainer>
-      <MenuButton variant={variant} size={size} aria-label={name} showChevron={false} tabIndex={tab} onFocus={keyboard ? undefined : toRowCell} disabled={versions.length === 0}>
-        {text}
+      <MenuButton
+        variant={variant}
+        size={size}
+        aria-label={name}
+        svgOnly={Icon !== undefined}
+        title={Icon ? name : undefined}
+        showChevron={false}
+        tabIndex={tab}
+        onFocus={keyboard ? undefined : toRowCell}
+        disabled={versions.length === 0}
+      >
+        {Icon ? <Icon aria-hidden className="size-3.5" /> : text}
       </MenuButton>
       <Menu>
         {versions.map((v) => (
@@ -189,22 +205,27 @@ export function RowButtons({ actions, episode }: { actions: Pick<EpisodeActions,
   return (
     <span className="flex items-center justify-end gap-1">
       {wanted || files.length === 0 ? (
-        <Button
-          variant="secondary"
-          size="tiny"
-          aria-label={`Search ${code}`}
+        <IconAction
+          icon={Search}
+          label={`Search ${code}`}
           tabIndex={-1}
           onFocus={toRowCell}
           disabled={!wanted}
-          title={wanted ? undefined : nothingWanted}
           onClick={() => actions.search([episode], code, (ids) => ({ season: episode.season, episode_ids: ids }))}
-        >
-          Search
-        </Button>
+        />
       ) : (
-        <ManualButton versions={files} text="Upgrade" name={`Upgrade ${code}`} keyboard={false} size="tiny" onPick={(v) => actions.manual(v, scope, code)} />
+        <ManualButton versions={files} text="Upgrade" name={`Upgrade ${code}`} icon={ArrowUpCircle} keyboard={false} size="tiny" variant="tertiary" onPick={(v) => actions.manual(v, scope, code)} />
       )}
-      <ManualButton versions={versions} text="Manual…" name={`Manual search ${code}`} keyboard={false} size="tiny" onPick={(v) => actions.manual(v, scope, code)} />
+      <ManualButton
+        versions={versions}
+        text="Manual…"
+        name={`Manual search ${code}`}
+        icon={ListFilter}
+        keyboard={false}
+        size="tiny"
+        variant="tertiary"
+        onPick={(v) => actions.manual(v, scope, code)}
+      />
     </span>
   )
 }
@@ -250,9 +271,7 @@ export function SeasonButtons({ actions, season, episodes, columns }: { actions:
   const monitored = episodes.some((e) => e.monitored)
   return (
     <>
-      <Button variant="secondary" size="small" disabled={!wanted} title={wanted ? undefined : nothingWanted} onClick={() => actions.search(episodes, name, () => ({ season }))}>
-        Search season
-      </Button>
+      <IconAction icon={Search} label={`Search ${name}`} size="small" variant="secondary" disabled={!wanted} onClick={() => actions.search(episodes, name, () => ({ season }))} />
       <DotsMenu aria-label={`Actions for ${name}`} size="small" width={260}>
         {versions.map((v) => (
           <MenuItem key={v.slot} onSelect={() => actions.manual(v, { season }, name)}>

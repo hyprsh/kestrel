@@ -106,7 +106,7 @@ describe('the season switcher on the Title page', () => {
   it('has Search season in the toolbar, and Manual search season… and Reset column widths in the ⋯ menu', async () => {
     const { state } = await openSeries()
     expect(state.get().sent).toEqual([])
-    expect(screen.getByRole('button', { name: 'Search season' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Search Season 1' })).toBeEnabled()
     expect(screen.queryByRole('button', { name: /Manual search Season/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Reset column widths' })).not.toBeInTheDocument()
 
@@ -114,6 +114,16 @@ describe('the season switcher on the Title page', () => {
     expect(screen.getAllByRole('menuitem', { name: /^Manual search season…/ }).length).toBeGreaterThan(0)
     expect(screen.queryByRole('menuitem', { name: 'Reset column widths' })).not.toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
+  })
+
+  it('has icon buttons, named for the episode, for a row’s Search and Manual search, and for Search Season', async () => {
+    const { grid } = await openSeries()
+    const row = within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' }).closest('tr')!
+    for (const name of [/^Search S01E01$|^Upgrade S01E01$/, 'Manual search S01E01']) {
+      const button = within(row).getByRole('button', { name })
+      expect(button.textContent).toBe('')
+    }
+    expect(screen.getByRole('button', { name: 'Search Season 1' }).textContent).toBe('')
   })
 
   it('offers Reset column widths in the ⋯ menu only while the widths differ, and resets them', async () => {

@@ -11,6 +11,7 @@ import { CellPopover, EpisodeFilePopover, cellTitle } from './EpisodeFilePopover
 import { EpisodeName } from './EpisodeName'
 import { cellText, grabOf } from './cellDetail'
 import { episodeRow } from './episodes'
+import { rowActionsShown } from './IconAction'
 
 /**
  * The open season's episodes × Slots: a row per episode with a tick box, its code, name and air date, a state per Slot that
@@ -217,7 +218,7 @@ function EpisodeRow({
   const phone = usePhone()
   return (
     <>
-      <TableRow aria-rowindex={index + 2} data-episode={episode.id} data-menu-open={menuOpen ? '' : undefined} selected={ticked} current={found}>
+      <TableRow aria-rowindex={index + 2} data-episode={episode.id} data-menu-open={menuOpen ? '' : undefined} selected={ticked} current={found} className="group/row">
         <TableCell className="px-2">
           <EpisodeTick actions={actions} episode={episode} cell={`${index}-0`} tabIndex={tab(index, 0)} onFocus={() => onFocus(0)} />
         </TableCell>
@@ -264,7 +265,7 @@ function EpisodeRow({
           )
         })}
         <TableCell align="right" className="px-2">
-          <span className="flex items-center justify-end gap-1">
+          <span className={`flex items-center justify-end gap-1 ${rowActionsShown}`}>
             <RowButtons actions={actions} episode={episode} />
             <EpisodeMenu actions={actions} episode={episode} onOpenChange={onMenuOpenChange} />
           </span>

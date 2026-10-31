@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { serveDisplay } from '../test/serveDisplay'
-import { episode, fakeSeries } from '../test/series'
+import { episode, fakeSeries, pickSeason } from '../test/series'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -30,11 +30,15 @@ async function openGrid() {
   return screen.findByRole('grid', { name: 'Episodes' })
 }
 
-/** The seasons' tabs in order, then the episodes of the open season in order. */
-const tabsOf = () =>
-  within(screen.getByRole('tablist', { name: 'Seasons' }))
-    .getAllByRole('tab')
-    .map((t) => t.textContent?.replace(/\s?\d+\/\d+$/, ''))
+/** The seasons in the season menu, in order. */
+const tabsOf = async () => {
+  await userEvent.click(screen.getByRole('button', { name: /^Seasons: / }))
+  const names = within(screen.getByRole('menu'))
+    .getAllByRole('menuitemradio')
+    .map((t) => t.textContent?.replace(/\d\/\d$/, ''))
+  await userEvent.keyboard('{Escape}')
+  return names
+}
 const rowsOf = (grid: HTMLElement) =>
   within(grid)
     .getAllByRole('checkbox', { name: /^Tick Season/ })
@@ -43,13 +47,13 @@ const rowsOf = (grid: HTMLElement) =>
 beforeEach(() => localStorage.clear())
 
 describe('season order in the episode table', () => {
-  it('lists Season 1, 2, 3 and then Specials as tabs, and the oldest episode first, by default', async () => {
+  it('lists Season 1, 2, 3 and then Specials in the season menu, and the oldest episode first, by default', async () => {
     serveDisplay()
     fakeLongSeries()
     const grid = await openGrid()
-    expect(tabsOf()).toEqual(['Season 1', 'Season 2', 'Season 3', 'Specials'])
+    expect(await tabsOf()).toEqual(['Season 1', 'Season 2', 'Season 3', 'Specials'])
     expect(rowsOf(grid)).toEqual(['Season 3 episode 1', 'Season 3 episode 2']) // the latest season is open
-    await userEvent.click(screen.getByRole('tab', { name: /^Season 1/ }))
+    await pickSeason('Season 1')
     expect(rowsOf(grid)).toEqual(['Season 1 episode 1', 'Season 1 episode 2'])
   })
 
@@ -57,7 +61,7 @@ describe('season order in the episode table', () => {
     serveDisplay({ season_order: 'newest_first' })
     fakeLongSeries()
     const grid = await openGrid()
-    expect(tabsOf()).toEqual(['Season 3', 'Season 2', 'Season 1', 'Specials'])
+    expect(await tabsOf()).toEqual(['Season 3', 'Season 2', 'Season 1', 'Specials'])
     expect(rowsOf(grid)).toEqual(['Season 3 episode 2', 'Season 3 episode 1'])
   })
 

@@ -13,7 +13,7 @@ import { episodeCode, type EpisodeVersion } from './episodes'
 
 type FileSummary = components['schemas']['FileSummary']
 type EpisodeFile = components['schemas']['EpisodeFile']
-export const base = (path: string) => path.split(/[\\/]/).pop() ?? path
+const base = (path: string) => path.split(/[\\/]/).pop() ?? path
 const files = (n: number) => (n === 1 ? '1 file' : `${n} files`)
 
 /** What a deletion did, for its Toast: the files, and those whose Release was not blocklisted. */

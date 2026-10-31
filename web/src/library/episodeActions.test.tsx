@@ -139,7 +139,7 @@ describe('searching from the episode table', () => {
   it('searches the Wanted episodes of the season, and opens Manual search for it from the buttons above the table', async () => {
     const { searched, manual } = await openSeries()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Search season' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Search Season 1' }))
     await waitFor(() => expect(searched).toEqual([{ version: 52, body: { season: 1 } }]))
 
     await userEvent.click(screen.getByRole('button', { name: 'Actions for Season 1' }))
