@@ -58,6 +58,15 @@ describe('the Library filter', () => {
     expect(kept('bad kind:series')).toEqual(['Breaking Bad'])
   })
 
+  it('looks for the name before an episode code or a season, and for nothing at a bare code', () => {
+    for (const q of ['breaking s5e7', 'breaking 5x07', 'breaking S05E07', 'breaking s5']) expect(kept(q)).toEqual(['Breaking Bad'])
+    expect(kept('heat s2e5')).toEqual(['Heat'])
+    expect(kept('s2e5')).toEqual([])
+    expect(kept('2x05')).toEqual([])
+    expect(kept('s2')).toEqual([])
+    expect(kept('zodiac s2e5')).toEqual(['Zodiac'])
+  })
+
   it('matches free text fuzzily, per word, keeping the Library order', () => {
     expect(kept('bar namens')).toEqual(['Paddington']) // no accent needed
     expect(kept('bad breaking')).toEqual(['Breaking Bad'])

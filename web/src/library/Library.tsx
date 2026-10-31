@@ -1,6 +1,6 @@
 import { Button, EmptyState, KeyboardInput, Note, parseQuery, Skeleton } from '@hyprsh/design'
 import { Plus } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useProfiles, useTitles, type TitleRow } from '../api/queries'
 import { useQueue } from '../api/queue'
 import { useOpenCleanup } from '../cleanup/launch'
@@ -16,6 +16,10 @@ import { useSelection } from '../selection'
 import { useNow } from '../time'
 import { size, slotLabel } from './bits'
 import { BulkActions } from './BulkActions'
+import { EpisodeViewContext } from './episodeView'
+import { episodeCode, seasonName } from './episodes'
+import { useEpisodeSearch, type EpisodeActions } from './EpisodeActions'
+import { EpisodeHitRows, hitDomId } from './EpisodeHitRows'
 import { filterLibrary, libraryQualifiers, sortLabel, sortOfQuery, tabCounts, tabOf, withTab } from './filter'
 import { AddTitle, LibraryMenu, StateTabs, ViewSwitch } from './LibraryBar'
 import { ManualSearch } from './ManualSearch'
@@ -24,6 +28,7 @@ import { TitleDetail, type ManualSearchTarget } from './TitleDetail'
 import { TitleGrid } from './TitleGrid'
 import { TitleRows } from './TitleRows'
 import { TitleSummary } from './TitleSummary'
+import { useEpisodeResults, type EpisodeHit } from './useEpisodeResults'
 import { useLibraryView } from './useLibraryView'
 
 /** The qualifiers with a filter menu, which the phone's Filters button counts. */
@@ -93,6 +98,33 @@ export function Library({
     rows.findIndex((r) => r.id === selectedId),
   ) // the first row until something is picked
   const current = rows[index] as TitleRow | undefined
+  // The Episode and Season results above the Titles (list view; a filter such as "harbour s2e5"): the cursor moves
+  // through them and then the Titles. `hitKey` is the result it is on, null while it is on a Title.
+  const hits = useEpisodeResults(rows, parsed.text, !grid)
+  const [hitKey, setHitKey] = useState<string | null>(null)
+  const hitAt = hitKey === null ? -1 : hits.findIndex((h) => h.key === hitKey)
+  const hit = hitAt >= 0 ? hits[hitAt] : null
+  const cursor = hit ? hitAt : hits.length + index
+  const episodeView = useContext(EpisodeViewContext)
+  const episodeSearch = useEpisodeSearch()
+  const showHit = (h: EpisodeHit) => {
+    setHitKey(h.key)
+    onSelect(h.title.id)
+    episodeView?.setView({ titleId: h.title.id, season: h.season, episode: h.episode?.number ?? null })
+  }
+  const moveTo = (i: number) => {
+    if (i < hits.length) showHit(hits[i])
+    else {
+      setHitKey(null)
+      onSelect(rows[i - hits.length].id)
+    }
+  }
+  // A new first result (a new filter, or its episodes arriving) takes the cursor.
+  const firstHit = hits[0]?.key ?? null
+  useEffect(() => {
+    setHitKey(firstHit)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstHit])
   // A manual search replaces the Title pane; picking another Title in the list closes it.
   const [search, setSearch] = useState<(ManualSearchTarget & { titleId: number }) | null>(null)
   const searching = search !== null && search.titleId === current?.id
@@ -107,11 +139,15 @@ export function Library({
   const keys = !searching && !gridPage && !(phone && titleOpen)
   useListNav(
     'lib',
-    rows.length,
-    index,
-    (i) => onSelect(rows[i].id),
+    hits.length + rows.length,
+    cursor,
+    moveTo,
     () => {
-      if (phone) {
+      if (hit) {
+        showHit(hit)
+        if (phone) onOpenTitle(hit.title.id)
+        else paneRef.current?.focus()
+      } else if (phone) {
         if (current) onOpenTitle(current.id)
       } else if (grid) {
         setSummary(true)
@@ -128,7 +164,28 @@ export function Library({
     },
     keys,
   )
-  useKey('x', () => current && selection.toggle(current.id), keys)
+  useKey('x', () => current && !hit && selection.toggle(current.id), keys)
+  // `s` and `m` on a result: Search now, and Manual search (in the Slot that is Wanted, else the first).
+  useKey(
+    's',
+    () =>
+      hit &&
+      actionsOf(hit).search(
+        hit.episodes,
+        hit.episode ? episodeCode(hit.episode!) : seasonName(hit.season),
+        hit.episode ? (ids) => ({ season: hit.season, episode_ids: ids }) : () => ({ season: hit.season }),
+      ),
+    keys && hit !== null,
+  )
+  useKey(
+    'm',
+    () => {
+      if (!hit) return
+      const v = hit.versions.find((x) => hit.episodes.some((e) => e.cells[x.slot]?.state === 'wanted')) ?? hit.versions[0]
+      if (v) actionsOf(hit).manual(v, hit.episode ? { season: hit.season, episode_ids: [hit.episode.id] } : { season: hit.season }, hit.episode ? episodeCode(hit.episode!) : seasonName(hit.season))
+    },
+    keys && hit !== null,
+  )
   useKey('g', () => setView(grid ? 'list' : 'grid'), keys)
   // Escape closes the grid's summary, once there are no ticks for it to clear first.
   useKey(
@@ -158,8 +215,8 @@ export function Library({
       onKeyDown={(e) => {
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
           e.preventDefault()
-          const next = Math.min(Math.max(index + (e.key === 'ArrowDown' ? 1 : -1), 0), rows.length - 1)
-          if (rows[next]) onSelect(rows[next].id)
+          const next = Math.min(Math.max(cursor + (e.key === 'ArrowDown' ? 1 : -1), 0), hits.length + rows.length - 1)
+          if (hits.length + rows.length > 0) moveTo(next)
         } else if (e.key === 'Escape') {
           e.preventDefault()
           onQuery('')
@@ -180,6 +237,7 @@ export function Library({
   const bulk = selection.count > 0 ? <BulkActions rows={rows.filter((r) => selection.has(r.id))} shown={rows.length} onTickAll={selection.checkAll} onClear={selection.clear} compact={phone} /> : null
 
   const pick = (r: TitleRow) => {
+    setHitKey(null)
     onSelect(r.id)
     if (phone) onOpenTitle(r.id)
     else {
@@ -190,7 +248,33 @@ export function Library({
   const items = grid ? (
     <TitleGrid rows={rows} index={index} loading={titles.isPending} grabs={grabs} now={now} selection={selection} phone={phone} gridRef={listRef} onPick={pick} />
   ) : (
-    <TitleRows rows={rows} index={index} loading={titles.isPending} grabs={grabs} now={now} selection={selection} ticks={!phone || selection.active} phone={phone} listRef={listRef} onPick={pick} />
+    <TitleRows
+      rows={rows}
+      index={hit ? -1 : index}
+      loading={titles.isPending}
+      grabs={grabs}
+      now={now}
+      selection={selection}
+      ticks={!phone || selection.active}
+      phone={phone}
+      listRef={listRef}
+      onPick={pick}
+      lead={
+        <EpisodeHitRows
+          hits={hits}
+          current={hit}
+          actionsOf={actionsOf}
+          phone={phone}
+          onPick={(h) => {
+            showHit(h)
+            if (phone) onOpenTitle(h.title.id)
+            else focusList()
+          }}
+        />
+      }
+      navOffset={hits.length}
+      activeId={hit ? hitDomId(hit) : undefined}
+    />
   )
   const nothing = (
     <div className="flex flex-1 items-center justify-center p-6 text-center">
@@ -209,7 +293,19 @@ export function Library({
       ) : null}
     </div>
   )
-  const startSearch = (s: ManualSearchTarget) => current && setSearch({ ...s, titleId: current.id })
+  const startSearchFor = (titleId: number, s: ManualSearchTarget) => setSearch({ ...s, titleId })
+  const startSearch = (s: ManualSearchTarget) => current && startSearchFor(current.id, s)
+  /** What Search and Manual… do on a result row: for that Series, whichever Title the pane shows. */
+  function actionsOf(h: EpisodeHit): Pick<EpisodeActions, 'versions' | 'search' | 'manual'> {
+    return {
+      versions: h.versions,
+      search: (eps, label, scope) => episodeSearch(h.versions, eps, label, scope),
+      manual: (v, body, label) => {
+        showHit(h)
+        startSearchFor(h.title.id, { versionId: v.id, slot: v.slot, profileName: v.profileName, scope: { body, label } })
+      },
+    }
+  }
   // The selected Title's page, or the manual search that replaces it; `onEscape` is where Escape in the page goes.
   const titlePage = (onEscape: () => void) =>
     current && searching ? (
