@@ -200,8 +200,9 @@ func New(opts Options) *App {
 	if prober == nil {
 		prober = probe.Default()
 	}
+	folderFeed := imports.NewFolderFeed(st, opts.Clock)
 	mediaRefresh := imports.NewRefresher(imports.RefresherDeps{
-		Servers: imports.InstanceServers(pluginInstances), Health: healthSvc, Checks: pluginInstances, Logger: opts.Logger, Delay: opts.MediaRefreshDelay,
+		Servers: imports.InstanceServers(pluginInstances), Health: healthSvc, Checks: pluginInstances, Feed: folderFeed, Logger: opts.Logger, Delay: opts.MediaRefreshDelay,
 	})
 	imp, err := imports.New(imports.Deps{
 		Library: lib, Renames: lib, Profiles: profs, Prober: prober, Clock: opts.Clock, Health: healthSvc,
@@ -260,14 +261,15 @@ func New(opts Options) *App {
 	upd = updates.New(updates.Deps{Settings: appSettings, Health: healthSvc, Version: opts.Version, APIBase: opts.GitHubAPI, Clock: opts.Clock})
 	runner := jobs.Standard(jobs.Deps{
 		Refresher: refresher, Updates: upd, Acquire: acq, Library: lib, History: hist, LastRun: appSettings,
-		Sessions: func(ctx context.Context) error { _, err := api.PruneSessions(ctx, st, opts.Clock()); return err },
-		Health:   healthSvc, Marks: newPlexMarks(st, reqs, appSettings, pluginInstances, opts.Clock, opts.Logger), Importer: imp, ImportSource: acq, Trash: trashUpdates, Clock: opts.Clock, Logger: opts.Logger,
+		Sessions:      func(ctx context.Context) error { _, err := api.PruneSessions(ctx, st, opts.Clock()); return err },
+		FolderChanges: folderFeed.Prune,
+		Health:        healthSvc, Marks: newPlexMarks(st, reqs, appSettings, pluginInstances, opts.Clock, opts.Logger), Importer: imp, ImportSource: acq, Trash: trashUpdates, Clock: opts.Clock, Logger: opts.Logger,
 		WatchAhead: watchAhead,
 	})
 
 	deps := api.Deps{
 		Plugins: pluginInstances, Profiles: profs, RootFolders: roots, Settings: settingsTx{roots, profs, trash, pause, disp}, Display: disp, Pause: pause, Updates: upd,
-		Library: lib, Acquire: acq, Requests: reqs, Adoption: adoption, Cleanup: cleanup, Remover: remover, Imports: imp, Files: imp,
+		Library: lib, Acquire: acq, Requests: reqs, Adoption: adoption, Cleanup: cleanup, Remover: remover, Imports: imp, Files: imp, FolderChanges: folderFeed,
 		Jobs: runner, Refresher: refresher, Indexers: indexerHost, Health: healthSvc, History: hist, Scoring: live, Trash: trashAPI{trash, trashUpdates}, Keys: keys,
 		Meta: meta, TVDB: tvdb, Bridge: &metadata.Bridge{Meta: meta, TVDB: tvdb, Log: opts.Logger}, Posters: posters, PlexTV: plexTV,
 	}

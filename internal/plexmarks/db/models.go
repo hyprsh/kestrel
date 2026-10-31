@@ -102,6 +102,13 @@ type FileReplacedScore struct {
 	Score  int64
 }
 
+type FolderChange struct {
+	ID   int64
+	At   string
+	Path string
+	Kind string
+}
+
 type Grab struct {
 	ID               int64
 	TitleID          sql.NullInt64

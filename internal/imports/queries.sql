@@ -48,3 +48,20 @@ UPDATE adoption_plan SET monitor = ?, revision = revision + 1 WHERE id = 1;
 
 -- name: ReopenAdoptionRun :exec
 UPDATE adoption_plan SET state = 'scanning', revision = revision + 1, done = 0, total = ?, error = NULL WHERE id = 1;
+
+-- name: InsertFolderChange :exec
+INSERT INTO folder_changes (at, path, kind) VALUES (?, ?, ?);
+
+-- name: LastFolderChangeKind :one
+SELECT kind FROM folder_changes WHERE path = ? ORDER BY id DESC LIMIT 1;
+
+-- name: FolderChangeRange :one
+SELECT CAST(COALESCE(MIN(id), 0) AS INTEGER) AS min_id, CAST(COALESCE(MAX(id), 0) AS INTEGER) AS max_id FROM folder_changes;
+
+-- name: ListFolderChangesAfter :many
+SELECT id, at, path, kind FROM folder_changes WHERE id > ? ORDER BY id LIMIT ?;
+
+-- name: PruneFolderChanges :exec
+DELETE FROM folder_changes
+WHERE id <= (SELECT MAX(c.id) FROM folder_changes c WHERE c.at < ?)
+  AND id < (SELECT MAX(c.id) FROM folder_changes c);
