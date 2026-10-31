@@ -121,15 +121,12 @@ func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {
 	if out.PauseGrabs, err = s.pause.Paused(ctx); err != nil {
 		return oapi.Settings{}, err
 	}
-	if d, err := s.display.Get(ctx); err != nil {
+	d, err := s.display.Get(ctx)
+	if err != nil {
 		return oapi.Settings{}, err
-	} else {
-		out.Display = displayToAPI(d)
 	}
-	out.FromConfigFile.Display.SeasonOrder = s.declaresDisplay(configfile.DisplaySeasonOrder)
-	out.FromConfigFile.Display.SeasonsOpen = s.declaresDisplay(configfile.DisplaySeasonsOpen)
-	out.FromConfigFile.Display.ManualSearchSort = s.declaresDisplay(configfile.DisplayManualSearchSort)
-	out.FromConfigFile.Display.UpcomingFilters = s.declaresDisplay(configfile.DisplayUpcomingFilters)
+	out.Display = displayToAPI(d)
+	s.fillDeclaredDisplay(&out)
 	out.FromConfigFile.LanguageRegion = s.declares(configfile.SectionLanguageRegion)
 	out.FromConfigFile.RootFolders = s.declares(configfile.SectionRootFolders)
 	out.FromConfigFile.CheckGithubUpdates = s.declares(configfile.SectionCheckGitHubUpdates)
@@ -151,7 +148,7 @@ func (s *server) PatchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 	if err := s.refuseDeclared(patchedSections(r.Body)...); err != nil {
 		return nil, err // before any write, so the patch's other sections stay unsaved too
 	}
-	if err := s.refuseDeclaredDisplay(r.Body.Display); err != nil {
+	if err := s.refuseDeclaredDisplay(r.Body); err != nil {
 		return nil, err
 	}
 	if l := r.Body.LanguageRegion; l != nil && l.PrimaryLanguage != nil {

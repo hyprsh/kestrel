@@ -27,37 +27,35 @@ func enumPtr[T ~string](v *T) *string {
 	return &s
 }
 
-// declaresDisplay reports whether the Config File declares one display setting.
-func (s *server) declaresDisplay(d configfile.DisplaySetting) bool {
-	return s.opts.ConfigFile.DeclaresDisplay(d)
+// displaySettings is every display setting the API knows, in one list: whether
+// a patch names it and where Settings reports that the Config File declares it.
+var displaySettings = []struct {
+	key      configfile.DisplaySetting
+	named    func(*oapi.SettingsPatch) bool
+	declared func(*oapi.Settings) *bool
+}{
+	{configfile.DisplaySeasonOrder, func(p *oapi.SettingsPatch) bool { return p.Display.SeasonOrder != nil }, func(o *oapi.Settings) *bool { return &o.FromConfigFile.Display.SeasonOrder }},
+	{configfile.DisplaySeasonsOpen, func(p *oapi.SettingsPatch) bool { return p.Display.SeasonsOpen != nil }, func(o *oapi.Settings) *bool { return &o.FromConfigFile.Display.SeasonsOpen }},
+	{configfile.DisplayManualSearchSort, func(p *oapi.SettingsPatch) bool { return p.Display.ManualSearchSort != nil }, func(o *oapi.Settings) *bool { return &o.FromConfigFile.Display.ManualSearchSort }},
+	{configfile.DisplayUpcomingFilters, func(p *oapi.SettingsPatch) bool { return p.Display.UpcomingFilters != nil }, func(o *oapi.Settings) *bool { return &o.FromConfigFile.Display.UpcomingFilters }},
+}
+
+// fillDeclaredDisplay sets from_config_file.display for each setting the Config File declares.
+func (s *server) fillDeclaredDisplay(out *oapi.Settings) {
+	for _, d := range displaySettings {
+		*d.declared(out) = s.opts.ConfigFile.DeclaresDisplay(d.key)
+	}
 }
 
 // refuseDeclaredDisplay answers 409 for the first display setting the patch
-// names that the Config File declares. A nil patch names none.
-func (s *server) refuseDeclaredDisplay(d *struct {
-	ManualSearchSort *oapi.ManualSearchSort `json:"manual_search_sort,omitempty"`
-	SeasonOrder      *oapi.SeasonOrder      `json:"season_order,omitempty"`
-	SeasonsOpen      *oapi.SeasonsOpen      `json:"seasons_open,omitempty"`
-	UpcomingFilters  *struct {
-		HideImported *bool              `json:"hide_imported,omitempty"`
-		Kind         *oapi.UpcomingKind `json:"kind,omitempty"`
-		WantedOnly   *bool              `json:"wanted_only,omitempty"`
-	} `json:"upcoming_filters,omitempty"`
-}) error {
-	if d == nil {
+// names that the Config File declares. A patch with no display section names none.
+func (s *server) refuseDeclaredDisplay(p *oapi.SettingsPatch) error {
+	if p.Display == nil {
 		return nil
 	}
-	for _, c := range []struct {
-		named bool
-		which configfile.DisplaySetting
-	}{
-		{d.SeasonOrder != nil, configfile.DisplaySeasonOrder},
-		{d.SeasonsOpen != nil, configfile.DisplaySeasonsOpen},
-		{d.ManualSearchSort != nil, configfile.DisplayManualSearchSort},
-		{d.UpcomingFilters != nil, configfile.DisplayUpcomingFilters},
-	} {
-		if c.named && s.declaresDisplay(c.which) {
-			return s.declaredConflict("display."+string(c.which), changeTheFile)
+	for _, d := range displaySettings {
+		if d.named(p) && s.opts.ConfigFile.DeclaresDisplay(d.key) {
+			return s.declaredConflict("display."+string(d.key), changeTheFile)
 		}
 	}
 	return nil
