@@ -1,7 +1,7 @@
 // chrome: layout
-import { Menu, MenuDivider, MenuItem, MenuSection, parseQuery, termText, withoutTerm, withoutValue, withValue, type Term } from '@hyprsh/design'
-import { Funnel } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { Button, Menu, MenuDivider, MenuItem, MenuSection, parseQuery, termText, withoutTerm, withoutValue, withValue, type Term } from '@hyprsh/design'
+import { Funnel, Minus, MinusCircle } from 'lucide-react'
+import { useRef, type ReactNode } from 'react'
 import { usePhone } from '../responsive'
 import type { Facet } from '../filter/qualifiers'
 
@@ -48,14 +48,24 @@ function withoutExcluded(text: string, name: string, value: string, qualifiers: 
   return text.slice(0, from) + termText({ ...terms[i], values: rest }) + text.slice(to)
 }
 
+/** The query with `value` excluded: added to the excluded `name:` term (`-slot:4k,standard`) or as a term of its own, and out of the included one. */
+function withExcludedValue(text: string, name: string, value: string, qualifiers: readonly Facet[]): string {
+  const base = withoutValue(text, name, value, qualifiers)
+  const terms = parseQuery(base, qualifiers).terms
+  const i = terms.findIndex((t: Term) => t.name === name && t.excluded)
+  if (i < 0) return `${base.trimEnd()} ${termText({ name, values: [value], excluded: true })}`.trimStart()
+  const [from, to] = terms[i].span
+  return base.slice(0, from) + termText({ ...terms[i], values: [...terms[i].values, value] }) + base.slice(to)
+}
+
 /** A facet that is a pick-many list; the one-value ones (Sort) have their own button. */
 const isMenu = (f: Facet) => f.label !== undefined && !f.single
 
 /**
  * The Filter button of a screen with a filter field: a section per facet (a qualifier with a `label`), its values as
  * checkable items. The query text is the only state, so ticking a value writes its token into the field (`slot:4k`) and
- * a token typed in the field ticks its row. A value typed as an exclusion (`-slot:4k`) shows as Excluded; choosing it
- * takes the term out. The badge counts the facets that have a term.
+ * a token typed in the field ticks its row. Shift+click or Shift+Enter on a value, or the ⊖ on its row (on hover), writes the exclusion (`-slot:4k`); an excluded
+ * value shows a minus and "Excluded", and choosing it takes the term out. The badge counts the facets that have a term, excluded or not.
  */
 export function FacetFilterButton({
   query,
@@ -74,6 +84,8 @@ export function FacetFilterButton({
   leadActive?: number
 }) {
   const facets = qualifiers.filter(isMenu)
+  // A Shift-click or Shift+Enter excludes in the item's onClick, which the menu calls before onSelect: this tells onSelect it has been done.
+  const excludedByKey = useRef(false)
   const parsed = parseQuery(query, qualifiers)
   const names = new Set(facets.map((f) => f.name))
   const active = new Set(parsed.terms.filter((t) => names.has(t.name)).map((t) => t.name)).size
@@ -90,23 +102,69 @@ export function FacetFilterButton({
           <div key={f.name}>
             {(i > 0 || lead) && <MenuDivider />}
             <MenuSection title={f.label}>
-              {values.map((v) => (
-                <MenuItem
-                  key={v}
-                  checked={included.has(v)}
-                  description={f.options?.[v]?.description}
-                  suffix={excluded.has(v) ? 'Excluded' : suffix?.(f.name, v)}
-                  onSelect={() =>
-                    onQuery(excluded.has(v) ? withoutExcluded(query, f.name, v, qualifiers) : included.has(v) ? withoutValue(query, f.name, v, qualifiers) : withValue(query, f.name, v, qualifiers))
-                  }
-                >
-                  {f.options?.[v]?.label ?? v}
-                </MenuItem>
-              ))}
+              {values.map((v) => {
+                const label = f.options?.[v]?.label ?? v
+                const isExcluded = excluded.has(v)
+                const exclude = () => onQuery(withExcludedValue(query, f.name, v, qualifiers))
+                const toggle = () =>
+                  onQuery(isExcluded ? withoutExcluded(query, f.name, v, qualifiers) : included.has(v) ? withoutValue(query, f.name, v, qualifiers) : withValue(query, f.name, v, qualifiers))
+                return (
+                  <MenuItem
+                    key={v}
+                    className="group"
+                    checked={included.has(v)}
+                    prefix={isExcluded ? <Minus className="size-4 text-red-900" aria-hidden /> : undefined}
+                    description={f.options?.[v]?.description}
+                    suffix={
+                      <>
+                        {isExcluded ? <span className="text-red-900">Excluded</span> : suffix?.(f.name, v)}
+                        {f.excludable && !isExcluded && (
+                          // The exclude action shows on hover or focus; Shift+click and Shift+Enter on the row do the same.
+                          <Button
+                            svgOnly
+                            size="tiny"
+                            variant="tertiary"
+                            tabIndex={-1}
+                            aria-label={`Exclude ${label}`}
+                            title={`Exclude ${label}`}
+                            className="opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 focus:opacity-100"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              exclude()
+                            }}
+                          >
+                            <MinusCircle />
+                          </Button>
+                        )}
+                      </>
+                    }
+                    onClick={(e) => {
+                      if (e.shiftKey && f.excludable && !isExcluded) {
+                        excludedByKey.current = true
+                        exclude()
+                      }
+                    }}
+                    onSelect={() => {
+                      if (excludedByKey.current) excludedByKey.current = false
+                      else toggle()
+                    }}
+                  >
+                    {label}
+                  </MenuItem>
+                )
+              })}
             </MenuSection>
           </div>
         )
       })}
+      {facets.some((f) => f.excludable) && (
+        <>
+          <MenuDivider />
+          <li role="none" className="label-12 px-3 py-2 text-gray-900">
+            Shift-click to exclude
+          </li>
+        </>
+      )}
     </FilterButton>
   )
 }

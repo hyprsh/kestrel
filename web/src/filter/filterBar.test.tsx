@@ -73,6 +73,46 @@ describe('the Library Filter button', () => {
     expect(titles(list)).toEqual(['Heat', 'Zodiac', 'Alien'])
   })
 
+  it('excludes a row with Shift+Enter, and a plain Enter on it clears the exclusion', async () => {
+    const { list, field } = await open()
+    await userEvent.click(filterButton())
+    item('4K').focus()
+    await userEvent.keyboard('{Shift>}{Enter}{/Shift}')
+    expect(field).toHaveValue('-slot:4k')
+    expect(item('4K')).toHaveTextContent('Excluded')
+    expect(filterButton()).toHaveTextContent('Filter · 1') // an excluded value counts toward the badge
+    expect(titles(list)).toEqual(['Heat', 'Alien'])
+
+    item('4K').focus()
+    await userEvent.keyboard('{Enter}')
+    expect(field).toHaveValue('')
+  })
+
+  it('excludes a row with Shift+click, moving a value that was included over to the exclusion', async () => {
+    const { field } = await open()
+    await userEvent.type(field, 'slot:4k')
+    await userEvent.click(filterButton())
+    const user = userEvent.setup()
+    await user.keyboard('{Shift>}')
+    await user.click(item('4K'))
+    await user.keyboard('{/Shift}')
+    expect(field).toHaveValue('-slot:4k')
+    expect(item('4K')).toHaveAttribute('aria-checked', 'false')
+    expect(item('4K')).toHaveTextContent('Excluded')
+  })
+
+  it("excludes from the row's own action, and says how to exclude at the foot of the menu", async () => {
+    const { list, field } = await open()
+    await userEvent.type(field, 'zod')
+    await userEvent.click(filterButton())
+    expect(screen.getByText('Shift-click to exclude')).toBeInTheDocument()
+    await userEvent.click(screen.getAllByRole('button', { name: 'Exclude 4K', hidden: true })[0]) // the Slot's row comes before a Profile named alike
+    expect(field).toHaveValue('zod -slot:4k')
+    expect(item('4K')).toHaveTextContent('Excluded')
+    expect(screen.getAllByRole('button', { name: 'Exclude 4K', hidden: true })).toHaveLength(1) // an excluded row has no action: only the Profile's is left
+    expect(within(list).queryAllByRole('option')).toHaveLength(0) // zod is the one Title with a 4K Version
+  })
+
   it('sorts from the Display menu and clears it with the default row', async () => {
     const { field } = await open()
     await userEvent.click(screen.getByRole('button', { name: 'Display' }))
