@@ -209,7 +209,7 @@ describe('a Primary Language change in the background', () => {
     setup.sections.language = 'done'
     await waitFor(() => expect(within(language).queryByLabelText('Release-date country')).not.toBeInTheDocument(), { timeout: 5000 })
     expect(within(language).getByRole('button', { name: 'Edit' })).toBeInTheDocument()
-  }, 10000)
+  })
 })
 
 describe('running setup again', () => {
