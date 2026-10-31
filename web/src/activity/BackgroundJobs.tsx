@@ -107,6 +107,9 @@ export function BackgroundJobs({ onOpenTitle }: { onOpenTitle?: (id: number) => 
             return (
               <Entity
                 key={j.name}
+                // On a phone the Search row's buttons go under its progress instead of squeezing it.
+                className={pipeline ? 'max-sm:flex-wrap' : undefined}
+                rightClassName={pipeline ? 'max-sm:basis-full' : undefined}
                 right={
                   (j.runnable || pipeline) && (
                     <div className="flex gap-2">

@@ -43,7 +43,7 @@ function SearchPassRow({ pass: p, onOpenTitle }: { pass: Pass; onOpenTitle?: (id
   const left = timeLeft(p, now)
   const nowText = c ? `Now: ${nowParts(c).join(' · ')}` : null
   return (
-    <div className="flex items-start gap-3" aria-label="Search pass">
+    <div className="flex items-start gap-3 whitespace-normal" aria-label="Search pass">
       {c && <TitlePoster id={c.title_id} hasPoster={c.has_poster} size="sm" />}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="font-medium">Searching {phase.name}</span>
@@ -91,7 +91,7 @@ export function SearchProgress({ status: s, onOpenTitle }: { status: SearchStatu
   const now = useNow()
   const last = lastPassLine(s)
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1 whitespace-normal">
       {s.pass && <SearchPassRow pass={s.pass} onOpenTitle={onOpenTitle} />}
       <div>{waitingLine(s, now)}</div>
       {!s.pass && last && <div>{last}</div>}
