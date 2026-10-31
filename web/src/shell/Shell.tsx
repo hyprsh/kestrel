@@ -34,7 +34,7 @@ import { Rail as RailFrame, RailSpacer } from '../layout/Rail'
 import { PhoneTopBar, TopBar as TopBarFrame } from '../layout/TopBar'
 import { BlockingBanner } from './BlockingBanner'
 import { MoreSheet, PhoneTabBar, type Tab } from './PhoneNav'
-import { ServerStatus } from './ServerStatus'
+import { HealthPill } from './HealthPill'
 
 const screens = [
   { key: 'overview', label: 'Overview', icon: <Inbox /> },
@@ -431,7 +431,7 @@ function TopBar({
       end={
         <>
           <RunningIndicator running={running} onOpen={onOpenRunning} />
-          <ServerStatus />
+          <HealthPill />
         </>
       }
     >

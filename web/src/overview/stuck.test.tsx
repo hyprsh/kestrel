@@ -59,7 +59,7 @@ describe('A Stuck download in Needs attention', () => {
     fakeStuck()
     renderApp()
 
-    const row = (await within(await screen.findByRole('region', { name: /needs attention/i })).findAllByRole('listitem'))[0]
+    const row = (await within(await screen.findByRole('region', { name: /happening now/i })).findAllByRole('listitem'))[0]
 
     expect(row).toHaveTextContent('Download of Paddington is stuck · Paused in SABnzbd')
     expect(row).toHaveTextContent(/warning/i)

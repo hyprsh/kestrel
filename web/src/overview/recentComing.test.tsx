@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
-import { act, render, screen, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { dayString } from '../api/upcoming'
@@ -9,7 +9,6 @@ import { http } from '../test/handlers'
 import { server } from '../test/server'
 import { dayLabel } from '../upcoming/state'
 import { fakeLibrary, row } from '../test/library'
-import { fitCells } from './Shelf'
 
 type Recent = components['schemas']['RecentItem']
 type Upcoming = components['schemas']['UpcomingItem']
@@ -55,17 +54,8 @@ const url = () => location.pathname + location.search
 
 beforeEach(() => history.replaceState(null, '', '/'))
 
-describe('fitCells', () => {
-  it('fits eight posters on a desktop row, fewer as the width shrinks, and at least one', () => {
-    expect(fitCells(1200)).toBe(8)
-    expect(fitCells(600)).toBe(5)
-    expect(fitCells(358)).toBe(3)
-    expect(fitCells(40)).toBe(1)
-  })
-})
-
-describe('Recently added shelf', () => {
-  it('is one row of up to eight posters with the name and the Slot and age under each, the week count in the heading', async () => {
+describe('Recently added', () => {
+  it('is up to five rows with the poster, the name and the Slot and age, the week count in the heading', async () => {
     fakeRecent(
       many(10, (n) => recent(n)),
       14,
@@ -74,7 +64,7 @@ describe('Recently added shelf', () => {
 
     const section = await screen.findByRole('region', { name: 'Recently added · 14' })
     const posters = await within(section).findAllByRole('listitem')
-    expect(posters).toHaveLength(8)
+    expect(posters).toHaveLength(5)
     expect(posters[0]).toHaveTextContent('Imported 1')
     expect(posters[0]).toHaveTextContent('Standard · 3 h ago')
     expect(posters[1].querySelector('img')).toHaveAttribute('src', expect.stringContaining('/titles/42/poster'))
@@ -82,7 +72,7 @@ describe('Recently added shelf', () => {
     expect(posters[0].querySelector('img')).not.toBeInTheDocument()
   })
 
-  it('opens the Title from its poster', async () => {
+  it('opens the Title from its row', async () => {
     fakeRecent([recent(1)])
     fakeLibrary([row(41, 'Imported 1', 'Imported 1')])
     renderApp()
@@ -93,12 +83,12 @@ describe('Recently added shelf', () => {
     expect(await screen.findByRole('region', { name: /imported 1/i })).toBeInTheDocument()
   })
 
-  it('links its heading to the Library', async () => {
+  it('links to the Library from the pill below its rows', async () => {
     fakeRecent([recent(1)])
     renderApp()
 
     const section = await screen.findByRole('region', { name: /^Recently added/ })
-    await userEvent.click(within(section).getByRole('button', { name: 'Library →' }))
+    await userEvent.click(await within(section).findByRole('button', { name: 'Library →' }))
 
     expect(url()).toBe('/library')
   })
@@ -111,20 +101,20 @@ describe('Recently added shelf', () => {
   })
 })
 
-describe('Coming this week shelf', () => {
-  it('is one row of up to eight posters with the name and the day under each', async () => {
+describe('Coming this week', () => {
+  it('is up to five rows with the poster, the name and the day', async () => {
     fakeUpcoming(many(10, (n) => upcoming(n)))
     renderApp()
 
     const section = await screen.findByRole('region', { name: 'Coming this week · 10' })
     const posters = await within(section).findAllByRole('listitem')
-    expect(posters).toHaveLength(8)
+    expect(posters).toHaveLength(5)
     expect(posters[0]).toHaveTextContent('Movie 1')
     expect(posters[0]).toHaveTextContent(dayLabel(dayString(1)))
     expect(posters[0].querySelector('img')).toHaveAttribute('src', expect.stringContaining('/titles/21/poster'))
   })
 
-  it('names the episode of a Series under its poster', async () => {
+  it('names the episode of a Series', async () => {
     fakeUpcoming([upcoming(1, { kind: 'series', title: 'Severance', season: 2, episode: 4, episode_name: 'Woe' })])
     renderApp()
 
@@ -133,12 +123,12 @@ describe('Coming this week shelf', () => {
     expect(poster).toHaveTextContent('S02E04')
   })
 
-  it('links its heading to Upcoming', async () => {
+  it('links to Upcoming from the pill below its rows', async () => {
     fakeUpcoming([upcoming(1)])
     renderApp()
 
     const section = await screen.findByRole('region', { name: /^Coming this week/ })
-    await userEvent.click(within(section).getByRole('button', { name: 'Upcoming →' }))
+    await userEvent.click(await within(section).findByRole('button', { name: 'Upcoming →' }))
 
     expect(await screen.findByRole('list', { name: 'Agenda' })).toBeInTheDocument()
     expect(location.pathname).toBe('/upcoming')
@@ -149,44 +139,5 @@ describe('Coming this week shelf', () => {
     renderApp()
 
     expect(await screen.findByText('Nothing is due in the next 7 days.')).toBeInTheDocument()
-  })
-})
-
-describe('shelves at a narrow width', () => {
-  let width = 1200
-  let notify: (() => void)[] = []
-  beforeEach(() => {
-    width = 1200
-    notify = []
-    vi.stubGlobal(
-      'ResizeObserver',
-      class {
-        cb: ResizeObserverCallback
-        constructor(cb: ResizeObserverCallback) {
-          this.cb = cb
-        }
-        observe() {
-          const fire = () => this.cb([{ contentRect: { width } } as ResizeObserverEntry], this as unknown as ResizeObserver)
-          notify.push(fire)
-          fire()
-        }
-        disconnect() {}
-        unobserve() {}
-      },
-    )
-  })
-  afterEach(() => vi.unstubAllGlobals())
-
-  it('shows fewer posters on a phone and more again when the width grows', async () => {
-    width = 358
-    fakeRecent(many(8, (n) => recent(n)))
-    renderApp()
-
-    const section = await screen.findByRole('region', { name: /^Recently added/ })
-    expect(await within(section).findAllByRole('listitem')).toHaveLength(3)
-
-    width = 1200
-    act(() => notify.forEach((fire) => fire()))
-    expect(await within(section).findAllByRole('listitem')).toHaveLength(8)
   })
 })

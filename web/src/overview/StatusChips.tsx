@@ -1,12 +1,14 @@
-// The status chips under the Overview's header: Health, Searching, Indexers and, only while a Root
+// The status chips under the Overview's header: Health (on a phone only; a desktop has it in the top bar), Searching, Indexers and, only while a Root
 // folder's disk is low, Disk. Each is one line that links to its detail in Activity. The Health
 // section's tiles and the Searching card live in Activity's Health and Background Jobs tabs.
 import { Pill, StatusDot, Skeleton } from '@hyprsh/design'
 import type { ReactNode } from 'react'
-import { useAttention, useStatus, type SystemStatus } from '../api/attention'
+import { useStatus, type SystemStatus } from '../api/attention'
 import { useSearchStatus, type SearchStatus } from '../api/search'
 import { plural } from '../format'
 import { useOpenPlace } from '../place'
+import { usePhone } from '../responsive'
+import { HealthPill } from '../shell/HealthPill'
 import { until, useNow } from '../time'
 
 type Dot = 'success' | 'warning' | 'error' | 'neutral' | 'pending'
@@ -21,22 +23,6 @@ function Chip({ dot, path, children }: { dot?: Dot; path: string; children: Reac
 }
 
 const ChipSkeleton = () => <Skeleton width={120} height={24} />
-
-function HealthChip() {
-  const attention = useAttention()
-  if (!attention.data) return attention.isPending ? <ChipSkeleton /> : null
-  // Health issues only (their ids start "health-"): a Stuck download, Stalled Imports or a Silo Request are
-  // Needs attention rows too, but the Health tab this chip opens does not list them.
-  const rows = attention.data.rows.filter((r) => r.id.startsWith('health-'))
-  const blocking = rows.filter((r) => r.severity === 'blocking').length
-  const warning = rows.length - blocking
-  const parts = [blocking > 0 && `${blocking} Blocking`, warning > 0 && `${warning} ${warning === 1 ? 'Warning' : 'Warnings'}`].filter(Boolean)
-  return (
-    <Chip dot={blocking > 0 ? 'error' : warning > 0 ? 'warning' : 'success'} path="/activity/health">
-      Health · {parts.length > 0 ? parts.join(', ') : 'All checks OK'}
-    </Chip>
-  )
-}
 
 /** "Searching 3 of 12 Wanted · next pass in 14 min", or "Nothing waiting · next pass in …". */
 function searchLine(s: SearchStatus, now: number): string {
@@ -73,10 +59,12 @@ const lowDisks = (s: SystemStatus) => s.disks.filter((d) => d.free_bytes < d.low
 export function StatusChips() {
   const status = useStatus()
   const s = status.data
+  // The desktop top bar carries the Health pill; a phone's has no room for it.
+  const phone = usePhone()
   const indexers = s ? indexersLine(s.indexers) : null
   return (
     <div role="group" aria-label="Status" className="mb-6 flex flex-wrap items-center gap-2">
-      <HealthChip />
+      {phone && <HealthPill />}
       <SearchingChip />
       {!s && status.isPending && <ChipSkeleton />}
       {indexers && <Chip path="/activity/health">{indexers}</Chip>}

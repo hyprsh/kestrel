@@ -99,7 +99,7 @@ describe('Needs attention', () => {
     fakeAttention([sabRow(), exdevRow()])
     renderApp()
 
-    const section = await sectionOf(/needs attention/i)
+    const section = await sectionOf(/happening now/i)
     const rows = await within(section).findAllByRole('listitem')
 
     expect(rows).toHaveLength(2)
@@ -113,7 +113,7 @@ describe('Needs attention', () => {
     fakeAttention([])
     renderApp()
 
-    const section = await sectionOf(/needs attention/i)
+    const section = await sectionOf(/happening now/i)
 
     expect(await within(section).findByText(/nothing needs attention/i)).toBeInTheDocument()
     expect(within(section).queryByRole('listitem')).not.toBeInTheDocument()
@@ -125,7 +125,7 @@ describe('Needs attention', () => {
     renderApp()
 
     await screen.findByText('Warning 1')
-    const section = screen.getByRole('region', { name: 'Needs attention · 7' })
+    const section = screen.getByRole('region', { name: 'Happening now · 7' })
     const messages = () =>
       within(section)
         .getAllByRole('listitem')
@@ -146,7 +146,7 @@ describe('Needs attention', () => {
     fakeAttention([...blocking, exdevRow({ message: 'A warning' })])
     renderApp()
 
-    const section = await screen.findByRole('region', { name: 'Needs attention · 7' })
+    const section = await screen.findByRole('region', { name: 'Happening now · 7' })
     const messages = within(section)
       .getAllByRole('listitem')
       .map((r) => r.textContent)
@@ -158,7 +158,7 @@ describe('Needs attention', () => {
     fakeAttention([sabRow(), exdevRow()])
     renderApp()
 
-    const section = await screen.findByRole('region', { name: 'Needs attention · 2' })
+    const section = await screen.findByRole('region', { name: 'Happening now · 2' })
     expect(within(section).queryByRole('button', { name: /view all/i })).not.toBeInTheDocument()
   })
 
@@ -174,7 +174,7 @@ describe('Needs attention', () => {
     ])
     renderApp()
 
-    const row = await within(await sectionOf(/needs attention/i)).findByRole('listitem')
+    const row = await within(await sectionOf(/happening now/i)).findByRole('listitem')
 
     expect(within(row).getByRole('button', { name: 'Frobnicate' })).toBeInTheDocument()
     expect(within(row).queryByRole('button', { name: 'Take a look' })).not.toBeInTheDocument()
@@ -186,7 +186,7 @@ describe('Needs attention', () => {
     fakeAttention([exdevRow()])
     renderApp()
 
-    const row = await within(await sectionOf(/needs attention/i)).findByRole('listitem')
+    const row = await within(await sectionOf(/happening now/i)).findByRole('listitem')
 
     expect(within(row).getByRole('button', { name: 'Dismiss' })).toBeInTheDocument()
     expect(within(row).queryByRole('button', { name: 'More Actions' })).not.toBeInTheDocument()
@@ -196,7 +196,7 @@ describe('Needs attention', () => {
     const state = fakeAttention([sabRow()])
     renderApp()
 
-    const row = await within(await sectionOf(/needs attention/i)).findByRole('listitem')
+    const row = await within(await sectionOf(/happening now/i)).findByRole('listitem')
     await userEvent.click(within(row).getByRole('button', { name: 'Test' }))
 
     expect(await within(row).findByText('Test failed: SABnzbd did not answer')).toBeInTheDocument()
@@ -207,7 +207,7 @@ describe('Needs attention', () => {
     fakeAttention([sabRow()])
     renderApp()
 
-    const row = await within(await sectionOf(/needs attention/i)).findByRole('listitem')
+    const row = await within(await sectionOf(/happening now/i)).findByRole('listitem')
     await userEvent.click(within(row).getByRole('button', { name: 'Test' }))
 
     expect(await within(row).findByRole('alert')).toHaveTextContent('Test failed: SABnzbd did not answer')
@@ -219,7 +219,7 @@ describe('Needs attention', () => {
     state.test = { ok: true, code: null, message: 'SABnzbd 4.5.1' }
     renderApp()
 
-    const section = await sectionOf(/needs attention/i)
+    const section = await sectionOf(/happening now/i)
     const row = (await within(section).findAllByRole('listitem'))[0]
     await userEvent.click(within(row).getByRole('button', { name: 'Test' }))
 
@@ -238,7 +238,7 @@ describe('Needs attention', () => {
     ])
     renderApp()
 
-    const row = await within(await sectionOf(/needs attention/i)).findByRole('listitem')
+    const row = await within(await sectionOf(/happening now/i)).findByRole('listitem')
     await userEvent.click(within(row).getByRole('button', { name: 'Disable' }))
 
     await vi.waitFor(() => expect(state.calls).toEqual(['PATCH instance 11']))
@@ -249,7 +249,7 @@ describe('Needs attention', () => {
     fakeAttention([sabRow()])
     renderApp()
 
-    const row = await within(await sectionOf(/needs attention/i)).findByRole('listitem')
+    const row = await within(await sectionOf(/happening now/i)).findByRole('listitem')
     await userEvent.click(within(row).getByRole('button', { name: 'More Actions' }))
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Open in Settings' }))
 
@@ -261,7 +261,7 @@ describe('Needs attention', () => {
     fakeAttention([sabRow({ actions: [log] })])
     renderApp()
 
-    const row = await within(await sectionOf(/needs attention/i)).findByRole('listitem')
+    const row = await within(await sectionOf(/happening now/i)).findByRole('listitem')
     await userEvent.click(within(row).getByRole('button', { name: 'Show in the Log' }))
 
     expect(await screen.findByRole('combobox', { name: 'Filter the Log' })).toHaveValue('kind:health_raised,health_cleared')
@@ -271,7 +271,7 @@ describe('Needs attention', () => {
     const state = fakeAttention([exdevRow()])
     renderApp()
 
-    const section = await sectionOf(/needs attention/i)
+    const section = await sectionOf(/happening now/i)
     await userEvent.click(await within(section).findByRole('button', { name: 'Dismiss' }))
 
     expect(await within(section).findByText(/nothing needs attention/i)).toBeInTheDocument()
@@ -338,7 +338,7 @@ describe('Needs attention posters', () => {
     fakeAttention([stalledRow({ has_poster: true }), stalledRow({ id: 'stalled-2', subject: { ...subject, title_id: 6, grab_id: 10 }, has_poster: false }), exdevRow()])
     renderApp()
 
-    const rows = await within(await sectionOf(/needs attention/i)).findAllByRole('listitem')
+    const rows = await within(await sectionOf(/happening now/i)).findAllByRole('listitem')
 
     expect(rows[0].querySelector('[data-poster] img')).toHaveAttribute('src', expect.stringMatching(/\/titles\/5\/poster$/))
     expect(rows[1].querySelector('[data-poster]')).toBeInTheDocument()
@@ -349,7 +349,7 @@ describe('Needs attention posters', () => {
     server.use(http.get('/attention', () => new Promise(() => {})))
     renderApp()
 
-    const section = await sectionOf(/needs attention/i)
+    const section = await sectionOf(/happening now/i)
     expect(section.querySelectorAll('[style*="width: 32px"][style*="height: 48px"]')).toHaveLength(3)
   })
 
@@ -357,7 +357,7 @@ describe('Needs attention posters', () => {
     fakeAttention([sabRow(), exdevRow()])
     renderApp()
 
-    const rows = await within(await sectionOf(/needs attention/i)).findAllByRole('listitem')
+    const rows = await within(await sectionOf(/happening now/i)).findAllByRole('listitem')
 
     for (const r of rows) expect(r.querySelector('[data-poster]')).not.toBeInTheDocument()
   })

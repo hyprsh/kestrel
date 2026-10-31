@@ -17,7 +17,7 @@ export function firstFive<T>(items: T[], keep: (item: T) => boolean = () => fals
 }
 
 /**
- * `count` is how many there are in all, shown after the title once there are any ("Downloading now · 23").
+ * `count` is how many there are in all, shown after the title once there are any ("Happening now · 23").
  * `action` is a link on the heading's far end, for a section whose way on is not "View all" below its rows.
  */
 export function Section({ id, title, count, action, className, children }: { id: string; title: string; count?: number; action?: ReactNode; className?: string; children: ReactNode }) {
@@ -53,7 +53,11 @@ export function ViewAllHere({ count, open, onToggle }: { count: number; open: bo
   )
 }
 
-/** The one line a section shows when it has nothing. Its own padding is taken back, so the gap under the heading is the one a row list has. */
+/** The one line a section shows when it has nothing, in the same card a row list draws, so the sections line up. */
 export function EmptyLine({ title }: { title: string }) {
-  return <EmptyState size="small" title={title} className="-my-2" />
+  return (
+    <div className="hy-entity-list">
+      <EmptyState size="small" title={title} />
+    </div>
+  )
 }
