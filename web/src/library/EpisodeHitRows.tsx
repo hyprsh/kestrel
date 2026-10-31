@@ -14,7 +14,7 @@ import { slotKeys, slotLabel } from './bits'
 export const hitDomId = (h: EpisodeHit) => `hit-${h.key}`
 
 /** What the episode's state says, toned: Wanted (in which Slot, when only one is), downloading, or what it holds. */
-export function episodeState(e: Episode, slots: readonly string[]): { text: string; tone: Tone } {
+function episodeState(e: Episode, slots: readonly string[]): { text: string; tone: Tone } {
   const states = slotKeys.filter((k) => slots.includes(k)).map((k) => ({ k, s: e.cells[k]?.state }))
   const some = (state: string) => states.filter((x) => x.s === state)
   const which = (xs: typeof states) => (slots.length > 1 && xs.length < states.length ? ` in ${slotLabel[xs[0].k]}` : '')
@@ -36,7 +36,6 @@ type Props = {
 }
 
 const heading = (text: string): ReactNode => (
-  // chrome-ok: a heading between the options of the cursor listbox; no design component is one
   <li role="presentation" className="label-12 px-2.5 pt-2.5 pb-1 text-gray-900">
     {text}
   </li>

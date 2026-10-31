@@ -180,7 +180,7 @@ function comparer({ key, dir }: Sort): (a: TitleRow, b: TitleRow) => number {
  * is not part of a Title's name). A bare code names no Series, so it matches nothing (null), and the list does not fill
  * with every Series' S01E01.
  */
-export function nameOf(text: string): string | null {
+function nameOf(text: string): string | null {
   if (parseCode(text)) return null
   return splitCode(text)?.name ?? text
 }
