@@ -1,12 +1,13 @@
-import { Badge, Button, Checkbox, EmptyState, Error as ErrorMessage, KeyboardInput, Note, Pill, Table } from '@hyprsh/design'
+import { Badge, Button, Checkbox, EmptyState, Entity, Error as ErrorMessage, KeyboardInput, Note, Pill, Select, Table } from '@hyprsh/design'
 import { ArrowLeft, Download } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ApiError } from '../api/queries'
 import { useGrab, useReleases, type Release } from '../api/grabs'
 import type { EpisodeScope } from '../api/queries'
 import { useKey, useListNav } from '../keys'
 import { FilterStrip } from '../layout/FilterStrip'
 import { PaneFooter, PaneHeader } from '../layout/Pane'
+import { usePhone } from '../responsive'
 import { cx } from '../ui'
 
 function size(bytes: number): string {
@@ -144,6 +145,7 @@ export function ManualSearch({
   scope?: { body: EpisodeScope; label: string }
   onBack: () => void
 }) {
+  const phone = usePhone()
   const search = useReleases(versionId, scope?.body)
   const grabbing = useGrab()
   const [hideRejected, setHideRejected] = useState(false)
@@ -170,6 +172,13 @@ export function ManualSearch({
   }
   const sortBy = (key: SortKey, e: { detail: number }) => change({ ...view, sort: view.sort.key === key ? { key, dir: view.sort.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' } }, e)
   const isBest = view.sort.key === BEST_FIRST.key && view.sort.dir === BEST_FIRST.dir
+  const summary = (
+    <span className="copy-13 text-gray-900">
+      Profile {profileName} · {rows.length} Releases ·{' '}
+      {isBest ? 'best first' : `sorted by ${columns.find((c) => c.key === view.sort.key)?.label.toLowerCase()}, ${view.sort.dir === 'asc' ? 'ascending' : 'descending'}`}
+    </span>
+  )
+  const pin = (name: string, e: { detail: number }) => change({ ...view, pinned: view.pinned === name ? null : name }, e)
 
   const grab = () => {
     if (!current || !g || g.disabled || grabbing.isPending) return
@@ -194,35 +203,71 @@ export function ManualSearch({
   const skeleton = [0, 1, 2, 3, 4, 5].map((i) => <Table.SkeletonRow key={i} index={i} columns={skeletonColumns} />)
   const errors = search.data?.indexer_errors ?? []
   return (
-    <section ref={ref} tabIndex={-1} aria-label="Manual search" className="flex min-w-0 flex-1 flex-col outline-none">
-      <PaneHeader>
-        <Button variant="secondary" size="small" prefix={<ArrowLeft />} onClick={onBack}>
-          {titleName}
-        </Button>
-        <h2 className="heading-16">Manual search</h2>
-        <Badge variant="gray" contrast="low" size="sm">
-          {slotLabel}
-        </Badge>
-        {scope && (
-          <Badge variant="gray" contrast="low" size="sm">
-            {scope.label}
-          </Badge>
-        )}
-        <span className="copy-13 text-gray-900">
-          Profile {profileName} · {rows.length} Releases ·{' '}
-          {isBest ? 'best first' : `sorted by ${columns.find((c) => c.key === view.sort.key)?.label.toLowerCase()}, ${view.sort.dir === 'asc' ? 'ascending' : 'descending'}`}
-        </span>
-        {!isBest && (
-          <Button variant="tertiary" size="small" onClick={(e) => change({ ...view, sort: BEST_FIRST }, e)}>
-            Best first
-          </Button>
-        )}
-        <span className="ml-auto">
+    <section ref={ref} tabIndex={-1} aria-label="Manual search" className="flex min-h-0 min-w-0 flex-1 flex-col outline-none">
+      {phone ? (
+        <PhoneHeader
+          back={
+            <Button variant="secondary" size="small" prefix={<ArrowLeft />} onClick={onBack} className="self-start">
+              {titleName}
+            </Button>
+          }
+          badges={
+            <>
+              <Badge variant="gray" contrast="low" size="sm">
+                {slotLabel}
+              </Badge>
+              {scope && (
+                <Badge variant="gray" contrast="low" size="sm">
+                  {scope.label}
+                </Badge>
+              )}
+            </>
+          }
+          summary={summary}
+        >
+          <Select
+            size="small"
+            label="Sort"
+            labelPosition="inline"
+            wrapperClassName="min-w-0"
+            value={`${view.sort.key}:${view.sort.dir}`}
+            onChange={(e) => {
+              const [key, dir] = e.target.value.split(':') as [SortKey, 'asc' | 'desc']
+              change({ ...view, sort: { key, dir } }, { detail: 0 })
+            }}
+            options={sortOptions}
+          />
           <Checkbox checked={hideRejected} onChange={(e) => setHideRejected(e.target.checked)}>
             Hide rejected
           </Checkbox>
-        </span>
-      </PaneHeader>
+        </PhoneHeader>
+      ) : (
+        <PaneHeader>
+          <Button variant="secondary" size="small" prefix={<ArrowLeft />} onClick={onBack}>
+            {titleName}
+          </Button>
+          <h2 className="heading-16">Manual search</h2>
+          <Badge variant="gray" contrast="low" size="sm">
+            {slotLabel}
+          </Badge>
+          {scope && (
+            <Badge variant="gray" contrast="low" size="sm">
+              {scope.label}
+            </Badge>
+          )}
+          {summary}
+          {!isBest && (
+            <Button variant="tertiary" size="small" onClick={(e) => change({ ...view, sort: BEST_FIRST }, e)}>
+              Best first
+            </Button>
+          )}
+          <span className="ml-auto">
+            <Checkbox checked={hideRejected} onChange={(e) => setHideRejected(e.target.checked)}>
+              Hide rejected
+            </Checkbox>
+          </span>
+        </PaneHeader>
+      )}
 
       {errors.length > 0 && (
         <FilterStrip>
@@ -244,6 +289,13 @@ export function ManualSearch({
               {search.error.message}
             </Note>
           </div>
+        ) : phone ? (
+          // A phone has no room for eight columns: each Release is a stacked row, and the sort is a Select in the header.
+          <Entity.List aria-label="Releases" aria-busy={search.isPending || undefined} className="p-4">
+            {rows.map((x, i) => (
+              <ReleaseRow key={x.release_id} x={x} index={i} current={i === index} pinned={view.pinned} onSelect={() => setSel(i)} onPin={pin} />
+            ))}
+          </Entity.List>
         ) : (
           <Table.Root>
             <Table aria-label="Releases" aria-busy={search.isPending || undefined} stickyHeader>
@@ -366,10 +418,12 @@ export function ManualSearch({
             </>
           ) : null}
         </div>
-        <span className="label-12 flex items-center gap-1 text-gray-900">
-          <KeyboardInput small>j</KeyboardInput>
-          <KeyboardInput small>k</KeyboardInput> select · <KeyboardInput small>↵</KeyboardInput> grab · <KeyboardInput small>esc</KeyboardInput> back
-        </span>
+        {!phone && (
+          <span className="label-12 flex items-center gap-1 text-gray-900">
+            <KeyboardInput small>j</KeyboardInput>
+            <KeyboardInput small>k</KeyboardInput> select · <KeyboardInput small>↵</KeyboardInput> grab · <KeyboardInput small>esc</KeyboardInput> back
+          </span>
+        )}
         {g && (
           <Button variant={g.override ? 'secondary' : 'primary'} size="small" prefix={<Download />} disabled={g.disabled || grabbing.isPending} onClick={grab} title={g.reason}>
             {g.label}
@@ -400,4 +454,105 @@ function episodeTitles(x: Release): string | null {
   const titles = shownTitles(x)
   if (titles.length === 0) return null
   return titles.length > 2 ? `${titles.slice(0, 2).join(' / ')} / +${titles.length - 2} more` : titles.join(' / ')
+}
+
+/** The sort a phone offers in place of the column headers: best first, then each column both ways. */
+const sortOptions = [
+  { value: `${BEST_FIRST.key}:${BEST_FIRST.dir}`, label: 'Best first' },
+  ...columns.flatMap((c) =>
+    (['asc', 'desc'] as const)
+      .filter((dir) => !(c.key === BEST_FIRST.key && dir === BEST_FIRST.dir))
+      .map((dir) => ({ value: `${c.key}:${dir}`, label: `${c.label}, ${dir === 'asc' ? 'ascending' : 'descending'}` })),
+  ),
+]
+
+/** A phone's header: Back on its own line, then the Version, its summary and the controls. */
+function PhoneHeader({ back, badges, summary, children }: { back: ReactNode; badges: ReactNode; summary: ReactNode; children: ReactNode }) {
+  return (
+    <PaneHeader stacked>
+      {back}
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="heading-16">Manual search</h2>
+        {badges}
+      </div>
+      {summary}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">{children}</div>
+    </PaneHeader>
+  )
+}
+
+/**
+ * A Release as a phone's stacked row: its name and Score, then Quality, Size, Age, Indexer and the Custom Formats as
+ * Pills, then why it was rejected. `marks` goes after the name, for a Badge such as "Grabbed".
+ */
+function ReleaseRow({
+  x,
+  index,
+  current,
+  pinned,
+  onSelect,
+  onPin,
+  marks,
+}: {
+  x: Release
+  index: number
+  current: boolean
+  pinned: string | null
+  onSelect: () => void
+  onPin: (name: string, e: { detail: number }) => void
+  marks?: ReactNode
+}) {
+  const rejected = x.rejections.length > 0
+  const dim = rejected && 'opacity-50'
+  return (
+    <Entity current={current} data-nav={`ms-${index}`}>
+      <div className="flex min-w-0 flex-1 cursor-pointer flex-col gap-1.5" onClick={onSelect}>
+        <div className="flex items-start justify-between gap-2">
+          <span className={cx('label-12-mono min-w-0 break-all', dim)} title={x.name}>
+            {x.name}
+          </span>
+          <span className={cx('hy-num hy-mono shrink-0', dim)}>{x.score.toLocaleString('en-US')}</span>
+        </div>
+        <div className={cx('flex flex-wrap items-center gap-1', dim)}>
+          {x.rejections.some((r) => r.code === 'blocklisted') && (
+            <Badge variant="red" contrast="low" size="sm">
+              Blocklisted
+            </Badge>
+          )}
+          {x.fits === 'other_slot' && (
+            <Badge variant="gray" contrast="low" size="sm">
+              Other Slot
+            </Badge>
+          )}
+          {scopeLabel(x) && (
+            <Badge variant="gray" contrast="low" size="sm">
+              {scopeLabel(x)}
+            </Badge>
+          )}
+          {marks}
+          <Pill size="sm">{x.quality}</Pill>
+          <Pill size="sm">{size(x.size)}</Pill>
+          <Pill size="sm">{age(x.published_at)}</Pill>
+          <Pill size="sm">{x.indexer}</Pill>
+          {x.custom_formats.map((f) => (
+            <Pill
+              key={f.name}
+              size="sm"
+              pressed={pinned === f.name}
+              onPressedChange={() => undefined}
+              onClick={(e) => {
+                e.stopPropagation()
+                onPin(f.name, e.nativeEvent as MouseEvent)
+              }}
+              title={`${f.points} points: pin the Releases with ${f.name} to the top`}
+            >
+              {f.name}
+            </Pill>
+          ))}
+        </div>
+        {episodeTitles(x) && <div className={cx('copy-13 text-gray-900', dim)}>{episodeTitles(x)}</div>}
+        {rejected && <div className={cx('label-12', rejectionBlocked(x) ? 'text-red-900' : 'text-amber-900')}>{x.rejections.map((r) => r.message).join(' · ')}</div>}
+      </div>
+    </Entity>
+  )
 }
