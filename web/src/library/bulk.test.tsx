@@ -242,6 +242,17 @@ describe('changing the ticked Titles together', () => {
     expect(await findToast('Remove from Library failed: database locked')).toBeInTheDocument()
   })
 
+  it('warns, rather than only announcing, when a bulk Search could not start for some Titles', async () => {
+    fakeLibrary(rows())
+    fakeBulk(({ title_ids: [first, ...rest] }) => [changed(first), ...rest.map((id) => skipped(id, 'nothing_wanted', 'Nothing Wanted'))])
+    const pane = await withTicked('Heat', 'Zodiac')
+
+    await userEvent.click(within(pane).getByRole('button', { name: 'Search now' }))
+
+    const toast = await findToast('Search started for 1 Title; 1 has nothing Wanted')
+    expect(toast.closest('li')).toHaveTextContent(/^Warning/)
+  })
+
   it.each([
     ['Search now', { action: 'search' }],
     ['Refresh metadata', { action: 'refresh' }],

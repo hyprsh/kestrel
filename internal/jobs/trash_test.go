@@ -401,24 +401,130 @@ func TestTheDailyCheckThatIsNotDueKeepsTheLastOutcome(t *testing.T) {
 	}
 }
 
-func TestAPrimaryLanguageChangeSavesAtOnceAndReScoresInTheJob(t *testing.T) {
-	e := newTrashEnv(t)
-	saved := false
-	e.updates.OnRequest(func() {})
-	if err := e.updates.ChangeLanguage(context.Background(), func() error { saved = true; return nil }); err != nil {
-		t.Fatal(err)
+// languageChange is a Primary Language change that records what ran.
+type languageChange struct {
+	saved   []string
+	current string
+}
+
+func (l *languageChange) change(lang string) jobs.LanguageChange {
+	return jobs.LanguageChange{
+		Language: lang,
+		Apply: func(context.Context) error {
+			l.saved = append(l.saved, l.current)
+			l.current = lang
+			return nil
+		},
+		Undo: func(context.Context) error { l.current = l.saved[len(l.saved)-1]; return nil },
 	}
-	if !saved || len(e.rescored) != 0 {
-		t.Fatalf("saved = %v, re-scores = %d: the change must not wait for the re-score", saved, len(e.rescored))
+}
+
+func TestAPrimaryLanguageChangeIsSavedAndReScoredTogetherInTheJob(t *testing.T) {
+	e := newTrashEnv(t)
+	lc := &languageChange{current: "en"}
+	e.updates.OnRequest(func() {})
+	e.updates.ChangeLanguage(context.Background(), lc.change("de"))
+	if lc.current != "en" || len(e.rescored) != 0 {
+		t.Fatalf("language = %s, re-scores = %d: nothing happens before the pass", lc.current, len(e.rescored))
+	}
+	if got, ok := e.updates.PendingLanguage(); !ok || got != "de" {
+		t.Errorf("pending = %q, %v, want de", got, ok)
+	}
+	e.during = func([]int64, func(int)) {
+		if lc.current != "de" {
+			t.Errorf("language = %s during the re-score, want the new one saved in the same step", lc.current)
+		}
 	}
 	r := e.trashRunner()
 	if err := r.Pass(context.Background(), jobs.Trash); err != nil {
 		t.Fatal(err)
 	}
-	if len(e.rescored) != 1 || e.rescored[0].under != e.holder.Current() {
-		t.Errorf("re-scores = %d", len(e.rescored))
+	if lc.current != "de" || len(e.rescored) != 1 || e.rescored[0].under != e.holder.Current() {
+		t.Errorf("language = %s, re-scores = %d", lc.current, len(e.rescored))
+	}
+	if _, ok := e.updates.PendingLanguage(); ok {
+		t.Error("still pending after the pass")
 	}
 	if o := trashJob(r).Outcome; o == nil || o.Kind != jobs.OutcomeRescored {
 		t.Errorf("outcome = %+v, want rescored", o)
+	}
+}
+
+func TestAFailedLanguageReScoreLeavesTheLanguageAsItWas(t *testing.T) {
+	e := newTrashEnv(t)
+	lc := &languageChange{current: "en"}
+	e.updates.OnRequest(func() {})
+	e.updates.ChangeLanguage(context.Background(), lc.change("de"))
+	e.failWith = errors.New("disk full")
+	r := e.trashRunner()
+	if err := r.Pass(context.Background(), jobs.Trash); err == nil {
+		t.Fatal("the pass succeeded")
+	}
+	if lc.current != "en" {
+		t.Errorf("language = %s, want en: a failed re-score changes no setting", lc.current)
+	}
+	if _, ok := e.updates.PendingLanguage(); ok {
+		t.Error("still pending after the failed pass")
+	}
+	if o := trashJob(r).Outcome; o == nil || o.Kind != jobs.OutcomeFailed {
+		t.Errorf("outcome = %+v, want failed", o)
+	}
+}
+
+func TestASecondLanguageChangeReplacesThePendingOne(t *testing.T) {
+	e := newTrashEnv(t)
+	lc := &languageChange{current: "en"}
+	e.updates.OnRequest(func() {})
+	e.updates.ChangeLanguage(context.Background(), lc.change("de"))
+	e.updates.ChangeLanguage(context.Background(), lc.change("fr"))
+	if got, _ := e.updates.PendingLanguage(); got != "fr" {
+		t.Errorf("pending = %q, want fr", got)
+	}
+	if err := e.trashRunner().Pass(context.Background(), jobs.Trash); err != nil {
+		t.Fatal(err)
+	}
+	if lc.current != "fr" || len(lc.saved) != 1 || len(e.rescored) != 1 {
+		t.Errorf("language = %s, saves = %d, re-scores = %d, want one pass under fr", lc.current, len(lc.saved), len(e.rescored))
+	}
+}
+
+func TestALanguageChangeDuringAReScoreRunsAgain(t *testing.T) {
+	e := newTrashEnv(t)
+	lc := &languageChange{current: "en"}
+	e.updates.OnRequest(func() {})
+	e.updates.ChangeLanguage(context.Background(), lc.change("de"))
+	first := true
+	e.during = func([]int64, func(int)) {
+		if first {
+			first = false
+			e.updates.ChangeLanguage(context.Background(), lc.change("fr"))
+			if got, _ := e.updates.PendingLanguage(); got != "fr" {
+				t.Errorf("pending = %q during the pass, want the newer fr", got)
+			}
+		}
+	}
+	r := e.trashRunner()
+	_ = r.Pass(context.Background(), jobs.Trash)
+	if lc.current != "de" {
+		t.Fatalf("language = %s after the first pass, want de", lc.current)
+	}
+	_ = r.Pass(context.Background(), jobs.Trash)
+	if lc.current != "fr" || len(e.rescored) != 2 {
+		t.Errorf("language = %s, re-scores = %d, want fr after a second pass", lc.current, len(e.rescored))
+	}
+}
+
+func TestApplyLanguageSavesAndReScoresBeforeReturning(t *testing.T) {
+	e := newTrashEnv(t)
+	lc := &languageChange{current: "en"}
+	if err := e.updates.ApplyLanguage(context.Background(), lc.change("de")); err != nil {
+		t.Fatal(err)
+	}
+	if lc.current != "de" || len(e.rescored) != 1 {
+		t.Errorf("language = %s, re-scores = %d", lc.current, len(e.rescored))
+	}
+	e.failWith = errors.New("disk full")
+	if err := e.updates.ApplyLanguage(context.Background(), lc.change("fr")); err == nil || lc.current != "de" {
+		t.Errorf("err = %v, language = %s, want a failure that keeps de", err, lc.current)
 	}
 }

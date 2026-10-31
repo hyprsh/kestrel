@@ -223,6 +223,7 @@ func TestASectionLeftOutIsNotTouched(t *testing.T) {
 	if r := b.valid("PATCH", "/settings", `{"language_region":{"primary_language":"fr"},"check_github_updates":false}`); r.Status != 200 {
 		t.Fatalf("PATCH /settings = %d %s", r.Status, r.Body)
 	}
+	b.trashPass(t)
 
 	in.mustDeclare("reverse_proxy:\n  enabled: false\n  trusted_proxies: []\n  header: Remote-User\n")
 	b = in.login()

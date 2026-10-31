@@ -259,7 +259,7 @@ function Blocklist() {
       )}
       {list.isPending && phone && (
         <div className="p-4">
-          <SkeletonRows count={5} />
+          <SkeletonRows count={5} label="Loading the Blocklist" />
         </div>
       )}
       {items.length > 0 && phone && (

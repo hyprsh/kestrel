@@ -48,6 +48,7 @@ func newOffering(t *testing.T) search {
 	if r := s.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`); r.Status != 200 {
 		t.Fatalf("settings = %d %s", r.Status, r.Body)
 	}
+	s.trashPass(t)
 	if r := s.valid("PATCH", "/profiles/hd-primary", `{"original_language":"offer"}`); r.Status != 200 {
 		t.Fatalf("profile = %d %s", r.Status, r.Body)
 	}

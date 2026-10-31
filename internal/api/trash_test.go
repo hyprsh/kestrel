@@ -106,6 +106,14 @@ func TestUpdateFromTrashLoadsAValidSnapshotAndRejectsABrokenOneWhole(t *testing.
 	}
 }
 
+// trashPass runs the trash loop's pass, as a kick would.
+func (b *browser) trashPass(t *testing.T) {
+	t.Helper()
+	if err := b.in.app.Jobs.Pass(context.Background(), jobs.Trash); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestChangingThePrimaryLanguageRescoresFilesWithoutRenamingOrSearching(t *testing.T) {
 	t.Parallel()
 	s := newSearchBare(t)
@@ -125,6 +133,9 @@ func TestChangingThePrimaryLanguageRescoresFilesWithoutRenamingOrSearching(t *te
 	}
 	if got := s.version(t, s.hd); got.File == nil || got.File.Misfit {
 		t.Fatalf("file = %+v: the PATCH re-scored before returning", got.File)
+	}
+	if got := decode[settingsJSON](t, s.valid("GET", "/settings", "")).LanguageRegion; got.PrimaryLanguage != "en" || got.PendingLanguage != "de" {
+		t.Errorf("settings before the pass = %+v, want English with German pending: Language and Scores change together", got)
 	}
 	if err := s.in.app.Jobs.Pass(context.Background(), jobs.Trash); err != nil {
 		t.Fatal(err)
@@ -150,5 +161,32 @@ func TestTheTrashSwitchIsSavedWithTheSettings(t *testing.T) {
 	}
 	if got := decode[trashStatus](t, s.valid("GET", "/settings", "")); got.Trash.AutoUpdate {
 		t.Error("auto_update is still on")
+	}
+}
+
+func TestASecondLanguageChangeWhileOneWaitsReplacesIt(t *testing.T) {
+	t.Parallel()
+	s := newSearchBare(t)
+	s.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`)
+	s.valid("PATCH", "/settings", `{"language_region":{"primary_language":"fr","release_date_country":"BE"}}`)
+	if got := decode[settingsJSON](t, s.valid("GET", "/settings", "")).LanguageRegion; got.PendingLanguage != "fr" {
+		t.Errorf("pending = %q, want fr", got.PendingLanguage)
+	}
+	if err := s.in.app.Jobs.Pass(context.Background(), jobs.Trash); err != nil {
+		t.Fatal(err)
+	}
+	if got := decode[settingsJSON](t, s.valid("GET", "/settings", "")).LanguageRegion; got.PrimaryLanguage != "fr" || got.ReleaseDateCountry != "BE" || got.PendingLanguage != "" {
+		t.Errorf("settings = %+v, want French, BE, nothing pending", got)
+	}
+}
+
+func TestAnInvalidPrimaryLanguageIsRefusedAtOnce(t *testing.T) {
+	t.Parallel()
+	s := newSearchBare(t)
+	if r := s.valid("PATCH", "/settings", `{"language_region":{"primary_language":"xx"}}`); r.Status != 422 {
+		t.Fatalf("PATCH = %d %s, want 422", r.Status, r.Body)
+	}
+	if got := decode[settingsJSON](t, s.valid("GET", "/settings", "")).LanguageRegion; got.PendingLanguage != "" {
+		t.Errorf("pending = %q after a refused patch", got.PendingLanguage)
 	}
 }

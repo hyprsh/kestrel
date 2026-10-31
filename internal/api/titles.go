@@ -490,11 +490,7 @@ func (s *server) GetTitlePoster(ctx context.Context, r oapi.GetTitlePosterReques
 	if err != nil {
 		return nil, err
 	}
-	kind := metadata.Movie
-	if d.Kind == library.Series {
-		kind = metadata.Series
-	}
-	path, err := s.posters.Ensure(ctx, kind, d.TMDBID, d.PosterPath)
+	path, err := s.posters.Ensure(ctx, d.Kind.PosterKind(), d.TMDBID, d.PosterPath)
 	if errors.Is(err, metadata.ErrNoPoster) {
 		return nil, problem(http.StatusNotFound, "not_found", "this Title has no poster")
 	}

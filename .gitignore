@@ -15,3 +15,4 @@ node_modules/
 # VitePress docs site output and cache
 /web/docs-site/.vitepress/dist/
 /web/docs-site/.vitepress/cache/
+__pycache__/

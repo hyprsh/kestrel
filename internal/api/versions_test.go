@@ -166,6 +166,7 @@ func TestAFileThatNoLongerFitsAfterASwitchMakesTheVersionWantedAndAnyFittingRele
 	}
 	// The household now wants German; the English file is no good for the Primary-Language Profile.
 	s.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`)
+	s.trashPass(t)
 
 	r := s.valid("PATCH", fmt.Sprintf("/versions/%d", s.hd), `{"profile":"hd-primary"}`)
 

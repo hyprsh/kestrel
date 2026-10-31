@@ -96,10 +96,19 @@ export function SkeletonRow({ index = 0, poster, description = true }: { index?:
   )
 }
 
-/** `count` Skeleton rows in a list of their own, in the place of a section's rows. The list is `aria-busy`; its heading names what is loading. */
-export function SkeletonRows({ count = 3, ...row }: { count?: number; poster?: PosterSize | 'icon'; description?: boolean }) {
+/**
+ * `count` Skeleton rows in a list of their own, in the place of a section's rows. The list is `aria-busy`.
+ * Under a heading that names what is loading, that is all it needs. Where no heading does, pass `label`
+ * for the hidden status its siblings (`LoadingRegion`, `SkeletonForm`) announce.
+ */
+export function SkeletonRows({ count = 3, label, ...row }: { count?: number; label?: string; poster?: PosterSize | 'icon'; description?: boolean }) {
   return (
     <div aria-busy="true">
+      {label && (
+        <span role="status" className="sr-only">
+          {label}
+        </span>
+      )}
       <Entity.List className="@container">
         {Array.from({ length: count }, (_, i) => (
           <SkeletonRow key={i} index={i} {...row} />

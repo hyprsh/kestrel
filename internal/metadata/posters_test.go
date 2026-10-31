@@ -215,3 +215,16 @@ func TestRemoveDeletesATitlesPoster(t *testing.T) {
 		}
 	}
 }
+
+func TestAPosterThatCannotBeStoredLeavesNoSourceSidecar(t *testing.T) {
+	r := newPosterRig(t)
+	dir := filepath.Join(r.dir, "cache", "posters")
+	// A non-empty directory where the image goes makes the final rename fail.
+	if err := os.MkdirAll(filepath.Join(dir, "movie-1.jpg", "in the way"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_, _ = r.posters.Ensure(context.Background(), metadata.Movie, 1, "/a.jpg")
+	if _, err := os.Stat(filepath.Join(dir, "movie-1.src")); err == nil {
+		t.Error("the .src sidecar names a poster that was never stored")
+	}
+}

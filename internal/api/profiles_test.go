@@ -25,6 +25,7 @@ type settingsJSON struct {
 	LanguageRegion struct {
 		PrimaryLanguage    string `json:"primary_language"`
 		ReleaseDateCountry string `json:"release_date_country"`
+		PendingLanguage    string `json:"pending_primary_language"`
 	} `json:"language_region"`
 }
 
@@ -109,7 +110,12 @@ func TestChangingThePrimaryLanguageRepointsProfiles(t *testing.T) {
 	}
 
 	s = decode[settingsJSON](t, b.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`))
-	if s.LanguageRegion.PrimaryLanguage != "de" || s.LanguageRegion.ReleaseDateCountry != "DE" {
+	if s.LanguageRegion.PrimaryLanguage != "en" || s.LanguageRegion.PendingLanguage != "de" {
+		t.Errorf("queued: %+v, want English with German pending", s.LanguageRegion)
+	}
+	b.trashPass(t)
+	s = decode[settingsJSON](t, b.valid("GET", "/settings", ""))
+	if s.LanguageRegion.PrimaryLanguage != "de" || s.LanguageRegion.ReleaseDateCountry != "DE" || s.LanguageRegion.PendingLanguage != "" {
 		t.Errorf("German: %+v", s.LanguageRegion)
 	}
 	m := profileMap(t, b)
@@ -119,7 +125,9 @@ func TestChangingThePrimaryLanguageRepointsProfiles(t *testing.T) {
 	}
 
 	// The country stays editable, and a patch that names it keeps it.
-	s = decode[settingsJSON](t, b.valid("PATCH", "/settings", `{"language_region":{"primary_language":"fr","release_date_country":"BE"}}`))
+	b.valid("PATCH", "/settings", `{"language_region":{"primary_language":"fr","release_date_country":"BE"}}`)
+	b.trashPass(t)
+	s = decode[settingsJSON](t, b.valid("GET", "/settings", ""))
 	if s.LanguageRegion.ReleaseDateCountry != "BE" {
 		t.Errorf("country: %+v", s.LanguageRegion)
 	}

@@ -335,7 +335,7 @@ Lets people who share your Plex server make Requests. [Requesters](#requesters-p
 
 #### display
 
-The household-wide view defaults. Name any of the keys: each one you name is read-only in Settings, and each you leave out stays the UI's. They are where a view starts. A season someone opens or closes, a sort picked in Manual search and the Upcoming filters changed in a session still win.
+The household-wide view defaults. Name any of the keys: each one you name is read-only in Settings, and each you leave out stays the UI's. They are where a view starts. A season someone opens or closes, a sort picked in Manual search and the Upcoming filters changed in a session still win. ([ADR 0022](../adr/0022-declared-display-settings-may-leave-others-to-the-ui.md))
 
 | Field                | Value                                                                                                                                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

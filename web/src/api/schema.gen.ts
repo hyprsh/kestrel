@@ -401,9 +401,12 @@ export interface paths {
          * Change settings
          * @description A JSON merge patch over the sections: send only what changes. Changing `primary_language`
          *     re-points the eight Profiles to their backing TRaSH profiles and, unless the same patch
-         *     names `release_date_country`, moves the country to the new language's default. It also
-         *     re-scores every stored file under the new Profiles, in the same step; files are not renamed
-         *     and nothing is searched. A patch that names a section the Config File declares
+         *     names `release_date_country`, moves the country to the new language's default. Both change
+         *     in the background, in one step with a re-score of every stored file under the new Profiles:
+         *     the answer still shows the old `primary_language`, with `pending_primary_language`, until the
+         *     `trash` job has finished (see Activity); files are not renamed and nothing is searched. A
+         *     second change while one waits replaces it, and a failed re-score changes neither the
+         *     setting nor the Scores. A patch that names a section the Config File declares
          *     (`language_region`, `root_folders`, `check_github_updates`, or a `display` setting it declares) answers `409 conflict` and saves
          *     nothing, not even its other sections.
          */
@@ -2321,6 +2324,12 @@ export interface components {
                  * @example DE
                  */
                 release_date_country: string;
+                /**
+                 * @description Present while a change of `primary_language` waits for its re-score. `primary_language`
+                 *     stays the old Language until the `trash` job has re-scored every file under the new one;
+                 *     then it changes, and this is gone. A change that fails leaves `primary_language` as it was.
+                 */
+                pending_primary_language?: components["schemas"]["PrimaryLanguage"];
             };
         };
         /** @enum {string} */

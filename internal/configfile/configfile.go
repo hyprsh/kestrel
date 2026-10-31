@@ -131,21 +131,27 @@ const (
 	DisplayUpcomingFilters  DisplaySetting = "upcoming_filters"
 )
 
+// displaySettings is every key of the display section, with whether a Display
+// names it: the one list that DeclaresDisplay and the completeness check read.
+var displaySettings = []struct {
+	key   DisplaySetting
+	named func(*Display) bool
+}{
+	{DisplaySeasonOrder, func(d *Display) bool { return d.SeasonOrder != nil }},
+	{DisplaySeasonsOpen, func(d *Display) bool { return d.SeasonsOpen != nil }},
+	{DisplayManualSearchSort, func(d *Display) bool { return d.ManualSearchSort != nil }},
+	{DisplayUpcomingFilters, func(d *Display) bool { return d.UpcomingFilters != nil }},
+}
+
 // DeclaresDisplay reports whether the file declares the display setting s.
 func (f *File) DeclaresDisplay(s DisplaySetting) bool {
 	if f == nil || f.Display == nil {
 		return false
 	}
-	d := f.Display
-	switch s {
-	case DisplaySeasonOrder:
-		return d.SeasonOrder != nil
-	case DisplaySeasonsOpen:
-		return d.SeasonsOpen != nil
-	case DisplayManualSearchSort:
-		return d.ManualSearchSort != nil
-	case DisplayUpcomingFilters:
-		return d.UpcomingFilters != nil
+	for _, d := range displaySettings {
+		if d.key == s {
+			return d.named(f.Display)
+		}
 	}
 	return false
 }
@@ -352,7 +358,13 @@ func (f *File) complete() error {
 		need(r.Series != nil, "root_folders.series")
 	}
 	if d := f.Display; d != nil {
-		need(d.SeasonOrder != nil || d.SeasonsOpen != nil || d.ManualSearchSort != nil || d.UpcomingFilters != nil, "display.season_order, display.seasons_open, display.manual_search_sort or display.upcoming_filters (at least one)")
+		named := false
+		keys := make([]string, len(displaySettings))
+		for i, ds := range displaySettings {
+			named = named || ds.named(d)
+			keys[i] = "display." + string(ds.key)
+		}
+		need(named, strings.Join(keys[:len(keys)-1], ", ")+" or "+keys[len(keys)-1]+" (at least one)")
 	}
 	if p := f.ReverseProxy; p != nil {
 		need(p.Enabled != nil, "reverse_proxy.enabled")

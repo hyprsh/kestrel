@@ -273,7 +273,10 @@ type Trash interface {
 	// RequestUpdate asks the trash loop for an update pass; false when one is already waiting or running.
 	RequestUpdate() bool
 	Status(ctx context.Context) trashsync.Status
-	ChangeLanguage(ctx context.Context, change func() error) error
+	// ChangeLanguage queues a Primary Language change for the trash loop's pass, which saves it and re-scores in one step.
+	ChangeLanguage(ctx context.Context, c jobs.LanguageChange)
+	// PendingLanguage is the Primary Language queued or being re-scored now.
+	PendingLanguage() (string, bool)
 	AutoUpdate(ctx context.Context) (bool, error)
 }
 

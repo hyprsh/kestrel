@@ -33,6 +33,14 @@ const (
 	Series Kind = "series"
 )
 
+// PosterKind is the kind the poster cache files this Kind's posters under.
+func (k Kind) PosterKind() metadata.Kind {
+	if k == Series {
+		return metadata.Series
+	}
+	return metadata.Movie
+}
+
 // State is what a Version looks like in the Library.
 type State string
 

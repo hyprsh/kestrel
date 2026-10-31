@@ -101,22 +101,20 @@ export function HealthStrip() {
   const indexers = s ? s.indexers.map(indexerTile) : []
   const disks = s ? s.disks.map(diskTile) : []
   const failing = [...clients, ...indexers].filter((t) => t.tone === 'failing').length
-  const summary = !s ? '' : failing > 0 ? ` · ${failing} failing` : ' · all good'
+  // While the status loads the summary line is a Skeleton: the section is collapsed, so one inside it would be hidden.
+  const summary = !s ? (
+    <>
+      {' '}
+      <Skeleton width={64} height={16} className="inline-block align-middle" />
+    </>
+  ) : failing > 0 ? (
+    ` · ${failing} failing`
+  ) : (
+    ' · all good'
+  )
   return (
     <div>
-      <Collapse size="small" headingLevel={2} title={`Health${summary}`} expanded={chosen ?? failing > 0} onChange={setChosen}>
-        {status.isPending && (
-          <div aria-busy="true" className="flex flex-col gap-2 pt-3">
-            <Skeleton height={14} width={96} />
-            <ul aria-hidden className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {[0, 1, 2].map((i) => (
-                <li key={i}>
-                  <Skeleton height={64} />
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+      <Collapse size="small" headingLevel={2} title={<>Health{summary}</>} expanded={chosen ?? failing > 0} onChange={setChosen}>
         {s && (
           <div className="flex flex-col gap-4 pt-3">
             <Group title="Download client" tiles={clients} />

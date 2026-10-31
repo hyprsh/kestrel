@@ -110,11 +110,7 @@ func (r *Remover) DeleteTitle(ctx context.Context, titleID int64, deleteFiles bo
 		}
 	}
 	if r.d.Posters != nil {
-		kind := metadata.Movie
-		if d.Kind == library.Series {
-			kind = metadata.Series
-		}
-		r.d.Posters.Remove(kind, d.TMDBID)
+		r.d.Posters.Remove(d.Kind.PosterKind(), d.TMDBID)
 	}
 	if deleteFiles {
 		for _, f := range gone.Files {
