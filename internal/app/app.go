@@ -33,6 +33,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
 	"github.com/hyprsh/kestrel/internal/settings"
+	"github.com/hyprsh/kestrel/internal/settings/display"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 	"github.com/hyprsh/kestrel/internal/updates"
 	"github.com/hyprsh/kestrel/internal/watchahead"
@@ -151,6 +152,7 @@ func New(opts Options) *App {
 	profs := profiles.New(st, appSettings)
 	profs.UseScoring(live)
 	roots := rootfolders.New(appSettings, opts.DataDir)
+	disp := display.New(appSettings)
 	lib := library.New(st, opts.Clock).WithCountry(func(ctx context.Context) string {
 		region, _, err := profs.Region(ctx)
 		if err != nil {
@@ -212,7 +214,7 @@ func New(opts Options) *App {
 		Store: st, Library: lib, Profiles: profs, Meta: meta, TVDB: tvdb, Prober: prober, Roots: roots, Scoring: live,
 		History: hist, Clock: opts.Clock, Logger: opts.Logger, FolderChanged: mediaRefresh.FolderChanged,
 		Rescore: func(ctx context.Context, titleID int64) error {
-			return imp.RescoreTitles(ctx, live.Current(), []int64{titleID})
+			return imp.RescoreTitles(ctx, live.Current(), []int64{titleID}, nil)
 		},
 	})
 	if err != nil {
@@ -220,7 +222,7 @@ func New(opts Options) *App {
 	}
 	cleanup := imports.NewCleanup(imports.CleanupDeps{Library: lib, Profiles: profs, History: hist, Clock: opts.Clock, FolderChanged: mediaRefresh.FolderChanged})
 	remover := imports.NewRemover(imports.RemoverDeps{
-		Library: lib, Downloads: acq, Health: healthSvc, FolderChanged: mediaRefresh.FolderChanged, Clock: opts.Clock,
+		Library: lib, Downloads: acq, Health: healthSvc, Posters: posters, FolderChanged: mediaRefresh.FolderChanged, Clock: opts.Clock,
 	})
 
 	var upd *updates.Service
@@ -229,7 +231,9 @@ func New(opts Options) *App {
 	})
 	trashUpdates := jobs.NewTrashUpdates(jobs.TrashUpdatesDeps{
 		Snapshots: trash, Holder: live, Library: lib, Rescorer: imp, Logger: opts.Logger,
-		Enabled: func(ctx context.Context) bool { return upd.Enabled(ctx) },
+		// Without a source there is nothing to check daily; the loop still runs
+		// for a Primary Language change's re-score.
+		Enabled: func(ctx context.Context) bool { return opts.TrashSource != nil && upd.Enabled(ctx) },
 	})
 	if err := trashUpdates.Start(context.Background()); err != nil {
 		panic("app: loading the stored TRaSH snapshot: " + err.Error())
@@ -244,7 +248,7 @@ func New(opts Options) *App {
 			region, _, err := profs.Region(ctx)
 			return string(region.Primary), err
 		},
-		History: hist, Health: healthSvc, Clock: opts.Clock, Logger: opts.Logger,
+		Posters: posters, History: hist, Health: healthSvc, Clock: opts.Clock, Logger: opts.Logger,
 	})
 	watchAhead := watchahead.New(watchahead.Deps{
 		Store: st, Clock: opts.Clock, Instances: pluginInstances, Requests: reqs, Library: lib, History: hist, Logger: opts.Logger,
@@ -257,22 +261,23 @@ func New(opts Options) *App {
 	runner := jobs.Standard(jobs.Deps{
 		Refresher: refresher, Updates: upd, Acquire: acq, Library: lib, History: hist, LastRun: appSettings,
 		Sessions: func(ctx context.Context) error { _, err := api.PruneSessions(ctx, st, opts.Clock()); return err },
-		Health:   healthSvc, Marks: newPlexMarks(st, reqs, appSettings, pluginInstances, opts.Clock, opts.Logger), Importer: imp, ImportSource: acq, Trash: trashLoop(trashUpdates, opts.TrashSource), Clock: opts.Clock, Logger: opts.Logger,
+		Health:   healthSvc, Marks: newPlexMarks(st, reqs, appSettings, pluginInstances, opts.Clock, opts.Logger), Importer: imp, ImportSource: acq, Trash: trashUpdates, Clock: opts.Clock, Logger: opts.Logger,
 		WatchAhead: watchAhead,
 	})
 
 	deps := api.Deps{
-		Plugins: pluginInstances, Profiles: profs, RootFolders: roots, Settings: settingsTx{roots, profs, trash, pause}, Pause: pause, Updates: upd,
+		Plugins: pluginInstances, Profiles: profs, RootFolders: roots, Settings: settingsTx{roots, profs, trash, pause, disp}, Display: disp, Pause: pause, Updates: upd,
 		Library: lib, Acquire: acq, Requests: reqs, Adoption: adoption, Cleanup: cleanup, Remover: remover, Imports: imp, Files: imp,
 		Jobs: runner, Refresher: refresher, Indexers: indexerHost, Health: healthSvc, History: hist, Scoring: live, Trash: trashAPI{trash, trashUpdates}, Keys: keys,
 		Meta: meta, TVDB: tvdb, Bridge: &metadata.Bridge{Meta: meta, TVDB: tvdb, Log: opts.Logger}, Posters: posters, PlexTV: plexTV,
 	}
 	watchlistSync := watchlist.New(watchlist.Deps{Store: st, TV: plexTV, Host: api.NewWatchlistHost(opts.Options, deps), Clock: opts.Clock, Logger: opts.Logger})
+	trashUpdates.OnRequest(func() { runner.Kick(jobs.Trash) })
 	runner.Add(jobs.WatchlistLoop(watchlistSync.Run))
 	handler := api.New(opts.Options, deps)
 	return &App{Handler: handler, Jobs: runner, Health: healthSvc, mediaRefresh: mediaRefresh, declarer: declarer{
 		file: opts.ConfigFile, api: api.NewDeclared(opts.Options, deps),
-		profiles: profs, roots: roots, updates: upd, trash: trashUpdates, plugins: pluginInstances, log: opts.Logger,
+		profiles: profs, roots: roots, display: disp, updates: upd, trash: trashUpdates, plugins: pluginInstances, log: opts.Logger,
 	}}
 }
 
@@ -282,10 +287,11 @@ type settingsTx struct {
 	profs *profiles.Service
 	trash *trashsync.Service
 	pause *acquire.Pause
+	disp  *display.Service
 }
 
 func (s settingsTx) InTx(tx *sql.Tx) api.SettingsWriter {
-	return settingsWriter{roots: s.roots.InTx(tx), profs: s.profs.InTx(tx), trash: s.trash.InTx(tx), pause: s.pause.InTx(tx)}
+	return settingsWriter{roots: s.roots.InTx(tx), profs: s.profs.InTx(tx), trash: s.trash.InTx(tx), pause: s.pause.InTx(tx), disp: s.disp.InTx(tx)}
 }
 
 type settingsWriter struct {
@@ -293,6 +299,11 @@ type settingsWriter struct {
 	profs *profiles.Service
 	trash *trashsync.Service
 	pause *acquire.Pause
+	disp  *display.Service
+}
+
+func (w settingsWriter) SetDisplay(ctx context.Context, p display.Patch) (display.Display, error) {
+	return w.disp.Set(ctx, p)
 }
 
 func (w settingsWriter) SetGrabsPaused(ctx context.Context, on bool) error {
@@ -307,6 +318,10 @@ func (w settingsWriter) SetRegion(ctx context.Context, p profiles.RegionPatch) (
 	return w.profs.SetRegion(ctx, p)
 }
 
+func (w settingsWriter) RestoreRegion(ctx context.Context, before profiles.Region, saved bool) error {
+	return w.profs.RestoreRegion(ctx, before, saved)
+}
+
 func (w settingsWriter) SetTrashAutoUpdate(ctx context.Context, on bool) error {
 	return w.trash.SetAutoUpdate(ctx, on)
 }
@@ -316,12 +331,4 @@ func (w settingsWriter) SetTrashAutoUpdate(ctx context.Context, on bool) error {
 type trashAPI struct {
 	*trashsync.Service
 	*jobs.TrashUpdates
-}
-
-// trashLoop is the daily TRaSH check, or nothing without a source.
-func trashLoop(s *jobs.TrashUpdates, src trashsync.Source) jobs.TrashChecker {
-	if src == nil {
-		return nil
-	}
-	return s
 }

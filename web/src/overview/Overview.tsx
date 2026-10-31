@@ -1,14 +1,15 @@
-// Overview, the home screen: Needs attention, the health strip, Searching, Downloading now,
-// Coming this week, Recently added and Recent requests.
-import { Note } from '@hyprsh/design'
+// Overview, the home screen: Needs attention, Downloading now, Searching, Recently added,
+// Coming this week, Recent requests and, last, Health.
 import { RowList } from '../layout/RowList'
 import { useState } from 'react'
 import { useAttention } from '../api/attention'
-import { useQueue, useCancelGrab } from '../api/queue'
+import { useQueue } from '../api/queue'
+import { useCancel } from '../grabs/useCancel'
 import { useRecentRequests } from '../api/requests'
 import { useRecent, useUpcoming } from '../api/upcoming'
 import { DownloadRow } from '../grabs/DownloadRow'
 import { useListNav } from '../keys'
+import { SkeletonRows } from '../loading'
 import { Coming, RecentlyAdded } from './ComingRecent'
 import { HealthStrip } from './HealthStrip'
 import { NeedsAttention, shownRows } from './NeedsAttention'
@@ -28,7 +29,7 @@ export function Overview({
   onOpenAdoption?: () => void
 }) {
   const queue = useQueue()
-  const cancel = useCancelGrab()
+  const cancel = useCancel()
   const all = queue.data ?? []
   const items = firstFive(all)
   const [allAttention, setAllAttention] = useState(false)
@@ -39,7 +40,7 @@ export function Overview({
 
   // One selection runs through every section in the order the screen reads: Needs attention, then
   // the main column (Downloading now, Recently added), then the side column (Coming this week, Recent
-  // requests). Enter does what clicking the row would.
+  // requests). Health has no rows to select. Enter does what clicking the row would.
   const [sel, setSel] = useState(0)
   const enter: (() => void)[] = [
     ...rows.map((r) => () => {
@@ -55,15 +56,16 @@ export function Overview({
   useListNav('ov', enter.length, sel, setSel, (i) => enter[i]?.())
   return (
     <div className="flex-1 overflow-y-auto p-6 max-sm:p-4">
-      {/* One column below 1024px, in reading order; from 1024px Needs attention spans the top and the main column (two thirds) sits beside the side column. */}
+      {/* One column below 1024px, in reading order; from 1024px Needs attention spans the top, the main column (two thirds) sits beside the side column and Health spans the bottom. */}
       <div className="mx-auto grid max-w-3xl grid-cols-1 gap-8 lg:max-w-7xl lg:grid-cols-3">
         <div className="lg:col-span-3">
           <NeedsAttention onOpen={onOpen} onOpenTitle={onOpenTitle} onOpenAdoption={onOpenAdoption} nav={nav(0)} all={allAttention} onAll={setAllAttention} />
         </div>
         <div className="flex min-w-0 flex-col gap-8 lg:col-span-2">
           <Section id="downloading-now" title="Downloading now" count={queue.data ? all.length : undefined}>
-            {cancel.isError && <Note variant="error">{cancel.error.message}</Note>}
-            {queue.data && items.length === 0 ? (
+            {queue.isPending ? (
+              <SkeletonRows poster="md" />
+            ) : queue.data && items.length === 0 ? (
               <EmptyLine title="Nothing is downloading." />
             ) : (
               <RowList>
@@ -72,8 +74,8 @@ export function Overview({
                     key={i.grab_id}
                     item={i}
                     nav={{ scope: 'ov', index: rows.length + n, sel, onSelect: () => setSel(rows.length + n) }}
-                    busy={cancel.isPending}
-                    onCancel={(blocklist) => cancel.mutate({ id: i.grab_id, blocklist })}
+                    busy={cancel.pending}
+                    onCancel={(blocklist) => void cancel.run(i.grab_id, blocklist)}
                     onOpenTitle={onOpenTitle}
                   />
                 ))}
@@ -85,9 +87,11 @@ export function Overview({
           <RecentlyAdded onOpenTitle={onOpenTitle} nav={nav(rows.length + items.length)} />
         </div>
         <div className="flex min-w-0 flex-col gap-8">
-          <HealthStrip />
           <Coming onOpenTitle={onOpenTitle} nav={nav(rows.length + items.length + recentItems.length)} />
           <RecentRequests onOpenTitle={onOpenTitle} nav={nav(rows.length + items.length + recentItems.length + coming.length)} />
+        </div>
+        <div className="lg:col-span-3">
+          <HealthStrip />
         </div>
       </div>
     </div>

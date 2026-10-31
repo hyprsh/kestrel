@@ -8,6 +8,7 @@ import { http } from '../test/handlers'
 import { detail, fakeLibrary, row } from '../test/library'
 import { cell, episode, fakeSeries, seriesRow } from '../test/series'
 import { server } from '../test/server'
+import { findToast } from '../test/toasts'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -68,8 +69,9 @@ describe("deleting a Movie's file", () => {
     expect(confirm).toHaveTextContent('4.0 GB')
     await userEvent.click(within(confirm).getByRole('button', { name: 'Delete' }))
 
+    expect(within(hd).queryByRole('dialog', { name: 'Delete files' })).not.toBeInTheDocument()
     await waitFor(() => expect(sent).toEqual([{ version: 11, query: '' }]))
-    expect(await within(hd).findByRole('status')).toHaveTextContent('Deleted 1 file')
+    expect(await findToast('Deleted 1 file.')).toBeInTheDocument()
   })
 
   it('can blocklist the Release too, and says when it could not', async () => {
@@ -81,7 +83,7 @@ describe("deleting a Movie's file", () => {
     await userEvent.click(within(hd).getByRole('button', { name: 'Delete and blocklist this Release' }))
 
     await waitFor(() => expect(sent).toEqual([{ version: 11, query: 'blocklist=true' }]))
-    expect(await within(hd).findByRole('status')).toHaveTextContent(/not blocklisted/)
+    expect(await findToast(/not blocklisted/)).toBeInTheDocument()
   })
 
   it('says when the file could not be deleted, and why', async () => {
@@ -92,9 +94,22 @@ describe("deleting a Movie's file", () => {
     await userEvent.click(screen.getByRole('menuitem', { name: 'Delete file' }))
     await userEvent.click(within(hd).getByRole('button', { name: 'Delete' }))
 
-    const status = await within(hd).findByRole('status')
-    expect(status).toHaveTextContent('Could not delete Paddington.mkv: permission denied.')
-    expect(status).not.toHaveTextContent('Nothing to delete')
+    const toast = await findToast(/Could not delete Paddington.mkv: permission denied./)
+    expect(toast).not.toHaveTextContent('Nothing to delete')
+  })
+
+  it('says in a Toast when the request failed, after the dialog closed', async () => {
+    server.use(
+      http.delete('/versions/{id}/files', ({ response }) => response('default').json({ type: 'about:blank', title: 'x', status: 500, code: 'internal', detail: 'disk offline' }, { status: 500 })),
+    )
+    const hd = await openFilledMovie()
+
+    await userEvent.click(within(hd).getByRole('button', { name: 'More Standard Version actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete file' }))
+    await userEvent.click(within(hd).getByRole('button', { name: 'Delete' }))
+
+    expect(await findToast('Could not delete the files: disk offline')).toBeInTheDocument()
+    expect(within(hd).queryByRole('dialog', { name: 'Delete files' })).not.toBeInTheDocument()
   })
 
   it('cancels without deleting', async () => {

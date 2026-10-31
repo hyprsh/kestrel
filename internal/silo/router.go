@@ -285,6 +285,10 @@ func statusOf(req kestrelRequest, sl slot.Slot) *pluginv1.TargetStatus {
 		return out
 	}
 	out.Status, out.ExternalStatus = s.Status, s.StatusLabel
+	if s.Stalled && (s.Status == "queued" || s.Status == "downloading") {
+		// A stalled download or Import: the cause stays in Kestrel for the admin.
+		out.Wording = &pluginv1.RequestStatusWording{Label: "Taking longer than usual"}
+	}
 	switch s.Status {
 	case "failed":
 		out.Message = "The Version was removed from Kestrel"

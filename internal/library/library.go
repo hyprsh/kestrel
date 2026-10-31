@@ -33,6 +33,14 @@ const (
 	Series Kind = "series"
 )
 
+// PosterKind is the kind the poster cache files this Kind's posters under.
+func (k Kind) PosterKind() metadata.Kind {
+	if k == Series {
+		return metadata.Series
+	}
+	return metadata.Movie
+}
+
 // State is what a Version looks like in the Library.
 type State string
 
@@ -164,13 +172,21 @@ type Version struct {
 
 // Coverage is how far a Series Version is filled. Episodes counts those it
 // holds a file for and those it Wants, so a Version is Wanted exactly when
-// Wanted is above zero.
+// Wanted is above zero. Unmonitored counts the released episodes without a file
+// that are not monitored. Downloading is the Wanted episodes a Grab in flight
+// covers, Long Missing or not, and DownloadingLongMissing those of them that
+// are also Long Missing. So Filled, Downloading, LongMissing less
+// DownloadingLongMissing, the rest of Wanted and Unmonitored are disjoint and
+// add up to the released episodes.
 type Coverage struct {
-	Episodes    int
-	Filled      int
-	Wanted      int
-	LongMissing int
-	Size        int64 // bytes of all the Version's files
+	Episodes               int
+	Filled                 int
+	Wanted                 int
+	LongMissing            int
+	Unmonitored            int
+	Downloading            int
+	DownloadingLongMissing int
+	Size                   int64 // bytes of all the Version's files
 }
 
 // coverageOf counts one Series Version's Units at now; size is the bytes of its files.
@@ -183,8 +199,19 @@ func coverageOf(units []Unit, size int64, now time.Time) *Coverage {
 			c.Filled++
 		case Wanted:
 			c.Wanted++
-			if IsLongMissing(st, since, now) {
+			long := IsLongMissing(st, since, now)
+			if long {
 				c.LongMissing++
+			}
+			if u.Grabbing {
+				c.Downloading++
+				if long {
+					c.DownloadingLongMissing++
+				}
+			}
+		case Unmonitored:
+			if u.Released != nil && !u.Released.After(now) {
+				c.Unmonitored++
 			}
 		}
 	}
@@ -585,6 +612,7 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 	var epsOf []db.Episode
 	var released map[int64]*time.Time
 	heldBy := heldMap{}
+	grabbing := map[int64]map[int64]bool{} // Version, then episode
 	if d.Kind == Series {
 		d.SeriesMonitor = Monitor(t.SeriesMonitor.String)
 		seasons, err := q.ListSeasonsOfTitle(ctx, id)
@@ -606,6 +634,16 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 			fe = append(fe, fileEp{r.VersionID, r.EpisodeID, r.Score})
 		}
 		heldBy = heldOf(fe)
+		gs, err := q.ListGrabbingEpisodesOfTitle(ctx, sql.NullInt64{Int64: id, Valid: true})
+		if err != nil {
+			return Detail{}, err
+		}
+		for _, g := range gs {
+			if grabbing[g.VersionID.Int64] == nil {
+				grabbing[g.VersionID.Int64] = map[int64]bool{}
+			}
+			grabbing[g.VersionID.Int64][g.EpisodeID] = true
+		}
 		filed, err := filedOfTitle(ctx, q, id)
 		if err != nil {
 			return Detail{}, err
@@ -620,6 +658,9 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 		var cov *Coverage
 		if d.Kind == Series {
 			units := unitsOf(epsOf, released, heldBy[v.ID], parseTime(v.AddedAt))
+			for i, e := range epsOf {
+				units[i].Grabbing = grabbing[v.ID][e.ID]
+			}
 			st, since = SeriesState(units, view.Now)
 			cov = coverageOf(units, versionSize[v.ID], view.Now)
 		} else {

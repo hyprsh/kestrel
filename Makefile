@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: typecheck release-dry-run dry-run-assets test-go-shard test-go-race test-parity notices build-silo help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet lint-go lint-web compose-check commit-check hooks docker check
+.PHONY: typecheck release-dry-run dry-run-assets test-go-shard test-go-race test-parity notices build-silo help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet lint-go lint-web compose-check commit-check hooks docker docs docs-dev docs-shots check
 
 VERSION ?= dev
 # The project's TMDB and TVDB keys are injected at link time; the default build embeds none.
@@ -116,10 +116,19 @@ dry-run-assets: ## The release's Silo plugin binaries, silo-repository.json and 
 	$(GORELEASER_CMD) release --snapshot --clean --skip=publish,announce,validate
 	scripts/check-release-dist.sh dist release-assets
 
+docs: ## Build the docs site into web/docs-site/.vitepress/dist; fails on a dead link or anchor in any rendered Markdown
+	npm --prefix web run docs:build
+
+docs-dev: ## Serve the docs site at http://localhost:5173/kestrel/ with hot reload
+	npm --prefix web run docs:dev
+
+docs-shots: ## Regenerate the screenshots in docs/guide/images from the demo fakes, light and dark (needs Chrome, node, python3)
+	scripts/demo/docs-shots.sh
+
 notices: ## Regenerate internal/notices/THIRD_PARTY_NOTICES.md (needs network and `npm --prefix web ci`)
 	scripts/gen-notices.sh
 
 typecheck: ## TypeScript typecheck of the SPA (tsc --noEmit)
 	npm --prefix web run typecheck
 
-check: fmt-check vet lint-go lint-web typecheck generate-check test compose-check ## Everything CI runs, minus the image build and the PR-title check
+check: fmt-check vet lint-go lint-web typecheck generate-check test compose-check docs ## Everything CI runs, minus the image build and the PR-title check

@@ -372,3 +372,34 @@ func TestAProfileOutsideItsSlotCannotBeStored(t *testing.T) {
 		t.Errorf("a Standard Profile 480-1080 was refused: %v", err)
 	}
 }
+
+func TestRestoreRegionPutsBackTheStoredStateIncludingNotSavedYet(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	before, saved, _ := s.Region(ctx)
+	de := profiles.German
+	if _, err := s.SetRegion(ctx, profiles.RegionPatch{Primary: &de}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RestoreRegion(ctx, before, saved); err != nil {
+		t.Fatal(err)
+	}
+	if r, saved, _ := s.Region(ctx); saved || r != before {
+		t.Errorf("after restoring an unsaved region: %+v saved=%v, want %+v not saved", r, saved, before)
+	}
+
+	fr := profiles.French
+	if _, err := s.SetRegion(ctx, profiles.RegionPatch{Primary: &fr}); err != nil {
+		t.Fatal(err)
+	}
+	before, saved, _ = s.Region(ctx)
+	if _, err := s.SetRegion(ctx, profiles.RegionPatch{Primary: &de}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RestoreRegion(ctx, before, saved); err != nil {
+		t.Fatal(err)
+	}
+	if r, saved, _ := s.Region(ctx); !saved || r != before {
+		t.Errorf("after restoring a saved region: %+v saved=%v, want %+v saved", r, saved, before)
+	}
+}

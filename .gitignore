@@ -11,3 +11,8 @@ node_modules/
 # GoReleaser output
 /dist/
 /release-assets/
+
+# VitePress docs site output and cache
+/web/docs-site/.vitepress/dist/
+/web/docs-site/.vitepress/cache/
+__pycache__/

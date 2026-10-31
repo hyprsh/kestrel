@@ -76,6 +76,7 @@ type refreshRig struct {
 	meta    *editedMeta
 	tvdb    *editedTVDB
 	ref     *jobs.Refresher
+	st      *store.Store
 	root    string
 	clock   time.Time
 	changed []string
@@ -89,7 +90,7 @@ func newRefreshRig(t *testing.T) *refreshRig {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
-	r := &refreshRig{root: t.TempDir(), clock: now}
+	r := &refreshRig{st: st, root: t.TempDir(), clock: now}
 	clock := func() time.Time { return r.clock }
 	tmdb := metadata.NewTMDB(metadata.TMDBOptions{BaseURL: metadatatest.New(t).APIBase(), Keys: metadata.StaticKey(metadatatest.Key)})
 	r.meta = &editedMeta{Provider: tmdb}
@@ -304,6 +305,32 @@ func TestAVanishedUpstreamEntryRaisesTheRowAndKeepsTheStoredData(t *testing.T) {
 	}
 	if rows, _ = r.health.List(ctx); len(rows) != 0 {
 		t.Errorf("a frozen Title raised again: %+v", rows)
+	}
+}
+
+type countingSweeper struct{ n int }
+
+func (c *countingSweeper) Sweep() error { c.n++; return nil }
+
+func TestTheDailyPassSweepsExpiredPostersOncePerDay(t *testing.T) {
+	ctx := context.Background()
+	r := newRefreshRig(t)
+	sw := &countingSweeper{}
+	r.ref = jobs.NewRefresher(jobs.RefresherDeps{
+		Library: r.lib, Grabs: noGrabs{}, Meta: r.meta, TVDB: r.tvdb, Renamer: r.imp, State: settings.New(r.st),
+		Primary: func(context.Context) (string, error) { return "en", nil },
+		Posters: sw, Clock: func() time.Time { return r.clock },
+	})
+	r.clock = now.Add(2 * time.Hour)
+	if err := r.ref.Daily(ctx); err != nil {
+		t.Fatal(err)
+	}
+	r.clock = r.clock.Add(time.Hour)
+	if err := r.ref.Daily(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if sw.n != 1 {
+		t.Errorf("%d sweeps, want 1 in a day", sw.n)
 	}
 }
 

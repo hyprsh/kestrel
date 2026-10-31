@@ -401,10 +401,13 @@ export interface paths {
          * Change settings
          * @description A JSON merge patch over the sections: send only what changes. Changing `primary_language`
          *     re-points the eight Profiles to their backing TRaSH profiles and, unless the same patch
-         *     names `release_date_country`, moves the country to the new language's default. It also
-         *     re-scores every stored file under the new Profiles, in the same step; files are not renamed
-         *     and nothing is searched. A patch that names a section the Config File declares
-         *     (`language_region`, `root_folders`, `check_github_updates`) answers `409 conflict` and saves
+         *     names `release_date_country`, moves the country to the new language's default. Both change
+         *     in the background, in one step with a re-score of every stored file under the new Profiles:
+         *     the answer still shows the old `primary_language`, with `pending_primary_language`, until the
+         *     `trash` job has finished (see Activity); files are not renamed and nothing is searched. A
+         *     second change while one waits replaces it, and a failed re-score changes neither the
+         *     setting nor the Scores. A patch that names a section the Config File declares
+         *     (`language_region`, `root_folders`, `check_github_updates`, or a `display` setting it declares) answers `409 conflict` and saves
          *     nothing, not even its other sections.
          */
         patch: operations["patchSettings"];
@@ -1820,11 +1823,14 @@ export interface paths {
         put?: never;
         /**
          * Update from TRaSH
-         * @description Fetches TRaSH's newest Custom Formats and profiles now, whatever the daily check's switch says.
-         *     The load is all-or-nothing: the snapshot must parse and every stored file is re-scored under it
-         *     before it becomes active. A snapshot that fails either is rejected whole (`422 validation`), the
-         *     previous one stays in use and the "TRaSH update rejected" Warning is raised. Nothing is renamed
-         *     or searched. When TRaSH cannot be reached it is `502 upstream_unavailable`.
+         * @description Asks for a pass of the `trash` loop that fetches TRaSH's newest Custom Formats and profiles,
+         *     whatever the daily check's switches say, and answers at once. The pass loads the snapshot
+         *     all-or-nothing: it must parse and every stored file is re-scored under it before it becomes
+         *     active. A snapshot that fails either is rejected whole, the previous one stays in use and the
+         *     "TRaSH update rejected" Warning is raised. Nothing is renamed or searched. `GET /jobs` shows
+         *     the pass's `progress` while it re-scores and its `outcome` when it ends (updated, up to date,
+         *     rejected, TRaSH unreachable). A request while one is already waiting or running starts no
+         *     second pass and is `202` too.
          */
         post: operations["updateTrash"];
         delete?: never;
@@ -2275,11 +2281,19 @@ export interface components {
              *     `grabs_paused`.
              */
             pause_grabs: boolean;
+            display: components["schemas"]["Display"];
             /**
              * @description Per section, `true` while the Config File declares it. A declared section can't be
              *     changed here: a patch naming it answers `409 conflict`.
              */
             from_config_file: {
+                /** @description Per display setting, `true` while the Config File declares it; a patch naming it answers `409 conflict`. */
+                display: {
+                    season_order: boolean;
+                    seasons_open: boolean;
+                    manual_search_sort: boolean;
+                    upcoming_filters: boolean;
+                };
                 language_region: boolean;
                 root_folders: boolean;
                 check_github_updates: boolean;
@@ -2310,6 +2324,41 @@ export interface components {
                  * @example DE
                  */
                 release_date_country: string;
+                /**
+                 * @description Present while a change of `primary_language` waits for its re-score. `primary_language`
+                 *     stays the old Language until the `trash` job has re-scored every file under the new one;
+                 *     then it changes, and this is gone. A change that fails leaves `primary_language` as it was.
+                 */
+                pending_primary_language?: components["schemas"]["PrimaryLanguage"];
+            };
+        };
+        /** @enum {string} */
+        SeasonOrder: "oldest_first" | "newest_first";
+        /** @enum {string} */
+        SeasonsOpen: "latest_and_wanted" | "all" | "none";
+        /**
+         * @description Best first, or a Manual search column with `_asc` or `_desc`. Score descending is best first, so
+         *     `score_desc` is not a value.
+         * @enum {string}
+         */
+        ManualSearchSort: "best_first" | "score_asc" | "release_asc" | "release_desc" | "quality_asc" | "quality_desc" | "languages_asc" | "languages_desc" | "formats_asc" | "formats_desc" | "size_asc" | "size_desc" | "age_asc" | "age_desc" | "indexer_asc" | "indexer_desc";
+        /** @description One of `all`, `movie` or `series`; anything else is `422`. */
+        UpcomingKind: string;
+        /**
+         * @description The household-wide view defaults. Each is where a browser or session starts: a season the
+         *     user opened or closed on a Series, a sort picked in Manual search and the Upcoming filters
+         *     changed in a session keep winning. Never saved, they report today's behavior.
+         */
+        Display: {
+            /** @description Newest first reverses the seasons and the episodes in each. Specials come last in both orders. */
+            season_order: components["schemas"]["SeasonOrder"];
+            /** @description Which seasons of a Series start open. `latest_and_wanted` opens the latest season and any with a Wanted episode, never Specials. */
+            seasons_open: components["schemas"]["SeasonsOpen"];
+            manual_search_sort: components["schemas"]["ManualSearchSort"];
+            upcoming_filters: {
+                kind: components["schemas"]["UpcomingKind"];
+                wanted_only: boolean;
+                hide_imported: boolean;
             };
         };
         /**
@@ -2321,6 +2370,20 @@ export interface components {
             series: string[];
         };
         SettingsPatch: {
+            /**
+             * @description Changes the named display settings. A setting the Config File declares answers `409 conflict`.
+             *     An unknown value answers `422` naming `display.<setting>`.
+             */
+            display?: {
+                season_order?: components["schemas"]["SeasonOrder"];
+                seasons_open?: components["schemas"]["SeasonsOpen"];
+                manual_search_sort?: components["schemas"]["ManualSearchSort"];
+                upcoming_filters?: {
+                    kind?: components["schemas"]["UpcomingKind"];
+                    wanted_only?: boolean;
+                    hide_imported?: boolean;
+                };
+            };
             pause_grabs?: boolean;
             check_github_updates?: boolean;
             /** @description A key that is omitted stays; an empty string clears the override so the next source applies. */
@@ -2959,15 +3022,32 @@ export interface components {
         VersionCoverage: {
             /**
              * @description The episodes the Version counts: those it holds a file for and those it Wants. Unmonitored
-             *     and unreleased episodes without a file are left out.
+             *     and unreleased episodes without a file are left out; see `unmonitored`.
              */
             episodes: number;
             /** @description Episodes the Version holds a file for. */
             filled: number;
             /** @description Episodes that are Wanted. */
             wanted: number;
-            /** @description The Wanted episodes that are Long Missing. */
+            /** @description The Wanted episodes that are Long Missing, those with a Grab in flight included. */
             long_missing: number;
+            /**
+             * @description Released episodes without a file that aren't monitored. The released episodes are
+             *     `filled + wanted + unmonitored`.
+             */
+            unmonitored: number;
+            /**
+             * @description The Wanted episodes a Grab in flight covers, Long Missing or not. A Grab is in flight until
+             *     it is Imported or Failed.
+             */
+            downloading: number;
+            /**
+             * @description The `downloading` episodes that are also Long Missing. For a bar of disjoint states, count
+             *     `filled`, `downloading`, `long_missing - downloading_long_missing`, the rest of `wanted`
+             *     (`wanted - downloading - (long_missing - downloading_long_missing)`) and `unmonitored`:
+             *     they add up to the released episodes.
+             */
+            downloading_long_missing: number;
             /**
              * Format: int64
              * @description Bytes of all the Version's files.
@@ -3437,6 +3517,37 @@ export interface components {
              */
             next_at: string | null;
             schedule: components["schemas"]["JobSchedule"];
+            /**
+             * @description How far the pass running now has got, for a loop that says (`trash` while it re-scores:
+             *     Titles re-scored of all of them); `null` between passes and for the other loops.
+             */
+            progress: components["schemas"]["JobProgress"] | null;
+            /**
+             * @description How the last pass that had something to say went (`trash`); `null` before one does. A pass
+             *     with nothing to say (the daily check that is not due) leaves it as it was, so tell a new
+             *     outcome by `at`.
+             */
+            outcome: components["schemas"]["JobOutcome"] | null;
+        };
+        JobProgress: {
+            done: number;
+            total: number;
+        };
+        JobOutcome: {
+            /**
+             * @description `updated` (a newer TRaSH snapshot is active), `up_to_date`, `rejected` (refused whole, the
+             *     previous one stays), `unreachable` (TRaSH could not be asked), `rescored` (files re-scored
+             *     after a Primary Language change) or `failed`; later versions may add kinds.
+             * @enum {string}
+             */
+            kind: "updated" | "up_to_date" | "rejected" | "unreachable" | "rescored" | "failed";
+            /** @description The outcome in a sentence, for the UI to show. */
+            text: string;
+            /**
+             * Format: date-time
+             * @description When the pass reported it.
+             */
+            at: string;
         };
         /** @description How often a loop runs. */
         JobSchedule: {
@@ -4003,6 +4114,8 @@ export interface components {
             title: string;
             year: number | null;
             kind: components["schemas"]["TitleKind"];
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. */
+            has_poster: boolean;
             slot: components["schemas"]["Slot"];
             release_name: string;
             score: number | null;
@@ -4211,6 +4324,13 @@ export interface components {
             status: "queued" | "downloading" | "completed" | "failed";
             /** @description `Not released yet` or `Searching` while queued. */
             status_label: string;
+            /**
+             * @description `true` while the Slot's Grab is a stalled download (the download client reports it paused, or
+             *     its downloaded amount has not grown for an hour) or its finished download has an Import that
+             *     waits for the environment to be fixed (disk full, a folder not writable). The Slot keeps its
+             *     `status`.
+             */
+            stalled: boolean;
             download: components["schemas"]["RequestDownload"] | null;
         };
         Request: {
@@ -6408,17 +6528,12 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Done; `changed` is false when TRaSH had nothing newer. */
-            200: {
+            /** @description The pass is requested, or is already waiting or running. */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": {
-                        changed: boolean;
-                        commit: string;
-                    };
-                };
+                content?: never;
             };
             default: components["responses"]["Problem"];
         };

@@ -1,11 +1,11 @@
 // The Originals available group of Needs attention: one row per Version whose Profile offers a
 // Release with the Title's Original Language only, with Accept and Dismiss and a link to the Title.
-import { Button, Collapse, Entity, Link, Note } from '@hyprsh/design'
+import { Button, Collapse, Entity, Link } from '@hyprsh/design'
 import { RowList, stackedRow, stackedRight } from '../layout/RowList'
 import { useState } from 'react'
 import { offerUnits, useAcceptOffer, useDismissOffer, type OriginalOffer, type OriginalsAvailable } from '../api/offers'
-import { useProfiles } from '../api/queries'
-import { slotLabel } from '../library/bits'
+import { useReport } from '../toasts'
+import { profileName, slotProfile, useProfileNames } from '../library/slotProfile'
 
 /**
  * Like Long Missing, one grouped row after the others and outside the rail
@@ -13,15 +13,14 @@ import { slotLabel } from '../library/bits'
  */
 export function OriginalsRow({ group, onOpenTitle }: { group: OriginalsAvailable; onOpenTitle: (id: number) => void }) {
   const [open, setOpen] = useState(false)
-  const profiles = useProfiles()
-  const names = new Map((profiles.data ?? []).map((p) => [p.key, p.name]))
+  const names = useProfileNames()
   return (
     <div data-originals className="mt-3">
       <Collapse size="small" headingLevel={4} expanded={open} onChange={setOpen} title={`Originals available · ${group.count}`}>
         {open && (
           <RowList>
             {group.items.map((o) => (
-              <Offer key={o.version_id} offer={o} profileName={names.get(o.profile) ?? o.profile} onOpenTitle={onOpenTitle} />
+              <Offer key={o.version_id} offer={o} slotProfile={slotProfile(o.slot, profileName(names, o.profile))} onOpenTitle={onOpenTitle} />
             ))}
           </RowList>
         )}
@@ -30,22 +29,32 @@ export function OriginalsRow({ group, onOpenTitle }: { group: OriginalsAvailable
   )
 }
 
-function Offer({ offer: o, profileName, onOpenTitle }: { offer: OriginalOffer; profileName: string; onOpenTitle: (id: number) => void }) {
+function Offer({ offer: o, slotProfile, onOpenTitle }: { offer: OriginalOffer; slotProfile: string; onOpenTitle: (id: number) => void }) {
   const accept = useAcceptOffer()
   const dismiss = useDismissOffer()
+  const report = useReport()
   const units = offerUnits(o)
   const busy = accept.isPending || dismiss.isPending
-  const failed = accept.error ?? dismiss.error
   return (
     <Entity
       className={stackedRow}
       rightClassName={stackedRight}
       right={
         <>
-          <Button variant="secondary" size="small" disabled={busy} onClick={() => accept.mutate(o.version_id)}>
+          <Button
+            variant="secondary"
+            size="small"
+            disabled={busy}
+            onClick={() => void report(accept.mutateAsync(o.version_id), { done: `Accepted the original for ${o.title}`, failed: `Could not accept the original for ${o.title}` })}
+          >
             Accept
           </Button>
-          <Button variant="secondary" size="small" disabled={busy} onClick={() => dismiss.mutate(o.version_id)}>
+          <Button
+            variant="secondary"
+            size="small"
+            disabled={busy}
+            onClick={() => void report(dismiss.mutateAsync(o.version_id), { done: `Dismissed the original for ${o.title}`, failed: `Could not dismiss the original for ${o.title}` })}
+          >
             Dismiss
           </Button>
         </>
@@ -56,13 +65,12 @@ function Offer({ offer: o, profileName, onOpenTitle }: { offer: OriginalOffer; p
           <Link as="button" title="Open the Title" onClick={() => onOpenTitle(o.title_id)}>
             {o.title}
           </Link>{' '}
-          · {slotLabel[o.slot]} · {profileName}
+          · {slotProfile}
         </span>
         <span className="label-12-mono truncate text-gray-900" title={o.release}>
           {o.release} · Score {o.score}
         </span>
         {units && <span className="label-12 text-gray-900">{units}</span>}
-        {failed && <Note variant="error">{failed.message}</Note>}
       </div>
     </Entity>
   )

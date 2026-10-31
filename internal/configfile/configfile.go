@@ -34,6 +34,7 @@ type File struct {
 	Account        *Account        `yaml:"account"`
 	LanguageRegion *LanguageRegion `yaml:"language_region"`
 	RootFolders    *RootFolders    `yaml:"root_folders"`
+	Display        *Display        `yaml:"display"`
 	// Profiles maps a Profile key to its declared state.
 	Profiles map[string]Profile `yaml:"profiles"`
 	// PluginInstances are known by name. Nil means the file leaves plugin
@@ -101,6 +102,60 @@ type PluginInstance struct {
 	getenv func(string) string // resolves the secrets Config names
 }
 
+// Display declares any of the household-wide view defaults; each one it names
+// is read-only in Settings and each it leaves out stays the UI's. Whether a
+// value is acceptable is checked when the file is applied.
+type Display struct {
+	SeasonOrder      *string `yaml:"season_order"`
+	SeasonsOpen      *string `yaml:"seasons_open"`
+	ManualSearchSort *string `yaml:"manual_search_sort"`
+	// UpcomingFilters is declared as a whole: a filter it leaves out is the default (all kinds, off, off).
+	UpcomingFilters *UpcomingFilters `yaml:"upcoming_filters"`
+}
+
+// UpcomingFilters are the filters a new session of Upcoming starts with.
+type UpcomingFilters struct {
+	Kind         *string `yaml:"kind"`
+	WantedOnly   *bool   `yaml:"wanted_only"`
+	HideImported *bool   `yaml:"hide_imported"`
+}
+
+// DisplaySetting is one key of the display section.
+type DisplaySetting string
+
+// The display settings a file may declare, spelled as in the file.
+const (
+	DisplaySeasonOrder      DisplaySetting = "season_order"
+	DisplaySeasonsOpen      DisplaySetting = "seasons_open"
+	DisplayManualSearchSort DisplaySetting = "manual_search_sort"
+	DisplayUpcomingFilters  DisplaySetting = "upcoming_filters"
+)
+
+// displaySettings is every key of the display section, with whether a Display
+// names it: the one list that DeclaresDisplay and the completeness check read.
+var displaySettings = []struct {
+	key   DisplaySetting
+	named func(*Display) bool
+}{
+	{DisplaySeasonOrder, func(d *Display) bool { return d.SeasonOrder != nil }},
+	{DisplaySeasonsOpen, func(d *Display) bool { return d.SeasonsOpen != nil }},
+	{DisplayManualSearchSort, func(d *Display) bool { return d.ManualSearchSort != nil }},
+	{DisplayUpcomingFilters, func(d *Display) bool { return d.UpcomingFilters != nil }},
+}
+
+// DeclaresDisplay reports whether the file declares the display setting s.
+func (f *File) DeclaresDisplay(s DisplaySetting) bool {
+	if f == nil || f.Display == nil {
+		return false
+	}
+	for _, d := range displaySettings {
+		if d.key == s {
+			return d.named(f.Display)
+		}
+	}
+	return false
+}
+
 // ReverseProxy is the reverse-proxy login, declared as a whole like PUT /reverse-proxy.
 type ReverseProxy struct {
 	Enabled        *bool    `yaml:"enabled"`
@@ -152,6 +207,7 @@ const (
 	SectionAccount            Section = "account"
 	SectionLanguageRegion     Section = "language_region"
 	SectionRootFolders        Section = "root_folders"
+	SectionDisplay            Section = "display"
 	SectionProfiles           Section = "profiles"
 	SectionPluginInstances    Section = "plugin_instances"
 	SectionReverseProxy       Section = "reverse_proxy"
@@ -173,6 +229,8 @@ func (f *File) Declares(s Section) bool {
 		return f.LanguageRegion != nil
 	case SectionRootFolders:
 		return f.RootFolders != nil
+	case SectionDisplay:
+		return f.Display != nil
 	case SectionProfiles:
 		return f.Profiles != nil
 	case SectionPluginInstances:
@@ -298,6 +356,15 @@ func (f *File) complete() error {
 	if r := f.RootFolders; r != nil {
 		need(r.Movies != nil, "root_folders.movies")
 		need(r.Series != nil, "root_folders.series")
+	}
+	if d := f.Display; d != nil {
+		named := false
+		keys := make([]string, len(displaySettings))
+		for i, ds := range displaySettings {
+			named = named || ds.named(d)
+			keys[i] = "display." + string(ds.key)
+		}
+		need(named, strings.Join(keys[:len(keys)-1], ", ")+" or "+keys[len(keys)-1]+" (at least one)")
 	}
 	if p := f.ReverseProxy; p != nil {
 		need(p.Enabled != nil, "reverse_proxy.enabled")

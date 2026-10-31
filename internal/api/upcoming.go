@@ -104,7 +104,7 @@ func (s *server) ListRecentlyAdded(ctx context.Context, _ oapi.ListRecentlyAdded
 	out := oapi.RecentList{Items: make([]oapi.RecentItem, 0, len(rows)), Total: total}
 	for _, r := range rows {
 		out.Items = append(out.Items, oapi.RecentItem{
-			TitleId: r.TitleID, Title: r.Title, Year: intPtr(r.Year), Kind: oapi.TitleKind(r.Kind), Slot: oapi.Slot(r.Slot),
+			TitleId: r.TitleID, Title: r.Title, Year: intPtr(r.Year), Kind: oapi.TitleKind(r.Kind), HasPoster: r.HasPoster, Slot: oapi.Slot(r.Slot),
 			ReleaseName: r.Release, Score: r.Score, ScoreDelta: r.ScoreDelta, Files: r.Files, IsUpgrade: r.IsUpgrade, ImportedAt: r.ImportedAt,
 		})
 	}

@@ -29,7 +29,12 @@
       "description": "Fulfils Requests through Kestrel.",
       "request_router": {
         "supports_seasons": true,
-        "reports_download_progress": true
+        "reports_download_progress": true,
+        "wording": {
+          "step": "Finding it",
+          "queued": {"label": "Searching", "detail": "Looking for a copy."},
+          "downloading": {"label": "Downloading", "detail": "On its way to your library."}
+        }
       },
       "config_schema": [
         {

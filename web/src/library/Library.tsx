@@ -2,8 +2,9 @@ import { CheckSquare, Eraser, FolderInput, Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useProfiles, useTitles, type TitleRow } from '../api/queries'
 import { useOpenCleanup } from '../cleanup/launch'
-import { Button, Collapse, EmptyState, Entity, KeyboardInput, Note, parseQuery } from '@hyprsh/design'
+import { Button, Collapse, EmptyState, Entity, KeyboardInput, Note, parseQuery, Skeleton } from '@hyprsh/design'
 import { useKey, useListNav } from '../keys'
+import { SkeletonRow } from '../loading'
 import { SelectionBar } from '../layout/SelectionBar'
 import { useSelection } from '../selection'
 import { FilterBar } from '../filter/FilterBar'
@@ -196,11 +197,7 @@ export function Library({
     )
   }
 
-  const count = (
-    <span className="label-12 ml-auto shrink-0 text-gray-900">
-      {rows.length} of {all.length}
-    </span>
-  )
+  const count = <span className="label-12 ml-auto shrink-0 text-gray-900">{titles.isPending ? <Skeleton width={48} height={14} /> : `${rows.length} of ${all.length}`}</span>
   const list = (
     <>
       {phone ? (
@@ -239,6 +236,7 @@ export function Library({
           // chrome-ok: a cursor listbox (aria-activedescendant) over Entity rows; no design component is one, Select and Combobox are pickers
           role="listbox"
           aria-label="Library"
+          aria-busy={titles.isPending || undefined}
           aria-activedescendant={current ? `title-${current.id}` : undefined}
           tabIndex={0}
           className="outline-none"
@@ -252,6 +250,7 @@ export function Library({
             else focusList()
           }}
         >
+          {titles.isPending && Array.from({ length: 8 }, (_, i) => <SkeletonRow key={i} index={i} poster="icon" description={false} />)}
           {rows.map((r, i) => (
             <Entity
               key={r.id}

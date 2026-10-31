@@ -11,6 +11,7 @@ import {
   type PluginManifest,
   type PluginOption,
 } from '../api/queries'
+import { useReport } from '../toasts'
 import { Button, Checkbox, Input, Note, Select } from '@hyprsh/design'
 
 type Values = Record<string, string | boolean>
@@ -79,6 +80,8 @@ export function InstanceForm({
   const save = useSavePluginInstance()
   const toggle = useSetInstanceEnabled()
   const remove = useDeletePluginInstance()
+  const report = useReport()
+  const name = instance?.name ?? manifest.name
 
   // The Config File declares the instance: it can be tested but not changed here.
   const declared = !!instance?.from_config_file
@@ -92,24 +95,23 @@ export function InstanceForm({
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if (enabledOnly && instance) {
-      toggle.mutate({ id: instance.id, enabled: meta.enabled }, { onSuccess: () => onSaved?.() })
+      void report(toggle.mutateAsync({ id: instance.id, enabled: meta.enabled }), { done: `${name} saved` }).then((r) => r !== undefined && onSaved?.())
       return
     }
-    save.mutate(
-      {
+    void report(
+      save.mutateAsync({
         pluginId: manifest.id,
         name: manifest.name,
         config: config(),
         instance,
         managed: managed ? { name: meta.name.trim(), enabled: meta.enabled, priority: Number(meta.priority) || 0 } : undefined,
-      },
-      {
-        onSuccess: () => {
-          setSecrets({}) // a saved secret is never shown again
-          onSaved?.()
-        },
-      },
-    )
+      }),
+      { done: `${managed && meta.name.trim() ? meta.name.trim() : name} saved` },
+    ).then((r) => {
+      if (r === undefined) return
+      setSecrets({}) // a saved secret is never shown again
+      onSaved?.()
+    })
   }
 
   const setMetaField = (patch: Partial<Meta>) => {
@@ -171,11 +173,6 @@ export function InstanceForm({
           {saving.error instanceof ApiError ? saving.error.message : 'Could not save. Try again.'}
         </Note>
       )}
-      {saving.isSuccess && (
-        <Note variant="success" size="small">
-          Saved.
-        </Note>
-      )}
 
       <div className="flex flex-wrap gap-2">
         <Button size="small" disabled={test.isPending} onClick={runTest}>
@@ -190,7 +187,11 @@ export function InstanceForm({
           </Button>
         )}
         {instance && (
-          <Button size="small" disabled={remove.isPending || declared} onClick={() => remove.mutate(instance.id)}>
+          <Button
+            size="small"
+            disabled={remove.isPending || declared}
+            onClick={() => void report(remove.mutateAsync(instance.id), { done: `${instance.name} removed`, failed: `Could not remove ${instance.name}` })}
+          >
             Remove
           </Button>
         )}

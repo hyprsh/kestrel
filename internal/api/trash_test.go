@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"errors"
 	"io/fs"
 	"os"
 	"testing"
@@ -66,8 +67,14 @@ func TestUpdateFromTrashLoadsAValidSnapshotAndRejectsABrokenOneWhole(t *testing.
 
 	src.ref = trashsync.Ref{Commit: "broken", CommittedAt: time.Now()}
 	src.files = fstest.MapFS{"COMMIT": {Data: []byte("broken")}}
-	if r := s.valid("POST", "/trash/update", ``); r.Status != 422 {
-		t.Fatalf("broken update = %d %s, want 422", r.Status, r.Body)
+	if r := s.valid("POST", "/trash/update", ``); r.Status != 202 {
+		t.Fatalf("broken update = %d %s, want 202: the pass reports the rejection", r.Status, r.Body)
+	}
+	if err := s.in.app.Jobs.Pass(context.Background(), jobs.Trash); !errors.Is(err, trashsync.ErrRejected) {
+		t.Fatalf("the pass = %v, want a rejection", err)
+	}
+	if o := s.jobList(t)[jobs.Trash].Outcome; o == nil || o.Kind != "rejected" {
+		t.Errorf("outcome = %+v, want rejected", o)
 	}
 	if got := decode[trashStatus](t, s.valid("GET", "/system/status", "")); got.Trash.Commit == "broken" {
 		t.Error("the broken snapshot is active")
@@ -78,8 +85,14 @@ func TestUpdateFromTrashLoadsAValidSnapshotAndRejectsABrokenOneWhole(t *testing.
 
 	src.ref = trashsync.Ref{Commit: "good", CommittedAt: time.Now()}
 	src.files = trashBundle(t, "good")
-	if r := s.valid("POST", "/trash/update", ``); r.Status != 200 {
+	if r := s.valid("POST", "/trash/update", ``); r.Status != 202 {
 		t.Fatalf("good update = %d %s", r.Status, r.Body)
+	}
+	if got := decode[trashStatus](t, s.valid("GET", "/system/status", "")); got.Trash.Commit == "good" {
+		t.Error("the snapshot is active before the pass ran")
+	}
+	if err := s.in.app.Jobs.Pass(context.Background(), jobs.Trash); err != nil {
+		t.Fatal(err)
 	}
 	if got := decode[trashStatus](t, s.valid("GET", "/system/status", "")); got.Trash.Commit != "good" || !got.Trash.AutoUpdate {
 		t.Errorf("status = %+v, want the good commit and auto update on", got)
@@ -90,6 +103,14 @@ func TestUpdateFromTrashLoadsAValidSnapshotAndRejectsABrokenOneWhole(t *testing.
 	after := s.version(t, s.hd)
 	if after.File == nil || before.File == nil || after.File.Path != before.File.Path {
 		t.Errorf("the file moved: %+v -> %+v", before.File, after.File)
+	}
+}
+
+// trashPass runs the trash loop's pass, as a kick would.
+func (b *browser) trashPass(t *testing.T) {
+	t.Helper()
+	if err := b.in.app.Jobs.Pass(context.Background(), jobs.Trash); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -109,6 +130,15 @@ func TestChangingThePrimaryLanguageRescoresFilesWithoutRenamingOrSearching(t *te
 
 	if r := s.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`); r.Status != 200 {
 		t.Fatalf("PATCH /settings = %d %s", r.Status, r.Body)
+	}
+	if got := s.version(t, s.hd); got.File == nil || got.File.Misfit {
+		t.Fatalf("file = %+v: the PATCH re-scored before returning", got.File)
+	}
+	if got := decode[settingsJSON](t, s.valid("GET", "/settings", "")).LanguageRegion; got.PrimaryLanguage != "en" || got.PendingLanguage != "de" {
+		t.Errorf("settings before the pass = %+v, want English with German pending: Language and Scores change together", got)
+	}
+	if err := s.in.app.Jobs.Pass(context.Background(), jobs.Trash); err != nil {
+		t.Fatal(err)
 	}
 
 	after := s.version(t, s.hd)
@@ -131,5 +161,89 @@ func TestTheTrashSwitchIsSavedWithTheSettings(t *testing.T) {
 	}
 	if got := decode[trashStatus](t, s.valid("GET", "/settings", "")); got.Trash.AutoUpdate {
 		t.Error("auto_update is still on")
+	}
+}
+
+func TestASecondLanguageChangeWhileOneWaitsReplacesIt(t *testing.T) {
+	t.Parallel()
+	s := newSearchBare(t)
+	s.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`)
+	s.valid("PATCH", "/settings", `{"language_region":{"primary_language":"fr","release_date_country":"BE"}}`)
+	if got := decode[settingsJSON](t, s.valid("GET", "/settings", "")).LanguageRegion; got.PendingLanguage != "fr" {
+		t.Errorf("pending = %q, want fr", got.PendingLanguage)
+	}
+	if err := s.in.app.Jobs.Pass(context.Background(), jobs.Trash); err != nil {
+		t.Fatal(err)
+	}
+	if got := decode[settingsJSON](t, s.valid("GET", "/settings", "")).LanguageRegion; got.PrimaryLanguage != "fr" || got.ReleaseDateCountry != "BE" || got.PendingLanguage != "" {
+		t.Errorf("settings = %+v, want French, BE, nothing pending", got)
+	}
+}
+
+func TestAnInvalidPrimaryLanguageIsRefusedAtOnce(t *testing.T) {
+	t.Parallel()
+	s := newSearchBare(t)
+	if r := s.valid("PATCH", "/settings", `{"language_region":{"primary_language":"xx"}}`); r.Status != 422 {
+		t.Fatalf("PATCH = %d %s, want 422", r.Status, r.Body)
+	}
+	if got := decode[settingsJSON](t, s.valid("GET", "/settings", "")).LanguageRegion; got.PendingLanguage != "" {
+		t.Errorf("pending = %q after a refused patch", got.PendingLanguage)
+	}
+}
+
+type languageStepJSON struct {
+	Sections struct {
+		Language string `json:"language"`
+	} `json:"sections"`
+}
+
+func storedRegion(t *testing.T, s search) int {
+	t.Helper()
+	var n int
+	if err := s.in.st.Write().QueryRowContext(context.Background(), `SELECT count(*) FROM settings WHERE key = 'language_region'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func TestAFailedLanguageReScoreOnAFreshInstallLeavesTheLanguageStepToDo(t *testing.T) {
+	t.Parallel()
+	s := newSearchBare(t)
+	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
+	s.prober.set(goodProbe(), nil)
+	s.download(t, map[string]string{"paddington.mkv": "the movie"})
+	s.pass(t, jobs.Poll)
+	s.pass(t, jobs.Import)
+	if got := decode[languageStepJSON](t, s.valid("GET", "/setup", "")).Sections.Language; got != "todo" {
+		t.Fatalf("language step = %s on a fresh install, want todo", got)
+	}
+	if _, err := s.in.st.Write().Exec(`CREATE TRIGGER no_rescore BEFORE UPDATE OF score ON files BEGIN SELECT RAISE(ABORT, 'disk full'); END`); err != nil {
+		t.Fatal(err)
+	}
+	if r := s.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`); r.Status != 200 {
+		t.Fatalf("PATCH /settings = %d %s", r.Status, r.Body)
+	}
+	if err := s.in.app.Jobs.Pass(context.Background(), jobs.Trash); err == nil {
+		t.Fatal("the pass succeeded, want the re-score to fail")
+	}
+	if got := decode[languageStepJSON](t, s.valid("GET", "/setup", "")).Sections.Language; got != "todo" {
+		t.Errorf("language step = %s after a failed change, want todo: nothing was saved", got)
+	}
+	if n := storedRegion(t, s); n != 0 {
+		t.Errorf("a stored region remains after the undo")
+	}
+}
+
+func TestASuccessfulLanguageChangeOnAFreshInstallCompletesTheLanguageStep(t *testing.T) {
+	t.Parallel()
+	s := newSearchBare(t)
+	if r := s.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`); r.Status != 200 {
+		t.Fatalf("PATCH /settings = %d %s", r.Status, r.Body)
+	}
+	if err := s.in.app.Jobs.Pass(context.Background(), jobs.Trash); err != nil {
+		t.Fatal(err)
+	}
+	if got := decode[languageStepJSON](t, s.valid("GET", "/setup", "")).Sections.Language; got != "done" {
+		t.Errorf("language step = %s after the pass, want done", got)
 	}
 }

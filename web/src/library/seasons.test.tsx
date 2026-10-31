@@ -43,27 +43,30 @@ describe('collapsible seasons in the episode grid', () => {
   it('opens and closes seasons from the keyboard and skips the rows of closed seasons', async () => {
     const { state, grid } = await openSeries()
     await act(async () => (await screen.findByRole('button', { name: 'Collapse all' })).focus())
-    await userEvent.tab() // the grid's one tab stop: the Specials header
+    await userEvent.tab() // the grid's one tab stop: the first season's header (Specials come last)
+    const season1 = within(grid).getByRole('checkbox', { name: 'Season 1' })
+    expect(season1).toHaveFocus()
+
+    // Specials are closed: Up from their header goes straight to the last episode of the open season.
+    await userEvent.keyboard('{End}')
     const specials = within(grid).getByRole('checkbox', { name: 'Specials' })
     expect(specials).toHaveFocus()
-
-    // Specials are closed: Down goes straight to the next season's header.
-    await userEvent.keyboard('{ArrowDown}')
-    expect(within(grid).getByRole('checkbox', { name: 'Season 1' })).toHaveFocus()
-    await userEvent.keyboard('{ArrowUp}{ArrowRight}')
+    await userEvent.keyboard('{ArrowUp}')
+    expect(within(grid).getByRole('checkbox', { name: 'Season 1 episode 2 monitored' })).toHaveFocus()
+    await userEvent.keyboard('{ArrowDown}{ArrowRight}')
     expect(within(grid).getByRole('button', { name: 'Specials episodes' })).toHaveAttribute('aria-expanded', 'true')
     expect(specials).toHaveFocus()
     await userEvent.keyboard('{ArrowDown}')
     expect(within(grid).getByRole('checkbox', { name: 'Season 0 episode 1 monitored' })).toHaveFocus()
 
     // Left closes a season, Enter flips it; neither touches monitoring.
-    await userEvent.keyboard('{ArrowDown}')
-    expect(within(grid).getByRole('checkbox', { name: 'Season 1' })).toHaveFocus()
+    await userEvent.keyboard('{Home}')
+    expect(season1).toHaveFocus()
     await userEvent.keyboard('{ArrowLeft}')
     expect(within(grid).getByRole('button', { name: 'Season 1 episodes' })).toHaveAttribute('aria-expanded', 'false')
-    await userEvent.keyboard('{End}')
-    expect(within(grid).getByRole('checkbox', { name: 'Season 1' })).toHaveFocus()
-    await userEvent.keyboard('{Enter}')
+    await userEvent.keyboard('{ArrowDown}') // the closed season's episodes are skipped
+    expect(specials).toHaveFocus()
+    await userEvent.keyboard('{ArrowUp}{Enter}')
     expect(within(grid).getByRole('button', { name: 'Season 1 episodes' })).toHaveAttribute('aria-expanded', 'true')
     expect(state.get().sent).toEqual([])
 
@@ -76,10 +79,10 @@ describe('collapsible seasons in the episode grid', () => {
     const { grid } = await openSeries()
     await act(async () => (await screen.findByRole('button', { name: 'Collapse all' })).focus())
     await userEvent.tab()
-    await userEvent.keyboard('{End}')
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}')
     expect(within(grid).getByRole('checkbox', { name: 'Season 1 episode 2 monitored' })).toHaveFocus()
     await userEvent.click(within(grid).getByRole('button', { name: 'Season 1 episodes' }))
-    await userEvent.keyboard('{ArrowUp}')
+    await userEvent.keyboard('{ArrowDown}')
     expect(within(grid).getByRole('checkbox', { name: 'Specials' })).toHaveFocus()
   })
 
@@ -87,7 +90,7 @@ describe('collapsible seasons in the episode grid', () => {
     const { grid } = await openSeries()
     await act(async () => (await screen.findByRole('button', { name: 'Collapse all' })).focus())
     await userEvent.tab()
-    await userEvent.keyboard('{End}')
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}')
     expect(within(grid).getByRole('checkbox', { name: 'Season 1 episode 2 monitored' })).toHaveFocus()
 
     await userEvent.click(screen.getByRole('button', { name: 'Collapse all' }))

@@ -136,10 +136,10 @@ describe('the add panel', () => {
     const seasons = within(menu).getByRole('table', { name: 'Seasons' })
     const rows = within(seasons).getAllByRole('row').slice(1) // under the header
     expect(rows.map((r) => r.textContent)).toEqual([
-      expect.stringMatching(/Specials.*1 episode.*2009/),
       expect.stringMatching(/Season 1.*3 episodes.*2008/),
       expect.stringMatching(/Season 2.*3 episodes.*2009–2010/),
       expect.stringMatching(/Season 3.*1 episode.*not aired/),
+      expect.stringMatching(/Specials.*1 episode.*2009/), // Specials come last
     ])
   })
 
@@ -147,13 +147,13 @@ describe('the add panel', () => {
     let answer: (v: 'ok') => void = () => {}
     const { menu } = await openPanel(new Promise((resolve) => (answer = resolve)))
     expect(within(menu).getByText('A teacher turns to crime.')).toBeInTheDocument()
-    expect(await within(menu).findByText('Loading the series overview…', {}, { timeout: 2000 })).toBeInTheDocument()
+    expect(await within(menu).findByText('Loading the series overview')).toBeInTheDocument()
     expect(within(menu).queryByRole('table', { name: 'Seasons' })).not.toBeInTheDocument()
 
     answer('ok')
 
     expect(await within(menu).findByRole('table', { name: 'Seasons' })).toBeInTheDocument()
-    expect(within(menu).queryByText('Loading the series overview…')).not.toBeInTheDocument()
+    expect(within(menu).queryByText('Loading the series overview')).not.toBeInTheDocument()
   })
 
   it('keeps adding working when the series overview fails', async () => {

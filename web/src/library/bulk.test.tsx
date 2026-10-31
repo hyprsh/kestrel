@@ -7,6 +7,7 @@ import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { fakeLibrary, row } from '../test/library'
 import { server } from '../test/server'
+import { findToast } from '../test/toasts'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -125,7 +126,7 @@ describe('changing the ticked Titles together', () => {
 
     await userEvent.click(within(pane).getByRole('button', { name: 'Unmonitor' }))
 
-    expect(await within(pane).findByRole('status')).toHaveTextContent('Unmonitor: 2 changed')
+    expect(await findToast('Unmonitor: 2 changed')).toBeInTheDocument()
     expect(sent).toEqual([{ action: 'monitor', monitored: false, title_ids: [1, 4] }])
   })
 
@@ -138,9 +139,7 @@ describe('changing the ticked Titles together', () => {
     await userEvent.selectOptions(within(pane).getByRole('combobox', { name: 'Series monitor' }), 'Future episodes')
     await userEvent.click(within(pane).getByRole('button', { name: 'Apply' }))
 
-    const status = await within(pane).findByRole('status')
-    expect(status).toHaveTextContent('Monitor: 1 changed')
-    expect(status).toHaveTextContent('1 already as asked')
+    expect(await findToast('Monitor: 1 changed; 1 already as asked')).toBeInTheDocument()
     expect(sent).toEqual([{ action: 'monitor', monitored: true, series_monitor: 'future', title_ids: [1, 4] }])
   })
 
@@ -151,7 +150,7 @@ describe('changing the ticked Titles together', () => {
 
     await userEvent.click(within(pane).getByRole('button', { name: 'Monitor' }))
 
-    expect(await within(pane).findByRole('status')).toHaveTextContent('Monitor: 2 changed')
+    expect(await findToast('Monitor: 2 changed')).toBeInTheDocument()
     expect(sent).toEqual([{ action: 'monitor', monitored: true, title_ids: [1, 2] }])
   })
 
@@ -166,9 +165,7 @@ describe('changing the ticked Titles together', () => {
     await userEvent.selectOptions(await within(form).findByRole('combobox', { name: 'Profile' }), '4K')
     await userEvent.click(within(form).getByRole('button', { name: 'Apply' }))
 
-    const status = await within(pane).findByRole('status')
-    expect(status).toHaveTextContent('Switch Profile: 1 changed')
-    expect(status).toHaveTextContent('2 have no 4K Version')
+    expect(await findToast('Switch Profile: 1 changed; 2 have no 4K Version')).toBeInTheDocument()
     expect(sent).toEqual([{ action: 'switch_profile', slot: '4k', profile: '4k-primary', title_ids: [1, 2, 3] }])
   })
 
@@ -182,9 +179,7 @@ describe('changing the ticked Titles together', () => {
     expect(await within(form).findByRole('combobox', { name: 'Profile' })).toHaveDisplayValue('HD')
     await userEvent.click(within(form).getByRole('button', { name: 'Apply' }))
 
-    const status = await within(pane).findByRole('status')
-    expect(status).toHaveTextContent('Add Version: 1 changed')
-    expect(status).toHaveTextContent('1 already has a Standard Version')
+    expect(await findToast('Add Version: 1 changed; 1 already has a Standard Version')).toBeInTheDocument()
     expect(sent).toEqual([{ action: 'add_version', slot: 'standard', profile: 'hd-primary', title_ids: [1, 2] }])
   })
 
@@ -199,7 +194,7 @@ describe('changing the ticked Titles together', () => {
     expect(within(form).getByRole('checkbox', { name: 'Also delete files' })).not.toBeChecked()
     await userEvent.click(within(form).getByRole('button', { name: 'Remove' }))
 
-    expect(await within(pane).findByRole('status')).toHaveTextContent('Remove Version: 2 changed')
+    expect(await findToast('Remove Version: 2 changed')).toBeInTheDocument()
     expect(sent).toEqual([{ action: 'remove_version', slot: '4k', delete_files: false, title_ids: [1, 2] }])
   })
 
@@ -214,7 +209,7 @@ describe('changing the ticked Titles together', () => {
     await userEvent.click(within(confirm).getByRole('checkbox', { name: 'Also delete files' }))
     await userEvent.click(within(confirm).getByRole('button', { name: 'Remove' }))
 
-    expect(await within(pane).findByRole('status')).toHaveTextContent('Remove from Library: 2 changed')
+    expect(await findToast('Remove from Library: 2 changed')).toBeInTheDocument()
     expect(sent).toEqual([{ action: 'remove', delete_files: true, title_ids: [1, 2] }])
   })
 
@@ -227,7 +222,35 @@ describe('changing the ticked Titles together', () => {
 
     await userEvent.click(within(pane).getByRole('button', { name: 'Search now' }))
 
-    expect(await within(pane).findByRole('alert')).toHaveTextContent('That Profile is disabled')
+    expect(await findToast('Search now failed: That Profile is disabled')).toBeInTheDocument()
+  })
+
+  it('says why Remove Version and Remove from Library failed, and closes the dialog on confirm', async () => {
+    fakeLibrary(rows())
+    server.use(
+      http.post('/titles/bulk', ({ response }) => response('default').json({ type: 'about:blank', title: 'internal', status: 500, code: 'internal', detail: 'database locked' }, { status: 500 })),
+    )
+    const pane = await withTicked('Paddington', 'Heat')
+
+    await userEvent.click(within(pane).getByRole('button', { name: 'Remove Version' }))
+    await userEvent.click(within(screen.getByRole('alertdialog', { name: 'Remove Version' })).getByRole('button', { name: 'Remove' }))
+    expect(await findToast('Remove Version failed: database locked')).toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+
+    await userEvent.click(within(pane).getByRole('button', { name: 'Remove from Library' }))
+    await userEvent.click(within(screen.getByRole('alertdialog', { name: 'Remove Titles' })).getByRole('button', { name: 'Remove' }))
+    expect(await findToast('Remove from Library failed: database locked')).toBeInTheDocument()
+  })
+
+  it('warns, rather than only announcing, when a bulk Search could not start for some Titles', async () => {
+    fakeLibrary(rows())
+    fakeBulk(({ title_ids: [first, ...rest] }) => [changed(first), ...rest.map((id) => skipped(id, 'nothing_wanted', 'Nothing Wanted'))])
+    const pane = await withTicked('Heat', 'Zodiac')
+
+    await userEvent.click(within(pane).getByRole('button', { name: 'Search now' }))
+
+    const toast = await findToast('Search started for 1 Title; 1 has nothing Wanted')
+    expect(toast.closest('li')).toHaveTextContent(/^Warning/)
   })
 
   it.each([
@@ -242,7 +265,7 @@ describe('changing the ticked Titles together', () => {
 
     await userEvent.click(within(pane).getByRole('button', { name: label }))
 
-    expect(await within(pane).findByRole('status')).toHaveTextContent(`${label}: 2 changed`)
+    expect(await findToast(label === 'Search now' ? 'Search started for 2 Titles' : `${label}: 2 changed`)).toBeInTheDocument()
     expect(sent).toEqual([{ ...body, title_ids: [2, 3] }])
   })
 })

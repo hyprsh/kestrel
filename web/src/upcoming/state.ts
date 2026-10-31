@@ -4,7 +4,6 @@ import type { QueueItem } from '../api/queue'
 import { localDay, type UndatedItem, type UpcomingItem, type UpcomingSlot } from '../api/upcoming'
 
 export type Filters = { kind: 'all' | 'movie' | 'series'; wantedOnly: boolean; hideImported: boolean }
-export const noFilters: Filters = { kind: 'all', wantedOnly: false, hideImported: false }
 
 /** "S02E04". */
 export const episodeCode = (season: number, episode: number) => `S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`

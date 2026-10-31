@@ -176,6 +176,7 @@ func TestFinishSetupWhenEverySectionIsDone(t *testing.T) {
 	b.valid("POST", "/plugin-instances", sabBody(sab.URL, sabKey, ""))
 	b.valid("POST", "/plugin-instances", newznabBody("Geek", idx.URL, nzbKey, ""))
 	b.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"},"root_folders":{"movies":["`+data+`/media/movies"],"series":["`+data+`/media/tv"]}}`)
+	b.trashPass(t)
 
 	if r := b.valid("POST", "/setup/complete", ""); r.Status != 204 {
 		t.Fatalf("complete = %d %s", r.Status, r.Body)

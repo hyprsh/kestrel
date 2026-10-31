@@ -1,19 +1,19 @@
 // What the episode grid can do beyond monitoring: Search now and Manual search
 // for an episode, a season or the ticked episodes, from each row's menu and
 // the selection bar, and Delete files (DeleteFiles.tsx) in the same menus and bar.
-import { useMemo, useState, type FocusEvent, type KeyboardEvent } from 'react'
+import { useMemo, type FocusEvent, type KeyboardEvent } from 'react'
 import { useSearchNow } from '../api/grabs'
+import { useReport } from '../toasts'
 import { useProfiles, type Episode, type EpisodeScope, type TitleDetail } from '../api/queries'
 import { Button, DotsMenu, MenuItem } from '@hyprsh/design'
 import { SelectionBar } from '../layout/SelectionBar'
 import { useSelection, type Selection } from '../selection'
 import { cx } from '../ui'
 import { slotLabel, type SlotKey } from './bits'
-import { episodeCode, episodeRow, seasonName, seasonRow, type ActionStatus, type EpisodeVersion } from './episodes'
+import { episodeCode, episodeRow, seasonName, seasonRow, type EpisodeVersion } from './episodes'
 import { DeleteMenuItems, DeleteTickedButtons, EpisodeDeleteConfirm, useEpisodeDeletes, type EpisodeDeletes } from './DeleteFiles'
 import { TickBox } from './TickBox'
 import type { ManualSearchTarget } from './TitleDetail'
-import { useFade } from './useFade'
 import type { SeasonOpen } from './useSeasonOpen'
 
 const episodeName = (e: Episode) => `Season ${e.season} episode ${e.number}`
@@ -31,8 +31,6 @@ export type EpisodeActions = {
   manual: (v: EpisodeVersion, body: EpisodeScope, label: string) => void
   /** Delete files of an episode, a season or the ticked episodes, after a confirmation. */
   deletes: EpisodeDeletes
-  /** What the last Search now or deletion said. */
-  status: ActionStatus
   /** The grid's keys for actions: x ticks (X a range), Shift+F10 or the menu key opens the row's menu, Escape clears the ticks. True when handled. */
   onKey: (e: KeyboardEvent, episode: Episode | null) => boolean
 }
@@ -49,9 +47,8 @@ export function useEpisodeActions(title: TitleDetail, episodes: Episode[], seaso
   const selection = useSelection(ids)
   const profiles = useProfiles()
   const searchNow = useSearchNow()
-  const [status, setStatus] = useState<ActionStatus>(null)
-  const deletes = useEpisodeDeletes(episodes, setStatus)
-  useFade(status?.fades ? status : null, () => setStatus(null))
+  const report = useReport()
+  const deletes = useEpisodeDeletes(episodes)
 
   const names = new Map((profiles.data ?? []).map((p) => [p.key, p.name]))
   const versions: EpisodeVersion[] = slots.flatMap((slot) => {
@@ -66,8 +63,7 @@ export function useEpisodeActions(title: TitleDetail, episodes: Episode[], seaso
     })
     if (runs.length === 0) return
     const where = runs.map((r) => slotLabel[r.v.slot]).join(' and ')
-    setStatus({ text: `Searching ${label} in ${where}… The Log shows what it grabs.`, error: false, fades: true })
-    Promise.all(runs.map((r) => searchNow.mutateAsync({ versionId: r.v.id, scope: r.scope }))).catch((err: Error) => setStatus({ text: `Could not search ${label}: ${err.message}`, error: true }))
+    void report(Promise.all(runs.map((r) => searchNow.mutateAsync({ versionId: r.v.id, scope: r.scope }))), { started: `Search started for ${label} in ${where}`, failed: `Could not search ${label}` })
   }
 
   const manual: EpisodeActions['manual'] = (v, body, label) => onManualSearch?.({ versionId: v.id, slot: v.slot, profileName: v.profileName, scope: { body, label } })
@@ -99,7 +95,7 @@ export function useEpisodeActions(title: TitleDetail, episodes: Episode[], seaso
     return false
   }
 
-  return { shown, selection, versions, search, manual, deletes, status, onKey }
+  return { shown, selection, versions, search, manual, deletes, onKey }
 }
 
 const nothingWanted = 'Nothing here is Wanted'
@@ -163,14 +159,14 @@ export function EpisodeTick({ actions, episode }: { actions: EpisodeActions; epi
   return actions.selection.active ? <TickBox selection={actions.selection} id={episode.id} name={episodeName(episode)} /> : null
 }
 
-/** Above the grid: the ticked episodes' actions, their deletion's confirmation and what the last Search now or deletion said. */
+/** Above the grid: the ticked episodes' actions and their deletion's confirmation. */
 export function EpisodeToolbar({ actions }: { actions: EpisodeActions }) {
-  const { selection, status, shown } = actions
+  const { selection, shown } = actions
   const ticked = shown.filter((e) => selection.has(e.id))
   const wanted = wantedIn(ticked, actions.versions)
   const label = ticked.length === 1 ? episodeCode(ticked[0]) : `${ticked.length} episodes`
   return (
-    <div className={cx('flex flex-col gap-1', (selection.active || status || actions.deletes.pending?.at === null) && 'mb-2')}>
+    <div className={cx('flex flex-col gap-1', (selection.active || actions.deletes.pending?.at === null) && 'mb-2')}>
       <SelectionBar selection={selection} shown={shown.length}>
         <Button variant="secondary" size="small" disabled={!wanted} title={wanted ? undefined : nothingWanted} onClick={() => actions.search(ticked, label, (ids) => ({ episode_ids: ids }))}>
           Search
@@ -178,9 +174,6 @@ export function EpisodeToolbar({ actions }: { actions: EpisodeActions }) {
         <DeleteTickedButtons deletes={actions.deletes} versions={actions.versions} ticked={ticked} label={label} />
       </SelectionBar>
       <EpisodeDeleteConfirm deletes={actions.deletes} />
-      <p role="status" className={cx('label-12 empty:hidden', status?.error ? 'text-red-900' : 'text-gray-900')}>
-        {status?.text}
-      </p>
     </div>
   )
 }

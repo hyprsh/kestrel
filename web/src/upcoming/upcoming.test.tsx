@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
@@ -8,7 +8,9 @@ import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { fakeLibrary, row } from '../test/library'
 import { fakeQueue, queueItem } from '../test/queue'
+import { serveDisplay } from '../test/serveDisplay'
 import { server } from '../test/server'
+import { findToast } from '../test/toasts'
 
 type Recent = components['schemas']['RecentItem']
 type Undated = components['schemas']['UndatedItem']
@@ -87,6 +89,7 @@ const recent = (over: Partial<Recent> = {}): Recent => ({
   title: 'Paddington',
   year: 2014,
   kind: 'movie',
+  has_poster: false,
   slot: 'standard',
   release_name: 'Paddington.2014.1080p.BluRay.x264-GRP',
   score: 120,
@@ -235,7 +238,20 @@ describe('Upcoming: where each entry stands', () => {
     )
     await openUpcoming()
     await userEvent.click(within(rowOf(/The Handover/)).getByRole('button', { name: /search now/i }))
-    expect(searched).toEqual([{ id: '21', body: { season: 2, episode_ids: [204] } }])
+    await waitFor(() => expect(searched).toEqual([{ id: '21', body: { season: 2, episode_ids: [204] } }]))
+    expect(await findToast(/^Search started for /)).toBeInTheDocument()
+  })
+
+  it('says in a Toast when the search could not start', async () => {
+    fakeAgenda([episode({ date: day(-1), slots: [slot('wanted', { version_id: 21 })] })])
+    server.use(
+      http.post('/versions/{id}/search', ({ response }) =>
+        response('default').json({ type: 'about:blank', title: 'x', status: 500, code: 'internal', detail: 'the indexer is down' }, { status: 500 }),
+      ),
+    )
+    await openUpcoming()
+    await userEvent.click(within(rowOf(/The Handover/)).getByRole('button', { name: /search now/i }))
+    expect(await findToast(/^Could not search .*: the indexer is down/)).toBeInTheDocument()
   })
 })
 
@@ -382,6 +398,38 @@ describe('Upcoming: filters', () => {
     expect(screen.getByRole('switch', { name: 'Wanted only' })).toBeChecked()
     expect(within(timeline()).queryByText('A Movie')).not.toBeInTheDocument()
     sessionStorage.clear()
+  })
+})
+
+describe('Upcoming: default filters', () => {
+  const mixed = () =>
+    fakeAgenda([
+      movie({ date: day(1), title: 'A Movie', slots: [slot('not_out')] }),
+      episode({ date: day(1), title: 'A Series', slots: [slot('wanted', { version_id: 21 })] }),
+      movie({ date: day(-2), title_id: 3, title: 'Filled Movie', slots: [slot('imported')] }),
+    ])
+  beforeEach(() => sessionStorage.clear())
+  afterEach(() => sessionStorage.clear())
+
+  it("starts a new session on the household's defaults", async () => {
+    serveDisplay({ upcoming_filters: { kind: 'series', wanted_only: true, hide_imported: true } })
+    mixed()
+    await openUpcoming()
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'Wanted only' })).toBeChecked())
+    expect(screen.getByRole('switch', { name: 'Hide imported' })).toBeChecked()
+    expect(within(timeline()).queryByText('A Movie')).not.toBeInTheDocument()
+  })
+
+  it('lets a change in the session win over the defaults, and keeps it', async () => {
+    serveDisplay({ upcoming_filters: { kind: 'all', wanted_only: true, hide_imported: false } })
+    mixed()
+    await openUpcoming()
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'Wanted only' })).toBeChecked())
+    await userEvent.click(screen.getByRole('switch', { name: 'Wanted only' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Overview' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Upcoming' }))
+    await screen.findByRole('list', { name: 'Agenda' })
+    expect(screen.getByRole('switch', { name: 'Wanted only' })).not.toBeChecked()
   })
 })
 

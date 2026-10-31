@@ -223,6 +223,7 @@ func TestASectionLeftOutIsNotTouched(t *testing.T) {
 	if r := b.valid("PATCH", "/settings", `{"language_region":{"primary_language":"fr"},"check_github_updates":false}`); r.Status != 200 {
 		t.Fatalf("PATCH /settings = %d %s", r.Status, r.Body)
 	}
+	b.trashPass(t)
 
 	in.mustDeclare("reverse_proxy:\n  enabled: false\n  trusted_proxies: []\n  header: Remote-User\n")
 	b = in.login()
@@ -292,6 +293,7 @@ func TestADeclaredPrimaryLanguageRescoresFilesWhenItChanges(t *testing.T) {
 	}
 
 	s.in.mustDeclare("language_region:\n  primary_language: de\n  release_date_country: DE\n")
+	s.pass(t, jobs.Trash) // the re-score is the trash loop's pass
 	if after := s.version(t, s.hd); after.File == nil || !after.File.Misfit || after.File.Path != before.File.Path {
 		t.Fatalf("file = %+v, want the same path, now a misfit for a German household", after.File)
 	}

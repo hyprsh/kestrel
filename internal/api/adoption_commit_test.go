@@ -61,6 +61,7 @@ func TestCommittingStoresTheScoresOfNowNotOfTheScan(t *testing.T) {
 	if r := a.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`); r.Status != 200 {
 		t.Fatalf("PATCH /settings = %d %s", r.Status, r.Body)
 	}
+	a.trashPass(t)
 
 	a.commit(t, plan.Revision)
 

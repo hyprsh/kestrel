@@ -8,14 +8,15 @@ import type { Episode, EpisodeScope } from '../api/queries'
 import type { components } from '../api/schema.gen'
 import { useDeleteFiles, type DeletedFiles } from '../api/versions'
 import { size, slotLabel } from './bits'
-import { episodeCode, type ActionStatus, type EpisodeVersion } from './episodes'
+import { useReport, type Report } from '../toasts'
+import { episodeCode, type EpisodeVersion } from './episodes'
 
 type FileSummary = components['schemas']['FileSummary']
 type EpisodeFile = components['schemas']['EpisodeFile']
 export const base = (path: string) => path.split(/[\\/]/).pop() ?? path
 const files = (n: number) => (n === 1 ? '1 file' : `${n} files`)
 
-/** What a deletion did, for the status line: the files, and those whose Release was not blocklisted. */
+/** What a deletion did, for its Toast: the files, and those whose Release was not blocklisted. */
 function deletedText(res: DeletedFiles, blocklist: boolean, label?: string) {
   const kept = res.not_deleted.map((f) => `Could not delete ${base(f.path)}: ${f.reason}.`).join(' ')
   if (res.files.length === 0) return kept || `Nothing to delete${label ? ` in ${label}` : ''}.`
@@ -24,6 +25,13 @@ function deletedText(res: DeletedFiles, blocklist: boolean, label?: string) {
   if (blocklist && missed > 0) text += ` ${files(missed)} not blocklisted: Kestrel did not grab or could not blocklist ${missed === 1 ? 'it' : 'them'}.`
   return kept ? `${text} ${kept}` : text
 }
+
+/** How a deletion reports: what was deleted, a warning when some files stayed, and a Toast for a failure. */
+const deletion = (blocklist: boolean, label?: string): Report<DeletedFiles> => ({
+  done: (res) => deletedText(res, blocklist, label),
+  warn: (res) => res.not_deleted.length > 0,
+  failed: 'Could not delete the files',
+})
 
 /**
  * The confirmation of a deletion: the files with their total size, the
@@ -39,8 +47,6 @@ function DeleteFilesConfirm({
   extra = [],
   onConfirm,
   onCancel,
-  error,
-  busy,
 }: {
   paths: string[]
   bytes: number
@@ -48,8 +54,6 @@ function DeleteFilesConfirm({
   extra?: string[]
   onConfirm: (blocklist: boolean) => void
   onCancel: () => void
-  error?: string
-  busy: boolean
 }) {
   const releases = paths.length === 1 ? 'this Release' : 'these Releases'
   return (
@@ -77,22 +81,15 @@ function DeleteFilesConfirm({
             </Note>
           </div>
         )}
-        {error && (
-          <div className="mt-2">
-            <Note variant="error" size="small">
-              {error}
-            </Note>
-          </div>
-        )}
       </ModalBody>
       <ModalActions>
         <ModalAction variant="secondary" onClick={onCancel}>
           Cancel
         </ModalAction>
-        <ModalAction variant="error" disabled={busy} onClick={() => onConfirm(false)}>
+        <ModalAction variant="error" onClick={() => onConfirm(false)}>
           Delete
         </ModalAction>
-        <ModalAction variant="error" disabled={busy} onClick={() => onConfirm(true)}>
+        <ModalAction variant="error" onClick={() => onConfirm(true)}>
           Delete and blocklist {releases}
         </ModalAction>
       </ModalActions>
@@ -102,31 +99,16 @@ function DeleteFilesConfirm({
 
 /**
  * A Movie Version's Delete file: the Version stays, Wanted again while the Movie is monitored. The
- * Version row's "…" menu asks for it (`asking`); this shows the confirmation and what came of it.
+ * Version row's "…" menu asks for it (`asking`); this shows the confirmation. It closes on confirm and a Toast says what came of it.
  */
 export function DeleteFile({ versionId, file, asking, onClose }: { versionId: number; file: FileSummary | null; asking: boolean; onClose: () => void }) {
   const del = useDeleteFiles()
-  const [said, setSaid] = useState<string | null>(null)
-  const confirm = (blocklist: boolean) =>
-    del.mutate(
-      { versionId, blocklist },
-      {
-        onSuccess: (res) => {
-          onClose()
-          setSaid(deletedText(res, blocklist))
-        },
-      },
-    )
-  return (
-    <>
-      {file && asking && <DeleteFilesConfirm paths={[file.path]} bytes={file.size} onConfirm={confirm} onCancel={onClose} error={del.error?.message} busy={del.isPending} />}
-      {said && (
-        <p role="status" className="label-12 mt-1 text-gray-900">
-          {said}
-        </p>
-      )}
-    </>
-  )
+  const report = useReport()
+  const confirm = (blocklist: boolean) => {
+    onClose()
+    void report(del.mutateAsync({ versionId, blocklist }), deletion(blocklist))
+  }
+  return file && asking ? <DeleteFilesConfirm paths={[file.path]} bytes={file.size} onConfirm={confirm} onCancel={onClose} /> : null
 }
 
 /**
@@ -144,8 +126,6 @@ export type EpisodeDeletes = {
   pending: Plan | null
   confirm: (blocklist: boolean) => void
   cancel: () => void
-  error?: string
-  busy: boolean
 }
 
 const filesOf = (v: EpisodeVersion, eps: Episode[]) => {
@@ -157,9 +137,10 @@ const filesOf = (v: EpisodeVersion, eps: Episode[]) => {
   return [...out.values()]
 }
 
-/** The episode grid's deletions: one waits for its confirmation at a time; `say` reports what came of it. */
-export function useEpisodeDeletes(episodes: Episode[], say: (s: ActionStatus) => void): EpisodeDeletes {
+/** The episode grid's deletions: one waits for its confirmation at a time; a Toast reports what came of it. */
+export function useEpisodeDeletes(episodes: Episode[]): EpisodeDeletes {
   const del = useDeleteFiles()
+  const report = useReport()
   const [pending, setPending] = useState<Plan | null>(null)
 
   const ask: EpisodeDeletes['ask'] = (version, eps, label, scope, at) => {
@@ -168,7 +149,6 @@ export function useEpisodeDeletes(episodes: Episode[], say: (s: ActionStatus) =>
     const chosen = new Set(eps.map((e) => e.id))
     const losing = new Set(fs.flatMap((f) => f.episode_ids))
     const lost = episodes.filter((e) => losing.has(e.id))
-    del.reset()
     setPending({
       version,
       label,
@@ -183,15 +163,8 @@ export function useEpisodeDeletes(episodes: Episode[], say: (s: ActionStatus) =>
   const confirm = (blocklist: boolean) => {
     if (!pending) return
     const { version, scope, label } = pending
-    del.mutate(
-      { versionId: version.id, scope, blocklist },
-      {
-        onSuccess: (res) => {
-          setPending(null)
-          say({ text: deletedText(res, blocklist, label), error: res.not_deleted.length > 0 })
-        },
-      },
-    )
+    setPending(null)
+    void report(del.mutateAsync({ versionId: version.id, scope, blocklist }), deletion(blocklist, label))
   }
 
   return {
@@ -200,8 +173,6 @@ export function useEpisodeDeletes(episodes: Episode[], say: (s: ActionStatus) =>
     pending,
     confirm,
     cancel: () => setPending(null),
-    error: del.error?.message,
-    busy: del.isPending,
   }
 }
 
@@ -265,8 +236,6 @@ export function EpisodeDeleteConfirm({ deletes, at = null }: { deletes: EpisodeD
       extra={p.extra}
       onConfirm={deletes.confirm}
       onCancel={deletes.cancel}
-      error={deletes.error}
-      busy={deletes.busy}
     />
   )
 }

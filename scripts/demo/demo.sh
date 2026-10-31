@@ -4,10 +4,13 @@
 #   demo.sh build <git ref | .> <out binary>   build Kestrel with the SPA at a ref (. = the working tree as it is)
 #   demo.sh start <binary>                     (re)start the fake and Kestrel on a freshly seeded DEMO_DIR
 #   demo.sh releases on|off                    let the fake indexer offer releases, or none (the default)
+#   demo.sh unlisted on|off                    with releases on, also offer ones for episodes and seasons TheTVDB doesn't list (off by default)
 #   demo.sh stop                               stop both
 #
-# Environment: DEMO_DIR (default /tmp/kestrel-demo, wiped by start), DEMO_PORT
-# (Kestrel, default 7677), DEMO_FAKE_PORT (fake.py, default 7690). Logs are in
+# Environment: DEMO_DIR (default /tmp/kestrel-demo, wiped by start; when that is taken,
+# start uses a short /tmp/kd.XXXXXX and prints it, so export it for the other commands), DEMO_PORT
+# (Kestrel, default 7677), DEMO_FAKE_PORT (fake.py, default 7690), DEMO_SEED=0 to
+# start without the seed, on a fresh instance that shows the setup wizard. Logs are in
 # $DEMO_DIR/logs. Needs go, node, npm, python3 and curl, and `npm ci --prefix
 # scripts/demo` once for the posters.
 set -euo pipefail
@@ -66,7 +69,12 @@ start() {
   [ -x "$bin" ] || die "$bin is not an executable; build one with demo.sh build"
   bin=$(cd "$(dirname "$bin")" && pwd)/$(basename "$bin")
   [ -d "$here/node_modules/playwright-core" ] || die "run npm ci --prefix scripts/demo first"
-  if [ -e "$dir" ] && [ ! -f "$dir/.kestrel-demo" ]; then
+  if [ -z "${DEMO_DIR:-}" ] && [ -e "$dir" ] && [ ! -f "$dir/.kestrel-demo" ]; then
+    # The default path is taken by something that is not a demo dir. Take a short one of our own.
+    dir=$(mktemp -d /tmp/kd.XXXXXX)
+    echo "demo: /tmp/kestrel-demo is taken; using $dir (export DEMO_DIR=$dir for the other demo.sh calls and the scenario)"
+  fi
+  if [ -e "$dir" ] && [ ! -f "$dir/.kestrel-demo" ] && [ -n "$(ls -A "$dir")" ]; then
     die "$dir exists and is not a demo dir; set DEMO_DIR to another path"
   fi
   stop
@@ -93,6 +101,10 @@ start() {
   echo $! >"$dir/kestrel.pid"
   wait_for "http://127.0.0.1:$port/ping" "Kestrel"
 
+  if [ "${DEMO_SEED:-1}" = 0 ]; then
+    echo "Kestrel on http://127.0.0.1:$port, not seeded (setup wizard), fake on $fake, logs in $dir/logs"
+    return
+  fi
   python3 -I "$here/seed.py" --kestrel "http://127.0.0.1:$port" --db "$dir/config/kestrel.db" \
     --media "$dir/data/media" --fake "$fake" --parse "$dir/bin/parse"
   echo "Kestrel on http://127.0.0.1:$port (demo / demo-password-123), fake on $fake, logs in $dir/logs"
@@ -107,6 +119,15 @@ releases() {
   echo
 }
 
+unlisted() {
+  case ${1:-} in
+    on) curl -sf "$fake/_ctl?unlisted=1" ;;
+    off) curl -sf "$fake/_ctl?unlisted=0" ;;
+    *) die "usage: demo.sh unlisted on|off" ;;
+  esac
+  echo
+}
+
 cmd=${1:-}
 shift || true
 case $cmd in
@@ -114,5 +135,6 @@ case $cmd in
   start) start "$@" ;;
   stop) stop ;;
   releases) releases "$@" ;;
-  *) sed -n '2,13s/^# \{0,1\}//p' "$0"; exit 2 ;;
+  unlisted) unlisted "$@" ;;
+  *) sed -n '2,15s/^# \{0,1\}//p' "$0"; exit 2 ;;
 esac

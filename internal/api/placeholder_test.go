@@ -68,6 +68,7 @@ func TestARefreshKeepsThePlaceholderEpisodeAGrabIsFetching(t *testing.T) {
 
 	// A German household's refresh fetches the German episode titles, which shows it ran.
 	s.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`)
+	s.trashPass(t)
 	if r := s.valid("POST", fmt.Sprintf("/titles/%d/refresh", s.title), ""); r.Status != 202 {
 		t.Fatalf("POST refresh = %d %s", r.Status, r.Body)
 	}

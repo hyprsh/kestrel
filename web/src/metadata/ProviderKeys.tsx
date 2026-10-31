@@ -1,4 +1,5 @@
 import { Button, Input, Note } from '@hyprsh/design'
+import { SkeletonForm } from '../loading'
 import { useState, type FormEvent } from 'react'
 import { ApiError, usePatchSettings, useSettings } from '../api/queries'
 
@@ -12,7 +13,7 @@ export function ProviderKeysForm() {
   const patch = usePatchSettings()
   const [tmdb, setTmdb] = useState('')
   const [tvdb, setTvdb] = useState('')
-  if (!settings.data) return null
+  if (!settings.data) return <SkeletonForm rows={2} />
   const set = settings.data.metadata
 
   const submit = (e: FormEvent) => {

@@ -23,6 +23,7 @@ func TestAGermanHouseholdSeesEpisodeTitlesInGermanWithTheOriginalTitleKept(t *te
 	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	l.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`)
+	l.trashPass(t)
 	created := decode[seriesTitleJSON](t, l.valid("POST", "/titles", addBreakingBad+`}`))
 
 	eps := episodesOf(t, l, created.ID)
@@ -46,6 +47,7 @@ func TestAMissingTranslationFallsBackToTheOriginalTitle(t *testing.T) {
 	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	l.valid("PATCH", "/settings", `{"language_region":{"primary_language":"fr"}}`)
+	l.trashPass(t)
 	r := l.valid("POST", "/titles", addBreakingBad+`}`)
 	if r.Status != 201 {
 		t.Fatalf("POST /titles = %d %s, want the add to survive TheTVDB having no French list", r.Status, r.Body)
@@ -80,6 +82,7 @@ func TestARefreshFetchesEpisodeTitlesInANewPrimaryLanguage(t *testing.T) {
 	l, _ := newRefreshInstance(t)
 	created := decode[seriesTitleJSON](t, l.valid("POST", "/titles", addBreakingBad+`}`))
 	l.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`)
+	l.trashPass(t)
 
 	if r := l.valid("POST", fmt.Sprintf("/titles/%d/refresh", created.ID), ""); r.Status != 202 {
 		t.Fatalf("POST refresh = %d %s", r.Status, r.Body)
@@ -94,6 +97,7 @@ func TestAddingASeriesSurvivesTheTranslatedTitlesFailingAndKeepsTheOriginalOnes(
 	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	l.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`)
+	l.trashPass(t)
 	l.tvdb.FailTranslations()
 
 	r := l.valid("POST", "/titles", addBreakingBad+`}`)

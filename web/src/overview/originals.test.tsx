@@ -7,6 +7,7 @@ import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { detail, fakeLibrary, row } from '../test/library'
 import { server } from '../test/server'
+import { findToast } from '../test/toasts'
 
 type Attention = components['schemas']['Attention']
 type OriginalOffer = components['schemas']['OriginalOffer']
@@ -68,6 +69,17 @@ describe('the Originals available group in Needs attention', () => {
     expect(within(section).queryByText(/hd-primary/)).not.toBeInTheDocument()
   })
 
+  it('leaves the Profile out of a row when its name is the Slot label', async () => {
+    fakeOffers([{ ...movieOffer, slot: '4k', profile: '4k-primary' }])
+    renderApp()
+
+    const section = await screen.findByRole('region', { name: /needs attention/i })
+    await userEvent.click(await within(section).findByRole('button', { name: 'Originals available · 1' }))
+    const item = within(section).getAllByRole('listitem')[0]
+    await waitFor(() => expect(item).toHaveTextContent('Paddington · 4K'))
+    expect(item).not.toHaveTextContent('4K · 4K')
+  })
+
   it('is one grouped row outside the badge that expands to one row per Version with Accept and Dismiss', async () => {
     const sent = fakeOffers([movieOffer, seriesOffer])
     renderApp()
@@ -85,11 +97,28 @@ describe('the Originals available group in Needs attention', () => {
 
     await userEvent.click(within(items[0]).getByRole('button', { name: 'Accept' }))
     await waitFor(() => expect(sent).toEqual(['accept 11']))
+    expect(await findToast('Accepted the original for Paddington')).toBeInTheDocument()
     await userEvent.click(within(items[1]).getByRole('button', { name: 'Dismiss' }))
     await waitFor(() => expect(sent).toEqual(['accept 11', 'dismiss 21']))
+    expect(await findToast('Dismissed the original for Night Show')).toBeInTheDocument()
 
     await userEvent.click(within(section).getByRole('button', { name: 'Originals available · 2' }))
     expect(within(section).queryByText(/paddington/i)).not.toBeInTheDocument()
+  })
+
+  it('says in a Toast when Accept or Dismiss failed', async () => {
+    fakeOffers([movieOffer])
+    const refuse = ({ response }: { response: (s: 'default') => { json: (b: unknown, o: { status: number }) => unknown } }) =>
+      response('default').json({ type: 'about:blank', title: 'x', status: 500, code: 'internal', detail: 'indexer offline' }, { status: 500 })
+    server.use(http.post('/versions/{id}/original-offer/accept', refuse as never), http.post('/versions/{id}/original-offer/dismiss', refuse as never))
+    renderApp()
+
+    const section = await screen.findByRole('region', { name: /needs attention/i })
+    await userEvent.click(await within(section).findByRole('button', { name: 'Originals available · 1' }))
+    await userEvent.click(within(section).getByRole('button', { name: 'Accept' }))
+    expect(await findToast('Could not accept the original for Paddington: indexer offline')).toBeInTheDocument()
+    await userEvent.click(within(section).getByRole('button', { name: 'Dismiss' }))
+    expect(await findToast('Could not dismiss the original for Paddington: indexer offline')).toBeInTheDocument()
   })
 
   it('does not say nothing needs attention while it shows', async () => {

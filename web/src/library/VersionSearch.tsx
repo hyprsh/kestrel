@@ -1,9 +1,10 @@
 // Search now and Manual search for a Title's Versions, in the Title actions row.
 import { useMutation } from '@tanstack/react-query'
+import { useReport } from '../toasts'
 import { useSearchNow } from '../api/grabs'
 import type { TitleDetail } from '../api/queries'
 import { Button, Menu } from '@hyprsh/design'
-import { slotLabel } from './bits'
+import { slotProfile } from './slotProfile'
 import type { ManualSearchTarget } from './TitleDetail'
 
 /**
@@ -14,14 +15,16 @@ import type { ManualSearchTarget } from './TitleDetail'
 export function useSearchWanted(title: TitleDetail) {
   const one = useSearchNow()
   const wanted = title.versions.filter((v) => v.state === 'wanted').map((v) => v.id)
+  const report = useReport()
   const all = useMutation({ mutationFn: (ids: number[]) => Promise.all(ids.map((versionId) => one.mutateAsync({ versionId }))) })
-  return { mutation: all, wanted, run: () => all.mutate(wanted) }
+  return { mutation: all, wanted, run: () => void report(all.mutateAsync(wanted), { started: `Search started for ${title.title}`, failed: `Could not search ${title.title}` }) }
 }
 
-export function SearchNow({ search }: { search: ReturnType<typeof useSearchWanted> }) {
+export function SearchNow({ search, unmonitored }: { search: ReturnType<typeof useSearchWanted>; unmonitored: boolean }) {
   const none = search.wanted.length === 0
+  const why = unmonitored ? 'Not monitored: turn monitoring on to search' : none ? 'Nothing in this Title is Wanted' : undefined
   return (
-    <Button variant="secondary" size="small" disabled={none || search.mutation.isPending} title={none ? 'Nothing in this Title is Wanted' : undefined} onClick={search.run}>
+    <Button variant="secondary" size="small" disabled={unmonitored || none || search.mutation.isPending} title={why} onClick={search.run}>
       Search now
     </Button>
   )
@@ -46,7 +49,7 @@ export function ManualSearch({ title, profileName, onManualSearch }: { title: Ti
       <Menu>
         {title.versions.map((v) => (
           <Menu.Item key={v.id} onSelect={() => open(v)}>
-            {slotLabel[v.slot]} · {profileName(v.profile)}
+            {slotProfile(v.slot, profileName(v.profile))}
           </Menu.Item>
         ))}
       </Menu>

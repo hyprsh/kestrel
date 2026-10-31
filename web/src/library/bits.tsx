@@ -6,6 +6,18 @@ export type SlotKey = 'standard' | '4k'
 export const slotKeys: SlotKey[] = ['standard', '4k']
 export const slotLabel: Record<SlotKey, string> = { standard: 'Standard', '4k': '4K' }
 
+/** The plain words for each Manual search column's two directions, as the Sort menu and Settings > Display name them. */
+export const manualSearchSortLabels: Record<'score' | 'release' | 'quality' | 'languages' | 'formats' | 'size' | 'age' | 'indexer', { asc: string; desc: string }> = {
+  score: { asc: 'Worst first', desc: 'Best first' },
+  release: { asc: 'Release A to Z', desc: 'Release Z to A' },
+  quality: { asc: 'Quality A to Z', desc: 'Quality Z to A' },
+  languages: { asc: 'Languages A to Z', desc: 'Languages Z to A' },
+  formats: { asc: 'Custom formats: fewest points first', desc: 'Custom formats: most points first' },
+  size: { asc: 'Smallest first', desc: 'Largest first' },
+  age: { asc: 'Newest first', desc: 'Oldest first' },
+  indexer: { asc: 'Indexer A to Z', desc: 'Indexer Z to A' },
+}
+
 /** Bytes on disk, in GB from 1 GB up, else in MB. */
 export function size(bytes: number): string {
   const gb = bytes / 1024 ** 3
@@ -40,11 +52,11 @@ export function StatusBadge({ state, longMissing }: { state: State; longMissing?
   )
 }
 
-export type Dot = { state: 'success' | 'info' | 'warning' | 'error' | 'neutral'; variant?: 'outline' | 'dashed' }
+export type Dot = { state: 'success' | 'info' | 'warning' | 'error' | 'neutral'; variant?: 'outline' | 'dashed'; faint?: boolean }
 
 /** The StatusDot of a Slot's Version (null: no Version in the Slot). */
 export function dotOf(state: State | null, longMissing: boolean): Dot {
-  if (state === null) return { state: 'neutral', variant: 'outline' } // no Version in the Slot
+  if (state === null) return { state: 'neutral', faint: true } // no Version in the Slot: the quietest mark, so it never competes with Wanted
   if (longMissing) return { state: 'error', variant: 'outline' }
   switch (state) {
     case 'filled':
@@ -60,14 +72,23 @@ export function dotOf(state: State | null, longMissing: boolean): Dot {
   }
 }
 
-/** One dot per Slot: filled green when there is a file, hollow amber while Wanted, red when Long Missing. */
+function slotName(k: SlotKey, s: { state: string; long_missing: boolean } | null): string {
+  return `${slotLabel[k]}: ${s ? versionStatus(s.state, s.long_missing).label : 'no Version'}`
+}
+
+/** The faint dot of a Slot with no Version is dimmed with this class. */
+export const faintDot = 'opacity-40'
+
+/** One dot per Slot: filled green when there is a file, hollow amber while Wanted, red when Long Missing, a faint dot with no Version. The row is one image named for every Slot. */
 export function SlotDots({ slots }: { slots: Record<SlotKey, { state: string; long_missing: boolean } | null> }) {
+  const name = slotKeys.map((k) => slotName(k, slots[k])).join(', ')
   return (
-    <span className="flex items-center gap-1">
+    <span role="img" aria-label={name} className="flex items-center gap-1">
       {slotKeys.map((k) => {
         const s = slots[k]
         const dot = dotOf(s ? s.state : null, !!s?.long_missing)
-        return <StatusDot key={k} state={dot.state} variant={dot.variant} label={false} title={`${slotLabel[k]}: ${s ? versionStatus(s.state, s.long_missing).label : 'no Version'}`} />
+        // StatusDot always sets a hover title, so give it the Slot's own words; aria-hidden keeps it out of the accessibility tree.
+        return <StatusDot key={k} title={slotName(k, s)} state={dot.state} variant={dot.variant} label={false} aria-hidden className={dot.faint ? faintDot : undefined} />
       })}
     </span>
   )

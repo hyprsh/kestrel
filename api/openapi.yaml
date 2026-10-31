@@ -506,10 +506,13 @@ paths:
       description: |
         A JSON merge patch over the sections: send only what changes. Changing `primary_language`
         re-points the eight Profiles to their backing TRaSH profiles and, unless the same patch
-        names `release_date_country`, moves the country to the new language's default. It also
-        re-scores every stored file under the new Profiles, in the same step; files are not renamed
-        and nothing is searched. A patch that names a section the Config File declares
-        (`language_region`, `root_folders`, `check_github_updates`) answers `409 conflict` and saves
+        names `release_date_country`, moves the country to the new language's default. Both change
+        in the background, in one step with a re-score of every stored file under the new Profiles:
+        the answer still shows the old `primary_language`, with `pending_primary_language`, until the
+        `trash` job has finished (see Activity); files are not renamed and nothing is searched. A
+        second change while one waits replaces it, and a failed re-score changes neither the
+        setting nor the Scores. A patch that names a section the Config File declares
+        (`language_region`, `root_folders`, `check_github_updates`, or a `display` setting it declares) answers `409 conflict` and saves
         nothing, not even its other sections.
       tags: [settings]
       requestBody:
@@ -2238,25 +2241,18 @@ paths:
       operationId: updateTrash
       summary: Update from TRaSH
       description: |
-        Fetches TRaSH's newest Custom Formats and profiles now, whatever the daily check's switch says.
-        The load is all-or-nothing: the snapshot must parse and every stored file is re-scored under it
-        before it becomes active. A snapshot that fails either is rejected whole (`422 validation`), the
-        previous one stays in use and the "TRaSH update rejected" Warning is raised. Nothing is renamed
-        or searched. When TRaSH cannot be reached it is `502 upstream_unavailable`.
+        Asks for a pass of the `trash` loop that fetches TRaSH's newest Custom Formats and profiles,
+        whatever the daily check's switches say, and answers at once. The pass loads the snapshot
+        all-or-nothing: it must parse and every stored file is re-scored under it before it becomes
+        active. A snapshot that fails either is rejected whole, the previous one stays in use and the
+        "TRaSH update rejected" Warning is raised. Nothing is renamed or searched. `GET /jobs` shows
+        the pass's `progress` while it re-scores and its `outcome` when it ends (updated, up to date,
+        rejected, TRaSH unreachable). A request while one is already waiting or running starts no
+        second pass and is `202` too.
       tags: [system]
       responses:
-        "200":
-          description: Done; `changed` is false when TRaSH had nothing newer.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [changed, commit]
-                properties:
-                  changed:
-                    type: boolean
-                  commit:
-                    type: string
+        "202":
+          description: The pass is requested, or is already waiting or running.
         default:
           $ref: "#/components/responses/Problem"
   /stream:
@@ -3050,7 +3046,7 @@ components:
       enum: [en, de, fr]
     Settings:
       type: object
-      required: [language_region, root_folders, check_github_updates, trash, metadata, pause_grabs, from_config_file]
+      required: [language_region, root_folders, check_github_updates, trash, metadata, pause_grabs, display, from_config_file]
       properties:
         pause_grabs:
           type: boolean
@@ -3062,13 +3058,28 @@ components:
             Version, and every Upgrade search made while paused, due a search now, so the next sweep
             grabs as usual. The health strip shows it as
             `grabs_paused`.
+        display:
+          $ref: "#/components/schemas/Display"
         from_config_file:
           type: object
-          required: [language_region, root_folders, check_github_updates]
+          required: [language_region, root_folders, check_github_updates, display]
           description: |
             Per section, `true` while the Config File declares it. A declared section can't be
             changed here: a patch naming it answers `409 conflict`.
           properties:
+            display:
+              type: object
+              required: [season_order, seasons_open, manual_search_sort, upcoming_filters]
+              description: Per display setting, `true` while the Config File declares it; a patch naming it answers `409 conflict`.
+              properties:
+                season_order:
+                  type: boolean
+                seasons_open:
+                  type: boolean
+                manual_search_sort:
+                  type: boolean
+                upcoming_filters:
+                  type: boolean
             language_region:
               type: boolean
             root_folders:
@@ -3111,6 +3122,56 @@ components:
               type: string
               description: ISO 3166-1 alpha-2. "Released" follows it.
               example: DE
+            pending_primary_language:
+              allOf:
+                - $ref: "#/components/schemas/PrimaryLanguage"
+              description: |
+                Present while a change of `primary_language` waits for its re-score. `primary_language`
+                stays the old Language until the `trash` job has re-scored every file under the new one;
+                then it changes, and this is gone. A change that fails leaves `primary_language` as it was.
+    SeasonOrder:
+      type: string
+      enum: [oldest_first, newest_first]
+    SeasonsOpen:
+      type: string
+      enum: [latest_and_wanted, all, none]
+    ManualSearchSort:
+      type: string
+      description: |
+        Best first, or a Manual search column with `_asc` or `_desc`. Score descending is best first, so
+        `score_desc` is not a value.
+      enum: [best_first, score_asc, release_asc, release_desc, quality_asc, quality_desc, languages_asc, languages_desc, formats_asc, formats_desc, size_asc, size_desc, age_asc, age_desc, indexer_asc, indexer_desc]
+    UpcomingKind:
+      type: string
+      description: One of `all`, `movie` or `series`; anything else is `422`.
+    Display:
+      type: object
+      required: [season_order, seasons_open, manual_search_sort, upcoming_filters]
+      description: |
+        The household-wide view defaults. Each is where a browser or session starts: a season the
+        user opened or closed on a Series, a sort picked in Manual search and the Upcoming filters
+        changed in a session keep winning. Never saved, they report today's behavior.
+      properties:
+        season_order:
+          allOf:
+            - $ref: "#/components/schemas/SeasonOrder"
+          description: Newest first reverses the seasons and the episodes in each. Specials come last in both orders.
+        seasons_open:
+          allOf:
+            - $ref: "#/components/schemas/SeasonsOpen"
+          description: Which seasons of a Series start open. `latest_and_wanted` opens the latest season and any with a Wanted episode, never Specials.
+        manual_search_sort:
+          $ref: "#/components/schemas/ManualSearchSort"
+        upcoming_filters:
+          type: object
+          required: [kind, wanted_only, hide_imported]
+          properties:
+            kind:
+              $ref: "#/components/schemas/UpcomingKind"
+            wanted_only:
+              type: boolean
+            hide_imported:
+              type: boolean
     RootFolders:
       type: object
       required: [movies, series]
@@ -3131,6 +3192,27 @@ components:
     SettingsPatch:
       type: object
       properties:
+        display:
+          type: object
+          description: |
+            Changes the named display settings. A setting the Config File declares answers `409 conflict`.
+            An unknown value answers `422` naming `display.<setting>`.
+          properties:
+            season_order:
+              $ref: "#/components/schemas/SeasonOrder"
+            seasons_open:
+              $ref: "#/components/schemas/SeasonsOpen"
+            manual_search_sort:
+              $ref: "#/components/schemas/ManualSearchSort"
+            upcoming_filters:
+              type: object
+              properties:
+                kind:
+                  $ref: "#/components/schemas/UpcomingKind"
+                wanted_only:
+                  type: boolean
+                hide_imported:
+                  type: boolean
         pause_grabs:
           type: boolean
         check_github_updates:
@@ -4152,13 +4234,13 @@ components:
       description: |
         How far a Series Version is filled, in episodes and bytes; present only for a Series
         Version. It agrees with the Version's `state`: Wanted while `wanted` is above zero.
-      required: [episodes, filled, wanted, long_missing, size]
+      required: [episodes, filled, wanted, long_missing, unmonitored, downloading, downloading_long_missing, size]
       properties:
         episodes:
           type: integer
           description: |
             The episodes the Version counts: those it holds a file for and those it Wants. Unmonitored
-            and unreleased episodes without a file are left out.
+            and unreleased episodes without a file are left out; see `unmonitored`.
         filled:
           type: integer
           description: Episodes the Version holds a file for.
@@ -4167,7 +4249,24 @@ components:
           description: Episodes that are Wanted.
         long_missing:
           type: integer
-          description: The Wanted episodes that are Long Missing.
+          description: The Wanted episodes that are Long Missing, those with a Grab in flight included.
+        unmonitored:
+          type: integer
+          description: |
+            Released episodes without a file that aren't monitored. The released episodes are
+            `filled + wanted + unmonitored`.
+        downloading:
+          type: integer
+          description: |
+            The Wanted episodes a Grab in flight covers, Long Missing or not. A Grab is in flight until
+            it is Imported or Failed.
+        downloading_long_missing:
+          type: integer
+          description: |
+            The `downloading` episodes that are also Long Missing. For a bar of disjoint states, count
+            `filled`, `downloading`, `long_missing - downloading_long_missing`, the rest of `wanted`
+            (`wanted - downloading - (long_missing - downloading_long_missing)`) and `unmonitored`:
+            they add up to the released episodes.
         size:
           type: integer
           format: int64
@@ -4902,7 +5001,7 @@ components:
             $ref: "#/components/schemas/Job"
     Job:
       type: object
-      required: [name, status, disabled_by, runnable, last_run, next_at, schedule]
+      required: [name, status, disabled_by, runnable, last_run, next_at, schedule, progress, outcome]
       properties:
         name:
           type: string
@@ -4941,6 +5040,47 @@ components:
           description: When the next pass is due; `null` while one runs and before the loops start.
         schedule:
           $ref: "#/components/schemas/JobSchedule"
+        progress:
+          allOf:
+            - $ref: "#/components/schemas/JobProgress"
+          nullable: true
+          description: |
+            How far the pass running now has got, for a loop that says (`trash` while it re-scores:
+            Titles re-scored of all of them); `null` between passes and for the other loops.
+        outcome:
+          allOf:
+            - $ref: "#/components/schemas/JobOutcome"
+          nullable: true
+          description: |
+            How the last pass that had something to say went (`trash`); `null` before one does. A pass
+            with nothing to say (the daily check that is not due) leaves it as it was, so tell a new
+            outcome by `at`.
+    JobProgress:
+      type: object
+      required: [done, total]
+      properties:
+        done:
+          type: integer
+        total:
+          type: integer
+    JobOutcome:
+      type: object
+      required: [kind, text, at]
+      properties:
+        kind:
+          type: string
+          enum: [updated, up_to_date, rejected, unreachable, rescored, failed]
+          description: |
+            `updated` (a newer TRaSH snapshot is active), `up_to_date`, `rejected` (refused whole, the
+            previous one stays), `unreachable` (TRaSH could not be asked), `rescored` (files re-scored
+            after a Primary Language change) or `failed`; later versions may add kinds.
+        text:
+          type: string
+          description: The outcome in a sentence, for the UI to show.
+        at:
+          type: string
+          format: date-time
+          description: When the pass reported it.
     JobSchedule:
       type: object
       description: How often a loop runs.
@@ -5779,7 +5919,7 @@ components:
           description: How many Imports the last 7 days brought, a pack counting once.
     RecentItem:
       type: object
-      required: [title_id, title, year, kind, slot, release_name, score, score_delta, files, is_upgrade, imported_at]
+      required: [title_id, title, year, kind, has_poster, slot, release_name, score, score_delta, files, is_upgrade, imported_at]
       properties:
         title_id:
           type: integer
@@ -5791,6 +5931,9 @@ components:
           nullable: true
         kind:
           $ref: "#/components/schemas/TitleKind"
+        has_poster:
+          type: boolean
+          description: Whether `GET /titles/{id}/poster` serves a poster for the Title.
         slot:
           $ref: "#/components/schemas/Slot"
         release_name:
@@ -6123,7 +6266,7 @@ components:
           description: Seconds.
     RequestSlot:
       type: object
-      required: [slot, profile, version_id, status, status_label, download]
+      required: [slot, profile, version_id, status, status_label, stalled, download]
       properties:
         slot:
           $ref: "#/components/schemas/Slot"
@@ -6145,6 +6288,13 @@ components:
         status_label:
           type: string
           description: "`Not released yet` or `Searching` while queued."
+        stalled:
+          type: boolean
+          description: |
+            `true` while the Slot's Grab is a stalled download (the download client reports it paused, or
+            its downloaded amount has not grown for an hour) or its finished download has an Import that
+            waits for the environment to be fixed (disk full, a folder not writable). The Slot keeps its
+            `status`.
         download:
           allOf:
             - $ref: "#/components/schemas/RequestDownload"

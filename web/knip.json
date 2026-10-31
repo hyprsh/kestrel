@@ -1,5 +1,5 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["src/layout/*.{ts,tsx}"],
+  "entry": ["src/layout/*.{ts,tsx}", "docs-site/.vitepress/config.ts", "docs-site/.vitepress/theme/index.ts"],
   "ignore": ["src/api/schema.gen.ts"]
 }

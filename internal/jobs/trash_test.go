@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -38,9 +39,10 @@ type trashSource struct {
 	ref   trashsync.Ref
 	files fs.FS
 	calls int
+	err   error
 }
 
-func (f *trashSource) Latest(context.Context) (trashsync.Ref, error) { return f.ref, nil }
+func (f *trashSource) Latest(context.Context) (trashsync.Ref, error) { return f.ref, f.err }
 func (f *trashSource) Download(context.Context, trashsync.Ref) (fs.FS, error) {
 	f.calls++
 	return f.files, nil
@@ -57,18 +59,23 @@ type trashEnv struct {
 	st       *store.Store
 	rescored []rescoreCall
 	failWith error
+	// during runs inside a re-score, to look at what the runner shows then.
+	during func(ids []int64, progress func(int))
 }
 
 type oneTitle struct{}
 
 func (oneTitle) Names(context.Context) ([]library.Named, error) {
-	return []library.Named{{ID: 1}}, nil
+	return []library.Named{{ID: 1}, {ID: 2}}, nil
 }
 
 type rescorer struct{ e *trashEnv }
 
-func (r rescorer) RescoreTitles(_ context.Context, snap *scoring.Snapshot, _ []int64) error {
+func (r rescorer) RescoreTitles(_ context.Context, snap *scoring.Snapshot, ids []int64, progress func(int)) error {
 	r.e.rescored = append(r.e.rescored, rescoreCall{under: snap, active: r.e.holder.Current()})
+	if r.e.during != nil {
+		r.e.during(ids, progress)
+	}
 	return r.e.failWith
 }
 
@@ -268,11 +275,256 @@ func TestADownloadedTrashSnapshotIsNotRescoredAgainAtStartup(t *testing.T) {
 	}
 }
 
-func TestPrimaryLanguageChangeRescoresEverything(t *testing.T) {
+// trashRunner is the trash loop on a runner, so a pass is driven with Pass.
+func (e *trashEnv) trashRunner() *jobs.Runner {
+	r := jobs.New(nil)
+	r.Add(jobs.Loop{
+		Name: jobs.Trash,
+		Run: func(ctx context.Context) error {
+			if ran, err := e.updates.RunRequested(ctx); ran {
+				return err
+			}
+			return e.updates.Check(ctx)
+		},
+		Schedule: jobs.Schedule{Every: time.Hour},
+	})
+	return r
+}
+
+func trashJob(r *jobs.Runner) jobs.Job { return r.Jobs()[0] }
+
+func TestARequestedUpdateReturnsAtOnceAndOnePassRunsForTwoRequests(t *testing.T) {
 	e := newTrashEnv(t)
-	called := false
-	err := e.updates.ChangeLanguage(context.Background(), func() error { called = true; return nil })
-	if err != nil || !called || len(e.rescored) != 1 || e.rescored[0].under != e.holder.Current() {
-		t.Fatalf("err = %v, called = %v, rescored = %d", err, called, len(e.rescored))
+	e.offer("new", trashNow)
+	kicks := 0
+	e.updates.OnRequest(func() { kicks++ })
+
+	if !e.updates.RequestUpdate() || e.updates.RequestUpdate() {
+		t.Fatal("two requests in a row must start exactly one pass")
+	}
+	if kicks != 1 || len(e.rescored) != 0 || e.holder.Current().Commit() != "old" {
+		t.Fatalf("kicks = %d, re-scores = %d: the request must not re-score itself", kicks, len(e.rescored))
+	}
+	r := e.trashRunner()
+	if err := r.Pass(context.Background(), jobs.Trash); err != nil {
+		t.Fatal(err)
+	}
+	if e.holder.Current().Commit() != "new" || len(e.rescored) != 1 {
+		t.Errorf("active = %q, re-scores = %d after the pass", e.holder.Current().Commit(), len(e.rescored))
+	}
+	if !e.updates.RequestUpdate() {
+		t.Error("a request after the pass was ignored")
+	}
+}
+
+func TestARequestWhileItsPassRunsStartsNoSecondPass(t *testing.T) {
+	e := newTrashEnv(t)
+	e.offer("new", trashNow)
+	r := e.trashRunner()
+	e.updates.RequestUpdate()
+	var again bool
+	e.during = func([]int64, func(int)) { again = e.updates.RequestUpdate() }
+	if err := r.Pass(context.Background(), jobs.Trash); err != nil {
+		t.Fatal(err)
+	}
+	if again {
+		t.Error("a request during the running pass queued another")
+	}
+}
+
+func TestTheTrashJobReportsProgressWhileReScoring(t *testing.T) {
+	e := newTrashEnv(t)
+	e.offer("new", trashNow)
+	r := e.trashRunner()
+	var seen []jobs.Progress
+	e.during = func(ids []int64, progress func(int)) {
+		for i := range ids {
+			progress(i + 1)
+			j := trashJob(r)
+			if !j.Running || j.Progress == nil {
+				t.Errorf("job = %+v, want running with progress", j)
+				return
+			}
+			seen = append(seen, *j.Progress)
+		}
+	}
+	e.updates.RequestUpdate()
+	if err := r.Pass(context.Background(), jobs.Trash); err != nil {
+		t.Fatal(err)
+	}
+	if len(seen) != 2 || seen[0] != (jobs.Progress{Done: 1, Total: 2}) || seen[1] != (jobs.Progress{Done: 2, Total: 2}) {
+		t.Errorf("progress = %+v, want 1/2 then 2/2", seen)
+	}
+	if trashJob(r).Progress != nil {
+		t.Error("progress stayed after the pass")
+	}
+}
+
+func TestEveryTrashOutcomeIsReportedOnTheJob(t *testing.T) {
+	cases := []struct {
+		name  string
+		setup func(e *trashEnv)
+		want  jobs.OutcomeKind
+		text  string
+	}{
+		{"changed", func(e *trashEnv) { e.offer("abc1234def", trashNow) }, jobs.OutcomeUpdated, "abc1234"},
+		{"unchanged", func(e *trashEnv) { e.offer("old", trashNow.AddDate(0, 0, -10)) }, jobs.OutcomeUpToDate, "up to date"},
+		{"rejected", func(e *trashEnv) { e.offer("new", trashNow); e.failWith = errors.New("boom") }, jobs.OutcomeRejected, "previous"},
+		{"unreachable", func(e *trashEnv) { e.src.err = errors.New("down") }, jobs.OutcomeUnreachable, "reach"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			e := newTrashEnv(t)
+			c.setup(e)
+			r := e.trashRunner()
+			e.updates.RequestUpdate()
+			_ = r.Pass(context.Background(), jobs.Trash)
+			o := trashJob(r).Outcome
+			if o == nil || o.Kind != c.want || !strings.Contains(o.Text, c.text) {
+				t.Errorf("outcome = %+v, want %s containing %q", o, c.want, c.text)
+			}
+		})
+	}
+}
+
+func TestTheDailyCheckThatIsNotDueKeepsTheLastOutcome(t *testing.T) {
+	e := newTrashEnv(t)
+	e.offer("new", trashNow)
+	r := e.trashRunner()
+	e.updates.RequestUpdate()
+	_ = r.Pass(context.Background(), jobs.Trash)
+	first := *trashJob(r).Outcome
+	_ = e.snaps.SetAutoUpdate(context.Background(), false)
+	_ = r.Pass(context.Background(), jobs.Trash) // nothing requested, the daily check off: it says nothing
+	if o := trashJob(r).Outcome; o == nil || o.Kind != jobs.OutcomeUpdated || o.At != first.At {
+		t.Errorf("outcome = %+v, want the first one kept", o)
+	}
+}
+
+// languageChange is a Primary Language change that records what ran.
+type languageChange struct {
+	saved   []string
+	current string
+}
+
+func (l *languageChange) change(lang string) jobs.LanguageChange {
+	return jobs.LanguageChange{
+		Language: lang,
+		Apply: func(context.Context) error {
+			l.saved = append(l.saved, l.current)
+			l.current = lang
+			return nil
+		},
+		Undo: func(context.Context) error { l.current = l.saved[len(l.saved)-1]; return nil },
+	}
+}
+
+func TestAPrimaryLanguageChangeIsSavedAndReScoredTogetherInTheJob(t *testing.T) {
+	e := newTrashEnv(t)
+	lc := &languageChange{current: "en"}
+	e.updates.OnRequest(func() {})
+	e.updates.ChangeLanguage(context.Background(), lc.change("de"))
+	if lc.current != "en" || len(e.rescored) != 0 {
+		t.Fatalf("language = %s, re-scores = %d: nothing happens before the pass", lc.current, len(e.rescored))
+	}
+	if got, ok := e.updates.PendingLanguage(); !ok || got != "de" {
+		t.Errorf("pending = %q, %v, want de", got, ok)
+	}
+	e.during = func([]int64, func(int)) {
+		if lc.current != "de" {
+			t.Errorf("language = %s during the re-score, want the new one saved in the same step", lc.current)
+		}
+	}
+	r := e.trashRunner()
+	if err := r.Pass(context.Background(), jobs.Trash); err != nil {
+		t.Fatal(err)
+	}
+	if lc.current != "de" || len(e.rescored) != 1 || e.rescored[0].under != e.holder.Current() {
+		t.Errorf("language = %s, re-scores = %d", lc.current, len(e.rescored))
+	}
+	if _, ok := e.updates.PendingLanguage(); ok {
+		t.Error("still pending after the pass")
+	}
+	if o := trashJob(r).Outcome; o == nil || o.Kind != jobs.OutcomeRescored {
+		t.Errorf("outcome = %+v, want rescored", o)
+	}
+}
+
+func TestAFailedLanguageReScoreLeavesTheLanguageAsItWas(t *testing.T) {
+	e := newTrashEnv(t)
+	lc := &languageChange{current: "en"}
+	e.updates.OnRequest(func() {})
+	e.updates.ChangeLanguage(context.Background(), lc.change("de"))
+	e.failWith = errors.New("disk full")
+	r := e.trashRunner()
+	if err := r.Pass(context.Background(), jobs.Trash); err == nil {
+		t.Fatal("the pass succeeded")
+	}
+	if lc.current != "en" {
+		t.Errorf("language = %s, want en: a failed re-score changes no setting", lc.current)
+	}
+	if _, ok := e.updates.PendingLanguage(); ok {
+		t.Error("still pending after the failed pass")
+	}
+	if o := trashJob(r).Outcome; o == nil || o.Kind != jobs.OutcomeFailed {
+		t.Errorf("outcome = %+v, want failed", o)
+	}
+}
+
+func TestASecondLanguageChangeReplacesThePendingOne(t *testing.T) {
+	e := newTrashEnv(t)
+	lc := &languageChange{current: "en"}
+	e.updates.OnRequest(func() {})
+	e.updates.ChangeLanguage(context.Background(), lc.change("de"))
+	e.updates.ChangeLanguage(context.Background(), lc.change("fr"))
+	if got, _ := e.updates.PendingLanguage(); got != "fr" {
+		t.Errorf("pending = %q, want fr", got)
+	}
+	if err := e.trashRunner().Pass(context.Background(), jobs.Trash); err != nil {
+		t.Fatal(err)
+	}
+	if lc.current != "fr" || len(lc.saved) != 1 || len(e.rescored) != 1 {
+		t.Errorf("language = %s, saves = %d, re-scores = %d, want one pass under fr", lc.current, len(lc.saved), len(e.rescored))
+	}
+}
+
+func TestALanguageChangeDuringAReScoreRunsAgain(t *testing.T) {
+	e := newTrashEnv(t)
+	lc := &languageChange{current: "en"}
+	e.updates.OnRequest(func() {})
+	e.updates.ChangeLanguage(context.Background(), lc.change("de"))
+	first := true
+	e.during = func([]int64, func(int)) {
+		if first {
+			first = false
+			e.updates.ChangeLanguage(context.Background(), lc.change("fr"))
+			if got, _ := e.updates.PendingLanguage(); got != "fr" {
+				t.Errorf("pending = %q during the pass, want the newer fr", got)
+			}
+		}
+	}
+	r := e.trashRunner()
+	_ = r.Pass(context.Background(), jobs.Trash)
+	if lc.current != "de" {
+		t.Fatalf("language = %s after the first pass, want de", lc.current)
+	}
+	_ = r.Pass(context.Background(), jobs.Trash)
+	if lc.current != "fr" || len(e.rescored) != 2 {
+		t.Errorf("language = %s, re-scores = %d, want fr after a second pass", lc.current, len(e.rescored))
+	}
+}
+
+func TestApplyLanguageSavesAndReScoresBeforeReturning(t *testing.T) {
+	e := newTrashEnv(t)
+	lc := &languageChange{current: "en"}
+	if err := e.updates.ApplyLanguage(context.Background(), lc.change("de")); err != nil {
+		t.Fatal(err)
+	}
+	if lc.current != "de" || len(e.rescored) != 1 {
+		t.Errorf("language = %s, re-scores = %d", lc.current, len(e.rescored))
+	}
+	e.failWith = errors.New("disk full")
+	if err := e.updates.ApplyLanguage(context.Background(), lc.change("fr")); err == nil || lc.current != "de" {
+		t.Errorf("err = %v, language = %s, want a failure that keeps de", err, lc.current)
 	}
 }

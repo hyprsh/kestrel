@@ -18,6 +18,7 @@ const recent = (over: Partial<Recent>): Recent => ({
   title: 'Paddington',
   year: 2014,
   kind: 'movie',
+  has_poster: false,
   slot: 'standard',
   release_name: 'Paddington.2014.1080p.BluRay-GRP',
   score: 250,

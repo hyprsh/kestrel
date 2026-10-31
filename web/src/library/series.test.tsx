@@ -139,43 +139,42 @@ describe('the episodes heat map', () => {
     // The Version controls above the pane's Series section have their own tab stops: start at the last button before it.
     await act(async () => (await screen.findByRole('button', { name: 'Collapse all' })).focus())
     await userEvent.tab() // the grid's one tab stop
-    const specials = within(grid).getByRole('checkbox', { name: 'Specials' })
-    expect(specials).toHaveFocus()
+    expect(within(grid).getByRole('checkbox', { name: 'Season 1' })).toHaveFocus() // Specials come last
 
-    await userEvent.keyboard('{ArrowRight}{ArrowDown}') // open the Specials, then down into them
-    expect(within(grid).getByRole('checkbox', { name: 'Season 0 episode 1 monitored' })).toHaveFocus()
+    await userEvent.keyboard('{ArrowDown}') // down into the open season
+    expect(within(grid).getByRole('checkbox', { name: 'Season 1 episode 1 monitored' })).toHaveFocus()
     await userEvent.keyboard(' ')
     await waitFor(() => expect(state.get().sent).toHaveLength(1))
-    expect(state.get().sent[0]).toEqual({ path: 'episodes/monitor', body: { episode_ids: [1], monitored: true } })
-    await waitFor(() => expect(within(grid).getByRole('checkbox', { name: 'Season 0 episode 1 monitored' })).toBeChecked())
+    expect(state.get().sent[0]).toEqual({ path: 'episodes/monitor', body: { episode_ids: [2], monitored: false } })
+    await waitFor(() => expect(within(grid).getByRole('checkbox', { name: 'Season 1 episode 1 monitored' })).not.toBeChecked())
 
-    // Right moves along the row onto the Standard cell; Space there toggles the same episode.
+    // Right moves along the row onto the Standard cell.
     await userEvent.keyboard('{ArrowRight}')
-    expect(within(grid).getByRole('button', { name: 'Season 0 episode 1 Standard: Unmonitored' })).toHaveFocus()
+    expect(within(grid).getByRole('button', { name: /Season 1 episode 1 Standard/ })).toHaveFocus()
 
-    // Down to the Season 1 row; Space unmonitors the whole season.
-    await userEvent.keyboard('{ArrowLeft}{ArrowDown}')
+    // Up to the Season 1 row; Space unmonitors the whole season.
+    await userEvent.keyboard('{ArrowLeft}{ArrowUp}')
     expect(within(grid).getByRole('checkbox', { name: 'Season 1' })).toHaveFocus()
     await userEvent.keyboard(' ')
     await waitFor(() => expect(state.get().sent).toHaveLength(2))
     expect(state.get().sent[1]).toEqual({ path: 'seasons/1', body: { monitored: false } })
-    await waitFor(() => expect(within(grid).getByRole('checkbox', { name: 'Season 1 episode 1 monitored' })).not.toBeChecked())
+    await waitFor(() => expect(within(grid).getByRole('checkbox', { name: 'Season 1 episode 2 monitored' })).not.toBeChecked())
 
     // The keys stayed inside the grid: the Library selection did not move.
     expect(screen.getByRole('option', { name: /breaking bad/i, selected: true })).toBeInTheDocument()
 
     await userEvent.keyboard('{End}')
-    expect(within(grid).getByRole('checkbox', { name: 'Season 1 episode 2 monitored' })).toHaveFocus()
+    expect(within(grid).getByRole('checkbox', { name: 'Specials' })).toHaveFocus() // the closed Specials, last
     await userEvent.keyboard('{Home}')
-    expect(within(grid).getByRole('checkbox', { name: 'Specials' })).toHaveFocus()
+    expect(within(grid).getByRole('checkbox', { name: 'Season 1' })).toHaveFocus()
   })
 
   it('changes the monitoring mode from the detail pane', async () => {
     const { state } = await openSeries()
-    await userEvent.click(await screen.findByRole('button', { name: 'Monitor: All episodes' }))
-    await userEvent.click(screen.getByRole('option', { name: 'None' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Monitoring: Monitored: all episodes' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Not monitored' }))
     await waitFor(() => expect(state.get().sent).toEqual([{ path: 'titles', body: { series_monitor: 'none' } }]))
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Monitor: None' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Monitoring: Not monitored' })).toBeInTheDocument())
   })
 
   it('is not shown for a Movie', async () => {

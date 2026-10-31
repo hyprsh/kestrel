@@ -1,3 +1,4 @@
+import { displayDefaults, noDisplayDeclared } from '../test/display'
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -6,6 +7,7 @@ import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { server } from '../test/server'
+import { findToast } from '../test/toasts'
 import { fakeSetup } from '../test/fakeSetup'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
@@ -53,7 +55,8 @@ function fakeProfiles(opts: { fresh?: boolean } = {}) {
     language_region: { primary_language: 'en', release_date_country: 'US' },
     check_github_updates: true,
     pause_grabs: false,
-    from_config_file: { language_region: false, root_folders: false, check_github_updates: false },
+    display: displayDefaults,
+    from_config_file: { language_region: false, root_folders: false, check_github_updates: false, display: noDisplayDeclared },
     trash: { auto_update: true },
     metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
     root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'] },
@@ -69,9 +72,16 @@ function fakeProfiles(opts: { fresh?: boolean } = {}) {
     http.patch('/settings', async ({ request, response }) => {
       const body = (await request.json()) as { language_region?: Partial<Settings['language_region']> }
       sent.push({ path: 'settings', body })
+      // A new Primary Language waits for its re-score: Settings keeps the old one and reports the pending one.
+      const next = body.language_region?.primary_language
+      const pending = next && next !== settings.language_region.primary_language ? next : undefined
       settings = {
         ...settings,
-        language_region: { ...settings.language_region, ...body.language_region },
+        language_region: {
+          ...settings.language_region,
+          ...body.language_region,
+          ...(pending ? { primary_language: settings.language_region.primary_language, pending_primary_language: pending } : {}),
+        },
       } as Settings
       return response(200).json(settings)
     }),
@@ -122,7 +132,8 @@ describe('the wizard Primary Language section', () => {
     await userEvent.type(within(section).getByLabelText('Release-date country'), 'be')
     await userEvent.click(within(section).getByRole('button', { name: 'Save language' }))
 
-    expect(await within(section).findByText('Saved.')).toBeInTheDocument()
+    expect(await findToast('Re-scoring under French in the background')).toBeInTheDocument()
+    expect(within(section).queryByText('Saved.')).not.toBeInTheDocument()
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'settings', body: { language_region: { primary_language: 'fr', release_date_country: 'BE' } } }))
   })
 })
@@ -180,6 +191,19 @@ describe('Settings', () => {
     expect(await within(await screen.findByRole('region', { name: 'Primary Language' })).findByLabelText('Primary Language')).toHaveValue('en')
   })
 
+  it('shows a Language change as switching until its re-score ends, and keeps the form closed meanwhile', async () => {
+    fakeProfiles()
+    await open()
+    const section = await screen.findByRole('region', { name: 'Primary Language' })
+    await userEvent.selectOptions(await within(section).findByLabelText('Primary Language'), 'de')
+    await userEvent.click(within(section).getByRole('button', { name: 'Save language' }))
+
+    expect(await findToast('Re-scoring under German in the background')).toBeInTheDocument()
+    expect(await within(section).findByText(/Switching to German…/)).toBeInTheDocument()
+    expect(within(section).getByLabelText('Primary Language')).toBeDisabled()
+    expect(within(section).getByRole('button', { name: 'Save language' })).toBeDisabled()
+  })
+
   it('enables, disables and chooses what each Primary-Language Profile does with Original-only Releases', async () => {
     const sent = fakeProfiles()
     await open()
@@ -201,6 +225,7 @@ describe('Settings', () => {
     ).toEqual(['Reject', 'Offer for approval', 'Grab'])
     await userEvent.selectOptions(choice, 'offer')
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile hd-primary', body: { original_language: 'offer' } }))
+    expect(await findToast('Saved HD')).toBeInTheDocument()
   })
 
   it('shows the server problem when the only HD default is disabled', async () => {
@@ -218,7 +243,27 @@ describe('Settings', () => {
     await userEvent.selectOptions(await within(section).findByLabelText('Primary Language'), 'de')
     expect(within(section).getByText(/re-scores every file you already have/i)).toBeInTheDocument()
     await userEvent.click(within(section).getByRole('button', { name: 'Save language' }))
-    expect(await within(section).findByText('Saved.')).toBeInTheDocument()
+    expect(await findToast('Re-scoring under German in the background')).toBeInTheDocument()
+    expect(within(section).queryByText('Saved.')).not.toBeInTheDocument()
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'settings', body: { language_region: { primary_language: 'de', release_date_country: 'DE' } } }))
+  })
+
+  it('shows why a Profile choice could not be saved, and why the Language could not', async () => {
+    fakeProfiles()
+    server.use(
+      http.patch('/profiles/{key}', ({ response }) => response('default').json(problem(500, 'internal', 'database locked'), { status: 500 })),
+      http.patch('/settings', ({ response }) => response('default').json(problem(500, 'internal', 'database locked'), { status: 500 })),
+    )
+    await open()
+    const profiles = await screen.findByRole('region', { name: 'Profiles' })
+
+    await userEvent.selectOptions(await within(profiles).findByLabelText('HD Original Language only'), 'offer')
+    expect(await within(profiles).findByRole('alert')).toBeInTheDocument()
+
+    const language = await screen.findByRole('region', { name: 'Primary Language' })
+    await userEvent.selectOptions(await within(language).findByLabelText('Primary Language'), 'de')
+    await userEvent.click(within(language).getByRole('button', { name: 'Save language' }))
+    expect(await within(language).findByRole('alert')).toHaveTextContent('Could not save. Try again.')
+    expect(screen.queryByText('Language saved')).not.toBeInTheDocument()
   })
 })

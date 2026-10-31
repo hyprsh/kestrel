@@ -1,7 +1,9 @@
 import { Checkbox, Entity, Note, Select } from '@hyprsh/design'
+import { SkeletonRows } from '../loading'
 import { RowList, stackedRow, stackedRight } from '../layout/RowList'
 import { ApiError, usePatchProfile, useProfiles, type Profile } from '../api/queries'
 import { slotKeys, slotLabel } from '../library/bits'
+import { useReport } from '../toasts'
 
 const problemText = (e: unknown) => (e instanceof ApiError && e.status === 422 ? e.message : 'Could not save. Try again.')
 
@@ -16,13 +18,14 @@ const declaredNote = <Note size="small">The Config File sets the Profiles, so th
 export function DefaultsPerSlot() {
   const profiles = useProfiles()
   const patch = usePatchProfile()
+  const report = useReport()
   if (profiles.isError)
     return (
       <Note variant="error" size="small">
         Could not load the Profiles.
       </Note>
     )
-  if (!profiles.data) return null
+  if (!profiles.data) return <SkeletonRows count={3} />
   const declared = declaresProfiles(profiles.data)
 
   const kinds = [
@@ -55,8 +58,9 @@ export function DefaultsPerSlot() {
                     disabled={declared}
                     onChange={(e) => {
                       const key = e.target.value
-                      if (key) patch.mutate({ key, patch: { [flag]: true } })
-                      else if (current) patch.mutate({ key: current.key, patch: { [flag]: false } })
+                      const saved = { done: `Saved the ${label} default for ${kind}` }
+                      if (key) void report(patch.mutateAsync({ key, patch: { [flag]: true } }), saved)
+                      else if (current) void report(patch.mutateAsync({ key: current.key, patch: { [flag]: false } }), saved)
                     }}
                   >
                     {slot !== 'standard' && <option value="">None</option>}
@@ -104,16 +108,18 @@ const originalChoices: { value: Profile['original_language']; label: string }[] 
 export function ProfileToggles() {
   const profiles = useProfiles()
   const patch = usePatchProfile()
+  const report = useReport()
   if (profiles.isError)
     return (
       <Note variant="error" size="small">
         Could not load the Profiles.
       </Note>
     )
-  if (!profiles.data) return null
+  if (!profiles.data) return <SkeletonRows count={3} />
   const declared = declaresProfiles(profiles.data)
 
-  const toggle = (p: Profile, change: { enabled?: boolean; original_language?: Profile['original_language'] }) => patch.mutate({ key: p.key, patch: change })
+  const toggle = (p: Profile, change: { enabled?: boolean; original_language?: Profile['original_language'] }) =>
+    void report(patch.mutateAsync({ key: p.key, patch: change }), { done: `Saved ${p.name}` })
 
   return (
     <div className="flex flex-col gap-2">

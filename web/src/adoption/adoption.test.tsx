@@ -6,6 +6,7 @@ import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { server } from '../test/server'
+import { findToast, toastRegion } from '../test/toasts'
 
 type Adoption = components['schemas']['Adoption']
 type Row = components['schemas']['AdoptionRow']
@@ -236,7 +237,7 @@ async function openAdoption() {
 }
 
 describe('Adoption while loading', () => {
-  it('shows a Loading line only after about 300ms', async () => {
+  it('shows Skeleton rows, announced once, until the plan loads', async () => {
     let release: () => void = () => {}
     const held = new Promise<void>((resolve) => (release = resolve))
     fakeAdoption()
@@ -251,8 +252,8 @@ describe('Adoption while loading', () => {
     await user.click(await screen.findByRole('button', { name: 'Settings' }))
     await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
 
-    expect(screen.queryByText('Loading…')).not.toBeInTheDocument()
-    expect(await screen.findByText('Loading…')).toBeInTheDocument()
+    expect(await screen.findByRole('status')).toHaveTextContent('Loading')
+    expect(screen.queryByRole('button', { name: /scan for existing files/i })).not.toBeInTheDocument()
     release()
     expect(await screen.findByRole('button', { name: /scan for existing files/i })).toBeInTheDocument()
   })
@@ -293,6 +294,58 @@ describe('Adoption review', () => {
     await user.click(screen.getByRole('button', { name: 'Adopt 2 Titles' }))
     await screen.findByRole('button', { name: /scan for existing files/i })
     expect(state.commits).toEqual([{ revision: state.revision }])
+    expect(await findToast('Adopting the plan started')).toBeInTheDocument()
+    expect(within(await toastRegion()).queryByRole('button', { name: 'Watch in Activity' })).not.toBeInTheDocument()
+  })
+
+  it('says in a Toast that the scan started, that a plan was discarded, and why a call failed', async () => {
+    fakeAdoption()
+    server.use(http.delete('/adoption', ({ response }) => response(204).empty()))
+    const user = await openAdoption()
+
+    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+    expect(await findToast('Scan for existing files started')).toBeInTheDocument()
+
+    await user.click(await screen.findByRole('button', { name: 'Discard plan' }))
+    expect(await findToast('Adoption plan discarded')).toBeInTheDocument()
+  })
+
+  it('shows why a scan could not start, inline', async () => {
+    fakeAdoption()
+    server.use(
+      http.post('/adoption/scan', ({ response }) => response('default').json({ type: 'about:blank', title: 'x', status: 409, code: 'conflict', detail: 'a scan is already running' }, { status: 409 })),
+    )
+    const user = await openAdoption()
+
+    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+
+    expect(await screen.findByText('a scan is already running')).toBeInTheDocument()
+  })
+
+  const conflict = (detail: string) => ({ type: 'about:blank', title: 'x', status: 409, code: 'conflict', detail })
+
+  it('shows why adopting the plan failed, and no started Toast', async () => {
+    fakeAdoption()
+    server.use(http.post('/adoption/commit', ({ response }) => response('default').json(conflict('the plan changed under you'), { status: 409 })))
+    const user = await openAdoption()
+    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+
+    await user.click(await screen.findByRole('button', { name: /^Adopt \d+ Titles?$/ }))
+
+    expect(await screen.findByText('the plan changed under you')).toBeInTheDocument()
+    expect(screen.queryByText('Adopting the plan started')).not.toBeInTheDocument()
+  })
+
+  it('shows why discarding the plan failed, and no discarded Toast', async () => {
+    fakeAdoption()
+    server.use(http.delete('/adoption', ({ response }) => response('default').json(conflict('a commit is running'), { status: 409 })))
+    const user = await openAdoption()
+    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+
+    await user.click(await screen.findByRole('button', { name: 'Discard plan' }))
+
+    expect(await screen.findByText('a commit is running')).toBeInTheDocument()
+    expect(screen.queryByText('Adoption plan discarded')).not.toBeInTheDocument()
   })
 
   it('offers Clean up for the adopted folders once Titles were adopted', async () => {
@@ -366,7 +419,8 @@ describe('Adoption review of a large plan', () => {
     const { state, user } = await openPlan(moreRows(250))
 
     expect(await screen.findByText('Showing 100 of 250')).toBeInTheDocument()
-    expect(screen.getAllByRole('listitem').filter((li) => li.textContent?.includes('Film '))).toHaveLength(100)
+    // A role query walks the whole accessibility tree, which is what made this test slow under load.
+    expect([...document.querySelectorAll('li')].filter((li) => li.textContent?.includes('Film '))).toHaveLength(100)
     await user.click(screen.getByRole('button', { name: 'Show more' }))
     expect(await screen.findByText('Showing 200 of 250')).toBeInTheDocument()
     expect(state.pages.at(-1)).toEqual({ limit: '100', cursor: '100', filter: null })
@@ -395,12 +449,12 @@ describe('Adoption review of a large plan', () => {
   })
 
   it('selects every row of the filter across pages and sends the filter, not the ids', async () => {
-    const { state, user } = await openPlan(moreRows(250))
+    const { state, user } = await openPlan(moreRows(120))
 
     await user.click(await screen.findByLabelText('Select Film 0'))
     await user.click(screen.getByRole('button', { name: 'Select all 100 shown' }))
-    await user.click(screen.getByRole('button', { name: 'Select all 250 in this filter' }))
-    expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('250 selected')
+    await user.click(screen.getByRole('button', { name: 'Select all 120 in this filter' }))
+    expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('120 selected')
     await user.click(screen.getByRole('button', { name: "Don't adopt selected" }))
 
     expect(await screen.findByRole('button', { name: 'Adopt 0 Titles' })).toBeDisabled()
@@ -409,35 +463,35 @@ describe('Adoption review of a large plan', () => {
   })
 
   it('offers both select-all controls before a single row is ticked', async () => {
-    const { state, user } = await openPlan(moreRows(250))
+    const { state, user } = await openPlan(moreRows(120))
 
-    expect(await screen.findByText('Showing 100 of 250')).toBeInTheDocument()
+    expect(await screen.findByText('Showing 100 of 120')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Select all 100 shown' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Select all 250 in this filter' }))
-    expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('250 selected')
+    await user.click(screen.getByRole('button', { name: 'Select all 120 in this filter' }))
+    expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('120 selected')
     await user.click(screen.getByRole('button', { name: "Don't adopt selected" }))
 
     expect(state.bulks).toEqual([{ action: 'untick', filter: 'all' }])
   })
 
   it('offers no action on a selection before anything is selected', async () => {
-    await openPlan(moreRows(250))
+    await openPlan(moreRows(120))
 
-    await screen.findByText('Showing 100 of 250')
+    await screen.findByText('Showing 100 of 120')
     expect(screen.queryByRole('button', { name: "Don't adopt selected" })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument()
   })
 
   it('says so when leaving one row out ends "all in this filter", and then names the rows left by id', async () => {
-    const { state, user } = await openPlan(moreRows(250))
+    const { state, user } = await openPlan(moreRows(120))
 
-    await user.click(await screen.findByRole('button', { name: 'Select all 250 in this filter' }))
+    await user.click(await screen.findByRole('button', { name: 'Select all 120 in this filter' }))
     await user.click(screen.getByLabelText('Select Film 3'))
 
     const bar = screen.getByRole('group', { name: 'Selection' })
     expect(bar).toHaveTextContent('99 selected')
-    expect(bar).toHaveTextContent('No longer all 250 in this filter')
-    expect(within(bar).getByRole('button', { name: 'Select all 250 in this filter' })).toBeInTheDocument()
+    expect(bar).toHaveTextContent('No longer all 120 in this filter')
+    expect(within(bar).getByRole('button', { name: 'Select all 120 in this filter' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: "Don't adopt selected" }))
 
     expect(state.bulks).toHaveLength(1)

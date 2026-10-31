@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
 import { server } from '../test/server'
+import { findToast } from '../test/toasts'
 import { fakeSetup } from '../test/fakeSetup'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
@@ -114,7 +115,8 @@ describe('the wizard SABnzbd section', () => {
     await userEvent.selectOptions(movies, 'films')
 
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-    expect(await screen.findByText('Saved.')).toBeInTheDocument()
+    expect(await findToast('SABnzbd saved')).toBeInTheDocument()
+    expect(screen.queryByText('Saved.')).not.toBeInTheDocument()
     expect(sent.at(-1)).toEqual({
       path: 'create',
       body: { plugin_id: 'sabnzbd', name: 'SABnzbd', config: { url: 'http://sab:8080', api_key: 'good-key', movie_category: 'films', tv_category: 'tv' } },
@@ -172,6 +174,20 @@ describe('Settings download client', () => {
     const section = await open()
     await userEvent.click(await section.findByLabelText('SABnzbd enabled'))
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'patch', body: { enabled: false } }))
+    expect(await findToast('SABnzbd disabled')).toBeInTheDocument()
+  })
+
+  it('shows why the switch could not be saved, and says nothing was switched', async () => {
+    fakePlugins({ saved: true })
+    server.use(
+      http.patch('/plugin-instances/{id}', ({ response }) =>
+        response('default').json({ ...problem(422, 'validation'), detail: 'only 1 download_client.v1 instance can be enabled at a time' }, { status: 422 }),
+      ),
+    )
+    const section = await open()
+    await userEvent.click(await section.findByLabelText('SABnzbd enabled'))
+    expect(await section.findByRole('alert')).toHaveTextContent(/only 1 download_client.v1 instance/)
+    expect(screen.queryByText('SABnzbd disabled')).not.toBeInTheDocument()
   })
 
   it('never shows the saved API key and keeps it unless a new one is typed', async () => {

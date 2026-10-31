@@ -180,7 +180,7 @@ func TestEverySectionIsOptional(t *testing.T) {
 			t.Fatalf("%q: %v", body, err)
 		}
 		if f.Account != nil || f.LanguageRegion != nil || f.RootFolders != nil || f.Profiles != nil ||
-			f.PluginInstances != nil || f.ReverseProxy != nil || f.PlexSignIn != nil || f.Silo != nil || f.CheckGitHubUpdates != nil {
+			f.PluginInstances != nil || f.ReverseProxy != nil || f.PlexSignIn != nil || f.Silo != nil || f.Display != nil || f.CheckGitHubUpdates != nil {
 			t.Errorf("%q declares %+v", body, f)
 		}
 	}
@@ -393,5 +393,34 @@ func TestAnInstanceConfigIsRejectedWithoutItsSecret(t *testing.T) {
 				t.Errorf("the error repeats a value: %v", err)
 			}
 		})
+	}
+}
+
+func TestDisplayDeclaresAnyOfItsSettings(t *testing.T) {
+	f, err := configfile.Load(write(t, "display:\n  season_order: newest_first\n  upcoming_filters:\n    wanted_only: true\n"), env())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !f.Declares(configfile.SectionDisplay) || !f.DeclaresDisplay(configfile.DisplaySeasonOrder) || !f.DeclaresDisplay(configfile.DisplayUpcomingFilters) {
+		t.Errorf("declares = %+v, want season_order and upcoming_filters", f.Display)
+	}
+	if f.DeclaresDisplay(configfile.DisplaySeasonsOpen) || f.DeclaresDisplay(configfile.DisplayManualSearchSort) {
+		t.Errorf("declares %+v, want only the two named", f.Display)
+	}
+	if *f.Display.SeasonOrder != "newest_first" || !*f.Display.UpcomingFilters.WantedOnly {
+		t.Errorf("display = %+v", f.Display)
+	}
+}
+
+func TestDisplayNeedsASettingAndKnowsOnlyItsKeys(t *testing.T) {
+	for _, c := range []struct{ body, want string }{
+		{"display: {}\n", "display.season_order"},
+		{"display:\n  season_order_x: newest_first\n", "line 2: unknown key display.season_order_x"},
+		{"display:\n  upcoming_filters:\n    wanted: true\n", "line 3: unknown key display.upcoming_filters.wanted"},
+		{"display:\n  upcoming_filters:\n    wanted_only: sometimes\n", "line 3"},
+	} {
+		if _, err := configfile.Load(write(t, c.body), env()); err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%q: err = %v, want one with %q", c.body, err, c.want)
+		}
 	}
 }

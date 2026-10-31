@@ -13,6 +13,7 @@ import { Indexers } from '../plugins/Indexers'
 import { MediaServers } from '../plugins/MediaServers'
 import { ProviderKeysForm } from '../metadata/ProviderKeys'
 import { TrashForm } from '../trash/Trash'
+import { DisplayForm } from '../display/DisplayForm'
 import { LanguageForm } from '../profiles/Language'
 import { RootFoldersForm } from '../rootfolders/RootFolders'
 import { PlexSignInForm } from './PlexSignIn'
@@ -22,6 +23,7 @@ import { DefaultsPerSlot, ProfileToggles } from '../profiles/Profiles'
 /** Settings sections, in page order. Later tickets add theirs here. */
 const sections = [
   { id: 'language', title: 'Primary Language' },
+  { id: 'display', title: 'Display' },
   { id: 'profiles', title: 'Profiles' },
   { id: 'trash', title: 'TRaSH' },
   { id: 'metadata', title: 'Provider keys' },
@@ -74,6 +76,13 @@ export function Settings({
       <>
         <Row label="Language and country" help="The household's language and the country whose release dates and age ratings Kestrel reads.">
           <LanguageForm />
+        </Row>
+      </>
+    ),
+    display: (
+      <>
+        <Row label="Household defaults" help="How every browser starts: the order of a Series' seasons, which seasons are open, and where Manual search and Upcoming begin.">
+          <DisplayForm />
         </Row>
       </>
     ),

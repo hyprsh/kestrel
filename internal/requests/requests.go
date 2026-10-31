@@ -110,6 +110,11 @@ type SlotStatus struct {
 	Status    Status
 	Label     string
 	Download  *Download
+	// Stalled is set while the Slot's Grab is a stalled download (the client
+	// has it paused, or it has not grown for an hour) or a finished
+	// download's Import waits for the environment to be fixed (disk full, a
+	// folder not writable).
+	Stalled bool
 }
 
 // Request is a stored Request with its current status.
@@ -154,6 +159,7 @@ type Deps struct {
 	// Grabs lists the active Grabs.
 	Grabs interface {
 		Active(ctx context.Context) ([]acquire.Active, error)
+		Stalled(ctx context.Context) ([]acquire.StalledImport, error)
 	}
 }
 
@@ -824,6 +830,7 @@ func (s *Service) OriginsOf(ctx context.Context, titleID int64) ([]Origin, error
 // cache holds what one read of several Requests loads once.
 type cache struct {
 	active  []acquire.Active
+	stalled []acquire.StalledImport
 	loaded  bool
 	details map[int64]*library.Detail
 	eps     map[int64][]library.Episode
@@ -986,16 +993,26 @@ func (s *Service) derive(ctx context.Context, r *Request, st *SlotStatus, wasFil
 		if err != nil {
 			return err
 		}
-		c.active, c.loaded = active, true
+		stalled, err := s.d.Grabs.Stalled(ctx)
+		if err != nil {
+			return err
+		}
+		c.active, c.stalled, c.loaded = active, stalled, true
 	}
 	for _, a := range c.active {
 		if a.VersionID == st.VersionID {
 			st.Status, st.Label = Downloading, "Downloading"
 			st.Download = &Download{Phase: string(a.Phase), BytesTotal: a.BytesTotal, BytesLeft: a.BytesLeft, ETA: a.ETA}
+			st.Stalled = a.Stalled
 			return nil
 		}
 	}
 	st.Status, st.Label = Queued, "Searching"
+	for _, g := range c.stalled {
+		if g.VersionID == st.VersionID {
+			st.Stalled = true
+		}
+	}
 	if v.State == library.Unreleased {
 		st.Label = "Not released yet"
 	}

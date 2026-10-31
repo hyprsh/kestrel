@@ -1,11 +1,11 @@
-import { Button, Checkbox, KeyboardInput, Note, Select } from '@hyprsh/design'
+import { Button, Checkbox, KeyboardInput, Note, Select, Skeleton } from '@hyprsh/design'
 import { CornerDownLeft } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { ApiError, useCreateTitle, useLookupDetail, useProfiles, useSeriesOverview, useSettings, type LookupResult, type Profile } from '../api/queries'
 import { slotKeys, slotLabel, type SlotKey } from '../library/bits'
 import { Ratings } from '../library/Ratings'
 import { PaneFooter, PaneHeader } from '../layout/Pane'
-import { LoadingLine } from '../loading'
+import { LoadingRegion } from '../loading'
 import { LookupSummary } from './LookupSummary'
 import { allEpisodes, seasonBody, SeasonPresets, type SeasonChoice } from './SeasonPresets'
 import { SeriesOverviewLine } from './SeriesOverview'
@@ -96,7 +96,14 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
             {suggestion.error instanceof ApiError ? suggestion.error.message : 'Could not load this title.'}
           </Note>
         ) : !suggestion.data ? (
-          <LoadingLine>Loading…</LoadingLine>
+          <LoadingRegion>
+            <div aria-hidden className="flex flex-col gap-3">
+              <Skeleton height={16} width="80%" />
+              <Skeleton height={16} width="60%" />
+              <Skeleton height={32} width="50%" />
+              <Skeleton height={32} width="50%" />
+            </div>
+          </LoadingRegion>
         ) : (
           <>
             <LookupSummary detail={suggestion.data} series={result.kind === 'series' && <SeriesOverviewLine overview={overview} />} />

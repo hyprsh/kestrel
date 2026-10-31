@@ -21,6 +21,7 @@ import { startLiveStream } from '../live/stream'
 import { Log } from '../log/Log'
 import { Overview } from '../overview/Overview'
 import { Requests } from '../requests/Requests'
+import { useTrashOutcomeToasts } from '../trash/toasts'
 import { currentPlace, PlaceOpener, placeOf, placePath, pushedPlace, pushPlace, showPlace } from '../place'
 import { usePhone } from '../responsive'
 import { Upcoming } from '../upcoming/Upcoming'
@@ -29,6 +30,7 @@ import { THEME_KEY, useTheme, type Theme } from '../theme'
 import { KestrelLogo } from '../ui'
 import { Rail as RailFrame, RailSpacer } from '../layout/Rail'
 import { PhoneTopBar, TopBar as TopBarFrame } from '../layout/TopBar'
+import { BlockingBanner } from './BlockingBanner'
 import { MoreSheet, PhoneTabBar, type Tab } from './PhoneNav'
 import { ServerStatus } from './ServerStatus'
 
@@ -116,6 +118,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const canLogout = auth.data?.state === 'ok' && auth.data.me.method === 'session'
   const searchAll = useSearchAllWanted()
   const { mutate: searchAllWanted } = searchAll
+  useTrashOutcomeToasts()
   const toasts = useToasts()
   const adoptionState = useAdoption().data?.state
   const actions: MenuAction[] = useMemo(
@@ -224,6 +227,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
               onOpenRunning={() => goPath('/activity/running')}
             />
             {/* The floating tab bar is out of layout; --tab-bar-height keeps every screen's last row clear of it (0 on a tablet or desktop). */}
+            <BlockingBanner onOpen={goPath} />
             <main className="flex min-h-0 flex-1 flex-col pb-[var(--tab-bar-height)]">
               {screen === 'settings' ? (
                 <SettingsScreen onRunSetup={onRunSetup} onAdopt={() => setScreen('adoption')} section={settingsSection} onOpenSection={openSettingsSection} onCloseSection={closeSettingsSection} />

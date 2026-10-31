@@ -72,7 +72,7 @@ func New(opts Options, d Deps) http.Handler {
 	}
 	s := &server{
 		opts: opts, auth: newAuth(opts.Store, opts.Clock, opts.BaseURL, cost, opts.APIKey), hub: newHub(),
-		plugins: d.Plugins, profiles: d.Profiles, rootFolders: d.RootFolders, settings: d.Settings, pause: d.Pause, updates: d.Updates,
+		plugins: d.Plugins, profiles: d.Profiles, rootFolders: d.RootFolders, settings: d.Settings, display: d.Display, pause: d.Pause, updates: d.Updates,
 		library: d.Library, acquire: d.Acquire, requests: d.Requests, adoption: d.Adoption, cleanup: d.Cleanup,
 		remover: d.Remover, imports: d.Imports, files: d.Files, jobs: d.Jobs, refresher: d.Refresher, indexers: d.Indexers,
 		health: d.Health, history: d.History, scoring: d.Scoring, trash: d.Trash, keys: d.Keys, meta: d.Meta, tvdb: d.TVDB,
@@ -129,6 +129,7 @@ type server struct {
 	profiles    Profiles
 	rootFolders RootFolders
 	settings    SettingsTx
+	display     Display
 	pause       GrabPause
 	updates     Updates
 	library     Library
@@ -216,6 +217,9 @@ func docsPage(w http.ResponseWriter, _ *http.Request) {
     <title>Kestrel API</title>
   </head>
   <body>
+    <p style="margin: 0; padding: 8px 16px; font: 14px system-ui, sans-serif">
+      <a href="https://hyprsh.github.io/kestrel/">Kestrel documentation</a>
+    </p>
     <script id="api-reference" data-url="v1/openapi.json"></script>
     <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
   </body>

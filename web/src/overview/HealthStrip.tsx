@@ -1,5 +1,8 @@
-// The Health section: one tile per item (download client, indexers, disks, the rest), failing
-// first, each with its state as a status dot and a word, never colour alone.
+// The Health section, last on the Overview: one tile per item (download client, indexers, disks, the
+// rest), failing first, each with its state as a status dot and a word, never colour alone. It shows
+// its summary line alone while every check is ok, and opens when one fails; a click toggles it.
+import { Collapse, Skeleton } from '@hyprsh/design'
+import { useState } from 'react'
 import { useStatus, type SystemStatus } from '../api/attention'
 import { clockTime } from '../time'
 import { Tile, type TileData, type Tone } from './HealthTile'
@@ -75,7 +78,7 @@ function Group({ title, tiles }: { title: string; tiles: TileData[] }) {
   return (
     <div>
       <h3 className="label-12 mb-1.5 text-gray-900">{title}</h3>
-      <ul className="flex flex-col gap-2">
+      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {failingFirst(tiles).map((t) => (
           <Tile key={t.key} tile={t} />
         ))}
@@ -85,7 +88,9 @@ function Group({ title, tiles }: { title: string; tiles: TileData[] }) {
 }
 
 export function HealthStrip() {
-  const s = useStatus().data
+  const status = useStatus()
+  const s = status.data
+  const [chosen, setChosen] = useState<boolean | null>(null)
   const rest: TileData[] = []
   if (s) {
     if (s.grabs_paused) rest.push({ key: 'grabs', name: 'Grabs', tone: 'paused', details: ['Automatic Grabs are paused'] })
@@ -96,20 +101,29 @@ export function HealthStrip() {
   const indexers = s ? s.indexers.map(indexerTile) : []
   const disks = s ? s.disks.map(diskTile) : []
   const failing = [...clients, ...indexers].filter((t) => t.tone === 'failing').length
-  const summary = !s ? '' : failing > 0 ? ` · ${failing} failing` : ' · all good'
+  // While the status loads the summary line is a Skeleton: the section is collapsed, so one inside it would be hidden.
+  const summary = !s ? (
+    <>
+      {' '}
+      <Skeleton width={64} height={16} className="inline-block align-middle" />
+    </>
+  ) : failing > 0 ? (
+    ` · ${failing} failing`
+  ) : (
+    ' · all good'
+  )
   return (
-    <section aria-labelledby="health-strip">
-      <h2 id="health-strip" className="heading-14 mb-3">
-        {`Health${summary}`}
-      </h2>
-      {s && (
-        <div className="flex flex-col gap-4">
-          <Group title="Download client" tiles={clients} />
-          <Group title="Indexers" tiles={indexers} />
-          <Group title="Disks" tiles={disks} />
-          <Group title="Other" tiles={rest} />
-        </div>
-      )}
-    </section>
+    <div>
+      <Collapse size="small" headingLevel={2} title={<>Health{summary}</>} expanded={chosen ?? failing > 0} onChange={setChosen}>
+        {s && (
+          <div className="flex flex-col gap-4 pt-3">
+            <Group title="Download client" tiles={clients} />
+            <Group title="Indexers" tiles={indexers} />
+            <Group title="Disks" tiles={disks} />
+            <Group title="Other" tiles={rest} />
+          </div>
+        )}
+      </Collapse>
+    </div>
   )
 }

@@ -8,6 +8,7 @@ import { http } from '../test/handlers'
 import { fakeLibrary, row } from '../test/library'
 import { fakeQueue, queueItem } from '../test/queue'
 import { server } from '../test/server'
+import { findToast } from '../test/toasts'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -214,6 +215,30 @@ describe('Activity', () => {
 
     await waitFor(() => expect(searched).toEqual(['11']))
     expect(within(row).getByRole('button', { name: 'Searching…' })).toBeDisabled()
+  })
+
+  it('says in a Toast why Retry now, Discard and Search again failed, and closes the Discard dialog on confirm', async () => {
+    const refuse = (detail: string) => ({ type: 'about:blank', title: 'x', status: 500, code: 'internal', detail })
+    server.use(
+      http.post('/grabs/{id}/retry-import', ({ response }) => response('default').json(refuse('disk offline'), { status: 500 })),
+      http.post('/grabs/{id}/discard', ({ response }) => response('default').json(refuse('client offline'), { status: 500 })),
+      http.post('/versions/{id}/search', ({ response }) => response('default').json(refuse('the indexer is down'), { status: 500 })),
+    )
+    fakeGrabs([grabEntry({ grab_id: 6, state: 'importing', stalled }), grabEntry({ grab_id: 7, state: 'failed', failure: 'download_failed', version_id: 11, title: 'Heat' })])
+    await openActivity()
+
+    const stuck = within(await screen.findByRole('region', { name: 'Stalled · 1' })).getByRole('listitem')
+    await userEvent.click(within(stuck).getByRole('button', { name: 'Retry now' }))
+    expect(await findToast('Could not retry the import: disk offline')).toBeInTheDocument()
+
+    await userEvent.click(within(stuck).getByRole('button', { name: 'Discard' }))
+    await userEvent.click(within(await screen.findByRole('alertdialog', { name: 'Discard this Grab' })).getByRole('button', { name: 'Discard' }))
+    expect(await findToast('Could not discard the Grab: client offline')).toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+
+    const failed = within(screen.getByRole('region', { name: 'Failed · 1' })).getByRole('listitem')
+    await userEvent.click(within(failed).getByRole('button', { name: 'Search again' }))
+    expect(await findToast('Could not search Heat: the indexer is down')).toBeInTheDocument()
   })
 
   it('opens the Title from its name, and the selected row’s Title with Enter', async () => {

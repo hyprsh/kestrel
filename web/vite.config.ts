@@ -29,5 +29,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    // A test is ~0.1-1 s alone but 5-10x that while `make check` runs every package's tests at once; the default 5 s timed out the first test of a file.
+    testTimeout: 20_000,
   },
 })

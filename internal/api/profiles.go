@@ -10,6 +10,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
+	"github.com/hyprsh/kestrel/internal/settings/display"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 )
 
@@ -77,6 +78,33 @@ func (s *server) PatchProfile(ctx context.Context, r oapi.PatchProfileRequestObj
 	return oapi.PatchProfile200JSONResponse(s.profileToAPI(p)), nil
 }
 
+// restoreRegion undoes setRegion, in a transaction of its own.
+func (s *server) restoreRegion(ctx context.Context, before profiles.Region, saved bool) error {
+	tx, err := s.opts.Store.Write().BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := s.settings.InTx(tx).RestoreRegion(ctx, before, saved); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// setRegion saves the language settings in a transaction of their own.
+func (s *server) setRegion(ctx context.Context, p profiles.RegionPatch) (profiles.Region, error) {
+	tx, err := s.opts.Store.Write().BeginTx(ctx, nil)
+	if err != nil {
+		return profiles.Region{}, err
+	}
+	defer tx.Rollback()
+	region, err := s.settings.InTx(tx).SetRegion(ctx, p)
+	if err != nil {
+		return profiles.Region{}, err
+	}
+	return region, tx.Commit()
+}
+
 func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {
 	region, _, err := s.profiles.Region(ctx)
 	if err != nil {
@@ -91,6 +119,9 @@ func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {
 	out.RootFolders = oapi.RootFolders{Movies: roots.Movies, Series: roots.Series}
 	out.LanguageRegion.PrimaryLanguage = oapi.PrimaryLanguage(region.Primary)
 	out.LanguageRegion.ReleaseDateCountry = region.Country
+	if pending, ok := s.trash.PendingLanguage(); ok {
+		out.LanguageRegion.PendingPrimaryLanguage = (*oapi.PrimaryLanguage)(&pending)
+	}
 	out.Trash.AutoUpdate, err = s.trash.AutoUpdate(ctx)
 	if err != nil {
 		return oapi.Settings{}, err
@@ -103,6 +134,12 @@ func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {
 	if out.PauseGrabs, err = s.pause.Paused(ctx); err != nil {
 		return oapi.Settings{}, err
 	}
+	d, err := s.display.Get(ctx)
+	if err != nil {
+		return oapi.Settings{}, err
+	}
+	out.Display = displayToAPI(d)
+	s.fillDeclaredDisplay(&out)
 	out.FromConfigFile.LanguageRegion = s.declares(configfile.SectionLanguageRegion)
 	out.FromConfigFile.RootFolders = s.declares(configfile.SectionRootFolders)
 	out.FromConfigFile.CheckGithubUpdates = s.declares(configfile.SectionCheckGitHubUpdates)
@@ -124,20 +161,64 @@ func (s *server) PatchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 	if err := s.refuseDeclared(patchedSections(r.Body)...); err != nil {
 		return nil, err // before any write, so the patch's other sections stay unsaved too
 	}
+	if err := s.refuseDeclaredDisplay(r.Body); err != nil {
+		return nil, err
+	}
 	if l := r.Body.LanguageRegion; l != nil && l.PrimaryLanguage != nil {
-		// A new Primary Language re-scores every file in the same step, with no
-		// Grab deciding on a mix of old and new Scores.
-		var resp oapi.PatchSettingsResponseObject
-		err := s.trash.ChangeLanguage(ctx, func() (err error) {
-			resp, err = s.patchSettings(ctx, r)
-			return err
-		})
-		if err != nil {
-			return nil, err
-		}
-		return resp, nil
+		return s.queueLanguage(ctx, r)
 	}
 	return s.patchSettings(ctx, r)
+}
+
+// queueLanguage answers a patch that names a Primary Language. A new Language
+// is not saved here: the trash loop's pass saves it and re-scores every file in
+// one step, so no Grab decides on a mix of old and new Scores (Settled 6). The
+// rest of the patch is saved now. The Language and the country, which follows
+// it, wait for the pass.
+func (s *server) queueLanguage(ctx context.Context, r oapi.PatchSettingsRequestObject) (oapi.PatchSettingsResponseObject, error) {
+	l := r.Body.LanguageRegion
+	want := profiles.Language(*l.PrimaryLanguage)
+	cur, _, err := s.profiles.Region(ctx)
+	if err != nil {
+		return nil, err
+	}
+	next := cur
+	next.Primary = want
+	if l.ReleaseDateCountry != nil {
+		next.Country = *l.ReleaseDateCountry
+	}
+	if err := profiles.CheckRegion(next); err != nil {
+		return nil, profilesProblem(err)
+	}
+	if _, pending := s.trash.PendingLanguage(); want == cur.Primary && !pending {
+		return s.patchSettings(ctx, r) // no new Language: the country alone changes, as it always did
+	}
+	rest := *r.Body
+	rest.LanguageRegion = nil
+	if _, err := s.patchSettings(ctx, oapi.PatchSettingsRequestObject{Body: &rest}); err != nil {
+		return nil, err
+	}
+	var before profiles.Region
+	var wasSaved bool
+	s.trash.ChangeLanguage(ctx, jobs.LanguageChange{
+		Language: string(want),
+		Apply: func(ctx context.Context) error {
+			var err error
+			if before, wasSaved, err = s.profiles.Region(ctx); err != nil {
+				return err
+			}
+			_, err = s.setRegion(ctx, profiles.RegionPatch{Primary: &want, Country: l.ReleaseDateCountry})
+			return err
+		},
+		Undo: func(ctx context.Context) error {
+			return s.restoreRegion(ctx, before, wasSaved)
+		},
+	})
+	out, err := s.settingsBody(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return oapi.PatchSettings200JSONResponse(out), nil
 }
 
 func (s *server) patchSettings(ctx context.Context, r oapi.PatchSettingsRequestObject) (oapi.PatchSettingsResponseObject, error) {
@@ -174,6 +255,19 @@ func (s *server) patchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 		patch.Country = l.ReleaseDateCountry
 		if _, err := w.SetRegion(ctx, patch); err != nil {
 			return nil, profilesProblem(err)
+		}
+	}
+	if d := r.Body.Display; d != nil {
+		patch := display.Patch{SeasonOrder: enumPtr(d.SeasonOrder), SeasonsOpen: enumPtr(d.SeasonsOpen), ManualSearchSort: enumPtr(d.ManualSearchSort)}
+		if u := d.UpcomingFilters; u != nil {
+			patch.Upcoming = &display.UpcomingPatch{Kind: enumPtr(u.Kind), WantedOnly: u.WantedOnly, HideImported: u.HideImported}
+		}
+		if _, err := w.SetDisplay(ctx, patch); err != nil {
+			var ve *display.ValidationError
+			if errors.As(err, &ve) {
+				return nil, invalid("display."+ve.Field, "invalid", ve.Message)
+			}
+			return nil, err
 		}
 	}
 	if t := r.Body.Trash; t != nil && t.AutoUpdate != nil {

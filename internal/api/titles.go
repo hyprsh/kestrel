@@ -347,7 +347,7 @@ func detailToAPI(d library.Detail, country string) oapi.TitleDetail {
 			}
 		}
 		if c := v.Coverage; c != nil {
-			ov.Coverage = &oapi.VersionCoverage{Episodes: c.Episodes, Filled: c.Filled, Wanted: c.Wanted, LongMissing: c.LongMissing, Size: c.Size}
+			ov.Coverage = &oapi.VersionCoverage{Episodes: c.Episodes, Filled: c.Filled, Wanted: c.Wanted, LongMissing: c.LongMissing, Unmonitored: c.Unmonitored, Downloading: c.Downloading, DownloadingLongMissing: c.DownloadingLongMissing, Size: c.Size}
 		}
 		out.Versions = append(out.Versions, ov)
 	}
@@ -490,11 +490,7 @@ func (s *server) GetTitlePoster(ctx context.Context, r oapi.GetTitlePosterReques
 	if err != nil {
 		return nil, err
 	}
-	kind := metadata.Movie
-	if d.Kind == library.Series {
-		kind = metadata.Series
-	}
-	path, err := s.posters.Ensure(ctx, kind, d.TMDBID, d.PosterPath)
+	path, err := s.posters.Ensure(ctx, d.Kind.PosterKind(), d.TMDBID, d.PosterPath)
 	if errors.Is(err, metadata.ErrNoPoster) {
 		return nil, problem(http.StatusNotFound, "not_found", "this Title has no poster")
 	}

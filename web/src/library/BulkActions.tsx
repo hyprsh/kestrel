@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useBulkTitles, type TitleBulkOutcome, type TitleBulkReason, type TitlesBulk } from '../api/bulk'
 import { useProfiles, type Profile, type TitleRow } from '../api/queries'
 import { plural } from '../format'
-import { Button, Note, Select } from '@hyprsh/design'
+import { Button, Select } from '@hyprsh/design'
 import { size, slotKeys, slotLabel, type SlotKey } from './bits'
+import { useReport } from '../toasts'
 import { RemoveConfirm } from './ManageVersion'
 
 const has = (n: number) => (n === 1 ? 'has' : 'have')
@@ -45,26 +46,28 @@ function summarize(items: TitleBulkOutcome[], slot: string | null): { changed: n
   return { changed, others: [...groups.values()].map((g) => phrase(g.outcome, g.reason, g.message, g.n, slot)) }
 }
 
-type Result = { label: string; items: TitleBulkOutcome[]; slot: string | null }
 type Form = 'monitor' | 'switch_profile' | 'add_version' | 'remove_version' | 'remove'
 
 /** The right pane while Titles are checked: the actions for all of them at once and what the last one did. */
 export function BulkActions({ rows }: { rows: TitleRow[] }) {
   const bulk = useBulkTitles()
   const profiles = (useProfiles().data ?? []).filter((p) => p.enabled)
-  const [result, setResult] = useState<Result | null>(null)
+  const report = useReport()
   const [form, setForm] = useState<Form | null>(null)
   const ids = rows.map((r) => r.id)
   const hasSeries = rows.some((r) => r.kind === 'series')
   const onlySeries = rows.every((r) => r.kind === 'series')
 
-  const run = (label: string, body: TitlesBulk, slot: SlotKey | null = null) =>
-    bulk.mutate(body, {
-      onSuccess: (items) => {
-        setResult({ label, items, slot: slot && slotLabel[slot] })
-        setForm(null)
-      },
+  // The form closes on apply, and a Toast says what came of it: the dialog's result must outlive it.
+  const run = (label: string, body: TitlesBulk, slot: SlotKey | null = null) => {
+    setForm(null)
+    void report(bulk.mutateAsync(body), {
+      ...(body.action === 'search' ? { started: (items: TitleBulkOutcome[]) => summaryText('Search started', items, null, 'for') } : {}),
+      done: (items) => summaryText(label, items, slot && slotLabel[slot]),
+      warn: (items) => summarize(items, null).others.length > 0,
+      failed: `${label} failed`,
     })
+  }
   const action = (label: string, onClick: () => void) => (
     <Button variant="secondary" size="small" disabled={bulk.isPending} onClick={onClick}>
       {label}
@@ -110,28 +113,12 @@ export function BulkActions({ rows }: { rows: TitleRow[] }) {
           onApply={(slot, profile) => run('Add Version', { action: 'add_version', slot, profile, title_ids: ids }, slot)}
         />
       )}
-      {form === 'remove_version' && (
-        <RemoveVersionForm
-          busy={busy}
-          error={bulk.error?.message}
-          onCancel={close}
-          onApply={(slot, d) => run('Remove Version', { action: 'remove_version', slot, delete_files: d, title_ids: ids }, slot)}
-        />
-      )}
+      {form === 'remove_version' && <RemoveVersionForm onCancel={close} onApply={(slot, d) => run('Remove Version', { action: 'remove_version', slot, delete_files: d, title_ids: ids }, slot)} />}
       {form === 'remove' && (
-        <RemoveConfirm what="Titles" busy={busy} error={bulk.error?.message} onCancel={close} onConfirm={(d) => run('Remove from Library', { action: 'remove', delete_files: d, title_ids: ids })}>
+        <RemoveConfirm what="Titles" onCancel={close} onConfirm={(d) => run('Remove from Library', { action: 'remove', delete_files: d, title_ids: ids })}>
           Remove {plural(rows.length, 'Title')} from the Library, with {size(rows.reduce((n, r) => n + r.size, 0))} of files.
         </RemoveConfirm>
       )}
-
-      {bulk.error && form !== 'remove' && form !== 'remove_version' && (
-        <div className="mt-3 max-w-xl">
-          <Note variant="error" size="small">
-            {bulk.error.message}
-          </Note>
-        </div>
-      )}
-      {result && <Summary result={result} />}
     </section>
   )
 }
@@ -212,29 +199,17 @@ function SlotForm({
   )
 }
 
-function RemoveVersionForm({ busy, error, onApply, onCancel }: { busy: boolean; error?: string; onApply: (slot: SlotKey, deleteFiles: boolean) => void; onCancel: () => void }) {
+function RemoveVersionForm({ onApply, onCancel }: { onApply: (slot: SlotKey, deleteFiles: boolean) => void; onCancel: () => void }) {
   const [slot, setSlot] = useState<SlotKey>('standard')
   return (
-    <RemoveConfirm what="Version" busy={busy} error={error} onCancel={onCancel} onConfirm={(d) => onApply(slot, d)}>
+    <RemoveConfirm what="Version" onCancel={onCancel} onConfirm={(d) => onApply(slot, d)}>
       <SlotSelect slot={slot} onChange={setSlot} />
     </RemoveConfirm>
   )
 }
 
-function Summary({ result }: { result: Result }) {
-  const { changed, others } = summarize(result.items, result.slot)
-  return (
-    <Note role="status" className="mt-4 max-w-xl" size="small">
-      <div>
-        {result.label}: {changed} changed
-      </div>
-      {others.length > 0 && (
-        <ul className="mt-1 list-disc pl-4 text-gray-900">
-          {others.map((o) => (
-            <li key={o}>{o}</li>
-          ))}
-        </ul>
-      )}
-    </Note>
-  )
+/** What a bulk call did in a sentence for its Toast: "Unmonitor: 3 changed; 1 already as asked". */
+function summaryText(label: string, items: TitleBulkOutcome[], slot: string | null, join: 'for' | ':' = ':'): string {
+  const { changed, others } = summarize(items, slot)
+  return [join === 'for' ? `${label} for ${plural(changed, 'Title')}` : `${label}: ${changed} changed`, ...others].join('; ')
 }

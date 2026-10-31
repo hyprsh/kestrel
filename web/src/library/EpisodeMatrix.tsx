@@ -1,9 +1,9 @@
-import { Checkbox, Note, StatusDot } from '@hyprsh/design'
+import { Checkbox, Note, Skeleton, StatusDot } from '@hyprsh/design'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ApiError, useEpisodes, useMonitorEpisodes, usePatchSeason, type Episode } from '../api/queries'
-import { LoadingLine } from '../loading'
+import { LoadingRegion } from '../loading'
 import { cx } from '../ui'
-import { dotOf, slotLabel, versionStatus, type SlotKey } from './bits'
+import { dotOf, faintDot, slotLabel, versionStatus, type SlotKey } from './bits'
 import { EpisodeMenu, EpisodeTick, SeasonMenu, type EpisodeActions } from './EpisodeActions'
 import { SeasonSummary, SeasonToggle } from './SeasonSummary'
 import type { SeasonOpen } from './useSeasonOpen'
@@ -11,7 +11,8 @@ import { RowDeleteConfirm } from './DeleteFiles'
 import { CellPopover, EpisodeFilePopover, cellTitle } from './EpisodeFilePopover'
 import { usePhone } from '../responsive'
 import { EpisodeName } from './EpisodeName'
-import { episodeRow, seasonName, seasonRow } from './episodes'
+import { useDisplay } from '../display/useDisplay'
+import { episodeRow, orderEpisodes, seasonName, seasonRow } from './episodes'
 
 type Row = { kind: 'season'; season: number; episodes: Episode[] } | { kind: 'episode'; episode: Episode }
 
@@ -46,6 +47,7 @@ function followRow(rows: Row[], was: Row): { row: number; same: boolean } {
  */
 export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: number; slots: SlotKey[]; seasons: SeasonOpen; actions?: EpisodeActions }) {
   const episodes = useEpisodes(titleId)
+  const { display, ready } = useDisplay()
   const patchSeason = usePatchSeason(titleId)
   const monitor = useMonitorEpisodes(titleId)
   const grid = useRef<HTMLDivElement>(null)
@@ -58,13 +60,13 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = []
     const bySeason = new Map<number, Episode[]>()
-    for (const e of episodes.data ?? []) bySeason.set(e.season, [...(bySeason.get(e.season) ?? []), e])
+    for (const e of orderEpisodes(episodes.data ?? [], display.season_order)) bySeason.set(e.season, [...(bySeason.get(e.season) ?? []), e])
     for (const [season, eps] of bySeason) {
       out.push({ kind: 'season', season, episodes: eps })
       if (seasons.isOpen(season)) for (const e of eps) out.push({ kind: 'episode', episode: e }) // a closed season shows only its header
     }
     return out
-  }, [episodes.data, seasons])
+  }, [episodes.data, seasons, display.season_order])
 
   // Rows come and go as seasons open and close: keep the tab stop on the same row, or on its season's header.
   const shown = useRef(rows)
@@ -91,7 +93,7 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
       </Note>
     )
   }
-  if (!episodes.data) return <LoadingLine>Loading episodes…</LoadingLine>
+  if (!episodes.data || !ready) return <EpisodesSkeleton slots={slots} />
   if (rows.length === 0) return <p className="copy-13 text-gray-900">TheTVDB lists no episodes yet.</p>
 
   const move = (row: number, col: number) => {
@@ -336,7 +338,7 @@ function EpisodeRow({
               // chrome-ok: episode grid (domain visual, ADR 0017); the cell button is the dot with a 44px hit area
               className='relative flex size-5 items-center justify-center rounded-full outline-none after:absolute after:-inset-3 after:content-[""] focus-visible:ring-2 focus-visible:ring-accent-700 max-sm:size-6'
             >
-              <StatusDot state={dot.state} variant={dot.variant} label={false} aria-hidden />
+              <StatusDot state={dot.state} variant={dot.variant} label={false} aria-hidden className={dot.faint ? faintDot : undefined} />
             </button>
           )
           return (
@@ -355,5 +357,37 @@ function EpisodeRow({
       </div>
       {after}
     </>
+  )
+}
+
+/** The grid while the episodes load: the real header, then season headers with a few episode rows under each. */
+function EpisodesSkeleton({ slots }: { slots: SlotKey[] }) {
+  return (
+    <LoadingRegion label="Loading episodes">
+      {/* chrome-ok: episode grid (domain visual, ADR 0017) */}
+      <div aria-hidden className="copy-13 rounded-lg border border-gray-alpha-400 max-sm:overflow-x-auto">
+        {/* chrome-ok: episode grid (domain visual, ADR 0017) */}
+        <div className={cx('label-12-mono flex items-center gap-3 border-b border-gray-alpha-400 px-3 py-1.5 text-gray-900', rowMin)}>
+          <span className="flex-1">Episode</span>
+          {slots.map((s) => (
+            <span key={s} className="w-10 text-center">
+              {slotLabel[s]}
+            </span>
+          ))}
+        </div>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className={cx('flex items-center gap-3 px-3 py-2', rowMin)}>
+            <span className="flex-1">
+              <Skeleton width={i === 0 ? '30%' : `${40 + ((i * 13) % 30)}%`} height={16} />
+            </span>
+            {slots.map((s) => (
+              <span key={s} className="flex w-10 justify-center">
+                <Skeleton pill width={12} height={12} />
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+    </LoadingRegion>
   )
 }

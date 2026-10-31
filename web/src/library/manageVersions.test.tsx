@@ -6,6 +6,7 @@ import { App } from '../App'
 import { http } from '../test/handlers'
 import { detail, fakeLibrary, row } from '../test/library'
 import { server } from '../test/server'
+import { findToast } from '../test/toasts'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -121,15 +122,34 @@ describe('manage Versions', () => {
 
     await userEvent.click(await within(hd).findByRole('button', { name: 'More Standard Version actions' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Remove Version' }))
-    const confirm = screen.getByRole('alertdialog', { name: 'Remove Version' })
+    let confirm = screen.getByRole('alertdialog', { name: 'Remove Version' })
     expect(within(confirm).getByRole('checkbox', { name: 'Also delete files' })).not.toBeChecked()
     await userEvent.click(within(confirm).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(calls).toHaveLength(1))
     expect(calls[0].url).toContain('delete_files=false')
+    expect(await findToast('Version removed')).toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog', { name: 'Remove Version' })).not.toBeInTheDocument()
 
+    await userEvent.click(await within(hd).findByRole('button', { name: 'More Standard Version actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Remove Version' }))
+    confirm = screen.getByRole('alertdialog', { name: 'Remove Version' })
     await userEvent.click(within(confirm).getByRole('checkbox', { name: 'Also delete files' }))
     await userEvent.click(within(confirm).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(calls).toHaveLength(2))
     expect(calls[1].url).toContain('delete_files=true')
+  })
+
+  it('closes the dialog on confirm and says in a Toast why removing a Version failed', async () => {
+    fakeManage()
+    server.use(http.delete('/versions/{id}', ({ response }) => response('default').json({ type: 'about:blank', title: 'x', status: 500, code: 'internal', detail: 'disk offline' }, { status: 500 })))
+    const pane = await openPane()
+    const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
+
+    await userEvent.click(await within(hd).findByRole('button', { name: 'More Standard Version actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Remove Version' }))
+    await userEvent.click(within(screen.getByRole('alertdialog', { name: 'Remove Version' })).getByRole('button', { name: 'Remove' }))
+
+    expect(await findToast('Could not remove the Version: disk offline')).toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog', { name: 'Remove Version' })).not.toBeInTheDocument()
   })
 })

@@ -50,6 +50,24 @@ func TestRecentImportsListsGrabbedFilesWithTheScoreTheyBeat(t *testing.T) {
 	}
 }
 
+func TestRecentImportsSaysWhetherTheTitleHasAPoster(t *testing.T) {
+	ctx := context.Background()
+	lib, _ := newLibrary(t)
+	id := addPaddington(t, lib)
+	d, _ := lib.Get(ctx, id, library.View{Country: "US", Now: now})
+	if _, err := lib.ReplaceFile(ctx, id, "Paddington (2014)", library.NewFile{VersionID: d.Versions[0].ID, Path: "/m/a.mkv", ReleaseName: "Paddington.WEB", Score: 100, GrabID: 1}); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := lib.RecentImports(ctx, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || !got[0].HasPoster {
+		t.Fatalf("recent = %+v, want one Import with a poster", got)
+	}
+}
+
 func TestRecentImportsLeavesOutAdoptedFiles(t *testing.T) {
 	ctx := context.Background()
 	lib, _ := newLibrary(t)

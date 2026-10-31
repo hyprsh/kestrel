@@ -66,6 +66,7 @@ describe('Overview sections', () => {
       title: `Imported ${i + 1}`,
       year: 2026,
       kind: 'movie' as const,
+      has_poster: false,
       slot: 'standard' as const,
       release_name: `Imported.${i + 1}-GRP`,
       score: 100,

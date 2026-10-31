@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest'
+import { Toast } from '@hyprsh/design'
 import { cleanup } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll } from 'vitest'
 import { server } from './server'
@@ -7,6 +8,7 @@ import { server } from './server'
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
 afterEach(() => {
   cleanup()
+  Toast.toasts.clear() // a Toast from one test must not show in the next
   server.resetHandlers()
   sessionStorage.clear()
   localStorage.clear() // remembered UI state (open seasons, theme) must not leak into the next test

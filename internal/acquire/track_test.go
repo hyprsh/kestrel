@@ -253,3 +253,74 @@ func TestCancelOfAnUnknownGrabIsErrGrabNotFound(t *testing.T) {
 		t.Errorf("err = %v", err)
 	}
 }
+
+func TestActiveFlagsADownloadTheClientHasPaused(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	g := r.grabOne(t)
+	_ = r.sab.SetPhase(g.ClientID, downloadclient.PhaseDownloading, 400)
+	_, _ = r.svc.Poll(ctx)
+	if q, _ := r.svc.Active(ctx); len(q) != 1 || q[0].Stalled {
+		t.Fatalf("active = %+v, want one Grab that is not stalled", q)
+	}
+
+	_ = r.sab.SetPhase(g.ClientID, downloadclient.PhasePaused, 400)
+	_, _ = r.svc.Poll(ctx)
+
+	if q, _ := r.svc.Active(ctx); len(q) != 1 || !q[0].Stalled {
+		t.Errorf("active = %+v, want a stalled download", q)
+	}
+}
+
+func TestActiveFlagsADownloadWhoseProgressStoppedForAnHour(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	g := r.grabOne(t)
+	_ = r.sab.SetPhase(g.ClientID, downloadclient.PhaseDownloading, 400)
+	_, _ = r.svc.Poll(ctx)
+	stalled := func() bool {
+		q, _ := r.svc.Active(ctx)
+		return len(q) == 1 && q[0].Stalled
+	}
+
+	r.clock.now = r.clock.now.Add(acquire.StalledDownloadAfter - time.Minute)
+	_, _ = r.svc.Poll(ctx)
+	if stalled() {
+		t.Fatal("stalled just under the threshold")
+	}
+
+	_ = r.sab.SetPhase(g.ClientID, downloadclient.PhaseDownloading, 300) // progress restarts the clock
+	r.clock.now = r.clock.now.Add(2 * time.Minute)
+	_, _ = r.svc.Poll(ctx)
+	r.clock.now = r.clock.now.Add(acquire.StalledDownloadAfter - time.Minute)
+	_, _ = r.svc.Poll(ctx)
+	if stalled() {
+		t.Fatal("stalled although the downloaded amount grew within the hour")
+	}
+
+	r.clock.now = r.clock.now.Add(2 * time.Minute)
+	_, _ = r.svc.Poll(ctx)
+	if !stalled() {
+		t.Error("not stalled after an hour with no growth")
+	}
+
+	_ = r.sab.SetPhase(g.ClientID, downloadclient.PhaseDownloading, 200)
+	_, _ = r.svc.Poll(ctx)
+	if stalled() {
+		t.Error("still stalled after the download moved again")
+	}
+}
+
+func TestActiveDoesNotFlagAQueuedGrabAsStalledHoweverLongItWaits(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	r.grabOne(t)
+	_, _ = r.svc.Poll(ctx)
+
+	r.clock.now = r.clock.now.Add(3 * acquire.StalledDownloadAfter)
+	_, _ = r.svc.Poll(ctx)
+
+	if q, _ := r.svc.Active(ctx); len(q) != 1 || q[0].Stalled {
+		t.Errorf("active = %+v, want a queued Grab that is not stalled", q)
+	}
+}

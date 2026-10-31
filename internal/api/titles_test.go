@@ -179,6 +179,7 @@ func TestThePrimaryLanguageTitleIsStoredWhenTMDBHasATranslation(t *testing.T) {
 	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	l.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`)
+	l.trashPass(t)
 	got := decode[titleJSON](t, l.valid("POST", "/titles", addPaddington))
 	if got.PrimaryTitle != "Ein Bär namens Paddington" || got.Title != "Paddington" {
 		t.Errorf("titles = %q / %q", got.Title, got.PrimaryTitle)
@@ -245,6 +246,7 @@ func TestTheSuggestionPreselectsTheSlotDefaultsWhateverTheRating(t *testing.T) {
 
 	// German household reads the FSK rating.
 	l.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`)
+	l.trashPass(t)
 	sug = decode[suggestionJSON](t, l.valid("GET", "/lookup/movie/116149", ""))
 	if sug.Slots[0].Profile != "hd-primary" || sug.Slots[0].Label != "HD" || sug.Slots[0].Reason != "default" || *sug.CertificationCountry != "DE" {
 		t.Errorf("DE = %+v", sug.Slots)
@@ -252,6 +254,7 @@ func TestTheSuggestionPreselectsTheSlotDefaultsWhateverTheRating(t *testing.T) {
 
 	// An adult title gets the same.
 	l.valid("PATCH", "/settings", `{"language_region":{"primary_language":"en"}}`)
+	l.trashPass(t)
 	sug = decode[suggestionJSON](t, l.valid("GET", "/lookup/movie/77", ""))
 	if sug.Slots[0].Profile != "hd-primary" {
 		t.Errorf("PG-13 = %+v", sug.Slots)
@@ -337,6 +340,22 @@ func TestWithoutAWorkingKeyTheProviderIsUnavailable(t *testing.T) {
 	}
 	if n := len(l.tmdb.Requests()); n != 0 {
 		t.Errorf("%d requests went out with no key", n)
+	}
+}
+
+func TestRemovingATitleDeletesItsCachedPoster(t *testing.T) {
+	t.Parallel()
+	l := newLibraryInstance(t, metadatatest.Key)
+	created := decode[titleJSON](t, l.valid("POST", "/titles", addPaddington))
+	cached := l.config + "/cache/posters/movie-116149.jpg"
+	if _, err := os.Stat(cached); err != nil {
+		t.Fatalf("poster not cached: %v", err)
+	}
+	if r := l.valid("DELETE", fmt.Sprintf("/titles/%d", created.ID), ""); r.Status != 204 {
+		t.Fatalf("remove = %d %s", r.Status, r.Body)
+	}
+	if _, err := os.Stat(cached); err == nil {
+		t.Error("the poster outlived the Title")
 	}
 }
 
