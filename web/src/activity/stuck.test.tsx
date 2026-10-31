@@ -16,10 +16,7 @@ const minutesAgo = (n: number) => new Date(Date.now() - n * 60_000).toISOString(
 
 describe('Activity shows a Stuck download', () => {
   it('keeps it in its stage and says how long it made no progress, in words', async () => {
-    fakeQueue([
-      queueItem({ grab_id: 1, phase: 'downloading', stuck: { reason: 'no_progress', since: minutesAgo(80) } }),
-      queueItem({ grab_id: 2, phase: 'downloading', release_name: 'Fine-GRP' }),
-    ])
+    fakeQueue([queueItem({ grab_id: 1, phase: 'downloading', stuck: { reason: 'no_progress', since: minutesAgo(80) } }), queueItem({ grab_id: 2, phase: 'downloading', release_name: 'Fine-GRP' })])
     await openActivity()
 
     const region = await screen.findByRole('region', { name: 'Downloading · 2' })
