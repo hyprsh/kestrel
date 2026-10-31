@@ -386,6 +386,20 @@ A Silo Series Request that names no seasons then starts with season 1. Kestrel a
 - **Per request:** `watch_ahead` is the default. The Silo plugin's Watch-ahead option (Kestrel default, On or Off, also per Silo request route) sends `watch_ahead` with the Request and overrides it. The same field in `POST /requests` works for any source. Left out, every source but Silo asks for the whole Series.
 - **Seasons asked for in Silo:** a Silo user who requests the remaining seasons themselves gets them at once.
 
+## Telling Silo about Imports through Autoscan
+
+The Silo plugin (`kestrel-silo`) can tell Silo which Title folders Kestrel changed, so Silo scans a new Import without the Silo media-server instance. The plugin's Kestrel Imports scan source polls Kestrel's folder changes and hands Silo Autoscan the folders as paths. Kestrel keeps 30 days of changes and the plugin keeps no state: Silo stores the marker it polled up to, so a restart of Kestrel or Silo loses nothing.
+
+1. Install the Silo plugin and add its Kestrel connection (Kestrel's address and an API key from Settings), as in the plugin's setup steps.
+2. In Silo, open Admin > Libraries > Autoscan, enable Autoscan and choose Add source > Kestrel Imports.
+3. Bind the Kestrel connection. The scan source needs one, and uses the same base URL and API key as the request router.
+4. If Silo mounts the media at a different path than Kestrel, add a path rewrite on the source from Kestrel's Root folder to the library path in Silo. Without one, Silo skips a folder that matches none of its libraries.
+
+- **When Silo sees an Import:** Silo's poll interval (Autoscan settings, 600 seconds by default) decides it. A per-source interval can only make a source poll less often. Silo scans a new or changed Title folder; for a deleted one it scans the Root folder, so the missing items are marked missing.
+- **After a long gap:** if Silo polls with a marker older than 30 days, or one from another Kestrel, Kestrel cannot say what changed, and Silo scans every Root folder once.
+- **The Silo media-server instance:** it keeps working and is not needed alongside the scan source. Running both only asks Silo for the same scan twice.
+- **Older Kestrel:** the scan source reports "no folder-change feed" in Silo's Autoscan activity log. Update Kestrel to the release that matches the plugin.
+
 ## The API
 
 The REST API, its API key and the `X-Api-Key` header are on the [API page](api.md).
