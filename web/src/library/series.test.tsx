@@ -171,10 +171,10 @@ describe('the episodes heat map', () => {
 
   it('changes the monitoring mode from the detail pane', async () => {
     const { state } = await openSeries()
-    await userEvent.click(await screen.findByRole('button', { name: /^Monitoring/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /^(Monitored|Not monitored)/ }))
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Not monitored' }))
     await waitFor(() => expect(state.get().sent).toEqual([{ path: 'titles', body: { series_monitor: 'none' } }]))
-    await waitFor(() => expect(screen.getByRole('button', { name: /^Monitoring/ })).toHaveTextContent('Not monitored'))
+    await waitFor(() => expect(screen.getByRole('button', { name: /^(Monitored|Not monitored)/ })).toHaveTextContent('Not monitored'))
   })
 
   it('is not shown for a Movie', async () => {
