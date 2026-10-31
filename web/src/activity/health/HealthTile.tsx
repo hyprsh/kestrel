@@ -38,8 +38,10 @@ export function Tile({ tile, children }: { tile: TileData; children?: ReactNode 
   return (
     <li className={`rounded-lg border px-3 py-2 ${ui.tile}`}>
       <div className="flex items-center justify-between gap-2">
-        <span className="truncate font-medium">{tile.name}</span>
-        <StatusDot state={ui.state} label={tile.word ?? ui.word} />
+        <span className="min-w-0 truncate font-medium">{tile.name}</span>
+        <span className="shrink-0">
+          <StatusDot state={ui.state} label={tile.word ?? ui.word} />
+        </span>
       </div>
       {tile.details.map((d) => (
         <p key={d} className="label-12 mt-0.5 text-gray-900">

@@ -57,10 +57,11 @@ export function Shelf({ items, nav, shelf, onOpen }: { items: ShelfItem[]; nav: 
                 nav.select(i)
                 onOpen(item.titleId)
               }}
-              className="w-full flex-col items-start"
+              className="w-full"
+              leftClassName="flex-col items-start gap-1.5"
               left={<TitlePoster id={item.titleId} hasPoster={item.hasPoster} size="xl" />}
             >
-              <Entity.Content title={<span className="block truncate">{item.name}</span>} description={<span className="block truncate">{item.line}</span>} />
+              <Entity.Content className="w-full" title={<span className="block truncate">{item.name}</span>} description={<span className="block truncate">{item.line}</span>} />
             </Entity>
           </li>
         )

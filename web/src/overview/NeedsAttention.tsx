@@ -177,7 +177,7 @@ function Row({ row, onOpen, nav, index }: { row: AttentionRow; onOpen: (path: st
       >
         <Entity.Content
           fill
-          title={row.message}
+          title={<span className="whitespace-normal">{row.message}</span>}
           description={
             <span className="flex flex-col gap-1">
               <span>

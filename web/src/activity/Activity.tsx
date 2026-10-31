@@ -81,7 +81,7 @@ export function Activity({
   return (
     <div className="min-h-0 flex-1 overflow-auto">
       {/* A centred column like the Overview's, so rows and progress bars do not stretch across a wide window. */}
-      <div className="mx-auto max-w-3xl pb-6" onClickCapture={aside}>
+      <div className="mx-auto max-w-3xl pb-6 max-sm:px-4" onClickCapture={aside}>
         <Tabs aria-label="Activity" selected={tab} onChange={(v) => onTab(v as ActivityTab)} tabs={activityTabs.map((t) => ({ value: t.value, title: titles[t.value], content: content[t.value] }))} />
       </div>
     </div>
