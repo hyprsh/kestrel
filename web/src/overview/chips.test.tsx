@@ -73,25 +73,29 @@ const topBar = () => screen.findByRole('banner')
 
 beforeEach(() => history.replaceState(null, '', '/'))
 
+/** The desktop's rail, where Health is. */
+const rail = () => screen.findByRole('navigation')
+
 describe('the Overview on a desktop', () => {
-  it('has no status pills: the Health pill is in the top bar, and the search, indexers and low disk are not repeated', async () => {
+  it('has no status pills: Health is a rail button, and the search, indexers and low disk are not repeated', async () => {
     lowDiskAndBusySearch()
     fakeAttention([])
     renderApp()
 
-    await within(await topBar()).findByRole('button', { name: /All checks OK/ })
+    await within(await rail()).findByRole('button', { name: /All checks OK/ })
+    expect(within(await topBar()).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('group', { name: 'Status' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Searching|Wanted waiting|Nothing waiting/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /indexers?\b/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /full$/ })).not.toBeInTheDocument()
   })
 
-  it('counts Needs attention rows by severity in the Health pill, and links to Activity Health', async () => {
+  it('counts Needs attention rows by severity on the Health button, and links to Activity Health', async () => {
     fakeStatus(status())
     fakeAttention([row('health-1', 'blocking'), row('health-2', 'warning')])
     renderApp()
 
-    const chip = await within(await topBar()).findByRole('button', { name: /^Health.*1 Blocking, 1 Warning/ })
+    const chip = await within(await rail()).findByRole('button', { name: /^Health.*1 Blocking, 1 Warning/ })
     await userEvent.click(chip)
     expect(url()).toBe('/activity/health')
   })
@@ -101,7 +105,7 @@ describe('the Overview on a desktop', () => {
     fakeAttention([row('health-1', 'warning'), row('stuck-7', 'warning'), row('silo-silent-3', 'warning'), row('stalled-exdev', 'warning')])
     renderApp()
 
-    const chip = await within(await topBar()).findByRole('button', { name: /^Health/ })
+    const chip = await within(await rail()).findByRole('button', { name: /^Health/ })
     expect(chip).toHaveAccessibleName(expect.stringMatching(/· 1 Warning$/))
   })
 
@@ -110,7 +114,7 @@ describe('the Overview on a desktop', () => {
     fakeAttention([])
     renderApp()
 
-    expect(await within(await topBar()).findByRole('button', { name: /All checks OK/ })).toBeInTheDocument()
+    expect(await within(await rail()).findByRole('button', { name: /All checks OK/ })).toBeInTheDocument()
   })
 })
 
@@ -125,20 +129,20 @@ describe('the Overview on a phone', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  it('shows the Health pill alone at the top of the Overview, since the phone top bar has no room for it', async () => {
+  it('shows the Health button in the phone top bar, and none at the top of the Overview', async () => {
     lowDiskAndBusySearch()
     fakeAttention([])
     renderApp()
 
-    expect(await screen.findByRole('button', { name: /All checks OK/ })).toBeInTheDocument()
-    expect(within(await topBar()).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
+    expect(await within(await topBar()).findByRole('button', { name: /^Health · All checks OK/ })).toBeInTheDocument()
+    expect(within(screen.getByRole('main')).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('group', { name: 'Status' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Searching|Wanted waiting|Nothing waiting/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /indexers?\b/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /full$/ })).not.toBeInTheDocument()
   })
 
-  it('links the Health pill to Activity Health', async () => {
+  it('links the phone Health button to Activity Health', async () => {
     fakeStatus(status())
     fakeAttention([row('health-1', 'blocking')])
     renderApp()

@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 
 /**
  * Where a screen's bar goes. On a desktop the Shell's top bar offers two places, the middle (where the command box sits on the
- * other screens) and the end (after the Health pill); a ScreenBar portals into them, so its state and focus stay in the screen
+ * other screens) and the end (after what runs); a ScreenBar portals into them, so its state and focus stay in the screen
  * that renders it. Without them (a phone, a test) the bar is one row of its own under the top bar. `null` places are not
  * mounted yet: the bar waits for them.
  */
@@ -15,7 +15,7 @@ export const ScreenBarPlacesContext = createContext<ScreenBarPlaces | undefined>
 /**
  * The bar of Library, Upcoming, Activity and Log. In the top bar of a desktop it is, from the left: `view` (the ViewSwitcher of a
  * screen with several pages), `filter` (the text field, with its `?`), `controls` (a FilterButton, a Display menu), `aside`
- * (a screen's own button, pushed to the right, such as Today); and after the Health pill `menu` (a "…" menu) and `actions` (at
+ * (a screen's own button, pushed to the right, such as Today); and at the end `menu` (a "…" menu) and `actions` (at
  * most one primary button). On a phone it is one line under the top bar: the field takes the width and the buttons (Filter, Display, a
  * "…" menu) are icons.
  */

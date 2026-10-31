@@ -12,9 +12,11 @@ const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { 
 beforeEach(() => history.replaceState(null, '', '/'))
 
 describe('the desktop top bar', () => {
-  it('has the command box on the Overview', async () => {
+  it('has the command box on the Overview, and no Health in it', async () => {
     renderApp()
     const bar = await screen.findByRole('banner')
+    expect(within(bar).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
+    expect(await within(screen.getByRole('navigation')).findByRole('button', { name: /^Health/ })).toBeInTheDocument()
     expect(within(bar).getByRole('button', { name: 'Search or run a command' })).toBeInTheDocument()
     expect(within(bar).queryByRole('combobox')).not.toBeInTheDocument()
   })

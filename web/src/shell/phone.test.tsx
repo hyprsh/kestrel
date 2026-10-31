@@ -21,10 +21,12 @@ afterEach(() => vi.unstubAllGlobals())
 const rows = () => [row(1, 'Paddington', 'Paddington'), row(2, 'Heat', 'Heat', { year: 1995 })]
 
 describe('the shell on a phone', () => {
-  it('keeps the Health pill out of the top bar and at the top of the Overview', async () => {
+  it('puts the Health button in the top bar, before Add Title, and none on the Overview', async () => {
     renderApp()
-    expect(await screen.findByRole('button', { name: /^Health/ })).toBeInTheDocument()
-    expect(within(screen.getByRole('banner')).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
+    const bar = await screen.findByRole('banner')
+    const health = await within(bar).findByRole('button', { name: /^Health/ })
+    expect(health.compareDocumentPosition(within(bar).getByRole('button', { name: 'Add Title' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(screen.getByRole('main')).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
   })
 
   it('replaces the icon rail with a bottom tab bar of Overview, Library, Upcoming, Activity and More', async () => {

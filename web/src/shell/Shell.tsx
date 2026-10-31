@@ -35,7 +35,7 @@ import { ScreenBarPlacesContext } from '../layout/ScreenBar'
 import { PhoneTopBar, TopBar as TopBarFrame } from '../layout/TopBar'
 import { BlockingBanner } from './BlockingBanner'
 import { MoreSheet, PhoneTabBar, type Tab } from './PhoneNav'
-import { HealthPill } from './HealthPill'
+import { HealthButton } from './HealthButton'
 
 const screens = [
   { key: 'overview', label: 'Overview', icon: <Inbox /> },
@@ -414,6 +414,7 @@ function Rail({
       ))}
       <RailSpacer />
       {/* Applies the choice to <html> and saves it; the command menu's "Switch theme" moves it through the same value. */}
+      <HealthButton tooltipPosition="right" />
       <ThemeSwitcher variant="cycle" attribute="class" storageKey={THEME_KEY} value={theme} onChange={onTheme} tooltipPosition="right" />
       <RailButton label={about.label} active={screen === about.key} onClick={() => onSelect(about.key)}>
         {about.icon}
@@ -428,7 +429,7 @@ function Rail({
   )
 }
 
-/** The desktop header: the title, then the command box or the screen's own bar, then what runs, Health and the screen's menu and action. */
+/** The desktop header: the title, then the command box or the screen's own bar, then what runs and the screen's menu and action. */
 function TopBar({
   title,
   phone,
@@ -451,11 +452,12 @@ function TopBar({
   running: Running[]
   onOpenRunning: () => void
 }) {
-  // A phone has no room for the search box: the title, what runs and Add; Search is the tab bar's accessory.
+  // A phone has no room for the search box: the title, what runs, Health and Add; Search is the tab bar's accessory.
   if (phone)
     return (
       <PhoneTopBar title={title}>
         <RunningIndicator running={running} onOpen={onOpenRunning} />
+        <HealthButton tooltipPosition="bottom" />
         <Button svgOnly variant="tertiary" aria-label="Add Title" onClick={onAdd}>
           <Plus />
         </Button>
@@ -468,8 +470,7 @@ function TopBar({
       end={
         <>
           <RunningIndicator running={running} onOpen={onOpenRunning} />
-          <HealthPill />
-          {/* The screen's "…" menu and primary action, after Health. */}
+          {/* The screen's "…" menu and primary action. */}
           {bar && <div ref={onBarEnd} className="flex items-center gap-2 empty:hidden" />}
         </>
       }
