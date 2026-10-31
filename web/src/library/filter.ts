@@ -6,6 +6,7 @@ import { matchText } from '../fuzzy'
 import { parseQuery, withoutTerm, withValue, type Query, type Term } from '@hyprsh/design'
 import { kindQualifier, type Facet } from '../filter/qualifiers'
 import { slotKeys, slotLabel } from './bits'
+import { parseCode, splitCode } from './episodeCode'
 
 type Version = NonNullable<TitleRow['slots']['standard']>
 
@@ -175,12 +176,24 @@ function comparer({ key, dir }: Sort): (a: TitleRow, b: TitleRow) => number {
 }
 
 /**
+ * The name part of the filter's free text: "harbour s2e5" looks for "harbour" (the code, which finds an episode or season,
+ * is not part of a Title's name). A bare code names no Series, so it matches nothing (null), and the list does not fill
+ * with every Series' S01E01.
+ */
+function nameOf(text: string): string | null {
+  if (parseCode(text)) return null
+  return splitCode(text)?.name ?? text
+}
+
+/**
  * The Titles a parsed filter keeps, in the order it asks for: every term must match, and `sort:` orders rather than filters.
  * `grabbing` holds the Titles with a Grab on its way, which `is:downloading` keeps. Ties keep the Library's order, newest first.
  */
 export function filterLibrary(rows: readonly TitleRow[], q: Query, profiles: readonly Profile[], grabbing: ReadonlySet<number> = new Set()): TitleRow[] {
   const filters = q.terms.filter((t) => t.name !== 'sort')
-  const kept = rows.filter((r) => filters.every((t) => test(r, t, profiles, grabbing)) && matchText(q.text, [r.title, r.primary_title]))
+  const text = nameOf(q.text)
+  if (text === null) return []
+  const kept = rows.filter((r) => filters.every((t) => test(r, t, profiles, grabbing)) && matchText(text, [r.title, r.primary_title]))
   const sort = sortOfQuery(q)
   // The Library comes newest first: the default order needs no sort, and keeps a Title added in the same second where it was.
   return sort.key === 'added' && sort.dir === 'desc' ? kept : kept.sort(comparer(sort))

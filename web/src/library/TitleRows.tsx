@@ -1,7 +1,7 @@
 // The Library's list: a cursor listbox of rich rows. A row has its tick box, the poster, the title and year, a line
 // saying why the Title is in its state (toned by it), the Slot dots and the size on disk.
 import { Entity } from '@hyprsh/design'
-import type { RefObject } from 'react'
+import type { ReactNode, RefObject } from 'react'
 import type { TitleRow } from '../api/queries'
 import type { QueueItem } from '../api/queue'
 import { SkeletonRow } from '../loading'
@@ -22,6 +22,9 @@ export function TitleRows({
   phone,
   listRef,
   onPick,
+  lead,
+  navOffset = 0,
+  activeId,
 }: {
   rows: TitleRow[]
   /** The cursor's row. */
@@ -36,6 +39,12 @@ export function TitleRows({
   /** The scroller, which holds the listbox (EntityList takes no ref). */
   listRef: RefObject<HTMLDivElement | null>
   onPick: (row: TitleRow) => void
+  /** Rows above the Titles in the same listbox (the Episode and Season results of the filter). */
+  lead?: ReactNode
+  /** How many options come before the Titles, so `data-nav` numbers keep running. */
+  navOffset?: number
+  /** The cursor's option when it is on one of the `lead` rows. */
+  activeId?: string
 }) {
   return (
     // The floating bar of ticked Titles covers the foot of the list: room for it at the end.
@@ -45,7 +54,7 @@ export function TitleRows({
         role="listbox"
         aria-label="Library"
         aria-busy={loading || undefined}
-        aria-activedescendant={rows[index] ? `title-${rows[index].id}` : undefined}
+        aria-activedescendant={activeId ?? (rows[index] ? `title-${rows[index].id}` : undefined)}
         tabIndex={0}
         className="outline-none"
         onClick={(e) => {
@@ -56,6 +65,7 @@ export function TitleRows({
         }}
       >
         {loading && Array.from({ length: 8 }, (_, i) => <SkeletonRow key={i} index={i} poster={phone ? 'md' : 'sm'} />)}
+        {lead}
         {rows.map((r, i) => {
           const g = grabs.get(r.id) ?? []
           const line = stateLine(r, g, now)
@@ -68,7 +78,7 @@ export function TitleRows({
               role="option"
               aria-selected={i === index}
               current={i === index && !phone}
-              data-nav={`lib-${i}`}
+              data-nav={`lib-${i + navOffset}`}
               className={phone ? 'min-h-16' : undefined}
               left={
                 <>

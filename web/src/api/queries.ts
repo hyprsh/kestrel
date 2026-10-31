@@ -343,16 +343,18 @@ export function useTitles() {
   })
 }
 
+/** The query of one Title's detail, for `useTitle` and for code that reads several Titles at once (`useQueries`). */
+export const titleQuery = (id: number) => ({
+  queryKey: ['titles', id] as const,
+  queryFn: async () => {
+    const { data, error, response } = await api.GET('/titles/{id}', { params: { path: { id } } })
+    if (!data) throw failure(error, response)
+    return data
+  },
+})
+
 export function useTitle(id: number | null) {
-  return useQuery({
-    queryKey: ['titles', id],
-    enabled: id !== null,
-    queryFn: async () => {
-      const { data, error, response } = await api.GET('/titles/{id}', { params: { path: { id: id! } } })
-      if (!data) throw failure(error, response)
-      return data
-    },
-  })
+  return useQuery({ ...titleQuery(id ?? 0), enabled: id !== null })
 }
 
 /** One search across both kinds in the add menu, best match first, with a "Did you mean …?" title when it differs a lot. */
@@ -424,16 +426,17 @@ export type SeriesMonitor = components['schemas']['SeriesMonitor']
 export type EpisodeScope = { season?: number; episode_ids?: number[] }
 
 /** A Series' episodes with one cell per Version. */
+export const episodesQuery = (titleId: number) => ({
+  queryKey: ['titles', titleId, 'episodes'] as const,
+  queryFn: async () => {
+    const { data, error, response } = await api.GET('/titles/{id}/episodes', { params: { path: { id: titleId } } })
+    if (!data) throw failure(error, response)
+    return data.items
+  },
+})
+
 export function useEpisodes(titleId: number, enabled = true) {
-  return useQuery({
-    queryKey: ['titles', titleId, 'episodes'],
-    enabled,
-    queryFn: async () => {
-      const { data, error, response } = await api.GET('/titles/{id}/episodes', { params: { path: { id: titleId } } })
-      if (!data) throw failure(error, response)
-      return data.items
-    },
-  })
+  return useQuery({ ...episodesQuery(titleId), enabled })
 }
 
 /** Runs a monitoring change on a Title, then reloads it, a Series' episodes and the list. */

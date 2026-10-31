@@ -1,6 +1,7 @@
 import { Button, Checkbox, StatusDot, Table, TableBody, TableCell, TableHead, TableHeader, TableRoot, TableRow } from '@hyprsh/design'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { Episode } from '../api/queries'
+import { useColumnWidths } from '../layout/columnWidths'
 import { usePhone } from '../responsive'
 import { dotOf, faintDot, slotLabel, versionStatus, type SlotKey } from './bits'
 import { RowDeleteConfirm } from './DeleteFiles'
@@ -17,13 +18,29 @@ import { episodeRow } from './episodes'
  * key opens the row's menu, and Home and End jump to the first and last row. `found` is the episode the Find field
  * matched: its row is highlighted and scrolled into view.
  */
-export function EpisodeMatrix({ season, episodes, slots, actions, found }: { season: number; episodes: Episode[]; slots: SlotKey[]; actions: EpisodeActions; found: number | null }) {
+export function EpisodeMatrix({
+  season,
+  episodes,
+  slots,
+  actions,
+  found,
+  columnWidths,
+}: {
+  season: number
+  episodes: Episode[]
+  slots: SlotKey[]
+  actions: EpisodeActions
+  found: number | null
+  /** The widths of the resizable columns, kept by the screen (layout/columnWidths.tsx), which also offers the reset. */
+  columnWidths: Pick<ReturnType<typeof useColumnWidths>, 'widths' | 'onChange'>
+}) {
   const grid = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ row: 0, col: 0 })
   // The row whose "…" menu is open: a menu can open upwards over other rows, so its own row is marked.
   const [menuRow, setMenuRow] = useState<string | null>(null)
   const menuOf = (key: string) => (open: boolean) => setMenuRow((cur) => (open ? key : cur === key ? null : cur))
   const columns = 1 + slots.length
+  const phone = usePhone()
   const { selection } = actions
 
   // Another season: the cursor starts at its top again.
@@ -106,14 +123,17 @@ export function EpisodeMatrix({ season, episodes, slots, actions, found }: { sea
         <Table
           role="grid"
           aria-label="Episodes"
-          aria-colcount={columns + 4}
+          aria-colcount={columns + 3}
+          stickyHeader
+          columnWidths={columnWidths.widths}
+          onColumnWidthsChange={columnWidths.onChange}
           onKeyDown={onKeyDown}
           // Space on a Slot cell button would click it on key-up: the grid has already used the key.
           onKeyUp={(e) => e.key === ' ' && e.target instanceof Element && e.target.matches('button[data-cell]') && e.preventDefault()}
         >
           <TableHeader>
             <TableRow>
-              <TableHead>
+              <TableHead className="px-2">
                 <Checkbox
                   aria-label={`Tick all of ${season === 0 ? 'Specials' : `Season ${season}`}`}
                   checked={episodes.length > 0 && ticked === episodes.length}
@@ -122,15 +142,16 @@ export function EpisodeMatrix({ season, episodes, slots, actions, found }: { sea
                   onClick={() => (ticked === episodes.length ? selection.clear() : selection.checkAll())}
                 />
               </TableHead>
-              <TableHead className="max-sm:hidden">#</TableHead>
-              <TableHead className="max-sm:px-1">Name</TableHead>
-              <TableHead className="max-sm:hidden">Aired</TableHead>
+              <TableHead columnKey="name" resizable={!phone} truncate={phone} width={200} minWidth={140} maxWidth={560} className="px-2">
+                Name
+              </TableHead>
+              <TableHead className="px-2 max-sm:hidden">Aired</TableHead>
               {slots.map((s) => (
-                <TableHead key={s} className="max-sm:px-1">
+                <TableHead key={s} className="px-2">
                   {slotLabel[s]}
                 </TableHead>
               ))}
-              <TableHead align="right" className="max-sm:px-1 max-sm:sr-only">
+              <TableHead align="right" className="px-2 max-sm:sr-only">
                 Search
               </TableHead>
             </TableRow>
@@ -142,7 +163,7 @@ export function EpisodeMatrix({ season, episodes, slots, actions, found }: { sea
                 episode={ep}
                 slots={slots}
                 index={i}
-                columns={columns + 4}
+                columns={columns + 3}
                 tab={tab}
                 ticked={selection.has(ep.id)}
                 found={ep.id === found}
@@ -189,19 +210,18 @@ function EpisodeRow({
   return (
     <>
       <TableRow aria-rowindex={index + 2} data-episode={episode.id} data-menu-open={menuOpen ? '' : undefined} selected={ticked} current={found}>
-        <TableCell className="max-sm:px-1">
+        <TableCell className="px-2">
           <EpisodeTick actions={actions} episode={episode} cell={`${index}-0`} tabIndex={tab(index, 0)} onFocus={() => onFocus(0)} />
         </TableCell>
-        <TableCell className="text-gray-900 max-sm:hidden">
-          {episode.season}x{String(episode.number).padStart(2, '0')}
-        </TableCell>
-        <TableCell truncate className="max-sm:px-1">
-          <span className="label-12 mr-1 text-gray-900 sm:hidden">
-            {episode.season}x{String(episode.number).padStart(2, '0')}
+        <TableCell truncate={phone} className="px-2">
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="label-12-mono shrink-0 text-gray-900">
+              {episode.season}x{String(episode.number).padStart(2, '0')}
+            </span>
+            <EpisodeName episode={episode} />
           </span>
-          <EpisodeName episode={episode} />
         </TableCell>
-        <TableCell className="text-gray-900 max-sm:hidden">{episode.air_date ?? '—'}</TableCell>
+        <TableCell className="px-2 text-gray-900 max-sm:hidden">{episode.air_date ?? '—'}</TableCell>
         {slots.map((s, c) => {
           const cell = episode.cells[s]
           const state = cell ? versionStatus(cell.state).label : 'no Version'
@@ -221,7 +241,7 @@ function EpisodeRow({
             </Button>
           )
           return (
-            <TableCell key={s} className="max-sm:px-1">
+            <TableCell key={s} className="px-2">
               {cell?.file ? (
                 <EpisodeFilePopover label={`${label} ${slotLabel[s]}`} cell={cell} file={cell.file} trigger={button} />
               ) : phone ? (
@@ -233,7 +253,7 @@ function EpisodeRow({
             </TableCell>
           )
         })}
-        <TableCell align="right" className="max-sm:px-1">
+        <TableCell align="right" className="px-2">
           <span className="flex items-center justify-end gap-1">
             <RowButtons actions={actions} episode={episode} />
             <EpisodeMenu actions={actions} episode={episode} onOpenChange={onMenuOpenChange} />

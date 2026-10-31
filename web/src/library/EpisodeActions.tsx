@@ -42,24 +42,20 @@ export type EpisodeActions = {
   onKey: (e: KeyboardEvent, episode: Episode | null, slot: SlotKey | null) => boolean
 }
 
-/** The actions of one Series' episode table, with the selection of ticked episodes. Only the episodes of the open season can be ticked: another season's ticks drop, as the Library drops the ticks a filter hides. */
-export function useEpisodeActions(title: TitleDetail, episodes: Episode[], shown: Episode[], slots: SlotKey[], onManualSearch?: (t: ManualSearchTarget) => void): EpisodeActions {
-  const ids = useMemo(() => shown.map((e) => e.id), [shown])
-  const selection = useSelection(ids)
-  const profiles = useProfiles()
-  const searchNow = useSearchNow()
-  const report = useReport()
-  const deletes = useEpisodeDeletes(episodes)
-  const monitorEpisodes = useMonitorEpisodes(title.id)
-  const patchSeason = usePatchSeason(title.id)
-
-  const names = new Map((profiles.data ?? []).map((p) => [p.key, p.name]))
-  const versions: EpisodeVersion[] = slots.flatMap((slot) => {
+/** The Series' Versions in the table's Slot order, each with its Profile's name. */
+export function versionsOf(title: TitleDetail, slots: SlotKey[], profiles: readonly { key: string; name: string }[] | undefined): EpisodeVersion[] {
+  const names = new Map((profiles ?? []).map((p) => [p.key, p.name]))
+  return slots.flatMap((slot) => {
     const v = title.versions.find((x) => x.slot === slot)
     return v ? [{ id: v.id, slot, profileName: names.get(v.profile) ?? v.profile }] : []
   })
+}
 
-  const search: EpisodeActions['search'] = (eps, label, scope) => {
+/** Search now for episodes of one Series: in every Slot of `versions` where one of `eps` is Wanted, with a Toast saying what came of it. */
+export function useEpisodeSearch() {
+  const searchNow = useSearchNow()
+  const report = useReport()
+  return (versions: EpisodeVersion[], eps: Episode[], label: string, scope: (wanted: number[]) => EpisodeScope) => {
     const runs = versions.flatMap((v) => {
       const wanted = eps.filter((e) => e.cells[v.slot]?.state === 'wanted').map((e) => e.id)
       return wanted.length > 0 ? [{ v, scope: scope(wanted) }] : []
@@ -68,6 +64,20 @@ export function useEpisodeActions(title: TitleDetail, episodes: Episode[], shown
     const where = runs.map((r) => slotLabel[r.v.slot]).join(' and ')
     void report(Promise.all(runs.map((r) => searchNow.mutateAsync({ versionId: r.v.id, scope: r.scope }))), { started: `Search started for ${label} in ${where}`, failed: `Could not search ${label}` })
   }
+}
+
+/** The actions of one Series' episode table, with the selection of ticked episodes. Only the episodes of the open season can be ticked: another season's ticks drop, as the Library drops the ticks a filter hides. */
+export function useEpisodeActions(title: TitleDetail, episodes: Episode[], shown: Episode[], slots: SlotKey[], onManualSearch?: (t: ManualSearchTarget) => void): EpisodeActions {
+  const ids = useMemo(() => shown.map((e) => e.id), [shown])
+  const selection = useSelection(ids)
+  const profiles = useProfiles()
+  const deletes = useEpisodeDeletes(episodes)
+  const monitorEpisodes = useMonitorEpisodes(title.id)
+  const patchSeason = usePatchSeason(title.id)
+
+  const versions = versionsOf(title, slots, profiles.data)
+  const searchEpisodes = useEpisodeSearch()
+  const search: EpisodeActions['search'] = (eps, label, scope) => searchEpisodes(versions, eps, label, scope)
 
   const manual: EpisodeActions['manual'] = (v, body, label) => onManualSearch?.({ versionId: v.id, slot: v.slot, profileName: v.profileName, scope: { body, label } })
   const monitor: EpisodeActions['monitor'] = (eps, monitored) => monitorEpisodes.mutate({ ids: eps.map((e) => e.id), monitored })
@@ -112,14 +122,14 @@ export function useEpisodeActions(title: TitleDetail, episodes: Episode[], shown
 }
 
 const nothingWanted = 'Nothing here is Wanted'
-const wantedIn = (eps: Episode[], versions: EpisodeVersion[]) => versions.some((v) => eps.some((e) => e.cells[v.slot]?.state === 'wanted'))
+export const wantedIn = (eps: Episode[], versions: EpisodeVersion[]) => versions.some((v) => eps.some((e) => e.cells[v.slot]?.state === 'wanted'))
 const filledIn = (eps: Episode[], versions: EpisodeVersion[]) => versions.filter((v) => eps.some((e) => e.cells[v.slot]?.file))
 
 /** The table keeps one tab stop per row: a row's buttons and menu stay out of the Tab order and pass focus on to the row's cell, where the keyboard was. */
 const toRowCell = (e: FocusEvent<HTMLElement>) => e.currentTarget.closest('tr')?.querySelector<HTMLElement>('[data-cell][tabindex="0"]')?.focus()
 
 /** "Manual…": a button that opens Manual search for the one Version, or a menu of the Slots to choose from when there are two. */
-function ManualButton({
+export function ManualButton({
   versions,
   text,
   name,
@@ -167,7 +177,7 @@ function ManualButton({
  * Search now only looks for what is Wanted, so Upgrade opens Manual search on the Slots that hold a file, where a better
  * Release can be picked.
  */
-export function RowButtons({ actions, episode }: { actions: EpisodeActions; episode: Episode }) {
+export function RowButtons({ actions, episode }: { actions: Pick<EpisodeActions, 'versions' | 'search' | 'manual'>; episode: Episode }) {
   const { versions } = actions
   const code = episodeCode(episode)
   const scope = { season: episode.season, episode_ids: [episode.id] }
