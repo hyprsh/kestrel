@@ -1,6 +1,7 @@
 import { Button, Checkbox, StatusDot, Table, TableBody, TableCell, TableHead, TableHeader, TableRoot, TableRow } from '@hyprsh/design'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { Episode } from '../api/queries'
+import { useColumnWidths } from '../layout/columnWidths'
 import { usePhone } from '../responsive'
 import { dotOf, faintDot, slotLabel, versionStatus, type SlotKey } from './bits'
 import { RowDeleteConfirm } from './DeleteFiles'
@@ -17,13 +18,29 @@ import { episodeRow } from './episodes'
  * key opens the row's menu, and Home and End jump to the first and last row. `found` is the episode the Find field
  * matched: its row is highlighted and scrolled into view.
  */
-export function EpisodeMatrix({ season, episodes, slots, actions, found }: { season: number; episodes: Episode[]; slots: SlotKey[]; actions: EpisodeActions; found: number | null }) {
+export function EpisodeMatrix({
+  season,
+  episodes,
+  slots,
+  actions,
+  found,
+  columnWidths,
+}: {
+  season: number
+  episodes: Episode[]
+  slots: SlotKey[]
+  actions: EpisodeActions
+  found: number | null
+  /** The widths of the resizable columns, kept by the screen (layout/columnWidths.tsx), which also offers the reset. */
+  columnWidths: Pick<ReturnType<typeof useColumnWidths>, 'widths' | 'onChange'>
+}) {
   const grid = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ row: 0, col: 0 })
   // The row whose "…" menu is open: a menu can open upwards over other rows, so its own row is marked.
   const [menuRow, setMenuRow] = useState<string | null>(null)
   const menuOf = (key: string) => (open: boolean) => setMenuRow((cur) => (open ? key : cur === key ? null : cur))
   const columns = 1 + slots.length
+  const phone = usePhone()
   const { selection } = actions
 
   // Another season: the cursor starts at its top again.
@@ -107,6 +124,9 @@ export function EpisodeMatrix({ season, episodes, slots, actions, found }: { sea
           role="grid"
           aria-label="Episodes"
           aria-colcount={columns + 4}
+          stickyHeader
+          columnWidths={columnWidths.widths}
+          onColumnWidthsChange={columnWidths.onChange}
           onKeyDown={onKeyDown}
           // Space on a Slot cell button would click it on key-up: the grid has already used the key.
           onKeyUp={(e) => e.key === ' ' && e.target instanceof Element && e.target.matches('button[data-cell]') && e.preventDefault()}
@@ -123,7 +143,9 @@ export function EpisodeMatrix({ season, episodes, slots, actions, found }: { sea
                 />
               </TableHead>
               <TableHead className="max-sm:hidden">#</TableHead>
-              <TableHead className="max-sm:px-1">Name</TableHead>
+              <TableHead columnKey="name" resizable={!phone} truncate={phone} width={240} minWidth={120} maxWidth={560} className="max-sm:px-1">
+                Name
+              </TableHead>
               <TableHead className="max-sm:hidden">Aired</TableHead>
               {slots.map((s) => (
                 <TableHead key={s} className="max-sm:px-1">
@@ -195,7 +217,7 @@ function EpisodeRow({
         <TableCell className="text-gray-900 max-sm:hidden">
           {episode.season}x{String(episode.number).padStart(2, '0')}
         </TableCell>
-        <TableCell truncate className="max-sm:px-1">
+        <TableCell truncate={phone} className="max-sm:px-1">
           <span className="label-12 mr-1 text-gray-900 sm:hidden">
             {episode.season}x{String(episode.number).padStart(2, '0')}
           </span>
