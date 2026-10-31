@@ -123,7 +123,7 @@ export function EpisodeMatrix({
         <Table
           role="grid"
           aria-label="Episodes"
-          aria-colcount={columns + 4}
+          aria-colcount={columns + 3}
           stickyHeader
           columnWidths={columnWidths.widths}
           onColumnWidthsChange={columnWidths.onChange}
@@ -133,7 +133,7 @@ export function EpisodeMatrix({
         >
           <TableHeader>
             <TableRow>
-              <TableHead>
+              <TableHead className="px-2">
                 <Checkbox
                   aria-label={`Tick all of ${season === 0 ? 'Specials' : `Season ${season}`}`}
                   checked={episodes.length > 0 && ticked === episodes.length}
@@ -142,17 +142,16 @@ export function EpisodeMatrix({
                   onClick={() => (ticked === episodes.length ? selection.clear() : selection.checkAll())}
                 />
               </TableHead>
-              <TableHead className="max-sm:hidden">#</TableHead>
-              <TableHead columnKey="name" resizable={!phone} truncate={phone} width={240} minWidth={120} maxWidth={560} className="max-sm:px-1">
+              <TableHead columnKey="name" resizable={!phone} truncate={phone} width={200} minWidth={140} maxWidth={560} className="px-2">
                 Name
               </TableHead>
-              <TableHead className="max-sm:hidden">Aired</TableHead>
+              <TableHead className="px-2 max-sm:hidden">Aired</TableHead>
               {slots.map((s) => (
-                <TableHead key={s} className="max-sm:px-1">
+                <TableHead key={s} className="px-2">
                   {slotLabel[s]}
                 </TableHead>
               ))}
-              <TableHead align="right" className="max-sm:px-1 max-sm:sr-only">
+              <TableHead align="right" className="px-2 max-sm:sr-only">
                 Search
               </TableHead>
             </TableRow>
@@ -164,7 +163,7 @@ export function EpisodeMatrix({
                 episode={ep}
                 slots={slots}
                 index={i}
-                columns={columns + 4}
+                columns={columns + 3}
                 tab={tab}
                 ticked={selection.has(ep.id)}
                 found={ep.id === found}
@@ -211,19 +210,18 @@ function EpisodeRow({
   return (
     <>
       <TableRow aria-rowindex={index + 2} data-episode={episode.id} data-menu-open={menuOpen ? '' : undefined} selected={ticked} current={found}>
-        <TableCell className="max-sm:px-1">
+        <TableCell className="px-2">
           <EpisodeTick actions={actions} episode={episode} cell={`${index}-0`} tabIndex={tab(index, 0)} onFocus={() => onFocus(0)} />
         </TableCell>
-        <TableCell className="text-gray-900 max-sm:hidden">
-          {episode.season}x{String(episode.number).padStart(2, '0')}
-        </TableCell>
-        <TableCell truncate={phone} className="max-sm:px-1">
-          <span className="label-12 mr-1 text-gray-900 sm:hidden">
-            {episode.season}x{String(episode.number).padStart(2, '0')}
+        <TableCell truncate={phone} className="px-2">
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="label-12-mono shrink-0 text-gray-900">
+              {episode.season}x{String(episode.number).padStart(2, '0')}
+            </span>
+            <EpisodeName episode={episode} />
           </span>
-          <EpisodeName episode={episode} />
         </TableCell>
-        <TableCell className="text-gray-900 max-sm:hidden">{episode.air_date ?? '—'}</TableCell>
+        <TableCell className="px-2 text-gray-900 max-sm:hidden">{episode.air_date ?? '—'}</TableCell>
         {slots.map((s, c) => {
           const cell = episode.cells[s]
           const state = cell ? versionStatus(cell.state).label : 'no Version'
@@ -243,7 +241,7 @@ function EpisodeRow({
             </Button>
           )
           return (
-            <TableCell key={s} className="max-sm:px-1">
+            <TableCell key={s} className="px-2">
               {cell?.file ? (
                 <EpisodeFilePopover label={`${label} ${slotLabel[s]}`} cell={cell} file={cell.file} trigger={button} />
               ) : phone ? (
@@ -255,7 +253,7 @@ function EpisodeRow({
             </TableCell>
           )
         })}
-        <TableCell align="right" className="max-sm:px-1">
+        <TableCell align="right" className="px-2">
           <span className="flex items-center justify-end gap-1">
             <RowButtons actions={actions} episode={episode} />
             <EpisodeMenu actions={actions} episode={episode} onOpenChange={onMenuOpenChange} />

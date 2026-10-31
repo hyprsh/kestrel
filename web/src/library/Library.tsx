@@ -123,6 +123,7 @@ export function Library({
   const firstHit = hits[0]?.key ?? null
   useEffect(() => {
     setHitKey(firstHit)
+    if (hits[0]) onSelect(hits[0].title.id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstHit])
   // A manual search replaces the Title pane; picking another Title in the list closes it.

@@ -79,13 +79,7 @@ export function SeasonList({ title, onManualSearch }: { title: TitleDetail; onMa
                 <Button variant="tertiary" size="small" aria-expanded={isOpen} aria-label={`${name} episodes`} prefix={<Chevron aria-hidden className="size-4" />} onClick={() => toggle(season)}>
                   {name}
                 </Button>
-                <span role="img" aria-label={`${st.filled} of ${st.total} filled`} className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
-                  {eps.map((e) => {
-                    const dot = dotOf(episodeState(e, slots).state, false)
-                    return <StatusDot key={e.id} state={dot.state} variant={dot.variant} label={false} title={null} aria-hidden />
-                  })}
-                </span>
-                <span className="label-12 hy-num text-gray-900">
+                <span className="label-12 hy-num ml-auto text-gray-900">
                   {st.filled} of {st.total}
                 </span>
                 {st.wanted > 0 && (
@@ -94,6 +88,12 @@ export function SeasonList({ title, onManualSearch }: { title: TitleDetail; onMa
                   </Button>
                 )}
                 <ManualButton versions={versions} text="Manual…" name={`Manual search ${name}`} size="tiny" onPick={(v) => manual(v, { season }, name)} />
+                <span role="img" aria-label={`${st.filled} of ${st.total} filled`} className="order-last flex w-full flex-wrap items-center gap-1 pl-9">
+                  {eps.map((e) => {
+                    const dot = dotOf(episodeState(e, slots).state, false)
+                    return <StatusDot key={e.id} state={dot.state} variant={dot.variant} label={false} title={null} aria-hidden />
+                  })}
+                </span>
               </div>
               {isOpen && (
                 <Entity.List aria-label={`${name} episodes`}>
