@@ -252,6 +252,9 @@ func (s *server) GetAttention(ctx context.Context, _ oapi.GetAttentionRequestObj
 	if out.Originals, err = s.originals(ctx); err != nil {
 		return nil, err
 	}
+	if err := s.withAttentionPosters(ctx, &out); err != nil {
+		return nil, err
+	}
 	return oapi.GetAttention200JSONResponse(out), nil
 }
 
@@ -356,6 +359,7 @@ const longMissingShown = 5
 // (not copied into health) and sits outside the rail badge.
 func (s *server) longMissing(ctx context.Context) (oapi.LongMissing, error) {
 	out := oapi.LongMissing{Items: []struct {
+		HasPoster   *bool     `json:"has_poster,omitempty"`
 		LastFailure *string   `json:"last_failure"`
 		Profile     string    `json:"profile"`
 		Slot        oapi.Slot `json:"slot"`
@@ -379,6 +383,7 @@ func (s *server) longMissing(ctx context.Context) (oapi.LongMissing, error) {
 	out.Count = len(all)
 	for _, it := range all[:min(longMissingShown, len(all))] {
 		item := struct {
+			HasPoster   *bool     `json:"has_poster,omitempty"`
 			LastFailure *string   `json:"last_failure"`
 			Profile     string    `json:"profile"`
 			Slot        oapi.Slot `json:"slot"`

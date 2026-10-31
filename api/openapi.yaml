@@ -4803,6 +4803,9 @@ components:
           format: int64
           nullable: true
           description: The tracked Title the files join; null when adopting creates the Title.
+        has_poster:
+          type: boolean
+          description: Whether `GET /titles/{id}/poster` serves a poster for the Title. False when `title_id` is null, as adopting has not created the Title yet.
         source:
           type: string
           enum: [tag, name, chosen]
@@ -5278,6 +5281,9 @@ components:
         count:
           type: integer
           description: How often it was raised since it first showed.
+        has_poster:
+          type: boolean
+          description: Whether `GET /titles/{id}/poster` serves a poster for the Title. False when the row has no Title (`subject.title_id` is null).
         actions:
           type: array
           items:
@@ -5457,6 +5463,9 @@ components:
                 format: int64
               title:
                 type: string
+              has_poster:
+                type: boolean
+                description: Whether `GET /titles/{id}/poster` serves a poster for the Title.
               profile:
                 type: string
                 description: The key of the Version's Profile.
@@ -5498,6 +5507,9 @@ components:
           format: int64
         title:
           type: string
+        has_poster:
+          type: boolean
+          description: Whether `GET /titles/{id}/poster` serves a poster for the Title.
         version_id:
           type: integer
           format: int64

@@ -1894,6 +1894,9 @@ type AdoptionMatch struct {
 	// Folder The Title folder the files are renamed into.
 	Folder string `json:"folder"`
 
+	// HasPoster Whether `GET /titles/{id}/poster` serves a poster for the Title. False when `title_id` is null, as adopting has not created the Title yet.
+	HasPoster *bool `json:"has_poster,omitempty"`
+
 	// Source ID tag, confident name match, or picked by the admin.
 	Source AdoptionMatchSource `json:"source"`
 	Title  string              `json:"title"`
@@ -2082,6 +2085,9 @@ type AttentionRow struct {
 
 	// Count How often it was raised since it first showed.
 	Count int `json:"count"`
+
+	// HasPoster Whether `GET /titles/{id}/poster` serves a poster for the Title. False when the row has no Title (`subject.title_id` is null).
+	HasPoster *bool `json:"has_poster,omitempty"`
 
 	// Id Opaque and stable while the condition lasts.
 	Id string `json:"id"`
@@ -2655,6 +2661,8 @@ type LongMissing struct {
 
 	// Items The five most recently released.
 	Items []struct {
+		// HasPoster Whether `GET /titles/{id}/poster` serves a poster for the Title.
+		HasPoster   *bool   `json:"has_poster,omitempty"`
 		LastFailure *string `json:"last_failure"`
 
 		// Profile The key of the Version's Profile.
@@ -2866,6 +2874,9 @@ type OriginalOffer struct {
 
 	// FoundAt When the newest of the Releases was offered.
 	FoundAt time.Time `json:"found_at"`
+
+	// HasPoster Whether `GET /titles/{id}/poster` serves a poster for the Title.
+	HasPoster *bool `json:"has_poster,omitempty"`
 
 	// Profile The key of the Version's Profile.
 	Profile string `json:"profile"`

@@ -3373,6 +3373,8 @@ export interface components {
              * @description The tracked Title the files join; null when adopting creates the Title.
              */
             title_id: number | null;
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. False when `title_id` is null, as adopting has not created the Title yet. */
+            has_poster?: boolean;
             /**
              * @description ID tag, confident name match, or picked by the admin.
              * @enum {string}
@@ -3687,6 +3689,8 @@ export interface components {
             since: string;
             /** @description How often it was raised since it first showed. */
             count: number;
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. False when the row has no Title (`subject.title_id` is null). */
+            has_poster?: boolean;
             actions: components["schemas"]["AttentionAction"][];
         };
         AttentionSubject: {
@@ -3802,6 +3806,8 @@ export interface components {
                 /** Format: int64 */
                 title_id: number;
                 title: string;
+                /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. */
+                has_poster?: boolean;
                 /** @description The key of the Version's Profile. */
                 profile: string;
                 /** Format: int64 */
@@ -3829,6 +3835,8 @@ export interface components {
             /** Format: int64 */
             title_id: number;
             title: string;
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. */
+            has_poster?: boolean;
             /** Format: int64 */
             version_id: number;
             slot: components["schemas"]["Slot"];

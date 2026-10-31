@@ -33,7 +33,9 @@ type attentionRowJSON struct {
 	Kind     string `json:"kind"`
 	Message  string `json:"message"`
 	Count    int    `json:"count"`
-	Subject  struct {
+	// HasPoster is on a row about a Title.
+	HasPoster bool `json:"has_poster"`
+	Subject   struct {
 		PluginInstanceID *int64 `json:"plugin_instance_id"`
 		GrabID           *int64 `json:"grab_id"`
 	} `json:"subject"`
