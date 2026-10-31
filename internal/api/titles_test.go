@@ -31,7 +31,9 @@ type rowJSON struct {
 		Standard *slotJSON `json:"standard"`
 		FourK    *slotJSON `json:"4k"`
 	} `json:"slots"`
-	WantedSince *time.Time `json:"wanted_since"`
+	WantedSince    *time.Time            `json:"wanted_since"`
+	SearchedAt     *time.Time            `json:"searched_at"`
+	WantedEpisodes *struct{ Wanted int } `json:"wanted_episodes"`
 }
 
 type titleJSON struct {
@@ -172,6 +174,10 @@ func TestAMovieIsAddedThroughTheAPIAndReadBackWithItsVersions(t *testing.T) {
 	if row.ID != created.ID || row.Title != "Paddington" || row.Slots.Standard == nil || row.Slots.Standard.State != "wanted" ||
 		row.Slots.FourK == nil || row.Slots.FourK.Profile != "4k-primary" || row.WantedSince == nil {
 		t.Errorf("row = %+v", row)
+	}
+	// Not searched yet, and a Movie has no episodes to count.
+	if row.SearchedAt != nil || row.WantedEpisodes != nil {
+		t.Errorf("searched_at = %v, wanted_episodes = %v, want both null", row.SearchedAt, row.WantedEpisodes)
 	}
 }
 

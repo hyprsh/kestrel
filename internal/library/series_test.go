@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/hyprsh/kestrel/internal/slot"
+	"slices"
 	"testing"
 	"time"
 
@@ -268,5 +269,35 @@ func TestSeriesVersionsHaveSearchStateOncePerSeasonButNotForSpecials(t *testing.
 	}
 	if len(seasons) != 3 || seasons[0] != 1 || seasons[2] != 3 {
 		t.Errorf("search_state seasons = %v, want 1, 2, 3 (never Specials)", seasons)
+	}
+}
+
+func TestTheListCountsASeriesWantedEpisodesOnceWithTheirSeasons(t *testing.T) {
+	ctx := context.Background()
+	lib, _ := newLibrary(t)
+	addShow(t, lib, library.MonitorAll, library.VersionSpec{Slot: slot.Standard, Profile: "hd-primary"}, library.VersionSpec{Slot: slot.FourK, Profile: "4k-primary"})
+	addPaddington(t, lib, library.VersionSpec{Slot: slot.Standard, Profile: "hd-primary"})
+	rows, err := lib.List(ctx, library.View{Country: "US", Now: now}, library.Filter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range rows {
+		switch r.Kind {
+		case library.Movie:
+			if r.WantedEpisodes != nil {
+				t.Errorf("a Movie's WantedEpisodes = %+v, want nil", r.WantedEpisodes)
+			}
+		case library.Series:
+			// Both Versions want S01E01, S01E02 and S02E01: the Special is not monitored, S02E02 has no date and S03E01 is to come.
+			w := r.WantedEpisodes
+			if w == nil || w.Wanted != 3 || w.LongMissing != 0 || !slices.Equal(w.Seasons, []int{1, 2}) {
+				t.Errorf("WantedEpisodes = %+v, want 3 in seasons 1 and 2", w)
+			}
+		}
+	}
+	// 100 days on, the same episodes are Long Missing.
+	rows, _ = lib.List(ctx, library.View{Country: "US", Now: now.Add(100 * 24 * time.Hour)}, library.Filter{Kind: library.Series})
+	if w := rows[0].WantedEpisodes; w == nil || w.LongMissing != 3 {
+		t.Errorf("WantedEpisodes 100 days on = %+v, want 3 Long Missing", w)
 	}
 }

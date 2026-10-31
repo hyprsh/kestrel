@@ -266,7 +266,7 @@ export function TickedBar({ actions }: { actions: EpisodeActions }) {
   const monitored = ticked.some((e) => e.monitored)
   const season = ticked[0]?.season
   return (
-    <FloatingBar label={`${label} ticked`}>
+    <FloatingBar label={`${label} ticked`} placement="sticky">
       <EpisodeDeleteConfirm deletes={actions.deletes} />
       <span className="label-13 mr-1.5">{selection.count} ticked</span>
       <Button variant="primary" size="small" disabled={!wanted} title={wanted ? undefined : nothingWanted} onClick={() => actions.search(ticked, label, (ids) => ({ episode_ids: ids }))}>

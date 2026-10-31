@@ -22,6 +22,7 @@ export function FilterBar({
   placeholder,
   onKeyDown,
   suffix,
+  menus: showMenus = true,
 }: {
   id: string
   label: string
@@ -33,6 +34,8 @@ export function FilterBar({
   onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void
   /** A hint after a row's label, such as how many Grabs are in a stage. */
   suffix?: (qualifier: string, value: string) => ReactNode
+  /** Whether the menus show; a phone screen can keep them behind a Filters button of its own. */
+  menus?: boolean
 }) {
   const menus = qualifiers.filter((q) => q.label)
 
@@ -58,7 +61,7 @@ export function FilterBar({
         if (!e.defaultPrevented && (e.key === 'Escape' || e.key === 'Enter')) e.currentTarget.blur()
       }}
     >
-      {items}
+      {showMenus && items}
     </QueryBar>
   )
 }

@@ -81,7 +81,7 @@ describe('Clean up', () => {
     expect(previews).toBe(1)
   })
 
-  it('opens from the Library header for every Title and from a Title for that Title alone', async () => {
+  it('opens from the Library menu for every Title and from a Title for that Title alone', async () => {
     const previews: unknown[] = []
     fakeLibrary([row(7, 'Paddington', 'Paddington'), row(8, 'Heat', 'Heat', { year: 1995 })])
     server.use(
@@ -94,7 +94,8 @@ describe('Clean up', () => {
     render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
     await user.click(await screen.findByRole('button', { name: 'Library' }))
 
-    await user.click(await screen.findByRole('button', { name: 'Clean up Unmanaged files' }))
+    await user.click(await screen.findByRole('button', { name: 'Library actions' }))
+    await user.click(screen.getByRole('menuitem', { name: /^Clean Up Unmanaged Files/ }))
     await user.click(await screen.findByRole('button', { name: /look for unmanaged files/i }))
     expect(previews).toEqual([{}])
 

@@ -31,33 +31,89 @@ async function openLibrary() {
 const names = (list: HTMLElement) =>
   within(list)
     .getAllByRole('option')
-    .map((o) => o.textContent?.replace(/\d{4}$/, '').trim())
+    .map((o) => o.querySelector('[data-title]')?.textContent)
 
 const filter = () => screen.getByRole('combobox', { name: 'Filter the Library' })
 
+/** A Grab in the queue for a Title's Version, `pct` per cent downloaded. */
+const grab = (titleId: number, slot: 'standard' | '4k', pct: number): components['schemas']['QueueItem'] => ({
+  grab_id: titleId * 100,
+  title_id: titleId,
+  has_poster: false,
+  version_id: titleId * 10,
+  title: '',
+  year: null,
+  kind: 'movie',
+  slot,
+  episodes: [],
+  release_name: 'Some.Film.2014.1080p-GRP',
+  indexer: 'Fake',
+  size: 100,
+  score: 0,
+  phase: 'downloading',
+  phase_since: '2026-10-17T12:00:00Z',
+  grabbed_at: '2026-10-17T12:00:00Z',
+  bytes_total: 100,
+  bytes_left: 100 - pct,
+  eta: null,
+  is_upgrade: false,
+  score_delta: null,
+  stuck: null,
+})
+
 describe('the Library filter, typed', () => {
-  it('narrows to Wanted, then Long Missing, with the State menu ticking along and taking it off again', async () => {
+  it('narrows to Wanted, then Long Missing, typed or from the state tabs, which count each state and keep the filter', async () => {
     fakeLibrary(rows())
     const list = await openLibrary()
     await within(list).findAllByRole('option')
-    expect(screen.queryByRole('button', { name: 'Wanted' })).not.toBeInTheDocument() // typed now, not toggled
+    const tab = (name: RegExp) => screen.getByRole('tab', { name })
+    expect(tab(/^All 3$/)).toHaveAttribute('aria-selected', 'true')
+    expect(tab(/^Wanted 2$/)).toBeInTheDocument()
+    expect(tab(/^Long Missing 1$/)).toBeInTheDocument()
+    expect(tab(/^Unmonitored 0$/)).toBeInTheDocument()
 
+    await userEvent.type(filter(), 'pad is:wanted ')
+    expect(tab(/^Wanted/)).toHaveAttribute('aria-selected', 'true')
+    await userEvent.clear(filter())
     await userEvent.type(filter(), 'is:wanted ')
     expect(within(list).getAllByRole('option')).toHaveLength(2)
     expect(within(list).queryByRole('option', { name: /filled film/i })).not.toBeInTheDocument()
 
     await userEvent.type(filter(), 'is:long_missing ')
     expect(within(list).getAllByRole('option')).toHaveLength(1)
-    expect(within(list).getByRole('option', { name: /ancient film/i })).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { selected: true })).not.toBeInTheDocument() // two is: terms are no one tab
 
-    await userEvent.click(screen.getByRole('button', { name: /^State/ }))
-    expect(screen.getByRole('option', { name: 'Wanted' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('option', { name: 'Long Missing' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('option', { name: 'Filled' })).toHaveAttribute('aria-selected', 'false')
-    await userEvent.click(screen.getByRole('option', { name: 'Wanted' }))
-    await userEvent.click(screen.getByRole('option', { name: 'Long Missing' }))
+    await userEvent.click(tab(/^Long Missing/))
+    expect(filter()).toHaveValue('is:long_missing')
+    expect(within(list).getByRole('option', { name: /ancient film/i })).toBeInTheDocument()
+    expect(new URLSearchParams(location.search).get('q')).toBe('is:long_missing')
+
+    await userEvent.click(tab(/^All/))
     expect(filter()).toHaveValue('')
     expect(within(list).getAllByRole('option')).toHaveLength(3)
+  })
+
+  it('keeps the other terms when a tab changes, and counts by them', async () => {
+    fakeLibrary([...rows(), row(4, 'Some Series', 'Some Series', { kind: 'series', slots: hd('wanted'), wanted_since: '2026-10-10T00:00:00Z' })])
+    const list = await openLibrary()
+    await within(list).findAllByRole('option')
+    await userEvent.type(filter(), 'kind:movie')
+    expect(screen.getByRole('tab', { name: /^Wanted 2$/ })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('tab', { name: /^Wanted/ }))
+    expect(filter()).toHaveValue('kind:movie is:wanted')
+    expect(names(list)).toEqual(['Recent Film', 'Ancient Film'])
+  })
+
+  it('counts a Title with a Grab on its way as Downloading', async () => {
+    fakeLibrary(rows())
+    server.use(http.get('/queue', ({ response }) => response(200).json({ items: [grab(2, 'standard', 40)] })))
+    const list = await openLibrary()
+    await within(list).findAllByRole('option')
+    await userEvent.click(await screen.findByRole('tab', { name: /^Downloading 1$/ }))
+    expect(names(list)).toEqual(['Recent Film'])
+    const recent = within(list).getByRole('option', { name: /recent film/i })
+    expect(recent).toHaveTextContent('Downloading · 40%')
+    expect(within(recent).getByRole('img', { name: 'Standard: Downloading, 4K: no Version' })).toBeInTheDocument()
   })
 
   it('sorts by Wanted since, the longest Wanted first and Titles that are not Wanted last', async () => {
@@ -68,7 +124,7 @@ describe('the Library filter, typed', () => {
 
     await userEvent.type(filter(), 'sort:wanted_since')
 
-    expect(names(list).map((n) => n?.replace(/\s*\d*$/, ''))).toEqual(['Ancient Film', 'Recent Film', 'Filled Film'])
+    expect(names(list)).toEqual(['Ancient Film', 'Recent Film', 'Filled Film'])
   })
 
   it('completes Profile names', async () => {

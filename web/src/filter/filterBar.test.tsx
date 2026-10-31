@@ -24,7 +24,7 @@ const option = (name: string) => screen.getByRole('option', { name: new RegExp(`
 const titles = (list: HTMLElement) =>
   within(list)
     .getAllByRole('option')
-    .map((o) => o.textContent?.replace(/\d{4}$/, '').trim())
+    .map((o) => o.querySelector('[data-title]')?.textContent)
 
 describe('the Library filter menus', () => {
   async function open() {
@@ -48,13 +48,12 @@ describe('the Library filter menus', () => {
     await userEvent.keyboard('{Escape}')
 
     await userEvent.clear(field)
-    await userEvent.type(field, 'is:filled,wanted')
-    await userEvent.click(menu(/^State/))
-    expect(option('Wanted')).toHaveAttribute('aria-selected', 'true')
-    expect(option('Filled')).toHaveAttribute('aria-selected', 'true')
-    expect(option('Unreleased')).toHaveAttribute('aria-selected', 'false')
-    await userEvent.click(option('Filled'))
-    expect(field).toHaveValue('is:wanted')
+    await userEvent.type(field, 'kind:movie,series')
+    await userEvent.click(menu(/^Kind/))
+    expect(option('Movies')).toHaveAttribute('aria-selected', 'true')
+    expect(option('Series')).toHaveAttribute('aria-selected', 'true')
+    await userEvent.click(option('Movies'))
+    expect(field).toHaveValue('kind:series')
   })
 
   it('shows a typed exclusion in the menu, and excludes a row with Shift+Enter', async () => {
@@ -81,7 +80,7 @@ describe('the Library filter menus', () => {
     await userEvent.click(screen.getByRole('option', { name: 'Wanted longest' }))
     expect(field).toHaveValue('sort:wanted_since')
     await userEvent.click(menu(/^Sort/))
-    await userEvent.click(screen.getByRole('option', { name: 'Default' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Newest added' }))
     expect(field).toHaveValue('')
   })
 })
@@ -142,18 +141,19 @@ describe('the Log filter menus', () => {
 })
 
 describe('on a phone', () => {
-  it('shows the menus inline under the field, with no extra Filters level', async () => {
+  it('keeps the Library menus behind a Filters button that counts the terms they set', async () => {
     vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('max-width: 639'), media: query, addEventListener: () => {}, removeEventListener: () => {} }))
     fakeLibrary(library())
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    await userEvent.click(await screen.findByRole('button', { name: 'Filter' }))
-    const field = screen.getByRole('combobox', { name: 'Filter the Library' })
-    expect(screen.queryByRole('button', { name: /^Filters/ })).not.toBeInTheDocument()
-    for (const name of [/^State/, /^Slot/, /^Profile/, /^Sort/]) expect(menu(name)).toBeInTheDocument()
+    const field = await screen.findByRole('combobox', { name: 'Filter the Library' })
+    expect(screen.queryByRole('button', { name: /^Slot/ })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
+    for (const name of [/^Kind/, /^Slot/, /^Profile/, /^Sort/]) expect(menu(name)).toBeInTheDocument()
 
     await userEvent.click(menu(/^Slot/))
     await userEvent.click(option('4K'))
     expect(field).toHaveValue('slot:4k')
+    expect(screen.getByRole('button', { name: 'Filters 1' })).toHaveAttribute('aria-expanded', 'true')
   })
 })

@@ -1,38 +1,48 @@
-import { CheckSquare, Eraser, FolderInput, Plus } from 'lucide-react'
+import { Button, EmptyState, KeyboardInput, Note, parseQuery, Skeleton } from '@hyprsh/design'
+import { Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useProfiles, useTitles, type TitleRow } from '../api/queries'
+import { useQueue } from '../api/queue'
 import { useOpenCleanup } from '../cleanup/launch'
-import { Button, Collapse, EmptyState, Entity, KeyboardInput, Note, parseQuery, Skeleton } from '@hyprsh/design'
-import { useKey, useListNav } from '../keys'
-import { SkeletonRow } from '../loading'
-import { TitlePoster } from '../poster'
-import { SelectionBar } from '../layout/SelectionBar'
-import { useSelection } from '../selection'
 import { FilterBar } from '../filter/FilterBar'
-import { usePhone } from '../responsive'
+import { useKey, useListNav } from '../keys'
 import { FilterStrip } from '../layout/FilterStrip'
-import { ListPane } from '../layout/ListPane'
 import { PaneFooter } from '../layout/Pane'
 import { PhoneBackHeader } from '../layout/PhoneBackHeader'
-import { KindIcon, SlotDots } from './bits'
+import { TabStrip } from '../layout/TabStrip'
+import { WideListPane } from '../layout/WideListPane'
+import { usePhone } from '../responsive'
+import { useSelection } from '../selection'
+import { useNow } from '../time'
+import { size, slotLabel } from './bits'
 import { BulkActions } from './BulkActions'
-import { filterLibrary, libraryQualifiers } from './filter'
+import { filterLibrary, libraryQualifiers, sortLabel, sortOfQuery, tabCounts, tabOf, withTab } from './filter'
+import { AddTitle, LibraryMenu, StateTabs, ViewSwitch } from './LibraryBar'
 import { ManualSearch } from './ManualSearch'
-import { slotLabel } from './bits'
-import { TickBox } from './TickBox'
+import { grabsByTitle } from './rowState'
 import { TitleDetail, type ManualSearchTarget } from './TitleDetail'
+import { TitleGrid } from './TitleGrid'
+import { TitleRows } from './TitleRows'
+import { TitleSummary } from './TitleSummary'
+import { useLibraryView } from './useLibraryView'
+
+/** The qualifiers with a filter menu, which the phone's Filters button counts. */
+const menuTerms = new Set(['kind', 'slot', 'profile', 'sort'])
 
 /**
- * The Library: a filterable list on the left and the selected Title on the
- * right. Everything is reachable from the keyboard: j/k and the arrows move,
- * Enter steps into the detail, Escape steps back, `/` filters (with qualifiers
- * such as is:wanted, see ./filter.ts, kept in the address bar), x ticks the
- * Title under the cursor. While Titles are ticked, the right pane holds the
- * actions that change them together, and Escape clears the ticks.
+ * The Library. Across the top, the state tabs (each an `is:` filter, with its count), the grid/list switch, the
+ * Library-wide "…" menu and Add Title. The list view (the default) is two panes: the filterable list on the left and
+ * the selected Title on the right. The grid view is a wall of posters; picking one opens its summary in a panel on
+ * the right, and Open Title shows its whole page. The view is remembered in this browser, and `g` switches it.
  *
- * On a phone the list and the Title page are two screens: tapping a Title opens its page
- * full screen (`titleOpen`, kept by the Shell in the address bar so Back returns to the list),
- * and the filters sit in a row that opens and closes.
+ * Everything is reachable from the keyboard: j/k and the arrows move, Enter steps into the Title (or its summary),
+ * Escape steps back, `/` filters (with qualifiers such as is:wanted, see ./filter.ts, kept in the address bar), x ticks
+ * the Title under the cursor. While Titles are ticked a bar floats over the foot of the list with what can be done to
+ * them together, and Escape clears the ticks.
+ *
+ * On a phone the list and the Title page are two screens: tapping a Title opens its page full screen (`titleOpen`,
+ * kept by the Shell in the address bar so Back returns to the list), the filter menus sit behind a Filters button and
+ * the rows show tick boxes once Tick Titles in the "…" menu asks for them.
  */
 export function Library({
   selectedId,
@@ -59,14 +69,23 @@ export function Library({
 }) {
   const phone = usePhone()
   const titles = useTitles()
+  const queue = useQueue().data
+  const now = useNow()
   const openCleanup = useOpenCleanup()
   const profiles = useProfiles().data
+  const [view, setView] = useLibraryView()
+  const grid = view === 'grid'
   const qualifiers = useMemo(() => libraryQualifiers((profiles ?? []).map((p) => ({ name: p.name, description: `${p.min_height}–${p.max_height}p` }))), [profiles])
   const listRef = useRef<HTMLDivElement>(null)
   const paneRef = useRef<HTMLElement>(null)
+  const summaryRef = useRef<HTMLElement>(null)
 
   const all = titles.data ?? []
-  const rows = useMemo(() => filterLibrary(all, parseQuery(query, qualifiers), profiles ?? []), [all, query, qualifiers, profiles])
+  const grabs = useMemo(() => grabsByTitle(queue), [queue])
+  const grabbing = useMemo(() => new Set(grabs.keys()), [grabs])
+  const parsed = useMemo(() => parseQuery(query, qualifiers), [query, qualifiers])
+  const rows = useMemo(() => filterLibrary(all, parsed, profiles ?? [], grabbing), [all, parsed, profiles, grabbing])
+  const counts = useMemo(() => (titles.isSuccess ? tabCounts(all, parsed, profiles ?? [], grabbing) : null), [titles.isSuccess, all, parsed, profiles, grabbing])
   const ids = useMemo(() => rows.map((r) => r.id), [rows])
   const selection = useSelection(ids)
   const index = Math.max(
@@ -74,20 +93,32 @@ export function Library({
     rows.findIndex((r) => r.id === selectedId),
   ) // the first row until something is picked
   const current = rows[index] as TitleRow | undefined
-  // A manual search replaces the detail pane; picking another Title in the list closes it.
+  // A manual search replaces the Title pane; picking another Title in the list closes it.
   const [search, setSearch] = useState<(ManualSearchTarget & { titleId: number }) | null>(null)
   const searching = search !== null && search.titleId === current?.id
+  // The grid's summary panel, and the whole Title page over the grid that Open Title shows (on a wide screen; a phone opens Titles full screen).
+  const [summary, setSummary] = useState(false)
+  const [opened, setOpened] = useState(false)
+  const gridPage = grid && !phone && opened && current !== undefined
 
-  // EntityList takes no ref, so the scroller holds it and the listbox is its one list.
+  // The listbox (EntityList takes no ref), inside the scroller that holds the ref.
   const focusList = () => listRef.current?.querySelector<HTMLElement>('[role=listbox]')?.focus()
-  useEffect(focusList, [])
+  useEffect(focusList, [view])
+  const keys = !searching && !gridPage && !(phone && titleOpen)
   useListNav(
     'lib',
     rows.length,
     index,
     (i) => onSelect(rows[i].id),
-    () => paneRef.current?.focus(),
-    !searching,
+    () => {
+      if (phone) {
+        if (current) onOpenTitle(current.id)
+      } else if (grid) {
+        setSummary(true)
+        requestAnimationFrame(() => summaryRef.current?.focus())
+      } else paneRef.current?.focus()
+    },
+    keys,
   )
   useKey(
     '/',
@@ -95,46 +126,35 @@ export function Library({
       e.preventDefault()
       document.getElementById('library-filter')?.focus()
     },
-    !searching,
+    keys,
   )
-  useKey('x', () => current && selection.toggle(current.id), !searching)
+  useKey('x', () => current && selection.toggle(current.id), keys)
+  useKey('g', () => setView(grid ? 'list' : 'grid'), keys)
+  // Escape closes the grid's summary, once there are no ticks for it to clear first.
+  useKey(
+    'Escape',
+    (e) => {
+      if (e.defaultPrevented) return
+      e.preventDefault()
+      setSummary(false)
+    },
+    keys && grid && summary && selection.count === 0,
+  )
 
-  // Phone: the ticked Titles' actions are a screen of their own, reached from the selection bar.
-  const [bulkOpen, setBulkOpen] = useState(false)
-  const [filtersOpen, setFiltersOpen] = useState(query !== '')
-  useEffect(() => {
-    if (selection.count === 0) setBulkOpen(false)
-  }, [selection.count])
-
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const empty = titles.isSuccess && all.length === 0
-  const tools = (
-    <div className="flex gap-1">
-      <Button variant="tertiary" size="small" prefix={<FolderInput />} onClick={onAdopt} aria-label="Adopt existing library" title="Adopt existing library">
-        Adopt
-      </Button>
-      <Button variant="tertiary" size="small" prefix={<Eraser />} onClick={() => openCleanup()} aria-label="Clean up Unmanaged files" title="Clean up Unmanaged files">
-        Clean up
-      </Button>
-      <Button
-        variant={selection.active ? 'secondary' : 'tertiary'}
-        size="small"
-        prefix={<CheckSquare />}
-        onClick={() => (selection.active ? selection.clear() : selection.setActive(true))}
-        aria-pressed={selection.active}
-        title="Tick Titles to change together (x)"
-      >
-        Tick
-      </Button>
-    </div>
-  )
+  const total = rows.reduce((n, r) => n + r.size, 0)
+  const counted = titles.isPending ? null : [`${rows.length} of ${all.length}`, total > 0 ? size(total) : null]
+
   const field = (
     <FilterBar
       id="library-filter"
       label="Filter the Library"
-      placeholder="Filter, e.g. is:wanted  /"
+      placeholder={phone ? 'Filter' : 'Filter, e.g. slot:4k  /'}
       value={query}
       onChange={onQuery}
       qualifiers={qualifiers}
+      menus={!phone || filtersOpen}
       onKeyDown={(e) => {
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
           e.preventDefault()
@@ -152,8 +172,46 @@ export function Library({
     />
   )
 
-  const bulk = selection.count > 0 ? <BulkActions rows={rows.filter((r) => selection.has(r.id))} /> : null
-  const title =
+  const tabs = <StateTabs phone={phone} selected={tabOf(parsed)} counts={counts} onSelect={(tab) => onQuery(withTab(query, tab, qualifiers))} />
+  const switcher = <ViewSwitch phone={phone} view={view} onChange={setView} />
+  const menu = <LibraryMenu onAdopt={onAdopt} onCleanup={() => openCleanup()} onTick={phone ? () => selection.setActive(true) : undefined} />
+  const count = <span className="label-12 shrink-0 text-gray-900 tabular-nums">{counted ? counted.filter(Boolean).join(' · ') : <Skeleton width={48} height={14} />}</span>
+
+  const bulk = selection.count > 0 ? <BulkActions rows={rows.filter((r) => selection.has(r.id))} shown={rows.length} onTickAll={selection.checkAll} onClear={selection.clear} compact={phone} /> : null
+
+  const pick = (r: TitleRow) => {
+    onSelect(r.id)
+    if (phone) onOpenTitle(r.id)
+    else {
+      if (grid) setSummary(true)
+      focusList()
+    }
+  }
+  const items = grid ? (
+    <TitleGrid rows={rows} index={index} loading={titles.isPending} grabs={grabs} now={now} selection={selection} phone={phone} gridRef={listRef} onPick={pick} />
+  ) : (
+    <TitleRows rows={rows} index={index} loading={titles.isPending} grabs={grabs} now={now} selection={selection} ticks={!phone || selection.active} phone={phone} listRef={listRef} onPick={pick} />
+  )
+  const nothing = (
+    <div className="flex flex-1 items-center justify-center p-6 text-center">
+      {titles.isError ? (
+        <Note variant="error" size="small">
+          Could not load the Library.
+        </Note>
+      ) : empty ? (
+        <EmptyState title="Nothing here yet" description="Add your first Movie or Series.">
+          <Button variant="primary" size="small" prefix={<Plus />} onClick={onAdd}>
+            Add a title
+          </Button>
+        </EmptyState>
+      ) : titles.isSuccess ? (
+        <EmptyState title="No Title matches." />
+      ) : null}
+    </div>
+  )
+  const startSearch = (s: ManualSearchTarget) => current && setSearch({ ...s, titleId: current.id })
+  // The selected Title's page, or the manual search that replaces it; `onEscape` is where Escape in the page goes.
+  const titlePage = (onEscape: () => void) =>
     current && searching ? (
       <ManualSearch
         key={`${search.versionId} ${JSON.stringify(search.scope?.body ?? null)}`}
@@ -168,146 +226,142 @@ export function Library({
         }}
       />
     ) : current ? (
-      <TitleDetail key={current.id} ref={paneRef} row={current} onEscape={focusList} onManualSearch={(s) => setSearch({ ...s, titleId: current.id })} />
+      <TitleDetail key={current.id} ref={paneRef} row={current} onEscape={onEscape} onManualSearch={startSearch} />
     ) : (
-      <div className="flex flex-1 items-center justify-center text-center">
-        {titles.isError ? (
-          <Note variant="error" size="small">
-            Could not load the Library.
-          </Note>
-        ) : empty ? (
-          <EmptyState title="Nothing here yet" description="Add your first Movie or Series.">
-            <Button variant="primary" size="small" prefix={<Plus />} onClick={onAdd}>
-              Add a title
-            </Button>
-          </EmptyState>
-        ) : titles.isSuccess ? (
-          <EmptyState title="No Title matches." />
-        ) : null}
+      nothing
+    )
+
+  // A phone shows one screen: a Title's page with a back button, or the list.
+  if (phone && titleOpen)
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        {!searching && <PhoneBackHeader onBack={onCloseTitle}>{current?.title}</PhoneBackHeader>}
+        {titlePage(onCloseTitle)}
       </div>
     )
 
-  // A phone shows one screen: a Title's page (or the ticked Titles' actions) with a back button, or the list.
-  const showBulk = phone && bulk !== null && bulkOpen
-  if (phone && (showBulk || titleOpen)) {
+  if (phone) {
+    const filtering = parsed.terms.filter((t) => menuTerms.has(t.name)).length
     return (
       <div className="flex min-h-0 flex-1 flex-col">
-        {!(searching && !showBulk) && <PhoneBackHeader onBack={showBulk ? () => setBulkOpen(false) : onCloseTitle}>{showBulk ? `${selection.count} ticked` : current?.title}</PhoneBackHeader>}
-        {showBulk ? bulk : title}
+        <FilterStrip>
+          <div className="flex w-full items-start gap-2">
+            <div className="min-w-0 flex-1">{field}</div>
+            <Button variant="secondary" size="small" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)}>
+              {filtering > 0 ? `Filters ${filtering}` : 'Filters'}
+            </Button>
+          </div>
+          <div className="w-full min-w-0">{tabs}</div>
+          <div className="flex w-full items-center gap-2">
+            <span className="label-12 min-w-0 flex-1 truncate text-gray-900 tabular-nums">
+              {counted ? [...counted, sortLabel(sortOfQuery(parsed))].filter(Boolean).join(' · ') : <Skeleton width={96} height={14} />}
+            </span>
+            {switcher}
+            {menu}
+          </div>
+        </FilterStrip>
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          {rows.length === 0 && !titles.isPending ? nothing : items}
+          {bulk}
+        </div>
       </div>
     )
   }
 
-  const count = <span className="label-12 ml-auto shrink-0 text-gray-900">{titles.isPending ? <Skeleton width={48} height={14} /> : `${rows.length} of ${all.length}`}</span>
-  const list = (
-    <>
-      {phone ? (
-        <FilterStrip>
-          <div className="min-w-0 flex-1">
-            <Collapse variant="inline" title={query && !filtersOpen ? `Filter: ${query}` : 'Filter'} expanded={filtersOpen} onChange={setFiltersOpen}>
-              <div className="flex flex-col gap-2 pt-2">
-                {field}
-                {tools}
-              </div>
-            </Collapse>
-          </div>
-          {count}
-        </FilterStrip>
-      ) : (
-        // Not PaneHeader: it is a <header>, a second banner landmark that the shell's own tests (and a screen reader) count.
-        <FilterStrip>
-          {tools}
-          <div className="w-full">{field}</div>
-        </FilterStrip>
-      )}
-      {selection.active && (
-        <FilterStrip>
-          <SelectionBar selection={selection} shown={rows.length}>
-            {phone && selection.count > 0 && (
-              <Button variant="primary" size="small" onClick={() => setBulkOpen(true)}>
-                Change {selection.count}
-              </Button>
-            )}
-          </SelectionBar>
-        </FilterStrip>
-      )}
-
-      <div ref={listRef} className="min-h-0 flex-1 overflow-auto p-1.5">
-        <Entity.List
-          // chrome-ok: a cursor listbox (aria-activedescendant) over Entity rows; no design component is one, Select and Combobox are pickers
-          role="listbox"
-          aria-label="Library"
-          aria-busy={titles.isPending || undefined}
-          aria-activedescendant={current ? `title-${current.id}` : undefined}
-          tabIndex={0}
-          className="outline-none"
-          onClick={(e) => {
-            // One handler for the listbox: rows are plain options, so Tab has one stop and aria-activedescendant stays valid.
-            const id = (e.target as Element).closest('[role="option"]')?.id
-            const r = rows.find((x) => `title-${x.id}` === id)
-            if (!r) return
-            onSelect(r.id)
-            if (phone) onOpenTitle(r.id)
-            else focusList()
-          }}
-        >
-          {titles.isPending && Array.from({ length: 8 }, (_, i) => <SkeletonRow key={i} index={i} poster="sm" description={false} />)}
-          {rows.map((r, i) => (
-            <Entity
-              key={r.id}
-              as="li"
-              id={`title-${r.id}`}
-              // chrome-ok: a row of the cursor listbox above; Select and Combobox are pickers
-              role="option"
-              aria-selected={i === index}
-              current={i === index && !phone}
-              data-nav={`lib-${i}`}
-              className="max-sm:min-h-12"
-              left={
-                <>
-                  {selection.active && <TickBox selection={selection} id={r.id} name={r.title} />}
-                  <TitlePoster id={r.id} hasPoster={r.has_poster} size="sm" />
-                </>
-              }
-              right={
-                <>
-                  <KindIcon kind={r.kind} className="shrink-0 text-gray-900" />
-                  <SlotDots slots={r.slots} />
-                </>
-              }
-            >
-              <Entity.Content
-                fill
-                title={
-                  <span className="truncate">
-                    {r.title}
-                    {r.year ? <span className="ml-1.5 font-normal text-gray-900">{r.year}</span> : null}
-                  </span>
-                }
-                description={r.primary_title !== r.title ? <span data-primary-title>{r.primary_title}</span> : undefined}
-              />
-            </Entity>
-          ))}
-        </Entity.List>
-      </div>
-
-      {!phone && (
-        <PaneFooter>
-          <span className="label-12 flex items-center gap-1 text-gray-900 pointer-coarse:hidden">
-            <KeyboardInput small>j</KeyboardInput>
-            <KeyboardInput small>k</KeyboardInput> move <KeyboardInput small>x</KeyboardInput> tick
-          </span>
-          {count}
-        </PaneFooter>
-      )}
-    </>
+  const bar = (
+    <TabStrip
+      end={
+        <>
+          {switcher}
+          {menu}
+          <AddTitle onAdd={onAdd} />
+        </>
+      }
+    >
+      {tabs}
+    </TabStrip>
   )
+  const hints = (
+    <span className="label-12 flex items-center gap-1 text-gray-900 pointer-coarse:hidden">
+      <KeyboardInput small>j</KeyboardInput>
+      <KeyboardInput small>k</KeyboardInput> move <KeyboardInput small>x</KeyboardInput> tick <KeyboardInput small>g</KeyboardInput> {grid ? 'list' : 'grid'}
+    </span>
+  )
+  const closePage = () => {
+    setOpened(false)
+    requestAnimationFrame(focusList)
+  }
+
+  if (grid)
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        {bar}
+        {gridPage ? (
+          <div className="flex min-h-0 flex-1 flex-col">
+            {!searching && <PhoneBackHeader onBack={closePage}>{current.title}</PhoneBackHeader>}
+            {titlePage(closePage)}
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1">
+            <div className="flex min-w-0 flex-1 flex-col">
+              <FilterStrip>
+                <div className="min-w-0 flex-1">{field}</div>
+              </FilterStrip>
+              <div className="relative flex min-h-0 flex-1 flex-col">
+                {rows.length === 0 && !titles.isPending ? nothing : items}
+                {bulk}
+              </div>
+              <PaneFooter>
+                {hints}
+                <span className="ml-auto">{count}</span>
+              </PaneFooter>
+            </div>
+            {summary && current && (
+              <TitleSummary
+                key={current.id}
+                ref={summaryRef}
+                row={current}
+                grabs={grabs.get(current.id) ?? []}
+                now={now}
+                onOpen={() => {
+                  setOpened(true)
+                  requestAnimationFrame(() => paneRef.current?.focus())
+                }}
+                onClose={() => {
+                  setSummary(false)
+                  focusList()
+                }}
+                onManualSearch={(s) => {
+                  startSearch(s)
+                  setOpened(true)
+                }}
+              />
+            )}
+          </div>
+        )}
+      </div>
+    )
 
   return (
-    <div className="flex min-h-0 flex-1">
-      {phone ? <aside className="flex min-w-0 flex-1 flex-col">{list}</aside> : <ListPane>{list}</ListPane>}
-
-      {!phone && (bulk ?? title)}
+    <div className="flex min-h-0 flex-1 flex-col">
+      {bar}
+      <div className="flex min-h-0 flex-1">
+        <WideListPane>
+          {/* Not PaneHeader: it is a <header>, a second banner landmark that the shell's own tests (and a screen reader) count. */}
+          <FilterStrip>
+            <div className="w-full">{field}</div>
+          </FilterStrip>
+          <div className="relative flex min-h-0 flex-1 flex-col">
+            {items}
+            {bulk}
+          </div>
+          <PaneFooter>
+            {hints}
+            <span className="ml-auto">{count}</span>
+          </PaneFooter>
+        </WideListPane>
+        {titlePage(focusList)}
+      </div>
     </div>
   )
 }
