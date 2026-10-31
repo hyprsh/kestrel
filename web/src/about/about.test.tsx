@@ -49,6 +49,8 @@ describe('About', () => {
     const attribution = screen.getByRole('region', { name: 'Attribution' })
     expect(attribution).toHaveTextContent('This product uses the TMDB API but is not endorsed or certified by TMDB.')
     expect(attribution).toHaveTextContent('Metadata provided by TheTVDB.')
+    expect(within(attribution).getByRole('img', { name: 'TMDB' })).toBeInTheDocument()
+    expect(within(attribution).getByRole('link', { name: 'TMDB' })).toHaveAttribute('href', 'https://www.themoviedb.org')
     const shortcuts = screen.getByRole('region', {
       name: 'Keyboard shortcuts',
     })
