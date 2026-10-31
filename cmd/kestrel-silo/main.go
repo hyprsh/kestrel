@@ -1,5 +1,6 @@
-// Command kestrel-silo is Kestrel's Silo request_router.v1 plugin: a second
-// binary from this repo, released with the same version as Kestrel (ADR 0004).
+// Command kestrel-silo is Kestrel's Silo plugin, with a request_router.v1 and a
+// scan_source.v1 capability: a second binary from this repo, released with the
+// same version as Kestrel (ADR 0004).
 // Silo starts it over gRPC; running it by hand only prints its manifest.
 package main
 
@@ -19,5 +20,6 @@ func main() {
 	}
 	runtime.ServeManifest(silo.ManifestJSON(), v, runtime.CapabilityServers{
 		RequestRouter: silo.NewRouter(silo.Options{}),
+		ScanSource:    silo.NewScanSource(silo.Options{}),
 	})
 }

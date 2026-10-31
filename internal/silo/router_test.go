@@ -486,7 +486,7 @@ func TestTheManifestDeclaresSeasonsAndProgress(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m.GetVersion() != "1.2.3" || len(m.GetCapabilities()) != 1 || m.GetCapabilities()[0].GetType() != "request_router.v1" {
+	if m.GetVersion() != "1.2.3" || len(m.GetCapabilities()) != 2 || m.GetCapabilities()[0].GetType() != "request_router.v1" {
 		t.Fatalf("manifest = %+v", m)
 	}
 	d := m.GetCapabilities()[0].GetRequestRouter()
