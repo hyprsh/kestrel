@@ -7,6 +7,7 @@ import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { fakeLibrary, row } from '../test/library'
 import { fakeQueue, queueItem } from '../test/queue'
+import { passOf } from '../test/search'
 import { server } from '../test/server'
 
 type ActivitySnapshot = components['schemas']['ActivitySnapshot']
@@ -83,7 +84,7 @@ describe('the top bar', () => {
       http.get('/search/status', ({ response }) =>
         response(200).json({
           due: { versions: 40, episodes: 0, upgrades: 0 },
-          pass: { started_at: new Date().toISOString(), done: 15, total: 40 },
+          pass: passOf({ done: 15, total: 40 }),
           next_pass_at: null,
           last_pass: null,
           upgrades_per_pass: 5,

@@ -68,7 +68,7 @@ export function Health({ running, onOpenAdoption, onOpenTitle }: { running: Runn
         </div>
         <div id="health-jobs">
           <RunningNow running={running} onOpenAdoption={onOpenAdoption} onOpenTitle={onOpenTitle} />
-          <BackgroundJobs />
+          <BackgroundJobs onOpenTitle={onOpenTitle} />
         </div>
       </div>
     </div>

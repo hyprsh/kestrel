@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
+import { lastPassOf, passOf } from '../test/search'
 import { server } from '../test/server'
 import { findToast } from '../test/toasts'
 
@@ -12,12 +13,12 @@ type Job = components['schemas']['Job']
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
-const search = (versions: number, pass: { done: number; total: number } | null = null, over: Record<string, unknown> = {}) =>
+const search = (versions: number, pass: Partial<ReturnType<typeof passOf>> | null = null, over: Record<string, unknown> = {}) =>
   server.use(
     http.get('/search/status', ({ response }) =>
       response(200).json({
         due: { versions, episodes: 0, upgrades: 0 },
-        pass: pass && { started_at: new Date().toISOString(), ...pass },
+        pass: pass && passOf(pass),
         next_pass_at: null,
         last_pass: null,
         upgrades_per_pass: 5,
@@ -112,11 +113,29 @@ describe('the Search job row on Health', () => {
   it('shows what waits and the last pass as lines of the row', async () => {
     search(0, null, {
       next_pass_at: new Date(Date.now() + 3 * 60_000).toISOString(),
-      last_pass: { finished_at: new Date(Date.now() - 2 * 60_000).toISOString(), searched: 40, grabbed: 3 },
+      last_pass: lastPassOf({ finished_at: new Date(Date.now() - 2 * 60_000).toISOString(), searched: 40, grabbed: 3 }),
     })
     const r = await row()
 
     expect(r).toHaveTextContent('Nothing waiting · next pass in 3 min')
-    expect(r).toHaveTextContent(/Last pass at \d{1,2}:\d{2}.*searched 40 Wanted Versions and made 3 Grabs/)
+    expect(r).toHaveTextContent(/Last pass \d{1,2}:\d{2}.*: 40 searched · 418 releases checked · 3 Grabs · took 3 min/)
+  })
+
+  it('shows a running pass like a download: what is searched, the bar, the counts and the Releases checked', async () => {
+    search(12, {
+      done: 4,
+      total: 12,
+      started_at: new Date(Date.now() - 4 * 60_000).toISOString(),
+      releases_seen: 418,
+      grabbed: 1,
+      current: { title_id: 7, title: 'Breaking Bad', has_poster: false, slot: 'Standard', season: 5, episodes: [] },
+    })
+    const r = await row()
+
+    expect(r).toHaveTextContent('Searching Wanted')
+    expect(r).toHaveTextContent('Now: Breaking Bad · S05 · Standard')
+    expect(within(r).getByRole('progressbar', { name: 'Search progress' })).toBeInTheDocument()
+    expect(r).toHaveTextContent('4 of 12 Wanted · about 8 min left')
+    expect(r).toHaveTextContent('418 releases checked · 1 Grab so far')
   })
 })

@@ -11,7 +11,7 @@ import { useReport } from '../toasts'
 import { SectionBlock } from '../layout/SectionBlock'
 import { ago, span, until, useNow } from '../time'
 import { jobWords } from './jobNames'
-import { lastPassLine, waitingLine } from './SearchSummary'
+import { SearchProgress } from './SearchProgress'
 
 const statusBadge: Record<Job['status'], { tone: NonNullable<BadgeProps['variant']>; text: string }> = {
   idle: { tone: 'gray', text: 'Idle' },
@@ -81,7 +81,7 @@ function SearchAllWanted({ status }: { status: SearchStatus }) {
   )
 }
 
-export function BackgroundJobs() {
+export function BackgroundJobs({ onOpenTitle }: { onOpenTitle?: (id: number) => void }) {
   const jobs = useJobs()
   const items = jobs.data?.items ?? []
   const run = useRunJob()
@@ -147,8 +147,7 @@ export function BackgroundJobs() {
                           {j.outcome && <div>{j.outcome.text}</div>}
                         </>
                       )}
-                      {pipeline && <div>{waitingLine(pipeline, now)}</div>}
-                      {pipeline && lastPassLine(pipeline) && <div>{lastPassLine(pipeline)}</div>}
+                      {pipeline && <SearchProgress status={pipeline} onOpenTitle={onOpenTitle} />}
                     </>
                   }
                 />

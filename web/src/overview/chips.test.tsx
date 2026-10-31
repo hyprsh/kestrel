@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
+import { passOf } from '../test/search'
 import { server } from '../test/server'
 
 type Status = components['schemas']['SystemStatus']
@@ -63,7 +64,7 @@ const lowDiskAndBusySearch = () => {
   fakeSearch(
     searchStatus({
       due: { versions: 12, episodes: 0, upgrades: 0 },
-      pass: { started_at: new Date().toISOString(), done: 3, total: 12 },
+      pass: passOf({ done: 3, total: 12 }),
       next_pass_at: new Date(Date.now() + 14 * 60_000 + 5000).toISOString(),
     }),
   )

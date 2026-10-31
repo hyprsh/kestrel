@@ -2,7 +2,8 @@
 import { Description } from '@hyprsh/design'
 import type { SearchStatus } from '../api/search'
 import { plural } from '../format'
-import { clockTime, until, useNow } from '../time'
+import { clockTime } from '../time'
+import { SearchProgress } from './SearchProgress'
 
 type Indexer = SearchStatus['indexers'][number]
 
@@ -34,29 +35,12 @@ function indexerLine(i: Indexer): { text: string; held: boolean } | null {
   return left ? { text: `${i.name}: ${left}`, held: false } : null
 }
 
-/** What waits and the pass: "Nothing waiting · next pass in 3 min", "120 Wanted waiting · searching 15 of 40". */
-export function waitingLine(s: SearchStatus, now: number): string {
-  return [
-    s.due.versions > 0 ? `${s.due.versions} Wanted waiting` : 'Nothing waiting',
-    s.pass ? `searching ${s.pass.done} of ${s.pass.total}` : null,
-    s.next_pass_at ? `next pass ${until(s.next_pass_at, now)}` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ')
-}
-
-/** "Last pass at 11:33 PM searched 0 Wanted Versions and made 0 Grabs", or null before the first pass. */
-export function lastPassLine(s: SearchStatus): string | null {
-  return s.last_pass ? `Last pass at ${clockTime(s.last_pass.finished_at)} searched ${plural(s.last_pass.searched, 'Wanted Version')} and made ${plural(s.last_pass.grabbed, 'Grab')}` : null
-}
-
-/** The search pipeline in a few lines: what waits, the pass, the last pass and the indexers' budgets. Activity's Searching stage shows it too. */
-export function SearchSummary({ status: s }: { status: SearchStatus }) {
-  const now = useNow()
+/** The search pipeline in a few lines: the pass or what waits and the last pass (SearchProgress), then the indexers' budgets. Activity's Searching stage shows it too. */
+export function SearchSummary({ status: s, onOpenTitle }: { status: SearchStatus; onOpenTitle?: (id: number) => void }) {
   const indexers = s.indexers.map(indexerLine).filter((l) => l !== null)
   return (
     <div className="flex flex-col gap-3">
-      <Description layout="horizontal" termWidth={96} title="Waiting" content={waitingLine(s, now)} />
+      <SearchProgress status={s} onOpenTitle={onOpenTitle} />
       {s.due.episodes > 0 && <Description layout="horizontal" termWidth={96} title="Episodes" content={`${plural(s.due.episodes, 'Wanted episode')} in the Series among them`} />}
       {s.due.upgrades > 0 && (
         <Description
@@ -66,7 +50,6 @@ export function SearchSummary({ status: s }: { status: SearchStatus }) {
           content={`${plural(s.due.upgrades, 'Version')} due an Upgrade search · ${plural(s.upgrades_per_pass, 'Upgrade search', 'Upgrade searches')} per pass`}
         />
       )}
-      {s.last_pass && <Description layout="horizontal" termWidth={96} title="Last Pass" content={lastPassLine(s)} />}
       {indexers.length > 0 && (
         <Description
           layout="horizontal"

@@ -117,7 +117,7 @@ export function Pipeline({ data, onOpenTitle }: { data: PipelineData; onOpenTitl
       {searching && search && (
         <SectionBlock title={stageLabel.searching} count={count('searching')}>
           <div className="px-4 py-3">
-            <SearchSummary status={search} />
+            <SearchSummary status={search} onOpenTitle={onOpenTitle} />
           </div>
         </SectionBlock>
       )}
