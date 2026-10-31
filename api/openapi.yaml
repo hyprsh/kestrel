@@ -1904,6 +1904,8 @@ paths:
       description: |
         Hides the row until its condition recurs. Only rows with a `dismiss` action can be dismissed;
         any other row is `409 conflict`, and one that is already gone `404`.
+        A `silo-silent-{request_id}` row ("Silo stopped asking") is hidden until Silo asks about that
+        Request again; the Request itself is kept.
       tags: [system]
       responses:
         "204":
@@ -2392,6 +2394,9 @@ paths:
       description: |
         `id` may repeat (at most 100) to read those Requests in one call, as the Silo plugin does; the
         other filters and the cursor are ignored then.
+        Reading Silo's Requests this way counts as Silo asking about them: Needs attention flags a Silo
+        Request that this read has not named for longer than Silo's whole retry span (6 hours and the
+        10-minute submission lease).
 
         `source`, `status`, `outcome` and `requester` may each repeat: a Request matches any one of a
         filter's values, and every filter given. `status` is derived on read like each Slot's, and every
@@ -2483,6 +2488,33 @@ paths:
               schema:
                 $ref: "#/components/schemas/Request"
         "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /requests/{id}/end:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    post:
+      operationId: endRequest
+      summary: End an open Request
+      description: |
+        Ends the Request the way a rejected one ends: its Title and Versions stay, nothing more is asked
+        for it, and it reads as `outcome: rejected` with a `null` `reject_reason`. The reason is written
+        into the Log as a `request_ended` event. This is the "End" action of Needs attention's
+        "Silo stopped asking" row. `404` for a Request that does not exist; `409 conflict` for one that
+        is not open (completed, or already rejected).
+      tags: [requests]
+      responses:
+        "204":
+          description: The Request is ended.
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
@@ -5799,7 +5831,7 @@ components:
         at: { type: string, format: date-time }
         kind:
           type: string
-          description: "A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered."
+          description: "A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, request_ended, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered."
         routine: { type: boolean }
         title_id: { type: integer, format: int64, nullable: true }
         version_id: { type: integer, format: int64, nullable: true }

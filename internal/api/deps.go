@@ -182,6 +182,11 @@ type Requests interface {
 	List(ctx context.Context, f requests.Filter) ([]requests.Request, error)
 	Count(ctx context.Context, f requests.Filter) (int, error)
 	Get(ctx context.Context, id int64) (requests.Request, error)
+	// MarkAsked, Quiet, DismissQuiet and End: a source that stopped asking about a Request (silo_silent.go).
+	MarkAsked(ctx context.Context, source string, ids []int64) error
+	Quiet(ctx context.Context, source string, cutoff time.Time) ([]requests.Quiet, error)
+	DismissQuiet(ctx context.Context, id int64) error
+	End(ctx context.Context, id int64) (requests.Request, error)
 }
 
 // Adoption takes over an existing on-disk library.

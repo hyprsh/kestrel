@@ -54,6 +54,8 @@ const (
 	ImportEpisode Kind = "import_episode"
 	// RequestCreated: a new Request arrived (a retry of a stored one does not record).
 	RequestCreated Kind = "request"
+	// RequestEnded: a Request was ended by hand and now reads as rejected; the message says why.
+	RequestEnded Kind = "request_ended"
 	// WatchAheadAdded: Watch-ahead added the next season to a Request (ADR 0019).
 	WatchAheadAdded Kind = "watch_ahead"
 	// Renamed: a Title's folder and files were renamed after its English title or year changed.

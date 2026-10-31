@@ -197,6 +197,11 @@ func (s *server) attentionRows(ctx context.Context) ([]oapi.AttentionRow, error)
 		return nil, err
 	}
 	out = append(out, stuck...)
+	silent, err := s.siloSilentRows(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, silent...)
 	// Blocking before Warning, newest first; rows of one kind keep their order.
 	slices.SortStableFunc(out, func(a, b oapi.AttentionRow) int {
 		if (a.Severity == oapi.AttentionRowSeverity(health.Blocking)) != (b.Severity == oapi.AttentionRowSeverity(health.Blocking)) {
@@ -261,6 +266,9 @@ func (s *server) GetAttention(ctx context.Context, _ oapi.GetAttentionRequestObj
 }
 
 func (s *server) DismissAttention(ctx context.Context, r oapi.DismissAttentionRequestObject) (oapi.DismissAttentionResponseObject, error) {
+	if raw, ok := strings.CutPrefix(r.Id, siloSilentPrefix); ok {
+		return s.dismissSiloSilent(ctx, raw)
+	}
 	raw, ok := strings.CutPrefix(r.Id, healthRowPrefix)
 	id, err := strconv.ParseInt(raw, 10, 64)
 	if !ok || err != nil {

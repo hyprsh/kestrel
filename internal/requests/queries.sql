@@ -1,6 +1,6 @@
 -- name: InsertRequest :one
-INSERT INTO requests (source, source_request_id, requester_id, requester_name, title_id, title_name, outcome, reject_reason, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO requests (source, source_request_id, requester_id, requester_name, title_id, title_name, outcome, reject_reason, created_at, last_asked_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id;
 
 -- name: DeleteRequest :exec
@@ -61,3 +61,23 @@ JOIN requests r ON r.id = s.request_id
 JOIN titles t ON t.id = r.title_id
 WHERE s.filled_at IS NOT NULL AND r.outcome = 'accepted' AND t.folder IS NOT NULL
 ORDER BY t.id, r.id;
+
+-- The source read these Requests: stamp them, and let a dismissed silence be flagged again.
+-- name: MarkRequestsAsked :exec
+UPDATE requests SET last_asked_at = sqlc.arg(at), silence_dismissed = 0
+WHERE source = sqlc.arg(source) AND id IN (SELECT value FROM json_each(sqlc.arg(ids)));
+
+-- The accepted Requests of a source that were last asked about before a time and not dismissed.
+-- A NULL stamp reads as the creation time.
+-- name: ListQuietRequests :many
+SELECT * FROM requests
+WHERE source = sqlc.arg(source) AND outcome = 'accepted' AND silence_dismissed = 0
+  AND COALESCE(last_asked_at, created_at) < sqlc.arg(before)
+ORDER BY id;
+
+-- name: DismissQuietRequest :execrows
+UPDATE requests SET silence_dismissed = 1 WHERE id = ? AND outcome = 'accepted';
+
+-- A Request ended by hand ends as a rejected one does, with no reason code.
+-- name: EndRequest :execrows
+UPDATE requests SET outcome = 'rejected', reject_reason = NULL WHERE id = ? AND outcome = 'accepted';

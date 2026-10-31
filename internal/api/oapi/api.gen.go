@@ -2356,7 +2356,7 @@ type Event struct {
 	GrabId    *int64                  `json:"grab_id"`
 	Id        int64                   `json:"id"`
 
-	// Kind A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered.
+	// Kind A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, request_ended, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered.
 	Kind      string `json:"kind"`
 	Message   string `json:"message"`
 	RequestId *int64 `json:"request_id"`
@@ -5265,6 +5265,9 @@ type ServerInterface interface {
 	// GetRequest One Request with its current per-Slot status
 	// (GET /requests/{id})
 	GetRequest(w http.ResponseWriter, r *http.Request, id int64)
+	// EndRequest End an open Request
+	// (POST /requests/{id}/end)
+	EndRequest(w http.ResponseWriter, r *http.Request, id int64)
 	// GetSearchStatus The search pipeline
 	// (GET /search/status)
 	GetSearchStatus(w http.ResponseWriter, r *http.Request)
@@ -6932,6 +6935,32 @@ func (siw *ServerInterfaceWrapper) GetRequest(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// EndRequest operation middleware
+func (siw *ServerInterfaceWrapper) EndRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EndRequest(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetSearchStatus operation middleware
 func (siw *ServerInterfaceWrapper) GetSearchStatus(w http.ResponseWriter, r *http.Request) {
 
@@ -8090,6 +8119,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/requests", wrapper.ListRequests)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/requests", wrapper.CreateRequest)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/requests/{id}", wrapper.GetRequest)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/requests/{id}/end", wrapper.EndRequest)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/my/requests", wrapper.ListMyRequests)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/my/requests", wrapper.CreateMyRequest)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugins", wrapper.ListPlugins)
@@ -11610,6 +11640,69 @@ func (response GetRequestdefaultApplicationProblemPlusJSONResponse) VisitGetRequ
 	return err
 }
 
+type EndRequestRequestObject struct {
+	Id int64 `json:"id"`
+}
+
+type EndRequestResponseObject interface {
+	VisitEndRequestResponse(w http.ResponseWriter) error
+}
+
+type EndRequest204Response struct {
+}
+
+func (response EndRequest204Response) VisitEndRequestResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type EndRequest404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response EndRequest404ApplicationProblemPlusJSONResponse) VisitEndRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EndRequest409ApplicationProblemPlusJSONResponse Problem
+
+func (response EndRequest409ApplicationProblemPlusJSONResponse) VisitEndRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EndRequestdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response EndRequestdefaultApplicationProblemPlusJSONResponse) VisitEndRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetSearchStatusRequestObject struct {
 }
 
@@ -14036,6 +14129,9 @@ type StrictServerInterface interface {
 	// GetRequest One Request with its current per-Slot status
 	// (GET /requests/{id})
 	GetRequest(ctx context.Context, request GetRequestRequestObject) (GetRequestResponseObject, error)
+	// EndRequest End an open Request
+	// (POST /requests/{id}/end)
+	EndRequest(ctx context.Context, request EndRequestRequestObject) (EndRequestResponseObject, error)
 	// GetSearchStatus The search pipeline
 	// (GET /search/status)
 	GetSearchStatus(ctx context.Context, request GetSearchStatusRequestObject) (GetSearchStatusResponseObject, error)
@@ -15824,6 +15920,32 @@ func (sh *strictHandler) GetRequest(w http.ResponseWriter, r *http.Request, id i
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetRequestResponseObject); ok {
 		if err := validResponse.VisitGetRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// EndRequest operation middleware
+func (sh *strictHandler) EndRequest(w http.ResponseWriter, r *http.Request, id int64) {
+	var request EndRequestRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.EndRequest(ctx, request.(EndRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EndRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(EndRequestResponseObject); ok {
+		if err := validResponse.VisitEndRequestResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
