@@ -3,7 +3,10 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { App } from '../App'
-import { cell, episode, fakeSeries } from '../test/series'
+import { detail, row } from '../test/library'
+import { http } from '../test/handlers'
+import { server } from '../test/server'
+import { cell, episode, fakeSeries, seriesRow } from '../test/series'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -51,6 +54,26 @@ describe('season tabs on the Title page', () => {
     expect(within(grid).getByRole('checkbox', { name: 'Tick Season 0 episode 1' })).toBeInTheDocument()
     expect(within(grid).queryByRole('checkbox', { name: 'Tick Season 1 episode 1' })).not.toBeInTheDocument()
     await waitFor(() => expect(location.pathname + location.search).toBe('/library?season=0'))
+  })
+
+  it('drops the season from the address when another Title is selected, a Movie included', async () => {
+    const state = fakeSeries()
+    const series = seriesRow(5, 'Breaking Bad')
+    const movie = row(7, 'Heat', 'Heat')
+    state.lib.rows = [series, movie]
+    server.use(
+      http.get('/titles/{id}', ({ params, response }) => response(200).json(Number(params.id) === 7 ? detail(movie) : detail(series, { kind: 'series', tvdb_id: 81189, series_monitor: 'all' }))),
+    )
+    history.replaceState(null, '', '/library?season=0')
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    await screen.findByRole('grid', { name: 'Episodes' })
+    await waitFor(() => expect(params().get('season')).toBe('0'))
+
+    await userEvent.click(await screen.findByRole('option', { name: /heat/i }))
+
+    await screen.findByRole('heading', { name: 'Heat' })
+    await waitFor(() => expect(location.search).toBe(''))
   })
 
   it('opens the season the address names', async () => {

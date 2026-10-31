@@ -83,6 +83,10 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const section = !phone ? '' : screen === 'library' ? (titleOpen && libraryId !== null ? String(libraryId) : '') : screen === 'settings' ? settingsSection : ''
   // Activity's tab is the place's section ("/activity/health"); only Grabs has a filter.
   const [activityTab, setActivityTab] = useState<ActivityTab>(start.screen === 'activity' ? activityTabOf(start.section) : 'grabs')
+  // Another Title selected: its Series' season and found episode are not the previous Title's (a Movie shows none). A view that names no Title stays for the first Series shown.
+  useEffect(() => {
+    if (libraryId !== null) setEpisodeView((v) => (v.titleId !== null && v.titleId !== libraryId ? noEpisodeView : v))
+  }, [libraryId])
   const shownView = screen === 'library' ? episodeView : noEpisodeView
   const address = screen === 'activity' ? { q: activityTab === 'grabs' ? query : '', section: activityTabSection(activityTab) } : { q: query, section }
   useEffect(() => showPlace(placePath(screen, address.q, address.section, shownView)), [screen, address.q, address.section, shownView])
