@@ -20,8 +20,8 @@ const slots = (standard: 'wanted' | 'filled', fourK: 'wanted' | 'filled' | null 
 const library = () => [row(1, 'Heat', 'Heat', { slots: slots('wanted') }), row(2, 'Zodiac', 'Zodiac', { slots: slots('filled', 'wanted') }), row(3, 'Alien', 'Alien', { slots: slots('filled') })]
 
 const filterButton = () => screen.getByRole('button', { name: /^Filter( ·|,|$)/ })
-/** A row of the Filter menu, by its name; a hint such as Excluded may follow it. A Profile named like a Slot comes after the Slot's row, so the first is the Slot's. */
-const item = (name: string) => screen.getAllByRole('menuitemcheckbox', { name: new RegExp(`^${name}(\\s?Excluded)?$`) })[0]
+/** A row of the Filter menu, by its name; ", excluded" follows it for an excluded value. A Profile named like a Slot comes after the Slot's row, so the first is the Slot's. */
+const item = (name: string) => screen.getAllByRole('menuitemcheckbox', { name: new RegExp(`^${name}(, excluded)?$`) })[0]
 const titles = (list: HTMLElement) =>
   within(list)
     .getAllByRole('option')
@@ -99,6 +99,27 @@ describe('the Library Filter button', () => {
     expect(field).toHaveValue('-slot:4k')
     expect(item('4K')).toHaveAttribute('aria-checked', 'false')
     expect(item('4K')).toHaveTextContent('Excluded')
+  })
+
+  it('names an excluded value as excluded to a screen reader', async () => {
+    const { field } = await open()
+    await userEvent.type(field, '-slot:4k')
+    await userEvent.click(filterButton())
+    expect(screen.getAllByRole('menuitemcheckbox', { name: '4K, excluded' })).toHaveLength(1)
+  })
+
+  it('reaches the exclude action by keyboard as an item of its own', async () => {
+    const { field } = await open()
+    await userEvent.click(filterButton())
+    const row = item('4K')
+    row.focus()
+    await userEvent.keyboard('{ArrowDown}')
+    const action = row.nextElementSibling as HTMLElement
+    expect(action).toHaveFocus()
+    expect(action).toHaveAccessibleName('Exclude 4K')
+    expect(action).toHaveAttribute('role', 'menuitem')
+    await userEvent.keyboard('{Enter}')
+    expect(field).toHaveValue('-slot:4k')
   })
 
   it("excludes from the row's own action, and says how to exclude at the foot of the menu", async () => {

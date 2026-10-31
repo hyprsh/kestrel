@@ -1,7 +1,7 @@
 // chrome: layout
 import { Button, Menu, MenuDivider, MenuItem, MenuSection, parseQuery, termText, withoutTerm, withoutValue, withValue, type Term } from '@hyprsh/design'
 import { ArrowUpDown, Funnel, Minus, MinusCircle } from 'lucide-react'
-import { useRef, type ReactNode } from 'react'
+import { Fragment, useRef, type ReactNode } from 'react'
 import { usePhone } from '../responsive'
 import type { Facet } from '../filter/qualifiers'
 
@@ -109,48 +109,57 @@ export function FacetFilterButton({
                 const toggle = () =>
                   onQuery(isExcluded ? withoutExcluded(query, f.name, v, qualifiers) : included.has(v) ? withoutValue(query, f.name, v, qualifiers) : withValue(query, f.name, v, qualifiers))
                 return (
-                  <MenuItem
-                    key={v}
-                    className="group"
-                    checked={included.has(v)}
-                    prefix={isExcluded ? <Minus className="size-4 text-red-900" aria-hidden /> : undefined}
-                    description={f.options?.[v]?.description}
-                    suffix={
-                      <>
-                        {isExcluded ? <span className="text-red-900">Excluded</span> : suffix?.(f.name, v)}
-                        {f.excludable && !isExcluded && (
-                          // The exclude action shows on hover or focus; Shift+click and Shift+Enter on the row do the same.
-                          <Button
-                            svgOnly
-                            size="tiny"
-                            variant="tertiary"
-                            tabIndex={-1}
-                            aria-label={`Exclude ${label}`}
-                            title={`Exclude ${label}`}
-                            className="opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 focus:opacity-100"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              exclude()
-                            }}
-                          >
-                            <MinusCircle />
-                          </Button>
-                        )}
-                      </>
-                    }
-                    onClick={(e) => {
-                      if (e.shiftKey && f.excludable && !isExcluded) {
-                        excludedByKey.current = true
-                        exclude()
+                  <Fragment key={v}>
+                    <MenuItem
+                      className="group"
+                      checked={included.has(v)}
+                      prefix={isExcluded ? <Minus className="size-4 text-red-900" aria-hidden /> : undefined}
+                      description={f.options?.[v]?.description}
+                      suffix={
+                        <>
+                          {isExcluded ? <span className="text-red-900">Excluded</span> : suffix?.(f.name, v)}
+                          {f.excludable && !isExcluded && (
+                            // The exclude action shows on hover or focus; Shift+click and Shift+Enter on the row do the same.
+                            <Button
+                              svgOnly
+                              size="tiny"
+                              variant="tertiary"
+                              tabIndex={-1}
+                              aria-label={`Exclude ${label}`}
+                              title={`Exclude ${label}`}
+                              className="opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 focus:opacity-100"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                exclude()
+                              }}
+                            >
+                              <MinusCircle />
+                            </Button>
+                          )}
+                        </>
                       }
-                    }}
-                    onSelect={() => {
-                      if (excludedByKey.current) excludedByKey.current = false
-                      else toggle()
-                    }}
-                  >
-                    {label}
-                  </MenuItem>
+                      onClick={(e) => {
+                        if (e.shiftKey && f.excludable && !isExcluded) {
+                          excludedByKey.current = true
+                          exclude()
+                        }
+                      }}
+                      onSelect={() => {
+                        if (excludedByKey.current) excludedByKey.current = false
+                        else toggle()
+                      }}
+                    >
+                      {label}
+                      {isExcluded && <span className="sr-only">, excluded</span>}
+                    </MenuItem>
+                    {f.excludable && !isExcluded && (
+                      // The design's rows hide their suffix from assistive tech, so the ⊖ is mouse-only: this item is the keyboard and screen-reader way
+                      // to the same action. It sits after its row, out of sight until focused (arrow down from the row).
+                      <MenuItem className="sr-only focus:not-sr-only" onSelect={exclude}>
+                        {`Exclude ${label}`}
+                      </MenuItem>
+                    )}
+                  </Fragment>
                 )
               })}
             </MenuSection>
