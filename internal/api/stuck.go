@@ -76,7 +76,7 @@ func (s *server) stuckRows(ctx context.Context) ([]oapi.AttentionRow, error) {
 					Body:    &map[string]any{"blocklist": true},
 					Confirm: ptr("Cancel this download and blocklist the Release? The Version is searched again for the next best Release."),
 				},
-				{Key: "cancel", Label: "Cancel", Method: oapi.POST, Path: fmt.Sprintf("/grabs/%d/cancel", a.ID), Confirm: ptr("Cancel this download? Its job and files leave the download client.")},
+				{Key: "cancel", Label: "Cancel download", Method: oapi.POST, Path: fmt.Sprintf("/grabs/%d/cancel", a.ID), Confirm: ptr("Cancel this download? Its job and files leave the download client.")},
 			},
 		})
 	}
