@@ -70,13 +70,13 @@ export function TitleActions({ title, profileName, onManualSearch }: { title: Ti
   )
 }
 
-/** The monitoring control of the row: a secondary button showing the whole state, whose menu lists the options as radio items, the current one checked. Its name is "Monitoring: " and the visible state, so the name holds the visible text. */
+/** The monitoring control of the row: a secondary button showing the whole state, whose menu lists the options as radio items, the current one checked. Its name is the visible state, such as "Monitored: all episodes". */
 function MonitoringMenu<V extends string>({ value, options, disabled, onChange }: { value: V; options: { value: V; label: string }[]; disabled: boolean; onChange: (v: V) => void }) {
   const current = options.find((o) => o.value === value) ?? options[0]
   const off = current.label === NOT_MONITORED
   return (
     <Menu.Container position="bottom-start">
-      <Menu.Button variant="secondary" size="small" showChevron disabled={disabled} aria-label={`Monitoring: ${current.label}`} prefix={off ? <CircleMinus aria-hidden /> : undefined}>
+      <Menu.Button variant="secondary" size="small" showChevron disabled={disabled} prefix={off ? <CircleMinus aria-hidden /> : undefined}>
         {current.label}
       </Menu.Button>
       <Menu>
