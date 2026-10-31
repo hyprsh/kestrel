@@ -59,11 +59,12 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
     if (code && text === '') setText(code)
   }, [code, text])
 
-  // The open tab stays in view on a row of tabs that scrolls (a phone).
+  // The open tab stays in view on a row of tabs that scrolls (a phone): the nearest ancestor that overflows scrolls to it.
   useEffect(() => {
-    const row = tabs.current
-    const open = row?.querySelector('[aria-selected="true"]')
-    if (!row || !open) return
+    const open = tabs.current?.querySelector('[aria-selected="true"]')
+    let row = open?.parentElement ?? null
+    while (row && row.scrollWidth <= row.clientWidth && row !== tabs.current) row = row.parentElement
+    if (!open || !row) return
     const at = open.getBoundingClientRect()
     const box = row.getBoundingClientRect()
     row.scrollLeft += at.left - box.left - (box.width - at.width) / 2
