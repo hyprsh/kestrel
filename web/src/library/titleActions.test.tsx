@@ -117,7 +117,7 @@ describe('the Title actions row', () => {
 })
 
 describe('the Version rows', () => {
-  const standardOnly = (r: ReturnType<typeof seriesRow>, coverage: Record<string, number>) =>
+  const standardOnly = (r: ReturnType<typeof seriesRow>, coverage: NonNullable<ReturnType<typeof detail>['versions'][number]['coverage']>) =>
     server.use(
       http.get('/titles/{id}', ({ response }) => {
         const d = detail(r, { kind: 'series', tvdb_id: 81189, series_monitor: 'all' })

@@ -1,5 +1,6 @@
 import { Note, Skeleton } from '@hyprsh/design'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useQueue } from '../api/queue'
 import { ApiError, useEpisodes, type Episode, type TitleDetail } from '../api/queries'
 import { useDisplay } from '../display/useDisplay'
 import { useColumnWidths } from '../layout/columnWidths'
@@ -11,6 +12,7 @@ import { FindEpisodeField, useEpisodeFind } from './EpisodeFind'
 import { EpisodeMatrix } from './EpisodeMatrix'
 import { useEpisodeView } from './episodeView'
 import { bySeason, defaultSeason, episodeCode, orderEpisodes, orderSeasons, seasonName, seasonStanding } from './episodes'
+import { grabsByEpisode } from './cellDetail'
 import { SeasonCount, SeasonSummary } from './SeasonSummary'
 import type { ManualSearchTarget } from './TitleDetail'
 
@@ -31,6 +33,8 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
   const seasons = useMemo(() => orderSeasons([...grouped.keys()], display.season_order), [grouped, display.season_order])
   const view = useEpisodeView(title.id)
   const columns = useColumnWidths('episodes')
+  const queue = useQueue()
+  const grabs = useMemo(() => grabsByEpisode(queue.data, title.id), [queue.data, title.id])
   const season = view.season !== null && grouped.has(view.season) ? view.season : defaultSeason(seasons)
   const shown = grouped.get(season) ?? noEpisodes
   const actions = useEpisodeActions(title, episodes, shown, slots, onManualSearch)
@@ -101,7 +105,7 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
       }
     >
       <SeasonDeleteConfirm actions={actions} season={season} />
-      <EpisodeMatrix season={season} episodes={shown} slots={slots} actions={actions} found={found} columnWidths={columns} />
+      <EpisodeMatrix season={season} episodes={shown} slots={slots} actions={actions} found={found} grabs={grabs} columnWidths={columns} />
       <TickedBar actions={actions} />
     </Section>
   )

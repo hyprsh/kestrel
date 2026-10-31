@@ -53,7 +53,7 @@ describe('episode titles', () => {
   })
 
   it('shows a listed episode without a title as TBA with no tooltip', async () => {
-    const { user, grid } = await openSeries()
+    const { grid } = await openSeries()
     await pickSeason('Season 2')
     expect(within(rowOf(grid, 'Season 2 episode 1')).getByText('TBA')).not.toHaveAttribute('title')
   })
@@ -79,6 +79,13 @@ describe('the episodes loading Skeleton', () => {
 })
 
 describe('the file of an episode cell', () => {
+  it('says the quality and size of a filled cell on its one line, and what a Wanted one still lacks', async () => {
+    const { grid } = await openSeries()
+    const pilot = rowOf(grid, 'Season 1 episode 1')
+    expect(within(pilot).getByRole('button', { name: 'Season 1 episode 1 Standard: Filled' })).toHaveTextContent('WEBDL-1080p · 2.0 GB')
+    expect(within(pilot).getByRole('button', { name: 'Season 1 episode 1 4K: Wanted' })).toHaveTextContent(/^Wanted/)
+  })
+
   it('names the path, Score, quality and size in the tooltip', async () => {
     const { grid } = await openSeries()
     const tip = within(grid).getByRole('button', { name: 'Season 1 episode 1 Standard: Filled' }).getAttribute('title')

@@ -3,11 +3,13 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { Episode } from '../api/queries'
 import { useColumnWidths } from '../layout/columnWidths'
 import { usePhone } from '../responsive'
+import type { QueueItem } from '../api/queue'
 import { dotOf, faintDot, slotLabel, versionStatus, type SlotKey } from './bits'
 import { RowDeleteConfirm } from './DeleteFiles'
 import { EpisodeMenu, EpisodeTick, RowButtons, type EpisodeActions } from './EpisodeActions'
 import { CellPopover, EpisodeFilePopover, cellTitle } from './EpisodeFilePopover'
 import { EpisodeName } from './EpisodeName'
+import { cellText, grabOf } from './cellDetail'
 import { episodeRow } from './episodes'
 
 /**
@@ -24,6 +26,7 @@ export function EpisodeMatrix({
   slots,
   actions,
   found,
+  grabs,
   columnWidths,
 }: {
   season: number
@@ -31,6 +34,8 @@ export function EpisodeMatrix({
   slots: SlotKey[]
   actions: EpisodeActions
   found: number | null
+  /** The queue's Grabs of this Series by Slot and episode (cellDetail.ts), for the progress a downloading cell shows. */
+  grabs: Map<string, QueueItem>
   /** The widths of the resizable columns, kept by the screen (layout/columnWidths.tsx), which also offers the reset. */
   columnWidths: Pick<ReturnType<typeof useColumnWidths>, 'widths' | 'onChange'>
 }) {
@@ -167,6 +172,7 @@ export function EpisodeMatrix({
                 tab={tab}
                 ticked={selection.has(ep.id)}
                 found={ep.id === found}
+                grabs={grabs}
                 onFocus={(col) => setPos({ row: i, col })}
                 menuOpen={menuRow === episodeRow(ep.id)}
                 actions={actions}
@@ -188,6 +194,7 @@ function EpisodeRow({
   tab,
   ticked,
   found,
+  grabs,
   onFocus,
   menuOpen,
   actions,
@@ -200,6 +207,7 @@ function EpisodeRow({
   tab: (row: number, col: number) => number
   ticked: boolean
   found: boolean
+  grabs: Map<string, QueueItem>
   onFocus: (col: number) => void
   menuOpen: boolean
   actions: EpisodeActions
@@ -226,18 +234,20 @@ function EpisodeRow({
           const cell = episode.cells[s]
           const state = cell ? versionStatus(cell.state).label : 'no Version'
           const dot = dotOf(cell ? cell.state : null, false)
+          const text = cellText(cell, episode, grabOf(grabs, s, episode), state)
+          const title = cellTitle(slotLabel[s], state, cell) + (text && text !== state && !cell?.file ? `\n${text}` : '')
           const button = (
             <Button
               variant="tertiary"
               size="tiny"
               aria-label={`${label} ${slotLabel[s]}: ${state}`}
-              title={cellTitle(slotLabel[s], state, cell)}
+              title={title}
               data-cell={`${index}-${c + 1}`}
               tabIndex={tab(index, c + 1)}
               onFocus={() => onFocus(c + 1)}
               prefix={<StatusDot state={dot.state} variant={dot.variant} label={false} title={null} aria-hidden className={dot.faint ? faintDot : undefined} />}
             >
-              <span className="max-sm:sr-only">{cell ? state : '—'}</span>
+              <span className={`max-w-48 truncate max-sm:sr-only ${cell?.state === 'unmonitored' ? 'text-gray-900' : ''}`}>{text ?? '—'}</span>
             </Button>
           )
           return (
@@ -246,7 +256,7 @@ function EpisodeRow({
                 <EpisodeFilePopover label={`${label} ${slotLabel[s]}`} cell={cell} file={cell.file} trigger={button} />
               ) : phone ? (
                 // No hover on a phone: a tap says what the state means.
-                <CellPopover label={`${label} ${slotLabel[s]}`} text={cellTitle(slotLabel[s], state, cell)} trigger={button} />
+                <CellPopover label={`${label} ${slotLabel[s]}`} text={title} trigger={button} />
               ) : (
                 button
               )}
