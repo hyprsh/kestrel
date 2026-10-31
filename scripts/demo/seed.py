@@ -14,7 +14,14 @@ as empty files on disk. Paddington has its 1080p BluRay. Breaking Bad has Season
 in Standard (S02E12-E13 is one double-episode file) and in 4K, Season 5 half in
 Standard and a quarter in 4K, and one Special. BIN is scripts/demo/parse, which
 writes each release name's parsed form as Imports stores it. Then the dates around
-today (Upcoming's window) are set in the same way: see "Upcoming looks at" below.
+today (Upcoming's window) are set in the same way: see "Upcoming looks at" below. Paddington and two
+Breaking Bad episodes (S05E07-E08) get an imported Grab each, a day or two old, so Recently added has rows.
+
+Then, through the API again, what the Overview shows besides the Library: with the fake indexer's
+releases on for a moment, a manual search and a Grab of Paddington in Peru's Release, which the fake
+SABnzbd holds at 40 % (Downloading now, Activity's pipeline); with them off again, two Requests from
+Ellie through Plex, one for Paddington 2 (Searching, nothing to find) and one for Paddington
+(Completed). There is no Needs attention row.
 """
 import argparse, datetime, http.cookiejar, json, os, sqlite3, subprocess, time, urllib.error, urllib.request
 
@@ -151,6 +158,37 @@ def stamp(days):
 
 
 db.execute("UPDATE versions SET added_at='2026-05-01T00:00:00Z'")
+# Recently added lists the Imports of the last week, and an Import is a file with a Grab.
+now = datetime.datetime.now(datetime.timezone.utc)
+
+
+def ago(**delta):
+    return (now - datetime.timedelta(**delta)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+indexer = db.execute("SELECT id, name FROM plugin_instances WHERE name='Demo Indexer'").fetchone()
+sab = db.execute("SELECT id FROM plugin_instances WHERE name='SABnzbd'").fetchone()[0]
+
+
+def imported(like, like2, when, guid):
+    """Gives the files matching like an imported Grab, since Recently added and Activity's Done list Grabs."""
+    rows = db.execute("SELECT f.id, f.version_id, v.title_id, f.size, f.release_name, f.parsed_release, f.score FROM files f "
+                      "JOIN versions v ON v.id = f.version_id WHERE f.path LIKE ? OR f.path LIKE ? ORDER BY f.id", (like, like2)).fetchall()
+    first = rows[0]
+    cur = db.execute("INSERT INTO grabs(title_id,version_id,release_guid,release_name,indexer_id,indexer_name,size,published_at,score,"
+                     "parsed,verdict,client_instance_id,client_id,state,created_at,updated_at) "
+                     "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'imported',?,?)",
+                     (first[2], first[1], guid, first[4], indexer[0], indexer[1], sum(r[3] for r in rows), when, first[6],
+                      first[5] or "{}", '{"Accepted":true,"Score":%d,"MinScore":0,"Matched":null,"Languages":[{"id":1,"name":"English"}],"Rejections":null}' % first[6],
+                      sab, "SABnzbd_nzo_" + guid, when, when))
+    for r in rows:
+        db.execute("UPDATE files SET grab_id=?, imported_at=? WHERE id=?", (cur.lastrowid, when, r[0]))
+        for (e,) in db.execute("SELECT episode_id FROM file_episodes WHERE file_id=?", (r[0],)).fetchall():
+            db.execute("INSERT INTO grab_episodes(grab_id,episode_id) VALUES (?,?)", (cur.lastrowid, e))
+
+
+imported(f"{ROOT}/movies/%", "", ago(days=2, hours=3), "seed-paddington")
+imported("%S05E07 - [Standard]%", "%S05E08 - [Standard]%", ago(days=1, hours=7), "seed-breaking-bad")
 # Older builds have no network, status, air time or episode overview to set.
 airing = "air_time" in [r[1] for r in db.execute("PRAGMA table_info(titles)")]
 if airing:
@@ -184,4 +222,27 @@ release_dates(346648, {3: -150, 4: -100, 5: -10})  # Paddington 2: Wanted since 
 release_dates(516729, {3: -30, 4: -4, 5: 30})  # in Peru: out for four days, Blu-ray still to come
 release_dates(559969, {})  # El Camino: nothing announced
 db.commit()
-print(f"seed: {len(tid)} Titles, {len(files)} files")
+db.close()
+
+
+def ctl(query):
+    urllib.request.urlopen(f"{FAKE}/_ctl?{query}").read()
+
+
+# A Grab downloading: search Paddington in Peru by hand and grab the Blu-ray, as a user would. The
+# fake indexer offers nothing unless its releases are on, so they are on only for this.
+peru = ver[(tid[516729], "standard")]
+ctl("releases=1")
+try:
+    found = call("POST", f"/versions/{peru}/releases", {})["items"]
+    pick = next(r for r in found if r["fits"] and "BluRay.x264" in r["name"])
+    call("POST", "/grabs", {"version_id": peru, "release_id": pick["release_id"]})
+finally:
+    ctl("releases=0")
+
+# Requests, one fulfilled and one waiting. Plex is the source Ellie signs in with.
+ellie = {"id": "demo-ellie", "name": "Ellie"}
+for n, tmdb in ((1, 116149), (2, 346648)):
+    call("POST", "/requests", {"source": "plex", "source_request_id": f"demo-{n}", "requester": ellie,
+                               "title": {"kind": "movie", "tmdb_id": tmdb}, "slots": [{"slot": "standard"}]})
+print(f"seed: {len(tid)} Titles, {len(files)} files, 1 Grab, 2 Requests")
