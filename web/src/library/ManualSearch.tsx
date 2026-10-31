@@ -164,7 +164,7 @@ export function ManualSearch({
   const [picked, setView] = useState(loadView)
   const view = useMemo<View>(() => picked ?? { sort: defaultSort(display.manual_search_sort), pinned: null }, [picked, display.manual_search_sort])
   const [sel, setSel] = useState(0)
-  const [sent, setSent] = useState<string | null>(null)
+  const [sent, setSent] = useState<{ name: string; grabId: number } | null>(null)
   // The Releases grabbed in this search, by their id in the result list; they stay marked while the selection or sort moves.
   const [grabbed, setGrabbed] = useState<ReadonlySet<string>>(new Set())
   const [problem, setProblem] = useState<string | null>(null)
@@ -206,8 +206,8 @@ export function ManualSearch({
     grabbing.mutate(
       { version_id: versionId, release_id: current.release_id, override: g.override },
       {
-        onSuccess: () => {
-          setSent(current.name)
+        onSuccess: (grab) => {
+          setSent({ name: current.name, grabId: grab.id })
           setGrabbed((was) => new Set(was).add(current.release_id))
         },
         onError: (e) => {
@@ -423,8 +423,8 @@ export function ManualSearch({
         <div className="min-w-0 flex-1" aria-live="polite">
           {sent && (
             <div className="label-12 flex min-w-0 items-center gap-2 text-green-900">
-              <span className="truncate">Sent to the download client: {sent}</span>
-              <Link as="button" className="shrink-0" onClick={() => openPlace(placePath('activity'))}>
+              <span className="truncate">Sent to the download client: {sent.name}</span>
+              <Link as="button" className="shrink-0" onClick={() => openPlace(placePath('activity', `grab:${sent.grabId}`))}>
                 View in Activity
               </Link>
             </div>
