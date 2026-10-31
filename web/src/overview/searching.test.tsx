@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
@@ -36,7 +36,9 @@ function fakeStatus(s: SearchStatus) {
 
 async function card() {
   renderApp()
-  return screen.findByRole('region', { name: 'Searching' })
+  const region = await screen.findByRole('region', { name: 'Searching' })
+  await waitFor(() => expect(region.querySelector('[aria-busy]')).toBeNull()) // a Skeleton stands in until the status arrives
+  return region
 }
 
 describe('the Searching card on the Overview', () => {

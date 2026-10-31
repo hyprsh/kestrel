@@ -1,0 +1,53 @@
+name: Docs
+
+# Publishing a vX.Y.Z GitHub release builds the docs site and deploys it to GitHub Pages
+# (https://hyprsh.github.io/kestrel/), so the site matches :latest. Run it by hand for a
+# docs-only fix. A push to main does not publish. See ADR 0021.
+#
+# One-time setting: Settings > Pages > Source must be "GitHub Actions".
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build the site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # The release's tag, or the branch the run was started on.
+          ref: ${{ github.event.release.tag_name || github.ref }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm --prefix web ci
+      - run: make docs
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: web/docs-site/.vitepress/dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

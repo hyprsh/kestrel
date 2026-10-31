@@ -43,9 +43,11 @@ describe('About', () => {
 
     const kestrel = await screen.findByRole('region', { name: 'Kestrel' })
     expect(await within(kestrel).findByText('0.2.0')).toBeInTheDocument()
+    expect(within(kestrel).queryByRole('status')).not.toBeInTheDocument()
     expect(kestrel).toHaveTextContent('GPL-3.0-only')
     expect(kestrel).toHaveTextContent('14a4166')
     expect(within(kestrel).getByRole('link', { name: 'Kestrel 0.3.0 available' })).toHaveAttribute('href', 'https://github.com/hyprsh/kestrel/releases/tag/v0.3.0')
+    expect(within(kestrel).getByRole('link', { name: 'Documentation' })).toHaveAttribute('href', 'https://hyprsh.github.io/kestrel/')
     const attribution = screen.getByRole('region', { name: 'Attribution' })
     expect(attribution).toHaveTextContent('This product uses the TMDB API but is not endorsed or certified by TMDB.')
     expect(attribution).toHaveTextContent('Metadata provided by TheTVDB.')
@@ -76,7 +78,7 @@ describe('About', () => {
 })
 
 describe('About while loading', () => {
-  it('shows a Loading line only after about 300ms', async () => {
+  it('shows a Skeleton in the shape of the version, announced once, until it loads', async () => {
     let release: () => void = () => {}
     const held = new Promise<void>((resolve) => (release = resolve))
     server.use(
@@ -89,11 +91,13 @@ describe('About while loading', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'About' }))
     const kestrel = await screen.findByRole('region', { name: 'Kestrel' })
-    expect(within(kestrel).queryByText('Loading…')).not.toBeInTheDocument()
-    expect(await within(kestrel).findByText('Loading…')).toBeInTheDocument()
+    expect(within(kestrel).getByRole('status')).toHaveTextContent('Loading the version')
+    expect(within(kestrel).getByText('Licence')).toBeInTheDocument()
+    expect(within(kestrel).queryByText('0.2.0')).not.toBeInTheDocument()
 
     await act(async () => release())
     expect(await within(kestrel).findByText('0.2.0')).toBeInTheDocument()
+    expect(within(kestrel).queryByRole('status')).not.toBeInTheDocument()
   })
 })
 

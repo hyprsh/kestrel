@@ -1,4 +1,5 @@
 import { Note, Select } from '@hyprsh/design'
+import { SkeletonForm } from '../loading'
 import { useState } from 'react'
 import { usePluginInstances, usePlugins } from '../api/queries'
 import { InstanceForm } from './InstanceForm'
@@ -19,7 +20,7 @@ export function SingleInstance({ contract, noun }: { contract: string; noun: str
         Could not load the {noun} settings.
       </Note>
     )
-  if (!plugins.data || !instances.data) return null
+  if (!plugins.data || !instances.data) return <SkeletonForm rows={3} />
 
   const manifests = plugins.data.filter((m) => m.contract === contract)
   const current = instances.data.find((i) => i.contract === contract && i.enabled) ?? instances.data.find((i) => i.contract === contract)

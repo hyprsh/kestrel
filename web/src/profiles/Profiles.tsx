@@ -1,4 +1,5 @@
 import { Checkbox, Entity, Note, Select } from '@hyprsh/design'
+import { SkeletonRows } from '../loading'
 import { RowList, stackedRow, stackedRight } from '../layout/RowList'
 import { ApiError, usePatchProfile, useProfiles, type Profile } from '../api/queries'
 import { slotKeys, slotLabel } from '../library/bits'
@@ -22,7 +23,7 @@ export function DefaultsPerSlot() {
         Could not load the Profiles.
       </Note>
     )
-  if (!profiles.data) return null
+  if (!profiles.data) return <SkeletonRows count={3} />
   const declared = declaresProfiles(profiles.data)
 
   const kinds = [
@@ -110,7 +111,7 @@ export function ProfileToggles() {
         Could not load the Profiles.
       </Note>
     )
-  if (!profiles.data) return null
+  if (!profiles.data) return <SkeletonRows count={3} />
   const declared = declaresProfiles(profiles.data)
 
   const toggle = (p: Profile, change: { enabled?: boolean; original_language?: Profile['original_language'] }) => patch.mutate({ key: p.key, patch: change })

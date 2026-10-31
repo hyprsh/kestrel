@@ -1,7 +1,7 @@
-import { Checkbox, Note, StatusDot } from '@hyprsh/design'
+import { Checkbox, Note, Skeleton, StatusDot } from '@hyprsh/design'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ApiError, useEpisodes, useMonitorEpisodes, usePatchSeason, type Episode } from '../api/queries'
-import { LoadingLine } from '../loading'
+import { LoadingRegion } from '../loading'
 import { cx } from '../ui'
 import { dotOf, faintDot, slotLabel, versionStatus, type SlotKey } from './bits'
 import { EpisodeMenu, EpisodeTick, SeasonMenu, type EpisodeActions } from './EpisodeActions'
@@ -93,7 +93,7 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
       </Note>
     )
   }
-  if (!episodes.data || !ready) return <LoadingLine>Loading episodes…</LoadingLine>
+  if (!episodes.data || !ready) return <EpisodesSkeleton slots={slots} />
   if (rows.length === 0) return <p className="copy-13 text-gray-900">TheTVDB lists no episodes yet.</p>
 
   const move = (row: number, col: number) => {
@@ -357,5 +357,37 @@ function EpisodeRow({
       </div>
       {after}
     </>
+  )
+}
+
+/** The grid while the episodes load: the real header, then season headers with a few episode rows under each. */
+function EpisodesSkeleton({ slots }: { slots: SlotKey[] }) {
+  return (
+    <LoadingRegion label="Loading episodes">
+      {/* chrome-ok: episode grid (domain visual, ADR 0017) */}
+      <div aria-hidden className="copy-13 rounded-lg border border-gray-alpha-400 max-sm:overflow-x-auto">
+        {/* chrome-ok: episode grid (domain visual, ADR 0017) */}
+        <div className={cx('label-12-mono flex items-center gap-3 border-b border-gray-alpha-400 px-3 py-1.5 text-gray-900', rowMin)}>
+          <span className="flex-1">Episode</span>
+          {slots.map((s) => (
+            <span key={s} className="w-10 text-center">
+              {slotLabel[s]}
+            </span>
+          ))}
+        </div>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className={cx('flex items-center gap-3 px-3 py-2', rowMin)}>
+            <span className="flex-1">
+              <Skeleton width={i === 0 ? '30%' : `${40 + ((i * 13) % 30)}%`} height={16} />
+            </span>
+            {slots.map((s) => (
+              <span key={s} className="flex w-10 justify-center">
+                <Skeleton pill width={12} height={12} />
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+    </LoadingRegion>
   )
 }

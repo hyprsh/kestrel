@@ -17,7 +17,7 @@ import { cx } from '../ui'
 import { EntryName, Markers, MovieNotes, otherDates, StateBadges, Standings, TallyBadges } from './bits'
 import { useUpcomingFilters } from './filters'
 import { airTime, buildDays, dayLabel, episodeRange, navRows, passes, relativeDay, tally, undatedKey, upcomingKey, weekOf, type Block, type Day } from './state'
-import { AgendaTimeline, DayHeading, RowDot, WeekLabel } from './Timeline'
+import { AgendaTimeline, DayHeading, RowDot, TimelineSkeleton, WeekLabel } from './Timeline'
 import { TitlePoster } from '../poster'
 import { UndatedList, UndatedRow } from './UndatedList'
 
@@ -149,42 +149,45 @@ export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void })
               <EmptyState description="Nothing is due in this window." />
             </div>
           )}
-          <AgendaTimeline>
-            {days.map((d) => {
-              const week = weekOf(today, d.day)
-              const header = week !== lastWeek
-              lastWeek = week
-              return (
-                <DayBlock
-                  key={d.day}
-                  day={d}
-                  today={today}
-                  week={header ? week : null}
-                  headingRef={d.day === anchorDay ? anchorRef : undefined}
-                  rowFor={(b) => (
-                    <BlockRows
-                      key={b.key}
-                      block={b}
-                      queue={queue}
-                      now={now}
-                      today={today}
-                      sel={sel}
-                      indexOf={indexOf}
-                      open={open}
-                      shown={shown}
-                      onSelect={(i) => {
-                        select(i)
-                        openRow(i)
-                      }}
-                      onToggleOpen={(k) => setOpen((o) => toggle(o, k))}
-                      onToggleShown={(k) => setShown((s) => toggle(s, k))}
-                      onSearch={onSearch}
-                    />
-                  )}
-                />
-              )
-            })}
-          </AgendaTimeline>
+          {timeline.isPending && <TimelineSkeleton />}
+          {!timeline.isPending && (
+            <AgendaTimeline>
+              {days.map((d) => {
+                const week = weekOf(today, d.day)
+                const header = week !== lastWeek
+                lastWeek = week
+                return (
+                  <DayBlock
+                    key={d.day}
+                    day={d}
+                    today={today}
+                    week={header ? week : null}
+                    headingRef={d.day === anchorDay ? anchorRef : undefined}
+                    rowFor={(b) => (
+                      <BlockRows
+                        key={b.key}
+                        block={b}
+                        queue={queue}
+                        now={now}
+                        today={today}
+                        sel={sel}
+                        indexOf={indexOf}
+                        open={open}
+                        shown={shown}
+                        onSelect={(i) => {
+                          select(i)
+                          openRow(i)
+                        }}
+                        onToggleOpen={(k) => setOpen((o) => toggle(o, k))}
+                        onToggleShown={(k) => setShown((s) => toggle(s, k))}
+                        onSearch={onSearch}
+                      />
+                    )}
+                  />
+                )
+              })}
+            </AgendaTimeline>
+          )}
           {timeline.data && (
             <LoadMoreButton variant="tertiary" size="small" loading={timeline.isFetching} onClick={() => setAhead((a) => a + MORE_AHEAD)}>
               Show later

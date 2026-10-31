@@ -52,6 +52,16 @@ func main() {
 	fmt.Fprintf(&b, "Custom Formats and quality profiles come from https://github.com/TRaSH-Guides/Guides, bundled at commit `%s` and updated from there. Licence (MIT):\n\n", strings.TrimSpace(string(trashCommit)))
 	b.WriteString(indent(string(trashLicense)))
 
+	b.WriteString("\n## Trademark assets (bundled logos)\n\n")
+	b.WriteString("These logos are trademarks of their owners, used under the owners' terms. Their use does not imply endorsement or certification by the owner.\n\n")
+	for _, a := range trademarkAssets {
+		if _, err := os.Stat(a.file); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Fprintf(&b, "- %s (`%s`), a trademark of %s. Source: %s. Used per %s. Not endorsed or certified by %s.\n",
+			a.name, a.file, a.owner, a.source, a.terms, a.owner)
+	}
+
 	b.WriteString("\n## Go modules\n\n")
 	goMods := collectGo(*goDir)
 	for _, m := range goMods {
@@ -66,6 +76,22 @@ func main() {
 	if err := os.WriteFile(*out, []byte(b.String()), 0o644); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// trademarkAsset is a bundled third-party logo. To list another, add one entry.
+type trademarkAsset struct {
+	name, owner, file, source, terms string
+}
+
+// trademarkAssets are relative to the repository root.
+var trademarkAssets = []trademarkAsset{
+	{
+		name:   "TMDB logo",
+		owner:  "TMDB",
+		file:   "web/src/assets/tmdb-blue-short.svg",
+		source: "https://www.themoviedb.org/about/logos-attribution",
+		terms:  "https://www.themoviedb.org/api-terms-of-use",
+	},
 }
 
 type module struct{ name, text string }

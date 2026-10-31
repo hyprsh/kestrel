@@ -4,6 +4,7 @@ import { Badge, Button, Collapse, DotsMenu, Entity, MenuItem, Note } from '@hypr
 import { RowList, stackedRow, stackedRight } from '../layout/RowList'
 import { useState } from 'react'
 import { useAttention, type ActionResult, type Attention, type AttentionRow } from '../api/attention'
+import { SkeletonRows } from '../loading'
 import { planWaiting, useAdoption, type Adoption } from '../api/adoption'
 import { profileName, slotProfile, useProfileNames } from '../library/slotProfile'
 import { placePath } from '../place'
@@ -44,7 +45,9 @@ export function NeedsAttention({
   const nothing = rows.length === 0 && !(originals && originals.count > 0) && !planWaiting(adoption?.state)
   return (
     <Section id="needs-attention" title="Needs attention" count={rows.length}>
-      {attention.data && nothing ? (
+      {attention.isPending ? (
+        <SkeletonRows />
+      ) : attention.data && nothing ? (
         <EmptyLine title="Nothing needs attention." />
       ) : (
         rows.length > 0 && (

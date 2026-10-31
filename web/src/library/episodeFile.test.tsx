@@ -57,8 +57,8 @@ describe('episode titles', () => {
   })
 })
 
-describe('the episodes loading line', () => {
-  it('shows only after about 300ms', async () => {
+describe('the episodes loading Skeleton', () => {
+  it('shows the grid header and rows of Skeleton at once, announced once', async () => {
     const state = fakeSeries()
     state.get().episodes = [episode(2, 1, 1, 'Pilot')]
     server.use(
@@ -69,9 +69,9 @@ describe('the episodes loading line', () => {
     )
     render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    await screen.findByRole('region', { name: 'Episodes' })
-    expect(screen.queryByText('Loading episodes…')).not.toBeInTheDocument()
-    expect(await screen.findByText('Loading episodes…')).toBeInTheDocument()
+    const region = await screen.findByRole('region', { name: 'Episodes' })
+    expect(within(region).getByText('Loading episodes')).toBeInTheDocument()
+    expect(screen.queryByRole('grid', { name: 'Episodes' })).not.toBeInTheDocument()
     expect(await screen.findByRole('grid', { name: 'Episodes' })).toBeInTheDocument()
   })
 })

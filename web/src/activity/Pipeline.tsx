@@ -18,6 +18,7 @@ import { DownloadRow } from '../grabs/DownloadRow'
 import { GrabRow } from '../grabs/GrabRow'
 import { useKey, useListNav, type RowNav } from '../keys'
 import { size } from '../library/bits'
+import { SkeletonRows } from '../loading'
 import { SearchSummary } from '../overview/Searching'
 import { useOpenPlace } from '../place'
 import { ago, lasting, until, useNow } from '../time'
@@ -84,6 +85,7 @@ export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQue
   })
 
   const loaded = queue.data && stalled.data && finished.data && blocked.data
+  const pending = queue.isPending || stalled.isPending || finished.isPending || blocked.isPending
   const failed = queue.isError || stalled.isError || finished.isError || blocked.isError
   let index = 0
   return (
@@ -106,6 +108,17 @@ export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQue
             <SearchSummary status={search} />
           </div>
         </SectionBlock>
+      )}
+      {pending && (
+        <>
+          {[stageLabel.downloading, stageLabel.done].map((title) => (
+            <SectionBlock key={title} title={title}>
+              <div className="px-4 pt-1 pb-4">
+                <SkeletonRows count={2} poster="sm" />
+              </div>
+            </SectionBlock>
+          ))}
+        </>
       )}
       {groups.map(
         (g) =>
