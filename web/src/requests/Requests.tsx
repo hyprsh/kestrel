@@ -9,6 +9,7 @@ import { matchText } from '../fuzzy'
 import { FilterBar } from '../filter/FilterBar'
 import { FilterStrip } from '../layout/FilterStrip'
 import { useKey, useListNav } from '../keys'
+import { SkeletonRows } from '../loading'
 import { requestFilter, requestQualifiers } from './filter'
 import { RequestRow } from './RequestRow'
 
@@ -46,6 +47,7 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
       <div className="min-h-0 flex-1 overflow-auto">
         {list.isError && <Note variant="error">The Requests could not be loaded.</Note>}
         <div className="p-4">
+          {list.isPending && <SkeletonRows count={6} poster="sm" />}
           {list.data && shown.length === 0 && <EmptyState description="No Request matches." />}
           {shown.length > 0 && (
             <RowList aria-label="Requests">

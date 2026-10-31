@@ -147,13 +147,13 @@ describe('the add panel', () => {
     let answer: (v: 'ok') => void = () => {}
     const { menu } = await openPanel(new Promise((resolve) => (answer = resolve)))
     expect(within(menu).getByText('A teacher turns to crime.')).toBeInTheDocument()
-    expect(await within(menu).findByText('Loading the series overview…', {}, { timeout: 2000 })).toBeInTheDocument()
+    expect(await within(menu).findByText('Loading the series overview')).toBeInTheDocument()
     expect(within(menu).queryByRole('table', { name: 'Seasons' })).not.toBeInTheDocument()
 
     answer('ok')
 
     expect(await within(menu).findByRole('table', { name: 'Seasons' })).toBeInTheDocument()
-    expect(within(menu).queryByText('Loading the series overview…')).not.toBeInTheDocument()
+    expect(within(menu).queryByText('Loading the series overview')).not.toBeInTheDocument()
   })
 
   it('keeps adding working when the series overview fails', async () => {

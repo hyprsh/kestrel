@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useAuth, useSetup } from './api/queries'
+import { PageSkeleton } from './loading'
 import { RequesterApp } from './requester/RequesterApp'
 import { Login } from './screens/Login'
 import { Wizard } from './screens/Wizard'
@@ -27,7 +28,7 @@ export function App({ client }: { client?: QueryClient }) {
 function Gate() {
   const { data, isError } = useAuth()
   if (isError) return <div className="flex h-full items-center justify-center text-gray-900">Offline: cannot reach Kestrel.</div>
-  if (!data) return null
+  if (!data) return <PageSkeleton />
   switch (data.state) {
     case 'setup_required':
       return <Wizard signedIn={false} onLeave={() => {}} />
@@ -42,6 +43,6 @@ function Gate() {
 function AdminGate() {
   const setup = useSetup()
   const [rerun, setRerun] = useState(false)
-  if (!setup.data) return null
+  if (!setup.data) return <PageSkeleton />
   return !setup.data.completed || rerun ? <Wizard signedIn onLeave={() => setRerun(false)} /> : <Shell onRunSetup={() => setRerun(true)} />
 }

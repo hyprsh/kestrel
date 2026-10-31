@@ -1,4 +1,5 @@
 import { Badge, Button, Code, Entity, Input, Note } from '@hyprsh/design'
+import { SkeletonForm } from '../loading'
 import { useState, type FormEvent } from 'react'
 import { ApiError, usePatchSettings, useSettings, type Settings } from '../api/queries'
 
@@ -24,7 +25,7 @@ export function RootFoldersForm({ compact }: { compact?: boolean }) {
         Could not load the root folders.
       </Note>
     )
-  if (!data) return null
+  if (!data) return <SkeletonForm rows={2} />
   return <Form saved={data.root_folders} declared={data.from_config_file.root_folders} compact={compact} />
 }
 

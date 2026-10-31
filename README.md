@@ -78,20 +78,22 @@ Then:
 3. Walk through Kestrel's setup screen: create the admin account, choose your language, connect SABnzbd (`http://sabnzbd:8080` and its API key), add a Newznab indexer, and check the root folders.
 4. Press the **+** button, search for a movie or series, and add it. Kestrel searches, downloads and imports it.
 
-[Getting started](docs/guide/getting-started.md) does each step with screenshots.
+[Getting started](https://hyprsh.github.io/kestrel/guide/getting-started) does each step with screenshots.
 
 ## Learn more
 
-- [Getting started](docs/guide/getting-started.md): the first run, screen by screen.
-- [Concepts](docs/guide/concepts.md): Title, Slot, Version, Profile and the other words, in plain language.
-- [Moving from Radarr and Sonarr](docs/guide/moving-from-radarr-and-sonarr.md): adopt your library, and what maps to what.
-- [Configuration](docs/guide/configuration.md): environment variables, the Config File, Requesters and the API.
-- [Troubleshooting](docs/guide/troubleshooting.md): hardlinks, permissions, indexer limits, a forgotten password, and where the logs are.
-- [API](docs/guide/configuration.md#the-api): the REST API, defined by [`api/openapi.yaml`](api/openapi.yaml). A running Kestrel serves interactive docs at `/api/docs`.
-- [Contributing](CONTRIBUTING.md): build it, change it, release it.
+The docs are at **<https://hyprsh.github.io/kestrel/>**.
+
+- [Getting started](https://hyprsh.github.io/kestrel/guide/getting-started): the first run, screen by screen.
+- [Concepts](https://hyprsh.github.io/kestrel/guide/concepts): Title, Slot, Version, Profile and the other words, in plain language.
+- [Moving from Radarr and Sonarr](https://hyprsh.github.io/kestrel/guide/moving-from-radarr-and-sonarr): adopt your library, and what maps to what.
+- [Configuration](https://hyprsh.github.io/kestrel/guide/configuration): environment variables, the Config File, Requesters and the API.
+- [Troubleshooting](https://hyprsh.github.io/kestrel/guide/troubleshooting): hardlinks, permissions, indexer limits, a forgotten password, and where the logs are.
+- [API](https://hyprsh.github.io/kestrel/guide/api): the REST API, defined by [`api/openapi.yaml`](api/openapi.yaml). A running Kestrel serves interactive docs at `/api/docs`.
+- [Contributing](https://hyprsh.github.io/kestrel/development/contributing): build it, change it, release it.
 - [Security](SECURITY.md): how to report a vulnerability.
 
-The words Kestrel uses are in [`GLOSSARY.md`](GLOSSARY.md), and the decisions behind it in [`docs/adr/`](docs/adr/).
+The words Kestrel uses are in the [glossary](https://hyprsh.github.io/kestrel/glossary), and the decisions behind it in the [ADRs](https://hyprsh.github.io/kestrel/adr/).
 
 ## Licence
 

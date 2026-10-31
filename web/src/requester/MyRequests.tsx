@@ -2,7 +2,7 @@ import { Badge, EmptyState, Entity, LoadMoreButton, Note } from '@hyprsh/design'
 import type { useMyRequests } from '../api/plex'
 import type { Request } from '../api/requests'
 import { RowList, stackedRight, stackedRow } from '../layout/RowList'
-import { LoadingLine } from '../loading'
+import { SkeletonRows } from '../loading'
 import { Poster, TitlePoster } from '../poster'
 import { reasons, seasonsText, slotState } from '../requests/status'
 import { slotLabel, type SlotKey } from '../library/bits'
@@ -21,7 +21,7 @@ export function MyRequests({ list, requests }: { list: ReturnType<typeof useMyRe
       <h2 id="my-requests-title" className="heading-20">
         Your Requests
       </h2>
-      {list.isPending && <LoadingLine>Loading your Requests…</LoadingLine>}
+      {list.isPending && <SkeletonRows count={2} poster="sm" />}
       {list.isError && (
         <Note variant="error" size="small">
           Your Requests could not be loaded.

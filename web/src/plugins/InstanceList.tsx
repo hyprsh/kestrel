@@ -1,4 +1,5 @@
 import { Badge, Button, Entity, Fieldset, Note, Select, Toggle } from '@hyprsh/design'
+import { SkeletonRows } from '../loading'
 import { useState } from 'react'
 import { ApiError, usePluginInstances, usePlugins, useSetInstanceEnabled, type PluginInstance, type PluginManifest } from '../api/queries'
 import { ago, useNow } from '../time'
@@ -50,7 +51,7 @@ export function InstanceList({
         Could not load the {noun}s.
       </Note>
     )
-  if (!plugins.data || !instances.data) return null
+  if (!plugins.data || !instances.data) return <SkeletonRows count={2} />
 
   const manifests = plugins.data.filter((m) => m.contract === contract)
   const rows = instances.data.filter((i) => i.contract === contract)

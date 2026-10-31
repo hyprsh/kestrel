@@ -3,6 +3,7 @@
 import { Badge, Entity } from '@hyprsh/design'
 import { RowList, stackedRow, stackedRight } from '../layout/RowList'
 import { useQueue } from '../api/queue'
+import { SkeletonRows } from '../loading'
 import { localDay, useRecent, useUpcoming, type RecentItem } from '../api/upcoming'
 import { slotLabel, type SlotKey } from '../library/bits'
 import { placePath } from '../place'
@@ -28,7 +29,9 @@ export function Coming({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void
   const open = openRow(nav, onOpenTitle)
   return (
     <Section id="coming-this-week" title="Coming this week" count={coming.data ? comingAll.length : undefined}>
-      {coming.data && comingItems.length === 0 ? (
+      {coming.isPending ? (
+        <SkeletonRows poster="md" />
+      ) : coming.data && comingItems.length === 0 ? (
         <EmptyLine title="Nothing is due in the next 7 days." />
       ) : (
         <Entity.List>
@@ -68,7 +71,9 @@ export function RecentlyAdded({ onOpenTitle, nav }: { onOpenTitle: (id: number) 
   const open = openRow(nav, onOpenTitle)
   return (
     <Section id="recently-added" title="Recently added" count={recent.data?.total}>
-      {recent.data && recentItems.length === 0 ? (
+      {recent.isPending ? (
+        <SkeletonRows poster="md" />
+      ) : recent.data && recentItems.length === 0 ? (
         <EmptyLine title="Nothing has been imported yet." />
       ) : (
         <RowList>
