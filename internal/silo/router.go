@@ -286,7 +286,7 @@ func statusOf(req kestrelRequest, sl slot.Slot) *pluginv1.TargetStatus {
 	}
 	out.Status, out.ExternalStatus = s.Status, s.StatusLabel
 	if s.Stalled && (s.Status == "queued" || s.Status == "downloading") {
-		// A stalled Import: the cause stays in Kestrel for the admin.
+		// A stalled download or Import: the cause stays in Kestrel for the admin.
 		out.Wording = &pluginv1.RequestStatusWording{Label: "Taking longer than usual"}
 	}
 	switch s.Status {
