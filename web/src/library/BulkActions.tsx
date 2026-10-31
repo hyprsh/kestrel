@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
+import { X } from 'lucide-react'
 import { useBulkTitles, type TitleBulkOutcome, type TitleBulkReason, type TitlesBulk } from '../api/bulk'
 import { useProfiles, type Profile, type TitleRow } from '../api/queries'
 import { plural } from '../format'
-import { Button, Select } from '@hyprsh/design'
+import { Button, Menu, MenuDivider, MenuItem, Modal, ModalAction, ModalActions, ModalBody, ModalHeader, ModalTitle, Select, Tooltip } from '@hyprsh/design'
+import { FloatingBar } from '../layout/FloatingBar'
 import { size, slotKeys, slotLabel, type SlotKey } from './bits'
 import { useReport } from '../toasts'
 import { RemoveConfirm } from './ManageVersion'
@@ -48,8 +50,12 @@ function summarize(items: TitleBulkOutcome[], slot: string | null): { changed: n
 
 type Form = 'monitor' | 'switch_profile' | 'add_version' | 'remove_version' | 'remove'
 
-/** The right pane while Titles are checked: the actions for all of them at once and what the last one did. */
-export function BulkActions({ rows }: { rows: TitleRow[] }) {
+/**
+ * The bar that floats over the foot of the list while Titles are ticked: how many, Search Now and Unmonitor, the
+ * rarer actions under More…, and Clear (Escape clears too). The Title pane beside the list stays open. An action
+ * that needs a choice (a Slot, a Profile, a monitoring mode) or a confirmation asks in a dialog.
+ */
+export function BulkActions({ rows, shown, onTickAll, onClear }: { rows: TitleRow[]; shown: number; onTickAll: () => void; onClear: () => void }) {
   const bulk = useBulkTitles()
   const profiles = (useProfiles().data ?? []).filter((p) => p.enabled)
   const report = useReport()
@@ -68,30 +74,51 @@ export function BulkActions({ rows }: { rows: TitleRow[] }) {
       failed: `${label} failed`,
     })
   }
-  const action = (label: string, onClick: () => void) => (
-    <Button variant="secondary" size="small" disabled={bulk.isPending} onClick={onClick}>
-      {label}
-    </Button>
-  )
   const close = () => setForm(null)
   const busy = bulk.isPending
 
-  const name = `${plural(rows.length, 'Title')} ticked`
+  const name = `${rows.length} ticked`
   return (
-    <section aria-label={name} className="min-w-0 flex-1 overflow-auto p-6">
-      <h2 className="heading-16">{name}</h2>
-      <div role="toolbar" aria-label="Change the ticked Titles" className="mt-4 flex flex-wrap gap-2">
-        {action('Monitor', () => (hasSeries ? setForm('monitor') : run('Monitor', { action: 'monitor', monitored: true, title_ids: ids })))}
-        {action('Unmonitor', () => run('Unmonitor', { action: 'monitor', monitored: false, title_ids: ids }))}
-        {action('Switch Profile', () => setForm('switch_profile'))}
-        {action('Add Version', () => setForm('add_version'))}
-        {action('Remove Version', () => setForm('remove_version'))}
-        {action('Search now', () => run('Search now', { action: 'search', title_ids: ids }))}
-        {action('Refresh metadata', () => run('Refresh metadata', { action: 'refresh', title_ids: ids }))}
-        {action('Freeze metadata', () => run('Freeze metadata', { action: 'freeze', frozen: true, title_ids: ids }))}
-        {action('Unfreeze metadata', () => run('Unfreeze metadata', { action: 'freeze', frozen: false, title_ids: ids }))}
-        {action('Remove from Library', () => setForm('remove'))}
-      </div>
+    <>
+      <FloatingBar label={name}>
+        <span className="label-13 min-w-0 flex-1 truncate">{name}</span>
+        <Button variant="primary" size="small" disabled={busy} onClick={() => run('Search now', { action: 'search', title_ids: ids })}>
+          Search Now
+        </Button>
+        <Button variant="secondary" size="small" disabled={busy} onClick={() => run('Unmonitor', { action: 'monitor', monitored: false, title_ids: ids })}>
+          Unmonitor
+        </Button>
+        <Menu.Container position="top-end">
+          <Menu.Button variant="secondary" size="small" disabled={busy}>
+            More…
+          </Menu.Button>
+          <Menu width={220}>
+            <MenuItem onSelect={() => (hasSeries ? setForm('monitor') : run('Monitor', { action: 'monitor', monitored: true, title_ids: ids }))}>{hasSeries ? 'Monitor…' : 'Monitor'}</MenuItem>
+            <MenuItem onSelect={() => setForm('switch_profile')}>Switch Profile…</MenuItem>
+            <MenuItem onSelect={() => setForm('add_version')}>Add Version…</MenuItem>
+            <MenuItem onSelect={() => setForm('remove_version')}>Remove Version…</MenuItem>
+            <MenuDivider />
+            <MenuItem onSelect={() => run('Refresh metadata', { action: 'refresh', title_ids: ids })}>Refresh Metadata</MenuItem>
+            <MenuItem onSelect={() => run('Freeze metadata', { action: 'freeze', frozen: true, title_ids: ids })}>Freeze Metadata</MenuItem>
+            <MenuItem onSelect={() => run('Unfreeze metadata', { action: 'freeze', frozen: false, title_ids: ids })}>Unfreeze Metadata</MenuItem>
+            {rows.length < shown && (
+              <>
+                <MenuDivider />
+                <MenuItem onSelect={onTickAll}>Tick All {shown} Shown</MenuItem>
+              </>
+            )}
+            <MenuDivider />
+            <MenuItem type="error" onSelect={() => setForm('remove')}>
+              Remove from Library…
+            </MenuItem>
+          </Menu>
+        </Menu.Container>
+        <Tooltip text="Clear ticks (Esc)">
+          <Button variant="tertiary" size="small" svgOnly aria-label="Clear ticks" onClick={onClear}>
+            <X />
+          </Button>
+        </Tooltip>
+      </FloatingBar>
 
       {form === 'monitor' && <MonitorForm busy={busy} onCancel={close} onApply={(mode) => run('Monitor', { action: 'monitor', monitored: true, series_monitor: mode, title_ids: ids })} />}
       {form === 'switch_profile' && (
@@ -119,21 +146,31 @@ export function BulkActions({ rows }: { rows: TitleRow[] }) {
           Remove {plural(rows.length, 'Title')} from the Library, with {size(rows.reduce((n, r) => n + r.size, 0))} of files.
         </RemoveConfirm>
       )}
-    </section>
+    </>
   )
 }
 
-/** Apply and Cancel under an action's options. */
-function FormButtons({ busy, onApply, onCancel }: { busy: boolean; onApply: () => void; onCancel: () => void }) {
+/** A dialog asking for an action's options, with Apply and Cancel. */
+function FormDialog({ label, busy, onApply, onCancel, children }: { label: string; busy: boolean; onApply: () => void; onCancel: () => void; children: ReactNode }) {
   return (
-    <div className="mt-3 flex gap-2">
-      <Button variant="primary" size="small" disabled={busy} onClick={onApply}>
-        Apply
-      </Button>
-      <Button variant="secondary" size="small" onClick={onCancel}>
-        Cancel
-      </Button>
-    </div>
+    <Modal open onClose={onCancel}>
+      <ModalBody>
+        <ModalHeader>
+          <ModalTitle>{label}</ModalTitle>
+        </ModalHeader>
+        <div role="group" aria-label={label} className="flex flex-col gap-2">
+          {children}
+        </div>
+      </ModalBody>
+      <ModalActions>
+        <ModalAction variant="secondary" onClick={onCancel}>
+          Cancel
+        </ModalAction>
+        <ModalAction disabled={busy} onClick={onApply}>
+          Apply
+        </ModalAction>
+      </ModalActions>
+    </Modal>
   )
 }
 
@@ -141,13 +178,12 @@ function FormButtons({ busy, onApply, onCancel }: { busy: boolean; onApply: () =
 function MonitorForm({ busy, onApply, onCancel }: { busy: boolean; onApply: (mode: 'all' | 'future') => void; onCancel: () => void }) {
   const [mode, setMode] = useState<'all' | 'future'>('all')
   return (
-    <div role="group" aria-label="Monitor" className="mt-3 max-w-xs">
+    <FormDialog label="Monitor" busy={busy} onCancel={onCancel} onApply={() => onApply(mode)}>
       <Select size="small" label="Series monitor" value={mode} onChange={(e) => setMode(e.target.value as 'all' | 'future')}>
         <option value="all">All episodes</option>
         <option value="future">Future episodes</option>
       </Select>
-      <FormButtons busy={busy} onCancel={onCancel} onApply={() => onApply(mode)} />
-    </div>
+    </FormDialog>
   )
 }
 
@@ -185,7 +221,7 @@ function SlotForm({
   const want = picked[slot] ?? initial?.(slot)
   const profile = options.find((p) => p.key === want)?.key ?? options[0]?.key ?? ''
   return (
-    <div role="group" aria-label={label} className="mt-3 flex max-w-xs flex-col gap-2">
+    <FormDialog label={label} busy={busy || !profile} onCancel={onCancel} onApply={() => onApply(slot, profile)}>
       <SlotSelect slot={slot} onChange={setSlot} />
       <Select size="small" label="Profile" value={profile} onChange={(e) => setPicked({ ...picked, [slot]: e.target.value })}>
         {options.map((p) => (
@@ -194,8 +230,7 @@ function SlotForm({
           </option>
         ))}
       </Select>
-      <FormButtons busy={busy || !profile} onCancel={onCancel} onApply={() => onApply(slot, profile)} />
-    </div>
+    </FormDialog>
   )
 }
 

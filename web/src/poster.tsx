@@ -5,22 +5,33 @@ import { useState } from 'react'
 import { apiBaseUrl } from './api/client'
 import { cx } from './ui'
 
-/** The poster sizes, smallest first: a command menu thumbnail, a list row, a Grab row, the add panel, a Title page. */
+/**
+ * The poster sizes, smallest first: a command menu thumbnail, a list row, a Grab row, the add panel, a Title page's
+ * pane, a Title page with room; `fill` takes the width it is given, as in the Library's poster grid.
+ */
 const sizes = {
   xs: 'h-10 w-7 rounded-sm',
   sm: 'h-12 w-8 rounded-sm',
   md: 'h-15 w-10 rounded-sm',
   lg: 'h-[120px] w-20 rounded-sm',
   xl: 'h-36 w-24 rounded-md',
+  '2xl': 'h-42 w-28 rounded-md',
+  fill: 'aspect-[2/3] w-full rounded-md',
 }
 
 export type PosterSize = keyof typeof sizes
 
 /** The same sizes in pixels, for a Skeleton that stands where a poster will be. */
-const pixels: Record<PosterSize, [number, number]> = { xs: [28, 40], sm: [32, 48], md: [40, 60], lg: [80, 120], xl: [96, 144] }
+const pixels: Record<Exclude<PosterSize, 'fill'>, [number, number]> = { xs: [28, 40], sm: [32, 48], md: [40, 60], lg: [80, 120], xl: [96, 144], '2xl': [112, 168] }
 
 /** A Skeleton in a poster's box, for a row whose data is still loading. */
 export function PosterSkeleton({ size }: { size: PosterSize }) {
+  if (size === 'fill')
+    return (
+      <span className={cx('block shrink-0 overflow-hidden', sizes.fill)}>
+        <Skeleton width="100%" height="100%" squared />
+      </span>
+    )
   const [width, height] = pixels[size]
   return <Skeleton width={width} height={height} squared className="shrink-0" />
 }

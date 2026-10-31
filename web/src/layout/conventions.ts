@@ -11,6 +11,7 @@
 // THE PIECES
 // One file per piece, except where noted: a file that exports two pieces lists both.
 //   FilterStrip.tsx       filter/tab strip above a list          <FilterStrip>{tabs, filter field}</FilterStrip>
+//   FloatingBar.tsx       toolbar floating over a list's foot    <FloatingBar label="2 ticked">{actions}</FloatingBar>
 //   JumpNav.tsx           JumpNav and JumpLink: sticky links     <JumpNav label="Sections"><JumpLink href onClick>{name}</JumpLink></JumpNav>
 //                         that jump to sections of the page
 //   ListPane.tsx          list column beside a detail pane       <ListPane>{list}</ListPane>
@@ -26,8 +27,12 @@
 //   SectionBlock.tsx      static section with a title and count  <SectionBlock title="Downloading" count={3}>{rows}</SectionBlock>
 //   SelectionBar.tsx      count, select-all, Clear and actions  <SelectionBar selection={...} shown={n}>{actions}</SelectionBar>
 //                         for a ticked selection
+//   SidePanel.tsx         summary panel on a wide screen's right <SidePanel label={name}>{header, summary}</SidePanel>
+//   TabStrip.tsx          full-width primary tabs with controls  <TabStrip end={controls}><Tabs … /></TabStrip>
+//                         at their right end
 //   TopBar.tsx            TopBar and PhoneTopBar: the app        <TopBar title end>{command box}</TopBar>
 //                         header on a desktop and on a phone     <PhoneTopBar title>{actions}</PhoneTopBar>
+//   WideListPane.tsx      440px list column for rich rows        <WideListPane>{list}</WideListPane>
 //   WidePage.tsx          wide, long page of cards (setup)       <WidePage>{cards}</WidePage>
 //
 // WHAT THE CHECK FORBIDS

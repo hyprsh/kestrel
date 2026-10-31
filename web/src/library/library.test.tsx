@@ -34,13 +34,23 @@ const shown = (list: HTMLElement) =>
     .map((o) => o.textContent)
 
 describe('the Library list', () => {
-  it('shows the English title, the Primary-Language title and a dot per Slot', async () => {
-    fakeLibrary(rows())
+  it('shows the title and year, a line on why the Title is in its state, a dot per Slot and the size', async () => {
+    fakeLibrary([
+      ...rows(),
+      row(4, 'Amélie', 'Die fabelhafte Welt der Amélie', {
+        year: 2001,
+        size: 8 * 1024 ** 3,
+        wanted_since: null,
+        added_at: '2025-01-01T00:00:00Z',
+        slots: { standard: { version_id: 41, profile: 'hd-primary', state: 'filled', long_missing: false }, '4k': null },
+      }),
+    ])
     const list = await openLibrary()
 
     const first = await within(list).findByRole('option', { name: /paddington/i })
-    expect(first).toHaveTextContent('Paddington')
-    expect(first).toHaveTextContent('Ein Bär namens Paddington')
+    expect(first).toHaveTextContent('Paddington2014')
+    // One Version of two is Wanted: the line names its Slot, and says Kestrel has not looked yet.
+    expect(first.querySelector('[data-state-line]')).toHaveTextContent(/^Standard Wanted for .* · not searched yet$/)
     // One phrase per row, and the dots inside are hidden from the accessibility tree.
     const dots = within(first).getByRole('img', { name: 'Standard: Wanted, 4K: Filled' })
     expect(dots.children).toHaveLength(2)
@@ -48,9 +58,19 @@ describe('the Library list', () => {
     // The row is named once: no dot carries a title of its own.
     for (const dot of Array.from(dots.children)) expect(dot).not.toHaveAttribute('title')
 
-    // The second line is only for a Primary-Language title that differs.
-    const heat = within(list).getByRole('option', { name: /heat/i })
-    expect(heat.querySelectorAll('[data-primary-title]')).toHaveLength(0)
+    // A Title that wants nothing says what it holds: here its Primary-Language title, and its size.
+    const amelie = within(list).getByRole('option', { name: /amélie/i })
+    expect(amelie.querySelector('[data-state-line]')).toHaveTextContent('Die fabelhafte Welt der Amélie')
+    expect(amelie).toHaveTextContent('8.0 GB')
+    expect(screen.getByText('4 of 4 · 8.0 GB')).toBeInTheDocument()
+  })
+
+  it('shows a tick box on every row, out of the Tab order', async () => {
+    fakeLibrary(rows())
+    const list = await openLibrary()
+    const boxes = await within(list).findAllByRole('checkbox', { name: /^Tick / })
+    expect(boxes).toHaveLength(3)
+    for (const b of boxes) expect(b).toHaveAttribute('tabindex', '-1')
   })
 
   it('is driven by j and k, the arrow keys and Enter', async () => {
@@ -335,5 +355,68 @@ describe('the Library list posters', () => {
 
     const list = await screen.findByRole('listbox', { name: /library/i })
     expect(list.querySelectorAll('[style*="width: 32px"][style*="height: 48px"]')).toHaveLength(8)
+  })
+})
+
+describe('the Library state tabs and sort', () => {
+  it('sorts by name, year and size both ways, from the address bar too', async () => {
+    fakeLibrary([row(1, 'Zodiac', 'Zodiac', { year: 2007, size: 2 }), row(2, 'alien', 'alien', { year: 1979, size: 3 }), row(3, 'Heat', 'Heat', { year: 1995, size: 1 })])
+    const list = await openLibrary()
+    await within(list).findAllByRole('option')
+    const order = () =>
+      within(list)
+        .getAllByRole('option')
+        .map((o) => o.querySelector('[data-title]')?.textContent)
+    expect(order()).toEqual(['Zodiac', 'alien', 'Heat']) // as added
+
+    await userEvent.click(screen.getByRole('button', { name: /^Sort/ }))
+    await userEvent.click(screen.getByRole('option', { name: 'Name, A to Z' }))
+    expect(filter()).toHaveValue('sort:name-asc')
+    expect(order()).toEqual(['alien', 'Heat', 'Zodiac'])
+    expect(new URLSearchParams(location.search).get('q')).toBe('sort:name-asc')
+
+    await userEvent.clear(filter())
+    await userEvent.type(filter(), 'sort:year-asc')
+    expect(order()).toEqual(['alien', 'Heat', 'Zodiac'])
+    await userEvent.clear(filter())
+    await userEvent.type(filter(), 'sort:size-desc')
+    expect(order()).toEqual(['alien', 'Zodiac', 'Heat'])
+  })
+})
+
+describe('the Library grid', () => {
+  it('switches with g, remembers it, and sums up the picked Title in a panel', async () => {
+    fakeLibrary(rows())
+    const list = await openLibrary()
+    await within(list).findAllByRole('option')
+    expect(screen.getByRole('radio', { name: 'List' })).toBeChecked()
+
+    await userEvent.keyboard('g')
+    expect(screen.getByRole('radio', { name: 'Grid' })).toBeChecked()
+    expect(localStorage.getItem('kestrel.library.view')).toBe('grid')
+    const grid = screen.getByRole('listbox', { name: 'Library' })
+    expect(within(grid).getAllByRole('option')).toHaveLength(3)
+    expect(screen.queryByRole('region', { name: /paddington/i })).not.toBeInTheDocument() // no Title pane beside the grid
+
+    await userEvent.keyboard('j')
+    await userEvent.keyboard('{Enter}')
+    const panel = await screen.findByRole('complementary', { name: 'Heat summary' })
+    expect(await within(panel).findByRole('listitem', { name: 'Standard' })).toHaveTextContent('Wanted')
+    expect(within(panel).getByText('Not searched yet')).toBeInTheDocument()
+
+    await userEvent.click(within(panel).getByRole('button', { name: 'Open Title' }))
+    expect(await screen.findByRole('region', { name: 'Heat' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
+    expect(within(screen.getByRole('listbox', { name: 'Library' })).getAllByRole('option')).toHaveLength(3)
+
+    localStorage.removeItem('kestrel.library.view')
+  })
+
+  it('opens in the view last used', async () => {
+    localStorage.setItem('kestrel.library.view', 'grid')
+    fakeLibrary(rows())
+    await openLibrary()
+    expect(screen.getByRole('radio', { name: 'Grid' })).toBeChecked()
+    localStorage.removeItem('kestrel.library.view')
   })
 })

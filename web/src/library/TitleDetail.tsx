@@ -12,7 +12,10 @@ import { TitleDownloads } from './TitleDownloads'
 import { TitleStatus } from './TitleStatus'
 import { VersionRows } from './VersionRows'
 
-/** The right pane of the Library: the selected Title's header, its status line, its actions row and its Version rows. */
+/**
+ * The right pane of the Library: the selected Title's header, its status line, its actions row and its Version rows.
+ * It takes the width it is given; a Series' Versions sit beside its episodes once there is room for both.
+ */
 export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: () => void; onManualSearch: (search: ManualSearchTarget) => void }>(function TitleDetail(
   { row, onEscape, onManualSearch },
   ref,
@@ -52,9 +55,9 @@ export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: ()
 /** What the Title page will hold, sized like it: the header (poster, name, meta, status), the actions row and a card of Version rows. Silent: the page announces loading itself. */
 function TitleSkeleton() {
   return (
-    <div className="@container mx-auto max-w-3xl">
-      <div className="flex gap-4">
-        <Skeleton width={96} height={144} />
+    <div className="@container">
+      <div className="flex gap-5">
+        <Skeleton width={112} height={168} />
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <Skeleton width="40%" height={32} />
           <Skeleton width="25%" height={20} />
@@ -94,9 +97,9 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
   const meta = [title.year, title.runtime ? `${title.runtime} min` : null, title.certification, title.original_language ? `Original ${title.original_language.toUpperCase()}` : null].filter(Boolean)
 
   return (
-    <div className="@container mx-auto max-w-3xl">
-      <div className="flex gap-4">
-        <TitlePoster id={title.id} hasPoster={title.has_poster} alt={`${title.title} poster`} size="xl" />
+    <div className="@container">
+      <div className="flex gap-5">
+        <TitlePoster id={title.id} hasPoster={title.has_poster} alt={`${title.title} poster`} size="2xl" />
         <div className="min-w-0">
           <h2 className="heading-24">{title.title}</h2>
           {title.primary_title !== title.title && <div className="copy-14 text-gray-900">{title.primary_title}</div>}
@@ -117,13 +120,16 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
       <TitleActions title={title} profileName={profileName} onManualSearch={onManualSearch} />
       <TitleDownloads titleId={title.id} />
 
-      <VersionRows title={title} profiles={profiles.data ?? []} profileName={profileName} onCoverage={() => episodes.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })} />
+      {/* A Series' Versions sit beside its episodes once the pane is wide enough for both, and above them before. */}
+      <div className={title.kind === 'series' ? 'grid grid-cols-1 gap-x-8 @4xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]' : undefined}>
+        <VersionRows title={title} profiles={profiles.data ?? []} profileName={profileName} onCoverage={() => episodes.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })} />
 
-      {title.kind === 'series' && (
-        <div ref={episodes} className="scroll-mt-4">
-          <SeriesSection title={title} onManualSearch={onManualSearch} />
-        </div>
-      )}
+        {title.kind === 'series' && (
+          <div ref={episodes} className="min-w-0 scroll-mt-4">
+            <SeriesSection title={title} onManualSearch={onManualSearch} />
+          </div>
+        )}
+      </div>
     </div>
   )
 }
