@@ -3,6 +3,7 @@ import { Description, Pill } from '@hyprsh/design'
 import { useSearchStatus, type SearchStatus } from '../api/search'
 import { plural } from '../format'
 import { useOpenPlace } from '../place'
+import { Section } from './Section'
 import { clockTime, until, useNow } from '../time'
 
 type Indexer = SearchStatus['indexers'][number]
@@ -40,16 +41,10 @@ export function Searching() {
   const openPlace = useOpenPlace()
   if (!s) return null
   return (
-    <section id="overview-searching" aria-labelledby="searching">
-      <div className="mb-3 flex items-baseline justify-between">
-        <h2 id="searching" className="heading-14">
-          Searching
-        </h2>
-        {/* The Search loop's schedule and last run sit with the other loops on Activity. */}
-        <Pill onClick={() => openPlace('/activity/jobs')}>Background jobs</Pill>
-      </div>
+    // The Search loop's schedule and last run sit with the other loops on Activity.
+    <Section id="searching" title="Searching" action={<Pill onClick={() => openPlace('/activity/jobs')}>Background jobs</Pill>}>
       <SearchSummary status={s} />
-    </section>
+    </Section>
   )
 }
 

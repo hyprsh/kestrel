@@ -3122,7 +3122,10 @@ type Rating struct {
 
 // RecentItem defines model for RecentItem.
 type RecentItem struct {
-	Files       int       `json:"files"`
+	Files int `json:"files"`
+
+	// HasPoster Whether `GET /titles/{id}/poster` serves a poster for the Title.
+	HasPoster   bool      `json:"has_poster"`
 	ImportedAt  time.Time `json:"imported_at"`
 	IsUpgrade   bool      `json:"is_upgrade"`
 	Kind        TitleKind `json:"kind"`

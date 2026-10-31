@@ -41,8 +41,12 @@ describe('the Library list', () => {
     const first = await within(list).findByRole('option', { name: /paddington/i })
     expect(first).toHaveTextContent('Paddington')
     expect(first).toHaveTextContent('Ein Bär namens Paddington')
-    expect(within(first).getByRole('img', { name: 'Standard: Wanted' })).toBeInTheDocument()
-    expect(within(first).getByRole('img', { name: '4K: Filled' })).toBeInTheDocument()
+    // One phrase per row, and the dots inside are hidden from the accessibility tree.
+    const dots = within(first).getByRole('img', { name: 'Standard: Wanted, 4K: Filled' })
+    expect(dots.children).toHaveLength(2)
+    for (const dot of Array.from(dots.children)) expect(dot).toHaveAttribute('aria-hidden', 'true')
+    // StatusDot always sets a hover title; it stays out of the accessibility tree behind aria-hidden.
+    expect(dots.children[0]).toHaveAttribute('title', 'Standard: Wanted')
 
     // The second line is only for a Primary-Language title that differs.
     const heat = within(list).getByRole('option', { name: /heat/i })

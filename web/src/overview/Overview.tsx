@@ -1,5 +1,5 @@
-// Overview, the home screen: Needs attention, the health strip, Searching, Downloading now,
-// Coming this week, Recently added and Recent requests.
+// Overview, the home screen: Needs attention, Downloading now, Searching, Recently added,
+// Coming this week, Recent requests and, last, Health.
 import { Note } from '@hyprsh/design'
 import { RowList } from '../layout/RowList'
 import { useState } from 'react'
@@ -39,7 +39,7 @@ export function Overview({
 
   // One selection runs through every section in the order the screen reads: Needs attention, then
   // the main column (Downloading now, Recently added), then the side column (Coming this week, Recent
-  // requests). Enter does what clicking the row would.
+  // requests). Health has no rows to select. Enter does what clicking the row would.
   const [sel, setSel] = useState(0)
   const enter: (() => void)[] = [
     ...rows.map((r) => () => {
@@ -55,7 +55,7 @@ export function Overview({
   useListNav('ov', enter.length, sel, setSel, (i) => enter[i]?.())
   return (
     <div className="flex-1 overflow-y-auto p-6 max-sm:p-4">
-      {/* One column below 1024px, in reading order; from 1024px Needs attention spans the top and the main column (two thirds) sits beside the side column. */}
+      {/* One column below 1024px, in reading order; from 1024px Needs attention spans the top, the main column (two thirds) sits beside the side column and Health spans the bottom. */}
       <div className="mx-auto grid max-w-3xl grid-cols-1 gap-8 lg:max-w-7xl lg:grid-cols-3">
         <div className="lg:col-span-3">
           <NeedsAttention onOpen={onOpen} onOpenTitle={onOpenTitle} onOpenAdoption={onOpenAdoption} nav={nav(0)} all={allAttention} onAll={setAllAttention} />
@@ -85,9 +85,11 @@ export function Overview({
           <RecentlyAdded onOpenTitle={onOpenTitle} nav={nav(rows.length + items.length)} />
         </div>
         <div className="flex min-w-0 flex-col gap-8">
-          <HealthStrip />
           <Coming onOpenTitle={onOpenTitle} nav={nav(rows.length + items.length + recentItems.length)} />
           <RecentRequests onOpenTitle={onOpenTitle} nav={nav(rows.length + items.length + recentItems.length + coming.length)} />
+        </div>
+        <div className="lg:col-span-3">
+          <HealthStrip />
         </div>
       </div>
     </div>

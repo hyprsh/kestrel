@@ -5830,7 +5830,7 @@ components:
           description: How many Imports the last 7 days brought, a pack counting once.
     RecentItem:
       type: object
-      required: [title_id, title, year, kind, slot, release_name, score, score_delta, files, is_upgrade, imported_at]
+      required: [title_id, title, year, kind, has_poster, slot, release_name, score, score_delta, files, is_upgrade, imported_at]
       properties:
         title_id:
           type: integer
@@ -5842,6 +5842,9 @@ components:
           nullable: true
         kind:
           $ref: "#/components/schemas/TitleKind"
+        has_poster:
+          type: boolean
+          description: Whether `GET /titles/{id}/poster` serves a poster for the Title.
         slot:
           $ref: "#/components/schemas/Slot"
         release_name:
