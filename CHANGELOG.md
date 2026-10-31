@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.10.0](https://github.com/hyprsh/kestrel/compare/v0.9.0...v0.10.0) (2026-10-31)
+
+> A Series' header now shows at a glance how much is on disk, downloading, wanted, missing for a long time and not monitored, and Manual search's "View in Activity" opens Activity on just the Grab you made.
+
+### New Features
+
+* **library:** a Series' coverage bar is split into what's on disk, downloading, Wanted, Long Missing and not monitored, each in its own color, so you can tell a Series that is downloading from one that is stuck ([#255](https://github.com/hyprsh/kestrel/pull/255)), closes [#247](https://github.com/hyprsh/kestrel/issues/247)
+* **activity:** "View in Activity" after a Grab opens Activity filtered to that Grab. You can type the same filter yourself as `grab:<id>`, and the filter help lists it ([#255](https://github.com/hyprsh/kestrel/pull/255)), closes [#250](https://github.com/hyprsh/kestrel/issues/250)
+* **web:** the Monitoring menu checks the option in use, and a Blocking problem's banner shows that its fix is running until it finishes ([#255](https://github.com/hyprsh/kestrel/pull/255)), closes [#254](https://github.com/hyprsh/kestrel/issues/254)
+
+### Bug Fixes
+
+* **library:** Slot dots in the Library and the episode grid no longer pop up a tooltip on hover ([#255](https://github.com/hyprsh/kestrel/pull/255)), closes [#254](https://github.com/hyprsh/kestrel/issues/254)
+
 ## [0.9.0](https://github.com/hyprsh/kestrel/compare/v0.8.1...v0.9.0) (2026-10-31)
 
 > Kestrel now tells you what every action did, shows loading content in its own shape, and works on a phone in Manual search. Updating from TRaSH and changing the Primary Language run in the background with progress in Activity, and a new [documentation site](https://hyprsh.github.io/kestrel/) has guides for getting started, moving from Radarr and Sonarr, and troubleshooting.
