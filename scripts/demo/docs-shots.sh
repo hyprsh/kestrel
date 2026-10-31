@@ -16,7 +16,7 @@ work=$(mktemp -d "${TMPDIR:-/tmp}/kestrel-docs-shots.XXXXXX")
 # A demo directory of its own, so a demo you have running is left alone (give DEMO_PORT and
 # DEMO_FAKE_PORT other values if its ports are taken).
 export DEMO_DIR=${DEMO_DIR:-$(mktemp -d /tmp/kd.XXXXXX)}
-trap '"$here/demo.sh" stop >/dev/null 2>&1 || true; rm -rf "$work"' EXIT
+trap '"$here/demo.sh" stop >/dev/null 2>&1 || true; rm -rf "$work" "$DEMO_DIR"' EXIT
 
 [ -d "$here/node_modules/playwright-core" ] || npm ci --prefix "$here" --no-audit --no-fund --loglevel=error
 
