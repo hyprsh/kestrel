@@ -78,6 +78,7 @@ func (s *Service) DismissQuiet(ctx context.Context, id int64) error {
 
 // End ends an open Request the way a rejected one ends: its Versions and Title stay, nothing more
 // is asked for it, and it reads as rejected. It returns the ended Request.
+// The Title and its Versions stay Wanted on purpose: another person may want them too.
 func (s *Service) End(ctx context.Context, id int64) (Request, error) {
 	r, err := s.Get(ctx, id)
 	if err != nil {

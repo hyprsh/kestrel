@@ -154,6 +154,39 @@ func TestEndingTheRowEndsTheRequestLikeARejectedOneAndSaysWhyInTheLog(t *testing
 	}
 }
 
+// Ending is not un-wanting: someone else may want the same Title, so its Versions stay Wanted.
+func TestEndingTheRowKeepsTheTitleAndItsVersionsWanted(t *testing.T) {
+	t.Parallel()
+	s := newSearchBare(t)
+	req := s.siloRequest(t, "r-1")
+	s.in.clock.Advance(siloSpan + time.Minute)
+	row, _ := s.silentRow(t)
+	end := row.action(t, "end")
+
+	if r := s.valid(end.Method, end.Path, ""); r.Status != 204 {
+		t.Fatalf("end = %d %s", r.Status, r.Body)
+	}
+
+	if req.TitleID == nil {
+		t.Fatal("the Request has no Title")
+	}
+	got := decode[struct {
+		titleJSON
+		Versions []versionJSON `json:"versions"`
+	}](t, s.valid("GET", fmt.Sprintf("/titles/%d", *req.TitleID), ""))
+	if !got.Monitored {
+		t.Error("the Title is no longer monitored after End")
+	}
+	if len(got.Versions) == 0 {
+		t.Fatal("the Title lost its Versions")
+	}
+	for _, v := range got.Versions {
+		if v.State != "wanted" {
+			t.Errorf("Version %d state = %s after End, want wanted", v.ID, v.State)
+		}
+	}
+}
+
 func TestDismissingTheRowKeepsTheRequestAndStaysGone(t *testing.T) {
 	t.Parallel()
 	s := newSearchBare(t)
