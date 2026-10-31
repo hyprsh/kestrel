@@ -2,7 +2,7 @@
 // poster shelves. Their posters are part of the Overview's one j/k selection (see OverviewNav).
 import { Pill } from '@hyprsh/design'
 import { SkeletonShelf } from '../loading'
-import type { RecentItem, UpcomingItem } from '../api/upcoming'
+import type { UpcomingItem } from '../api/upcoming'
 import { localDay, useRecent, useUpcoming } from '../api/upcoming'
 import { slotLabel, type SlotKey } from '../library/bits'
 import { useOpenPlace } from '../place'
@@ -15,8 +15,7 @@ import { Shelf, SHELF_MAX, type ShelfItem, type useShelfCount } from './Shelf'
 type ShelfCount = ReturnType<typeof useShelfCount>
 
 /** The week's items, cut to one row: what a shelf can show at its width. */
-export const comingShown = (items: UpcomingItem[], count: number) => items.slice(0, Math.min(count, SHELF_MAX))
-export const recentShown = (items: RecentItem[], count: number) => items.slice(0, Math.min(count, SHELF_MAX))
+export const shelfShown = <T,>(items: T[], count: number): T[] => items.slice(0, Math.min(count, SHELF_MAX))
 
 const comingLine = (item: UpcomingItem) => {
   const at = airTime(item)
@@ -33,7 +32,7 @@ function HeadingLink({ path, children }: { path: string; children: string }) {
 export function Coming({ onOpenTitle, nav, shelf }: { onOpenTitle: (id: number) => void; nav: OverviewNav; shelf: ShelfCount }) {
   const coming = useUpcoming(6)
   const all = coming.data ?? []
-  const items: ShelfItem[] = comingShown(all, shelf.count).map((item) => ({ key: upcomingKey(item), titleId: item.title_id, hasPoster: item.has_poster, name: item.title, line: comingLine(item) }))
+  const items: ShelfItem[] = shelfShown(all, shelf.count).map((item) => ({ key: upcomingKey(item), titleId: item.title_id, hasPoster: item.has_poster, name: item.title, line: comingLine(item) }))
   return (
     <Section id="coming-this-week" title="Coming this week" count={coming.data ? all.length : undefined} action={<HeadingLink path="/upcoming">Upcoming →</HeadingLink>}>
       {coming.isPending ? (
@@ -52,7 +51,7 @@ export function RecentlyAdded({ onOpenTitle, nav, shelf }: { onOpenTitle: (id: n
   const recent = useRecent()
   const now = useNow()
   const all = recent.data?.items ?? []
-  const items: ShelfItem[] = recentShown(all, shelf.count).map((item) => ({
+  const items: ShelfItem[] = shelfShown(all, shelf.count).map((item) => ({
     key: `${item.title_id}-${item.slot}-${item.imported_at}`,
     titleId: item.title_id,
     hasPoster: item.has_poster,

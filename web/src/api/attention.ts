@@ -1,4 +1,4 @@
-// Needs attention and the health strip: GET /attention, GET /system/status, and the
+// Needs attention and the system status (Activity's Health tab): GET /attention, GET /system/status, and the
 // actions the server builds for each row.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiBaseUrl } from './client'

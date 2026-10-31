@@ -8,7 +8,7 @@ import { useRecent, useUpcoming } from '../api/upcoming'
 import { useCancel } from '../grabs/useCancel'
 import { useListNav } from '../keys'
 import { SkeletonRows } from '../loading'
-import { Coming, comingShown, RecentlyAdded, recentShown } from './ComingRecent'
+import { Coming, RecentlyAdded, shelfShown } from './ComingRecent'
 import { Downloads } from './Downloads'
 import { NeedsAttention, shownRows } from './NeedsAttention'
 import { RecentRequests } from './RecentRequests'
@@ -34,8 +34,8 @@ export function Overview({
   const rows = shownRows(useAttention().data?.rows ?? [], allAttention)
   const recentShelf = useShelfCount()
   const comingShelf = useShelfCount()
-  const recentItems = recentShown(useRecent().data?.items ?? [], recentShelf.count)
-  const coming = comingShown(useUpcoming(6).data ?? [], comingShelf.count)
+  const recentItems = shelfShown(useRecent().data?.items ?? [], recentShelf.count)
+  const coming = shelfShown(useUpcoming(6).data ?? [], comingShelf.count)
   const requests = firstFive(useRecentRequests().data?.items ?? [])
 
   // One selection runs through every row and poster in the order the screen reads: Needs attention,
