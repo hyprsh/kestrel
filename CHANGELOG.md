@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.9.0](https://github.com/hyprsh/kestrel/compare/v0.8.1...v0.9.0) (2026-10-31)
+
+> Kestrel now tells you what every action did, shows loading content in its own shape, and works on a phone in Manual search. Updating from TRaSH and changing the Primary Language run in the background with progress in Activity, and a new [documentation site](https://hyprsh.github.io/kestrel/) has guides for getting started, moving from Radarr and Sonarr, and troubleshooting.
+
+### Upgrade Steps
+
+* **[ACTION REQUIRED]** If a script calls `POST /api/v1/trash/update`, change it to expect `202 Accepted` and read the result from the `trash` job in `GET /api/v1/jobs` (see Breaking Changes).
+
+### Breaking Changes
+
+* **trash:** `POST /trash/update` returns `202 Accepted` at once and runs the update as a pass of the `trash` job, instead of answering `200 {changed, commit}`, `422` or `502` when it finishes. The job reports its progress and outcome (`updated`, `up_to_date`, `rejected`, `unreachable`, `rescored`, `failed`) in `GET /jobs`.
+* **settings:** `PATCH /settings` with a new Primary Language returns with the old Language and `language_region.pending_primary_language` set. The new Language applies, together with re-scoring every file, when the background pass runs. If the re-score fails, nothing changes.
+
+### New Features
+
+* **trash:** "Update from TRaSH" and a Primary Language change re-score in the background. Activity → Background jobs shows "Re-scoring: N of M Titles", and a toast reports the outcome on any screen. Settings shows "Switching to German…" until the new Language applies, and no search or Grab ever sees a new Language with old Scores ([#248](https://github.com/hyprsh/kestrel/pull/248)), closes [#244](https://github.com/hyprsh/kestrel/issues/244)
+* **web:** every action gives feedback. Background work such as Search now says it started, with a link to Activity; changes you can't see on screen get a success toast; and failures always show ([#248](https://github.com/hyprsh/kestrel/pull/248)), closes [#245](https://github.com/hyprsh/kestrel/issues/245)
+* **web:** Skeletons in the shape of what's coming replace blank areas and "Loading…" lines, and posters fade in once loaded ([#248](https://github.com/hyprsh/kestrel/pull/248)), closes [#197](https://github.com/hyprsh/kestrel/issues/197)
+* **settings:** a Display section sets household-wide view defaults: season order (oldest or newest first), which seasons open, Manual search's sort and Upcoming's filters. Each can be declared in the Config File's new `display` section on its own ([ADR 0022](https://github.com/hyprsh/kestrel/blob/main/docs/adr/0022-declared-display-settings-may-leave-others-to-the-ui.md)). Specials now come after the other seasons in both orders ([#248](https://github.com/hyprsh/kestrel/pull/248)), closes [#190](https://github.com/hyprsh/kestrel/issues/190)
+* **library:** Manual search works on phones as stacked rows, with a Sort menu in plain words ("Largest first", "Newest first") and the Grab bar above the tab bar. Grabbing shows "Grabbing…", a confirmation that stays with a link to Activity, and a Grabbed mark on the Release ([#248](https://github.com/hyprsh/kestrel/pull/248)), closes [#188](https://github.com/hyprsh/kestrel/issues/188), [#237](https://github.com/hyprsh/kestrel/issues/237)
+* **library:** a Series' header gives every Slot the same row, kept or not, and counts episodes that aren't monitored ("21 of 40 · 19 not monitored"). Monitoring is a button beside Search now that says its whole state, such as "Monitored: future episodes", and Search now is off while a Title isn't monitored ([#248](https://github.com/hyprsh/kestrel/pull/248)), closes [#195](https://github.com/hyprsh/kestrel/issues/195), [#196](https://github.com/hyprsh/kestrel/issues/196)
+* **overview:** a Blocking problem, such as an unreachable download client, shows as a banner on every screen with the action that fixes it. Health moves to the bottom and folds to one line while all is well, and Coming this week, Recently added and Recent requests show posters ([#248](https://github.com/hyprsh/kestrel/pull/248)), closes [#191](https://github.com/hyprsh/kestrel/issues/191), [#201](https://github.com/hyprsh/kestrel/issues/201)
+* **silo:** Silo's request page names Kestrel's step "Finding it", with "Searching" and "Downloading", and shows "Taking longer than usual" when an Import is stalled or a download is paused or hasn't moved for an hour ([#248](https://github.com/hyprsh/kestrel/pull/248)), closes [#89](https://github.com/hyprsh/kestrel/issues/89)
+* **docs:** a [documentation site](https://hyprsh.github.io/kestrel/) with guides for getting started, concepts, moving from Radarr and Sonarr, configuration, troubleshooting and the API, plus the glossary, decisions and changelog. About links to it ([#248](https://github.com/hyprsh/kestrel/pull/248)), closes [#158](https://github.com/hyprsh/kestrel/issues/158), [#159](https://github.com/hyprsh/kestrel/issues/159)
+
+### Bug Fixes
+
+* **metadata:** cached TMDB posters are fetched again after 30 days or when a Title's poster changes, and none is kept past six months, as TMDB's terms require. Removing a Title removes its poster ([#248](https://github.com/hyprsh/kestrel/pull/248)), closes [#63](https://github.com/hyprsh/kestrel/issues/63)
+* **about:** the About page shows the TMDB logo beside its attribution, and the third-party notices list it ([#248](https://github.com/hyprsh/kestrel/pull/248)), closes [#62](https://github.com/hyprsh/kestrel/issues/62)
+* **overview:** Long Missing rows name the Profile ("HD") instead of its key, and a row no longer reads "4K · 4K" ([#248](https://github.com/hyprsh/kestrel/pull/248)), closes [#160](https://github.com/hyprsh/kestrel/issues/160)
+* **library:** the Library's Slot dots no longer look like spinners, and a Slot with no Version is a faint dot instead of a ring as loud as Wanted ([#248](https://github.com/hyprsh/kestrel/pull/248)), closes [#198](https://github.com/hyprsh/kestrel/issues/198)
+
+### Other Changes
+
+* **repo:** Kestrel is licensed GPL-3.0-only, now with a `LICENSE` file, and `SECURITY.md` says how to report a vulnerability privately ([#248](https://github.com/hyprsh/kestrel/pull/248)), closes [#246](https://github.com/hyprsh/kestrel/issues/246)
+
 ## [0.8.1](https://github.com/hyprsh/kestrel/compare/v0.8.0...v0.8.1) (2026-10-29)
 
 > Watch-ahead for Silo now counts Silo plays. In 0.8.0 every Silo catalog lookup was refused, so a Silo play never advanced a Request.
