@@ -22,6 +22,7 @@ const screens = {
   upcoming: '/upcoming',
   requests: '/requests',
   activity: '/activity',
+  health: '/health',
   log: '/log',
   ...Object.fromEntries(settings.map((s) => [`settings-${s}`, `/settings/${s}`])),
   about: '/about',

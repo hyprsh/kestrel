@@ -5,7 +5,7 @@ import { Activity } from '../activity/Activity'
 import { useRunningNow, type Running } from '../activity/running'
 import { activityTabOf, activityTabSection, type ActivityTab } from '../activity/tabs'
 import { Button, CommandMenuTrigger, Separator, StatusDot, ThemeSwitcher, Tooltip, useToasts } from '@hyprsh/design'
-import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, Inbox, Info, LibraryBig, ListPlus, LogOut, Plus, ScrollText, Search, Settings } from 'lucide-react'
+import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, HeartPulse, Inbox, Info, LibraryBig, ListPlus, LogOut, Plus, ScrollText, Search, Settings } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAttention } from '../api/attention'
@@ -19,6 +19,7 @@ import { MOD } from '../keys'
 import { useSearchAllWanted } from '../api/wanted'
 import { Library } from '../library/Library'
 import { startLiveStream } from '../live/stream'
+import { Health } from '../health/Health'
 import { Log } from '../log/Log'
 import { Overview } from '../overview/Overview'
 import { Requests } from '../requests/Requests'
@@ -51,6 +52,8 @@ const adoption = { key: 'adoption', label: 'Adopt existing library', icon: <Fold
 const cleanup = { key: 'cleanup', label: 'Clean up Unmanaged files', icon: <Eraser /> }
 // Reached from the Overview's Recent requests, not the rail; a place, so "/requests?q=…" opens it.
 const requests = { key: 'requests', label: 'Requests', icon: <ListPlus /> }
+// Reached from the Health button (rail and phone top bar), not the screen list; a place, so "/health" opens it.
+const health = { key: 'health', label: 'Health', icon: <HeartPulse /> }
 // The tab bar of a phone; the rest of the screens are behind More.
 const tabKeys = ['overview', 'library', 'upcoming', 'activity']
 // Settings and Log first, then the screens a phone reaches only from here (Requests also from the Overview), About last.
@@ -60,7 +63,7 @@ const moreLabels: Record<string, string> = { adoption: 'Adoption', cleanup: 'Cle
 // The screens that put their own bar in the middle of a desktop's top bar, in place of the command box.
 const barScreens = ['library', 'upcoming', 'activity', 'log']
 const isTitleId = (section: string) => /^\d+$/.test(section)
-const isPlace = (key: string) => [...screens, about, requests].some((s) => s.key === key)
+const isPlace = (key: string) => [...screens, about, requests, health].some((s) => s.key === key)
 
 export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   // A bookmarked address opens its screen with its filter.
@@ -88,7 +91,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const [filter, setFilter] = useState({ screen: start.screen, q: start.q })
   const query = filter.screen === screen ? filter.q : ''
   const section = !phone ? '' : screen === 'library' ? (titleOpen && libraryId !== null ? String(libraryId) : '') : screen === 'settings' ? settingsSection : ''
-  // Activity's tab is the place's section ("/activity/health"); only Grabs has a filter.
+  // Activity's tab is the place's section ("/activity/jobs"); only Grabs has a filter.
   const [activityTab, setActivityTab] = useState<ActivityTab>(start.screen === 'activity' ? activityTabOf(start.section) : 'grabs')
   // Another Title selected: its Series' season and found episode are not the previous Title's (a Movie shows none). A view that names no Title stays for the first Series shown.
   useEffect(() => {
@@ -123,7 +126,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const { theme, setTheme, cycle } = useTheme()
   const auth = useAuth()
   const logout = useLogout()
-  const current = [...screens, about, adoption, cleanup, requests].find((s) => s.key === screen)!
+  const current = [...screens, about, adoption, cleanup, requests, health].find((s) => s.key === screen)!
   const running = useRunningNow()
 
   // Every open tab stays live through one shared stream; the cache refetches on its hints.
@@ -185,7 +188,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     const s = [...screens, about, adoption, cleanup, requests].find((x) => x.key === k)!
     return { ...s, label: moreLabels[k] ?? s.label }
   })
-  const places = useMemo(() => [...screens, about].map((s) => ({ id: s.key, label: s.label })), [])
+  const places = useMemo(() => [...screens, about, health].map((s) => ({ id: s.key, label: s.label })), [])
   const closeMenu = useCallback(() => setMenu(null), [])
   // An action that opens a place: "/settings/download-client" is the Settings screen at that
   // section, "/log?q=kind:failures" the Log with that filter.
@@ -263,6 +266,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
                   onAdd={() => setMenu({ mode: 'add' })}
                   running={running}
                   onOpenRunning={() => goPath('/activity/running')}
+                  healthOpen={screen === 'health'}
                 />
                 {/* The floating tab bar is out of layout; --tab-bar-height keeps every screen's last row clear of it (0 on a tablet or desktop). */}
                 <BlockingBanner onOpen={goPath} />
@@ -299,6 +303,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
                       running={running}
                       onOpenAdoption={() => setScreen('adoption')}
                     />
+                  ) : screen === 'health' ? (
+                    <Health />
                   ) : screen === 'requests' ? (
                     <Requests query={query} onQuery={(q) => setFilter({ screen: 'requests', q })} onOpenTitle={openTitle} />
                   ) : screen === 'upcoming' ? (
@@ -414,7 +420,7 @@ function Rail({
       ))}
       <RailSpacer />
       {/* Applies the choice to <html> and saves it; the command menu's "Switch theme" moves it through the same value. */}
-      <HealthButton tooltipPosition="right" />
+      <HealthButton tooltipPosition="right" active={screen === 'health'} />
       <ThemeSwitcher variant="cycle" attribute="class" storageKey={THEME_KEY} value={theme} onChange={onTheme} tooltipPosition="right" />
       <RailButton label={about.label} active={screen === about.key} onClick={() => onSelect(about.key)}>
         {about.icon}
@@ -440,6 +446,7 @@ function TopBar({
   onAdd,
   running,
   onOpenRunning,
+  healthOpen,
 }: {
   title: string
   phone: boolean
@@ -451,13 +458,15 @@ function TopBar({
   onAdd: () => void
   running: Running[]
   onOpenRunning: () => void
+  /** Whether the Health screen is the one shown, for the Health button. */
+  healthOpen: boolean
 }) {
   // A phone has no room for the search box: the title, what runs, Health and Add; Search is the tab bar's accessory.
   if (phone)
     return (
       <PhoneTopBar title={title}>
         <RunningIndicator running={running} onOpen={onOpenRunning} />
-        <HealthButton tooltipPosition="bottom" />
+        <HealthButton tooltipPosition="bottom" active={healthOpen} />
         <Button svgOnly variant="tertiary" aria-label="Add Title" onClick={onAdd}>
           <Plus />
         </Button>

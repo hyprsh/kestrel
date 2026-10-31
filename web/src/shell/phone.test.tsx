@@ -29,6 +29,19 @@ describe('the shell on a phone', () => {
     expect(within(screen.getByRole('main')).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
   })
 
+  it('opens the Health screen from the top bar button, which is then the current page, and keeps it out of the tab bar and More', async () => {
+    renderApp()
+    const tabs = await screen.findByRole('navigation', { name: 'Screens' })
+    expect(within(tabs).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
+    const health = await within(await screen.findByRole('banner')).findByRole('button', { name: /^Health/ })
+    expect(health).not.toHaveAttribute('aria-current')
+    await userEvent.click(health)
+    expect(await screen.findByRole('region', { name: 'Health' })).toBeInTheDocument()
+    expect(location.pathname).toBe('/health')
+    expect(screen.getByRole('banner')).toHaveTextContent('Health')
+    expect(within(screen.getByRole('banner')).getByRole('button', { name: /^Health/ })).toHaveAttribute('aria-current', 'page')
+  })
+
   it('replaces the icon rail with a bottom tab bar of Overview, Library, Upcoming, Activity and More', async () => {
     renderApp()
     const tabs = await screen.findByRole('navigation', { name: 'Screens' })

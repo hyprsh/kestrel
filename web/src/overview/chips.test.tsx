@@ -90,14 +90,14 @@ describe('the Overview on a desktop', () => {
     expect(screen.queryByRole('button', { name: /full$/ })).not.toBeInTheDocument()
   })
 
-  it('counts Needs attention rows by severity on the Health button, and links to Activity Health', async () => {
+  it('counts Needs attention rows by severity on the Health button, and links to Health', async () => {
     fakeStatus(status())
     fakeAttention([row('health-1', 'blocking'), row('health-2', 'warning')])
     renderApp()
 
     const chip = await within(await rail()).findByRole('button', { name: /^Health.*1 Blocking, 1 Warning/ })
     await userEvent.click(chip)
-    expect(url()).toBe('/activity/health')
+    expect(url()).toBe('/health')
   })
 
   it('counts only health issues, not other Needs attention rows such as a Stuck download', async () => {
@@ -142,12 +142,12 @@ describe('the Overview on a phone', () => {
     expect(screen.queryByRole('button', { name: /full$/ })).not.toBeInTheDocument()
   })
 
-  it('links the phone Health button to Activity Health', async () => {
+  it('links the phone Health button to Health', async () => {
     fakeStatus(status())
     fakeAttention([row('health-1', 'blocking')])
     renderApp()
 
     await userEvent.click(await screen.findByRole('button', { name: /^Health · 1 Blocking/ }))
-    expect(url()).toBe('/activity/health')
+    expect(url()).toBe('/health')
   })
 })

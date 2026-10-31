@@ -1,13 +1,10 @@
-// The Activity screen in three views, each with its own address (see tabs.ts): Grabs, every Grab from
-// search to Import; Health, every check Kestrel runs; Background Jobs, the work running now and the
-// job schedule. The Grabs filter is the screen's `?q=`: "/activity?q=stage:done" opens it on the Done
+// The Activity screen in two views, each with its own address (see tabs.ts): Grabs, every Grab from
+// search to Import; Background Jobs, the work running now and the job schedule. The Grabs filter is the screen's `?q=`: "/activity?q=stage:done" opens it on the Done
 // stage. The screen bar's view switcher picks the view; the Shell owns the address, so a pick is handed to it.
-import { Badge, StatusDot } from '@hyprsh/design'
+import { Badge } from '@hyprsh/design'
 import { useQueue } from '../api/queue'
 import { useStalledGrabs } from '../api/activity'
 import { BackgroundJobs } from './BackgroundJobs'
-import { HealthTab } from './health/HealthTab'
-import { useHealthCounts } from './health/useHealthCounts'
 import { FilterBar } from '../filter/FilterBar'
 import { FacetFilterButton } from '../layout/FilterButton'
 import { ScreenBar, ViewSwitcher } from '../layout/ScreenBar'
@@ -49,16 +46,13 @@ export function Activity({
   onOpenAdoption: () => void
 }) {
   const active = (useQueue().data?.length ?? 0) + (useStalledGrabs().data?.length ?? 0)
-  const { failing, warnings } = useHealthCounts()
   const pipeline = usePipeline(query)
   const hints: Record<ActivityTab, React.ReactNode> = {
     grabs: active > 0 ? <Count n={active} /> : undefined,
-    health: failing + warnings > 0 ? failing > 0 ? <StatusDot state="error" label="failing" /> : <StatusDot state="warning" label="warning" /> : undefined,
     jobs: running.length > 0 ? <Count n={running.length} /> : undefined,
   }
   const content: Record<ActivityTab, React.ReactNode> = {
     grabs: <Pipeline data={pipeline} onOpenTitle={onOpenTitle} />,
-    health: <HealthTab />,
     jobs: (
       <>
         <RunningNow running={running} onOpenAdoption={onOpenAdoption} onOpenTitle={onOpenTitle} />
@@ -66,7 +60,7 @@ export function Activity({
       </>
     ),
   }
-  const tabLabel: Record<ActivityTab, string> = { grabs: 'Grabs', health: 'Health', jobs: 'Background Jobs' }
+  const tabLabel: Record<ActivityTab, string> = { grabs: 'Grabs', jobs: 'Background Jobs' }
   const grabs = tab === 'grabs'
   return (
     <div className="flex min-h-0 flex-1 flex-col">

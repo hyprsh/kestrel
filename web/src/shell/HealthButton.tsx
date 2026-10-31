@@ -7,15 +7,15 @@ import { useOpenPlace } from '../place'
 /**
  * Kestrel's health as an icon button with a status dot: green when all checks are OK, amber with Warnings, red with
  * Blocking issues or when the server cannot be reached. Its name and tooltip say it in full ("Health · 1 Blocking, 2
- * Warnings", "Offline") and it opens Activity > Health. It sits in the desktop rail and in the phone's top bar.
+ * Warnings", "Offline") and it opens the Health screen, where it shows as the current page. It sits in the desktop rail and in the phone's top bar.
  */
-export function HealthButton({ tooltipPosition }: { tooltipPosition: 'right' | 'bottom' }) {
+export function HealthButton({ tooltipPosition, active }: { tooltipPosition: 'right' | 'bottom'; active?: boolean }) {
   const openPlace = useOpenPlace()
   const attention = useAttention()
   const offline = useSystem().isError
   if (!offline && !attention.data) return null
   // Health issues only (their ids start "health-"): a Stuck download, Stalled Imports or a Silo Request are
-  // Needs attention rows too, but the Health tab this button opens does not list them.
+  // Needs attention rows too, but the Health screen this button opens does not list them.
   const rows = (attention.data?.rows ?? []).filter((r) => r.id.startsWith('health-'))
   const blocking = rows.filter((r) => r.severity === 'blocking').length
   const warning = rows.length - blocking
@@ -24,7 +24,7 @@ export function HealthButton({ tooltipPosition }: { tooltipPosition: 'right' | '
   const label = offline ? 'Offline' : `Health · ${parts.length > 0 ? parts.join(', ') : 'All checks OK'}`
   return (
     <Tooltip text={label} position={tooltipPosition}>
-      <Button svgOnly variant="tertiary" aria-label={label} onClick={() => openPlace('/activity/health')}>
+      <Button svgOnly variant={active ? 'secondary' : 'tertiary'} aria-label={label} aria-current={active ? 'page' : undefined} onClick={() => openPlace('/health')}>
         <span className="relative inline-flex">
           <HeartPulse />
           <span className="absolute -top-1 -right-1 inline-flex">

@@ -45,7 +45,7 @@ describe('the empty shell', () => {
     renderApp()
     const pill = await within(await screen.findByRole('navigation')).findByRole('button', { name: /health · all checks ok/i })
     await userEvent.click(pill)
-    expect(location.pathname).toBe('/activity/health')
+    expect(location.pathname).toBe('/health')
     expect(screen.queryByText(/9\.9\.9/)).not.toBeInTheDocument()
   })
 

@@ -59,7 +59,7 @@ Before each schema migration of an existing database, Kestrel copies it to `back
 
 ### Updates
 
-Once a day, unless you switch off Settings > Updates > "Check GitHub for updates" (or `check_github_updates: false` in the Config File), Kestrel asks GitHub, without signing in, for the latest release and the published security advisories of `hyprsh/kestrel`. A newer release shows in Activity > Health and in About. An advisory that covers the version you run raises a "Security fix available" warning in Needs attention.
+Once a day, unless you switch off Settings > Updates > "Check GitHub for updates" (or `check_github_updates: false` in the Config File), Kestrel asks GitHub, without signing in, for the latest release and the published security advisories of `hyprsh/kestrel`. A newer release shows in Health and in About. An advisory that covers the version you run raises a "Security fix available" warning in Needs attention.
 
 ## The Config File
 

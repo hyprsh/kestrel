@@ -1,5 +1,5 @@
-// The tiles of Activity's Health tab. They used to be the Overview's Health section, so these cover
-// what each kind of tile shows; tabs.test.tsx covers the tab itself.
+// The tiles of the Health screen. They used to be the Overview's Health section, so these cover
+// what each kind of tile shows; screen.test.tsx covers the screen itself.
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -24,16 +24,16 @@ const status = (over: Partial<Status> = {}): Status => ({
 
 async function openHealth(s: Status) {
   server.use(http.get('/system/status', ({ response }) => response(200).json(s)))
-  history.replaceState(null, '', '/activity/health')
+  history.replaceState(null, '', '/health')
   renderApp()
-  const panel = await screen.findByRole('tabpanel')
+  const panel = await screen.findByRole('region', { name: 'Health' })
   await within(panel).findByText(/SABnzbd|no download client/i)
   return panel
 }
 
 beforeEach(() => history.replaceState(null, '', '/'))
 
-describe('Health tab tiles', () => {
+describe('Health tiles', () => {
   it("shows each indexer's daily budget and any pause, which are not failures", async () => {
     const panel = await openHealth(
       status({

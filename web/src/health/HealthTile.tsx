@@ -4,7 +4,7 @@
 // and a link. No design component is a tinted name-and-meter card (audit, Overview).
 import { Pill, Progress, StatusDot } from '@hyprsh/design'
 import type { ReactNode } from 'react'
-import { useOpenPlace } from '../../place'
+import { useOpenPlace } from '../place'
 
 export type Tone = 'ok' | 'failing' | 'paused' | 'low' | 'idle' | 'update'
 

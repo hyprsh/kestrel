@@ -1,7 +1,7 @@
 // The Health checks as tiles: the download client, each indexer, each disk and the rest, grouped and
-// failing first. Used by Activity's Health tab and its tab dot.
-import type { SystemStatus } from '../../api/attention'
-import { clockTime } from '../../time'
+// failing first. Used by the Health screen and the Trash.
+import type { SystemStatus } from '../api/attention'
+import { clockTime } from '../time'
 import type { TileData, Tone } from './HealthTile'
 
 /** "800 GB", "1 TB": powers of 1024, no decimals once a number is round. */

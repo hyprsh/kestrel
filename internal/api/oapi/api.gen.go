@@ -3787,7 +3787,7 @@ type Settings struct {
 	// Upgrade candidates still show up, but send nothing to the download client. A Grab started
 	// by hand from a Version's Releases still goes through. Turning it off makes every Wanted
 	// Version, and every Upgrade search made while paused, due a search now, so the next sweep
-	// grabs as usual. Activity > Health shows it as
+	// grabs as usual. the Health screen shows it as
 	// `grabs_paused`.
 	PauseGrabs bool `json:"pause_grabs"`
 
@@ -5344,7 +5344,7 @@ type ServerInterface interface {
 	// GetSystem Version and API major of this instance
 	// (GET /system)
 	GetSystem(w http.ResponseWriter, r *http.Request)
-	// GetSystemStatus Every health check (Activity > Health)
+	// GetSystemStatus Every health check (the Health screen)
 	// (GET /system/status)
 	GetSystemStatus(w http.ResponseWriter, r *http.Request)
 	// ListTitles The Library's Titles as compact rows
@@ -14208,7 +14208,7 @@ type StrictServerInterface interface {
 	// GetSystem Version and API major of this instance
 	// (GET /system)
 	GetSystem(ctx context.Context, request GetSystemRequestObject) (GetSystemResponseObject, error)
-	// GetSystemStatus Every health check (Activity > Health)
+	// GetSystemStatus Every health check (the Health screen)
 	// (GET /system/status)
 	GetSystemStatus(ctx context.Context, request GetSystemStatusRequestObject) (GetSystemStatusResponseObject, error)
 	// ListTitles The Library's Titles as compact rows

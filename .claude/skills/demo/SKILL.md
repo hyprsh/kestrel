@@ -51,7 +51,7 @@ Keep every binary, scenario and screenshot in your scratchpad (`$S` below). Run 
 
 ## Sweep
 
-`node scripts/demo/sweep.mjs <out dir> [screen…] [--dark]` shoots every screen of a running demo at 390x844 and 1440x900 (`<screen>-390.png`, `<screen>-1440.png`, `-dark` variants with `--dark`) and prints one line per screen: Overview, Library, a Movie and a Series Title page, Upcoming, Requests, Activity, Log, every Settings section, About, and the phone More sheet (390 only). A page whose `scrollWidth` exceeds the viewport is reported as OVERFLOW and the exit code is 1. `--list` names the screens.
+`node scripts/demo/sweep.mjs <out dir> [screen…] [--dark]` shoots every screen of a running demo at 390x844 and 1440x900 (`<screen>-390.png`, `<screen>-1440.png`, `-dark` variants with `--dark`) and prints one line per screen: Overview, Library, a Movie and a Series Title page, Upcoming, Requests, Activity, Health, Log, every Settings section, About, and the phone More sheet (390 only). A page whose `scrollWidth` exceeds the viewport is reported as OVERFLOW and the exit code is 1. `--list` names the screens.
 
 When a change touches `web/src`, start the demo on the working tree (steps 1, 2 and 5), run the sweep for the touched screens (all of them for a shared piece such as `layout/` or `shell/`) with the shots in `$S`, and look at every 390 shot before reporting done. Done when no screen overflows and no 390 shot has clipped text, a cut-off control or a control hidden behind the tab bar.
 
