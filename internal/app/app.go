@@ -318,6 +318,10 @@ func (w settingsWriter) SetRegion(ctx context.Context, p profiles.RegionPatch) (
 	return w.profs.SetRegion(ctx, p)
 }
 
+func (w settingsWriter) RestoreRegion(ctx context.Context, before profiles.Region, saved bool) error {
+	return w.profs.RestoreRegion(ctx, before, saved)
+}
+
 func (w settingsWriter) SetTrashAutoUpdate(ctx context.Context, on bool) error {
 	return w.trash.SetAutoUpdate(ctx, on)
 }

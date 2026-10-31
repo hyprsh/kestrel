@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
 import type { components } from './schema.gen'
@@ -242,15 +243,31 @@ export type SettingsPatch = components['schemas']['SettingsPatch']
 export type Profile = components['schemas']['Profile']
 export type ProfilePatch = components['schemas']['ProfilePatch']
 
+/**
+ * The settings, refetched every 2 s while a Primary Language change is pending, since its re-score runs
+ * in the background. When the change clears, the setup sections (the wizard's language step) refetch too.
+ */
 export function useSettings() {
-  return useQuery({
+  const qc = useQueryClient()
+  const query = useQuery({
     queryKey: ['settings'],
+    refetchInterval: (q) => (q.state.data?.language_region.pending_primary_language ? 2000 : false),
     queryFn: async () => {
       const { data, error, response } = await api.GET('/settings')
       if (!data) throw failure(error, response)
       return data
     },
   })
+  const pending = !!query.data?.language_region.pending_primary_language
+  const wasPending = useRef(false)
+  useEffect(() => {
+    if (pending) wasPending.current = true
+    else if (wasPending.current) {
+      wasPending.current = false
+      void qc.invalidateQueries({ queryKey: ['setup'] })
+    }
+  }, [pending, qc])
+  return query
 }
 
 /** A merge patch over the settings sections. Changing the Primary Language re-points the Profiles, so they refetch too. */

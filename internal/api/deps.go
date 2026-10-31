@@ -98,6 +98,8 @@ type SettingsTx interface {
 type SettingsWriter interface {
 	SetRootFolders(ctx context.Context, p rootfolders.Patch) (rootfolders.Folders, error)
 	SetRegion(ctx context.Context, p profiles.RegionPatch) (profiles.Region, error)
+	// RestoreRegion puts back an earlier Region, and no stored one if it was never saved.
+	RestoreRegion(ctx context.Context, before profiles.Region, saved bool) error
 	SetTrashAutoUpdate(ctx context.Context, on bool) error
 	SetGrabsPaused(ctx context.Context, on bool) error
 	SetDisplay(ctx context.Context, p display.Patch) (display.Display, error)

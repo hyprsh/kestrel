@@ -179,6 +179,39 @@ describe('the wizard', () => {
   })
 })
 
+describe('a Primary Language change in the background', () => {
+  it('keeps the language step open while it is pending, then folds it once the server clears it, without a reload', async () => {
+    let pending: string | undefined = 'de'
+    server.use(
+      http.get('/settings', ({ response }) =>
+        response(200).json({
+          language_region: { primary_language: pending ? 'en' : 'de', release_date_country: pending ? 'US' : 'DE', ...(pending ? { pending_primary_language: pending } : {}) },
+          check_github_updates: true,
+          pause_grabs: false,
+          display: displayDefaults,
+          from_config_file: { language_region: false, root_folders: false, check_github_updates: false, display: noDisplayDeclared },
+          trash: { auto_update: true },
+          metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
+          root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'] },
+        } as Settings),
+      ),
+    )
+    const setup = fakeSetup({ language: 'todo' })
+    fakeAdoption()
+    renderApp()
+
+    const language = await screen.findByRole('region', { name: 'Primary Language' })
+    expect(await within(language).findByText(/Switching to German/)).toBeInTheDocument()
+    expect(within(language).getByLabelText('Primary Language')).toBeDisabled()
+
+    // The server finishes the re-score: the pending change clears and the setup section reads done.
+    pending = undefined
+    setup.sections.language = 'done'
+    await waitFor(() => expect(within(language).queryByLabelText('Release-date country')).not.toBeInTheDocument(), { timeout: 5000 })
+    expect(within(language).getByRole('button', { name: 'Edit' })).toBeInTheDocument()
+  }, 10000)
+})
+
 describe('running setup again', () => {
   it('opens from Settings with the account already done and every other section as a summary', async () => {
     fakeSettings()
