@@ -7,6 +7,7 @@ import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { server } from '../test/server'
+import { findToast } from '../test/toasts'
 import { fakeSetup } from '../test/fakeSetup'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
@@ -124,7 +125,8 @@ describe('the wizard Primary Language section', () => {
     await userEvent.type(within(section).getByLabelText('Release-date country'), 'be')
     await userEvent.click(within(section).getByRole('button', { name: 'Save language' }))
 
-    expect(await within(section).findByText('Saved.')).toBeInTheDocument()
+    expect(await findToast('Language saved')).toBeInTheDocument()
+    expect(within(section).queryByText('Saved.')).not.toBeInTheDocument()
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'settings', body: { language_region: { primary_language: 'fr', release_date_country: 'BE' } } }))
   })
 })
@@ -203,6 +205,7 @@ describe('Settings', () => {
     ).toEqual(['Reject', 'Offer for approval', 'Grab'])
     await userEvent.selectOptions(choice, 'offer')
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile hd-primary', body: { original_language: 'offer' } }))
+    expect(await findToast('Saved HD')).toBeInTheDocument()
   })
 
   it('shows the server problem when the only HD default is disabled', async () => {
@@ -220,7 +223,8 @@ describe('Settings', () => {
     await userEvent.selectOptions(await within(section).findByLabelText('Primary Language'), 'de')
     expect(within(section).getByText(/re-scores every file you already have/i)).toBeInTheDocument()
     await userEvent.click(within(section).getByRole('button', { name: 'Save language' }))
-    expect(await within(section).findByText('Saved.')).toBeInTheDocument()
+    expect(await findToast('Language saved')).toBeInTheDocument()
+    expect(within(section).queryByText('Saved.')).not.toBeInTheDocument()
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'settings', body: { language_region: { primary_language: 'de', release_date_country: 'DE' } } }))
   })
 })

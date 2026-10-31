@@ -1,11 +1,12 @@
 import { QueryClient } from '@tanstack/react-query'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
 import { episode, fakeSeries } from '../test/series'
 import { server } from '../test/server'
+import { findToast } from '../test/toasts'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -78,22 +79,21 @@ describe('searching from the episodes heat map', () => {
     await choose(grid, 'Actions for Season 1 episode 1', 'Search')
 
     await waitFor(() => expect(searched).toEqual([{ version: 52, body: { season: 1, episode_ids: [2] } }]))
-    expect(await screen.findByText(/Searching S01E01/)).toBeInTheDocument()
+    expect(await findToast('Search started for S01E01 in 4K')).toBeInTheDocument()
+    expect(screen.queryByText(/Searching S01E01/)).not.toBeInTheDocument()
   })
 
-  it('lets the Searching notice go after a few seconds', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
-    try {
-      const { grid } = await openSeries()
-      await choose(grid, 'Actions for Season 1 episode 1', 'Search')
-      expect(await screen.findByText(/Searching S01E01/)).toBeInTheDocument()
+  it('says in a Toast when the search of an episode could not start', async () => {
+    const { grid } = await openSeries()
+    server.use(
+      http.post('/versions/{id}/search', ({ response }) =>
+        response('default').json({ type: 'about:blank', title: 'x', status: 500, code: 'internal', detail: 'the indexer is down' }, { status: 500 }),
+      ),
+    )
 
-      act(() => vi.advanceTimersByTime(10_000))
+    await choose(grid, 'Actions for Season 1 episode 1', 'Search')
 
-      expect(screen.queryByText(/Searching S01E01/)).not.toBeInTheDocument()
-    } finally {
-      vi.useRealTimers()
-    }
+    expect(await findToast('Could not search S01E01: the indexer is down')).toBeInTheDocument()
   })
 
   it('cannot search an episode nothing wants', async () => {

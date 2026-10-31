@@ -10,6 +10,7 @@ import { fakeLibrary, row } from '../test/library'
 import { fakeQueue, queueItem } from '../test/queue'
 import { serveDisplay } from '../test/serveDisplay'
 import { server } from '../test/server'
+import { findToast } from '../test/toasts'
 
 type Recent = components['schemas']['RecentItem']
 type Undated = components['schemas']['UndatedItem']
@@ -237,7 +238,20 @@ describe('Upcoming: where each entry stands', () => {
     )
     await openUpcoming()
     await userEvent.click(within(rowOf(/The Handover/)).getByRole('button', { name: /search now/i }))
-    expect(searched).toEqual([{ id: '21', body: { season: 2, episode_ids: [204] } }])
+    await waitFor(() => expect(searched).toEqual([{ id: '21', body: { season: 2, episode_ids: [204] } }]))
+    expect(await findToast(/^Search started for /)).toBeInTheDocument()
+  })
+
+  it('says in a Toast when the search could not start', async () => {
+    fakeAgenda([episode({ date: day(-1), slots: [slot('wanted', { version_id: 21 })] })])
+    server.use(
+      http.post('/versions/{id}/search', ({ response }) =>
+        response('default').json({ type: 'about:blank', title: 'x', status: 500, code: 'internal', detail: 'the indexer is down' }, { status: 500 }),
+      ),
+    )
+    await openUpcoming()
+    await userEvent.click(within(rowOf(/The Handover/)).getByRole('button', { name: /search now/i }))
+    expect(await findToast(/^Could not search .*: the indexer is down/)).toBeInTheDocument()
   })
 })
 

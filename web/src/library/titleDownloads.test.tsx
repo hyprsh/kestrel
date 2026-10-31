@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { fakeLibrary, row } from '../test/library'
 import { fakeQueue, queueItem } from '../test/queue'
+import { findToast } from '../test/toasts'
 
 async function openPaddington(client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   fakeLibrary([row(1, 'Paddington', 'Paddington'), row(2, 'Heat', 'Heat', { year: 1995 })])
@@ -48,6 +49,7 @@ describe("a Title's downloads on its page", () => {
     await userEvent.click(within(section).getByRole('button', { name: 'Cancel and blocklist' }))
 
     expect(state.cancels).toEqual([{ id: '7', body: { blocklist: true } }])
+    expect(await findToast('Grab cancelled and its Release blocklisted')).toBeInTheDocument()
     await expect.poll(() => within(pane).queryByRole('region', { name: 'Downloading' })).toBeNull()
   })
 

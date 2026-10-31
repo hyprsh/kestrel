@@ -7,6 +7,7 @@ import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { fakeLibrary, row } from '../test/library'
 import { server } from '../test/server'
+import { findToast } from '../test/toasts'
 
 type Event = components['schemas']['Event']
 type Blocked = components['schemas']['BlocklistEntry']
@@ -292,6 +293,20 @@ describe('Log', () => {
     await user.click(await screen.findByRole('button', { name: /remove paddington.*bad/i }))
 
     expect(await screen.findByText('The Blocklist is empty.')).toBeInTheDocument()
+    expect(await findToast('Release removed from the Blocklist')).toBeInTheDocument()
+  })
+
+  it('says in a Toast when a Blocklist entry could not be removed', async () => {
+    server.use(
+      http.get('/blocklist', ({ response }) => response(200).json({ items: [blocked] })),
+      http.delete('/blocklist/{id}', ({ response }) => response('default').json({ type: 'about:blank', title: 'x', status: 500, code: 'internal', detail: 'database locked' }, { status: 500 })),
+    )
+    const user = await openLog()
+    await user.click(screen.getByRole('tab', { name: 'Blocklist' }))
+
+    await user.click(await screen.findByRole('button', { name: /remove paddington.*bad/i }))
+
+    expect(await findToast('Could not remove the Release from the Blocklist: database locked')).toBeInTheDocument()
   })
 })
 

@@ -6,6 +6,7 @@ import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { server } from '../test/server'
+import { findToast, toastRegion } from '../test/toasts'
 
 type Job = components['schemas']['Job']
 
@@ -106,6 +107,20 @@ describe('Background jobs', () => {
     expect(within(await rowOf(section, 'Import')).queryByRole('button', { name: /run/i })).not.toBeInTheDocument()
     await userEvent.click(within(await rowOf(section, 'Search')).getByRole('button', { name: 'Run Search now' }))
     await waitFor(() => expect(posted).toEqual(['search']))
+    expect(await findToast('Search started')).toBeInTheDocument()
+    expect(within(await toastRegion()).getByRole('button', { name: 'Watch in Activity' })).toBeInTheDocument()
+  })
+
+  it('says in a Toast when a loop could not be run', async () => {
+    server.use(
+      http.post('/jobs/{name}/run', ({ response }) => response('default').json({ type: 'about:blank', title: 'x', status: 500, code: 'internal', detail: 'already running' }, { status: 500 })),
+    )
+    fakeJobs([job({ name: 'search' })])
+    const section = await openJobs()
+
+    await userEvent.click(within(await rowOf(section, 'Search')).getByRole('button', { name: 'Run Search now' }))
+
+    expect(await findToast('Could not run Search: already running')).toBeInTheDocument()
   })
 
   it('follows the stream', async () => {

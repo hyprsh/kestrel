@@ -9,7 +9,6 @@ import { placePath, useOpenPlace } from '../place'
 import { RemoveTitle } from './ManageVersion'
 import { MoveTitle } from './MoveTitle'
 import type { ManualSearchTarget } from './TitleDetail'
-import { useFade } from './useFade'
 import { ManualSearch, SearchNow, useSearchWanted } from './VersionSearch'
 
 const NOT_MONITORED_SEARCH = 'Not monitored: turn monitoring on to search'
@@ -36,7 +35,6 @@ export function TitleActions({ title, profileName, onManualSearch }: { title: Ti
   const openCleanup = useOpenCleanup()
   const openPlace = useOpenPlace()
   const search = useSearchWanted(title)
-  useFade(search.mutation.isSuccess ? search.mutation.submittedAt : null, search.mutation.reset)
   const refresh = useRefreshTitle(title.id)
   const freeze = useSetFrozen(title.id)
   const frozen = title.metadata_frozen
@@ -63,8 +61,6 @@ export function TitleActions({ title, profileName, onManualSearch }: { title: Ti
           </MenuItem>
         </DotsMenu>
       </div>
-      {search.mutation.isSuccess && <p className="label-12 mt-1 text-gray-900">Searching… The Log shows what it grabs.</p>}
-      {search.mutation.isError && <Problem>{message(search.mutation.error, 'Could not start the search.')}</Problem>}
       {refresh.isSuccess && <p className="label-12 mt-1 text-gray-900">Refreshing metadata… The Title updates when it is done.</p>}
       {refresh.isError && <Problem>{message(refresh.error, 'Could not refresh the metadata.')}</Problem>}
       {freeze.isError && <Problem>{message(freeze.error, 'Could not change freezing.')}</Problem>}

@@ -7,6 +7,7 @@ import { App } from '../App'
 import { http } from '../test/handlers'
 import { detail, fakeLibrary, row, type Sent } from '../test/library'
 import { server } from '../test/server'
+import { findToast } from '../test/toasts'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -70,6 +71,7 @@ describe('moving a Title to another Root folder', () => {
 
     await waitFor(() => expect(state.sent).toEqual([{ path: 'titles', body: { root_folder: '/data/media/more-movies' } }]))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Move Title' })).not.toBeInTheDocument())
+    expect(await findToast('Heat moved to /data/media/more-movies')).toBeInTheDocument()
     const again = await openPicker()
     expect(await within(again).findByRole('radio', { name: '/data/media/more-movies (current)' })).toBeChecked()
   })
@@ -85,7 +87,7 @@ describe('moving a Title to another Root folder', () => {
       detail: otherFilesystem,
       errors: [{ field: 'root_folder', code: 'other_filesystem', message: otherFilesystem }],
     },
-  ])('shows why the API refused the move ($name)', async (refusal) => {
+  ])('closes the picker and says in a Toast why the API refused the move ($name)', async (refusal) => {
     fakeMovie(refusal)
     renderApp()
     const picker = await openPicker()
@@ -93,8 +95,8 @@ describe('moving a Title to another Root folder', () => {
     await userEvent.click(await within(picker).findByRole('radio', { name: '/data/media/more-movies' }))
     await userEvent.click(within(picker).getByRole('button', { name: 'Move here' }))
 
-    expect(await within(picker).findByText(refusal.detail)).toBeInTheDocument()
-    expect(within(picker).getByRole('radio', { name: '/data/media/more-movies' })).toBeChecked()
+    expect(await findToast(`Could not move Heat: ${refusal.detail}`)).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Move Title' })).not.toBeInTheDocument()
   })
 
   it('closes without a request on Cancel', async () => {

@@ -1,5 +1,6 @@
 // Search now and Manual search for a Title's Versions, in the Title actions row.
 import { useMutation } from '@tanstack/react-query'
+import { useReport } from '../toasts'
 import { useSearchNow } from '../api/grabs'
 import type { TitleDetail } from '../api/queries'
 import { Button, Menu } from '@hyprsh/design'
@@ -14,8 +15,9 @@ import type { ManualSearchTarget } from './TitleDetail'
 export function useSearchWanted(title: TitleDetail) {
   const one = useSearchNow()
   const wanted = title.versions.filter((v) => v.state === 'wanted').map((v) => v.id)
+  const report = useReport()
   const all = useMutation({ mutationFn: (ids: number[]) => Promise.all(ids.map((versionId) => one.mutateAsync({ versionId }))) })
-  return { mutation: all, wanted, run: () => all.mutate(wanted) }
+  return { mutation: all, wanted, run: () => void report(all.mutateAsync(wanted), { started: `Search started for ${title.title}`, failed: `Could not search ${title.title}` }) }
 }
 
 export function SearchNow({ search, unmonitored }: { search: ReturnType<typeof useSearchWanted>; unmonitored: boolean }) {

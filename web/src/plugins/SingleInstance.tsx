@@ -39,7 +39,7 @@ export function SingleInstance({ contract, noun }: { contract: string; noun: str
           options={manifests.map((m) => ({ value: m.id, label: m.name }))}
         />
       )}
-      {/* Keyed by adapter only: saving keeps the form (and its "Saved." note) in place. */}
+      {/* Keyed by adapter only: saving keeps the form in place. */}
       <InstanceForm key={manifest.id} manifest={manifest} instance={current} />
     </div>
   )

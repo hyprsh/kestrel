@@ -6,6 +6,7 @@ import { App } from '../App'
 import { http } from '../test/handlers'
 import { detail, fakeLibrary, row } from '../test/library'
 import { server } from '../test/server'
+import { findToast } from '../test/toasts'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -121,12 +122,17 @@ describe('manage Versions', () => {
 
     await userEvent.click(await within(hd).findByRole('button', { name: 'More Standard Version actions' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Remove Version' }))
-    const confirm = screen.getByRole('alertdialog', { name: 'Remove Version' })
+    let confirm = screen.getByRole('alertdialog', { name: 'Remove Version' })
     expect(within(confirm).getByRole('checkbox', { name: 'Also delete files' })).not.toBeChecked()
     await userEvent.click(within(confirm).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(calls).toHaveLength(1))
     expect(calls[0].url).toContain('delete_files=false')
+    expect(await findToast('Version removed')).toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog', { name: 'Remove Version' })).not.toBeInTheDocument()
 
+    await userEvent.click(await within(hd).findByRole('button', { name: 'More Standard Version actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Remove Version' }))
+    confirm = screen.getByRole('alertdialog', { name: 'Remove Version' })
     await userEvent.click(within(confirm).getByRole('checkbox', { name: 'Also delete files' }))
     await userEvent.click(within(confirm).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(calls).toHaveLength(2))

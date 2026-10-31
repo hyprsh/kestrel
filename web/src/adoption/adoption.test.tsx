@@ -6,6 +6,7 @@ import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { server } from '../test/server'
+import { findToast, toastRegion } from '../test/toasts'
 
 type Adoption = components['schemas']['Adoption']
 type Row = components['schemas']['AdoptionRow']
@@ -293,6 +294,32 @@ describe('Adoption review', () => {
     await user.click(screen.getByRole('button', { name: 'Adopt 2 Titles' }))
     await screen.findByRole('button', { name: /scan for existing files/i })
     expect(state.commits).toEqual([{ revision: state.revision }])
+    expect(await findToast('Adopting the plan started')).toBeInTheDocument()
+    expect(within(await toastRegion()).getByRole('button', { name: 'Watch in Activity' })).toBeInTheDocument()
+  })
+
+  it('says in a Toast that the scan started, that a plan was discarded, and why a call failed', async () => {
+    fakeAdoption()
+    server.use(http.delete('/adoption', ({ response }) => response(204).empty()))
+    const user = await openAdoption()
+
+    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+    expect(await findToast('Scan for existing files started')).toBeInTheDocument()
+
+    await user.click(await screen.findByRole('button', { name: 'Discard plan' }))
+    expect(await findToast('Adoption plan discarded')).toBeInTheDocument()
+  })
+
+  it('shows why a scan could not start, inline', async () => {
+    fakeAdoption()
+    server.use(
+      http.post('/adoption/scan', ({ response }) => response('default').json({ type: 'about:blank', title: 'x', status: 409, code: 'conflict', detail: 'a scan is already running' }, { status: 409 })),
+    )
+    const user = await openAdoption()
+
+    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+
+    expect(await screen.findByText('a scan is already running')).toBeInTheDocument()
   })
 
   it('offers Clean up for the adopted folders once Titles were adopted', async () => {

@@ -1,10 +1,10 @@
 // Overview, the home screen: Needs attention, Downloading now, Searching, Recently added,
 // Coming this week, Recent requests and, last, Health.
-import { Note } from '@hyprsh/design'
 import { RowList } from '../layout/RowList'
 import { useState } from 'react'
 import { useAttention } from '../api/attention'
-import { useQueue, useCancelGrab } from '../api/queue'
+import { useQueue } from '../api/queue'
+import { useCancel } from '../grabs/useCancel'
 import { useRecentRequests } from '../api/requests'
 import { useRecent, useUpcoming } from '../api/upcoming'
 import { DownloadRow } from '../grabs/DownloadRow'
@@ -29,7 +29,7 @@ export function Overview({
   onOpenAdoption?: () => void
 }) {
   const queue = useQueue()
-  const cancel = useCancelGrab()
+  const cancel = useCancel()
   const all = queue.data ?? []
   const items = firstFive(all)
   const [allAttention, setAllAttention] = useState(false)
@@ -63,7 +63,6 @@ export function Overview({
         </div>
         <div className="flex min-w-0 flex-col gap-8 lg:col-span-2">
           <Section id="downloading-now" title="Downloading now" count={queue.data ? all.length : undefined}>
-            {cancel.isError && <Note variant="error">{cancel.error.message}</Note>}
             {queue.isPending ? (
               <SkeletonRows poster="md" />
             ) : queue.data && items.length === 0 ? (
@@ -75,8 +74,8 @@ export function Overview({
                     key={i.grab_id}
                     item={i}
                     nav={{ scope: 'ov', index: rows.length + n, sel, onSelect: () => setSel(rows.length + n) }}
-                    busy={cancel.isPending}
-                    onCancel={(blocklist) => cancel.mutate({ id: i.grab_id, blocklist })}
+                    busy={cancel.pending}
+                    onCancel={(blocklist) => void cancel.run(i.grab_id, blocklist)}
                     onOpenTitle={onOpenTitle}
                   />
                 ))}

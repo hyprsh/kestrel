@@ -6,6 +6,7 @@ import { useAddVersion, useRemoveVersion, useSwitchProfile } from '../api/versio
 import { size, slotKeys, slotLabel, StatusBadge, type SlotKey } from './bits'
 import { base, DeleteFile } from './DeleteFiles'
 import { FilePopover } from './EpisodeFilePopover'
+import { useReport } from '../toasts'
 import { ProfilePicker, RemoveConfirm } from './ManageVersion'
 import { OriginalOfferNote } from './OriginalOfferNote'
 
@@ -48,6 +49,7 @@ function VersionRow({
   onCoverage: () => void
 }) {
   const sw = useSwitchProfile(v.id)
+  const report = useReport()
   const rm = useRemoveVersion(v.id)
   const [mode, setMode] = useState<'switch' | 'remove' | 'delete' | null>(null)
   const movie = kind === 'movie'
@@ -90,10 +92,19 @@ function VersionRow({
             busy={sw.isPending}
             error={sw.error?.message}
             onCancel={() => setMode(null)}
-            onPick={(p) => sw.mutate(p, { onSuccess: () => setMode(null) })}
+            onPick={(p) => void report(sw.mutateAsync(p), { done: 'Profile switched' }).then((r) => r !== undefined && setMode(null))}
           />
         )}
-        {mode === 'remove' && <RemoveConfirm what="Version" busy={rm.isPending} error={rm.error?.message} onCancel={() => setMode(null)} onConfirm={(d) => rm.mutate(d)} />}
+        {mode === 'remove' && (
+          <RemoveConfirm
+            what="Version"
+            onCancel={() => setMode(null)}
+            onConfirm={(d) => {
+              setMode(null)
+              void report(rm.mutateAsync(d), { done: 'Version removed', failed: 'Could not remove the Version' })
+            }}
+          />
+        )}
         <DeleteFile versionId={v.id} file={v.file} asking={mode === 'delete'} onClose={() => setMode(null)} />
       </div>
     </Entity>

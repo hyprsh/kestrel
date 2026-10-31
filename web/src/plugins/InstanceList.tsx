@@ -3,6 +3,7 @@ import { SkeletonRows } from '../loading'
 import { useState } from 'react'
 import { ApiError, usePluginInstances, usePlugins, useSetInstanceEnabled, type PluginInstance, type PluginManifest } from '../api/queries'
 import { ago, useNow } from '../time'
+import { useReport } from '../toasts'
 import { InstanceForm } from './InstanceForm'
 
 /**
@@ -110,6 +111,7 @@ export function InstanceList({
 
 function Row({ instance: i, manifest, showPriority, onEdit }: { instance: PluginInstance; manifest?: PluginManifest; showPriority?: boolean; onEdit: () => void }) {
   const toggle = useSetInstanceEnabled()
+  const report = useReport()
   const declared = i.from_config_file
   // The Config File owns enabled only when it sets it (ADR 0015).
   const enabledLocked = i.enabled_declared
@@ -118,7 +120,12 @@ function Row({ instance: i, manifest, showPriority, onEdit }: { instance: Plugin
     <Entity
       right={
         <>
-          <Toggle aria-label={`${i.name} enabled`} checked={i.enabled} disabled={enabledLocked || toggle.isPending} onChange={(enabled) => toggle.mutate({ id: i.id, enabled })} />
+          <Toggle
+            aria-label={`${i.name} enabled`}
+            checked={i.enabled}
+            disabled={enabledLocked || toggle.isPending}
+            onChange={(enabled) => void report(toggle.mutateAsync({ id: i.id, enabled }), { done: `${i.name} ${enabled ? 'enabled' : 'disabled'}` })}
+          />
           <Button size="small" aria-label={`Edit ${i.name}`} disabled={!manifest} onClick={onEdit}>
             Edit
           </Button>

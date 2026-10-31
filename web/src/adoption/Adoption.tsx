@@ -26,6 +26,7 @@ import { slotKeys, slotLabel } from '../library/bits'
 import { TickBox } from '../library/TickBox'
 import { SelectionBar } from '../layout/SelectionBar'
 import { useSelection } from '../selection'
+import { useReport } from '../toasts'
 import { Finished, type FinishedActions } from './Finished'
 import { currentText, skipText } from './text'
 import { Badge, Button, Checkbox, EmptyState, Entity, Input, LoadMoreButton, Note, Select, Skeleton, Spinner } from '@hyprsh/design'
@@ -122,6 +123,7 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
   const discard = useDiscard()
   const retry = useRetry()
   const reopen = useReopen()
+  const toast = useReport()
   const [filter, setFilter] = useState<Filter>('all')
   const state = plan.data?.state
 
@@ -162,7 +164,7 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
             )}
             {p.result && <Kept result={p.result} actions={{ onRetry: () => retry.mutate(), onReopen: () => reopen.mutate(), busy: retry.isPending || reopen.isPending }} />}
             <div>
-              <Button variant="primary" size="small" onClick={() => scan.mutate()} disabled={scan.isPending}>
+              <Button variant="primary" size="small" onClick={() => void toast(scan.mutateAsync(), { started: 'Scan for existing files started' })} disabled={scan.isPending}>
                 Scan for existing files
               </Button>
             </div>
@@ -185,8 +187,8 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
             onFilter={setFilter}
             summary={p.summary}
             monitor={p.monitor}
-            onCommit={() => commit.mutate(p.revision)}
-            onDiscard={() => discard.mutate()}
+            onCommit={() => void toast(commit.mutateAsync(p.revision), { started: 'Adopting the plan started' })}
+            onDiscard={() => void toast(discard.mutateAsync(), { done: 'Adoption plan discarded' })}
             busy={commit.isPending || discard.isPending}
           />
         )}

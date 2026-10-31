@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMoveTitle } from '../api/titleActions'
-import { ApiError, useSettings, type TitleDetail } from '../api/queries'
+import { useSettings, type TitleDetail } from '../api/queries'
+import { useReport } from '../toasts'
 import { Modal, ModalAction, ModalActions, ModalBody, ModalHeader, ModalTitle, Note, RadioGroup, RadioGroupItem } from '@hyprsh/design'
 
 /**
@@ -13,9 +14,14 @@ import { Modal, ModalAction, ModalActions, ModalBody, ModalHeader, ModalTitle, N
 export function MoveTitle({ title, onClose }: { title: TitleDetail; onClose: () => void }) {
   const settings = useSettings()
   const move = useMoveTitle(title.id)
+  const report = useReport()
   const [picked, setPicked] = useState(title.root_folder)
   const folders = settings.data ? settings.data.root_folders[title.kind === 'series' ? 'series' : 'movies'] : []
   const name = `move-${title.id}`
+  const confirm = () => {
+    onClose()
+    void report(move.mutateAsync(picked), { done: `${title.title} moved to ${picked}`, failed: `Could not move ${title.title}` })
+  }
   return (
     <Modal inline open onClose={onClose}>
       <ModalBody>
@@ -42,19 +48,12 @@ export function MoveTitle({ title, onClose }: { title: TitleDetail; onClose: () 
             </Note>
           </div>
         )}
-        {move.isError && (
-          <div className="mt-2">
-            <Note variant="error" size="small">
-              {move.error instanceof ApiError ? move.error.message : 'Could not move this Title.'}
-            </Note>
-          </div>
-        )}
       </ModalBody>
       <ModalActions>
         <ModalAction variant="secondary" onClick={onClose}>
           Cancel
         </ModalAction>
-        <ModalAction disabled={picked === title.root_folder || move.isPending} onClick={() => move.mutate(picked, { onSuccess: onClose })}>
+        <ModalAction disabled={picked === title.root_folder} onClick={confirm}>
           Move here
         </ModalAction>
       </ModalActions>

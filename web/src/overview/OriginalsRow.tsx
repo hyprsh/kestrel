@@ -1,9 +1,10 @@
 // The Originals available group of Needs attention: one row per Version whose Profile offers a
 // Release with the Title's Original Language only, with Accept and Dismiss and a link to the Title.
-import { Button, Collapse, Entity, Link, Note } from '@hyprsh/design'
+import { Button, Collapse, Entity, Link } from '@hyprsh/design'
 import { RowList, stackedRow, stackedRight } from '../layout/RowList'
 import { useState } from 'react'
 import { offerUnits, useAcceptOffer, useDismissOffer, type OriginalOffer, type OriginalsAvailable } from '../api/offers'
+import { useReport } from '../toasts'
 import { profileName, slotProfile, useProfileNames } from '../library/slotProfile'
 
 /**
@@ -31,19 +32,29 @@ export function OriginalsRow({ group, onOpenTitle }: { group: OriginalsAvailable
 function Offer({ offer: o, slotProfile, onOpenTitle }: { offer: OriginalOffer; slotProfile: string; onOpenTitle: (id: number) => void }) {
   const accept = useAcceptOffer()
   const dismiss = useDismissOffer()
+  const report = useReport()
   const units = offerUnits(o)
   const busy = accept.isPending || dismiss.isPending
-  const failed = accept.error ?? dismiss.error
   return (
     <Entity
       className={stackedRow}
       rightClassName={stackedRight}
       right={
         <>
-          <Button variant="secondary" size="small" disabled={busy} onClick={() => accept.mutate(o.version_id)}>
+          <Button
+            variant="secondary"
+            size="small"
+            disabled={busy}
+            onClick={() => void report(accept.mutateAsync(o.version_id), { done: `Accepted the original for ${o.title}`, failed: `Could not accept the original for ${o.title}` })}
+          >
             Accept
           </Button>
-          <Button variant="secondary" size="small" disabled={busy} onClick={() => dismiss.mutate(o.version_id)}>
+          <Button
+            variant="secondary"
+            size="small"
+            disabled={busy}
+            onClick={() => void report(dismiss.mutateAsync(o.version_id), { done: `Dismissed the original for ${o.title}`, failed: `Could not dismiss the original for ${o.title}` })}
+          >
             Dismiss
           </Button>
         </>
@@ -60,7 +71,6 @@ function Offer({ offer: o, slotProfile, onOpenTitle }: { offer: OriginalOffer; s
           {o.release} · Score {o.score}
         </span>
         {units && <span className="label-12 text-gray-900">{units}</span>}
-        {failed && <Note variant="error">{failed.message}</Note>}
       </div>
     </Entity>
   )

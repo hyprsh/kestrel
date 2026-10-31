@@ -9,7 +9,9 @@ import { useFinishedGrabs, useStalledGrabs, useStalledImport, HISTORY_DAYS, type
 import { useSearchNow } from '../api/grabs'
 import { useBlocklist } from '../api/log'
 import { useTitles } from '../api/queries'
-import { useCancelGrab, useQueue, type QueueItem } from '../api/queue'
+import { useQueue, type QueueItem } from '../api/queue'
+import { useCancel } from '../grabs/useCancel'
+import { useReport } from '../toasts'
 import { useSearchStatus } from '../api/search'
 import { FilterBar } from '../filter/FilterBar'
 import { FilterStrip } from '../layout/FilterStrip'
@@ -181,19 +183,18 @@ function EntryRow({ entry: e, now, nav, onOpenTitle }: { entry: Entry; now: numb
 }
 
 function ActiveRow({ item: i, now, nav, onOpenTitle }: { item: QueueItem; now: number; nav: RowNav; onOpenTitle: (id: number) => void }) {
-  const cancel = useCancelGrab()
+  const cancel = useCancel()
   const rate = speed(i)
   return (
     <DownloadRow
       item={i}
       nav={nav}
-      busy={cancel.isPending}
-      onCancel={(blocklist) => cancel.mutate({ id: i.grab_id, blocklist })}
+      busy={cancel.pending}
+      onCancel={(blocklist) => void cancel.run(i.grab_id, blocklist)}
       onOpenTitle={onOpenTitle}
       detail={
         <>
           <Line>{`${origin(i, now, rate ? [rate] : [])} · in this stage ${lasting(i.phase_since, now)}`}</Line>
-          {cancel.isError && <Line tone="red">{cancel.error.message}</Line>}
         </>
       }
     />
@@ -202,6 +203,7 @@ function ActiveRow({ item: i, now, nav, onOpenTitle }: { item: QueueItem; now: n
 
 function StalledRow({ grab: g, now, nav, onOpenTitle }: { grab: GrabEntry; now: number; nav: RowNav; onOpenTitle: (id: number) => void }) {
   const act = useStalledImport()
+  const report = useReport()
   const st = g.stalled!
   const [asking, setAsking] = useState(false)
   return (
@@ -212,7 +214,12 @@ function StalledRow({ grab: g, now, nav, onOpenTitle }: { grab: GrabEntry; now: 
         onOpenTitle={onOpenTitle}
         actions={
           <>
-            <Button variant="secondary" size="small" disabled={act.isPending} onClick={() => act.mutate({ id: g.grab_id, action: 'retry' })}>
+            <Button
+              variant="secondary"
+              size="small"
+              disabled={act.isPending}
+              onClick={() => void report(act.mutateAsync({ id: g.grab_id, action: 'retry' }), { done: 'Import retried', failed: 'Could not retry the import' })}
+            >
               Retry now
             </Button>
             <Button variant="secondary" size="small" disabled={act.isPending} onClick={() => setAsking(true)}>
@@ -223,7 +230,6 @@ function StalledRow({ grab: g, now, nav, onOpenTitle }: { grab: GrabEntry; now: 
       >
         <Line tone="amber">{`Import stalled ${lasting(st.since, now)}: ${st.reason} · tried again ${until(st.next_at, now)}`}</Line>
         <Line>{origin(g, now)}</Line>
-        {act.isError && <Line tone="red">{act.error.message}</Line>}
       </GrabRow>
       <DestructiveActionModal
         open={asking}
@@ -234,7 +240,7 @@ function StalledRow({ grab: g, now, nav, onOpenTitle }: { grab: GrabEntry; now: 
         onCancel={() => setAsking(false)}
         onConfirm={() => {
           setAsking(false)
-          act.mutate({ id: g.grab_id, action: 'discard' })
+          void report(act.mutateAsync({ id: g.grab_id, action: 'discard' }), { done: 'Grab discarded', failed: 'Could not discard the Grab' })
         }}
       />
     </>
@@ -243,6 +249,7 @@ function StalledRow({ grab: g, now, nav, onOpenTitle }: { grab: GrabEntry; now: 
 
 function FinishedRow({ grab: g, now, nav, onOpenTitle }: { grab: GrabEntry; now: number; nav: RowNav; onOpenTitle: (id: number) => void }) {
   const search = useSearchNow()
+  const report = useReport()
   const versionId = g.version_id
   const failed = g.state === 'failed'
   const why = g.failure ? (failureText[g.failure] ?? g.failure) : 'it failed'
@@ -254,7 +261,12 @@ function FinishedRow({ grab: g, now, nav, onOpenTitle }: { grab: GrabEntry; now:
       actions={
         failed &&
         versionId !== null && (
-          <Button variant="secondary" size="small" disabled={search.isPending || search.isSuccess} onClick={() => search.mutate({ versionId })}>
+          <Button
+            variant="secondary"
+            size="small"
+            disabled={search.isPending || search.isSuccess}
+            onClick={() => void report(search.mutateAsync({ versionId }), { started: `Search started for ${g.title}`, failed: `Could not search ${g.title}` })}
+          >
             {search.isSuccess ? 'Searching…' : 'Search again'}
           </Button>
         )

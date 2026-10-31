@@ -4,7 +4,10 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { fakeLibrary, row } from '../test/library'
+import { http } from '../test/handlers'
 import { fakeQueue, queueItem as item } from '../test/queue'
+import { server } from '../test/server'
+import { findToast } from '../test/toasts'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -120,6 +123,7 @@ describe('Overview', () => {
 
     expect(await screen.findByText(/nothing is downloading/i)).toBeInTheDocument()
     expect(state.cancels).toEqual([{ id: '1', body: { blocklist: false } }])
+    expect(await findToast('Grab cancelled')).toBeInTheDocument()
   })
 
   it('cancels and blocklists in one step', async () => {
@@ -130,5 +134,19 @@ describe('Overview', () => {
 
     expect(await screen.findByText(/nothing is downloading/i)).toBeInTheDocument()
     expect(state.cancels).toEqual([{ id: '1', body: { blocklist: true } }])
+    expect(await findToast('Grab cancelled and its Release blocklisted')).toBeInTheDocument()
+  })
+
+  it('says in a Toast when a Grab could not be cancelled, and keeps the row', async () => {
+    fakeQueue([item()])
+    server.use(
+      http.post('/grabs/{id}/cancel', ({ response }) => response('default').json({ type: 'about:blank', title: 'x', status: 500, code: 'internal', detail: 'client offline' }, { status: 500 })),
+    )
+    renderApp()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+
+    expect(await findToast('Could not cancel the Grab: client offline')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
   })
 })

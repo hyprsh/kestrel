@@ -1,6 +1,7 @@
 import { Button, Input, Note, Select } from '@hyprsh/design'
 import { useState, type FormEvent } from 'react'
 import { ApiError, usePatchSettings, useSettings, type Settings } from '../api/queries'
+import { useReport } from '../toasts'
 
 type Language = Settings['language_region']['primary_language']
 
@@ -31,6 +32,7 @@ function Form({ saved, declared }: { saved: Settings['language_region']; declare
   const [language, setLanguage] = useState<Language>(saved.primary_language)
   const [country, setCountry] = useState(saved.release_date_country)
   const save = usePatchSettings()
+  const report = useReport()
 
   const pick = (value: Language) => {
     setLanguage(value)
@@ -38,7 +40,7 @@ function Form({ saved, declared }: { saved: Settings['language_region']; declare
   }
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    save.mutate({ language_region: { primary_language: language, release_date_country: country.trim().toUpperCase() } })
+    void report(save.mutateAsync({ language_region: { primary_language: language, release_date_country: country.trim().toUpperCase() } }), { done: 'Language saved' })
   }
 
   return (
@@ -60,11 +62,6 @@ function Form({ saved, declared }: { saved: Settings['language_region']; declare
       {save.isError && (
         <Note variant="error" size="small">
           {save.error instanceof ApiError && save.error.status === 422 ? save.error.message : 'Could not save. Try again.'}
-        </Note>
-      )}
-      {save.isSuccess && (
-        <Note variant="success" size="small">
-          Saved.
         </Note>
       )}
       <Button size="small" variant="primary" typeName="submit" disabled={save.isPending || declared} className="self-start">

@@ -6,6 +6,7 @@ import { Button, Collapse, EmptyState, Entity, LoadMoreButton, Note, Tabs, Toggl
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchNow } from '../api/grabs'
+import { useReport } from '../toasts'
 import { useQueue, type QueueItem } from '../api/queue'
 import { dayString, useTimeline, type UndatedItem, type UpcomingItem, type UpcomingSlot } from '../api/upcoming'
 import { plural } from '../format'
@@ -40,6 +41,7 @@ export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void })
   const now = useNow()
   const [filters, setFilters] = useUpcomingFilters()
   const search = useSearchNow()
+  const report = useReport()
   const today = dayString()
 
   const items = useMemo(() => (timeline.data?.items ?? []).filter((i) => passes(i, filters)), [timeline.data, filters])
@@ -105,7 +107,7 @@ export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void })
 
   const onSearch = (item: UpcomingItem) => (slots: UpcomingSlot[]) => {
     const scope = item.kind === 'series' && item.episode_id != null ? { season: item.season!, episode_ids: [item.episode_id] } : undefined
-    for (const slot of slots) search.mutate({ versionId: slot.version_id, scope })
+    void report(Promise.all(slots.map((slot) => search.mutateAsync({ versionId: slot.version_id, scope }))), { started: `Search started for ${item.title}`, failed: `Could not search ${item.title}` })
   }
 
   const empty = timeline.data && items.length === 0 && undated.length === 0
@@ -138,7 +140,6 @@ export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void })
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
         <div className="mx-auto max-w-3xl px-3 pb-8 sm:px-4">
           {timeline.isError && <Note variant="error">Upcoming could not be loaded.</Note>}
-          {search.isError && <Note variant="error">{search.error.message}</Note>}
           {timeline.data && (
             <LoadMoreButton noGap variant="tertiary" size="small" loading={timeline.isFetching} onClick={() => setBack((b) => b + MORE_BACK)} className="mt-2">
               Show earlier

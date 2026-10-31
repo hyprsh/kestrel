@@ -3,8 +3,9 @@
 // in memory only, so after a restart a loop reads "Not run since start" until its first pass. A loop a
 // setting turns off says which one instead. It stays live through the stream's `jobs` frames.
 import { SkeletonRows } from '../loading'
-import { Badge, Button, Entity, Note, type BadgeProps } from '@hyprsh/design'
+import { Badge, Button, Entity, type BadgeProps } from '@hyprsh/design'
 import { useJobs, useRunJob, type Job } from '../api/jobs'
+import { useReport } from '../toasts'
 import { SectionBlock } from '../layout/SectionBlock'
 import { ago, span, until, useNow } from '../time'
 import { jobWords } from './jobNames'
@@ -52,6 +53,7 @@ export function BackgroundJobs() {
   const jobs = useJobs()
   const items = jobs.data?.items ?? []
   const run = useRunJob()
+  const report = useReport()
   const now = useNow()
   // Rendered with or without data: "/activity/jobs" scrolls here as soon as the screen opens.
   return (
@@ -69,7 +71,13 @@ export function BackgroundJobs() {
                 key={j.name}
                 right={
                   j.runnable && (
-                    <Button variant="secondary" size="small" aria-label={`Run ${about.label} now`} disabled={j.status === 'running'} onClick={() => run.mutate(j.name)}>
+                    <Button
+                      variant="secondary"
+                      size="small"
+                      aria-label={`Run ${about.label} now`}
+                      disabled={j.status === 'running'}
+                      onClick={() => void report(run.mutateAsync(j.name), { started: `${about.label} started`, failed: `Could not run ${about.label}` })}
+                    >
                       Run now
                     </Button>
                   )
@@ -99,7 +107,6 @@ export function BackgroundJobs() {
                           {j.outcome && <div>{j.outcome.text}</div>}
                         </>
                       )}
-                      {run.isError && run.variables === j.name && <Note variant="error">{run.error.message}</Note>}
                     </>
                   }
                 />

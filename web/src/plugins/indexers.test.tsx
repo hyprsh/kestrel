@@ -6,6 +6,7 @@ import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http, newznab, sabnzbd } from '../test/handlers'
 import { server } from '../test/server'
+import { findToast } from '../test/toasts'
 import { fakeSetup } from '../test/fakeSetup'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
@@ -111,7 +112,8 @@ describe('the wizard Indexer section', () => {
     expect(await form.findByRole('status')).toHaveTextContent('Connected: NZBgeek (8 categories)')
 
     await userEvent.click(form.getByRole('button', { name: 'Save' }))
-    expect(await form.findByText('Saved.')).toBeInTheDocument()
+    expect(await findToast('Newznab saved')).toBeInTheDocument()
+    expect(form.queryByText('Saved.')).not.toBeInTheDocument()
     expect(sent.at(-1)).toEqual({
       path: 'create',
       body: {
@@ -183,6 +185,7 @@ describe('Settings indexers', () => {
     await userEvent.click(section.getByLabelText('Relay enabled'))
     await waitFor(() => expect(section.getByLabelText('Relay enabled')).toBeChecked())
     expect(sent.at(-1)).toEqual({ path: 'patch', body: { enabled: true } })
+    expect(await findToast('Relay enabled')).toBeInTheDocument()
     expect(section.getAllByText('Declared')).toHaveLength(2)
   })
 

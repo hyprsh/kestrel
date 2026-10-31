@@ -11,6 +11,7 @@ import { FilterStrip } from '../layout/FilterStrip'
 import { useKey, useListNav } from '../keys'
 import { SkeletonRow, SkeletonRows } from '../loading'
 import { usePhone } from '../responsive'
+import { useReport } from '../toasts'
 import { logFilter, logQualifiers } from './filter'
 
 type Tone = NonNullable<BadgeProps['variant']>
@@ -241,6 +242,8 @@ function Blocklist() {
   const phone = usePhone()
   const list = useBlocklist()
   const unblock = useUnblock()
+  const report = useReport()
+  const remove = (id: number) => void report(unblock.mutateAsync(id), { done: 'Release removed from the Blocklist', failed: 'Could not remove the Release from the Blocklist' })
   const { names } = useTitleNames()
   const [sel, setSel] = useState(0)
   const items = list.data ?? []
@@ -249,7 +252,6 @@ function Blocklist() {
 
   return (
     <div className="min-h-0 flex-1 overflow-auto">
-      {unblock.isError && <Note variant="error">The entry could not be removed.</Note>}
       {list.data && items.length === 0 && (
         <div className="p-4">
           <EmptyState description="The Blocklist is empty." />
@@ -273,7 +275,7 @@ function Blocklist() {
                 className="flex-col items-stretch"
                 rightClassName="flex-col items-stretch"
                 right={
-                  <Button variant="secondary" size="small" width="100%" aria-label={`Remove ${b.release_name} from the Blocklist`} disabled={unblock.isPending} onClick={() => unblock.mutate(b.id)}>
+                  <Button variant="secondary" size="small" width="100%" aria-label={`Remove ${b.release_name} from the Blocklist`} disabled={unblock.isPending} onClick={() => remove(b.id)}>
                     Remove from the Blocklist
                   </Button>
                 }
@@ -317,7 +319,7 @@ function Blocklist() {
                     </div>
                   </Table.Cell>
                   <Table.Cell align="right">
-                    <Button variant="secondary" size="small" aria-label={`Remove ${b.release_name} from the Blocklist`} disabled={unblock.isPending} onClick={() => unblock.mutate(b.id)}>
+                    <Button variant="secondary" size="small" aria-label={`Remove ${b.release_name} from the Blocklist`} disabled={unblock.isPending} onClick={() => remove(b.id)}>
                       Remove
                     </Button>
                   </Table.Cell>

@@ -1,12 +1,13 @@
 import { QueryClient } from '@tanstack/react-query'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
 import { fakeLibrary, row } from '../test/library'
 import { fakeSeries } from '../test/series'
 import { server } from '../test/server'
+import { findToast, toastRegion } from '../test/toasts'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -41,7 +42,7 @@ async function openActions(title: RegExp) {
 }
 
 describe('Search now on the Title page', () => {
-  it('searches a Wanted Movie Version at once and says the Log will show what it grabs', async () => {
+  it('searches a Wanted Movie Version at once and says in a Toast it started, with a link to Activity', async () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     const sent = recordSearches()
     const actions = await openActions(/paddington/i)
@@ -49,24 +50,9 @@ describe('Search now on the Title page', () => {
     await userEvent.click(within(actions).getByRole('button', { name: 'Search now' }))
 
     await waitFor(() => expect(sent).toEqual([{ path: 'search', version: 11, body: null }]))
-    expect(await screen.findByText(/Searching… The Log shows what it grabs/)).toBeInTheDocument()
-  })
-
-  it('lets the Searching notice go after a few seconds', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
-    try {
-      fakeLibrary([row(1, 'Paddington', 'Paddington')])
-      recordSearches()
-      const actions = await openActions(/paddington/i)
-      await userEvent.click(within(actions).getByRole('button', { name: 'Search now' }))
-      expect(await screen.findByText(/Searching… The Log shows what it grabs/)).toBeInTheDocument()
-
-      act(() => vi.advanceTimersByTime(10_000))
-
-      expect(screen.queryByText(/Searching…/)).not.toBeInTheDocument()
-    } finally {
-      vi.useRealTimers()
-    }
+    expect(await findToast('Search started for Paddington')).toBeInTheDocument()
+    expect(within(await toastRegion()).getByRole('button', { name: 'Watch in Activity' })).toBeInTheDocument()
+    expect(screen.queryByText(/Searching…/)).not.toBeInTheDocument()
   })
 
   it('cannot search a Title that wants nothing', async () => {
@@ -84,7 +70,7 @@ describe('Search now on the Title page', () => {
 
     await userEvent.click(within(actions).getByRole('button', { name: 'Search now' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('no such Version')
+    expect(await findToast('Could not search Paddington: no such Version')).toBeInTheDocument()
   })
 
   it('searches every Wanted Version of a Series at once, and asks which Version to search by hand', async () => {

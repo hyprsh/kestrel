@@ -2,28 +2,15 @@ import { Button, Checkbox, DestructiveActionModal, Note, Select } from '@hyprsh/
 import { useState, type ReactNode } from 'react'
 import type { Profile } from '../api/queries'
 import { useRemoveTitle } from '../api/versions'
+import { useReport } from '../toasts'
 import type { SlotKey } from './bits'
 
 /**
- * Asks before removing, in a modal. "Also delete files" is unticked by default:
- * removing never loses a file by accident. `children` go above it, such as what
+ * Asks before removing, in a modal that closes on confirm: the caller reports the outcome as a Toast.
+ * "Also delete files" is unticked by default: removing never loses a file by accident. `children` go above it, such as what
  * a bulk removal covers. The caller shows it only while it is asked.
  */
-export function RemoveConfirm({
-  what,
-  onConfirm,
-  onCancel,
-  error,
-  busy,
-  children,
-}: {
-  what: string
-  onConfirm: (deleteFiles: boolean) => void
-  onCancel: () => void
-  error?: string
-  busy: boolean
-  children?: ReactNode
-}) {
+export function RemoveConfirm({ what, onConfirm, onCancel, children }: { what: string; onConfirm: (deleteFiles: boolean) => void; onCancel: () => void; children?: ReactNode }) {
   const [deleteFiles, setDeleteFiles] = useState(false)
   return (
     <DestructiveActionModal
@@ -38,8 +25,6 @@ export function RemoveConfirm({
           </Checkbox>
         </div>
       }
-      loading={busy}
-      error={error}
       onCancel={onCancel}
       onConfirm={() => onConfirm(deleteFiles)}
     />
@@ -99,5 +84,10 @@ export function ProfilePicker({
 /** Asks before removing the whole Title; the Title actions' "…" menu opens it. */
 export function RemoveTitle({ titleId, onCancel }: { titleId: number; onCancel: () => void }) {
   const rm = useRemoveTitle(titleId)
-  return <RemoveConfirm what="Title" busy={rm.isPending} error={rm.error?.message} onCancel={onCancel} onConfirm={(d) => rm.mutate(d)} />
+  const report = useReport()
+  const confirm = (d: boolean) => {
+    onCancel()
+    void report(rm.mutateAsync(d), { done: 'Title removed', failed: 'Could not remove the Title' })
+  }
+  return <RemoveConfirm what="Title" onCancel={onCancel} onConfirm={confirm} />
 }
