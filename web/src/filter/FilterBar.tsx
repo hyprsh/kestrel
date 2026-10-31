@@ -1,7 +1,8 @@
 // The filter field of a list screen with a dropdown per qualifier that has a `label`, GitHub-style.
 // The query text is the only state: the menus read their rows off it and write back to it. On a
 // phone they flow onto rows under the field.
-import { QueryBar, type FilterMenuItemProps } from '@hyprsh/design'
+import { Button, QueryBar, type FilterMenuItemProps } from '@hyprsh/design'
+import { X } from 'lucide-react'
 import type { KeyboardEvent, ReactNode } from 'react'
 import type { Facet } from './qualifiers'
 
@@ -47,6 +48,26 @@ export function FilterBar({
     ),
   )
 
+  // The × at the field's right edge while it has text: it clears the whole query and keeps focus in the field. The design's
+  // QueryInput types no `suffix`, but hands it on to its Input, which draws it inside the field.
+  const clear =
+    value !== '' ? (
+      <Button
+        svgOnly
+        size="tiny"
+        variant="tertiary"
+        type="button"
+        aria-label="Clear filter"
+        title="Clear filter"
+        onClick={() => {
+          onChange('')
+          document.getElementById(id)?.focus()
+        }}
+      >
+        <X />
+      </Button>
+    ) : undefined
+
   return (
     <QueryBar
       id={id}
@@ -56,9 +77,15 @@ export function FilterBar({
       value={value}
       onChange={onChange}
       qualifiers={qualifiers}
+      {...{ suffix: clear, suffixStyling: false }}
       onKeyDown={(e) => {
         onKeyDown?.(e)
-        if (!e.defaultPrevented && (e.key === 'Escape' || e.key === 'Enter')) e.currentTarget.blur()
+        if (e.defaultPrevented) return
+        // Escape clears a field with text and stays in it; in an empty one it leaves the field, as before.
+        if (e.key === 'Escape' && value !== '') {
+          e.preventDefault()
+          onChange('')
+        } else if (e.key === 'Escape' || e.key === 'Enter') e.currentTarget.blur()
       }}
     >
       {showMenus && items}

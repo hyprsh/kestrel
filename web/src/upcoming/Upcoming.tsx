@@ -150,7 +150,7 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
               ) : (
                 <EmptyState description="Nothing matches the filter.">
                   <Button variant="secondary" size="small" onClick={() => onQuery('')}>
-                    Clear filter
+                    Show everything
                   </Button>
                 </EmptyState>
               )}

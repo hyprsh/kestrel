@@ -426,7 +426,7 @@ describe('Upcoming: filters', () => {
     await openUpcoming()
     await userEvent.type(await field(), 'zzzz')
     expect(await screen.findByText('Nothing matches the filter.')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Clear filter' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Show everything' }))
     expect(await field()).toHaveValue('')
     expect(within(timeline()).getByText('A Movie')).toBeInTheDocument()
   })
@@ -446,6 +446,34 @@ describe('Upcoming: filters', () => {
     expect(within(timeline()).queryByText('Filled Movie')).not.toBeInTheDocument()
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Exclude Wanted' }))
     expect(await field()).toHaveValue('-is:imported,wanted')
+  })
+
+  it('clears the whole query with the × and with Clear all, and the address follows', async () => {
+    mixed()
+    history.replaceState(null, '', '/upcoming?q=kind:movie%20is:wanted')
+    renderApp()
+    await screen.findByRole('list', { name: 'Agenda' })
+    expect(location.search).toBe('?q=kind%3Amovie+is%3Awanted')
+    await userEvent.click(screen.getByRole('button', { name: 'Clear filter' }))
+    expect(await field()).toHaveValue('')
+    expect(await field()).toHaveFocus()
+    expect(location.search).toBe('')
+
+    await userEvent.type(await field(), 'kind:series')
+    await userEvent.click(screen.getByRole('button', { name: /^Filter/ }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Clear all' }))
+    expect(await field()).toHaveValue('')
+    await userEvent.click(screen.getByRole('button', { name: 'Filter' }))
+    expect(screen.queryByRole('menuitem', { name: 'Clear all' })).not.toBeInTheDocument()
+    history.replaceState(null, '', '/')
+  })
+
+  it('clears a field with text on Escape', async () => {
+    mixed()
+    await openUpcoming()
+    await userEvent.type(await field(), 'zzz')
+    await userEvent.keyboard('{Escape}')
+    expect(await field()).toHaveValue('')
   })
 
   it('remembers the query for the session, in the browser and not on the server', async () => {
