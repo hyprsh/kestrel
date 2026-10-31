@@ -106,7 +106,7 @@ describe('the Version rows', () => {
   it('show a Series Version’s episode coverage instead of a file, and scroll to the episodes on a click', async () => {
     const r = seriesRow(5, 'Breaking Bad')
     fakeSeries()
-    const coverage = { episodes: 236, filled: 230, wanted: 6, long_missing: 2, size: 412 * 1024 ** 3 }
+    const coverage = { episodes: 236, filled: 230, wanted: 6, long_missing: 2, unmonitored: 0, downloading: 0, downloading_long_missing: 0, size: 412 * 1024 ** 3 }
     server.use(
       http.get('/titles/{id}', ({ response }) => {
         const d = detail(r, { kind: 'series', tvdb_id: 81189, series_monitor: 'all' })
@@ -188,10 +188,10 @@ describe('the status line in the header', () => {
     ).toEqual(['Standard · Wanted', '4K · Not kept'])
   })
 
-  it('shows a progress bar for each Series Slot with a Version, with its Wanted and Long Missing counts', async () => {
+  it('gives each Series Slot a row of its label, a bar and its counts, with the Wanted and Long Missing counts', async () => {
     const r = seriesRow(5, 'Breaking Bad')
     fakeSeries()
-    const coverage = { episodes: 236, filled: 228, wanted: 8, long_missing: 2, size: 412 * 1024 ** 3 }
+    const coverage = { episodes: 236, filled: 228, wanted: 8, long_missing: 2, unmonitored: 0, downloading: 0, downloading_long_missing: 0, size: 412 * 1024 ** 3 }
     server.use(
       http.get('/titles/{id}', ({ response }) => {
         const d = detail(r, { kind: 'series', tvdb_id: 81189, series_monitor: 'all' })
@@ -205,7 +205,43 @@ describe('the status line in the header', () => {
     expect(bar).toHaveAttribute('aria-valuenow', '228')
     expect(bar).toHaveAttribute('aria-valuemax', '236')
     expect(status).toHaveTextContent('228 of 236 · 8 Wanted · 2 Long Missing')
-    expect(status).toHaveTextContent('4K · Not kept')
-    expect(within(status).queryByRole('progressbar', { name: /^4K/ })).not.toBeInTheDocument()
+  })
+
+  it('shows a Series Slot without a Version as the same row, with an empty track and "Not kept" and no badge', async () => {
+    const r = seriesRow(5, 'Breaking Bad')
+    fakeSeries()
+    const coverage = { episodes: 21, filled: 21, wanted: 0, long_missing: 0, unmonitored: 0, downloading: 0, downloading_long_missing: 0, size: 1024 ** 3 }
+    server.use(
+      http.get('/titles/{id}', ({ response }) => {
+        const d = detail(r, { kind: 'series', tvdb_id: 81189, series_monitor: 'all' })
+        return response(200).json({ ...d, versions: d.versions.filter((v) => v.slot === 'standard').map((v) => ({ ...v, coverage })) })
+      }),
+    )
+    const { pane } = await openTitle(/breaking bad/i)
+
+    const status = within(pane).getByRole('list', { name: 'Status' })
+    const rows = within(status).getAllByRole('listitem')
+    expect(rows.map((i) => i.textContent)).toEqual(['Standard21 of 21', '4KNot kept'])
+    expect(within(rows[1]).queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(rows[1].querySelector('[data-testid="empty-track"]')).toBeInTheDocument()
+    expect(within(rows[1]).getByText('Not kept')).toHaveClass('label-12')
+  })
+
+  it('counts the released episodes that are not monitored in the counts and the bar’s name', async () => {
+    const r = seriesRow(5, 'Breaking Bad')
+    fakeSeries()
+    const coverage = { episodes: 21, filled: 21, wanted: 0, long_missing: 0, unmonitored: 19, downloading: 0, downloading_long_missing: 0, size: 1024 ** 3 }
+    server.use(
+      http.get('/titles/{id}', ({ response }) => {
+        const d = detail(r, { kind: 'series', tvdb_id: 81189, series_monitor: 'all' })
+        return response(200).json({ ...d, versions: d.versions.filter((v) => v.slot === 'standard').map((v) => ({ ...v, coverage })) })
+      }),
+    )
+    const { pane } = await openTitle(/breaking bad/i)
+
+    const status = within(pane).getByRole('list', { name: 'Status' })
+    const bar = within(status).getByRole('progressbar', { name: 'Standard: 21 of 40 episodes, 19 not monitored' })
+    expect(bar).toHaveAttribute('aria-valuemax', '40')
+    expect(status).toHaveTextContent('21 of 40 · 19 not monitored')
   })
 })
