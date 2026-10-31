@@ -10,7 +10,6 @@ type Added = 'has_poster' | 'network' | 'overview' | 'air_at' | 'markers' | 'slo
 export type UpcomingItem = Omit<RawItem, Added> & Required<Pick<RawItem, Added>>
 export type UndatedItem = components['schemas']['UndatedItem']
 export type UpcomingSlot = components['schemas']['UpcomingSlot']
-type RecentItem = components['schemas']['RecentItem']
 
 /** A local calendar day as YYYY-MM-DD, `plusDays` from today. */
 export function dayString(plusDays = 0, now = new Date()): string {
