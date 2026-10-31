@@ -114,16 +114,15 @@ describe('the Library on a phone', () => {
     expect(await screen.findByRole('heading', { name: 'Heat' })).toBeInTheDocument()
   })
 
-  it('shows the filter field, the state pills and the count, with the menus behind Filters', async () => {
+  it('shows the filter field, the Filter and Sort buttons and the count in one wrapping row', async () => {
     fakeLibrary(rows())
     const list = await openLibrary()
     await userEvent.type(screen.getByRole('combobox', { name: 'Filter the Library' }), 'heat')
     expect(within(list).getAllByRole('option')).toHaveLength(1)
-    expect(screen.getByRole('tab', { name: /^All/ })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByText(/^1 of \d+ · Newest added$/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^Sort/ })).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
-    expect(screen.getByRole('button', { name: /^Sort/ })).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: /^All/ })).not.toBeInTheDocument() // the states are in the Filter menu
+    expect(screen.getByText(/^1 of \d+/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Filter' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sort: Newest added' })).toBeInTheDocument()
   })
 
   it("shows tick boxes once asked, and the ticked Titles' actions on a bar over the list", async () => {

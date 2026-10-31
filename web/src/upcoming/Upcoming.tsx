@@ -2,7 +2,7 @@
 // the view opens at the Today marker, and every entry says where it stands: not out, Wanted, downloading
 // or Imported. j/k and Enter move and open (a group opens or closes), `o` shows an entry's overview, and
 // `t` goes back to today.
-import { Button, Collapse, EmptyState, Entity, LoadMoreButton, Note, Tabs, Toggle } from '@hyprsh/design'
+import { Button, Collapse, EmptyState, Entity, LoadMoreButton, MenuDivider, MenuItem, MenuSection, Note } from '@hyprsh/design'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchNow } from '../api/grabs'
@@ -11,7 +11,8 @@ import { useQueue, type QueueItem } from '../api/queue'
 import { dayString, useTimeline, type UndatedItem, type UpcomingItem, type UpcomingSlot } from '../api/upcoming'
 import { plural } from '../format'
 import { useKey, useListNav } from '../keys'
-import { FilterStrip } from '../layout/FilterStrip'
+import { FilterButton } from '../layout/FilterButton'
+import { ScreenBar } from '../layout/ScreenBar'
 import { stackedRow, stackedRight } from '../layout/RowList'
 import { useNow } from '../time'
 import { cx } from '../ui'
@@ -21,6 +22,12 @@ import { airTime, buildDays, dayLabel, episodeRange, navRows, passes, relativeDa
 import { AgendaTimeline, DayHeading, RowDot, TimelineSkeleton, WeekLabel } from './Timeline'
 import { TitlePoster } from '../poster'
 import { UndatedList, UndatedRow } from './UndatedList'
+
+const kinds = [
+  { value: 'all', label: 'All' },
+  { value: 'movie', label: 'Movies' },
+  { value: 'series', label: 'Series' },
+] as const
 
 const BACK = 14
 const AHEAD = 60
@@ -114,28 +121,31 @@ export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void })
   let lastWeek = ''
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <FilterStrip>
-        <Tabs
-          variant="secondary"
-          aria-label="Show"
-          selected={filters.kind}
-          onChange={(v) => setFilters({ kind: v as 'all' | 'movie' | 'series' })}
-          tabs={[
-            { value: 'all', title: 'All' },
-            { value: 'movie', title: 'Movies' },
-            { value: 'series', title: 'Series' },
-          ]}
-        />
-        <Toggle size="small" labelCasing="normal" checked={filters.wantedOnly} onChange={(on) => setFilters({ wantedOnly: on })}>
-          Wanted only
-        </Toggle>
-        <Toggle size="small" labelCasing="normal" checked={filters.hideImported} onChange={(on) => setFilters({ hideImported: on })}>
-          Hide imported
-        </Toggle>
-        <Button variant="tertiary" size="small" className="ml-auto" onClick={jumpToday} title="Jump to today (t)">
-          Today
-        </Button>
-      </FilterStrip>
+      <ScreenBar
+        controls={
+          <FilterButton count={Number(filters.kind !== 'all') + Number(filters.wantedOnly) + Number(filters.hideImported)}>
+            <MenuSection title="Kind">
+              {kinds.map((k) => (
+                <MenuItem key={k.value} role="radio" checked={filters.kind === k.value} onSelect={() => setFilters({ kind: k.value })}>
+                  {k.label}
+                </MenuItem>
+              ))}
+            </MenuSection>
+            <MenuDivider />
+            <MenuItem checked={filters.wantedOnly} onSelect={() => setFilters({ wantedOnly: !filters.wantedOnly })}>
+              Wanted only
+            </MenuItem>
+            <MenuItem checked={filters.hideImported} onSelect={() => setFilters({ hideImported: !filters.hideImported })}>
+              Hide imported
+            </MenuItem>
+          </FilterButton>
+        }
+        actions={
+          <Button variant="tertiary" size="small" onClick={jumpToday} title="Jump to today (t)">
+            Today
+          </Button>
+        }
+      />
 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
         <div className="mx-auto max-w-3xl px-3 pb-8 sm:px-4">

@@ -6,10 +6,10 @@ import { useQueue } from '../api/queue'
 import { useOpenCleanup } from '../cleanup/launch'
 import { FilterBar } from '../filter/FilterBar'
 import { useKey, useListNav } from '../keys'
-import { FilterStrip } from '../layout/FilterStrip'
+import { FacetFilterButton, SortButton } from '../layout/FilterButton'
 import { PaneFooter } from '../layout/Pane'
 import { PhoneBackHeader } from '../layout/PhoneBackHeader'
-import { TabStrip } from '../layout/TabStrip'
+import { ScreenBar, ScreenCount } from '../layout/ScreenBar'
 import { WideListPane } from '../layout/WideListPane'
 import { usePhone } from '../responsive'
 import { useSelection } from '../selection'
@@ -20,8 +20,8 @@ import { EpisodeViewContext } from './episodeView'
 import { episodeCode, seasonName } from './episodes'
 import { useEpisodeSearch, type EpisodeActions } from './EpisodeActions'
 import { EpisodeHitRows, hitDomId } from './EpisodeHitRows'
-import { filterLibrary, libraryQualifiers, sortLabel, sortOfQuery, tabCounts, tabOf, withTab } from './filter'
-import { AddTitle, LibraryMenu, StateTabs, ViewSwitch } from './LibraryBar'
+import { filterLibrary, libraryQualifiers, tabCounts, tabOf, withTab } from './filter'
+import { AddTitle, LibraryMenu, StatusSection, ViewSwitch } from './LibraryBar'
 import { ManualSearch } from './ManualSearch'
 import { grabsByTitle } from './rowState'
 import { TitleDetail, type ManualSearchTarget } from './TitleDetail'
@@ -31,12 +31,10 @@ import { TitleSummary } from './TitleSummary'
 import { useEpisodeResults, type EpisodeHit } from './useEpisodeResults'
 import { useLibraryView } from './useLibraryView'
 
-/** The qualifiers with a filter menu, which the phone's Filters button counts. */
-const menuTerms = new Set(['kind', 'slot', 'profile', 'sort'])
-
 /**
- * The Library. Across the top, the state tabs (each an `is:` filter, with its count), the grid/list switch, the
- * Library-wide "…" menu and Add Title. The list view (the default) is two panes: the filterable list on the left and
+ * The Library. Across the top, one bar: the filter field with its Filter button (whose Status section holds the `is:`
+ * states, each with its count) and Sort, the grid/list switch and the count, then the Library-wide "…" menu and Add Title.
+ * The list view (the default) is two panes: the filterable list on the left and
  * the selected Title on the right. The grid view is a wall of posters; picking one opens its summary in a panel on
  * the right, and Open Title shows its whole page. The view is remembered in this browser, and `g` switches it.
  *
@@ -46,7 +44,7 @@ const menuTerms = new Set(['kind', 'slot', 'profile', 'sort'])
  * them together, and Escape clears the ticks.
  *
  * On a phone the list and the Title page are two screens: tapping a Title opens its page full screen (`titleOpen`,
- * kept by the Shell in the address bar so Back returns to the list), the filter menus sit behind a Filters button and
+ * kept by the Shell in the address bar so Back returns to the list), the bar wraps and
  * the rows show tick boxes once Tick Titles in the "…" menu asks for them.
  */
 export function Library({
@@ -199,7 +197,6 @@ export function Library({
     keys && grid && summary && selection.count === 0,
   )
 
-  const [filtersOpen, setFiltersOpen] = useState(false)
   const empty = titles.isSuccess && all.length === 0
   const total = rows.reduce((n, r) => n + r.size, 0)
   const counted = titles.isPending ? null : [`${rows.length} of ${all.length}`, total > 0 ? size(total) : null]
@@ -212,7 +209,7 @@ export function Library({
       value={query}
       onChange={onQuery}
       qualifiers={qualifiers}
-      menus={!phone || filtersOpen}
+      menus={false}
       onKeyDown={(e) => {
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
           e.preventDefault()
@@ -230,10 +227,10 @@ export function Library({
     />
   )
 
-  const tabs = <StateTabs phone={phone} selected={tabOf(parsed)} counts={counts} onSelect={(tab) => onQuery(withTab(query, tab, qualifiers))} />
+  const status = <StatusSection selected={tabOf(parsed)} counts={counts} onSelect={(tab) => onQuery(withTab(query, tab, qualifiers))} />
   const switcher = <ViewSwitch phone={phone} view={view} onChange={setView} />
   const menu = <LibraryMenu onAdopt={onAdopt} onCleanup={() => openCleanup()} onTick={phone ? () => selection.setActive(true) : undefined} />
-  const count = <span className="label-12 shrink-0 text-gray-900 tabular-nums">{counted ? counted.filter(Boolean).join(' · ') : <Skeleton width={48} height={14} />}</span>
+  const count = <ScreenCount>{counted ? counted.filter(Boolean).join(' · ') : <Skeleton width={48} height={14} />}</ScreenCount>
 
   const bulk = selection.count > 0 ? <BulkActions rows={rows.filter((r) => selection.has(r.id))} shown={rows.length} onTickAll={selection.checkAll} onClear={selection.clear} compact={phone} /> : null
 
@@ -337,47 +334,34 @@ export function Library({
       </div>
     )
 
-  if (phone) {
-    const filtering = parsed.terms.filter((t) => menuTerms.has(t.name)).length
+  // One bar across the whole screen, above the list and the Title; a Title's page over the grid has no filter to show.
+  const bar = (filtering: boolean) => (
+    <ScreenBar
+      menu={menu}
+      actions={phone ? undefined : <AddTitle onAdd={onAdd} />}
+      filter={filtering ? field : undefined}
+      controls={
+        <>
+          <FacetFilterButton query={query} onQuery={onQuery} qualifiers={qualifiers} lead={status} leadActive={parsed.terms.some((t) => t.name === 'is') ? 1 : 0} />
+          <SortButton query={query} onQuery={onQuery} qualifiers={qualifiers} />
+        </>
+      }
+      end={switcher}
+      count={count}
+    />
+  )
+
+  if (phone)
     return (
       <div className="flex min-h-0 flex-1 flex-col">
-        <FilterStrip>
-          <div className="flex w-full items-start gap-2">
-            <div className="min-w-0 flex-1">{field}</div>
-            <Button variant="secondary" size="small" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)}>
-              {filtering > 0 ? `Filters ${filtering}` : 'Filters'}
-            </Button>
-          </div>
-          <div className="w-full min-w-0">{tabs}</div>
-          <div className="flex w-full items-center gap-2">
-            <span className="label-12 min-w-0 flex-1 truncate text-gray-900 tabular-nums">
-              {counted ? [...counted, sortLabel(sortOfQuery(parsed))].filter(Boolean).join(' · ') : <Skeleton width={96} height={14} />}
-            </span>
-            {switcher}
-            {menu}
-          </div>
-        </FilterStrip>
+        {bar(true)}
         <div className="relative flex min-h-0 flex-1 flex-col">
           {rows.length === 0 && !titles.isPending ? nothing : items}
           {bulk}
         </div>
       </div>
     )
-  }
 
-  const bar = (
-    <TabStrip
-      end={
-        <>
-          {switcher}
-          {menu}
-          <AddTitle onAdd={onAdd} />
-        </>
-      }
-    >
-      {tabs}
-    </TabStrip>
-  )
   const hints = (
     <span className="label-12 flex items-center gap-1 text-gray-900 pointer-coarse:hidden">
       <KeyboardInput small>j</KeyboardInput>
@@ -392,7 +376,7 @@ export function Library({
   if (grid)
     return (
       <div className="flex min-h-0 flex-1 flex-col">
-        {bar}
+        {bar(!gridPage)}
         {gridPage ? (
           <div className="flex min-h-0 flex-1 flex-col">
             {!searching && <PhoneBackHeader onBack={closePage}>{current.title}</PhoneBackHeader>}
@@ -401,17 +385,11 @@ export function Library({
         ) : (
           <div className="flex min-h-0 flex-1">
             <div className="flex min-w-0 flex-1 flex-col">
-              <FilterStrip>
-                <div className="min-w-0 flex-1">{field}</div>
-              </FilterStrip>
               <div className="relative flex min-h-0 flex-1 flex-col">
                 {rows.length === 0 && !titles.isPending ? nothing : items}
                 {bulk}
               </div>
-              <PaneFooter>
-                {hints}
-                <span className="ml-auto">{count}</span>
-              </PaneFooter>
+              <PaneFooter>{hints}</PaneFooter>
             </div>
             {summary && current && (
               <TitleSummary
@@ -441,21 +419,14 @@ export function Library({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {bar}
+      {bar(true)}
       <div className="flex min-h-0 flex-1">
         <WideListPane>
-          {/* Not PaneHeader: it is a <header>, a second banner landmark that the shell's own tests (and a screen reader) count. */}
-          <FilterStrip>
-            <div className="w-full">{field}</div>
-          </FilterStrip>
           <div className="relative flex min-h-0 flex-1 flex-col">
             {items}
             {bulk}
           </div>
-          <PaneFooter>
-            {hints}
-            <span className="ml-auto">{count}</span>
-          </PaneFooter>
+          <PaneFooter>{hints}</PaneFooter>
         </WideListPane>
         {titlePage(focusList)}
       </div>

@@ -132,6 +132,18 @@ const current = () => document.querySelector('[aria-current="true"]')
 const cover = (row: HTMLElement) => within(row).getAllByRole('button', { hidden: true })[0] // the row's whole-row button, which a click lands on
 const rowOf = (text: string | RegExp) => within(timeline()).getByText(text).closest('li')!
 
+/** A checkable item of the Filter menu, which is opened first when it is closed. */
+async function filterItem(name: string) {
+  if (!screen.queryByRole('menuitemcheckbox', { name })) await userEvent.click(screen.getByRole('button', { name: /^Filter/ }))
+  return screen.getByRole('menuitemcheckbox', { name })
+}
+
+/** A Kind row of the Filter menu, which is opened first when it is closed. */
+async function kindItem(name: string) {
+  if (!screen.queryByRole('menuitemradio', { name })) await userEvent.click(screen.getByRole('button', { name: /^Filter/ }))
+  return screen.getByRole('menuitemradio', { name })
+}
+
 describe('Upcoming timeline', () => {
   it('asks for 14 days back to 60 ahead and opens at a Today marker between the past and the future', async () => {
     const asked = fakeAgenda([episode({ date: day(-3), title: 'Past Show', episode_name: 'Before', title_id: 5 }), movie({ date: day(2) })])
@@ -367,35 +379,36 @@ describe('Upcoming: filters', () => {
   it('shows Movies, Series or both', async () => {
     mixed()
     await openUpcoming()
-    await userEvent.click(screen.getByRole('tab', { name: 'Movies' }))
+    await userEvent.click(await kindItem('Movies'))
     expect(within(timeline()).queryByText('A Series')).not.toBeInTheDocument()
     expect(within(timeline()).getByText('A Movie')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('tab', { name: 'Series' }))
+    await userEvent.click(await kindItem('Series'))
     expect(within(timeline()).queryByText('A Movie')).not.toBeInTheDocument()
     expect(within(timeline()).getByText('A Series')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('tab', { name: 'All' }))
+    await userEvent.click(await kindItem('All'))
     expect(within(timeline()).getByText('A Movie')).toBeInTheDocument()
   })
 
   it('keeps only Wanted with Wanted only, and drops Imported with Hide imported', async () => {
     mixed()
     await openUpcoming()
-    await userEvent.click(screen.getByRole('switch', { name: 'Hide imported' }))
+    await userEvent.click(await filterItem('Hide imported'))
     expect(within(timeline()).queryByText('Filled Movie')).not.toBeInTheDocument()
     expect(within(timeline()).getByText('A Movie')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('switch', { name: 'Wanted only' }))
+    await userEvent.click(await filterItem('Wanted only'))
     expect(within(timeline()).queryByText('A Movie')).not.toBeInTheDocument()
     expect(within(timeline()).getByText('A Series')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Filter · 2' })).toBeInTheDocument() // the badge counts both
   })
 
   it('remembers them for the session, in the browser and not on the server', async () => {
     mixed()
     await openUpcoming()
-    await userEvent.click(screen.getByRole('switch', { name: 'Wanted only' }))
+    await userEvent.click(await filterItem('Wanted only'))
     await userEvent.click(screen.getByRole('button', { name: 'Overview' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Upcoming' }))
     await screen.findByRole('list', { name: 'Agenda' })
-    expect(screen.getByRole('switch', { name: 'Wanted only' })).toBeChecked()
+    expect(await filterItem('Wanted only')).toHaveAttribute('aria-checked', 'true')
     expect(within(timeline()).queryByText('A Movie')).not.toBeInTheDocument()
     sessionStorage.clear()
   })
@@ -415,8 +428,8 @@ describe('Upcoming: default filters', () => {
     serveDisplay({ upcoming_filters: { kind: 'series', wanted_only: true, hide_imported: true } })
     mixed()
     await openUpcoming()
-    await waitFor(() => expect(screen.getByRole('switch', { name: 'Wanted only' })).toBeChecked())
-    expect(screen.getByRole('switch', { name: 'Hide imported' })).toBeChecked()
+    await waitFor(async () => expect(await filterItem('Wanted only')).toHaveAttribute('aria-checked', 'true'))
+    expect(await filterItem('Hide imported')).toHaveAttribute('aria-checked', 'true')
     expect(within(timeline()).queryByText('A Movie')).not.toBeInTheDocument()
   })
 
@@ -424,12 +437,12 @@ describe('Upcoming: default filters', () => {
     serveDisplay({ upcoming_filters: { kind: 'all', wanted_only: true, hide_imported: false } })
     mixed()
     await openUpcoming()
-    await waitFor(() => expect(screen.getByRole('switch', { name: 'Wanted only' })).toBeChecked())
-    await userEvent.click(screen.getByRole('switch', { name: 'Wanted only' }))
+    await waitFor(async () => expect(await filterItem('Wanted only')).toHaveAttribute('aria-checked', 'true'))
+    await userEvent.click(await filterItem('Wanted only'))
     await userEvent.click(screen.getByRole('button', { name: 'Overview' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Upcoming' }))
     await screen.findByRole('list', { name: 'Agenda' })
-    expect(screen.getByRole('switch', { name: 'Wanted only' })).not.toBeChecked()
+    expect(await filterItem('Wanted only')).toHaveAttribute('aria-checked', 'false')
   })
 })
 

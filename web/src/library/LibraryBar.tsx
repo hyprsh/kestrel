@@ -1,36 +1,34 @@
-// The Library's state tabs (All, Wanted, Long Missing, Downloading, Unreleased, Unmonitored, each with its count)
-// and its view controls: the grid/list switch, the "…" menu with the Library-wide maintenance (Adopt, Clean Up) and
-// Add Title. A tab writes the filter's `is:` term (see ./filter.ts), so it is kept in the address bar like the rest.
-import { DotsMenu, MenuItem, Switch, SwitchControl, Tabs, Button, Tooltip } from '@hyprsh/design'
+// The Library's Status section of the Filter menu (All, Wanted, Long Missing, Downloading, Unreleased, Unmonitored,
+// each with its count) and its view controls: the grid/list switch, the "…" menu with the Library-wide maintenance (Adopt, Clean Up) and
+// Add Title.
+import { DotsMenu, MenuItem, MenuSection, Switch, SwitchControl, Button, Tooltip } from '@hyprsh/design'
 import { LayoutGrid, List, Plus } from 'lucide-react'
 import { stateTabs, type StateTab } from './filter'
 import type { LibraryView } from './useLibraryView'
 
-/** A tab's name and its count; Long Missing's count is red while there are any. */
-function TabTitle({ label, count, alarm }: { label: string; count: number | null; alarm?: boolean }) {
+/**
+ * The Status section of the Filter menu: All, Wanted, Long Missing, Downloading, Unreleased and Unmonitored, each with
+ * its count. A status is the filter's `is:` term (see ./filter.ts), so it is kept in the address bar like the rest; All
+ * takes the term out. `selected` is '' when the filter's `is:` is no status of this list.
+ */
+export function StatusSection({ selected, counts, onSelect }: { selected: StateTab | ''; counts: Record<StateTab, number> | null; onSelect: (tab: StateTab) => void }) {
   return (
-    <>
-      {label}
-      {count !== null && (
-        <>
-          {' '}
-          <span className={`tabular-nums ${alarm && count > 0 ? 'text-red-900' : 'text-gray-900'}`}>{count}</span>
-        </>
-      )}
-    </>
-  )
-}
-
-/** The state tabs: underlined on a wide screen, pills that scroll sideways on a phone. `selected` is '' when the filter's `is:` is no tab's. */
-export function StateTabs({ selected, counts, onSelect, phone }: { selected: StateTab | ''; counts: Record<StateTab, number> | null; onSelect: (tab: StateTab) => void; phone: boolean }) {
-  return (
-    <Tabs
-      aria-label="Library states"
-      variant={phone ? 'secondary' : 'primary'}
-      selected={selected}
-      onChange={(v) => onSelect(v as StateTab)}
-      tabs={stateTabs.map((t) => ({ value: t.value, title: <TabTitle label={t.label} count={counts ? counts[t.value] : null} alarm={t.value === 'long_missing'} /> }))}
-    />
+    <MenuSection title="Status">
+      {stateTabs.map((t) => {
+        const n = counts?.[t.value]
+        return (
+          <MenuItem
+            key={t.value}
+            role="radio"
+            checked={selected === t.value}
+            onSelect={() => onSelect(t.value)}
+            suffix={n === undefined ? undefined : <span className={`tabular-nums ${t.value === 'long_missing' && n > 0 ? 'text-red-900' : 'text-gray-900'}`}>{n}</span>}
+          >
+            {t.label}
+          </MenuItem>
+        )
+      })}
+    </MenuSection>
   )
 }
 

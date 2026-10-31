@@ -172,14 +172,14 @@ describe('the Library list', () => {
     expect(await screen.findByRole('dialog', { name: /command menu/i })).toBeInTheDocument()
   })
 
-  it('shows the key hints and the count in the footer', async () => {
+  it('shows the key hints in the footer and the count at the end of the screen bar', async () => {
     fakeLibrary(rows())
     await openLibrary()
 
     const count = await screen.findByText('3 of 3')
-    const footer = count.closest('footer')
-    expect(footer).toBeInTheDocument()
-    expect(within(footer!).getByText('j')).toBeInTheDocument()
+    expect(count.closest('footer')).not.toBeInTheDocument()
+    expect(within(screen.getByRole('contentinfo')).getByText('j')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Filter the Library' }).compareDocumentPosition(count) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })
 
@@ -370,7 +370,7 @@ describe('the Library state tabs and sort', () => {
     expect(order()).toEqual(['Zodiac', 'alien', 'Heat']) // as added
 
     await userEvent.click(screen.getByRole('button', { name: /^Sort/ }))
-    await userEvent.click(screen.getByRole('option', { name: 'Name A–Z' }))
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'Name A–Z' }))
     expect(filter()).toHaveValue('sort:name-asc')
     expect(order()).toEqual(['alien', 'Heat', 'Zodiac'])
     expect(new URLSearchParams(location.search).get('q')).toBe('sort:name-asc')

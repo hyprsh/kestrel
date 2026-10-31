@@ -40,7 +40,8 @@ function fakeJobs(items: Job[]) {
 async function openJobs(client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   render(<App client={client} />)
   await userEvent.click(await screen.findByRole('button', { name: 'Activity' }))
-  await userEvent.click(await screen.findByRole('tab', { name: /^Background Jobs/ }))
+  await userEvent.click(await screen.findByRole('button', { name: /^Activity:/ }))
+  await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Background Jobs' }))
   return screen.findByRole('region', { name: /^Background jobs/ })
 }
 

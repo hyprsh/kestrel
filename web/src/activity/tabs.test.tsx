@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { fakeGrabs, grabEntry } from '../test/grabs'
@@ -13,7 +13,18 @@ type Status = components['schemas']['SystemStatus']
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 const url = () => location.pathname + location.search
-const tab = (name: RegExp | string) => screen.findByRole('tab', { name })
+/** The view switcher, naming the page the screen is on. */
+const onView = (name: string) => screen.findByRole('button', { name: `Activity: ${name}` })
+/** Opens the switcher and picks a page. */
+async function goTo(name: RegExp | string, user = userEvent) {
+  await user.click(await screen.findByRole('button', { name: /^Activity:/ }))
+  await user.click(await screen.findByRole('menuitemradio', { name }))
+}
+/** The switcher's open menu, to read what each page shows beside its name. */
+async function openSwitcher() {
+  await userEvent.click(await screen.findByRole('button', { name: /^Activity:/ }))
+  return screen.findByRole('menu')
+}
 
 const idle = { search_used: 0, search_max: null, grab_used: null, grab_max: null, search_paused_until: null, grabs_paused: false, grabs_paused_until: null }
 const alpha = { instance_id: 11, name: 'Alpha', state: 'ok' as const, message: null, ...idle, search_used: 42, search_max: 100 }
@@ -30,16 +41,19 @@ const fakeStatus = (s: Status) => server.use(http.get('/system/status', ({ respo
 
 beforeEach(() => history.replaceState(null, '', '/'))
 
-describe('Activity tabs', () => {
-  it('shows Grabs, Health and Background Jobs, Grabs selected at /activity with the number of active Grabs', async () => {
+describe('Activity views', () => {
+  it('lists Grabs, Health and Background Jobs in the switcher, Grabs selected at /activity with the number of active Grabs', async () => {
     fakeQueue([queueItem({ grab_id: 1, phase: 'downloading' }), queueItem({ grab_id: 2, phase: 'queued' })])
     history.replaceState(null, '', '/activity')
     renderApp()
 
-    expect(await tab(/^Grabs/)).toHaveAttribute('aria-selected', 'true')
-    expect(await tab(/^Grabs 2/)).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /^Health/ })).toHaveAttribute('aria-selected', 'false')
-    expect(screen.getByRole('tab', { name: /^Background Jobs/ })).toHaveAttribute('aria-selected', 'false')
+    expect(await onView('Grabs')).toBeInTheDocument()
+    const menu = await openSwitcher()
+    expect(within(menu).getByRole('menuitemradio', { name: 'Grabs' })).toHaveAttribute('aria-checked', 'true')
+    await waitFor(() => expect(within(menu).getByRole('menuitemradio', { name: 'Grabs' })).toHaveTextContent('2'))
+    expect(within(menu).getByRole('menuitemradio', { name: 'Health' })).toHaveAttribute('aria-checked', 'false')
+    expect(within(menu).getByRole('menuitemradio', { name: 'Background Jobs' })).toHaveAttribute('aria-checked', 'false')
+    await userEvent.keyboard('{Escape}')
     expect(await screen.findByRole('combobox', { name: 'Filter Activity' })).toBeInTheDocument()
   })
 
@@ -49,24 +63,24 @@ describe('Activity tabs', () => {
     renderApp()
     expect(await screen.findByRole('region', { name: 'Done · 1' })).toBeInTheDocument()
 
-    await userEvent.click(await tab(/^Health/))
+    await goTo('Health')
     expect(url()).toBe('/activity/health')
-    await userEvent.click(await tab(/^Background Jobs/))
+    await goTo('Background Jobs')
     expect(url()).toBe('/activity/jobs')
-    await userEvent.click(await tab(/^Grabs/))
+    await goTo('Grabs')
     expect(url()).toBe('/activity?q=stage%3Adone')
     expect(await screen.findByRole('combobox', { name: 'Filter Activity' })).toHaveValue('stage:done')
   })
 
   it('opens at /activity/health, /activity/jobs and the old /activity/running (Background Jobs)', async () => {
     for (const [path, name] of [
-      ['/activity/health', /^Health/],
-      ['/activity/jobs', /^Background Jobs/],
-      ['/activity/running', /^Background Jobs/],
+      ['/activity/health', 'Health'],
+      ['/activity/jobs', 'Background Jobs'],
+      ['/activity/running', 'Background Jobs'],
     ] as const) {
       history.replaceState(null, '', path)
       const { unmount } = renderApp()
-      expect(await tab(name)).toHaveAttribute('aria-selected', 'true')
+      expect(await onView(name)).toBeInTheDocument()
       unmount()
     }
     history.replaceState(null, '', '/activity/running')
@@ -79,45 +93,27 @@ describe('Activity tabs', () => {
   it('moves between tabs with Back and Forward', async () => {
     history.replaceState(null, '', '/activity')
     renderApp()
-    await userEvent.click(await tab(/^Health/))
-    await userEvent.click(await tab(/^Background Jobs/))
+    await goTo('Health')
+    await goTo('Background Jobs')
 
     history.back()
-    await waitFor(() => expect(screen.getByRole('tab', { name: /^Health/ })).toHaveAttribute('aria-selected', 'true'))
+    expect(await onView('Health')).toBeInTheDocument()
     expect(url()).toBe('/activity/health')
     history.back()
-    await waitFor(() => expect(screen.getByRole('tab', { name: /^Grabs/ })).toHaveAttribute('aria-selected', 'true'))
+    expect(await onView('Grabs')).toBeInTheDocument()
     history.forward()
-    await waitFor(() => expect(screen.getByRole('tab', { name: /^Health/ })).toHaveAttribute('aria-selected', 'true'))
-  })
-
-  it('opens a tab in a new window on Ctrl-click, like a link, and stays on the tab it was on', async () => {
-    const open = vi.spyOn(window, 'open').mockReturnValue(null)
-    history.replaceState(null, '', '/activity')
-    renderApp()
-
-    const user = userEvent.setup()
-    await user.keyboard('{Control>}')
-    await user.click(await tab(/^Health/))
-    await user.keyboard('{/Control}')
-
-    expect(String(open.mock.calls[0][0])).toBe('http://localhost:3000/activity/health')
-    expect(url()).toBe('/activity')
-    expect(screen.getByRole('tab', { name: /^Grabs/ })).toHaveAttribute('aria-selected', 'true')
-  })
-
-  it('follows the WAI-ARIA tabs keys', async () => {
-    history.replaceState(null, '', '/activity')
-    renderApp()
-    const grabs = await tab(/^Grabs/)
-    grabs.focus()
-    await userEvent.keyboard('{ArrowRight}')
-    expect(screen.getByRole('tab', { name: /^Health/ })).toHaveFocus()
-    expect(url()).toBe('/activity/health')
+    expect(await onView('Health')).toBeInTheDocument()
   })
 })
 
-describe('Activity Health tab', () => {
+/** The state word of the dot beside Health in the open switcher. */
+async function expectDot(word: 'failing' | 'warning') {
+  const menu = await openSwitcher()
+  await waitFor(() => expect(within(menu).getByRole('menuitemradio', { name: 'Health' })).toHaveTextContent(word))
+  await userEvent.keyboard('{Escape}')
+}
+
+describe('Activity Health view', () => {
   const openHealth = async () => {
     history.replaceState(null, '', '/activity/health')
     renderApp()
@@ -141,12 +137,12 @@ describe('Activity Health tab', () => {
     expect(panel).toHaveTextContent(/TRaSH.*3 days old/)
   })
 
-  it('says how many checks fail, how many are ok and when they were checked, and the tab shows a dot', async () => {
+  it('says how many checks fail, how many are ok and when they were checked, and the switcher shows a dot beside Health', async () => {
     fakeStatus(status())
     const panel = await openHealth()
 
     expect(await within(panel).findByText(/1 problem/)).toHaveTextContent(/1 problem · 4 OK · checked \d/)
-    expect(await tab(/^Health failing/)).toBeInTheDocument()
+    await expectDot('failing')
   })
 
   it('counts warnings too, and shows a warning dot when nothing fails', async () => {
@@ -156,7 +152,7 @@ describe('Activity Health tab', () => {
 
     expect(await within(panel).findByText(/2 warnings/)).toHaveTextContent(/^2 warnings · 3 OK · checked \d/)
     expect(panel).not.toHaveTextContent(/All checks OK/)
-    expect(await tab(/^Health warning/)).toBeInTheDocument()
+    await expectDot('warning')
   })
 
   it('counts problems and warnings together, and the dot is for the failures', async () => {
@@ -165,7 +161,7 @@ describe('Activity Health tab', () => {
     const panel = await openHealth()
 
     expect(await within(panel).findByText(/1 problem/)).toHaveTextContent(/^1 problem · 1 warning · 3 OK · checked \d/)
-    expect(await tab(/^Health failing/)).toBeInTheDocument()
+    await expectDot('failing')
   })
 
   it('has no dot and says all checks are OK when every check passes', async () => {
@@ -173,7 +169,7 @@ describe('Activity Health tab', () => {
     const panel = await openHealth()
 
     expect(await within(panel).findByText(/All checks OK/)).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /^Health/ })).toHaveAccessibleName('Health')
+    expect(within(await openSwitcher()).getByRole('menuitemradio', { name: 'Health' })).not.toHaveTextContent(/failing|warning/)
   })
 
   it('shows the dot from the other tabs too', async () => {
@@ -181,7 +177,7 @@ describe('Activity Health tab', () => {
     history.replaceState(null, '', '/activity')
     renderApp()
 
-    expect(await tab(/^Health failing/)).toBeInTheDocument()
+    await expectDot('failing')
   })
 
   it("offers the failing check's action from the matching Needs attention row", async () => {
