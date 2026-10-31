@@ -399,7 +399,7 @@ describe('Adoption review of a large plan', () => {
     expect(await screen.findByText('Showing 200 of 250')).toBeInTheDocument()
     expect(state.pages.at(-1)).toEqual({ limit: '100', cursor: '100', filter: null })
     expect(screen.getByRole('button', { name: 'Adopt 250 Titles' })).toBeInTheDocument()
-  }, 20_000) // renders 200 rows; the default 5 s is too tight when the whole suite runs at once
+  })
 
   it('asks the server for the chosen filter', async () => {
     const { state, user } = await openPlan([...moreRows(3), doubtful])
