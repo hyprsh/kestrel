@@ -3,10 +3,13 @@ package api_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/hyprsh/kestrel/internal/app"
 	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/jobs"
 )
@@ -121,5 +124,47 @@ func TestTheDailyPruneTrimsTheFolderChangeFeed(t *testing.T) {
 	}
 	if got := getFolderChanges(t, b, "?marker=fc1:2"); got.Expired || len(got.Changes) != 1 {
 		t.Fatalf("boundary marker = %+v", got)
+	}
+}
+
+func TestAnImportAndADeletionReachTheFeedWithNoMediaServer(t *testing.T) {
+	t.Parallel()
+	s := newSearchBare(t, func(o *app.Options) { o.MediaRefreshDelay = 30 * time.Millisecond })
+	start := getFolderChanges(t, s.browser, "")
+	s.addMovie(t, `{"slot":"standard","profile":"hd-primary"}`)
+	s.prober.set(goodProbe(), nil)
+	s.download(t, map[string]string{"paddington.mkv": "the movie"})
+	s.pass(t, jobs.Poll)
+	s.pass(t, jobs.Import)
+	folder := filepath.Dir(s.version(t, s.hd).File.Path)
+	marker := url.QueryEscape(start.NextMarker)
+
+	created := waitFolderChanges(t, s.browser, marker, 1)
+	if created.Changes[0].Path != folder || created.Changes[0].Kind != "created" {
+		t.Fatalf("after the Import = %+v, want %s created", created, folder)
+	}
+
+	if r := s.valid("DELETE", fmt.Sprintf("/titles/%d?delete_files=true", s.title), ""); r.Status != 204 {
+		t.Fatalf("DELETE = %d %s", r.Status, r.Body)
+	}
+	got := waitFolderChanges(t, s.browser, marker, 2)
+	if got.Changes[1].Path != folder || got.Changes[1].Kind != "deleted" {
+		t.Fatalf("after the deletion = %+v, want %s deleted", got, folder)
+	}
+}
+
+// waitFolderChanges polls the feed after marker until it holds n changes.
+func waitFolderChanges(t *testing.T, b *browser, marker string, n int) folderChangesJSON {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		got := getFolderChanges(t, b, "?marker="+marker)
+		if len(got.Changes) >= n {
+			return got
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("feed = %+v, want %d changes", got, n)
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 }

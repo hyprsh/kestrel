@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -12,6 +14,7 @@ import (
 
 	pluginv1 "github.com/Silo-Server/silo-plugin-sdk/pkg/pluginproto/silo/plugin/v1"
 
+	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/silo"
 )
 
@@ -282,5 +285,54 @@ func TestTheManifestDeclaresTheScanSource(t *testing.T) {
 	}
 	if modes, _ := d["delivery_modes"].([]any); len(modes) != 1 || modes[0] != "poll" {
 		t.Errorf("delivery_modes = %v", d["delivery_modes"])
+	}
+}
+
+// TestTheScanSourceReadsARealKestrelsFeed polls a real Kestrel: the first poll
+// starts from now, a recorded Title folder change comes back as a subtree scan,
+// and a marker from another Kestrel rescans every Root folder.
+func TestTheScanSourceReadsARealKestrelsFeed(t *testing.T) {
+	k := newKestrel(t)
+	more := k.moreMovies()
+	s := silo.NewScanSource(silo.Options{})
+	poll := func(marker string) *pluginv1.PollChangesResponse {
+		t.Helper()
+		res, err := s.PollChanges(context.Background(), &pluginv1.PollChangesRequest{
+			CapabilityId: "kestrel-imports", Marker: marker,
+			Connection: &pluginv1.ResolvedConnection{BaseUrl: k.URL(), ApiKey: k.Key},
+		})
+		if err != nil {
+			t.Fatalf("PollChanges(%q): %v", marker, err)
+		}
+		return res
+	}
+
+	first := poll("")
+	if len(first.GetChanges()) != 0 || first.GetNextMarker() == "" {
+		t.Fatalf("first poll = %v", first)
+	}
+	folder := filepath.Join(k.Data, "media", "movies", "Paddington (2014)")
+	if err := imports.NewFolderFeed(k.st, nil).Record(context.Background(), folder, true); err != nil {
+		t.Fatal(err)
+	}
+	got := poll(first.GetNextMarker())
+	if c := got.GetChanges(); len(c) != 1 || c[0].GetSourcePath() != folder || c[0].GetScope() != scopeSubtree {
+		t.Fatalf("after a change = %v", c)
+	}
+	if again := poll(got.GetNextMarker()); len(again.GetChanges()) != 0 || again.GetNextMarker() != got.GetNextMarker() {
+		t.Fatalf("polling past it = %v", again)
+	}
+
+	rescan := poll("fc1:999")
+	var paths []string
+	for _, c := range rescan.GetChanges() {
+		if c.GetScope() != scopeAuto {
+			t.Fatalf("rescan scope = %v", c)
+		}
+		paths = append(paths, c.GetSourcePath())
+	}
+	want := []string{filepath.Join(k.Data, "media", "movies") + "/", more + "/", filepath.Join(k.Data, "media", "tv") + "/"}
+	if !slices.Equal(paths, want) || rescan.GetNextMarker() != got.GetNextMarker() {
+		t.Fatalf("rescan = %v (marker %q), want %v", paths, rescan.GetNextMarker(), want)
 	}
 }

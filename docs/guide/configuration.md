@@ -388,7 +388,7 @@ A Silo Series Request that names no seasons then starts with season 1. Kestrel a
 
 ## Telling Silo about Imports through Autoscan
 
-The Silo plugin (`kestrel-silo`) can tell Silo which Title folders Kestrel changed, so Silo scans a new Import without the Silo media-server instance. The plugin's Kestrel Imports scan source polls Kestrel's folder changes and hands Silo Autoscan the folders as paths. Kestrel keeps 30 days of changes and the plugin keeps no state: Silo stores the marker it polled up to, so a restart of Kestrel or Silo loses nothing.
+The Silo plugin (`kestrel-silo`) can tell Silo which Title folders Kestrel changed, so Silo scans a new Import without the Silo media-server instance. The plugin's Kestrel Imports scan source polls Kestrel's folder changes and hands Silo Autoscan the folders as paths. Kestrel keeps 30 days of changes and the plugin keeps no state: Silo stores the marker it polled up to, so a change Kestrel has recorded is still there after a restart of Kestrel or Silo. Kestrel records a Title folder's change once it settles, about 10 seconds after the last change to it, the same moment it tells the media servers.
 
 1. Install the Silo plugin and add its Kestrel connection (Kestrel's address and an API key from Settings), as in the plugin's setup steps.
 2. In Silo, open Admin > Libraries > Autoscan, enable Autoscan and choose Add source > Kestrel Imports.
@@ -397,7 +397,7 @@ The Silo plugin (`kestrel-silo`) can tell Silo which Title folders Kestrel chang
 
 - **When Silo sees an Import:** Silo's poll interval (Autoscan settings, 600 seconds by default) decides it. A per-source interval can only make a source poll less often. Silo scans a new or changed Title folder; for a deleted one it scans the Root folder, so the missing items are marked missing.
 - **After a long gap:** if Silo polls with a marker older than 30 days, or one from another Kestrel, Kestrel cannot say what changed, and Silo scans every Root folder once.
-- **The Silo media-server instance:** it keeps working and is not needed alongside the scan source. Running both only asks Silo for the same scan twice.
+- **The Silo media-server instance:** it keeps working. Once the scan source works in your Silo, the media-server instance is no longer needed for scans.
 - **Older Kestrel:** the scan source reports "no folder-change feed" in Silo's Autoscan activity log. Update Kestrel to the release that matches the plugin.
 
 ## The API
