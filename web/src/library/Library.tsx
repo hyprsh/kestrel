@@ -177,7 +177,7 @@ export function Library({
   const menu = <LibraryMenu onAdopt={onAdopt} onCleanup={() => openCleanup()} onTick={phone ? () => selection.setActive(true) : undefined} />
   const count = <span className="label-12 shrink-0 text-gray-900 tabular-nums">{counted ? counted.filter(Boolean).join(' · ') : <Skeleton width={48} height={14} />}</span>
 
-  const bulk = selection.count > 0 ? <BulkActions rows={rows.filter((r) => selection.has(r.id))} shown={rows.length} onTickAll={selection.checkAll} onClear={selection.clear} /> : null
+  const bulk = selection.count > 0 ? <BulkActions rows={rows.filter((r) => selection.has(r.id))} shown={rows.length} onTickAll={selection.checkAll} onClear={selection.clear} compact={phone} /> : null
 
   const pick = (r: TitleRow) => {
     onSelect(r.id)
@@ -303,12 +303,14 @@ export function Library({
           </div>
         ) : (
           <div className="flex min-h-0 flex-1">
-            <div className="relative flex min-w-0 flex-1 flex-col">
+            <div className="flex min-w-0 flex-1 flex-col">
               <FilterStrip>
                 <div className="min-w-0 flex-1">{field}</div>
               </FilterStrip>
-              {rows.length === 0 && !titles.isPending ? nothing : items}
-              {bulk}
+              <div className="relative flex min-h-0 flex-1 flex-col">
+                {rows.length === 0 && !titles.isPending ? nothing : items}
+                {bulk}
+              </div>
               <PaneFooter>
                 {hints}
                 <span className="ml-auto">{count}</span>

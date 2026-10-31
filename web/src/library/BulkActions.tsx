@@ -55,7 +55,20 @@ type Form = 'monitor' | 'switch_profile' | 'add_version' | 'remove_version' | 'r
  * rarer actions under More…, and Clear (Escape clears too). The Title pane beside the list stays open. An action
  * that needs a choice (a Slot, a Profile, a monitoring mode) or a confirmation asks in a dialog.
  */
-export function BulkActions({ rows, shown, onTickAll, onClear }: { rows: TitleRow[]; shown: number; onTickAll: () => void; onClear: () => void }) {
+export function BulkActions({
+  rows,
+  shown,
+  onTickAll,
+  onClear,
+  compact = false,
+}: {
+  rows: TitleRow[]
+  shown: number
+  onTickAll: () => void
+  onClear: () => void
+  /** A phone's bar: Unmonitor moves into More…, so the count keeps its words. */
+  compact?: boolean
+}) {
   const bulk = useBulkTitles()
   const profiles = (useProfiles().data ?? []).filter((p) => p.enabled)
   const report = useReport()
@@ -85,15 +98,18 @@ export function BulkActions({ rows, shown, onTickAll, onClear }: { rows: TitleRo
         <Button variant="primary" size="small" disabled={busy} onClick={() => run('Search now', { action: 'search', title_ids: ids })}>
           Search Now
         </Button>
-        <Button variant="secondary" size="small" disabled={busy} onClick={() => run('Unmonitor', { action: 'monitor', monitored: false, title_ids: ids })}>
-          Unmonitor
-        </Button>
+        {!compact && (
+          <Button variant="secondary" size="small" disabled={busy} onClick={() => run('Unmonitor', { action: 'monitor', monitored: false, title_ids: ids })}>
+            Unmonitor
+          </Button>
+        )}
         <Menu.Container position="top-end">
           <Menu.Button variant="secondary" size="small" disabled={busy}>
             More…
           </Menu.Button>
           <Menu width={220}>
             <MenuItem onSelect={() => (hasSeries ? setForm('monitor') : run('Monitor', { action: 'monitor', monitored: true, title_ids: ids }))}>{hasSeries ? 'Monitor…' : 'Monitor'}</MenuItem>
+            {compact && <MenuItem onSelect={() => run('Unmonitor', { action: 'monitor', monitored: false, title_ids: ids })}>Unmonitor</MenuItem>}
             <MenuItem onSelect={() => setForm('switch_profile')}>Switch Profile…</MenuItem>
             <MenuItem onSelect={() => setForm('add_version')}>Add Version…</MenuItem>
             <MenuItem onSelect={() => setForm('remove_version')}>Remove Version…</MenuItem>

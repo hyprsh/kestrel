@@ -80,7 +80,7 @@ describe('the Library filter menus', () => {
     await userEvent.click(screen.getByRole('option', { name: 'Wanted longest' }))
     expect(field).toHaveValue('sort:wanted_since')
     await userEvent.click(menu(/^Sort/))
-    await userEvent.click(screen.getByRole('option', { name: 'Added, newest first' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Newest added' }))
     expect(field).toHaveValue('')
   })
 })

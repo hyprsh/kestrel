@@ -19,10 +19,10 @@ type ProfileChoice = { name: string; description?: string }
 
 /** How the list can be ordered, each way round. A bare key (`sort:name`) runs its `first` way. */
 const sortKeys = {
-  added: { first: 'desc', asc: 'Added, oldest first', desc: 'Added, newest first' },
-  name: { first: 'asc', asc: 'Name, A to Z', desc: 'Name, Z to A' },
-  year: { first: 'desc', asc: 'Year, oldest first', desc: 'Year, newest first' },
-  size: { first: 'desc', asc: 'Size, smallest first', desc: 'Size, largest first' },
+  added: { first: 'desc', asc: 'Oldest added', desc: 'Newest added' },
+  name: { first: 'asc', asc: 'Name A–Z', desc: 'Name Z–A' },
+  year: { first: 'desc', asc: 'Oldest year', desc: 'Newest year' },
+  size: { first: 'desc', asc: 'Smallest', desc: 'Largest' },
   wanted_since: { first: 'asc', asc: 'Wanted longest', desc: 'Wanted shortest' },
 } as const
 

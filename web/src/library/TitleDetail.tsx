@@ -2,6 +2,7 @@ import { Entity, Note, Skeleton } from '@hyprsh/design'
 import { forwardRef, useRef } from 'react'
 import { useProfiles, useTitle, type EpisodeScope, type TitleDetail as Detail, type TitleRow } from '../api/queries'
 import { TitlePoster } from '../poster'
+import { usePhone } from '../responsive'
 import { sourceName } from '../requests/source'
 import type { SlotKey } from './bits'
 import { ExternalIds } from './ExternalIds'
@@ -91,6 +92,7 @@ export type ManualSearchTarget = { versionId: number; slot: SlotKey; profileName
 
 function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (search: ManualSearchTarget) => void }) {
   const profiles = useProfiles()
+  const phone = usePhone()
   const episodes = useRef<HTMLDivElement>(null)
   const names = new Map((profiles.data ?? []).map((p) => [p.key, p.name]))
   const profileName = (key: string) => names.get(key) ?? key
@@ -99,7 +101,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
   return (
     <div className="@container">
       <div className="flex gap-5">
-        <TitlePoster id={title.id} hasPoster={title.has_poster} alt={`${title.title} poster`} size="2xl" />
+        <TitlePoster id={title.id} hasPoster={title.has_poster} alt={`${title.title} poster`} size={phone ? 'xl' : '2xl'} />
         <div className="min-w-0">
           <h2 className="heading-24">{title.title}</h2>
           {title.primary_title !== title.title && <div className="copy-14 text-gray-900">{title.primary_title}</div>}
@@ -121,7 +123,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
       <TitleDownloads titleId={title.id} />
 
       {/* A Series' Versions sit beside its episodes once the pane is wide enough for both, and above them before. */}
-      <div className={title.kind === 'series' ? 'grid grid-cols-1 gap-x-8 @4xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]' : undefined}>
+      <div className={title.kind === 'series' ? 'grid grid-cols-1 gap-x-8 @5xl:grid-cols-2' : undefined}>
         <VersionRows title={title} profiles={profiles.data ?? []} profileName={profileName} onCoverage={() => episodes.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })} />
 
         {title.kind === 'series' && (

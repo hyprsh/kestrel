@@ -114,7 +114,7 @@ describe('the Library on a phone', () => {
     await userEvent.type(screen.getByRole('combobox', { name: 'Filter the Library' }), 'heat')
     expect(within(list).getAllByRole('option')).toHaveLength(1)
     expect(screen.getByRole('tab', { name: /^All/ })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByText(/^1 of \d+ · Added, newest first$/)).toBeInTheDocument()
+    expect(screen.getByText(/^1 of \d+ · Newest added$/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Sort/ })).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
     expect(screen.getByRole('button', { name: /^Sort/ })).toBeInTheDocument()
@@ -130,6 +130,7 @@ describe('the Library on a phone', () => {
     await userEvent.click(within(list).getByRole('checkbox', { name: 'Tick Heat' }))
     const bar = screen.getByRole('toolbar', { name: '1 ticked' })
     expect(within(bar).getByRole('button', { name: 'Search Now' })).toBeInTheDocument()
+    expect(within(bar).queryByRole('button', { name: 'Unmonitor' })).not.toBeInTheDocument() // in More…, so the count keeps its words
     expect(location.pathname).toBe('/library') // ticking opens no Title
   })
 })

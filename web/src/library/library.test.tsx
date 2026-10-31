@@ -370,7 +370,7 @@ describe('the Library state tabs and sort', () => {
     expect(order()).toEqual(['Zodiac', 'alien', 'Heat']) // as added
 
     await userEvent.click(screen.getByRole('button', { name: /^Sort/ }))
-    await userEvent.click(screen.getByRole('option', { name: 'Name, A to Z' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Name A–Z' }))
     expect(filter()).toHaveValue('sort:name-asc')
     expect(order()).toEqual(['alien', 'Heat', 'Zodiac'])
     expect(new URLSearchParams(location.search).get('q')).toBe('sort:name-asc')
