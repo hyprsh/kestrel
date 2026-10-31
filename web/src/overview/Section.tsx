@@ -53,7 +53,7 @@ export function ViewAllHere({ count, open, onToggle }: { count: number; open: bo
   )
 }
 
-/** The one line a section shows when it has nothing. */
+/** The one line a section shows when it has nothing. Its own padding is taken back, so the gap under the heading is the one a row list has. */
 export function EmptyLine({ title }: { title: string }) {
-  return <EmptyState size="small" title={title} />
+  return <EmptyState size="small" title={title} className="-my-2" />
 }

@@ -8,7 +8,7 @@ import type { UpcomingItem, UpcomingSlot } from '../api/upcoming'
 import { percent } from '../format'
 import { phases } from '../grabs/phase'
 import { slotLabel, type SlotKey } from '../library/bits'
-import { airTime, episodeCode, resolutionOf, standing, wantedFor, type Standing, type Tally } from './state'
+import { episodeCode, resolutionOf, standing, wantedFor, type Standing, type Tally } from './state'
 
 const releaseLabel = { theatrical: 'In cinemas', digital: 'Digital', physical: 'Physical' } as const
 const markerLabel = { series_premiere: 'Series premiere', season_premiere: 'Season premiere', season_finale: 'Season finale', special: 'Special' } as const
@@ -222,22 +222,5 @@ export function EntryName({ item }: { item: UpcomingItem }) {
       <span className="font-medium">{item.title}</span>
       {item.year ? <span className="text-gray-900"> {item.year}</span> : null}
     </>
-  )
-}
-
-/** The one-line form: name, notes and state badges. Overview's Coming section uses it. */
-export function UpcomingLine({ item, queue, now }: { item: UpcomingItem; queue: readonly QueueItem[]; now: number }) {
-  const at = airTime(item)
-  return (
-    <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-      <span className="min-w-0 truncate">
-        <EntryName item={item} />
-      </span>
-      {item.kind === 'movie' ? <MovieNotes item={item} /> : <Markers markers={item.markers} />}
-      {at && <span className="label-12 text-gray-900 tabular">{at}</span>}
-      <span className="ml-auto">
-        <StateBadges item={item} queue={queue} now={now} />
-      </span>
-    </span>
   )
 }

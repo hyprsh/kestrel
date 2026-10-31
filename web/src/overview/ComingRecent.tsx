@@ -9,8 +9,8 @@ import { slotLabel, type SlotKey } from '../library/bits'
 import { placePath } from '../place'
 import { TitlePoster } from '../poster'
 import { useNow } from '../time'
-import { UpcomingLine } from '../upcoming/bits'
-import { dayLabel, upcomingKey } from '../upcoming/state'
+import { EntryName, Markers, MovieNotes, StateBadges } from '../upcoming/bits'
+import { airTime, dayLabel, upcomingKey } from '../upcoming/state'
 import type { OverviewNav } from './nav'
 import { EmptyLine, firstFive, Section, ViewAll } from './Section'
 
@@ -34,9 +34,10 @@ export function Coming({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void
       ) : coming.data && comingItems.length === 0 ? (
         <EmptyLine title="Nothing is due in the next 7 days." />
       ) : (
-        <Entity.List>
+        <RowList>
           {comingItems.map((item, j) => {
             const i = nav.base + j
+            const at = airTime(item)
             return (
               <Entity
                 key={upcomingKey(item)}
@@ -44,20 +45,27 @@ export function Coming({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void
                 current={i === nav.sel}
                 data-nav={`ov-${i}`}
                 onClick={() => open(i, item.title_id)}
-                left={
-                  <span className="flex items-center gap-3">
-                    <TitlePoster id={item.title_id} hasPoster={item.has_poster} size="md" />
-                    <span className="label-12 w-20 shrink-0 text-gray-900 tabular">{dayLabel(localDay(item))}</span>
-                  </span>
-                }
+                className={stackedRow}
+                rightClassName={stackedRight}
+                left={<TitlePoster id={item.title_id} hasPoster={item.has_poster} size="md" />}
+                right={<StateBadges item={item} queue={queue} now={now} />}
               >
-                <Entity.Content fill>
-                  <UpcomingLine item={item} queue={queue} now={now} />
-                </Entity.Content>
+                {/* Name, then when and what kind, then the badges: every row is the same three lines, however many badges it has. */}
+                <Entity.Content
+                  fill
+                  title={<EntryName item={item} />}
+                  description={
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span>{dayLabel(localDay(item))}</span>
+                      {at && <span className="tabular">{at}</span>}
+                      {item.kind === 'movie' ? <MovieNotes item={item} /> : <Markers markers={item.markers} />}
+                    </span>
+                  }
+                />
               </Entity>
             )
           })}
-        </Entity.List>
+        </RowList>
       )}
       {comingAll.length > 0 && <ViewAll path="/upcoming" count={comingAll.length} />}
     </Section>
