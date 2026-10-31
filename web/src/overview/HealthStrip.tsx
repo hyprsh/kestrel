@@ -1,108 +1,21 @@
 // The Health section, last on the Overview: one tile per item (download client, indexers, disks, the
 // rest), failing first, each with its state as a status dot and a word, never colour alone. It shows
 // its summary line alone while every check is ok, and opens when one fails; a click toggles it.
+// The tiles are built in activity/health, which the Health tab of Activity shows in full.
 import { Collapse, Skeleton } from '@hyprsh/design'
 import { useState } from 'react'
-import { useStatus, type SystemStatus } from '../api/attention'
-import { clockTime } from '../time'
-import { Tile, type TileData, type Tone } from './HealthTile'
-
-/** "800 GB", "1 TB": powers of 1024, no decimals once a number is round. */
-function formatBytes(n: number): string {
-  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
-  let v = n
-  let i = 0
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024
-    i++
-  }
-  return `${Number.isInteger(v) ? v : v.toFixed(1)} ${units[i]}`
-}
-
-function clientTile(s: SystemStatus['download_client']): TileData {
-  if (s.state === 'none') return { key: 'client', name: 'Download client', tone: 'idle', word: 'not set up', details: ['No download client set up'] }
-  return {
-    key: 'client',
-    name: s.name ?? 'Download client',
-    tone: s.state === 'ok' ? 'ok' : 'failing',
-    details: s.state === 'ok' ? [] : [s.message ?? 'Not answering'],
-  }
-}
-
-type Indexer = SystemStatus['indexers'][number]
-
-function indexerTile(i: Indexer): TileData {
-  const searchPaused = i.search_paused_until != null
-  const grabsPaused = i.grabs_paused_until != null || i.grabs_paused
-  const details: string[] = []
-  if (i.state === 'failing' && i.message) details.push(i.message)
-  if (i.state === 'ok') {
-    details.push(i.search_max == null ? `${i.search_used} searches today` : `${i.search_used} of ${i.search_max} searches today`)
-  }
-  if (i.search_paused_until) details.push(`Searches paused until ${clockTime(i.search_paused_until)}`)
-  if (i.grabs_paused_until) details.push(`Grabs paused until ${clockTime(i.grabs_paused_until)}`)
-  else if (i.grabs_paused) details.push(`Grabs paused (${i.grab_used ?? '?'} of ${i.grab_max ?? '?'} downloads used)`)
-  const tone: Tone = i.state === 'failing' ? 'failing' : i.state === 'disabled' ? 'idle' : searchPaused || grabsPaused ? 'paused' : 'ok'
-  return {
-    key: `indexer-${i.instance_id}`,
-    name: i.name,
-    tone,
-    word: i.state === 'disabled' ? 'disabled' : undefined,
-    details,
-    meter: i.state === 'ok' && i.search_max != null ? { value: i.search_used, max: i.search_max, warn: searchPaused, label: `${i.name} searches used today` } : undefined,
-  }
-}
-
-function diskTile(d: SystemStatus['disks'][number]): TileData {
-  const low = d.free_bytes < d.low_free_bytes
-  return {
-    key: `disk-${d.path}`,
-    name: d.path,
-    tone: low ? 'low' : 'ok',
-    details: [`${formatBytes(d.free_bytes)} free of ${formatBytes(d.total_bytes)}`],
-    meter: { value: Math.max(0, d.total_bytes - d.free_bytes), max: d.total_bytes, warn: low, label: `${d.path} space used` },
-  }
-}
-
-/** "from today", "1 day old", "12 days old"; "age unknown" when the snapshot has no date. */
-export function snapshotAge(committedAt: string | null, now = Date.now()): string {
-  if (!committedAt) return 'age unknown'
-  const days = Math.max(0, Math.floor((now - Date.parse(committedAt)) / 86_400_000))
-  return days === 0 ? 'from today' : `${days} day${days === 1 ? '' : 's'} old`
-}
-
-const failingFirst = (tiles: TileData[]) => [...tiles].sort((a, b) => Number(b.tone === 'failing') - Number(a.tone === 'failing'))
-
-function Group({ title, tiles }: { title: string; tiles: TileData[] }) {
-  if (tiles.length === 0) return null
-  return (
-    <div>
-      <h3 className="label-12 mb-1.5 text-gray-900">{title}</h3>
-      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {failingFirst(tiles).map((t) => (
-          <Tile key={t.key} tile={t} />
-        ))}
-      </ul>
-    </div>
-  )
-}
+import { useStatus } from '../api/attention'
+import { HealthGroups } from '../activity/health/HealthGroups'
+import { healthOf } from '../activity/health/tiles'
 
 export function HealthStrip() {
   const status = useStatus()
   const s = status.data
   const [chosen, setChosen] = useState<boolean | null>(null)
-  const rest: TileData[] = []
-  if (s) {
-    if (s.grabs_paused) rest.push({ key: 'grabs', name: 'Grabs', tone: 'paused', details: ['Automatic Grabs are paused'] })
-    rest.push({ key: 'trash', name: 'TRaSH', tone: 'ok', details: [snapshotAge(s.trash.committed_at)] })
-    if (s.update) rest.push({ key: 'update', name: 'Update', tone: 'update', details: [`Kestrel ${s.update.version} available`], link: { path: '/about', label: 'About' } })
-  }
-  const clients = s ? [clientTile(s.download_client)] : []
-  const indexers = s ? s.indexers.map(indexerTile) : []
-  const disks = s ? s.disks.map(diskTile) : []
-  const failing = [...clients, ...indexers].filter((t) => t.tone === 'failing').length
+  const health = s ? healthOf(s) : null
+  const failing = health?.failing ?? 0
   // While the status loads the summary line is a Skeleton: the section is collapsed, so one inside it would be hidden.
-  const summary = !s ? (
+  const summary = !health ? (
     <>
       {' '}
       <Skeleton width={64} height={16} className="inline-block align-middle" />
@@ -115,12 +28,9 @@ export function HealthStrip() {
   return (
     <div>
       <Collapse size="small" headingLevel={2} title={<>Health{summary}</>} expanded={chosen ?? failing > 0} onChange={setChosen}>
-        {s && (
-          <div className="flex flex-col gap-4 pt-3">
-            <Group title="Download client" tiles={clients} />
-            <Group title="Indexers" tiles={indexers} />
-            <Group title="Disks" tiles={disks} />
-            <Group title="Other" tiles={rest} />
+        {health && (
+          <div className="pt-3">
+            <HealthGroups groups={health.groups} />
           </div>
         )}
       </Collapse>

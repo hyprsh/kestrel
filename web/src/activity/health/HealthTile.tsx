@@ -3,7 +3,8 @@
 // accent with its state, showing the name, the state as a status dot with its word, detail lines, a meter
 // and a link. No design component is a tinted name-and-meter card (audit, Overview).
 import { Pill, Progress, StatusDot } from '@hyprsh/design'
-import { useOpenPlace } from '../place'
+import type { ReactNode } from 'react'
+import { useOpenPlace } from '../../place'
 
 export type Tone = 'ok' | 'failing' | 'paused' | 'low' | 'idle' | 'update'
 
@@ -18,6 +19,8 @@ const toneUi: Record<Tone, { state: 'success' | 'error' | 'warning' | 'neutral' 
 
 export type TileData = {
   key: string
+  /** The plugin instance behind a download client or an indexer, to match its Needs attention row. */
+  instanceId?: number | null
   name: string
   tone: Tone
   /** Replaces the tone's word ("low" for a disk, "not set up"). */
@@ -28,7 +31,8 @@ export type TileData = {
   link?: { path: string; label: string }
 }
 
-export function Tile({ tile }: { tile: TileData }) {
+/** `children` is the tile's last line, such as the action of a failing check. */
+export function Tile({ tile, children }: { tile: TileData; children?: ReactNode }) {
   const openPlace = useOpenPlace()
   const ui = toneUi[tile.tone]
   return (
@@ -47,6 +51,7 @@ export function Tile({ tile }: { tile: TileData }) {
           <Progress value={tile.meter.value} max={tile.meter.max} type={tile.meter.warn ? 'warning' : 'default'} height={6} aria-label={tile.meter.label} />
         </div>
       )}
+      {children}
       {tile.link && (
         <div className="mt-1">
           <Pill onClick={() => openPlace(tile.link!.path)}>{tile.link.label}</Pill>
