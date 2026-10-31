@@ -37,6 +37,27 @@ describe('Overview layout', () => {
     expect(headings).toEqual(expect.arrayContaining(['Needs attention', 'Downloading now', 'Recently added', 'Coming this week', 'Recent requests']))
   })
 
+  it('shows a Skeleton in the summary line while the status loads, not in the collapsed section', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    server.use(
+      http.get('/system/status', async ({ response }) => {
+        await gate
+        return response(200).json(status())
+      }),
+    )
+    renderApp()
+
+    const toggle = await screen.findByRole('button', { name: /^Health/ })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(toggle.querySelector('.hy-skeleton')).not.toBeNull()
+    expect(toggle.textContent).not.toMatch(/all good|failing/)
+    expect(screen.queryByRole('region', { name: /^Health/ })?.querySelector('.hy-skeleton') ?? null).toBeNull() // nothing hidden in the collapsed panel
+
+    release()
+    expect(await screen.findByRole('button', { name: 'Health · all good' })).toBeInTheDocument()
+  })
+
   it('shows Health as its summary line only while every check is ok, and opens it on a click', async () => {
     fakeStatus(status())
     renderApp()
