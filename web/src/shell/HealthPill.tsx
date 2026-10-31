@@ -5,7 +5,7 @@ import { useOpenPlace } from '../place'
 
 /**
  * "Health · All checks OK" or "Health · 1 Blocking, 2 Warnings", opening the Health tab. When the server cannot be reached it
- * says "Offline" instead. It sits in the desktop top bar and, on a phone, at the start of the Overview's status chips.
+ * says "Offline" instead. It sits in the desktop top bar and, on a phone, at the top of the Overview.
  */
 export function HealthPill() {
   const openPlace = useOpenPlace()

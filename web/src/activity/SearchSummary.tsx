@@ -1,4 +1,4 @@
-// The search pipeline in a few lines, in Activity's Searching stage. The Overview's Searching chip links to it.
+// The search pipeline in a few lines, in Activity's Searching stage.
 import { Description } from '@hyprsh/design'
 import type { SearchStatus } from '../api/search'
 import { plural } from '../format'

@@ -1,4 +1,4 @@
-// Overview, the home screen: the status chips, then "Happening now" (Needs attention rows and Downloads in one
+// Overview, the home screen: on a phone, the Health pill, then "Happening now" (Needs attention rows and Downloads in one
 // card) across the width, then Recently added, Recent requests and Coming this week side by side.
 import { useState } from 'react'
 import { useRecentRequests } from '../api/requests'
@@ -8,7 +8,7 @@ import { Coming, RecentlyAdded } from './ComingRecent'
 import { HappeningNow, useHappeningNow } from './HappeningNow'
 import { RecentRequests } from './RecentRequests'
 import { firstFive } from './Section'
-import { StatusChips } from './StatusChips'
+import { PhoneHealth } from './PhoneHealth'
 import type { OverviewNav } from './nav'
 
 export function Overview({
@@ -27,7 +27,7 @@ export function Overview({
 
   // One selection runs through every row in the order the screen reads: Happening now (its Needs attention
   // rows, then its groups, then its Downloads), then the second row left to right: Recently added, Recent requests, Coming this
-  // week. The chips are buttons of their own. Enter does what clicking would.
+  // week. The phone's Health pill is a button of its own. Enter does what clicking would.
   const [sel, setSel] = useState(0)
   const enter: (() => void)[] = [
     ...happening.enter,
@@ -44,7 +44,7 @@ export function Overview({
     <div className="flex-1 overflow-y-auto p-6 max-sm:p-4">
       {/* One column below 1024px, in reading order; from 1024px Happening now spans the width and the second row is three equal columns. */}
       <div className="mx-auto max-w-3xl lg:max-w-7xl">
-        <StatusChips />
+        <PhoneHealth />
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           <div className="min-w-0 lg:col-span-3">
             <HappeningNow model={happening} onOpen={onOpen} onOpenTitle={onOpenTitle} onOpenAdoption={onOpenAdoption} nav={nav(0)} />

@@ -21,10 +21,9 @@ afterEach(() => vi.unstubAllGlobals())
 const rows = () => [row(1, 'Paddington', 'Paddington'), row(2, 'Heat', 'Heat', { year: 1995 })]
 
 describe('the shell on a phone', () => {
-  it('keeps the Health pill out of the top bar and at the start of the Overview status chips', async () => {
+  it('keeps the Health pill out of the top bar and at the top of the Overview', async () => {
     renderApp()
-    const chips = await screen.findByRole('group', { name: 'Status' })
-    expect(await within(chips).findByRole('button', { name: /^Health/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /^Health/ })).toBeInTheDocument()
     expect(within(screen.getByRole('banner')).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
   })
 
