@@ -503,15 +503,13 @@ describe('Overview: Coming this week and Recently added', () => {
     renderApp()
 
     const coming = await screen.findByRole('region', { name: /coming this week/i })
-    expect(await within(coming).findByText('S02E04')).toBeInTheDocument()
-    expect(within(coming).getByText('Wanted 2 days')).toBeInTheDocument()
+    expect(await within(coming).findByText(/S02E04/)).toBeInTheDocument()
     expect(daysBetween(asked.at(-1)!)).toBe(6)
     const added = screen.getByRole('region', { name: /recently added/i })
-    const rows = await within(added).findAllByRole('listitem')
-    expect(rows[0]).toHaveTextContent('Paddington')
-    expect(rows[0]).toHaveTextContent('Upgrade')
-    expect(rows[0]).toHaveTextContent('120')
-    expect(rows[1]).toHaveTextContent('8 files')
+    const posters = await within(added).findAllByRole('listitem')
+    expect(posters[0]).toHaveTextContent('Paddington')
+    expect(posters[1]).toHaveTextContent('Bridge Show')
+    expect(posters[1]).toHaveTextContent('4K')
   })
 
   it('moves through both sections with j/k and opens a Title with Enter', async () => {

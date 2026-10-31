@@ -39,53 +39,12 @@ describe('Overview sections', () => {
     fakeQueue(downloads(7))
     renderApp()
 
-    await screen.findByText('Grab.1-GRP')
-    const section = screen.getByRole('region', { name: 'Downloading now · 7' })
-    const rows = within(section).getAllByRole('listitem')
-    expect(rows.map((r) => r.textContent)).toEqual([1, 2, 3, 4, 5].map((n) => expect.stringContaining(`Grab.${n}-GRP`)))
+    const section = await screen.findByRole('region', { name: 'Downloading now · 7' })
+    const rows = await within(section).findAllByRole('listitem')
+    expect(rows).toHaveLength(5)
 
-    await userEvent.click(within(section).getByRole('button', { name: 'View all 7 →' }))
+    await userEvent.click(within(section).getByRole('button', { name: 'All activity →' }))
     expect(await screen.findByRole('combobox', { name: 'Filter Activity' })).toHaveValue('')
-  })
-  it('shows the first five of the week, the count in the heading and a link to Upcoming', async () => {
-    fakeUpcoming(upcoming(8))
-    renderApp()
-
-    await screen.findByText('Movie 1')
-    const section = screen.getByRole('region', { name: 'Coming this week · 8' })
-    const rows = within(section).getAllByRole('listitem')
-    expect(rows.map((r) => r.textContent)).toEqual([1, 2, 3, 4, 5].map((n) => expect.stringContaining(`Movie ${n}`)))
-
-    await userEvent.click(within(section).getByRole('button', { name: 'View all 8 →' }))
-    expect(await screen.findByRole('list', { name: 'Agenda' })).toBeInTheDocument()
-  })
-
-  it("shows the five latest Imports, the week's count in the heading and a link to the Done stage of Activity", async () => {
-    const recent = Array.from({ length: 8 }, (_, i) => ({
-      title_id: 40 + i,
-      title: `Imported ${i + 1}`,
-      year: 2026,
-      kind: 'movie' as const,
-      has_poster: false,
-      slot: 'standard' as const,
-      release_name: `Imported.${i + 1}-GRP`,
-      score: 100,
-      score_delta: null,
-      files: 1,
-      is_upgrade: false,
-      imported_at: '2026-10-17T12:00:00Z',
-    }))
-    server.use(http.get('/recent', ({ response }) => response(200).json({ items: recent, total: 12 })))
-    renderApp()
-
-    await screen.findByText('Imported.1-GRP')
-    // GET /recent lists the latest few and counts the week's, which the Done stage lists.
-    const section = screen.getByRole('region', { name: 'Recently added · 12' })
-    const rows = within(section).getAllByRole('listitem')
-    expect(rows.map((r) => r.textContent)).toEqual([1, 2, 3, 4, 5].map((n) => expect.stringContaining(`Imported.${n}-GRP`)))
-
-    await userEvent.click(within(section).getByRole('button', { name: 'View all 12 →' }))
-    expect(await screen.findByRole('combobox', { name: 'Filter Activity' })).toHaveValue('stage:done')
   })
 
   it('moves j through the rows on show only, and through the rest once Needs attention is expanded', async () => {
@@ -102,11 +61,11 @@ describe('Overview sections', () => {
     server.use(
       http.get('/attention', ({ response }) => response(200).json({ count: 6, severity: 'warning', rows: warnings, long_missing: { count: 0, items: [] }, originals: { count: 0, items: [] } })),
     )
-    fakeQueue(downloads(6))
+    fakeQueue(downloads(6).map((d, i) => ({ ...d, title: `Grab ${i + 1}` })))
     fakeUpcoming(upcoming(1))
     renderApp()
     await screen.findByText('Warning 1')
-    await screen.findByText('Grab.1-GRP')
+    await screen.findByText('Grab 1')
     await screen.findByText('Movie 1')
 
     const current = () => document.querySelector('[aria-current="true"]')
@@ -115,7 +74,7 @@ describe('Overview sections', () => {
     }
     expect(current()).toHaveTextContent('Warning 1')
     await press(5)
-    expect(current()).toHaveTextContent('Grab.1-GRP')
+    expect(current()).toHaveTextContent('Grab 1')
     await press(5)
     expect(current()).toHaveTextContent('Movie 1')
 

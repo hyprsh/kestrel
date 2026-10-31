@@ -11,7 +11,7 @@ import { server } from '../test/server'
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
 const openRequests = async () => {
-  await userEvent.click(await screen.findByRole('button', { name: /^View all \d+ →$/ }))
+  await userEvent.click(await screen.findByRole('button', { name: 'All requests →' }))
   return screen.findByRole('combobox', { name: 'Filter Requests' })
 }
 

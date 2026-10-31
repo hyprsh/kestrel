@@ -1,9 +1,7 @@
-// The Searching card: the search pipeline at a glance, beside Downloading now.
-import { Description, Pill, Skeleton } from '@hyprsh/design'
-import { useSearchStatus, type SearchStatus } from '../api/search'
+// The search pipeline in a few lines, in Activity's Searching stage. The Overview's Searching chip links to it.
+import { Description } from '@hyprsh/design'
+import type { SearchStatus } from '../api/search'
 import { plural } from '../format'
-import { useOpenPlace } from '../place'
-import { Section } from './Section'
 import { clockTime, until, useNow } from '../time'
 
 type Indexer = SearchStatus['indexers'][number]
@@ -34,26 +32,6 @@ function indexerLine(i: Indexer): { text: string; held: boolean } | null {
   const left = i.held === 'budget' ? null : budgetLeft(i)
   if (held) return { text: left ? `${held} · ${left}` : held, held: true }
   return left ? { text: `${i.name}: ${left}`, held: false } : null
-}
-
-export function Searching() {
-  const status = useSearchStatus()
-  const s = status.data
-  const openPlace = useOpenPlace()
-  if (!s && !status.isPending) return null
-  return (
-    // The Search loop's schedule and last run sit with the other loops on Activity.
-    <Section id="searching" title="Searching" action={<Pill onClick={() => openPlace('/activity/jobs')}>Background jobs</Pill>}>
-      {s ? (
-        <SearchSummary status={s} />
-      ) : (
-        <div aria-busy="true" className="flex flex-col gap-3">
-          <Description layout="horizontal" termWidth={96} title="Waiting" content={<Skeleton width="70%" height={16} />} />
-          <Description layout="horizontal" termWidth={96} title="Last Pass" content={<Skeleton width="80%" height={16} />} />
-        </div>
-      )}
-    </Section>
-  )
 }
 
 /** The search pipeline in a few lines: what waits, the pass, the last pass and the indexers' budgets. Activity's Searching stage shows it too. */
