@@ -52,12 +52,7 @@ export function Activity({
     health: (
       <>
         Health
-        {failing + warnings > 0 && (
-          <>
-            {' '}
-            {failing > 0 ? <StatusDot state="error" label="failing" /> : <StatusDot state="warning" label="warning" />}
-          </>
-        )}
+        {failing + warnings > 0 && <> {failing > 0 ? <StatusDot state="error" label="failing" /> : <StatusDot state="warning" label="warning" />}</>}
       </>
     ),
     jobs: <>Background Jobs{running.length > 0 && <Count n={running.length} />}</>,
