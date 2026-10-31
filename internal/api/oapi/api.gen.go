@@ -532,6 +532,27 @@ func (e ClientStatusState) Valid() bool {
 	}
 }
 
+// Defines values for FolderChangeKind.
+const (
+	Created  FolderChangeKind = "created"
+	Deleted  FolderChangeKind = "deleted"
+	Modified FolderChangeKind = "modified"
+)
+
+// Valid indicates whether the value is a known member of the FolderChangeKind enum.
+func (e FolderChangeKind) Valid() bool {
+	switch e {
+	case Created:
+		return true
+	case Deleted:
+		return true
+	case Modified:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GrabState.
 const (
 	GrabStateCompleted   GrabState = "completed"
@@ -2347,6 +2368,40 @@ type FileSummary struct {
 	ReleaseName string  `json:"release_name"`
 	Score       *int    `json:"score"`
 	Size        int64   `json:"size"`
+}
+
+// FolderChange defines model for FolderChange.
+type FolderChange struct {
+	// At When the change was recorded.
+	At time.Time `json:"at"`
+
+	// Kind A growing set: created, modified, deleted.
+	Kind FolderChangeKind `json:"kind"`
+
+	// Path The Title folder, as Kestrel sees it.
+	//
+	// Example: /media/movies/Arrival (2016) {tmdb-329865}
+	Path string `json:"path"`
+}
+
+// FolderChangeKind A growing set: created, modified, deleted.
+type FolderChangeKind string
+
+// FolderChangeList defines model for FolderChangeList.
+type FolderChangeList struct {
+	// Changes Oldest first.
+	Changes []FolderChange `json:"changes"`
+
+	// Expired The `marker` could not be answered. `changes` is empty; rescan everything.
+	Expired bool `json:"expired"`
+
+	// More Changes after `next_marker` already exist.
+	More bool `json:"more"`
+
+	// NextMarker Never empty. Send it back as `marker` for the changes after this page.
+	//
+	// Example: fc1:42
+	NextMarker string `json:"next_marker"`
 }
 
 // Grab defines model for Grab.
@@ -4457,6 +4512,13 @@ type ListEventsParams struct {
 	Limit          *int      `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListFolderChangesParams defines parameters for ListFolderChanges.
+type ListFolderChangesParams struct {
+	// Marker The `next_marker` of an earlier answer. Opaque.
+	Marker *string `form:"marker,omitempty" json:"marker,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // ListGrabsParams defines parameters for ListGrabs.
 type ListGrabsParams struct {
 	State   *[]ListGrabsParamsState `form:"state,omitempty" json:"state,omitempty"`
@@ -5077,6 +5139,9 @@ type ServerInterface interface {
 	// ListEvents The Log
 	// (GET /events)
 	ListEvents(w http.ResponseWriter, r *http.Request, params ListEventsParams)
+	// ListFolderChanges Title folders that changed since a marker
+	// (GET /folder-changes)
+	ListFolderChanges(w http.ResponseWriter, r *http.Request, params ListFolderChangesParams)
 	// ListGrabs Grabs, newest first, with how they ended
 	// (GET /grabs)
 	ListGrabs(w http.ResponseWriter, r *http.Request, params ListGrabsParams)
@@ -5939,6 +6004,52 @@ func (siw *ServerInterfaceWrapper) ListEvents(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListEvents(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListFolderChanges operation middleware
+func (siw *ServerInterfaceWrapper) ListFolderChanges(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListFolderChangesParams
+
+	// ------------- Optional query parameter "marker" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "marker", r.URL.Query(), &params.Marker, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "marker"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "marker", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListFolderChanges(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7935,6 +8046,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/jobs", wrapper.ListJobs)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/jobs/{name}/run", wrapper.RunJob)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/system/status", wrapper.GetSystemStatus)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/folder-changes", wrapper.ListFolderChanges)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/about", wrapper.GetAbout)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/about/notices", wrapper.GetNotices)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/trash/update", wrapper.UpdateTrash)
@@ -9592,6 +9704,45 @@ type ListEventsdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response ListEventsdefaultApplicationProblemPlusJSONResponse) VisitListEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListFolderChangesRequestObject struct {
+	Params ListFolderChangesParams
+}
+
+type ListFolderChangesResponseObject interface {
+	VisitListFolderChangesResponse(w http.ResponseWriter) error
+}
+
+type ListFolderChanges200JSONResponse FolderChangeList
+
+func (response ListFolderChanges200JSONResponse) VisitListFolderChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListFolderChangesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListFolderChangesdefaultApplicationProblemPlusJSONResponse) VisitListFolderChangesResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -13759,6 +13910,9 @@ type StrictServerInterface interface {
 	// ListEvents The Log
 	// (GET /events)
 	ListEvents(ctx context.Context, request ListEventsRequestObject) (ListEventsResponseObject, error)
+	// ListFolderChanges Title folders that changed since a marker
+	// (GET /folder-changes)
+	ListFolderChanges(ctx context.Context, request ListFolderChangesRequestObject) (ListFolderChangesResponseObject, error)
 	// ListGrabs Grabs, newest first, with how they ended
 	// (GET /grabs)
 	ListGrabs(ctx context.Context, request ListGrabsRequestObject) (ListGrabsResponseObject, error)
@@ -14798,6 +14952,32 @@ func (sh *strictHandler) ListEvents(w http.ResponseWriter, r *http.Request, para
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListEventsResponseObject); ok {
 		if err := validResponse.VisitListEventsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListFolderChanges operation middleware
+func (sh *strictHandler) ListFolderChanges(w http.ResponseWriter, r *http.Request, params ListFolderChangesParams) {
+	var request ListFolderChangesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListFolderChanges(ctx, request.(ListFolderChangesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListFolderChanges")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListFolderChangesResponseObject); ok {
+		if err := validResponse.VisitListFolderChangesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

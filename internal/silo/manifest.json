@@ -10,9 +10,9 @@
   ],
   "presentation": {
     "display_name": "Kestrel",
-    "summary": "Sends approved Requests to Kestrel and reports download progress back.",
-    "description_markdown": "Hands each approved Silo Request to Kestrel. A 1080p tier adds the Title in Kestrel's Standard Slot and a 2160p tier adds it in 4K. Each of Standard Profile, 4K Profile and Root folder can be left on the Kestrel default or set per request route in Silo. A Root folder only applies to a Title Kestrel does not have yet: if the Standard and 4K tiers of one request name different folders, the first to create the Title wins and the other is ignored. A Series requested whole starts with season 1 and Kestrel adds the next season as people watch (Watch-ahead); a request naming seasons gets those seasons. Status and download progress come back to Silo.",
-    "setup_markdown": "1. Install the plugin.\n2. In Kestrel, open Settings and generate an API key.\n3. Add a Kestrel connection here with Kestrel's address and that key.\n4. Pick the Standard and 4K Profiles and a Root folder, or leave them on the Kestrel default. Silo request routes can override each per audience.\n5. Choose whether Series requested whole use Watch-ahead: they start with season 1 and Kestrel adds the next season as people watch. A request naming seasons gets those seasons, and Silo request routes can override this per audience.",
+    "summary": "Sends approved Requests to Kestrel, reports download progress back, and tells Silo Autoscan which Title folders Kestrel changed.",
+    "description_markdown": "Hands each approved Silo Request to Kestrel. A 1080p tier adds the Title in Kestrel's Standard Slot and a 2160p tier adds it in 4K. Each of Standard Profile, 4K Profile and Root folder can be left on the Kestrel default or set per request route in Silo. A Root folder only applies to a Title Kestrel does not have yet: if the Standard and 4K tiers of one request name different folders, the first to create the Title wins and the other is ignored. A Series requested whole starts with season 1 and Kestrel adds the next season as people watch (Watch-ahead); a request naming seasons gets those seasons. Status and download progress come back to Silo.\n\nThe Kestrel Title folders scan source tells Silo Autoscan which Title folders Kestrel created, changed or deleted, so Silo scans a new Import without the Silo media-server instance in Kestrel.",
+    "setup_markdown": "1. Install the plugin.\n2. In Kestrel, open Settings and generate an API key.\n3. Add a Kestrel connection here with Kestrel's address and that key.\n4. Pick the Standard and 4K Profiles and a Root folder, or leave them on the Kestrel default. Silo request routes can override each per audience.\n5. Choose whether Series requested whole use Watch-ahead: they start with season 1 and Kestrel adds the next season as people watch. A request naming seasons gets those seasons, and Silo request routes can override this per audience.\n6. To have Silo scan new Imports, open Admin > Libraries > Autoscan, enable Autoscan and choose Add source > Kestrel Title folders. Bind the Kestrel connection from step 3. If Silo mounts the media at a different path than Kestrel, add a path rewrite from Kestrel's Root folder to Silo's library path. Silo polls on its Autoscan interval (600 seconds unless changed), so an Import reaches Silo within one interval.",
     "homepage_url": "https://github.com/hyprsh/kestrel",
     "source_url": "https://github.com/hyprsh/kestrel",
     "support_url": "https://github.com/hyprsh/kestrel/issues",
@@ -59,6 +59,20 @@
           }
         }
       ]
+    },
+    {
+      "type": "scan_source.v1",
+      "id": "kestrel-imports",
+      "display_name": "Kestrel Title folders",
+      "description": "Tells Silo Autoscan which Title folders Kestrel created, changed or deleted.",
+      "metadata": {
+        "scan_source": {
+          "summary": "Scans the Title folders Kestrel changes, such as a new Import, from Kestrel's folder-change feed.",
+          "delivery_modes": ["poll"],
+          "connection": "required",
+          "emits_native_paths": false
+        }
+      }
     }
   ]
 }

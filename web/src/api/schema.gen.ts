@@ -1767,6 +1767,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/folder-changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Title folders that changed since a marker
+         * @description A feed of the Title folders whose changes settled (an Import, Upgrade, rename or deletion,
+         *     after the same short wait the media servers are given), for tools that poll for new
+         *     files. It is written for the Silo plugin: its `scan_source.v1` capability polls this
+         *     endpoint with the marker from its last poll.
+         *
+         *     `changes` are oldest first, at most `limit`. `path` is the Title folder as Kestrel sees it.
+         *     `kind` is `created` for a folder that exists and that the feed has not reported in its 30
+         *     days (or whose last report was `deleted`), `modified` for a folder that exists and was
+         *     reported, and `deleted` for a folder that is gone. `at` is when the change was recorded.
+         *
+         *     `next_marker` is never empty: pass it back as `marker` for the changes after this page.
+         *     `more` is `true` when changes after `next_marker` already exist, because the page was cut at
+         *     `limit`. Without a `marker`, or with an empty one, `changes` is empty and `next_marker` is
+         *     the current position: a first poll starts from now and does not replay history.
+         *
+         *     The feed keeps 30 days of changes and survives restarts. `expired` is `true` when the
+         *     `marker` can no longer be answered: changes after it were pruned, it is ahead of this
+         *     feed (it came from another Kestrel, or from a database that was reset), or it is not a marker
+         *     this feed issued. Then `changes` is empty, `next_marker` is the current position, and the
+         *     client should rescan everything. A bad marker is never a `422`. The same `marker` sent twice
+         *     gets the same answer, as long as nothing was pruned in between, so a client that keeps its
+         *     old marker after a failed poll reads the same window again.
+         */
+        get: operations["listFolderChanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/about": {
         parameters: {
             query?: never;
@@ -3858,6 +3899,37 @@ export interface components {
             /** @description A newer release exists. Absent when up to date or when the update check is off. */
             update?: components["schemas"]["UpdateAvailable"] | null;
         };
+        FolderChangeList: {
+            /** @description Oldest first. */
+            changes: components["schemas"]["FolderChange"][];
+            /**
+             * @description Never empty. Send it back as `marker` for the changes after this page.
+             * @example fc1:42
+             */
+            next_marker: string;
+            /** @description The `marker` could not be answered. `changes` is empty; rescan everything. */
+            expired: boolean;
+            /** @description Changes after `next_marker` already exist. */
+            more: boolean;
+        };
+        FolderChange: {
+            /**
+             * @description The Title folder, as Kestrel sees it.
+             * @example /media/movies/Arrival (2016) {tmdb-329865}
+             */
+            path: string;
+            kind: components["schemas"]["FolderChangeKind"];
+            /**
+             * Format: date-time
+             * @description When the change was recorded.
+             */
+            at: string;
+        };
+        /**
+         * @description A growing set: created, modified, deleted.
+         * @enum {string}
+         */
+        FolderChangeKind: "created" | "modified" | "deleted";
         UpdateAvailable: {
             /** @example 0.3.2 */
             version: string;
@@ -6473,6 +6545,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listFolderChanges: {
+        parameters: {
+            query?: {
+                /** @description The `next_marker` of an earlier answer. Opaque. */
+                marker?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The changes after the marker. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderChangeList"];
                 };
             };
             default: components["responses"]["Problem"];

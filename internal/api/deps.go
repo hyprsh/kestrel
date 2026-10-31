@@ -43,19 +43,21 @@ type Deps struct {
 	Remover     Remover
 	Imports     Rescorer
 	Files       TitleFiles
-	Jobs        Jobs
-	Refresher   Refresher
-	Indexers    IndexerStatus
-	Health      Health
-	History     History
-	Scoring     Scoring
-	Trash       Trash
-	Keys        ProviderKeys
-	Meta        metadata.Provider
-	TVDB        metadata.TVDBProvider
-	Bridge      Bridge
-	Posters     Posters
-	PlexTV      PlexTV
+	// FolderChanges is the feed of settled Title folder changes.
+	FolderChanges FolderChanges
+	Jobs          Jobs
+	Refresher     Refresher
+	Indexers      IndexerStatus
+	Health        Health
+	History       History
+	Scoring       Scoring
+	Trash         Trash
+	Keys          ProviderKeys
+	Meta          metadata.Provider
+	TVDB          metadata.TVDBProvider
+	Bridge        Bridge
+	Posters       Posters
+	PlexTV        PlexTV
 }
 
 // PluginInstances is the plugin instance store.
@@ -220,6 +222,11 @@ type Rescorer interface {
 type TitleFiles interface {
 	Move(ctx context.Context, titleID int64, root string) (imports.Moved, error)
 	DeleteFiles(ctx context.Context, versionID int64, scope library.Scope, blocklist bool) (imports.Deleted, error)
+}
+
+// FolderChanges is the folder-change feed behind GET /folder-changes.
+type FolderChanges interface {
+	Changes(ctx context.Context, marker string, limit int) (imports.FolderChanges, error)
 }
 
 // Jobs is the loop runner.

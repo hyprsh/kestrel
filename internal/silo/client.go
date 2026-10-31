@@ -1,7 +1,8 @@
-// Package silo is Kestrel's Silo request_router.v1 plugin (ADR 0004): it turns a
-// Silo Request into a Kestrel Request and reports the status and download
-// progress back. It talks only to Kestrel's native Request API, so it links
-// none of the server.
+// Package silo is Kestrel's Silo plugin (ADR 0004). Its request_router.v1
+// capability turns a Silo Request into a Kestrel Request and reports the status
+// and download progress back; its scan_source.v1 capability tells Silo Autoscan
+// which Title folders Kestrel changed. It talks only to Kestrel's native API, so
+// it links none of the server.
 package silo
 
 import (

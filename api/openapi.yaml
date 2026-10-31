@@ -2201,6 +2201,58 @@ paths:
                 $ref: "#/components/schemas/SystemStatus"
         default:
           $ref: "#/components/responses/Problem"
+  /folder-changes:
+    get:
+      operationId: listFolderChanges
+      summary: Title folders that changed since a marker
+      description: |
+        A feed of the Title folders whose changes settled (an Import, Upgrade, rename or deletion,
+        after the same short wait the media servers are given), for tools that poll for new
+        files. It is written for the Silo plugin: its `scan_source.v1` capability polls this
+        endpoint with the marker from its last poll.
+
+        `changes` are oldest first, at most `limit`. `path` is the Title folder as Kestrel sees it.
+        `kind` is `created` for a folder that exists and that the feed has not reported in its 30
+        days (or whose last report was `deleted`), `modified` for a folder that exists and was
+        reported, and `deleted` for a folder that is gone. `at` is when the change was recorded.
+
+        `next_marker` is never empty: pass it back as `marker` for the changes after this page.
+        `more` is `true` when changes after `next_marker` already exist, because the page was cut at
+        `limit`. Without a `marker`, or with an empty one, `changes` is empty and `next_marker` is
+        the current position: a first poll starts from now and does not replay history.
+
+        The feed keeps 30 days of changes and survives restarts. `expired` is `true` when the
+        `marker` can no longer be answered: changes after it were pruned, it is ahead of this
+        feed (it came from another Kestrel, or from a database that was reset), or it is not a marker
+        this feed issued. Then `changes` is empty, `next_marker` is the current position, and the
+        client should rescan everything. A bad marker is never a `422`. The same `marker` sent twice
+        gets the same answer, as long as nothing was pruned in between, so a client that keeps its
+        old marker after a failed poll reads the same window again.
+      tags: [system]
+      parameters:
+        - name: marker
+          in: query
+          required: false
+          description: The `next_marker` of an earlier answer. Opaque.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 1000
+      responses:
+        "200":
+          description: The changes after the marker.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FolderChangeList"
+        default:
+          $ref: "#/components/responses/Problem"
   /about:
     get:
       operationId: getAbout
@@ -5557,6 +5609,43 @@ components:
             - $ref: "#/components/schemas/UpdateAvailable"
           nullable: true
           description: A newer release exists. Absent when up to date or when the update check is off.
+    FolderChangeList:
+      type: object
+      required: [changes, next_marker, expired, more]
+      properties:
+        changes:
+          type: array
+          description: Oldest first.
+          items:
+            $ref: "#/components/schemas/FolderChange"
+        next_marker:
+          type: string
+          description: Never empty. Send it back as `marker` for the changes after this page.
+          example: "fc1:42"
+        expired:
+          type: boolean
+          description: The `marker` could not be answered. `changes` is empty; rescan everything.
+        more:
+          type: boolean
+          description: Changes after `next_marker` already exist.
+    FolderChange:
+      type: object
+      required: [path, kind, at]
+      properties:
+        path:
+          type: string
+          description: The Title folder, as Kestrel sees it.
+          example: "/media/movies/Arrival (2016) {tmdb-329865}"
+        kind:
+          $ref: "#/components/schemas/FolderChangeKind"
+        at:
+          type: string
+          format: date-time
+          description: When the change was recorded.
+    FolderChangeKind:
+      type: string
+      description: "A growing set: created, modified, deleted."
+      enum: [created, modified, deleted]
     UpdateAvailable:
       type: object
       required: [version, url]

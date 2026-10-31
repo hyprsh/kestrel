@@ -61,6 +61,22 @@ func (q *Queries) FinishAdoptionScan(ctx context.Context, scannedAt sql.NullStri
 	return err
 }
 
+const folderChangeRange = `-- name: FolderChangeRange :one
+SELECT CAST(COALESCE(MIN(id), 0) AS INTEGER) AS min_id, CAST(COALESCE(MAX(id), 0) AS INTEGER) AS max_id FROM folder_changes
+`
+
+type FolderChangeRangeRow struct {
+	MinID int64
+	MaxID int64
+}
+
+func (q *Queries) FolderChangeRange(ctx context.Context) (FolderChangeRangeRow, error) {
+	row := q.db.QueryRowContext(ctx, folderChangeRange)
+	var i FolderChangeRangeRow
+	err := row.Scan(&i.MinID, &i.MaxID)
+	return i, err
+}
+
 const getAdoptionPlan = `-- name: GetAdoptionPlan :one
 SELECT id, state, revision, done, total, error, scanned_at, adopted, failed, adopted_titles, monitor FROM adoption_plan WHERE id = 1
 `
@@ -117,6 +133,32 @@ func (q *Queries) InsertAdoptionRow(ctx context.Context, arg InsertAdoptionRowPa
 	return id, err
 }
 
+const insertFolderChange = `-- name: InsertFolderChange :exec
+INSERT INTO folder_changes (at, path, kind) VALUES (?, ?, ?)
+`
+
+type InsertFolderChangeParams struct {
+	At   string
+	Path string
+	Kind string
+}
+
+func (q *Queries) InsertFolderChange(ctx context.Context, arg InsertFolderChangeParams) error {
+	_, err := q.db.ExecContext(ctx, insertFolderChange, arg.At, arg.Path, arg.Kind)
+	return err
+}
+
+const lastFolderChangeKind = `-- name: LastFolderChangeKind :one
+SELECT kind FROM folder_changes WHERE path = ? ORDER BY id DESC LIMIT 1
+`
+
+func (q *Queries) LastFolderChangeKind(ctx context.Context, path string) (string, error) {
+	row := q.db.QueryRowContext(ctx, lastFolderChangeKind, path)
+	var kind string
+	err := row.Scan(&kind)
+	return kind, err
+}
+
 const listAdoptionRows = `-- name: ListAdoptionRows :many
 SELECT id, status, ticked, data FROM adoption_rows ORDER BY id
 `
@@ -147,6 +189,54 @@ func (q *Queries) ListAdoptionRows(ctx context.Context) ([]AdoptionRow, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const listFolderChangesAfter = `-- name: ListFolderChangesAfter :many
+SELECT id, at, path, kind FROM folder_changes WHERE id > ? ORDER BY id LIMIT ?
+`
+
+type ListFolderChangesAfterParams struct {
+	ID    int64
+	Limit int64
+}
+
+func (q *Queries) ListFolderChangesAfter(ctx context.Context, arg ListFolderChangesAfterParams) ([]FolderChange, error) {
+	rows, err := q.db.QueryContext(ctx, listFolderChangesAfter, arg.ID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FolderChange
+	for rows.Next() {
+		var i FolderChange
+		if err := rows.Scan(
+			&i.ID,
+			&i.At,
+			&i.Path,
+			&i.Kind,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const pruneFolderChanges = `-- name: PruneFolderChanges :exec
+DELETE FROM folder_changes
+WHERE id <= (SELECT MAX(c.id) FROM folder_changes c WHERE c.at < ?)
+  AND id < (SELECT MAX(c.id) FROM folder_changes c)
+`
+
+func (q *Queries) PruneFolderChanges(ctx context.Context, at string) error {
+	_, err := q.db.ExecContext(ctx, pruneFolderChanges, at)
+	return err
 }
 
 const reopenAdoptionRun = `-- name: ReopenAdoptionRun :exec
