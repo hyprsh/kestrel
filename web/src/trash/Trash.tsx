@@ -1,4 +1,5 @@
 import { ApiError, usePatchSettings, useSettings, useUpdateTrash } from '../api/queries'
+import { SkeletonForm } from '../loading'
 import { useStatus } from '../api/attention'
 import { snapshotAge } from '../overview/HealthStrip'
 import { Button, Checkbox, Code, Note } from '@hyprsh/design'
@@ -9,7 +10,7 @@ export function TrashForm() {
   const status = useStatus()
   const patch = usePatchSettings()
   const update = useUpdateTrash()
-  if (!settings.data) return null
+  if (!settings.data) return <SkeletonForm rows={2} />
   const snapshot = status.data?.trash
 
   return (

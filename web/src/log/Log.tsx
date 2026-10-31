@@ -9,6 +9,7 @@ import { matchText } from '../fuzzy'
 import { FilterBar } from '../filter/FilterBar'
 import { FilterStrip } from '../layout/FilterStrip'
 import { useKey, useListNav } from '../keys'
+import { SkeletonRow, SkeletonRows } from '../loading'
 import { usePhone } from '../responsive'
 import { logFilter, logQualifiers } from './filter'
 
@@ -66,6 +67,19 @@ export function Log({ query, onQuery }: { query: string; onQuery: (query: string
   )
 }
 
+/** What a skeleton row sizes its cells by: the Log's three columns. */
+const eventColumns = [
+  { key: 'when', header: 'When' },
+  { key: 'kind', header: 'Kind' },
+  { key: 'event', header: 'Event' },
+]
+
+/** The Blocklist's two columns. */
+const blockColumns = [
+  { key: 'release', header: 'Release', mono: true, truncate: true },
+  { key: 'actions', header: 'Actions', numeric: true },
+]
+
 function useTitleNames() {
   const titles = useTitles().data
   return useMemo(() => ({ list: titles, names: new Map((titles ?? []).map((t) => [t.id, t.title])) }), [titles])
@@ -81,6 +95,7 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
   // A title: filter names Titles, so it waits for the Library to know which.
   const events = useEvents(logFilter(parsed, titles ?? []), !byTitle || titles !== undefined)
 
+  const eventSkeleton = [0, 1, 2, 3, 4, 5].map((i) => <Table.SkeletonRow key={i} index={i} columns={eventColumns} />)
   const shown = useMemo(() => (events.data ?? []).filter((e) => matchText(parsed.text, [e.message, names.get(e.title_id ?? -1) ?? ''])), [events.data, parsed.text, names])
 
   useListNav('log', shown.length, sel, setSel)
@@ -104,7 +119,8 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
         {phone ? (
           // A phone has no room for three columns: each event is a stacked row, its message wrapping under the kind and the time.
           <div className="p-4">
-            <Entity.List aria-label="Events">
+            <Entity.List aria-label="Events" aria-busy={events.isPending || undefined}>
+              {events.isPending && [0, 1, 2, 3, 4, 5].map((i) => <SkeletonRow key={i} index={i} />)}
               {shown.map((e, i) => (
                 <PhoneEvent
                   key={e.id}
@@ -120,7 +136,7 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
           </div>
         ) : (
           <Table.Root>
-            <Table aria-label="Events">
+            <Table aria-label="Events" aria-busy={events.isPending || undefined}>
               <Table.Colgroup>
                 <Table.Col style={{ width: 160 }} />
                 <Table.Col style={{ width: 128 }} />
@@ -134,6 +150,7 @@ function Events({ query, onQuery }: { query: string; onQuery: (query: string) =>
                 </Table.Row>
               </Table.Header>
               <Table.Body bordered interactive>
+                {events.isPending && eventSkeleton}
                 {shown.map((e, i) => (
                   <EventRow
                     key={e.id}
@@ -228,6 +245,7 @@ function Blocklist() {
   const [sel, setSel] = useState(0)
   const items = list.data ?? []
   useListNav('block', items.length, sel, setSel)
+  const skeleton = [0, 1, 2, 3, 4].map((i) => <Table.SkeletonRow key={i} index={i} columns={blockColumns} />)
 
   return (
     <div className="min-h-0 flex-1 overflow-auto">
@@ -235,6 +253,11 @@ function Blocklist() {
       {list.data && items.length === 0 && (
         <div className="p-4">
           <EmptyState description="The Blocklist is empty." />
+        </div>
+      )}
+      {list.isPending && phone && (
+        <div className="p-4">
+          <SkeletonRows count={5} />
         </div>
       )}
       {items.length > 0 && phone && (
@@ -267,9 +290,9 @@ function Blocklist() {
           </Entity.List>
         </div>
       )}
-      {items.length > 0 && !phone && (
+      {(items.length > 0 || list.isPending) && !phone && (
         <Table.Root>
-          <Table aria-label="Blocklist">
+          <Table aria-label="Blocklist" aria-busy={list.isPending || undefined}>
             <Table.Colgroup>
               <Table.Col />
               <Table.Col style={{ width: 96 }} />
@@ -283,6 +306,7 @@ function Blocklist() {
               </Table.Row>
             </Table.Header>
             <Table.Body bordered interactive>
+              {list.isPending && skeleton}
               {items.map((b, i) => (
                 <Table.Row key={b.id} data-nav={`block-${i}`} current={i === sel} onClick={() => setSel(i)}>
                   <Table.Cell truncate>

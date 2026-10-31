@@ -9,6 +9,7 @@ import { useRecentRequests } from '../api/requests'
 import { useRecent, useUpcoming } from '../api/upcoming'
 import { DownloadRow } from '../grabs/DownloadRow'
 import { useListNav } from '../keys'
+import { SkeletonRows } from '../loading'
 import { Coming, RecentlyAdded } from './ComingRecent'
 import { HealthStrip } from './HealthStrip'
 import { NeedsAttention, shownRows } from './NeedsAttention'
@@ -63,7 +64,9 @@ export function Overview({
         <div className="flex min-w-0 flex-col gap-8 lg:col-span-2">
           <Section id="downloading-now" title="Downloading now" count={queue.data ? all.length : undefined}>
             {cancel.isError && <Note variant="error">{cancel.error.message}</Note>}
-            {queue.data && items.length === 0 ? (
+            {queue.isPending ? (
+              <SkeletonRows poster="md" />
+            ) : queue.data && items.length === 0 ? (
               <EmptyLine title="Nothing is downloading." />
             ) : (
               <RowList>
