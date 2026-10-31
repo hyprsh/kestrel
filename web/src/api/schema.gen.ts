@@ -4020,6 +4020,8 @@ export interface components {
             title: string;
             year: number | null;
             kind: components["schemas"]["TitleKind"];
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. */
+            has_poster: boolean;
             slot: components["schemas"]["Slot"];
             release_name: string;
             score: number | null;

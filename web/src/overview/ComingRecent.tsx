@@ -6,6 +6,7 @@ import { useQueue } from '../api/queue'
 import { localDay, useRecent, useUpcoming, type RecentItem } from '../api/upcoming'
 import { slotLabel, type SlotKey } from '../library/bits'
 import { placePath } from '../place'
+import { TitlePoster } from '../poster'
 import { useNow } from '../time'
 import { UpcomingLine } from '../upcoming/bits'
 import { dayLabel, upcomingKey } from '../upcoming/state'
@@ -40,7 +41,12 @@ export function Coming({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void
                 current={i === nav.sel}
                 data-nav={`ov-${i}`}
                 onClick={() => open(i, item.title_id)}
-                left={<span className="label-12 w-24 shrink-0 text-gray-900 tabular">{dayLabel(localDay(item))}</span>}
+                left={
+                  <span className="flex items-center gap-3">
+                    <TitlePoster id={item.title_id} hasPoster={item.has_poster} size="md" />
+                    <span className="label-12 w-20 shrink-0 text-gray-900 tabular">{dayLabel(localDay(item))}</span>
+                  </span>
+                }
               >
                 <Entity.Content fill>
                   <UpcomingLine item={item} queue={queue} now={now} />
@@ -86,6 +92,7 @@ function RecentRow({ item, index, sel, onSelect }: { item: RecentItem; index: nu
       onClick={onSelect}
       className={stackedRow}
       rightClassName={stackedRight}
+      left={<TitlePoster id={item.title_id} hasPoster={item.has_poster} size="md" />}
       right={
         <>
           <Badge variant="gray" contrast="low" size="sm">
