@@ -1,3 +1,4 @@
+import { displayDefaults, noDisplayDeclared } from '../test/display'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -35,7 +36,8 @@ describe('Update from TRaSH', () => {
           root_folders: { movies: ['/m'], series: ['/s'] },
           check_github_updates: true,
           pause_grabs: false,
-          from_config_file: { language_region: false, root_folders: false, check_github_updates: false },
+          display: displayDefaults,
+          from_config_file: { language_region: false, root_folders: false, check_github_updates: false, display: noDisplayDeclared },
           trash: { auto_update: false },
           metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
         })

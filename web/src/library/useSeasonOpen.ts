@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useEpisodes, type Episode } from '../api/queries'
+import { useDisplay, type Display } from '../display/useDisplay'
+import { orderSeasons } from './episodes'
 
 /** Which seasons of a Series' episode grid show their episodes, and the means to open and close them. */
 export type SeasonOpen = {
@@ -34,11 +36,12 @@ function save(titleId: number, overrides: Overrides) {
 }
 
 /**
- * A season opens by default when it is the latest one or has Wanted episodes;
- * Specials and every other season start closed.
+ * With `latest_and_wanted`, a season opens by default when it is the latest one or has Wanted episodes;
+ * Specials and every other season start closed. `all` and `none` open or close every season.
  */
-function openByDefault(season: number, latest: number, episodes: Episode[]): boolean {
-  if (season === 0) return false
+function openByDefault(mode: Display['seasons_open'], season: number, latest: number, episodes: Episode[]): boolean {
+  if (mode === 'all') return true
+  if (mode === 'none' || season === 0) return false
   return season === latest || episodes.some((e) => Object.values(e.cells).some((c) => c?.state === 'wanted'))
 }
 
@@ -49,6 +52,7 @@ function openByDefault(season: number, latest: number, episodes: Episode[]): boo
  */
 export function useSeasonOpen(titleId: number): SeasonOpen {
   const episodes = useEpisodes(titleId)
+  const { display } = useDisplay()
   const [stored, setStored] = useState(() => ({ titleId, overrides: load(titleId) }))
   // Another Series: its own remembered seasons.
   let current = stored
@@ -72,10 +76,13 @@ export function useSeasonOpen(titleId: number): SeasonOpen {
     for (const e of episodes.data ?? []) m.set(e.season, [...(m.get(e.season) ?? []), e])
     return m
   }, [episodes.data])
-  const seasons = useMemo(() => [...bySeason.keys()], [bySeason])
+  const seasons = useMemo(() => orderSeasons([...bySeason.keys()], display.season_order), [bySeason, display.season_order])
   const latest = Math.max(0, ...seasons)
 
-  const isOpen = useCallback((season: number) => overrides[season] ?? openByDefault(season, latest, bySeason.get(season) ?? []), [overrides, latest, bySeason])
+  const isOpen = useCallback(
+    (season: number) => overrides[season] ?? openByDefault(display.seasons_open, season, latest, bySeason.get(season) ?? []),
+    [overrides, display.seasons_open, latest, bySeason],
+  )
   const set = useCallback((season: number, open: boolean) => change((o) => ({ ...o, [season]: open })), [change])
   const setAll = useCallback((open: boolean) => change(() => Object.fromEntries(seasons.map((s) => [s, open]))), [change, seasons])
 

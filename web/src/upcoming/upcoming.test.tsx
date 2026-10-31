@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
@@ -8,6 +8,7 @@ import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { fakeLibrary, row } from '../test/library'
 import { fakeQueue, queueItem } from '../test/queue'
+import { serveDisplay } from '../test/serveDisplay'
 import { server } from '../test/server'
 
 type Recent = components['schemas']['RecentItem']
@@ -382,6 +383,38 @@ describe('Upcoming: filters', () => {
     expect(screen.getByRole('switch', { name: 'Wanted only' })).toBeChecked()
     expect(within(timeline()).queryByText('A Movie')).not.toBeInTheDocument()
     sessionStorage.clear()
+  })
+})
+
+describe('Upcoming: default filters', () => {
+  const mixed = () =>
+    fakeAgenda([
+      movie({ date: day(1), title: 'A Movie', slots: [slot('not_out')] }),
+      episode({ date: day(1), title: 'A Series', slots: [slot('wanted', { version_id: 21 })] }),
+      movie({ date: day(-2), title_id: 3, title: 'Filled Movie', slots: [slot('imported')] }),
+    ])
+  beforeEach(() => sessionStorage.clear())
+  afterEach(() => sessionStorage.clear())
+
+  it("starts a new session on the household's defaults", async () => {
+    serveDisplay({ upcoming_filters: { kind: 'series', wanted_only: true, hide_imported: true } })
+    mixed()
+    await openUpcoming()
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'Wanted only' })).toBeChecked())
+    expect(screen.getByRole('switch', { name: 'Hide imported' })).toBeChecked()
+    expect(within(timeline()).queryByText('A Movie')).not.toBeInTheDocument()
+  })
+
+  it('lets a change in the session win over the defaults, and keeps it', async () => {
+    serveDisplay({ upcoming_filters: { kind: 'all', wanted_only: true, hide_imported: false } })
+    mixed()
+    await openUpcoming()
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'Wanted only' })).toBeChecked())
+    await userEvent.click(screen.getByRole('switch', { name: 'Wanted only' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Overview' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Upcoming' }))
+    await screen.findByRole('list', { name: 'Agenda' })
+    expect(screen.getByRole('switch', { name: 'Wanted only' })).not.toBeChecked()
   })
 })
 

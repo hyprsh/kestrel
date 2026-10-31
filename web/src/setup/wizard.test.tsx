@@ -1,3 +1,4 @@
+import { displayDefaults, noDisplayDeclared } from '../test/display'
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -18,7 +19,8 @@ function fakeSettings(onSave?: (body: unknown) => void, rootFolders: Partial<Set
     language_region: { primary_language: 'en', release_date_country: 'US' },
     check_github_updates: true,
     pause_grabs: false,
-    from_config_file: { language_region: false, root_folders: false, check_github_updates: false },
+    display: displayDefaults,
+    from_config_file: { language_region: false, root_folders: false, check_github_updates: false, display: noDisplayDeclared },
     trash: { auto_update: true },
     metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
     root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'], ...rootFolders },
