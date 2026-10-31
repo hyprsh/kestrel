@@ -1,11 +1,11 @@
-// Activity's Health tab: every check from GET /system/status, grouped and failing first, with a summary
+// The Health screen: every check from GET /system/status, grouped and failing first, with a summary
 // line above. A failing check shows the action of its Needs attention row (the server builds those).
 import { Button, Note } from '@hyprsh/design'
-import { useAttention, useStatus, type AttentionRow } from '../../api/attention'
-import { SkeletonRows } from '../../loading'
-import { useAttentionAction } from '../../overview/useAttentionAction'
-import { useOpenPlace } from '../../place'
-import { clockTime } from '../../time'
+import { useAttention, useStatus, type AttentionRow } from '../api/attention'
+import { SkeletonRows } from '../loading'
+import { useAttentionAction } from '../overview/useAttentionAction'
+import { useOpenPlace } from '../place'
+import { clockTime } from '../time'
 import { HealthGroups } from './HealthGroups'
 import type { TileData } from './HealthTile'
 import { healthOf } from './tiles'
@@ -27,7 +27,7 @@ function Actions({ row }: { row: AttentionRow }) {
   )
 }
 
-export function HealthTab() {
+function HealthChecks() {
   const status = useStatus()
   const rows = useAttention().data?.rows ?? []
   if (status.isPending) return <SkeletonRows count={4} />
@@ -45,6 +45,17 @@ export function HealthTab() {
     <div className="flex flex-col gap-4 px-4 pt-3 pb-4">
       <p className="label-12 text-gray-900">{summary}</p>
       <HealthGroups groups={groups} extra={actions} />
+    </div>
+  )
+}
+
+/** The screen has no ScreenBar (nothing to filter): a centred column like the Overview's, so tiles do not stretch across a wide window. */
+export function Health() {
+  return (
+    <div className="min-h-0 flex-1 overflow-auto">
+      <div role="region" aria-label="Health" className="mx-auto max-w-3xl pb-6 max-sm:px-4">
+        <HealthChecks />
+      </div>
     </div>
   )
 }

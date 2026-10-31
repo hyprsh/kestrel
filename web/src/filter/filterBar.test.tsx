@@ -1,5 +1,5 @@
-// The filter menus beside the filter field: the query text is the only state, so a menu and the
-// field agree both ways, an exclusion shows in both, and text no menu owns stays as typed.
+// The Filter button beside the filter field: the query text is the only state, so its menu and the
+// field agree both ways, an exclusion shows in both, and text no facet owns stays as typed.
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -19,14 +19,15 @@ const slots = (standard: 'wanted' | 'filled', fourK: 'wanted' | 'filled' | null 
 })
 const library = () => [row(1, 'Heat', 'Heat', { slots: slots('wanted') }), row(2, 'Zodiac', 'Zodiac', { slots: slots('filled', 'wanted') }), row(3, 'Alien', 'Alien', { slots: slots('filled') })]
 
-const menu = (name: RegExp) => screen.getByRole('button', { name })
-const option = (name: string) => screen.getByRole('option', { name: new RegExp(`^${name}(, excluded)?$`) })
+const filterButton = () => screen.getByRole('button', { name: /^Filter( ·|,|$)/ })
+/** A row of the Filter menu, by its name; ", excluded" follows it for an excluded value. A Profile named like a Slot comes after the Slot's row, so the first is the Slot's. */
+const item = (name: string) => screen.getAllByRole('menuitemcheckbox', { name: new RegExp(`^${name}(, excluded)?$`) })[0]
 const titles = (list: HTMLElement) =>
   within(list)
     .getAllByRole('option')
     .map((o) => o.querySelector('[data-title]')?.textContent)
 
-describe('the Library filter menus', () => {
+describe('the Library Filter button', () => {
   async function open() {
     fakeLibrary(library())
     renderApp()
@@ -41,51 +42,113 @@ describe('the Library filter menus', () => {
     await userEvent.type(field, 'zod is:wanted')
     expect(titles(list)).toEqual(['Zodiac'])
 
-    await userEvent.click(menu(/^Slot/))
-    await userEvent.click(option('4K'))
+    await userEvent.click(filterButton())
+    await userEvent.click(item('4K'))
     expect(field).toHaveValue('zod is:wanted slot:4k') // free text and the other terms stay
-    expect(option('4K')).toHaveAttribute('aria-selected', 'true')
+    expect(item('4K')).toHaveAttribute('aria-checked', 'true')
+    expect(filterButton()).toHaveTextContent('Filter · 2') // the Slot and the is:wanted Status
     await userEvent.keyboard('{Escape}')
 
     await userEvent.clear(field)
     await userEvent.type(field, 'kind:movie,series')
-    await userEvent.click(menu(/^Kind/))
-    expect(option('Movies')).toHaveAttribute('aria-selected', 'true')
-    expect(option('Series')).toHaveAttribute('aria-selected', 'true')
-    await userEvent.click(option('Movies'))
+    await userEvent.click(filterButton())
+    expect(item('Movies')).toHaveAttribute('aria-checked', 'true')
+    expect(item('Series')).toHaveAttribute('aria-checked', 'true')
+    expect(filterButton()).toHaveTextContent('Filter · 1') // two values of one facet are one active facet
+    await userEvent.click(item('Movies'))
     expect(field).toHaveValue('kind:series')
   })
 
-  it('shows a typed exclusion in the menu, and excludes a row with Shift+Enter', async () => {
+  it('shows a typed exclusion in the menu as Excluded, and choosing it takes the term out', async () => {
     const { list, field } = await open()
     await userEvent.type(field, '-slot:4k')
     expect(titles(list)).toEqual(['Heat', 'Alien'])
-    await userEvent.click(menu(/^Slot/))
-    expect(screen.getByRole('option', { name: '4K, excluded' })).toBeInTheDocument()
-    await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('listbox', { name: 'Slot' })).not.toBeInTheDocument())
+    await userEvent.click(filterButton())
+    expect(item('4K')).toHaveTextContent('Excluded')
+    expect(item('4K')).toHaveAttribute('aria-checked', 'false')
+    expect(filterButton()).toHaveTextContent('Filter · 1')
 
-    await userEvent.clear(field)
-    await userEvent.click(menu(/^Slot/))
-    await waitFor(() => expect(screen.getByRole('listbox', { name: 'Slot' })).toHaveFocus())
-    await userEvent.keyboard('{ArrowDown}{Shift>}{Enter}{/Shift}')
-    expect(field).toHaveValue('-slot:4k')
-    expect(screen.getByRole('option', { name: '4K, excluded' })).toBeInTheDocument()
-    expect(titles(list)).toEqual(['Heat', 'Alien'])
+    await userEvent.click(item('4K'))
+    expect(field).toHaveValue('')
+    expect(titles(list)).toEqual(['Heat', 'Zodiac', 'Alien'])
   })
 
-  it('sorts from the Sort menu and clears it with the default row', async () => {
+  it('excludes a row with Shift+Enter, and a plain Enter on it clears the exclusion', async () => {
+    const { list, field } = await open()
+    await userEvent.click(filterButton())
+    item('4K').focus()
+    await userEvent.keyboard('{Shift>}{Enter}{/Shift}')
+    expect(field).toHaveValue('-slot:4k')
+    expect(item('4K')).toHaveTextContent('Excluded')
+    expect(filterButton()).toHaveTextContent('Filter · 1') // an excluded value counts toward the badge
+    expect(titles(list)).toEqual(['Heat', 'Alien'])
+
+    item('4K').focus()
+    await userEvent.keyboard('{Enter}')
+    expect(field).toHaveValue('')
+  })
+
+  it('excludes a row with Shift+click, moving a value that was included over to the exclusion', async () => {
     const { field } = await open()
-    await userEvent.click(menu(/^Sort/))
-    await userEvent.click(screen.getByRole('option', { name: 'Wanted longest' }))
+    await userEvent.type(field, 'slot:4k')
+    await userEvent.click(filterButton())
+    const user = userEvent.setup()
+    await user.keyboard('{Shift>}')
+    await user.click(item('4K'))
+    await user.keyboard('{/Shift}')
+    expect(field).toHaveValue('-slot:4k')
+    expect(item('4K')).toHaveAttribute('aria-checked', 'false')
+    expect(item('4K')).toHaveTextContent('Excluded')
+  })
+
+  it('names an excluded value as excluded to a screen reader', async () => {
+    const { field } = await open()
+    await userEvent.type(field, '-slot:4k')
+    await userEvent.click(filterButton())
+    expect(screen.getAllByRole('menuitemcheckbox', { name: '4K, excluded' })).toHaveLength(1)
+  })
+
+  it('reaches the exclude action by keyboard as an item of its own', async () => {
+    const { field } = await open()
+    await userEvent.click(filterButton())
+    const row = item('4K')
+    row.focus()
+    await userEvent.keyboard('{ArrowDown}')
+    const action = row.nextElementSibling as HTMLElement
+    expect(action).toHaveFocus()
+    expect(action).toHaveAccessibleName('Exclude 4K')
+    expect(action).toHaveAttribute('role', 'menuitem')
+    await userEvent.keyboard('{Enter}')
+    expect(field).toHaveValue('-slot:4k')
+  })
+
+  it("excludes from the row's own action, and says how to exclude at the foot of the menu", async () => {
+    const { list, field } = await open()
+    await userEvent.type(field, 'zod')
+    await userEvent.click(filterButton())
+    expect(screen.getByText('Shift-click to exclude')).toBeInTheDocument()
+    await userEvent.click(screen.getAllByRole('button', { name: 'Exclude 4K', hidden: true })[0]) // the Slot's row comes before a Profile named alike
+    expect(field).toHaveValue('zod -slot:4k')
+    expect(item('4K')).toHaveTextContent('Excluded')
+    expect(screen.getAllByRole('button', { name: 'Exclude 4K', hidden: true })).toHaveLength(1) // an excluded row has no action: only the Profile's is left
+    expect(within(list).queryAllByRole('option')).toHaveLength(0) // zod is the one Title with a 4K Version
+  })
+
+  it('sorts from the Sort button and clears it with the default row', async () => {
+    const { field } = await open()
+    await userEvent.click(screen.getByRole('button', { name: /^Sort/ }))
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'Wanted longest' }))
     expect(field).toHaveValue('sort:wanted_since')
-    await userEvent.click(menu(/^Sort/))
-    await userEvent.click(screen.getByRole('option', { name: 'Newest added' }))
+    await userEvent.click(screen.getByRole('button', { name: /^Sort/ }))
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'Name A–Z' }))
+    expect(field).toHaveValue('sort:name-asc') // one sort term, not two
+    await userEvent.click(screen.getByRole('button', { name: /^Sort/ }))
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'Newest added' }))
     expect(field).toHaveValue('')
   })
 })
 
-describe('the Log filter menus', () => {
+describe('the Log Filter button', () => {
   const event = (id: number, kind: string): components['schemas']['Event'] => ({
     id,
     at: '2026-10-17T12:00:00Z',
@@ -117,10 +180,10 @@ describe('the Log filter menus', () => {
   it('keeps Kind and the field in step, with kinds and groups as rows', async () => {
     const { sent, field } = await open()
     await userEvent.type(field, 'slot:4k kind:grab_failed')
-    await userEvent.click(menu(/^Kind/))
-    expect(option('Failed')).toHaveAttribute('aria-selected', 'true')
-    expect(option('Failures')).toHaveAttribute('aria-selected', 'false') // a group is a row of its own
-    await userEvent.click(option('Imported'))
+    await userEvent.click(filterButton())
+    expect(item('Failed')).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('menuitemcheckbox', { name: /^Failures/ })).toHaveAttribute('aria-checked', 'false') // a group is a row of its own
+    await userEvent.click(item('Imported'))
     expect(field).toHaveValue('slot:4k kind:grab_failed,import')
     await expect.poll(() => sent.at(-1)?.getAll('kind')).toEqual(['grab_failed', 'import'])
   })
@@ -128,32 +191,30 @@ describe('the Log filter menus', () => {
   it('shows an excluded kind as excluded, and the Title menu offers the Titles of the Library', async () => {
     const { sent, field } = await open()
     await userEvent.type(field, '-kind:grab_failed')
-    await userEvent.click(menu(/^Kind/))
-    expect(screen.getByRole('option', { name: 'Failed, excluded' })).toBeInTheDocument()
+    await userEvent.click(filterButton())
+    expect(item('Failed')).toHaveTextContent('Excluded')
     await expect.poll(() => sent.at(-1)?.getAll('exclude_kind')).toEqual(['grab_failed'])
-    await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('listbox', { name: 'Kind' })).not.toBeInTheDocument())
 
-    await userEvent.click(menu(/^Title/))
-    await userEvent.click(screen.getByRole('option', { name: 'Zodiac' }))
+    await userEvent.click(item('Zodiac')) // the Title facet sits in the same menu
+    await waitFor(() => expect(filterButton()).toHaveTextContent('Filter · 2'))
     expect(field).toHaveValue('-kind:grab_failed title:Zodiac')
   })
 })
 
 describe('on a phone', () => {
-  it('keeps the Library menus behind a Filters button that counts the terms they set', async () => {
+  it('keeps Filter and Sort as icon buttons beside the field, with the same Filter menu', async () => {
     vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('max-width: 639'), media: query, addEventListener: () => {}, removeEventListener: () => {} }))
     fakeLibrary(library())
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     const field = await screen.findByRole('combobox', { name: 'Filter the Library' })
-    expect(screen.queryByRole('button', { name: /^Slot/ })).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
-    for (const name of [/^Kind/, /^Slot/, /^Profile/, /^Sort/]) expect(menu(name)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Sort/ })).toBeInTheDocument()
+    await userEvent.click(filterButton())
+    for (const name of ['Movies', 'Standard', '4K']) expect(item(name)).toBeInTheDocument()
 
-    await userEvent.click(menu(/^Slot/))
-    await userEvent.click(option('4K'))
+    await userEvent.click(item('4K'))
     expect(field).toHaveValue('slot:4k')
-    expect(screen.getByRole('button', { name: 'Filters 1' })).toHaveAttribute('aria-expanded', 'true')
+    expect(filterButton()).toHaveAccessibleName(/^Filter.*1 active/)
+    expect(filterButton()).toHaveTextContent(/^1$/) // the funnel carries the count as its badge
   })
 })

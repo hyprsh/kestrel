@@ -100,14 +100,15 @@ describe('Activity', () => {
     await openActivity()
 
     await screen.findByRole('region', { name: 'Done · 1' })
-    await userEvent.click(screen.getByRole('button', { name: /^Stage/ }))
-    const stage = (name: string) => screen.getByRole('option', { name })
+    await userEvent.click(screen.getByRole('button', { name: /^Filter/ }))
+    const stage = (name: string) => screen.getByRole('menuitemcheckbox', { name: new RegExp(`^${name}`) })
     expect(stage('Downloading')).toHaveTextContent('1')
-    expect(stage('Downloading')).toHaveAttribute('aria-selected', 'false')
+    expect(stage('Downloading')).toHaveAttribute('aria-checked', 'false')
     expect(stage('Stalled')).toHaveTextContent('0')
 
     await userEvent.click(stage('Done'))
-    expect(stage('Done')).toHaveAttribute('aria-selected', 'true')
+    expect(stage('Done')).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('button', { name: 'Filter · 1' })).toBeInTheDocument() // the badge counts the facets in use
     expect(screen.getByRole('region', { name: 'Done · 1' })).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Downloading · 1' })).not.toBeInTheDocument()
     expect(location.pathname + location.search).toBe('/activity?q=stage%3Adone')
@@ -334,8 +335,8 @@ describe('Activity', () => {
 
     const region = await screen.findByRole('region', { name: 'Searching · 12' })
     expect(region).toHaveTextContent('12 Wanted waiting · searching 3 of 12')
-    await userEvent.click(screen.getByRole('button', { name: /^Stage/ }))
-    expect(screen.getByRole('option', { name: 'Searching' })).toHaveTextContent('12')
+    await userEvent.click(screen.getByRole('button', { name: /^Filter/ }))
+    expect(screen.getByRole('menuitemcheckbox', { name: /^Searching/ })).toHaveTextContent('12')
     await userEvent.keyboard('{Escape}')
 
     // A summary cannot be narrowed to a kind, Slot or text.

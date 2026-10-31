@@ -28,7 +28,7 @@ const sortKeys = {
 } as const
 
 type SortKey = keyof typeof sortKeys
-export type Sort = { key: SortKey; dir: 'asc' | 'desc' }
+type Sort = { key: SortKey; dir: 'asc' | 'desc' }
 
 /** The `sort:` values the menu offers; no term is Added, newest first. Wanted longest keeps its old value, `wanted_since`, so bookmarks still work. */
 const sortValues = ['added-asc', 'name-asc', 'name-desc', 'year-desc', 'year-asc', 'size-desc', 'size-asc', 'wanted_since', 'wanted_since-desc'] as const
@@ -42,10 +42,10 @@ function sortOf(value: string | undefined): Sort {
 }
 
 /** The words for an order, as the Sort menu and the phone's count line say it. */
-export const sortLabel = (s: Sort) => sortKeys[s.key][s.dir]
+const sortLabel = (s: Sort) => sortKeys[s.key][s.dir]
 
 /** The order a parsed filter asks for. */
-export const sortOfQuery = (q: Query): Sort => sortOf(q.terms.find((t) => t.name === 'sort')?.values[0])
+const sortOfQuery = (q: Query): Sort => sortOf(q.terms.find((t) => t.name === 'sort')?.values[0])
 
 /** The Library's qualifiers, given the Profiles to offer. `is:` has no menu: the state tabs set it. */
 export function libraryQualifiers(profiles: readonly ProfileChoice[]): Facet[] {

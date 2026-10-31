@@ -370,7 +370,7 @@ describe('the Library state tabs and sort', () => {
     expect(order()).toEqual(['Zodiac', 'alien', 'Heat']) // as added
 
     await userEvent.click(screen.getByRole('button', { name: /^Sort/ }))
-    await userEvent.click(screen.getByRole('option', { name: 'Name A–Z' }))
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'Name A–Z' }))
     expect(filter()).toHaveValue('sort:name-asc')
     expect(order()).toEqual(['alien', 'Heat', 'Zodiac'])
     expect(new URLSearchParams(location.search).get('q')).toBe('sort:name-asc')
@@ -381,42 +381,5 @@ describe('the Library state tabs and sort', () => {
     await userEvent.clear(filter())
     await userEvent.type(filter(), 'sort:size-desc')
     expect(order()).toEqual(['alien', 'Zodiac', 'Heat'])
-  })
-})
-
-describe('the Library grid', () => {
-  it('switches with g, remembers it, and sums up the picked Title in a panel', async () => {
-    fakeLibrary(rows())
-    const list = await openLibrary()
-    await within(list).findAllByRole('option')
-    expect(screen.getByRole('radio', { name: 'List' })).toBeChecked()
-
-    await userEvent.keyboard('g')
-    expect(screen.getByRole('radio', { name: 'Grid' })).toBeChecked()
-    expect(localStorage.getItem('kestrel.library.view')).toBe('grid')
-    const grid = screen.getByRole('listbox', { name: 'Library' })
-    expect(within(grid).getAllByRole('option')).toHaveLength(3)
-    expect(screen.queryByRole('region', { name: /paddington/i })).not.toBeInTheDocument() // no Title pane beside the grid
-
-    await userEvent.keyboard('j')
-    await userEvent.keyboard('{Enter}')
-    const panel = await screen.findByRole('complementary', { name: 'Heat summary' })
-    expect(await within(panel).findByRole('listitem', { name: 'Standard' })).toHaveTextContent('Wanted')
-    expect(within(panel).getByText('Not searched yet')).toBeInTheDocument()
-
-    await userEvent.click(within(panel).getByRole('button', { name: 'Open Title' }))
-    expect(await screen.findByRole('region', { name: 'Heat' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
-    expect(within(screen.getByRole('listbox', { name: 'Library' })).getAllByRole('option')).toHaveLength(3)
-
-    localStorage.removeItem('kestrel.library.view')
-  })
-
-  it('opens in the view last used', async () => {
-    localStorage.setItem('kestrel.library.view', 'grid')
-    fakeLibrary(rows())
-    await openLibrary()
-    expect(screen.getByRole('radio', { name: 'Grid' })).toBeChecked()
-    localStorage.removeItem('kestrel.library.view')
   })
 })

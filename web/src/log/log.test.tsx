@@ -210,7 +210,7 @@ describe('Log', () => {
     expect(filter()).toHaveFocus()
   })
 
-  it('shows an event\u2019s kind as a plain label, and filters by kind only from the Kind menu', async () => {
+  it('shows an event\u2019s kind as a plain label, and filters by kind only from the Filter menu', async () => {
     fakeLibrary([row(3, 'Paddington', 'Paddington')])
     const sent = events([{ ...event(2, 'grab_failed', 'The download failed'), title_id: 3 }, event(1, 'import', 'Imported Heat')])
     const user = await openLog()
@@ -219,16 +219,16 @@ describe('Log', () => {
     expect(within(list).getByText('Failed')).toBeInTheDocument()
     expect(within(list).queryByRole('button', { name: /^Filter by kind:/ })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /^Kind/ }))
-    await user.click(screen.getByRole('option', { name: 'Failed' }))
-    await user.click(screen.getByRole('option', { name: 'Imported' }))
+    await user.click(screen.getByRole('button', { name: /^Filter( ·|$)/ }))
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Failed' }))
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Imported' }))
     expect(filter()).toHaveValue('kind:grab_failed,import')
     await expect.poll(() => sent.at(-1)?.getAll('kind')).toEqual(['grab_failed', 'import'])
 
     // Unticking a kind takes it out of the field.
-    expect(screen.getByRole('option', { name: 'Failed' })).toHaveAttribute('aria-selected', 'true')
-    await user.click(screen.getByRole('option', { name: 'Failed' }))
-    await user.click(screen.getByRole('option', { name: 'Imported' }))
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Failed' })).toHaveAttribute('aria-checked', 'true')
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Failed' }))
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Imported' }))
     expect(filter()).toHaveValue('')
   })
 
@@ -307,6 +307,25 @@ describe('Log', () => {
     await expect.poll(() => sent.at(-1)?.getAll('title_id')).toEqual(['3'])
   })
 
+  it('keeps Reset column widths in the screen bar menu, and gives the Blocklist no filter row', async () => {
+    events()
+    localStorage.setItem('kestrel.columns.log', JSON.stringify({ when: 200 }))
+    const user = await openLog()
+    await screen.findByRole('table', { name: 'Events' })
+
+    await user.click(screen.getByRole('button', { name: 'Log actions' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Reset column widths' }))
+    expect(localStorage.getItem('kestrel.columns.log')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Log actions' }))
+    expect(screen.getByRole('menuitem', { name: 'Reset column widths' })).toHaveAttribute('aria-disabled', 'true')
+    await user.keyboard('{Escape}')
+
+    await user.click(screen.getByRole('button', { name: 'Log: Log' }))
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Blocklist' }))
+    expect(screen.queryByRole('combobox', { name: 'Filter the Log' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Log actions' })).not.toBeInTheDocument()
+  })
+
   it('removes a Blocklist entry from the Blocklist view', async () => {
     let items = [blocked]
     server.use(
@@ -317,7 +336,8 @@ describe('Log', () => {
       }),
     )
     const user = await openLog()
-    await user.click(screen.getByRole('tab', { name: 'Blocklist' }))
+    await user.click(screen.getByRole('button', { name: 'Log: Log' }))
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Blocklist' }))
 
     await user.click(await screen.findByRole('button', { name: /remove paddington.*bad/i }))
 
@@ -331,7 +351,8 @@ describe('Log', () => {
       http.delete('/blocklist/{id}', ({ response }) => response('default').json({ type: 'about:blank', title: 'x', status: 500, code: 'internal', detail: 'database locked' }, { status: 500 })),
     )
     const user = await openLog()
-    await user.click(screen.getByRole('tab', { name: 'Blocklist' }))
+    await user.click(screen.getByRole('button', { name: 'Log: Log' }))
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Blocklist' }))
 
     await user.click(await screen.findByRole('button', { name: /remove paddington.*bad/i }))
 
@@ -378,7 +399,8 @@ describe('Log on a phone', () => {
     )
     events()
     const user = await openPhoneLog()
-    await user.click(screen.getByRole('tab', { name: 'Blocklist' }))
+    await user.click(screen.getByRole('button', { name: 'Log: Log' }))
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Blocklist' }))
     const list = await screen.findByRole('list', { name: 'Blocklist' })
     expect(within(list).getByText(blocked.release_name)).toBeInTheDocument()
 

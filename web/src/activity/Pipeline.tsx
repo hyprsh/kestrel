@@ -13,8 +13,6 @@ import { useQueue, type QueueItem } from '../api/queue'
 import { useCancel } from '../grabs/useCancel'
 import { useReport } from '../toasts'
 import { useSearchStatus } from '../api/search'
-import { FilterBar } from '../filter/FilterBar'
-import { FilterStrip } from '../layout/FilterStrip'
 import { SectionBlock } from '../layout/SectionBlock'
 import { DownloadRow } from '../grabs/DownloadRow'
 import { GrabRow } from '../grabs/GrabRow'
@@ -56,16 +54,15 @@ function Line({ tone, children }: { tone?: 'amber' | 'red'; children: ReactNode 
   return <div className={cx('label-12', tone === 'amber' ? 'text-amber-900' : tone === 'red' ? 'text-red-900' : 'text-gray-900')}>{children}</div>
 }
 
-export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQuery: (q: string) => void; onOpenTitle: (id: number) => void }) {
+/** What the Grabs view shows for a filter: the entries, grouped by stage, and the state of the data behind them. The screen bar's Stage items and count read it too, so it is taken above Pipeline. */
+export function usePipeline(query: string) {
   const queue = useQueue()
   const stalled = useStalledGrabs()
   const finished = useFinishedGrabs()
   const blocked = useBlocklist()
   const titles = useTitles().data
   const search = useSearchStatus().data
-  const openPlace = useOpenPlace()
   const now = useNow()
-  const [sel, setSel] = useState(0)
 
   const parsed = useMemo(() => parseQuery(query, activityQualifiers), [query])
   const filter = useMemo(() => activityFilter(parsed), [parsed])
@@ -80,6 +77,28 @@ export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQue
   const searching = search && chosen.includes('searching') && !filter.narrowed && (search.due.versions > 0 || search.pass !== null)
   const groups = chosen.filter((s) => s !== 'searching').map((s) => ({ stage: s, entries: matching.filter((e) => e.stage === s) }))
   const rows = groups.flatMap((g) => g.entries)
+  return {
+    search,
+    count,
+    chosen,
+    searching,
+    groups,
+    rows,
+    total: all.length,
+    loaded: Boolean(queue.data && stalled.data && finished.data && blocked.data),
+    pending: queue.isPending || stalled.isPending || finished.isPending || blocked.isPending,
+    failed: queue.isError || stalled.isError || finished.isError || blocked.isError,
+    moreFinished: finished.data ? { more: finished.data.more, shown: finished.data.items.length } : null,
+  }
+}
+
+export type PipelineData = ReturnType<typeof usePipeline>
+
+export function Pipeline({ data, onOpenTitle }: { data: PipelineData; onOpenTitle: (id: number) => void }) {
+  const { search, count, chosen, searching, groups, rows, loaded, pending, failed, moreFinished } = data
+  const openPlace = useOpenPlace()
+  const now = useNow()
+  const [sel, setSel] = useState(0)
 
   const open = (e: Entry | undefined) => {
     const id = e && (e.type === 'active' ? e.item.title_id : e.type === 'grab' ? e.grab.title_id : e.entry.title_id)
@@ -91,25 +110,11 @@ export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQue
     document.getElementById('activity-filter')?.focus()
   })
 
-  const loaded = queue.data && stalled.data && finished.data && blocked.data
-  const pending = queue.isPending || stalled.isPending || finished.isPending || blocked.isPending
-  const failed = queue.isError || stalled.isError || finished.isError || blocked.isError
   let index = 0
   return (
     <section id="activity-pipeline" aria-label="Pipeline" className="flex flex-col">
-      <FilterStrip>
-        <FilterBar
-          id="activity-filter"
-          label="Filter Activity"
-          placeholder="Filter, e.g. stage:failed kind:series slot:4k …  /"
-          value={query}
-          onChange={onQuery}
-          qualifiers={activityQualifiers}
-          suffix={(name, value) => (name === 'stage' ? <span className="tabular-nums">{count(value as Stage)}</span> : null)}
-        />
-      </FilterStrip>
       {failed && <Note variant="error">Activity could not be loaded in full.</Note>}
-      {searching && (
+      {searching && search && (
         <SectionBlock title={stageLabel.searching} count={count('searching')}>
           <div className="px-4 py-3">
             <SearchSummary status={search} />
@@ -149,7 +154,7 @@ export function Pipeline({ query, onQuery, onOpenTitle }: { query: string; onQue
       )}
       {(chosen.includes('done') || chosen.includes('failed')) && (
         <p className="label-12 px-4 py-3 text-gray-900">
-          {finished.data?.more ? `Done and Failed show the latest ${finished.data.items.length} Grabs. ` : `Done and Failed reach back ${HISTORY_DAYS} days. `}
+          {moreFinished?.more ? `Done and Failed show the latest ${moreFinished.shown} Grabs. ` : `Done and Failed reach back ${HISTORY_DAYS} days. `}
           <Link as="button" onClick={() => openPlace('/log?q=kind:grabs,imports')}>
             Older ones are in the Log
           </Link>

@@ -21,10 +21,25 @@ afterEach(() => vi.unstubAllGlobals())
 const rows = () => [row(1, 'Paddington', 'Paddington'), row(2, 'Heat', 'Heat', { year: 1995 })]
 
 describe('the shell on a phone', () => {
-  it('keeps the Health pill out of the top bar and at the top of the Overview', async () => {
+  it('puts the Health button in the top bar, before Add Title, and none on the Overview', async () => {
     renderApp()
-    expect(await screen.findByRole('button', { name: /^Health/ })).toBeInTheDocument()
-    expect(within(screen.getByRole('banner')).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
+    const bar = await screen.findByRole('banner')
+    const health = await within(bar).findByRole('button', { name: /^Health/ })
+    expect(health.compareDocumentPosition(within(bar).getByRole('button', { name: 'Add Title' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(screen.getByRole('main')).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
+  })
+
+  it('opens the Health screen from the top bar button, which is then the current page, and keeps it out of the tab bar and More', async () => {
+    renderApp()
+    const tabs = await screen.findByRole('navigation', { name: 'Screens' })
+    expect(within(tabs).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
+    const health = await within(await screen.findByRole('banner')).findByRole('button', { name: /^Health/ })
+    expect(health).not.toHaveAttribute('aria-current')
+    await userEvent.click(health)
+    expect(await screen.findByRole('region', { name: 'Health' })).toBeInTheDocument()
+    expect(location.pathname).toBe('/health')
+    expect(screen.getByRole('banner')).toHaveTextContent('Health')
+    expect(within(screen.getByRole('banner')).getByRole('button', { name: /^Health/ })).toHaveAttribute('aria-current', 'page')
   })
 
   it('replaces the icon rail with a bottom tab bar of Overview, Library, Upcoming, Activity and More', async () => {
@@ -114,16 +129,16 @@ describe('the Library on a phone', () => {
     expect(await screen.findByRole('heading', { name: 'Heat' })).toBeInTheDocument()
   })
 
-  it('shows the filter field, the state pills and the count, with the menus behind Filters', async () => {
+  it('shows the filter field with icon-only Filter and Sort buttons on one line, and no count line', async () => {
     fakeLibrary(rows())
     const list = await openLibrary()
     await userEvent.type(screen.getByRole('combobox', { name: 'Filter the Library' }), 'heat')
     expect(within(list).getAllByRole('option')).toHaveLength(1)
-    expect(screen.getByRole('tab', { name: /^All/ })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByText(/^1 of \d+ · Newest added$/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^Sort/ })).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
-    expect(screen.getByRole('button', { name: /^Sort/ })).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: /^All/ })).not.toBeInTheDocument() // the states are in the Filter menu
+    expect(screen.queryByText(/^1 of \d+/)).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Filter the Library' })).toHaveAttribute('placeholder', 'Filter titles')
+    expect(screen.getByRole('button', { name: 'Filter' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sort' })).toBeInTheDocument()
   })
 
   it("shows tick boxes once asked, and the ticked Titles' actions on a bar over the list", async () => {

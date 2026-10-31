@@ -1,16 +1,17 @@
 // The Log: what Kestrel did, filtered by one field of qualifiers (kind:, slot:, title:,
 // routine:) and free text, with routine events hidden until asked for; and the Blocklist view,
 // where an entry can be removed.
-import { Badge, Button, EmptyState, Entity, Link, Note, Pager, Table, Tabs, parseQuery, termText, withValue, type BadgeProps } from '@hyprsh/design'
-import { useMemo, useState } from 'react'
+import { Badge, Button, DotsMenu, EmptyState, Entity, Link, MenuItem, Note, Pager, Table, parseQuery, termText, withValue, type BadgeProps } from '@hyprsh/design'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useBlocklist, useEvents, useUnblock, type LogEvent } from '../api/log'
 import { useTitles } from '../api/queries'
 import { matchText } from '../fuzzy'
 import { FilterBar } from '../filter/FilterBar'
-import { FilterStrip } from '../layout/FilterStrip'
+import { FacetFilterButton } from '../layout/FilterButton'
+import { ScreenBar, ViewSwitcher } from '../layout/ScreenBar'
 import { PagerStrip } from '../layout/PagerStrip'
 import { useKey, useListNav } from '../keys'
-import { ResetColumnWidths, useColumnWidths } from '../layout/columnWidths'
+import { useColumnWidths } from '../layout/columnWidths'
 import { SkeletonRow, SkeletonRows, TableSkeletonRows } from '../loading'
 import { usePageParam } from '../place'
 import { usePhone } from '../responsive'
@@ -56,31 +57,30 @@ export function Log({ query, onQuery }: { query: string; onQuery: (query: string
   const [view, setView] = useState<'log' | 'blocklist'>('log')
   const [, setPage] = usePageParam()
   const widths = useColumnWidths('log')
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <FilterStrip>
-        <Tabs
-          variant="secondary"
-          aria-label="Log views"
-          selected={view}
-          onChange={(v) => {
-            setView(v as 'log' | 'blocklist')
-            setPage(1)
-          }}
-          tabs={[
-            { value: 'log', title: 'Log' },
-            { value: 'blocklist', title: 'Blocklist' },
-          ]}
-        />
-        {view === 'log' && !phone && (
-          <span className="ml-auto">
-            <ResetColumnWidths columns={widths} />
-          </span>
-        )}
-      </FilterStrip>
-      {view === 'log' ? <Events query={query} onQuery={onQuery} widths={widths} /> : <Blocklist />}
-    </div>
+  const switcher = (
+    <ViewSwitcher
+      label="Log"
+      current={view}
+      onChange={(v) => {
+        setView(v)
+        setPage(1)
+      }}
+      views={[
+        { value: 'log', label: 'Log' },
+        { value: 'blocklist', label: 'Blocklist' },
+      ]}
+    />
   )
+  // A phone shows no table, so there are no column widths to reset.
+  const menu =
+    view === 'log' && !phone ? (
+      <DotsMenu aria-label="Log actions" width={200}>
+        <MenuItem disabled={widths.isDefault} onSelect={widths.reset}>
+          Reset column widths
+        </MenuItem>
+      </DotsMenu>
+    ) : undefined
+  return view === 'log' ? <Events query={query} onQuery={onQuery} widths={widths} view={switcher} menu={menu} /> : <Blocklist view={switcher} menu={menu} />
 }
 
 /** What a skeleton row sizes its cells by: the Log's three columns. */
@@ -104,7 +104,7 @@ function useTitleNames() {
   return useMemo(() => ({ list: titles, names: new Map((titles ?? []).map((t) => [t.id, t.title])) }), [titles])
 }
 
-function Events({ query, onQuery, widths }: { query: string; onQuery: (query: string) => void; widths: ReturnType<typeof useColumnWidths> }) {
+function Events({ query, onQuery, widths, view, menu }: { query: string; onQuery: (query: string) => void; widths: ReturnType<typeof useColumnWidths>; view: ReactNode; menu: ReactNode }) {
   const phone = usePhone()
   const [sel, setSel] = useState(0)
   const { list: titles, names } = useTitleNames()
@@ -139,9 +139,12 @@ function Events({ query, onQuery, widths }: { query: string; onQuery: (query: st
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <FilterStrip>
-        <FilterBar id="log-filter" label="Filter the Log" placeholder="Filter, e.g. kind:failures slot:4k …  /" value={query} onChange={filterTo} qualifiers={qualifiers} />
-      </FilterStrip>
+      <ScreenBar
+        view={view}
+        menu={menu}
+        filter={<FilterBar id="log-filter" label="Filter the Log" placeholder="Filter events, e.g. kind:failures  /" value={query} onChange={filterTo} qualifiers={qualifiers} menus={false} />}
+        controls={<FacetFilterButton query={query} onQuery={filterTo} qualifiers={qualifiers} />}
+      />
       <div className="min-h-0 flex-1 overflow-auto">
         {events.isError && <Note variant="error">The Log could not be loaded.</Note>}
         {events.data && shown.length === 0 && (
@@ -285,7 +288,7 @@ function EventRow({
   )
 }
 
-function Blocklist() {
+function Blocklist({ view, menu }: { view: ReactNode; menu: ReactNode }) {
   const phone = usePhone()
   const list = useBlocklist()
   const unblock = useUnblock()
@@ -297,84 +300,87 @@ function Blocklist() {
   useListNav('block', items.length, sel, setSel)
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
-      {list.data && items.length === 0 && (
-        <div className="p-4">
-          <EmptyState description="The Blocklist is empty." />
-        </div>
-      )}
-      {list.isPending && phone && (
-        <div className="p-4">
-          <SkeletonRows count={5} label="Loading the Blocklist" />
-        </div>
-      )}
-      {items.length > 0 && phone && (
-        <div className="p-4">
-          <Entity.List aria-label="Blocklist">
-            {items.map((b, i) => (
-              <Entity
-                key={b.id}
-                as="button"
-                current={i === sel}
-                data-nav={`block-${i}`}
-                onClick={() => setSel(i)}
-                className="flex-col items-stretch"
-                rightClassName="flex-col items-stretch"
-                right={
-                  <Button variant="secondary" size="small" width="100%" aria-label={`Remove ${b.release_name} from the Blocklist`} disabled={unblock.isPending} onClick={() => remove(b.id)}>
-                    Remove from the Blocklist
-                  </Button>
-                }
-              >
-                <div className="min-w-0">
-                  <div className="label-12-mono break-all">{b.release_name}</div>
-                  <div className="label-13 mt-0.5 text-gray-900">
-                    {b.title_id && names.get(b.title_id) ? `${names.get(b.title_id)} · ` : ''}
-                    {b.reason} · {when(b.created_at)}
-                  </div>
-                </div>
-              </Entity>
-            ))}
-          </Entity.List>
-        </div>
-      )}
-      {(items.length > 0 || list.isPending) && !phone && (
-        <Table.Root>
-          <Table aria-label="Blocklist" aria-busy={list.isPending || undefined}>
-            <Table.Colgroup>
-              <Table.Col />
-              <Table.Col style={{ width: 96 }} />
-            </Table.Colgroup>
-            <Table.Header>
-              <Table.Row>
-                <Table.Head className="label-12-strong">Release</Table.Head>
-                <Table.Head align="right" className="label-12-strong">
-                  <span className="sr-only">Actions</span>
-                </Table.Head>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body bordered interactive>
-              {list.isPending && <TableSkeletonRows columns={blockColumns} count={5} />}
+    <div className="flex min-h-0 flex-1 flex-col">
+      <ScreenBar view={view} menu={menu} />
+      <div className="min-h-0 flex-1 overflow-auto">
+        {list.data && items.length === 0 && (
+          <div className="p-4">
+            <EmptyState description="The Blocklist is empty." />
+          </div>
+        )}
+        {list.isPending && phone && (
+          <div className="p-4">
+            <SkeletonRows count={5} label="Loading the Blocklist" />
+          </div>
+        )}
+        {items.length > 0 && phone && (
+          <div className="p-4">
+            <Entity.List aria-label="Blocklist">
               {items.map((b, i) => (
-                <Table.Row key={b.id} data-nav={`block-${i}`} current={i === sel} onClick={() => setSel(i)}>
-                  <Table.Cell truncate>
-                    <div className="label-12-mono truncate">{b.release_name}</div>
-                    <div className="label-13 truncate text-gray-900">
+                <Entity
+                  key={b.id}
+                  as="button"
+                  current={i === sel}
+                  data-nav={`block-${i}`}
+                  onClick={() => setSel(i)}
+                  className="flex-col items-stretch"
+                  rightClassName="flex-col items-stretch"
+                  right={
+                    <Button variant="secondary" size="small" width="100%" aria-label={`Remove ${b.release_name} from the Blocklist`} disabled={unblock.isPending} onClick={() => remove(b.id)}>
+                      Remove from the Blocklist
+                    </Button>
+                  }
+                >
+                  <div className="min-w-0">
+                    <div className="label-12-mono break-all">{b.release_name}</div>
+                    <div className="label-13 mt-0.5 text-gray-900">
                       {b.title_id && names.get(b.title_id) ? `${names.get(b.title_id)} · ` : ''}
                       {b.reason} · {when(b.created_at)}
                     </div>
-                  </Table.Cell>
-                  <Table.Cell align="right">
-                    <Button variant="secondary" size="small" aria-label={`Remove ${b.release_name} from the Blocklist`} disabled={unblock.isPending} onClick={() => remove(b.id)}>
-                      Remove
-                    </Button>
-                  </Table.Cell>
-                </Table.Row>
+                  </div>
+                </Entity>
               ))}
-            </Table.Body>
-          </Table>
-        </Table.Root>
-      )}
+            </Entity.List>
+          </div>
+        )}
+        {(items.length > 0 || list.isPending) && !phone && (
+          <Table.Root>
+            <Table aria-label="Blocklist" aria-busy={list.isPending || undefined}>
+              <Table.Colgroup>
+                <Table.Col />
+                <Table.Col style={{ width: 96 }} />
+              </Table.Colgroup>
+              <Table.Header>
+                <Table.Row>
+                  <Table.Head className="label-12-strong">Release</Table.Head>
+                  <Table.Head align="right" className="label-12-strong">
+                    <span className="sr-only">Actions</span>
+                  </Table.Head>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body bordered interactive>
+                {list.isPending && <TableSkeletonRows columns={blockColumns} count={5} />}
+                {items.map((b, i) => (
+                  <Table.Row key={b.id} data-nav={`block-${i}`} current={i === sel} onClick={() => setSel(i)}>
+                    <Table.Cell truncate>
+                      <div className="label-12-mono truncate">{b.release_name}</div>
+                      <div className="label-13 truncate text-gray-900">
+                        {b.title_id && names.get(b.title_id) ? `${names.get(b.title_id)} · ` : ''}
+                        {b.reason} · {when(b.created_at)}
+                      </div>
+                    </Table.Cell>
+                    <Table.Cell align="right">
+                      <Button variant="secondary" size="small" aria-label={`Remove ${b.release_name} from the Blocklist`} disabled={unblock.isPending} onClick={() => remove(b.id)}>
+                        Remove
+                      </Button>
+                    </Table.Cell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table>
+          </Table.Root>
+        )}
+      </div>
     </div>
   )
 }

@@ -1,22 +1,22 @@
-// The Activity screen in three tabs, each with its own address (see tabs.ts): Grabs, every Grab from
-// search to Import; Health, every check Kestrel runs; Background Jobs, the work running now and the
-// job schedule. The Grabs filter is the screen's `?q=`: "/activity?q=stage:done" opens it on the Done
-// stage. The tabs are the design's Tabs; the Shell owns the address, so a click is handed to it.
-import { Badge, StatusDot, Tabs } from '@hyprsh/design'
-import type { MouseEvent } from 'react'
+// The Activity screen in two views, each with its own address (see tabs.ts): Grabs, every Grab from
+// search to Import; Background Jobs, the work running now and the job schedule. The Grabs filter is the screen's `?q=`: "/activity?q=stage:done" opens it on the Done
+// stage. The screen bar's view switcher picks the view; the Shell owns the address, so a pick is handed to it.
+import { Badge } from '@hyprsh/design'
 import { useQueue } from '../api/queue'
 import { useStalledGrabs } from '../api/activity'
 import { BackgroundJobs } from './BackgroundJobs'
-import { HealthTab } from './health/HealthTab'
-import { useHealthCounts } from './health/useHealthCounts'
-import { Pipeline } from './Pipeline'
+import { FilterBar } from '../filter/FilterBar'
+import { FacetFilterButton } from '../layout/FilterButton'
+import { ScreenBar, ViewSwitcher } from '../layout/ScreenBar'
+import { activityQualifiers } from './filter'
+import { Pipeline, usePipeline } from './Pipeline'
+import type { Stage } from './stages'
 import type { Running } from './running'
 import { RunningNow } from './RunningNow'
-import { activityTabs, activityTabSection, type ActivityTab } from './tabs'
+import { activityTabs, type ActivityTab } from './tabs'
 
 const Count = ({ n }: { n: number }) => (
   <>
-    {' '}
     <Badge variant="gray" contrast="low" size="sm">
       {n}
     </Badge>
@@ -46,20 +46,13 @@ export function Activity({
   onOpenAdoption: () => void
 }) {
   const active = (useQueue().data?.length ?? 0) + (useStalledGrabs().data?.length ?? 0)
-  const { failing, warnings } = useHealthCounts()
-  const titles: Record<ActivityTab, React.ReactNode> = {
-    grabs: <>Grabs{active > 0 && <Count n={active} />}</>,
-    health: (
-      <>
-        Health
-        {failing + warnings > 0 && <> {failing > 0 ? <StatusDot state="error" label="failing" /> : <StatusDot state="warning" label="warning" />}</>}
-      </>
-    ),
-    jobs: <>Background Jobs{running.length > 0 && <Count n={running.length} />}</>,
+  const pipeline = usePipeline(query)
+  const hints: Record<ActivityTab, React.ReactNode> = {
+    grabs: active > 0 ? <Count n={active} /> : undefined,
+    jobs: running.length > 0 ? <Count n={running.length} /> : undefined,
   }
   const content: Record<ActivityTab, React.ReactNode> = {
-    grabs: <Pipeline query={query} onQuery={onQuery} onOpenTitle={onOpenTitle} />,
-    health: <HealthTab />,
+    grabs: <Pipeline data={pipeline} onOpenTitle={onOpenTitle} />,
     jobs: (
       <>
         <RunningNow running={running} onOpenAdoption={onOpenAdoption} onOpenTitle={onOpenTitle} />
@@ -67,22 +60,34 @@ export function Activity({
       </>
     ),
   }
-  // The tabs are buttons, so a Cmd/Ctrl/Shift-click is turned into the new tab or window a link would open.
-  const aside = (e: MouseEvent) => {
-    if (!(e.metaKey || e.ctrlKey || e.shiftKey)) return
-    const tabs = [...e.currentTarget.querySelectorAll('[role="tab"]')]
-    const i = tabs.findIndex((t) => t.contains(e.target as Node))
-    if (i < 0) return
-    e.preventDefault()
-    e.stopPropagation()
-    const section = activityTabSection(activityTabs[i].value)
-    window.open(new URL(`activity${section ? `/${section}` : ''}${activityTabs[i].value === 'grabs' && query ? `?${new URLSearchParams({ q: query })}` : ''}`, document.baseURI), '_blank', 'noopener')
-  }
+  const tabLabel: Record<ActivityTab, string> = { grabs: 'Grabs', jobs: 'Background Jobs' }
+  const grabs = tab === 'grabs'
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
-      {/* A centred column like the Overview's, so rows and progress bars do not stretch across a wide window. */}
-      <div className="mx-auto max-w-3xl pb-6 max-sm:px-4" onClickCapture={aside}>
-        <Tabs aria-label="Activity" selected={tab} onChange={(v) => onTab(v as ActivityTab)} tabs={activityTabs.map((t) => ({ value: t.value, title: titles[t.value], content: content[t.value] }))} />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <ScreenBar
+        view={<ViewSwitcher label="Activity" current={tab} onChange={onTab} views={activityTabs.map((t) => ({ value: t.value, label: tabLabel[t.value], hint: hints[t.value] }))} />}
+        filter={
+          grabs ? (
+            <FilterBar id="activity-filter" label="Filter Activity" placeholder="Filter grabs, e.g. stage:failed  /" value={query} onChange={onQuery} qualifiers={activityQualifiers} menus={false} />
+          ) : undefined
+        }
+        controls={
+          grabs ? (
+            <FacetFilterButton
+              query={query}
+              onQuery={onQuery}
+              qualifiers={activityQualifiers}
+              suffix={(name, value) => (name === 'stage' ? <span className="tabular-nums">{pipeline.count(value as Stage)}</span> : null)}
+            />
+          ) : undefined
+        }
+      />
+      <div className="min-h-0 flex-1 overflow-auto">
+        {/* A centred column like the Overview's, so rows and progress bars do not stretch across a wide window. */}
+        {/* The view's page, named for the view the switcher shows. */}
+        <div role="tabpanel" aria-label={tabLabel[tab]} className="mx-auto max-w-3xl pb-6 max-sm:px-4">
+          {content[tab]}
+        </div>
       </div>
     </div>
   )

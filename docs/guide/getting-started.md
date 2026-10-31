@@ -131,7 +131,7 @@ Choose **Finish setup**. If something is missing, Kestrel names the section. You
 
 ## Add your first Title
 
-Choose **+** in the side bar, or press <kbd>⌘</kbd> <kbd>K</kbd> (<kbd>Ctrl</kbd> <kbd>K</kbd> on Windows and Linux), and type a name. Pick the right result. Titles you already have say "In library".
+Choose **+** in the side bar, or press <kbd>⌘</kbd> <kbd>K</kbd> (<kbd>Ctrl</kbd> <kbd>K</kbd> on Windows and Linux; the magnifier in the side bar opens the same menu), and type a name. Pick the right result. Titles you already have say "In library".
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/05-add-title-dark.png">
@@ -173,13 +173,14 @@ The Title page shows each Version and what it still lacks. **Search now** search
 
 ## The Overview and Activity
 
-The **Overview** is the home screen. The **Health** pill at the top right of the window says "All checks OK" or how many Blocking issues and Warnings there are, and opens Activity > Health; it reads "Offline" when Kestrel can't be reached, and a Blocking issue also puts a banner across every screen. (On a phone the Health pill sits at the top of the Overview instead, because the phone's top bar has no room for it.) A disk that is running low shows as a Health check and a row in **Happening now**. **Happening now** is one list of what wants a decision (Needs attention, one compact row per item with its poster and buttons, plus an Adoption plan waiting for review, versions that have been missing for a long time and Originals on offer) and what is downloading. Below it, **Recently added**, **Recent requests** and **Coming this week** are three short lists side by side, each with a link to its screen. Press `j` and `k` to move through the rows.
+The **Overview** is the home screen. The **Health** button (a heart-pulse icon with a status dot, in the side bar and on a phone in the top bar) is green when all checks are OK, amber with Warnings and red with Blocking issues; hover it for "Health · 1 Blocking, 2 Warnings". It opens the Health screen and reads "Offline" when Kestrel can't be reached, and a Blocking issue also puts a banner across every screen. A disk that is running low shows as a Health check and a row in **Happening now**. **Happening now** is one list of what wants a decision (Needs attention, one compact row per item with its poster and buttons, plus an Adoption plan waiting for review, versions that have been missing for a long time and Originals on offer) and what is downloading. Below it, **Recently added**, **Recent requests** and **Coming this week** are three short lists side by side, each with a link to its screen. Press `j` and `k` to move through the rows.
 
-**Activity** has three tabs, each with its own address:
+**Activity** has two views, each with its own address. The menu at the start of the top bar (it shows the current view, such as "Grabs") switches between them:
 
-- **Grabs** (`/activity`) shows every Grab from Searching to Done, grouped by stage.
-- **Health** (`/activity/health`) shows every check: the download client, each indexer, each disk and the rest. It counts problems, warnings and OK checks, and the tab carries a dot while anything fails or warns.
+- **Grabs** (`/activity`) shows every Grab from Searching to Done, grouped by stage. Narrow it with the filter field or the Filter button, which lists the stages with how many Grabs each holds.
 - **Background Jobs** (`/activity/jobs`) shows what Kestrel is running now and when each periodic job last ran and runs next.
+
+**Health** (`/health`) is a screen of its own, opened by the Health button; it is not in the side bar's list of screens. It shows every check: the download client, each indexer, each disk and the rest, failing ones first. It counts problems, warnings and OK checks. The old `/activity/health` address still works and opens it.
 
 ## Where to go next
 

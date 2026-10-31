@@ -61,19 +61,28 @@ const grab = (titleId: number, slot: 'standard' | '4k', pct: number): components
   stuck: null,
 })
 
+/** A Status row of the Filter menu, which is opened first when it is closed. */
+async function status(name: string) {
+  if (!screen.queryByRole('menuitemradio', { name })) await userEvent.click(screen.getByRole('button', { name: /^Filter/ }))
+  return screen.getByRole('menuitemradio', { name })
+}
+
 describe('the Library filter, typed', () => {
-  it('narrows to Wanted, then Long Missing, typed or from the state tabs, which count each state and keep the filter', async () => {
+  it('narrows to Wanted, then Long Missing, typed or from the Status rows of the Filter menu, which count each state and keep the filter', async () => {
     fakeLibrary(rows())
     const list = await openLibrary()
     await within(list).findAllByRole('option')
-    const tab = (name: RegExp) => screen.getByRole('tab', { name })
-    expect(tab(/^All 3$/)).toHaveAttribute('aria-selected', 'true')
-    expect(tab(/^Wanted 2$/)).toBeInTheDocument()
-    expect(tab(/^Long Missing 1$/)).toBeInTheDocument()
-    expect(tab(/^Unmonitored 0$/)).toBeInTheDocument()
+    expect(await status('All')).toHaveAttribute('aria-checked', 'true')
+    expect(await status('All')).toHaveTextContent(/^All3$/)
+    expect(await status('Wanted')).toHaveTextContent(/^Wanted2$/)
+    expect(await status('Long Missing')).toHaveTextContent(/^Long Missing1$/)
+    expect(await status('Unmonitored')).toHaveTextContent(/^Unmonitored0$/)
+    await userEvent.keyboard('{Escape}')
 
     await userEvent.type(filter(), 'pad is:wanted ')
-    expect(tab(/^Wanted/)).toHaveAttribute('aria-selected', 'true')
+    expect(await status('Wanted')).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('button', { name: 'Filter · 1' })).toBeInTheDocument() // an active status counts
+    await userEvent.keyboard('{Escape}')
     await userEvent.clear(filter())
     await userEvent.type(filter(), 'is:wanted ')
     expect(within(list).getAllByRole('option')).toHaveLength(2)
@@ -81,25 +90,26 @@ describe('the Library filter, typed', () => {
 
     await userEvent.type(filter(), 'is:long_missing ')
     expect(within(list).getAllByRole('option')).toHaveLength(1)
-    expect(screen.queryByRole('tab', { selected: true })).not.toBeInTheDocument() // two is: terms are no one tab
+    expect(screen.queryByRole('menuitemradio', { checked: true })).not.toBeInTheDocument() // two is: terms are no one status
+    await userEvent.keyboard('{Escape}')
 
-    await userEvent.click(tab(/^Long Missing/))
+    await userEvent.click(await status('Long Missing'))
     expect(filter()).toHaveValue('is:long_missing')
     expect(within(list).getByRole('option', { name: /ancient film/i })).toBeInTheDocument()
     expect(new URLSearchParams(location.search).get('q')).toBe('is:long_missing')
 
-    await userEvent.click(tab(/^All/))
+    await userEvent.click(await status('All'))
     expect(filter()).toHaveValue('')
     expect(within(list).getAllByRole('option')).toHaveLength(3)
   })
 
-  it('keeps the other terms when a tab changes, and counts by them', async () => {
+  it('keeps the other terms when a status changes, and counts by them', async () => {
     fakeLibrary([...rows(), row(4, 'Some Series', 'Some Series', { kind: 'series', slots: hd('wanted'), wanted_since: '2026-10-10T00:00:00Z' })])
     const list = await openLibrary()
     await within(list).findAllByRole('option')
     await userEvent.type(filter(), 'kind:movie')
-    expect(screen.getByRole('tab', { name: /^Wanted 2$/ })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('tab', { name: /^Wanted/ }))
+    expect(await status('Wanted')).toHaveTextContent(/^Wanted2$/)
+    await userEvent.click(await status('Wanted'))
     expect(filter()).toHaveValue('kind:movie is:wanted')
     expect(names(list)).toEqual(['Recent Film', 'Ancient Film'])
   })
@@ -109,7 +119,8 @@ describe('the Library filter, typed', () => {
     server.use(http.get('/queue', ({ response }) => response(200).json({ items: [grab(2, 'standard', 40)] })))
     const list = await openLibrary()
     await within(list).findAllByRole('option')
-    await userEvent.click(await screen.findByRole('tab', { name: /^Downloading 1$/ }))
+    expect(await status('Downloading')).toHaveTextContent(/^Downloading1$/)
+    await userEvent.click(await status('Downloading'))
     expect(names(list)).toEqual(['Recent Film'])
     const recent = within(list).getByRole('option', { name: /recent film/i })
     expect(recent).toHaveTextContent('Downloading · 40%')

@@ -40,20 +40,21 @@ describe('the empty shell', () => {
     expect(screen.getByRole('main')).toHaveTextContent(/happening now/i)
   })
 
-  it('shows the Health pill in the top bar, linking to Health, and not the version', async () => {
+  it('shows Health as a rail button, linking to Health, and not the version', async () => {
     server.use(http.get('/system', ({ response }) => response(200).json({ version: '9.9.9', api_major: 1, base_url: '' })))
     renderApp()
-    const pill = await within(await screen.findByRole('banner')).findByRole('button', { name: /health · all checks ok/i })
+    const pill = await within(await screen.findByRole('navigation')).findByRole('button', { name: /health · all checks ok/i })
     await userEvent.click(pill)
-    expect(location.pathname).toBe('/activity/health')
+    expect(location.pathname).toBe('/health')
     expect(screen.queryByText(/9\.9\.9/)).not.toBeInTheDocument()
   })
 
   it('says so when the server cannot be reached', async () => {
     server.use(http.get('/system', () => HttpResponse.error()))
     renderApp()
-    const pill = await within(await screen.findByRole('banner')).findByRole('button', { name: /offline/i })
-    expect(pill).not.toHaveTextContent(/health/i)
+    const pill = await within(await screen.findByRole('navigation')).findByRole('button', { name: /offline/i })
+    expect(pill).not.toHaveAccessibleName(/health/i)
+    expect(within(screen.getByRole('banner')).queryByRole('button', { name: /offline/i })).not.toBeInTheDocument()
   })
 })
 
