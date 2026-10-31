@@ -72,9 +72,12 @@ function fakeProfiles(opts: { fresh?: boolean } = {}) {
     http.patch('/settings', async ({ request, response }) => {
       const body = (await request.json()) as { language_region?: Partial<Settings['language_region']> }
       sent.push({ path: 'settings', body })
+      // A new Primary Language waits for its re-score: Settings keeps the old one and reports the pending one.
+      const next = body.language_region?.primary_language
+      const pending = next && next !== settings.language_region.primary_language ? next : undefined
       settings = {
         ...settings,
-        language_region: { ...settings.language_region, ...body.language_region },
+        language_region: { ...settings.language_region, ...body.language_region, ...(pending ? { primary_language: settings.language_region.primary_language, pending_primary_language: pending } : {}) },
       } as Settings
       return response(200).json(settings)
     }),
@@ -125,7 +128,7 @@ describe('the wizard Primary Language section', () => {
     await userEvent.type(within(section).getByLabelText('Release-date country'), 'be')
     await userEvent.click(within(section).getByRole('button', { name: 'Save language' }))
 
-    expect(await findToast('Language saved')).toBeInTheDocument()
+    expect(await findToast('Re-scoring under French in the background')).toBeInTheDocument()
     expect(within(section).queryByText('Saved.')).not.toBeInTheDocument()
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'settings', body: { language_region: { primary_language: 'fr', release_date_country: 'BE' } } }))
   })
@@ -184,6 +187,19 @@ describe('Settings', () => {
     expect(await within(await screen.findByRole('region', { name: 'Primary Language' })).findByLabelText('Primary Language')).toHaveValue('en')
   })
 
+  it('shows a Language change as switching until its re-score ends, and keeps the form closed meanwhile', async () => {
+    fakeProfiles()
+    await open()
+    const section = await screen.findByRole('region', { name: 'Primary Language' })
+    await userEvent.selectOptions(await within(section).findByLabelText('Primary Language'), 'de')
+    await userEvent.click(within(section).getByRole('button', { name: 'Save language' }))
+
+    expect(await findToast('Re-scoring under German in the background')).toBeInTheDocument()
+    expect(await within(section).findByText(/Switching to German…/)).toBeInTheDocument()
+    expect(within(section).getByLabelText('Primary Language')).toBeDisabled()
+    expect(within(section).getByRole('button', { name: 'Save language' })).toBeDisabled()
+  })
+
   it('enables, disables and chooses what each Primary-Language Profile does with Original-only Releases', async () => {
     const sent = fakeProfiles()
     await open()
@@ -223,7 +239,7 @@ describe('Settings', () => {
     await userEvent.selectOptions(await within(section).findByLabelText('Primary Language'), 'de')
     expect(within(section).getByText(/re-scores every file you already have/i)).toBeInTheDocument()
     await userEvent.click(within(section).getByRole('button', { name: 'Save language' }))
-    expect(await findToast('Language saved')).toBeInTheDocument()
+    expect(await findToast('Re-scoring under German in the background')).toBeInTheDocument()
     expect(within(section).queryByText('Saved.')).not.toBeInTheDocument()
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'settings', body: { language_region: { primary_language: 'de', release_date_country: 'DE' } } }))
   })

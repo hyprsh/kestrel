@@ -9,7 +9,7 @@ import { useOpenPlace } from './place'
 import { watchInActivity } from './trash/toasts'
 
 export type Report<T = unknown> = {
-  /** Background work began: "Search started for Dune". The Toast links to Background jobs in Activity. */
+  /** Background work began: "Search started for Dune". The Toast links to Background jobs in Activity. A function that returns '' means nothing started, and `done` reports instead. */
   started?: string | ((result: T) => string)
   /** The action finished and nothing on screen shows it: "Grab cancelled". */
   done?: string | ((result: T) => string)
@@ -32,7 +32,8 @@ export function useReport() {
   return <T>(work: Promise<T>, r: Report<T>): Promise<T | undefined> =>
     work.then(
       (v) => {
-        if (r.started) toasts.message({ text: typeof r.started === 'function' ? r.started(v) : r.started, action: watchInActivity(open) })
+        const started = typeof r.started === 'function' ? r.started(v) : r.started
+        if (started) toasts.message({ text: started, action: watchInActivity(open) })
         else if (r.done) {
           const text = typeof r.done === 'function' ? r.done(v) : r.done
           if (r.warn?.(v)) toasts.warning(text)

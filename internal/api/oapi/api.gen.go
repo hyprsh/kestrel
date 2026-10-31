@@ -3673,6 +3673,11 @@ type Settings struct {
 		RootFolders    bool `json:"root_folders"`
 	} `json:"from_config_file"`
 	LanguageRegion struct {
+		// PendingPrimaryLanguage Present while a change of `primary_language` waits for its re-score. `primary_language`
+		// stays the old Language until the `trash` job has re-scored every file under the new one;
+		// then it changes, and this is gone. A change that fails leaves `primary_language` as it was.
+		PendingPrimaryLanguage *PrimaryLanguage `json:"pending_primary_language,omitempty"`
+
 		// PrimaryLanguage The household's Primary Language as ISO 639-1.
 		PrimaryLanguage PrimaryLanguage `json:"primary_language"`
 

@@ -11,6 +11,7 @@ func (a adopting) offeringOriginals(t *testing.T) {
 	if r := a.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`); r.Status != 200 {
 		t.Fatalf("PATCH /settings = %d %s", r.Status, r.Body)
 	}
+	a.trashPass(t)
 	if r := a.valid("PATCH", "/profiles/hd-primary", `{"original_language":"offer"}`); r.Status != 200 {
 		t.Fatalf("PATCH /profiles = %d %s", r.Status, r.Body)
 	}

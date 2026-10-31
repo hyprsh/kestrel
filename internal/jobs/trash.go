@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"sync"
 
@@ -55,7 +56,9 @@ type TrashUpdates struct {
 	mu sync.Mutex // one update at a time
 
 	// reqMu guards what was asked for by hand and not done yet, and what the
-	// pass running now does, so a second request for the same work starts nothing.
+	// pass running now does. A second "Update from TRaSH" while one waits or
+	// runs starts nothing; a Language change while a re-score runs waits for
+	// the next pass.
 	reqMu     sync.Mutex
 	pending   request
 	running   request
@@ -64,8 +67,20 @@ type TrashUpdates struct {
 
 // request is the work a pass is asked to do beyond the daily check.
 type request struct {
-	update   bool // "Update from TRaSH"
-	language bool // a Primary Language change saved: re-score under it
+	update   bool            // "Update from TRaSH"
+	language *LanguageChange // a Primary Language change to save and re-score under
+}
+
+// LanguageChange is a Primary Language change that waits for its pass. The
+// pass saves it and re-scores every file in one Holder.Exclusive step.
+type LanguageChange struct {
+	// Language is the new Primary Language, as Settings reports it while pending.
+	Language string
+	// Apply saves the new Primary Language and what follows from it. It gets the
+	// pass's context: the request that queued the change is long gone.
+	Apply func(ctx context.Context) error
+	// Undo puts back what Apply saved, when the re-score fails.
+	Undo func(ctx context.Context) error
 }
 
 // NewTrashUpdates returns a TrashUpdates.
@@ -88,12 +103,14 @@ func (t *TrashUpdates) OnRequest(f func()) {
 // waiting or running; it reports whether it asked.
 func (t *TrashUpdates) request(r request) bool {
 	t.reqMu.Lock()
-	if (r.update && (t.pending.update || t.running.update)) || (r.language && t.pending.language) {
+	if r.update && (t.pending.update || t.running.update) && r.language == nil {
 		t.reqMu.Unlock()
 		return false
 	}
 	t.pending.update = t.pending.update || r.update
-	t.pending.language = t.pending.language || r.language
+	if r.language != nil {
+		t.pending.language = r.language // a second change replaces the one waiting
+	}
 	wake := t.onRequest
 	t.reqMu.Unlock()
 	if wake != nil {
@@ -115,7 +132,7 @@ func (t *TrashUpdates) RunRequested(ctx context.Context) (bool, error) {
 	want := t.pending
 	t.pending, t.running = request{}, want
 	t.reqMu.Unlock()
-	if want == (request{}) {
+	if !want.update && want.language == nil {
 		return false, nil
 	}
 	defer func() {
@@ -124,8 +141,8 @@ func (t *TrashUpdates) RunRequested(ctx context.Context) (bool, error) {
 		t.reqMu.Unlock()
 	}()
 	var err error
-	if want.language {
-		err = t.rescoreLanguage(ctx)
+	if want.language != nil {
+		err = t.rescoreLanguage(ctx, want.language)
 	}
 	if want.update {
 		if _, uerr := t.Update(ctx); err == nil {
@@ -135,8 +152,31 @@ func (t *TrashUpdates) RunRequested(ctx context.Context) (bool, error) {
 	return true, err
 }
 
-func (t *TrashUpdates) rescoreLanguage(ctx context.Context) error {
-	err := t.d.Holder.Exclusive(func() error { return t.rescoreAll(ctx, t.d.Holder.Current()) })
+// ApplyLanguage saves a Primary Language and re-scores every file under it in
+// one step, and returns when both are done, or when neither is. It is for the
+// Config File at startup, which has no pass to wait for.
+func (t *TrashUpdates) ApplyLanguage(ctx context.Context, c LanguageChange) error {
+	return t.d.Holder.Exclusive(func() error { return t.saveAndRescore(ctx, &c) })
+}
+
+// saveAndRescore is the step of Settled 6: it saves the new Primary Language
+// and re-scores every file under it, and if the re-score fails undoes the save,
+// so the setting and the Scores still agree. Call it inside Holder.Exclusive.
+func (t *TrashUpdates) saveAndRescore(ctx context.Context, c *LanguageChange) error {
+	if err := c.Apply(ctx); err != nil {
+		return err
+	}
+	err := t.rescoreAll(ctx, t.d.Holder.Current())
+	if err != nil {
+		if uerr := c.Undo(ctx); uerr != nil {
+			err = errors.Join(err, fmt.Errorf("undoing the Primary Language change: %w", uerr))
+		}
+	}
+	return err
+}
+
+func (t *TrashUpdates) rescoreLanguage(ctx context.Context, c *LanguageChange) error {
+	err := t.d.Holder.Exclusive(func() error { return t.saveAndRescore(ctx, c) })
 	if err != nil {
 		t.d.Logger.Warn("re-scoring after the Primary Language change failed", "err", err)
 		ReportOutcome(ctx, OutcomeFailed, "Re-scoring after the Primary Language change failed: "+err.Error())
@@ -246,14 +286,25 @@ func (t *TrashUpdates) update(ctx context.Context) (trashsync.Result, error) {
 	return trashsync.Result{Changed: true, Commit: c.Commit()}, nil
 }
 
-// ChangeLanguage runs change, which saves a new Primary Language, with no
-// decision in flight, and asks the trash loop to re-score every file under it
-// in the background. Nothing is renamed or searched. Until that pass ends, files
-// keep their old Scores.
-func (t *TrashUpdates) ChangeLanguage(ctx context.Context, change func() error) error {
-	if err := t.d.Holder.Exclusive(change); err != nil {
-		return err
+// ChangeLanguage queues a new Primary Language and wakes the trash loop, and
+// returns at once. The pass saves it and re-scores every file under it in one
+// step, so until the pass ends both the setting and the Scores are the old
+// ones. Nothing is renamed or searched. A change queued while another waits
+// replaces it.
+func (t *TrashUpdates) ChangeLanguage(_ context.Context, c LanguageChange) {
+	t.request(request{language: &c})
+}
+
+// PendingLanguage is the Primary Language that is queued or being re-scored
+// now, if any.
+func (t *TrashUpdates) PendingLanguage() (string, bool) {
+	t.reqMu.Lock()
+	defer t.reqMu.Unlock()
+	switch {
+	case t.pending.language != nil:
+		return t.pending.language.Language, true
+	case t.running.language != nil:
+		return t.running.language.Language, true
 	}
-	t.request(request{language: true})
-	return nil
+	return "", false
 }

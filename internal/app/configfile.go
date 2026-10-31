@@ -206,20 +206,28 @@ func (d declarer) plexSignInContext(ctx context.Context) (kinds map[string]strin
 }
 
 // declareRegion saves the Primary Language and country when they differ. A
-// new Primary Language re-scores the files, as PATCH /settings does.
+// new Primary Language is saved and re-scores the files in one step, here and
+// now, because startup has no pass to wait for.
 func (d declarer) declareRegion(ctx context.Context, want profiles.Region) error {
 	cur, saved, err := d.profiles.Region(ctx)
 	if err != nil || (saved && cur == want) {
 		return err
 	}
-	set := func() error {
+	set := func(ctx context.Context) error {
 		_, err := d.profiles.SetRegion(ctx, profiles.RegionPatch{Primary: &want.Primary, Country: &want.Country})
 		return err
 	}
 	if cur.Primary != want.Primary {
-		return d.trash.ChangeLanguage(ctx, set)
+		return d.trash.ApplyLanguage(ctx, jobs.LanguageChange{
+			Language: string(want.Primary),
+			Apply:    set,
+			Undo: func(ctx context.Context) error {
+				_, err := d.profiles.SetRegion(ctx, profiles.RegionPatch{Primary: &cur.Primary, Country: &cur.Country})
+				return err
+			},
+		})
 	}
-	return set()
+	return set(ctx)
 }
 
 // declareRoots saves the Root folders when they differ.

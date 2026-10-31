@@ -179,6 +179,7 @@ func TestThePrimaryLanguageTitleIsStoredWhenTMDBHasATranslation(t *testing.T) {
 	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)
 	l.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`)
+	l.trashPass(t)
 	got := decode[titleJSON](t, l.valid("POST", "/titles", addPaddington))
 	if got.PrimaryTitle != "Ein Bär namens Paddington" || got.Title != "Paddington" {
 		t.Errorf("titles = %q / %q", got.Title, got.PrimaryTitle)
@@ -245,6 +246,7 @@ func TestTheSuggestionPreselectsTheSlotDefaultsWhateverTheRating(t *testing.T) {
 
 	// German household reads the FSK rating.
 	l.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`)
+	l.trashPass(t)
 	sug = decode[suggestionJSON](t, l.valid("GET", "/lookup/movie/116149", ""))
 	if sug.Slots[0].Profile != "hd-primary" || sug.Slots[0].Label != "HD" || sug.Slots[0].Reason != "default" || *sug.CertificationCountry != "DE" {
 		t.Errorf("DE = %+v", sug.Slots)
@@ -252,6 +254,7 @@ func TestTheSuggestionPreselectsTheSlotDefaultsWhateverTheRating(t *testing.T) {
 
 	// An adult title gets the same.
 	l.valid("PATCH", "/settings", `{"language_region":{"primary_language":"en"}}`)
+	l.trashPass(t)
 	sug = decode[suggestionJSON](t, l.valid("GET", "/lookup/movie/77", ""))
 	if sug.Slots[0].Profile != "hd-primary" {
 		t.Errorf("PG-13 = %+v", sug.Slots)
