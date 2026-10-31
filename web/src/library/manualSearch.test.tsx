@@ -46,7 +46,7 @@ const releases = () => [
 
 type Posted = { path: string; body: unknown }
 
-function fakeSearch(items: Release[], opts: { grabStatus?: number } = {}) {
+function fakeSearch(items: Release[], opts: { grabStatus?: number; hold?: Promise<void> } = {}) {
   const state = { searches: 0, grabs: [] as Posted[], items }
   fakeLibrary([row(1, 'Paddington', 'Paddington')])
   server.use(
@@ -57,6 +57,7 @@ function fakeSearch(items: Release[], opts: { grabStatus?: number } = {}) {
     http.post('/grabs', async ({ request, response }) => {
       const body = await request.clone().json()
       state.grabs.push({ path: '/grabs', body })
+      await opts.hold
       if (opts.grabStatus === 409) {
         return response('default').json(
           { type: 'about:blank', title: 'conflict', status: 409, code: 'release_expired', detail: 'That Release is no longer in the search results; search again' },
@@ -398,6 +399,69 @@ describe('manual search', () => {
       expect(screen.getByRole('columnheader', { name: 'Indexer' })).toHaveAttribute('aria-sort', 'ascending')
     })
   })
+
+  describe('feedback on a Grab', () => {
+    const grabbed = (name: string) =>
+      within(screen.getByRole('table', { name: /releases/i }))
+        .getAllByRole('row')
+        .find((r) => r.textContent?.includes(name))!
+
+    it('shows "Grabbing…" with a spinner from the trigger until the request settles', async () => {
+      let release!: () => void
+      const state = fakeSearch(releases(), { hold: new Promise<void>((r) => (release = r)) })
+      await openManualSearch()
+
+      await userEvent.keyboard('{Enter}')
+      const button = await screen.findByRole('button', { name: /grabbing/i })
+      expect(button).toBeDisabled()
+      expect(button).toHaveTextContent('Grabbing…')
+      await userEvent.keyboard('{Enter}') // a second trigger does nothing
+      expect(state.grabs).toHaveLength(1)
+
+      release()
+      expect(await screen.findByRole('button', { name: 'Grab' })).toBeEnabled()
+    })
+
+    it('confirms the Release in a live region with a link to Activity, and keeps it when the selection moves', async () => {
+      fakeSearch(releases())
+      await openManualSearch()
+      await userEvent.keyboard('{Enter}')
+
+      const confirmation = (await screen.findByText(/sent to the download client/i)).closest('[aria-live]') as HTMLElement
+      expect(confirmation).toHaveTextContent('Paddington.2014.1080p.BluRay.x264-GRP')
+
+      await userEvent.keyboard('j')
+      expect(screen.getByText(/sent to the download client/i)).toBeInTheDocument()
+      expect(confirmation).toHaveTextContent('Paddington.2014.1080p.BluRay.x264-GRP')
+
+      await userEvent.click(within(confirmation).getByRole('button', { name: 'View in Activity' }))
+      expect(location.pathname).toBe('/activity')
+    })
+
+    it('marks the grabbed Release, through selection changes and a sort change', async () => {
+      fakeSearch(releases())
+      await openManualSearch()
+      expect(screen.queryByText('Grabbed')).not.toBeInTheDocument()
+      await userEvent.keyboard('{Enter}')
+      await screen.findByText(/sent to the download client/i)
+      expect(within(grabbed('Paddington.2014.1080p.BluRay.x264-GRP')).getByText('Grabbed')).toBeInTheDocument()
+
+      await userEvent.keyboard('jj')
+      await userEvent.click(screen.getByRole('columnheader', { name: /^size/i }))
+      expect(screen.getAllByText('Grabbed')).toHaveLength(1)
+      expect(within(grabbed('Paddington.2014.1080p.BluRay.x264-GRP')).getByText('Grabbed')).toBeInTheDocument()
+    })
+
+    it('shows the error and marks nothing when the Grab fails', async () => {
+      fakeSearch(releases(), { grabStatus: 409 })
+      await openManualSearch()
+      await userEvent.keyboard('{Enter}')
+
+      expect(await screen.findByText(/no longer in the search results/i)).toBeInTheDocument()
+      expect(screen.queryByText('Grabbed')).not.toBeInTheDocument()
+      expect(screen.queryByText(/sent to the download client/i)).not.toBeInTheDocument()
+    })
+  })
 })
 
 describe('manual search on a phone', () => {
@@ -483,5 +547,16 @@ describe('manual search on a phone', () => {
 
     expect(await screen.findByText(/sent to the download client/i)).toBeInTheDocument()
     expect(state.grabs).toEqual([{ path: '/grabs', body: { version_id: 11, release_id: 'b', override: true } }])
+  })
+
+  it('marks the grabbed Release on its stacked row', async () => {
+    fakeSearch(releases())
+    const list = await openPhoneSearch()
+    await userEvent.click(within(list).getByText('Paddington.2014.FRENCH.1080p.BluRay.x264-GRP'))
+    await userEvent.click(within(screen.getByRole('contentinfo')).getByRole('button', { name: 'Grab anyway' }))
+
+    await screen.findByText(/sent to the download client/i)
+    const [row] = within(list).getAllByText('Grabbed')
+    expect(row.closest('li')).toHaveTextContent('FRENCH')
   })
 })

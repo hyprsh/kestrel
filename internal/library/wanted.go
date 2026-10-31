@@ -11,6 +11,8 @@ type Unit struct {
 	HasFile   bool
 	Released  *time.Time
 	AddedAt   time.Time
+	// Grabbing is whether a Grab in flight covers it; only the Coverage reads it.
+	Grabbing bool
 }
 
 // StateAt (the spec's Wanted(now)) is the state of one Unit at now, and for a Wanted Unit since when it
