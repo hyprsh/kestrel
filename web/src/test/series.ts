@@ -1,3 +1,5 @@
+import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import type { components } from '../api/schema.gen'
 import { http } from './handlers'
 import { detail, fakeLibrary, row, type Sent, type TitleRow } from './library'
@@ -73,4 +75,10 @@ export function fakeSeries() {
     }),
   )
   return { ...state, lib, get: () => state }
+}
+
+/** Opens the season menu of a Series' Title page and picks a season by its name ("Season 1", "Specials"). */
+export async function pickSeason(name: string) {
+  await userEvent.click(screen.getByRole('button', { name: /^Seasons: / }))
+  await userEvent.click(await screen.findByRole('menuitemradio', { name: new RegExp(`^${name}\\b`) }))
 }

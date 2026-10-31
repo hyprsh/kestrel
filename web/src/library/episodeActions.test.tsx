@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
-import { cell, episode, fakeSeries } from '../test/series'
+import { cell, episode, fakeSeries, pickSeason } from '../test/series'
 import { server } from '../test/server'
 import { findToast } from '../test/toasts'
 
@@ -139,11 +139,11 @@ describe('searching from the episode table', () => {
   it('searches the Wanted episodes of the season, and opens Manual search for it from the buttons above the table', async () => {
     const { searched, manual } = await openSeries()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Search Season' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Search season' }))
     await waitFor(() => expect(searched).toEqual([{ version: 52, body: { season: 1 } }]))
 
-    await userEvent.click(screen.getByRole('button', { name: 'Manual search Season 1' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Standard' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Actions for Season 1' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Manual search season… Standard' }))
     await waitFor(() => expect(manual).toEqual([{ version: 51, body: { season: 1 } }]))
     expect(within(await screen.findByRole('region', { name: 'Manual search' })).getByText('Season 1')).toBeInTheDocument()
   })
@@ -195,9 +195,9 @@ describe('searching from the episode table', () => {
     await userEvent.click(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' }))
     expect(screen.getByRole('toolbar')).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('tab', { name: /^Specials/ }))
+    await pickSeason('Specials')
     expect(screen.queryByRole('toolbar')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('tab', { name: /^Season 1/ }))
+    await pickSeason('Season 1')
     expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' })).not.toBeChecked()
   })
 

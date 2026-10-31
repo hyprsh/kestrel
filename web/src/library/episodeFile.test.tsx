@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
 import { server } from '../test/server'
-import { cell, episode, fakeSeries } from '../test/series'
+import { cell, episode, fakeSeries, pickSeason } from '../test/series'
 
 const pilotPath = '/media/tv/Breaking Bad (2008) {tvdb-81189}/Season 01/Breaking Bad (2008) - S01E01-E02 - [Standard][WEBDL-1080p].mkv'
 const pilotFile = { id: 70, path: pilotPath, size: 2 * 1024 ** 3, quality: 'WEBDL-1080p', episode_ids: [2, 3] }
@@ -24,7 +24,7 @@ async function openSeries() {
   render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
   await user.click(await screen.findByRole('button', { name: 'Library' }))
   const grid = await screen.findByRole('grid', { name: 'Episodes' })
-  await user.click(screen.getByRole('tab', { name: /^Season 1/ })) // Season 2, the latest, opens first
+  await pickSeason('Season 1') // Season 2, the latest, opens first
   return { user, grid, state }
 }
 
@@ -54,7 +54,7 @@ describe('episode titles', () => {
 
   it('shows a listed episode without a title as TBA with no tooltip', async () => {
     const { user, grid } = await openSeries()
-    await user.click(screen.getByRole('tab', { name: /^Season 2/ }))
+    await pickSeason('Season 2')
     expect(within(rowOf(grid, 'Season 2 episode 1')).getByText('TBA')).not.toHaveAttribute('title')
   })
 })

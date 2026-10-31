@@ -1,8 +1,9 @@
-import { Note, Skeleton, Tabs } from '@hyprsh/design'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Note, Skeleton } from '@hyprsh/design'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { ApiError, useEpisodes, type Episode, type TitleDetail } from '../api/queries'
 import { useDisplay } from '../display/useDisplay'
-import { ResetColumnWidths, useColumnWidths } from '../layout/columnWidths'
+import { useColumnWidths } from '../layout/columnWidths'
+import { ViewSwitcher } from '../layout/ScreenBar'
 import { LoadingRegion } from '../loading'
 import { slotKeys } from './bits'
 import { SeasonButtons, SeasonDeleteConfirm, TickedBar, useEpisodeActions } from './EpisodeActions'
@@ -10,14 +11,14 @@ import { FindEpisodeField, useEpisodeFind } from './EpisodeFind'
 import { EpisodeMatrix } from './EpisodeMatrix'
 import { useEpisodeView } from './episodeView'
 import { bySeason, defaultSeason, episodeCode, orderEpisodes, orderSeasons, seasonName, seasonStanding } from './episodes'
-import { SeasonSummary, TabCount } from './SeasonSummary'
+import { SeasonCount, SeasonSummary } from './SeasonSummary'
 import type { ManualSearchTarget } from './TitleDetail'
 
 const noEpisodes: Episode[] = []
 
 /**
- * What a Series adds to its Title page: a tab per season and Specials with the season's summary and buttons, its
- * episodes × Slots table, a "Find an episode" field and, while episodes are ticked, their floating bar. The open
+ * What a Series adds to its Title page: one toolbar row (a season menu with the season's summary, a "Find an episode" field,
+ * Search season and a ⋯ menu), the episodes × Slots table and, while episodes are ticked, their floating bar. The open
  * season and the found episode live in the address bar (episodeView.ts).
  */
 export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; onManualSearch?: (t: ManualSearchTarget) => void }) {
@@ -30,7 +31,6 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
   const seasons = useMemo(() => orderSeasons([...grouped.keys()], display.season_order), [grouped, display.season_order])
   const view = useEpisodeView(title.id)
   const columns = useColumnWidths('episodes')
-  const tabs = useRef<HTMLDivElement>(null)
   const season = view.season !== null && grouped.has(view.season) ? view.season : defaultSeason(seasons)
   const shown = grouped.get(season) ?? noEpisodes
   const actions = useEpisodeActions(title, episodes, shown, slots, onManualSearch)
@@ -56,17 +56,6 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
     if (code && find.text === '') find.setText(code)
   }, [code, find])
 
-  // The open tab stays in view on a row of tabs that scrolls (a phone): the nearest ancestor that overflows scrolls to it.
-  useEffect(() => {
-    const open = tabs.current?.querySelector('[aria-selected="true"]')
-    let row = open?.parentElement ?? null
-    while (row && row.scrollWidth <= row.clientWidth && row !== tabs.current) row = row.parentElement
-    if (!open || !row) return
-    const at = open.getBoundingClientRect()
-    const box = row.getBoundingClientRect()
-    row.scrollLeft += at.left - box.left - (box.width - at.width) / 2
-  }, [season, loaded])
-
   if (query.isError) {
     return (
       <Section>
@@ -85,33 +74,32 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
     )
   }
 
+  const standing = seasonStanding(shown, slots)
   return (
-    <Section>
-      <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
-        <div ref={tabs} className="max-w-full overflow-x-auto">
-          <Tabs
-            aria-label="Seasons"
-            selected={String(season)}
-            onChange={(v) => view.set(Number(v), null)}
-            tabs={seasons.map((s) => ({
-              value: String(s),
-              title: (
-                <>
-                  {seasonName(s)} <TabCount standing={seasonStanding(grouped.get(s) ?? noEpisodes, slots)} />
-                </>
-              ),
-            }))}
-          />
-        </div>
-        <div className="ml-auto w-56 max-sm:w-full">
-          <FindEpisodeField find={find} />
-        </div>
-      </div>
-      <div className="my-3 flex flex-wrap items-center gap-2">
-        <SeasonSummary season={season} standing={seasonStanding(shown, slots)} />
-        <SeasonButtons actions={actions} season={season} episodes={shown} />
-        <ResetColumnWidths columns={columns} />
-      </div>
+    <Section
+      bar={
+        <>
+          <div className="flex min-w-0 flex-1 items-center gap-2 max-sm:basis-full">
+            <ViewSwitcher
+              label="Seasons"
+              current={String(season)}
+              onChange={(v) => view.set(Number(v), null)}
+              views={seasons.map((s) => {
+                const st = seasonStanding(grouped.get(s) ?? noEpisodes, slots)
+                return { value: String(s), label: seasonName(s), hint: <SeasonCount standing={st} /> }
+              })}
+            />
+            <SeasonSummary standing={standing} />
+          </div>
+          <div className="flex items-center gap-2 max-sm:basis-full">
+            <div className="w-56 max-sm:w-0 max-sm:flex-1">
+              <FindEpisodeField find={find} />
+            </div>
+            <SeasonButtons actions={actions} season={season} episodes={shown} columns={columns} />
+          </div>
+        </>
+      }
+    >
       <SeasonDeleteConfirm actions={actions} season={season} />
       <EpisodeMatrix season={season} episodes={shown} slots={slots} actions={actions} found={found} columnWidths={columns} />
       <TickedBar actions={actions} />
@@ -119,10 +107,14 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
   )
 }
 
-function Section({ children }: { children: React.ReactNode }) {
+/** The Episodes heading and, on its row, the season toolbar (`bar`): it wraps as whole groups, never word by word. */
+function Section({ bar, children }: { bar?: ReactNode; children: ReactNode }) {
   return (
     <section aria-label="Episodes" className="mt-6">
-      <h3 className="heading-14 mb-3">Episodes</h3>
+      <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <h3 className="heading-14 max-sm:basis-full">Episodes</h3>
+        {bar}
+      </div>
       {children}
     </section>
   )

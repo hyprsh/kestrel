@@ -1,11 +1,12 @@
 // What the episode table can do beyond showing states: Search now and Manual search for an episode, a season or
 // the ticked episodes, from visible buttons on each row, above the table and in the bar for ticked episodes;
 // monitoring; and Delete files (DeleteFiles.tsx) in the ⋯ menus and the bar.
-import { Button, DotsMenu, Menu, MenuButton, MenuContainer, MenuItem } from '@hyprsh/design'
+import { Button, DotsMenu, Menu, MenuButton, MenuContainer, MenuDivider, MenuItem } from '@hyprsh/design'
 import { X } from 'lucide-react'
 import { useMemo, type FocusEvent, type KeyboardEvent } from 'react'
 import { useSearchNow } from '../api/grabs'
 import { useMonitorEpisodes, usePatchSeason, useProfiles, type Episode, type EpisodeScope, type TitleDetail } from '../api/queries'
+import { useColumnWidths } from '../layout/columnWidths'
 import { FloatingBar } from '../layout/FloatingBar'
 import { useSelection, type Selection } from '../selection'
 import { useReport } from '../toasts'
@@ -14,6 +15,8 @@ import { DeleteMenuItems, EpisodeDeleteConfirm, useEpisodeDeletes, type EpisodeD
 import { episodeCode, episodeRow, seasonName, seasonRow, type EpisodeVersion } from './episodes'
 import { TickBox } from './TickBox'
 import type { ManualSearchTarget } from './TitleDetail'
+
+type ColumnWidths = ReturnType<typeof useColumnWidths>
 
 const episodeName = (e: Episode) => `Season ${e.season} episode ${e.number}`
 
@@ -236,8 +239,11 @@ export function EpisodeMenu({ actions, episode, onOpenChange }: { actions: Episo
   )
 }
 
-/** The buttons above the table for the open season: Search Season (its Wanted episodes), Manual Search Season… and the season's ⋯ menu. */
-export function SeasonButtons({ actions, season, episodes }: { actions: EpisodeActions; season: number; episodes: Episode[] }) {
+/**
+ * The actions of the open season, in the toolbar above the table: Search season (its Wanted episodes) and the season's ⋯ menu, which
+ * holds Manual search season…, Monitor season, Delete season's files and, while the table's column widths differ from the default, Reset column widths.
+ */
+export function SeasonButtons({ actions, season, episodes, columns }: { actions: EpisodeActions; season: number; episodes: Episode[]; columns?: Pick<ColumnWidths, 'reset' | 'isDefault'> }) {
   const { versions } = actions
   const name = seasonName(season)
   const wanted = wantedIn(episodes, versions)
@@ -245,12 +251,22 @@ export function SeasonButtons({ actions, season, episodes }: { actions: EpisodeA
   return (
     <>
       <Button variant="secondary" size="small" disabled={!wanted} title={wanted ? undefined : nothingWanted} onClick={() => actions.search(episodes, name, () => ({ season }))}>
-        Search Season
+        Search season
       </Button>
-      <ManualButton versions={versions} text="Manual Search Season…" name={`Manual search ${name}`} onPick={(v) => actions.manual(v, { season }, name)} />
-      <DotsMenu aria-label={`Actions for ${name}`} size="small">
+      <DotsMenu aria-label={`Actions for ${name}`} size="small" width={260}>
+        {versions.map((v) => (
+          <MenuItem key={v.slot} onSelect={() => actions.manual(v, { season }, name)}>
+            {versions.length > 1 ? `Manual search season… ${slotLabel[v.slot]}` : 'Manual search season…'}
+          </MenuItem>
+        ))}
         <MenuItem onSelect={() => actions.monitorSeason(season, !monitored)}>{monitored ? 'Unmonitor season' : 'Monitor season'}</MenuItem>
         <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={episodes} label={name} scope={{ season }} text="Delete season's files" at={seasonRow(season)} />
+        {columns && !columns.isDefault && (
+          <>
+            <MenuDivider />
+            <MenuItem onSelect={columns.reset}>Reset column widths</MenuItem>
+          </>
+        )}
       </DotsMenu>
     </>
   )

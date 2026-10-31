@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
 import { detail, fakeLibrary, row, type LookupResult, type Sent } from '../test/library'
-import { fakeSeries, seriesRow } from '../test/series'
+import { fakeSeries, pickSeason, seriesRow } from '../test/series'
 import { server } from '../test/server'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
@@ -130,9 +130,9 @@ describe('the episodes table', () => {
     expect(within(grid).getByRole('columnheader', { name: 'Standard' })).toBeInTheDocument()
     expect(within(grid).getByRole('columnheader', { name: '4K' })).toBeInTheDocument()
     expect(within(grid).getByText('—')).toBeInTheDocument() // the second episode has no air date yet
-    // Specials are another tab, not rows of this table.
+    // Specials are another season, not rows of this table.
     expect(within(grid).queryByRole('button', { name: /Season 0 episode 1/ })).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('tab', { name: /^Specials/ }))
+    await pickSeason('Specials')
     expect(within(grid).getByRole('button', { name: 'Season 0 episode 1 Standard: Unmonitored' })).toBeInTheDocument()
   })
 
