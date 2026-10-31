@@ -220,7 +220,7 @@ func New(opts Options) *App {
 	}
 	cleanup := imports.NewCleanup(imports.CleanupDeps{Library: lib, Profiles: profs, History: hist, Clock: opts.Clock, FolderChanged: mediaRefresh.FolderChanged})
 	remover := imports.NewRemover(imports.RemoverDeps{
-		Library: lib, Downloads: acq, Health: healthSvc, FolderChanged: mediaRefresh.FolderChanged, Clock: opts.Clock,
+		Library: lib, Downloads: acq, Health: healthSvc, Posters: posters, FolderChanged: mediaRefresh.FolderChanged, Clock: opts.Clock,
 	})
 
 	var upd *updates.Service
@@ -244,7 +244,7 @@ func New(opts Options) *App {
 			region, _, err := profs.Region(ctx)
 			return string(region.Primary), err
 		},
-		History: hist, Health: healthSvc, Clock: opts.Clock, Logger: opts.Logger,
+		Posters: posters, History: hist, Health: healthSvc, Clock: opts.Clock, Logger: opts.Logger,
 	})
 	watchAhead := watchahead.New(watchahead.Deps{
 		Store: st, Clock: opts.Clock, Instances: pluginInstances, Requests: reqs, Library: lib, History: hist, Logger: opts.Logger,
