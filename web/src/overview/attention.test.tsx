@@ -147,8 +147,7 @@ describe('Needs attention', () => {
     fakeAttention([...blocking, exdevRow({ message: 'A warning' })])
     renderApp()
 
-    await screen.findByText('Blocking 1')
-    const section = screen.getByRole('region', { name: 'Needs attention · 7' })
+    const section = await screen.findByRole('region', { name: 'Needs attention · 7' })
     const messages = within(section)
       .getAllByRole('listitem')
       .map((r) => r.textContent)
@@ -160,8 +159,7 @@ describe('Needs attention', () => {
     fakeAttention([sabRow(), exdevRow()])
     renderApp()
 
-    await screen.findByText('SABnzbd is unreachable: connection refused')
-    const section = screen.getByRole('region', { name: 'Needs attention · 2' })
+    const section = await screen.findByRole('region', { name: 'Needs attention · 2' })
     expect(within(section).queryByRole('button', { name: /view all/i })).not.toBeInTheDocument()
   })
 
