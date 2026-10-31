@@ -31,7 +31,10 @@ async function openGrid() {
 }
 
 /** The seasons' tabs in order, then the episodes of the open season in order. */
-const tabsOf = () => screen.getAllByRole('tab').map((t) => t.textContent?.replace(/\s?\d+\/\d+$/, ''))
+const tabsOf = () =>
+  within(screen.getByRole('tablist', { name: 'Seasons' }))
+    .getAllByRole('tab')
+    .map((t) => t.textContent?.replace(/\s?\d+\/\d+$/, ''))
 const rowsOf = (grid: HTMLElement) =>
   within(grid)
     .getAllByRole('checkbox', { name: /^Tick Season/ })
