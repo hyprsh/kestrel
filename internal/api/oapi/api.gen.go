@@ -3253,6 +3253,10 @@ type RequestSlot struct {
 	Profile *string `json:"profile"`
 	Slot    Slot    `json:"slot"`
 
+	// Stalled `true` while the Slot's finished download has an Import that waits for the environment to be
+	// fixed (disk full, a folder not writable). The Slot keeps its `status`.
+	Stalled bool `json:"stalled"`
+
 	// Status Derived on every read. `failed` only when Kestrel rejected the Request or the Version or Title
 	// was removed later; a failed download never shows as failed (it is blocklisted and retried).
 	Status RequestSlotStatus `json:"status"`

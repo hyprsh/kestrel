@@ -28,7 +28,7 @@ func requestToAPI(r requests.Request) oapi.Request {
 		out.RejectReason = &reason
 	}
 	for _, sl := range r.Slots {
-		o := oapi.RequestSlot{Slot: slotToAPI(sl.Slot), Profile: strPtr(sl.Profile), Status: oapi.RequestSlotStatus(sl.Status), StatusLabel: sl.Label}
+		o := oapi.RequestSlot{Slot: slotToAPI(sl.Slot), Profile: strPtr(sl.Profile), Status: oapi.RequestSlotStatus(sl.Status), StatusLabel: sl.Label, Stalled: sl.Stalled}
 		if sl.VersionID != 0 {
 			id := sl.VersionID
 			o.VersionId = &id
