@@ -11,7 +11,7 @@ import { useOpenPlace } from './place'
 export const startedInBackground = (what: string) => `${what} in the background`
 
 /** A Toast's action: a link to Background jobs in Activity. */
-export const watchInActivity = (open: (path: string) => void) => ({ label: 'Watch in Activity', onClick: () => open('/activity/jobs') })
+const watchInActivity = (open: (path: string) => void) => ({ label: 'Watch in Activity', onClick: () => open('/activity/jobs') })
 
 export type Report<T = unknown> = {
   /** Background work began: "Search started for Dune". The Toast links to Background jobs in Activity. A function that returns '' means nothing started, and `done` reports instead. */

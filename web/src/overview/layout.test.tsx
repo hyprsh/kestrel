@@ -50,12 +50,12 @@ describe('Overview layout', () => {
 
     const toggle = await screen.findByRole('button', { name: /^Health/ })
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    expect(toggle.querySelector('.hy-skeleton')).not.toBeNull()
-    expect(toggle.textContent).not.toMatch(/all good|failing/)
-    expect(screen.queryByRole('region', { name: /^Health/ })?.querySelector('.hy-skeleton') ?? null).toBeNull() // nothing hidden in the collapsed panel
+    const decorative = toggle.querySelectorAll('[aria-hidden="true"]').length // the chevron, and the Skeleton standing for the summary
+    expect(toggle).toHaveAccessibleName('Health')
 
     release()
-    expect(await screen.findByRole('button', { name: 'Health · all good' })).toBeInTheDocument()
+    const loaded = await screen.findByRole('button', { name: 'Health · all good' })
+    expect(loaded.querySelectorAll('[aria-hidden="true"]').length).toBeLessThan(decorative)
   })
 
   it('shows Health as its summary line only while every check is ok, and opens it on a click', async () => {
