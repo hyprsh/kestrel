@@ -2,17 +2,9 @@
 import type { ReactNode } from 'react'
 import { Badge, Progress } from '@hyprsh/design'
 import type { TitleDetail } from '../api/queries'
-import { slotKeys, slotLabel, versionStatus, type SlotKey } from './bits'
+import { coverageSegments, slotKeys, slotLabel, versionStatus, type SlotKey } from './bits'
 
 type Version = TitleDetail['versions'][number]
-
-/** The fill of a Series Slot's bar: red when something is Long Missing, amber while Wanted, accent while downloading, else green. */
-function fill(v: Version): string {
-  if (v.long_missing || (v.coverage?.long_missing ?? 0) > 0) return 'var(--red-700)'
-  if (v.state === 'wanted' || (v.coverage?.wanted ?? 0) > 0) return 'var(--amber-700)'
-  if (v.state === 'downloading') return 'var(--accent-700)'
-  return 'var(--green-700)'
-}
 
 /** A Movie's Slot without a Version: muted text, not a pill that looks like a button. */
 function MovieNotKept({ slot }: { slot: SlotKey }) {
@@ -61,9 +53,8 @@ function SeriesSlot({ slot, version: v }: { slot: SlotKey; version: Version }) {
     <SlotRow slot={slot}>
       <div className="w-36 shrink-0">
         <Progress
-          value={c?.filled ?? 0}
+          segments={coverageSegments(c)}
           max={Math.max(released, 1)}
-          colors={{ 0: fill(v) }}
           height={6}
           aria-label={`${slotLabel[slot]}: ${c ? `${c.filled} of ${released} episodes${notMonitored ? `, ${notMonitored}` : ''}` : versionStatus(v.state, v.long_missing).label}`}
         />

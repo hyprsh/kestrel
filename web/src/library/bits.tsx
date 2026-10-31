@@ -1,5 +1,6 @@
 import { Film, Tv } from 'lucide-react'
-import { Badge, StatusDot, type BadgeProps } from '@hyprsh/design'
+import { Badge, StatusDot, type BadgeProps, type ProgressSegment } from '@hyprsh/design'
+import type { TitleDetail } from '../api/queries'
 import { cx } from '../ui'
 
 export type SlotKey = 'standard' | '4k'
@@ -96,4 +97,23 @@ export function SlotDots({ slots }: { slots: Record<SlotKey, { state: string; lo
 
 export function KindIcon({ kind, className }: { kind: string; className?: string }) {
   return kind === 'series' ? <Tv className={cx('size-3.5', className)} /> : <Film className={cx('size-3.5', className)} />
+}
+
+type VersionCoverage = NonNullable<TitleDetail['versions'][number]['coverage']>
+
+/**
+ * A Series Slot's bar as five disjoint states that add up to the released episodes: filled, downloading (Wanted ones
+ * a Grab covers), Wanted, Long Missing (not downloading) and not monitored. The Wanted segment is what is left of
+ * `wanted` once the downloading and the other Long Missing episodes are out, as the API's `VersionCoverage` says.
+ */
+export function coverageSegments(c: VersionCoverage | null | undefined): ProgressSegment[] {
+  if (!c) return []
+  const longMissing = c.long_missing - c.downloading_long_missing
+  return [
+    { value: c.filled, tone: 'success' },
+    { value: c.downloading, tone: 'info' },
+    { value: c.wanted - c.downloading - longMissing, tone: 'warning' },
+    { value: longMissing, tone: 'error' },
+    { value: c.unmonitored, tone: 'neutral' },
+  ]
 }
