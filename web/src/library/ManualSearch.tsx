@@ -1,6 +1,6 @@
 import { Badge, Button, Checkbox, EmptyState, Entity, Error as ErrorMessage, KeyboardInput, Link, Note, Pill, Select, Table } from '@hyprsh/design'
 import { ArrowLeft, Download } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import { ApiError } from '../api/queries'
 import { useGrab, useReleases, type Release } from '../api/grabs'
 import type { EpisodeScope } from '../api/queries'
@@ -192,6 +192,11 @@ export function ManualSearch({
       Profile {profileName} · {rows.length} Releases · {manualSearchSortLabels[view.sort.key][view.sort.dir].toLowerCase()}
     </span>
   )
+  // One handler on the list, not on each row's content: a tap anywhere on a row, padding included, selects it.
+  const selectRow = (e: ReactMouseEvent<HTMLElement>) => {
+    const at = /^ms-(\d+)$/.exec((e.target as HTMLElement).closest('[data-nav]')?.getAttribute('data-nav') ?? '')
+    if (at) setSel(Number(at[1]))
+  }
   const pin = (name: string, e: { detail: number }) => change({ ...view, pinned: view.pinned === name ? null : name }, e)
 
   const grab = () => {
@@ -308,18 +313,9 @@ export function ManualSearch({
           </div>
         ) : phone ? (
           // A phone has no room for eight columns: each Release is a stacked row, and the sort is a Select in the header.
-          <Entity.List aria-label="Releases" aria-busy={search.isPending || undefined} className="p-4">
+          <Entity.List aria-label="Releases" aria-busy={search.isPending || undefined} className="p-4" onClick={selectRow}>
             {rows.map((x, i) => (
-              <ReleaseRow
-                key={x.release_id}
-                x={x}
-                index={i}
-                current={i === index}
-                pinned={view.pinned}
-                onSelect={() => setSel(i)}
-                onPin={pin}
-                marks={grabbed.has(x.release_id) ? <GrabbedBadge /> : undefined}
-              />
+              <ReleaseRow key={x.release_id} x={x} index={i} current={i === index} pinned={view.pinned} onPin={pin} marks={grabbed.has(x.release_id) ? <GrabbedBadge /> : undefined} />
             ))}
           </Entity.List>
         ) : (
@@ -538,7 +534,6 @@ function ReleaseRow({
   index,
   current,
   pinned,
-  onSelect,
   onPin,
   marks,
 }: {
@@ -546,15 +541,14 @@ function ReleaseRow({
   index: number
   current: boolean
   pinned: string | null
-  onSelect: () => void
   onPin: (name: string, e: { detail: number }) => void
   marks?: ReactNode
 }) {
   const rejected = x.rejections.length > 0
   const dim = rejected && 'opacity-50'
   return (
-    <Entity current={current} data-nav={`ms-${index}`}>
-      <div className="flex min-w-0 flex-1 cursor-pointer flex-col gap-1.5" onClick={onSelect}>
+    <Entity current={current} data-nav={`ms-${index}`} className="cursor-pointer">
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex items-start justify-between gap-2">
           <span className={cx('label-12-mono min-w-0 break-all', dim)} title={x.name}>
             {x.name}

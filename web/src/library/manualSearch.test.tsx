@@ -592,6 +592,16 @@ describe('manual search on a phone', () => {
     expect(state.grabs).toEqual([{ path: '/grabs', body: { version_id: 11, release_id: 'b', override: true } }])
   })
 
+  it("selects a Release when its row's padding is tapped, not only its content", async () => {
+    fakeSearch(releases())
+    const list = await openPhoneSearch()
+    const row = within(list).getAllByRole('listitem')[1]
+
+    await userEvent.click(row)
+
+    expect(screen.getByRole('contentinfo')).toHaveTextContent('Paddington.2014.FRENCH.1080p.BluRay.x264-GRP')
+  })
+
   it('marks the grabbed Release on its stacked row', async () => {
     fakeSearch(releases())
     const list = await openPhoneSearch()
