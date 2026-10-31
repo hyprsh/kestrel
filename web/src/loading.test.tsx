@@ -129,7 +129,7 @@ describe('a Settings section while its settings load', () => {
           pause_grabs: false,
           display: displayDefaults,
           from_config_file: {
-            display: { season_order: false, seasons_open: false, manual_search_sort: false, upcoming_filters: false },
+            display: noDisplayDeclared,
             language_region: false,
             root_folders: false,
             check_github_updates: false,
