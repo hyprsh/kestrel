@@ -170,14 +170,15 @@ func (p *Posters) download(ctx context.Context, kind Kind, tmdbID int, posterPat
 	if err := tmp.Close(); err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(p.sourcePath(kind, tmdbID), []byte(posterPath), 0o644); err != nil {
-		return "", err
-	}
 	path := p.path(kind, tmdbID)
 	if err := os.Chtimes(tmp.Name(), p.now(), p.now()); err != nil {
 		return "", err
 	}
 	if err := os.Rename(tmp.Name(), path); err != nil {
+		return "", err
+	}
+	// The sidecar comes last: it never names an image that is not stored.
+	if err := os.WriteFile(p.sourcePath(kind, tmdbID), []byte(posterPath), 0o644); err != nil {
 		return "", err
 	}
 	return path, nil
