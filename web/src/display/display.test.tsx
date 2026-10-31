@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { App } from '../App'
@@ -30,106 +30,45 @@ async function openGrid() {
   return screen.findByRole('grid', { name: 'Episodes' })
 }
 
-/** What the grid shows, in order: a season's name, or an episode's `season x number`. */
+/** The seasons' tabs in order, then the episodes of the open season in order. */
+const tabsOf = () => screen.getAllByRole('tab').map((t) => t.textContent?.replace(/\s?\d+\/\d+$/, ''))
 const rowsOf = (grid: HTMLElement) =>
   within(grid)
-    .getAllByRole('checkbox')
-    .map((c) => c.getAttribute('aria-label')?.replace(' monitored', ''))
+    .getAllByRole('checkbox', { name: /^Tick Season/ })
+    .map((c) => c.getAttribute('aria-label')?.replace('Tick ', ''))
 
 beforeEach(() => localStorage.clear())
 
-describe('season order in the episode grid', () => {
-  it('lists Season 1, 2, 3 and then Specials, oldest episode first, by default', async () => {
+describe('season order in the episode table', () => {
+  it('lists Season 1, 2, 3 and then Specials as tabs, and the oldest episode first, by default', async () => {
     serveDisplay()
     fakeLongSeries()
     const grid = await openGrid()
-    await userEvent.click(screen.getByRole('button', { name: 'Expand all' }))
-    expect(rowsOf(grid)).toEqual([
-      'Season 1',
-      'Season 1 episode 1',
-      'Season 1 episode 2',
-      'Season 2',
-      'Season 2 episode 1',
-      'Season 3',
-      'Season 3 episode 1',
-      'Season 3 episode 2',
-      'Specials',
-      'Season 0 episode 1',
-    ])
+    expect(tabsOf()).toEqual(['Season 1', 'Season 2', 'Season 3', 'Specials'])
+    expect(rowsOf(grid)).toEqual(['Season 3 episode 1', 'Season 3 episode 2']) // the latest season is open
+    await userEvent.click(screen.getByRole('tab', { name: /^Season 1/ }))
+    expect(rowsOf(grid)).toEqual(['Season 1 episode 1', 'Season 1 episode 2'])
   })
 
-  it('lists Season 3 with its newest episode first, then 2, 1 and Specials, with newest first', async () => {
+  it('lists Season 3 first, then 2, 1 and Specials, with the newest episode first, with newest first', async () => {
     serveDisplay({ season_order: 'newest_first' })
     fakeLongSeries()
     const grid = await openGrid()
-    await userEvent.click(screen.getByRole('button', { name: 'Expand all' }))
-    expect(rowsOf(grid)).toEqual([
-      'Season 3',
-      'Season 3 episode 2',
-      'Season 3 episode 1',
-      'Season 2',
-      'Season 2 episode 1',
-      'Season 1',
-      'Season 1 episode 2',
-      'Season 1 episode 1',
-      'Specials',
-      'Season 0 episode 1',
-    ])
+    expect(tabsOf()).toEqual(['Season 3', 'Season 2', 'Season 1', 'Specials'])
+    expect(rowsOf(grid)).toEqual(['Season 3 episode 2', 'Season 3 episode 1'])
   })
 
   it('moves with j and k in the order shown', async () => {
     serveDisplay({ season_order: 'newest_first' })
     fakeLongSeries()
     const grid = await openGrid()
-    await userEvent.click(screen.getByRole('button', { name: 'Expand all' }))
-    within(grid).getByRole('checkbox', { name: 'Season 3' }).focus()
-    await userEvent.keyboard('jj')
-    expect(within(grid).getByRole('checkbox', { name: 'Season 3 episode 1 monitored' })).toHaveFocus()
+    within(grid).getByRole('checkbox', { name: 'Tick Season 3 episode 2' }).focus()
     await userEvent.keyboard('j')
-    expect(within(grid).getByRole('checkbox', { name: 'Season 2' })).toHaveFocus()
+    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 3 episode 1' })).toHaveFocus()
     await userEvent.keyboard('k')
-    expect(within(grid).getByRole('checkbox', { name: 'Season 3 episode 1 monitored' })).toHaveFocus()
+    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 3 episode 2' })).toHaveFocus()
     await userEvent.keyboard('{End}')
-    expect(within(grid).getByRole('checkbox', { name: 'Season 0 episode 1 monitored' })).toHaveFocus()
-  })
-})
-
-describe('which seasons open by default', () => {
-  const openSeasons = (grid: HTMLElement) =>
-    within(grid)
-      .getAllByRole('button', { name: /^(Season \d|Specials) episodes$/ })
-      .filter((b) => b.getAttribute('aria-expanded') === 'true')
-      .map((b) => b.getAttribute('aria-label'))
-
-  it('opens the latest season and those with Wanted episodes, never Specials, by default', async () => {
-    serveDisplay()
-    fakeLongSeries()
-    expect(openSeasons(await openGrid())).toEqual(['Season 1 episodes', 'Season 2 episodes', 'Season 3 episodes']) // every episode is Wanted
-  })
-
-  it('opens every season with All, Specials too', async () => {
-    serveDisplay({ seasons_open: 'all' })
-    fakeLongSeries()
-    expect(openSeasons(await openGrid())).toHaveLength(4)
-  })
-
-  it('opens no season with None', async () => {
-    serveDisplay({ seasons_open: 'none' })
-    fakeLongSeries()
-    expect(openSeasons(await openGrid())).toEqual([])
-  })
-
-  it('lets a season the user toggled win over either mode', async () => {
-    serveDisplay({ seasons_open: 'none' })
-    fakeLongSeries()
-    const first = await openGrid()
-    await userEvent.click(within(first).getByRole('button', { name: 'Season 2 episodes' }))
-    expect(openSeasons(first)).toEqual(['Season 2 episodes'])
-    cleanup()
-
-    renderApp()
-    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    expect(openSeasons(await screen.findByRole('grid', { name: 'Episodes' }))).toEqual(['Season 2 episodes'])
+    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 3 episode 1' })).toHaveFocus()
   })
 })
 
@@ -141,11 +80,11 @@ describe('Settings, Display', () => {
     return heading.closest('section') as HTMLElement
   }
 
-  it('shows the four settings at their defaults', async () => {
+  it('shows the three settings it offers at their defaults', async () => {
     serveDisplay()
     const section = await openDisplay()
     expect(within(section).getByRole('combobox', { name: 'Season order' })).toHaveValue('oldest_first')
-    expect(within(section).getByRole('combobox', { name: 'Seasons open by default' })).toHaveValue('latest_and_wanted')
+    expect(within(section).queryByRole('combobox', { name: 'Seasons open by default' })).not.toBeInTheDocument()
     expect(within(section).getByRole('combobox', { name: 'Manual search sort' })).toHaveValue('best_first')
     expect(within(section).getByRole('combobox', { name: 'Show' })).toHaveValue('all')
     expect(within(section).getByRole('checkbox', { name: 'Wanted only' })).not.toBeChecked()
@@ -193,7 +132,7 @@ describe('Settings, Display', () => {
     const section = await openDisplay()
     expect(within(section).getByRole('combobox', { name: 'Season order' })).toBeDisabled()
     expect(within(section).getByRole('combobox', { name: 'Season order' })).toHaveValue('newest_first')
-    expect(within(section).getByRole('combobox', { name: 'Seasons open by default' })).toBeEnabled()
+    expect(within(section).getByRole('combobox', { name: 'Manual search sort' })).toBeEnabled()
     expect(within(section).getByText(/The Config File sets/)).toBeInTheDocument()
   })
 })

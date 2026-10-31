@@ -37,3 +37,26 @@ export const seasonRow = (season: number) => `season-${season}`
 
 /** One of the Series' Versions as the episode grid's actions see it. */
 export type EpisodeVersion = { id: number; slot: SlotKey; profileName: string }
+
+/** How a season stands, for its tab and summary line. An episode counts once: filled when every Slot has its file, else downloading or Wanted when a Slot is. */
+export type SeasonStanding = { total: number; filled: number; downloading: number; wanted: number }
+
+export function seasonStanding(episodes: Episode[], slots: SlotKey[]): SeasonStanding {
+  const states = (e: Episode) => slots.map((s) => e.cells[s]?.state)
+  return {
+    total: episodes.length,
+    filled: episodes.filter((e) => states(e).length > 0 && states(e).every((s) => s === 'filled')).length,
+    downloading: episodes.filter((e) => states(e).includes('downloading')).length,
+    wanted: episodes.filter((e) => states(e).includes('wanted')).length,
+  }
+}
+
+/** The episodes of each season, in the order of `episodes`. */
+export function bySeason(episodes: Episode[]): Map<number, Episode[]> {
+  const out = new Map<number, Episode[]>()
+  for (const e of episodes) out.set(e.season, [...(out.get(e.season) ?? []), e])
+  return out
+}
+
+/** The season a Series' Title page opens on: the latest one, or Specials when that is all it has. */
+export const defaultSeason = (seasons: number[]): number => Math.max(0, ...seasons)

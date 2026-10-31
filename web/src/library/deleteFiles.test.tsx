@@ -148,12 +148,13 @@ async function openSeriesWithFiles() {
   return { grid, sent }
 }
 
-async function choose(grid: HTMLElement, menu: string, item: string) {
-  await userEvent.click(within(grid).getByRole('button', { name: menu }))
+/** Picks `item` from the menu `menu`, a row's in the table or one outside it (a season's above the table, the ticked episodes' in their bar). */
+async function choose(grid: HTMLElement | null, menu: string, item: string) {
+  await userEvent.click((grid ? within(grid) : screen).getByRole('button', { name: menu }))
   await userEvent.click(screen.getByRole('menuitem', { name: item }))
 }
 
-describe('deleting files from the episodes heat map', () => {
+describe('deleting files from the episode table', () => {
   afterEach(() => localStorage.clear()) // opened seasons are remembered per Title
 
   it("deletes an episode's file, naming every episode the shared file holds", async () => {
@@ -174,28 +175,29 @@ describe('deleting files from the episodes heat map', () => {
 
   it("asks right under the episode's row, with focus on the question, and Escape takes it back to the row", async () => {
     const { grid, sent } = await openSeriesWithFiles()
-    const pilot = within(grid).getByRole('checkbox', { name: 'Season 1 episode 1 monitored' })
+    const pilot = within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' })
 
     await choose(grid, 'Actions for Season 1 episode 1', 'Delete file Standard')
 
     const confirm = within(grid).getByRole('dialog', { name: 'Delete files' })
-    expect(confirm.closest('[role="row"]')?.previousElementSibling).toContainElement(pilot)
+    expect(confirm.closest('tr')?.previousElementSibling).toContainElement(pilot)
     expect(confirm).toHaveFocus()
 
     await userEvent.keyboard('{Escape}')
 
     expect(within(grid).queryByRole('dialog', { name: 'Delete files' })).not.toBeInTheDocument()
-    expect(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 1' }).closest('[role="row"]')).toContainElement(document.activeElement as HTMLElement)
+    expect(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 1' }).closest('tr')).toContainElement(document.activeElement as HTMLElement)
     expect(sent).toEqual([])
   })
 
-  it("asks under the season's row for a season's files", async () => {
+  it("asks under the season's buttons, above the table, for a season's files", async () => {
     const { grid } = await openSeriesWithFiles()
 
-    await choose(grid, 'Actions for Season 1', "Delete season's files Standard")
+    await choose(null, 'Actions for Season 1', "Delete season's files Standard")
 
-    const confirm = within(grid).getByRole('dialog', { name: 'Delete files' })
-    expect(confirm.closest('[role="row"]')?.previousElementSibling).toContainElement(within(grid).getByRole('checkbox', { name: 'Season 1' }))
+    const confirm = screen.getByRole('dialog', { name: 'Delete files' })
+    expect(grid.contains(confirm)).toBe(false)
+    expect(confirm.compareDocumentPosition(grid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(confirm).toHaveFocus()
   })
 
@@ -244,10 +246,10 @@ describe('deleting files from the episodes heat map', () => {
     expect(screen.getByRole('menuitem', { name: 'Delete file' })).toHaveAttribute('aria-disabled', 'true')
   })
 
-  it("deletes a season's files from the season row, blocklisting their Release", async () => {
-    const { grid, sent } = await openSeriesWithFiles()
+  it("deletes a season's files from the season's menu, blocklisting their Release", async () => {
+    const { sent } = await openSeriesWithFiles()
 
-    await choose(grid, 'Actions for Season 1', "Delete season's files Standard")
+    await choose(null, 'Actions for Season 1', "Delete season's files Standard")
     await userEvent.click(within(screen.getByRole('dialog', { name: 'Delete files' })).getByRole('button', { name: 'Delete and blocklist this Release' }))
 
     await waitFor(() => expect(sent).toEqual([{ version: 51, query: 'season=1&blocklist=true' }]))
@@ -257,10 +259,11 @@ describe('deleting files from the episodes heat map', () => {
     const { grid, sent } = await openSeriesWithFiles()
 
     await choose(grid, 'Actions for Season 1 episode 2', 'Tick')
-    const bar = screen.getByRole('group', { name: 'Selection' })
-    await userEvent.click(within(bar).getByRole('button', { name: 'Delete files Standard' }))
+    const bar = screen.getByRole('toolbar', { name: 'S01E02 ticked' })
+    await choose(null, 'More actions for the ticked episodes', 'Delete files Standard')
     expect(screen.getByRole('dialog', { name: 'Delete files' })).toHaveTextContent('S01E01 shares a file with it')
-    expect(within(grid).queryByRole('dialog', { name: 'Delete files' })).not.toBeInTheDocument() // above the grid, by the selection bar
+    expect(within(grid).queryByRole('dialog', { name: 'Delete files' })).not.toBeInTheDocument() // in the bar for ticked episodes
+    expect(bar).toContainElement(screen.getByRole('dialog', { name: 'Delete files' }))
     await userEvent.click(within(screen.getByRole('dialog', { name: 'Delete files' })).getByRole('button', { name: 'Delete' }))
 
     await waitFor(() => expect(sent).toEqual([{ version: 51, query: 'episode_ids=3' }]))

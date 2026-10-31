@@ -1,82 +1,38 @@
-import { Checkbox, Note, Skeleton, StatusDot } from '@hyprsh/design'
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { ApiError, useEpisodes, useMonitorEpisodes, usePatchSeason, type Episode } from '../api/queries'
-import { LoadingRegion } from '../loading'
-import { cx } from '../ui'
-import { dotOf, faintDot, slotLabel, versionStatus, type SlotKey } from './bits'
-import { EpisodeMenu, EpisodeTick, SeasonMenu, type EpisodeActions } from './EpisodeActions'
-import { SeasonSummary, SeasonToggle } from './SeasonSummary'
-import type { SeasonOpen } from './useSeasonOpen'
-import { RowDeleteConfirm } from './DeleteFiles'
-import { CellPopover, EpisodeFilePopover, cellTitle } from './EpisodeFilePopover'
+import { Button, Checkbox, StatusDot, Table, TableBody, TableCell, TableHead, TableHeader, TableRoot, TableRow } from '@hyprsh/design'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import type { Episode } from '../api/queries'
 import { usePhone } from '../responsive'
+import { dotOf, faintDot, slotLabel, versionStatus, type SlotKey } from './bits'
+import { RowDeleteConfirm } from './DeleteFiles'
+import { EpisodeMenu, EpisodeTick, RowButtons, type EpisodeActions } from './EpisodeActions'
+import { CellPopover, EpisodeFilePopover, cellTitle } from './EpisodeFilePopover'
 import { EpisodeName } from './EpisodeName'
-import { useDisplay } from '../display/useDisplay'
-import { episodeRow, orderEpisodes, seasonName, seasonRow } from './episodes'
-
-type Row = { kind: 'season'; season: number; episodes: Episode[] } | { kind: 'episode'; episode: Episode }
-
-// On a phone the grid keeps its layout and scrolls sideways only when a row does not fit: a row has a
-// minimum width. No column is pinned.
-const rowMin = 'max-sm:min-w-[20rem]'
-
-/** Where a row is now: its own index if it is still shown, or else its season's header. */
-function followRow(rows: Row[], was: Row): { row: number; same: boolean } {
-  const season = was.kind === 'season' ? was.season : was.episode.season
-  const same = rows.findIndex((r) => (r.kind === 'season' ? was.kind === 'season' && r.season === season : was.kind === 'episode' && r.episode.id === was.episode.id))
-  if (same >= 0) return { row: same, same: true }
-  return {
-    row: Math.max(
-      0,
-      rows.findIndex((r) => r.kind === 'season' && r.season === season),
-    ),
-    same: false,
-  }
-}
+import { episodeRow } from './episodes'
 
 /**
- * The episodes × Slots heat map of a Series: a season row to toggle a whole
- * season and a row per episode with its monitoring toggle and one cell per
- * Slot that has a Version. It is one grid with a roving focus: arrows (or
- * h/j/k/l) move between cells, Space (or Enter on an episode) toggles
- * monitoring, Home and End jump to the first and last row. Enter, Right and
- * Left on a season header open and close it; a closed season shows only its
- * header row, with a summary, and the arrows skip its episodes. With `actions`,
- * each row has a menu (Shift+F10 or the menu key opens it) and x ticks an
- * episode for the actions on several.
+ * The open season's episodes × Slots: a row per episode with a tick box, its code, name and air date, a state per Slot that
+ * has a Version, and visible Search (Upgrade on an episode with a file) and Manual… buttons. It is one grid with a roving
+ * focus: arrows (or h/j/k/l) move between the tick box and the Slot cells, Space on a Slot cell toggles the episode's
+ * monitoring, Space on the tick box ticks it, x ticks (X a range), s searches, m opens Manual search, Shift+F10 or the menu
+ * key opens the row's menu, and Home and End jump to the first and last row. `found` is the episode the Find field
+ * matched: its row is highlighted and scrolled into view.
  */
-export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: number; slots: SlotKey[]; seasons: SeasonOpen; actions?: EpisodeActions }) {
-  const episodes = useEpisodes(titleId)
-  const { display, ready } = useDisplay()
-  const patchSeason = usePatchSeason(titleId)
-  const monitor = useMonitorEpisodes(titleId)
+export function EpisodeMatrix({ season, episodes, slots, actions, found }: { season: number; episodes: Episode[]; slots: SlotKey[]; actions: EpisodeActions; found: number | null }) {
   const grid = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ row: 0, col: 0 })
   // The row whose "…" menu is open: a menu can open upwards over other rows, so its own row is marked.
   const [menuRow, setMenuRow] = useState<string | null>(null)
   const menuOf = (key: string) => (open: boolean) => setMenuRow((cur) => (open ? key : cur === key ? null : cur))
   const columns = 1 + slots.length
+  const { selection } = actions
 
-  const rows = useMemo<Row[]>(() => {
-    const out: Row[] = []
-    const bySeason = new Map<number, Episode[]>()
-    for (const e of orderEpisodes(episodes.data ?? [], display.season_order)) bySeason.set(e.season, [...(bySeason.get(e.season) ?? []), e])
-    for (const [season, eps] of bySeason) {
-      out.push({ kind: 'season', season, episodes: eps })
-      if (seasons.isOpen(season)) for (const e of eps) out.push({ kind: 'episode', episode: e }) // a closed season shows only its header
-    }
-    return out
-  }, [episodes.data, seasons, display.season_order])
-
-  // Rows come and go as seasons open and close: keep the tab stop on the same row, or on its season's header.
-  const shown = useRef(rows)
-  useEffect(() => {
-    const was = shown.current[pos.row]
-    shown.current = rows
-    if (!was || rows[pos.row] === was) return
-    const at = followRow(rows, was)
-    if (at.row !== pos.row) setPos({ row: at.row, col: at.same ? pos.col : 0 })
-  }, [rows, pos])
+  // Another season: the cursor starts at its top again.
+  const [shownSeason, setShownSeason] = useState(season)
+  if (shownSeason !== season) {
+    setShownSeason(season)
+    setPos({ row: 0, col: 0 })
+  }
+  const row = Math.min(pos.row, Math.max(0, episodes.length - 1))
 
   // Moving focus is a position change followed by focusing the cell at it.
   const [focusNext, setFocusNext] = useState(false)
@@ -86,39 +42,29 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
     setFocusNext(false)
   }, [focusNext, pos])
 
-  if (episodes.isError) {
-    return (
-      <Note variant="error" size="small">
-        {episodes.error instanceof ApiError ? episodes.error.message : 'Could not load the episodes.'}
-      </Note>
-    )
-  }
-  if (!episodes.data || !ready) return <EpisodesSkeleton slots={slots} />
-  if (rows.length === 0) return <p className="copy-13 text-gray-900">TheTVDB lists no episodes yet.</p>
+  // The found episode scrolls into view (a Title page scrolls as a whole), and the cursor goes to it.
+  const foundAt = found === null ? -1 : episodes.findIndex((e) => e.id === found)
+  useEffect(() => {
+    if (foundAt < 0) return
+    setPos((p) => (p.row === foundAt ? p : { row: foundAt, col: 0 }))
+    grid.current?.querySelector<HTMLElement>(`[data-episode="${found}"]`)?.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+  }, [found, foundAt])
 
-  const move = (row: number, col: number) => {
-    const r = Math.min(Math.max(row, 0), rows.length - 1)
-    const maxCol = rows[r].kind === 'season' ? 0 : columns - 1
-    setPos({ row: r, col: Math.min(Math.max(col, 0), maxCol) })
+  const move = (r: number, col: number) => {
+    const next = Math.min(Math.max(r, 0), episodes.length - 1)
+    setPos({ row: next, col: Math.min(Math.max(col, 0), columns - 1) })
     setFocusNext(true)
   }
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return
-    const { row, col } = pos
-    const at = rows[row]
-    if (actions?.onKey(e, at?.kind === 'episode' ? at.episode : null)) return
+    const col = pos.col
+    const at = episodes[row]
+    if (actions.onKey(e, at ?? null, col > 0 ? (slots[col - 1] ?? null) : null)) return
     const go = (r: number, c: number) => {
       e.preventDefault()
       e.stopPropagation() // the Library's own j/k/Enter must not also fire
       move(r, c)
-    }
-    // On a season header Enter flips it open or closed, Right (l) opens and Left (h) closes; Space toggles its monitoring.
-    if (at?.kind === 'season' && ['Enter', 'ArrowRight', 'l', 'ArrowLeft', 'h'].includes(e.key)) {
-      e.preventDefault() // also stops Enter clicking the focused checkbox
-      e.stopPropagation()
-      seasons.set(at.season, e.key === 'Enter' ? !seasons.isOpen(at.season) : e.key === 'ArrowRight' || e.key === 'l')
-      return
     }
     switch (e.key) {
       case 'ArrowDown':
@@ -136,140 +82,80 @@ export function EpisodeMatrix({ titleId, slots, seasons, actions }: { titleId: n
       case 'Home':
         return go(0, col)
       case 'End':
-        return go(rows.length - 1, col)
+        return go(episodes.length - 1, col)
       case 'Enter':
       case ' ': {
-        // On a button the click does it, and on a checkbox Space does; Enter on a checkbox, or Space on a Slot cell (whose Enter opens its popover), toggles the row's monitoring.
+        // On a button the click does it, and on a checkbox Space does; Space on a Slot cell (whose Enter opens its popover) toggles the row's monitoring.
         const onCell = e.key === ' ' && e.target instanceof Element && e.target.matches('button[data-cell]')
         if (e.target instanceof Element && e.target.closest('button') && !onCell) return
-        if (e.key === ' ' && e.target instanceof HTMLInputElement) return
+        if (e.target instanceof HTMLInputElement || !at) return
         e.preventDefault()
         e.stopPropagation()
-        if (at.kind === 'season') patchSeason.mutate({ season: at.season, monitored: !at.episodes.some((x) => x.monitored) })
-        else monitor.mutate({ ids: [at.episode.id], monitored: !at.episode.monitored })
+        actions.monitor([at], !at.monitored)
         return
       }
     }
   }
 
-  const tab = (row: number, col: number) => (pos.row === row && pos.col === col ? 0 : -1)
+  const tab = (r: number, c: number) => (row === r && pos.col === c ? 0 : -1)
+  const ticked = episodes.filter((e) => selection.has(e.id)).length
 
   return (
-    <div
-      ref={grid}
-      role="grid"
-      aria-label="Episodes"
-      aria-colcount={columns}
-      onKeyDown={onKeyDown}
-      // Space on a Slot cell button would click it on key-up: the grid has already used the key.
-      onKeyUp={(e) => e.key === ' ' && e.target instanceof Element && e.target.matches('button[data-cell]') && e.preventDefault()}
-      // chrome-ok: episode grid (domain visual, ADR 0017)
-      className="copy-13 rounded-lg max-sm:overflow-x-auto border border-gray-alpha-400"
-    >
-      {/* chrome-ok: episode grid (domain visual, ADR 0017) */}
-      <div role="row" className={cx('label-12-mono flex items-center gap-3 border-b border-gray-alpha-400 px-3 py-1.5 text-gray-900', rowMin)}>
-        <span role="columnheader" className="flex-1">
-          Episode
-        </span>
-        {slots.map((s) => (
-          <span key={s} role="columnheader" className="w-10 text-center">
-            {slotLabel[s]}
-          </span>
-        ))}
-      </div>
-      {rows.map((r, i) =>
-        r.kind === 'season' ? (
-          <SeasonRow
-            key={`s${r.season}`}
-            row={r}
-            index={i}
-            tabIndex={tab(i, 0)}
-            onFocus={() => setPos({ row: i, col: 0 })}
-            onToggle={(monitored) => patchSeason.mutate({ season: r.season, monitored })}
-            open={seasons.isOpen(r.season)}
-            onOpen={(open) => seasons.set(r.season, open)}
-            slots={slots}
-            menuOpen={menuRow === seasonRow(r.season)}
-            menu={actions && <SeasonMenu actions={actions} season={r.season} episodes={r.episodes} onOpenChange={menuOf(seasonRow(r.season))} />}
-            after={actions && <RowDeleteConfirm deletes={actions.deletes} at={seasonRow(r.season)} columns={columns} />}
-          />
-        ) : (
-          <EpisodeRow
-            key={r.episode.id}
-            episode={r.episode}
-            slots={slots}
-            index={i}
-            tab={tab}
-            onFocus={(col) => setPos({ row: i, col })}
-            onToggle={() => monitor.mutate({ ids: [r.episode.id], monitored: !r.episode.monitored })}
-            tick={actions && <EpisodeTick actions={actions} episode={r.episode} />}
-            menuOpen={menuRow === episodeRow(r.episode.id)}
-            menu={actions && <EpisodeMenu actions={actions} episode={r.episode} onOpenChange={menuOf(episodeRow(r.episode.id))} />}
-            after={actions && <RowDeleteConfirm deletes={actions.deletes} at={episodeRow(r.episode.id)} columns={columns} />}
-          />
-        ),
-      )}
+    <div ref={grid}>
+      <TableRoot>
+        <Table
+          role="grid"
+          aria-label="Episodes"
+          aria-colcount={columns + 4}
+          onKeyDown={onKeyDown}
+          // Space on a Slot cell button would click it on key-up: the grid has already used the key.
+          onKeyUp={(e) => e.key === ' ' && e.target instanceof Element && e.target.matches('button[data-cell]') && e.preventDefault()}
+        >
+          <TableHeader>
+            <TableRow>
+              <TableHead>
+                <Checkbox
+                  aria-label={`Tick all of ${season === 0 ? 'Specials' : `Season ${season}`}`}
+                  checked={episodes.length > 0 && ticked === episodes.length}
+                  indeterminate={ticked > 0 && ticked < episodes.length}
+                  tabIndex={-1}
+                  onClick={() => (ticked === episodes.length ? selection.clear() : selection.checkAll())}
+                />
+              </TableHead>
+              <TableHead className="max-sm:hidden">#</TableHead>
+              <TableHead className="max-sm:px-1">Name</TableHead>
+              <TableHead className="max-sm:hidden">Aired</TableHead>
+              {slots.map((s) => (
+                <TableHead key={s} className="max-sm:px-1">
+                  {slotLabel[s]}
+                </TableHead>
+              ))}
+              <TableHead align="right" className="max-sm:px-1 max-sm:sr-only">
+                Search
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {episodes.map((ep, i) => (
+              <EpisodeRow
+                key={ep.id}
+                episode={ep}
+                slots={slots}
+                index={i}
+                columns={columns + 4}
+                tab={tab}
+                ticked={selection.has(ep.id)}
+                found={ep.id === found}
+                onFocus={(col) => setPos({ row: i, col })}
+                menuOpen={menuRow === episodeRow(ep.id)}
+                actions={actions}
+                onMenuOpenChange={menuOf(episodeRow(ep.id))}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </TableRoot>
     </div>
-  )
-}
-
-function SeasonRow({
-  row,
-  index,
-  tabIndex,
-  onFocus,
-  onToggle,
-  open,
-  onOpen,
-  slots,
-  menuOpen,
-  menu,
-  after,
-}: {
-  row: Extract<Row, { kind: 'season' }>
-  index: number
-  tabIndex: number
-  onFocus: () => void
-  onToggle: (monitored: boolean) => void
-  open: boolean
-  onOpen: (open: boolean) => void
-  slots: SlotKey[]
-  /** Whether the row's own "…" menu is open. */
-  menuOpen?: boolean
-  menu?: ReactNode
-  /** What shows right under the row, such as a question asked from its menu. */
-  after?: ReactNode
-}) {
-  const on = row.episodes.filter((e) => e.monitored).length
-  return (
-    <>
-      <div
-        role="row"
-        aria-rowindex={index + 2}
-        data-menu-open={menuOpen ? '' : undefined}
-        // chrome-ok: episode grid (domain visual, ADR 0017)
-        className="flex items-center gap-3 border-t border-gray-alpha-400 bg-gray-alpha-100 px-3 py-1.5 data-[menu-open]:bg-gray-alpha-200 max-sm:min-h-11"
-      >
-        <div role="gridcell" className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
-          <Checkbox
-            aria-label={seasonName(row.season)}
-            checked={on === row.episodes.length}
-            indeterminate={on > 0 && on < row.episodes.length}
-            data-cell={`${index}-0`}
-            tabIndex={tabIndex}
-            onFocus={onFocus}
-            onClick={() => onToggle(on === 0)}
-          />
-          <SeasonToggle name={seasonName(row.season)} open={open} onToggle={() => onOpen(!open)} onFocus={onFocus} />
-          <span className="label-12 text-gray-900">
-            {on} of {row.episodes.length} monitored
-          </span>
-          {!open && <SeasonSummary episodes={row.episodes} slots={slots} />}
-          {menu && <span className="ml-auto">{menu}</span>}
-        </div>
-      </div>
-      {after}
-    </>
   )
 }
 
@@ -277,117 +163,84 @@ function EpisodeRow({
   episode,
   slots,
   index,
+  columns,
   tab,
+  ticked,
+  found,
   onFocus,
-  onToggle,
-  tick,
   menuOpen,
-  menu,
-  after,
+  actions,
+  onMenuOpenChange,
 }: {
   episode: Episode
   slots: SlotKey[]
   index: number
+  columns: number
   tab: (row: number, col: number) => number
+  ticked: boolean
+  found: boolean
   onFocus: (col: number) => void
-  onToggle: () => void
-  tick?: ReactNode
-  /** Whether the row's own "…" menu is open. */
-  menuOpen?: boolean
-  menu?: ReactNode
-  /** What shows right under the row, such as a question asked from its menu. */
-  after?: ReactNode
+  menuOpen: boolean
+  actions: EpisodeActions
+  onMenuOpenChange: (open: boolean) => void
 }) {
   const label = `Season ${episode.season} episode ${episode.number}`
   const phone = usePhone()
   return (
     <>
-      <div
-        role="row"
-        aria-rowindex={index + 2}
-        data-menu-open={menuOpen ? '' : undefined}
-        // chrome-ok: episode grid (domain visual, ADR 0017)
-        className={cx('flex items-center gap-3 px-3 py-1 hover:bg-gray-alpha-100 data-[menu-open]:bg-gray-alpha-200 max-sm:min-h-11', rowMin)}
-      >
-        <div role="gridcell" className={'flex min-w-0 flex-1 items-center gap-2'}>
-          {tick}
-          <Checkbox aria-label={`${label} monitored`} checked={episode.monitored} data-cell={`${index}-0`} tabIndex={tab(index, 0)} onFocus={() => onFocus(0)} onClick={onToggle} />
-          <span className="label-12-mono w-14 shrink-0 text-gray-900 max-sm:w-11">
+      <TableRow aria-rowindex={index + 2} data-episode={episode.id} data-menu-open={menuOpen ? '' : undefined} selected={ticked} current={found}>
+        <TableCell className="max-sm:px-1">
+          <EpisodeTick actions={actions} episode={episode} cell={`${index}-0`} tabIndex={tab(index, 0)} onFocus={() => onFocus(0)} />
+        </TableCell>
+        <TableCell className="text-gray-900 max-sm:hidden">
+          {episode.season}x{String(episode.number).padStart(2, '0')}
+        </TableCell>
+        <TableCell truncate className="max-sm:px-1">
+          <span className="label-12 mr-1 text-gray-900 sm:hidden">
             {episode.season}x{String(episode.number).padStart(2, '0')}
           </span>
-          <span className="flex min-w-0 max-sm:flex-1">
-            <EpisodeName episode={episode} />
-          </span>
-          <span className="label-12 ml-auto shrink-0 text-gray-900 max-sm:hidden">{episode.air_date ?? 'no air date'}</span>
-          {menu}
-        </div>
+          <EpisodeName episode={episode} />
+        </TableCell>
+        <TableCell className="text-gray-900 max-sm:hidden">{episode.air_date ?? '—'}</TableCell>
         {slots.map((s, c) => {
           const cell = episode.cells[s]
           const state = cell ? versionStatus(cell.state).label : 'no Version'
           const dot = dotOf(cell ? cell.state : null, false)
-          const square = (
-            // chrome-ok: episode grid (domain visual, ADR 0017): a grid cell button around the dot
-            <button
-              type="button"
+          const button = (
+            <Button
+              variant="tertiary"
+              size="tiny"
               aria-label={`${label} ${slotLabel[s]}: ${state}`}
               title={cellTitle(slotLabel[s], state, cell)}
               data-cell={`${index}-${c + 1}`}
               tabIndex={tab(index, c + 1)}
               onFocus={() => onFocus(c + 1)}
-              // A 44px hit area around the dot.
-              // chrome-ok: episode grid (domain visual, ADR 0017); the cell button is the dot with a 44px hit area
-              className='relative flex size-5 items-center justify-center rounded-full outline-none after:absolute after:-inset-3 after:content-[""] focus-visible:ring-2 focus-visible:ring-accent-700 max-sm:size-6'
+              prefix={<StatusDot state={dot.state} variant={dot.variant} label={false} title={null} aria-hidden className={dot.faint ? faintDot : undefined} />}
             >
-              <StatusDot state={dot.state} variant={dot.variant} label={false} title={null} aria-hidden className={dot.faint ? faintDot : undefined} />
-            </button>
+              <span className="max-sm:sr-only">{cell ? state : '—'}</span>
+            </Button>
           )
           return (
-            <div key={s} role="gridcell" className="flex w-10 justify-center">
+            <TableCell key={s} className="max-sm:px-1">
               {cell?.file ? (
-                <EpisodeFilePopover label={`${label} ${slotLabel[s]}`} cell={cell} file={cell.file} trigger={square} />
+                <EpisodeFilePopover label={`${label} ${slotLabel[s]}`} cell={cell} file={cell.file} trigger={button} />
               ) : phone ? (
-                // No hover on a phone: a tap says what the dot means.
-                <CellPopover label={`${label} ${slotLabel[s]}`} text={cellTitle(slotLabel[s], state, cell)} trigger={square} />
+                // No hover on a phone: a tap says what the state means.
+                <CellPopover label={`${label} ${slotLabel[s]}`} text={cellTitle(slotLabel[s], state, cell)} trigger={button} />
               ) : (
-                square
+                button
               )}
-            </div>
+            </TableCell>
           )
         })}
-      </div>
-      {after}
+        <TableCell align="right" className="max-sm:px-1">
+          <span className="flex items-center justify-end gap-1">
+            <RowButtons actions={actions} episode={episode} />
+            <EpisodeMenu actions={actions} episode={episode} onOpenChange={onMenuOpenChange} />
+          </span>
+        </TableCell>
+      </TableRow>
+      <RowDeleteConfirm deletes={actions.deletes} at={episodeRow(episode.id)} columns={columns} />
     </>
-  )
-}
-
-/** The grid while the episodes load: the real header, then season headers with a few episode rows under each. */
-function EpisodesSkeleton({ slots }: { slots: SlotKey[] }) {
-  return (
-    <LoadingRegion label="Loading episodes">
-      {/* chrome-ok: episode grid (domain visual, ADR 0017) */}
-      <div aria-hidden className="copy-13 rounded-lg border border-gray-alpha-400 max-sm:overflow-x-auto">
-        {/* chrome-ok: episode grid (domain visual, ADR 0017) */}
-        <div className={cx('label-12-mono flex items-center gap-3 border-b border-gray-alpha-400 px-3 py-1.5 text-gray-900', rowMin)}>
-          <span className="flex-1">Episode</span>
-          {slots.map((s) => (
-            <span key={s} className="w-10 text-center">
-              {slotLabel[s]}
-            </span>
-          ))}
-        </div>
-        {[0, 1, 2, 3, 4].map((i) => (
-          <div key={i} className={cx('flex items-center gap-3 px-3 py-2', rowMin)}>
-            <span className="flex-1">
-              <Skeleton width={i === 0 ? '30%' : `${40 + ((i * 13) % 30)}%`} height={16} />
-            </span>
-            {slots.map((s) => (
-              <span key={s} className="flex w-10 justify-center">
-                <Skeleton pill width={12} height={12} />
-              </span>
-            ))}
-          </div>
-        ))}
-      </div>
-    </LoadingRegion>
   )
 }
