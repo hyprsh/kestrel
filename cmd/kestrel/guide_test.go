@@ -25,11 +25,11 @@ import (
 	"github.com/hyprsh/kestrel/internal/store/storetest"
 )
 
-// readmeBlocks returns the README's fenced blocks whose info string is info,
+// guideBlocks returns the configuration guide's fenced blocks whose info string is info,
 // in order.
-func readmeBlocks(t *testing.T, info string) []string {
+func guideBlocks(t *testing.T, info string) []string {
 	t.Helper()
-	raw, err := os.ReadFile("../../README.md")
+	raw, err := os.ReadFile("../../docs/guide/configuration.md")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,12 +49,12 @@ func readmeBlocks(t *testing.T, info string) []string {
 	return out
 }
 
-// readmeConfigFile is the README's example Config File, fenced as yaml kestrel.yaml.
-func readmeConfigFile(t *testing.T) string {
+// guideConfigFile is the configuration guide's example Config File, fenced as yaml kestrel.yaml.
+func guideConfigFile(t *testing.T) string {
 	t.Helper()
-	blocks := readmeBlocks(t, "yaml kestrel.yaml")
+	blocks := guideBlocks(t, "yaml kestrel.yaml")
 	if len(blocks) != 1 {
-		t.Fatalf("README has %d example Config Files (```yaml kestrel.yaml), want 1", len(blocks))
+		t.Fatalf("the configuration guide has %d example Config Files (```yaml kestrel.yaml), want 1", len(blocks))
 	}
 	return blocks[0]
 }
@@ -68,13 +68,13 @@ func envNames(example string) []string {
 	return out
 }
 
-// The README's example Config File starts a fresh Kestrel through the real
+// The configuration guide's example Config File starts a fresh Kestrel through the real
 // startup path: the built-in plugins' manifests, the modules' rules and the
 // store. Its Root folders live under /data, which the test moves into a temp
 // dir, since they must exist. Its plugin instances point at hosts that don't
 // exist here, which startup only logs.
-func TestTheReadmesExampleConfigFileStartsAFreshKestrel(t *testing.T) {
-	example := readmeConfigFile(t)
+func TestTheGuidesExampleConfigFileStartsAFreshKestrel(t *testing.T) {
+	example := guideConfigFile(t)
 	data := t.TempDir()
 	body := strings.ReplaceAll(example, "/data/", data+"/data/")
 	path := filepath.Join(t.TempDir(), "kestrel.yaml")
@@ -113,7 +113,7 @@ func TestTheReadmesExampleConfigFileStartsAFreshKestrel(t *testing.T) {
 		Plugins: plugins,
 	})
 	if err := kestrel.EnforceConfigFile(context.Background()); err != nil {
-		t.Fatalf("the README's example fails startup: %v", err)
+		t.Fatalf("the configuration guide's example fails startup: %v", err)
 	}
 
 	// The declared account logs in, and setup has nothing left to do.
@@ -143,21 +143,21 @@ func TestTheReadmesExampleConfigFileStartsAFreshKestrel(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !setup.Completed {
-		t.Error("the README's example leaves setup to do")
+		t.Error("the configuration guide's example leaves setup to do")
 	}
 }
 
-// The README's compose snippet for the Config File mounts the example where
+// The configuration guide's compose snippet for the Config File mounts the example where
 // KESTREL_CONFIG_FILE points, and passes every variable the example names.
-func TestTheReadmesComposeSnippetPassesTheExamplesVariables(t *testing.T) {
+func TestTheGuidesComposeSnippetPassesTheExamplesVariables(t *testing.T) {
 	var snippet string
-	for _, b := range readmeBlocks(t, "yaml") {
+	for _, b := range guideBlocks(t, "yaml") {
 		if strings.Contains(b, "KESTREL_CONFIG_FILE") {
 			snippet = b
 		}
 	}
 	if snippet == "" {
-		t.Fatal("README has no ```yaml block setting KESTREL_CONFIG_FILE")
+		t.Fatal("the configuration guide has no ```yaml block setting KESTREL_CONFIG_FILE")
 	}
 	var compose struct {
 		Services map[string]struct {
@@ -185,7 +185,7 @@ func TestTheReadmesComposeSnippetPassesTheExamplesVariables(t *testing.T) {
 	if file == "" || !mounted {
 		t.Errorf("KESTREL_CONFIG_FILE=%q is not a mounted file: volumes %v", file, svc.Volumes)
 	}
-	for _, name := range envNames(readmeConfigFile(t)) {
+	for _, name := range envNames(guideConfigFile(t)) {
 		if _, ok := env[name]; !ok {
 			t.Errorf("the snippet does not pass %s, which the example names", name)
 		}
