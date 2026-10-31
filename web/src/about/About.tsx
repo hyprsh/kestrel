@@ -1,10 +1,13 @@
-// About: version, licence, the update the daily GitHub check found, metadata attribution,
+// About: version, licence, the docs link, the update the daily GitHub check found, metadata attribution,
 // the TRaSH commit scoring Releases now, third-party notices and keyboard shortcuts.
 import { useState, type ReactNode } from 'react'
 import { useAbout, useNotices } from '../api/about'
 import { Button, Code, Description, Fieldset, KeyboardInput, Link } from '@hyprsh/design'
 import { LoadingLine } from '../loading'
 import tmdbLogo from '../assets/tmdb-blue-short.svg'
+
+// The docs site (docs.yml publishes it on every release).
+const DOCS_URL = 'https://hyprsh.github.io/kestrel/'
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -42,6 +45,16 @@ export function About() {
             <div className="flex flex-col gap-1.5">
               <Description layout="horizontal" termWidth="9.25rem" title="Version" content={<span className="copy-14-mono">{a.version}</span>} />
               <Description layout="horizontal" termWidth="9.25rem" title="Licence" content={`${a.license} (GNU General Public License v3.0)`} />
+              <Description
+                layout="horizontal"
+                termWidth="9.25rem"
+                title="Docs"
+                content={
+                  <Link href={DOCS_URL} target="_blank" rel="noreferrer">
+                    Documentation
+                  </Link>
+                }
+              />
               <Description
                 layout="horizontal"
                 termWidth="9.25rem"

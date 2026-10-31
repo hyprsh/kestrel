@@ -216,6 +216,9 @@ func docsPage(w http.ResponseWriter, _ *http.Request) {
     <title>Kestrel API</title>
   </head>
   <body>
+    <p style="margin: 0; padding: 8px 16px; font: 14px system-ui, sans-serif">
+      <a href="https://hyprsh.github.io/kestrel/">Kestrel documentation</a>
+    </p>
     <script id="api-reference" data-url="v1/openapi.json"></script>
     <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
   </body>
