@@ -340,6 +340,22 @@ func TestWithoutAWorkingKeyTheProviderIsUnavailable(t *testing.T) {
 	}
 }
 
+func TestRemovingATitleDeletesItsCachedPoster(t *testing.T) {
+	t.Parallel()
+	l := newLibraryInstance(t, metadatatest.Key)
+	created := decode[titleJSON](t, l.valid("POST", "/titles", addPaddington))
+	cached := l.config + "/cache/posters/movie-116149.jpg"
+	if _, err := os.Stat(cached); err != nil {
+		t.Fatalf("poster not cached: %v", err)
+	}
+	if r := l.valid("DELETE", fmt.Sprintf("/titles/%d", created.ID), ""); r.Status != 204 {
+		t.Fatalf("remove = %d %s", r.Status, r.Body)
+	}
+	if _, err := os.Stat(cached); err == nil {
+		t.Error("the poster outlived the Title")
+	}
+}
+
 func TestThePosterIsCachedUnderTheConfigDirAndServed(t *testing.T) {
 	t.Parallel()
 	l := newLibraryInstance(t, metadatatest.Key)

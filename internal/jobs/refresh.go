@@ -67,6 +67,12 @@ type RefreshHealth interface {
 	Clear(ctx context.Context, key string) error
 }
 
+// PosterSweeper deletes cached posters past the six-month limit TMDB's terms
+// set; *metadata.Posters satisfies it.
+type PosterSweeper interface {
+	Sweep() error
+}
+
 // RefresherDeps are what NewRefresher needs.
 type RefresherDeps struct {
 	Library RefreshLibrary
@@ -77,7 +83,8 @@ type RefresherDeps struct {
 	State   RefreshState
 	// Primary is the household's Primary Language (ISO 639-1).
 	Primary func(ctx context.Context) (string, error)
-	// History and Health are optional.
+	// Posters, History and Health are optional.
+	Posters PosterSweeper
 	History *history.Service
 	Health  RefreshHealth
 	Clock   func() time.Time
@@ -237,6 +244,11 @@ func (r *Refresher) Daily(ctx context.Context) error {
 	}
 	if !last.IsZero() && now.Sub(last) < refreshEvery {
 		return nil
+	}
+	if r.d.Posters != nil {
+		if err := r.d.Posters.Sweep(); err != nil {
+			r.d.Logger.Warn("sweeping the poster cache failed", "err", err)
+		}
 	}
 	since := last
 	if since.IsZero() || now.Sub(since) > changesWindow {
