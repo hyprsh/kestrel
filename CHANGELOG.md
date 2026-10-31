@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.11.0](https://github.com/hyprsh/kestrel/compare/v0.10.0...v0.11.0) (2026-10-31)
+
+> The Library gets state tabs, rich rows and a poster grid, and you can type `harbour s2e5` to find an episode and search it right there. Activity becomes tabs that take over Health, the Overview gets leaner with poster shelves, and Needs attention now flags stuck downloads and Silo Requests that Silo stopped asking about.
+
+### New Features
+
+* **library:** the Library has state tabs with counts (Wanted, Long Missing, Downloading, Unreleased, Unmonitored), rows with a poster, size and a line saying why a Title is in its state ("Long Missing · Wanted for 96 days", "S05: 6 Wanted"), a Sort menu, and a poster grid with a summary panel (`g` switches). Tick boxes are always there, and a floating bar changes the ticked Titles while the Title stays open. Adopt and Clean up move to the "…" menu ([#271](https://github.com/hyprsh/kestrel/pull/271)), closes [#267](https://github.com/hyprsh/kestrel/issues/267)
+* **library:** a Series' episodes are on season tabs, with Search and Manual search on every episode row and on each season instead of in a menu, and `s` and `m` from the keyboard. Find an episode takes `s2e5`, `2x05` or a name, and the Library filter does too: `harbour s2e5` or `harbour s2` lists that episode or season above the Titles, ready to search. Per-episode monitoring moves into the row and season menus ([#271](https://github.com/hyprsh/kestrel/pull/271)), closes [#268](https://github.com/hyprsh/kestrel/issues/268)
+* **web:** the Log and Manual search page through long results, and their text columns (and the episode table's names) can be widened by dragging or with the keyboard. Each table remembers its widths in your browser and has "Reset column widths" ([#271](https://github.com/hyprsh/kestrel/pull/271)), closes [#269](https://github.com/hyprsh/kestrel/issues/269)
+* **library:** Manual search shows only the Releases you can grab until you tick "Show rejected", and says how many it hides ([#271](https://github.com/hyprsh/kestrel/pull/271)), closes [#264](https://github.com/hyprsh/kestrel/issues/264)
+* **activity:** Activity has Grabs, Health and Background jobs tabs. The Overview replaces its Health section and Searching card with status chips, shows Downloading now and Recent requests as compact rows, and Recently added and Coming this week as poster shelves ([#270](https://github.com/hyprsh/kestrel/pull/270)), closes [#261](https://github.com/hyprsh/kestrel/issues/261), [#265](https://github.com/hyprsh/kestrel/issues/265)
+* **activity:** a download that is paused or hasn't moved for an hour shows as stuck in Activity and in Needs attention, with Search again and Cancel download ([#270](https://github.com/hyprsh/kestrel/pull/270)), closes [#249](https://github.com/hyprsh/kestrel/issues/249)
+* **silo:** a Silo Request that Silo hasn't asked about for six hours shows in Needs attention, where you can open it, end it or dismiss it ([#270](https://github.com/hyprsh/kestrel/pull/270)), closes [#256](https://github.com/hyprsh/kestrel/issues/256)
+* **web:** every row that stands for a Title shows its poster, including Needs attention, Activity's pipeline and Adoption matches ([#270](https://github.com/hyprsh/kestrel/pull/270)), closes [#262](https://github.com/hyprsh/kestrel/issues/262)
+* **silo:** `kestrel-silo` can tell Silo's Autoscan which Title folders changed, through a scan source that reads Kestrel's new `GET /folder-changes` feed, instead of Silo guessing from the scan endpoint. See the guide's "Telling Silo about changed Title folders through Autoscan" ([#259](https://github.com/hyprsh/kestrel/pull/259))
+
+### Bug Fixes
+
+* **library:** `is:downloading` and the Downloading count now find Titles with a Grab on its way. Before, they never matched anything ([#271](https://github.com/hyprsh/kestrel/pull/271))
+
+### Other Changes
+
+* **settings:** "Seasons open by default" is gone from Settings > Display, since seasons are tabs now. `seasons_open` in the Config File is still accepted and ignored ([#271](https://github.com/hyprsh/kestrel/pull/271))
+
 ## [0.10.0](https://github.com/hyprsh/kestrel/compare/v0.9.0...v0.10.0) (2026-10-31)
 
 > A Series' header now shows at a glance how much is on disk, downloading, wanted, missing for a long time and not monitored, and Manual search's "View in Activity" opens Activity on just the Grab you made.
