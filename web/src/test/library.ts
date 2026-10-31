@@ -27,6 +27,8 @@ export const row = (id: number, title: string, primary: string, over: Partial<Ti
   wanted_since: '2026-10-17T12:00:00Z',
   added_at: '2026-10-17T12:00:00Z',
   size: 0,
+  searched_at: null,
+  wanted_episodes: null,
   ...over,
 })
 

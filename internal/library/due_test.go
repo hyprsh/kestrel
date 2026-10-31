@@ -205,3 +205,26 @@ func TestAnUnreleasedMovieIsNotDueAndAFailedSearchIsRetriedSoon(t *testing.T) {
 		t.Errorf("due at the retry = %+v", due)
 	}
 }
+
+func TestTheListSaysWhenATitleWasLastSearched(t *testing.T) {
+	ctx := context.Background()
+	lib, _ := newLibrary(t)
+	id := addPaddington(t, lib, library.VersionSpec{Slot: slot.Standard, Profile: "hd-primary"}, library.VersionSpec{Slot: slot.FourK, Profile: "4k-primary"})
+	view := library.View{Country: "US", Now: now}
+	rows, _ := lib.List(ctx, view, library.Filter{})
+	if rows[0].SearchedAt != nil {
+		t.Fatalf("SearchedAt before any search = %v", rows[0].SearchedAt)
+	}
+	d, _ := lib.Get(ctx, id, view)
+	if err := lib.MarkMissingSearched(ctx, d.Versions[0].ID, now, false); err != nil {
+		t.Fatal(err)
+	}
+	later := now.Add(time.Hour)
+	if err := lib.MarkMissingSearched(ctx, d.Versions[1].ID, later, false); err != nil {
+		t.Fatal(err)
+	}
+	rows, _ = lib.List(ctx, view, library.Filter{})
+	if got := rows[0].SearchedAt; got == nil || !got.Equal(later) {
+		t.Errorf("SearchedAt = %v, want the later search, %v", got, later)
+	}
+}

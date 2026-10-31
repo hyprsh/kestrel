@@ -3051,6 +3051,24 @@ export interface components {
              * @description Bytes the files of its Versions take on disk, 0 when it holds none.
              */
             size: number;
+            /**
+             * Format: date-time
+             * @description When Kestrel last searched for any of its Versions, for what is missing or for an Upgrade; null when it never has.
+             */
+            searched_at: string | null;
+            /** @description A Series' Wanted episodes; null for a Movie. */
+            wanted_episodes: components["schemas"]["WantedEpisodes"] | null;
+        };
+        /**
+         * @description A Series' Wanted episodes, counted once however many of its Versions want them. The Library's
+         *     rows say from it why a Series is Wanted ("S02: 2 Wanted"); the Grabs on their way are in `GET /queue`.
+         */
+        WantedEpisodes: {
+            wanted: number;
+            /** @description How many of them are Long Missing in some Version. */
+            long_missing: number;
+            /** @description The seasons the Wanted episodes are in, in order. */
+            seasons: number[];
         };
         TitleList: {
             items: components["schemas"]["TitleRow"][];

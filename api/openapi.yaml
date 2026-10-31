@@ -4198,7 +4198,7 @@ components:
           type: boolean
     TitleRow:
       type: object
-      required: [id, kind, title, primary_title, year, has_poster, slots, wanted_since, added_at, size]
+      required: [id, kind, title, primary_title, year, has_poster, slots, wanted_since, added_at, size, searched_at, wanted_episodes]
       properties:
         id:
           type: integer
@@ -4240,6 +4240,33 @@ components:
           type: integer
           format: int64
           description: Bytes the files of its Versions take on disk, 0 when it holds none.
+        searched_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When Kestrel last searched for any of its Versions, for what is missing or for an Upgrade; null when it never has.
+        wanted_episodes:
+          allOf:
+            - $ref: "#/components/schemas/WantedEpisodes"
+          nullable: true
+          description: A Series' Wanted episodes; null for a Movie.
+    WantedEpisodes:
+      type: object
+      required: [wanted, long_missing, seasons]
+      description: |
+        A Series' Wanted episodes, counted once however many of its Versions want them. The Library's
+        rows say from it why a Series is Wanted ("S02: 2 Wanted"); the Grabs on their way are in `GET /queue`.
+      properties:
+        wanted:
+          type: integer
+        long_missing:
+          type: integer
+          description: How many of them are Long Missing in some Version.
+        seasons:
+          type: array
+          description: The seasons the Wanted episodes are in, in order.
+          items:
+            type: integer
     TitleList:
       type: object
       required: [items, next_cursor]
