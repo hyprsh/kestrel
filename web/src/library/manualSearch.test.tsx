@@ -85,13 +85,16 @@ function fakeSearch(items: Release[], opts: { grabStatus?: number; hold?: Promis
   return state
 }
 
-async function openManualSearch() {
+/** Opens manual search; most tests look at rejected Releases too, so Show rejected is turned on unless `rejected` is false. */
+async function openManualSearch({ rejected = true } = {}) {
   renderApp()
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
   const pane = await screen.findByRole('region', { name: /paddington/i })
   const actions = await within(pane).findByRole('group', { name: 'Title actions' })
   await userEvent.click(within(actions).getByRole('button', { name: /manual search/i }))
-  return screen.findByRole('table', { name: /releases/i })
+  const table = await screen.findByRole('table', { name: /releases/i })
+  if (rejected) await userEvent.click(await screen.findByRole('checkbox', { name: /show rejected/i }))
+  return table
 }
 
 const selected = () => screen.getByRole('row', { selected: true })
@@ -122,13 +125,64 @@ describe('manual search', () => {
     expect(rows[1]).toHaveTextContent('S01E03-E04')
   })
 
-  it('hides rejected Releases on request', async () => {
+  it('shows only the accepted Releases at first, says how many rejected ones are hidden, and brings them back on request', async () => {
     fakeSearch(releases())
-    const table = await openManualSearch()
-
-    await userEvent.click(screen.getByRole('checkbox', { name: /hide rejected/i }))
+    const table = await openManualSearch({ rejected: false })
 
     expect(within(table).getAllByRole('row').slice(1)).toHaveLength(1)
+    expect(screen.getByText(/1 Releases · 3 rejected hidden/)).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('checkbox', { name: /show rejected/i }))
+    expect(within(table).getAllByRole('row').slice(1)).toHaveLength(4)
+    expect(screen.queryByText(/rejected hidden/)).not.toBeInTheDocument()
+    expect(within(table).getAllByRole('row')[4]).toHaveTextContent('On the Blocklist')
+
+    await userEvent.click(screen.getByRole('checkbox', { name: /show rejected/i }))
+    expect(within(table).getAllByRole('row').slice(1)).toHaveLength(1)
+  })
+
+  it('offers Show rejected when every Release is rejected', async () => {
+    fakeSearch(releases().slice(1))
+    const table = await openManualSearch({ rejected: false })
+
+    expect(within(table).queryAllByRole('row').slice(1)).toHaveLength(0)
+    expect(screen.getByText('Every Release is rejected.')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Show rejected' }))
+
+    expect(within(table).getAllByRole('row').slice(1)).toHaveLength(3)
+    expect(screen.queryByText('Every Release is rejected.')).not.toBeInTheDocument()
+  })
+
+  describe('paging', () => {
+    const many = () => Array.from({ length: 120 }, (_, i) => release(`r${i}`, `Paddington.${String(i).padStart(3, '0')}.1080p-GRP`, { score: 1000 - i }))
+    const names = (table: HTMLElement) =>
+      within(table)
+        .getAllByRole('row')
+        .slice(1)
+        .map((r) => r.textContent ?? '')
+
+    it('pages 50 Releases at a time, keeps the page in the address bar and goes back to page 1 on a sort or Show rejected', async () => {
+      fakeSearch(many())
+      const table = await openManualSearch({ rejected: false })
+      expect(names(table)).toHaveLength(50)
+      expect(screen.getByText('1–50 of 120')).toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Next Page' }))
+      expect(location.search).toContain('page=2')
+      expect(names(table)[0]).toContain('Paddington.050')
+      await userEvent.click(screen.getByRole('button', { name: 'Next Page' }))
+      expect(names(table)).toHaveLength(20)
+
+      await userEvent.click(within(table).getByRole('button', { name: 'Size' }))
+      expect(location.search).not.toContain('page=')
+      expect(location.search).toContain('sort=size%3Aasc')
+      expect(names(table)).toHaveLength(50)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Next Page' }))
+      await userEvent.click(screen.getByRole('checkbox', { name: /show rejected/i }))
+      expect(location.search).not.toContain('page=')
+      expect(screen.getByText('1–50 of 120')).toBeInTheDocument()
+    })
   })
 
   it('is driven by j and k, and Enter grabs the selected Release', async () => {
@@ -370,6 +424,7 @@ describe('manual search', () => {
       const actions = await within(pane).findByRole('group', { name: 'Title actions' })
       await userEvent.click(within(actions).getByRole('button', { name: /manual search/i }))
       table = await screen.findByRole('table', { name: /releases/i })
+      await userEvent.click(screen.getByRole('checkbox', { name: /show rejected/i }))
 
       expect(screen.getByRole('columnheader', { name: 'Size' })).toHaveAttribute('aria-sort', 'ascending')
       expect(order(table)).toEqual(['mid', 'big', 'old', 'bad'])
@@ -472,13 +527,15 @@ describe('manual search on a phone', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  async function openPhoneSearch() {
+  async function openPhoneSearch({ rejected = true } = {}) {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     await userEvent.click(await within(await screen.findByRole('listbox', { name: /library/i })).findByRole('option', { name: /paddington/i }))
     const actions = await screen.findByRole('group', { name: 'Title actions' })
     await userEvent.click(within(actions).getByRole('button', { name: /manual search/i }))
-    return screen.findByRole('list', { name: /releases/i })
+    const list = await screen.findByRole('list', { name: /releases/i })
+    if (rejected) await userEvent.click(await screen.findByRole('checkbox', { name: /show rejected/i }))
+    return list
   }
 
   it('stacks each Release: name and Score, then Quality, Size, Age and Indexer as Pills, and why it was rejected', async () => {
@@ -533,13 +590,15 @@ describe('manual search on a phone', () => {
     ])
   })
 
-  it('hides rejected Releases', async () => {
+  it('shows only the accepted Releases at first and brings the rejected ones back with Show rejected', async () => {
     fakeSearch(releases())
-    const list = await openPhoneSearch()
-
-    await userEvent.click(screen.getByRole('checkbox', { name: /hide rejected/i }))
+    const list = await openPhoneSearch({ rejected: false })
 
     expect(within(list).getAllByRole('listitem')).toHaveLength(1)
+    expect(screen.getByText(/3 rejected hidden/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('checkbox', { name: /show rejected/i }))
+
+    expect(within(list).getAllByRole('listitem')).toHaveLength(4)
   })
 
   it('sorts with a Select, keeps rejected rows last, and remembers the sort', async () => {

@@ -1,14 +1,17 @@
-import { Badge, Button, Checkbox, EmptyState, Entity, Error as ErrorMessage, KeyboardInput, Link, Note, Pill, Select, Table } from '@hyprsh/design'
+import { Badge, Button, Checkbox, EmptyState, Entity, Error as ErrorMessage, KeyboardInput, Link, Note, Pager, Pill, Select, Table } from '@hyprsh/design'
 import { ArrowLeft, Download } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import { ApiError } from '../api/queries'
 import { useGrab, useReleases, type Release } from '../api/grabs'
 import type { EpisodeScope } from '../api/queries'
 import { useKey, useListNav } from '../keys'
-import { placePath, useOpenPlace } from '../place'
+import { placePath, useOpenPlace, usePageParam, useUrlParam } from '../place'
 import { useDisplay } from '../display/useDisplay'
+import { ResetColumnWidths, useColumnWidths } from '../layout/columnWidths'
 import { FilterStrip } from '../layout/FilterStrip'
+import { PagerStrip } from '../layout/PagerStrip'
 import { PaneFooter, PaneHeader } from '../layout/Pane'
+import { TableSkeletonRows } from '../loading'
 import { usePhone } from '../responsive'
 import { cx } from '../ui'
 import { manualSearchSortLabels } from './bits'
@@ -56,6 +59,26 @@ const columns: { key: SortKey; label: string; align?: 'right'; text?: boolean }[
 
 /** What a skeleton row sizes its cells by: the Releases columns, the number ones right-aligned. */
 const skeletonColumns = columns.map((c) => ({ key: c.key, header: c.label, numeric: c.align === 'right', mono: c.key === 'release', truncate: c.key === 'release' }))
+
+/** Releases per page. */
+const PAGE_SIZE = 50
+
+/**
+ * What each header does for resizing. Release is the `truncate` column that takes the rest of the row, so it narrows as
+ * the others widen (it has no handle of its own). The rest start at the widths they had, because the table measures a
+ * column from the first rows it shows (the accepted Releases), which a rejected Release's longer Quality, Size or
+ * Custom Formats would then overflow.
+ */
+const resizing: Record<SortKey, { truncate?: boolean; resizable?: boolean; columnKey?: string; width?: number; minWidth?: number; maxWidth?: number }> = {
+  score: { resizable: true, columnKey: 'score', width: 80, maxWidth: 160 },
+  release: { truncate: true },
+  quality: { resizable: true, columnKey: 'quality', width: 128, maxWidth: 240 },
+  languages: { resizable: true, columnKey: 'languages', width: 112, minWidth: 96, maxWidth: 320 },
+  formats: { resizable: true, columnKey: 'formats', width: 176, minWidth: 120, maxWidth: 480 },
+  size: { resizable: true, columnKey: 'size', width: 96, maxWidth: 160 },
+  age: { resizable: true, columnKey: 'age', width: 64, maxWidth: 120 },
+  indexer: { resizable: true, columnKey: 'indexer', width: 128, minWidth: 96, maxWidth: 240 },
+}
 
 const points = (r: Release) => r.custom_formats.reduce((sum, f) => sum + f.points, 0)
 
@@ -159,7 +182,11 @@ export function ManualSearch({
   const search = useReleases(versionId, scope?.body)
   const grabbing = useGrab()
   const openPlace = useOpenPlace()
-  const [hideRejected, setHideRejected] = useState(false)
+  // Rejected Releases stay out of the list until asked for.
+  const [showRejected, setShowRejected] = useState(false)
+  const widths = useColumnWidths('manual-search')
+  const [page, setPage] = usePageParam()
+  const [, setSortParam] = useUrlParam('sort')
   const { display } = useDisplay()
   const [picked, setView] = useState(loadView)
   const view = useMemo<View>(() => picked ?? { sort: defaultSort(display.manual_search_sort), pinned: null }, [picked, display.manual_search_sort])
@@ -170,11 +197,23 @@ export function ManualSearch({
   const [problem, setProblem] = useState<string | null>(null)
   const ref = useRef<HTMLElement>(null)
   useEffect(() => ref.current?.focus(), [])
+  // A new search starts at the first page.
+  useEffect(() => setPage(1), [setPage])
 
   const all = search.data?.items ?? []
-  const rows = useMemo(() => arrange(hideRejected ? all.filter((r) => r.rejections.length === 0) : all, view), [all, hideRejected, view])
-  const index = Math.min(sel, Math.max(rows.length - 1, 0))
-  const current = rows[index] as Release | undefined
+  const rejectedCount = useMemo(() => all.filter((r) => r.rejections.length > 0).length, [all])
+  const rows = useMemo(() => arrange(showRejected ? all : all.filter((r) => r.rejections.length === 0), view), [all, showRejected, view])
+  // The sort is kept in the address bar (`?sort=size:desc`) while manual search is open.
+  useEffect(() => {
+    setSortParam(`${view.sort.key}:${view.sort.dir}`)
+    return () => setSortParam(null)
+  }, [view.sort.key, view.sort.dir, setSortParam])
+  useEffect(() => () => setPage(1), [setPage])
+  // A page past the last one (a stale address) shows the last page.
+  const shownPage = Math.min(page, Math.max(1, Math.ceil(rows.length / PAGE_SIZE)))
+  const pageRows = useMemo(() => rows.slice((shownPage - 1) * PAGE_SIZE, shownPage * PAGE_SIZE), [rows, shownPage])
+  const index = Math.min(sel, Math.max(pageRows.length - 1, 0))
+  const current = pageRows[index] as Release | undefined
   const g = current && grabState(current)
 
   // After a mouse click the section takes the focus back, so Enter grabs rather than pressing the header or chip
@@ -182,6 +221,7 @@ export function ManualSearch({
   const change = (next: View, e: { detail: number }) => {
     setView(next)
     saveView(next)
+    setPage(1)
     setSel(0)
     if (e.detail > 0) ref.current?.focus()
   }
@@ -189,13 +229,26 @@ export function ManualSearch({
   const isBest = view.sort.key === BEST_FIRST.key && view.sort.dir === BEST_FIRST.dir
   const summary = (
     <span className="copy-13 text-gray-900">
-      Profile {profileName} · {rows.length} Releases · {manualSearchSortLabels[view.sort.key][view.sort.dir].toLowerCase()}
+      Profile {profileName} · {rows.length} Releases{!showRejected && rejectedCount > 0 && ` · ${rejectedCount} rejected hidden`} · {manualSearchSortLabels[view.sort.key][view.sort.dir].toLowerCase()}
     </span>
   )
   // One handler on the list, not on each row's content: a tap anywhere on a row, padding included, selects it.
   const selectRow = (e: ReactMouseEvent<HTMLElement>) => {
     const at = /^ms-(\d+)$/.exec((e.target as HTMLElement).closest('[data-nav]')?.getAttribute('data-nav') ?? '')
     if (at) setSel(Number(at[1]))
+  }
+  const toPage = (next: number) => {
+    setPage(next)
+    setSel(0)
+  }
+  // After a mouse click the section takes the focus back, so j, k and Enter work on the Releases again.
+  const refocus = (e: ReactMouseEvent) => {
+    if (e.detail > 0) ref.current?.focus()
+  }
+  const toggleRejected = (on: boolean) => {
+    setShowRejected(on)
+    setPage(1)
+    setSel(0)
   }
   const pin = (name: string, e: { detail: number }) => change({ ...view, pinned: view.pinned === name ? null : name }, e)
 
@@ -219,10 +272,9 @@ export function ManualSearch({
     )
   }
 
-  useListNav('ms', rows.length, index, setSel, grab)
+  useListNav('ms', pageRows.length, index, setSel, grab)
   useKey('Escape', onBack)
 
-  const skeleton = [0, 1, 2, 3, 4, 5].map((i) => <Table.SkeletonRow key={i} index={i} columns={skeletonColumns} />)
   const errors = search.data?.indexer_errors ?? []
   return (
     <section ref={ref} tabIndex={-1} aria-label="Manual search" className="flex min-h-0 min-w-0 flex-1 flex-col outline-none">
@@ -259,8 +311,8 @@ export function ManualSearch({
             }}
             options={sortOptions}
           />
-          <Checkbox checked={hideRejected} onChange={(e) => setHideRejected(e.target.checked)}>
-            Hide rejected
+          <Checkbox checked={showRejected} onChange={(e) => toggleRejected(e.target.checked)} onClick={refocus}>
+            Show rejected
           </Checkbox>
         </PhoneHeader>
       ) : (
@@ -283,9 +335,10 @@ export function ManualSearch({
               Best first
             </Button>
           )}
-          <span className="ml-auto">
-            <Checkbox checked={hideRejected} onChange={(e) => setHideRejected(e.target.checked)}>
-              Hide rejected
+          <span className="ml-auto flex items-center gap-3">
+            <ResetColumnWidths columns={widths} />
+            <Checkbox checked={showRejected} onChange={(e) => toggleRejected(e.target.checked)} onClick={refocus}>
+              Show rejected
             </Checkbox>
           </span>
         </PaneHeader>
@@ -314,35 +367,39 @@ export function ManualSearch({
         ) : phone ? (
           // A phone has no room for eight columns: each Release is a stacked row, and the sort is a Select in the header.
           <Entity.List aria-label="Releases" aria-busy={search.isPending || undefined} className="p-4" onClick={selectRow}>
-            {rows.map((x, i) => (
+            {pageRows.map((x, i) => (
               <ReleaseRow key={x.release_id} x={x} index={i} current={i === index} pinned={view.pinned} onPin={pin} marks={grabbed.has(x.release_id) ? <GrabbedBadge /> : undefined} />
             ))}
           </Entity.List>
         ) : (
           <Table.Root>
-            <Table aria-label="Releases" aria-busy={search.isPending || undefined} stickyHeader>
-              <Table.Colgroup>
-                <Table.Col className="w-20" />
-                <Table.Col />
-                <Table.Col className="w-28" />
-                <Table.Col className="w-24" />
-                <Table.Col className="w-44" />
-                <Table.Col className="w-20" />
-                <Table.Col className="w-16" />
-                <Table.Col className="w-28" />
-              </Table.Colgroup>
+            {/* The widths are measured from the first rows, so the loading table (skeleton rows) is a table of its own. */}
+            <Table
+              key={search.isPending ? 'loading' : 'ready'}
+              aria-label="Releases"
+              aria-busy={search.isPending || undefined}
+              stickyHeader
+              columnWidths={widths.widths}
+              onColumnWidthsChange={widths.onChange}
+            >
               <Table.Header>
                 <Table.Row>
                   {columns.map((c) => (
-                    <Table.Head key={c.key} align={c.align} sort={view.sort.key === c.key ? (view.sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'} onSort={(e) => sortBy(c.key, e)}>
+                    <Table.Head
+                      key={c.key}
+                      align={c.align}
+                      sort={view.sort.key === c.key ? (view.sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                      onSort={(e) => sortBy(c.key, e)}
+                      {...(search.isPending ? { truncate: resizing[c.key].truncate } : resizing[c.key])}
+                    >
                       {c.label}
                     </Table.Head>
                   ))}
                 </Table.Row>
               </Table.Header>
               <Table.Body interactive bordered>
-                {search.isPending && skeleton}
-                {rows.map((x, i) => {
+                {search.isPending && <TableSkeletonRows columns={skeletonColumns} />}
+                {pageRows.map((x, i) => {
                   const rejected = x.rejections.length > 0
                   const dim = rejected && 'opacity-50'
                   return (
@@ -416,8 +473,23 @@ export function ManualSearch({
             </Table>
           </Table.Root>
         )}
-        {search.isSuccess && rows.length === 0 && <EmptyState title="No Releases found." />}
+        {search.isSuccess &&
+          rows.length === 0 &&
+          (all.length > 0 && !showRejected ? (
+            <EmptyState title="Every Release is rejected." description={`${rejectedCount} rejected ${rejectedCount === 1 ? 'Release is' : 'Releases are'} hidden.`}>
+              <Button variant="secondary" size="small" onClick={() => toggleRejected(true)}>
+                Show rejected
+              </Button>
+            </EmptyState>
+          ) : (
+            <EmptyState title="No Releases found." />
+          ))}
       </div>
+      {rows.length > PAGE_SIZE && (
+        <PagerStrip>
+          <Pager aria-label="Release pages" page={shownPage} pageSize={PAGE_SIZE} total={rows.length} onPageChange={toPage} />
+        </PagerStrip>
+      )}
 
       <PaneFooter>
         <div className="min-w-0 flex-1" aria-live="polite">
