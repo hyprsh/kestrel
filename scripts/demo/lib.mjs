@@ -60,10 +60,16 @@ export async function open({ base = demoURL(), width = 1440, height = 900, theme
     async waitText(re, timeout = 15000) {
       await page.waitForFunction((r) => new RegExp(r).test(document.body.innerText), re, { timeout })
     },
-    // openTitle opens the Library and the first Title row containing name.
+    // openTitle opens the Library and the Title row whose Title is exactly name ("Breaking Bad",
+    // not "El Camino: A Breaking Bad Movie"); the year beside the Title is not part of it.
     async openTitle(name) {
       await h.clickAria('Library')
-      await page.locator('[id^="title-"]').filter({ hasText: name }).first().click()
+      const rows = page.locator('[id^="title-"]')
+      await rows.first().waitFor()
+      const titles = await rows.evaluateAll((els) => els.map((el) => el.querySelector('span.truncate')?.firstChild?.textContent?.trim() ?? ''))
+      const at = titles.indexOf(name)
+      if (at < 0) throw new Error(`openTitle: no Library row titled "${name}"; the rows are ${titles.map((t) => `"${t}"`).join(', ')}`)
+      await rows.nth(at).click()
       await wait(800)
     },
     // shot moves the mouse out of the way (unless move is false) and saves a PNG.

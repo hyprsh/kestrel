@@ -16,6 +16,10 @@ What it knows (MOVIES and SERIES below):
 - Searches match "padd", "breaking"/"camino", "saul", "friends", "twin".
 - The indexer has no releases until GET /_ctl?releases=1 (=0 empties it again).
   Then it offers releases for every Movie and for Breaking Bad, never other Series.
+- GET /_ctl?unlisted=1 (=0 removes them) adds Breaking Bad releases TheTVDB does not list: the
+  episode after the last listed one of the season asked for (Placeholder Episodes,
+  episode_not_listed) and the season after the last (season_not_listed), as a pack and an
+  episode 1. It needs releases on, and with it off the indexer offers exactly what it did.
 - SABnzbd accepts every NZB into a queue at 40 %; nothing ever completes.
 - plex.tv (/plextv, KESTREL_PLEX_TV_URL) knows the owner (token DEMO_OWNER_TOKEN, the one
   seeded into the Plex instance) and Ellie, a friend whose share includes the Plex server
@@ -34,7 +38,7 @@ from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from xml.sax.saxutils import escape
 
-STATE = {"releases": False, "queue": [], "pins": {}}
+STATE = {"releases": False, "unlisted": False, "queue": [], "pins": {}}
 DEMO_OWNER_TOKEN = "demo-owner-token"
 DEMO_REQUESTER_TOKEN = "demo-requester-token"
 DEMO_MACHINE = "demo-plex-machine"
@@ -239,6 +243,22 @@ def rss(items):
 <newznab:response offset="0" total="{len(items)}"/>{''.join(parts)}</channel></rss>"""
 
 
+def unlisted_bb(season, ep):
+    """Breaking Bad releases past what TheTVDB lists: the next episode of the season asked for, and
+    the season after the last, when the query is not for one episode that is neither."""
+    last = max(s for s in BB if s > 0)
+    after = [(season, len(BB[season]) + 1)] if season in BB and season > 0 else []
+    after.append((last + 1, 1))
+    out = []
+    for s, n in after:
+        if ep and int(ep) != n:
+            continue
+        for code, big, small in ([(f"S{s:02d}E{n:02d}", 7_100_000_000, 2_300_000_000)] + ([] if ep else [(f"S{s:02d}", 9_800_000_000, 4_100_000_000)])):
+            out.append((f"Breaking.Bad.{code}.2160p.WEB-DL.DDP5.1.HDR.H.265-NTb", big, 5045))
+            out.append((f"Breaking.Bad.{code}.1080p.BluRay.x264-ROVERS", small, 5040))
+    return out
+
+
 def releases(qs):
     t = qs.get("t", [""])[0]
     if not STATE["releases"] or t not in ("tvsearch", "movie", "search"):
@@ -260,6 +280,8 @@ def releases(qs):
             (f"Breaking.Bad.{code}.720p.HDTV.x264-CTU", 1_400_000_000 if not ep else 900_000_000, 5040),
             (f"Breaking.Bad.{code}.German.DL.1080p.BluRay.x264-iNTENTiON", 4_400_000_000 if not ep else 2_500_000_000, 5040),
         ]
+        if STATE["unlisted"]:
+            rows += unlisted_bb(season, ep)
         return rss([(a, b, c, attrs) for a, b, c in rows])
     tm = int(qs.get("tmdbid", ["0"])[0] or 0)
     if tm not in MOVIES:
@@ -403,7 +425,9 @@ class H(WatchlistStandIn, BaseHTTPRequestHandler):
         if p == "/_ctl":
             if "releases" in qs:
                 STATE["releases"] = qs["releases"][0] == "1"
-            return self.send(200, {"releases": STATE["releases"]})
+            if "unlisted" in qs:
+                STATE["unlisted"] = qs["unlisted"][0] == "1"
+            return self.send(200, {"releases": STATE["releases"], "unlisted": STATE["unlisted"]})
         if p.startswith("/t/p/"):
             f = os.path.join(POSTERS, os.path.basename(p))
             if not os.path.exists(f):
