@@ -1,5 +1,6 @@
 import { Checkbox, Note, Select } from '@hyprsh/design'
 import { ApiError, usePatchSettings, useSettings, type SettingsPatch } from '../api/queries'
+import { SkeletonForm } from '../loading'
 import { manualSearchSortLabels } from '../library/bits'
 import type { Display } from './useDisplay'
 
@@ -57,7 +58,7 @@ export function DisplayForm() {
         Could not load the display settings.
       </Note>
     )
-  if (!data) return null
+  if (!data) return <SkeletonForm rows={4} />
   const d = data.display
   const declared = data.from_config_file.display
   const set = (display: Patch) => save.mutate({ display })

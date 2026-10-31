@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
 import { App } from './App'
 import { Poster } from './poster'
+import { DisplayForm } from './display/DisplayForm'
 import { ProviderKeysForm } from './metadata/ProviderKeys'
 import { Requests } from './requests/Requests'
 import { displayDefaults, noDisplayDeclared } from './test/display'
@@ -147,6 +148,34 @@ describe('a Settings section while its settings load', () => {
     await settings.release()
 
     expect(await screen.findByLabelText('TMDB API key')).toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('shows the Skeleton in Display too, then its settings', async () => {
+    const settings = held()
+    server.use(
+      http.get('/settings', async ({ response }) => {
+        await settings.gate
+        return response(200).json({
+          language_region: { primary_language: 'en', release_date_country: 'US' },
+          root_folders: { movies: ['/m'], series: ['/s'] },
+          check_github_updates: true,
+          pause_grabs: false,
+          display: displayDefaults,
+          from_config_file: { display: noDisplayDeclared, language_region: false, root_folders: false, check_github_updates: false },
+          trash: { auto_update: true },
+          metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
+        })
+      }),
+    )
+    inClient(<DisplayForm />)
+
+    expect(screen.getByRole('status')).toHaveTextContent('Loading')
+    expect(screen.queryByLabelText('Season order')).not.toBeInTheDocument()
+
+    await settings.release()
+
+    expect(await screen.findByLabelText('Season order')).toBeInTheDocument()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })
