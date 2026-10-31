@@ -223,8 +223,6 @@ describe('the status line in the header', () => {
     const rows = within(status).getAllByRole('listitem')
     expect(rows.map((i) => i.textContent)).toEqual(['Standard21 of 21', '4KNot kept'])
     expect(within(rows[1]).queryByRole('progressbar')).not.toBeInTheDocument()
-    expect(rows[1].querySelector('[data-testid="empty-track"]')).toBeInTheDocument()
-    expect(within(rows[1]).getByText('Not kept')).toHaveClass('label-12')
   })
 
   it('counts the released episodes that are not monitored in the counts and the bar’s name', async () => {

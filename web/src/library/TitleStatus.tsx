@@ -32,7 +32,9 @@ function SlotRow({ slot, children }: { slot: SlotKey; children: ReactNode }) {
 function SeriesNotKept({ slot }: { slot: SlotKey }) {
   return (
     <SlotRow slot={slot}>
-      <div data-testid="empty-track" aria-hidden className="h-1.5 w-36 shrink-0 rounded-full bg-gray-200" />
+      <div aria-hidden className="w-36 shrink-0">
+        <Progress value={0} height={6} aria-label={`${slotLabel[slot]}: not kept`} />
+      </div>
       <span className="label-12 text-gray-900">Not kept</span>
     </SlotRow>
   )
