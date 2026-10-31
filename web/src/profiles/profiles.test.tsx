@@ -77,7 +77,11 @@ function fakeProfiles(opts: { fresh?: boolean } = {}) {
       const pending = next && next !== settings.language_region.primary_language ? next : undefined
       settings = {
         ...settings,
-        language_region: { ...settings.language_region, ...body.language_region, ...(pending ? { primary_language: settings.language_region.primary_language, pending_primary_language: pending } : {}) },
+        language_region: {
+          ...settings.language_region,
+          ...body.language_region,
+          ...(pending ? { primary_language: settings.language_region.primary_language, pending_primary_language: pending } : {}),
+        },
       } as Settings
       return response(200).json(settings)
     }),
