@@ -21,7 +21,7 @@ Then, through the API again, what the Overview shows besides the Library: with t
 releases on for a moment, a manual search and a Grab of Paddington in Peru's Release, which the fake
 SABnzbd holds at 40 % (Downloading now, Activity's pipeline); with them off again, two Requests from
 Ellie through Plex, one for Paddington 2 (Searching, nothing to find) and one for Paddington
-(Completed). There is no Needs attention row.
+(Completed). Needs attention has one row: Paddington 2, Wanted and Long Missing.
 """
 import argparse, datetime, http.cookiejar, json, os, sqlite3, subprocess, time, urllib.error, urllib.request
 
@@ -33,6 +33,7 @@ ap.add_argument("--fake", required=True, help="fake.py's base URL")
 ap.add_argument("--parse", required=True, help="the scripts/demo/parse binary")
 args = ap.parse_args()
 BASE, ROOT, FAKE = args.kestrel.rstrip("/"), args.media.rstrip("/"), args.fake.rstrip("/")
+INDEXER = "Demo Indexer"
 
 op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
 
@@ -56,7 +57,7 @@ call("POST", "/setup/account", {"username": "demo", "password": "demo-password-1
 call("PATCH", "/settings", {"language_region": {"primary_language": "en", "release_date_country": "US"},
                             "root_folders": {"movies": [f"{ROOT}/movies", f"{ROOT}/movies-family"], "series": [f"{ROOT}/tv"]},
                             "check_github_updates": False})
-call("POST", "/plugin-instances", {"plugin_id": "newznab", "name": "Demo Indexer",
+call("POST", "/plugin-instances", {"plugin_id": "newznab", "name": INDEXER,
                                    "config": {"url": FAKE + "/nzb", "api_key": "demo-key"}})
 call("POST", "/plugin-instances", {"plugin_id": "sabnzbd", "name": "SABnzbd",
                                    "config": {"url": FAKE + "/sab", "api_key": "demo-key", "movie_category": "movies", "tv_category": "tv"}})
@@ -88,10 +89,11 @@ call("POST", "/titles", {"kind": "series", "tmdb_id": 60059, "series_monitor": "
 time.sleep(2)
 
 db = sqlite3.connect(args.db)
+db.row_factory = sqlite3.Row  # columns by name
 db.execute("PRAGMA foreign_keys=ON")
-tid = {r[1]: r[0] for r in db.execute("SELECT id, tmdb_id FROM titles")}
-ver = {(r[1], r[2]): r[0] for r in db.execute("SELECT id, title_id, slot FROM versions")}
-eps = {(r[1], r[2]): r[0] for r in db.execute("SELECT id, season, number FROM episodes WHERE title_id=?", (tid[1396],))}
+tid = {r["tmdb_id"]: r["id"] for r in db.execute("SELECT id, tmdb_id FROM titles")}
+ver = {(r["title_id"], r["slot"]): r["id"] for r in db.execute("SELECT id, title_id, slot FROM versions")}
+eps = {(r["season"], r["number"]): r["id"] for r in db.execute("SELECT id, season, number FROM episodes WHERE title_id=?", (tid[1396],))}
 
 files = []  # (version id, path, size, release name, score, [episode ids], parse kind)
 movie_folder = "Paddington (2014) {tmdb-116149}"
@@ -130,7 +132,7 @@ ep_file("standard", 0, [1], "Breaking.Bad.{code}.Minisode.1080p.WEB-DL.AAC2.0.H.
 
 parsed = subprocess.run([args.parse], input="".join(f"{f[6]}\t{f[3]}\n" for f in files),
                         capture_output=True, text=True, check=True).stdout.splitlines()
-fe_cols = [r[1] for r in db.execute("PRAGMA table_info(file_episodes)")]
+fe_cols = [r["name"] for r in db.execute("PRAGMA table_info(file_episodes)")]
 for (v, path, size, rel, score, epids, _), pr in zip(files, parsed, strict=True):
     cur = db.execute("INSERT INTO files(version_id,path,size,release_name,parsed_release,score,imported_at) VALUES (?,?,?,?,?,?,?)",
                      (v, path, size, rel, None if pr == "null" else pr, score, "2026-09-14T18:30:00Z"))
@@ -153,44 +155,16 @@ def on(days):
     return (today + datetime.timedelta(days=days)).isoformat()
 
 
-def stamp(days):
-    return on(days) + "T00:00:00Z"
+def stamp(days, **delta):
+    """A timestamp: midnight UTC `days` from today, or with delta (hours=...) that long from now, plus days."""
+    if not delta:
+        return on(days) + "T00:00:00Z"
+    return (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=days, **delta)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 db.execute("UPDATE versions SET added_at='2026-05-01T00:00:00Z'")
-# Recently added lists the Imports of the last week, and an Import is a file with a Grab.
-now = datetime.datetime.now(datetime.timezone.utc)
-
-
-def ago(**delta):
-    return (now - datetime.timedelta(**delta)).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-indexer = db.execute("SELECT id, name FROM plugin_instances WHERE name='Demo Indexer'").fetchone()
-sab = db.execute("SELECT id FROM plugin_instances WHERE name='SABnzbd'").fetchone()[0]
-
-
-def imported(like, like2, when, guid):
-    """Gives the files matching like an imported Grab, since Recently added and Activity's Done list Grabs."""
-    rows = db.execute("SELECT f.id, f.version_id, v.title_id, f.size, f.release_name, f.parsed_release, f.score FROM files f "
-                      "JOIN versions v ON v.id = f.version_id WHERE f.path LIKE ? OR f.path LIKE ? ORDER BY f.id", (like, like2)).fetchall()
-    first = rows[0]
-    cur = db.execute("INSERT INTO grabs(title_id,version_id,release_guid,release_name,indexer_id,indexer_name,size,published_at,score,"
-                     "parsed,verdict,client_instance_id,client_id,state,created_at,updated_at) "
-                     "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'imported',?,?)",
-                     (first[2], first[1], guid, first[4], indexer[0], indexer[1], sum(r[3] for r in rows), when, first[6],
-                      first[5] or "{}", '{"Accepted":true,"Score":%d,"MinScore":0,"Matched":null,"Languages":[{"id":1,"name":"English"}],"Rejections":null}' % first[6],
-                      sab, "SABnzbd_nzo_" + guid, when, when))
-    for r in rows:
-        db.execute("UPDATE files SET grab_id=?, imported_at=? WHERE id=?", (cur.lastrowid, when, r[0]))
-        for (e,) in db.execute("SELECT episode_id FROM file_episodes WHERE file_id=?", (r[0],)).fetchall():
-            db.execute("INSERT INTO grab_episodes(grab_id,episode_id) VALUES (?,?)", (cur.lastrowid, e))
-
-
-imported(f"{ROOT}/movies/%", "", ago(days=2, hours=3), "seed-paddington")
-imported("%S05E07 - [Standard]%", "%S05E08 - [Standard]%", ago(days=1, hours=7), "seed-breaking-bad")
 # Older builds have no network, status, air time or episode overview to set.
-airing = "air_time" in [r[1] for r in db.execute("PRAGMA table_info(titles)")]
+airing = "air_time" in [r["name"] for r in db.execute("PRAGMA table_info(titles)")]
 if airing:
     db.execute("UPDATE titles SET network='AMC', tvdb_status='continuing', air_time='21:00', air_timezone='America/New_York' WHERE tmdb_id=1396")
 for n, days in {1: -13, 2: -12, 3: -11, 4: -10, 5: -7, 6: -7, 7: -5, 8: -4, 9: -2, 10: -1, 11: 0,
@@ -221,6 +195,34 @@ release_dates(116149, {3: -40, 4: -9, 5: 12})  # Paddington is imported
 release_dates(346648, {3: -150, 4: -100, 5: -10})  # Paddington 2: Wanted since its digital release, long ago
 release_dates(516729, {3: -30, 4: -4, 5: 30})  # in Peru: out for four days, Blu-ray still to come
 release_dates(559969, {})  # El Camino: nothing announced
+# Recently added lists the Imports of the last week, and an Import is a file with a Grab.
+indexer = db.execute("SELECT id FROM plugin_instances WHERE name=?", (INDEXER,)).fetchone()["id"]
+sab = db.execute("SELECT id FROM plugin_instances WHERE name='SABnzbd'").fetchone()["id"]
+
+
+def imported(patterns, when, guid):
+    """Gives the files whose path matches any of the LIKE patterns one imported Grab, since Recently added and Activity's Done list Grabs."""
+    rows = db.execute("SELECT f.id, f.version_id, v.title_id, f.size, f.release_name, f.parsed_release, f.score FROM files f "
+                      "JOIN versions v ON v.id = f.version_id WHERE " + " OR ".join("f.path LIKE ?" for _ in patterns) + " ORDER BY f.id",
+                      patterns).fetchall()
+    first = rows[0]
+    # The Grab's verdict mirrors scoring.Verdict (internal/scoring/evaluate.go), whose fields Go encodes by name.
+    verdict = {"Accepted": True, "Score": first["score"], "MinScore": 0, "Matched": None,
+               "Languages": [{"id": 1, "name": "English"}], "Rejections": None}
+    cur = db.execute("INSERT INTO grabs(title_id,version_id,release_guid,release_name,indexer_id,indexer_name,size,published_at,score,"
+                     "parsed,verdict,client_instance_id,client_id,state,created_at,updated_at) "
+                     "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'imported',?,?)",
+                     (first["title_id"], first["version_id"], guid, first["release_name"], indexer, INDEXER,
+                      sum(r["size"] for r in rows), when, first["score"], first["parsed_release"] or "{}",
+                      json.dumps(verdict, separators=(",", ":")), sab, "SABnzbd_nzo_" + guid, when, when))
+    for r in rows:
+        db.execute("UPDATE files SET grab_id=?, imported_at=? WHERE id=?", (cur.lastrowid, when, r["id"]))
+        for e in db.execute("SELECT episode_id FROM file_episodes WHERE file_id=?", (r["id"],)).fetchall():
+            db.execute("INSERT INTO grab_episodes(grab_id,episode_id) VALUES (?,?)", (cur.lastrowid, e["episode_id"]))
+
+
+imported([f"{ROOT}/movies/%"], stamp(-2, hours=-3), "seed-paddington")
+imported(["%S05E07 - [Standard]%", "%S05E08 - [Standard]%"], stamp(-1, hours=-7), "seed-breaking-bad")
 db.commit()
 db.close()
 
