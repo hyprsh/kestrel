@@ -368,6 +368,4 @@ A Silo Series Request that names no seasons then starts with season 1. Kestrel a
 
 ## The API
 
-The REST API is defined by [`api/openapi.yaml`](../../api/openapi.yaml) ([ADR 0009](../adr/0009-spec-first-openapi.md)). A running instance serves it at `{base}/api/v1/openapi.json`, and serves interactive docs (Scalar, loaded from a CDN) at `{base}/api/docs`.
-
-Scripts authenticate with the single full-access key from Settings > Security (or `KESTREL_API_KEY`), sent as `X-Api-Key: kst_...`. Only the header works. Bad keys are throttled like failed logins.
+The REST API, its API key and the `X-Api-Key` header are on the [API page](api.md).
