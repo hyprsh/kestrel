@@ -16,6 +16,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/plugin"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
+	"github.com/hyprsh/kestrel/internal/settings/display"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 	"github.com/hyprsh/kestrel/internal/updates"
 )
@@ -27,6 +28,7 @@ type declarer struct {
 	api      *api.Declared
 	profiles *profiles.Service
 	roots    *rootfolders.Service
+	display  *display.Service
 	updates  *updates.Service
 	trash    *jobs.TrashUpdates
 	plugins  *instances.Service
@@ -93,6 +95,13 @@ func (d declarer) sections() []section {
 		out = append(out, section{
 			check: func(context.Context) error { return validation("", rootfolders.Check(want)) },
 			apply: func(ctx context.Context) error { return d.declareRoots(ctx, want) },
+		})
+	}
+	if dd := f.Display; dd != nil {
+		patch := displayPatch(*dd)
+		out = append(out, section{
+			check: func(context.Context) error { return displayValidation(display.Check(patch)) },
+			apply: func(ctx context.Context) error { return d.declareDisplay(ctx, patch) },
 		})
 	}
 	if f.Profiles != nil {
@@ -220,6 +229,52 @@ func (d declarer) declareRoots(ctx context.Context, want rootfolders.Folders) er
 		return err
 	}
 	_, err = d.roots.Set(ctx, rootfolders.Patch{Movies: &want.Movies, Series: &want.Series})
+	return err
+}
+
+// displayPatch is what the file's display section sets. A declared
+// upcoming_filters is whole: a filter it leaves out takes its default.
+func displayPatch(d configfile.Display) display.Patch {
+	p := display.Patch{SeasonOrder: d.SeasonOrder, SeasonsOpen: d.SeasonsOpen, ManualSearchSort: d.ManualSearchSort}
+	if u := d.UpcomingFilters; u != nil {
+		def := display.Defaults().UpcomingFilters
+		kind, wanted, hide := def.Kind, def.WantedOnly, def.HideImported
+		if u.Kind != nil {
+			kind = *u.Kind
+		}
+		if u.WantedOnly != nil {
+			wanted = *u.WantedOnly
+		}
+		if u.HideImported != nil {
+			hide = *u.HideImported
+		}
+		p.Upcoming = &display.UpcomingPatch{Kind: &kind, WantedOnly: &wanted, HideImported: &hide}
+	}
+	return p
+}
+
+// declareDisplay saves the declared display settings when they differ. A
+// setting the file leaves out keeps what the UI saved.
+func (d declarer) declareDisplay(ctx context.Context, p display.Patch) error {
+	cur, err := d.display.Get(ctx)
+	if err != nil {
+		return err
+	}
+	var want display.Display
+	want, err = display.Apply(cur, p)
+	if err != nil || want == cur {
+		return err
+	}
+	_, err = d.display.Set(ctx, p)
+	return err
+}
+
+// displayValidation words a rejected display value under the file's display section.
+func displayValidation(err error) error {
+	var ve *display.ValidationError
+	if errors.As(err, &ve) {
+		return fmt.Errorf("display.%s: %s", ve.Field, ve.Message)
+	}
 	return err
 }
 

@@ -149,6 +149,15 @@ silo: # Watch-ahead for Silo; see "Watch-ahead for Silo"
   watch_ahead: true # optional, off until set: the default for a Silo Series Request that names no seasons
   instance: Silo # the name of a silo plugin instance, whose playback history Watch-ahead reads; needed once watch_ahead is true
 
+display: # optional; each key you name is read-only in Settings > Display
+  season_order: newest_first # oldest_first (default) or newest_first; Specials come last either way
+  seasons_open: latest_and_wanted # latest_and_wanted (default), all or none
+  manual_search_sort: best_first # best_first (default), or <column>_asc / <column>_desc
+  upcoming_filters:
+    kind: all # all (default), movie or series
+    wanted_only: false
+    hide_imported: false
+
 check_github_updates: true
 ```
 
@@ -193,6 +202,7 @@ How it behaves:
   - **Upgrading:** Kestrel no longer believes `X-Forwarded-Proto` from an address outside `trusted_proxies`. Behind a proxy that terminates TLS with `trusted_proxies` empty, the session cookie used to get its `Secure` flag from that header and now silently doesn't. List the proxy in `trusted_proxies` (in Settings > Reverse proxy or here), with `enabled: false` if you want no header login.
 - **`plex_sign_in`**: `enabled`, and when it is `true` the `instance` (the name of a `plex` plugin instance, declared in the same file or made in the UI). `users` and `user_root_folders` are optional and default to none. `user_root_folders` is a map from a Plex user to `movies` and `series`, each optional and one of that kind's Root folders. `watchlist`, `watch_ahead`, `labels` and `poster_badge` are optional booleans, each off until set, and `poster_badge_days` is an optional whole number of at least 1 that defaults to 30 ([ADR 0019](docs/adr/0019-requests-from-plex-watchlists.md)). Users are unique ignoring case, in both `users` and the map's keys. Checked with the rules of `PUT /settings/plex-sign-in`, against the instances and Root folders the file declares. Applied after the plugin instances and the Root folders.
 - **`silo`**: `watch_ahead` (off until set) and `instance`, the name of a `silo` plugin instance, declared in the same file or made in the UI, which is needed once `watch_ahead` is `true` ([ADR 0020](docs/adr/0020-watch-ahead-for-silo.md)). Checked with the rules of `PUT /settings/silo`, against the instances the file declares. Applied after the plugin instances.
+- **`display`**: any of `season_order` (`oldest_first` or `newest_first`), `seasons_open` (`latest_and_wanted`, `all` or `none`), `manual_search_sort` (`best_first`, or a column and a direction such as `size_desc`; the columns are `score`, `release`, `quality`, `languages`, `formats`, `size`, `age` and `indexer`, and `score_desc` is `best_first`) and `upcoming_filters` (`kind`, `wanted_only` and `hide_imported`, declared as a whole: one left out takes its default). These are household-wide starting points: a season a person opens or closes, a sort picked in Manual search and the Upcoming filters changed in a session still win. A setting the file leaves out stays in the UI.
 - **`check_github_updates`**: `true` or `false`.
 - **Not in the file:** TRaSH's daily update (`trash.auto_update`) and the TMDB and TheTVDB key overrides stay in the UI. Use `KESTREL_TMDB_API_KEY` and `KESTREL_TVDB_API_KEY` for your own keys, and `KESTREL_API_KEY` for the API key.
 
