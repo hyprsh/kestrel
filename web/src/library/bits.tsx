@@ -6,6 +6,18 @@ export type SlotKey = 'standard' | '4k'
 export const slotKeys: SlotKey[] = ['standard', '4k']
 export const slotLabel: Record<SlotKey, string> = { standard: 'Standard', '4k': '4K' }
 
+/** The plain words for each Manual search column's two directions, as the Sort menu and Settings > Display name them. */
+export const manualSearchSortLabels: Record<'score' | 'release' | 'quality' | 'languages' | 'formats' | 'size' | 'age' | 'indexer', { asc: string; desc: string }> = {
+  score: { asc: 'Worst first', desc: 'Best first' },
+  release: { asc: 'Release A to Z', desc: 'Release Z to A' },
+  quality: { asc: 'Quality A to Z', desc: 'Quality Z to A' },
+  languages: { asc: 'Languages A to Z', desc: 'Languages Z to A' },
+  formats: { asc: 'Custom formats: fewest points first', desc: 'Custom formats: most points first' },
+  size: { asc: 'Smallest first', desc: 'Largest first' },
+  age: { asc: 'Newest first', desc: 'Oldest first' },
+  indexer: { asc: 'Indexer A to Z', desc: 'Indexer Z to A' },
+}
+
 /** Bytes on disk, in GB from 1 GB up, else in MB. */
 export function size(bytes: number): string {
   const gb = bytes / 1024 ** 3
