@@ -122,6 +122,47 @@ describe('Activity', () => {
     expect(screen.getByRole('region', { name: 'Downloading · 1' })).toBeInTheDocument()
   })
 
+  it('opens on one Grab from its address with grab:<id>, in whatever stage it is in, and clearing the filter shows the pipeline', async () => {
+    history.replaceState(null, '', '/activity?q=grab:42')
+    fakeQueue([queueItem({ grab_id: 41, phase: 'downloading', release_name: 'Other.Downloading-GRP' })])
+    fakeGrabs([
+      grabEntry({ grab_id: 42, state: 'failed', failure: 'download_failed', release_name: 'Mine.Failed-GRP' }),
+      grabEntry({ grab_id: 43, state: 'imported', release_name: 'Other.Imported-GRP' }),
+    ])
+    renderApp()
+
+    const row = within(await screen.findByRole('region', { name: 'Failed · 1' })).getByRole('listitem')
+    expect(row).toHaveTextContent('Mine.Failed-GRP')
+    expect(screen.queryByText('Other.Downloading-GRP')).not.toBeInTheDocument()
+    expect(screen.queryByText('Other.Imported-GRP')).not.toBeInTheDocument()
+
+    await userEvent.clear(screen.getByRole('combobox', { name: 'Filter Activity' }))
+    expect(await screen.findByText('Other.Downloading-GRP')).toBeInTheDocument()
+    expect(screen.getByText('Other.Imported-GRP')).toBeInTheDocument()
+  })
+
+  it('shows the no-match state for a grab: id that matches nothing', async () => {
+    history.replaceState(null, '', '/activity?q=grab:999')
+    fakeQueue([queueItem({ grab_id: 41, phase: 'downloading', release_name: 'Other.Downloading-GRP' })])
+    fakeGrabs([])
+    renderApp()
+
+    await screen.findByRole('combobox', { name: 'Filter Activity' })
+    await waitFor(() => expect(screen.queryByText('Other.Downloading-GRP')).not.toBeInTheDocument())
+    expect(screen.queryByRole('region', { name: /^Downloading/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Nothing in Activity matches.')).toBeInTheDocument()
+  })
+
+  it('lists grab: in the filter help', async () => {
+    fakeQueue([])
+    fakeGrabs([])
+    await openActivity()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Query Help' }))
+    const help = screen.getByRole('dialog', { name: 'Query Help' })
+    expect(within(help).getByText('grab:')).toBeInTheDocument()
+  })
+
   it('opens on a stage from its address, as the Overview links to it', async () => {
     history.replaceState(null, '', '/activity?q=stage:done')
     fakeQueue([queueItem({ phase: 'downloading' })])

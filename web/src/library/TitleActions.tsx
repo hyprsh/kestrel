@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { ApiError, type SeriesMonitor, type TitleDetail } from '../api/queries'
 import { useRefreshTitle, useSetFrozen, useSetMovieMonitored, useSetSeriesMonitor } from '../api/titleActions'
 import { useOpenCleanup } from '../cleanup/launch'
-import { Check, CircleMinus } from 'lucide-react'
+import { CircleMinus } from 'lucide-react'
 import { DotsMenu, Menu, MenuDivider, MenuItem, Note, termText } from '@hyprsh/design'
 import { placePath, useOpenPlace } from '../place'
 import { RemoveTitle } from './ManageVersion'
@@ -70,7 +70,7 @@ export function TitleActions({ title, profileName, onManualSearch }: { title: Ti
   )
 }
 
-/** The monitoring control of the row: a secondary button showing the whole state, whose menu lists the options with a check on the current one. */
+/** The monitoring control of the row: a secondary button showing the whole state, whose menu lists the options as radio items, the current one checked. Its name is "Monitoring: " and the visible state, so the name holds the visible text. */
 function MonitoringMenu<V extends string>({ value, options, disabled, onChange }: { value: V; options: { value: V; label: string }[]; disabled: boolean; onChange: (v: V) => void }) {
   const current = options.find((o) => o.value === value) ?? options[0]
   const off = current.label === NOT_MONITORED
@@ -81,7 +81,7 @@ function MonitoringMenu<V extends string>({ value, options, disabled, onChange }
       </Menu.Button>
       <Menu>
         {options.map((o) => (
-          <MenuItem key={o.value} prefix={o.value === value ? <Check aria-hidden /> : <span aria-hidden className="size-4" />} onSelect={() => onChange(o.value)}>
+          <MenuItem key={o.value} role="radio" checked={o.value === value} onSelect={() => onChange(o.value)}>
             {o.label}
           </MenuItem>
         ))}
