@@ -155,6 +155,7 @@ describe('the Originals available group in Needs attention', () => {
 
     expect(offers[0].querySelector('[data-poster] img')).toHaveAttribute('src', expect.stringMatching(/\/titles\/1\/poster$/))
     expect(offers[1].querySelector('[data-poster]')).toBeInTheDocument()
+    expect(offers[0].querySelector('[data-poster]')).toHaveClass('w-8') // the compact rows' size
     expect(offers[1].querySelector('[data-poster] img')).not.toBeInTheDocument()
   })
 

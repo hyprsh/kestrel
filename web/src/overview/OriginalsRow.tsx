@@ -40,7 +40,7 @@ function Offer({ offer: o, slotProfile, onOpenTitle }: { offer: OriginalOffer; s
     <Entity
       className={stackedRow}
       rightClassName={stackedRight}
-      left={<TitlePoster id={o.title_id} hasPoster={o.has_poster ?? false} size="md" />}
+      left={<TitlePoster id={o.title_id} hasPoster={o.has_poster ?? false} size="sm" />}
       right={
         <>
           <Button

@@ -56,6 +56,7 @@ describe('the Long Missing row in Needs attention', () => {
     const items = within(section).getAllByRole('listitem')
     await waitFor(() => expect(items[1]).toHaveTextContent('Ancient Film · Standard · HD'))
     expect(items[1]).not.toHaveTextContent('hd-primary')
+    expect(items[1].querySelector('[data-poster]')).toHaveClass('w-8') // the compact rows' size
     expect(items[1]).toHaveTextContent('Wanted since 2026-01-01, last failure: download failed')
     expect(items[2]).toHaveTextContent('Older Film · 4K')
     expect(items[2]).not.toHaveTextContent('4K · 4K') // the Profile named "4K" in the 4K Slot is left out

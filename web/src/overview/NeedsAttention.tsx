@@ -111,7 +111,7 @@ function LongMissingRow({ group, onOpen }: { group: Attention['long_missing']; o
           <div className="flex flex-col gap-3">
             <Entity.List>
               {group.items.map((i) => (
-                <Entity key={i.version_id} left={<TitlePoster id={i.title_id} hasPoster={i.has_poster ?? false} size="md" />}>
+                <Entity key={i.version_id} left={<TitlePoster id={i.title_id} hasPoster={i.has_poster ?? false} size="sm" />}>
                   <div className="flex min-w-0 flex-col">
                     <span>
                       {i.title} · {slotProfile(i.slot, profileName(names, i.profile))}
