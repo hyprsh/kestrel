@@ -157,7 +157,7 @@ export function EpisodeMatrix({
                   {slotLabel[s]}
                 </TableHead>
               ))}
-              <TableHead align="right" className="px-2 max-sm:sr-only">
+              <TableHead align="right" className="px-2 sr-only">
                 Search
               </TableHead>
             </TableRow>
