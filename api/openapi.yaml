@@ -2188,7 +2188,7 @@ paths:
   /system/status:
     get:
       operationId: getSystemStatus
-      summary: The health strip
+      summary: Every health check (Activity > Health)
       description: |
         Capacity at a glance: the download client, each indexer with its daily budget and any pause, the
         free space on the data mount and every Root folder, the active TRaSH snapshot with its commit
@@ -3140,7 +3140,7 @@ components:
             Upgrade candidates still show up, but send nothing to the download client. A Grab started
             by hand from a Version's Releases still goes through. Turning it off makes every Wanted
             Version, and every Upgrade search made while paused, due a search now, so the next sweep
-            grabs as usual. The health strip shows it as
+            grabs as usual. Activity > Health shows it as
             `grabs_paused`.
         display:
           $ref: "#/components/schemas/Display"

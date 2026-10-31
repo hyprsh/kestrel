@@ -1755,7 +1755,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * The health strip
+         * Every health check (Activity > Health)
          * @description Capacity at a glance: the download client, each indexer with its daily budget and any pause, the
          *     free space on the data mount and every Root folder, the active TRaSH snapshot with its commit
          *     date, and whether "Pause Grabs" is on.
@@ -2349,7 +2349,7 @@ export interface components {
              *     Upgrade candidates still show up, but send nothing to the download client. A Grab started
              *     by hand from a Version's Releases still goes through. Turning it off makes every Wanted
              *     Version, and every Upgrade search made while paused, due a search now, so the next sweep
-             *     grabs as usual. The health strip shows it as
+             *     grabs as usual. Activity > Health shows it as
              *     `grabs_paused`.
              */
             pause_grabs: boolean;
