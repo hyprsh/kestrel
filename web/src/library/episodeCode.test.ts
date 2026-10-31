@@ -32,12 +32,7 @@ describe('splitCode', () => {
 })
 
 describe('findEpisodes', () => {
-  const eps = [
-    episode(1, 1, 1, 'Pilot'),
-    episode(2, 1, 5, 'Gray Matter'),
-    episode(3, 2, 5, 'Breakage'),
-    episode(4, 2, 6, 'Peekaboo', { primary_name: 'Guck-guck', original_name: 'Peekaboo' }),
-  ]
+  const eps = [episode(1, 1, 1, 'Pilot'), episode(2, 1, 5, 'Gray Matter'), episode(3, 2, 5, 'Breakage'), episode(4, 2, 6, 'Peekaboo', { primary_name: 'Guck-guck', original_name: 'Peekaboo' })]
 
   it('finds the episode a code names, in any spelling', () => {
     for (const q of ['s2e5', '2x05', 'S02E05']) expect(findEpisodes(eps, q).map((e) => e.id)).toEqual([3])

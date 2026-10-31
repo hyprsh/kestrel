@@ -1,65 +1,25 @@
-import { ChevronDown, ChevronRight } from 'lucide-react'
-import { Button } from '@hyprsh/design'
-import type { Episode } from '../api/queries'
-import { slotLabel, type SlotKey } from './bits'
-import type { SeasonOpen } from './useSeasonOpen'
+import { Badge } from '@hyprsh/design'
+import { seasonName, type SeasonStanding } from './episodes'
 
-/**
- * A season header's disclosure: the season's name with a chevron, which shows
- * or hides its episode rows. It is not one of the grid's tab stops; the
- * keyboard opens and closes a season with Enter, Right and Left on its header.
- */
-export function SeasonToggle({ name, open, onToggle, onFocus }: { name: string; open: boolean; onToggle: () => void; onFocus: () => void }) {
-  const Chevron = open ? ChevronDown : ChevronRight
-  return (
-    <Button variant="tertiary" size="tiny" prefix={<Chevron aria-hidden className="size-4" />} aria-expanded={open} aria-label={`${name} episodes`} tabIndex={-1} onFocus={onFocus} onClick={onToggle}>
-      {name}
-    </Button>
-  )
+/** A season's count on its tab: "5/8", amber while something in it is Wanted. */
+export function TabCount({ standing }: { standing: SeasonStanding }) {
+  return <span className={`label-12 hy-num ${standing.wanted > 0 ? 'text-amber-900' : 'text-gray-900'}`}>{`${standing.filled}/${standing.total}`}</span>
 }
 
-/**
- * How a closed season stands: its episode count and air years, and per Slot
- * how many episodes are filled and Wanted. An episode cell is never
- * downloading (the Grab shows in "Downloading now"), so that is not counted.
- */
-export function SeasonSummary({ episodes, slots }: { episodes: Episode[]; slots: SlotKey[] }) {
-  const years = episodes.flatMap((e) => (e.air_date ? [Number(e.air_date.slice(0, 4))] : []))
-  const from = Math.min(...years)
-  const to = Math.max(...years)
-  const aired = years.length === 0 ? '' : from === to ? ` · ${from}` : ` · ${from}–${to}`
-  const count = (s: SlotKey, state: string) => episodes.filter((e) => e.cells[s]?.state === state).length
+/** How the open season stands: "Season 2 · 5 of 8 filled · 1 downloading · 2 Wanted". */
+export function SeasonSummary({ season, standing }: { season: number; standing: SeasonStanding }) {
   return (
-    <span className="label-12 flex min-w-0 flex-wrap items-center gap-x-3 text-gray-900">
-      <span>
-        {episodes.length} {episodes.length === 1 ? 'episode' : 'episodes'}
-        {aired}
-      </span>
-      {slots.map((s) => {
-        const wanted = count(s, 'wanted')
-        return (
-          <span key={s}>
-            {slotLabel[s]} {count(s, 'filled')}/{episodes.length} filled
-            {wanted > 0 && `, ${wanted} Wanted`}
-          </span>
-        )
-      })}
+    <span className="copy-13 hy-num min-w-0 flex-1 text-gray-900 max-sm:basis-full">
+      {seasonName(season)} · {standing.filled} of {standing.total} filled
+      {standing.downloading > 0 && ` · ${standing.downloading} downloading`}
+      {standing.wanted > 0 && (
+        <>
+          {' · '}
+          <Badge variant="amber" contrast="low" size="sm">
+            {standing.wanted} Wanted
+          </Badge>
+        </>
+      )}
     </span>
-  )
-}
-
-/** "Expand all" and "Collapse all" for a Series' seasons, above the episode grid. */
-export function SeasonToolbar({ seasons }: { seasons: SeasonOpen }) {
-  if (seasons.seasons.length === 0) return null
-  const button = (label: string, open: boolean) => (
-    <Button variant="secondary" size="small" onClick={() => seasons.setAll(open)}>
-      {label}
-    </Button>
-  )
-  return (
-    <div className="flex items-center gap-1">
-      {button('Expand all', true)}
-      {button('Collapse all', false)}
-    </div>
   )
 }

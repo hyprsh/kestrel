@@ -1,8 +1,8 @@
 // Delete files and keep the Version (#130): a Movie's file on the Title page,
-// an episode's, a season's or the ticked episodes' files in the episode grid.
+// an episode's, a season's or the ticked episodes' files in the episode table.
 // Every deletion asks first, naming the files, their total size and every
 // episode that loses its file, those sharing a file with the chosen ones too.
-import { Button, Menu, Modal, ModalAction, ModalActions, ModalBody, ModalHeader, ModalSubtitle, ModalTitle, Note } from '@hyprsh/design'
+import { Menu, Modal, ModalAction, ModalActions, ModalBody, ModalHeader, ModalSubtitle, ModalTitle, Note, TableCell, TableRow } from '@hyprsh/design'
 import { useState } from 'react'
 import type { Episode, EpisodeScope } from '../api/queries'
 import type { components } from '../api/schema.gen'
@@ -112,16 +112,16 @@ export function DeleteFile({ versionId, file, asking, onClose }: { versionId: nu
 }
 
 /**
- * A deletion in the episode grid waiting for its confirmation. `at` is the
- * grid row it was asked from (episodeRow, seasonRow), where it shows; null for
- * the ticked episodes, whose confirmation shows by the selection bar.
+ * A deletion in the episode table waiting for its confirmation. `at` is the
+ * row it was asked from (episodeRow, seasonRow), where it shows; null for
+ * the ticked episodes, whose confirmation shows in their bar.
  */
 type Plan = { version: EpisodeVersion; label: string; scope: EpisodeScope; files: EpisodeFile[]; episodes: string[]; extra: string[]; at: string | null }
 
 export type EpisodeDeletes = {
   /** Whether a Version holds a file for any of `eps`. */
   has: (v: EpisodeVersion, eps: Episode[]) => boolean
-  /** Asks to delete the files of `v` holding `eps`, sent with `scope` and named `label`, asked from grid row `at` (null: the selection bar). */
+  /** Asks to delete the files of `v` holding `eps`, sent with `scope` and named `label`, asked from `at`, an episode's row or a season's buttons (null: the bar for ticked episodes). */
   ask: (v: EpisodeVersion, eps: Episode[], label: string, scope: EpisodeScope, at: string | null) => void
   pending: Plan | null
   confirm: (blocklist: boolean) => void
@@ -137,7 +137,7 @@ const filesOf = (v: EpisodeVersion, eps: Episode[]) => {
   return [...out.values()]
 }
 
-/** The episode grid's deletions: one waits for its confirmation at a time; a Toast reports what came of it. */
+/** The episode table's deletions: one waits for its confirmation at a time; a Toast reports what came of it. */
 export function useEpisodeDeletes(episodes: Episode[]): EpisodeDeletes {
   const del = useDeleteFiles()
   const report = useReport()
@@ -192,8 +192,8 @@ export function DeleteMenuItems({
   label: string
   scope: EpisodeScope
   text: string
-  /** The grid row the menu belongs to. */
-  at: string
+  /** The episode row or season the menu belongs to; null: the bar for ticked episodes. */
+  at: string | null
 }) {
   return versions.map((v) => {
     const has = deletes.has(v, episodes)
@@ -205,26 +205,7 @@ export function DeleteMenuItems({
   })
 }
 
-/** The selection bar's Delete files, one per Slot when the Series has both. */
-export function DeleteTickedButtons({ deletes, versions, ticked, label }: { deletes: EpisodeDeletes; versions: EpisodeVersion[]; ticked: Episode[]; label: string }) {
-  return versions.map((v) => {
-    const has = deletes.has(v, ticked)
-    return (
-      <Button
-        key={v.slot}
-        variant="secondary"
-        size="small"
-        disabled={!has}
-        title={has ? undefined : 'No file to delete'}
-        onClick={() => deletes.ask(v, ticked, label, { episode_ids: ticked.map((e) => e.id) }, null)}
-      >
-        {versions.length > 1 ? `Delete files ${slotLabel[v.slot]}` : 'Delete files'}
-      </Button>
-    )
-  })
-}
-
-/** The waiting deletion's confirmation where it was asked from: grid row `at`, or (null) by the selection bar. */
+/** The waiting deletion's confirmation where it was asked from: `at`, or (null) in the bar for ticked episodes. */
 export function EpisodeDeleteConfirm({ deletes, at = null }: { deletes: EpisodeDeletes; at?: string | null }) {
   const p = deletes.pending
   if (!p || p.at !== at) return null
@@ -241,17 +222,16 @@ export function EpisodeDeleteConfirm({ deletes, at = null }: { deletes: EpisodeD
 }
 
 /**
- * The confirmation of a deletion asked from grid row `at`, as a row of its own
- * right under it, so it shows where the menu was. Keys typed in it stay in it:
- * the grid's own (arrows, Enter on a season) must not also act.
+ * The confirmation of a deletion asked from table row `at`, as a row of its own right under it, so it shows where the
+ * menu was. Keys typed in it stay in it: the table's own (arrows, s, m) must not also act.
  */
 export function RowDeleteConfirm({ deletes, at, columns }: { deletes: EpisodeDeletes; at: string; columns: number }) {
   if (deletes.pending?.at !== at) return null
   return (
-    <div role="row">
-      <div role="gridcell" aria-colspan={columns} className="px-3 pb-2" onKeyDown={(e) => e.stopPropagation()}>
+    <TableRow>
+      <TableCell colSpan={columns} wrap onKeyDown={(e) => e.stopPropagation()}>
         <EpisodeDeleteConfirm deletes={deletes} at={at} />
-      </div>
-    </div>
+      </TableCell>
+    </TableRow>
   )
 }
