@@ -7,6 +7,7 @@ import { http } from '../test/handlers'
 import { detail, fakeLibrary, row } from '../test/library'
 import { fakeSeries, seriesRow } from '../test/series'
 import { server } from '../test/server'
+import { findToast } from '../test/toasts'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -56,6 +57,19 @@ describe('the Title actions row', () => {
     await userEvent.click(within(confirm).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(removed).toHaveLength(1))
     expect(removed[0]).toContain('delete_files=false')
+  })
+
+  it('closes the Remove Title dialog on confirm and says in a Toast why the removal failed', async () => {
+    fakeLibrary([row(1, 'Paddington', 'Paddington')])
+    server.use(http.delete('/titles/{id}', ({ response }) => response('default').json({ type: 'about:blank', title: 'x', status: 500, code: 'internal', detail: 'disk offline' }, { status: 500 })))
+    const { actions } = await openTitle(/paddington/i)
+
+    await userEvent.click(within(actions).getByRole('button', { name: 'More Title actions' }))
+    await userEvent.click(within(screen.getByRole('menu', { name: 'More Title actions' })).getByRole('menuitem', { name: 'Remove Title' }))
+    await userEvent.click(within(screen.getByRole('alertdialog', { name: 'Remove Title' })).getByRole('button', { name: 'Remove' }))
+
+    expect(await findToast('Could not remove the Title: disk offline')).toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 
   it('refreshes the metadata, and freezes it so it is not refreshed', async () => {

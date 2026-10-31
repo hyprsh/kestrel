@@ -177,6 +177,19 @@ describe('Settings download client', () => {
     expect(await findToast('SABnzbd disabled')).toBeInTheDocument()
   })
 
+  it('shows why the switch could not be saved, and says nothing was switched', async () => {
+    fakePlugins({ saved: true })
+    server.use(
+      http.patch('/plugin-instances/{id}', ({ response }) =>
+        response('default').json({ ...problem(422, 'validation'), detail: 'only 1 download_client.v1 instance can be enabled at a time' }, { status: 422 }),
+      ),
+    )
+    const section = await open()
+    await userEvent.click(await section.findByLabelText('SABnzbd enabled'))
+    expect(await section.findByRole('alert')).toHaveTextContent(/only 1 download_client.v1 instance/)
+    expect(screen.queryByText('SABnzbd disabled')).not.toBeInTheDocument()
+  })
+
   it('never shows the saved API key and keeps it unless a new one is typed', async () => {
     const sent = fakePlugins({ saved: true })
     const section = await edit()

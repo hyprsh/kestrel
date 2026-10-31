@@ -225,6 +225,21 @@ describe('changing the ticked Titles together', () => {
     expect(await findToast('Search now failed: That Profile is disabled')).toBeInTheDocument()
   })
 
+  it('says why Remove Version and Remove from Library failed, and closes the dialog on confirm', async () => {
+    fakeLibrary(rows())
+    server.use(http.post('/titles/bulk', ({ response }) => response(500).json({ type: 'about:blank', title: 'internal', status: 500, code: 'internal', detail: 'database locked' })))
+    const pane = await withTicked('Paddington', 'Heat')
+
+    await userEvent.click(within(pane).getByRole('button', { name: 'Remove Version' }))
+    await userEvent.click(within(screen.getByRole('alertdialog', { name: 'Remove Version' })).getByRole('button', { name: 'Remove' }))
+    expect(await findToast('Remove Version failed: database locked')).toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+
+    await userEvent.click(within(pane).getByRole('button', { name: 'Remove from Library' }))
+    await userEvent.click(within(screen.getByRole('alertdialog', { name: 'Remove Titles' })).getByRole('button', { name: 'Remove' }))
+    expect(await findToast('Remove from Library failed: database locked')).toBeInTheDocument()
+  })
+
   it.each([
     ['Search now', { action: 'search' }],
     ['Refresh metadata', { action: 'refresh' }],

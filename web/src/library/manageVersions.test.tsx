@@ -138,4 +138,18 @@ describe('manage Versions', () => {
     await waitFor(() => expect(calls).toHaveLength(2))
     expect(calls[1].url).toContain('delete_files=true')
   })
+
+  it('closes the dialog on confirm and says in a Toast why removing a Version failed', async () => {
+    fakeManage()
+    server.use(http.delete('/versions/{id}', ({ response }) => response('default').json({ type: 'about:blank', title: 'x', status: 500, code: 'internal', detail: 'disk offline' }, { status: 500 })))
+    const pane = await openPane()
+    const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
+
+    await userEvent.click(await within(hd).findByRole('button', { name: 'More Standard Version actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Remove Version' }))
+    await userEvent.click(within(screen.getByRole('alertdialog', { name: 'Remove Version' })).getByRole('button', { name: 'Remove' }))
+
+    expect(await findToast('Could not remove the Version: disk offline')).toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog', { name: 'Remove Version' })).not.toBeInTheDocument()
+  })
 })

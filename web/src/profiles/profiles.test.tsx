@@ -227,4 +227,23 @@ describe('Settings', () => {
     expect(within(section).queryByText('Saved.')).not.toBeInTheDocument()
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'settings', body: { language_region: { primary_language: 'de', release_date_country: 'DE' } } }))
   })
+
+  it('shows why a Profile choice could not be saved, and why the Language could not', async () => {
+    fakeProfiles()
+    server.use(
+      http.patch('/profiles/{key}', ({ response }) => response('default').json(problem(500, 'internal', 'database locked'), { status: 500 })),
+      http.patch('/settings', ({ response }) => response('default').json(problem(500, 'internal', 'database locked'), { status: 500 })),
+    )
+    await open()
+    const profiles = await screen.findByRole('region', { name: 'Profiles' })
+
+    await userEvent.selectOptions(await within(profiles).findByLabelText('HD Original Language only'), 'offer')
+    expect(await within(profiles).findByRole('alert')).toBeInTheDocument()
+
+    const language = await screen.findByRole('region', { name: 'Primary Language' })
+    await userEvent.selectOptions(await within(language).findByLabelText('Primary Language'), 'de')
+    await userEvent.click(within(language).getByRole('button', { name: 'Save language' }))
+    expect(await within(language).findByRole('alert')).toHaveTextContent('Could not save. Try again.')
+    expect(screen.queryByText('Language saved')).not.toBeInTheDocument()
+  })
 })
