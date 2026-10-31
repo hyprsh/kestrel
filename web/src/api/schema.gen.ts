@@ -4,7168 +4,7144 @@
  */
 
 export interface paths {
-  '/system': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Version and API major of this instance
-     * @description The Silo plugin's `TestConnection` reads `api_major`.
-     *     Unauthenticated until an account exists.
-     */
-    get: operations['getSystem']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/setup': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Setup progress
-     * @description Answers before an account exists (one of the few endpoints that do), and afterwards to
-     *     a logged-in admin. `completed` and the per-section states beyond `account` fill in as the
-     *     wizard's sections arrive.
-     */
-    get: operations['getSetup']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/setup/account': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Create the admin account and log in
-     * @description Only answers while no account exists; whoever reaches a fresh instance sets the credentials.
-     *     Responds with the session cookie, so finishing this step logs the admin in. `409 conflict`
-     *     once an account exists, or while the Config File declares it.
-     */
-    post: operations['createAccount']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/setup/complete': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Finish setup
-     * @description Marks setup finished when every section of `GET /setup` is `done`. Otherwise answers 422
-     *     with one error per missing section, `field` being `sections.<name>` and `code` `todo`.
-     *     The optional Adopt existing library step never blocks it.
-     */
-    post: operations['completeSetup']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/auth/login': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Log in with username and password
-     * @description Sets a 30-day sliding session cookie. After five failures from one client address within
-     *     15 minutes further attempts are answered `429 rate_limited` with `Retry-After`, backing off
-     *     up to 15 minutes. A success resets the count.
-     */
-    post: operations['login']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/auth/logout': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** End the current session */
-    post: operations['logout']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/auth/logout-everywhere': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** End every session, including this one */
-    post: operations['logoutEverywhere']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/auth/me': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Who is logged in
-     * @description The SPA's first call. `401 setup_required` means no account exists yet (show the wizard's
-     *     Account section); `401 unauthenticated` means show the login card.
-     */
-    get: operations['getMe']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/auth/plex': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Whether the login card offers Plex sign-in
-     * @description Unauthenticated. `enabled` is `true` while Plex sign-in is switched on and names a Plex
-     *     instance, so a Requester can sign in with their Plex account.
-     */
-    get: operations['getPlexSignIn']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/auth/plex/pin': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Start a Requester's Plex sign-in
-     * @description Unauthenticated. Creates a Plex PIN and answers the plex.tv URL to send the browser to. Plex
-     *     sends the browser back to Kestrel's login page with `?plex=1` once the account has
-     *     authorised it, and the SPA then calls `POST /auth/plex/login`. The PIN is bound to this
-     *     browser by the `kestrel_plex_pin` cookie (HttpOnly, SameSite=Lax, 15 minutes), so only the
-     *     browser that started a sign-in can finish it. `403 plex_sign_in_off` while Plex sign-in is
-     *     off; `502 upstream_unavailable` when plex.tv can't be reached.
-     */
-    post: operations['startPlexSignIn']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/auth/plex/login': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Finish a Requester's Plex sign-in
-     * @description Unauthenticated. Reads the PIN from the `kestrel_plex_pin` cookie, asks plex.tv whether it
-     *     was authorised, learns the account with the token it carries (which is never stored), and
-     *     checks with the Plex instance's owner token that the account has access to that server:
-     *     the owner, a Plex Home member, or a friend whose share includes the server. When
-     *     `users` is not empty the account must also be on it. Then sets a 30-day sliding Requester
-     *     session cookie and clears the PIN cookie.
-     *
-     *     A Requester's session may call only `GET /auth/me`, `POST /auth/logout`, `GET /system`,
-     *     `GET /lookup`, `GET /titles/{id}/poster` and `/my/requests`; every other route answers
-     *     `403 forbidden`. It is re-checked against the owner's list at most once an hour and ends
-     *     (`401 unauthenticated`) when the account lost access, left `users`, or Plex sign-in was
-     *     switched off.
-     *
-     *     `409 pending` while Plex has not been authorised yet (try again shortly). `401 unauthenticated`
-     *     without a PIN cookie or once the PIN expired: start again. `403 plex_no_access` when the
-     *     account may not request; it counts as a failed login for the throttle (`429 rate_limited`).
-     *     `403 plex_sign_in_off` while Plex sign-in is off. `502 upstream_unavailable` when plex.tv or the
-     *     Plex server can't be reached.
-     */
-    post: operations['finishPlexSignIn']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/account/password': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Change the admin password
-     * @description Ends every other session; the current one stays logged in. `409 conflict` while the Config
-     *     File declares the account.
-     */
-    post: operations['changePassword']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api-key': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * The API key's prefix and age
-     * @description There is at most one full-access key. Only its prefix and creation time are ever shown;
-     *     both are `null` until a key has been generated. While `KESTREL_API_KEY` is set, that is
-     *     the key, `from_environment` is `true` and `created_at` is when Kestrel started.
-     */
-    get: operations['getApiKey']
-    put?: never
-    /**
-     * Generate or rotate the API key
-     * @description Replaces any existing key, which stops working at once. The new key is in this response
-     *     only; Kestrel keeps just its SHA-256. Send it as `X-Api-Key`. `409 conflict` while
-     *     `KESTREL_API_KEY` sets the key.
-     */
-    post: operations['createApiKey']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/settings/reverse-proxy': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /** Reverse-proxy login settings */
-    get: operations['getReverseProxy']
-    /**
-     * Change reverse-proxy login settings
-     * @description `trusted_proxies` decides, whether or not `enabled` is on, whose `X-Forwarded-For` and
-     *     `X-Forwarded-Proto` Kestrel believes: from a trusted address the client address is the
-     *     right-most `X-Forwarded-For` hop that is not itself trusted, and the login throttle is
-     *     keyed on it. From any other address both headers are ignored. `enabled` only switches
-     *     header login, off by default, and needs at least one trusted proxy: when on, a non-empty
-     *     `header` from a trusted proxy address logs the admin in for that request. The same
-     *     header from any other address is ignored and recorded under `untrusted`. `409 conflict` while the Config File declares `reverse_proxy`.
-     */
-    put: operations['putReverseProxy']
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/settings/silo': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /** Watch-ahead for Silo */
-    get: operations['getSiloSettings']
-    /**
-     * Change Watch-ahead for Silo
-     * @description `instance` names the `silo` plugin instance whose playback history Watch-ahead reads (ADR 0020);
-     *     `watch_ahead` needs it. `watch_ahead` is the default for a Silo Series Request that names no
-     *     seasons, which the Request's own `watch_ahead` overrides. `409 conflict` while the Config File
-     *     declares `silo`.
-     */
-    put: operations['putSiloSettings']
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/settings/plex-sign-in': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /** Plex sign-in for Requesters */
-    get: operations['getPlexSignInSettings']
-    /**
-     * Change Plex sign-in for Requesters
-     * @description `enabled` needs `instance`, the name of a `plex` plugin instance: its server and its owner's
-     *     token decide who may sign in. `users` narrows who may request to those Plex accounts, by
-     *     username or, for a Plex Home user without one, by name, ignoring case; empty lets everyone
-     *     with access request. `user_root_folders` sends a user's Requests for new Titles to one of the
-     *     kind's Root folders instead of the first; each folder must be one of that kind's Root folders.
-     *     Switching sign-in off, or taking a user off `users`, ends the affected Requester sessions on
-     *     their next call. `409 conflict` while the Config File declares `plex_sign_in`.
-     */
-    put: operations['putPlexSignInSettings']
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/settings': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * App settings
-     * @description The settings sections that exist so far: `language_region` and `root_folders`. Sections never
-     *     saved report their defaults (English, US); `GET /setup` says which
-     *     were saved. Reverse-proxy login settings have their own endpoint.
-     */
-    get: operations['getSettings']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    /**
-     * Change settings
-     * @description A JSON merge patch over the sections: send only what changes. Changing `primary_language`
-     *     re-points the eight Profiles to their backing TRaSH profiles and, unless the same patch
-     *     names `release_date_country`, moves the country to the new language's default. Both change
-     *     in the background, in one step with a re-score of every stored file under the new Profiles:
-     *     the answer still shows the old `primary_language`, with `pending_primary_language`, until the
-     *     `trash` job has finished (see Activity); files are not renamed and nothing is searched. A
-     *     second change while one waits replaces it, and a failed re-score changes neither the
-     *     setting nor the Scores. A patch that names a section the Config File declares
-     *     (`language_region`, `root_folders`, `check_github_updates`, or a `display` setting it declares) answers `409 conflict` and saves
-     *     nothing, not even its other sections.
-     */
-    patch: operations['patchSettings']
-    trace?: never
-  }
-  '/profiles': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * The eight Profiles
-     * @description In display order. Profiles are named by `key`, never by id.
-     */
-    get: operations['listProfiles']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/profiles/{key}': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        key: components['parameters']['ProfileKey']
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    /**
-     * Change a Profile's settings
-     * @description A Slot has at most one default Profile per kind: making one the default replaces the old.
-     *     The Standard Slot always keeps exactly one default per kind, so unsetting or disabling it is a
-     *     `validation` error until another Standard Profile is the default. Disabling a Profile clears its defaults, and
-     *     a disabled Profile cannot be made a default. `original_language` other than `reject` (or
-     *     `original_fallback: true`) is a `validation` error on Original-Language Profiles, and so is an
-     *     `original_fallback` that disagrees with `original_language` in the same patch.
-     *     `409 conflict` while the Config File declares `profiles`.
-     */
-    patch: operations['patchProfile']
-    trace?: never
-  }
-  '/lookup': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Search the metadata provider for Titles to add
-     * @description One TMDB search across both kinds, in English, ranked best match first. The query is searched
-     *     as typed, so a year that is part of a title ("Blade Runner 2049") stays in; when TMDB finds
-     *     nothing, it is asked once more without a trailing year, accents and punctuation, with `&` as
-     *     "and". A year typed after the title also ranks the results by it. Results already in the
-     *     Library carry their Title id in `in_library`. A Series needs a TheTVDB id (from TMDB's external
-     *     ids, else a TheTVDB remote-id search by IMDb id); one without is `addable: false` with
-     *     `not_addable_reason: not_on_tvdb`, and `POST /titles` refuses it.
-     *     `502 upstream_unavailable` means TMDB could not be reached or refused the key.
-     */
-    get: operations['lookup']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/lookup/{kind}/{tmdb_id}': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        kind: components['schemas']['TitleKind']
-        tmdb_id: number
-      }
-      cookie?: never
-    }
-    /**
-     * One search result with the add panel's suggested Slots and Profiles
-     * @description The Slots to preselect when adding it: every Slot with a default Profile for the kind, resolved
-     *     by Profile resolution. Each Slot says why (`reason`) and carries a display `label`, the
-     *     Profile's name. Requests use the same logic.
-     *     It reads TMDB only. A Series' overview (status, network, air dates and seasons) comes from
-     *     TheTVDB through `GET /lookup/series/{tmdb_id}/overview`, so the panel can open before TheTVDB
-     *     answers and a TheTVDB failure affects only the overview.
-     */
-    get: operations['lookupTitle']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/lookup/series/{tmdb_id}/overview': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        tmdb_id: number
-      }
-      cookie?: never
-    }
-    /**
-     * A search result's Series overview, from TheTVDB
-     * @description The add panel's Series overview: whether it is running or ended, its network, its first and
-     *     last air dates and every season with its episode count and air dates. It reads TMDB and
-     *     TheTVDB, so it can take longer than `GET /lookup/{kind}/{tmdb_id}`; the add panel loads it
-     *     on its own. `404 not_found` when TMDB has no such Series, `404 not_on_tvdb` when TheTVDB does
-     *     not have it (it cannot be added either), `502` when a provider fails.
-     */
-    get: operations['lookupSeriesOverview']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/titles': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * The Library's Titles as compact rows
-     * @description Newest first. The SPA loads the whole Library once with `limit=10000` and filters locally.
-     *     `q` matches titles and aliases, ignoring case.
-     */
-    get: operations['listTitles']
-    put?: never
-    /**
-     * Add a Title to the Library
-     * @description Fetches the Title from the metadata provider and adds it with the named Versions, each Wanted.
-     *     `root_folder` must be one of the configured Root folders for the kind; left out, it is the
-     *     kind's first.
-     *     `409 conflict` when the Title is already in the Library (the existing id is in
-     *     `detail`). A Series takes `series_monitor` (default `all`) and, to start with only some seasons
-     *     monitored, `seasons`.
-     *     A `422` names the field and code: `body` / `required` (no body), `versions` / `required`
-     *     (no Version), `versions[i].slot` / `invalid` (not a Slot) or `duplicate` (a Slot twice),
-     *     `versions[i].profile` / `not_found`, `disabled` or `wrong_slot`, `root_folder` / `not_found`
-     *     (not one of the kind's Root folders) or `required` (none configured), `series_monitor` /
-     *     `invalid`, `seasons` / `invalid` (a negative season), `unknown` (a season the Series does
-     *     not have) or `not_a_series` (seasons for a Movie), and `tmdb_id` / `not_on_tvdb` (a Series
-     *     TheTVDB does not have).
-     */
-    post: operations['createTitle']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/titles/bulk': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Change many Titles at once
-     * @description Applies one `action` to every Title in `title_ids`, with the action's parameters next to it,
-     *     and answers per Title: `changed`, `skipped` with a `reason` (such as `unchanged` when the
-     *     Title already is as asked, or `not_found`), or `failed` with a `reason` saying why. A
-     *     repeated id counts once. Running the same call again changes nothing more: each Title is
-     *     then skipped, with the reason that fits the action (see below).
-     *
-     *     - `monitor` sets `monitored` on Movies, as `PATCH /titles/{id}` does. A Series follows the
-     *       same rule through its monitoring mode: `monitored: false` sets `series_monitor: none` and
-     *       unmonitors every episode, so an unmonitored Series behaves like an unmonitored Movie;
-     *       `monitored: true` applies `series_monitor`. Left out, a Series already monitored keeps
-     *       its mode and an unmonitored one gets `all`. Again: `unchanged`.
-     *     - `switch_profile` moves each Title's Version in `slot` to `profile`, as
-     *       `PATCH /versions/{id}` does: the file is re-scored and the Version searched. A Title with no
-     *       Version in that Slot is skipped as `no_version`. Again: `unchanged`.
-     *     - `add_version` adds a Version in `slot` under `profile`, as `POST /titles/{id}/versions`
-     *       does. A Title whose Slot already holds a Version is skipped as `slot_taken`. Again:
-     *       `slot_taken`.
-     *     - `remove_version` removes each Title's Version in `slot`, as `DELETE /versions/{id}` does;
-     *       files stay on disk unless `delete_files` is true. No Version there: skipped as `no_version`.
-     *       Again: `no_version`.
-     *     - `search` makes every Wanted Version of the Titles due a search now and starts the sweep,
-     *       as "Search all Wanted" does for the whole Library; the indexers' daily budgets apply. A
-     *       Title with nothing Wanted is skipped as `nothing_wanted`. It acts on every call.
-     *     - `refresh` starts a metadata refresh of each Title, as `POST /titles/{id}/refresh` does. A
-     *       Title with `metadata_frozen` is skipped as `frozen`. It acts on every call.
-     *     - `freeze` sets `metadata_frozen` to `frozen`, as `PATCH /titles/{id}` does. Again:
-     *       `unchanged`.
-     *     - `remove` removes the Titles from the Library, as `DELETE /titles/{id}` does; files stay on
-     *       disk unless `delete_files` is true. Again: `not_found`.
-     *
-     *     A wrong or disabled Profile for the Slot, or a `series_monitor` that contradicts
-     *     `monitored`, refuses the whole call with 422.
-     */
-    post: operations['bulkTitles']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/titles/{id}/refresh': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['TitleId']
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Refresh a Title's metadata now
-     * @description Starts a refresh from the metadata providers and returns at once; the Title changes when it
-     *     finishes (a `title` hint arrives on the stream). A changed English title or year renames the
-     *     Title's folder and files. A Title with `metadata_frozen` is left as it is.
-     */
-    post: operations['refreshTitle']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/titles/{id}': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['TitleId']
-      }
-      cookie?: never
-    }
-    /** One Title with its Versions */
-    get: operations['getTitle']
-    put?: never
-    post?: never
-    /**
-     * Remove a Title with all its Versions
-     * @description Removes the Title and what Kestrel holds of it. Files stay on disk unless `delete_files` is
-     *     true, which also removes the Title's folder if it is then empty. Active downloads of the
-     *     Title are canceled.
-     */
-    delete: operations['deleteTitle']
-    options?: never
-    head?: never
-    /**
-     * Change a Title's settings
-     * @description `monitored` monitors or unmonitors a Movie; `422` for a Series, which uses `series_monitor`.
-     *     An unmonitored Movie is never Wanted, searched or Upgraded, by the sweep or RSS; its Versions
-     *     and files stay as they are, and a Grab started by hand still works. Monitoring it again makes
-     *     its Versions due a search now. `series_monitor` applies the mode to every episode and season
-     *     now (Specials are never monitored by a mode); `422` for a Movie. `metadata_frozen` true keeps
-     *     the stored metadata as it is and clears a "Title gone upstream" row; false lets refreshes
-     *     resume.
-     *
-     *     `root_folder` moves the Title to another of its kind's Root folders: its folder moves there
-     *     under the same name in one directory rename, taking every Version's files and subtitles,
-     *     and the Title's `root_folder` and file paths change with it. A Title with no folder on disk
-     *     only has its `root_folder` changed; its current Root folder changes nothing. Media servers
-     *     are told about both folders and the log records a `move` event. Refusals change nothing:
-     *     `422` `root_folder` / `not_found` when it isn't one of the kind's Root folders, `422`
-     *     `root_folder` / `other_filesystem` when it is on another filesystem (Kestrel never copies a
-     *     Title across mounts), `409` `folder_taken` when a folder of that name is already in the
-     *     target, `409` `import_running` while an Import into the Title is running (try again after
-     *     it).
-     */
-    patch: operations['patchTitle']
-    trace?: never
-  }
-  '/titles/{id}/versions': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['TitleId']
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Add a Version to an empty Slot
-     * @description Adds a Wanted Version under an enabled Profile of the Slot and searches it at once.
-     *     `409` when the Slot already holds a Version.
-     */
-    post: operations['addVersion']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/versions/{id}': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['VersionId']
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    post?: never
-    /**
-     * Remove a Version
-     * @description Removes the Version. Its files stay on disk unless `delete_files` is true. An active download
-     *     for it is canceled.
-     */
-    delete: operations['deleteVersion']
-    options?: never
-    head?: never
-    /**
-     * Switch a Version's Profile
-     * @description Moves the Version to another enabled Profile of its Slot (HD to Any, say). The file is
-     *     re-scored under the new Profile from what was stored at Import: no re-parse, no new ffprobe,
-     *     no rename. A file the new Profile no longer accepts by resolution class or language is a
-     *     `misfit`: the Version becomes Wanted and any fitting Release replaces the file whatever its
-     *     Score. The Version is searched at once.
-     */
-    patch: operations['patchVersion']
-    trace?: never
-  }
-  '/versions/{id}/files': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['VersionId']
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    post?: never
-    /**
-     * Delete a Version's files and keep the Version
-     * @description Deletes files of the Version from disk, with their text subtitles, and keeps the Version and
-     *     its monitoring: a monitored Movie or episode whose file goes is Wanted again. A Movie loses its
-     *     file. A Series loses the files holding the episodes in scope: `season` narrows to one season,
-     *     `episode_ids` to those episodes (within `season` when both are given); neither deletes every
-     *     file of the Version. A file holding several episodes (a season pack, a double episode) is
-     *     deleted whole, so every episode it holds loses its file, also those outside the scope.
-     *     A file that cannot be deleted from disk stays the Version's (its Release is not blocklisted)
-     *     and is listed in `not_deleted` with the reason; the others go all the same.
-     *     With `blocklist` each file's Release goes on the Blocklist, so it is not grabbed again; a file
-     *     Kestrel did not grab (an adopted one) cannot be, and says so in `blocklisted`, as does one
-     *     whose Release could not be blocklisted: the file is deleted all the same.
-     *     A `delete` event in the Log names the files and the Releases blocklisted. It waits for an
-     *     Import into the Title to finish.
-     *     A `season` the Series lacks (a negative one included), or an episode that is not the Series'
-     *     (or not of `season`), is a `422` naming that field (`season` or `episode_ids`) with the code
-     *     `unknown`; on a Movie either is a `422` with the code `not_a_series`. There are no other
-     *     `422` codes.
-     */
-    delete: operations['deleteVersionFiles']
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/titles/{id}/episodes': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['TitleId']
-      }
-      cookie?: never
-    }
-    /**
-     * A Series' episodes with one cell per Version, for the heat map
-     * @description In aired order, Specials first. `404` for a Movie.
-     */
-    get: operations['listEpisodes']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/titles/{id}/episodes/monitor': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['TitleId']
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Monitor or unmonitor episodes
-     * @description Every id must be an episode of this Series, else `404` and nothing changes. Seasons follow their episodes.
-     */
-    post: operations['monitorEpisodes']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/titles/{id}/seasons/{season}': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['TitleId']
-        season: number
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    /** Monitor or unmonitor a season and all its episodes */
-    patch: operations['patchSeason']
-    trace?: never
-  }
-  '/titles/{id}/poster': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['TitleId']
-      }
-      cookie?: never
-    }
-    /**
-     * The Title's poster
-     * @description Served from the poster cache under the config dir, fetched on first use. `404` when the provider has none.
-     */
-    get: operations['getTitlePoster']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/versions/{id}/releases': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['VersionId']
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Manual search for a Version
-     * @description Asks every enabled indexer in parallel, parses and evaluates every Release against the
-     *     Version's Profile and answers with all of them, acceptable ones first, then by `score`.
-     *     Synchronous, with a server timeout of about 30 s: an indexer that has not answered by then
-     *     is reported in `indexer_errors` and the rest still come back. The Releases stay grabbable
-     *     for 6 h through their `release_id`. `fits` says whether the Release belongs to this Version's
-     *     Slot; a Release for another Slot carries the `other_slot` rejection. A Series Version is
-     *     searched by `season` and `episode_ids` in the body (none searches the whole Series); the
-     *     Releases are single or multi-episode ones and season packs, told apart by `episodes` and `pack`.
-     *     A Release naming an episode TheTVDB does not list yet is grabbable as a Placeholder Episode
-     *     when its season is listed and monitored and the episode is at most 2 past the season's last
-     *     listed one; otherwise it carries `episode_not_listed` (overridable), or `season_not_listed`
-     *     when TheTVDB lists no such season.
-     */
-    post: operations['searchVersionReleases']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/versions/{id}/search': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['VersionId']
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Search now for a Version
-     * @description The automatic search for what the Version is missing, started by hand and run at once in the
-     *     background: it grabs the best Release as the sweep would. Unlike the sweep it is not held back
-     *     by the 80 % daily search budget stop; indexer pauses, backoff and Pause Grabs still apply.
-     *     Only Wanted Movies and episodes without an active Grab are searched. A Series Version is
-     *     searched once per season with a Wanted episode, narrowed by `season` and `episode_ids` in the
-     *     body (none searches the whole Series; `episode_ids` may span seasons). A Movie ignores both.
-     *     The answer comes at once; when the search is done, a `search` event in the Log says what it
-     *     grabbed, and Grabs record their own events.
-     *     A `season` the Series lacks (a negative one included), or an episode that is not the Series'
-     *     (or not of `season`), is a `422` naming that field (`season` or `episode_ids`) with the code
-     *     `unknown`. There are no other `422` codes.
-     */
-    post: operations['searchVersion']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/versions/{id}/original-offer/accept': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['VersionId']
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Accept a Version's Original Offer
-     * @description Grabs every Release the offer lists, the same as "Grab anyway": exactly the Releases offered,
-     *     however old the offer is, a dismissed one included. A Release that cannot be grabbed counts in
-     *     `failed`: one the indexer no longer has, or the Blocklist holds, has its offer dropped; one that
-     *     failed for another reason (the download client is down, a spent budget) stays offered. When none
-     *     could be grabbed the first failure answers as `createGrab` would. No offer is `404`.
-     *     Once imported, the file fills the Version, and any acceptable Release replaces it whatever its
-     *     Score.
-     */
-    post: operations['acceptOriginalOffer']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/versions/{id}/original-offer/dismiss': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['VersionId']
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Dismiss a Version's Original Offer
-     * @description Keeps waiting for a Primary-Language Release for the units the offer shows (a Movie's one, a
-     *     Series' episodes). Dismissal is per unit: a unit stays dismissed until a Release that scores
-     *     higher for it is offered, and a unit offered for the first time, such as a new episode, shows the
-     *     offer again with the units not dismissed alone. No offer is `404`.
-     */
-    post: operations['dismissOriginalOffer']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/grabs': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Grabs, newest first, with how they ended
-     * @description Every Grab Kestrel still holds, newest first: active ones, stalled Imports and finished ones
-     *     (`imported`, or `failed` with the `failure` and, when its Release went on the Blocklist, the
-     *     entry's `blocklist_reason`). A canceled Grab is gone; one canceled and blocklisted shows only
-     *     on the Blocklist. `state` may repeat and matches any of its values; `stalled=true` keeps only
-     *     stalled Imports and `false` leaves them out; `since` keeps the Grabs whose state last changed
-     *     then or later (`updated_at`). The Activity screen reads the last 7 days of `imported` and
-     *     `failed` Grabs here, and leaves older ones to the Log. `cursor` is the `next_cursor` of the
-     *     page before.
-     */
-    get: operations['listGrabs']
-    put?: never
-    /**
-     * Grab a Release into the download client
-     * @description Fetches the Release's NZB from its indexer and sends it to the download client's category for
-     *     the Title's kind. The Grab starts at `sent`, keyed by the client's id. `release_id` comes from
-     *     a search in the last 6 h, otherwise `409 release_expired` (also when the indexer no longer has
-     *     the NZB). A Release with rejections needs `override: true` ("Grab anyway"), else `422 rejected`;
-     *     `blocklisted`, `other_slot` and `season_not_listed` can never be overridden and answer
-     *     `422 not_overridable`. A Series Release naming episodes TheTVDB does not list yet adds them as
-     *     Placeholder Episodes, which the Grab covers.
-     *     A spent grab budget is `429 rate_limited`; an unreachable client or indexer is
-     *     `502 upstream_unavailable`.
-     */
-    post: operations['createGrab']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/grabs/{id}': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['GrabId']
-      }
-      cookie?: never
-    }
-    /** One Grab */
-    get: operations['getGrab']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/grabs/{id}/cancel': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['GrabId']
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Cancel a Grab
-     * @description Removes the job (and its files) from the download client and drops the Grab; the Version is
-     *     Wanted again. With `blocklist: true` ("Cancel and blocklist") the Release also goes on the
-     *     Blocklist and the Version is searched again at once for the next best Release. A client that
-     *     cannot be reached is `502 upstream_unavailable` and nothing changes.
-     */
-    post: operations['cancelGrab']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/grabs/{id}/retry-import': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['GrabId']
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Retry a stalled Import now
-     * @description A stalled Import (the environment is at fault: disk full, a folder not writable) retries
-     *     on its own after 1, 5, 15 and 60 minutes, then hourly. This skips the wait and imports at
-     *     once. `404` for a Grab whose Import is not stalled.
-     */
-    post: operations['retryGrabImport']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/grabs/{id}/discard': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['GrabId']
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Discard a stalled Import
-     * @description Gives up on a stalled Import: the Grab fails as `discarded` (no Blocklist entry), the job
-     *     and its files leave the download client and the Version is Wanted again. `404` for a Grab
-     *     whose Import is not stalled; a client that cannot be reached is `502 upstream_unavailable`.
-     */
-    post: operations['discardGrab']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/stalled-imports/retry': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Retry stalled Imports now
-     * @description "Retry all" of Needs attention: every stalled Import with the `reason`, or all of them
-     *     without one, is due at once.
-     */
-    post: operations['retryStalledImports']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/stalled-imports/discard': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Discard stalled Imports
-     * @description "Discard all" of Needs attention: every stalled Import with the `reason`, or all of them
-     *     without one, is discarded as `POST /grabs/{id}/discard` does.
-     */
-    post: operations['discardStalledImports']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/queue': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Downloading now
-     * @description Every Grab that is sent, downloading or finished and waiting for its Import, oldest first.
-     *     Progress comes from the download client's last poll (every 10 s while anything downloads);
-     *     before the first poll after a start `bytes_left` is 0 and `eta` is null.
-     */
-    get: operations['listQueue']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/upcoming': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Upcoming
-     * @description The timeline for a window of days (both ends included; default today to 30 days on, in UTC).
-     *     Monitored episodes airing in the window, and for each monitored Movie its theatrical, digital
-     *     and physical dates in the release-date country (falling back to the US, then the earliest
-     *     anywhere) that lie in the window. A Movie date that is today or later is listed only while a
-     *     Version holds no file; an earlier one, like an episode, stays once it is filled. Each entry says
-     *     where every Version of its Title stands (`slots`). A Movie that cannot be searched yet says from
-     *     when it can (`searchable_from`). Oldest day first (Settled 18). `undated` lists the monitored Titles
-     *     with something expected but no date yet, whatever the window.
-     */
-    get: operations['listUpcoming']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/recent': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Recently added
-     * @description The ten most recent Imports, newest first. An Import of several files at once (a season pack)
-     *     is one row with `files` set to how many it brought. `total` counts the Imports of the last
-     *     7 days, the window Activity's Done stage lists, so it may be more or fewer than `items`.
-     */
-    get: operations['listRecentlyAdded']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/events': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * The Log
-     * @description Events newest first. Routine events (a download started or finished, an Adoption scan) are
-     *     left out unless `routine=true`; they are pruned after 30 days, the rest are kept forever.
-     *     `kind` is a growing set: clients show kinds they do not know. `slot` matches events about a
-     *     Version in that Slot. `kind`, `title_id` and `slot` may repeat and then match any of their
-     *     values; filters of different names must all match. `exclude_kind`, `exclude_title_id` and
-     *     `exclude_slot` (each repeatable) leave those kinds, Titles and Slots out, even when `kind`,
-     *     `title_id` or `slot` names them; an event about no Title or Version is never left out by the
-     *     last two. `before` pages: pass the smallest `id` seen.
-     */
-    get: operations['listEvents']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/blocklist': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * The Blocklist
-     * @description Releases never to be grabbed again, newest first. `title_id` narrows it to one Title.
-     */
-    get: operations['listBlocklist']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/blocklist/{id}': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['GrabId']
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    post?: never
-    /**
-     * Remove a Blocklist entry
-     * @description The Release can be grabbed again. An entry that is already gone is `404`.
-     */
-    delete: operations['deleteBlocklistEntry']
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/adoption': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * The Adoption scan and plan
-     * @description Adoption takes over an existing on-disk library without downloading it again. There is at most one
-     *     plan, stored until it is committed or discarded: `idle` (no plan), `scanning` (building one in the
-     *     background, with `progress`), `planned` (waiting for review) or `committing`. `revision` changes with
-     *     every edit of the plan; `POST /adoption/commit` must name the one it reviewed. After a commit the
-     *     state is `idle` but the rows are kept, each with its final `outcome`, until the next scan or a
-     *     discard; `result.outcomes` counts them.
-     */
-    get: operations['getAdoption']
-    put?: never
-    post?: never
-    /**
-     * Throw the plan away
-     * @description Nothing was written to disk or the Library by a plan, so this only forgets it. `409 conflict` while committing.
-     */
-    delete: operations['discardAdoption']
-    options?: never
-    head?: never
-    /**
-     * Choose how the plan's Titles are monitored
-     * @description `monitor` is how the Titles the plan adds are monitored unless a row has its own choice: `all`
-     *     (today's behaviour: a Movie is monitored, a Series follows every episode), `future` (a Series
-     *     follows episodes that air from today; a Movie is monitored) or `none` (unmonitored: not Wanted,
-     *     no missing searches and no Upgrade searches for the files it already has, see #70). A Title Kestrel
-     *     already tracks keeps its own monitoring. Moves the plan's `revision`. `409 conflict` while scanning
-     *     or committing, `404` with no plan.
-     */
-    patch: operations['patchAdoption']
-    trace?: never
-  }
-  '/adoption/scan': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Scan the Root folders for files to adopt
-     * @description Starts a background scan (manual only) and answers `202` with `Location: /adoption`. A new scan
-     *     replaces the stored plan. Each top-level entry of a Root folder is one Title candidate; tracked
-     *     Titles' folders are scanned too, for files no Version holds. `409 conflict` while a scan or a
-     *     commit is running.
-     */
-    post: operations['scanAdoption']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/adoption/rows': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * The rows of the plan
-     * @description Paged like `GET /titles` (`limit`, `next_cursor`). Rows are grouped Matched, Needs choice and Skipped. `total`
-     *     counts the rows the filter keeps and `counts` the rows of the whole plan, so the SPA can say "all N in this
-     *     filter" and show every filter's count from one page. `duplicate` keeps rows with a file left in place
-     *     because another file holds its Slot; `replacement` keeps rows that would replace a file a Version
-     *     holds (unticked by default).
-     */
-    get: operations['listAdoptionRows']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/adoption/rows/bulk': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Change many rows of the plan at once
-     * @description Applies one `action` to the rows named in `row_ids`, or to every row `filter` keeps (the server
-     *     resolves it, so "all N in this filter" is one call across pages). Name `row_ids` or `filter`,
-     *     not both. Answers per row, in the order named: `changed`, `left` with a `reason`, or `failed`.
-     *     The plan's `revision` moves once, and only when a row changed; a left row is as it was.
-     *
-     *     - `tick` and `untick` include or leave out Matched rows, as `PATCH` with `ticked` does. Another
-     *       kind of row is left as `not_matched`, and one already so as `already`.
-     *     - `accept_suggested` settles Needs choice rows on their suggested candidate (see
-     *       `AdoptionCandidate`), only when it is `confident`: the row is planned again exactly as choosing
-     *       that candidate with `PATCH` does, so it can come back `matched`, or `skipped` with the
-     *       `skip_reason` it would have (no enabled Profile, for example); it is `changed` either way and
-     *       the item says which. A row that is not Needs choice is left as `not_needs_choice`, one
-     *       with no candidates as `no_suggestion`, one whose suggestion is not confident as
-     *       `not_confident`, and one that cannot be matched to the suggested Title as `not_settleable`.
-     *
-     *     - `set_monitor` gives the rows their own `monitor` (see `PATCH /adoption`), over the plan's. A row
-     *       that joins a Title Kestrel tracks is left as `tracked` (the Title keeps its monitoring), and
-     *       one that already has that choice as `already`. `monitor` is required for this action.
-     *
-     *     Accepting plans each row against the metadata provider, with the probes the scan took, a few rows at
-     *     a time, and does not hold the plan meanwhile: an edit made in the meantime goes through, and the
-     *     accept then answers `409 conflict` and changes nothing, so review the plan and accept again.
-     */
-    post: operations['bulkAdoptionRows']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/adoption/rows/{id}': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: number
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    /**
-     * Tick a row or settle its match
-     * @description `ticked` includes or leaves out the whole row, `files` the single files in it. `tmdb_id` settles a
-     *     Needs choice row (from its candidates or a search) or corrects a match: the row is planned again
-     *     against that Movie. Unsettled Needs choice rows are left out of the commit. Every change moves the plan's `revision`.
-     */
-    patch: operations['patchAdoptionRow']
-    trace?: never
-  }
-  '/attention': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Needs attention
-     * @description The problems the admin can act on. Blocking rows first, then Warnings newest first. Rows come
-     *     from conditions that clear themselves when the condition goes (Settled 16, 17; #17); `actions`
-     *     are built by the server and drawn generically by the SPA. An action with method `GET` opens
-     *     that SPA path (such as `/settings/download-client`) instead of calling the API. `count`
-     *     counts `rows` only: the Long Missing group has its own `long_missing` and the Originals
-     *     available group its own `originals`, and neither counts.
-     */
-    get: operations['getAttention']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/attention/{id}/dismiss': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description A row's `id` from `GET /attention`. */
-        id: components['parameters']['AttentionRowId']
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Dismiss a one-off health warning
-     * @description Hides the row until its condition recurs. Only rows with a `dismiss` action can be dismissed;
-     *     any other row is `409 conflict`, and one that is already gone `404`.
-     *     A `silo-silent-{request_id}` row ("Silo stopped asking") is hidden until Silo asks about that
-     *     Request again; the Request itself is kept.
-     */
-    post: operations['dismissAttention']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/adoption/commit': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Adopt the ticked rows
-     * @description Answers `202`; the work runs in the background, one transaction per Title. Files are renamed in
-     *     place into the naming scheme together with their sidecar subtitles, and each Title is logged as it is
-     *     adopted. `409 conflict` when `revision` is not the plan's current one (a row changed since it was
-     *     reviewed) or the plan is not `planned`. Once committed the rows are kept with their final `outcome` (see
-     *     `GET /adoption/rows`) until the next scan or a discard.
-     */
-    post: operations['commitAdoption']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/adoption/retry': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Plan the entries that failed again
-     * @description After a commit, plans again only the entries whose `outcome` is `failed`, from their folders as they
-     *     are now and against the Title each was matched to, with no new scan. The plan is `planned` again for
-     *     review and a commit, with those entries as rows under review. The other kept rows stay, as does the
-     *     last commit's `result`: the next commit adds to it. Answers `202` with `Location: /adoption`; the
-     *     planning runs in the background (`scanning`), as a scan's does. If it cannot finish, the plan is
-     *     `idle` with its `error` and everything the commit kept. An entry whose folder is gone stays `failed`.
-     *     `409 conflict` while a scan or commit runs, or when there is no failed entry to try again.
-     */
-    post: operations['retryAdoption']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/adoption/reopen': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Put the entries nobody chose back in the plan
-     * @description After a commit, puts the kept rows whose `outcome` is `not_chosen` back in the plan as Needs choice
-     *     rows under review, with no scan, so they can be settled and committed. The plan is `planned` again.
-     *     The other kept rows stay, as does the last commit's `result`: the next commit adds to it.
-     *     `409 conflict` while a scan or commit runs, or when no entry was left without a choice.
-     */
-    post: operations['reopenAdoption']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/cleanup/preview': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * List the Unmanaged files Clean up could delete
-     * @description Lists the Unmanaged files inside tracked Titles' folders by category: junk, samples, orphaned
-     *     subtitles and empty folders (ticked by default as safe), then subtitles in other languages, local
-     *     artwork, extras and unmanaged videos (unticked). Files any Version holds are never listed. Without
-     *     `title_ids` every tracked Title's folder is covered. The answer names a `preview_id` that
-     *     `POST /cleanup/run` deletes from; nothing is deleted here.
-     */
-    post: operations['previewCleanup']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/cleanup/run': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Delete the ticked categories of a preview
-     * @description Permanently deletes the files of the named categories that the preview listed, except those named
-     *     in `exclude`, and removes the folders they leave empty. Files that a Version holds by now are
-     *     skipped. Each cleaned Title is logged. `404 not_found` when the preview is unknown or expired.
-     */
-    post: operations['runCleanup']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/wanted/search': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Search all Wanted
-     * @description Makes every Wanted Version due a search now and wakes the sweep, so they are searched in the
-     *     next minute or so rather than on their own cadence (the indexers' budgets still apply).
-     *     Filled Versions are not touched: there is no "search all Upgrades". The answer is how many
-     *     Versions were queued.
-     */
-    post: operations['searchAllWanted']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/search/status': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * The search pipeline
-     * @description What waits for a search and how the sweep is getting on: the Wanted Versions due a missing
-     *     search (with their episodes) and the Versions due an Upgrade search, the pass running now,
-     *     when the next one starts, how the last one went, and each enabled indexer's budget and
-     *     pauses. It is kept in memory as the passes go: a Version that comes due between passes is
-     *     counted at the next one, at most 5 minutes later, and "Search all Wanted" starts one at once.
-     *     `/stream` sends it as `search` frames whenever it changes.
-     */
-    get: operations['getSearchStatus']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/activity': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * The background work running now
-     * @description The loops mid-pass and an Adoption scan or commit, as the stream's `activity` frames carry
-     *     them. All in memory: it starts empty at every start.
-     */
-    get: operations['getActivity']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/jobs': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * The background jobs
-     * @description Every background loop (ADR 0007) in the order it was registered, with whether it is mid-pass,
-     *     how its last pass went and when the next is due. It is kept in memory, so after a restart
-     *     `last_run` is `null` until each loop's first pass. The daily loops (`prune`, `refresh`,
-     *     `trash`, `updates`) pass hourly and do their work once a day, so their last run is the last
-     *     hourly check. `/stream` sends the same list as `jobs` frames whenever it changes.
-     */
-    get: operations['listJobs']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/jobs/{name}/run': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        name: string
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Run a background job now
-     * @description Wakes the loop for a pass now; a pass already running or queued takes the kick, so it never
-     *     runs twice at once. Only the loops whose `runnable` is `true` (`search`, `rss`, `refresh`,
-     *     `health`) can be run by hand: the others answer `409 not_runnable`, and a loop this
-     *     instance doesn't have `404 not_found`.
-     */
-    post: operations['runJob']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/system/status': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Every health check (Activity > Health)
-     * @description Capacity at a glance: the download client, each indexer with its daily budget and any pause, the
-     *     free space on the data mount and every Root folder, the active TRaSH snapshot with its commit
-     *     date, and whether "Pause Grabs" is on.
-     */
-    get: operations['getSystemStatus']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/folder-changes': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Title folders that changed since a marker
-     * @description A feed of the Title folders whose changes settled (an Import, Upgrade, rename or deletion,
-     *     after the same short wait the media servers are given), for tools that poll for new
-     *     files. It is written for the Silo plugin: its `scan_source.v1` capability polls this
-     *     endpoint with the marker from its last poll.
-     *
-     *     `changes` are oldest first, at most `limit`. `path` is the Title folder as Kestrel sees it.
-     *     `kind` is `created` for a folder that exists and that the feed has not reported in its 30
-     *     days (or whose last report was `deleted`), `modified` for a folder that exists and was
-     *     reported, and `deleted` for a folder that is gone. `at` is when the change was recorded.
-     *
-     *     `next_marker` is never empty: pass it back as `marker` for the changes after this page.
-     *     `more` is `true` when changes after `next_marker` already exist, because the page was cut at
-     *     `limit`. Without a `marker`, or with an empty one, `changes` is empty and `next_marker` is
-     *     the current position: a first poll starts from now and does not replay history.
-     *
-     *     The feed keeps 30 days of changes and survives restarts. `expired` is `true` when the
-     *     `marker` can no longer be answered: changes after it were pruned, it is ahead of this
-     *     feed (it came from another Kestrel, or from a database that was reset), or it is not a marker
-     *     this feed issued. Then `changes` is empty, `next_marker` is the current position, and the
-     *     client should rescan everything. A bad marker is never a `422`. The same `marker` sent twice
-     *     gets the same answer, as long as nothing was pruned in between, so a client that keeps its
-     *     old marker after a failed poll reads the same window again.
-     */
-    get: operations['listFolderChanges']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/about': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * About Kestrel
-     * @description The running version and licence, what the daily GitHub check found (an `update` is present
-     *     only when a newer release exists and the "Check GitHub for updates" switch is on), and the
-     *     TRaSH commit whose Custom Formats score Releases now. Attribution and shortcuts are static
-     *     text in the SPA; the full third-party notices are `GET /about/notices`.
-     */
-    get: operations['getAbout']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/about/notices': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Third-party notices
-     * @description The generated notices (Markdown as plain text): the ported Radarr and Sonarr code, TRaSH data
-     *     and the Go and npm dependencies with their licences. The same file ships in the image and with
-     *     every release as `THIRD_PARTY_NOTICES.md`.
-     */
-    get: operations['getNotices']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/trash/update': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Update from TRaSH
-     * @description Asks for a pass of the `trash` loop that fetches TRaSH's newest Custom Formats and profiles,
-     *     whatever the daily check's switches say, and answers at once. The pass loads the snapshot
-     *     all-or-nothing: it must parse and every stored file is re-scored under it before it becomes
-     *     active. A snapshot that fails either is rejected whole, the previous one stays in use and the
-     *     "TRaSH update rejected" Warning is raised. Nothing is renamed or searched. `GET /jobs` shows
-     *     the pass's `progress` while it re-scores and its `outcome` when it ends (updated, up to date,
-     *     rejected, TRaSH unreachable). A request while one is already waiting or running starts no
-     *     second pass and is `202` too.
-     */
-    post: operations['updateTrash']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/stream': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Live state as Server-Sent Events
-     * @description One long-lived `text/event-stream`. Frames are `event: <type>` plus one `data:` line of JSON:
-     *
-     *     - `changed`: a hint, `{resource, id}` (see `ChangedHint`). Refetch that resource over REST.
-     *       They come from the events log, so an Import landing in a background loop reaches an open
-     *       tab within about a second, and from handlers for changes made through this API.
-     *     - `queue`: the `QueueList` snapshot (same as `GET /queue`), on connect and whenever it changes.
-     *     - `activity`: the background work running now (`ActivitySnapshot`, same as `GET /activity`):
-     *       the loops mid-pass with when each pass started, and an Adoption scan or commit with its
-     *       progress, on connect and whenever it changes.
-     *     - `attention`: the Needs attention count and worst severity (`AttentionSnapshot`), on connect
-     *       and whenever it changes.
-     *     - `search`: the search pipeline (`SearchStatus`, same as `GET /search/status`), on connect and
-     *       whenever it changes.
-     *     - `jobs`: the background loops with their last and next run (`JobList`, same as `GET /jobs`),
-     *       on connect and whenever it changes.
-     *
-     *     A comment line (`: heartbeat`) every 15 s keeps proxies from closing the connection.
-     *     There is no replay: after a reconnect the client refetches whatever it shows, and every
-     *     streamed state also has a snapshot resource. Unauthenticated callers get `401` instead of a
-     *     stream. Clients using an API key read it with streaming `fetch`; `EventSource` cannot set headers.
-     */
-    get: operations['stream']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/requests': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Requests, newest first, or the named ones
-     * @description `id` may repeat (at most 100) to read those Requests in one call, as the Silo plugin does; the
-     *     other filters and the cursor are ignored then.
-     *     Reading Silo's Requests this way counts as Silo asking about them: Needs attention flags a Silo
-     *     Request that this read has not named for longer than Silo's whole retry span (6 hours and the
-     *     10-minute submission lease).
-     *
-     *     `source`, `status`, `outcome` and `requester` may each repeat: a Request matches any one of a
-     *     filter's values, and every filter given. `status` is derived on read like each Slot's, and every
-     *     Request has exactly one: `rejected` is a rejected Request, `open` an accepted one with a Slot
-     *     still queued or downloading, and `completed` every other accepted one, with nothing on its way
-     *     any more (each Slot completed, or its Version removed since).
-     */
-    get: operations['listRequests']
-    put?: never
-    /**
-     * Ask Kestrel for a Title in one or more Slots
-     * @description The native, source-neutral Request API (ADR 0004); Silo's router plugin calls it. A Request is
-     *     accepted at once, with no approval step. It adds the Title or only its missing Versions, searches
-     *     them at once, and never changes an existing Version: a Slot that already has a Version is accepted
-     *     unchanged and reports that Version's Profile and status. A Slot named without a `profile` uses
-     *     Profile resolution. A new Title goes in the `root_folder` named, else the first Root folder of its kind; an existing Title is never moved. A Series Request names `seasons`, or `null` for the whole Series; it only ever adds monitoring.
-     *
-     *     `201` for a new Request, accepted or rejected (`outcome`, `reject_reason`); a Request Kestrel cannot
-     *     serve (`not_on_tvdb`, `unknown_title`, `no_enabled_profile`) is stored as rejected and changes nothing.
-     *     A retry of the same `(source, source_request_id)` creates nothing and returns the stored Request
-     *     with `200`. `422` for a malformed body or a `root_folder` that is not one of the kind's Root folders. The requester's email is never stored.
-     */
-    post: operations['createRequest']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/requests/{id}': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: number
-      }
-      cookie?: never
-    }
-    /** One Request with its current per-Slot status */
-    get: operations['getRequest']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/requests/{id}/end': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: number
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * End an open Request
-     * @description Ends the Request the way a rejected one ends: its Title and Versions stay, nothing more is asked
-     *     for it, and it reads as `outcome: rejected` with a `null` `reject_reason`. The reason is written
-     *     into the Log as a `request_ended` event. This is the "End" action of Needs attention's
-     *     "Silo stopped asking" row. `404` for a Request that does not exist; `409 conflict` for one that
-     *     is not open (completed, or already rejected).
-     */
-    post: operations['endRequest']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/my/requests': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * The signed-in Requester's own Requests, newest first
-     * @description Only for a Requester's session; any other caller gets `403 forbidden`. The Requests whose
-     *     source is `plex` and whose requester is this Plex account.
-     */
-    get: operations['listMyRequests']
-    put?: never
-    /**
-     * Request a Title as the signed-in Requester
-     * @description Only for a Requester's session; any other caller gets `403 forbidden`. Makes a Request as
-     *     `POST /requests` does, with the source `plex`, this Plex account as the requester, the
-     *     Standard Slot under Profile resolution, the whole Series for a Series, and the Requester's
-     *     Root folder from `user_root_folders` (else the kind's first) for a Title the Request creates.
-     *     Asking for the same Title again returns the Requester's stored Request with `200`.
-     */
-    post: operations['createMyRequest']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/plugins': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * The built-in plugins and their config schemas
-     * @description One manifest per compiled-in plugin, any contract. The UI draws each plugin's form from
-     *     `fields`, so a new adapter needs no UI change.
-     */
-    get: operations['listPlugins']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/plugins/{plugin_id}/options/{field}': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Live choices for a config field
-     * @description Asks the plugin for the current values of a `live` field (SABnzbd's categories) using the
-     *     form as it stands. `config` is merged over the stored instance when `instance_id` is given,
-     *     so a saved secret need not be sent again. The config is not validated as a whole, because the
-     *     form may be half filled. A plugin failure is `502 upstream_unavailable`.
-     */
-    post: operations['listPluginOptions']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/plugin-instances': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /** Configured plugin instances */
-    get: operations['listPluginInstances']
-    put?: never
-    /**
-     * Configure a plugin instance
-     * @description Absent config fields take the manifest default. Secret fields are accepted here and never
-     *     returned: `secrets_set` lists which are set. Enabling an instance beyond its contract's cap
-     *     (one enabled download client in v1) is a `validation` error on `enabled`. A name the Config
-     *     File declares answers `409 conflict`; instances created here may share names with each other.
-     */
-    post: operations['createPluginInstance']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/plugin-instances/test': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Test an unsaved plugin config
-     * @description Runs the plugin's live test with the given config. A failing test is still `200` with
-     *     `ok: false` and the plugin's error `code`; only a malformed config is `422`.
-     */
-    post: operations['testPluginConfig']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/plugin-instances/{id}': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['InstanceId']
-      }
-      cookie?: never
-    }
-    /** One plugin instance */
-    get: operations['getPluginInstance']
-    put?: never
-    post?: never
-    /**
-     * Remove a plugin instance
-     * @description `409 conflict` for an instance the Config File declares (`from_config_file`).
-     */
-    delete: operations['deletePluginInstance']
-    options?: never
-    head?: never
-    /**
-     * Change a plugin instance
-     * @description `config` merges key by key. A secret that is omitted stays as it is, a string replaces it
-     *     and `null` clears it; clearing any other field returns it to its default. `409 conflict` for
-     *     an instance the Config File declares (`from_config_file`), or a rename to a declared name.
-     *     The exception is a patch that changes only `enabled` on a declared instance whose `enabled`
-     *     the file leaves out (`enabled_declared` is `false`): the UI manages that value.
-     */
-    patch: operations['updatePluginInstance']
-    trace?: never
-  }
-  '/plugin-instances/{id}/test': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['InstanceId']
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Test a saved plugin instance
-     * @description Like the unsaved test, with the stored config (secrets included) underneath the optional
-     *     `config` edits, so a form can be tested before it is saved without retyping the secret.
-     */
-    post: operations['testPluginInstance']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
+    "/system": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Version and API major of this instance
+         * @description The Silo plugin's `TestConnection` reads `api_major`.
+         *     Unauthenticated until an account exists.
+         */
+        get: operations["getSystem"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Setup progress
+         * @description Answers before an account exists (one of the few endpoints that do), and afterwards to
+         *     a logged-in admin. `completed` and the per-section states beyond `account` fill in as the
+         *     wizard's sections arrive.
+         */
+        get: operations["getSetup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create the admin account and log in
+         * @description Only answers while no account exists; whoever reaches a fresh instance sets the credentials.
+         *     Responds with the session cookie, so finishing this step logs the admin in. `409 conflict`
+         *     once an account exists, or while the Config File declares it.
+         */
+        post: operations["createAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish setup
+         * @description Marks setup finished when every section of `GET /setup` is `done`. Otherwise answers 422
+         *     with one error per missing section, `field` being `sections.<name>` and `code` `todo`.
+         *     The optional Adopt existing library step never blocks it.
+         */
+        post: operations["completeSetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Log in with username and password
+         * @description Sets a 30-day sliding session cookie. After five failures from one client address within
+         *     15 minutes further attempts are answered `429 rate_limited` with `Retry-After`, backing off
+         *     up to 15 minutes. A success resets the count.
+         */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End the current session */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout-everywhere": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End every session, including this one */
+        post: operations["logoutEverywhere"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who is logged in
+         * @description The SPA's first call. `401 setup_required` means no account exists yet (show the wizard's
+         *     Account section); `401 unauthenticated` means show the login card.
+         */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/plex": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether the login card offers Plex sign-in
+         * @description Unauthenticated. `enabled` is `true` while Plex sign-in is switched on and names a Plex
+         *     instance, so a Requester can sign in with their Plex account.
+         */
+        get: operations["getPlexSignIn"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/plex/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a Requester's Plex sign-in
+         * @description Unauthenticated. Creates a Plex PIN and answers the plex.tv URL to send the browser to. Plex
+         *     sends the browser back to Kestrel's login page with `?plex=1` once the account has
+         *     authorised it, and the SPA then calls `POST /auth/plex/login`. The PIN is bound to this
+         *     browser by the `kestrel_plex_pin` cookie (HttpOnly, SameSite=Lax, 15 minutes), so only the
+         *     browser that started a sign-in can finish it. `403 plex_sign_in_off` while Plex sign-in is
+         *     off; `502 upstream_unavailable` when plex.tv can't be reached.
+         */
+        post: operations["startPlexSignIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/plex/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish a Requester's Plex sign-in
+         * @description Unauthenticated. Reads the PIN from the `kestrel_plex_pin` cookie, asks plex.tv whether it
+         *     was authorised, learns the account with the token it carries (which is never stored), and
+         *     checks with the Plex instance's owner token that the account has access to that server:
+         *     the owner, a Plex Home member, or a friend whose share includes the server. When
+         *     `users` is not empty the account must also be on it. Then sets a 30-day sliding Requester
+         *     session cookie and clears the PIN cookie.
+         *
+         *     A Requester's session may call only `GET /auth/me`, `POST /auth/logout`, `GET /system`,
+         *     `GET /lookup`, `GET /titles/{id}/poster` and `/my/requests`; every other route answers
+         *     `403 forbidden`. It is re-checked against the owner's list at most once an hour and ends
+         *     (`401 unauthenticated`) when the account lost access, left `users`, or Plex sign-in was
+         *     switched off.
+         *
+         *     `409 pending` while Plex has not been authorised yet (try again shortly). `401 unauthenticated`
+         *     without a PIN cookie or once the PIN expired: start again. `403 plex_no_access` when the
+         *     account may not request; it counts as a failed login for the throttle (`429 rate_limited`).
+         *     `403 plex_sign_in_off` while Plex sign-in is off. `502 upstream_unavailable` when plex.tv or the
+         *     Plex server can't be reached.
+         */
+        post: operations["finishPlexSignIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/account/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the admin password
+         * @description Ends every other session; the current one stays logged in. `409 conflict` while the Config
+         *     File declares the account.
+         */
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The API key's prefix and age
+         * @description There is at most one full-access key. Only its prefix and creation time are ever shown;
+         *     both are `null` until a key has been generated. While `KESTREL_API_KEY` is set, that is
+         *     the key, `from_environment` is `true` and `created_at` is when Kestrel started.
+         */
+        get: operations["getApiKey"];
+        put?: never;
+        /**
+         * Generate or rotate the API key
+         * @description Replaces any existing key, which stops working at once. The new key is in this response
+         *     only; Kestrel keeps just its SHA-256. Send it as `X-Api-Key`. `409 conflict` while
+         *     `KESTREL_API_KEY` sets the key.
+         */
+        post: operations["createApiKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/reverse-proxy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reverse-proxy login settings */
+        get: operations["getReverseProxy"];
+        /**
+         * Change reverse-proxy login settings
+         * @description `trusted_proxies` decides, whether or not `enabled` is on, whose `X-Forwarded-For` and
+         *     `X-Forwarded-Proto` Kestrel believes: from a trusted address the client address is the
+         *     right-most `X-Forwarded-For` hop that is not itself trusted, and the login throttle is
+         *     keyed on it. From any other address both headers are ignored. `enabled` only switches
+         *     header login, off by default, and needs at least one trusted proxy: when on, a non-empty
+         *     `header` from a trusted proxy address logs the admin in for that request. The same
+         *     header from any other address is ignored and recorded under `untrusted`. `409 conflict` while the Config File declares `reverse_proxy`.
+         */
+        put: operations["putReverseProxy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/silo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Watch-ahead for Silo */
+        get: operations["getSiloSettings"];
+        /**
+         * Change Watch-ahead for Silo
+         * @description `instance` names the `silo` plugin instance whose playback history Watch-ahead reads (ADR 0020);
+         *     `watch_ahead` needs it. `watch_ahead` is the default for a Silo Series Request that names no
+         *     seasons, which the Request's own `watch_ahead` overrides. `409 conflict` while the Config File
+         *     declares `silo`.
+         */
+        put: operations["putSiloSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/plex-sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Plex sign-in for Requesters */
+        get: operations["getPlexSignInSettings"];
+        /**
+         * Change Plex sign-in for Requesters
+         * @description `enabled` needs `instance`, the name of a `plex` plugin instance: its server and its owner's
+         *     token decide who may sign in. `users` narrows who may request to those Plex accounts, by
+         *     username or, for a Plex Home user without one, by name, ignoring case; empty lets everyone
+         *     with access request. `user_root_folders` sends a user's Requests for new Titles to one of the
+         *     kind's Root folders instead of the first; each folder must be one of that kind's Root folders.
+         *     Switching sign-in off, or taking a user off `users`, ends the affected Requester sessions on
+         *     their next call. `409 conflict` while the Config File declares `plex_sign_in`.
+         */
+        put: operations["putPlexSignInSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * App settings
+         * @description The settings sections that exist so far: `language_region` and `root_folders`. Sections never
+         *     saved report their defaults (English, US); `GET /setup` says which
+         *     were saved. Reverse-proxy login settings have their own endpoint.
+         */
+        get: operations["getSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change settings
+         * @description A JSON merge patch over the sections: send only what changes. Changing `primary_language`
+         *     re-points the eight Profiles to their backing TRaSH profiles and, unless the same patch
+         *     names `release_date_country`, moves the country to the new language's default. Both change
+         *     in the background, in one step with a re-score of every stored file under the new Profiles:
+         *     the answer still shows the old `primary_language`, with `pending_primary_language`, until the
+         *     `trash` job has finished (see Activity); files are not renamed and nothing is searched. A
+         *     second change while one waits replaces it, and a failed re-score changes neither the
+         *     setting nor the Scores. A patch that names a section the Config File declares
+         *     (`language_region`, `root_folders`, `check_github_updates`, or a `display` setting it declares) answers `409 conflict` and saves
+         *     nothing, not even its other sections.
+         */
+        patch: operations["patchSettings"];
+        trace?: never;
+    };
+    "/profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The eight Profiles
+         * @description In display order. Profiles are named by `key`, never by id.
+         */
+        get: operations["listProfiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/profiles/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: components["parameters"]["ProfileKey"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a Profile's settings
+         * @description A Slot has at most one default Profile per kind: making one the default replaces the old.
+         *     The Standard Slot always keeps exactly one default per kind, so unsetting or disabling it is a
+         *     `validation` error until another Standard Profile is the default. Disabling a Profile clears its defaults, and
+         *     a disabled Profile cannot be made a default. `original_language` other than `reject` (or
+         *     `original_fallback: true`) is a `validation` error on Original-Language Profiles, and so is an
+         *     `original_fallback` that disagrees with `original_language` in the same patch.
+         *     `409 conflict` while the Config File declares `profiles`.
+         */
+        patch: operations["patchProfile"];
+        trace?: never;
+    };
+    "/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search the metadata provider for Titles to add
+         * @description One TMDB search across both kinds, in English, ranked best match first. The query is searched
+         *     as typed, so a year that is part of a title ("Blade Runner 2049") stays in; when TMDB finds
+         *     nothing, it is asked once more without a trailing year, accents and punctuation, with `&` as
+         *     "and". A year typed after the title also ranks the results by it. Results already in the
+         *     Library carry their Title id in `in_library`. A Series needs a TheTVDB id (from TMDB's external
+         *     ids, else a TheTVDB remote-id search by IMDb id); one without is `addable: false` with
+         *     `not_addable_reason: not_on_tvdb`, and `POST /titles` refuses it.
+         *     `502 upstream_unavailable` means TMDB could not be reached or refused the key.
+         */
+        get: operations["lookup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lookup/{kind}/{tmdb_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["schemas"]["TitleKind"];
+                tmdb_id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * One search result with the add panel's suggested Slots and Profiles
+         * @description The Slots to preselect when adding it: every Slot with a default Profile for the kind, resolved
+         *     by Profile resolution. Each Slot says why (`reason`) and carries a display `label`, the
+         *     Profile's name. Requests use the same logic.
+         *     It reads TMDB only. A Series' overview (status, network, air dates and seasons) comes from
+         *     TheTVDB through `GET /lookup/series/{tmdb_id}/overview`, so the panel can open before TheTVDB
+         *     answers and a TheTVDB failure affects only the overview.
+         */
+        get: operations["lookupTitle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lookup/series/{tmdb_id}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tmdb_id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * A search result's Series overview, from TheTVDB
+         * @description The add panel's Series overview: whether it is running or ended, its network, its first and
+         *     last air dates and every season with its episode count and air dates. It reads TMDB and
+         *     TheTVDB, so it can take longer than `GET /lookup/{kind}/{tmdb_id}`; the add panel loads it
+         *     on its own. `404 not_found` when TMDB has no such Series, `404 not_on_tvdb` when TheTVDB does
+         *     not have it (it cannot be added either), `502` when a provider fails.
+         */
+        get: operations["lookupSeriesOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/titles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Library's Titles as compact rows
+         * @description Newest first. The SPA loads the whole Library once with `limit=10000` and filters locally.
+         *     `q` matches titles and aliases, ignoring case.
+         */
+        get: operations["listTitles"];
+        put?: never;
+        /**
+         * Add a Title to the Library
+         * @description Fetches the Title from the metadata provider and adds it with the named Versions, each Wanted.
+         *     `root_folder` must be one of the configured Root folders for the kind; left out, it is the
+         *     kind's first.
+         *     `409 conflict` when the Title is already in the Library (the existing id is in
+         *     `detail`). A Series takes `series_monitor` (default `all`) and, to start with only some seasons
+         *     monitored, `seasons`.
+         *     A `422` names the field and code: `body` / `required` (no body), `versions` / `required`
+         *     (no Version), `versions[i].slot` / `invalid` (not a Slot) or `duplicate` (a Slot twice),
+         *     `versions[i].profile` / `not_found`, `disabled` or `wrong_slot`, `root_folder` / `not_found`
+         *     (not one of the kind's Root folders) or `required` (none configured), `series_monitor` /
+         *     `invalid`, `seasons` / `invalid` (a negative season), `unknown` (a season the Series does
+         *     not have) or `not_a_series` (seasons for a Movie), and `tmdb_id` / `not_on_tvdb` (a Series
+         *     TheTVDB does not have).
+         */
+        post: operations["createTitle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/titles/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change many Titles at once
+         * @description Applies one `action` to every Title in `title_ids`, with the action's parameters next to it,
+         *     and answers per Title: `changed`, `skipped` with a `reason` (such as `unchanged` when the
+         *     Title already is as asked, or `not_found`), or `failed` with a `reason` saying why. A
+         *     repeated id counts once. Running the same call again changes nothing more: each Title is
+         *     then skipped, with the reason that fits the action (see below).
+         *
+         *     - `monitor` sets `monitored` on Movies, as `PATCH /titles/{id}` does. A Series follows the
+         *       same rule through its monitoring mode: `monitored: false` sets `series_monitor: none` and
+         *       unmonitors every episode, so an unmonitored Series behaves like an unmonitored Movie;
+         *       `monitored: true` applies `series_monitor`. Left out, a Series already monitored keeps
+         *       its mode and an unmonitored one gets `all`. Again: `unchanged`.
+         *     - `switch_profile` moves each Title's Version in `slot` to `profile`, as
+         *       `PATCH /versions/{id}` does: the file is re-scored and the Version searched. A Title with no
+         *       Version in that Slot is skipped as `no_version`. Again: `unchanged`.
+         *     - `add_version` adds a Version in `slot` under `profile`, as `POST /titles/{id}/versions`
+         *       does. A Title whose Slot already holds a Version is skipped as `slot_taken`. Again:
+         *       `slot_taken`.
+         *     - `remove_version` removes each Title's Version in `slot`, as `DELETE /versions/{id}` does;
+         *       files stay on disk unless `delete_files` is true. No Version there: skipped as `no_version`.
+         *       Again: `no_version`.
+         *     - `search` makes every Wanted Version of the Titles due a search now and starts the sweep,
+         *       as "Search all Wanted" does for the whole Library; the indexers' daily budgets apply. A
+         *       Title with nothing Wanted is skipped as `nothing_wanted`. It acts on every call.
+         *     - `refresh` starts a metadata refresh of each Title, as `POST /titles/{id}/refresh` does. A
+         *       Title with `metadata_frozen` is skipped as `frozen`. It acts on every call.
+         *     - `freeze` sets `metadata_frozen` to `frozen`, as `PATCH /titles/{id}` does. Again:
+         *       `unchanged`.
+         *     - `remove` removes the Titles from the Library, as `DELETE /titles/{id}` does; files stay on
+         *       disk unless `delete_files` is true. Again: `not_found`.
+         *
+         *     A wrong or disabled Profile for the Slot, or a `series_monitor` that contradicts
+         *     `monitored`, refuses the whole call with 422.
+         */
+        post: operations["bulkTitles"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/titles/{id}/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh a Title's metadata now
+         * @description Starts a refresh from the metadata providers and returns at once; the Title changes when it
+         *     finishes (a `title` hint arrives on the stream). A changed English title or year renames the
+         *     Title's folder and files. A Title with `metadata_frozen` is left as it is.
+         */
+        post: operations["refreshTitle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/titles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        /** One Title with its Versions */
+        get: operations["getTitle"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove a Title with all its Versions
+         * @description Removes the Title and what Kestrel holds of it. Files stay on disk unless `delete_files` is
+         *     true, which also removes the Title's folder if it is then empty. Active downloads of the
+         *     Title are canceled.
+         */
+        delete: operations["deleteTitle"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a Title's settings
+         * @description `monitored` monitors or unmonitors a Movie; `422` for a Series, which uses `series_monitor`.
+         *     An unmonitored Movie is never Wanted, searched or Upgraded, by the sweep or RSS; its Versions
+         *     and files stay as they are, and a Grab started by hand still works. Monitoring it again makes
+         *     its Versions due a search now. `series_monitor` applies the mode to every episode and season
+         *     now (Specials are never monitored by a mode); `422` for a Movie. `metadata_frozen` true keeps
+         *     the stored metadata as it is and clears a "Title gone upstream" row; false lets refreshes
+         *     resume.
+         *
+         *     `root_folder` moves the Title to another of its kind's Root folders: its folder moves there
+         *     under the same name in one directory rename, taking every Version's files and subtitles,
+         *     and the Title's `root_folder` and file paths change with it. A Title with no folder on disk
+         *     only has its `root_folder` changed; its current Root folder changes nothing. Media servers
+         *     are told about both folders and the log records a `move` event. Refusals change nothing:
+         *     `422` `root_folder` / `not_found` when it isn't one of the kind's Root folders, `422`
+         *     `root_folder` / `other_filesystem` when it is on another filesystem (Kestrel never copies a
+         *     Title across mounts), `409` `folder_taken` when a folder of that name is already in the
+         *     target, `409` `import_running` while an Import into the Title is running (try again after
+         *     it).
+         */
+        patch: operations["patchTitle"];
+        trace?: never;
+    };
+    "/titles/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a Version to an empty Slot
+         * @description Adds a Wanted Version under an enabled Profile of the Slot and searches it at once.
+         *     `409` when the Slot already holds a Version.
+         */
+        post: operations["addVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/versions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a Version
+         * @description Removes the Version. Its files stay on disk unless `delete_files` is true. An active download
+         *     for it is canceled.
+         */
+        delete: operations["deleteVersion"];
+        options?: never;
+        head?: never;
+        /**
+         * Switch a Version's Profile
+         * @description Moves the Version to another enabled Profile of its Slot (HD to Any, say). The file is
+         *     re-scored under the new Profile from what was stored at Import: no re-parse, no new ffprobe,
+         *     no rename. A file the new Profile no longer accepts by resolution class or language is a
+         *     `misfit`: the Version becomes Wanted and any fitting Release replaces the file whatever its
+         *     Score. The Version is searched at once.
+         */
+        patch: operations["patchVersion"];
+        trace?: never;
+    };
+    "/versions/{id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a Version's files and keep the Version
+         * @description Deletes files of the Version from disk, with their text subtitles, and keeps the Version and
+         *     its monitoring: a monitored Movie or episode whose file goes is Wanted again. A Movie loses its
+         *     file. A Series loses the files holding the episodes in scope: `season` narrows to one season,
+         *     `episode_ids` to those episodes (within `season` when both are given); neither deletes every
+         *     file of the Version. A file holding several episodes (a season pack, a double episode) is
+         *     deleted whole, so every episode it holds loses its file, also those outside the scope.
+         *     A file that cannot be deleted from disk stays the Version's (its Release is not blocklisted)
+         *     and is listed in `not_deleted` with the reason; the others go all the same.
+         *     With `blocklist` each file's Release goes on the Blocklist, so it is not grabbed again; a file
+         *     Kestrel did not grab (an adopted one) cannot be, and says so in `blocklisted`, as does one
+         *     whose Release could not be blocklisted: the file is deleted all the same.
+         *     A `delete` event in the Log names the files and the Releases blocklisted. It waits for an
+         *     Import into the Title to finish.
+         *     A `season` the Series lacks (a negative one included), or an episode that is not the Series'
+         *     (or not of `season`), is a `422` naming that field (`season` or `episode_ids`) with the code
+         *     `unknown`; on a Movie either is a `422` with the code `not_a_series`. There are no other
+         *     `422` codes.
+         */
+        delete: operations["deleteVersionFiles"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/titles/{id}/episodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A Series' episodes with one cell per Version, for the heat map
+         * @description In aired order, Specials first. `404` for a Movie.
+         */
+        get: operations["listEpisodes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/titles/{id}/episodes/monitor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Monitor or unmonitor episodes
+         * @description Every id must be an episode of this Series, else `404` and nothing changes. Seasons follow their episodes.
+         */
+        post: operations["monitorEpisodes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/titles/{id}/seasons/{season}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+                season: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Monitor or unmonitor a season and all its episodes */
+        patch: operations["patchSeason"];
+        trace?: never;
+    };
+    "/titles/{id}/poster": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The Title's poster
+         * @description Served from the poster cache under the config dir, fetched on first use. `404` when the provider has none.
+         */
+        get: operations["getTitlePoster"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/versions/{id}/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Manual search for a Version
+         * @description Asks every enabled indexer in parallel, parses and evaluates every Release against the
+         *     Version's Profile and answers with all of them, acceptable ones first, then by `score`.
+         *     Synchronous, with a server timeout of about 30 s: an indexer that has not answered by then
+         *     is reported in `indexer_errors` and the rest still come back. The Releases stay grabbable
+         *     for 6 h through their `release_id`. `fits` says whether the Release belongs to this Version's
+         *     Slot; a Release for another Slot carries the `other_slot` rejection. A Series Version is
+         *     searched by `season` and `episode_ids` in the body (none searches the whole Series); the
+         *     Releases are single or multi-episode ones and season packs, told apart by `episodes` and `pack`.
+         *     A Release naming an episode TheTVDB does not list yet is grabbable as a Placeholder Episode
+         *     when its season is listed and monitored and the episode is at most 2 past the season's last
+         *     listed one; otherwise it carries `episode_not_listed` (overridable), or `season_not_listed`
+         *     when TheTVDB lists no such season.
+         */
+        post: operations["searchVersionReleases"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/versions/{id}/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search now for a Version
+         * @description The automatic search for what the Version is missing, started by hand and run at once in the
+         *     background: it grabs the best Release as the sweep would. Unlike the sweep it is not held back
+         *     by the 80 % daily search budget stop; indexer pauses, backoff and Pause Grabs still apply.
+         *     Only Wanted Movies and episodes without an active Grab are searched. A Series Version is
+         *     searched once per season with a Wanted episode, narrowed by `season` and `episode_ids` in the
+         *     body (none searches the whole Series; `episode_ids` may span seasons). A Movie ignores both.
+         *     The answer comes at once; when the search is done, a `search` event in the Log says what it
+         *     grabbed, and Grabs record their own events.
+         *     A `season` the Series lacks (a negative one included), or an episode that is not the Series'
+         *     (or not of `season`), is a `422` naming that field (`season` or `episode_ids`) with the code
+         *     `unknown`. There are no other `422` codes.
+         */
+        post: operations["searchVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/versions/{id}/original-offer/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a Version's Original Offer
+         * @description Grabs every Release the offer lists, the same as "Grab anyway": exactly the Releases offered,
+         *     however old the offer is, a dismissed one included. A Release that cannot be grabbed counts in
+         *     `failed`: one the indexer no longer has, or the Blocklist holds, has its offer dropped; one that
+         *     failed for another reason (the download client is down, a spent budget) stays offered. When none
+         *     could be grabbed the first failure answers as `createGrab` would. No offer is `404`.
+         *     Once imported, the file fills the Version, and any acceptable Release replaces it whatever its
+         *     Score.
+         */
+        post: operations["acceptOriginalOffer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/versions/{id}/original-offer/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss a Version's Original Offer
+         * @description Keeps waiting for a Primary-Language Release for the units the offer shows (a Movie's one, a
+         *     Series' episodes). Dismissal is per unit: a unit stays dismissed until a Release that scores
+         *     higher for it is offered, and a unit offered for the first time, such as a new episode, shows the
+         *     offer again with the units not dismissed alone. No offer is `404`.
+         */
+        post: operations["dismissOriginalOffer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/grabs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Grabs, newest first, with how they ended
+         * @description Every Grab Kestrel still holds, newest first: active ones, stalled Imports and finished ones
+         *     (`imported`, or `failed` with the `failure` and, when its Release went on the Blocklist, the
+         *     entry's `blocklist_reason`). A canceled Grab is gone; one canceled and blocklisted shows only
+         *     on the Blocklist. `state` may repeat and matches any of its values; `stalled=true` keeps only
+         *     stalled Imports and `false` leaves them out; `since` keeps the Grabs whose state last changed
+         *     then or later (`updated_at`). The Activity screen reads the last 7 days of `imported` and
+         *     `failed` Grabs here, and leaves older ones to the Log. `cursor` is the `next_cursor` of the
+         *     page before.
+         */
+        get: operations["listGrabs"];
+        put?: never;
+        /**
+         * Grab a Release into the download client
+         * @description Fetches the Release's NZB from its indexer and sends it to the download client's category for
+         *     the Title's kind. The Grab starts at `sent`, keyed by the client's id. `release_id` comes from
+         *     a search in the last 6 h, otherwise `409 release_expired` (also when the indexer no longer has
+         *     the NZB). A Release with rejections needs `override: true` ("Grab anyway"), else `422 rejected`;
+         *     `blocklisted`, `other_slot` and `season_not_listed` can never be overridden and answer
+         *     `422 not_overridable`. A Series Release naming episodes TheTVDB does not list yet adds them as
+         *     Placeholder Episodes, which the Grab covers.
+         *     A spent grab budget is `429 rate_limited`; an unreachable client or indexer is
+         *     `502 upstream_unavailable`.
+         */
+        post: operations["createGrab"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/grabs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        /** One Grab */
+        get: operations["getGrab"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/grabs/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a Grab
+         * @description Removes the job (and its files) from the download client and drops the Grab; the Version is
+         *     Wanted again. With `blocklist: true` ("Cancel and blocklist") the Release also goes on the
+         *     Blocklist and the Version is searched again at once for the next best Release. A client that
+         *     cannot be reached is `502 upstream_unavailable` and nothing changes.
+         */
+        post: operations["cancelGrab"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/grabs/{id}/retry-import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry a stalled Import now
+         * @description A stalled Import (the environment is at fault: disk full, a folder not writable) retries
+         *     on its own after 1, 5, 15 and 60 minutes, then hourly. This skips the wait and imports at
+         *     once. `404` for a Grab whose Import is not stalled.
+         */
+        post: operations["retryGrabImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/grabs/{id}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard a stalled Import
+         * @description Gives up on a stalled Import: the Grab fails as `discarded` (no Blocklist entry), the job
+         *     and its files leave the download client and the Version is Wanted again. `404` for a Grab
+         *     whose Import is not stalled; a client that cannot be reached is `502 upstream_unavailable`.
+         */
+        post: operations["discardGrab"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stalled-imports/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry stalled Imports now
+         * @description "Retry all" of Needs attention: every stalled Import with the `reason`, or all of them
+         *     without one, is due at once.
+         */
+        post: operations["retryStalledImports"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stalled-imports/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard stalled Imports
+         * @description "Discard all" of Needs attention: every stalled Import with the `reason`, or all of them
+         *     without one, is discarded as `POST /grabs/{id}/discard` does.
+         */
+        post: operations["discardStalledImports"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Downloading now
+         * @description Every Grab that is sent, downloading or finished and waiting for its Import, oldest first.
+         *     Progress comes from the download client's last poll (every 10 s while anything downloads);
+         *     before the first poll after a start `bytes_left` is 0 and `eta` is null.
+         */
+        get: operations["listQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/upcoming": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Upcoming
+         * @description The timeline for a window of days (both ends included; default today to 30 days on, in UTC).
+         *     Monitored episodes airing in the window, and for each monitored Movie its theatrical, digital
+         *     and physical dates in the release-date country (falling back to the US, then the earliest
+         *     anywhere) that lie in the window. A Movie date that is today or later is listed only while a
+         *     Version holds no file; an earlier one, like an episode, stays once it is filled. Each entry says
+         *     where every Version of its Title stands (`slots`). A Movie that cannot be searched yet says from
+         *     when it can (`searchable_from`). Oldest day first (Settled 18). `undated` lists the monitored Titles
+         *     with something expected but no date yet, whatever the window.
+         */
+        get: operations["listUpcoming"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recently added
+         * @description The ten most recent Imports, newest first. An Import of several files at once (a season pack)
+         *     is one row with `files` set to how many it brought. `total` counts the Imports of the last
+         *     7 days, the window Activity's Done stage lists, so it may be more or fewer than `items`.
+         */
+        get: operations["listRecentlyAdded"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Log
+         * @description Events newest first. Routine events (a download started or finished, an Adoption scan) are
+         *     left out unless `routine=true`; they are pruned after 30 days, the rest are kept forever.
+         *     `kind` is a growing set: clients show kinds they do not know. `slot` matches events about a
+         *     Version in that Slot. `kind`, `title_id` and `slot` may repeat and then match any of their
+         *     values; filters of different names must all match. `exclude_kind`, `exclude_title_id` and
+         *     `exclude_slot` (each repeatable) leave those kinds, Titles and Slots out, even when `kind`,
+         *     `title_id` or `slot` names them; an event about no Title or Version is never left out by the
+         *     last two. `before` pages: pass the smallest `id` seen.
+         */
+        get: operations["listEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blocklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Blocklist
+         * @description Releases never to be grabbed again, newest first. `title_id` narrows it to one Title.
+         */
+        get: operations["listBlocklist"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blocklist/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a Blocklist entry
+         * @description The Release can be grabbed again. An entry that is already gone is `404`.
+         */
+        delete: operations["deleteBlocklistEntry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adoption": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Adoption scan and plan
+         * @description Adoption takes over an existing on-disk library without downloading it again. There is at most one
+         *     plan, stored until it is committed or discarded: `idle` (no plan), `scanning` (building one in the
+         *     background, with `progress`), `planned` (waiting for review) or `committing`. `revision` changes with
+         *     every edit of the plan; `POST /adoption/commit` must name the one it reviewed. After a commit the
+         *     state is `idle` but the rows are kept, each with its final `outcome`, until the next scan or a
+         *     discard; `result.outcomes` counts them.
+         */
+        get: operations["getAdoption"];
+        put?: never;
+        post?: never;
+        /**
+         * Throw the plan away
+         * @description Nothing was written to disk or the Library by a plan, so this only forgets it. `409 conflict` while committing.
+         */
+        delete: operations["discardAdoption"];
+        options?: never;
+        head?: never;
+        /**
+         * Choose how the plan's Titles are monitored
+         * @description `monitor` is how the Titles the plan adds are monitored unless a row has its own choice: `all`
+         *     (today's behaviour: a Movie is monitored, a Series follows every episode), `future` (a Series
+         *     follows episodes that air from today; a Movie is monitored) or `none` (unmonitored: not Wanted,
+         *     no missing searches and no Upgrade searches for the files it already has, see #70). A Title Kestrel
+         *     already tracks keeps its own monitoring. Moves the plan's `revision`. `409 conflict` while scanning
+         *     or committing, `404` with no plan.
+         */
+        patch: operations["patchAdoption"];
+        trace?: never;
+    };
+    "/adoption/scan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Scan the Root folders for files to adopt
+         * @description Starts a background scan (manual only) and answers `202` with `Location: /adoption`. A new scan
+         *     replaces the stored plan. Each top-level entry of a Root folder is one Title candidate; tracked
+         *     Titles' folders are scanned too, for files no Version holds. `409 conflict` while a scan or a
+         *     commit is running.
+         */
+        post: operations["scanAdoption"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adoption/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The rows of the plan
+         * @description Paged like `GET /titles` (`limit`, `next_cursor`). Rows are grouped Matched, Needs choice and Skipped. `total`
+         *     counts the rows the filter keeps and `counts` the rows of the whole plan, so the SPA can say "all N in this
+         *     filter" and show every filter's count from one page. `duplicate` keeps rows with a file left in place
+         *     because another file holds its Slot; `replacement` keeps rows that would replace a file a Version
+         *     holds (unticked by default).
+         */
+        get: operations["listAdoptionRows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adoption/rows/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change many rows of the plan at once
+         * @description Applies one `action` to the rows named in `row_ids`, or to every row `filter` keeps (the server
+         *     resolves it, so "all N in this filter" is one call across pages). Name `row_ids` or `filter`,
+         *     not both. Answers per row, in the order named: `changed`, `left` with a `reason`, or `failed`.
+         *     The plan's `revision` moves once, and only when a row changed; a left row is as it was.
+         *
+         *     - `tick` and `untick` include or leave out Matched rows, as `PATCH` with `ticked` does. Another
+         *       kind of row is left as `not_matched`, and one already so as `already`.
+         *     - `accept_suggested` settles Needs choice rows on their suggested candidate (see
+         *       `AdoptionCandidate`), only when it is `confident`: the row is planned again exactly as choosing
+         *       that candidate with `PATCH` does, so it can come back `matched`, or `skipped` with the
+         *       `skip_reason` it would have (no enabled Profile, for example); it is `changed` either way and
+         *       the item says which. A row that is not Needs choice is left as `not_needs_choice`, one
+         *       with no candidates as `no_suggestion`, one whose suggestion is not confident as
+         *       `not_confident`, and one that cannot be matched to the suggested Title as `not_settleable`.
+         *
+         *     - `set_monitor` gives the rows their own `monitor` (see `PATCH /adoption`), over the plan's. A row
+         *       that joins a Title Kestrel tracks is left as `tracked` (the Title keeps its monitoring), and
+         *       one that already has that choice as `already`. `monitor` is required for this action.
+         *
+         *     Accepting plans each row against the metadata provider, with the probes the scan took, a few rows at
+         *     a time, and does not hold the plan meanwhile: an edit made in the meantime goes through, and the
+         *     accept then answers `409 conflict` and changes nothing, so review the plan and accept again.
+         */
+        post: operations["bulkAdoptionRows"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adoption/rows/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Tick a row or settle its match
+         * @description `ticked` includes or leaves out the whole row, `files` the single files in it. `tmdb_id` settles a
+         *     Needs choice row (from its candidates or a search) or corrects a match: the row is planned again
+         *     against that Movie. Unsettled Needs choice rows are left out of the commit. Every change moves the plan's `revision`.
+         */
+        patch: operations["patchAdoptionRow"];
+        trace?: never;
+    };
+    "/attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Needs attention
+         * @description The problems the admin can act on. Blocking rows first, then Warnings newest first. Rows come
+         *     from conditions that clear themselves when the condition goes (Settled 16, 17; #17); `actions`
+         *     are built by the server and drawn generically by the SPA. An action with method `GET` opens
+         *     that SPA path (such as `/settings/download-client`) instead of calling the API. `count`
+         *     counts `rows` only: the Long Missing group has its own `long_missing` and the Originals
+         *     available group its own `originals`, and neither counts.
+         */
+        get: operations["getAttention"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attention/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A row's `id` from `GET /attention`. */
+                id: components["parameters"]["AttentionRowId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss a one-off health warning
+         * @description Hides the row until its condition recurs. Only rows with a `dismiss` action can be dismissed;
+         *     any other row is `409 conflict`, and one that is already gone `404`.
+         *     A `silo-silent-{request_id}` row ("Silo stopped asking") is hidden until Silo asks about that
+         *     Request again; the Request itself is kept.
+         */
+        post: operations["dismissAttention"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adoption/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adopt the ticked rows
+         * @description Answers `202`; the work runs in the background, one transaction per Title. Files are renamed in
+         *     place into the naming scheme together with their sidecar subtitles, and each Title is logged as it is
+         *     adopted. `409 conflict` when `revision` is not the plan's current one (a row changed since it was
+         *     reviewed) or the plan is not `planned`. Once committed the rows are kept with their final `outcome` (see
+         *     `GET /adoption/rows`) until the next scan or a discard.
+         */
+        post: operations["commitAdoption"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adoption/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan the entries that failed again
+         * @description After a commit, plans again only the entries whose `outcome` is `failed`, from their folders as they
+         *     are now and against the Title each was matched to, with no new scan. The plan is `planned` again for
+         *     review and a commit, with those entries as rows under review. The other kept rows stay, as does the
+         *     last commit's `result`: the next commit adds to it. Answers `202` with `Location: /adoption`; the
+         *     planning runs in the background (`scanning`), as a scan's does. If it cannot finish, the plan is
+         *     `idle` with its `error` and everything the commit kept. An entry whose folder is gone stays `failed`.
+         *     `409 conflict` while a scan or commit runs, or when there is no failed entry to try again.
+         */
+        post: operations["retryAdoption"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adoption/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put the entries nobody chose back in the plan
+         * @description After a commit, puts the kept rows whose `outcome` is `not_chosen` back in the plan as Needs choice
+         *     rows under review, with no scan, so they can be settled and committed. The plan is `planned` again.
+         *     The other kept rows stay, as does the last commit's `result`: the next commit adds to it.
+         *     `409 conflict` while a scan or commit runs, or when no entry was left without a choice.
+         */
+        post: operations["reopenAdoption"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cleanup/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * List the Unmanaged files Clean up could delete
+         * @description Lists the Unmanaged files inside tracked Titles' folders by category: junk, samples, orphaned
+         *     subtitles and empty folders (ticked by default as safe), then subtitles in other languages, local
+         *     artwork, extras and unmanaged videos (unticked). Files any Version holds are never listed. Without
+         *     `title_ids` every tracked Title's folder is covered. The answer names a `preview_id` that
+         *     `POST /cleanup/run` deletes from; nothing is deleted here.
+         */
+        post: operations["previewCleanup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cleanup/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete the ticked categories of a preview
+         * @description Permanently deletes the files of the named categories that the preview listed, except those named
+         *     in `exclude`, and removes the folders they leave empty. Files that a Version holds by now are
+         *     skipped. Each cleaned Title is logged. `404 not_found` when the preview is unknown or expired.
+         */
+        post: operations["runCleanup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wanted/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search all Wanted
+         * @description Makes every Wanted Version due a search now and wakes the sweep, so they are searched in the
+         *     next minute or so rather than on their own cadence (the indexers' budgets still apply).
+         *     Filled Versions are not touched: there is no "search all Upgrades". The answer is how many
+         *     Versions were queued.
+         */
+        post: operations["searchAllWanted"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/search/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The search pipeline
+         * @description What waits for a search and how the sweep is getting on: the Wanted Versions due a missing
+         *     search (with their episodes) and the Versions due an Upgrade search, the pass running now,
+         *     when the next one starts, how the last one went, and each enabled indexer's budget and
+         *     pauses. It is kept in memory as the passes go: a Version that comes due between passes is
+         *     counted at the next one, at most 5 minutes later, and "Search all Wanted" starts one at once.
+         *     `/stream` sends it as `search` frames whenever it changes.
+         */
+        get: operations["getSearchStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The background work running now
+         * @description The loops mid-pass and an Adoption scan or commit, as the stream's `activity` frames carry
+         *     them. All in memory: it starts empty at every start.
+         */
+        get: operations["getActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The background jobs
+         * @description Every background loop (ADR 0007) in the order it was registered, with whether it is mid-pass,
+         *     how its last pass went and when the next is due. It is kept in memory, so after a restart
+         *     `last_run` is `null` until each loop's first pass. The daily loops (`prune`, `refresh`,
+         *     `trash`, `updates`) pass hourly and do their work once a day, so their last run is the last
+         *     hourly check. `/stream` sends the same list as `jobs` frames whenever it changes.
+         */
+        get: operations["listJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jobs/{name}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a background job now
+         * @description Wakes the loop for a pass now; a pass already running or queued takes the kick, so it never
+         *     runs twice at once. Only the loops whose `runnable` is `true` (`search`, `rss`, `refresh`,
+         *     `health`) can be run by hand: the others answer `409 not_runnable`, and a loop this
+         *     instance doesn't have `404 not_found`.
+         */
+        post: operations["runJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every health check (Activity > Health)
+         * @description Capacity at a glance: the download client, each indexer with its daily budget and any pause, the
+         *     free space on the data mount and every Root folder, the active TRaSH snapshot with its commit
+         *     date, and whether "Pause Grabs" is on.
+         */
+        get: operations["getSystemStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/folder-changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Title folders that changed since a marker
+         * @description A feed of the Title folders whose changes settled (an Import, Upgrade, rename or deletion,
+         *     after the same short wait the media servers are given), for tools that poll for new
+         *     files. It is written for the Silo plugin: its `scan_source.v1` capability polls this
+         *     endpoint with the marker from its last poll.
+         *
+         *     `changes` are oldest first, at most `limit`. `path` is the Title folder as Kestrel sees it.
+         *     `kind` is `created` for a folder that exists and that the feed has not reported in its 30
+         *     days (or whose last report was `deleted`), `modified` for a folder that exists and was
+         *     reported, and `deleted` for a folder that is gone. `at` is when the change was recorded.
+         *
+         *     `next_marker` is never empty: pass it back as `marker` for the changes after this page.
+         *     `more` is `true` when changes after `next_marker` already exist, because the page was cut at
+         *     `limit`. Without a `marker`, or with an empty one, `changes` is empty and `next_marker` is
+         *     the current position: a first poll starts from now and does not replay history.
+         *
+         *     The feed keeps 30 days of changes and survives restarts. `expired` is `true` when the
+         *     `marker` can no longer be answered: changes after it were pruned, it is ahead of this
+         *     feed (it came from another Kestrel, or from a database that was reset), or it is not a marker
+         *     this feed issued. Then `changes` is empty, `next_marker` is the current position, and the
+         *     client should rescan everything. A bad marker is never a `422`. The same `marker` sent twice
+         *     gets the same answer, as long as nothing was pruned in between, so a client that keeps its
+         *     old marker after a failed poll reads the same window again.
+         */
+        get: operations["listFolderChanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/about": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * About Kestrel
+         * @description The running version and licence, what the daily GitHub check found (an `update` is present
+         *     only when a newer release exists and the "Check GitHub for updates" switch is on), and the
+         *     TRaSH commit whose Custom Formats score Releases now. Attribution and shortcuts are static
+         *     text in the SPA; the full third-party notices are `GET /about/notices`.
+         */
+        get: operations["getAbout"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/about/notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Third-party notices
+         * @description The generated notices (Markdown as plain text): the ported Radarr and Sonarr code, TRaSH data
+         *     and the Go and npm dependencies with their licences. The same file ships in the image and with
+         *     every release as `THIRD_PARTY_NOTICES.md`.
+         */
+        get: operations["getNotices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/trash/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update from TRaSH
+         * @description Asks for a pass of the `trash` loop that fetches TRaSH's newest Custom Formats and profiles,
+         *     whatever the daily check's switches say, and answers at once. The pass loads the snapshot
+         *     all-or-nothing: it must parse and every stored file is re-scored under it before it becomes
+         *     active. A snapshot that fails either is rejected whole, the previous one stays in use and the
+         *     "TRaSH update rejected" Warning is raised. Nothing is renamed or searched. `GET /jobs` shows
+         *     the pass's `progress` while it re-scores and its `outcome` when it ends (updated, up to date,
+         *     rejected, TRaSH unreachable). A request while one is already waiting or running starts no
+         *     second pass and is `202` too.
+         */
+        post: operations["updateTrash"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live state as Server-Sent Events
+         * @description One long-lived `text/event-stream`. Frames are `event: <type>` plus one `data:` line of JSON:
+         *
+         *     - `changed`: a hint, `{resource, id}` (see `ChangedHint`). Refetch that resource over REST.
+         *       They come from the events log, so an Import landing in a background loop reaches an open
+         *       tab within about a second, and from handlers for changes made through this API.
+         *     - `queue`: the `QueueList` snapshot (same as `GET /queue`), on connect and whenever it changes.
+         *     - `activity`: the background work running now (`ActivitySnapshot`, same as `GET /activity`):
+         *       the loops mid-pass with when each pass started, and an Adoption scan or commit with its
+         *       progress, on connect and whenever it changes.
+         *     - `attention`: the Needs attention count and worst severity (`AttentionSnapshot`), on connect
+         *       and whenever it changes.
+         *     - `search`: the search pipeline (`SearchStatus`, same as `GET /search/status`), on connect and
+         *       whenever it changes.
+         *     - `jobs`: the background loops with their last and next run (`JobList`, same as `GET /jobs`),
+         *       on connect and whenever it changes.
+         *
+         *     A comment line (`: heartbeat`) every 15 s keeps proxies from closing the connection.
+         *     There is no replay: after a reconnect the client refetches whatever it shows, and every
+         *     streamed state also has a snapshot resource. Unauthenticated callers get `401` instead of a
+         *     stream. Clients using an API key read it with streaming `fetch`; `EventSource` cannot set headers.
+         */
+        get: operations["stream"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Requests, newest first, or the named ones
+         * @description `id` may repeat (at most 100) to read those Requests in one call, as the Silo plugin does; the
+         *     other filters and the cursor are ignored then.
+         *     Reading Silo's Requests this way counts as Silo asking about them: Needs attention flags a Silo
+         *     Request that this read has not named for longer than Silo's whole retry span (6 hours and the
+         *     10-minute submission lease).
+         *
+         *     `source`, `status`, `outcome` and `requester` may each repeat: a Request matches any one of a
+         *     filter's values, and every filter given. `status` is derived on read like each Slot's, and every
+         *     Request has exactly one: `rejected` is a rejected Request, `open` an accepted one with a Slot
+         *     still queued or downloading, and `completed` every other accepted one, with nothing on its way
+         *     any more (each Slot completed, or its Version removed since).
+         */
+        get: operations["listRequests"];
+        put?: never;
+        /**
+         * Ask Kestrel for a Title in one or more Slots
+         * @description The native, source-neutral Request API (ADR 0004); Silo's router plugin calls it. A Request is
+         *     accepted at once, with no approval step. It adds the Title or only its missing Versions, searches
+         *     them at once, and never changes an existing Version: a Slot that already has a Version is accepted
+         *     unchanged and reports that Version's Profile and status. A Slot named without a `profile` uses
+         *     Profile resolution. A new Title goes in the `root_folder` named, else the first Root folder of its kind; an existing Title is never moved. A Series Request names `seasons`, or `null` for the whole Series; it only ever adds monitoring.
+         *
+         *     `201` for a new Request, accepted or rejected (`outcome`, `reject_reason`); a Request Kestrel cannot
+         *     serve (`not_on_tvdb`, `unknown_title`, `no_enabled_profile`) is stored as rejected and changes nothing.
+         *     A retry of the same `(source, source_request_id)` creates nothing and returns the stored Request
+         *     with `200`. `422` for a malformed body or a `root_folder` that is not one of the kind's Root folders. The requester's email is never stored.
+         */
+        post: operations["createRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/requests/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /** One Request with its current per-Slot status */
+        get: operations["getRequest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/requests/{id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End an open Request
+         * @description Ends the Request the way a rejected one ends: its Title and Versions stay, nothing more is asked
+         *     for it, and it reads as `outcome: rejected` with a `null` `reject_reason`. The reason is written
+         *     into the Log as a `request_ended` event. This is the "End" action of Needs attention's
+         *     "Silo stopped asking" row. `404` for a Request that does not exist; `409 conflict` for one that
+         *     is not open (completed, or already rejected).
+         */
+        post: operations["endRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/my/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The signed-in Requester's own Requests, newest first
+         * @description Only for a Requester's session; any other caller gets `403 forbidden`. The Requests whose
+         *     source is `plex` and whose requester is this Plex account.
+         */
+        get: operations["listMyRequests"];
+        put?: never;
+        /**
+         * Request a Title as the signed-in Requester
+         * @description Only for a Requester's session; any other caller gets `403 forbidden`. Makes a Request as
+         *     `POST /requests` does, with the source `plex`, this Plex account as the requester, the
+         *     Standard Slot under Profile resolution, the whole Series for a Series, and the Requester's
+         *     Root folder from `user_root_folders` (else the kind's first) for a Title the Request creates.
+         *     Asking for the same Title again returns the Requester's stored Request with `200`.
+         */
+        post: operations["createMyRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/plugins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The built-in plugins and their config schemas
+         * @description One manifest per compiled-in plugin, any contract. The UI draws each plugin's form from
+         *     `fields`, so a new adapter needs no UI change.
+         */
+        get: operations["listPlugins"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/plugins/{plugin_id}/options/{field}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Live choices for a config field
+         * @description Asks the plugin for the current values of a `live` field (SABnzbd's categories) using the
+         *     form as it stands. `config` is merged over the stored instance when `instance_id` is given,
+         *     so a saved secret need not be sent again. The config is not validated as a whole, because the
+         *     form may be half filled. A plugin failure is `502 upstream_unavailable`.
+         */
+        post: operations["listPluginOptions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/plugin-instances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Configured plugin instances */
+        get: operations["listPluginInstances"];
+        put?: never;
+        /**
+         * Configure a plugin instance
+         * @description Absent config fields take the manifest default. Secret fields are accepted here and never
+         *     returned: `secrets_set` lists which are set. Enabling an instance beyond its contract's cap
+         *     (one enabled download client in v1) is a `validation` error on `enabled`. A name the Config
+         *     File declares answers `409 conflict`; instances created here may share names with each other.
+         */
+        post: operations["createPluginInstance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/plugin-instances/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test an unsaved plugin config
+         * @description Runs the plugin's live test with the given config. A failing test is still `200` with
+         *     `ok: false` and the plugin's error `code`; only a malformed config is `422`.
+         */
+        post: operations["testPluginConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/plugin-instances/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        /** One plugin instance */
+        get: operations["getPluginInstance"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove a plugin instance
+         * @description `409 conflict` for an instance the Config File declares (`from_config_file`).
+         */
+        delete: operations["deletePluginInstance"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a plugin instance
+         * @description `config` merges key by key. A secret that is omitted stays as it is, a string replaces it
+         *     and `null` clears it; clearing any other field returns it to its default. `409 conflict` for
+         *     an instance the Config File declares (`from_config_file`), or a rename to a declared name.
+         *     The exception is a patch that changes only `enabled` on a declared instance whose `enabled`
+         *     the file leaves out (`enabled_declared` is `false`): the UI manages that value.
+         */
+        patch: operations["updatePluginInstance"];
+        trace?: never;
+    };
+    "/plugin-instances/{id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test a saved plugin instance
+         * @description Like the unsaved test, with the stored config (secrets included) underneath the optional
+         *     `config` edits, so a form can be tested before it is saved without retyping the secret.
+         */
+        post: operations["testPluginInstance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
-export type webhooks = Record<string, never>
+export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    System: {
-      /**
-       * @description Kestrel release version, or `dev` for local builds.
-       * @example 0.1.0
-       */
-      version: string
-      /**
-       * @description Major version of this API (the `N` in `/api/vN`).
-       * @example 1
-       */
-      api_major: number
-      /**
-       * @description The routing prefix from KESTREL_BASE_URL, empty when unset.
-       * @example /kestrel
-       */
-      base_url: string
-    }
-    ApiKeyInfo: {
-      /**
-       * @description The first characters of the key, for recognising it.
-       * @example kst_ABCD
-       */
-      prefix: string | null
-      /** Format: date-time */
-      created_at: string | null
-      /**
-       * @description `true` while the key comes from `KESTREL_API_KEY`, which replaces any generated key and
-       *     stops it from being rotated here.
-       */
-      from_environment: boolean
-    }
-    NewApiKey: {
-      /** @description The whole key, `kst_` plus 52 base32 characters. */
-      key: string
-    }
-    ReverseProxySettings: {
-      /** @description Whether the `header` from a trusted proxy logs the admin in. Needs a trusted proxy. */
-      enabled: boolean
-      /**
-       * @description Addresses or CIDR ranges of the proxies whose `X-Forwarded-For` and
-       *     `X-Forwarded-Proto` are believed, and, with `enabled`, whose `header` is.
-       * @example [
-       *       "172.18.0.0/16",
-       *       "10.0.0.5"
-       *     ]
-       */
-      trusted_proxies: string[]
-      /**
-       * @description The header carrying the user name.
-       * @example Remote-User
-       */
-      header: string
-    }
-    ReverseProxy: components['schemas']['ReverseProxySettings'] & {
-      /** @description `true` while the Config File declares `reverse_proxy`, which can't be changed here then. */
-      from_config_file: boolean
-      /** @description Addresses that sent the header without being trusted, newest first. */
-      readonly untrusted: components['schemas']['UntrustedProxyHeader'][]
-    }
-    PlexSignInAvailability: {
-      enabled: boolean
-    }
-    PlexPin: {
-      /** @description The plex.tv page to send the browser to; it sends the browser back to Kestrel's login page. */
-      auth_url: string
-    }
-    PlexUserRootFolders: {
-      /** @description A Plex username, or a Plex Home user's name, ignoring case. */
-      user: string
-      /** @description One of the Movie Root folders; `null` keeps the first. */
-      movies: string | null
-      /** @description One of the Series Root folders; `null` keeps the first. */
-      series: string | null
-    }
-    PlexSignInSettings: {
-      enabled: boolean
-      /** @description Turns Watchlist sync on, which makes a Watchlist Request for each title newly added to a Watchlist (ADR 0019). */
-      watchlist: boolean
-      /** @description Turns Watch-ahead on, so a Requester's Series Request starts with season 1 and adds the next season as people watch (ADR 0019). */
-      watch_ahead: boolean
-      /** @description Turns the `Requested` labels and collection in Plex on (ADR 0019). */
-      labels: boolean
-      /** @description Turns the "Requested" badge on posters in Plex on (ADR 0019). */
-      poster_badge: boolean
-      /** @description How many days the poster badge stays; `null` keeps the default, 30. */
-      poster_badge_days: number | null
-      /** @description The name of the `plex` plugin instance whose server and owner token decide who may sign in. */
-      instance: string | null
-      /** @description Who may request, by Plex username or Plex Home user name; empty for everyone with access to the server. */
-      users: string[]
-      user_root_folders: components['schemas']['PlexUserRootFolders'][]
-    }
-    PlexSignIn: components['schemas']['PlexSignInSettings'] & {
-      /** @description `true` while the Config File declares `plex_sign_in`, which can't be changed here then. */
-      from_config_file: boolean
-    }
-    SiloSettings: {
-      /** @description Makes a Silo Series Request that names no seasons start with season 1 and add the next as people watch, unless the Request says otherwise (ADR 0020). */
-      watch_ahead: boolean
-      /** @description The name of the `silo` plugin instance whose playback history Watch-ahead reads; needed once `watch_ahead` is on. */
-      instance: string | null
-    }
-    Silo: components['schemas']['SiloSettings'] & {
-      /** @description `true` while the Config File declares `silo`, which can't be changed here then. */
-      from_config_file: boolean
-    }
-    MyRequestCreate: {
-      kind: components['schemas']['TitleKind']
-      tmdb_id: number
-    }
-    UntrustedProxyHeader: {
-      ip: string
-      /** @description The header value from the latest request. */
-      value: string
-      count: number
-      /** Format: date-time */
-      last_seen: string
-    }
-    Credentials: {
-      username: string
-      password: string
-    }
-    Me: {
-      /** @description The admin's username, or a Requester's Plex username (a Plex Home user's name when it has none). */
-      username: string
-      /**
-       * @description `requester` for someone signed in with Plex, who may only search, request and see their own Requests.
-       * @enum {string}
-       */
-      role: 'admin' | 'requester'
-      /** @description `true` while the Config File declares the account, whose password can't be changed here then. Always `false` for a Requester. */
-      from_config_file: boolean
-      /**
-       * @description How this request was authenticated; `plex` for a Requester's session.
-       * @enum {string}
-       */
-      method: 'session' | 'proxy' | 'api_key' | 'plex'
-      /** @description The reverse-proxy header value, when `method` is `proxy`. */
-      proxy_user: string | null
-    }
-    Setup: {
-      account_exists: boolean
-      completed: boolean
-      sections: {
-        account: components['schemas']['SetupSectionState']
-        language: components['schemas']['SetupSectionState']
-        download_client: components['schemas']['SetupSectionState']
-        indexer: components['schemas']['SetupSectionState']
-        root_folders: components['schemas']['SetupSectionState']
-        profiles: components['schemas']['SetupSectionState']
-      }
-    }
-    /**
-     * @description The household's Primary Language as ISO 639-1.
-     * @enum {string}
-     */
-    PrimaryLanguage: 'en' | 'de' | 'fr'
-    Settings: {
-      /**
-       * @description "Pause Grabs" (default off). On, no automatic Grab is made: the sweep, RSS, the search on
-       *     add and the retry after a failed download still search and score Releases, so Wanted and
-       *     Upgrade candidates still show up, but send nothing to the download client. A Grab started
-       *     by hand from a Version's Releases still goes through. Turning it off makes every Wanted
-       *     Version, and every Upgrade search made while paused, due a search now, so the next sweep
-       *     grabs as usual. Activity > Health shows it as
-       *     `grabs_paused`.
-       */
-      pause_grabs: boolean
-      display: components['schemas']['Display']
-      /**
-       * @description Per section, `true` while the Config File declares it. A declared section can't be
-       *     changed here: a patch naming it answers `409 conflict`.
-       */
-      from_config_file: {
-        /** @description Per display setting, `true` while the Config File declares it; a patch naming it answers `409 conflict`. */
-        display: {
-          season_order: boolean
-          seasons_open: boolean
-          manual_search_sort: boolean
-          upcoming_filters: boolean
-        }
-        language_region: boolean
-        root_folders: boolean
-        check_github_updates: boolean
-      }
-      /**
-       * @description The provider keys the UI overrides, by precedence UI override, then `KESTREL_TMDB_API_KEY` /
-       *     `KESTREL_TVDB_API_KEY`, then the key embedded in the build. The keys are secrets: only whether an override is set is reported.
-       */
-      metadata: {
-        tmdb_api_key_set: boolean
-        tvdb_api_key_set: boolean
-      }
-      trash: {
-        /** @description Check TRaSH daily and take its newest Custom Formats and profiles. On by default (and only while "Check GitHub for updates" is on). */
-        auto_update: boolean
-      }
-      /**
-       * @description "Check GitHub for updates" (default on). Once a day Kestrel asks GitHub for the latest release
-       *     and the published security advisories (and, with the TRaSH update, the latest TRaSH commit).
-       *     Off means no request to GitHub at all, except a manual "Update from TRaSH".
-       */
-      check_github_updates: boolean
-      root_folders: components['schemas']['RootFolders']
-      language_region: {
-        primary_language: components['schemas']['PrimaryLanguage']
+    schemas: {
+        System: {
+            /**
+             * @description Kestrel release version, or `dev` for local builds.
+             * @example 0.1.0
+             */
+            version: string;
+            /**
+             * @description Major version of this API (the `N` in `/api/vN`).
+             * @example 1
+             */
+            api_major: number;
+            /**
+             * @description The routing prefix from KESTREL_BASE_URL, empty when unset.
+             * @example /kestrel
+             */
+            base_url: string;
+        };
+        ApiKeyInfo: {
+            /**
+             * @description The first characters of the key, for recognising it.
+             * @example kst_ABCD
+             */
+            prefix: string | null;
+            /** Format: date-time */
+            created_at: string | null;
+            /**
+             * @description `true` while the key comes from `KESTREL_API_KEY`, which replaces any generated key and
+             *     stops it from being rotated here.
+             */
+            from_environment: boolean;
+        };
+        NewApiKey: {
+            /** @description The whole key, `kst_` plus 52 base32 characters. */
+            key: string;
+        };
+        ReverseProxySettings: {
+            /** @description Whether the `header` from a trusted proxy logs the admin in. Needs a trusted proxy. */
+            enabled: boolean;
+            /**
+             * @description Addresses or CIDR ranges of the proxies whose `X-Forwarded-For` and
+             *     `X-Forwarded-Proto` are believed, and, with `enabled`, whose `header` is.
+             * @example [
+             *       "172.18.0.0/16",
+             *       "10.0.0.5"
+             *     ]
+             */
+            trusted_proxies: string[];
+            /**
+             * @description The header carrying the user name.
+             * @example Remote-User
+             */
+            header: string;
+        };
+        ReverseProxy: components["schemas"]["ReverseProxySettings"] & {
+            /** @description `true` while the Config File declares `reverse_proxy`, which can't be changed here then. */
+            from_config_file: boolean;
+            /** @description Addresses that sent the header without being trusted, newest first. */
+            readonly untrusted: components["schemas"]["UntrustedProxyHeader"][];
+        };
+        PlexSignInAvailability: {
+            enabled: boolean;
+        };
+        PlexPin: {
+            /** @description The plex.tv page to send the browser to; it sends the browser back to Kestrel's login page. */
+            auth_url: string;
+        };
+        PlexUserRootFolders: {
+            /** @description A Plex username, or a Plex Home user's name, ignoring case. */
+            user: string;
+            /** @description One of the Movie Root folders; `null` keeps the first. */
+            movies: string | null;
+            /** @description One of the Series Root folders; `null` keeps the first. */
+            series: string | null;
+        };
+        PlexSignInSettings: {
+            enabled: boolean;
+            /** @description Turns Watchlist sync on, which makes a Watchlist Request for each title newly added to a Watchlist (ADR 0019). */
+            watchlist: boolean;
+            /** @description Turns Watch-ahead on, so a Requester's Series Request starts with season 1 and adds the next season as people watch (ADR 0019). */
+            watch_ahead: boolean;
+            /** @description Turns the `Requested` labels and collection in Plex on (ADR 0019). */
+            labels: boolean;
+            /** @description Turns the "Requested" badge on posters in Plex on (ADR 0019). */
+            poster_badge: boolean;
+            /** @description How many days the poster badge stays; `null` keeps the default, 30. */
+            poster_badge_days: number | null;
+            /** @description The name of the `plex` plugin instance whose server and owner token decide who may sign in. */
+            instance: string | null;
+            /** @description Who may request, by Plex username or Plex Home user name; empty for everyone with access to the server. */
+            users: string[];
+            user_root_folders: components["schemas"]["PlexUserRootFolders"][];
+        };
+        PlexSignIn: components["schemas"]["PlexSignInSettings"] & {
+            /** @description `true` while the Config File declares `plex_sign_in`, which can't be changed here then. */
+            from_config_file: boolean;
+        };
+        SiloSettings: {
+            /** @description Makes a Silo Series Request that names no seasons start with season 1 and add the next as people watch, unless the Request says otherwise (ADR 0020). */
+            watch_ahead: boolean;
+            /** @description The name of the `silo` plugin instance whose playback history Watch-ahead reads; needed once `watch_ahead` is on. */
+            instance: string | null;
+        };
+        Silo: components["schemas"]["SiloSettings"] & {
+            /** @description `true` while the Config File declares `silo`, which can't be changed here then. */
+            from_config_file: boolean;
+        };
+        MyRequestCreate: {
+            kind: components["schemas"]["TitleKind"];
+            tmdb_id: number;
+        };
+        UntrustedProxyHeader: {
+            ip: string;
+            /** @description The header value from the latest request. */
+            value: string;
+            count: number;
+            /** Format: date-time */
+            last_seen: string;
+        };
+        Credentials: {
+            username: string;
+            password: string;
+        };
+        Me: {
+            /** @description The admin's username, or a Requester's Plex username (a Plex Home user's name when it has none). */
+            username: string;
+            /**
+             * @description `requester` for someone signed in with Plex, who may only search, request and see their own Requests.
+             * @enum {string}
+             */
+            role: "admin" | "requester";
+            /** @description `true` while the Config File declares the account, whose password can't be changed here then. Always `false` for a Requester. */
+            from_config_file: boolean;
+            /**
+             * @description How this request was authenticated; `plex` for a Requester's session.
+             * @enum {string}
+             */
+            method: "session" | "proxy" | "api_key" | "plex";
+            /** @description The reverse-proxy header value, when `method` is `proxy`. */
+            proxy_user: string | null;
+        };
+        Setup: {
+            account_exists: boolean;
+            completed: boolean;
+            sections: {
+                account: components["schemas"]["SetupSectionState"];
+                language: components["schemas"]["SetupSectionState"];
+                download_client: components["schemas"]["SetupSectionState"];
+                indexer: components["schemas"]["SetupSectionState"];
+                root_folders: components["schemas"]["SetupSectionState"];
+                profiles: components["schemas"]["SetupSectionState"];
+            };
+        };
         /**
-         * @description ISO 3166-1 alpha-2. "Released" follows it.
-         * @example DE
+         * @description The household's Primary Language as ISO 639-1.
+         * @enum {string}
          */
-        release_date_country: string
+        PrimaryLanguage: "en" | "de" | "fr";
+        Settings: {
+            /**
+             * @description "Pause Grabs" (default off). On, no automatic Grab is made: the sweep, RSS, the search on
+             *     add and the retry after a failed download still search and score Releases, so Wanted and
+             *     Upgrade candidates still show up, but send nothing to the download client. A Grab started
+             *     by hand from a Version's Releases still goes through. Turning it off makes every Wanted
+             *     Version, and every Upgrade search made while paused, due a search now, so the next sweep
+             *     grabs as usual. Activity > Health shows it as
+             *     `grabs_paused`.
+             */
+            pause_grabs: boolean;
+            display: components["schemas"]["Display"];
+            /**
+             * @description Per section, `true` while the Config File declares it. A declared section can't be
+             *     changed here: a patch naming it answers `409 conflict`.
+             */
+            from_config_file: {
+                /** @description Per display setting, `true` while the Config File declares it; a patch naming it answers `409 conflict`. */
+                display: {
+                    season_order: boolean;
+                    seasons_open: boolean;
+                    manual_search_sort: boolean;
+                    upcoming_filters: boolean;
+                };
+                language_region: boolean;
+                root_folders: boolean;
+                check_github_updates: boolean;
+            };
+            /**
+             * @description The provider keys the UI overrides, by precedence UI override, then `KESTREL_TMDB_API_KEY` /
+             *     `KESTREL_TVDB_API_KEY`, then the key embedded in the build. The keys are secrets: only whether an override is set is reported.
+             */
+            metadata: {
+                tmdb_api_key_set: boolean;
+                tvdb_api_key_set: boolean;
+            };
+            trash: {
+                /** @description Check TRaSH daily and take its newest Custom Formats and profiles. On by default (and only while "Check GitHub for updates" is on). */
+                auto_update: boolean;
+            };
+            /**
+             * @description "Check GitHub for updates" (default on). Once a day Kestrel asks GitHub for the latest release
+             *     and the published security advisories (and, with the TRaSH update, the latest TRaSH commit).
+             *     Off means no request to GitHub at all, except a manual "Update from TRaSH".
+             */
+            check_github_updates: boolean;
+            root_folders: components["schemas"]["RootFolders"];
+            language_region: {
+                primary_language: components["schemas"]["PrimaryLanguage"];
+                /**
+                 * @description ISO 3166-1 alpha-2. "Released" follows it.
+                 * @example DE
+                 */
+                release_date_country: string;
+                /**
+                 * @description Present while a change of `primary_language` waits for its re-score. `primary_language`
+                 *     stays the old Language until the `trash` job has re-scored every file under the new one;
+                 *     then it changes, and this is gone. A change that fails leaves `primary_language` as it was.
+                 */
+                pending_primary_language?: components["schemas"]["PrimaryLanguage"];
+            };
+        };
+        /** @enum {string} */
+        SeasonOrder: "oldest_first" | "newest_first";
+        /** @enum {string} */
+        SeasonsOpen: "latest_and_wanted" | "all" | "none";
         /**
-         * @description Present while a change of `primary_language` waits for its re-score. `primary_language`
-         *     stays the old Language until the `trash` job has re-scored every file under the new one;
-         *     then it changes, and this is gone. A change that fails leaves `primary_language` as it was.
+         * @description Best first, or a Manual search column with `_asc` or `_desc`. Score descending is best first, so
+         *     `score_desc` is not a value.
+         * @enum {string}
          */
-        pending_primary_language?: components['schemas']['PrimaryLanguage']
-      }
-    }
-    /** @enum {string} */
-    SeasonOrder: 'oldest_first' | 'newest_first'
-    /** @enum {string} */
-    SeasonsOpen: 'latest_and_wanted' | 'all' | 'none'
-    /**
-     * @description Best first, or a Manual search column with `_asc` or `_desc`. Score descending is best first, so
-     *     `score_desc` is not a value.
-     * @enum {string}
-     */
-    ManualSearchSort:
-      | 'best_first'
-      | 'score_asc'
-      | 'release_asc'
-      | 'release_desc'
-      | 'quality_asc'
-      | 'quality_desc'
-      | 'languages_asc'
-      | 'languages_desc'
-      | 'formats_asc'
-      | 'formats_desc'
-      | 'size_asc'
-      | 'size_desc'
-      | 'age_asc'
-      | 'age_desc'
-      | 'indexer_asc'
-      | 'indexer_desc'
-    /** @description One of `all`, `movie` or `series`; anything else is `422`. */
-    UpcomingKind: string
-    /**
-     * @description The household-wide view defaults. Each is where a browser or session starts: a season the
-     *     user opened or closed on a Series, a sort picked in Manual search and the Upcoming filters
-     *     changed in a session keep winning. Never saved, they report today's behavior.
-     */
-    Display: {
-      /** @description Newest first reverses the seasons and the episodes in each. Specials come last in both orders. */
-      season_order: components['schemas']['SeasonOrder']
-      /** @description Which seasons of a Series start open. `latest_and_wanted` opens the latest season and any with a Wanted episode, never Specials. */
-      seasons_open: components['schemas']['SeasonsOpen']
-      manual_search_sort: components['schemas']['ManualSearchSort']
-      upcoming_filters: {
-        kind: components['schemas']['UpcomingKind']
-        wanted_only: boolean
-        hide_imported: boolean
-      }
-    }
-    /**
-     * @description Where Imports put Titles, one or more absolute paths per kind. The first is the default when
-     *     adding a Title. Unsaved, they report `<data dir>/media/movies` and `<data dir>/media/tv`.
-     */
-    RootFolders: {
-      movies: string[]
-      series: string[]
-    }
-    SettingsPatch: {
-      /**
-       * @description Changes the named display settings. A setting the Config File declares answers `409 conflict`.
-       *     An unknown value answers `422` naming `display.<setting>`.
-       */
-      display?: {
-        season_order?: components['schemas']['SeasonOrder']
-        seasons_open?: components['schemas']['SeasonsOpen']
-        manual_search_sort?: components['schemas']['ManualSearchSort']
-        upcoming_filters?: {
-          kind?: components['schemas']['UpcomingKind']
-          wanted_only?: boolean
-          hide_imported?: boolean
-        }
-      }
-      pause_grabs?: boolean
-      check_github_updates?: boolean
-      /** @description A key that is omitted stays; an empty string clears the override so the next source applies. */
-      metadata?: {
-        tmdb_api_key?: string
-        tvdb_api_key?: string
-      }
-      trash?: {
-        auto_update?: boolean
-      }
-      /**
-       * @description Replaces the named lists. Each path must exist, be a directory and be writable
-       *     (`not_found`, `not_directory`, `not_writable`, `not_absolute`, `required`).
-       */
-      root_folders?: {
-        movies?: string[]
-        series?: string[]
-      }
-      language_region?: {
-        primary_language?: components['schemas']['PrimaryLanguage']
-        release_date_country?: string
-      }
-    }
-    /** @enum {string} */
-    Slot: 'standard' | '4k'
-    Profile: {
-      /** @description `true` while the Config File declares `profiles`, which declares every Profile at once. */
-      from_config_file: boolean
-      /** @example hd-primary */
-      key: string
-      /** @example HD */
-      name: string
-      slot: components['schemas']['Slot']
-      /**
-       * @description Which audio the Profile requires.
-       * @enum {string}
-       */
-      language_rule: 'primary' | 'original'
-      original_language: components['schemas']['OriginalLanguageChoice']
-      /**
-       * @deprecated
-       * @description Deprecated in favour of `original_language`: `true` exactly when it is `accept`. Always
-       *     false on Original-Language Profiles.
-       */
-      original_fallback: boolean
-      enabled: boolean
-      default_movies: boolean
-      default_series: boolean
-      min_height: number
-      max_height: number
-      /** @description The TRaSH profile file (without .json) backing the Profile for Movies under the current Primary Language. */
-      trash_profile_movies: string
-      /** @description The same for Series. */
-      trash_profile_series: string
-    }
-    ProfileList: {
-      items: components['schemas']['Profile'][]
-    }
-    ProfilePatch: {
-      enabled?: boolean
-      original_language?: components['schemas']['OriginalLanguageChoice']
-      /**
-       * @deprecated
-       * @description Deprecated in favour of `original_language`; `true` sets `accept`, `false` sets `reject`.
-       */
-      original_fallback?: boolean
-      default_movies?: boolean
-      default_series?: boolean
-    }
-    /**
-     * @description What a Primary-Language Profile does with a Release that has the Title's Original Language but
-     *     no Primary-Language audio: `reject` it, `offer` it to the admin as an Original Offer (Needs
-     *     attention, never grabbed on its own), or `accept` it like any other. Always `reject` on
-     *     Original-Language Profiles.
-     * @enum {string}
-     */
-    OriginalLanguageChoice: 'reject' | 'offer' | 'accept'
-    /** @enum {string} */
-    SetupSectionState: 'done' | 'todo'
-    /**
-     * @description Plugin settings by manifest field key. Secret fields are write-only: they are accepted
-     *     here and never returned. In a patch, `null` clears a field.
-     */
-    PluginConfigPatch: {
-      [key: string]: unknown
-    }
-    PluginOption: {
-      value: string
-      label: string
-    }
-    PluginField: {
-      key: string
-      label: string
-      /** @enum {string} */
-      type: 'text' | 'url' | 'secret' | 'int' | 'bool' | 'select'
-      required: boolean
-      /** @description The value used when the field is absent, or `null`. */
-      default: unknown
-      help: string
-      /** @description The fixed choices of a `select` field. */
-      options: components['schemas']['PluginOption'][]
-      /**
-       * @description Choices come from `POST /plugins/{plugin_id}/options/{field}` once the connection works.
-       *     Until then the field is free text.
-       */
-      live: boolean
-    }
-    PluginManifest: {
-      /** @example sabnzbd */
-      id: string
-      name: string
-      /**
-       * @description The versioned plugin contract, e.g. `download_client.v1`.
-       * @example download_client.v1
-       */
-      contract: string
-      version: string
-      /** @description Contract-specific facts, e.g. protocols: [usenet]. */
-      capabilities: {
-        [key: string]: string[]
-      }
-      fields: components['schemas']['PluginField'][]
-    }
-    PluginList: {
-      items: components['schemas']['PluginManifest'][]
-      next_cursor: string | null
-    }
-    PluginOptionList: {
-      items: components['schemas']['PluginOption'][]
-    }
-    PluginForm: {
-      config: components['schemas']['PluginConfigPatch']
-      /**
-       * Format: int64
-       * @description A saved instance whose stored config, secrets included, lies under `config`.
-       */
-      instance_id?: number | null
-    }
-    PluginInstance: {
-      /**
-       * @description `true` for an instance the Config File declares. It can't be changed or removed here,
-       *     and its name can't be given to another instance. Only `enabled` can be changed, and only
-       *     while `enabled_declared` is `false`.
-       */
-      from_config_file: boolean
-      /**
-       * @description `true` while the Config File sets this instance's `enabled`, which can't be changed
-       *     here then. `false` for an instance created here, and for a declared instance whose
-       *     file leaves `enabled` out: `enabled` is changed here and kept across restarts.
-       */
-      enabled_declared: boolean
-      /** Format: int64 */
-      id: number
-      contract: string
-      plugin_id: string
-      name: string
-      enabled: boolean
-      priority: number
-      /** @description Every non-secret manifest field, `null` for none. */
-      config: {
-        [key: string]: unknown
-      }
-      /** @description Keys of the secret fields that have a value. The values are never returned. */
-      secrets_set: string[]
-      /**
-       * @description The latest check of the instance, or call Kestrel made to it for its own work.
-       *     `null` before the first. Enabled media servers are checked every 15 min.
-       */
-      last_check: components['schemas']['PluginInstanceCheck'] | null
-    }
-    PluginInstanceCheck: {
-      /** Format: date-time */
-      at: string
-      ok: boolean
-      /**
-       * @description Why the call failed, `null` when it worked: `auth`, `unavailable`, `rate_limited`,
-       *     `invalid` or `not_found`. Clients tolerate new values.
-       */
-      code: string | null
-      /** @description The error's text, `null` when the call worked. */
-      message: string | null
-    }
-    PluginInstanceList: {
-      items: components['schemas']['PluginInstance'][]
-      next_cursor: string | null
-    }
-    PluginInstanceCreate: {
-      plugin_id: string
-      name: string
-      /** @description Defaults to true when absent. */
-      enabled?: boolean
-      /** @description Defaults to 0 when absent. */
-      priority?: number
-      config: components['schemas']['PluginConfigPatch']
-    }
-    PluginInstancePatch: {
-      name?: string
-      enabled?: boolean
-      priority?: number
-      config?: components['schemas']['PluginConfigPatch']
-    }
-    PluginTestRequest: {
-      plugin_id: string
-      config: components['schemas']['PluginConfigPatch']
-    }
-    PluginTestResult: {
-      ok: boolean
-      /**
-       * @description Why the test failed, `null` when it passed: `auth`, `unavailable`, `rate_limited`,
-       *     `invalid` or `not_found`. Clients tolerate new values.
-       */
-      code: string | null
-      message: string
-    }
-    /** @enum {string} */
-    TitleKind: 'movie' | 'series'
-    /**
-     * @description `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
-     *     Clients tolerate new values.
-     * @enum {string}
-     */
-    SlotState: 'wanted' | 'filled' | 'downloading' | 'unmonitored' | 'unreleased'
-    LookupResult: {
-      kind: components['schemas']['TitleKind']
-      tmdb_id: number
-      tvdb_id: number | null
-      title: string
-      year: number | null
-      /** @description A small TMDB poster URL. */
-      poster: string | null
-      /**
-       * Format: int64
-       * @description The Title id when it is already in the Library.
-       */
-      in_library: number | null
-      addable: boolean
-      /** @description `not_on_tvdb` for a Series TheTVDB does not have; `null` when addable. Clients tolerate new values. */
-      not_addable_reason: string | null
-      /** @description Audience ratings of the Title from ratings sources; empty when none has one. */
-      ratings: components['schemas']['Rating'][]
-    }
-    LookupList: {
-      /**
-       * @description Best match first: TMDB's results ranked by how well they match the query, then by a
-       *     year typed after it (`dune 2021`, searched as `dune`).
-       */
-      items: components['schemas']['LookupResult'][]
-      next_cursor: string | null
-      /** @description The best result's title when it differs a lot from the query, to search for instead; `null` otherwise. */
-      did_you_mean: string | null
-    }
-    SuggestedSlot: {
-      slot: components['schemas']['Slot']
-      /**
-       * @description The Profile key.
-       * @example any-primary
-       */
-      profile: string
-      /** @example Any */
-      label: string
-      /**
-       * @description `default` (the Slot's default Profile). Clients tolerate new values.
-       * @enum {string}
-       */
-      reason: 'default'
-    }
-    LookupDetail: {
-      kind: components['schemas']['TitleKind']
-      tmdb_id: number
-      title: string
-      year: number | null
-      overview: string
-      /** Format: int64 */
-      in_library: number | null
-      /** @description The Title's rating, as TMDB writes it ("6", "PG"). */
-      certification: string | null
-      /** @description The country that rating is from; the release-date country unless TMDB had none there. */
-      certification_country: string | null
-      /** @description Every Slot with a default Profile for the kind, in Slot order. */
-      slots: components['schemas']['SuggestedSlot'][]
-      /** @description Audience ratings of the Title from ratings sources; empty when none has one. */
-      ratings: components['schemas']['Rating'][]
-      /** @description A TMDB poster URL, larger than the search result's. */
-      poster: string | null
-      /** @description Minutes; a typical episode's for a Series. */
-      runtime: number | null
-      /**
-       * @description TMDB's genre names, in TMDB's order.
-       * @example [
-       *       "Drama",
-       *       "Crime"
-       *     ]
-       */
-      genres: string[]
-    }
-    /**
-     * @description A Series' overview for the add panel (`GET /lookup/series/{tmdb_id}/overview`): status,
-     *     network, air dates and seasons.
-     */
-    LookupSeries: {
-      /**
-       * @description `continuing`, `ended` or `upcoming`, as TheTVDB says. Clients tolerate new values.
-       * @example ended
-       */
-      status: string | null
-      /**
-       * @description The network it first aired on, from TMDB.
-       * @example AMC
-       */
-      network: string | null
-      /**
-       * Format: date
-       * @description The first episode's air date, Specials aside.
-       */
-      first_aired: string | null
-      /**
-       * Format: date
-       * @description The latest air date up to today, Specials aside.
-       */
-      last_aired: string | null
-      /**
-       * @description The latest season that has aired or is airing (Specials aside); `null` when none has
-       *     started. What `TitleCreate.seasons` takes to add only the current season.
-       */
-      latest_season: number | null
-      /** @description Every season TheTVDB lists, Specials (0) first. */
-      seasons: components['schemas']['LookupSeason'][]
-    }
-    LookupSeason: {
-      /** @description 0 is Specials. */
-      number: number
-      episodes: number
-      /**
-       * Format: date
-       * @description The season's earliest known air date.
-       */
-      first_aired: string | null
-      /**
-       * Format: date
-       * @description The season's latest known air date, which may be in the future.
-       */
-      last_aired: string | null
-    }
-    VersionRef: {
-      slot: components['schemas']['Slot']
-      /** @description The Profile key. It must be an enabled Profile of that Slot. */
-      profile: string
-    }
-    VersionPatch: {
-      /** @description The Profile key. It must be an enabled Profile of the Version's Slot. */
-      profile: string
-    }
-    TitleCreate: {
-      kind: components['schemas']['TitleKind']
-      tmdb_id: number
-      versions: components['schemas']['VersionRef'][]
-      root_folder?: string | null
-      /** @description Series only; defaults to `all`. */
-      series_monitor?: components['schemas']['SeriesMonitor'] | null
-      /**
-       * @description Series only: the seasons monitored when it is added, Specials (0) included when named.
-       *     Left out, `series_monitor` decides every episode. Given, it decides seasons that have
-       *     not started airing and every episode that arrives later; the seasons not named are
-       *     left unmonitored. A season the Series does not have is a `422` (`seasons` /
-       *     `unknown`), as is a negative one (`seasons` / `invalid`) and a Movie with seasons
-       *     (`seasons` / `not_a_series`).
-       * @example [
-       *       1
-       *     ]
-       */
-      seasons?: number[] | null
-    }
-    /**
-     * @description `all` monitors every episode, future ones and new seasons included; `future` the episodes airing
-     *     today or later or without an air date, and new seasons; `none` nothing. Specials (season 0) are
-     *     never monitored automatically.
-     * @enum {string}
-     */
-    SeriesMonitor: 'all' | 'future' | 'none'
-    Season: {
-      /** @description 0 is Specials. */
-      number: number
-      monitored: boolean
-    }
-    EpisodeCell: {
-      state: components['schemas']['SlotState']
-      /** @description The Score of the file holding the episode, when there is one. */
-      score: number | null
-      /** @description The file holding the episode in this Version, even a misfit one; `null` when there is none. */
-      file: components['schemas']['EpisodeFile'] | null
-    }
-    /** @description A file on disk holding one or more episodes of a Version (a multi-episode file holds several). */
-    EpisodeFile: {
-      /** Format: int64 */
-      id: number
-      path: string
-      /** Format: int64 */
-      size: number
-      /** @description The quality name parsed from the release name ("WEBDL-1080p"). */
-      quality: string | null
-      /** @description Every episode the file holds, in aired order; more than one for a multi-episode file. */
-      episode_ids: number[]
-    }
-    Episode: {
-      /** Format: int64 */
-      id: number
-      season: number
-      number: number
-      /** @description The original title; kept for older clients, the same as `original_name`. */
-      name: string
-      /**
-       * Format: date
-       * @description The TheTVDB air date.
-       */
-      air_date: string | null
-      monitored: boolean
-      /** @description One cell per Slot, `null` where the Title has no Version. */
-      cells: {
-        standard: components['schemas']['EpisodeCell'] | null
-        '4k': components['schemas']['EpisodeCell'] | null
-      }
-      /** @description The title in the Primary Language, from TheTVDB; the original title when TheTVDB has no translation. Empty for a Placeholder Episode. */
-      primary_name: string
-      /** @description The title in the Series' original language. Empty for a Placeholder Episode. */
-      original_name: string
-      /**
-       * @description True for a Placeholder Episode: one Kestrel added because a Release named it before
-       *     TheTVDB listed it. It has no name, air date or TheTVDB id until a metadata refresh adopts
-       *     it, and counts as released from when it was added.
-       */
-      placeholder: boolean
-    }
-    EpisodeList: {
-      items: components['schemas']['Episode'][]
-    }
-    /** @description Merge patch. Only Movies take `monitored`, only Series have a `series_monitor`. */
-    TitlePatch: {
-      /** @description A Movie only; a Series is monitored through `series_monitor`. */
-      monitored?: boolean
-      series_monitor?: components['schemas']['SeriesMonitor']
-      metadata_frozen?: boolean
-      /** @description One of the Root folders of the Title's kind to move the Title to. */
-      root_folder?: string
-    }
-    /** @description One action over many Titles. `action` says which, and picks the parameters that go with it. */
-    TitlesBulk:
-      | components['schemas']['TitlesBulkMonitor']
-      | components['schemas']['TitlesBulkSwitchProfile']
-      | components['schemas']['TitlesBulkAddVersion']
-      | components['schemas']['TitlesBulkRemoveVersion']
-      | components['schemas']['TitlesBulkSearch']
-      | components['schemas']['TitlesBulkRefresh']
-      | components['schemas']['TitlesBulkFreeze']
-      | components['schemas']['TitlesBulkRemove']
-    TitleIds: number[]
-    TitlesBulkMonitor: {
-      /**
-       * @description discriminator enum property added by openapi-typescript
-       * @enum {string}
-       */
-      action: 'monitor'
-      title_ids: components['schemas']['TitleIds']
-      monitored: boolean
-      /**
-       * @description The mode monitored Series get. Left out, a Series already monitored keeps its mode and
-       *     an unmonitored one gets `all`. With `monitored: true` it cannot be `none`, and with
-       *     `monitored: false` it can only be `none`.
-       */
-      series_monitor?: components['schemas']['SeriesMonitor']
-    }
-    TitlesBulkSwitchProfile: {
-      /**
-       * @description discriminator enum property added by openapi-typescript
-       * @enum {string}
-       */
-      action: 'switch_profile'
-      title_ids: components['schemas']['TitleIds']
-      slot: components['schemas']['Slot']
-      /** @description The Profile key. It must be an enabled Profile of that Slot. */
-      profile: string
-    }
-    TitlesBulkAddVersion: {
-      /**
-       * @description discriminator enum property added by openapi-typescript
-       * @enum {string}
-       */
-      action: 'add_version'
-      title_ids: components['schemas']['TitleIds']
-      slot: components['schemas']['Slot']
-      /** @description The Profile key. It must be an enabled Profile of that Slot. */
-      profile: string
-    }
-    TitlesBulkRemoveVersion: {
-      /**
-       * @description discriminator enum property added by openapi-typescript
-       * @enum {string}
-       */
-      action: 'remove_version'
-      title_ids: components['schemas']['TitleIds']
-      slot: components['schemas']['Slot']
-      /**
-       * @description Delete the files from disk too.
-       * @default false
-       */
-      delete_files: boolean
-    }
-    TitlesBulkSearch: {
-      /**
-       * @description discriminator enum property added by openapi-typescript
-       * @enum {string}
-       */
-      action: 'search'
-      title_ids: components['schemas']['TitleIds']
-    }
-    TitlesBulkRefresh: {
-      /**
-       * @description discriminator enum property added by openapi-typescript
-       * @enum {string}
-       */
-      action: 'refresh'
-      title_ids: components['schemas']['TitleIds']
-    }
-    TitlesBulkFreeze: {
-      /**
-       * @description discriminator enum property added by openapi-typescript
-       * @enum {string}
-       */
-      action: 'freeze'
-      title_ids: components['schemas']['TitleIds']
-      frozen: boolean
-    }
-    TitlesBulkRemove: {
-      /**
-       * @description discriminator enum property added by openapi-typescript
-       * @enum {string}
-       */
-      action: 'remove'
-      title_ids: components['schemas']['TitleIds']
-      /**
-       * @description Delete the files from disk too.
-       * @default false
-       */
-      delete_files: boolean
-    }
-    TitlesBulkResult: {
-      items: components['schemas']['TitleBulkOutcome'][]
-    }
-    TitleBulkOutcome: {
-      /** Format: int64 */
-      title_id: number
-      /** @enum {string} */
-      outcome: 'changed' | 'skipped' | 'failed'
-      /**
-       * @description Why the Title was skipped or failed, `null` when it changed. Skipped: `unchanged`, it
-       *     already is as asked; `not_found`, there is no such Title; `no_version`, it has no Version
-       *     in the Slot; `slot_taken`, the Slot already holds a Version; `nothing_wanted`, none of its
-       *     Versions is Wanted; `frozen`, its metadata is frozen. Failed: `download_client`, the
-       *     download client could not cancel the Title's download (`message` has what it said);
-       *     `internal`, an unexpected error, which the log has.
-       * @enum {string|null}
-       */
-      reason: 'unchanged' | 'not_found' | 'no_version' | 'slot_taken' | 'nothing_wanted' | 'frozen' | 'download_client' | 'internal' | null
-      /** @description The reason in a sentence. */
-      message: string | null
-    }
-    SeasonPatch: {
-      monitored: boolean
-    }
-    EpisodesMonitor: {
-      episode_ids: number[]
-      monitored: boolean
-    }
-    SlotSummary: {
-      /** Format: int64 */
-      version_id: number
-      profile: string
-      state: components['schemas']['SlotState']
-      long_missing: boolean
-    }
-    TitleRow: {
-      /** Format: int64 */
-      id: number
-      kind: components['schemas']['TitleKind']
-      /** @description The English title. */
-      title: string
-      /** @description The title in the Primary Language; the English title when TMDB has no translation. */
-      primary_title: string
-      year: number | null
-      /** @description Whether `GET /titles/{id}/poster` has an image. */
-      has_poster: boolean
-      slots: {
-        standard: components['schemas']['SlotSummary'] | null
-        '4k': components['schemas']['SlotSummary'] | null
-      }
-      /** Format: date-time */
-      wanted_since: string | null
-      /** Format: date-time */
-      added_at: string
-      /**
-       * Format: int64
-       * @description Bytes the files of its Versions take on disk, 0 when it holds none.
-       */
-      size: number
-      /**
-       * Format: date-time
-       * @description When Kestrel last searched for any of its Versions, for what is missing or for an Upgrade; null when it never has.
-       */
-      searched_at: string | null
-      /** @description A Series' Wanted episodes; null for a Movie. */
-      wanted_episodes: components['schemas']['WantedEpisodes'] | null
-    }
-    /**
-     * @description A Series' Wanted episodes, counted once however many of its Versions want them. The Library's
-     *     rows say from it why a Series is Wanted ("S02: 2 Wanted"); the Grabs on their way are in `GET /queue`.
-     */
-    WantedEpisodes: {
-      wanted: number
-      /** @description How many of them are Long Missing in some Version. */
-      long_missing: number
-      /** @description The seasons the Wanted episodes are in, in order. */
-      seasons: number[]
-    }
-    TitleList: {
-      items: components['schemas']['TitleRow'][]
-      next_cursor: string | null
-    }
-    FileSummary: {
-      path: string
-      /** Format: int64 */
-      size: number
-      release_name: string
-      score: number | null
-      /** @description The quality name parsed from the release name ("Bluray-1080p"). */
-      quality?: string | null
-      /** @description The audio languages ffprobe found (English names), in track order. */
-      languages?: string[]
-      /** @description The file no longer fits the Version's Profile; the Version is Wanted. */
-      misfit?: boolean
-      /** Format: date-time */
-      imported_at: string
-    }
-    VersionDetail: {
-      /** Format: int64 */
-      id: number
-      slot: components['schemas']['Slot']
-      profile: string
-      state: components['schemas']['SlotState']
-      long_missing: boolean
-      /** Format: date-time */
-      wanted_since: string | null
-      file: components['schemas']['FileSummary'] | null
-      /** Format: date-time */
-      added_at: string
-      coverage?: components['schemas']['VersionCoverage']
-      /** @description The Version's Original Offer, dismissed or not; null or absent when it has none. */
-      original_offer?: components['schemas']['OriginalOffer'] | null
-    }
-    /**
-     * @description How far a Series Version is filled, in episodes and bytes; present only for a Series
-     *     Version. It agrees with the Version's `state`: Wanted while `wanted` is above zero.
-     */
-    VersionCoverage: {
-      /**
-       * @description The episodes the Version counts: those it holds a file for and those it Wants. Unmonitored
-       *     and unreleased episodes without a file are left out; see `unmonitored`.
-       */
-      episodes: number
-      /** @description Episodes the Version holds a file for. */
-      filled: number
-      /** @description Episodes that are Wanted. */
-      wanted: number
-      /** @description The Wanted episodes that are Long Missing, those with a Grab in flight included. */
-      long_missing: number
-      /**
-       * @description Released episodes without a file that aren't monitored. The released episodes are
-       *     `filled + wanted + unmonitored`.
-       */
-      unmonitored: number
-      /**
-       * @description The Wanted episodes a Grab in flight covers, Long Missing or not. A Grab is in flight until
-       *     it is Imported or Failed.
-       */
-      downloading: number
-      /**
-       * @description The `downloading` episodes that are also Long Missing. For a bar of disjoint states, count
-       *     `filled`, `downloading`, `long_missing - downloading_long_missing`, the rest of `wanted`
-       *     (`wanted - downloading - (long_missing - downloading_long_missing)`) and `unmonitored`:
-       *     they add up to the released episodes.
-       */
-      downloading_long_missing: number
-      /**
-       * Format: int64
-       * @description Bytes of all the Version's files.
-       */
-      size: number
-    }
-    DeletedFiles: {
-      files: components['schemas']['DeletedFile'][]
-      /**
-       * @description The files in scope that could not be deleted from disk (a read-only disk, missing
-       *     permissions). They stay the Version's; nothing else about them changed.
-       */
-      not_deleted: components['schemas']['NotDeletedFile'][]
-    }
-    DeletedFile: {
-      path: string
-      /** Format: int64 */
-      size: number
-      release_name: string
-      /** @description Every episode that lost its file, in aired order; empty for a Movie. */
-      episode_ids: number[]
-      /** @description The Release went on the Blocklist. False unless asked, for a file Kestrel did not grab and when blocklisting failed. */
-      blocklisted: boolean
-    }
-    NotDeletedFile: {
-      path: string
-      /** @description Every episode the file holds, in aired order; empty for a Movie. */
-      episode_ids: number[]
-      /** @description Why, as the filesystem said it, e.g. `permission denied`. */
-      reason: string
-    }
-    /**
-     * @description Narrows the search of a Series Version to a season and, within it, episodes. Movie searches
-     *     take nothing.
-     */
-    ReleaseSearch: {
-      season?: number | null
-      episode_ids?: number[]
-    }
-    /**
-     * @description Why a Release cannot go to a Version. Clients tolerate codes they do not know. `original_only`
-     *     is a Release with the Title's Original Language but no Primary-Language audio under a Profile
-     *     that offers such Releases.
-     * @enum {string}
-     */
-    RejectionCode: 'below_min_score' | 'resolution' | 'quality' | 'language' | 'original_language_unknown' | 'blocklisted' | 'other_slot' | 'episode_not_listed' | 'season_not_listed' | 'original_only'
-    Rejection: {
-      code: components['schemas']['RejectionCode']
-      message: string
-      /** @description False for `blocklisted`, `other_slot` and `season_not_listed`, which "Grab anyway" never overrides. */
-      overridable: boolean
-    }
-    CustomFormatMatch: {
-      name: string
-      points: number
-    }
-    Release: {
-      /** @description Opaque; names the Release for 6 h. */
-      release_id: string
-      name: string
-      indexer: string
-      /** Format: int64 */
-      size: number
-      /** Format: date-time */
-      published_at: string
-      /** @example Bluray-1080p */
-      quality: string
-      languages: string[]
-      custom_formats: components['schemas']['CustomFormatMatch'][]
-      score: number
-      /** @enum {string} */
-      fits: 'this_slot' | 'other_slot' | 'none'
-      rejections: components['schemas']['Rejection'][]
-      /** @description Series only. The season of the Release (the first of a multi-season pack). */
-      season?: number
-      /** @description Series only. The episode numbers of a single or multi-episode Release; empty for a pack. */
-      episodes?: number[]
-      /**
-       * @description Series only. The title of each of `episodes`, in the same order and in the Primary Language (as on
-       *     the episode grid). An empty string for an episode without a title: a Placeholder Episode, or one TheTVDB
-       *     does not list. Absent for a pack.
-       */
-      episode_titles?: string[]
-      /** @description Series only. True for a season pack. */
-      pack?: boolean
-    }
-    IndexerError: {
-      /** Format: int64 */
-      indexer_id: number | null
-      indexer: string
-      /** @description The plugin error code (`auth`, `unavailable`, `rate_limited`, `invalid`, `not_found`). */
-      code: string
-      message: string
-      /** @description Seconds, when the indexer said how long to wait. */
-      retry_after: number | null
-    }
-    ReleaseList: {
-      items: components['schemas']['Release'][]
-      indexer_errors: components['schemas']['IndexerError'][]
-    }
-    GrabCreate: {
-      /** Format: int64 */
-      version_id: number
-      release_id: string
-      /** @default false */
-      override: boolean
-    }
-    Grab: {
-      /** Format: int64 */
-      id: number
-      /** Format: int64 */
-      title_id: number | null
-      /** Format: int64 */
-      version_id: number | null
-      release_name: string
-      indexer: string
-      /** Format: int64 */
-      size: number
-      /** Format: date-time */
-      published_at: string
-      score: number
-      /** @description The download client's id for the job (SABnzbd's nzo_id). */
-      client_id: string
-      /** @enum {string} */
-      state: 'sent' | 'downloading' | 'completed' | 'importing' | 'imported' | 'failed'
-      /** @description Grabbed despite rejections. */
-      overridden: boolean
-      is_upgrade: boolean
-      /** Format: date-time */
-      created_at: string
-    }
-    GrabList: {
-      items: components['schemas']['GrabEntry'][]
-      next_cursor: string | null
-    }
-    /** @description A Grab as the Activity screen shows it, joined with its Title and Slot. */
-    GrabEntry: {
-      /** Format: int64 */
-      grab_id: number
-      /** Format: int64 */
-      title_id: number | null
-      /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title; false when the Title was deleted. */
-      has_poster: boolean
-      /** Format: int64 */
-      version_id: number | null
-      /** @description The Title's name, empty when the Title was deleted. */
-      title: string
-      year: number | null
-      kind: components['schemas']['TitleKind'] | null
-      slot: components['schemas']['Slot'] | null
-      /** @description The episodes a Series Grab covers (`S01E02`); empty for a Movie. */
-      episodes: string[]
-      release_name: string
-      indexer: string
-      /** Format: int64 */
-      size: number
-      score: number
-      is_upgrade: boolean
-      /** @enum {string} */
-      state: 'sent' | 'downloading' | 'completed' | 'importing' | 'imported' | 'failed'
-      /** @description Why a failed Grab failed, such as `download_failed`, `encrypted`, `discarded` or what the Import rejected. */
-      failure: string | null
-      /** @description The reason of the Blocklist entry the Grab's Release got, null when it is not blocklisted. */
-      blocklist_reason: string | null
-      /** @description Set while the Import waits for the environment to be fixed. */
-      stalled: components['schemas']['GrabStall'] | null
-      /** Format: date-time */
-      grabbed_at: string
-      /**
-       * Format: date-time
-       * @description When the Grab's state last changed; for a finished Grab, when it finished.
-       */
-      updated_at: string
-    }
-    StuckDownload: {
-      /**
-       * @description `paused`: the download client has the job paused. `no_progress`: the downloaded amount has
-       *     not grown for an hour.
-       * @enum {string}
-       */
-      reason: 'paused' | 'no_progress'
-      /**
-       * Format: date-time
-       * @description When the job was paused, or when its downloaded amount last grew. Kept in memory, so after a restart it counts from the first poll.
-       */
-      since: string
-    }
-    GrabStall: {
-      /** @description What is wrong, such as `disk full`. */
-      reason: string
-      /** Format: date-time */
-      since: string
-      /**
-       * Format: date-time
-       * @description When the Import is tried again on its own.
-       */
-      next_at: string
-    }
-    GrabCancel: {
-      /** @default false */
-      blocklist: boolean
-    }
-    /**
-     * @description How an Adoption adds a Title: `all` monitors it (a Series follows every episode), `future` follows
-     *     a Series' episodes from today on (a Movie is monitored), `none` leaves it unmonitored. These are
-     *     Add Title's choices that need no season list; a Title Kestrel tracks keeps its own monitoring.
-     * @enum {string}
-     */
-    AdoptionMonitor: 'all' | 'future' | 'none'
-    Adoption: {
-      /** @enum {string} */
-      state: 'idle' | 'scanning' | 'planned' | 'committing'
-      /** @description How the Titles the plan adds are monitored unless a row has its own choice; `all` for a new plan. */
-      monitor: components['schemas']['AdoptionMonitor']
-      progress: {
-        done: number
-        total: number
-        current?: components['schemas']['AdoptionCurrent']
-      }
-      summary: components['schemas']['AdoptionSummary']
-      /** Format: int64 */
-      revision: number
-      /** @description Why the last scan could not finish, if it could not. */
-      error: string | null
-      /** Format: date-time */
-      scanned_at: string | null
-      /** @description What the last commit did; kept until the next scan. */
-      result: {
-        adopted: number
-        failed: number
-        /** @description The Titles the commit adopted. */
-        title_ids: number[]
-        outcomes: components['schemas']['AdoptionOutcomes']
-      } | null
-    }
-    /**
-     * @description The entry a running scan or commit is working on and what is happening to it; absent when nothing runs.
-     *     There is no per-file progress: `files` is how many files the step covers.
-     */
-    AdoptionCurrent: {
-      /** @description The folder or loose file in the Root folder. */
-      entry: string
-      /**
-       * @description What is happening to the entry. Clients tolerate steps they do not know.
-       * @enum {string}
-       */
-      step: 'probing' | 'matching' | 'moving'
-      /** @description How many files the step covers, when it is about files. */
-      files?: number
-      /**
-       * @description The Title the entry is adopted as, with its year ("Paddington (2014)"), once it is matched, which
-       *     is while a commit moves it; absent while a scan or a Try again is still reading it.
-       */
-      title?: string
-    }
-    /**
-     * @description What became of a row after a commit. `adopted` and `failed` rows were ticked and committed (`failed`
-     *     carries the row's `error`); `skipped` rows could not be adopted; `not_chosen` rows needed a choice
-     *     nobody made; `unticked` rows were Matched but left out.
-     * @enum {string}
-     */
-    AdoptionFinalOutcome: 'adopted' | 'failed' | 'skipped' | 'not_chosen' | 'unticked'
-    /** @description How many rows ended each way, after the last commit. */
-    AdoptionOutcomes: {
-      adopted: number
-      failed: number
-      skipped: number
-      not_chosen: number
-      unticked: number
-    }
-    /**
-     * @description A likely match of a Needs choice row. Candidates come best first: Kestrel ranks them on title
-     *     similarity, year and runtime fit, and marks the first one it would pick `suggested`. The
-     *     suggestion is `confident` when its year is within one of the name's and its title is a
-     *     near-exact match (or a close one whose runtime fits the files), and no other candidate fits
-     *     about as well. A selection accepts only confident suggestions in bulk.
-     */
-    AdoptionCandidate: {
-      tmdb_id: number
-      title: string
-      year: number | null
-      /** @description Kestrel's pick; at most one candidate of a row has it. */
-      suggested: boolean
-      /** @description The suggestion is safe to accept without a look. Only a suggested candidate can be. */
-      confident: boolean
-    }
-    AdoptionMatch: {
-      tmdb_id: number
-      /** @description The TheTVDB id of a Series match; null for a Movie. */
-      tvdb_id?: number | null
-      title: string
-      year: number | null
-      /**
-       * Format: int64
-       * @description The tracked Title the files join; null when adopting creates the Title.
-       */
-      title_id: number | null
-      /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. False when `title_id` is null, as adopting has not created the Title yet. */
-      has_poster?: boolean
-      /**
-       * @description ID tag, confident name match, or picked by the admin.
-       * @enum {string}
-       */
-      source: 'tag' | 'name' | 'chosen'
-      /** @description The Title folder the files are renamed into. */
-      folder: string
-    }
-    AdoptionSubtitle: {
-      from: string
-      to: string
-    }
-    AdoptionFile: {
-      /** @description The episodes of a Series file (a multi-episode file names several); empty for a Movie file. */
-      episodes: {
-        season: number
-        number: number
-      }[]
-      path: string
-      /** @description The path it gets in the naming scheme. */
-      to: string
-      /** Format: int64 */
-      size: number
-      slot: components['schemas']['Slot']
-      /** @description Key of the Profile the Version has or gets. */
-      profile: string
-      score: number
-      /**
-       * @description Create the Version, fill an empty one, or replace the file a Version holds.
-       * @enum {string}
-       */
-      action: 'create' | 'fill' | 'replace'
-      /** @description The Score of the file `replace` would replace. */
-      held_score: number | null
-      ticked: boolean
-      /**
-       * @description Why the file stays untouched; null when it is adopted if ticked.
-       * @enum {string|null}
-       */
-      left: 'duplicate' | 'path_occupied' | 'unmatched' | null
-      subtitles: components['schemas']['AdoptionSubtitle'][]
-    }
-    AdoptionRow: {
-      /** @description The row's own choice of how the Title it adds is monitored; absent when it follows the plan's. */
-      monitor?: components['schemas']['AdoptionMonitor']
-      /** Format: int64 */
-      id: number
-      kind: components['schemas']['TitleKind']
-      /** @enum {string} */
-      status: 'matched' | 'needs_choice' | 'skipped'
-      /** @enum {string|null} */
-      skip_reason: 'invalid' | 'no_video' | 'no_enabled_profile' | 'not_on_tvdb' | null
-      /** @description The folder or loose file in the Root folder. */
-      entry: string
-      ticked: boolean
-      match: components['schemas']['AdoptionMatch'] | null
-      /** @description Likely Movies or Series for a Needs choice row. */
-      candidates: components['schemas']['AdoptionCandidate'][]
-      files: components['schemas']['AdoptionFile'][]
-      outcome?: components['schemas']['AdoptionFinalOutcome']
-      /** @description Why a `failed` row could not be adopted. */
-      error?: string
-    }
-    /** @description Row counts of the plan; all zero when there is none. */
-    AdoptionSummary: {
-      matched: number
-      needs_choice: number
-      skipped: number
-      duplicate: number
-      replacement: number
-      /** @description How many rows a commit would adopt now (Matched, ticked, with a file that is not left in place). */
-      adopting: number
-    }
-    AdoptionRowList: {
-      items: components['schemas']['AdoptionRow'][]
-      /** @description Pass it as `cursor` for the next page; `null` on the last page. */
-      next_cursor: string | null
-      /** @description How many rows the `filter` keeps, over all pages. */
-      total: number
-      counts: components['schemas']['AdoptionSummary']
-    }
-    /**
-     * @description The filters of `GET /adoption/rows`, and `all` for every row of the plan.
-     * @enum {string}
-     */
-    AdoptionRowFilter: 'all' | 'needs_choice' | 'matched' | 'duplicate' | 'replacement' | 'skipped'
-    AdoptionRowsBulk: {
-      /** @enum {string} */
-      action: 'tick' | 'untick' | 'accept_suggested' | 'set_monitor'
-      monitor?: components['schemas']['AdoptionMonitor']
-      row_ids?: number[]
-      filter?: components['schemas']['AdoptionRowFilter']
-    }
-    AdoptionBulkResult: {
-      /**
-       * Format: int64
-       * @description The plan's revision after the call.
-       */
-      revision: number
-      items: components['schemas']['AdoptionBulkRowResult'][]
-    }
-    AdoptionBulkRowResult: {
-      /** Format: int64 */
-      row_id: number
-      /**
-       * @description What the edit did to the row, not to be confused with a row's final `outcome` after a commit.
-       * @enum {string}
-       */
-      result: 'changed' | 'left' | 'failed'
-      /**
-       * @description Why the row was left as it was.
-       * @enum {string}
-       */
-      reason?: 'already' | 'no_such_row' | 'not_matched' | 'not_needs_choice' | 'no_suggestion' | 'not_confident' | 'not_settleable' | 'tracked'
-      /** @description Why the row failed. */
-      message?: string
-      /**
-       * @description The row's status afterwards, when the row exists.
-       * @enum {string}
-       */
-      status?: 'matched' | 'needs_choice' | 'skipped'
-      /**
-       * @description Why a row that ended up `skipped` is.
-       * @enum {string}
-       */
-      skip_reason?: 'invalid' | 'no_video' | 'no_enabled_profile' | 'not_on_tvdb'
-    }
-    AdoptionRowPatch: {
-      ticked?: boolean
-      monitor?: components['schemas']['AdoptionMonitor']
-      tmdb_id?: number
-      files?: {
-        path: string
-        ticked: boolean
-      }[]
-    }
-    StalledImportsSelect: {
-      /** @description Only the Imports stalled for this reason; all of them when absent. */
-      reason?: string
-    }
-    /**
-     * @description Something changed; refetch it. `resource` is `title` (a Title, its Versions and the
-     *     Library list), `grab`, `queue` or `log`; more are added. `id` is null when the hint is about the
-     *     whole resource. Clients ignore resources they do not know.
-     */
-    ChangedHint: {
-      resource: string
-      /** Format: int64 */
-      id: number | null
-    }
-    JobList: {
-      items: components['schemas']['Job'][]
-    }
-    Job: {
-      /**
-       * @description The loop: `poll`, `search`, `import`, `prune`, `health`, `refresh`, `trash`, `updates`,
-       *     `rss` or `watchlist`. A loop whose module is not configured is not listed; later versions may add loops.
-       */
-      name: string
-      /**
-       * @description `running` while a pass is in flight; `disabled` when a setting turns its work off (`updates`
-       *     without "Check GitHub for updates", `trash` without TRaSH auto-update, `watchlist` without
-       *     Watchlist Requests), though it still checks
-       *     hourly; otherwise `idle`.
-       * @enum {string}
-       */
-      status: 'idle' | 'running' | 'disabled'
-      /**
-       * @description The setting that turns a `disabled` loop's work off: `github_check` ("Check GitHub for
-       *     updates", which `updates` and `trash` both need) or `trash_auto_update` (TRaSH's own daily
-       *     update switch) or `plex_watchlist` (Plex sign-in's "Make Requests from Watchlists", which
-       *     `watchlist` needs). `null` unless `status` is `disabled`; later versions may add settings.
-       * @enum {string|null}
-       */
-      disabled_by: 'github_check' | 'trash_auto_update' | 'plex_watchlist' | null
-      /** @description Whether `POST /jobs/{name}/run` runs it. */
-      runnable: boolean
-      /** @description The last pass that finished since start; `null` before the first. */
-      last_run: components['schemas']['JobRun'] | null
-      /**
-       * Format: date-time
-       * @description When the next pass is due; `null` while one runs and before the loops start.
-       */
-      next_at: string | null
-      schedule: components['schemas']['JobSchedule']
-      /**
-       * @description How far the pass running now has got, for a loop that says (`trash` while it re-scores:
-       *     Titles re-scored of all of them); `null` between passes and for the other loops.
-       */
-      progress: components['schemas']['JobProgress'] | null
-      /**
-       * @description How the last pass that had something to say went (`trash`); `null` before one does. A pass
-       *     with nothing to say (the daily check that is not due) leaves it as it was, so tell a new
-       *     outcome by `at`.
-       */
-      outcome: components['schemas']['JobOutcome'] | null
-    }
-    JobProgress: {
-      done: number
-      total: number
-    }
-    JobOutcome: {
-      /**
-       * @description `updated` (a newer TRaSH snapshot is active), `up_to_date`, `rejected` (refused whole, the
-       *     previous one stays), `unreachable` (TRaSH could not be asked), `rescored` (files re-scored
-       *     after a Primary Language change) or `failed`; later versions may add kinds.
-       * @enum {string}
-       */
-      kind: 'updated' | 'up_to_date' | 'rejected' | 'unreachable' | 'rescored' | 'failed'
-      /** @description The outcome in a sentence, for the UI to show. */
-      text: string
-      /**
-       * Format: date-time
-       * @description When the pass reported it.
-       */
-      at: string
-    }
-    /** @description How often a loop runs. */
-    JobSchedule: {
-      /**
-       * Format: int64
-       * @description The wait between passes.
-       */
-      every_ms: number
-      /**
-       * Format: int64
-       * @description The shorter wait while there is work (`poll` while a Grab downloads); `null` for none.
-       */
-      busy_every_ms: number | null
-      /**
-       * Format: int64
-       * @description For a loop that checks every `every_ms` whether its work is due: how often it does it (the
-       *     daily loops); `null` when every pass does the work.
-       */
-      runs_every_ms: number | null
-    }
-    JobRun: {
-      /** Format: date-time */
-      started_at: string
-      /** Format: date-time */
-      finished_at: string
-      /** Format: int64 */
-      duration_ms: number
-      /** @description Why the pass failed; `null` when it succeeded. */
-      error: string | null
-    }
-    ActivitySnapshot: {
-      /** @description Names of the background loops mid-pass right now. */
-      running: string[]
-      /** @description The same loops' passes, the longest-running first, with when each started. */
-      passes: components['schemas']['RunningPass'][]
-      /** @description The Adoption scan or commit running now; null when neither runs. */
-      adoption: components['schemas']['AdoptionActivity'] | null
-    }
-    RunningPass: {
-      /** @description The loop, as in `GET /jobs`. */
-      name: string
-      /** Format: date-time */
-      started_at: string
-    }
-    /** @description An Adoption scan or commit and how far it has got, as `GET /adoption` reports it. */
-    AdoptionActivity: {
-      /** @enum {string} */
-      state: 'scanning' | 'committing'
-      /** @description Entries scanned, or rows adopted, so far. */
-      done: number
-      /** @description Entries to scan, or rows to adopt; 0 until a scan has listed them. */
-      total: number
-      current?: components['schemas']['AdoptionCurrent']
-    }
-    AttentionSnapshot: {
-      /** @description How many Needs attention rows there are. */
-      count: number
-      /**
-       * @description The worst severity among them, null when there are none.
-       * @enum {string|null}
-       */
-      severity: 'blocking' | 'warning' | null
-    }
-    Attention: {
-      /** @description How many `rows` there are. Long Missing does not count. */
-      count: number
-      /**
-       * @description The worst severity among the rows, null when there are none.
-       * @enum {string|null}
-       */
-      severity: 'blocking' | 'warning' | null
-      rows: components['schemas']['AttentionRow'][]
-      long_missing: components['schemas']['LongMissing']
-      originals: components['schemas']['OriginalsAvailable']
-    }
-    AttentionRow: {
-      /** @description Opaque and stable while the condition lasts. */
-      id: string
-      /** @enum {string} */
-      severity: 'blocking' | 'warning'
-      /**
-       * @description What sort of condition, such as `download_client_unreachable`, `no_indexer`,
-       *     `root_folder_unavailable`, `metadata_provider_failing`, `indexer_failing`,
-       *     `media_server_unreachable`,
-       *     `stalled_imports` (one row per stall reason), `stuck_download` (one row per Stuck download),
-       *     `low_disk_space`, `untrusted_proxy_header` or a one-off health warning (`exdev`,
-       *     `refresh_failed`, `plex_no_section`). The set grows; clients tolerate unknown kinds.
-       */
-      kind: string
-      subject: components['schemas']['AttentionSubject']
-      message: string
-      /**
-       * Format: date-time
-       * @description When the condition first showed.
-       */
-      since: string
-      /** @description How often it was raised since it first showed. */
-      count: number
-      /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. False when the row has no Title (`subject.title_id` is null). */
-      has_poster?: boolean
-      actions: components['schemas']['AttentionAction'][]
-    }
-    AttentionSubject: {
-      /** Format: int64 */
-      title_id: number | null
-      /** Format: int64 */
-      version_id: number | null
-      /** Format: int64 */
-      grab_id: number | null
-      /** Format: int64 */
-      plugin_instance_id: number | null
-    }
-    AttentionAction: {
-      /** @description `dismiss`, `test`, `open`, `disable`, `retry` and so on. */
-      key: string
-      /** @description The JSON body to send with an API call, when it needs one. */
-      body: {
-        [key: string]: unknown
-      } | null
-      label: string
-      /**
-       * @description `GET` opens `path` in the SPA; the others call the API.
-       * @enum {string}
-       */
-      method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-      /**
-       * @description For an API call, relative to the API root (`/plugin-instances/3/test`); for `GET`, an SPA
-       *     path (`/settings/download-client`).
-       */
-      path: string
-      /** @description Ask this before running the action, when set. */
-      confirm: string | null
-    }
-    WantedSearch: {
-      /** @description How many Wanted Versions were queued for a search. */
-      versions: number
-    }
-    SearchStatus: {
-      /**
-       * @description What waits for a search: as the running pass found it less what it has searched since, and
-       *     between passes recounted about once a minute.
-       */
-      due: {
-        /** @description Wanted Versions due a missing search. A Series Version counts once. */
-        versions: number
-        /** @description The Wanted episodes of the Series Versions among them. */
-        episodes: number
-        /** @description Filled Versions due an Upgrade search; each pass searches `upgrades_per_pass` of them. */
-        upgrades: number
-      }
-      /** @description The pass running now; null between passes. */
-      pass: components['schemas']['SearchPass'] | null
-      /**
-       * Format: date-time
-       * @description When the next pass starts; null while one runs and before the first.
-       */
-      next_pass_at: string | null
-      /** @description The last pass that finished; null before the first since Kestrel started. */
-      last_pass: components['schemas']['SearchPassResult'] | null
-      /** @description How many Upgrade searches a pass makes at most, after its Wanted Versions. */
-      upgrades_per_pass: number
-      /** @description The enabled indexers. */
-      indexers: components['schemas']['SearchIndexer'][]
-    }
-    SearchPass: {
-      /** Format: date-time */
-      started_at: string
-      /**
-       * @description The Wanted Versions it has got through: searched, or passed over because no indexer could
-       *     take a sweep search (those stay due). Its Upgrade searches come after them and are not counted.
-       */
-      done: number
-      /** @description The Wanted Versions it found due. */
-      total: number
-    }
-    SearchPassResult: {
-      /** Format: date-time */
-      finished_at: string
-      /** @description The Wanted Versions it searched. */
-      searched: number
-      /** @description The Grabs it made, Upgrades included. */
-      grabbed: number
-    }
-    SearchIndexer: {
-      /** Format: int64 */
-      instance_id: number
-      name: string
-      /** @description Search requests made today (the indexer's own count when it reports one). */
-      search_used: number
-      /**
-       * @description The daily search budget, from the indexer's `apilimits` (believed for an hour) or the
-       *     instance's `api_requests_per_day`; null when neither is known. Sweeps stop at 80 % of it.
-       */
-      search_max: number | null
-      /**
-       * @description Why sweeps leave the indexer alone now, null when they don't: `request_limit` (it said its
-       *     request limit was reached, or a bare 429), `backing_off` (it keeps failing) or `budget` (the
-       *     sweeps have used their 80 % of today's budget).
-       * @enum {string|null}
-       */
-      held: 'request_limit' | 'backing_off' | 'budget' | null
-      /**
-       * Format: date-time
-       * @description When a `request_limit` pause or a backoff ends; null otherwise.
-       */
-      held_until: string | null
-    }
-    LongMissing: {
-      /** @description How many Versions are Long Missing. */
-      count: number
-      /** @description The five most recently released. */
-      items: {
-        /** Format: int64 */
-        title_id: number
-        title: string
-        /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. */
-        has_poster?: boolean
-        /** @description The key of the Version's Profile. */
-        profile: string
-        /** Format: int64 */
-        version_id: number
-        slot: components['schemas']['Slot']
-        /** Format: date-time */
-        wanted_since: string
-        last_failure: string | null
-      }[]
-    }
-    /** @description The Originals available group of Needs attention, outside the rail badge. */
-    OriginalsAvailable: {
-      /** @description How many Versions have an Original Offer that is not dismissed. */
-      count: number
-      /** @description Those offers, newest first. */
-      items: components['schemas']['OriginalOffer'][]
-    }
-    /**
-     * @description Releases with the Title's Original Language but no Primary-Language audio, held back for one
-     *     Version whose Profile offers them, for what it is missing. A Movie has one Release; a Series
-     *     lists every episode or season pack that has one. The offer lasts while those units are Wanted
-     *     with no active Grab: a Primary-Language Release that is grabbed makes it go.
-     */
-    OriginalOffer: {
-      /** Format: int64 */
-      title_id: number
-      title: string
-      /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. */
-      has_poster?: boolean
-      /** Format: int64 */
-      version_id: number
-      slot: components['schemas']['Slot']
-      /** @description The key of the Version's Profile. */
-      profile: string
-      /** @description The name of the best-scoring Release offered. */
-      release: string
-      /** @description Its Score under the Version's Profile. */
-      score: number
-      releases: components['schemas']['OfferedRelease'][]
-      /**
-       * Format: date-time
-       * @description When the newest of the Releases was offered.
-       */
-      found_at: string
-      /**
-       * @description Every unit of the offer is dismissed: the admin keeps waiting for a Primary-Language Release,
-       *     and `releases` lists the dismissed ones. While any unit is not dismissed, this is false and
-       *     `releases` lists those units alone, which is what Accept grabs.
-       */
-      dismissed: boolean
-    }
-    OfferedRelease: {
-      name: string
-      indexer: string
-      score: number
-      /** Format: int64 */
-      size: number
-      /** Format: date-time */
-      published_at: string
-      /** @description The season of a Series Release; null for a Movie. */
-      season: number | null
-      /** @description A season pack. */
-      pack: boolean
-      /** @description The episode numbers it is offered for, in `season`; empty for a Movie. */
-      episodes: number[]
-    }
-    OfferAccepted: {
-      grabs: components['schemas']['Grab'][]
-      /**
-       * @description How many of the offered Releases could not be grabbed. One the indexer no longer has, or the
-       *     Blocklist holds, leaves the offer; one that failed for another reason stays offered.
-       */
-      failed: number
-    }
-    SystemStatus: {
-      /** @description The "Pause Grabs" setting is on, so no automatic Grab is made. */
-      grabs_paused: boolean
-      /** @description The active TRaSH snapshot. */
-      trash: {
-        commit: string
+        ManualSearchSort: "best_first" | "score_asc" | "release_asc" | "release_desc" | "quality_asc" | "quality_desc" | "languages_asc" | "languages_desc" | "formats_asc" | "formats_desc" | "size_asc" | "size_desc" | "age_asc" | "age_desc" | "indexer_asc" | "indexer_desc";
+        /** @description One of `all`, `movie` or `series`; anything else is `422`. */
+        UpcomingKind: string;
         /**
-         * Format: date-time
-         * @description When that commit was made; its age is the snapshot's age.
+         * @description The household-wide view defaults. Each is where a browser or session starts: a season the
+         *     user opened or closed on a Series, a sort picked in Manual search and the Upcoming filters
+         *     changed in a session keep winning. Never saved, they report today's behavior.
          */
-        committed_at: string | null
+        Display: {
+            /** @description Newest first reverses the seasons and the episodes in each. Specials come last in both orders. */
+            season_order: components["schemas"]["SeasonOrder"];
+            /** @description Which seasons of a Series start open. `latest_and_wanted` opens the latest season and any with a Wanted episode, never Specials. */
+            seasons_open: components["schemas"]["SeasonsOpen"];
+            manual_search_sort: components["schemas"]["ManualSearchSort"];
+            upcoming_filters: {
+                kind: components["schemas"]["UpcomingKind"];
+                wanted_only: boolean;
+                hide_imported: boolean;
+            };
+        };
         /**
-         * Format: date-time
-         * @description When TRaSH was last asked for something newer.
+         * @description Where Imports put Titles, one or more absolute paths per kind. The first is the default when
+         *     adding a Title. Unsaved, they report `<data dir>/media/movies` and `<data dir>/media/tv`.
          */
-        checked_at: string | null
-        auto_update: boolean
-      }
-      download_client: components['schemas']['ClientStatus']
-      indexers: components['schemas']['IndexerStatus'][]
-      /** @description The data mount first, then every Root folder. */
-      disks: components['schemas']['DiskStatus'][]
-      /** @description A newer release exists. Absent when up to date or when the update check is off. */
-      update?: components['schemas']['UpdateAvailable'] | null
-    }
-    FolderChangeList: {
-      /** @description Oldest first. */
-      changes: components['schemas']['FolderChange'][]
-      /**
-       * @description Never empty. Send it back as `marker` for the changes after this page.
-       * @example fc1:42
-       */
-      next_marker: string
-      /** @description The `marker` could not be answered. `changes` is empty; rescan everything. */
-      expired: boolean
-      /** @description Changes after `next_marker` already exist. */
-      more: boolean
-    }
-    FolderChange: {
-      /**
-       * @description The Title folder, as Kestrel sees it.
-       * @example /media/movies/Arrival (2016) {tmdb-329865}
-       */
-      path: string
-      kind: components['schemas']['FolderChangeKind']
-      /**
-       * Format: date-time
-       * @description When the change was recorded.
-       */
-      at: string
-    }
-    /**
-     * @description A growing set: created, modified, deleted.
-     * @enum {string}
-     */
-    FolderChangeKind: 'created' | 'modified' | 'deleted'
-    UpdateAvailable: {
-      /** @example 0.3.2 */
-      version: string
-      /** @description The release page. */
-      url: string
-    }
-    About: {
-      /**
-       * @description The running version, `dev` for local builds, `edge` for main builds.
-       * @example 0.2.0
-       */
-      version: string
-      /** @example GPL-3.0-only */
-      license: string
-      /** @description The TRaSH Guides commit of the data scoring Releases now. */
-      trash_commit: string
-      check_github_updates: boolean
-      update?: components['schemas']['UpdateAvailable'] | null
-      /**
-       * Format: date-time
-       * @description When the daily GitHub check last succeeded.
-       */
-      checked_at?: string | null
-    }
-    ClientStatus: {
-      /**
-       * @description `none` when no download client is enabled.
-       * @enum {string}
-       */
-      state: 'ok' | 'failing' | 'none'
-      name: string | null
-      /** Format: int64 */
-      instance_id: number | null
-      /** @description What the last failed call said. */
-      message: string | null
-    }
-    IndexerStatus: {
-      /** Format: int64 */
-      instance_id: number
-      name: string
-      /** @enum {string} */
-      state: 'ok' | 'failing' | 'disabled'
-      message: string | null
-      /** @description Search requests made today (the indexer's own count when it reports one). */
-      search_used: number
-      /**
-       * @description The daily search budget, from the indexer's `apilimits` or the instance's `api_requests_per_day`;
-       *     null when neither is known. Sweeps stop at 80 % of it; RSS, Grabs and manual searches go on.
-       */
-      search_max: number | null
-      /**
-       * @description Downloads used today: the indexer's own count when it reports its download quota, else Kestrel's
-       *     count of Grabs when the instance has a `grabs_per_day`; null when neither is known.
-       */
-      grab_used: number | null
-      /**
-       * @description The daily download limit: the indexer's own `grabmax` when it reports one, else the instance's
-       *     `grabs_per_day`; null when neither is known.
-       */
-      grab_max: number | null
-      /**
-       * Format: date-time
-       * @description Searches (RSS included) are paused until then because the indexer said its request limit
-       *     (code 500) or a bare 429 was reached. Not a failure.
-       */
-      search_paused_until: string | null
-      /** @description Grabs are paused (code 501, a bare 429 or a spent download quota). Not a failure. */
-      grabs_paused: boolean
-      /**
-       * Format: date-time
-       * @description When the pause ends: the next UTC midnight for a spent `grabs_per_day`. Null for a spent download
-       *     quota the indexer reports, which ends when the indexer says so.
-       */
-      grabs_paused_until: string | null
-    }
-    DiskStatus: {
-      path: string
-      /** Format: int64 */
-      free_bytes: number
-      /** Format: int64 */
-      total_bytes: number
-      /**
-       * Format: int64
-       * @description Free space under which the low disk space warning fires (the larger of 5 % of the total and 50 GiB).
-       */
-      low_free_bytes: number
-    }
-    EventList: {
-      items: components['schemas']['Event'][]
-    }
-    Event: {
-      /** Format: int64 */
-      id: number
-      /** Format: date-time */
-      at: string
-      /** @description A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, request_ended, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered. */
-      kind: string
-      routine: boolean
-      /** Format: int64 */
-      title_id: number | null
-      /** Format: int64 */
-      version_id: number | null
-      /** Format: int64 */
-      episode_id: number | null
-      /** Format: int64 */
-      grab_id: number | null
-      /** Format: int64 */
-      request_id: number | null
-      message: string
-      /** @description The kind's payload, such as per-episode pack results. */
-      data: {
-        [key: string]: unknown
-      } | null
-    }
-    BlocklistList: {
-      items: components['schemas']['BlocklistEntry'][]
-    }
-    BlocklistEntry: {
-      /** Format: int64 */
-      id: number
-      release_name: string
-      /** Format: int64 */
-      indexer_id: number
-      reason: string
-      /** Format: int64 */
-      size: number
-      /** Format: date-time */
-      published_at: string
-      /** Format: date-time */
-      created_at: string
-      /** Format: int64 */
-      title_id: number | null
-      /** Format: int64 */
-      grab_id: number | null
-    }
-    UpcomingList: {
-      /** Format: date */
-      from: string
-      /** Format: date */
-      to: string
-      items: components['schemas']['UpcomingItem'][]
-      /** @description Monitored Titles with something expected but no date yet, by name. Always present; clients tolerate its absence. */
-      undated?: components['schemas']['UndatedItem'][]
-    }
-    /** @description Where one Version of a Title stands for an entry. A Grab in flight is live state clients read off `GET /queue` and the stream. */
-    UpcomingSlot: {
-      slot: components['schemas']['Slot']
-      /** Format: int64 */
-      version_id: number
-      /**
-       * @description `not_out`: nothing to do until it airs or is released. `wanted`: out and monitored, with no file.
-       *     `imported`: a file fills it. Clients tolerate new values.
-       * @enum {string}
-       */
-      state: 'not_out' | 'wanted' | 'imported'
-      /**
-       * Format: date-time
-       * @description Since when a `wanted` Version has been Wanted.
-       */
-      wanted_since: string | null
-      /** @description Whether a `wanted` Version has been Wanted for more than 90 days. */
-      long_missing: boolean
-      /** @description The quality of an `imported` Version's file ("WEBDL-1080p"), when known. */
-      quality: string | null
-    }
-    UpcomingDate: {
-      /** @enum {string} */
-      release_type: 'theatrical' | 'digital' | 'physical'
-      /** Format: date */
-      date: string
-    }
-    /** @description A monitored Title with something expected but no date yet. */
-    UndatedItem: {
-      kind: components['schemas']['TitleKind']
-      /** Format: int64 */
-      title_id: number
-      title: string
-      year: number | null
-      /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. */
-      has_poster: boolean
-      network: string | null
-      /**
-       * @description `no_air_date`: monitored episodes TheTVDB gives no air date. `no_release_date`: a Movie with no release
-       *     date anywhere. `announced`: a Series TheTVDB marks `upcoming`. Clients tolerate new values.
-       * @enum {string}
-       */
-      reason: 'no_air_date' | 'no_release_date' | 'announced'
-      /** @description How many monitored episodes have no air date; 0 unless `reason` is `no_air_date`. */
-      episodes: number
-      slots: components['schemas']['UpcomingSlot'][]
-    }
-    /**
-     * @description An episode airing or one release date of a Movie. Next to the original fields, every entry
-     *     carries the context and state below (all of them present in responses from this version on;
-     *     they are not in `required` because they were added after `v1` shipped, and clients tolerate their absence).
-     */
-    UpcomingItem: {
-      /**
-       * Format: int64
-       * @description The episode's id, for Search now narrowed to it (`episode_ids`); null for a Movie.
-       */
-      episode_id?: number | null
-      /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. */
-      has_poster?: boolean
-      /** @description A Series' network, stored on refresh; null for a Movie or when unknown. */
-      network?: string | null
-      /** @description The episode's synopsis, else the Title's; null when there is none. */
-      overview?: string | null
-      /**
-       * Format: date-time
-       * @description When an episode airs, from its air date and the Series' air time in its network's time zone.
-       *     Null for a Movie, or when no air time is known (the episode then airs on `date`).
-       */
-      air_at?: string | null
-      /** @description What makes an episode worth a mention; empty for a Movie. Clients tolerate new values. */
-      markers?: ('series_premiere' | 'season_premiere' | 'season_finale' | 'special')[]
-      /** @description One entry per Version of the Title, Standard first. */
-      slots?: components['schemas']['UpcomingSlot'][]
-      /** @description For a Movie, whether this release is the one that makes it searchable (its digital or physical date on `searchable_from`). */
-      searchable?: boolean
-      /** @description For a Movie, all its typed release dates in the release-date country, earliest first; empty for an episode. */
-      dates?: components['schemas']['UpcomingDate'][]
-      /** Format: date */
-      date: string
-      kind: components['schemas']['TitleKind']
-      /** Format: int64 */
-      title_id: number
-      title: string
-      year: number | null
-      /**
-       * @description Which release a Movie's `date` is; null for an episode.
-       * @enum {string|null}
-       */
-      release_type: 'theatrical' | 'digital' | 'physical' | null
-      season: number | null
-      episode: number | null
-      episode_name: string | null
-      /**
-       * Format: date
-       * @description For a Movie, the day it becomes searchable in the release-date country; null for an episode or when unknown.
-       */
-      searchable_from: string | null
-      /** @description For a Movie, whether it is already searchable (false means "searchable from `searchable_from`"). Always true for an episode. */
-      released: boolean
-    }
-    RecentList: {
-      items: components['schemas']['RecentItem'][]
-      /** @description How many Imports the last 7 days brought, a pack counting once. */
-      total: number
-    }
-    RecentItem: {
-      /** Format: int64 */
-      title_id: number
-      title: string
-      year: number | null
-      kind: components['schemas']['TitleKind']
-      /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. */
-      has_poster: boolean
-      slot: components['schemas']['Slot']
-      release_name: string
-      score: number | null
-      /** @description What an Upgrade gained over the file it replaced; null for a first Import. */
-      score_delta: number | null
-      files: number
-      is_upgrade: boolean
-      /** Format: date-time */
-      imported_at: string
-    }
-    QueueList: {
-      items: components['schemas']['QueueItem'][]
-    }
-    QueueItem: {
-      /** Format: int64 */
-      grab_id: number
-      /** Format: int64 */
-      title_id: number | null
-      /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title; false when the Title was deleted. */
-      has_poster: boolean
-      /** Format: int64 */
-      version_id: number | null
-      /** @description The Title's name, empty when the Title was deleted. */
-      title: string
-      year: number | null
-      /** @description The Title's kind, null when the Title was deleted. */
-      kind: components['schemas']['TitleKind'] | null
-      slot: components['schemas']['Slot'] | null
-      /** @description The episodes a Series Grab covers (`S01E02`); empty for a Movie. */
-      episodes: string[]
-      release_name: string
-      /** @description The indexer the Release came from. */
-      indexer: string
-      /**
-       * Format: int64
-       * @description The Release's size as the indexer gave it; `bytes_total` is the client's.
-       */
-      size: number
-      score: number
-      /** @enum {string} */
-      phase: 'queued' | 'downloading' | 'paused' | 'post_processing' | 'importing'
-      /**
-       * Format: date-time
-       * @description When the Grab entered its `phase`, as far as Kestrel knows. A phase only the download client
-       *     reports (`paused`, `post_processing`, `queued` after `downloading`) counts from the poll that
-       *     first saw it, and after a restart from the Grab's last change of state.
-       */
-      phase_since: string
-      /** Format: date-time */
-      grabbed_at: string
-      /** Format: int64 */
-      bytes_total: number
-      /** Format: int64 */
-      bytes_left: number
-      /** @description Seconds left, null when the client does not know. */
-      eta: number | null
-      is_upgrade: boolean
-      /** @description For an Upgrade, how many points the Release scores above the file it replaces. */
-      score_delta: number | null
-      /**
-       * @description Set while the download is a Stuck download, null otherwise. It is the same judgement Silo's
-       *     requester view reports as "Taking longer than usual". Not to be confused with a Stalled Import.
-       */
-      stuck: components['schemas']['StuckDownload'] | null
-    }
-    ReleaseDateEntry: {
-      country: string
-      /** @enum {string} */
-      type: 'premiere' | 'theatrical_limited' | 'theatrical' | 'digital' | 'physical' | 'tv'
-      /** Format: date-time */
-      date: string
-      certification: string | null
-    }
-    /**
-     * @description One audience rating of a Title from a ratings source: the average of its users' votes. Today
-     *     only TMDB's. Not a content rating (`certification`) and not a Release's `score`.
-     */
-    Rating: {
-      /**
-       * @description Where the rating is from: `tmdb`. Clients tolerate new values.
-       * @example tmdb
-       */
-      source: string
-      /**
-       * Format: double
-       * @description The rating on the source's scale; `null` when the source has none yet.
-       * @example 8.4
-       */
-      value: number | null
-      /**
-       * Format: double
-       * @description The best rating on the source's scale, such as 10.
-       * @example 10
-       */
-      scale: number | null
-      /**
-       * @description How many votes the rating averages.
-       * @example 21000
-       */
-      votes: number | null
-      /**
-       * @description The Title's page at the source.
-       * @example https://www.themoviedb.org/movie/116149
-       */
-      url: string | null
-    }
-    TitleDetail: {
-      /** Format: int64 */
-      id: number
-      /** @description The Requests that asked for this Title, oldest first. */
-      requests: components['schemas']['RequestOrigin'][]
-      kind: components['schemas']['TitleKind']
-      tmdb_id: number | null
-      tvdb_id: number | null
-      imdb_id: string | null
-      title: string
-      original_title: string
-      primary_title: string
-      year: number | null
-      /** @description ISO 639-1; empty when unknown. */
-      original_language: string
-      overview: string
-      /** @description Minutes. */
-      runtime: number | null
-      /** @description Whether `GET /titles/{id}/poster` has an image. */
-      has_poster: boolean
-      monitored: boolean
-      metadata_frozen: boolean
-      root_folder: string
-      /** @description The Title's folder name; set by its first Import. */
-      folder: string | null
-      /** Format: date-time */
-      added_at: string
-      /** Format: date-time */
-      refreshed_at: string
-      /** @description The certification in the release-date country, else the US, else the earliest anywhere. */
-      certification: string | null
-      /** @description Every dated release TMDB lists, in any country. */
-      release_dates: components['schemas']['ReleaseDateEntry'][]
-      /** @description `null` for a Movie. */
-      series_monitor: components['schemas']['SeriesMonitor'] | null
-      /** @description A Series' seasons in order, Specials (0) first; empty for a Movie. */
-      seasons: components['schemas']['Season'][]
-      /** @description In Slot order. */
-      versions: components['schemas']['VersionDetail'][]
-      /** @description Audience ratings of the Title from ratings sources; empty when none has one. */
-      ratings: components['schemas']['Rating'][]
-    }
-    /** @description The Title asked for. Kestrel needs `tmdb_id`, or a `tvdb_id` of a Series already in the Library. */
-    RequestTitle: {
-      kind: components['schemas']['TitleKind']
-      tmdb_id?: number | null
-      tvdb_id?: number | null
-      imdb_id?: string | null
-    }
-    RequestSlotCreate: {
-      slot: components['schemas']['Slot']
-      /** @description A Profile key of that Slot; left out, Profile resolution picks one. */
-      profile?: string | null
-    }
-    Requester: {
-      id: string
-      name: string
-    }
-    RequestCreate: {
-      /** @example silo */
-      source: string
-      /** @description The source's own id; the key that makes a retry idempotent. */
-      source_request_id: string
-      requester: components['schemas']['Requester']
-      title: components['schemas']['RequestTitle']
-      slots: components['schemas']['RequestSlotCreate'][]
-      /** @description One of the configured Root folders of the Title's kind; left out means the first one. It applies only to a Title the Request creates: a Request never moves a Title already in the library. Not one of that kind's Root folders is a `422` on `root_folder`. */
-      root_folder?: string
-      /** @description Series only; `null` or left out asks for the whole Series. */
-      seasons?: number[] | null
-      /**
-       * @description Series naming no `seasons` only. `true` asks for the Series one season at a time (Watch-ahead,
-       *     ADR 0019), `false` for the whole Series; `null` or left out takes the source's default: for
-       *     `silo` the `watch_ahead` of `PUT /settings/silo`, for any other source `false`.
-       */
-      watch_ahead?: boolean | null
-    }
-    RequestDownload: {
-      /** @description `queued`, `downloading`, `paused`, `post_processing` or `importing`. */
-      phase: string
-      /**
-       * Format: int64
-       * @description 0 when the download client does not know the size.
-       */
-      bytes_total: number
-      /** Format: int64 */
-      bytes_left: number
-      /** @description Seconds. */
-      eta: number | null
-    }
-    RequestSlot: {
-      slot: components['schemas']['Slot']
-      /** @description The Version's Profile; `null` for a rejected Request that never resolved one. */
-      profile: string | null
-      /**
-       * Format: int64
-       * @description `null` when there is no Version: the Request was rejected, or the Version was removed since.
-       */
-      version_id: number | null
-      /**
-       * @description Derived on every read. `failed` only when Kestrel rejected the Request or the Version or Title
-       *     was removed later; a failed download never shows as failed (it is blocklisted and retried).
-       * @enum {string}
-       */
-      status: 'queued' | 'downloading' | 'completed' | 'failed'
-      /** @description `Not released yet` or `Searching` while queued. */
-      status_label: string
-      /**
-       * @description `true` while the Slot's Grab is a stalled download (the download client reports it paused, or
-       *     its downloaded amount has not grown for an hour) or its finished download has an Import that
-       *     waits for the environment to be fixed (disk full, a folder not writable). The Slot keeps its
-       *     `status`.
-       */
-      stalled: boolean
-      download: components['schemas']['RequestDownload'] | null
-    }
-    Request: {
-      /** Format: int64 */
-      id: number
-      source: string
-      source_request_id: string
-      requester: components['schemas']['Requester']
-      /** @enum {string} */
-      outcome: 'accepted' | 'rejected'
-      /** @enum {string|null} */
-      reject_reason: 'not_on_tvdb' | 'unknown_title' | 'no_enabled_profile' | null
-      /** Format: int64 */
-      title_id: number | null
-      /**
-       * @description The Title's name: the Library's while the Title is there, else the name it had when the
-       *     Request was made (a rejected Request, or a Title removed since). `null` when Kestrel never
-       *     learnt one, such as for `unknown_title`.
-       */
-      title: string | null
-      /** @description Whether `GET /titles/{title_id}/poster` serves a poster; false without a Title in the Library. */
-      has_poster: boolean
-      /** @description The seasons asked for; empty for a Movie or the whole Series. */
-      seasons: number[]
-      /** Format: date-time */
-      created_at: string
-      slots: components['schemas']['RequestSlot'][]
-    }
-    RequestList: {
-      items: components['schemas']['Request'][]
-      next_cursor: string | null
-      /** @description How many Requests match the filters, across every page. */
-      total: number
-    }
-    /** @description Who asked for a Title and from where, for "Requested by Anna via Silo". */
-    RequestOrigin: {
-      /** Format: int64 */
-      id: number
-      source: string
-      requester_name: string
-      /** Format: date-time */
-      created_at: string
-    }
-    /** @enum {string} */
-    CleanupCategoryKey: 'junk' | 'samples' | 'orphaned_subtitles' | 'empty_folders' | 'other_language_subtitles' | 'artwork' | 'extras' | 'unmanaged_videos'
-    CleanupPreviewFile: {
-      path: string
-      /** Format: int64 */
-      size: number
-      /** Format: int64 */
-      title_id: number
-    }
-    CleanupPreviewCategory: {
-      key: components['schemas']['CleanupCategoryKey']
-      default_ticked: boolean
-      count: number
-      /** Format: int64 */
-      size: number
-      files: components['schemas']['CleanupPreviewFile'][]
-    }
-    CleanupPreview: {
-      preview_id: string
-      categories: components['schemas']['CleanupPreviewCategory'][]
-    }
-    CleanupResult: {
-      deleted: number
-      /** Format: int64 */
-      bytes: number
-      failed: number
-    }
-    /** @description RFC 9457 problem details. */
-    Problem: {
-      /** @default about:blank */
-      type: string
-      title: string
-      status: number
-      detail?: string
-      /**
-       * @description Stable machine-readable code from a closed, growable list. Clients branch on this,
-       *     never on the message text.
-       * @example internal
-       */
-      code: string
-      /** @description Field-level problems for `validation` errors. */
-      errors?: {
-        field: string
-        code: string
-        message: string
-      }[]
-    }
-  }
-  responses: {
-    /** @description An error. */
-    Problem: {
-      headers: {
-        [name: string]: unknown
-      }
-      content: {
-        'application/problem+json': components['schemas']['Problem']
-      }
-    }
-  }
-  parameters: {
-    /** @description A row's `id` from `GET /attention`. */
-    AttentionRowId: string
-    PluginId: string
-    InstanceId: number
-    /** @description Also delete the files from disk. Off by default. */
-    DeleteFiles: boolean
-    TitleId: number
-    VersionId: number
-    GrabId: number
-    ProfileKey: 'hd-primary' | 'hd-original' | 'any-primary' | 'any-original' | '4k-primary' | '4k-original'
-  }
-  requestBodies: never
-  headers: {
-    /** @description The `kestrel_session` cookie (HttpOnly, SameSite=Lax, Path from KESTREL_BASE_URL). */
-    SetCookie: string
-  }
-  pathItems: never
-}
-export type $defs = Record<string, never>
-export interface operations {
-  getSystem: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The running instance. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['System']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  getSetup: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Where the setup wizard stands. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Setup']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  createAccount: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['Credentials']
-      }
-    }
-    responses: {
-      /** @description The account was created and a session started. */
-      201: {
-        headers: {
-          'Set-Cookie': components['headers']['SetCookie']
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Me']
-        }
-      }
-      409: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  completeSetup: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Setup is finished. */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  login: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['Credentials']
-      }
-    }
-    responses: {
-      /** @description Logged in. */
-      204: {
-        headers: {
-          'Set-Cookie': components['headers']['SetCookie']
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      401: components['responses']['Problem']
-      /** @description Too many failed attempts. */
-      429: {
-        headers: {
-          /** @description Seconds until the next attempt is accepted. */
-          'Retry-After'?: number
-          [name: string]: unknown
-        }
-        content: {
-          'application/problem+json': components['schemas']['Problem']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  logout: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Logged out; the cookie is cleared. */
-      204: {
-        headers: {
-          'Set-Cookie': components['headers']['SetCookie']
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  logoutEverywhere: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description All sessions ended; the cookie is cleared. */
-      204: {
-        headers: {
-          'Set-Cookie': components['headers']['SetCookie']
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  getMe: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The current admin. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Me']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  getPlexSignIn: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Whether Plex sign-in is offered. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['PlexSignInAvailability']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  startPlexSignIn: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Where to send the browser. */
-      200: {
-        headers: {
-          /** @description The `kestrel_plex_pin` cookie. */
-          'Set-Cookie'?: string
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['PlexPin']
-        }
-      }
-      403: components['responses']['Problem']
-      502: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  finishPlexSignIn: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Signed in as a Requester; the PIN cookie is cleared. */
-      204: {
-        headers: {
-          'Set-Cookie': components['headers']['SetCookie']
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      401: components['responses']['Problem']
-      403: components['responses']['Problem']
-      409: components['responses']['Problem']
-      /** @description Too many failed attempts. */
-      429: {
-        headers: {
-          /** @description Seconds until the next attempt is accepted. */
-          'Retry-After'?: number
-          [name: string]: unknown
-        }
-        content: {
-          'application/problem+json': components['schemas']['Problem']
-        }
-      }
-      502: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  changePassword: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': {
-          current_password: string
-          new_password: string
-        }
-      }
-    }
-    responses: {
-      /** @description Password changed. */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      409: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  getApiKey: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The key's public details. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ApiKeyInfo']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  createApiKey: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The new key, shown exactly once. */
-      201: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['NewApiKey']
-        }
-      }
-      409: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  getReverseProxy: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The settings and the untrusted sightings recorded so far. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ReverseProxy']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  putReverseProxy: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ReverseProxySettings']
-      }
-    }
-    responses: {
-      /** @description The settings as saved. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ReverseProxy']
-        }
-      }
-      409: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  getSiloSettings: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The settings. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Silo']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  putSiloSettings: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['SiloSettings']
-      }
-    }
-    responses: {
-      /** @description The settings as saved. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Silo']
-        }
-      }
-      409: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  getPlexSignInSettings: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The settings. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['PlexSignIn']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  putPlexSignInSettings: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['PlexSignInSettings']
-      }
-    }
-    responses: {
-      /** @description The settings as saved. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['PlexSignIn']
-        }
-      }
-      409: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  getSettings: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Every section. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Settings']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  patchSettings: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['SettingsPatch']
-      }
-    }
-    responses: {
-      /** @description Every section as saved. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Settings']
-        }
-      }
-      409: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  listProfiles: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The Profiles with their settings. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ProfileList']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  patchProfile: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        key: components['parameters']['ProfileKey']
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ProfilePatch']
-      }
-    }
-    responses: {
-      /** @description The Profile as saved. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Profile']
-        }
-      }
-      404: components['responses']['Problem']
-      409: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  lookup: {
-    parameters: {
-      query: {
-        q: string
-        kind?: components['schemas']['TitleKind']
-      }
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The matches. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['LookupList']
-        }
-      }
-      422: components['responses']['Problem']
-      502: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  lookupTitle: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        kind: components['schemas']['TitleKind']
-        tmdb_id: number
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The Title and the suggestion. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['LookupDetail']
-        }
-      }
-      404: components['responses']['Problem']
-      502: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  lookupSeriesOverview: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        tmdb_id: number
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The overview. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['LookupSeries']
-        }
-      }
-      404: components['responses']['Problem']
-      502: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  listTitles: {
-    parameters: {
-      query?: {
-        kind?: components['schemas']['TitleKind']
-        q?: string
-        /** @description `true` keeps the Titles with a Wanted Version (the Library filter's `is:wanted`). */
-        wanted?: boolean
-        /** @description `true` keeps the Titles with a Long Missing Version (the Library filter's `is:long_missing`). */
-        long_missing?: boolean
+        RootFolders: {
+            movies: string[];
+            series: string[];
+        };
+        SettingsPatch: {
+            /**
+             * @description Changes the named display settings. A setting the Config File declares answers `409 conflict`.
+             *     An unknown value answers `422` naming `display.<setting>`.
+             */
+            display?: {
+                season_order?: components["schemas"]["SeasonOrder"];
+                seasons_open?: components["schemas"]["SeasonsOpen"];
+                manual_search_sort?: components["schemas"]["ManualSearchSort"];
+                upcoming_filters?: {
+                    kind?: components["schemas"]["UpcomingKind"];
+                    wanted_only?: boolean;
+                    hide_imported?: boolean;
+                };
+            };
+            pause_grabs?: boolean;
+            check_github_updates?: boolean;
+            /** @description A key that is omitted stays; an empty string clears the override so the next source applies. */
+            metadata?: {
+                tmdb_api_key?: string;
+                tvdb_api_key?: string;
+            };
+            trash?: {
+                auto_update?: boolean;
+            };
+            /**
+             * @description Replaces the named lists. Each path must exist, be a directory and be writable
+             *     (`not_found`, `not_directory`, `not_writable`, `not_absolute`, `required`).
+             */
+            root_folders?: {
+                movies?: string[];
+                series?: string[];
+            };
+            language_region?: {
+                primary_language?: components["schemas"]["PrimaryLanguage"];
+                release_date_country?: string;
+            };
+        };
+        /** @enum {string} */
+        Slot: "standard" | "4k";
+        Profile: {
+            /** @description `true` while the Config File declares `profiles`, which declares every Profile at once. */
+            from_config_file: boolean;
+            /** @example hd-primary */
+            key: string;
+            /** @example HD */
+            name: string;
+            slot: components["schemas"]["Slot"];
+            /**
+             * @description Which audio the Profile requires.
+             * @enum {string}
+             */
+            language_rule: "primary" | "original";
+            original_language: components["schemas"]["OriginalLanguageChoice"];
+            /**
+             * @deprecated
+             * @description Deprecated in favour of `original_language`: `true` exactly when it is `accept`. Always
+             *     false on Original-Language Profiles.
+             */
+            original_fallback: boolean;
+            enabled: boolean;
+            default_movies: boolean;
+            default_series: boolean;
+            min_height: number;
+            max_height: number;
+            /** @description The TRaSH profile file (without .json) backing the Profile for Movies under the current Primary Language. */
+            trash_profile_movies: string;
+            /** @description The same for Series. */
+            trash_profile_series: string;
+        };
+        ProfileList: {
+            items: components["schemas"]["Profile"][];
+        };
+        ProfilePatch: {
+            enabled?: boolean;
+            original_language?: components["schemas"]["OriginalLanguageChoice"];
+            /**
+             * @deprecated
+             * @description Deprecated in favour of `original_language`; `true` sets `accept`, `false` sets `reject`.
+             */
+            original_fallback?: boolean;
+            default_movies?: boolean;
+            default_series?: boolean;
+        };
         /**
-         * @description `added_at` (default) is newest first. `wanted_since` puts the Titles that have been Wanted
-         *     longest first, and the ones that are not Wanted last.
+         * @description What a Primary-Language Profile does with a Release that has the Title's Original Language but
+         *     no Primary-Language audio: `reject` it, `offer` it to the admin as an Original Offer (Needs
+         *     attention, never grabbed on its own), or `accept` it like any other. Always `reject` on
+         *     Original-Language Profiles.
+         * @enum {string}
          */
-        sort?: 'added_at' | 'wanted_since'
-        limit?: number
-        cursor?: string
-      }
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description A page of rows. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['TitleList']
-        }
-      }
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  createTitle: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['TitleCreate']
-      }
-    }
-    responses: {
-      /** @description The new Title. */
-      201: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['TitleDetail']
-        }
-      }
-      404: components['responses']['Problem']
-      409: components['responses']['Problem']
-      422: components['responses']['Problem']
-      502: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  bulkTitles: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['TitlesBulk']
-      }
-    }
-    responses: {
-      /** @description What happened to each Title, in the order of `title_ids`. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['TitlesBulkResult']
-        }
-      }
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  refreshTitle: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['TitleId']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The refresh was started. */
-      202: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      404: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  getTitle: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['TitleId']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The Title. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['TitleDetail']
-        }
-      }
-      404: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  deleteTitle: {
-    parameters: {
-      query?: {
-        /** @description Also delete the files from disk. Off by default. */
-        delete_files?: components['parameters']['DeleteFiles']
-      }
-      header?: never
-      path: {
-        id: components['parameters']['TitleId']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Removed. */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      404: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  patchTitle: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['TitleId']
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['TitlePatch']
-      }
-    }
-    responses: {
-      /** @description The Title. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['TitleDetail']
-        }
-      }
-      404: components['responses']['Problem']
-      409: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  addVersion: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['TitleId']
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['VersionRef']
-      }
-    }
-    responses: {
-      /** @description The new Version. */
-      201: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['VersionDetail']
-        }
-      }
-      404: components['responses']['Problem']
-      409: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  deleteVersion: {
-    parameters: {
-      query?: {
-        /** @description Also delete the files from disk. Off by default. */
-        delete_files?: components['parameters']['DeleteFiles']
-      }
-      header?: never
-      path: {
-        id: components['parameters']['VersionId']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Removed. */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      404: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  patchVersion: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['VersionId']
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['VersionPatch']
-      }
-    }
-    responses: {
-      /** @description The Version. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['VersionDetail']
-        }
-      }
-      404: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  deleteVersionFiles: {
-    parameters: {
-      query?: {
-        /** @description Only the files holding episodes of this season (0 is Specials). */
-        season?: number
-        /** @description Only the files holding these episodes. */
-        episode_ids?: number[]
-        /** @description Also put each deleted file's Release on the Blocklist. Off by default. */
-        blocklist?: boolean
-      }
-      header?: never
-      path: {
-        id: components['parameters']['VersionId']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description What was deleted; no files when the scope held none. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['DeletedFiles']
-        }
-      }
-      404: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  listEpisodes: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['TitleId']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The episodes. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['EpisodeList']
-        }
-      }
-      404: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  monitorEpisodes: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['TitleId']
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['EpisodesMonitor']
-      }
-    }
-    responses: {
-      /** @description Done. */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      404: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  patchSeason: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['TitleId']
-        season: number
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['SeasonPatch']
-      }
-    }
-    responses: {
-      /** @description Done. */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      404: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  getTitlePoster: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['TitleId']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description A JPEG. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'image/jpeg': string
-        }
-      }
-      404: components['responses']['Problem']
-      502: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  searchVersionReleases: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['VersionId']
-      }
-      cookie?: never
-    }
-    requestBody?: {
-      content: {
-        'application/json': components['schemas']['ReleaseSearch']
-      }
-    }
-    responses: {
-      /** @description The Releases. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ReleaseList']
-        }
-      }
-      404: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  searchVersion: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['VersionId']
-      }
-      cookie?: never
-    }
-    requestBody?: {
-      content: {
-        'application/json': components['schemas']['ReleaseSearch']
-      }
-    }
-    responses: {
-      /** @description The search started. */
-      202: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      404: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  acceptOriginalOffer: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['VersionId']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The Grabs made. */
-      201: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['OfferAccepted']
-        }
-      }
-      404: components['responses']['Problem']
-      409: components['responses']['Problem']
-      422: components['responses']['Problem']
-      429: components['responses']['Problem']
-      502: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  dismissOriginalOffer: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['VersionId']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The offer is dismissed. */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      404: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  listGrabs: {
-    parameters: {
-      query?: {
-        state?: ('sent' | 'downloading' | 'completed' | 'importing' | 'imported' | 'failed')[]
-        stalled?: boolean
-        since?: string
-        limit?: number
-        cursor?: string
-      }
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description A page of Grabs. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['GrabList']
-        }
-      }
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  createGrab: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['GrabCreate']
-      }
-    }
-    responses: {
-      /** @description The new Grab. */
-      201: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Grab']
-        }
-      }
-      404: components['responses']['Problem']
-      409: components['responses']['Problem']
-      422: components['responses']['Problem']
-      429: components['responses']['Problem']
-      502: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  getGrab: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['GrabId']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The Grab. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Grab']
-        }
-      }
-      404: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  cancelGrab: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['GrabId']
-      }
-      cookie?: never
-    }
-    requestBody?: {
-      content: {
-        'application/json': components['schemas']['GrabCancel']
-      }
-    }
-    responses: {
-      /** @description The Grab is gone. */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      404: components['responses']['Problem']
-      502: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  retryGrabImport: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['GrabId']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The Import is due now. */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      404: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  discardGrab: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['GrabId']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The Grab is discarded. */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      404: components['responses']['Problem']
-      502: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  retryStalledImports: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: {
-      content: {
-        'application/json': components['schemas']['StalledImportsSelect']
-      }
-    }
-    responses: {
-      /** @description The Imports are due now. */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  discardStalledImports: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: {
-      content: {
-        'application/json': components['schemas']['StalledImportsSelect']
-      }
-    }
-    responses: {
-      /** @description The Imports are discarded. */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      502: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  listQueue: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The active Grabs. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['QueueList']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  listUpcoming: {
-    parameters: {
-      query?: {
-        /** @description First day of the window. Default today. */
-        from?: string
-        /** @description Last day of the window. Default 30 days after `from`. */
-        to?: string
-      }
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The agenda. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['UpcomingList']
-        }
-      }
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  listRecentlyAdded: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The recent Imports. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['RecentList']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  listEvents: {
-    parameters: {
-      query?: {
-        kind?: string[]
-        exclude_kind?: string[]
-        title_id?: number[]
-        exclude_title_id?: number[]
-        slot?: components['schemas']['Slot'][]
-        exclude_slot?: components['schemas']['Slot'][]
-        routine?: boolean
-        before?: number
-        limit?: number
-      }
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The events. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['EventList']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  listBlocklist: {
-    parameters: {
-      query?: {
-        title_id?: number
-      }
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The entries. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['BlocklistList']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  deleteBlocklistEntry: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['GrabId']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The entry is gone. */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      404: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  getAdoption: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The Adoption state. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Adoption']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  discardAdoption: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The plan is gone. */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      409: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  patchAdoption: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': {
-          monitor: components['schemas']['AdoptionMonitor']
-        }
-      }
-    }
-    responses: {
-      /** @description The Adoption state. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Adoption']
-        }
-      }
-      404: components['responses']['Problem']
-      409: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  scanAdoption: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: {
-      content: {
-        'application/json': {
-          /** @description Limit the scan to these configured Root folders; `null` or absent scans them all. */
-          root_folders?: string[] | null
-        }
-      }
-    }
-    responses: {
-      /** @description The scan started. */
-      202: {
-        headers: {
-          Location?: string
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Adoption']
-        }
-      }
-      409: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  listAdoptionRows: {
-    parameters: {
-      query?: {
-        filter?: 'needs_choice' | 'matched' | 'duplicate' | 'replacement' | 'skipped'
+        OriginalLanguageChoice: "reject" | "offer" | "accept";
+        /** @enum {string} */
+        SetupSectionState: "done" | "todo";
         /**
-         * @description Keep the rows that ended this way in the last commit (see `AdoptionFinalOutcome`), which are kept
-         *     until the next scan. Only rows of a finished commit have an outcome, so no row matches before one.
-         *     Combines with `filter`. Without it the list is the rows under review, not the kept ones.
+         * @description Plugin settings by manifest field key. Secret fields are write-only: they are accepted
+         *     here and never returned. In a patch, `null` clears a field.
          */
-        outcome?: components['schemas']['AdoptionFinalOutcome']
-        /** @description Page size. Without it every row is returned, as before paging existed. */
-        limit?: number
-        /** @description The `next_cursor` of the previous page. */
-        cursor?: string
-      }
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
+        PluginConfigPatch: {
+            [key: string]: unknown;
+        };
+        PluginOption: {
+            value: string;
+            label: string;
+        };
+        PluginField: {
+            key: string;
+            label: string;
+            /** @enum {string} */
+            type: "text" | "url" | "secret" | "int" | "bool" | "select";
+            required: boolean;
+            /** @description The value used when the field is absent, or `null`. */
+            default: unknown;
+            help: string;
+            /** @description The fixed choices of a `select` field. */
+            options: components["schemas"]["PluginOption"][];
+            /**
+             * @description Choices come from `POST /plugins/{plugin_id}/options/{field}` once the connection works.
+             *     Until then the field is free text.
+             */
+            live: boolean;
+        };
+        PluginManifest: {
+            /** @example sabnzbd */
+            id: string;
+            name: string;
+            /**
+             * @description The versioned plugin contract, e.g. `download_client.v1`.
+             * @example download_client.v1
+             */
+            contract: string;
+            version: string;
+            /** @description Contract-specific facts, e.g. protocols: [usenet]. */
+            capabilities: {
+                [key: string]: string[];
+            };
+            fields: components["schemas"]["PluginField"][];
+        };
+        PluginList: {
+            items: components["schemas"]["PluginManifest"][];
+            next_cursor: string | null;
+        };
+        PluginOptionList: {
+            items: components["schemas"]["PluginOption"][];
+        };
+        PluginForm: {
+            config: components["schemas"]["PluginConfigPatch"];
+            /**
+             * Format: int64
+             * @description A saved instance whose stored config, secrets included, lies under `config`.
+             */
+            instance_id?: number | null;
+        };
+        PluginInstance: {
+            /**
+             * @description `true` for an instance the Config File declares. It can't be changed or removed here,
+             *     and its name can't be given to another instance. Only `enabled` can be changed, and only
+             *     while `enabled_declared` is `false`.
+             */
+            from_config_file: boolean;
+            /**
+             * @description `true` while the Config File sets this instance's `enabled`, which can't be changed
+             *     here then. `false` for an instance created here, and for a declared instance whose
+             *     file leaves `enabled` out: `enabled` is changed here and kept across restarts.
+             */
+            enabled_declared: boolean;
+            /** Format: int64 */
+            id: number;
+            contract: string;
+            plugin_id: string;
+            name: string;
+            enabled: boolean;
+            priority: number;
+            /** @description Every non-secret manifest field, `null` for none. */
+            config: {
+                [key: string]: unknown;
+            };
+            /** @description Keys of the secret fields that have a value. The values are never returned. */
+            secrets_set: string[];
+            /**
+             * @description The latest check of the instance, or call Kestrel made to it for its own work.
+             *     `null` before the first. Enabled media servers are checked every 15 min.
+             */
+            last_check: components["schemas"]["PluginInstanceCheck"] | null;
+        };
+        PluginInstanceCheck: {
+            /** Format: date-time */
+            at: string;
+            ok: boolean;
+            /**
+             * @description Why the call failed, `null` when it worked: `auth`, `unavailable`, `rate_limited`,
+             *     `invalid` or `not_found`. Clients tolerate new values.
+             */
+            code: string | null;
+            /** @description The error's text, `null` when the call worked. */
+            message: string | null;
+        };
+        PluginInstanceList: {
+            items: components["schemas"]["PluginInstance"][];
+            next_cursor: string | null;
+        };
+        PluginInstanceCreate: {
+            plugin_id: string;
+            name: string;
+            /** @description Defaults to true when absent. */
+            enabled?: boolean;
+            /** @description Defaults to 0 when absent. */
+            priority?: number;
+            config: components["schemas"]["PluginConfigPatch"];
+        };
+        PluginInstancePatch: {
+            name?: string;
+            enabled?: boolean;
+            priority?: number;
+            config?: components["schemas"]["PluginConfigPatch"];
+        };
+        PluginTestRequest: {
+            plugin_id: string;
+            config: components["schemas"]["PluginConfigPatch"];
+        };
+        PluginTestResult: {
+            ok: boolean;
+            /**
+             * @description Why the test failed, `null` when it passed: `auth`, `unavailable`, `rate_limited`,
+             *     `invalid` or `not_found`. Clients tolerate new values.
+             */
+            code: string | null;
+            message: string;
+        };
+        /** @enum {string} */
+        TitleKind: "movie" | "series";
+        /**
+         * @description `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
+         *     Clients tolerate new values.
+         * @enum {string}
+         */
+        SlotState: "wanted" | "filled" | "downloading" | "unmonitored" | "unreleased";
+        LookupResult: {
+            kind: components["schemas"]["TitleKind"];
+            tmdb_id: number;
+            tvdb_id: number | null;
+            title: string;
+            year: number | null;
+            /** @description A small TMDB poster URL. */
+            poster: string | null;
+            /**
+             * Format: int64
+             * @description The Title id when it is already in the Library.
+             */
+            in_library: number | null;
+            addable: boolean;
+            /** @description `not_on_tvdb` for a Series TheTVDB does not have; `null` when addable. Clients tolerate new values. */
+            not_addable_reason: string | null;
+            /** @description Audience ratings of the Title from ratings sources; empty when none has one. */
+            ratings: components["schemas"]["Rating"][];
+        };
+        LookupList: {
+            /**
+             * @description Best match first: TMDB's results ranked by how well they match the query, then by a
+             *     year typed after it (`dune 2021`, searched as `dune`).
+             */
+            items: components["schemas"]["LookupResult"][];
+            next_cursor: string | null;
+            /** @description The best result's title when it differs a lot from the query, to search for instead; `null` otherwise. */
+            did_you_mean: string | null;
+        };
+        SuggestedSlot: {
+            slot: components["schemas"]["Slot"];
+            /**
+             * @description The Profile key.
+             * @example any-primary
+             */
+            profile: string;
+            /** @example Any */
+            label: string;
+            /**
+             * @description `default` (the Slot's default Profile). Clients tolerate new values.
+             * @enum {string}
+             */
+            reason: "default";
+        };
+        LookupDetail: {
+            kind: components["schemas"]["TitleKind"];
+            tmdb_id: number;
+            title: string;
+            year: number | null;
+            overview: string;
+            /** Format: int64 */
+            in_library: number | null;
+            /** @description The Title's rating, as TMDB writes it ("6", "PG"). */
+            certification: string | null;
+            /** @description The country that rating is from; the release-date country unless TMDB had none there. */
+            certification_country: string | null;
+            /** @description Every Slot with a default Profile for the kind, in Slot order. */
+            slots: components["schemas"]["SuggestedSlot"][];
+            /** @description Audience ratings of the Title from ratings sources; empty when none has one. */
+            ratings: components["schemas"]["Rating"][];
+            /** @description A TMDB poster URL, larger than the search result's. */
+            poster: string | null;
+            /** @description Minutes; a typical episode's for a Series. */
+            runtime: number | null;
+            /**
+             * @description TMDB's genre names, in TMDB's order.
+             * @example [
+             *       "Drama",
+             *       "Crime"
+             *     ]
+             */
+            genres: string[];
+        };
+        /**
+         * @description A Series' overview for the add panel (`GET /lookup/series/{tmdb_id}/overview`): status,
+         *     network, air dates and seasons.
+         */
+        LookupSeries: {
+            /**
+             * @description `continuing`, `ended` or `upcoming`, as TheTVDB says. Clients tolerate new values.
+             * @example ended
+             */
+            status: string | null;
+            /**
+             * @description The network it first aired on, from TMDB.
+             * @example AMC
+             */
+            network: string | null;
+            /**
+             * Format: date
+             * @description The first episode's air date, Specials aside.
+             */
+            first_aired: string | null;
+            /**
+             * Format: date
+             * @description The latest air date up to today, Specials aside.
+             */
+            last_aired: string | null;
+            /**
+             * @description The latest season that has aired or is airing (Specials aside); `null` when none has
+             *     started. What `TitleCreate.seasons` takes to add only the current season.
+             */
+            latest_season: number | null;
+            /** @description Every season TheTVDB lists, Specials (0) first. */
+            seasons: components["schemas"]["LookupSeason"][];
+        };
+        LookupSeason: {
+            /** @description 0 is Specials. */
+            number: number;
+            episodes: number;
+            /**
+             * Format: date
+             * @description The season's earliest known air date.
+             */
+            first_aired: string | null;
+            /**
+             * Format: date
+             * @description The season's latest known air date, which may be in the future.
+             */
+            last_aired: string | null;
+        };
+        VersionRef: {
+            slot: components["schemas"]["Slot"];
+            /** @description The Profile key. It must be an enabled Profile of that Slot. */
+            profile: string;
+        };
+        VersionPatch: {
+            /** @description The Profile key. It must be an enabled Profile of the Version's Slot. */
+            profile: string;
+        };
+        TitleCreate: {
+            kind: components["schemas"]["TitleKind"];
+            tmdb_id: number;
+            versions: components["schemas"]["VersionRef"][];
+            root_folder?: string | null;
+            /** @description Series only; defaults to `all`. */
+            series_monitor?: components["schemas"]["SeriesMonitor"] | null;
+            /**
+             * @description Series only: the seasons monitored when it is added, Specials (0) included when named.
+             *     Left out, `series_monitor` decides every episode. Given, it decides seasons that have
+             *     not started airing and every episode that arrives later; the seasons not named are
+             *     left unmonitored. A season the Series does not have is a `422` (`seasons` /
+             *     `unknown`), as is a negative one (`seasons` / `invalid`) and a Movie with seasons
+             *     (`seasons` / `not_a_series`).
+             * @example [
+             *       1
+             *     ]
+             */
+            seasons?: number[] | null;
+        };
+        /**
+         * @description `all` monitors every episode, future ones and new seasons included; `future` the episodes airing
+         *     today or later or without an air date, and new seasons; `none` nothing. Specials (season 0) are
+         *     never monitored automatically.
+         * @enum {string}
+         */
+        SeriesMonitor: "all" | "future" | "none";
+        Season: {
+            /** @description 0 is Specials. */
+            number: number;
+            monitored: boolean;
+        };
+        EpisodeCell: {
+            state: components["schemas"]["SlotState"];
+            /** @description The Score of the file holding the episode, when there is one. */
+            score: number | null;
+            /** @description The file holding the episode in this Version, even a misfit one; `null` when there is none. */
+            file: components["schemas"]["EpisodeFile"] | null;
+        };
+        /** @description A file on disk holding one or more episodes of a Version (a multi-episode file holds several). */
+        EpisodeFile: {
+            /** Format: int64 */
+            id: number;
+            path: string;
+            /** Format: int64 */
+            size: number;
+            /** @description The quality name parsed from the release name ("WEBDL-1080p"). */
+            quality: string | null;
+            /** @description Every episode the file holds, in aired order; more than one for a multi-episode file. */
+            episode_ids: number[];
+        };
+        Episode: {
+            /** Format: int64 */
+            id: number;
+            season: number;
+            number: number;
+            /** @description The original title; kept for older clients, the same as `original_name`. */
+            name: string;
+            /**
+             * Format: date
+             * @description The TheTVDB air date.
+             */
+            air_date: string | null;
+            monitored: boolean;
+            /** @description One cell per Slot, `null` where the Title has no Version. */
+            cells: {
+                standard: components["schemas"]["EpisodeCell"] | null;
+                "4k": components["schemas"]["EpisodeCell"] | null;
+            };
+            /** @description The title in the Primary Language, from TheTVDB; the original title when TheTVDB has no translation. Empty for a Placeholder Episode. */
+            primary_name: string;
+            /** @description The title in the Series' original language. Empty for a Placeholder Episode. */
+            original_name: string;
+            /**
+             * @description True for a Placeholder Episode: one Kestrel added because a Release named it before
+             *     TheTVDB listed it. It has no name, air date or TheTVDB id until a metadata refresh adopts
+             *     it, and counts as released from when it was added.
+             */
+            placeholder: boolean;
+        };
+        EpisodeList: {
+            items: components["schemas"]["Episode"][];
+        };
+        /** @description Merge patch. Only Movies take `monitored`, only Series have a `series_monitor`. */
+        TitlePatch: {
+            /** @description A Movie only; a Series is monitored through `series_monitor`. */
+            monitored?: boolean;
+            series_monitor?: components["schemas"]["SeriesMonitor"];
+            metadata_frozen?: boolean;
+            /** @description One of the Root folders of the Title's kind to move the Title to. */
+            root_folder?: string;
+        };
+        /** @description One action over many Titles. `action` says which, and picks the parameters that go with it. */
+        TitlesBulk: components["schemas"]["TitlesBulkMonitor"] | components["schemas"]["TitlesBulkSwitchProfile"] | components["schemas"]["TitlesBulkAddVersion"] | components["schemas"]["TitlesBulkRemoveVersion"] | components["schemas"]["TitlesBulkSearch"] | components["schemas"]["TitlesBulkRefresh"] | components["schemas"]["TitlesBulkFreeze"] | components["schemas"]["TitlesBulkRemove"];
+        TitleIds: number[];
+        TitlesBulkMonitor: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "monitor";
+            title_ids: components["schemas"]["TitleIds"];
+            monitored: boolean;
+            /**
+             * @description The mode monitored Series get. Left out, a Series already monitored keeps its mode and
+             *     an unmonitored one gets `all`. With `monitored: true` it cannot be `none`, and with
+             *     `monitored: false` it can only be `none`.
+             */
+            series_monitor?: components["schemas"]["SeriesMonitor"];
+        };
+        TitlesBulkSwitchProfile: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "switch_profile";
+            title_ids: components["schemas"]["TitleIds"];
+            slot: components["schemas"]["Slot"];
+            /** @description The Profile key. It must be an enabled Profile of that Slot. */
+            profile: string;
+        };
+        TitlesBulkAddVersion: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "add_version";
+            title_ids: components["schemas"]["TitleIds"];
+            slot: components["schemas"]["Slot"];
+            /** @description The Profile key. It must be an enabled Profile of that Slot. */
+            profile: string;
+        };
+        TitlesBulkRemoveVersion: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "remove_version";
+            title_ids: components["schemas"]["TitleIds"];
+            slot: components["schemas"]["Slot"];
+            /**
+             * @description Delete the files from disk too.
+             * @default false
+             */
+            delete_files: boolean;
+        };
+        TitlesBulkSearch: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "search";
+            title_ids: components["schemas"]["TitleIds"];
+        };
+        TitlesBulkRefresh: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "refresh";
+            title_ids: components["schemas"]["TitleIds"];
+        };
+        TitlesBulkFreeze: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "freeze";
+            title_ids: components["schemas"]["TitleIds"];
+            frozen: boolean;
+        };
+        TitlesBulkRemove: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "remove";
+            title_ids: components["schemas"]["TitleIds"];
+            /**
+             * @description Delete the files from disk too.
+             * @default false
+             */
+            delete_files: boolean;
+        };
+        TitlesBulkResult: {
+            items: components["schemas"]["TitleBulkOutcome"][];
+        };
+        TitleBulkOutcome: {
+            /** Format: int64 */
+            title_id: number;
+            /** @enum {string} */
+            outcome: "changed" | "skipped" | "failed";
+            /**
+             * @description Why the Title was skipped or failed, `null` when it changed. Skipped: `unchanged`, it
+             *     already is as asked; `not_found`, there is no such Title; `no_version`, it has no Version
+             *     in the Slot; `slot_taken`, the Slot already holds a Version; `nothing_wanted`, none of its
+             *     Versions is Wanted; `frozen`, its metadata is frozen. Failed: `download_client`, the
+             *     download client could not cancel the Title's download (`message` has what it said);
+             *     `internal`, an unexpected error, which the log has.
+             * @enum {string|null}
+             */
+            reason: "unchanged" | "not_found" | "no_version" | "slot_taken" | "nothing_wanted" | "frozen" | "download_client" | "internal" | null;
+            /** @description The reason in a sentence. */
+            message: string | null;
+        };
+        SeasonPatch: {
+            monitored: boolean;
+        };
+        EpisodesMonitor: {
+            episode_ids: number[];
+            monitored: boolean;
+        };
+        SlotSummary: {
+            /** Format: int64 */
+            version_id: number;
+            profile: string;
+            state: components["schemas"]["SlotState"];
+            long_missing: boolean;
+        };
+        TitleRow: {
+            /** Format: int64 */
+            id: number;
+            kind: components["schemas"]["TitleKind"];
+            /** @description The English title. */
+            title: string;
+            /** @description The title in the Primary Language; the English title when TMDB has no translation. */
+            primary_title: string;
+            year: number | null;
+            /** @description Whether `GET /titles/{id}/poster` has an image. */
+            has_poster: boolean;
+            slots: {
+                standard: components["schemas"]["SlotSummary"] | null;
+                "4k": components["schemas"]["SlotSummary"] | null;
+            };
+            /** Format: date-time */
+            wanted_since: string | null;
+            /** Format: date-time */
+            added_at: string;
+            /**
+             * Format: int64
+             * @description Bytes the files of its Versions take on disk, 0 when it holds none.
+             */
+            size: number;
+            /**
+             * Format: date-time
+             * @description When Kestrel last searched for any of its Versions, for what is missing or for an Upgrade; null when it never has.
+             */
+            searched_at: string | null;
+            /** @description A Series' Wanted episodes; null for a Movie. */
+            wanted_episodes: components["schemas"]["WantedEpisodes"] | null;
+        };
+        /**
+         * @description A Series' Wanted episodes, counted once however many of its Versions want them. The Library's
+         *     rows say from it why a Series is Wanted ("S02: 2 Wanted"); the Grabs on their way are in `GET /queue`.
+         */
+        WantedEpisodes: {
+            wanted: number;
+            /** @description How many of them are Long Missing in some Version. */
+            long_missing: number;
+            /** @description The seasons the Wanted episodes are in, in order. */
+            seasons: number[];
+        };
+        TitleList: {
+            items: components["schemas"]["TitleRow"][];
+            next_cursor: string | null;
+        };
+        FileSummary: {
+            path: string;
+            /** Format: int64 */
+            size: number;
+            release_name: string;
+            score: number | null;
+            /** @description The quality name parsed from the release name ("Bluray-1080p"). */
+            quality?: string | null;
+            /** @description The audio languages ffprobe found (English names), in track order. */
+            languages?: string[];
+            /** @description The file no longer fits the Version's Profile; the Version is Wanted. */
+            misfit?: boolean;
+            /** Format: date-time */
+            imported_at: string;
+        };
+        VersionDetail: {
+            /** Format: int64 */
+            id: number;
+            slot: components["schemas"]["Slot"];
+            profile: string;
+            state: components["schemas"]["SlotState"];
+            long_missing: boolean;
+            /** Format: date-time */
+            wanted_since: string | null;
+            file: components["schemas"]["FileSummary"] | null;
+            /** Format: date-time */
+            added_at: string;
+            coverage?: components["schemas"]["VersionCoverage"];
+            /** @description The Version's Original Offer, dismissed or not; null or absent when it has none. */
+            original_offer?: components["schemas"]["OriginalOffer"] | null;
+        };
+        /**
+         * @description How far a Series Version is filled, in episodes and bytes; present only for a Series
+         *     Version. It agrees with the Version's `state`: Wanted while `wanted` is above zero.
+         */
+        VersionCoverage: {
+            /**
+             * @description The episodes the Version counts: those it holds a file for and those it Wants. Unmonitored
+             *     and unreleased episodes without a file are left out; see `unmonitored`.
+             */
+            episodes: number;
+            /** @description Episodes the Version holds a file for. */
+            filled: number;
+            /** @description Episodes that are Wanted. */
+            wanted: number;
+            /** @description The Wanted episodes that are Long Missing, those with a Grab in flight included. */
+            long_missing: number;
+            /**
+             * @description Released episodes without a file that aren't monitored. The released episodes are
+             *     `filled + wanted + unmonitored`.
+             */
+            unmonitored: number;
+            /**
+             * @description The Wanted episodes a Grab in flight covers, Long Missing or not. A Grab is in flight until
+             *     it is Imported or Failed.
+             */
+            downloading: number;
+            /**
+             * @description The `downloading` episodes that are also Long Missing. For a bar of disjoint states, count
+             *     `filled`, `downloading`, `long_missing - downloading_long_missing`, the rest of `wanted`
+             *     (`wanted - downloading - (long_missing - downloading_long_missing)`) and `unmonitored`:
+             *     they add up to the released episodes.
+             */
+            downloading_long_missing: number;
+            /**
+             * Format: int64
+             * @description Bytes of all the Version's files.
+             */
+            size: number;
+        };
+        DeletedFiles: {
+            files: components["schemas"]["DeletedFile"][];
+            /**
+             * @description The files in scope that could not be deleted from disk (a read-only disk, missing
+             *     permissions). They stay the Version's; nothing else about them changed.
+             */
+            not_deleted: components["schemas"]["NotDeletedFile"][];
+        };
+        DeletedFile: {
+            path: string;
+            /** Format: int64 */
+            size: number;
+            release_name: string;
+            /** @description Every episode that lost its file, in aired order; empty for a Movie. */
+            episode_ids: number[];
+            /** @description The Release went on the Blocklist. False unless asked, for a file Kestrel did not grab and when blocklisting failed. */
+            blocklisted: boolean;
+        };
+        NotDeletedFile: {
+            path: string;
+            /** @description Every episode the file holds, in aired order; empty for a Movie. */
+            episode_ids: number[];
+            /** @description Why, as the filesystem said it, e.g. `permission denied`. */
+            reason: string;
+        };
+        /**
+         * @description Narrows the search of a Series Version to a season and, within it, episodes. Movie searches
+         *     take nothing.
+         */
+        ReleaseSearch: {
+            season?: number | null;
+            episode_ids?: number[];
+        };
+        /**
+         * @description Why a Release cannot go to a Version. Clients tolerate codes they do not know. `original_only`
+         *     is a Release with the Title's Original Language but no Primary-Language audio under a Profile
+         *     that offers such Releases.
+         * @enum {string}
+         */
+        RejectionCode: "below_min_score" | "resolution" | "quality" | "language" | "original_language_unknown" | "blocklisted" | "other_slot" | "episode_not_listed" | "season_not_listed" | "original_only";
+        Rejection: {
+            code: components["schemas"]["RejectionCode"];
+            message: string;
+            /** @description False for `blocklisted`, `other_slot` and `season_not_listed`, which "Grab anyway" never overrides. */
+            overridable: boolean;
+        };
+        CustomFormatMatch: {
+            name: string;
+            points: number;
+        };
+        Release: {
+            /** @description Opaque; names the Release for 6 h. */
+            release_id: string;
+            name: string;
+            indexer: string;
+            /** Format: int64 */
+            size: number;
+            /** Format: date-time */
+            published_at: string;
+            /** @example Bluray-1080p */
+            quality: string;
+            languages: string[];
+            custom_formats: components["schemas"]["CustomFormatMatch"][];
+            score: number;
+            /** @enum {string} */
+            fits: "this_slot" | "other_slot" | "none";
+            rejections: components["schemas"]["Rejection"][];
+            /** @description Series only. The season of the Release (the first of a multi-season pack). */
+            season?: number;
+            /** @description Series only. The episode numbers of a single or multi-episode Release; empty for a pack. */
+            episodes?: number[];
+            /**
+             * @description Series only. The title of each of `episodes`, in the same order and in the Primary Language (as on
+             *     the episode grid). An empty string for an episode without a title: a Placeholder Episode, or one TheTVDB
+             *     does not list. Absent for a pack.
+             */
+            episode_titles?: string[];
+            /** @description Series only. True for a season pack. */
+            pack?: boolean;
+        };
+        IndexerError: {
+            /** Format: int64 */
+            indexer_id: number | null;
+            indexer: string;
+            /** @description The plugin error code (`auth`, `unavailable`, `rate_limited`, `invalid`, `not_found`). */
+            code: string;
+            message: string;
+            /** @description Seconds, when the indexer said how long to wait. */
+            retry_after: number | null;
+        };
+        ReleaseList: {
+            items: components["schemas"]["Release"][];
+            indexer_errors: components["schemas"]["IndexerError"][];
+        };
+        GrabCreate: {
+            /** Format: int64 */
+            version_id: number;
+            release_id: string;
+            /** @default false */
+            override: boolean;
+        };
+        Grab: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            title_id: number | null;
+            /** Format: int64 */
+            version_id: number | null;
+            release_name: string;
+            indexer: string;
+            /** Format: int64 */
+            size: number;
+            /** Format: date-time */
+            published_at: string;
+            score: number;
+            /** @description The download client's id for the job (SABnzbd's nzo_id). */
+            client_id: string;
+            /** @enum {string} */
+            state: "sent" | "downloading" | "completed" | "importing" | "imported" | "failed";
+            /** @description Grabbed despite rejections. */
+            overridden: boolean;
+            is_upgrade: boolean;
+            /** Format: date-time */
+            created_at: string;
+        };
+        GrabList: {
+            items: components["schemas"]["GrabEntry"][];
+            next_cursor: string | null;
+        };
+        /** @description A Grab as the Activity screen shows it, joined with its Title and Slot. */
+        GrabEntry: {
+            /** Format: int64 */
+            grab_id: number;
+            /** Format: int64 */
+            title_id: number | null;
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title; false when the Title was deleted. */
+            has_poster: boolean;
+            /** Format: int64 */
+            version_id: number | null;
+            /** @description The Title's name, empty when the Title was deleted. */
+            title: string;
+            year: number | null;
+            kind: components["schemas"]["TitleKind"] | null;
+            slot: components["schemas"]["Slot"] | null;
+            /** @description The episodes a Series Grab covers (`S01E02`); empty for a Movie. */
+            episodes: string[];
+            release_name: string;
+            indexer: string;
+            /** Format: int64 */
+            size: number;
+            score: number;
+            is_upgrade: boolean;
+            /** @enum {string} */
+            state: "sent" | "downloading" | "completed" | "importing" | "imported" | "failed";
+            /** @description Why a failed Grab failed, such as `download_failed`, `encrypted`, `discarded` or what the Import rejected. */
+            failure: string | null;
+            /** @description The reason of the Blocklist entry the Grab's Release got, null when it is not blocklisted. */
+            blocklist_reason: string | null;
+            /** @description Set while the Import waits for the environment to be fixed. */
+            stalled: components["schemas"]["GrabStall"] | null;
+            /** Format: date-time */
+            grabbed_at: string;
+            /**
+             * Format: date-time
+             * @description When the Grab's state last changed; for a finished Grab, when it finished.
+             */
+            updated_at: string;
+        };
+        StuckDownload: {
+            /**
+             * @description `paused`: the download client has the job paused. `no_progress`: the downloaded amount has
+             *     not grown for an hour.
+             * @enum {string}
+             */
+            reason: "paused" | "no_progress";
+            /**
+             * Format: date-time
+             * @description When the job was paused, or when its downloaded amount last grew. Kept in memory, so after a restart it counts from the first poll.
+             */
+            since: string;
+        };
+        GrabStall: {
+            /** @description What is wrong, such as `disk full`. */
+            reason: string;
+            /** Format: date-time */
+            since: string;
+            /**
+             * Format: date-time
+             * @description When the Import is tried again on its own.
+             */
+            next_at: string;
+        };
+        GrabCancel: {
+            /** @default false */
+            blocklist: boolean;
+        };
+        /**
+         * @description How an Adoption adds a Title: `all` monitors it (a Series follows every episode), `future` follows
+         *     a Series' episodes from today on (a Movie is monitored), `none` leaves it unmonitored. These are
+         *     Add Title's choices that need no season list; a Title Kestrel tracks keeps its own monitoring.
+         * @enum {string}
+         */
+        AdoptionMonitor: "all" | "future" | "none";
+        Adoption: {
+            /** @enum {string} */
+            state: "idle" | "scanning" | "planned" | "committing";
+            /** @description How the Titles the plan adds are monitored unless a row has its own choice; `all` for a new plan. */
+            monitor: components["schemas"]["AdoptionMonitor"];
+            progress: {
+                done: number;
+                total: number;
+                current?: components["schemas"]["AdoptionCurrent"];
+            };
+            summary: components["schemas"]["AdoptionSummary"];
+            /** Format: int64 */
+            revision: number;
+            /** @description Why the last scan could not finish, if it could not. */
+            error: string | null;
+            /** Format: date-time */
+            scanned_at: string | null;
+            /** @description What the last commit did; kept until the next scan. */
+            result: {
+                adopted: number;
+                failed: number;
+                /** @description The Titles the commit adopted. */
+                title_ids: number[];
+                outcomes: components["schemas"]["AdoptionOutcomes"];
+            } | null;
+        };
+        /**
+         * @description The entry a running scan or commit is working on and what is happening to it; absent when nothing runs.
+         *     There is no per-file progress: `files` is how many files the step covers.
+         */
+        AdoptionCurrent: {
+            /** @description The folder or loose file in the Root folder. */
+            entry: string;
+            /**
+             * @description What is happening to the entry. Clients tolerate steps they do not know.
+             * @enum {string}
+             */
+            step: "probing" | "matching" | "moving";
+            /** @description How many files the step covers, when it is about files. */
+            files?: number;
+            /**
+             * @description The Title the entry is adopted as, with its year ("Paddington (2014)"), once it is matched, which
+             *     is while a commit moves it; absent while a scan or a Try again is still reading it.
+             */
+            title?: string;
+        };
+        /**
+         * @description What became of a row after a commit. `adopted` and `failed` rows were ticked and committed (`failed`
+         *     carries the row's `error`); `skipped` rows could not be adopted; `not_chosen` rows needed a choice
+         *     nobody made; `unticked` rows were Matched but left out.
+         * @enum {string}
+         */
+        AdoptionFinalOutcome: "adopted" | "failed" | "skipped" | "not_chosen" | "unticked";
+        /** @description How many rows ended each way, after the last commit. */
+        AdoptionOutcomes: {
+            adopted: number;
+            failed: number;
+            skipped: number;
+            not_chosen: number;
+            unticked: number;
+        };
+        /**
+         * @description A likely match of a Needs choice row. Candidates come best first: Kestrel ranks them on title
+         *     similarity, year and runtime fit, and marks the first one it would pick `suggested`. The
+         *     suggestion is `confident` when its year is within one of the name's and its title is a
+         *     near-exact match (or a close one whose runtime fits the files), and no other candidate fits
+         *     about as well. A selection accepts only confident suggestions in bulk.
+         */
+        AdoptionCandidate: {
+            tmdb_id: number;
+            title: string;
+            year: number | null;
+            /** @description Kestrel's pick; at most one candidate of a row has it. */
+            suggested: boolean;
+            /** @description The suggestion is safe to accept without a look. Only a suggested candidate can be. */
+            confident: boolean;
+        };
+        AdoptionMatch: {
+            tmdb_id: number;
+            /** @description The TheTVDB id of a Series match; null for a Movie. */
+            tvdb_id?: number | null;
+            title: string;
+            year: number | null;
+            /**
+             * Format: int64
+             * @description The tracked Title the files join; null when adopting creates the Title.
+             */
+            title_id: number | null;
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. False when `title_id` is null, as adopting has not created the Title yet. */
+            has_poster?: boolean;
+            /**
+             * @description ID tag, confident name match, or picked by the admin.
+             * @enum {string}
+             */
+            source: "tag" | "name" | "chosen";
+            /** @description The Title folder the files are renamed into. */
+            folder: string;
+        };
+        AdoptionSubtitle: {
+            from: string;
+            to: string;
+        };
+        AdoptionFile: {
+            /** @description The episodes of a Series file (a multi-episode file names several); empty for a Movie file. */
+            episodes: {
+                season: number;
+                number: number;
+            }[];
+            path: string;
+            /** @description The path it gets in the naming scheme. */
+            to: string;
+            /** Format: int64 */
+            size: number;
+            slot: components["schemas"]["Slot"];
+            /** @description Key of the Profile the Version has or gets. */
+            profile: string;
+            score: number;
+            /**
+             * @description Create the Version, fill an empty one, or replace the file a Version holds.
+             * @enum {string}
+             */
+            action: "create" | "fill" | "replace";
+            /** @description The Score of the file `replace` would replace. */
+            held_score: number | null;
+            ticked: boolean;
+            /**
+             * @description Why the file stays untouched; null when it is adopted if ticked.
+             * @enum {string|null}
+             */
+            left: "duplicate" | "path_occupied" | "unmatched" | null;
+            subtitles: components["schemas"]["AdoptionSubtitle"][];
+        };
+        AdoptionRow: {
+            /** @description The row's own choice of how the Title it adds is monitored; absent when it follows the plan's. */
+            monitor?: components["schemas"]["AdoptionMonitor"];
+            /** Format: int64 */
+            id: number;
+            kind: components["schemas"]["TitleKind"];
+            /** @enum {string} */
+            status: "matched" | "needs_choice" | "skipped";
+            /** @enum {string|null} */
+            skip_reason: "invalid" | "no_video" | "no_enabled_profile" | "not_on_tvdb" | null;
+            /** @description The folder or loose file in the Root folder. */
+            entry: string;
+            ticked: boolean;
+            match: components["schemas"]["AdoptionMatch"] | null;
+            /** @description Likely Movies or Series for a Needs choice row. */
+            candidates: components["schemas"]["AdoptionCandidate"][];
+            files: components["schemas"]["AdoptionFile"][];
+            outcome?: components["schemas"]["AdoptionFinalOutcome"];
+            /** @description Why a `failed` row could not be adopted. */
+            error?: string;
+        };
+        /** @description Row counts of the plan; all zero when there is none. */
+        AdoptionSummary: {
+            matched: number;
+            needs_choice: number;
+            skipped: number;
+            duplicate: number;
+            replacement: number;
+            /** @description How many rows a commit would adopt now (Matched, ticked, with a file that is not left in place). */
+            adopting: number;
+        };
+        AdoptionRowList: {
+            items: components["schemas"]["AdoptionRow"][];
+            /** @description Pass it as `cursor` for the next page; `null` on the last page. */
+            next_cursor: string | null;
+            /** @description How many rows the `filter` keeps, over all pages. */
+            total: number;
+            counts: components["schemas"]["AdoptionSummary"];
+        };
+        /**
+         * @description The filters of `GET /adoption/rows`, and `all` for every row of the plan.
+         * @enum {string}
+         */
+        AdoptionRowFilter: "all" | "needs_choice" | "matched" | "duplicate" | "replacement" | "skipped";
+        AdoptionRowsBulk: {
+            /** @enum {string} */
+            action: "tick" | "untick" | "accept_suggested" | "set_monitor";
+            monitor?: components["schemas"]["AdoptionMonitor"];
+            row_ids?: number[];
+            filter?: components["schemas"]["AdoptionRowFilter"];
+        };
+        AdoptionBulkResult: {
+            /**
+             * Format: int64
+             * @description The plan's revision after the call.
+             */
+            revision: number;
+            items: components["schemas"]["AdoptionBulkRowResult"][];
+        };
+        AdoptionBulkRowResult: {
+            /** Format: int64 */
+            row_id: number;
+            /**
+             * @description What the edit did to the row, not to be confused with a row's final `outcome` after a commit.
+             * @enum {string}
+             */
+            result: "changed" | "left" | "failed";
+            /**
+             * @description Why the row was left as it was.
+             * @enum {string}
+             */
+            reason?: "already" | "no_such_row" | "not_matched" | "not_needs_choice" | "no_suggestion" | "not_confident" | "not_settleable" | "tracked";
+            /** @description Why the row failed. */
+            message?: string;
+            /**
+             * @description The row's status afterwards, when the row exists.
+             * @enum {string}
+             */
+            status?: "matched" | "needs_choice" | "skipped";
+            /**
+             * @description Why a row that ended up `skipped` is.
+             * @enum {string}
+             */
+            skip_reason?: "invalid" | "no_video" | "no_enabled_profile" | "not_on_tvdb";
+        };
+        AdoptionRowPatch: {
+            ticked?: boolean;
+            monitor?: components["schemas"]["AdoptionMonitor"];
+            tmdb_id?: number;
+            files?: {
+                path: string;
+                ticked: boolean;
+            }[];
+        };
+        StalledImportsSelect: {
+            /** @description Only the Imports stalled for this reason; all of them when absent. */
+            reason?: string;
+        };
+        /**
+         * @description Something changed; refetch it. `resource` is `title` (a Title, its Versions and the
+         *     Library list), `grab`, `queue` or `log`; more are added. `id` is null when the hint is about the
+         *     whole resource. Clients ignore resources they do not know.
+         */
+        ChangedHint: {
+            resource: string;
+            /** Format: int64 */
+            id: number | null;
+        };
+        JobList: {
+            items: components["schemas"]["Job"][];
+        };
+        Job: {
+            /**
+             * @description The loop: `poll`, `search`, `import`, `prune`, `health`, `refresh`, `trash`, `updates`,
+             *     `rss` or `watchlist`. A loop whose module is not configured is not listed; later versions may add loops.
+             */
+            name: string;
+            /**
+             * @description `running` while a pass is in flight; `disabled` when a setting turns its work off (`updates`
+             *     without "Check GitHub for updates", `trash` without TRaSH auto-update, `watchlist` without
+             *     Watchlist Requests), though it still checks
+             *     hourly; otherwise `idle`.
+             * @enum {string}
+             */
+            status: "idle" | "running" | "disabled";
+            /**
+             * @description The setting that turns a `disabled` loop's work off: `github_check` ("Check GitHub for
+             *     updates", which `updates` and `trash` both need) or `trash_auto_update` (TRaSH's own daily
+             *     update switch) or `plex_watchlist` (Plex sign-in's "Make Requests from Watchlists", which
+             *     `watchlist` needs). `null` unless `status` is `disabled`; later versions may add settings.
+             * @enum {string|null}
+             */
+            disabled_by: "github_check" | "trash_auto_update" | "plex_watchlist" | null;
+            /** @description Whether `POST /jobs/{name}/run` runs it. */
+            runnable: boolean;
+            /** @description The last pass that finished since start; `null` before the first. */
+            last_run: components["schemas"]["JobRun"] | null;
+            /**
+             * Format: date-time
+             * @description When the next pass is due; `null` while one runs and before the loops start.
+             */
+            next_at: string | null;
+            schedule: components["schemas"]["JobSchedule"];
+            /**
+             * @description How far the pass running now has got, for a loop that says (`trash` while it re-scores:
+             *     Titles re-scored of all of them); `null` between passes and for the other loops.
+             */
+            progress: components["schemas"]["JobProgress"] | null;
+            /**
+             * @description How the last pass that had something to say went (`trash`); `null` before one does. A pass
+             *     with nothing to say (the daily check that is not due) leaves it as it was, so tell a new
+             *     outcome by `at`.
+             */
+            outcome: components["schemas"]["JobOutcome"] | null;
+        };
+        JobProgress: {
+            done: number;
+            total: number;
+        };
+        JobOutcome: {
+            /**
+             * @description `updated` (a newer TRaSH snapshot is active), `up_to_date`, `rejected` (refused whole, the
+             *     previous one stays), `unreachable` (TRaSH could not be asked), `rescored` (files re-scored
+             *     after a Primary Language change) or `failed`; later versions may add kinds.
+             * @enum {string}
+             */
+            kind: "updated" | "up_to_date" | "rejected" | "unreachable" | "rescored" | "failed";
+            /** @description The outcome in a sentence, for the UI to show. */
+            text: string;
+            /**
+             * Format: date-time
+             * @description When the pass reported it.
+             */
+            at: string;
+        };
+        /** @description How often a loop runs. */
+        JobSchedule: {
+            /**
+             * Format: int64
+             * @description The wait between passes.
+             */
+            every_ms: number;
+            /**
+             * Format: int64
+             * @description The shorter wait while there is work (`poll` while a Grab downloads); `null` for none.
+             */
+            busy_every_ms: number | null;
+            /**
+             * Format: int64
+             * @description For a loop that checks every `every_ms` whether its work is due: how often it does it (the
+             *     daily loops); `null` when every pass does the work.
+             */
+            runs_every_ms: number | null;
+        };
+        JobRun: {
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            finished_at: string;
+            /** Format: int64 */
+            duration_ms: number;
+            /** @description Why the pass failed; `null` when it succeeded. */
+            error: string | null;
+        };
+        ActivitySnapshot: {
+            /** @description Names of the background loops mid-pass right now. */
+            running: string[];
+            /** @description The same loops' passes, the longest-running first, with when each started. */
+            passes: components["schemas"]["RunningPass"][];
+            /** @description The Adoption scan or commit running now; null when neither runs. */
+            adoption: components["schemas"]["AdoptionActivity"] | null;
+        };
+        RunningPass: {
+            /** @description The loop, as in `GET /jobs`. */
+            name: string;
+            /** Format: date-time */
+            started_at: string;
+        };
+        /** @description An Adoption scan or commit and how far it has got, as `GET /adoption` reports it. */
+        AdoptionActivity: {
+            /** @enum {string} */
+            state: "scanning" | "committing";
+            /** @description Entries scanned, or rows adopted, so far. */
+            done: number;
+            /** @description Entries to scan, or rows to adopt; 0 until a scan has listed them. */
+            total: number;
+            current?: components["schemas"]["AdoptionCurrent"];
+        };
+        AttentionSnapshot: {
+            /** @description How many Needs attention rows there are. */
+            count: number;
+            /**
+             * @description The worst severity among them, null when there are none.
+             * @enum {string|null}
+             */
+            severity: "blocking" | "warning" | null;
+        };
+        Attention: {
+            /** @description How many `rows` there are. Long Missing does not count. */
+            count: number;
+            /**
+             * @description The worst severity among the rows, null when there are none.
+             * @enum {string|null}
+             */
+            severity: "blocking" | "warning" | null;
+            rows: components["schemas"]["AttentionRow"][];
+            long_missing: components["schemas"]["LongMissing"];
+            originals: components["schemas"]["OriginalsAvailable"];
+        };
+        AttentionRow: {
+            /** @description Opaque and stable while the condition lasts. */
+            id: string;
+            /** @enum {string} */
+            severity: "blocking" | "warning";
+            /**
+             * @description What sort of condition, such as `download_client_unreachable`, `no_indexer`,
+             *     `root_folder_unavailable`, `metadata_provider_failing`, `indexer_failing`,
+             *     `media_server_unreachable`,
+             *     `stalled_imports` (one row per stall reason), `stuck_download` (one row per Stuck download),
+             *     `low_disk_space`, `untrusted_proxy_header` or a one-off health warning (`exdev`,
+             *     `refresh_failed`, `plex_no_section`). The set grows; clients tolerate unknown kinds.
+             */
+            kind: string;
+            subject: components["schemas"]["AttentionSubject"];
+            message: string;
+            /**
+             * Format: date-time
+             * @description When the condition first showed.
+             */
+            since: string;
+            /** @description How often it was raised since it first showed. */
+            count: number;
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. False when the row has no Title (`subject.title_id` is null). */
+            has_poster?: boolean;
+            actions: components["schemas"]["AttentionAction"][];
+        };
+        AttentionSubject: {
+            /** Format: int64 */
+            title_id: number | null;
+            /** Format: int64 */
+            version_id: number | null;
+            /** Format: int64 */
+            grab_id: number | null;
+            /** Format: int64 */
+            plugin_instance_id: number | null;
+        };
+        AttentionAction: {
+            /** @description `dismiss`, `test`, `open`, `disable`, `retry` and so on. */
+            key: string;
+            /** @description The JSON body to send with an API call, when it needs one. */
+            body: {
+                [key: string]: unknown;
+            } | null;
+            label: string;
+            /**
+             * @description `GET` opens `path` in the SPA; the others call the API.
+             * @enum {string}
+             */
+            method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+            /**
+             * @description For an API call, relative to the API root (`/plugin-instances/3/test`); for `GET`, an SPA
+             *     path (`/settings/download-client`).
+             */
+            path: string;
+            /** @description Ask this before running the action, when set. */
+            confirm: string | null;
+        };
+        WantedSearch: {
+            /** @description How many Wanted Versions were queued for a search. */
+            versions: number;
+        };
+        SearchStatus: {
+            /**
+             * @description What waits for a search: as the running pass found it less what it has searched since, and
+             *     between passes recounted about once a minute.
+             */
+            due: {
+                /** @description Wanted Versions due a missing search. A Series Version counts once. */
+                versions: number;
+                /** @description The Wanted episodes of the Series Versions among them. */
+                episodes: number;
+                /** @description Filled Versions due an Upgrade search; each pass searches `upgrades_per_pass` of them. */
+                upgrades: number;
+            };
+            /** @description The pass running now; null between passes. */
+            pass: components["schemas"]["SearchPass"] | null;
+            /**
+             * Format: date-time
+             * @description When the next pass starts; null while one runs and before the first.
+             */
+            next_pass_at: string | null;
+            /** @description The last pass that finished; null before the first since Kestrel started. */
+            last_pass: components["schemas"]["SearchPassResult"] | null;
+            /** @description How many Upgrade searches a pass makes at most, after its Wanted Versions. */
+            upgrades_per_pass: number;
+            /** @description The enabled indexers. */
+            indexers: components["schemas"]["SearchIndexer"][];
+        };
+        SearchPass: {
+            /** Format: date-time */
+            started_at: string;
+            /**
+             * @description The Wanted Versions it has got through: searched, or passed over because no indexer could
+             *     take a sweep search (those stay due). Its Upgrade searches come after them and are not counted.
+             */
+            done: number;
+            /** @description The Wanted Versions it found due. */
+            total: number;
+        };
+        SearchPassResult: {
+            /** Format: date-time */
+            finished_at: string;
+            /** @description The Wanted Versions it searched. */
+            searched: number;
+            /** @description The Grabs it made, Upgrades included. */
+            grabbed: number;
+        };
+        SearchIndexer: {
+            /** Format: int64 */
+            instance_id: number;
+            name: string;
+            /** @description Search requests made today (the indexer's own count when it reports one). */
+            search_used: number;
+            /**
+             * @description The daily search budget, from the indexer's `apilimits` (believed for an hour) or the
+             *     instance's `api_requests_per_day`; null when neither is known. Sweeps stop at 80 % of it.
+             */
+            search_max: number | null;
+            /**
+             * @description Why sweeps leave the indexer alone now, null when they don't: `request_limit` (it said its
+             *     request limit was reached, or a bare 429), `backing_off` (it keeps failing) or `budget` (the
+             *     sweeps have used their 80 % of today's budget).
+             * @enum {string|null}
+             */
+            held: "request_limit" | "backing_off" | "budget" | null;
+            /**
+             * Format: date-time
+             * @description When a `request_limit` pause or a backoff ends; null otherwise.
+             */
+            held_until: string | null;
+        };
+        LongMissing: {
+            /** @description How many Versions are Long Missing. */
+            count: number;
+            /** @description The five most recently released. */
+            items: {
+                /** Format: int64 */
+                title_id: number;
+                title: string;
+                /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. */
+                has_poster?: boolean;
+                /** @description The key of the Version's Profile. */
+                profile: string;
+                /** Format: int64 */
+                version_id: number;
+                slot: components["schemas"]["Slot"];
+                /** Format: date-time */
+                wanted_since: string;
+                last_failure: string | null;
+            }[];
+        };
+        /** @description The Originals available group of Needs attention, outside the rail badge. */
+        OriginalsAvailable: {
+            /** @description How many Versions have an Original Offer that is not dismissed. */
+            count: number;
+            /** @description Those offers, newest first. */
+            items: components["schemas"]["OriginalOffer"][];
+        };
+        /**
+         * @description Releases with the Title's Original Language but no Primary-Language audio, held back for one
+         *     Version whose Profile offers them, for what it is missing. A Movie has one Release; a Series
+         *     lists every episode or season pack that has one. The offer lasts while those units are Wanted
+         *     with no active Grab: a Primary-Language Release that is grabbed makes it go.
+         */
+        OriginalOffer: {
+            /** Format: int64 */
+            title_id: number;
+            title: string;
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. */
+            has_poster?: boolean;
+            /** Format: int64 */
+            version_id: number;
+            slot: components["schemas"]["Slot"];
+            /** @description The key of the Version's Profile. */
+            profile: string;
+            /** @description The name of the best-scoring Release offered. */
+            release: string;
+            /** @description Its Score under the Version's Profile. */
+            score: number;
+            releases: components["schemas"]["OfferedRelease"][];
+            /**
+             * Format: date-time
+             * @description When the newest of the Releases was offered.
+             */
+            found_at: string;
+            /**
+             * @description Every unit of the offer is dismissed: the admin keeps waiting for a Primary-Language Release,
+             *     and `releases` lists the dismissed ones. While any unit is not dismissed, this is false and
+             *     `releases` lists those units alone, which is what Accept grabs.
+             */
+            dismissed: boolean;
+        };
+        OfferedRelease: {
+            name: string;
+            indexer: string;
+            score: number;
+            /** Format: int64 */
+            size: number;
+            /** Format: date-time */
+            published_at: string;
+            /** @description The season of a Series Release; null for a Movie. */
+            season: number | null;
+            /** @description A season pack. */
+            pack: boolean;
+            /** @description The episode numbers it is offered for, in `season`; empty for a Movie. */
+            episodes: number[];
+        };
+        OfferAccepted: {
+            grabs: components["schemas"]["Grab"][];
+            /**
+             * @description How many of the offered Releases could not be grabbed. One the indexer no longer has, or the
+             *     Blocklist holds, leaves the offer; one that failed for another reason stays offered.
+             */
+            failed: number;
+        };
+        SystemStatus: {
+            /** @description The "Pause Grabs" setting is on, so no automatic Grab is made. */
+            grabs_paused: boolean;
+            /** @description The active TRaSH snapshot. */
+            trash: {
+                commit: string;
+                /**
+                 * Format: date-time
+                 * @description When that commit was made; its age is the snapshot's age.
+                 */
+                committed_at: string | null;
+                /**
+                 * Format: date-time
+                 * @description When TRaSH was last asked for something newer.
+                 */
+                checked_at: string | null;
+                auto_update: boolean;
+            };
+            download_client: components["schemas"]["ClientStatus"];
+            indexers: components["schemas"]["IndexerStatus"][];
+            /** @description The data mount first, then every Root folder. */
+            disks: components["schemas"]["DiskStatus"][];
+            /** @description A newer release exists. Absent when up to date or when the update check is off. */
+            update?: components["schemas"]["UpdateAvailable"] | null;
+        };
+        FolderChangeList: {
+            /** @description Oldest first. */
+            changes: components["schemas"]["FolderChange"][];
+            /**
+             * @description Never empty. Send it back as `marker` for the changes after this page.
+             * @example fc1:42
+             */
+            next_marker: string;
+            /** @description The `marker` could not be answered. `changes` is empty; rescan everything. */
+            expired: boolean;
+            /** @description Changes after `next_marker` already exist. */
+            more: boolean;
+        };
+        FolderChange: {
+            /**
+             * @description The Title folder, as Kestrel sees it.
+             * @example /media/movies/Arrival (2016) {tmdb-329865}
+             */
+            path: string;
+            kind: components["schemas"]["FolderChangeKind"];
+            /**
+             * Format: date-time
+             * @description When the change was recorded.
+             */
+            at: string;
+        };
+        /**
+         * @description A growing set: created, modified, deleted.
+         * @enum {string}
+         */
+        FolderChangeKind: "created" | "modified" | "deleted";
+        UpdateAvailable: {
+            /** @example 0.3.2 */
+            version: string;
+            /** @description The release page. */
+            url: string;
+        };
+        About: {
+            /**
+             * @description The running version, `dev` for local builds, `edge` for main builds.
+             * @example 0.2.0
+             */
+            version: string;
+            /** @example GPL-3.0-only */
+            license: string;
+            /** @description The TRaSH Guides commit of the data scoring Releases now. */
+            trash_commit: string;
+            check_github_updates: boolean;
+            update?: components["schemas"]["UpdateAvailable"] | null;
+            /**
+             * Format: date-time
+             * @description When the daily GitHub check last succeeded.
+             */
+            checked_at?: string | null;
+        };
+        ClientStatus: {
+            /**
+             * @description `none` when no download client is enabled.
+             * @enum {string}
+             */
+            state: "ok" | "failing" | "none";
+            name: string | null;
+            /** Format: int64 */
+            instance_id: number | null;
+            /** @description What the last failed call said. */
+            message: string | null;
+        };
+        IndexerStatus: {
+            /** Format: int64 */
+            instance_id: number;
+            name: string;
+            /** @enum {string} */
+            state: "ok" | "failing" | "disabled";
+            message: string | null;
+            /** @description Search requests made today (the indexer's own count when it reports one). */
+            search_used: number;
+            /**
+             * @description The daily search budget, from the indexer's `apilimits` or the instance's `api_requests_per_day`;
+             *     null when neither is known. Sweeps stop at 80 % of it; RSS, Grabs and manual searches go on.
+             */
+            search_max: number | null;
+            /**
+             * @description Downloads used today: the indexer's own count when it reports its download quota, else Kestrel's
+             *     count of Grabs when the instance has a `grabs_per_day`; null when neither is known.
+             */
+            grab_used: number | null;
+            /**
+             * @description The daily download limit: the indexer's own `grabmax` when it reports one, else the instance's
+             *     `grabs_per_day`; null when neither is known.
+             */
+            grab_max: number | null;
+            /**
+             * Format: date-time
+             * @description Searches (RSS included) are paused until then because the indexer said its request limit
+             *     (code 500) or a bare 429 was reached. Not a failure.
+             */
+            search_paused_until: string | null;
+            /** @description Grabs are paused (code 501, a bare 429 or a spent download quota). Not a failure. */
+            grabs_paused: boolean;
+            /**
+             * Format: date-time
+             * @description When the pause ends: the next UTC midnight for a spent `grabs_per_day`. Null for a spent download
+             *     quota the indexer reports, which ends when the indexer says so.
+             */
+            grabs_paused_until: string | null;
+        };
+        DiskStatus: {
+            path: string;
+            /** Format: int64 */
+            free_bytes: number;
+            /** Format: int64 */
+            total_bytes: number;
+            /**
+             * Format: int64
+             * @description Free space under which the low disk space warning fires (the larger of 5 % of the total and 50 GiB).
+             */
+            low_free_bytes: number;
+        };
+        EventList: {
+            items: components["schemas"]["Event"][];
+        };
+        Event: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            at: string;
+            /** @description A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, request_ended, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered. */
+            kind: string;
+            routine: boolean;
+            /** Format: int64 */
+            title_id: number | null;
+            /** Format: int64 */
+            version_id: number | null;
+            /** Format: int64 */
+            episode_id: number | null;
+            /** Format: int64 */
+            grab_id: number | null;
+            /** Format: int64 */
+            request_id: number | null;
+            message: string;
+            /** @description The kind's payload, such as per-episode pack results. */
+            data: {
+                [key: string]: unknown;
+            } | null;
+        };
+        BlocklistList: {
+            items: components["schemas"]["BlocklistEntry"][];
+        };
+        BlocklistEntry: {
+            /** Format: int64 */
+            id: number;
+            release_name: string;
+            /** Format: int64 */
+            indexer_id: number;
+            reason: string;
+            /** Format: int64 */
+            size: number;
+            /** Format: date-time */
+            published_at: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: int64 */
+            title_id: number | null;
+            /** Format: int64 */
+            grab_id: number | null;
+        };
+        UpcomingList: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            items: components["schemas"]["UpcomingItem"][];
+            /** @description Monitored Titles with something expected but no date yet, by name. Always present; clients tolerate its absence. */
+            undated?: components["schemas"]["UndatedItem"][];
+        };
+        /** @description Where one Version of a Title stands for an entry. A Grab in flight is live state clients read off `GET /queue` and the stream. */
+        UpcomingSlot: {
+            slot: components["schemas"]["Slot"];
+            /** Format: int64 */
+            version_id: number;
+            /**
+             * @description `not_out`: nothing to do until it airs or is released. `wanted`: out and monitored, with no file.
+             *     `imported`: a file fills it. Clients tolerate new values.
+             * @enum {string}
+             */
+            state: "not_out" | "wanted" | "imported";
+            /**
+             * Format: date-time
+             * @description Since when a `wanted` Version has been Wanted.
+             */
+            wanted_since: string | null;
+            /** @description Whether a `wanted` Version has been Wanted for more than 90 days. */
+            long_missing: boolean;
+            /** @description The quality of an `imported` Version's file ("WEBDL-1080p"), when known. */
+            quality: string | null;
+        };
+        UpcomingDate: {
+            /** @enum {string} */
+            release_type: "theatrical" | "digital" | "physical";
+            /** Format: date */
+            date: string;
+        };
+        /** @description A monitored Title with something expected but no date yet. */
+        UndatedItem: {
+            kind: components["schemas"]["TitleKind"];
+            /** Format: int64 */
+            title_id: number;
+            title: string;
+            year: number | null;
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. */
+            has_poster: boolean;
+            network: string | null;
+            /**
+             * @description `no_air_date`: monitored episodes TheTVDB gives no air date. `no_release_date`: a Movie with no release
+             *     date anywhere. `announced`: a Series TheTVDB marks `upcoming`. Clients tolerate new values.
+             * @enum {string}
+             */
+            reason: "no_air_date" | "no_release_date" | "announced";
+            /** @description How many monitored episodes have no air date; 0 unless `reason` is `no_air_date`. */
+            episodes: number;
+            slots: components["schemas"]["UpcomingSlot"][];
+        };
+        /**
+         * @description An episode airing or one release date of a Movie. Next to the original fields, every entry
+         *     carries the context and state below (all of them present in responses from this version on;
+         *     they are not in `required` because they were added after `v1` shipped, and clients tolerate their absence).
+         */
+        UpcomingItem: {
+            /**
+             * Format: int64
+             * @description The episode's id, for Search now narrowed to it (`episode_ids`); null for a Movie.
+             */
+            episode_id?: number | null;
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. */
+            has_poster?: boolean;
+            /** @description A Series' network, stored on refresh; null for a Movie or when unknown. */
+            network?: string | null;
+            /** @description The episode's synopsis, else the Title's; null when there is none. */
+            overview?: string | null;
+            /**
+             * Format: date-time
+             * @description When an episode airs, from its air date and the Series' air time in its network's time zone.
+             *     Null for a Movie, or when no air time is known (the episode then airs on `date`).
+             */
+            air_at?: string | null;
+            /** @description What makes an episode worth a mention; empty for a Movie. Clients tolerate new values. */
+            markers?: ("series_premiere" | "season_premiere" | "season_finale" | "special")[];
+            /** @description One entry per Version of the Title, Standard first. */
+            slots?: components["schemas"]["UpcomingSlot"][];
+            /** @description For a Movie, whether this release is the one that makes it searchable (its digital or physical date on `searchable_from`). */
+            searchable?: boolean;
+            /** @description For a Movie, all its typed release dates in the release-date country, earliest first; empty for an episode. */
+            dates?: components["schemas"]["UpcomingDate"][];
+            /** Format: date */
+            date: string;
+            kind: components["schemas"]["TitleKind"];
+            /** Format: int64 */
+            title_id: number;
+            title: string;
+            year: number | null;
+            /**
+             * @description Which release a Movie's `date` is; null for an episode.
+             * @enum {string|null}
+             */
+            release_type: "theatrical" | "digital" | "physical" | null;
+            season: number | null;
+            episode: number | null;
+            episode_name: string | null;
+            /**
+             * Format: date
+             * @description For a Movie, the day it becomes searchable in the release-date country; null for an episode or when unknown.
+             */
+            searchable_from: string | null;
+            /** @description For a Movie, whether it is already searchable (false means "searchable from `searchable_from`"). Always true for an episode. */
+            released: boolean;
+        };
+        RecentList: {
+            items: components["schemas"]["RecentItem"][];
+            /** @description How many Imports the last 7 days brought, a pack counting once. */
+            total: number;
+        };
+        RecentItem: {
+            /** Format: int64 */
+            title_id: number;
+            title: string;
+            year: number | null;
+            kind: components["schemas"]["TitleKind"];
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. */
+            has_poster: boolean;
+            slot: components["schemas"]["Slot"];
+            release_name: string;
+            score: number | null;
+            /** @description What an Upgrade gained over the file it replaced; null for a first Import. */
+            score_delta: number | null;
+            files: number;
+            is_upgrade: boolean;
+            /** Format: date-time */
+            imported_at: string;
+        };
+        QueueList: {
+            items: components["schemas"]["QueueItem"][];
+        };
+        QueueItem: {
+            /** Format: int64 */
+            grab_id: number;
+            /** Format: int64 */
+            title_id: number | null;
+            /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title; false when the Title was deleted. */
+            has_poster: boolean;
+            /** Format: int64 */
+            version_id: number | null;
+            /** @description The Title's name, empty when the Title was deleted. */
+            title: string;
+            year: number | null;
+            /** @description The Title's kind, null when the Title was deleted. */
+            kind: components["schemas"]["TitleKind"] | null;
+            slot: components["schemas"]["Slot"] | null;
+            /** @description The episodes a Series Grab covers (`S01E02`); empty for a Movie. */
+            episodes: string[];
+            release_name: string;
+            /** @description The indexer the Release came from. */
+            indexer: string;
+            /**
+             * Format: int64
+             * @description The Release's size as the indexer gave it; `bytes_total` is the client's.
+             */
+            size: number;
+            score: number;
+            /** @enum {string} */
+            phase: "queued" | "downloading" | "paused" | "post_processing" | "importing";
+            /**
+             * Format: date-time
+             * @description When the Grab entered its `phase`, as far as Kestrel knows. A phase only the download client
+             *     reports (`paused`, `post_processing`, `queued` after `downloading`) counts from the poll that
+             *     first saw it, and after a restart from the Grab's last change of state.
+             */
+            phase_since: string;
+            /** Format: date-time */
+            grabbed_at: string;
+            /** Format: int64 */
+            bytes_total: number;
+            /** Format: int64 */
+            bytes_left: number;
+            /** @description Seconds left, null when the client does not know. */
+            eta: number | null;
+            is_upgrade: boolean;
+            /** @description For an Upgrade, how many points the Release scores above the file it replaces. */
+            score_delta: number | null;
+            /**
+             * @description Set while the download is a Stuck download, null otherwise. It is the same judgement Silo's
+             *     requester view reports as "Taking longer than usual". Not to be confused with a Stalled Import.
+             */
+            stuck: components["schemas"]["StuckDownload"] | null;
+        };
+        ReleaseDateEntry: {
+            country: string;
+            /** @enum {string} */
+            type: "premiere" | "theatrical_limited" | "theatrical" | "digital" | "physical" | "tv";
+            /** Format: date-time */
+            date: string;
+            certification: string | null;
+        };
+        /**
+         * @description One audience rating of a Title from a ratings source: the average of its users' votes. Today
+         *     only TMDB's. Not a content rating (`certification`) and not a Release's `score`.
+         */
+        Rating: {
+            /**
+             * @description Where the rating is from: `tmdb`. Clients tolerate new values.
+             * @example tmdb
+             */
+            source: string;
+            /**
+             * Format: double
+             * @description The rating on the source's scale; `null` when the source has none yet.
+             * @example 8.4
+             */
+            value: number | null;
+            /**
+             * Format: double
+             * @description The best rating on the source's scale, such as 10.
+             * @example 10
+             */
+            scale: number | null;
+            /**
+             * @description How many votes the rating averages.
+             * @example 21000
+             */
+            votes: number | null;
+            /**
+             * @description The Title's page at the source.
+             * @example https://www.themoviedb.org/movie/116149
+             */
+            url: string | null;
+        };
+        TitleDetail: {
+            /** Format: int64 */
+            id: number;
+            /** @description The Requests that asked for this Title, oldest first. */
+            requests: components["schemas"]["RequestOrigin"][];
+            kind: components["schemas"]["TitleKind"];
+            tmdb_id: number | null;
+            tvdb_id: number | null;
+            imdb_id: string | null;
+            title: string;
+            original_title: string;
+            primary_title: string;
+            year: number | null;
+            /** @description ISO 639-1; empty when unknown. */
+            original_language: string;
+            overview: string;
+            /** @description Minutes. */
+            runtime: number | null;
+            /** @description Whether `GET /titles/{id}/poster` has an image. */
+            has_poster: boolean;
+            monitored: boolean;
+            metadata_frozen: boolean;
+            root_folder: string;
+            /** @description The Title's folder name; set by its first Import. */
+            folder: string | null;
+            /** Format: date-time */
+            added_at: string;
+            /** Format: date-time */
+            refreshed_at: string;
+            /** @description The certification in the release-date country, else the US, else the earliest anywhere. */
+            certification: string | null;
+            /** @description Every dated release TMDB lists, in any country. */
+            release_dates: components["schemas"]["ReleaseDateEntry"][];
+            /** @description `null` for a Movie. */
+            series_monitor: components["schemas"]["SeriesMonitor"] | null;
+            /** @description A Series' seasons in order, Specials (0) first; empty for a Movie. */
+            seasons: components["schemas"]["Season"][];
+            /** @description In Slot order. */
+            versions: components["schemas"]["VersionDetail"][];
+            /** @description Audience ratings of the Title from ratings sources; empty when none has one. */
+            ratings: components["schemas"]["Rating"][];
+        };
+        /** @description The Title asked for. Kestrel needs `tmdb_id`, or a `tvdb_id` of a Series already in the Library. */
+        RequestTitle: {
+            kind: components["schemas"]["TitleKind"];
+            tmdb_id?: number | null;
+            tvdb_id?: number | null;
+            imdb_id?: string | null;
+        };
+        RequestSlotCreate: {
+            slot: components["schemas"]["Slot"];
+            /** @description A Profile key of that Slot; left out, Profile resolution picks one. */
+            profile?: string | null;
+        };
+        Requester: {
+            id: string;
+            name: string;
+        };
+        RequestCreate: {
+            /** @example silo */
+            source: string;
+            /** @description The source's own id; the key that makes a retry idempotent. */
+            source_request_id: string;
+            requester: components["schemas"]["Requester"];
+            title: components["schemas"]["RequestTitle"];
+            slots: components["schemas"]["RequestSlotCreate"][];
+            /** @description One of the configured Root folders of the Title's kind; left out means the first one. It applies only to a Title the Request creates: a Request never moves a Title already in the library. Not one of that kind's Root folders is a `422` on `root_folder`. */
+            root_folder?: string;
+            /** @description Series only; `null` or left out asks for the whole Series. */
+            seasons?: number[] | null;
+            /**
+             * @description Series naming no `seasons` only. `true` asks for the Series one season at a time (Watch-ahead,
+             *     ADR 0019), `false` for the whole Series; `null` or left out takes the source's default: for
+             *     `silo` the `watch_ahead` of `PUT /settings/silo`, for any other source `false`.
+             */
+            watch_ahead?: boolean | null;
+        };
+        RequestDownload: {
+            /** @description `queued`, `downloading`, `paused`, `post_processing` or `importing`. */
+            phase: string;
+            /**
+             * Format: int64
+             * @description 0 when the download client does not know the size.
+             */
+            bytes_total: number;
+            /** Format: int64 */
+            bytes_left: number;
+            /** @description Seconds. */
+            eta: number | null;
+        };
+        RequestSlot: {
+            slot: components["schemas"]["Slot"];
+            /** @description The Version's Profile; `null` for a rejected Request that never resolved one. */
+            profile: string | null;
+            /**
+             * Format: int64
+             * @description `null` when there is no Version: the Request was rejected, or the Version was removed since.
+             */
+            version_id: number | null;
+            /**
+             * @description Derived on every read. `failed` only when Kestrel rejected the Request or the Version or Title
+             *     was removed later; a failed download never shows as failed (it is blocklisted and retried).
+             * @enum {string}
+             */
+            status: "queued" | "downloading" | "completed" | "failed";
+            /** @description `Not released yet` or `Searching` while queued. */
+            status_label: string;
+            /**
+             * @description `true` while the Slot's Grab is a stalled download (the download client reports it paused, or
+             *     its downloaded amount has not grown for an hour) or its finished download has an Import that
+             *     waits for the environment to be fixed (disk full, a folder not writable). The Slot keeps its
+             *     `status`.
+             */
+            stalled: boolean;
+            download: components["schemas"]["RequestDownload"] | null;
+        };
+        Request: {
+            /** Format: int64 */
+            id: number;
+            source: string;
+            source_request_id: string;
+            requester: components["schemas"]["Requester"];
+            /** @enum {string} */
+            outcome: "accepted" | "rejected";
+            /** @enum {string|null} */
+            reject_reason: "not_on_tvdb" | "unknown_title" | "no_enabled_profile" | null;
+            /** Format: int64 */
+            title_id: number | null;
+            /**
+             * @description The Title's name: the Library's while the Title is there, else the name it had when the
+             *     Request was made (a rejected Request, or a Title removed since). `null` when Kestrel never
+             *     learnt one, such as for `unknown_title`.
+             */
+            title: string | null;
+            /** @description Whether `GET /titles/{title_id}/poster` serves a poster; false without a Title in the Library. */
+            has_poster: boolean;
+            /** @description The seasons asked for; empty for a Movie or the whole Series. */
+            seasons: number[];
+            /** Format: date-time */
+            created_at: string;
+            slots: components["schemas"]["RequestSlot"][];
+        };
+        RequestList: {
+            items: components["schemas"]["Request"][];
+            next_cursor: string | null;
+            /** @description How many Requests match the filters, across every page. */
+            total: number;
+        };
+        /** @description Who asked for a Title and from where, for "Requested by Anna via Silo". */
+        RequestOrigin: {
+            /** Format: int64 */
+            id: number;
+            source: string;
+            requester_name: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** @enum {string} */
+        CleanupCategoryKey: "junk" | "samples" | "orphaned_subtitles" | "empty_folders" | "other_language_subtitles" | "artwork" | "extras" | "unmanaged_videos";
+        CleanupPreviewFile: {
+            path: string;
+            /** Format: int64 */
+            size: number;
+            /** Format: int64 */
+            title_id: number;
+        };
+        CleanupPreviewCategory: {
+            key: components["schemas"]["CleanupCategoryKey"];
+            default_ticked: boolean;
+            count: number;
+            /** Format: int64 */
+            size: number;
+            files: components["schemas"]["CleanupPreviewFile"][];
+        };
+        CleanupPreview: {
+            preview_id: string;
+            categories: components["schemas"]["CleanupPreviewCategory"][];
+        };
+        CleanupResult: {
+            deleted: number;
+            /** Format: int64 */
+            bytes: number;
+            failed: number;
+        };
+        /** @description RFC 9457 problem details. */
+        Problem: {
+            /** @default about:blank */
+            type: string;
+            title: string;
+            status: number;
+            detail?: string;
+            /**
+             * @description Stable machine-readable code from a closed, growable list. Clients branch on this,
+             *     never on the message text.
+             * @example internal
+             */
+            code: string;
+            /** @description Field-level problems for `validation` errors. */
+            errors?: {
+                field: string;
+                code: string;
+                message: string;
+            }[];
+        };
+    };
     responses: {
-      /** @description A page of rows, with the counts of the whole plan. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['AdoptionRowList']
-        }
-      }
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  bulkAdoptionRows: {
+        /** @description An error. */
+        Problem: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+    };
     parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['AdoptionRowsBulk']
-      }
-    }
-    responses: {
-      /** @description What happened to each row. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['AdoptionBulkResult']
-        }
-      }
-      404: components['responses']['Problem']
-      409: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  patchAdoptionRow: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: number
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['AdoptionRowPatch']
-      }
-    }
-    responses: {
-      /** @description The row. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['AdoptionRow']
-        }
-      }
-    }
-  }
-  getAttention: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The rows that need attention. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Attention']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  dismissAttention: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
         /** @description A row's `id` from `GET /attention`. */
-        id: components['parameters']['AttentionRowId']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The row is hidden. */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      404: components['responses']['Problem']
-      409: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  commitAdoption: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': {
-          /** Format: int64 */
-          revision: number
-          /** @description Replaces the plan's choice of how the Titles it adds are monitored (see `PATCH /adoption`). */
-          monitor?: components['schemas']['AdoptionMonitor']
-        }
-      }
-    }
-    responses: {
-      /** @description The commit started. */
-      202: {
-        headers: {
-          Location?: string
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Adoption']
-        }
-      }
-      409: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  retryAdoption: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The planning started. */
-      202: {
-        headers: {
-          Location?: string
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Adoption']
-        }
-      }
-      409: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  reopenAdoption: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The plan, planned again. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Adoption']
-        }
-      }
-      409: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  previewCleanup: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: {
-      content: {
-        'application/json': {
-          title_ids?: number[]
-        }
-      }
-    }
-    responses: {
-      /** @description The categories with their files. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['CleanupPreview']
-        }
-      }
-      404: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  runCleanup: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': {
-          preview_id: string
-          categories: components['schemas']['CleanupCategoryKey'][]
-          /** @description Paths to leave alone although their category is ticked. */
-          exclude?: string[]
-        }
-      }
-    }
-    responses: {
-      /** @description What the run deleted. */
-      202: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['CleanupResult']
-        }
-      }
-      404: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  searchAllWanted: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The Wanted Versions are queued. */
-      202: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['WantedSearch']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  getSearchStatus: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The search pipeline now. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['SearchStatus']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  getActivity: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description What runs now. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ActivitySnapshot']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  listJobs: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The loops now. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['JobList']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  runJob: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        name: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The loop is woken. */
-      202: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      404: components['responses']['Problem']
-      409: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  getSystemStatus: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The current status. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['SystemStatus']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  listFolderChanges: {
-    parameters: {
-      query?: {
-        /** @description The `next_marker` of an earlier answer. Opaque. */
-        marker?: string
-        limit?: number
-      }
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The changes after the marker. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['FolderChangeList']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  getAbout: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The About data. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['About']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  getNotices: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The notices. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'text/plain': string
-        }
-      }
-    }
-  }
-  updateTrash: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The pass is requested, or is already waiting or running. */
-      202: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  stream: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The event stream. */
-      200: {
-        headers: {
-          'X-Accel-Buffering'?: 'no'
-          [name: string]: unknown
-        }
-        content: {
-          'text/event-stream': string
-        }
-      }
-    }
-  }
-  listRequests: {
-    parameters: {
-      query?: {
-        /** @description Where the Request came from, such as `silo`. */
-        source?: string[]
-        status?: ('open' | 'completed' | 'rejected')[]
-        outcome?: ('accepted' | 'rejected')[]
-        /** @description Who asked, by the requester's `id`, or `name` ignoring case. */
-        requester?: string[]
-        title_id?: number
-        id?: number[]
-        limit?: number
-        cursor?: string
-      }
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description A page of Requests with their current status. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['RequestList']
-        }
-      }
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  createRequest: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['RequestCreate']
-      }
-    }
-    responses: {
-      /** @description A retry, so the Request stored earlier, with its current status. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Request']
-        }
-      }
-      /** @description The new Request. */
-      201: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Request']
-        }
-      }
-      422: components['responses']['Problem']
-      502: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  getRequest: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: number
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The Request. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Request']
-        }
-      }
-      404: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  endRequest: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: number
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The Request is ended. */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      404: components['responses']['Problem']
-      409: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  listMyRequests: {
-    parameters: {
-      query?: {
-        limit?: number
-        cursor?: string
-      }
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description A page of the Requester's Requests with their current status. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['RequestList']
-        }
-      }
-      403: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  createMyRequest: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['MyRequestCreate']
-      }
-    }
-    responses: {
-      /** @description The Requester's Request for this Title, made earlier. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Request']
-        }
-      }
-      /** @description The new Request. */
-      201: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['Request']
-        }
-      }
-      403: components['responses']['Problem']
-      422: components['responses']['Problem']
-      502: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  listPlugins: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Every plugin manifest, ordered by contract then id. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['PluginList']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  listPluginOptions: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        plugin_id: components['parameters']['PluginId']
-        field: string
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['PluginForm']
-      }
-    }
-    responses: {
-      /** @description The choices. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['PluginOptionList']
-        }
-      }
-      404: components['responses']['Problem']
-      422: components['responses']['Problem']
-      502: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  listPluginInstances: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Every instance of every contract. Secrets are never included. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['PluginInstanceList']
-        }
-      }
-      default: components['responses']['Problem']
-    }
-  }
-  createPluginInstance: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['PluginInstanceCreate']
-      }
-    }
-    responses: {
-      /** @description Created. */
-      201: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['PluginInstance']
-        }
-      }
-      409: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  testPluginConfig: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['PluginTestRequest']
-      }
-    }
-    responses: {
-      /** @description The test outcome. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['PluginTestResult']
-        }
-      }
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  getPluginInstance: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['InstanceId']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description The instance. Secrets are never included. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['PluginInstance']
-        }
-      }
-      404: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  deletePluginInstance: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['InstanceId']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Removed. */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      404: components['responses']['Problem']
-      409: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  updatePluginInstance: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['InstanceId']
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['PluginInstancePatch']
-      }
-    }
-    responses: {
-      /** @description The updated instance. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['PluginInstance']
-        }
-      }
-      404: components['responses']['Problem']
-      409: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
-  testPluginInstance: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: components['parameters']['InstanceId']
-      }
-      cookie?: never
-    }
-    requestBody?: {
-      content: {
-        'application/json': {
-          config?: components['schemas']['PluginConfigPatch']
-        }
-      }
-    }
-    responses: {
-      /** @description The test outcome. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['PluginTestResult']
-        }
-      }
-      404: components['responses']['Problem']
-      422: components['responses']['Problem']
-      default: components['responses']['Problem']
-    }
-  }
+        AttentionRowId: string;
+        PluginId: string;
+        InstanceId: number;
+        /** @description Also delete the files from disk. Off by default. */
+        DeleteFiles: boolean;
+        TitleId: number;
+        VersionId: number;
+        GrabId: number;
+        ProfileKey: "hd-primary" | "hd-original" | "any-primary" | "any-original" | "4k-primary" | "4k-original";
+    };
+    requestBodies: never;
+    headers: {
+        /** @description The `kestrel_session` cookie (HttpOnly, SameSite=Lax, Path from KESTREL_BASE_URL). */
+        SetCookie: string;
+    };
+    pathItems: never;
+}
+export type $defs = Record<string, never>;
+export interface operations {
+    getSystem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The running instance. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["System"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Where the setup wizard stands. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Setup"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Credentials"];
+            };
+        };
+        responses: {
+            /** @description The account was created and a session started. */
+            201: {
+                headers: {
+                    "Set-Cookie": components["headers"]["SetCookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    completeSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Setup is finished. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Credentials"];
+            };
+        };
+        responses: {
+            /** @description Logged in. */
+            204: {
+                headers: {
+                    "Set-Cookie": components["headers"]["SetCookie"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            /** @description Too many failed attempts. */
+            429: {
+                headers: {
+                    /** @description Seconds until the next attempt is accepted. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Logged out; the cookie is cleared. */
+            204: {
+                headers: {
+                    "Set-Cookie": components["headers"]["SetCookie"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    logoutEverywhere: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All sessions ended; the cookie is cleared. */
+            204: {
+                headers: {
+                    "Set-Cookie": components["headers"]["SetCookie"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current admin. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getPlexSignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Whether Plex sign-in is offered. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlexSignInAvailability"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    startPlexSignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Where to send the browser. */
+            200: {
+                headers: {
+                    /** @description The `kestrel_plex_pin` cookie. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlexPin"];
+                };
+            };
+            403: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    finishPlexSignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed in as a Requester; the PIN cookie is cleared. */
+            204: {
+                headers: {
+                    "Set-Cookie": components["headers"]["SetCookie"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            /** @description Too many failed attempts. */
+            429: {
+                headers: {
+                    /** @description Seconds until the next attempt is accepted. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    current_password: string;
+                    new_password: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Password changed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The key's public details. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyInfo"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new key, shown exactly once. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewApiKey"];
+                };
+            };
+            409: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getReverseProxy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings and the untrusted sightings recorded so far. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReverseProxy"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    putReverseProxy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReverseProxySettings"];
+            };
+        };
+        responses: {
+            /** @description The settings as saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReverseProxy"];
+                };
+            };
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getSiloSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Silo"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    putSiloSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiloSettings"];
+            };
+        };
+        responses: {
+            /** @description The settings as saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Silo"];
+                };
+            };
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getPlexSignInSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlexSignIn"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    putPlexSignInSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlexSignInSettings"];
+            };
+        };
+        responses: {
+            /** @description The settings as saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlexSignIn"];
+                };
+            };
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every section. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Settings"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    patchSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsPatch"];
+            };
+        };
+        responses: {
+            /** @description Every section as saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Settings"];
+                };
+            };
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listProfiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Profiles with their settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    patchProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: components["parameters"]["ProfileKey"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfilePatch"];
+            };
+        };
+        responses: {
+            /** @description The Profile as saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    lookup: {
+        parameters: {
+            query: {
+                q: string;
+                kind?: components["schemas"]["TitleKind"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The matches. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LookupList"];
+                };
+            };
+            422: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    lookupTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["schemas"]["TitleKind"];
+                tmdb_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Title and the suggestion. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LookupDetail"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    lookupSeriesOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tmdb_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The overview. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LookupSeries"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listTitles: {
+        parameters: {
+            query?: {
+                kind?: components["schemas"]["TitleKind"];
+                q?: string;
+                /** @description `true` keeps the Titles with a Wanted Version (the Library filter's `is:wanted`). */
+                wanted?: boolean;
+                /** @description `true` keeps the Titles with a Long Missing Version (the Library filter's `is:long_missing`). */
+                long_missing?: boolean;
+                /**
+                 * @description `added_at` (default) is newest first. `wanted_since` puts the Titles that have been Wanted
+                 *     longest first, and the ones that are not Wanted last.
+                 */
+                sort?: "added_at" | "wanted_since";
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of rows. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleList"];
+                };
+            };
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    createTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TitleCreate"];
+            };
+        };
+        responses: {
+            /** @description The new Title. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleDetail"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    bulkTitles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TitlesBulk"];
+            };
+        };
+        responses: {
+            /** @description What happened to each Title, in the order of `title_ids`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitlesBulkResult"];
+                };
+            };
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    refreshTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The refresh was started. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Title. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleDetail"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteTitle: {
+        parameters: {
+            query?: {
+                /** @description Also delete the files from disk. Off by default. */
+                delete_files?: components["parameters"]["DeleteFiles"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    patchTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TitlePatch"];
+            };
+        };
+        responses: {
+            /** @description The Title. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleDetail"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    addVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionRef"];
+            };
+        };
+        responses: {
+            /** @description The new Version. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionDetail"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteVersion: {
+        parameters: {
+            query?: {
+                /** @description Also delete the files from disk. Off by default. */
+                delete_files?: components["parameters"]["DeleteFiles"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    patchVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionPatch"];
+            };
+        };
+        responses: {
+            /** @description The Version. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionDetail"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteVersionFiles: {
+        parameters: {
+            query?: {
+                /** @description Only the files holding episodes of this season (0 is Specials). */
+                season?: number;
+                /** @description Only the files holding these episodes. */
+                episode_ids?: number[];
+                /** @description Also put each deleted file's Release on the Blocklist. Off by default. */
+                blocklist?: boolean;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What was deleted; no files when the scope held none. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletedFiles"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listEpisodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The episodes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeList"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    monitorEpisodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EpisodesMonitor"];
+            };
+        };
+        responses: {
+            /** @description Done. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    patchSeason: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+                season: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeasonPatch"];
+            };
+        };
+        responses: {
+            /** @description Done. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getTitlePoster: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A JPEG. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                };
+            };
+            404: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    searchVersionReleases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReleaseSearch"];
+            };
+        };
+        responses: {
+            /** @description The Releases. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseList"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    searchVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReleaseSearch"];
+            };
+        };
+        responses: {
+            /** @description The search started. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    acceptOriginalOffer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Grabs made. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferAccepted"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    dismissOriginalOffer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The offer is dismissed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listGrabs: {
+        parameters: {
+            query?: {
+                state?: ("sent" | "downloading" | "completed" | "importing" | "imported" | "failed")[];
+                stalled?: boolean;
+                since?: string;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of Grabs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrabList"];
+                };
+            };
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    createGrab: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrabCreate"];
+            };
+        };
+        responses: {
+            /** @description The new Grab. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Grab"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getGrab: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Grab. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Grab"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    cancelGrab: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["GrabCancel"];
+            };
+        };
+        responses: {
+            /** @description The Grab is gone. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    retryGrabImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Import is due now. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    discardGrab: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Grab is discarded. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    retryStalledImports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["StalledImportsSelect"];
+            };
+        };
+        responses: {
+            /** @description The Imports are due now. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    discardStalledImports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["StalledImportsSelect"];
+            };
+        };
+        responses: {
+            /** @description The Imports are discarded. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listQueue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The active Grabs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listUpcoming: {
+        parameters: {
+            query?: {
+                /** @description First day of the window. Default today. */
+                from?: string;
+                /** @description Last day of the window. Default 30 days after `from`. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The agenda. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpcomingList"];
+                };
+            };
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listRecentlyAdded: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The recent Imports. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecentList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listEvents: {
+        parameters: {
+            query?: {
+                kind?: string[];
+                exclude_kind?: string[];
+                title_id?: number[];
+                exclude_title_id?: number[];
+                slot?: components["schemas"]["Slot"][];
+                exclude_slot?: components["schemas"]["Slot"][];
+                routine?: boolean;
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The events. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listBlocklist: {
+        parameters: {
+            query?: {
+                title_id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlocklistList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteBlocklistEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entry is gone. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getAdoption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Adoption state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Adoption"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    discardAdoption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The plan is gone. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    patchAdoption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    monitor: components["schemas"]["AdoptionMonitor"];
+                };
+            };
+        };
+        responses: {
+            /** @description The Adoption state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Adoption"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    scanAdoption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Limit the scan to these configured Root folders; `null` or absent scans them all. */
+                    root_folders?: string[] | null;
+                };
+            };
+        };
+        responses: {
+            /** @description The scan started. */
+            202: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Adoption"];
+                };
+            };
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listAdoptionRows: {
+        parameters: {
+            query?: {
+                filter?: "needs_choice" | "matched" | "duplicate" | "replacement" | "skipped";
+                /**
+                 * @description Keep the rows that ended this way in the last commit (see `AdoptionFinalOutcome`), which are kept
+                 *     until the next scan. Only rows of a finished commit have an outcome, so no row matches before one.
+                 *     Combines with `filter`. Without it the list is the rows under review, not the kept ones.
+                 */
+                outcome?: components["schemas"]["AdoptionFinalOutcome"];
+                /** @description Page size. Without it every row is returned, as before paging existed. */
+                limit?: number;
+                /** @description The `next_cursor` of the previous page. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of rows, with the counts of the whole plan. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdoptionRowList"];
+                };
+            };
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    bulkAdoptionRows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdoptionRowsBulk"];
+            };
+        };
+        responses: {
+            /** @description What happened to each row. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdoptionBulkResult"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    patchAdoptionRow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdoptionRowPatch"];
+            };
+        };
+        responses: {
+            /** @description The row. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdoptionRow"];
+                };
+            };
+        };
+    };
+    getAttention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rows that need attention. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attention"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    dismissAttention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A row's `id` from `GET /attention`. */
+                id: components["parameters"]["AttentionRowId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The row is hidden. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    commitAdoption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: int64 */
+                    revision: number;
+                    /** @description Replaces the plan's choice of how the Titles it adds are monitored (see `PATCH /adoption`). */
+                    monitor?: components["schemas"]["AdoptionMonitor"];
+                };
+            };
+        };
+        responses: {
+            /** @description The commit started. */
+            202: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Adoption"];
+                };
+            };
+            409: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    retryAdoption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The planning started. */
+            202: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Adoption"];
+                };
+            };
+            409: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    reopenAdoption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The plan, planned again. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Adoption"];
+                };
+            };
+            409: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    previewCleanup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    title_ids?: number[];
+                };
+            };
+        };
+        responses: {
+            /** @description The categories with their files. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CleanupPreview"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    runCleanup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    preview_id: string;
+                    categories: components["schemas"]["CleanupCategoryKey"][];
+                    /** @description Paths to leave alone although their category is ticked. */
+                    exclude?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description What the run deleted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CleanupResult"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    searchAllWanted: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Wanted Versions are queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WantedSearch"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getSearchStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The search pipeline now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getActivity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What runs now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivitySnapshot"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listJobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The loops now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    runJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The loop is woken. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getSystemStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listFolderChanges: {
+        parameters: {
+            query?: {
+                /** @description The `next_marker` of an earlier answer. Opaque. */
+                marker?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The changes after the marker. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderChangeList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getAbout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The About data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["About"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getNotices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The notices. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+        };
+    };
+    updateTrash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pass is requested, or is already waiting or running. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    stream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The event stream. */
+            200: {
+                headers: {
+                    "X-Accel-Buffering"?: "no";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+        };
+    };
+    listRequests: {
+        parameters: {
+            query?: {
+                /** @description Where the Request came from, such as `silo`. */
+                source?: string[];
+                status?: ("open" | "completed" | "rejected")[];
+                outcome?: ("accepted" | "rejected")[];
+                /** @description Who asked, by the requester's `id`, or `name` ignoring case. */
+                requester?: string[];
+                title_id?: number;
+                id?: number[];
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of Requests with their current status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestList"];
+                };
+            };
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    createRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestCreate"];
+            };
+        };
+        responses: {
+            /** @description A retry, so the Request stored earlier, with its current status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Request"];
+                };
+            };
+            /** @description The new Request. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Request"];
+                };
+            };
+            422: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Request"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    endRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Request is ended. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listMyRequests: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of the Requester's Requests with their current status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestList"];
+                };
+            };
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    createMyRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MyRequestCreate"];
+            };
+        };
+        responses: {
+            /** @description The Requester's Request for this Title, made earlier. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Request"];
+                };
+            };
+            /** @description The new Request. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Request"];
+                };
+            };
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listPlugins: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every plugin manifest, ordered by contract then id. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listPluginOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: components["parameters"]["PluginId"];
+                field: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginForm"];
+            };
+        };
+        responses: {
+            /** @description The choices. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginOptionList"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listPluginInstances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every instance of every contract. Secrets are never included. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginInstanceList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createPluginInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginInstanceCreate"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginInstance"];
+                };
+            };
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    testPluginConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginTestRequest"];
+            };
+        };
+        responses: {
+            /** @description The test outcome. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginTestResult"];
+                };
+            };
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getPluginInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The instance. Secrets are never included. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginInstance"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    deletePluginInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    updatePluginInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginInstancePatch"];
+            };
+        };
+        responses: {
+            /** @description The updated instance. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginInstance"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    testPluginInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    config?: components["schemas"]["PluginConfigPatch"];
+                };
+            };
+        };
+        responses: {
+            /** @description The test outcome. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginTestResult"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
 }
