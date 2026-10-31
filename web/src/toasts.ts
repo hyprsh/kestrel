@@ -6,14 +6,19 @@
 // The words of TRaSH's own Toasts live in trash/toasts.ts and follow the same shape.
 import { useToasts } from '@hyprsh/design'
 import { useOpenPlace } from './place'
-import { watchInActivity } from './trash/toasts'
+
+/** "Updating from TRaSH in the background": the words of a Toast for work that went to a background job. */
+export const startedInBackground = (what: string) => `${what} in the background`
+
+/** A Toast's action: a link to Background jobs in Activity. */
+export const watchInActivity = (open: (path: string) => void) => ({ label: 'Watch in Activity', onClick: () => open('/activity/jobs') })
 
 export type Report<T = unknown> = {
   /** Background work began: "Search started for Dune". The Toast links to Background jobs in Activity. A function that returns '' means nothing started, and `done` reports instead. */
   started?: string | ((result: T) => string)
   /** The action finished and nothing on screen shows it: "Grab cancelled". */
   done?: string | ((result: T) => string)
-  /** Makes the `done` Toast a warning, for a result that only half worked. */
+  /** Makes the `started` or `done` Toast a warning, for a result that only half worked. */
   warn?: (result: T) => boolean
   /** Offered in the `done` Toast, only where the API already reverses the change. */
   undo?: () => void
@@ -33,10 +38,15 @@ export function useReport() {
     work.then(
       (v) => {
         const started = typeof r.started === 'function' ? r.started(v) : r.started
-        if (started) toasts.message({ text: started, action: watchInActivity(open) })
-        else if (r.done) {
+        const warned = r.warn?.(v) ?? false
+        if (started) {
+          // Some items failing is a warning even when the rest started: a bulk Search says both.
+          const toast = { text: started, action: watchInActivity(open) }
+          if (warned) toasts.warning(toast)
+          else toasts.message(toast)
+        } else if (r.done) {
           const text = typeof r.done === 'function' ? r.done(v) : r.done
-          if (r.warn?.(v)) toasts.warning(text)
+          if (warned) toasts.warning(text)
           else toasts.success(r.undo ? { text, onUndoAction: r.undo } : text)
         }
         return v

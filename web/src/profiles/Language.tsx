@@ -1,7 +1,7 @@
 import { Button, Input, Note, Select } from '@hyprsh/design'
 import { useState, type FormEvent } from 'react'
 import { ApiError, usePatchSettings, useSettings, type Settings } from '../api/queries'
-import { useReport } from '../toasts'
+import { startedInBackground, useReport } from '../toasts'
 
 type Language = Settings['language_region']['primary_language']
 
@@ -46,7 +46,7 @@ function Form({ saved, declared }: { saved: Settings['language_region']; declare
   const submit = (e: FormEvent) => {
     e.preventDefault()
     void report(save.mutateAsync({ language_region: { primary_language: language, release_date_country: country.trim().toUpperCase() } }), {
-      started: (s) => (s.language_region.pending_primary_language ? `Re-scoring under ${languageName(s.language_region.pending_primary_language)} in the background` : ''),
+      started: (s) => (s.language_region.pending_primary_language ? startedInBackground(`Re-scoring under ${languageName(s.language_region.pending_primary_language)}`) : ''),
       done: 'Language saved',
     })
   }

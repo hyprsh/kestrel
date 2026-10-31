@@ -1,16 +1,10 @@
 // The words of TRaSH's background work as Toasts, shared by the button that starts an update and
-// the host that reports how any pass ended. Other actions that start background work reuse the same shape:
-// `trashStarted`'s wording and `watchInActivity`.
+// the host that reports how any pass ended. The shared wording and the link to Activity live in ../toasts.
 import { useEffect, useRef } from 'react'
 import { useToasts } from '@hyprsh/design'
 import { useQueryClient } from '@tanstack/react-query'
 import { useJobs, type Job } from '../api/jobs'
-
-/** "Updating from TRaSH in the background". */
-const startedInBackground = (what: string) => `${what} in the background`
-
-/** A Toast's action: a link to Background jobs in Activity. */
-export const watchInActivity = (open: (path: string) => void) => ({ label: 'Watch in Activity', onClick: () => open('/activity/jobs') })
+import { startedInBackground } from '../toasts'
 
 export const trashStarted = startedInBackground('Updating from TRaSH')
 

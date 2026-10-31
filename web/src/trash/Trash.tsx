@@ -2,9 +2,9 @@ import { usePatchSettings, useSettings, useUpdateTrash } from '../api/queries'
 import { SkeletonForm } from '../loading'
 import { useStatus } from '../api/attention'
 import { snapshotAge } from '../overview/HealthStrip'
-import { Button, Checkbox, Code, useToasts } from '@hyprsh/design'
-import { useOpenPlace } from '../place'
-import { trashStarted, watchInActivity } from './toasts'
+import { Button, Checkbox, Code } from '@hyprsh/design'
+import { useReport } from '../toasts'
+import { trashStarted } from './toasts'
 
 /** The daily TRaSH check's switch, the active snapshot and "Update from TRaSH". */
 export function TrashForm() {
@@ -12,8 +12,7 @@ export function TrashForm() {
   const status = useStatus()
   const patch = usePatchSettings()
   const update = useUpdateTrash()
-  const toasts = useToasts()
-  const open = useOpenPlace()
+  const report = useReport()
   if (!settings.data) return <SkeletonForm rows={2} />
   const snapshot = status.data?.trash
 
@@ -31,12 +30,7 @@ export function TrashForm() {
         variant="secondary"
         size="small"
         loading={update.isPending}
-        onClick={() =>
-          update.mutate(undefined, {
-            onSuccess: () => toasts.message({ text: trashStarted, action: watchInActivity(open) }),
-            onError: (e) => toasts.error(`Update from TRaSH failed: ${e.message}`),
-          })
-        }
+        onClick={() => void report(update.mutateAsync(), { started: trashStarted, failed: 'Update from TRaSH failed' })}
         className="self-start"
       >
         Update from TRaSH
