@@ -3,8 +3,6 @@
 import type { QueueItem } from '../api/queue'
 import { localDay, type UndatedItem, type UpcomingItem, type UpcomingSlot } from '../api/upcoming'
 
-export type Filters = { kind: 'all' | 'movie' | 'series'; wantedOnly: boolean; hideImported: boolean }
-
 /** "S02E04". */
 export const episodeCode = (season: number, episode: number) => `S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`
 
@@ -77,14 +75,6 @@ export function weekOf(today: string, day: string): 'Earlier' | 'Last week' | 'T
   if (d < 7) return 'This week'
   if (d < 14) return 'Next week'
   return 'Later'
-}
-
-/** Whether an entry passes the filters. Titles with nothing to do in a Slot count as filled only when every Slot is Imported. */
-export function passes(item: { kind: UpcomingItem['kind']; slots: UpcomingSlot[] }, f: Filters): boolean {
-  if (f.kind !== 'all' && item.kind !== f.kind) return false
-  if (f.wantedOnly && !item.slots.some((s) => s.state === 'wanted')) return false
-  if (f.hideImported && item.slots.length > 0 && item.slots.every((s) => s.state === 'imported')) return false
-  return true
 }
 
 /** One thing on the timeline: an entry, or several episodes of one Series on one day. */

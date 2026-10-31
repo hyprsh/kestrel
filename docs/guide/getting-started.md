@@ -164,7 +164,7 @@ You don't need to do anything else. Kestrel does this on its own:
 
 The Title page shows each Version as a row with a bar and a line of counts (a Series' filled, Wanted and not monitored episodes, or a Movie's file or state), with its episodes below, one season at a time: pick the season from the menu next to the Episodes heading. **Search now** searches straight away, and **Manual search** lists every Release, so you can choose one yourself.
 
-**Upcoming** is the timeline of what is airing or being released, from the last two weeks to the next two months, and where each one stands.
+**Upcoming** is the timeline of what is airing or being released, from the last two weeks to the next two months, and where each one stands. Narrow it with the filter field (press `/`) or the Filter button: free text matches the Title and the episode's name, `kind:movie` or `kind:series` picks a kind, `is:wanted` and `is:imported` pick what is still to find or already in the Library, and a minus excludes (`-is:imported`). `?q=` in the address holds the filter, and a new session starts from the defaults in Settings > Display.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/06-upcoming-dark.png">

@@ -138,12 +138,6 @@ async function filterItem(name: string) {
   return screen.getByRole('menuitemcheckbox', { name })
 }
 
-/** A Kind row of the Filter menu, which is opened first when it is closed. */
-async function kindItem(name: string) {
-  if (!screen.queryByRole('menuitemradio', { name })) await userEvent.click(screen.getByRole('button', { name: /^Filter/ }))
-  return screen.getByRole('menuitemradio', { name })
-}
-
 describe('Upcoming timeline', () => {
   it('asks for 14 days back to 60 ahead and opens at a Today marker between the past and the future', async () => {
     const asked = fakeAgenda([episode({ date: day(-3), title: 'Past Show', episode_name: 'Before', title_id: 5 }), movie({ date: day(2) })])
@@ -368,49 +362,101 @@ describe('Upcoming: context and grouping', () => {
   })
 })
 
+const field = () => screen.findByRole('combobox', { name: 'Filter Upcoming' })
+
 describe('Upcoming: filters', () => {
   const mixed = () =>
     fakeAgenda([
       movie({ date: day(1), title: 'A Movie', slots: [slot('not_out')] }),
-      episode({ date: day(1), title: 'A Series', slots: [slot('wanted', { version_id: 21 })] }),
+      episode({ date: day(1), title: 'A Series', episode_name: 'Pilot Night', slots: [slot('wanted', { version_id: 21 })] }),
       movie({ date: day(-2), title_id: 3, title: 'Filled Movie', slots: [slot('imported')] }),
     ])
+  beforeEach(() => sessionStorage.clear())
+  afterEach(() => sessionStorage.clear())
 
-  it('shows Movies, Series or both', async () => {
+  it('has a filter field with its help, and reads ?q= from the address', async () => {
+    mixed()
+    history.replaceState(null, '', '/upcoming?q=kind:series')
+    renderApp()
+    await screen.findByRole('list', { name: 'Agenda' })
+    expect(await field()).toHaveValue('kind:series')
+    expect(screen.getByRole('button', { name: 'Query Help' })).toBeInTheDocument()
+    expect(within(timeline()).queryByText('A Movie')).not.toBeInTheDocument()
+    expect(within(timeline()).getByText('A Series')).toBeInTheDocument()
+    history.replaceState(null, '', '/')
+  })
+
+  it('matches free text on the Title and the episode name', async () => {
     mixed()
     await openUpcoming()
-    await userEvent.click(await kindItem('Movies'))
+    await userEvent.type(await field(), 'filled')
+    expect(within(timeline()).getByText('Filled Movie')).toBeInTheDocument()
+    expect(within(timeline()).queryByText('A Movie')).not.toBeInTheDocument()
+    await userEvent.clear(await field())
+    await userEvent.type(await field(), 'pilot')
+    expect(within(timeline()).getByText('A Series')).toBeInTheDocument()
+    expect(within(timeline()).queryByText('Filled Movie')).not.toBeInTheDocument()
+  })
+
+  it('narrows with kind:, is:wanted, is:imported and -is:imported', async () => {
+    mixed()
+    await openUpcoming()
+    const type = async (q: string) => {
+      await userEvent.clear(await field())
+      if (q) await userEvent.type(await field(), q)
+    }
+    await type('kind:movie')
     expect(within(timeline()).queryByText('A Series')).not.toBeInTheDocument()
     expect(within(timeline()).getByText('A Movie')).toBeInTheDocument()
-    await userEvent.click(await kindItem('Series'))
+    await type('is:wanted')
     expect(within(timeline()).queryByText('A Movie')).not.toBeInTheDocument()
     expect(within(timeline()).getByText('A Series')).toBeInTheDocument()
-    await userEvent.click(await kindItem('All'))
-    expect(within(timeline()).getByText('A Movie')).toBeInTheDocument()
-  })
-
-  it('keeps only Wanted with Wanted only, and drops Imported with Hide imported', async () => {
-    mixed()
-    await openUpcoming()
-    await userEvent.click(await filterItem('Hide imported'))
+    await type('is:imported')
+    expect(within(timeline()).getByText('Filled Movie')).toBeInTheDocument()
+    expect(within(timeline()).queryByText('A Movie')).not.toBeInTheDocument()
+    await type('-is:imported')
     expect(within(timeline()).queryByText('Filled Movie')).not.toBeInTheDocument()
     expect(within(timeline()).getByText('A Movie')).toBeInTheDocument()
-    await userEvent.click(await filterItem('Wanted only'))
-    expect(within(timeline()).queryByText('A Movie')).not.toBeInTheDocument()
-    expect(within(timeline()).getByText('A Series')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Filter · 2' })).toBeInTheDocument() // the badge counts both
+    await type('slot:4k')
+    expect(await screen.findByText('Nothing matches the filter.')).toBeInTheDocument()
   })
 
-  it('remembers them for the session, in the browser and not on the server', async () => {
+  it('says nothing matches and clears the filter', async () => {
     mixed()
     await openUpcoming()
-    await userEvent.click(await filterItem('Wanted only'))
+    await userEvent.type(await field(), 'zzzz')
+    expect(await screen.findByText('Nothing matches the filter.')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Clear filter' }))
+    expect(await field()).toHaveValue('')
+    expect(within(timeline()).getByText('A Movie')).toBeInTheDocument()
+  })
+
+  it('keeps the menu and the field in step, and the menu excludes', async () => {
+    mixed()
+    await openUpcoming()
+    await userEvent.click(await filterItem('Movies'))
+    expect(await field()).toHaveValue('kind:movie')
+    expect(within(timeline()).queryByText('A Series')).not.toBeInTheDocument()
+    await userEvent.click(await filterItem('Wanted'))
+    expect(await field()).toHaveValue('kind:movie is:wanted')
+    expect(screen.getByRole('button', { name: 'Filter · 2' })).toBeInTheDocument()
+    await userEvent.clear(await field())
+    await userEvent.type(await field(), '-is:imported')
+    expect(await filterItem('Imported, excluded')).toBeInTheDocument()
+    expect(within(timeline()).queryByText('Filled Movie')).not.toBeInTheDocument()
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Exclude Wanted' }))
+    expect(await field()).toHaveValue('-is:imported,wanted')
+  })
+
+  it('remembers the query for the session, in the browser and not on the server', async () => {
+    mixed()
+    await openUpcoming()
+    await userEvent.type(await field(), 'is:wanted')
     await userEvent.click(screen.getByRole('button', { name: 'Overview' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Upcoming' }))
     await screen.findByRole('list', { name: 'Agenda' })
-    expect(await filterItem('Wanted only')).toHaveAttribute('aria-checked', 'true')
+    expect(await field()).toHaveValue('is:wanted')
     expect(within(timeline()).queryByText('A Movie')).not.toBeInTheDocument()
-    sessionStorage.clear()
   })
 })
 
@@ -424,12 +470,11 @@ describe('Upcoming: default filters', () => {
   beforeEach(() => sessionStorage.clear())
   afterEach(() => sessionStorage.clear())
 
-  it("starts a new session on the household's defaults", async () => {
+  it("starts a new session on the household's defaults, written as a query", async () => {
     serveDisplay({ upcoming_filters: { kind: 'series', wanted_only: true, hide_imported: true } })
     mixed()
     await openUpcoming()
-    await waitFor(async () => expect(await filterItem('Wanted only')).toHaveAttribute('aria-checked', 'true'))
-    expect(await filterItem('Hide imported')).toHaveAttribute('aria-checked', 'true')
+    await waitFor(async () => expect(await field()).toHaveValue('kind:series is:wanted -is:imported'))
     expect(within(timeline()).queryByText('A Movie')).not.toBeInTheDocument()
   })
 
@@ -437,12 +482,12 @@ describe('Upcoming: default filters', () => {
     serveDisplay({ upcoming_filters: { kind: 'all', wanted_only: true, hide_imported: false } })
     mixed()
     await openUpcoming()
-    await waitFor(async () => expect(await filterItem('Wanted only')).toHaveAttribute('aria-checked', 'true'))
-    await userEvent.click(await filterItem('Wanted only'))
+    await waitFor(async () => expect(await field()).toHaveValue('is:wanted'))
+    await userEvent.clear(await field())
     await userEvent.click(screen.getByRole('button', { name: 'Overview' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Upcoming' }))
     await screen.findByRole('list', { name: 'Agenda' })
-    expect(await filterItem('Wanted only')).toHaveAttribute('aria-checked', 'false')
+    expect(await field()).toHaveValue('')
   })
 })
 

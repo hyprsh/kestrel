@@ -294,7 +294,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
                   ) : screen === 'requests' ? (
                     <Requests query={query} onQuery={(q) => setFilter({ screen: 'requests', q })} onOpenTitle={openTitle} />
                   ) : screen === 'upcoming' ? (
-                    <Upcoming onOpenTitle={openTitle} />
+                    <Upcoming query={query} onQuery={(q) => setFilter({ screen: 'upcoming', q })} onOpenTitle={openTitle} />
                   ) : (
                     <Overview onOpen={goPath} onOpenTitle={openTitle} onOpenAdoption={() => setScreen('adoption')} />
                   )}

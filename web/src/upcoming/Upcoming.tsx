@@ -2,7 +2,7 @@
 // the view opens at the Today marker, and every entry says where it stands: not out, Wanted, downloading
 // or Imported. j/k and Enter move and open (a group opens or closes), `o` shows an entry's overview, and
 // `t` goes back to today.
-import { Button, Collapse, EmptyState, Entity, LoadMoreButton, MenuDivider, MenuItem, MenuSection, Note } from '@hyprsh/design'
+import { Button, Collapse, EmptyState, Entity, LoadMoreButton, Note } from '@hyprsh/design'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchNow } from '../api/grabs'
@@ -11,23 +11,19 @@ import { useQueue, type QueueItem } from '../api/queue'
 import { dayString, useTimeline, type UndatedItem, type UpcomingItem, type UpcomingSlot } from '../api/upcoming'
 import { plural } from '../format'
 import { useKey, useListNav } from '../keys'
-import { FilterButton } from '../layout/FilterButton'
+import { FilterBar } from '../filter/FilterBar'
+import { FacetFilterButton } from '../layout/FilterButton'
 import { ScreenBar } from '../layout/ScreenBar'
 import { stackedRow, stackedRight } from '../layout/RowList'
 import { useNow } from '../time'
 import { cx } from '../ui'
 import { EntryName, Markers, MovieNotes, otherDates, StateBadges, Standings, TallyBadges } from './bits'
-import { useUpcomingFilters } from './filters'
-import { airTime, buildDays, dayLabel, episodeRange, navRows, passes, relativeDay, tally, undatedKey, upcomingKey, weekOf, type Block, type Day } from './state'
+import { upcomingFilter, upcomingQualifiers } from './filter'
+import { useSeededQuery } from './filters'
+import { airTime, buildDays, dayLabel, episodeRange, navRows, relativeDay, tally, undatedKey, upcomingKey, weekOf, type Block, type Day } from './state'
 import { AgendaTimeline, DayHeading, RowDot, TimelineSkeleton, WeekLabel } from './Timeline'
 import { TitlePoster } from '../poster'
 import { UndatedList, UndatedRow } from './UndatedList'
-
-const kinds = [
-  { value: 'all', label: 'All' },
-  { value: 'movie', label: 'Movies' },
-  { value: 'series', label: 'Series' },
-] as const
 
 const BACK = 14
 const AHEAD = 60
@@ -40,19 +36,21 @@ const reasonText = {
   announced: () => 'Announced by TheTVDB, no episodes dated yet',
 } as const
 
-export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void }) {
+/** `query` is the filter field's text, kept by the Shell so it can live in the address bar. */
+export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQuery: (query: string) => void; onOpenTitle: (id: number) => void }) {
   const [back, setBack] = useState(BACK)
   const [ahead, setAhead] = useState(AHEAD)
   const timeline = useTimeline(back, ahead)
   const queue = useQueue().data ?? []
   const now = useNow()
-  const [filters, setFilters] = useUpcomingFilters()
+  useSeededQuery(query, onQuery)
+  const passes = useMemo(() => upcomingFilter(query), [query])
   const search = useSearchNow()
   const report = useReport()
   const today = dayString()
 
-  const items = useMemo(() => (timeline.data?.items ?? []).filter((i) => passes(i, filters)), [timeline.data, filters])
-  const undated = useMemo(() => (timeline.data?.undated ?? []).filter((u) => passes(u, filters)), [timeline.data, filters])
+  const items = useMemo(() => (timeline.data?.items ?? []).filter(passes), [timeline.data, passes])
+  const undated = useMemo(() => (timeline.data?.undated ?? []).filter(passes), [timeline.data, passes])
   const days = useMemo(() => withToday(buildDays(items), today), [items, today])
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
   const [shown, setShown] = useState<ReadonlySet<string>>(new Set()) // entries whose overview is open
@@ -111,6 +109,10 @@ export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void })
     scrollToToday('smooth')
   }
   useKey('t', jumpToday)
+  useKey('/', (e) => {
+    e.preventDefault()
+    document.getElementById('upcoming-filter')?.focus()
+  })
 
   const onSearch = (item: UpcomingItem) => (slots: UpcomingSlot[]) => {
     const scope = item.kind === 'series' && item.episode_id != null ? { season: item.season!, episode_ids: [item.episode_id] } : undefined
@@ -122,24 +124,10 @@ export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void })
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ScreenBar
-        controls={
-          <FilterButton count={Number(filters.kind !== 'all') + Number(filters.wantedOnly) + Number(filters.hideImported)}>
-            <MenuSection title="Kind">
-              {kinds.map((k) => (
-                <MenuItem key={k.value} role="radio" checked={filters.kind === k.value} onSelect={() => setFilters({ kind: k.value })}>
-                  {k.label}
-                </MenuItem>
-              ))}
-            </MenuSection>
-            <MenuDivider />
-            <MenuItem checked={filters.wantedOnly} onSelect={() => setFilters({ wantedOnly: !filters.wantedOnly })}>
-              Wanted only
-            </MenuItem>
-            <MenuItem checked={filters.hideImported} onSelect={() => setFilters({ hideImported: !filters.hideImported })}>
-              Hide imported
-            </MenuItem>
-          </FilterButton>
+        filter={
+          <FilterBar id="upcoming-filter" label="Filter Upcoming" placeholder="Filter titles, e.g. kind:series  /" value={query} onChange={onQuery} qualifiers={upcomingQualifiers} menus={false} />
         }
+        controls={<FacetFilterButton query={query} onQuery={onQuery} qualifiers={upcomingQualifiers} />}
         aside={
           <Button variant="tertiary" size="small" onClick={jumpToday} title="Jump to today (t)">
             Today
@@ -157,7 +145,15 @@ export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void })
           )}
           {empty && (
             <div className="my-4">
-              <EmptyState description="Nothing is due in this window." />
+              {query.trim() === '' ? (
+                <EmptyState description="Nothing is due in this window." />
+              ) : (
+                <EmptyState description="Nothing matches the filter.">
+                  <Button variant="secondary" size="small" onClick={() => onQuery('')}>
+                    Clear filter
+                  </Button>
+                </EmptyState>
+              )}
             </div>
           )}
           {timeline.isPending && <TimelineSkeleton />}
