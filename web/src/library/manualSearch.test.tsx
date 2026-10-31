@@ -436,7 +436,7 @@ describe('manual search', () => {
       expect(confirmation).toHaveTextContent('Paddington.2014.1080p.BluRay.x264-GRP')
 
       await userEvent.click(within(confirmation).getByRole('button', { name: 'View in Activity' }))
-      expect(location.pathname).toBe('/activity')
+      expect(location.pathname + location.search).toBe('/activity?q=grab%3A7')
     })
 
     it('marks the grabbed Release, through selection changes and a sort change', async () => {
