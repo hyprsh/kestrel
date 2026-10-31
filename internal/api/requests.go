@@ -146,6 +146,10 @@ func (s *server) ListRequests(ctx context.Context, r oapi.ListRequestsRequestObj
 			return nil, invalid("id", "too_many", "Read at most 100 Requests at once")
 		}
 		f.IDs = *p.Id
+		// Silo reads its Requests this way (CheckStatus): that is Silo asking (see silo_silent.go).
+		if err := s.requests.MarkAsked(ctx, siloSource, f.IDs); err != nil {
+			return nil, err
+		}
 	}
 	if p.Source != nil {
 		f.Sources = *p.Source

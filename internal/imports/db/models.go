@@ -240,16 +240,18 @@ type Profile struct {
 }
 
 type Request struct {
-	ID              int64
-	Source          string
-	SourceRequestID string
-	RequesterID     string
-	RequesterName   string
-	TitleID         sql.NullInt64
-	Outcome         string
-	RejectReason    sql.NullString
-	CreatedAt       string
-	TitleName       string
+	ID               int64
+	Source           string
+	SourceRequestID  string
+	RequesterID      string
+	RequesterName    string
+	TitleID          sql.NullInt64
+	Outcome          string
+	RejectReason     sql.NullString
+	CreatedAt        string
+	TitleName        string
+	LastAskedAt      sql.NullString
+	SilenceDismissed int64
 }
 
 type RequestSeason struct {

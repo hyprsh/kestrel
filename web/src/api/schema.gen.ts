@@ -1500,6 +1500,8 @@ export interface paths {
          * Dismiss a one-off health warning
          * @description Hides the row until its condition recurs. Only rows with a `dismiss` action can be dismissed;
          *     any other row is `409 conflict`, and one that is already gone `404`.
+         *     A `silo-silent-{request_id}` row ("Silo stopped asking") is hidden until Silo asks about that
+         *     Request again; the Request itself is kept.
          */
         post: operations["dismissAttention"];
         delete?: never;
@@ -1930,6 +1932,9 @@ export interface paths {
          * Requests, newest first, or the named ones
          * @description `id` may repeat (at most 100) to read those Requests in one call, as the Silo plugin does; the
          *     other filters and the cursor are ignored then.
+         *     Reading Silo's Requests this way counts as Silo asking about them: Needs attention flags a Silo
+         *     Request that this read has not named for longer than Silo's whole retry span (6 hours and the
+         *     10-minute submission lease).
          *
          *     `source`, `status`, `outcome` and `requester` may each repeat: a Request matches any one of a
          *     filter's values, and every filter given. `status` is derived on read like each Slot's, and every
@@ -1972,6 +1977,32 @@ export interface paths {
         get: operations["getRequest"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/requests/{id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End an open Request
+         * @description Ends the Request the way a rejected one ends: its Title and Versions stay, nothing more is asked
+         *     for it, and it reads as `outcome: rejected` with a `null` `reject_reason`. The reason is written
+         *     into the Log as a `request_ended` event. This is the "End" action of Needs attention's
+         *     "Silo stopped asking" row. `404` for a Request that does not exist; `409 conflict` for one that
+         *     is not open (completed, or already rejected).
+         */
+        post: operations["endRequest"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4025,7 +4056,7 @@ export interface components {
             id: number;
             /** Format: date-time */
             at: string;
-            /** @description A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered. */
+            /** @description A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, request_ended, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered. */
             kind: string;
             routine: boolean;
             /** Format: int64 */
@@ -6746,6 +6777,29 @@ export interface operations {
                 };
             };
             404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    endRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Request is ended. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };
