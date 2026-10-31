@@ -322,6 +322,32 @@ describe('Adoption review', () => {
     expect(await screen.findByText('a scan is already running')).toBeInTheDocument()
   })
 
+  const conflict = (detail: string) => ({ type: 'about:blank', title: 'x', status: 409, code: 'conflict', detail })
+
+  it('shows why adopting the plan failed, and no started Toast', async () => {
+    fakeAdoption()
+    server.use(http.post('/adoption/commit', ({ response }) => response('default').json(conflict('the plan changed under you'), { status: 409 })))
+    const user = await openAdoption()
+    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+
+    await user.click(await screen.findByRole('button', { name: /^Adopt \d+ Titles?$/ }))
+
+    expect(await screen.findByText('the plan changed under you')).toBeInTheDocument()
+    expect(screen.queryByText('Adopting the plan started')).not.toBeInTheDocument()
+  })
+
+  it('shows why discarding the plan failed, and no discarded Toast', async () => {
+    fakeAdoption()
+    server.use(http.delete('/adoption', ({ response }) => response('default').json(conflict('a commit is running'), { status: 409 })))
+    const user = await openAdoption()
+    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+
+    await user.click(await screen.findByRole('button', { name: 'Discard plan' }))
+
+    expect(await screen.findByText('a commit is running')).toBeInTheDocument()
+    expect(screen.queryByText('Adoption plan discarded')).not.toBeInTheDocument()
+  })
+
   it('offers Clean up for the adopted folders once Titles were adopted', async () => {
     const previews: unknown[] = []
     fakeAdoption()
