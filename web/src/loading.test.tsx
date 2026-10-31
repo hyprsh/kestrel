@@ -126,7 +126,12 @@ describe('a Settings section while its settings load', () => {
           root_folders: { movies: ['/m'], series: ['/s'] },
           check_github_updates: true,
           pause_grabs: false,
-          from_config_file: { language_region: false, root_folders: false, check_github_updates: false },
+          from_config_file: {
+            display: { season_order: false, seasons_open: false, manual_search_sort: false, upcoming_filters: false },
+            language_region: false,
+            root_folders: false,
+            check_github_updates: false,
+          },
           trash: { auto_update: true },
           metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
         })
