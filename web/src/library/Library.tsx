@@ -332,7 +332,7 @@ export function Library({
   const hints = (
     <span className="label-12 flex items-center gap-1 text-gray-900 pointer-coarse:hidden">
       <KeyboardInput small>j</KeyboardInput>
-      <KeyboardInput small>k</KeyboardInput> move <KeyboardInput small>x</KeyboardInput> tick
+      <KeyboardInput small>k</KeyboardInput> move
     </span>
   )
   return (
