@@ -68,6 +68,11 @@ type RefresherChecks interface {
 	Observe(ctx context.Context, instanceID int64, err error)
 }
 
+// ChangeFeed keeps the Title folder changes that settled (see FolderFeed).
+type ChangeFeed interface {
+	Record(ctx context.Context, folder string, exists bool) error
+}
+
 // RefresherDeps are what NewRefresher needs.
 type RefresherDeps struct {
 	Servers MediaServers
@@ -75,6 +80,9 @@ type RefresherDeps struct {
 	Health RefresherHealth
 	// Checks is optional; without it a refresh is not kept as a check.
 	Checks RefresherChecks
+	// Feed is optional; without it settled changes are only sent to the media
+	// servers.
+	Feed ChangeFeed
 	// Delay defaults to RefreshDelay.
 	Delay  time.Duration
 	Logger *slog.Logger
@@ -86,6 +94,7 @@ type Refresher struct {
 	servers MediaServers
 	hl      RefresherHealth
 	checks  RefresherChecks
+	feed    ChangeFeed
 	delay   time.Duration
 	log     *slog.Logger
 
@@ -110,7 +119,7 @@ func NewRefresher(d RefresherDeps) *Refresher {
 		d.Logger = slog.Default()
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Refresher{servers: d.Servers, hl: d.Health, checks: d.Checks, delay: d.Delay, log: d.Logger, ctx: ctx, cancel: cancel, pending: map[string]*pendingRefresh{}}
+	return &Refresher{servers: d.Servers, hl: d.Health, checks: d.Checks, feed: d.Feed, delay: d.Delay, log: d.Logger, ctx: ctx, cancel: cancel, pending: map[string]*pendingRefresh{}}
 }
 
 // FolderChanged records that a Title folder changed: after an Import or Upgrade,
@@ -178,14 +187,21 @@ func (r *Refresher) fire(ctx context.Context, folder string) {
 		return
 	}
 	defer r.sending.Done()
+	kind := mediaserver.Modified
+	if _, err := os.Stat(folder); errors.Is(err, os.ErrNotExist) {
+		kind = mediaserver.Deleted
+	}
+	// The feed comes first, so it is written with no media server configured
+	// and when listing them fails.
+	if r.feed != nil {
+		if err := r.feed.Record(ctx, folder, kind != mediaserver.Deleted); err != nil {
+			r.log.Warn("folder-change feed: recording a change failed", "folder", folder, "err", err)
+		}
+	}
 	servers, err := r.servers.MediaServers(ctx)
 	if err != nil {
 		r.log.Warn("media-server refresh: listing the servers failed", "err", err)
 		return
-	}
-	kind := mediaserver.Modified
-	if _, err := os.Stat(folder); errors.Is(err, os.ErrNotExist) {
-		kind = mediaserver.Deleted
 	}
 	for _, s := range servers {
 		r.tell(ctx, s, mediaserver.Change{Path: folder, Kind: kind})

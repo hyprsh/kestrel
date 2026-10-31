@@ -143,6 +143,8 @@ type Deps struct {
 	LastRun RefreshState
 	// Sessions deletes expired sessions; optional.
 	Sessions func(ctx context.Context) error
+	// FolderChanges prunes the folder-change feed; optional.
+	FolderChanges func(ctx context.Context) error
 	// Health is optional; without it there is no health loop.
 	Health HealthChecker
 	// Updates is optional; without it there is no update check.
