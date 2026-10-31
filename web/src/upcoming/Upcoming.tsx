@@ -140,7 +140,7 @@ export function Upcoming({ onOpenTitle }: { onOpenTitle: (id: number) => void })
             </MenuItem>
           </FilterButton>
         }
-        actions={
+        aside={
           <Button variant="tertiary" size="small" onClick={jumpToday} title="Jump to today (t)">
             Today
           </Button>

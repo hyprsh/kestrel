@@ -2,7 +2,7 @@
 // search to Import; Health, every check Kestrel runs; Background Jobs, the work running now and the
 // job schedule. The Grabs filter is the screen's `?q=`: "/activity?q=stage:done" opens it on the Done
 // stage. The screen bar's view switcher picks the view; the Shell owns the address, so a pick is handed to it.
-import { Badge, Skeleton, StatusDot } from '@hyprsh/design'
+import { Badge, StatusDot } from '@hyprsh/design'
 import { useQueue } from '../api/queue'
 import { useStalledGrabs } from '../api/activity'
 import { BackgroundJobs } from './BackgroundJobs'
@@ -10,7 +10,7 @@ import { HealthTab } from './health/HealthTab'
 import { useHealthCounts } from './health/useHealthCounts'
 import { FilterBar } from '../filter/FilterBar'
 import { FacetFilterButton } from '../layout/FilterButton'
-import { ScreenBar, ScreenCount, ViewSwitcher } from '../layout/ScreenBar'
+import { ScreenBar, ViewSwitcher } from '../layout/ScreenBar'
 import { activityQualifiers } from './filter'
 import { Pipeline, usePipeline } from './Pipeline'
 import type { Stage } from './stages'
@@ -74,15 +74,7 @@ export function Activity({
         view={<ViewSwitcher label="Activity" current={tab} onChange={onTab} views={activityTabs.map((t) => ({ value: t.value, label: tabLabel[t.value], hint: hints[t.value] }))} />}
         filter={
           grabs ? (
-            <FilterBar
-              id="activity-filter"
-              label="Filter Activity"
-              placeholder="Filter, e.g. stage:failed kind:series slot:4k …  /"
-              value={query}
-              onChange={onQuery}
-              qualifiers={activityQualifiers}
-              menus={false}
-            />
+            <FilterBar id="activity-filter" label="Filter Activity" placeholder="Filter grabs, e.g. stage:failed  /" value={query} onChange={onQuery} qualifiers={activityQualifiers} menus={false} />
           ) : undefined
         }
         controls={
@@ -95,7 +87,6 @@ export function Activity({
             />
           ) : undefined
         }
-        count={grabs ? <ScreenCount>{pipeline.pending ? <Skeleton width={48} height={14} /> : `${pipeline.rows.length} of ${pipeline.total}`}</ScreenCount> : undefined}
       />
       <div className="min-h-0 flex-1 overflow-auto">
         {/* A centred column like the Overview's, so rows and progress bars do not stretch across a wide window. */}

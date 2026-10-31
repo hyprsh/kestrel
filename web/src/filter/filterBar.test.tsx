@@ -73,15 +73,15 @@ describe('the Library Filter button', () => {
     expect(titles(list)).toEqual(['Heat', 'Zodiac', 'Alien'])
   })
 
-  it('sorts from the Sort menu and clears it with the default row', async () => {
+  it('sorts from the Display menu and clears it with the default row', async () => {
     const { field } = await open()
-    await userEvent.click(screen.getByRole('button', { name: /^Sort/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Display' }))
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Wanted longest' }))
     expect(field).toHaveValue('sort:wanted_since')
-    await userEvent.click(screen.getByRole('button', { name: 'Sort: Wanted longest' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Display' }))
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Name A–Z' }))
     expect(field).toHaveValue('sort:name-asc') // one sort term, not two
-    await userEvent.click(screen.getByRole('button', { name: 'Sort: Name A–Z' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Display' }))
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Newest added' }))
     expect(field).toHaveValue('')
   })
@@ -141,13 +141,13 @@ describe('the Log Filter button', () => {
 })
 
 describe('on a phone', () => {
-  it('keeps the field full width with Filter and Sort under it, and the same Filter menu', async () => {
+  it('keeps the field full width with Filter and Display under it, and the same Filter menu', async () => {
     vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('max-width: 639'), media: query, addEventListener: () => {}, removeEventListener: () => {} }))
     fakeLibrary(library())
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     const field = await screen.findByRole('combobox', { name: 'Filter the Library' })
-    expect(screen.getByRole('button', { name: /^Sort/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Display' })).toBeInTheDocument()
     await userEvent.click(filterButton())
     for (const name of ['Movies', 'Standard', '4K']) expect(item(name)).toBeInTheDocument()
 

@@ -131,7 +131,7 @@ Choose **Finish setup**. If something is missing, Kestrel names the section. You
 
 ## Add your first Title
 
-Choose **+** in the side bar, or press <kbd>⌘</kbd> <kbd>K</kbd> (<kbd>Ctrl</kbd> <kbd>K</kbd> on Windows and Linux), and type a name. Pick the right result. Titles you already have say "In library".
+Choose **+** in the side bar, or press <kbd>⌘</kbd> <kbd>K</kbd> (<kbd>Ctrl</kbd> <kbd>K</kbd> on Windows and Linux; the magnifier in the side bar opens the same menu), and type a name. Pick the right result. Titles you already have say "In library".
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/05-add-title-dark.png">
@@ -175,7 +175,7 @@ The Title page shows each Version and what it still lacks. **Search now** search
 
 The **Overview** is the home screen. The **Health** pill at the top right of the window says "All checks OK" or how many Blocking issues and Warnings there are, and opens Activity > Health; it reads "Offline" when Kestrel can't be reached, and a Blocking issue also puts a banner across every screen. (On a phone the Health pill sits at the top of the Overview instead, because the phone's top bar has no room for it.) A disk that is running low shows as a Health check and a row in **Happening now**. **Happening now** is one list of what wants a decision (Needs attention, one compact row per item with its poster and buttons, plus an Adoption plan waiting for review, versions that have been missing for a long time and Originals on offer) and what is downloading. Below it, **Recently added**, **Recent requests** and **Coming this week** are three short lists side by side, each with a link to its screen. Press `j` and `k` to move through the rows.
 
-**Activity** has three views, each with its own address. The menu at the start of the bar under the top bar (it shows the current view, such as "Grabs") switches between them:
+**Activity** has three views, each with its own address. The menu at the start of the top bar (it shows the current view, such as "Grabs") switches between them:
 
 - **Grabs** (`/activity`) shows every Grab from Searching to Done, grouped by stage. Narrow it with the filter field or the Filter button, which lists the stages with how many Grabs each holds.
 - **Health** (`/activity/health`) shows every check: the download client, each indexer, each disk and the rest. It counts problems, warnings and OK checks, and the view menu carries a dot beside Health while anything fails or warns.

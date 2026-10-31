@@ -101,8 +101,8 @@ export function FacetFilterButton({
   )
 }
 
-/** The Sort button: one value of a `single` facet, as radio items; the default row takes the term out. "Sort: Newest added". */
-export function SortButton({ query, onQuery, qualifiers, name = 'sort' }: { query: string; onQuery: (query: string) => void; qualifiers: readonly Facet[]; name?: string }) {
+/** The Sort section of a Display menu: one value of a `single` facet, as radio items; the default row takes the term out. */
+export function SortSection({ query, onQuery, qualifiers, name = 'sort' }: { query: string; onQuery: (query: string) => void; qualifiers: readonly Facet[]; name?: string }) {
   const facet = qualifiers.find((f) => f.name === name && f.single)
   if (!facet) return null
   const parsed = parseQuery(query, qualifiers)
@@ -117,17 +117,12 @@ export function SortButton({ query, onQuery, qualifiers, name = 'sort' }: { quer
     onQuery(value ? withValue(text, name, value, qualifiers) : text)
   }
   return (
-    <Menu.Container position="bottom-start">
-      <Menu.Button variant="secondary" size="small" showChevron>
-        {`${facet.label}: ${chosen.label}`}
-      </Menu.Button>
-      <Menu width={220}>
-        {rows.map((r) => (
-          <MenuItem key={r.value} role="radio" checked={r === chosen} onSelect={() => set(r.value)}>
-            {r.label}
-          </MenuItem>
-        ))}
-      </Menu>
-    </Menu.Container>
+    <MenuSection title={facet.label ?? 'Sort'}>
+      {rows.map((r) => (
+        <MenuItem key={r.value} role="radio" checked={r === chosen} onSelect={() => set(r.value)}>
+          {r.label}
+        </MenuItem>
+      ))}
+    </MenuSection>
   )
 }

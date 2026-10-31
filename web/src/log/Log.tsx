@@ -8,8 +8,7 @@ import { useTitles } from '../api/queries'
 import { matchText } from '../fuzzy'
 import { FilterBar } from '../filter/FilterBar'
 import { FacetFilterButton } from '../layout/FilterButton'
-import { ScreenBar, ScreenCount, ViewSwitcher } from '../layout/ScreenBar'
-import { plural } from '../format'
+import { ScreenBar, ViewSwitcher } from '../layout/ScreenBar'
 import { PagerStrip } from '../layout/PagerStrip'
 import { useKey, useListNav } from '../keys'
 import { useColumnWidths } from '../layout/columnWidths'
@@ -143,9 +142,8 @@ function Events({ query, onQuery, widths, view, menu }: { query: string; onQuery
       <ScreenBar
         view={view}
         menu={menu}
-        filter={<FilterBar id="log-filter" label="Filter the Log" placeholder="Filter, e.g. kind:failures slot:4k …  /" value={query} onChange={filterTo} qualifiers={qualifiers} menus={false} />}
+        filter={<FilterBar id="log-filter" label="Filter the Log" placeholder="Filter events, e.g. kind:failures  /" value={query} onChange={filterTo} qualifiers={qualifiers} menus={false} />}
         controls={<FacetFilterButton query={query} onQuery={filterTo} qualifiers={qualifiers} />}
-        count={events.data ? <ScreenCount>{plural(shown.length, 'event')}</ScreenCount> : undefined}
       />
       <div className="min-h-0 flex-1 overflow-auto">
         {events.isError && <Note variant="error">The Log could not be loaded.</Note>}

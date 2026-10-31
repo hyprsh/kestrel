@@ -11,8 +11,9 @@
 // THE PIECES
 // One file per piece, except where noted: a file that exports two pieces lists both.
 //   FilterButton.tsx      FilterButton, FacetFilterButton and    <FilterButton count={n}>{checkable items}</FilterButton>
-//                         SortButton: the one Filter button      <FacetFilterButton query onQuery qualifiers />
-//                         of a screen bar, and its Sort          <SortButton query onQuery qualifiers />
+//                         SortSection: the one Filter button    <FacetFilterButton query onQuery qualifiers />
+//                         of a screen bar, and the Sort rows     <SortSection query onQuery qualifiers />
+//                         of a Display menu
 //   FilterStrip.tsx       filter/tab strip above a list          <FilterStrip>{tabs, filter field}</FilterStrip>
 //   FloatingBar.tsx       toolbar for ticked rows: over a list's foot, or sticky in a pane    <FloatingBar label="2 ticked">{actions}</FloatingBar>
 //   JumpNav.tsx           JumpNav and JumpLink: sticky links     <JumpNav label="Sections"><JumpLink href onClick>{name}</JumpLink></JumpNav>
@@ -27,15 +28,16 @@
 //                         list whose rows stack their right content when the list is narrow (container query)
 //   Rail.tsx              Rail and RailSpacer: the desktop       <Rail>{icon buttons}<RailSpacer /></Rail>
 //                         navigation rail and its gap
-//   ScreenBar.tsx         ScreenBar and ScreenCount: the bar      <ScreenBar tabs menu actions filter controls end count />
-//                         under the top bar of Library, Upcoming,
-//                         Activity and Log: tabs and actions, then
-//                         the filter row
+//   ScreenBar.tsx         ScreenBar and ViewSwitcher: the bar     <ScreenBar view filter controls aside menu actions />
+//                         of Library, Upcoming, Activity and Log.
+//                         On a desktop it portals into the top
+//                         bar (the Shell gives it places); on a
+//                         phone it is a row under the top bar
 //   SectionBlock.tsx      static section with a title and count  <SectionBlock title="Downloading" count={3}>{rows}</SectionBlock>
 //   SelectionBar.tsx      count, select-all, Clear and actions  <SelectionBar selection={...} shown={n}>{actions}</SelectionBar>
 //                         for a ticked selection
 //   SidePanel.tsx         summary panel on a wide screen's right <SidePanel label={name}>{header, summary}</SidePanel>
-//   TopBar.tsx            TopBar and PhoneTopBar: the app        <TopBar title end>{command box}</TopBar>
+//   TopBar.tsx            TopBar and PhoneTopBar: the app        <TopBar title end bar?>{command box or the screen's bar}</TopBar>
 //                         header on a desktop and on a phone     <PhoneTopBar title>{actions}</PhoneTopBar>
 //   WideListPane.tsx      440px list column for rich rows        <WideListPane>{list}</WideListPane>
 //   WidePage.tsx          wide, long page of cards (setup)       <WidePage>{cards}</WidePage>

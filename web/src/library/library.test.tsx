@@ -172,14 +172,14 @@ describe('the Library list', () => {
     expect(await screen.findByRole('dialog', { name: /command menu/i })).toBeInTheDocument()
   })
 
-  it('shows the key hints in the footer and the count at the end of the screen bar', async () => {
+  it('shows the key hints and the count in the footer', async () => {
     fakeLibrary(rows())
     await openLibrary()
 
     const count = await screen.findByText('3 of 3')
-    expect(count.closest('footer')).not.toBeInTheDocument()
-    expect(within(screen.getByRole('contentinfo')).getByText('j')).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: 'Filter the Library' }).compareDocumentPosition(count) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const footer = count.closest('footer')
+    expect(footer).toBeInTheDocument()
+    expect(within(footer!).getByText('j')).toBeInTheDocument()
   })
 })
 
@@ -369,7 +369,7 @@ describe('the Library state tabs and sort', () => {
         .map((o) => o.querySelector('[data-title]')?.textContent)
     expect(order()).toEqual(['Zodiac', 'alien', 'Heat']) // as added
 
-    await userEvent.click(screen.getByRole('button', { name: /^Sort/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Display' }))
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Name A–Z' }))
     expect(filter()).toHaveValue('sort:name-asc')
     expect(order()).toEqual(['alien', 'Heat', 'Zodiac'])
@@ -384,15 +384,23 @@ describe('the Library state tabs and sort', () => {
   })
 })
 
+/** The Layout section of the Display menu says which of Grid and List is on. */
+async function expectLayout(name: 'Grid' | 'List') {
+  await userEvent.click(screen.getByRole('button', { name: 'Display' }))
+  expect(screen.getByRole('menuitemradio', { name })).toHaveAttribute('aria-checked', 'true')
+  await userEvent.keyboard('{Escape}')
+  screen.getByRole('listbox', { name: 'Library' }).focus() // the keys that follow are the list's
+}
+
 describe('the Library grid', () => {
   it('switches with g, remembers it, and sums up the picked Title in a panel', async () => {
     fakeLibrary(rows())
     const list = await openLibrary()
     await within(list).findAllByRole('option')
-    expect(screen.getByRole('radio', { name: 'List' })).toBeChecked()
+    await expectLayout('List')
 
     await userEvent.keyboard('g')
-    expect(screen.getByRole('radio', { name: 'Grid' })).toBeChecked()
+    await expectLayout('Grid')
     expect(localStorage.getItem('kestrel.library.view')).toBe('grid')
     const grid = screen.getByRole('listbox', { name: 'Library' })
     expect(within(grid).getAllByRole('option')).toHaveLength(3)
@@ -416,7 +424,7 @@ describe('the Library grid', () => {
     localStorage.setItem('kestrel.library.view', 'grid')
     fakeLibrary(rows())
     await openLibrary()
-    expect(screen.getByRole('radio', { name: 'Grid' })).toBeChecked()
+    await expectLayout('Grid')
     localStorage.removeItem('kestrel.library.view')
   })
 })

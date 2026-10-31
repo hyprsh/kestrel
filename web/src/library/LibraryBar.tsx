@@ -1,7 +1,9 @@
 // The Library's Status section of the Filter menu (All, Wanted, Long Missing, Downloading, Unreleased, Unmonitored,
-// each with its count) and its view controls: the grid/list switch, the "…" menu with the Library-wide maintenance (Adopt, Clean Up) and
+// each with its count) and its view controls: the Display menu (sort and layout), the "…" menu with the Library-wide maintenance (Adopt, Clean Up) and
 // Add Title.
-import { DotsMenu, MenuItem, MenuSection, Switch, SwitchControl, Button, Tooltip } from '@hyprsh/design'
+import { Button, DotsMenu, Menu, MenuDivider, MenuItem, MenuSection } from '@hyprsh/design'
+import type { Facet } from '../filter/qualifiers'
+import { SortSection } from '../layout/FilterButton'
 import { LayoutGrid, List, Plus } from 'lucide-react'
 import { stateTabs, type StateTab } from './filter'
 import type { LibraryView } from './useLibraryView'
@@ -32,15 +34,40 @@ export function StatusSection({ selected, counts, onSelect }: { selected: StateT
   )
 }
 
-/** Grid or list, as two icon segments. */
-export function ViewSwitch({ view, onChange, phone }: { view: LibraryView; onChange: (view: LibraryView) => void; phone: boolean }) {
+/** The Display menu: how the list is ordered (Sort) and whether it is a list or a grid (Layout). Both are remembered: the sort in the filter, the layout in this browser. */
+export function DisplayButton({
+  view,
+  onView,
+  phone,
+  query,
+  onQuery,
+  qualifiers,
+}: {
+  view: LibraryView
+  onView: (view: LibraryView) => void
+  phone: boolean
+  query: string
+  onQuery: (query: string) => void
+  qualifiers: readonly Facet[]
+}) {
   return (
-    <Tooltip text={phone ? 'Grid or list' : 'Grid or list (g)'}>
-      <Switch name="library-view" size="small" value={view} onChange={(v) => onChange(v as LibraryView)} aria-label="View">
-        <SwitchControl label="Grid" value="grid" icon={<LayoutGrid />} />
-        <SwitchControl label="List" value="list" icon={<List />} />
-      </Switch>
-    </Tooltip>
+    <Menu.Container position="bottom-start">
+      <Menu.Button variant="secondary" size="small" showChevron title={phone ? undefined : 'Sort and layout (g switches grid and list)'}>
+        Display
+      </Menu.Button>
+      <Menu width={240} className="max-h-[min(32rem,70vh)] overflow-y-auto">
+        <SortSection query={query} onQuery={onQuery} qualifiers={qualifiers} />
+        <MenuDivider />
+        <MenuSection title="Layout">
+          <MenuItem role="radio" checked={view === 'grid'} prefix={<LayoutGrid className="size-4" />} onSelect={() => onView('grid')}>
+            Grid
+          </MenuItem>
+          <MenuItem role="radio" checked={view === 'list'} prefix={<List className="size-4" />} onSelect={() => onView('list')}>
+            List
+          </MenuItem>
+        </MenuSection>
+      </Menu>
+    </Menu.Container>
   )
 }
 

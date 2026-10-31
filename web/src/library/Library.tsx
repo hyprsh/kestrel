@@ -6,10 +6,10 @@ import { useQueue } from '../api/queue'
 import { useOpenCleanup } from '../cleanup/launch'
 import { FilterBar } from '../filter/FilterBar'
 import { useKey, useListNav } from '../keys'
-import { FacetFilterButton, SortButton } from '../layout/FilterButton'
+import { FacetFilterButton } from '../layout/FilterButton'
 import { PaneFooter } from '../layout/Pane'
 import { PhoneBackHeader } from '../layout/PhoneBackHeader'
-import { ScreenBar, ScreenCount } from '../layout/ScreenBar'
+import { ScreenBar } from '../layout/ScreenBar'
 import { WideListPane } from '../layout/WideListPane'
 import { usePhone } from '../responsive'
 import { useSelection } from '../selection'
@@ -21,7 +21,7 @@ import { episodeCode, seasonName } from './episodes'
 import { useEpisodeSearch, type EpisodeActions } from './EpisodeActions'
 import { EpisodeHitRows, hitDomId } from './EpisodeHitRows'
 import { filterLibrary, libraryQualifiers, tabCounts, tabOf, withTab } from './filter'
-import { AddTitle, LibraryMenu, StatusSection, ViewSwitch } from './LibraryBar'
+import { AddTitle, DisplayButton, LibraryMenu, StatusSection } from './LibraryBar'
 import { ManualSearch } from './ManualSearch'
 import { grabsByTitle } from './rowState'
 import { TitleDetail, type ManualSearchTarget } from './TitleDetail'
@@ -32,8 +32,8 @@ import { useEpisodeResults, type EpisodeHit } from './useEpisodeResults'
 import { useLibraryView } from './useLibraryView'
 
 /**
- * The Library. Across the top, one bar: the filter field with its Filter button (whose Status section holds the `is:`
- * states, each with its count) and Sort, the grid/list switch and the count, then the Library-wide "…" menu and Add Title.
+ * The Library. Across the top, one bar, in the top bar of a desktop: the filter field with its Filter button (whose Status section holds the `is:`
+ * states, each with its count) and the Display menu (sort and layout), then after Health the Library-wide "…" menu and Add Title. The count is in the footer.
  * The list view (the default) is two panes: the filterable list on the left and
  * the selected Title on the right. The grid view is a wall of posters; picking one opens its summary in a panel on
  * the right, and Open Title shows its whole page. The view is remembered in this browser, and `g` switches it.
@@ -205,7 +205,7 @@ export function Library({
     <FilterBar
       id="library-filter"
       label="Filter the Library"
-      placeholder={phone ? 'Filter' : 'Filter, e.g. slot:4k  /'}
+      placeholder={phone ? 'Filter' : 'Filter titles, e.g. slot:4k  /'}
       value={query}
       onChange={onQuery}
       qualifiers={qualifiers}
@@ -228,9 +228,9 @@ export function Library({
   )
 
   const status = <StatusSection selected={tabOf(parsed)} counts={counts} onSelect={(tab) => onQuery(withTab(query, tab, qualifiers))} />
-  const switcher = <ViewSwitch phone={phone} view={view} onChange={setView} />
+  const display = <DisplayButton phone={phone} view={view} onView={setView} query={query} onQuery={onQuery} qualifiers={qualifiers} />
   const menu = <LibraryMenu onAdopt={onAdopt} onCleanup={() => openCleanup()} onTick={phone ? () => selection.setActive(true) : undefined} />
-  const count = <ScreenCount>{counted ? counted.filter(Boolean).join(' · ') : <Skeleton width={48} height={14} />}</ScreenCount>
+  const count = <span className="label-12 shrink-0 text-gray-900 tabular-nums">{counted ? counted.filter(Boolean).join(' · ') : <Skeleton width={48} height={14} />}</span>
 
   const bulk = selection.count > 0 ? <BulkActions rows={rows.filter((r) => selection.has(r.id))} shown={rows.length} onTickAll={selection.checkAll} onClear={selection.clear} compact={phone} /> : null
 
@@ -334,7 +334,7 @@ export function Library({
       </div>
     )
 
-  // One bar across the whole screen, above the list and the Title; a Title's page over the grid has no filter to show.
+  // One bar across the whole screen, above the list and the Title; a Title's page over the grid has no filter to show. On a desktop it sits in the top bar.
   const bar = (filtering: boolean) => (
     <ScreenBar
       menu={menu}
@@ -343,11 +343,9 @@ export function Library({
       controls={
         <>
           <FacetFilterButton query={query} onQuery={onQuery} qualifiers={qualifiers} lead={status} leadActive={parsed.terms.some((t) => t.name === 'is') ? 1 : 0} />
-          <SortButton query={query} onQuery={onQuery} qualifiers={qualifiers} />
+          {display}
         </>
       }
-      end={switcher}
-      count={count}
     />
   )
 
@@ -355,6 +353,7 @@ export function Library({
     return (
       <div className="flex min-h-0 flex-1 flex-col">
         {bar(true)}
+        <div className="shrink-0 px-4 py-1">{count}</div>
         <div className="relative flex min-h-0 flex-1 flex-col">
           {rows.length === 0 && !titles.isPending ? nothing : items}
           {bulk}
@@ -389,7 +388,10 @@ export function Library({
                 {rows.length === 0 && !titles.isPending ? nothing : items}
                 {bulk}
               </div>
-              <PaneFooter>{hints}</PaneFooter>
+              <PaneFooter>
+                {hints}
+                <span className="ml-auto">{count}</span>
+              </PaneFooter>
             </div>
             {summary && current && (
               <TitleSummary
@@ -426,7 +428,10 @@ export function Library({
             {items}
             {bulk}
           </div>
-          <PaneFooter>{hints}</PaneFooter>
+          <PaneFooter>
+            {hints}
+            <span className="ml-auto">{count}</span>
+          </PaneFooter>
         </WideListPane>
         {titlePage(focusList)}
       </div>

@@ -2,17 +2,17 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { useState } from 'react'
-import { MenuItem } from '@hyprsh/design'
+import { Menu, MenuItem } from '@hyprsh/design'
 import { slotKeys } from '../library/bits'
 import type { Facet } from '../filter/qualifiers'
-import { FacetFilterButton, FilterButton, SortButton } from './FilterButton'
+import { FacetFilterButton, FilterButton, SortSection } from './FilterButton'
 import { FilterStrip } from './FilterStrip'
 import { PageSurface } from './PageSurface'
 import { PaneFooter, PaneHeader } from './Pane'
 import { PhoneBackHeader } from './PhoneBackHeader'
 import { Rail, RailSpacer } from './Rail'
 import { SectionBlock } from './SectionBlock'
-import { ScreenBar, ScreenCount, ViewSwitcher } from './ScreenBar'
+import { ScreenBar, ScreenBarPlacesContext, ViewSwitcher } from './ScreenBar'
 import { PhoneTopBar, TopBar } from './TopBar'
 import { WidePage } from './WidePage'
 
@@ -116,16 +116,44 @@ describe('ScreenBar', () => {
     expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Menu', 'Add'])
   })
 
-  it('puts the view, the filter, its controls, the end and the count in one row, in that order', () => {
-    render(<ScreenBar view={<button>Pages</button>} filter={<input aria-label="Field" />} controls={<button>Filter</button>} end={<button>View</button>} count={<ScreenCount>3 events</ScreenCount>} />)
+  it('puts the view, the filter, its controls and the aside in one row, in that order', () => {
+    render(<ScreenBar view={<button>Pages</button>} filter={<input aria-label="Field" />} controls={<button>Filter</button>} aside={<button>Today</button>} />)
     const order = [
       screen.getByRole('button', { name: 'Pages' }),
       screen.getByRole('textbox', { name: 'Field' }),
       screen.getByRole('button', { name: 'Filter' }),
-      screen.getByRole('button', { name: 'View' }),
-      screen.getByText('3 events'),
+      screen.getByRole('button', { name: 'Today' }),
     ]
     for (let i = 1; i < order.length; i++) expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('goes into the top bar places when it is given them: the bar in the middle, the menu and the action at the end', () => {
+    const middle = document.createElement('div')
+    const end = document.createElement('div')
+    document.body.append(middle, end)
+    render(
+      <ScreenBarPlacesContext.Provider value={{ middle, end }}>
+        <ScreenBar view={<button>Pages</button>} filter={<input aria-label="Field" />} menu={<button>Menu</button>} actions={<button>Add</button>} />
+      </ScreenBarPlacesContext.Provider>,
+    )
+    expect(within(middle).getByRole('button', { name: 'Pages' })).toBeInTheDocument()
+    expect(within(middle).getByRole('textbox', { name: 'Field' })).toBeInTheDocument()
+    expect(
+      within(end)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['Menu', 'Add'])
+    middle.remove()
+    end.remove()
+  })
+
+  it('waits while the top bar places are not mounted yet, and shows no row of its own', () => {
+    render(
+      <ScreenBarPlacesContext.Provider value={{ middle: null, end: null }}>
+        <ScreenBar view={<button>Pages</button>} />
+      </ScreenBarPlacesContext.Provider>,
+    )
+    expect(screen.queryByRole('button', { name: 'Pages' })).not.toBeInTheDocument()
   })
 })
 
@@ -159,7 +187,12 @@ function Harness({ start = '' }: { start?: string }) {
     <>
       <output>{query}</output>
       <FacetFilterButton query={query} onQuery={setQuery} qualifiers={facets} />
-      <SortButton query={query} onQuery={setQuery} qualifiers={facets} />
+      <Menu.Container>
+        <Menu.Button>Display</Menu.Button>
+        <Menu>
+          <SortSection query={query} onQuery={setQuery} qualifiers={facets} />
+        </Menu>
+      </Menu.Container>
     </>
   )
 }
@@ -185,13 +218,14 @@ describe('FacetFilterButton', () => {
   })
 })
 
-describe('SortButton', () => {
-  it('names the sort, replaces its term and takes it out for the default', async () => {
+describe('SortSection', () => {
+  it('marks the sort, replaces its term and takes it out for the default', async () => {
     render(<Harness start="heat" />)
-    await userEvent.click(screen.getByRole('button', { name: 'Sort: Newest added' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Display' }))
+    expect(screen.getByRole('menuitemradio', { name: 'Newest added' })).toHaveAttribute('aria-checked', 'true')
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Name A–Z' }))
     expect(screen.getByRole('status')).toHaveTextContent('heat sort:name-asc')
-    await userEvent.click(screen.getByRole('button', { name: 'Sort: Name A–Z' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Display' }))
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Newest added' }))
     expect(screen.getByRole('status')).toHaveTextContent(/^heat$/)
   })

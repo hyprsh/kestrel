@@ -5,7 +5,7 @@ import { Activity } from '../activity/Activity'
 import { useRunningNow, type Running } from '../activity/running'
 import { activityTabOf, activityTabSection, type ActivityTab } from '../activity/tabs'
 import { Button, CommandMenuTrigger, Separator, StatusDot, ThemeSwitcher, Tooltip, useToasts } from '@hyprsh/design'
-import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, Inbox, Info, LibraryBig, ListPlus, LogOut, Plus, ScrollText, Settings } from 'lucide-react'
+import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, Inbox, Info, LibraryBig, ListPlus, LogOut, Plus, ScrollText, Search, Settings } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAttention } from '../api/attention'
@@ -31,6 +31,7 @@ import { Settings as SettingsScreen } from '../screens/Settings'
 import { THEME_KEY, useTheme, type Theme } from '../theme'
 import { KestrelLogo } from '../ui'
 import { Rail as RailFrame, RailSpacer } from '../layout/Rail'
+import { ScreenBarPlacesContext } from '../layout/ScreenBar'
 import { PhoneTopBar, TopBar as TopBarFrame } from '../layout/TopBar'
 import { BlockingBanner } from './BlockingBanner'
 import { MoreSheet, PhoneTabBar, type Tab } from './PhoneNav'
@@ -56,6 +57,8 @@ const tabKeys = ['overview', 'library', 'upcoming', 'activity']
 const moreKeys = ['settings', 'log', 'requests', 'adoption', 'cleanup', 'about']
 // Short names for the More sheet; the top bar keeps the long ones.
 const moreLabels: Record<string, string> = { adoption: 'Adoption', cleanup: 'Clean up' }
+// The screens that put their own bar in the middle of a desktop's top bar, in place of the command box.
+const barScreens = ['library', 'upcoming', 'activity', 'log']
 const isTitleId = (section: string) => /^\d+$/.test(section)
 const isPlace = (key: string) => [...screens, about, requests].some((s) => s.key === key)
 
@@ -75,6 +78,10 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   // On a phone Settings' list and an opened section are two screens; "/settings/indexers" is the second.
   const [settingsSection, setSettingsSection] = useState(start.screen === 'settings' ? start.section : '')
   const [more, setMore] = useState(false)
+  // Where a screen's bar goes in a desktop's top bar (see ScreenBar); a phone has none.
+  const [barMiddle, setBarMiddle] = useState<HTMLElement | null>(null)
+  const [barEnd, setBarEnd] = useState<HTMLElement | null>(null)
+  const barPlaces = useMemo(() => (phone ? undefined : { middle: barMiddle, end: barEnd }), [phone, barMiddle, barEnd])
   const [cleanupTitles, setCleanupTitles] = useState<number[] | undefined>(undefined)
   const [menu, setMenu] = useState<{ mode: MenuMode } | null>(null)
   // The text of a screen's filter field (the Library's or the Log's); another screen starts unfiltered.
@@ -242,77 +249,82 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     <CleanupLauncher.Provider value={openCleanup}>
       <PlaceOpener.Provider value={goPath}>
         <EpisodeViewContext.Provider value={{ view: episodeView, setView: setEpisodeView }}>
-          <div className="flex h-full">
-            {!phone && <Rail screen={screen} onSelect={setScreen} theme={theme} onTheme={setTheme} onAdd={() => setMenu({ mode: 'add' })} />}
-            <div className="flex min-w-0 flex-1 flex-col">
-              <TopBar
-                title={current.label}
-                phone={phone}
-                onOpenMenu={() => setMenu({ mode: 'root' })}
-                onAdd={() => setMenu({ mode: 'add' })}
-                running={running}
-                onOpenRunning={() => goPath('/activity/running')}
-              />
-              {/* The floating tab bar is out of layout; --tab-bar-height keeps every screen's last row clear of it (0 on a tablet or desktop). */}
-              <BlockingBanner onOpen={goPath} />
-              <main className="flex min-h-0 flex-1 flex-col pb-[var(--tab-bar-height)]">
-                {screen === 'settings' ? (
-                  <SettingsScreen onRunSetup={onRunSetup} onAdopt={() => setScreen('adoption')} section={settingsSection} onOpenSection={openSettingsSection} onCloseSection={closeSettingsSection} />
-                ) : screen === 'adoption' ? (
-                  <Adoption />
-                ) : screen === 'cleanup' ? (
-                  <Cleanup key={cleanupTitles?.join(',') ?? 'all'} titleIds={cleanupTitles} />
-                ) : screen === 'library' ? (
-                  <Library
-                    query={query}
-                    onQuery={(q) => setFilter({ screen: 'library', q })}
-                    selectedId={libraryId}
-                    onSelect={setLibraryId}
-                    titleOpen={titleOpen}
-                    onOpenTitle={openLibraryTitle}
-                    onCloseTitle={closeLibraryTitle}
-                    onAdd={() => setMenu({ mode: 'add' })}
-                    onAdopt={() => setScreen('adoption')}
-                  />
-                ) : screen === 'about' ? (
-                  <About />
-                ) : screen === 'log' ? (
-                  <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} />
-                ) : screen === 'activity' ? (
-                  <Activity
-                    tab={activityTab}
-                    onTab={openActivityTab}
-                    query={query}
-                    onQuery={(q) => setFilter({ screen: 'activity', q })}
-                    onOpenTitle={openTitle}
-                    running={running}
-                    onOpenAdoption={() => setScreen('adoption')}
-                  />
-                ) : screen === 'requests' ? (
-                  <Requests query={query} onQuery={(q) => setFilter({ screen: 'requests', q })} onOpenTitle={openTitle} />
-                ) : screen === 'upcoming' ? (
-                  <Upcoming onOpenTitle={openTitle} />
-                ) : (
-                  <Overview onOpen={goPath} onOpenTitle={openTitle} onOpenAdoption={() => setScreen('adoption')} />
+          <ScreenBarPlacesContext.Provider value={barPlaces}>
+            <div className="flex h-full">
+              {!phone && <Rail screen={screen} onSelect={setScreen} theme={theme} onTheme={setTheme} onAdd={() => setMenu({ mode: 'add' })} onSearch={() => setMenu({ mode: 'root' })} />}
+              <div className="flex min-w-0 flex-1 flex-col">
+                <TopBar
+                  title={current.label}
+                  phone={phone}
+                  bar={barScreens.includes(screen)}
+                  onBarMiddle={setBarMiddle}
+                  onBarEnd={setBarEnd}
+                  onOpenMenu={() => setMenu({ mode: 'root' })}
+                  onAdd={() => setMenu({ mode: 'add' })}
+                  running={running}
+                  onOpenRunning={() => goPath('/activity/running')}
+                />
+                {/* The floating tab bar is out of layout; --tab-bar-height keeps every screen's last row clear of it (0 on a tablet or desktop). */}
+                <BlockingBanner onOpen={goPath} />
+                <main className="flex min-h-0 flex-1 flex-col pb-[var(--tab-bar-height)]">
+                  {screen === 'settings' ? (
+                    <SettingsScreen onRunSetup={onRunSetup} onAdopt={() => setScreen('adoption')} section={settingsSection} onOpenSection={openSettingsSection} onCloseSection={closeSettingsSection} />
+                  ) : screen === 'adoption' ? (
+                    <Adoption />
+                  ) : screen === 'cleanup' ? (
+                    <Cleanup key={cleanupTitles?.join(',') ?? 'all'} titleIds={cleanupTitles} />
+                  ) : screen === 'library' ? (
+                    <Library
+                      query={query}
+                      onQuery={(q) => setFilter({ screen: 'library', q })}
+                      selectedId={libraryId}
+                      onSelect={setLibraryId}
+                      titleOpen={titleOpen}
+                      onOpenTitle={openLibraryTitle}
+                      onCloseTitle={closeLibraryTitle}
+                      onAdd={() => setMenu({ mode: 'add' })}
+                      onAdopt={() => setScreen('adoption')}
+                    />
+                  ) : screen === 'about' ? (
+                    <About />
+                  ) : screen === 'log' ? (
+                    <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} />
+                  ) : screen === 'activity' ? (
+                    <Activity
+                      tab={activityTab}
+                      onTab={openActivityTab}
+                      query={query}
+                      onQuery={(q) => setFilter({ screen: 'activity', q })}
+                      onOpenTitle={openTitle}
+                      running={running}
+                      onOpenAdoption={() => setScreen('adoption')}
+                    />
+                  ) : screen === 'requests' ? (
+                    <Requests query={query} onQuery={(q) => setFilter({ screen: 'requests', q })} onOpenTitle={openTitle} />
+                  ) : screen === 'upcoming' ? (
+                    <Upcoming onOpenTitle={openTitle} />
+                  ) : (
+                    <Overview onOpen={goPath} onOpenTitle={openTitle} onOpenAdoption={() => setScreen('adoption')} />
+                  )}
+                </main>
+                {phone && (
+                  <PhoneTabBar tabs={tabs} screen={screen} moreActive={more || !tabKeys.includes(screen)} onSelect={select} onMore={() => setMore(true)} onSearch={() => setMenu({ mode: 'root' })} />
                 )}
-              </main>
-              {phone && (
-                <PhoneTabBar tabs={tabs} screen={screen} moreActive={more || !tabKeys.includes(screen)} onSelect={select} onMore={() => setMore(true)} onSearch={() => setMenu({ mode: 'root' })} />
+              </div>
+              {phone && more && (
+                <MoreSheet
+                  items={moreItems}
+                  screen={screen}
+                  onSelect={select}
+                  onClose={() => setMore(false)}
+                  theme={theme}
+                  onTheme={setTheme}
+                  onLogout={canLogout ? () => logout.mutate(undefined) : undefined}
+                />
               )}
+              {menu && <CommandMenu initialMode={menu.mode} actions={actions} places={places} onClose={closeMenu} onGo={setScreen} onOpenTitle={openTitle} />}
             </div>
-            {phone && more && (
-              <MoreSheet
-                items={moreItems}
-                screen={screen}
-                onSelect={select}
-                onClose={() => setMore(false)}
-                theme={theme}
-                onTheme={setTheme}
-                onLogout={canLogout ? () => logout.mutate(undefined) : undefined}
-              />
-            )}
-            {menu && <CommandMenu initialMode={menu.mode} actions={actions} places={places} onClose={closeMenu} onGo={setScreen} onOpenTitle={openTitle} />}
-          </div>
+          </ScreenBarPlacesContext.Provider>
         </EpisodeViewContext.Provider>
       </PlaceOpener.Provider>
     </CleanupLauncher.Provider>
@@ -356,7 +368,21 @@ function RailButton({
   )
 }
 
-function Rail({ screen, onSelect, theme, onTheme, onAdd }: { screen: string; onSelect: (key: string) => void; theme: Theme; onTheme: (theme: Theme) => void; onAdd: () => void }) {
+function Rail({
+  screen,
+  onSelect,
+  theme,
+  onTheme,
+  onAdd,
+  onSearch,
+}: {
+  screen: string
+  onSelect: (key: string) => void
+  theme: Theme
+  onTheme: (theme: Theme) => void
+  onAdd: () => void
+  onSearch: () => void
+}) {
   const logout = useLogout()
   const auth = useAuth()
   const attention = useAttention().data
@@ -370,6 +396,9 @@ function Rail({ screen, onSelect, theme, onTheme, onAdd }: { screen: string; onS
       </span>
       <RailButton label={`Add Title (${MOD} K)`} onClick={onAdd}>
         <Plus />
+      </RailButton>
+      <RailButton label={`Search or run a command (${MOD} K)`} onClick={onSearch}>
+        <Search />
       </RailButton>
       <Separator className="my-1 w-6" />
       {screens.map((s) => (
@@ -399,10 +428,13 @@ function Rail({ screen, onSelect, theme, onTheme, onAdd }: { screen: string; onS
   )
 }
 
-/** Three columns with equal side tracks, so the command box stays centred whatever the right side holds. */
+/** The desktop header: the title, then the command box or the screen's own bar, then what runs, Health and the screen's menu and action. */
 function TopBar({
   title,
   phone,
+  bar,
+  onBarMiddle,
+  onBarEnd,
   onOpenMenu,
   onAdd,
   running,
@@ -410,6 +442,10 @@ function TopBar({
 }: {
   title: string
   phone: boolean
+  /** Whether the screen puts its own bar in the middle, in place of the command box. */
+  bar: boolean
+  onBarMiddle: (el: HTMLElement | null) => void
+  onBarEnd: (el: HTMLElement | null) => void
   onOpenMenu: () => void
   onAdd: () => void
   running: Running[]
@@ -428,17 +464,24 @@ function TopBar({
   return (
     <TopBarFrame
       title={title}
+      bar={bar}
       end={
         <>
           <RunningIndicator running={running} onOpen={onOpenRunning} />
           <HealthPill />
+          {/* The screen's "…" menu and primary action, after Health. */}
+          {bar && <div ref={onBarEnd} className="flex items-center gap-2 empty:hidden" />}
         </>
       }
     >
-      {/* A button that opens the menu, styled as the search box it stands for. */}
-      <CommandMenuTrigger size="small" aria-label="Search or run a command" onClick={onOpenMenu} className="w-full">
-        Search or run a command…
-      </CommandMenuTrigger>
+      {bar ? (
+        <div ref={onBarMiddle} className="flex min-w-0 items-center gap-2" />
+      ) : (
+        /* A button that opens the menu, styled as the search box it stands for. */
+        <CommandMenuTrigger size="small" aria-label="Search or run a command" onClick={onOpenMenu} className="w-full">
+          Search or run a command…
+        </CommandMenuTrigger>
+      )}
     </TopBarFrame>
   )
 }

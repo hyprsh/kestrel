@@ -61,7 +61,7 @@ try {
       if (s.phoneOnly && w > 390) continue
       await h.page.setViewportSize({ width: w, height: ht })
       await h.page.goto(h.base + (typeof s.path === 'function' ? s.path(ids) : s.path), { waitUntil: 'domcontentloaded' })
-      await h.page.locator('[aria-label="Search or run a command"]').first().waitFor()
+      await h.page.locator('[aria-label^="Search or run a command"]').first().waitFor()
       await wait(800)
       if (s.prepare) {
         await s.prepare(h)
