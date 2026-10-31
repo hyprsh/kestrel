@@ -150,6 +150,17 @@ describe('Activity', () => {
     await screen.findByRole('combobox', { name: 'Filter Activity' })
     await waitFor(() => expect(screen.queryByText('Other.Downloading-GRP')).not.toBeInTheDocument())
     expect(screen.queryByRole('region', { name: /^Downloading/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Nothing in Activity matches.')).toBeInTheDocument()
+  })
+
+  it('lists grab: in the filter help', async () => {
+    fakeQueue([])
+    fakeGrabs([])
+    await openActivity()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Query Help' }))
+    const help = screen.getByRole('dialog', { name: 'Query Help' })
+    expect(within(help).getByText('grab:')).toBeInTheDocument()
   })
 
   it('opens on a stage from its address, as the Overview links to it', async () => {
