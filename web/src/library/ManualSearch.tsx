@@ -1,10 +1,11 @@
-import { Badge, Button, Checkbox, EmptyState, Entity, Error as ErrorMessage, KeyboardInput, Note, Pill, Select, Table } from '@hyprsh/design'
+import { Badge, Button, Checkbox, EmptyState, Entity, Error as ErrorMessage, KeyboardInput, Link, Note, Pill, Select, Table } from '@hyprsh/design'
 import { ArrowLeft, Download } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ApiError } from '../api/queries'
 import { useGrab, useReleases, type Release } from '../api/grabs'
 import type { EpisodeScope } from '../api/queries'
 import { useKey, useListNav } from '../keys'
+import { placePath, useOpenPlace } from '../place'
 import { FilterStrip } from '../layout/FilterStrip'
 import { PaneFooter, PaneHeader } from '../layout/Pane'
 import { usePhone } from '../responsive'
@@ -148,10 +149,13 @@ export function ManualSearch({
   const phone = usePhone()
   const search = useReleases(versionId, scope?.body)
   const grabbing = useGrab()
+  const openPlace = useOpenPlace()
   const [hideRejected, setHideRejected] = useState(false)
   const [view, setView] = useState(loadView)
   const [sel, setSel] = useState(0)
   const [sent, setSent] = useState<string | null>(null)
+  // The Releases grabbed in this search, by their id in the result list; they stay marked while the selection or sort moves.
+  const [grabbed, setGrabbed] = useState<ReadonlySet<string>>(new Set())
   const [problem, setProblem] = useState<string | null>(null)
   const ref = useRef<HTMLElement>(null)
   useEffect(() => ref.current?.focus(), [])
@@ -187,7 +191,10 @@ export function ManualSearch({
     grabbing.mutate(
       { version_id: versionId, release_id: current.release_id, override: g.override },
       {
-        onSuccess: () => setSent(current.name),
+        onSuccess: () => {
+          setSent(current.name)
+          setGrabbed((was) => new Set(was).add(current.release_id))
+        },
         onError: (e) => {
           setProblem(e.message)
           // The cache forgot the Release (6 h) or the indexer lost it: the list is stale, so search again.
@@ -293,7 +300,16 @@ export function ManualSearch({
           // A phone has no room for eight columns: each Release is a stacked row, and the sort is a Select in the header.
           <Entity.List aria-label="Releases" aria-busy={search.isPending || undefined} className="p-4">
             {rows.map((x, i) => (
-              <ReleaseRow key={x.release_id} x={x} index={i} current={i === index} pinned={view.pinned} onSelect={() => setSel(i)} onPin={pin} />
+              <ReleaseRow
+                key={x.release_id}
+                x={x}
+                index={i}
+                current={i === index}
+                pinned={view.pinned}
+                onSelect={() => setSel(i)}
+                onPin={pin}
+                marks={grabbed.has(x.release_id) ? <GrabbedBadge /> : undefined}
+              />
             ))}
           </Entity.List>
         ) : (
@@ -343,6 +359,7 @@ export function ManualSearch({
                               Other Slot
                             </Badge>
                           )}
+                          {grabbed.has(x.release_id) && <GrabbedBadge />}
                         </div>
                         {scopeLabel(x) && (
                           <div className={cx('mt-1 flex items-center gap-1.5', dim)}>
@@ -398,9 +415,15 @@ export function ManualSearch({
 
       <PaneFooter>
         <div className="min-w-0 flex-1" aria-live="polite">
-          {sent ? (
-            <div className="label-12 truncate text-green-900">Sent to the download client: {sent}</div>
-          ) : problem ? (
+          {sent && (
+            <div className="label-12 flex min-w-0 items-center gap-2 text-green-900">
+              <span className="truncate">Sent to the download client: {sent}</span>
+              <Link as="button" className="shrink-0" onClick={() => openPlace(placePath('activity'))}>
+                View in Activity
+              </Link>
+            </div>
+          )}
+          {problem ? (
             <ErrorMessage size="small" label={false} role="alert">
               {problem}
             </ErrorMessage>
@@ -425,12 +448,29 @@ export function ManualSearch({
           </span>
         )}
         {g && (
-          <Button variant={g.override ? 'secondary' : 'primary'} size="small" prefix={<Download />} disabled={g.disabled || grabbing.isPending} onClick={grab} title={g.reason}>
-            {g.label}
+          <Button
+            variant={g.override ? 'secondary' : 'primary'}
+            size="small"
+            prefix={<Download />}
+            loading={grabbing.isPending}
+            disabled={g.disabled || grabbing.isPending}
+            onClick={grab}
+            title={g.reason}
+          >
+            {grabbing.isPending ? 'Grabbing…' : g.label}
           </Button>
         )}
       </PaneFooter>
     </section>
+  )
+}
+
+/** The mark on a Release grabbed in this search. */
+function GrabbedBadge() {
+  return (
+    <Badge variant="green" contrast="low" size="sm">
+      Grabbed
+    </Badge>
   )
 }
 

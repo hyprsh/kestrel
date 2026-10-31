@@ -14,6 +14,7 @@ export const requestSlot = (over: Partial<RequestSlot> = {}): RequestSlot => ({
   version_id: 11,
   status: 'queued',
   status_label: 'Searching',
+  stalled: false,
   download: null,
   ...over,
 })

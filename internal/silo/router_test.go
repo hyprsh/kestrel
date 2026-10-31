@@ -11,8 +11,10 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	pluginv1 "github.com/Silo-Server/silo-plugin-sdk/pkg/pluginproto/silo/plugin/v1"
+	"github.com/Silo-Server/silo-plugin-sdk/pkg/pluginsdk/manifest"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/hyprsh/kestrel/internal/api"
@@ -553,5 +555,49 @@ func TestTheManifestOffersWatchAheadAsASelect(t *testing.T) {
 	}
 	if fmt.Sprint(values) != "[default on off]" {
 		t.Errorf("watch_ahead options = %v", values)
+	}
+}
+
+func TestTheManifestNamesKestrelsStepAndStatusesWithinSilosLimits(t *testing.T) {
+	m, err := silo.Manifest("1.2.3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := m.GetCapabilities()[0].GetRequestRouter().GetWording()
+	if err := manifest.ValidateRequestRouterWording(w); err != nil {
+		t.Errorf("Silo would drop the wording: %v", err)
+	}
+	if w.GetStep() != "Finding it" {
+		t.Errorf("step = %q", w.GetStep())
+	}
+	for name, got := range map[string]*pluginv1.RequestStatusWording{"queued": w.GetQueued(), "downloading": w.GetDownloading()} {
+		if utf8.RuneCountInString(got.GetLabel()) > 24 || utf8.RuneCountInString(got.GetDetail()) > 140 {
+			t.Errorf("%s wording breaks Silo's limits and would be dropped: %+v", name, got)
+		}
+	}
+	if q := w.GetQueued(); q.GetLabel() != "Searching" || q.GetDetail() != "Looking for a copy." {
+		t.Errorf("queued = %+v", q)
+	}
+	if d := w.GetDownloading(); d.GetLabel() != "Downloading" || d.GetDetail() != "On its way to your library." {
+		t.Errorf("downloading = %+v", d)
+	}
+	if utf8.RuneCountInString(w.GetStep()) > 24 {
+		t.Errorf("step is over 24 characters")
+	}
+}
+
+func TestAStalledImportShowsAsTakingLongerThanUsualWithNoDetail(t *testing.T) {
+	stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(201)
+		fmt.Fprint(w, `{"id":5,"outcome":"accepted","reject_reason":null,"slots":[{"slot":"standard","profile":"hd-primary","status":"queued","status_label":"Searching","stalled":true,"download":null}]}`)
+	}))
+	defer stub.Close()
+	r := silo.NewRouter(silo.Options{})
+
+	res := fulfil(t, r, conn(t, stub.URL, "kst_x", nil), movie(3), "1080p")
+
+	w := target(t, res, "1080p").GetWording()
+	if w.GetLabel() != "Taking longer than usual" || w.GetDetail() != "" {
+		t.Errorf("wording = %+v, want Taking longer than usual with no detail", w)
 	}
 }
