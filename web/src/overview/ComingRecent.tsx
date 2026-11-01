@@ -9,14 +9,15 @@ import { localDay, useRecent, useUpcoming } from '../api/upcoming'
 import { slotLabel, type SlotKey } from '../library/bits'
 import { TitlePoster } from '../poster'
 import { ago, useNow } from '../time'
-import { airTime, dayLabel, episodeCode, upcomingKey } from '../upcoming/state'
+import { dayLabel, episodeCode, releaseName, upcomingKey } from '../upcoming/state'
 import type { OverviewNav } from './nav'
-import { EmptyLine, firstThree, Section, ViewAll } from './Section'
+import { EmptyLine, firstThree, HeadingLink, Section } from './Section'
 
+/** "S05E11 · Mon, Nov 2", or "Digital · Thu, Nov 5" for a Movie: the episode or the release, then the day. */
 const comingLine = (item: UpcomingItem) => {
-  const at = airTime(item)
-  const day = at ? `${dayLabel(localDay(item))} ${at}` : dayLabel(localDay(item))
-  return item.kind === 'series' && item.season != null && item.episode != null ? `${episodeCode(item.season, item.episode)} · ${day}` : day
+  const day = dayLabel(localDay(item))
+  if (item.kind === 'series' && item.season != null && item.episode != null) return `${episodeCode(item.season, item.episode)} · ${day}`
+  return item.release_type ? `${releaseName[item.release_type].split(' ')[0]} · ${day}` : day
 }
 
 type TitleRowItem = { key: string; titleId: number; hasPoster: boolean; name: string; line: string }
@@ -53,7 +54,7 @@ export function Coming({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void
   const all = coming.data ?? []
   const items = firstThree(all).map((item) => ({ key: upcomingKey(item), titleId: item.title_id, hasPoster: item.has_poster, name: item.title, line: comingLine(item) }))
   return (
-    <Section id="coming-this-week" title="Coming this week" count={coming.data ? all.length : undefined}>
+    <Section id="coming-this-week" title="Coming this week" count={coming.data ? all.length : undefined} action={all.length > 0 ? <HeadingLink path="/upcoming" label="Upcoming" /> : undefined}>
       {coming.isPending ? (
         <SkeletonRows poster="sm" />
       ) : coming.data && all.length === 0 ? (
@@ -61,7 +62,6 @@ export function Coming({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void
       ) : (
         <TitleRows items={items} nav={nav} onOpenTitle={onOpenTitle} />
       )}
-      {all.length > 0 && <ViewAll path="/upcoming" label="Upcoming →" />}
     </Section>
   )
 }
@@ -79,7 +79,7 @@ export function RecentlyAdded({ onOpenTitle, nav }: { onOpenTitle: (id: number) 
     line: `${slotLabel[item.slot as SlotKey]} · ${ago(item.imported_at, now)}`,
   }))
   return (
-    <Section id="recently-added" title="Recently added" count={recent.data?.total}>
+    <Section id="recently-added" title="Recently added" count={recent.data?.total} action={all.length > 0 ? <HeadingLink path="/library" label="Library" /> : undefined}>
       {recent.isPending ? (
         <SkeletonRows poster="sm" />
       ) : recent.data && all.length === 0 ? (
@@ -87,7 +87,6 @@ export function RecentlyAdded({ onOpenTitle, nav }: { onOpenTitle: (id: number) 
       ) : (
         <TitleRows items={items} nav={nav} onOpenTitle={onOpenTitle} />
       )}
-      {all.length > 0 && <ViewAll path="/library" label="Library →" />}
     </Section>
   )
 }

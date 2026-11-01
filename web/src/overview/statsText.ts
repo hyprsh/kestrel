@@ -90,8 +90,8 @@ export function grabsAlternative(s: Stats): string {
 /** "Hit" as a percentage, "—" when no search was answered. */
 export const hitText = (rate: number | null) => (rate === null ? '—' : `${Math.round(rate * 100)}%`)
 
-/** "0.6 s", "2.4 s", "120 ms"; "—" without an answer. */
+/** "0.6 s", "2.4 s", "<0.1 s" for an answer in under a tenth of a second; "—" without an answer. */
 export function answerText(ms: number | null): string {
   if (ms === null) return '—'
-  return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`
+  return ms < 100 ? '<0.1 s' : `${(ms / 1000).toFixed(1)} s`
 }

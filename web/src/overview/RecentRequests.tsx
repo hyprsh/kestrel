@@ -10,7 +10,7 @@ import { Loaded, SkeletonRows } from '../loading'
 import { Poster, TitlePoster } from '../poster'
 import { reasons, slotState } from '../requests/status'
 import type { OverviewNav } from './nav'
-import { EmptyLine, firstThree, Section, ViewAll } from './Section'
+import { EmptyLine, firstThree, HeadingLink, Section } from './Section'
 
 function StateBadges({ request: r }: { request: Request }) {
   const queue = useQueue().data ?? []
@@ -36,7 +36,7 @@ export function RecentRequests({ onOpenTitle, nav }: { onOpenTitle: (id: number)
   const shown = firstThree(recent.data?.items ?? [])
   const total = recent.data?.total ?? 0
   return (
-    <Section id="recent-requests" title="Recent requests" count={recent.data ? total : undefined}>
+    <Section id="recent-requests" title="Recent requests" count={recent.data ? total : undefined} action={total > 0 ? <HeadingLink path="/requests" label="Requests" /> : undefined}>
       <Loaded query={recent} skeleton={<SkeletonRows poster="sm" />} empty={<EmptyLine title="Nobody has asked for anything yet." />} isEmpty={() => shown.length === 0}>
         {() => (
           <RowList>
@@ -70,7 +70,6 @@ export function RecentRequests({ onOpenTitle, nav }: { onOpenTitle: (id: number)
           </RowList>
         )}
       </Loaded>
-      {total > 0 && <ViewAll path="/requests" label="All requests →" />}
     </Section>
   )
 }

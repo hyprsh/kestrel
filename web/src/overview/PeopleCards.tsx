@@ -13,7 +13,7 @@ export function GroupsCard({ stats }: { stats: Stats }) {
   const groups = stats.release_groups
   const most = Math.max(1, ...groups.map((g) => g.files))
   return (
-    <StatCard title="Top release groups" aside={<span className="label-13 text-gray-900">files imported</span>}>
+    <StatCard title="Top release groups" aside={<span className="label-13 text-gray-900">imported</span>}>
       {groups.length === 0 ? (
         <p className="label-13 m-0 text-gray-900">No files were imported in this range.</p>
       ) : (

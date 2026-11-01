@@ -43,7 +43,7 @@ describe('figures', () => {
     expect(hitText(null)).toBe('—')
     expect(hitText(0.814)).toBe('81%')
     expect(answerText(null)).toBe('—')
-    expect(answerText(600)).toBe('600 ms')
+    expect(answerText(600)).toBe('0.6 s')
     expect(answerText(2400)).toBe('2.4 s')
   })
 

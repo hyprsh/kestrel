@@ -88,7 +88,7 @@ describe('Recently added', () => {
     renderApp()
 
     const section = await screen.findByRole('region', { name: /^Recently added/ })
-    await userEvent.click(await within(section).findByRole('button', { name: 'Library →' }))
+    await userEvent.click(await within(section).findByRole('button', { name: 'Library' }))
 
     expect(url()).toBe('/library')
   })
@@ -128,7 +128,7 @@ describe('Coming this week', () => {
     renderApp()
 
     const section = await screen.findByRole('region', { name: /^Coming this week/ })
-    await userEvent.click(await within(section).findByRole('button', { name: 'Upcoming →' }))
+    await userEvent.click(await within(section).findByRole('button', { name: 'Upcoming' }))
 
     expect(await screen.findByRole('list', { name: 'Agenda' })).toBeInTheDocument()
     expect(location.pathname).toBe('/upcoming')

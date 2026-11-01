@@ -12,7 +12,7 @@ export const mark = {
   imported: 'bg-green-700',
   failed: 'bg-red-700',
   blue: 'bg-blue-700',
-  quality: ['bg-blue-900', 'bg-blue-600', 'bg-blue-300'],
+  quality: ['bg-blue-900', 'bg-blue-700', 'bg-blue-400'],
 } as const
 
 /** A legend swatch: the mark's colour beside text in the text token. */

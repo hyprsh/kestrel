@@ -28,7 +28,7 @@ describe('Recent requests on the Overview', () => {
     ).toEqual([1, 2, 3].map((n) => expect.stringContaining(`Movie ${n}`)))
     expect(queries[0].get('limit')).toBe('5')
 
-    await userEvent.click(within(s).getByRole('button', { name: 'All requests →' }))
+    await userEvent.click(within(s).getByRole('button', { name: 'Requests' }))
     expect(await screen.findByRole('combobox', { name: 'Filter Requests' })).toHaveValue('')
   })
 

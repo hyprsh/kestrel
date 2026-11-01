@@ -56,7 +56,16 @@ export function IndexersCard({ stats, phone }: { stats: Stats; phone: boolean })
   const columns = phone ? NARROW : WIDE
   const noRates = ixs.length > 0 && ixs.every((i) => i.hit_rate === null)
   return (
-    <StatCard title="Indexers" aside={best && <Badge variant="green" contrast="low" size="sm">{`Best: ${best.name}`}</Badge>}>
+    <StatCard
+      title="Indexers"
+      aside={
+        best && (
+          <span title="The most imported Grabs among indexers with a Hit of at least 50%">
+            <Badge variant="green" contrast="low" size="sm">{`Best: ${best.name}`}</Badge>
+          </span>
+        )
+      }
+    >
       {ixs.length === 0 ? (
         <p className="label-13 m-0 text-gray-900">No indexer was asked or grabbed from in this range.</p>
       ) : (
@@ -99,7 +108,6 @@ export function IndexersCard({ stats, phone }: { stats: Stats; phone: boolean })
           <p className="label-12 m-0 text-gray-900">
             {noRates ? 'Hit and Answer fill in as searches run. ' : ''}
             Hit: searches that returned a release that fit. Answer: median response time.
-            {best ? ' Best: the most imported Grabs among indexers with a Hit of at least 50%.' : ''}
           </p>
         </>
       )}

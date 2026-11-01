@@ -1,6 +1,6 @@
 // An Overview section: a heading with its count, a few rows (five, or three in the compact lists) and a way to the rest.
 // The cap is fixed (not fitted to the window), so the sections further down stay in view.
-import { EmptyState, Pill, ShowMore } from '@hyprsh/design'
+import { EmptyState, Link, ShowMore } from '@hyprsh/design'
 import type { ReactNode } from 'react'
 import { useOpenPlace } from '../place'
 
@@ -45,13 +45,13 @@ export function Section({ id, title, count, action, className, children }: { id:
   )
 }
 
-/** "View all 23 →", or `label` ("All activity →"): opens the screen with the full list (a place path, such as "/activity"). */
-export function ViewAll({ path, count, label }: { path: string; count?: number; label?: string }) {
+/** The link on a heading's far end that opens the screen with the full list (a place path, such as "/upcoming"): "Library", "Requests". */
+export function HeadingLink({ path, label }: { path: string; label: string }) {
   const openPlace = useOpenPlace()
   return (
-    <div className="mt-2">
-      <Pill onClick={() => openPlace(path)}>{label ?? (count != null ? `View all ${count} →` : 'View all →')}</Pill>
-    </div>
+    <Link as="button" type="button" className="label-13" onClick={() => openPlace(path)}>
+      {label}
+    </Link>
   )
 }
 
