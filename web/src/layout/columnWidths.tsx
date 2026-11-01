@@ -20,7 +20,7 @@
 //   row `selected`.
 // - Fill the card: a table in a page fills the width of the blocks around it. With no `truncate` column it is only as wide
 //   as its columns, so end the row with an empty `truncate` column (the episode table does) or make the Name one.
-// - Movable columns: see columnOrder.tsx (`useColumnOrder`, drag a head or "Move … left/right" in a menu, one "Reset columns"
+// - Movable columns: see columnOrder.tsx (`useColumnOrder`, drag a head, one "Reset columns"
 //   for order and widths). The tick box and the column that names the row stay pinned.
 import { Button, type TableColumnWidths } from '@hyprsh/design'
 import { useCallback, useState } from 'react'

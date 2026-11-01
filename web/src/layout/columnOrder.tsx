@@ -8,11 +8,9 @@
 //   `kestrel.columns.<key>.order`, saved when a move is done. A missing, unreadable or corrupt value means the
 //   default; keys that no longer exist are dropped and columns that are new are appended in their default place.
 // - Moving: drag a head onto another one with a mouse or pen (`head(key)` gives the props and class of a movable
-//   head: `data-column` names it), and for the keyboard and screen readers put `<ColumnMoveItems>` in a menu
-//   of the screen ("Move Aired left" / "Move Aired right"). A touch screen keeps the default order and uses the menu.
+//   head: `data-column` names it). A touch screen keeps the default order.
 // - Reset: `isDefault` is false while the order differs; the screen's reset does `order.reset()` beside the
 //   widths' `reset()` (one "Reset columns" action, offered while either differs).
-import { MenuItem, MenuSection } from '@hyprsh/design'
 import { useCallback, useRef, useState, type PointerEvent } from 'react'
 
 const prefix = 'kestrel.columns.'
@@ -136,29 +134,4 @@ export function useColumnOrder(tableKey: string, defaults: readonly string[]) {
   }
 
   return { order, isDefault, moveBy, reset, head }
-}
-
-/** "Move <column> left" and "Move <column> right" for each movable column, as menu items: the keyboard's way to move them. */
-export function ColumnMoveItems({ columns, labels }: { columns: Pick<ReturnType<typeof useColumnOrder>, 'order' | 'moveBy'>; labels: Record<string, string> }) {
-  const { order, moveBy } = columns
-  if (order.length < 2) return null
-  return (
-    <MenuSection title="Columns">
-      {order.flatMap((key, i) => {
-        const label = labels[key] ?? key
-        return [
-          i > 0 && (
-            <MenuItem key={`${key}-left`} onSelect={() => moveBy(key, -1)}>
-              {`Move ${label} left`}
-            </MenuItem>
-          ),
-          i < order.length - 1 && (
-            <MenuItem key={`${key}-right`} onSelect={() => moveBy(key, 1)}>
-              {`Move ${label} right`}
-            </MenuItem>
-          ),
-        ].filter(Boolean)
-      })}
-    </MenuSection>
-  )
 }

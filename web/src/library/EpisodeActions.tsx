@@ -1,12 +1,12 @@
 // What the episode table can do beyond showing states: Search now and Manual search for an episode, a season or
 // the ticked episodes, from visible buttons on each row, above the table and in the bar for ticked episodes;
 // monitoring; and Delete files (DeleteFiles.tsx) in the ⋯ menus and the bar.
-import { Button, DotsMenu, Menu, MenuButton, MenuContainer, MenuDivider, MenuItem } from '@hyprsh/design'
+import { Button, DotsMenu, Menu, MenuButton, MenuContainer, MenuItem } from '@hyprsh/design'
 import { ArrowUpCircle, ListFilter, Search, X, type LucideIcon } from 'lucide-react'
 import { useMemo, type FocusEvent, type KeyboardEvent } from 'react'
 import { useSearchNow } from '../api/grabs'
 import { useMonitorEpisodes, usePatchSeason, useProfiles, type Episode, type EpisodeScope, type TitleDetail } from '../api/queries'
-import { ColumnMoveItems, useColumnOrder } from '../layout/columnOrder'
+import { useColumnOrder } from '../layout/columnOrder'
 import { useColumnWidths } from '../layout/columnWidths'
 import { FloatingBar } from '../layout/FloatingBar'
 import { useSelection, type Selection } from '../selection'
@@ -19,7 +19,7 @@ import { TickBox } from './TickBox'
 import type { ManualSearchTarget } from './TitleDetail'
 
 type ColumnWidths = ReturnType<typeof useColumnWidths>
-type ColumnOrder = Pick<ReturnType<typeof useColumnOrder>, 'order' | 'moveBy' | 'reset' | 'isDefault'>
+type ColumnOrder = Pick<ReturnType<typeof useColumnOrder>, 'reset' | 'isDefault'>
 
 const episodeName = (e: Episode) => `Season ${e.season} episode ${e.number}`
 
@@ -262,15 +262,10 @@ export function EpisodeMenu({ actions, episode, onOpenChange }: { actions: Episo
   )
 }
 
-/** The names of the movable columns in the Move menu items: Aired and the Slots. */
-function columnLabels(slots: SlotKey[]): Record<string, string> {
-  return { aired: 'Aired', ...Object.fromEntries(slots.map((s) => [s, slotLabel[s]])) }
-}
-
 /**
  * The actions of the open season, in the toolbar above the table: Search season (its Wanted episodes) and the season's ⋯ menu, which
- * holds Manual search season…, Monitor season, Delete season's files, Move … left/right for the table's movable columns (the keyboard's way
- * to reorder them) and, while the column widths or order differ from the default, Reset columns.
+ * holds Manual search season…, Monitor season, Delete season's files and, while the column widths or order differ from the default,
+ * Reset columns.
  */
 export function SeasonButtons({
   actions,
@@ -300,12 +295,6 @@ export function SeasonButtons({
         ))}
         <MenuItem onSelect={() => actions.monitorSeason(season, !monitored)}>{monitored ? 'Unmonitor season' : 'Monitor season'}</MenuItem>
         <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={episodes} label={name} scope={{ season }} text="Delete season's files" at={seasonRow(season)} />
-        {order && (
-          <>
-            <MenuDivider />
-            <ColumnMoveItems columns={order} labels={columnLabels(versions.map((v) => v.slot))} />
-          </>
-        )}
         {columns && order && !(columns.isDefault && order.isDefault) && (
           <MenuItem
             onSelect={() => {

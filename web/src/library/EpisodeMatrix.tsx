@@ -157,7 +157,7 @@ export function EpisodeMatrix({
                   onClick={() => (ticked === episodes.length ? selection.clear() : selection.checkAll())}
                 />
               </TableHead>
-              <TableHead columnKey="name" resizable={!phone} truncate={phone} width={200} minWidth={140} maxWidth={560} className="px-2">
+              <TableHead columnKey="name" resizable={!phone} truncate={phone} width={360} minWidth={180} maxWidth={720} className="px-2">
                 Name
               </TableHead>
               {columnOrder.order.map((k) => {

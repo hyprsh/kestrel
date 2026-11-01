@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { App } from '../App'
@@ -21,20 +21,33 @@ beforeEach(() => history.replaceState(null, '', '/'))
 afterEach(() => localStorage.clear())
 
 describe('the episode table columns', () => {
-  it('moves a column from the ⋯ menu, heads and cells together, and remembers it', async () => {
+  it('moves a column by dragging its head, heads and cells together, and remembers it', async () => {
     const grid = await openSeries()
     expect(heads(grid).slice(1, 5)).toEqual(['Name', 'Aired', 'Standard', '4K'])
 
-    await userEvent.click(screen.getByRole('button', { name: 'Actions for Season 1' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Move 4K left' }))
+    const from = within(grid)
+      .getAllByRole('columnheader')
+      .find((h) => h.textContent === '4K')!
+    const onto = within(grid)
+      .getAllByRole('columnheader')
+      .find((h) => h.textContent === 'Aired')!
+    const elementFromPoint = document.elementFromPoint
+    document.elementFromPoint = () => onto
+    try {
+      fireEvent.pointerDown(from, { button: 0, pointerType: 'mouse', clientX: 0, clientY: 0 })
+      fireEvent.pointerMove(window, { clientX: 40, clientY: 0 })
+      fireEvent.pointerUp(window)
+    } finally {
+      document.elementFromPoint = elementFromPoint
+    }
 
-    expect(heads(grid).slice(1, 5)).toEqual(['Name', 'Aired', '4K', 'Standard'])
+    expect(heads(grid).slice(1, 5)).toEqual(['Name', '4K', 'Aired', 'Standard'])
     const row = within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' }).closest('tr')!
     const buttons = within(row)
       .getAllByRole('button')
       .filter((b) => b.hasAttribute('data-cell'))
     expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([expect.stringContaining('4K'), expect.stringContaining('Standard')])
-    expect(JSON.parse(localStorage.getItem('kestrel.columns.episodes.order')!)).toEqual(['aired', '4k', 'standard'])
+    expect(JSON.parse(localStorage.getItem('kestrel.columns.episodes.order')!)).toEqual(['4k', 'aired', 'standard'])
   })
 
   it('starts from a stored order and ignores a corrupt one', async () => {
@@ -55,7 +68,6 @@ describe('the episode table columns', () => {
 
   it('pins the tick box and Name, and gives the Name and each Slot a resize handle', async () => {
     const grid = await openSeries()
-    expect(screen.queryByRole('menuitem', { name: /Move Name/ })).not.toBeInTheDocument()
     expect(within(grid).getAllByRole('separator')).toHaveLength(3)
   })
 })
