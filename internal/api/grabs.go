@@ -93,6 +93,14 @@ func (s *server) SearchVersionReleases(ctx context.Context, r oapi.SearchVersion
 			group := f.Group
 			rel.Group = &group
 		}
+		if f.InfoURL != "" {
+			url := f.InfoURL
+			rel.InfoUrl = &url
+		}
+		if f.Grabs > 0 {
+			grabs := f.Grabs
+			rel.Grabs = &grabs
+		}
 		if len(f.Covers) > 0 {
 			covers := make([]oapi.ReleaseCover, len(f.Covers))
 			for i, c := range f.Covers {

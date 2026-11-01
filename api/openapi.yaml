@@ -4652,7 +4652,13 @@ components:
           description: Series only. True for a season pack.
         group:
           type: string
-          description: The release group the name ends in. Absent when the name has none.
+          description: The release group, as the indexer says or else as the name ends. Absent when there is none.
+        info_url:
+          type: string
+          description: The indexer's page for the Release. Absent when the indexer gives none.
+        grabs:
+          type: integer
+          description: How often the indexer says the Release was grabbed. Absent when the indexer does not report it.
         covers:
           type: array
           description: |

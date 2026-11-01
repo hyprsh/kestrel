@@ -3530,9 +3530,15 @@ type Release struct {
 	Episodes *[]int      `json:"episodes,omitempty"`
 	Fits     ReleaseFits `json:"fits"`
 
-	// Group The release group the name ends in. Absent when the name has none.
-	Group     *string  `json:"group,omitempty"`
-	Indexer   string   `json:"indexer"`
+	// Grabs How often the indexer says the Release was grabbed. Absent when the indexer does not report it.
+	Grabs *int `json:"grabs,omitempty"`
+
+	// Group The release group, as the indexer says or else as the name ends. Absent when there is none.
+	Group   *string `json:"group,omitempty"`
+	Indexer string  `json:"indexer"`
+
+	// InfoUrl The indexer's page for the Release. Absent when the indexer gives none.
+	InfoUrl   *string  `json:"info_url,omitempty"`
 	Languages []string `json:"languages"`
 	Name      string   `json:"name"`
 

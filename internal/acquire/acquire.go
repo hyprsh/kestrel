@@ -1,6 +1,7 @@
 package acquire
 
 import (
+	"cmp"
 	"context"
 	"crypto/rand"
 	"database/sql"
@@ -223,8 +224,11 @@ type Found struct {
 	Season   int
 	Episodes []int
 	Pack     bool
-	// Group is the release group the name ends in; empty when it has none.
+	// Group is the release group, as the indexer says or else as the name ends; empty when it has none.
 	Group string
+	// InfoURL is the indexer's page for the Release, and Grabs how often the indexer says it was grabbed; empty and 0 when it does not say.
+	InfoURL string
+	Grabs   int
 	// Covers says, for each episode a Series Release holds that the library knows (or for the Movie itself),
 	// whether this Version Wants it, already has a file for it, or neither, and the Score of that file.
 	Covers []Cover
@@ -528,7 +532,7 @@ func (s *Service) SearchScope(ctx context.Context, versionID int64, scope librar
 			ID: e.id, GUID: e.raw.GUID, Name: e.raw.Title, Indexer: e.raw.IndexerName, IndexerID: e.raw.IndexerID, Size: e.raw.Size,
 			PublishedAt: e.raw.PublishDate, Quality: e.cand.Parsed.Quality.Quality.Name, Formats: v.Matched, Score: v.Score, Fits: e.fits(slot),
 		}
-		f.Group = e.cand.Parsed.ReleaseGroup
+		f.Group, f.InfoURL, f.Grabs = cmp.Or(e.raw.Group, e.cand.Parsed.ReleaseGroup), e.raw.InfoURL, e.raw.Grabs
 		if sr := e.cand.Parsed.Series; sr != nil {
 			f.Season, f.Episodes, f.Pack = sr.Season, slices.Clone(sr.Episodes), sr.FullSeason
 		}

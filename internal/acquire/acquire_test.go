@@ -203,6 +203,26 @@ func TestASearchScoresEveryReleaseAgainstTheVersionsProfile(t *testing.T) {
 	}
 }
 
+func TestASearchPassesOnWhatTheIndexerSaysAboutARelease(t *testing.T) {
+	r := newRig(t)
+	err := r.idx.Publish(indexer.Release{
+		Title: hd1080, IMDBID: "tt1109624", TMDBID: 116149, Size: 8 << 30, PublishDate: r.clock.now.Add(-time.Hour), Categories: []int{2040},
+		InfoURL: "https://alpha.example/details/1", Grabs: 412, Group: "NTb",
+	}, []byte("<nzb>x</nzb>"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := r.svc.Search(context.Background(), r.versions[slot.Standard])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if f := r.found(t, res, hd1080); f.InfoURL == "" || f.Grabs != 412 || f.Group != "NTb" {
+		t.Errorf("info = %q, grabs = %d, group = %q, want the indexer's", f.InfoURL, f.Grabs, f.Group)
+	}
+}
+
 func TestATextHitIsKeptOnlyWhenItIsTheSameTitle(t *testing.T) {
 	r := newRig(t)
 	for _, name := range []string{hd1080, "Paddington.Brown.2014.1080p.BluRay.x264-GRP"} {

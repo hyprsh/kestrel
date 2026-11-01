@@ -3314,8 +3314,12 @@ export interface components {
             episode_titles?: string[];
             /** @description Series only. True for a season pack. */
             pack?: boolean;
-            /** @description The release group the name ends in. Absent when the name has none. */
+            /** @description The release group, as the indexer says or else as the name ends. Absent when there is none. */
             group?: string;
+            /** @description The indexer's page for the Release. Absent when the indexer gives none. */
+            info_url?: string;
+            /** @description How often the indexer says the Release was grabbed. Absent when the indexer does not report it. */
+            grabs?: number;
             /**
              * @description What the Release holds, for the Version searched: each episode of a Series Release that the Library
              *     knows (every episode of the season for a pack), or the Movie itself. Absent when the name
