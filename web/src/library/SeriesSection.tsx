@@ -37,7 +37,7 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
   const order = useColumnOrder('episodes', [airedKey, ...slots])
   const queue = useQueue()
   const grabs = useMemo(() => grabsByEpisode(queue.data, title.id), [queue.data, title.id])
-  const season = view.season !== null && grouped.has(view.season) ? view.season : defaultSeason(seasons)
+  const season = view.season !== null && grouped.has(view.season) ? view.season : defaultSeason(seasons, display.seasons_open)
   const inSeason = grouped.get(season) ?? noEpisodes
 
   // The filter and the fold of the episodes not aired yet belong to the open season: another season starts on All, folded.

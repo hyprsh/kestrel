@@ -59,8 +59,15 @@ export function bySeason(episodes: Episode[]): Map<number, Episode[]> {
   return out
 }
 
-/** The season a Series' Title page opens on: the latest one, or Specials when that is all it has. */
-export const defaultSeason = (seasons: number[]): number => Math.max(0, ...seasons)
+/**
+ * The season a Series' Title page opens on: the latest one, or Specials when that is all it has. With "Open the newest season" off
+ * (`seasons_open` other than `latest_and_wanted`) it is the first season instead: the lowest numbered one, Specials only when that is all.
+ */
+export function defaultSeason(seasons: number[], open: Display['seasons_open'] = 'latest_and_wanted'): number {
+  if (open === 'latest_and_wanted') return Math.max(0, ...seasons)
+  const regular = seasons.filter((s) => s !== 0)
+  return regular.length > 0 ? Math.min(...regular) : 0
+}
 
 type CellState = NonNullable<Episode['cells'][SlotKey]>['state']
 

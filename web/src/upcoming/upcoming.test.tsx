@@ -891,6 +891,29 @@ describe('Upcoming: the Display switch and the Month display', () => {
     expect(await screen.findByRole('region', { name: 'Month' })).toBeInTheDocument()
   })
 
+  it('opens on the household default display, and this browser\'s own choice wins over it', async () => {
+    serveDisplay({ upcoming_display: 'month' })
+    many()
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Upcoming' }))
+    expect(await screen.findByRole('region', { name: 'Month' })).toBeInTheDocument()
+    expect(localStorage.getItem('kestrel.upcoming.display')).toBeNull() // a default is not a choice
+    await userEvent.click(screen.getByRole('button', { name: 'Display: Month' }))
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Agenda' }))
+    expect(await screen.findByRole('region', { name: 'Week' })).toBeInTheDocument()
+    expect(localStorage.getItem('kestrel.upcoming.display')).toBe('agenda')
+  })
+
+  it('keeps the browser\'s own Agenda over a household default of Month', async () => {
+    serveDisplay({ upcoming_display: 'month' })
+    localStorage.setItem('kestrel.upcoming.display', 'agenda')
+    many()
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Upcoming' }))
+    expect(await screen.findByRole('region', { name: 'Week' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Month' })).not.toBeInTheDocument()
+  })
+
   it('draws a Monday-first grid of the month with the neighbours dimmed, today circled, and a legend', async () => {
     many()
     localStorage.setItem('kestrel.upcoming.display', 'month')

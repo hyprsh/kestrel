@@ -135,6 +135,46 @@ describe('Settings, Display', () => {
     expect(localStorage.length + sessionStorage.length).toBe(0)
   })
 
+  it('saves Open the newest season and Upcoming starts on with the other Display settings', async () => {
+    const state = serveDisplay()
+    const section = await openDisplay()
+    expect(within(section).getByRole('switch', { name: 'Open the newest season' })).toBeChecked()
+    expect(within(section).getByRole('combobox', { name: 'Upcoming starts on' })).toHaveValue('agenda')
+    await userEvent.click(within(section).getByRole('switch', { name: 'Open the newest season' }))
+    await userEvent.selectOptions(within(section).getByRole('combobox', { name: 'Upcoming starts on' }), 'month')
+    expect(state.patched).toEqual([]) // a draft until saved
+    const bar = screen.getByRole('region', { name: 'Unsaved changes' })
+    expect(bar).toHaveTextContent('2 unsaved changes · Open the newest season, Upcoming starts on')
+    await userEvent.click(within(bar).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(state.patched).toEqual([{ display: { seasons_open: 'none', upcoming_display: 'month' } }]))
+    await waitFor(() => expect(within(section).getByRole('switch', { name: 'Open the newest season' })).not.toBeChecked())
+  })
+
+  it('shows the switch off for any seasons_open but latest_and_wanted, and the new rows read-only when declared', async () => {
+    serveDisplay({ seasons_open: 'all', upcoming_display: 'month' }, { seasons_open: true, upcoming_display: true })
+    const section = await openDisplay()
+    expect(within(section).getByRole('switch', { name: 'Open the newest season' })).not.toBeChecked()
+    expect(within(section).getByRole('switch', { name: 'Open the newest season' })).toBeDisabled()
+    expect(within(section).getByRole('combobox', { name: 'Upcoming starts on' })).toHaveValue('month')
+    expect(within(section).getByRole('combobox', { name: 'Upcoming starts on' })).toBeDisabled()
+    expect(within(section).getByText(/The Config File sets/)).toBeInTheDocument()
+  })
+
+  it('opens a Series on its first season with Open the newest season off', async () => {
+    serveDisplay({ seasons_open: 'none' })
+    fakeLongSeries()
+    const grid = await openGrid()
+    expect(rowsOf(grid)).toEqual(['Season 1 episode 1', 'Season 1 episode 2'])
+  })
+
+  it('opens the season a link names even with Open the newest season off', async () => {
+    serveDisplay({ seasons_open: 'none' })
+    fakeLongSeries()
+    history.replaceState(null, '', '/library?season=2')
+    const grid = await openGrid()
+    expect(rowsOf(grid)).toEqual(['Season 2 episode 1'])
+  })
+
   it('shows what the Config File declares as read-only and leaves the rest editable', async () => {
     serveDisplay({ season_order: 'newest_first' }, { season_order: true })
     const section = await openDisplay()

@@ -116,6 +116,11 @@ const sorts: { value: Display['manual_search_sort']; label: string }[] = [
   ),
 ]
 
+const upcomingDisplays: { value: Display['upcoming_display']; label: string }[] = [
+  { value: 'agenda', label: 'Agenda' },
+  { value: 'month', label: 'Month' },
+]
+
 const kinds: { value: Display['upcoming_filters']['kind']; label: string }[] = [
   { value: 'all', label: 'Movies and Series' },
   { value: 'movie', label: 'Movies only' },
@@ -142,7 +147,9 @@ function DisplayDraft({ saved, declared }: { saved: Display; declared: Settings[
   const save = usePatchSettings()
   const flat = {
     season_order: saved.season_order,
+    open_newest: saved.seasons_open === 'latest_and_wanted',
     manual_search_sort: saved.manual_search_sort,
+    upcoming_display: saved.upcoming_display,
     kind: saved.upcoming_filters.kind,
     wanted_only: saved.upcoming_filters.wanted_only,
     hide_imported: saved.upcoming_filters.hide_imported,
@@ -150,11 +157,18 @@ function DisplayDraft({ saved, declared }: { saved: Display; declared: Settings[
   const { draft, set, dirty } = useDraftForm({
     id: 'display',
     saved: flat,
-    labels: { season_order: 'Season order', manual_search_sort: 'Manual search sort', kind: 'Upcoming shows', wanted_only: 'Wanted only', hide_imported: 'Hide imported' },
+    labels: {
+      season_order: 'Season order',
+      open_newest: 'Open the newest season',
+      manual_search_sort: 'Manual search sort',
+      upcoming_display: 'Upcoming starts on',
+      kind: 'Upcoming shows', wanted_only: 'Wanted only', hide_imported: 'Hide imported' },
     commit: async (d, changed) => {
       const display: DisplayPatch = {}
       if (changed.includes('season_order')) display.season_order = d.season_order
+      if (changed.includes('open_newest')) display.seasons_open = d.open_newest ? 'latest_and_wanted' : 'none'
       if (changed.includes('manual_search_sort')) display.manual_search_sort = d.manual_search_sort
+      if (changed.includes('upcoming_display')) display.upcoming_display = d.upcoming_display
       const upcoming: NonNullable<DisplayPatch['upcoming_filters']> = {}
       if (changed.includes('kind')) upcoming.kind = d.kind
       if (changed.includes('wanted_only')) upcoming.wanted_only = d.wanted_only
@@ -163,7 +177,7 @@ function DisplayDraft({ saved, declared }: { saved: Display; declared: Settings[
       await save.mutateAsync({ display })
     },
   })
-  const anyDeclared = Object.entries(declared).some(([key, on]) => on && key !== 'seasons_open')
+  const anyDeclared = Object.values(declared).some(Boolean)
   const off = (key: keyof Display) => declared[key as keyof typeof declared]
   return (
     <>
@@ -182,6 +196,9 @@ function DisplayDraft({ saved, declared }: { saved: Display; declared: Settings[
             options={seasonOrders}
           />
         </SettingRow>
+        <SettingRow label="Open the newest season" dirty={dirty('open_newest')} help="A Series page starts on its latest season instead of the first. A link to a season or an episode still opens that one.">
+          <Toggle aria-label="Open the newest season" checked={draft.open_newest} disabled={off('seasons_open')} onChange={(open_newest) => set({ open_newest })} />
+        </SettingRow>
         <SettingRow label="Manual search sort" dirty={dirty('manual_search_sort')} help="How Manual search lists Releases when it opens.">
           <Select
             size="small"
@@ -190,6 +207,16 @@ function DisplayDraft({ saved, declared }: { saved: Display; declared: Settings[
             disabled={off('manual_search_sort')}
             onChange={(e) => set({ manual_search_sort: e.target.value as Display['manual_search_sort'] })}
             options={sorts}
+          />
+        </SettingRow>
+        <SettingRow label="Upcoming starts on" dirty={dirty('upcoming_display')} help="The display Upcoming opens with. A browser that picked another display keeps its own. A phone always shows the Agenda.">
+          <Select
+            size="small"
+            aria-label="Upcoming starts on"
+            value={draft.upcoming_display}
+            disabled={off('upcoming_display')}
+            onChange={(e) => set({ upcoming_display: e.target.value as Display['upcoming_display'] })}
+            options={upcomingDisplays}
           />
         </SettingRow>
         <SettingRow label="Upcoming shows" dirty={dirty('kind')} help="Which Titles Upcoming starts with.">
