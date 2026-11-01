@@ -79,7 +79,7 @@ export function TitleRows({
           const g = grabs.get(r.id) ?? []
           const line = stateLine(r, g, now)
           const monitored = isMonitoredRow(r)
-          const chips = <SlotChips chips={rowChips(r, g, { single, profileName })} max={phone ? 3 : 4} wrap={phone} align={phone ? 'start' : 'end'} label={`${r.title} Slots`} />
+          const chips = <SlotChips chips={rowChips(r, g, { single, profileName })} max={phone ? 3 : 4} wrap align="start" label={`${r.title} Slots`} />
           // Unmonitored rows dim their chips with the poster.
           const dimmed = monitored ? 'contents' : 'opacity-60'
           return (
@@ -106,7 +106,6 @@ export function TitleRows({
                 <span className="flex flex-col items-end gap-1.5">
                   <span className="flex items-center gap-2">
                     <KindIcon kind={r.kind} className="shrink-0 text-gray-900" />
-                    {!phone && <span className={dimmed}>{chips}</span>}
                     <span title={monitored ? 'Monitored' : 'Not monitored'} data-monitor-mark={monitored ? 'on' : 'off'}>
                       <MonitorMark monitored={monitored} />
                     </span>
@@ -130,7 +129,7 @@ export function TitleRows({
                     <span data-state-line className={`block truncate ${toneText[line.tone]}`}>
                       {line.text}
                     </span>
-                    {phone && <span className={dimmed}>{chips}</span>}
+                    <span className={dimmed}>{chips}</span>
                   </span>
                 }
               />
