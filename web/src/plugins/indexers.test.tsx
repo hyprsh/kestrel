@@ -154,7 +154,7 @@ describe('Settings indexers', () => {
   const check = (over: Partial<NonNullable<Instance['last_check']>> = {}) => ({ at: new Date().toISOString(), ok: true, code: null, message: null, ...over })
   const rowNames = (section: ReturnType<typeof within>) => section.getAllByRole('group').map((g: HTMLElement) => g.getAttribute('aria-label'))
 
-  it('shows the median time an indexer\'s searches take, not only how long the last Test took', async () => {
+  it("shows the median time an indexer's searches take, not only how long the last Test took", async () => {
     fakeIndexers({ indexers: [stored(2, 'Geek', { priority: 1, last_check: check({ latency_ms: 600 }) })] })
     server.use(
       http.get('/system/status', ({ response }) =>

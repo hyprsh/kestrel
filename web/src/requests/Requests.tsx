@@ -42,7 +42,9 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
     document.getElementById('requests-filter')?.focus()
   })
 
-  const filter = <FilterBar id="requests-filter" label="Filter Requests" placeholder="Filter, e.g. status:open requester:Anna …  /" value={query} onChange={onQuery} qualifiers={qualifiers} menus={false} />
+  const filter = (
+    <FilterBar id="requests-filter" label="Filter Requests" placeholder="Filter, e.g. status:open requester:Anna …  /" value={query} onChange={onQuery} qualifiers={qualifiers} menus={false} />
+  )
   const menu = <FacetFilterButton query={query} onQuery={onQuery} qualifiers={qualifiers} />
   const total = list.data && <span className="label-12 text-gray-900 tabular">{list.data.pages[0].total} in all</span>
   return (

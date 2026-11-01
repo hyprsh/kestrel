@@ -37,7 +37,10 @@ async function openSeries() {
     episode(4, 1, 3, '', {
       air_date: null,
       placeholder: true,
-      cells: { standard: cell('wanted'), '4k': cell('wanted', null, null, { at: new Date(Date.now() - 2 * 3_600_000).toISOString(), releases: 14, outcome: 'nothing_fit', reasons: [], upgrade: false }) },
+      cells: {
+        standard: cell('wanted'),
+        '4k': cell('wanted', null, null, { at: new Date(Date.now() - 2 * 3_600_000).toISOString(), releases: 14, outcome: 'nothing_fit', reasons: [], upgrade: false }),
+      },
     }),
     episode(5, 2, 1, '', { air_date: null }),
   ]

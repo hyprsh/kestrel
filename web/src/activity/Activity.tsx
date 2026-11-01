@@ -108,7 +108,15 @@ export function Activity({ query, onQuery, onOpenTitle }: { query: string; onQue
     title: 'Activity',
     actions: <ActivityMenu />,
     filter: <FilterBar id="activity-filter" label="Filter Activity" placeholder="Filter grabs, e.g. stage:failed  /" value={query} onChange={onQuery} qualifiers={activityQualifiers} menus={false} />,
-    controls: <FacetFilterButton query={query} onQuery={onQuery} qualifiers={activityQualifiers} label={phone ? 'Views and filter' : undefined} lead={phone ? <ViewsSection query={query} onQuery={onQuery} pipeline={pipeline} /> : undefined} />,
+    controls: (
+      <FacetFilterButton
+        query={query}
+        onQuery={onQuery}
+        qualifiers={activityQualifiers}
+        label={phone ? 'Views and filter' : undefined}
+        lead={phone ? <ViewsSection query={query} onQuery={onQuery} pipeline={pipeline} /> : undefined}
+      />
+    ),
     chips: <FilterChips chips={filterChips(query, onQuery, activityQualifiers)} />,
     views: <ActivityViews query={query} onQuery={onQuery} pipeline={pipeline} />,
     footer: <span>{footer(pipeline.total, pipeline.oldest)}</span>,

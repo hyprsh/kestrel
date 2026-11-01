@@ -22,9 +22,7 @@ export function expandCodes(labels: readonly string[]): string[] {
 /** Episode codes as runs: "S05E05", "S05E06", "S05E07" and "S05E09" make "S05E05–E07, S05E09". Codes that are not an episode's stay as they are. */
 export function codeRuns(codes: readonly string[]): string {
   const parsed = [...new Set(codes)].map((code) => ({ code, m: /^S(\d+)E(\d+)$/.exec(code) }))
-  const eps = parsed
-    .flatMap((p) => (p.m ? [{ season: p.m[1], number: Number(p.m[2]), width: p.m[2].length }] : []))
-    .sort((a, b) => Number(a.season) - Number(b.season) || a.number - b.number)
+  const eps = parsed.flatMap((p) => (p.m ? [{ season: p.m[1], number: Number(p.m[2]), width: p.m[2].length }] : [])).sort((a, b) => Number(a.season) - Number(b.season) || a.number - b.number)
   const other = parsed.filter((p) => !p.m).map((p) => p.code)
   const runs: { season: string; from: number; to: number; width: number }[] = []
   for (const e of eps) {
