@@ -44,6 +44,36 @@ const screenModules = {
   cleanup: () => import('../cleanup/Cleanup'),
   menu: () => import('../command/CommandMenu'),
 }
+// The rail, tab bar and More sheet items by the name they carry: pointing at, touching or focusing one fetches its screen at once.
+const screenOfLabel: Record<string, keyof typeof screenModules> = {
+  Overview: 'overview',
+  Library: 'library',
+  Upcoming: 'upcoming',
+  Activity: 'activity',
+  Log: 'log',
+  Settings: 'settings',
+  Requests: 'requests',
+  Adoption: 'adoption',
+  'Clean up': 'cleanup',
+  Health: 'health',
+}
+
+/** Fetches a screen's chunk when its item is pointed at, touched or focused, ahead of the click that opens it. */
+function prefetchOnIntent() {
+  const onIntent = (e: Event) => {
+    const el = (e.target as Element | null)?.closest?.('button, a')
+    if (!el) return
+    const label = (el.getAttribute('aria-label') ?? el.textContent ?? '').split(',')[0].trim()
+    const key = screenOfLabel[label]
+    if (key) void screenModules[key]().catch(() => {})
+  }
+  const events = ['pointerover', 'pointerdown', 'focusin'] as const
+  for (const ev of events) document.addEventListener(ev, onIntent, true)
+  return () => {
+    for (const ev of events) document.removeEventListener(ev, onIntent, true)
+  }
+}
+
 const Overview = lazy(() => screenModules.overview().then((m) => ({ default: m.Overview })))
 const Library = lazy(() => screenModules.library().then((m) => ({ default: m.Library })))
 const Upcoming = lazy(() => screenModules.upcoming().then((m) => ({ default: m.Upcoming })))
@@ -187,6 +217,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const queryClient = useQueryClient()
   useEffect(() => startLiveStream(queryClient), [queryClient])
   useEffect(() => prefetchScreens(), [])
+  useEffect(() => prefetchOnIntent(), [])
 
   // ⌘K / Ctrl+K opens and closes the command menu from anywhere.
   useEffect(() => {
