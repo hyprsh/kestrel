@@ -3,6 +3,7 @@ package stats_test
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -40,12 +41,12 @@ func at(days int, hours int) string {
 	return now.AddDate(0, 0, days).Add(time.Duration(hours) * time.Hour).Format(time.RFC3339)
 }
 
-var guid int
+var guid atomic.Int64
 
 // grab inserts a Grab by indexer 1 or 2 that ended in state at updated.
 func (r rig) grab(indexer int, state, failure, updated string, size int64, started, done string) int64 {
 	r.t.Helper()
-	guid++
+	n := guid.Add(1)
 	var f, s, d any
 	if failure != "" {
 		f = failure
@@ -56,7 +57,7 @@ func (r rig) grab(indexer int, state, failure, updated string, size int64, start
 	res, err := r.st.Write().ExecContext(context.Background(), `INSERT INTO grabs (release_guid, release_name, indexer_id, indexer_name, size, published_at, score, parsed, verdict,
 		client_instance_id, client_id, state, failure, created_at, updated_at, download_started_at, download_done_at)
 		VALUES (?, 'x', ?, ?, ?, ?, 0, '{}', '{}', 9, ?, ?, ?, ?, ?, ?, ?)`,
-		fmt.Sprint("g", guid), indexer, fmt.Sprint("Indexer ", indexer), size, updated, fmt.Sprint("c", guid), state, f, updated, updated, s, d)
+		fmt.Sprint("g", n), indexer, fmt.Sprint("Indexer ", indexer), size, updated, fmt.Sprint("c", n), state, f, updated, updated, s, d)
 	if err != nil {
 		r.t.Fatal(err)
 	}
@@ -265,7 +266,7 @@ func (r rig) file(version int64, size int64, release, parsed, imported string, w
 		g = r.grab(1, "imported", "", imported, size, "", "")
 	}
 	r.exec(`INSERT INTO files (version_id, path, size, release_name, parsed_release, grab_id, imported_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		version, fmt.Sprint("/f/", guid, release), size, release, parsed, g, imported)
+		version, fmt.Sprint("/f/", guid.Load(), release), size, release, parsed, g, imported)
 }
 
 func parsed(group, source, modifier string) string {
