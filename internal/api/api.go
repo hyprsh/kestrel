@@ -71,7 +71,7 @@ func New(opts Options, d Deps) http.Handler {
 		cost = cheapCost
 	}
 	s := &server{
-		opts: opts, auth: newAuth(opts.Store, opts.Clock, opts.BaseURL, cost, opts.APIKey), hub: newHub(),
+		opts: opts, started: opts.Clock(), auth: newAuth(opts.Store, opts.Clock, opts.BaseURL, cost, opts.APIKey), hub: newHub(),
 		plugins: d.Plugins, profiles: d.Profiles, rootFolders: d.RootFolders, settings: d.Settings, display: d.Display, pause: d.Pause, updates: d.Updates,
 		library: d.Library, acquire: d.Acquire, requests: d.Requests, adoption: d.Adoption, cleanup: d.Cleanup,
 		remover: d.Remover, imports: d.Imports, files: d.Files, folderChanges: d.FolderChanges, jobs: d.Jobs, refresher: d.Refresher, indexers: d.Indexers,
@@ -121,9 +121,11 @@ func New(opts Options, d Deps) http.Handler {
 
 type server struct {
 	opts Options
-	auth *auth
-	plex *plexSignIn
-	hub  *hub
+	// started is when this server was built, for the uptime in the system status.
+	started time.Time
+	auth    *auth
+	plex    *plexSignIn
+	hub     *hub
 
 	plugins     PluginInstances
 	profiles    Profiles

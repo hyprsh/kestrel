@@ -31,7 +31,7 @@ func (s *server) ListUpcoming(ctx context.Context, r oapi.ListUpcomingRequestObj
 	if to.Before(from) {
 		return nil, invalid("to", "invalid", "to must not be before from")
 	}
-	agenda, err := s.library.Upcoming(ctx, view, from, to)
+	agenda, err := s.library.UpcomingWith(ctx, view, from, to, library.UpcomingOptions{Unmonitored: r.Params.Unmonitored != nil && *r.Params.Unmonitored})
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func (s *server) ListUpcoming(ctx context.Context, r oapi.ListUpcomingRequestObj
 		item := oapi.UpcomingItem{
 			Date: openapi_types.Date{Time: e.Date}, Kind: oapi.TitleKind(e.Kind), TitleId: e.TitleID, Title: e.Title,
 			Year: intPtr(e.Year), Released: e.Released, HasPoster: &e.HasPoster, Network: strPtr(e.Network), Overview: strPtr(e.Overview),
-			Slots: &slots, Searchable: &e.Searchable, AirAt: e.AirAt, Markers: &markers, Dates: &dates,
+			Monitored: &e.Monitored, Slots: &slots, Searchable: &e.Searchable, AirAt: e.AirAt, Markers: &markers, Dates: &dates,
 		}
 		if e.Kind == library.Movie {
 			rt := oapi.UpcomingItemReleaseType(e.ReleaseType)

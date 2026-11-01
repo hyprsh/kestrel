@@ -23,8 +23,15 @@ An episode Kestrel added itself because a Release named it before TheTVDB listed
 _Avoid_: TBA episode, ghost episode
 
 **Profile**:
-A named, switchable quality-and-language target, such as HD, Any or 4K, backed by a TRaSH profile. Any takes every resolution up to 1080p, for Titles that never had an HD release. Each Profile belongs to one Slot, covers a fixed resolution range, and either requires the Primary Language or requires the Title's Original Language. A Primary-Language Profile rejects, offers (an Original Offer) or accepts a Release that has the Title's Original Language but no Primary-Language audio. Profiles can be enabled or disabled and chosen as the default for a Slot in new Movies or new Series. A Version's Profile can be switched at any time to another Profile of the same Slot.
+A named, switchable quality-and-language target, such as HD, Any or 4K, backed by a TRaSH profile. Any takes every resolution up to 1080p, for Titles that never had an HD release. Each Profile belongs to one Slot, covers a fixed resolution range, and either requires the Primary Language or requires the Title's Original Language. A Primary-Language Profile rejects, offers (an Original Offer) or accepts a Release that has the Title's Original Language but no Primary-Language audio. Profiles can be enabled or disabled and chosen as the default for a Slot in new Movies or new Series. A Version's Profile can be switched at any time to another Profile of the same Slot. On top of TRaSH's data a household sets, per Profile, the order and acceptance of the qualities, a Cutoff, an Upgrade-until Score, a minimum Score and Size limits, and can make a custom Profile as a copy of another. TRaSH's Custom Formats and their Scores stay TRaSH's.
 _Avoid_: Quality profile, preset, UHD (say 4K), Kids Profile
+
+**Cutoff**:
+How far a Profile takes Upgrades: the quality that is "good enough" (a quality in the Profile's ladder, best first) and the Upgrade-until Score. A file has reached it when its quality is the Cutoff quality or a better one in the ladder, and its Score is at least the Upgrade-until Score; a Profile may set either or both, and with neither it never stops upgrading. A file at its Cutoff is left alone: no Release upgrades it and the Upgrade sweep does not search for it. A file below its Profile's Cutoff is not Wanted; it only waits for an Upgrade.
+_Avoid_: Upgrade until (for the quality), cutoff unmet (for Wanted)
+
+**Size limit**:
+The smallest and largest size a Profile accepts, per Movie or per episode of a Series (a pack or multi-episode Release is judged per episode). A Release outside it is rejected as `size`, "over" or "under" the limit; "Grab anyway" overrides it, and the file imports as usual.
 
 **Slot**:
 One of two fixed places in a Title that one Version fills: Standard, up to 1080p, and the opt-in 4K. A Title has at most one Version per Slot and at least one Version overall; Standard is the default for new Titles. Which Version a viewer plays, and who may watch 4K, is the media server's choice, not Kestrel's.
@@ -47,7 +54,7 @@ A release carrying Primary Language audio plus the Title's Original Language aud
 _Avoid_: Multi-audio, DL or MULTi (unexpanded)
 
 **Upgrade**:
-Replacing a Version's file with a better-scoring Release. Monitored Versions never stop upgrading; there is no cutoff. An unmonitored Title, or an unmonitored episode of a Series, is not Upgraded.
+Replacing a Version's file with a better-scoring Release. A monitored Version keeps upgrading until its file reaches its Profile's Cutoff; a Profile with no Cutoff never stops. An unmonitored Title, or an unmonitored episode of a Series, is not Upgraded.
 
 **Wanted**:
 A monitored, released Version, or episode of a Series Version, that has no file or whose file no longer fits its Profile. An episode counts as released once it has aired (at its air time in its network's time zone, else from the start of its air date), once it is a Placeholder Episode, or, without an air date, once a later episode of its Series is out. A Movie with no release date anywhere counts as released once a Release for it has been seen. Unmonitored and unreleased ones are not Wanted, and a filled Version waiting for an Upgrade is not Wanted either.
@@ -123,7 +130,7 @@ The screen showing every Grab from search to Import, grouped by stage (Searching
 _Avoid_: Downloads, Queue (for the screen)
 
 **Background job**:
-One of Kestrel's fixed set of periodic loops (ADR 0007), such as the Search sweep, RSS, Import or the health checks: an idempotent pass over what the domain rows say is due, run on its own schedule or kicked awake. It is not a queued unit of work: there is no job table, and what runs now, the last run and the next are kept in memory. Activity lists them under Background jobs.
+One of Kestrel's fixed set of periodic loops (ADR 0007), such as the Search sweep, RSS, Import or the health checks: an idempotent pass over what the domain rows say is due, run on its own schedule or kicked awake. It is not a queued unit of work: there is no job table to resume from, and what runs now and the next run are kept in memory; only how each loop's last ten runs went is stored, so Health's run bars survive a restart. Health lists them under Background jobs.
 _Avoid_: Task, scheduled job, queue entry
 
 ### Requests
@@ -153,6 +160,10 @@ The timeline around today of episodes and movie releases, from the last two week
 _Avoid_: Calendar
 
 ### Deployment
+
+**Backup**:
+A copy of the database in `backups/`. Kestrel takes one before each schema migration (the newest five are kept) and one a day on its own, from the Backup job (the newest seven are kept, counted apart). Health shows the database's size and the age of the last one. Restoring is copying one over `kestrel.db` with Kestrel stopped; a Backup holds the database only, never your media.
+_Avoid_: Snapshot (that is TRaSH's word for its data), export
 
 **Config File**:
 The file a deployment uses to declare the account, settings, Profiles and plugin instances it wants. Whatever it declares can't be changed in the UI; anything it leaves out stays the UI's to manage, down to a declared plugin instance's `enabled` when the file doesn't set it. Say "declared" for what it holds: a declared section, a declared instance.

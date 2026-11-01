@@ -59,7 +59,13 @@ build() {
     src=$tmp
   fi
   echo "building $ref into $out"
-  (cd "$src/web" && npm ci --no-audit --no-fund --loglevel=error >/dev/null && npm run build --loglevel=error >/dev/null)
+  # Install only when web/node_modules is missing or older than the lockfile: npm ci deletes node_modules
+  # first, which breaks a dev server or test run that is using the shared one.
+  local web=$src/web
+  if [ ! -d "$web/node_modules" ] || [ "$web/package-lock.json" -nt "$web/node_modules/.package-lock.json" ]; then
+    (cd "$web" && npm ci --no-audit --no-fund --loglevel=error >/dev/null)
+  fi
+  (cd "$web" && npm run build --loglevel=error >/dev/null)
   (cd "$src" && CGO_ENABLED=0 go build -o "$out" ./cmd/kestrel)
   echo "built $out"
 }

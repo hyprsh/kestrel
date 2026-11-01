@@ -251,6 +251,30 @@ func TestSeriesSlotsShowInTheListWithTheirState(t *testing.T) {
 	}
 }
 
+func TestASeriesSlotCountsItsEpisodesHaveAndAired(t *testing.T) {
+	ctx := context.Background()
+	lib, _ := newLibrary(t)
+	addShow(t, lib, library.MonitorAll, library.VersionSpec{Slot: slot.Standard, Profile: "hd-primary"})
+	addPaddington(t, lib, library.VersionSpec{Slot: slot.Standard, Profile: "hd-primary"})
+	rows, err := lib.List(ctx, library.View{Country: "US", Now: now}, library.Filter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range rows {
+		sl := r.Slots[slot.Standard]
+		switch r.Kind {
+		case library.Movie:
+			if sl.EpisodesHave != nil || sl.EpisodesAired != nil {
+				t.Errorf("a Movie counts no episodes, got %v %v", sl.EpisodesHave, sl.EpisodesAired)
+			}
+		case library.Series:
+			if sl.EpisodesHave == nil || sl.EpisodesAired == nil || *sl.EpisodesHave != 0 || *sl.EpisodesAired < 1 {
+				t.Errorf("a Series with no files has 0 of its aired episodes, got %v %v", sl.EpisodesHave, sl.EpisodesAired)
+			}
+		}
+	}
+}
+
 func TestSeriesVersionsHaveSearchStateOncePerSeasonButNotForSpecials(t *testing.T) {
 	lib, st := newLibrary(t)
 	addShow(t, lib, library.MonitorAll)
@@ -299,5 +323,103 @@ func TestTheListCountsASeriesWantedEpisodesOnceWithTheirSeasons(t *testing.T) {
 	rows, _ = lib.List(ctx, library.View{Country: "US", Now: now.Add(100 * 24 * time.Hour)}, library.Filter{Kind: library.Series})
 	if w := rows[0].WantedEpisodes; w == nil || w.LongMissing != 3 {
 		t.Errorf("WantedEpisodes 100 days on = %+v, want 3 Long Missing", w)
+	}
+}
+
+func TestAnEpisodeAGrabInFlightCoversIsDownloadingInItsCell(t *testing.T) {
+	ctx := context.Background()
+	lib, st := newLibrary(t)
+	id := addShow(t, lib, library.MonitorAll)
+	d, _ := lib.Get(ctx, id, library.View{Country: "US", Now: now})
+	ver := d.Versions[0].ID
+	eps, _ := lib.Episodes(ctx, id, library.View{Country: "US", Now: now})
+
+	res, err := st.Write().ExecContext(ctx, `INSERT INTO grabs(title_id,version_id,release_guid,release_name,indexer_id,indexer_name,size,published_at,score,parsed,verdict,
+		client_instance_id,client_id,state,created_at,updated_at) VALUES (?,?,'g','r',1,'i',1,'t',1,'{}','{}',1,'nzo','downloading','t','t')`, id, ver)
+	if err != nil {
+		t.Fatal(err)
+	}
+	grab, _ := res.LastInsertId()
+	if _, err := st.Write().ExecContext(ctx, `INSERT INTO grab_episodes(grab_id,episode_id) VALUES (?,?)`, grab, eps[1].ID); err != nil {
+		t.Fatal(err)
+	}
+
+	got, _ := lib.Episodes(ctx, id, library.View{Country: "US", Now: now})
+	if s := got[1].Cells[slot.Standard].State; s != library.Downloading {
+		t.Errorf("the covered episode is %v, want downloading", s)
+	}
+	if s := got[2].Cells[slot.Standard].State; s != library.Wanted {
+		t.Errorf("an episode no Grab covers is %v, want wanted", s)
+	}
+}
+
+func TestMonitoringSpecialsMakesSeasonZeroFollowTheMode(t *testing.T) {
+	ctx := context.Background()
+	lib, _ := newLibrary(t)
+	id := addShow(t, lib, library.MonitorAll)
+	d, _ := lib.Get(ctx, id, library.View{Country: "US", Now: now})
+	if !d.MonitorOpts.NewSeasons || d.MonitorOpts.Specials {
+		t.Fatalf("a new Series starts with new seasons on and Specials off: %+v", d.MonitorOpts)
+	}
+	on := true
+	if err := lib.SetSeriesMonitorOptions(ctx, id, nil, &on); err != nil {
+		t.Fatal(err)
+	}
+	if got := monitoredByEpisode(t, lib, id); !got["Special"] || !got["Pilot"] {
+		t.Errorf("specials on: %v", got)
+	}
+	d, _ = lib.Get(ctx, id, library.View{Country: "US", Now: now})
+	if !d.MonitorOpts.Specials || !d.MonitorOpts.NewSeasons {
+		t.Errorf("opts = %+v", d.MonitorOpts)
+	}
+	// With the mode Not monitored, Specials stay off whatever the switch says.
+	if err := lib.SetSeriesMonitor(ctx, id, library.MonitorNone); err != nil {
+		t.Fatal(err)
+	}
+	if got := monitoredByEpisode(t, lib, id); got["Special"] || got["Pilot"] {
+		t.Errorf("none: %v", got)
+	}
+	off := false
+	if err := lib.SetSeriesMonitor(ctx, id, library.MonitorAll); err != nil {
+		t.Fatal(err)
+	}
+	if err := lib.SetSeriesMonitorOptions(ctx, id, nil, &off); err != nil {
+		t.Fatal(err)
+	}
+	if got := monitoredByEpisode(t, lib, id); got["Special"] || !got["Pilot"] {
+		t.Errorf("specials off again: %v", got)
+	}
+	if err := lib.SetSeriesMonitorOptions(ctx, addPaddington(t, lib), &off, nil); !errors.Is(err, library.ErrNotASeries) {
+		t.Errorf("a Movie has no switches: %v", err)
+	}
+}
+
+func TestTheListSaysWhetherEachTitleIsMonitored(t *testing.T) {
+	ctx := context.Background()
+	lib, _ := newLibrary(t)
+	series := addShow(t, lib, library.MonitorAll)
+	movie := addPaddington(t, lib)
+	monitored := func() map[int64]bool {
+		rows, err := lib.List(ctx, library.View{Country: "US", Now: now}, library.Filter{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := map[int64]bool{}
+		for _, r := range rows {
+			out[r.ID] = r.Monitored
+		}
+		return out
+	}
+	if got := monitored(); !got[series] || !got[movie] {
+		t.Fatalf("both start monitored: %v", got)
+	}
+	if err := lib.SetSeriesMonitor(ctx, series, library.MonitorNone); err != nil {
+		t.Fatal(err)
+	}
+	if err := lib.SetMovieMonitored(ctx, movie, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := monitored(); got[series] || got[movie] {
+		t.Errorf("both are off now: %v", got)
 	}
 }

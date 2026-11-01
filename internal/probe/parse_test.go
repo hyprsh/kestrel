@@ -105,3 +105,13 @@ func TestParseRejectsNonJSON(t *testing.T) {
 		t.Fatal("ParseJSON accepted non-JSON output")
 	}
 }
+
+func TestParseKeepsTheAudioProfile(t *testing.T) {
+	info, err := probe.ParseJSON([]byte(`{"streams":[{"index":0,"codec_type":"audio","codec_name":"dts","profile":"DTS-HD MA","channels":8}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(info.Audio) != 1 || info.Audio[0].Profile != "DTS-HD MA" || info.Audio[0].Channels != 8 {
+		t.Errorf("audio = %+v", info.Audio)
+	}
+}

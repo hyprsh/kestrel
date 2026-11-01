@@ -384,3 +384,31 @@ func TestBulkMonitoringWithoutAModeKeepsAMonitoredSeriesModeAndMonitorsAnUnmonit
 		t.Errorf("series_monitor = %v, want all", d.SeriesMonitor)
 	}
 }
+
+func TestASeriesPatchSetsMonitorNewSeasonsAndMonitorSpecials(t *testing.T) {
+	t.Parallel()
+	l := newLibraryInstance(t, metadatatest.Key)
+	series := decode[seriesTitleJSON](t, l.valid("POST", "/titles", addBreakingBad+`}`)).ID
+	path := fmt.Sprintf("/titles/%d", series)
+	d := decode[seriesTitleJSON](t, l.valid("GET", path, ""))
+	if d.MonitorNewSeasons == nil || !*d.MonitorNewSeasons || d.MonitorSpecials == nil || *d.MonitorSpecials {
+		t.Fatalf("defaults = %v %v, want new seasons on and Specials off", d.MonitorNewSeasons, d.MonitorSpecials)
+	}
+	r := l.valid("PATCH", path, `{"monitor_new_seasons":false,"monitor_specials":true}`)
+	if r.Status != 200 {
+		t.Fatalf("patch = %d %s", r.Status, r.Body)
+	}
+	d = decode[seriesTitleJSON](t, l.valid("GET", path, ""))
+	if *d.MonitorNewSeasons || !*d.MonitorSpecials {
+		t.Errorf("after = %v %v", *d.MonitorNewSeasons, *d.MonitorSpecials)
+	}
+	var special bool
+	for _, e := range episodesOf(t, l, series) {
+		if e.Season == 0 && e.Monitored {
+			special = true
+		}
+	}
+	if !special {
+		t.Errorf("a Special should follow the mode now")
+	}
+}

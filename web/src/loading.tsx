@@ -126,19 +126,6 @@ export function TableSkeletonRows({ columns, count = 6 }: { columns: TableColumn
   return Array.from({ length: count }, (_, i) => <Table.SkeletonRow key={i} index={i} columns={columns} />)
 }
 
-/** A row of poster Skeletons, in the place of a poster shelf while it loads. The list is `aria-busy`. */
-export function SkeletonShelf({ count = 6 }: { count?: number }) {
-  return (
-    <div aria-busy="true" aria-hidden className="flex gap-2 overflow-hidden">
-      {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="w-28 shrink-0 p-2">
-          <PosterSkeleton size="xl" />
-        </div>
-      ))}
-    </div>
-  )
-}
-
 /** Rows of a label and a control, the shape of a Settings section while its settings load. */
 export function SkeletonForm({ rows = 2 }: { rows?: number }) {
   return (

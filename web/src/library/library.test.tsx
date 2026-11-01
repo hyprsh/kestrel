@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
@@ -51,12 +51,12 @@ describe('the Library list', () => {
     expect(first).toHaveTextContent('Paddington2014')
     // One Version of two is Wanted: the line names its Slot, and says Kestrel has not looked yet.
     expect(first.querySelector('[data-state-line]')).toHaveTextContent(/^Standard Wanted for .* · not searched yet$/)
-    // One phrase per row, and the dots inside are hidden from the accessibility tree.
-    const dots = within(first).getByRole('img', { name: 'Standard: Wanted, 4K: Filled' })
-    expect(dots.children).toHaveLength(2)
-    for (const dot of Array.from(dots.children)) expect(dot).toHaveAttribute('aria-hidden', 'true')
-    // The row is named once: no dot carries a title of its own.
-    for (const dot of Array.from(dots.children)) expect(dot).not.toHaveAttribute('title')
+    // A chip per Slot, in Slot order, each named for its Slot and state.
+    const std = within(first).getByRole('button', { name: 'Standard: Wanted' })
+    const fourK = within(first).getByRole('button', { name: '4K: Have' })
+    expect(std).toHaveAttribute('data-state', 'wanted')
+    expect(fourK).toHaveAttribute('data-state', 'filled')
+    expect(std.compareDocumentPosition(fourK) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
     // A Title that wants nothing says what it holds: here its Primary-Language title, and its size.
     const amelie = within(list).getByRole('option', { name: /amélie/i })
@@ -124,7 +124,8 @@ describe('the Library list', () => {
     const list = await openLibrary()
     const options = await within(list).findAllByRole('option')
     expect(list).toHaveFocus()
-    expect(within(list).queryAllByRole('button')).toHaveLength(0)
+    // The Slot chips are buttons for the pointer; none is a Tab stop.
+    for (const b of within(list).queryAllByRole('button')) expect(b).toHaveAttribute('tabindex', '-1')
 
     await userEvent.tab()
     expect(list).not.toHaveFocus()
@@ -259,7 +260,7 @@ describe('the Library detail pane', () => {
     expect(await within(hd).findByText('Any')).toBeInTheDocument() // the Profile's name arrives with GET /profiles
     expect(hd).toHaveTextContent('Wanted')
     expect(uhd).toHaveTextContent('4K')
-    expect(uhd).toHaveTextContent('Filled')
+    expect(uhd).toHaveTextContent('Have')
   })
 
   it('follows the selection', async () => {
@@ -303,36 +304,34 @@ describe('the Library detail pane', () => {
     server.use(http.get('/titles/{id}', ({ response }) => response(200).json(d)))
     await openLibrary()
     const pane = await screen.findByRole('region', { name: /paddington/i })
-    expect(await within(pane).findByText(/Bluray-1080p · English \+ German · .*Score 1750/)).toBeInTheDocument()
-    // The row names the file on disk, not the release it was grabbed as.
-    expect(within(pane).getByRole('button', { name: 'P.mkv' })).toBeInTheDocument()
+    // The open row says what the file is, not the release it was grabbed as.
+    const hdRow = await within(pane).findByRole('listitem', { name: 'Standard' })
+    expect((await within(hdRow).findByText('Quality')).nextElementSibling).toHaveTextContent('BluRay 1080p')
+    expect(within(hdRow).getByText('Audio').nextElementSibling).toHaveTextContent('English, German')
+    expect(within(hdRow).getByText('Custom Format Score').nextElementSibling).toHaveTextContent('+1,750')
     expect(within(pane).queryByText('Paddington.2014.1080p.BluRay.x264-GRP')).not.toBeInTheDocument()
   })
 
-  it("opens the Movie's file popover from the file name: full path, Copy path and the release name", async () => {
+  it("shows the Movie's file path in the open Version row", async () => {
     fakeLibrary(rows())
     const d = detail(rows()[0])
     const hd = d.versions.find((v) => v.slot === 'standard')!
     hd.state = 'filled'
     hd.file = {
       path: '/data/media/movies/P/P.mkv',
-      size: 8 << 30,
+      size: 8 * 1024 ** 3,
       release_name: 'Paddington.2014.1080p.BluRay.x264-GRP',
-      score: 1750,
+      score: null,
+      quality: 'Bluray-1080p',
       imported_at: '2026-10-17T12:00:00Z',
     }
     server.use(http.get('/titles/{id}', ({ response }) => response(200).json(d)))
     await openLibrary()
     const pane = await screen.findByRole('region', { name: /paddington/i })
 
-    await userEvent.click(await within(pane).findByRole('button', { name: 'P.mkv' }))
-
-    const popover = await screen.findByRole('dialog', { name: 'Standard file' })
-    expect(popover).toHaveTextContent('/data/media/movies/P/P.mkv')
-    expect(popover).toHaveTextContent('Grabbed as Paddington.2014.1080p.BluRay.x264-GRP')
-    expect(within(popover).getByRole('button', { name: 'Copy to Clipboard' })).toBeInTheDocument()
-    await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Standard file' })).not.toBeInTheDocument())
+    const row = await within(pane).findByRole('listitem', { name: 'Standard' })
+    expect((await within(row).findByText('Path')).nextElementSibling).toHaveTextContent('/data/media/movies/P/P.mkv')
+    expect(within(row).queryByRole('button', { name: 'Upgrade Search' })).not.toBeInTheDocument()
   })
 })
 
@@ -370,7 +369,7 @@ describe('the Library state tabs and sort', () => {
     expect(order()).toEqual(['Zodiac', 'alien', 'Heat']) // as added
 
     await userEvent.click(screen.getByRole('button', { name: /^Sort/ }))
-    await userEvent.click(screen.getByRole('option', { name: 'Name A–Z' }))
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'Name A–Z' }))
     expect(filter()).toHaveValue('sort:name-asc')
     expect(order()).toEqual(['alien', 'Heat', 'Zodiac'])
     expect(new URLSearchParams(location.search).get('q')).toBe('sort:name-asc')
@@ -381,42 +380,5 @@ describe('the Library state tabs and sort', () => {
     await userEvent.clear(filter())
     await userEvent.type(filter(), 'sort:size-desc')
     expect(order()).toEqual(['alien', 'Zodiac', 'Heat'])
-  })
-})
-
-describe('the Library grid', () => {
-  it('switches with g, remembers it, and sums up the picked Title in a panel', async () => {
-    fakeLibrary(rows())
-    const list = await openLibrary()
-    await within(list).findAllByRole('option')
-    expect(screen.getByRole('radio', { name: 'List' })).toBeChecked()
-
-    await userEvent.keyboard('g')
-    expect(screen.getByRole('radio', { name: 'Grid' })).toBeChecked()
-    expect(localStorage.getItem('kestrel.library.view')).toBe('grid')
-    const grid = screen.getByRole('listbox', { name: 'Library' })
-    expect(within(grid).getAllByRole('option')).toHaveLength(3)
-    expect(screen.queryByRole('region', { name: /paddington/i })).not.toBeInTheDocument() // no Title pane beside the grid
-
-    await userEvent.keyboard('j')
-    await userEvent.keyboard('{Enter}')
-    const panel = await screen.findByRole('complementary', { name: 'Heat summary' })
-    expect(await within(panel).findByRole('listitem', { name: 'Standard' })).toHaveTextContent('Wanted')
-    expect(within(panel).getByText('Not searched yet')).toBeInTheDocument()
-
-    await userEvent.click(within(panel).getByRole('button', { name: 'Open Title' }))
-    expect(await screen.findByRole('region', { name: 'Heat' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
-    expect(within(screen.getByRole('listbox', { name: 'Library' })).getAllByRole('option')).toHaveLength(3)
-
-    localStorage.removeItem('kestrel.library.view')
-  })
-
-  it('opens in the view last used', async () => {
-    localStorage.setItem('kestrel.library.view', 'grid')
-    fakeLibrary(rows())
-    await openLibrary()
-    expect(screen.getByRole('radio', { name: 'Grid' })).toBeChecked()
-    localStorage.removeItem('kestrel.library.view')
   })
 })

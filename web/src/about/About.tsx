@@ -38,127 +38,125 @@ export function About() {
   const a = about.data
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-6">
-      <div className="mx-auto flex max-w-3xl flex-col gap-4">
-        <Card title="Kestrel">
-          {a ? (
-            <div className="flex flex-col gap-1.5">
-              <Description layout="horizontal" termWidth="9.25rem" title="Version" content={<span className="copy-14-mono">{a.version}</span>} />
-              <Description layout="horizontal" termWidth="9.25rem" title="Licence" content={`${a.license} (GNU General Public License v3.0)`} />
-              <Description
-                layout="horizontal"
-                termWidth="9.25rem"
-                title="Docs"
-                content={
-                  <Link href={DOCS_URL} target="_blank" rel="noreferrer">
-                    Documentation
-                  </Link>
-                }
-              />
-              <Description
-                layout="horizontal"
-                termWidth="9.25rem"
-                title="TRaSH commit"
-                content={
-                  <span className="copy-14-mono" title="The TRaSH Guides commit whose Custom Formats and profiles score Releases now">
-                    {a.trash_commit ? a.trash_commit.slice(0, 7) : 'unknown'}
-                  </span>
-                }
-              />
-              <Description
-                layout="horizontal"
-                termWidth="9.25rem"
-                title="Updates"
-                content={
-                  a.update ? (
-                    <Link href={a.update.url} target="_blank" rel="noreferrer">
-                      Kestrel {a.update.version} available
-                    </Link>
-                  ) : a.check_github_updates ? (
-                    'Up to date'
-                  ) : (
-                    'The check is off (Settings, Updates)'
-                  )
-                }
-              />
-            </div>
-          ) : (
-            <LoadingRegion label="Loading the version">
-              <div aria-hidden className="flex flex-col gap-1.5">
-                {['Version', 'Licence', 'TRaSH commit', 'Updates'].map((term, i) => (
-                  <Description key={term} layout="horizontal" termWidth="9.25rem" title={term} content={<Skeleton width={`${30 + ((i * 15) % 30)}%`} height={20} />} />
-                ))}
-              </div>
-            </LoadingRegion>
-          )}
-        </Card>
-
-        <Card title="Attribution">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
-            <Link href="https://www.themoviedb.org" target="_blank" rel="noreferrer">
-              <img src={tmdbLogo} alt="TMDB" className="h-3.5 w-auto" />
-            </Link>
-          </div>
-          <p className="mt-2">
-            Metadata provided by TheTVDB. Please consider adding missing information or{' '}
-            <Link href="https://thetvdb.com" target="_blank" rel="noreferrer">
-              subscribing
-            </Link>
-            .
-          </p>
-          <p className="mt-2 text-gray-900">
-            Custom Formats and quality profiles come from the{' '}
-            <Link href="https://github.com/TRaSH-Guides/Guides" target="_blank" rel="noreferrer">
-              TRaSH Guides
-            </Link>
-            . Release parsing is ported from Radarr and Sonarr.
-          </p>
-        </Card>
-
-        <Card title="Keyboard shortcuts">
+    <div className="flex flex-col gap-4">
+      <Card title="Kestrel">
+        {a ? (
           <div className="flex flex-col gap-1.5">
-            {shortcuts.map(([keys, what]) => (
-              <Description
-                key={what}
-                layout="horizontal"
-                termWidth="6rem"
-                title={
-                  <span className="flex gap-1">
-                    {keys.keys.map((k, i) => (
-                      <KeyboardInput key={k} meta={keys.meta && i === 0}>
-                        {k}
-                      </KeyboardInput>
-                    ))}
-                  </span>
-                }
-                content={what}
-              />
-            ))}
+            <Description layout="horizontal" termWidth="9.25rem" title="Version" content={<span className="copy-14-mono">{a.version}</span>} />
+            <Description layout="horizontal" termWidth="9.25rem" title="Licence" content={`${a.license} (GNU General Public License v3.0)`} />
+            <Description
+              layout="horizontal"
+              termWidth="9.25rem"
+              title="Docs"
+              content={
+                <Link href={DOCS_URL} target="_blank" rel="noreferrer">
+                  Documentation
+                </Link>
+              }
+            />
+            <Description
+              layout="horizontal"
+              termWidth="9.25rem"
+              title="TRaSH commit"
+              content={
+                <span className="copy-14-mono" title="The TRaSH Guides commit whose Custom Formats and profiles score Releases now">
+                  {a.trash_commit ? a.trash_commit.slice(0, 7) : 'unknown'}
+                </span>
+              }
+            />
+            <Description
+              layout="horizontal"
+              termWidth="9.25rem"
+              title="Updates"
+              content={
+                a.update ? (
+                  <Link href={a.update.url} target="_blank" rel="noreferrer">
+                    Kestrel {a.update.version} available
+                  </Link>
+                ) : a.check_github_updates ? (
+                  'Up to date'
+                ) : (
+                  'The check is off (Settings, Updates)'
+                )
+              }
+            />
           </div>
-        </Card>
+        ) : (
+          <LoadingRegion label="Loading the version">
+            <div aria-hidden className="flex flex-col gap-1.5">
+              {['Version', 'Licence', 'TRaSH commit', 'Updates'].map((term, i) => (
+                <Description key={term} layout="horizontal" termWidth="9.25rem" title={term} content={<Skeleton width={`${30 + ((i * 15) % 30)}%`} height={20} />} />
+              ))}
+            </div>
+          </LoadingRegion>
+        )}
+      </Card>
 
-        <Card title="Third-party notices">
-          <p className="mb-2 text-gray-900">The ported Radarr and Sonarr code, TRaSH data and every dependency, with their licences.</p>
-          {showNotices ? (
-            notices.data !== undefined ? (
-              <Code block aria-label="Notices text">
-                {notices.data}
-              </Code>
-            ) : notices.isError ? (
-              <p className="text-gray-900">Could not load the notices.</p>
-            ) : (
-              <LoadingRegion label="Loading the notices">
-                <Skeleton height={192} />
-              </LoadingRegion>
-            )
+      <Card title="Attribution">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
+          <Link href="https://www.themoviedb.org" target="_blank" rel="noreferrer">
+            <img src={tmdbLogo} alt="TMDB" className="h-3.5 w-auto" />
+          </Link>
+        </div>
+        <p className="mt-2">
+          Metadata provided by TheTVDB. Please consider adding missing information or{' '}
+          <Link href="https://thetvdb.com" target="_blank" rel="noreferrer">
+            subscribing
+          </Link>
+          .
+        </p>
+        <p className="mt-2 text-gray-900">
+          Custom Formats and quality profiles come from the{' '}
+          <Link href="https://github.com/TRaSH-Guides/Guides" target="_blank" rel="noreferrer">
+            TRaSH Guides
+          </Link>
+          . Release parsing is ported from Radarr and Sonarr.
+        </p>
+      </Card>
+
+      <Card title="Keyboard shortcuts">
+        <div className="flex flex-col gap-1.5">
+          {shortcuts.map(([keys, what]) => (
+            <Description
+              key={what}
+              layout="horizontal"
+              termWidth="6rem"
+              title={
+                <span className="flex gap-1">
+                  {keys.keys.map((k, i) => (
+                    <KeyboardInput key={k} meta={keys.meta && i === 0}>
+                      {k}
+                    </KeyboardInput>
+                  ))}
+                </span>
+              }
+              content={what}
+            />
+          ))}
+        </div>
+      </Card>
+
+      <Card title="Third-party notices">
+        <p className="mb-2 text-gray-900">The ported Radarr and Sonarr code, TRaSH data and every dependency, with their licences.</p>
+        {showNotices ? (
+          notices.data !== undefined ? (
+            <Code block aria-label="Notices text">
+              {notices.data}
+            </Code>
+          ) : notices.isError ? (
+            <p className="text-gray-900">Could not load the notices.</p>
           ) : (
-            <Button size="small" onClick={() => setShowNotices(true)}>
-              Show notices
-            </Button>
-          )}
-        </Card>
-      </div>
+            <LoadingRegion label="Loading the notices">
+              <Skeleton height={192} />
+            </LoadingRegion>
+          )
+        ) : (
+          <Button size="small" onClick={() => setShowNotices(true)}>
+            Show notices
+          </Button>
+        )}
+      </Card>
     </div>
   )
 }

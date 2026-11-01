@@ -6,7 +6,8 @@
 import { mkdirSync } from 'node:fs'
 import { open, wait } from './lib.mjs'
 
-const settings = ['language', 'profiles', 'trash', 'metadata', 'download-client', 'indexers', 'grabs', 'root-folders', 'adoption', 'media-servers', 'plex', 'silo', 'account', 'updates', 'security', 'reverse-proxy', 'setup']
+// The Settings pages; an old section id (indexers, plex, security…) also opens its page.
+const settings = ['general', 'profiles', 'library', 'downloads', 'media-servers', 'account', 'access', 'about']
 const widths = [
   { w: 390, h: 844 },
   { w: 1440, h: 900 },
@@ -19,12 +20,32 @@ const screens = {
   library: '/library',
   'title-movie': { path: (ids) => `/library/${ids.movie}` },
   'title-series': { path: (ids) => `/library/${ids.series}` },
+  // A Movie with a Version downloading, which the Versions card and the Files row both show.
+  'title-movie-downloading': { path: (ids) => `/library/${ids.downloading ?? ids.movie}` },
   upcoming: '/upcoming',
   requests: '/requests',
   activity: '/activity',
+  health: '/health',
   log: '/log',
   ...Object.fromEntries(settings.map((s) => [`settings-${s}`, `/settings/${s}`])),
-  about: '/about',
+  // The Settings list (a phone's list of sections), a page with unsaved changes (the Save bar) and a Profile's sheet.
+  'settings-list': '/settings',
+  'settings-save-bar': {
+    path: '/settings/general',
+    prepare: async (h) => h.page.getByRole('combobox', { name: 'Season order' }).selectOption('newest_first'),
+  },
+  'settings-profile-sheet': {
+    path: '/settings/profiles',
+    prepare: async (h) => h.page.getByRole('button', { name: /^Edit / }).first().click(),
+  },
+  // The command menu with a query no Library Title matches, which leads with Add.
+  'menu-add': {
+    path: '/',
+    prepare: async (h) => {
+      await h.page.locator('[aria-label^="Search or add"]').locator('visible=true').first().click()
+      await h.page.keyboard.type('qqzxv')
+    },
+  },
   more: { path: '/', phoneOnly: true, prepare: async (h) => h.page.getByRole('button', { name: 'More' }).click() },
 }
 
@@ -51,7 +72,7 @@ let overflowed = 0
 try {
   const titles = await h.page.evaluate(async () => (await fetch('api/v1/titles')).json())
   const list = Array.isArray(titles) ? titles : (titles.titles ?? titles.items ?? [])
-  const ids = { movie: list.find((t) => t.kind === 'movie')?.id, series: list.find((t) => t.kind === 'series')?.id }
+  const ids = { movie: list.find((t) => t.kind === 'movie')?.id, series: list.find((t) => t.kind === 'series')?.id, downloading: list.find((t) => t.title === 'Paddington in Peru')?.id }
   if (!ids.movie || !ids.series) throw new Error('the demo has no Movie and Series Title; is it seeded (demo.sh start)?')
 
   for (const name of names.length ? names : Object.keys(screens)) {
@@ -61,7 +82,7 @@ try {
       if (s.phoneOnly && w > 390) continue
       await h.page.setViewportSize({ width: w, height: ht })
       await h.page.goto(h.base + (typeof s.path === 'function' ? s.path(ids) : s.path), { waitUntil: 'domcontentloaded' })
-      await h.page.locator('[aria-label="Search or run a command"]').first().waitFor()
+      await h.page.locator('[aria-label^="Search or add"]').first().waitFor()
       await wait(800)
       if (s.prepare) {
         await s.prepare(h)

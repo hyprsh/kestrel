@@ -1,71 +1,131 @@
 // chrome: domain-visual
-// The Agenda timeline's drawing: the vertical rail, a dot per day and per row, the sticky day heading with
-// today in the accent colour, the week label and the poster thumbnail beside a row. No component of the
-// design library draws a timeline (ADR 0017); everything else in Upcoming is design components and layout.
-import { Entity, Skeleton } from '@hyprsh/design'
+// The Agenda's drawing: per day, a date column (weekday, big number, how far away) beside one bordered card of that day's
+// rows; a muted line for the stretches with nothing; the week header with its four stat cards. Everything else in Upcoming is
+// design components and layout.
+import { Button, Skeleton } from '@hyprsh/design'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { ReactNode, Ref } from 'react'
 import { PosterSkeleton } from '../poster'
-import { cx } from '../ui'
+import { weekdayShort, type WeekStats } from './state'
 
-/** The Agenda: a list of days with the rail running down its left edge. */
-export function AgendaTimeline({ children }: { children: ReactNode }) {
+/** The Agenda: a list of day blocks and quiet lines, 14px apart (a phone's day sections, 4). */
+export function AgendaTimeline({ compact, children }: { compact: boolean; children: ReactNode }) {
   return (
-    <ul aria-label="Agenda" className="relative mt-2">
-      <span aria-hidden className="absolute top-0 bottom-0 left-3 w-px bg-gray-alpha-400" />
+    <ol aria-label="Agenda" className={compact ? 'flex flex-col' : 'flex flex-col gap-3.5'}>
+      {children}
+    </ol>
+  )
+}
+
+/** A day on a desktop: its date at the left, the card of its rows at the right. */
+export function DayBlock({ day, num, away, isToday, children, ...rest }: { day: string; num: number; away: string; isToday: boolean; children: ReactNode } & Record<`data-${string}`, string>) {
+  return (
+    <li className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-4" {...rest}>
+      <div aria-hidden className="flex flex-col items-start pt-2.5">
+        <span className={`label-12 font-semibold uppercase ${isToday ? 'text-gray-1000' : 'text-gray-900'}`}>{weekdayShort(day)}</span>
+        <span className="heading-24 tabular-nums">{num}</span>
+        <span className="label-12 text-gray-900">{away}</span>
+      </div>
+      <div className="min-w-0">{children}</div>
+    </li>
+  )
+}
+
+/** A phone's day section: the date and how far away it is over its rows. */
+export function PhoneDay({ heading, away, children, ...rest }: { heading: string; away: string; children: ReactNode } & Record<`data-${string}`, string>) {
+  return (
+    <li {...rest}>
+      <h2 className="label-13 px-4 pt-3 pb-1.5 font-semibold">
+        {heading} <span className="font-normal text-gray-900">{away}</span>
+      </h2>
+      {children}
+    </li>
+  )
+}
+
+/** The line for days with nothing: "Nothing on Tue 3, Fri 6 – Sun 8", under the date column on a desktop. */
+export function QuietLine({ text, compact, ...rest }: { text: string; compact: boolean } & Record<`data-${string}`, string>) {
+  return (
+    <li className={compact ? 'px-4 py-2' : 'grid grid-cols-[64px_minmax(0,1fr)] gap-x-4'} {...rest}>
+      {!compact && <span />}
+      <span className="label-13 px-0.5 py-1 text-gray-900">{text}</span>
+    </li>
+  )
+}
+
+/**
+ * The end of the Agenda that loads more: a row that says so while a chunk loads, or that nothing lies beyond; otherwise
+ * an empty strip that `edgeRef` watches, so the next chunk loads before the reader gets there.
+ */
+export function AgendaEdge({ edgeRef, loading, end, loadingText, endText }: { edgeRef: Ref<HTMLDivElement>; loading: boolean; end: boolean; loadingText: string; endText: string }) {
+  return (
+    <div ref={edgeRef} role="status" className="label-13 flex min-h-8 items-center justify-center text-gray-900">
+      {loading ? loadingText : end ? endText : null}
+    </div>
+  )
+}
+
+/** The bordered card that holds one day's rows. */
+export function DayCard({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <ul aria-label={label} className="overflow-hidden rounded-md shadow-border">
       {children}
     </ul>
   )
 }
 
-/** The uppercase week label that opens a week on the rail. */
-export function WeekLabel({ week }: { week: string }) {
+/** The week header: "This week", its dates and ‹ Today › on one line, the four stat cards under it. */
+export function WeekHeader({ title, range, stats, onPrev, onToday, onNext }: { title: string; range: string; stats: WeekStats; onPrev: () => void; onToday: () => void; onNext: () => void }) {
   return (
-    <li role="presentation" className="label-12 relative pt-4 pb-1 pl-9 font-medium tracking-wide text-gray-900 uppercase">
-      {week}
+    <section aria-label="Week" className="flex flex-col gap-2.5 px-8 pt-6 pb-3">
+      <div className="flex items-baseline gap-3">
+        <h2 className="heading-20">{title}</h2>
+        <span className="label-14 text-gray-900">{range}</span>
+        <span className="flex-1" />
+        <Button variant="tertiary" size="small" svgOnly aria-label="Previous week" onClick={onPrev}>
+          <ChevronLeft />
+        </Button>
+        <Button variant="secondary" size="small" onClick={onToday}>
+          Today
+        </Button>
+        <Button variant="tertiary" size="small" svgOnly aria-label="Next week" onClick={onNext}>
+          <ChevronRight />
+        </Button>
+      </div>
+      <ul aria-label="The week in numbers" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat n={stats.episodes} label={stats.episodes === 1 ? 'episode airing' : 'episodes airing'} />
+        <Stat n={stats.movies} label={stats.movies === 1 ? 'Movie released' : 'Movies released'} />
+        <Stat n={stats.searching} label="searched when out" tone="text-amber-900" />
+        <Stat n={stats.imported} label="already in the Library" tone="text-green-900" />
+      </ul>
+    </section>
+  )
+}
+
+function Stat({ n, label, tone = '' }: { n: number; label: string; tone?: string }) {
+  return (
+    <li className="flex min-w-0 flex-col gap-0.5 rounded-md px-4 py-3 shadow-border">
+      <span className={`heading-24 tabular-nums ${tone}`}>{n}</span>
+      <span className="label-13 text-gray-900">{label}</span>
     </li>
   )
 }
 
-/** A day's sticky heading with its dot on the rail; today is drawn in the accent colour with a rule after it. */
-export function DayHeading({ label, date, isToday, headingRef }: { label: string; date: string; isToday: boolean; headingRef?: Ref<HTMLHeadingElement> }) {
-  return (
-    <h3
-      ref={headingRef}
-      aria-current={isToday ? 'date' : undefined}
-      className={cx('sticky top-0 z-10 flex items-center gap-2 bg-background-100 py-1.5 pl-9 label-14 font-medium', isToday && 'text-accent-900')}
-    >
-      <span aria-hidden className={cx('absolute top-1/2 left-[7px] -translate-y-1/2 rounded-full', isToday ? 'size-3 bg-accent-700 ring-4 ring-accent-700/20' : 'size-2 bg-gray-600')} />
-      {label}
-      {label !== date && <span className="label-12 font-normal text-gray-900">{date}</span>}
-      {isToday && <span aria-hidden className="h-px flex-1 bg-accent-700/50" />}
-    </h3>
-  )
-}
-
-/** The rail's dot for a row: a child of the row's Entity, drawn left of the day card (the list lets it overflow). */
-export function RowDot() {
-  return <span aria-hidden className="absolute top-5 -left-7 size-2 rounded-full bg-gray-600 ring-4 ring-background-100" />
-}
-
-/** The Agenda while Upcoming loads: three days on the rail, each with a heading and a row or two. */
+/** The Agenda while Upcoming loads: three days, each with a date and a row or two. */
 export function TimelineSkeleton() {
   return (
     <div aria-busy="true">
-      <AgendaTimeline>
+      <AgendaTimeline compact={false}>
         {[2, 1, 2].map((rows, d) => (
-          <li key={d} aria-hidden className="relative">
-            <div className="flex items-center gap-2 py-1.5 pl-9">
-              <span className="absolute top-3.5 left-[7px] size-2 rounded-full bg-gray-600" />
-              <Skeleton width={96} height={16} />
-            </div>
-            <div className="pr-3 pb-2 pl-9">
-              <Entity.List className="@container overflow-visible">
-                {Array.from({ length: rows }, (_, i) => (
-                  <Entity key={i} left={<PosterSkeleton size="sm" />}>
-                    <Entity.Content fill title={<Skeleton width={`${45 + (((i + d) * 15) % 30)}%`} height={16} />} description={<Skeleton width="30%" height={14} />} />
-                  </Entity>
-                ))}
-              </Entity.List>
+          <li key={d} aria-hidden className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-4">
+            <Skeleton width={40} height={48} />
+            <div className="overflow-hidden rounded-md shadow-border">
+              {Array.from({ length: rows }, (_, i) => (
+                <div key={i} className="flex items-center gap-3 px-3.5 py-2.5">
+                  <PosterSkeleton size="sm" />
+                  <Skeleton width={`${45 + (((i + d) * 15) % 30)}%`} height={16} />
+                </div>
+              ))}
             </div>
           </li>
         ))}

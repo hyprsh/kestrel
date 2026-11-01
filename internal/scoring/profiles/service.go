@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
+	"strings"
 
 	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/scoring"
@@ -67,10 +69,17 @@ type Patch struct {
 	OriginalChoice *scoring.OriginalChoice
 	DefaultMovies  *bool
 	DefaultSeries  *bool
+	// Name renames a custom Profile; a builtin one keeps its name.
+	Name *string
+	// Overlay replaces everything the household set on top of TRaSH (ADR 0023).
+	Overlay *scoring.Overlay
 }
 
 // ErrNotFound is returned for a Profile key that does not exist.
 var ErrNotFound = errors.New("profile not found")
+
+// ErrInUse is returned when deleting a Profile that Versions still use.
+var ErrInUse = errors.New("profile is in use")
 
 // ValidationError is a rejected write. Field is an API field name.
 type ValidationError struct {
@@ -100,12 +109,13 @@ type Service struct {
 	settings *settings.Settings
 	tx       *sql.Tx // set by InTx: writes join the caller's transaction
 	live     *scoring.Holder
+	cutoffs  *cutoffCache // BelowCutoff's last answer; shared by the Service and what InTx makes of it
 }
 
 // InTx returns a Service whose settings and Profile writes run inside tx; the
 // caller commits or rolls back.
 func (s *Service) InTx(tx *sql.Tx) *Service {
-	return &Service{st: s.st, settings: s.settings.InTx(tx), tx: tx, live: s.live}
+	return &Service{st: s.st, settings: s.settings.InTx(tx), tx: tx, live: s.live, cutoffs: s.cutoffs}
 }
 
 // UseScoring makes the Service back Profiles with the live TRaSH snapshot
@@ -114,7 +124,7 @@ func (s *Service) UseScoring(h *scoring.Holder) { s.live = h }
 
 // New returns a Service over st. settings holds the language document.
 func New(st *store.Store, s *settings.Settings) *Service {
-	return &Service{st: st, settings: s}
+	return &Service{st: st, settings: s, cutoffs: &cutoffCache{}}
 }
 
 func fromRow(r db.Profile) (Profile, error) {
@@ -126,13 +136,76 @@ func fromRow(r db.Profile) (Profile, error) {
 	if !sl.Contains(int(r.MinHeight), int(r.MaxHeight)) {
 		return Profile{}, fmt.Errorf("profiles: %s has heights %d-%d outside its %v Slot", r.Key, r.MinHeight, r.MaxHeight, sl)
 	}
+	series, err := prefsOf(r.SeriesQualities)
+	if err != nil {
+		return Profile{}, fmt.Errorf("profiles: %s series_qualities: %w", r.Key, err)
+	}
+	movies, err := prefsOf(r.MovieQualities)
+	if err != nil {
+		return Profile{}, fmt.Errorf("profiles: %s movie_qualities: %w", r.Key, err)
+	}
 	return Profile{
 		Key: r.Key, Name: r.Name, Slot: sl, Any: r.Any == 1, Rule: rule,
 		MinHeight: int(r.MinHeight), MaxHeight: int(r.MaxHeight),
 		Enabled: r.Enabled == 1, OriginalChoice: scoring.OriginalChoice(r.OriginalLanguage),
 		DefaultMovies: r.DefaultMovies == 1, DefaultSeries: r.DefaultSeries == 1,
 		TrashMovies: r.TrashProfileMovies, TrashSeries: r.TrashProfileSeries,
+		Custom: r.Custom == 1,
+		Overlay: scoring.Overlay{
+			MinScore: intOf(r.MinScore), UpgradeUntil: intOf(r.UpgradeUntil),
+			Series:      scoring.KindOverlay{Qualities: series, Cutoff: r.SeriesCutoff.String},
+			Movies:      scoring.KindOverlay{Qualities: movies, Cutoff: r.MovieCutoff.String},
+			EpisodeSize: scoring.SizeLimit{Min: r.EpisodeMinSize.Int64, Max: r.EpisodeMaxSize.Int64},
+			MovieSize:   scoring.SizeLimit{Min: r.MovieMinSize.Int64, Max: r.MovieMaxSize.Int64},
+		},
 	}, nil
+}
+
+func prefsOf(raw sql.NullString) ([]scoring.QualityPref, error) {
+	if !raw.Valid || raw.String == "" {
+		return nil, nil
+	}
+	var out []scoring.QualityPref
+	return out, json.Unmarshal([]byte(raw.String), &out)
+}
+
+func intOf(n sql.NullInt64) *int {
+	if !n.Valid {
+		return nil
+	}
+	v := int(n.Int64)
+	return &v
+}
+
+func nullInt(v *int) sql.NullInt64 {
+	if v == nil {
+		return sql.NullInt64{}
+	}
+	return sql.NullInt64{Int64: int64(*v), Valid: true}
+}
+
+// nullBytes stores a size bound; 0 is no bound and stored as NULL.
+func nullBytes(v int64) sql.NullInt64 { return sql.NullInt64{Int64: v, Valid: v > 0} }
+
+func nullText(v string) sql.NullString { return sql.NullString{String: v, Valid: v != ""} }
+
+func nullPrefs(prefs []scoring.QualityPref) sql.NullString {
+	if len(prefs) == 0 {
+		return sql.NullString{}
+	}
+	raw, _ := json.Marshal(prefs)
+	return sql.NullString{String: string(raw), Valid: true}
+}
+
+func overlayParams(key string, o scoring.Overlay) db.SetProfileOverlayParams {
+	return db.SetProfileOverlayParams{
+		SeriesQualities: nullPrefs(o.Series.Qualities), MovieQualities: nullPrefs(o.Movies.Qualities),
+		SeriesCutoff: nullText(o.Series.Cutoff), MovieCutoff: nullText(o.Movies.Cutoff),
+		UpgradeUntil: nullInt(o.UpgradeUntil), MinScore: nullInt(o.MinScore),
+		MovieMinSize: nullBytes(o.MovieSize.Min), MovieMaxSize: nullBytes(o.MovieSize.Max),
+		EpisodeMinSize: nullBytes(o.EpisodeSize.Min), EpisodeMaxSize: nullBytes(o.EpisodeSize.Max),
+		Key: key,
+	}
 }
 
 // List returns the six Profiles in display order.
@@ -186,6 +259,7 @@ func b2i(b bool) int64 {
 // or disabling it is refused until another Standard Profile is the default; a
 // disabled Profile is no default, and disabling clears its flags.
 func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, error) {
+	sets := func(b *bool) bool { return b != nil && *b }
 	var out Profile
 	err := s.write(ctx, func(q *db.Queries) error {
 		rows, err := q.ListProfiles(ctx)
@@ -218,8 +292,40 @@ func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, erro
 		if p.DefaultSeries != nil {
 			next.DefaultSeries = *p.DefaultSeries
 		}
+		if cur.Custom && (sets(p.DefaultMovies) || sets(p.DefaultSeries)) {
+			field := "default_movies"
+			if !sets(p.DefaultMovies) {
+				field = "default_series"
+			}
+			return invalid(field, "A custom Profile cannot be a default: the defaults are the builtin Profiles")
+		}
+		if p.Name != nil {
+			name := strings.TrimSpace(*p.Name)
+			if !cur.Custom {
+				if name != cur.Name {
+					return invalid("name", "Only a custom Profile can be renamed")
+				}
+			} else if name != cur.Name {
+				if err := checkName(name, key, rows); err != nil {
+					return err
+				}
+				if err := q.SetProfileName(ctx, db.SetProfileNameParams{Name: name, Key: key}); err != nil {
+					return err
+				}
+				next.Name = name
+			}
+		}
+		if p.Overlay != nil {
+			ov, err := s.checkOverlay(ctx, next, *p.Overlay)
+			if err != nil {
+				return err
+			}
+			if err := q.SetProfileOverlay(ctx, overlayParams(key, ov)); err != nil {
+				return err
+			}
+			next.Overlay = ov
+		}
 		// Disabling clears the flags, unless the patch itself sets one on a disabled Profile.
-		sets := func(b *bool) bool { return b != nil && *b }
 		own := State{Enabled: next.Enabled, OriginalChoice: next.OriginalChoice, DefaultMovies: sets(p.DefaultMovies), DefaultSeries: sets(p.DefaultSeries)}
 		if err := checkOwn(next.Rule, own, ""); err != nil {
 			return err
@@ -419,4 +525,121 @@ func (s *Service) SetRegion(ctx context.Context, p RegionPatch) (Region, error) 
 		return Region{}, err
 	}
 	return next, nil
+}
+
+const maxNameLength = 40
+
+// checkName applies the rules for the name of a custom Profile: some text, not too long, unique among all Profiles.
+func checkName(name, key string, rows []db.Profile) error {
+	switch {
+	case name == "":
+		return invalid("name", "Give the Profile a name")
+	case len([]rune(name)) > maxNameLength:
+		return invalid("name", fmt.Sprintf("A name is at most %d characters", maxNameLength))
+	}
+	for _, r := range rows {
+		if r.Key != key && strings.EqualFold(r.Name, name) {
+			return invalid("name", "Another Profile has that name")
+		}
+	}
+	return nil
+}
+
+func (s *Service) snapshot() (*scoring.Snapshot, error) {
+	if s.live != nil {
+		return s.live.Current(), nil
+	}
+	return scoring.Embedded()
+}
+
+// resolve resolves a Profile under the Primary Language against the active snapshot, with its overlay or with the
+// given one.
+func (s *Service) resolve(ctx context.Context, p Profile, overlay *scoring.Overlay) (*scoring.Profile, error) {
+	region, _, err := s.Region(ctx)
+	if err != nil {
+		return nil, err
+	}
+	snap, err := s.snapshot()
+	if err != nil {
+		return nil, err
+	}
+	spec := p.Spec(region.Primary.Release())
+	spec.Overlay = overlay
+	return snap.Profile(spec)
+}
+
+// Resolve is the Profile as scoring sees it under the active snapshot and the Primary Language.
+func (s *Service) Resolve(ctx context.Context, p Profile) (*scoring.Profile, error) {
+	return s.resolve(ctx, p, p.overlay())
+}
+
+// checkOverlay applies the rules for what is set on a Profile and returns it normalised: a quality list that is
+// TRaSH's own is dropped, and a cutoff must be one of the accepted qualities.
+func (s *Service) checkOverlay(ctx context.Context, p Profile, o scoring.Overlay) (scoring.Overlay, error) {
+	if o.EpisodeSize.Min < 0 || o.EpisodeSize.Max < 0 || o.MovieSize.Min < 0 || o.MovieSize.Max < 0 {
+		return o, invalid("overlay.sizes", "A size cannot be negative")
+	}
+	for _, l := range []struct {
+		field string
+		lim   scoring.SizeLimit
+	}{{"overlay.episode_size", o.EpisodeSize}, {"overlay.movie_size", o.MovieSize}} {
+		if l.lim.Min > 0 && l.lim.Max > 0 && l.lim.Min > l.lim.Max {
+			return o, invalid(l.field, "The smallest size is above the largest")
+		}
+	}
+	trash, err := s.resolve(ctx, p, nil)
+	if err != nil {
+		return o, err
+	}
+	for _, k := range []struct {
+		field string
+		kind  release.Kind
+		ko    *scoring.KindOverlay
+	}{{"overlay.series", release.KindSeries, &o.Series}, {"overlay.movies", release.KindMovie, &o.Movies}} {
+		base := trash.TrashLadder(k.kind)
+		known := map[string]bool{}
+		for _, q := range base {
+			known[q.Name] = true
+		}
+		seen := map[string]bool{}
+		for _, q := range k.ko.Qualities {
+			switch {
+			case !known[q.Name]:
+				return o, invalid(k.field+".qualities", "Unknown quality "+q.Name)
+			case seen[q.Name]:
+				return o, invalid(k.field+".qualities", q.Name+" is listed twice")
+			}
+			seen[q.Name] = true
+		}
+		if len(k.ko.Qualities) > 0 {
+			if !slices.ContainsFunc(k.ko.Qualities, func(q scoring.QualityPref) bool { return q.Accepted }) {
+				return o, invalid(k.field+".qualities", "Accept at least one quality")
+			}
+			// Qualities the list leaves out are TRaSH's, so the list that is TRaSH's own changes nothing.
+			if full := fill(k.ko.Qualities, base); slices.Equal(full, base) {
+				k.ko.Qualities = nil
+			}
+		}
+		if k.ko.Cutoff != "" {
+			ladder := base
+			if len(k.ko.Qualities) > 0 {
+				ladder = fill(k.ko.Qualities, base)
+			}
+			if !slices.ContainsFunc(ladder, func(q scoring.QualityPref) bool { return q.Name == k.ko.Cutoff && q.Accepted }) {
+				return o, invalid(k.field+".cutoff", k.ko.Cutoff+" is not one of the accepted qualities")
+			}
+		}
+	}
+	return o, nil
+}
+
+// fill is prefs followed by the qualities of base that prefs leave out, as TRaSH has them.
+func fill(prefs, base []scoring.QualityPref) []scoring.QualityPref {
+	out := slices.Clone(prefs)
+	for _, q := range base {
+		if !slices.ContainsFunc(prefs, func(x scoring.QualityPref) bool { return x.Name == q.Name }) {
+			out = append(out, q)
+		}
+	}
+	return out
 }

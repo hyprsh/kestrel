@@ -1,32 +1,21 @@
-// The Originals available group of Needs attention: one row per Version whose Profile offers a
+// The Originals available group of Happening now: one row per Version whose Profile offers a
 // Release with the Title's Original Language only, with Accept and Dismiss and a link to the Title.
-import { Button, Collapse, Entity, Link } from '@hyprsh/design'
-import { RowList, stackedRow, stackedRight } from '../layout/RowList'
-import { useState } from 'react'
+import { Button, Entity, Link } from '@hyprsh/design'
+import { stackedRow, stackedRight } from '../layout/RowList'
 import { offerUnits, useAcceptOffer, useDismissOffer, type OriginalOffer, type OriginalsAvailable } from '../api/offers'
 import { TitlePoster } from '../poster'
 import { useReport } from '../toasts'
 import { profileName, slotProfile, useProfileNames } from '../library/slotProfile'
 
-/**
- * Like Long Missing, one grouped row after the others and outside the rail
- * badge. It expands to one row per Version, best Release first.
- */
-export function OriginalsRow({ group, onOpenTitle }: { group: OriginalsAvailable; onOpenTitle: (id: number) => void }) {
-  const [open, setOpen] = useState(false)
+/** One row per Version whose Profile offers the Original Language, for the card that holds them. */
+export function Offers({ group, onOpenTitle }: { group: OriginalsAvailable; onOpenTitle: (id: number) => void }) {
   const names = useProfileNames()
   return (
-    <div data-originals className="mt-3">
-      <Collapse size="small" headingLevel={4} expanded={open} onChange={setOpen} title={`Originals available · ${group.count}`}>
-        {open && (
-          <RowList>
-            {group.items.map((o) => (
-              <Offer key={o.version_id} offer={o} slotProfile={slotProfile(o.slot, profileName(names, o.profile))} onOpenTitle={onOpenTitle} />
-            ))}
-          </RowList>
-        )}
-      </Collapse>
-    </div>
+    <>
+      {group.items.map((o) => (
+        <Offer key={o.version_id} offer={o} slotProfile={slotProfile(o.slot, profileName(names, o.profile))} onOpenTitle={onOpenTitle} />
+      ))}
+    </>
   )
 }
 

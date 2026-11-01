@@ -5,6 +5,7 @@ import { useEffect, useReducer, useRef } from 'react'
 import { useActivity } from '../api/activity'
 import { useSearchStatus } from '../api/search'
 import { jobWords } from './jobNames'
+import { nowParts } from './SearchProgress'
 
 /** One piece of background work: `name` for a list, `short` for the top bar. */
 export type Running = {
@@ -12,6 +13,9 @@ export type Running = {
   name: string
   short: string
   progress?: { done: number; total: number }
+  /** A search pass: the Releases checked so far, and what is searched now ("Now: Breaking Bad · S05 · 12 releases"). */
+  releases?: number
+  now?: string
   /** When the work started, in ms, when the server says. */
   since?: number
 }
@@ -30,7 +34,13 @@ export function useRunningNow(): Running[] {
     short: jobWords(name).short,
     since: started.get(name),
     // The search pass counts the Versions it has got through (the `search` frame).
-    ...(name === 'search' && pass ? { progress: { done: pass.done, total: pass.total } } : {}),
+    ...(name === 'search' && pass
+      ? {
+          progress: { done: pass.done, total: pass.total },
+          releases: pass.releases_seen,
+          ...(pass.current ? { now: `Now: ${nowParts(pass.current).join(' · ')}` } : {}),
+        }
+      : {}),
   }))
   const adoption = activity?.adoption
   if (adoption) {

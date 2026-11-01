@@ -19,7 +19,7 @@ describe('Activity shows a Stuck download', () => {
     fakeQueue([queueItem({ grab_id: 1, phase: 'downloading', stuck: { reason: 'no_progress', since: minutesAgo(80) } }), queueItem({ grab_id: 2, phase: 'downloading', release_name: 'Fine-GRP' })])
     await openActivity()
 
-    const region = await screen.findByRole('region', { name: 'Downloading · 2' })
+    const region = await screen.findByRole('region', { name: 'In progress' })
     const [stuck, fine] = within(region).getAllByRole('listitem')
 
     expect(stuck).toHaveTextContent('Stuck: no progress for 1 h 20 min')
@@ -31,7 +31,7 @@ describe('Activity shows a Stuck download', () => {
     fakeQueue([queueItem({ grab_id: 1, phase: 'paused', stuck: { reason: 'paused', since: minutesAgo(5) } })])
     await openActivity()
 
-    const [row] = within(await screen.findByRole('region', { name: /^Queued/ })).getAllByRole('listitem')
+    const [row] = within(await screen.findByRole('region', { name: 'In progress' })).getAllByRole('listitem')
 
     expect(row).toHaveTextContent('Stuck: paused in the download client')
   })

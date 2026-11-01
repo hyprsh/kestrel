@@ -30,6 +30,7 @@ var rejectionMessages = map[scoring.Rejection]string{
 	acquire.RejectOtherSlot:               "Fits another Slot",
 	acquire.RejectEpisodeNotListed:        "Names an episode TheTVDB does not list yet",
 	acquire.RejectSeasonNotListed:         "Names a season TheTVDB does not list",
+	scoring.RejectSize:                    "Outside the size limit",
 	scoring.RejectOriginalOnly:            "Only in the Title's Original Language: the Profile offers it instead of grabbing it",
 }
 
@@ -38,6 +39,21 @@ func rejectionMessage(r scoring.Rejection) string {
 		return m
 	}
 	return string(r)
+}
+
+// sizeMessage says which side of the Profile's size limit a Release is on, by its size per Movie or per episode.
+func sizeMessage(f acquire.Found) string {
+	units := 1
+	if f.PerEpisode {
+		units = len(f.Episodes)
+		if f.Pack {
+			units = len(f.Covers)
+		}
+	}
+	if units > 0 && f.SizeLimit.Min > 0 && f.Size/int64(units) < f.SizeLimit.Min {
+		return "Under the size limit"
+	}
+	return "Over the size limit"
 }
 
 func (s *server) searchTimeout() time.Duration {
@@ -68,7 +84,10 @@ func (s *server) SearchVersionReleases(ctx context.Context, r oapi.SearchVersion
 	if err != nil {
 		return nil, err
 	}
-	out := oapi.ReleaseList{Items: make([]oapi.Release, 0, len(res.Items)), IndexerErrors: make([]oapi.IndexerError, 0, len(res.Failures))}
+	out := oapi.ReleaseList{
+		Items: make([]oapi.Release, 0, len(res.Items)), IndexerErrors: make([]oapi.IndexerError, 0, len(res.Failures)),
+		SearchedAt: res.SearchedAt, IndexersSearched: res.Indexers, Wanted: res.Wanted,
+	}
 	for _, f := range res.Items {
 		rel := oapi.Release{
 			ReleaseId: f.ID, Name: f.Name, Indexer: f.Indexer, Size: f.Size, PublishedAt: f.PublishedAt, Quality: f.Quality,
@@ -86,11 +105,49 @@ func (s *server) SearchVersionReleases(ctx context.Context, r oapi.SearchVersion
 				rel.EpisodeTitles = &names
 			}
 		}
+		rel.VideoCodec, rel.Hdr, rel.AudioCodec, rel.AudioChannels = strPtr(f.VideoCodec), strPtr(f.HDR), strPtr(f.AudioCodec), strPtr(f.AudioChannels)
+		if f.Group != "" {
+			group := f.Group
+			rel.Group = &group
+		}
+		if f.InfoURL != "" {
+			url := f.InfoURL
+			rel.InfoUrl = &url
+		}
+		if f.SizeLimit.Any() {
+			lim := oapi.ReleaseSizeLimit{PerEpisode: f.PerEpisode}
+			if f.SizeLimit.Min > 0 {
+				lim.Min = &f.SizeLimit.Min
+			}
+			if f.SizeLimit.Max > 0 {
+				lim.Max = &f.SizeLimit.Max
+			}
+			rel.SizeLimit = &lim
+		}
+		if f.Grabs > 0 {
+			grabs := f.Grabs
+			rel.Grabs = &grabs
+		}
+		if len(f.Covers) > 0 {
+			covers := make([]oapi.ReleaseCover, len(f.Covers))
+			for i, c := range f.Covers {
+				covers[i] = oapi.ReleaseCover{State: oapi.ReleaseCoverState(c.State), FileScore: c.FileScore}
+				if !c.Whole {
+					season, episode := c.Season, c.Episode
+					covers[i].Season, covers[i].Episode = &season, &episode
+				}
+			}
+			rel.Covers = &covers
+		}
 		for _, cf := range f.Formats {
 			rel.CustomFormats = append(rel.CustomFormats, oapi.CustomFormatMatch{Name: cf.Name, Points: cf.Score})
 		}
 		for _, rj := range f.Rejections {
-			rel.Rejections = append(rel.Rejections, oapi.Rejection{Code: oapi.RejectionCode(rj.Code), Message: rejectionMessage(rj.Code), Overridable: rj.Overridable})
+			msg := rejectionMessage(rj.Code)
+			if rj.Code == scoring.RejectSize {
+				msg = sizeMessage(f)
+			}
+			rel.Rejections = append(rel.Rejections, oapi.Rejection{Code: oapi.RejectionCode(rj.Code), Message: msg, Overridable: rj.Overridable})
 		}
 		out.Items = append(out.Items, rel)
 	}

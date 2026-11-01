@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
@@ -113,10 +113,9 @@ describe('Needs attention', () => {
     fakeAttention([])
     renderApp()
 
-    const section = await sectionOf(/needs attention/i)
-
-    expect(await within(section).findByText(/nothing needs attention/i)).toBeInTheDocument()
-    expect(within(section).queryByRole('listitem')).not.toBeInTheDocument()
+    // Nothing to attend to, so there is no such section at all.
+    await screen.findByText('Nothing downloading')
+    expect(screen.queryByRole('region', { name: /needs attention/i })).not.toBeInTheDocument()
   })
 
   it('shows five rows with the count in the heading, and expands in place to the rest', async () => {
@@ -274,7 +273,7 @@ describe('Needs attention', () => {
     const section = await sectionOf(/needs attention/i)
     await userEvent.click(await within(section).findByRole('button', { name: 'Dismiss' }))
 
-    expect(await within(section).findByText(/nothing needs attention/i)).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('region', { name: /needs attention/i })).not.toBeInTheDocument())
     expect(state.calls).toEqual(['POST dismiss health-2'])
   })
 
@@ -304,7 +303,7 @@ describe('Needs attention', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Dismiss' }))
 
     await vi.waitFor(() => expect(state.calls).toEqual(['POST dismiss health-2']))
-    expect(await screen.findByText(/nothing needs attention/i)).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('region', { name: /needs attention/i })).not.toBeInTheDocument())
   })
 
   it('counts the rows on the rail, red while any is Blocking', async () => {
@@ -349,8 +348,8 @@ describe('Needs attention posters', () => {
     server.use(http.get('/attention', () => new Promise(() => {})))
     renderApp()
 
-    const section = await sectionOf(/needs attention/i)
-    expect(section.querySelectorAll('[style*="width: 32px"][style*="height: 48px"]')).toHaveLength(3)
+    const section = await sectionOf(/downloading/i)
+    expect(section.querySelectorAll('[style*="width: 28px"][style*="height: 40px"]')).toHaveLength(3)
   })
 
   it('leaves a row that is not about a Title as it was', async () => {

@@ -1,8 +1,10 @@
 // The filter field of a list screen with a dropdown per qualifier that has a `label`, GitHub-style.
 // The query text is the only state: the menus read their rows off it and write back to it. On a
 // phone they flow onto rows under the field.
-import { QueryBar, type FilterMenuItemProps } from '@hyprsh/design'
+import { Button, Kbd, QueryBar, type FilterMenuItemProps } from '@hyprsh/design'
+import { X } from 'lucide-react'
 import type { KeyboardEvent, ReactNode } from 'react'
+import { usePhone } from '../responsive'
 import type { Facet } from './qualifiers'
 
 const rowsOf = (q: Facet, suffix?: (name: string, value: string) => ReactNode): FilterMenuItemProps[] =>
@@ -38,6 +40,10 @@ export function FilterBar({
   menus?: boolean
 }) {
   const menus = qualifiers.filter((q) => q.label)
+  const phone = usePhone()
+  // A placeholder ending in "  /" names the key that focuses the field: it shows as a key cap in the field's end while it is empty.
+  const hinted = placeholder?.endsWith('  /') ?? false
+  const hint = hinted ? placeholder!.slice(0, -3) : placeholder
 
   const items = menus.map((q) =>
     q.single ? (
@@ -47,18 +53,48 @@ export function FilterBar({
     ),
   )
 
+  // The × at the field's right edge while it has text: it clears the whole query and keeps focus in the field. The design's
+  // QueryInput types no `suffix`, but hands it on to its Input, which draws it inside the field.
+  const clear =
+    value !== '' ? (
+      <Button
+        svgOnly
+        size="tiny"
+        variant="tertiary"
+        type="button"
+        aria-label="Clear filter"
+        title="Clear filter"
+        onClick={() => {
+          onChange('')
+          document.getElementById(id)?.focus()
+        }}
+      >
+        <X />
+      </Button>
+    ) : hinted && !phone ? (
+      <Kbd small aria-hidden>
+        /
+      </Kbd>
+    ) : undefined
+
   return (
     <QueryBar
       id={id}
       aria-label={label}
-      size="small"
-      placeholder={placeholder}
+      size={phone ? 'large' : 'small'}
+      placeholder={hint}
       value={value}
       onChange={onChange}
       qualifiers={qualifiers}
+      {...{ suffix: clear, suffixStyling: false }}
       onKeyDown={(e) => {
         onKeyDown?.(e)
-        if (!e.defaultPrevented && (e.key === 'Escape' || e.key === 'Enter')) e.currentTarget.blur()
+        if (e.defaultPrevented) return
+        // Escape clears a field with text and stays in it; in an empty one it leaves the field, as before.
+        if (e.key === 'Escape' && value !== '') {
+          e.preventDefault()
+          onChange('')
+        } else if (e.key === 'Escape' || e.key === 'Enter') e.currentTarget.blur()
       }}
     >
       {showMenus && items}

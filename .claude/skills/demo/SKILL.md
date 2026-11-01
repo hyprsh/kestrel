@@ -11,7 +11,7 @@ Keep every binary, scenario and screenshot in your scratchpad (`$S` below). Run 
 
 1. **Set up.** `npm ci --prefix scripts/demo`. The browser is an installed Google Chrome, `$DEMO_CHROME`, or Playwright's Chromium after `npx --prefix scripts/demo playwright-core install chromium`. Done when `scripts/demo/node_modules/playwright-core` exists.
 
-2. **Build the pair of binaries.** `scripts/demo/demo.sh build origin/main $S/kestrel-before`, then `scripts/demo/demo.sh build . $S/kestrel-after` for the working tree as it is (or name the PR's ref). A ref without the provider URLs (`git grep -q KESTREL_TMDB_API_URL <ref> -- internal/config` fails) reaches the real TMDB and shows an empty Library. Done when both binaries exist.
+2. **Build the pair of binaries.** `scripts/demo/demo.sh build origin/main $S/kestrel-before`, then `scripts/demo/demo.sh build . $S/kestrel-after` for the working tree as it is (or name the PR's ref). A ref without the provider URLs (`git grep -q KESTREL_TMDB_API_URL <ref> -- internal/config` fails) reaches the real TMDB and shows an empty Library. `build .` reuses `web/node_modules` and runs `npm ci` there only when it is missing or older than `package-lock.json` (so it does not break a dev server or tests that are using it); a ref is built from a temporary copy with its own `npm ci`. Done when both binaries exist.
 
 3. **Plan the shots.** List every user-visible change of the PR and the screen that shows it. Each change gets a before/after pair, named `NN-<what>-before.png` and `NN-<what>-after.png`; new UI with nothing to compare gets an after shot alone. Done when every change has a named shot and you know which seeded data shows it (see [Demo data](#demo-data)).
 
@@ -44,14 +44,14 @@ Keep every binary, scenario and screenshot in your scratchpad (`$S` below). Run 
 
      | Before | After |
      |---|---|
-     | ![Series page before](<url of 01-series-before.png>) | ![Series page with coverage lines](<url of 01-series-after.png>) |
+     | ![Series page before](<url of 01-series-before.png>) | ![Series page with coverage bars in the Versions card](<url of 01-series-after.png>) |
    ```
 
    Done when `gh pr view <PR>` shows every planned shot linked.
 
 ## Sweep
 
-`node scripts/demo/sweep.mjs <out dir> [screen…] [--dark]` shoots every screen of a running demo at 390x844 and 1440x900 (`<screen>-390.png`, `<screen>-1440.png`, `-dark` variants with `--dark`) and prints one line per screen: Overview, Library, a Movie and a Series Title page, Upcoming, Requests, Activity, Log, every Settings section, About, and the phone More sheet (390 only). A page whose `scrollWidth` exceeds the viewport is reported as OVERFLOW and the exit code is 1. `--list` names the screens.
+`node scripts/demo/sweep.mjs <out dir> [screen…] [--dark]` shoots every screen of a running demo at 390x844 and 1440x900 (`<screen>-390.png`, `<screen>-1440.png`, `-dark` variants with `--dark`) and prints one line per screen: Overview, Library, a Movie and a Series Title page, Upcoming, Requests, Activity, Health, Log, every Settings section, About, and the phone More sheet (390 only). A page whose `scrollWidth` exceeds the viewport is reported as OVERFLOW and the exit code is 1. `--list` names the screens.
 
 When a change touches `web/src`, start the demo on the working tree (steps 1, 2 and 5), run the sweep for the touched screens (all of them for a shared piece such as `layout/` or `shell/`) with the shots in `$S`, and look at every 390 shot before reporting done. Done when no screen overflows and no 390 shot has clipped text, a cut-off control or a control hidden behind the tab bar.
 
@@ -63,7 +63,7 @@ When a change touches `web/src`, start the demo on the working tree (steps 1, 2 
 
 The fake's catalogue (titles, which searches match, the slow and the broken Series) is in `fake.py`'s docstring; what the seed adds is in `seed.py`'s. Plex sign-in is on, with the fake's friend Ellie: log out and "Sign in with Plex" on the login page signs in as her (the fake's sign-in page authorises the PIN as Ellie and sends the browser back), and her Requests show as source `plex`. A ref without `KESTREL_PLEX_TV_URL` (`git grep -q KESTREL_PLEX_TV_URL <ref> -- internal/config` fails) has no Plex sign-in and the seed fails on it. Anything else a shot needs, the scenario sets up first, through the API with the page's session (`h.page.evaluate(() => fetch('api/v1/...'))`) or by clicking.
 
-- **Overview's sections:** the seed fills Downloading now and Activity's pipeline with one Grab, Paddington in Peru's Blu-ray, which the fake SABnzbd holds at 40 % (made through the API with the indexer's releases on for that moment). Recently added and Activity's Done stage list two Imports of the last days, Paddington and Breaking Bad S05E07-E08 as one Import of two files. Recent requests and the Requests screen list two Requests from Ellie through Plex: Paddington (Completed) and Paddington 2 (Searching, nothing to find). Needs attention has one row, Paddington 2 (Wanted and Long Missing). `DEMO_SEED=0` seeds none of this.
+- **Overview's sections:** the seed fills Happening now and Activity's pipeline with one Grab, Paddington in Peru's Blu-ray, which the fake SABnzbd holds at 40 % (made through the API with the indexer's releases on for that moment). Recently added and Activity's Done stage list two Imports of the last days, Paddington and Breaking Bad S05E07-E08 as one Import of two files. Recent requests and the Requests screen list two Requests from Ellie through Plex: Paddington (Completed) and Paddington 2 (Searching, nothing to find). Happening now also has one Long Missing group row, Paddington 2 (Wanted and Long Missing). `DEMO_SEED=0` seeds none of this.
 - **Indexer releases:** none until `scripts/demo/demo.sh releases on`; `start` turns them off again.
 - **Unlisted episodes and seasons:** with releases on, `scripts/demo/demo.sh unlisted on` also lets the fake offer Breaking Bad Releases TheTVDB doesn't list: the episode after the last one of the season asked for, and the season after the last (a pack and episode 1). It shows Placeholder Episodes (`episode_not_listed`, `season_not_listed`). `unlisted off` removes them, and `start` turns them off again.
 - **Login:** `demo` / `demo-password-123`.

@@ -76,7 +76,7 @@ describe('A Stuck download in Needs attention', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel download' }))
 
     await vi.waitFor(() => expect(state.cancels).toEqual([null]))
-    expect(await screen.findByText(/nothing needs attention/i)).toBeInTheDocument()
+    await vi.waitFor(() => expect(screen.queryByRole('region', { name: /needs attention/i })).not.toBeInTheDocument())
   })
 
   it('Search Again cancels with the Release blocklisted', async () => {

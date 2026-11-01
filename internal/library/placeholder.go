@@ -53,7 +53,7 @@ func UnlistedOf(d Detail, eps []Episode, season int, numbers []int, now time.Tim
 		}
 	}
 	monitored := slices.ContainsFunc(d.Seasons, func(s Season) bool { return s.Number == season && s.Monitored }) &&
-		d.SeriesMonitor.MonitorsEpisode(season, nil, now)
+		d.SeriesMonitor.Monitors(d.MonitorOpts, season, nil, now, false)
 	var out []EpisodeRef
 	why := Qualifies
 	for _, n := range numbers {

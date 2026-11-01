@@ -93,7 +93,8 @@ async function app() {
       await save(h.page, '04-series', theme)
 
       await h.page.goto(h.base + '/', { waitUntil: 'domcontentloaded' })
-      await h.page.locator('[aria-label^="Add Title"]').locator('visible=true').first().click()
+      await h.page.locator('[aria-label^="Search or add"]').locator('visible=true').first().click()
+      await h.page.getByText('Add Title…', { exact: true }).click()
       await h.page.keyboard.type('paddington')
       await h.waitText('Paddington in Peru')
       await save(h.page, '05-add-title', theme)

@@ -10,11 +10,16 @@
 //
 // THE PIECES
 // One file per piece, except where noted: a file that exports two pieces lists both.
+//   FilterButton.tsx      FilterButton, FacetFilterButton and    <FilterButton count={n}>{checkable items}</FilterButton>
+//                         SortButton: the one Filter button      <FacetFilterButton query onQuery qualifiers />
+//                         of a screen bar, and its Sort          <SortButton query onQuery qualifiers />
 //   FilterStrip.tsx       filter/tab strip above a list          <FilterStrip>{tabs, filter field}</FilterStrip>
 //   FloatingBar.tsx       toolbar for ticked rows: over a list's foot, or sticky in a pane    <FloatingBar label="2 ticked">{actions}</FloatingBar>
-//   JumpNav.tsx           JumpNav and JumpLink: sticky links     <JumpNav label="Sections"><JumpLink href onClick>{name}</JumpLink></JumpNav>
-//                         that jump to sections of the page
+//   JumpNav.tsx           JumpNav, JumpGroup, JumpLink: a panel's section links    <JumpNav label><JumpGroup title><JumpLink href onClick current warn>{name}</JumpLink>
+//                         (current, a "Needs attention" dot, a note line)
 //   ListPane.tsx          list column beside a detail pane       <ListPane>{list}</ListPane>
+//   NowCard.tsx           NowCard, NowSub, NowList, NowRow,       <NowCard label count aside footer>{<NowList><NowRow navIndex current lead right>{lines}</NowRow></NowList>}</NowCard>
+//                         NowEmpty: the Overview's Downloading and Searching cards
 //   PageSurface.tsx       centred card page (Login)              <PageSurface>{form}</PageSurface>
 //   Pane.tsx              PaneHeader and PaneFooter: top and     <PaneHeader>{title, controls}</PaneHeader>
 //                         bottom of a pane                       <PaneFooter>{status, actions}</PaneFooter>
@@ -27,13 +32,41 @@
 //   SectionBlock.tsx      static section with a title and count  <SectionBlock title="Downloading" count={3}>{rows}</SectionBlock>
 //   SelectionBar.tsx      count, select-all, Clear and actions  <SelectionBar selection={...} shown={n}>{actions}</SelectionBar>
 //                         for a ticked selection
-//   SidePanel.tsx         summary panel on a wide screen's right <SidePanel label={name}>{header, summary}</SidePanel>
-//   TabStrip.tsx          full-width primary tabs with controls  <TabStrip end={controls}><Tabs … /></TabStrip>
-//                         at their right end
-//   TopBar.tsx            TopBar and PhoneTopBar: the app        <TopBar title end>{command box}</TopBar>
-//                         header on a desktop and on a phone     <PhoneTopBar title>{actions}</PhoneTopBar>
+//   SidePanel.tsx         SidePanel, FilterChips, SidePanelViews  <SidePanel title width actions filter controls chips views footer>{body}</SidePanel>
+//                         and SidePanelView: the column right of  chips={<FilterChips chips={filterChips(query, onQuery, qualifiers)} />}
+//                         the rail that holds a screen's name,    views={<SidePanelViews><SidePanelView count onSelect>Errors</SidePanelView></SidePanelViews>}
+//                         filter, Filter and Sort, chips, views,
+//                         body and footer. A phone's top header
+//   TopBar.tsx            PhoneTopBar: the header of a phone      <PhoneTopBar title>{actions}</PhoneTopBar>
+//                         screen that has no SidePanel
 //   WideListPane.tsx      440px list column for rich rows        <WideListPane>{list}</WideListPane>
 //   WidePage.tsx          wide, long page of cards (setup)       <WidePage>{cards}</WidePage>
+//
+// THE SIDE PANEL (ADR 0017; the full-width top bar is gone)
+// Each screen has a SidePanel beside the rail, and the main content runs the full height of the window. The panel is
+// the old top bar: the screen renders it as the first child of its own row, content after it. Its rules:
+//   - The title is the screen name, in the panel's h1 (`heading-20`) and its accessible name. A screen has one panel, and
+//     no other heading above its content. A screen without a panel (Overview, Requests, Adoption, Clean up) has a plain h1 in `heading-20`
+//     at the top of its content, no bar and no border; a phone has the PhoneTopBar instead.
+//   - Width is a token: 380 for the Library (`width="wide"`), 280 for every other screen (the default); SIDE_PANEL_WIDTH.
+//     A screen does not choose another width.
+//   - `actions` are icon buttons only: a "…" menu (a DotsMenu named "<Screen> actions") and at most one primary "+" (a
+//     svgOnly primary Button named for what it adds, such as "Add Title"). Text buttons live in the body or the content.
+//   - `filter` is the screen's FilterBar, full width, with its id kept (`/` focuses it) and its `?` help. `controls` is the
+//     FilterButton (or FacetFilterButton) and the SortButton, in that order, which are the only controls of the row.
+//   - `chips` are FilterChips built from the query by `filterChips`: one removable chip per active term value.
+//   - `views` are named pages or presets of the screen, as SidePanelView rows with a count; the current one has
+//     aria-current. Not a Filter: a view is a place, a filter narrows it.
+//   - The main content beside a panel is a PanelContent: 24px above and below and 32px at the sides (16 on a phone), a
+//     section heading is `heading-16` and a page title (Settings' page) `heading-24`; `reading` keeps a text column to 880px,
+//     left aligned. The Log's table is the one content that runs edge to edge.
+//   - The body (children) fills what is left and scrolls itself; the footer is one line of status (keys, counts).
+//   - On a phone the panel is the screen's top header: the name, Health and the `actions` (the Shell supplies Health
+//     and what runs through SidePanelPhoneContext), then the field with `controls` as icon buttons. Views, body and
+//     footer do not show: the screen renders its content after the panel.
+//   - The panel takes children, not className or style, like every piece. Its keyboard behaviour stays with the screen
+//     that owns the state: j/k, `/` and Escape are the screen's, the panel only holds the controls.
+//   - The rail and the command menu (the rail's search button, ⌘K) are the Shell's and do not move into a panel.
 //
 // WHAT THE CHECK FORBIDS
 // `make lint-web` runs `npm --prefix web run chrome` (web/scripts/chromeCheck.ts) over the SPA source. This

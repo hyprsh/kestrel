@@ -25,6 +25,42 @@ func (q *Queries) GrabCount(ctx context.Context, arg GrabCountParams) (int64, er
 	return column_1, err
 }
 
+const insertSearch = `-- name: InsertSearch :one
+INSERT INTO indexer_searches (indexer_id, indexer_name, at, ok, releases, duration_ms) VALUES (?, ?, ?, ?, ?, ?) RETURNING id
+`
+
+type InsertSearchParams struct {
+	IndexerID   int64
+	IndexerName string
+	At          string
+	Ok          int64
+	Releases    int64
+	DurationMs  int64
+}
+
+func (q *Queries) InsertSearch(ctx context.Context, arg InsertSearchParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, insertSearch,
+		arg.IndexerID,
+		arg.IndexerName,
+		arg.At,
+		arg.Ok,
+		arg.Releases,
+		arg.DurationMs,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const markSearchesFit = `-- name: MarkSearchesFit :exec
+UPDATE indexer_searches SET fit = 1 WHERE id IN (SELECT value FROM json_each(?))
+`
+
+func (q *Queries) MarkSearchesFit(ctx context.Context, jsonEach interface{}) error {
+	_, err := q.db.ExecContext(ctx, markSearchesFit, jsonEach)
+	return err
+}
+
 const pruneGrabCounts = `-- name: PruneGrabCounts :exec
 DELETE FROM indexer_grab_counts WHERE indexer_id = ? AND day < ?
 `
@@ -36,6 +72,15 @@ type PruneGrabCountsParams struct {
 
 func (q *Queries) PruneGrabCounts(ctx context.Context, arg PruneGrabCountsParams) error {
 	_, err := q.db.ExecContext(ctx, pruneGrabCounts, arg.IndexerID, arg.Day)
+	return err
+}
+
+const pruneSearches = `-- name: PruneSearches :exec
+DELETE FROM indexer_searches WHERE at < ?
+`
+
+func (q *Queries) PruneSearches(ctx context.Context, at string) error {
+	_, err := q.db.ExecContext(ctx, pruneSearches, at)
 	return err
 }
 

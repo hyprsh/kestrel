@@ -1,4 +1,4 @@
-// Manual search, Search now and Grab: POST /versions/{id}/releases, POST /versions/{id}/search and POST /grabs.
+// Manual search, Search now and Grab: POST /versions/{id}/releases, POST /versions/{id}/search, POST /grabs and POST /blocklist.
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api } from './client'
 import { ApiError } from './queries'
@@ -42,6 +42,32 @@ export function useGrab() {
       const { data, error, response } = await api.POST('/grabs', { body })
       if (!data) throw failure(error, response)
       return data
+    },
+  })
+}
+
+/**
+ * Where a Grab stands (GET /grabs/{id}), for one made from a manual search that has left the live queue: finished, or failed.
+ * The stream's `grab` hints refetch it. Off until `id` is known.
+ */
+export function useGrabStatus(id: number | undefined) {
+  return useQuery({
+    queryKey: ['grabs', 'one', id],
+    enabled: id !== undefined,
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/grabs/{id}', { params: { path: { id: id as number } } })
+      if (!data) throw failure(error, response)
+      return data
+    },
+  })
+}
+
+/** Blocklist a Release of a manual search for good, whatever Version it was found for. */
+export function useBlocklistRelease() {
+  return useMutation({
+    mutationFn: async (body: components['schemas']['BlocklistCreate']) => {
+      const { error, response } = await api.POST('/blocklist', { body })
+      if (!response.ok) throw failure(error, response)
     },
   })
 }

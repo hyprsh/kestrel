@@ -7,13 +7,14 @@ import { useState } from 'react'
 import type { Episode, EpisodeScope } from '../api/queries'
 import type { components } from '../api/schema.gen'
 import { useDeleteFiles, type DeletedFiles } from '../api/versions'
-import { size, slotLabel } from './bits'
+import { size } from './bits'
+import { slotName } from './slots'
 import { useReport, type Report } from '../toasts'
 import { episodeCode, type EpisodeVersion } from './episodes'
 
 type FileSummary = components['schemas']['FileSummary']
 type EpisodeFile = components['schemas']['EpisodeFile']
-export const base = (path: string) => path.split(/[\\/]/).pop() ?? path
+const base = (path: string) => path.split(/[\\/]/).pop() ?? path
 const files = (n: number) => (n === 1 ? '1 file' : `${n} files`)
 
 /** What a deletion did, for its Toast: the files, and those whose Release was not blocklisted. */
@@ -176,7 +177,7 @@ export function useEpisodeDeletes(episodes: Episode[]): EpisodeDeletes {
   }
 }
 
-/** The menu items deleting the files of `episodes`, one per Slot when the Series has both. */
+/** The menu items deleting the files of `episodes`, one per Slot when the Series has both: "Delete Files…", "Delete 4K Season's Files…" (`text` is the noun). */
 export function DeleteMenuItems({
   deletes,
   versions,
@@ -191,6 +192,7 @@ export function DeleteMenuItems({
   episodes: Episode[]
   label: string
   scope: EpisodeScope
+  /** What is deleted, as a noun phrase: "Files", "Season's Files". */
   text: string
   /** The episode row or season the menu belongs to; null: the bar for ticked episodes. */
   at: string | null
@@ -199,7 +201,7 @@ export function DeleteMenuItems({
     const has = deletes.has(v, episodes)
     return (
       <Menu.Item key={`delete-${v.slot}`} disabled={!has} description={has ? undefined : 'No file to delete'} onSelect={() => deletes.ask(v, episodes, label, scope, at)}>
-        {versions.length > 1 ? `${text} ${slotLabel[v.slot]}` : text}
+        {versions.length > 1 ? `Delete ${slotName(v.slot)} ${text}…` : `Delete ${text}…`}
       </Menu.Item>
     )
   })

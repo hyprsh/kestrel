@@ -11,6 +11,7 @@ func displayToAPI(d display.Display) oapi.Display {
 		SeasonOrder:      oapi.SeasonOrder(d.SeasonOrder),
 		SeasonsOpen:      oapi.SeasonsOpen(d.SeasonsOpen),
 		ManualSearchSort: oapi.ManualSearchSort(d.ManualSearchSort),
+		UpcomingDisplay:  oapi.UpcomingDisplay(d.UpcomingDisplay),
 	}
 	out.UpcomingFilters.Kind = oapi.UpcomingKind(d.UpcomingFilters.Kind)
 	out.UpcomingFilters.WantedOnly = d.UpcomingFilters.WantedOnly
@@ -37,6 +38,7 @@ var displaySettings = []struct {
 	{configfile.DisplaySeasonOrder, func(p *oapi.SettingsPatch) bool { return p.Display.SeasonOrder != nil }, func(o *oapi.Settings) *bool { return &o.FromConfigFile.Display.SeasonOrder }},
 	{configfile.DisplaySeasonsOpen, func(p *oapi.SettingsPatch) bool { return p.Display.SeasonsOpen != nil }, func(o *oapi.Settings) *bool { return &o.FromConfigFile.Display.SeasonsOpen }},
 	{configfile.DisplayManualSearchSort, func(p *oapi.SettingsPatch) bool { return p.Display.ManualSearchSort != nil }, func(o *oapi.Settings) *bool { return &o.FromConfigFile.Display.ManualSearchSort }},
+	{configfile.DisplayUpcomingDisplay, func(p *oapi.SettingsPatch) bool { return p.Display.UpcomingDisplay != nil }, func(o *oapi.Settings) *bool { return &o.FromConfigFile.Display.UpcomingDisplay }},
 	{configfile.DisplayUpcomingFilters, func(p *oapi.SettingsPatch) bool { return p.Display.UpcomingFilters != nil }, func(o *oapi.Settings) *bool { return &o.FromConfigFile.Display.UpcomingFilters }},
 }
 

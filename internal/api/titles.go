@@ -14,6 +14,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
+	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 	"github.com/hyprsh/kestrel/internal/slot"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -240,12 +241,22 @@ func rowToAPI(r library.Row) oapi.TitleRow {
 	}
 	out := oapi.TitleRow{
 		Id: r.ID, Kind: oapi.TitleKind(r.Kind), Title: r.Title, PrimaryTitle: r.PrimaryTitle, Year: intPtr(r.Year),
-		HasPoster: r.HasPoster, WantedSince: r.WantedSince, AddedAt: r.AddedAt, Size: r.Size, SearchedAt: r.SearchedAt,
+		HasPoster: r.HasPoster, Monitored: r.Monitored, WantedSince: r.WantedSince, AddedAt: r.AddedAt, Size: r.Size, SearchedAt: r.SearchedAt,
 	}
 	if w := r.WantedEpisodes; w != nil {
 		out.WantedEpisodes = &oapi.WantedEpisodes{Wanted: w.Wanted, LongMissing: w.LongMissing, Seasons: w.Seasons}
 	}
 	out.Slots.Standard, out.Slots.N4k = summary(r.Slots[slot.Standard]), summary(r.Slots[slot.FourK])
+	out.SlotStates = []oapi.SlotStateEntry{}
+	for _, sl := range slot.All {
+		if s := r.Slots[sl]; s != nil {
+			e := oapi.SlotStateEntry{Slot: slotToAPI(sl), Label: sl.Name(), VersionId: s.VersionID, Profile: s.Profile, State: oapi.SlotState(s.State), LongMissing: s.LongMissing, WantedSince: s.WantedSince, EpisodesHave: s.EpisodesHave, EpisodesAired: s.EpisodesAired}
+			if s.File != nil {
+				e.File = fileSummary(s.File, nil)
+			}
+			out.SlotStates = append(out.SlotStates, e)
+		}
+	}
 	return out
 }
 
@@ -301,6 +312,12 @@ func (s *server) ListTitles(ctx context.Context, r oapi.ListTitlesRequestObject)
 	for _, row := range rows[offset:end] {
 		out.Items = append(out.Items, rowToAPI(row))
 	}
+	if err := s.withWantedSearches(ctx, out.Items); err != nil {
+		return nil, err
+	}
+	if err := s.withUpgrades(ctx, out.Items); err != nil {
+		return nil, err
+	}
 	return oapi.ListTitles200JSONResponse(out), nil
 }
 
@@ -313,14 +330,23 @@ var releaseTypeNames = map[metadata.ReleaseType]oapi.ReleaseDateEntryType{
 	metadata.TV:                "tv",
 }
 
-func detailToAPI(d library.Detail, country string) oapi.TitleDetail {
+// movieFormats names the Custom Formats the file of each of a Movie's Versions matches; nil for a Series.
+func (s *server) movieFormats(ctx context.Context, d library.Detail) (map[int64][]scoring.MatchedFormat, error) {
+	if d.Kind != library.Movie {
+		return nil, nil
+	}
+	return s.imports.FileFormats(ctx, d.ID)
+}
+
+// detailToAPI shapes a Title; formats are the matched Custom Formats by file id (see movieFormats).
+func detailToAPI(d library.Detail, country string, formats map[int64][]scoring.MatchedFormat) oapi.TitleDetail {
 	_, cert := d.ReleaseDates.Certification(country)
 	out := oapi.TitleDetail{
 		Id: d.ID, Kind: oapi.TitleKind(d.Kind), TmdbId: intPtr(d.TMDBID), TvdbId: intPtr(d.TVDBID), ImdbId: strPtr(d.IMDbID),
 		Title: d.Title, OriginalTitle: d.OriginalTitle, PrimaryTitle: d.PrimaryTitle, Year: intPtr(d.Year),
 		OriginalLanguage: d.OriginalLanguage, Overview: d.Overview, Runtime: intPtr(d.Runtime), HasPoster: d.PosterPath != "",
 		Monitored: d.Monitored, MetadataFrozen: d.MetadataFrozen, RootFolder: d.RootFolder, Folder: strPtr(d.Folder),
-		AddedAt: d.AddedAt, RefreshedAt: d.RefreshedAt, Certification: strPtr(cert),
+		AddedAt: d.AddedAt, RefreshedAt: d.RefreshedAt, Certification: strPtr(cert), SeriesStatus: strPtr(d.SeriesStatus),
 		ReleaseDates: make([]oapi.ReleaseDateEntry, 0, len(d.ReleaseDates)), Requests: []oapi.RequestOrigin{}, Versions: make([]oapi.VersionDetail, 0, len(d.Versions)),
 		Seasons: make([]oapi.Season, 0, len(d.Seasons)),
 		Ratings: ratingsOf(oapi.TitleKind(d.Kind), d.TMDBID, d.Rating),
@@ -328,6 +354,8 @@ func detailToAPI(d library.Detail, country string) oapi.TitleDetail {
 	if d.Kind == library.Series {
 		mode := oapi.SeriesMonitor(d.SeriesMonitor)
 		out.SeriesMonitor = &mode
+		out.MonitorNewSeasons = &d.MonitorOpts.NewSeasons
+		out.MonitorSpecials = &d.MonitorOpts.Specials
 		for _, se := range d.Seasons {
 			out.Seasons = append(out.Seasons, oapi.Season{Number: se.Number, Monitored: se.Monitored})
 		}
@@ -343,11 +371,8 @@ func detailToAPI(d library.Detail, country string) oapi.TitleDetail {
 			LongMissing: v.LongMissing, WantedSince: v.WantedSince, AddedAt: v.AddedAt,
 		}
 		if f := v.File; f != nil {
-			quality, languages := imports.Facts(f.ParsedRelease, f.Probe)
-			ov.File = &oapi.FileSummary{
-				Path: f.Path, Size: f.Size, ReleaseName: f.ReleaseName, Score: f.Score, ImportedAt: f.ImportedAt,
-				Quality: strPtr(quality), Languages: &languages, Misfit: &f.Misfit,
-			}
+			cfs := formatsToAPI(formats[f.ID])
+			ov.File = fileSummary(f, &cfs)
 		}
 		if c := v.Coverage; c != nil {
 			ov.Coverage = &oapi.VersionCoverage{Episodes: c.Episodes, Filled: c.Filled, Wanted: c.Wanted, LongMissing: c.LongMissing, Unmonitored: c.Unmonitored, Downloading: c.Downloading, DownloadingLongMissing: c.DownloadingLongMissing, Size: c.Size}
@@ -355,6 +380,18 @@ func detailToAPI(d library.Detail, country string) oapi.TitleDetail {
 		out.Versions = append(out.Versions, ov)
 	}
 	return out
+}
+
+// fileSummary is a file as the API tells it; cfs is nil where the Custom Formats are not matched (the list).
+func fileSummary(f *library.File, cfs *[]oapi.CustomFormatMatch) *oapi.FileSummary {
+	quality, languages := imports.Facts(f.ParsedRelease, f.Probe)
+	media := imports.MediaFacts(f.ParsedRelease, f.Probe, f.ReleaseName)
+	return &oapi.FileSummary{
+		VideoCodec: strPtr(media.VideoCodec), Hdr: strPtr(media.HDR), AudioCodec: strPtr(media.AudioCodec), AudioChannels: strPtr(media.AudioChannels),
+		Path: f.Path, Size: f.Size, ReleaseName: f.ReleaseName, Score: f.Score, ImportedAt: f.ImportedAt,
+		Quality: strPtr(quality), Languages: &languages, Misfit: &f.Misfit,
+		ReleaseGroup: strPtr(imports.ReleaseGroup(f.ParsedRelease)), CustomFormats: cfs,
+	}
 }
 
 func (s *server) GetTitle(ctx context.Context, r oapi.GetTitleRequestObject) (oapi.GetTitleResponseObject, error) {
@@ -369,11 +406,18 @@ func (s *server) GetTitle(ctx context.Context, r oapi.GetTitleRequestObject) (oa
 	if err != nil {
 		return nil, err
 	}
-	out := detailToAPI(d, view.Country)
+	formats, err := s.movieFormats(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+	out := detailToAPI(d, view.Country, formats)
 	if err := s.origins(ctx, &out); err != nil {
 		return nil, err
 	}
 	if err := s.withOffers(ctx, &out); err != nil {
+		return nil, err
+	}
+	if err := s.withSearches(ctx, &out); err != nil {
 		return nil, err
 	}
 	return oapi.GetTitle200JSONResponse(out), nil
@@ -478,7 +522,7 @@ func (s *server) added(ctx context.Context, t newTitle) (oapi.CreateTitleRespons
 	if err != nil {
 		return nil, err
 	}
-	return oapi.CreateTitle201JSONResponse(detailToAPI(d, t.country)), nil
+	return oapi.CreateTitle201JSONResponse(detailToAPI(d, t.country, nil)), nil
 }
 
 func (s *server) GetTitlePoster(ctx context.Context, r oapi.GetTitlePosterRequestObject) (oapi.GetTitlePosterResponseObject, error) {

@@ -85,6 +85,7 @@ async function openAdoption() {
   const user = userEvent.setup()
   renderApp()
   await user.click(await screen.findByRole('button', { name: 'Settings' }))
+  await user.click(await screen.findByRole('link', { name: 'Library' }))
   await user.click(await screen.findByRole('button', { name: /scan for unmanaged files|review the adoption plan/i }))
   return user
 }

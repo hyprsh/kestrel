@@ -42,6 +42,7 @@ describe('the last check in a Settings row', () => {
     )
     render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    await userEvent.click(await screen.findByRole('link', { name: 'Media servers' }))
     return within(await screen.findByRole('region', { name: 'Media servers' }))
   }
 

@@ -44,7 +44,11 @@ func (s *server) versionDetail(ctx context.Context, titleID, versionID int64) (o
 	if err != nil {
 		return oapi.VersionDetail{}, err
 	}
-	for _, v := range detailToAPI(d, view.Country).Versions {
+	formats, err := s.movieFormats(ctx, d)
+	if err != nil {
+		return oapi.VersionDetail{}, err
+	}
+	for _, v := range detailToAPI(d, view.Country, formats).Versions {
 		if v.Id == versionID {
 			return v, nil
 		}

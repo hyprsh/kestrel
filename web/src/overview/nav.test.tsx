@@ -1,12 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { dayString } from '../api/upcoming'
 import { http } from '../test/handlers'
+import { row as titleRow } from '../test/library'
 import { fakeRequests, request } from '../test/requests'
+import { lastPassOf, passOf } from '../test/search'
+import { queueItem } from '../test/queue'
 import { server } from '../test/server'
 import { RecentlyAdded } from './ComingRecent'
 
@@ -31,8 +34,8 @@ const recent = (over: Partial<Recent>): Recent => ({
 })
 
 describe('Overview rows', () => {
-  it('shows the Slot and age of a recent Import under its poster', () => {
-    // The shelf alone, from a filled cache: nothing to wait for, so no boot of the whole App
+  it('shows the Slot and age of a recent Import in its row', () => {
+    // The list alone, from a filled cache: nothing to wait for, so no boot of the whole App
     // to race on a loaded machine.
     const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
     client.setQueryData(['titles', 'recent'], {
@@ -41,7 +44,7 @@ describe('Overview rows', () => {
     })
     render(
       <QueryClientProvider client={client}>
-        <RecentlyAdded onOpenTitle={() => {}} nav={{ base: 0, sel: -1, select: () => {} }} shelf={{ ref: () => {}, count: 8 }} />
+        <RecentlyAdded onOpenTitle={() => {}} nav={{ base: 0, sel: -1, select: () => {} }} />
       </QueryClientProvider>,
     )
 
@@ -51,7 +54,7 @@ describe('Overview rows', () => {
     expect(second).toHaveTextContent('4K')
   })
 
-  it('moves one selection with j through Needs attention, Downloading now, Recent requests, Recently added and Coming this week', async () => {
+  it('moves one selection with j through Happening now (Needs attention, Downloading, Wanted), Recently added, Recent requests and Coming this week, in reading order', async () => {
     server.use(
       http.get('/attention', ({ response }) =>
         response(200).json({
@@ -99,10 +102,12 @@ describe('Overview rows', () => {
               is_upgrade: false,
               score_delta: null,
               stuck: null,
+              episode_ids: [],
             },
           ],
         }),
       ),
+      http.get('/titles', ({ response }) => response(200).json({ items: [titleRow(4, 'Alien', 'Alien')], next_cursor: null })),
       http.get('/upcoming', ({ response }) =>
         response(200).json({
           from: dayString(),
@@ -138,10 +143,117 @@ describe('Overview rows', () => {
     await userEvent.keyboard('j')
     expect(current()).toHaveTextContent('Heat')
     await userEvent.keyboard('j')
-    expect(current()).toHaveTextContent('Severance')
+    expect(current()).toHaveTextContent('Alien') // the right card follows the left one
     await userEvent.keyboard('j')
     expect(current()).toHaveTextContent('Paddington')
     await userEvent.keyboard('j')
+    expect(current()).toHaveTextContent('Severance')
+    await userEvent.keyboard('j')
     expect(current()).toHaveTextContent('Dune')
+  })
+
+  it('runs through the groups of Happening now, and Enter on Long Missing expands it', async () => {
+    server.use(
+      http.get('/attention', ({ response }) =>
+        response(200).json({
+          count: 0,
+          severity: null,
+          rows: [],
+          long_missing: {
+            count: 1,
+            items: [{ title_id: 3, title: 'Ancient Film', version_id: 31, slot: 'standard', profile: 'hd-primary', wanted_since: '2026-01-01T00:00:00Z', last_failure: null }],
+          },
+          originals: { count: 0, items: [] },
+        }),
+      ),
+      http.get('/recent', ({ response }) => response(200).json({ items: [recent({})], total: 1 })),
+    )
+    renderApp()
+    await screen.findByText('Paddington')
+
+    const current = () => document.querySelector('[aria-current="true"]')
+    expect(current()).toHaveTextContent('1 Version long missing')
+    await userEvent.keyboard('{Enter}')
+    expect(await screen.findByText(/Ancient Film/)).toBeInTheDocument()
+    await userEvent.keyboard('j')
+    expect(current()).toHaveTextContent('Paddington')
+  })
+
+  it('shows the running search pass in the Searching card, and j runs through it', async () => {
+    server.use(
+      http.get('/search/status', ({ response }) =>
+        response(200).json({
+          due: { versions: 4, episodes: 0, upgrades: 0 },
+          pass: passOf({
+            done: 1,
+            total: 4,
+            releases_seen: 30,
+            grabbed: 2,
+            current: { title_id: 7, title: 'Breaking Bad', has_poster: false, slot: 'Standard', season: 5, episodes: [], releases_seen: 12 },
+          }),
+          next_pass_at: null,
+          last_pass: null,
+          upgrades_per_pass: 5,
+          indexers: [],
+        }),
+      ),
+      http.get('/queue', ({ response }) => response(200).json({ items: [queueItem({ title: 'Heat' })] })),
+      http.get('/titles', ({ response }) => response(200).json({ items: [titleRow(4, 'Alien', 'Alien')], next_cursor: null })),
+      http.get('/recent', ({ response }) => response(200).json({ items: [recent({})], total: 1 })),
+    )
+    renderApp()
+    const row = (await screen.findByText('Searching Wanted')).closest<HTMLElement>('[data-nav]')!
+
+    expect(row).toHaveTextContent('Searching Wanted · Breaking Bad S05 · Standard')
+    expect(row).toHaveTextContent('1 of 4 · 30 checked')
+    expect(within(row).getByRole('progressbar', { name: 'Search progress' })).toBeInTheDocument()
+    expect(screen.queryByText('Nothing downloading')).not.toBeInTheDocument()
+
+    // j runs down the left card (Heat), then the pass, then the Wanted rows.
+    const current = () => document.querySelector('[aria-current="true"]')
+    expect(current()).toHaveTextContent('Heat')
+    await userEvent.keyboard('j')
+    expect(current()).toBe(row)
+    await userEvent.keyboard('j')
+    expect(current()).toHaveTextContent('Alien')
+    await userEvent.keyboard('j')
+    expect(current()).toHaveTextContent('Paddington')
+  })
+
+  const fakeLastPass = (last: ReturnType<typeof lastPassOf>) =>
+    server.use(
+      http.get('/search/status', ({ response }) =>
+        response(200).json({ due: { versions: 0, episodes: 0, upgrades: 0 }, pass: null, next_pass_at: null, last_pass: last, upgrades_per_pass: 5, indexers: [] }),
+      ),
+    )
+
+  it('keeps a pass that has just finished as a row with its result, until dismissed', async () => {
+    fakeLastPass(lastPassOf({ searched: 4, releases_seen: 37, grabbed: 1 }))
+    renderApp()
+    const row = (await screen.findByText('Search done: 4 searched · 37 releases checked · 1 Grab')).closest<HTMLElement>('[data-nav]')!
+
+    await userEvent.click(within(row).getByRole('button', { name: 'Dismiss' }))
+    expect(screen.queryByText(/^Search done/)).not.toBeInTheDocument()
+  })
+
+  it('drops the finished row a minute after the pass ended', async () => {
+    fakeLastPass(lastPassOf({ finished_at: new Date(Date.now() - 59_700).toISOString() }))
+    renderApp()
+    expect(await screen.findByText(/^Search done/)).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText(/^Search done/)).not.toBeInTheDocument(), { timeout: 2000 })
+  })
+
+  it('shows no finished row for a pass that ended long ago', async () => {
+    fakeLastPass(lastPassOf({ finished_at: new Date(Date.now() - 5 * 60_000).toISOString() }))
+    renderApp()
+    await screen.findByText(/^nothing downloading$/i)
+    expect(screen.queryByText(/^Search done/)).not.toBeInTheDocument()
+  })
+
+  it('has no search row when no pass runs', async () => {
+    renderApp()
+    await screen.findByText(/^nothing downloading$/i)
+
+    expect(screen.queryByText(/^Searching /)).not.toBeInTheDocument()
   })
 })

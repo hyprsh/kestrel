@@ -65,7 +65,7 @@ describe('A waiting Adoption plan', () => {
   it('is not in Needs attention when there is no plan', async () => {
     planIs('idle')
     renderApp()
-    expect(await screen.findByText('Nothing needs attention.')).toBeInTheDocument()
+    expect(await screen.findByText('Nothing downloading')).toBeInTheDocument()
     expect(screen.queryByText(/Adoption plan/)).not.toBeInTheDocument()
   })
 
@@ -74,6 +74,7 @@ describe('A waiting Adoption plan', () => {
     const user = userEvent.setup()
     renderApp()
     await user.click(await screen.findByRole('button', { name: 'Settings' }))
+    await user.click(await screen.findByRole('link', { name: 'Library' }))
     expect(await screen.findByRole('button', { name: 'Review the Adoption plan' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /scan for unmanaged files/i })).not.toBeInTheDocument()
 
@@ -87,6 +88,7 @@ describe('A waiting Adoption plan', () => {
     const user = userEvent.setup()
     renderApp()
     await user.click(await screen.findByRole('button', { name: 'Settings' }))
+    await user.click(await screen.findByRole('link', { name: 'Library' }))
     expect(await screen.findByRole('button', { name: 'Scan for unmanaged files' })).toBeInTheDocument()
   })
 })

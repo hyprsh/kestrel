@@ -234,3 +234,59 @@ func TestAnInconclusiveProbeIsNotedOnTheImportLogEvent(t *testing.T) {
 	}
 	t.Fatal("no import event")
 }
+
+type recordingObserver struct {
+	targets  []acquire.Target
+	releases int
+}
+
+func (o *recordingObserver) Searching(t acquire.Target) { o.targets = append(o.targets, t) }
+func (o *recordingObserver) Releases(n int)             { o.releases += n }
+
+func TestASearchTellsItsObserverWhatItSearchesAndHowManyReleasesCameBack(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	id, ver := r.nightShow(t, library.MonitorAll)
+	r.publishShow(t, nightEp1, "1", "1")
+	r.publishShow(t, nightEp2, "1", "2")
+	obs := &recordingObserver{}
+
+	if _, err := r.svc.SearchWanted(acquire.WithObserver(ctx, obs), id, []int64{ver}); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(obs.targets) != 1 {
+		t.Fatalf("targets = %+v, want one", obs.targets)
+	}
+	got := obs.targets[0]
+	if got.TitleID != id || got.Title == "" || got.Slot != "Standard" || got.Season == nil || *got.Season != 1 || len(got.Episodes) != 2 || got.Episodes[0] != "S01E01" {
+		t.Errorf("target = %+v, want the Series, Standard, season 1 and S01E01, S01E02", got)
+	}
+	if obs.releases < 2 {
+		t.Errorf("releases = %d, want at least the 2 published", obs.releases)
+	}
+}
+
+func TestASearchSaysWhatEachReleaseCoversAndHowManyEpisodesTheVersionWants(t *testing.T) {
+	r := newRig(t)
+	_, ver := r.nightShow(t, library.MonitorAll)
+	r.publishShow(t, nightEp2, "1", "2")
+	r.publishShow(t, nightPack, "1", "")
+
+	res, err := r.svc.Search(context.Background(), ver)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.Wanted != 2 || res.Indexers != 1 || !res.SearchedAt.Equal(r.clock.now) {
+		t.Errorf("wanted = %d, indexers = %d, searched at %v", res.Wanted, res.Indexers, res.SearchedAt)
+	}
+	ep := r.found(t, res, nightEp2)
+	if len(ep.Covers) != 1 || ep.Covers[0].Episode != 2 || ep.Covers[0].State != acquire.CoverWanted || ep.Group != "GRP" {
+		t.Errorf("episode covers %+v, group %q", ep.Covers, ep.Group)
+	}
+	pack := r.found(t, res, nightPack)
+	if len(pack.Covers) != 2 || pack.Covers[0].State != acquire.CoverWanted || pack.Covers[1].Episode != 2 {
+		t.Errorf("pack covers %+v", pack.Covers)
+	}
+}

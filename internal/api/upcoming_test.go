@@ -20,6 +20,7 @@ type upcomingJSON struct {
 		Episode        *int    `json:"episode"`
 		SearchableFrom *string `json:"searchable_from"`
 		Released       bool    `json:"released"`
+		Monitored      *bool   `json:"monitored"`
 	} `json:"items"`
 }
 
@@ -181,5 +182,29 @@ func TestRecentlyAddedCountsTheWeeksImports(t *testing.T) {
 	// Grab 3 is a pack, one Import; Grabs 1 and 2 are older than the week.
 	if len(got.Items) != 4 || got.Total != 2 {
 		t.Errorf("recent = %d items, total %d; want 4 and 2", len(got.Items), got.Total)
+	}
+}
+
+func TestUpcomingListsTheUnmonitoredOnlyWhenAskedAndMarksThem(t *testing.T) {
+	t.Parallel()
+	w := newWantedRig(t)
+	movie := decode[titleJSON](t, w.valid("POST", "/titles", fmt.Sprintf(addHD, 116149)))
+	w.setDates(t, movie.ID, map[int]string{4: "2026-10-20T00:00:00Z"})
+	w.exec(t, `UPDATE titles SET monitored = 0 WHERE id = ?`, movie.ID)
+	series := decode[seriesTitleJSON](t, w.valid("POST", "/titles", addBreakingBad+`,"series_monitor":"all"}`))
+	w.exec(t, `UPDATE episodes SET air_date = '2026-01-01' WHERE title_id = ?`, series.ID)
+	w.exec(t, `UPDATE episodes SET air_date = '2026-10-18' WHERE title_id = ? AND season = 1 AND number = 1`, series.ID)
+	w.exec(t, `UPDATE episodes SET air_date = '2026-10-19', monitored = 0 WHERE title_id = ? AND season = 1 AND number = 2`, series.ID)
+
+	if got := w.upcoming(t, ""); len(got.Items) != 1 || got.Items[0].Monitored == nil || !*got.Items[0].Monitored {
+		t.Fatalf("default = %+v, want only the monitored episode, marked monitored", got.Items)
+	}
+	var lines []string
+	for _, i := range w.upcoming(t, "?unmonitored=true").Items {
+		lines = append(lines, fmt.Sprintf("%s %s %t", i.Date, i.Kind, *i.Monitored))
+	}
+	want := []string{"2026-10-18 series true", "2026-10-19 series false", "2026-10-20 movie false"}
+	if fmt.Sprint(lines) != fmt.Sprint(want) {
+		t.Errorf("with unmonitored = %q, want %q", lines, want)
 	}
 }

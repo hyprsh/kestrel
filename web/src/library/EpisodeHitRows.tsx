@@ -16,7 +16,7 @@ type State = 'wanted' | 'downloading' | 'unreleased' | 'unmonitored' | 'filled'
 export const hitDomId = (h: EpisodeHit) => `hit-${h.key}`
 
 /** What the episode's state says, toned: Wanted (in which Slot, when only one is), downloading, or what it holds. */
-export function episodeState(e: Episode, slots: readonly string[]): { text: string; tone: Tone; state: State } {
+function episodeState(e: Episode, slots: readonly string[]): { text: string; tone: Tone; state: State } {
   const states = slotKeys.filter((k) => slots.includes(k)).map((k) => ({ k, s: e.cells[k]?.state }))
   const some = (state: string) => states.filter((x) => x.s === state)
   const which = (xs: typeof states) => (slots.length > 1 && xs.length < states.length ? ` in ${slotLabel[xs[0].k]}` : '')

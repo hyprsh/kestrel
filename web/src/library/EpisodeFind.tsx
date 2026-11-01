@@ -23,12 +23,13 @@ export function useEpisodeFind(episodes: Episode[], onFound: (episode: Episode |
 export type EpisodeFind = ReturnType<typeof useEpisodeFind>
 
 /** The field. Enter steps through several matches; below it, a line says when nothing matches. */
-export function FindEpisodeField({ find, placeholder = 'Find an episode' }: { find: EpisodeFind; placeholder?: string }) {
+export function FindEpisodeField({ find, placeholder = 'Find an episode', autoFocus }: { find: EpisodeFind; placeholder?: string; autoFocus?: boolean }) {
   return (
     <>
       <SearchInput
         aria-label="Find an episode"
         placeholder={placeholder}
+        autoFocus={autoFocus}
         value={find.text}
         onChange={(e) => find.find(e.target.value)}
         onClear={() => find.find('')}

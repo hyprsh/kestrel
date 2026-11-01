@@ -232,6 +232,7 @@ async function openAdoption() {
   const user = userEvent.setup()
   renderApp()
   await user.click(await screen.findByRole('button', { name: 'Settings' }))
+  await user.click(await screen.findByRole('link', { name: 'Library' }))
   await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
   return user
 }
@@ -250,6 +251,7 @@ describe('Adoption while loading', () => {
     renderApp()
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Settings' }))
+    await user.click(await screen.findByRole('link', { name: 'Library' }))
     await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('Loading')
@@ -310,7 +312,7 @@ describe('Adoption review', () => {
     await screen.findByRole('button', { name: /scan for existing files/i })
     expect(state.commits).toEqual([{ revision: state.revision }])
     expect(await findToast('Adopting the plan started')).toBeInTheDocument()
-    expect(within(await toastRegion()).queryByRole('button', { name: 'Watch in Activity' })).not.toBeInTheDocument()
+    expect(within(await toastRegion()).queryByRole('button', { name: 'Watch in Health' })).not.toBeInTheDocument()
   })
 
   it('says in a Toast that the scan started, that a plan was discarded, and why a call failed', async () => {
@@ -399,7 +401,7 @@ describe('Adoption review', () => {
     await user.click(await screen.findByRole('button', { name: 'Library' }))
     await user.click(await screen.findByRole('button', { name: 'Library actions' }))
     await user.click(screen.getByRole('menuitem', { name: /^Adopt Existing Library/ }))
-    expect(screen.getByRole('banner')).toHaveTextContent('Adopt existing library')
+    expect(screen.getByRole('heading', { level: 1, name: 'Adopt existing library' })).toBeInTheDocument()
   })
 
   it('unticking a row leaves it out of the count', async () => {
@@ -628,7 +630,7 @@ describe('Adoption review on a phone', () => {
     renderApp()
     await user.click(await screen.findByRole('button', { name: 'More' }))
     await user.click(within(await screen.findByRole('dialog', { name: 'More' })).getByRole('button', { name: 'Settings' }))
-    await user.click(await screen.findByRole('button', { name: 'Existing files' }))
+    await user.click(await screen.findByRole('navigation', { name: 'Settings sections' }).then((n) => within(n).getByRole('button', { name: /^Library/ })))
     await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
     await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
 
@@ -646,7 +648,7 @@ describe('Adoption review on a phone', () => {
     renderApp()
     await user.click(await screen.findByRole('button', { name: 'More' }))
     const sheet = await screen.findByRole('dialog', { name: 'More' })
-    const names = ['Settings', 'Log', 'Requests', 'Adoption', 'Clean up', 'About']
+    const names = ['Settings', 'Log', 'Requests', 'Adoption', 'Clean up']
     // A row's button is a cover over its content, named by it, so the names are read as accessible names, not text.
     names.forEach((name, i) => expect(within(sheet).getAllByRole('button')[i]).toHaveAccessibleName(name))
     await user.click(within(sheet).getByRole('button', { name: 'Adoption' }))

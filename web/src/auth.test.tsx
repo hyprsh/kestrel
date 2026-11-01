@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from './App'
@@ -128,10 +128,11 @@ describe('the login card', () => {
 })
 
 describe('logging out', () => {
-  it('Log out in the rail returns to the login card', async () => {
+  it('Log Out in the command menu returns to the login card', async () => {
     const calls = fakeServer('logged-in')
     renderApp()
-    await userEvent.click(await screen.findByRole('button', { name: 'Log out' }))
+    await userEvent.click(await screen.findByRole('button', { name: /^Search or add \(/ }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Log Out' }))
     expect(await screen.findByRole('button', { name: 'Log in' })).toBeInTheDocument()
     expect(calls).toEqual([{ path: 'logout' }])
   })
@@ -141,6 +142,7 @@ describe('Settings', () => {
   const openSettings = async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    await userEvent.click(await screen.findByRole('link', { name: 'Account' }))
   }
 
   it('has a jump list and an Account section', async () => {
@@ -170,10 +172,19 @@ describe('Settings', () => {
     expect(await screen.findByRole('alert')).toBeInTheDocument()
   })
 
+  it('logs out from a Log Out row on the Account page', async () => {
+    const calls = fakeServer('logged-in')
+    await openSettings()
+    const account = await screen.findByRole('region', { name: 'Account' })
+    await userEvent.click(within(account).getByRole('button', { name: 'Log Out' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Log in' })).toBeInTheDocument())
+    expect(calls).toEqual([{ path: 'logout' }])
+  })
+
   it('logs out everywhere', async () => {
     const calls = fakeServer('logged-in')
     await openSettings()
-    await userEvent.click(screen.getByRole('button', { name: 'Log out everywhere' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Log Out Everywhere' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Log in' })).toBeInTheDocument())
     expect(calls).toEqual([{ path: 'logout-everywhere' }])
   })

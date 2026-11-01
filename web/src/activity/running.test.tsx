@@ -7,6 +7,7 @@ import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { fakeLibrary, row } from '../test/library'
 import { fakeQueue, queueItem } from '../test/queue'
+import { passOf } from '../test/search'
 import { server } from '../test/server'
 
 type ActivitySnapshot = components['schemas']['ActivitySnapshot']
@@ -33,9 +34,11 @@ async function frame(client: QueryClient, snapshot: Partial<ActivitySnapshot>) {
   })
 }
 
-const topBar = () => within(screen.getByRole('banner'))
+// What runs shows in the rail on a desktop.
+// The Views of a side panel are a navigation too; the rail is the one without a name.
+const topBar = () => within(screen.getAllByRole('navigation').find((n) => !n.hasAttribute('aria-label'))!)
 
-describe('the top bar', () => {
+describe('the rail', () => {
   beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }))
   afterEach(() => vi.useRealTimers())
 
@@ -83,7 +86,7 @@ describe('the top bar', () => {
       http.get('/search/status', ({ response }) =>
         response(200).json({
           due: { versions: 40, episodes: 0, upgrades: 0 },
-          pass: { started_at: new Date().toISOString(), done: 15, total: 40 },
+          pass: passOf({ done: 15, total: 40 }),
           next_pass_at: null,
           last_pass: null,
           upgrades_per_pass: 5,
@@ -95,6 +98,27 @@ describe('the top bar', () => {
     act(() => vi.advanceTimersByTime(1000))
 
     expect(await topBar().findByRole('button', { name: 'Searching 15/40' })).toBeInTheDocument()
+  })
+
+  it('adds the Releases checked to the search pass, and what is searched now to the tooltip', async () => {
+    const current = { title_id: 7, title: 'Breaking Bad', has_poster: false, slot: 'Standard', season: 5, episodes: [], releases_seen: 12 }
+    server.use(
+      http.get('/search/status', ({ response }) =>
+        response(200).json({
+          due: { versions: 4, episodes: 0, upgrades: 0 },
+          pass: passOf({ done: 1, total: 4, releases_seen: 12, current }),
+          next_pass_at: null,
+          last_pass: null,
+          upgrades_per_pass: 5,
+          indexers: [],
+        }),
+      ),
+    )
+    await withActivity({ running: ['search'] })
+    act(() => vi.advanceTimersByTime(1000))
+
+    const button = await topBar().findByRole('button', { name: 'Searching 1/4 · 12 releases' })
+    expect(button).toHaveAttribute('title', expect.stringContaining('Now: Breaking Bad · S05 · Standard · 12 releases'))
   })
 
   it('shows an Adoption scan with its progress', async () => {
@@ -112,18 +136,44 @@ describe('Running now', () => {
   const user = () => userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
   const runningNow = () => within(screen.getByRole('region', { name: /^Running now/ }))
 
-  it('opens from the top bar and lists everything running by a readable name', async () => {
+  it('opens from the rail and lists everything running by a readable name', async () => {
     await withActivity({ running: ['poll', 'trash'] })
     act(() => vi.advanceTimersByTime(1000))
 
     await user().click(topBar().getByRole('button', { name: '2 running' }))
 
-    expect(topBar().getByText('Activity')).toBeInTheDocument()
+    expect(screen.getByRole('complementary', { name: 'Health' })).toBeInTheDocument()
+    expect(location.pathname).toBe('/health/jobs')
     expect(
       runningNow()
         .getAllByRole('listitem')
         .map((li) => li.textContent),
     ).toEqual(['Polling the download client', 'Updating the TRaSH snapshot'])
+  })
+
+  it('shows the search pass as a compact row: what it is on, the releases checked, a Progress and "1 of 4"', async () => {
+    const current = { title_id: 7, title: 'Breaking Bad', has_poster: false, slot: '4K', season: 5, episodes: [], releases_seen: 37 }
+    server.use(
+      http.get('/search/status', ({ response }) =>
+        response(200).json({
+          due: { versions: 4, episodes: 0, upgrades: 0 },
+          pass: passOf({ done: 1, total: 4, releases_seen: 37, current }),
+          next_pass_at: null,
+          last_pass: null,
+          upgrades_per_pass: 5,
+          indexers: [],
+        }),
+      ),
+    )
+    await withActivity({ running: ['search'] })
+    act(() => vi.advanceTimersByTime(1000))
+
+    await user().click(topBar().getByRole('button', { name: /^Searching/ }))
+
+    const row = runningNow().getByRole('listitem')
+    expect(row).toHaveTextContent('Searching for Wanted and Upgrades · now Breaking Bad · S05 · 4K · 37 releases · 37 releases checked')
+    expect(within(row).getByRole('progressbar', { name: 'Searching for Wanted and Upgrades progress' })).toHaveAttribute('aria-valuenow', '1')
+    expect(row).toHaveTextContent('1 of 4')
   })
 
   it('leads from an Adoption scan to the Adoption screen', async () => {
@@ -148,7 +198,8 @@ describe('Running now', () => {
     act(() => vi.advanceTimersByTime(1000))
     await user().click(topBar().getByRole('button', { name: /Scanning for files to adopt/ }))
 
-    expect(runningNow().getByRole('listitem')).toHaveTextContent('Scanning for files to adopt 120/450')
+    expect(runningNow().getByRole('listitem')).toHaveTextContent('Scanning for files to adopt120 of 450')
+    expect(runningNow().getByRole('progressbar', { name: 'Scanning for files to adopt progress' })).toBeInTheDocument()
     await user().click(runningNow().getByRole('button', { name: 'Scanning for files to adopt' }))
     expect(await screen.findByRole('heading', { name: 'Adopt existing library' })).toBeInTheDocument()
   })
@@ -167,8 +218,7 @@ describe('Running now', () => {
 
   it('says when nothing is running', async () => {
     await withActivity({})
-    await user().click(screen.getByRole('button', { name: 'Activity' }))
-    await user().click(screen.getByRole('tab', { name: /^Background Jobs/ }))
+    await user().click(await screen.findByRole('button', { name: /^Health/ }))
 
     expect(runningNow().getByText('Nothing is running right now.')).toBeInTheDocument()
   })

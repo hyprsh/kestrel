@@ -114,6 +114,8 @@ func (c Connection) Bool(key string) bool { b, _ := c.Config[key].(bool); return
 // TestResult is what a successful Test reports; failures are Errors.
 type TestResult struct {
 	Message string `json:"message"`
+	// Version is the service's own version when the plugin learns it ("4.3.2"); empty otherwise.
+	Version string `json:"version,omitempty"`
 }
 
 // Option is one choice of a select field or a live dropdown.

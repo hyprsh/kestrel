@@ -10,6 +10,39 @@ import (
 	"database/sql"
 )
 
+const countGrabsByIndexerSince = `-- name: CountGrabsByIndexerSince :many
+SELECT indexer_id, COUNT(*) AS grabs FROM grabs WHERE created_at >= ? GROUP BY indexer_id
+`
+
+type CountGrabsByIndexerSinceRow struct {
+	IndexerID int64
+	Grabs     int64
+}
+
+// Grabs made per indexer instance since a time (RFC3339, UTC; created_at is stored the same way).
+func (q *Queries) CountGrabsByIndexerSince(ctx context.Context, createdAt string) ([]CountGrabsByIndexerSinceRow, error) {
+	rows, err := q.db.QueryContext(ctx, countGrabsByIndexerSince, createdAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountGrabsByIndexerSinceRow
+	for rows.Next() {
+		var i CountGrabsByIndexerSinceRow
+		if err := rows.Scan(&i.IndexerID, &i.Grabs); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createRequesterSession = `-- name: CreateRequesterSession :exec
 INSERT INTO sessions (id, created_at, expires_at, requester_id, requester_name, requester_title, access_checked_at)
 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -172,6 +205,42 @@ type MarkAccessCheckedParams struct {
 func (q *Queries) MarkAccessChecked(ctx context.Context, arg MarkAccessCheckedParams) error {
 	_, err := q.db.ExecContext(ctx, markAccessChecked, arg.AccessCheckedAt, arg.ID)
 	return err
+}
+
+const profileUsage = `-- name: ProfileUsage :many
+SELECT v.profile_key, COUNT(DISTINCT v.title_id) AS titles, COUNT(f.id) AS files
+FROM versions v LEFT JOIN files f ON f.version_id = v.id
+GROUP BY v.profile_key
+`
+
+type ProfileUsageRow struct {
+	ProfileKey string
+	Titles     int64
+	Files      int64
+}
+
+// Per Profile: the Titles with a Version under it and the files in those Versions.
+func (q *Queries) ProfileUsage(ctx context.Context) ([]ProfileUsageRow, error) {
+	rows, err := q.db.QueryContext(ctx, profileUsage)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ProfileUsageRow
+	for rows.Next() {
+		var i ProfileUsageRow
+		if err := rows.Scan(&i.ProfileKey, &i.Titles, &i.Files); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const pruneSessions = `-- name: PruneSessions :execrows

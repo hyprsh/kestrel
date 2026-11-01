@@ -36,6 +36,28 @@ type Client interface {
 	Remove(ctx context.Context, conn plugin.Connection, clientID string, deleteData bool) error
 }
 
+// StatusReporter is an optional part of a download client adapter: what the
+// client says about itself right now, for Settings. An adapter that does not
+// implement it still works; the host falls back to its Test.
+type StatusReporter interface {
+	Status(ctx context.Context, conn plugin.Connection) (Status, error)
+}
+
+// Status is a client's live state.
+type Status struct {
+	// Version is the client's own version ("4.3.2"); empty when it does not say.
+	Version string `json:"version"`
+	// Downloading counts the jobs of the queue that are actively downloading.
+	Downloading int `json:"downloading"`
+	// Queued counts the jobs of the queue that are waiting or paused.
+	Queued int `json:"queued"`
+	// FreeBytes is the free space where the client downloads to; nil when unknown.
+	FreeBytes *int64 `json:"free_bytes"`
+	// BytesPerSecond is the client's overall download speed right now, 0 when idle or
+	// when the client does not say.
+	BytesPerSecond int64 `json:"bytes_per_second"`
+}
+
 // PayloadKind says what AddRequest.Data holds.
 type PayloadKind string
 
@@ -94,6 +116,10 @@ type Item struct {
 	BytesLeft  int64 `json:"bytes_left"`
 	// ETA is 0 when unknown.
 	ETA time.Duration `json:"eta"`
+	// BytesPerSecond is how fast this job is downloading right now; 0 when it is not
+	// downloading or the client does not say. A client that reports one overall speed
+	// gives it to the job it is working on.
+	BytesPerSecond int64 `json:"bytes_per_second"`
 	// OutputPath is where the finished files are, set when Phase is completed.
 	OutputPath string `json:"output_path"`
 	// Seeding is true while a torrent keeps uploading after completion.

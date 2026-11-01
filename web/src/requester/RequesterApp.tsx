@@ -28,7 +28,7 @@ export function RequesterApp({ name }: { name: string }) {
           {name}
         </span>
         <Button size="small" variant="tertiary" disabled={logout.isPending} onClick={() => logout.mutate(undefined)}>
-          Log out
+          Log Out
         </Button>
       </PhoneTopBar>
       <main className="min-h-0 flex-1 overflow-auto">

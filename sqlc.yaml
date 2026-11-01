@@ -114,3 +114,19 @@ sql:
         package: db
         out: internal/watchlist/db
         emit_json_tags: false
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/stats/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/stats/db
+        emit_json_tags: false
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/jobs/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/jobs/db
+        emit_json_tags: false

@@ -20,36 +20,45 @@ describe('the empty shell', () => {
   it('shows the icon rail with every top-level screen', async () => {
     renderApp()
     const rail = await screen.findByRole('navigation')
-    for (const name of ['Overview', 'Library', 'Upcoming', 'Log', 'Settings', 'About']) {
+    for (const name of ['Overview', 'Library', 'Upcoming', 'Log', 'Settings']) {
       expect(within(rail).getByRole('button', { name })).toBeInTheDocument()
     }
-    expect(screen.getByRole('main')).toHaveTextContent(/downloading now/i) // Overview is the home screen
+    expect(screen.getByRole('main')).toHaveTextContent(/downloading/i) // Overview is the home screen
   })
 
   it('switches the screen title when a rail item is chosen', async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    expect(screen.getByRole('banner')).toHaveTextContent('Library')
+    expect(screen.getByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
   })
 
-  it('goes back to the Overview when the Kestrel logo is clicked', async () => {
+  it('goes back to the Overview when the Kestrel logo, which is the Overview button, is clicked', async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Kestrel, go to Overview' }))
-    expect(screen.getByRole('banner')).toHaveTextContent('Overview')
-    expect(screen.getByRole('main')).toHaveTextContent(/downloading now/i)
+    const logo = screen.getByRole('button', { name: 'Overview' })
+    expect(logo).not.toHaveAttribute('aria-current')
+    await userEvent.click(logo)
+    expect(screen.getByRole('heading', { level: 1, name: 'Overview' })).toBeInTheDocument()
+    expect(logo).toHaveAttribute('aria-current', 'page')
+    expect(screen.getAllByRole('button', { name: 'Overview' })).toHaveLength(1) // the rail has no second Overview button
+    expect(screen.getByRole('main')).toHaveTextContent(/downloading/i)
   })
 
-  it('shows the server version read through the generated client', async () => {
+  it('shows Health as a rail button, linking to Health, and not the version', async () => {
     server.use(http.get('/system', ({ response }) => response(200).json({ version: '9.9.9', api_major: 1, base_url: '' })))
     renderApp()
-    expect(await screen.findByText(/9\.9\.9/)).toBeInTheDocument()
+    const pill = await within(await screen.findByRole('navigation')).findByRole('button', { name: /health · all checks ok/i })
+    await userEvent.click(pill)
+    expect(location.pathname).toBe('/health')
+    expect(screen.queryByText(/9\.9\.9/)).not.toBeInTheDocument()
   })
 
   it('says so when the server cannot be reached', async () => {
     server.use(http.get('/system', () => HttpResponse.error()))
     renderApp()
-    expect(await screen.findByText(/offline/i)).toBeInTheDocument()
+    const pill = await within(await screen.findByRole('navigation')).findByRole('button', { name: /offline/i })
+    expect(pill).not.toHaveAccessibleName(/health/i)
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument() // no top bar holds the pill
   })
 })
 

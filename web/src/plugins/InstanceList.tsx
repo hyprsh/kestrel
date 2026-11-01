@@ -1,4 +1,4 @@
-import { Badge, Button, Entity, Fieldset, Note, Select, Toggle } from '@hyprsh/design'
+import { Badge, Button, Entity, Note, Select, Toggle } from '@hyprsh/design'
 import { SkeletonRows } from '../loading'
 import { useState } from 'react'
 import { ApiError, usePluginInstances, usePlugins, useSetInstanceEnabled, type PluginInstance, type PluginManifest } from '../api/queries'
@@ -18,7 +18,6 @@ export function InstanceList({
   newLabel,
   typeLabel,
   empty,
-  title,
   help,
   showPriority,
   single,
@@ -32,7 +31,6 @@ export function InstanceList({
   newLabel: string
   typeLabel: string
   empty: string
-  title?: string
   help?: string
   /** Shows each instance's priority and sorts by it, lowest (tried first) on top. */
   showPriority?: boolean
@@ -61,51 +59,48 @@ export function InstanceList({
   const done = () => setEditing(null)
 
   return (
-    <Fieldset>
-      <Fieldset.Content>
-        {title && <Fieldset.Title as="h3">{title}</Fieldset.Title>}
-        {help && <Fieldset.Subtitle>{help}</Fieldset.Subtitle>}
-        <div className="flex flex-col gap-3">
-          {rows.length === 0 && editing !== 'new' && <Note size="small">{empty}</Note>}
-          {rows.length > 0 && (
-            <Entity.List aria-label={`${noun}s`}>
-              {rows.map((i) => {
-                const manifest = manifests.find((m) => m.id === i.plugin_id)
-                return editing === i.id && manifest ? (
-                  <Entity key={i.id}>
-                    <div className="min-w-0 flex-1">
-                      <InstanceForm manifest={manifest} instance={i} managed={managed} label={i.name} onSaved={done} onCancel={done} />
-                    </div>
-                  </Entity>
-                ) : (
-                  <Row key={i.id} instance={i} manifest={manifest} showPriority={showPriority} onEdit={() => setEditing(i.id)} />
-                )
-              })}
-            </Entity.List>
-          )}
-          {editing === 'new' && newManifest && (
-            <>
-              {manifests.length > 1 && (
-                <Select
-                  size="small"
-                  label={typeLabel}
-                  wrapperClassName="max-w-md"
-                  value={newManifest.id}
-                  onChange={(e) => setPicked(e.target.value)}
-                  options={manifests.map((m) => ({ value: m.id, label: m.name }))}
-                />
-              )}
-              <InstanceForm key={newManifest.id} manifest={newManifest} managed={managed} label={newLabel} onSaved={done} onCancel={done} />
-            </>
-          )}
-          {editing !== 'new' && !(single && rows.length > 0) && (
-            <Button size="small" className="self-start" disabled={!newManifest} onClick={() => setEditing('new')}>
-              {addLabel}
-            </Button>
-          )}
-        </div>
-      </Fieldset.Content>
-    </Fieldset>
+    <>
+      {help && <p className="copy-13 text-gray-900">{help}</p>}
+      <div className="flex flex-col gap-3">
+        {rows.length === 0 && editing !== 'new' && <Note size="small">{empty}</Note>}
+        {rows.length > 0 && (
+          <Entity.List aria-label={`${noun}s`}>
+            {rows.map((i) => {
+              const manifest = manifests.find((m) => m.id === i.plugin_id)
+              return editing === i.id && manifest ? (
+                <Entity key={i.id}>
+                  <div className="min-w-0 flex-1">
+                    <InstanceForm manifest={manifest} instance={i} managed={managed} label={i.name} onSaved={done} onCancel={done} />
+                  </div>
+                </Entity>
+              ) : (
+                <Row key={i.id} instance={i} manifest={manifest} showPriority={showPriority} onEdit={() => setEditing(i.id)} />
+              )
+            })}
+          </Entity.List>
+        )}
+        {editing === 'new' && newManifest && (
+          <>
+            {manifests.length > 1 && (
+              <Select
+                size="small"
+                label={typeLabel}
+                wrapperClassName="max-w-md"
+                value={newManifest.id}
+                onChange={(e) => setPicked(e.target.value)}
+                options={manifests.map((m) => ({ value: m.id, label: m.name }))}
+              />
+            )}
+            <InstanceForm key={newManifest.id} manifest={newManifest} managed={managed} label={newLabel} onSaved={done} onCancel={done} />
+          </>
+        )}
+        {editing !== 'new' && !(single && rows.length > 0) && (
+          <Button size="small" className="self-start" disabled={!newManifest} onClick={() => setEditing('new')}>
+            {addLabel}
+          </Button>
+        )}
+      </div>
+    </>
   )
 }
 

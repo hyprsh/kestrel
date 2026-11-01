@@ -9,7 +9,7 @@ const states = ['open', 'completed', 'rejected'] as const
 /** The qualifiers, offering the requesters and sources of the Requests already loaded. */
 export function requestQualifiers(requesters: readonly string[], sources: readonly string[]): Facet[] {
   return [
-    { name: 'status', help: 'open (on its way), completed or rejected', values: states },
+    { name: 'status', label: 'Status', help: 'open (on its way), completed or rejected', values: states },
     { name: 'requester', label: 'Requester', help: 'Who asked, by name; quote names with spaces', suggestions: requesters },
     { name: 'source', label: 'Source', help: 'Where the Request came from, such as silo', suggestions: sources },
   ]

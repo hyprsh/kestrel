@@ -1,6 +1,6 @@
 import { displayDefaults, noDisplayDeclared } from '../test/display'
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
@@ -18,6 +18,7 @@ const problem = (status: number, code: string, detail: string) => ({ type: 'abou
 type Profile = components['schemas']['Profile']
 type Settings = components['schemas']['Settings']
 type Sent = { path: string; body: unknown }
+type Details = components['schemas']['ProfileDetail']
 
 const profile = (key: string, name: string, slot: Profile['slot'], rule: Profile['language_rule'], over: Partial<Profile> = {}): Profile => ({
   key,
@@ -177,93 +178,394 @@ describe('the wizard Profiles section', () => {
 })
 
 describe('Settings', () => {
-  const open = async () => {
+  // Settings shows one section at a time, the first until another is chosen in the panel.
+  const open = async (section?: string) => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    if (section) await userEvent.click(await screen.findByRole('link', { name: section }))
   }
+  const bar = () => screen.getByRole('region', { name: 'Unsaved changes' })
 
-  it('lists the Primary Language and Profiles sections in the jump list', async () => {
+  type Quality = { name: string; accepted: boolean }
+  const ladderOf = (names: string[], off: string[] = []): Quality[] => names.map((name) => ({ name, accepted: !off.includes(name) }))
+  const emptyOverlay = (): Details['overlay'] => ({
+    min_score: null,
+    upgrade_until: null,
+    series: { cutoff: null, qualities: null },
+    movies: { cutoff: null, qualities: null },
+    episode_size: { min: null, max: null },
+    movie_size: { min: null, max: null },
+  })
+  const scoring = (names: string[], min: number, over: { off?: string[]; cutoff?: string | null; ladder?: Quality[] } = {}) => {
+    const trash = ladderOf(names)
+    const ladder = over.ladder ?? ladderOf(names, over.off)
+    return {
+      qualities: ladder.filter((q) => q.accepted).map((q) => q.name),
+      ladder,
+      trash_ladder: trash,
+      cutoff: over.cutoff ?? null,
+      min_score: min,
+      trash_min_score: min,
+      custom_formats: [
+        { name: 'WEB Tier 01', score: 1700 },
+        { name: 'HDR', score: 500 },
+        { name: 'x265 (HD)', score: -150 },
+        { name: 'Repack', score: 5 },
+      ],
+    }
+  }
+  const GB = 1024 ** 3
+  const best = ['Remux-1080p', 'Bluray-1080p', 'WEBDL-1080p', 'WEBRip-1080p', 'HDTV-1080p']
+  /** The HD Profile as the user set it up: WEB-DL 1080p is good enough, up to Score 2,000, 1 - 10 GB per episode, HDTV off. */
+  const configuredHd = (): Details => ({
+    key: 'hd-primary',
+    titles: 6,
+    files: 61,
+    rescores: 61,
+    below_cutoff: 12,
+    overlay: {
+      ...emptyOverlay(),
+      upgrade_until: 2000,
+      series: { cutoff: 'WEBDL-1080p', qualities: ladderOf(best, ['HDTV-1080p']) },
+      episode_size: { min: GB, max: 10 * GB },
+    },
+    movies: scoring(['Remux-1080p', 'Bluray-1080p', 'WEBDL-1080p', 'HDTV-720p'], 0),
+    series: scoring(best, 0, { off: ['HDTV-1080p'], cutoff: 'WEBDL-1080p' }),
+  })
+  const serveDetails = (over: Partial<Record<string, Details>> = {}) =>
+    server.use(
+      http.get('/profiles/details', ({ response }) =>
+        response(200).json({
+          items: [
+            ...seeded(),
+            ...Object.keys(over)
+              .filter((k) => !seeded().some((p) => p.key === k))
+              .map((k) => ({ key: k })),
+          ].map(
+            (p): Details =>
+              over[p.key] ?? {
+                key: p.key,
+                titles: p.key === 'hd-primary' ? 6 : 0,
+                files: p.key === 'hd-primary' ? 61 : 0,
+                rescores: p.key === 'hd-primary' ? 61 : 0,
+                below_cutoff: 0,
+                overlay: emptyOverlay(),
+                movies: scoring(['Remux-1080p', 'Bluray-1080p', 'WEBDL-1080p', 'HDTV-720p'], 0),
+                series: scoring(['Remux-1080p', 'Bluray-1080p', 'WEBDL-1080p', 'HDTV-720p'], 0),
+              },
+          ),
+        }),
+      ),
+    )
+
+  it('lists the General and Profiles pages in the jump list', async () => {
     fakeProfiles()
     await open()
     const nav = await screen.findByRole('navigation', { name: 'Settings sections' })
-    expect(within(nav).getByRole('link', { name: 'Primary Language' })).toHaveAttribute('href', '/settings#settings-language')
+    expect(within(nav).getByRole('link', { name: 'General' })).toHaveAttribute('href', '/settings#settings-general')
     expect(within(nav).getByRole('link', { name: 'Profiles' })).toHaveAttribute('href', '/settings#settings-profiles')
-    expect(await within(await screen.findByRole('region', { name: 'Primary Language' })).findByLabelText('Primary Language')).toHaveValue('en')
+    expect(await within(await screen.findByRole('region', { name: 'Language' })).findByLabelText('Primary language')).toHaveValue('en')
   })
 
-  it('shows a Language change as switching until its re-score ends, and keeps the form closed meanwhile', async () => {
-    fakeProfiles()
-    await open()
-    const section = await screen.findByRole('region', { name: 'Primary Language' })
-    await userEvent.selectOptions(await within(section).findByLabelText('Primary Language'), 'de')
-    await userEvent.click(within(section).getByRole('button', { name: 'Save language' }))
-
-    expect(await findToast('Re-scoring under German in the background')).toBeInTheDocument()
-    expect(await within(section).findByText(/Switching to German…/)).toBeInTheDocument()
-    expect(within(section).getByLabelText('Primary Language')).toBeDisabled()
-    expect(within(section).getByRole('button', { name: 'Save language' })).toBeDisabled()
-  })
-
-  it('enables, disables and chooses what each Primary-Language Profile does with Original-only Releases', async () => {
+  it('keeps a Language change as a draft, saves it from the bar and shows it as switching until its re-score ends', async () => {
     const sent = fakeProfiles()
     await open()
-    const section = await screen.findByRole('region', { name: 'Profiles' })
+    const section = await screen.findByRole('region', { name: 'Language' })
+    await userEvent.selectOptions(await within(section).findByLabelText('Primary language'), 'de')
 
-    await userEvent.click(await within(section).findByLabelText('4K enabled'))
-    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile 4k-primary', body: { enabled: false } }))
-    // A disabled Profile cannot be a default, so it leaves the choices.
-    await waitFor(() => expect(within(within(section).getByLabelText('4K default for Movies')).queryByRole('option', { name: '4K' })).not.toBeInTheDocument())
+    expect(within(section).getByLabelText('Release-date country')).toHaveValue('DE')
+    expect(bar()).toHaveTextContent('2 unsaved changes · Primary language, Country')
+    expect(sent).toEqual([]) // nothing is sent until Save
+    await userEvent.click(within(bar()).getByRole('button', { name: 'Save' }))
 
-    // Original-Language Profiles have no choice; Primary-Language ones reject, offer or grab.
-    expect(within(section).queryByLabelText('HD Original Original Language only')).not.toBeInTheDocument()
-    const choice = within(section).getByLabelText('HD Original Language only')
-    expect(choice).toHaveValue('reject')
+    expect(await findToast('Re-scoring under German in the background')).toBeInTheDocument()
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'settings', body: { language_region: { primary_language: 'de', release_date_country: 'DE' } } }))
+    expect(await within(section).findByText(/Switching to German…/)).toBeInTheDocument()
+    expect(within(section).getByLabelText('Primary language')).toBeDisabled()
+    expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument()
+  })
+
+  it('marks a changed row, and Discard puts every row back', async () => {
+    fakeProfiles()
+    await open()
+    const section = await screen.findByRole('region', { name: 'Language' })
+    await userEvent.selectOptions(await within(section).findByLabelText('Primary language'), 'fr')
+    await userEvent.clear(within(section).getByLabelText('Release-date country'))
+    await userEvent.type(within(section).getByLabelText('Release-date country'), 'be')
+    expect(within(section).getByLabelText('Release-date country')).toHaveValue('BE')
+
+    await userEvent.click(within(bar()).getByRole('button', { name: 'Discard' }))
+    expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument()
+    expect(within(section).getByLabelText('Primary language')).toHaveValue('en')
+    expect(within(section).getByLabelText('Release-date country')).toHaveValue('US')
+  })
+
+  it('asks before leaving the page with unsaved changes, and leaves once told to discard', async () => {
+    fakeProfiles()
+    await open()
+    const section = await screen.findByRole('region', { name: 'Language' })
+    await userEvent.selectOptions(await within(section).findByLabelText('Primary language'), 'fr')
+
+    await userEvent.click(screen.getByRole('link', { name: 'Profiles' }))
+    const ask = await screen.findByRole('dialog', { name: 'Leave without saving?' })
+    expect(ask).toHaveTextContent('Primary language, Country')
+    expect(screen.queryByRole('heading', { name: 'Profiles', level: 2 })).not.toBeInTheDocument()
+
+    await userEvent.click(within(ask).getByRole('button', { name: 'Keep editing' }))
+    expect(screen.queryByRole('dialog', { name: 'Leave without saving?' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Primary language')).toHaveValue('fr')
+
+    await userEvent.click(screen.getByRole('link', { name: 'Profiles' }))
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Leave without saving?' })).getByRole('button', { name: 'Discard and leave' }))
+    expect(await screen.findByRole('heading', { name: 'Profiles', level: 2 })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument()
+  })
+
+  it('leaves without asking when nothing changed', async () => {
+    fakeProfiles()
+    await open('Profiles')
+    expect(await screen.findByRole('heading', { name: 'Profiles', level: 2 })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Leave without saving?' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the draft and says why when the save fails', async () => {
+    fakeProfiles()
+    server.use(http.patch('/settings', ({ response }) => response('default').json(problem(500, 'internal', 'database locked'), { status: 500 })))
+    await open()
+    const section = await screen.findByRole('region', { name: 'Language' })
+    await userEvent.selectOptions(await within(section).findByLabelText('Primary language'), 'de')
+    await userEvent.click(within(bar()).getByRole('button', { name: 'Save' }))
+
+    expect(await within(section).findByText('Could not save. Try again.')).toBeInTheDocument()
+    expect(await findToast('Could not save Primary language, Country')).toBeInTheDocument()
+    expect(bar()).toBeInTheDocument()
+  })
+
+  it('shows each Profile as a card with its ladder best first, what uses it and what it does', async () => {
+    fakeProfiles()
+    serveDetails({ 'hd-primary': configuredHd() })
+    await open('Profiles')
+    const hd = await screen.findByRole('region', { name: 'HD' })
+    expect(await within(hd).findByText('Standard of 6 Titles')).toBeInTheDocument()
+    // Remux first, the cutoff dark, the quality turned off struck through.
+    expect(within(hd).getByText('Remux 1080p').compareDocumentPosition(within(hd).getByText('WEBRip 1080p')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(hd).getByText('WEB-DL 1080p')).toHaveAttribute('title', 'Good enough here')
+    expect(within(hd).getByText('WEB-DL 1080p')).toHaveAttribute('data-tone', 'cutoff')
+    expect(within(hd).getByText('HDTV 1080p')).toHaveAttribute('title', 'Not accepted')
+    expect(within(hd).getByText('HDTV 1080p')).toHaveAttribute('data-tone', 'no')
+    expect(within(hd).getByText('1 – 10 GB per episode')).toBeInTheDocument()
+    expect(within(hd).getByText('Primary Language audio')).toBeInTheDocument()
+    expect(within(hd).getByText('Upgrade until Score 2,000')).toBeInTheDocument()
+    expect(within(hd).getByText('12 files below the cutoff')).toBeInTheDocument()
+    expect(within(hd).getByText('Default for Movies and Series')).toBeInTheDocument()
+    expect(within(await screen.findByRole('region', { name: 'New Titles get' })).getByText('HD')).toBeInTheDocument()
+
+    // A Profile nobody set up says Upgrades never stop; one with a cutoff but no Score stops at the cutoff.
+    const any = screen.getByRole('region', { name: 'Any' })
+    expect(await within(any).findByText('Upgrades never stop')).toBeInTheDocument()
+    expect(within(any).queryByText(/per episode/)).not.toBeInTheDocument()
+    expect(within(any).queryByText(/below the cutoff/)).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Change…' }))
+    expect(await screen.findByLabelText('4K default for Movies')).toBeInTheDocument()
+  })
+
+  it('says No Upgrades past the cutoff for a cutoff with no Upgrade-until Score', async () => {
+    fakeProfiles()
+    const hd = configuredHd()
+    serveDetails({ 'hd-primary': { ...hd, overlay: { ...hd.overlay, upgrade_until: null } } })
+    await open('Profiles')
+    expect(await within(await screen.findByRole('region', { name: 'HD' })).findByText('No Upgrades past the cutoff')).toBeInTheDocument()
+  })
+
+  it('edits a Profile in a side sheet: what it does with Original-only Releases, saved with the sheet’s own Save', async () => {
+    const sent = fakeProfiles()
+    serveDetails()
+    await open('Profiles')
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit HD' }))
+    const sheet = await screen.findByRole('dialog', { name: 'HD' })
+
+    expect(await within(sheet).findByText('Saving rescores 61 files')).toBeInTheDocument()
+    expect(
+      within(sheet)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['Remux 1080p', 'BluRay 1080p', 'WEB-DL 1080p', 'HDTV 720p'].map((q) => q))
+    expect(within(sheet).getByRole('button', { name: 'Save' })).toBeDisabled()
+    const choice = within(sheet).getByLabelText('Audio')
     expect(
       within(choice)
         .getAllByRole('option')
         .map((o) => o.textContent),
-    ).toEqual(['Reject', 'Offer for approval', 'Grab'])
+    ).toEqual(['Primary Language audio', 'Primary Language audio, or the original (offered for approval)', 'Primary Language audio, or the original language'])
     await userEvent.selectOptions(choice, 'offer')
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Save' }))
+
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile hd-primary', body: { original_language: 'offer' } }))
     expect(await findToast('Saved HD')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'HD' })).not.toBeInTheDocument())
   })
 
-  it('shows the server problem when the only HD default is disabled', async () => {
-    fakeProfiles()
-    await open()
-    const section = await screen.findByRole('region', { name: 'Profiles' })
-    await userEvent.click(await within(section).findByLabelText('HD enabled'))
-    expect(await within(section).findByRole('alert')).toHaveTextContent('The Standard Slot always has a default')
-  })
-
-  it('saves a new Primary Language and says what it changes', async () => {
+  it('opens a Profile’s checklist as the user set it, and sends the whole overlay when a field changes', async () => {
     const sent = fakeProfiles()
-    await open()
-    const section = await screen.findByRole('region', { name: 'Primary Language' })
-    await userEvent.selectOptions(await within(section).findByLabelText('Primary Language'), 'de')
-    expect(within(section).getByText(/re-scores every file you already have/i)).toBeInTheDocument()
-    await userEvent.click(within(section).getByRole('button', { name: 'Save language' }))
-    expect(await findToast('Re-scoring under German in the background')).toBeInTheDocument()
-    expect(within(section).queryByText('Saved.')).not.toBeInTheDocument()
-    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'settings', body: { language_region: { primary_language: 'de', release_date_country: 'DE' } } }))
+    serveDetails({ 'hd-primary': configuredHd() })
+    await open('Profiles')
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit HD' }))
+    const sheet = await screen.findByRole('dialog', { name: 'HD' })
+
+    const items = () => within(sheet).getAllByRole('listitem')
+    expect(items().map((li) => li.textContent)).toEqual(['Remux 1080p', 'BluRay 1080p', 'WEB-DL 1080pcutoff', 'WEBRip 1080p', 'HDTV 1080pnot accepted'])
+    expect(within(sheet).getByRole('checkbox', { name: 'Accept HDTV 1080p' })).toHaveAttribute('aria-checked', 'false')
+    expect(within(sheet).getByRole('checkbox', { name: 'Accept WEB-DL 1080p' })).toHaveAttribute('aria-checked', 'true')
+    expect(within(sheet).getByLabelText('Good enough at')).toHaveValue('WEBDL-1080p')
+    expect(within(sheet).getByLabelText('Upgrade until Score')).toHaveValue('2000')
+    expect(within(sheet).getByLabelText('Minimum Score')).toHaveValue('0')
+    expect(within(sheet).getByLabelText('Size per episode, smallest in GB')).toHaveValue('1')
+    expect(within(sheet).getByLabelText('Size per episode, largest in GB')).toHaveValue('10')
+    expect(within(sheet).getByText(/12 files below the cutoff in this Profile/)).toBeInTheDocument()
+    expect(within(sheet).getByText('Saving rescores 61 files')).toBeInTheDocument()
+    expect(within(sheet).getByRole('button', { name: 'Save' })).toBeDisabled()
+
+    await userEvent.clear(within(sheet).getByLabelText('Upgrade until Score'))
+    await userEvent.type(within(sheet).getByLabelText('Upgrade until Score'), '2500')
+    await userEvent.clear(within(sheet).getByLabelText('Size per episode, largest in GB'))
+    await userEvent.type(within(sheet).getByLabelText('Size per episode, largest in GB'), '20')
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(sent.at(-1)?.path).toBe('profile hd-primary'))
+    const overlay = (sent.at(-1)?.body as { overlay: Details['overlay'] }).overlay
+    expect(overlay.upgrade_until).toBe(2500)
+    expect(overlay.episode_size).toEqual({ min: GB, max: 20 * GB })
+    expect(overlay.series.cutoff).toBe('WEBDL-1080p')
+    expect(overlay.series.qualities?.map((q) => `${q.name}:${q.accepted}`)).toEqual(['Remux-1080p:true', 'Bluray-1080p:true', 'WEBDL-1080p:true', 'WEBRip-1080p:true', 'HDTV-1080p:false'])
+    expect(overlay.movies).toEqual({ cutoff: null, qualities: null })
   })
 
-  it('shows why a Profile choice could not be saved, and why the Language could not', async () => {
-    fakeProfiles()
+  it('reorders the checklist with the arrow keys on a row’s handle and by dragging, and a tick turns a quality off', async () => {
+    const sent = fakeProfiles()
+    serveDetails({ 'hd-primary': configuredHd() })
+    await open('Profiles')
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit HD' }))
+    const sheet = await screen.findByRole('dialog', { name: 'HD' })
+    const order = () =>
+      within(sheet)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent?.replace(/cutoff|not accepted/, ''))
+
+    const handle = within(sheet).getByRole('button', { name: 'Move WEB-DL 1080p' })
+    handle.focus()
+    await userEvent.keyboard('{ArrowUp}')
+    expect(order()).toEqual(['Remux 1080p', 'WEB-DL 1080p', 'BluRay 1080p', 'WEBRip 1080p', 'HDTV 1080p'])
+    expect(await within(sheet).findByText('WEB-DL 1080p is number 2 of 5')).toBeInTheDocument()
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}')
+    expect(order()).toEqual(['Remux 1080p', 'BluRay 1080p', 'WEBRip 1080p', 'WEB-DL 1080p', 'HDTV 1080p'])
+    // Moving past either end does nothing.
+    within(sheet).getByRole('button', { name: 'Move Remux 1080p' }).focus()
+    await userEvent.keyboard('{ArrowUp}')
+    expect(order()[0]).toBe('Remux 1080p')
+
+    // Dragging a row onto another puts it there.
+    const rows = within(sheet).getAllByRole('listitem')
+    const data = { effectAllowed: 'move', setData: () => undefined, getData: () => '' }
+    fireEvent.dragStart(rows[4], { dataTransfer: data })
+    fireEvent.dragOver(rows[0], { dataTransfer: data })
+    fireEvent.drop(rows[0], { dataTransfer: data })
+    expect(order()[0]).toBe('HDTV 1080p')
+
+    // Turning the cutoff quality off takes the cutoff away (it must be accepted).
+    await userEvent.click(within(sheet).getByRole('checkbox', { name: 'Accept WEB-DL 1080p' }))
+    expect(within(sheet).getByLabelText('Good enough at')).toHaveValue('')
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(sent.at(-1)?.path).toBe('profile hd-primary'))
+    const overlay = (sent.at(-1)?.body as { overlay: Details['overlay'] }).overlay
+    expect(overlay.series.cutoff).toBeNull()
+    expect(overlay.series.qualities?.map((q) => `${q.name}:${q.accepted}`)).toEqual(['HDTV-1080p:false', 'Remux-1080p:true', 'Bluray-1080p:true', 'WEBRip-1080p:true', 'WEBDL-1080p:false'])
+  })
+
+  it('Reset to TRaSH puts the TRaSH order and ticks back and saves no quality list', async () => {
+    const sent = fakeProfiles()
+    serveDetails({ 'hd-primary': configuredHd() })
+    await open('Profiles')
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit HD' }))
+    const sheet = await screen.findByRole('dialog', { name: 'HD' })
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Reset to TRaSH' }))
+    expect(within(sheet).getByRole('checkbox', { name: 'Accept HDTV 1080p' })).toHaveAttribute('aria-checked', 'true')
+    expect(within(sheet).getByRole('button', { name: 'Reset to TRaSH' })).toBeDisabled()
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(sent.at(-1)?.path).toBe('profile hd-primary'))
+    const overlay = (sent.at(-1)?.body as { overlay: Details['overlay'] }).overlay
+    expect(overlay.series.qualities).toBeNull()
+    expect(overlay.series.cutoff).toBe('WEBDL-1080p')
+  })
+
+  it('refuses a smallest size above the largest before sending anything', async () => {
+    const sent = fakeProfiles()
+    serveDetails()
+    await open('Profiles')
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit HD' }))
+    const sheet = await screen.findByRole('dialog', { name: 'HD' })
+    await userEvent.type(await within(sheet).findByLabelText('Size per Movie, smallest in GB'), '30')
+    await userEvent.type(within(sheet).getByLabelText('Size per Movie, largest in GB'), '5')
+    expect(within(sheet).getByRole('alert')).toHaveTextContent('Size per Movie: the smallest size is above the largest.')
+    expect(within(sheet).getByRole('button', { name: 'Save' })).toBeDisabled()
+    expect(sent).toEqual([])
+  })
+
+  it('makes a New Profile as a copy and opens it, and deletes a custom Profile nobody uses', async () => {
+    const sent = fakeProfiles()
+    const custom = { ...seeded()[0], key: 'custom-1', name: 'Movies', default_movies: false, default_series: false, custom: true }
     server.use(
-      http.patch('/profiles/{key}', ({ response }) => response('default').json(problem(500, 'internal', 'database locked'), { status: 500 })),
-      http.patch('/settings', ({ response }) => response('default').json(problem(500, 'internal', 'database locked'), { status: 500 })),
+      http.post('/profiles', async ({ request, response }) => {
+        sent.push({ path: 'create', body: await request.json() })
+        return response(201).json(custom)
+      }),
+      http.delete('/profiles/{key}', ({ params, response }) => {
+        sent.push({ path: `delete ${params.key}`, body: null })
+        return response(204).empty()
+      }),
     )
-    await open()
-    const profiles = await screen.findByRole('region', { name: 'Profiles' })
+    serveDetails({ 'custom-1': { ...configuredHd(), key: 'custom-1', titles: 0, files: 0, rescores: 0, below_cutoff: 0 } })
+    await open('Profiles')
+    await userEvent.click(await screen.findByRole('button', { name: 'New Profile…' }))
+    const ask = await screen.findByRole('dialog', { name: 'New Profile' })
+    expect(within(ask).getByRole('button', { name: 'Create' })).toBeDisabled()
+    await userEvent.type(within(ask).getByLabelText('Name'), 'Movies')
+    await userEvent.selectOptions(within(ask).getByLabelText('Start from'), 'hd-primary')
+    await userEvent.click(within(ask).getByRole('button', { name: 'Create' }))
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'create', body: { name: 'Movies', copy_from: 'hd-primary' } }))
+  })
+  const withCustom = (titles: number) => {
+    const sent = fakeProfiles()
+    const custom = { ...seeded()[0], key: 'custom-1', name: 'Movies', default_movies: false, default_series: false, custom: true }
+    server.use(
+      http.get('/profiles', ({ response }) => response(200).json({ items: [...seeded(), custom] })),
+      http.delete('/profiles/{key}', ({ params, response }) => {
+        sent.push({ path: `delete ${params.key}`, body: null })
+        return response(204).empty()
+      }),
+    )
+    serveDetails({ 'custom-1': { ...configuredHd(), key: 'custom-1', below_cutoff: 0, titles, files: titles * 3, rescores: titles * 3 } })
+    return sent
+  }
 
-    await userEvent.selectOptions(await within(profiles).findByLabelText('HD Original Language only'), 'offer')
-    expect(await within(profiles).findByRole('alert')).toBeInTheDocument()
+  it('cannot delete a custom Profile while Titles use it', async () => {
+    withCustom(2)
+    await open('Profiles')
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit Movies' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Movies' })
+    expect(await within(sheet).findByLabelText('Name')).toHaveValue('Movies')
+    expect(within(sheet).getByRole('button', { name: 'Delete Profile' })).toBeDisabled()
+    expect(within(sheet).getByText(/2 Titles use it/)).toBeInTheDocument()
+  })
 
-    const language = await screen.findByRole('region', { name: 'Primary Language' })
-    await userEvent.selectOptions(await within(language).findByLabelText('Primary Language'), 'de')
-    await userEvent.click(within(language).getByRole('button', { name: 'Save language' }))
-    expect(await within(language).findByRole('alert')).toHaveTextContent('Could not save. Try again.')
-    expect(screen.queryByText('Language saved')).not.toBeInTheDocument()
+  it('deletes a custom Profile nobody uses after asking', async () => {
+    const sent = withCustom(0)
+    await open('Profiles')
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit Movies' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Movies' })
+    await userEvent.click(await within(sheet).findByRole('button', { name: 'Delete Profile' }))
+    await userEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete Profile' }))
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'delete custom-1', body: null }))
+    expect(await findToast('Deleted Movies')).toBeInTheDocument()
   })
 })

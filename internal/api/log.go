@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"sort"
+	"time"
 
 	"github.com/hyprsh/kestrel/internal/acquire"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
@@ -65,6 +67,50 @@ func (s *server) ListEvents(ctx context.Context, r oapi.ListEventsRequestObject)
 	return oapi.ListEvents200JSONResponse(out), nil
 }
 
+// GetEventsSummary is what the Log holds, for its views' counts and its footer.
+func (s *server) GetEventsSummary(ctx context.Context, _ oapi.GetEventsSummaryRequestObject) (oapi.GetEventsSummaryResponseObject, error) {
+	sum, err := s.history.Summary(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := oapi.EventsSummary{Counts: make([]oapi.EventKindCount, 0, len(sum.Counts)), RoutineDays: int(history.RoutineLife / (24 * time.Hour))}
+	for k, n := range sum.Counts {
+		out.Counts = append(out.Counts, oapi.EventKindCount{Kind: string(k), Count: n, Routine: history.IsRoutine(k)})
+	}
+	sort.Slice(out.Counts, func(i, j int) bool { return out.Counts[i].Kind < out.Counts[j].Kind })
+	if !sum.Oldest.IsZero() {
+		out.Oldest = &sum.Oldest
+	}
+	return oapi.GetEventsSummary200JSONResponse(out), nil
+}
+
+// GetEventsHistogram is the Log's strip: events per bucket of time, by severity.
+func (s *server) GetEventsHistogram(ctx context.Context, r oapi.GetEventsHistogramRequestObject) (oapi.GetEventsHistogramResponseObject, error) {
+	bucket, days := oapi.GetEventsHistogramParamsBucket("4h"), 7
+	if r.Params.Bucket != nil {
+		bucket = *r.Params.Bucket
+	}
+	if r.Params.Days != nil {
+		days = *r.Params.Days
+	}
+	length, ok := map[oapi.GetEventsHistogramParamsBucket]time.Duration{"1h": time.Hour, "4h": 4 * time.Hour, "1d": 24 * time.Hour}[bucket]
+	if !ok {
+		return nil, invalid("bucket", "invalid", "bucket must be 1h, 4h or 1d")
+	}
+	if days < 1 || days > 90 {
+		return nil, invalid("days", "invalid", "days must be between 1 and 90")
+	}
+	buckets, err := s.history.Histogram(ctx, length, days)
+	if err != nil {
+		return nil, err
+	}
+	out := oapi.EventsHistogram{Bucket: oapi.EventsHistogramBucket(bucket), Buckets: make([]oapi.EventsBucket, 0, len(buckets))}
+	for _, b := range buckets {
+		out.Buckets = append(out.Buckets, oapi.EventsBucket{At: b.Start, Events: b.Events, Warnings: b.Warnings, Errors: b.Errors})
+	}
+	return oapi.GetEventsHistogram200JSONResponse(out), nil
+}
+
 // slotsOf is a Slot filter's values; field names it in the error.
 func slotsOf(field string, slots *[]oapi.Slot) ([]string, error) {
 	if slots == nil {
@@ -108,6 +154,21 @@ func (s *server) ListBlocklist(ctx context.Context, r oapi.ListBlocklistRequestO
 		})
 	}
 	return oapi.ListBlocklist200JSONResponse(out), nil
+}
+
+// CreateBlocklistEntry blocklists a Release of a manual search.
+func (s *server) CreateBlocklistEntry(ctx context.Context, r oapi.CreateBlocklistEntryRequestObject) (oapi.CreateBlocklistEntryResponseObject, error) {
+	if r.Body == nil {
+		return nil, invalid("body", "required", "a body is required")
+	}
+	reason := "Blocklisted from a manual search"
+	if r.Body.Reason != nil && *r.Body.Reason != "" {
+		reason = *r.Body.Reason
+	}
+	if err := s.acquire.BlockRelease(ctx, r.Body.VersionId, r.Body.ReleaseId, reason); err != nil {
+		return nil, grabProblem(err)
+	}
+	return oapi.CreateBlocklistEntry204Response{}, nil
 }
 
 // DeleteBlocklistEntry lets a Release be grabbed again.

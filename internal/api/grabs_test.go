@@ -33,11 +33,21 @@ type releaseJSON struct {
 		Message     string `json:"message"`
 		Overridable bool   `json:"overridable"`
 	} `json:"rejections"`
+	Group  *string `json:"group"`
+	Covers []struct {
+		Season    *int   `json:"season"`
+		Episode   *int   `json:"episode"`
+		State     string `json:"state"`
+		FileScore *int   `json:"file_score"`
+	} `json:"covers"`
 }
 
 type releaseListJSON struct {
-	Items         []releaseJSON `json:"items"`
-	IndexerErrors []struct {
+	SearchedAt       string        `json:"searched_at"`
+	IndexersSearched int           `json:"indexers_searched"`
+	Wanted           int           `json:"wanted"`
+	Items            []releaseJSON `json:"items"`
+	IndexerErrors    []struct {
 		Indexer    string `json:"indexer"`
 		Code       string `json:"code"`
 		RetryAfter *int   `json:"retry_after"`
@@ -187,6 +197,12 @@ func TestAManualSearchListsEveryReleaseAndGrabbingOneSendsItToTheDownloadClient(
 	if list.Items[0].Name != goodRelease {
 		t.Errorf("first = %q, want the acceptable release first", list.Items[0].Name)
 	}
+	if good.Group == nil || *good.Group != "GRP" || len(good.Covers) != 1 || good.Covers[0].State != "wanted" || good.Covers[0].Season != nil || good.Covers[0].Episode != nil {
+		t.Errorf("group = %v, covers = %+v, want GRP and the Wanted Movie", good.Group, good.Covers)
+	}
+	if list.SearchedAt == "" || list.IndexersSearched != 1 || list.Wanted != 1 {
+		t.Errorf("searched_at = %q, indexers_searched = %d, wanted = %d", list.SearchedAt, list.IndexersSearched, list.Wanted)
+	}
 
 	r := s.grab(s.hd, good.ReleaseID, false)
 	if r.Status != 201 {
@@ -262,6 +278,30 @@ func TestAReleaseOnTheBlocklistIsRejectedAndNeverGrabbable(t *testing.T) {
 		if r.Status != 422 || decode[problemJSON](t, r).Code != "not_overridable" {
 			t.Errorf("override=%v: %d %s, want 422 not_overridable", override, r.Status, r.Body)
 		}
+	}
+}
+
+func TestBlocklistingAReleaseOfASearchMakesItRejectedAndNeverGrabbable(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	s.publish(t, goodRelease)
+	rel := s.releases(t, s.hd).find(t, goodRelease)
+
+	body := fmt.Sprintf(`{"version_id":%d,"release_id":%q}`, s.hd, rel.ReleaseID)
+	if r := s.valid("POST", "/blocklist", body); r.Status != 204 {
+		t.Fatalf("POST /blocklist = %d %s", r.Status, r.Body)
+	}
+
+	if got := s.releases(t, s.hd).find(t, goodRelease); len(got.Rejections) != 1 || got.Rejections[0].Code != "blocklisted" {
+		t.Errorf("rejections = %+v, want blocklisted", got.Rejections)
+	}
+	var reason string
+	if err := s.in.st.Read().QueryRow(`SELECT reason FROM blocklist WHERE release_name = ?`, goodRelease).Scan(&reason); err != nil || reason != "Blocklisted from a manual search" {
+		t.Errorf("reason = %q, %v", reason, err)
+	}
+	gone := fmt.Sprintf(`{"version_id":%d,"release_id":"nope"}`, s.hd)
+	if r := s.valid("POST", "/blocklist", gone); r.Status != 409 || decode[problemJSON](t, r).Code != "release_expired" {
+		t.Errorf("an expired Release: %d %s, want 409 release_expired", r.Status, r.Body)
 	}
 }
 

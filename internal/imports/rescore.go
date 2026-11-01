@@ -127,3 +127,54 @@ func (s *Service) rescoreVersion(ctx context.Context, snap *scoring.Snapshot, re
 	}
 	return out, nil
 }
+
+// FileFormats names the Custom Formats each file of a Title matches, by file id,
+// as its Version's Profile scores the file now: from the stored parse and probe
+// snapshots, the way Rescore does, so the points add up to the file's Score. The
+// Grab's own verdict is not used: it predates any Profile switch or TRaSH update,
+// and an adopted file has none. A file without snapshots is left out.
+func (s *Service) FileFormats(ctx context.Context, titleID int64) (map[int64][]scoring.MatchedFormat, error) {
+	defer s.snap.Hold()()
+	region, _, err := s.prof.Region(ctx)
+	if err != nil {
+		return nil, err
+	}
+	all, err := s.prof.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	d, err := s.lib.Get(ctx, titleID, library.View{Country: region.Country, Now: s.clock()})
+	if err != nil {
+		return nil, err
+	}
+	out := map[int64][]scoring.MatchedFormat{}
+	for _, ver := range d.Versions {
+		i := slices.IndexFunc(all, func(p profiles.Profile) bool { return p.Key == ver.Profile })
+		if i < 0 {
+			continue
+		}
+		profile, err := s.snap.Current().Profile(all[i].Spec(region.Primary.Release()))
+		if err != nil {
+			return nil, err
+		}
+		files, err := s.lib.FilesOfVersion(ctx, ver.ID)
+		if err != nil {
+			return nil, err
+		}
+		original := codeOfLanguage(release.LanguageByISO(d.OriginalLanguage))
+		for _, f := range files {
+			var parsed release.ParsedRelease
+			var info probe.Info
+			if json.Unmarshal([]byte(f.ParsedRelease), &parsed) != nil || json.Unmarshal([]byte(f.Probe), &info) != nil {
+				continue
+			}
+			languages, inconclusive := probe.ResolveLanguages(parsedCodes(parsed, original), info.Audio)
+			verdict := scoring.Evaluate(
+				scoring.Release{Parsed: parsed, IndexerLanguages: languagesOf(languages, inconclusive), Size: info.Size, Filename: filepath.Base(f.Path)},
+				scoring.Title{Name: d.Title, Year: d.Year, OriginalLanguage: release.LanguageByISO(d.OriginalLanguage)}, profile,
+			)
+			out[f.ID] = verdict.Matched
+		}
+	}
+	return out, nil
+}

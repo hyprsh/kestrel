@@ -273,3 +273,42 @@ func TestTitlesWithSomethingExpectedButNoDateAreListedUndated(t *testing.T) {
 		t.Errorf("Mystery = %+v", u)
 	}
 }
+
+func TestTheUnmonitoredAreListedOnlyWhenAskedForAndSayTheyAreNot(t *testing.T) {
+	lib, _ := newLibrary(t)
+	ctx := context.Background()
+	movie := addMovieWith(t, lib, 1, "Heat", usDates(metadata.ReleaseDate{Type: metadata.Digital, Date: day(2026, 10, 25)}))
+	if err := lib.SetMovieMonitored(ctx, movie, false); err != nil {
+		t.Fatal(err)
+	}
+	show := nightShowWith(t, lib, metadata.TVDBSeries{ID: 5001, Episodes: []metadata.Episode{
+		{ID: 1, Season: 2, Number: 1, Name: "Two one", Aired: aired(2026, 10, 20)},
+		{ID: 2, Season: 2, Number: 2, Name: "Two two", Aired: aired(2026, 10, 20)},
+	}})
+	if err := lib.SetEpisodesMonitored(ctx, show, []int64{episodeIDOf(t, lib, show, 2, 2)}, false); err != nil {
+		t.Fatal(err)
+	}
+	from, to := day(2026, 10, 17), day(2026, 11, 16)
+	if got := agenda(t, lib, now, from, to).Entries; len(got) != 1 || !got[0].Monitored {
+		t.Fatalf("entries = %+v, want only the monitored episode, marked Monitored", got)
+	}
+	a, err := lib.UpcomingWith(ctx, library.View{Country: "US", Now: now}, from, to, library.UpcomingOptions{Unmonitored: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, e := range a.Entries {
+		mark := "monitored"
+		if !e.Monitored {
+			mark = "not monitored"
+		}
+		got = append(got, e.Title+" "+e.EpisodeName+" "+mark+" "+string(e.Slots[0].State))
+	}
+	want := []string{"Night Show Two one monitored not_out", "Night Show Two two not monitored not_out", "Heat  not monitored not_out"}
+	if len(got) != 3 || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] {
+		t.Errorf("entries = %q, want %q", got, want)
+	}
+	if len(a.Undated) != 0 {
+		t.Errorf("undated = %+v, want none for the unmonitored", a.Undated)
+	}
+}

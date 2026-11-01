@@ -81,6 +81,9 @@ type ProfileSpec struct {
 	// Language but no Primary audio; the zero value rejects it. Only
 	// meaningful with PrimaryLanguage.
 	OriginalChoice OriginalChoice
+	// Overlay is what the household set on top of TRaSH's data (ADR 0023);
+	// nil leaves TRaSH's order and acceptance and sets no limit.
+	Overlay *Overlay
 }
 
 // HeightBounds are the resolution bounds of a builtin Profile (Settled 2),
@@ -118,8 +121,13 @@ type formatSet struct {
 	backing   string
 	backingID string
 	minScore  int
-	formats   []scoredFormat
-	qualities []string
+	// trashMinScore is the backing TRaSH profile's, before the household's replaces minScore.
+	trashMinScore int
+	formats       []scoredFormat
+	qualities     []string // the accepted quality names, as the Profile has them
+	trash         []string // the quality names TRaSH accepts
+	ladder        []QualityPref
+	cutoff        string
 }
 
 // Spec returns the ProfileSpec the Profile was resolved from.
@@ -140,6 +148,15 @@ func (p *Profile) Classes() []resolution.Class {
 func (p *Profile) MinScore(kind release.Kind) int {
 	if s := p.sets[kind]; s != nil {
 		return s.minScore
+	}
+	return 0
+}
+
+// TrashMinScore is the minimum Score of the backing TRaSH profile for a kind,
+// whatever the household set.
+func (p *Profile) TrashMinScore(kind release.Kind) int {
+	if s := p.sets[kind]; s != nil {
+		return s.trashMinScore
 	}
 	return 0
 }
@@ -198,9 +215,20 @@ func (s *Snapshot) Profile(spec ProfileSpec) (*Profile, error) {
 		if !ok {
 			return nil, fmt.Errorf("%w: %s profile %q is not in the snapshot", ErrUnsupportedProfile, a.dir, name)
 		}
-		set := &formatSet{backing: name, backingID: bp.id, minScore: bp.minScore}
+		set := &formatSet{backing: name, backingID: bp.id, minScore: bp.minScore, trashMinScore: bp.minScore}
 		set.formats = d.formatsFor(bp)
-		set.qualities = derivedQualities(spec, a.kind, bp.qualities)
+		set.trash = derivedQualities(spec, a.kind, bp.qualities)
+		ko := spec.Overlay.kind(a.kind)
+		set.ladder = p.buildLadder(a.kind, set.trash, ko.Qualities)
+		for _, q := range set.ladder {
+			if q.Accepted {
+				set.qualities = append(set.qualities, q.Name)
+			}
+		}
+		set.cutoff = ko.Cutoff
+		if spec.Overlay != nil && spec.Overlay.MinScore != nil {
+			set.minScore = *spec.Overlay.MinScore
+		}
 		p.sets[a.kind] = set
 	}
 	return p, nil

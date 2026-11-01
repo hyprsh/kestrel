@@ -4,7 +4,7 @@ The REST API is defined by [`api/openapi.yaml`](../../api/openapi.yaml) ([ADR 00
 
 ## Authentication
 
-Scripts authenticate with the single full-access key from Settings > Security (or `KESTREL_API_KEY`, see [Configuration](configuration.md#kestrel_api_key)), sent as `X-Api-Key: kst_...`. Only the header works. Bad keys are throttled like failed logins.
+Scripts authenticate with the single full-access key from Settings > Account > API key (or `KESTREL_API_KEY`, see [Configuration](configuration.md#kestrel_api_key)), sent as `X-Api-Key: kst_...`. Only the header works. Bad keys are throttled like failed logins.
 
 ```sh
 curl -H "X-Api-Key: kst_..." http://localhost:7676/api/v1/system/status

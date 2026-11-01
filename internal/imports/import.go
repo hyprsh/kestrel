@@ -67,6 +67,8 @@ type Grab struct {
 	// Overridden says the Grab was made despite rejections: "Grab anyway" or
 	// an accepted Original Offer. Only then may an Original-only file come in.
 	Overridden bool
+	// Checking, when set, is told how many downloaded files the Import is about to check, once it has found them.
+	Checking func(files int)
 }
 
 // Result is the outcome of one Import.
@@ -86,6 +88,8 @@ type Result struct {
 	CrossDevice bool
 	// Episodes are the per-episode results of a Series Import, in aired order.
 	Episodes []EpisodeResult
+	// Replaced is how many files in the library the Import replaced.
+	Replaced int
 }
 
 // Library is what imports needs of the library module.
@@ -348,6 +352,9 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 		return stalledBy(err)
 	}
 
+	if g.Checking != nil {
+		g.Checking(max(len(src.videos), 1))
+	}
 	// An earlier run may have died after the row was written: finish it.
 	if f, ok, ferr := s.lib.FileOfGrab(ctx, g.ID); ferr != nil {
 		return stalledBy(ferr)
@@ -454,6 +461,7 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 			removeWithSidecars(old.Path)
 		}
 	}
+	res.Replaced = len(replaced)
 	settleReplaces(partial, target)
 	s.sidecars(src, target, primary, original)
 	if g.CanRemove {

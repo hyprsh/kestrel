@@ -1,20 +1,26 @@
-// Overview, the home screen: the status chips, Needs attention, Downloading now beside Recent requests, and
-// the Recently added and Coming this week poster shelves.
+// Overview, the home screen: its title with the range selector, the headline figures, "Happening now" (Needs attention rows, then
+// the Downloading and Searching cards side by side), the dashboard (Grabs per day, Indexers, the download client, Library quality, Storage,
+// release groups and Requests, all for the chosen range), then Recently added, Recent requests and Coming this week, in a
+// column of at most 1120px. A phone shows the figures, Happening now, the Grabs chart, Indexers and the client on one line.
+import { Select, Skeleton } from '@hyprsh/design'
 import { useState } from 'react'
-import { useAttention } from '../api/attention'
-import { useQueue } from '../api/queue'
+import { useStats, type StatsRange } from '../api/stats'
 import { useRecentRequests } from '../api/requests'
 import { useRecent, useUpcoming } from '../api/upcoming'
-import { useCancel } from '../grabs/useCancel'
 import { useListNav } from '../keys'
-import { SkeletonRows } from '../loading'
-import { Coming, RecentlyAdded, shelfShown } from './ComingRecent'
-import { Downloads } from './Downloads'
-import { NeedsAttention, shownRows } from './NeedsAttention'
+import { SidePanel } from '../layout/SidePanel'
+import { usePhone } from '../responsive'
+import { ClientCard } from './ClientCard'
+import { ClientLine } from './ClientLine'
+import { Coming, RecentlyAdded } from './ComingRecent'
+import { GrabsCard, IndexersCard } from './GrabsAndIndexers'
+import { HappeningNow, useHappeningNow } from './HappeningNow'
+import { QualityCard, StorageCard } from './LibraryCards'
+import { GroupsCard, RequestsCard } from './PeopleCards'
 import { RecentRequests } from './RecentRequests'
-import { EmptyLine, firstFive, Section, ViewAll } from './Section'
-import { useShelfCount } from './Shelf'
-import { StatusChips } from './StatusChips'
+import { firstThree } from './Section'
+import { ranges } from './statsText'
+import { Tiles } from './Tiles'
 import type { OverviewNav } from './nav'
 
 export function Overview({
@@ -26,76 +32,87 @@ export function Overview({
   onOpenTitle?: (id: number) => void
   onOpenAdoption?: () => void
 }) {
-  const queue = useQueue()
-  const cancel = useCancel()
-  const all = queue.data ?? []
-  const items = firstFive(all)
-  const [allAttention, setAllAttention] = useState(false)
-  const rows = shownRows(useAttention().data?.rows ?? [], allAttention)
-  const recentShelf = useShelfCount()
-  const comingShelf = useShelfCount()
-  const recentItems = shelfShown(useRecent().data?.items ?? [], recentShelf.count)
-  const coming = shelfShown(useUpcoming(6).data ?? [], comingShelf.count)
-  const requests = firstFive(useRecentRequests().data?.items ?? [])
+  const phone = usePhone()
+  const [range, setRange] = useState<StatsRange>('30d')
+  const stats = useStats(range)
+  const happening = useHappeningNow(onOpen, onOpenTitle, onOpenAdoption)
+  const recentItems = firstThree(useRecent().data?.items ?? [])
+  const requests = firstThree(useRecentRequests().data?.items ?? [])
+  const coming = firstThree(useUpcoming(6).data ?? [])
 
-  // One selection runs through every row and poster in the order the screen reads: Needs attention,
-  // Downloading now, Recent requests, then the Recently added and Coming this week shelves. The chips
-  // are buttons of their own. Enter does what clicking would.
+  // One selection runs through every row in the order the screen reads: Happening now (its Needs attention
+  // rows, then its groups, then the Downloading card, then the Searching card), then the second row left to right: Recently added, Recent requests, Coming this
+  // week. Enter does what clicking would.
   const [sel, setSel] = useState(0)
   const enter: (() => void)[] = [
-    ...rows.map((r) => () => {
-      const open = r.actions.find((a) => a.method === 'GET')
-      if (open) onOpen(open.path)
-    }),
-    ...items.map((i) => () => i.title_id != null && onOpenTitle(i.title_id)),
-    ...requests.map((r) => () => r.title_id != null && onOpenTitle(r.title_id)),
+    ...happening.enter,
     ...recentItems.map((r) => () => onOpenTitle(r.title_id)),
+    ...requests.map((r) => () => r.title_id != null && onOpenTitle(r.title_id)),
     ...coming.map((c) => () => onOpenTitle(c.title_id)),
   ]
   const nav = (base: number): OverviewNav => ({ base, sel, select: setSel })
   useListNav('ov', enter.length, sel, setSel, (i) => enter[i]?.())
-  const downloadsEnd = rows.length + items.length
-  const requestsEnd = downloadsEnd + requests.length
+  const happeningEnd = happening.enter.length
+  const recentEnd = happeningEnd + recentItems.length
+  const requestsEnd = recentEnd + requests.length
   return (
-    <div className="flex-1 overflow-y-auto p-6 max-sm:p-4">
-      {/* One column below 1024px, in reading order; from 1024px Downloading now (two thirds) sits beside Recent requests, and the shelves span the width. */}
-      <div className="mx-auto max-w-3xl lg:max-w-7xl">
-        <StatusChips />
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-          <div className="lg:col-span-3">
-            <NeedsAttention onOpen={onOpen} onOpenTitle={onOpenTitle} onOpenAdoption={onOpenAdoption} nav={nav(0)} all={allAttention} onAll={setAllAttention} />
+    <>
+      {/* A phone's header is the panel's: the title with what runs and Health. A desktop has the title in the content. */}
+      {phone && <SidePanel title="Overview" />}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {/* Left aligned beside the rail like every screen's content, 24/32 padding, and no wider than the dashboard needs. */}
+        <div className="max-w-[1120px] p-4 sm:px-8 sm:py-6">
+          <div className="mb-6 flex items-center gap-3 max-sm:mb-4 max-sm:justify-end">
+            {!phone && <h1 className="heading-20 flex-1">Overview</h1>}
+            <Select size="small" aria-label="Range" value={range} onChange={(e) => setRange(e.target.value as StatsRange)} options={ranges.map((r) => ({ value: r.value, label: r.label }))} />
           </div>
-          <div className="min-w-0 lg:col-span-2">
-            <Section id="downloading-now" title="Downloading now" count={queue.data ? all.length : undefined}>
-              {queue.isPending ? (
-                <SkeletonRows poster="sm" />
-              ) : queue.data && items.length === 0 ? (
-                <EmptyLine title="Nothing is downloading." />
-              ) : (
-                <Downloads
-                  items={items}
-                  firstIndex={rows.length}
-                  sel={sel}
-                  onSelect={setSel}
-                  busy={cancel.pending}
-                  onCancel={(id, blocklist) => void cancel.run(id, blocklist)}
-                  onOpenTitle={onOpenTitle}
-                />
-              )}
-              {all.length > 0 && <ViewAll path="/activity" label="All activity →" />}
-            </Section>
-          </div>
-          <div className="min-w-0">
-            <RecentRequests onOpenTitle={onOpenTitle} nav={nav(downloadsEnd)} />
-          </div>
-          <div className="min-w-0 lg:col-span-3">
-            <RecentlyAdded onOpenTitle={onOpenTitle} nav={nav(requestsEnd)} shelf={recentShelf} />
-          </div>
-          <div className="min-w-0 lg:col-span-3">
-            <Coming onOpenTitle={onOpenTitle} nav={nav(requestsEnd + recentItems.length)} shelf={comingShelf} />
+          {/* The figures, Happening now, the dashboard and the three cards below it; the cards drop from three columns to two to one as the column narrows. */}
+          <div className="@container flex flex-col gap-8 max-sm:gap-4">
+            {stats.data ? (
+              <div className={stats.isPlaceholderData ? 'opacity-60 transition-opacity' : 'transition-opacity'} aria-busy={stats.isPlaceholderData}>
+                <Tiles stats={stats.data} phone={phone} />
+              </div>
+            ) : (
+              !stats.isError && <Skeleton height={phone ? 140 : 84} />
+            )}
+            <HappeningNow model={happening} onOpen={onOpen} onOpenTitle={onOpenTitle} onOpenAdoption={onOpenAdoption} nav={nav(0)} />
+            {stats.data && (
+              <div className={`flex flex-col gap-4 transition-opacity ${stats.isPlaceholderData ? 'opacity-60' : ''}`} aria-busy={stats.isPlaceholderData}>
+                <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
+                  <GrabsCard stats={stats.data} />
+                  <IndexersCard stats={stats.data} phone={phone} />
+                </div>
+                {phone ? (
+                  <ClientLine stats={stats.data} />
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 gap-4 @2xl:grid-cols-2 @4xl:grid-cols-3">
+                      <ClientCard stats={stats.data} />
+                      <QualityCard stats={stats.data} />
+                      <StorageCard stats={stats.data} />
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
+                      <GroupsCard stats={stats.data} />
+                      <RequestsCard stats={stats.data} />
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            <div className="grid grid-cols-1 gap-8 @2xl:grid-cols-2 @4xl:grid-cols-3">
+              <div className="min-w-0">
+                <RecentlyAdded onOpenTitle={onOpenTitle} nav={nav(happeningEnd)} />
+              </div>
+              <div className="min-w-0">
+                <RecentRequests onOpenTitle={onOpenTitle} nav={nav(recentEnd)} />
+              </div>
+              <div className="min-w-0">
+                <Coming onOpenTitle={onOpenTitle} nav={nav(requestsEnd)} />
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }

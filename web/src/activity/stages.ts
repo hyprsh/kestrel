@@ -1,5 +1,5 @@
 // Activity's pipeline: which stage each Grab is in, from the queue, GET /grabs and the Blocklist.
-import { HISTORY_DAYS, type GrabEntry } from '../api/activity'
+import type { GrabEntry } from '../api/activity'
 import type { TitleRow } from '../api/queries'
 import type { QueueItem } from '../api/queue'
 import type { components } from '../api/schema.gen'
@@ -30,8 +30,10 @@ export type Entry =
 
 /**
  * Every row in stage order: active Grabs as the queue lists them (oldest first), stalled
- * Imports, then Done and Failed newest first. Failed also holds the Blocklist entries of the
- * last HISTORY_DAYS no listed Grab accounts for, such as a Release canceled and blocklisted.
+ * Imports, then Done and Failed newest first. Failed also holds the Blocklist entries no Grab is
+ * left for, such as a Release canceled and blocklisted. `reach` is the time the loaded Done and
+ * Failed pages go back to while older ones are still to load (null when they are all loaded):
+ * such an entry waits until the list reaches it, so the rows stay in order as pages come in.
  */
 export function entriesOf(
   queue: readonly QueueItem[],
@@ -39,16 +41,14 @@ export function entriesOf(
   finished: readonly GrabEntry[],
   blocked: readonly BlocklistEntry[],
   titles: readonly TitleRow[],
-  now: number,
+  reach: number | null,
 ): Entry[] {
   const active: Entry[] = queue.map((item) => ({ type: 'active', key: `g${item.grab_id}`, stage: phases[item.phase].stage, item }))
   const held: Entry[] = stalled.map((grab) => ({ type: 'grab', key: `g${grab.grab_id}`, stage: 'stalled', grab }))
-  const listed = new Set(finished.map((g) => g.grab_id))
-  const since = now - HISTORY_DAYS * 86_400_000
   const ended: (Entry & { at: string })[] = [
     ...finished.map((grab) => ({ type: 'grab' as const, key: `g${grab.grab_id}`, stage: grab.state === 'imported' ? ('done' as const) : ('failed' as const), grab, at: grab.updated_at })),
     ...blocked
-      .filter((b) => Date.parse(b.created_at) >= since && (b.grab_id === null || !listed.has(b.grab_id)))
+      .filter((b) => b.grab_id === null && (reach === null || Date.parse(b.created_at) >= reach))
       .map((entry) => ({
         type: 'blocked' as const,
         key: `b${entry.id}`,

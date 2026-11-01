@@ -1,25 +1,47 @@
 // Where the SPA is, as one path: the screen, a section of it and its filter, such as
-// "/settings/download-client" or "/log?q=kind:failures". Attention actions and in-app links name
-// places this way, and the address bar shows the current one (relative to the <base href>, which
+// "/settings/download-client" or "/log?q=kind:failures", and a Title's Manual search ("/library/12/search?version=4&scope=S05"). Attention actions
+// and in-app links name places this way, and the address bar shows the current one (relative to the <base href>, which
 // the server serves index.html under), so a filtered screen can be bookmarked or linked to.
 // There is no router: the Shell switches screens, opens paths and keeps the address bar in step.
 import { createContext, useCallback, useContext, useSyncExternalStore } from 'react'
 
 /** The season tab (0 is Specials) and the found episode's number of a Series' Title page; null: not set. */
-export type EpisodeAt = { season: number | null; episode: number | null }
+export type EpisodeAt = {
+  season: number | null
+  episode: number | null
+  /** A Slot's key: the Title page opens at that Slot's Version. */ slot?: string | null
+  /** The seasons open on a Series' Title page ("?open=5,3"); null: not named, so the page opens its own. */ open?: number[] | null
+}
 
-export type Place = { screen: string; section: string; q: string } & EpisodeAt
+/**
+ * A Title's Manual search: the Version it searches and, for a Series, the season or episodes it is narrowed to, as the code
+ * "S05" (a season), "S05E07" (an episode) or "S05E07,E08" (episodes of one season); null is the whole Title.
+ */
+export type ManualSearchAt = { titleId: number; versionId: number; scope: string | null }
+
+export type Place = { screen: string; section: string; q: string; search: ManualSearchAt | null } & EpisodeAt
+
+/** The address of a Title's Manual search: "/library/12/search?version=4&scope=S05". */
+export function manualSearchPath(at: ManualSearchAt): string {
+  const params = new URLSearchParams({ version: String(at.versionId) })
+  if (at.scope) params.set('scope', at.scope)
+  return `/library/${at.titleId}/search?${params.toString().replace(/%2C/g, ',')}`
+}
 
 /**
  * The path of a screen with its filter text, and a section of it such as an open Title's id on a phone. A Series'
- * season tab and found episode follow as `season` and `episode` ("/library?season=2&episode=5").
+ * season tab and found episode follow as `season` and `episode` ("/library?season=2&episode=5"), and the Slot a Title page opens at as
+ * `slot` ("/library/12?slot=4k" on a phone).
  */
-export function placePath(screen: string, q = '', section = '', at?: EpisodeAt): string {
+export function placePath(screen: string, q = '', section = '', at?: EpisodeAt, search?: ManualSearchAt | null): string {
+  if (search) return manualSearchPath(search)
   const params = new URLSearchParams()
   if (q) params.set('q', q)
   if (at?.season != null) params.set('season', String(at.season))
   if (at?.season != null && at.episode != null) params.set('episode', String(at.episode))
-  const query = params.toString()
+  if (at?.open) params.set('open', at.open.join(','))
+  if (at?.slot) params.set('slot', at.slot)
+  const query = params.toString().replace(/%2C/g, ',')
   return `/${screen}${section ? `/${section}` : ''}${query ? `?${query}` : ''}`
 }
 
@@ -28,9 +50,26 @@ const count = (v: string | null) => (v !== null && /^\d+$/.test(v) ? Number(v) :
 /** Reads a path such as "/settings/download-client" or "/log?q=kind:grab". */
 export function placeOf(path: string): Place {
   const url = new URL(path.replace(/^\/*/, '/'), 'http://place')
-  const [screen = '', section = ''] = url.pathname.slice(1).split('/')
+  const [screen = '', section = '', sub = ''] = url.pathname.slice(1).split('/')
   const season = count(url.searchParams.get('season'))
-  return { screen, section, q: url.searchParams.get('q') ?? '', season, episode: season === null ? null : count(url.searchParams.get('episode')) }
+  const titleId = count(section)
+  const versionId = count(url.searchParams.get('version'))
+  const scope = url.searchParams.get('scope')
+  const openParam = url.searchParams.get('open')
+  const open = openParam === null ? null : openParam.split(',').flatMap((n) => (/^\d+$/.test(n) ? [Number(n)] : []))
+  const slotParam = url.searchParams.get('slot')
+  const slot = slotParam && /^[\w-]+$/.test(slotParam) ? slotParam : null
+  const search: ManualSearchAt | null =
+    screen === 'library' && sub === 'search' && titleId !== null && versionId !== null
+      ? { titleId, versionId, scope: scope && /^S\d+(E\d+(,E?\d+)*)?$/i.test(scope) ? scope.toUpperCase() : null }
+      : null
+  // Health and Background Jobs were views of Activity; old bookmarks and links open the Health screen: "/activity/health" at its top,
+  // "/activity/jobs" and "/activity/running" at its Background jobs.
+  // About is a page of Settings; "/about" opens it.
+  if (screen === 'about') return { screen: 'settings', section: 'about', q: '', search: null, season: null, episode: null }
+  if (screen === 'activity' && section === 'health') return { screen: 'health', section: '', q: '', search: null, season: null, episode: null }
+  if (screen === 'activity' && (section === 'jobs' || section === 'running')) return { screen: 'health', section: 'jobs', q: '', search: null, season: null, episode: null }
+  return { screen, section, q: url.searchParams.get('q') ?? '', search, season, episode: season === null ? null : count(url.searchParams.get('episode')), slot, open }
 }
 
 /** The directory the SPA is served under: "/" or the base URL's path. */
