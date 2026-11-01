@@ -8,7 +8,7 @@ import { useColumnOrder } from '../layout/columnOrder'
 import { useColumnWidths } from '../layout/columnWidths'
 import { LoadingRegion } from '../loading'
 import { slotKeys } from './bits'
-import { SeasonDeleteConfirm, SeasonMenu, TickedBar, useEpisodeActions } from './EpisodeActions'
+import { ColumnsMenu, TickedBar, useEpisodeActions } from './EpisodeActions'
 import { FindEpisodeField, useEpisodeFind } from './EpisodeFind'
 import { EpisodeMatrix, airedKey } from './EpisodeMatrix'
 import { useEpisodeView } from './episodeView'
@@ -21,7 +21,7 @@ const noEpisodes: Episode[] = []
 
 /**
  * What a Series adds to its Title page, below its Versions: the Seasons at a glance (a square per episode and Slot, a row per
- * season that opens it), then the open season: a toolbar (its name, a filter, Find an episode, a ⋯ menu), the episodes × Slots
+ * season that opens it), then the open season: a toolbar (its name, a filter, Find an episode, Reset Columns while the columns changed), the episodes × Slots
  * table and, while episodes are ticked, their floating bar. The open season and the found episode live in the address bar (episodeView.ts).
  */
 export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; onManualSearch?: (t: ManualSearchTarget) => void }) {
@@ -113,7 +113,7 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
   const showField = finding || find.text !== ''
   return (
     <>
-      <SeasonGrid seasons={seasons} episodes={grouped} slots={slots} open={season} onOpen={(n) => view.set(n, null)} />
+      <SeasonGrid seasons={seasons} episodes={grouped} slots={slots} open={season} onOpen={(n) => view.set(n, null)} actions={actions} />
       <section aria-label={`${name} episodes`} className="mt-6">
         <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
           <h3 className="heading-16">{name}</h3>
@@ -133,10 +133,9 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
                 <Search aria-hidden className="size-4" />
               </Button>
             )}
-            <SeasonMenu actions={actions} season={season} episodes={inSeason} columns={columns} order={order} />
+            <ColumnsMenu columns={columns} order={order} />
           </div>
         </div>
-        <SeasonDeleteConfirm actions={actions} season={season} />
         {shown.length === 0 && !folds ? (
           <p className="copy-13 text-gray-900">No episodes match.</p>
         ) : (

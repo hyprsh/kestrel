@@ -59,7 +59,7 @@ describe('the episode table columns', () => {
     localStorage.setItem('kestrel.columns.episodes.order', JSON.stringify(['standard', '4k', 'aired']))
     localStorage.setItem('kestrel.columns.episodes', JSON.stringify({ name: 300 }))
     const grid = await openSeries()
-    await userEvent.click(screen.getByRole('button', { name: 'Actions for Season 1' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Table options' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Reset Columns' }))
     expect(heads(grid).slice(1, 5)).toEqual(['Name', 'Aired', 'Standard', '4K'])
     expect(localStorage.getItem('kestrel.columns.episodes.order')).toBeNull()

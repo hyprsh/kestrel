@@ -33,7 +33,7 @@ async function openGrid() {
 /** The seasons in the Seasons at a glance, in order. */
 const tabsOf = async () =>
   within(screen.getByRole('region', { name: 'Seasons' }))
-    .getAllByRole('button')
+    .getAllByRole('button', { name: /^(Season \d+|Specials):/ })
     .map((b) => b.getAttribute('aria-label')?.split(':')[0])
 const rowsOf = (grid: HTMLElement) =>
   within(grid)

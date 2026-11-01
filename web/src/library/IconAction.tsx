@@ -9,6 +9,7 @@ export function IconAction({
   size = 'tiny',
   variant = 'tertiary',
   disabled,
+  reason,
   tabIndex,
   onFocus,
   onClick,
@@ -18,12 +19,14 @@ export function IconAction({
   size?: 'tiny' | 'small'
   variant?: 'secondary' | 'tertiary'
   disabled?: boolean
+  /** Why it is disabled, said in the tooltip. */
+  reason?: string
   tabIndex?: number
   onFocus?: FocusEventHandler<HTMLButtonElement>
   onClick: () => void
 }) {
   return (
-    <Tooltip text={label}>
+    <Tooltip text={disabled && reason ? `${label}: ${reason}` : label}>
       <Button svgOnly variant={variant} size={size} aria-label={label} disabled={disabled} tabIndex={tabIndex} onFocus={onFocus} onClick={onClick}>
         <Icon aria-hidden className={size === 'tiny' ? 'size-3.5' : 'size-4'} />
       </Button>

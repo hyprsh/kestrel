@@ -41,7 +41,7 @@ describe('the Seasons at a glance on the Title page', () => {
     const region = screen.getByRole('region', { name: 'Seasons' })
     expect(
       within(region)
-        .getAllByRole('button')
+        .getAllByRole('button', { name: /^(Season \d+|Specials):/ })
         .map((b) => b.getAttribute('aria-label')),
     ).toEqual(['Season 1: Standard 2 of 2; 4K 2 of 2', 'Season 2: Standard 1 of 2, 1 Wanted; 4K 0 of 2, 2 Wanted, open', 'Specials: Standard not monitored; 4K not monitored'])
     expect(within(region).getByRole('button', { name: /^Season 2:/ })).toHaveAttribute('aria-current', 'true')
@@ -175,13 +175,20 @@ describe('the Seasons at a glance on the Title page', () => {
     expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 3' }).closest('tr')).toHaveAttribute('aria-current', 'true')
   })
 
-  it('has Find an episode and the season’s ⋯ menu in the toolbar, with Search Season, Manual Search Season… and Reset Columns in the menu', async () => {
+  it('has Find an episode in the toolbar and the season’s actions on its row in the Seasons card', async () => {
     const { state } = await openSeries()
     expect(state.get().sent).toEqual([])
     expect(screen.getByRole('button', { name: 'Find an episode' })).toBeEnabled()
-    expect(screen.queryByRole('button', { name: 'Search Season 1' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Table options' })).not.toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Actions for Season 1' }))
+    const region = screen.getByRole('region', { name: 'Seasons' })
+    // The open-season button and the actions are siblings in the row, not nested buttons.
+    const open = within(region).getByRole('button', { name: /^Season 1:/ })
+    expect(open.querySelector('button')).toBeNull()
+    expect(open.parentElement).toContainElement(within(region).getByRole('button', { name: 'Search Season 1' }))
+    expect(within(region).getByRole('button', { name: 'Search Season 1' }).textContent).toBe('')
+
+    await userEvent.click(within(region).getByRole('button', { name: 'Actions for Season 1' }))
     const menu = screen.getByRole('menu', { name: 'Actions for Season 1' })
     const items = ['Search Season', 'Manual Search Season Standard…', 'Manual Search Season 4K…', 'Stop Monitoring Season', 'Delete Standard Season’s Files…', 'Delete 4K Season’s Files…']
     expect(
@@ -193,22 +200,40 @@ describe('the Seasons at a glance on the Title page', () => {
     await userEvent.keyboard('{Escape}')
   })
 
+  it('acts on a season that is not the open one, and marks the row whose menu is open', async () => {
+    const state = fakeSeries()
+    state.get().episodes = [episode(1, 1, 1, 'Pilot', { cells: filled }), episode(2, 2, 1, 'Next', { cells: { standard: cell('wanted'), '4k': cell('wanted') } })]
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    await screen.findByRole('grid', { name: 'Episodes' })
+    const region = screen.getByRole('region', { name: 'Seasons' })
+
+    expect(within(region).getByRole('button', { name: 'Search Season 1' })).toBeDisabled() // nothing in Season 1 is Wanted
+    expect(within(region).getByRole('button', { name: 'Search Season 2' })).toBeEnabled()
+    await userEvent.click(within(region).getByRole('button', { name: 'Actions for Season 1' }))
+    expect(within(region).getByRole('button', { name: 'Actions for Season 1' }).closest('[data-menu-open]')).not.toBeNull()
+    await userEvent.keyboard('{Escape}')
+    await userEvent.click(within(region).getByRole('button', { name: 'Actions for Season 1' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Stop Monitoring Season' }))
+    await waitFor(() => expect(state.get().sent).toEqual([{ path: 'seasons/1', body: { monitored: false } }]))
+    expect(params().get('season')).toBeNull() // acting on a row does not open it
+  })
+
   it('has an icon button, named for the episode, for a row’s Search', async () => {
     const { grid } = await openSeries()
     const row = within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' }).closest('tr')!
     expect(within(row).getByRole('button', { name: 'Search S01E01' }).textContent).toBe('')
   })
 
-  it('offers Reset Columns in the ⋯ menu only while the widths differ, and resets them', async () => {
+  it('offers Reset Columns in the toolbar’s table options only while the widths differ, and resets them', async () => {
     localStorage.setItem('kestrel.columns.episodes', JSON.stringify({ name: 300 }))
     await openSeries()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Actions for Season 1' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Table options' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Reset Columns' }))
 
     expect(localStorage.getItem('kestrel.columns.episodes')).toBeNull()
-    await userEvent.click(screen.getByRole('button', { name: 'Actions for Season 1' }))
-    expect(screen.queryByRole('menuitem', { name: 'Reset Columns' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Table options' })).not.toBeInTheDocument()
   })
 
   it('monitors and unmonitors a whole season from its menu', async () => {

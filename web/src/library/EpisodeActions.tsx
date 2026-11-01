@@ -290,29 +290,24 @@ export function EpisodeMenu({ actions, episode, onOpenChange }: { actions: Episo
   )
 }
 
+/** The search button of a season row, shown on hover: Search now for what is Wanted in the season. */
+export function SeasonSearch({ actions, season, episodes }: { actions: Pick<EpisodeActions, 'versions' | 'search'>; season: number; episodes: Episode[] }) {
+  const name = seasonName(season)
+  const wanted = wantedIn(episodes, actions.versions)
+  return <IconAction icon={Search} label={`Search ${name}`} disabled={!wanted} reason={wanted ? undefined : nothingWanted} onClick={() => actions.search(episodes, name, () => ({ season }))} />
+}
+
 /**
- * The open season's ⋯ menu, in the toolbar above the table: Search Season (its Wanted episodes), Manual Search Season…, Start or Stop
- * Monitoring Season, Delete the season's files and, while the column widths or order differ from the default, Reset Columns.
+ * The ⋯ menu of a season row: Search Season (its Wanted episodes), Manual Search Season…, Start or Stop Monitoring Season and
+ * Delete the season's files. `onOpenChange` tells the row when the menu opens and closes, so the row can show whose menu it is.
  */
-export function SeasonMenu({
-  actions,
-  season,
-  episodes,
-  columns,
-  order,
-}: {
-  actions: EpisodeActions
-  season: number
-  episodes: Episode[]
-  columns?: Pick<ColumnWidths, 'reset' | 'isDefault'>
-  order?: ColumnOrder
-}) {
+export function SeasonMenu({ actions, season, episodes, onOpenChange }: { actions: EpisodeActions; season: number; episodes: Episode[]; onOpenChange?: (open: boolean) => void }) {
   const { versions } = actions
   const name = seasonName(season)
   const wanted = wantedIn(episodes, versions)
   const monitored = episodes.some((e) => e.monitored)
   return (
-    <DotsMenu aria-label={`Actions for ${name}`} size="small" width={260}>
+    <DotsMenu aria-label={`Actions for ${name}`} size="tiny" iconSize={12} onOpenChange={onOpenChange} width={260}>
       <MenuItem
         prefix={<Search aria-hidden className="size-4" />}
         disabled={!wanted}
@@ -327,26 +322,25 @@ export function SeasonMenu({
       </MenuItem>
       <MenuDivider />
       <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={episodes} label={name} scope={{ season }} text="Season's Files" at={seasonRow(season)} />
-      {columns && order && !(columns.isDefault && order.isDefault) && (
-        <>
-          <MenuDivider />
-          <MenuItem
-            onSelect={() => {
-              columns.reset()
-              order.reset()
-            }}
-          >
-            Reset Columns
-          </MenuItem>
-        </>
-      )}
     </DotsMenu>
   )
 }
 
-/** The confirmation of deleting a season's files, under the season's buttons. */
-export function SeasonDeleteConfirm({ actions, season }: { actions: EpisodeActions; season: number }) {
-  return <EpisodeDeleteConfirm deletes={actions.deletes} at={seasonRow(season)} />
+/** The episode table's own ⋯ menu, in the toolbar: Reset Columns, offered only while the widths or order differ from the default. */
+export function ColumnsMenu({ columns, order }: { columns: Pick<ColumnWidths, 'reset' | 'isDefault'>; order: ColumnOrder }) {
+  if (columns.isDefault && order.isDefault) return null
+  return (
+    <DotsMenu aria-label="Table options" size="small" width={200}>
+      <MenuItem
+        onSelect={() => {
+          columns.reset()
+          order.reset()
+        }}
+      >
+        Reset Columns
+      </MenuItem>
+    </DotsMenu>
+  )
 }
 
 /** A row's tick box. */
