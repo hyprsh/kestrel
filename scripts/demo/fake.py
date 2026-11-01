@@ -16,6 +16,9 @@ What it knows (MOVIES and SERIES below):
 - Searches match "padd", "breaking"/"camino", "saul", "friends", "twin".
 - The indexer has no releases until GET /_ctl?releases=1 (=0 empties it again).
   Then it offers releases for every Movie and for Breaking Bad, never other Series.
+- A whole-season search (no episode) also finds a Remux pack, two German packs and, for the
+  season's first four episodes, a 2160p, a 1080p and a German release each: packs, episodes and
+  Releases the Profile rejects for Manual search.
 - GET /_ctl?unlisted=1 (=0 removes them) adds Breaking Bad releases TheTVDB does not list: the
   episode after the last listed one of the season asked for (Placeholder Episodes,
   episode_not_listed) and the season after the last (season_not_listed), as a pack and an
@@ -235,7 +238,7 @@ def rss(items):
         pub = (now - datetime.timedelta(days=n * 37 + 3)).strftime("%a, %d %b %Y %H:%M:%S +0000")
         a = "".join(f'<newznab:attr name="{k}" value="{escape(str(v))}"/>' for k, v in attrs.items())
         parts.append(f"""<item><title>{escape(title)}</title><guid isPermaLink="false">{guid}</guid>
-<link>http://127.0.0.1:{PORT}/nzb/get/{guid}.nzb</link><pubDate>{pub}</pubDate>
+<link>http://127.0.0.1:{PORT}/nzb/get/{guid}.nzb</link><comments>http://127.0.0.1:{PORT}/nzb/details/{guid}#comments</comments><pubDate>{pub}</pubDate>
 <enclosure url="http://127.0.0.1:{PORT}/nzb/get/{guid}.nzb" length="{size}" type="application/x-nzb"/>
 <newznab:attr name="category" value="{cat}"/><newznab:attr name="size" value="{size}"/>
 <newznab:attr name="grabs" value="{120 - n * 13}"/>{a}</item>""")
@@ -260,6 +263,25 @@ def unlisted_bb(season, ep):
     return out
 
 
+def season_extras(season):
+    """What a whole-season search finds besides the packs above: a Remux pack, German packs and
+    single episodes of every kind, so Manual search has packs, episodes and rejected Releases."""
+    code = f"S{season:02d}"
+    rows = [
+        (f"Breaking.Bad.{code}.2160p.BluRay.REMUX.HEVC.DTS-HD.MA.5.1-EPSiLON", 182_000_000_000, 5045),
+        (f"Breaking.Bad.{code}.GERMAN.DL.2160p.WEB.H265-GRP", 41_000_000_000, 5045),
+        (f"Breaking.Bad.{code}.German.1080p.WEB.H264-WAYNE", 12_000_000_000, 5040),
+    ]
+    for n in range(1, min(len(BB[season]), 4) + 1):
+        e = f"{code}E{n:02d}"
+        rows += [
+            (f"Breaking.Bad.{e}.2160p.WEB-DL.DDP5.1.HDR.H.265-NTb", 6_300_000_000, 5045),
+            (f"Breaking.Bad.{e}.1080p.WEB-DL.DD5.1.H.264-NTb", 1_700_000_000, 5040),
+            (f"Breaking.Bad.{e}.German.DL.1080p.WEB.H264-iNTENTiON", 2_500_000_000, 5040),
+        ]
+    return rows
+
+
 def releases(qs):
     t = qs.get("t", [""])[0]
     if not STATE["releases"] or t not in ("tvsearch", "movie", "search"):
@@ -281,6 +303,8 @@ def releases(qs):
             (f"Breaking.Bad.{code}.720p.HDTV.x264-CTU", 1_400_000_000 if not ep else 900_000_000, 5040),
             (f"Breaking.Bad.{code}.German.DL.1080p.BluRay.x264-iNTENTiON", 4_400_000_000 if not ep else 2_500_000_000, 5040),
         ]
+        if not ep and season in BB:
+            rows += season_extras(season)
         if STATE["unlisted"]:
             rows += unlisted_bb(season, ep)
         return rss([(a, b, c, attrs) for a, b, c in rows])
