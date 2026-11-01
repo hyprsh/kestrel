@@ -5,8 +5,10 @@ import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
 import { detail, fakeLibrary, row } from '../test/library'
-import { fakeSeries, seriesRow } from '../test/series'
+import { fakeQueue, queueItem } from '../test/queue'
+import { cell, episode, fakeSeries, seriesRow } from '../test/series'
 import { server } from '../test/server'
+import { chooseTitleItem, openTitleMenu } from '../test/titleHeader'
 import { findToast } from '../test/toasts'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
@@ -15,23 +17,42 @@ async function openTitle(name: RegExp) {
   renderApp()
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
   const pane = await screen.findByRole('region', { name })
-  return { pane, actions: await within(pane).findByRole('group', { name: 'Title actions' }) }
+  await within(pane).findByRole('button', { name: 'Title actions' })
+  return pane
 }
 
-describe('the Title actions row', () => {
-  it('sits under the description, above the Version rows and the episode grid', async () => {
+describe('the Title page header', () => {
+  it('holds the search button and the Title menu beside the name, above the Versions and the seasons', async () => {
     fakeSeries()
-    const { pane, actions } = await openTitle(/breaking bad/i)
+    const pane = await openTitle(/breaking bad/i)
 
-    const overview = within(pane).getByText('About Breaking Bad.')
-    const card = within(pane).getByRole('region', { name: 'Versions' })
-    const grid = await within(pane).findByRole('grid', { name: 'Episodes' })
-    expect(overview.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(actions.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(actions.compareDocumentPosition(grid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const heading = within(pane).getByRole('heading', { name: 'Breaking Bad' })
+    const menu = within(pane).getByRole('button', { name: 'Title actions' })
+    const versions = within(pane).getByRole('region', { name: 'Versions' })
+    expect(heading.compareDocumentPosition(menu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(menu.compareDocumentPosition(versions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(pane).getByRole('button', { name: 'Search Wanted' })).toBeInTheDocument()
+    expect(within(pane).queryByRole('group', { name: 'Title actions' })).not.toBeInTheDocument()
+    expect(within(pane).queryByRole('button', { name: 'Search now' })).not.toBeInTheDocument()
   })
 
-  it('keeps the metadata, Clean up, Move and Remove Title actions in its "…" menu, and asks before removing', async () => {
+  it('shows what is Wanted, downloading and next as badges, and the year, seasons and monitoring on one line', async () => {
+    const fake = fakeSeries()
+    fake.episodes.push(
+      episode(4, 1, 3, 'Down', { cells: { standard: cell('downloading'), '4k': cell('unreleased') } }),
+      episode(5, 1, 4, 'Soon', { air_date: '2999-01-02', cells: { standard: cell('unreleased'), '4k': cell('unreleased') } }),
+    )
+    fakeQueue([queueItem({ title_id: 5, slot: 'standard', episodes: ['S01E03'] })])
+    const pane = await openTitle(/breaking bad/i)
+
+    expect(await within(pane).findByText('1 Wanted')).toBeInTheDocument()
+    expect(within(pane).getByText('1 downloading · 75%')).toBeInTheDocument()
+    expect(within(pane).getByText(/^Next: S01E04 · /)).toBeInTheDocument()
+    expect(within(pane).getByRole('button', { name: 'Monitoring all episodes' })).toBeInTheDocument()
+    expect(within(pane).getByText(/^1 season/)).toBeInTheDocument()
+  })
+
+  it('keeps every Title action in the Title menu and asks before removing', async () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     const removed: string[] = []
     server.use(
@@ -40,16 +61,25 @@ describe('the Title actions row', () => {
         return response(204).empty()
       }),
     )
-    const { actions } = await openTitle(/paddington/i)
+    const pane = await openTitle(/paddington/i)
 
-    await userEvent.click(within(actions).getByRole('button', { name: 'More Title actions' }))
-    const menu = screen.getByRole('menu', { name: 'More Title actions' })
-    expect(
-      within(menu)
-        .getAllByRole('menuitem')
-        .map((i) => i.textContent),
-    ).toEqual(['Refresh metadata', 'Freeze metadata', 'Move', 'Clean up this Title', 'Show in the Log', 'Remove Title'])
-    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Remove Title' }))
+    const menu = await openTitleMenu(pane)
+    const names = within(menu)
+      .getAllByRole('menuitem')
+      .map((i) => i.textContent)
+    expect(names).toEqual([
+      'Monitoring…Monitored',
+      'Add Version…',
+      'Refresh metadata',
+      'Freeze metadata',
+      'Open in TMDBTMDB 101',
+      'Open in IMDbtt000001',
+      'Show in Log',
+      'Move…',
+      'Clean up…',
+      'Remove Title…',
+    ])
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Remove Title…' }))
 
     const confirm = screen.getByRole('alertdialog', { name: 'Remove Title' })
     expect(within(confirm).getByRole('checkbox', { name: 'Also delete files' })).not.toBeChecked()
@@ -62,10 +92,9 @@ describe('the Title actions row', () => {
   it('closes the Remove Title dialog on confirm and says in a Toast why the removal failed', async () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     server.use(http.delete('/titles/{id}', ({ response }) => response('default').json({ type: 'about:blank', title: 'x', status: 500, code: 'internal', detail: 'disk offline' }, { status: 500 })))
-    const { actions } = await openTitle(/paddington/i)
+    const pane = await openTitle(/paddington/i)
 
-    await userEvent.click(within(actions).getByRole('button', { name: 'More Title actions' }))
-    await userEvent.click(within(screen.getByRole('menu', { name: 'More Title actions' })).getByRole('menuitem', { name: 'Remove Title' }))
+    await chooseTitleItem(pane, 'Remove Title…')
     await userEvent.click(within(screen.getByRole('alertdialog', { name: 'Remove Title' })).getByRole('button', { name: 'Remove' }))
 
     expect(await findToast('Could not remove the Title: disk offline')).toBeInTheDocument()
@@ -89,30 +118,25 @@ describe('the Title actions row', () => {
         return response(200).json(detail(r, { metadata_frozen: state.frozen }))
       }),
     )
-    const { actions } = await openTitle(/paddington/i)
+    const pane = await openTitle(/paddington/i)
 
-    const choose = async (name: string) => {
-      await userEvent.click(within(actions).getByRole('button', { name: 'More Title actions' }))
-      return userEvent.click(screen.getByRole('menuitem', { name }))
-    }
-
-    await choose('Refresh metadata')
+    await chooseTitleItem(pane, 'Refresh metadata')
     await waitFor(() => expect(state.refreshes).toBe(1))
-    expect(await screen.findByText(/Refreshing metadata…/)).toBeInTheDocument()
+    expect(await findToast('Refreshing metadata… The Title updates when it is done.')).toBeInTheDocument()
 
-    await choose('Freeze metadata')
+    await chooseTitleItem(pane, 'Freeze metadata')
     await waitFor(() => expect(state.sent).toEqual([{ metadata_frozen: true }]))
-    await userEvent.click(within(actions).getByRole('button', { name: 'More Title actions' }))
-    expect(await screen.findByRole('menuitem', { name: 'Unfreeze metadata' })).toBeInTheDocument()
-    const refresh = screen.getByRole('menuitem', { name: /Refresh metadata/ })
+    const menu = await openTitleMenu(pane)
+    expect(await within(menu).findByRole('menuitem', { name: 'Unfreeze metadata' })).toBeInTheDocument()
+    const refresh = within(menu).getByRole('menuitem', { name: /Refresh metadata/ })
     expect(refresh).toHaveAttribute('aria-disabled', 'true')
     expect(refresh).toHaveAccessibleDescription('Metadata is frozen: unfreeze it to refresh')
     await userEvent.keyboard('{Escape}')
 
-    await choose('Unfreeze metadata')
+    await chooseTitleItem(pane, 'Unfreeze metadata')
     await waitFor(() => expect(state.sent[1]).toEqual({ metadata_frozen: false }))
-    await userEvent.click(within(actions).getByRole('button', { name: 'More Title actions' }))
-    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Refresh metadata' })).not.toHaveAttribute('aria-disabled', 'true'))
+    const again = await openTitleMenu(pane)
+    await waitFor(() => expect(within(again).getByRole('menuitem', { name: 'Refresh metadata' })).not.toHaveAttribute('aria-disabled', 'true'))
   })
 })
 
@@ -125,33 +149,31 @@ describe('the Version rows', () => {
       }),
     )
 
-  it('show a Series Version’s bar and its counts as plain text, with the Wanted and Long Missing counts and the size', async () => {
+  it('show a Series Version as a card: Wanted count, a bar, its episodes and size', async () => {
     const r = seriesRow(5, 'Breaking Bad')
     fakeSeries()
     standardOnly(r, { episodes: 236, filled: 228, wanted: 8, long_missing: 2, unmonitored: 4, downloading: 0, downloading_long_missing: 0, size: 412 * 1024 ** 3 })
-    const { pane } = await openTitle(/breaking bad/i)
+    const pane = await openTitle(/breaking bad/i)
 
-    const hd = within(pane).getByRole('listitem', { name: 'Standard' })
+    const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
     expect(within(hd).getByRole('img', { name: 'Standard: 228 of 240 episodes, 4 not monitored' })).toBeInTheDocument()
-    expect(within(hd).getByText('228 of 240 · 8 Wanted · 2 Long Missing · 4 not monitored · 412.0 GB')).toBeInTheDocument()
-    expect(within(hd).queryByRole('button', { name: /episodes/ })).not.toBeInTheDocument()
-    expect(within(hd).queryByRole('link')).not.toBeInTheDocument()
-    expect(within(pane).queryByRole('list', { name: 'Status' })).not.toBeInTheDocument()
+    expect(within(hd).getByText('8 Wanted')).toBeInTheDocument()
+    expect(within(hd).getByText('228 of 240 episodes · 2 Long Missing · 4 not monitored')).toBeInTheDocument()
+    expect(within(hd).getByText('412.0 GB')).toBeInTheDocument()
   })
 
-  it('show a Series Slot without a Version as the same row, with an empty bar, "Not kept" and Add Version', async () => {
+  it('leave out a Slot without a Version: Add Version… is in the Title menu', async () => {
     const r = seriesRow(5, 'Breaking Bad')
     fakeSeries()
     standardOnly(r, { episodes: 21, filled: 21, wanted: 0, long_missing: 0, unmonitored: 0, downloading: 0, downloading_long_missing: 0, size: 1024 ** 3 })
-    const { pane } = await openTitle(/breaking bad/i)
+    const pane = await openTitle(/breaking bad/i)
 
-    const uhd = within(pane).getByRole('listitem', { name: '4K' })
-    expect(uhd).toHaveTextContent('4KNot kept')
-    expect(within(uhd).queryByRole('img', { name: /episodes/ })).not.toBeInTheDocument()
-    expect(await within(uhd).findByRole('button', { name: 'Add Version: 4K' })).toBeInTheDocument()
+    await within(pane).findByRole('listitem', { name: 'Standard' })
+    expect(within(pane).queryByRole('listitem', { name: '4K' })).not.toBeInTheDocument()
+    expect(within(pane).queryByText('Not kept')).not.toBeInTheDocument()
   })
 
-  it('show a Movie Version’s state as a bar and plain text: not out yet, or Wanted for days', async () => {
+  it('show a Movie Version’s state in words: not out yet', async () => {
     const r = row(1, 'Paddington', 'Paddington')
     fakeLibrary([r])
     server.use(
@@ -160,14 +182,13 @@ describe('the Version rows', () => {
         return response(200).json({ ...d, versions: d.versions.map((v) => ({ ...v, state: 'unreleased' })) })
       }),
     )
-    const { pane } = await openTitle(/paddington/i)
+    const pane = await openTitle(/paddington/i)
 
     const hd = within(pane).getByRole('listitem', { name: 'Standard' })
     expect(await within(hd).findByText('Not out yet')).toBeInTheDocument()
-    expect(within(hd).getByRole('progressbar', { name: 'Standard: Unreleased' })).toBeInTheDocument()
   })
 
-  it('show a Movie Version’s file as a full bar with its quality and size, the path behind a click', async () => {
+  it('show a Movie Version’s file as quality, languages and size, with when it was imported and the path behind File details', async () => {
     const r = row(1, 'Paddington', 'Paddington')
     fakeLibrary([r])
     const file = {
@@ -176,8 +197,8 @@ describe('the Version rows', () => {
       release_name: 'Paddington.2014.1080p.BluRay',
       score: null,
       quality: 'Bluray-1080p',
-      languages: [],
-      imported_at: '2026-10-17T12:00:00Z',
+      languages: ['English', 'German'],
+      imported_at: new Date(Date.now() - 3 * 86_400_000).toISOString(),
     }
     server.use(
       http.get('/titles/{id}', ({ response }) => {
@@ -185,38 +206,56 @@ describe('the Version rows', () => {
         return response(200).json({ ...d, versions: d.versions.map((v) => ({ ...v, state: 'filled', file })) })
       }),
     )
-    const { pane } = await openTitle(/paddington/i)
+    const pane = await openTitle(/paddington/i)
 
     const hd = within(pane).getByRole('listitem', { name: 'Standard' })
-    expect(within(hd).getByRole('img', { name: 'Standard: filled' })).toBeInTheDocument()
-    expect(await within(hd).findByRole('button', { name: 'Bluray-1080p · 8.0 GB' })).toBeInTheDocument()
-    expect(within(hd).queryByRole('link')).not.toBeInTheDocument()
+    expect(await within(hd).findByText('Bluray-1080p · English, German · 8.0 GB')).toBeInTheDocument()
+    expect(within(hd).getByText('Imported 3 days ago')).toBeInTheDocument()
+    await userEvent.click(within(hd).getByRole('button', { name: 'File details' }))
+    expect(await screen.findByRole('dialog', { name: 'Standard file' })).toHaveTextContent('/data/media/movies/Paddington (2014)/Paddington.mkv')
   })
 
-  it('keep Change Profile, Delete file and Remove Version in a Movie row’s "…" menu, Delete file disabled without a file', async () => {
+  it('show a Wanted Movie Version for how many days, with Search now as its one action', async () => {
+    const r = row(1, 'Paddington', 'Paddington')
+    fakeLibrary([r])
+    server.use(
+      http.get('/titles/{id}', ({ response }) => {
+        const d = detail(r)
+        return response(200).json({ ...d, versions: d.versions.map((v) => ({ ...v, state: 'wanted', wanted_since: new Date(Date.now() - 12 * 86_400_000).toISOString() })) })
+      }),
+    )
+    const pane = await openTitle(/paddington/i)
+
+    const hd = within(pane).getByRole('listitem', { name: 'Standard' })
+    expect(await within(hd).findByText('Wanted for 12 days')).toBeInTheDocument()
+    expect(within(hd).getByRole('button', { name: 'Search Standard now' })).toBeEnabled()
+    expect(within(pane).getByText('Standard Wanted · 12 days')).toBeInTheDocument()
+  })
+
+  it('keep Search now, Manual search, Change Profile, Delete files and Remove Version in a Movie row’s "…" menu, Delete files disabled without a file', async () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
-    const { pane } = await openTitle(/paddington/i)
+    const pane = await openTitle(/paddington/i)
 
-    await userEvent.click(within(within(pane).getByRole('listitem', { name: 'Standard' })).getByRole('button', { name: 'More Standard Version actions' }))
-    const menu = screen.getByRole('menu', { name: 'More Standard Version actions' })
+    await userEvent.click(await within(pane).findByRole('button', { name: 'Standard Version actions' }))
+    const menu = screen.getByRole('menu', { name: 'Standard Version actions' })
     expect(
       within(menu)
         .getAllByRole('menuitem')
         .map((i) => i.textContent),
-    ).toEqual(['Change Profile', 'Delete fileNo file to delete', 'Remove Version'])
-    expect(within(menu).getByRole('menuitem', { name: /Delete file/ })).toHaveAttribute('aria-disabled', 'true')
+    ).toEqual(['Search now', 'Manual search…', 'Change Profile…HD', 'Delete files…No file to delete', 'Remove Version…'])
+    expect(within(menu).getByRole('menuitem', { name: /Delete files/ })).toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('keep a Series Version’s menu to Change Profile and Remove Version', async () => {
+  it('keep a Series Version’s menu to Search now, Manual search, Change Profile and Remove Version', async () => {
     fakeSeries()
-    const { pane } = await openTitle(/breaking bad/i)
+    const pane = await openTitle(/breaking bad/i)
 
-    await userEvent.click(within(within(pane).getByRole('listitem', { name: 'Standard' })).getByRole('button', { name: 'More Standard Version actions' }))
-    const menu = screen.getByRole('menu', { name: 'More Standard Version actions' })
+    await userEvent.click(await within(pane).findByRole('button', { name: 'Standard Version actions' }))
+    const menu = screen.getByRole('menu', { name: 'Standard Version actions' })
     expect(
       within(menu)
         .getAllByRole('menuitem')
         .map((i) => i.textContent),
-    ).toEqual(['Change Profile', 'Remove Version'])
+    ).toEqual(['Search now', 'Manual search…', 'Change Profile…HD', 'Remove Version…'])
   })
 })

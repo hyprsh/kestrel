@@ -7,6 +7,7 @@ import { http } from '../test/handlers'
 import { fakeLibrary, row } from '../test/library'
 import { fakeSeries } from '../test/series'
 import { server } from '../test/server'
+import { chooseSearchItem, openSearchMenu, openVersionMenu } from '../test/titleHeader'
 import { findToast, toastRegion } from '../test/toasts'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
@@ -34,20 +35,21 @@ function recordSearches({ gone = false } = {}) {
   return sent
 }
 
-async function openActions(title: RegExp) {
+async function openPane(title: RegExp) {
   renderApp()
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
   const pane = await screen.findByRole('region', { name: title })
-  return within(pane).findByRole('group', { name: 'Title actions' })
+  await within(pane).findByRole('button', { name: 'Title actions' })
+  return pane
 }
 
-describe('Search now on the Title page', () => {
-  it('searches a Wanted Movie Version at once and says in a Toast it started, with a link to Activity', async () => {
+describe('the Search button on the Title page', () => {
+  it('searches a Wanted Movie Version at once, named for its Slot, and says in a Toast it started, with a link to Activity', async () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     const sent = recordSearches()
-    const actions = await openActions(/paddington/i)
+    const pane = await openPane(/paddington/i)
 
-    await userEvent.click(within(actions).getByRole('button', { name: 'Search now' }))
+    await userEvent.click(within(pane).getByRole('button', { name: 'Search Standard' }))
 
     await waitFor(() => expect(sent).toEqual([{ path: 'search', version: 11, body: null }]))
     expect(await findToast('Search started for Paddington')).toBeInTheDocument()
@@ -55,35 +57,68 @@ describe('Search now on the Title page', () => {
     expect(screen.queryByText(/Searching…/)).not.toBeInTheDocument()
   })
 
-  it('cannot search a Title that wants nothing', async () => {
+  it('searches a Version from its own row and its menu', async () => {
+    fakeLibrary([row(1, 'Paddington', 'Paddington')])
+    const sent = recordSearches()
+    const pane = await openPane(/paddington/i)
+
+    await userEvent.click(await within(pane).findByRole('button', { name: 'Search Standard now' }))
+    await waitFor(() => expect(sent).toHaveLength(1))
+    await openVersionMenu(pane, 'Standard')
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Search now' }))
+    await waitFor(() =>
+      expect(sent).toEqual([
+        { path: 'search', version: 11, body: null },
+        { path: 'search', version: 11, body: null },
+      ]),
+    )
+  })
+
+  it('cannot search a Title that wants nothing, but still offers a manual search', async () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington', { slots: { standard: { version_id: 11, profile: 'hd-primary', state: 'filled', long_missing: false }, '4k': null } })])
     recordSearches()
-    const actions = await openActions(/paddington/i)
+    const pane = await openPane(/paddington/i)
 
-    expect(within(actions).getByRole('button', { name: 'Search now' })).toBeDisabled()
+    expect(within(pane).getByRole('button', { name: 'Search Wanted' })).toBeDisabled()
+    expect(within(await openSearchMenu(pane)).getByRole('menuitem', { name: /Manual search…/ })).toBeInTheDocument()
   })
 
   it('says why a search could not start', async () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     recordSearches({ gone: true })
-    const actions = await openActions(/paddington/i)
+    const pane = await openPane(/paddington/i)
 
-    await userEvent.click(within(actions).getByRole('button', { name: 'Search now' }))
+    await userEvent.click(within(pane).getByRole('button', { name: 'Search Standard' }))
 
     expect(await findToast('Could not search Paddington: no such Version')).toBeInTheDocument()
   })
 
-  it('searches every Wanted Version of a Series at once, and asks which Version to search by hand', async () => {
+  it('searches every Wanted Version of a Series at once, and every Version for Upgrades from the dropdown', async () => {
     fakeSeries()
     const sent = recordSearches()
-    const actions = await openActions(/breaking bad/i)
+    const pane = await openPane(/breaking bad/i)
 
-    await userEvent.click(within(actions).getByRole('button', { name: 'Search now' }))
+    await userEvent.click(within(pane).getByRole('button', { name: 'Search Wanted' }))
     await waitFor(() => expect([...sent.map((s) => s.version)].sort()).toEqual([51, 52]))
     expect(sent.every((s) => s.path === 'search' && s.body === null)).toBe(true)
 
-    await userEvent.click(within(actions).getByRole('button', { name: 'Manual search' }))
-    await userEvent.click(within(screen.getByRole('menu', { name: 'Manual search' })).getByRole('menuitem', { name: '4K' }))
+    sent.length = 0
+    await chooseSearchItem(pane, /Search all Versions/)
+    await waitFor(() => expect([...sent.map((s) => s.version)].sort()).toEqual([51, 52]))
+  })
+
+  it('asks which Version to search by hand when there are two', async () => {
+    fakeSeries()
+    const sent = recordSearches()
+    const pane = await openPane(/breaking bad/i)
+
+    const menu = await openSearchMenu(pane)
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((i) => i.textContent),
+    ).toEqual(['Manual search: Standard…Pick a Release yourself', 'Manual search: 4K…Pick a Release yourself', 'Search all VersionsAlso look for Upgrades'])
+    await userEvent.click(within(menu).getByRole('menuitem', { name: /Manual search: 4K/ }))
     await screen.findByRole('region', { name: 'Manual search' })
     await waitFor(() => expect(sent).toContainEqual({ path: 'releases', version: 52, body: null }))
   })

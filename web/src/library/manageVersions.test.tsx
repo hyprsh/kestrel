@@ -6,6 +6,7 @@ import { App } from '../App'
 import { http } from '../test/handlers'
 import { detail, fakeLibrary, row } from '../test/library'
 import { server } from '../test/server'
+import { chooseTitleItem, openVersionMenu } from '../test/titleHeader'
 import { findToast } from '../test/toasts'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
@@ -49,19 +50,21 @@ async function openPane() {
 }
 
 describe('manage Versions', () => {
-  it('adds a Version to an empty Slot from a dropdown with the default Profile selected', async () => {
+  it('adds a Version to an empty Slot from the Title menu, with the default Profile selected', async () => {
     const calls = fakeManage()
     const pane = await openPane()
-    const uhd = await within(pane).findByRole('listitem', { name: '4K' })
+    await within(pane).findByRole('listitem', { name: 'Standard' })
+    expect(within(pane).queryByRole('listitem', { name: '4K' })).not.toBeInTheDocument()
 
-    await userEvent.click(await within(uhd).findByRole('button', { name: 'Add Version: 4K' }))
-    expect(screen.getByRole('option', { name: '4K', selected: true })).toBeInTheDocument()
-    expect(within(uhd).queryByRole('button', { name: 'Add' })).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('option', { name: '4K' }))
+    await chooseTitleItem(pane, 'Add Version…')
+    const dialog = await screen.findByRole('dialog', { name: 'Add Version' })
+    expect(within(dialog).getByRole('combobox', { name: 'Slot' })).toHaveValue('4k')
+    expect(within(dialog).getByRole('combobox', { name: 'Profile' })).toHaveValue('4k-primary')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add' }))
 
-    await screen.findByRole('region', { name: /paddington/i })
     await waitFor(() => expect(calls).toHaveLength(1))
     expect(calls[0].body).toEqual({ slot: '4k', profile: '4k-primary' })
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Add Version' })).not.toBeInTheDocument())
   })
 
   const fourK = ['4k-movies', '4k-series'].map((key, i) => ({
@@ -85,7 +88,8 @@ describe('manage Versions', () => {
     fakeManage()
     server.use(http.get('/profiles', ({ response }) => response(200).json({ items: fourK })))
     const pane = await openPane()
-    expect(await within(pane).findByRole('button', { name: 'Add Version: 4K movies' })).toBeInTheDocument()
+    await chooseTitleItem(pane, 'Add Version…')
+    expect(await screen.findByRole('combobox', { name: 'Profile' })).toHaveValue('4k-movies')
   })
 
   it("selects a Series' own default Profile in the Add Version dropdown", async () => {
@@ -98,18 +102,21 @@ describe('manage Versions', () => {
     )
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    expect(await screen.findByRole('button', { name: 'Add Version: 4K series' })).toBeInTheDocument()
+    await chooseTitleItem(await screen.findByRole('region', { name: 'Dark' }), 'Add Version…')
+    await userEvent.selectOptions(await screen.findByRole('combobox', { name: 'Slot' }), '4k')
+    expect(screen.getByRole('combobox', { name: 'Profile' })).toHaveValue('4k-series')
   })
 
   it('switches a Version to another Profile of its Slot', async () => {
     const calls = fakeManage()
     const pane = await openPane()
-    const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
+    await within(pane).findByRole('listitem', { name: 'Standard' })
 
-    await userEvent.click(await within(hd).findByRole('button', { name: 'More Standard Version actions' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Change Profile' }))
-    await userEvent.selectOptions(within(hd).getByRole('combobox', { name: 'Profile' }), 'Any')
-    await userEvent.click(within(hd).getByRole('button', { name: 'Switch' }))
+    await openVersionMenu(pane, 'Standard')
+    await userEvent.click(screen.getByRole('menuitem', { name: /Change Profile…/ }))
+    const dialog = screen.getByRole('dialog', { name: 'Change Profile' })
+    await userEvent.selectOptions(within(dialog).getByRole('combobox', { name: 'Profile' }), 'Any')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Switch' }))
 
     await screen.findByRole('region', { name: /paddington/i })
     expect(calls.map((c) => c.body)).toEqual([{ profile: 'any-primary' }])
@@ -118,10 +125,10 @@ describe('manage Versions', () => {
   it('removes a Version without deleting files unless ticked', async () => {
     const calls = fakeManage()
     const pane = await openPane()
-    const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
+    await within(pane).findByRole('listitem', { name: 'Standard' })
 
-    await userEvent.click(await within(hd).findByRole('button', { name: 'More Standard Version actions' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Remove Version' }))
+    await openVersionMenu(pane, 'Standard')
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Remove Version…' }))
     let confirm = screen.getByRole('alertdialog', { name: 'Remove Version' })
     expect(within(confirm).getByRole('checkbox', { name: 'Also delete files' })).not.toBeChecked()
     await userEvent.click(within(confirm).getByRole('button', { name: 'Remove' }))
@@ -130,8 +137,8 @@ describe('manage Versions', () => {
     expect(await findToast('Version removed')).toBeInTheDocument()
     expect(screen.queryByRole('alertdialog', { name: 'Remove Version' })).not.toBeInTheDocument()
 
-    await userEvent.click(await within(hd).findByRole('button', { name: 'More Standard Version actions' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Remove Version' }))
+    await openVersionMenu(pane, 'Standard')
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Remove Version…' }))
     confirm = screen.getByRole('alertdialog', { name: 'Remove Version' })
     await userEvent.click(within(confirm).getByRole('checkbox', { name: 'Also delete files' }))
     await userEvent.click(within(confirm).getByRole('button', { name: 'Remove' }))
@@ -143,13 +150,52 @@ describe('manage Versions', () => {
     fakeManage()
     server.use(http.delete('/versions/{id}', ({ response }) => response('default').json({ type: 'about:blank', title: 'x', status: 500, code: 'internal', detail: 'disk offline' }, { status: 500 })))
     const pane = await openPane()
-    const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
+    await within(pane).findByRole('listitem', { name: 'Standard' })
 
-    await userEvent.click(await within(hd).findByRole('button', { name: 'More Standard Version actions' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Remove Version' }))
+    await openVersionMenu(pane, 'Standard')
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Remove Version…' }))
     await userEvent.click(within(screen.getByRole('alertdialog', { name: 'Remove Version' })).getByRole('button', { name: 'Remove' }))
 
     expect(await findToast('Could not remove the Version: disk offline')).toBeInTheDocument()
     expect(screen.queryByRole('alertdialog', { name: 'Remove Version' })).not.toBeInTheDocument()
+  })
+
+  it('shows the original-language offer as a slim row under its Version, which accepts or dismisses it', async () => {
+    const sent: string[] = []
+    const r = row(1, 'Paddington', 'Paddington')
+    fakeLibrary([r])
+    server.use(
+      http.get('/titles/{id}', ({ response }) => {
+        const d = detail(r)
+        const offer = {
+          title_id: 1,
+          title: 'Paddington',
+          version_id: 11,
+          slot: 'standard' as const,
+          profile: 'hd-primary',
+          release: 'Paddington.2014.1080p.BluRay.x264-GRP',
+          score: 92,
+          found_at: '2026-10-18T09:30:00Z',
+          dismissed: false,
+          releases: [],
+        }
+        return response(200).json({ ...d, versions: d.versions.map((v) => ({ ...v, original_offer: offer })) })
+      }),
+      http.post('/versions/{id}/original-offer/accept', ({ params, response }) => {
+        sent.push(`accept ${params.id}`)
+        return response(201).json({ grabs: [], failed: 0 })
+      }),
+      http.post('/versions/{id}/original-offer/dismiss', ({ params, response }) => {
+        sent.push(`dismiss ${params.id}`)
+        return response(204).empty()
+      }),
+    )
+    const pane = await openPane()
+
+    expect(await within(pane).findByText('A Standard release in the original language only is available · Score 92')).toBeInTheDocument()
+    await userEvent.click(within(pane).getByRole('button', { name: 'Dismiss' }))
+    await waitFor(() => expect(sent).toEqual(['dismiss 11']))
+    await userEvent.click(within(pane).getByRole('button', { name: 'Accept' }))
+    await waitFor(() => expect(sent).toEqual(['dismiss 11', 'accept 11']))
   })
 })

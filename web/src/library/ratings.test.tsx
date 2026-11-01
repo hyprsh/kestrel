@@ -34,11 +34,11 @@ describe("TMDB's audience rating", () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     const pane = await screen.findByRole('region', { name: 'Heat' })
 
-    const link = await within(pane).findByRole('link', { name: 'TMDB 8.4 (21k)' })
+    const link = await within(pane).findByRole('link', { name: 'TMDB 8.4' })
     expect(link).toHaveAttribute('href', 'https://www.themoviedb.org/movie/949')
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noopener noreferrer')
-    expect(link.parentElement).toHaveTextContent('2014 · 95 min · PG · Original EN · TMDB 8.4 (21k)')
+    expect(link.parentElement?.parentElement).toHaveTextContent(/^2014\s*·\s*1 h 35 min\s*·\s*PG\s*·\s*TMDB 8\.4\s*·\s*Original EN$/)
   })
 
   it('shows in the Add Title results and the add panel', async () => {

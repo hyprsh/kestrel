@@ -303,9 +303,8 @@ describe('the Library detail pane', () => {
     server.use(http.get('/titles/{id}', ({ response }) => response(200).json(d)))
     await openLibrary()
     const pane = await screen.findByRole('region', { name: /paddington/i })
-    // The row says what the file is, as plain text beside a full bar, not the release it was grabbed as.
-    expect(await within(pane).findByRole('button', { name: /Bluray-1080p · English \+ German · .*Score 1750/ })).toBeInTheDocument()
-    expect(within(pane).getByRole('img', { name: 'Standard: filled' })).toBeInTheDocument()
+    // The row says what the file is, not the release it was grabbed as.
+    expect(await within(pane).findByText(/^Bluray-1080p · English, German · /)).toBeInTheDocument()
     expect(within(pane).queryByText('Paddington.2014.1080p.BluRay.x264-GRP')).not.toBeInTheDocument()
   })
 
@@ -326,7 +325,7 @@ describe('the Library detail pane', () => {
     await openLibrary()
     const pane = await screen.findByRole('region', { name: /paddington/i })
 
-    await userEvent.click(await within(pane).findByRole('button', { name: 'Bluray-1080p · 8.0 GB' }))
+    await userEvent.click(await within(pane).findByRole('button', { name: 'File details' }))
 
     const popover = await screen.findByRole('dialog', { name: 'Standard file' })
     expect(popover).toHaveTextContent('/data/media/movies/P/P.mkv')

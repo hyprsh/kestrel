@@ -1,240 +1,284 @@
-// The Versions of a Title on its page: one compact row per Slot, filled or not kept.
-import { Button, DotsMenu, Entity, FilterMenu, MenuDivider, MenuItem, Note, Progress } from '@hyprsh/design'
-import { useState, type ReactNode } from 'react'
+// The Versions of a Title on its page. A Series: one compact card per Slot, side by side, with what that Slot is
+// downloading inside it. A Movie: one row per Slot in a card, each with its state and its one next action.
+import { Button, DotsMenu, Entity, MenuDivider, MenuItem, Note, Progress } from '@hyprsh/design'
+import { CircleCheck, CircleDashed, Download, FileVideo, Search, X } from 'lucide-react'
+import { useState } from 'react'
 import type { Profile, TitleDetail } from '../api/queries'
-import { useAddVersion, useRemoveVersion, useSwitchProfile } from '../api/versions'
-import { coverageSegments, size, slotKeys, slotLabel, StatusBadge, versionStatus, type SlotKey } from './bits'
+import { useRemoveVersion, useSwitchProfile } from '../api/versions'
+import { plural } from '../format'
+import { RowList, stackedRight, stackedRow } from '../layout/RowList'
+import { ago, span, useNow } from '../time'
+import { useReport } from '../toasts'
+import { coverageSegments, size, slotKeys, slotLabel, versionStatus } from './bits'
 import { DeleteFile } from './DeleteFiles'
 import { FilePopover } from './EpisodeFilePopover'
-import { useReport } from '../toasts'
+import { IconAction } from './IconAction'
 import { ProfilePicker, RemoveConfirm } from './ManageVersion'
 import { OriginalOfferNote } from './OriginalOfferNote'
+import type { ManualSearchTarget } from './TitleDetail'
+import { useCancelDownloads, useTitleDownloads, type SlotDownloads } from './TitleDownloads'
+import { useSearchVersion } from './VersionSearch'
 
 type Version = TitleDetail['versions'][number]
 
+type Props = { title: TitleDetail; profiles: Profile[]; profileName: (key: string) => string; onManualSearch: (target: ManualSearchTarget) => void }
+
+const unmonitored = (t: TitleDetail) => (t.kind === 'movie' ? !t.monitored : t.series_monitor === 'none')
+
 /**
- * The Versions block: a row per Slot. A row has the Slot, the Profile, the state badge, a bar with what the
- * Version holds (a Series' episode coverage, a Movie's file or state) and a "…" menu with its actions; it stacks
- * on a narrow pane. A Slot with no Version is the same row with an empty bar and Add Version.
+ * The Versions block: a card per Slot for a Series, a row per Slot in one card for a Movie. A Slot with no Version is
+ * not drawn; the Title menu's Add Version… adds one.
  */
-export function VersionRows({ title, profiles, profileName }: { title: TitleDetail; profiles: Profile[]; profileName: (key: string) => string }) {
+export function VersionRows({ title, profiles, profileName, onManualSearch }: Props) {
+  const downloads = useTitleDownloads(title.id)
+  const versions = slotKeys.flatMap((k) => title.versions.filter((v) => v.slot === k))
+  if (versions.length === 0) return null
+  if (title.kind === 'series') {
+    return (
+      <section aria-label="Versions" className="my-6 grid grid-cols-1 gap-3 @2xl:grid-cols-2">
+        {versions.map((v) => (
+          <RowList key={v.id} aria-label={slotLabel[v.slot]}>
+            <SeriesVersion {...{ title, profiles, profileName, onManualSearch }} version={v} downloads={downloads.slot(v.slot)} />
+          </RowList>
+        ))}
+      </section>
+    )
+  }
   return (
-    <section aria-label="Versions" className="mt-6">
-      <h3 className="heading-14 mb-1">Versions</h3>
-      <Entity.List aria-label="Versions">
-        {slotKeys.map((k) => {
-          const v = title.versions.find((x) => x.slot === k)
-          return v ? (
-            <VersionRow key={k} version={v} kind={title.kind} profiles={profiles} profileName={profileName} />
-          ) : (
-            <EmptyRow key={k} slot={k} titleId={title.id} kind={title.kind} profiles={profiles} />
-          )
-        })}
-      </Entity.List>
+    <section aria-label="Versions" className="my-6">
+      <h3 className="heading-16 mb-2">Versions</h3>
+      <RowList aria-label="Versions">
+        {versions.map((v) => (
+          <MovieVersion key={v.id} {...{ title, profiles, profileName, onManualSearch }} version={v} downloads={downloads.slot(v.slot)} />
+        ))}
+      </RowList>
     </section>
   )
 }
 
-function VersionRow({ version: v, kind, profiles, profileName }: { version: Version; kind: TitleDetail['kind']; profiles: Profile[]; profileName: (key: string) => string }) {
+/**
+ * A Version's "…" menu and what its items open: Search now, Manual search, Change Profile, Cancel download while it downloads,
+ * Delete files (a Movie's file) and Remove Version. Nothing here is the Version's one next action; that sits beside it.
+ */
+function VersionMenu({ title, version: v, profiles, profileName, onManualSearch, downloads }: Props & { version: Version; downloads: SlotDownloads | null }) {
   const sw = useSwitchProfile(v.id)
   const report = useReport()
   const rm = useRemoveVersion(v.id)
+  const search = useSearchVersion(title, v.id)
+  const cancel = useCancelDownloads()
   const [mode, setMode] = useState<'switch' | 'remove' | 'delete' | null>(null)
-  const movie = kind === 'movie'
+  const movie = title.kind === 'movie'
+  const name = slotLabel[v.slot]
   return (
-    <Entity
-      aria-label={slotLabel[v.slot]}
-      left={<span className="label-12-mono w-14 text-gray-900">{slotLabel[v.slot]}</span>}
-      right={
-        <DotsMenu aria-label={`More ${slotLabel[v.slot]} Version actions`}>
-          <MenuItem onSelect={() => setMode('switch')}>Change Profile</MenuItem>
-          <MenuDivider />
-          {movie && (
-            <MenuItem type="error" disabled={!v.file} description={v.file ? undefined : 'No file to delete'} onSelect={() => setMode('delete')}>
-              Delete file
+    <>
+      <DotsMenu aria-label={`${name} Version actions`}>
+        <MenuItem disabled={unmonitored(title) || search.pending} description={unmonitored(title) ? 'Not monitored: turn monitoring on to search' : undefined} onSelect={search.run}>
+          Search now
+        </MenuItem>
+        <MenuItem onSelect={() => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })}>Manual search…</MenuItem>
+        <MenuItem suffix={<span className="label-12-mono text-gray-900">{profileName(v.profile)}</span>} onSelect={() => setMode('switch')}>
+          Change Profile…
+        </MenuItem>
+        {downloads && (
+          <>
+            <MenuDivider />
+            <MenuItem disabled={cancel.pending} onSelect={() => void cancel.run(downloads.items, false)}>
+              {downloads.items.length === 1 ? 'Cancel download' : 'Cancel downloads'}
             </MenuItem>
-          )}
-          <MenuItem type="error" onSelect={() => setMode('remove')}>
-            Remove Version
+            <MenuItem disabled={cancel.pending} onSelect={() => void cancel.run(downloads.items, true)}>
+              Cancel and blocklist
+            </MenuItem>
+          </>
+        )}
+        <MenuDivider />
+        {movie && (
+          <MenuItem type="error" disabled={!v.file} description={v.file ? undefined : 'No file to delete'} onSelect={() => setMode('delete')}>
+            Delete files…
           </MenuItem>
-        </DotsMenu>
-      }
-    >
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-col gap-1.5 @xl:flex-row @xl:items-center @xl:gap-4">
-          <div className="flex min-w-0 items-center gap-3 @xl:w-56 @xl:shrink-0">
-            <span className="label-14 truncate">{profileName(v.profile)}</span>
-            <StatusBadge state={v.state} longMissing={v.long_missing} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <Holds version={v} kind={kind} />
-            <OriginalOfferNote offer={v.original_offer} />
-          </div>
+        )}
+        <MenuItem type="error" onSelect={() => setMode('remove')}>
+          Remove Version…
+        </MenuItem>
+      </DotsMenu>
+      {mode === 'switch' && (
+        <ProfilePicker
+          profiles={profiles}
+          slot={v.slot}
+          initial={v.profile}
+          label="Change Profile"
+          busy={sw.isPending}
+          error={sw.error?.message}
+          onCancel={() => setMode(null)}
+          onPick={(p) => void report(sw.mutateAsync(p), { done: 'Profile switched' }).then((r) => r !== undefined && setMode(null))}
+        />
+      )}
+      {mode === 'remove' && (
+        <RemoveConfirm
+          what="Version"
+          onCancel={() => setMode(null)}
+          onConfirm={(d) => {
+            setMode(null)
+            void report(rm.mutateAsync(d), { done: 'Version removed', failed: 'Could not remove the Version' })
+          }}
+        />
+      )}
+      <DeleteFile versionId={v.id} file={v.file} asking={mode === 'delete'} onClose={() => setMode(null)} />
+    </>
+  )
+}
+
+/** "X of Y episodes" counts every released episode, monitored or not. */
+function SeriesVersion({ version: v, downloads, ...rest }: Props & { version: Version; downloads: SlotDownloads | null }) {
+  const c = v.coverage
+  const name = slotLabel[v.slot]
+  const released = c ? c.filled + c.wanted + c.unmonitored : 0
+  const notMonitored = c && c.unmonitored > 0 ? `${c.unmonitored} not monitored` : null
+  return (
+    <Entity aria-label={name}>
+      <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+        <div className="flex items-center gap-2">
+          <span className="label-14-strong">{name}</span>
+          <span className="label-13-mono truncate text-gray-900">{rest.profileName(v.profile)}</span>
+          <span className="flex-1" />
+          {c && c.wanted > 0 && <span className="label-13 text-amber-900">{`${c.wanted} Wanted`}</span>}
+          <VersionMenu {...rest} version={v} downloads={downloads} />
         </div>
-        {mode === 'switch' && (
-          <ProfilePicker
-            profiles={profiles}
-            slot={v.slot}
-            initial={v.profile}
-            label="Switch Profile"
-            busy={sw.isPending}
-            error={sw.error?.message}
-            onCancel={() => setMode(null)}
-            onPick={(p) => void report(sw.mutateAsync(p), { done: 'Profile switched' }).then((r) => r !== undefined && setMode(null))}
-          />
+        {c && (
+          <>
+            <Progress segments={coverageSegments(c)} max={Math.max(released, 1)} height={6} aria-label={`${name}: ${c.filled} of ${released} episodes${notMonitored ? `, ${notMonitored}` : ''}`} />
+            <div className="label-13 hy-num flex justify-between gap-3 text-gray-900">
+              <span>{`${c.filled} of ${released} episodes${c.long_missing > 0 ? ` · ${c.long_missing} Long Missing` : ''}${notMonitored ? ` · ${notMonitored}` : ''}`}</span>
+              {c.size > 0 && <span>{size(c.size)}</span>}
+            </div>
+          </>
         )}
-        {mode === 'remove' && (
-          <RemoveConfirm
-            what="Version"
-            onCancel={() => setMode(null)}
-            onConfirm={(d) => {
-              setMode(null)
-              void report(rm.mutateAsync(d), { done: 'Version removed', failed: 'Could not remove the Version' })
-            }}
-          />
+        {downloads && (
+          <Note variant="success" fill size="small" icon={<Download aria-hidden className="size-3.5" />}>
+            <span className="flex min-w-0 items-center justify-between gap-3">
+              <span className="truncate">{downloadingWhat(downloads)}</span>
+              <span className="hy-num shrink-0">{downloadingProgress(downloads)}</span>
+            </span>
+          </Note>
         )}
-        <DeleteFile versionId={v.id} file={v.file} asking={mode === 'delete'} onClose={() => setMode(null)} />
+        <OriginalOfferNote offer={v.original_offer} />
       </div>
     </Entity>
   )
 }
 
-/**
- * A Slot with no Version: its name, "Not kept" and an Add Version dropdown of the Slot's enabled Profiles,
- * the default of the Title's kind selected. Choosing a Profile, the selected one too, adds the Version.
- */
-function EmptyRow({ slot, titleId, kind, profiles }: { slot: SlotKey; titleId: number; kind: TitleDetail['kind']; profiles: Profile[] }) {
-  const add = useAddVersion(titleId)
-  const options = profiles.filter((p) => p.slot === slot && p.enabled)
-  const initial = (options.find((p) => (kind === 'series' ? p.default_series : p.default_movies)) ?? options[0])?.key
-  const [choice, setChoice] = useState<string | undefined>(undefined)
+/** What a Slot is downloading, in words: its episodes, else its Release, else how many Grabs. */
+function downloadingWhat({ items }: SlotDownloads): string {
+  const episodes = items.flatMap((i) => i.episodes)
+  if (episodes.length > 0) return `Downloading ${episodes.length > 3 ? `${episodes.slice(0, 3).join(', ')} and ${episodes.length - 3} more` : episodes.join(', ')}`
+  return items.length === 1 ? `Downloading ${items[0].release_name}` : `Downloading ${plural(items.length, 'Release')}`
+}
+
+/** "40% · 13 min left", whichever the client knows. */
+function downloadingProgress(d: SlotDownloads): string {
+  return [d.pct !== null ? `${d.pct}%` : null, d.eta !== null ? `${span(d.eta * 1000)} left` : null].filter(Boolean).join(' · ')
+}
+
+const days = (since: string | null, now: number) => (since ? Math.floor((now - new Date(since).getTime()) / 86_400_000) : 0)
+
+/** One Movie Version's row: Slot and Profile on the left, its state in the middle, its one next action and the "…" menu on the right. */
+function MovieVersion({ version: v, downloads, ...rest }: Props & { version: Version; downloads: SlotDownloads | null }) {
+  const { title } = rest
+  const name = slotLabel[v.slot]
+  const search = useSearchVersion(title, v.id)
+  const cancel = useCancelDownloads()
+  const f = v.file
   return (
-    <Entity
-      aria-label={slotLabel[slot]}
-      left={<span className="label-12-mono w-14 text-gray-900">{slotLabel[slot]}</span>}
-      right={
-        options.length > 0 ? (
-          <FilterMenu
-            single
-            label="Add Version"
-            size="small"
-            align="end"
-            disabled={add.isPending}
-            value={choice ?? initial}
-            items={options.map((p: Profile) => ({ value: p.key, label: p.name }))}
-            onChange={(profile: string) => {
-              setChoice(profile)
-              add.mutate({ slot, profile })
-            }}
-          />
-        ) : undefined
-      }
-    >
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-col gap-1.5 @xl:flex-row @xl:items-center @xl:gap-4">
-          <span className="label-14 text-gray-900 @xl:w-56 @xl:shrink-0">Not kept</span>
-          <div aria-hidden className="w-40 max-w-full">
-            <Progress value={0} height={6} aria-label={`${slotLabel[slot]}: not kept`} />
-          </div>
-        </div>
-        {add.error && (
-          <div className="mt-2">
-            <Note variant="error" size="small">
-              {add.error.message}
-            </Note>
-          </div>
-        )}
-      </div>
-    </Entity>
-  )
-}
-
-/** The bar of a Version row and the plain text beside it, so the row says how complete the Version is. */
-function Held({ bar, text }: { bar: ReactNode; text: ReactNode }) {
-  return (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-      <div className="w-40 max-w-full shrink-0">{bar}</div>
-      {text}
-    </div>
-  )
-}
-
-const days = (since: string | null) => (since ? Math.floor((Date.now() - new Date(since).getTime()) / 86_400_000) : 0)
-
-/** A Movie Version's state in words, when it holds no file: "Not out yet", "Wanted for 3 days". */
-function movieState(v: Version): string {
-  if (v.long_missing || v.state === 'wanted') {
-    const d = days(v.wanted_since)
-    return d >= 1 ? `${versionStatus(v.state, v.long_missing).label} for ${d} ${d === 1 ? 'day' : 'days'}` : versionStatus(v.state, v.long_missing).label
-  }
-  if (v.state === 'unreleased') return 'Not out yet'
-  if (v.state === 'unmonitored') return 'Not monitored'
-  return versionStatus(v.state).label
-}
-
-/**
- * What a Version holds, worded so it never contradicts the badge: a Series' episode coverage on a bar (Wanted exactly
- * when episodes are), or a Movie's file by its quality and size (a click shows the path) or its state.
- */
-function Holds({ version: v, kind }: { version: Version; kind: TitleDetail['kind'] }) {
-  if (kind === 'series') {
-    const c = v.coverage
-    if (!c) return null
-    // "of N" counts every released episode, monitored or not.
-    const released = c.filled + c.wanted + c.unmonitored
-    const notMonitored = c.unmonitored > 0 ? `${c.unmonitored} not monitored` : null
-    const counts = [
-      `${c.filled} of ${released}`,
-      c.wanted > 0 ? `${c.wanted} Wanted` : null,
-      c.long_missing > 0 ? `${c.long_missing} Long Missing` : null,
-      notMonitored,
-      c.size > 0 ? size(c.size) : null,
-    ]
-      .filter(Boolean)
-      .join(' · ')
-    return (
-      <Held
-        bar={
-          <Progress
-            segments={coverageSegments(c)}
-            max={Math.max(released, 1)}
-            height={6}
-            aria-label={`${slotLabel[v.slot]}: ${c.filled} of ${released} episodes${notMonitored ? `, ${notMonitored}` : ''}`}
-          />
+    <>
+      <Entity
+        aria-label={name}
+        className={stackedRow}
+        rightClassName={stackedRight}
+        left={
+          <span className="flex flex-col gap-0.5">
+            <span className="label-14-strong">{name}</span>
+            <span className="label-12-mono text-gray-900">{rest.profileName(v.profile)}</span>
+          </span>
         }
-        text={<span className="label-13 hy-num text-gray-900">{counts}</span>}
-      />
+        leftClassName="shrink-0 @xl:w-28"
+        right={
+          <>
+            {downloads ? (
+              <IconAction icon={X} size="small" label={`Cancel the ${name} download`} disabled={cancel.pending} onClick={() => void cancel.run(downloads.items, false)} />
+            ) : f ? (
+              <FilePopover
+                label={`${name} file`}
+                path={f.path}
+                grabbedAs={f.release_name}
+                trigger={
+                  <Button svgOnly variant="tertiary" size="small" aria-label="File details" title="File details">
+                    <FileVideo aria-hidden className="size-4" />
+                  </Button>
+                }
+              />
+            ) : v.state === 'wanted' ? (
+              <IconAction icon={Search} size="small" label={`Search ${name} now`} disabled={unmonitored(title) || search.pending} onClick={search.run} />
+            ) : null}
+            <VersionMenu {...rest} version={v} downloads={downloads} />
+          </>
+        }
+      >
+        <div className="min-w-0 flex-1">
+          <MovieState version={v} downloads={downloads} />
+        </div>
+      </Entity>
+      <OriginalOfferNote offer={v.original_offer} row />
+    </>
+  )
+}
+
+/** "3 days ago" once a day has passed, else the live "5 min ago". */
+const importedAgo = (iso: string, now: number) => {
+  const d = days(iso, now)
+  return d >= 1 ? `${plural(d, 'day')} ago` : ago(iso, now)
+}
+
+/** A Movie Version's state: downloading, Wanted, or the file it holds. */
+function MovieState({ version: v, downloads }: { version: Version; downloads: SlotDownloads | null }) {
+  const now = useNow()
+  const name = slotLabel[v.slot]
+  if (downloads) {
+    const i = downloads.items[0]
+    return (
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <span className="label-14 flex items-center gap-2 text-blue-900">
+          <Download aria-hidden className="size-4 shrink-0" />
+          {['Downloading', downloads.pct !== null ? `${downloads.pct}%` : null, downloads.eta !== null ? `${span(downloads.eta * 1000)} left` : null].filter(Boolean).join(' · ')}
+        </span>
+        {downloads.pct !== null && <Progress value={downloads.pct} type="success" height={6} aria-label={`${name} download progress`} />}
+        <span className="label-12-mono truncate text-gray-900" title={i.release_name}>
+          {`${i.release_name} · ${size(i.size)}`}
+        </span>
+      </div>
     )
   }
   const f = v.file
-  if (!f) {
+  if (f) {
+    const facts = [f.quality, f.languages?.join(', '), size(f.size)].filter(Boolean).join(' · ')
     return (
-      <Held
-        bar={<Progress value={0} height={6} aria-label={`${slotLabel[v.slot]}: ${versionStatus(v.state, v.long_missing).label}`} />}
-        text={<span className="label-13 text-gray-900">{movieState(v)}</span>}
-      />
+      <div className="flex min-w-0 flex-col gap-1">
+        <span className="label-14 flex items-center gap-2">
+          <CircleCheck aria-hidden className="size-4 shrink-0 text-green-900" />
+          <span className="truncate">{facts}</span>
+        </span>
+        <span className="label-13 text-gray-900">{`Imported ${importedAgo(f.imported_at, now)}`}</span>
+        {f.misfit && <span className="label-12 text-red-900">No longer fits this Profile</span>}
+      </div>
     )
   }
-  const facts = [f.quality, f.languages?.join(' + '), size(f.size), f.score !== null ? `Score ${f.score}` : null].filter(Boolean).join(' · ')
-  return (
-    <>
-      <Held
-        bar={<Progress segments={[{ value: 1, tone: 'success' }]} max={1} height={6} aria-label={`${slotLabel[v.slot]}: filled`} />}
-        text={
-          <FilePopover
-            label={`${slotLabel[v.slot]} file`}
-            path={f.path}
-            grabbedAs={f.release_name}
-            position="bottom-start"
-            trigger={
-              <Button variant="tertiary" size="tiny" title={f.path} className="label-13 min-w-0 truncate text-gray-900">
-                {facts}
-              </Button>
-            }
-          />
-        }
-      />
-      {f.misfit && <div className="label-12 text-red-900">No longer fits this Profile</div>}
-    </>
-  )
+  if (v.long_missing || v.state === 'wanted') {
+    const d = days(v.wanted_since, now)
+    const label = v.long_missing ? 'Long Missing' : 'Wanted'
+    return (
+      <span className="label-14 flex items-center gap-2 text-amber-900">
+        <CircleDashed aria-hidden className="size-4 shrink-0" />
+        {d >= 1 ? `${label} for ${plural(d, 'day')}` : label}
+      </span>
+    )
+  }
+  return <span className="label-14 text-gray-900">{v.state === 'unreleased' ? 'Not out yet' : v.state === 'unmonitored' ? 'Not monitored' : versionStatus(v.state).label}</span>
 }

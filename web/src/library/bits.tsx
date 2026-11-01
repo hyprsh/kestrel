@@ -1,5 +1,5 @@
 import { Film, Tv } from 'lucide-react'
-import { Badge, StatusDot, type BadgeProps, type ProgressSegment } from '@hyprsh/design'
+import { StatusDot, type BadgeProps, type ProgressSegment } from '@hyprsh/design'
 import type { TitleDetail } from '../api/queries'
 import { cx } from '../ui'
 
@@ -42,15 +42,6 @@ export function versionStatus(state: State, longMissing = false): { variant: Var
   if (longMissing) return { variant: 'red', contrast: 'low', label: 'Long Missing' }
   const s = stateText[state] ?? { variant: 'gray', label: state }
   return { ...s, contrast: 'low' }
-}
-
-export function StatusBadge({ state, longMissing }: { state: State; longMissing?: boolean }) {
-  const s = versionStatus(state, longMissing)
-  return (
-    <Badge variant={s.variant} contrast={s.contrast} size="sm">
-      {s.label}
-    </Badge>
-  )
 }
 
 export type Dot = { state: 'success' | 'info' | 'warning' | 'error' | 'neutral'; variant?: 'outline' | 'dashed'; faint?: boolean }

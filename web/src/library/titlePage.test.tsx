@@ -29,7 +29,7 @@ describe('the Title page', () => {
     expect(status[0].children).toHaveLength(0)
   })
 
-  it('lists the Versions as one card of rows, one per Slot', async () => {
+  it('lists the Versions as one card of rows, one per Slot the Title keeps', async () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
@@ -40,6 +40,6 @@ describe('the Title page', () => {
       within(versions)
         .getAllByRole('listitem')
         .map((li) => li.getAttribute('aria-label')),
-    ).toEqual(['Standard', '4K'])
+    ).toEqual(['Standard'])
   })
 })

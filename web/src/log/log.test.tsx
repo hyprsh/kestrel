@@ -7,6 +7,7 @@ import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { fakeLibrary, row } from '../test/library'
 import { server } from '../test/server'
+import { chooseTitleItem } from '../test/titleHeader'
 import { findToast } from '../test/toasts'
 
 type Event = components['schemas']['Event']
@@ -299,9 +300,7 @@ describe('Log', () => {
     render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
     await user.click(await screen.findByRole('button', { name: 'Library' }))
     const pane = await screen.findByRole('region', { name: /paddington/i })
-    await user.click(await within(pane).findByRole('button', { name: 'More Title actions' }))
-
-    await user.click(screen.getByRole('menuitem', { name: 'Show in the Log' }))
+    await chooseTitleItem(pane, 'Show in Log')
 
     expect(await screen.findByRole('combobox', { name: 'Filter the Log' })).toHaveValue('title:Paddington')
     await expect.poll(() => sent.at(-1)?.getAll('title_id')).toEqual(['3'])

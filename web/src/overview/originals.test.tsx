@@ -185,21 +185,25 @@ describe('the Original Offer indicator on the Title page', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     const pane = await screen.findByRole('region', { name: /paddington/i })
-    return within(pane).findByRole('listitem', { name: 'Standard' })
+    await within(pane).findByRole('listitem', { name: 'Standard' })
+    return pane
   }
 
   it('says an original is available on the Version', async () => {
-    const hd = await openWith(movieOffer)
-    expect(within(hd).getByText('Original available')).toHaveAttribute('title', 'Paddington.2014.1080p.BluRay.x264-GRP · Score 50')
+    const pane = await openWith(movieOffer)
+    expect(within(pane).getByText('A Standard release in the original language only is available · Score 50')).toBeInTheDocument()
+    expect(within(pane).getByRole('button', { name: 'Accept' })).toBeInTheDocument()
+    expect(within(pane).getByRole('button', { name: 'Dismiss' })).toBeInTheDocument()
   })
 
   it('says when the offer was dismissed', async () => {
-    const hd = await openWith({ ...movieOffer, dismissed: true })
-    expect(within(hd).getByText('Original available, dismissed')).toBeInTheDocument()
+    const pane = await openWith({ ...movieOffer, dismissed: true })
+    expect(within(pane).getByText('A Standard release in the original language only is available · Score 50 · Dismissed')).toBeInTheDocument()
+    expect(within(pane).queryByRole('button', { name: 'Dismiss' })).not.toBeInTheDocument()
   })
 
   it('is absent without an offer', async () => {
-    const hd = await openWith(null)
-    expect(within(hd).queryByText(/original available/i)).not.toBeInTheDocument()
+    const pane = await openWith(null)
+    expect(within(pane).queryByText(/original language only/i)).not.toBeInTheDocument()
   })
 })

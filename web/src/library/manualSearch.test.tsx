@@ -8,6 +8,7 @@ import { http } from '../test/handlers'
 import { fakeLibrary, row } from '../test/library'
 import { serveDisplay } from '../test/serveDisplay'
 import { server } from '../test/server'
+import { chooseSearchItem } from '../test/titleHeader'
 
 type Release = components['schemas']['Release']
 
@@ -90,8 +91,7 @@ async function openManualSearch({ rejected = true } = {}) {
   renderApp()
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
   const pane = await screen.findByRole('region', { name: /paddington/i })
-  const actions = await within(pane).findByRole('group', { name: 'Title actions' })
-  await userEvent.click(within(actions).getByRole('button', { name: /manual search/i }))
+  await chooseSearchItem(pane, /manual search/i)
   const table = await screen.findByRole('table', { name: /releases/i })
   if (rejected) await userEvent.click(await screen.findByRole('checkbox', { name: /show rejected/i }))
   return table
@@ -262,8 +262,7 @@ describe('manual search', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     const pane = await screen.findByRole('region', { name: /paddington/i })
-    const actions = await within(pane).findByRole('group', { name: 'Title actions' })
-    await userEvent.click(within(actions).getByRole('button', { name: /manual search/i }))
+    await chooseSearchItem(pane, /manual search/i)
 
     const table = await screen.findByRole('table', { name: /releases/i })
     expect(table).toHaveAttribute('aria-busy', 'true')
@@ -421,8 +420,7 @@ describe('manual search', () => {
       await screen.findByRole('listitem', { name: 'Standard' })
 
       const pane = await screen.findByRole('region', { name: /paddington/i })
-      const actions = await within(pane).findByRole('group', { name: 'Title actions' })
-      await userEvent.click(within(actions).getByRole('button', { name: /manual search/i }))
+      await chooseSearchItem(pane, /manual search/i)
       table = await screen.findByRole('table', { name: /releases/i })
       await userEvent.click(screen.getByRole('checkbox', { name: /show rejected/i }))
 
@@ -531,8 +529,7 @@ describe('manual search on a phone', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     await userEvent.click(await within(await screen.findByRole('listbox', { name: /library/i })).findByRole('option', { name: /paddington/i }))
-    const actions = await screen.findByRole('group', { name: 'Title actions' })
-    await userEvent.click(within(actions).getByRole('button', { name: /manual search/i }))
+    await chooseSearchItem(document.body, /manual search/i)
     const list = await screen.findByRole('list', { name: /releases/i })
     if (rejected) await userEvent.click(await screen.findByRole('checkbox', { name: /show rejected/i }))
     return list

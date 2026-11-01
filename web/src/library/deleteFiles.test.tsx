@@ -62,8 +62,8 @@ describe("deleting a Movie's file", () => {
     const sent = recordDeletes()
     const hd = await openFilledMovie()
 
-    await userEvent.click(within(hd).getByRole('button', { name: 'More Standard Version actions' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete file' }))
+    await userEvent.click(within(hd).getByRole('button', { name: 'Standard Version actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete files…' }))
     const confirm = within(hd).getByRole('dialog', { name: 'Delete files' })
     expect(confirm).toHaveTextContent('Paddington (2014) - [Standard].mkv')
     expect(confirm).toHaveTextContent('4.0 GB')
@@ -78,8 +78,8 @@ describe("deleting a Movie's file", () => {
     const sent = recordDeletes({ adopted: true })
     const hd = await openFilledMovie()
 
-    await userEvent.click(within(hd).getByRole('button', { name: 'More Standard Version actions' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete file' }))
+    await userEvent.click(within(hd).getByRole('button', { name: 'Standard Version actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete files…' }))
     await userEvent.click(within(hd).getByRole('button', { name: 'Delete and blocklist this Release' }))
 
     await waitFor(() => expect(sent).toEqual([{ version: 11, query: 'blocklist=true' }]))
@@ -90,8 +90,8 @@ describe("deleting a Movie's file", () => {
     recordDeletes({ undeletable: true })
     const hd = await openFilledMovie()
 
-    await userEvent.click(within(hd).getByRole('button', { name: 'More Standard Version actions' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete file' }))
+    await userEvent.click(within(hd).getByRole('button', { name: 'Standard Version actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete files…' }))
     await userEvent.click(within(hd).getByRole('button', { name: 'Delete' }))
 
     const toast = await findToast(/Could not delete Paddington.mkv: permission denied./)
@@ -104,8 +104,8 @@ describe("deleting a Movie's file", () => {
     )
     const hd = await openFilledMovie()
 
-    await userEvent.click(within(hd).getByRole('button', { name: 'More Standard Version actions' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete file' }))
+    await userEvent.click(within(hd).getByRole('button', { name: 'Standard Version actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete files…' }))
     await userEvent.click(within(hd).getByRole('button', { name: 'Delete' }))
 
     expect(await findToast('Could not delete the files: disk offline')).toBeInTheDocument()
@@ -116,8 +116,8 @@ describe("deleting a Movie's file", () => {
     const sent = recordDeletes()
     const hd = await openFilledMovie()
 
-    await userEvent.click(within(hd).getByRole('button', { name: 'More Standard Version actions' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete file' }))
+    await userEvent.click(within(hd).getByRole('button', { name: 'Standard Version actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete files…' }))
     await userEvent.click(within(hd).getByRole('button', { name: 'Cancel' }))
 
     expect(within(hd).queryByRole('dialog', { name: 'Delete files' })).not.toBeInTheDocument()
