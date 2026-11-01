@@ -219,7 +219,7 @@ describe('running setup again', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
     await userEvent.click(await screen.findByRole('link', { name: 'General' }))
-    await userEvent.click(await screen.findByRole('button', { name: 'Run setup again' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Run Setup Again…' }))
 
     const account = await screen.findByRole('region', { name: 'Account' })
     expect(within(account).queryByLabelText('Password')).not.toBeInTheDocument()

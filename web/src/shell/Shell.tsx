@@ -29,6 +29,7 @@ import { currentPlace, PlaceOpener, placeOf, placePath, pushedPlace, pushPlace, 
 import { usePhone } from '../responsive'
 import { Upcoming } from '../upcoming/Upcoming'
 import { Settings as SettingsScreen } from '../screens/Settings'
+import { guardLeave } from '../settings/draft'
 import { THEME_KEY, useTheme, type Theme } from '../theme'
 import { KestrelLogo } from '../ui'
 import { Rail as RailFrame, RailSpacer } from '../layout/Rail'
@@ -197,15 +198,20 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     (path: string) => {
       const { screen: key, section, q } = placeOf(path)
       if (!isPlace(key)) return
-      setScreen(key)
-      setFilter({ screen: key, q })
-      if (key === 'settings') {
-        // A phone opens the section as its own screen; elsewhere it is scrolled to.
-        setSettingsSection(section)
-        if (phone && section) pushPlace(placePath('settings', '', section))
+      const go = () => {
+        setScreen(key)
+        setFilter({ screen: key, q })
+        if (key === 'settings') {
+          // A phone opens the section as its own screen; elsewhere it is scrolled to.
+          setSettingsSection(section)
+          if (phone && section) pushPlace(placePath('settings', '', section))
+        }
+        if (key === 'health') setHealthSection(section)
+        if (section && !(phone && key === 'settings')) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
       }
-      if (key === 'health') setHealthSection(section)
-      if (section && !(phone && key === 'settings')) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
+      // Unsaved Settings are asked about, unless the place is Settings itself (it asks on its own when the page changes).
+      if (key === 'settings') go()
+      else guardLeave(go)
     },
     [phone],
   )
@@ -243,9 +249,11 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   }, [])
   // The Library tab always leads to the list, also while a Title page is open; Settings to its list of sections.
   const select = useCallback((key: string) => {
-    setScreen(key)
-    if (key === 'library') setTitleOpen(false)
-    if (key === 'settings') setSettingsSection('')
+    guardLeave(() => {
+      setScreen(key)
+      if (key === 'library') setTitleOpen(false)
+      if (key === 'settings') setSettingsSection('')
+    })
   }, [])
 
   return (
@@ -255,7 +263,15 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           <SidePanelPhoneContext.Provider value={phoneExtras}>
             <div className="flex h-full">
               {!phone && (
-                <Rail screen={screen} onSelect={setScreen} running={running} onOpenRunning={() => goPath('/health/jobs')} theme={theme} onTheme={setTheme} onSearch={() => setMenu({ mode: 'root' })} />
+                <Rail
+                  screen={screen}
+                  onSelect={(key) => guardLeave(() => setScreen(key))}
+                  running={running}
+                  onOpenRunning={() => goPath('/health/jobs')}
+                  theme={theme}
+                  onTheme={setTheme}
+                  onSearch={() => setMenu({ mode: 'root' })}
+                />
               )}
               <div className="flex min-w-0 flex-1 flex-col">
                 {phone && !panelScreens.includes(screen) && (

@@ -23,8 +23,8 @@ const settings = (pause: boolean): Settings => ({
   metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
 })
 
-describe('Pause Grabs', () => {
-  it('is a switch in Settings saved like the other sections', async () => {
+describe('Automatic Grabs', () => {
+  it('is a switch that applies at once, the inverse of Pause Grabs', async () => {
     let paused = false
     const bodies: unknown[] = []
     server.use(
@@ -39,13 +39,13 @@ describe('Pause Grabs', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
     await userEvent.click(await screen.findByRole('link', { name: 'Downloads' }))
-    const section = await screen.findByRole('region', { name: 'Grabs' })
-    const toggle = await within(section).findByRole('checkbox', { name: /pause grabs/i })
-    expect(toggle).not.toBeChecked()
+    const section = await screen.findByRole('region', { name: 'Automatic Grabs' })
+    const toggle = await within(section).findByRole('switch', { name: 'Grab automatically' })
+    expect(toggle).toBeChecked()
 
     await userEvent.click(toggle)
 
     await waitFor(() => expect(bodies).toEqual([{ pause_grabs: true }]))
-    await waitFor(() => expect(within(section).getByRole('checkbox', { name: /pause grabs/i })).toBeChecked())
+    await waitFor(() => expect(within(section).getByRole('switch', { name: 'Grab automatically' })).not.toBeChecked())
   })
 })

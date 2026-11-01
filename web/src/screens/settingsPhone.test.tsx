@@ -26,11 +26,11 @@ describe('Settings on a phone', () => {
 
     const list = await screen.findByRole('navigation', { name: 'Settings sections' })
     expect(within(list).getAllByRole('button')).toHaveLength(8)
-    expect(screen.queryByRole('heading', { name: 'Downloads' })).not.toBeInTheDocument() // the list, not the page
+    expect(screen.queryByRole('heading', { name: /^Downloads/ })).not.toBeInTheDocument() // the list, not the page
     expect(location.pathname).toBe('/settings')
 
-    await user.click(within(list).getByRole('button', { name: 'Downloads' }))
-    expect(await screen.findByRole('heading', { name: 'Downloads' })).toBeInTheDocument()
+    await user.click(within(list).getByRole('button', { name: /^Downloads/ }))
+    expect(await screen.findByRole('heading', { name: /^Downloads/ })).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Indexers' })).toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: 'Settings sections' })).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Root folders' })).not.toBeInTheDocument()
@@ -45,8 +45,8 @@ describe('Settings on a phone', () => {
     const user = userEvent.setup()
     history.replaceState(null, '', '/settings')
     renderApp()
-    await user.click(await screen.findByRole('button', { name: 'Downloads' }))
-    expect(await screen.findByRole('heading', { name: 'Downloads' })).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: /^Downloads/ }))
+    expect(await screen.findByRole('heading', { name: /^Downloads/ })).toBeInTheDocument()
     history.back()
     await waitFor(() => expect(screen.getByRole('navigation', { name: 'Settings sections' })).toBeInTheDocument())
   })
@@ -65,7 +65,7 @@ describe('Settings on a phone', () => {
     const user = userEvent.setup()
     history.replaceState(null, '', '/settings/grabs')
     renderApp()
-    expect(await screen.findByRole('heading', { name: 'Downloads' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /^Downloads/ })).toBeInTheDocument()
     await openSettings(user)
     expect(await screen.findByRole('navigation', { name: 'Settings sections' })).toBeInTheDocument()
   })

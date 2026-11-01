@@ -183,6 +183,32 @@ describe('Settings', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
     if (section) await userEvent.click(await screen.findByRole('link', { name: section }))
   }
+  const bar = () => screen.getByRole('region', { name: 'Unsaved changes' })
+
+  const scoring = (qualities: string[], min: number) => ({
+    qualities,
+    min_score: min,
+    custom_formats: [
+      { name: 'WEB Tier 01', score: 1700 },
+      { name: 'HDR', score: 500 },
+      { name: 'x265 (HD)', score: -150 },
+      { name: 'Repack', score: 5 },
+    ],
+  })
+  const serveDetails = () =>
+    server.use(
+      http.get('/profiles/details', ({ response }) =>
+        response(200).json({
+          items: seeded().map((p) => ({
+            key: p.key,
+            titles: p.key === 'hd-primary' ? 6 : 0,
+            files: p.key === 'hd-primary' ? 61 : 0,
+            movies: scoring(['Bluray-1080p', 'WEBDL-1080p', 'Remux-1080p', 'HDTV-720p'], 0),
+            series: scoring(['WEBDL-1080p', 'Bluray-1080p', 'Remux-1080p', 'HDTV-720p'], 0),
+          })),
+        }),
+      ),
+    )
 
   it('lists the General and Profiles pages in the jump list', async () => {
     fakeProfiles()
@@ -190,83 +216,162 @@ describe('Settings', () => {
     const nav = await screen.findByRole('navigation', { name: 'Settings sections' })
     expect(within(nav).getByRole('link', { name: 'General' })).toHaveAttribute('href', '/settings#settings-general')
     expect(within(nav).getByRole('link', { name: 'Profiles' })).toHaveAttribute('href', '/settings#settings-profiles')
-    expect(await within(await screen.findByRole('region', { name: 'Primary Language' })).findByLabelText('Primary Language')).toHaveValue('en')
+    expect(await within(await screen.findByRole('region', { name: 'Language' })).findByLabelText('Primary language')).toHaveValue('en')
   })
 
-  it('shows a Language change as switching until its re-score ends, and keeps the form closed meanwhile', async () => {
-    fakeProfiles()
+  it('keeps a Language change as a draft, saves it from the bar and shows it as switching until its re-score ends', async () => {
+    const sent = fakeProfiles()
     await open()
-    const section = await screen.findByRole('region', { name: 'Primary Language' })
-    await userEvent.selectOptions(await within(section).findByLabelText('Primary Language'), 'de')
-    await userEvent.click(within(section).getByRole('button', { name: 'Save language' }))
+    const section = await screen.findByRole('region', { name: 'Language' })
+    await userEvent.selectOptions(await within(section).findByLabelText('Primary language'), 'de')
+
+    expect(within(section).getByLabelText('Release-date country')).toHaveValue('DE')
+    expect(bar()).toHaveTextContent('2 unsaved changes · Primary language, Country')
+    expect(sent).toEqual([]) // nothing is sent until Save
+    await userEvent.click(within(bar()).getByRole('button', { name: 'Save' }))
 
     expect(await findToast('Re-scoring under German in the background')).toBeInTheDocument()
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'settings', body: { language_region: { primary_language: 'de', release_date_country: 'DE' } } }))
     expect(await within(section).findByText(/Switching to German…/)).toBeInTheDocument()
-    expect(within(section).getByLabelText('Primary Language')).toBeDisabled()
-    expect(within(section).getByRole('button', { name: 'Save language' })).toBeDisabled()
+    expect(within(section).getByLabelText('Primary language')).toBeDisabled()
+    expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument()
   })
 
-  it('enables, disables and chooses what each Primary-Language Profile does with Original-only Releases', async () => {
-    const sent = fakeProfiles()
+  it('marks a changed row, and Discard puts every row back', async () => {
+    fakeProfiles()
+    await open()
+    const section = await screen.findByRole('region', { name: 'Language' })
+    await userEvent.selectOptions(await within(section).findByLabelText('Primary language'), 'fr')
+    await userEvent.clear(within(section).getByLabelText('Release-date country'))
+    await userEvent.type(within(section).getByLabelText('Release-date country'), 'be')
+    expect(within(section).getByLabelText('Release-date country')).toHaveValue('BE')
+
+    await userEvent.click(within(bar()).getByRole('button', { name: 'Discard' }))
+    expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument()
+    expect(within(section).getByLabelText('Primary language')).toHaveValue('en')
+    expect(within(section).getByLabelText('Release-date country')).toHaveValue('US')
+  })
+
+  it('asks before leaving the page with unsaved changes, and leaves once told to discard', async () => {
+    fakeProfiles()
+    await open()
+    const section = await screen.findByRole('region', { name: 'Language' })
+    await userEvent.selectOptions(await within(section).findByLabelText('Primary language'), 'fr')
+
+    await userEvent.click(screen.getByRole('link', { name: 'Profiles' }))
+    const ask = await screen.findByRole('dialog', { name: 'Leave without saving?' })
+    expect(ask).toHaveTextContent('Primary language, Country')
+    expect(screen.queryByRole('heading', { name: 'Profiles', level: 2 })).not.toBeInTheDocument()
+
+    await userEvent.click(within(ask).getByRole('button', { name: 'Keep editing' }))
+    expect(screen.queryByRole('dialog', { name: 'Leave without saving?' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Primary language')).toHaveValue('fr')
+
+    await userEvent.click(screen.getByRole('link', { name: 'Profiles' }))
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Leave without saving?' })).getByRole('button', { name: 'Discard and leave' }))
+    expect(await screen.findByRole('heading', { name: 'Profiles', level: 2 })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument()
+  })
+
+  it('leaves without asking when nothing changed', async () => {
+    fakeProfiles()
     await open('Profiles')
-    const section = await screen.findByRole('region', { name: 'Profiles' })
+    expect(await screen.findByRole('heading', { name: 'Profiles', level: 2 })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Leave without saving?' })).not.toBeInTheDocument()
+  })
 
-    await userEvent.click(await within(section).findByLabelText('4K enabled'))
-    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile 4k-primary', body: { enabled: false } }))
-    // A disabled Profile cannot be a default, so it leaves the choices.
-    await waitFor(() => expect(within(within(section).getByLabelText('4K default for Movies')).queryByRole('option', { name: '4K' })).not.toBeInTheDocument())
+  it('keeps the draft and says why when the save fails', async () => {
+    fakeProfiles()
+    server.use(http.patch('/settings', ({ response }) => response('default').json(problem(500, 'internal', 'database locked'), { status: 500 })))
+    await open()
+    const section = await screen.findByRole('region', { name: 'Language' })
+    await userEvent.selectOptions(await within(section).findByLabelText('Primary language'), 'de')
+    await userEvent.click(within(bar()).getByRole('button', { name: 'Save' }))
 
-    // Original-Language Profiles have no choice; Primary-Language ones reject, offer or grab.
-    expect(within(section).queryByLabelText('HD Original Original Language only')).not.toBeInTheDocument()
-    const choice = within(section).getByLabelText('HD Original Language only')
-    expect(choice).toHaveValue('reject')
+    expect(await within(section).findByText('Could not save. Try again.')).toBeInTheDocument()
+    expect(await findToast('Could not save Primary language, Country')).toBeInTheDocument()
+    expect(bar()).toBeInTheDocument()
+  })
+
+  it('shows each Profile as a card with its qualities best first and what uses it', async () => {
+    fakeProfiles()
+    serveDetails()
+    await open('Profiles')
+    const hd = await screen.findByRole('region', { name: 'HD' })
+    expect(await within(hd).findByText('Standard · 6 Titles')).toBeInTheDocument()
+    expect(within(hd).getByText('Remux-1080p').compareDocumentPosition(within(hd).getByText('HDTV-720p')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(hd).getByText('Default for Movies and Series')).toBeInTheDocument()
+    expect(within(await screen.findByRole('region', { name: 'New Titles get' })).getByText('HD')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Change…' }))
+    expect(await screen.findByLabelText('4K default for Movies')).toBeInTheDocument()
+  })
+
+  it('edits a Profile in a side sheet: what it does with Original-only Releases, saved with the sheet’s own Save', async () => {
+    const sent = fakeProfiles()
+    serveDetails()
+    await open('Profiles')
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit HD' }))
+    const sheet = await screen.findByRole('dialog', { name: 'HD' })
+
+    expect(await within(sheet).findByText('61 files in 6 Titles use this Profile')).toBeInTheDocument()
+    expect(
+      within(sheet)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['Remux-1080p', 'Bluray-1080p', 'WEBDL-1080p', 'HDTV-720p'])
+    expect(within(sheet).getByRole('button', { name: 'Save' })).toBeDisabled()
+    const choice = within(sheet).getByLabelText('Original Language only')
     expect(
       within(choice)
         .getAllByRole('option')
         .map((o) => o.textContent),
     ).toEqual(['Reject', 'Offer for approval', 'Grab'])
     await userEvent.selectOptions(choice, 'offer')
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Save' }))
+
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile hd-primary', body: { original_language: 'offer' } }))
     expect(await findToast('Saved HD')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'HD' })).not.toBeInTheDocument())
   })
 
-  it('shows the server problem when the only HD default is disabled', async () => {
-    fakeProfiles()
-    await open('Profiles')
-    const section = await screen.findByRole('region', { name: 'Profiles' })
-    await userEvent.click(await within(section).findByLabelText('HD enabled'))
-    expect(await within(section).findByRole('alert')).toHaveTextContent('The Standard Slot always has a default')
-  })
-
-  it('saves a new Primary Language and says what it changes', async () => {
+  it('summarises the Custom Formats in the sheet and lists them all on request, and Cancel closes it unsaved', async () => {
     const sent = fakeProfiles()
-    await open()
-    const section = await screen.findByRole('region', { name: 'Primary Language' })
-    await userEvent.selectOptions(await within(section).findByLabelText('Primary Language'), 'de')
-    expect(within(section).getByText(/re-scores every file you already have/i)).toBeInTheDocument()
-    await userEvent.click(within(section).getByRole('button', { name: 'Save language' }))
-    expect(await findToast('Re-scoring under German in the background')).toBeInTheDocument()
-    expect(within(section).queryByText('Saved.')).not.toBeInTheDocument()
-    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'settings', body: { language_region: { primary_language: 'de', release_date_country: 'DE' } } }))
+    serveDetails()
+    await open('Profiles')
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit HD' }))
+    const sheet = await screen.findByRole('dialog', { name: 'HD' })
+    expect(await within(sheet).findByText(/From TRaSH · 4 scored · WEB Tier 01 \+1700 · HDR \+500 · x265 \(HD\) −150 …/)).toBeInTheDocument()
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Show all' }))
+    expect(within(sheet).getByText(/Repack \+5/)).toBeInTheDocument()
+
+    await userEvent.click(within(sheet).getByLabelText('Enabled'))
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('dialog', { name: 'HD' })).not.toBeInTheDocument()
+    expect(sent).toEqual([])
   })
 
-  it('shows why a Profile choice could not be saved, and why the Language could not', async () => {
+  it('shows the server problem in the sheet when the only HD default is disabled', async () => {
     fakeProfiles()
-    server.use(
-      http.patch('/profiles/{key}', ({ response }) => response('default').json(problem(500, 'internal', 'database locked'), { status: 500 })),
-      http.patch('/settings', ({ response }) => response('default').json(problem(500, 'internal', 'database locked'), { status: 500 })),
-    )
+    serveDetails()
     await open('Profiles')
-    const profiles = await screen.findByRole('region', { name: 'Profiles' })
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit HD' }))
+    const sheet = await screen.findByRole('dialog', { name: 'HD' })
+    await userEvent.click(within(sheet).getByLabelText('Enabled'))
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Save' }))
+    expect(await within(sheet).findByRole('alert')).toHaveTextContent('The Standard Slot always has a default')
+  })
 
-    await userEvent.selectOptions(await within(profiles).findByLabelText('HD Original Language only'), 'offer')
-    expect(await within(profiles).findByRole('alert')).toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('link', { name: 'General' }))
-    const language = await screen.findByRole('region', { name: 'Primary Language' })
-    await userEvent.selectOptions(await within(language).findByLabelText('Primary Language'), 'de')
-    await userEvent.click(within(language).getByRole('button', { name: 'Save language' }))
-    expect(await within(language).findByRole('alert')).toHaveTextContent('Could not save. Try again.')
-    expect(screen.queryByText('Language saved')).not.toBeInTheDocument()
+  it('shows the sheet read-only, and says why, while the Config File sets the Profiles', async () => {
+    fakeProfiles()
+    serveDetails()
+    server.use(http.get('/profiles', ({ response }) => response(200).json({ items: seeded().map((p) => ({ ...p, from_config_file: true })) })))
+    await open('Profiles')
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit HD' }))
+    const sheet = await screen.findByRole('dialog', { name: 'HD' })
+    expect(within(sheet).getByText(/Config File sets the Profiles, so nothing here can be changed/)).toBeInTheDocument()
+    expect(within(sheet).getByLabelText('Enabled')).toBeDisabled()
+    expect(within(sheet).getByLabelText('Original Language only')).toBeDisabled()
+    expect(within(sheet).getByRole('button', { name: 'Save' })).toBeDisabled()
   })
 })

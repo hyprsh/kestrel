@@ -32,6 +32,7 @@ export function JumpLink({
   current = false,
   warn = false,
   note,
+  icon,
   children,
 }: {
   href: string
@@ -39,6 +40,7 @@ export function JumpLink({
   current?: boolean
   warn?: boolean
   note?: ReactNode
+  icon?: ReactNode
   children: ReactNode
 }) {
   return (
@@ -49,6 +51,7 @@ export function JumpLink({
         variant={current ? 'secondary' : 'tertiary'}
         size="small"
         width="100%"
+        prefix={icon}
         aria-current={current ? 'true' : undefined}
         className={`${panelRowClass} ${note ? 'h-auto min-h-[34px] py-1' : ''}`}
       >

@@ -6,7 +6,8 @@ import type { ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
 import { App } from './App'
 import { Poster } from './poster'
-import { DisplayForm } from './display/DisplayForm'
+import { DraftProvider } from './settings/draft'
+import { DisplayRows } from './settings/GeneralRows'
 import { ProviderKeysForm } from './metadata/ProviderKeys'
 import { Requests } from './requests/Requests'
 import { displayDefaults, noDisplayDeclared } from './test/display'
@@ -168,7 +169,11 @@ describe('a Settings section while its settings load', () => {
         })
       }),
     )
-    inClient(<DisplayForm />)
+    inClient(
+      <DraftProvider>
+        <DisplayRows />
+      </DraftProvider>,
+    )
 
     expect(screen.getByRole('status')).toHaveTextContent('Loading')
     expect(screen.queryByLabelText('Season order')).not.toBeInTheDocument()
