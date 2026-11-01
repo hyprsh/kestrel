@@ -5,9 +5,9 @@ import { TitlePoster } from '../poster'
 import { plural } from '../format'
 import { sourceName } from '../requests/source'
 import type { SlotKey } from './bits'
-import { MovieCells } from './MovieCells'
 import { rated, Ratings } from './Ratings'
 import { SeriesSection } from './SeriesSection'
+import { MovieSection } from './MovieSection'
 import { MonitoringMenu, TitleActions } from './TitleActions'
 import { TitleBadges } from './TitleBadges'
 import { VersionRows } from './VersionRows'
@@ -113,7 +113,6 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
               <span key={i}>{i < meta.length - 1 ? <>{m}&nbsp;·</> : m}</span>
             ))}
           </div>
-          {title.kind === 'movie' && <MovieCells title={title} />}
           <TitleBadges title={title} />
           {title.requests.map((r) => (
             <div key={r.id} className="copy-13 text-gray-900">
@@ -125,7 +124,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
       </div>
 
       <VersionRows title={title} profiles={profiles.data ?? []} profileName={profileName} onManualSearch={onManualSearch} />
-      {title.kind === 'series' && <SeriesSection title={title} onManualSearch={onManualSearch} />}
+      {title.kind === 'series' ? <SeriesSection title={title} onManualSearch={onManualSearch} /> : <MovieSection title={title} profileName={profileName} onManualSearch={onManualSearch} />}
     </div>
   )
 }

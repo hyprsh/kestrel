@@ -26,7 +26,25 @@ const file = {
   imported_at: new Date(Date.now() - 3 * 86_400_000).toISOString(),
 }
 
-describe("a Movie's Slot cells on its Title page", () => {
+describe("a Movie's Files table on its Title page", () => {
+  it('reads as the episode table does: Name, Released and a column per Slot over one row, with Search and the menu on it', async () => {
+    const r = row(1, 'Paddington', 'Paddington')
+    fakeLibrary([r])
+    const pane = await openPaddington()
+
+    const table = await within(pane).findByRole('table', { name: 'Movie' })
+    expect(within(within(pane).getByRole('region', { name: 'Files' })).getByRole('heading', { name: 'Files' })).toBeInTheDocument()
+    expect(
+      within(table)
+        .getAllByRole('columnheader')
+        .map((h) => h.textContent),
+    ).toEqual(['Name', 'Released', 'Standard', 'Actions'])
+    expect(within(table).getByText('Paddington')).toBeInTheDocument()
+    expect(within(table).getByRole('button', { name: 'Search Paddington' })).toBeInTheDocument()
+    await userEvent.click(within(table).getByRole('button', { name: 'Actions for Paddington' }))
+    expect(within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Manual search Standard…' })).toBeInTheDocument()
+  })
+
   it('show a filled Slot as resolution and size, with the episode cell’s tooltip, and open the file popover', async () => {
     const r = row(1, 'Paddington', 'Paddington')
     fakeLibrary([r])
@@ -38,7 +56,7 @@ describe("a Movie's Slot cells on its Title page", () => {
     )
     const pane = await openPaddington()
 
-    const cell = within(pane).getByRole('button', { name: 'Standard: Filled, 1080p · 1.6 GB' })
+    const cell = await within(pane).findByRole('button', { name: 'Standard: Filled, 1080p · 1.6 GB' })
     expect(cell).toHaveTextContent('1080p · 1.6 GB')
     expect(cell).toHaveAttribute('title', `Standard: Filled · Score 100 · WEBDL-1080p · 1.6 GB\n${file.path}`)
     await userEvent.click(cell)
@@ -47,7 +65,7 @@ describe("a Movie's Slot cells on its Title page", () => {
     expect(within(pop).getByText('Paddington.2014.1080p.WEB-DL')).toBeInTheDocument()
   })
 
-  it('show a Wanted Slot with its days, and the badges no longer repeat it', async () => {
+  it('show a Wanted Slot with its days, and the header pill says it generically', async () => {
     const r = row(1, 'Paddington', 'Paddington')
     fakeLibrary([r])
     server.use(
@@ -58,10 +76,10 @@ describe("a Movie's Slot cells on its Title page", () => {
     )
     const pane = await openPaddington()
 
-    const cell = within(pane).getByRole('button', { name: 'Standard: Wanted' })
+    const cell = await within(pane).findByRole('button', { name: 'Standard: Wanted' })
     expect(cell).toHaveTextContent('Wanted · 12 d')
     expect(cell).toHaveAttribute('title', 'Standard: Wanted\nWanted · 12 d')
-    expect(within(pane).queryByText('Standard Wanted · 12 days')).not.toBeInTheDocument()
+    expect(within(pane).getByText('Wanted · 12 days')).toBeInTheDocument()
   })
 
   it('show a downloading Slot as percent and time left', async () => {
