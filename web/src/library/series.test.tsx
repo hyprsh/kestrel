@@ -141,6 +141,8 @@ describe('the episodes table', () => {
     // The Version controls above the pane's Series section have their own tab stops: start at the last control before the table.
     await act(async () => screen.getByRole('button', { name: 'Actions for Season 1' }).focus())
     await userEvent.tab() // the Name column's resize handle
+    await userEvent.tab() // the Standard column's resize handle
+    await userEvent.tab() // the 4K column's resize handle
     await userEvent.tab() // the table's one tab stop
     expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' })).toHaveFocus()
 

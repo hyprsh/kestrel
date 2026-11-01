@@ -103,16 +103,16 @@ describe('the season switcher on the Title page', () => {
     expect(document.body).toHaveTextContent('1 of 4 filled · 1 downloading · 2 Wanted')
   })
 
-  it('has Search season in the toolbar, and Manual search season… and Reset column widths in the ⋯ menu', async () => {
+  it('has Search season in the toolbar, and Manual search season… and Reset columns in the ⋯ menu', async () => {
     const { state } = await openSeries()
     expect(state.get().sent).toEqual([])
     expect(screen.getByRole('button', { name: 'Search Season 1' })).toBeEnabled()
     expect(screen.queryByRole('button', { name: /Manual search Season/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Reset column widths' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reset columns' })).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Actions for Season 1' }))
     expect(screen.getAllByRole('menuitem', { name: /^Manual search season…/ }).length).toBeGreaterThan(0)
-    expect(screen.queryByRole('menuitem', { name: 'Reset column widths' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Reset columns' })).not.toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
   })
 
@@ -126,16 +126,16 @@ describe('the season switcher on the Title page', () => {
     expect(screen.getByRole('button', { name: 'Search Season 1' }).textContent).toBe('')
   })
 
-  it('offers Reset column widths in the ⋯ menu only while the widths differ, and resets them', async () => {
+  it('offers Reset columns in the ⋯ menu only while the widths differ, and resets them', async () => {
     localStorage.setItem('kestrel.columns.episodes', JSON.stringify({ name: 300 }))
     await openSeries()
 
     await userEvent.click(screen.getByRole('button', { name: 'Actions for Season 1' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Reset column widths' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Reset columns' }))
 
     expect(localStorage.getItem('kestrel.columns.episodes')).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'Actions for Season 1' }))
-    expect(screen.queryByRole('menuitem', { name: 'Reset column widths' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Reset columns' })).not.toBeInTheDocument()
   })
 
   it('monitors and unmonitors a whole season from its menu', async () => {

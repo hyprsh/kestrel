@@ -3,13 +3,14 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueue } from '../api/queue'
 import { ApiError, useEpisodes, type Episode, type TitleDetail } from '../api/queries'
 import { useDisplay } from '../display/useDisplay'
+import { useColumnOrder } from '../layout/columnOrder'
 import { useColumnWidths } from '../layout/columnWidths'
 import { ViewSwitcher } from '../layout/ScreenBar'
 import { LoadingRegion } from '../loading'
 import { slotKeys } from './bits'
 import { SeasonButtons, SeasonDeleteConfirm, TickedBar, useEpisodeActions } from './EpisodeActions'
 import { FindEpisodeField, useEpisodeFind } from './EpisodeFind'
-import { EpisodeMatrix } from './EpisodeMatrix'
+import { EpisodeMatrix, airedKey } from './EpisodeMatrix'
 import { useEpisodeView } from './episodeView'
 import { bySeason, defaultSeason, episodeCode, orderEpisodes, orderSeasons, seasonName, seasonStanding } from './episodes'
 import { grabsByEpisode } from './cellDetail'
@@ -33,6 +34,7 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
   const seasons = useMemo(() => orderSeasons([...grouped.keys()], display.season_order), [grouped, display.season_order])
   const view = useEpisodeView(title.id)
   const columns = useColumnWidths('episodes')
+  const order = useColumnOrder('episodes', [airedKey, ...slots])
   const queue = useQueue()
   const grabs = useMemo(() => grabsByEpisode(queue.data, title.id), [queue.data, title.id])
   const season = view.season !== null && grouped.has(view.season) ? view.season : defaultSeason(seasons)
@@ -99,13 +101,13 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
             <div className="w-56 max-sm:w-0 max-sm:flex-1">
               <FindEpisodeField find={find} />
             </div>
-            <SeasonButtons actions={actions} season={season} episodes={shown} columns={columns} />
+            <SeasonButtons actions={actions} season={season} episodes={shown} columns={columns} order={order} />
           </div>
         </>
       }
     >
       <SeasonDeleteConfirm actions={actions} season={season} />
-      <EpisodeMatrix season={season} episodes={shown} slots={slots} actions={actions} found={found} grabs={grabs} columnWidths={columns} />
+      <EpisodeMatrix season={season} episodes={shown} slots={slots} columnOrder={order} actions={actions} found={found} grabs={grabs} columnWidths={columns} />
       <TickedBar actions={actions} />
     </Section>
   )

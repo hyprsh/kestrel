@@ -2,6 +2,7 @@ import { Button, Checkbox, StatusDot, Table, TableBody, TableCell, TableHead, Ta
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { Episode } from '../api/queries'
 import { useColumnWidths } from '../layout/columnWidths'
+import type { useColumnOrder } from '../layout/columnOrder'
 import { usePhone } from '../responsive'
 import type { QueueItem } from '../api/queue'
 import { dotOf, faintDot, slotLabel, versionStatus, type SlotKey } from './bits'
@@ -12,6 +13,9 @@ import { EpisodeName } from './EpisodeName'
 import { cellText, grabOf } from './cellDetail'
 import { episodeRow } from './episodes'
 import { rowActionsShown } from './IconAction'
+
+/** The key of the Aired column in the column order; the Slots' keys are their own. */
+export const airedKey = 'aired'
 
 /**
  * The open season's episodes × Slots: a row per episode with a tick box, its code, name and air date, a state per Slot that
@@ -24,7 +28,8 @@ import { rowActionsShown } from './IconAction'
 export function EpisodeMatrix({
   season,
   episodes,
-  slots,
+  slots: defaultSlots,
+  columnOrder,
   actions,
   found,
   grabs,
@@ -33,6 +38,8 @@ export function EpisodeMatrix({
   season: number
   episodes: Episode[]
   slots: SlotKey[]
+  /** The order of the movable columns (the Aired date and the Slots, by key), kept by the screen (layout/columnOrder.tsx). */
+  columnOrder: Pick<ReturnType<typeof useColumnOrder>, 'order' | 'head'>
   actions: EpisodeActions
   found: number | null
   /** The queue's Grabs of this Series by Slot and episode (cellDetail.ts), for the progress a downloading cell shows. */
@@ -45,8 +52,10 @@ export function EpisodeMatrix({
   // The row whose "…" menu is open: a menu can open upwards over other rows, so its own row is marked.
   const [menuRow, setMenuRow] = useState<string | null>(null)
   const menuOf = (key: string) => (open: boolean) => setMenuRow((cur) => (open ? key : cur === key ? null : cur))
-  const columns = 1 + slots.length
   const phone = usePhone()
+  // The Slot cells follow the head order, and so does the keyboard: slots[col - 1] is the cell col.
+  const slots = columnOrder.order.filter((k): k is SlotKey => k !== airedKey && (defaultSlots as string[]).includes(k))
+  const columns = 1 + slots.length
   const { selection } = actions
 
   // Another season: the cursor starts at its top again.
@@ -129,7 +138,7 @@ export function EpisodeMatrix({
         <Table
           role="grid"
           aria-label="Episodes"
-          aria-colcount={columns + 3}
+          aria-colcount={columns + 4}
           stickyHeader
           columnWidths={columnWidths.widths}
           onColumnWidthsChange={columnWidths.onChange}
@@ -151,12 +160,20 @@ export function EpisodeMatrix({
               <TableHead columnKey="name" resizable={!phone} truncate={phone} width={200} minWidth={140} maxWidth={560} className="px-2">
                 Name
               </TableHead>
-              <TableHead className="px-2 max-sm:hidden">Aired</TableHead>
-              {slots.map((s) => (
-                <TableHead key={s} className="px-2">
-                  {slotLabel[s]}
-                </TableHead>
-              ))}
+              {columnOrder.order.map((k) => {
+                const { className, ...drag } = columnOrder.head(k)
+                return k === airedKey ? (
+                  <TableHead key={k} {...drag} className={`px-2 max-sm:hidden ${className}`}>
+                    Aired
+                  </TableHead>
+                ) : (
+                  <TableHead key={k} {...drag} columnKey={k} resizable={!phone} width={150} minWidth={96} maxWidth={480} className={`px-2 ${className}`}>
+                    {slotLabel[k as SlotKey]}
+                  </TableHead>
+                )
+              })}
+              {/* Takes the rest of the row, so the table is as wide as its card (a phone's Name does that). */}
+              {!phone && <TableHead truncate aria-hidden className="px-0" />}
               <TableHead align="right" className="px-2 sr-only">
                 Search
               </TableHead>
@@ -168,8 +185,9 @@ export function EpisodeMatrix({
                 key={ep.id}
                 episode={ep}
                 slots={slots}
+                order={columnOrder.order}
                 index={i}
-                columns={columns + 3}
+                columns={columns + 4}
                 tab={tab}
                 ticked={selection.has(ep.id)}
                 found={ep.id === found}
@@ -190,6 +208,7 @@ export function EpisodeMatrix({
 function EpisodeRow({
   episode,
   slots,
+  order,
   index,
   columns,
   tab,
@@ -203,6 +222,7 @@ function EpisodeRow({
 }: {
   episode: Episode
   slots: SlotKey[]
+  order: string[]
   index: number
   columns: number
   tab: (row: number, col: number) => number
@@ -230,8 +250,16 @@ function EpisodeRow({
             <EpisodeName episode={episode} />
           </span>
         </TableCell>
-        <TableCell className="px-2 text-gray-900 max-sm:hidden">{episode.air_date ?? '—'}</TableCell>
-        {slots.map((s, c) => {
+        {order.map((k) => {
+          if (k === airedKey) {
+            return (
+              <TableCell key={k} className="px-2 text-gray-900 max-sm:hidden">
+                {episode.air_date ?? '—'}
+              </TableCell>
+            )
+          }
+          const s = k as SlotKey
+          const c = slots.indexOf(s)
           const cell = episode.cells[s]
           const state = cell ? versionStatus(cell.state).label : 'no Version'
           const dot = dotOf(cell ? cell.state : null, false)
@@ -241,6 +269,7 @@ function EpisodeRow({
             <Button
               variant="tertiary"
               size="tiny"
+              className="max-w-full"
               aria-label={`${label} ${slotLabel[s]}: ${state}`}
               title={title}
               data-cell={`${index}-${c + 1}`}
@@ -248,7 +277,7 @@ function EpisodeRow({
               onFocus={() => onFocus(c + 1)}
               prefix={<StatusDot state={dot.state} variant={dot.variant} label={false} title={null} aria-hidden className={dot.faint ? faintDot : undefined} />}
             >
-              <span className={`max-w-48 truncate max-sm:sr-only ${cell?.state === 'unmonitored' ? 'text-gray-900' : ''}`}>{text ?? '—'}</span>
+              <span className={`min-w-0 truncate max-sm:sr-only ${cell?.state === 'unmonitored' ? 'text-gray-900' : ''}`}>{text ?? '—'}</span>
             </Button>
           )
           return (
@@ -264,6 +293,7 @@ function EpisodeRow({
             </TableCell>
           )
         })}
+        {!phone && <TableCell aria-hidden className="px-0" />}
         <TableCell align="right" className="px-2">
           <span className={`flex items-center justify-end gap-1 ${rowActionsShown}`}>
             <RowButtons actions={actions} episode={episode} />
