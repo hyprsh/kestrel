@@ -630,7 +630,7 @@ describe('Adoption review on a phone', () => {
     renderApp()
     await user.click(await screen.findByRole('button', { name: 'More' }))
     await user.click(within(await screen.findByRole('dialog', { name: 'More' })).getByRole('button', { name: 'Settings' }))
-    await user.click(await screen.findByRole('navigation', { name: 'Settings sections' }).then((n) => within(n).getByRole('button', { name: 'Library' })))
+    await user.click(await screen.findByRole('navigation', { name: 'Settings sections' }).then((n) => within(n).getByRole('button', { name: /^Library/ })))
     await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
     await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
 

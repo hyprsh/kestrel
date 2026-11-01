@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { App } from './App'
@@ -101,11 +101,11 @@ describe('Settings > Security', () => {
     const saved = fakeSecurity()
     await openSecurity('Security & Access')
 
-    await userEvent.click(await screen.findByRole('checkbox', { name: /log in from the header/i }))
+    await userEvent.click(await screen.findByRole('switch', { name: /log in from the header/i }))
     await userEvent.type(screen.getByLabelText('Trusted proxies'), '172.18.0.0/16{Enter}10.0.0.5')
-    await userEvent.click(screen.getByRole('button', { name: 'Save reverse proxy' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-    expect(await screen.findByRole('status')).toHaveTextContent(/saved/i)
+    await waitFor(() => expect(saved).toHaveLength(1))
     expect(saved).toEqual([{ enabled: true, trusted_proxies: ['172.18.0.0/16', '10.0.0.5'], header: 'Remote-User' }])
   })
 
@@ -113,9 +113,9 @@ describe('Settings > Security', () => {
     fakeSecurity({ proxy: { enabled: true, trusted_proxies: ['10.0.0.5'] }, proxyDeclared: true })
     await openSecurity('Security & Access')
 
-    expect(await screen.findByRole('checkbox', { name: /log in from the header/i })).toBeDisabled()
+    expect(await screen.findByRole('switch', { name: /log in from the header/i })).toBeDisabled()
     expect(screen.getByLabelText('Trusted proxies')).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Save reverse proxy' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
     expect(screen.getByText(/Config File/)).toBeInTheDocument()
   })
 

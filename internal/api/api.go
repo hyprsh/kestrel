@@ -124,8 +124,8 @@ type server struct {
 	// started is when this server was built, for the uptime in the system status.
 	started time.Time
 	auth    *auth
-	plex *plexSignIn
-	hub  *hub
+	plex    *plexSignIn
+	hub     *hub
 
 	plugins     PluginInstances
 	profiles    Profiles
