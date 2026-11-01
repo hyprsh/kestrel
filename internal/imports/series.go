@@ -115,6 +115,9 @@ func (s *Service) importSeries(ctx context.Context, g Grab, d library.Detail, ve
 	if len(src.videos) == 0 {
 		return stalled(StalledNoVideo)
 	}
+	if g.Checking != nil {
+		g.Checking(len(src.videos))
+	}
 
 	held, err := s.lib.PathsOfVersion(ctx, g.VersionID)
 	if err != nil {
@@ -462,6 +465,7 @@ func (in *seriesImport) file(ctx context.Context, video string, out *Result) {
 			removeWithSidecars(old.Path)
 		}
 	}
+	out.Replaced += len(replaced)
 	settleReplaces(partial, target)
 	in.held = append(in.held, target)
 	s.sidecars(in.subsOf(video), target, in.primary, in.original)

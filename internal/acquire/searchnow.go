@@ -2,6 +2,7 @@ package acquire
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -48,6 +49,7 @@ func (s *Service) StartSearch(ctx context.Context, versionID int64, scope librar
 		ctx = context.WithoutCancel(ctx)
 		s.hist.Record(ctx, history.Event{
 			Kind: history.Searched, TitleID: titleID, VersionID: versionID, Message: s.searchedMessage(ctx, label, where, out, err),
+			Data: searchedData(label, where, out, s.endOf(ctx, out, versionID, err)),
 		})
 	})
 	return nil
@@ -106,6 +108,14 @@ func (s *Service) slotOf(ctx context.Context, titleID, versionID int64) (Slot, e
 		}
 	}
 	return 0, library.ErrNotFound
+}
+
+// searchedData is the Searched event's payload: what the search covered and found, for the Log's fold ("418 releases
+// checked") and its lines ("37 releases · 1 Grab"). Releases is how many came back for the Title, grabbed how many
+// Grabs the search made and result how it ended for the Version.
+func searchedData(label string, slot Slot, out Outcome, end SearchEnd) json.RawMessage {
+	b, _ := json.Marshal(map[string]any{"scope": label, "slot": slot.Name(), "releases": out.Releases, "grabbed": len(out.Grabbed), "result": end})
+	return b
 }
 
 // searchedMessage says what a search by hand came to, naming the scope and the

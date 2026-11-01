@@ -266,6 +266,11 @@ type Outcome struct {
 	Grabbed []Grab
 	// Failures are the indexers that could not answer fully.
 	Failures []indexers.Failure
+	// Releases is how many Releases the indexers returned and were evaluated: all of the Title's, whatever the
+	// Versions searched.
+	Releases int
+	// entries are those Releases, for the record of what each Version's search found.
+	entries []*entry
 }
 
 // SearchWanted is the automatic search for what a Title's Versions are
@@ -303,8 +308,15 @@ func (s *Service) SearchUpgrades(ctx context.Context, titleID int64, versionIDs 
 }
 
 // searchTitle searches a Title for its Wanted Versions, or with upgrade for its
-// Filled ones. A Series is searched within scope; a Movie ignores it.
+// Filled ones, and records what each Version's search found (LastSearch). A
+// Series is searched within scope; a Movie ignores it.
 func (s *Service) searchTitle(ctx context.Context, titleID int64, versionIDs []int64, scope library.Scope, fromCache, upgrade bool) (Outcome, error) {
+	out, err := s.runSearch(ctx, titleID, versionIDs, scope, fromCache, upgrade)
+	s.noteSearched(ctx, titleID, upgrade, out, err)
+	return out, err
+}
+
+func (s *Service) runSearch(ctx context.Context, titleID int64, versionIDs []int64, scope library.Scope, fromCache, upgrade bool) (Outcome, error) {
 	defer s.snap.Hold()()
 	sub, err := s.subjectOf(ctx, titleID)
 	if err != nil {
@@ -349,6 +361,7 @@ func (s *Service) searchTitle(ctx context.Context, titleID int64, versionIDs []i
 	out.Failures = failures
 	byRelease := map[string]*entry{}
 	for _, e := range entries {
+	out.found(entries)
 		in.Candidates = append(in.Candidates, e.cand)
 		byRelease[e.cand.GUID+"\x00"+e.cand.IndexerID] = e
 	}

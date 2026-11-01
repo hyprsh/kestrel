@@ -33,7 +33,8 @@ func (s *server) ListQueue(ctx context.Context, _ oapi.ListQueueRequestObject) (
 			PhaseSince: a.Since, BytesTotal: a.BytesTotal, BytesLeft: a.BytesLeft, IsUpgrade: a.IsUpgrade,
 			Indexer: a.IndexerName, Size: a.Size, Score: a.Score, GrabbedAt: a.CreatedAt,
 			Stuck: stuckOf(a),
-			Title: about.title, HasPoster: about.hasPoster, Year: about.year, Kind: about.kind, Slot: about.slot, Episodes: about.episodes,
+			Title: about.title, HasPoster: about.hasPoster, Year: about.year, Kind: about.kind, Slot: about.slot, Episodes: about.episodes, EpisodeIds: about.episodeIDs,
+			CheckingFiles: a.ImportChecking,
 		}
 		if a.ETA > 0 {
 			secs := int(a.ETA.Seconds())
@@ -75,6 +76,8 @@ type grabAbout struct {
 	kind      *oapi.TitleKind
 	slot      *oapi.Slot
 	episodes  []string
+	// episodeIDs are those episodes' ids.
+	episodeIDs []int64
 	// version is the Grab's Version, nil when it is gone.
 	version *library.Version
 }
@@ -96,7 +99,10 @@ func (c *grabTitles) detail(id int64) *library.Detail {
 }
 
 func (c *grabTitles) about(g acquire.Grab) grabAbout {
-	out := grabAbout{episodes: []string{}}
+	out := grabAbout{episodes: []string{}, episodeIDs: []int64{}}
+	if ids, err := c.s.acquire.GrabEpisodes(c.ctx, g.ID); err == nil && len(ids) > 0 {
+		out.episodeIDs = ids
+	}
 	d := c.detail(g.TitleID)
 	if d == nil {
 		return out

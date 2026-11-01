@@ -29,7 +29,12 @@ func (s *server) GetGrabSteps(ctx context.Context, r oapi.GetGrabStepsRequestObj
 	if err != nil {
 		return nil, err
 	}
-	out := oapi.GrabSteps{GrabId: g.ID, GrabbedAt: g.CreatedAt, Files: []oapi.GrabStepFile{}, Formats: []oapi.GrabStepFormat{}}
+	out := oapi.GrabSteps{GrabId: g.ID, GrabbedAt: g.CreatedAt, Files: []oapi.GrabStepFile{}, Formats: []oapi.GrabStepFormat{}, Replaced: g.ImportReplaced,
+		// The Grab keeps its download times; the routine events they were once read from are pruned after 30 days.
+		DownloadStartedAt: g.DownloadStartedAt, DownloadFinishedAt: g.DownloadDoneAt}
+	if w := g.Why; w != nil {
+		out.Why = &oapi.GrabWhy{CoversWanted: w.CoversWanted, ReplacesFiles: w.ReplacesFiles, ScoreDelta: w.ScoreDelta}
+	}
 	if g.State == "imported" || g.State == "failed" {
 		ended := g.UpdatedAt
 		out.EndedAt = &ended

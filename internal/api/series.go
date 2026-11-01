@@ -196,6 +196,9 @@ func (s *server) PatchTitle(ctx context.Context, r oapi.PatchTitleRequestObject)
 	if err := s.withOffers(ctx, &out); err != nil {
 		return nil, err
 	}
+	if err := s.withSearches(ctx, &out); err != nil {
+		return nil, err
+	}
 	return oapi.PatchTitle200JSONResponse(out), nil
 }
 

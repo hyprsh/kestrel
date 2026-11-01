@@ -1571,6 +1571,43 @@ func (q *Queries) ListSearchStates(ctx context.Context) ([]SearchState, error) {
 	return items, nil
 }
 
+const listSearchStatesOfTitle = `-- name: ListSearchStatesOfTitle :many
+SELECT ss.id, ss.version_id, ss.season, ss.next_missing_at, ss.last_missing_at, ss.next_upgrade_at, ss.last_upgrade_at, ss.fresh FROM search_state ss JOIN versions v ON v.id = ss.version_id WHERE v.title_id = ? ORDER BY ss.id
+`
+
+// A Title's search_state rows.
+func (q *Queries) ListSearchStatesOfTitle(ctx context.Context, titleID int64) ([]SearchState, error) {
+	rows, err := q.db.QueryContext(ctx, listSearchStatesOfTitle, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchState
+	for rows.Next() {
+		var i SearchState
+		if err := rows.Scan(
+			&i.ID,
+			&i.VersionID,
+			&i.Season,
+			&i.NextMissingAt,
+			&i.LastMissingAt,
+			&i.NextUpgradeAt,
+			&i.LastUpgradeAt,
+			&i.Fresh,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSeasonNumbers = `-- name: ListSeasonNumbers :many
 SELECT number FROM seasons WHERE title_id = ?
 `

@@ -100,6 +100,8 @@ type Acquirer interface {
 type ImportSource interface {
 	DueImports(ctx context.Context) ([]acquire.ImportJob, error)
 	RecordImport(ctx context.Context, grabID int64, canRemove bool, o acquire.ImportOutcome) error
+	// NoteChecking records how many downloaded files a Grab's Import is checking.
+	NoteChecking(ctx context.Context, grabID int64, files int) error
 }
 
 // Importer is the imports module.
@@ -321,11 +323,12 @@ func importDue(ctx context.Context, r *Runner, d Deps) error {
 				res := d.Importer.Import(ctx, imports.Grab{
 					ID: j.ID, TitleID: j.TitleID, VersionID: j.VersionID, ReleaseName: j.ReleaseName,
 					Parsed: []byte(j.Parsed), SourcePath: j.OutputPath, CanRemove: j.CanRemove, Overridden: j.Overridden,
+					Checking: func(files int) { _ = d.ImportSource.NoteChecking(ctx, j.ID, files) },
 				})
 				if ctx.Err() != nil {
 					continue // shutting down: the Grab stays importing and is redone
 				}
-				out := acquire.ImportOutcome{Status: acquire.ImportStatus(res.Status), Reason: res.Reason, Path: res.Path, Inconclusive: res.Inconclusive}
+				out := acquire.ImportOutcome{Status: acquire.ImportStatus(res.Status), Reason: res.Reason, Path: res.Path, Inconclusive: res.Inconclusive, Replaced: res.Replaced}
 				for _, e := range res.Episodes {
 					out.Episodes = append(out.Episodes, acquire.EpisodeOutcome{
 						EpisodeID: e.EpisodeID, Season: e.Season, Number: e.Number, Status: acquire.ImportStatus(e.Status),

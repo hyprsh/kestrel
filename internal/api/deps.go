@@ -143,6 +143,8 @@ type Library interface {
 	UpcomingWith(ctx context.Context, view library.View, from, to time.Time, opts library.UpcomingOptions) (library.Agenda, error)
 	RecentImports(ctx context.Context, n int) ([]library.RecentImport, error)
 	FillTimes(ctx context.Context, view library.View, from, to time.Time) ([]library.Fill, error)
+	// NextSearches is when each of a Title's Versions is next searched on its own.
+	NextSearches(ctx context.Context, titleID int64) (map[int64]library.NextSearch, error)
 	CountRecentImports(ctx context.Context, now time.Time) (int, error)
 	List(ctx context.Context, view library.View, f library.Filter) ([]library.Row, error)
 	AddVersion(ctx context.Context, titleID int64, v library.VersionSpec) (int64, error)
@@ -166,6 +168,8 @@ type Acquire interface {
 	GetGrab(ctx context.Context, id int64) (acquire.Grab, error)
 	GrabFormats(ctx context.Context, grabID int64) ([]scoring.MatchedFormat, error)
 	// Grabs lists Grabs newest first, for GET /grabs.
+	// LastSearches is what the last search of each of the Versions found.
+	LastSearches(ctx context.Context, versionIDs []int64) (map[int64]acquire.LastSearch, error)
 	Grabs(ctx context.Context, f acquire.GrabFilter) ([]acquire.Record, error)
 	DiscardStalled(ctx context.Context, reason string) (int, error)
 	Discard(ctx context.Context, grabID int64) error

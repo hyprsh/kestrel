@@ -56,7 +56,7 @@ UPDATE grabs SET state = 'importing', updated_at = ? WHERE id = ? AND state = 'c
 UPDATE grabs SET stalled_reason = ?, stalled_since = COALESCE(stalled_since, ?), next_import_at = ?, updated_at = ? WHERE id = ?;
 
 -- name: FinishGrab :exec
-UPDATE grabs SET state = ?, failure = ?, stalled_reason = NULL, stalled_since = NULL, next_import_at = NULL, updated_at = ? WHERE id = ?;
+UPDATE grabs SET state = ?, failure = ?, stalled_reason = NULL, stalled_since = NULL, next_import_at = NULL, import_checking = NULL, updated_at = ? WHERE id = ?;
 
 -- name: InsertGrabEpisode :exec
 INSERT INTO grab_episodes (grab_id, episode_id) VALUES (?, ?);
@@ -126,3 +126,34 @@ UPDATE grabs SET download_started_at = COALESCE(download_started_at, ?) WHERE id
 
 -- name: StampDownloadDone :exec
 UPDATE grabs SET download_started_at = COALESCE(download_started_at, created_at), download_done_at = COALESCE(download_done_at, ?) WHERE id = ?;
+
+-- What the last search of each Version found; one row per Version, replaced by the next search.
+-- name: UpsertVersionSearch :exec
+INSERT INTO version_searches (version_id, at, releases, outcome, reasons, upgrade) VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT (version_id) DO UPDATE SET at = excluded.at, releases = excluded.releases, outcome = excluded.outcome,
+                                       reasons = excluded.reasons, upgrade = excluded.upgrade;
+
+-- `ids` is a JSON array of Version ids.
+-- name: ListVersionSearches :many
+SELECT * FROM version_searches WHERE version_id IN (SELECT value FROM json_each(sqlc.arg(ids)));
+
+-- Why a Release was grabbed: the Wanted it covers, the files it replaces and the average Score gain.
+-- name: SetGrabWhy :exec
+UPDATE grabs SET covers_wanted = ?, replaces_files = ?, score_delta = ? WHERE id = ?;
+
+-- How many downloaded files the running Import is checking.
+-- name: SetImportChecking :exec
+UPDATE grabs SET import_checking = ? WHERE id = ?;
+
+-- How many library files a finished Import replaced.
+-- name: SetImportReplaced :exec
+UPDATE grabs SET import_replaced = ? WHERE id = ?;
+
+-- The Grabs a connection outage holds up: those not yet imported, and those lost since it began.
+-- name: CountUnfinishedGrabs :one
+SELECT COUNT(*) FROM grabs WHERE state IN ('sent', 'downloading', 'completed', 'importing')
+  AND (sqlc.arg(indexer_id) = 0 OR indexer_id = sqlc.arg(indexer_id));
+
+-- name: CountLostGrabsSince :one
+SELECT COUNT(*) FROM grabs WHERE state = 'failed' AND failure = 'lost' AND updated_at >= sqlc.arg(since)
+  AND (sqlc.arg(indexer_id) = 0 OR indexer_id = sqlc.arg(indexer_id));

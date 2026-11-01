@@ -187,6 +187,31 @@ func TestASeasonPackImportsOnlyMonitoredEpisodesThatAreMissingOrBeatenAndReports
 	}
 }
 
+func TestASeriesImportCountsTheVideosItChecksAndTheFilesItReplaces(t *testing.T) {
+	ctx := context.Background()
+	s := newSeriesRig(t)
+	dir := filepath.Join(s.root, seriesRoot, "Season 01")
+	old := filepath.Join(dir, "old.mkv")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(old, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.lib.ReplaceEpisodeFile(ctx, s.titleID, seriesRoot, library.NewFile{VersionID: s.version, Path: old, Size: 3, ReleaseName: "old", Score: -5000}, []int64{s.eps[0].ID}); err != nil {
+		t.Fatal(err)
+	}
+	g := s.download(t, packName, 2, []string{"Night.Show.S01E01.1080p.WEB-DL.H264-GRP.mkv", "Night.Show.S01E02.1080p.WEB-DL.H264-GRP.mkv", "Sample/sample.mkv"})
+	checking := -1
+	g.Checking = func(n int) { checking = n }
+
+	res := s.svc.Import(ctx, g)
+
+	if res.Status != imports.Imported || checking != 2 || res.Replaced != 1 {
+		t.Errorf("result = %+v, checking %d; want 2 videos checked (the sample left out) and 1 file replaced", res, checking)
+	}
+}
+
 func TestAPackWhoseEpisodesAreAllHeldOrUnmonitoredIsRejectedAsNoUpgrade(t *testing.T) {
 	ctx := context.Background()
 	s := newSeriesRig(t)

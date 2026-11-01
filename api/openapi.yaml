@@ -537,8 +537,8 @@ paths:
   /profiles:
     get:
       operationId: listProfiles
-      summary: The eight Profiles
-      description: In display order. Profiles are named by `key`, never by id.
+      summary: The Profiles
+      description: In display order, the six builtin ones and then the custom ones. Profiles are named by `key`, never by id.
       tags: [profiles]
       responses:
         "200":
@@ -547,6 +547,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProfileList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createProfile
+      summary: Make a custom Profile
+      description: |
+        Copies the Profile `copy_from` under a new `name`: the same Slot, audio rule, resolutions, TRaSH backing and
+        settings on top of TRaSH. It starts enabled and is never a default. `422 validation` for an empty,
+        too long or taken `name`; `404 not_found` for an unknown `copy_from`; `409 conflict` while the Config File
+        declares `profiles`.
+      tags: [profiles]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileCreate"
+      responses:
+        "201":
+          description: The new Profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
   /profiles/{key}:
@@ -562,6 +592,11 @@ paths:
         a disabled Profile cannot be made a default. `original_language` other than `reject` (or
         `original_fallback: true`) is a `validation` error on Original-Language Profiles, and so is an
         `original_fallback` that disagrees with `original_language` in the same patch.
+        `name` renames a custom Profile only. `overlay` replaces everything set on top of TRaSH at once (see
+        `ProfileOverlay`); it is a `validation` error when a size's smallest bound is above its largest, a quality list
+        names an unknown or repeated quality or accepts none, or a cutoff is not an accepted quality. A custom Profile
+        cannot be made a default. When `overlay` changes what the Profile does, the Versions under it are re-scored from
+        what was stored at Import.
         `409 conflict` while the Config File declares `profiles`.
       tags: [profiles]
       requestBody:
@@ -585,6 +620,24 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteProfile
+      summary: Delete a custom Profile
+      description: |
+        Only a custom Profile can be deleted (`422 validation` for a builtin one). `409 conflict` while a Version
+        still uses it, and while the Config File declares `profiles`.
+      tags: [profiles]
+      responses:
+        "204":
+          description: Deleted.
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /profiles/details:
     get:
       operationId: listProfileDetails
@@ -592,9 +645,11 @@ paths:
       description: |
         In the order of `GET /profiles`. `titles` counts the Versions under the Profile and `files` the files in
         them, which are the files whose Score a change of the Profile's Custom Formats would work out again.
-        The qualities, minimum Score and Custom Formats come from the active TRaSH snapshot and are empty
-        (and `min_score` 0) while there is none. They are not editable: only `enabled`, the defaults and
-        `original_language` are (`PATCH /profiles/{key}`).
+        The ladder, minimum Score and Custom Formats come from the active TRaSH snapshot, with what the household set
+        on top of it (`overlay`), and are empty (and `min_score` 0) while there is none. The Custom Formats and their
+        Scores are not editable. `below_cutoff` counts the files of the Profile that fit their Version, have not
+        reached the cutoff and so are still wanted for Upgrades. `rescores` is how many files saving a change of the
+        Profile re-scores.
       tags: [profiles]
       responses:
         "200":
@@ -3593,6 +3648,84 @@ components:
         trash_profile_series:
           type: string
           description: The same for Series.
+        custom:
+          type: boolean
+          description: "`true` for a Profile made with `POST /profiles`, which can be renamed and deleted."
+    ProfileCreate:
+      type: object
+      required: [name, copy_from]
+      properties:
+        name:
+          type: string
+          maxLength: 40
+        copy_from:
+          type: string
+          description: The `key` of the Profile to copy.
+    ProfileSize:
+      type: object
+      required: [min, max]
+      description: A size bound in bytes per Movie, or per episode of a Series; `null` is no bound.
+      properties:
+        min:
+          type: integer
+          format: int64
+          nullable: true
+        max:
+          type: integer
+          format: int64
+          nullable: true
+    ProfileQuality:
+      type: object
+      required: [name, accepted]
+      properties:
+        name:
+          type: string
+          example: WEBDL-1080p
+        accepted:
+          type: boolean
+    ProfileKindOverlay:
+      type: object
+      required: [cutoff, qualities]
+      properties:
+        cutoff:
+          type: string
+          nullable: true
+          description: |
+            The quality that is "good enough": a file of this quality or a better one in the ladder (and of the
+            `upgrade_until` Score, if set) is not upgraded. It must be an accepted quality. `null` is none.
+        qualities:
+          type: array
+          nullable: true
+          description: |
+            The ladder, best first, with the qualities the Profile takes, replacing TRaSH's order and acceptance.
+            Qualities the list leaves out follow at the end as TRaSH has them. `null` (or TRaSH's own list) is as TRaSH has it.
+          items:
+            $ref: "#/components/schemas/ProfileQuality"
+    ProfileOverlay:
+      type: object
+      required: [min_score, upgrade_until, series, movies, episode_size, movie_size]
+      description: |
+        What the household set on a Profile on top of the TRaSH snapshot. `null` and empty fields leave TRaSH's data
+        or no limit in place, so a Profile nobody edited behaves as TRaSH has it. Upgrades stop for a file when its
+        quality has reached the kind's `cutoff` (if any) and its Score is at least `upgrade_until` (if any); with
+        neither set they never stop.
+      properties:
+        min_score:
+          type: integer
+          nullable: true
+          description: Replaces the minimum Score of the backing TRaSH profile.
+        upgrade_until:
+          type: integer
+          nullable: true
+          description: The Score at which a file stops being upgraded.
+        series:
+          $ref: "#/components/schemas/ProfileKindOverlay"
+        movies:
+          $ref: "#/components/schemas/ProfileKindOverlay"
+        episode_size:
+          $ref: "#/components/schemas/ProfileSize"
+        movie_size:
+          $ref: "#/components/schemas/ProfileSize"
     ProfileList:
       type: object
       required: [items]
@@ -3616,6 +3749,12 @@ components:
           type: boolean
         default_series:
           type: boolean
+        name:
+          type: string
+          maxLength: 40
+          description: Renames a custom Profile.
+        overlay:
+          $ref: "#/components/schemas/ProfileOverlay"
     OriginalLanguageChoice:
       type: string
       enum: [reject, offer, accept]
@@ -3916,7 +4055,7 @@ components:
             $ref: "#/components/schemas/ProfileDetail"
     ProfileDetail:
       type: object
-      required: [key, titles, files, movies, series]
+      required: [key, titles, files, rescores, below_cutoff, overlay, movies, series]
       properties:
         key:
           type: string
@@ -3926,23 +4065,50 @@ components:
         files:
           type: integer
           description: Files in those Versions.
+        rescores:
+          type: integer
+          description: How many files saving a change of the Profile re-scores (the files in its Versions).
+        below_cutoff:
+          type: integer
+          description: |
+            Files in its Versions that fit, whose kind the Profile limits Upgrades for and that have not reached the
+            cutoff, so they are still wanted for Upgrades.
+        overlay:
+          $ref: "#/components/schemas/ProfileOverlay"
         movies:
           $ref: "#/components/schemas/ProfileScoring"
         series:
           $ref: "#/components/schemas/ProfileScoring"
     ProfileScoring:
       type: object
-      required: [qualities, min_score, custom_formats]
-      description: What the Profile does for one kind of Title under the active TRaSH snapshot.
+      required: [qualities, ladder, trash_ladder, cutoff, min_score, trash_min_score, custom_formats]
+      description: What the Profile does for one kind of Title under the active TRaSH snapshot and the household's settings on it.
       properties:
         qualities:
           type: array
-          description: The quality names it allows, in the snapshot's order (best last, as TRaSH lists them).
+          description: The names of the qualities it accepts, best first.
           items:
             type: string
+        ladder:
+          type: array
+          description: Every quality it knows, best first, with whether it accepts it.
+          items:
+            $ref: "#/components/schemas/ProfileQuality"
+        trash_ladder:
+          type: array
+          description: The ladder as TRaSH has it (what "Reset to TRaSH" goes back to).
+          items:
+            $ref: "#/components/schemas/ProfileQuality"
+        cutoff:
+          type: string
+          nullable: true
+          description: The quality that is good enough, or `null`.
         min_score:
           type: integer
           description: A Release scoring under this is rejected.
+        trash_min_score:
+          type: integer
+          description: The minimum Score of the backing TRaSH profile.
         custom_formats:
           type: array
           description: The Custom Formats it scores, highest Score first, then by name.
@@ -4739,6 +4905,55 @@ components:
           allOf:
             - $ref: "#/components/schemas/OriginalOffer"
           nullable: true
+        last_search:
+          description: |
+            What the last search that asked the indexers for this Version found; null when it was never
+            searched (or not since Kestrel began recording it).
+          allOf:
+            - $ref: "#/components/schemas/LastSearch"
+          nullable: true
+        next_search_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            When the Version is next searched on its own: for what it is missing while it is Wanted, else for
+            an Upgrade (the earliest of a Series Version's seasons). Null when none is due, such as for an
+            unmonitored Title. A time in the past means it is due now.
+    LastSearch:
+      type: object
+      description: What the last search of a Version found.
+      required: [at, releases, outcome, reasons, upgrade]
+      properties:
+        at:
+          type: string
+          format: date-time
+        releases:
+          type: integer
+          description: How many Releases the indexers returned for the Title.
+        outcome:
+          type: string
+          enum: [grabbed, nothing_fit, no_indexer, error]
+          description: |
+            `grabbed`: it grabbed a Release. `nothing_fit`: the indexers answered and nothing was fit to
+            grab (none came back, none fit the Profile, or none beat the file held). `no_indexer`: none is
+            enabled. `error`: the search failed or every indexer failed to answer.
+        reasons:
+          type: array
+          description: How many of those Releases the Version's Profile rejected, per code, the most common first.
+          items:
+            $ref: "#/components/schemas/RejectionCount"
+        upgrade:
+          type: boolean
+          description: Whether it was an Upgrade search, for a better file than the one held.
+    RejectionCount:
+      type: object
+      required: [code, count]
+      properties:
+        code:
+          $ref: "#/components/schemas/RejectionCode"
+        count:
+          type: integer
     VersionCoverage:
       type: object
       description: |
@@ -4851,7 +5066,7 @@ components:
         Why a Release cannot go to a Version. Clients tolerate codes they do not know. `original_only`
         is a Release with the Title's Original Language but no Primary-Language audio under a Profile
         that offers such Releases.
-      enum: [below_min_score, resolution, quality, language, original_language_unknown, blocklisted, other_slot, episode_not_listed, season_not_listed, original_only]
+      enum: [below_min_score, resolution, quality, language, original_language_unknown, blocklisted, other_slot, episode_not_listed, season_not_listed, original_only, size]
     Rejection:
       type: object
       required: [code, message, overridable]
@@ -4862,7 +5077,7 @@ components:
           type: string
         overridable:
           type: boolean
-          description: False for `blocklisted`, `other_slot` and `season_not_listed`, which "Grab anyway" never overrides.
+          description: False for `blocklisted`, `other_slot` and `season_not_listed`, which "Grab anyway" never overrides. `size` is overridable.
     CustomFormatMatch:
       type: object
       required: [name, points]
@@ -4952,6 +5167,8 @@ components:
         grabs:
           type: integer
           description: How often the indexer says the Release was grabbed. Absent when the indexer does not report it.
+        size_limit:
+          $ref: "#/components/schemas/ReleaseSizeLimit"
         covers:
           type: array
           description: |
@@ -4960,6 +5177,24 @@ components:
             names nothing the Library has.
           items:
             $ref: "#/components/schemas/ReleaseCover"
+    ReleaseSizeLimit:
+      type: object
+      required: [per_episode]
+      description: |
+        The size limit the Version's Profile puts on a Release of this kind, per Movie or per episode of a Series.
+        Absent when the Profile sets none. A `size` rejection says the Release's size per unit is outside it.
+      properties:
+        per_episode:
+          type: boolean
+          description: True for a Series (the limit is per episode), false for a Movie.
+        min:
+          type: integer
+          format: int64
+          description: Bytes; absent for no lower bound.
+        max:
+          type: integer
+          format: int64
+          description: Bytes; absent for no upper bound.
     ReleaseCover:
       type: object
       required: [state]
@@ -5094,7 +5329,7 @@ components:
     GrabEntry:
       type: object
       description: A Grab as the Activity screen shows it, joined with its Title and Slot.
-      required: [grab_id, title_id, has_poster, version_id, title, year, kind, slot, episodes, release_name, indexer, size, score,
+      required: [grab_id, title_id, has_poster, version_id, title, year, kind, slot, episodes, episode_ids, release_name, indexer, size, score,
         is_upgrade, state, failure, blocklist_reason, stalled, grabbed_at, updated_at]
       properties:
         grab_id:
@@ -5130,6 +5365,12 @@ components:
           description: The episodes a Series Grab covers (`S01E02`); empty for a Movie.
           items:
             type: string
+        episode_ids:
+          type: array
+          description: The ids of those episodes, for Search now narrowed to them (`episode_ids` of the search body); empty for a Movie.
+          items:
+            type: integer
+            format: int64
         release_name:
           type: string
         indexer:
@@ -5225,6 +5466,27 @@ components:
         still_wanted:
           type: boolean
           description: Whether the Grab's episodes (a Movie's Version) are still Wanted.
+        why:
+          allOf:
+            - $ref: "#/components/schemas/GrabWhy"
+          nullable: true
+          description: How the Release was chosen, as the Grab was made; null for a Grab from before this was recorded.
+        replaced:
+          type: integer
+          nullable: true
+          description: How many files in the library the Import replaced; null until it finished, or for a Grab from before this was recorded.
+    GrabWhy:
+      type: object
+      description: How many Wanted a Grab covers, how many existing files it replaces and the average Score gain over them.
+      required: [covers_wanted, replaces_files, score_delta]
+      properties:
+        covers_wanted:
+          type: integer
+        replaces_files:
+          type: integer
+        score_delta:
+          type: integer
+          description: The average Score gain over the replaced files that had a Score; 0 when none had.
     GrabStepFile:
       type: object
       required: [episode, path]
@@ -6301,6 +6563,56 @@ components:
             - $ref: "#/components/schemas/UpdateAvailable"
           nullable: true
           description: A newer release exists. Absent when up to date or when the update check is off.
+        database:
+          $ref: "#/components/schemas/DatabaseStatus"
+        clock:
+          $ref: "#/components/schemas/ClockStatus"
+    DatabaseStatus:
+      type: object
+      description: The database file and its scheduled backups (the `backup` job, once a day).
+      required: [size_bytes, backups, last_backup_at, last_backup_bytes]
+      properties:
+        size_bytes:
+          type: integer
+          format: int64
+          description: The database on disk, with its write-ahead log.
+        backups:
+          type: integer
+          description: How many backups are kept in `backups/`, the scheduled ones and those taken before an upgrade.
+        last_backup_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the newest scheduled backup was taken; `null` before the first.
+        last_backup_bytes:
+          type: integer
+          format: int64
+          nullable: true
+          description: The size of that backup.
+    ClockStatus:
+      type: object
+      description: |
+        The server's clock against a trusted time source: the `Date` header of TMDB's answers, which Kestrel
+        reads on every call (a quiet install probes TMDB hourly).
+      required: [state, offset_seconds, source, checked_at]
+      properties:
+        state:
+          type: string
+          enum: [in_sync, drifting, unknown]
+          description: "`drifting` beyond 60 seconds either way (it also raises a Warning in Needs attention); `unknown` until a comparison has been made."
+        offset_seconds:
+          type: integer
+          nullable: true
+          description: "The server's clock less the source's, in seconds: negative when the server is behind. `null` while `unknown`."
+        source:
+          type: string
+          nullable: true
+          description: Who the clock was compared with, e.g. `TMDB`.
+        checked_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the comparison was made.
     FolderChangeList:
       type: object
       required: [changes, next_marker, expired, more]
@@ -6388,6 +6700,14 @@ components:
           format: int64
           nullable: true
           description: The plugin instance of a media server; `null` for a metadata provider.
+        key:
+          type: string
+          nullable: true
+          enum: [own, project]
+          description: |
+            For a metadata provider, whose API key it runs on: `own` when the user supplied one (Settings, or
+            the environment), `project` for the key built into the release. `null` for a media server and
+            when the provider has no key.
         state:
           type: string
           enum: [ok, failing]
@@ -6444,6 +6764,12 @@ components:
         message:
           type: string
           nullable: true
+        median_ms:
+          type: integer
+          nullable: true
+          description: |
+            The median time the indexer took to answer a search over the last 24 hours, from the searches
+            Kestrel really made. `null` when it answered none in that time.
         search_used:
           type: integer
           description: Search requests made today (the indexer's own count when it reports one).
@@ -6485,7 +6811,7 @@ components:
     Stats:
       type: object
       required: [range, from, to, library, wanted, grabs, time_to_fill, indexers, best_indexer_id, download_client,
-        quality, release_groups, requests, storage]
+        quality, below_cutoff, release_groups, requests, storage]
       properties:
         range:
           type: string
@@ -6506,6 +6832,9 @@ components:
           type: array
           description: One entry per Slot that holds a file.
           items: {$ref: '#/components/schemas/StatsQuality'}
+        below_cutoff:
+          type: integer
+          description: Files that fit their Version and are below their Profile's cutoff, so Upgrades are wanted for them.
         release_groups:
           type: array
           description: The five groups with the most files, most first.
@@ -6983,7 +7312,7 @@ components:
             $ref: "#/components/schemas/QueueItem"
     QueueItem:
       type: object
-      required: [grab_id, title_id, has_poster, version_id, title, year, kind, slot, episodes, release_name, indexer, size, score, phase, phase_since,
+      required: [grab_id, title_id, has_poster, version_id, title, year, kind, slot, episodes, episode_ids, release_name, indexer, size, score, phase, phase_since,
         bytes_total, bytes_left, eta, is_upgrade, score_delta, grabbed_at, stuck]
       properties:
         grab_id:
@@ -7020,6 +7349,12 @@ components:
           description: The episodes a Series Grab covers (`S01E02`); empty for a Movie.
           items:
             type: string
+        episode_ids:
+          type: array
+          description: The ids of those episodes; empty for a Movie.
+          items:
+            type: integer
+            format: int64
         release_name:
           type: string
         indexer:
@@ -7065,6 +7400,10 @@ components:
           type: integer
           nullable: true
           description: For an Upgrade, how many points the Release scores above the file it replaces.
+        checking_files:
+          type: integer
+          nullable: true
+          description: While the Import runs, how many downloaded files it is checking; null before it has counted them.
         stuck:
           allOf:
             - $ref: "#/components/schemas/StuckDownload"

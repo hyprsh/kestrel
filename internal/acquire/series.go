@@ -317,6 +317,11 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 	if !upgrade {
 		planUnlisted(&in, d, episodes, now, scope)
 	}
+	all := make([]*entry, 0, len(entries))
+	for _, e := range entries {
+		all = append(all, e)
+	}
+	out.found(all)
 	plans, err := s.decide(ctx, in)
 	if err != nil {
 		return out, err

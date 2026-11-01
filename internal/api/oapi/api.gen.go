@@ -532,6 +532,27 @@ func (e ClientStatusState) Valid() bool {
 	}
 }
 
+// Defines values for ClockStatusState.
+const (
+	Drifting ClockStatusState = "drifting"
+	InSync   ClockStatusState = "in_sync"
+	Unknown  ClockStatusState = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the ClockStatusState enum.
+func (e ClockStatusState) Valid() bool {
+	switch e {
+	case Drifting:
+		return true
+	case InSync:
+		return true
+	case Unknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DownloadClientLiveState.
 const (
 	DownloadClientLiveStateFailing DownloadClientLiveState = "failing"
@@ -760,6 +781,30 @@ func (e JobOutcomeKind) Valid() bool {
 	case JobOutcomeKindUpToDate:
 		return true
 	case JobOutcomeKindUpdated:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LastSearchOutcome.
+const (
+	Error      LastSearchOutcome = "error"
+	Grabbed    LastSearchOutcome = "grabbed"
+	NoIndexer  LastSearchOutcome = "no_indexer"
+	NothingFit LastSearchOutcome = "nothing_fit"
+)
+
+// Valid indicates whether the value is a known member of the LastSearchOutcome enum.
+func (e LastSearchOutcome) Valid() bool {
+	switch e {
+	case Error:
+		return true
+	case Grabbed:
+		return true
+	case NoIndexer:
+		return true
+	case NothingFit:
 		return true
 	default:
 		return false
@@ -997,6 +1042,7 @@ const (
 	RejectionCodeQuality                 RejectionCode = "quality"
 	RejectionCodeResolution              RejectionCode = "resolution"
 	RejectionCodeSeasonNotListed         RejectionCode = "season_not_listed"
+	RejectionCodeSize                    RejectionCode = "size"
 )
 
 // Valid indicates whether the value is a known member of the RejectionCode enum.
@@ -1021,6 +1067,8 @@ func (e RejectionCode) Valid() bool {
 	case RejectionCodeResolution:
 		return true
 	case RejectionCodeSeasonNotListed:
+		return true
+	case RejectionCodeSize:
 		return true
 	default:
 		return false
@@ -1237,6 +1285,24 @@ func (e SeriesMonitor) Valid() bool {
 	case SeriesMonitorFuture:
 		return true
 	case SeriesMonitorNone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ServiceStatusKey.
+const (
+	Own     ServiceStatusKey = "own"
+	Project ServiceStatusKey = "project"
+)
+
+// Valid indicates whether the value is a known member of the ServiceStatusKey enum.
+func (e ServiceStatusKey) Valid() bool {
+	switch e {
+	case Own:
+		return true
+	case Project:
 		return true
 	default:
 		return false
@@ -2433,6 +2499,25 @@ type ClientStatus struct {
 // ClientStatusState `none` when no download client is enabled.
 type ClientStatusState string
 
+// ClockStatus The server's clock against a trusted time source: the `Date` header of TMDB's answers, which Kestrel
+// reads on every call (a quiet install probes TMDB hourly).
+type ClockStatus struct {
+	// CheckedAt When the comparison was made.
+	CheckedAt *time.Time `json:"checked_at"`
+
+	// OffsetSeconds The server's clock less the source's, in seconds: negative when the server is behind. `null` while `unknown`.
+	OffsetSeconds *int `json:"offset_seconds"`
+
+	// Source Who the clock was compared with, e.g. `TMDB`.
+	Source *string `json:"source"`
+
+	// State `drifting` beyond 60 seconds either way (it also raises a Warning in Needs attention); `unknown` until a comparison has been made.
+	State ClockStatusState `json:"state"`
+}
+
+// ClockStatusState `drifting` beyond 60 seconds either way (it also raises a Warning in Needs attention); `unknown` until a comparison has been made.
+type ClockStatusState string
+
 // Credentials defines model for Credentials.
 type Credentials struct {
 	Password *string `json:"password,omitempty"`
@@ -2443,6 +2528,21 @@ type Credentials struct {
 type CustomFormatMatch struct {
 	Name   string `json:"name"`
 	Points int    `json:"points"`
+}
+
+// DatabaseStatus The database file and its scheduled backups (the `backup` job, once a day).
+type DatabaseStatus struct {
+	// Backups How many backups are kept in `backups/`, the scheduled ones and those taken before an upgrade.
+	Backups int `json:"backups"`
+
+	// LastBackupAt When the newest scheduled backup was taken; `null` before the first.
+	LastBackupAt *time.Time `json:"last_backup_at"`
+
+	// LastBackupBytes The size of that backup.
+	LastBackupBytes *int64 `json:"last_backup_bytes"`
+
+	// SizeBytes The database on disk, with its write-ahead log.
+	SizeBytes int64 `json:"size_bytes"`
 }
 
 // DeletedFile defines model for DeletedFile.
@@ -2798,6 +2898,9 @@ type GrabEntry struct {
 	// BlocklistReason The reason of the Blocklist entry the Grab's Release got, null when it is not blocklisted.
 	BlocklistReason *string `json:"blocklist_reason"`
 
+	// EpisodeIds The ids of those episodes, for Search now narrowed to them (`episode_ids` of the search body); empty for a Movie.
+	EpisodeIds []int64 `json:"episode_ids"`
+
 	// Episodes The episodes a Series Grab covers (`S01E02`); empty for a Movie.
 	Episodes []string `json:"episodes"`
 
@@ -2883,12 +2986,27 @@ type GrabSteps struct {
 	// GrabbedBy Who chose the Release, `by_hand` for Grab or an accepted Offer, `by_search` for a search pass or Search now, `by_rss` for the RSS sweep. Null for a Grab from before this was recorded.
 	GrabbedBy *GrabStepsGrabbedBy `json:"grabbed_by"`
 
+	// Replaced How many files in the library the Import replaced; null until it finished, or for a Grab from before this was recorded.
+	Replaced *int `json:"replaced,omitempty"`
+
 	// StillWanted Whether the Grab's episodes (a Movie's Version) are still Wanted.
 	StillWanted bool `json:"still_wanted"`
+
+	// Why How the Release was chosen, as the Grab was made; null for a Grab from before this was recorded.
+	Why *GrabWhy `json:"why,omitempty"`
 }
 
 // GrabStepsGrabbedBy Who chose the Release, `by_hand` for Grab or an accepted Offer, `by_search` for a search pass or Search now, `by_rss` for the RSS sweep. Null for a Grab from before this was recorded.
 type GrabStepsGrabbedBy string
+
+// GrabWhy How many Wanted a Grab covers, how many existing files it replaces and the average Score gain over them.
+type GrabWhy struct {
+	CoversWanted  int `json:"covers_wanted"`
+	ReplacesFiles int `json:"replaces_files"`
+
+	// ScoreDelta The average Score gain over the replaced files that had a Score; 0 when none had.
+	ScoreDelta int `json:"score_delta"`
+}
 
 // GrabsSummary defines model for GrabsSummary.
 type GrabsSummary struct {
@@ -2933,8 +3051,12 @@ type IndexerStatus struct {
 	// quota the indexer reports, which ends when the indexer says so.
 	GrabsPausedUntil *time.Time `json:"grabs_paused_until"`
 	InstanceId       int64      `json:"instance_id"`
-	Message          *string    `json:"message"`
-	Name             string     `json:"name"`
+
+	// MedianMs The median time the indexer took to answer a search over the last 24 hours, from the searches
+	// Kestrel really made. `null` when it answered none in that time.
+	MedianMs *int    `json:"median_ms,omitempty"`
+	Message  *string `json:"message"`
+	Name     string  `json:"name"`
 
 	// SearchMax The daily search budget, from the indexer's `apilimits` or the instance's `api_requests_per_day`;
 	// null when neither is known. Sweeps stop at 80 % of it; RSS, Grabs and manual searches go on.
@@ -3063,6 +3185,30 @@ type JobSchedule struct {
 	// daily loops); `null` when every pass does the work.
 	RunsEveryMs *int64 `json:"runs_every_ms"`
 }
+
+// LastSearch What the last search of a Version found.
+type LastSearch struct {
+	At time.Time `json:"at"`
+
+	// Outcome `grabbed`: it grabbed a Release. `nothing_fit`: the indexers answered and nothing was fit to
+	// grab (none came back, none fit the Profile, or none beat the file held). `no_indexer`: none is
+	// enabled. `error`: the search failed or every indexer failed to answer.
+	Outcome LastSearchOutcome `json:"outcome"`
+
+	// Reasons How many of those Releases the Version's Profile rejected, per code, the most common first.
+	Reasons []RejectionCount `json:"reasons"`
+
+	// Releases How many Releases the indexers returned for the Title.
+	Releases int `json:"releases"`
+
+	// Upgrade Whether it was an Upgrade search, for a better file than the one held.
+	Upgrade bool `json:"upgrade"`
+}
+
+// LastSearchOutcome `grabbed`: it grabbed a Release. `nothing_fit`: the indexers answered and nothing was fit to
+// grab (none came back, none fit the Profile, or none beat the file held). `no_indexer`: none is
+// enabled. `error`: the search failed or every indexer failed to answer.
+type LastSearchOutcome string
 
 // LongMissing defines model for LongMissing.
 type LongMissing struct {
@@ -3586,9 +3732,11 @@ type Problem struct {
 
 // Profile defines model for Profile.
 type Profile struct {
-	DefaultMovies bool `json:"default_movies"`
-	DefaultSeries bool `json:"default_series"`
-	Enabled       bool `json:"enabled"`
+	// Custom `true` for a Profile made with `POST /profiles`, which can be renamed and deleted.
+	Custom        *bool `json:"custom,omitempty"`
+	DefaultMovies bool  `json:"default_movies"`
+	DefaultSeries bool  `json:"default_series"`
+	Enabled       bool  `json:"enabled"`
 
 	// FromConfigFile `true` while the Config File declares `profiles`, which declares every Profile at once.
 	FromConfigFile bool `json:"from_config_file"`
@@ -3626,6 +3774,13 @@ type Profile struct {
 // ProfileLanguageRule Which audio the Profile requires.
 type ProfileLanguageRule string
 
+// ProfileCreate defines model for ProfileCreate.
+type ProfileCreate struct {
+	// CopyFrom The `key` of the Profile to copy.
+	CopyFrom string `json:"copy_from"`
+	Name     string `json:"name"`
+}
+
 // ProfileCustomFormat defines model for ProfileCustomFormat.
 type ProfileCustomFormat struct {
 	Name  string `json:"name"`
@@ -3634,14 +3789,27 @@ type ProfileCustomFormat struct {
 
 // ProfileDetail defines model for ProfileDetail.
 type ProfileDetail struct {
+	// BelowCutoff Files in its Versions that fit, whose kind the Profile limits Upgrades for and that have not reached the
+	// cutoff, so they are still wanted for Upgrades.
+	BelowCutoff int `json:"below_cutoff"`
+
 	// Files Files in those Versions.
 	Files int    `json:"files"`
 	Key   string `json:"key"`
 
-	// Movies What the Profile does for one kind of Title under the active TRaSH snapshot.
+	// Movies What the Profile does for one kind of Title under the active TRaSH snapshot and the household's settings on it.
 	Movies ProfileScoring `json:"movies"`
 
-	// Series What the Profile does for one kind of Title under the active TRaSH snapshot.
+	// Overlay What the household set on a Profile on top of the TRaSH snapshot. `null` and empty fields leave TRaSH's data
+	// or no limit in place, so a Profile nobody edited behaves as TRaSH has it. Upgrades stop for a file when its
+	// quality has reached the kind's `cutoff` (if any) and its Score is at least `upgrade_until` (if any); with
+	// neither set they never stop.
+	Overlay ProfileOverlay `json:"overlay"`
+
+	// Rescores How many files saving a change of the Profile re-scores (the files in its Versions).
+	Rescores int `json:"rescores"`
+
+	// Series What the Profile does for one kind of Title under the active TRaSH snapshot and the household's settings on it.
 	Series ProfileScoring `json:"series"`
 
 	// Titles Titles with a Version under the Profile.
@@ -3653,9 +3821,40 @@ type ProfileDetailList struct {
 	Items []ProfileDetail `json:"items"`
 }
 
+// ProfileKindOverlay defines model for ProfileKindOverlay.
+type ProfileKindOverlay struct {
+	// Cutoff The quality that is "good enough": a file of this quality or a better one in the ladder (and of the
+	// `upgrade_until` Score, if set) is not upgraded. It must be an accepted quality. `null` is none.
+	Cutoff *string `json:"cutoff"`
+
+	// Qualities The ladder, best first, with the qualities the Profile takes, replacing TRaSH's order and acceptance.
+	// Qualities the list leaves out follow at the end as TRaSH has them. `null` (or TRaSH's own list) is as TRaSH has it.
+	Qualities *[]ProfileQuality `json:"qualities"`
+}
+
 // ProfileList defines model for ProfileList.
 type ProfileList struct {
 	Items []Profile `json:"items"`
+}
+
+// ProfileOverlay What the household set on a Profile on top of the TRaSH snapshot. `null` and empty fields leave TRaSH's data
+// or no limit in place, so a Profile nobody edited behaves as TRaSH has it. Upgrades stop for a file when its
+// quality has reached the kind's `cutoff` (if any) and its Score is at least `upgrade_until` (if any); with
+// neither set they never stop.
+type ProfileOverlay struct {
+	// EpisodeSize A size bound in bytes per Movie, or per episode of a Series; `null` is no bound.
+	EpisodeSize ProfileSize `json:"episode_size"`
+
+	// MinScore Replaces the minimum Score of the backing TRaSH profile.
+	MinScore *int `json:"min_score"`
+
+	// MovieSize A size bound in bytes per Movie, or per episode of a Series; `null` is no bound.
+	MovieSize ProfileSize        `json:"movie_size"`
+	Movies    ProfileKindOverlay `json:"movies"`
+	Series    ProfileKindOverlay `json:"series"`
+
+	// UpgradeUntil The Score at which a file stops being upgraded.
+	UpgradeUntil *int `json:"upgrade_until"`
 }
 
 // ProfilePatch defines model for ProfilePatch.
@@ -3663,6 +3862,9 @@ type ProfilePatch struct {
 	DefaultMovies *bool `json:"default_movies,omitempty"`
 	DefaultSeries *bool `json:"default_series,omitempty"`
 	Enabled       *bool `json:"enabled,omitempty"`
+
+	// Name Renames a custom Profile.
+	Name *string `json:"name,omitempty"`
 
 	// OriginalFallback Deprecated in favour of `original_language`; `true` sets `accept`, `false` sets `reject`.
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
@@ -3673,18 +3875,50 @@ type ProfilePatch struct {
 	// attention, never grabbed on its own), or `accept` it like any other. Always `reject` on
 	// Original-Language Profiles.
 	OriginalLanguage *OriginalLanguageChoice `json:"original_language,omitempty"`
+
+	// Overlay What the household set on a Profile on top of the TRaSH snapshot. `null` and empty fields leave TRaSH's data
+	// or no limit in place, so a Profile nobody edited behaves as TRaSH has it. Upgrades stop for a file when its
+	// quality has reached the kind's `cutoff` (if any) and its Score is at least `upgrade_until` (if any); with
+	// neither set they never stop.
+	Overlay *ProfileOverlay `json:"overlay,omitempty"`
 }
 
-// ProfileScoring What the Profile does for one kind of Title under the active TRaSH snapshot.
+// ProfileQuality defines model for ProfileQuality.
+type ProfileQuality struct {
+	Accepted bool `json:"accepted"`
+
+	// Name Example: WEBDL-1080p
+	Name string `json:"name"`
+}
+
+// ProfileScoring What the Profile does for one kind of Title under the active TRaSH snapshot and the household's settings on it.
 type ProfileScoring struct {
 	// CustomFormats The Custom Formats it scores, highest Score first, then by name.
 	CustomFormats []ProfileCustomFormat `json:"custom_formats"`
 
+	// Cutoff The quality that is good enough, or `null`.
+	Cutoff *string `json:"cutoff"`
+
+	// Ladder Every quality it knows, best first, with whether it accepts it.
+	Ladder []ProfileQuality `json:"ladder"`
+
 	// MinScore A Release scoring under this is rejected.
 	MinScore int `json:"min_score"`
 
-	// Qualities The quality names it allows, in the snapshot's order (best last, as TRaSH lists them).
+	// Qualities The names of the qualities it accepts, best first.
 	Qualities []string `json:"qualities"`
+
+	// TrashLadder The ladder as TRaSH has it (what "Reset to TRaSH" goes back to).
+	TrashLadder []ProfileQuality `json:"trash_ladder"`
+
+	// TrashMinScore The minimum Score of the backing TRaSH profile.
+	TrashMinScore int `json:"trash_min_score"`
+}
+
+// ProfileSize A size bound in bytes per Movie, or per episode of a Series; `null` is no bound.
+type ProfileSize struct {
+	Max *int64 `json:"max"`
+	Min *int64 `json:"min"`
 }
 
 // QueueItem defines model for QueueItem.
@@ -3694,6 +3928,12 @@ type QueueItem struct {
 	// BytesPerSecond How fast the client is downloading it now; null when it is not downloading or the client does not say.
 	BytesPerSecond *int64 `json:"bytes_per_second,omitempty"`
 	BytesTotal     int64  `json:"bytes_total"`
+
+	// CheckingFiles While the Import runs, how many downloaded files it is checking; null before it has counted them.
+	CheckingFiles *int `json:"checking_files,omitempty"`
+
+	// EpisodeIds The ids of those episodes; empty for a Movie.
+	EpisodeIds []int64 `json:"episode_ids"`
 
 	// Episodes The episodes a Series Grab covers (`S01E02`); empty for a Movie.
 	Episodes []string `json:"episodes"`
@@ -3812,7 +4052,7 @@ type Rejection struct {
 	Code    RejectionCode `json:"code"`
 	Message string        `json:"message"`
 
-	// Overridable False for `blocklisted`, `other_slot` and `season_not_listed`, which "Grab anyway" never overrides.
+	// Overridable False for `blocklisted`, `other_slot` and `season_not_listed`, which "Grab anyway" never overrides. `size` is overridable.
 	Overridable bool `json:"overridable"`
 }
 
@@ -3820,6 +4060,15 @@ type Rejection struct {
 // is a Release with the Title's Original Language but no Primary-Language audio under a Profile
 // that offers such Releases.
 type RejectionCode string
+
+// RejectionCount defines model for RejectionCount.
+type RejectionCount struct {
+	// Code Why a Release cannot go to a Version. Clients tolerate codes they do not know. `original_only`
+	// is a Release with the Title's Original Language but no Primary-Language audio under a Profile
+	// that offers such Releases.
+	Code  RejectionCode `json:"code"`
+	Count int           `json:"count"`
+}
 
 // Release defines model for Release.
 type Release struct {
@@ -3874,6 +4123,10 @@ type Release struct {
 	// Season Series only. The season of the Release (the first of a multi-season pack).
 	Season *int  `json:"season,omitempty"`
 	Size   int64 `json:"size"`
+
+	// SizeLimit The size limit the Version's Profile puts on a Release of this kind, per Movie or per episode of a Series.
+	// Absent when the Profile sets none. A `size` rejection says the Release's size per unit is outside it.
+	SizeLimit *ReleaseSizeLimit `json:"size_limit,omitempty"`
 
 	// VideoCodec Parsed from the release name. Video codec ("H.264", "H.265", "AV1"); null when unknown.
 	VideoCodec *string `json:"video_codec,omitempty"`
@@ -3933,6 +4186,19 @@ type ReleaseList struct {
 type ReleaseSearch struct {
 	EpisodeIds *[]int64 `json:"episode_ids,omitempty"`
 	Season     *int     `json:"season,omitempty"`
+}
+
+// ReleaseSizeLimit The size limit the Version's Profile puts on a Release of this kind, per Movie or per episode of a Series.
+// Absent when the Profile sets none. A `size` rejection says the Release's size per unit is outside it.
+type ReleaseSizeLimit struct {
+	// Max Bytes; absent for no upper bound.
+	Max *int64 `json:"max,omitempty"`
+
+	// Min Bytes; absent for no lower bound.
+	Min *int64 `json:"min,omitempty"`
+
+	// PerEpisode True for a Series (the limit is per episode), false for a Movie.
+	PerEpisode bool `json:"per_episode"`
 }
 
 // Request defines model for Request.
@@ -4277,8 +4543,13 @@ type SeriesMonitor string
 // ServiceStatus defines model for ServiceStatus.
 type ServiceStatus struct {
 	// InstanceId The plugin instance of a media server; `null` for a metadata provider.
-	InstanceId *int64            `json:"instance_id"`
-	Kind       ServiceStatusKind `json:"kind"`
+	InstanceId *int64 `json:"instance_id"`
+
+	// Key For a metadata provider, whose API key it runs on: `own` when the user supplied one (Settings, or
+	// the environment), `project` for the key built into the release. `null` for a media server and
+	// when the provider has no key.
+	Key  *ServiceStatusKey `json:"key,omitempty"`
+	Kind ServiceStatusKind `json:"kind"`
 
 	// Message What is wrong; `null` while `ok`.
 	Message *string `json:"message"`
@@ -4290,6 +4561,11 @@ type ServiceStatus struct {
 	Since *time.Time         `json:"since"`
 	State ServiceStatusState `json:"state"`
 }
+
+// ServiceStatusKey For a metadata provider, whose API key it runs on: `own` when the user supplied one (Settings, or
+// the environment), `project` for the key built into the release. `null` for a media server and
+// when the provider has no key.
+type ServiceStatusKey string
 
 // ServiceStatusKind defines model for ServiceStatus.Kind.
 type ServiceStatusKind string
@@ -4472,6 +4748,8 @@ type StalledImportsSelect struct {
 
 // Stats defines model for Stats.
 type Stats struct {
+	// BelowCutoff Files that fit their Version and are below their Profile's cutoff, so Upgrades are wanted for them.
+	BelowCutoff    int                 `json:"below_cutoff"`
 	BestIndexerId  *int64              `json:"best_indexer_id"`
 	DownloadClient StatsDownloadClient `json:"download_client"`
 
@@ -4699,6 +4977,13 @@ type System struct {
 
 // SystemStatus defines model for SystemStatus.
 type SystemStatus struct {
+	// Clock The server's clock against a trusted time source: the `Date` header of TMDB's answers, which Kestrel
+	// reads on every call (a quiet install probes TMDB hourly).
+	Clock *ClockStatus `json:"clock,omitempty"`
+
+	// Database The database file and its scheduled backups (the `backup` job, once a day).
+	Database *DatabaseStatus `json:"database,omitempty"`
+
 	// Disks The data mount first, then every Root folder.
 	Disks          []DiskStatus `json:"disks"`
 	DownloadClient ClientStatus `json:"download_client"`
@@ -5186,10 +5471,19 @@ type VersionDetail struct {
 
 	// Coverage How far a Series Version is filled, in episodes and bytes; present only for a Series
 	// Version. It agrees with the Version's `state`: Wanted while `wanted` is above zero.
-	Coverage    *VersionCoverage `json:"coverage,omitempty"`
-	File        *FileSummary     `json:"file"`
-	Id          int64            `json:"id"`
-	LongMissing bool             `json:"long_missing"`
+	Coverage *VersionCoverage `json:"coverage,omitempty"`
+	File     *FileSummary     `json:"file"`
+	Id       int64            `json:"id"`
+
+	// LastSearch What the last search that asked the indexers for this Version found; null when it was never
+	// searched (or not since Kestrel began recording it).
+	LastSearch  *LastSearch `json:"last_search,omitempty"`
+	LongMissing bool        `json:"long_missing"`
+
+	// NextSearchAt When the Version is next searched on its own: for what it is missing while it is Wanted, else for
+	// an Upgrade (the earliest of a Series Version's seasons). Null when none is due, such as for an
+	// unmonitored Title. A time in the past means it is due now.
+	NextSearchAt *time.Time `json:"next_search_at,omitempty"`
 
 	// OriginalOffer The Version's Original Offer, dismissed or not; null or absent when it has none.
 	OriginalOffer *OriginalOffer `json:"original_offer,omitempty"`
@@ -5533,6 +5827,9 @@ type TestPluginInstanceJSONRequestBody TestPluginInstanceJSONBody
 
 // ListPluginOptionsJSONRequestBody defines body for ListPluginOptions for application/json ContentType.
 type ListPluginOptionsJSONRequestBody = PluginForm
+
+// CreateProfileJSONRequestBody defines body for CreateProfile for application/json ContentType.
+type CreateProfileJSONRequestBody = ProfileCreate
 
 // PatchProfileJSONRequestBody defines body for PatchProfile for application/json ContentType.
 type PatchProfileJSONRequestBody = ProfilePatch
@@ -6081,12 +6378,18 @@ type ServerInterface interface {
 	// ListPluginOptions Live choices for a config field
 	// (POST /plugins/{plugin_id}/options/{field})
 	ListPluginOptions(w http.ResponseWriter, r *http.Request, pluginId PluginId, field string)
-	// ListProfiles The eight Profiles
+	// ListProfiles The Profiles
 	// (GET /profiles)
 	ListProfiles(w http.ResponseWriter, r *http.Request)
+	// CreateProfile Make a custom Profile
+	// (POST /profiles)
+	CreateProfile(w http.ResponseWriter, r *http.Request)
 	// ListProfileDetails What each Profile accepts and what uses it
 	// (GET /profiles/details)
 	ListProfileDetails(w http.ResponseWriter, r *http.Request)
+	// DeleteProfile Delete a custom Profile
+	// (DELETE /profiles/{key})
+	DeleteProfile(w http.ResponseWriter, r *http.Request, key ProfileKey)
 	// PatchProfile Change a Profile's settings
 	// (PATCH /profiles/{key})
 	PatchProfile(w http.ResponseWriter, r *http.Request, key ProfileKey)
@@ -7787,11 +8090,51 @@ func (siw *ServerInterfaceWrapper) ListProfiles(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// CreateProfile operation middleware
+func (siw *ServerInterfaceWrapper) CreateProfile(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateProfile(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListProfileDetails operation middleware
 func (siw *ServerInterfaceWrapper) ListProfileDetails(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListProfileDetails(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteProfile operation middleware
+func (siw *ServerInterfaceWrapper) DeleteProfile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key ProfileKey
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", r.PathValue("key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteProfile(w, r, key)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -9198,6 +9541,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/settings", wrapper.GetSettings)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/settings", wrapper.PatchSettings)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/profiles", wrapper.ListProfiles)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/profiles", wrapper.CreateProfile)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/profiles/{key}", wrapper.DeleteProfile)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/profiles/{key}", wrapper.PatchProfile)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/profiles/details", wrapper.ListProfileDetails)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/lookup", wrapper.Lookup)
@@ -12673,6 +13018,89 @@ func (response ListProfilesdefaultApplicationProblemPlusJSONResponse) VisitListP
 	return err
 }
 
+type CreateProfileRequestObject struct {
+	Body *CreateProfileJSONRequestBody
+}
+
+type CreateProfileResponseObject interface {
+	VisitCreateProfileResponse(w http.ResponseWriter) error
+}
+
+type CreateProfile201JSONResponse Profile
+
+func (response CreateProfile201JSONResponse) VisitCreateProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProfile404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateProfile404ApplicationProblemPlusJSONResponse) VisitCreateProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProfile409ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateProfile409ApplicationProblemPlusJSONResponse) VisitCreateProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProfile422ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateProfile422ApplicationProblemPlusJSONResponse) VisitCreateProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProfiledefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateProfiledefaultApplicationProblemPlusJSONResponse) VisitCreateProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListProfileDetailsRequestObject struct {
 }
 
@@ -12700,6 +13128,83 @@ type ListProfileDetailsdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response ListProfileDetailsdefaultApplicationProblemPlusJSONResponse) VisitListProfileDetailsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteProfileRequestObject struct {
+	Key ProfileKey `json:"key"`
+}
+
+type DeleteProfileResponseObject interface {
+	VisitDeleteProfileResponse(w http.ResponseWriter) error
+}
+
+type DeleteProfile204Response struct {
+}
+
+func (response DeleteProfile204Response) VisitDeleteProfileResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteProfile404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteProfile404ApplicationProblemPlusJSONResponse) VisitDeleteProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteProfile409ApplicationProblemPlusJSONResponse Problem
+
+func (response DeleteProfile409ApplicationProblemPlusJSONResponse) VisitDeleteProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteProfile422ApplicationProblemPlusJSONResponse Problem
+
+func (response DeleteProfile422ApplicationProblemPlusJSONResponse) VisitDeleteProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteProfiledefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DeleteProfiledefaultApplicationProblemPlusJSONResponse) VisitDeleteProfileResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -15640,12 +16145,18 @@ type StrictServerInterface interface {
 	// ListPluginOptions Live choices for a config field
 	// (POST /plugins/{plugin_id}/options/{field})
 	ListPluginOptions(ctx context.Context, request ListPluginOptionsRequestObject) (ListPluginOptionsResponseObject, error)
-	// ListProfiles The eight Profiles
+	// ListProfiles The Profiles
 	// (GET /profiles)
 	ListProfiles(ctx context.Context, request ListProfilesRequestObject) (ListProfilesResponseObject, error)
+	// CreateProfile Make a custom Profile
+	// (POST /profiles)
+	CreateProfile(ctx context.Context, request CreateProfileRequestObject) (CreateProfileResponseObject, error)
 	// ListProfileDetails What each Profile accepts and what uses it
 	// (GET /profiles/details)
 	ListProfileDetails(ctx context.Context, request ListProfileDetailsRequestObject) (ListProfileDetailsResponseObject, error)
+	// DeleteProfile Delete a custom Profile
+	// (DELETE /profiles/{key})
+	DeleteProfile(ctx context.Context, request DeleteProfileRequestObject) (DeleteProfileResponseObject, error)
 	// PatchProfile Change a Profile's settings
 	// (PATCH /profiles/{key})
 	PatchProfile(ctx context.Context, request PatchProfileRequestObject) (PatchProfileResponseObject, error)
@@ -17437,6 +17948,37 @@ func (sh *strictHandler) ListProfiles(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// CreateProfile operation middleware
+func (sh *strictHandler) CreateProfile(w http.ResponseWriter, r *http.Request) {
+	var request CreateProfileRequestObject
+
+	var body CreateProfileJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateProfile(ctx, request.(CreateProfileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateProfile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateProfileResponseObject); ok {
+		if err := validResponse.VisitCreateProfileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListProfileDetails operation middleware
 func (sh *strictHandler) ListProfileDetails(w http.ResponseWriter, r *http.Request) {
 	var request ListProfileDetailsRequestObject
@@ -17454,6 +17996,32 @@ func (sh *strictHandler) ListProfileDetails(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListProfileDetailsResponseObject); ok {
 		if err := validResponse.VisitListProfileDetailsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteProfile operation middleware
+func (sh *strictHandler) DeleteProfile(w http.ResponseWriter, r *http.Request, key ProfileKey) {
+	var request DeleteProfileRequestObject
+
+	request.Key = key
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteProfile(ctx, request.(DeleteProfileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteProfile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteProfileResponseObject); ok {
+		if err := validResponse.VisitDeleteProfileResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

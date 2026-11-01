@@ -626,6 +626,17 @@ func grabOf(r db.Grab) Grab {
 		Size: r.Size, PublishedAt: parseTime(r.PublishedAt), Score: int(r.Score), ClientID: r.ClientID, ClientInstanceID: r.ClientInstanceID, State: r.State, Failure: r.Failure.String,
 		Overridden: r.Overridden == 1, IsUpgrade: r.IsUpgrade == 1, CreatedAt: parseTime(r.CreatedAt), UpdatedAt: parseTime(r.UpdatedAt),
 	}
+	// DownloadStartedAt and DownloadDoneAt are when the download client first reported the Grab downloading and
+	// finished; nil until it did.
+	DownloadStartedAt, DownloadDoneAt *time.Time
+	// Why is how the Grab was chosen: the Wanted it covers, the files it replaces and the Score gain. Nil on a Grab
+	// from before it was recorded.
+	Why *Why
+	// ImportChecking is how many downloaded files the running Import is checking; nil when it has not said.
+	ImportChecking *int
+	// ImportReplaced is how many library files the finished Import replaced; nil before it finished (or on a Grab
+	// from before it was recorded).
+	ImportReplaced *int
 }
 
 // GetGrab returns a Grab, or sql.ErrNoRows wrapped in library.ErrNotFound's
@@ -634,6 +645,12 @@ func (s *Service) GetGrab(ctx context.Context, id int64) (Grab, error) {
 	row, err := db.New(s.st.Read()).GetGrab(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Grab{}, ErrGrabNotFound
+	g.DownloadStartedAt, g.DownloadDoneAt = optTime(r.DownloadStartedAt), optTime(r.DownloadDoneAt)
+	if r.CoversWanted.Valid && r.ReplacesFiles.Valid {
+		g.Why = &Why{CoversWanted: int(r.CoversWanted.Int64), ReplacesFiles: int(r.ReplacesFiles.Int64), ScoreDelta: int(r.ScoreDelta.Int64)}
+	}
+	g.ImportChecking, g.ImportReplaced = optInt(r.ImportChecking), optInt(r.ImportReplaced)
+	return g
 	}
 	if err != nil {
 		return Grab{}, err
@@ -756,6 +773,7 @@ func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
 		return Grab{}, err
 	}
 	defer tx.Rollback()
+	why, hasWhy := s.whyOf(ctx, o, verdict.Score)
 	q := db.New(tx)
 	row, err := q.InsertGrab(ctx, db.InsertGrabParams{
 		TitleID: nullID(o.titleID), VersionID: nullID(o.versionID), ReleaseGuid: e.raw.GUID, ReleaseName: e.raw.Title,
@@ -779,6 +797,15 @@ func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
 		Kind: history.GrabSent, TitleID: o.titleID, VersionID: o.versionID, GrabID: g.ID, Message: "Sent " + g.ReleaseName + " to the download client",
 		Data: grabSentData(o.by),
 	})
+	if hasWhy {
+		if err := q.SetGrabWhy(ctx, db.SetGrabWhyParams{
+			CoversWanted: sql.NullInt64{Int64: int64(why.CoversWanted), Valid: true}, ReplacesFiles: sql.NullInt64{Int64: int64(why.ReplacesFiles), Valid: true},
+			ScoreDelta: sql.NullInt64{Int64: int64(why.ScoreDelta), Valid: true}, ID: row.ID,
+		}); err != nil {
+			return Grab{}, err
+		}
+		row.CoversWanted, row.ReplacesFiles, row.ScoreDelta = sql.NullInt64{Int64: int64(why.CoversWanted), Valid: true}, sql.NullInt64{Int64: int64(why.ReplacesFiles), Valid: true}, sql.NullInt64{Int64: int64(why.ScoreDelta), Valid: true}
+	}
 	return g, nil
 }
 
