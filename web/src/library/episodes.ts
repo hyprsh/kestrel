@@ -13,12 +13,13 @@ export const episodeCode = (e: Episode) => `S${two(e.season)}E${two(e.number)}`
 export const seasonName = (n: number) => (n === 0 ? 'Specials' : `Season ${n}`)
 
 /**
- * The seasons in the order the household reads them: oldest first or newest first, with Specials (season 0)
- * last in both.
+ * The seasons in the order the household reads them: oldest first or newest first. Specials (season 0) come before
+ * Season 1 oldest first, and last newest first.
  */
 export function orderSeasons(seasons: number[], order: Display['season_order']): number[] {
   const regular = seasons.filter((s) => s !== 0).sort((a, b) => (order === 'newest_first' ? b - a : a - b))
-  return seasons.includes(0) ? [...regular, 0] : regular
+  if (!seasons.includes(0)) return regular
+  return order === 'newest_first' ? [...regular, 0] : [0, ...regular]
 }
 
 /** The episodes in the shown order: seasons as `orderSeasons` has them, and newest first reverses the episodes in each. */

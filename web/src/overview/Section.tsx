@@ -49,7 +49,7 @@ export function Section({ id, title, count, action, className, children }: { id:
 export function HeadingLink({ path, label }: { path: string; label: string }) {
   const openPlace = useOpenPlace()
   return (
-    <Link as="button" type="button" className="label-13" onClick={() => openPlace(path)}>
+    <Link as="button" type="button" className="label-13" aria-label={`Open ${label}`} onClick={() => openPlace(path)}>
       {label}
     </Link>
   )

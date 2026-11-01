@@ -25,7 +25,7 @@ beforeEach(() => history.replaceState(null, '', '/'))
 afterEach(() => localStorage.clear())
 
 describe('the Seasons at a glance on the Title page', () => {
-  it('has a row per season and Specials, last, with each Slot’s counts, and opens the latest season', async () => {
+  it('has a row per season and Specials, first, with each Slot’s counts, and opens the latest season', async () => {
     const state = fakeSeries()
     state.get().episodes = [
       episode(1, 0, 1, 'Special'),
@@ -43,7 +43,7 @@ describe('the Seasons at a glance on the Title page', () => {
       within(region)
         .getAllByRole('button', { name: /^(Season \d+|Specials):/ })
         .map((b) => b.getAttribute('aria-label')),
-    ).toEqual(['Season 1: Standard 2 of 2; 4K 2 of 2', 'Season 2: Standard 1 of 2, 1 Wanted; 4K 0 of 2, 2 Wanted, open', 'Specials: Standard not monitored; 4K not monitored'])
+    ).toEqual(['Specials: Standard not monitored; 4K not monitored', 'Season 1: Standard 2 of 2; 4K 2 of 2', 'Season 2: Standard 1 of 2, 1 Wanted; 4K 0 of 2, 2 Wanted, open'])
     expect(within(region).getByRole('button', { name: /^Season 2:/ })).toHaveAttribute('aria-current', 'true')
     expect(within(region).getByRole('button', { name: /^Season 2:/ })).toHaveTextContent('0/2 · 2 Wanted')
     expect(within(region).getByRole('button', { name: /^Season 1:/ })).toHaveTextContent('2/2')
