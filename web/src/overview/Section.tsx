@@ -24,8 +24,14 @@ export function Section({ id, title, count, action, className, children }: { id:
   return (
     <section aria-labelledby={id} className={className}>
       <div className="mb-3 flex min-h-6 items-center justify-between gap-2">
-        <h2 id={id} className="heading-14">
-          {count ? `${title} · ${count}` : title}
+        <h2 id={id} className="heading-16">
+          {count ? (
+            <>
+              {title} · <span className="label-13 text-gray-900">{count}</span>
+            </>
+          ) : (
+            title
+          )}
         </h2>
         {action}
       </div>
