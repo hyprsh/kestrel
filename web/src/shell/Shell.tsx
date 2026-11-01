@@ -454,7 +454,7 @@ const runningTip = (running: Running[]) => running.map((r) => (r.now ? `${r.name
 function RunningIndicator({ running, onOpen, phone = false }: { running: Running[]; onOpen: () => void; phone?: boolean }) {
   if (running.length === 0) return null
   return (
-    <Button variant="tertiary" size="small" onClick={onOpen} title={runningTip(running)} prefix={<StatusDot state="info" label={false} aria-hidden />}>
+    <Button variant="tertiary" size="small" className="min-w-0 [&_span]:truncate" onClick={onOpen} title={runningTip(running)} prefix={<StatusDot state="info" label={false} aria-hidden />}>
       {runningLabel(running, phone)}
     </Button>
   )

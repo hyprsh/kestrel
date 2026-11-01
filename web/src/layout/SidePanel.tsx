@@ -54,7 +54,7 @@ export function SidePanel({
     return (
       <header className="flex shrink-0 flex-col gap-2.5 border-b border-gray-alpha-200 bg-background-200 px-4 pt-3 pb-2.5">
         <div className="flex h-8 items-center gap-2">
-          <h1 className="heading-20 min-w-0 flex-1 truncate">{title}</h1>
+          <h1 className="heading-20 min-w-fit flex-1">{title}</h1>
           {extras}
           {actions}
         </div>
