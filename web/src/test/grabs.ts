@@ -4,6 +4,7 @@ import { server } from './server'
 
 type GrabEntry = components['schemas']['GrabEntry']
 type Blocked = components['schemas']['BlocklistEntry']
+type GrabSteps = components['schemas']['GrabSteps']
 
 /** A Grab of the Movie Paddington (Title 5) in Standard that was imported an hour ago. */
 export const grabEntry = (over: Partial<GrabEntry> = {}): GrabEntry => ({
@@ -87,3 +88,44 @@ export function fakeGrabs(grabs: GrabEntry[], blocked: Blocked[] = []) {
   )
   return state
 }
+
+/** What happened to a Grab, grabbed by the search pass an hour and a half ago and imported a minute ago, with its Movie file. */
+export const stepsOf = (over: Partial<GrabSteps> = {}): GrabSteps => ({
+  grab_id: 21,
+  grabbed_at: new Date(Date.now() - 90 * 60_000).toISOString(),
+  grabbed_by: 'by_search',
+  download_started_at: new Date(Date.now() - 85 * 60_000).toISOString(),
+  download_finished_at: new Date(Date.now() - 75 * 60_000).toISOString(),
+  ended_at: new Date(Date.now() - 60_000).toISOString(),
+  files: [{ episode: null, path: '/media/movies/Paddington (2014)/Paddington (2014) - [Bluray-1080p].mkv' }],
+  formats: [{ name: 'Remux Tier 01', score: 1600 }],
+  blocklist_id: null,
+  still_wanted: false,
+  ...over,
+})
+
+/** GET /grabs/{id}/steps answering from `steps` by Grab id, and DELETE /blocklist/{id} recording the ids removed. */
+export function fakeSteps(steps: GrabSteps[]) {
+  const state = { asked: [] as number[], unblocked: [] as number[] }
+  server.use(
+    http.get('/grabs/{id}/steps', ({ params, response }) => {
+      state.asked.push(Number(params.id))
+      const s = steps.find((x) => x.grab_id === Number(params.id))
+      return s ? response(200).json(s) : response('default').json({ type: 'about:blank', title: 'x', status: 404, code: 'not_found', detail: 'no such Grab' }, { status: 404 })
+    }),
+    http.delete('/blocklist/{id}', ({ params, response }) => (state.unblocked.push(Number(params.id)), response(204).empty())),
+  )
+  return state
+}
+
+type ReleaseList = components['schemas']['ReleaseList']
+
+/** A manual search's answer: the Releases and indexer errors given, searched now by one indexer, with nothing Wanted unless `over` says so. */
+export const releaseList = (over: Partial<ReleaseList> = {}): ReleaseList => ({
+  items: [],
+  indexer_errors: [],
+  searched_at: new Date().toISOString(),
+  indexers_searched: 1,
+  wanted: 0,
+  ...over,
+})

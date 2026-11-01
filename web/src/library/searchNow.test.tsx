@@ -9,6 +9,7 @@ import { fakeSeries } from '../test/series'
 import { server } from '../test/server'
 import { chooseSearchItem, openSearchMenu, openVersionMenu } from '../test/titleHeader'
 import { findToast, toastRegion } from '../test/toasts'
+import { releaseList } from '../test/grabs'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -29,7 +30,7 @@ function recordSearches({ gone = false } = {}) {
     }),
     http.post('/versions/{id}/releases', async ({ params, request, response }) => {
       sent.push({ path: 'releases', version: Number(params.id), body: await read(request) })
-      return response(200).json({ items: [], indexer_errors: [] })
+      return response(200).json(releaseList())
     }),
   )
   return sent

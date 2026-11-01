@@ -7,6 +7,7 @@ import { http } from '../test/handlers'
 import { cell, episode, episodeFile, fakeSeries, pickSeason } from '../test/series'
 import { server } from '../test/server'
 import { findToast } from '../test/toasts'
+import { releaseList } from '../test/grabs'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -30,7 +31,7 @@ async function openSeries() {
     }),
     http.post('/versions/{id}/releases', async ({ params, request, response }) => {
       manual.push({ version: Number(params.id), body: await read(request) })
-      return response(200).json({ items: [], indexer_errors: [] })
+      return response(200).json(releaseList())
     }),
   )
   renderApp()
@@ -142,7 +143,7 @@ describe('searching from the episode table', () => {
     server.use(
       http.post('/versions/{id}/releases', async ({ params, request, response }) => {
         manual.push({ version: Number(params.id), body: await request.json() })
-        return response(200).json({ items: [], indexer_errors: [] })
+        return response(200).json(releaseList())
       }),
     )
     renderApp()
