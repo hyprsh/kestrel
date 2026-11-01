@@ -143,7 +143,7 @@ describe('the Seasons at a glance on the Title page', () => {
     const grid = await screen.findByRole('grid', { name: 'Episodes' })
 
     expect(within(grid).queryByRole('checkbox', { name: 'Tick Season 1 episode 2' })).not.toBeInTheDocument()
-    const fold = within(grid).getByRole('button', { name: '3 more, not aired yet (S01E02 – S01E04, from Nov 2)' })
+    const fold = within(grid).getByRole('button', { name: '3 more, not aired yet (S01E02 – S01E04, from Mon, Nov 2)' })
     expect(fold).toHaveAttribute('aria-expanded', 'false')
     await userEvent.click(within(grid).getByRole('checkbox', { name: 'Tick all of Season 1' }))
     expect(screen.getByRole('toolbar', { name: 'S01E01 ticked' })).toBeInTheDocument() // only what shows is ticked

@@ -9,9 +9,10 @@ import { plural } from '../format'
 import { RowList } from '../layout/RowList'
 import { ago, span, useNow } from '../time'
 import { useReport } from '../toasts'
-import { coverageSegments, dotOf, size, slotKeys, slotLabel, versionStatus } from './bits'
+import { dotOf, size, slotKeys, slotLabel, versionStatus } from './bits'
 import { DeleteFile } from './DeleteFiles'
 import { FileDetailsPopover } from './EpisodeFilePopover'
+import { expandCodes, codeRuns } from './cellDetail'
 import { IconAction } from './IconAction'
 import { ProfilePicker, RemoveConfirm } from './ManageVersion'
 import { audioLine, qualityLine } from './media'
@@ -181,7 +182,7 @@ function SeriesHolds({ version: v }: { version: Version }) {
   const notMonitored = c.unmonitored > 0 ? `${c.unmonitored} not monitored` : null
   return (
     <>
-      <Progress segments={coverageSegments(c)} max={Math.max(released, 1)} height={6} aria-label={`${name}: ${c.filled} of ${released} episodes${notMonitored ? `, ${notMonitored}` : ''}`} />
+      <Progress type="success" value={c.filled} max={Math.max(released, 1)} height={6} aria-label={`${name}: ${c.filled} of ${released} episodes${notMonitored ? `, ${notMonitored}` : ''}`} />
       <div className="label-13 hy-num flex justify-between gap-3 text-gray-900">
         <span>{`${c.filled} of ${released} episodes${c.long_missing > 0 ? ` · ${c.long_missing} Long Missing` : ''}${notMonitored ? ` · ${notMonitored}` : ''}`}</span>
         {c.size > 0 && <span>{size(c.size)}</span>}
@@ -190,12 +191,12 @@ function SeriesHolds({ version: v }: { version: Version }) {
   )
 }
 
-/** What a Slot is downloading, in words: its episodes, else its Release, else how many Grabs. */
+/** What a Slot is downloading, in words: its episodes as runs ("S05E05–E10"), else its Release, else how many Grabs. */
 function downloadingWhat({ items }: SlotDownloads, movie: boolean): string {
   // A Movie's card header already says "Downloading", so its line is just what is downloading.
+  const episodes = items.flatMap((i) => expandCodes(i.episodes))
+  if (episodes.length > 0) return codeRuns(episodes)
   const word = movie ? '' : 'Downloading '
-  const episodes = items.flatMap((i) => i.episodes)
-  if (episodes.length > 0) return `${word}${episodes.length > 3 ? `${episodes.slice(0, 3).join(', ')} and ${episodes.length - 3} more` : episodes.join(', ')}`
   return items.length === 1 ? `${word}${items[0].release_name}` : `${word}${plural(items.length, 'Release')}`.trim()
 }
 

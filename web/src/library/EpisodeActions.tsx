@@ -301,13 +301,26 @@ export function SeasonSearch({ actions, season, episodes }: { actions: Pick<Epis
  * The ⋯ menu of a season row: Search Season (its Wanted episodes), Manual Search Season…, Start or Stop Monitoring Season and
  * Delete the season's files. `onOpenChange` tells the row when the menu opens and closes, so the row can show whose menu it is.
  */
-export function SeasonMenu({ actions, season, episodes, onOpenChange }: { actions: EpisodeActions; season: number; episodes: Episode[]; onOpenChange?: (open: boolean) => void }) {
+export function SeasonMenu({
+  actions,
+  season,
+  episodes,
+  onOpenChange,
+  label,
+}: {
+  actions: EpisodeActions
+  season: number
+  episodes: Episode[]
+  onOpenChange?: (open: boolean) => void
+  /** The open season's header names the menu "Season actions" and draws it at the toolbar's size, not the row's. */
+  label?: string
+}) {
   const { versions } = actions
   const name = seasonName(season)
   const wanted = wantedIn(episodes, versions)
   const monitored = episodes.some((e) => e.monitored)
   return (
-    <DotsMenu aria-label={`Actions for ${name}`} size="tiny" iconSize={12} onOpenChange={onOpenChange} width={260}>
+    <DotsMenu aria-label={label ?? `Actions for ${name}`} size={label ? 'small' : 'tiny'} iconSize={label ? undefined : 12} onOpenChange={onOpenChange} width={260}>
       <MenuItem
         prefix={<Search aria-hidden className="size-4" />}
         disabled={!wanted}

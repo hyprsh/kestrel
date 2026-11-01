@@ -11,7 +11,7 @@ import { RowDeleteConfirm } from './DeleteFiles'
 import { EpisodeMenu, EpisodeTick, RowSearch, type EpisodeActions } from './EpisodeActions'
 import { EpisodeFilePopover, cellTitle } from './EpisodeFilePopover'
 import { EpisodeName } from './EpisodeName'
-import { cellText, grabOf, monthDay } from './cellDetail'
+import { airedText, cellText, grabOf, monthDay, weekdayDay } from './cellDetail'
 import { lastSearchLine } from './WantedLine'
 import { episodeCode, episodeRow } from './episodes'
 import { rowActionsShown } from './IconAction'
@@ -23,14 +23,14 @@ export const airedKey = 'aired'
 /** The episodes not aired yet, folded into one row of the table under `episodes`: `expanded` has them among the rows, with this row to fold them again. */
 export type UnairedFold = { episodes: Episode[]; expanded: boolean; onToggle: () => void; atStart: boolean }
 
-/** "6 more, not aired yet (S05E11 – S05E16, from Nov 2)": what the fold row says. */
+/** "6 more, not aired yet (S05E11 – S05E16, from Mon, Nov 2)": what the fold row says. */
 function foldText(eps: Episode[]): string {
   const numbers = eps.map((e) => e.number)
   const first = eps.find((e) => e.number === Math.min(...numbers))!
   const last = eps.find((e) => e.number === Math.max(...numbers))!
   const dates = eps.flatMap((e) => (e.air_date ? [e.air_date] : [])).sort()
   const codes = first === last ? episodeCode(first) : `${episodeCode(first)} – ${episodeCode(last)}`
-  return `${eps.length} more, not aired yet (${codes}${dates.length > 0 ? `, from ${monthDay(dates[0])}` : ''})`
+  return `${eps.length} more, not aired yet (${codes}${dates.length > 0 ? `, from ${weekdayDay(dates[0])}` : ''})`
 }
 
 /**
@@ -310,7 +310,7 @@ function EpisodeRow({
           if (k === airedKey) {
             return (
               <TableCell key={k} className="px-2 text-gray-900 max-sm:hidden">
-                {episode.air_date ?? '—'}
+                {episode.air_date ? airedText(episode.air_date) : '—'}
               </TableCell>
             )
           }

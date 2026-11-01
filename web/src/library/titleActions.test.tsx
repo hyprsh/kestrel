@@ -157,7 +157,7 @@ describe('the Version rows', () => {
     const pane = await openTitle(/breaking bad/i)
 
     const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
-    expect(within(hd).getByRole('img', { name: 'Standard: 228 of 240 episodes, 4 not monitored' })).toBeInTheDocument()
+    expect(within(hd).getByRole('progressbar', { name: 'Standard: 228 of 240 episodes, 4 not monitored' })).toBeInTheDocument()
     expect(within(hd).getByText('8 Wanted')).toBeInTheDocument()
     expect(within(hd).getByText('228 of 240 episodes · 2 Long Missing · 4 not monitored')).toBeInTheDocument()
     expect(within(hd).getByText('412.0 GB')).toBeInTheDocument()

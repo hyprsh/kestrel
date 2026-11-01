@@ -8,7 +8,7 @@ import { useColumnOrder } from '../layout/columnOrder'
 import { useColumnWidths } from '../layout/columnWidths'
 import { LoadingRegion } from '../loading'
 import { slotKeys } from './bits'
-import { ColumnsMenu, TickedBar, useEpisodeActions } from './EpisodeActions'
+import { ColumnsMenu, SeasonMenu, TickedBar, useEpisodeActions } from './EpisodeActions'
 import { FindEpisodeField, useEpisodeFind } from './EpisodeFind'
 import { EpisodeMatrix, airedKey } from './EpisodeMatrix'
 import { useEpisodeView } from './episodeView'
@@ -134,6 +134,7 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
               </Button>
             )}
             <ColumnsMenu columns={columns} order={order} />
+            <SeasonMenu actions={actions} season={season} episodes={inSeason} label="Season actions" />
           </div>
         </div>
         {shown.length === 0 && !folds ? (
