@@ -32,7 +32,7 @@ export function byDay<T extends Ended>(rows: readonly T[], now: number): { day: 
   return days
 }
 
-const columns = 'sm:grid sm:grid-cols-[52px_28px_minmax(0,1.1fr)_minmax(0,1fr)_150px_64px_56px] sm:items-center sm:gap-x-3.5'
+const columns = 'sm:grid sm:grid-cols-[52px_28px_minmax(0,1.1fr)_minmax(0,1fr)_190px_64px_56px] sm:items-center sm:gap-x-3.5'
 
 /** The Result cell and its tooltip: a green dot and "Imported", or a red one and "Failed · why". */
 function result(e: Ended): { failed: boolean; text: string; why: string } {
@@ -149,5 +149,5 @@ export function HistoryHead() {
 }
 
 export function DayHeader({ day }: { day: string }) {
-  return <h3 className="label-12 border-b border-gray-alpha-200 bg-background-200 px-4 py-1.5 font-semibold text-gray-900">{day}</h3>
+  return <h3 className="label-12 m-0 border-b border-gray-alpha-200 bg-background-200 px-4 py-1.5 font-semibold text-gray-900">{day}</h3>
 }

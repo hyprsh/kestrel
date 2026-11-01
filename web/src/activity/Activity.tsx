@@ -1,13 +1,18 @@
-// The Activity screen: every Grab from search to Import, grouped by stage. The filter is the screen's `?q=`:
-// "/activity?q=stage:done" opens it on the Done stage. The Shell owns the filter text, so a change is handed to it.
+// The Activity screen: what moves now (In progress) above what ended (History). The filter is the screen's `?q=`:
+// "/activity?q=stage:done" opens it on the Imported view. The Shell owns the filter text, so a change is handed to it.
 // The side panel holds the filter and the Views, which are presets of the `stage:` term; the Pipeline fills the rest.
 // The background jobs and what runs now moved to the Health screen.
 import { DotsMenu, MenuItem, MenuSection, parseQuery, termText, valuesOf, withoutValue } from '@hyprsh/design'
-import { ArrowDownToLine, CircleAlert, FileCheck, List, Search } from 'lucide-react'
+import { CircleCheck, CircleX, List, Loader } from 'lucide-react'
+import { useState } from 'react'
 import { FilterBar } from '../filter/FilterBar'
 import { filterChips } from '../filter/chips'
 import { FacetFilterButton } from '../layout/FilterButton'
 import { FilterChips, PanelContent, SidePanel, SidePanelView, SidePanelViews } from '../layout/SidePanel'
+import type { GrabEntry } from '../api/activity'
+import { useProfiles, useTitle } from '../api/queries'
+import { ManualSearch } from '../library/ManualSearch'
+import { slotLabel, type SlotKey } from '../library/bits'
 import { useOpenPlace } from '../place'
 import { usePhone } from '../responsive'
 import { activityQualifiers } from './filter'
@@ -15,14 +20,12 @@ import { Pipeline, usePipeline, type PipelineData } from './Pipeline'
 import type { Stage } from './stages'
 import { useSearchAll } from './useSearchAll'
 
-/** A Views row: the stages it shows (none is every stage). Queued and Post-processing are part of Downloading, Stalled part of Importing. */
+/** A Views row: the stages it shows (none is every stage). In progress is the search pass and every Grab that has not ended. */
 const views: { key: string; label: string; stages: readonly Stage[]; icon: React.ReactNode; tone?: 'red' }[] = [
-  { key: 'all', label: 'All', stages: [], icon: <List /> },
-  { key: 'downloading', label: 'Downloading', stages: ['queued', 'downloading', 'processing'], icon: <ArrowDownToLine /> },
-  { key: 'searching', label: 'Searching', stages: ['searching'], icon: <Search /> },
-  { key: 'importing', label: 'Importing', stages: ['importing', 'stalled'], icon: <FileCheck /> },
-  { key: 'done', label: 'Done', stages: ['done'], icon: <FileCheck /> },
-  { key: 'failed', label: 'Failed', stages: ['failed'], icon: <CircleAlert />, tone: 'red' },
+  { key: 'all', label: 'Everything', stages: [], icon: <List /> },
+  { key: 'progress', label: 'In progress', stages: ['searching', 'queued', 'downloading', 'processing', 'importing', 'stalled'], icon: <Loader /> },
+  { key: 'imported', label: 'Imported', stages: ['done'], icon: <CircleCheck /> },
+  { key: 'failed', label: 'Failed', stages: ['failed'], icon: <CircleX />, tone: 'red' },
 ]
 
 /** The query with its `stage:` terms replaced by the view's. */
@@ -90,16 +93,17 @@ function ActivityMenu() {
   )
 }
 
-/** The footer line: how many Grabs there are and how far back the history goes, "12 Grabs · since 3 Mar 2026". */
+/** The footer line: how many Grabs there are and how far back the history goes, "12 Grabs · since Mar 3, 2026". */
 function footer(total: number, oldest: string | null): string {
   const n = total === 1 ? '1 Grab' : `${total} Grabs`
-  return oldest ? `${n} · since ${new Date(oldest).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}` : n
+  return oldest ? `${n} · since ${new Date(oldest).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}` : n
 }
 
 /** `query` is the Grabs filter text, kept by the Shell so it can live in the address bar. */
 export function Activity({ query, onQuery, onOpenTitle }: { query: string; onQuery: (query: string) => void; onOpenTitle: (id: number) => void }) {
   const pipeline = usePipeline(query)
   const phone = usePhone()
+  const [manual, setManual] = useState<GrabEntry | null>(null)
   const panel = {
     title: 'Activity',
     actions: <ActivityMenu />,
@@ -112,9 +116,31 @@ export function Activity({ query, onQuery, onOpenTitle }: { query: string; onQue
   return (
     <div className="flex min-h-0 flex-1 max-sm:flex-col">
       <SidePanel {...panel} />
-      <PanelContent reading>
-        <Pipeline data={pipeline} onOpenTitle={onOpenTitle} />
-      </PanelContent>
+      {manual ? (
+        <ManualSearchOf grab={manual} onBack={() => setManual(null)} />
+      ) : (
+        <PanelContent reading>
+          <Pipeline data={pipeline} onOpenTitle={onOpenTitle} onManualSearch={setManual} />
+        </PanelContent>
+      )}
     </div>
+  )
+}
+
+/** Manual search for the Version of a failed Grab, in place of the lists until Back. */
+function ManualSearchOf({ grab: g, onBack }: { grab: GrabEntry; onBack: () => void }) {
+  const title = useTitle(g.title_id).data
+  const profiles = useProfiles().data
+  const version = title?.versions.find((v) => v.id === g.version_id)
+  const profile = profiles?.find((p) => p.key === version?.profile)
+  return (
+    <ManualSearch
+      titleName={g.title}
+      slotLabel={g.slot ? slotLabel[g.slot as SlotKey] : ''}
+      profileName={profile?.name ?? version?.profile ?? ''}
+      versionId={g.version_id!}
+      scope={undefined}
+      onBack={onBack}
+    />
   )
 }

@@ -30,9 +30,12 @@ function timeLeft(p: Pass, now: number): string | null {
 
 /** "Breaking Bad · S05 · Standard · 12 releases": what is searched now, from the Title's name to the Releases checked for it. */
 export function nowParts(c: NonNullable<Pass['current']>): string[] {
-  const where =
-    c.season != null ? `S${String(c.season).padStart(2, '0')}` : c.episodes.length > 0 ? c.episodes.slice(0, 3).join(', ') + (c.episodes.length > 3 ? ` +${c.episodes.length - 3}` : '') : null
-  return [c.title, where, c.slot, c.releases_seen > 0 ? plural(c.releases_seen, 'release') : null].filter((x): x is string => Boolean(x))
+  return [c.title, whereOf(c), c.slot, c.releases_seen > 0 ? plural(c.releases_seen, 'release') : null].filter((x): x is string => Boolean(x))
+}
+
+/** The season or episodes a pass is searching in the Title: "S05", "S05E01, S05E02 +1", null for a Movie. */
+export function whereOf(c: NonNullable<Pass['current']>): string | null {
+  return c.season != null ? `S${String(c.season).padStart(2, '0')}` : c.episodes.length > 0 ? c.episodes.slice(0, 3).join(', ') + (c.episodes.length > 3 ? ` +${c.episodes.length - 3}` : '') : null
 }
 
 /** The words of a running pass, shared by its rows: the phase, the Now line, the count with the time left and the Releases checked. */

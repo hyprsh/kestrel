@@ -61,14 +61,14 @@ function nowNote(g: GrabEntry, s: GrabSteps, nextPassAt: string | null, now: num
 
 function Timeline({ steps }: { steps: Step[] }) {
   return (
-    <ol aria-label="What happened" className="grid grid-cols-[16px_92px_minmax(0,1fr)] items-start gap-x-2.5 gap-y-2.5 text-[13px] max-sm:grid-cols-[16px_minmax(0,1fr)]">
+    <ol aria-label="What happened" className="grid grid-cols-[16px_92px_minmax(0,1fr)] items-start gap-x-2.5 gap-y-2.5 text-[13px] max-sm:grid-cols-[16px_auto_minmax(0,1fr)]">
       {steps.map((s) => (
         <li key={s.text} className="contents">
           <span className="mt-0.5">
             <StatusDot state={s.dot} label={false} aria-hidden />
           </span>
-          <span className="label-12-mono text-gray-900 max-sm:col-start-2">{s.when}</span>
-          <span className={cx(s.tone === 'red' && 'text-red-900', 'max-sm:col-start-2')}>{s.text}</span>
+          <span className="label-12-mono text-gray-900">{s.when}</span>
+          <span className={cx(s.tone === 'red' && 'text-red-900')}>{s.text}</span>
         </li>
       ))}
     </ol>

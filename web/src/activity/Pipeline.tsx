@@ -1,57 +1,21 @@
-// Activity's pipeline section: every Grab from search to Import in one list grouped by stage,
-// with stage chips and one filter field above it. It stays live through the stream: the queue
-// from `queue` frames, the stalled and finished Grabs from the `grab` hints, Searching from
-// `search` frames.
-import { Button, DestructiveActionModal, EmptyState, Note, StatusDot, parseQuery, valuesOf } from '@hyprsh/design'
-import { RowList } from '../layout/RowList'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { useFinishedGrabs, useGrabsSummary, useStalledGrabs, useStalledImport, type GrabEntry, type GrabsFilter } from '../api/activity'
-import { useSearchNow } from '../api/grabs'
+// Activity's pipeline: In progress (the search pass and every live Grab) above History (Imported and Failed Grabs by day).
+// It stays live through the stream: the queue from `queue` frames, the stalled and finished Grabs from the `grab` hints,
+// the search pass from `search` frames.
+// chrome: domain-visual
+import { Button, EmptyState, Note, parseQuery, valuesOf } from '@hyprsh/design'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useFinishedGrabs, useGrabsSummary, useStalledGrabs, type GrabEntry, type GrabsFilter } from '../api/activity'
 import { useBlocklist } from '../api/log'
 import { useTitles } from '../api/queries'
-import { useQueue, type QueueItem } from '../api/queue'
-import { useCancel } from '../grabs/useCancel'
-import { useReport } from '../toasts'
+import { useQueue } from '../api/queue'
 import { useSearchStatus } from '../api/search'
-import { SectionBlock } from '../layout/SectionBlock'
-import { DownloadRow } from '../grabs/DownloadRow'
-import { GrabRow } from '../grabs/GrabRow'
-import { useKey, useListNav, type RowNav } from '../keys'
-import { size } from '../library/bits'
+import { useKey, useListNav } from '../keys'
 import { SkeletonRows } from '../loading'
-import { SearchSummary } from './SearchSummary'
-import { ago, lasting, span, until, useNow } from '../time'
-import { cx } from '../ui'
+import { useNow } from '../time'
 import { activityFilter, activityQualifiers } from './filter'
-import { entriesOf, stageLabel, stages, type Entry, type Stage } from './stages'
-
-/** Why a failed Grab failed, in words; an Import's own reasons (`language`, …) are shown as they come. */
-const failureText: Record<string, string> = {
-  download_failed: 'the download failed',
-  encrypted: 'the download is encrypted',
-  lost: 'the download client lost the job',
-  discarded: 'its stalled Import was discarded',
-}
-
-/** Where the Grab came from and what it is: "NZBgeek · Score 1450 · 8.0 GB · grabbed 2 h ago". */
-function origin(g: { indexer: string; score: number; size: number; grabbed_at: string }, now: number, extra: string[] = []): string {
-  return [g.indexer, `Score ${g.score}`, size(g.size), ...extra, `grabbed ${ago(g.grabbed_at, now)}`].join(' · ')
-}
-
-/** The download speed the client's ETA implies, or null when it has not said. */
-function speed(i: QueueItem): string | null {
-  if (i.phase !== 'downloading' || !i.eta || i.bytes_left <= 0) return null
-  return `${size(i.bytes_left / i.eta)}/s`
-}
-
-/** Why a Stuck download is stuck, in words. Not a Stalled Import: that is its own stage. */
-function stuckText(s: NonNullable<QueueItem['stuck']>, now: number): string {
-  return s.reason === 'paused' ? 'Stuck: paused in the download client' : `Stuck: no progress for ${span(now - Date.parse(s.since))}`
-}
-
-function Line({ tone, children }: { tone?: 'amber' | 'red'; children: ReactNode }) {
-  return <div className={cx('label-12', tone === 'amber' ? 'text-amber-900' : tone === 'red' ? 'text-red-900' : 'text-gray-900')}>{children}</div>
-}
+import { byDay, DayHeader, HistoryHead, HistoryRow, type Ended } from './History'
+import { ActiveRow, SearchPassRow, StalledRow } from './InProgress'
+import { entriesOf, stages, type Entry, type Stage } from './stages'
 
 /** The part of a filter the server applies to the Done and Failed history: its words, kinds, Slots and Grab ids. */
 function historyFilter(q: ReturnType<typeof parseQuery>): GrabsFilter {
@@ -90,23 +54,26 @@ export function usePipeline(query: string) {
   // Blocklist entries no Grab is left for are not in the server's count: they come in whole.
   const orphans = useMemo(() => entriesOf([], [], [], blocked.data ?? [], titles ?? [], null).filter(filter.matches), [blocked.data, titles, filter])
   const loadedCount = (s: Stage) => matching.filter((e) => e.stage === s).length
+  // The search pass is one row of In progress while it runs; a kind, Slot or text filter cannot narrow it.
+  const pass = search?.pass && !filter.narrowed ? search.pass : null
   const count = (s: Stage) => {
-    if (s === 'searching') return search?.due.versions ?? 0
+    if (s === 'searching') return pass ? 1 : 0
     if (s === 'done') return summary.data?.imported ?? loadedCount(s)
     if (s === 'failed') return (summary.data?.failed ?? loadedCount(s) - orphans.length) + orphans.length
     return loadedCount(s)
   }
-  // Searching is one summary of the pipeline, not rows: a kind, Slot or text filter cannot narrow it.
-  const searching = search && chosen.includes('searching') && !filter.narrowed && (search.due.versions > 0 || search.pass !== null)
-  const groups = chosen.filter((s) => s !== 'searching').map((s) => ({ stage: s, entries: matching.filter((e) => e.stage === s) }))
-  const rows = groups.flatMap((g) => g.entries)
+  const live = chosen.filter((s) => s !== 'searching' && s !== 'done' && s !== 'failed').flatMap((s) => matching.filter((e) => e.stage === s))
+  const ended = matching.filter((e): e is Ended => chosen.includes(e.stage) && (e.stage === 'done' || e.stage === 'failed'))
+  const shownPass = chosen.includes('searching') ? pass : null
+  const rows = [...live, ...ended]
   const oldests = [summary.data?.oldest, ...orphans.map((o) => (o.type === 'blocked' ? o.entry.created_at : null))].filter((d): d is string => Boolean(d))
   return {
     search,
     count,
-    chosen,
-    searching,
-    groups,
+    pass: shownPass,
+    live,
+    ended,
+    titles: titles ?? [],
     rows,
     total: stages.filter((s) => s !== 'searching').reduce((n, s) => n + count(s), 0),
     /** When the oldest Done or Failed Grab happened, null when there is none. */
@@ -120,65 +87,82 @@ export function usePipeline(query: string) {
 
 export type PipelineData = ReturnType<typeof usePipeline>
 
-export function Pipeline({ data, onOpenTitle }: { data: PipelineData; onOpenTitle: (id: number) => void }) {
-  const { search, count, searching, groups, rows, loaded, pending, failed, history } = data
+export function Pipeline({ data, onOpenTitle, onManualSearch }: { data: PipelineData; onOpenTitle: (id: number) => void; onManualSearch: (g: GrabEntry) => void }) {
+  const { pass, live, ended, titles, rows, loaded, pending, failed, history } = data
   const now = useNow()
   const [sel, setSel] = useState(0)
+  const [openKey, setOpenKey] = useState<string | null>(null)
 
-  const open = (e: Entry | undefined) => {
+  const toggle = (e: Entry | undefined) => {
+    if (e && (e.stage === 'done' || e.stage === 'failed')) {
+      if (e.type === 'grab') setOpenKey((k) => (k === e.key ? null : e.key))
+      return
+    }
     const id = e && (e.type === 'active' ? e.item.title_id : e.type === 'grab' ? e.grab.title_id : e.entry.title_id)
     if (id != null) onOpenTitle(id)
   }
-  useListNav('act', rows.length, Math.min(sel, Math.max(rows.length - 1, 0)), setSel, (i) => open(rows[i]))
+  useListNav('act', rows.length, Math.min(sel, Math.max(rows.length - 1, 0)), setSel, (i) => toggle(rows[i]))
   useKey('/', (e) => {
     e.preventDefault()
     document.getElementById('activity-filter')?.focus()
   })
 
-  let index = 0
+  const inProgress = live.length + (pass ? 1 : 0)
+  const days = byDay(ended, now)
+  const navOf = (e: Entry) => {
+    const index = rows.indexOf(e)
+    return { scope: 'act', index, sel, onSelect: () => setSel(index) }
+  }
   return (
-    <section id="activity-pipeline" aria-label="Pipeline" className="flex flex-col gap-8">
+    <div id="activity-pipeline" className="flex flex-col gap-6">
       {failed && <Note variant="error">Activity could not be loaded in full.</Note>}
-      {searching && search && (
-        <SectionBlock title={stageLabel.searching} count={count('searching')}>
-          <div>
-            <SearchSummary status={search} onOpenTitle={onOpenTitle} />
+      {pending && !loaded && (
+        <section aria-label="Loading" className="flex flex-col gap-2">
+          <SkeletonRows count={3} poster="md" />
+        </section>
+      )}
+      {inProgress > 0 && (
+        <section aria-label="In progress" className="flex flex-col gap-2">
+          <h2 className="heading-16">
+            In progress <span className="label-14 font-normal text-gray-900">{inProgress}</span>
+          </h2>
+          <ul className="m-0 list-none overflow-hidden rounded-md p-0 shadow-border">
+            {pass && <SearchPassRow pass={pass} />}
+            {live.map((e) =>
+              e.type === 'active' ? (
+                <ActiveRow key={e.key} item={e.item} nav={navOf(e)} onOpenTitle={onOpenTitle} />
+              ) : e.type === 'grab' ? (
+                <StalledRow key={e.key} grab={e.grab} nav={navOf(e)} onOpenTitle={onOpenTitle} />
+              ) : null,
+            )}
+          </ul>
+        </section>
+      )}
+      {ended.length > 0 && (
+        <section aria-label="History" className="flex flex-col gap-2">
+          <h2 className="heading-16">History</h2>
+          <div className="overflow-hidden rounded-md shadow-border">
+            <HistoryHead />
+            {days.map((d) => (
+              <div key={d.day}>
+                <DayHeader day={d.day} />
+                <ul aria-label={d.day} className="m-0 list-none p-0">
+                  {d.rows.map((e) => (
+                    <HistoryRow key={e.key} entry={e} titles={titles} nav={navOf(e)} open={openKey === e.key} onToggle={() => toggle(e)} onOpenTitle={onOpenTitle} onManualSearch={onManualSearch} />
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
-        </SectionBlock>
+        </section>
       )}
-      {pending && (
-        <>
-          {[stageLabel.downloading, stageLabel.done].map((title) => (
-            <SectionBlock key={title} title={title}>
-              <div>
-                <SkeletonRows count={2} poster="md" />
-              </div>
-            </SectionBlock>
-          ))}
-        </>
-      )}
-      {groups.map(
-        (g) =>
-          g.entries.length > 0 && (
-            <SectionBlock key={g.stage} title={stageLabel[g.stage]} count={count(g.stage)}>
-              <div>
-                <RowList aria-label={stageLabel[g.stage]}>
-                  {g.entries.map((e) => {
-                    const i = index++
-                    return <EntryRow key={e.key} entry={e} now={now} nav={{ scope: 'act', index: i, sel, onSelect: () => setSel(i) }} onOpenTitle={onOpenTitle} />
-                  })}
-                </RowList>
-              </div>
-            </SectionBlock>
-          ),
-      )}
-      {loaded && rows.length === 0 && !searching && (
+      {loaded && rows.length === 0 && !pass && (
         <div className="p-4">
           <EmptyState description="Nothing in Activity matches." />
         </div>
       )}
       {history && <HistoryEnd history={history} />}
-    </section>
+    </div>
   )
 }
 
@@ -204,145 +188,5 @@ function HistoryEnd({ history }: { history: NonNullable<PipelineData['history']>
         'That is all the history.'
       )}
     </div>
-  )
-}
-
-function EntryRow({ entry: e, now, nav, onOpenTitle }: { entry: Entry; now: number; nav: RowNav; onOpenTitle: (id: number) => void }) {
-  switch (e.type) {
-    case 'active':
-      return <ActiveRow item={e.item} now={now} nav={nav} onOpenTitle={onOpenTitle} />
-    case 'grab':
-      return e.stage === 'stalled' ? <StalledRow grab={e.grab} now={now} nav={nav} onOpenTitle={onOpenTitle} /> : <FinishedRow grab={e.grab} now={now} nav={nav} onOpenTitle={onOpenTitle} />
-    case 'blocked': {
-      const t = e.title
-      const subject = {
-        title_id: e.entry.title_id,
-        has_poster: t?.has_poster ?? false,
-        title: t?.title ?? '',
-        year: t?.year ?? null,
-        slot: null,
-        episodes: [],
-        release_name: e.entry.release_name,
-        is_upgrade: false,
-      }
-      return (
-        <GrabRow grab={subject} nav={nav} onOpenTitle={onOpenTitle}>
-          <Line tone="red">{`Blocklisted ${ago(e.entry.created_at, now)}: ${e.entry.reason}`}</Line>
-          <Line>{size(e.entry.size)}</Line>
-        </GrabRow>
-      )
-    }
-  }
-}
-
-function ActiveRow({ item: i, now, nav, onOpenTitle }: { item: QueueItem; now: number; nav: RowNav; onOpenTitle: (id: number) => void }) {
-  const cancel = useCancel()
-  const rate = speed(i)
-  return (
-    <DownloadRow
-      item={i}
-      nav={nav}
-      busy={cancel.pending}
-      onCancel={(blocklist) => void cancel.run(i.grab_id, blocklist)}
-      onOpenTitle={onOpenTitle}
-      detail={
-        <>
-          {i.stuck && (
-            <Line tone="amber">
-              <StatusDot state="warning" label={false} aria-hidden /> {stuckText(i.stuck, now)}
-            </Line>
-          )}
-          <Line>{`${origin(i, now, rate ? [rate] : [])} · in this stage ${lasting(i.phase_since, now)}`}</Line>
-        </>
-      }
-    />
-  )
-}
-
-function StalledRow({ grab: g, now, nav, onOpenTitle }: { grab: GrabEntry; now: number; nav: RowNav; onOpenTitle: (id: number) => void }) {
-  const act = useStalledImport()
-  const report = useReport()
-  const st = g.stalled!
-  const [asking, setAsking] = useState(false)
-  return (
-    <>
-      <GrabRow
-        grab={g}
-        nav={nav}
-        onOpenTitle={onOpenTitle}
-        actions={
-          <>
-            <Button
-              variant="secondary"
-              size="small"
-              disabled={act.isPending}
-              onClick={() => void report(act.mutateAsync({ id: g.grab_id, action: 'retry' }), { done: 'Import retried', failed: 'Could not retry the import' })}
-            >
-              Retry now
-            </Button>
-            <Button variant="secondary" size="small" disabled={act.isPending} onClick={() => setAsking(true)}>
-              Discard
-            </Button>
-          </>
-        }
-      >
-        <Line tone="amber">{`Import stalled ${lasting(st.since, now)}: ${st.reason} · tried again ${until(st.next_at, now)}`}</Line>
-        <Line>{origin(g, now)}</Line>
-      </GrabRow>
-      <DestructiveActionModal
-        open={asking}
-        title="Discard this Grab"
-        confirmLabel="Discard"
-        description="Its downloaded files are deleted and the Version is searched for again."
-        loading={act.isPending}
-        onCancel={() => setAsking(false)}
-        onConfirm={() => {
-          setAsking(false)
-          void report(act.mutateAsync({ id: g.grab_id, action: 'discard' }), { done: 'Grab discarded', failed: 'Could not discard the Grab' })
-        }}
-      />
-    </>
-  )
-}
-
-function FinishedRow({ grab: g, now, nav, onOpenTitle }: { grab: GrabEntry; now: number; nav: RowNav; onOpenTitle: (id: number) => void }) {
-  const search = useSearchNow()
-  const report = useReport()
-  const versionId = g.version_id
-  const failed = g.state === 'failed'
-  const why = g.failure ? (failureText[g.failure] ?? g.failure) : 'it failed'
-  return (
-    <GrabRow
-      grab={g}
-      nav={nav}
-      onOpenTitle={onOpenTitle}
-      actions={
-        failed &&
-        versionId !== null && (
-          <Button
-            variant="secondary"
-            size="small"
-            disabled={search.isPending || search.isSuccess}
-            onClick={() => void report(search.mutateAsync({ versionId }), { started: `Search started for ${g.title}`, failed: `Could not search ${g.title}` })}
-          >
-            {search.isSuccess ? 'Searching…' : 'Search again'}
-          </Button>
-        )
-      }
-    >
-      {failed ? (
-        <Line tone="red">
-          {`Failed ${ago(g.updated_at, now)}: ${why}`}
-          {g.blocklist_reason && ` · Blocklisted: ${g.blocklist_reason}`}
-        </Line>
-      ) : (
-        <Line>
-          {`Imported ${ago(g.updated_at, now)}`}
-          {g.blocklist_reason && ` · since blocklisted: ${g.blocklist_reason}`}
-        </Line>
-      )}
-      <Line>{origin(g, now)}</Line>
-      {search.isError && <Line tone="red">{search.error.message}</Line>}
-    </GrabRow>
   )
 }
