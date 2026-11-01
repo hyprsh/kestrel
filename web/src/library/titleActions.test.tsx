@@ -245,7 +245,7 @@ describe('the Version rows', () => {
     const hd = within(pane).getByRole('listitem', { name: 'Standard' })
     expect(await within(hd).findByText('Wanted for 12 days')).toBeInTheDocument()
     expect(within(hd).getByRole('button', { name: 'Search Standard now' })).toBeEnabled()
-    expect(within(pane).getByRole('button', { name: 'Standard: Wanted' })).toBeInTheDocument()
+    expect(within(pane).getByRole('row', { name: 'Standard: Wanted' })).toHaveTextContent('No file yet')
   })
 
   it('keep Search now, Manual search, Change Profile, Delete files and Remove Version in a Movie row’s "…" menu, Delete files disabled without a file', async () => {

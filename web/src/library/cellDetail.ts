@@ -98,3 +98,6 @@ export function cellText(cell: CellLike | null, episode: Pick<Episode, 'air_date
       return label
   }
 }
+
+/** The name of a file on disk: the last part of its path. */
+export const baseName = (path: string) => path.split(/[\\/]/).filter(Boolean).pop() ?? path

@@ -40,7 +40,7 @@ type FileFacts = MediaFacts & {
 const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `\u2212${-n}` : '0')
 
 /** "Oct 20" for a date this year, "Oct 20, 2024" for another; "" for an unreadable one. */
-function importedOn(iso: string | undefined): string {
+export function importedOn(iso: string | undefined): string {
   const d = iso ? new Date(iso) : null
   if (!d || Number.isNaN(d.getTime())) return ''
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(d.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' }) })

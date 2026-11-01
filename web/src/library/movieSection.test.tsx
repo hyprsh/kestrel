@@ -17,7 +17,7 @@ async function openPaddington() {
 }
 
 const file = {
-  path: '/data/media/movies/Paddington (2014)/Paddington.mkv',
+  path: '/data/media/movies/Paddington (2014)/Paddington (2014) - [Standard][WEBDL-1080p].mkv',
   size: 1.6 * 1024 ** 3,
   release_name: 'Paddington.2014.1080p.WEB-DL',
   score: 100,
@@ -26,8 +26,16 @@ const file = {
   imported_at: new Date(Date.now() - 3 * 86_400_000).toISOString(),
 }
 
+const asFilled = (r: ReturnType<typeof row>) =>
+  server.use(
+    http.get('/titles/{id}', ({ response }) => {
+      const d = detail(r)
+      return response(200).json({ ...d, versions: d.versions.map((v) => ({ ...v, state: 'filled', file })) })
+    }),
+  )
+
 describe("a Movie's Files table on its Title page", () => {
-  it('reads as the episode table does: Name, Released and a column per Slot over one row, with Search and the menu on it', async () => {
+  it('has a row per Slot with the columns Slot, File, Quality, Size, Imported and the actions, and the menu on it', async () => {
     const r = row(1, 'Paddington', 'Paddington')
     fakeLibrary([r])
     const pane = await openPaddington()
@@ -38,57 +46,50 @@ describe("a Movie's Files table on its Title page", () => {
       within(table)
         .getAllByRole('columnheader')
         .map((h) => h.textContent),
-    ).toEqual(['Name', 'Released', 'Standard', 'Actions'])
-    expect(within(table).getByText('Paddington')).toBeInTheDocument()
-    expect(within(table).getByRole('button', { name: 'Search Paddington' })).toBeInTheDocument()
-    await userEvent.click(within(table).getByRole('button', { name: 'Actions for Paddington' }))
+    ).toEqual(['Slot', 'File', 'Quality', 'Size', 'Imported', 'Actions'])
+    await userEvent.click(within(table).getByRole('button', { name: 'Standard file actions' }))
     expect(within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Manual search Standard…' })).toBeInTheDocument()
   })
 
-  it('show a filled Slot as resolution and size, with the episode cell’s tooltip, and open the file popover', async () => {
+  it('names a filled Slot by its file, with the release under it, the quality, size and date, and opens File details', async () => {
     const r = row(1, 'Paddington', 'Paddington')
     fakeLibrary([r])
-    server.use(
-      http.get('/titles/{id}', ({ response }) => {
-        const d = detail(r)
-        return response(200).json({ ...d, versions: d.versions.map((v) => ({ ...v, state: 'filled', file })) })
-      }),
-    )
+    asFilled(r)
     const pane = await openPaddington()
 
-    const cell = await within(pane).findByRole('button', { name: 'Standard: Filled, 1080p · 1.6 GB' })
-    expect(cell).toHaveTextContent('1080p · 1.6 GB')
-    expect(cell).toHaveAttribute('title', `Standard: Filled · Score 100 · WEBDL-1080p · 1.6 GB\n${file.path}`)
-    await userEvent.click(cell)
+    const name = await within(pane).findByText('Paddington (2014) - [Standard][WEBDL-1080p].mkv')
+    expect(name.closest('[title]')).toHaveAttribute('title', file.path)
+    expect(within(pane).getByText('from Paddington.2014.1080p.WEB-DL')).toBeInTheDocument()
+    expect(within(pane).getByText('WEB-DL 1080p')).toBeInTheDocument()
+    expect(within(pane).getByText('1.6 GB')).toBeInTheDocument()
+    await userEvent.click(within(pane).getByRole('button', { name: 'Standard file details' }))
     const pop = await screen.findByRole('dialog', { name: 'Standard file' })
     expect(pop).toHaveTextContent(file.path)
-    expect(within(pop).getByText('Paddington.2014.1080p.WEB-DL')).toBeInTheDocument()
   })
 
-  it('show a Wanted Slot with its days, and the header pill says it generically', async () => {
+  it('says why a Wanted Slot has no file, with Search now in place of File details', async () => {
     const r = row(1, 'Paddington', 'Paddington')
     fakeLibrary([r])
     server.use(
       http.get('/titles/{id}', ({ response }) => {
         const d = detail(r)
-        return response(200).json({ ...d, versions: d.versions.map((v) => ({ ...v, state: 'wanted', wanted_since: new Date(Date.now() - 12 * 86_400_000).toISOString() })) })
+        return response(200).json({ ...d, versions: d.versions.map((v) => ({ ...v, state: 'wanted', file: null, wanted_since: new Date(Date.now() - 12 * 86_400_000).toISOString() })) })
       }),
     )
     const pane = await openPaddington()
 
-    const cell = await within(pane).findByRole('button', { name: 'Standard: Wanted' })
-    expect(cell).toHaveTextContent('Wanted · 12 d')
-    expect(cell).toHaveAttribute('title', 'Standard: Wanted\nWanted · 12 d')
+    expect(await within(pane).findByText('No file yet')).toBeInTheDocument()
+    expect(within(pane).getByText(/^Wanted 12 days · not searched yet$/)).toBeInTheDocument()
+    expect(within(pane).getByRole('button', { name: 'Search for the Standard file now' })).toBeInTheDocument()
+    expect(within(pane).queryByRole('button', { name: 'Standard file details' })).toBeNull()
     expect(within(pane).getByText('Wanted · 12 days')).toBeInTheDocument()
   })
 
-  it('show a downloading Slot as percent and time left', async () => {
+  it('shows a downloading Slot as percent and time left', async () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     fakeQueue([queueItem({ grab_id: 1, title_id: 1, slot: 'standard' })])
     const pane = await openPaddington()
 
-    const cell = await within(pane).findByRole('button', { name: 'Standard: Downloading, 75% · 2 min' })
-    expect(cell).toHaveTextContent('75% · 2 min')
-    expect(cell).toHaveAttribute('title', 'Standard: Downloading\n75% · 2 min')
+    expect(await within(pane).findByText('75% · 2 min')).toBeInTheDocument()
   })
 })
