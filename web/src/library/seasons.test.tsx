@@ -300,7 +300,34 @@ describe('the Seasons at a glance on the Title page', () => {
     expect(Array.from(row.querySelectorAll('[data-bar]')).map((q) => q.getAttribute('data-bar'))).toEqual(['filled', 'partial', 'downloading', 'unreleased', 'unmonitored'])
     // One bar, whatever the Slot count; the line under it says what is open.
     expect(row.querySelectorAll('[data-bar="partial"]')).toHaveLength(1)
-    expect(within(row as HTMLElement).getByText('2 Wanted · 1 downloading')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText('2 Wanted · 1 downloading · 1 not monitored')).toBeInTheDocument()
+  })
+})
+
+describe('what a season says when some of its episodes are not monitored', () => {
+  it('says how many are not monitored instead of Complete, and Not monitored with the grey bookmark when none is monitored', async () => {
+    const state = fakeSeries()
+    const off = { standard: cell('unmonitored'), '4k': cell('unmonitored') }
+    state.get().episodes = [
+      episode(1, 0, 1, 'S1', { monitored: true, cells: filled }),
+      ...[2, 3, 4, 5, 6].map((n) => episode(n, 0, n, `S${n}`, { monitored: false, cells: off })),
+      episode(10, 1, 1, 'Pilot', { cells: filled }),
+      episode(11, 1, 2, 'Two', { cells: filled }),
+      episode(20, 2, 1, 'Off A', { monitored: false, cells: off }),
+    ]
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    await screen.findByRole('region', { name: 'Seasons' })
+    const row = (name: RegExp) => screen.getByRole('button', { name }).closest<HTMLElement>('[role=listitem]')!
+
+    const specials = row(/^Specials:/)
+    expect(within(specials).getByText('1 of 6 · 5 not monitored')).toBeInTheDocument()
+    expect(within(specials).queryByText('Complete')).not.toBeInTheDocument()
+    expect(within(specials).getByRole('button', { name: 'Stop monitoring Specials' })).toBeInTheDocument() // some of it is monitored
+    expect(within(row(/^Season 1:/)).getByText('Complete')).toBeInTheDocument()
+    const none = row(/^Season 2:/)
+    expect(within(none).getByText('Not monitored')).toBeInTheDocument()
+    expect(within(none).getByRole('button', { name: 'Monitor Season 2' })).toHaveAttribute('aria-pressed', 'false')
   })
 })
 

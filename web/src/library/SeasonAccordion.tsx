@@ -37,19 +37,25 @@ function tallyChip(t: SlotTally, monitored: boolean): ChipData {
   return { key: t.slot, short: slotShort(t.slot), state, text: empty ? undefined : `${t.filled}/${t.counted}`, tip: say(t) }
 }
 
-/** What a season says about itself in one line: "Complete", "6 Wanted · 6 downloading", "Not aired", "Not monitored". */
+/**
+ * What a season says about itself in one line: "Complete" (only when nothing in it is unmonitored), "6 Wanted · 6 downloading",
+ * "1 of 6 · 5 not monitored", "Not aired", "Not monitored" (nothing in it is monitored).
+ */
 function standing(states: Combined[], monitored: boolean): { text: string; tone: string } {
   if (!monitored) return { text: 'Not monitored', tone: 'text-gray-900' }
   const n = (...ks: Combined[]) => states.filter((s) => ks.includes(s)).length
   const wanted = n('wanted', 'partial')
   const downloading = n('downloading')
   const unaired = n('unreleased')
+  const off = n('unmonitored')
+  const off_ = off > 0 ? `${off} not monitored` : null
   if (wanted > 0 || downloading > 0) {
-    const parts = [wanted > 0 ? `${wanted} Wanted` : null, downloading > 0 ? `${downloading} downloading` : null].filter(Boolean)
-    return { text: parts.join(' · '), tone: wanted > 0 ? 'text-amber-900' : 'text-blue-900' }
+    const parts = [wanted > 0 ? `${wanted} Wanted` : null, downloading > 0 ? `${downloading} downloading` : null, off_].filter(Boolean)
+    return { text: parts.join(' \u00b7 '), tone: wanted > 0 ? 'text-amber-900' : 'text-blue-900' }
   }
+  if (off > 0) return { text: `${n('filled')} of ${states.length} \u00b7 ${off_}`, tone: 'text-gray-900' }
   if (unaired === states.length) return { text: 'Not aired', tone: 'text-gray-900' }
-  return { text: unaired > 0 ? `Complete · ${unaired} not aired` : 'Complete', tone: 'text-green-900' }
+  return { text: unaired > 0 ? `Complete \u00b7 ${unaired} not aired` : 'Complete', tone: 'text-green-900' }
 }
 
 /**
