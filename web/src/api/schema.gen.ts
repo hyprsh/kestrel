@@ -3284,6 +3284,28 @@ export interface components {
             episode_titles?: string[];
             /** @description Series only. True for a season pack. */
             pack?: boolean;
+            /** @description The release group the name ends in. Absent when the name has none. */
+            group?: string;
+            /**
+             * @description What the Release holds, for the Version searched: each episode of a Series Release that the Library
+             *     knows (every episode of the season for a pack), or the Movie itself. Absent when the name
+             *     names nothing the Library has.
+             */
+            covers?: components["schemas"]["ReleaseCover"][];
+        };
+        ReleaseCover: {
+            /** @description Absent for a Movie. */
+            season?: number;
+            /** @description Absent for a Movie. */
+            episode?: number;
+            /**
+             * @description wanted: the Version has no file for it and Wants one. filled: it holds a file, which a grab of the Release
+             *     replaces. other: not monitored, not out yet or already downloading.
+             * @enum {string}
+             */
+            state: "wanted" | "filled" | "other";
+            /** @description The Score of the file the Version holds there. Absent when it has no file or its Score is unknown. */
+            file_score?: number;
         };
         IndexerError: {
             /** Format: int64 */
@@ -3298,6 +3320,15 @@ export interface components {
         ReleaseList: {
             items: components["schemas"]["Release"][];
             indexer_errors: components["schemas"]["IndexerError"][];
+            /**
+             * Format: date-time
+             * @description When the search ran.
+             */
+            searched_at: string;
+            /** @description How many enabled indexers the search asked, those in `indexer_errors` included. */
+            indexers_searched: number;
+            /** @description How many Units of the search's scope the Version Wants (its Wanted episodes, or 1 for a Wanted Movie). */
+            wanted: number;
         };
         GrabCreate: {
             /** Format: int64 */

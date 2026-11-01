@@ -32,7 +32,7 @@ const shownRows = (rows: AttentionRow[], all: boolean) => (all ? rows : firstFiv
 type Group = 'adoption' | 'long-missing' | 'originals'
 
 /** How long a finished search pass stays as a row, in ms. */
-export const FINISHED_ROW_MS = 60_000
+const FINISHED_ROW_MS = 60_000
 type LastPass = NonNullable<NonNullable<ReturnType<typeof useSearchStatus>['data']>['last_pass']>
 
 /**
