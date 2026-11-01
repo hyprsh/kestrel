@@ -42,7 +42,7 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {!phone && <h1 className="heading-20 px-8 pt-6 pb-2">Requests</h1>}
+      {!phone && <h1 className="heading-20 px-4 pt-6 pb-2">Requests</h1>}
       <FilterStrip>
         <FilterBar id="requests-filter" label="Filter Requests" placeholder="Filter, e.g. status:open requester:Anna …  /" value={query} onChange={onQuery} qualifiers={qualifiers} />
         {list.data && <span className="label-12 text-gray-900 tabular">{list.data.pages[0].total} in all</span>}
