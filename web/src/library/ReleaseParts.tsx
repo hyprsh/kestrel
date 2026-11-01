@@ -27,7 +27,7 @@ import {
 } from './releaseView'
 
 /** What became of a Release grabbed in this search. */
-export type GrabEntry = { status: 'pending' } | { status: 'sent'; grabId: number; fills: string[] } | { status: 'failed'; message: string }
+export type GrabEntry = { status: 'pending' } | { status: 'sent'; grabId: number; fills: string[]; at: number } | { status: 'failed'; message: string }
 
 /** The actions a Release's parts offer; the search screen owns what they do. */
 export type ReleaseActions = {

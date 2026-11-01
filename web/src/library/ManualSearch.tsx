@@ -165,17 +165,12 @@ export function ManualSearch({
   const index = Math.min(sel, Math.max(pageRows.length - 1, 0))
   const current = pageRows[index] as Release | undefined
 
-  // What the header counts: the Wanted ones, less those a grab made here is on its way to fill.
-  const downloadingKeys = useMemo(() => {
-    const keys = new Set<string>()
-    for (const r of all) {
-      if (entries[keyOf(r)]?.status !== 'sent') continue
-      for (const c of fillsReplaces(r).fills) keys.add(`${c.season ?? ''}x${c.episode ?? ''}`)
-    }
-    return keys
-  }, [all, entries])
-  const downloading = downloadingKeys.size
-  const wanted = Math.max(wantedTotal - downloading, 0)
+  // What the header counts: the Wanted ones, less those a grab made here is on its way to fill. A search that ran after a grab
+  // already leaves its episodes out of Wanted, so only the grabs since the last search come off the count.
+  const sent = Object.values(entries).filter((e): e is Extract<GrabEntry, { status: 'sent' }> => e.status === 'sent')
+  const downloading = new Set(sent.flatMap((e) => e.fills)).size
+  const unseen = new Set(sent.filter((e) => e.at > search.dataUpdatedAt).flatMap((e) => e.fills)).size
+  const wanted = Math.max(wantedTotal - unseen, 0)
 
   const setEntry = useCallback((key: string, entry: GrabEntry | null) => {
     setEntries((was) => {
@@ -196,7 +191,7 @@ export function ManualSearch({
     setEntry(key, { status: 'pending' })
     grabbing.mutateAsync({ version_id: versionId, release_id: x.release_id, override }).then(
       (g) => {
-        setEntry(key, { status: 'sent', grabId: g.id, fills: fillsReplaces(x).fills.map((c) => `${c.season ?? ''}x${c.episode ?? ''}`) })
+        setEntry(key, { status: 'sent', grabId: g.id, fills: fillsReplaces(x).fills.map((c) => `${c.season ?? ''}x${c.episode ?? ''}`), at: Date.now() })
         toasts.success({ text: `Grabbed for ${slotLabel} · ${what(x)}`, action: { label: `Back to ${titleName}`, onClick: onBack } })
       },
       (e: Error) => {

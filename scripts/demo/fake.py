@@ -17,7 +17,7 @@ What it knows (MOVIES and SERIES below):
 - The indexer has no releases until GET /_ctl?releases=1 (=0 empties it again).
   Then it offers releases for every Movie and for Breaking Bad, never other Series.
 - A whole-season search (no episode) also finds a Remux pack, two German packs and, for the
-  season's first four episodes, a 2160p, a 1080p and a German release each: packs, episodes and
+  season's episodes 5 to 8 (the first four when it is shorter), a 2160p, a 1080p and a German release each: packs, episodes and
   Releases the Profile rejects for Manual search.
 - GET /_ctl?unlisted=1 (=0 removes them) adds Breaking Bad releases TheTVDB does not list: the
   episode after the last listed one of the season asked for (Placeholder Episodes,
@@ -272,7 +272,8 @@ def season_extras(season):
         (f"Breaking.Bad.{code}.GERMAN.DL.2160p.WEB.H265-GRP", 41_000_000_000, 5045),
         (f"Breaking.Bad.{code}.German.1080p.WEB.H264-WAYNE", 12_000_000_000, 5040),
     ]
-    for n in range(1, min(len(BB[season]), 4) + 1):
+    first = 5 if len(BB[season]) >= 8 else 1
+    for n in range(first, min(len(BB[season]), first + 3) + 1):
         e = f"{code}E{n:02d}"
         rows += [
             (f"Breaking.Bad.{e}.2160p.WEB-DL.DDP5.1.HDR.H.265-NTb", 6_300_000_000, 5045),

@@ -100,6 +100,7 @@ export function deltaText(r: Release, replaces: Cover[]): string {
   if (deltas.length === 0) return ''
   const lo = Math.min(...deltas)
   const hi = Math.max(...deltas)
+  if (lo === 0 && hi === 0) return 'same Score'
   if (lo === hi) return `${signed(lo)}${replaces.length > 1 ? ' each' : ''}`
   return `${signed(lo)} to ${signed(hi)}`
 }
