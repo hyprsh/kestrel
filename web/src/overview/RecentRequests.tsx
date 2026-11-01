@@ -3,17 +3,15 @@
 // Its rows are part of the Overview's j/k selection.
 import { Badge, Entity } from '@hyprsh/design'
 import { RowList } from '../layout/RowList'
-import { useQueue } from '../api/queue'
 import { useRecentRequests, type Request } from '../api/requests'
-import { slotLabel, type SlotKey } from '../library/bits'
 import { Loaded, SkeletonRows } from '../loading'
 import { Poster, TitlePoster } from '../poster'
-import { reasons, slotState } from '../requests/status'
+import { RequestSlots } from '../requests/RequestSlots'
+import { reasons } from '../requests/status'
 import type { OverviewNav } from './nav'
 import { EmptyLine, firstThree, HeadingLink, Section } from './Section'
 
 function StateBadges({ request: r }: { request: Request }) {
-  const queue = useQueue().data ?? []
   if (r.outcome === 'rejected' && r.reject_reason) {
     return (
       <Badge variant="red" contrast="low" size="sm">
@@ -21,14 +19,7 @@ function StateBadges({ request: r }: { request: Request }) {
       </Badge>
     )
   }
-  return r.slots.map((s) => {
-    const st = slotState(s, queue)
-    return (
-      <Badge key={s.slot} variant={st.tone} contrast="low" size="sm">
-        {`${slotLabel[s.slot as SlotKey]} · ${st.text}`}
-      </Badge>
-    )
-  })
+  return <RequestSlots request={r} />
 }
 
 export function RecentRequests({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void; nav: OverviewNav }) {

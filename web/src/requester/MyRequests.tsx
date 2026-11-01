@@ -4,8 +4,8 @@ import type { Request } from '../api/requests'
 import { RowList, stackedRight, stackedRow } from '../layout/RowList'
 import { SkeletonRows } from '../loading'
 import { Poster, TitlePoster } from '../poster'
-import { reasons, seasonsText, slotState } from '../requests/status'
-import { slotLabel, type SlotKey } from '../library/bits'
+import { RequestSlots } from '../requests/RequestSlots'
+import { reasons, seasonsText } from '../requests/status'
 import { ago, useNow } from '../time'
 
 /** Why a Request was turned down. The Profile reason is the admin's to fix, so a Requester is sent to them. */
@@ -60,14 +60,7 @@ function MyRequest({ request: r }: { request: Request }) {
             <span className="label-12">{rejection(r)}</span>
           </>
         ) : (
-          r.slots.map((s) => {
-            const st = slotState(s, [])
-            return (
-              <Badge key={s.slot} variant={st.tone} contrast="low" size="sm">
-                {r.slots.length > 1 ? `${slotLabel[s.slot as SlotKey]} · ${st.text}` : st.text}
-              </Badge>
-            )
-          })
+          <RequestSlots request={r} live={false} />
         )
       }
     >

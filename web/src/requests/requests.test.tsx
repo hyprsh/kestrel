@@ -27,7 +27,7 @@ describe('the Requests screen', () => {
     expect(rows).toHaveLength(7)
     expect(rows[0]).toHaveTextContent('Movie 1')
     expect(rows[0]).toHaveTextContent('Anna via Silo · 2 h ago')
-    expect(rows[0]).toHaveTextContent('Standard · Searching')
+    expect(rows[0]).toHaveTextContent(/STD\s*Searching/)
     expect(location.pathname).toBe('/requests')
   })
 

@@ -60,10 +60,10 @@ describe('Recent requests on the Overview', () => {
     renderApp()
 
     const [unreleased, downloading, searching] = await rows()
-    expect(unreleased).toHaveTextContent('Standard · Not released yet')
-    expect(unreleased).toHaveTextContent('4K · Completed')
-    expect(downloading).toHaveTextContent('Standard · Downloading 43%')
-    expect(searching).toHaveTextContent('Standard · Searching')
+    expect(unreleased).toHaveTextContent(/STD\s*Not released yet/)
+    expect(unreleased).toHaveTextContent(/4K\s*Completed/)
+    expect(downloading).toHaveTextContent(/STD\s*Downloading 43%/)
+    expect(searching).toHaveTextContent(/STD\s*Searching/)
   })
 
   it('follows a download from the live queue', async () => {
@@ -72,7 +72,7 @@ describe('Recent requests on the Overview', () => {
     renderApp()
 
     const [item] = await rows()
-    expect(await within(item).findByText('Standard · Downloading 75%')).toBeInTheDocument()
+    expect(await within(item).findByRole('img', { name: 'Standard: Downloading 75%' })).toBeInTheDocument()
   })
 
   it('names a rejected Request by what was asked for and says why in words', async () => {
