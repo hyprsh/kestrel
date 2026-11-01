@@ -14,6 +14,7 @@ import { Adoption } from '../adoption/Adoption'
 import { adoptionLabel, useAdoption } from '../api/adoption'
 import { Cleanup } from '../cleanup/Cleanup'
 import { CleanupLauncher } from '../cleanup/launch'
+import { plural } from '../format'
 import { MOD } from '../keys'
 import { useSearchAllWanted } from '../api/wanted'
 import { useSearchPassToast, useWatchSearch } from '../activity/searchToast'
@@ -454,7 +455,7 @@ function TopBar({
   if (phone)
     return (
       <PhoneTopBar title={title}>
-        <RunningIndicator running={running} onOpen={onOpenRunning} />
+        <RunningIndicator running={running} onOpen={onOpenRunning} phone />
         <HealthButton tooltipPosition="bottom" active={healthOpen} />
         <Button svgOnly variant="tertiary" aria-label="Add Title" onClick={onAdd}>
           <Plus />
@@ -486,14 +487,17 @@ function TopBar({
 }
 
 /** Quiet while nothing runs; a dot and what runs, or how many things do, while work does. */
-function RunningIndicator({ running, onOpen }: { running: Running[]; onOpen: () => void }) {
+function RunningIndicator({ running, onOpen, phone = false }: { running: Running[]; onOpen: () => void; phone?: boolean }) {
   if (running.length === 0) return null
   const [one] = running
-  // The count takes the ellipsis's place: "Searching 15/40".
-  const progress = one.progress?.total ? `${one.short.replace(/…$/, '')} ${one.progress.done}/${one.progress.total}` : null
+  // The count takes the ellipsis's place: "Searching 15/40". A search pass adds the Releases checked, off a phone's narrow bar.
+  const counted = one.progress?.total ? `${one.short.replace(/…$/, '')} ${one.progress.done}/${one.progress.total}` : null
+  const progress = counted && one.releases && !phone ? `${counted} · ${plural(one.releases, 'release')}` : counted
   const label = running.length > 1 ? `${running.length} running` : (progress ?? one.short)
+  // The tooltip, which a screen reader gets as the description, names what runs and what is searched now.
+  const tip = running.map((r) => (r.now ? `${r.name}\n${r.now}` : r.name)).join('\n')
   return (
-    <Button variant="tertiary" size="small" onClick={onOpen} title={running.map((r) => r.name).join('\n')} prefix={<StatusDot state="info" label={false} aria-hidden />}>
+    <Button variant="tertiary" size="small" onClick={onOpen} title={tip} prefix={<StatusDot state="info" label={false} aria-hidden />}>
       {label}
     </Button>
   )

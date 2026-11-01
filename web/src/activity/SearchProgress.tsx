@@ -29,24 +29,35 @@ function timeLeft(p: Pass, now: number): string | null {
 }
 
 /** "Breaking Bad · S05 · Standard · 12 releases": what is searched now, from the Title's name to the Releases checked for it. */
-function nowParts(c: NonNullable<Pass['current']>): string[] {
+export function nowParts(c: NonNullable<Pass['current']>): string[] {
   const where =
     c.season != null ? `S${String(c.season).padStart(2, '0')}` : c.episodes.length > 0 ? c.episodes.slice(0, 3).join(', ') + (c.episodes.length > 3 ? ` +${c.episodes.length - 3}` : '') : null
   return [c.title, where, c.slot, c.releases_seen > 0 ? plural(c.releases_seen, 'release') : null].filter((x): x is string => Boolean(x))
 }
 
+/** The words of a running pass, shared by its rows: the phase, the Now line, the count with the time left and the Releases checked. */
+export function passLines(p: Pass, now: number) {
+  const phase = phaseOf(p)
+  const c = p.current
+  return {
+    phase,
+    name: `Searching ${phase.name}`,
+    nowText: c ? `Now: ${nowParts(c).join(' · ')}` : null,
+    count: [`${phase.done} of ${phase.total} ${phase.ofLabel}`, timeLeft(p, now)].filter(Boolean).join(' · '),
+    releases: releasesLine(p.releases_seen, p.grabbed, ' so far'),
+  }
+}
+
 /** The running pass as one row: the progress of the Wanted Versions, then of the Upgrade searches. */
 function SearchPassRow({ pass: p, onOpenTitle }: { pass: Pass; onOpenTitle?: (id: number) => void }) {
   const now = useNow()
-  const phase = phaseOf(p)
+  const { phase, name, nowText, count, releases } = passLines(p, now)
   const c = p.current
-  const left = timeLeft(p, now)
-  const nowText = c ? `Now: ${nowParts(c).join(' · ')}` : null
   return (
     <div className="flex items-start gap-3 whitespace-normal" aria-label="Search pass">
       {c && <TitlePoster id={c.title_id} hasPoster={c.has_poster} size="sm" />}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="font-medium">Searching {phase.name}</span>
+        <span className="font-medium">{name}</span>
         {nowText && (
           <span className="truncate text-gray-900">
             {c && onOpenTitle ? (
@@ -60,9 +71,9 @@ function SearchPassRow({ pass: p, onOpenTitle }: { pass: Pass; onOpenTitle?: (id
         )}
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <Progress value={phase.done} max={Math.max(phase.total, 1)} type="success" height={6} aria-label="Search progress" className="min-w-24 flex-1" />
-          <span className="shrink-0 tabular-nums">{[`${phase.done} of ${phase.total} ${phase.ofLabel}`, left].filter(Boolean).join(' · ')}</span>
+          <span className="shrink-0 tabular-nums">{count}</span>
         </span>
-        <span className="text-gray-900">{releasesLine(p.releases_seen, p.grabbed, ' so far')}</span>
+        <span className="text-gray-900">{releases}</span>
       </div>
     </div>
   )

@@ -7,6 +7,7 @@ import type { components } from '../api/schema.gen'
 import { dayString } from '../api/upcoming'
 import { http } from '../test/handlers'
 import { fakeRequests, request } from '../test/requests'
+import { passOf } from '../test/search'
 import { server } from '../test/server'
 import { RecentlyAdded } from './ComingRecent'
 
@@ -170,5 +171,49 @@ describe('Overview rows', () => {
     expect(await screen.findByText(/Ancient Film/)).toBeInTheDocument()
     await userEvent.keyboard('j')
     expect(current()).toHaveTextContent('Paddington')
+  })
+
+  it('shows the running search pass in Happening now, and j runs through it', async () => {
+    server.use(
+      http.get('/search/status', ({ response }) =>
+        response(200).json({
+          due: { versions: 4, episodes: 0, upgrades: 0 },
+          pass: passOf({
+            done: 1,
+            total: 4,
+            releases_seen: 30,
+            grabbed: 2,
+            current: { title_id: 7, title: 'Breaking Bad', has_poster: false, slot: 'Standard', season: 5, episodes: [], releases_seen: 12 },
+          }),
+          next_pass_at: null,
+          last_pass: null,
+          upgrades_per_pass: 5,
+          indexers: [],
+        }),
+      ),
+      http.get('/recent', ({ response }) => response(200).json({ items: [recent({})], total: 1 })),
+    )
+    renderApp()
+    const row = (await screen.findByText('Searching Wanted')).closest<HTMLElement>('[data-nav]')!
+
+    expect(row).toHaveTextContent('Searching Wanted')
+    expect(row).toHaveTextContent('Now: Breaking Bad · S05 · Standard · 12 releases')
+    expect(row).toHaveTextContent('1 of 4 Wanted')
+    expect(row).toHaveTextContent('30 releases checked · 2 Grabs so far')
+    expect(within(row).getByRole('progressbar', { name: 'Search progress' })).toBeInTheDocument()
+    expect(screen.queryByText(/nothing is downloading/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Watch in Health' })).toBeInTheDocument()
+
+    const current = () => document.querySelector('[aria-current="true"]')
+    expect(current()).toBe(row)
+    await userEvent.keyboard('j')
+    expect(current()).toHaveTextContent('Paddington')
+  })
+
+  it('has no search row when no pass runs', async () => {
+    renderApp()
+    await screen.findByText(/nothing is downloading/i)
+
+    expect(screen.queryByText(/Searching/)).not.toBeInTheDocument()
   })
 })

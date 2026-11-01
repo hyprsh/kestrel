@@ -1,12 +1,15 @@
 // Happening now: the Needs attention rows the server raised, with the actions it built, then the groups (an
 // Adoption plan, Long Missing, Originals available) and the Downloads, all rows of one card. Nothing here
 // knows a kind of row; it draws message, severity and buttons.
-import { Badge, Button, DotsMenu, Entity, Icon, MenuItem, Note } from '@hyprsh/design'
+import { Badge, Button, DotsMenu, Entity, Icon, MenuItem, Note, Progress } from '@hyprsh/design'
 import { RowList, stackedRow, stackedRight } from '../layout/RowList'
 import { useState, type ReactNode } from 'react'
 import { useAttention, type ActionResult, type Attention, type AttentionRow } from '../api/attention'
 import type { OriginalsAvailable } from '../api/offers'
 import { useQueue } from '../api/queue'
+import { useSearchStatus } from '../api/search'
+import { passLines } from '../activity/SearchProgress'
+import { useNow } from '../time'
 import { useCancel } from '../grabs/useCancel'
 import { SkeletonRows } from '../loading'
 import { planWaiting, useAdoption, type Adoption } from '../api/adoption'
@@ -35,6 +38,7 @@ export function useHappeningNow(onOpen: (path: string) => void, onOpenTitle: (id
   const attention = useAttention()
   const queue = useQueue()
   const adoption = useAdoption().data
+  const search = useSearchStatus().data?.pass ?? null
   const [all, setAll] = useState(false)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const rows = attention.data?.rows ?? []
@@ -52,9 +56,11 @@ export function useHappeningNow(onOpen: (path: string) => void, onOpenTitle: (id
       if (open) onOpen(open.path)
     }),
     ...groups.map((g) => () => (g === 'adoption' ? onOpenAdoption() : toggle(g))),
+    // The running search pass sits between the groups and the Downloads; Enter opens the Title it is searching.
+    ...(search ? [() => search.current && onOpenTitle(search.current.title_id)] : []),
     ...items.map((i) => () => i.title_id != null && onOpenTitle(i.title_id)),
   ]
-  return { attention, queue, adoption, all, setAll, expanded, toggle, rows, shown, downloads, items, groups, enter, loaded: !attention.isPending && !queue.isPending }
+  return { attention, queue, adoption, all, setAll, expanded, toggle, rows, shown, downloads, items, groups, search, enter, loaded: !attention.isPending && !queue.isPending }
 }
 
 export type HappeningNowModel = ReturnType<typeof useHappeningNow>
@@ -73,12 +79,13 @@ export function HappeningNow({
   nav: OverviewNav
 }) {
   const cancel = useCancel()
-  const { attention, adoption, all, setAll, expanded, toggle, rows, shown, downloads, items, groups, loaded } = model
-  const nothing = shown.length === 0 && groups.length === 0 && items.length === 0
+  const { attention, adoption, all, setAll, expanded, toggle, rows, shown, downloads, items, groups, search, loaded } = model
+  const nothing = shown.length === 0 && groups.length === 0 && items.length === 0 && !search
   const groupBase = nav.base + shown.length
-  const downloadBase = groupBase + groups.length
+  const searchBase = groupBase + groups.length
+  const downloadBase = searchBase + (search ? 1 : 0)
   return (
-    <Section id="happening-now" title="Happening now" count={rows.length + downloads.length}>
+    <Section id="happening-now" title="Happening now" count={rows.length + downloads.length + (search ? 1 : 0)}>
       {!loaded ? (
         <SkeletonRows poster="sm" />
       ) : nothing ? (
@@ -97,6 +104,7 @@ export function HappeningNow({
               return <OriginalsGroupRow key={g} group={attention.data.originals} open={!!expanded[g]} onToggle={() => toggle(g)} onOpenTitle={onOpenTitle} nav={nav} index={index} />
             return null
           })}
+          {search && <SearchRow pass={search} onOpen={onOpen} onOpenTitle={onOpenTitle} nav={nav} index={searchBase} />}
           <Downloads
             items={items}
             firstIndex={downloadBase}
@@ -111,6 +119,67 @@ export function HappeningNow({
       {(all || shown.length < rows.length) && <ViewAllHere count={rows.length} open={all} onToggle={() => setAll(!all)} />}
       {downloads.length > 0 && <ViewAll path="/activity" label="All activity →" />}
     </Section>
+  )
+}
+
+/** The running search pass in the look of a download row: the poster of the Title searched now, the bar and the counts. */
+function SearchRow({
+  pass,
+  onOpen,
+  onOpenTitle,
+  nav,
+  index,
+}: {
+  pass: NonNullable<ReturnType<typeof useSearchStatus>['data']>['pass']
+  onOpen: (path: string) => void
+  onOpenTitle: (id: number) => void
+  nav: OverviewNav
+  index: number
+}) {
+  const now = useNow()
+  if (!pass) return null
+  const c = pass.current
+  const { phase, name, nowText, count, releases } = passLines(pass, now)
+  return (
+    <Entity
+      as="button"
+      current={index === nav.sel}
+      data-nav={`ov-${index}`}
+      onClick={() => {
+        nav.select(index)
+        if (c) onOpenTitle(c.title_id)
+      }}
+      className={stackedRow}
+      rightClassName={stackedRight}
+      left={c ? <TitlePoster id={c.title_id} hasPoster={c.has_poster} size="sm" /> : <Icon name="search" />}
+      right={
+        <Button
+          variant="tertiary"
+          size="small"
+          onClick={(e) => {
+            e.stopPropagation()
+            onOpen('/health/jobs')
+          }}
+        >
+          Watch in Health
+        </Button>
+      }
+    >
+      <Entity.Content
+        fill
+        title={<span className="font-medium whitespace-normal">{name}</span>}
+        description={
+          <span className="flex flex-col gap-1 whitespace-normal">
+            {nowText && <span>{nowText}</span>}
+            <span className="flex items-center gap-3">
+              <Progress value={phase.done} max={Math.max(phase.total, 1)} type="success" height={6} aria-label="Search progress" className="min-w-16 flex-1" />
+              <span className="shrink-0 tabular-nums">{count}</span>
+            </span>
+            <span>{releases}</span>
+          </span>
+        }
+      />
+    </Entity>
   )
 }
 

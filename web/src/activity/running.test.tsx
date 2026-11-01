@@ -98,6 +98,27 @@ describe('the top bar', () => {
     expect(await topBar().findByRole('button', { name: 'Searching 15/40' })).toBeInTheDocument()
   })
 
+  it('adds the Releases checked to the search pass, and what is searched now to the tooltip', async () => {
+    const current = { title_id: 7, title: 'Breaking Bad', has_poster: false, slot: 'Standard', season: 5, episodes: [], releases_seen: 12 }
+    server.use(
+      http.get('/search/status', ({ response }) =>
+        response(200).json({
+          due: { versions: 4, episodes: 0, upgrades: 0 },
+          pass: passOf({ done: 1, total: 4, releases_seen: 12, current }),
+          next_pass_at: null,
+          last_pass: null,
+          upgrades_per_pass: 5,
+          indexers: [],
+        }),
+      ),
+    )
+    await withActivity({ running: ['search'] })
+    act(() => vi.advanceTimersByTime(1000))
+
+    const button = await topBar().findByRole('button', { name: 'Searching 1/4 · 12 releases' })
+    expect(button).toHaveAttribute('title', expect.stringContaining('Now: Breaking Bad · S05 · Standard · 12 releases'))
+  })
+
   it('shows an Adoption scan with its progress', async () => {
     await withActivity({ adoption: { state: 'scanning', done: 120, total: 450 } })
     act(() => vi.advanceTimersByTime(1000))
