@@ -183,3 +183,27 @@ func TestAnEpisodeCellTellsWhatTheLastSearchForItFound(t *testing.T) {
 		t.Error("no episode cell has a last_search after a search")
 	}
 }
+
+func TestAWantedSlotInTheListTellsItsLastSearchAndNextSearch(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	s.publish(t, "Paddington.2014.GERMAN.1080p.BluRay.x264-GRP")
+	s.pass(t, jobs.Search)
+
+	list := decode[struct {
+		Items []struct {
+			Slots struct {
+				Standard *struct {
+					State        string          `json:"state"`
+					LastSearch   *lastSearchJSON `json:"last_search"`
+					NextSearchAt *time.Time      `json:"next_search_at"`
+				} `json:"standard"`
+			} `json:"slots"`
+		} `json:"items"`
+	}](t, s.valid("GET", "/titles", ""))
+
+	var sl = list.Items[0].Slots.Standard
+	if sl == nil || sl.State != "wanted" || sl.LastSearch == nil || sl.LastSearch.Releases != 1 || sl.NextSearchAt == nil {
+		t.Errorf("Standard slot = %+v, want a Wanted one with its last search and next search", sl)
+	}
+}

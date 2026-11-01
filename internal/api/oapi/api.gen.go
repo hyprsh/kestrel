@@ -4738,8 +4738,13 @@ type SlotState string
 
 // SlotSummary defines model for SlotSummary.
 type SlotSummary struct {
-	LongMissing bool   `json:"long_missing"`
-	Profile     string `json:"profile"`
+	// LastSearch What the last search of a Wanted Version found. Only a Wanted Version has it here (the Overview lists those); null when it was never searched.
+	LastSearch  *LastSearch `json:"last_search,omitempty"`
+	LongMissing bool        `json:"long_missing"`
+
+	// NextSearchAt When a Wanted Version is next searched. Only a Wanted Version has it here.
+	NextSearchAt *time.Time `json:"next_search_at,omitempty"`
+	Profile      string     `json:"profile"`
 
 	// State `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
 	// Clients tolerate new values.

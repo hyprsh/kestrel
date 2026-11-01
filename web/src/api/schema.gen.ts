@@ -3406,6 +3406,13 @@ export interface components {
             profile: string;
             state: components["schemas"]["SlotState"];
             long_missing: boolean;
+            /** @description What the last search of a Wanted Version found. Only a Wanted Version has it here (the Overview lists those); null when it was never searched. */
+            last_search?: components["schemas"]["LastSearch"] | null;
+            /**
+             * Format: date-time
+             * @description When a Wanted Version is next searched. Only a Wanted Version has it here.
+             */
+            next_search_at?: string | null;
         };
         TitleRow: {
             /** Format: int64 */

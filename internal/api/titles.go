@@ -302,6 +302,9 @@ func (s *server) ListTitles(ctx context.Context, r oapi.ListTitlesRequestObject)
 	for _, row := range rows[offset:end] {
 		out.Items = append(out.Items, rowToAPI(row))
 	}
+	if err := s.withWantedSearches(ctx, out.Items); err != nil {
+		return nil, err
+	}
 	return oapi.ListTitles200JSONResponse(out), nil
 }
 

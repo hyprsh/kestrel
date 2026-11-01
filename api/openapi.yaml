@@ -4743,6 +4743,16 @@ components:
           $ref: "#/components/schemas/SlotState"
         long_missing:
           type: boolean
+        last_search:
+          allOf:
+            - $ref: "#/components/schemas/LastSearch"
+          nullable: true
+          description: What the last search of a Wanted Version found. Only a Wanted Version has it here (the Overview lists those); null when it was never searched.
+        next_search_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When a Wanted Version is next searched. Only a Wanted Version has it here.
     TitleRow:
       type: object
       required: [id, kind, title, primary_title, year, has_poster, slots, wanted_since, added_at, size, searched_at, wanted_episodes]
