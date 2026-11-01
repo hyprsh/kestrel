@@ -37,3 +37,13 @@ func Facts(parsedJSON, probeJSON string) (quality string, languages []string) {
 	}
 	return quality, languages
 }
+
+// ReleaseGroup reads the release group off the parse snapshot stored on a file;
+// "" when the snapshot is missing or the name had no group.
+func ReleaseGroup(parsedJSON string) string {
+	var p release.ParsedRelease
+	if json.Unmarshal([]byte(parsedJSON), &p) != nil {
+		return ""
+	}
+	return p.ReleaseGroup
+}

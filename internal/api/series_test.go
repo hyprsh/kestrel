@@ -49,6 +49,15 @@ type cellJSON struct {
 		Size       int64   `json:"size"`
 		Quality    *string `json:"quality"`
 		EpisodeIDs []int64 `json:"episode_ids"`
+
+		ReleaseName   string   `json:"release_name"`
+		Languages     []string `json:"languages"`
+		ReleaseGroup  *string  `json:"release_group"`
+		ImportedAt    string   `json:"imported_at"`
+		CustomFormats []struct {
+			Name   string `json:"name"`
+			Points int    `json:"points"`
+		} `json:"custom_formats"`
 	} `json:"file"`
 }
 

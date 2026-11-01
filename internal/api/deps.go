@@ -217,9 +217,11 @@ type Remover interface {
 	DeleteTitle(ctx context.Context, titleID int64, deleteFiles bool) error
 }
 
-// Rescorer moves a Version to another Profile and re-scores its stored file.
+// Rescorer moves a Version to another Profile and re-scores its stored file, and
+// names the Custom Formats each file of a Title matches under its Profile.
 type Rescorer interface {
 	SwitchProfile(ctx context.Context, titleID, versionID int64, profile string) error
+	FileFormats(ctx context.Context, titleID int64) (map[int64][]scoring.MatchedFormat, error)
 }
 
 // TitleFiles moves a Title's files to another Root folder and deletes a

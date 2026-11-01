@@ -12,6 +12,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
+	"github.com/hyprsh/kestrel/internal/scoring"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
@@ -88,6 +89,10 @@ func (s *server) ListEpisodes(ctx context.Context, r oapi.ListEpisodesRequestObj
 	if err != nil {
 		return nil, seriesProblem(err)
 	}
+	formats, err := s.imports.FileFormats(ctx, r.Id)
+	if err != nil {
+		return nil, err
+	}
 	out := oapi.EpisodeList{Items: make([]oapi.Episode, 0, len(eps))}
 	cell := func(c *library.EpisodeCell) *oapi.EpisodeCell {
 		if c == nil {
@@ -95,8 +100,12 @@ func (s *server) ListEpisodes(ctx context.Context, r oapi.ListEpisodesRequestObj
 		}
 		out := &oapi.EpisodeCell{State: oapi.SlotState(c.State), Score: c.Score}
 		if f := c.File; f != nil {
-			quality, _ := imports.Facts(f.ParsedRelease, "")
-			out.File = &oapi.EpisodeFile{Id: f.ID, Path: f.Path, Size: f.Size, Quality: strPtr(quality), EpisodeIds: f.EpisodeIDs}
+			quality, languages := imports.Facts(f.ParsedRelease, f.Probe)
+			out.File = &oapi.EpisodeFile{
+				Id: f.ID, Path: f.Path, Size: f.Size, Quality: strPtr(quality), EpisodeIds: f.EpisodeIDs,
+				ReleaseName: f.ReleaseName, Languages: languages, ImportedAt: f.ImportedAt,
+				ReleaseGroup: strPtr(imports.ReleaseGroup(f.ParsedRelease)), CustomFormats: formatsToAPI(formats[f.ID]),
+			}
 		}
 		return out
 	}
@@ -178,7 +187,7 @@ func (s *server) PatchTitle(ctx context.Context, r oapi.PatchTitleRequestObject)
 	if err != nil {
 		return nil, seriesProblem(err)
 	}
-	out := detailToAPI(d, view.Country)
+	out := detailToAPI(d, view.Country, nil)
 	if err := s.origins(ctx, &out); err != nil {
 		return nil, err
 	}
@@ -186,4 +195,13 @@ func (s *server) PatchTitle(ctx context.Context, r oapi.PatchTitleRequestObject)
 		return nil, err
 	}
 	return oapi.PatchTitle200JSONResponse(out), nil
+}
+
+// formatsToAPI lists the matched Custom Formats with their points; never nil.
+func formatsToAPI(m []scoring.MatchedFormat) []oapi.CustomFormatMatch {
+	out := make([]oapi.CustomFormatMatch, 0, len(m))
+	for _, f := range m {
+		out = append(out, oapi.CustomFormatMatch{Name: f.Name, Points: f.Score})
+	}
+	return out
 }

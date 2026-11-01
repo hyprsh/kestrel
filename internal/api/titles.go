@@ -14,6 +14,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
+	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 	"github.com/hyprsh/kestrel/internal/slot"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -313,7 +314,16 @@ var releaseTypeNames = map[metadata.ReleaseType]oapi.ReleaseDateEntryType{
 	metadata.TV:                "tv",
 }
 
-func detailToAPI(d library.Detail, country string) oapi.TitleDetail {
+// movieFormats names the Custom Formats the file of each of a Movie's Versions matches; nil for a Series.
+func (s *server) movieFormats(ctx context.Context, d library.Detail) (map[int64][]scoring.MatchedFormat, error) {
+	if d.Kind != library.Movie {
+		return nil, nil
+	}
+	return s.imports.FileFormats(ctx, d.ID)
+}
+
+// detailToAPI shapes a Title; formats are the matched Custom Formats by file id (see movieFormats).
+func detailToAPI(d library.Detail, country string, formats map[int64][]scoring.MatchedFormat) oapi.TitleDetail {
 	_, cert := d.ReleaseDates.Certification(country)
 	out := oapi.TitleDetail{
 		Id: d.ID, Kind: oapi.TitleKind(d.Kind), TmdbId: intPtr(d.TMDBID), TvdbId: intPtr(d.TVDBID), ImdbId: strPtr(d.IMDbID),
@@ -344,9 +354,11 @@ func detailToAPI(d library.Detail, country string) oapi.TitleDetail {
 		}
 		if f := v.File; f != nil {
 			quality, languages := imports.Facts(f.ParsedRelease, f.Probe)
+			cfs := formatsToAPI(formats[f.ID])
 			ov.File = &oapi.FileSummary{
 				Path: f.Path, Size: f.Size, ReleaseName: f.ReleaseName, Score: f.Score, ImportedAt: f.ImportedAt,
 				Quality: strPtr(quality), Languages: &languages, Misfit: &f.Misfit,
+				ReleaseGroup: strPtr(imports.ReleaseGroup(f.ParsedRelease)), CustomFormats: &cfs,
 			}
 		}
 		if c := v.Coverage; c != nil {
@@ -369,7 +381,11 @@ func (s *server) GetTitle(ctx context.Context, r oapi.GetTitleRequestObject) (oa
 	if err != nil {
 		return nil, err
 	}
-	out := detailToAPI(d, view.Country)
+	formats, err := s.movieFormats(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+	out := detailToAPI(d, view.Country, formats)
 	if err := s.origins(ctx, &out); err != nil {
 		return nil, err
 	}
@@ -478,7 +494,7 @@ func (s *server) added(ctx context.Context, t newTitle) (oapi.CreateTitleRespons
 	if err != nil {
 		return nil, err
 	}
-	return oapi.CreateTitle201JSONResponse(detailToAPI(d, t.country)), nil
+	return oapi.CreateTitle201JSONResponse(detailToAPI(d, t.country, nil)), nil
 }
 
 func (s *server) GetTitlePoster(ctx context.Context, r oapi.GetTitlePosterRequestObject) (oapi.GetTitlePosterResponseObject, error) {

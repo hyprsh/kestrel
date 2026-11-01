@@ -46,6 +46,12 @@ type fileJSON struct {
 	Score       *int     `json:"score"`
 	Quality     *string  `json:"quality"`
 	Languages   []string `json:"languages"`
+
+	ReleaseGroup  *string `json:"release_group"`
+	CustomFormats []struct {
+		Name   string `json:"name"`
+		Points int    `json:"points"`
+	} `json:"custom_formats"`
 }
 
 // download runs the Movie loop up to a completed job whose files are in a
@@ -137,6 +143,16 @@ func TestACompletedMovieIsImportedIntoItsFolderAndTheVersionShowsItsFile(t *test
 	}
 	if f.Score == nil || f.Quality == nil || *f.Quality != "Bluray-1080p" || len(f.Languages) != 1 || f.Languages[0] != "English" {
 		t.Errorf("file summary = %+v", f)
+	}
+	if f.CustomFormats == nil {
+		t.Error("the file summary has no custom_formats list")
+	}
+	sum := 0
+	for _, cf := range f.CustomFormats {
+		sum += cf.Points
+	}
+	if f.Score != nil && sum != *f.Score {
+		t.Errorf("custom formats %+v add up to %d, want the Score %d", f.CustomFormats, sum, *f.Score)
 	}
 	if s.hasJob(t, jobID) {
 		t.Error("the client still has the job after the Import")

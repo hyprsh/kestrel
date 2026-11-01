@@ -95,7 +95,7 @@ FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
 WHERE g.title_id = ? AND g.version_id IS NOT NULL AND g.state NOT IN ('imported', 'failed');
 
 -- name: ListAllFileEpisodesOfTitle :many
-SELECT f.version_id, fe.episode_id, f.id AS file_id, f.path, f.size, f.parsed_release
+SELECT f.version_id, fe.episode_id, f.id AS file_id, f.path, f.size, f.release_name, f.parsed_release, f.probe, f.imported_at
 FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id WHERE v.title_id = ?;
 
 -- When each episode's earliest file in any Version was imported, misfits included: a file shows the episode is out.

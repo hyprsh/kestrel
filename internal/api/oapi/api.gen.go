@@ -2331,14 +2331,27 @@ type EpisodeCell struct {
 
 // EpisodeFile A file on disk holding one or more episodes of a Version (a multi-episode file holds several).
 type EpisodeFile struct {
+	// CustomFormats The Custom Formats the file matches with their points, as the Version's Profile scores the file now (its stored parse and probe, the way a Profile switch re-scores it), so the points add up to the Score.
+	CustomFormats []CustomFormatMatch `json:"custom_formats"`
+
 	// EpisodeIds Every episode the file holds, in aired order; more than one for a multi-episode file.
-	EpisodeIds []int64 `json:"episode_ids"`
-	Id         int64   `json:"id"`
-	Path       string  `json:"path"`
+	EpisodeIds []int64   `json:"episode_ids"`
+	Id         int64     `json:"id"`
+	ImportedAt time.Time `json:"imported_at"`
+
+	// Languages The audio languages ffprobe found (English names), in track order.
+	Languages []string `json:"languages"`
+	Path      string   `json:"path"`
 
 	// Quality The quality name parsed from the release name ("WEBDL-1080p").
 	Quality *string `json:"quality"`
-	Size    int64   `json:"size"`
+
+	// ReleaseGroup The release group parsed from the release name; null when the name has none.
+	ReleaseGroup *string `json:"release_group,omitempty"`
+
+	// ReleaseName The name of the Release the file came from.
+	ReleaseName string `json:"release_name"`
+	Size        int64  `json:"size"`
 }
 
 // EpisodeList defines model for EpisodeList.
@@ -2378,7 +2391,9 @@ type EventList struct {
 
 // FileSummary defines model for FileSummary.
 type FileSummary struct {
-	ImportedAt time.Time `json:"imported_at"`
+	// CustomFormats The Custom Formats the file matches with their points, as the Version's Profile scores the file now (its stored parse and probe, the way a Profile switch re-scores it), so the points add up to the Score.
+	CustomFormats *[]CustomFormatMatch `json:"custom_formats,omitempty"`
+	ImportedAt    time.Time            `json:"imported_at"`
 
 	// Languages The audio languages ffprobe found (English names), in track order.
 	Languages *[]string `json:"languages,omitempty"`
@@ -2388,10 +2403,13 @@ type FileSummary struct {
 	Path   string `json:"path"`
 
 	// Quality The quality name parsed from the release name ("Bluray-1080p").
-	Quality     *string `json:"quality,omitempty"`
-	ReleaseName string  `json:"release_name"`
-	Score       *int    `json:"score"`
-	Size        int64   `json:"size"`
+	Quality *string `json:"quality,omitempty"`
+
+	// ReleaseGroup The release group parsed from the release name; null when the name has none.
+	ReleaseGroup *string `json:"release_group,omitempty"`
+	ReleaseName  string  `json:"release_name"`
+	Score        *int    `json:"score"`
+	Size         int64   `json:"size"`
 }
 
 // FolderChange defines model for FolderChange.

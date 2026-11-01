@@ -2858,6 +2858,16 @@ export interface components {
             quality: string | null;
             /** @description Every episode the file holds, in aired order; more than one for a multi-episode file. */
             episode_ids: number[];
+            /** @description The name of the Release the file came from. */
+            release_name: string;
+            /** @description The audio languages ffprobe found (English names), in track order. */
+            languages: string[];
+            /** @description The release group parsed from the release name; null when the name has none. */
+            release_group?: string | null;
+            /** Format: date-time */
+            imported_at: string;
+            /** @description The Custom Formats the file matches with their points, as the Version's Profile scores the file now (its stored parse and probe, the way a Profile switch re-scores it), so the points add up to the Score. */
+            custom_formats: components["schemas"]["CustomFormatMatch"][];
         };
         Episode: {
             /** Format: int64 */
@@ -3086,8 +3096,12 @@ export interface components {
             languages?: string[];
             /** @description The file no longer fits the Version's Profile; the Version is Wanted. */
             misfit?: boolean;
+            /** @description The release group parsed from the release name; null when the name has none. */
+            release_group?: string | null;
             /** Format: date-time */
             imported_at: string;
+            /** @description The Custom Formats the file matches with their points, as the Version's Profile scores the file now (its stored parse and probe, the way a Profile switch re-scores it), so the points add up to the Score. */
+            custom_formats?: components["schemas"]["CustomFormatMatch"][];
         };
         VersionDetail: {
             /** Format: int64 */

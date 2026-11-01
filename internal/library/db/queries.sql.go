@@ -649,7 +649,7 @@ func (q *Queries) ListAliasesOfTitle(ctx context.Context, titleID int64) ([]List
 }
 
 const listAllFileEpisodesOfTitle = `-- name: ListAllFileEpisodesOfTitle :many
-SELECT f.version_id, fe.episode_id, f.id AS file_id, f.path, f.size, f.parsed_release
+SELECT f.version_id, fe.episode_id, f.id AS file_id, f.path, f.size, f.release_name, f.parsed_release, f.probe, f.imported_at
 FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id WHERE v.title_id = ?
 `
 
@@ -659,7 +659,10 @@ type ListAllFileEpisodesOfTitleRow struct {
 	FileID        int64
 	Path          string
 	Size          int64
+	ReleaseName   string
 	ParsedRelease sql.NullString
+	Probe         sql.NullString
+	ImportedAt    string
 }
 
 func (q *Queries) ListAllFileEpisodesOfTitle(ctx context.Context, titleID int64) ([]ListAllFileEpisodesOfTitleRow, error) {
@@ -677,7 +680,10 @@ func (q *Queries) ListAllFileEpisodesOfTitle(ctx context.Context, titleID int64)
 			&i.FileID,
 			&i.Path,
 			&i.Size,
+			&i.ReleaseName,
 			&i.ParsedRelease,
+			&i.Probe,
+			&i.ImportedAt,
 		); err != nil {
 			return nil, err
 		}

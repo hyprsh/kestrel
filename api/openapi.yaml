@@ -3912,7 +3912,7 @@ components:
     EpisodeFile:
       type: object
       description: A file on disk holding one or more episodes of a Version (a multi-episode file holds several).
-      required: [id, path, size, quality, episode_ids]
+      required: [id, path, size, quality, episode_ids, release_name, languages, imported_at, custom_formats]
       properties:
         id:
           type: integer
@@ -3932,6 +3932,26 @@ components:
           items:
             type: integer
             format: int64
+        release_name:
+          type: string
+          description: The name of the Release the file came from.
+        languages:
+          type: array
+          description: The audio languages ffprobe found (English names), in track order.
+          items:
+            type: string
+        release_group:
+          type: string
+          nullable: true
+          description: The release group parsed from the release name; null when the name has none.
+        imported_at:
+          type: string
+          format: date-time
+        custom_formats:
+          type: array
+          description: The Custom Formats the file matches with their points, as the Version's Profile scores the file now (its stored parse and probe, the way a Profile switch re-scores it), so the points add up to the Score.
+          items:
+            $ref: "#/components/schemas/CustomFormatMatch"
     Episode:
       type: object
       required: [id, season, number, name, primary_name, original_name, air_date, monitored, cells, placeholder]
@@ -4304,9 +4324,18 @@ components:
         misfit:
           type: boolean
           description: The file no longer fits the Version's Profile; the Version is Wanted.
+        release_group:
+          type: string
+          nullable: true
+          description: The release group parsed from the release name; null when the name has none.
         imported_at:
           type: string
           format: date-time
+        custom_formats:
+          type: array
+          description: The Custom Formats the file matches with their points, as the Version's Profile scores the file now (its stored parse and probe, the way a Profile switch re-scores it), so the points add up to the Score.
+          items:
+            $ref: "#/components/schemas/CustomFormatMatch"
     VersionDetail:
       type: object
       required: [id, slot, profile, state, long_missing, wanted_since, file, added_at]

@@ -57,8 +57,12 @@ type EpisodeFile struct {
 	ID   int64
 	Path string
 	Size int64
-	// ParsedRelease is the JSON snapshot Imports wrote; "" when none.
+	// ReleaseName is the name of the Release the file came from.
+	ReleaseName string
+	// ParsedRelease and Probe are the JSON snapshots Imports wrote; "" when none.
 	ParsedRelease string
+	Probe         string
+	ImportedAt    time.Time
 	// EpisodeIDs are every episode the file holds, in aired order.
 	EpisodeIDs []int64
 	// Original marks an Original (see File).
@@ -370,7 +374,7 @@ func (s *Service) Episodes(ctx context.Context, titleID int64, view View) ([]Epi
 	for _, r := range all {
 		f := files[r.FileID]
 		if f == nil {
-			f = &EpisodeFile{ID: r.FileID, Path: r.Path, Size: r.Size, ParsedRelease: r.ParsedRelease.String}
+			f = &EpisodeFile{ID: r.FileID, Path: r.Path, Size: r.Size, ReleaseName: r.ReleaseName, ParsedRelease: r.ParsedRelease.String, Probe: r.Probe.String, ImportedAt: parseTime(r.ImportedAt)}
 			files[r.FileID] = f
 		}
 		f.EpisodeIDs = append(f.EpisodeIDs, r.EpisodeID)
