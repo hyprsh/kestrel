@@ -1,3 +1,4 @@
+// chrome: domain-visual
 // The Versions of a Title on its page. A Series: one compact card per Slot, side by side, with what that Slot is
 // downloading inside it. A Movie: one row per Slot in a card, each with its state and its one next action.
 import { Button, DotsMenu, Entity, MenuDivider, MenuItem, Note, Progress } from '@hyprsh/design'
