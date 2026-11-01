@@ -8,6 +8,7 @@ import type { SlotKey } from './bits'
 import { rated, Ratings } from './Ratings'
 import { SeriesSection } from './SeriesSection'
 import { MovieSection } from './MovieSection'
+import { TitleHistory } from './TitleHistory'
 import { MonitoringMenu, TitleActions } from './TitleActions'
 import { TitleBadges } from './TitleBadges'
 import { VersionRows } from './VersionRows'
@@ -129,6 +130,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
 
       <VersionRows title={title} profiles={profiles.data ?? []} profileName={profileName} onManualSearch={onManualSearch} />
       {title.kind === 'series' ? <SeriesSection title={title} onManualSearch={onManualSearch} /> : <MovieSection title={title} profileName={profileName} onManualSearch={onManualSearch} />}
+      <TitleHistory title={title} />
     </div>
   )
 }
