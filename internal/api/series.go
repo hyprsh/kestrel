@@ -197,6 +197,11 @@ func (s *server) PatchTitle(ctx context.Context, r oapi.PatchTitleRequestObject)
 			return nil, seriesProblem(err)
 		}
 	}
+	if r.Body.MonitorNewSeasons != nil || r.Body.MonitorSpecials != nil {
+		if err := s.library.SetSeriesMonitorOptions(ctx, r.Id, r.Body.MonitorNewSeasons, r.Body.MonitorSpecials); err != nil {
+			return nil, seriesProblem(err)
+		}
+	}
 	view, err := s.view(ctx)
 	if err != nil {
 		return nil, err

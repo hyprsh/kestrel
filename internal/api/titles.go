@@ -341,6 +341,8 @@ func detailToAPI(d library.Detail, country string, formats map[int64][]scoring.M
 	if d.Kind == library.Series {
 		mode := oapi.SeriesMonitor(d.SeriesMonitor)
 		out.SeriesMonitor = &mode
+		out.MonitorNewSeasons = &d.MonitorOpts.NewSeasons
+		out.MonitorSpecials = &d.MonitorOpts.Specials
 		for _, se := range d.Seasons {
 			out.Seasons = append(out.Seasons, oapi.Season{Number: se.Number, Monitored: se.Monitored})
 		}

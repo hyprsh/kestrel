@@ -328,3 +328,44 @@ func TestAnEpisodeAGrabInFlightCoversIsDownloadingInItsCell(t *testing.T) {
 		t.Errorf("an episode no Grab covers is %v, want wanted", s)
 	}
 }
+
+func TestMonitoringSpecialsMakesSeasonZeroFollowTheMode(t *testing.T) {
+	ctx := context.Background()
+	lib, _ := newLibrary(t)
+	id := addShow(t, lib, library.MonitorAll)
+	d, _ := lib.Get(ctx, id, library.View{Country: "US", Now: now})
+	if !d.MonitorOpts.NewSeasons || d.MonitorOpts.Specials {
+		t.Fatalf("a new Series starts with new seasons on and Specials off: %+v", d.MonitorOpts)
+	}
+	on := true
+	if err := lib.SetSeriesMonitorOptions(ctx, id, nil, &on); err != nil {
+		t.Fatal(err)
+	}
+	if got := monitoredByEpisode(t, lib, id); !got["Special"] || !got["Pilot"] {
+		t.Errorf("specials on: %v", got)
+	}
+	d, _ = lib.Get(ctx, id, library.View{Country: "US", Now: now})
+	if !d.MonitorOpts.Specials || !d.MonitorOpts.NewSeasons {
+		t.Errorf("opts = %+v", d.MonitorOpts)
+	}
+	// With the mode Not monitored, Specials stay off whatever the switch says.
+	if err := lib.SetSeriesMonitor(ctx, id, library.MonitorNone); err != nil {
+		t.Fatal(err)
+	}
+	if got := monitoredByEpisode(t, lib, id); got["Special"] || got["Pilot"] {
+		t.Errorf("none: %v", got)
+	}
+	off := false
+	if err := lib.SetSeriesMonitor(ctx, id, library.MonitorAll); err != nil {
+		t.Fatal(err)
+	}
+	if err := lib.SetSeriesMonitorOptions(ctx, id, nil, &off); err != nil {
+		t.Fatal(err)
+	}
+	if got := monitoredByEpisode(t, lib, id); got["Special"] || !got["Pilot"] {
+		t.Errorf("specials off again: %v", got)
+	}
+	if err := lib.SetSeriesMonitorOptions(ctx, addPaddington(t, lib), &off, nil); !errors.Is(err, library.ErrNotASeries) {
+		t.Errorf("a Movie has no switches: %v", err)
+	}
+}

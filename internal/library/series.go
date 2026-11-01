@@ -458,6 +458,39 @@ func (s *Service) SetSeriesMonitor(ctx context.Context, id int64, mode Monitor) 
 // applySeriesMode sets a Series' mode and applies it to every episode, and
 // reports whether that changed anything. The caller refreshes the seasons.
 func applySeriesMode(ctx context.Context, q *db.Queries, id int64, mode Monitor, now time.Time) (bool, error) {
+	return applySeries(ctx, q, id, mode, nil, now)
+}
+
+func optionsOf(t db.Title) MonitorOptions {
+	return MonitorOptions{NewSeasons: t.MonitorNewSeasons == 1, Specials: t.MonitorSpecials == 1}
+}
+
+// SetSeriesMonitorOptions sets a Series' two switches (nil leaves one as it is). Turning Specials on or off
+// applies the mode to season 0 now; new seasons only matters for seasons that come later.
+func (s *Service) SetSeriesMonitorOptions(ctx context.Context, id int64, newSeasons, specials *bool) error {
+	return s.writeSeries(ctx, id, func(q *db.Queries) error {
+		t, err := q.GetTitle(ctx, id)
+		if err != nil {
+			return err
+		}
+		o := optionsOf(t)
+		if newSeasons != nil {
+			o.NewSeasons = *newSeasons
+		}
+		if specials != nil {
+			o.Specials = *specials
+		}
+		if err := q.SetSeriesMonitorOptions(ctx, db.SetSeriesMonitorOptionsParams{MonitorNewSeasons: boolInt(o.NewSeasons), MonitorSpecials: boolInt(o.Specials), ID: id}); err != nil {
+			return err
+		}
+		_, err = applySeries(ctx, q, id, Monitor(t.SeriesMonitor.String), &o, s.clock())
+		return err
+	})
+}
+
+// applySeries applies the mode to every episode with the Series' options (opts nil: the stored ones). A change
+// of options only touches Specials, since the other seasons already follow the mode.
+func applySeries(ctx context.Context, q *db.Queries, id int64, mode Monitor, opts *MonitorOptions, now time.Time) (bool, error) {
 	t, err := q.GetTitle(ctx, id)
 	if err != nil {
 		return false, err
@@ -468,12 +501,16 @@ func applySeriesMode(ctx context.Context, q *db.Queries, id int64, mode Monitor,
 			return false, err
 		}
 	}
+	o := optionsOf(t)
+	if opts != nil {
+		o = *opts
+	}
 	eps, err := q.ListEpisodesOfTitle(ctx, id)
 	if err != nil {
 		return false, err
 	}
 	for _, e := range eps {
-		on := boolInt(mode.MonitorsEpisode(int(e.Season), parseDate(e.AirDate), now))
+		on := boolInt(mode.Monitors(o, int(e.Season), parseDate(e.AirDate), now, false))
 		if on == e.Monitored {
 			continue
 		}

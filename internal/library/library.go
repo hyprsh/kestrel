@@ -271,6 +271,7 @@ type Detail struct {
 	Versions      []Version // in Slot order
 	// SeriesMonitor and Seasons are set for a Series.
 	SeriesMonitor Monitor
+	MonitorOpts   MonitorOptions
 	Seasons       []Season
 }
 
@@ -687,6 +688,7 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 	grabbing := map[int64]map[int64]bool{} // Version, then episode
 	if d.Kind == Series {
 		d.SeriesMonitor = Monitor(t.SeriesMonitor.String)
+		d.MonitorOpts = optionsOf(t)
 		seasons, err := q.ListSeasonsOfTitle(ctx, id)
 		if err != nil {
 			return Detail{}, err

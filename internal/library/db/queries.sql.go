@@ -252,7 +252,7 @@ func (q *Queries) GetFileOfVersionEpisode(ctx context.Context, arg GetFileOfVers
 }
 
 const getTitle = `-- name: GetTitle :one
-SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count, release_seen_at, network, tvdb_status, air_time, air_timezone FROM titles WHERE id = ?
+SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count, release_seen_at, network, tvdb_status, air_time, air_timezone, monitor_new_seasons, monitor_specials FROM titles WHERE id = ?
 `
 
 func (q *Queries) GetTitle(ctx context.Context, id int64) (Title, error) {
@@ -286,6 +286,8 @@ func (q *Queries) GetTitle(ctx context.Context, id int64) (Title, error) {
 		&i.TvdbStatus,
 		&i.AirTime,
 		&i.AirTimezone,
+		&i.MonitorNewSeasons,
+		&i.MonitorSpecials,
 	)
 	return i, err
 }
@@ -1663,7 +1665,7 @@ func (q *Queries) ListSeasonsOfTitle(ctx context.Context, titleID int64) ([]Seas
 }
 
 const listTitles = `-- name: ListTitles :many
-SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count, release_seen_at, network, tvdb_status, air_time, air_timezone FROM titles ORDER BY added_at DESC, id DESC
+SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count, release_seen_at, network, tvdb_status, air_time, air_timezone, monitor_new_seasons, monitor_specials FROM titles ORDER BY added_at DESC, id DESC
 `
 
 func (q *Queries) ListTitles(ctx context.Context) ([]Title, error) {
@@ -1703,6 +1705,8 @@ func (q *Queries) ListTitles(ctx context.Context) ([]Title, error) {
 			&i.TvdbStatus,
 			&i.AirTime,
 			&i.AirTimezone,
+			&i.MonitorNewSeasons,
+			&i.MonitorSpecials,
 		); err != nil {
 			return nil, err
 		}
@@ -2092,6 +2096,21 @@ type SetSeriesMonitorParams struct {
 
 func (q *Queries) SetSeriesMonitor(ctx context.Context, arg SetSeriesMonitorParams) error {
 	_, err := q.db.ExecContext(ctx, setSeriesMonitor, arg.SeriesMonitor, arg.ID)
+	return err
+}
+
+const setSeriesMonitorOptions = `-- name: SetSeriesMonitorOptions :exec
+UPDATE titles SET monitor_new_seasons = ?, monitor_specials = ? WHERE id = ? AND kind = 'series'
+`
+
+type SetSeriesMonitorOptionsParams struct {
+	MonitorNewSeasons int64
+	MonitorSpecials   int64
+	ID                int64
+}
+
+func (q *Queries) SetSeriesMonitorOptions(ctx context.Context, arg SetSeriesMonitorOptionsParams) error {
+	_, err := q.db.ExecContext(ctx, setSeriesMonitorOptions, arg.MonitorNewSeasons, arg.MonitorSpecials, arg.ID)
 	return err
 }
 

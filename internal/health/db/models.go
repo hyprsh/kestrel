@@ -353,33 +353,35 @@ type Setting struct {
 }
 
 type Title struct {
-	ID               int64
-	Kind             string
-	TmdbID           sql.NullInt64
-	TvdbID           sql.NullInt64
-	ImdbID           sql.NullString
-	Title            string
-	OriginalTitle    string
-	PrimaryTitle     string
-	Year             sql.NullInt64
-	OriginalLanguage string
-	Overview         string
-	Runtime          sql.NullInt64
-	PosterPath       sql.NullString
-	Monitored        int64
-	SeriesMonitor    sql.NullString
-	MetadataFrozen   int64
-	RootFolder       string
-	Folder           sql.NullString
-	AddedAt          string
-	RefreshedAt      string
-	TmdbVoteAverage  sql.NullFloat64
-	TmdbVoteCount    sql.NullInt64
-	ReleaseSeenAt    sql.NullString
-	Network          string
-	TvdbStatus       string
-	AirTime          string
-	AirTimezone      string
+	ID                int64
+	Kind              string
+	TmdbID            sql.NullInt64
+	TvdbID            sql.NullInt64
+	ImdbID            sql.NullString
+	Title             string
+	OriginalTitle     string
+	PrimaryTitle      string
+	Year              sql.NullInt64
+	OriginalLanguage  string
+	Overview          string
+	Runtime           sql.NullInt64
+	PosterPath        sql.NullString
+	Monitored         int64
+	SeriesMonitor     sql.NullString
+	MetadataFrozen    int64
+	RootFolder        string
+	Folder            sql.NullString
+	AddedAt           string
+	RefreshedAt       string
+	TmdbVoteAverage   sql.NullFloat64
+	TmdbVoteCount     sql.NullInt64
+	ReleaseSeenAt     sql.NullString
+	Network           string
+	TvdbStatus        string
+	AirTime           string
+	AirTimezone       string
+	MonitorNewSeasons int64
+	MonitorSpecials   int64
 }
 
 type TitleAlias struct {

@@ -135,6 +135,7 @@ type Library interface {
 	Names(ctx context.Context) ([]library.Named, error)
 	Episodes(ctx context.Context, titleID int64, view library.View) ([]library.Episode, error)
 	SetSeriesMonitor(ctx context.Context, id int64, mode library.Monitor) error
+	SetSeriesMonitorOptions(ctx context.Context, id int64, newSeasons, specials *bool) error
 	SetMovieMonitored(ctx context.Context, id int64, monitored bool) error
 	SetMonitored(ctx context.Context, ids []int64, monitored bool, mode library.Monitor) ([]library.MonitorResult, error)
 	SetSeasonMonitored(ctx context.Context, id int64, season int, monitored bool) error

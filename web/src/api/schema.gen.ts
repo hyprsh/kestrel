@@ -725,7 +725,7 @@ export interface paths {
          *     An unmonitored Movie is never Wanted, searched or Upgraded, by the sweep or RSS; its Versions
          *     and files stay as they are, and a Grab started by hand still works. Monitoring it again makes
          *     its Versions due a search now. `series_monitor` applies the mode to every episode and season
-         *     now (Specials are never monitored by a mode); `422` for a Movie. `metadata_frozen` true keeps
+         *     now (Specials only when `monitor_specials` is on); `422` for a Movie. `metadata_frozen` true keeps
          *     the stored metadata as it is and clears a "Title gone upstream" row; false lets refreshes
          *     resume.
          *
@@ -3193,8 +3193,9 @@ export interface components {
         };
         /**
          * @description `all` monitors every episode, future ones and new seasons included; `future` the episodes airing
-         *     today or later or without an air date, and new seasons; `none` nothing. Specials (season 0) are
-         *     never monitored automatically.
+         *     today or later or without an air date, and new seasons; `none` nothing. New seasons are left
+         *     out when the Series' `monitor_new_seasons` is off, and Specials (season 0) are monitored by a
+         *     mode only when `monitor_specials` is on.
          * @enum {string}
          */
         SeriesMonitor: "all" | "future" | "none";
@@ -3282,6 +3283,10 @@ export interface components {
             /** @description A Movie only; a Series is monitored through `series_monitor`. */
             monitored?: boolean;
             series_monitor?: components["schemas"]["SeriesMonitor"];
+            /** @description A Series only (`422` for a Movie). Whether a season TheTVDB adds later is monitored by the mode; off, its episodes arrive unmonitored. */
+            monitor_new_seasons?: boolean;
+            /** @description A Series only (`422` for a Movie). Whether Specials (season 0) follow the mode. Turning it on or off applies to the Specials now. */
+            monitor_specials?: boolean;
             metadata_frozen?: boolean;
             /** @description One of the Root folders of the Title's kind to move the Title to. */
             root_folder?: string;
@@ -5316,6 +5321,10 @@ export interface components {
             release_dates: components["schemas"]["ReleaseDateEntry"][];
             /** @description `null` for a Movie. */
             series_monitor: components["schemas"]["SeriesMonitor"] | null;
+            /** @description Series only; left out for a Movie. Whether a season added later is monitored. */
+            monitor_new_seasons?: boolean;
+            /** @description Series only; left out for a Movie. Whether Specials follow the monitoring mode. */
+            monitor_specials?: boolean;
             /** @description A Series' seasons in order, Specials (0) first; empty for a Movie. */
             seasons: components["schemas"]["Season"][];
             /** @description In Slot order. */

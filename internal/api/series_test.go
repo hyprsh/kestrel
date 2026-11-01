@@ -23,15 +23,17 @@ type seriesLookupJSON struct {
 }
 
 type seriesTitleJSON struct {
-	ID            int64   `json:"id"`
-	Kind          string  `json:"kind"`
-	TVDBID        *int    `json:"tvdb_id"`
-	Title         string  `json:"title"`
-	PrimaryTitle  string  `json:"primary_title"`
-	SeriesMonitor *string `json:"series_monitor"`
-	Certification *string `json:"certification"`
-	SeriesStatus  *string `json:"series_status"`
-	Seasons       []struct {
+	ID                int64   `json:"id"`
+	Kind              string  `json:"kind"`
+	TVDBID            *int    `json:"tvdb_id"`
+	Title             string  `json:"title"`
+	PrimaryTitle      string  `json:"primary_title"`
+	SeriesMonitor     *string `json:"series_monitor"`
+	MonitorNewSeasons *bool   `json:"monitor_new_seasons"`
+	MonitorSpecials   *bool   `json:"monitor_specials"`
+	Certification     *string `json:"certification"`
+	SeriesStatus      *string `json:"series_status"`
+	Seasons           []struct {
 		Number    int  `json:"number"`
 		Monitored bool `json:"monitored"`
 	} `json:"seasons"`

@@ -156,6 +156,30 @@ const (
 // Valid is whether m is one of the three modes.
 func (m Monitor) Valid() bool { return m == MonitorAll || m == MonitorFuture || m == MonitorNone }
 
+// MonitorOptions are the two switches of a Series beside its mode: whether a
+// season added later is monitored, and whether Specials follow the mode.
+type MonitorOptions struct {
+	NewSeasons bool
+	Specials   bool
+}
+
+// DefaultMonitorOptions are what a Series starts with: new seasons monitored,
+// Specials not.
+var DefaultMonitorOptions = MonitorOptions{NewSeasons: true}
+
+// Monitors is MonitorsEpisode with the Series' options: Specials follow the
+// mode when o.Specials is on. A season that is new (not yet in the Series) is
+// left unmonitored when o.NewSeasons is off; the caller says so with newSeason.
+func (m Monitor) Monitors(o MonitorOptions, season int, aired *time.Time, now time.Time, newSeason bool) bool {
+	if newSeason && !o.NewSeasons {
+		return false
+	}
+	if season == 0 {
+		return o.Specials && m.MonitorsEpisode(1, aired, now)
+	}
+	return m.MonitorsEpisode(season, aired, now)
+}
+
 // MonitorsEpisode is whether the mode monitors an episode of season that airs
 // on aired (nil: no air date) when applied at now. Specials (season 0) are
 // never monitored automatically. An episode airing today still counts as

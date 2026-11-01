@@ -963,7 +963,7 @@ paths:
         An unmonitored Movie is never Wanted, searched or Upgraded, by the sweep or RSS; its Versions
         and files stay as they are, and a Grab started by hand still works. Monitoring it again makes
         its Versions due a search now. `series_monitor` applies the mode to every episode and season
-        now (Specials are never monitored by a mode); `422` for a Movie. `metadata_frozen` true keeps
+        now (Specials only when `monitor_specials` is on); `422` for a Movie. `metadata_frozen` true keeps
         the stored metadata as it is and clears a "Title gone upstream" row; false lets refreshes
         resume.
 
@@ -4397,8 +4397,9 @@ components:
       type: string
       description: |
         `all` monitors every episode, future ones and new seasons included; `future` the episodes airing
-        today or later or without an air date, and new seasons; `none` nothing. Specials (season 0) are
-        never monitored automatically.
+        today or later or without an air date, and new seasons; `none` nothing. New seasons are left
+        out when the Series' `monitor_new_seasons` is off, and Specials (season 0) are monitored by a
+        mode only when `monitor_specials` is on.
       enum: [all, future, none]
     Season:
       type: object
@@ -4553,6 +4554,12 @@ components:
           description: A Movie only; a Series is monitored through `series_monitor`.
         series_monitor:
           $ref: "#/components/schemas/SeriesMonitor"
+        monitor_new_seasons:
+          type: boolean
+          description: A Series only (`422` for a Movie). Whether a season TheTVDB adds later is monitored by the mode; off, its episodes arrive unmonitored.
+        monitor_specials:
+          type: boolean
+          description: A Series only (`422` for a Movie). Whether Specials (season 0) follow the mode. Turning it on or off applies to the Specials now.
         metadata_frozen:
           type: boolean
         root_folder:
@@ -7571,6 +7578,12 @@ components:
             - $ref: "#/components/schemas/SeriesMonitor"
           nullable: true
           description: "`null` for a Movie."
+        monitor_new_seasons:
+          type: boolean
+          description: Series only; left out for a Movie. Whether a season added later is monitored.
+        monitor_specials:
+          type: boolean
+          description: Series only; left out for a Movie. Whether Specials follow the monitoring mode.
         seasons:
           type: array
           description: A Series' seasons in order, Specials (0) first; empty for a Movie.

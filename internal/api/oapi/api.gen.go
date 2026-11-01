@@ -4564,8 +4564,9 @@ type SeasonPatch struct {
 type SeasonsOpen string
 
 // SeriesMonitor `all` monitors every episode, future ones and new seasons included; `future` the episodes airing
-// today or later or without an air date, and new seasons; `none` nothing. Specials (season 0) are
-// never monitored automatically.
+// today or later or without an air date, and new seasons; `none` nothing. New seasons are left
+// out when the Series' `monitor_new_seasons` is off, and Specials (season 0) are monitored by a
+// mode only when `monitor_specials` is on.
 type SeriesMonitor string
 
 // ServiceStatus defines model for ServiceStatus.
@@ -5118,7 +5119,13 @@ type TitleDetail struct {
 	ImdbId         *string   `json:"imdb_id"`
 	Kind           TitleKind `json:"kind"`
 	MetadataFrozen bool      `json:"metadata_frozen"`
-	Monitored      bool      `json:"monitored"`
+
+	// MonitorNewSeasons Series only; left out for a Movie. Whether a season added later is monitored.
+	MonitorNewSeasons *bool `json:"monitor_new_seasons,omitempty"`
+
+	// MonitorSpecials Series only; left out for a Movie. Whether Specials follow the monitoring mode.
+	MonitorSpecials *bool `json:"monitor_specials,omitempty"`
+	Monitored       bool  `json:"monitored"`
 
 	// OriginalLanguage ISO 639-1; empty when unknown.
 	OriginalLanguage string `json:"original_language"`
@@ -5174,6 +5181,12 @@ type TitleList struct {
 type TitlePatch struct {
 	MetadataFrozen *bool `json:"metadata_frozen,omitempty"`
 
+	// MonitorNewSeasons A Series only (`422` for a Movie). Whether a season TheTVDB adds later is monitored by the mode; off, its episodes arrive unmonitored.
+	MonitorNewSeasons *bool `json:"monitor_new_seasons,omitempty"`
+
+	// MonitorSpecials A Series only (`422` for a Movie). Whether Specials (season 0) follow the mode. Turning it on or off applies to the Specials now.
+	MonitorSpecials *bool `json:"monitor_specials,omitempty"`
+
 	// Monitored A Movie only; a Series is monitored through `series_monitor`.
 	Monitored *bool `json:"monitored,omitempty"`
 
@@ -5181,8 +5194,9 @@ type TitlePatch struct {
 	RootFolder *string `json:"root_folder,omitempty"`
 
 	// SeriesMonitor `all` monitors every episode, future ones and new seasons included; `future` the episodes airing
-	// today or later or without an air date, and new seasons; `none` nothing. Specials (season 0) are
-	// never monitored automatically.
+	// today or later or without an air date, and new seasons; `none` nothing. New seasons are left
+	// out when the Series' `monitor_new_seasons` is off, and Specials (season 0) are monitored by a
+	// mode only when `monitor_specials` is on.
 	SeriesMonitor *SeriesMonitor `json:"series_monitor,omitempty"`
 }
 

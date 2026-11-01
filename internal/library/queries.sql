@@ -111,6 +111,9 @@ WHERE v.title_id = ? GROUP BY fe.episode_id;
 -- name: SetSeriesMonitor :exec
 UPDATE titles SET series_monitor = ? WHERE id = ? AND kind = 'series';
 
+-- name: SetSeriesMonitorOptions :exec
+UPDATE titles SET monitor_new_seasons = ?, monitor_specials = ? WHERE id = ? AND kind = 'series';
+
 -- name: SetEpisodeMonitored :exec
 UPDATE episodes SET monitored = ? WHERE id = ?;
 
