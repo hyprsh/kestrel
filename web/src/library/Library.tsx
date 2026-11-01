@@ -228,6 +228,13 @@ export function Library({
       focusList()
     }
   }
+  // A chip's popover (or the "+N" list) opens the Title at that Slot: its page scrolls to the Version and marks it, the address names it.
+  const openSlot = (r: TitleRow, slot: string) => {
+    setHitKey(null)
+    onSelect(r.id)
+    episodeView?.setView({ titleId: r.id, season: null, episode: null, slot })
+    if (phone) onOpenTitle(r.id)
+  }
   const items = (
     <TitleRows
       rows={rows}
@@ -255,6 +262,7 @@ export function Library({
       }
       navOffset={hits.length}
       activeId={hit ? hitDomId(hit) : undefined}
+      onOpenSlot={openSlot}
       single={singleSlot(all)}
       profileName={(key) => profiles?.find((p) => p.key === key)?.name ?? key}
     />

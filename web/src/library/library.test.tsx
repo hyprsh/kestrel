@@ -52,8 +52,8 @@ describe('the Library list', () => {
     // One Version of two is Wanted: the line names its Slot, and says Kestrel has not looked yet.
     expect(first.querySelector('[data-state-line]')).toHaveTextContent(/^Standard Wanted for .* · not searched yet$/)
     // A chip per Slot, in Slot order, each named for its Slot and state.
-    const std = within(first).getByRole('img', { name: 'Standard: Wanted' })
-    const fourK = within(first).getByRole('img', { name: '4K: Have' })
+    const std = within(first).getByRole('button', { name: 'Standard: Wanted' })
+    const fourK = within(first).getByRole('button', { name: '4K: Have' })
     expect(std).toHaveAttribute('data-state', 'wanted')
     expect(fourK).toHaveAttribute('data-state', 'filled')
     expect(std.compareDocumentPosition(fourK) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
@@ -124,7 +124,8 @@ describe('the Library list', () => {
     const list = await openLibrary()
     const options = await within(list).findAllByRole('option')
     expect(list).toHaveFocus()
-    expect(within(list).queryAllByRole('button')).toHaveLength(0)
+    // The Slot chips are buttons for the pointer; none is a Tab stop.
+    for (const b of within(list).queryAllByRole('button')) expect(b).toHaveAttribute('tabindex', '-1')
 
     await userEvent.tab()
     expect(list).not.toHaveFocus()

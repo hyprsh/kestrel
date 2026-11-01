@@ -6,7 +6,7 @@
 import { createContext, useCallback, useContext, useSyncExternalStore } from 'react'
 
 /** The season tab (0 is Specials) and the found episode's number of a Series' Title page; null: not set. */
-export type EpisodeAt = { season: number | null; episode: number | null }
+export type EpisodeAt = { season: number | null; episode: number | null; /** A Slot's key: the Title page opens at that Slot's Version. */ slot?: string | null }
 
 /**
  * A Title's Manual search: the Version it searches and, for a Series, the season or episodes it is narrowed to, as the code
@@ -25,7 +25,8 @@ export function manualSearchPath(at: ManualSearchAt): string {
 
 /**
  * The path of a screen with its filter text, and a section of it such as an open Title's id on a phone. A Series'
- * season tab and found episode follow as `season` and `episode` ("/library?season=2&episode=5").
+ * season tab and found episode follow as `season` and `episode` ("/library?season=2&episode=5"), and the Slot a Title page opens at as
+ * `slot` ("/library/12?slot=4k" on a phone).
  */
 export function placePath(screen: string, q = '', section = '', at?: EpisodeAt, search?: ManualSearchAt | null): string {
   if (search) return manualSearchPath(search)
@@ -33,6 +34,7 @@ export function placePath(screen: string, q = '', section = '', at?: EpisodeAt, 
   if (q) params.set('q', q)
   if (at?.season != null) params.set('season', String(at.season))
   if (at?.season != null && at.episode != null) params.set('episode', String(at.episode))
+  if (at?.slot) params.set('slot', at.slot)
   const query = params.toString()
   return `/${screen}${section ? `/${section}` : ''}${query ? `?${query}` : ''}`
 }
@@ -47,6 +49,8 @@ export function placeOf(path: string): Place {
   const titleId = count(section)
   const versionId = count(url.searchParams.get('version'))
   const scope = url.searchParams.get('scope')
+  const slotParam = url.searchParams.get('slot')
+  const slot = slotParam && /^[\w-]+$/.test(slotParam) ? slotParam : null
   const search: ManualSearchAt | null =
     screen === 'library' && sub === 'search' && titleId !== null && versionId !== null
       ? { titleId, versionId, scope: scope && /^S\d+(E\d+(,E?\d+)*)?$/i.test(scope) ? scope.toUpperCase() : null }
@@ -57,7 +61,7 @@ export function placeOf(path: string): Place {
   if (screen === 'about') return { screen: 'settings', section: 'about', q: '', search: null, season: null, episode: null }
   if (screen === 'activity' && section === 'health') return { screen: 'health', section: '', q: '', search: null, season: null, episode: null }
   if (screen === 'activity' && (section === 'jobs' || section === 'running')) return { screen: 'health', section: 'jobs', q: '', search: null, season: null, episode: null }
-  return { screen, section, q: url.searchParams.get('q') ?? '', search, season, episode: season === null ? null : count(url.searchParams.get('episode')) }
+  return { screen, section, q: url.searchParams.get('q') ?? '', search, season, episode: season === null ? null : count(url.searchParams.get('episode')), slot }
 }
 
 /** The directory the SPA is served under: "/" or the base URL's path. */

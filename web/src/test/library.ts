@@ -29,6 +29,7 @@ const slotStates = (slots: TitleRow['slots']): TitleRow['slot_states'] =>
             profile: s.profile,
             state: s.state,
             long_missing: s.long_missing,
+            upgrade_wanted: false,
             last_search: s.last_search,
             next_search_at: s.next_search_at,
           },

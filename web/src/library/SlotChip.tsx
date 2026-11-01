@@ -18,6 +18,8 @@ export type ChipData = {
   text?: string
   /** What the "+N" popover says of this Slot when it is folded in: its name, its Profile and its count or state. */
   more?: { name: string; profile?: string; text: string }
+  /** Opens the Title at this Slot; the "+N" popover's row for the Slot is a button that calls it. */
+  onOpen?: () => void
   /** Puts the Slot's popover on the chip's button; without it the chip is plain text. */
   wrap?: (trigger: ReactElement) => ReactElement
 }
@@ -83,15 +85,27 @@ function More({ rest }: { rest: ChipData[] }) {
       <Popover trigger={trigger} label={`${rest.length} more Slots`} position="bottom-end" width={280}>
         <div className="flex flex-col gap-2">
           <p className="label-12 font-semibold text-gray-900">{rest.length === 1 ? '1 more Slot' : `${rest.length} more Slots`}</p>
-          {rest.map((c) => (
-            <div key={c.key} className="label-13 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2">
-              <StateDot state={c.state} />
-              <span className="truncate">
-                <b className="font-medium">{c.more?.name ?? c.short}</b> {c.more?.profile && <span className="text-gray-900">{c.more.profile}</span>}
-              </span>
-              <span className="tabular-nums">{c.more?.text ?? c.tip}</span>
-            </div>
-          ))}
+          {rest.map((c) => {
+            const row = (
+              <>
+                <StateDot state={c.state} />
+                <span className="truncate text-left">
+                  <b className="font-medium">{c.more?.name ?? c.short}</b> {c.more?.profile && <span className="text-gray-900">{c.more.profile}</span>}
+                </span>
+                <span className="tabular-nums">{c.more?.text ?? c.tip}</span>
+              </>
+            )
+            const cls = 'label-13 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2'
+            return c.onOpen ? (
+              <button key={c.key} type="button" onClick={c.onOpen} className={`${cls} -mx-1.5 rounded-sm px-1.5 py-1 hover:bg-gray-alpha-100`}>
+                {row}
+              </button>
+            ) : (
+              <div key={c.key} className={cls}>
+                {row}
+              </div>
+            )
+          })}
         </div>
       </Popover>
     </span>

@@ -2,7 +2,8 @@
 // downloading inside it. A Movie: one row per Slot in a card, each with its state and its one next action.
 import { Button, DotsMenu, Entity, MenuDivider, MenuItem, Note, Progress } from '@hyprsh/design'
 import { Download, FileVideo, Search, X } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useEpisodeView } from './episodeView'
 import type { Profile, TitleDetail } from '../api/queries'
 import { useRemoveVersion, useSwitchProfile } from '../api/versions'
 import { plural } from '../format'
@@ -36,14 +37,21 @@ const unmonitored = (t: TitleDetail) => (t.kind === 'movie' ? !t.monitored : t.s
 export function VersionRows({ title, profiles, profileName, onManualSearch }: Props) {
   const downloads = useTitleDownloads(title.id)
   const versions = slotsOf(title).flatMap((s) => title.versions.filter((v) => v.slot === s.key))
+  // A Title opened at a Slot ("?slot=4k") scrolls to that Version's card and marks it.
+  const at = useEpisodeView(title.id).slot
+  useEffect(() => {
+    if (at) document.getElementById(`version-${at}`)?.scrollIntoView?.({ block: 'nearest' })
+  }, [at, title.id])
   if (versions.length === 0) return null
   return (
     // One Version fills the row; two or more sit side by side, for a Series and a Movie alike.
     <section aria-label="Versions" className={`my-6 grid grid-cols-1 gap-3 ${versions.length > 1 ? '@2xl:grid-cols-2' : ''}`}>
       {versions.map((v) => (
-        <RowList key={v.id} aria-label={slotName(v.slot)}>
-          <VersionCard {...{ title, profiles, profileName, onManualSearch }} version={v} downloads={downloads.slot(v.slot)} />
-        </RowList>
+        <div key={v.id} id={`version-${v.slot}`} data-current={at === v.slot ? '' : undefined} className={at === v.slot ? 'rounded-lg ring-2 ring-blue-700' : undefined}>
+          <RowList aria-label={slotName(v.slot)}>
+            <VersionCard {...{ title, profiles, profileName, onManualSearch }} version={v} downloads={downloads.slot(v.slot)} />
+          </RowList>
+        </div>
       ))}
     </section>
   )

@@ -53,7 +53,7 @@ export function AgendaRow({ item, queue, today, now, current, index, onOpen, onS
         <TitlePoster id={item.title_id} hasPoster={item.has_poster} size="xs" />
         <div className="pointer-events-none flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="label-14 truncate">{name}</span>
-          <span className="pointer-events-none">{chips}</span>
+          <span className="pointer-events-auto relative">{chips}</span>
         </div>
         {at && <span className="label-12 pointer-events-none tabular-nums text-gray-900">{at}</span>}
       </li>
@@ -71,7 +71,7 @@ export function AgendaRow({ item, queue, today, now, current, index, onOpen, onS
         </span>
       </div>
       <div className="relative flex items-center gap-2">
-        <span className="pointer-events-none">{chips}</span>
+        <span className="pointer-events-auto relative">{chips}</span>
         {status.wanted.length > 0 && status.kind === 'missing' && (
           <Button variant="tertiary" size="tiny" aria-label={`Search now for ${item.title} ${what}`} onClick={() => onSearch(status.wanted)}>
             Search now

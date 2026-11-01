@@ -31,6 +31,7 @@ export function TitleRows({
   activeId,
   single = false,
   profileName,
+  onOpenSlot,
 }: {
   rows: TitleRow[]
   /** The cursor's row. */
@@ -54,6 +55,8 @@ export function TitleRows({
   /** Whether no Title in the Library has more than one Slot: the chips then drop the Slot name. */
   single?: boolean
   profileName?: (key: string) => string
+  /** Opens the Title at one of its Slots (a chip's popover and the "+N" list go there). */
+  onOpenSlot?: (row: TitleRow, slot: string) => void
 }) {
   return (
     // The floating bar of ticked Titles covers the foot of the list: room for it at the end.
@@ -79,7 +82,9 @@ export function TitleRows({
           const g = grabs.get(r.id) ?? []
           const line = stateLine(r, g, now)
           const monitored = isMonitoredRow(r)
-          const chips = <SlotChips chips={rowChips(r, g, { single, profileName })} max={phone ? 3 : 4} wrap align="start" label={`${r.title} Slots`} />
+          const chips = (
+            <SlotChips chips={rowChips(r, g, { single, profileName, now, onOpen: onOpenSlot && ((slot) => onOpenSlot(r, slot)) })} max={phone ? 3 : 4} wrap align="start" tabIndex={-1} label={`${r.title} Slots`} />
+          )
           // Unmonitored rows dim their chips with the poster.
           const dimmed = monitored ? 'contents' : 'opacity-60'
           return (

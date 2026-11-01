@@ -274,6 +274,8 @@ describe('Upcoming: where each entry stands', () => {
     const r = rowOf('Paddington')
     expect(within(r).getByRole('img', { name: 'Standard: Wanted' })).toHaveAttribute('data-state', 'wanted')
     expect(within(r).getByRole('img', { name: '4K: Have' })).toHaveAttribute('data-state', 'filled')
+    // The chips sit above the row's click overlay, so their tooltips reach the pointer.
+    expect(within(r).getByRole('img', { name: '4K: Have' }).closest('.relative')).not.toBeNull()
   })
 
   it('matches a download to its episode', async () => {

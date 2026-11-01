@@ -5,7 +5,7 @@
 // download's progress moves without the Library being fetched again.
 import type { TitleRow } from '../api/queries'
 import type { QueueItem } from '../api/queue'
-import { percent } from '../format'
+import { percent, plural } from '../format'
 import { ago, clockTime, span } from '../time'
 import { expandCodes } from './cellDetail'
 import { size as bytes } from './bits'
@@ -105,6 +105,13 @@ export function stateLine(r: TitleRow, grabs: readonly QueueItem[], now: number,
   }
   if (vs.length > 0 && vs.every((x) => x.v.state === 'unmonitored')) return { text: 'Not monitored', tone: 'quiet' }
   if (vs.some((x) => x.v.state === 'unreleased') && !vs.some((x) => x.v.state === 'filled')) return { text: 'Not out yet', tone: 'quiet' }
+  const upgrading = vs.filter((x) => x.v.upgrade_wanted)
+  if (upgrading.length > 0) {
+    // Series: how many episodes sit below the Profile's cutoff; a Movie names the Slot when only some of its Versions do.
+    const episodes = upgrading.reduce((n, x) => n + (x.v.episodes_upgrade ?? 0), 0)
+    const text = r.kind === 'series' && episodes > 0 ? `Upgrade wanted \u00b7 ${plural(episodes, 'episode')} below cutoff` : `${which(upgrading)}Upgrade wanted \u00b7 below cutoff`.trim()
+    return { text: text[0].toUpperCase() + text.slice(1), tone: 'warning' }
+  }
   return { text: holding(r, vs, now, opts.size ?? false), tone: 'quiet' }
 }
 

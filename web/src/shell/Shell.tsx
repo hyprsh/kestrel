@@ -77,7 +77,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const [titleOpen, setTitleOpen] = useState(startTitle !== null)
   // A Series' season tab and found episode ("/library?season=2&episode=5"), kept here so they reach the address bar.
   const [episodeView, setEpisodeView] = useState<EpisodeView>(() =>
-    start.screen === 'library' && start.season !== null ? { titleId: startTitle, season: start.season, episode: start.episode } : noEpisodeView,
+    start.screen === 'library' && (start.season !== null || start.slot) ? { titleId: startTitle, season: start.season, episode: start.episode, slot: start.slot } : noEpisodeView,
   )
   // A Title's Manual search ("/library/12/search?version=4&scope=S05"): it replaces the Title page and has its own address.
   const [manual, setManual] = useState<ManualSearchAt | null>(start.search)
@@ -117,7 +117,9 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
       setFilter({ screen: place.screen, q: place.q })
       setTitleOpen(isTitleId(place.section))
       setManual(place.search)
-      setEpisodeView(place.season === null ? noEpisodeView : { titleId: isTitleId(place.section) ? Number(place.section) : null, season: place.season, episode: place.episode })
+      setEpisodeView(
+        place.season === null && !place.slot ? noEpisodeView : { titleId: isTitleId(place.section) ? Number(place.section) : null, season: place.season, episode: place.episode, slot: place.slot },
+      )
       setSettingsSection(place.screen === 'settings' ? place.section : '')
       if (isTitleId(place.section)) setLibraryId(Number(place.section))
     }
