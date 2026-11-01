@@ -613,6 +613,27 @@ func (e GrabEntryState) Valid() bool {
 	}
 }
 
+// Defines values for GrabStepsGrabbedBy.
+const (
+	ByHand   GrabStepsGrabbedBy = "by_hand"
+	ByRss    GrabStepsGrabbedBy = "by_rss"
+	BySearch GrabStepsGrabbedBy = "by_search"
+)
+
+// Valid indicates whether the value is a known member of the GrabStepsGrabbedBy enum.
+func (e GrabStepsGrabbedBy) Valid() bool {
+	switch e {
+	case ByHand:
+		return true
+	case ByRss:
+		return true
+	case BySearch:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for IndexerStatusState.
 const (
 	IndexerStatusStateDisabled IndexerStatusState = "disabled"
@@ -2584,6 +2605,47 @@ type GrabStall struct {
 	Reason string    `json:"reason"`
 	Since  time.Time `json:"since"`
 }
+
+// GrabStepFile defines model for GrabStepFile.
+type GrabStepFile struct {
+	// Episode The episode the file holds (`S05E05`); null for a Movie.
+	Episode *string `json:"episode"`
+	Path    string  `json:"path"`
+}
+
+// GrabStepFormat defines model for GrabStepFormat.
+type GrabStepFormat struct {
+	Name  string `json:"name"`
+	Score int    `json:"score"`
+}
+
+// GrabSteps The steps of one Grab, from the Log and the Grab itself.
+type GrabSteps struct {
+	// BlocklistId The Blocklist entry the Release got, to remove with `DELETE /blocklist/{id}`; null when it is not blocklisted.
+	BlocklistId        *int64     `json:"blocklist_id"`
+	DownloadFinishedAt *time.Time `json:"download_finished_at"`
+	DownloadStartedAt  *time.Time `json:"download_started_at"`
+
+	// EndedAt When the Grab was imported or failed; null while it is not finished.
+	EndedAt *time.Time `json:"ended_at"`
+
+	// Files What the Import made, one entry per file it wrote.
+	Files []GrabStepFile `json:"files"`
+
+	// Formats The Custom Formats the Release matched when it was chosen.
+	Formats   []GrabStepFormat `json:"formats"`
+	GrabId    int64            `json:"grab_id"`
+	GrabbedAt time.Time        `json:"grabbed_at"`
+
+	// GrabbedBy Who chose the Release, `by_hand` for Grab or an accepted Offer, `by_search` for a search pass or Search now, `by_rss` for the RSS sweep. Null for a Grab from before this was recorded.
+	GrabbedBy *GrabStepsGrabbedBy `json:"grabbed_by"`
+
+	// StillWanted Whether the Grab's episodes (a Movie's Version) are still Wanted.
+	StillWanted bool `json:"still_wanted"`
+}
+
+// GrabStepsGrabbedBy Who chose the Release, `by_hand` for Grab or an accepted Offer, `by_search` for a search pass or Search now, `by_rss` for the RSS sweep. Null for a Grab from before this was recorded.
+type GrabStepsGrabbedBy string
 
 // GrabsSummary defines model for GrabsSummary.
 type GrabsSummary struct {
@@ -5401,6 +5463,9 @@ type ServerInterface interface {
 	// RetryGrabImport Retry a stalled Import now
 	// (POST /grabs/{id}/retry-import)
 	RetryGrabImport(w http.ResponseWriter, r *http.Request, id GrabId)
+	// GetGrabSteps What happened to a Grab
+	// (GET /grabs/{id}/steps)
+	GetGrabSteps(w http.ResponseWriter, r *http.Request, id GrabId)
 	// ListJobs The background jobs
 	// (GET /jobs)
 	ListJobs(w http.ResponseWriter, r *http.Request)
@@ -6649,6 +6714,32 @@ func (siw *ServerInterfaceWrapper) RetryGrabImport(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RetryGrabImport(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetGrabSteps operation middleware
+func (siw *ServerInterfaceWrapper) GetGrabSteps(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id GrabId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetGrabSteps(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -8438,6 +8529,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs", wrapper.CreateGrab)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grabs/summary", wrapper.GetGrabsSummary)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grabs/{id}", wrapper.GetGrab)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grabs/{id}/steps", wrapper.GetGrabSteps)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs/{id}/cancel", wrapper.CancelGrab)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs/{id}/retry-import", wrapper.RetryGrabImport)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs/{id}/discard", wrapper.DiscardGrab)
@@ -10706,6 +10798,61 @@ type RetryGrabImportdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response RetryGrabImportdefaultApplicationProblemPlusJSONResponse) VisitRetryGrabImportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetGrabStepsRequestObject struct {
+	Id GrabId `json:"id"`
+}
+
+type GetGrabStepsResponseObject interface {
+	VisitGetGrabStepsResponse(w http.ResponseWriter) error
+}
+
+type GetGrabSteps200JSONResponse GrabSteps
+
+func (response GetGrabSteps200JSONResponse) VisitGetGrabStepsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetGrabSteps404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetGrabSteps404ApplicationProblemPlusJSONResponse) VisitGetGrabStepsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetGrabStepsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetGrabStepsdefaultApplicationProblemPlusJSONResponse) VisitGetGrabStepsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -14569,6 +14716,9 @@ type StrictServerInterface interface {
 	// RetryGrabImport Retry a stalled Import now
 	// (POST /grabs/{id}/retry-import)
 	RetryGrabImport(ctx context.Context, request RetryGrabImportRequestObject) (RetryGrabImportResponseObject, error)
+	// GetGrabSteps What happened to a Grab
+	// (GET /grabs/{id}/steps)
+	GetGrabSteps(ctx context.Context, request GetGrabStepsRequestObject) (GetGrabStepsResponseObject, error)
 	// ListJobs The background jobs
 	// (GET /jobs)
 	ListJobs(ctx context.Context, request ListJobsRequestObject) (ListJobsResponseObject, error)
@@ -15871,6 +16021,32 @@ func (sh *strictHandler) RetryGrabImport(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RetryGrabImportResponseObject); ok {
 		if err := validResponse.VisitRetryGrabImportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetGrabSteps operation middleware
+func (sh *strictHandler) GetGrabSteps(w http.ResponseWriter, r *http.Request, id GrabId) {
+	var request GetGrabStepsRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetGrabSteps(ctx, request.(GetGrabStepsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetGrabSteps")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetGrabStepsResponseObject); ok {
+		if err := validResponse.VisitGetGrabStepsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

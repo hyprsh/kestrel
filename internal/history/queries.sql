@@ -22,6 +22,7 @@ WHERE (sqlc.narg(kinds) IS NULL OR kind IN (SELECT value FROM json_each(sqlc.nar
   AND (sqlc.narg(exclude_title_ids) IS NULL OR title_id IS NULL OR title_id NOT IN (SELECT value FROM json_each(sqlc.narg(exclude_title_ids))))
   AND (sqlc.narg(slots) IS NULL OR version_id IN (SELECT v.id FROM versions v WHERE v.slot IN (SELECT value FROM json_each(sqlc.narg(slots)))))
   AND (sqlc.narg(exclude_slots) IS NULL OR version_id IS NULL OR version_id NOT IN (SELECT v.id FROM versions v WHERE v.slot IN (SELECT value FROM json_each(sqlc.narg(exclude_slots)))))
+  AND (sqlc.narg(grab_id) IS NULL OR grab_id = sqlc.narg(grab_id))
   AND (sqlc.arg(with_routine) = 1 OR routine = 0)
   AND (sqlc.narg(before) IS NULL OR id < sqlc.narg(before))
 ORDER BY id DESC

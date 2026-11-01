@@ -219,7 +219,7 @@ func (s *Service) rssMovie(ctx context.Context, sub subject, items []feedItem) (
 	for _, plan := range plans {
 		e := entries[entryKey(plan.Candidate)]
 		g, err := s.send(ctx, outgoing{
-			titleID: d.ID, versionID: versionOf[plan.Slot], e: e, slot: plan.Slot, media: downloads.Movie, upgrade: plan.Upgrade,
+			titleID: d.ID, versionID: versionOf[plan.Slot], e: e, slot: plan.Slot, media: downloads.Movie, upgrade: plan.Upgrade, by: GrabbedByRSS,
 		})
 		if err != nil {
 			errs = append(errs, err)
@@ -309,7 +309,7 @@ func (s *Service) rssSeries(ctx context.Context, sub subject, items []feedItem) 
 		}
 		g, err := s.send(ctx, outgoing{
 			titleID: d.ID, versionID: versionOf[plan.Slot], e: e, slot: plan.Slot, media: downloads.Series,
-			episodes: covers, upgrade: plan.Upgrade,
+			episodes: covers, upgrade: plan.Upgrade, by: GrabbedByRSS,
 		})
 		if err != nil {
 			errs = append(errs, err)

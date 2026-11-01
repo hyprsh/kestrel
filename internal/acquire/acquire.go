@@ -625,11 +625,15 @@ var ErrGrabNotFound = errors.New("grab not found")
 // their Placeholder Episodes, so the Grab covers them.
 func (s *Service) Grab(ctx context.Context, versionID int64, releaseID string, override bool) (Grab, error) {
 	defer s.snap.Hold()()
-	return s.grab(ctx, versionID, releaseID, override)
+	return s.grabBy(ctx, versionID, releaseID, override, GrabbedByHand)
 }
 
-// grab is Grab for callers that already hold the snapshot gate.
+// grab is Grab for the search pass, which already holds the snapshot gate.
 func (s *Service) grab(ctx context.Context, versionID int64, releaseID string, override bool) (Grab, error) {
+	return s.grabBy(ctx, versionID, releaseID, override, GrabbedBySearch)
+}
+
+func (s *Service) grabBy(ctx context.Context, versionID int64, releaseID string, override bool, by string) (Grab, error) {
 	titleID, err := s.lib.TitleOfVersion(ctx, versionID)
 	if err != nil {
 		return Grab{}, err
@@ -661,7 +665,7 @@ func (s *Service) grab(ctx context.Context, versionID int64, releaseID string, o
 		return Grab{}, rej
 	}
 
-	o := outgoing{titleID: titleID, versionID: versionID, e: e, slot: slot, media: downloads.Movie, overridden: len(reasons) > 0}
+	o := outgoing{titleID: titleID, versionID: versionID, e: e, slot: slot, media: downloads.Movie, overridden: len(reasons) > 0, by: by}
 	if sub.detail.Kind == library.Series {
 		eps, err := s.placeholdersNamed(ctx, titleID, e.cand.Parsed, eps)
 		if err != nil {
@@ -689,7 +693,16 @@ type outgoing struct {
 	episodes   []int64
 	upgrade    bool
 	overridden bool
+	// by is who chose the Release: grabBy* below. It rides on the Grab's event, not on the Grab.
+	by string
 }
+
+// Who grabbed a Release, as the Grab's `grab` event records it.
+const (
+	GrabbedByHand   = "by_hand"
+	GrabbedBySearch = "by_search"
+	GrabbedByRSS    = "by_rss"
+)
 
 // send fetches the NZB, adds it to the download client and records the Grab.
 func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
@@ -736,6 +749,7 @@ func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
 	g := grabOf(row)
 	s.hist.Record(ctx, history.Event{
 		Kind: history.GrabSent, TitleID: o.titleID, VersionID: o.versionID, GrabID: g.ID, Message: "Sent " + g.ReleaseName + " to the download client",
+		Data: grabSentData(o.by),
 	})
 	return g, nil
 }
@@ -777,4 +791,13 @@ func (s *Service) decide(ctx context.Context, in Input) ([]GrabPlan, error) {
 	}
 	in.Candidates = cands
 	return Decide(in), nil
+}
+
+// grabSentData is the `grab` event's payload: who chose the Release. Grabs from before it was recorded have none.
+func grabSentData(by string) json.RawMessage {
+	if by == "" {
+		return nil
+	}
+	b, _ := json.Marshal(map[string]string{"by": by})
+	return b
 }

@@ -161,9 +161,13 @@ func (s *Service) RecordImport(ctx context.Context, grabID int64, canRemove bool
 			Kind: history.ImportDone, TitleID: row.TitleID.Int64, VersionID: row.VersionID.Int64, GrabID: grabID,
 			Message: "Imported " + row.ReleaseName + " as " + o.Path,
 		}
-		if o.Status == ImportDone && o.Inconclusive {
-			ev.Message += " (probe inconclusive: the parsed languages stand)"
-			ev.Data = json.RawMessage(`{"probe_inconclusive":true}`)
+		if o.Status == ImportDone {
+			data := map[string]any{"path": o.Path}
+			if o.Inconclusive {
+				ev.Message += " (probe inconclusive: the parsed languages stand)"
+				data["probe_inconclusive"] = true
+			}
+			ev.Data, _ = json.Marshal(data)
 		}
 		if o.Status == ImportRejected {
 			ev.Kind, ev.Message = history.ImportRejected, "Import of "+row.ReleaseName+" rejected: "+o.Reason

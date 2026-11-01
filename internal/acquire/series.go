@@ -333,7 +333,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 		ids = onlyPlanned(ids, plan.Covers, episodes)
 		g, err := s.send(ctx, outgoing{
 			titleID: d.ID, versionID: versionOf[plan.Slot], e: e, slot: plan.Slot, media: downloads.Series,
-			episodes: ids, upgrade: plan.Upgrade,
+			episodes: ids, upgrade: plan.Upgrade, by: GrabbedBySearch,
 		})
 		if err != nil {
 			errs = append(errs, err)

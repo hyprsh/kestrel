@@ -1079,6 +1079,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/grabs/{id}/steps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * What happened to a Grab
+         * @description The steps of a Grab, read from the Log and the Grab: when it was grabbed and by what, when the download
+         *     started and ended, what the Import made, and what is left to do for a failed one. The download times come
+         *     from routine events, which are pruned after 30 days, so an older Grab has them null. `404` for an unknown Grab.
+         */
+        get: operations["getGrabSteps"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/grabs/{id}/cancel": {
         parameters: {
             query?: never;
@@ -3428,6 +3452,47 @@ export interface components {
              * @description When the job was paused, or when its downloaded amount last grew. Kept in memory, so after a restart it counts from the first poll.
              */
             since: string;
+        };
+        /** @description The steps of one Grab, from the Log and the Grab itself. */
+        GrabSteps: {
+            /** Format: int64 */
+            grab_id: number;
+            /** Format: date-time */
+            grabbed_at: string;
+            /**
+             * @description Who chose the Release, `by_hand` for Grab or an accepted Offer, `by_search` for a search pass or Search now, `by_rss` for the RSS sweep. Null for a Grab from before this was recorded.
+             * @enum {string|null}
+             */
+            grabbed_by: "by_hand" | "by_search" | "by_rss" | null;
+            /** Format: date-time */
+            download_started_at: string | null;
+            /** Format: date-time */
+            download_finished_at: string | null;
+            /**
+             * Format: date-time
+             * @description When the Grab was imported or failed; null while it is not finished.
+             */
+            ended_at: string | null;
+            /** @description What the Import made, one entry per file it wrote. */
+            files: components["schemas"]["GrabStepFile"][];
+            /** @description The Custom Formats the Release matched when it was chosen. */
+            formats: components["schemas"]["GrabStepFormat"][];
+            /**
+             * Format: int64
+             * @description The Blocklist entry the Release got, to remove with `DELETE /blocklist/{id}`; null when it is not blocklisted.
+             */
+            blocklist_id: number | null;
+            /** @description Whether the Grab's episodes (a Movie's Version) are still Wanted. */
+            still_wanted: boolean;
+        };
+        GrabStepFile: {
+            /** @description The episode the file holds (`S05E05`); null for a Movie. */
+            episode: string | null;
+            path: string;
+        };
+        GrabStepFormat: {
+            name: string;
+            score: number;
         };
         GrabStall: {
             /** @description What is wrong, such as `disk full`. */
@@ -6045,6 +6110,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Grab"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getGrabSteps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["GrabId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The steps. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrabSteps"];
                 };
             };
             404: components["responses"]["Problem"];

@@ -1423,6 +1423,28 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /grabs/{id}/steps:
+    parameters:
+      - $ref: "#/components/parameters/GrabId"
+    get:
+      operationId: getGrabSteps
+      summary: What happened to a Grab
+      description: |
+        The steps of a Grab, read from the Log and the Grab: when it was grabbed and by what, when the download
+        started and ended, what the Import made, and what is left to do for a failed one. The download times come
+        from routine events, which are pruned after 30 days, so an older Grab has them null. `404` for an unknown Grab.
+      tags: [grabs]
+      responses:
+        "200":
+          description: The steps.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GrabSteps"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /grabs/{id}/cancel:
     parameters:
       - $ref: "#/components/parameters/GrabId"
@@ -4857,6 +4879,69 @@ components:
           type: string
           format: date-time
           description: When the job was paused, or when its downloaded amount last grew. Kept in memory, so after a restart it counts from the first poll.
+    GrabSteps:
+      type: object
+      description: The steps of one Grab, from the Log and the Grab itself.
+      required: [grab_id, grabbed_at, grabbed_by, download_started_at, download_finished_at, ended_at, files, formats, blocklist_id, still_wanted]
+      properties:
+        grab_id:
+          type: integer
+          format: int64
+        grabbed_at:
+          type: string
+          format: date-time
+        grabbed_by:
+          type: string
+          nullable: true
+          enum: [by_hand, by_search, by_rss]
+          description: Who chose the Release, `by_hand` for Grab or an accepted Offer, `by_search` for a search pass or Search now, `by_rss` for the RSS sweep. Null for a Grab from before this was recorded.
+        download_started_at:
+          type: string
+          format: date-time
+          nullable: true
+        download_finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the Grab was imported or failed; null while it is not finished.
+        files:
+          type: array
+          description: What the Import made, one entry per file it wrote.
+          items:
+            $ref: "#/components/schemas/GrabStepFile"
+        formats:
+          type: array
+          description: The Custom Formats the Release matched when it was chosen.
+          items:
+            $ref: "#/components/schemas/GrabStepFormat"
+        blocklist_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: The Blocklist entry the Release got, to remove with `DELETE /blocklist/{id}`; null when it is not blocklisted.
+        still_wanted:
+          type: boolean
+          description: Whether the Grab's episodes (a Movie's Version) are still Wanted.
+    GrabStepFile:
+      type: object
+      required: [episode, path]
+      properties:
+        episode:
+          type: string
+          nullable: true
+          description: The episode the file holds (`S05E05`); null for a Movie.
+        path:
+          type: string
+    GrabStepFormat:
+      type: object
+      required: [name, score]
+      properties:
+        name: { type: string }
+        score: { type: integer }
     GrabStall:
       type: object
       required: [reason, since, next_at]

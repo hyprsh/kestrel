@@ -181,6 +181,8 @@ type Filter struct {
 	// or Version stays.
 	ExcludeTitleIDs []int64
 	ExcludeSlots    []string
+	// GrabID keeps only the events about that Grab; zero is every Grab.
+	GrabID int64
 	// Routine includes routine events, which the Log hides by default.
 	Routine bool
 	// Before returns only events with a smaller id, for paging.
@@ -199,6 +201,9 @@ func (s *Service) List(ctx context.Context, f Filter) ([]Event, error) {
 	p.ExcludeTitleIds, p.ExcludeSlots = jsonList(f.ExcludeTitleIDs), jsonList(f.ExcludeSlots)
 	if f.Before != 0 {
 		p.Before = f.Before
+	}
+	if f.GrabID != 0 {
+		p.GrabID = f.GrabID
 	}
 	rows, err := db.New(s.st.Read()).ListEvents(ctx, p)
 	if err != nil {
