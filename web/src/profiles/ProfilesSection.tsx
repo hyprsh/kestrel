@@ -183,13 +183,13 @@ function ProfileSheet({ profile: p, detail, declared, onClose }: { profile: Prof
             )}
           </div>
           <SettingsCard>
-            <SettingRow label="Enabled" help="A disabled Profile is not offered for new Versions, and its defaults are cleared.">
+            <SettingRow stacked label="Enabled" help="A disabled Profile is not offered for new Versions, and its defaults are cleared.">
               <Toggle aria-label="Enabled" checked={enabled} disabled={declared} onChange={setEnabled} />
             </SettingRow>
-            <SettingRow label="Minimum Score" help="A Release scoring under this is rejected.">
+            <SettingRow stacked label="Minimum Score" help="A Release scoring under this is rejected.">
               <span className="label-14">{scoring ? scoring.min_score : '—'}</span>
             </SettingRow>
-            <SettingRow label="Audio" help={audioText(p)}>
+            <SettingRow stacked label="Audio" help={audioText(p)}>
               {p.language_rule === 'primary' && (
                 <Select
                   size="small"

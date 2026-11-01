@@ -28,6 +28,16 @@ const screens = {
   health: '/health',
   log: '/log',
   ...Object.fromEntries(settings.map((s) => [`settings-${s}`, `/settings/${s}`])),
+  // The Settings list (a phone's list of sections), a page with unsaved changes (the Save bar) and a Profile's sheet.
+  'settings-list': '/settings',
+  'settings-save-bar': {
+    path: '/settings/general',
+    prepare: async (h) => h.page.getByRole('combobox', { name: 'Season order' }).selectOption('newest_first'),
+  },
+  'settings-profile-sheet': {
+    path: '/settings/profiles',
+    prepare: async (h) => h.page.getByRole('button', { name: /^Edit / }).first().click(),
+  },
   // The command menu with a query no Library Title matches, which leads with Add.
   'menu-add': {
     path: '/',
