@@ -21,12 +21,13 @@ afterEach(() => vi.unstubAllGlobals())
 const rows = () => [row(1, 'Paddington', 'Paddington'), row(2, 'Heat', 'Heat', { year: 1995 })]
 
 describe('the shell on a phone', () => {
-  it('puts the Health button in the top bar, before Add Title, and none on the Overview', async () => {
+  it("puts the Health button in the Overview's header, after its title, and none in the content", async () => {
     renderApp()
-    const bar = await screen.findByRole('banner')
+    const title = await screen.findByRole('heading', { level: 1, name: 'Overview' })
+    const bar = title.closest('header')!
     const health = await within(bar).findByRole('button', { name: /^Health/ })
-    expect(health.compareDocumentPosition(within(bar).getByRole('button', { name: 'Add Title' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(within(screen.getByRole('main')).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
+    expect(title.compareDocumentPosition(health) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(screen.getByRole('main')).getAllByRole('button', { name: /^Health/ })).toHaveLength(1)
   })
 
   it('opens the Health screen from the top bar button, which is then the current page, and keeps it out of the tab bar and More', async () => {
@@ -99,8 +100,9 @@ describe('the shell on a phone', () => {
     expect(screen.getAllByRole('banner')).toHaveLength(1)
   })
 
-  it('has an Add Title button that opens the menu in Add mode', async () => {
+  it("opens the command menu in Add mode from the Library header's Add Title button", async () => {
     renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Add Title' }))
     expect(await screen.findByRole('dialog', { name: /command menu/i })).toBeInTheDocument()
   })

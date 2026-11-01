@@ -87,6 +87,8 @@ type Indexers interface {
 	GrabsPaused(indexerID int64) bool
 	// CanSweep says whether a sweep could ask any indexer now (the 80 % stop, pauses).
 	CanSweep(ctx context.Context) bool
+	// Enabled is how many indexers a search asks.
+	Enabled(ctx context.Context) int
 }
 
 // Downloads is the downloads host.
@@ -221,6 +223,29 @@ type Found struct {
 	Season   int
 	Episodes []int
 	Pack     bool
+	// Group is the release group the name ends in; empty when it has none.
+	Group string
+	// Covers says, for each episode a Series Release holds that the library knows (or for the Movie itself),
+	// whether this Version Wants it, already has a file for it, or neither, and the Score of that file.
+	Covers []Cover
+}
+
+// CoverState is where one thing a Release covers stands for the Version searched.
+type CoverState string
+
+const (
+	CoverWanted CoverState = "wanted"
+	CoverFilled CoverState = "filled"
+	CoverOther  CoverState = "other" // not monitored, not out yet, or already downloading
+)
+
+// Cover is one episode a Release holds, or the Movie itself (Whole).
+type Cover struct {
+	Season, Episode int
+	Whole           bool
+	State           CoverState
+	// FileScore is the Score of the file the Version holds for it, when there is one.
+	FileScore *int
 }
 
 // SearchResult is the outcome of a manual search.
@@ -230,6 +255,11 @@ type SearchResult struct {
 	Items []Found
 	// Failures are the indexers that could not answer fully.
 	Failures []indexers.Failure
+	// SearchedAt is when the search ran and Indexers how many indexers it asked.
+	SearchedAt time.Time
+	Indexers   int
+	// Wanted is how many Units of the scope the Version searched Wants: the Wanted episodes, or 1 for a Wanted Movie.
+	Wanted int
 }
 
 // entry is a Release in the candidate cache: the indexer's answer and its
@@ -491,16 +521,18 @@ func (s *Service) SearchScope(ctx context.Context, versionID int64, scope librar
 	if err != nil {
 		return SearchResult{}, err
 	}
-	out := SearchResult{Failures: failures}
+	out := SearchResult{Failures: failures, SearchedAt: s.clock(), Indexers: s.idx.Enabled(ctx), Wanted: wantedIn(sub.detail, eps, slot, scope)}
 	for _, e := range entries {
 		v := e.cand.Verdicts[slot]
 		f := Found{
 			ID: e.id, GUID: e.raw.GUID, Name: e.raw.Title, Indexer: e.raw.IndexerName, IndexerID: e.raw.IndexerID, Size: e.raw.Size,
 			PublishedAt: e.raw.PublishDate, Quality: e.cand.Parsed.Quality.Quality.Name, Formats: v.Matched, Score: v.Score, Fits: e.fits(slot),
 		}
+		f.Group = e.cand.Parsed.ReleaseGroup
 		if sr := e.cand.Parsed.Series; sr != nil {
 			f.Season, f.Episodes, f.Pack = sr.Season, slices.Clone(sr.Episodes), sr.FullSeason
 		}
+		f.Covers = coversOf(sub.detail, e.cand.Parsed, eps, slot)
 		for _, l := range v.Languages {
 			f.Languages = append(f.Languages, l.Name)
 		}

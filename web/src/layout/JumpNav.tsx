@@ -15,8 +15,8 @@ export function JumpNav({ label, children }: { label: string; children: ReactNod
 /** A small heading over a run of JumpLinks ("Connections"), in the style of the "Views" title. */
 export function JumpGroup({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section aria-label={title} className="flex flex-col gap-0.5">
-      <h2 className={`${panelRowsTitleClass} mt-1.5 first:mt-0`}>{title}</h2>
+    <section aria-label={title} className="flex flex-col gap-0.5 [&:not(:first-child)]:mt-2">
+      <h2 className={panelRowsTitleClass}>{title}</h2>
       <ul className="flex flex-col gap-0.5">{children}</ul>
     </section>
   )

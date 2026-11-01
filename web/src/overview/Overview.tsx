@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRecentRequests } from '../api/requests'
 import { useRecent, useUpcoming } from '../api/upcoming'
 import { useListNav } from '../keys'
+import { SidePanel } from '../layout/SidePanel'
 import { usePhone } from '../responsive'
 import { Coming, RecentlyAdded } from './ComingRecent'
 import { HappeningNow, useHappeningNow } from './HappeningNow'
@@ -42,26 +43,30 @@ export function Overview({
   const recentEnd = happeningEnd + recentItems.length
   const requestsEnd = recentEnd + requests.length
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      {/* Left aligned beside the rail like every screen's content, 24/32 padding, and no wider than the Title page's cards. */}
-      <div className="max-w-5xl p-4 sm:px-8 sm:py-6">
-        {!phone && <h1 className="heading-20 mb-6">Overview</h1>}
-        {/* Happening now on top; the three cards below drop from three columns to two to one as the column narrows. */}
-        <div className="@container flex flex-col gap-8">
-          <HappeningNow model={happening} onOpen={onOpen} onOpenTitle={onOpenTitle} onOpenAdoption={onOpenAdoption} nav={nav(0)} />
-          <div className="grid grid-cols-1 gap-8 @2xl:grid-cols-2 @4xl:grid-cols-3">
-            <div className="min-w-0">
-              <RecentlyAdded onOpenTitle={onOpenTitle} nav={nav(happeningEnd)} />
-            </div>
-            <div className="min-w-0">
-              <RecentRequests onOpenTitle={onOpenTitle} nav={nav(recentEnd)} />
-            </div>
-            <div className="min-w-0">
-              <Coming onOpenTitle={onOpenTitle} nav={nav(requestsEnd)} />
+    <>
+      {/* A phone's header is the panel's: the title with what runs and Health. A desktop has the title in the content. */}
+      {phone && <SidePanel title="Overview" />}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {/* Left aligned beside the rail like every screen's content, 24/32 padding, and no wider than the Title page's cards. */}
+        <div className="max-w-5xl p-4 sm:px-8 sm:py-6">
+          {!phone && <h1 className="heading-20 mb-6">Overview</h1>}
+          {/* Happening now on top; the three cards below drop from three columns to two to one as the column narrows. */}
+          <div className="@container flex flex-col gap-8">
+            <HappeningNow model={happening} onOpen={onOpen} onOpenTitle={onOpenTitle} onOpenAdoption={onOpenAdoption} nav={nav(0)} />
+            <div className="grid grid-cols-1 gap-8 @2xl:grid-cols-2 @4xl:grid-cols-3">
+              <div className="min-w-0">
+                <RecentlyAdded onOpenTitle={onOpenTitle} nav={nav(happeningEnd)} />
+              </div>
+              <div className="min-w-0">
+                <RecentRequests onOpenTitle={onOpenTitle} nav={nav(recentEnd)} />
+              </div>
+              <div className="min-w-0">
+                <Coming onOpenTitle={onOpenTitle} nav={nav(requestsEnd)} />
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }

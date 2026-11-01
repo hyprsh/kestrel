@@ -70,8 +70,6 @@ const lowDiskAndBusySearch = () => {
   )
 }
 
-const topBar = () => screen.findByRole('banner')
-
 beforeEach(() => history.replaceState(null, '', '/'))
 
 /** The desktop's rail, where Health is. */
@@ -130,13 +128,14 @@ describe('the Overview on a phone', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  it('shows the Health button in the phone top bar, and none at the top of the Overview', async () => {
+  it('shows the Health button in the phone header, once', async () => {
     lowDiskAndBusySearch()
     fakeAttention([])
     renderApp()
 
-    expect(await within(await topBar()).findByRole('button', { name: /^Health · All checks OK/ })).toBeInTheDocument()
-    expect(within(screen.getByRole('main')).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
+    const main = await screen.findByRole('main')
+    expect(await within(main).findByRole('button', { name: /^Health · All checks OK/ })).toBeInTheDocument()
+    expect(within(main).getAllByRole('button', { name: /^Health/ })).toHaveLength(1) // in the header only, not the content
     expect(screen.queryByRole('group', { name: 'Status' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Searching|Wanted waiting|Nothing waiting/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /indexers?\b/ })).not.toBeInTheDocument()

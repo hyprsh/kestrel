@@ -109,10 +109,22 @@ func (s *Service) gatherSeries(ctx context.Context, sub subject, scope library.S
 // coveredBy are the episodes a Series Release holds that the library knows,
 // and whether the Version in slot already has a file for any of them.
 func coveredBy(p release.ParsedRelease, eps []library.Episode, slot Slot) (ids []int64, upgrade bool) {
+	for _, ep := range episodesOf(p, eps) {
+		ids = append(ids, ep.ID)
+		if c := ep.Cells[slot]; c != nil && c.State == library.Filled {
+			upgrade = true
+		}
+	}
+	return ids, upgrade
+}
+
+// episodesOf are the episodes a Series Release holds that the library knows; nil for a Movie.
+func episodesOf(p release.ParsedRelease, eps []library.Episode) []library.Episode {
 	s := p.Series
 	if s == nil {
-		return nil, false
+		return nil
 	}
+	var out []library.Episode
 	for _, ep := range eps {
 		in := false
 		switch {
@@ -124,15 +136,72 @@ func coveredBy(p release.ParsedRelease, eps []library.Episode, slot Slot) (ids [
 		default:
 			in = slices.Contains(s.Episodes, ep.Number)
 		}
-		if !in {
-			continue
-		}
-		ids = append(ids, ep.ID)
-		if c := ep.Cells[slot]; c != nil && c.State == library.Filled {
-			upgrade = true
+		if in {
+			out = append(out, ep)
 		}
 	}
-	return ids, upgrade
+	return out
+}
+
+// coversOf says what a Release covers for the Version in slot: each episode it holds that the library knows
+// (the Movie itself for a Movie) with that Version's state for it and the Score of the file there.
+func coversOf(d library.Detail, p release.ParsedRelease, eps []library.Episode, slot Slot) []Cover {
+	stateOf := func(st library.State) CoverState {
+		switch st {
+		case library.Wanted:
+			return CoverWanted
+		case library.Filled:
+			return CoverFilled
+		}
+		return CoverOther
+	}
+	if d.Kind != library.Series {
+		for _, v := range d.Versions {
+			if v.Slot != slot {
+				continue
+			}
+			c := Cover{Whole: true, State: stateOf(v.State)}
+			if v.File != nil {
+				c.FileScore = v.File.Score
+			}
+			return []Cover{c}
+		}
+		return nil
+	}
+	var out []Cover
+	for _, ep := range episodesOf(p, eps) {
+		c := Cover{Season: ep.Season, Episode: ep.Number, State: CoverOther}
+		if cell := ep.Cells[slot]; cell != nil {
+			c.State, c.FileScore = stateOf(cell.State), cell.Score
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+// wantedIn counts the Units the Version in slot Wants within scope: its Wanted episodes, or 1 for a Wanted Movie.
+func wantedIn(d library.Detail, eps []library.Episode, slot Slot, scope library.Scope) int {
+	if d.Kind != library.Series {
+		for _, v := range d.Versions {
+			if v.Slot == slot && v.State == library.Wanted {
+				return 1
+			}
+		}
+		return 0
+	}
+	n := 0
+	for _, ep := range eps {
+		if scope.Season != nil && *scope.Season != ep.Season {
+			continue
+		}
+		if len(scope.EpisodeIDs) > 0 && !slices.Contains(scope.EpisodeIDs, ep.ID) {
+			continue
+		}
+		if c := ep.Cells[slot]; c != nil && c.State == library.Wanted {
+			n++
+		}
+	}
+	return n
 }
 
 // inSeason is the scope's search of one season: the season, with the scope's

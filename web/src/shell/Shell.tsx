@@ -61,7 +61,7 @@ const moreKeys = ['settings', 'log', 'requests', 'adoption', 'cleanup']
 const moreLabels: Record<string, string> = { adoption: 'Adoption', cleanup: 'Clean up' }
 // The screens that carry their own name in a SidePanel (see layout/SidePanel.tsx), so the Shell adds no heading above them.
 // Phase 2 adds Log, Upcoming, Settings, Activity and Health as they move over.
-const panelScreens = ['library', 'activity', 'health', 'settings', 'upcoming', 'log']
+const panelScreens = ['overview', 'library', 'activity', 'health', 'settings', 'upcoming', 'log']
 const isTitleId = (section: string) => /^\d+$/.test(section)
 const isPlace = (key: string) => [...screens, requests, health].some((s) => s.key === key)
 

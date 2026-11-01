@@ -170,6 +170,15 @@ func failureOf(ctx context.Context, inst instances.Instance, err error) *Failure
 	return &Failure{IndexerID: inst.ID, IndexerName: inst.Name, Code: pe.Code, Message: pe.Message, RetryAfter: pe.RetryAfter, Limit: pe.Limit}
 }
 
+// Enabled is how many indexers a search asks.
+func (s *Service) Enabled(ctx context.Context) int {
+	enabled, err := s.inst.Enabled(ctx, indexer.Contract.ID)
+	if err != nil {
+		return 0
+	}
+	return len(enabled)
+}
+
 // fan runs one lane per enabled indexer, in parallel, and gathers the answers.
 func (s *Service) fan(ctx context.Context, lane func(instances.Instance) ([]Release, *Failure)) Result {
 	enabled, err := s.inst.Enabled(ctx, indexer.Contract.ID)

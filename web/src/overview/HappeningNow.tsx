@@ -51,7 +51,8 @@ function useFinishedPass(running: boolean, last: LastPass | null | undefined): {
     const id = setTimeout(() => tick((n) => n + 1), left + 20)
     return () => clearTimeout(id)
   }, [finished])
-  const show = !running && last && finished !== null && dismissed !== last.finished_at && Date.now() - finished < FINISHED_ROW_MS
+  // A pass that found nothing to search is not news: the Search loop runs one every few minutes.
+  const show = !running && last && (last.searched > 0 || last.upgrades > 0 || last.grabbed > 0) && finished !== null && dismissed !== last.finished_at && Date.now() - finished < FINISHED_ROW_MS
   return { pass: show ? last : null, dismiss: () => last && setDismissed(last.finished_at) }
 }
 
