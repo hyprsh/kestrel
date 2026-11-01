@@ -72,6 +72,7 @@ function TitleSkeleton() {
       </div>
       <div className="mt-6">
         <Skeleton width={72} height={20} />
+        {/* chrome-ok: the skeleton of the Version and Season cards, framed as they are */}
         <div className="mt-2 overflow-hidden rounded-md shadow-border">
           <Entity.List>
             {[0, 1].map((i) => (
@@ -84,6 +85,7 @@ function TitleSkeleton() {
       </div>
       <div className="mt-6">
         <Skeleton width={72} height={20} />
+        {/* chrome-ok: the skeleton of the Version and Season cards, framed as they are */}
         <div className="mt-2 overflow-hidden rounded-md shadow-border">
           <Entity.List>
             {[0, 1, 2, 3].map((i) => (

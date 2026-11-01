@@ -169,6 +169,7 @@ export function ScreenSkeleton() {
   return (
     <LoadingRegion>
       <div aria-hidden className="flex min-h-0 flex-1">
+        {/* chrome-ok: the skeleton of the SidePanel's frame, which this file cannot import */}
         <aside className="hidden w-[280px] shrink-0 flex-col gap-3 border-r border-gray-alpha-200 bg-background-200 p-4 sm:flex">
           <Skeleton width={96} height={24} />
           <Skeleton height={32} />
