@@ -11,7 +11,7 @@ files Paddington 2, Paddington in Peru, El Camino and Better Call Saul.
 
 Straight into SQLite, since Imports would need real downloads: the files of both,
 as empty files on disk, each with its parse and an ffprobe snapshot (English audio, Paddington's German too), so the
-file popover shows its audio, group, Score and Custom Formats; the Versions are then switched to their own Profile,
+file popover shows its video codec, HDR, audio format, group, Score and Custom Formats; the Versions are then switched to their own Profile,
 which re-scores the files. Paddington has its 1080p BluRay. Breaking Bad has Seasons 1-4
 in Standard (S02E12-E13 is one double-episode file) and in 4K, Season 5 half in
 Standard and a quarter in 4K, and one Special. BIN is scripts/demo/parse, which
@@ -119,7 +119,7 @@ movie_folder = "Paddington (2014) {tmdb-116149}"
 db.execute("UPDATE titles SET folder=? WHERE id=?", (movie_folder, tid[116149]))
 files.append((ver[(tid[116149], "standard")],
               f"{ROOT}/movies/{movie_folder}/{movie_folder} - [Standard][Bluray-1080p][x264]-DON.mkv", 8_589_934_592,
-              "Paddington.2014.1080p.BluRay.DTS.x264-DON", 1850, [], "movie"))
+              "Paddington.2014.1080p.BluRay.DTS.5.1.x264-DON", 1850, [], "movie"))
 series_folder = "Breaking Bad (2008) {tvdb-81189}"
 db.execute("UPDATE titles SET folder=? WHERE id=?", (series_folder, tid[1396]))
 
@@ -152,13 +152,16 @@ ep_file("standard", 0, [1], "Breaking.Bad.{code}.Minisode.1080p.WEB-DL.AAC2.0.H.
 
 
 def probe_of(f):
-    """The ffprobe snapshot Imports store in files.probe (Go field names): frame size by Slot, English audio, Paddington with a German track too."""
-    uhd = "2160p" in f[3]
-    audio = [{"Index": 1, "Codec": "eac3" if "DDP" in f[3] else "ac3", "Channels": 6, "Language": "eng", "Default": True}]
+    """The ffprobe snapshot Imports store in files.probe (Go field names): frame size by Slot, the codecs, HDR and English audio the release name says
+    (DDP is E-AC-3, DTS is DTS, AAC is stereo, a name with no audio token gets AC-3 5.1), Paddington with a German AC-3 track too."""
+    name = f[3]
+    uhd = "2160p" in name
+    codec, channels = ("eac3", 6) if "DDP" in name else ("dts", 6) if "DTS" in name else ("aac", 2) if "AAC" in name else ("ac3", 6)
+    audio = [{"Index": 1, "Codec": codec, "Channels": channels, "Profile": "DTS" if codec == "dts" else "", "Language": "eng", "Default": True}]
     if f[6] == "movie":
         audio.append({"Index": 2, "Codec": "ac3", "Channels": 6, "Language": "deu", "Default": False})
     return json.dumps({"Size": f[2], "Duration": 3_000_000_000_000, "HasVideo": True, "Width": 3840 if uhd else 1920, "Height": 2160 if uhd else 1080,
-                       "VideoCodec": "hevc" if uhd else "h264", "HDR": "HDR10" if uhd else "", "Audio": audio}, separators=(",", ":"))
+                       "VideoCodec": "hevc" if uhd else "h264", "HDR": "HDR10" if "HDR" in name else "", "Audio": audio}, separators=(",", ":"))
 
 
 parsed = subprocess.run([args.parse], input="".join(f"{f[6]}\t{f[3]}\n" for f in files),

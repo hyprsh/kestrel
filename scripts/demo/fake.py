@@ -16,6 +16,8 @@ What it knows (MOVIES and SERIES below):
 - Searches match "padd", "breaking"/"camino", "saul", "friends", "twin".
 - The indexer has no releases until GET /_ctl?releases=1 (=0 empties it again).
   Then it offers releases for every Movie and for Breaking Bad, never other Series.
+  Their names carry the video codec (x264, H.264, H.265, HEVC), HDR and audio (DD, DDP, DTS-HD.MA with channels) the way
+  release names do, so Manual search shows those facts; some 1080p names (BluRay.x264, HDTV.x264) have no audio token on purpose.
 - A whole-season search (no episode) also finds a Remux pack, two German packs and, for the
   season's episodes 5 to 8 (the first four when it is shorter), a 2160p, a 1080p and a German release each: packs, episodes and
   Releases the Profile rejects for Manual search.
