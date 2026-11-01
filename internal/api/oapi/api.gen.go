@@ -2384,6 +2384,15 @@ type Event struct {
 	VersionId *int64 `json:"version_id"`
 }
 
+// EventKindCount defines model for EventKindCount.
+type EventKindCount struct {
+	Count int64  `json:"count"`
+	Kind  string `json:"kind"`
+
+	// Routine Whether events of this kind are routine
+	Routine bool `json:"routine"`
+}
+
 // EventList defines model for EventList.
 type EventList struct {
 	Items []Event `json:"items"`
@@ -2392,11 +2401,8 @@ type EventList struct {
 // EventsSummary defines model for EventsSummary.
 type EventsSummary struct {
 	// Counts Events per kind, for the kinds that have any.
-	Counts []struct {
-		Count int64  `json:"count"`
-		Kind  string `json:"kind"`
-	} `json:"counts"`
-	Oldest *time.Time `json:"oldest"`
+	Counts []EventKindCount `json:"counts"`
+	Oldest *time.Time       `json:"oldest"`
 
 	// RoutineDays How many days routine events are kept.
 	RoutineDays int `json:"routine_days"`

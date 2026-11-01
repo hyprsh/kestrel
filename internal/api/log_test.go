@@ -226,8 +226,9 @@ func TestTheLogSummaryCountsEventsByKindIncludingRoutineOnes(t *testing.T) {
 	}
 	got := decode[struct {
 		Counts []struct {
-			Kind  string `json:"kind"`
-			Count int64  `json:"count"`
+			Kind    string `json:"kind"`
+			Count   int64  `json:"count"`
+			Routine bool   `json:"routine"`
 		} `json:"counts"`
 		Oldest      *string `json:"oldest"`
 		RoutineDays int     `json:"routine_days"`
@@ -235,6 +236,9 @@ func TestTheLogSummaryCountsEventsByKindIncludingRoutineOnes(t *testing.T) {
 	n := map[string]int64{}
 	for _, c := range got.Counts {
 		n[c.Kind] = c.Count
+		if c.Routine != (c.Kind == "search") {
+			t.Errorf("%s routine = %v", c.Kind, c.Routine)
+		}
 	}
 	if n["health_raised"] != 2 || n["search"] != 1 {
 		t.Errorf("counts = %v, want 2 health_raised and 1 search (routine included)", got.Counts)

@@ -4161,13 +4161,16 @@ export interface components {
         EventList: {
             items: components["schemas"]["Event"][];
         };
+        EventKindCount: {
+            kind: string;
+            /** Format: int64 */
+            count: number;
+            /** @description Whether events of this kind are routine */
+            routine: boolean;
+        };
         EventsSummary: {
             /** @description Events per kind, for the kinds that have any. */
-            counts: {
-                kind: string;
-                /** Format: int64 */
-                count: number;
-            }[];
+            counts: components["schemas"]["EventKindCount"][];
             /** Format: date-time */
             oldest: string | null;
             /** @description How many days routine events are kept. */

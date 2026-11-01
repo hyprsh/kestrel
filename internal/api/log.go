@@ -73,15 +73,9 @@ func (s *server) GetEventsSummary(ctx context.Context, _ oapi.GetEventsSummaryRe
 	if err != nil {
 		return nil, err
 	}
-	out := oapi.EventsSummary{Counts: make([]struct {
-		Count int64  `json:"count"`
-		Kind  string `json:"kind"`
-	}, 0, len(sum.Counts)), RoutineDays: int(history.RoutineLife / (24 * time.Hour))}
+	out := oapi.EventsSummary{Counts: make([]oapi.EventKindCount, 0, len(sum.Counts)), RoutineDays: int(history.RoutineLife / (24 * time.Hour))}
 	for k, n := range sum.Counts {
-		out.Counts = append(out.Counts, struct {
-			Count int64  `json:"count"`
-			Kind  string `json:"kind"`
-		}{Count: n, Kind: string(k)})
+		out.Counts = append(out.Counts, oapi.EventKindCount{Kind: string(k), Count: n, Routine: history.IsRoutine(k)})
 	}
 	sort.Slice(out.Counts, func(i, j int) bool { return out.Counts[i].Kind < out.Counts[j].Kind })
 	if !sum.Oldest.IsZero() {
