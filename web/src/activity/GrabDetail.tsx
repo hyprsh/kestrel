@@ -5,7 +5,9 @@ import { useDownloadClient, useGrabSteps, useRemoveFromBlocklist, type GrabEntry
 import { useSearchNow } from '../api/grabs'
 import { useSearchStatus } from '../api/search'
 import { EndOfPath } from '../library/EpisodeFilePopover'
-import { size, slotLabel, type SlotKey } from '../library/bits'
+import { size } from '../library/bits'
+import { SlotTag } from '../library/SlotChip'
+import { slotName } from '../library/slots'
 import { placePath, useOpenPlace } from '../place'
 import { until, useNow } from '../time'
 import { useReport } from '../toasts'
@@ -61,7 +63,7 @@ function importedText(s: GrabSteps): string {
 
 /** The "Now" note of a failed Grab: whether its Release is blocklisted, whether it is still Wanted, and when the next pass runs. */
 function nowNote(g: GrabEntry, s: GrabSteps, nextPassAt: string | null, now: number): string {
-  const slot = g.slot ? slotLabel[g.slot as SlotKey] : null
+  const slot = g.slot ? slotName(g.slot) : null
   const what = g.episodes.length > 0 ? g.episodes.join(', ') : g.title || 'The Title'
   const parts = [s.blocklist_id !== null ? `The release is blocklisted${slot ? ` for the ${slot} Version` : ''}.` : 'The release is not blocklisted.']
   if (!s.still_wanted) parts.push(`${what} is no longer Wanted.`)
@@ -131,7 +133,10 @@ export function GrabDetail({ grab: g, onOpenTitle, onManualSearch }: { grab: Gra
     <div className={cx('flex flex-col gap-4 pr-4 pb-4', pad)}>
       <div className="grid grid-cols-2 gap-x-8 gap-y-4 max-sm:grid-cols-1">
         <div className="flex min-w-0 flex-col gap-2">
-          <span className="label-13 font-semibold">What happened</span>
+          <span className="flex items-center gap-2">
+            <span className="label-13 font-semibold">What happened</span>
+            {g.slot && <SlotTag slot={g.slot} state={failed ? 'wanted' : 'filled'} />}
+          </span>
           {steps ? <Timeline steps={stepsOf(g, steps, client?.name ?? 'the download client')} /> : <Skeleton width="100%" height={60} />}
         </div>
         <div className="flex min-w-0 flex-col gap-2">

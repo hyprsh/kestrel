@@ -12,6 +12,7 @@ import { usePhone } from '../responsive'
 import { cx } from '../ui'
 import { GrabDetail } from './GrabDetail'
 import type { Entry } from './stages'
+import { SlotTag } from '../library/SlotChip'
 import { dayName, hhmm, shortWhy, whatOf, whyFailed } from './words'
 
 type BlocklistEntry = components['schemas']['BlocklistEntry']
@@ -45,11 +46,11 @@ function result(e: Ended): { failed: boolean; text: string; why: string } {
 function subjectOf(e: Ended, titles: readonly TitleRow[]) {
   if (e.type === 'grab') {
     const g = e.grab
-    return { titleId: g.title_id, hasPoster: g.has_poster, title: g.title || 'Deleted Title', what: whatOf(g), release: g.release_name, size: g.size, score: g.score as number | null }
+    return { titleId: g.title_id, hasPoster: g.has_poster, title: g.title || 'Deleted Title', what: whatOf(g), slot: g.slot, release: g.release_name, size: g.size, score: g.score as number | null }
   }
   const b: BlocklistEntry = e.entry
   const t = titles.find((x) => x.id === b.title_id)
-  return { titleId: b.title_id, hasPoster: t?.has_poster ?? false, title: t?.title || 'Deleted Title', what: '', release: b.release_name, size: b.size, score: null }
+  return { titleId: b.title_id, hasPoster: t?.has_poster ?? false, title: t?.title || 'Deleted Title', what: '', slot: null as string | null, release: b.release_name, size: b.size, score: null }
 }
 
 export function HistoryRow({
@@ -82,6 +83,12 @@ export function HistoryRow({
         <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
           <span className="label-14 truncate">
             <b>{s.title}</b> <span className="text-gray-900">{s.what}</span>
+            {s.slot && (
+              <>
+                {' '}
+                <SlotTag slot={s.slot} state={r.failed ? 'wanted' : 'filled'} />
+              </>
+            )}
           </span>
           <span className={cx('label-12 flex items-center gap-1.5', r.failed && 'text-red-900')} title={r.why}>
             {dot}
@@ -97,6 +104,12 @@ export function HistoryRow({
       {s.titleId != null ? <TitlePoster id={s.titleId} hasPoster={s.hasPoster} size="xs" /> : <span className="w-7" />}
       <span className="truncate">
         <b>{s.title}</b> <span className="text-gray-900">{s.what}</span>
+        {s.slot && (
+          <>
+            {' '}
+            <SlotTag slot={s.slot} state={r.failed ? 'wanted' : 'filled'} />
+          </>
+        )}
       </span>
       <span className="label-12-mono truncate text-gray-900" title={s.release}>
         {s.release}

@@ -3,7 +3,6 @@ import type { GrabEntry } from '../api/activity'
 import type { QueueItem } from '../api/queue'
 import { size } from '../library/bits'
 import { speedText } from '../overview/statsText'
-import { slotLabel, type SlotKey } from '../library/bits'
 import { span } from '../time'
 
 /** Why a failed Grab failed, in words; an Import's own reasons (`language`, …) are shown as they come. */
@@ -14,9 +13,9 @@ export const failureText: Record<string, string> = {
   discarded: 'its stalled Import was discarded',
 }
 
-/** What a Grab covers beside its Title: "S05E07 – E08 · Standard", "4K" for a Movie. */
-export function whatOf(g: { episodes: readonly string[]; slot: string | null }): string {
-  return [g.episodes.join(', ').replace('-', ' – '), g.slot ? slotLabel[g.slot as SlotKey] : null].filter(Boolean).join(' · ')
+/** What a Grab covers beside its Title: "S05E07 – E08"; empty for a Movie (its Slot is the row's chip). */
+export function whatOf(g: { episodes: readonly string[] }): string {
+  return g.episodes.join(', ').replace('-', ' – ')
 }
 
 /** The full reason a Grab failed: the words of a known failure, or what the Import rejected. */

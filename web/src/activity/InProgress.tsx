@@ -18,6 +18,7 @@ import { useReport } from '../toasts'
 import { span, useNow } from '../time'
 import { cx } from '../ui'
 import { passLines, whereOf } from './SearchProgress'
+import { SlotTag } from '../library/SlotChip'
 import { speed, stuckText, whatOf } from './words'
 
 type Pass = NonNullable<SearchStatus['pass']>
@@ -101,7 +102,10 @@ function Frame({
           <span className="label-12-mono truncate text-gray-900">{g.release_name}</span>
         </button>
         <div className="flex min-w-0 flex-col gap-1 max-sm:col-span-2 max-sm:col-start-2">
-          <span className={cx('label-12 truncate', tones[gist.tone])}>{gist.text}</span>
+          <span className="flex min-w-0 items-center gap-2">
+            {g.slot && <SlotTag slot={g.slot} state="downloading" text={gist.pct !== null ? `${gist.pct}%` : undefined} />}
+            <span className={cx('label-12 truncate', tones[gist.tone])}>{gist.text}</span>
+          </span>
           {gist.pct !== null && <Progress value={gist.pct} type={bars[gist.tone]} height={6} aria-label={`${g.release_name} progress`} />}
         </div>
         <span className="flex justify-end gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 max-sm:hidden">
