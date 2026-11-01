@@ -1,18 +1,22 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { useAuth, useSetup } from './api/queries'
 import { PageSkeleton } from './loading'
-import { RequesterApp } from './requester/RequesterApp'
-import { Login } from './screens/Login'
-import { Wizard } from './screens/Wizard'
 import { Toast } from '@hyprsh/design'
 import { Shell } from './shell/Shell'
+
+// The login card, the wizard and the Requester app are separate chunks: a signed-in admin loads only the Shell.
+const RequesterApp = lazy(() => import('./requester/RequesterApp').then((m) => ({ default: m.RequesterApp })))
+const Login = lazy(() => import('./screens/Login').then((m) => ({ default: m.Login })))
+const Wizard = lazy(() => import('./screens/Wizard').then((m) => ({ default: m.Wizard })))
 
 export function App({ client }: { client?: QueryClient }) {
   const [fallback] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: 1 } } }))
   return (
     <QueryClientProvider client={client ?? fallback}>
-      <Gate />
+      <Suspense fallback={<PageSkeleton />}>
+        <Gate />
+      </Suspense>
       {/* One host for every screen; useToasts' own fallback host does not mount under React 19. */}
       <Toast />
     </QueryClientProvider>

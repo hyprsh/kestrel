@@ -1,6 +1,6 @@
 // The Save bar's reach beyond one page: leaving Settings for another screen, and the phone's list with its status lines.
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
@@ -25,7 +25,7 @@ describe('leaving Settings with unsaved changes', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Library' }))
     await userEvent.click(within(await screen.findByRole('dialog', { name: 'Leave without saving?' })).getByRole('button', { name: 'Discard and leave' }))
-    expect(screen.queryByLabelText('Primary language')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByLabelText('Primary language')).not.toBeInTheDocument())
   })
 
   it('does not ask when nothing changed', async () => {

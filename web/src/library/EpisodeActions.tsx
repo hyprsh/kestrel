@@ -16,7 +16,7 @@ import { episodeCode, episodeRow, seasonName, seasonRow, type EpisodeVersion } f
 import { IconAction } from './IconAction'
 import { cellOf, slotName } from './slots'
 import { TickBox } from './TickBox'
-import { scopeCode } from './ManualSearchRoute'
+import { scopeCode } from './scopeCode'
 import type { ManualSearchTarget } from './TitleDetail'
 
 const episodeName = (e: Episode) => `Season ${e.season} episode ${e.number}`

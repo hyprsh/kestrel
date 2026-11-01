@@ -155,7 +155,7 @@ describe('the command menu', () => {
     await userEvent.keyboard('zod')
     await userEvent.click(await within(menu).findByRole('option', { name: /zodiac/i }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
     expect(await screen.findByRole('option', { name: /zodiac/i, selected: true })).toBeInTheDocument()
   })
 

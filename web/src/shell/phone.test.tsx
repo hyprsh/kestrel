@@ -56,7 +56,7 @@ describe('the shell on a phone', () => {
     expect(screen.queryByRole('button', { name: 'Kestrel, go to Overview' })).not.toBeInTheDocument() // the rail is gone
 
     await userEvent.click(within(tabs).getByRole('button', { name: 'Upcoming' }))
-    expect(screen.getByRole('banner')).toHaveTextContent('Upcoming')
+    await waitFor(() => expect(screen.getByRole('banner')).toHaveTextContent('Upcoming'))
     expect(within(tabs).getByRole('button', { name: 'Upcoming' })).toHaveAttribute('aria-current', 'page')
   })
 
@@ -71,7 +71,7 @@ describe('the shell on a phone', () => {
     // Each row is a full-width button named by its screen, in order, ahead of Log Out.
     ;['Settings', 'Log', 'Requests'].forEach((name, i) => expect(within(sheet).getAllByRole('button')[i]).toHaveAccessibleName(name))
     await userEvent.click(within(sheet).getByRole('button', { name: 'Log' }))
-    expect(screen.getByRole('banner')).toHaveTextContent('Log')
+    await waitFor(() => expect(screen.getByRole('banner')).toHaveTextContent('Log'))
     expect(screen.queryByRole('dialog', { name: 'More' })).not.toBeInTheDocument()
     expect(within(screen.getByRole('navigation', { name: 'Screens' })).getByRole('button', { name: 'More' })).toHaveAttribute('aria-current', 'page')
   })

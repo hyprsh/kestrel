@@ -1,6 +1,6 @@
 import { Button, EmptyState, KeyboardInput, Note, parseQuery, Skeleton } from '@hyprsh/design'
 import { Plus } from 'lucide-react'
-import { useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useProfiles, useTitles, type TitleRow } from '../api/queries'
 import { useQueue } from '../api/queue'
 import { useOpenCleanup } from '../cleanup/launch'
@@ -14,6 +14,7 @@ import type { ManualSearchAt } from '../place'
 import { usePhone } from '../responsive'
 import { useSelection } from '../selection'
 import { useNow } from '../time'
+import { PageSkeleton } from '../loading'
 import { size } from './bits'
 import { BulkActions } from './BulkActions'
 import { EpisodeViewContext } from './episodeView'
@@ -23,11 +24,14 @@ import { EpisodeHitRows, hitDomId } from './EpisodeHitRows'
 import { filterLibrary, libraryQualifiers, slotsPresent, tabCounts, tabOf, withTab } from './filter'
 import { singleSlot } from './rowChips'
 import { AddTitle, LibraryMenu, StatusSection } from './LibraryBar'
-import { ManualSearchRoute, scopeCode } from './ManualSearchRoute'
+import { scopeCode } from './scopeCode'
 import { grabsByTitle } from './rowState'
 import { TitleDetail, type ManualSearchTarget } from './TitleDetail'
 import { TitleRows } from './TitleRows'
 import { useEpisodeResults, type EpisodeHit } from './useEpisodeResults'
+
+// Manual search is reached from a Title's page only, so its page is fetched when one opens.
+const ManualSearchRoute = lazy(() => import('./ManualSearchRoute').then((m) => ({ default: m.ManualSearchRoute })))
 
 /**
  * The Library. Two panes: on the left the SidePanel (wide), which holds the name, the Library-wide "…" menu and Add Title, the
@@ -300,14 +304,16 @@ export function Library({
   // The selected Title's page, or the manual search that replaces it; `onEscape` is where Escape in the page goes.
   const titlePage = (onEscape: () => void) =>
     current && searching ? (
-      <ManualSearchRoute
-        at={search}
-        titleName={current.title}
-        onBack={() => {
-          onSearch(null)
-          requestAnimationFrame(() => paneRef.current?.focus())
-        }}
-      />
+      <Suspense fallback={<PageSkeleton />}>
+        <ManualSearchRoute
+          at={search}
+          titleName={current.title}
+          onBack={() => {
+            onSearch(null)
+            requestAnimationFrame(() => paneRef.current?.focus())
+          }}
+        />
+      </Suspense>
     ) : current ? (
       <TitleDetail key={current.id} ref={paneRef} row={current} onEscape={onEscape} onManualSearch={startSearch} />
     ) : (
