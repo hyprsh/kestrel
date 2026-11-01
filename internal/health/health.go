@@ -63,6 +63,8 @@ const (
 	KindProxyHeader Kind = "untrusted_proxy_header"
 	// KindSecurityFix: a published GHSA covers the running version (Warning).
 	KindSecurityFix Kind = "security_fix_available"
+	// KindClock: the server's clock differs from a trusted time source by over a minute (Warning).
+	KindClock Kind = "clock_drift"
 
 	// KindGoneUpstream: the metadata provider deleted or merged a Title's entry (Warning).
 	KindGoneUpstream Kind = "title_gone_upstream"
@@ -134,9 +136,11 @@ type Service struct {
 	log   *slog.Logger
 	deps  ChecksDeps
 
-	mu      sync.Mutex // guards the watches and the checks
+	mu      sync.Mutex // guards the watches, the checks and the clock sample
 	watches watches
 	checks  []namedCheck
+	// clockSample is the last clock comparison; nil before the first (see ObserveClock).
+	clockSample *ClockSample
 }
 
 // New returns a Service.

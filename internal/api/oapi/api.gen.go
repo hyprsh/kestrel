@@ -4068,6 +4068,9 @@ type RejectionCount struct {
 	// that offers such Releases.
 	Code  RejectionCode `json:"code"`
 	Count int           `json:"count"`
+
+	// Detail For `language`, the one language those Releases are in (`German`); null otherwise or when they vary.
+	Detail *string `json:"detail"`
 }
 
 // Release defines model for Release.

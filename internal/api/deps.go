@@ -275,6 +275,8 @@ type Health interface {
 	Disks(ctx context.Context) ([]health.Disk, error)
 	ClientState() health.State
 	Services(ctx context.Context) ([]health.ServiceState, error)
+	// Clock is the last comparison of the server's clock with a time source; ok is false before the first.
+	Clock() (health.ClockSample, bool)
 	AddCheck(name string, c health.Check)
 	ObserveMediaServer(ctx context.Context, ref health.Ref, f *health.Failure)
 	ObserveDownloadClient(ctx context.Context, ref health.Ref, f *health.Failure)
@@ -312,6 +314,8 @@ type Trash interface {
 // ProviderKeys is the UI's metadata provider key overrides.
 type ProviderKeys interface {
 	OverridesSet(ctx context.Context) (metadata.OverridesSet, error)
+	// Origins says whether each provider runs on the user's own key or the project's.
+	Origins(ctx context.Context) (metadata.Origins, error)
 	SetOverrides(ctx context.Context, tmdb, tvdb *string) error
 }
 

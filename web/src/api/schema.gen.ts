@@ -3524,6 +3524,8 @@ export interface components {
         };
         RejectionCount: {
             code: components["schemas"]["RejectionCode"];
+            /** @description For `language`, the one language those Releases are in (`German`); null otherwise or when they vary. */
+            detail: string | null;
             count: number;
         };
         /**

@@ -14,7 +14,9 @@ import (
 	"github.com/hyprsh/kestrel/internal/configfile"
 	"github.com/hyprsh/kestrel/internal/health"
 	"github.com/hyprsh/kestrel/internal/jobs"
+	"github.com/hyprsh/kestrel/internal/metadata"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
+	"github.com/hyprsh/kestrel/internal/stats"
 )
 
 // healthRowPrefix starts the id of every row that comes from the health module.
@@ -72,6 +74,7 @@ var attentionActions = map[health.Kind]func(health.Row) []oapi.AttentionAction{
 	health.KindTrashRejected: func(health.Row) []oapi.AttentionAction {
 		return []oapi.AttentionAction{{Key: "update_trash", Label: "Update from TRaSH", Method: oapi.POST, Path: "/trash/update"}}
 	},
+	health.KindClock: func(health.Row) []oapi.AttentionAction { return []oapi.AttentionAction{healthLog} },
 	health.KindProxyHeader: func(health.Row) []oapi.AttentionAction {
 		return []oapi.AttentionAction{openSettings("security", "Open Security")}
 	},
@@ -321,10 +324,18 @@ func (s *server) GetSystemStatus(ctx context.Context, _ oapi.GetSystemStatusRequ
 		return nil, err
 	}
 	states := s.health.IndexerStates()
+	answers, err := stats.New(s.opts.Store).ResponseTimes(ctx, s.opts.Clock())
+	if err != nil {
+		return nil, err
+	}
 	for _, ib := range budgets {
 		inst, b := ib.inst, ib.status
 		row := oapi.IndexerStatus{InstanceId: inst.ID, Name: inst.Name, State: oapi.IndexerStatusState("ok")}
 		row.SearchUsed, row.GrabsPaused = b.SearchUsed, b.GrabsPaused
+		if d, ok := answers[inst.ID]; ok {
+			ms := int(d.Milliseconds())
+			row.MedianMs = &ms
+		}
 		if b.SearchMax > 0 {
 			row.SearchMax = &b.SearchMax
 		}
@@ -360,8 +371,17 @@ func (s *server) GetSystemStatus(ctx context.Context, _ oapi.GetSystemStatusRequ
 		return nil, err
 	}
 	out.Services = []oapi.ServiceStatus{}
+	var origins metadata.Origins
+	if s.keys != nil {
+		if origins, err = s.keys.Origins(ctx); err != nil {
+			return nil, err
+		}
+	}
 	for _, v := range services {
 		row := oapi.ServiceStatus{Kind: oapi.MetadataProvider, Name: v.Name, State: oapi.ServiceStatusStateOk}
+		if !v.MediaServer {
+			row.Key = keyOf(v.Name, origins)
+		}
 		if v.MediaServer {
 			id := v.InstanceID
 			row.Kind, row.InstanceId = oapi.MediaServer, &id
@@ -372,6 +392,7 @@ func (s *server) GetSystemStatus(ctx context.Context, _ oapi.GetSystemStatusRequ
 		}
 		out.Services = append(out.Services, row)
 	}
+	out.Database, out.Clock = s.databaseStatus(), s.clockStatus()
 	ts := s.trash.Status(ctx)
 	out.Trash.Commit, out.Trash.AutoUpdate = ts.Commit, ts.AutoUpdate
 	if !ts.CommittedAt.IsZero() {
@@ -381,6 +402,44 @@ func (s *server) GetSystemStatus(ctx context.Context, _ oapi.GetSystemStatusRequ
 		out.Trash.CheckedAt = &ts.CheckedAt
 	}
 	return oapi.GetSystemStatus200JSONResponse(out), nil
+}
+
+// keyOf is whose key a metadata provider runs on, by the name health gives it; nil for none.
+func keyOf(provider string, o metadata.Origins) *oapi.ServiceStatusKey {
+	origin := map[string]metadata.Origin{"TMDB": o.TMDB, "TheTVDB": o.TVDB}[provider]
+	if origin == metadata.OriginNone {
+		return nil
+	}
+	k := oapi.ServiceStatusKey(origin)
+	return &k
+}
+
+// databaseStatus is the database file's size and its newest scheduled backup.
+func (s *server) databaseStatus() *oapi.DatabaseStatus {
+	files := s.opts.Store.Backups()
+	out := oapi.DatabaseStatus{SizeBytes: s.opts.Store.Size(), Backups: len(files)}
+	for _, f := range files {
+		if f.Scheduled && !f.At.IsZero() {
+			at, bytes := f.At, f.Bytes
+			out.LastBackupAt, out.LastBackupBytes = &at, &bytes
+			break // newest first
+		}
+	}
+	return &out
+}
+
+// clockStatus is the last comparison of the server's clock with TMDB's.
+func (s *server) clockStatus() *oapi.ClockStatus {
+	c, ok := s.health.Clock()
+	if !ok {
+		return &oapi.ClockStatus{State: oapi.Unknown}
+	}
+	secs, at, source := int(c.Offset.Seconds()), c.At, c.Source
+	state := oapi.InSync
+	if c.Drifting() {
+		state = oapi.Drifting
+	}
+	return &oapi.ClockStatus{State: state, OffsetSeconds: &secs, Source: &source, CheckedAt: &at}
 }
 
 // longMissingShown is how many Long Missing Versions the grouped row lists.

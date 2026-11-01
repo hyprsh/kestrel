@@ -416,3 +416,26 @@ func deref(f *float64) any {
 	}
 	return *f
 }
+
+func TestResponseTimesAreEachIndexersMedianOverTheLastDay(t *testing.T) {
+	r := newRig(t)
+	search := func(id int64, ok int, took int, ago time.Duration) {
+		r.exec(`INSERT INTO indexer_searches (indexer_id, indexer_name, at, ok, releases, fit, duration_ms) VALUES (?, 'x', ?, ?, 0, 0, ?)`,
+			id, now.Add(-ago).UTC().Format(time.RFC3339), ok, took)
+	}
+	for _, ms := range []int{500, 700, 900, 600} { // the median of four is the mean of the middle two
+		search(1, 1, ms, time.Hour)
+	}
+	search(1, 1, 9000, 25*time.Hour) // over a day old
+	search(1, 0, 30000, time.Hour)   // a search that failed says nothing of how fast it answers
+	search(2, 1, 800, 23*time.Hour)
+	search(3, 0, 30000, time.Hour) // never answered
+
+	got, err := stats.New(r.st).ResponseTimes(context.Background(), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[1] != 650*time.Millisecond || got[2] != 800*time.Millisecond {
+		t.Errorf("response times = %v, want 650 ms for 1, 800 ms for 2 and none for 3", got)
+	}
+}

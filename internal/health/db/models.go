@@ -136,6 +136,11 @@ type Grab struct {
 	UpdatedAt         string
 	DownloadStartedAt sql.NullString
 	DownloadDoneAt    sql.NullString
+	CoversWanted      sql.NullInt64
+	ReplacesFiles     sql.NullInt64
+	ScoreDelta        sql.NullInt64
+	ImportChecking    sql.NullInt64
+	ImportReplaced    sql.NullInt64
 }
 
 type GrabEpisode struct {
@@ -172,6 +177,15 @@ type IndexerSearch struct {
 	Releases    int64
 	Fit         int64
 	DurationMs  int64
+}
+
+type JobRun struct {
+	ID         int64
+	Name       string
+	StartedAt  string
+	FinishedAt string
+	TookMs     int64
+	Err        string
 }
 
 type OriginalOffer struct {
@@ -251,6 +265,17 @@ type Profile struct {
 	TrashProfileMovies string
 	TrashProfileSeries string
 	OriginalLanguage   string
+	Custom             int64
+	SeriesQualities    sql.NullString
+	MovieQualities     sql.NullString
+	SeriesCutoff       sql.NullString
+	MovieCutoff        sql.NullString
+	UpgradeUntil       sql.NullInt64
+	MinScore           sql.NullInt64
+	MovieMinSize       sql.NullInt64
+	MovieMaxSize       sql.NullInt64
+	EpisodeMinSize     sql.NullInt64
+	EpisodeMaxSize     sql.NullInt64
 }
 
 type Request struct {
@@ -377,6 +402,15 @@ type Version struct {
 	Slot       string
 	ProfileKey string
 	AddedAt    string
+}
+
+type VersionSearch struct {
+	VersionID int64
+	At        string
+	Releases  int64
+	Outcome   string
+	Reasons   string
+	Upgrade   int64
 }
 
 type WatchAheadPlay struct {

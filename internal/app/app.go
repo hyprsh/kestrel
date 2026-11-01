@@ -35,6 +35,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/settings/display"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
+	"github.com/hyprsh/kestrel/internal/store"
 	"github.com/hyprsh/kestrel/internal/updates"
 	"github.com/hyprsh/kestrel/internal/watchahead"
 	"github.com/hyprsh/kestrel/internal/watchlist"
@@ -168,8 +169,13 @@ func New(opts Options) *App {
 
 	keys := metadata.NewKeys(appSettings, opts.TMDBAPIKey, opts.TVDBAPIKey)
 	var meta metadata.Provider = opts.Metadata
+	// TMDB's answers carry the time; health compares it with the server's clock (bound below, once health exists).
+	var observeClock func(reference, local time.Time)
 	if meta == nil {
-		meta = metadata.NewTMDB(metadata.TMDBOptions{BaseURL: opts.TMDBAPIURL, ImageBase: opts.TMDBImageURL, Keys: keys})
+		meta = metadata.NewTMDB(metadata.TMDBOptions{
+			BaseURL: opts.TMDBAPIURL, ImageBase: opts.TMDBImageURL, Keys: keys,
+			OnClock: func(reference, local time.Time) { observeClock(reference, local) },
+		})
 	}
 	var tvdb metadata.TVDBProvider = opts.TVDB
 	if tvdb == nil {
@@ -189,6 +195,9 @@ func New(opts Options) *App {
 	// replace them: a probe is a call like any other and reaches health through them.
 	probes := metadataProbes(keys, func() metadata.Provider { return meta }, func() metadata.TVDBProvider { return tvdb })
 	healthSvc := health.New(healthDeps(opts, appSettings, roots, pluginInstances, downloadHost, hist, probes))
+	observeClock = func(reference, local time.Time) {
+		healthSvc.ObserveClock(context.Background(), providerTMDB, reference, local)
+	}
 	watchHealth(healthSvc, downloadHost, indexerHost, pluginInstances)
 	meta = observedMeta{Provider: meta, h: healthSvc}
 	tvdb = observedTVDB{TVDBProvider: tvdb, h: healthSvc}
@@ -201,6 +210,13 @@ func New(opts Options) *App {
 	if err != nil {
 		panic("app: acquire cannot start: " + err.Error())
 	}
+	// A recovered download client or indexer says which Grabs its outage held up.
+	healthSvc.WithHeldUp(func(ctx context.Context, kind health.Kind, instanceID int64, since time.Time) (int, int, error) {
+		if kind != health.KindIndexer {
+			instanceID = 0
+		}
+		return acq.HeldUp(ctx, instanceID, since)
+	})
 	prober := opts.Prober
 	if prober == nil {
 		prober = probe.Default()
@@ -281,6 +297,11 @@ func New(opts Options) *App {
 	watchlistSync := watchlist.New(watchlist.Deps{Store: st, TV: plexTV, Host: api.NewWatchlistHost(opts.Options, deps), Clock: opts.Clock, Logger: opts.Logger})
 	trashUpdates.OnRequest(func() { runner.Kick(jobs.Trash) })
 	runner.Add(jobs.WatchlistLoop(watchlistSync.Run))
+	runner.Add(jobs.BackupLoop(opts.Clock, func() time.Time { return newestScheduledBackup(st) }, func(ctx context.Context) error {
+		_, err := st.Backup(ctx, store.ScheduledBackups)
+		return err
+	}))
+	runner.UseRunLog(jobs.NewStoreRunLog(st))
 	handler := api.New(opts.Options, deps)
 	return &App{Handler: handler, Jobs: runner, Health: healthSvc, mediaRefresh: mediaRefresh, declarer: declarer{
 		file: opts.ConfigFile, api: api.NewDeclared(opts.Options, deps),
@@ -338,4 +359,14 @@ func (w settingsWriter) SetTrashAutoUpdate(ctx context.Context, on bool) error {
 type trashAPI struct {
 	*trashsync.Service
 	*jobs.TrashUpdates
+}
+
+// newestScheduledBackup is when the newest scheduled database backup was taken; zero for none.
+func newestScheduledBackup(st *store.Store) time.Time {
+	for _, f := range st.Backups() {
+		if f.Scheduled {
+			return f.At
+		}
+	}
+	return time.Time{}
 }
