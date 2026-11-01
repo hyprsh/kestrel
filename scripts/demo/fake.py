@@ -15,7 +15,7 @@ What it knows (MOVIES and SERIES below):
   Twin Peaks (TheTVDB answers 500, for error states).
 - Searches match "padd", "breaking"/"camino", "saul", "friends", "twin".
 - The indexer has no releases until GET /_ctl?releases=1 (=0 empties it again).
-  Then it offers releases for every Movie and for Breaking Bad, never other Series.
+  Then it offers releases for every Movie and for Breaking Bad, never other Series. Every search takes 0.6 s to answer, offering releases or not.
   Their names carry the video codec (x264, H.264, H.265, HEVC), HDR and audio (DD, DDP, DTS-HD.MA with channels) the way
   release names do, so Manual search shows those facts; some 1080p names (BluRay.x264, HDTV.x264) have no audio token on purpose.
 - A whole-season search (no episode) also finds a Remux pack, two German packs and, for the
@@ -287,6 +287,8 @@ def season_extras(season):
 
 def releases(qs):
     t = qs.get("t", [""])[0]
+    if t in ("tvsearch", "movie", "search"):
+        time.sleep(0.6)  # a real indexer takes a moment: Health's "Answering · 0.6 s" comes from these
     if not STATE["releases"] or t not in ("tvsearch", "movie", "search"):
         return rss([])
     if t == "tvsearch":

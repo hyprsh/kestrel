@@ -61,6 +61,7 @@ describe('healthOf', () => {
     // An indexer with no answer in the last day falls back to its searches; the range covers those that have one.
     const part = status({ indexers: [indexer(11, 'A', { search_used: 5, median_ms: 800 }), indexer(12, 'B', { search_used: 7 })] })
     expect(tilesOf(part, 'Connections').find((t) => t.key === 'indexers-ok')).toMatchObject({ detail: 'Answering · 0.8 s' })
+    expect(tilesOf(status({ indexers: [indexer(11, 'Fast', { median_ms: 12 })] }), 'Connections')[1]).toMatchObject({ detail: 'Answering · <0.1 s' })
     const quiet = status({ indexers: [indexer(11, 'A', { search_used: 5 }), indexer(12, 'B', { search_used: 7 })] })
     expect(tilesOf(quiet, 'Connections').find((t) => t.key === 'indexers-ok')).toMatchObject({ detail: 'Answering · 12 searches today' })
   })

@@ -29,9 +29,9 @@ function sizeText(n: number): string {
   return `${v < 10 && i > 0 ? v.toFixed(1).replace(/\.0$/, '') : Math.round(v)} ${units[i]}`
 }
 
-/** "0.7 s", or "0.6 – 0.9 s" for a range, from milliseconds. */
+/** "0.7 s", "0.6 – 0.9 s" for a range, from milliseconds; "<0.1 s" for an answer in under a tenth of a second. */
 function secondsText(lo: number, hi: number): string {
-  const s = (ms: number) => (ms / 1000).toFixed(1)
+  const s = (ms: number) => (ms < 100 ? '<0.1' : (ms / 1000).toFixed(1))
   return s(lo) === s(hi) ? `${s(lo)} s` : `${s(lo)} – ${s(hi)} s`
 }
 
