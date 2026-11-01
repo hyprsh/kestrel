@@ -1,6 +1,6 @@
 // Where the SPA is, as one path: the screen, a section of it and its filter, such as
-// "/settings/download-client" or "/log?q=kind:failures", and a Title's Manual search, "/library/12/search?version=4// "/settings/download-client" or "/log?q=kind:failures". Attention actionsscope=S05". Attention actions and in-app links name
-// places this way, and the address bar shows the current one (relative to the <base href>, which
+// "/settings/download-client" or "/log?q=kind:failures", and a Title's Manual search ("/library/12/search?version=4&scope=S05"). Attention actions
+// and in-app links name places this way, and the address bar shows the current one (relative to the <base href>, which
 // the server serves index.html under), so a filtered screen can be bookmarked or linked to.
 // There is no router: the Shell switches screens, opens paths and keeps the address bar in step.
 import { createContext, useCallback, useContext, useSyncExternalStore } from 'react'
