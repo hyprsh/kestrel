@@ -115,6 +115,17 @@ describe('Coming this week', () => {
     expect(posters[0].querySelector('img')).toHaveAttribute('src', expect.stringContaining('/titles/21/poster'))
   })
 
+  it('draws Slot chips only for an entry that is already out', async () => {
+    const slot = (state: 'not_out' | 'wanted' | 'imported') => ({ slot: 'standard' as const, version_id: 1, state, wanted_since: null, long_missing: false, quality: null })
+    fakeUpcoming([upcoming(1, { title: 'Soon', slots: [slot('not_out')] }), upcoming(2, { title: 'Out', slots: [slot('wanted')] })])
+    renderApp()
+
+    const [soon, out] = await within(await screen.findByRole('region', { name: /^Coming this week/ })).findAllByRole('listitem')
+    expect(soon).toHaveTextContent('Soon')
+    expect(within(soon).queryByRole('img', { name: /^Standard:/ })).not.toBeInTheDocument()
+    expect(within(out).getByRole('img', { name: 'Standard: Wanted' })).toBeInTheDocument()
+  })
+
   it('names the episode of a Series', async () => {
     fakeUpcoming([upcoming(1, { kind: 'series', title: 'Severance', season: 2, episode: 4, episode_name: 'Woe' })])
     renderApp()

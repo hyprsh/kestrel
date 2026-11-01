@@ -10,7 +10,7 @@ const dots: Record<SlotDotState | 'none', string> = {
   downloading: 'bg-blue-700',
   wanted: 'shadow-[inset_0_0_0_2px_var(--amber-700)]',
   long_missing: 'shadow-[inset_0_0_0_2px_var(--red-700)]',
-  unreleased: 'bg-gray-400',
+  unreleased: 'bg-gray-800', // 3.7:1 on the chip's gray-100
   upgrade: 'bg-green-700 shadow-[0_0_0_2px_var(--gray-100),0_0_0_3px_var(--amber-700)]',
   unmonitored: 'shadow-[inset_0_0_0_1px_var(--gray-alpha-500)]',
   none: 'opacity-40 shadow-[inset_0_0_0_1px_var(--gray-alpha-500)]',

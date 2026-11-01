@@ -27,7 +27,8 @@ describe('the Requests screen', () => {
     expect(rows).toHaveLength(7)
     expect(rows[0]).toHaveTextContent('Movie 1')
     expect(rows[0]).toHaveTextContent('Anna via Silo · 2 h ago')
-    expect(rows[0]).toHaveTextContent(/STD\s*Searching/)
+    expect(within(rows[0]).getByRole('img', { name: 'Standard: Searching' })).toBeInTheDocument()
+    expect(rows[0]).toHaveTextContent('2 h ago · Searching')
     expect(location.pathname).toBe('/requests')
   })
 

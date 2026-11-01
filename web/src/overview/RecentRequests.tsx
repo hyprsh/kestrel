@@ -6,12 +6,14 @@ import { RowList } from '../layout/RowList'
 import { useRecentRequests, type Request } from '../api/requests'
 import { Loaded, SkeletonRows } from '../loading'
 import { Poster, TitlePoster } from '../poster'
-import { RequestSlots } from '../requests/RequestSlots'
+import { RequestSlots, requestStatus } from '../requests/RequestSlots'
+import { useQueue } from '../api/queue'
 import { reasons } from '../requests/status'
 import type { OverviewNav } from './nav'
 import { EmptyLine, firstThree, HeadingLink, Section } from './Section'
 
 function StateBadges({ request: r }: { request: Request }) {
+  const queue = useQueue().data ?? []
   if (r.outcome === 'rejected' && r.reject_reason) {
     return (
       <Badge variant="red" contrast="low" size="sm">
@@ -19,7 +21,12 @@ function StateBadges({ request: r }: { request: Request }) {
       </Badge>
     )
   }
-  return <RequestSlots request={r} />
+  return (
+    <>
+      <RequestSlots request={r} />
+      <span className="text-gray-900">{requestStatus(r, queue)}</span>
+    </>
+  )
 }
 
 export function RecentRequests({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void; nav: OverviewNav }) {

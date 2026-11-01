@@ -8,13 +8,15 @@ import { useOpenPlace } from '../place'
 import { ago, useNow } from '../time'
 import { Poster, TitlePoster, type PosterSize } from '../poster'
 import { sourceName } from './source'
-import { RequestSlots } from './RequestSlots'
+import { RequestSlots, requestStatus } from './RequestSlots'
+import { useQueue } from '../api/queue'
 import { reasons, seasonsText } from './status'
 
 /** A Request's row; clicking it, or Enter on it, opens the Title when there is one. */
 /** `posterSize` is `sm` on the Requests screen; the Overview's rows are `md`, like its Downloading now rows. */
 export function RequestRow({ request: r, nav, onOpenTitle, posterSize = 'sm' }: { request: Request; nav: RowNav; onOpenTitle: (id: number) => void; posterSize?: PosterSize }) {
   const now = useNow()
+  const queue = useQueue().data ?? []
   const openPlace = useOpenPlace()
   const reason = r.outcome === 'rejected' && r.reject_reason ? reasons[r.reject_reason] : null
   const select = () => {
@@ -63,7 +65,7 @@ export function RequestRow({ request: r, nav, onOpenTitle, posterSize = 'sm' }: 
             {r.seasons.length > 0 && <span className="font-normal text-gray-900"> · {seasonsText(r.seasons)}</span>}
           </>
         }
-        description={`${r.requester.name} via ${sourceName(r.source)} · ${ago(r.created_at, now)}`}
+        description={[`${r.requester.name} via ${sourceName(r.source)}`, ago(r.created_at, now), reason ? null : requestStatus(r, queue)].filter(Boolean).join(' · ')}
       />
     </Entity>
   )

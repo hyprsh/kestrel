@@ -103,7 +103,7 @@ describe('the Requester app', () => {
     expect(made).toEqual([{ kind: 'movie', tmdb_id: 438631 }])
     const mine = await screen.findByRole('list', { name: 'Your Requests' })
     expect(within(mine).getByText('Dune')).toBeInTheDocument()
-    expect(within(mine).getByText('Searching')).toBeInTheDocument()
+    expect(within(mine).getByRole('img', { name: 'Standard: Searching' })).toBeInTheDocument()
     expect(await within(await screen.findByRole('list', { name: 'Search results' })).findByText('Searching')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Request Dune' })).not.toBeInTheDocument()
     stop()

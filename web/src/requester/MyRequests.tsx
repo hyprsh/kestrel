@@ -4,7 +4,7 @@ import type { Request } from '../api/requests'
 import { RowList, stackedRight, stackedRow } from '../layout/RowList'
 import { SkeletonRows } from '../loading'
 import { Poster, TitlePoster } from '../poster'
-import { RequestSlots } from '../requests/RequestSlots'
+import { RequestSlots, requestStatus } from '../requests/RequestSlots'
 import { reasons, seasonsText } from '../requests/status'
 import { ago, useNow } from '../time'
 
@@ -72,7 +72,7 @@ function MyRequest({ request: r }: { request: Request }) {
             {r.seasons.length > 0 && <span className="font-normal text-gray-900"> · {seasonsText(r.seasons)}</span>}
           </>
         }
-        description={`Asked ${ago(r.created_at, now)}`}
+        description={r.outcome === 'rejected' ? `Asked ${ago(r.created_at, now)}` : `Asked ${ago(r.created_at, now)} · ${requestStatus(r, [])}`}
       />
     </Entity>
   )
