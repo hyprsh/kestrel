@@ -232,7 +232,7 @@ db.execute("UPDATE versions SET added_at='2026-05-01T00:00:00Z'")
 # Older builds have no network, status, air time or episode overview to set.
 airing = "air_time" in [r["name"] for r in db.execute("PRAGMA table_info(titles)")]
 if airing:
-    db.execute("UPDATE titles SET network='AMC', tvdb_status='continuing', air_time='21:00', air_timezone='America/New_York' WHERE tmdb_id=1396")
+    db.execute("UPDATE titles SET network='AMC', tvdb_status='ended', air_time='21:00', air_timezone='America/New_York' WHERE tmdb_id=1396")
 for n, days in {1: -13, 2: -12, 3: -11, 4: -10, 5: -7, 6: -7, 7: -5, 8: -4, 9: -2, 10: -1, 11: 0,
                 12: 7, 13: 7, 14: 7, 15: 7, 16: 14}.items():
     db.execute("UPDATE episodes SET air_date=? WHERE id=?", (on(days), eps[(5, n)]))
