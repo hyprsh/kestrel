@@ -7,8 +7,8 @@ Through the API: the account demo / demo-password-123, English and US, Root fold
 <media>/movies, <media>/movies-family and <media>/tv, the fake indexer, SABnzbd and Plex,
 Plex sign-in on for Requesters (the fake's Ellie signs in with one click),
 setup completed, the Standard and 4K Profiles given a cutoff, an Upgrade-until Score and size limits (HD: WEB-DL 1080p for Series
-and BluRay 1080p for Movies, up to Score 2,000, 0.2 - 10 GB per episode; 4K: WEB-DL 2160p, up to 2,500, 0.5 - 20 GB per episode, so the
-fake's 182 GB Remux is over the limit), and a custom "HD, small files" Profile (no Remux, up to 3 GB per episode, no Upgrade-until
+and BluRay 1080p for Movies, up to Score 1,700, 0.2 - 10 GB per episode; 4K: WEB-DL 2160p, up to 2,200, 0.5 - 8 GB per episode, taking BluRay and Remux 2160p too, so the
+fake's 182 GB Remux season pack, 18 GB an episode, is over the limit), and a custom "HD, small files" Profile (no Remux, up to 3 GB per episode, no Upgrade-until
 Score) that nothing uses, then Paddington (Standard) and Breaking Bad (Standard and 4K), and without
 files Paddington 2, Paddington in Peru, El Camino and Better Call Saul.
 
@@ -120,13 +120,21 @@ def overlay(until=None, series_cutoff=None, movie_cutoff=None, episode=(None, No
             "movie_size": {"min": movie[0] and int(movie[0] * GB), "max": movie[1] and int(movie[1] * GB)}}
 
 
-call("PATCH", f"/profiles/{std_m}", {"overlay": overlay(until=2000, series_cutoff="WEBDL-1080p", movie_cutoff="Bluray-1080p", episode=(0.2, 10), movie=(1, 10))})
-call("PATCH", f"/profiles/{k4_s}", {"overlay": overlay(until=2500, series_cutoff="WEBDL-2160p", movie_cutoff="WEBDL-2160p", episode=(0.5, 20), movie=(10, 80))})
+call("PATCH", f"/profiles/{std_m}", {"overlay": overlay(until=1700, series_cutoff="WEBDL-1080p", movie_cutoff="Bluray-1080p", episode=(0.2, 10), movie=(1, 10))})
+
+
+def ladder_of(key):
+    return next(d for d in call("GET", "/profiles/details")["items"] if d["key"] == key)["series"]["ladder"]
+
+
+# 4K also takes BluRay and Remux 2160p, which TRaSH's WEB profile leaves out; the Remux pack is then over the size limit.
+call("PATCH", f"/profiles/{k4_s}", {"overlay": overlay(
+    until=2200, series_cutoff="WEBDL-2160p", movie_cutoff="WEBDL-2160p", episode=(0.5, 8), movie=(10, 80),
+    series_qualities=[{"name": q["name"], "accepted": q["accepted"] or q["name"] in ("Bluray-2160p", "Bluray-2160p Remux")} for q in ladder_of(k4_s)])})
 small = call("POST", "/profiles", {"name": "HD, small files", "copy_from": std_m})
-ladder = next(d for d in call("GET", "/profiles/details")["items"] if d["key"] == small["key"])["series"]["ladder"]
 call("PATCH", f"/profiles/{small['key']}", {"overlay": overlay(
     series_cutoff="WEBDL-1080p", episode=(None, 3),
-    series_qualities=[{"name": q["name"], "accepted": q["accepted"] and not q["name"].startswith(("Remux", "Bluray-1080p Remux"))} for q in ladder])})
+    series_qualities=[{"name": q["name"], "accepted": q["accepted"] and not q["name"].startswith(("Remux", "Bluray-1080p Remux"))} for q in ladder_of(small["key"])])})
 call("POST", "/titles", {"kind": "movie", "tmdb_id": 116149, "versions": [{"slot": "standard", "profile": std_m}],
                          "root_folder": f"{ROOT}/movies"})
 call("POST", "/titles", {"kind": "series", "tmdb_id": 1396, "series_monitor": "all",
