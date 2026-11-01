@@ -31,20 +31,6 @@ export function standing(item: Titled, slot: UpcomingSlot, queue: readonly Queue
   return { kind: 'not_out' }
 }
 
-/** "1080p" out of "WEBDL-1080p"; the name as it is when it holds no resolution. */
-export function resolutionOf(quality: string): string {
-  return /(\d{3,4}p)/i.exec(quality)?.[1] ?? quality
-}
-
-/** How long something has been Wanted: "5 h", "2 days". */
-export function wantedFor(since: string, now: number): string {
-  const hours = Math.max(0, Math.floor((now - Date.parse(since)) / 3_600_000))
-  if (hours < 1) return 'under an hour'
-  if (hours < 24) return `${hours} h`
-  const days = Math.floor(hours / 24)
-  return `${days} ${days === 1 ? 'day' : 'days'}`
-}
-
 /** "21:00" in the browser's time zone and locale clock; null when the entry has no air time. */
 export function airTime(item: Pick<UpcomingItem, 'air_at'>): string | null {
   return item.air_at ? new Date(item.air_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }) : null
@@ -140,7 +126,7 @@ export function entryStatus(item: UpcomingItem, queue: readonly QueueItem[]): En
 }
 
 /** A Version's standing as the shared Slot dot draws it: Have, Downloading (with its percent), Wanted or Long Missing, Not out yet; Not monitored when the entry is off and has no file. */
-export function standingDot(st: Standing, entryMonitored: boolean | undefined): { state: SlotDotState; text?: string } {
+function standingDot(st: Standing, entryMonitored: boolean | undefined): { state: SlotDotState; text?: string } {
   switch (st.kind) {
     case 'imported':
       return { state: 'filled' }
