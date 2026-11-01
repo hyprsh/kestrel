@@ -18,6 +18,21 @@ const prePaintTheme = (): Plugin => ({
 export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss(), prePaintTheme()],
+  build: {
+    rolldownOptions: {
+      output: {
+        // Vendor code is split out by library: it changes far less often than the app, so a browser that cached it keeps
+        // it across releases, and the design system (one 430 kB file that cannot be tree-shaken) does not ride in the app's chunk.
+        codeSplitting: {
+          groups: [
+            { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/, priority: 30 },
+            { name: 'design', test: /node_modules[\\/]@hyprsh[\\/]design[\\/]/, priority: 20 },
+            { name: 'query', test: /node_modules[\\/]@tanstack[\\/]/, priority: 10 },
+          ],
+        },
+      },
+    },
+  },
   server: {
     // `make dev-api` runs the Go server on 7676.
     proxy: {
