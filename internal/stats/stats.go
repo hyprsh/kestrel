@@ -471,20 +471,20 @@ func (s *Service) quality(ctx context.Context, q *db.Queries) ([]Quality, error)
 	}
 	bySlot := map[string]*Quality{}
 	for _, r := range rows {
-		p := parsedOf(r.ParsedRelease)
 		ql := bySlot[r.Slot]
 		if ql == nil {
 			ql = &Quality{Slot: r.Slot}
 			bySlot[r.Slot] = ql
 		}
-		ql.Files++
-		switch ClassOf(p.Quality.Quality.Source, p.Quality.Quality.Modifier) {
+		n := int(r.Files)
+		ql.Files += n
+		switch ClassOf(r.Source, r.Modifier) {
 		case ClassRemuxBluray:
-			ql.RemuxBluray++
+			ql.RemuxBluray += n
 		case ClassWebDL:
-			ql.WebDL++
+			ql.WebDL += n
 		default:
-			ql.WebRipLow++
+			ql.WebRipLow += n
 		}
 	}
 	var out []Quality

@@ -159,14 +159,10 @@ func TestFilesBelowTheCutoffAreCountedPerProfileAndInTheStats(t *testing.T) {
 	if s := w.stats(t, ""); s.BelowCutoff != 1 {
 		t.Errorf("stats below_cutoff = %d, want 1", s.BelowCutoff)
 	}
-	// The list says which Version waits for an Upgrade, by the same decision, and shows a Movie's file.
+	// The list says which Version waits for an Upgrade, by the same decision. A Movie's file is on its page, not in the list.
 	type entry struct {
 		State         string `json:"state"`
 		UpgradeWanted bool   `json:"upgrade_wanted"`
-		File          *struct {
-			Quality *string `json:"quality"`
-			Size    int64   `json:"size"`
-		} `json:"file"`
 	}
 	list := decode[struct {
 		Items []struct {
@@ -176,7 +172,7 @@ func TestFilesBelowTheCutoffAreCountedPerProfileAndInTheStats(t *testing.T) {
 	}](t, w.valid("GET", "/titles", ""))
 	var wanting int
 	for _, it := range list.Items {
-		if len(it.SlotStates) != 1 || it.SlotStates[0].File == nil || it.SlotStates[0].File.Quality == nil || *it.SlotStates[0].File.Quality != "WEBDL-1080p" {
+		if len(it.SlotStates) != 1 || it.SlotStates[0].State != "filled" {
 			t.Fatalf("slot_states = %+v", it.SlotStates)
 		}
 		if it.SlotStates[0].UpgradeWanted {

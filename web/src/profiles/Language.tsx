@@ -2,6 +2,7 @@ import { Button, Input, Note, Select } from '@hyprsh/design'
 import { useState, type FormEvent } from 'react'
 import { ApiError, usePatchSettings, useSettings, type Settings } from '../api/queries'
 import { startedInBackground, useReport } from '../toasts'
+import { SkeletonForm } from '../loading'
 
 type Language = Settings['language_region']['primary_language']
 
@@ -26,7 +27,7 @@ export function LanguageForm() {
         Could not load the language settings.
       </Note>
     )
-  if (!data) return null
+  if (!data) return <SkeletonForm rows={2} />
   // A re-mount when the Language settles (or the change fails) puts the form back on what is saved.
   const pending = data.language_region.pending_primary_language
   return <Form key={`${data.language_region.primary_language}/${pending ?? ''}`} saved={data.language_region} declared={data.from_config_file.language_region} />

@@ -24,6 +24,7 @@ import { ProfilesSection } from '../profiles/ProfilesSection'
 import { DisplayRows, LanguageRows, SetupRow, UpdatesRow } from '../settings/GeneralRows'
 import { DraftProvider, guardLeave, useDraftForm } from '../settings/draft'
 import { useSectionLines, usePageSummaries, type Line } from '../settings/status'
+import { SkeletonForm } from '../loading'
 
 /** A sub-section: what was once a section of its own. Its id stays the anchor ("#settings-<id>", "/settings/<id>"); `rows` are the titles of the Rows in it, for "Find a setting". */
 type Part = { id: string; title: string; rows: string[] }
@@ -584,7 +585,7 @@ function ApiKeyRow() {
 
 function ReverseProxyRow() {
   const { data } = useReverseProxy()
-  return data ? <ReverseProxyForm saved={data} /> : null
+  return data ? <ReverseProxyForm saved={data} /> : <SkeletonForm rows={2} />
 }
 
 function PlexSignInRow() {

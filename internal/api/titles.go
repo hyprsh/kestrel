@@ -233,12 +233,6 @@ func datePtr(t *time.Time) *openapi_types.Date {
 }
 
 func rowToAPI(r library.Row) oapi.TitleRow {
-	summary := func(s *library.SlotState) *oapi.SlotSummary {
-		if s == nil {
-			return nil
-		}
-		return &oapi.SlotSummary{VersionId: s.VersionID, Profile: s.Profile, State: oapi.SlotState(s.State), LongMissing: s.LongMissing}
-	}
 	out := oapi.TitleRow{
 		Id: r.ID, Kind: oapi.TitleKind(r.Kind), Title: r.Title, PrimaryTitle: r.PrimaryTitle, Year: intPtr(r.Year),
 		HasPoster: r.HasPoster, Monitored: r.Monitored, WantedSince: r.WantedSince, AddedAt: r.AddedAt, Size: r.Size, SearchedAt: r.SearchedAt,
@@ -246,14 +240,10 @@ func rowToAPI(r library.Row) oapi.TitleRow {
 	if w := r.WantedEpisodes; w != nil {
 		out.WantedEpisodes = &oapi.WantedEpisodes{Wanted: w.Wanted, LongMissing: w.LongMissing, Seasons: w.Seasons}
 	}
-	out.Slots.Standard, out.Slots.N4k = summary(r.Slots[slot.Standard]), summary(r.Slots[slot.FourK])
 	out.SlotStates = []oapi.SlotStateEntry{}
 	for _, sl := range slot.All {
 		if s := r.Slots[sl]; s != nil {
 			e := oapi.SlotStateEntry{Slot: slotToAPI(sl), Label: sl.Name(), VersionId: s.VersionID, Profile: s.Profile, State: oapi.SlotState(s.State), LongMissing: s.LongMissing, WantedSince: s.WantedSince, EpisodesHave: s.EpisodesHave, EpisodesAired: s.EpisodesAired}
-			if s.File != nil {
-				e.File = fileSummary(s.File, nil)
-			}
 			out.SlotStates = append(out.SlotStates, e)
 		}
 	}

@@ -150,7 +150,7 @@ func TestASeriesIsAddedAgainstTMDBAndTVDBFixturesAndReadBack(t *testing.T) {
 	rows := decode[struct {
 		Items []rowJSON `json:"items"`
 	}](t, l.valid("GET", "/titles?kind=series", "")).Items
-	if len(rows) != 1 || rows[0].Slots.Standard == nil || rows[0].Slots.Standard.State != "unreleased" {
+	if len(rows) != 1 || len(rows[0].SlotStates) == 0 || rows[0].SlotStates[0].State != "unreleased" {
 		t.Errorf("rows = %+v", rows)
 	}
 }

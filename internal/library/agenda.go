@@ -2,6 +2,8 @@ package library
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"sort"
 	"time"
 
@@ -167,7 +169,7 @@ func (s *Service) UpcomingWith(ctx context.Context, view View, from, to time.Tim
 	if err != nil {
 		return Agenda{}, err
 	}
-	files, err := q.ListFiles(ctx)
+	files, err := q.ListFileSizes(ctx)
 	if err != nil {
 		return Agenda{}, err
 	}
@@ -187,24 +189,27 @@ func (s *Service) UpcomingWith(ctx context.Context, view View, from, to time.Tim
 	if err != nil {
 		return Agenda{}, err
 	}
-	epReleases, err := q.ListFileEpisodeReleases(ctx)
-	if err != nil {
-		return Agenda{}, err
-	}
 	firstFiled, err := q.ListFirstFiled(ctx)
 	if err != nil {
 		return Agenda{}, err
 	}
 
 	hasFile := map[int64]bool{}
-	movieFile := map[int64]string{} // a Movie Version's parsed release
 	for _, f := range files {
-		if misfits[f.ID] {
-			continue
+		if !misfits[f.ID] {
+			hasFile[f.VersionID] = true
 		}
-		hasFile[f.VersionID] = true
-		movieFile[f.VersionID] = f.ParsedRelease.String
 	}
+	// What each Filled entry carries is a parse of up to a kilobyte of JSON: asked for when the entry is made, since a
+	// Library of thousands holds far more files than the agenda shows.
+	var parseErr error
+	asked := func(r sql.NullString, err error) string {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) && parseErr == nil {
+			parseErr = err
+		}
+		return r.String
+	}
+	movieFile := func(versionID int64) string { return asked(q.GetVersionFileRelease(ctx, versionID)) }
 	versionsOf := map[int64][]db.Version{}
 	for _, v := range versions {
 		versionsOf[v.TitleID] = append(versionsOf[v.TitleID], v)
@@ -222,9 +227,8 @@ func (s *Service) UpcomingWith(ctx context.Context, view View, from, to time.Tim
 		fe = append(fe, fileEp{r.VersionID, r.EpisodeID, r.Score})
 	}
 	heldBy := heldOf(fe)
-	parsedOf := map[[2]int64]string{} // (version, episode) -> parsed release
-	for _, r := range epReleases {
-		parsedOf[[2]int64{r.VersionID, r.EpisodeID}] = r.ParsedRelease.String
+	parsedOf := func(versionID, episodeID int64) string {
+		return asked(q.GetFileEpisodeRelease(ctx, db.GetFileEpisodeReleaseParams{VersionID: versionID, EpisodeID: episodeID}))
 	}
 	filed := filedOf(firstFiled)
 
@@ -261,7 +265,7 @@ func (s *Service) UpcomingWith(ctx context.Context, view View, from, to time.Tim
 				var slots []EntrySlot
 				for _, v := range vs {
 					st, since := StateAt(Unit{Monitored: titleMonitored, HasFile: hasFile[v.ID], AddedAt: parseTime(v.AddedAt), Released: movieReleased(rel, view.Country, t.ReleaseSeenAt)}, view.Now)
-					slots = append(slots, slotOfState(v, st, since, movieFile[v.ID]))
+					slots = append(slots, slotOfState(v, st, since, movieFile(v.ID)))
 				}
 				return slots
 			}
@@ -349,7 +353,7 @@ func (s *Service) UpcomingWith(ctx context.Context, view View, from, to time.Tim
 			for _, v := range vs {
 				_, held := heldBy[v.ID][e.ID]
 				st, since := StateAt(Unit{Monitored: monitored, HasFile: held, AddedAt: parseTime(v.AddedAt), Released: released[e.ID]}, view.Now)
-				ent.Slots = append(ent.Slots, slotOfState(v, st, since, parsedOf[[2]int64{v.ID, e.ID}]))
+				ent.Slots = append(ent.Slots, slotOfState(v, st, since, parsedOf(v.ID, e.ID)))
 			}
 			out.Entries = append(out.Entries, ent)
 		}
@@ -391,6 +395,9 @@ func (s *Service) UpcomingWith(ctx context.Context, view View, from, to time.Tim
 		return a.Episode < b.Episode
 	})
 	sort.SliceStable(out.Undated, func(i, j int) bool { return out.Undated[i].Title < out.Undated[j].Title })
+	if parseErr != nil {
+		return Agenda{}, parseErr
+	}
 	return out, nil
 }
 

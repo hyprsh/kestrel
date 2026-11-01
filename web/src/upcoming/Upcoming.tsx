@@ -49,6 +49,10 @@ const reasonText = {
 } as const
 
 /** `query` is the filter field's text, kept by the Shell so it can live in the address bar. */
+/** How many Titles with no date show at first, and how many each "Show more" adds. */
+const UNDATED_FIRST = 100
+const UNDATED_MORE = 200
+
 export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQuery: (query: string) => void; onOpenTitle: (id: number) => void }) {
   // The loaded months, first to last; they only grow, so the agenda never loses what was on screen.
   // They start on the window around today and on the weeks of this month's grid, so its dimmed days carry their dots.
@@ -115,6 +119,8 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
   const segments = useMemo(() => buildSegments(items, today), [items, today])
   const rows = useMemo(() => navRows(items, undated), [items, undated])
   const indexOf = useMemo(() => new Map(rows.map((r, i) => [r.key, i])), [rows])
+  // The Titles with no date can be thousands: the first of them show, and the rest on request or once the cursor reaches them.
+  const [undatedShown, setUndatedShown] = useState(UNDATED_FIRST)
 
   // The cursor starts on the first row of today or later, and stays on its row as rows come and go.
   const [selKey, setSelKey] = useState<string | null>(null)
@@ -456,7 +462,7 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
                     {`No date yet · ${undated.length}`}
                   </h2>
                   <UndatedList>
-                    {undated.map((u) => {
+                    {undated.slice(0, Math.max(undatedShown, sel - items.length + 1)).map((u) => {
                       const i = indexOf.get(undatedKey(u)) ?? 0
                       return (
                         <UndatedRow
@@ -481,6 +487,11 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
                       )
                     })}
                   </UndatedList>
+                  {undated.length > Math.max(undatedShown, sel - items.length + 1) && (
+                    <Button variant="tertiary" size="small" onClick={() => setUndatedShown((n) => n + UNDATED_MORE)}>
+                      {`Show ${Math.min(UNDATED_MORE, undated.length - undatedShown)} more`}
+                    </Button>
+                  )}
                 </section>
               )}
             </div>

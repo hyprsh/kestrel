@@ -180,6 +180,26 @@ async function filterItem(name: string) {
 }
 
 describe('Upcoming timeline', () => {
+  it('shows the first hundred Titles with no date and the rest on request', async () => {
+    const many: Undated[] = Array.from({ length: 250 }, (_, k) => ({
+      kind: 'movie',
+      title_id: 1000 + k,
+      title: `Mystery ${k}`,
+      year: null,
+      has_poster: false,
+      network: null,
+      reason: 'no_release_date',
+      episodes: 0,
+      slots: [slot('not_out')],
+    }))
+    fakeAgenda([], many)
+    await openUpcoming()
+
+    const list = await screen.findByRole('list', { name: 'No date yet' })
+    expect(within(list).getAllByRole('button').length).toBe(100)
+    await userEvent.click(screen.getByRole('button', { name: 'Show 150 more' }))
+    expect(within(list).getAllByRole('button').length).toBe(250)
+  })
   it('asks month by month, from 14 days back to 60 ahead, and draws the weeks around today with a quiet line for the empty days', async () => {
     const asked = fakeAgenda([episode({ date: day(-3), title: 'Past Show', episode_name: 'Before', title_id: 5 }), movie({ date: day(2) })])
     await openUpcoming()

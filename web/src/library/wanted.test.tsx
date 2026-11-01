@@ -5,12 +5,12 @@ import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
-import { fakeLibrary, row } from '../test/library'
+import { fakeLibrary, row, type FixtureRow } from '../test/library'
 import { server } from '../test/server'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
-type Slots = components['schemas']['TitleRow']['slots']
+type Slots = FixtureRow['slots']
 const hd = (state: 'wanted' | 'filled', long = false): Slots => ({
   standard: { version_id: 1, profile: 'hd-primary', state, long_missing: long },
   '4k': null,

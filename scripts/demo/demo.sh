@@ -10,7 +10,8 @@
 # Environment: DEMO_DIR (default /tmp/kestrel-demo, wiped by start; when that is taken,
 # start uses a short /tmp/kd.XXXXXX and prints it, so export it for the other commands), DEMO_PORT
 # (Kestrel, default 7677), DEMO_FAKE_PORT (fake.py, default 7690), DEMO_SEED=0 to
-# start without the seed, on a fresh instance that shows the setup wizard. Logs are in
+# start without the seed, on a fresh instance that shows the setup wizard. DEMO_TITLES=4000 grows the seeded Library to that
+# many Titles (seed_big.py: a realistic mix, written straight into SQLite, for measuring). Logs are in
 # $DEMO_DIR/logs. Needs go, node, npm, python3 and curl, and `npm ci --prefix
 # scripts/demo` once for the posters.
 set -euo pipefail
@@ -113,6 +114,9 @@ start() {
   fi
   python3 -I "$here/seed.py" --kestrel "http://127.0.0.1:$port" --db "$dir/config/kestrel.db" \
     --media "$dir/data/media" --fake "$fake" --parse "$dir/bin/parse"
+  if [ -n "${DEMO_TITLES:-}" ]; then
+    python3 -I "$here/seed_big.py" --db "$dir/config/kestrel.db" --media "$dir/data/media" --titles "$DEMO_TITLES"
+  fi
   echo "Kestrel on http://127.0.0.1:$port (demo / demo-password-123), fake on $fake, logs in $dir/logs"
 }
 

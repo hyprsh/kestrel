@@ -39,3 +39,25 @@ func TestANextSearchOfAnotherTitleIsNotMixedIn(t *testing.T) {
 		t.Errorf("NextSearches of an unknown Title = %v, %v; want none", got, err)
 	}
 }
+
+func TestNextSearchesOfVersionsAreTheSameAsOfTheirTitleAndLeaveOthersOut(t *testing.T) {
+	ctx := context.Background()
+	lib, _, _ := clocked(t)
+	id := addPaddington(t, lib)
+	vid := mustVersion(t, lib, id)
+
+	one, err := lib.NextSearches(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	many, err := lib.NextSearchesOf(ctx, []int64{vid})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(many) != 1 || many[vid].Missing == nil || !many[vid].Missing.Equal(*one[vid].Missing) {
+		t.Errorf("NextSearchesOf = %+v, want the Title's %+v", many, one)
+	}
+	if none, _ := lib.NextSearchesOf(ctx, []int64{vid + 100}); len(none) != 0 {
+		t.Errorf("an unknown Version has next searches %v", none)
+	}
+}

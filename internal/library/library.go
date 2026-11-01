@@ -17,6 +17,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/library/db"
@@ -116,8 +117,6 @@ type SlotState struct {
 	WantedSince *time.Time
 	// EpisodesHave and EpisodesAired count a Series Version's episodes that hold a file and that have aired; nil for a Movie.
 	EpisodesHave, EpisodesAired *int
-	// File is a Movie Version's file (nil for a Series Version and for a Version with none); only what the list needs of it is read.
-	File *File
 }
 
 // Row is a compact Library row.
@@ -143,6 +142,8 @@ type Row struct {
 	WantedEpisodes *WantedEpisodes
 	// Monitored is a Movie's flag, or for a Series whether its mode is not none.
 	Monitored bool
+
+	originalTitle string // for the filter's text
 }
 
 // WantedEpisodes is how many of a Series' episodes are Wanted in any of its
@@ -287,6 +288,18 @@ type Service struct {
 	clock func() time.Time
 	// country is the household's release-date country; see WithCountry.
 	country func(context.Context) string
+	// listed is the last full list; see List.
+	listed listCache
+}
+
+// listCache keeps the Library list as built for one database state, moment and country.
+type listCache struct {
+	mu      sync.Mutex
+	version int64
+	built   time.Time // the view's Now the rows were built for
+	country string
+	rows    []Row
+	valid   bool
 }
 
 // New returns a Service. clock is the time source (time.Now in production).
@@ -443,18 +456,100 @@ func stateOf(monitored, hasFile bool, rel metadata.ReleaseDates, seen sql.NullSt
 	return StateAt(u, v.Now)
 }
 
-// List returns the Library's Titles, newest first, as compact rows.
+// listFreshness is how long a built list serves a later view: states move with the clock (a release date comes, a Title
+// turns Long Missing) by days, so a minute of lag is not seen.
+const listFreshness = time.Minute
+
+// List returns the Library's Titles, newest first, as compact rows. Building every row reads the Library's tables, which
+// costs most of a second at thousands of Titles, so the unfiltered list is kept until something is committed to the
+// database or a minute passes; the filter then runs over the kept rows, which callers must not change.
 func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) {
-	q := db.New(s.st.Read())
-	titles, err := q.ListTitles(ctx)
+	all, err := s.listAll(ctx, view)
 	if err != nil {
 		return nil, err
+	}
+	var aliasMatch map[int64]bool
+	text := strings.ToLower(f.Text)
+	if f.Text != "" {
+		aliases, err := db.New(s.st.Read()).ListAliasesForSearch(ctx)
+		if err != nil {
+			return nil, err
+		}
+		aliasMatch = map[int64]bool{}
+		for _, a := range aliases {
+			if strings.Contains(strings.ToLower(a.Alias), text) {
+				aliasMatch[a.TitleID] = true
+			}
+		}
+	}
+	out := make([]Row, 0, len(all))
+	for _, row := range all {
+		if f.Kind != "" && row.Kind != f.Kind {
+			continue
+		}
+		if f.Text != "" && !aliasMatch[row.ID] &&
+			!strings.Contains(strings.ToLower(row.Title), text) && !strings.Contains(strings.ToLower(row.PrimaryTitle), text) &&
+			!strings.Contains(strings.ToLower(row.originalTitle), text) {
+			continue
+		}
+		if f.Wanted && !slices.ContainsFunc(row.Slots[:], func(sl *SlotState) bool { return sl != nil && sl.State == Wanted }) {
+			continue
+		}
+		if f.LongMissing && !slices.ContainsFunc(row.Slots[:], func(sl *SlotState) bool { return sl != nil && sl.LongMissing }) {
+			continue
+		}
+		out = append(out, row)
+	}
+	if f.ByWantedSince {
+		sort.SliceStable(out, func(i, j int) bool {
+			a, b := out[i].WantedSince, out[j].WantedSince
+			switch {
+			case a == nil || b == nil:
+				return a != nil && b == nil
+			}
+			return a.Before(*b)
+		})
+	}
+	return out, nil
+}
+
+// listAll is the whole Library's rows, from the cache while it is good.
+func (s *Service) listAll(ctx context.Context, view View) ([]Row, error) {
+	version, err := s.st.DataVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	c := &s.listed
+	c.mu.Lock()
+	defer c.mu.Unlock() // one build at a time: a second caller waits for it and then reads it
+	if age := view.Now.Sub(c.built); c.valid && c.version == version && c.country == view.Country && age >= 0 && age < listFreshness {
+		return c.rows, nil
+	}
+	rows, err := s.buildList(ctx, view)
+	if err != nil {
+		return nil, err
+	}
+	// The version read before the build: a commit during it makes the next call build again.
+	c.version, c.built, c.country, c.rows, c.valid = version, view.Now, view.Country, rows, true
+	return rows, nil
+}
+
+// buildList reads the tables and makes every Title's row.
+func (s *Service) buildList(ctx context.Context, view View) ([]Row, error) {
+	q := db.New(s.st.Read())
+	titleRows, err := q.ListTitlesForList(ctx)
+	if err != nil {
+		return nil, err
+	}
+	titles := make([]db.Title, len(titleRows))
+	for i, t := range titleRows {
+		titles[i] = db.Title(t)
 	}
 	versions, err := q.ListVersions(ctx)
 	if err != nil {
 		return nil, err
 	}
-	files, err := q.ListFiles(ctx)
+	sizes, err := q.ListFileSizes(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -462,7 +557,7 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 	if err != nil {
 		return nil, err
 	}
-	allEps, err := q.ListEpisodes(ctx)
+	episodeRows, err := q.ListEpisodesForList(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -471,8 +566,8 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 		return nil, err
 	}
 	epsOf := map[int64][]db.Episode{}
-	for _, e := range allEps {
-		epsOf[e.TitleID] = append(epsOf[e.TitleID], e)
+	for _, e := range episodeRows {
+		epsOf[e.TitleID] = append(epsOf[e.TitleID], db.Episode(e))
 	}
 	var fe []fileEp
 	for _, r := range fileEps {
@@ -484,13 +579,6 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 		return nil, err
 	}
 	filed := filedOf(firstFiled)
-	var aliases []db.ListAliasesForSearchRow
-	if f.Text != "" {
-		if aliases, err = q.ListAliasesForSearch(ctx); err != nil {
-			return nil, err
-		}
-	}
-
 	misfits, err := misfitSet(ctx, q)
 	if err != nil {
 		return nil, err
@@ -509,13 +597,9 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 	}
 	hasFile := map[int64]bool{}
 	versionSize := map[int64]int64{}
-	fileOfVersion := map[int64]File{}
-	for _, fl := range files {
+	for _, fl := range sizes {
 		hasFile[fl.VersionID] = hasFile[fl.VersionID] || !misfits[fl.ID]
 		versionSize[fl.VersionID] += fl.Size
-		if !misfits[fl.ID] {
-			fileOfVersion[fl.VersionID] = fileOf(fl)
-		}
 	}
 	byTitle := map[int64][]db.Version{}
 	for _, v := range versions {
@@ -525,27 +609,11 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 	for _, d := range dates {
 		datesOf[d.TitleID] = append(datesOf[d.TitleID], d)
 	}
-	matchesText := map[int64]bool{}
-	text := strings.ToLower(f.Text)
-	for _, a := range aliases {
-		if strings.Contains(strings.ToLower(a.Alias), text) {
-			matchesText[a.TitleID] = true
-		}
-	}
-
 	var out []Row
 	for _, t := range titles {
-		if f.Kind != "" && Kind(t.Kind) != f.Kind {
-			continue
-		}
-		if f.Text != "" && !matchesText[t.ID] &&
-			!strings.Contains(strings.ToLower(t.Title), text) && !strings.Contains(strings.ToLower(t.PrimaryTitle), text) &&
-			!strings.Contains(strings.ToLower(t.OriginalTitle), text) {
-			continue
-		}
 		rel := releaseDatesOf(datesOf[t.ID])
 		row := Row{ID: t.ID, Kind: Kind(t.Kind), Title: t.Title, PrimaryTitle: t.PrimaryTitle, Year: int(t.Year.Int64), HasPoster: t.PosterPath.String != "", AddedAt: parseTime(t.AddedAt),
-			Monitored: titleMonitored(t)}
+			Monitored: titleMonitored(t), originalTitle: t.OriginalTitle}
 		var released map[int64]*time.Time
 		var wantedEps map[int64]bool // Wanted episodes, true when Long Missing in any Version
 		if row.Kind == Series {
@@ -577,9 +645,6 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 				st, since = stateOf(t.Monitored == 1, hasFile[v.ID], rel, t.ReleaseSeenAt, parseTime(v.AddedAt), view)
 			}
 			state := &SlotState{VersionID: v.ID, Profile: v.ProfileKey, State: st, LongMissing: IsLongMissing(st, since, view.Now), WantedSince: since, EpisodesHave: have, EpisodesAired: aired}
-			if f, ok := fileOfVersion[v.ID]; ok && row.Kind == Movie {
-				state.File = &f
-			}
 			row.Slots[slotOf(v.Slot)] = state
 			if since != nil && (row.WantedSince == nil || since.Before(*row.WantedSince)) {
 				row.WantedSince = since
@@ -588,23 +653,7 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 		if row.Kind == Series {
 			row.WantedEpisodes = wantedEpisodesOf(wantedEps, epsOf[t.ID])
 		}
-		if f.Wanted && !slices.ContainsFunc(row.Slots[:], func(sl *SlotState) bool { return sl != nil && sl.State == Wanted }) {
-			continue
-		}
-		if f.LongMissing && !slices.ContainsFunc(row.Slots[:], func(sl *SlotState) bool { return sl != nil && sl.LongMissing }) {
-			continue
-		}
 		out = append(out, row)
-	}
-	if f.ByWantedSince {
-		sort.SliceStable(out, func(i, j int) bool {
-			a, b := out[i].WantedSince, out[j].WantedSince
-			switch {
-			case a == nil || b == nil:
-				return a != nil && b == nil
-			}
-			return a.Before(*b)
-		})
 	}
 	return out, nil
 }

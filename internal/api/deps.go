@@ -146,6 +146,8 @@ type Library interface {
 	RequestSearch(ctx context.Context, versionID int64) error
 	// NextSearches is when each of a Title's Versions is next searched on its own.
 	NextSearches(ctx context.Context, titleID int64) (map[int64]library.NextSearch, error)
+	// NextSearchesOf is the same for a list of Versions, in one query.
+	NextSearchesOf(ctx context.Context, versionIDs []int64) (map[int64]library.NextSearch, error)
 	LongMissing(ctx context.Context, view library.View) ([]library.LongMissingItem, error)
 	UpcomingWith(ctx context.Context, view library.View, from, to time.Time, opts library.UpcomingOptions) (library.Agenda, error)
 	RecentImports(ctx context.Context, n int) ([]library.RecentImport, error)

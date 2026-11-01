@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -31,7 +32,10 @@ func (s *server) ListUpcoming(ctx context.Context, r oapi.ListUpcomingRequestObj
 	if to.Before(from) {
 		return nil, invalid("to", "invalid", "to must not be before from")
 	}
-	agenda, err := s.library.UpcomingWith(ctx, view, from, to, library.UpcomingOptions{Unmonitored: r.Params.Unmonitored != nil && *r.Params.Unmonitored})
+	opts := library.UpcomingOptions{Unmonitored: r.Params.Unmonitored != nil && *r.Params.Unmonitored}
+	agenda, err := s.agendas.get(ctx, s.opts.Store, view.Now, fmt.Sprintf("%s|%s|%s|%v", view.Country, from.Format("2006-01-02"), to.Format("2006-01-02"), opts.Unmonitored), func() (library.Agenda, error) {
+		return s.library.UpcomingWith(ctx, view, from, to, opts)
+	})
 	if err != nil {
 		return nil, err
 	}

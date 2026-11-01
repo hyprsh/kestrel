@@ -3,6 +3,7 @@ import { ApiError, usePluginInstances } from '../api/queries'
 import { SettingRow, SettingsCard } from '../layout/SettingsPage'
 import { useDraftForm } from '../settings/draft'
 import { useSaveSiloSettings, useSiloSettings, type Silo } from '../api/silo'
+import { SkeletonForm } from '../loading'
 
 /** The messages of a 422's field errors at `field`. The server may prefix them with the section's name. */
 function problems(error: unknown, field: string): string[] {
@@ -20,7 +21,7 @@ export function SiloSettingsForm() {
         Could not load the Silo settings.
       </Note>
     )
-  if (!data || !instances.data) return null
+  if (!data || !instances.data) return <SkeletonForm rows={2} />
   const silo = instances.data.filter((i) => i.plugin_id === 'silo').map((i) => i.name)
   return <Form saved={data} instances={silo} />
 }

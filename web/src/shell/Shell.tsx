@@ -21,7 +21,7 @@ import { currentPlace, manualSearchPath, PlaceOpener, placeOf, placePath, pushed
 import { usePhone } from '../responsive'
 import { guardLeave } from '../settings/draft'
 import { THEME_KEY, useTheme, type Theme } from '../theme'
-import { PageSkeleton } from '../loading'
+import { ScreenSkeleton } from '../loading'
 import { lazyScreen } from './lazyScreen'
 import { KestrelLogo } from '../ui'
 import { Rail as RailFrame, RailSpacer } from '../layout/Rail'
@@ -389,7 +389,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
                 {/* The floating tab bar is out of layout; --tab-bar-height keeps every screen's last row clear of it (0 on a tablet or desktop). */}
                 <BlockingBanner onOpen={goPath} />
                 <main className="flex min-h-0 flex-1 flex-col pb-[var(--tab-bar-height)]">
-                  <Suspense fallback={<PageSkeleton />}>
+                  <Suspense fallback={<ScreenSkeleton />}>
                     {screen === 'settings' ? (
                       <SettingsScreen
                         onRunSetup={onRunSetup}

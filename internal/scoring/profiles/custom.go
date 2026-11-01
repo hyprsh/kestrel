@@ -148,6 +148,10 @@ type cutoffCache struct {
 	val   Cutoffs
 	valid bool
 	scans atomic.Int64
+	// version and snap are the database's data version and the scoring snapshot of the last fingerprint: while both stand
+	// nothing it reads has changed, and the key is not computed again.
+	version int64
+	snap    any
 }
 
 // CutoffScans is how many times BelowCutoff has scanned the library's files rather than answered from its cache.
@@ -187,14 +191,26 @@ func (s *Service) cutoffKey(ctx context.Context) (string, error) {
 // recomputed on the next call after a file is imported, replaced or deleted, a Version changes Profile, or a Profile, its
 // cutoff or Upgrade-until Score, the Primary Language or the scoring snapshot changes (see cutoffKey). It must be read, not changed.
 func (s *Service) BelowCutoff(ctx context.Context) (Cutoffs, error) {
-	key, err := s.cutoffKey(ctx)
+	version, err := s.st.DataVersion(ctx)
+	if err != nil {
+		return Cutoffs{}, err
+	}
+	snap, err := s.snapshot()
 	if err != nil {
 		return Cutoffs{}, err
 	}
 	c := s.cutoffs
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.valid && c.version == version && c.snap == any(snap) {
+		return c.val, nil
+	}
+	key, err := s.cutoffKey(ctx)
+	if err != nil {
+		return Cutoffs{}, err
+	}
 	if c.valid && c.key == key {
+		c.version, c.snap = version, snap
 		return c.val, nil
 	}
 	c.scans.Add(1)
@@ -202,7 +218,7 @@ func (s *Service) BelowCutoff(ctx context.Context) (Cutoffs, error) {
 	if err != nil {
 		return Cutoffs{}, err
 	}
-	c.key, c.val, c.valid = key, val, true
+	c.key, c.val, c.valid, c.version, c.snap = key, val, true, version, snap
 	return val, nil
 }
 

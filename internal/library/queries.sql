@@ -26,6 +26,18 @@ SELECT * FROM titles WHERE id = ?;
 -- name: ListTitles :many
 SELECT * FROM titles ORDER BY added_at DESC, id DESC;
 
+-- The list's Titles and episodes without their overviews and names, which it never shows: a Library of thousands reads and
+-- allocates megabytes of text for nothing otherwise. The columns keep the order of the tables, so a row converts to the model.
+-- name: ListTitlesForList :many
+SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, '' AS overview, runtime, poster_path, monitored,
+  series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count, release_seen_at, network, tvdb_status,
+  air_time, air_timezone, monitor_new_seasons, monitor_specials
+FROM titles ORDER BY added_at DESC, id DESC;
+
+-- name: ListEpisodesForList :many
+SELECT id, title_id, season, number, tvdb_id, '' AS name, air_date, monitored, '' AS primary_name, placeholder_at, '' AS overview
+FROM episodes ORDER BY title_id, season, number;
+
 -- name: ListVersions :many
 SELECT id, title_id, slot, profile_key, added_at FROM versions ORDER BY title_id, id;
 
@@ -34,6 +46,20 @@ SELECT id, title_id, slot, profile_key, added_at FROM versions WHERE title_id = 
 
 -- name: ListFiles :many
 SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files;
+
+-- The Library list and the agenda need each file's size and Version, not the kilobyte of release and probe JSON it holds.
+-- name: ListFileSizes :many
+SELECT id, version_id, size FROM files;
+
+-- One Version's file for an episode and the parse of a Movie Version's file, misfits left out, for the agenda to ask only
+-- about the entries it shows.
+-- name: GetFileEpisodeRelease :one
+SELECT f.parsed_release
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id
+WHERE fe.version_id = ? AND fe.episode_id = ? AND f.id NOT IN (SELECT file_id FROM file_misfits);
+
+-- name: GetVersionFileRelease :one
+SELECT f.parsed_release FROM files f WHERE f.version_id = ? AND f.id NOT IN (SELECT file_id FROM file_misfits) ORDER BY f.id DESC LIMIT 1;
 
 -- name: ListFilesOfTitle :many
 SELECT f.id, f.version_id, f.path, f.size, f.release_name, f.parsed_release, f.probe, f.score, f.grab_id, f.imported_at

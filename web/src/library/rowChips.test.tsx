@@ -1,12 +1,14 @@
 // The Library list draws a chip per entry of `slot_states`, in order: up to four and "+N" for the rest (a fake third, fourth and
 // fifth Slot stand in for #282), and in a Library where no Title has a second Slot the chips say the state alone.
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import type { TitleRow } from '../api/queries'
-import { fakeLibrary, row } from '../test/library'
+import { http } from '../test/handlers'
+import { detail, fakeLibrary, row } from '../test/library'
+import { server } from '../test/server'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -111,12 +113,7 @@ describe('Library rows: Slot chips', () => {
         ],
       }),
       row(2, 'Heat', 'Heat', {
-        slot_states: [
-          entry('standard', 'Standard', 'filled', {
-            file: { quality: 'Bluray-1080p', video_codec: 'H.265', hdr: 'HDR10', audio_codec: 'DDP', audio_channels: '5.1', size: 18 * 1024 ** 3 } as Entry['file'],
-          }),
-          entry('4k', '4K', 'unmonitored'),
-        ],
+        slot_states: [entry('standard', 'Standard', 'filled', { version_id: 21 }), entry('4k', '4K', 'unmonitored')],
       }),
     ])
     const list = await openLibrary()
@@ -131,9 +128,49 @@ describe('Library rows: Slot chips', () => {
     expect(await screen.findByRole('region', { name: 'Versions' })).toBeInTheDocument()
     await waitFor(() => expect(document.getElementById('version-4k')).toHaveAttribute('data-current'))
 
+    // A Movie's file is not in the list: the popover asks the Title's page for it, shows a Skeleton line meanwhile, and keeps it cached.
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const heat = row(2, 'Heat', 'Heat', { slot_states: [entry('standard', 'Standard', 'filled', { version_id: 21 })] })
+    server.use(
+      http.get('/titles/{id}', async ({ response }) => {
+        await gate
+        return response(200).json(
+          detail(heat, {
+            versions: [
+              {
+                id: 21,
+                slot: 'standard',
+                profile: 'hd-primary',
+                state: 'filled',
+                long_missing: false,
+                wanted_since: null,
+                added_at: heat.added_at,
+                file: {
+                  video_codec: 'H.265',
+                  hdr: 'HDR10',
+                  audio_codec: 'DDP',
+                  audio_channels: '5.1',
+                  quality: 'Bluray-1080p',
+                  size: 18 * 1024 ** 3,
+                  path: '/m/Heat.mkv',
+                  release_name: 'Heat',
+                  score: 1,
+                  imported_at: heat.added_at,
+                  languages: [],
+                  misfit: false,
+                },
+              },
+            ],
+          }),
+        )
+      }),
+    )
     await userEvent.click(within(within(list).getByRole('option', { name: /heat/i })).getByRole('button', { name: /^Standard: Have/ }))
     const file = await screen.findByRole('dialog')
-    expect(file).toHaveTextContent('Bluray-1080p \u00b7 H.265 \u00b7 HDR10 \u00b7 DDP 5.1 \u00b7 18.0 GB')
+    expect(file).not.toHaveTextContent('Bluray-1080p')
+    await act(async () => release())
+    await waitFor(() => expect(file).toHaveTextContent('Bluray-1080p \u00b7 H.265 \u00b7 HDR10 \u00b7 DDP 5.1 \u00b7 18.0 GB'))
   })
 
   it('lists the folded Slots as links to the Title at that Slot', async () => {

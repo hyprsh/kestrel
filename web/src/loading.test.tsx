@@ -54,6 +54,29 @@ describe('the Library while its Titles load', () => {
   })
 })
 
+describe('the Title pane while the Library list loads', () => {
+  it('shows a Skeleton of the page in place of a blank pane, then the Title', async () => {
+    const titles = held()
+    fakeLibrary([row(1, 'Paddington', 'Paddington')])
+    server.use(
+      http.get('/titles', async ({ response }) => {
+        await titles.gate
+        return response(200).json({ items: [row(1, 'Paddington', 'Paddington')], next_cursor: null })
+      }),
+    )
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+
+    const pane = (await screen.findAllByRole('status')).map((s) => s.closest('section')).find((s) => s?.getAttribute('aria-busy') === 'true')
+    expect(pane).toBeTruthy()
+    expect(pane!.querySelectorAll('[aria-hidden="true"]').length).toBeGreaterThan(0)
+
+    await titles.release()
+    expect(await screen.findByRole('option', { name: /paddington/i })).toBeInTheDocument()
+    expect(pane).not.toBeInTheDocument()
+  })
+})
+
 describe('the Overview while its sections load', () => {
   it('keeps the section headings, shows Skeleton rows and no empty line, then the rows', async () => {
     const queue = held()

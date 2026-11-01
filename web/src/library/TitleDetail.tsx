@@ -54,10 +54,13 @@ export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: ()
   )
 })
 
-/** What the Title page will hold, sized like it: the header (poster, name, meta) and a card of Version rows. Silent: the page announces loading itself. */
+/**
+ * What the Title page will hold, sized like it: the header (poster, name, meta, a line of text), the Versions card and the
+ * Seasons' rows (a Movie's page is shorter, which the real page replaces it with). Silent: the page announces loading itself.
+ */
 function TitleSkeleton() {
   return (
-    <div className="@container">
+    <div className="@container" aria-hidden>
       <div className="flex gap-5">
         <Skeleton width={88} height={132} />
         <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -68,18 +71,44 @@ function TitleSkeleton() {
         </div>
       </div>
       <div className="mt-6">
-        <Skeleton width={64} height={20} />
-        <div className="mt-2">
-          <Entity.List aria-hidden>
+        <Skeleton width={72} height={20} />
+        {/* chrome-ok: the skeleton of the Version and Season cards, framed as they are */}
+        <div className="mt-2 overflow-hidden rounded-md shadow-border">
+          <Entity.List>
             {[0, 1].map((i) => (
-              <Entity key={i} left={<Skeleton width={56} height={16} />}>
-                <Entity.Content title={<Skeleton width={140} height={16} />} description={<Skeleton width={220} height={16} />} />
+              <Entity key={i} left={<Skeleton width={16} height={16} />}>
+                <Entity.Content fill title={<Skeleton width={120} height={16} />} description={<Skeleton width="60%" height={14} />} />
+              </Entity>
+            ))}
+          </Entity.List>
+        </div>
+      </div>
+      <div className="mt-6">
+        <Skeleton width={72} height={20} />
+        {/* chrome-ok: the skeleton of the Version and Season cards, framed as they are */}
+        <div className="mt-2 overflow-hidden rounded-md shadow-border">
+          <Entity.List>
+            {[0, 1, 2, 3].map((i) => (
+              <Entity key={i} left={<Skeleton width={16} height={16} />}>
+                <Entity.Content fill title={<Skeleton width={`${28 + ((i * 9) % 20)}%`} height={16} />} description={<Skeleton height={8} />} />
               </Entity>
             ))}
           </Entity.List>
         </div>
       </div>
     </div>
+  )
+}
+
+/** The Title pane while the Library list, which names the Title, is still on its way. */
+export function TitlePending() {
+  return (
+    <section aria-busy="true" className="min-w-0 flex-1 overflow-auto p-4 sm:px-8 sm:py-6">
+      <p role="status" className="sr-only">
+        Loading
+      </p>
+      <TitleSkeleton />
+    </section>
   )
 }
 

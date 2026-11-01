@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -32,7 +33,9 @@ func (s *server) GetStats(ctx context.Context, r oapi.GetStatsRequestObject) (oa
 	if err != nil {
 		return nil, err
 	}
-	res, err := stats.New(s.opts.Store).WithBelowCutoff(s.belowCutoff).Compute(ctx, now, rng, disks)
+	res, err := s.statsNow.get(ctx, s.opts.Store, now, fmt.Sprintf("%s|%v", rng.Key, disks), func() (stats.Result, error) {
+		return stats.New(s.opts.Store).WithBelowCutoff(s.belowCutoff).Compute(ctx, now, rng, disks)
+	})
 	if err != nil {
 		return nil, err
 	}

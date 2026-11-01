@@ -2,6 +2,7 @@ import { Button, Note, Select, Textarea, Toggle, Input } from '@hyprsh/design'
 import { useState, type FormEvent } from 'react'
 import { usePlexSignIn, useSavePlexSignIn, type PlexSignIn } from '../api/plex'
 import { ApiError, usePluginInstances, useSettings } from '../api/queries'
+import { SkeletonForm } from '../loading'
 
 type Row = { user: string; movies: string | null; series: string | null }
 
@@ -27,7 +28,7 @@ export function PlexSignInForm() {
         Could not load the Plex sign-in settings.
       </Note>
     )
-  if (!data || !instances.data || !settings.data) return null
+  if (!data || !instances.data || !settings.data) return <SkeletonForm rows={1} />
   const plex = instances.data.filter((i) => i.plugin_id === 'plex').map((i) => i.name)
   return <Form saved={data} instances={plex} folders={settings.data.root_folders} />
 }

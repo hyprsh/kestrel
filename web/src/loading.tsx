@@ -160,3 +160,34 @@ export function PageSkeleton() {
     </LoadingRegion>
   )
 }
+
+/**
+ * What a screen's chunk shows while it is on its way, shaped like the screens: on a desktop a side panel (heading, filter,
+ * rows) beside a content pane, on a phone a heading, a filter field and rows. The Shell's rail and tab bar stay around it.
+ */
+export function ScreenSkeleton() {
+  return (
+    <LoadingRegion>
+      <div aria-hidden className="flex min-h-0 flex-1">
+        {/* chrome-ok: the skeleton of the SidePanel's frame, which this file cannot import */}
+        <aside className="hidden w-[280px] shrink-0 flex-col gap-3 border-r border-gray-alpha-200 bg-background-200 p-4 sm:flex">
+          <Skeleton width={96} height={24} />
+          <Skeleton height={32} />
+          <div className="flex gap-2">
+            <Skeleton width={72} height={32} />
+            <Skeleton width={72} height={32} />
+          </div>
+          <SkeletonRows count={5} poster="sm" description={false} />
+        </aside>
+        <div className="flex min-w-0 flex-1 flex-col gap-3 p-4 sm:px-8 sm:py-6">
+          <div className="flex flex-col gap-3 sm:hidden">
+            <Skeleton width={120} height={24} />
+            <Skeleton height={40} />
+          </div>
+          <Skeleton className="hidden sm:block" width="30%" height={28} />
+          <SkeletonRows count={6} poster="md" />
+        </div>
+      </div>
+    </LoadingRegion>
+  )
+}

@@ -52,7 +52,9 @@ type Options struct {
 type Store struct {
 	write *sql.DB
 	read  *sql.DB
-	dir   string
+	// version is the one connection DataVersion asks.
+	version *sql.DB
+	dir     string
 }
 
 // Open creates the config dir if needed, migrates the database (backing it up
@@ -86,7 +88,15 @@ func Open(ctx context.Context, opts Options) (*Store, error) {
 		return nil, fmt.Errorf("store: open read pool: %w", err)
 	}
 	read.SetMaxOpenConns(readPool)
-	return &Store{write: write, read: read, dir: opts.Dir}, nil
+	// One connection that only asks PRAGMA data_version, which changes whenever another connection commits.
+	version, err := sql.Open("sqlite", dsn(path, true))
+	if err != nil {
+		write.Close()
+		read.Close()
+		return nil, fmt.Errorf("store: open version connection: %w", err)
+	}
+	version.SetMaxOpenConns(1)
+	return &Store{write: write, read: read, version: version, dir: opts.Dir}, nil
 }
 
 // Write is the single write connection.
@@ -95,9 +105,17 @@ func (s *Store) Write() *sql.DB { return s.write }
 // Read is the read-only connection pool.
 func (s *Store) Read() *sql.DB { return s.read }
 
-// Close closes both pools.
+// DataVersion changes whenever anything is committed to the database, by any connection of this store. A cache of what a
+// full read computes is good for as long as it stays the same.
+func (s *Store) DataVersion(ctx context.Context) (int64, error) {
+	var v int64
+	err := s.version.QueryRowContext(ctx, "PRAGMA data_version").Scan(&v)
+	return v, err
+}
+
+// Close closes the pools.
 func (s *Store) Close() error {
-	return errors.Join(s.read.Close(), s.write.Close())
+	return errors.Join(s.read.Close(), s.write.Close(), s.version.Close())
 }
 
 func dsn(path string, readOnly bool) string {
@@ -105,6 +123,9 @@ func dsn(path string, readOnly bool) string {
 	q := "?_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)"
 	if readOnly {
 		q += "&_pragma=query_only(1)"
+		// The Library list and the Overview read whole tables on every request. A map of the file and a cache of a few tens
+		// of megabytes make those scans memory reads instead of a pread per page (about 40 % of /titles at 4,000 Titles).
+		q += "&_pragma=mmap_size(268435456)&_pragma=cache_size(-32768)"
 	}
 	return "file:" + esc + q
 }

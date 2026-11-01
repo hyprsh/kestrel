@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { components } from '../api/schema.gen'
-import { row } from '../test/library'
+import { row, type FixtureSlot } from '../test/library'
 import { posterBadge, shownSlots, stateLine } from './rowState'
 
 type QueueItem = components['schemas']['QueueItem']
-type SlotSummary = components['schemas']['SlotSummary']
 
 const now = Date.parse('2026-10-17T12:00:00Z')
-const slot = (state: SlotSummary['state'], long_missing = false): SlotSummary => ({ version_id: 1, profile: 'hd-primary', state, long_missing })
+const slot = (state: FixtureSlot['state'], long_missing = false): FixtureSlot => ({ version_id: 1, profile: 'hd-primary', state, long_missing })
 const grab = (over: Partial<QueueItem> = {}): QueueItem => ({
   grab_id: 1,
   title_id: 1,
