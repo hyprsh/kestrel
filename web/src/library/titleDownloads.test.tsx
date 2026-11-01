@@ -29,7 +29,7 @@ describe("a Title's downloads on its page", () => {
     expect(within(hd).getByText('75% · 2 min left')).toBeInTheDocument()
     expect(within(pane).queryByText(/Heat/)).not.toBeInTheDocument()
     expect(within(pane).queryByRole('region', { name: 'Downloading' })).not.toBeInTheDocument()
-    expect(within(pane).getByText('Standard downloading · 75%')).toBeInTheDocument()
+    expect(within(pane).getByRole('button', { name: 'Standard: Downloading, 75% · 2 min' })).toBeInTheDocument()
   })
 
   it("shows a Series Slot's downloads on its card, with the episodes, percent and time left", async () => {

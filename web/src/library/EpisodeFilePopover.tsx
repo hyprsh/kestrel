@@ -3,13 +3,14 @@ import type { components } from '../api/schema.gen'
 import { Badge, Button, Popover, StatusDot } from '@hyprsh/design'
 import { cx } from '../ui'
 import { dotOf, size, type Dot } from './bits'
+import type { CellLike } from './cellDetail'
 
 type EpisodeCell = components['schemas']['EpisodeCell']
 type EpisodeFile = components['schemas']['EpisodeFile']
 type CustomFormat = components['schemas']['CustomFormatMatch']
 
 /** Size, quality and Score of a cell's file, joined for a line of text. */
-function facts(cell: EpisodeCell | null): string[] {
+function facts(cell: CellLike | null): string[] {
   const out: string[] = []
   if (cell?.score != null) out.push(`Score ${cell.score}`)
   if (cell?.file?.quality) out.push(cell.file.quality)
@@ -18,7 +19,7 @@ function facts(cell: EpisodeCell | null): string[] {
 }
 
 /** The hover tooltip of an episode cell: its state, then the file's facts and path. */
-export function cellTitle(slot: string, state: string, cell: EpisodeCell | null): string {
+export function cellTitle(slot: string, state: string, cell: CellLike | null): string {
   const head = [`${slot}: ${state}`, ...facts(cell)].join(' · ')
   return cell?.file ? `${head}\n${cell.file.path}` : head
 }

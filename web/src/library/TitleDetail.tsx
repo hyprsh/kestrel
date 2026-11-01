@@ -5,6 +5,7 @@ import { TitlePoster } from '../poster'
 import { plural } from '../format'
 import { sourceName } from '../requests/source'
 import type { SlotKey } from './bits'
+import { MovieCells } from './MovieCells'
 import { rated, Ratings } from './Ratings'
 import { SeriesSection } from './SeriesSection'
 import { MonitoringMenu, TitleActions } from './TitleActions'
@@ -112,6 +113,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
               <span key={i}>{i < meta.length - 1 ? <>{m}&nbsp;·</> : m}</span>
             ))}
           </div>
+          {title.kind === 'movie' && <MovieCells title={title} />}
           <TitleBadges title={title} />
           {title.requests.map((r) => (
             <div key={r.id} className="copy-13 text-gray-900">

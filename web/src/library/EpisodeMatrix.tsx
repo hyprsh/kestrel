@@ -1,4 +1,4 @@
-import { Button, Checkbox, StatusDot, Table, TableBody, TableCell, TableHead, TableHeader, TableRoot, TableRow } from '@hyprsh/design'
+import { Button, Checkbox, Table, TableBody, TableCell, TableHead, TableHeader, TableRoot, TableRow } from '@hyprsh/design'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { Episode } from '../api/queries'
@@ -6,14 +6,15 @@ import { useColumnWidths } from '../layout/columnWidths'
 import type { useColumnOrder } from '../layout/columnOrder'
 import { usePhone } from '../responsive'
 import type { QueueItem } from '../api/queue'
-import { dotOf, faintDot, slotLabel, versionStatus, type SlotKey } from './bits'
+import { dotOf, slotLabel, versionStatus, type SlotKey } from './bits'
 import { RowDeleteConfirm } from './DeleteFiles'
 import { EpisodeMenu, EpisodeTick, RowSearch, type EpisodeActions } from './EpisodeActions'
-import { CellPopover, EpisodeFilePopover, cellTitle } from './EpisodeFilePopover'
+import { EpisodeFilePopover, cellTitle } from './EpisodeFilePopover'
 import { EpisodeName } from './EpisodeName'
 import { cellText, grabOf, monthDay } from './cellDetail'
 import { episodeCode, episodeRow } from './episodes'
 import { rowActionsShown } from './IconAction'
+import { SlotCell } from './SlotCell'
 
 /** The key of the Aired column in the column order; the Slots' keys are their own. */
 export const airedKey = 'aired'
@@ -225,9 +226,6 @@ export function EpisodeMatrix({
   )
 }
 
-/** The colour of a cell's text: Wanted amber and downloading blue, as the dots beside them are; the rest plain or quiet. */
-const stateText: Record<string, string> = { filled: '', wanted: 'text-amber-900', downloading: 'text-blue-900', unreleased: 'text-gray-900', unmonitored: 'text-gray-900' }
-
 /** What the tooltip of a cell adds to its state and file: the air date of a Wanted or unaired episode, a download's progress. */
 function moreOf(cell: Episode['cells'][SlotKey], episode: Episode, text: string | null, state: string): string {
   if (!cell || cell.file) return ''
@@ -319,41 +317,36 @@ function EpisodeRow({
           const dot = dotOf(cell ? cell.state : null, false)
           const text = cellText(cell, episode, grabOf(grabs, s, episode), state)
           const title = cellTitle(slotLabel[s], state, cell) + moreOf(cell, episode, text, state)
-          const button = (
-            <Button
-              variant="tertiary"
-              size="tiny"
-              className="max-w-full"
-              aria-label={`${label} ${slotLabel[s]}: ${state}`}
-              title={title}
-              data-cell={`${index}-${c + 1}`}
-              tabIndex={tab(index, c + 1)}
-              onFocus={() => onFocus(c + 1)}
-              prefix={<StatusDot state={dot.state} variant={dot.variant} label={false} title={null} aria-hidden className={dot.faint ? faintDot : undefined} />}
-            >
-              <span className={`min-w-0 truncate max-sm:sr-only ${cell ? stateText[cell.state] : 'text-gray-900'}`}>{text ?? '—'}</span>
-            </Button>
-          )
           return (
             <TableCell key={s} className="px-2">
-              {cell?.file ? (
-                <EpisodeFilePopover
-                  label={`${label} ${slotLabel[s]}`}
-                  heading={`${episodeCode(episode)} · ${slotLabel[s]}`}
-                  cell={cell}
-                  file={cell.file}
-                  trigger={button}
-                  onUpgrade={() => {
-                    const v = actions.versions.find((x) => x.slot === s)
-                    if (v) actions.manual(v, { season: episode.season, episode_ids: [episode.id] }, episodeCode(episode))
-                  }}
-                />
-              ) : phone ? (
-                // No hover on a phone: a tap says what the state means.
-                <CellPopover label={`${label} ${slotLabel[s]}`} text={title} trigger={button} />
-              ) : (
-                button
-              )}
+              <SlotCell
+                state={cell ? cell.state : null}
+                dot={dot}
+                text={text}
+                title={title}
+                ariaLabel={`${label} ${slotLabel[s]}: ${state}`}
+                popoverLabel={`${label} ${slotLabel[s]}`}
+                cellId={`${index}-${c + 1}`}
+                tabIndex={tab(index, c + 1)}
+                onFocus={() => onFocus(c + 1)}
+                filePopover={
+                  cell?.file
+                    ? (trigger) => (
+                        <EpisodeFilePopover
+                          label={`${label} ${slotLabel[s]}`}
+                          heading={`${episodeCode(episode)} · ${slotLabel[s]}`}
+                          cell={cell}
+                          file={cell.file!}
+                          trigger={trigger}
+                          onUpgrade={() => {
+                            const v = actions.versions.find((x) => x.slot === s)
+                            if (v) actions.manual(v, { season: episode.season, episode_ids: [episode.id] }, episodeCode(episode))
+                          }}
+                        />
+                      )
+                    : undefined
+                }
+              />
             </TableCell>
           )
         })}

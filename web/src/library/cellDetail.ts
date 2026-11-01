@@ -6,6 +6,9 @@ import type { QueueItem } from '../api/queue'
 import { size, type SlotKey } from './bits'
 import { episodeCode } from './episodes'
 
+/** What a Slot cell needs of a Version's cell: an Episode's cell, or a Movie Version's state with its file. */
+export type CellLike = { state: string; score?: number | null; file: { path: string; size: number; quality?: string | null } | null }
+
 /** The episode codes a Grab's `episodes` name: the API gives "S05E09" for one and "S05E05-E10" for a run, which this spells out one by one. */
 export function expandCodes(labels: readonly string[]): string[] {
   return labels.flatMap((label) => {
@@ -47,7 +50,7 @@ function agoOf(iso: string, now: number): string | null {
 const resolutionOf = (quality: string) => quality.split('-').pop() ?? quality
 
 /** The line of a Slot cell: null for a Slot with no Version (the cell shows "—"). `grab` is the Grab covering the episode, if any. */
-export function cellText(cell: Episode['cells'][SlotKey], episode: Episode, grab: QueueItem | undefined, label: string, now = Date.now()): string | null {
+export function cellText(cell: CellLike | null, episode: Pick<Episode, 'air_date'>, grab: QueueItem | undefined, label: string, now = Date.now()): string | null {
   if (!cell) return null
   switch (cell.state) {
     case 'filled':
