@@ -30,7 +30,7 @@ const wantedFor = (since: string, now: number) => {
 }
 
 /** What a Slot's popover says: the state in a line and the quiet lines beneath (the file, the release, the episodes). */
-function slotInfo(v: Entry, grab: QueueItem | undefined, profileName: string, now: number): RowSlotInfo & { word: string } {
+function slotInfo(v: Entry, grab: QueueItem | undefined, profileName: string, now: number): RowSlotInfo {
   const state = entryState(v)
   const pct = state === 'downloading' && grab ? percent(grab.bytes_total, grab.bytes_left) : null
   const lines: string[] = []
@@ -51,7 +51,7 @@ function slotInfo(v: Entry, grab: QueueItem | undefined, profileName: string, no
     const audio = [f.audio_codec, f.audio_channels].filter(Boolean).join(' ')
     lines.push([f.quality, f.video_codec, f.hdr, audio, size(f.size)].filter(Boolean).join(' · '))
   }
-  return { heading: `${v.label} · ${profileName}`, state, text, lines, word: text }
+  return { heading: profileName === v.label ? v.label : `${v.label} · ${profileName}`, state, text, lines }
 }
 
 export function rowChips(r: TitleRow, grabs: readonly QueueItem[], opts: { single?: boolean; profileName?: (key: string) => string; now?: number; onOpen?: (slot: string) => void } = {}): ChipData[] {

@@ -57,7 +57,7 @@ function SlotChip({ chip, tabIndex }: { chip: ChipData; tabIndex?: number }) {
       data-slot={chip.key}
       data-state={chip.state ?? 'none'}
       prefix={<StateDot state={chip.state} />}
-      className="label-12 shrink-0 bg-gray-100 whitespace-nowrap"
+      className="label-12 shrink-0 bg-gray-100 px-2 whitespace-nowrap"
     >
       {body}
     </Button>,

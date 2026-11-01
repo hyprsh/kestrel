@@ -123,7 +123,7 @@ describe('Library rows: Slot chips', () => {
     const pad = await within(list).findByRole('option', { name: /paddington/i })
     await userEvent.click(within(pad).getByRole('button', { name: /^4K: Wanted/ }))
     const dialog = await screen.findByRole('dialog')
-    expect(dialog).toHaveTextContent(/^4K \u00b7 /)
+    expect(dialog).toHaveTextContent(/^4K/)
     expect(dialog).toHaveTextContent('Wanted 12 days \u00b7 next search in 4 h')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Open' }))
     await waitFor(() => expect(location.search).toContain('slot=4k'))
