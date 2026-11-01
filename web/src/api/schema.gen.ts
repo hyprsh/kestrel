@@ -2258,6 +2258,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Statistics (the Overview's dashboard)
+         * @description What the Overview shows besides its lists, for the last 7, 30 or 90 days (UTC days, today included;
+         *     default 30). Everything is worked out from what Kestrel keeps, and a figure it cannot work out is `null`
+         *     (or an empty list), never a guess.
+         *
+         *     - `library` and `wanted` describe now, whatever the range. `wanted.count` counts Wanted Versions, and
+         *       `wanted.long_missing` those Wanted for more than 90 days.
+         *     - `grabs` counts the Grabs that finished in the range: `imported` and `failed`, and per UTC day.
+         *     - `time_to_fill` is the median time from a Movie or episode becoming Wanted to the Import of the Grab
+         *       that filled it, for the Grabs Imported in the range, against the range before it. Upgrades and files
+         *       Adopted without a Grab are not fills.
+         *     - `indexers` lists each indexer that did anything in the range. `hit_rate` is the share of the searches
+         *       it answered that returned a Release fitting a Slot; `median_answer_ms` the median time it took to
+         *       answer. Only searches made after this was first recorded count. `best` is the id of the best
+         *       indexer: the most imported Grabs among those with a `hit_rate` of at least 0.5, ties to the higher
+         *       `hit_rate`, then fewer failed Grabs; `null` when none qualifies.
+         *     - `download_client` is the enabled download client. Speed and download time run from the client first
+         *       reporting a Grab downloading to its reporting it finished (unpacking included), so they cover Grabs
+         *       after this was first recorded. `speed_per_day` is the last 14 days whatever the range.
+         *     - `quality` splits the files of each Slot by source, now. `release_groups` are the groups of the
+         *       files that Grabs brought in the range.
+         *     - `requests` counts the accepted Requests created in the range; one is done once every Slot it asked for
+         *       holds a file.
+         *     - `storage` lists the Root folders' disks. `growth_bytes_per_week` is the size of the files Grabs
+         *       brought in the range per week (what was replaced since is not taken off), and `months_until_full` the
+         *       free space over it, both `null` when no file came. A disk shared by several Root folders is counted once in
+         *       `free_bytes` and `total_bytes`.
+         */
+        get: operations["getStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4282,6 +4327,158 @@ export interface components {
              *     quota the indexer reports, which ends when the indexer says so.
              */
             grabs_paused_until: string | null;
+        };
+        Stats: {
+            /** @enum {string} */
+            range: "7d" | "30d" | "90d";
+            /**
+             * Format: date
+             * @description First UTC day of the range.
+             */
+            from: string;
+            /**
+             * Format: date
+             * @description Last UTC day of the range (today).
+             */
+            to: string;
+            library: components["schemas"]["StatsLibrary"];
+            wanted: components["schemas"]["StatsWanted"];
+            grabs: components["schemas"]["StatsGrabs"];
+            time_to_fill: components["schemas"]["StatsTimeToFill"];
+            /** @description Most imported Grabs first. */
+            indexers: components["schemas"]["StatsIndexer"][];
+            /** Format: int64 */
+            best_indexer_id: number | null;
+            download_client: components["schemas"]["StatsDownloadClient"];
+            /** @description One entry per Slot that holds a file. */
+            quality: components["schemas"]["StatsQuality"][];
+            /** @description The five groups with the most files, most first. */
+            release_groups: components["schemas"]["StatsReleaseGroup"][];
+            requests: components["schemas"]["StatsRequests"];
+            storage: components["schemas"]["StatsStorage"];
+        };
+        StatsLibrary: {
+            titles: number;
+            movies: number;
+            series: number;
+            /**
+             * Format: int64
+             * @description The size of every file.
+             */
+            bytes: number;
+        };
+        StatsWanted: {
+            /** @description Wanted Versions. */
+            count: number;
+            /** @description Versions Wanted for more than 90 days. */
+            long_missing: number;
+        };
+        StatsGrabs: {
+            imported: number;
+            failed: number;
+            /** @description One entry per UTC day of the range, oldest first, zero for a day without a Grab. */
+            per_day: components["schemas"]["StatsGrabDay"][];
+        };
+        StatsGrabDay: {
+            /** Format: date */
+            day: string;
+            imported: number;
+            failed: number;
+        };
+        StatsTimeToFill: {
+            /** @description Null when nothing was filled in the range. */
+            median_seconds: number | null;
+            /** @description The same for the range before. */
+            previous_median_seconds: number | null;
+            /** @description How many Movies and episodes the median is over. */
+            fills: number;
+        };
+        StatsIndexer: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            imported: number;
+            failed: number;
+            /** @description Searches made in the range, answered or not. */
+            searches: number;
+            /**
+             * Format: double
+             * @description 0 to 1; null when no search was answered.
+             */
+            hit_rate: number | null;
+            /** Format: int64 */
+            median_answer_ms: number | null;
+        };
+        StatsDownloadClient: {
+            /** @description Null without an enabled download client. */
+            name: string | null;
+            /**
+             * @description `none` without an enabled download client.
+             * @enum {string}
+             */
+            state: "ok" | "failing" | "none";
+            /** @description Downloads that finished in the range. */
+            completed: number;
+            /** @description Grabs the client reported failed (a bad or encrypted download). */
+            failed: number;
+            /** Format: double */
+            avg_bytes_per_second: number | null;
+            median_download_seconds: number | null;
+            /** @description The last 14 days, oldest first. */
+            speed_per_day: components["schemas"]["StatsSpeedDay"][];
+        };
+        StatsSpeedDay: {
+            /** Format: date */
+            day: string;
+            /** Format: double */
+            bytes_per_second: number | null;
+        };
+        StatsQuality: {
+            slot: components["schemas"]["Slot"];
+            files: number;
+            remux_bluray: number;
+            web_dl: number;
+            webrip_or_lower: number;
+        };
+        StatsReleaseGroup: {
+            name: string;
+            files: number;
+        };
+        StatsRequests: {
+            total: number;
+            /** @description Requests not yet done. */
+            searching: number;
+            median_fulfil_seconds: number | null;
+            requesters: components["schemas"]["StatsRequester"][];
+        };
+        StatsRequester: {
+            name: string;
+            source: string;
+            requests: number;
+            done: number;
+        };
+        StatsStorage: {
+            disks: components["schemas"]["StatsDisk"][];
+            /** Format: int64 */
+            free_bytes: number;
+            /** Format: int64 */
+            total_bytes: number;
+            /** Format: int64 */
+            growth_bytes_per_week: number | null;
+            /**
+             * Format: double
+             * @description 0 to 1: the part of all file bytes Series files take.
+             */
+            series_share: number | null;
+            /** Format: double */
+            months_until_full: number | null;
+        };
+        StatsDisk: {
+            path: string;
+            /** Format: int64 */
+            free_bytes: number;
+            /** Format: int64 */
+            total_bytes: number;
         };
         DiskStatus: {
             path: string;
@@ -7477,6 +7674,30 @@ export interface operations {
                 };
             };
             404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getStats: {
+        parameters: {
+            query?: {
+                range?: "7d" | "30d" | "90d";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The statistics. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Stats"];
+                };
+            };
             422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };

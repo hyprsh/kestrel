@@ -110,30 +110,32 @@ type FolderChange struct {
 }
 
 type Grab struct {
-	ID               int64
-	TitleID          sql.NullInt64
-	VersionID        sql.NullInt64
-	ReleaseGuid      string
-	ReleaseName      string
-	IndexerID        int64
-	IndexerName      string
-	Protocol         string
-	Size             int64
-	PublishedAt      string
-	Score            int64
-	Parsed           string
-	Verdict          string
-	Overridden       int64
-	IsUpgrade        int64
-	ClientInstanceID int64
-	ClientID         string
-	State            string
-	Failure          sql.NullString
-	StalledReason    sql.NullString
-	StalledSince     sql.NullString
-	NextImportAt     sql.NullString
-	CreatedAt        string
-	UpdatedAt        string
+	ID                int64
+	TitleID           sql.NullInt64
+	VersionID         sql.NullInt64
+	ReleaseGuid       string
+	ReleaseName       string
+	IndexerID         int64
+	IndexerName       string
+	Protocol          string
+	Size              int64
+	PublishedAt       string
+	Score             int64
+	Parsed            string
+	Verdict           string
+	Overridden        int64
+	IsUpgrade         int64
+	ClientInstanceID  int64
+	ClientID          string
+	State             string
+	Failure           sql.NullString
+	StalledReason     sql.NullString
+	StalledSince      sql.NullString
+	NextImportAt      sql.NullString
+	CreatedAt         string
+	UpdatedAt         string
+	DownloadStartedAt sql.NullString
+	DownloadDoneAt    sql.NullString
 }
 
 type GrabEpisode struct {
@@ -159,6 +161,17 @@ type IndexerGrabCount struct {
 	IndexerID int64
 	Day       int64
 	Grabs     int64
+}
+
+type IndexerSearch struct {
+	ID          int64
+	IndexerID   int64
+	IndexerName string
+	At          string
+	Ok          int64
+	Releases    int64
+	Fit         int64
+	DurationMs  int64
 }
 
 type OriginalOffer struct {

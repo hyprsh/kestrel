@@ -118,3 +118,11 @@ SELECT * FROM original_offers WHERE version_id = ? ORDER BY id;
 
 -- name: DismissOriginalOffer :exec
 UPDATE original_offers SET dismissed = 1 WHERE id = ?;
+
+-- When the download client first reported a Grab downloading, and when it reported it finished (the Overview's speed and
+-- download time). A Grab first seen finished started when it was created.
+-- name: StampDownloadStart :exec
+UPDATE grabs SET download_started_at = COALESCE(download_started_at, ?) WHERE id = ?;
+
+-- name: StampDownloadDone :exec
+UPDATE grabs SET download_started_at = COALESCE(download_started_at, created_at), download_done_at = COALESCE(download_done_at, ?) WHERE id = ?;

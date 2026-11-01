@@ -316,3 +316,9 @@ UPDATE search_state SET next_upgrade_at = ? WHERE last_upgrade_at >= ?;
 
 -- name: SetTitleRootFolder :exec
 UPDATE titles SET root_folder = ? WHERE id = ?;
+
+-- The files that Grabs (not Upgrades) filled a Version with in a window, one row per episode of a Series file and one for a Movie file.
+-- name: ListGrabFilled :many
+SELECT f.version_id, f.imported_at, CAST(coalesce(fe.episode_id, 0) AS INTEGER) AS episode_id
+FROM files f JOIN grabs g ON g.id = f.grab_id LEFT JOIN file_episodes fe ON fe.file_id = f.id
+WHERE g.is_upgrade = 0 AND f.imported_at >= sqlc.arg(from_at) AND f.imported_at < sqlc.arg(to_at);

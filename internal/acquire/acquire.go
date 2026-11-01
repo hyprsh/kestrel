@@ -90,6 +90,8 @@ type Indexers interface {
 	CanSweep(ctx context.Context) bool
 	// Enabled is how many indexers a search asks.
 	Enabled(ctx context.Context) int
+	// MarkFit records which indexers' lanes of a Search returned a Release that fit a Slot.
+	MarkFit(ctx context.Context, searches map[int64]int64, fitting map[int64]bool)
 }
 
 // Downloads is the downloads host.
@@ -428,8 +430,26 @@ func (s *Service) gather(ctx context.Context, sub subject, scope library.Scope) 
 	if err := s.releaseSeen(ctx, d, len(out)); err != nil {
 		return nil, nil, err
 	}
+	s.markFit(ctx, sub, res, out)
 	s.cache.put(now, out)
 	return out, res.Failures, nil
+}
+
+// markFit tells the indexers host which of the lanes of a Search returned a Release that fits one of the
+// subject's Slots, for the Overview's Hit column.
+func (s *Service) markFit(ctx context.Context, sub subject, res indexers.Result, out []*entry) {
+	if len(res.Searches) == 0 {
+		return
+	}
+	fitting := map[int64]bool{}
+	for _, e := range out {
+		for slot := range sub.versions {
+			if e.fits(slot) == FitsThisSlot {
+				fitting[e.raw.IndexerID] = true
+			}
+		}
+	}
+	s.idx.MarkFit(ctx, res.Searches, fitting)
 }
 
 // entryFor scores a parsed Release under the Profile of every Version of the subject.

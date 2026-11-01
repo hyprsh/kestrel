@@ -9,6 +9,7 @@ package indexers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -126,20 +127,22 @@ type Failure struct {
 type Result struct {
 	Releases []Release
 	Failures []Failure
+	// Searches maps an indexer's id to the row recording its lane of a Search (see MarkFit); empty for RSS.
+	Searches map[int64]int64
 }
 
 // Search asks every enabled indexer, in parallel. It returns when all lanes
 // are done or ctx ends, whichever is first; lanes that ended with ctx report
 // an unavailable Failure.
 func (s *Service) Search(ctx context.Context, q Query) Result {
-	return s.fan(ctx, func(inst instances.Instance) ([]Release, *Failure) { return s.lane(ctx, inst, q) })
+	return s.fan(ctx, true, func(inst instances.Instance) ([]Release, *Failure) { return s.lane(ctx, inst, q) })
 }
 
 // RSS reads the newest releases of every enabled indexer: one lane per
 // indexer, one request per kind of media (Movie, then Series) and no paging,
 // so a pass costs next to nothing. Each Release says which feed it came from.
 func (s *Service) RSS(ctx context.Context) Result {
-	return s.fan(ctx, func(inst instances.Instance) ([]Release, *Failure) { return s.rssLane(ctx, inst) })
+	return s.fan(ctx, false, func(inst instances.Instance) ([]Release, *Failure) { return s.rssLane(ctx, inst) })
 }
 
 // rssLane reads one indexer's feed for each media. A feed that fails does not
@@ -179,8 +182,9 @@ func (s *Service) Enabled(ctx context.Context) int {
 	return len(enabled)
 }
 
-// fan runs one lane per enabled indexer, in parallel, and gathers the answers.
-func (s *Service) fan(ctx context.Context, lane func(instances.Instance) ([]Release, *Failure)) Result {
+// fan runs one lane per enabled indexer, in parallel, and gathers the answers. With record, each lane
+// that really asked its indexer is kept in indexer_searches (the Overview's Hit and Answer columns).
+func (s *Service) fan(ctx context.Context, record bool, lane func(instances.Instance) ([]Release, *Failure)) Result {
 	enabled, err := s.inst.Enabled(ctx, indexer.Contract.ID)
 	if err != nil {
 		return Result{Failures: []Failure{{Code: plugin.CodeUnavailable, Message: err.Error()}}}
@@ -188,6 +192,7 @@ func (s *Service) fan(ctx context.Context, lane func(instances.Instance) ([]Rele
 	type laneResult struct {
 		releases []Release
 		failure  *Failure
+		took     time.Duration
 	}
 	lanes := make([]laneResult, len(enabled))
 	var wg sync.WaitGroup
@@ -195,8 +200,9 @@ func (s *Service) fan(ctx context.Context, lane func(instances.Instance) ([]Rele
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			start := time.Now()
 			rels, fail := lane(inst)
-			lanes[i] = laneResult{rels, fail}
+			lanes[i] = laneResult{rels, fail, time.Since(start)}
 		}()
 	}
 	wg.Wait()
@@ -213,8 +219,58 @@ func (s *Service) fan(ctx context.Context, lane func(instances.Instance) ([]Rele
 		if l.failure != nil {
 			out.Failures = append(out.Failures, *l.failure)
 		}
+		if record && ctx.Err() == nil && (l.failure == nil || (l.failure.Limit == "" && l.failure.Code != plugin.CodeRateLimited)) {
+			if id, ok := s.recordSearch(ctx, enabled[i], len(l.releases), l.failure == nil, l.took); ok {
+				if out.Searches == nil {
+					out.Searches = map[int64]int64{}
+				}
+				out.Searches[enabled[i].ID] = id
+			}
+		}
 	}
 	return out
+}
+
+// searchKeep is how long indexer_searches rows are kept: a little more than the longest Overview range.
+const searchKeep = 100 * 24 * time.Hour
+
+// recordSearch keeps how one indexer's lane of a search went. A store that cannot write loses the row, not the search.
+func (s *Service) recordSearch(ctx context.Context, inst instances.Instance, releases int, ok bool, took time.Duration) (int64, bool) {
+	ctx = context.WithoutCancel(ctx)
+	now := s.clock().UTC()
+	w := idb.New(s.st.Write())
+	okInt := int64(0)
+	if ok {
+		okInt = 1
+	}
+	id, err := w.InsertSearch(ctx, idb.InsertSearchParams{
+		IndexerID: inst.ID, IndexerName: inst.Name, At: now.Format(time.RFC3339), Ok: okInt, Releases: int64(releases), DurationMs: took.Milliseconds(),
+	})
+	if err != nil {
+		s.log.Warn("indexers: cannot record a search", "indexer", inst.Name, "err", err)
+		return 0, false
+	}
+	if err := w.PruneSearches(ctx, now.Add(-searchKeep).Format(time.RFC3339)); err != nil {
+		s.log.Warn("indexers: cannot prune recorded searches", "err", err)
+	}
+	return id, true
+}
+
+// MarkFit says which indexers' lanes of a Search (res.Searches) returned a Release that fit a Version's Slot.
+func (s *Service) MarkFit(ctx context.Context, searches map[int64]int64, fitting map[int64]bool) {
+	var ids []int64
+	for indexerID, id := range searches {
+		if fitting[indexerID] {
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+	body, _ := json.Marshal(ids)
+	if err := idb.New(s.st.Write()).MarkSearchesFit(context.WithoutCancel(ctx), string(body)); err != nil {
+		s.log.Warn("indexers: cannot mark searches that fit", "err", err)
+	}
 }
 
 // Fetch downloads a release's NZB from the indexer it came from.

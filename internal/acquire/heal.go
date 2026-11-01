@@ -154,6 +154,9 @@ func (s *Service) poll(ctx context.Context, lostThreshold int) (PollResult, erro
 			}
 			res.Changed++
 			s.recordMove(ctx, g, state, "")
+			if err := s.stampDownload(ctx, g.ID, state, now); err != nil {
+				return res, err
+			}
 		}
 		live := Live{Phase: PhaseImporting, BytesTotal: it.BytesTotal}
 		if state != "completed" {
@@ -169,6 +172,18 @@ func (s *Service) poll(ctx context.Context, lostThreshold int) (PollResult, erro
 		s.live.set(g.ID, live, from, s.clock())
 	}
 	return res, errors.Join(errs...)
+}
+
+// stampDownload keeps when the download client started and finished a Grab, for the Overview's statistics.
+func (s *Service) stampDownload(ctx context.Context, id int64, state, now string) error {
+	q := db.New(s.st.Write())
+	switch state {
+	case "downloading":
+		return q.StampDownloadStart(ctx, db.StampDownloadStartParams{DownloadStartedAt: sql.NullString{String: now, Valid: true}, ID: id})
+	case "completed":
+		return q.StampDownloadDone(ctx, db.StampDownloadDoneParams{DownloadDoneAt: sql.NullString{String: now, Valid: true}, ID: id})
+	}
+	return nil
 }
 
 // markFailed moves a Grab to `failed` and records it.

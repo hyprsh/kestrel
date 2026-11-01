@@ -1267,6 +1267,48 @@ func (e SlotState) Valid() bool {
 	}
 }
 
+// Defines values for StatsRange.
+const (
+	StatsRangeN30d StatsRange = "30d"
+	StatsRangeN7d  StatsRange = "7d"
+	StatsRangeN90d StatsRange = "90d"
+)
+
+// Valid indicates whether the value is a known member of the StatsRange enum.
+func (e StatsRange) Valid() bool {
+	switch e {
+	case StatsRangeN30d:
+		return true
+	case StatsRangeN7d:
+		return true
+	case StatsRangeN90d:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StatsDownloadClientState.
+const (
+	StatsDownloadClientStateFailing StatsDownloadClientState = "failing"
+	StatsDownloadClientStateNone    StatsDownloadClientState = "none"
+	StatsDownloadClientStateOk      StatsDownloadClientState = "ok"
+)
+
+// Valid indicates whether the value is a known member of the StatsDownloadClientState enum.
+func (e StatsDownloadClientState) Valid() bool {
+	switch e {
+	case StatsDownloadClientStateFailing:
+		return true
+	case StatsDownloadClientStateNone:
+		return true
+	case StatsDownloadClientStateOk:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for StuckDownloadReason.
 const (
 	StuckDownloadReasonNoProgress StuckDownloadReason = "no_progress"
@@ -1723,6 +1765,27 @@ func (e ListRequestsParamsOutcome) Valid() bool {
 	case ListRequestsParamsOutcomeAccepted:
 		return true
 	case ListRequestsParamsOutcomeRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetStatsParamsRange.
+const (
+	GetStatsParamsRangeN30d GetStatsParamsRange = "30d"
+	GetStatsParamsRangeN7d  GetStatsParamsRange = "7d"
+	GetStatsParamsRangeN90d GetStatsParamsRange = "90d"
+)
+
+// Valid indicates whether the value is a known member of the GetStatsParamsRange enum.
+func (e GetStatsParamsRange) Valid() bool {
+	switch e {
+	case GetStatsParamsRangeN30d:
+		return true
+	case GetStatsParamsRangeN7d:
+		return true
+	case GetStatsParamsRangeN90d:
 		return true
 	default:
 		return false
@@ -4127,6 +4190,180 @@ type StalledImportsSelect struct {
 	Reason *string `json:"reason,omitempty"`
 }
 
+// Stats defines model for Stats.
+type Stats struct {
+	BestIndexerId  *int64              `json:"best_indexer_id"`
+	DownloadClient StatsDownloadClient `json:"download_client"`
+
+	// From First UTC day of the range.
+	From  openapi_types.Date `json:"from"`
+	Grabs StatsGrabs         `json:"grabs"`
+
+	// Indexers Most imported Grabs first.
+	Indexers []StatsIndexer `json:"indexers"`
+	Library  StatsLibrary   `json:"library"`
+
+	// Quality One entry per Slot that holds a file.
+	Quality []StatsQuality `json:"quality"`
+	Range   StatsRange     `json:"range"`
+
+	// ReleaseGroups The five groups with the most files, most first.
+	ReleaseGroups []StatsReleaseGroup `json:"release_groups"`
+	Requests      StatsRequests       `json:"requests"`
+	Storage       StatsStorage        `json:"storage"`
+	TimeToFill    StatsTimeToFill     `json:"time_to_fill"`
+
+	// To Last UTC day of the range (today).
+	To     openapi_types.Date `json:"to"`
+	Wanted StatsWanted        `json:"wanted"`
+}
+
+// StatsRange defines model for Stats.Range.
+type StatsRange string
+
+// StatsDisk defines model for StatsDisk.
+type StatsDisk struct {
+	FreeBytes  int64  `json:"free_bytes"`
+	Path       string `json:"path"`
+	TotalBytes int64  `json:"total_bytes"`
+}
+
+// StatsDownloadClient defines model for StatsDownloadClient.
+type StatsDownloadClient struct {
+	AvgBytesPerSecond *float64 `json:"avg_bytes_per_second"`
+
+	// Completed Downloads that finished in the range.
+	Completed int `json:"completed"`
+
+	// Failed Grabs the client reported failed (a bad or encrypted download).
+	Failed                int  `json:"failed"`
+	MedianDownloadSeconds *int `json:"median_download_seconds"`
+
+	// Name Null without an enabled download client.
+	Name *string `json:"name"`
+
+	// SpeedPerDay The last 14 days, oldest first.
+	SpeedPerDay []StatsSpeedDay `json:"speed_per_day"`
+
+	// State `none` without an enabled download client.
+	State StatsDownloadClientState `json:"state"`
+}
+
+// StatsDownloadClientState `none` without an enabled download client.
+type StatsDownloadClientState string
+
+// StatsGrabDay defines model for StatsGrabDay.
+type StatsGrabDay struct {
+	Day      openapi_types.Date `json:"day"`
+	Failed   int                `json:"failed"`
+	Imported int                `json:"imported"`
+}
+
+// StatsGrabs defines model for StatsGrabs.
+type StatsGrabs struct {
+	Failed   int `json:"failed"`
+	Imported int `json:"imported"`
+
+	// PerDay One entry per UTC day of the range, oldest first, zero for a day without a Grab.
+	PerDay []StatsGrabDay `json:"per_day"`
+}
+
+// StatsIndexer defines model for StatsIndexer.
+type StatsIndexer struct {
+	Failed int `json:"failed"`
+
+	// HitRate 0 to 1; null when no search was answered.
+	HitRate        *float64 `json:"hit_rate"`
+	Id             int64    `json:"id"`
+	Imported       int      `json:"imported"`
+	MedianAnswerMs *int64   `json:"median_answer_ms"`
+	Name           string   `json:"name"`
+
+	// Searches Searches made in the range, answered or not.
+	Searches int `json:"searches"`
+}
+
+// StatsLibrary defines model for StatsLibrary.
+type StatsLibrary struct {
+	// Bytes The size of every file.
+	Bytes  int64 `json:"bytes"`
+	Movies int   `json:"movies"`
+	Series int   `json:"series"`
+	Titles int   `json:"titles"`
+}
+
+// StatsQuality defines model for StatsQuality.
+type StatsQuality struct {
+	Files         int  `json:"files"`
+	RemuxBluray   int  `json:"remux_bluray"`
+	Slot          Slot `json:"slot"`
+	WebDl         int  `json:"web_dl"`
+	WebripOrLower int  `json:"webrip_or_lower"`
+}
+
+// StatsReleaseGroup defines model for StatsReleaseGroup.
+type StatsReleaseGroup struct {
+	Files int    `json:"files"`
+	Name  string `json:"name"`
+}
+
+// StatsRequester defines model for StatsRequester.
+type StatsRequester struct {
+	Done     int    `json:"done"`
+	Name     string `json:"name"`
+	Requests int    `json:"requests"`
+	Source   string `json:"source"`
+}
+
+// StatsRequests defines model for StatsRequests.
+type StatsRequests struct {
+	MedianFulfilSeconds *int             `json:"median_fulfil_seconds"`
+	Requesters          []StatsRequester `json:"requesters"`
+
+	// Searching Requests not yet done.
+	Searching int `json:"searching"`
+	Total     int `json:"total"`
+}
+
+// StatsSpeedDay defines model for StatsSpeedDay.
+type StatsSpeedDay struct {
+	BytesPerSecond *float64           `json:"bytes_per_second"`
+	Day            openapi_types.Date `json:"day"`
+}
+
+// StatsStorage defines model for StatsStorage.
+type StatsStorage struct {
+	Disks              []StatsDisk `json:"disks"`
+	FreeBytes          int64       `json:"free_bytes"`
+	GrowthBytesPerWeek *int64      `json:"growth_bytes_per_week"`
+	MonthsUntilFull    *float64    `json:"months_until_full"`
+
+	// SeriesShare 0 to 1: the part of all file bytes Series files take.
+	SeriesShare *float64 `json:"series_share"`
+	TotalBytes  int64    `json:"total_bytes"`
+}
+
+// StatsTimeToFill defines model for StatsTimeToFill.
+type StatsTimeToFill struct {
+	// Fills How many Movies and episodes the median is over.
+	Fills int `json:"fills"`
+
+	// MedianSeconds Null when nothing was filled in the range.
+	MedianSeconds *int `json:"median_seconds"`
+
+	// PreviousMedianSeconds The same for the range before.
+	PreviousMedianSeconds *int `json:"previous_median_seconds"`
+}
+
+// StatsWanted defines model for StatsWanted.
+type StatsWanted struct {
+	// Count Wanted Versions.
+	Count int `json:"count"`
+
+	// LongMissing Versions Wanted for more than 90 days.
+	LongMissing int `json:"long_missing"`
+}
+
 // StuckDownload defines model for StuckDownload.
 type StuckDownload struct {
 	// Reason `paused`: the download client has the job paused. `no_progress`: the downloaded amount has
@@ -4871,6 +5108,14 @@ type ListRequestsParamsStatus string
 // ListRequestsParamsOutcome defines parameters for ListRequests.
 type ListRequestsParamsOutcome string
 
+// GetStatsParams defines parameters for GetStats.
+type GetStatsParams struct {
+	Range *GetStatsParamsRange `form:"range,omitempty" json:"range,omitempty"`
+}
+
+// GetStatsParamsRange defines parameters for GetStats.
+type GetStatsParamsRange string
+
 // ListTitlesParams defines parameters for ListTitles.
 type ListTitlesParams struct {
 	Kind *TitleKind `form:"kind,omitempty" json:"kind,omitempty"`
@@ -5593,6 +5838,9 @@ type ServerInterface interface {
 	// RetryStalledImports Retry stalled Imports now
 	// (POST /stalled-imports/retry)
 	RetryStalledImports(w http.ResponseWriter, r *http.Request)
+	// GetStats Statistics (the Overview's dashboard)
+	// (GET /stats)
+	GetStats(w http.ResponseWriter, r *http.Request, params GetStatsParams)
 	// Stream Live state as Server-Sent Events
 	// (GET /stream)
 	Stream(w http.ResponseWriter, r *http.Request)
@@ -7618,6 +7866,39 @@ func (siw *ServerInterfaceWrapper) RetryStalledImports(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// GetStats operation middleware
+func (siw *ServerInterfaceWrapper) GetStats(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetStatsParams
+
+	// ------------- Optional query parameter "range" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "range", r.URL.Query(), &params.Range, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "range"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "range", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetStats(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // Stream operation middleware
 func (siw *ServerInterfaceWrapper) Stream(w http.ResponseWriter, r *http.Request) {
 
@@ -8609,6 +8890,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugin-instances/{id}", wrapper.GetPluginInstance)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/plugin-instances/{id}", wrapper.UpdatePluginInstance)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/plugin-instances/{id}/test", wrapper.TestPluginInstance)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/stats", wrapper.GetStats)
 
 	return m
 }
@@ -13089,6 +13371,61 @@ func (response RetryStalledImportsdefaultApplicationProblemPlusJSONResponse) Vis
 	return err
 }
 
+type GetStatsRequestObject struct {
+	Params GetStatsParams
+}
+
+type GetStatsResponseObject interface {
+	VisitGetStatsResponse(w http.ResponseWriter) error
+}
+
+type GetStats200JSONResponse Stats
+
+func (response GetStats200JSONResponse) VisitGetStatsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetStats422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetStats422ApplicationProblemPlusJSONResponse) VisitGetStatsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetStatsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetStatsdefaultApplicationProblemPlusJSONResponse) VisitGetStatsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type StreamRequestObject struct {
 }
 
@@ -14859,6 +15196,9 @@ type StrictServerInterface interface {
 	// RetryStalledImports Retry stalled Imports now
 	// (POST /stalled-imports/retry)
 	RetryStalledImports(ctx context.Context, request RetryStalledImportsRequestObject) (RetryStalledImportsResponseObject, error)
+	// GetStats Statistics (the Overview's dashboard)
+	// (GET /stats)
+	GetStats(ctx context.Context, request GetStatsRequestObject) (GetStatsResponseObject, error)
 	// Stream Live state as Server-Sent Events
 	// (GET /stream)
 	Stream(ctx context.Context, request StreamRequestObject) (StreamResponseObject, error)
@@ -17129,6 +17469,32 @@ func (sh *strictHandler) RetryStalledImports(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RetryStalledImportsResponseObject); ok {
 		if err := validResponse.VisitRetryStalledImportsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetStats operation middleware
+func (sh *strictHandler) GetStats(w http.ResponseWriter, r *http.Request, params GetStatsParams) {
+	var request GetStatsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetStats(ctx, request.(GetStatsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetStats")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetStatsResponseObject); ok {
+		if err := validResponse.VisitGetStatsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -102,6 +102,7 @@ func (s *Service) gatherSeries(ctx context.Context, sub subject, scope library.S
 		}
 		out = append(out, e)
 	}
+	s.markFit(ctx, sub, res, out)
 	s.cache.put(now, out)
 	return out, res.Failures, nil
 }

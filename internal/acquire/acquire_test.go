@@ -475,3 +475,31 @@ func TestAReleaseFromAnotherTitlesSearchCannotBeGrabbedForThisVersion(t *testing
 		t.Errorf("err = %v, want library.ErrNotFound", err)
 	}
 }
+
+func fitOfSearches(t *testing.T, r *rig) (rows int, fit int) {
+	t.Helper()
+	if err := r.deps.Store.Read().QueryRow(`SELECT COUNT(*), COALESCE(SUM(fit), 0) FROM indexer_searches`).Scan(&rows, &fit); err != nil {
+		t.Fatal(err)
+	}
+	return rows, fit
+}
+
+func TestASearchMarksTheIndexerFitWhenItReturnedAReleaseForAVersionsSlot(t *testing.T) {
+	r := newRig(t)
+	r.publish(t, uhd, time.Hour) // a 2160p release: no Standard Version fits it
+
+	if _, err := r.svc.Search(context.Background(), r.versions[slot.Standard]); err != nil {
+		t.Fatal(err)
+	}
+	if rows, fit := fitOfSearches(t, r); rows != 1 || fit != 0 {
+		t.Fatalf("after a search that found only 2160p: %d searches, %d fit", rows, fit)
+	}
+
+	r.publish(t, hd1080, time.Hour)
+	if _, err := r.svc.Search(context.Background(), r.versions[slot.Standard]); err != nil {
+		t.Fatal(err)
+	}
+	if rows, fit := fitOfSearches(t, r); rows != 2 || fit != 1 {
+		t.Errorf("after a search that found a 1080p one: %d searches, %d fit, want 2 and 1", rows, fit)
+	}
+}

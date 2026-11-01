@@ -2905,6 +2905,53 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /stats:
+    get:
+      operationId: getStats
+      summary: Statistics (the Overview's dashboard)
+      description: |
+        What the Overview shows besides its lists, for the last 7, 30 or 90 days (UTC days, today included;
+        default 30). Everything is worked out from what Kestrel keeps, and a figure it cannot work out is `null`
+        (or an empty list), never a guess.
+
+        - `library` and `wanted` describe now, whatever the range. `wanted.count` counts Wanted Versions, and
+          `wanted.long_missing` those Wanted for more than 90 days.
+        - `grabs` counts the Grabs that finished in the range: `imported` and `failed`, and per UTC day.
+        - `time_to_fill` is the median time from a Movie or episode becoming Wanted to the Import of the Grab
+          that filled it, for the Grabs Imported in the range, against the range before it. Upgrades and files
+          Adopted without a Grab are not fills.
+        - `indexers` lists each indexer that did anything in the range. `hit_rate` is the share of the searches
+          it answered that returned a Release fitting a Slot; `median_answer_ms` the median time it took to
+          answer. Only searches made after this was first recorded count. `best` is the id of the best
+          indexer: the most imported Grabs among those with a `hit_rate` of at least 0.5, ties to the higher
+          `hit_rate`, then fewer failed Grabs; `null` when none qualifies.
+        - `download_client` is the enabled download client. Speed and download time run from the client first
+          reporting a Grab downloading to its reporting it finished (unpacking included), so they cover Grabs
+          after this was first recorded. `speed_per_day` is the last 14 days whatever the range.
+        - `quality` splits the files of each Slot by source, now. `release_groups` are the groups of the
+          files that Grabs brought in the range.
+        - `requests` counts the accepted Requests created in the range; one is done once every Slot it asked for
+          holds a file.
+        - `storage` lists the Root folders' disks. `growth_bytes_per_week` is the size of the files Grabs
+          brought in the range per week (what was replaced since is not taken off), and `months_until_full` the
+          free space over it, both `null` when no file came. A disk shared by several Root folders is counted once in
+          `free_bytes` and `total_bytes`.
+      tags: [system]
+      parameters:
+        - name: range
+          in: query
+          schema: { type: string, enum: [7d, 30d, 90d], default: 30d }
+      responses:
+        "200":
+          description: The statistics.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stats"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   parameters:
     AttentionRowId:
@@ -6138,6 +6185,161 @@ components:
           description: |
             When the pause ends: the next UTC midnight for a spent `grabs_per_day`. Null for a spent download
             quota the indexer reports, which ends when the indexer says so.
+    Stats:
+      type: object
+      required: [range, from, to, library, wanted, grabs, time_to_fill, indexers, best_indexer_id, download_client,
+        quality, release_groups, requests, storage]
+      properties:
+        range:
+          type: string
+          enum: [7d, 30d, 90d]
+        from: {type: string, format: date, description: First UTC day of the range.}
+        to: {type: string, format: date, description: Last UTC day of the range (today).}
+        library: {$ref: '#/components/schemas/StatsLibrary'}
+        wanted: {$ref: '#/components/schemas/StatsWanted'}
+        grabs: {$ref: '#/components/schemas/StatsGrabs'}
+        time_to_fill: {$ref: '#/components/schemas/StatsTimeToFill'}
+        indexers:
+          type: array
+          description: Most imported Grabs first.
+          items: {$ref: '#/components/schemas/StatsIndexer'}
+        best_indexer_id: {type: integer, format: int64, nullable: true}
+        download_client: {$ref: '#/components/schemas/StatsDownloadClient'}
+        quality:
+          type: array
+          description: One entry per Slot that holds a file.
+          items: {$ref: '#/components/schemas/StatsQuality'}
+        release_groups:
+          type: array
+          description: The five groups with the most files, most first.
+          items: {$ref: '#/components/schemas/StatsReleaseGroup'}
+        requests: {$ref: '#/components/schemas/StatsRequests'}
+        storage: {$ref: '#/components/schemas/StatsStorage'}
+    StatsLibrary:
+      type: object
+      required: [titles, movies, series, bytes]
+      properties:
+        titles: {type: integer}
+        movies: {type: integer}
+        series: {type: integer}
+        bytes: {type: integer, format: int64, description: The size of every file.}
+    StatsWanted:
+      type: object
+      required: [count, long_missing]
+      properties:
+        count: {type: integer, description: Wanted Versions.}
+        long_missing: {type: integer, description: Versions Wanted for more than 90 days.}
+    StatsGrabs:
+      type: object
+      required: [imported, failed, per_day]
+      properties:
+        imported: {type: integer}
+        failed: {type: integer}
+        per_day:
+          type: array
+          description: One entry per UTC day of the range, oldest first, zero for a day without a Grab.
+          items: {$ref: '#/components/schemas/StatsGrabDay'}
+    StatsGrabDay:
+      type: object
+      required: [day, imported, failed]
+      properties:
+        day: {type: string, format: date}
+        imported: {type: integer}
+        failed: {type: integer}
+    StatsTimeToFill:
+      type: object
+      required: [median_seconds, previous_median_seconds, fills]
+      properties:
+        median_seconds: {type: integer, nullable: true, description: Null when nothing was filled in the range.}
+        previous_median_seconds: {type: integer, nullable: true, description: The same for the range before.}
+        fills: {type: integer, description: How many Movies and episodes the median is over.}
+    StatsIndexer:
+      type: object
+      required: [id, name, imported, failed, searches, hit_rate, median_answer_ms]
+      properties:
+        id: {type: integer, format: int64}
+        name: {type: string}
+        imported: {type: integer}
+        failed: {type: integer}
+        searches: {type: integer, description: "Searches made in the range, answered or not."}
+        hit_rate: {type: number, format: double, nullable: true, description: 0 to 1; null when no search was answered.}
+        median_answer_ms: {type: integer, format: int64, nullable: true}
+    StatsDownloadClient:
+      type: object
+      required: [name, state, completed, failed, avg_bytes_per_second, median_download_seconds, speed_per_day]
+      properties:
+        name: {type: string, nullable: true, description: Null without an enabled download client.}
+        state:
+          type: string
+          enum: [ok, failing, none]
+          description: '`none` without an enabled download client.'
+        completed: {type: integer, description: Downloads that finished in the range.}
+        failed: {type: integer, description: Grabs the client reported failed (a bad or encrypted download).}
+        avg_bytes_per_second: {type: number, format: double, nullable: true}
+        median_download_seconds: {type: integer, nullable: true}
+        speed_per_day:
+          type: array
+          description: The last 14 days, oldest first.
+          items: {$ref: '#/components/schemas/StatsSpeedDay'}
+    StatsSpeedDay:
+      type: object
+      required: [day, bytes_per_second]
+      properties:
+        day: {type: string, format: date}
+        bytes_per_second: {type: number, format: double, nullable: true}
+    StatsQuality:
+      type: object
+      required: [slot, files, remux_bluray, web_dl, webrip_or_lower]
+      properties:
+        slot: {$ref: '#/components/schemas/Slot'}
+        files: {type: integer}
+        remux_bluray: {type: integer}
+        web_dl: {type: integer}
+        webrip_or_lower: {type: integer}
+    StatsReleaseGroup:
+      type: object
+      required: [name, files]
+      properties:
+        name: {type: string}
+        files: {type: integer}
+    StatsRequests:
+      type: object
+      required: [total, searching, median_fulfil_seconds, requesters]
+      properties:
+        total: {type: integer}
+        searching: {type: integer, description: Requests not yet done.}
+        median_fulfil_seconds: {type: integer, nullable: true}
+        requesters:
+          type: array
+          items: {$ref: '#/components/schemas/StatsRequester'}
+    StatsRequester:
+      type: object
+      required: [name, source, requests, done]
+      properties:
+        name: {type: string}
+        source: {type: string}
+        requests: {type: integer}
+        done: {type: integer}
+    StatsStorage:
+      type: object
+      required: [disks, free_bytes, total_bytes, growth_bytes_per_week, series_share, months_until_full]
+      properties:
+        disks:
+          type: array
+          items: {$ref: '#/components/schemas/StatsDisk'}
+        free_bytes: {type: integer, format: int64}
+        total_bytes: {type: integer, format: int64}
+        growth_bytes_per_week: {type: integer, format: int64, nullable: true}
+        series_share: {type: number, format: double, nullable: true, description: '0 to 1: the part of all file bytes
+            Series files take.'}
+        months_until_full: {type: number, format: double, nullable: true}
+    StatsDisk:
+      type: object
+      required: [path, free_bytes, total_bytes]
+      properties:
+        path: {type: string}
+        free_bytes: {type: integer, format: int64}
+        total_bytes: {type: integer, format: int64}
     DiskStatus:
       type: object
       required: [path, free_bytes, total_bytes, low_free_bytes]

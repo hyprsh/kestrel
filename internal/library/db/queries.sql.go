@@ -1277,6 +1277,47 @@ func (q *Queries) ListFirstFiledOfTitle(ctx context.Context, titleID int64) ([]L
 	return items, nil
 }
 
+const listGrabFilled = `-- name: ListGrabFilled :many
+SELECT f.version_id, f.imported_at, CAST(coalesce(fe.episode_id, 0) AS INTEGER) AS episode_id
+FROM files f JOIN grabs g ON g.id = f.grab_id LEFT JOIN file_episodes fe ON fe.file_id = f.id
+WHERE g.is_upgrade = 0 AND f.imported_at >= ?1 AND f.imported_at < ?2
+`
+
+type ListGrabFilledParams struct {
+	FromAt string
+	ToAt   string
+}
+
+type ListGrabFilledRow struct {
+	VersionID  int64
+	ImportedAt string
+	EpisodeID  int64
+}
+
+// The files that Grabs (not Upgrades) filled a Version with in a window, one row per episode of a Series file and one for a Movie file.
+func (q *Queries) ListGrabFilled(ctx context.Context, arg ListGrabFilledParams) ([]ListGrabFilledRow, error) {
+	rows, err := q.db.QueryContext(ctx, listGrabFilled, arg.FromAt, arg.ToAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGrabFilledRow
+	for rows.Next() {
+		var i ListGrabFilledRow
+		if err := rows.Scan(&i.VersionID, &i.ImportedAt, &i.EpisodeID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listGrabbingEpisodesOfTitle = `-- name: ListGrabbingEpisodesOfTitle :many
 SELECT DISTINCT g.version_id, ge.episode_id
 FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
