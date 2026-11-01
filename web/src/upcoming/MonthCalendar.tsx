@@ -1,6 +1,6 @@
 // chrome: domain-visual
 // The month calendar of Upcoming's side panel: a weekday header, the weeks of one month (Monday first), today highlighted,
-// days with releases underlined in blue. Every day is a button named by its date; choosing one scrolls the agenda to it.
+// days with releases marked by a blue dot under the number. Every day is a button named by its date; choosing one scrolls the agenda to it.
 // No component of the design library draws a calendar (ADR 0017).
 import { Button } from '@hyprsh/design'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -31,7 +31,7 @@ const weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 const name = (day: string) => at(day).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
 /**
- * `releases` counts the entries by day; a day with some is underlined. The month's name is the group's label, and the
+ * `releases` counts the entries by day; a day with some gets a dot. The month's name is the group's label, and the
  * previous and next buttons move `month` (a YYYY-MM-01 day).
  */
 export function MonthCalendar({
@@ -61,7 +61,7 @@ export function MonthCalendar({
           </Button>
         </span>
       </div>
-      <div role="group" aria-label={`${title}; days with releases are underlined`} className="grid grid-cols-7 gap-0.5 text-center">
+      <div role="group" aria-label={`${title}; days with releases have a dot`} className="grid grid-cols-7 gap-0.5 text-center">
         {weekdays.map((w, i) => (
           <span key={i} aria-hidden className="label-12 flex h-7 items-center justify-center text-gray-900">
             {w}
@@ -77,10 +77,13 @@ export function MonthCalendar({
               size="tiny"
               aria-label={`${name(day)}${day === today ? ', today' : ''}${n > 0 ? `, ${plural(n, 'release')}` : ''}`}
               aria-current={day === today ? 'date' : undefined}
-              className={cx('w-full tabular-nums', n > 0 && 'font-semibold shadow-[inset_0_-2px_0_var(--blue-700)]', !inMonth && day !== today && 'text-gray-700')}
+              className={cx('relative w-full tabular-nums', !inMonth && day !== today && 'text-gray-700')}
               onClick={() => onPick(day)}
             >
               {Number(day.slice(8))}
+              {n > 0 && (
+                <span aria-hidden data-testid="release-dot" className={cx('absolute bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full', day === today ? 'bg-background-100' : 'bg-blue-700')} />
+              )}
             </Button>
           )
         })}

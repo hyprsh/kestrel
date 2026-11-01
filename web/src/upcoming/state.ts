@@ -56,17 +56,6 @@ const dated = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString(u
 /** "Sat 18 Oct" for a YYYY-MM-DD day. */
 export const dayLabel = dated
 
-/** The week a day falls in, against today's: what the separators between days are called. */
-export function weekOf(today: string, day: string): 'Earlier' | 'Last week' | 'This week' | 'Next week' | 'Later' {
-  const sinceMonday = (dayNumber(today) + 3) % 7 // 1970-01-01 was a Thursday: 0 is Monday
-  const d = daysFrom(today, day) + sinceMonday // days from this week's Monday
-  if (d < -7) return 'Earlier'
-  if (d < 0) return 'Last week'
-  if (d < 7) return 'This week'
-  if (d < 14) return 'Next week'
-  return 'Later'
-}
-
 /** One thing on the timeline: an entry, or several episodes of one Series on one day. */
 export type Block = { type: 'entry'; key: string; item: UpcomingItem } | { type: 'group'; key: string; items: UpcomingItem[] }
 

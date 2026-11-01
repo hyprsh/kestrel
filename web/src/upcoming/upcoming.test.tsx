@@ -154,19 +154,15 @@ describe('Upcoming timeline', () => {
     expect(screen.getByText('Nothing else is due today.')).toBeInTheDocument()
   })
 
-  it('labels the days relatively and separates the weeks', async () => {
+  it('labels the days relatively', async () => {
     fakeAgenda([episode({ date: day(-1), title_id: 5, title: 'Yest' }), episode({ date: day(1), title_id: 6, title: 'Tomo' }), movie({ date: day(40) })])
     await openUpcoming()
     const headings = within(timeline())
-      .getAllByRole('heading', { level: 3 })
+      .getAllByRole('heading', { level: 2 })
       .map((h) => h.textContent)
     expect(headings[0]).toMatch(/yesterday$/)
     expect(headings[1]).toMatch(/today$/)
     expect(headings[2]).toMatch(/tomorrow$/)
-    const weeks = within(timeline())
-      .getAllByRole('presentation')
-      .map((w) => w.textContent)
-    expect(weeks).toEqual(['This week', 'Later'])
   })
 
   it('shows more in both directions', async () => {
@@ -505,13 +501,15 @@ describe('Upcoming: the side panel', () => {
     expect(within(timeline()).getByText('Soon Movie')).toBeInTheDocument()
   })
 
-  it('has a calendar whose days are buttons, underlined by name when something is due, and that moves by month', async () => {
+  it('has a calendar whose days are buttons, with a dot when something is due, and that moves by month', async () => {
     const asked = fakeAgenda([movie({ date: day(1) })])
     await openUpcoming()
     const calendar = within(await screen.findByRole('region', { name: 'Calendar' }))
     const tomorrow = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() + 1)
     const label = tomorrow.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-    expect(calendar.getByRole('button', { name: `${label}, 1 release` })).toBeInTheDocument()
+    const due = calendar.getByRole('button', { name: `${label}, 1 release` })
+    expect(within(due).getByTestId('release-dot')).toBeInTheDocument()
+    expect(calendar.getAllByTestId('release-dot')).toHaveLength(1)
     expect(calendar.getByRole('button', { name: /, today$/ })).toHaveAttribute('aria-current', 'date')
     await userEvent.click(calendar.getByRole('button', { name: 'Next month' }))
     await userEvent.click(calendar.getByRole('button', { name: 'Next month' }))

@@ -22,9 +22,9 @@ import { cx } from '../ui'
 import { EntryName, Markers, MovieNotes, otherDates, StateBadges, Standings, TallyBadges } from './bits'
 import { upcomingFilter, upcomingQualifiers } from './filter'
 import { useSeededQuery } from './filters'
-import { airTime, buildDays, daysAway, episodeRange, headingDate, inView, navRows, tally, undatedKey, upcomingKey, views, weekOf, type Block, type Day, type ViewKey } from './state'
+import { airTime, buildDays, daysAway, episodeRange, headingDate, inView, navRows, tally, undatedKey, upcomingKey, views, type Block, type Day, type ViewKey } from './state'
 import { gridDays, MonthCalendar, monthOf } from './MonthCalendar'
-import { AgendaTimeline, DayHeading, RowDot, TimelineSkeleton, WeekLabel } from './Timeline'
+import { AgendaTimeline, DayCard, DayHeading, TimelineSkeleton } from './Timeline'
 import { TitlePoster } from '../poster'
 import { UndatedList, UndatedRow } from './UndatedList'
 
@@ -149,7 +149,6 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
   }
 
   const empty = timeline.data && items.length === 0 && undated.length === 0
-  let lastWeek = ''
   return (
     <div className={phone ? 'flex min-h-0 flex-1 flex-col' : 'flex min-h-0 flex-1'}>
       <SidePanel
@@ -200,7 +199,7 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
-          <div className="px-3 pb-8 sm:px-8">
+          <div className="flex flex-col gap-5 px-3 py-6 sm:px-8">
             {timeline.isError && <Note variant="error">Upcoming could not be loaded.</Note>}
             {timeline.data && (
               <LoadMoreButton noGap variant="tertiary" size="small" loading={timeline.isFetching} onClick={() => setBack((b) => b + MORE_BACK)} className="mt-2">
@@ -224,15 +223,11 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
             {!timeline.isPending && (
               <AgendaTimeline>
                 {days.map((d) => {
-                  const week = weekOf(today, d.day)
-                  const header = week !== lastWeek
-                  lastWeek = week
                   return (
                     <DayBlock
                       key={d.day}
                       day={d}
                       today={today}
-                      week={header ? week : null}
                       headingRef={d.day === anchorDay ? anchorRef : undefined}
                       rowFor={(b) => (
                         <BlockRows
@@ -264,8 +259,8 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
             )}
 
             {undated.length > 0 && (
-              <section aria-labelledby="no-date-yet" className="mt-8">
-                <h2 id="no-date-yet" className="heading-14 mb-2">
+              <section aria-labelledby="no-date-yet" className="flex flex-col gap-2">
+                <h2 id="no-date-yet" className="heading-16">
                   {`No date yet · ${undated.length}`}
                 </h2>
                 <UndatedList>
@@ -311,37 +306,22 @@ function withToday(days: Day[], today: string): Day[] {
   return at < 0 ? [...days, marker] : [...days.slice(0, at), marker, ...days.slice(at)]
 }
 
-function DayBlock({
-  day,
-  today,
-  week,
-  headingRef,
-  rowFor,
-}: {
-  day: Day
-  today: string
-  week: string | null
-  headingRef?: React.RefObject<HTMLHeadingElement | null>
-  rowFor: (b: Block) => React.ReactNode
-}) {
+function DayBlock({ day, today, headingRef, rowFor }: { day: Day; today: string; headingRef?: React.RefObject<HTMLHeadingElement | null>; rowFor: (b: Block) => React.ReactNode }) {
   const isToday = day.day === today
   const date = headingDate(day.day)
   return (
-    <>
-      {week && <WeekLabel week={week} />}
-      <li className="relative" data-day={day.day}>
-        <DayHeading headingRef={headingRef} date={date} away={daysAway(today, day.day)} isToday={isToday} />
-        {day.blocks.length === 0 ? (
-          <p className="label-12 pb-2 pl-9 text-gray-900">Nothing else is due today.</p>
-        ) : (
-          <div className="pr-3 pb-2 pl-9">
-            <Entity.List aria-label={date} className="@container overflow-visible">
-              {day.blocks.map((b) => rowFor(b))}
-            </Entity.List>
-          </div>
-        )}
-      </li>
-    </>
+    <li className="flex flex-col gap-2" data-day={day.day}>
+      <DayHeading headingRef={headingRef} date={date} away={daysAway(today, day.day)} isToday={isToday} />
+      {day.blocks.length === 0 ? (
+        <p className="label-13 text-gray-900">Nothing else is due today.</p>
+      ) : (
+        <DayCard>
+          <Entity.List aria-label={date} className="@container">
+            {day.blocks.map((b) => rowFor(b))}
+          </Entity.List>
+        </DayCard>
+      )}
+    </li>
   )
 }
 
@@ -408,9 +388,7 @@ function BlockRows({ block, ...p }: { block: Block } & RowProps) {
               <Markers markers={[...new Set(block.items.flatMap((i) => i.markers))]} />
             </span>
           }
-        >
-          <RowDot />
-        </Entity.Content>
+        />
       </Entity>
       {expanded && block.items.map((item) => <Entry key={upcomingKey(item)} item={item} id={upcomingKey(item)} child {...p} />)}
     </>
@@ -447,7 +425,6 @@ function Entry({ item, id, child, ...p }: { item: UpcomingItem; id: string; chil
           </span>
         }
       >
-        {!child && <RowDot />}
         {others && <div className="label-12 text-gray-900">{others}</div>}
       </Entity.Content>
     </Entity>
