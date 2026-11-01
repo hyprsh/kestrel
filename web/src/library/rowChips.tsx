@@ -19,7 +19,7 @@ type Entry = TitleRow['slot_states'][number]
 export const singleSlot = (rows: readonly Pick<TitleRow, 'slot_states'>[]) => rows.every((r) => r.slot_states.length <= 1)
 
 /** The state a Version is drawn in: Wanted and Long Missing as they are, a filled one with an Upgrade wanted as Upgrade wanted. */
-export function entryState(v: Pick<Entry, 'state' | 'long_missing' | 'upgrade_wanted'>): SlotDotState | null {
+function entryState(v: Pick<Entry, 'state' | 'long_missing' | 'upgrade_wanted'>): SlotDotState | null {
   return v.upgrade_wanted && v.state === 'filled' ? 'upgrade' : dotState(v.state, v.long_missing)
 }
 
@@ -30,7 +30,7 @@ const wantedFor = (since: string, now: number) => {
 }
 
 /** What a Slot's popover says: the state in a line and the quiet lines beneath (the file, the release, the episodes). */
-export function slotInfo(v: Entry, grab: QueueItem | undefined, profileName: string, now: number): RowSlotInfo & { word: string } {
+function slotInfo(v: Entry, grab: QueueItem | undefined, profileName: string, now: number): RowSlotInfo & { word: string } {
   const state = entryState(v)
   const pct = state === 'downloading' && grab ? percent(grab.bytes_total, grab.bytes_left) : null
   const lines: string[] = []
