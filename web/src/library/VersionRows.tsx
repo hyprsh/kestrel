@@ -14,6 +14,7 @@ import { DeleteFile } from './DeleteFiles'
 import { FileDetailsPopover } from './EpisodeFilePopover'
 import { IconAction } from './IconAction'
 import { ProfilePicker, RemoveConfirm } from './ManageVersion'
+import { audioLine, qualityLine } from './media'
 import { OriginalOfferNote } from './OriginalOfferNote'
 import type { ManualSearchTarget } from './TitleDetail'
 import { useCancelDownloads, useTitleDownloads, type SlotDownloads } from './TitleDownloads'
@@ -228,7 +229,7 @@ function MovieHolds({ version: v }: { version: Version }) {
   const now = useNow()
   const f = v.file
   if (f) {
-    const facts = [f.quality, f.languages?.join(', '), size(f.size)].filter(Boolean).join(' · ')
+    const facts = [qualityLine(f), audioLine(f), size(f.size)].filter(Boolean).join(' · ')
     return (
       <div className="flex min-w-0 flex-col gap-1">
         <span className="label-14 truncate">{facts}</span>

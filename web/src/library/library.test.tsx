@@ -304,7 +304,7 @@ describe('the Library detail pane', () => {
     await openLibrary()
     const pane = await screen.findByRole('region', { name: /paddington/i })
     // The row says what the file is, not the release it was grabbed as.
-    expect(await within(pane).findByText(/^Bluray-1080p · English, German · /)).toBeInTheDocument()
+    expect(await within(pane).findByText(/^BluRay 1080p · English, German · /)).toBeInTheDocument()
     expect(within(pane).queryByText('Paddington.2014.1080p.BluRay.x264-GRP')).not.toBeInTheDocument()
   })
 

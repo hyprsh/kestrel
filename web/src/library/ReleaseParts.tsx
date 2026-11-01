@@ -8,6 +8,7 @@ import { useQueue } from '../api/queue'
 import { percent } from '../format'
 import { span } from '../time'
 import { size } from './bits'
+import { audioFormat, audioLine, qualityLine, qualityName } from './media'
 import {
   ageLong,
   breakdown,
@@ -150,7 +151,9 @@ export function BestFit({ x, wanted, entry, actions, phone }: { x: Release; want
               <Downloading entry={sent} x={x} actions={actions} part="bar" />
             ) : (
               <div className="flex flex-wrap gap-1.5">
-                <Fact>{x.quality}</Fact>
+                <Fact>{qualityName(x.quality)}</Fact>
+                {x.hdr && <Fact>{x.hdr}</Fact>}
+                {audioFormat(x) && <Fact>{audioFormat(x)}</Fact>}
                 {x.languages.map((l) => (
                   <Fact key={l}>{l}</Fact>
                 ))}
@@ -238,7 +241,7 @@ export function ReleaseDetail({
   const lines = coverLines(x)
   const facts: [string, ReactNode][] = []
   if (lines.length > 0) facts.push(['Covers', lines.map((l) => <div key={l}>{l}</div>)])
-  facts.push(['Quality', x.quality], ['Audio', x.languages.join(', ') || 'Unknown'], ['Size', size(x.size)])
+  facts.push(['Quality', qualityLine(x) || x.quality], ['Audio', audioLine(x) || 'Unknown'], ['Size', size(x.size)])
   facts.push(['Published', `${published(x.published_at)}, ${ageLong(x.published_at)} ago`])
   facts.push(['Indexer', x.grabs ? `${x.indexer} · ${x.grabs.toLocaleString('en-US')} grabs` : x.indexer])
   if (x.group) facts.push(['Group', x.group])

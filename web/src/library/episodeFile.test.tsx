@@ -14,6 +14,9 @@ const pilotFile = episodeFile({
   path: pilotPath,
   size: 2 * 1024 ** 3,
   quality: 'WEBDL-1080p',
+  video_codec: 'H.264',
+  audio_codec: 'DD',
+  audio_channels: '5.1',
   episode_ids: [2, 3],
   release_name: 'Breaking.Bad.S01E01-E02.1080p.WEB-DL.DD5.1.H.264-NTb',
   languages: ['English', 'German'],
@@ -117,8 +120,8 @@ describe('the file of an episode cell', () => {
     const pop = await screen.findByRole('dialog', { name: 'Season 1 episode 1 Standard file' })
     expect(within(pop).getByText('S01E01 · Standard')).toBeInTheDocument()
     expect(within(pop).getByText('Breaking.Bad.S01E01-E02.1080p.WEB-DL.DD5.1.H.264-NTb')).toBeInTheDocument()
-    expect(within(pop).getByText('WEBDL-1080p')).toBeInTheDocument()
-    expect(within(pop).getByText('English, German')).toBeInTheDocument()
+    expect(within(pop).getByText('WEB-DL 1080p · H.264')).toBeInTheDocument()
+    expect(within(pop).getByText('DD 5.1 · English, German')).toBeInTheDocument()
     expect(within(pop).getByText('2.0 GB')).toBeInTheDocument()
     expect(within(pop).getByText('Oct 20, 2020, from NTb')).toBeInTheDocument()
     expect(within(pop).getByText(/holds 2 episodes/)).toBeInTheDocument()
@@ -178,6 +181,9 @@ describe('the file of an episode cell', () => {
     const pop = await screen.findByRole('dialog', { name: 'Season 1 episode 1 Standard file' })
     expect(within(pop).getByText('Score')).toBeInTheDocument()
     expect(within(pop).queryByRole('list', { name: 'Custom Formats' })).not.toBeInTheDocument()
+    // A file the parse knows no codec or audio format of says only its quality; nothing is invented.
+    expect(within(pop).getByText('WEB-DL 720p')).toBeInTheDocument()
+    expect(within(pop).queryByText('Audio')).not.toBeInTheDocument()
   })
 
   it('opens the popover from the keyboard and tells the user to copy by hand when the clipboard and its fallback fail', async () => {

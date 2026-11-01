@@ -113,6 +113,10 @@ const seriesReleases = () => [
   release('pack', 'Show.S05.2160p.WEB-DL-NTb', {
     score: 2350,
     quality: 'WEBDL-2160p',
+    video_codec: 'H.265',
+    hdr: 'HDR10',
+    audio_codec: 'DDP',
+    audio_channels: '5.1',
     size: 38 * gb,
     season: 5,
     pack: true,
@@ -133,6 +137,10 @@ const seriesReleases = () => [
   }),
   release('e5', 'Show.S05E05.2160p.WEB-DL-NTb', {
     score: 2050,
+    video_codec: 'H.265',
+    hdr: 'HDR10',
+    audio_codec: 'DDP',
+    audio_channels: '5.1',
     season: 5,
     episodes: [5],
     episode_titles: ['Dead Freight'],
@@ -175,7 +183,7 @@ describe('manual search', () => {
     expect(card).toHaveTextContent('Best fit')
     expect(card).toHaveTextContent('Season pack · covers 2 of 4 Wanted · replaces 2 files')
     expect(card).toHaveTextContent('Show.S05.2160p.WEB-DL-NTb')
-    for (const fact of ['WEBDL-2160p', 'English', '38.0 GB', 'Alpha']) expect(within(card).getByText(fact)).toBeInTheDocument()
+    for (const fact of ['WEB-DL 2160p', 'HDR10', 'DDP 5.1', 'English', '38.0 GB', 'Alpha']) expect(within(card).getByText(fact)).toBeInTheDocument()
     expect(card).toHaveTextContent('WEB Tier 01 +1,700')
     expect(card).toHaveTextContent('x265 (HD) −150')
     expect(card).toHaveTextContent('2,350')
@@ -247,7 +255,7 @@ describe('manual search', () => {
     fakeSearch(seriesReleases())
     await openManualSearch()
     const row = rowOf(/Show.S05E05/)
-    expect(row).toHaveTextContent('E05 · Dead Freight · Bluray-1080p · English · Alpha')
+    expect(row).toHaveTextContent('E05 · Dead Freight · BluRay 1080p · HDR10 · English · Alpha')
     expect(row).toHaveTextContent('8.0 GB')
     expect(row).toHaveTextContent('2,050')
   })
@@ -284,8 +292,8 @@ describe('manual search', () => {
       const detail = within(table).getByText('Why it scores 2,050').closest('tr') as HTMLElement
       expect(detail).toHaveTextContent('Covers')
       expect(detail).toHaveTextContent('S05E05 · Wanted')
-      expect(detail).toHaveTextContent('Quality')
-      expect(detail).toHaveTextContent('Audio')
+      expect(detail).toHaveTextContent('QualityBluRay 1080p · H.265 · HDR10')
+      expect(detail).toHaveTextContent('AudioDDP 5.1 · English')
       expect(detail).toHaveTextContent('Size')
       expect(detail).toHaveTextContent('Published')
       expect(detail).toHaveTextContent('Fits HD. The best fit scores 2,350.')

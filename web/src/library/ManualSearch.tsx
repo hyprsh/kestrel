@@ -12,6 +12,7 @@ import { PaneHeader } from '../layout/Pane'
 import { TableSkeletonRows } from '../loading'
 import { usePhone } from '../responsive'
 import { size } from './bits'
+import { qualityName } from './media'
 import { BestFit, ConfirmGrab, Downloading, FailedActions, FailedText, ReleaseDetail, rowTint, type GrabEntry, type ReleaseActions } from './ReleaseParts'
 import {
   ageShort,
@@ -71,7 +72,7 @@ function Facts({ x }: { x: Release }) {
   }
   const names = episodeNames(x)
   const titles = names.length > 2 ? `${names.slice(0, 2).join(' / ')} / +${names.length - 2} more` : names.join(' / ')
-  const parts = [scopeText(x), titles || null, x.quality, x.languages.join(', ') || null, x.indexer].filter(Boolean)
+  const parts = [scopeText(x), titles || null, qualityName(x.quality), x.hdr, x.languages.join(', ') || null, x.indexer].filter(Boolean)
   return (
     <span className="label-12 truncate text-gray-900" title={names.join(' · ') || undefined}>
       {parts.join(' · ')}

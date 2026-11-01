@@ -4,6 +4,7 @@ import { Badge, Button, Popover, StatusDot } from '@hyprsh/design'
 import { cx } from '../ui'
 import { dotOf, size, type Dot } from './bits'
 import type { CellLike } from './cellDetail'
+import { audioLine, qualityLine, type MediaFacts } from './media'
 
 type EpisodeCell = components['schemas']['EpisodeCell']
 type EpisodeFile = components['schemas']['EpisodeFile']
@@ -25,11 +26,9 @@ export function cellTitle(slot: string, state: string, cell: CellLike | null): s
 }
 
 /** What the popover knows of a file; the fields an Episode's file and a Movie's FileSummary share. */
-type FileFacts = {
+type FileFacts = MediaFacts & {
   path: string
   release_name?: string
-  quality?: string | null
-  languages?: string[]
   size: number
   imported_at?: string
   release_group?: string | null
@@ -118,8 +117,10 @@ export function FileDetailsPopover({
   }
   const on = importedOn(file.imported_at)
   const rows: [string, string][] = []
-  if (file.quality) rows.push(['Quality', file.quality])
-  if (file.languages?.length) rows.push(['Audio', file.languages.join(', ')])
+  const qualityText = qualityLine(file)
+  if (qualityText) rows.push(['Quality', qualityText])
+  const audioText = audioLine(file)
+  if (audioText) rows.push(['Audio', audioText])
   rows.push(['Size', size(file.size)])
   if (on) rows.push(['Imported', file.release_group ? `${on}, from ${file.release_group}` : on])
   else if (file.release_group) rows.push(['Group', file.release_group])

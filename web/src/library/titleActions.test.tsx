@@ -189,7 +189,7 @@ describe('the Version rows', () => {
     expect(await within(hd).findByText('Not out yet')).toBeInTheDocument()
   })
 
-  it('show a Movie Version’s file as quality, languages and size, with when it was imported and the path behind File details', async () => {
+  it('show a Movie Version’s file as quality, codec, audio, languages and size, with when it was imported and the path behind File details', async () => {
     const r = row(1, 'Paddington', 'Paddington')
     fakeLibrary([r])
     const file = {
@@ -198,6 +198,9 @@ describe('the Version rows', () => {
       release_name: 'Paddington.2014.1080p.BluRay',
       score: 2290,
       quality: 'Bluray-1080p',
+      video_codec: 'H.264',
+      audio_codec: 'DTS',
+      audio_channels: '5.1',
       languages: ['English', 'German'],
       release_group: 'GRP',
       custom_formats: [
@@ -215,13 +218,13 @@ describe('the Version rows', () => {
     const pane = await openTitle(/paddington/i)
 
     const hd = within(pane).getByRole('listitem', { name: 'Standard' })
-    expect(await within(hd).findByText('Bluray-1080p · English, German · 8.0 GB')).toBeInTheDocument()
+    expect(await within(hd).findByText('BluRay 1080p · H.264 · DTS 5.1 · English, German · 8.0 GB')).toBeInTheDocument()
     expect(within(hd).getByText('Imported 3 days ago')).toBeInTheDocument()
     await userEvent.click(within(hd).getByRole('button', { name: 'File details' }))
     const pop = await screen.findByRole('dialog', { name: 'Standard file' })
     expect(pop).toHaveTextContent('/data/media/movies/Paddington (2014)/Paddington.mkv')
     // The same popover an episode cell opens: audio, group, Score and each Custom Format with its points.
-    expect(within(pop).getByText('English, German')).toBeInTheDocument()
+    expect(within(pop).getByText('DTS 5.1 · English, German')).toBeInTheDocument()
     expect(within(pop).getByText(/from GRP$/)).toBeInTheDocument()
     expect(within(pop).getByText('2,290')).toBeInTheDocument()
     expect(within(pop).getByText('Remux Tier 01 +2300')).toBeInTheDocument()
