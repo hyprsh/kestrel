@@ -140,9 +140,9 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
     return (
       <section aria-label={`${name} episodes`}>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-gray-alpha-200 px-3.5 py-2">
-          {phone && <MonitorToggle name={name} monitored={monitored} onToggle={() => actions.monitorSeason(n, !monitored)} />}
           <Tabs variant="secondary" aria-label={`Show in ${name}`} tabs={filters_} selected={filter} onChange={(v) => setFilters((f) => ({ ...f, [n]: v as EpisodeFilter }))} />
           <div className="ml-auto flex items-center gap-1.5">
+            {phone && <MonitorToggle name={name} monitored={monitored} onToggle={() => actions.monitorSeason(n, !monitored)} />}
             <SeasonSearchButton actions={actions} season={n} episodes={inSeason} />
             <SeasonMenu actions={actions} season={n} episodes={inSeason} label={`${name} actions`} />
           </div>
