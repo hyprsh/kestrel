@@ -7,7 +7,6 @@ import type { components } from './schema.gen'
 
 export type Release = components['schemas']['Release']
 export type GrabCreate = components['schemas']['GrabCreate']
-export type ReleaseList = components['schemas']['ReleaseList']
 
 type Problem = { code?: string; detail?: string; title?: string } | undefined
 
