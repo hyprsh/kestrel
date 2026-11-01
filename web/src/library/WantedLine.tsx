@@ -54,6 +54,14 @@ export function foundText(ls: LastSearch): string {
   return `${plural(ls.releases, 'release')}, ${ls.upgrade ? 'none better' : 'none fit the Profile'}`
 }
 
+/** Why a Wanted Version's last search found nothing to take, short: "all German only", "none fit the Profile"; null when it found no release or has not run. */
+export function whyNoneFit(ls: LastSearch): string | null {
+  if (ls.outcome === 'no_indexer' || ls.outcome === 'error' || ls.releases === 0) return null
+  const top = ls.reasons[0]
+  if (top && top.count >= ls.releases) return `all ${reasonWords(top)}`
+  return ls.upgrade ? 'none better' : 'none fit the Profile'
+}
+
 /** How a search ended, after "23 releases": "none fit the Profile". */
 function endText(ls: LastSearch): string {
   switch (ls.outcome) {

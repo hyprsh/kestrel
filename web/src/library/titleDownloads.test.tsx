@@ -25,11 +25,11 @@ describe("a Title's downloads on its page", () => {
     ])
     const { pane, row: hd } = await openPaddington()
 
-    expect(await within(hd).findByText('Paddington.2014.1080p-GRP')).toBeInTheDocument()
-    expect(within(hd).getByText('75% · 2 min left')).toBeInTheDocument()
+    expect((await within(hd).findAllByText('Paddington.2014.1080p-GRP')).length).toBeGreaterThan(0)
+    expect(within(hd).getByText(/^75% · .* · 2 min left/)).toBeInTheDocument()
     expect(within(pane).queryByText(/Heat/)).not.toBeInTheDocument()
     expect(within(pane).queryByRole('region', { name: 'Downloading' })).not.toBeInTheDocument()
-    expect(within(pane).getByRole('row', { name: 'Standard: Downloading' })).toHaveTextContent('75% · 2 min')
+    expect(within(pane).getByRole('button', { name: /^Standard: Downloading 75% · 2 min left/ })).toBeInTheDocument()
   })
 
   it("shows a Series Slot's downloads on its card, with the episodes, percent and time left", async () => {
@@ -55,21 +55,33 @@ describe("a Title's downloads on its page", () => {
     expect(within(hd).queryByText('Downloading')).not.toBeInTheDocument()
   })
 
-  it('cancels a Grab with the row’s one action', async () => {
+  it('cancels a Grab from the Version menu', async () => {
     const state = fakeQueue([queueItem({ grab_id: 7, title_id: 1 })])
-    const { row: hd } = await openPaddington()
+    const { pane, row: hd } = await openPaddington()
+    await within(hd).findByText('Release')
 
-    await userEvent.click(await within(hd).findByRole('button', { name: 'Cancel the Standard download' }))
+    await openVersionMenu(pane, 'Standard')
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Cancel download' }))
 
     expect(state.cancels).toEqual([{ id: '7', body: { blocklist: false } }])
     expect(await findToast('Grab cancelled')).toBeInTheDocument()
-    await expect.poll(() => within(hd).queryByText('Downloading')).toBeNull()
+    await expect.poll(() => within(hd).queryByText('Release')).toBeNull()
+  })
+
+  it('cancels and blocks from the open row', async () => {
+    const state = fakeQueue([queueItem({ grab_id: 7, title_id: 1 })])
+    const { row: hd } = await openPaddington()
+
+    await userEvent.click(await within(hd).findByRole('button', { name: 'Cancel and block' }))
+
+    expect(state.cancels).toEqual([{ id: '7', body: { blocklist: true } }])
+    expect(await findToast('Grab cancelled and its Release blocklisted')).toBeInTheDocument()
   })
 
   it('cancels and blocklists from the Version menu', async () => {
     const state = fakeQueue([queueItem({ grab_id: 7, title_id: 1 })])
     const { pane, row: hd } = await openPaddington()
-    await within(hd).findByText('Downloading')
+    await within(hd).findByText('Release')
 
     await openVersionMenu(pane, 'Standard')
     await userEvent.click(screen.getByRole('menuitem', { name: 'Cancel and blocklist' }))
@@ -82,12 +94,12 @@ describe("a Title's downloads on its page", () => {
     fakeQueue([])
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const { row: hd } = await openPaddington(client)
-    await within(hd).findByText('Wanted')
+    await within(hd).findByText('Wanted since')
 
     // What the stream's `queue` frames do (live/stream.ts).
     act(() => client.setQueryData(['queue'], [queueItem({ title_id: 1, release_name: 'Paddington.2014.720p-GRP' })]))
 
-    expect(await within(hd).findByText(/Paddington\.2014\.720p-GRP/)).toBeInTheDocument()
+    expect((await within(hd).findAllByText(/Paddington\.2014\.720p-GRP/)).length).toBeGreaterThan(0)
   })
 })
 

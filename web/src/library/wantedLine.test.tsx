@@ -34,80 +34,50 @@ async function openMovie() {
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
   const pane = await screen.findByRole('region', { name: /paddington/i })
   await within(pane).findByRole('button', { name: 'Title actions' })
-  return within(within(pane).getByRole('listitem', { name: 'Standard' }))
+  return within(await within(pane).findByRole('listitem', { name: 'Standard' }))
 }
 
 const none: LastSearch = { at: hoursAgo(2), releases: 23, outcome: 'nothing_fit', reasons: [{ code: 'language', detail: 'German', count: 23 }], upgrade: false }
 
 describe('a Wanted Version’s search facts', () => {
-  it('says when it was last searched, what came back and when the next search is', async () => {
+  it('says since when it is Wanted, when it was last searched, what came back, why none fit and when the next search is', async () => {
     wantedMovie(none, hoursAhead(4))
     const card = await openMovie()
 
-    expect(await card.findByText('Wanted for 12 days')).toBeInTheDocument()
-    expect(card.getByText(/Last searched 2 h ago · 23 releases, none fit the Profile/)).toHaveTextContent('Last searched 2 h ago · 23 releases, none fit the Profile · Why? · next search in 4 h')
+    const fact = async (k: string) => (await card.findByText(k)).nextElementSibling
+    expect(await fact('Wanted since')).toHaveTextContent(/· 12 days$/)
+    expect(await fact('Last search')).toHaveTextContent('2 h ago · 23 releases')
+    expect(await fact('Why none fit')).toHaveTextContent('all German only')
+    expect(await fact('Next search')).toHaveTextContent('in 4 h')
   })
 
   it('says it was not searched yet', async () => {
     wantedMovie(null, hoursAhead(1))
     const card = await openMovie()
 
-    expect(await card.findByText(/^Not searched yet/)).toHaveTextContent('Not searched yet · Why? · next search in 1 h')
+    expect((await card.findByText('Last search')).nextElementSibling).toHaveTextContent('not searched yet')
+    expect(card.getByText('Next search').nextElementSibling).toHaveTextContent('in 1 h')
   })
 
   it.each([
     ['grabbed', 0, '37 releases, grabbed one', 37],
     ['no_indexer', 0, 'no indexer is turned on', 0],
     ['error', 0, 'the search failed', 0],
-    ['nothing_fit', 0, 'no releases came back', 0],
+    ['nothing_fit', 0, 'nothing found yet', 0],
   ] as const)('puts a %s search in words', async (outcome, _x, words, releases) => {
     wantedMovie({ at: hoursAgo(1), releases, outcome, reasons: [], upgrade: false }, null)
     const card = await openMovie()
 
-    expect(await card.findByText(new RegExp(`Last searched 1 h ago · ${words}`))).toBeInTheDocument()
+    expect((await card.findByText('Last search')).nextElementSibling).toHaveTextContent(`1 h ago · ${words}`)
   })
 
-  it('opens “Why is it Wanted?” from the Why? link with the state, the time, the main rejection reasons and the next search', async () => {
-    wantedMovie(
-      {
-        ...none,
-        reasons: [
-          { code: 'language', detail: 'German', count: 23 },
-          { code: 'below_min_score', detail: null, count: 6 },
-        ],
-      },
-      hoursAhead(4),
-    )
-    const card = await openMovie()
-
-    await userEvent.click(await card.findByRole('button', { name: 'Why?' }))
-
-    const why = await screen.findByRole('dialog', { name: 'Why is it Wanted?' })
-    expect(within(why).getByText('It has no file.')).toBeInTheDocument()
-    expect(within(why).getByText(/^Wanted for 12 days, since /)).toBeInTheDocument()
-    expect(within(why).getByText('2 h ago: 23 releases, none fit the Profile')).toBeInTheDocument()
-    expect(within(why).getByText('23 German only · 6 below the cutoff')).toBeInTheDocument()
-    expect(within(why).getByText('In 4 h')).toBeInTheDocument()
-  })
-
-  it('opens the same popover from the Version’s menu', async () => {
-    wantedMovie(none, hoursAhead(4))
-    const card = await openMovie()
-
-    await userEvent.click(await card.findByRole('button', { name: 'Standard Version actions' }))
-    await userEvent.click(within(screen.getByRole('menu', { name: 'Standard Version actions' })).getByRole('menuitem', { name: 'Why is it Wanted?' }))
-
-    expect(await screen.findByRole('dialog', { name: 'Why is it Wanted?' })).toBeInTheDocument()
-  })
-
-  it('searches from the popover', async () => {
+  it('searches from the open row', async () => {
     wantedMovie(none, hoursAhead(4))
     const searched: string[] = []
     server.use(http.post('/versions/{id}/search', ({ params, response }) => (searched.push(String(params.id)), response(202).empty())))
     const card = await openMovie()
 
-    await userEvent.click(await card.findByRole('button', { name: 'Why?' }))
-    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Why is it Wanted?' })).getByRole('button', { name: 'Search Now' }))
+    await userEvent.click(await card.findByRole('button', { name: 'Search now' }))
 
     await waitFor(() => expect(searched).toHaveLength(1))
   })
@@ -117,8 +87,8 @@ describe('a Wanted Version’s search facts', () => {
     fakeLibrary([r])
     const card = await openMovie()
 
-    expect(card.queryByRole('button', { name: 'Why?' })).not.toBeInTheDocument()
-    expect(card.queryByText(/Last searched/)).not.toBeInTheDocument()
+    expect(card.queryByText('Last search')).not.toBeInTheDocument()
+    expect(card.queryByRole('button', { name: 'Search now' })).not.toBeInTheDocument()
   })
 
   it('puts the same line on a Series card that has Wanted episodes', async () => {

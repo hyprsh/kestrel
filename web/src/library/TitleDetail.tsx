@@ -133,7 +133,11 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
       </div>
 
       <VersionRows title={title} profiles={profiles.data ?? []} profileName={profileName} onManualSearch={onManualSearch} />
-      {title.kind === 'series' ? <SeriesSection title={title} onManualSearch={onManualSearch} /> : <MovieSection title={title} profileName={profileName} onManualSearch={onManualSearch} />}
+      {title.kind === 'series' ? (
+        <SeriesSection title={title} onManualSearch={onManualSearch} />
+      ) : (
+        <MovieSection title={title} profiles={profiles.data ?? []} profileName={profileName} onManualSearch={onManualSearch} />
+      )}
       <TitleHistory title={title} />
     </div>
   )

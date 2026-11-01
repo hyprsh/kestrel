@@ -1,24 +1,21 @@
 // chrome: domain-visual
-// The Versions of a Title on its page. A Series: one compact card per Slot, side by side, with what that Slot is
-// downloading inside it. A Movie: one row per Slot in a card, each with its state and its one next action.
-import { Button, DotsMenu, Entity, MenuDivider, MenuItem, Note, Progress } from '@hyprsh/design'
-import { Download, FileVideo, Search, X } from 'lucide-react'
+// The Versions of a Series on its page: one compact card per Slot, side by side, with what that Slot is downloading inside it.
+// A Movie's Versions are the accordion of MovieSection.tsx, which shares VersionMenu with these cards.
+import { DotsMenu, Entity, Menu, MenuDivider, MenuItem, Note, Progress } from '@hyprsh/design'
+import { Download } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useEpisodeView } from './episodeView'
 import type { Profile, TitleDetail } from '../api/queries'
 import { useRemoveVersion, useSwitchProfile } from '../api/versions'
 import { plural } from '../format'
 import { RowList } from '../layout/RowList'
-import { ago, span, useNow } from '../time'
+import { span, useNow } from '../time'
 import { useReport } from '../toasts'
-import { dotOf, size, versionStatus } from './bits'
+import { size } from './bits'
 import { slotName, slotsOf } from './slots'
 import { DeleteFile } from './DeleteFiles'
-import { FileDetailsPopover } from './EpisodeFilePopover'
 import { expandCodes, codeRuns } from './cellDetail'
-import { IconAction } from './IconAction'
 import { ProfilePicker, RemoveConfirm } from './ManageVersion'
-import { audioLine, qualityLine } from './media'
 import { OriginalOfferNote } from './OriginalOfferNote'
 import type { ManualSearchTarget } from './TitleDetail'
 import { useCancelDownloads, useTitleDownloads, type SlotDownloads } from './TitleDownloads'
@@ -32,12 +29,12 @@ type Props = { title: TitleDetail; profiles: Profile[]; profileName: (key: strin
 const unmonitored = (t: TitleDetail) => (t.kind === 'movie' ? !t.monitored : t.series_monitor === 'none')
 
 /**
- * The Versions block: one compact card per Slot, side by side, for a Series and a Movie alike. A Slot with no Version
- * is not drawn; the Title menu's Add Version… adds one.
+ * A Series' Versions block: one compact card per Slot, side by side. A Slot with no Version is not drawn; the Title menu's
+ * Add Version… adds one. A Movie's Versions are the accordion of MovieSection.
  */
 export function VersionRows({ title, profiles, profileName, onManualSearch }: Props) {
   const downloads = useTitleDownloads(title.id)
-  const versions = slotsOf(title).flatMap((s) => title.versions.filter((v) => v.slot === s.key))
+  const versions = title.kind === 'series' ? slotsOf(title).flatMap((s) => title.versions.filter((v) => v.slot === s.key)) : []
   // A Title opened at a Slot ("?slot=4k") scrolls to that Version's card and marks it.
   const at = useEpisodeView(title.id).slot
   useEffect(() => {
@@ -62,7 +59,16 @@ export function VersionRows({ title, profiles, profileName, onManualSearch }: Pr
  * A Version's "…" menu and what its items open: Search now, Manual search, Change Profile, Why is it Wanted? while it is Wanted,
  * Cancel download while it downloads, Delete files (a Movie's file) and Remove Version. Nothing here is the Version's one next action; that sits beside it.
  */
-function VersionMenu({ title, version: v, profiles, profileName, onManualSearch, downloads, onWhy }: Props & { version: Version; downloads: SlotDownloads | null; onWhy: () => void }) {
+export function VersionMenu({
+  title,
+  version: v,
+  profiles,
+  profileName,
+  onManualSearch,
+  downloads,
+  onWhy,
+  more,
+}: Props & { version: Version; downloads: SlotDownloads | null; onWhy?: () => void; /** Draws the menu's button as "More…" (a Movie's open Slot) instead of the ⋯ icon. */ more?: boolean }) {
   const sw = useSwitchProfile(v.id)
   const report = useReport()
   const rm = useRemoveVersion(v.id)
@@ -71,38 +77,52 @@ function VersionMenu({ title, version: v, profiles, profileName, onManualSearch,
   const [mode, setMode] = useState<'switch' | 'remove' | 'delete' | null>(null)
   const movie = title.kind === 'movie'
   const name = slotName(v.slot)
+  const items = (
+    <>
+      <MenuItem disabled={unmonitored(title) || search.pending} description={unmonitored(title) ? 'Not monitored: turn monitoring on to search' : undefined} onSelect={search.run}>
+        Search now
+      </MenuItem>
+      <MenuItem onSelect={() => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })}>Manual search…</MenuItem>
+      <MenuItem suffix={<span className="label-12-mono text-gray-900">{profileName(v.profile)}</span>} onSelect={() => setMode('switch')}>
+        Change Profile…
+      </MenuItem>
+      {v.state === 'wanted' && onWhy && <MenuItem onSelect={onWhy}>Why is it Wanted?</MenuItem>}
+      {downloads && (
+        <>
+          <MenuDivider />
+          <MenuItem disabled={cancel.pending} onSelect={() => void cancel.run(downloads.items, false)}>
+            {downloads.items.length === 1 ? 'Cancel download' : 'Cancel downloads'}
+          </MenuItem>
+          <MenuItem disabled={cancel.pending} onSelect={() => void cancel.run(downloads.items, true)}>
+            Cancel and blocklist
+          </MenuItem>
+        </>
+      )}
+      <MenuDivider />
+      {movie && (
+        <MenuItem type="error" disabled={!v.file} description={v.file ? undefined : 'No file to delete'} onSelect={() => setMode('delete')}>
+          Delete files…
+        </MenuItem>
+      )}
+      <MenuItem type="error" onSelect={() => setMode('remove')}>
+        Remove Version…
+      </MenuItem>
+    </>
+  )
   return (
     <>
-      <DotsMenu aria-label={`${name} Version actions`}>
-        <MenuItem disabled={unmonitored(title) || search.pending} description={unmonitored(title) ? 'Not monitored: turn monitoring on to search' : undefined} onSelect={search.run}>
-          Search now
-        </MenuItem>
-        <MenuItem onSelect={() => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })}>Manual search…</MenuItem>
-        <MenuItem suffix={<span className="label-12-mono text-gray-900">{profileName(v.profile)}</span>} onSelect={() => setMode('switch')}>
-          Change Profile…
-        </MenuItem>
-        {v.state === 'wanted' && <MenuItem onSelect={onWhy}>Why is it Wanted?</MenuItem>}
-        {downloads && (
-          <>
-            <MenuDivider />
-            <MenuItem disabled={cancel.pending} onSelect={() => void cancel.run(downloads.items, false)}>
-              {downloads.items.length === 1 ? 'Cancel download' : 'Cancel downloads'}
-            </MenuItem>
-            <MenuItem disabled={cancel.pending} onSelect={() => void cancel.run(downloads.items, true)}>
-              Cancel and blocklist
-            </MenuItem>
-          </>
-        )}
-        <MenuDivider />
-        {movie && (
-          <MenuItem type="error" disabled={!v.file} description={v.file ? undefined : 'No file to delete'} onSelect={() => setMode('delete')}>
-            Delete files…
-          </MenuItem>
-        )}
-        <MenuItem type="error" onSelect={() => setMode('remove')}>
-          Remove Version…
-        </MenuItem>
-      </DotsMenu>
+      {more ? (
+        <Menu.Container position="bottom-end">
+          <Menu.Button variant="tertiary" size="small" aria-label={`${name} Version actions`}>
+            More…
+          </Menu.Button>
+          <Menu width={260} aria-label={`${name} Version actions`}>
+            {items}
+          </Menu>
+        </Menu.Container>
+      ) : (
+        <DotsMenu aria-label={`${name} Version actions`}>{items}</DotsMenu>
+      )}
       {mode === 'switch' && (
         <ProfilePicker
           profiles={profiles}
@@ -132,9 +152,7 @@ function VersionMenu({ title, version: v, profiles, profileName, onManualSearch,
 
 /** One Slot's card: its name, Profile, state and menu on top; below, what the Version holds, what it is downloading, and its offer. */
 function VersionCard({ version: v, downloads, ...rest }: Props & { version: Version; downloads: SlotDownloads | null }) {
-  const { title } = rest
   const name = slotName(v.slot)
-  const movie = title.kind === 'movie'
   const [whyOpen, setWhyOpen] = useState(false)
   const wanted = v.state === 'wanted' && !downloads
   return (
@@ -144,17 +162,16 @@ function VersionCard({ version: v, downloads, ...rest }: Props & { version: Vers
           <span className="label-14-strong">{name}</span>
           <span className="label-13-mono truncate text-gray-900">{rest.profileName(v.profile)}</span>
           <span className="flex-1" />
-          {movie ? <MovieStateLabel version={v} downloads={downloads} /> : v.coverage && v.coverage.wanted > 0 && <span className="label-13 text-amber-900">{`${v.coverage.wanted} Wanted`}</span>}
-          {movie && <MovieAction {...rest} version={v} downloads={downloads} />}
+          {v.coverage && v.coverage.wanted > 0 && <span className="label-13 text-amber-900">{`${v.coverage.wanted} Wanted`}</span>}
           <VersionMenu {...rest} version={v} downloads={downloads} onWhy={() => setWhyOpen(true)} />
         </div>
-        {movie ? !downloads && <MovieHolds version={v} /> : <SeriesHolds version={v} />}
+        <SeriesHolds version={v} />
         {wanted && <VersionWanted {...rest} version={v} open={whyOpen} onOpenChange={setWhyOpen} />}
         {downloads && (
           <Note variant="success" fill size="small" icon={<Download aria-hidden className="size-3.5" />}>
             <span className="flex min-w-0 items-center justify-between gap-3">
               <span className="truncate" title={downloads.items[0].release_name}>
-                {downloadingWhat(downloads, movie)}
+                {downloadingWhat(downloads)}
               </span>
               <span className="hy-num shrink-0">{downloadingProgress(downloads)}</span>
             </span>
@@ -202,78 +219,13 @@ function SeriesHolds({ version: v }: { version: Version }) {
 }
 
 /** What a Slot is downloading, in words: its episodes as runs ("S05E05–E10"), else its Release, else how many Grabs. */
-function downloadingWhat({ items }: SlotDownloads, movie: boolean): string {
-  // A Movie's card header already says "Downloading", so its line is just what is downloading.
+function downloadingWhat({ items }: SlotDownloads): string {
   const episodes = items.flatMap((i) => expandCodes(i.episodes))
   if (episodes.length > 0) return codeRuns(episodes)
-  const word = movie ? '' : 'Downloading '
-  return items.length === 1 ? `${word}${items[0].release_name}` : `${word}${plural(items.length, 'Release')}`.trim()
+  return items.length === 1 ? `Downloading ${items[0].release_name}` : `Downloading ${plural(items.length, 'Release')}`
 }
 
 /** "40% · 13 min left", whichever the client knows. */
 function downloadingProgress(d: SlotDownloads): string {
   return [d.pct !== null ? `${d.pct}%` : null, d.eta !== null ? `${span(d.eta * 1000)} left` : null].filter(Boolean).join(' · ')
-}
-
-const days = (since: string | null, now: number) => (since ? Math.floor((now - new Date(since).getTime()) / 86_400_000) : 0)
-
-/** A Movie Version's state at the right of its card header, where a Series says how many episodes are Wanted. */
-function MovieStateLabel({ version: v, downloads }: { version: Version; downloads: SlotDownloads | null }) {
-  if (downloads) return <span className="label-13 text-blue-900">Downloading</span>
-  if (v.file) return <span className="label-13 text-green-900">Have</span>
-  if (v.long_missing || v.state === 'wanted') return <span className="label-13 text-amber-900">{v.long_missing ? 'Long Missing' : 'Wanted'}</span>
-  return <span className="label-13 text-gray-900">{v.state === 'unreleased' ? 'Not out yet' : v.state === 'unmonitored' ? 'Not monitored' : versionStatus(v.state).label}</span>
-}
-
-/** A Movie Version's one next action, an icon beside the menu: cancel the download, search now, or the file's details. */
-function MovieAction({ version: v, downloads, ...rest }: Props & { version: Version; downloads: SlotDownloads | null }) {
-  const { title } = rest
-  const name = slotName(v.slot)
-  const search = useSearchVersion(title, v.id)
-  const cancel = useCancelDownloads()
-  const f = v.file
-  if (downloads) return <IconAction icon={X} size="small" label={`Cancel the ${name} download`} disabled={cancel.pending} onClick={() => void cancel.run(downloads.items, false)} />
-  if (f)
-    return (
-      <FileDetailsPopover
-        label={`${name} file`}
-        heading={name}
-        dot={dotOf('filled', false)}
-        file={f}
-        trigger={
-          <Button svgOnly variant="tertiary" size="small" aria-label="File details" title="File details">
-            <FileVideo aria-hidden className="size-4" />
-          </Button>
-        }
-      />
-    )
-  if (v.state === 'wanted') return <IconAction icon={Search} size="small" label={`Search ${name} now`} disabled={unmonitored(title) || search.pending} onClick={search.run} />
-  return null
-}
-
-/** "3 days ago" once a day has passed, else the live "5 min ago". */
-const importedAgo = (iso: string, now: number) => {
-  const d = days(iso, now)
-  return d >= 1 ? `${plural(d, 'day')} ago` : ago(iso, now)
-}
-
-/** What a Movie Version holds: the file's quality, languages and size with when it was imported, or how long it has been Wanted. */
-function MovieHolds({ version: v }: { version: Version }) {
-  const now = useNow()
-  const f = v.file
-  if (f) {
-    const facts = [qualityLine(f), audioLine(f), size(f.size)].filter(Boolean).join(' · ')
-    return (
-      <div className="flex min-w-0 flex-col gap-1">
-        <span className="label-14 truncate">{facts}</span>
-        <span className="label-13 text-gray-900">{`Imported ${importedAgo(f.imported_at, now)}`}</span>
-        {f.misfit && <span className="label-12 text-red-900">No longer fits this Profile</span>}
-      </div>
-    )
-  }
-  if (v.long_missing || v.state === 'wanted') {
-    const d = days(v.wanted_since, now)
-    return <span className="label-13 text-gray-900">{d >= 1 ? `${v.long_missing ? 'Long Missing' : 'Wanted'} for ${plural(d, 'day')}` : 'Just became Wanted'}</span>
-  }
-  return null
 }

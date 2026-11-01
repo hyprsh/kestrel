@@ -1,183 +1,348 @@
-// What a Movie adds to its Title page, below its Versions: the Files table, one row per Slot. A row is named by the file on disk
-// (its name cut at its start, the release it was grabbed as under it), then the quality, size and import date, with File details
-// and the ⋯ menu on hover. A Slot with no file says why it is Wanted; a download shows its progress. A phone gets rows of two lines.
-import { Button, DotsMenu, MenuItem, StatusDot, Table, TableBody, TableCell, TableHead, TableHeader, TableRoot, TableRow } from '@hyprsh/design'
-import { FileVideo, Search } from 'lucide-react'
-import { useState } from 'react'
-import type { TitleDetail } from '../api/queries'
+// chrome: domain-visual
+// What a Movie adds to its Title page: its Versions as an accordion, one row per Slot. A closed row says the Slot and its
+// Profile, where it stands and the file it holds (its name cut at its start), a chip and the size. Opened, a row shows what its
+// state needs: a file's facts, a download's progress, or why nothing was grabbed yet, with that Slot's actions.
+import { Button, Progress } from '@hyprsh/design'
+import { useEffect, useState } from 'react'
+import { useDownloadClient } from '../api/activity'
+import type { Profile, TitleDetail } from '../api/queries'
 import { plural } from '../format'
 import { usePhone } from '../responsive'
-import { ago, useNow } from '../time'
-import { dotOf, faintDot, size, versionStatus } from './bits'
-import { slotName, slotsOf } from './slots'
-import { baseName, cellText } from './cellDetail'
-import { DeleteFile } from './DeleteFiles'
-import { FileDetailsPopover, importedOn } from './EpisodeFilePopover'
-import { IconAction, rowActionsShown } from './IconAction'
-import { qualityName } from './media'
+import { placePath, useOpenPlace } from '../place'
+import { ago, span, until, useNow } from '../time'
+import { dotState, stateName, type SlotDotState } from '../ui/slotState'
+import { size } from './bits'
+import { baseName } from './cellDetail'
+import { AccordionList, AccordionRow, Chevron } from './accordion'
+import { useEpisodeView } from './episodeView'
+import { importedOn, EndOfPath } from './EpisodeFilePopover'
+import { audioLine, qualityLine, qualityName } from './media'
+import { AddVersion } from './ManageVersion'
+import { OriginalOfferNote } from './OriginalOfferNote'
+import { SlotChips } from './SlotChip'
+import { slotName, slotShort, slotsOf } from './slots'
 import type { ManualSearchTarget } from './TitleDetail'
-import { useTitleDownloads } from './TitleDownloads'
-import { foundText } from './WantedLine'
-import { useSearchVersion } from './VersionSearch'
+import { useCancelDownloads, useTitleDownloads, type SlotDownloads } from './TitleDownloads'
+import { VersionMenu } from './VersionRows'
+import { useSearchWanted } from './VersionSearch'
+import { foundText, whyNoneFit } from './WantedLine'
 
 type Version = TitleDetail['versions'][number]
 
-/** "Wanted 12 days · last searched 2 h ago · 23 releases, none fit the Profile": why a Slot has no file yet. */
-function wantedLine(v: Version, now: number): string {
-  const days = v.wanted_since ? Math.floor((now - new Date(v.wanted_since).getTime()) / 86_400_000) : 0
-  const ls = v.last_search
-  return [days >= 1 ? `Wanted ${plural(days, 'day')}` : 'Just became Wanted', ls ? `last searched ${ago(ls.at, now)} · ${foundText(ls)}` : 'not searched yet'].join(' · ')
+const days = (since: string | null, now: number) => (since ? Math.max(0, Math.floor((now - new Date(since).getTime()) / 86_400_000)) : 0)
+
+/** What the last search came to, in a few words: "23 releases", "37 releases, grabbed one", "no indexer is turned on". */
+function lastSearchWords(ls: NonNullable<Version['last_search']>): string {
+  if (ls.outcome === 'grabbed') return `${plural(ls.releases, 'release')}, grabbed one`
+  return ls.releases === 0 || ls.outcome === 'no_indexer' || ls.outcome === 'error' ? foundText(ls) : plural(ls.releases, 'release')
 }
 
-export function MovieSection({ title, profileName, onManualSearch }: { title: TitleDetail; profileName: (key: string) => string; onManualSearch: (t: ManualSearchTarget) => void }) {
-  const phone = usePhone()
-  const [deleting, setDeleting] = useState<Version | null>(null)
+/** A Slot's state in a line: "Have · BluRay 1080p", "Downloading 40% · 13 min left", "Wanted 12 days · next search in 4 h". */
+function stateLine(v: Version, dl: SlotDownloads | null, now: number): { text: string; tone: string; state: SlotDotState | null } {
+  const state = dl ? 'downloading' : dotState(v.state, v.long_missing)
+  if (dl) return { text: `Downloading${dl.pct !== null ? ` ${dl.pct}%` : ''}${dl.eta !== null ? ` · ${span(dl.eta * 1000)} left` : ''}`, tone: 'text-blue-900', state: 'downloading' }
+  if (v.file) return { text: `Have${v.file.quality ? ` · ${qualityName(v.file.quality)}` : ''}`, tone: 'text-green-900', state: 'filled' }
+  if (state === 'wanted' || state === 'long_missing') {
+    const d = days(v.wanted_since, now)
+    const what = state === 'long_missing' ? 'Long Missing' : 'Wanted'
+    return {
+      text: `${what}${d >= 1 ? ` ${plural(d, 'day')}` : ''}${v.next_search_at ? ` · next search ${until(v.next_search_at, now)}` : ''}`,
+      tone: state === 'long_missing' ? 'text-red-900' : 'text-amber-900',
+      state,
+    }
+  }
+  return { text: state ? stateName[state] : 'No Version', tone: 'text-gray-900', state }
+}
+
+export function MovieSection({
+  title,
+  profiles,
+  profileName,
+  onManualSearch,
+}: {
+  title: TitleDetail
+  profiles: Profile[]
+  profileName: (key: string) => string
+  onManualSearch: (t: ManualSearchTarget) => void
+}) {
+  const downloads = useTitleDownloads(title.id)
+  const now = useNow()
   const versions = slotsOf(title).flatMap((s) => title.versions.filter((v) => v.slot === s.key))
+  const at = useEpisodeView(title.id).slot
+  // Open: the Slot the page was opened at, else the Slots that need a look (downloading or Wanted), else the first one.
+  const [open, setOpen] = useState<Set<string>>(() => {
+    const attention = versions.filter((v) => downloads.slot(v.slot) || v.state === 'wanted').map((v) => v.slot)
+    return new Set(at ? [at] : attention.length > 0 ? attention : versions.slice(0, 1).map((v) => v.slot))
+  })
+  useEffect(() => {
+    if (!at) return
+    setOpen((o) => (o.has(at) ? o : new Set(o).add(at)))
+    document.getElementById(`version-${at}`)?.scrollIntoView?.({ block: 'nearest' })
+  }, [at, title.id])
+  const [adding, setAdding] = useState(false)
+  const free = title.versions.length < 2
   if (versions.length === 0) return null
+  const toggle = (slot: string) => setOpen((o) => (o.has(slot) ? new Set([...o].filter((x) => x !== slot)) : new Set(o).add(slot)))
   return (
-    <section aria-label="Files" className="mt-6">
-      <div className="mb-3">
-        <h3 className="heading-16">Files</h3>
+    <section aria-label="Versions" className="mt-6 flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <h3 className="heading-16 flex-1">Versions</h3>
+        {free && (
+          <Button variant="tertiary" size="small" onClick={() => setAdding(true)}>
+            Add a Slot
+          </Button>
+        )}
       </div>
-      <TableRoot>
-        <Table aria-label="Movie" stickyHeader>
-          <TableHeader>
-            <TableRow>
-              {!phone && <TableHead className="w-20 px-2">Slot</TableHead>}
-              <TableHead truncate className="px-2">
-                {phone ? 'Slot' : 'File'}
-              </TableHead>
-              {!phone && <TableHead className="px-2 whitespace-nowrap">Quality</TableHead>}
-              {!phone && (
-                <TableHead align="right" className="px-2">
-                  Size
-                </TableHead>
-              )}
-              {!phone && <TableHead className="px-2">Imported</TableHead>}
-              <TableHead align="right" className="w-17 px-2 max-sm:w-13 max-sm:px-1">
-                <span className="sr-only">Actions</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {versions.map((v) => (
-              <FileRow
-                key={v.id}
-                title={title}
-                version={v}
-                onManualSearch={() => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })}
-                onDelete={() => setDeleting(v)}
-              />
-            ))}
-          </TableBody>
-        </Table>
-      </TableRoot>
-      {deleting && <DeleteFile versionId={deleting.id} file={deleting.file} asking onClose={() => setDeleting(null)} />}
+      <AccordionList label="Versions">
+        {versions.map((v) => (
+          <SlotRow
+            key={v.id}
+            {...{ title, profiles, profileName, onManualSearch }}
+            version={v}
+            downloads={downloads.slot(v.slot)}
+            now={now}
+            open={open.has(v.slot)}
+            onToggle={() => toggle(v.slot)}
+            marked={at === v.slot}
+          />
+        ))}
+      </AccordionList>
+      {adding && <AddVersion title={title} profiles={profiles} onClose={() => setAdding(false)} />}
     </section>
   )
 }
 
-/** One Slot of the Movie: its file, or why it has none. */
-function FileRow({ title, version: v, onManualSearch, onDelete }: { title: TitleDetail; version: Version; onManualSearch: () => void; onDelete: () => void }) {
+function SlotRow({
+  title,
+  profiles,
+  profileName,
+  onManualSearch,
+  version: v,
+  downloads,
+  now,
+  open,
+  onToggle,
+  marked,
+}: {
+  title: TitleDetail
+  profiles: Profile[]
+  profileName: (key: string) => string
+  onManualSearch: (t: ManualSearchTarget) => void
+  version: Version
+  downloads: SlotDownloads | null
+  now: number
+  open: boolean
+  onToggle: () => void
+  marked: boolean
+}) {
   const phone = usePhone()
-  const now = useNow()
-  const downloads = useTitleDownloads(title.id)
-  const search = useSearchVersion(title, v.id)
-  const [menuOpen, setMenuOpen] = useState(false)
   const name = slotName(v.slot)
-  const dl = downloads.slot(v.slot)
-  const stateKey = dl ? 'downloading' : v.state
+  const line = stateLine(v, downloads, now)
   const f = v.file
-  const dot = dotOf(stateKey, v.long_missing && !dl)
-  const state = versionStatus(stateKey).label
-  const progress = cellText({ state: stateKey, score: f?.score ?? null, file: f }, { air_date: null }, dl?.items[0], state, now)
-  // The first line of the File column and the line under it.
-  const wanted = stateKey === 'wanted'
-  const first = f ? baseName(f.path) : dl ? (progress ?? state) : wanted ? 'No file yet' : state
-  const second = f ? (f.release_name ? `from ${f.release_name}` : null) : dl ? (dl.items[0]?.release_name ?? null) : wanted ? wantedLine(v, now) : null
-  const quality = f?.quality ? qualityName(f.quality) : state
-  const facts = f ? `${quality} · ${size(f.size)}` : quality
-  const imported = f ? importedOn(f.imported_at) : ''
-  const dotEl = <StatusDot state={dot.state} variant={dot.variant} label={false} title={null} aria-hidden className={dot.faint ? faintDot : undefined} />
-  const tone = f ? '' : wanted ? 'text-amber-900' : dl ? 'text-blue-900' : 'text-gray-900'
-  const fileLine = f ? (
-    <span dir="rtl" title={f.path} className="label-12-mono block min-w-0 truncate text-left">
-      <bdi>{first}</bdi>
-    </span>
-  ) : (
-    <span className={`label-13 truncate ${tone}`}>{first}</span>
+  const grab = downloads?.items[0]
+  const fileName = f ? baseName(f.path) : grab ? grab.release_name : 'No file yet'
+  const total = grab ? downloads!.items.reduce((n, i) => n + i.bytes_total, 0) : 0
+  const sizeText = f ? size(f.size) : total > 0 ? size(total) : '—'
+  const chip = (
+    <SlotChips chips={[{ key: v.slot, short: slotShort(v.slot), state: line.state, text: downloads?.pct != null ? `${downloads.pct}%` : undefined, tip: `${name}: ${line.text}` }]} max={1} />
   )
-  const secondLine = second && (
-    <span className="label-12 truncate text-gray-900" title={second}>
-      {second}
-    </span>
-  )
-  const actions = (
-    <span className={`flex items-center justify-end gap-1 max-sm:gap-0 ${rowActionsShown}`}>
-      {f && (
-        <FileDetailsPopover
-          label={`${name} file`}
-          heading={name}
-          dot={dotOf('filled', false)}
-          file={f}
-          position="bottom-end"
-          trigger={
-            <Button svgOnly variant="tertiary" size="tiny" aria-label={`${name} file details`} title="File details">
-              <FileVideo aria-hidden className="size-3.5" />
-            </Button>
-          }
-        />
-      )}
-      {wanted && !f && <IconAction icon={Search} label={`Search for the ${name} file now`} disabled={!title.monitored || search.pending} onClick={search.run} />}
-      <DotsMenu aria-label={`${name} file actions`} size="tiny" iconSize={12} onOpenChange={setMenuOpen} width={240}>
-        <MenuItem onSelect={onManualSearch}>{`Manual search ${name}…`}</MenuItem>
-        {f && (
-          <MenuItem type="error" onSelect={onDelete}>
-            {`Delete ${name} file…`}
-          </MenuItem>
-        )}
-      </DotsMenu>
-    </span>
-  )
+  const manual = () => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })
   return (
-    <TableRow data-menu-open={menuOpen ? '' : undefined} className="group/row" aria-label={`${name}: ${state}`}>
-      {phone ? (
-        <TableCell truncate className="px-2">
-          <span className="flex min-w-0 flex-col gap-0.5">
-            <span className={`label-13 flex items-center gap-1.5 ${f ? '' : tone}`}>
-              <strong className="font-medium text-gray-1000">{name}</strong>
-              {dotEl}
-              <span className="truncate">
-                {f ? facts : wanted ? `Wanted${v.wanted_since ? ` · ${Math.max(0, Math.floor((now - new Date(v.wanted_since).getTime()) / 86_400_000))} d` : ''}` : (progress ?? state)}
+    <AccordionRow
+      id={`version-${v.slot}`}
+      itemLabel={name}
+      label={`${name}: ${line.text}`}
+      open={open}
+      onToggle={onToggle}
+      marked={marked}
+      gridClass={phone ? 'grid-cols-[16px_minmax(0,1fr)_auto] min-h-14 py-2.5' : 'grid-cols-[16px_120px_minmax(0,1fr)_auto_72px] h-14'}
+      header={
+        <>
+          <Chevron open={open} />
+          <span className="flex min-w-0 flex-col gap-px">
+            <span className="label-14 font-semibold">{name}</span>
+            <span className="label-12-mono truncate text-gray-900">{profileName(v.profile)}</span>
+            {phone && <span className={`label-12 truncate ${line.tone}`}>{line.text}</span>}
+          </span>
+          {!phone && (
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className={`label-13 truncate ${line.tone}`}>{line.text}</span>
+              <span dir="rtl" title={f?.path} className="label-12-mono block min-w-0 truncate text-left text-gray-900">
+                <bdi>{fileName}</bdi>
               </span>
             </span>
-            {f ? fileLine : wanted || dl ? secondLine : null}
+          )}
+          <span className="relative flex items-center gap-2">
+            {chip}
+            {phone && <span className="label-12 text-gray-900">{sizeText}</span>}
           </span>
-        </TableCell>
-      ) : (
-        <>
-          <TableCell className="px-2 font-medium">{name}</TableCell>
-          <TableCell truncate className="px-2">
-            <span className="flex min-w-0 flex-col gap-0.5">
-              {fileLine}
-              {secondLine}
-            </span>
-          </TableCell>
-          <TableCell className={`px-2 whitespace-nowrap ${wanted && !f ? 'text-amber-900' : dl ? 'text-blue-900' : ''}`}>
-            <span className="flex items-center gap-1.5">
-              {dotEl}
-              {quality}
-            </span>
-          </TableCell>
-          <TableCell align="right" className="px-2 text-gray-900 tabular-nums whitespace-nowrap">
-            {f ? size(f.size) : '—'}
-          </TableCell>
-          <TableCell className="px-2 text-gray-900 whitespace-nowrap">{imported || '—'}</TableCell>
+          {!phone && <span className="label-13 pointer-events-none text-right text-gray-900 tabular-nums">{sizeText}</span>}
         </>
-      )}
-      <TableCell align="right" className="px-2 max-sm:px-1">
-        {actions}
-      </TableCell>
-    </TableRow>
+      }
+      body={<SlotBody {...{ title, profiles, profileName }} version={v} downloads={downloads} now={now} onManualSearch={manual} />}
+    />
+  )
+}
+
+/** A fact of the open row: a small label over its value. */
+function Fact({ k, children, wide }: { k: string; children: React.ReactNode; wide?: boolean }) {
+  return (
+    <div className={`flex min-w-0 flex-col gap-0.5 ${wide ? 'col-span-2 max-sm:col-span-1' : ''}`}>
+      <span className="label-12 text-gray-900">{k}</span>
+      <span className="label-13 min-w-0 break-words">{children}</span>
+    </div>
+  )
+}
+
+function SlotBody({
+  title,
+  profiles,
+  profileName,
+  version: v,
+  downloads,
+  now,
+  onManualSearch,
+}: {
+  title: TitleDetail
+  profiles: Profile[]
+  profileName: (key: string) => string
+  version: Version
+  downloads: SlotDownloads | null
+  now: number
+  onManualSearch: () => void
+}) {
+  const openPlace = useOpenPlace()
+  const search = useSearchWanted(title)
+  const cancel = useCancelDownloads()
+  const client = useDownloadClient()
+  const f = v.file
+  const more = <VersionMenu {...{ title, profiles, profileName }} version={v} downloads={downloads} onManualSearch={() => onManualSearch()} more />
+  const wrap = 'flex flex-col gap-3 border-t border-gray-alpha-200 bg-background-100 py-3.5 pr-3.5 pl-[46px] max-sm:pl-3'
+  const grid = 'grid grid-cols-4 gap-3 max-sm:grid-cols-2'
+  if (downloads) {
+    const g = downloads.items[0]
+    const total = downloads.items.reduce((n, i) => n + i.bytes_total, 0)
+    const left = downloads.items.reduce((n, i) => n + i.bytes_left, 0)
+    const speed = g.bytes_per_second ? `${size(g.bytes_per_second)}/s` : null
+    const progress = [
+      downloads.pct !== null ? `${downloads.pct}%` : null,
+      total > 0 ? `${size(total - left)} of ${size(total)}` : null,
+      downloads.eta !== null ? `${span(downloads.eta * 1000)} left` : null,
+      speed,
+      client?.name ?? null,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+    return (
+      <div className={wrap}>
+        <OriginalOfferNote offer={v.original_offer} />
+        <div className="flex flex-col gap-1.5">
+          {downloads.pct !== null && <Progress value={downloads.pct} type="success" height={6} aria-label={`${slotName(v.slot)} download progress`} />}
+          <span className="label-13 text-blue-900">{progress}</span>
+        </div>
+        <div className={grid}>
+          <Fact k="Release" wide>
+            <span className="font-mono text-[12px]">{g.release_name}</span>
+          </Fact>
+          <Fact k="From">{`${g.indexer} · ${ago(g.grabbed_at, now)}`}</Fact>
+          <Fact k="Why">{g.is_upgrade ? `Upgrade${g.score_delta !== null ? ` · +${g.score_delta} points` : ''}` : `Wanted · Score ${g.score.toLocaleString()}`}</Fact>
+          <Fact k="Replaces">{g.is_upgrade && f ? baseName(f.path) : 'nothing'}</Fact>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="tertiary" size="small" onClick={() => openPlace(placePath('activity'))}>
+            Open in Activity
+          </Button>
+          <span className="flex-1" />
+          <Button variant="tertiary" size="small" disabled={cancel.pending} onClick={() => void cancel.run(downloads.items, true)}>
+            Cancel and block
+          </Button>
+          {more}
+        </div>
+      </div>
+    )
+  }
+  if (f) {
+    const audio = audioLine(f)
+    const on = importedOn(f.imported_at)
+    return (
+      <div className={wrap}>
+        <OriginalOfferNote offer={v.original_offer} />
+        <div className={grid}>
+          <Fact k="Quality">{qualityLine(f, false) || '—'}</Fact>
+          <Fact k="Video">{[f.video_codec, f.hdr ?? 'SDR'].filter(Boolean).join(' · ') || '—'}</Fact>
+          <Fact k="Audio">{audio || '—'}</Fact>
+          <Fact k="Custom Format Score">{f.score === null ? '—' : `${f.score > 0 ? '+' : ''}${f.score.toLocaleString()}`}</Fact>
+          {(f.custom_formats ?? []).length > 0 && (
+            <Fact k="Custom Formats" wide>
+              <span className="flex flex-wrap gap-1">
+                {(f.custom_formats ?? []).map((c) => (
+                  <span key={c.name} className="label-12 rounded-full bg-gray-100 px-2">{`${c.name} ${c.points < 0 ? '\u2212' : '+'}${Math.abs(c.points)}`}</span>
+                ))}
+              </span>
+            </Fact>
+          )}
+          <Fact k="Size">{size(f.size)}</Fact>
+          <Fact k="Imported">{[on, f.release_group ? `from ${f.release_group}` : null].filter(Boolean).join(' · ') || '—'}</Fact>
+          <Fact k="Path" wide>
+            <EndOfPath path={f.path} className="label-12-mono text-gray-900" />
+          </Fact>
+        </div>
+        {f.misfit && <span className="label-12 text-red-900">No longer fits this Profile</span>}
+        <div className="flex items-center gap-2">
+          <Button variant="default" size="small" disabled={!title.monitored || search.mutation.isPending} onClick={() => search.run([v.id])}>
+            Search for an Upgrade
+          </Button>
+          <Button variant="tertiary" size="small" onClick={onManualSearch}>
+            Manual search
+          </Button>
+          <span className="flex-1" />
+          {more}
+        </div>
+      </div>
+    )
+  }
+  if (v.state === 'wanted') {
+    const ls = v.last_search
+    const d = days(v.wanted_since, now)
+    return (
+      <div className={wrap}>
+        <OriginalOfferNote offer={v.original_offer} />
+        <div className={grid}>
+          <Fact k="Wanted since">{v.wanted_since ? `${importedOn(v.wanted_since)} · ${d >= 1 ? plural(d, 'day') : 'today'}` : 'just now'}</Fact>
+          <Fact k="Last search">{ls ? `${ago(ls.at, now)} · ${lastSearchWords(ls)}` : 'not searched yet'}</Fact>
+          <Fact k="Why none fit">{(ls && whyNoneFit(ls)) || '—'}</Fact>
+          <Fact k="Next search">{v.next_search_at ? until(v.next_search_at, now) : '—'}</Fact>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="default" size="small" disabled={!title.monitored || search.mutation.isPending} onClick={() => search.run([v.id])}>
+            Search now
+          </Button>
+          <Button variant="tertiary" size="small" onClick={onManualSearch}>
+            Manual search
+          </Button>
+          <span className="flex-1" />
+          {more}
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div className={wrap}>
+      <OriginalOfferNote offer={v.original_offer} />
+      <span className="label-13 text-gray-900">
+        {v.state === 'unreleased'
+          ? 'Not out yet: Kestrel searches the moment it is.'
+          : v.state === 'unmonitored'
+            ? 'Not monitored: Kestrel searches nothing for it.'
+            : stateName[dotState(v.state, false) ?? 'unmonitored']}
+      </span>
+      <div className="flex items-center gap-2">
+        <Button variant="tertiary" size="small" onClick={onManualSearch}>
+          Manual search
+        </Button>
+        <span className="flex-1" />
+        {more}
+      </div>
+    </div>
   )
 }

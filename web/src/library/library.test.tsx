@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
@@ -260,7 +260,7 @@ describe('the Library detail pane', () => {
     expect(await within(hd).findByText('Any')).toBeInTheDocument() // the Profile's name arrives with GET /profiles
     expect(hd).toHaveTextContent('Wanted')
     expect(uhd).toHaveTextContent('4K')
-    expect(uhd).toHaveTextContent('Filled')
+    expect(uhd).toHaveTextContent('Have')
   })
 
   it('follows the selection', async () => {
@@ -304,12 +304,15 @@ describe('the Library detail pane', () => {
     server.use(http.get('/titles/{id}', ({ response }) => response(200).json(d)))
     await openLibrary()
     const pane = await screen.findByRole('region', { name: /paddington/i })
-    // The row says what the file is, not the release it was grabbed as.
-    expect(await within(pane).findByText(/^BluRay 1080p · English, German · /)).toBeInTheDocument()
+    // The open row says what the file is, not the release it was grabbed as.
+    const hdRow = await within(pane).findByRole('listitem', { name: 'Standard' })
+    expect((await within(hdRow).findByText('Quality')).nextElementSibling).toHaveTextContent('BluRay 1080p')
+    expect(within(hdRow).getByText('Audio').nextElementSibling).toHaveTextContent('English, German')
+    expect(within(hdRow).getByText('Custom Format Score').nextElementSibling).toHaveTextContent('+1,750')
     expect(within(pane).queryByText('Paddington.2014.1080p.BluRay.x264-GRP')).not.toBeInTheDocument()
   })
 
-  it("opens the Movie's file popover from the file's quality and size: full path, Copy path and the release name", async () => {
+  it("shows the Movie's file path in the open Version row", async () => {
     fakeLibrary(rows())
     const d = detail(rows()[0])
     const hd = d.versions.find((v) => v.slot === 'standard')!
@@ -326,15 +329,9 @@ describe('the Library detail pane', () => {
     await openLibrary()
     const pane = await screen.findByRole('region', { name: /paddington/i })
 
-    await userEvent.click(await within(pane).findByRole('button', { name: 'File details' }))
-
-    const popover = await screen.findByRole('dialog', { name: 'Standard file' })
-    expect(popover).toHaveTextContent('/data/media/movies/P/P.mkv')
-    expect(within(popover).getByText('Paddington.2014.1080p.BluRay.x264-GRP')).toBeInTheDocument()
-    expect(within(popover).getByRole('button', { name: 'Copy Path' })).toBeInTheDocument()
-    expect(within(popover).queryByRole('button', { name: 'Upgrade Search' })).not.toBeInTheDocument()
-    await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Standard file' })).not.toBeInTheDocument())
+    const row = await within(pane).findByRole('listitem', { name: 'Standard' })
+    expect((await within(row).findByText('Path')).nextElementSibling).toHaveTextContent('/data/media/movies/P/P.mkv')
+    expect(within(row).queryByRole('button', { name: 'Upgrade Search' })).not.toBeInTheDocument()
   })
 })
 

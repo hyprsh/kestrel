@@ -33,6 +33,7 @@ export function AccordionRow({
   gridClass,
   marked,
   mark,
+  itemLabel,
 }: {
   id?: string
   label: string
@@ -44,10 +45,13 @@ export function AccordionRow({
   gridClass: string
   marked?: boolean
   mark?: string
+  /** Names the row's list item (a Slot's name), so tests and screen readers find the row apart from its button. */
+  itemLabel?: string
 }) {
   return (
     <div
       role="listitem"
+      aria-label={itemLabel}
       id={id}
       data-open={open ? '' : undefined}
       data-current={marked ? '' : undefined}

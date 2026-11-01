@@ -1,5 +1,4 @@
 import { Film, Tv } from 'lucide-react'
-import type { BadgeProps } from '@hyprsh/design'
 import { cx } from '../ui'
 
 export type SlotKey = 'standard' | '4k'
@@ -26,23 +25,6 @@ export function size(bytes: number): string {
 
 type State = 'wanted' | 'filled' | 'downloading' | 'unmonitored' | 'unreleased' | string
 
-type Variant = NonNullable<BadgeProps['variant']>
-
-const stateText: Record<string, { variant: Variant; label: string }> = {
-  wanted: { variant: 'amber', label: 'Wanted' },
-  filled: { variant: 'green', label: 'Filled' },
-  downloading: { variant: 'blue', label: 'Downloading' },
-  unmonitored: { variant: 'gray', label: 'Unmonitored' },
-  unreleased: { variant: 'gray', label: 'Unreleased' },
-}
-
-/** Badge variant, contrast and label for a Version's state; an unknown future state shows as itself. Spread the first two onto the Badge. */
-export function versionStatus(state: State, longMissing = false): { variant: Variant; contrast: 'low'; label: string } {
-  if (longMissing) return { variant: 'red', contrast: 'low', label: 'Long Missing' }
-  const s = stateText[state] ?? { variant: 'gray', label: state }
-  return { ...s, contrast: 'low' }
-}
-
 export type Dot = { state: 'success' | 'info' | 'warning' | 'error' | 'neutral'; variant?: 'outline' | 'dashed'; faint?: boolean }
 
 /** The StatusDot of a Slot's Version (null: no Version in the Slot). */
@@ -62,9 +44,6 @@ export function dotOf(state: State | null, longMissing: boolean): Dot {
       return { state: 'neutral' }
   }
 }
-
-/** The faint dot of a Slot with no Version is dimmed with this class. */
-export const faintDot = 'opacity-40'
 
 export function KindIcon({ kind, className }: { kind: string; className?: string }) {
   return kind === 'series' ? <Tv className={cx('size-3.5', className)} /> : <Film className={cx('size-3.5', className)} />

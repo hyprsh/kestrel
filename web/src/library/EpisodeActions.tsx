@@ -288,13 +288,6 @@ export function EpisodeMenu({ actions, episode, onOpenChange }: { actions: Episo
   )
 }
 
-/** The search button of a season row, shown on hover: Search now for what is Wanted in the season. */
-export function SeasonSearch({ actions, season, episodes }: { actions: Pick<EpisodeActions, 'versions' | 'search'>; season: number; episodes: Episode[] }) {
-  const name = seasonName(season)
-  const wanted = wantedIn(episodes, actions.versions)
-  return <IconAction icon={Search} label={`Search ${name}`} disabled={!wanted} reason={wanted ? undefined : nothingWanted} onClick={() => actions.search(episodes, name, () => ({ season }))} />
-}
-
 /** Search season: the button of an open season's tools, Search now for what is Wanted in it. */
 export function SeasonSearchButton({ actions, season, episodes }: { actions: Pick<EpisodeActions, 'versions' | 'search'>; season: number; episodes: Episode[] }) {
   const wanted = wantedIn(episodes, actions.versions)

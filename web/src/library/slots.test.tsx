@@ -184,13 +184,13 @@ describe('a Movie with four Slots', () => {
     return screen.findByRole('region', { name: 'Paddington in Peru' })
   }
 
-  it('shows a chip per Slot in the header, a card per Version and a Files row per Slot', async () => {
+  it('shows a chip per Slot in the header and a row per Version in the accordion', async () => {
     const pane = await openMovie()
     const chips = within(pane).getByRole('group', { name: 'Slots' })
     expect(Array.from(chips.querySelectorAll('[data-slot]')).map((c) => c.textContent)).toEqual(['STD', '4KWanted', 'GERMANWanted', 'REMUXWanted'])
     const cards = within(pane).getByRole('region', { name: 'Versions' })
-    expect(within(cards).getAllByRole('list')).toHaveLength(4)
-    for (const n of ['Standard', '4K', 'German', 'Remux']) expect(within(cards).getByRole('list', { name: n })).toBeInTheDocument()
+    expect(within(cards).getAllByRole('listitem')).toHaveLength(4)
+    for (const n of ['Standard', '4K', 'German', 'Remux']) expect(within(cards).getByRole('listitem', { name: n })).toBeInTheDocument()
     // Each chip opens a popover of its Slot alone: the file of a filled one, the search of a Wanted one.
     await userEvent.click(within(chips).getByRole('button', { name: /^Standard:/ }))
     expect(await screen.findByRole('dialog', { name: 'Standard file' })).toBeInTheDocument()
@@ -201,8 +201,9 @@ describe('a Movie with four Slots', () => {
     expect(within(wanted).getByRole('button', { name: 'Search' })).toBeInTheDocument()
     expect(within(wanted).getByRole('button', { name: 'Manual Search' })).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
-    const files = within(pane).getByRole('region', { name: 'Files' })
-    for (const n of ['Standard', '4K', 'German', 'Remux']) expect(within(files).getAllByText(n).length).toBeGreaterThan(0)
+    // The Slots that are Wanted open by themselves; the filled one is closed.
+    expect(within(cards).getByRole('button', { name: /^Standard:/ })).toHaveAttribute('aria-expanded', 'false')
+    for (const n of ['4K', 'German', 'Remux']) expect(within(cards).getByRole('button', { name: new RegExp(`^${n}:`) })).toHaveAttribute('aria-expanded', 'true')
   })
 })
 

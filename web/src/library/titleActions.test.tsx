@@ -207,17 +207,17 @@ describe('the Version rows', () => {
     const pane = await openTitle(/paddington/i)
 
     const hd = within(pane).getByRole('listitem', { name: 'Standard' })
-    expect(await within(hd).findByText('BluRay 1080p · H.264 · DTS 5.1 · English, German · 8.0 GB')).toBeInTheDocument()
-    expect(within(hd).getByText('Imported 3 days ago')).toBeInTheDocument()
-    await userEvent.click(within(hd).getByRole('button', { name: 'File details' }))
-    const pop = await screen.findByRole('dialog', { name: 'Standard file' })
-    expect(pop).toHaveTextContent('/data/media/movies/Paddington (2014)/Paddington.mkv')
-    // The same popover an episode cell opens: audio, group, Score and each Custom Format with its points.
-    expect(within(pop).getByText('DTS 5.1 · English, German')).toBeInTheDocument()
-    expect(within(pop).getByText(/from GRP$/)).toBeInTheDocument()
-    expect(within(pop).getByText('2,290')).toBeInTheDocument()
-    expect(within(pop).getByText('Remux Tier 01 +2300')).toBeInTheDocument()
-    expect(within(pop).getByText('x265 \u221210')).toBeInTheDocument()
+    const fact = async (k: string) => (await within(hd).findByText(k)).nextElementSibling
+    expect(await fact('Quality')).toHaveTextContent('BluRay 1080p')
+    expect(await fact('Video')).toHaveTextContent('H.264')
+    expect(await fact('Audio')).toHaveTextContent('DTS 5.1 · English, German')
+    expect(await fact('Size')).toHaveTextContent('8.0 GB')
+    expect(await fact('Imported')).toHaveTextContent(/from GRP$/)
+    expect(await fact('Path')).toHaveTextContent('/data/media/movies/Paddington (2014)/Paddington.mkv')
+    // The Score and each Custom Format the file matched, with its points.
+    expect(await fact('Custom Format Score')).toHaveTextContent('+2,290')
+    expect(within(hd).getByText('Remux Tier 01 +2300')).toBeInTheDocument()
+    expect(within(hd).getByText('x265 \u221210')).toBeInTheDocument()
   })
 
   it('show a Wanted Movie Version for how many days, with Search now as its one action', async () => {
@@ -232,9 +232,9 @@ describe('the Version rows', () => {
     const pane = await openTitle(/paddington/i)
 
     const hd = within(pane).getByRole('listitem', { name: 'Standard' })
-    expect(await within(hd).findByText('Wanted for 12 days')).toBeInTheDocument()
-    expect(within(hd).getByRole('button', { name: 'Search Standard now' })).toBeEnabled()
-    expect(within(pane).getByRole('row', { name: 'Standard: Wanted' })).toHaveTextContent('No file yet')
+    expect((await within(hd).findByText('Wanted since')).nextElementSibling).toHaveTextContent('12 days')
+    expect(within(hd).getByRole('button', { name: 'Search now' })).toBeEnabled()
+    expect(hd).toHaveTextContent('No file yet')
   })
 
   it('keep Search now, Manual search, Change Profile, Delete files and Remove Version in a Movie row’s "…" menu, Delete files disabled without a file', async () => {
@@ -247,7 +247,7 @@ describe('the Version rows', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((i) => i.textContent),
-    ).toEqual(['Search now', 'Manual search…', 'Change Profile…HD', 'Why is it Wanted?', 'Delete files…No file to delete', 'Remove Version…'])
+    ).toEqual(['Search now', 'Manual search…', 'Change Profile…HD', 'Delete files…No file to delete', 'Remove Version…'])
     expect(within(menu).getByRole('menuitem', { name: /Delete files/ })).toHaveAttribute('aria-disabled', 'true')
   })
 

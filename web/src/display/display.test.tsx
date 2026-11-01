@@ -50,7 +50,7 @@ describe('season order in the episode table', () => {
     expect(await tabsOf()).toEqual(['Specials', 'Season 1', 'Season 2', 'Season 3'])
     expect(rowsOf(grid)).toEqual(['Season 3 episode 1', 'Season 3 episode 2']) // the latest season is open
     await pickSeason('Season 1')
-    expect(rowsOf(grid)).toEqual(['Season 1 episode 1', 'Season 1 episode 2'])
+    expect(rowsOf(screen.getByRole('grid', { name: 'Episodes' }))).toEqual(['Season 1 episode 1', 'Season 1 episode 2'])
   })
 
   it('lists Season 3 first, then 2, 1 and Specials, with the newest episode first, with newest first', async () => {
